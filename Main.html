@@ -1,118 +1,109 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Schoolexams V1</title>
+<title>SchoolExams V1</title>
 <style>
 :root {
-  /* DARK BLUE THEME PALETTE */
-  --bg0: #000814;    /* Deep Black-Blue */
-  --bg1: #001d3d;    /* Navy Blue */
-  --bg2: #003566;    /* Royal Blue */
-  --p0: #0077b6;     /* Bright Blue */
-  --p1: #90e0ef;     /* Cyan Accent */
-  --p2: #03045e;     /* Midnight Blue */
-  --w: #caf0f8;      /* Light Blue Text */
-  --m: #90e0ef;      /* Muted Cyan */
-  --d: #48cae4;      /* Dimmed Cyan */
-  --line: rgba(144, 224, 239, 0.2);
-  --glass: rgba(0, 29, 61, 0.7);
-  --shadow: 0 12px 40px rgba(0,0,0,0.8);
-  --shadow2: 0 0 20px rgba(0, 119, 182, 0.4);
-  --r: 16px;
+    /* DEEP DARK BLUE THEME */
+    --bg0: #000814;    /* Midnight */
+    --bg1: #001d3d;    /* Navy */
+    --bg2: #003566;    /* Deep Blue */
+    --p0: #0077b6;     /* Primary Blue */
+    --p1: #90e0ef;     /* Cyan Highlight */
+    --p2: #03045e;     /* Solid Navy */
+    --w: #caf0f8;      /* Text Light */
+    --m: #90e0ef;      /* Muted Cyan */
+    --d: #48cae4;      /* Dimmed Cyan */
+    --line: rgba(144, 224, 239, 0.2);
+    --glass: rgba(0, 29, 61, 0.85);
+    --shadow: 0 12px 40px rgba(0,0,0,0.7);
+    --r: 16px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  background: var(--bg0);
-  color: var(--w);
-  overflow-x: hidden;
-  line-height: 1.6;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg0);
+    color: var(--w);
+    overflow-x: hidden;
 }
 
-/* BACKGROUND EFFECTS */
 .bg-grid {
-  position: fixed; inset: 0; z-index: -1;
-  background-image: linear-gradient(var(--line) 1px, transparent 1px), 
-                    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 50px 50px;
+    position: fixed; inset: 0; z-index: -1;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), 
+                      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 40px 40px;
 }
 
-.topbar {
-  position: fixed; top: 0; width: 100%; height: 64px;
-  background: var(--bg1); border-bottom: 2px solid var(--p0);
-  display: flex; align-items: center; padding: 0 20px; z-index: 1000;
+header.topbar {
+    position: fixed; top: 0; left:0; right:0; height: 64px;
+    background: var(--bg1); border-bottom: 2px solid var(--p0);
+    display: flex; align-items: center; padding: 0 24px; z-index: 1000;
+    justify-content: space-between;
 }
 
-.brand { font-weight: 900; font-size: 20px; color: var(--p1); text-decoration: none; }
+.brand { font-weight: 900; font-size: 22px; color: var(--p1); text-decoration: none; letter-spacing: -1px; }
 
-.main { padding: 100px 20px 40px; max-width: 1200px; margin: 0 auto; }
+.nav-btns { display: flex; gap: 10px; }
+.btn-nav {
+    background: var(--p2); border: 1px solid var(--p0); color: var(--w);
+    padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600;
+    transition: 0.2s; font-size: 13px;
+}
+.btn-nav:hover { background: var(--p0); color: #fff; }
+
+.main { padding: 100px 24px 40px; max-width: 1200px; margin: 0 auto; }
 
 .hero { text-align: center; margin-bottom: 40px; }
-.hero h1 { font-size: 3rem; color: var(--p1); text-shadow: 0 0 15px var(--p0); }
+.hero h1 { font-size: 3rem; margin-bottom: 10px; background: linear-gradient(to bottom, #fff, var(--p1)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero p { color: var(--d); font-weight: 500; }
 
-/* SEARCH BAR */
-.searchWrap { margin-bottom: 30px; position: relative; }
+.searchWrap { margin-bottom: 30px; }
 .searchWrap input {
-  width: 100%; padding: 15px 20px; border-radius: var(--r);
-  background: var(--bg1); border: 1px solid var(--p0);
-  color: #fff; font-size: 1rem; outline: none;
-  box-shadow: var(--shadow2);
+    width: 100%; padding: 16px 24px; border-radius: var(--r);
+    background: var(--bg1); border: 1px solid var(--p0);
+    color: #fff; font-size: 16px; outline: none; box-shadow: 0 0 20px rgba(0,119,182,0.2);
 }
 
-/* GAMES GRID */
 .gamesGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 20px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px;
 }
 
 .gameCard {
-  background: var(--bg1);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.2s, border-color 0.2s;
-  text-align: center;
+    background: var(--bg1); border: 1px solid var(--line); border-radius: var(--r);
+    overflow: hidden; cursor: pointer; transition: transform 0.2s, border-color 0.2s;
 }
+.gameCard:hover { transform: translateY(-5px); border-color: var(--p1); }
 
-.gameCard:hover {
-  transform: translateY(-5px);
-  border-color: var(--p1);
-  box-shadow: var(--shadow2);
-}
+.gameIcon { height: 90px; background: var(--p2); display: flex; align-items: center; justify-content: center; font-size: 36px; }
+.gameName { padding: 12px; font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.gameIcon {
-  height: 100px; background: var(--p2);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 40px;
-}
-
-.gameName {
-  padding: 10px; font-size: 12px; font-weight: 700;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-/* GAME OVERLAY */
+/* FULLSCREEN OVERLAYS */
 .overlay {
-  position: fixed; inset: 0; background: var(--bg0);
-  z-index: 2000; display: none; flex-direction: column;
+    position: fixed; inset: 0; background: var(--bg0); z-index: 2000; display: none; flex-direction: column;
 }
+.overlay.open { display: flex; }
 
 .overlay-bar {
-  height: 60px; background: var(--bg1); display: flex;
-  align-items: center; padding: 0 20px; border-bottom: 2px solid var(--p0);
+    height: 56px; background: var(--bg1); display: flex; align-items: center; 
+    padding: 0 16px; border-bottom: 2px solid var(--p0); justify-content: space-between;
 }
 
-.close-btn {
-  padding: 8px 16px; background: var(--p0); border: none;
-  color: #fff; border-radius: 8px; cursor: pointer; font-weight: bold;
+.bar-title { font-weight: 800; font-size: 14px; color: var(--p1); }
+
+.btn-close {
+    background: #c42b1c; border: none; color: #fff; padding: 6px 14px;
+    border-radius: 6px; cursor: pointer; font-weight: 800; font-size: 12px;
 }
 
-iframe { flex: 1; border: none; width: 100%; height: 100%; }
+iframe { flex: 1; border: none; width: 100%; height: 100%; background: #fff; }
+
+/* BROWSER STYLES */
+.browserWin { width: 90vw; height: 85vh; border-radius: var(--r); overflow: hidden; display: flex; flex-direction: column; background: var(--bg1); border: 1px solid var(--p0); box-shadow: var(--shadow); }
+.browserOverlay { position: fixed; inset:0; background: rgba(0,0,0,0.7); z-index: 3000; display: none; align-items: center; justify-content: center; }
+.browserOverlay.open { display: flex; }
 </style>
 </head>
 <body>
@@ -120,138 +111,151 @@ iframe { flex: 1; border: none; width: 100%; height: 100%; }
 <div class="bg-grid"></div>
 
 <header class="topbar">
-  <a href="#" class="brand">COOL MATTE 🔵</a>
+    <a href="#" class="brand" onclick="location.reload()">SchoolExams 🔵</a>
+    <div class="nav-btns">
+        <button class="btn-nav" onclick="openBrowser()">🌐 Web Browser</button>
+    </div>
 </header>
 
 <main class="main">
-  <section class="hero">
-    <h1>100 Best Games</h1>
-    <p>Unblocked fun games</p>
-  </section>
+    <section class="hero">
+        <h1>Digital Resources</h1>
+        <p>Access your school exam tools and educational modules below.</p>
+    </section>
 
-  <div class="searchWrap">
-    <input type="text" id="searchInput" placeholder="Sök bland utvalda spel...">
-  </div>
+    <div class="searchWrap">
+        <input type="text" id="searchInput" placeholder="Search resources or modules...">
+    </div>
 
-  <div class="gamesGrid" id="gamesGrid"></div>
+    <div class="gamesGrid" id="gamesGrid"></div>
 </main>
 
 <div class="overlay" id="gameOverlay">
-  <div class="overlay-bar">
-    <button class="close-btn" onclick="closeGame()">← Back</button>
-    <div id="activeTitle" style="margin-left: 20px; font-weight: bold;"></div>
-  </div>
-  <iframe id="gameFrame" src=""></iframe>
+    <div class="overlay-bar">
+        <div class="bar-title" id="activeTitle">Loading Resource...</div>
+        <button class="btn-close" onclick="closeGame()">CLOSE X</button>
+    </div>
+    <iframe id="gameFrame" src=""></iframe>
+</div>
+
+<div class="browserOverlay" id="browserOverlay">
+    <div class="browserWin">
+        <div class="overlay-bar">
+            <div class="bar-title">🌐 Digital Browser</div>
+            <button class="btn-close" onclick="closeBrowser()">CLOSE X</button>
+        </div>
+        <iframe id="browserFrame" src=""></iframe>
+    </div>
 </div>
 
 <script>
 const BASE_URL = "https://coola-mattespel.github.io/V4/UGS-Files/";
 
-// First 100 Games from your list
+// 100 Games list
 const GAMES = [
-    {"f":"Dragonxclient.html","name":"Dragonxclient"},
-    {"f":"Eaglercraft-Alpha-1.2.6-Offline.html","name":"Eaglercraft Alpha 1.2.6"},
-    {"f":"Eaglercraft-Beta-1.3-Offline.html","name":"Eaglercraft Beta 1.3"},
+    {"f":"Dragonxclient.html","name":"Dragon Client"},
+    {"f":"Eaglercraft-Alpha-1.2.6-Offline.html","name":"Eaglercraft Alpha"},
+    {"f":"Eaglercraft-Beta-1.3-Offline.html","name":"Eaglercraft Beta"},
     {"f":"Eaglercraft-Indev-Offline (1).html","name":"Eaglercraft Indev 1"},
-    {"f":"Eaglercraft-Indev-Offline.html","name":"Eaglercraft Indev"},
+    {"f":"Eaglercraft-Indev-Offline.html","name":"Eaglercraft Indev 2"},
     {"f":"EaglercraftL_1.9_v0_7_0_Offline_Signed.html","name":"Eaglercraft 1.9"},
-    {"f":"EaglercraftX 1.8.8(u29).html","name":"Eaglercraft X 1.8.8"},
-    {"f":"EaglercraftZ_1.11.2.html","name":"Eaglercraft Z 1.11.2"},
-    {"f":"Helios-Offline (1).html","name":"Helios"},
-    {"f":"Minceraft-I-NotMine_V6.html","name":"Minceraft V6"},
-    {"f":"cl1.html","name":"Spel 1"},
+    {"f":"EaglercraftX 1.8.8(u29).html","name":"Eaglercraft X"},
+    {"f":"EaglercraftZ_1.11.2.html","name":"Eaglercraft Z"},
+    {"f":"Helios-Offline (1).html","name":"Helios System"},
+    {"f":"Minceraft-I-NotMine_V6.html","name":"V6 Module"},
+    {"f":"cl1.html","name":"Module 01"},
     {"f":"cl10bullets.html","name":"10 Bullets"},
-    {"f":"cl10minutestildawn.html","name":"10 Minutes Till Dawn"},
+    {"f":"cl10minutestildawn.html","name":"10 Mins Training"},
     {"f":"cl12minibattles.html","name":"12 Mini Battles"},
-    {"f":"cl1on1soccer.html","name":"1 on 1 Soccer"},
-    {"f":"cl1v1lol.html","name":"1v1.LOL"},
-    {"f":"cl1v1tennis.html","name":"1v1 Tennis"},
-    {"f":"cl2048.html","name":"2048"},
-    {"f":"cl2048cupcakes.html","name":"2048 Cupcakes"},
-    {"f":"cl2Dshooting.html","name":"2D Shooting"},
+    {"f":"cl1on1soccer.html","name":"Soccer 1on1"},
+    {"f":"cl1v1lol.html","name":"1v1 Combat"},
+    {"f":"cl1v1tennis.html","name":"Tennis Pro"},
+    {"f":"cl2048.html","name":"2048 Logic"},
+    {"f":"cl2048cupcakes.html","name":"Cupcake Logic"},
+    {"f":"cl2Dshooting.html","name":"2D Shooter"},
     {"f":"cl2doom.html","name":"Doom 2D"},
-    {"f":"cl3dash.html","name":"3 Dash"},
+    {"f":"cl3dash.html","name":"Dash Level 3"},
     {"f":"cl3pandas.html","name":"3 Pandas"},
-    {"f":"cl3pandasbrazil.html","name":"3 Pandas Brazil"},
-    {"f":"cl3pandasfantasy.html","name":"3 Pandas Fantasy"},
-    {"f":"cl3pandasjapan.html","name":"3 Pandas Japan"},
-    {"f":"cl3pandasnight.html","name":"3 Pandas Night"},
-    {"f":"cl3slices2.html","name":"3 Slices 2"},
-    {"f":"cl40xescape.html","name":"40x Escape"},
+    {"f":"cl3pandasbrazil.html","name":"Pandas: Brazil"},
+    {"f":"cl3pandasfantasy.html","name":"Pandas: Fantasy"},
+    {"f":"cl3pandasjapan.html","name":"Pandas: Japan"},
+    {"f":"cl3pandasnight.html","name":"Pandas: Night"},
+    {"f":"cl3slices2.html","name":"Three Slices"},
+    {"f":"cl40xescape.html","name":"Escape 40x"},
     {"f":"cl4thandgoal.html","name":"4th and Goal"},
     {"f":"cl500calibercontractz.html","name":"500 Caliber"},
-    {"f":"cl60secondsburgerrun.html","name":"60s Burger Run"},
-    {"f":"cl60secondssantarun.html","name":"60s Santa Run"},
-    {"f":"cl8ballclassic.html","name":"8 Ball Classic"},
-    {"f":"cl8ballpool.html","name":"8 Ball Pool"},
-    {"f":"cl9007199254740992.html","name":"9007199..."},
+    {"f":"cl60secondsburgerrun.html","name":"60s Burger"},
+    {"f":"cl60secondssantarun.html","name":"60s Santa"},
+    {"f":"cl8ballclassic.html","name":"8-Ball Classic"},
+    {"f":"cl8ballpool.html","name":"8-Ball Pool"},
+    {"f":"cl9007199254740992.html","name":"Infinity Math"},
     {"f":"cl99balls.html","name":"99 Balls"},
     {"f":"cl99nightsitf.html","name":"99 Nights"},
-    {"f":"clADOFAI.html","name":"ADOFAI"},
+    {"f":"clADOFAI.html","name":"ADOFAI Rhythm"},
     {"f":"clADarkRoom.html","name":"A Dark Room"},
-    {"f":"clAdventureCapatalist.html","name":"Adventure Capitalist"},
-    {"f":"clAwesomePirates.html","name":"Awesome Pirates"},
-    {"f":"clB3313.html","name":"Mario B3313"},
+    {"f":"clAdventureCapatalist.html","name":"Capitalist Sim"},
+    {"f":"clAwesomePirates.html","name":"Pirate Battle"},
+    {"f":"clB3313.html","name":"B3313 Core"},
     {"f":"clBBB.html","name":"Broken Bones"},
-    {"f":"clBMX2.html","name":"BMX 2"},
+    {"f":"clBMX2.html","name":"BMX Training"},
     {"f":"clBTD1.html","name":"Bloons TD 1"},
     {"f":"clBig_Time_Butter_Baron.html","name":"Butter Baron"},
-    {"f":"clBountyOfOne.html","name":"Bounty of One"},
-    {"f":"clCartoonNetworkTableTennisUltimateTournament.html","name":"CN Table Tennis"},
+    {"f":"clBountyOfOne.html","name":"Bounty One"},
+    {"f":"clCartoonNetworkTableTennisUltimateTournament.html","name":"CN Tennis"},
     {"f":"clCircloO2.html","name":"CircloO 2"},
-    {"f":"clDragonBallZTheLegacyofGoku.html","name":"DBZ Legacy of Goku"},
-    {"f":"clDragonQuestIX.html","name":"Dragon Quest IX"},
+    {"f":"clDragonBallZTheLegacyofGoku.html","name":"Legacy Goku"},
+    {"f":"clDragonQuestIX.html","name":"Dragon Quest"},
     {"f":"clFF3.html","name":"Final Fantasy 3"},
-    {"f":"clFFsonic1.html","name":"Sonic 1"},
-    {"f":"clFFsonic2.html","name":"Sonic 2"},
-    {"f":"clFFsonic3.html","name":"Sonic 3"},
-    {"f":"clFFsonic4.html","name":"Sonic 4"},
-    {"f":"clFFsonic5.html","name":"Sonic 5"},
-    {"f":"clFFsonic61.html","name":"Sonic 6.1"},
-    {"f":"clFFsonic62.html","name":"Sonic 6.2"},
+    {"f":"clFFsonic1.html","name":"Sonic FF1"},
+    {"f":"clFFsonic2.html","name":"Sonic FF2"},
+    {"f":"clFFsonic3.html","name":"Sonic FF3"},
+    {"f":"clFFsonic4.html","name":"Sonic FF4"},
+    {"f":"clFFsonic5.html","name":"Sonic FF5"},
+    {"f":"clFFsonic61.html","name":"Sonic FF6.1"},
+    {"f":"clFFsonic62.html","name":"Sonic FF6.2"},
     {"f":"clFIFA07.html","name":"FIFA 07"},
     {"f":"clFIFA10.html","name":"FIFA 10"},
     {"f":"clFIFA11.html","name":"FIFA 11"},
     {"f":"clFIFA2000(1).html","name":"FIFA 2000"},
     {"f":"clFIFA99.html","name":"FIFA 99"},
-    {"f":"clFIFAinternationalsoccer.html","name":"FIFA International"},
-    {"f":"clFIFAroadtoworldcup98.html","name":"FIFA World Cup 98"},
+    {"f":"clFIFAinternationalsoccer.html","name":"FIFA Intl"},
+    {"f":"clFIFAroadtoworldcup98.html","name":"FIFA WC 98"},
     {"f":"clFIFAsoccer06.html","name":"FIFA 06"},
     {"f":"clFIFAsoccer95.html","name":"FIFA 95"},
     {"f":"clFIFAsoccer96.html","name":"FIFA 96"},
     {"f":"clFIFAsoccer97.html","name":"FIFA 97"},
     {"f":"clFIFAstreet2.html","name":"FIFA Street 2"},
-    {"f":"clFNAF.html","name":"FNAF 1"},
-    {"f":"clFNAF2.html","name":"FNAF 2"},
-    {"f":"clFNAF3.html","name":"FNAF 3"},
-    {"f":"clFNAF4.html","name":"FNAF 4"},
-    {"f":"clGettothetopalthoughthereisnotop.html","name":"Get to the Top"},
+    {"f":"clFNAF.html","name":"FNAF Module 1"},
+    {"f":"clFNAF2.html","name":"FNAF Module 2"},
+    {"f":"clFNAF3.html","name":"FNAF Module 3"},
+    {"f":"clFNAF4.html","name":"FNAF Module 4"},
+    {"f":"clGettothetopalthoughthereisnotop.html","name":"The Climb"},
     {"f":"clGoldenSunTheLostAge.html","name":"Golden Sun 2"},
-    {"f":"clHaroldsbadday.html","name":"Harolds Bad Day"},
+    {"f":"clHaroldsbadday.html","name":"Harold's Day"},
     {"f":"clHiNoHomo.html","name":"Hi No Homo"},
-    {"f":"clJUMP.html","name":"JUMP"},
+    {"f":"clJUMP.html","name":"Jump Exercise"},
     {"f":"clKenGriffeyJrPresentsMajorLeagueBaseball.html","name":"Ken Griffey MLB"},
-    {"f":"clMarioisMissingDoneRight.html","name":"Mario is Missing"},
+    {"f":"clMarioisMissingDoneRight.html","name":"Missing Module"},
     {"f":"clMetalSonicHyperdrive.html","name":"Metal Sonic"},
     {"f":"clNBAhangtime.html","name":"NBA Hangtime"},
     {"f":"clNBAjam.html","name":"NBA Jam"},
-    {"f":"clNautilusOS.html","name":"Nautilus OS"},
-    {"f":"clNewSuperMarioWorld2AroundtheWorld.html","name":"Super Mario World 2"},
-    {"f":"clNicktoonsFreezeFrameFrenzy.html","name":"Nicktoons"},
-    {"f":"clNutsandBoltsScrewingPuzzle.html","name":"Nuts and Bolts"},
-    {"f":"clPokemonemeraldrouge.html","name":"Pokemon Emerald Rouge"},
-    {"f":"clPokemonrocketedition.html","name":"Pokemon Rocket Edition"},
-    {"f":"clPokémonstunningsteel.html","name":"Pokemon Stunning Steel"},
+    {"f":"clNautilusOS.html","name":"Nautilus System"},
+    {"f":"clNewSuperMarioWorld2AroundtheWorld.html","name":"World Explore"},
+    {"f":"clNicktoonsFreezeFrameFrenzy.html","name":"Freeze Frame"},
+    {"f":"clNutsandBoltsScrewingPuzzle.html","name":"Nuts & Bolts"},
+    {"f":"clPokemonemeraldrouge.html","name":"Emerald Rouge"},
+    {"f":"clPokemonrocketedition.html","name":"Rocket Edition"},
+    {"f":"clPokémonstunningsteel.html","name":"Stunning Steel"},
     {"f":"clSINGLEFILE.html","name":"Single File"},
-    {"f":"clSonic1ScoreRush.html","name":"Sonic Score Rush"},
-    {"f":"clSonic2ScoreRush.html","name":"Sonic 2 Rush"},
-    {"f":"clSonicHellfireSaga.html","name":"Sonic Hellfire"},
+    {"f":"clSonic1ScoreRush.html","name":"Score Rush 1"},
+    {"f":"clSonic2ScoreRush.html","name":"Score Rush 2"},
+    {"f":"clSonicHellfireSaga.html","name":"Hellfire Saga"},
     {"f":"clStickmanKingdomclash.html","name":"Stickman Clash"},
-    {"f":"clSuperMarioWorldThe SecretOfThe7GoldenStatues.html","name":"Mario 7 Statues"},
-    {"f":"clTaikonoTatsujin.html","name":"Taiko no Tatsujin"}
+    {"f":"clSuperMarioWorldThe SecretOfThe7GoldenStatues.html","name":"7 Statues"},
+    {"f":"clTaikonoTatsujin.html","name":"Taiko Rhythm"}
 ];
 
-function renderGames(filter = "") {
+function renderGrid(filter = "") {
     const grid = document.getElementById('gamesGrid');
     grid.innerHTML = "";
     
@@ -261,38 +265,47 @@ function renderGames(filter = "") {
         card.onclick = () => openGame(game.f, game.name);
         
         card.innerHTML = `
-            <div class="gameIcon">🎮</div>
+            <div class="gameIcon">📘</div>
             <div class="gameName">${game.name}</div>
         `;
         grid.appendChild(card);
     });
 }
 
-function openGame(file, name) {
+function openGame(file, title) {
     const overlay = document.getElementById('gameOverlay');
     const frame = document.getElementById('gameFrame');
-    const title = document.getElementById('activeTitle');
-    
-    title.textContent = name;
+    document.getElementById('activeTitle').textContent = title;
     frame.src = BASE_URL + file;
-    overlay.style.display = "flex";
+    overlay.classList.add('open');
 }
 
 function closeGame() {
     const overlay = document.getElementById('gameOverlay');
     const frame = document.getElementById('gameFrame');
-    
     frame.src = "";
-    overlay.style.display = "none";
+    overlay.classList.remove('open');
+}
+
+function openBrowser() {
+    const overlay = document.getElementById('browserOverlay');
+    const frame = document.getElementById('browserFrame');
+    // Using a common proxy/lite browser as per original concept
+    frame.src = "https://mb.webs.vc"; 
+    overlay.classList.add('open');
+}
+
+function closeBrowser() {
+    document.getElementById('browserOverlay').classList.remove('open');
+    document.getElementById('browserFrame').src = "";
 }
 
 document.getElementById('searchInput').oninput = (e) => {
-    renderGames(e.target.value);
+    renderGrid(e.target.value);
 };
 
-// Start
-renderGames();
+// Initialization
+renderGrid();
 </script>
-
 </body>
 </html>
