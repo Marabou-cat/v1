@@ -27,11 +27,11 @@
         #dom-cursor {
             position: fixed;
             top: 0; left: 0;
-            width: 32px; /* Standard Cursor Size */
-            pointer-events: none; /* Let clicks pass through to buttons underneath */
+            width: 32px;
+            pointer-events: none; 
             z-index: 9999999;
-            transform: translate(-2px, -2px); /* Align the tip of the image to the actual click point */
-            display: none; /* Hidden until mouse moves */
+            transform: translate(-2px, -2px);
+            display: none; 
             filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
         }
 
@@ -177,17 +177,38 @@
 <script>
 // --- DOM CURSOR TRACKING LOGIC ---
 const domCursor = document.getElementById('dom-cursor');
+let isOverIframe = false;
+
+// Hide the cursor entirely when it enters the iframe game area
+document.getElementById('gameFrame').addEventListener('mouseenter', () => {
+    isOverIframe = true;
+    domCursor.style.display = 'none';
+});
+
+// Allow the cursor to show up again when it leaves the iframe
+document.getElementById('gameFrame').addEventListener('mouseleave', () => {
+    isOverIframe = false;
+});
 
 document.addEventListener('mousemove', (e) => {
+    // If the mouse is inside the iframe, keep it hidden
+    if (isOverIframe) {
+        domCursor.style.display = 'none';
+        return;
+    }
+    
     domCursor.style.display = 'block';
     domCursor.style.left = e.clientX + 'px';
     domCursor.style.top = e.clientY + 'px';
 });
 
 // Hide cursor if it leaves the browser window
-document.addEventListener('mouseout', () => {
-    domCursor.style.display = 'none';
+document.addEventListener('mouseout', (e) => {
+    if (!e.relatedTarget && !isOverIframe) {
+        domCursor.style.display = 'none';
+    }
 });
+
 
 // BASE URL FOR REPOSITORY
 const BASE_URL = "https://anchors-arcade.github.io/V4/UGS-Files/";
@@ -239,6 +260,7 @@ function showToast(msg) {
     setTimeout(() => toast.classList.remove('show'), 4000);
 }
 
+// Background timer for Coins (100 coins every 10 mins / 600s)
 setInterval(() => {
     playSeconds++;
     localStorage.setItem('schoolExamsPlayTimeSecs', playSeconds);
@@ -258,7 +280,7 @@ const CURSORS = [
     { id: "m2", name: "Neon Glow Arrow", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
     { id: "m3", name: "Diamond Cursor", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
     { id: "m4", name: "Sword Cursor", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
-    { id: "m5", name: "Pizza Slice", src: "pizza.png", price: 500 }, // Pizza src updated here!
+    { id: "m5", name: "Pizza Slice", src: "pizza.png", price: 500 },
     { id: "custom", name: "Upload Custom", src: "https://cdn-icons-png.flaticon.com/512/109/109612.png", price: 1000, isCustom: true }
 ];
 
@@ -273,7 +295,7 @@ function applyCursor() {
         const c = CURSORS.find(c => c.id === equippedCursor);
         targetSrc = c ? c.src : CURSORS[0].src;
     }
-    // Update the DOM image tracker instead of the CSS Variable
+    // Update the DOM image tracker
     domCursor.src = targetSrc;
 }
 
