@@ -15,14 +15,24 @@
             --shadow: 0 12px 40px rgba(0,0,0,0.7);
             --glow: 0 0 20px rgba(144, 224, 239, 0.3);
             --r: 16px;
-            /* DYNAMIC CURSOR VARIABLE */
-            --cursor-url: url('https://marabou-cat.github.io/GamesV1/DefMouse.png');
         }
 
-        /* APPLY CUSTOM CURSOR GLOBALLY */
+        /* HIDE DEFAULT COMPUTER CURSOR EVERYWHERE */
         *, html, body, button, a, input { 
             margin: 0; padding: 0; box-sizing: border-box; 
-            cursor: var(--cursor-url), auto !important;
+            cursor: none !important;
+        }
+
+        /* DOM-BASED CUSTOM CURSOR */
+        #dom-cursor {
+            position: fixed;
+            top: 0; left: 0;
+            width: 32px; /* Standard Cursor Size */
+            pointer-events: none; /* Let clicks pass through to buttons underneath */
+            z-index: 9999999;
+            transform: translate(-2px, -2px); /* Align the tip of the image to the actual click point */
+            display: none; /* Hidden until mouse moves */
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
         }
 
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg0); color: var(--w); overflow-x: hidden; }
@@ -103,6 +113,9 @@
     </style>
 </head>
 <body>
+
+<img id="dom-cursor" src="https://marabou-cat.github.io/GamesV1/DefMouse.png" alt="">
+
 <div class="bg-grid"></div>
 
 <header class="topbar">
@@ -162,6 +175,20 @@
 <input type="file" id="customCursorInput" accept="image/png, image/jpeg, image/gif" style="display: none;">
 
 <script>
+// --- DOM CURSOR TRACKING LOGIC ---
+const domCursor = document.getElementById('dom-cursor');
+
+document.addEventListener('mousemove', (e) => {
+    domCursor.style.display = 'block';
+    domCursor.style.left = e.clientX + 'px';
+    domCursor.style.top = e.clientY + 'px';
+});
+
+// Hide cursor if it leaves the browser window
+document.addEventListener('mouseout', () => {
+    domCursor.style.display = 'none';
+});
+
 // BASE URL FOR REPOSITORY
 const BASE_URL = "https://anchors-arcade.github.io/V4/UGS-Files/";
 
@@ -212,7 +239,6 @@ function showToast(msg) {
     setTimeout(() => toast.classList.remove('show'), 4000);
 }
 
-// Background timer for Coins (100 coins every 10 mins / 600s)
 setInterval(() => {
     playSeconds++;
     localStorage.setItem('schoolExamsPlayTimeSecs', playSeconds);
@@ -228,13 +254,11 @@ setInterval(() => {
 // --- CURSOR SHOP SYSTEM ---
 const CURSORS = [
     { id: "def", name: "Default Mouse", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 0 },
-    // 5 Normal Mouses (500 Coins) - REPLACE SRC LINKS IF YOU HAVE CUSTOM IMAGES
     { id: "m1", name: "Red Crosshair", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
     { id: "m2", name: "Neon Glow Arrow", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
     { id: "m3", name: "Diamond Cursor", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
     { id: "m4", name: "Sword Cursor", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
-    { id: "m5", name: "Pizza Slice", src: "https://marabou-cat.github.io/GamesV1/pizza.png", price: 500 },
-    // Special Custom Upload (1000 Coins)
+    { id: "m5", name: "Pizza Slice", src: "pizza.png", price: 500 }, // Pizza src updated here!
     { id: "custom", name: "Upload Custom", src: "https://cdn-icons-png.flaticon.com/512/109/109612.png", price: 1000, isCustom: true }
 ];
 
@@ -249,7 +273,8 @@ function applyCursor() {
         const c = CURSORS.find(c => c.id === equippedCursor);
         targetSrc = c ? c.src : CURSORS[0].src;
     }
-    document.documentElement.style.setProperty('--cursor-url', `url('${targetSrc}')`);
+    // Update the DOM image tracker instead of the CSS Variable
+    domCursor.src = targetSrc;
 }
 
 function renderShop() {
