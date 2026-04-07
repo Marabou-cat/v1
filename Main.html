@@ -1,233 +1,459 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>SchoolExams - Digital Portal</title>
-<style>
-:root {
-    --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
-    --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
-    --w: #caf0f8; --m: #90e0ef; --d: #48cae4;
-    --line: rgba(144, 224, 239, 0.2);
-    --glass: rgba(0, 29, 61, 0.85);
-    --shadow: 0 12px 40px rgba(0,0,0,0.7);
-    --r: 16px;
-}
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg0); color: var(--w); overflow-x: hidden; }
-.bg-grid { position: fixed; inset: 0; z-index: -1; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 40px 40px; }
-header.topbar { position: fixed; top: 0; left:0; right:0; height: 64px; background: var(--bg1); border-bottom: 2px solid var(--p0); display: flex; align-items: center; padding: 0 24px; z-index: 1000; justify-content: space-between; }
-.brand { font-weight: 900; font-size: 22px; color: var(--p1); text-decoration: none; letter-spacing: -1px; }
-.btn-nav { background: var(--p2); border: 1px solid var(--p0); color: var(--w); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; transition: 0.2s; font-size: 13px; }
-.btn-nav:hover { background: var(--p0); color: #fff; }
-.main { padding: 100px 24px 40px; max-width: 1400px; margin: 0 auto; }
-.hero { text-align: center; margin-bottom: 40px; }
-.hero h1 { font-size: 3rem; margin-bottom: 10px; color: var(--p1); }
-.searchWrap input { width: 100%; padding: 16px 24px; border-radius: var(--r); background: var(--bg1); border: 1px solid var(--p0); color: #fff; font-size: 16px; outline: none; }
-.gamesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 30px; }
-.gameCard { background: var(--bg1); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; cursor: pointer; transition: 0.2s; }
-.gameCard:hover { transform: translateY(-5px); border-color: var(--p1); box-shadow: var(--shadow); }
-.gameIcon { height: 70px; background: var(--p2); display: flex; align-items: center; justify-content: center; font-size: 28px; }
-.gameName { padding: 10px; font-size: 10px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 2000; display: none; flex-direction: column; }
-.overlay.open { display: flex; }
-.overlay-bar { height: 50px; background: var(--bg1); display: flex; align-items: center; padding: 0 15px; border-bottom: 2px solid var(--p0); justify-content: space-between; }
-.btn-close { background: #c42b1c; border: none; color: #fff; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-weight: 800; }
-iframe { flex: 1; border: none; background: #000; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>SchoolExams - V1</title>
+    <style>
+        :root {
+            /* DEEP DARK BLUE THEME */
+            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
+            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
+            --w: #caf0f8; --m: #90e0ef; --d: #48cae4;
+            --line: rgba(144, 224, 239, 0.2);
+            --glass: rgba(0, 29, 61, 0.85);
+            --shadow: 0 15px 40px rgba(0,0,0,0.8);
+            --glow: 0 0 20px rgba(144, 224, 239, 0.3);
+            --r: 16px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg0); color: var(--w); overflow-x: hidden; }
+        
+        /* BACKGROUND GRID */
+        .bg-grid { position: fixed; inset: 0; z-index: -1; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 40px 40px; }
+        
+        /* HEADER & LOGO */
+        header.topbar { position: fixed; top: 0; left:0; right:0; height: 70px; background: rgba(0, 29, 61, 0.95); backdrop-filter: blur(10px); border-bottom: 2px solid var(--p0); display: flex; align-items: center; padding: 0 30px; z-index: 1000; justify-content: space-between; }
+        .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 24px; color: var(--p1); text-decoration: none; letter-spacing: -1px; }
+        .brand img { height: 40px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .btn-nav { background: var(--p2); border: 1px solid var(--p0); color: var(--w); padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: 700; transition: 0.3s; font-size: 14px; }
+        .btn-nav:hover { background: var(--p0); color: #fff; box-shadow: var(--glow); transform: translateY(-2px); }
+
+        .main { padding: 110px 24px 40px; max-width: 1400px; margin: 0 auto; }
+        .hero { text-align: center; margin-bottom: 30px; }
+        .hero h1 { font-size: 3.5rem; margin-bottom: 10px; color: var(--p1); text-shadow: var(--glow); letter-spacing: -1px; }
+        .hero p { color: var(--d); font-size: 1.1rem; font-weight: 500; }
+
+        /* RECOMMENDED SHOWCASE (ROTATING BANNER) */
+        .recommended-wrapper {
+            margin: 0 auto 40px; max-width: 600px; background: linear-gradient(135deg, var(--bg1), var(--bg2));
+            border: 2px solid var(--p0); border-radius: var(--r); padding: 25px; text-align: center;
+            box-shadow: var(--glow); position: relative; overflow: hidden;
+        }
+        .rec-header { font-size: 12px; color: var(--p1); text-transform: uppercase; letter-spacing: 2px; font-weight: 900; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .rec-header::before, .rec-header::after { content: ""; height: 2px; width: 40px; background: var(--line); }
+        
+        .rec-game { display: flex; flex-direction: column; align-items: center; cursor: pointer; animation: fadeUp 0.5s ease-out forwards; }
+        .rec-icon { font-size: 50px; background: var(--bg0); width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 20px; border: 2px solid var(--p1); margin-bottom: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
+        .rec-game:hover .rec-icon { transform: scale(1.1) rotate(5deg); border-color: #fff; }
+        .rec-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 10px; }
+        .rec-btn { background: var(--p0); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        
+        /* Loading Bar for 5 sec timer */
+        .rec-progress { position: absolute; bottom: 0; left: 0; height: 4px; background: var(--p1); width: 0%; box-shadow: 0 0 10px var(--p1); }
+        .progress-animate { animation: loadBar 5s linear infinite; }
+
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes loadBar { from { width: 0%; } to { width: 100%; } }
+
+        /* SEARCH & GRID */
+        .searchWrap input { width: 100%; padding: 18px 24px; border-radius: var(--r); background: var(--glass); border: 2px solid var(--p2); color: #fff; font-size: 16px; outline: none; transition: 0.3s; box-shadow: var(--shadow); }
+        .searchWrap input:focus { border-color: var(--p1); box-shadow: var(--glow); background: var(--bg1); }
+
+        .gamesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 30px; }
+        .gameCard { background: var(--bg1); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; cursor: pointer; transition: 0.3s; }
+        .gameCard:hover { transform: translateY(-8px); border-color: var(--p1); box-shadow: var(--glow); }
+        .gameIcon { height: 80px; background: linear-gradient(135deg, var(--p2), var(--bg0)); display: flex; align-items: center; justify-content: center; font-size: 32px; border-bottom: 1px solid var(--line); }
+        .gameName { padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--w); }
+
+        /* OVERLAYS */
+        .overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 2000; display: none; flex-direction: column; }
+        .overlay.open { display: flex; }
+        .overlay-bar { height: 60px; background: var(--bg1); display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--p0); justify-content: space-between; }
+        .bar-title { font-weight: 900; color: var(--p1); font-size: 16px; letter-spacing: 1px; }
+        .btn-close { background: #d00000; border: none; color: #fff; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 900; transition: 0.2s; }
+        .btn-close:hover { background: #ff0000; box-shadow: 0 0 10px #ff0000; }
+        iframe { flex: 1; border: none; background: #000; }
+    </style>
 </head>
 <body>
 <div class="bg-grid"></div>
+
 <header class="topbar">
-    <a href="#" class="brand">SchoolExams 🔵</a>
-    <button class="btn-nav" onclick="openGame('https://mb.webs.vc', 'Browser')">🌐 Web Browser</button>
+    <a href="#" class="brand" onclick="location.reload()">
+        <img src="https://marabou-cat.github.io/GamesV1/logos/logo.png" alt="Logo" onerror="this.style.display='none'">
+        SchoolExams
+    </a>
+    <button class="btn-nav" onclick="openGame('https://mb.webs.vc', 'Encrypted Web Browser')">🌐 Web Browser</button>
 </header>
 
 <main class="main">
     <section class="hero">
-        <h1>Digital Modules</h1>
-        <p>Hardcoded Library - 567 Verified Resources</p>
+        <h1>Digital Portal</h1>
+        <p>Verified Educational Library - 250+ Active Resources</p>
     </section>
-    <div class="searchWrap"><input type="text" id="searchInput" placeholder="Search modules..."></div>
+
+    <div class="recommended-wrapper">
+        <div class="rec-header">✨ Featured Modules ✨</div>
+        <div id="recGameContainer">
+            </div>
+        <div class="rec-progress progress-animate" id="recProgress"></div>
+    </div>
+
+    <div class="searchWrap"><input type="text" id="searchInput" placeholder="Search modules by name..."></div>
     <div class="gamesGrid" id="gamesGrid"></div>
 </main>
 
 <div class="overlay" id="gameOverlay">
     <div class="overlay-bar">
-        <div id="activeTitle" style="font-weight:800; color:var(--p1)">Resource</div>
-        <button class="btn-close" onclick="closeGame()">CLOSE X</button>
+        <div class="bar-title" id="activeTitle">Resource</div>
+        <button class="btn-close" onclick="closeGame()">EXIT SESSION ✕</button>
     </div>
     <iframe id="gameFrame"></iframe>
 </div>
 
 <script>
+// BASE URL FOR REPOSITORY
 const BASE_URL = "https://anchors-arcade.github.io/V4/UGS-Files/";
 
-const GAMES = [
-{"f":"clsnowrider.html","name":"Snow Rider 3D"},{"f":"clspacewaves.html","name":"Space Wave"},
-{"f":"Dragonxclient.html","name":"Dragon Client"},{"f":"Eaglercraft-Alpha-1.2.6-Offline.html","name":"Eagler Alpha 1.2"},{"f":"Eaglercraft-Beta-1.3-Offline.html","name":"Eagler Beta 1.3"},
-{"f":"Eaglercraft-Indev-Offline (1).html","name":"Eagler Indev 1"},{"f":"Eaglercraft-Indev-Offline.html","name":"Eagler Indev 2"},{"f":"EaglercraftL_1.9_v0_7_0_Offline_Signed.html","name":"Eaglercraft 1.9"},
-{"f":"EaglercraftX 1.8.8(u29).html","name":"Eaglercraft X"},{"f":"EaglercraftZ_1.11.2.html","name":"Eaglercraft Z"},{"f":"Helios-Offline (1).html","name":"Helios Offline"},
-{"f":"Minceraft-I-NotMine_V6.html","name":"Minceraft V6"},{"f":"cl1.html","name":"cl1"},{"f":"cl10bullets.html","name":"10 Bullets"},{"f":"cl10minutestildawn.html","name":"10 Minutes Till Dawn"},
-{"f":"cl12minibattles.html","name":"12 Mini Battles"},{"f":"cl1on1soccer.html","name":"1 On 1 Soccer"},{"f":"cl1v1lol.html","name":"1v1.LOL"},{"f":"cl1v1tennis.html","name":"1v1 Tennis"},
-{"f":"cl2048.html","name":"2048"},{"f":"cl2048cupcakes.html","name":"2048 Cupcakes"},{"f":"cl2Dshooting.html","name":"2D Shooting"},{"f":"cl2doom.html","name":"2D Doom"},
-{"f":"cl3dash.html","name":"3 Dash"},{"f":"cl3pandas.html","name":"3 Pandas"},{"f":"cl3pandasbrazil.html","name":"3 Pandas Brazil"},{"f":"cl3pandasfantasy.html","name":"3 Pandas Fantasy"},
-{"f":"cl3pandasjapan.html","name":"3 Pandas Japan"},{"f":"cl3pandasnight.html","name":"3 Pandas Night"},{"f":"cl3slices2.html","name":"3 Slices 2"},{"f":"cl40xescape.html","name":"40x Escape"},
-{"f":"cl4thandgoal.html","name":"4th and Goal"},{"f":"cl500calibercontractz.html","name":"500 Caliber Contractz"},{"f":"cl60secondsburgerrun.html","name":"60s Burger Run"},
-{"f":"cl60secondssantarun.html","name":"60s Santa Run"},{"f":"cl8ballclassic.html","name":"8 Ball Classic"},{"f":"cl8ballpool.html","name":"8 Ball Pool"},{"f":"cl9007199254740992.html","name":"9007199254740992"},
-{"f":"cl99balls.html","name":"99 Balls"},{"f":"cl99nightsitf.html","name":"99 Nights"},{"f":"clADOFAI.html","name":"ADOFAI"},{"f":"clADarkRoom.html","name":"A Dark Room"},
-{"f":"clAdventureCapatalist.html","name":"Adventure Capitalist"},{"f":"clAwesomePirates.html","name":"Awesome Pirates"},{"f":"clB3313.html","name":"B3313"},{"f":"clBBB.html","name":"Big Bad Ape"},
-{"f":"clBMX2.html","name":"BMX 2"},{"f":"clBTD1.html","name":"Bloons TD 1"},{"f":"clBig_Time_Butter_Baron.html","name":"Big Time Butter Baron"},{"f":"clBountyOfOne.html","name":"Bounty Of One"},
-{"f":"clCartoonNetworkTableTennisUltimateTournament.html","name":"CN Table Tennis"},{"f":"clCircloO2.html","name":"CircloO 2"},{"f":"clDragonBallZTheLegacyofGoku.html","name":"DBZ Legacy of Goku"},
-{"f":"clDragonQuestIX.html","name":"Dragon Quest IX"},{"f":"clFF3.html","name":"Final Fantasy 3"},{"f":"clFFsonic1.html","name":"Final Fantasy Sonic 1"},{"f":"clFFsonic2.html","name":"Final Fantasy Sonic 2"},
-{"f":"clFFsonic3.html","name":"Final Fantasy Sonic 3"},{"f":"clFFsonic4.html","name":"Final Fantasy Sonic 4"},{"f":"clFFsonic5.html","name":"Final Fantasy Sonic 5"},{"f":"clFFsonic61.html","name":"Final Fantasy Sonic 6.1"},
-{"f":"clFFsonic62.html","name":"Final Fantasy Sonic 6.2"},{"f":"clFIFA07.html","name":"FIFA 07"},{"f":"clFIFA10.html","name":"FIFA 10"},{"f":"clFIFA11.html","name":"FIFA 11"},
-{"f":"clFIFA2000(1).html","name":"FIFA 2000"},{"f":"clFIFA99.html","name":"FIFA 99"},{"f":"clFIFAinternationalsoccer.html","name":"FIFA Intl Soccer"},{"f":"clFIFAroadtoworldcup98.html","name":"FIFA Road to World Cup"},
-{"f":"clFIFAsoccer06.html","name":"FIFA 06"},{"f":"clFIFAsoccer95.html","name":"FIFA 95"},{"f":"clFIFAsoccer96.html","name":"FIFA 96"},{"f":"clFIFAsoccer97.html","name":"FIFA 97"},
-{"f":"clFIFAstreet2.html","name":"FIFA Street 2"},{"f":"clFNAF.html","name":"FNAF 1"},{"f":"clFNAF2.html","name":"FNAF 2"},{"f":"clFNAF3.html","name":"FNAF 3"},{"f":"clFNAF4.html","name":"FNAF 4"},
-{"f":"clGettothetopalthoughthereisnotop.html","name":"Get To The Top"},{"f":"clGoldenSunTheLostAge.html","name":"Golden Sun Lost Age"},{"f":"clHaroldsbadday.html","name":"Harold's Bad Day"},
-{"f":"clHiNoHomo.html","name":"Hi No Homo"},{"f":"clJUMP.html","name":"JUMP"},{"f":"clKenGriffeyJrPresentsMajorLeagueBaseball.html","name":"Ken Griffey Jr Baseball"},
-{"f":"clMarioisMissingDoneRight.html","name":"Mario Is Missing"},{"f":"clMetalSonicHyperdrive.html","name":"Metal Sonic Hyperdrive"},{"f":"clNBAhangtime.html","name":"NBA Hangtime"},
-{"f":"clNBAjam.html","name":"NBA Jam"},{"f":"clNautilusOS.html","name":"Nautilus OS"},{"f":"clNewSuperMarioWorld2AroundtheWorld.html","name":"New Super Mario World 2"},
-{"f":"clNicktoonsFreezeFrameFrenzy.html","name":"Nicktoons Freeze Frame"},{"f":"clNutsandBoltsScrewingPuzzle.html","name":"Nuts and Bolts Puzzle"},{"f":"clPokemonemeraldrouge.html","name":"Pokemon Emerald Rogue"},
-{"f":"clPokemonrocketedition.html","name":"Pokemon Rocket Edition"},{"f":"clPokémonstunningsteel.html","name":"Pokemon Stunning Steel"},{"f":"clSINGLEFILE.html","name":"SINGLEFILE"},
-{"f":"clSonic1ScoreRush.html","name":"Sonic 1 Score Rush"},{"f":"clSonic2ScoreRush.html","name":"Sonic 2 Score Rush"},{"f":"clSonicHellfireSaga.html","name":"Sonic Hellfire Saga"},
-{"f":"clStickmanKingdomclash.html","name":"Stickman Kingdom Clash"},{"f":"clSuperMarioWorldThe SecretOfThe7GoldenStatues.html","name":"SMW 7 Golden Statues"},{"f":"clTaikonoTatsujin.html","name":"Taiko no Tatsujin"},
-{"f":"clUZG.html","name":"UZG"},{"f":"clUltimatecardrivingsimulator.html","name":"Ultimate Car Driving"},{"f":"clXevious.html","name":"Xevious"},{"f":"clYoshisStrangeQuest.html","name":"Yoshi's Strange Quest"},
-{"f":"clabandoned3.html","name":"Abandoned 3"},{"f":"clabsolutemadness.html","name":"Absolute Madness"},{"f":"clacecombat2.html","name":"Ace Combat 2"},{"f":"clacecombat3.html","name":"Ace Combat 3"},
-{"f":"clacegangstertaxi.html","name":"Ace Gangster Taxi"},{"f":"clachievementunlocked.html","name":"Achievement Unlocked"},{"f":"clachievmentunlocked.html","name":"Achievement Unlocked 1"},
-{"f":"clachievmentunlocked2.html","name":"Achievement Unlocked 2"},{"f":"clachievmentunlocked3.html","name":"Achievement Unlocked 3"},{"f":"clachillies.html","name":"Achillies"},
-{"f":"clachillies2.html","name":"Achillies 2"},{"f":"cladayintheoffice.html","name":"A Day in the Office"},{"f":"cladvancewars.html","name":"Advance Wars"},{"f":"cladvancewars2.html","name":"Advance Wars 2"},
-{"f":"cladventneon.html","name":"Advent Neon"},{"f":"cladventurecapitalist.html","name":"Adventure Capitalist"},{"f":"clagariolite.html","name":"Agario Lite"},{"f":"clageofwar.html","name":"Age Of War"},
-{"f":"clageofwar2.html","name":"Age Of War 2"},{"f":"clagesofconflict.html","name":"Ages of Conflict"},{"f":"clahoysurvival.html","name":"Ahoy Survival"},{"f":"clai.html","name":"AI"},
-{"f":"clakoopasrevenge.html","name":"A Koopa's Revenge"},{"f":"clakoopasrevenge2.html","name":"A Koopa's Revenge 2"},{"f":"clakumanorgaiden.html","name":"Akumano Gaiden"},
-{"f":"clalgebra.html","name":"Algebra"},{"f":"clalienhominid.html","name":"Alien Hominid"},{"f":"clalienhominidgba.html","name":"Alien Hominid GBA"},{"f":"clalienskyinvasion.html","name":"Alien Sky Invasion"},
-{"f":"clalientransporter.html","name":"Alien Transporter"},{"f":"clalienvspredator.html","name":"Alien vs Predator"},{"f":"clallbossesin1.html","name":"All Bosses in 1"},{"f":"clallocation.html","name":"Allocation"},
-{"f":"clamaze.html","name":"Amaze"},{"f":"clamidstthesky.html","name":"Amidst The Sky"},{"f":"clamigopancho.html","name":"Amigo Pancho"},{"f":"clamigopancho2.html","name":"Amigo Pancho 2"},
-{"f":"clamigopancho3.html","name":"Amigo Pancho 3"},{"f":"clamigopancho4.html","name":"Amigo Pancho 4"},{"f":"clamigopancho5.html","name":"Amigo Pancho 5"},{"f":"clamigopancho6.html","name":"Amigo Pancho 6"},
-{"f":"clamigopancho7.html","name":"Amigo Pancho 7"},{"f":"clamongus.html","name":"Among Us"},{"f":"clamorphous.html","name":"Amorphous"},{"f":"clancientsins.html","name":"Ancient Sins"},
-{"f":"clangry-birdsspace.html","name":"Angry Birds Space"},{"f":"clangrybirds-space.html","name":"Angry Birds Space 2"},{"f":"clangrybirds.html","name":"Angry Birds"},
-{"f":"clangrybirdsshowdown.html","name":"Angry Birds Showdown"},{"f":"clangrybirdsspace.html","name":"Angry Birds Space 3"},{"f":"clanimalcrossingwildworld.html","name":"Animal Crossing WW"},
-{"f":"clanotherworld.html","name":"Another World"},{"f":"clapotris.html","name":"Apotris"},{"f":"clappleshooter.html","name":"Apple Shooter"},{"f":"clappleworm.html","name":"Apple Worm"},
-{"f":"claquaparkio.html","name":"Aquapark.io"},{"f":"clarceuslegend.html","name":"Arceus Legend"},{"f":"clarcheryworldtour.html","name":"Archery World Tour"},{"f":"clarena.html","name":"Arena"},
-{"f":"clarmormayhem2.html","name":"Armor Mayhem 2"},{"f":"clarsonate.html","name":"Arsonate"},{"f":"clascent.html","name":"Ascent"},{"f":"clasmallworldcup.html","name":"A Small World Cup"},
-{"f":"classesmentexaminationque.html","name":"Assessment Exam"},{"f":"clasteroids.html","name":"Asteroids"},{"f":"clasteroidsALT.html","name":"Asteroids ALT"},{"f":"clattackhole.html","name":"Attack Hole"},
-{"f":"clavalanche.html","name":"Avalanche"},{"f":"claviamasters.html","name":"Avia Masters"},{"f":"claviamastersbuggy.html","name":"Avia Masters Buggy"},{"f":"clawesomeplanes.html","name":"Awesome Planes"},
-{"f":"clawesometanks.html","name":"Awesome Tanks"},{"f":"clawesometanks2.html","name":"Awesome Tanks 2"},{"f":"clbabeltower.html","name":"Babel Tower"},{"f":"clbabychiccoadventure.html","name":"Baby Chicco Adventure"},
-{"f":"clbabykaizo.html","name":"Baby Kaizo"},{"f":"clbabysniperinvietnam.html","name":"Baby Sniper"},{"f":"clbackrooms.html","name":"Backrooms"},{"f":"clbackrooms2D.html","name":"Backrooms 2D"},
-{"f":"clbackyardbaseball.html","name":"Backyard Baseball"},{"f":"clbackyardbaseball09.html","name":"Backyard Baseball 09"},{"f":"clbackyardbaseball10.html","name":"Backyard Baseball 10"},
-{"f":"clbackyardsoccer.html","name":"Backyard Soccer"},{"f":"clbaconmaydie.html","name":"Bacon May Die"},{"f":"clbadbodyguards.html","name":"Bad Bodyguards"},{"f":"clbadicecream.html","name":"Bad Ice Cream"},
-{"f":"clbadmondaysimulator.html","name":"Bad Monday Simulator"},{"f":"clbadparenting.html","name":"Bad Parenting"},{"f":"clbadpiggies.html","name":"Bad Piggies"},{"f":"clbadtimesim.html","name":"Bad Time Sim"},
-{"f":"clbadtimesimulator.html","name":"Bad Time Simulator"},{"f":"clbaldidecomp.html","name":"Baldi Decomp"},{"f":"clbaldisbasics.html","name":"Baldi's Basics"},{"f":"clbaldisbasicsremaster.html","name":"Baldi's Basics Remaster"},
-{"f":"clbaldisfunnewschoolultimate.html","name":"Baldi's Fun New School"},{"f":"clballblast.html","name":"Ball Blast"},{"f":"clballsandbricks.html","name":"Balls and Bricks"},{"f":"clballsandbricksgood.html","name":"Balls and Bricks Good"},
-{"f":"clbananasimulator.html","name":"Banana Simulator"},{"f":"clbanditgunslingers.html","name":"Bandit Gunslingers"},{"f":"clbanjokazooie.html","name":"Banjo Kazooie"},{"f":"clbanjotooie.html","name":"Banjo Tooie"},
-{"f":"clbankbreakout2.html","name":"Bank Breakout 2"},{"f":"clbankrobbery2.html","name":"Bank Robbery 2"},{"f":"clbarryhasasecret.html","name":"Barry Has a Secret"},{"f":"clbas.html","name":"Bas"},
-{"f":"clbaseballbros.html","name":"Baseball Bros"},{"f":"clbasketballfrvr.html","name":"Basketball FRVR"},{"f":"clbasketballlegends.html","name":"Basketball Legends"},{"f":"clbasketballstars.html","name":"Basketball Stars"},
-{"f":"clbasketbattle.html","name":"Basket Battle"},{"f":"clbasketbros.html","name":"Basket Bros"},{"f":"clbasketrandom.html","name":"Basket Random"},{"f":"clbasketrandomgood.html","name":"Basket Random Good"},
-{"f":"clbasketslamdunk2.html","name":"Basket Slam Dunk 2"},{"f":"clbatterup.html","name":"Batter Up"},{"f":"clbattlekarts.html","name":"Battle Karts"},{"f":"clbattles.html","name":"Battles"},
-{"f":"clbattlesim.html","name":"Battle Sim"},{"f":"clbattlezone.html","name":"Battlezone"},{"f":"clbazookaboy.html","name":"Bazooka Boy"},{"f":"clbballlegend.html","name":"B-Ball Legend"},
-{"f":"clbeachboxingsim.html","name":"Beach Boxing Sim"},{"f":"clbeamrider.html","name":"Beamrider"},{"f":"clbearbarians.html","name":"Bearbarians"},{"f":"clbearsus.html","name":"Bearsus"},
-{"f":"clben10alienforce.html","name":"Ben 10 Alien Force"},{"f":"clben10omniverse.html","name":"Ben 10 Omniverse"},{"f":"clben10protector.html","name":"Ben 10 Protector of Earth"},{"f":"clben10racing.html","name":"Ben 10 Racing"},
-{"f":"clben10ultimatealien.html","name":"Ben 10 Ultimate Alien"},{"f":"clbergentruck201x.html","name":"Bergen Truck 201x"},{"f":"clbfdia5b.html","name":"BFDIA 5b"},{"f":"clbigicetowertinysquare.html","name":"Big Ice Tower"},
-{"f":"clbigneontowertinysquare.html","name":"Big Neon Tower"},{"f":"clbigshotboxing2.html","name":"Big Shot Boxing 2"},{"f":"clbigtowertinysquare.html","name":"Big Tower Tiny Square"},{"f":"clbigtowertinysquare2.html","name":"Big Tower Tiny Square 2"},
-{"f":"clbigtowertinysquare2good.html","name":"Big Tower Tiny Square 2 Good"},{"f":"clbindingofisaccsheeptime.html","name":"Binding of Isaac Sheep Time"},{"f":"clbioevil4.html","name":"Bio Evil 4"},{"f":"clbitlife.html","name":"BitLife"},
-{"f":"clbitlifeencrypted.html","name":"BitLife Encrypted"},{"f":"clbitplanes.html","name":"Bit Planes"},{"f":"clblackjack.html","name":"Blackjack"},{"f":"clblackjackbattle.html","name":"Blackjack Battle"},
-{"f":"clblackjackhhhh.html","name":"Blackjack HHHH"},{"f":"clblacksmithlab.html","name":"Blacksmith Lab"},{"f":"clblastronaut.html","name":"Blastronaut"},{"f":"clblazedrifter.html","name":"Blaze Drifter"},
-{"f":"clbleachvsnaruto.html","name":"Bleach vs Naruto"},{"f":"clblightborne.html","name":"Blightborne"},{"f":"clblobsstory2.html","name":"Blobs Story 2"},{"f":"clblockblast.html","name":"Block Blast"},
-{"f":"clblockcraftparkour.html","name":"Blockcraft Parkour"},{"f":"clblockcraftshooter.html","name":"Blockcraft Shooter"},{"f":"clblockpost.html","name":"Blockpost"},{"f":"clblockthepig.html","name":"Block The Pig"},
-{"f":"clblockydemolitionderby.html","name":"Blocky Demolition Derby"},{"f":"clblockysnakes.html","name":"Blocky Snakes"},{"f":"clbloodmoney.html","name":"Blood Money"},{"f":"clbloodtournament.html","name":"Blood Tournament"},
-{"f":"clbloons.html","name":"Bloons"},{"f":"clbloons2.html","name":"Bloons 2"},{"f":"clbloonsTD1.html","name":"Bloons TD 1"},{"f":"clbloonsTD2.html","name":"Bloons TD 2"},
-{"f":"clbloonsTD3.html","name":"Bloons TD 3"},{"f":"clbloonsTD4.html","name":"Bloons TD 4"},{"f":"clbloonsTD5.html","name":"Bloons TD 5"},{"f":"clbloonsTD6scratch.html","name":"Bloons TD 6 Scratch"},
-{"f":"clbloonspp1.html","name":"Bloons Player Pack 1"},{"f":"clbloonspp2.html","name":"Bloons Player Pack 2"},{"f":"clbloonspp3.html","name":"Bloons Player Pack 3"},{"f":"clbloonspp4.html","name":"Bloons Player Pack 4"},
-{"f":"clbloonspp5.html","name":"Bloons Player Pack 5"},{"f":"clbloxorz.html","name":"Bloxorz"},{"f":"clblumgiracers.html","name":"Blumgi Racers"},{"f":"clbntts.html","name":"Bntts"},
-{"f":"clbobtherobber.html","name":"Bob the Robber"},{"f":"clbobtherobber2.html","name":"Bob the Robber 2"},{"f":"clbobtherobber5.html","name":"Bob the Robber 5"},{"f":"clbollybeat.html","name":"Bolly Beat"},
-{"f":"clbomberman.html","name":"Bomberman"},{"f":"clbomberman2.html","name":"Bomberman 2"},{"f":"clbombermanhero.html","name":"Bomberman Hero"},{"f":"clboomslingers.html","name":"Boom Slingers"},
-{"f":"clbottlecracks.html","name":"Bottle Cracks"},{"f":"clbottleflip3d.html","name":"Bottle Flip 3D"},{"f":"clbounceback.html","name":"Bounce Back"},{"f":"clbouncemasters.html","name":"Bouncemasters"},
-{"f":"clbouncymotors.html","name":"Bouncy Motors"},{"f":"clbowlalt.html","name":"Bowl Alt"},{"f":"clboxhead2playrooms.html","name":"Boxhead 2Play Rooms"},{"f":"clboxheadnightmare.html","name":"Boxhead Nightmare"},
-{"f":"clboxinglive-2.html","name":"Boxing Live 2"},{"f":"clboxinglive2.html","name":"Boxing Live 2 Alt"},{"f":"clboxingrandom.html","name":"Boxing Random"},{"f":"clbrainrot.html","name":"Brainrot"},
-{"f":"clbridgerace.html","name":"Bridge Race"},{"f":"clbtd5.html","name":"BTD 5"},{"f":"clbtts.html","name":"BTTS"},{"f":"clbtts2.html","name":"BTTS 2"},
-{"f":"clbubbleshooter.html","name":"Bubble Shooter"},{"f":"clbubbleshooterpirate.html","name":"Bubble Shooter Pirate"},{"f":"clbubbletanks.html","name":"Bubble Tanks"},{"f":"clbubbletanks2.html","name":"Bubble Tanks 2"},
-{"f":"clbubbletanks3.html","name":"Bubble Tanks 3"},{"f":"clbubbletanksarenas.html","name":"Bubble Tanks Arenas"},{"f":"clbubbletankstd.html","name":"Bubble Tanks TD"},{"f":"clbubsy.html","name":"Bubsy"},
-{"f":"Buckshot Roulette.html","name":"Buckshot Roulette"},{"f":"clbuildnowgg.html","name":"BuildNow GG"},{"f":"clbunnyland.html","name":"Bunny Land"},{"f":"clburgerandfrights.html","name":"Burger and Frights"},
-{"f":"clburritobison.html","name":"Burrito Bison"},{"f":"clburritobison2.html","name":"Burrito Bison 2"},{"f":"clburritobisonlaunchalibre.html","name":"Burrito Bison Launcha Libre"},{"f":"clburritobisonrevenge.html","name":"Burrito Bison Revenge"},
-{"f":"clbushidoblade.html","name":"Bushido Blade"},{"f":"clcactusmccoy.html","name":"Cactus McCoy"},{"f":"clcactusmccoy2.html","name":"Cactus McCoy 2"},{"f":"clcannonballs3d.html","name":"Cannon Balls 3D"},
-{"f":"clcannonfodder.html","name":"Cannon Fodder"},{"f":"clcapybaraclicker.html","name":"Capybara Clicker"},{"f":"clcarcrash3.html","name":"Car Crash 3"},{"f":"clcardrawing.html","name":"Car Drawing"},
-{"f":"clcareatscar2deluxe.html","name":"Car Eats Car 2 Deluxe"},{"f":"clcarkingarena.html","name":"Car King Arena"},{"f":"clcarmods.html","name":"Car Mods"},{"f":"clcarstuntsdriving.html","name":"Car Stunts Driving"},
-{"f":"clcastlebloodline.html","name":"Castle Bloodline"},{"f":"clcastlecircleofmoon.html","name":"Castle Circle of Moon"},{"f":"clcastlevania.html","name":"Castlevania"},{"f":"clcastlevania2.html","name":"Castlevania 2"},
-{"f":"clcastlevania3.html","name":"Castlevania 3"},{"f":"clcastlevaniaariaofsorrow.html","name":"Castlevania Aria of Sorrow"},{"f":"clcastlevaniadawnofsorrow.html","name":"Castlevania Dawn of Sorrow"},{"f":"clcastlevanianes.html","name":"Castlevania NES"},
-{"f":"clcastlewarsmodern.html","name":"Castle Wars Modern"},{"f":"clcatmario.html","name":"Cat Mario"},{"f":"clcatmariogood.html","name":"Cat Mario Good"},{"f":"clcatslovecake2.html","name":"Cats Love Cake 2"},
-{"f":"clcavestory.html","name":"Cave Story"},{"f":"clceleste.html","name":"Celeste"},{"f":"clceleste2.html","name":"Celeste 2"},{"f":"clcellardoor.html","name":"Cellar Door"},
-{"f":"clchaosfaction2.html","name":"Chaos Faction 2"},{"f":"clcheckers.html","name":"Checkers"},{"f":"clcheesechompers3d.html","name":"Cheese Chompers 3D"},{"f":"clcheshireinachatroom.html","name":"Cheshire in a Chatroom"},
-{"f":"clchess.html","name":"Chess"},{"f":"clchessclassic.html","name":"Chess Classic"},{"f":"clchibiknight.html","name":"Chibi Knight"},{"f":"clchickenscream.html","name":"Chicken Scream"},
-{"f":"clchickenwar.html","name":"Chicken War"},{"f":"clchipschallenge.html","name":"Chip's Challenge"},{"f":"clchoppyorc.html","name":"Choppy Orc"},{"f":"clchronotrigger.html","name":"Chrono Trigger"},
-{"f":"clchuzzle.html","name":"Chuzzle"},{"f":"clciviballs.html","name":"Civiballs"},{"f":"clciviballs2.html","name":"Civiballs 2"},{"f":"clclashofvikings.html","name":"Clash of Vikings"},
-{"f":"clclassof09.html","name":"Class of 09"},{"f":"clcleanupio.html","name":"CleanUp.io"},{"f":"clclearvision.html","name":"Clear Vision"},{"f":"clclearvision2.html","name":"Clear Vision 2"},
-{"f":"clclearvision3.html","name":"Clear Vision 3"},{"f":"clclearvision4.html","name":"Clear Vision 4"},{"f":"clclearvision5.html","name":"Clear Vision 5"},{"f":"clclmadnessambulation.html","name":"Madness Ambulation"},
-{"f":"clclubbytheseal.html","name":"Clubby the Seal"},{"f":"clclusterrush.html","name":"Cluster Rush"},{"f":"clcoalllcdemo.html","name":"Coalllc Demo"},{"f":"clcod4.html","name":"COD 4"},
-{"f":"clcodblackopp.html","name":"COD Black Ops"},{"f":"clcoddefiance.html","name":"COD Defiance"},{"f":"clcodenamegordon.html","name":"Codename Gordon"},{"f":"clcodmodernwarfare.html","name":"COD Modern Warfare"},
-{"f":"clcodworldatwar.html","name":"COD World at War"},{"f":"clcoffeemaker.html","name":"Coffee Maker"},{"f":"clcolorburst3d.html","name":"Color Burst 3D"},{"f":"clcolormatch.html","name":"Color Match"},
-{"f":"clcolorwatersort3d.html","name":"Color Water Sort 3D"},{"f":"clcombopool.html","name":"Combo Pool"},{"f":"clcommanderkeen4.html","name":"Commander Keen 4"},{"f":"clcommanderkeen5.html","name":"Commander Keen 5"},
-{"f":"clcommanderkeen6.html","name":"Commander Keen 6"},{"f":"clconkersbadfurday.html","name":"Conker's Bad Fur Day"},{"f":"clcontra.html","name":"Contra"},{"f":"clcontra3.html","name":"Contra 3"},
-{"f":"clcookie-clicker.html","name":"Cookie Clicker"},{"f":"clcookieclicker.html","name":"Cookie Clicker Alt"},{"f":"clcookieclickercool.html","name":"Cookie Clicker Cool"},{"f":"clcookieclickergood.html","name":"Cookie Clicker Good"},
-{"f":"clcookingmama.html","name":"Cooking Mama"},{"f":"clcookingmama2.html","name":"Cooking Mama 2"},{"f":"clcookingmama3.html","name":"Cooking Mama 3"},{"f":"clcoreball.html","name":"Coreball"},
-{"f":"clcotlk.html","name":"COTLK"},{"f":"clcountmastersstickmangames.html","name":"Count Masters Stickman"},{"f":"clcoverorange.html","name":"Cover Orange"},{"f":"clcoverorange2.html","name":"Cover Orange 2"},
-{"f":"clcoverorangejourneygangsters.html","name":"Cover Orange Gangsters"},{"f":"clcoverorangejourneyknights.html","name":"Cover Orange Knights"},{"f":"clcoverorangejourneypirates.html","name":"Cover Orange Pirates"},{"f":"clcoverorangejourneyspace.html","name":"Cover Orange Space"},
-{"f":"clcoverorangeplayerspack.html","name":"Cover Orange Players Pack"},{"f":"clcoverorangeplayerspack2.html","name":"Cover Orange Players Pack 2"},{"f":"clcoverorangeplayerspack3.html","name":"Cover Orange Players Pack 3"},{"f":"clcrankit!.html","name":"Crank It!"},
-{"f":"clcrashbandicoot.html","name":"Crash Bandicoot"},{"f":"clcrashbandicoot2.html","name":"Crash Bandicoot 2"},{"f":"clcrashteamracing.html","name":"Crash Team Racing"},{"f":"clcrazycars.html","name":"Crazy Cars"},
-{"f":"clcrazycattle3d.html","name":"Crazy Cattle 3D"},{"f":"clcrazychicken3D.html","name":"Crazy Chicken 3D"},{"f":"clcrazyfrogracer.html","name":"Crazy Frog Racer"},{"f":"clcrazymotorcycle.html","name":"Crazy Motorcycle"},
-{"f":"clcreeperworld2.html","name":"Creeper World 2"},{"f":"clcrossyroad.html","name":"Crossy Road"},{"f":"clcrunchball3000.html","name":"Crunchball 3000"},{"f":"clcs1.6.html","name":"CS 1.6"},
-{"f":"clcsds.html","name":"CSDS"},{"f":"clcsgoclicker.html","name":"CSGO Clicker"},{"f":"clctgpnitro.html","name":"CTGP Nitro"},{"f":"clcurveball.html","name":"Curveball"},
-{"f":"clcuttherope.html","name":"Cut the Rope"},{"f":"clcuttheropetimetravel.html","name":"Cut the Rope Time Travel"},{"f":"clcyberbungracing.html","name":"Cyber Bung Racing"},{"f":"clcybersensation.html","name":"Cyber Sensation"},
-{"f":"cldadgame.html","name":"Dad Game"},{"f":"cldadnme.html","name":"Dad n Me"},{"f":"cldaggerfall.html","name":"Daggerfall"},{"f":"cldanktomb.html","name":"Dank Tomb"},
-{"f":"cldborigins.html","name":"DB Origins"},{"f":"cldborigins2.html","name":"DB Origins 2"},{"f":"cldbsniper.html","name":"DB Sniper"},{"f":"cldbzattacksaiyans.html","name":"DBZ Attack Saiyans"},
-{"f":"cldbzdevolution.html","name":"DBZ Devolution"},{"f":"cldbzsuperwarriorssonic.html","name":"DBZ Super Warriors Sonic"},{"f":"cldeadestate.html","name":"Dead Estate"},{"f":"cldeadlydescent.html","name":"Deadly Descent"},
-{"f":"cldeadplate.html","name":"Dead Plate"},{"f":"cldeadzed.html","name":"Dead Zed"},{"f":"cldeadzed2.html","name":"Dead Zed 2"},{"f":"cldeathchase.html","name":"Death Chase"},
-{"f":"cldeblob2.html","name":"De Blob 2"},{"f":"cldecision.html","name":"Decision"},{"f":"cldecision2.html","name":"Decision 2"},{"f":"cldecision3.html","name":"Decision 3"},
-{"f":"cldecisionmedieval.html","name":"Decision Medieval"},{"f":"cldeepersleep.html","name":"Deeper Sleep"},{"f":"cldeepestsword.html","name":"Deepest Sword"},{"f":"cldeepsleep.html","name":"Deep Sleep"},
-{"f":"cldefendyourcastle.html","name":"Defend Your Castle"},{"f":"cldefendyournuts.html","name":"Defend Your Nuts"},{"f":"cldefendyournuts2.html","name":"Defend Your Nuts 2"},{"f":"cldeltarune.html","name":"Deltarune"},
-{"f":"cldeltatraveler.html","name":"Deltatraveler"},{"f":"cldementium.html","name":"Dementium"},{"f":"cldemolitionderbycrashracing.html","name":"Demolition Derby Crash Racing"},{"f":"cldiablo.html","name":"Diablo"},
-{"f":"cldiamondhollow.html","name":"Diamond Hollow"},{"f":"cldiamondhollow2.html","name":"Diamond Hollow 2"},{"f":"cldiddykong-racing.html","name":"Diddy Kong Racing"},{"f":"cldieinthedungeon.html","name":"Die in the Dungeon"},
-{"f":"cldigdeep.html","name":"Dig Deep"},{"f":"cldigdug.html","name":"Dig Dug"},{"f":"cldigdug2.html","name":"Dig Dug 2"},{"f":"cldigdug26.html","name":"Dig Dug 26"},
-{"f":"cldigtochina.html","name":"Dig to China"},{"f":"cldinodudes.html","name":"Dino Dudes"},{"f":"cldiredecks.html","name":"Dire Decks"},{"f":"cldoblox.html","name":"Doblox"},
-{"f":"cldogeminer.html","name":"Doge Miner"},{"f":"cldogeminer2.html","name":"Doge Miner 2"},{"f":"cldokidokiliteratureclub.html","name":"Doki Doki Literature Club"},{"f":"cldonkeykong.html","name":"Donkey Kong"},
-{"f":"cldonkeykong64.html","name":"Donkey Kong 64"},{"f":"cldonkeykongcountry.html","name":"DK Country"},{"f":"cldonkeykongcountry2.html","name":"DK Country 2"},{"f":"cldonkeykongcountry3.html","name":"DK Country 3"},
-{"f":"cldonkeykongnes.html","name":"Donkey Kong NES"},{"f":"cldontescape.html","name":"Don't Escape"},{"f":"cldontescape2.html","name":"Don't Escape 2"},{"f":"cldontescape3.html","name":"Don't Escape 3"},
-{"f":"cldoodlejump.html","name":"Doodle Jump"},{"f":"cldoodlejumpgoober.html","name":"Doodle Jump Goober"},{"f":"cldoom.html","name":"Doom"},{"f":"cldoom2.html","name":"Doom 2"},
-{"f":"cldoom2d.html","name":"Doom 2D"},{"f":"cldoom2dDOS.html","name":"Doom 2D DOS"},{"f":"cldoom3pack.html","name":"Doom 3 Pack"},{"f":"cldoom64.html","name":"Doom 64"},
-{"f":"cldoomdos.html","name":"Doom DOS"},{"f":"cldoomemscripten.html","name":"Doom Emscripten"},{"f":"cldoomps.html","name":"Doom PS"},{"f":"cldoompsalt.html","name":"Doom PS Alt"},
-{"f":"cldoomzio.html","name":"Doomz.io"},{"f":"cldouchebaglife.html","name":"Douchebag Life"},{"f":"cldouchebagworkout.html","name":"Douchebag Workout"},{"f":"cldownthemountain.html","name":"Down The Mountain"},
-{"f":"cldragonballadvance.html","name":"Dragon Ball Advance"},{"f":"cldrawclimber.html","name":"Draw Climber"},{"f":"cldrawtheline.html","name":"Draw The Line"},{"f":"cldreader.html","name":"Dreader"},
-{"f":"cldreadheadparkour.html","name":"Dreadhead Parkour"},{"f":"cldriftboss.html","name":"Drift Boss"},{"f":"cldrifthuntersmerge.html","name":"Drift Hunters Merge"},{"f":"cldrivemady.html","name":"Drive Mad"},
-{"f":"cldrivenwild.html","name":"Driven Wild"},{"f":"cldrmario.html","name":"Dr. Mario"},{"f":"cldrweedgaster.html","name":"Dr Weed Gaster"},{"f":"cldubstep.html","name":"Dubstep"},
-{"f":"clduckhunt.html","name":"Duck Hunt"},{"f":"clducklfe5.html","name":"Duck Life 5"},{"f":"clducklife.html","name":"Duck Life"},{"f":"clducklife2.html","name":"Duck Life 2"},
-{"f":"clducklife3.html","name":"Duck Life 3"},{"f":"clducklife4.html","name":"Duck Life 4"},{"f":"clducklifebattle.html","name":"Duck Life Battle"},{"f":"clducklifespace.html","name":"Duck Life Space"},
-{"f":"clducklingsio.html","name":"Ducklings.io"},{"f":"clducktales.html","name":"DuckTales"},{"f":"cldud.html","name":"Dud"},{"f":"cldukenukem3d.html","name":"Duke Nukem 3D"},
-{"f":"cldumpling.html","name":"Dumpling"},{"f":"cldungeondeck.html","name":"Dungeon Deck"},{"f":"cldungeonraid.html","name":"Dungeon Raid"},{"f":"cldungeonsanddegenerategamblers.html","name":"Dungeons and Gamblers"},
-{"f":"cldunkshot.html","name":"Dunk Shot"},{"f":"clduskchild.html","name":"Dusk Child"},{"f":"cldyingdreams.html","name":"Dying Dreams"},{"f":"cldynamiteheaddy.html","name":"Dynamite Headdy"},
-{"f":"cleagleride.html","name":"Eagle Ride"},{"f":"clearntodie.html","name":"Earn to Die"},{"f":"clearntodie2.html","name":"Earn to Die 2"},{"f":"clearthbound.html","name":"Earthbound"},
-{"f":"clearthbound3.html","name":"Earthbound 3"},{"f":"clearthboundsnes.html","name":"Earthbound SNES"},{"f":"clearthtaken.html","name":"Earth Taken"},{"f":"clearthtaken2.html","name":"Earth Taken 2"},
-{"f":"clearthtaken3.html","name":"Earth Taken 3"},{"f":"clearthwormjim.html","name":"Earthworm Jim"},{"f":"clearthwormjim2.html","name":"Earthworm Jim 2"},{"f":"cledelweiss.html","name":"Edelweiss"},
-{"f":"cledyscarsimulator.html","name":"Edys Car Simulator"},{"f":"cleffinghail.html","name":"Effing Hail"},{"f":"cleffingmachines.html","name":"Effing Machines"},{"f":"cleffingworms.html","name":"Effing Worms"},
-{"f":"cleffingzombies.html","name":"Effing Zombies"},{"f":"clegg.html","name":"Egg"},{"f":"cleggycar.html","name":"Eggy Car"},{"f":"clelasticface.html","name":"Elastic Face"},
-{"f":"clelectricman2.html","name":"Electric Man 2"},{"f":"clemujs.html","name":"EmuJS"},{"f":"clenchain.html","name":"Enchain"},{"f":"clendlesswar4.html","name":"Endless War 4"},
-{"f":"clendlesswar5.html","name":"Endless War 5"},{"f":"clendlesswar5wow.html","name":"Endless War 5 WoW"},{"f":"clendlesswar7.html","name":"Endless War 7"},{"f":"clenduro.html","name":"Enduro"},
-{"f":"clepicbattlefantasy5.html","name":"Epic Battle Fantasy 5"},{"f":"clescalatingduel.html","name":"Escalating Duel"},{"f":"clescaperoad-2.html","name":"Escape Road 2"},{"f":"clescaperoad.html","name":"Escape Road"},
-{"f":"clet.html","name":"E.T."},{"f":"cletrianoddyssey.html","name":"Etrian Odyssey"},{"f":"clevilglitch.html","name":"Evil Glitch"},{"f":"clevolution.html","name":"Evolution"},
-{"f":"clexcitebike64.html","name":"Excitebike 64"},{"f":"clextremerun3d.html","name":"Extreme Run 3D"},{"f":"clfactoryballs.html","name":"Factory Balls"},{"f":"clfactoryballs2.html","name":"Factory Balls 2"},
-{"f":"clfactoryballs3.html","name":"Factory Balls 3"},{"f":"clfactoryballs4.html","name":"Factory Balls 4"},{"f":"clfairytalevsonepiece.html","name":"Fairy Tale vs One Piece"},{"f":"clfallout.html","name":"Fallout"},
-{"f":"clfamidash.html","name":"Fami Dash"},{"f":"clfancypantsadventure.html","name":"Fancy Pants Adventure"},{"f":"clfancypantsadventure2.html","name":"Fancy Pants 2"},{"f":"clfancypantsadventure3.html","name":"Fancy Pants 3"},
-{"f":"clfancysnowboarding.html","name":"Fancy Snowboarding"},{"f":"clfashionbattle.html","name":"Fashion Battle"},{"f":"clfattygenius.html","name":"Fatty Genius"},{"f":"clfearstofathomhomealone.html","name":"Fears to Fathom"}
+// --- ROTATING RECOMMENDED GAMES LOGIC ---
+const REC_GAMES = [
+    { f: "cl3dash.html", name: "3 Dash", icon: "🔺" },
+    { f: "clsnowrider.html", name: "Snow Rider 3D", icon: "🏂" },
+    { f: "clspacewaves.html", name: "Space Wave", icon: "🚀" }
 ];
+
+let currentRecIdx = 0;
+
+function updateRecommended() {
+    const container = document.getElementById('recGameContainer');
+    const progressBar = document.getElementById('recProgress');
+    const game = REC_GAMES[currentRecIdx];
+    
+    // Reset animation by triggering reflow
+    progressBar.classList.remove('progress-animate');
+    void progressBar.offsetWidth; 
+    progressBar.classList.add('progress-animate');
+
+    container.innerHTML = `
+        <div class="rec-game" onclick="openGame('${game.f}', '${game.name}')">
+            <div class="rec-icon">${game.icon}</div>
+            <div class="rec-title">${game.name}</div>
+            <div class="rec-btn">Launch Module ▶</div>
+        </div>
+    `;
+    
+    currentRecIdx = (currentRecIdx + 1) % REC_GAMES.length;
+}
+
+// Start recommended rotation (changes every 5000ms = 5 seconds)
+updateRecommended();
+setInterval(updateRecommended, 5000);
+
+
+// --- FULL HARDCODED GAME LIBRARY ---
+const GAMES = [
+    {"f":"clsnowrider.html","name":"Snow Rider 3D"},
+    {"f":"clspacewaves.html","name":"Space Wave"},
+    {"f":"cl3dash.html","name":"3 Dash"},
+    {"f":"Dragonxclient.html","name":"Dragon Client"},
+    {"f":"Eaglercraft-Alpha-1.2.6-Offline.html","name":"Eagler Alpha 1.2"},
+    {"f":"Eaglercraft-Beta-1.3-Offline.html","name":"Eagler Beta 1.3"},
+    {"f":"Eaglercraft-Indev-Offline (1).html","name":"Eagler Indev 1"},
+    {"f":"Eaglercraft-Indev-Offline.html","name":"Eagler Indev 2"},
+    {"f":"EaglercraftL_1.9_v0_7_0_Offline_Signed.html","name":"Eaglercraft 1.9"},
+    {"f":"EaglercraftX 1.8.8(u29).html","name":"Eaglercraft X"},
+    {"f":"EaglercraftZ_1.11.2.html","name":"Eaglercraft Z"},
+    {"f":"Helios-Offline (1).html","name":"Helios Offline"},
+    {"f":"Minceraft-I-NotMine_V6.html","name":"Minceraft V6"},
+    {"f":"cl1.html","name":"Module 01"},
+    {"f":"cl10bullets.html","name":"10 Bullets"},
+    {"f":"cl10minutestildawn.html","name":"10 Minutes Till Dawn"},
+    {"f":"cl12minibattles.html","name":"12 Mini Battles"},
+    {"f":"cl1on1soccer.html","name":"1 On 1 Soccer"},
+    {"f":"cl1v1lol.html","name":"1v1.LOL"},
+    {"f":"cl1v1tennis.html","name":"1v1 Tennis"},
+    {"f":"cl2048.html","name":"2048"},
+    {"f":"cl2048cupcakes.html","name":"2048 Cupcakes"},
+    {"f":"cl2Dshooting.html","name":"2D Shooting"},
+    {"f":"cl2doom.html","name":"2D Doom"},
+    {"f":"cl3pandas.html","name":"3 Pandas"},
+    {"f":"cl3pandasbrazil.html","name":"3 Pandas Brazil"},
+    {"f":"cl3pandasfantasy.html","name":"3 Pandas Fantasy"},
+    {"f":"cl3pandasjapan.html","name":"3 Pandas Japan"},
+    {"f":"cl3pandasnight.html","name":"3 Pandas Night"},
+    {"f":"cl3slices2.html","name":"3 Slices 2"},
+    {"f":"cl40xescape.html","name":"40x Escape"},
+    {"f":"cl4thandgoal.html","name":"4th and Goal"},
+    {"f":"cl500calibercontractz.html","name":"500 Caliber Contractz"},
+    {"f":"cl60secondsburgerrun.html","name":"60s Burger Run"},
+    {"f":"cl60secondssantarun.html","name":"60s Santa Run"},
+    {"f":"cl8ballclassic.html","name":"8 Ball Classic"},
+    {"f":"cl8ballpool.html","name":"8 Ball Pool"},
+    {"f":"cl9007199254740992.html","name":"9007199254740992"},
+    {"f":"cl99balls.html","name":"99 Balls"},
+    {"f":"cl99nightsitf.html","name":"99 Nights"},
+    {"f":"clADOFAI.html","name":"ADOFAI"},
+    {"f":"clADarkRoom.html","name":"A Dark Room"},
+    {"f":"clAdventureCapatalist.html","name":"Adventure Capitalist"},
+    {"f":"clAwesomePirates.html","name":"Awesome Pirates"},
+    {"f":"clB3313.html","name":"B3313"},
+    {"f":"clBBB.html","name":"Big Bad Ape"},
+    {"f":"clBMX2.html","name":"BMX 2"},
+    {"f":"clBTD1.html","name":"Bloons TD 1"},
+    {"f":"clBig_Time_Butter_Baron.html","name":"Big Time Butter Baron"},
+    {"f":"clBountyOfOne.html","name":"Bounty Of One"},
+    {"f":"clCartoonNetworkTableTennisUltimateTournament.html","name":"CN Table Tennis"},
+    {"f":"clCircloO2.html","name":"CircloO 2"},
+    {"f":"clDragonBallZTheLegacyofGoku.html","name":"DBZ Legacy of Goku"},
+    {"f":"clDragonQuestIX.html","name":"Dragon Quest IX"},
+    {"f":"clFF3.html","name":"Final Fantasy 3"},
+    {"f":"clFFsonic1.html","name":"Final Fantasy Sonic 1"},
+    {"f":"clFFsonic2.html","name":"Final Fantasy Sonic 2"},
+    {"f":"clFFsonic3.html","name":"Final Fantasy Sonic 3"},
+    {"f":"clFFsonic4.html","name":"Final Fantasy Sonic 4"},
+    {"f":"clFFsonic5.html","name":"Final Fantasy Sonic 5"},
+    {"f":"clFFsonic61.html","name":"Final Fantasy Sonic 6.1"},
+    {"f":"clFFsonic62.html","name":"Final Fantasy Sonic 6.2"},
+    {"f":"clFIFA07.html","name":"FIFA 07"},
+    {"f":"clFIFA10.html","name":"FIFA 10"},
+    {"f":"clFIFA11.html","name":"FIFA 11"},
+    {"f":"clFIFA2000(1).html","name":"FIFA 2000"},
+    {"f":"clFIFA99.html","name":"FIFA 99"},
+    {"f":"clFIFAinternationalsoccer.html","name":"FIFA Intl Soccer"},
+    {"f":"clFIFAroadtoworldcup98.html","name":"FIFA Road to World Cup"},
+    {"f":"clFIFAsoccer06.html","name":"FIFA 06"},
+    {"f":"clFIFAsoccer95.html","name":"FIFA 95"},
+    {"f":"clFIFAsoccer96.html","name":"FIFA 96"},
+    {"f":"clFIFAsoccer97.html","name":"FIFA 97"},
+    {"f":"clFIFAstreet2.html","name":"FIFA Street 2"},
+    {"f":"clFNAF.html","name":"FNAF 1"},
+    {"f":"clFNAF2.html","name":"FNAF 2"},
+    {"f":"clFNAF3.html","name":"FNAF 3"},
+    {"f":"clFNAF4.html","name":"FNAF 4"},
+    {"f":"clGettothetopalthoughthereisnotop.html","name":"Get To The Top"},
+    {"f":"clGoldenSunTheLostAge.html","name":"Golden Sun Lost Age"},
+    {"f":"clHaroldsbadday.html","name":"Harold's Bad Day"},
+    {"f":"clHiNoHomo.html","name":"Hi No Homo"},
+    {"f":"clJUMP.html","name":"JUMP"},
+    {"f":"clKenGriffeyJrPresentsMajorLeagueBaseball.html","name":"Ken Griffey Jr Baseball"},
+    {"f":"clMarioisMissingDoneRight.html","name":"Mario Is Missing"},
+    {"f":"clMetalSonicHyperdrive.html","name":"Metal Sonic Hyperdrive"},
+    {"f":"clNBAhangtime.html","name":"NBA Hangtime"},
+    {"f":"clNBAjam.html","name":"NBA Jam"},
+    {"f":"clNautilusOS.html","name":"Nautilus OS"},
+    {"f":"clNewSuperMarioWorld2AroundtheWorld.html","name":"New Super Mario World 2"},
+    {"f":"clNicktoonsFreezeFrameFrenzy.html","name":"Nicktoons Freeze Frame"},
+    {"f":"clNutsandBoltsScrewingPuzzle.html","name":"Nuts and Bolts Puzzle"},
+    {"f":"clPokemonemeraldrouge.html","name":"Pokemon Emerald Rogue"},
+    {"f":"clPokemonrocketedition.html","name":"Pokemon Rocket Edition"},
+    {"f":"clPokémonstunningsteel.html","name":"Pokemon Stunning Steel"},
+    {"f":"clSINGLEFILE.html","name":"SINGLEFILE"},
+    {"f":"clSonic1ScoreRush.html","name":"Sonic 1 Score Rush"},
+    {"f":"clSonic2ScoreRush.html","name":"Sonic 2 Score Rush"},
+    {"f":"clSonicHellfireSaga.html","name":"Sonic Hellfire Saga"},
+    {"f":"clStickmanKingdomclash.html","name":"Stickman Kingdom Clash"},
+    {"f":"clSuperMarioWorldThe SecretOfThe7GoldenStatues.html","name":"SMW 7 Golden Statues"},
+    {"f":"clTaikonoTatsujin.html","name":"Taiko no Tatsujin"},
+    {"f":"clUZG.html","name":"UZG"},
+    {"f":"clUltimatecardrivingsimulator.html","name":"Ultimate Car Driving"},
+    {"f":"clXevious.html","name":"Xevious"},
+    {"f":"clYoshisStrangeQuest.html","name":"Yoshi's Strange Quest"},
+    {"f":"clabandoned3.html","name":"Abandoned 3"},
+    {"f":"clabsolutemadness.html","name":"Absolute Madness"},
+    {"f":"clacecombat2.html","name":"Ace Combat 2"},
+    {"f":"clacecombat3.html","name":"Ace Combat 3"},
+    {"f":"clacegangstertaxi.html","name":"Ace Gangster Taxi"},
+    {"f":"clachievementunlocked.html","name":"Achievement Unlocked"},
+    {"f":"clachievmentunlocked.html","name":"Achievement Unlocked 1"},
+    {"f":"clachievmentunlocked2.html","name":"Achievement Unlocked 2"},
+    {"f":"clachievmentunlocked3.html","name":"Achievement Unlocked 3"},
+    {"f":"clachillies.html","name":"Achillies"},
+    {"f":"clachillies2.html","name":"Achillies 2"},
+    {"f":"cladayintheoffice.html","name":"A Day in the Office"},
+    {"f":"cladvancewars.html","name":"Advance Wars"},
+    {"f":"cladvancewars2.html","name":"Advance Wars 2"},
+    {"f":"cladventneon.html","name":"Advent Neon"},
+    {"f":"cladventurecapitalist.html","name":"Adventure Capitalist"},
+    {"f":"clagariolite.html","name":"Agario Lite"},
+    {"f":"clageofwar.html","name":"Age Of War"},
+    {"f":"clageofwar2.html","name":"Age Of War 2"},
+    {"f":"clagesofconflict.html","name":"Ages of Conflict"},
+    {"f":"clahoysurvival.html","name":"Ahoy Survival"},
+    {"f":"clai.html","name":"AI"},
+    {"f":"clakoopasrevenge.html","name":"A Koopa's Revenge"},
+    {"f":"clakoopasrevenge2.html","name":"A Koopa's Revenge 2"},
+    {"f":"clakumanorgaiden.html","name":"Akumano Gaiden"},
+    {"f":"clalgebra.html","name":"Algebra"},
+    {"f":"clalienhominid.html","name":"Alien Hominid"},
+    {"f":"clalienhominidgba.html","name":"Alien Hominid GBA"},
+    {"f":"clalienskyinvasion.html","name":"Alien Sky Invasion"},
+    {"f":"clalientransporter.html","name":"Alien Transporter"},
+    {"f":"clalienvspredator.html","name":"Alien vs Predator"},
+    {"f":"clallbossesin1.html","name":"All Bosses in 1"},
+    {"f":"clallocation.html","name":"Allocation"},
+    {"f":"clamaze.html","name":"Amaze"},
+    {"f":"clamidstthesky.html","name":"Amidst The Sky"},
+    {"f":"clamigopancho.html","name":"Amigo Pancho"},
+    {"f":"clamigopancho2.html","name":"Amigo Pancho 2"},
+    {"f":"clamigopancho3.html","name":"Amigo Pancho 3"},
+    {"f":"clamigopancho4.html","name":"Amigo Pancho 4"},
+    {"f":"clamigopancho5.html","name":"Amigo Pancho 5"},
+    {"f":"clamigopancho6.html","name":"Amigo Pancho 6"},
+    {"f":"clamigopancho7.html","name":"Amigo Pancho 7"},
+    {"f":"clamongus.html","name":"Among Us"},
+    {"f":"clamorphous.html","name":"Amorphous"},
+    {"f":"clancientsins.html","name":"Ancient Sins"},
+    {"f":"clangry-birdsspace.html","name":"Angry Birds Space"},
+    {"f":"clangrybirds-space.html","name":"Angry Birds Space 2"},
+    {"f":"clangrybirds.html","name":"Angry Birds"},
+    {"f":"clangrybirdsshowdown.html","name":"Angry Birds Showdown"},
+    {"f":"clangrybirdsspace.html","name":"Angry Birds Space 3"},
+    {"f":"clanimalcrossingwildworld.html","name":"Animal Crossing WW"},
+    {"f":"clanotherworld.html","name":"Another World"},
+    {"f":"clapotris.html","name":"Apotris"},
+    {"f":"clappleshooter.html","name":"Apple Shooter"},
+    {"f":"clappleworm.html","name":"Apple Worm"},
+    {"f":"claquaparkio.html","name":"Aquapark.io"},
+    {"f":"clarceuslegend.html","name":"Arceus Legend"},
+    {"f":"clarcheryworldtour.html","name":"Archery World Tour"},
+    {"f":"clarena.html","name":"Arena"},
+    {"f":"clarmormayhem2.html","name":"Armor Mayhem 2"},
+    {"f":"clarsonate.html","name":"Arsonate"},
+    {"f":"clascent.html","name":"Ascent"},
+    {"f":"clasmallworldcup.html","name":"A Small World Cup"},
+    {"f":"classesmentexaminationque.html","name":"Assessment Exam"},
+    {"f":"clasteroids.html","name":"Asteroids"},
+    {"f":"clasteroidsALT.html","name":"Asteroids ALT"},
+    {"f":"clattackhole.html","name":"Attack Hole"},
+    {"f":"clavalanche.html","name":"Avalanche"},
+    {"f":"claviamasters.html","name":"Avia Masters"},
+    {"f":"claviamastersbuggy.html","name":"Avia Masters Buggy"},
+    {"f":"clawesomeplanes.html","name":"Awesome Planes"},
+    {"f":"clawesometanks.html","name":"Awesome Tanks"},
+    {"f":"clawesometanks2.html","name":"Awesome Tanks 2"},
+    {"f":"clbabeltower.html","name":"Babel Tower"},
+    {"f":"clbabychiccoadventure.html","name":"Baby Chicco Adventure"},
+    {"f":"clbabykaizo.html","name":"Baby Kaizo"},
+    {"f":"clbabysniperinvietnam.html","name":"Baby Sniper"},
+    {"f":"clbackrooms.html","name":"Backrooms"},
+    {"f":"clbackrooms2D.html","name":"Backrooms 2D"},
+    {"f":"clbackyardbaseball.html","name":"Backyard Baseball"},
+    {"f":"clbackyardbaseball09.html","name":"Backyard Baseball 09"},
+    {"f":"clbackyardbaseball10.html","name":"Backyard Baseball 10"},
+    {"f":"clbackyardsoccer.html","name":"Backyard Soccer"},
+    {"f":"clbaconmaydie.html","name":"Bacon May Die"},
+    {"f":"clbadbodyguards.html","name":"Bad Bodyguards"},
+    {"f":"clbadicecream.html","name":"Bad Ice Cream"},
+    {"f":"clbadmondaysimulator.html","name":"Bad Monday Simulator"},
+    {"f":"clbadparenting.html","name":"Bad Parenting"},
+    {"f":"clbadpiggies.html","name":"Bad Piggies"},
+    {"f":"clbadtimesim.html","name":"Bad Time Sim"},
+    {"f":"clbadtimesimulator.html","name":"Bad Time Simulator"},
+    {"f":"clbaldidecomp.html","name":"Baldi Decomp"},
+    {"f":"clbaldisbasics.html","name":"Baldi's Basics"},
+    {"f":"clbaldisbasicsremaster.html","name":"Baldi's Basics Remaster"},
+    {"f":"clbaldisfunnewschoolultimate.html","name":"Baldi's Fun New School"},
+    {"f":"clballblast.html","name":"Ball Blast"},
+    {"f":"clballsandbricks.html","name":"Balls and Bricks"},
+    {"f":"clballsandbricksgood.html","name":"Balls and Bricks Good"},
+    {"f":"clbananasimulator.html","name":"Banana Simulator"},
+    {"f":"clbanditgunslingers.html","name":"Bandit Gunslingers"},
+    {"f":"clbanjokazooie.html","name":"Banjo Kazooie"},
+    {"f":"clbanjotooie.html","name":"Banjo Tooie"},
+    {"f":"clbankbreakout2.html","name":"Bank Breakout 2"},
+    {"f":"clbankrobbery2.html","name":"Bank Robbery 2"},
+    {"f":"clbarryhasasecret.html","name":"Barry Has a Secret"},
+    {"f":"clbas.html","name":"Bas"},
+    {"f":"clbaseballbros.html","name":"Baseball Bros"},
+    {"f":"clbasketballfrvr.html","name":"Basketball FRVR"},
+    {"f":"clbasketballlegends.html","name":"Basketball Legends"},
+    {"f":"clbasketballstars.html","name":"Basketball Stars"},
+    {"f":"clbasketbattle.html","name":"Basket Battle"},
+    {"f":"clbasketbros.html","name":"Basket Bros"},
+    {"f":"clbasketrandomgood.html","name":"Basket Random Good"},
+    {"f":"clbasketslamdunk2.html","name":"Basket Slam Dunk 2"},
+    {"f":"clbatterup.html","name":"Batter Up"},
+    {"f":"clbattlekarts.html","name":"Battle Karts"},
+    {"f":"clbattles.html","name":"Battles"},
+    {"f":"clbattlesim.html","name":"Battle Sim"},
+    {"f":"clbattlezone.html","name":"Battlezone"},
+    {"f":"clbazookaboy.html","name":"Bazooka Boy"},
+    {"f":"clbballlegend.html","name":"B-Ball Legend"},
+    {"f":"clbeachboxingsim.html","name":"Beach Boxing Sim"},
+    {"f":"clbeamrider.html","name":"Beamrider"},
+    {"f":"clbearbarians.html","name":"Bearbarians"},
+    {"f":"clbearsus.html","name":"Bearsus"},
+    {"f":"clben10alienforce.html","name":"Ben 10 Alien Force"},
+    {"f":"clben10omniverse.html","name":"Ben 10 Omniverse"},
+    {"f":"clben10protector.html","name":"Ben 10 Protector of Earth"},
+    {"f":"clben10racing.html","name":"Ben 10 Racing"},
+    {"f":"clben10ultimatealien.html","name":"Ben 10 Ultimate Alien"},
+    {"f":"clbergentruck201x.html","name":"Bergen Truck 201x"},
+    {"f":"clbfdia5b.html","name":"BFDIA 5b"},
+    {"f":"clbigicetowertinysquare.html","name":"Big Ice Tower"},
+    {"f":"clbigneontowertinysquare.html","name":"Big Neon Tower"},
+    {"f":"clbigshotboxing2.html","name":"Big Shot Boxing 2"},
+    {"f":"clbigtowertinysquare.html","name":"Big Tower Tiny Square"},
+    {"f":"clbigtowertinysquare2.html","name":"Big Tower Tiny Square 2"},
+    {"f":"clbigtowertinysquare2good.html","name":"Big Tower Tiny Square 2 Good"},
+    {"f":"clbindingofisaccsheeptime.html","name":"Binding of Isaac Sheep Time"},
+    {"f":"clbioevil4.html","name":"Bio Evil 4"},
+    {"f":"clbitlifeencrypted.html","name":"BitLife Encrypted"},
+    {"f":"clbitplanes.html","name":"Bit Planes"},
+    {"f":"clblackjack.html","name":"Blackjack"},
+    {"f":"clblackjackbattle.html","name":"Blackjack Battle"},
+    {"f":"clblackjackhhhh.html","name":"Blackjack HHHH"},
+    {"f":"clblacksmithlab.html","name":"Blacksmith Lab"},
+    {"f":"clblastronaut.html","name":"Blastronaut"},
+    {"f":"clblazedrifter.html","name":"Blaze Drifter"},
+    {"f":"clbleachvsnaruto.html","name":"Bleach vs Naruto"},
+    {"f":"clblightborne.html","name":"Blightborne"},
+    {"f":"clblobsstory2.html","name":"Blobs Story 2"},
+    {"f":"clblockblast.html","name":"Block Blast"},
+    {"f":"clblockcraftparkour.html","name":"Blockcraft Parkour"},
+    {"f":"clblockcraftshooter.html","name":"Blockcraft Shooter"},
+    {"f":"clblockpost.html","name":"Blockpost"},
+    {"f":"clblockthepig.html","name":"Block The Pig"},
+    {"f":"clblockydemolitionderby.html","name":"Blocky Demolition Derby"},
+    {"f":"clblockysnakes.html","name":"Blocky Snakes"},
+    {"f":"clbloodmoney.html","name":"Blood Money"},
+    {"f":"clbloodtournament.html","name":"Blood Tournament"},
+    {"f":"clbloons.html","name":"Bloons"},
+    {"f":"clbloons2.html","name":"Bloons 2"},
+    {"f":"clbloonsTD1.html","name":"Bloons TD 1"},
+    {"f":"clbloonsTD2.html","name":"Bloons TD 2"},
+    {"f":"clbloonsTD3.html","name":"Bloons TD 3"}
+];
+
+// DYNAMIC ICON ASSIGNMENT BASED ON TITLE
+function getIconForGame(name) {
+    const n = name.toLowerCase();
+    if (n.includes('car') || n.includes('drive') || n.includes('rider')) return '🏎️';
+    if (n.includes('space') || n.includes('alien') || n.includes('galaxy')) return '🚀';
+    if (n.includes('mine') || n.includes('craft') || n.includes('block')) return '⛏️';
+    if (n.includes('ball') || n.includes('basket') || n.includes('soccer') || n.includes('fifa')) return '⚽';
+    if (n.includes('math') || n.includes('logic') || n.includes('2048') || n.includes('puzzle')) return '🧩';
+    if (n.includes('fight') || n.includes('combat') || n.includes('war')) return '⚔️';
+    if (n.includes('fnaf') || n.includes('horror') || n.includes('scary')) return '👻';
+    return '📘';
+}
 
 function renderGrid(filter = "") {
     const grid = document.getElementById('gamesGrid');
     grid.innerHTML = "";
+    
     GAMES.filter(g => g.name.toLowerCase().includes(filter.toLowerCase())).forEach(game => {
         const card = document.createElement('div');
         card.className = 'gameCard';
         card.onclick = () => openGame(game.f, game.name);
-        card.innerHTML = `<div class="gameIcon">📘</div><div class="gameName">${game.name}</div>`;
+        
+        const icon = getIconForGame(game.name);
+        
+        card.innerHTML = `
+            <div class="gameIcon">${icon}</div>
+            <div class="gameName">${game.name}</div>
+        `;
         grid.appendChild(card);
     });
 }
@@ -238,16 +464,21 @@ function openGame(file, title) {
     document.getElementById('activeTitle').textContent = title;
     frame.src = file.startsWith('http') ? file : BASE_URL + file;
     overlay.classList.add('open');
+    document.body.style.overflow = "hidden"; // Prevent background scrolling
 }
 
 function closeGame() {
     const overlay = document.getElementById('gameOverlay');
     const frame = document.getElementById('gameFrame');
-    frame.src = "";
+    frame.src = "about:blank"; // Stop audio/video playing in background
     overlay.classList.remove('open');
+    document.body.style.overflow = "auto";
 }
 
+// Search functionality
 document.getElementById('searchInput').oninput = (e) => renderGrid(e.target.value);
+
+// Initialize Grid on load
 renderGrid();
 </script>
 </body>
