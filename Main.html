@@ -325,23 +325,23 @@ setInterval(() => {
 // --- CURSOR SHOP SYSTEM ---
 const CURSORS = [
     { id: "def", name: "Default Mouse", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 0 },
-    { id: "m1", name: "Red Crosshair", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
-    { id: "m2", name: "Neon Glow Arrow", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
-    { id: "m3", name: "Diamond Cursor", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
-    { id: "m4", name: "Sword Cursor", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
+    { id: "m1", name: "Egg Twins", src: "https://marabou-cat.github.io/GamesV1/Twins.png", price: 500 },
+    { id: "m2", name: "Gold Ingot", src: "https://marabou-cat.github.io/GamesV1/Goldingot.png", price: 500 },
+    { id: "m3", name: "Cheesy Cursor", src: "https://marabou-cat.github.io/GamesV1/mouse.png", price: 750 },
+    { id: "m4", name: "Sword Cursor", src: "https://marabou-cat.github.io/GamesV1/Katana.png", price: 500 },
     { id: "m5", name: "Pizza Slice", src: "pizza.png", price: 500 },
-    { id: "custom", name: "Upload Custom", src: "https://cdn-icons-png.flaticon.com/512/109/109612.png", price: 1000, isCustom: true },
+    { id: "custom", name: "Upload Custom", src: "https://cdn-icons-png.flaticon.com/512/109/109612.png", price: 1250, isCustom: true },
     { id: "dragon", name: "Mythic Dragon", src: "Dragon.gif", price: "Wheel Event Only", isEvent: true, color: "#ff0000" },
     
     // SILVER BATTLE PASS CURSORS
-    { id: "bp1", name: "Silver Arrow", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp2", name: "Silver Crosshair", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp3", name: "Silver Target", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
+    { id: "bp1", name: "Silver Apple", src: "https://marabou-cat.github.io/GamesV1/Apple.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
+    { id: "bp2", name: "Robot BOB", src: "https://marabou-cat.github.io/GamesV1/Robot.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
+    { id: "bp3", name: "Silver Statue", src: "https://marabou-cat.github.io/GamesV1/Statue.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
 
     // GOLDEN BATTLE PASS CURSORS
-    { id: "bp4", name: "Golden Arrow", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "bp5", name: "Golden Crosshair", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "bp6", name: "Golden Target", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" }
+    { id: "bp4", name: "Midas Sword", src: "https://marabou-cat.github.io/GamesV1/Midas.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
+    { id: "bp5", name: "Golden Flame", src: "https://marabou-cat.github.io/GamesV1/Flame.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
+    { id: "bp6", name: "Royal Gleam", src: "https://marabou-cat.github.io/GamesV1/Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" }
 ];
 
 let ownedCursors = JSON.parse(localStorage.getItem('ownedCursors')) || ["def"];
