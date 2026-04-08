@@ -16,8 +16,13 @@
             --r: 16px;
         }
 
-        *, html, body, button, a, input { margin: 0; padding: 0; box-sizing: border-box; cursor: none !important; }
+        /* HIDE DEFAULT COMPUTER CURSOR EVERYWHERE */
+        *, html, body, button, a, input { 
+            margin: 0; padding: 0; box-sizing: border-box; 
+            cursor: none !important;
+        }
 
+        /* DOM-BASED CUSTOM CURSOR */
         #dom-cursor {
             position: fixed; top: 0; left: 0; width: 32px; pointer-events: none; z-index: 9999999;
             transform: translate(-2px, -2px); display: none; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
@@ -33,10 +38,14 @@
         .coin-tracker { background: rgba(0,0,0,0.5); border: 1px solid var(--p1); padding: 8px 16px; border-radius: 20px; font-weight: 800; color: #ffd700; display: flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 0 15px rgba(255, 215, 0, 0.2); }
         .coin-tracker span { color: #fff; font-size: 16px; }
 
-        .btn-nav { background: var(--p2); border: 1px solid var(--p0); color: var(--w); padding: 10px 15px; border-radius: 20px; font-weight: 700; transition: 0.3s; font-size: 13px; }
+        .btn-nav { background: var(--p2); border: 1px solid var(--p0); color: var(--w); padding: 10px 15px; border-radius: 20px; font-weight: 700; transition: 0.3s; font-size: 13px; text-decoration: none; display: inline-block; }
         .btn-nav:hover { background: var(--p0); color: #fff; box-shadow: 0 0 15px rgba(144, 224, 239, 0.4); transform: translateY(-2px); }
         .btn-redeem { background: #3ba55c; border: none; color: #fff; box-shadow: 0 0 10px rgba(59, 165, 92, 0.5); }
         .btn-redeem:hover { background: #43b581; box-shadow: 0 0 15px rgba(59, 165, 92, 0.8); }
+        .btn-event { background: #ff0044; border: none; color: #fff; box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); animation: pulseEvent 2s infinite; }
+        .btn-event:hover { background: #ff3366; box-shadow: 0 0 20px rgba(255, 0, 68, 0.8); animation: none; transform: translateY(-2px); }
+
+        @keyframes pulseEvent { 0% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } 50% { box-shadow: 0 0 20px rgba(255, 0, 68, 0.8); } 100% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } }
 
         .main { padding: 110px 24px 40px; max-width: 1400px; margin: 0 auto; text-align: center; }
         .hero { margin-bottom: 20px; }
@@ -109,9 +118,12 @@
         <div class="coin-tracker" title="Earn 100 ExamCoins every 10 minutes!">
             🪙 <span id="coinDisplay">0</span> ExamCoins
         </div>
+        
+        <a href="https://marabou-cat.github.io/GamesV1/Event.html" target="_blank" class="btn-nav btn-event">🎡 Spin Event</a>
+        
         <button class="btn-nav btn-redeem" onclick="redeemCode()">🎁 Redeem</button>
-        <button class="btn-nav" onclick="openShop()" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Cursor Shop</button>
-        <button class="btn-nav" onclick="openGame('https://mb.webs.vc', 'Encrypted Web Browser')">🌐 Web Browser</button>
+        <button class="btn-nav" onclick="openShop()" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Shop</button>
+        <button class="btn-nav" onclick="openGame('https://mb.webs.vc', 'Encrypted Web Browser')">🌐 Browser</button>
     </div>
 </header>
 
@@ -200,7 +212,6 @@ function redeemCode() {
                 return;
             }
 
-            // INTERCEPT THE 10000 CODE FOR THE DRAGON CURSOR
             if (amount === 10000) {
                 if (ownedCursors.includes("dragon")) {
                     alert("✅ You already own the Event Dragon Cursor!");
@@ -211,11 +222,10 @@ function redeemCode() {
                 localStorage.setItem('ownedCursors', JSON.stringify(ownedCursors));
                 localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
                 renderShop();
-                equipCursor("dragon"); // Auto-equip it!
+                equipCursor("dragon"); 
                 alert("🐉 INCREDIBLE! You redeemed the 1% Prize and unlocked the Dragon Cursor!");
                 showToast("Dragon Cursor Unlocked!");
             } else {
-                // Normal Coin Reward
                 examCoins += amount;
                 usedCodes.push(input);
                 localStorage.setItem('schoolExamsCoins', examCoins);
@@ -292,13 +302,12 @@ setInterval(() => {
 // --- CURSOR SHOP SYSTEM ---
 const CURSORS = [
     { id: "def", name: "Default Mouse", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 0 },
-    { id: "m1", name: "Mouse Cursor", src: "https://marabou-cat.github.io/GamesV1/mouse.png", price: 500 },
+    { id: "m1", name: "Red Crosshair", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
     { id: "m2", name: "Neon Glow Arrow", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
-    { id: "m3", name: "Diamond Cursor", src: "https://marabou-cat.github.io/GamesV1/DefMouse.png", price: 500 },
+    { id: "m3", name: "Mouse cursor", src: "https://marabou-cat.github.io/GamesV1/Mouse.png", price: 500 },
     { id: "m4", name: "Sword Cursor", src: "https://marabou-cat.github.io/GamesV1/Katana.png", price: 500 },
     { id: "m5", name: "Pizza Slice", src: "pizza.png", price: 500 },
     { id: "custom", name: "Upload Custom", src: "https://cdn-icons-png.flaticon.com/512/109/109612.png", price: 1000, isCustom: true },
-    // EVENT DRAGON CURSOR
     { id: "dragon", name: "Mythic Dragon", src: "Dragon.gif", price: "Event", isEvent: true }
 ];
 
