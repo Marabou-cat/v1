@@ -33,6 +33,7 @@
         
         .coin-tracker { background: rgba(0,0,0,0.5); border: 1px solid var(--p1); padding: 8px 16px; border-radius: 20px; font-weight: 800; color: #ffd700; display: flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 0 15px rgba(255, 215, 0, 0.2); }
         .coin-tracker span { color: #fff; font-size: 16px; }
+        .gem-tracker { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 15px rgba(0, 255, 204, 0.2); }
 
         .btn-nav { background: var(--p2); border: 1px solid var(--p0); color: var(--w); padding: 10px 15px; border-radius: 20px; font-weight: 700; transition: 0.3s; font-size: 13px; text-decoration: none; display: inline-block; cursor: pointer; }
         .btn-nav:hover { background: var(--p0); color: #fff; box-shadow: 0 0 15px rgba(144, 224, 239, 0.4); transform: translateY(-2px); }
@@ -122,8 +123,11 @@
         <div class="coin-tracker" title="Earn ExamCoins by playing and from Pets!">
             🪙 <span id="coinDisplay">0</span> ExamCoins
         </div>
+        <div class="coin-tracker gem-tracker" title="Premium Currency!">
+            💎 <span id="gemDisplay">0</span> Gems
+        </div>
         
-        <a href="Pass.html" class="btn-nav btn-bp">🎫 Battle Pass</a>
+        <a href="battlepass.html" class="btn-nav btn-bp">🎫 Battle Pass</a>
         <a href="Event.html" target="_blank" class="btn-nav btn-event">🎡 Spin Event</a>
         <button class="btn-nav btn-redeem" onclick="redeemCode()">🎁 Redeem</button>
         
@@ -194,42 +198,21 @@
 <script>
 // --- HARDWARE ACCELERATED DOM CURSOR TRACKING ---
 const domCursor = document.getElementById('dom-cursor');
-let isOverIframe = false;
-let mouseX = 0, mouseY = 0;
-let cursorVisible = false;
+let isOverIframe = false; let mouseX = 0, mouseY = 0; let cursorVisible = false;
 
 document.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-    if (!cursorVisible && !isOverIframe) {
-        domCursor.style.display = 'block';
-        cursorVisible = true;
-    }
+    mouseX = e.clientX; mouseY = e.clientY;
+    if (!cursorVisible && !isOverIframe) { domCursor.style.display = 'block'; cursorVisible = true; }
 });
-
 function updateCursorPosition() {
-    if (cursorVisible && !isOverIframe) {
-        domCursor.style.transform = `translate3d(${mouseX - 2}px, ${mouseY - 2}px, 0)`;
-    }
+    if (cursorVisible && !isOverIframe) { domCursor.style.transform = `translate3d(${mouseX - 2}px, ${mouseY - 2}px, 0)`; }
     requestAnimationFrame(updateCursorPosition);
 }
 requestAnimationFrame(updateCursorPosition);
 
-document.getElementById('gameFrame').addEventListener('mouseenter', () => { 
-    isOverIframe = true; 
-    domCursor.style.display = 'none'; 
-    cursorVisible = false;
-});
-document.getElementById('gameFrame').addEventListener('mouseleave', () => { 
-    isOverIframe = false; 
-});
-
-document.addEventListener('mouseout', (e) => {
-    if (!e.relatedTarget && !isOverIframe) {
-        domCursor.style.display = 'none';
-        cursorVisible = false;
-    }
-});
+document.getElementById('gameFrame').addEventListener('mouseenter', () => { isOverIframe = true; domCursor.style.display = 'none'; cursorVisible = false; });
+document.getElementById('gameFrame').addEventListener('mouseleave', () => { isOverIframe = false; });
+document.addEventListener('mouseout', (e) => { if (!e.relatedTarget && !isOverIframe) { domCursor.style.display = 'none'; cursorVisible = false; } });
 
 // BASE URL FOR REPOSITORY
 const BASE_URL = "https://anchors-arcade.github.io/V4/UGS-Files/";
@@ -251,43 +234,29 @@ function redeemCode() {
 
             if (isNaN(amount) || !hash) throw new Error("Invalid Format");
 
-            if (usedCodes.includes(input)) {
-                alert("❌ This code has already been redeemed!");
-                return;
-            }
+            if (usedCodes.includes(input)) { alert("❌ This code has already been redeemed!"); return; }
 
             if (amount === 10000) {
-                if (ownedCursors.includes("dragon")) {
-                    alert("✅ You already own the Event Dragon Cursor!");
-                    return;
-                }
-                ownedCursors.push("dragon");
-                usedCodes.push(input);
+                if (ownedCursors.includes("dragon")) { alert("✅ You already own the Event Dragon Cursor!"); return; }
+                ownedCursors.push("dragon"); usedCodes.push(input);
                 localStorage.setItem('ownedCursors', JSON.stringify(ownedCursors));
                 localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
-                renderShop();
-                equipCursor("dragon"); 
+                renderShop(); equipCursor("dragon"); 
                 alert("🐉 INCREDIBLE! You redeemed the 1% Prize and unlocked the Dragon Cursor!");
                 showToast("Dragon Cursor Unlocked!");
             } else {
-                examCoins += amount;
-                usedCodes.push(input);
+                examCoins += amount; usedCodes.push(input);
                 localStorage.setItem('schoolExamsCoins', examCoins);
                 localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
                 updateStatsUI();
                 alert(`✅ Success! ${amount} ExamCoins have been added to your account.`);
                 showToast(amount > 0 ? `+${amount} Coins Redeemed!` : `${amount} Coins... Oh no.`);
             }
-        } else {
-            throw new Error("Invalid Prefix");
-        }
-    } catch (e) {
-        alert("❌ Invalid or corrupted Redeem Code.");
-    }
+        } else { throw new Error("Invalid Prefix"); }
+    } catch (e) { alert("❌ Invalid or corrupted Redeem Code."); }
 }
 
 // --- RECOMMENDED ROTATION LOGIC ---
-// FIXED ARRAY: "f:" added to the Soundboard URL!
 const REC_GAMES = [
     { f: "cl3dash.html", name: "3 Dash", icon: "🔺" },
     { f: "clsnowrider.html", name: "Snow Rider 3D", icon: "🏂" },
@@ -316,19 +285,21 @@ function updateRecommended() {
 updateRecommended();
 setInterval(updateRecommended, 5000);
 
-// --- PLAYTIME, COINS & PET SYSTEM INTEGRATION ---
+// --- PLAYTIME, COINS, GEMS & PET SYSTEM INTEGRATION ---
 let examCoins = parseInt(localStorage.getItem('schoolExamsCoins') || '0');
+let gems = parseInt(localStorage.getItem('schoolExamsGems') || '0');
 let playSeconds = parseInt(localStorage.getItem('schoolExamsPlayTimeSecs') || '0');
 let gameStartTime = null;
 
-// EXPANDED PET DATA
+// EXPANDED PET DATA (Now Includes King Midas!)
 const PET_SHOP = [
     { id: "doge", name: "Pixel Doge", icon: "🐕", price: 1000, baseCoin: 5 },
     { id: "cat", name: "Cyber Kitty", icon: "🐈", price: 3000, baseCoin: 9 },
     { id: "frog", name: "Ninja Frog", icon: "🐸", price: 5000, baseCoin: 15 },
     { id: "dragon", name: "Neon Dragon", icon: "🐲", price: 10000, baseCoin: 25 },
     { id: "panda", name: "Ghost Panda", icon: "🐼", price: 36700, baseCoin: 40 },
-    { id: "kraken", name: "67 Kraken", icon: "🦑", price: 67777, baseCoin: 67 }
+    { id: "kraken", name: "67 Kraken", icon: "🦑", price: 67777, baseCoin: 67 },
+    { id: "midas", name: "King Midas", icon: "👑", price: "Premium Pass Lvl 50", baseCoin: 1000, isEvent: true, color: "#ffd700" }
 ];
 
 let ownedPets = JSON.parse(localStorage.getItem('schoolExamsOwnedPets')) || [];
@@ -341,16 +312,15 @@ function calculatePetNeglect() {
     let timeNow = Date.now();
     let hoursOffline = (timeNow - lastOnline) / (1000 * 60 * 60);
 
-    // If offline for 12+ hours and they actually own pets
     if (hoursOffline >= 12 && Object.keys(petAges).length > 0) {
         let levelsToLose = Math.floor(hoursOffline / 12);
-        let secondsToLose = levelsToLose * 600; // 600 secs = 1 level
+        let secondsToLose = levelsToLose * 600; 
         let lostLevelsAlert = false;
 
         for (let key in petAges) {
-            if (petAges[key] >= 600) { // Only demote if they have levels to lose
+            if (petAges[key] >= 600) { 
                 petAges[key] -= secondsToLose;
-                if (petAges[key] < 0) petAges[key] = 0; // Minimum is level 1 (0 seconds)
+                if (petAges[key] < 0) petAges[key] = 0; 
                 lostLevelsAlert = true;
             }
         }
@@ -362,11 +332,8 @@ function calculatePetNeglect() {
             }, 1000);
         }
     }
-    // Update it so it doesn't loop
     localStorage.setItem('schoolExamsLastOnline', Date.now());
 }
-
-// Run the neglect check immediately on load
 calculatePetNeglect();
 
 function savePetData() {
@@ -377,6 +344,7 @@ function savePetData() {
 
 function updateStatsUI() {
     document.getElementById('coinDisplay').innerText = examCoins.toLocaleString();
+    document.getElementById('gemDisplay').innerText = gems.toLocaleString();
     document.getElementById('stat-time').innerText = localStorage.getItem('schoolExamsPlayTimeMins') || '0';
     document.getElementById('stat-count').innerText = localStorage.getItem('schoolExamsGamesOpened') || '0';
 }
@@ -392,11 +360,8 @@ function showToast(msg) {
 setInterval(() => {
     playSeconds++;
     localStorage.setItem('schoolExamsPlayTimeSecs', playSeconds);
-    
-    // Continuously update the last online tracker so it knows exactly when you leave
     localStorage.setItem('schoolExamsLastOnline', Date.now());
     
-    // Base Playtime Reward (100 per 10 min)
     if (playSeconds > 0 && playSeconds % 600 === 0) {
         examCoins += 100;
         localStorage.setItem('schoolExamsCoins', examCoins);
@@ -404,11 +369,9 @@ setInterval(() => {
         showToast("Time Reward! +100 ExamCoins added.");
     }
 
-    // Pet Reward Logic
     if (activePet) {
-        petAges[activePet] = (petAges[activePet] || 0) + 1; // Age pet by 1 second
+        petAges[activePet] = (petAges[activePet] || 0) + 1; 
         
-        // Give pet coins every 10 seconds
         if (playSeconds % 120 === 0) {
             const petInfo = PET_SHOP.find(p => p.id === activePet);
             if (petInfo) {
@@ -420,7 +383,6 @@ setInterval(() => {
             }
         }
         
-        // Update UI every 5 seconds so the age looks live
         if (playSeconds % 5 === 0) {
             savePetData();
             updatePetUI();
@@ -437,6 +399,9 @@ function renderPetShop() {
         </div>
     `;
     
+    // Load fresh data
+    ownedPets = JSON.parse(localStorage.getItem('schoolExamsOwnedPets')) || [];
+    
     PET_SHOP.forEach(pet => {
         const isOwned = ownedPets.includes(pet.id);
         const isEquipped = activePet === pet.id;
@@ -445,20 +410,27 @@ function renderPetShop() {
         const reward = pet.baseCoin + (level * 2);
 
         const card = document.createElement('div');
+        
+        let customBorder = pet.color && pet.isEvent && !isOwned ? `border-color: ${pet.color};` : '';
         card.className = `shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
+        card.style = customBorder;
         
         let btnHTML = "";
         if (isEquipped) {
             btnHTML = `<button class="shop-btn equipped">Equipped ✓</button>`;
         } else if (isOwned) {
             btnHTML = `<button class="shop-btn equip" onclick="equipPet('${pet.id}')" style="background:#3ba55c">Equip</button>`;
+        } else if (typeof pet.price === 'string') {
+            btnHTML = `<button class="shop-btn event-btn" style="${pet.color ? 'background:'+pet.color+'; color:#000; box-shadow:none;' : ''}">${pet.price}</button>`;
         } else {
             btnHTML = `<button class="shop-btn buy" onclick="buyPet('${pet.id}', ${pet.price})">Adopt 🪙 ${pet.price}</button>`;
         }
 
+        let nameColor = pet.isEvent && !isOwned ? (pet.color || '#ff0000') : '#fff';
+
         card.innerHTML = `
             <div style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));">${pet.icon}</div>
-            <h3 style="font-size: 16px; margin-bottom: 5px; color: #fff;">${pet.name}</h3>
+            <h3 style="font-size: 16px; margin-bottom: 5px; color: ${nameColor};">${pet.name}</h3>
             <p style="font-size: 12px; color: #ffd700; margin-bottom: 5px;">Earns: +${reward} 🪙/2m</p>
             ${isOwned ? `<p style="font-size: 11px; color: var(--p1); margin-bottom: 10px;">Level ${level}</p>` : '<p style="margin-bottom:10px;"></p>'}
             ${btnHTML}
@@ -491,20 +463,18 @@ function equipPet(id) {
 function feedPet() {
     if (!activePet) return;
     
-    // Dynamic Feed Cost Calculation
     const ageSecs = petAges[activePet] || 0;
     const level = Math.floor(ageSecs / 600) + 1;
     const feedCost = 50 + ((level - 1) * 25); 
 
     if (examCoins >= feedCost) {
         examCoins -= feedCost;
-        petAges[activePet] = (petAges[activePet] || 0) + 600; // Adds 10 mins of age
+        petAges[activePet] = (petAges[activePet] || 0) + 600; 
         savePetData();
         updateStatsUI();
         updatePetUI();
         showToast("🍖 Pet Fed! +1 Age Level");
         
-        // Quick visual pop
         const petIcon = document.getElementById('activePetIcon');
         if(petIcon) {
             petIcon.style.transform = 'scale(1.3)';
@@ -527,7 +497,7 @@ function updatePetUI() {
     const ageSecs = petAges[activePet] || 0;
     const level = Math.floor(ageSecs / 600) + 1; 
     const currentReward = petInfo.baseCoin + (level * 2); 
-    const feedCost = 50 + ((level - 1) * 25); // Show dynamic cost on button
+    const feedCost = 50 + ((level - 1) * 25); 
 
     document.getElementById('petPanelContent').innerHTML = `
         <div class="rec-game">
@@ -583,7 +553,6 @@ function renderShop() {
     const container = document.getElementById('shopContainer');
     container.innerHTML = "";
     
-    // Refresh owned state in case they opened a BP pack in the other tab
     ownedCursors = JSON.parse(localStorage.getItem('ownedCursors')) || ["def"];
 
     CURSORS.forEach(item => {
@@ -600,8 +569,8 @@ function renderShop() {
             btnHTML = `<button class="shop-btn equipped">Equipped ✓</button>`;
         } else if (isOwned) {
             btnHTML = `<button class="shop-btn equip" onclick="equipCursor('${item.id}')">Equip</button>`;
-        } else if (item.isEvent) {
-            btnHTML = `<button class="shop-btn event-btn" style="${item.color ? 'background:'+item.color+';box-shadow:none;' : ''}">${item.price}</button>`;
+        } else if (typeof item.price === 'string') {
+            btnHTML = `<button class="shop-btn event-btn" style="${item.color ? 'background:'+item.color+'; color:#000; box-shadow:none;' : ''}">${item.price}</button>`;
         } else {
             btnHTML = `<button class="shop-btn buy" onclick="buyCursor('${item.id}', ${item.price})">Buy 🪙 ${item.price}</button>`;
         }
@@ -646,10 +615,7 @@ function equipCursor(id) {
     }
 }
 
-function openShop() { 
-    document.getElementById('shopOverlay').classList.add('open'); 
-    renderShop(); 
-}
+function openShop() { document.getElementById('shopOverlay').classList.add('open'); renderShop(); }
 function closeShop() { document.getElementById('shopOverlay').classList.remove('open'); }
 
 document.getElementById('customCursorInput').addEventListener('change', function(e) {
