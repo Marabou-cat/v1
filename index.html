@@ -26,6 +26,19 @@
 
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg0); color: var(--w); overflow-x: hidden; }
         .bg-grid { position: fixed; inset: 0; z-index: -1; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 40px 40px; }
+        
+        /* LOGIN OVERLAY STYLES */
+        .login-overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 9000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .login-box { background: var(--bg1); border: 2px solid var(--p0); border-radius: var(--r); padding: 40px; width: 100%; max-width: 400px; text-align: center; box-shadow: var(--shadow), var(--glow); }
+        .login-box h2 { color: var(--p1); margin-bottom: 20px; font-size: 28px; font-weight: 900; letter-spacing: -1px; }
+        .login-input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 2px solid var(--p2); background: var(--bg2); color: #fff; font-size: 16px; outline: none; transition: 0.3s; box-sizing: border-box; }
+        .login-input:focus { border-color: var(--p1); }
+        .btn-auth { background: var(--p0); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; transition: 0.3s; margin-bottom: 10px; }
+        .btn-auth:hover { background: var(--p1); color: var(--bg0); box-shadow: 0 0 15px var(--p1); }
+        .btn-secondary { background: transparent; border: 2px solid var(--p0); }
+        .btn-secondary:hover { background: rgba(0, 119, 182, 0.2); color: #fff; box-shadow: none; }
+        .auth-error { color: #ff4444; font-size: 14px; margin-bottom: 15px; display: none; font-weight: bold; }
+
         header.topbar { position: fixed; top: 0; left:0; right:0; height: 70px; background: rgba(0, 29, 61, 0.95); backdrop-filter: blur(10px); border-bottom: 2px solid var(--p0); display: flex; align-items: center; padding: 0 30px; z-index: 1000; justify-content: space-between; }
         .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 24px; color: var(--p1); text-decoration: none; letter-spacing: -1px; }
         .brand img { height: 45px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
@@ -156,10 +169,23 @@
 
 <div class="bg-grid"></div>
 
+<div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+        <img src="logo.png" alt="Logo" style="height: 60px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.5);" onerror="this.style.display='none'">
+        <h2>Portal Access</h2>
+        <div id="authError" class="auth-error">Invalid Username or Password</div>
+        <input type="text" id="authUsername" class="login-input" placeholder="Username" autocomplete="off">
+        <input type="password" id="authPassword" class="login-input" placeholder="Password">
+        
+        <button class="btn-auth" onclick="performAuth('login')">Log In</button>
+        <button class="btn-auth btn-secondary" onclick="performAuth('register')">Create Account</button>
+    </div>
+</div>
+
 <button class="btn-more-oval" onclick="toggleMoreMenu()">⋮ MORE</button>
 
 <div class="more-sidebar" id="moreSidebar">
-    <div class="more-sidebar-title">Extra Options</div>
+    <div class="more-sidebar-title" id="welcomeUserText">Extra Options</div>
     <button class="btn-nav btn-redeem" style="width: 100%; text-align: center;" onclick="redeemCode(); toggleMoreMenu();">🎁 Redeem Code</button>
     <button class="btn-nav" style="width: 100%; text-align: center;" onclick="openGame('https://mb.webs.vc', 'Encrypted Web Browser'); toggleMoreMenu();">🌐 Browser</button>
 </div>
@@ -244,6 +270,94 @@
 <input type="file" id="customCursorInput" accept="image/png, image/jpeg, image/gif" style="display: none;">
 
 <script>
+// --- BACKEND STATE MANAGEMENT ---
+let gameState = {
+    coins: 0,
+    gems: 0,
+    playtime: 0,
+    owned_cursors: ["def"],
+    equipped_cursor: "def",
+    owned_pets: [],
+    active_pet: "",
+    pet_ages: {},
+    last_online: Date.now()
+};
+
+// --- AUTHENTICATION & API COMMUNICATION ---
+async function performAuth(action) {
+    const user = document.getElementById('authUsername').value;
+    const pass = document.getElementById('authPassword').value;
+    const errBox = document.getElementById('authError');
+
+    if (!user || !pass) { errBox.innerText = "Please fill in all fields."; errBox.style.display = 'block'; return; }
+
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('username', user);
+    formData.append('password', pass);
+
+    try {
+        const response = await fetch('backend.php', { method: 'POST', body: formData });
+        const result = await response.json();
+
+        if (result.success) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('welcomeUserText').innerText = `Logged in as: ${user}`;
+            loadGameFromServer(); 
+        } else {
+            errBox.innerText = result.message;
+            errBox.style.display = 'block';
+        }
+    } catch (e) {
+        errBox.innerText = "Server communication error.";
+        errBox.style.display = 'block';
+    }
+}
+
+async function loadGameFromServer() {
+    const formData = new FormData(); formData.append('action', 'load');
+    try {
+        const response = await fetch('backend.php', { method: 'POST', body: formData });
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            gameState.coins = parseInt(result.data.coins) || 0;
+            gameState.gems = parseInt(result.data.gems) || 0;
+            gameState.playtime = parseInt(result.data.playtime) || 0;
+            gameState.owned_cursors = JSON.parse(result.data.owned_cursors || '["def"]');
+            gameState.equipped_cursor = result.data.equipped_cursor || 'def';
+            gameState.owned_pets = JSON.parse(result.data.owned_pets || '[]');
+            gameState.active_pet = result.data.active_pet || '';
+            gameState.pet_ages = JSON.parse(result.data.pet_ages || '{}');
+            gameState.last_online = parseInt(result.data.last_online) || Date.now();
+            
+            updateStatsUI();
+            applyCursor();
+            calculatePetNeglect();
+            updatePetUI();
+            
+            // Auto-Save Loop
+            setInterval(saveGameToServer, 10000); // Save every 10 seconds silently
+        }
+    } catch (e) { console.error("Failed to load data."); }
+}
+
+async function saveGameToServer() {
+    const formData = new FormData();
+    formData.append('action', 'save');
+    formData.append('coins', gameState.coins);
+    formData.append('gems', gameState.gems);
+    formData.append('playtime', gameState.playtime);
+    formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors));
+    formData.append('equipped_cursor', gameState.equipped_cursor);
+    formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
+    formData.append('active_pet', gameState.active_pet);
+    formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
+
+    try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
+}
+
+
 // --- HARDWARE ACCELERATED DOM CURSOR TRACKING ---
 const domCursor = document.getElementById('dom-cursor');
 let isOverIframe = false; let mouseX = 0, mouseY = 0; let cursorVisible = false;
@@ -291,26 +405,25 @@ function redeemCode() {
 
         if (prefix === "EXAM") {
             if (amount === 10000) {
-                if (ownedCursors.includes("dragon")) { alert("✅ You already own the Event Dragon Cursor!"); return; }
-                ownedCursors.push("dragon"); usedCodes.push(input);
-                localStorage.setItem('ownedCursors', JSON.stringify(ownedCursors));
+                if (gameState.owned_cursors.includes("dragon")) { alert("✅ You already own the Event Dragon Cursor!"); return; }
+                gameState.owned_cursors.push("dragon"); usedCodes.push(input);
                 localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
                 renderShop(); equipCursor("dragon"); 
                 alert("🐉 INCREDIBLE! You redeemed the 1% Prize and unlocked the Dragon Cursor!");
                 showToast("Dragon Cursor Unlocked!");
             } else {
-                examCoins += amount; usedCodes.push(input);
-                localStorage.setItem('schoolExamsCoins', examCoins);
+                gameState.coins += amount; usedCodes.push(input);
                 localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
                 updateStatsUI();
+                saveGameToServer();
                 alert(`✅ Success! ${amount} ExamCoins have been added to your account.`);
                 showToast(amount > 0 ? `+${amount} Coins Redeemed!` : `${amount} Coins... Oh no.`);
             }
         } else if (prefix === "GEM") {
-            gems += amount; usedCodes.push(input);
-            localStorage.setItem('schoolExamsGems', gems);
+            gameState.gems += amount; usedCodes.push(input);
             localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
             updateStatsUI();
+            saveGameToServer();
             alert(`💎 Success! ${amount} Gems have been added to your account.`);
             showToast(`+${amount} Gems Redeemed!`);
         }
@@ -346,11 +459,6 @@ function updateRecommended() {
 updateRecommended();
 setInterval(updateRecommended, 5000);
 
-// --- PLAYTIME, COINS, GEMS & PET SYSTEM INTEGRATION ---
-let examCoins = parseInt(localStorage.getItem('schoolExamsCoins') || '0');
-let gems = parseInt(localStorage.getItem('schoolExamsGems') || '0');
-let playSeconds = parseInt(localStorage.getItem('schoolExamsPlayTimeSecs') || '0');
-let gameStartTime = null;
 
 // EXPANDED PET DATA
 const PET_SHOP = [
@@ -363,50 +471,37 @@ const PET_SHOP = [
     { id: "midas", name: "King Midas", icon: "<img src='King.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Premium Pass Lvl 50", baseCoin: 1000, isEvent: true, color: "#ffd700" }
 ];
 
-let ownedPets = JSON.parse(localStorage.getItem('schoolExamsOwnedPets')) || [];
-let activePet = localStorage.getItem('schoolExamsActivePet') || null;
-let petAges = JSON.parse(localStorage.getItem('schoolExamsPetAges')) || {};
-
 // 🚨 OFFLINE PET NEGLECT CALCULATION 🚨
 function calculatePetNeglect() {
-    let lastOnline = parseInt(localStorage.getItem('schoolExamsLastOnline') || Date.now().toString());
     let timeNow = Date.now();
-    let hoursOffline = (timeNow - lastOnline) / (1000 * 60 * 60);
+    let hoursOffline = (timeNow - gameState.last_online) / (1000 * 60 * 60);
 
-    if (hoursOffline >= 12 && Object.keys(petAges).length > 0) {
+    if (hoursOffline >= 12 && Object.keys(gameState.pet_ages).length > 0) {
         let levelsToLose = Math.floor(hoursOffline / 12);
         let secondsToLose = levelsToLose * 600; 
         let lostLevelsAlert = false;
 
-        for (let key in petAges) {
-            if (petAges[key] >= 600) { 
-                petAges[key] -= secondsToLose;
-                if (petAges[key] < 0) petAges[key] = 0; 
+        for (let key in gameState.pet_ages) {
+            if (gameState.pet_ages[key] >= 600) { 
+                gameState.pet_ages[key] -= secondsToLose;
+                if (gameState.pet_ages[key] < 0) gameState.pet_ages[key] = 0; 
                 lostLevelsAlert = true;
             }
         }
         
         if (lostLevelsAlert) {
-            savePetData();
+            saveGameToServer();
             setTimeout(() => {
                 alert(`🚨 ANIMAL CONTROL ALERT 🚨\n\nYou abandoned your digital pets for ${Math.floor(hoursOffline)} hours! Out of pure boredom and neglect, they forgot their training and became dumber.\n\nYour pets have LOST ${levelsToLose} LEVEL(S)! 📉🧠\n\nLog in more often to keep their brains wrinkly!`);
             }, 1000);
         }
     }
-    localStorage.setItem('schoolExamsLastOnline', Date.now());
-}
-calculatePetNeglect();
-
-function savePetData() {
-    localStorage.setItem('schoolExamsOwnedPets', JSON.stringify(ownedPets));
-    localStorage.setItem('schoolExamsActivePet', activePet || "");
-    localStorage.setItem('schoolExamsPetAges', JSON.stringify(petAges));
 }
 
 function updateStatsUI() {
-    document.getElementById('coinDisplay').innerText = examCoins.toLocaleString();
-    document.getElementById('gemDisplay').innerText = gems.toLocaleString();
-    document.getElementById('stat-time').innerText = localStorage.getItem('schoolExamsPlayTimeMins') || '0';
+    document.getElementById('coinDisplay').innerText = gameState.coins.toLocaleString();
+    document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
+    document.getElementById('stat-time').innerText = Math.floor(gameState.playtime / 60); // Changed to show DB playtime
     document.getElementById('stat-count').innerText = localStorage.getItem('schoolExamsGamesOpened') || '0';
 }
 
@@ -419,38 +514,31 @@ function showToast(msg) {
 
 // MAIN INTERVAL LOOP (1 Second)
 setInterval(() => {
-    playSeconds++;
-    localStorage.setItem('schoolExamsPlayTimeSecs', playSeconds);
-    localStorage.setItem('schoolExamsLastOnline', Date.now());
-    
-    // Refresh stats quietly in case they won a direct deposit from the wheel in another tab
-    examCoins = parseInt(localStorage.getItem('schoolExamsCoins') || '0');
-    gems = parseInt(localStorage.getItem('schoolExamsGems') || '0'); // Also refresh gems quietly
-    updateStatsUI();
+    // Only run loop if logged in
+    if (document.getElementById('loginOverlay').style.display !== 'none') return;
 
-    if (playSeconds > 0 && playSeconds % 600 === 0) {
-        examCoins += 100;
-        localStorage.setItem('schoolExamsCoins', examCoins);
+    gameState.playtime++;
+    
+    if (gameState.playtime > 0 && gameState.playtime % 600 === 0) {
+        gameState.coins += 100;
         updateStatsUI();
         showToast("Time Reward! +100 ExamCoins added.");
     }
 
-    if (activePet) {
-        petAges[activePet] = (petAges[activePet] || 0) + 1; 
+    if (gameState.active_pet) {
+        gameState.pet_ages[gameState.active_pet] = (gameState.pet_ages[gameState.active_pet] || 0) + 1; 
         
-        if (playSeconds % 120 === 0) {
-            const petInfo = PET_SHOP.find(p => p.id === activePet);
+        if (gameState.playtime % 120 === 0) {
+            const petInfo = PET_SHOP.find(p => p.id === gameState.active_pet);
             if (petInfo) {
-                const level = Math.floor(petAges[activePet] / 600) + 1; 
+                const level = Math.floor(gameState.pet_ages[gameState.active_pet] / 600) + 1; 
                 const reward = petInfo.baseCoin + (level * 2); 
-                examCoins += reward;
-                localStorage.setItem('schoolExamsCoins', examCoins);
+                gameState.coins += reward;
                 updateStatsUI();
             }
         }
         
-        if (playSeconds % 5 === 0) {
-            savePetData();
+        if (gameState.playtime % 5 === 0) {
             updatePetUI();
         }
     }
@@ -465,12 +553,10 @@ function renderPetShop() {
         </div>
     `;
     
-    ownedPets = JSON.parse(localStorage.getItem('schoolExamsOwnedPets')) || [];
-    
     PET_SHOP.forEach(pet => {
-        const isOwned = ownedPets.includes(pet.id);
-        const isEquipped = activePet === pet.id;
-        const ageSecs = petAges[pet.id] || 0;
+        const isOwned = gameState.owned_pets.includes(pet.id);
+        const isEquipped = gameState.active_pet === pet.id;
+        const ageSecs = gameState.pet_ages[pet.id] || 0;
         const level = Math.floor(ageSecs / 600) + 1;
         const reward = pet.baseCoin + (level * 2);
 
@@ -505,12 +591,11 @@ function renderPetShop() {
 }
 
 function buyPet(id, price) {
-    if (examCoins >= price) {
-        examCoins -= price;
-        localStorage.setItem('schoolExamsCoins', examCoins); // FIX DEDUCT BUG
-        ownedPets.push(id);
-        petAges[id] = 0; 
-        savePetData();
+    if (gameState.coins >= price) {
+        gameState.coins -= price;
+        gameState.owned_pets.push(id);
+        gameState.pet_ages[id] = 0; 
+        saveGameToServer();
         updateStatsUI();
         showToast("Pet Adopted!");
         equipPet(id);
@@ -520,24 +605,23 @@ function buyPet(id, price) {
 }
 
 function equipPet(id) {
-    activePet = id;
-    savePetData();
+    gameState.active_pet = id;
+    saveGameToServer();
     renderPetShop();
     updatePetUI();
 }
 
 function feedPet() {
-    if (!activePet) return;
+    if (!gameState.active_pet) return;
     
-    const ageSecs = petAges[activePet] || 0;
+    const ageSecs = gameState.pet_ages[gameState.active_pet] || 0;
     const level = Math.floor(ageSecs / 600) + 1;
     const feedCost = 50 + ((level - 1) * 25); 
 
-    if (examCoins >= feedCost) {
-        examCoins -= feedCost;
-        localStorage.setItem('schoolExamsCoins', examCoins); // FIX DEDUCT BUG
-        petAges[activePet] = (petAges[activePet] || 0) + 600; 
-        savePetData();
+    if (gameState.coins >= feedCost) {
+        gameState.coins -= feedCost;
+        gameState.pet_ages[gameState.active_pet] = (gameState.pet_ages[gameState.active_pet] || 0) + 600; 
+        saveGameToServer();
         updateStatsUI();
         updatePetUI();
         showToast("🍖 Pet Fed! +1 Age Level");
@@ -554,14 +638,14 @@ function feedPet() {
 
 function updatePetUI() {
     const panel = document.getElementById('petPanel');
-    if (!activePet) {
+    if (!gameState.active_pet) {
         panel.style.display = "none";
         return;
     }
     
     panel.style.display = "block";
-    const petInfo = PET_SHOP.find(p => p.id === activePet);
-    const ageSecs = petAges[activePet] || 0;
+    const petInfo = PET_SHOP.find(p => p.id === gameState.active_pet);
+    const ageSecs = gameState.pet_ages[gameState.active_pet] || 0;
     const level = Math.floor(ageSecs / 600) + 1; 
     const currentReward = petInfo.baseCoin + (level * 2); 
     const feedCost = 50 + ((level - 1) * 25); 
@@ -601,15 +685,12 @@ const CURSORS = [
     { id: "bp6", name: "Royal Gleam", src: "Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" }
 ];
 
-let ownedCursors = JSON.parse(localStorage.getItem('ownedCursors')) || ["def"];
-let equippedCursor = localStorage.getItem('equippedCursor') || "def";
-
 function applyCursor() {
     let targetSrc = "";
-    if (equippedCursor === "custom") {
+    if (gameState.equipped_cursor === "custom") {
         targetSrc = localStorage.getItem('customCursorDataUrl') || CURSORS[0].src;
     } else {
-        const c = CURSORS.find(c => c.id === equippedCursor);
+        const c = CURSORS.find(c => c.id === gameState.equipped_cursor);
         targetSrc = c ? c.src : CURSORS[0].src;
     }
     domCursor.src = targetSrc;
@@ -619,12 +700,10 @@ function applyCursor() {
 function renderShop() {
     const container = document.getElementById('shopContainer');
     container.innerHTML = "";
-    
-    ownedCursors = JSON.parse(localStorage.getItem('ownedCursors')) || ["def"];
 
     CURSORS.forEach(item => {
-        const isOwned = ownedCursors.includes(item.id);
-        const isEquipped = equippedCursor === item.id;
+        const isOwned = gameState.owned_cursors.includes(item.id);
+        const isEquipped = gameState.equipped_cursor === item.id;
         const card = document.createElement('div');
         
         let customBorder = item.color && item.isEvent && !isOwned ? `border-color: ${item.color};` : '';
@@ -659,11 +738,10 @@ function renderShop() {
 }
 
 function buyCursor(id, price) {
-    if (examCoins >= price) {
-        examCoins -= price;
-        ownedCursors.push(id);
-        localStorage.setItem('schoolExamsCoins', examCoins);
-        localStorage.setItem('ownedCursors', JSON.stringify(ownedCursors));
+    if (gameState.coins >= price) {
+        gameState.coins -= price;
+        gameState.owned_cursors.push(id);
+        saveGameToServer();
         updateStatsUI();
         showToast("Cursor Purchased!");
         equipCursor(id);
@@ -673,8 +751,8 @@ function buyCursor(id, price) {
 }
 
 function equipCursor(id) {
-    equippedCursor = id;
-    localStorage.setItem('equippedCursor', id);
+    gameState.equipped_cursor = id;
+    saveGameToServer();
     applyCursor();
     renderShop();
     if(id === "custom" && !localStorage.getItem('customCursorDataUrl')) {
@@ -770,9 +848,10 @@ function closeGame() {
         let sessionTimeMins = Math.floor((Date.now() - gameStartTime) / 60000); 
         if (sessionTimeMins < 1 && (Date.now() - gameStartTime) > 5000) sessionTimeMins = 1; 
         
-        let totalTimeMins = parseInt(localStorage.getItem('schoolExamsPlayTimeMins') || '0');
-        localStorage.setItem('schoolExamsPlayTimeMins', totalTimeMins + sessionTimeMins);
+        // Add the play session time directly to the DB synced playtime
+        gameState.playtime += (sessionTimeMins * 60); 
         gameStartTime = null;
+        saveGameToServer();
     }
 
     frame.src = "about:blank";
@@ -783,12 +862,7 @@ function closeGame() {
 }
 
 document.getElementById('searchInput').oninput = (e) => renderGrid(e.target.value);
-
-// Initialize System
-applyCursor();
-updateStatsUI();
 renderGrid();
-updatePetUI();
 </script>
 </body>
 </html>
