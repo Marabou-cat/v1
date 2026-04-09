@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>SchoolExams - Current Event</title>
+    <title>SchoolExams - Daily Reward Wheel</title>
     <style>
         :root {
             --bg0: #000814; --bg1: #001d3d; --p0: #0077b6;
@@ -46,8 +46,8 @@
         .wheel { width: 100%; height: 100%; border-radius: 50%; border: 4px solid var(--p1); box-shadow: 0 0 30px rgba(144, 224, 239, 0.4); background: conic-gradient(
             #0077b6 0% 40%, 
             #00b4d8 40% 70%, 
-            #90e0ef 70% 90%, 
-            #03045e 90% 95%, 
+            #90e0ef 70% 85%, 
+            #03045e 85% 95%, 
             #ff0000 95% 100%
         ); transition: transform 4s cubic-bezier(0.175, 0.885, 0.32, 1.05); }
 
@@ -87,7 +87,7 @@
     <p>Earn 1 Spin for every 2 minutes of Playtime!</p>
 
     <div class="progress-container">
-        <div class="progress-text" id="spinStatus">Loading...</div>
+        <div class="progress-text" id="spinStatus">Connecting to Database...</div>
         <div class="progress-bar-bg">
             <div class="progress-bar-fill" id="playtimeBar"></div>
         </div>
@@ -112,27 +112,79 @@
     </div>
 
     <script>
+        let gameState = null;
         let currentRotation = 0;
         let isSpinning = false;
 
+        // --- BACKEND CONNECTION ---
+        async function loadGameFromServer() {
+            const formData = new FormData(); formData.append('action', 'load');
+            try {
+                // Uses ../backend.php because this is inside the Event/ folder!
+                const response = await fetch('../backend.php', { method: 'POST', body: formData });
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    gameState = {
+                        coins: parseInt(result.data.coins) || 0,
+                        gems: parseInt(result.data.gems) || 0,
+                        playtime: parseInt(result.data.playtime) || 0,
+                        owned_cursors: JSON.parse(result.data.owned_cursors || '["def"]'),
+                        equipped_cursor: result.data.equipped_cursor || 'def',
+                        owned_pets: JSON.parse(result.data.owned_pets || '[]'),
+                        active_pet: result.data.active_pet || '',
+                        pet_ages: JSON.parse(result.data.pet_ages || '{}'),
+                    };
+                    updateProgress();
+                    
+                    // Auto-Save Loop
+                    setInterval(saveGameToServer, 10000); 
+                } else {
+                    document.getElementById('spinStatus').innerText = "❌ Please log in on the main portal first!";
+                    document.getElementById('spinStatus').style.color = "#ff4444";
+                }
+            } catch (e) { 
+                document.getElementById('spinStatus').innerText = "❌ Connection Error. Please log in.";
+                document.getElementById('spinStatus').style.color = "#ff4444";
+            }
+        }
+
+        async function saveGameToServer() {
+            if (!gameState) return;
+            const formData = new FormData();
+            formData.append('action', 'save');
+            formData.append('coins', gameState.coins);
+            formData.append('gems', gameState.gems);
+            formData.append('playtime', gameState.playtime);
+            formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors));
+            formData.append('equipped_cursor', gameState.equipped_cursor);
+            formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
+            formData.append('active_pet', gameState.active_pet);
+            formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
+
+            try { fetch('../backend.php', { method: 'POST', body: formData }); } catch(e) {}
+        }
+
+        // Initialize connection
+        loadGameFromServer();
+
+
+        // --- WHEEL LOGIC ---
         function updateProgress() {
-            let playSeconds = parseInt(localStorage.getItem('schoolExamsPlayTimeSecs') || '0');
+            if (!gameState) return;
+
             let spinsUsed = parseInt(localStorage.getItem('schoolExamsSpinsUsed') || '0');
-            
-            // Fail-safes to fix corrupted save data
-            if (isNaN(playSeconds)) { playSeconds = 0; localStorage.setItem('schoolExamsPlayTimeSecs', 0); }
             if (isNaN(spinsUsed)) { spinsUsed = 0; localStorage.setItem('schoolExamsSpinsUsed', 0); }
 
-            const totalEarnedSpins = Math.floor(playSeconds / 120); // 1 spin every 120s (2m)
+            const totalEarnedSpins = Math.floor(gameState.playtime / 120); 
             
-            // Fix bug where used spins goes negative if they cleared data
             if (spinsUsed > totalEarnedSpins) {
                 spinsUsed = totalEarnedSpins;
                 localStorage.setItem('schoolExamsSpinsUsed', spinsUsed);
             }
 
             const availableSpins = totalEarnedSpins - spinsUsed;
-            const secondsTowardsNext = playSeconds % 120;
+            const secondsTowardsNext = gameState.playtime % 120;
             const progressPercent = (secondsTowardsNext / 120) * 100;
 
             const btn = document.getElementById('spinBtn');
@@ -145,6 +197,7 @@
                     btn.innerText = `Spin Now (${availableSpins} Available)`;
                 }
                 statusText.innerText = "You have spins ready! 🎰";
+                statusText.style.color = "var(--p1)";
                 bar.style.width = "100%";
                 bar.style.background = "linear-gradient(90deg, #ffd700, #ff8c00)";
             } else {
@@ -153,31 +206,27 @@
                     btn.innerText = "Play to Unlock";
                 }
                 
-                // Calculate exact minutes and seconds left
                 const totalSecondsLeft = 120 - secondsTowardsNext;
                 const minsLeft = Math.floor(totalSecondsLeft / 60);
                 const secsLeft = totalSecondsLeft % 60;
                 
                 statusText.innerText = `Next spin in: ${minsLeft}m ${secsLeft}s ⏳`;
+                statusText.style.color = "var(--p1)";
                 bar.style.width = `${progressPercent}%`;
                 bar.style.background = "linear-gradient(90deg, var(--p0), var(--p1))";
             }
         }
 
-        // ⏱️ THIS FIXES THE BUG: It ticks the clock while on the Wheel page!
+        // Live Playtime Ticker
         setInterval(() => {
-            let playSeconds = parseInt(localStorage.getItem('schoolExamsPlayTimeSecs') || '0');
-            if (isNaN(playSeconds)) playSeconds = 0;
-            playSeconds++; // Tick the clock up by 1 second!
-            localStorage.setItem('schoolExamsPlayTimeSecs', playSeconds);
-            
-            updateProgress(); // Refresh UI
+            if (!gameState) return;
+            gameState.playtime++; 
+            updateProgress();
         }, 1000);
 
-        // Run once immediately on load
-        updateProgress();
-
         function spinWheel() {
+            if (!gameState) return;
+
             const btn = document.getElementById('spinBtn');
             const wheel = document.getElementById('wheel');
             const resultBox = document.getElementById('resultBox');
@@ -186,7 +235,6 @@
             btn.disabled = true;
             resultBox.classList.remove('show');
 
-            // Deduct a spin immediately
             let spinsUsed = parseInt(localStorage.getItem('schoolExamsSpinsUsed') || '0');
             localStorage.setItem('schoolExamsSpinsUsed', spinsUsed + 1);
 
@@ -195,12 +243,13 @@
             let extraRotation = 0;
             let prizeName = "";
 
+            // EXACTLY 5% Drop Rate for the Dragon
             if (rand <= 40) { prizeAmount = 25; extraRotation = 72; prizeName = "25 ExamCoins"; }
             else if (rand <= 70) { prizeAmount = 50; extraRotation = 198; prizeName = "50 ExamCoins"; }
-            else if (rand <= 90) { prizeAmount = 75; extraRotation = 288; prizeName = "75 ExamCoins"; }
-            else if (rand <= 95) { prizeAmount = 100; extraRotation = 340; prizeName = "1000 ExamCoins"; }
+            else if (rand <= 85) { prizeAmount = 75; extraRotation = 288; prizeName = "75 ExamCoins"; }
+            else if (rand <= 95) { prizeAmount = 1000; extraRotation = 340; prizeName = "1000 ExamCoins"; }
             else { 
-                prizeAmount = 10000; 
+                prizeAmount = 10000; // Code for cursor
                 extraRotation = 358; 
                 prizeName = "EXCLUSIVE DRAGON CURSOR!"; 
             }
@@ -211,22 +260,20 @@
             setTimeout(() => {
                 document.getElementById('prizeText').innerText = `🎉 You won: ${prizeName} 🎉`;
                 
-                // DIRECTLY DEPOSIT INTO ACCOUNT
+                // PUSH TO BACKEND
                 if (prizeAmount === 10000) {
-                    let ownedCursors = JSON.parse(localStorage.getItem('ownedCursors')) || ["def"];
-                    if (!ownedCursors.includes("dragon")) {
-                        ownedCursors.push("dragon");
-                        localStorage.setItem('ownedCursors', JSON.stringify(ownedCursors));
-                        document.getElementById('codeDisplay').innerHTML = "<span style='color:#3ba55c;'>✅ Cursor added to your Shop!</span>";
+                    if (!gameState.owned_cursors.includes("dragon")) {
+                        gameState.owned_cursors.push("dragon");
+                        document.getElementById('codeDisplay').innerHTML = "<span style='color:#3ba55c;'>✅ Cursor synced to database!</span>";
                     } else {
                         document.getElementById('codeDisplay').innerHTML = "<span style='color:#aaa;'>You already own this cursor.</span>";
                     }
                 } else {
-                    let currentCoins = parseInt(localStorage.getItem('schoolExamsCoins') || '0');
-                    currentCoins += prizeAmount;
-                    localStorage.setItem('schoolExamsCoins', currentCoins);
-                    document.getElementById('codeDisplay').innerHTML = `<span style='color:#3ba55c;'>✅ ${prizeAmount} Coins added to balance!</span>`;
+                    gameState.coins += prizeAmount;
+                    document.getElementById('codeDisplay').innerHTML = `<span style='color:#3ba55c;'>✅ ${prizeAmount} Coins synced to balance!</span>`;
                 }
+
+                saveGameToServer(); // Immediately save the prize to the DB
 
                 resultBox.classList.add('show');
                 isSpinning = false;
