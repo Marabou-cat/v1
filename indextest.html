@@ -56,11 +56,51 @@
 
         .btn-redeem { background: #3ba55c; border: none; color: #fff; box-shadow: 0 0 10px rgba(59, 165, 92, 0.5); }
         .btn-redeem:hover { background: #43b581; box-shadow: 0 0 15px rgba(59, 165, 92, 0.8); }
+        
+        .btn-event { background: #ff0044; border: none; color: #fff; box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); animation: pulseEvent 2s infinite; }
+        .btn-event:hover { background: #ff3366; box-shadow: 0 0 20px rgba(255, 0, 68, 0.8); animation: none; transform: translateY(-2px); }
+
+        @keyframes pulseEvent { 0% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } 50% { box-shadow: 0 0 20px rgba(255, 0, 68, 0.8); } 100% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } }
 
         /* FLOATING SIDE MENU */
-        .btn-more-oval { position: fixed; right: -5px; top: 50%; transform: translateY(-50%); background: var(--bg1); border: 2px solid var(--p1); color: var(--w); padding: 40px 12px; border-radius: 30px 0 0 30px; font-weight: 900; letter-spacing: 2px; writing-mode: vertical-rl; text-orientation: mixed; box-shadow: -5px 0 15px rgba(0,0,0,0.7); z-index: 1001; transition: 0.3s; }
+        .btn-more-oval {
+            position: fixed;
+            right: -5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--bg1);
+            border: 2px solid var(--p1);
+            color: var(--w);
+            padding: 40px 12px;
+            border-radius: 30px 0 0 30px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.7);
+            z-index: 1001;
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
         .btn-more-oval:hover { right: 0; background: var(--p0); box-shadow: -5px 0 25px rgba(144, 224, 239, 0.5); }
-        .more-sidebar { position: fixed; right: -250px; top: 50%; transform: translateY(-50%); background: var(--bg1); border: 2px solid var(--p0); border-right: none; padding: 20px; border-radius: 20px 0 0 20px; width: 220px; box-shadow: -10px 0 30px rgba(0,0,0,0.8); z-index: 1000; transition: right 0.4s; display: flex; flex-direction: column; gap: 15px; }
+
+        .more-sidebar {
+            position: fixed;
+            right: -250px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--bg1);
+            border: 2px solid var(--p0);
+            border-right: none;
+            padding: 20px;
+            border-radius: 20px 0 0 20px;
+            width: 220px;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.8);
+            z-index: 1000;
+            transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
         .more-sidebar.open { right: 0; }
         .more-sidebar-title { color: var(--p1); font-weight: 900; font-size: 14px; border-bottom: 2px solid var(--p0); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
 
@@ -78,6 +118,10 @@
         .rec-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 10px; }
         .rec-btn { background: var(--p0); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; border:none; transition:0.2s; }
         .rec-btn:hover { background: var(--p1); color: var(--bg0); }
+        .rec-progress { position: absolute; bottom: 0; left: 0; height: 4px; background: var(--p1); width: 0%; box-shadow: 0 0 10px var(--p1); }
+        .progress-animate { animation: loadBar 5s linear infinite; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes loadBar { from { width: 0%; } to { width: 100%; } }
 
         .stats-bar { display: inline-flex; gap: 30px; background: var(--glass); padding: 12px 30px; border-radius: 30px; border: 1px solid var(--p0); margin-bottom: 30px; font-size: 15px; color: var(--w); font-weight: 700; box-shadow: var(--shadow); }
         .stats-bar span strong { color: var(--p1); font-size: 18px; }
@@ -113,7 +157,7 @@
         .shop-btn.equipped { background: #3ba55c; pointer-events: none; }
         .shop-btn.event-btn { background: #ff0000; pointer-events: none; }
 
-        .toast { position: fixed; bottom: 30px; right: 30px; background: var(--p0); color: #fff; padding: 16px 24px; border-radius: 12px; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.8); transform: translateY(100px); opacity: 0; transition: 0.4s; z-index: 3000; display: flex; align-items: center; gap: 10px; }
+        .toast { position: fixed; bottom: 30px; right: 30px; background: var(--p0); color: #fff; padding: 16px 24px; border-radius: 12px; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.8); transform: translateY(100px); opacity: 0; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 3000; display: flex; align-items: center; gap: 10px; }
         .toast.show { transform: translateY(0); opacity: 1; }
         .pet-warning-box { grid-column: 1 / -1; background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; border-radius: 12px; padding: 15px; text-align: center; color: #ffbbbb; font-size: 14px; margin-bottom: 10px; }
     </style>
@@ -142,6 +186,7 @@
     <div class="more-sidebar-title" id="welcomeUserText">Extra Options</div>
     <button class="btn-nav btn-redeem" style="width: 100%; text-align: center;" onclick="redeemCode(); toggleMoreMenu();">🎁 Redeem Code</button>
     <button class="btn-nav" style="width: 100%; text-align: center;" onclick="openGame('https://mb.webs.vc', 'Encrypted Web Browser'); toggleMoreMenu();">🌐 Browser</button>
+    <button class="btn-nav" style="width: 100%; text-align: center; background: #d00000; border-color: #ff0000; margin-top: 10px;" onclick="logout(); toggleMoreMenu();">🚪 Log Out</button>
 </div>
 
 <header class="topbar">
@@ -157,8 +202,8 @@
             💎 <span id="gemDisplay">0</span> Gems
         </div>
         
-        <a href="Pass.html" class="btn-nav btn-bp">🎫 Battle Pass</a>
-        <a href="Event.html" target="_blank" class="btn-nav btn-event">🎡 Spin Event</a>
+        <a href="Pass/" class="btn-nav btn-bp">🎫 Battle Pass</a>
+        <a href="Event/" target="_blank" class="btn-nav btn-event">🎡 Spin Event</a>
         
         <button class="btn-nav" onclick="openPetShop()" style="background: linear-gradient(135deg, #3ba55c, #2ecc71); color: #fff; border: none;">🐾 Pets</button>
         <button class="btn-nav" onclick="openShop()" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Shop</button>
@@ -236,7 +281,12 @@ async function performAuth(action) {
     const pass = document.getElementById('authPassword').value;
     const errBox = document.getElementById('authError');
 
-    if (!user || !pass) { errBox.innerText = "Please fill in all fields."; errBox.style.display = 'block'; return; }
+    if (!user || !pass) { 
+        errBox.innerText = "Please fill in all fields."; 
+        errBox.style.color = "#ff4444";
+        errBox.style.display = 'block'; 
+        return; 
+    }
 
     const formData = new FormData();
     formData.append('action', action);
@@ -248,18 +298,51 @@ async function performAuth(action) {
         const result = await response.json();
 
         if (result.success) {
+            // Save for Auto-Login
+            localStorage.setItem('schoolExamsSavedUser', user);
+            localStorage.setItem('schoolExamsSavedPass', pass);
+
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('welcomeUserText').innerText = `Logged in as: ${user}`;
             loadGameFromServer(); 
         } else {
+            // Clear auto-login data if login fails
+            localStorage.removeItem('schoolExamsSavedUser');
+            localStorage.removeItem('schoolExamsSavedPass');
+
             errBox.innerText = result.message;
+            errBox.style.color = "#ff4444";
             errBox.style.display = 'block';
         }
     } catch (e) {
         errBox.innerText = "Server communication error.";
+        errBox.style.color = "#ff4444";
         errBox.style.display = 'block';
     }
 }
+
+function logout() {
+    localStorage.removeItem('schoolExamsSavedUser');
+    localStorage.removeItem('schoolExamsSavedPass');
+    location.reload(); 
+}
+
+// AUTO-LOGIN CHECK (Runs immediately when the page loads)
+window.addEventListener('DOMContentLoaded', () => {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    const savedPass = localStorage.getItem('schoolExamsSavedPass');
+    if (savedUser && savedPass) {
+        document.getElementById('authUsername').value = savedUser;
+        document.getElementById('authPassword').value = savedPass;
+        
+        const errBox = document.getElementById('authError');
+        errBox.innerText = "Logging you back in securely...";
+        errBox.style.color = "#00ffcc";
+        errBox.style.display = 'block';
+        
+        performAuth('login');
+    }
+});
 
 async function loadGameFromServer() {
     const formData = new FormData(); formData.append('action', 'load');
