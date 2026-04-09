@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>SchoolExams - Daily Reward Wheel</title>
+    <title>SchoolExams - Current Event</title>
     <style>
         :root {
             --bg0: #000814; --bg1: #001d3d; --p0: #0077b6;
@@ -19,7 +19,7 @@
 
         /* PROGRESS TRACKER */
         .progress-container { background: var(--bg1); border: 2px solid var(--p0); border-radius: 20px; padding: 15px 30px; margin-bottom: 40px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-        .progress-text { font-weight: bold; margin-bottom: 10px; color: var(--p1); }
+        .progress-text { font-weight: bold; margin-bottom: 10px; color: var(--p1); font-size: 1.2rem; }
         .progress-bar-bg { width: 100%; height: 10px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden; }
         .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--p0), var(--p1)); transition: width 1s linear; }
 
@@ -84,10 +84,10 @@
     <div class="bg-grid"></div>
 
     <h1>Event Wheel</h1>
-    <p>Earn 1 Spin for every 2 minutes of Playtime on the portal!</p>
+    <p>Earn 1 Spin for every 2 minutes of Playtime!</p>
 
     <div class="progress-container">
-        <div class="progress-text" id="spinStatus">Loading Playtime...</div>
+        <div class="progress-text" id="spinStatus">Loading...</div>
         <div class="progress-bar-bg">
             <div class="progress-bar-fill" id="playtimeBar"></div>
         </div>
@@ -116,14 +116,22 @@
         let isSpinning = false;
 
         function updateProgress() {
-            if (isSpinning) return;
+            let playSeconds = parseInt(localStorage.getItem('schoolExamsPlayTimeSecs') || '0');
+            let spinsUsed = parseInt(localStorage.getItem('schoolExamsSpinsUsed') || '0');
+            
+            // Fail-safes to fix corrupted save data
+            if (isNaN(playSeconds)) { playSeconds = 0; localStorage.setItem('schoolExamsPlayTimeSecs', 0); }
+            if (isNaN(spinsUsed)) { spinsUsed = 0; localStorage.setItem('schoolExamsSpinsUsed', 0); }
 
-            const playSeconds = parseInt(localStorage.getItem('schoolExamsPlayTimeSecs') || '0');
-            const spinsUsed = parseInt(localStorage.getItem('schoolExamsSpinsUsed') || '0');
+            const totalEarnedSpins = Math.floor(playSeconds / 120); // 1 spin every 120s (2m)
             
-            const totalEarnedSpins = Math.floor(playSeconds / 120);
+            // Fix bug where used spins goes negative if they cleared data
+            if (spinsUsed > totalEarnedSpins) {
+                spinsUsed = totalEarnedSpins;
+                localStorage.setItem('schoolExamsSpinsUsed', spinsUsed);
+            }
+
             const availableSpins = totalEarnedSpins - spinsUsed;
-            
             const secondsTowardsNext = playSeconds % 120;
             const progressPercent = (secondsTowardsNext / 120) * 100;
 
@@ -132,22 +140,41 @@
             const bar = document.getElementById('playtimeBar');
 
             if (availableSpins > 0) {
-                btn.disabled = false;
-                btn.innerText = `Spin Now (${availableSpins} Available)`;
-                statusText.innerText = "You have spins ready!";
+                if (!isSpinning) {
+                    btn.disabled = false;
+                    btn.innerText = `Spin Now (${availableSpins} Available)`;
+                }
+                statusText.innerText = "You have spins ready! 🎰";
                 bar.style.width = "100%";
                 bar.style.background = "linear-gradient(90deg, #ffd700, #ff8c00)";
             } else {
-                btn.disabled = true;
-                btn.innerText = "Play to Unlock";
-                const minsLeft = Math.ceil((120 - secondsTowardsNext) / 60);
-                statusText.innerText = `Next spin in ~${minsLeft} mins`;
+                if (!isSpinning) {
+                    btn.disabled = true;
+                    btn.innerText = "Play to Unlock";
+                }
+                
+                // Calculate exact minutes and seconds left
+                const totalSecondsLeft = 120 - secondsTowardsNext;
+                const minsLeft = Math.floor(totalSecondsLeft / 60);
+                const secsLeft = totalSecondsLeft % 60;
+                
+                statusText.innerText = `Next spin in: ${minsLeft}m ${secsLeft}s ⏳`;
                 bar.style.width = `${progressPercent}%`;
                 bar.style.background = "linear-gradient(90deg, var(--p0), var(--p1))";
             }
         }
 
-        setInterval(updateProgress, 1000);
+        // ⏱️ THIS FIXES THE BUG: It ticks the clock while on the Wheel page!
+        setInterval(() => {
+            let playSeconds = parseInt(localStorage.getItem('schoolExamsPlayTimeSecs') || '0');
+            if (isNaN(playSeconds)) playSeconds = 0;
+            playSeconds++; // Tick the clock up by 1 second!
+            localStorage.setItem('schoolExamsPlayTimeSecs', playSeconds);
+            
+            updateProgress(); // Refresh UI
+        }, 1000);
+
+        // Run once immediately on load
         updateProgress();
 
         function spinWheel() {
@@ -159,6 +186,7 @@
             btn.disabled = true;
             resultBox.classList.remove('show');
 
+            // Deduct a spin immediately
             let spinsUsed = parseInt(localStorage.getItem('schoolExamsSpinsUsed') || '0');
             localStorage.setItem('schoolExamsSpinsUsed', spinsUsed + 1);
 
