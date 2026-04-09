@@ -170,15 +170,19 @@ function buyPremium() {
 // --- DATA GENERATION (1-50) ---
 const BP_TIERS = [];
 for (let i = 1; i <= 50; i++) {
-    // Normal Logic
+    // Normal Logic (Total 350 Gems)
     let normText = "50 ExamCoins", normType = "coins", normAmt = 50;
-    if (i === 10 || i === 25 || i === 35) { normText = "Silver Cursor Pack"; normType = "silver_pack"; normAmt = 0; }
-    if (i === 50) { normText = "👑 Golden Cursor Pack"; normType = "golden_pack"; normAmt = 0; }
+    if (i === 10 || i === 25 || i === 35) { normText = "📦 Silver Cursor Pack"; normType = "silver_pack"; normAmt = 0; }
+    else if (i === 50) { normText = "🌟 Golden Cursor Pack"; normType = "golden_pack"; normAmt = 0; }
+    else if (i === 5 || i === 15 || i === 20 || i === 30 || i === 40) { normText = "💎 50 Gems"; normType = "gems"; normAmt = 50; }
+    else if (i === 45) { normText = "💎 100 Gems"; normType = "gems"; normAmt = 100; }
 
-    // Premium Logic
+    // Premium Logic (Total 900 Gems)
     let premText = "200 ExamCoins", premType = "coins", premAmt = 200, premId = null;
     if (i === 10 || i === 20 || i === 30 || i === 40) { premText = "🌟 Golden Cursor Pack"; premType = "golden_pack"; premAmt = 0; }
-    if (i === 50) { premText = "👑 King Midas Pet"; premType = "pet"; premAmt = 0; premId = "midas"; }
+    else if (i === 50) { premText = "👑 King Midas Pet"; premType = "pet"; premAmt = 0; premId = "midas"; }
+    else if (i === 5 || i === 15) { premText = "💎 150 Gems"; premType = "gems"; premAmt = 150; }
+    else if (i === 25 || i === 35 || i === 45) { premText = "💎 200 Gems"; premType = "gems"; premAmt = 200; }
 
     BP_TIERS.push({
         lvl: i,
@@ -204,6 +208,8 @@ function renderBP() {
         let nBtn = nClaimed ? `<button class="btn-claim claimed">Claimed</button>` 
             : (isUnlocked ? `<button class="btn-claim" onclick="claimReward(${tier.lvl}, 'normal')">Claim</button>` 
             : `<button class="btn-claim locked">Locked</button>`);
+            
+        let normColor = tier.normal.type === 'gems' ? 'color: #00ffcc;' : '';
 
         // PREMIUM CARD
         const pClaimed = claimedPremium.includes(tier.lvl);
@@ -212,6 +218,7 @@ function renderBP() {
             : `<button class="btn-claim locked">Locked</button>`);
             
         let pOverlay = (!hasPremium) ? `<div class="premium-locked-overlay">🔒 Premium</div>` : ``;
+        let premColor = tier.premium.type === 'gems' ? 'color: #00ffcc;' : 'color: #ffd700;';
 
         track.innerHTML += `
             <div class="bp-tier ${tierClass}">
@@ -219,14 +226,14 @@ function renderBP() {
                 
                 <div class="bp-card">
                     <div class="card-type">Free Reward</div>
-                    <div class="reward-text">${tier.normal.text}</div>
+                    <div class="reward-text" style="${normColor}">${tier.normal.text}</div>
                     ${nBtn}
                 </div>
 
                 <div class="bp-card premium-card" style="position: relative;">
                     ${pOverlay}
                     <div class="card-type">Premium Reward</div>
-                    <div class="reward-text" style="color: #ffd700;">${tier.premium.text}</div>
+                    <div class="reward-text" style="${premColor}">${tier.premium.text}</div>
                     ${pBtn}
                 </div>
             </div>
@@ -247,6 +254,12 @@ function claimReward(lvl, trackType) {
         localStorage.setItem('schoolExamsCoins', examCoins);
         document.getElementById('coinDisplay').innerText = examCoins.toLocaleString();
         showToast(`+${reward.amount} Coins Claimed!`);
+        
+    } else if (reward.type === "gems") {
+        gems += reward.amount;
+        localStorage.setItem('schoolExamsGems', gems);
+        document.getElementById('gemDisplay').innerText = gems.toLocaleString();
+        showToast(`💎 +${reward.amount} Gems Claimed!`);
         
     } else if (reward.type === "silver_pack") {
         const bpCursors = [ { id: "bp1", name: "Silver Apple" }, { id: "bp2", name: "Robot BOB" }, { id: "bp3", name: "Silver Statue" } ];
@@ -316,7 +329,6 @@ updateProgress();
 renderBP();
 setInterval(() => {
     updateProgress();
-    // Re-render quietly if a new level unlocks
     let latestLocked = document.querySelector('.bp-tier.locked-tier .bp-level-label');
     if (latestLocked && latestLocked.innerText === `LEVEL ${currentLevel}`) {
         renderBP();
