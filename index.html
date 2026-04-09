@@ -352,7 +352,7 @@ const PET_SHOP = [
     { id: "dragon", name: "Neon Dragon", icon: "🐲", price: 10000, baseCoin: 25 },
     { id: "panda", name: "Ghost Panda", icon: "🐼", price: 36700, baseCoin: 40 },
     { id: "kraken", name: "67 Kraken", icon: "🦑", price: 67777, baseCoin: 67 },
-    { id: "midas", name: "King Midas", icon: "<img src='King.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Premium Pass 1 Lvl 50", baseCoin: 1000, isEvent: true, color: "#ffd700" }
+    { id: "midas", name: "King Midas", icon: "<img src='King.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Premium Pass Lvl 50", baseCoin: 1000, isEvent: true, color: "#ffd700" }
 ];
 
 let ownedPets = JSON.parse(localStorage.getItem('schoolExamsOwnedPets')) || [];
@@ -498,6 +498,7 @@ function renderPetShop() {
 function buyPet(id, price) {
     if (examCoins >= price) {
         examCoins -= price;
+        localStorage.setItem('schoolExamsCoins', examCoins); // FIX DEDUCT BUG
         ownedPets.push(id);
         petAges[id] = 0; 
         savePetData();
@@ -525,6 +526,7 @@ function feedPet() {
 
     if (examCoins >= feedCost) {
         examCoins -= feedCost;
+        localStorage.setItem('schoolExamsCoins', examCoins); // FIX DEDUCT BUG
         petAges[activePet] = (petAges[activePet] || 0) + 600; 
         savePetData();
         updateStatsUI();
