@@ -272,6 +272,7 @@
 
 <script>
 // --- BACKEND STATE MANAGEMENT ---
+let autoSaveInterval = null; 
 let gameState = {
     coins: 0,
     gems: 0,
@@ -376,12 +377,18 @@ async function loadGameFromServer() {
             updatePetUI();
             
             // Auto-Save Loop
-            setInterval(saveGameToServer, 10000); // Save every 10 seconds silently
+            if (!autoSaveInterval) {
+                autoSaveInterval = setInterval(() => {
+                    // FIX: Prevent background tabs from overwriting database data!
+                    if (!document.hidden) saveGameToServer();
+                }, 10000); 
+            }
         }
     } catch (e) { console.error("Failed to load data."); }
 }
 
 async function saveGameToServer() {
+    if (!gameState) return;
     const formData = new FormData();
     formData.append('action', 'save');
     formData.append('coins', gameState.coins);
@@ -395,6 +402,13 @@ async function saveGameToServer() {
 
     try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 }
+
+// TAB SYNC FIX
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && document.getElementById('loginOverlay').style.display === 'none') {
+        loadGameFromServer();
+    }
+});
 
 
 // --- HARDWARE ACCELERATED DOM CURSOR TRACKING ---
@@ -540,7 +554,7 @@ function calculatePetNeglect() {
 function updateStatsUI() {
     document.getElementById('coinDisplay').innerText = gameState.coins.toLocaleString();
     document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
-    document.getElementById('stat-time').innerText = Math.floor(gameState.playtime / 60); // Changed to show DB playtime
+    document.getElementById('stat-time').innerText = Math.floor(gameState.playtime / 60); 
     document.getElementById('stat-count').innerText = localStorage.getItem('schoolExamsGamesOpened') || '0';
 }
 
@@ -555,6 +569,9 @@ function showToast(msg) {
 setInterval(() => {
     // Only run loop if logged in
     if (document.getElementById('loginOverlay').style.display !== 'none') return;
+    
+    // FIX: Stops background tabs from continuing to generate and overwrite money!
+    if (document.hidden) return; 
 
     gameState.playtime++;
     
