@@ -77,7 +77,7 @@
 </head>
 <body>
 
-<img id="dom-cursor" src="https://marabou-cat.github.io/GamesV1/DefMouse.png" alt="">
+<img id="dom-cursor" src="" alt="">
 <div class="bg-grid"></div>
 
 <header class="topbar">
@@ -111,9 +111,14 @@
 <div class="toast" id="bpToast">🎁 Reward Claimed!</div>
 
 <script>
-// --- CUSTOM CURSOR TRACKING ---
+// --- CUSTOM CURSOR TRACKING WITH SUBFOLDER FIX ---
 const domCursor = document.getElementById('dom-cursor');
-let currentCursorSrc = localStorage.getItem('currentCursorSrc') || "https://marabou-cat.github.io/GamesV1/DefMouse.png";
+let currentCursorSrc = localStorage.getItem('currentCursorSrc') || "DefMouse.png";
+
+// If the cursor is a local file (doesn't start with http or data:), point it back to the main folder!
+if (currentCursorSrc && !currentCursorSrc.startsWith('http') && !currentCursorSrc.startsWith('data:')) {
+    currentCursorSrc = '../' + currentCursorSrc;
+}
 domCursor.src = currentCursorSrc;
 
 let mouseX = 0, mouseY = 0; let cursorVisible = false;
@@ -318,10 +323,10 @@ function updateProgress() {
 
     playSeconds++;
     localStorage.setItem('schoolExamsPlayTimeSecs', playSeconds);
+    
+    // Check main site loop to ensure sync
     if (playSeconds > 0 && playSeconds % 600 === 0) {
-        examCoins += 100;
-        localStorage.setItem('schoolExamsCoins', examCoins);
-        document.getElementById('coinDisplay').innerText = examCoins.toLocaleString();
+        // We let the main site handle the 100 coin drop to avoid giving double!
     }
 }
 
