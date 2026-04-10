@@ -402,7 +402,7 @@ document.getElementById('gameFrame').addEventListener('mouseenter', () => { isOv
 document.getElementById('gameFrame').addEventListener('mouseleave', () => { isOverIframe = false; });
 document.addEventListener('mouseout', (e) => { if (!e.relatedTarget && !isOverIframe) { domCursor.style.display = 'none'; cursorVisible = false; } });
 
-const BASE_URL = "https://anchors-arcade.github.io/V4/UGS-Files/";
+const BASE_URL = "UGS-Files/";
 
 function toggleMoreMenu() { document.getElementById('moreSidebar').classList.toggle('open'); }
 
