@@ -392,9 +392,17 @@ document.addEventListener('mousemove', (e) => {
     mouseX = e.clientX; mouseY = e.clientY;
     if (!cursorVisible && !isOverIframe) { domCursor.style.display = 'block'; cursorVisible = true; }
 });
-function updateCursorPosition() {
-    if (cursorVisible && !isOverIframe) { domCursor.style.transform = `translate3d(${mouseX - 2}px, ${mouseY - 2}px, 0)`; }
-    requestAnimationFrame(updateCursorPosition);
+function applyCursor() {
+    let targetSrc = gameState.equipped_cursor === "custom" ? (localStorage.getItem('customCursorDataUrl') || CURSORS[0].src) : (CURSORS.find(c => c.id === gameState.equipped_cursor)?.src || CURSORS[0].src);
+    domCursor.src = targetSrc; 
+    localStorage.setItem('currentCursorSrc', targetSrc);
+
+    // Make the Prism cursor double size when equipped
+    if (gameState.equipped_cursor === 'prism') {
+        domCursor.style.width = '64px'; // Change this number to make it bigger/smaller
+    } else {
+        domCursor.style.width = '32px'; // Default size for all other cursors
+    }
 }
 requestAnimationFrame(updateCursorPosition);
 
