@@ -5,15 +5,11 @@ header('Content-Type: application/json');
 // --- READ CONFIG FILE ---
 $config_file = '../config.ini';
 
-// 1. Check if the file exists before trying to read it
 if (!file_exists($config_file)) {
     die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing."]));
 }
 
-// 2. Read the file line by line (ignoring empty lines and trimming hidden newlines)
 $lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-
-// 3. Ensure we actually got both lines
 if (count($lines) < 2) {
     die(json_encode(["success" => false, "message" => "Server Error: Invalid configuration file format."]));
 }
@@ -26,7 +22,6 @@ try {
     $pdo = new PDO("mysql:host=localhost;dbname=schoolexams;charset=utf8mb4", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
-    // We do NOT echo $e->getMessage() here so we don't accidentally leak DB info on a crash
     die(json_encode(["success" => false, "message" => "Database connection failed."]));
 }
 
@@ -41,11 +36,23 @@ if ($action === 'get_inventory') {
     $stmt->execute([$user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    $cursors = json_decode($user['owned_cursors'] ?? '[]', true) ?: [];
-    $pets = json_decode($user['owned_pets'] ?? '[]', true) ?: [];
+    // Safety check if user isn't found
+    if (!$user) {
+        echo json_encode(["success" => true, "inventory" => []]);
+        exit;
+    }
+
+    $cursors = json_decode($user['owned_cursors'], true);
+    $pets = json_decode($user['owned_pets'], true);
     
-    // Combine both arrays to send to the frontend
-    echo json_encode(["success" => true, "inventory" => array_merge($cursors, $pets)]);
+    // Bulletproof array enforcement (Stops the null crash)
+    if (!is_array($cursors)) $cursors = [];
+    if (!is_array($pets)) $pets = [];
+    
+    // Merge, remove duplicates, and reset keys
+    $combined = array_values(array_unique(array_merge($cursors, $pets)));
+    
+    echo json_encode(["success" => true, "inventory" => $combined]);
     exit;
 }
 
@@ -83,11 +90,15 @@ if ($action === 'sync') {
 
     $is_p1 = ($room['p1_id'] == $user_id);
     
+    $my_offer = json_decode($is_p1 ? $room['p1_offer'] : $room['p2_offer'], true);
+    $their_offer = json_decode($is_p1 ? $room['p2_offer'] : $room['p1_offer'], true);
+    
     echo json_encode([
         "success" => true,
         "status" => $room['status'],
-        "my_offer" => json_decode($is_p1 ? $room['p1_offer'] : $room['p2_offer']),
-        "their_offer" => json_decode($is_p1 ? $room['p2_offer'] : $room['p1_offer']),
+        // Bulletproof array enforcement for the JS length check
+        "my_offer" => is_array($my_offer) ? $my_offer : [],
+        "their_offer" => is_array($their_offer) ? $their_offer : [],
         "my_accept" => $is_p1 ? $room['p1_accept'] : $room['p2_accept'],
         "their_accept" => $is_p1 ? $room['p2_accept'] : $room['p1_accept']
     ]);
@@ -97,7 +108,7 @@ if ($action === 'sync') {
 // --- 4. UPDATE OFFER ---
 if ($action === 'update_offer') {
     $code = $_POST['room_code'];
-    $offer = $_POST['offer']; // JSON string
+    $offer = $_POST['offer']; 
     
     $stmt = $pdo->prepare("SELECT p1_id FROM trade_sessions WHERE room_code = ?");
     $stmt->execute([$code]);
@@ -105,7 +116,6 @@ if ($action === 'update_offer') {
     
     $col = ($room['p1_id'] == $user_id) ? 'p1_offer' : 'p2_offer';
     
-    // Update offer and UN-READY both players
     $stmt = $pdo->prepare("UPDATE trade_sessions SET $col = ?, p1_accept = 0, p2_accept = 0 WHERE room_code = ?");
     $stmt->execute([$offer, $code]);
     echo json_encode(["success" => true]);
@@ -136,59 +146,51 @@ if ($action === 'toggle_accept') {
             
             $p1_id = $room['p1_id'];
             $p2_id = $room['p2_id'];
-            $p1_offer = json_decode($room['p1_offer'], true) ?? [];
-            $p2_offer = json_decode($room['p2_offer'], true) ?? [];
+            
+            $p1_offer = json_decode($room['p1_offer'], true);
+            $p2_offer = json_decode($room['p2_offer'], true);
+            
+            if(!is_array($p1_offer)) $p1_offer = [];
+            if(!is_array($p2_offer)) $p2_offer = [];
 
-            // Define which items are pets and which are cursors so the DB updates the right column
             $item_types = [
-                // PETS
-                'midas' => 'pet', 
-                'phoenix' => 'pet',
-                
-                // CURSORS
-                'dragon' => 'cursor', 
-                'prism' => 'cursor',
-                'bp1' => 'cursor', 
-                'bp2' => 'cursor', 
-                'bp3' => 'cursor', 
-                'bp4' => 'cursor', 
-                'bp5' => 'cursor', 
-                'bp6' => 'cursor'
+                'midas' => 'pet', 'phoenix' => 'pet',
+                'dragon' => 'cursor', 'prism' => 'cursor',
+                'bp1' => 'cursor', 'bp2' => 'cursor', 'bp3' => 'cursor', 
+                'bp4' => 'cursor', 'bp5' => 'cursor', 'bp6' => 'cursor'
             ];
 
-            // Helper function to swap items for a user
             function processInventory($pdo, $uid, $giving, $receiving, $item_types) {
                 $stmt = $pdo->prepare("SELECT owned_cursors, owned_pets FROM users WHERE id = ? FOR UPDATE");
                 $stmt->execute([$uid]);
                 $u = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                $cursors = json_decode($u['owned_cursors'], true) ?? [];
-                $pets = json_decode($u['owned_pets'], true) ?? [];
+                $cursors = json_decode($u['owned_cursors'], true);
+                $pets = json_decode($u['owned_pets'], true);
+                
+                // Bulletproof inner DB updates
+                if (!is_array($cursors)) $cursors = [];
+                if (!is_array($pets)) $pets = [];
 
-                // Remove items they are giving away
                 foreach ($giving as $item) {
                     $type = $item_types[$item] ?? null;
                     if ($type === 'cursor') $cursors = array_diff($cursors, [$item]);
                     if ($type === 'pet') $pets = array_diff($pets, [$item]);
                 }
 
-                // Add items they are receiving
                 foreach ($receiving as $item) {
                     $type = $item_types[$item] ?? null;
                     if ($type === 'cursor' && !in_array($item, $cursors)) $cursors[] = $item;
                     if ($type === 'pet' && !in_array($item, $pets)) $pets[] = $item;
                 }
 
-                // Save back to DB (array_values ensures JSON stays as an array, not an object)
                 $stmt = $pdo->prepare("UPDATE users SET owned_cursors = ?, owned_pets = ? WHERE id = ?");
                 $stmt->execute([json_encode(array_values($cursors)), json_encode(array_values($pets)), $uid]);
             }
 
-            // Move P1's offer to P2, and P2's offer to P1
             processInventory($pdo, $p1_id, $p1_offer, $p2_offer, $item_types);
             processInventory($pdo, $p2_id, $p2_offer, $p1_offer, $item_types);
 
-            // Mark room as complete
             $stmt = $pdo->prepare("UPDATE trade_sessions SET status = 'completed' WHERE room_code = ?");
             $stmt->execute([$code]);
         }
@@ -197,7 +199,7 @@ if ($action === 'toggle_accept') {
         echo json_encode(["success" => true]);
     } catch (Exception $e) {
         $pdo->rollBack();
-        echo json_encode(["success" => false, "error" => "Transaction failed."]);
+        echo json_encode(["success" => false, "error" => $e->getMessage()]);
     }
     exit;
 }
