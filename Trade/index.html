@@ -140,7 +140,6 @@
             overflow: hidden;
         }
 
-        /* The Glow effect when a player is ready */
         .trade-window.ready {
             border-color: #3ba55c;
             box-shadow: 0 0 30px rgba(59, 165, 92, 0.4);
@@ -165,7 +164,6 @@
 
         #myHeader { color: var(--p1); text-shadow: var(--glow-blue); }
         #theirHeader { color: #ff4444; text-shadow: var(--glow-red); }
-        
         .trade-window.ready #theirHeader { color: #3ba55c; text-shadow: var(--glow-green); }
 
         .offer-zone {
@@ -204,14 +202,12 @@
             user-select: none;
         }
 
-        /* Items in inventory */
         .inventory-zone .item-card:hover {
             border-color: var(--p1);
             background: var(--p0);
             transform: scale(1.05);
         }
 
-        /* Items locked in the offer zone */
         .offer-zone .item-card { background: var(--p0); border-color: var(--p1); cursor: default; }
         #theirOfferList .item-card { background: #800000; border-color: #ff4444; }
 
@@ -283,17 +279,27 @@
     </div>
 
 <script>
-    // HARDCODED EVENT ITEMS (Matches main DB layout)
     const tradeableItems = [
+        // --- EVENT PETS ---
         { id: "midas", name: "King Midas" },
         { id: "phoenix", name: "Mythic Phoenix" },
+        
+        // --- EVENT CURSORS ---
         { id: "dragon", name: "Mythic Dragon" },
+        { id: "prism", name: "Prism Wing" },
+        
+        // --- BATTLE PASS S1 CURSORS ---
         { id: "bp1", name: "Silver Apple" },
-        { id: "prism", name: "Prism Wing" }
+        { id: "bp2", name: "Robot BOB" },
+        { id: "bp3", name: "Silver Statue" },
+        { id: "bp4", name: "Midas Sword" },
+        { id: "bp5", name: "Golden Flame" },
+        { id: "bp6", name: "Royal Gleam" }
     ];
 
     let currentRoom = null;
     let myOffer = [];
+    let myOwnedIDs = []; // Store actual inventory here
     let pollInterval = null;
 
     async function api(action, data = {}) {
@@ -324,32 +330,59 @@
         currentRoom = code;
         document.getElementById('lobby').style.display = 'none';
         document.getElementById('tradeBoard').style.display = 'flex';
-        loadInventory();
+        
+        loadInventory(); 
         pollInterval = setInterval(syncRoom, 1500);
     }
 
-    // Simulate fetching inventory from the DB
+    // --- REAL INVENTORY FETCH ---
     async function loadInventory() {
-        // DEMO LOAD: In production, fetch this from the user's DB record
-        const myOwnedIDs = ["phoenix", "bp1", "dragon"]; 
+        const res = await api('get_inventory');
+        if (!res.success) return;
 
+        myOwnedIDs = res.inventory; 
+        renderInventory();
+    }
+
+    // --- RENDER INVENTORY VISUALLY ---
+    function renderInventory() {
         const invDiv = document.getElementById('myInventory');
         invDiv.innerHTML = '';
+        let hasTradeable = false;
 
         myOwnedIDs.forEach(id => {
             const itemDef = tradeableItems.find(i => i.id === id);
             if (itemDef) { 
-                invDiv.innerHTML += `<div class="item-card" onclick="addToOffer('${itemDef.id}')">${itemDef.name}</div>`;
+                hasTradeable = true;
+                // If it's already in the offer, gray it out
+                if (myOffer.includes(id)) {
+                    invDiv.innerHTML += `<div class="item-card" style="opacity: 0.4; cursor: not-allowed; border-color: gray;">${itemDef.name} (Offered)</div>`;
+                } else {
+                    invDiv.innerHTML += `<div class="item-card" onclick="addToOffer('${itemDef.id}')">${itemDef.name}</div>`;
+                }
             }
         });
+        
+        if (!hasTradeable) {
+            invDiv.innerHTML = '<div style="color:gray; grid-column: 1/-1; text-align:center;">You have no tradeable event items.</div>';
+        }
     }
 
     async function addToOffer(id) {
         if (!myOffer.includes(id)) {
             myOffer.push(id);
             renderMyOffer();
+            renderInventory(); // Update inventory to gray out the item
             await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer) });
         }
+    }
+
+    // --- REMOVE FROM OFFER ---
+    async function removeFromOffer(id) {
+        myOffer = myOffer.filter(itemId => itemId !== id);
+        renderMyOffer();
+        renderInventory(); // Make item clickable in inventory again
+        await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer) });
     }
 
     function renderMyOffer() {
@@ -358,9 +391,10 @@
             list.innerHTML = '<div style="color: gray; text-align: center; margin-top: 50px;">Select items from inventory...</div>';
             return;
         }
+        
         list.innerHTML = myOffer.map(id => {
             let name = tradeableItems.find(i => i.id === id).name;
-            return `<div class="item-card">${name}</div>`;
+            return `<div class="item-card" style="border-color: #ff4444;" onclick="removeFromOffer('${id}')" title="Click to remove">❌ ${name}</div>`;
         }).join('');
     }
 
@@ -375,12 +409,11 @@
 
         if (res.status === 'completed') {
             clearInterval(pollInterval);
-            alert("✅ TRADE SEQUENCE COMPLETED SUCCESSFULLY! ✅");
+            alert("✅ TRADE SEQUENCE COMPLETED SUCCESSFULLY! Items have been swapped. ✅");
             window.location.href = "../index.html"; 
             return;
         }
 
-        // Update Their Offer visually
         const theirList = document.getElementById('theirOfferList');
         if (res.their_offer.length === 0) {
             theirList.innerHTML = '<div style="color: gray; text-align: center; margin-top: 50px;">Awaiting transmission...</div>';
@@ -391,13 +424,11 @@
             }).join('');
         }
 
-        // --- UI VISUAL SYNC ---
         const myWin = document.getElementById('myWindow');
         const theirWin = document.getElementById('theirWindow');
         const btn = document.getElementById('acceptBtn');
         const targetStatus = document.getElementById('theirStatus');
 
-        // My Readiness
         if (res.my_accept) {
             myWin.classList.add('ready');
             btn.className = 'btn btn-danger';
@@ -408,7 +439,6 @@
             btn.innerText = 'READY TO TRADE';
         }
 
-        // Their Readiness
         if (res.their_accept) {
             theirWin.classList.add('ready');
             targetStatus.innerText = 'TARGET LOCKED & READY';
