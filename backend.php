@@ -2,11 +2,24 @@
 session_start();
 header('Content-Type: application/json');
 
+// --- READ CONFIG FILE ---
+$config_file = 'config.ini'; // Located in the same folder
+
+if (!file_exists($config_file)) {
+    die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing."]));
+}
+
+$lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+if (count($lines) < 2) {
+    die(json_encode(["success" => false, "message" => "Server Error: Invalid configuration file format."]));
+}
+
 // --- DATABASE CONFIGURATION ---
 $db_host = 'localhost';
 $db_name = 'schoolexams';
-$db_user = 'root'; // Change to your database username
-$db_pass = '';     // Change to your database password
+$db_user = trim($lines[0]); 
+$db_pass = trim($lines[1]); 
 
 try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
