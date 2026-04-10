@@ -2,128 +2,295 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Diamond Crack Event</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diamond Event - SchoolExams</title>
     <style>
-        :root { --p1: #90e0ef; --bg: #000814; }
-        body { background: var(--bg); color: #fff; font-family: sans-serif; text-align: center; padding: 50px; }
-        .task-list { max-width: 600px; margin: 20px auto; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; }
-        .task-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222; }
-        .task-item.done { color: #3ba55c; text-decoration: line-through; }
+        :root {
+            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
+            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
+            --line: rgba(144, 224, 239, 0.2);
+            --glow: 0 0 20px rgba(144, 224, 239, 0.4);
+            --r: 16px;
+        }
+
+        body { 
+            background: var(--bg0); color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; 
+            text-align: center; padding: 40px 20px; overflow-x: hidden; margin: 0;
+            background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .header { margin-bottom: 30px; }
+        .header h1 { color: var(--p1); font-size: 3rem; margin: 0 0 10px 0; text-shadow: var(--glow); text-transform: uppercase; letter-spacing: 2px; }
+        .header p { color: #caf0f8; font-size: 1.1rem; margin: 0; }
         
-        #diamond-container { margin: 40px auto; width: 200px; cursor: pointer; transition: 0.1s; position: relative; }
-        #diamond-container:active { transform: scale(0.9); }
-        .cracked { animation: shake 0.5s; filter: hue-rotate(90deg); }
-        @keyframes shake { 0% {left:0} 25% {left:5px} 50% {left:-5px} 75% {left:5px} 100% {left:0} }
+        .timer-box { display: inline-block; background: rgba(0,0,0,0.6); border: 1px solid var(--p1); padding: 8px 20px; border-radius: 20px; color: #ffd700; font-weight: bold; margin-bottom: 30px; box-shadow: 0 0 10px rgba(255, 215, 0, 0.2); }
+
+        #diamond-container { 
+            margin: 0 auto 40px auto; width: 220px; height: 220px; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            position: relative; display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(circle, rgba(144, 224, 239, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        #diamond-container:hover { transform: scale(1.05); }
+        #diamond-container:active { transform: scale(0.95); }
         
-        .reward-popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .btn-claim { background: #ffd700; padding: 15px 30px; border: none; border-radius: 10px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+        .cracked { animation: shake 0.4s infinite; filter: hue-rotate(90deg) brightness(1.5); }
+        @keyframes shake { 0% {left:0} 25% {left:8px} 50% {left:-8px} 75% {left:8px} 100% {left:0} }
+        
+        #pointsDisplay { position: absolute; bottom: -30px; background: var(--p0); padding: 5px 15px; border-radius: 12px; font-weight: 900; box-shadow: var(--glow); border: 2px solid var(--p1); }
+
+        .task-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 900px; margin: 0 auto; }
+        
+        .task-card { 
+            background: rgba(0, 29, 61, 0.85); border: 2px solid var(--p2); border-radius: var(--r); 
+            padding: 20px; text-align: left; backdrop-filter: blur(10px); transition: 0.3s;
+            position: relative; overflow: hidden;
+        }
+        .task-card:hover { border-color: var(--p1); box-shadow: var(--glow); transform: translateY(-5px); }
+        .task-card.done { border-color: #3ba55c; background: rgba(59, 165, 92, 0.1); }
+        .task-card.claimed { border-color: #555; background: rgba(0,0,0,0.5); opacity: 0.7; }
+        
+        .task-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .task-pts { background: #ffd700; color: #000; padding: 2px 8px; border-radius: 8px; font-size: 0.8rem; font-weight: 900; }
+        
+        .progress-bg { background: var(--bg0); height: 12px; border-radius: 6px; overflow: hidden; margin-top: 15px; border: 1px solid var(--p2); }
+        .progress-fill { background: var(--p1); height: 100%; width: 0%; transition: width 0.5s ease; box-shadow: 0 0 10px var(--p1); }
+        .done .progress-fill { background: #3ba55c; box-shadow: 0 0 10px #3ba55c; }
+
+        .reward-popup { display: none; position: fixed; inset: 0; background: rgba(0,8,20,0.95); flex-direction: column; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(5px); }
+        .reward-box { background: var(--bg1); border: 2px solid var(--p1); padding: 40px; border-radius: var(--r); text-align: center; box-shadow: var(--glow); max-width: 400px; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .btn-claim { background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; padding: 15px 30px; border: none; border-radius: 12px; font-weight: 900; font-size: 1.1rem; margin-top: 25px; cursor: pointer; transition: 0.2s; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); width: 100%; }
+        .btn-claim:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(255, 215, 0, 0.6); }
+        
+        #toast { position: fixed; bottom: 20px; right: 20px; background: #3ba55c; color: white; padding: 15px 25px; border-radius: 10px; font-weight: bold; transform: translateY(100px); opacity: 0; transition: 0.3s; z-index: 1000; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        #toast.show { transform: translateY(0); opacity: 1; }
     </style>
 </head>
 <body>
-    <h1>💎 Diamond Crack Event</h1>
-    <p>Complete tasks on the main portal to earn "Crack Points". Click the Diamond to claim rewards!</p>
+
+    <div class="header">
+        <h1>💎 Diamond Crack Event</h1>
+        <p>Complete portal tasks to earn Crack Points. Strike the diamond for rare rewards!</p>
+    </div>
+
+    <div class="timer-box" id="timerDisplay">Refreshing Tasks in: 30:00</div>
 
     <div id="diamond-container" onclick="attemptCrack()">
-        <img id="diamondImg" src="Diamond.png" style="width: 100%;">
-        <h3 id="pointsDisplay">Points: 0</h3>
+        <img id="diamondImg" src="Diamond.png" alt="Diamond" style="width: 150px; position: relative;">
+        <div id="pointsDisplay">Ready to Crack: 0</div>
     </div>
 
-    <div class="task-list" id="taskList"></div>
+    <div class="task-grid" id="taskList">
+        </div>
 
     <div class="reward-popup" id="rewardPopup">
-        <h2 id="rewardTitle">CONGRATULATIONS!</h2>
-        <div id="rewardIcon" style="font-size: 80px;"></div>
-        <p id="rewardDesc"></p>
-        <button class="btn-claim" onclick="location.reload()">CLAIM & CONTINUE</button>
+        <div class="reward-box">
+            <h2 id="rewardTitle" style="color: var(--p1); margin-top:0; font-size: 28px;">CONGRATULATIONS!</h2>
+            <div id="rewardIcon" style="font-size: 90px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.4)); margin: 20px 0;"></div>
+            <p id="rewardDesc" style="font-size: 18px; font-weight: bold;"></p>
+            <button class="btn-claim" onclick="document.getElementById('rewardPopup').style.display='none'">AWESOME!</button>
+        </div>
     </div>
 
+    <div id="toast">Data Synced Successfully</div>
+
 <script>
+// --- GAME STATE & BACKEND SYNC ---
+let gameState = null;
+
+async function loadGameFromServer() {
+    try {
+        const formData = new FormData(); formData.append('action', 'load');
+        const res = await fetch('../backend.php', { method: 'POST', body: formData });
+        const result = await res.json();
+        
+        if(result.success && result.data) {
+            gameState = {
+                coins: parseInt(result.data.coins) || 0,
+                gems: parseInt(result.data.gems) || 0,
+                playtime: parseInt(result.data.playtime) || 0,
+                owned_cursors: JSON.parse(result.data.owned_cursors || '["def"]'),
+                equipped_cursor: result.data.equipped_cursor || 'def',
+                owned_pets: JSON.parse(result.data.owned_pets || '[]'),
+                active_pet: result.data.active_pet || '',
+                pet_ages: JSON.parse(result.data.pet_ages || '{}')
+            };
+        }
+    } catch(e) { console.error("Event failed to load state."); }
+}
+
+async function saveGameToServer() {
+    if(!gameState) return;
+    try {
+        const formData = new FormData();
+        formData.append('action', 'save');
+        formData.append('coins', gameState.coins);
+        formData.append('gems', gameState.gems);
+        formData.append('playtime', gameState.playtime);
+        formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors));
+        formData.append('equipped_cursor', gameState.equipped_cursor);
+        formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
+        formData.append('active_pet', gameState.active_pet);
+        formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
+        
+        await fetch('../backend.php', { method: 'POST', body: formData });
+    } catch(e) { console.error("Event failed to save state."); }
+}
+
+// --- TASK LOGIC ---
+const THIRTY_MINS = 30 * 60 * 1000;
 const TASK_DEFS = [
     { id: 1, type: 'feed_pet', name: 'Feed your Pet 5 times', goal: 5, points: 1 },
     { id: 2, type: 'open_module', name: 'Launch 10 Modules', goal: 10, points: 1 },
     { id: 3, type: 'play_minutes', name: 'Play for 30 Minutes', goal: 30, points: 1 },
-    { id: 4, type: 'feed_pet', name: 'Master Caretaker (Feed 20 times)', goal: 20, points: 2 },
+    { id: 4, type: 'feed_pet', name: 'Master Caretaker (Feed 20x)', goal: 20, points: 2 },
     { id: 5, type: 'open_module', name: 'Explorer (Launch 25 Modules)', goal: 25, points: 2 },
-    { id: 6, type: 'play_minutes', name: 'Veteran (Play for 60 Minutes)', goal: 60, points: 3 },
-    { id: 7, type: 'feed_pet', name: 'Pet Whisperer (Feed 50 times)', goal: 50, points: 3 },
+    { id: 6, type: 'play_minutes', name: 'Veteran (Play for 60 Mins)', goal: 60, points: 3 },
+    { id: 7, type: 'feed_pet', name: 'Pet Whisperer (Feed 50x)', goal: 50, points: 3 },
     { id: 8, type: 'open_module', name: 'Module Maniac (Launch 50 Modules)', goal: 50, points: 3 },
-    { id: 9, type: 'play_minutes', name: 'Addict (Play for 120 Minutes)', goal: 120, points: 5 },
-    { id: 10, type: 'feed_pet', name: 'Pet Royalty (Feed 100 times)', goal: 100, points: 5 },
+    { id: 9, type: 'play_minutes', name: 'Addict (Play for 120 Mins)', goal: 120, points: 5 },
+    { id: 10, type: 'feed_pet', name: 'Pet Royalty (Feed 100x)', goal: 100, points: 5 },
     { id: 11, type: 'open_module', name: 'Grandmaster (Launch 100 Modules)', goal: 100, points: 5 },
-    { id: 12, type: 'play_minutes', name: 'No Lifing It (Play for 240 Minutes)', goal: 240, points: 10 }
+    { id: 12, type: 'play_minutes', name: 'Dedicated (Play for 240 Mins)', goal: 240, points: 10 }
 ];
 
-function initTasks() {
-    if (!localStorage.getItem('event_tasks')) {
-        let tasks = TASK_DEFS.map(t => ({...t, current: 0, completed: false, claimed: false}));
-        localStorage.setItem('event_tasks', JSON.stringify(tasks));
+function checkTaskRotation() {
+    let lastRefresh = parseInt(localStorage.getItem('event_last_refresh') || '0');
+    let now = Date.now();
+    
+    // If 30 mins have passed, OR tasks don't exist, OR task length isn't exactly 4
+    let currentTasks = JSON.parse(localStorage.getItem('event_tasks') || '[]');
+    if (now - lastRefresh > THIRTY_MINS || currentTasks.length !== 4) {
+        // Shuffle and pick exactly 4
+        let shuffled = TASK_DEFS.sort(() => 0.5 - Math.random());
+        let selected = shuffled.slice(0, 4).map(t => ({...t, current: 0, completed: false, claimed: false}));
+        
+        localStorage.setItem('event_tasks', JSON.stringify(selected));
+        localStorage.setItem('event_last_refresh', now);
+        lastRefresh = now;
+        showToast("🔄 New Tasks Available!");
     }
-    renderTasks();
+    
+    // Update Timer UI
+    let timeRemaining = THIRTY_MINS - (now - lastRefresh);
+    let minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+    let seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+    document.getElementById('timerDisplay').innerText = `Refreshing Tasks in: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
 function renderTasks() {
-    const tasks = JSON.parse(localStorage.getItem('event_tasks'));
+    const tasks = JSON.parse(localStorage.getItem('event_tasks') || '[]');
     const container = document.getElementById('taskList');
     let points = 0;
     
     container.innerHTML = "";
     tasks.forEach(t => {
         if (t.completed && !t.claimed) points += t.points;
-        const div = document.createElement('div');
-        div.className = `task-item ${t.completed ? 'done' : ''}`;
-        div.innerHTML = `<span>${t.name} (+${t.points} Pt)</span> <span>${t.current}/${t.goal}</span>`;
-        container.appendChild(div);
+        
+        let percent = Math.min(100, (t.current / t.goal) * 100);
+        let statusClass = t.claimed ? 'claimed' : (t.completed ? 'done' : '');
+        let statusText = t.claimed ? 'CLAIMED ✓' : `${t.current} / ${t.goal}`;
+
+        const card = document.createElement('div');
+        card.className = `task-card ${statusClass}`;
+        card.innerHTML = `
+            <div class="task-title">
+                <span>${t.name}</span>
+                <span class="task-pts">+${t.points} Pt</span>
+            </div>
+            <div style="font-size: 0.9rem; color: #aaa;">Status: <strong style="color: #fff;">${statusText}</strong></div>
+            <div class="progress-bg">
+                <div class="progress-fill" style="width: ${percent}%"></div>
+            </div>
+        `;
+        container.appendChild(card);
     });
+    
     document.getElementById('pointsDisplay').innerText = `Ready to Crack: ${points}`;
 }
 
+let isCracking = false;
 async function attemptCrack() {
-    let tasks = JSON.parse(localStorage.getItem('event_tasks'));
+    if(isCracking) return;
+    
+    let tasks = JSON.parse(localStorage.getItem('event_tasks') || '[]');
     let claimable = tasks.find(t => t.completed && !t.claimed);
     
     if (!claimable) {
-        alert("Complete more tasks to earn Crack Points!");
+        showToast("Complete tasks to get points!");
         return;
     }
 
-    // Animation
+    isCracking = true;
     const img = document.getElementById('diamondImg');
     img.classList.add('cracked');
     
     setTimeout(async () => {
         img.classList.remove('cracked');
+        
+        // Mark task as claimed
         claimable.claimed = true;
         localStorage.setItem('event_tasks', JSON.stringify(tasks));
         
-        // Random Reward Logic
+        // RNG Logic
         let rand = Math.random() * 100;
-        let reward = { type: 'gems', amount: 50, icon: '💎' };
+        let reward = { type: 'gems', amount: 50, icon: '💎', name: '50 Gems' };
         
-        if (rand < 5) { // 5% Pet
+        if (rand < 5) {
             reward = { type: 'pet', id: 'phoenix', name: 'Mythic Phoenix', icon: '🔥' };
-        } else if (rand < 10) { // 5% Cursor (Wait, 10% cumulatively so another 5%)
+        } else if (rand < 10) {
             reward = { type: 'cursor', id: 'prism', name: 'Prism Wing', icon: '🌈' };
         }
 
-        await saveRewardToBackend(reward);
-        showReward(reward);
-    }, 500);
+        // Apply to backend exactly like index.html
+        await loadGameFromServer(); // Get freshest state
+        if (gameState) {
+            if (reward.type === 'gems') {
+                gameState.gems += reward.amount;
+            } else if (reward.type === 'pet') {
+                if(!gameState.owned_pets.includes(reward.id)) gameState.owned_pets.push(reward.id);
+                else reward.name = "Phoenix Duplicate! (Converted to 100 Gems)"; gameState.gems += 100; // Fallback
+            } else if (reward.type === 'cursor') {
+                if(!gameState.owned_cursors.includes(reward.id)) gameState.owned_cursors.push(reward.id);
+                else reward.name = "Prism Duplicate! (Converted to 100 Gems)"; gameState.gems += 100; // Fallback
+            }
+            await saveGameToServer();
+        }
+
+        // Show UI
+        document.getElementById('rewardPopup').style.display = 'flex';
+        document.getElementById('rewardIcon').innerHTML = reward.icon;
+        document.getElementById('rewardDesc').innerText = `You unlocked: ${reward.name}`;
+        
+        renderTasks();
+        isCracking = false;
+    }, 600); // Wait for shake animation
 }
 
-async function saveRewardToBackend(reward) {
-    const formData = new FormData();
-    formData.append('action', 'event_reward');
-    formData.append('reward_data', JSON.stringify(reward));
-    await fetch('../backend.php', { method: 'POST', body: formData });
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.innerText = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-function showReward(res) {
-    document.getElementById('rewardPopup').style.display = 'flex';
-    document.getElementById('rewardIcon').innerHTML = res.icon;
-    document.getElementById('rewardDesc').innerText = `You unlocked: ${res.name || res.amount + ' Gems'}`;
+// --- BOOTSTRAP & 5-SECOND SYNC LOOP ---
+async function init() {
+    await loadGameFromServer();
+    checkTaskRotation();
+    renderTasks();
+    
+    // Check every 5 seconds to sync data seamlessly from main portal without full page reload
+    setInterval(() => {
+        checkTaskRotation();
+        renderTasks();
+    }, 5000);
 }
 
-initTasks();
+init();
 </script>
 </body>
 </html>
