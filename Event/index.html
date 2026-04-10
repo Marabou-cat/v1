@@ -103,7 +103,8 @@ let gameState = null;
 
 async function loadGameFromServer() {
     try {
-        const formData = new FormData(); formData.append('action', 'load');
+        const formData = new FormData(); 
+        formData.append('action', 'load');
         const res = await fetch('../backend.php', { method: 'POST', body: formData });
         const result = await res.json();
         
@@ -161,10 +162,8 @@ function checkTaskRotation() {
     let lastRefresh = parseInt(localStorage.getItem('event_last_refresh') || '0');
     let now = Date.now();
     
-    // If 30 mins have passed, OR tasks don't exist, OR task length isn't exactly 4
     let currentTasks = JSON.parse(localStorage.getItem('event_tasks') || '[]');
     if (now - lastRefresh > THIRTY_MINS || currentTasks.length !== 4) {
-        // Shuffle and pick exactly 4
         let shuffled = TASK_DEFS.sort(() => 0.5 - Math.random());
         let selected = shuffled.slice(0, 4).map(t => ({...t, current: 0, completed: false, claimed: false}));
         
@@ -174,7 +173,6 @@ function checkTaskRotation() {
         showToast("🔄 New Tasks Available!");
     }
     
-    // Update Timer UI
     let timeRemaining = THIRTY_MINS - (now - lastRefresh);
     let minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
     let seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
@@ -217,9 +215,11 @@ async function attemptCrack() {
     if(isCracking) return;
     
     let tasks = JSON.parse(localStorage.getItem('event_tasks') || '[]');
-    let claimable = tasks.find(t => t.completed && !t.claimed);
     
-    if (!claimable) {
+    // Filter all tasks that are done but not claimed
+    let claimableTasks = tasks.filter(t => t.completed && !t.claimed);
+    
+    if (claimableTasks.length === 0) {
         showToast("Complete tasks to get points!");
         return;
     }
@@ -231,43 +231,57 @@ async function attemptCrack() {
     setTimeout(async () => {
         img.classList.remove('cracked');
         
-        // Mark task as claimed
-        claimable.claimed = true;
+        // Get freshest state before applying multiple rewards
+        await loadGameFromServer(); 
+        
+        let totalRewardsText = "";
+        let rewardsCount = 0;
+
+        // Loop through every claimable task
+        claimableTasks.forEach(task => {
+            // Find the task in the original array to mark it claimed
+            const taskToMark = tasks.find(t => t.id === task.id);
+            if (taskToMark) taskToMark.claimed = true;
+            
+            // RNG Logic per point
+            let rand = Math.random() * 100;
+            let reward = { type: 'gems', amount: 50, icon: '💎', name: '50 Gems' };
+            
+            if (rand < 5) {
+                reward = { type: 'pet', id: 'phoenix', name: 'Mythic Phoenix', icon: '🔥' };
+            } else if (rand < 10) {
+                reward = { type: 'cursor', id: 'prism', name: 'Prism Wing', icon: '🌈' };
+            }
+
+            // Apply to gameState
+            if (gameState) {
+                if (reward.type === 'gems') {
+                    gameState.gems += reward.amount;
+                } else if (reward.type === 'pet') {
+                    if(!gameState.owned_pets.includes(reward.id)) gameState.owned_pets.push(reward.id);
+                    else { reward.name = "Phoenix (100 Gems)"; gameState.gems += 100; }
+                } else if (reward.type === 'cursor') {
+                    if(!gameState.owned_cursors.includes(reward.id)) gameState.owned_cursors.push(reward.id);
+                    else { reward.name = "Prism (100 Gems)"; gameState.gems += 100; }
+                }
+            }
+            rewardsCount++;
+        });
+
+        // Save updated task statuses to LocalStorage
         localStorage.setItem('event_tasks', JSON.stringify(tasks));
         
-        // RNG Logic
-        let rand = Math.random() * 100;
-        let reward = { type: 'gems', amount: 50, icon: '💎', name: '50 Gems' };
-        
-        if (rand < 5) {
-            reward = { type: 'pet', id: 'phoenix', name: 'Mythic Phoenix', icon: '🔥' };
-        } else if (rand < 10) {
-            reward = { type: 'cursor', id: 'prism', name: 'Prism Wing', icon: '🌈' };
-        }
-
-        // Apply to backend exactly like index.html
-        await loadGameFromServer(); // Get freshest state
-        if (gameState) {
-            if (reward.type === 'gems') {
-                gameState.gems += reward.amount;
-            } else if (reward.type === 'pet') {
-                if(!gameState.owned_pets.includes(reward.id)) gameState.owned_pets.push(reward.id);
-                else reward.name = "Phoenix Duplicate! (Converted to 100 Gems)"; gameState.gems += 100; // Fallback
-            } else if (reward.type === 'cursor') {
-                if(!gameState.owned_cursors.includes(reward.id)) gameState.owned_cursors.push(reward.id);
-                else reward.name = "Prism Duplicate! (Converted to 100 Gems)"; gameState.gems += 100; // Fallback
-            }
-            await saveGameToServer();
-        }
+        // Save updated inventory/gems to Server
+        if (gameState) await saveGameToServer();
 
         // Show UI
         document.getElementById('rewardPopup').style.display = 'flex';
-        document.getElementById('rewardIcon').innerHTML = reward.icon;
-        document.getElementById('rewardDesc').innerText = `You unlocked: ${reward.name}`;
+        document.getElementById('rewardIcon').innerHTML = "🎁";
+        document.getElementById('rewardDesc').innerText = `Diamond Cracked! You redeemed ${rewardsCount} points for multiple rewards.`;
         
         renderTasks();
         isCracking = false;
-    }, 600); // Wait for shake animation
+    }, 600);
 }
 
 function showToast(msg) {
@@ -283,7 +297,6 @@ async function init() {
     checkTaskRotation();
     renderTasks();
     
-    // Check every 5 seconds to sync data seamlessly from main portal without full page reload
     setInterval(() => {
         checkTaskRotation();
         renderTasks();
