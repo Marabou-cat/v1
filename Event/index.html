@@ -2,167 +2,128 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>SchoolExams - The Reward Wheel</title>
+    <title>Diamond Crack Event</title>
     <style>
-        :root {
-            --bg0: #000814; --bg1: #001d3d; --p0: #0077b6;
-            --p1: #90e0ef; --w: #caf0f8; --r: 16px;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg0); color: var(--w); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        :root { --p1: #90e0ef; --bg: #000814; }
+        body { background: var(--bg); color: #fff; font-family: sans-serif; text-align: center; padding: 50px; }
+        .task-list { max-width: 600px; margin: 20px auto; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; }
+        .task-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222; }
+        .task-item.done { color: #3ba55c; text-decoration: line-through; }
         
-        .bg-grid { position: fixed; inset: 0; z-index: -1; background-image: linear-gradient(rgba(144, 224, 239, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(144, 224, 239, 0.1) 1px, transparent 1px); background-size: 40px 40px; }
-
-        h1 { font-size: 3rem; color: var(--p1); text-shadow: 0 0 20px rgba(144, 224, 239, 0.3); margin-bottom: 5px; text-align: center; }
-        p { color: var(--w); margin-bottom: 20px; font-size: 1.1rem; text-align: center; }
-
-        .progress-container { background: var(--bg1); border: 2px solid var(--p0); border-radius: 20px; padding: 15px 30px; margin-bottom: 40px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-        .progress-text { font-weight: bold; margin-bottom: 10px; color: var(--p1); font-size: 1.2rem; }
-        .progress-bar-bg { width: 100%; height: 10px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden; }
-        .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--p0), var(--p1)); transition: width 1s linear; }
-
-        .main-layout { display: flex; align-items: center; justify-content: center; gap: 60px; width: 100%; max-width: 900px; flex-wrap: wrap-reverse; }
-        .wheel-wrapper { display: flex; flex-direction: column; align-items: center; }
-        .wheel-container { position: relative; width: 300px; height: 300px; margin-bottom: 30px; }
-        .pointer { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #ffd700; z-index: 10; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
+        #diamond-container { margin: 40px auto; width: 200px; cursor: pointer; transition: 0.1s; position: relative; }
+        #diamond-container:active { transform: scale(0.9); }
+        .cracked { animation: shake 0.5s; filter: hue-rotate(90deg); }
+        @keyframes shake { 0% {left:0} 25% {left:5px} 50% {left:-5px} 75% {left:5px} 100% {left:0} }
         
-        .wheel { width: 100%; height: 100%; border-radius: 50%; border: 4px solid var(--p1); box-shadow: 0 0 30px rgba(144, 224, 239, 0.4); background: conic-gradient(
-            #0077b6 0% 40%, #00b4d8 40% 70%, #90e0ef 70% 85%, #03045e 85% 95%, #ff0000 95% 100%
-        ); transition: transform 4s cubic-bezier(0.175, 0.885, 0.32, 1.05); }
-
-        .btn-spin { background: linear-gradient(135deg, #ffd700, #ff8c00); border: none; color: #000; padding: 15px 40px; border-radius: 30px; font-size: 1.2rem; font-weight: 900; cursor: pointer; text-transform: uppercase; box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3); transition: 0.2s; }
-        .btn-spin:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 5px 25px rgba(255, 215, 0, 0.5); }
-        .btn-spin:disabled { background: #333; color: #888; cursor: not-allowed; box-shadow: none; }
-
-        .result-box { background: var(--bg1); border: 2px solid var(--p0); padding: 30px; border-radius: var(--r); text-align: center; width: 100%; max-width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
-        .result-box.show { opacity: 1; pointer-events: auto; }
-        .status-display { background: rgba(0,0,0,0.5); border: 1px solid var(--p1); padding: 15px; border-radius: 8px; font-size: 1.1rem; margin: 15px 0; font-weight: bold; }
-        .close-btn { background: #d00000; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; text-decoration: none; display: inline-block; }
-        .close-btn:hover { background: #ff0000; box-shadow: 0 0 15px #ff0000; }
-        
-        .redeem-code-box { color: #3ba55c; font-family: monospace; font-size: 1.3rem; letter-spacing: 2px; padding: 10px; background: rgba(0,0,0,0.8); border-radius: 5px; border: 1px dashed #3ba55c; user-select: all; cursor: text; margin: 10px 0; word-break: break-all; }
+        .reward-popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .btn-claim { background: #ffd700; padding: 15px 30px; border: none; border-radius: 10px; font-weight: bold; margin-top: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="bg-grid"></div>
+    <h1>💎 Diamond Crack Event</h1>
+    <p>Complete tasks on the main portal to earn "Crack Points". Click the Diamond to claim rewards!</p>
 
-    <h1>Event Wheel</h1>
-    <p>Earn 1 Spin for every 2 minutes of Playtime!</p>
-
-    <div class="progress-container">
-        <div class="progress-text" id="spinStatus">Connecting to Database...</div>
-        <div class="progress-bar-bg"><div class="progress-bar-fill" id="playtimeBar"></div></div>
+    <div id="diamond-container" onclick="attemptCrack()">
+        <img id="diamondImg" src="Diamond.png" style="width: 100%;">
+        <h3 id="pointsDisplay">Points: 0</h3>
     </div>
 
-    <div class="main-layout">
-        <div class="result-box" id="resultBox">
-            <h2 id="prizeText" style="color: #ffd700; margin-bottom:10px;">You won!</h2>
-            <div id="codeDisplay">Generating code...</div>
-            <a href="javascript:window.close();" class="close-btn">Return to Portal</a>
-        </div>
+    <div class="task-list" id="taskList"></div>
 
-        <div class="wheel-wrapper">
-            <div class="wheel-container">
-                <div class="pointer"></div><div class="wheel" id="wheel"></div>
-            </div>
-            <button class="btn-spin" id="spinBtn" onclick="spinWheel()" disabled>Spin Locked</button>
-        </div>
+    <div class="reward-popup" id="rewardPopup">
+        <h2 id="rewardTitle">CONGRATULATIONS!</h2>
+        <div id="rewardIcon" style="font-size: 80px;"></div>
+        <p id="rewardDesc"></p>
+        <button class="btn-claim" onclick="location.reload()">CLAIM & CONTINUE</button>
     </div>
 
-    <script>
-        let gameState = null;
-        let currentRotation = 0;
-        let isSpinning = false;
+<script>
+const TASK_DEFS = [
+    { id: 1, type: 'feed_pet', name: 'Feed your Pet 5 times', goal: 5, points: 1 },
+    { id: 2, type: 'open_module', name: 'Launch 10 Modules', goal: 10, points: 1 },
+    { id: 3, type: 'play_minutes', name: 'Play for 30 Minutes', goal: 30, points: 1 },
+    { id: 4, type: 'feed_pet', name: 'Master Caretaker (Feed 20 times)', goal: 20, points: 2 },
+    { id: 5, type: 'open_module', name: 'Explorer (Launch 25 Modules)', goal: 25, points: 2 },
+    { id: 6, type: 'play_minutes', name: 'Veteran (Play for 60 Minutes)', goal: 60, points: 3 },
+    { id: 7, type: 'feed_pet', name: 'Pet Whisperer (Feed 50 times)', goal: 50, points: 3 },
+    { id: 8, type: 'open_module', name: 'Module Maniac (Launch 50 Modules)', goal: 50, points: 3 },
+    { id: 9, type: 'play_minutes', name: 'Addict (Play for 120 Minutes)', goal: 120, points: 5 },
+    { id: 10, type: 'feed_pet', name: 'Pet Royalty (Feed 100 times)', goal: 100, points: 5 },
+    { id: 11, type: 'open_module', name: 'Grandmaster (Launch 100 Modules)', goal: 100, points: 5 },
+    { id: 12, type: 'play_minutes', name: 'No Lifing It (Play for 240 Minutes)', goal: 240, points: 10 }
+];
 
-        async function loadGameFromServer() {
-            const formData = new FormData(); formData.append('action', 'load');
-            try {
-                const response = await fetch('../backend.php', { method: 'POST', body: formData });
-                const result = await response.json();
-                
-                if (result.success && result.data) {
-                    gameState = { playtime: parseInt(result.data.playtime) || 0 };
-                    updateProgress();
-                } else {
-                    document.getElementById('spinStatus').innerText = "❌ Please log in on the main portal first!"; document.getElementById('spinStatus').style.color = "#ff4444";
-                }
-            } catch (e) { 
-                document.getElementById('spinStatus').innerText = "❌ Connection Error. Please log in."; document.getElementById('spinStatus').style.color = "#ff4444";
-            }
+function initTasks() {
+    if (!localStorage.getItem('event_tasks')) {
+        let tasks = TASK_DEFS.map(t => ({...t, current: 0, completed: false, claimed: false}));
+        localStorage.setItem('event_tasks', JSON.stringify(tasks));
+    }
+    renderTasks();
+}
+
+function renderTasks() {
+    const tasks = JSON.parse(localStorage.getItem('event_tasks'));
+    const container = document.getElementById('taskList');
+    let points = 0;
+    
+    container.innerHTML = "";
+    tasks.forEach(t => {
+        if (t.completed && !t.claimed) points += t.points;
+        const div = document.createElement('div');
+        div.className = `task-item ${t.completed ? 'done' : ''}`;
+        div.innerHTML = `<span>${t.name} (+${t.points} Pt)</span> <span>${t.current}/${t.goal}</span>`;
+        container.appendChild(div);
+    });
+    document.getElementById('pointsDisplay').innerText = `Ready to Crack: ${points}`;
+}
+
+async function attemptCrack() {
+    let tasks = JSON.parse(localStorage.getItem('event_tasks'));
+    let claimable = tasks.find(t => t.completed && !t.claimed);
+    
+    if (!claimable) {
+        alert("Complete more tasks to earn Crack Points!");
+        return;
+    }
+
+    // Animation
+    const img = document.getElementById('diamondImg');
+    img.classList.add('cracked');
+    
+    setTimeout(async () => {
+        img.classList.remove('cracked');
+        claimable.claimed = true;
+        localStorage.setItem('event_tasks', JSON.stringify(tasks));
+        
+        // Random Reward Logic
+        let rand = Math.random() * 100;
+        let reward = { type: 'gems', amount: 50, icon: '💎' };
+        
+        if (rand < 5) { // 5% Pet
+            reward = { type: 'pet', id: 'phoenix', name: 'Mythic Phoenix', icon: '🔥' };
+        } else if (rand < 10) { // 5% Cursor (Wait, 10% cumulatively so another 5%)
+            reward = { type: 'cursor', id: 'prism', name: 'Prism Wing', icon: '🌈' };
         }
 
-        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadGameFromServer(); });
-        loadGameFromServer();
+        await saveRewardToBackend(reward);
+        showReward(reward);
+    }, 500);
+}
 
-        function updateProgress() {
-            if (!gameState) return;
+async function saveRewardToBackend(reward) {
+    const formData = new FormData();
+    formData.append('action', 'event_reward');
+    formData.append('reward_data', JSON.stringify(reward));
+    await fetch('../backend.php', { method: 'POST', body: formData });
+}
 
-            let spinsUsed = parseInt(localStorage.getItem('schoolExamsSpinsUsed') || '0');
-            if (isNaN(spinsUsed)) { spinsUsed = 0; localStorage.setItem('schoolExamsSpinsUsed', 0); }
+function showReward(res) {
+    document.getElementById('rewardPopup').style.display = 'flex';
+    document.getElementById('rewardIcon').innerHTML = res.icon;
+    document.getElementById('rewardDesc').innerText = `You unlocked: ${res.name || res.amount + ' Gems'}`;
+}
 
-            const totalEarnedSpins = Math.floor(gameState.playtime / 120); 
-            if (spinsUsed > totalEarnedSpins) { spinsUsed = totalEarnedSpins; localStorage.setItem('schoolExamsSpinsUsed', spinsUsed); }
-
-            const availableSpins = totalEarnedSpins - spinsUsed;
-            const secondsTowardsNext = gameState.playtime % 120;
-            const progressPercent = (secondsTowardsNext / 120) * 100;
-
-            const btn = document.getElementById('spinBtn'); const statusText = document.getElementById('spinStatus'); const bar = document.getElementById('playtimeBar');
-
-            if (availableSpins > 0) {
-                if (!isSpinning) { btn.disabled = false; btn.innerText = `Spin Now (${availableSpins} Available)`; }
-                statusText.innerText = "You have spins ready! 🎰"; statusText.style.color = "var(--p1)";
-                bar.style.width = "100%"; bar.style.background = "linear-gradient(90deg, #ffd700, #ff8c00)";
-            } else {
-                if (!isSpinning) { btn.disabled = true; btn.innerText = "Play to Unlock"; }
-                const totalSecondsLeft = 120 - secondsTowardsNext; const minsLeft = Math.floor(totalSecondsLeft / 60); const secsLeft = totalSecondsLeft % 60;
-                statusText.innerText = `Next spin in: ${minsLeft}m ${secsLeft}s ⏳`; statusText.style.color = "var(--p1)";
-                bar.style.width = `${progressPercent}%`; bar.style.background = "linear-gradient(90deg, var(--p0), var(--p1))";
-            }
-        }
-
-        setInterval(() => { 
-            if (!gameState) return; 
-            if (document.hidden) return; 
-            gameState.playtime++; 
-            updateProgress(); 
-        }, 1000);
-
-        function spinWheel() {
-            if (!gameState) return;
-            const btn = document.getElementById('spinBtn'); const wheel = document.getElementById('wheel'); const resultBox = document.getElementById('resultBox');
-            isSpinning = true; btn.disabled = true; resultBox.classList.remove('show');
-
-            let spinsUsed = parseInt(localStorage.getItem('schoolExamsSpinsUsed') || '0'); localStorage.setItem('schoolExamsSpinsUsed', spinsUsed + 1);
-
-            const rand = Math.random() * 100; let prizeAmount = 0; let extraRotation = 0; let prizeName = "";
-
-            if (rand <= 40) { prizeAmount = 25; extraRotation = 72; prizeName = "25 ExamCoins"; }
-            else if (rand <= 70) { prizeAmount = 50; extraRotation = 198; prizeName = "50 ExamCoins"; }
-            else if (rand <= 85) { prizeAmount = 75; extraRotation = 288; prizeName = "75 ExamCoins"; }
-            else if (rand <= 95) { prizeAmount = 1000; extraRotation = 340; prizeName = "1000 ExamCoins"; }
-            else { prizeAmount = 10000; extraRotation = 358; prizeName = "EXCLUSIVE DRAGON CURSOR!"; }
-
-            currentRotation += (360 * 5) + extraRotation; wheel.style.transform = `rotate(${currentRotation}deg)`;
-
-            setTimeout(() => {
-                document.getElementById('prizeText').innerText = `🎉 You won: ${prizeName} 🎉`;
-                
-                // GENERATE REDEEM CODE INSTEAD OF BACKEND DIRECT DEPOSIT
-                const randomHash = Math.random().toString(36).substring(2, 10).toUpperCase();
-                const rawCode = `EXAM-${prizeAmount}-${randomHash}`;
-                const encodedCode = btoa(rawCode);
-
-                document.getElementById('codeDisplay').innerHTML = `
-                    <div style='color:#aaa; font-size: 0.9rem; margin-top: 10px;'>Your Redeem Code:</div>
-                    <div class='redeem-code-box'>${encodedCode}</div>
-                    <div style='color:#fff; font-size: 0.8rem; margin-bottom: 20px;'>(Copy this and paste it in the Main Portal!)</div>
-                `;
-
-                resultBox.classList.add('show'); isSpinning = false; updateProgress();
-            }, 4000);
-        }
-    </script>
+initTasks();
+</script>
 </body>
 </html>
