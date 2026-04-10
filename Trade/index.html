@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Live Trade Room</title>
+    <style>
+        body { font-family: sans-serif; background: #000814; color: white; text-align: center; }
+        .trade-board { display: flex; justify-content: center; gap: 20px; margin-top: 20px; display: none; }
+        .window { background: #001d3d; border: 2px solid #0077b6; padding: 20px; width: 300px; border-radius: 12px; }
+        .ready { border-color: #3ba55c; box-shadow: 0 0 15px #3ba55c; }
+        .item { background: #003566; margin: 5px; padding: 10px; cursor: pointer; border-radius: 8px; }
+        .item:hover { background: #90e0ef; color: black; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; font-weight: bold; border-radius: 8px; border: none; }
+        .btn-green { background: #3ba55c; color: white; }
+        .btn-blue { background: #0077b6; color: white; }
+    </style>
+</head>
+<body>
+
+    <h2>Live Trade Hub</h2>
+    
+    <div id="lobby">
+        <button class="btn-blue" onclick="createRoom()">Host Trade Room</button>
+        <br><br>
+        <input type="text" id="joinCode" placeholder="Enter Room Code">
+        <button class="btn-green" onclick="joinRoom()">Join Room</button>
+    </div>
+
+    <div class="trade-board" id="tradeBoard">
+        <div class="window" id="myWindow">
+            <h3 style="color: #90e0ef;">My Offer</h3>
+            <div id="myOfferList" style="min-height: 100px; border: 1px dashed gray; margin-bottom: 10px;"></div>
+            <button class="btn-green" onclick="toggleAccept()" id="acceptBtn">Accept Trade</button>
+            <hr>
+            <h4>My Event Inventory</h4>
+            <div id="myInventory"></div>
+        </div>
+
+        <div class="window" id="theirWindow">
+            <h3 style="color: #ff4444;">Their Offer</h3>
+            <div id="theirOfferList" style="min-height: 100px; border: 1px dashed gray;">Waiting for items...</div>
+            <p id="theirStatus" style="color: gray;">Not Ready</p>
+        </div>
+    </div>
+
+<script>
+    // HARDCODED EVENT ITEMS (We filter your main lists for 'isEvent: true')
+    const tradeableItems = [
+        { id: "midas", name: "King Midas Pet" },
+        { id: "phoenix", name: "Mythic Phoenix" },
+        { id: "dragon", name: "Mythic Dragon Cursor" },
+        { id: "bp1", name: "Silver Apple" },
+        { id: "prism", name: "Prism Wing Cursor" }
+        // ... add any other event items here
+    ];
+
+    let currentRoom = null;
+    let myOffer = [];
+    let pollInterval = null;
+
+    async function api(action, data = {}) {
+        const fd = new FormData();
+        fd.append('action', action);
+        for (let key in data) fd.append(key, data[key]);
+        const res = await fetch('live_trade_backend.php', { method: 'POST', body: fd });
+        return await res.json();
+    }
+
+    async function createRoom() {
+        const res = await api('create_room');
+        if (res.success) enterRoom(res.room_code);
+    }
+
+    async function joinRoom() {
+        const code = document.getElementById('joinCode').value;
+        const res = await api('join_room', { room_code: code });
+        if (res.success) enterRoom(code);
+        else alert(res.message);
+    }
+
+    function enterRoom(code) {
+        currentRoom = code;
+        document.getElementById('lobby').style.display = 'none';
+        document.getElementById('tradeBoard').style.display = 'flex';
+        loadInventory();
+        
+        // Start Polling every 1.5 seconds
+        pollInterval = setInterval(syncRoom, 1500);
+    }
+
+    // Load only items you own that are strictly Tradeable (Event Items)
+    async function loadInventory() {
+        // Here you would fetch the user's actual owned array from the main backend.
+        // For this UI demo, we simulate holding a Phoenix and a BP Cursor.
+        const myOwnedIDs = ["phoenix", "bp1", "m1"]; // 'm1' is ignored because it's a coin item
+
+        const invDiv = document.getElementById('myInventory');
+        invDiv.innerHTML = '';
+
+        myOwnedIDs.forEach(id => {
+            const itemDef = tradeableItems.find(i => i.id === id);
+            if (itemDef) { // If it exists in tradeableItems, it is an event item!
+                invDiv.innerHTML += `<div class="item" onclick="addToOffer('${itemDef.id}')">${itemDef.name}</div>`;
+            }
+        });
+    }
+
+    async function addToOffer(id) {
+        if (!myOffer.includes(id)) {
+            myOffer.push(id);
+            renderMyOffer();
+            await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer) });
+        }
+    }
+
+    function renderMyOffer() {
+        document.getElementById('myOfferList').innerHTML = myOffer.map(id => {
+            let name = tradeableItems.find(i => i.id === id).name;
+            return `<div class="item" style="background:#0077b6">${name}</div>`;
+        }).join('');
+    }
+
+    async function toggleAccept() {
+        await api('toggle_accept', { room_code: currentRoom });
+        syncRoom(); // force immediate sync
+    }
+
+    async function syncRoom() {
+        const res = await api('sync', { room_code: currentRoom });
+        if (!res.success) return;
+
+        if (res.status === 'completed') {
+            clearInterval(pollInterval);
+            alert("🎉 TRADE SUCCESSFUL! 🎉");
+            window.location.href = "../index.html"; // Send back to portal
+            return;
+        }
+
+        // Update Their Offer visually
+        document.getElementById('theirOfferList').innerHTML = res.their_offer.map(id => {
+            let name = tradeableItems.find(i => i.id === id)?.name || id;
+            return `<div class="item" style="background:#ff4444">${name}</div>`;
+        }).join('');
+
+        // Update UI colors based on readiness
+        document.getElementById('myWindow').className = res.my_accept ? 'window ready' : 'window';
+        document.getElementById('theirWindow').className = res.their_accept ? 'window ready' : 'window';
+        
+        document.getElementById('acceptBtn').innerText = res.my_accept ? "Un-Accept" : "Accept Trade";
+        document.getElementById('theirStatus').innerText = res.their_accept ? "READY!" : "Not Ready";
+        document.getElementById('theirStatus').style.color = res.their_accept ? "#3ba55c" : "gray";
+    }
+</script>
+</body>
+</html>
