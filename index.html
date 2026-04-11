@@ -1,167 +1,167 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>SchoolExams - Digital Portal</title>
-    <style>
-        :root {
-            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
-            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
-            --w: #caf0f8; --m: #90e0ef; --d: #48cae4;
-            --line: rgba(144, 224, 239, 0.2);
-            --glass: rgba(0, 29, 61, 0.85);
-            --shadow: 0 12px 40px rgba(0,0,0,0.7);
-            --glow: 0 0 20px rgba(144, 224, 239, 0.3);
-            --r: 16px;
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>SchoolExams - Digital Portal</title>
+    <style>
+        :root {
+            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
+            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
+            --w: #caf0f8; --m: #90e0ef; --d: #48cae4;
+            --line: rgba(144, 224, 239, 0.2);
+            --glass: rgba(0, 29, 61, 0.85);
+            --shadow: 0 12px 40px rgba(0,0,0,0.7);
+            --glow: 0 0 20px rgba(144, 224, 239, 0.3);
+            --r: 16px;
+        }
 
-        *, *::before, *::after, html, body, button, a, input, div, span, p, h1, h2, h3, section, header, main { cursor: none !important; }
-        iframe { cursor: auto !important; }
+        *, *::before, *::after, html, body, button, a, input, div, span, p, h1, h2, h3, section, header, main { cursor: none !important; }
+        iframe { cursor: auto !important; }
 
-        #dom-cursor {
-            position: fixed; top: 0; left: 0; width: 32px; pointer-events: none; z-index: 9999999;
-            display: none; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); will-change: transform;
-        }
+        #dom-cursor {
+            position: fixed; top: 0; left: 0; width: 32px; pointer-events: none; z-index: 9999999;
+            display: none; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); will-change: transform;
+        }
 
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg0); color: var(--w); overflow-x: hidden; }
-        .bg-grid { position: fixed; inset: 0; z-index: -1; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 40px 40px; }
-        
-        /* LOGIN OVERLAY STYLES */
-        .login-overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 9000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-        .login-box { background: var(--bg1); border: 2px solid var(--p0); border-radius: var(--r); padding: 40px; width: 100%; max-width: 400px; text-align: center; box-shadow: var(--shadow), var(--glow); }
-        .login-box h2 { color: var(--p1); margin-bottom: 20px; font-size: 28px; font-weight: 900; letter-spacing: -1px; }
-        .login-input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 2px solid var(--p2); background: var(--bg2); color: #fff; font-size: 16px; outline: none; transition: 0.3s; box-sizing: border-box; }
-        .login-input:focus { border-color: var(--p1); }
-        .btn-auth { background: var(--p0); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; transition: 0.3s; margin-bottom: 10px; }
-        .btn-auth:hover { background: var(--p1); color: var(--bg0); box-shadow: 0 0 15px var(--p1); }
-        .btn-secondary { background: transparent; border: 2px solid var(--p0); }
-        .btn-secondary:hover { background: rgba(0, 119, 182, 0.2); color: #fff; box-shadow: none; }
-        .auth-error { color: #ff4444; font-size: 14px; margin-bottom: 15px; display: none; font-weight: bold; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg0); color: var(--w); overflow-x: hidden; }
+        .bg-grid { position: fixed; inset: 0; z-index: -1; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 40px 40px; }
+        
+        /* LOGIN OVERLAY STYLES */
+        .login-overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 9000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .login-box { background: var(--bg1); border: 2px solid var(--p0); border-radius: var(--r); padding: 40px; width: 100%; max-width: 400px; text-align: center; box-shadow: var(--shadow), var(--glow); }
+        .login-box h2 { color: var(--p1); margin-bottom: 20px; font-size: 28px; font-weight: 900; letter-spacing: -1px; }
+        .login-input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 2px solid var(--p2); background: var(--bg2); color: #fff; font-size: 16px; outline: none; transition: 0.3s; box-sizing: border-box; }
+        .login-input:focus { border-color: var(--p1); }
+        .btn-auth { background: var(--p0); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; transition: 0.3s; margin-bottom: 10px; }
+        .btn-auth:hover { background: var(--p1); color: var(--bg0); box-shadow: 0 0 15px var(--p1); }
+        .btn-secondary { background: transparent; border: 2px solid var(--p0); }
+        .btn-secondary:hover { background: rgba(0, 119, 182, 0.2); color: #fff; box-shadow: none; }
+        .auth-error { color: #ff4444; font-size: 14px; margin-bottom: 15px; display: none; font-weight: bold; }
 
-        header.topbar { position: fixed; top: 0; left:0; right:0; height: 70px; background: rgba(0, 29, 61, 0.95); backdrop-filter: blur(10px); border-bottom: 2px solid var(--p0); display: flex; align-items: center; padding: 0 30px; z-index: 1000; justify-content: space-between; }
-        .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 24px; color: var(--p1); text-decoration: none; letter-spacing: -1px; }
-        .brand img { height: 45px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-        .nav-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        
-        .coin-tracker { background: rgba(0,0,0,0.5); border: 1px solid var(--p1); padding: 8px 16px; border-radius: 20px; font-weight: 800; color: #ffd700; display: flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 0 15px rgba(255, 215, 0, 0.2); }
-        .coin-tracker span { color: #fff; font-size: 16px; }
-        .gem-tracker { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 15px rgba(0, 255, 204, 0.2); }
+        header.topbar { position: fixed; top: 0; left:0; right:0; height: 70px; background: rgba(0, 29, 61, 0.95); backdrop-filter: blur(10px); border-bottom: 2px solid var(--p0); display: flex; align-items: center; padding: 0 30px; z-index: 1000; justify-content: space-between; }
+        .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 24px; color: var(--p1); text-decoration: none; letter-spacing: -1px; }
+        .brand img { height: 45px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .nav-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        
+        .coin-tracker { background: rgba(0,0,0,0.5); border: 1px solid var(--p1); padding: 8px 16px; border-radius: 20px; font-weight: 800; color: #ffd700; display: flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 0 15px rgba(255, 215, 0, 0.2); }
+        .coin-tracker span { color: #fff; font-size: 16px; }
+        .gem-tracker { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 15px rgba(0, 255, 204, 0.2); }
 
-        .btn-nav { background: var(--p2); border: 1px solid var(--p0); color: var(--w); padding: 10px 15px; border-radius: 20px; font-weight: 700; transition: 0.3s; font-size: 13px; text-decoration: none; display: inline-block; cursor: pointer; }
-        .btn-nav:hover { background: var(--p0); color: #fff; box-shadow: 0 0 15px rgba(144, 224, 239, 0.4); transform: translateY(-2px); }
-        
-        .btn-bp { background: linear-gradient(135deg, #8e44ad, #9b59b6); border: none; color: #fff; box-shadow: 0 0 10px rgba(155, 89, 182, 0.5); }
-        .btn-bp:hover { background: #9b59b6; box-shadow: 0 0 20px rgba(155, 89, 182, 0.8); }
+        .btn-nav { background: var(--p2); border: 1px solid var(--p0); color: var(--w); padding: 10px 15px; border-radius: 20px; font-weight: 700; transition: 0.3s; font-size: 13px; text-decoration: none; display: inline-block; cursor: pointer; }
+        .btn-nav:hover { background: var(--p0); color: #fff; box-shadow: 0 0 15px rgba(144, 224, 239, 0.4); transform: translateY(-2px); }
+        
+        .btn-bp { background: linear-gradient(135deg, #8e44ad, #9b59b6); border: none; color: #fff; box-shadow: 0 0 10px rgba(155, 89, 182, 0.5); }
+        .btn-bp:hover { background: #9b59b6; box-shadow: 0 0 20px rgba(155, 89, 182, 0.8); }
 
-        .btn-redeem { background: #3ba55c; border: none; color: #fff; box-shadow: 0 0 10px rgba(59, 165, 92, 0.5); }
-        .btn-redeem:hover { background: #43b581; box-shadow: 0 0 15px rgba(59, 165, 92, 0.8); }
-        
-        .btn-event { background: #ff0044; border: none; color: #fff; box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); animation: pulseEvent 2s infinite; }
-        .btn-event:hover { background: #ff3366; box-shadow: 0 0 20px rgba(255, 0, 68, 0.8); animation: none; transform: translateY(-2px); }
+        .btn-redeem { background: #3ba55c; border: none; color: #fff; box-shadow: 0 0 10px rgba(59, 165, 92, 0.5); }
+        .btn-redeem:hover { background: #43b581; box-shadow: 0 0 15px rgba(59, 165, 92, 0.8); }
+        
+        .btn-event { background: #ff0044; border: none; color: #fff; box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); animation: pulseEvent 2s infinite; }
+        .btn-event:hover { background: #ff3366; box-shadow: 0 0 20px rgba(255, 0, 68, 0.8); animation: none; transform: translateY(-2px); }
 
-        @keyframes pulseEvent { 0% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } 50% { box-shadow: 0 0 20px rgba(255, 0, 68, 0.8); } 100% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } }
+        @keyframes pulseEvent { 0% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } 50% { box-shadow: 0 0 20px rgba(255, 0, 68, 0.8); } 100% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } }
 
-        /* FLOATING SIDE MENU */
-        .btn-more-oval {
-            position: fixed;
-            right: -5px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--bg1);
-            border: 2px solid var(--p1);
-            color: var(--w);
-            padding: 40px 12px;
-            border-radius: 30px 0 0 30px;
-            font-weight: 900;
-            letter-spacing: 2px;
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-            box-shadow: -5px 0 15px rgba(0,0,0,0.7);
-            z-index: 1001;
-            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .btn-more-oval:hover { right: 0; background: var(--p0); box-shadow: -5px 0 25px rgba(144, 224, 239, 0.5); }
+        /* FLOATING SIDE MENU */
+        .btn-more-oval {
+            position: fixed;
+            right: -5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--bg1);
+            border: 2px solid var(--p1);
+            color: var(--w);
+            padding: 40px 12px;
+            border-radius: 30px 0 0 30px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.7);
+            z-index: 1001;
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .btn-more-oval:hover { right: 0; background: var(--p0); box-shadow: -5px 0 25px rgba(144, 224, 239, 0.5); }
 
-        .more-sidebar {
-            position: fixed;
-            right: -300px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--bg1);
-            border: 2px solid var(--p0);
-            border-right: none;
-            padding: 20px;
-            border-radius: 20px 0 0 20px;
-            width: 220px;
-            box-shadow: -10px 0 30px rgba(0,0,0,0.8);
-            z-index: 1000;
-            transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .more-sidebar.open { right: 0; }
-        .more-sidebar-title { color: var(--p1); font-weight: 900; font-size: 14px; border-bottom: 2px solid var(--p0); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .more-sidebar {
+            position: fixed;
+            right: -300px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--bg1);
+            border: 2px solid var(--p0);
+            border-right: none;
+            padding: 20px;
+            border-radius: 20px 0 0 20px;
+            width: 220px;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.8);
+            z-index: 1000;
+            transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .more-sidebar.open { right: 0; }
+        .more-sidebar-title { color: var(--p1); font-weight: 900; font-size: 14px; border-bottom: 2px solid var(--p0); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
 
-        .main { padding: 110px 24px 40px; max-width: 1400px; margin: 0 auto; text-align: center; }
-        .hero { margin-bottom: 20px; }
-        .hero h1 { font-size: 3.5rem; margin-bottom: 10px; color: var(--p1); text-shadow: 0 0 20px rgba(144, 224, 239, 0.3); letter-spacing: -1px; }
-        
-        .hero-panels { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 30px; max-width: 1000px; margin-left: auto; margin-right: auto; }
-        .recommended-wrapper { flex: 1; min-width: 300px; max-width: 400px; background: linear-gradient(135deg, var(--bg1), var(--bg2)); border: 2px solid var(--p0); border-radius: var(--r); padding: 25px; text-align: center; box-shadow: var(--glow); position: relative; overflow: hidden; }
-        .rec-header { font-size: 12px; color: var(--p1); text-transform: uppercase; letter-spacing: 2px; font-weight: 900; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .rec-header::before, .rec-header::after { content: ""; height: 2px; width: 40px; background: var(--line); }
-        .rec-game { display: flex; flex-direction: column; align-items: center; animation: fadeUp 0.5s ease-out forwards; }
-        .rec-icon { font-size: 50px; background: var(--bg0); width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 20px; border: 2px solid var(--p1); margin-bottom: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
-        .recommended-wrapper:hover .rec-icon { transform: scale(1.1) rotate(5deg); border-color: #fff; }
-        .rec-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 10px; }
-        .rec-btn { background: var(--p0); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; border:none; transition:0.2s; }
-        .rec-btn:hover { background: var(--p1); color: var(--bg0); }
-        .rec-progress { position: absolute; bottom: 0; left: 0; height: 4px; background: var(--p1); width: 0%; box-shadow: 0 0 10px var(--p1); }
-        .progress-animate { animation: loadBar 5s linear infinite; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes loadBar { from { width: 0%; } to { width: 100%; } }
+        .main { padding: 110px 24px 40px; max-width: 1400px; margin: 0 auto; text-align: center; }
+        .hero { margin-bottom: 20px; }
+        .hero h1 { font-size: 3.5rem; margin-bottom: 10px; color: var(--p1); text-shadow: 0 0 20px rgba(144, 224, 239, 0.3); letter-spacing: -1px; }
+        
+        .hero-panels { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 30px; max-width: 1000px; margin-left: auto; margin-right: auto; }
+        .recommended-wrapper { flex: 1; min-width: 300px; max-width: 400px; background: linear-gradient(135deg, var(--bg1), var(--bg2)); border: 2px solid var(--p0); border-radius: var(--r); padding: 25px; text-align: center; box-shadow: var(--glow); position: relative; overflow: hidden; }
+        .rec-header { font-size: 12px; color: var(--p1); text-transform: uppercase; letter-spacing: 2px; font-weight: 900; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .rec-header::before, .rec-header::after { content: ""; height: 2px; width: 40px; background: var(--line); }
+        .rec-game { display: flex; flex-direction: column; align-items: center; animation: fadeUp 0.5s ease-out forwards; }
+        .rec-icon { font-size: 50px; background: var(--bg0); width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 20px; border: 2px solid var(--p1); margin-bottom: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
+        .recommended-wrapper:hover .rec-icon { transform: scale(1.1) rotate(5deg); border-color: #fff; }
+        .rec-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 10px; }
+        .rec-btn { background: var(--p0); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; border:none; transition:0.2s; }
+        .rec-btn:hover { background: var(--p1); color: var(--bg0); }
+        .rec-progress { position: absolute; bottom: 0; left: 0; height: 4px; background: var(--p1); width: 0%; box-shadow: 0 0 10px var(--p1); }
+        .progress-animate { animation: loadBar 5s linear infinite; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes loadBar { from { width: 0%; } to { width: 100%; } }
 
-        .stats-bar { display: inline-flex; gap: 30px; background: var(--glass); padding: 12px 30px; border-radius: 30px; border: 1px solid var(--p0); margin-bottom: 30px; font-size: 15px; color: var(--w); font-weight: 700; box-shadow: var(--shadow); }
-        .stats-bar span strong { color: var(--p1); font-size: 18px; }
+        .stats-bar { display: inline-flex; gap: 30px; background: var(--glass); padding: 12px 30px; border-radius: 30px; border: 1px solid var(--p0); margin-bottom: 30px; font-size: 15px; color: var(--w); font-weight: 700; box-shadow: var(--shadow); }
+        .stats-bar span strong { color: var(--p1); font-size: 18px; }
 
-        .searchWrap input { width: 100%; max-width: 800px; padding: 18px 24px; border-radius: var(--r); background: var(--glass); border: 2px solid var(--p2); color: #fff; font-size: 16px; outline: none; transition: 0.3s; box-shadow: var(--shadow); margin: 0 auto; display: block; }
-        .searchWrap input:focus { border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); background: var(--bg1); }
+        .searchWrap input { width: 100%; max-width: 800px; padding: 18px 24px; border-radius: var(--r); background: var(--glass); border: 2px solid var(--p2); color: #fff; font-size: 16px; outline: none; transition: 0.3s; box-shadow: var(--shadow); margin: 0 auto; display: block; }
+        .searchWrap input:focus { border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); background: var(--bg1); }
 
-        .gamesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 30px; text-align: left; }
-        .gameCard { background: var(--bg1); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; transition: 0.3s; }
-        .gameCard:hover { transform: translateY(-8px); border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); }
-        .gameIcon { height: 80px; background: linear-gradient(135deg, var(--p2), var(--bg0)); display: flex; align-items: center; justify-content: center; font-size: 32px; border-bottom: 1px solid var(--line); }
-        .gameName { padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--w); }
+        .gamesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 30px; text-align: left; }
+        .gameCard { background: var(--bg1); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; transition: 0.3s; }
+        .gameCard:hover { transform: translateY(-8px); border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); }
+        .gameIcon { height: 80px; background: linear-gradient(135deg, var(--p2), var(--bg0)); display: flex; align-items: center; justify-content: center; font-size: 32px; border-bottom: 1px solid var(--line); }
+        .gameName { padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--w); }
 
-        .overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 2000; display: none; flex-direction: column; }
-        .overlay.open { display: flex; }
-        .overlay-bar { height: 60px; background: var(--bg1); display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--p0); justify-content: space-between; }
-        .bar-title { font-weight: 900; color: var(--p1); font-size: 16px; letter-spacing: 1px; }
-        .btn-close { background: #d00000; border: none; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 900; transition: 0.2s; }
-        .btn-close:hover { background: #ff0000; box-shadow: 0 0 10px #ff0000; }
-        iframe { flex: 1; border: none; background: #000; }
+        .overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 2000; display: none; flex-direction: column; }
+        .overlay.open { display: flex; }
+        .overlay-bar { height: 60px; background: var(--bg1); display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--p0); justify-content: space-between; }
+        .bar-title { font-weight: 900; color: var(--p1); font-size: 16px; letter-spacing: 1px; }
+        .btn-close { background: #d00000; border: none; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 900; transition: 0.2s; }
+        .btn-close:hover { background: #ff0000; box-shadow: 0 0 10px #ff0000; }
+        iframe { flex: 1; border: none; background: #000; }
 
-        .shop-container { padding: 30px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; width: 100%; }
-        .shop-item { background: var(--bg1); border: 2px solid var(--line); border-radius: var(--r); padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: 0.2s; }
-        .shop-item:hover { border-color: var(--p1); transform: scale(1.05); }
-        .shop-item.owned { border-color: #3ba55c; }
-        .shop-item.equipped { border-color: #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.4); }
-        .shop-item.event-item { border-color: #ff0000; }
-        .shop-preview { width: 50px; height: 50px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.5)); }
-        .shop-btn { background: var(--p0); border: none; color: #fff; padding: 8px 15px; border-radius: 10px; font-weight: bold; width: 100%; transition: 0.2s; cursor: pointer; }
-        .shop-btn.buy { background: #ffd700; color: #000; }
-        .shop-btn.buy:hover { background: #ffea00; }
-        .shop-btn.equip { background: var(--p0); }
-        .shop-btn.equipped { background: #3ba55c; pointer-events: none; }
-        .shop-btn.event-btn { background: #ff0000; pointer-events: none; }
+        .shop-container { padding: 30px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; width: 100%; }
+        .shop-item { background: var(--bg1); border: 2px solid var(--line); border-radius: var(--r); padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: 0.2s; }
+        .shop-item:hover { border-color: var(--p1); transform: scale(1.05); }
+        .shop-item.owned { border-color: #3ba55c; }
+        .shop-item.equipped { border-color: #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.4); }
+        .shop-item.event-item { border-color: #ff0000; }
+        .shop-preview { width: 50px; height: 50px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.5)); }
+        .shop-btn { background: var(--p0); border: none; color: #fff; padding: 8px 15px; border-radius: 10px; font-weight: bold; width: 100%; transition: 0.2s; cursor: pointer; }
+        .shop-btn.buy { background: #ffd700; color: #000; }
+        .shop-btn.buy:hover { background: #ffea00; }
+        .shop-btn.equip { background: var(--p0); }
+        .shop-btn.equipped { background: #3ba55c; pointer-events: none; }
+        .shop-btn.event-btn { background: #ff0000; pointer-events: none; }
 
-        .toast { position: fixed; bottom: 30px; right: 30px; background: var(--p0); color: #fff; padding: 16px 24px; border-radius: 12px; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.8); transform: translateY(100px); opacity: 0; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 3000; display: flex; align-items: center; gap: 10px; }
-        .toast.show { transform: translateY(0); opacity: 1; }
-        
-        .pet-warning-box { grid-column: 1 / -1; background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; border-radius: 12px; padding: 15px; text-align: center; color: #ffbbbb; font-size: 14px; margin-bottom: 10px; }
-    </style>
+        .toast { position: fixed; bottom: 30px; right: 30px; background: var(--p0); color: #fff; padding: 16px 24px; border-radius: 12px; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.8); transform: translateY(100px); opacity: 0; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 3000; display: flex; align-items: center; gap: 10px; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        
+        .pet-warning-box { grid-column: 1 / -1; background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; border-radius: 12px; padding: 15px; text-align: center; color: #ffbbbb; font-size: 14px; margin-bottom: 10px; }
+    </style>
 </head>
 <body>
 
@@ -170,218 +170,220 @@
 <div class="bg-grid"></div>
 
 <div class="login-overlay" id="loginOverlay">
-    <div class="login-box">
-        <img src="logo.png" alt="Logo" style="height: 60px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.5);" onerror="this.style.display='none'">
-        <h2>Portal Access</h2>
-        <div id="authError" class="auth-error">Invalid Username or Password</div>
-        <input type="text" id="authUsername" class="login-input" placeholder="Username" autocomplete="off">
-        <input type="password" id="authPassword" class="login-input" placeholder="Password">
-        
-        <button class="btn-auth" onclick="performAuth('login')">Log In</button>
-        <button class="btn-auth btn-secondary" onclick="performAuth('register')">Create Account</button>
-    </div>
+    <div class="login-box">
+        <img src="logo.png" alt="Logo" style="height: 60px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.5);" onerror="this.style.display='none'">
+        <h2>Portal Access</h2>
+        <div id="authError" class="auth-error">Invalid Username or Password</div>
+        <input type="text" id="authUsername" class="login-input" placeholder="Username" autocomplete="off">
+        <input type="password" id="authPassword" class="login-input" placeholder="Password">
+        
+        <button class="btn-auth" onclick="performAuth('login')">Log In</button>
+        <button class="btn-auth btn-secondary" onclick="performAuth('register')">Create Account</button>
+    </div>
 </div>
 
 <button class="btn-more-oval" onclick="toggleMoreMenu()">⋮ MORE</button>
 
 <div class="more-sidebar" id="moreSidebar">
-    <div class="more-sidebar-title" id="welcomeUserText">Extra Options</div>
-    <button class="btn-nav btn-redeem" style="width: 100%; text-align: center;" onclick="redeemCode(); toggleMoreMenu();">🎁 Redeem Code</button>
-    <button class="btn-nav" style="width: 100%; text-align: center;" onclick="openGame('https://mb.webs.vc', 'Encrypted Web Browser'); toggleMoreMenu();">🌐 Browser</button>
-    <button class="btn-nav" style="width: 100%; text-align: center;" onclick="openGame('http://www.schoolexams.net/Trade/', 'Online Trading Limited Cursor and Pets'); toggleMoreMenu();">🔄Trading</button>
-    <button class="btn-nav" style="width: 100%; text-align: center; background: #d00000; border-color: #ff0000; margin-top: 10px;" onclick="logout(); toggleMoreMenu();">🚪 Log Out</button>
+    <div class="more-sidebar-title" id="welcomeUserText">Extra Options</div>
+    <button class="btn-nav btn-redeem" style="width: 100%; text-align: center;" onclick="redeemCode(); toggleMoreMenu();">🎁 Redeem Code</button>
+    <button class="btn-nav" style="width: 100%; text-align: center;" onclick="openGame('https://mb.webs.vc', 'Encrypted Web Browser'); toggleMoreMenu();">🌐 Browser</button>
+    <button class="btn-nav" style="width: 100%; text-align: center;" onclick="openGame('http://www.schoolexams.net/Trade/', 'Online Trading Limited Cursor and Pets'); toggleMoreMenu();">🔄Trading</button>
+    <button class="btn-nav" style="width: 100%; text-align: center; background: #d00000; border-color: #ff0000; margin-top: 10px;" onclick="logout(); toggleMoreMenu();">🚪 Log Out</button>
 </div>
 
 <header class="topbar">
-    <a href="#" class="brand" onclick="location.reload()">
-        <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
-        SchoolExams
-    </a>
-    <div class="nav-right">
-        <div class="coin-tracker" title="Earn ExamCoins by playing and from Pets!">
-            🪙 <span id="coinDisplay">0</span> ExamCoins
-        </div>
-        <div class="coin-tracker gem-tracker" title="Premium Currency!">
-            💎 <span id="gemDisplay">0</span> Gems
-        </div>
-        
-        <a href="Pass/" class="btn-nav btn-bp">🎫 Battle Pass</a>
-        <a href="Event/" target="_blank" class="btn-nav btn-event">💎Diamond Event</a>
-        
-        <button class="btn-nav" onclick="openPetShop()" style="background: linear-gradient(135deg, #3ba55c, #2ecc71); color: #fff; border: none;">🐾 Pets</button>
-        <button class="btn-nav" onclick="openShop()" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Shop</button>
-    </div>
+    <a href="#" class="brand" onclick="location.reload()">
+        <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
+        SchoolExams
+    </a>
+    <div class="nav-right">
+        <div class="coin-tracker" title="Earn ExamCoins by playing and from Pets!">
+            🪙 <span id="coinDisplay">0</span> ExamCoins
+        </div>
+        <div class="coin-tracker gem-tracker" title="Premium Currency!">
+            💎 <span id="gemDisplay">0</span> Gems
+        </div>
+        
+        <a href="Pass/" class="btn-nav btn-bp">🎫 Battle Pass</a>
+        <a href="Event/" target="_blank" class="btn-nav btn-event">💎Diamond Event</a>
+        
+        <button class="btn-nav" onclick="openPetShop()" style="background: linear-gradient(135deg, #3ba55c, #2ecc71); color: #fff; border: none;">🐾 Pets</button>
+        <button class="btn-nav" onclick="openShop()" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Shop</button>
+    </div>
 </header>
 
 <main class="main">
-    <section class="hero">
-        <h1>Digital Portal</h1>
-    </section>
+    <section class="hero">
+        <h1>Digital Portal</h1>
+    </section>
 
-    <div class="hero-panels">
-        <div class="recommended-wrapper" onclick="document.querySelector('#recGameContainer .rec-btn').click()">
-            <div class="rec-header">✨ Featured Modules ✨</div>
-            <div id="recGameContainer"></div>
-            <div class="rec-progress progress-animate" id="recProgress"></div>
-        </div>
+    <div class="hero-panels">
+        <div class="recommended-wrapper" onclick="document.querySelector('#recGameContainer .rec-btn').click()">
+            <div class="rec-header">✨ Featured Modules ✨</div>
+            <div id="recGameContainer"></div>
+            <div class="rec-progress progress-animate" id="recProgress"></div>
+        </div>
 
-        <div class="recommended-wrapper" id="petPanel" style="display: none; cursor: default;">
-            <div class="rec-header">🐾 Active Pet 🐾</div>
-            <div id="petPanelContent"></div>
-        </div>
-    </div>
+        <div class="recommended-wrapper" id="petPanel" style="display: none; cursor: default;">
+            <div class="rec-header">🐾 Active Pet 🐾</div>
+            <div id="petPanelContent"></div>
+        </div>
+    </div>
 
-    <div class="stats-bar">
-        <span>Modules Opened: <strong id="stat-count">0</strong></span>
-        <span>Time Played: <strong id="stat-time">0</strong> mins</span>
-    </div>
+    <div class="stats-bar">
+        <span>Modules Opened: <strong id="stat-count">0</strong></span>
+        <span>Time Played: <strong id="stat-time">0</strong> mins</span>
+    </div>
 
-    <div class="searchWrap"><input type="text" id="searchInput" placeholder="Search verified modules..."></div>
-    <div class="gamesGrid" id="gamesGrid"></div>
+    <div class="searchWrap"><input type="text" id="searchInput" placeholder="Search verified modules..."></div>
+    <div class="gamesGrid" id="gamesGrid"></div>
 </main>
 
 <div class="overlay" id="gameOverlay">
-    <div class="overlay-bar">
-        <div class="bar-title" id="activeTitle">Resource</div>
-        <button class="btn-close" onclick="closeGame()">EXIT SESSION ✕</button>
-    </div>
-    <iframe id="gameFrame"></iframe>
+    <div class="overlay-bar">
+        <div class="bar-title" id="activeTitle">Resource</div>
+        <button class="btn-close" onclick="closeGame()">EXIT SESSION ✕</button>
+    </div>
+    <iframe id="gameFrame"></iframe>
 </div>
 
 <div class="overlay" id="shopOverlay">
-    <div class="overlay-bar">
-        <div class="bar-title" style="color: #ffd700;">🛒 Cursor Shop</div>
-        <button class="btn-close" onclick="closeShop()">CLOSE SHOP ✕</button>
-    </div>
-    <div class="shop-container" id="shopContainer"></div>
+    <div class="overlay-bar">
+        <div class="bar-title" style="color: #ffd700;">🛒 Cursor Shop</div>
+        <button class="btn-close" onclick="closeShop()">CLOSE SHOP ✕</button>
+    </div>
+    <div class="shop-container" id="shopContainer"></div>
 </div>
 
 <div class="overlay" id="petShopOverlay">
-    <div class="overlay-bar">
-        <div class="bar-title" style="color: #2ecc71;">🐾 Pet Adoption Center</div>
-        <button class="btn-close" onclick="closePetShop()">CLOSE SHOP ✕</button>
-    </div>
-    <div class="shop-container" id="petShopContainer">
-        </div>
+    <div class="overlay-bar">
+        <div class="bar-title" style="color: #2ecc71;">🐾 Pet Adoption Center</div>
+        <button class="btn-close" onclick="closePetShop()">CLOSE SHOP ✕</button>
+    </div>
+    <div class="shop-container" id="petShopContainer">
+        </div>
 </div>
 
 <div class="toast" id="coinToast">
-    <span>🎉</span> <span id="toastMsg">You earned 100 ExamCoins!</span>
+    <span>🎉</span> <span id="toastMsg">You earned 100 ExamCoins!</span>
 </div>
 
 <input type="file" id="customCursorInput" accept="image/png, image/jpeg, image/gif" style="display: none;">
 
+<script src="games_data.js"></script>
+
 <script>
 // --- BACKEND STATE MANAGEMENT ---
 let gameState = {
-    coins: 0, gems: 0, playtime: 0,
-    owned_cursors: ["def"], equipped_cursor: "def",
-    owned_pets: [], active_pet: "", pet_ages: {},
-    last_online: Date.now()
+    coins: 0, gems: 0, playtime: 0,
+    owned_cursors: ["def"], equipped_cursor: "def",
+    owned_pets: [], active_pet: "", pet_ages: {},
+    last_online: Date.now()
 };
 
 // --- AUTHENTICATION & API COMMUNICATION ---
 async function performAuth(action) {
-    const user = document.getElementById('authUsername').value;
-    const pass = document.getElementById('authPassword').value;
-    const errBox = document.getElementById('authError');
+    const user = document.getElementById('authUsername').value;
+    const pass = document.getElementById('authPassword').value;
+    const errBox = document.getElementById('authError');
 
-    if (!user || !pass) { 
-        errBox.innerText = "Please fill in all fields."; 
-        errBox.style.color = "#ff4444"; errBox.style.display = 'block'; 
-        return; 
-    }
+    if (!user || !pass) { 
+        errBox.innerText = "Please fill in all fields."; 
+        errBox.style.color = "#ff4444"; errBox.style.display = 'block'; 
+        return; 
+    }
 
-    const formData = new FormData();
-    formData.append('action', action); formData.append('username', user); formData.append('password', pass);
+    const formData = new FormData();
+    formData.append('action', action); formData.append('username', user); formData.append('password', pass);
 
-    try {
-        const response = await fetch('backend.php', { method: 'POST', body: formData });
-        const result = await response.json();
+    try {
+        const response = await fetch('backend.php', { method: 'POST', body: formData });
+        const result = await response.json();
 
-        if (result.success) {
-            localStorage.setItem('schoolExamsSavedUser', user);
-            localStorage.setItem('schoolExamsSavedPass', pass);
-            document.getElementById('loginOverlay').style.display = 'none';
-            document.getElementById('welcomeUserText').innerText = `Logged in as: ${user}`;
-            loadGameFromServer(); 
-        } else {
-            localStorage.removeItem('schoolExamsSavedUser');
-            localStorage.removeItem('schoolExamsSavedPass');
-            errBox.innerText = result.message; errBox.style.color = "#ff4444"; errBox.style.display = 'block';
-        }
-    } catch (e) {
-        errBox.innerText = "Server communication error."; errBox.style.color = "#ff4444"; errBox.style.display = 'block';
-    }
+        if (result.success) {
+            localStorage.setItem('schoolExamsSavedUser', user);
+            localStorage.setItem('schoolExamsSavedPass', pass);
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('welcomeUserText').innerText = `Logged in as: ${user}`;
+            loadGameFromServer(); 
+        } else {
+            localStorage.removeItem('schoolExamsSavedUser');
+            localStorage.removeItem('schoolExamsSavedPass');
+            errBox.innerText = result.message; errBox.style.color = "#ff4444"; errBox.style.display = 'block';
+        }
+    } catch (e) {
+        errBox.innerText = "Server communication error."; errBox.style.color = "#ff4444"; errBox.style.display = 'block';
+    }
 }
 
 function logout() {
-    localStorage.removeItem('schoolExamsSavedUser');
-    localStorage.removeItem('schoolExamsSavedPass');
-    location.reload(); 
+    localStorage.removeItem('schoolExamsSavedUser');
+    localStorage.removeItem('schoolExamsSavedPass');
+    location.reload(); 
 }
 
 // AUTO-LOGIN CHECK
 window.addEventListener('DOMContentLoaded', () => {
-    const savedUser = localStorage.getItem('schoolExamsSavedUser');
-    const savedPass = localStorage.getItem('schoolExamsSavedPass');
-    if (savedUser && savedPass) {
-        document.getElementById('authUsername').value = savedUser;
-        document.getElementById('authPassword').value = savedPass;
-        const errBox = document.getElementById('authError');
-        errBox.innerText = "Logging you back in securely..."; errBox.style.color = "#00ffcc"; errBox.style.display = 'block';
-        performAuth('login');
-    }
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    const savedPass = localStorage.getItem('schoolExamsSavedPass');
+    if (savedUser && savedPass) {
+        document.getElementById('authUsername').value = savedUser;
+        document.getElementById('authPassword').value = savedPass;
+        const errBox = document.getElementById('authError');
+        errBox.innerText = "Logging you back in securely..."; errBox.style.color = "#00ffcc"; errBox.style.display = 'block';
+        performAuth('login');
+    }
 });
 
 async function loadGameFromServer() {
-    const formData = new FormData(); formData.append('action', 'load');
-    try {
-        const response = await fetch('backend.php', { method: 'POST', body: formData });
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-            gameState.coins = parseInt(result.data.coins) || 0;
-            gameState.gems = parseInt(result.data.gems) || 0;
-            gameState.playtime = parseInt(result.data.playtime) || 0;
-            gameState.owned_cursors = JSON.parse(result.data.owned_cursors || '["def"]');
-            gameState.equipped_cursor = result.data.equipped_cursor || 'def';
-            gameState.owned_pets = JSON.parse(result.data.owned_pets || '[]');
-            gameState.active_pet = result.data.active_pet || '';
-            gameState.pet_ages = JSON.parse(result.data.pet_ages || '{}');
-            gameState.last_online = parseInt(result.data.last_online) || Date.now();
-            
-            updateStatsUI();
-            applyCursor();
-            calculatePetNeglect();
-            updatePetUI();
-            
-            // NOTICE: The 10-second setInterval Auto-Save has been entirely removed here!
-        }
-    } catch (e) { console.error("Failed to load data."); }
+    const formData = new FormData(); formData.append('action', 'load');
+    try {
+        const response = await fetch('backend.php', { method: 'POST', body: formData });
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            gameState.coins = parseInt(result.data.coins) || 0;
+            gameState.gems = parseInt(result.data.gems) || 0;
+            gameState.playtime = parseInt(result.data.playtime) || 0;
+            gameState.owned_cursors = JSON.parse(result.data.owned_cursors || '["def"]');
+            gameState.equipped_cursor = result.data.equipped_cursor || 'def';
+            gameState.owned_pets = JSON.parse(result.data.owned_pets || '[]');
+            gameState.active_pet = result.data.active_pet || '';
+            gameState.pet_ages = JSON.parse(result.data.pet_ages || '{}');
+            gameState.last_online = parseInt(result.data.last_online) || Date.now();
+            
+            updateStatsUI();
+            applyCursor();
+            calculatePetNeglect();
+            updatePetUI();
+            
+            // NOTICE: The 10-second setInterval Auto-Save has been entirely removed here!
+        }
+    } catch (e) { console.error("Failed to load data."); }
 }
 
 async function saveGameToServer() {
-    if (!gameState) return;
-    const formData = new FormData();
-    formData.append('action', 'save');
-    formData.append('coins', gameState.coins);
-    formData.append('gems', gameState.gems);
-    formData.append('playtime', gameState.playtime);
-    formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors));
-    formData.append('equipped_cursor', gameState.equipped_cursor);
-    formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
-    formData.append('active_pet', gameState.active_pet);
-    formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
+    if (!gameState) return;
+    const formData = new FormData();
+    formData.append('action', 'save');
+    formData.append('coins', gameState.coins);
+    formData.append('gems', gameState.gems);
+    formData.append('playtime', gameState.playtime);
+    formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors));
+    formData.append('equipped_cursor', gameState.equipped_cursor);
+    formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
+    formData.append('active_pet', gameState.active_pet);
+    formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
 
-    try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
+    try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 }
 
 // INSTANT TAB SYNC
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && document.getElementById('loginOverlay').style.display === 'none') {
-        loadGameFromServer();
-    }
+    if (document.visibilityState === 'visible' && document.getElementById('loginOverlay').style.display === 'none') {
+        loadGameFromServer();
+    }
 });
 
 
@@ -390,12 +392,12 @@ const domCursor = document.getElementById('dom-cursor');
 let isOverIframe = false; let mouseX = 0, mouseY = 0; let cursorVisible = false;
 
 document.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX; mouseY = e.clientY;
-    if (!cursorVisible && !isOverIframe) { domCursor.style.display = 'block'; cursorVisible = true; }
+    mouseX = e.clientX; mouseY = e.clientY;
+    if (!cursorVisible && !isOverIframe) { domCursor.style.display = 'block'; cursorVisible = true; }
 });
 function updateCursorPosition() {
-    if (cursorVisible && !isOverIframe) { domCursor.style.transform = `translate3d(${mouseX - 2}px, ${mouseY - 2}px, 0)`; }
-    requestAnimationFrame(updateCursorPosition);
+    if (cursorVisible && !isOverIframe) { domCursor.style.transform = `translate3d(${mouseX - 2}px, ${mouseY - 2}px, 0)`; }
+    requestAnimationFrame(updateCursorPosition);
 }
 requestAnimationFrame(updateCursorPosition);
 
@@ -411,215 +413,215 @@ function toggleMoreMenu() { document.getElementById('moreSidebar').classList.tog
 let usedCodes = JSON.parse(localStorage.getItem('schoolExamsUsedCodes')) || [];
 
 function redeemCode() {
-    const input = prompt("Enter your Encrypted Redeem Code:");
-    if (!input) return;
+    const input = prompt("Enter your Encrypted Redeem Code:");
+    if (!input) return;
 
-    try {
-        const decoded = atob(input.trim());
-        const separator = decoded.includes("_") ? "_" : "-";
-        const parts = decoded.split(separator);
-        const prefix = parts[0]; const amount = parseInt(parts[1]); const hash = parts[2];
+    try {
+        const decoded = atob(input.trim());
+        const separator = decoded.includes("_") ? "_" : "-";
+        const parts = decoded.split(separator);
+        const prefix = parts[0]; const amount = parseInt(parts[1]); const hash = parts[2];
 
-        if (isNaN(amount) || !hash || (prefix !== "EXAM" && prefix !== "GEM")) throw new Error("Invalid Format");
-        if (usedCodes.includes(input)) { alert("❌ This code has already been redeemed!"); return; }
+        if (isNaN(amount) || !hash || (prefix !== "EXAM" && prefix !== "GEM")) throw new Error("Invalid Format");
+        if (usedCodes.includes(input)) { alert("❌ This code has already been redeemed!"); return; }
 
-        if (prefix === "EXAM") {
-            if (amount === 10000) {
-                if (gameState.owned_cursors.includes("dragon")) { alert("✅ You already own the Event Dragon Cursor!"); return; }
-                gameState.owned_cursors.push("dragon"); usedCodes.push(input);
-                localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
-                renderShop(); equipCursor("dragon"); 
-                alert("🐉 INCREDIBLE! You redeemed the 1% Prize and unlocked the Dragon Cursor!");
-                showToast("Dragon Cursor Unlocked!");
-            } else {
-                gameState.coins += amount; usedCodes.push(input);
-                localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
-                updateStatsUI();
-                saveGameToServer(); // ACTION SAVE
-                alert(`✅ Success! ${amount} ExamCoins have been added to your account.`);
-                showToast(amount > 0 ? `+${amount} Coins Redeemed!` : `${amount} Coins... Oh no.`);
-            }
-        } else if (prefix === "GEM") {
-            gameState.gems += amount; usedCodes.push(input);
-            localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
-            updateStatsUI();
-            saveGameToServer(); // ACTION SAVE
-            alert(`💎 Success! ${amount} Gems have been added to your account.`);
-            showToast(`+${amount} Gems Redeemed!`);
-        }
-    } catch (e) { alert("❌ Invalid or corrupted Redeem Code."); }
+        if (prefix === "EXAM") {
+            if (amount === 10000) {
+                if (gameState.owned_cursors.includes("dragon")) { alert("✅ You already own the Event Dragon Cursor!"); return; }
+                gameState.owned_cursors.push("dragon"); usedCodes.push(input);
+                localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
+                renderShop(); equipCursor("dragon"); 
+                alert("🐉 INCREDIBLE! You redeemed the 1% Prize and unlocked the Dragon Cursor!");
+                showToast("Dragon Cursor Unlocked!");
+            } else {
+                gameState.coins += amount; usedCodes.push(input);
+                localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
+                updateStatsUI();
+                saveGameToServer(); // ACTION SAVE
+                alert(`✅ Success! ${amount} ExamCoins have been added to your account.`);
+                showToast(amount > 0 ? `+${amount} Coins Redeemed!` : `${amount} Coins... Oh no.`);
+            }
+        } else if (prefix === "GEM") {
+            gameState.gems += amount; usedCodes.push(input);
+            localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
+            updateStatsUI();
+            saveGameToServer(); // ACTION SAVE
+            alert(`💎 Success! ${amount} Gems have been added to your account.`);
+            showToast(`+${amount} Gems Redeemed!`);
+        }
+    } catch (e) { alert("❌ Invalid or corrupted Redeem Code."); }
 }
 
 // --- RECOMMENDED ROTATION LOGIC ---
 const REC_GAMES = [
-    { f: "cl3dash.html", name: "3 Dash", icon: "🔺" }, { f: "clsnowrider.html", name: "Snow Rider 3D", icon: "🏂" },
-    { f: "clspacewaves.html", name: "Space Wave", icon: "🚀" }, { f: "https://www.myinstants.com/en/categories/sound%20effects/us/", name: "Soundboard", icon: "🔊" }
+    { f: "cl3dash.html", name: "3 Dash", icon: "🔺" }, { f: "clsnowrider.html", name: "Snow Rider 3D", icon: "🏂" },
+    { f: "clspacewaves.html", name: "Space Wave", icon: "🚀" }, { f: "https://www.myinstants.com/en/categories/sound%20effects/us/", name: "Soundboard", icon: "🔊" }
 ];
 let currentRecIdx = 0;
 function updateRecommended() {
-    const container = document.getElementById('recGameContainer'); const progressBar = document.getElementById('recProgress');
-    const game = REC_GAMES[currentRecIdx];
-    progressBar.classList.remove('progress-animate'); void progressBar.offsetWidth; progressBar.classList.add('progress-animate');
-    container.innerHTML = `<div class="rec-game"><div class="rec-icon">${game.icon}</div><div class="rec-title">${game.name}</div><button class="rec-btn" onclick="openGame('${game.f}', '${game.name}'); event.stopPropagation();">Launch Module ▶</button></div>`;
-    currentRecIdx = (currentRecIdx + 1) % REC_GAMES.length;
+    const container = document.getElementById('recGameContainer'); const progressBar = document.getElementById('recProgress');
+    const game = REC_GAMES[currentRecIdx];
+    progressBar.classList.remove('progress-animate'); void progressBar.offsetWidth; progressBar.classList.add('progress-animate');
+    container.innerHTML = `<div class="rec-game"><div class="rec-icon">${game.icon}</div><div class="rec-title">${game.name}</div><button class="rec-btn" onclick="openGame('${game.f}', '${game.name}'); event.stopPropagation();">Launch Module ▶</button></div>`;
+    currentRecIdx = (currentRecIdx + 1) % REC_GAMES.length;
 }
 updateRecommended(); setInterval(updateRecommended, 5000);
 
 // PET DATA
 const PET_SHOP = [
-    { id: "doge", name: "Pixel Doge", icon: "🐕", price: 1000, baseCoin: 9 }, { id: "cat", name: "Cyber Kitty", icon: "🐈", price: 3000, baseCoin: 15 },
-    { id: "frog", name: "Ninja Frog", icon: "🐸", price: 5000, baseCoin: 25 }, { id: "dragon", name: "Neon Dragon", icon: "🐲", price: 10000, baseCoin: 45 },
-    { id: "panda", name: "Ghost Panda", icon: "🐼", price: 36700, baseCoin: 123 }, { id: "kraken", name: "67 Kraken", icon: "🦑", price: 67777, baseCoin: 265 },
-    { id: "midas", name: "King Midas", icon: "<img src='King.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Premium Pass Lvl 50", baseCoin: 465, isEvent: true, color: "#ffd700" },
-    // EVENT ADDITION: New Phoenix Pet using phoenix.png
-    { id: "phoenix", name: "Mythic Phoenix", icon: "<img src='phoenix.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Event Reward", baseCoin: 298, isEvent: true, color: "#ff4400" } 
+    { id: "doge", name: "Pixel Doge", icon: "🐕", price: 1000, baseCoin: 9 }, { id: "cat", name: "Cyber Kitty", icon: "🐈", price: 3000, baseCoin: 15 },
+    { id: "frog", name: "Ninja Frog", icon: "🐸", price: 5000, baseCoin: 25 }, { id: "dragon", name: "Neon Dragon", icon: "🐲", price: 10000, baseCoin: 45 },
+    { id: "panda", name: "Ghost Panda", icon: "🐼", price: 36700, baseCoin: 123 }, { id: "kraken", name: "67 Kraken", icon: "🦑", price: 67777, baseCoin: 265 },
+    { id: "midas", name: "King Midas", icon: "<img src='King.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Premium Pass Lvl 50", baseCoin: 465, isEvent: true, color: "#ffd700" },
+    // EVENT ADDITION: New Phoenix Pet using phoenix.png
+    { id: "phoenix", name: "Mythic Phoenix", icon: "<img src='phoenix.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Event Reward", baseCoin: 298, isEvent: true, color: "#ff4400" } 
 ];
 
 function calculatePetNeglect() {
-    let hoursOffline = (Date.now() - gameState.last_online) / (1000 * 60 * 60);
-    if (hoursOffline >= 12 && Object.keys(gameState.pet_ages).length > 0) {
-        let levelsToLose = Math.floor(hoursOffline / 12); let secondsToLose = levelsToLose * 600; let lostLevelsAlert = false;
-        for (let key in gameState.pet_ages) {
-            if (gameState.pet_ages[key] >= 600) { 
-                gameState.pet_ages[key] -= secondsToLose; if (gameState.pet_ages[key] < 0) gameState.pet_ages[key] = 0; lostLevelsAlert = true;
-            }
-        }
-        if (lostLevelsAlert) { saveGameToServer(); setTimeout(() => { alert(`🚨 ANIMAL CONTROL ALERT 🚨\n\nYour pets have LOST ${levelsToLose} LEVEL(S) due to offline neglect! 📉🧠`); }, 1000); }
-    }
+    let hoursOffline = (Date.now() - gameState.last_online) / (1000 * 60 * 60);
+    if (hoursOffline >= 12 && Object.keys(gameState.pet_ages).length > 0) {
+        let levelsToLose = Math.floor(hoursOffline / 12); let secondsToLose = levelsToLose * 600; let lostLevelsAlert = false;
+        for (let key in gameState.pet_ages) {
+            if (gameState.pet_ages[key] >= 600) { 
+                gameState.pet_ages[key] -= secondsToLose; if (gameState.pet_ages[key] < 0) gameState.pet_ages[key] = 0; lostLevelsAlert = true;
+            }
+        }
+        if (lostLevelsAlert) { saveGameToServer(); setTimeout(() => { alert(`🚨 ANIMAL CONTROL ALERT 🚨\n\nYour pets have LOST ${levelsToLose} LEVEL(S) due to offline neglect! 📉🧠`); }, 1000); }
+    }
 }
 
 function updateStatsUI() {
-    document.getElementById('coinDisplay').innerText = gameState.coins.toLocaleString();
-    document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
-    document.getElementById('stat-time').innerText = Math.floor(gameState.playtime / 60); 
-    document.getElementById('stat-count').innerText = localStorage.getItem('schoolExamsGamesOpened') || '0';
+    document.getElementById('coinDisplay').innerText = gameState.coins.toLocaleString();
+    document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
+    document.getElementById('stat-time').innerText = Math.floor(gameState.playtime / 60); 
+    document.getElementById('stat-count').innerText = localStorage.getItem('schoolExamsGamesOpened') || '0';
 }
 
 function showToast(msg) {
-    const toast = document.getElementById('coinToast'); document.getElementById('toastMsg').innerText = msg;
-    toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 4000);
+    const toast = document.getElementById('coinToast'); document.getElementById('toastMsg').innerText = msg;
+    toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 4000);
 }
 
 // --- EVENT TASK TRACKER ADDITION ---
 function updateEventTask(taskType, amount = 1) {
-    let tasks = JSON.parse(localStorage.getItem('event_tasks') || '[]');
-    let changed = false;
-    
-    tasks.forEach(task => {
-        if (task.type === taskType && !task.completed) {
-            task.current += amount;
-            if (task.current >= task.goal) {
-                task.current = task.goal;
-                task.completed = true;
-                showToast(`Task Complete: ${task.name}!`);
-            }
-            changed = true;
-        }
-    });
-    
-    if (changed) {
-        localStorage.setItem('event_tasks', JSON.stringify(tasks));
-        saveGameToServer(); 
-    }
+    let tasks = JSON.parse(localStorage.getItem('event_tasks') || '[]');
+    let changed = false;
+    
+    tasks.forEach(task => {
+        if (task.type === taskType && !task.completed) {
+            task.current += amount;
+            if (task.current >= task.goal) {
+                task.current = task.goal;
+                task.completed = true;
+                showToast(`Task Complete: ${task.name}!`);
+            }
+            changed = true;
+        }
+    });
+    
+    if (changed) {
+        localStorage.setItem('event_tasks', JSON.stringify(tasks));
+        saveGameToServer(); 
+    }
 }
 
 // MAIN INTERVAL LOOP (1 Second)
 setInterval(() => {
-    if (document.getElementById('loginOverlay').style.display !== 'none') return;
-    
-    // FIX: Only increment playtime and process drops if tab is ACTIVE
-    if (document.hidden) return; 
+    if (document.getElementById('loginOverlay').style.display !== 'none') return;
+    
+    // FIX: Only increment playtime and process drops if tab is ACTIVE
+    if (document.hidden) return; 
 
-    gameState.playtime++;
-    
-    // EVENT ADDITION: Play Minutes tracking
-    if (gameState.playtime > 0 && gameState.playtime % 60 === 0) {
-        updateEventTask('play_minutes');
-    }
+    gameState.playtime++;
+    
+    // EVENT ADDITION: Play Minutes tracking
+    if (gameState.playtime > 0 && gameState.playtime % 60 === 0) {
+        updateEventTask('play_minutes');
+    }
 
-    if (gameState.playtime > 0 && gameState.playtime % 600 === 0) {
-        gameState.coins += 100;
-        updateStatsUI();
-        showToast("Time Reward! +100 ExamCoins added.");
-        saveGameToServer(); // ACTION SAVE: Time Drop
-    }
+    if (gameState.playtime > 0 && gameState.playtime % 600 === 0) {
+        gameState.coins += 100;
+        updateStatsUI();
+        showToast("Time Reward! +100 ExamCoins added.");
+        saveGameToServer(); // ACTION SAVE: Time Drop
+    }
 
-    if (gameState.active_pet) {
-        gameState.pet_ages[gameState.active_pet] = (gameState.pet_ages[gameState.active_pet] || 0) + 1; 
-        
-        if (gameState.playtime % 120 === 0) {
-            const petInfo = PET_SHOP.find(p => p.id === gameState.active_pet);
-            if (petInfo) {
-                const level = Math.floor(gameState.pet_ages[gameState.active_pet] / 600) + 1; 
-                gameState.coins += (petInfo.baseCoin + (level * 2));
-                updateStatsUI();
-                saveGameToServer(); // ACTION SAVE: Pet Drop
-            }
-        }
-        if (gameState.playtime % 5 === 0) { updatePetUI(); }
-    }
+    if (gameState.active_pet) {
+        gameState.pet_ages[gameState.active_pet] = (gameState.pet_ages[gameState.active_pet] || 0) + 1; 
+        
+        if (gameState.playtime % 120 === 0) {
+            const petInfo = PET_SHOP.find(p => p.id === gameState.active_pet);
+            if (petInfo) {
+                const level = Math.floor(gameState.pet_ages[gameState.active_pet] / 600) + 1; 
+                gameState.coins += (petInfo.baseCoin + (level * 2));
+                updateStatsUI();
+                saveGameToServer(); // ACTION SAVE: Pet Drop
+            }
+        }
+        if (gameState.playtime % 5 === 0) { updatePetUI(); }
+    }
 }, 1000);
 
 // --- PET SHOP UI FUNCTIONS ---
 function renderPetShop() {
-    const container = document.getElementById('petShopContainer');
-    container.innerHTML = `<div class="pet-warning-box"><strong>⚠️ Neglect Warning:</strong> Every 12 hours you are offline, pets <strong>LOSE 1 Level</strong>.</div>`;
-    
-    PET_SHOP.forEach(pet => {
-        const isOwned = gameState.owned_pets.includes(pet.id); const isEquipped = gameState.active_pet === pet.id;
-        const level = Math.floor((gameState.pet_ages[pet.id] || 0) / 600) + 1; const reward = pet.baseCoin + (level * 2);
+    const container = document.getElementById('petShopContainer');
+    container.innerHTML = `<div class="pet-warning-box"><strong>⚠️ Neglect Warning:</strong> Every 12 hours you are offline, pets <strong>LOSE 1 Level</strong>.</div>`;
+    
+    PET_SHOP.forEach(pet => {
+        const isOwned = gameState.owned_pets.includes(pet.id); const isEquipped = gameState.active_pet === pet.id;
+        const level = Math.floor((gameState.pet_ages[pet.id] || 0) / 600) + 1; const reward = pet.baseCoin + (level * 2);
 
-        const card = document.createElement('div'); card.className = `shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
-        if (pet.color && pet.isEvent && !isOwned) card.style.borderColor = pet.color;
-        
-        let btnHTML = isEquipped ? `<button class="shop-btn equipped">Equipped ✓</button>` 
-            : isOwned ? `<button class="shop-btn equip" onclick="equipPet('${pet.id}')" style="background:#3ba55c">Equip</button>` 
-            : (typeof pet.price === 'string') ? `<button class="shop-btn event-btn" style="${pet.color ? 'background:'+pet.color+'; color:#000; box-shadow:none;' : ''}">${pet.price}</button>` 
-            : `<button class="shop-btn buy" onclick="buyPet('${pet.id}', ${pet.price})">Adopt 🪙 ${pet.price}</button>`;
+        const card = document.createElement('div'); card.className = `shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
+        if (pet.color && pet.isEvent && !isOwned) card.style.borderColor = pet.color;
+        
+        let btnHTML = isEquipped ? `<button class="shop-btn equipped">Equipped ✓</button>` 
+            : isOwned ? `<button class="shop-btn equip" onclick="equipPet('${pet.id}')" style="background:#3ba55c">Equip</button>` 
+            : (typeof pet.price === 'string') ? `<button class="shop-btn event-btn" style="${pet.color ? 'background:'+pet.color+'; color:#000; box-shadow:none;' : ''}">${pet.price}</button>` 
+            : `<button class="shop-btn buy" onclick="buyPet('${pet.id}', ${pet.price})">Adopt 🪙 ${pet.price}</button>`;
 
-        let nameColor = pet.isEvent && !isOwned ? (pet.color || '#ff0000') : '#fff';
-        card.innerHTML = `<div style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.2)); display: flex; align-items: center; justify-content: center;">${pet.icon}</div><h3 style="font-size: 16px; margin-bottom: 5px; color: ${nameColor};">${pet.name}</h3><p style="font-size: 12px; color: #ffd700; margin-bottom: 5px;">Earns: +${reward} 🪙/2m</p>${isOwned ? `<p style="font-size: 11px; color: var(--p1); margin-bottom: 10px;">Level ${level}</p>` : '<p style="margin-bottom:10px;"></p>'}${btnHTML}`;
-        container.appendChild(card);
-    });
+        let nameColor = pet.isEvent && !isOwned ? (pet.color || '#ff0000') : '#fff';
+        card.innerHTML = `<div style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.2)); display: flex; align-items: center; justify-content: center;">${pet.icon}</div><h3 style="font-size: 16px; margin-bottom: 5px; color: ${nameColor};">${pet.name}</h3><p style="font-size: 12px; color: #ffd700; margin-bottom: 5px;">Earns: +${reward} 🪙/2m</p>${isOwned ? `<p style="font-size: 11px; color: var(--p1); margin-bottom: 10px;">Level ${level}</p>` : '<p style="margin-bottom:10px;"></p>'}${btnHTML}`;
+        container.appendChild(card);
+    });
 }
 
 function buyPet(id, price) {
-    if (gameState.coins >= price) {
-        gameState.coins -= price; gameState.owned_pets.push(id); gameState.pet_ages[id] = 0; 
-        updateStatsUI(); showToast("Pet Adopted!"); equipPet(id);
-        saveGameToServer(); // ACTION SAVE
-    } else { alert("You need more ExamCoins to adopt this pet!"); }
+    if (gameState.coins >= price) {
+        gameState.coins -= price; gameState.owned_pets.push(id); gameState.pet_ages[id] = 0; 
+        updateStatsUI(); showToast("Pet Adopted!"); equipPet(id);
+        saveGameToServer(); // ACTION SAVE
+    } else { alert("You need more ExamCoins to adopt this pet!"); }
 }
 
 function equipPet(id) {
-    gameState.active_pet = id;
-    renderPetShop(); updatePetUI();
-    saveGameToServer(); // ACTION SAVE
+    gameState.active_pet = id;
+    renderPetShop(); updatePetUI();
+    saveGameToServer(); // ACTION SAVE
 }
 
 function feedPet() {
-    if (!gameState.active_pet) return;
-    const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; const feedCost = 50 + ((level - 1) * 25); 
+    if (!gameState.active_pet) return;
+    const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; const feedCost = 50 + ((level - 1) * 25); 
 
-    if (gameState.coins >= feedCost) {
-        gameState.coins -= feedCost; gameState.pet_ages[gameState.active_pet] = (gameState.pet_ages[gameState.active_pet] || 0) + 600; 
-        updateStatsUI(); updatePetUI(); showToast("🍖 Pet Fed! +1 Age Level");
-        const petIcon = document.getElementById('activePetIcon'); if(petIcon) { petIcon.style.transform = 'scale(1.3)'; setTimeout(() => petIcon.style.transform = 'scale(1)', 200); }
-        
-        // EVENT ADDITION: Track feeding
-        updateEventTask('feed_pet');
-        
-        saveGameToServer(); // ACTION SAVE
-    } else { alert(`You need ${feedCost} ExamCoins to feed your level ${level} pet!`); }
+    if (gameState.coins >= feedCost) {
+        gameState.coins -= feedCost; gameState.pet_ages[gameState.active_pet] = (gameState.pet_ages[gameState.active_pet] || 0) + 600; 
+        updateStatsUI(); updatePetUI(); showToast("🍖 Pet Fed! +1 Age Level");
+        const petIcon = document.getElementById('activePetIcon'); if(petIcon) { petIcon.style.transform = 'scale(1.3)'; setTimeout(() => petIcon.style.transform = 'scale(1)', 200); }
+        
+        // EVENT ADDITION: Track feeding
+        updateEventTask('feed_pet');
+        
+        saveGameToServer(); // ACTION SAVE
+    } else { alert(`You need ${feedCost} ExamCoins to feed your level ${level} pet!`); }
 }
 
 function updatePetUI() {
-    const panel = document.getElementById('petPanel');
-    if (!gameState.active_pet) { panel.style.display = "none"; return; }
-    panel.style.display = "block";
-    const petInfo = PET_SHOP.find(p => p.id === gameState.active_pet);
-    const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; const feedCost = 50 + ((level - 1) * 25); 
-    document.getElementById('petPanelContent').innerHTML = `<div class="rec-game"><div class="rec-icon" id="activePetIcon" style="transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; justify-content: center;">${petInfo.icon}</div><div class="rec-title" style="font-size: 20px;">${petInfo.name} <span style="font-size: 14px; color: var(--p1);">Lvl ${level}</span></div><p style="font-size: 13px; color: #ffd700; margin-bottom: 12px; font-weight: bold;">Earns: +${petInfo.baseCoin + (level * 2)} 🪙 / 2m</p><button class="rec-btn" style="background: #3ba55c;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost} 🪙)</button></div>`;
+    const panel = document.getElementById('petPanel');
+    if (!gameState.active_pet) { panel.style.display = "none"; return; }
+    panel.style.display = "block";
+    const petInfo = PET_SHOP.find(p => p.id === gameState.active_pet);
+    const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; const feedCost = 50 + ((level - 1) * 25); 
+    document.getElementById('petPanelContent').innerHTML = `<div class="rec-game"><div class="rec-icon" id="activePetIcon" style="transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; justify-content: center;">${petInfo.icon}</div><div class="rec-title" style="font-size: 20px;">${petInfo.name} <span style="font-size: 14px; color: var(--p1);">Lvl ${level}</span></div><p style="font-size: 13px; color: #ffd700; margin-bottom: 12px; font-weight: bold;">Earns: +${petInfo.baseCoin + (level * 2)} 🪙 / 2m</p><button class="rec-btn" style="background: #3ba55c;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost} 🪙)</button></div>`;
 }
 
 function openPetShop() { document.getElementById('petShopOverlay').classList.add('open'); renderPetShop(); }
@@ -627,140 +629,119 @@ function closePetShop() { document.getElementById('petShopOverlay').classList.re
 
 // --- CURSOR SHOP SYSTEM ---
 const CURSORS = [
-    { id: "def", name: "Default Mouse", src: "DefMouse.png", price: 0 }, { id: "m1", name: "Egg Twins", src: "Twins.png", price: 500 },
-    { id: "m2", name: "Gold Ingot", src: "Goldingot.png", price: 500 }, { id: "m3", name: "Cheesy Cursor", src: "mouse.png", price: 750 },
-    { id: "m4", name: "Sword Cursor", src: "Katana.png", price: 500 }, { id: "m5", name: "Pizza Slice", src: "pizza.png", price: 500 },
-    { id: "custom", name: "Upload Custom", src: "https://cdn-icons-png.flaticon.com/512/109/109612.png", price: 1250, isCustom: true },
-    { id: "dragon", name: "Mythic Dragon", src: "Dragon.gif", price: "Wheel Event Only", isEvent: true, color: "#ff0000" },
-    { id: "bp1", name: "Silver Apple", src: "Apple.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp2", name: "Robot BOB", src: "Robot.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp3", name: "Silver Statue", src: "Statue.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp4", name: "Midas Sword", src: "Midas.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "bp5", name: "Golden Flame", src: "Flame.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "bp6", name: "Royal Gleam", src: "Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    // EVENT ADDITION: Prism Wing Cursor
-    { id: "prism", name: "Prism Wing", src: "Prism.png", price: "Event Reward", isEvent: true, color: "#00ffcc" }
+    { id: "def", name: "Default Mouse", src: "DefMouse.png", price: 0 }, { id: "m1", name: "Egg Twins", src: "Twins.png", price: 500 },
+    { id: "m2", name: "Gold Ingot", src: "Goldingot.png", price: 500 }, { id: "m3", name: "Cheesy Cursor", src: "mouse.png", price: 750 },
+    { id: "m4", name: "Sword Cursor", src: "Katana.png", price: 500 }, { id: "m5", name: "Pizza Slice", src: "pizza.png", price: 500 },
+    { id: "custom", name: "Upload Custom", src: "https://cdn-icons-png.flaticon.com/512/109/109612.png", price: 1250, isCustom: true },
+    { id: "dragon", name: "Mythic Dragon", src: "Dragon.gif", price: "Wheel Event Only", isEvent: true, color: "#ff0000" },
+    { id: "bp1", name: "Silver Apple", src: "Apple.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
+    { id: "bp2", name: "Robot BOB", src: "Robot.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
+    { id: "bp3", name: "Silver Statue", src: "Statue.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
+    { id: "bp4", name: "Midas Sword", src: "Midas.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
+    { id: "bp5", name: "Golden Flame", src: "Flame.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
+    { id: "bp6", name: "Royal Gleam", src: "Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
+    // EVENT ADDITION: Prism Wing Cursor
+    { id: "prism", name: "Prism Wing", src: "Prism.png", price: "Event Reward", isEvent: true, color: "#00ffcc" }
 ];
 
 function applyCursor() {
-    let targetSrc = gameState.equipped_cursor === "custom" ? (localStorage.getItem('customCursorDataUrl') || CURSORS[0].src) : (CURSORS.find(c => c.id === gameState.equipped_cursor)?.src || CURSORS[0].src);
-    domCursor.src = targetSrc; localStorage.setItem('currentCursorSrc', targetSrc);
+    let targetSrc = gameState.equipped_cursor === "custom" ? (localStorage.getItem('customCursorDataUrl') || CURSORS[0].src) : (CURSORS.find(c => c.id === gameState.equipped_cursor)?.src || CURSORS[0].src);
+    domCursor.src = targetSrc; localStorage.setItem('currentCursorSrc', targetSrc);
 }
 
 function renderShop() {
-    const container = document.getElementById('shopContainer'); container.innerHTML = "";
-    CURSORS.forEach(item => {
-        const isOwned = gameState.owned_cursors.includes(item.id); const isEquipped = gameState.equipped_cursor === item.id;
-        const card = document.createElement('div'); card.className = `shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
-        if (item.color && item.isEvent && !isOwned) card.style.borderColor = item.color;
-        
-        let btnHTML = isEquipped ? `<button class="shop-btn equipped">Equipped ✓</button>` 
-            : isOwned ? `<button class="shop-btn equip" onclick="equipCursor('${item.id}')">Equip</button>` 
-            : (typeof item.price === 'string') ? `<button class="shop-btn event-btn" style="${item.color ? 'background:'+item.color+'; color:#000; box-shadow:none;' : ''}">${item.price}</button>` 
-            : `<button class="shop-btn buy" onclick="buyCursor('${item.id}', ${item.price})">Buy 🪙 ${item.price}</button>`;
+    const container = document.getElementById('shopContainer'); container.innerHTML = "";
+    CURSORS.forEach(item => {
+        const isOwned = gameState.owned_cursors.includes(item.id); const isEquipped = gameState.equipped_cursor === item.id;
+        const card = document.createElement('div'); card.className = `shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
+        if (item.color && item.isEvent && !isOwned) card.style.borderColor = item.color;
+        
+        let btnHTML = isEquipped ? `<button class="shop-btn equipped">Equipped ✓</button>` 
+            : isOwned ? `<button class="shop-btn equip" onclick="equipCursor('${item.id}')">Equip</button>` 
+            : (typeof item.price === 'string') ? `<button class="shop-btn event-btn" style="${item.color ? 'background:'+item.color+'; color:#000; box-shadow:none;' : ''}">${item.price}</button>` 
+            : `<button class="shop-btn buy" onclick="buyCursor('${item.id}', ${item.price})">Buy 🪙 ${item.price}</button>`;
 
-        let extraHTML = (isEquipped && item.isCustom) ? `<button class="shop-btn" style="background:#ff8c00; margin-top:5px;" onclick="document.getElementById('customCursorInput').click()">Upload Image</button>` : "";
-        let nameColor = item.isEvent ? (item.color || '#ff0000') : '#fff';
-        card.innerHTML = `<img src="${item.src}" class="shop-preview"><h3 style="font-size: 14px; margin-bottom: 10px; color: ${nameColor};">${item.name}</h3>${btnHTML}${extraHTML}`;
-        container.appendChild(card);
-    });
+        let extraHTML = (isEquipped && item.isCustom) ? `<button class="shop-btn" style="background:#ff8c00; margin-top:5px;" onclick="document.getElementById('customCursorInput').click()">Upload Image</button>` : "";
+        let nameColor = item.isEvent ? (item.color || '#ff0000') : '#fff';
+        card.innerHTML = `<img src="${item.src}" class="shop-preview"><h3 style="font-size: 14px; margin-bottom: 10px; color: ${nameColor};">${item.name}</h3>${btnHTML}${extraHTML}`;
+        container.appendChild(card);
+    });
 }
 
 function buyCursor(id, price) {
-    if (gameState.coins >= price) {
-        gameState.coins -= price; gameState.owned_cursors.push(id); 
-        updateStatsUI(); showToast("Cursor Purchased!"); equipCursor(id);
-        saveGameToServer(); // ACTION SAVE
-    } else { alert("You need more ExamCoins!"); }
+    if (gameState.coins >= price) {
+        gameState.coins -= price; gameState.owned_cursors.push(id); 
+        updateStatsUI(); showToast("Cursor Purchased!"); equipCursor(id);
+        saveGameToServer(); // ACTION SAVE
+    } else { alert("You need more ExamCoins!"); }
 }
 
 function equipCursor(id) {
-    gameState.equipped_cursor = id; applyCursor(); renderShop();
-    if(id === "custom" && !localStorage.getItem('customCursorDataUrl')) document.getElementById('customCursorInput').click();
-    saveGameToServer(); // ACTION SAVE
+    gameState.equipped_cursor = id; applyCursor(); renderShop();
+    if(id === "custom" && !localStorage.getItem('customCursorDataUrl')) document.getElementById('customCursorInput').click();
+    saveGameToServer(); // ACTION SAVE
 }
 
 function openShop() { document.getElementById('shopOverlay').classList.add('open'); renderShop(); }
 function closeShop() { document.getElementById('shopOverlay').classList.remove('open'); }
 
 document.getElementById('customCursorInput').addEventListener('change', function(e) {
-    const file = e.target.files[0]; if (!file) return;
-    if (file.size > 200000) { alert("Image is too large! Please choose an image under 200KB."); return; }
-    const reader = new FileReader();
-    reader.onload = function(event) { localStorage.setItem('customCursorDataUrl', event.target.result); applyCursor(); showToast("Custom Cursor Saved!"); };
-    reader.readAsDataURL(file);
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 200000) { alert("Image is too large! Please choose an image under 200KB."); return; }
+    const reader = new FileReader();
+    reader.onload = function(event) { localStorage.setItem('customCursorDataUrl', event.target.result); applyCursor(); showToast("Custom Cursor Saved!"); };
+    reader.readAsDataURL(file);
 });
-
-// --- GAMES LIST ---
-const RAW_GAMES = [
-    "clsnowrider.html|Snow Rider 3D","clspacewaves.html|Space Wave","cl3dash.html|3 Dash","https://bitlifeonline.github.io/ragdoll-archers/|Ragdoll Archers","Eaglercraft-Alpha-1.2.6-Offline.html|Eagler Alpha 1.2","Eaglercraft-Beta-1.3-Offline.html|Eagler Beta 1.3","Eaglercraft-Indev-Offline (1).html|Eagler Indev 1","Eaglercraft-Indev-Offline.html|Eagler Indev 2","EaglercraftL_1.9_v0_7_0_Offline_Signed.html|Eaglercraft 1.9","EaglercraftX 1.8.8(u29).html|Eaglercraft X","EaglercraftZ_1.11.2.html|Eaglercraft Z","Helios-Offline (1).html|Helios System","Minceraft-I-NotMine_V6.html|Minceraft V6","cl1.html|Module 01","cl10bullets.html|10 Bullets","cl10minutestildawn.html|10 Minutes Till Dawn","cl12minibattles.html|12 Mini Battles","cl1on1soccer.html|1 On 1 Soccer","cl1v1lol.html|1v1.LOL","cl1v1tennis.html|1v1 Tennis","cl2048.html|2048 Logic","cl2048cupcakes.html|2048 Cupcakes","cl2Dshooting.html|2D Shooting","cl2doom.html|2D Doom","cl3pandas.html|3 Pandas","cl3pandasbrazil.html|3 Pandas Brazil","cl3pandasfantasy.html|3 Pandas Fantasy","cl3pandasjapan.html|3 Pandas Japan","cl3pandasnight.html|3 Pandas Night","cl3slices2.html|3 Slices 2","cl40xescape.html|40x Escape","cl4thandgoal.html|4th and Goal","cl500calibercontractz.html|500 Caliber Contractz","cl60secondsburgerrun.html|60s Burger Run","cl60secondssantarun.html|60s Santa Run","cl8ballclassic.html|8 Ball Classic","cl8ballpool.html|8 Ball Pool","cl9007199254740992.html|Infinity Math","cl99balls.html|99 Balls","cl99nightsitf.html|99 Nights",
-    "clADOFAI.html|ADOFAI","clADarkRoom.html|A Dark Room","clAdventureCapatalist.html|Adventure Capitalist","clAwesomePirates.html|Awesome Pirates","clB3313.html|B3313 Core","clBBB.html|Broken Bones","clBMX2.html|BMX Training","clBTD1.html|Bloons TD 1","clBig_Time_Butter_Baron.html|Butter Baron","clBountyOfOne.html|Bounty One","clCartoonNetworkTableTennisUltimateTournament.html|CN Tennis","clCircloO2.html|CircloO 2","clDragonBallZTheLegacyofGoku.html|Legacy Goku","clDragonQuestIX.html|Dragon Quest IX","clFF3.html|Final Fantasy 3","clFFsonic1.html|Sonic FF1","clFFsonic2.html|Sonic FF2","clFFsonic3.html|Sonic FF3","clFFsonic4.html|Sonic FF4","clFFsonic5.html|Sonic FF5","clFFsonic61.html|Sonic FF6.1","clFFsonic62.html|Sonic FF6.2","clFIFA07.html|FIFA 07","clFIFA10.html|FIFA 10","clFIFA11.html|FIFA 11","clFIFA2000(1).html|FIFA 2000","clFIFA99.html|FIFA 99","clFIFAinternationalsoccer.html|FIFA Intl","clFIFAroadtoworldcup98.html|FIFA 98","clFIFAsoccer06.html|FIFA 06","clFIFAsoccer95.html|FIFA 95","clFIFAsoccer96.html|FIFA 96","clFIFAsoccer97.html|FIFA 97","clFIFAstreet2.html|FIFA Street 2",
-    "clFNAF.html|FNAF 1","clFNAF2.html|FNAF 2","clFNAF3.html|FNAF 3","clFNAF4.html|FNAF 4","clGettothetopalthoughthereisnotop.html|The Climb","clGoldenSunTheLostAge.html|Golden Sun 2","clHaroldsbadday.html|Harold's Day","clHiNoHomo.html|Hi No Homo","clJUMP.html|JUMP","clKenGriffeyJrPresentsMajorLeagueBaseball.html|MLB Baseball","clMarioisMissingDoneRight.html|Mario Missing","clMetalSonicHyperdrive.html|Metal Sonic","clNBAhangtime.html|NBA Hangtime","clNBAjam.html|NBA Jam","clNautilusOS.html|Nautilus OS","clNewSuperMarioWorld2AroundtheWorld.html|SMW 2 World","clNicktoonsFreezeFrameFrenzy.html|Nicktoons FF","clNutsandBoltsScrewingPuzzle.html|Nuts & Bolts","clPokemonemeraldrouge.html|Emerald Rouge","clPokemonrocketedition.html|Pokemon Rocket","clPokémonstunningsteel.html|Pokemon Steel","clSINGLEFILE.html|Single File","clSonic1ScoreRush.html|Score Rush 1","clSonic2ScoreRush.html|Score Rush 2","clSonicHellfireSaga.html|Hellfire Saga","clStickmanKingdomclash.html|Stickman Clash","clSuperMarioWorldThe SecretOfThe7GoldenStatues.html|7 Statues","clTaikonoTatsujin.html|Taiko Rhythm","clUZG.html|UZG Module","clUltimatecardrivingsimulator.html|Car Driving Sim","clXevious.html|Xevious","clYoshisStrangeQuest.html|Yoshi Quest",
-    "clabandoned3.html|Abandoned 3","clabsolutemadness.html|Absolute Madness","clacecombat2.html|Ace Combat 2","clacecombat3.html|Ace Combat 3","clacegangstertaxi.html|Ace Gangster Taxi","clachievementunlocked.html|Achievement Unlocked","clachievmentunlocked.html|Achievement 1","clachievmentunlocked2.html|Achievement 2","clachievmentunlocked3.html|Achievement 3","clachillies.html|Achillies","clachillies2.html|Achillies 2","cladayintheoffice.html|Office Day","cladvancewars.html|Advance Wars","cladvancewars2.html|Advance Wars 2","cladventneon.html|Advent Neon","cladventurecapitalist.html|Adv. Capitalist","clagariolite.html|Agario Lite","clageofwar.html|Age Of War","clageofwar2.html|Age Of War 2","clagesofconflict.html|Ages of Conflict","clahoysurvival.html|Ahoy Survival","clai.html|AI System","clakoopasrevenge.html|Koopa Revenge","clakoopasrevenge2.html|Koopa Revenge 2","clakumanorgaiden.html|Akumano Gaiden","clalgebra.html|Algebra Module","clalienhominid.html|Alien Hominid","clalienhominidgba.html|Alien Hominid GBA","clalienskyinvasion.html|Alien Invasion","clalientransporter.html|Alien Transporter","clalienvspredator.html|Alien vs Predator","clallbossesin1.html|All Bosses","clallocation.html|Allocation","clamaze.html|Amaze","clamidstthesky.html|Amidst The Sky","clamigopancho.html|Amigo Pancho 1","clamigopancho2.html|Amigo Pancho 2","clamigopancho3.html|Amigo Pancho 3","clamigopancho4.html|Amigo Pancho 4","clamigopancho5.html|Amigo Pancho 5","clamigopancho6.html|Amigo Pancho 6","clamigopancho7.html|Amigo Pancho 7","clamongus.html|Among Us Lite","clamorphous.html|Amorphous","clancientsins.html|Ancient Sins","clangry-birdsspace.html|Angry Birds Space","clangrybirds-space.html|Angry Birds Space 2","clangrybirds.html|Angry Birds","clangrybirdsshowdown.html|Angry Birds Showdown","clangrybirdsspace.html|Angry Birds Space 3","clanimalcrossingwildworld.html|Animal Crossing","clanotherworld.html|Another World","clapotris.html|Apotris","clappleshooter.html|Apple Shooter","clappleworm.html|Apple Worm","claquaparkio.html|Aquapark.io","clarceuslegend.html|Arceus Legend","clarcheryworldtour.html|Archery World Tour","clarena.html|Arena","clarmormayhem2.html|Armor Mayhem 2","clarsonate.html|Arsonate","clascent.html|Ascent","clasmallworldcup.html|Small World Cup","classesmentexaminationque.html|Assessment Module","clasteroids.html|Asteroids","clasteroidsALT.html|Asteroids Alt","clattackhole.html|Attack Hole","clavalanche.html|Avalanche","claviamasters.html|Avia Masters","claviamastersbuggy.html|Avia Masters Buggy","clawesomeplanes.html|Awesome Planes","clawesometanks.html|Awesome Tanks","clawesometanks2.html|Awesome Tanks 2",
-    "clbabeltower.html|Babel Tower","clbabychiccoadventure.html|Baby Chicco","clbabykaizo.html|Baby Kaizo","clbabysniperinvietnam.html|Baby Sniper","clbackrooms.html|Backrooms","clbackrooms2D.html|Backrooms 2D","clbackyardbaseball.html|Backyard Baseball","clbackyardbaseball09.html|Backyard Baseball 09","clbackyardbaseball10.html|Backyard Baseball 10","clbackyardsoccer.html|Backyard Soccer","clbaconmaydie.html|Bacon May Die","clbadbodyguards.html|Bad Bodyguards","clbadicecream.html|Bad Ice Cream","clbadmondaysimulator.html|Bad Monday Sim","clbadparenting.html|Bad Parenting","clbadpiggies.html|Bad Piggies","clbadtimesim.html|Bad Time Sim","clbadtimesimulator.html|Bad Time Sim 2","clbaldidecomp.html|Baldi Decomp","clbaldisbasics.html|Baldi's Basics","clbaldisbasicsremaster.html|Baldi Remastered","clbaldisfunnewschoolultimate.html|Baldi School","clballblast.html|Ball Blast","clballsandbricks.html|Balls & Bricks","clballsandbricksgood.html|Balls & Bricks Pro","clbananasimulator.html|Banana Simulator","clbanditgunslingers.html|Bandit Gunslingers","clbanjokazooie.html|Banjo Kazooie","clbanjotooie.html|Banjo Tooie","clbankbreakout2.html|Bank Breakout 2","clbankrobbery2.html|Bank Robbery 2","clbarryhasasecret.html|Barry's Secret","clbas.html|BAS Module","clbaseballbros.html|Baseball Bros","clbasketballfrvr.html|Basketball FRVR","clbasketballlegends.html|Basketball Legends","clbasketballstars.html|Basketball Stars","clbasketbattle.html|Basket Battle","clbasketbros.html|Basket Bros","clbasketrandom.html|Basket Random","clbasketrandomgood.html|Basket Random Pro","clbasketslamdunk2.html|Basket Slam Dunk 2","clbatterup.html|Batter Up","clbattlekarts.html|Battle Karts","clbattles.html|Battles","clbattlesim.html|Battle Sim","clbattlezone.html|Battle Zone","clbazookaboy.html|Bazooka Boy","clbballlegend.html|B-Ball Legend","clbeachboxingsim.html|Beach Boxing","clbeamrider.html|Beam Rider","clbearbarians.html|Bearbarians","clbearsus.html|Bearsus",
-    "clben10alienforce.html|Ben 10 AF","clben10omniverse.html|Ben 10 Omni","clben10protector.html|Ben 10 Protector","clben10racing.html|Ben 10 Racing","clben10ultimatealien.html|Ben 10 UA","clbergentruck201x.html|Bergen Truck","clbfdia5b.html|BFDIA 5b","clbigicetowertinysquare.html|Ice Tower","clbigneontowertinysquare.html|Neon Tower","clbigshotboxing2.html|Big Shot Box","clbigtowertinysquare.html|Big Tower","clbigtowertinysquare2.html|Big Tower 2","clbigtowertinysquare2good.html|Big Tower 2 Pro","clbindingofisaccsheeptime.html|Isaac Sheep","clbioevil4.html|Bio Evil 4","clbitlife.html|BitLife","clbitlifeencrypted.html|BitLife Enc","clbitplanes.html|Bit Planes","clblackjack.html|Blackjack","clblackjackbattle.html|Blackjack Battle","clblackjackhhhh.html|Blackjack HHH","clblacksmithlab.html|Blacksmith Lab","clblastronaut.html|Blastronaut","clblazedrifter.html|Blaze Drifter","clbleachvsnaruto.html|Bleach vs Naruto","clblightborne.html|Blightborne","clblobsstory2.html|Blob Story 2","clblockblast.html|Block Blast","clblockcraftparkour.html|Block Parkour","clblockcraftshooter.html|Block Shooter","clblockpost.html|Block Post","clblockthepig.html|Block The Pig","clblockydemolitionderby.html|Blocky Derby","clblockysnakes.html|Blocky Snakes","clbloodmoney.html|Blood Money","clbloodtournament.html|Blood Tournament"
-];
-
-const gameFranchises = [
-    "Papa's Pizzeria","Papa's Burgeria","Papa's Taco Mia","Papa's Freezeria","Papa's Pancakeria","Papa's Wingeria","Papa's Hot Doggeria","Papa's Cupcakeria","Papa's Pastaria","Papa's Donuteria","Papa's Cheeseria","Papa's Bakeria","Papa's Sushiria","Papa's Scooperia","Run 1","Run 2","Run 3","Vex 1","Vex 2","Vex 3","Vex 4","Vex 5","Vex 6","Vex 7","Vex 8","Moto X3M","Moto X3M Winter","Moto X3M Pool Party","Moto X3M Spooky","Fireboy & Watergirl 1","Fireboy & Watergirl 2","Fireboy & Watergirl 3","Fireboy & Watergirl 4","Fireboy & Watergirl 5","Fireboy & Watergirl 6","Snail Bob 1","Snail Bob 2","Snail Bob 3","Snail Bob 4","Snail Bob 5","Snail Bob 6","Snail Bob 7","Snail Bob 8","Wheely 1","Wheely 2","Wheely 3","Wheely 4","Wheely 5","Wheely 6","Wheely 7","Wheely 8","Bob The Robber 1","Bob The Robber 2","Bob The Robber 3","Bob The Robber 4","Bob The Robber 5","Money Movers 1","Money Movers 2","Money Movers 3","Bloons TD 2","Bloons TD 3","Bloons TD 4","Bloons TD 5","Bloons TD 6","Duck Life 1","Duck Life 2","Duck Life 3","Duck Life 4","Duck Life Space","Duck Life Battle","Strike Force Heroes 1","Strike Force Heroes 2","Strike Force Heroes 3","Raze 1","Raze 2","Raze 3","Stick War 1","Stick War 2","Geometry Dash Lite","Geometry Dash Meltdown","Geometry Dash SubZero","Riddle School 1","Riddle School 2","Riddle School 3","Riddle School 4","Riddle School 5","Riddle Transfer 1","Riddle Transfer 2","Breaking the Bank","Escaping the Prison","Stealing the Diamond","Infiltrating the Airship","Fleeing the Complex","Super Smash Flash","Super Smash Flash 2","Super Mario 63","Super Mario Flash","Zelda Flash","Pac-Man Classic","Tetris Classic","Space Invaders Classic","Frogger Classic","Asteroids Classic","Pong Classic","Donkey Kong Classic","Galaga Classic","Snake Classic","Centipede Classic","Missile Command","Dig Dug Classic","Q*bert Classic","Joust Classic","Defender Classic","Breakout Classic","Tempest Classic","Pole Position","Paperboy Classic","Marble Madness","Robotron 2084","BurgerTime Classic","Tapper Classic","Moon Patrol","Crystal Castles","Sinistar Classic","Berzerk Classic","Track & Field","Gyruss Classic","Xevious Classic","Mappy Classic","Spy Hunter","Zaxxon Classic","Kung Fu Master"
-];
-
-gameFranchises.forEach(title => {
-    let safeFile = "cl" + title.toLowerCase().replace(/[^a-z0-9]/g, '') + ".html";
-    RAW_GAMES.push(`${safeFile}|${title}`);
-});
-
-const GAMES = RAW_GAMES.map(str => { const parts = str.split('|'); return { f: parts[0], name: parts[1] }; });
 
 function getIconForGame(name) {
-    const n = name.toLowerCase();
-    if (n.includes('car') || n.includes('drive') || n.includes('rider') || n.includes('moto') || n.includes('wheely')) return '🏎️';
-    if (n.includes('space') || n.includes('alien') || n.includes('galaxy') || n.includes('astro')) return '🚀';
-    if (n.includes('mine') || n.includes('craft') || n.includes('block') || n.includes('build')) return '⛏️';
-    if (n.includes('ball') || n.includes('basket') || n.includes('soccer') || n.includes('fifa') || n.includes('sports')) return '⚽';
-    if (n.includes('math') || n.includes('logic') || n.includes('2048') || n.includes('puzzle') || n.includes('riddle')) return '🧩';
-    if (n.includes('fight') || n.includes('combat') || n.includes('war') || n.includes('strike') || n.includes('raze')) return '⚔️';
-    if (n.includes('fnaf') || n.includes('horror') || n.includes('scary') || n.includes('zombie')) return '👻';
-    if (n.includes('papa')) return '🍕';
-    return '📘';
+    const n = name.toLowerCase();
+    if (n.includes('car') || n.includes('drive') || n.includes('rider') || n.includes('moto') || n.includes('wheely')) return '🏎️';
+    if (n.includes('space') || n.includes('alien') || n.includes('galaxy') || n.includes('astro')) return '🚀';
+    if (n.includes('mine') || n.includes('craft') || n.includes('block') || n.includes('build')) return '⛏️';
+    if (n.includes('ball') || n.includes('basket') || n.includes('soccer') || n.includes('fifa') || n.includes('sports')) return '⚽';
+    if (n.includes('math') || n.includes('logic') || n.includes('2048') || n.includes('puzzle') || n.includes('riddle')) return '🧩';
+    if (n.includes('fight') || n.includes('combat') || n.includes('war') || n.includes('strike') || n.includes('raze')) return '⚔️';
+    if (n.includes('fnaf') || n.includes('horror') || n.includes('scary') || n.includes('zombie')) return '👻';
+    if (n.includes('papa')) return '🍕';
+    return '📘';
 }
 
 function renderGrid(filter = "") {
-    const grid = document.getElementById('gamesGrid'); grid.innerHTML = "";
-    document.getElementById('searchInput').placeholder = `Search ${GAMES.length} verified modules...`;
-    GAMES.filter(g => g.name.toLowerCase().includes(filter.toLowerCase())).forEach(game => {
-        const card = document.createElement('div'); card.className = 'gameCard'; card.onclick = () => openGame(game.f, game.name);
-        card.innerHTML = `<div class="gameIcon">${getIconForGame(game.name)}</div><div class="gameName">${game.name}</div>`;
-        grid.appendChild(card);
-    });
+    const grid = document.getElementById('gamesGrid'); grid.innerHTML = "";
+    document.getElementById('searchInput').placeholder = `Search ${GAMES.length} verified modules...`;
+    GAMES.filter(g => g.name.toLowerCase().includes(filter.toLowerCase())).forEach(game => {
+        const card = document.createElement('div'); card.className = 'gameCard'; card.onclick = () => openGame(game.f, game.name);
+        card.innerHTML = `<div class="gameIcon">${getIconForGame(game.name)}</div><div class="gameName">${game.name}</div>`;
+        grid.appendChild(card);
+    });
 }
 
 function openGame(file, title) {
-    const overlay = document.getElementById('gameOverlay'); const frame = document.getElementById('gameFrame');
-    document.getElementById('activeTitle').textContent = title;
-    gameStartTime = Date.now();
-    let count = parseInt(localStorage.getItem('schoolExamsGamesOpened') || '0'); localStorage.setItem('schoolExamsGamesOpened', count + 1);
-    
-    // EVENT ADDITION: Track module open
-    updateEventTask('open_module');
-    
-    updateStatsUI();
-    frame.src = file.startsWith('http') ? file : BASE_URL + file; overlay.classList.add('open'); document.body.style.overflow = "hidden";
+    const overlay = document.getElementById('gameOverlay'); const frame = document.getElementById('gameFrame');
+    document.getElementById('activeTitle').textContent = title;
+    gameStartTime = Date.now();
+    let count = parseInt(localStorage.getItem('schoolExamsGamesOpened') || '0'); localStorage.setItem('schoolExamsGamesOpened', count + 1);
+    
+    // EVENT ADDITION: Track module open
+    updateEventTask('open_module');
+    
+    updateStatsUI();
+    frame.src = file.startsWith('http') ? file : BASE_URL + file; overlay.classList.add('open'); document.body.style.overflow = "hidden";
 }
 
 function closeGame() {
-    const overlay = document.getElementById('gameOverlay'); const frame = document.getElementById('gameFrame');
-    if (gameStartTime) {
-        let sessionTimeMins = Math.floor((Date.now() - gameStartTime) / 60000); 
-        if (sessionTimeMins < 1 && (Date.now() - gameStartTime) > 5000) sessionTimeMins = 1; 
-        gameState.playtime += (sessionTimeMins * 60); gameStartTime = null; 
-        saveGameToServer(); // ACTION SAVE: Game session ends
-    }
-    frame.src = "about:blank"; overlay.classList.remove('open'); document.body.style.overflow = "auto"; updateStatsUI();
+    const overlay = document.getElementById('gameOverlay'); const frame = document.getElementById('gameFrame');
+    if (gameStartTime) {
+        let sessionTimeMins = Math.floor((Date.now() - gameStartTime) / 60000); 
+        if (sessionTimeMins < 1 && (Date.now() - gameStartTime) > 5000) sessionTimeMins = 1; 
+        gameState.playtime += (sessionTimeMins * 60); gameStartTime = null; 
+        saveGameToServer(); // ACTION SAVE: Game session ends
+    }
+    frame.src = "about:blank"; overlay.classList.remove('open'); document.body.style.overflow = "auto"; updateStatsUI();
 }
 
 document.getElementById('searchInput').oninput = (e) => renderGrid(e.target.value);
 renderGrid();
 </script>
 </body>
-</html>
+</html> can you add a way to favoirte games, there should be a star button on right of exit sessoin button in the game window overlay so when its filled, it displays in favorites section, you can put the favorities section left of all games
