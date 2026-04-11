@@ -7,7 +7,7 @@ header('Content-Type: application/json');
 // 1. DATABASE CONNECTION (Via config.ini)
 // ==========================================
 $db_host = 'localhost';
-$db_name = 'schoolexams_db'; // Ensure this matches your actual database name
+$db_name = 'schoolexams'; // Ensure this matches your actual database name
 
 // Read config.ini from the exact same folder as this script
 $config_path = __DIR__ . '/config.ini';
