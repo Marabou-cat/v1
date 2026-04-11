@@ -56,7 +56,6 @@
             text-shadow: var(--glow-blue);
         }
 
-        /* --- LOBBY STYLES --- */
         #lobby {
             background: var(--glass);
             border: 2px solid var(--p0);
@@ -89,7 +88,6 @@
 
         .input-large:focus { border-color: var(--p1); box-shadow: var(--glow-blue); }
 
-        /* --- BUTTON STYLES --- */
         .btn {
             padding: 18px 30px;
             border-radius: 12px;
@@ -108,14 +106,11 @@
 
         .btn-blue { background: var(--p0); color: #fff; }
         .btn-blue:hover { background: var(--p1); color: var(--bg0); box-shadow: var(--glow-blue); }
-
         .btn-green { background: #3ba55c; color: #fff; }
         .btn-green:hover { background: #43b581; box-shadow: var(--glow-green); }
-
         .btn-danger { background: #d00000; color: #fff; }
         .btn-danger:hover { background: #ff0000; box-shadow: var(--glow-red); }
 
-        /* --- TRADE BOARD STYLES --- */
         .trade-board {
             display: none;
             justify-content: center;
@@ -123,6 +118,7 @@
             width: 95%;
             max-width: 1200px;
             flex-wrap: wrap;
+            margin-bottom: 50px;
         }
 
         .trade-window {
@@ -135,21 +131,11 @@
             display: flex;
             flex-direction: column;
             box-shadow: var(--shadow);
-            transition: 0.3s;
             position: relative;
             overflow: hidden;
         }
 
-        .trade-window.ready {
-            border-color: #3ba55c;
-            box-shadow: 0 0 30px rgba(59, 165, 92, 0.4);
-        }
-        
-        .trade-window.ready::after {
-            content: ''; position: absolute; inset: 0;
-            box-shadow: inset 0 0 20px rgba(59, 165, 92, 0.5);
-            pointer-events: none; border-radius: var(--r);
-        }
+        .trade-window.ready { border-color: #3ba55c; box-shadow: 0 0 30px rgba(59, 165, 92, 0.4); }
 
         .window-header {
             font-size: 24px;
@@ -164,13 +150,12 @@
 
         #myHeader { color: var(--p1); text-shadow: var(--glow-blue); }
         #theirHeader { color: #ff4444; text-shadow: var(--glow-red); }
-        .trade-window.ready #theirHeader { color: #3ba55c; text-shadow: var(--glow-green); }
 
         .offer-zone {
             background: rgba(0,0,0,0.4);
             border: 2px dashed var(--p0);
             border-radius: 12px;
-            min-height: 200px;
+            min-height: 150px;
             padding: 15px;
             margin-bottom: 20px;
             display: flex;
@@ -185,31 +170,23 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
-            max-height: 300px;
+            max-height: 250px;
             overflow-y: auto;
         }
 
         .item-card {
             background: var(--bg0);
             border: 2px solid var(--p2);
-            padding: 15px 10px;
+            padding: 12px 8px;
             border-radius: 8px;
             text-align: center;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
             transition: 0.2s;
-            user-select: none;
         }
 
-        .inventory-zone .item-card:hover {
-            border-color: var(--p1);
-            background: var(--p0);
-            transform: scale(1.05);
-        }
-
-        .offer-zone .item-card { background: var(--p0); border-color: var(--p1); cursor: default; }
-        #theirOfferList .item-card { background: #800000; border-color: #ff4444; }
+        .inventory-zone .item-card:hover { border-color: var(--p1); background: var(--p0); transform: scale(1.02); }
 
         .status-badge {
             background: var(--bg0);
@@ -222,13 +199,16 @@
             margin-top: auto;
         }
 
-        .section-title { font-size: 14px; color: var(--p1); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: bold; }
-
+        .section-title { font-size: 12px; color: var(--p1); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="bg-grid"></div>
+
+    <header>
+        <h1>CORE TRADE TERMINAL</h1>
+    </header>
 
     <div id="lobby">
         <h2 style="color: var(--p1); margin-top: 0;">Initiate Trade Sequence</h2>
@@ -253,14 +233,14 @@
             
             <div class="section-title">Items Offered</div>
             <div class="offer-zone" id="myOfferList">
-                <div style="color: gray; text-align: center; margin-top: 50px;">Select items from inventory...</div>
+                <div style="color: gray; text-align: center; margin-top: 40px;">Select items...</div>
             </div>
             
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <input type="number" id="gemInput" class="input-large" style="margin-bottom: 0; padding: 10px; font-size: 16px;" placeholder="Amount of Gems..." min="1">
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="number" id="gemInput" class="input-large" style="margin-bottom: 0; padding: 10px; font-size: 16px;" placeholder="Amount...">
                 <button class="btn btn-blue" onclick="offerGems()" style="padding: 10px; width: auto; font-size: 14px;">➕ ADD</button>
             </div>
-            <div id="gemBalanceDisplay" style="font-size: 12px; color: var(--p1); margin-top: -15px; margin-bottom: 20px; text-align: left; padding-left: 5px;">Available Gems: 0</div>
+            <div id="gemBalanceDisplay" style="font-size: 12px; color: var(--p1); margin-bottom: 20px; padding-left: 5px;">Available Gems: Loading...</div>
 
             <button class="btn btn-green" onclick="toggleAccept()" id="acceptBtn" style="margin-bottom: 20px;">Ready to Trade</button>
             
@@ -273,7 +253,7 @@
             
             <div class="section-title">Target Offer</div>
             <div class="offer-zone" id="theirOfferList">
-                <div style="color: gray; text-align: center; margin-top: 50px;">Awaiting transmission...</div>
+                <div style="color: gray; text-align: center; margin-top: 40px;">Awaiting transmission...</div>
             </div>
             
             <div class="status-badge" id="theirStatus">Target Not Ready</div>
@@ -282,15 +262,10 @@
 
 <script>
     const tradeableItems = [
-        // --- EVENT PETS ---
         { id: "midas", name: "King Midas" },
         { id: "phoenix", name: "Mythic Phoenix" },
-        
-        // --- EVENT CURSORS ---
         { id: "dragon", name: "Mythic Dragon" },
         { id: "prism", name: "Prism Wing" },
-        
-        // --- BATTLE PASS S1 CURSORS ---
         { id: "bp1", name: "Silver Apple" },
         { id: "bp2", name: "Robot BOB" },
         { id: "bp3", name: "Silver Statue" },
@@ -305,25 +280,35 @@
     let myTotalGems = 0; 
     let pollInterval = null;
 
+    // POINTING TO YOUR REAL BACKEND
     async function api(action, data = {}) {
         const fd = new FormData();
         fd.append('action', action);
         for (let key in data) fd.append(key, data[key]);
-        const res = await fetch('live_trade_backend.php', { method: 'POST', body: fd });
-        return await res.json();
+        
+        try {
+            // First try main backend for inventory/gems, 
+            // but use live_trade_backend for the ROOM logic
+            const endpoint = (action === 'get_inventory') ? '../backend.php' : 'live_trade_backend.php';
+            const res = await fetch(endpoint, { method: 'POST', body: fd });
+            return await res.json();
+        } catch (e) {
+            console.error("API Error:", e);
+            return { success: false };
+        }
     }
 
     async function createRoom() {
         const res = await api('create_room');
         if (res.success) {
-            alert(`Room Created! Give this code to your partner: ${res.room_code}`);
+            alert(`Room Created! Code: ${res.room_code}`);
             enterRoom(res.room_code);
         }
     }
 
     async function joinRoom() {
         const code = document.getElementById('joinCode').value.toUpperCase();
-        if(!code) return alert("Please enter a code.");
+        if(!code) return alert("Enter a code.");
         const res = await api('join_room', { room_code: code });
         if (res.success) enterRoom(code);
         else alert(res.message);
@@ -333,20 +318,22 @@
         currentRoom = code;
         document.getElementById('lobby').style.display = 'none';
         document.getElementById('tradeBoard').style.display = 'flex';
-        
         loadInventory(); 
         pollInterval = setInterval(syncRoom, 1500);
     }
 
     async function loadInventory() {
         const res = await api('get_inventory');
-        if (!res.success) return;
-
-        myOwnedIDs = res.inventory || []; 
-        myTotalGems = res.gems || parseInt(localStorage.getItem('gameState_gems')) || 0; 
-        
-        document.getElementById('gemBalanceDisplay').innerText = `Available Gems: ${myTotalGems}`;
-        renderInventory();
+        if (res.success) {
+            // Mapping data from your backend.php
+            myOwnedIDs = res.inventory || [];
+            myTotalGems = parseInt(res.gems) || 0;
+            
+            document.getElementById('gemBalanceDisplay').innerText = `Available Gems: ${myTotalGems.toLocaleString()}`;
+            renderInventory();
+        } else {
+            document.getElementById('gemBalanceDisplay').innerText = `Error loading gems.`;
+        }
     }
 
     function renderInventory() {
@@ -359,23 +346,20 @@
             if (itemDef) { 
                 hasTradeable = true;
                 if (myOffer.items.includes(id)) {
-                    invDiv.innerHTML += `<div class="item-card" style="opacity: 0.4; cursor: not-allowed; border-color: gray;">${itemDef.name} (Offered)</div>`;
+                    invDiv.innerHTML += `<div class="item-card" style="opacity: 0.4; cursor: not-allowed;">${itemDef.name}</div>`;
                 } else {
                     invDiv.innerHTML += `<div class="item-card" onclick="addToOffer('${itemDef.id}')">${itemDef.name}</div>`;
                 }
             }
         });
         
-        if (!hasTradeable) {
-            invDiv.innerHTML = '<div style="color:gray; grid-column: 1/-1; text-align:center;">You have no tradeable event items.</div>';
-        }
+        if (!hasTradeable) invDiv.innerHTML = '<div style="color:gray; grid-column: 1/-1; text-align:center;">No tradeable items found.</div>';
     }
 
-    // --- GEM TRADING FUNCTIONS ---
     async function offerGems() {
         const amount = parseInt(document.getElementById('gemInput').value);
-        if (isNaN(amount) || amount <= 0) return alert("Enter a valid gem amount.");
-        if (amount > myTotalGems) return alert(`You only have ${myTotalGems} gems available.`);
+        if (isNaN(amount) || amount <= 0) return;
+        if (amount > myTotalGems) return alert(`Insufficient Gems!`);
         
         myOffer.gems = amount;
         document.getElementById('gemInput').value = ''; 
@@ -387,7 +371,6 @@
         await updateOfferData();
     }
 
-    // --- ITEM TRADING FUNCTIONS ---
     async function addToOffer(id) {
         if (!myOffer.items.includes(id)) {
             myOffer.items.push(id);
@@ -400,7 +383,6 @@
         await updateOfferData();
     }
 
-    // --- UNIFIED OFFER UPDATER ---
     async function updateOfferData() {
         renderMyOffer();
         renderInventory(); 
@@ -410,21 +392,18 @@
     function renderMyOffer() {
         const list = document.getElementById('myOfferList');
         if (myOffer.items.length === 0 && myOffer.gems === 0) {
-            list.innerHTML = '<div style="color: gray; text-align: center; margin-top: 50px;">Select items from inventory...</div>';
+            list.innerHTML = '<div style="color: gray; text-align: center; margin-top: 40px;">Select items...</div>';
             return;
         }
         
         let html = '';
-        
         if (myOffer.gems > 0) {
-            html += `<div class="item-card" style="border-color: #00ffcc; color: #00ffcc; background: rgba(0, 255, 204, 0.1);" onclick="removeGems()" title="Click to remove">💎 ${myOffer.gems.toLocaleString()} Gems (Remove)</div>`;
+            html += `<div class="item-card" style="border-color: #00ffcc; color: #00ffcc;" onclick="removeGems()">💎 ${myOffer.gems.toLocaleString()} Gems (X)</div>`;
         }
-
         html += myOffer.items.map(id => {
             let name = tradeableItems.find(i => i.id === id).name;
-            return `<div class="item-card" style="border-color: #ff4444;" onclick="removeFromOffer('${id}')" title="Click to remove">❌ ${name}</div>`;
+            return `<div class="item-card" style="border-color: #ff4444;" onclick="removeFromOffer('${id}')">❌ ${name}</div>`;
         }).join('');
-        
         list.innerHTML = html;
     }
 
@@ -439,64 +418,43 @@
 
         if (res.status === 'completed') {
             clearInterval(pollInterval);
-            alert("✅ TRADE SEQUENCE COMPLETED SUCCESSFULLY! Items and Gems have been swapped. ✅");
+            alert("TRADE SUCCESSFUL!");
             window.location.href = "../index.html"; 
             return;
         }
 
-        let theirItems = [];
-        let theirGems = 0;
-
-        if (Array.isArray(res.their_offer)) {
-            theirItems = res.their_offer; 
-        } else if (res.their_offer && typeof res.their_offer === 'object') {
-            theirItems = res.their_offer.items || [];
-            theirGems = res.their_offer.gems || 0;
+        let tItems = [], tGems = 0;
+        if (res.their_offer && typeof res.their_offer === 'object') {
+            tItems = res.their_offer.items || [];
+            tGems = res.their_offer.gems || 0;
         }
 
-        const theirList = document.getElementById('theirOfferList');
-        if (theirItems.length === 0 && theirGems === 0) {
-            theirList.innerHTML = '<div style="color: gray; text-align: center; margin-top: 50px;">Awaiting transmission...</div>';
+        const tList = document.getElementById('theirOfferList');
+        if (tItems.length === 0 && tGems === 0) {
+            tList.innerHTML = '<div style="color: gray; text-align: center; margin-top: 40px;">Awaiting transmission...</div>';
         } else {
-            let html = '';
-            
-            if (theirGems > 0) {
-                html += `<div class="item-card" style="border-color: #00ffcc; color: #00ffcc; background: rgba(0, 255, 204, 0.1);">💎 ${theirGems.toLocaleString()} Gems</div>`;
-            }
-
-            html += theirItems.map(id => {
-                let name = tradeableItems.find(i => i.id === id)?.name || id;
-                return `<div class="item-card">${name}</div>`;
-            }).join('');
-            
-            theirList.innerHTML = html;
+            let h = '';
+            if (tGems > 0) h += `<div class="item-card" style="border-color: #00ffcc; color: #00ffcc;">💎 ${tGems.toLocaleString()} Gems</div>`;
+            h += tItems.map(id => `<div class="item-card">${tradeableItems.find(i => i.id === id)?.name || id}</div>`).join('');
+            tList.innerHTML = h;
         }
 
-        const myWin = document.getElementById('myWindow');
-        const theirWin = document.getElementById('theirWindow');
         const btn = document.getElementById('acceptBtn');
-        const targetStatus = document.getElementById('theirStatus');
-
         if (res.my_accept) {
-            myWin.classList.add('ready');
-            btn.className = 'btn btn-danger';
-            btn.innerText = 'CANCEL READINESS';
+            document.getElementById('myWindow').classList.add('ready');
+            btn.className = 'btn btn-danger'; btn.innerText = 'CANCEL';
         } else {
-            myWin.classList.remove('ready');
-            btn.className = 'btn btn-green';
-            btn.innerText = 'READY TO TRADE';
+            document.getElementById('myWindow').classList.remove('ready');
+            btn.className = 'btn btn-green'; btn.innerText = 'READY';
         }
 
+        const tStatus = document.getElementById('theirStatus');
         if (res.their_accept) {
-            theirWin.classList.add('ready');
-            targetStatus.innerText = 'TARGET LOCKED & READY';
-            targetStatus.style.borderColor = '#3ba55c';
-            targetStatus.style.color = '#3ba55c';
+            document.getElementById('theirWindow').classList.add('ready');
+            tStatus.innerText = 'TARGET READY'; tStatus.style.color = '#3ba55c';
         } else {
-            theirWin.classList.remove('ready');
-            targetStatus.innerText = 'TARGET NOT READY';
-            targetStatus.style.borderColor = 'var(--line)';
-            targetStatus.style.color = 'var(--w)';
+            document.getElementById('theirWindow').classList.remove('ready');
+            tStatus.innerText = 'TARGET NOT READY'; tStatus.style.color = 'var(--w)';
         }
     }
 </script>
