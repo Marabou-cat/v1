@@ -474,9 +474,9 @@ const PET_SHOP = [
     { id: "doge", name: "Pixel Doge", icon: "🐕", price: 1000, baseCoin: 9 }, { id: "cat", name: "Cyber Kitty", icon: "🐈", price: 3000, baseCoin: 15 },
     { id: "frog", name: "Ninja Frog", icon: "🐸", price: 5000, baseCoin: 25 }, { id: "dragon", name: "Neon Dragon", icon: "🐲", price: 10000, baseCoin: 45 },
     { id: "panda", name: "Ghost Panda", icon: "🐼", price: 36700, baseCoin: 123 }, { id: "kraken", name: "67 Kraken", icon: "🦑", price: 67777, baseCoin: 265 },
-    { id: "midas", name: "King Midas", icon: "<img src='King.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Premium Pass Lvl 50", baseCoin: 465, isEvent: true, color: "#ffd700" },
-    { id: "phoenix", name: "Mythic Phoenix", icon: "<img src='phoenix.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Event Reward", baseCoin: 298, isEvent: true, color: "#ff4400" }, 
-    { id: "gb", name: "Gem Beast", icon: "<img src='gb.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Leaderboard top 10", baseCoin: 600, isEvent: true, color: "#add8e6" } 
+    { id: "midas", name: "King Midas", icon: "<img src='png/King.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Premium Pass Lvl 50", baseCoin: 465, isEvent: true, color: "#ffd700" },
+    { id: "phoenix", name: "Mythic Phoenix", icon: "<img src='png/phoenix.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Event Reward", baseCoin: 298, isEvent: true, color: "#ff4400" }, 
+    { id: "gb", name: "Gem Beast", icon: "<img src='png/gb.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Leaderboard top 10", baseCoin: 600, isEvent: true, color: "#add8e6" } 
 ];
 
 function calculatePetNeglect() {
@@ -626,18 +626,18 @@ function closePetShop() { document.getElementById('petShopOverlay').classList.re
 
 // --- CURSOR SHOP SYSTEM ---
 const CURSORS = [
-    { id: "def", name: "Default Mouse", src: "DefMouse.png", price: 0 }, { id: "m1", name: "Egg Twins", src: "Twins.png", price: 500 },
-    { id: "m2", name: "Gold Ingot", src: "Goldingot.png", price: 500 }, { id: "m3", name: "Cheesy Cursor", src: "mouse.png", price: 750 },
-    { id: "m4", name: "Sword Cursor", src: "Katana.png", price: 500 }, { id: "m5", name: "Pizza Slice", src: "pizza.png", price: 500 },
+    { id: "def", name: "Default Mouse", src: "png/DefMouse.png", price: 0 }, { id: "m1", name: "Egg Twins", src: "Twins.png", price: 500 },
+    { id: "m2", name: "Gold Ingot", src: "png/Goldingot.png", price: 500 }, { id: "m3", name: "Cheesy Cursor", src: "mouse.png", price: 750 },
+    { id: "m4", name: "Sword Cursor", src: "png/Katana.png", price: 500 }, { id: "m5", name: "Pizza Slice", src: "pizza.png", price: 500 },
     { id: "custom", name: "Upload Custom", src: "https://cdn-icons-png.flaticon.com/512/109/109612.png", price: 1250, isCustom: true },
-    { id: "dragon", name: "Mythic Dragon", src: "Dragon.gif", price: "Wheel Event Only", isEvent: true, color: "#ff0000" },
-    { id: "bp1", name: "Silver Apple", src: "Apple.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp2", name: "Robot BOB", src: "Robot.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp3", name: "Silver Statue", src: "Statue.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp4", name: "Midas Sword", src: "Midas.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "bp5", name: "Golden Flame", src: "Flame.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "bp6", name: "Royal Gleam", src: "Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "prism", name: "Prism Wing", src: "Prism.png", price: "Event Reward", isEvent: true, color: "#00ffcc" }
+    { id: "dragon", name: "Mythic Dragon", src: "png/Dragon.gif", price: "Wheel Event Only", isEvent: true, color: "#ff0000" },
+    { id: "bp1", name: "Silver Apple", src: "png/Apple.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
+    { id: "bp2", name: "Robot BOB", src: "png/Robot.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
+    { id: "bp3", name: "Silver Statue", src: "png/Statue.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
+    { id: "bp4", name: "Midas Sword", src: "png/Midas.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
+    { id: "bp5", name: "Golden Flame", src: "png/Flame.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
+    { id: "bp6", name: "Royal Gleam", src: "png/Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
+    { id: "prism", name: "Prism Wing", src: "png/Prism.png", price: "Event Reward", isEvent: true, color: "#00ffcc" }
 ];
 
 function applyCursor() {
