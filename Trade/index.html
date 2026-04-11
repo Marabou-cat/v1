@@ -123,6 +123,7 @@
             width: 95%;
             max-width: 1200px;
             flex-wrap: wrap;
+            padding-bottom: 50px;
         }
 
         .trade-window {
@@ -224,14 +225,33 @@
 
         .section-title { font-size: 14px; color: var(--p1); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: bold; }
 
+        /* --- GEM INPUT STYLES --- */
+        .gem-input-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .gem-input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid var(--p2);
+            background: rgba(0,0,0,0.5);
+            color: #00ffcc;
+            font-size: 16px;
+            font-weight: bold;
+            outline: none;
+            text-align: center;
+        }
+        .gem-input:focus { border-color: #00ffcc; box-shadow: 0 0 10px rgba(0, 255, 204, 0.3); }
+        .gem-input::placeholder { color: rgba(0, 255, 204, 0.4); }
+
     </style>
 </head>
 <body>
 
     <div class="bg-grid"></div>
 
-    
-    
     <div id="lobby">
         <h2 style="color: var(--p1); margin-top: 0;">Initiate Trade Sequence</h2>
         <button class="btn btn-blue" onclick="createRoom()" style="margin-bottom: 30px;">📡 Host Trade Room</button>
@@ -253,13 +273,19 @@
         <div class="trade-window" id="myWindow">
             <div class="window-header" id="myHeader">My Transmit</div>
             
-            <div class="section-title">Items Offered</div>
+            <div class="section-title">Items & Gems Offered</div>
             <div class="offer-zone" id="myOfferList">
                 <div style="color: gray; text-align: center; margin-top: 50px;">Select items from inventory...</div>
             </div>
             
             <button class="btn btn-green" onclick="toggleAccept()" id="acceptBtn" style="margin-bottom: 20px;">Ready to Trade</button>
             
+            <div class="section-title" style="color: #00ffcc;">Offer Gems (Balance: <span id="myGemBalanceText">0</span> 💎)</div>
+            <div class="gem-input-row">
+                <input type="number" id="gemOfferInput" class="gem-input" placeholder="Amount..." min="1">
+                <button class="btn btn-blue" style="width: auto; padding: 12px 20px; font-size: 14px;" onclick="offerGems()">ADD</button>
+            </div>
+
             <div class="section-title">Encrypted Inventory</div>
             <div class="inventory-zone" id="myInventory"></div>
         </div>
@@ -281,6 +307,7 @@
         // --- EVENT PETS ---
         { id: "midas", name: "King Midas" },
         { id: "phoenix", name: "Mythic Phoenix" },
+        { id: "gb", name: "Gem Beast" },
         
         // --- EVENT CURSORS ---
         { id: "dragon", name: "Mythic Dragon" },
@@ -297,7 +324,9 @@
 
     let currentRoom = null;
     let myOffer = [];
-    let myOwnedIDs = []; // Store actual inventory here
+    let myGemOffer = 0; // NEW: Tracks gems offered
+    let myGemBalance = 0; // NEW: Tracks available balance
+    let myOwnedIDs = []; 
     let pollInterval = null;
 
     async function api(action, data = {}) {
@@ -339,6 +368,9 @@
         if (!res.success) return;
 
         myOwnedIDs = res.inventory; 
+        myGemBalance = parseInt(res.gems) || 0; // Fetch gems from backend
+        document.getElementById('myGemBalanceText').innerText = myGemBalance.toLocaleString();
+
         renderInventory();
     }
 
@@ -352,7 +384,6 @@
             const itemDef = tradeableItems.find(i => i.id === id);
             if (itemDef) { 
                 hasTradeable = true;
-                // If it's already in the offer, gray it out
                 if (myOffer.includes(id)) {
                     invDiv.innerHTML += `<div class="item-card" style="opacity: 0.4; cursor: not-allowed; border-color: gray;">${itemDef.name} (Offered)</div>`;
                 } else {
@@ -366,34 +397,64 @@
         }
     }
 
+    // --- GEM OFFERING LOGIC ---
+    async function offerGems() {
+        const inputField = document.getElementById('gemOfferInput');
+        const amount = parseInt(inputField.value);
+        
+        if (isNaN(amount) || amount <= 0) return alert("Please enter a valid amount greater than 0.");
+        if (amount > myGemBalance) return alert("You don't have enough gems!");
+
+        myGemOffer = amount;
+        inputField.value = ''; // clear input
+        
+        renderMyOffer();
+        await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer), gems: myGemOffer });
+    }
+
+    async function removeGemsFromOffer() {
+        myGemOffer = 0;
+        renderMyOffer();
+        await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer), gems: myGemOffer });
+    }
+
+    // --- ITEM OFFERING LOGIC ---
     async function addToOffer(id) {
         if (!myOffer.includes(id)) {
             myOffer.push(id);
             renderMyOffer();
             renderInventory(); // Update inventory to gray out the item
-            await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer) });
+            await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer), gems: myGemOffer });
         }
     }
 
-    // --- REMOVE FROM OFFER ---
     async function removeFromOffer(id) {
         myOffer = myOffer.filter(itemId => itemId !== id);
         renderMyOffer();
         renderInventory(); // Make item clickable in inventory again
-        await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer) });
+        await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer), gems: myGemOffer });
     }
 
     function renderMyOffer() {
         const list = document.getElementById('myOfferList');
-        if (myOffer.length === 0) {
-            list.innerHTML = '<div style="color: gray; text-align: center; margin-top: 50px;">Select items from inventory...</div>';
-            return;
+        let html = '';
+
+        // Add Gems to the top of the list if offered
+        if (myGemOffer > 0) {
+            html += `<div class="item-card" style="background: rgba(0, 255, 204, 0.1); border-color: #00ffcc; color: #00ffcc;" onclick="removeGemsFromOffer()" title="Click to remove">❌ 💎 ${myGemOffer.toLocaleString()} Gems</div>`;
         }
-        
-        list.innerHTML = myOffer.map(id => {
+
+        // Add Items
+        html += myOffer.map(id => {
             let name = tradeableItems.find(i => i.id === id).name;
             return `<div class="item-card" style="border-color: #ff4444;" onclick="removeFromOffer('${id}')" title="Click to remove">❌ ${name}</div>`;
         }).join('');
+
+        if (html === '') {
+            list.innerHTML = '<div style="color: gray; text-align: center; margin-top: 50px;">Select items from inventory...</div>';
+        } else {
+            list.innerHTML = html;
+        }
     }
 
     async function toggleAccept() {
@@ -407,19 +468,29 @@
 
         if (res.status === 'completed') {
             clearInterval(pollInterval);
-            alert("✅ TRADE SEQUENCE COMPLETED SUCCESSFULLY! Items have been swapped. ✅");
+            alert("✅ TRADE SEQUENCE COMPLETED SUCCESSFULLY! Items & Gems have been swapped. ✅");
             window.location.href = "../index.html"; 
             return;
         }
 
+        // Build Their Offer List
         const theirList = document.getElementById('theirOfferList');
-        if (res.their_offer.length === 0) {
+        let theirHtml = '';
+        
+        let theirGems = parseInt(res.their_gems) || 0;
+        if (theirGems > 0) {
+            theirHtml += `<div class="item-card" style="background: rgba(0, 255, 204, 0.1); border-color: #00ffcc; color: #00ffcc;">💎 ${theirGems.toLocaleString()} Gems</div>`;
+        }
+
+        theirHtml += res.their_offer.map(id => {
+            let name = tradeableItems.find(i => i.id === id)?.name || id;
+            return `<div class="item-card">${name}</div>`;
+        }).join('');
+
+        if (theirHtml === '') {
             theirList.innerHTML = '<div style="color: gray; text-align: center; margin-top: 50px;">Awaiting transmission...</div>';
         } else {
-            theirList.innerHTML = res.their_offer.map(id => {
-                let name = tradeableItems.find(i => i.id === id)?.name || id;
-                return `<div class="item-card">${name}</div>`;
-            }).join('');
+            theirList.innerHTML = theirHtml;
         }
 
         const myWin = document.getElementById('myWindow');
