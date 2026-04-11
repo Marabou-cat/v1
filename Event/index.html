@@ -89,8 +89,8 @@
     <div class="reward-popup" id="rewardPopup">
         <div class="reward-box">
             <h2 id="rewardTitle" style="color: var(--p1); margin-top:0; font-size: 28px;">CONGRATULATIONS!</h2>
-            <div id="rewardIcon" style="font-size: 90px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.4)); margin: 20px 0;"></div>
-            <p id="rewardDesc" style="font-size: 18px; font-weight: bold;"></p>
+            <div id="rewardIcon" style="font-size: 90px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.4)); margin: 20px 0;">💎</div>
+            <p id="rewardDesc" style="font-size: 18px; font-weight: bold; line-height: 1.5;"></p>
             <button class="btn-claim" onclick="document.getElementById('rewardPopup').style.display='none'">AWESOME!</button>
         </div>
     </div>
@@ -234,8 +234,9 @@ async function attemptCrack() {
         // Get freshest state before applying multiple rewards
         await loadGameFromServer(); 
         
-        let totalRewardsText = "";
-        let rewardsCount = 0;
+        let totalGemsWon = 0;
+        let unlockedItems = [];
+        let totalPointsRedeemed = 0;
 
         // Loop through every claimable task
         claimableTasks.forEach(task => {
@@ -243,30 +244,35 @@ async function attemptCrack() {
             const taskToMark = tasks.find(t => t.id === task.id);
             if (taskToMark) taskToMark.claimed = true;
             
-            // RNG Logic per point
-            let rand = Math.random() * 100;
-            let reward = { type: 'gems', amount: 50, icon: '💎', name: '50 Gems' };
-            
-            if (rand < 5) {
-                reward = { type: 'pet', id: 'phoenix', name: 'Mythic Phoenix', icon: '🔥' };
-            } else if (rand < 10) {
-                reward = { type: 'cursor', id: 'prism', name: 'Prism Wing', icon: '🌈' };
-            }
-
-            // Apply to gameState
-            if (gameState) {
-                if (reward.type === 'gems') {
-                    gameState.gems += reward.amount;
-                } else if (reward.type === 'pet') {
-                    if(!gameState.owned_pets.includes(reward.id)) gameState.owned_pets.push(reward.id);
-                    else { reward.name = "Phoenix (100 Gems)"; gameState.gems += 100; }
-                } else if (reward.type === 'cursor') {
-                    if(!gameState.owned_cursors.includes(reward.id)) gameState.owned_cursors.push(reward.id);
-                    else { reward.name = "Prism (100 Gems)"; gameState.gems += 100; }
+            // RNG Logic PER POINT (Fix for the glitch)
+            for (let i = 0; i < task.points; i++) {
+                totalPointsRedeemed++;
+                let rand = Math.random() * 100;
+                
+                if (rand < 5) {
+                    if (gameState && !gameState.owned_pets.includes('phoenix')) {
+                        gameState.owned_pets.push('phoenix');
+                        unlockedItems.push("🔥 Mythic Phoenix Pet");
+                    } else {
+                        totalGemsWon += 100; // Duplicate compensation
+                    }
+                } else if (rand < 10) {
+                    if (gameState && !gameState.owned_cursors.includes('prism')) {
+                        gameState.owned_cursors.push('prism');
+                        unlockedItems.push("🌈 Prism Wing Cursor");
+                    } else {
+                        totalGemsWon += 100; // Duplicate compensation
+                    }
+                } else {
+                    totalGemsWon += 50;
                 }
             }
-            rewardsCount++;
         });
+
+        // Apply to gameState
+        if (gameState && totalGemsWon > 0) {
+            gameState.gems += totalGemsWon;
+        }
 
         // Save updated task statuses to LocalStorage
         localStorage.setItem('event_tasks', JSON.stringify(tasks));
@@ -274,10 +280,23 @@ async function attemptCrack() {
         // Save updated inventory/gems to Server
         if (gameState) await saveGameToServer();
 
+        // Build Custom Reward Display HTML
+        let rewardHTML = `<span style="color: #ffd700;">Redeemed ${totalPointsRedeemed} Points!</span><br><br>`;
+        if (totalGemsWon > 0) {
+            rewardHTML += `💎 +${totalGemsWon} Gems<br>`;
+        }
+        
+        if (unlockedItems.length > 0) {
+            // Use Set to prevent showing duplicates if RNG unlocked it twice in the same batch
+            let uniqueItems = [...new Set(unlockedItems)];
+            uniqueItems.forEach(item => {
+                rewardHTML += `<span style="color: #00ffcc;">${item} Unlocked!</span><br>`;
+            });
+        }
+
         // Show UI
         document.getElementById('rewardPopup').style.display = 'flex';
-        document.getElementById('rewardIcon').innerHTML = "🎁";
-        document.getElementById('rewardDesc').innerText = `Diamond Cracked! You redeemed ${rewardsCount} points for multiple rewards. Go back to main portal to view!`;
+        document.getElementById('rewardDesc').innerHTML = rewardHTML;
         
         renderTasks();
         isCracking = false;
