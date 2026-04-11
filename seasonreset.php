@@ -3,7 +3,7 @@
 session_start();
 
 // 1. VERY IMPORTANT: Protect this page!
-$admin_user = "admin"; // Change this to your exact login username
+$admin_user = "Furry_Myrg"; // Change this to your exact login username
 
 if (!isset($_SESSION['username']) || $_SESSION['username'] !== $admin_user) {
     die("<h1>❌ Access Denied</h1><p>You must be logged in as the administrator to run a seasonal reset.</p>");
