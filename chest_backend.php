@@ -2,7 +2,6 @@
 session_start();
 header('Content-Type: application/json');
 
-// --- READ CONFIG FILE ---
 $config_file = 'config.ini';
 
 if (!file_exists($config_file)) {
@@ -25,10 +24,33 @@ if (!isset($_SESSION['user_id'])) die(json_encode(["success" => false, "message"
 $action = $_POST['action'] ?? '';
 $user_id = $_SESSION['user_id'];
 
-// --- DEFINE CHESTS & LOOT TABLES ---
+// --- DYNAMIC CHEST CATALOG ---
+// The HTML page reads this array to automatically draw the store!
 $CHESTS = [
-    "basic" => ["price" => 1000, "currency" => "coins"],
-    "premium" => ["price" => 100, "currency" => "gems"]
+    "basic" => [
+        "name" => "Basic Chest",
+        "desc" => "Contains Basic Cursors & Pets from shop",
+        "price" => 1000, 
+        "currency" => "coins",
+        "img" => "../png/basic_chest.png",
+        "color" => "#fff"
+    ],
+    "premium" => [
+        "name" => "Premium Chest",
+        "desc" => "High chance for Premium Items!",
+        "price" => 500, 
+        "currency" => "gems",
+        "img" => "../png/premium_chest.png",
+        "color" => "#00ffcc"
+    ],
+    "seasonal" => [
+        "name" => "Seasonal Chest",
+        "desc" => "High chance for season limited Items!",
+        "price" => 600, 
+        "currency" => "gems",
+        "img" => "../png/seasonal_chest.png",
+        "color" => "#fff200"
+    ],
 ];
 
 // Helper to get user data
@@ -41,12 +63,21 @@ function getUser($pdo, $uid) {
 // --- LOAD INVENTORY ---
 if ($action === 'load') {
     $user = getUser($pdo, $user_id);
-    $chests = json_decode($user['owned_chests'], true) ?: ["basic" => 0, "premium" => 0];
+    
+    $chests = json_decode($user['owned_chests'], true);
+    if (!is_array($chests)) {
+        $chests = [];
+        foreach ($CHESTS as $key => $val) {
+            $chests[$key] = 0;
+        }
+    }
+
     echo json_encode([
         "success" => true, 
         "coins" => (int)$user['coins'], 
         "gems" => (int)$user['gems'], 
-        "chests" => $chests
+        "chests" => $chests,
+        "catalog" => $CHESTS
     ]);
     exit;
 }
@@ -72,7 +103,7 @@ if ($action === 'buy') {
         $new_balance = $current_balance - $price;
         
         // Add Chest
-        $chests = json_decode($user['owned_chests'], true) ?: ["basic" => 0, "premium" => 0];
+        $chests = json_decode($user['owned_chests'], true) ?: [];
         $chests[$type] = ($chests[$type] ?? 0) + 1;
 
         $stmt = $pdo->prepare("UPDATE users SET $currency = ?, owned_chests = ? WHERE id = ?");
@@ -94,12 +125,11 @@ if ($action === 'open') {
     try {
         $pdo->beginTransaction();
         
-        // Lock row for update
         $stmt = $pdo->prepare("SELECT owned_chests, owned_cursors, owned_pets FROM users WHERE id = ? FOR UPDATE");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        $chests = json_decode($user['owned_chests'], true) ?: ["basic" => 0, "premium" => 0];
+        $chests = json_decode($user['owned_chests'], true) ?: [];
         
         if (!isset($chests[$type]) || $chests[$type] <= 0) {
             throw new Exception("You don't own any of these chests!");
@@ -115,7 +145,6 @@ if ($action === 'open') {
         $reward_name = '';
         
         if ($type === 'basic') {
-            // 70% chance for a basic cursor, 30% for a basic pet
             if ($roll <= 70) {
                 $pool = ['m1' => 'Egg Twins', 'm2' => 'Gold Ingot', 'm3' => 'Cheesy Cursor', 'm4' => 'Sword Cursor', 'm5' => 'Pizza Slice'];
                 $reward_type = 'cursor';
@@ -124,7 +153,6 @@ if ($action === 'open') {
                 $reward_type = 'pet';
             }
         } else if ($type === 'premium') {
-            // Premium: 50% Rare Pet, 40% Rare Cursor, 10% Mythic
             if ($roll <= 50) {
                 $pool = ['frog' => 'Ninja Frog', 'panda' => 'Ghost Panda'];
                 $reward_type = 'pet';
@@ -132,22 +160,30 @@ if ($action === 'open') {
                 $pool = ['m6' => 'Sign Of Greed', 'prism' => 'Prism Wing'];
                 $reward_type = 'cursor';
             } else {
-                $pool = ['dragon' => 'Mythic Dragon (Cursor)', 'phoenix' => 'Mythic Phoenix (Pet)'];
+                $pool = ['dragon' => 'Mythic Dragon', 'phoenix' => 'Mythic Phoenix'];
                 $reward_type = 'mythic';
+            }
+        } else if ($type === 'seasonal') {
+            if ($roll <= 60) {
+                $pool = ['gs' => 'Glowing Shadow'];
+                $reward_type = 'pet';
+            } else if ($roll <= 95) {
+                $pool = ['stick' => 'Stick of Darkness'];
+                $reward_type = 'cursor';
+            } else {
+                $pool = ['hs' => 'The Hound From Void'];
+                $reward_type = 'pet';
             }
         }
 
-        // Pick random item from selected pool
         $keys = array_keys($pool);
         $reward_id = $keys[array_rand($keys)];
         $reward_name = $pool[$reward_id];
         
-        // Fix category for mythics
         if ($reward_type === 'mythic') {
             $reward_type = ($reward_id === 'dragon') ? 'cursor' : 'pet';
         }
 
-        // Add to inventory
         $inv_column = ($reward_type === 'cursor') ? 'owned_cursors' : 'owned_pets';
         $inventory = json_decode($user[$inv_column], true) ?: [];
         
@@ -156,7 +192,6 @@ if ($action === 'open') {
             $inventory[] = $reward_id;
         }
 
-        // Save everything
         $stmt = $pdo->prepare("UPDATE users SET owned_chests = ?, $inv_column = ? WHERE id = ?");
         $stmt->execute([json_encode($chests), json_encode(array_values($inventory)), $user_id]);
         
