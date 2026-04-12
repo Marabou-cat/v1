@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>SchoolExams - The Vault</title>
+    <style>
+        :root {
+            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
+            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
+            --w: #caf0f8; 
+            --glass: rgba(0, 29, 61, 0.85);
+            --shadow: 0 12px 40px rgba(0,0,0,0.7);
+            --glow: 0 0 20px rgba(144, 224, 239, 0.4);
+            --gold: #ffd700;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg0);
+            color: var(--w);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-image: linear-gradient(rgba(144, 224, 239, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(144, 224, 239, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            min-height: 100vh;
+        }
+
+        .btn-back {
+            align-self: flex-start; background: var(--glass); border: 1px solid var(--p0);
+            color: var(--p1); padding: 10px 20px; border-radius: 20px; text-decoration: none;
+            font-weight: 900; text-transform: uppercase; margin-bottom: 20px; transition: 0.3s;
+        }
+        .btn-back:hover { background: var(--p0); color: #fff; box-shadow: var(--glow); transform: translateX(-5px); }
+
+        .currency-bar {
+            background: var(--glass); border: 2px solid var(--p0); padding: 15px 30px;
+            border-radius: 20px; display: flex; gap: 30px; font-size: 18px; font-weight: bold;
+            box-shadow: var(--shadow); margin-bottom: 40px;
+        }
+        .currency-bar span { color: var(--gold); }
+        .currency-bar .gems { color: #00ffcc; }
+
+        .container {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 100%; max-width: 1000px;
+        }
+
+        .panel {
+            background: var(--glass); border: 2px solid var(--p0); border-radius: 24px;
+            padding: 30px; text-align: center; box-shadow: var(--shadow);
+        }
+        .panel h2 { margin-top: 0; color: var(--p1); border-bottom: 2px solid var(--p2); padding-bottom: 15px; }
+
+        .chest-card {
+            background: var(--bg1); border: 2px solid var(--line); border-radius: 16px;
+            padding: 20px; margin-bottom: 20px; transition: 0.3s;
+        }
+        .chest-card:hover { border-color: var(--p1); transform: translateY(-5px); box-shadow: var(--glow); }
+        
+        .chest-icon { font-size: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.2)); }
+        .premium-icon { filter: drop-shadow(0 0 15px #00ffcc); }
+
+        .btn {
+            background: var(--p0); color: #fff; border: none; padding: 12px 25px;
+            border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer;
+            transition: 0.3s; width: 100%; margin-top: 10px; text-transform: uppercase;
+        }
+        .btn:hover { background: var(--p1); color: var(--bg0); }
+        .btn-buy-gem { background: #00ffcc; color: #000; }
+        .btn-buy-gem:hover { background: #00ccaa; color: #fff; box-shadow: 0 0 15px #00ffcc; }
+        .btn-open { background: #3ba55c; }
+        .btn-open:hover { background: #43b581; box-shadow: 0 0 15px #3ba55c; }
+        .btn:disabled { background: gray; color: #ccc; cursor: not-allowed; box-shadow: none; transform: none; }
+
+        /* UNBOXING MODAL */
+        .modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .modal.active { display: flex; }
+        
+        .unboxing-chest { font-size: 100px; animation: shake 0.5s infinite; margin-bottom: 20px; }
+        .reward-reveal { display: none; text-align: center; animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .reward-reveal h1 { color: var(--gold); font-size: 40px; margin: 0; text-shadow: 0 0 20px var(--gold); }
+        .reward-reveal p { color: var(--p1); font-size: 20px; }
+        
+        .dup-warning { color: #ff4444; font-size: 14px; font-weight: bold; margin-top: 10px; }
+
+        @keyframes shake { 0% { transform: rotate(0deg); } 25% { transform: rotate(10deg); } 50% { transform: rotate(0deg); } 75% { transform: rotate(-10deg); } 100% { transform: rotate(0deg); } }
+        @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+        @media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<a href="../" class="btn-back">← Return to Portal</a>
+
+<div class="currency-bar">
+    <div>🪙 <span id="coinUI">0</span> Coins</div>
+    <div>💎 <span id="gemUI" class="gems">0</span> Gems</div>
+</div>
+
+<div class="container">
+    <div class="panel">
+        <h2>🛒 Chest Store</h2>
+        
+        <div class="chest-card">
+            <div class="chest-icon">📦</div>
+            <h3>Basic Chest</h3>
+            <p style="font-size: 12px; color: gray;">Contains Basic Cursors & Pets</p>
+            <button class="btn" onclick="buyChest('basic')">Buy for 1,000 🪙</button>
+        </div>
+
+        <div class="chest-card">
+            <div class="chest-icon premium-icon">🎁</div>
+            <h3 style="color: #00ffcc;">Premium Chest</h3>
+            <p style="font-size: 12px; color: gray;">High chance for Rare/Mythic Items!</p>
+            <button class="btn btn-buy-gem" onclick="buyChest('premium')">Buy for 100 💎</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>🔐 Your Vault</h2>
+        
+        <div class="chest-card">
+            <h3>Owned Basic Chests: <span id="inv-basic" style="color: var(--p1); font-size: 24px;">0</span></h3>
+            <button class="btn btn-open" id="btn-open-basic" onclick="openChest('basic')" disabled>Unlock</button>
+        </div>
+
+        <div class="chest-card">
+            <h3>Owned Premium Chests: <span id="inv-premium" style="color: #00ffcc; font-size: 24px;">0</span></h3>
+            <button class="btn btn-open" id="btn-open-premium" onclick="openChest('premium')" disabled>Unlock</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="unboxingModal">
+    <div class="unboxing-chest" id="animChest">📦</div>
+    <div class="reward-reveal" id="rewardReveal">
+        <div style="font-size: 80px; margin-bottom: 10px;">✨</div>
+        <p>You Unlocked:</p>
+        <h1 id="rewardName">Item Name</h1>
+        <div id="duplicateTag" class="dup-warning"></div>
+        <button class="btn" style="margin-top: 30px; max-width: 200px;" onclick="closeModal()">Awesome!</button>
+    </div>
+</div>
+
+<script>
+    let state = { coins: 0, gems: 0, chests: { basic: 0, premium: 0 } };
+
+    async function api(action, data = {}) {
+        const fd = new FormData();
+        fd.append('action', action);
+        for (let key in data) fd.append(key, data[key]);
+        const res = await fetch('../chest_backend.php', { method: 'POST', body: fd });
+        return await res.json();
+    }
+
+    function updateUI() {
+        document.getElementById('coinUI').innerText = state.coins.toLocaleString();
+        document.getElementById('gemUI').innerText = state.gems.toLocaleString();
+        
+        document.getElementById('inv-basic').innerText = state.chests.basic || 0;
+        document.getElementById('inv-premium').innerText = state.chests.premium || 0;
+
+        document.getElementById('btn-open-basic').disabled = (state.chests.basic || 0) <= 0;
+        document.getElementById('btn-open-premium').disabled = (state.chests.premium || 0) <= 0;
+    }
+
+    async function loadData() {
+        const res = await api('load');
+        if(res.success) {
+            state.coins = res.coins; state.gems = res.gems; state.chests = res.chests;
+            updateUI();
+        } else {
+            alert(res.message);
+        }
+    }
+
+    async function buyChest(type) {
+        const res = await api('buy', { chest_type: type });
+        if(res.success) {
+            if(res.currency === 'coins') state.coins = res.new_balance;
+            if(res.currency === 'gems') state.gems = res.new_balance;
+            state.chests = res.chests;
+            updateUI();
+        } else {
+            alert("❌ " + res.message);
+        }
+    }
+
+    async function openChest(type) {
+        // Show animation
+        const modal = document.getElementById('unboxingModal');
+        const chestIcon = document.getElementById('animChest');
+        const reveal = document.getElementById('rewardReveal');
+        
+        chestIcon.innerText = type === 'premium' ? '🎁' : '📦';
+        chestIcon.style.display = 'block';
+        reveal.style.display = 'none';
+        modal.classList.add('active');
+
+        // Call backend to get reward
+        const res = await api('open', { chest_type: type });
+        
+        setTimeout(() => {
+            if(res.success) {
+                state.chests = res.chests; updateUI();
+                
+                chestIcon.style.display = 'none';
+                document.getElementById('rewardName').innerText = res.reward.name;
+                
+                if(res.reward.is_duplicate) {
+                    document.getElementById('duplicateTag').innerText = "(You already owned this item. It was discarded.)";
+                } else {
+                    document.getElementById('duplicateTag').innerText = "Added to your inventory!";
+                    document.getElementById('duplicateTag').style.color = "#3ba55c";
+                }
+                
+                reveal.style.display = 'block';
+            } else {
+                modal.classList.remove('active');
+                alert("❌ Error opening chest: " + res.message);
+            }
+        }, 1500); // 1.5 second fake suspense animation
+    }
+
+    function closeModal() {
+        document.getElementById('unboxingModal').classList.remove('active');
+    }
+
+    loadData();
+</script>
+</body>
+</html>
