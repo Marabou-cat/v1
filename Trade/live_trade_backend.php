@@ -188,7 +188,7 @@ if ($action === 'toggle_accept') {
                 'dragon' => 'cursor', 'prism' => 'cursor',
                 'bp1' => 'cursor', 'bp2' => 'cursor', 'bp3' => 'cursor', 
                 'bp4' => 'cursor', 'bp5' => 'cursor', 'bp6' => 'cursor',
-                'gb' => 'pet'
+                'gb' => 'pet', 'hs' => 'pet', 'gs' => 'pet', 'stick' => 'cursor'
             ];
 
             function processTrade($pdo, $uid, $giving_items, $receiving_items, $giving_gems, $receiving_gems, $item_types) {
