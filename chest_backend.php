@@ -145,7 +145,7 @@ if ($action === 'open') {
         $reward_name = '';
         
         if ($type === 'basic') {
-            if ($roll <= 99) {
+            if ($roll <= 97) {
                 $pool = ['m1' => 'Egg Twins', 'm2' => 'Gold Ingot', 'm3' => 'Cheesy Cursor', 'm4' => 'Sword Cursor', 'm5' => 'Pizza Slice'];
                 $reward_type = 'cursor';
             } else {
@@ -154,8 +154,8 @@ if ($action === 'open') {
             }
         } else if ($type === 'premium') {
             if ($roll <= 90) {
-                $pool = ['m2' => 'Gold Ingot'];
-                $reward_type = 'cursor';
+                $pool = ['lt' => 'Living Treasure'];
+                $reward_type = 'pet';
             } else if ($roll <= 97) {
                 $pool = ['midas' => 'King Midas'];
                 $reward_type = 'pet';
