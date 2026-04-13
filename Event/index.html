@@ -149,15 +149,15 @@ const TASK_DEFS = [
     { id: 1, type: 'open_module', name: 'Quick Peek (Open 5 Modules)', goal: 5, points: 1 },
     { id: 2, type: 'feed_pet', name: 'Snack Time (Feed Pet 5x)', goal: 5, points: 1 },
     { id: 3, type: 'crack_diamond', name: 'Miner (Strike Diamond 1x)', goal: 1, points: 1 },
-    { id: 4, type: 'open_module', name: 'Browser (Open 10 Modules)', goal: 10, points: 2 },
-    { id: 5, type: 'feed_pet', name: 'Hungry Beast (Feed Pet 10x)', goal: 10, points: 2 },
+    { id: 4, type: 'open_module', name: 'Browser (Open 10 Modules)', goal: 10, points: 1 },
+    { id: 5, type: 'feed_pet', name: 'Hungry Beast (Feed Pet 10x)', goal: 10, points: 1 },
     { id: 6, type: 'crack_diamond', name: 'Prospector (Strike Diamond 3x)', goal: 3, points: 2 },
-    { id: 7, type: 'open_module', name: 'Explorer (Open 15 Modules)', goal: 15, points: 3 },
-    { id: 8, type: 'feed_pet', name: 'Chomp Chomp (Feed Pet 20x)', goal: 20, points: 3 },
-    { id: 9, type: 'open_module', name: 'Module Hopper (Open 20 Modules)', goal: 20, points: 4 },
-    { id: 10, type: 'feed_pet', name: 'Feast Mode (Feed Pet 30x)', goal: 30, points: 5 },
-    { id: 11, type: 'open_module', name: 'Speedrunner (Open 30 Modules)', goal: 30, points: 5 },
-    { id: 12, type: 'crack_diamond', name: 'Jeweler (Strike Diamond 5x)', goal: 5, points: 5 }
+    { id: 7, type: 'open_module', name: 'Explorer (Open 15 Modules)', goal: 15, points: 1 },
+    { id: 8, type: 'feed_pet', name: 'Chomp Chomp (Feed Pet 20x)', goal: 20, points: 2 },
+    { id: 9, type: 'open_module', name: 'Module Hopper (Open 20 Modules)', goal: 20, points: 1 },
+    { id: 10, type: 'feed_pet', name: 'Feast Mode (Feed Pet 30x)', goal: 30, points: 2 },
+    { id: 11, type: 'open_module', name: 'Speedrunner (Open 30 Modules)', goal: 30, points: 2 },
+    { id: 12, type: 'crack_diamond', name: 'Jeweler (Strike Diamond 5x)', goal: 5, points: 2 }
 ];
 
 function checkTaskRotation() {
@@ -292,7 +292,7 @@ async function attemptCrack() {
                         totalGemsWon += 100; // Duplicate compensation
                     }
                 } else {
-                    totalGemsWon += 50;
+                    totalGemsWon += 30;
                 }
             }
         });
