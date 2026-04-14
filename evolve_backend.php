@@ -23,14 +23,14 @@ $user_id = $_SESSION['user_id'];
 // Level Math: Level = floor(seconds / 600) + 1. 
 // So Level 10 requires 5400 seconds of playtime.
 $EVOLUTIONS = [
-    "doge" => [
-        "base_name" => "Pixel Doge",
-        "target_id" => "cyber_doge",
-        "target_name" => "Cyber Doge",
-        "req_level" => 10,
-        "cost" => 15000,
+    "lt" => [
+        "base_name" => "Living Treasure",
+        "target_id" => "lva",
+        "target_name" => "Living Vault",
+        "req_level" => 30,
+        "cost" => 150000,
         "currency" => "coins",
-        "img" => "../png/cyber_doge.png",
+        "img" => "../png/lva.png",
         "color" => "#ffd700"
     ],
     "cat" => [
