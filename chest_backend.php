@@ -189,6 +189,17 @@ if ($action === 'open') {
                 $pool = ['hs' => 'The Hound From Void'];
                 $reward_type = 'pet';
             }
+        } else if ($type === 'sakura') {
+            if ($roll <= 50) {
+                $pool = ['sakura_star' => 'Sakura Star', 'sakura_ribbon' => 'Sakura Ribbon'];
+                $reward_type = 'cursor';
+            } else if ($roll <= 95) {
+                $pool = ['blossom' => 'Elder Sakura Blossom', 'katanaspirit' => 'Katana Spirit'];
+                $reward_type = 'pet';
+            } else {
+                $pool = ['kitsune' => 'Sakura kitsune'];
+                $reward_type = 'pet';
+            }
         }
 
         // Catch-all just in case a chest has no pool defined here
