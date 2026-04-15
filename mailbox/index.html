@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>SchoolExams - Global Mailbox</title>
+    <style>
+        :root {
+            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
+            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
+            --w: #caf0f8; 
+            --glass: rgba(0, 29, 61, 0.85);
+            --shadow: 0 12px 40px rgba(0,0,0,0.7);
+            --glow: 0 0 20px rgba(144, 224, 239, 0.4);
+            --gold: #ffd700;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg0); color: var(--w);
+            margin: 0; padding: 40px 20px;
+            display: flex; flex-direction: column; align-items: center;
+            background-image: linear-gradient(rgba(144, 224, 239, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(144, 224, 239, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px; min-height: 100vh;
+        }
+
+        .btn-back { align-self: flex-start; background: var(--glass); border: 1px solid var(--p0); color: var(--p1); padding: 10px 20px; border-radius: 20px; text-decoration: none; font-weight: 900; text-transform: uppercase; margin-bottom: 20px; transition: 0.3s; }
+        .btn-back:hover { background: var(--p0); color: #fff; box-shadow: var(--glow); transform: translateX(-5px); }
+
+        .currency-bar { background: var(--glass); border: 2px solid var(--p0); padding: 15px 30px; border-radius: 20px; display: flex; gap: 30px; font-size: 18px; font-weight: bold; box-shadow: var(--shadow); margin-bottom: 40px; }
+        .currency-bar span { color: var(--gold); } .currency-bar .gems { color: #00ffcc; }
+
+        .container { width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 20px; }
+
+        /* ADMIN PANEL */
+        .admin-panel { background: rgba(255, 0, 85, 0.1); border: 2px solid #ff0055; border-radius: 16px; padding: 25px; display: none; flex-direction: column; gap: 15px; box-shadow: 0 0 20px rgba(255, 0, 85, 0.2); }
+        .admin-panel h2 { margin: 0; color: #ff0055; text-transform: uppercase; }
+        .admin-input { width: 100%; padding: 12px; background: var(--bg0); border: 1px solid #ff0055; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; font-family: inherit; }
+        .admin-row { display: flex; gap: 15px; }
+        .btn-admin { background: #ff0055; color: #fff; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; text-transform: uppercase; }
+        .btn-admin:hover { background: #ff3377; box-shadow: 0 0 15px #ff0055; }
+
+        /* MAILBOX CARDS */
+        .mail-card { background: var(--bg1); border: 2px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 15px; transition: 0.3s; position: relative; overflow: hidden; }
+        .mail-card:hover { border-color: var(--p1); box-shadow: var(--glow); transform: translateY(-3px); }
+        .mail-card.claimed { opacity: 0.7; border-color: #3ba55c; }
+        
+        .mail-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+        .mail-title { font-size: 20px; font-weight: bold; color: var(--p1); margin: 0; }
+        .mail-sender { font-size: 12px; color: gray; }
+        .mail-sender strong { color: #ff0055; }
+        
+        .mail-body { font-size: 15px; line-height: 1.5; color: #ddd; white-space: pre-wrap; }
+        
+        .mail-footer { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; margin-top: 10px; }
+        .mail-reward { font-size: 18px; font-weight: bold; }
+        .reward-coins { color: var(--gold); }
+        .reward-gems { color: #00ffcc; }
+        .reward-none { color: gray; font-size: 14px; }
+
+        .btn-claim { background: #3ba55c; color: #fff; border: none; padding: 10px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-claim:hover { background: #43b581; box-shadow: 0 0 15px #3ba55c; }
+        .btn-claim:disabled { background: transparent; border: 2px solid #3ba55c; color: #3ba55c; cursor: default; box-shadow: none; }
+
+        .empty-state { text-align: center; color: gray; padding: 50px; font-size: 18px; border: 2px dashed var(--line); border-radius: 16px; }
+    </style>
+</head>
+<body>
+
+<a href="../" class="btn-back">← Return to Portal</a>
+
+<div class="currency-bar">
+    <div>🪙 <span id="coinUI">0</span> Coins</div>
+    <div>💎 <span id="gemUI" class="gems">0</span> Gems</div>
+</div>
+
+<div class="container">
+
+    <div class="admin-panel" id="adminPanel">
+        <h2>Global Broadcast</h2>
+        <input type="text" id="mailTitle" class="admin-input" placeholder="Mail Title (e.g. Server Maintenance Apology)">
+        <textarea id="mailMessage" class="admin-input" rows="4" placeholder="Write your message to all players here..."></textarea>
+        
+        <div class="admin-row">
+            <select id="mailRewardType" class="admin-input">
+                <option value="none">No Reward</option>
+                <option value="coins">ExamCoins</option>
+                <option value="gems">Gems</option>
+            </select>
+            <input type="number" id="mailRewardAmount" class="admin-input" placeholder="Amount (e.g. 500)" value="0">
+        </div>
+        
+        <button class="btn-admin" onclick="sendGlobalMail()">Broadcast to All Players 📡</button>
+    </div>
+
+    <h2 style="color: var(--p1); margin-bottom: 0;">📥 Global Inbox</h2>
+    <div id="mailContainer">
+        <div style="color: gray; text-align: center;">Loading mailbox...</div>
+    </div>
+
+</div>
+
+<script>
+    let state = { coins: 0, gems: 0, claimed: [], mails: [], is_admin: false };
+
+    async function api(action, data = {}) {
+        const fd = new FormData();
+        fd.append('action', action);
+        for (let key in data) fd.append(key, data[key]);
+        const res = await fetch('../mailbox_backend.php', { method: 'POST', body: fd });
+        return await res.json();
+    }
+
+    function renderUI() {
+        document.getElementById('coinUI').innerText = state.coins.toLocaleString();
+        document.getElementById('gemUI').innerText = state.gems.toLocaleString();
+        
+        if (state.is_admin) {
+            document.getElementById('adminPanel').style.display = 'flex';
+        }
+
+        const container = document.getElementById('mailContainer');
+        container.innerHTML = '';
+
+        if (state.mails.length === 0) {
+            container.innerHTML = '<div class="empty-state">No mail right now. Check back later!</div>';
+            return;
+        }
+
+        state.mails.forEach(mail => {
+            let isClaimed = state.claimed.includes(mail.id);
+            let rewardText = `<span class="reward-none">No Attachments</span>`;
+            let canClaim = false;
+
+            if (mail.reward_amount > 0) {
+                canClaim = true;
+                if (mail.reward_type === 'coins') {
+                    rewardText = `<span class="reward-coins">+${mail.reward_amount.toLocaleString()} 🪙 Coins</span>`;
+                } else if (mail.reward_type === 'gems') {
+                    rewardText = `<span class="reward-gems">+${mail.reward_amount.toLocaleString()} 💎 Gems</span>`;
+                }
+            }
+
+            let btnHTML = '';
+            if (canClaim) {
+                if (isClaimed) {
+                    btnHTML = `<button class="btn-claim" disabled>Claimed ✓</button>`;
+                } else {
+                    btnHTML = `<button class="btn-claim" onclick="claimReward(${mail.id})">Claim Reward</button>`;
+                }
+            } else {
+                btnHTML = `<button class="btn-claim" disabled style="border-color: gray; color: gray;">Read ✓</button>`;
+            }
+
+            // Format date
+            let dateStr = new Date(mail.created_at).toLocaleDateString();
+
+            container.innerHTML += `
+                <div class="mail-card ${isClaimed ? 'claimed' : ''}">
+                    <div class="mail-header">
+                        <h3 class="mail-title">✉️ ${mail.title}</h3>
+                        <div class="mail-sender">From: <strong>${mail.sender}</strong> | ${dateStr}</div>
+                    </div>
+                    <div class="mail-body">${mail.message}</div>
+                    <div class="mail-footer">
+                        <div class="mail-reward">Attached: ${rewardText}</div>
+                        ${btnHTML}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    async function loadData() {
+        const res = await api('load');
+        if(res.success) {
+            state.coins = res.coins; state.gems = res.gems;
+            state.claimed = res.claimed; state.mails = res.mails;
+            state.is_admin = res.is_admin;
+            renderUI();
+        } else alert(res.message);
+    }
+
+    async function sendGlobalMail() {
+        const title = document.getElementById('mailTitle').value;
+        const msg = document.getElementById('mailMessage').value;
+        const type = document.getElementById('mailRewardType').value;
+        const amount = document.getElementById('mailRewardAmount').value;
+
+        if(!title || !msg) return alert("Please fill out Title and Message.");
+
+        const res = await api('send_mail', { title: title, message: msg, reward_type: type, reward_amount: amount });
+        if(res.success) {
+            alert("Broadcast Sent!");
+            document.getElementById('mailTitle').value = '';
+            document.getElementById('mailMessage').value = '';
+            loadData(); // Refresh to see the new mail
+        } else {
+            alert("❌ " + res.message);
+        }
+    }
+
+    async function claimReward(mail_id) {
+        const res = await api('claim', { mail_id: mail_id });
+        if (res.success) {
+            state.coins = res.coins;
+            state.gems = res.gems;
+            state.claimed = res.claimed;
+            renderUI(); // Re-render to disable the button
+        } else {
+            alert("❌ " + res.message);
+        }
+    }
+
+    loadData();
+</script>
+</body>
+</html>
