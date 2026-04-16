@@ -173,6 +173,30 @@
         .inv-tab-btn { background: var(--bg2); color: var(--w); border: 2px solid var(--p2); padding: 10px 30px; border-radius: 20px; font-weight: 900; font-size: 16px; cursor: pointer; transition: 0.3s; }
         .inv-tab-btn.active { background: var(--p0); border-color: var(--p1); box-shadow: var(--glow); }
         .inv-tab-btn:hover:not(.active) { background: var(--p2); }
+
+        /* FLYING COIN MECHANIC */
+        @keyframes floatCoinAnim {
+            0% { transform: translate(var(--startX), var(--startY)); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translate(var(--endX), var(--endY)); opacity: 0; }
+        }
+        .flying-coin {
+            position: fixed; top: 0; left: 0; font-size: 80px; z-index: 1500;
+            animation: floatCoinAnim 8s linear forwards; cursor: pointer !important; 
+            filter: drop-shadow(0 0 20px #ffd700); user-select: none; transition: transform 0.2s;
+        }
+        .flying-coin:hover { transform: scale(1.2); }
+        
+        .float-text {
+            position: fixed; color: #ffd700; font-size: 28px; font-weight: 900;
+            text-shadow: 0 0 10px #000; pointer-events: none; z-index: 9999;
+            animation: floatUp 1s ease-out forwards;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1.5); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -319,6 +343,9 @@ let gameState = {
     last_online: Date.now()
 };
 
+const MAX_PETS = 50;
+const MAX_CURSORS = 40;
+
 // --- AUTHENTICATION & API COMMUNICATION ---
 async function performAuth(action) {
     const user = document.getElementById('authUsername').value;
@@ -398,7 +425,6 @@ function sanitizePets() {
     if (migrated) {
         gameState.owned_pets = new_owned;
         gameState.pet_ages = new_ages;
-        // Clean up old keys
         Object.keys(gameState.pet_ages).forEach(k => {
             if(!k.includes('::')) delete gameState.pet_ages[k];
         });
@@ -425,7 +451,6 @@ async function loadGameFromServer() {
             gameState.pet_ages = JSON.parse(result.data.pet_ages || '{}');
             gameState.last_online = parseInt(result.data.last_online) || Date.now();
             
-            // Convert any newly won pets from backend into unique separated IDs!
             sanitizePets(); 
 
             updateStatsUI();
@@ -454,6 +479,69 @@ async function saveGameToServer() {
     formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
 
     try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
+}
+
+// --- FLYING COIN MECHANIC ---
+setInterval(() => {
+    if (document.getElementById('loginOverlay').style.display !== 'none') return;
+    if (document.hidden) return;
+    if (document.getElementById('gameOverlay').classList.contains('open')) return;
+
+    spawnFlyingCoin();
+}, 20000);
+
+function spawnFlyingCoin() {
+    const coin = document.createElement('div');
+    coin.className = 'flying-coin';
+    coin.innerText = '🪙';
+    
+    let startY = Math.random() * (window.innerHeight - 150);
+    let endY = Math.random() * (window.innerHeight - 150);
+    let startX = -100;
+    let endX = window.innerWidth + 100;
+
+    if (Math.random() > 0.5) {
+        startX = window.innerWidth + 100;
+        endX = -100;
+    }
+
+    coin.style.setProperty('--startX', `${startX}px`);
+    coin.style.setProperty('--startY', `${startY}px`);
+    coin.style.setProperty('--endX', `${endX}px`);
+    coin.style.setProperty('--endY', `${endY}px`);
+
+    document.body.appendChild(coin);
+
+    let clicked = false;
+    coin.onclick = (e) => {
+        if(clicked) return;
+        clicked = true;
+        coin.style.display = 'none';
+
+        // BaseCoin Logic
+        const curInfo = CURSORS.find(c => c.id === gameState.equipped_cursor);
+        const reward = curInfo ? (curInfo.baseCoin || 1) : 1;
+
+        gameState.coins += reward;
+        updateStatsUI();
+        saveGameToServer();
+
+        showFloatText(e.clientX, e.clientY, `+${reward}`);
+    };
+
+    setTimeout(() => {
+        if(document.body.contains(coin)) coin.remove();
+    }, 8000);
+}
+
+function showFloatText(x, y, text) {
+    const el = document.createElement('div');
+    el.className = 'float-text';
+    el.innerText = text;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
 }
 
 // --- MAILBOX NOTIFICATION LOGIC ---
@@ -508,10 +596,6 @@ function updateCursorPosition() {
 }
 requestAnimationFrame(updateCursorPosition);
 
-document.getElementById('gameFrame').addEventListener('mouseenter', () => { isOverIframe = true; domCursor.style.display = 'none'; cursorVisible = false; });
-document.getElementById('gameFrame').addEventListener('mouseleave', () => { isOverIframe = false; });
-document.addEventListener('mouseout', (e) => { if (!e.relatedTarget && !isOverIframe) { domCursor.style.display = 'none'; cursorVisible = false; } });
-
 const BASE_URL = "UGS-Files/";
 
 function toggleMoreMenu() { document.getElementById('moreSidebar').classList.toggle('open'); }
@@ -534,6 +618,7 @@ function redeemCode() {
 
         if (prefix === "EXAM") {
             if (amount === 10000) {
+                if (gameState.owned_cursors.length >= MAX_CURSORS) return alert(`❌ Cursor Inventory Full! (${MAX_CURSORS}/${MAX_CURSORS})`);
                 gameState.owned_cursors.push("dragon"); usedCodes.push(input);
                 localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
                 equipCursor("dragon"); 
@@ -627,7 +712,6 @@ setInterval(() => {
 
     gameState.playtime++;
 
-    // --- EVENT TASK TRACKER (Specific Games) ---
     if (document.getElementById('gameOverlay').classList.contains('open')) {
         let activeGame = document.getElementById('activeTitle').textContent;
         let tasksChanged = false;
@@ -647,7 +731,6 @@ setInterval(() => {
             if (tasksChanged) saveGameToServer();
         }
     }
-    // ------------------------------------------
 
     if (gameState.playtime > 0 && gameState.playtime % 600 === 0) {
         gameState.coins += 100;
@@ -676,7 +759,7 @@ setInterval(() => {
 // --- BUY ONLY PET SHOP UI ---
 function renderPetShop() {
     const container = document.getElementById('petShopContainer');
-    container.innerHTML = `<div class="pet-warning-box"><strong>⚠️ Shop Rules:</strong> The shop is for buying only! You can own multiple of the same pet to level them up individually. Equip them in your 🎒 Inventory.</div>`;
+    container.innerHTML = `<div class="pet-warning-box"><strong>⚠️ Shop Rules:</strong> The shop is for buying only! Equip your pets in your 🎒 Inventory.</div>`;
     
     PET_SHOP.forEach(pet => {
         const card = document.createElement('div'); card.className = `shop-item`;
@@ -698,9 +781,10 @@ function renderPetShop() {
 }
 
 function buyPet(baseId, price) {
+    if (gameState.owned_pets.length >= MAX_PETS) return alert(`❌ Pet Inventory Full! (${MAX_PETS}/${MAX_PETS})`);
+    
     if (gameState.coins >= price) {
         gameState.coins -= price; 
-        // Generate a completely unique ID for this specific pet instance
         let uid = baseId + '::' + Date.now();
         gameState.owned_pets.push(uid); 
         gameState.pet_ages[uid] = 0; 
@@ -745,26 +829,26 @@ function closePetShop() { document.getElementById('petShopOverlay').classList.re
 
 // --- CURSOR SHOP SYSTEM ---
 const CURSORS = [
-    { id: "def", name: "Default Mouse", src: "png/DefMouse.png", price: "Starter Item" }, 
-    { id: "m1", name: "Egg Twins", src: "png/Twins.png", price: 500 },
-    { id: "m2", name: "Gold Ingot", src: "png/Goldingot.png", price: 500 }, 
-    { id: "m3", name: "Cheesy Cursor", src: "png/mouse.png", price: 750 },
-    { id: "m4", name: "Sword Cursor", src: "png/Katana.png", price: 500 }, 
-    { id: "m5", name: "Pizza Slice", src: "png/pizza.png", price: 500 },
-    { id: "m6", name: "Sign Of Greed", src: "png/greed.png", price: 1000000 },
-    { id: "dragon", name: "Mythic Dragon", src: "png/Dragon.gif", price: "Obtained Secretly From A Chest", isEvent: true, color: "#ff0000" },
-    { id: "bp1", name: "Silver Apple", src: "png/Apple.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp2", name: "Robot BOB", src: "png/Robot.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp3", name: "Silver Statue", src: "png/Statue.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6" },
-    { id: "bp4", name: "Midas Sword", src: "png/Midas.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "bp5", name: "Golden Flame", src: "png/Flame.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "bp6", name: "Royal Gleam", src: "png/Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700" },
-    { id: "prism", name: "Prism Wing", src: "png/Prism.png", price: "Event Reward", isEvent: true, color: "#00ffcc" },
-    { id: "stick", name: "Stick Of Darkness", src: "png/darkness.png", price: "Season 1 Chest Reward", isEvent: true, color: "#00ffcc" },
+    { id: "def", name: "Default Mouse", src: "png/DefMouse.png", price: "Starter Item", baseCoin: 1 }, 
+    { id: "m1", name: "Egg Twins", src: "png/Twins.png", price: 500, baseCoin: 5 },
+    { id: "m2", name: "Gold Ingot", src: "png/Goldingot.png", price: 500, baseCoin: 10 }, 
+    { id: "m3", name: "Cheesy Cursor", src: "png/mouse.png", price: 750, baseCoin: 15 },
+    { id: "m4", name: "Sword Cursor", src: "png/Katana.png", price: 500, baseCoin: 20 }, 
+    { id: "m5", name: "Pizza Slice", src: "png/pizza.png", price: 500, baseCoin: 25 },
+    { id: "m6", name: "Sign Of Greed", src: "png/greed.png", price: 1000000, baseCoin: 500 },
+    { id: "dragon", name: "Mythic Dragon", src: "png/Dragon.gif", price: "Obtained Secretly From A Chest", isEvent: true, color: "#ff0000", baseCoin: 100 },
+    { id: "bp1", name: "Silver Apple", src: "png/Apple.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6", baseCoin: 30 },
+    { id: "bp2", name: "Robot BOB", src: "png/Robot.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6", baseCoin: 35 },
+    { id: "bp3", name: "Silver Statue", src: "png/Statue.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6", baseCoin: 40 },
+    { id: "bp4", name: "Midas Sword", src: "png/Midas.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 60 },
+    { id: "bp5", name: "Golden Flame", src: "png/Flame.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 70 },
+    { id: "bp6", name: "Royal Gleam", src: "png/Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 85 },
+    { id: "prism", name: "Prism Wing", src: "png/Prism.png", price: "Event Reward", isEvent: true, color: "#00ffcc", baseCoin: 75 },
+    { id: "stick", name: "Stick Of Darkness", src: "png/darkness.png", price: "Season 1 Chest Reward", isEvent: true, color: "#00ffcc", baseCoin: 45 },
     
     // --- KAWAII EVENT CURSORS ---
-    { id: "sakura_ribbon", name: "Sakura Ribbon", src: "png/ribbon.png", price: "Kawaii Event", isEvent: true, color: "#ffb7b2" },
-    { id: "sakura_star", name: "Sakura Star", src: "png/star.png", price: "Sakura Chest Drop", isEvent: true, color: "#ffb7b2" }
+    { id: "sakura_ribbon", name: "Sakura Ribbon", src: "png/ribbon.png", price: "Kawaii Event", isEvent: true, color: "#ffb7b2", baseCoin: 55 },
+    { id: "sakura_star", name: "Sakura Star", src: "png/star.png", price: "Sakura Chest Drop", isEvent: true, color: "#ffb7b2", baseCoin: 80 }
 ];
 
 function applyCursor() {
@@ -786,7 +870,8 @@ function renderShop() {
         let nameColor = item.isEvent ? (item.color || '#ff0000') : '#fff';
         card.innerHTML = `
             <img src="${item.src}" class="shop-preview">
-            <h3 style="font-size: 14px; margin-bottom: 10px; color: ${nameColor};">${item.name}</h3>
+            <h3 style="font-size: 14px; margin-bottom: 5px; color: ${nameColor};">${item.name}</h3>
+            <p style="font-size: 12px; color: #ffd700; margin-bottom: 10px;">Click Power: +${item.baseCoin} 🪙</p>
             ${btnHTML}
         `;
         container.appendChild(card);
@@ -794,6 +879,8 @@ function renderShop() {
 }
 
 function buyCursor(id, price) {
+    if (gameState.owned_cursors.length >= MAX_CURSORS) return alert(`❌ Cursor Inventory Full! (${MAX_CURSORS}/${MAX_CURSORS})`);
+
     if (gameState.coins >= price) {
         gameState.coins -= price; gameState.owned_cursors.push(id); 
         updateStatsUI(); showToast("Cursor Purchased! Check Inventory."); 
@@ -816,7 +903,7 @@ function closeShop() { document.getElementById('shopOverlay').classList.remove('
 // --- NEW INVENTORY SYSTEM ---
 function openInventory() {
     document.getElementById('inventoryOverlay').classList.add('open');
-    showInvTab('pets'); // Default to pets tab
+    showInvTab('pets'); 
 }
 function closeInventory() {
     document.getElementById('inventoryOverlay').classList.remove('open');
@@ -844,6 +931,10 @@ function renderInventory() {
     petContainer.innerHTML = ''; 
     curContainer.innerHTML = '';
     
+    // Update Tab Counters dynamically
+    document.getElementById('tabBtnPets').innerText = `🐾 My Pets (${gameState.owned_pets.length}/${MAX_PETS})`;
+    document.getElementById('tabBtnCursors').innerText = `🖱️ My Cursors (${gameState.owned_cursors.length}/${MAX_CURSORS})`;
+
     let curCounts = {};
     gameState.owned_cursors.forEach(id => curCounts[id] = (curCounts[id] || 0) + 1);
 
