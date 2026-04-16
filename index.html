@@ -845,26 +845,26 @@ function closePetShop() { document.getElementById('petShopOverlay').classList.re
 
 // --- CURSOR SHOP SYSTEM ---
 const CURSORS = [
-    { id: "def", name: "Default Mouse", src: "png/DefMouse.png", price: "Starter Item", baseCoin: 1 }, 
-    { id: "m1", name: "Egg Twins", src: "png/Twins.png", price: 500, baseCoin: 5 },
+    { id: "def", name: "Default Mouse", src: "png/DefMouse.png", price: "Starter Item", baseCoin: 5 }, 
+    { id: "m1", name: "Egg Twins", src: "png/Twins.png", price: 500, baseCoin: 10 },
     { id: "m2", name: "Gold Ingot", src: "png/Goldingot.png", price: 500, baseCoin: 10 }, 
-    { id: "m3", name: "Cheesy Cursor", src: "png/mouse.png", price: 750, baseCoin: 15 },
-    { id: "m4", name: "Sword Cursor", src: "png/Katana.png", price: 500, baseCoin: 20 }, 
-    { id: "m5", name: "Pizza Slice", src: "png/pizza.png", price: 500, baseCoin: 25 },
+    { id: "m3", name: "Cheesy Cursor", src: "png/mouse.png", price: 750, baseCoin: 10 },
+    { id: "m4", name: "Sword Cursor", src: "png/Katana.png", price: 500, baseCoin: 10 }, 
+    { id: "m5", name: "Pizza Slice", src: "png/pizza.png", price: 500, baseCoin: 10 },
     { id: "m6", name: "Sign Of Greed", src: "png/greed.png", price: 1000000, baseCoin: 500 },
-    { id: "dragon", name: "Mythic Dragon", src: "png/Dragon.gif", price: "Obtained Secretly From A Chest", isEvent: true, color: "#ff0000", baseCoin: 100 },
-    { id: "bp1", name: "Silver Apple", src: "png/Apple.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6", baseCoin: 30 },
-    { id: "bp2", name: "Robot BOB", src: "png/Robot.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6", baseCoin: 35 },
-    { id: "bp3", name: "Silver Statue", src: "png/Statue.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6", baseCoin: 40 },
-    { id: "bp4", name: "Midas Sword", src: "png/Midas.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 60 },
-    { id: "bp5", name: "Golden Flame", src: "png/Flame.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 70 },
-    { id: "bp6", name: "Royal Gleam", src: "png/Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 85 },
-    { id: "prism", name: "Prism Wing", src: "png/Prism.png", price: "Event Reward", isEvent: true, color: "#00ffcc", baseCoin: 75 },
-    { id: "stick", name: "Stick Of Darkness", src: "png/darkness.png", price: "Season 1 Chest Reward", isEvent: true, color: "#00ffcc", baseCoin: 45 },
+    { id: "dragon", name: "Mythic Dragon", src: "png/Dragon.gif", price: "Obtained Secretly From A Chest", isEvent: true, color: "#ff0000", baseCoin: 750 },
+    { id: "bp1", name: "Silver Apple", src: "png/Apple.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6", baseCoin: 100 },
+    { id: "bp2", name: "Robot BOB", src: "png/Robot.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6", baseCoin: 125 },
+    { id: "bp3", name: "Silver Statue", src: "png/Statue.png", price: "S1 Pass Reward", isEvent: true, color: "#9b59b6", baseCoin: 90 },
+    { id: "bp4", name: "Midas Sword", src: "png/Midas.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 200 },
+    { id: "bp5", name: "Golden Flame", src: "png/Flame.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 180 },
+    { id: "bp6", name: "Royal Gleam", src: "png/Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 220 },
+    { id: "prism", name: "Prism Wing", src: "png/Prism.png", price: "Event Reward", isEvent: true, color: "#00ffcc", baseCoin: 400 },
+    { id: "stick", name: "Stick Of Darkness", src: "png/darkness.png", price: "Season 1 Chest Reward", isEvent: true, color: "#00ffcc", baseCoin: 200 },
     
     // --- KAWAII EVENT CURSORS ---
-    { id: "sakura_ribbon", name: "Sakura Ribbon", src: "png/ribbon.png", price: "Kawaii Event", isEvent: true, color: "#ffb7b2", baseCoin: 55 },
-    { id: "sakura_star", name: "Sakura Star", src: "png/star.png", price: "Sakura Chest Drop", isEvent: true, color: "#ffb7b2", baseCoin: 80 }
+    { id: "sakura_ribbon", name: "Sakura Ribbon", src: "png/ribbon.png", price: "Kawaii Event", isEvent: true, color: "#ffb7b2", baseCoin: 275 },
+    { id: "sakura_star", name: "Sakura Star", src: "png/star.png", price: "Sakura Chest Drop", isEvent: true, color: "#ffb7b2", baseCoin: 175 }
 ];
 
 function applyCursor() {
