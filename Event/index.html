@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>Kawaii Event - SchoolExams</title>
     <style>
         :root {
@@ -54,6 +54,7 @@
         .btn-buy { background: var(--p0); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; width: 100%; margin-top: auto; cursor: pointer; transition: 0.2s; }
         .btn-buy:hover { background: var(--p1); color: var(--bg0); }
         .btn-buy-chest { background: linear-gradient(135deg, #ff748c, #ffb7b2); color: #000; box-shadow: 0 0 15px rgba(255, 183, 178, 0.5); }
+        .btn-buy-gems { background: linear-gradient(135deg, #00ffcc, #0099ff); color: #000; box-shadow: 0 0 15px rgba(0, 255, 204, 0.5); }
 
         /* TASKS */
         .task-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 900px; margin: 0 auto; }
@@ -86,7 +87,7 @@
         <div class="gems">💎 <span id="gemDisplay">0</span> Gems</div>
     </div>
 
-    <button class="exchange-btn" onclick="exchangeGems()">Convert 100 💎 ➞ 500 🌸</button>
+    <button class="exchange-btn" onclick="exchangeGems()">Convert 150 💎 ➞ 500 🌸</button>
 
     <div id="tree-container" onclick="shakeTree()">
         <div id="treeImg" style="font-size: 120px; filter: drop-shadow(0 0 15px rgba(255, 183, 178, 0.8));">🌸</div>
@@ -116,12 +117,15 @@
 <script>
 // --- GAME STATE & BACKEND SYNC ---
 let gameState = null;
+const MAX_PETS = 50;
+const MAX_CURSORS = 40;
 
 // Pool of games to randomly generate tasks for
 const GAME_POOL = ['3 Dash', 'Snow Rider 3D', 'Space Wave', 'Five Nights At Epsteins', '1 On 1 Soccer', 'BitLife', 'NHL 2002', 'Monkey Mart', 'Raft', 'CoD Black Ops'];
 
 // --- KAWAII SHOP CATALOG ---
 const KAWAII_SHOP = [
+    { type: 'currency', id: 'buy_gems', name: '100 Gems', icon: '💎', desc: 'Exchange Sakura Coins back to Gems!', cost: 500, color: '#00ffcc' },
     { type: 'cursor', id: 'prism', name: 'Prism Wing', img: '../png/Prism.png', desc: 'Exclusive Event Cursor', cost: 1500 },
     { type: 'pet', id: 'phoenix', name: 'Mythic Phoenix', img: '../png/phoenix.png', desc: 'A Flaming Legend', cost: 3000 },
     { type: 'chest', id: 'sakura', name: 'Sakura Chest', img: '../png/sakura_chest.png', desc: 'Contains Ultra-Rare Kawaii Drops!', cost: 500, isChest: true }
@@ -141,7 +145,7 @@ async function loadGameFromServer() {
                 playtime: parseInt(result.data.playtime) || 0,
                 sakura_coins: parseInt(result.data.sakura_coins) || 0,
                 event_tasks: JSON.parse(result.data.event_tasks || '[]'),
-                owned_chests: JSON.parse(result.data.owned_chests || '{}'), // LOAD CHESTS
+                owned_chests: JSON.parse(result.data.owned_chests || '{}'), 
                 owned_cursors: JSON.parse(result.data.owned_cursors || '["def"]'),
                 equipped_cursor: result.data.equipped_cursor || 'def',
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
@@ -165,7 +169,7 @@ async function saveGameToServer() {
         formData.append('playtime', gameState.playtime);
         formData.append('sakura_coins', gameState.sakura_coins);
         formData.append('event_tasks', JSON.stringify(gameState.event_tasks));
-        formData.append('owned_chests', JSON.stringify(gameState.owned_chests || {})); // SAVE CHESTS
+        formData.append('owned_chests', JSON.stringify(gameState.owned_chests || {})); 
         formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors));
         formData.append('equipped_cursor', gameState.equipped_cursor);
         formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
@@ -185,12 +189,12 @@ function updateCurrencies() {
 
 function exchangeGems() {
     if (!gameState) return;
-    if (gameState.gems >= 100) {
-        gameState.gems -= 100;
+    if (gameState.gems >= 150) {
+        gameState.gems -= 150;
         gameState.sakura_coins += 500;
         updateCurrencies();
         saveGameToServer();
-        showToast("🌸 Converted 100 Gems to 500 Sakura Coins!");
+        showToast("🌸 Converted 150 Gems to 500 Sakura Coins!");
     } else {
         alert("Not enough Gems!");
     }
@@ -203,26 +207,27 @@ function renderKawaiiShop() {
     grid.innerHTML = '';
 
     KAWAII_SHOP.forEach(item => {
-        let isOwned = false;
-        if (item.type === 'cursor' && gameState.owned_cursors.includes(item.id)) isOwned = true;
-        if (item.type === 'pet' && gameState.owned_pets.includes(item.id)) isOwned = true;
-
-        let cardStyle = item.isChest ? 'border-color: var(--p1);' : '';
+        let cardStyle = item.isChest || item.color ? `border-color: ${item.color || 'var(--p1)'};` : '';
         let imgStyle = item.isChest ? 'filter: drop-shadow(0 0 10px var(--p1));' : '';
-        let titleStyle = item.isChest ? 'color: var(--p1);' : '';
+        let titleStyle = item.isChest || item.color ? `color: ${item.color || 'var(--p1)'};` : '';
         
+        let visual = item.img 
+            ? `<img src="${item.img}" alt="${item.name}" style="${imgStyle}">`
+            : `<div style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px ${item.color});">${item.icon}</div>`;
+
         let btnHTML = '';
         if (item.isChest) {
             btnHTML = `<button class="btn-buy btn-buy-chest" onclick="buySakuraChest()">Buy for ${item.cost.toLocaleString()} 🌸</button>`;
-        } else if (isOwned) {
-            btnHTML = `<button class="btn-buy" disabled style="background: #3ba55c; cursor: default;">Owned ✓</button>`;
+        } else if (item.type === 'currency') {
+            btnHTML = `<button class="btn-buy btn-buy-gems" onclick="buyGems()">Buy for ${item.cost.toLocaleString()} 🌸</button>`;
         } else {
+            // Replaced generic Buy btn with duplicate-friendly Buy btn
             btnHTML = `<button class="btn-buy" onclick="buyItem('${item.type}', '${item.id}', ${item.cost}, '${item.name}')">Buy for ${item.cost.toLocaleString()} 🌸</button>`;
         }
 
         grid.innerHTML += `
             <div class="shop-card" style="${cardStyle}">
-                <img src="${item.img}" alt="${item.name}" style="${imgStyle}">
+                ${visual}
                 <h3 style="${titleStyle}">${item.name}</h3>
                 <p style="font-size: 12px; color: #aaa;">${item.desc}</p>
                 ${btnHTML}
@@ -231,17 +236,36 @@ function renderKawaiiShop() {
     });
 }
 
-async function buyItem(type, id, cost, name) {
-    if (gameState.sakura_coins < cost) return alert("Not enough Sakura Coins!");
-    if (type === 'cursor' && gameState.owned_cursors.includes(id)) return alert("You already own this cursor!");
-    if (type === 'pet' && gameState.owned_pets.includes(id)) return alert("You already own this pet!");
+async function buyGems() {
+    if (gameState.sakura_coins < 500) return alert("Not enough Sakura Coins!");
+    
+    gameState.sakura_coins -= 500;
+    gameState.gems += 100;
+    
+    updateCurrencies();
+    await saveGameToServer();
+    
+    document.getElementById('rewardIcon').innerText = '💎';
+    document.getElementById('rewardDesc').innerHTML = `You successfully bought <br><span style="color: #00ffcc; font-size: 24px;">100 Gems</span>!`;
+    document.getElementById('rewardPopup').style.display = 'flex';
+}
 
-    gameState.sakura_coins -= cost;
-    if (type === 'cursor') gameState.owned_cursors.push(id);
-    if (type === 'pet') gameState.owned_pets.push(id);
+async function buyItem(type, baseId, cost, name) {
+    if (gameState.sakura_coins < cost) return alert("Not enough Sakura Coins!");
+    
+    if (type === 'cursor') {
+        if (gameState.owned_cursors.length >= MAX_CURSORS) return alert(`❌ Cursor Inventory Full! (${MAX_CURSORS}/${MAX_CURSORS})`);
+        gameState.sakura_coins -= cost;
+        gameState.owned_cursors.push(baseId);
+    } else if (type === 'pet') {
+        if (gameState.owned_pets.length >= MAX_PETS) return alert(`❌ Pet Inventory Full! (${MAX_PETS}/${MAX_PETS})`);
+        gameState.sakura_coins -= cost;
+        let uid = baseId + '::' + Date.now();
+        gameState.owned_pets.push(uid);
+        gameState.pet_ages[uid] = 0;
+    }
 
     updateCurrencies();
-    renderKawaiiShop(); 
     await saveGameToServer();
     
     document.getElementById('rewardIcon').innerText = type === 'pet' ? '🐾' : '🎀';
@@ -249,13 +273,11 @@ async function buyItem(type, id, cost, name) {
     document.getElementById('rewardPopup').style.display = 'flex';
 }
 
-// --- ADD CHEST TO INVENTORY INSTEAD OF OPENING ---
 async function buySakuraChest() {
     if (gameState.sakura_coins < 500) return alert("Not enough Sakura Coins to buy the chest!");
 
     gameState.sakura_coins -= 500;
     
-    // Add 1 to the 'sakura' chest count in inventory
     if (!gameState.owned_chests) gameState.owned_chests = {};
     gameState.owned_chests['sakura'] = (gameState.owned_chests['sakura'] || 0) + 1;
 
