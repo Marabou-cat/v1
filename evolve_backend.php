@@ -2,7 +2,7 @@
 session_start();
 header('Content-Type: application/json');
 
-$config_file = 'config.ini';
+$config_file = 'config.ini'; // Make sure this path is correct for your folder structure
 if (!file_exists($config_file)) die(json_encode(["success" => false, "message" => "Config missing."]));
 
 $lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -20,8 +20,6 @@ $action = $_POST['action'] ?? '';
 $user_id = $_SESSION['user_id'];
 
 // --- EVOLUTION RECIPES ---
-// Level Math: Level = floor(seconds / 600) + 1. 
-// So Level 10 requires 5400 seconds of playtime.
 $EVOLUTIONS = [
     "lt" => [
         "base_name" => "Living Treasure",
@@ -66,11 +64,11 @@ if ($action === 'load') {
     $pet_ages = json_decode($user['pet_ages'], true) ?: [];
     $owned_pets = json_decode($user['owned_pets'], true) ?: [];
     
-    // Calculate current levels for the frontend
+    // Calculate current levels for the frontend based on Unique IDs
     $current_levels = [];
-    foreach ($owned_pets as $pet) {
-        $age = $pet_ages[$pet] ?? 0;
-        $current_levels[$pet] = floor($age / 600) + 1;
+    foreach ($owned_pets as $pet_uid) {
+        $age = $pet_ages[$pet_uid] ?? 0;
+        $current_levels[$pet_uid] = floor($age / 600) + 1;
     }
 
     echo json_encode([
@@ -81,7 +79,11 @@ if ($action === 'load') {
 }
 
 if ($action === 'evolve') {
-    $base_id = $_POST['base_id'] ?? '';
+    // NEW: We now expect the specific Unique ID (e.g., cat::12345678)
+    $uid = $_POST['uid'] ?? ''; 
+    $parts = explode('::', $uid);
+    $base_id = $parts[0]; // Extracts "cat" from "cat::12345678"
+
     if (!isset($EVOLUTIONS[$base_id])) die(json_encode(["success" => false, "message" => "Invalid evolution."]));
 
     try {
@@ -97,13 +99,13 @@ if ($action === 'evolve') {
         $evo_data = $EVOLUTIONS[$base_id];
         $target_id = $evo_data['target_id'];
         
-        // 1. Verify Ownership
-        if (!in_array($base_id, $owned_pets)) throw new Exception("You don't own the base pet!");
-        if (in_array($target_id, $owned_pets)) throw new Exception("You already evolved this pet!");
+        // 1. Verify Ownership using the Unique ID
+        if (!in_array($uid, $owned_pets)) throw new Exception("You don't own this specific pet!");
         
         // 2. Verify Level
-        $current_level = floor(($pet_ages[$base_id] ?? 0) / 600) + 1;
-        if ($current_level < $evo_data['req_level']) throw new Exception("Pet level is too low!");
+        $current_age = $pet_ages[$uid] ?? 0;
+        $current_level = floor($current_age / 600) + 1;
+        if ($current_level < $evo_data['req_level']) throw new Exception("Pet level is too low! Needs Level " . $evo_data['req_level']);
         
         // 3. Verify & Deduct Currency
         $currency = $evo_data['currency'];
@@ -111,18 +113,21 @@ if ($action === 'evolve') {
         if ((int)$user[$currency] < $cost) throw new Exception("Not enough $currency!");
         $new_balance = (int)$user[$currency] - $cost;
         
-        // 4. Execute Evolution (Remove old, add new)
-        $owned_pets = array_diff($owned_pets, [$base_id]); // Remove base
-        $owned_pets[] = $target_id; // Add evolved
+        // 4. Execute Evolution (Remove old, generate completely new separated ID)
+        $owned_pets = array_filter($owned_pets, function($p) use ($uid) { return $p !== $uid; }); // Remove old specific pet
         
-        // Reset age for the new evolved pet
-        $pet_ages[$target_id] = 0; 
-        unset($pet_ages[$base_id]);
+        $new_uid = $target_id . '::' . round(microtime(true) * 1000) . '_' . mt_rand(100, 999);
+        $owned_pets[] = $new_uid; // Add new evolved pet
+        
+        // 5. TRANSFER AGE! Do not reset it to 0!
+        $pet_ages[$new_uid] = $current_age; 
+        unset($pet_ages[$uid]);
         
         // If they had the base pet equipped, auto-equip the new one
         $active_pet = $user['active_pet'];
-        if ($active_pet === $base_id) $active_pet = $target_id;
+        if ($active_pet === $uid) $active_pet = $new_uid;
 
+        // Save back to database
         $stmt = $pdo->prepare("UPDATE users SET $currency = ?, owned_pets = ?, pet_ages = ?, active_pet = ? WHERE id = ?");
         $stmt->execute([$new_balance, json_encode(array_values($owned_pets)), json_encode($pet_ages), $active_pet, $user_id]);
         
