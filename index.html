@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>SchoolExams - Digital Portal</title>
 
     <link rel="icon" type="image/png" href="logo2.png">
@@ -45,7 +45,14 @@
         header.topbar { position: fixed; top: 0; left:0; right:0; height: 70px; background: rgba(0, 29, 61, 0.95); backdrop-filter: blur(10px); border-bottom: 2px solid var(--p0); display: flex; align-items: center; padding: 0 30px; z-index: 1000; justify-content: space-between; }
         .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 24px; color: var(--p1); text-decoration: none; letter-spacing: -1px; }
         .brand img { height: 45px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-        .nav-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        
+        /* NEW: PROFILE & PRESTIGE SECTION */
+        .profile-section { display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(0,0,0,0.5); padding: 5px 15px 5px 5px; border-radius: 30px; border: 1px solid var(--p0); transition: 0.3s; margin-left: 20px; }
+        .profile-section:hover { background: var(--p2); box-shadow: var(--glow); }
+        .profile-image { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--p1); background: #fff; }
+        .prestige-badge { color: #ffd700; font-weight: 900; font-size: 16px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
+
+        .nav-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-left: auto; }
         
         .coin-tracker { background: rgba(0,0,0,0.5); border: 1px solid var(--p1); padding: 8px 16px; border-radius: 20px; font-weight: 800; color: #ffd700; display: flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 0 15px rgba(255, 215, 0, 0.2); }
         .coin-tracker span { color: #fff; font-size: 16px; }
@@ -67,42 +74,18 @@
 
         /* FLOATING SIDE MENU */
         .btn-more-oval {
-            position: fixed;
-            right: -5px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--bg1);
-            border: 2px solid var(--p1);
-            color: var(--w);
-            padding: 40px 12px;
-            border-radius: 30px 0 0 30px;
-            font-weight: 900;
-            letter-spacing: 2px;
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-            box-shadow: -5px 0 15px rgba(0,0,0,0.7);
-            z-index: 1001;
-            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: fixed; right: -5px; top: 50%; transform: translateY(-50%); background: var(--bg1);
+            border: 2px solid var(--p1); color: var(--w); padding: 40px 12px; border-radius: 30px 0 0 30px;
+            font-weight: 900; letter-spacing: 2px; writing-mode: vertical-rl; text-orientation: mixed;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.7); z-index: 1001; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .btn-more-oval:hover { right: 0; background: var(--p0); box-shadow: -5px 0 25px rgba(144, 224, 239, 0.5); }
 
         .more-sidebar {
-            position: fixed;
-            right: -300px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--bg1);
-            border: 2px solid var(--p0);
-            border-right: none;
-            padding: 20px;
-            border-radius: 20px 0 0 20px;
-            width: 220px;
-            box-shadow: -10px 0 30px rgba(0,0,0,0.8);
-            z-index: 1000;
-            transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
+            position: fixed; right: -300px; top: 50%; transform: translateY(-50%); background: var(--bg1);
+            border: 2px solid var(--p0); border-right: none; padding: 20px; border-radius: 20px 0 0 20px;
+            width: 220px; box-shadow: -10px 0 30px rgba(0,0,0,0.8); z-index: 1000; transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; flex-direction: column; gap: 15px;
         }
         .more-sidebar.open { right: 0; }
         .more-sidebar-title { color: var(--p1); font-weight: 900; font-size: 14px; border-bottom: 2px solid var(--p0); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
@@ -244,6 +227,12 @@
         <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
         SchoolExams
     </a>
+    
+    <div class="profile-section" onclick="openPrestige()">
+        <img id="profileImage" class="profile-image" src="png/default_avatar.png" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=Guest'">
+        <div class="prestige-badge" id="prestigeBadge">⭐ 0</div>
+    </div>
+
     <div class="nav-right">
         <div class="coin-tracker" title="Earn ExamCoins by playing and from Pets!">
             🪙 <span id="coinDisplay">0</span> ExamCoins
@@ -333,6 +322,26 @@
     <div class="shop-container" id="invCursorsContainer" style="display: none;"></div>
 </div>
 
+<div class="overlay" id="prestigeOverlay">
+    <div class="overlay-bar">
+        <div class="bar-title" style="color: #ff00ff;">✨ Prestige & Profile</div>
+        <button class="btn-close" onclick="closePrestige()">CLOSE ✕</button>
+    </div>
+    <div class="shop-container" style="display: flex; flex-direction: column; align-items: center; gap: 20px; max-width: 600px;">
+        
+        <div style="position: relative; cursor: pointer; transition: 0.3s;" onclick="document.getElementById('pfpInput').click()" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            <img id="largeProfileImage" class="profile-image" style="width: 140px; height: 140px; border-width: 4px;">
+            <div style="position: absolute; bottom: 5px; right: 5px; background: var(--p0); color: #fff; padding: 8px; border-radius: 50%; font-size: 14px; box-shadow: 0 0 10px #000;">✏️</div>
+        </div>
+        <input type="file" id="pfpInput" accept="image/png, image/jpeg, image/gif" style="display:none;" onchange="uploadPFP(event)">
+        
+        <h2 style="margin: 0; color: #ffd700; font-size: 32px; text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);">Prestige Level <span id="prestigeLevelDisplay">0</span></h2>
+        <p style="color: #aaa; text-align: center; font-size: 16px;">Upgrade your Prestige to show off your status! Every 5 levels requires a Gem Breakthrough.</p>
+        
+        <button id="btnUpgradePrestige" class="btn btn-blue" style="font-size: 20px; padding: 20px; width: 80%; max-width: 400px; box-shadow: 0 0 20px rgba(0, 119, 182, 0.6);" onclick="upgradePrestige()">Upgrade for 5,000 🪙</button>
+    </div>
+</div>
+
 <div class="toast" id="coinToast">
     <span>🎉</span> <span id="toastMsg">You earned 100 ExamCoins!</span>
 </div>
@@ -347,6 +356,7 @@ let gameState = {
     coins: 0, gems: 0, playtime: 0, sakura_coins: 0, event_tasks: [],
     owned_cursors: ["def"], equipped_cursor: "def",
     owned_pets: [], active_pet: "", pet_ages: {},
+    prestige_level: 0, profile_pic: "",
     last_online: Date.now()
 };
 
@@ -356,6 +366,77 @@ const MAX_CURSORS = 40;
 // --- SELL MODE VARIABLES ---
 let isSellMode = false;
 let selectedForSale = [];
+
+// --- PROFILE & PRESTIGE LOGIC ---
+function updateProfileUI() {
+    const user = document.getElementById('authUsername').value || 'Guest';
+    const pfpSrc = gameState.profile_pic || `https://api.dicebear.com/7.x/bottts/svg?seed=${user}`;
+    const pLevel = gameState.prestige_level || 0;
+    
+    document.getElementById('profileImage').src = pfpSrc;
+    document.getElementById('largeProfileImage').src = pfpSrc;
+    document.getElementById('prestigeBadge').innerText = `⭐ ${pLevel}`;
+    document.getElementById('prestigeLevelDisplay').innerText = pLevel;
+    
+    let nextLevel = pLevel + 1;
+    let btn = document.getElementById('btnUpgradePrestige');
+    
+    if (nextLevel % 5 === 0) {
+        btn.innerHTML = `Breakthrough to Lvl ${nextLevel} for 500 💎`;
+        btn.style.background = 'linear-gradient(135deg, #00ffcc, #0099ff)';
+        btn.style.color = '#000';
+    } else {
+        let cost = 5000 * Math.pow(2, pLevel);
+        btn.innerHTML = `Upgrade to Lvl ${nextLevel} for ${cost.toLocaleString()} 🪙`;
+        btn.style.background = 'var(--p0)';
+        btn.style.color = '#fff';
+    }
+}
+
+function upgradePrestige() {
+    if (!gameState) return;
+    let pLevel = gameState.prestige_level || 0;
+    let nextLevel = pLevel + 1;
+    let isGemGate = (nextLevel % 5 === 0);
+    let cost = isGemGate ? 500 : 5000 * Math.pow(2, pLevel);
+    
+    if (isGemGate) {
+        if (gameState.gems < cost) return alert("Not enough Gems for breakthrough!");
+        gameState.gems -= cost;
+    } else {
+        if (gameState.coins < cost) return alert("Not enough ExamCoins!");
+        gameState.coins -= cost;
+    }
+    
+    gameState.prestige_level = nextLevel;
+    
+    updateStatsUI();
+    updateProfileUI();
+    saveGameToServer();
+    showToast(`🎉 Prestige Level Upgraded to ${nextLevel}!`);
+}
+
+function uploadPFP(e) {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 500000) { alert("Image too large! Max 500KB."); return; }
+    const reader = new FileReader();
+    reader.onload = function(event) { 
+        gameState.profile_pic = event.target.result;
+        updateProfileUI(); 
+        saveGameToServer();
+        showToast("Profile Picture Saved to Server!"); 
+    };
+    reader.readAsDataURL(file);
+}
+
+function openPrestige() {
+    document.getElementById('prestigeOverlay').classList.add('open');
+    updateProfileUI();
+}
+function closePrestige() {
+    document.getElementById('prestigeOverlay').classList.remove('open');
+}
+
 
 // --- AUTHENTICATION & API COMMUNICATION ---
 async function performAuth(action) {
@@ -408,6 +489,8 @@ window.addEventListener('DOMContentLoaded', () => {
         const errBox = document.getElementById('authError');
         errBox.innerText = "Logging you back in securely..."; errBox.style.color = "#00ffcc"; errBox.style.display = 'block';
         performAuth('login');
+    } else {
+        updateProfileUI(); // LOAD GUEST PROFILE
     }
 });
 
@@ -461,10 +544,13 @@ async function loadGameFromServer() {
             gameState.active_pet = result.data.active_pet || '';
             gameState.pet_ages = JSON.parse(result.data.pet_ages || '{}');
             gameState.last_online = parseInt(result.data.last_online) || Date.now();
+            gameState.prestige_level = parseInt(result.data.prestige_level) || 0;
+            gameState.profile_pic = result.data.profile_pic || null;
             
             sanitizePets(); 
 
             updateStatsUI();
+            updateProfileUI(); // Refresh with database PFP and Prestige
             applyCursor();
             calculatePetNeglect();
             updatePetUI();
@@ -488,6 +574,8 @@ async function saveGameToServer() {
     formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
     formData.append('active_pet', gameState.active_pet);
     formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
+    formData.append('prestige_level', gameState.prestige_level || 0);
+    formData.append('profile_pic', gameState.profile_pic || '');
 
     try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 }
