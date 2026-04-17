@@ -2,463 +2,119 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>SchoolExams - Global Leaderboard</title>
-    
-    <link rel="icon" type="image/png" href="../logo2.png">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hall Of Fame - SchoolExams</title>
     <style>
         :root {
-            --bg0: #000814; 
-            --bg1: #001d3d; 
-            --bg2: #003566;
-            --p0: #0077b6; 
-            --p1: #90e0ef; 
-            --p2: #03045e;
-            --w: #caf0f8;
-            --line: rgba(144, 224, 239, 0.15);
-            --glass: rgba(0, 29, 61, 0.85);
-            --shadow: 0 12px 40px rgba(0,0,0,0.7);
+            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
+            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
+            --line: rgba(144, 224, 239, 0.2);
             --glow: 0 0 20px rgba(144, 224, 239, 0.4);
-            --gold: linear-gradient(135deg, #ffd700, #ff8c00);
-            --silver: linear-gradient(135deg, #e0e0e0, #9e9e9e);
-            --bronze: linear-gradient(135deg, #cd7f32, #8b4513);
+            --gold: #ffd700; --silver: #c0c0c0; --bronze: #cd7f32;
         }
 
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: var(--bg0);
-            color: var(--w);
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            overflow-x: hidden;
+        body { 
+            background: var(--bg0); color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; 
+            text-align: center; padding: 40px 20px; overflow-x: hidden; margin: 0; min-height: 100vh;
             background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
             background-size: 40px 40px;
-            min-height: 100vh;
         }
 
-        /* Navigation */
-        .btn-back {
-            align-self: flex-start;
-            background: var(--glass);
-            border: 1px solid var(--p0);
-            color: var(--p1);
-            padding: 10px 20px;
-            border-radius: 20px;
-            text-decoration: none;
-            font-weight: 900;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 1px;
-            margin-bottom: 30px;
-            transition: 0.3s;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-        
-        .btn-back:hover {
-            background: var(--p0);
-            color: #fff;
-            box-shadow: var(--glow);
-            transform: translateX(-5px);
-        }
+        .btn-back { align-self: flex-start; background: rgba(0, 0, 0, 0.85); border: 1px solid var(--p0); color: var(--p1); padding: 10px 20px; border-radius: 20px; text-decoration: none; font-weight: 900; text-transform: uppercase; display: inline-block; margin-bottom: 20px; transition: 0.3s; }
+        .btn-back:hover { background: var(--p0); color: #fff; box-shadow: var(--glow); transform: translateX(-5px); }
 
-        /* Main Container */
-        .leaderboard-wrapper {
-            width: 100%;
-            max-width: 800px;
-            background: var(--glass);
-            backdrop-filter: blur(15px);
-            border: 2px solid var(--p0);
-            border-radius: 24px;
-            box-shadow: var(--shadow), inset 0 0 30px rgba(0, 119, 182, 0.2);
-            overflow: hidden;
-            animation: fadeUp 0.8s ease-out forwards;
-        }
+        .header h1 { color: var(--gold); font-size: 3.5rem; margin: 0 0 10px 0; text-shadow: 0 0 20px rgba(255, 215, 0, 0.4); text-transform: uppercase; letter-spacing: 2px; }
+        .header p { color: #caf0f8; font-size: 1.1rem; margin: 0 0 40px 0; }
 
-        /* Header Section */
-        .lb-header {
-            text-align: center;
-            padding: 40px 20px;
-            background: linear-gradient(180deg, rgba(0, 53, 102, 0.8) 0%, transparent 100%);
-            border-bottom: 1px solid var(--line);
-        }
+        .leaderboard-container { max-width: 800px; margin: 0 auto; background: rgba(0, 29, 61, 0.85); border: 2px solid var(--p0); border-radius: 20px; padding: 20px; box-shadow: var(--glow); backdrop-filter: blur(10px); }
         
-        .lb-header h1 {
-            margin: 0;
-            font-size: clamp(2rem, 5vw, 3.5rem);
-            color: var(--w);
-            text-shadow: 0 0 15px var(--p1);
-            letter-spacing: -2px;
-            text-transform: uppercase;
-            font-weight: 900;
-        }
+        .lb-row { display: flex; align-items: center; background: var(--bg0); margin-bottom: 10px; padding: 15px 20px; border-radius: 12px; border: 1px solid var(--line); transition: 0.3s; }
+        .lb-row:hover { transform: scale(1.02); border-color: var(--p1); box-shadow: var(--glow); z-index: 10; position: relative; }
         
-        .lb-header h1 span { 
-            color: var(--p1); 
-        }
+        .lb-rank { font-size: 24px; font-weight: 900; width: 50px; text-align: left; color: #888; }
         
-        .reward-badge {
-            display: inline-block;
-            background: rgba(255, 215, 0, 0.1);
-            border: 1px solid #ffd700;
-            color: #ffd700;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 800;
-            margin-top: 15px;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
-            letter-spacing: 0.5px;
-        }
+        /* Top 3 Styling */
+        .rank-1 { border-color: var(--gold); background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), var(--bg0)); box-shadow: 0 0 15px rgba(255, 215, 0, 0.2); }
+        .rank-1 .lb-rank { color: var(--gold); text-shadow: 0 0 10px var(--gold); font-size: 32px; }
+        .rank-1 .lb-pfp { border-color: var(--gold); box-shadow: 0 0 15px var(--gold); }
+        
+        .rank-2 { border-color: var(--silver); background: linear-gradient(90deg, rgba(192, 192, 192, 0.1), var(--bg0)); }
+        .rank-2 .lb-rank { color: var(--silver); text-shadow: 0 0 10px var(--silver); font-size: 28px; }
+        .rank-2 .lb-pfp { border-color: var(--silver); box-shadow: 0 0 10px var(--silver); }
+        
+        .rank-3 { border-color: var(--bronze); background: linear-gradient(90deg, rgba(205, 127, 50, 0.1), var(--bg0)); }
+        .rank-3 .lb-rank { color: var(--bronze); text-shadow: 0 0 10px var(--bronze); font-size: 26px; }
+        .rank-3 .lb-pfp { border-color: var(--bronze); box-shadow: 0 0 10px var(--bronze); }
 
-        /* Countdown */
-        .countdown-container {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 25px;
-            flex-wrap: wrap;
-        }
+        .lb-pfp { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid var(--p1); margin-right: 20px; background: #fff; }
         
-        .time-box {
-            background: var(--bg0);
-            border: 1px solid var(--p0);
-            border-radius: 12px;
-            padding: 12px 15px;
-            min-width: 70px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            transition: 0.3s;
-        }
+        .lb-user { flex: 1; text-align: left; font-size: 20px; font-weight: bold; color: #fff; letter-spacing: 1px; }
         
-        .time-box:hover {
-            border-color: var(--p1);
-            box-shadow: var(--glow);
-            transform: translateY(-2px);
-        }
-        
-        .time-box .num { 
-            font-size: 26px; 
-            font-weight: 900; 
-            color: #00ffcc; 
-            text-shadow: 0 0 10px rgba(0, 255, 204, 0.4); 
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-        
-        .time-box .label { 
-            font-size: 10px; 
-            color: var(--p1); 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            font-weight: bold;
-        }
+        .lb-prestige { font-size: 22px; font-weight: 900; color: var(--gold); text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); display: flex; align-items: center; gap: 8px; }
+        .lb-prestige span { font-size: 14px; color: #aaa; font-weight: normal; text-shadow: none; }
 
-        /* List Styling */
-        .lb-list {
-            padding: 25px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .lb-row {
-            display: grid;
-            grid-template-columns: 60px 1fr auto;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--line);
-            padding: 16px 20px;
-            border-radius: 16px;
-            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            opacity: 0;
-            transform: translateY(20px);
-            animation: fadeRow 0.5s ease-out forwards;
-        }
-        
-        .lb-row:hover {
-            transform: scale(1.02) translateX(5px);
-            border-color: var(--p1);
-            background: var(--bg1);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
-            z-index: 2;
-            position: relative;
-        }
-
-        .rank { 
-            font-size: 22px; 
-            font-weight: 900; 
-            color: var(--p1); 
-            text-align: center; 
-        }
-        
-        .player-info { 
-            display: flex; 
-            align-items: center; 
-            gap: 15px; 
-            font-size: 18px; 
-            font-weight: 800; 
-            letter-spacing: 0.5px;
-        }
-        
-        .player-avatar {
-            width: 44px; 
-            height: 44px;
-            background: var(--bg2);
-            border-radius: 12px;
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            font-size: 22px;
-            border: 2px solid var(--p0);
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-        }
-        
-        .score { 
-            font-size: 22px; 
-            font-weight: 900; 
-            color: #fff; 
-            text-align: right; 
-        }
-        
-        .score span { 
-            color: var(--p1); 
-            font-size: 12px; 
-            margin-left: 6px; 
-            letter-spacing: 1px;
-        }
-
-        /* Top 3 Highlighting */
-        .top-1 { 
-            background: rgba(255, 215, 0, 0.08); 
-            border-color: #ffd700; 
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
-        }
-        .top-1 .rank { color: #ffd700; font-size: 32px; text-shadow: 0 0 15px rgba(255, 215, 0, 0.6); }
-        .top-1 .player-avatar { background: var(--gold); border-color: #fff; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
-        .top-1 .score { color: #ffd700; }
-        
-        .top-2 { 
-            background: rgba(192, 192, 192, 0.08); 
-            border-color: #c0c0c0; 
-        }
-        .top-2 .rank { color: #c0c0c0; font-size: 28px; }
-        .top-2 .player-avatar { background: var(--silver); border-color: #fff; }
-
-        .top-3 { 
-            background: rgba(205, 127, 50, 0.08); 
-            border-color: #cd7f32; 
-        }
-        .top-3 .rank { color: #cd7f32; font-size: 26px; }
-        .top-3 .player-avatar { background: var(--bronze); border-color: #fff; }
-
-        /* Loading & Error States */
-        .status-msg { 
-            text-align: center; 
-            padding: 50px 20px; 
-            font-size: 18px;
-            font-weight: bold; 
-            color: var(--p1);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .pulse { animation: pulse 1.5s infinite; }
-        
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid var(--line);
-            border-top-color: var(--p1);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        /* Responsive Adjustments */
-        @media (max-width: 600px) {
-            .lb-row {
-                grid-template-columns: 1fr;
-                text-align: center;
-                gap: 10px;
-                padding: 20px;
-            }
-            .player-info {
-                flex-direction: column;
-                justify-content: center;
-            }
-            .score {
-                text-align: center;
-                margin-top: 5px;
-            }
-            .rank {
-                position: absolute;
-                top: -10px;
-                left: -10px;
-                background: var(--bg1);
-                width: 35px;
-                height: 35px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border: 2px solid var(--p0);
-                font-size: 16px !important;
-                box-shadow: var(--shadow);
-            }
-            .top-1 .rank { border-color: #ffd700; background: rgba(255,215,0,0.1); }
-            .top-2 .rank { border-color: #c0c0c0; background: rgba(192,192,192,0.1); }
-            .top-3 .rank { border-color: #cd7f32; background: rgba(205,127,50,0.1); }
-        }
-
-        /* Animations */
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeRow { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading { font-size: 20px; color: var(--p1); padding: 40px; animation: pulse 1.5s infinite alternate; }
+        @keyframes pulse { from { opacity: 0.5; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-<a href="../" class="btn-back">← Return to Portal</a>
-
-<div class="leaderboard-wrapper">
-    <div class="lb-header">
-        <h1>Hall of <span>Fame</span></h1>
-        <div class="reward-badge">🏆 Top 10 Players Will Be Rewarded An Exclusive Gem Beast Pet!</div>
-        
-        <div class="countdown-container">
-            <div class="time-box"><div class="num" id="cd-days">00</div><div class="label">Days</div></div>
-            <div class="time-box"><div class="num" id="cd-hours">00</div><div class="label">Hours</div></div>
-            <div class="time-box"><div class="num" id="cd-mins">00</div><div class="label">Mins</div></div>
-            <div class="time-box"><div class="num" id="cd-secs">00</div><div class="label">Secs</div></div>
-        </div>
+    <div style="text-align: left; max-width: 800px; margin: 0 auto;">
+        <a href="../" class="btn-back">← Return to Portal</a>
     </div>
 
-    <div class="lb-list" id="leaderboardList">
-        <div class="status-msg pulse">
-            <div class="spinner"></div>
-            Syncing with central database...
-        </div>
+    <div class="header">
+        <h1>🏆 Hall Of Fame</h1>
+        <p>The most prestigious scholars in the digital realm.</p>
     </div>
-</div>
+
+    <div class="leaderboard-container" id="lbContainer">
+        <div class="loading">Loading Top Players...</div>
+    </div>
 
 <script>
-    // --- MONTHLY COUNTDOWN LOGIC ---
-    function updateCountdown() {
-        const now = new Date();
-        // Calculate the 1st day of the next month at 00:00:00
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        const diff = nextMonth - now;
-
-        if (diff <= 0) {
-            document.getElementById('cd-days').innerText = "00";
-            document.getElementById('cd-hours').innerText = "00";
-            document.getElementById('cd-mins').innerText = "00";
-            document.getElementById('cd-secs').innerText = "00";
-            return;
-        }
-
-        document.getElementById('cd-days').innerText = String(Math.floor(diff / (1000 * 60 * 60 * 24))).padStart(2, '0');
-        document.getElementById('cd-hours').innerText = String(Math.floor((diff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
-        document.getElementById('cd-mins').innerText = String(Math.floor((diff / (1000 * 60)) % 60)).padStart(2, '0');
-        document.getElementById('cd-secs').innerText = String(Math.floor((diff / 1000) % 60)).padStart(2, '0');
-    }
-    
-    // Start countdown immediately
-    updateCountdown();
-    setInterval(updateCountdown, 1000);
-
-    // --- FETCH DATA FROM BACKEND ---
-    async function fetchLeaderboard() {
-        const formData = new FormData();
-        formData.append('action', 'get_leaderboard'); 
-
+    async function loadLeaderboard() {
         try {
-            // Points to the backend.php in the parent directory
-            const response = await fetch('../backend.php', { method: 'POST', body: formData });
+            const formData = new FormData();
+            formData.append('action', 'get_leaderboard');
             
-            if (!response.ok) throw new Error("Network response was not ok");
-            const result = await response.json();
+            const res = await fetch('../backend.php', { method: 'POST', body: formData });
+            const result = await res.json();
             
-            // Handle structure depending on how backend sends it (raw array vs {success: true, data: [...]})
-            const users = Array.isArray(result) ? result : (result.data || []);
-            
-            const listContainer = document.getElementById('leaderboardList');
-            listContainer.innerHTML = ""; // Clear loading text
+            const container = document.getElementById('lbContainer');
+            container.innerHTML = '';
 
-            if (users.length === 0) {
-                listContainer.innerHTML = `
-                    <div class="status-msg" style="color: var(--p1); opacity: 0.7;">
-                        <span style="font-size: 40px; margin-bottom: 10px;">📭</span>
-                        No explorers found. The portal is empty!
-                    </div>`;
-                return;
+            if (result.success && result.data.length > 0) {
+                result.data.forEach((player, index) => {
+                    let rank = index + 1;
+                    let rankClass = rank <= 3 ? `rank-${rank}` : '';
+                    let displayRank = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+                    
+                    let pfpSrc = player.profile_pic ? player.profile_pic : `https://api.dicebear.com/7.x/bottts/svg?seed=${player.username}`;
+                    let pLevel = parseInt(player.prestige_level) || 0;
+                    
+                    container.innerHTML += `
+                        <div class="lb-row ${rankClass}">
+                            <div class="lb-rank">${displayRank}</div>
+                            <img src="${pfpSrc}" class="lb-pfp" alt="PFP" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=Guest'">
+                            <div class="lb-user">${player.username}</div>
+                            <div class="lb-prestige">
+                                <span>Prestige</span> ⭐ ${pLevel}
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                container.innerHTML = '<div style="color: gray; padding: 40px;">No players found on the server.</div>';
             }
-
-            // Render top 100 users
-            users.slice(0, 100).forEach((user, index) => {
-                const rank = index + 1;
-                
-                // Determine styling and avatars based on rank
-                let rowClass = "lb-row";
-                let avatarIcon = "👤";
-                
-                if (rank === 1) { 
-                    rowClass += " top-1"; 
-                    avatarIcon = "👑"; 
-                } else if (rank === 2) { 
-                    rowClass += " top-2"; 
-                    avatarIcon = "🥈"; 
-                } else if (rank === 3) { 
-                    rowClass += " top-3"; 
-                    avatarIcon = "🥉"; 
-                }
-
-                // Parse gems safely
-                const gems = parseInt(user.gems) || 0;
-                
-                // Escape username to prevent XSS (basic safeguard)
-                const safeUsername = document.createElement('div');
-                safeUsername.innerText = user.username || 'Unknown Explorer';
-
-                const row = document.createElement('div');
-                row.className = rowClass;
-                // Stagger the animation so they cascade in smoothly
-                row.style.animationDelay = `${index * 0.05}s`; 
-
-                row.innerHTML = `
-                    <div class="rank">#${rank}</div>
-                    <div class="player-info">
-                        <div class="player-avatar">${avatarIcon}</div>
-                        <span>${safeUsername.innerHTML}</span>
-                    </div>
-                    <div class="score">💎 ${gems.toLocaleString()} <span>GEMS</span></div>
-                `;
-                listContainer.appendChild(row);
-            });
-            
         } catch (e) {
-            console.error("Leaderboard sync failed", e);
-            document.getElementById('leaderboardList').innerHTML = `
-                <div class="status-msg" style="color: #ff4444; border: 1px solid rgba(255,68,68,0.3); background: rgba(255,0,0,0.1); border-radius: 12px; padding: 30px;">
-                    <span style="font-size: 30px; margin-bottom: 10px;">⚠️</span>
-                    Database Connection Error.<br>
-                    <span style="font-size: 14px; color: #ffbbbb; margin-top: 10px; font-weight: normal;">Could not reach ../backend.php</span>
-                </div>`;
+            document.getElementById('lbContainer').innerHTML = '<div style="color: #ff4444; padding: 40px;">Failed to connect to the Hall of Fame server.</div>';
         }
     }
 
-    // Initialize with a slight delay so the user sees the cool loading spinner
-    setTimeout(fetchLeaderboard, 600);
+    loadLeaderboard();
+    setInterval(loadLeaderboard, 30000); // Auto-refresh every 30 seconds
 </script>
+
 </body>
 </html>
