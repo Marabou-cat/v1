@@ -84,7 +84,6 @@ if ($action === 'load') {
         exit;
     }
 
-    // Pulls prestige_level and profile_pic
     $stmt = $pdo->prepare("SELECT coins, gems, playtime, owned_cursors, equipped_cursor, owned_pets, active_pet, pet_ages, last_online, sakura_coins, event_tasks, owned_chests, prestige_level, profile_pic FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $data = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -114,7 +113,6 @@ if ($action === 'save') {
     $event_tasks = $_POST['event_tasks'] ?? '[]';
     $owned_chests = $_POST['owned_chests'] ?? '{}';
     
-    // NEW PRESTIGE & PFP VARIABLES
     $prestige_level = (int)($_POST['prestige_level'] ?? 0);
     $profile_pic = $_POST['profile_pic'] ?? '';
 
@@ -127,9 +125,46 @@ if ($action === 'save') {
     exit;
 }
 
-// --- GET LEADERBOARD ---
+// --- GET LEADERBOARD & DISTRIBUTE MONTHLY REWARDS ---
 if ($action === 'get_leaderboard') {
-    // Ranks by Prestige Level first, uses total Coins as a tie-breaker
+    
+    // 1. Check if the month has rolled over
+    $current_month = date('Y-m'); // Example: "2026-04"
+    $reward_file = 'last_reward_month.txt';
+    $last_reward = file_exists($reward_file) ? file_get_contents($reward_file) : '';
+
+    // If it's a new month, give out the rewards!
+    if ($last_reward !== $current_month) {
+        // Grab the top 10 players
+        $top_stmt = $pdo->query("SELECT id, owned_pets, pet_ages FROM users ORDER BY prestige_level DESC, coins DESC LIMIT 10");
+        $top_players = $top_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $pdo->beginTransaction();
+        try {
+            foreach ($top_players as $p) {
+                $pets = json_decode($p['owned_pets'], true) ?: [];
+                $ages = json_decode($p['pet_ages'], true) ?: [];
+                
+                // Ensure inventory cap isn't exceeded, or just force the reward in
+                if (count($pets) < 50) {
+                    // Generate unique Gem Beast pet ID
+                    $uid = 'gb::' . round(microtime(true) * 1000) . '_' . mt_rand(100, 999);
+                    $pets[] = $uid;
+                    $ages[$uid] = 0; // Level 1
+                    
+                    $upd = $pdo->prepare("UPDATE users SET owned_pets = ?, pet_ages = ? WHERE id = ?");
+                    $upd->execute([json_encode(array_values($pets)), json_encode($ages), $p['id']]);
+                }
+            }
+            // Update the tracker file so it doesn't trigger again this month
+            file_put_contents($reward_file, $current_month);
+            $pdo->commit();
+        } catch (Exception $e) {
+            $pdo->rollBack();
+        }
+    }
+
+    // 2. Fetch the Leaderboard normally
     $stmt = $pdo->query("SELECT username, prestige_level, profile_pic, coins FROM users ORDER BY prestige_level DESC, coins DESC LIMIT 100");
     $leaderboardData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
