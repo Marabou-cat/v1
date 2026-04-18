@@ -95,26 +95,12 @@
         .hero h1 { font-size: 3.5rem; margin-bottom: 10px; color: var(--p1); text-shadow: 0 0 20px rgba(144, 224, 239, 0.3); letter-spacing: -1px; }
         
         .hero-panels { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 30px; max-width: 1000px; margin-left: auto; margin-right: auto; }
-        .recommended-wrapper { flex: 1; min-width: 300px; max-width: 400px; background: linear-gradient(135deg, var(--bg1), var(--bg2)); border: 2px solid var(--p0); border-radius: var(--r); padding: 25px; text-align: center; box-shadow: var(--glow); position: relative; overflow: hidden; cursor: pointer;}
-        
+        .recommended-wrapper { flex: 1; min-width: 300px; max-width: 400px; background: linear-gradient(135deg, var(--bg1), var(--bg2)); border: 2px solid var(--p0); border-radius: var(--r); padding: 25px; text-align: center; box-shadow: var(--glow); position: relative; overflow: hidden; }
         .rec-header { font-size: 12px; color: var(--p1); text-transform: uppercase; letter-spacing: 2px; font-weight: 900; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .rec-header::before, .rec-header::after { content: ""; height: 2px; width: 40px; background: var(--line); }
-        
         .rec-game { display: flex; flex-direction: column; align-items: center; animation: fadeUp 0.5s ease-out forwards; }
-        
-        /* IMAGE STYLING FOR RECOMMENDED ICONS */
-        .rec-icon { 
-            background: var(--bg0); width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; 
-            border-radius: 20px; border: 2px solid var(--p1); margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); 
-            transition: 0.3s; padding: 0; overflow: hidden; position: relative; font-size: 50px;
-        }
-        .rec-icon img { 
-            width: 100%; height: 100%; object-fit: cover; transition: 0.3s; 
-        }
-        .recommended-wrapper:hover .rec-icon { 
-            transform: scale(1.05) rotate(3deg); border-color: #fff; box-shadow: 0 10px 25px rgba(255,255,255,0.3); 
-        }
-
+        .rec-icon { font-size: 50px; background: var(--bg0); width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 20px; border: 2px solid var(--p1); margin-bottom: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
+        .recommended-wrapper:hover .rec-icon { transform: scale(1.1) rotate(5deg); border-color: #fff; }
         .rec-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 10px; }
         .rec-btn { background: var(--p0); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; border:none; transition:0.2s; }
         .rec-btn:hover { background: var(--p1); color: var(--bg0); }
@@ -132,11 +118,7 @@
         .gamesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 30px; text-align: left; }
         .gameCard { background: var(--bg1); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; transition: 0.3s; }
         .gameCard:hover { transform: translateY(-8px); border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); }
-        
-        /* IMAGE STYLING FOR MAIN GRID ICONS */
-        .gameIcon { height: 100px; background: var(--bg0); display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); overflow: hidden; padding: 0; font-size: 32px; }
-        .gameIcon img { width: 100%; height: 100%; object-fit: cover; }
-        
+        .gameIcon { height: 80px; background: linear-gradient(135deg, var(--p2), var(--bg0)); display: flex; align-items: center; justify-content: center; font-size: 32px; border-bottom: 1px solid var(--line); }
         .gameName { padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--w); }
 
         .overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 2000; display: none; flex-direction: column; }
@@ -767,38 +749,18 @@ function redeemCode() {
 
 // --- RECOMMENDED ROTATION LOGIC ---
 const REC_GAMES = [
-    { f: "cl3dash.html", name: "3 Dash", img: "thumbnails/3dash.png" },
-    { f: "clsnowrider.html", name: "Snow Rider 3D", img: "thumbnails/snowrider3d.png" },
-    { f: "clspacewaves.html", name: "Space Wave", img: "thumbnails/spacewave.png" },
-    { f: "https://www.myinstants.com/en/categories/sound%20effects/us/", name: "Soundboard", img: "thumbnails/soundboard.png" }
+    { f: "cl3dash.html", name: "3 Dash", icon: "🔺" }, { f: "clsnowrider.html", name: "Snow Rider 3D", icon: "🏂" },
+    { f: "clspacewaves.html", name: "Space Wave", icon: "🚀" }, { f: "https://www.myinstants.com/en/categories/sound%20effects/us/", name: "Soundboard", icon: "🔊" }
 ];
-
 let currentRecIdx = 0;
 function updateRecommended() {
-    const container = document.getElementById('recGameContainer'); 
-    const progressBar = document.getElementById('recProgress');
+    const container = document.getElementById('recGameContainer'); const progressBar = document.getElementById('recProgress');
     const game = REC_GAMES[currentRecIdx];
-    
-    progressBar.classList.remove('progress-animate'); 
-    void progressBar.offsetWidth; 
-    progressBar.classList.add('progress-animate');
-    
-    let safeGameName = game.name.replace(/'/g, "\\'");
-
-    container.innerHTML = `
-        <div class="rec-game">
-            <div class="rec-icon">
-                <img src="${game.img}" alt="${game.name}" onerror="this.parentElement.innerHTML = getIconForGame('${safeGameName}');" style="width: 100%; height: 100%; object-fit: cover;">
-            </div>
-            <div class="rec-title">${game.name}</div>
-            <button class="rec-btn" onclick="openGame('${game.f}', '${game.name}'); event.stopPropagation();">Launch Module ▶</button>
-        </div>
-    `;
+    progressBar.classList.remove('progress-animate'); void progressBar.offsetWidth; progressBar.classList.add('progress-animate');
+    container.innerHTML = `<div class="rec-game"><div class="rec-icon">${game.icon}</div><div class="rec-title">${game.name}</div><button class="rec-btn" onclick="openGame('${game.f}', '${game.name}'); event.stopPropagation();">Launch Module ▶</button></div>`;
     currentRecIdx = (currentRecIdx + 1) % REC_GAMES.length;
 }
-
-updateRecommended(); 
-setInterval(updateRecommended, 5000);
+updateRecommended(); setInterval(updateRecommended, 5000);
 
 // PET DATA
 const PET_SHOP = [
@@ -966,7 +928,7 @@ function updatePetUI() {
     const petInfo = PET_SHOP.find(p => p.id === baseId);
     if (!petInfo) return;
     const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; const feedCost = 50 + ((level - 1) * 25); 
-    document.getElementById('petPanelContent').innerHTML = `<div class="rec-game"><div class="rec-icon" id="activePetIcon" style="transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; justify-content: center; padding:0; overflow:hidden;">${petInfo.icon.includes('<img') ? petInfo.icon.replace("style='", "style='width:100%; height:100%; object-fit:cover;") : petInfo.icon}</div><div class="rec-title" style="font-size: 20px;">${petInfo.name} <span style="font-size: 14px; color: var(--p1);">Lvl ${level}</span></div><p style="font-size: 13px; color: #ffd700; margin-bottom: 12px; font-weight: bold;">Earns: +${petInfo.baseCoin + (level * 2)} 🪙 / 2m</p><button class="rec-btn" style="background: #3ba55c;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost} 🪙)</button></div>`;
+    document.getElementById('petPanelContent').innerHTML = `<div class="rec-game"><div class="rec-icon" id="activePetIcon" style="transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; justify-content: center;">${petInfo.icon}</div><div class="rec-title" style="font-size: 20px;">${petInfo.name} <span style="font-size: 14px; color: var(--p1);">Lvl ${level}</span></div><p style="font-size: 13px; color: #ffd700; margin-bottom: 12px; font-weight: bold;">Earns: +${petInfo.baseCoin + (level * 2)} 🪙 / 2m</p><button class="rec-btn" style="background: #3ba55c;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost} 🪙)</button></div>`;
 }
 
 function openPetShop() { document.getElementById('petShopOverlay').classList.add('open'); renderPetShop(); }
@@ -1278,6 +1240,8 @@ document.getElementById('customCursorInput').addEventListener('change', function
     reader.readAsDataURL(file);
 });
 
+
+// --- GAMES LIST LOGIC ---
 function getIconForGame(name) {
     const n = name.toLowerCase();
     if (n.includes('car') || n.includes('drive') || n.includes('rider') || n.includes('moto') || n.includes('wheely')) return '🏎️';
@@ -1292,27 +1256,11 @@ function getIconForGame(name) {
 }
 
 function renderGrid(filter = "") {
-    const grid = document.getElementById('gamesGrid'); 
-    grid.innerHTML = "";
+    const grid = document.getElementById('gamesGrid'); grid.innerHTML = "";
     document.getElementById('searchInput').placeholder = `Search ${GAMES.length} verified modules...`;
-    
     GAMES.filter(g => g.name.toLowerCase().includes(filter.toLowerCase())).forEach(game => {
-        const card = document.createElement('div'); 
-        card.className = 'gameCard'; 
-        card.onclick = () => openGame(game.f, game.name);
-        
-        let safeName = game.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-        let imgSrc = game.img ? game.img : `thumbnails/${safeName}.png`;
-        let safeGameName = game.name.replace(/'/g, "\\'");
-
-        card.innerHTML = `
-            <div class="gameIcon" style="padding: 0;">
-                <img src="${imgSrc}" alt="${game.name}" 
-                     style="width: 100%; height: 100%; object-fit: cover;" 
-                     onerror="this.parentElement.innerHTML = getIconForGame('${safeGameName}');">
-            </div>
-            <div class="gameName">${game.name}</div>
-        `;
+        const card = document.createElement('div'); card.className = 'gameCard'; card.onclick = () => openGame(game.f, game.name);
+        card.innerHTML = `<div class="gameIcon">${getIconForGame(game.name)}</div><div class="gameName">${game.name}</div>`;
         grid.appendChild(card);
     });
 }
