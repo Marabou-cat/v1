@@ -1,7 +1,7 @@
 <?php
-// --- DUPLICATE CLEANUP SCRIPT ---
-// This will remove duplicate Gem Beasts, leaving a maximum of 1 per player.
-// It will NOT reset the monthly timer.
+// --- TOTAL WIPE SCRIPT ---
+// This will remove EVERY SINGLE Gem Beast (gb) from all accounts.
+// No survivors.
 
 $config_file = 'config.ini'; 
 if (!file_exists($config_file)) die("Config missing.");
@@ -31,32 +31,25 @@ foreach ($users as $user) {
     
     $changed = false;
     $new_pets = [];
-    $has_gb = false; // Tracker to make sure they keep exactly ONE
 
     // 2. Loop through their pets
     foreach ($pets as $pet) {
         // Check if the pet is a Gem Beast
         if ($pet === 'gb' || strpos($pet, 'gb::') === 0) {
             
-            if (!$has_gb) {
-                // Keep the FIRST Gem Beast we find
-                $has_gb = true;
-                $new_pets[] = $pet; 
-            } else {
-                // If they already have one, DESTROY THE DUPLICATE
-                if (isset($ages[$pet])) {
-                    unset($ages[$pet]);
-                }
-                // Unequip it if they are actively using a glitched duplicate
-                if ($active === $pet) {
-                    $active = '';
-                }
-                $changed = true;
-                $total_gb_removed++;
+            // DESTROY IT COMPLETELY
+            if (isset($ages[$pet])) {
+                unset($ages[$pet]);
             }
+            // Unequip it if they are actively using it
+            if ($active === $pet) {
+                $active = '';
+            }
+            $changed = true;
+            $total_gb_removed++;
             
         } else {
-            // Keep all normal pets
+            // Keep all other normal pets
             $new_pets[] = $pet;
         }
     }
@@ -69,9 +62,8 @@ foreach ($users as $user) {
     }
 }
 
-echo "<h1>✅ Duplicate Cleanup Complete!</h1>";
-echo "<p>Successfully removed <strong>$total_gb_removed</strong> glitched Gem Beasts across <strong>$accounts_fixed</strong> accounts.</p>";
-echo "<p>Every player who had them was left with exactly ONE Gem Beast.</p>";
-echo "<p>The monthly timer was <strong>NOT</strong> reset.</p>";
+echo "<h1>✅ Total Wipe Complete!</h1>";
+echo "<p>Successfully destroyed <strong>$total_gb_removed</strong> Gem Beasts across <strong>$accounts_fixed</strong> accounts.</p>";
+echo "<p>There are exactly 0 Gem Beasts left in the game. The monthly timer was NOT reset.</p>";
 echo "<p style='color: red;'><strong>IMPORTANT:</strong> You can now delete this cleanup_gb.php file from your server!</p>";
 ?>
