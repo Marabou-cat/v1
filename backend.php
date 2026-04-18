@@ -24,7 +24,7 @@ try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // NEW: Auto-create a small table to securely track server states (like the monthly reset)
+    // Auto-create a small table to securely track server states (like the monthly reset)
     $pdo->exec("CREATE TABLE IF NOT EXISTS global_state (
         key_name VARCHAR(50) PRIMARY KEY,
         key_value VARCHAR(255)
@@ -106,6 +106,11 @@ if ($action === 'save') {
         exit;
     }
 
+    // THE SAFETY NET: Grab the existing data first so we don't accidentally wipe it!
+    $stmt = $pdo->prepare("SELECT prestige_level, profile_pic FROM users WHERE id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
     $coins = (int)$_POST['coins'];
     $gems = (int)$_POST['gems'];
     $playtime = (int)$_POST['playtime'];
@@ -120,8 +125,10 @@ if ($action === 'save') {
     $event_tasks = $_POST['event_tasks'] ?? '[]';
     $owned_chests = $_POST['owned_chests'] ?? '{}';
     
-    $prestige_level = (int)($_POST['prestige_level'] ?? 0);
-    $profile_pic = $_POST['profile_pic'] ?? '';
+    // If the HTML page sending the save request (like Event or Evolve) didn't include prestige/pfp, 
+    // it will automatically fallback to whatever is already saved in the database!
+    $prestige_level = isset($_POST['prestige_level']) ? (int)$_POST['prestige_level'] : (int)$existing['prestige_level'];
+    $profile_pic = isset($_POST['profile_pic']) ? $_POST['profile_pic'] : $existing['profile_pic'];
 
     $stmt = $pdo->prepare("UPDATE users SET coins=?, gems=?, playtime=?, owned_cursors=?, equipped_cursor=?, owned_pets=?, active_pet=?, pet_ages=?, last_online=?, sakura_coins=?, event_tasks=?, owned_chests=?, prestige_level=?, profile_pic=? WHERE id=?");
     $stmt->execute([
@@ -153,6 +160,7 @@ if ($action === 'get_leaderboard') {
                 $pets = json_decode($p['owned_pets'], true) ?: [];
                 $ages = json_decode($p['pet_ages'], true) ?: [];
                 
+                // Prevent going over the 50 pet limit
                 if (count($pets) < 50) {
                     // Generate unique Gem Beast pet ID
                     $uid = 'gb::' . round(microtime(true) * 1000) . '_' . mt_rand(100, 999);
@@ -174,7 +182,7 @@ if ($action === 'get_leaderboard') {
         }
     }
 
-    // 2. Fetch the Leaderboard normally
+    // 2. Fetch the Leaderboard normally (Ranked by Prestige first, then Coins)
     $stmt = $pdo->query("SELECT username, prestige_level, profile_pic, coins FROM users ORDER BY prestige_level DESC, coins DESC LIMIT 100");
     $leaderboardData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
