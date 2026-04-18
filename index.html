@@ -1265,14 +1265,13 @@ function renderGrid(filter = "") {
         card.className = 'gameCard'; 
         card.onclick = () => openGame(game.f, game.name);
         
-        // 核心更新：如果存在图标路径，则加载图片。
-        // onerror 属性：如果图片找不到(404)，自动变回你原来的 Emoji 兜底图标！
-        let iconHTML = game.icon 
+        // 核心逻辑：如果 game.icon 有内容，就加载图片。如果加载失败(onerror)，就退回到 Emoji。
+        let iconHTML = (game.icon && game.icon !== "") 
             ? `<img src="${game.icon}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.outerHTML='<span style=\\'font-size: 32px;\\'>${getIconForGame(game.name)}</span>'">`
             : `<span style="font-size: 32px;">${getIconForGame(game.name)}</span>`;
             
         card.innerHTML = `
-            <div class="gameIcon">${iconHTML}</div>
+            <div class="gameIcon" style="padding: 0; overflow: hidden;">${iconHTML}</div>
             <div class="gameName">${game.name}</div>
         `;
         
