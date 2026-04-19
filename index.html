@@ -406,6 +406,8 @@ let gameState = {
 
 const MAX_PETS = 50;
 const MAX_CURSORS = 40;
+let isSellMode = false;
+let selectedForSale = [];
 
 // --- LOGIN / GUEST UI LOGIC ---
 function showLoginOverlay(msg = "") {
@@ -427,20 +429,13 @@ function closeLoginOverlay() {
 }
 
 function navigateAuth(url) {
-    if (isLoggedIn) {
-        window.open(url, '_blank');
-    } else {
-        showLoginOverlay("You must be logged in to access this feature!");
-    }
+    if (isLoggedIn) { window.open(url, '_blank'); } 
+    else { showLoginOverlay("You must be logged in to access this feature!"); }
 }
-
-// --- SELL MODE VARIABLES ---
-let isSellMode = false;
-let selectedForSale = [];
 
 // --- PROFILE & PRESTIGE LOGIC ---
 function updateProfileUI() {
-    const user = document.getElementById('authUsername').value || 'Guest';
+    const user = localStorage.getItem('schoolExamsSavedUser') || 'Guest';
     const pfpSrc = gameState.profile_pic || `https://api.dicebear.com/7.x/bottts/svg?seed=${user}`;
     const pLevel = gameState.prestige_level || 0;
     
@@ -480,7 +475,6 @@ function upgradePrestige() {
     }
     
     gameState.prestige_level = nextLevel;
-    
     updateStatsUI();
     updateProfileUI();
     saveGameToServer();
@@ -508,7 +502,6 @@ function closePrestige() {
     document.getElementById('prestigeOverlay').classList.remove('open');
 }
 
-
 // --- AUTHENTICATION & API COMMUNICATION ---
 async function performAuth(action, userField, passField) {
     const user = document.getElementById(userField).value;
@@ -529,8 +522,8 @@ async function performAuth(action, userField, passField) {
         const result = await response.json();
 
         if (result.success) {
+            // INSTANT LOGIN: Only save the username. We don't need the password anymore!
             localStorage.setItem('schoolExamsSavedUser', user);
-            localStorage.setItem('schoolExamsSavedPass', pass);
             closeLoginOverlay();
             
             isLoggedIn = true;
@@ -539,13 +532,9 @@ async function performAuth(action, userField, passField) {
             document.getElementById('loggedInProfile').style.display = 'flex';
             document.getElementById('logoutBtn').style.display = 'block';
             
-            // Delete guest save so we don't accidentally load it again later
             localStorage.removeItem('schoolExamsGuestState');
-            
             loadGameFromServer(); 
         } else {
-            localStorage.removeItem('schoolExamsSavedUser');
-            localStorage.removeItem('schoolExamsSavedPass');
             errBox.innerText = result.message; errBox.style.color = "#ff4444"; errBox.style.display = 'block';
         }
     } catch (e) {
@@ -553,43 +542,22 @@ async function performAuth(action, userField, passField) {
     }
 }
 
-async function silentAuth(user, pass) {
-    const formData = new FormData();
-    formData.append('action', 'login'); formData.append('username', user); formData.append('password', pass);
-    try {
-        const response = await fetch('backend.php', { method: 'POST', body: formData });
-        const result = await response.json();
-        if (result.success) {
-            isLoggedIn = true;
-            document.getElementById('welcomeUserText').innerText = `Logged in as: ${user}`;
-            document.getElementById('guestLoginBtn').style.display = 'none';
-            document.getElementById('loggedInProfile').style.display = 'flex';
-            document.getElementById('logoutBtn').style.display = 'block';
-            loadGameFromServer(); 
-        } else {
-            localStorage.removeItem('schoolExamsSavedUser');
-            localStorage.removeItem('schoolExamsSavedPass');
-            loadGuestState();
-        }
-    } catch (e) {
-        loadGuestState();
-    }
-}
-
 function logout() {
     localStorage.removeItem('schoolExamsSavedUser');
-    localStorage.removeItem('schoolExamsSavedPass');
     location.reload(); 
 }
 
-// AUTO-LOGIN CHECK OR GUEST LOAD
+// --- INSTANT BOOT LOGIC ---
 window.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
-    const savedPass = localStorage.getItem('schoolExamsSavedPass');
-    if (savedUser && savedPass) {
-        document.getElementById('authUsername').value = savedUser;
-        document.getElementById('authPassword').value = savedPass;
-        silentAuth(savedUser, savedPass);
+    if (savedUser) {
+        // BAM! Instant login without checking password.
+        isLoggedIn = true;
+        document.getElementById('welcomeUserText').innerText = `Logged in as: ${savedUser}`;
+        document.getElementById('guestLoginBtn').style.display = 'none';
+        document.getElementById('loggedInProfile').style.display = 'flex';
+        document.getElementById('logoutBtn').style.display = 'block';
+        loadGameFromServer(); 
     } else {
         loadGuestState();
     }
@@ -609,7 +577,6 @@ function loadGuestState() {
             gameState.playtime = parsed.playtime || 0;
             gameState.owned_cursors = parsed.owned_cursors || ["def"];
             gameState.equipped_cursor = parsed.equipped_cursor || "def";
-            
             updateStatsUI();
             applyCursor();
         } catch(e){}
@@ -618,7 +585,6 @@ function loadGuestState() {
         applyCursor();
     }
 }
-
 
 // --- MIGRATION: SEPARATE INDIVIDUAL PETS ---
 function sanitizePets() {
@@ -632,10 +598,7 @@ function sanitizePets() {
             let uid = pet + '::' + Date.now() + '_' + i;
             new_owned.push(uid);
             new_ages[uid] = gameState.pet_ages[pet] || 0;
-            
-            if (gameState.active_pet === pet) {
-                gameState.active_pet = uid;
-            }
+            if (gameState.active_pet === pet) gameState.active_pet = uid;
         } else {
             new_owned.push(pet);
             new_ages[pet] = gameState.pet_ages[pet] || 0;
@@ -653,7 +616,13 @@ function sanitizePets() {
 }
 
 async function loadGameFromServer() {
-    const formData = new FormData(); formData.append('action', 'load');
+    const formData = new FormData(); 
+    formData.append('action', 'load');
+    
+    // Pass the saved username so backend instantly remembers who you are
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    if (savedUser) formData.append('username', savedUser);
+
     try {
         const response = await fetch('backend.php', { method: 'POST', body: formData });
         const result = await response.json();
@@ -674,29 +643,31 @@ async function loadGameFromServer() {
             gameState.profile_pic = result.data.profile_pic || null;
             
             sanitizePets(); 
-
             updateStatsUI();
-            updateProfileUI(); // Refresh with database PFP and Prestige
+            updateProfileUI(); 
             applyCursor();
             calculatePetNeglect();
             updatePetUI();
-            
             checkMailbox();
         }
-    } catch (e) { console.error("Failed to load data."); }
+    } catch (e) {}
 }
 
 async function saveGameToServer() {
     if (!gameState) return;
     
     if (!isLoggedIn) {
-        // Save guest progress locally
         localStorage.setItem('schoolExamsGuestState', JSON.stringify(gameState));
         return;
     }
 
     const formData = new FormData();
     formData.append('action', 'save');
+    
+    // Pass the saved username so backend instantly reconnects the session
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    if (savedUser) formData.append('username', savedUser);
+
     formData.append('coins', gameState.coins);
     formData.append('gems', gameState.gems);
     formData.append('playtime', gameState.playtime);
@@ -718,7 +689,6 @@ setInterval(() => {
     if (document.getElementById('loginOverlay').classList.contains('open')) return;
     if (document.hidden) return;
     if (document.getElementById('gameOverlay').classList.contains('open')) return;
-
     spawnFlyingCoin();
 }, 20000);
 
@@ -732,10 +702,7 @@ function spawnFlyingCoin() {
     let startX = -100;
     let endX = window.innerWidth + 100;
 
-    if (Math.random() > 0.5) {
-        startX = window.innerWidth + 100;
-        endX = -100;
-    }
+    if (Math.random() > 0.5) { startX = window.innerWidth + 100; endX = -100; }
 
     coin.style.setProperty('--startX', `${startX}px`);
     coin.style.setProperty('--startY', `${startY}px`);
@@ -750,28 +717,21 @@ function spawnFlyingCoin() {
         clicked = true;
         coin.style.display = 'none';
 
-        // BaseCoin Logic
         const curInfo = CURSORS.find(c => c.id === gameState.equipped_cursor);
         const reward = curInfo ? (curInfo.baseCoin || 1) : 1;
 
         gameState.coins += reward;
         updateStatsUI();
         saveGameToServer();
-
         showFloatText(e.clientX, e.clientY, `+${reward}`);
     };
 
-    setTimeout(() => {
-        if(document.body.contains(coin)) coin.remove();
-    }, 8000);
+    setTimeout(() => { if(document.body.contains(coin)) coin.remove(); }, 8000);
 }
 
 function showFloatText(x, y, text) {
-    const el = document.createElement('div');
-    el.className = 'float-text';
-    el.innerText = text;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
+    const el = document.createElement('div'); el.className = 'float-text'; el.innerText = text;
+    el.style.left = `${x}px`; el.style.top = `${y}px`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1000);
 }
@@ -781,14 +741,15 @@ async function checkMailbox() {
     if (!isLoggedIn) return;
     try {
         const fd = new FormData(); fd.append('action', 'load');
+        const savedUser = localStorage.getItem('schoolExamsSavedUser');
+        if (savedUser) fd.append('username', savedUser);
+
         const res = await fetch('mailbox_backend.php', { method: 'POST', body: fd });
         const result = await res.json();
         if (result.success && result.mails.length > 0) {
             const latestId = result.mails[0].id;
             const seenId = parseInt(localStorage.getItem('schoolExamsLastSeenMail') || '0');
-            if (latestId > seenId) {
-                document.getElementById('mailBadge').style.display = 'block';
-            }
+            if (latestId > seenId) document.getElementById('mailBadge').style.display = 'block';
         }
     } catch(e) {}
 }
@@ -797,6 +758,9 @@ async function markMailboxSeen() {
     document.getElementById('mailBadge').style.display = 'none';
     try {
         const fd = new FormData(); fd.append('action', 'load');
+        const savedUser = localStorage.getItem('schoolExamsSavedUser');
+        if (savedUser) fd.append('username', savedUser);
+
         const res = await fetch('mailbox_backend.php', { method: 'POST', body: fd });
         const result = await res.json();
         if (result.success && result.mails.length > 0) {
@@ -808,11 +772,8 @@ setInterval(checkMailbox, 60000);
 
 // INSTANT TAB SYNC
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && isLoggedIn) {
-        loadGameFromServer();
-    }
+    if (document.visibilityState === 'visible' && isLoggedIn) loadGameFromServer();
 });
-
 
 // --- HARDWARE ACCELERATED DOM CURSOR TRACKING ---
 const domCursor = document.getElementById('dom-cursor');
@@ -881,10 +842,10 @@ function redeemCode() {
 
 // --- RECOMMENDED ROTATION LOGIC ---
 const REC_GAMES = [
-    { f: "cl3dash.html", name: "3 Dash", img: "thumbnails/3dash.png" },
-    { f: "clsnowrider.html", name: "Snow Rider 3D", img: "thumbnails/snowrider3d.png" },
-    { f: "clspacewaves.html", name: "Space Wave", img: "thumbnails/spacewave.png" },
-    { f: "https://www.myinstants.com/en/categories/sound%20effects/us/", name: "Soundboard", img: "thumbnails/soundboard.png" }
+    { f: "cl3dash.html", name: "3 Dash", icon: "games_icon/cl3dash.png" },
+    { f: "clsnowrider.html", name: "Snow Rider 3D", icon: "games_icon/clsnowrider.png" },
+    { f: "clspacewaves.html", name: "Space Wave", icon: "games_icon/clspacewaves.png" },
+    { f: "https://www.myinstants.com/en/categories/sound%20effects/us/", name: "Soundboard", icon: "games_icon/soundboard.png" }
 ];
 
 let currentRecIdx = 0;
@@ -902,7 +863,7 @@ function updateRecommended() {
     container.innerHTML = `
         <div class="rec-game">
             <div class="rec-icon">
-                <img src="${game.img}" alt="${game.name}" onerror="this.parentElement.innerHTML = '<span style=\\'font-size: 50px;\\'>' + getIconForGame('${safeGameName}') + '</span>';" style="width: 100%; height: 100%; object-fit: cover;">
+                <img src="${game.icon}" alt="${game.name}" onerror="this.parentElement.innerHTML = '<span style=\\'font-size: 50px;\\'>' + getIconForGame('${safeGameName}') + '</span>';" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
             <div class="rec-title">${game.name}</div>
             <button class="rec-btn" onclick="openGame('${game.f}', '${game.name}'); event.stopPropagation();">Launch Module ▶</button>
@@ -910,9 +871,7 @@ function updateRecommended() {
     `;
     currentRecIdx = (currentRecIdx + 1) % REC_GAMES.length;
 }
-
-updateRecommended(); 
-setInterval(updateRecommended, 5000);
+updateRecommended(); setInterval(updateRecommended, 5000);
 
 // PET DATA
 const PET_SHOP = [
@@ -969,7 +928,6 @@ setInterval(() => {
 
     gameState.playtime++;
 
-    // --- EVENT TASK TRACKER (Specific Games) ---
     if (document.getElementById('gameOverlay').classList.contains('open')) {
         let activeGame = document.getElementById('activeTitle').textContent;
         let tasksChanged = false;
@@ -989,7 +947,6 @@ setInterval(() => {
             if (tasksChanged) saveGameToServer();
         }
     }
-    // ------------------------------------------
 
     if (gameState.playtime > 0 && gameState.playtime % 600 === 0) {
         gameState.coins += 100;
@@ -1015,7 +972,6 @@ setInterval(() => {
     }
 }, 1000);
 
-// --- BUY ONLY PET SHOP UI ---
 function renderPetShop() {
     const container = document.getElementById('petShopContainer');
     container.innerHTML = `<div class="pet-warning-box"><strong>⚠️ Shop Rules:</strong> The shop is for buying only! You can own multiple of the same pet to level them up individually. Equip them in your 🎒 Inventory.</div>`;
@@ -1104,8 +1060,6 @@ const CURSORS = [
     { id: "bp6", name: "Royal Gleam", src: "png/Gleam.png", price: "S1 Pass Reward", isEvent: true, color: "#ffd700", baseCoin: 220 },
     { id: "prism", name: "Prism Wing", src: "png/Prism.png", price: "Event Reward", isEvent: true, color: "#00ffcc", baseCoin: 400 },
     { id: "stick", name: "Stick Of Darkness", src: "png/darkness.png", price: "Season 1 Chest Reward", isEvent: true, color: "#00ffcc", baseCoin: 200 },
-    
-    // --- KAWAII EVENT CURSORS ---
     { id: "sakura_ribbon", name: "Sakura Ribbon", src: "png/ribbon.png", price: "Kawaii Event", isEvent: true, color: "#ffb7b2", baseCoin: 275 },
     { id: "sakura_star", name: "Sakura Star", src: "png/star.png", price: "Sakura Chest Drop", isEvent: true, color: "#ffb7b2", baseCoin: 175 }
 ];
@@ -1115,7 +1069,6 @@ function applyCursor() {
     domCursor.src = targetSrc; localStorage.setItem('currentCursorSrc', targetSrc);
 }
 
-// --- BUY ONLY CURSOR SHOP ---
 function renderShop() {
     const container = document.getElementById('shopContainer'); container.innerHTML = "";
     CURSORS.forEach(item => {
@@ -1158,17 +1111,8 @@ function equipCursor(id) {
 function openShop() { document.getElementById('shopOverlay').classList.add('open'); renderShop(); }
 function closeShop() { document.getElementById('shopOverlay').classList.remove('open'); }
 
-
-// --- NEW INVENTORY SYSTEM ---
-function openInventory() {
-    document.getElementById('inventoryOverlay').classList.add('open');
-    showInvTab('pets'); 
-}
-function closeInventory() {
-    document.getElementById('inventoryOverlay').classList.remove('open');
-    isSellMode = false;
-    selectedForSale = [];
-}
+function openInventory() { document.getElementById('inventoryOverlay').classList.add('open'); showInvTab('pets'); }
+function closeInventory() { document.getElementById('inventoryOverlay').classList.remove('open'); isSellMode = false; selectedForSale = []; }
 
 function showInvTab(tabName) {
     document.getElementById('tabBtnPets').classList.remove('active');
@@ -1186,147 +1130,70 @@ function showInvTab(tabName) {
     renderInventory();
 }
 
-// --- SELL MECHANIC LOGIC ---
-function toggleSellMode() {
-    if (isSellMode && selectedForSale.length > 0) {
-        confirmSale();
-    } else {
-        isSellMode = !isSellMode;
-        selectedForSale = [];
-        renderInventory();
-    }
-}
-
-function cancelSellMode() {
-    isSellMode = false;
-    selectedForSale = [];
-    renderInventory();
-}
+function toggleSellMode() { if (isSellMode && selectedForSale.length > 0) confirmSale(); else { isSellMode = !isSellMode; selectedForSale = []; renderInventory(); } }
+function cancelSellMode() { isSellMode = false; selectedForSale = []; renderInventory(); }
 
 function toggleSelectSale(id, isCursor = false, maxAvailable = 1) {
     if (isCursor) {
         const currentSelected = selectedForSale.filter(x => x === id).length;
-        if (currentSelected >= maxAvailable) {
-            // Deselect all if tapped when full
-            selectedForSale = selectedForSale.filter(x => x !== id);
-        } else {
-            // Add one
-            selectedForSale.push(id);
-        }
+        if (currentSelected >= maxAvailable) selectedForSale = selectedForSale.filter(x => x !== id);
+        else selectedForSale.push(id);
     } else {
-        if (selectedForSale.includes(id)) {
-            selectedForSale = selectedForSale.filter(x => x !== id);
-        } else {
-            selectedForSale.push(id);
-        }
+        if (selectedForSale.includes(id)) selectedForSale = selectedForSale.filter(x => x !== id);
+        else selectedForSale.push(id);
     }
     renderInventory();
 }
 
 function confirmSale() {
-    let totalReward = 0;
-    let itemsSold = 0;
+    let totalReward = 0; let itemsSold = 0;
 
     selectedForSale.forEach(id => {
         if (id.includes('::')) { 
-            // It's a Pet
-            const baseId = id.split('::')[0];
-            const petInfo = PET_SHOP.find(p => p.id === baseId);
-            if (petInfo) {
-                totalReward += (petInfo.baseCoin * 4);
-                gameState.owned_pets = gameState.owned_pets.filter(p => p !== id);
-                delete gameState.pet_ages[id];
-                itemsSold++;
-            }
+            const baseId = id.split('::')[0]; const petInfo = PET_SHOP.find(p => p.id === baseId);
+            if (petInfo) { totalReward += (petInfo.baseCoin * 4); gameState.owned_pets = gameState.owned_pets.filter(p => p !== id); delete gameState.pet_ages[id]; itemsSold++; }
         } else { 
-            // It's a Cursor
             const curInfo = CURSORS.find(c => c.id === id);
-            if (curInfo) {
-                const reward = curInfo.baseCoin || 1;
-                totalReward += (reward * 4);
-                
-                const index = gameState.owned_cursors.indexOf(id);
-                if (index > -1) {
-                    gameState.owned_cursors.splice(index, 1);
-                    itemsSold++;
-                }
-            }
+            if (curInfo) { const reward = curInfo.baseCoin || 1; totalReward += (reward * 4); const index = gameState.owned_cursors.indexOf(id); if (index > -1) { gameState.owned_cursors.splice(index, 1); itemsSold++; } }
         }
     });
 
-    if (itemsSold > 0) {
-        gameState.coins += totalReward;
-        updateStatsUI();
-        saveGameToServer();
-        showToast(`Sold ${itemsSold} item(s) for ${totalReward} 🪙!`);
-    }
-
-    isSellMode = false;
-    selectedForSale = [];
-    renderInventory();
+    if (itemsSold > 0) { gameState.coins += totalReward; updateStatsUI(); saveGameToServer(); showToast(`Sold ${itemsSold} item(s) for ${totalReward} 🪙!`); }
+    isSellMode = false; selectedForSale = []; renderInventory();
 }
 
-// --- RENDER INVENTORY ---
 function renderInventory() {
-    const petContainer = document.getElementById('invPetsContainer');
-    const curContainer = document.getElementById('invCursorsContainer');
-    petContainer.innerHTML = ''; 
-    curContainer.innerHTML = '';
+    const petContainer = document.getElementById('invPetsContainer'); const curContainer = document.getElementById('invCursorsContainer');
+    petContainer.innerHTML = ''; curContainer.innerHTML = '';
     
-    // Update Tab Counters
     document.getElementById('tabBtnPets').innerText = `🐾 My Pets (${gameState.owned_pets.length}/${MAX_PETS})`;
     document.getElementById('tabBtnCursors').innerText = `🖱️ My Cursors (${gameState.owned_cursors.length}/${MAX_CURSORS})`;
 
-    // Handle Sell Mode UI Buttons
-    const btnSell = document.getElementById('btnSellMode');
-    const btnCancel = document.getElementById('btnCancelSell');
+    const btnSell = document.getElementById('btnSellMode'); const btnCancel = document.getElementById('btnCancelSell');
     
     if (isSellMode) {
         btnCancel.style.display = 'inline-block';
-        if (selectedForSale.length > 0) {
-            btnSell.innerText = `💰 Sell Selected (${selectedForSale.length})`;
-            btnSell.style.background = '#3ba55c'; 
-        } else {
-            btnSell.innerText = `💰 Select Items to Sell...`;
-            btnSell.style.background = '#e74c3c';
-        }
+        if (selectedForSale.length > 0) { btnSell.innerText = `💰 Sell Selected (${selectedForSale.length})`; btnSell.style.background = '#3ba55c'; } 
+        else { btnSell.innerText = `💰 Select Items to Sell...`; btnSell.style.background = '#e74c3c'; }
     } else {
-        btnCancel.style.display = 'none';
-        btnSell.innerText = `💰 Sell Items`;
-        btnSell.style.background = '#e74c3c';
+        btnCancel.style.display = 'none'; btnSell.innerText = `💰 Sell Items`; btnSell.style.background = '#e74c3c';
     }
 
-    let curCounts = {};
-    gameState.owned_cursors.forEach(id => curCounts[id] = (curCounts[id] || 0) + 1);
+    let curCounts = {}; gameState.owned_cursors.forEach(id => curCounts[id] = (curCounts[id] || 0) + 1);
 
-    // Draw Pets Inventory (Separated individually)
     if (gameState.owned_pets.length === 0) {
         petContainer.innerHTML = `<div style="color: gray; grid-column: 1/-1;">You don't own any pets yet!</div>`;
     } else {
         gameState.owned_pets.forEach(petUid => {
-            const baseId = petUid.split('::')[0];
-            const pet = PET_SHOP.find(p => p.id === baseId);
+            const baseId = petUid.split('::')[0]; const pet = PET_SHOP.find(p => p.id === baseId);
             if (pet) {
-                const isEquipped = gameState.active_pet === petUid;
-                const level = Math.floor((gameState.pet_ages[petUid] || 0) / 600) + 1;
-                const reward = pet.baseCoin + (level * 2);
-                
-                let btnHTML = '';
-                let cardStyle = pet.color ? `border-color:${pet.color};` : '';
+                const isEquipped = gameState.active_pet === petUid; const level = Math.floor((gameState.pet_ages[petUid] || 0) / 600) + 1; const reward = pet.baseCoin + (level * 2);
+                let btnHTML = ''; let cardStyle = pet.color ? `border-color:${pet.color};` : '';
                 
                 if (isSellMode) {
-                    if (isEquipped) {
-                        btnHTML = `<button class="shop-btn" disabled style="background: #555;">Equipped (Locked)</button>`;
-                    } else {
-                        const isSelected = selectedForSale.includes(petUid);
-                        if (isSelected) cardStyle = `border-color: #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.6);`;
-                        btnHTML = `<button class="shop-btn ${isSelected ? 'equipped' : 'buy'}" onclick="toggleSelectSale('${petUid}')">${isSelected ? 'Selected ✅' : 'Select to Sell'}</button>`;
-                    }
-                } else {
-                    btnHTML = isEquipped 
-                        ? `<button class="shop-btn equipped">Equipped ✓</button>` 
-                        : `<button class="shop-btn equip" onclick="equipPet('${petUid}')" style="background:#3ba55c">Equip</button>`;
-                }
+                    if (isEquipped) { btnHTML = `<button class="shop-btn" disabled style="background: #555;">Equipped (Locked)</button>`; } 
+                    else { const isSelected = selectedForSale.includes(petUid); if (isSelected) cardStyle = `border-color: #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.6);`; btnHTML = `<button class="shop-btn ${isSelected ? 'equipped' : 'buy'}" onclick="toggleSelectSale('${petUid}')">${isSelected ? 'Selected ✅' : 'Select to Sell'}</button>`; }
+                } else { btnHTML = isEquipped ? `<button class="shop-btn equipped">Equipped ✓</button>` : `<button class="shop-btn equip" onclick="equipPet('${petUid}')" style="background:#3ba55c">Equip</button>`; }
                     
                 petContainer.innerHTML += `
                     <div class="shop-item ${isEquipped ? 'equipped' : ''}" style="position:relative; ${cardStyle}">
@@ -1341,35 +1208,16 @@ function renderInventory() {
         });
     }
 
-    // Draw Cursors Inventory (Stacked quantities)
     CURSORS.forEach(item => {
         if (curCounts[item.id]) {
-            const count = curCounts[item.id];
-            const isEquipped = gameState.equipped_cursor === item.id;
-            
-            let btnHTML = '';
-            let cardStyle = item.color ? `border-color:${item.color};` : '';
+            const count = curCounts[item.id]; const isEquipped = gameState.equipped_cursor === item.id;
+            let btnHTML = ''; let cardStyle = item.color ? `border-color:${item.color};` : '';
 
             if (isSellMode) {
-                const selectedCount = selectedForSale.filter(x => x === item.id).length;
-                const availableToSell = count - (isEquipped ? 1 : 0); // Can't sell equipped
-
-                if (availableToSell <= 0) {
-                    btnHTML = `<button class="shop-btn" disabled style="background: #555;">Equipped (Locked)</button>`;
-                } else {
-                    if (selectedCount > 0) cardStyle = `border-color: #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.6);`;
-                    
-                    if (selectedCount >= availableToSell) {
-                        btnHTML = `<button class="shop-btn equipped" onclick="toggleSelectSale('${item.id}', true, ${availableToSell})">Selected All (${selectedCount}) ✅</button>`;
-                    } else {
-                        btnHTML = `<button class="shop-btn buy" onclick="toggleSelectSale('${item.id}', true, ${availableToSell})">Select (${selectedCount}/${availableToSell})</button>`;
-                    }
-                }
-            } else {
-                btnHTML = isEquipped 
-                    ? `<button class="shop-btn equipped">Equipped ✓</button>` 
-                    : `<button class="shop-btn equip" onclick="equipCursor('${item.id}')" style="background:#3ba55c">Equip</button>`;
-            }
+                const selectedCount = selectedForSale.filter(x => x === item.id).length; const availableToSell = count - (isEquipped ? 1 : 0);
+                if (availableToSell <= 0) { btnHTML = `<button class="shop-btn" disabled style="background: #555;">Equipped (Locked)</button>`; } 
+                else { if (selectedCount > 0) cardStyle = `border-color: #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.6);`; if (selectedCount >= availableToSell) { btnHTML = `<button class="shop-btn equipped" onclick="toggleSelectSale('${item.id}', true, ${availableToSell})">Selected All (${selectedCount}) ✅</button>`; } else { btnHTML = `<button class="shop-btn buy" onclick="toggleSelectSale('${item.id}', true, ${availableToSell})">Select (${selectedCount}/${availableToSell})</button>`; } }
+            } else { btnHTML = isEquipped ? `<button class="shop-btn equipped">Equipped ✓</button>` : `<button class="shop-btn equip" onclick="equipCursor('${item.id}')" style="background:#3ba55c">Equip</button>`; }
                 
             curContainer.innerHTML += `
                 <div class="shop-item ${isEquipped ? 'equipped' : ''}" style="position:relative; ${cardStyle}">
@@ -1382,7 +1230,6 @@ function renderInventory() {
         }
     });
 }
-// --------------------------------
 
 document.getElementById('customCursorInput').addEventListener('change', function(e) {
     const file = e.target.files[0]; if (!file) return;
@@ -1406,24 +1253,19 @@ function getIconForGame(name) {
 }
 
 function renderGrid(filter = "") {
-    const grid = document.getElementById('gamesGrid'); 
-    grid.innerHTML = "";
+    const grid = document.getElementById('gamesGrid'); grid.innerHTML = "";
     document.getElementById('searchInput').placeholder = `Search ${GAMES.length} verified modules...`;
     
     GAMES.filter(g => g.name.toLowerCase().includes(filter.toLowerCase())).forEach(game => {
-        const card = document.createElement('div'); 
-        card.className = 'gameCard'; 
-        card.onclick = () => openGame(game.f, game.name);
-        
+        const card = document.createElement('div'); card.className = 'gameCard'; card.onclick = () => openGame(game.f, game.name);
         let safeGameName = game.name.replace(/'/g, "\\'");
-
-        // Directly pull the "game.icon" property you defined in games_data_final.js!
+        
+        let iconHTML = (game.icon && game.icon !== "") 
+            ? `<img src="${game.icon}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.outerHTML='<span style=\\'font-size: 32px;\\'>${getIconForGame(safeGameName)}</span>'">`
+            : `<span style="font-size: 32px;">${getIconForGame(game.name)}</span>`;
+            
         card.innerHTML = `
-            <div class="gameIcon" style="padding: 0;">
-                <img src="${game.icon}" alt="${game.name}" 
-                     style="width: 100%; height: 100%; object-fit: cover;" 
-                     onerror="this.parentElement.innerHTML = '<span style=\\'font-size: 32px;\\'>' + getIconForGame('${safeGameName}') + '</span>';">
-            </div>
+            <div class="gameIcon" style="padding: 0; overflow: hidden;">${iconHTML}</div>
             <div class="gameName">${game.name}</div>
         `;
         grid.appendChild(card);
@@ -1432,10 +1274,8 @@ function renderGrid(filter = "") {
 
 function openGame(file, title) {
     const overlay = document.getElementById('gameOverlay'); const frame = document.getElementById('gameFrame');
-    document.getElementById('activeTitle').textContent = title;
-    gameStartTime = Date.now();
+    document.getElementById('activeTitle').textContent = title; gameStartTime = Date.now();
     let count = parseInt(localStorage.getItem('schoolExamsGamesOpened') || '0'); localStorage.setItem('schoolExamsGamesOpened', count + 1);
-    
     updateStatsUI();
     frame.src = file.startsWith('http') ? file : BASE_URL + file; overlay.classList.add('open'); document.body.style.overflow = "hidden";
 }
@@ -1445,8 +1285,7 @@ function closeGame() {
     if (gameStartTime) {
         let sessionTimeMins = Math.floor((Date.now() - gameStartTime) / 60000); 
         if (sessionTimeMins < 1 && (Date.now() - gameStartTime) > 5000) sessionTimeMins = 1; 
-        gameState.playtime += (sessionTimeMins * 60); gameStartTime = null; 
-        saveGameToServer();
+        gameState.playtime += (sessionTimeMins * 60); gameStartTime = null; saveGameToServer();
     }
     frame.src = "about:blank"; overlay.classList.remove('open'); document.body.style.overflow = "auto"; updateStatsUI();
 }
