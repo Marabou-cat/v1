@@ -30,23 +30,34 @@
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg0); color: var(--w); overflow-x: hidden; }
         .bg-grid { position: fixed; inset: 0; z-index: -1; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 40px 40px; }
         
-        /* LOGIN OVERLAY STYLES */
-        .login-overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 9000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-        .login-box { background: var(--bg1); border: 2px solid var(--p0); border-radius: var(--r); padding: 40px; width: 100%; max-width: 400px; text-align: center; box-shadow: var(--shadow), var(--glow); }
-        .login-box h2 { color: var(--p1); margin-bottom: 20px; font-size: 28px; font-weight: 900; letter-spacing: -1px; }
+        /* UPDATED: LOGIN OVERLAY STYLES */
+        .login-overlay { position: fixed; inset: 0; background: rgba(0, 8, 20, 0.95); backdrop-filter: blur(5px); z-index: 9000; display: none; align-items: center; justify-content: center; flex-direction: column; }
+        .login-overlay.open { display: flex; }
+        .login-box { background: var(--bg1); border: 2px solid var(--p0); border-radius: var(--r); padding: 40px; width: 95%; max-width: 650px; text-align: center; box-shadow: var(--shadow), var(--glow); position: relative; }
+        .login-box h2 { color: var(--p1); margin-bottom: 5px; font-size: 28px; font-weight: 900; letter-spacing: -1px; margin-top: 0; }
+        
+        .btn-close-auth { position: absolute; top: 15px; right: 20px; background: transparent; border: none; color: #fff; font-size: 24px; font-weight: bold; transition: 0.2s; cursor: pointer; }
+        .btn-close-auth:hover { color: #ff4444; transform: scale(1.1); }
+
+        .auth-split { display: flex; gap: 20px; text-align: left; margin-top: 20px; }
+        .auth-col { flex: 1; background: rgba(0,0,0,0.4); padding: 20px; border-radius: 12px; border: 1px solid var(--p2); min-width: 200px; }
+        .auth-col h3 { margin-top: 0; color: var(--w); border-bottom: 2px solid var(--p0); padding-bottom: 10px; text-align: center; }
+
         .login-input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 2px solid var(--p2); background: var(--bg2); color: #fff; font-size: 16px; outline: none; transition: 0.3s; box-sizing: border-box; }
         .login-input:focus { border-color: var(--p1); }
         .btn-auth { background: var(--p0); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: bold; transition: 0.3s; margin-bottom: 10px; }
         .btn-auth:hover { background: var(--p1); color: var(--bg0); box-shadow: 0 0 15px var(--p1); }
         .btn-secondary { background: transparent; border: 2px solid var(--p0); }
         .btn-secondary:hover { background: rgba(0, 119, 182, 0.2); color: #fff; box-shadow: none; }
-        .auth-error { color: #ff4444; font-size: 14px; margin-bottom: 15px; display: none; font-weight: bold; }
+        .auth-error { color: #ff4444; font-size: 14px; margin-bottom: 15px; display: none; font-weight: bold; text-align: center; }
+
+        @media (max-width: 600px) { .auth-split { flex-direction: column; } }
 
         header.topbar { position: fixed; top: 0; left:0; right:0; height: 70px; background: rgba(0, 29, 61, 0.95); backdrop-filter: blur(10px); border-bottom: 2px solid var(--p0); display: flex; align-items: center; padding: 0 30px; z-index: 1000; justify-content: space-between; }
         .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 24px; color: var(--p1); text-decoration: none; letter-spacing: -1px; }
         .brand img { height: 45px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
         
-        /* NEW: PROFILE & PRESTIGE SECTION */
+        /* PROFILE & PRESTIGE SECTION */
         .profile-section { display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(0,0,0,0.5); padding: 5px 15px 5px 5px; border-radius: 30px; border: 1px solid var(--p0); transition: 0.3s; margin-left: 20px; }
         .profile-section:hover { background: var(--p2); box-shadow: var(--glow); }
         .profile-image { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--p1); background: #fff; }
@@ -95,12 +106,25 @@
         .hero h1 { font-size: 3.5rem; margin-bottom: 10px; color: var(--p1); text-shadow: 0 0 20px rgba(144, 224, 239, 0.3); letter-spacing: -1px; }
         
         .hero-panels { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 30px; max-width: 1000px; margin-left: auto; margin-right: auto; }
-        .recommended-wrapper { flex: 1; min-width: 300px; max-width: 400px; background: linear-gradient(135deg, var(--bg1), var(--bg2)); border: 2px solid var(--p0); border-radius: var(--r); padding: 25px; text-align: center; box-shadow: var(--glow); position: relative; overflow: hidden; }
+        .recommended-wrapper { flex: 1; min-width: 300px; max-width: 400px; background: linear-gradient(135deg, var(--bg1), var(--bg2)); border: 2px solid var(--p0); border-radius: var(--r); padding: 25px; text-align: center; box-shadow: var(--glow); position: relative; overflow: hidden; cursor: pointer;}
+        
         .rec-header { font-size: 12px; color: var(--p1); text-transform: uppercase; letter-spacing: 2px; font-weight: 900; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .rec-header::before, .rec-header::after { content: ""; height: 2px; width: 40px; background: var(--line); }
+        
         .rec-game { display: flex; flex-direction: column; align-items: center; animation: fadeUp 0.5s ease-out forwards; }
-        .rec-icon { font-size: 50px; background: var(--bg0); width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; border-radius: 20px; border: 2px solid var(--p1); margin-bottom: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
-        .recommended-wrapper:hover .rec-icon { transform: scale(1.1) rotate(5deg); border-color: #fff; }
+        
+        .rec-icon { 
+            background: var(--bg0); width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; 
+            border-radius: 20px; border: 2px solid var(--p1); margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); 
+            transition: 0.3s; padding: 0; overflow: hidden; position: relative; font-size: 50px;
+        }
+        .rec-icon img { 
+            width: 100%; height: 100%; object-fit: cover; transition: 0.3s; 
+        }
+        .recommended-wrapper:hover .rec-icon { 
+            transform: scale(1.05) rotate(3deg); border-color: #fff; box-shadow: 0 10px 25px rgba(255,255,255,0.3); 
+        }
+
         .rec-title { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 10px; }
         .rec-btn { background: var(--p0); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; border:none; transition:0.2s; }
         .rec-btn:hover { background: var(--p1); color: var(--bg0); }
@@ -118,7 +142,10 @@
         .gamesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 30px; text-align: left; }
         .gameCard { background: var(--bg1); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; transition: 0.3s; }
         .gameCard:hover { transform: translateY(-8px); border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); }
-        .gameIcon { height: 80px; background: linear-gradient(135deg, var(--p2), var(--bg0)); display: flex; align-items: center; justify-content: center; font-size: 32px; border-bottom: 1px solid var(--line); }
+        
+        .gameIcon { height: 100px; background: var(--bg0); display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); overflow: hidden; padding: 0; font-size: 32px; }
+        .gameIcon img { width: 100%; height: 100%; object-fit: cover; }
+        
         .gameName { padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--w); }
 
         .overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 2000; display: none; flex-direction: column; }
@@ -190,38 +217,52 @@
 
 <div class="login-overlay" id="loginOverlay">
     <div class="login-box">
-        <img src="logo.png" alt="Logo" style="height: 60px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.5);" onerror="this.style.display='none'">
+        <button class="btn-close-auth" onclick="closeLoginOverlay()">✕</button>
+        <img src="logo.png" alt="Logo" style="height: 60px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.5);" onerror="this.style.display='none'">
         <h2>Portal Access</h2>
+        <div id="authMessage" style="color: var(--p1); margin-bottom: 15px; font-weight: bold; display: none;"></div>
         <div id="authError" class="auth-error">Invalid Username or Password</div>
-        <input type="text" id="authUsername" class="login-input" placeholder="Username" autocomplete="off">
-        <input type="password" id="authPassword" class="login-input" placeholder="Password">
         
-        <button class="btn-auth" onclick="performAuth('login')">Log In</button>
-        <button class="btn-auth btn-secondary" onclick="performAuth('register')">Create Account</button>
+        <div class="auth-split">
+            <div class="auth-col">
+                <h3>Log In</h3>
+                <input type="text" id="loginUsername" class="login-input" placeholder="Username" autocomplete="off">
+                <input type="password" id="loginPassword" class="login-input" placeholder="Password">
+                <button class="btn-auth" onclick="performAuth('login', 'loginUsername', 'loginPassword')">Log In</button>
+            </div>
+            
+            <div class="auth-col">
+                <h3>Create Account</h3>
+                <input type="text" id="regUsername" class="login-input" placeholder="New Username" autocomplete="off">
+                <input type="password" id="regPassword" class="login-input" placeholder="New Password">
+                <button class="btn-auth btn-secondary" onclick="performAuth('register', 'regUsername', 'regPassword')">Register</button>
+            </div>
+        </div>
     </div>
 </div>
 
 <button class="btn-more-oval" onclick="toggleMoreMenu()">⋮ MORE</button>
 
 <div class="more-sidebar" id="moreSidebar">
-    <div class="more-sidebar-title" id="welcomeUserText">Extra Options</div>
+    <div class="more-sidebar-title" id="welcomeUserText">Guest Mode</div>
 
-    <button class="btn-nav" style="width: 100%; text-align: center; background: #e67e22; border-color: #d35400;" onclick="openInventory(); toggleMoreMenu();">🎒 Inventory</button>
+    <button class="btn-nav" style="width: 100%; text-align: center; background: #e67e22; border-color: #d35400;" onclick="if(isLoggedIn){openInventory();}else{showLoginOverlay('Login required to access Inventory!');}; toggleMoreMenu();">🎒 Inventory</button>
 
-    <a href="leaderboard/" target="_blank" class="btn-nav btn-event" style="width: 100%; text-align: center; display: block; box-sizing: border-box;" onclick="toggleMoreMenu();">🏆 Hall Of Fame</a>
+    <a href="#" class="btn-nav btn-event" style="width: 100%; text-align: center; display: block; box-sizing: border-box;" onclick="navigateAuth('leaderboard/'); toggleMoreMenu();">🏆 Hall Of Fame</a>
 
-     <a href="chestshop/" target="_blank" class="btn-nav btn-event" style="width: 100%; text-align: center; display: block; box-sizing: border-box;" onclick="toggleMoreMenu();">📦Chests</a>
+    <a href="#" class="btn-nav btn-event" style="width: 100%; text-align: center; display: block; box-sizing: border-box;" onclick="navigateAuth('chestshop/'); toggleMoreMenu();">📦Chests</a>
     
-    <a href="mailbox/" target="_blank" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; position: relative; background: #8e44ad; border-color: #9b59b6;" onclick="toggleMoreMenu(); markMailboxSeen();">
+    <a href="#" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; position: relative; background: #8e44ad; border-color: #9b59b6;" onclick="if(isLoggedIn){window.open('mailbox/','_blank'); markMailboxSeen();}else{showLoginOverlay('Login required to view Mail!');}; toggleMoreMenu();">
         📮 Mailbox
         <span id="mailBadge" style="display: none; position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; background: #ff0044; border: 2px solid var(--bg1); border-radius: 50%; box-shadow: 0 0 10px #ff0044; animation: pulseEvent 2s infinite;"></span>
     </a>
 
-    <a href="evolve/" target="_blank" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; background: #ff0055; border-color: #ff3377;" onclick="toggleMoreMenu();">🧬 Evo Lab</a>
+    <a href="#" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; background: #ff0055; border-color: #ff3377;" onclick="navigateAuth('evolve/'); toggleMoreMenu();">🧬 Evo Lab</a>
     
-    <button class="btn-nav btn-redeem" style="width: 100%; text-align: center;" onclick="redeemCode(); toggleMoreMenu();">🎁 Redeem Code</button>
+    <button class="btn-nav btn-redeem" style="width: 100%; text-align: center;" onclick="if(isLoggedIn){redeemCode();}else{showLoginOverlay('Login required to Redeem Codes!');}; toggleMoreMenu();">🎁 Redeem Code</button>
     <button class="btn-nav" style="width: 100%; text-align: center;" onclick="openGame('https://mb.webs.vc', 'Encrypted Web Browser'); toggleMoreMenu();">🌐 Browser</button>
-    <button class="btn-nav" style="width: 100%; text-align: center; background: #d00000; border-color: #ff0000; margin-top: 10px;" onclick="logout(); toggleMoreMenu();">🚪 Log Out</button>
+    
+    <button id="logoutBtn" class="btn-nav" style="width: 100%; text-align: center; background: #d00000; border-color: #ff0000; margin-top: 10px; display:none;" onclick="logout(); toggleMoreMenu();">🚪 Log Out</button>
 </div>
 
 <header class="topbar">
@@ -230,10 +271,12 @@
         SchoolExams
     </a>
     
-    <div class="profile-section" onclick="openPrestige()">
+    <div id="loggedInProfile" class="profile-section" onclick="openPrestige()" style="display: none;">
         <img id="profileImage" class="profile-image" src="png/default_avatar.png" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=Guest'">
         <div class="prestige-badge" id="prestigeBadge">⭐ 0</div>
     </div>
+    
+    <button id="guestLoginBtn" class="btn-nav" style="margin-left: 20px; background: var(--p0); border: 1px solid var(--p1); color: #fff; padding: 8px 20px; font-size: 15px;" onclick="showLoginOverlay()">Log In / Register</button>
 
     <div class="nav-right">
         <div class="coin-tracker" title="Earn ExamCoins by playing and from Pets!">
@@ -243,12 +286,11 @@
             💎 <span id="gemDisplay">0</span> Gems
         </div>
         
-        <a href="Pass/" class="btn-nav btn-bp">🎫Battle Pass</a>
-        <a href="Event/" target="_blank" class="btn-nav btn-event" style="background: #ff748c; box-shadow: 0 0 10px rgba(255, 116, 140, 0.5);">🌸Kawaii Event</a>
+        <a href="#" class="btn-nav btn-bp" onclick="navigateAuth('Pass/')">🎫Battle Pass</a>
+        <a href="#" class="btn-nav btn-event" style="background: #ff748c; box-shadow: 0 0 10px rgba(255, 116, 140, 0.5);" onclick="navigateAuth('Event/')">🌸Kawaii Event</a>
         
-        <button class="btn-nav" onclick="openPetShop()" style="background: linear-gradient(135deg, #3ba55c, #2ecc71); color: #fff; border: none;">🐾 Pets</button>
-        <button class="btn-nav" onclick="openShop()" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Cursors</button>
-        
+        <button class="btn-nav" onclick="if(isLoggedIn){openPetShop();}else{showLoginOverlay('Login required to adopt pets!');}" style="background: linear-gradient(135deg, #3ba55c, #2ecc71); color: #fff; border: none;">🐾 Pets</button>
+        <button class="btn-nav" onclick="if(isLoggedIn){openShop();}else{showLoginOverlay('Login required to buy cursors!');}" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Cursors</button>
     </div>
 </header>
 
@@ -353,6 +395,7 @@
 
 <script>
 // --- BACKEND STATE MANAGEMENT ---
+let isLoggedIn = false;
 let gameState = {
     coins: 0, gems: 0, playtime: 0, sakura_coins: 0, event_tasks: [],
     owned_cursors: ["def"], equipped_cursor: "def",
@@ -363,6 +406,33 @@ let gameState = {
 
 const MAX_PETS = 50;
 const MAX_CURSORS = 40;
+
+// --- LOGIN / GUEST UI LOGIC ---
+function showLoginOverlay(msg = "") {
+    const overlay = document.getElementById('loginOverlay');
+    const msgBox = document.getElementById('authMessage');
+    document.getElementById('authError').style.display = 'none';
+    
+    if (msg) {
+        msgBox.innerText = msg;
+        msgBox.style.display = 'block';
+    } else {
+        msgBox.style.display = 'none';
+    }
+    overlay.classList.add('open');
+}
+
+function closeLoginOverlay() {
+    document.getElementById('loginOverlay').classList.remove('open');
+}
+
+function navigateAuth(url) {
+    if (isLoggedIn) {
+        window.open(url, '_blank');
+    } else {
+        showLoginOverlay("You must be logged in to access this feature!");
+    }
+}
 
 // --- SELL MODE VARIABLES ---
 let isSellMode = false;
@@ -440,9 +510,9 @@ function closePrestige() {
 
 
 // --- AUTHENTICATION & API COMMUNICATION ---
-async function performAuth(action) {
-    const user = document.getElementById('authUsername').value;
-    const pass = document.getElementById('authPassword').value;
+async function performAuth(action, userField, passField) {
+    const user = document.getElementById(userField).value;
+    const pass = document.getElementById(passField).value;
     const errBox = document.getElementById('authError');
 
     if (!user || !pass) { 
@@ -461,8 +531,17 @@ async function performAuth(action) {
         if (result.success) {
             localStorage.setItem('schoolExamsSavedUser', user);
             localStorage.setItem('schoolExamsSavedPass', pass);
-            document.getElementById('loginOverlay').style.display = 'none';
+            closeLoginOverlay();
+            
+            isLoggedIn = true;
             document.getElementById('welcomeUserText').innerText = `Logged in as: ${user}`;
+            document.getElementById('guestLoginBtn').style.display = 'none';
+            document.getElementById('loggedInProfile').style.display = 'flex';
+            document.getElementById('logoutBtn').style.display = 'block';
+            
+            // Delete guest save so we don't accidentally load it again later
+            localStorage.removeItem('schoolExamsGuestState');
+            
             loadGameFromServer(); 
         } else {
             localStorage.removeItem('schoolExamsSavedUser');
@@ -474,26 +553,72 @@ async function performAuth(action) {
     }
 }
 
+async function silentAuth(user, pass) {
+    const formData = new FormData();
+    formData.append('action', 'login'); formData.append('username', user); formData.append('password', pass);
+    try {
+        const response = await fetch('backend.php', { method: 'POST', body: formData });
+        const result = await response.json();
+        if (result.success) {
+            isLoggedIn = true;
+            document.getElementById('welcomeUserText').innerText = `Logged in as: ${user}`;
+            document.getElementById('guestLoginBtn').style.display = 'none';
+            document.getElementById('loggedInProfile').style.display = 'flex';
+            document.getElementById('logoutBtn').style.display = 'block';
+            loadGameFromServer(); 
+        } else {
+            localStorage.removeItem('schoolExamsSavedUser');
+            localStorage.removeItem('schoolExamsSavedPass');
+            loadGuestState();
+        }
+    } catch (e) {
+        loadGuestState();
+    }
+}
+
 function logout() {
     localStorage.removeItem('schoolExamsSavedUser');
     localStorage.removeItem('schoolExamsSavedPass');
     location.reload(); 
 }
 
-// AUTO-LOGIN CHECK
+// AUTO-LOGIN CHECK OR GUEST LOAD
 window.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
     const savedPass = localStorage.getItem('schoolExamsSavedPass');
     if (savedUser && savedPass) {
         document.getElementById('authUsername').value = savedUser;
         document.getElementById('authPassword').value = savedPass;
-        const errBox = document.getElementById('authError');
-        errBox.innerText = "Logging you back in securely..."; errBox.style.color = "#00ffcc"; errBox.style.display = 'block';
-        performAuth('login');
+        silentAuth(savedUser, savedPass);
     } else {
-        updateProfileUI(); // LOAD GUEST PROFILE
+        loadGuestState();
     }
 });
+
+function loadGuestState() {
+    isLoggedIn = false;
+    document.getElementById('guestLoginBtn').style.display = 'inline-block';
+    document.getElementById('loggedInProfile').style.display = 'none';
+    
+    const guestData = localStorage.getItem('schoolExamsGuestState');
+    if (guestData) {
+        try {
+            const parsed = JSON.parse(guestData);
+            gameState.coins = parsed.coins || 0;
+            gameState.gems = parsed.gems || 0;
+            gameState.playtime = parsed.playtime || 0;
+            gameState.owned_cursors = parsed.owned_cursors || ["def"];
+            gameState.equipped_cursor = parsed.equipped_cursor || "def";
+            
+            updateStatsUI();
+            applyCursor();
+        } catch(e){}
+    } else {
+        updateStatsUI();
+        applyCursor();
+    }
+}
+
 
 // --- MIGRATION: SEPARATE INDIVIDUAL PETS ---
 function sanitizePets() {
@@ -563,6 +688,13 @@ async function loadGameFromServer() {
 
 async function saveGameToServer() {
     if (!gameState) return;
+    
+    if (!isLoggedIn) {
+        // Save guest progress locally
+        localStorage.setItem('schoolExamsGuestState', JSON.stringify(gameState));
+        return;
+    }
+
     const formData = new FormData();
     formData.append('action', 'save');
     formData.append('coins', gameState.coins);
@@ -583,7 +715,7 @@ async function saveGameToServer() {
 
 // --- FLYING COIN MECHANIC ---
 setInterval(() => {
-    if (document.getElementById('loginOverlay').style.display !== 'none') return;
+    if (document.getElementById('loginOverlay').classList.contains('open')) return;
     if (document.hidden) return;
     if (document.getElementById('gameOverlay').classList.contains('open')) return;
 
@@ -646,7 +778,7 @@ function showFloatText(x, y, text) {
 
 // --- MAILBOX NOTIFICATION LOGIC ---
 async function checkMailbox() {
-    if (document.getElementById('loginOverlay').style.display !== 'none') return;
+    if (!isLoggedIn) return;
     try {
         const fd = new FormData(); fd.append('action', 'load');
         const res = await fetch('mailbox_backend.php', { method: 'POST', body: fd });
@@ -676,7 +808,7 @@ setInterval(checkMailbox, 60000);
 
 // INSTANT TAB SYNC
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && document.getElementById('loginOverlay').style.display === 'none') {
+    if (document.visibilityState === 'visible' && isLoggedIn) {
         loadGameFromServer();
     }
 });
@@ -749,18 +881,38 @@ function redeemCode() {
 
 // --- RECOMMENDED ROTATION LOGIC ---
 const REC_GAMES = [
-    { f: "cl3dash.html", name: "3 Dash", icon: "🔺" }, { f: "clsnowrider.html", name: "Snow Rider 3D", icon: "🏂" },
-    { f: "clspacewaves.html", name: "Space Wave", icon: "🚀" }, { f: "https://www.myinstants.com/en/categories/sound%20effects/us/", name: "Soundboard", icon: "🔊" }
+    { f: "cl3dash.html", name: "3 Dash", img: "thumbnails/3dash.png" },
+    { f: "clsnowrider.html", name: "Snow Rider 3D", img: "thumbnails/snowrider3d.png" },
+    { f: "clspacewaves.html", name: "Space Wave", img: "thumbnails/spacewave.png" },
+    { f: "https://www.myinstants.com/en/categories/sound%20effects/us/", name: "Soundboard", img: "thumbnails/soundboard.png" }
 ];
+
 let currentRecIdx = 0;
 function updateRecommended() {
-    const container = document.getElementById('recGameContainer'); const progressBar = document.getElementById('recProgress');
+    const container = document.getElementById('recGameContainer'); 
+    const progressBar = document.getElementById('recProgress');
     const game = REC_GAMES[currentRecIdx];
-    progressBar.classList.remove('progress-animate'); void progressBar.offsetWidth; progressBar.classList.add('progress-animate');
-    container.innerHTML = `<div class="rec-game"><div class="rec-icon">${game.icon}</div><div class="rec-title">${game.name}</div><button class="rec-btn" onclick="openGame('${game.f}', '${game.name}'); event.stopPropagation();">Launch Module ▶</button></div>`;
+    
+    progressBar.classList.remove('progress-animate'); 
+    void progressBar.offsetWidth; 
+    progressBar.classList.add('progress-animate');
+    
+    let safeGameName = game.name.replace(/'/g, "\\'");
+
+    container.innerHTML = `
+        <div class="rec-game">
+            <div class="rec-icon">
+                <img src="${game.img}" alt="${game.name}" onerror="this.parentElement.innerHTML = '<span style=\\'font-size: 50px;\\'>' + getIconForGame('${safeGameName}') + '</span>';" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <div class="rec-title">${game.name}</div>
+            <button class="rec-btn" onclick="openGame('${game.f}', '${game.name}'); event.stopPropagation();">Launch Module ▶</button>
+        </div>
+    `;
     currentRecIdx = (currentRecIdx + 1) % REC_GAMES.length;
 }
-updateRecommended(); setInterval(updateRecommended, 5000);
+
+updateRecommended(); 
+setInterval(updateRecommended, 5000);
 
 // PET DATA
 const PET_SHOP = [
@@ -812,7 +964,7 @@ function showToast(msg) {
 
 // MAIN INTERVAL LOOP (1 Second)
 setInterval(() => {
-    if (document.getElementById('loginOverlay').style.display !== 'none') return;
+    if (document.getElementById('loginOverlay').classList.contains('open')) return;
     if (document.hidden) return; 
 
     gameState.playtime++;
@@ -928,7 +1080,7 @@ function updatePetUI() {
     const petInfo = PET_SHOP.find(p => p.id === baseId);
     if (!petInfo) return;
     const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; const feedCost = 50 + ((level - 1) * 25); 
-    document.getElementById('petPanelContent').innerHTML = `<div class="rec-game"><div class="rec-icon" id="activePetIcon" style="transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; justify-content: center;">${petInfo.icon}</div><div class="rec-title" style="font-size: 20px;">${petInfo.name} <span style="font-size: 14px; color: var(--p1);">Lvl ${level}</span></div><p style="font-size: 13px; color: #ffd700; margin-bottom: 12px; font-weight: bold;">Earns: +${petInfo.baseCoin + (level * 2)} 🪙 / 2m</p><button class="rec-btn" style="background: #3ba55c;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost} 🪙)</button></div>`;
+    document.getElementById('petPanelContent').innerHTML = `<div class="rec-game"><div class="rec-icon" id="activePetIcon" style="transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; justify-content: center; padding:0; overflow:hidden;">${petInfo.icon.includes('<img') ? petInfo.icon.replace("style='", "style='width:100%; height:100%; object-fit:cover;") : petInfo.icon}</div><div class="rec-title" style="font-size: 20px;">${petInfo.name} <span style="font-size: 14px; color: var(--p1);">Lvl ${level}</span></div><p style="font-size: 13px; color: #ffd700; margin-bottom: 12px; font-weight: bold;">Earns: +${petInfo.baseCoin + (level * 2)} 🪙 / 2m</p><button class="rec-btn" style="background: #3ba55c;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost} 🪙)</button></div>`;
 }
 
 function openPetShop() { document.getElementById('petShopOverlay').classList.add('open'); renderPetShop(); }
@@ -1240,8 +1392,6 @@ document.getElementById('customCursorInput').addEventListener('change', function
     reader.readAsDataURL(file);
 });
 
-
-// --- GAMES LIST LOGIC ---
 function getIconForGame(name) {
     const n = name.toLowerCase();
     if (n.includes('car') || n.includes('drive') || n.includes('rider') || n.includes('moto') || n.includes('wheely')) return '🏎️';
@@ -1265,16 +1415,18 @@ function renderGrid(filter = "") {
         card.className = 'gameCard'; 
         card.onclick = () => openGame(game.f, game.name);
         
-        // 核心逻辑：如果 game.icon 有内容，就加载图片。如果加载失败(onerror)，就退回到 Emoji。
-        let iconHTML = (game.icon && game.icon !== "") 
-            ? `<img src="${game.icon}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.outerHTML='<span style=\\'font-size: 32px;\\'>${getIconForGame(game.name)}</span>'">`
-            : `<span style="font-size: 32px;">${getIconForGame(game.name)}</span>`;
-            
+        let safeName = game.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        let imgSrc = game.img ? game.img : `thumbnails/${safeName}.png`;
+        let safeGameName = game.name.replace(/'/g, "\\'");
+
         card.innerHTML = `
-            <div class="gameIcon" style="padding: 0; overflow: hidden;">${iconHTML}</div>
+            <div class="gameIcon" style="padding: 0;">
+                <img src="${imgSrc}" alt="${game.name}" 
+                     style="width: 100%; height: 100%; object-fit: cover;" 
+                     onerror="this.parentElement.innerHTML = '<span style=\\'font-size: 32px;\\'>' + getIconForGame('${safeGameName}') + '</span>';">
+            </div>
             <div class="gameName">${game.name}</div>
         `;
-        
         grid.appendChild(card);
     });
 }
