@@ -1415,13 +1415,12 @@ function renderGrid(filter = "") {
         card.className = 'gameCard'; 
         card.onclick = () => openGame(game.f, game.name);
         
-        let safeName = game.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-        let imgSrc = game.img ? game.img : `thumbnails/${safeName}.png`;
         let safeGameName = game.name.replace(/'/g, "\\'");
 
+        // Directly pull the "game.icon" property you defined in games_data_final.js!
         card.innerHTML = `
             <div class="gameIcon" style="padding: 0;">
-                <img src="${imgSrc}" alt="${game.name}" 
+                <img src="${game.icon}" alt="${game.name}" 
                      style="width: 100%; height: 100%; object-fit: cover;" 
                      onerror="this.parentElement.innerHTML = '<span style=\\'font-size: 32px;\\'>' + getIconForGame('${safeGameName}') + '</span>';">
             </div>
