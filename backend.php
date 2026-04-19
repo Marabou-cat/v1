@@ -24,7 +24,6 @@ try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Auto-create a small table to securely track server states (like the monthly reset)
     $pdo->exec("CREATE TABLE IF NOT EXISTS global_state (
         key_name VARCHAR(50) PRIMARY KEY,
         key_value VARCHAR(255)
@@ -35,6 +34,18 @@ try {
 }
 
 $action = $_POST['action'] ?? '';
+
+// --- INSTANT RECONNECT HELPER ---
+// If the session died but the browser sent the saved username, instantly log them back in.
+if (($action === 'load' || $action === 'save') && !isset($_SESSION['user_id']) && !empty($_POST['username'])) {
+    $stmt = $pdo->prepare("SELECT id, username FROM users WHERE username = ?");
+    $stmt->execute([$_POST['username']]);
+    $u = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($u) {
+        $_SESSION['user_id'] = $u['id'];
+        $_SESSION['username'] = $u['username'];
+    }
+}
 
 // --- REGISTER ---
 if ($action === 'register') {
@@ -106,7 +117,6 @@ if ($action === 'save') {
         exit;
     }
 
-    // THE SAFETY NET: Grab the existing data first so we don't accidentally wipe it!
     $stmt = $pdo->prepare("SELECT prestige_level, profile_pic FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $existing = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -125,8 +135,6 @@ if ($action === 'save') {
     $event_tasks = $_POST['event_tasks'] ?? '[]';
     $owned_chests = $_POST['owned_chests'] ?? '{}';
     
-    // If the HTML page sending the save request (like Event or Evolve) didn't include prestige/pfp, 
-    // it will automatically fallback to whatever is already saved in the database!
     $prestige_level = isset($_POST['prestige_level']) ? (int)$_POST['prestige_level'] : (int)$existing['prestige_level'];
     $profile_pic = isset($_POST['profile_pic']) ? $_POST['profile_pic'] : $existing['profile_pic'];
 
@@ -142,17 +150,13 @@ if ($action === 'save') {
 // --- GET LEADERBOARD & DISTRIBUTE MONTHLY REWARDS ---
 if ($action === 'get_leaderboard') {
     
-    // 1. Check if the month has rolled over (Using Database)
-    $current_month = date('Y-m'); // Example: "2026-04"
-    
+    $current_month = date('Y-m'); 
     $stmt = $pdo->query("SELECT key_value FROM global_state WHERE key_name = 'last_reward_month'");
     $last_reward = $stmt->fetchColumn() ?: '';
 
-    // If it's a new month in the database, give out the rewards!
     if ($last_reward !== $current_month) {
         $pdo->beginTransaction();
         try {
-            // Grab the top 10 players
             $top_stmt = $pdo->query("SELECT id, owned_pets, pet_ages FROM users ORDER BY prestige_level DESC, coins DESC LIMIT 10");
             $top_players = $top_stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -160,19 +164,16 @@ if ($action === 'get_leaderboard') {
                 $pets = json_decode($p['owned_pets'], true) ?: [];
                 $ages = json_decode($p['pet_ages'], true) ?: [];
                 
-                // Prevent going over the 50 pet limit
                 if (count($pets) < 50) {
-                    // Generate unique Gem Beast pet ID
                     $uid = 'gb::' . round(microtime(true) * 1000) . '_' . mt_rand(100, 999);
                     $pets[] = $uid;
-                    $ages[$uid] = 0; // Level 1
+                    $ages[$uid] = 0; 
                     
                     $upd = $pdo->prepare("UPDATE users SET owned_pets = ?, pet_ages = ? WHERE id = ?");
                     $upd->execute([json_encode(array_values($pets)), json_encode($ages), $p['id']]);
                 }
             }
             
-            // Save the current month into the database so it doesn't trigger again!
             $stmt = $pdo->prepare("INSERT INTO global_state (key_name, key_value) VALUES ('last_reward_month', ?) ON DUPLICATE KEY UPDATE key_value = ?");
             $stmt->execute([$current_month, $current_month]);
             
@@ -182,7 +183,6 @@ if ($action === 'get_leaderboard') {
         }
     }
 
-    // 2. Fetch the Leaderboard normally (Ranked by Prestige first, then Coins)
     $stmt = $pdo->query("SELECT username, prestige_level, profile_pic, coins FROM users ORDER BY prestige_level DESC, coins DESC LIMIT 100");
     $leaderboardData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
