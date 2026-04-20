@@ -56,9 +56,29 @@ $EVOLUTIONS = [
         "target_id" => "crystal_dragon",
         "target_name" => "Crystal Dragon",
         "req_level" => 60,
-        "cost" => 800,
+        "cost" => 2000,
         "currency" => "gems",
         "img" => "../png/crystal_dragon.png",
+        "color" => "#00ffcc"
+    ],
+    "phoenix" => [
+        "base_name" => "Mythic Phoenix",
+        "target_id" => "griffin",
+        "target_name" => "Flaming Griffin",
+        "req_level" => 30,
+        "cost" => 145000,
+        "currency" => "coins",
+        "img" => "../png/griffin.png",
+        "color" => "#00ffcc"
+    ],
+    "griffin" => [
+        "base_name" => "Flaming Griffin",
+        "target_id" => "aerodactylus",
+        "target_name" => "Eruption Aerodactylus",
+        "req_level" => 75,
+        "cost" => 2000,
+        "currency" => "gems",
+        "img" => "../png/aerodactylus.png",
         "color" => "#00ffcc"
     ]
 ];
