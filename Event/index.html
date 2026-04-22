@@ -221,7 +221,6 @@ function renderKawaiiShop() {
         } else if (item.type === 'currency') {
             btnHTML = `<button class="btn-buy btn-buy-gems" onclick="buyGems()">Buy for ${item.cost.toLocaleString()} 🌸</button>`;
         } else {
-            // Replaced generic Buy btn with duplicate-friendly Buy btn
             btnHTML = `<button class="btn-buy" onclick="buyItem('${item.type}', '${item.id}', ${item.cost}, '${item.name}')">Buy for ${item.cost.toLocaleString()} 🌸</button>`;
         }
 
@@ -364,25 +363,61 @@ async function shakeTree() {
         
         let totalCoinsWon = 0;
         let totalPointsRedeemed = 0;
+        let seedsWon = 0;
 
         claimableTasks.forEach(task => {
             for (let i = 0; i < task.points; i++) {
                 totalPointsRedeemed++;
                 totalCoinsWon += 100;
+                
+                // 1% chance for the Mysterious Seed per point redeemed!
+                if (Math.random() < 0.01) {
+                    seedsWon++;
+                }
             }
         });
 
+        // Add coins
         gameState.sakura_coins += totalCoinsWon;
+        
+        // Process Seed Drops
+        let actuallyGivenSeeds = 0;
+        for (let i = 0; i < seedsWon; i++) {
+            if (gameState.owned_pets.length < MAX_PETS) {
+                let uid = 'seed::' + Date.now() + '_' + i;
+                gameState.owned_pets.push(uid);
+                gameState.pet_ages[uid] = 0;
+                actuallyGivenSeeds++;
+            }
+        }
+
+        // Filter out completed tasks
         gameState.event_tasks = gameState.event_tasks.filter(t => !t.completed);
         
         fillTasks(); 
         updateCurrencies();
+        await saveGameToServer(); // Immediately save newly added pets/coins
 
-        document.getElementById('rewardIcon').innerText = '🌸';
-        document.getElementById('rewardDesc').innerHTML = `
+        // Build the Reward Message dynamically
+        let rewardMsg = `
             <span style="color: #ffd700;">Redeemed ${totalPointsRedeemed} Points!</span><br><br>
             <span style="color: var(--p1); font-size: 22px;">+${totalCoinsWon} Sakura Coins</span>
         `;
+        
+        if (actuallyGivenSeeds > 0) {
+            rewardMsg += `<br><br><span style="color: #3ba55c; font-size: 20px; text-shadow: 0 0 10px #3ba55c;">🌱 You found ${actuallyGivenSeeds} Mysterious Seed(s)!</span>`;
+            document.getElementById('rewardIcon').innerText = '🌱';
+            document.getElementById('rewardIcon').style.filter = 'drop-shadow(0 0 20px #3ba55c)';
+        } else if (seedsWon > 0 && actuallyGivenSeeds === 0) {
+            rewardMsg += `<br><br><span style="color: #ff4444; font-size: 14px;">You found a Mysterious Seed, but your Pet Inventory is full!</span>`;
+            document.getElementById('rewardIcon').innerText = '🌸';
+            document.getElementById('rewardIcon').style.filter = 'drop-shadow(0 0 20px rgba(255,255,255,0.4))';
+        } else {
+            document.getElementById('rewardIcon').innerText = '🌸';
+            document.getElementById('rewardIcon').style.filter = 'drop-shadow(0 0 20px rgba(255,255,255,0.4))';
+        }
+
+        document.getElementById('rewardDesc').innerHTML = rewardMsg;
         document.getElementById('rewardPopup').style.display = 'flex';
         
         isShaking = false;
