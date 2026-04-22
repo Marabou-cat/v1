@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Encrypted Web Browser</title>
+    
+    <style>
+        :root {
+            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
+            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
+            --w: #caf0f8; --line: rgba(144, 224, 239, 0.2);
+            --shadow: 0 12px 40px rgba(0,0,0,0.7);
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: var(--bg0); 
+            color: var(--w); 
+            margin: 0; 
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- BROWSER TOOLBAR --- */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px 20px;
+            background: rgba(0, 29, 61, 0.95);
+            border-bottom: 2px solid var(--p0);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        .btn-nav {
+            background: var(--bg2);
+            border: 2px solid var(--p2);
+            color: white;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-nav:hover {
+            background: var(--p0);
+            border-color: var(--p1);
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(144, 224, 239, 0.4);
+        }
+
+        .address-bar-container {
+            flex: 1;
+            display: flex;
+            background: var(--bg0);
+            border: 2px solid var(--p2);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: 0.3s;
+        }
+
+        .address-bar-container:focus-within {
+            border-color: var(--p1);
+            box-shadow: 0 0 20px rgba(144, 224, 239, 0.3);
+        }
+
+        .address-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            padding: 15px 20px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .btn-go {
+            background: var(--p0);
+            border: none;
+            color: #fff;
+            padding: 0 25px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-go:hover { background: var(--p1); color: var(--bg0); }
+
+        /* --- BROWSER VIEWPORT --- */
+        .viewport {
+            flex: 1;
+            width: 100%;
+            background: #fff; /* Default white background for websites */
+            position: relative;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <button class="btn-nav" onclick="window.location.href='../'" title="Back to Portal">🏠</button>
+        <button class="btn-nav" onclick="document.getElementById('browserFrame').contentWindow.history.back()" title="Go Back">⬅️</button>
+        <button class="btn-nav" onclick="document.getElementById('browserFrame').contentWindow.history.forward()" title="Go Forward">➡️</button>
+        <button class="btn-nav" onclick="document.getElementById('browserFrame').src = document.getElementById('browserFrame').src" title="Reload">🔄</button>
+        
+        <div class="address-bar-container">
+            <input type="text" id="urlInput" class="address-input" placeholder="Search the web or enter a URL...">
+            <button class="btn-go" onclick="loadUrl()">GO</button>
+        </div>
+    </div>
+
+    <div class="viewport">
+        <iframe id="browserFrame" src="https://duckduckgo.com"></iframe>
+    </div>
+
+    <script>
+        function loadUrl() {
+            let url = document.getElementById('urlInput').value.trim();
+            if (!url) return;
+
+            // If the user types "discord.com" instead of "https://discord.com"
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                // If it looks like a website (has a dot and no spaces)
+                if (url.includes('.') && !url.includes(' ')) {
+                    url = 'https://' + url;
+                } else {
+                    // Otherwise, treat it as a search query
+                    url = 'https://duckduckgo.com/?q=' + encodeURIComponent(url);
+                }
+            }
+
+            document.getElementById('browserFrame').src = url;
+        }
+
+        // Allow pressing "Enter" to search
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadUrl();
+            }
+        });
+    </script>
+</body>
+</html>
