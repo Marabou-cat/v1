@@ -633,7 +633,6 @@ async function loadGameFromServer() {
     const formData = new FormData(); 
     formData.append('action', 'load');
     
-    // Pass the saved username so backend instantly remembers who you are
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
     if (savedUser) formData.append('username', savedUser);
 
@@ -655,6 +654,7 @@ async function loadGameFromServer() {
             gameState.last_online = parseInt(result.data.last_online) || Date.now();
             gameState.prestige_level = parseInt(result.data.prestige_level) || 0;
             gameState.profile_pic = result.data.profile_pic || null;
+            gameState.owned_items = JSON.parse(result.data.owned_items || '[]'); // <-- THIS IS THE MISSING LINE!
             
             sanitizePets(); 
             updateStatsUI();
@@ -678,7 +678,6 @@ async function saveGameToServer() {
     const formData = new FormData();
     formData.append('action', 'save');
     
-    // Pass the saved username so backend instantly reconnects the session
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
     if (savedUser) formData.append('username', savedUser);
 
@@ -694,6 +693,7 @@ async function saveGameToServer() {
     formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
     formData.append('prestige_level', gameState.prestige_level || 0);
     formData.append('profile_pic', gameState.profile_pic || '');
+    formData.append('owned_items', JSON.stringify(gameState.owned_items || [])); // <-- THIS IS THE MISSING LINE!
 
     try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 }
