@@ -43,6 +43,17 @@ $EVOLUTIONS = [
         "img" => "../png/flytrap.png",
         "color" => "#3ba55c"
     ],
+    "flytrap" => [
+        "base_name" => "Moonlight Flytrap",
+        "target_id" => "mboe",
+        "target_name" => "Moonlight Beast Of Eclipse",
+        "req_level" => 75,
+        "req_item" => "Moonstone", // The required item
+        "cost" => 1250,
+        "currency" => "gems",
+        "img" => "../png/mboe.png",
+        "color" => "#3ba55c"
+    ],
     "cat" => [
         "base_name" => "Cyber Kitty",
         "target_id" => "mecha_cat",
