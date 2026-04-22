@@ -155,8 +155,8 @@
         .btn-close { background: #d00000; border: none; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 900; transition: 0.2s; cursor: pointer;}
         .btn-close:hover { background: #ff0000; box-shadow: 0 0 10px #ff0000; }
 
-        .inv-tabs { display: flex; justify-content: center; gap: 20px; padding: 20px; background: var(--bg0); border-bottom: 2px solid var(--line); }
-        .inv-tab-btn { background: var(--bg2); color: var(--w); border: 2px solid var(--p2); padding: 10px 30px; border-radius: 20px; font-weight: 900; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .inv-tabs { display: flex; justify-content: center; gap: 10px; padding: 20px; background: var(--bg0); border-bottom: 2px solid var(--line); }
+        .inv-tab-btn { background: var(--bg2); color: var(--w); border: 2px solid var(--p2); padding: 10px 20px; border-radius: 20px; font-weight: 900; font-size: 14px; cursor: pointer; transition: 0.3s; }
         .inv-tab-btn.active { background: var(--p0); border-color: var(--p1); box-shadow: var(--glow-blue); }
 
         .shop-container { padding: 30px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; width: 100%; }
@@ -233,10 +233,12 @@
         <div class="inv-tabs">
             <button class="inv-tab-btn active" id="tabBtnPets" onclick="showInvTab('pets')">🐾 My Pets</button>
             <button class="inv-tab-btn" id="tabBtnCursors" onclick="showInvTab('cursors')">🖱️ My Cursors</button>
+            <button class="inv-tab-btn" id="tabBtnItems" onclick="showInvTab('items')">🎒 My Items</button>
         </div>
         
         <div class="shop-container" id="invPetsContainer"></div>
         <div class="shop-container" id="invCursorsContainer" style="display: none;"></div>
+        <div class="shop-container" id="invItemsContainer" style="display: none;"></div>
     </div>
 
 <script>
@@ -295,6 +297,9 @@
     let myOffer = [];
     let myGemOffer = 0; 
     let pollInterval = null;
+    
+    // NEW: Variable to hold the other player's pet ages so we can render them properly
+    let theirPetAges = {};
 
     async function api(action, data = {}) {
         const fd = new FormData();
@@ -342,7 +347,8 @@
                 equipped_cursor: result.data.equipped_cursor || 'def',
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
                 active_pet: result.data.active_pet || '',
-                pet_ages: JSON.parse(result.data.pet_ages || '{}')
+                pet_ages: JSON.parse(result.data.pet_ages || '{}'),
+                owned_items: JSON.parse(result.data.owned_items || '[]') // LOAD ITEMS
             };
             document.getElementById('myGemBalanceText').innerText = gameState.gems.toLocaleString();
         }
@@ -360,15 +366,21 @@
     function showInvTab(tabName) {
         document.getElementById('tabBtnPets').classList.remove('active');
         document.getElementById('tabBtnCursors').classList.remove('active');
+        document.getElementById('tabBtnItems').classList.remove('active');
+        
         document.getElementById('invPetsContainer').style.display = 'none';
         document.getElementById('invCursorsContainer').style.display = 'none';
+        document.getElementById('invItemsContainer').style.display = 'none';
         
         if(tabName === 'pets') {
             document.getElementById('tabBtnPets').classList.add('active');
             document.getElementById('invPetsContainer').style.display = 'grid';
-        } else {
+        } else if (tabName === 'cursors') {
             document.getElementById('tabBtnCursors').classList.add('active');
             document.getElementById('invCursorsContainer').style.display = 'grid';
+        } else if (tabName === 'items') {
+            document.getElementById('tabBtnItems').classList.add('active');
+            document.getElementById('invItemsContainer').style.display = 'grid';
         }
         renderInventory();
     }
@@ -377,10 +389,15 @@
         if (!gameState) return;
         const petContainer = document.getElementById('invPetsContainer');
         const curContainer = document.getElementById('invCursorsContainer');
-        petContainer.innerHTML = ''; curContainer.innerHTML = '';
+        const itemsContainer = document.getElementById('invItemsContainer');
+        
+        petContainer.innerHTML = ''; curContainer.innerHTML = ''; itemsContainer.innerHTML = '';
         
         let curCounts = {};
         gameState.owned_cursors.forEach(id => curCounts[id] = (curCounts[id] || 0) + 1);
+        
+        let itemCounts = {};
+        gameState.owned_items.forEach(id => itemCounts[id] = (itemCounts[id] || 0) + 1);
 
         // 1. Pets Tab
         if (gameState.owned_pets.length === 0) {
@@ -451,6 +468,65 @@
                 `;
             }
         });
+        
+        // 3. Items Tab (Moonstones, etc)
+        if (gameState.owned_items.length === 0) {
+            itemsContainer.innerHTML = `<div style="color: gray; grid-column: 1/-1;">You don't own any items.</div>`;
+        } else {
+            Object.keys(itemCounts).forEach(itemName => {
+                const count = itemCounts[itemName];
+                const itemID = `item::${itemName}`; // We prefix items to distinguish them from cursors in the offer array
+                const offeredCount = myOffer.filter(x => x === itemID).length;
+                const availableToTrade = count;
+                
+                let btnHTML = '';
+                let cardStyle = '';
+                let icon = '📦';
+                
+                if (itemName === 'Moonstone') {
+                    icon = '🌑';
+                    cardStyle = 'border-color: #00ffcc; box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);';
+                }
+
+                if (offeredCount > 0) cardStyle = `border-color: #3ba55c; box-shadow: 0 0 15px rgba(59, 165, 92, 0.4);`;
+                
+                if (offeredCount >= availableToTrade) {
+                    btnHTML = `<button class="shop-btn equipped" disabled style="background: #e74c3c;">Max Offered (${offeredCount})</button>`;
+                } else {
+                    btnHTML = `<button class="shop-btn buy" onclick="addToOffer('${itemID}')">Add to Offer (${offeredCount}/${availableToTrade})</button>`;
+                }
+                    
+                itemsContainer.innerHTML += `
+                    <div class="shop-item" style="position:relative; ${cardStyle}">
+                        <div class="inventory-badge">x${count}</div>
+                        <div style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px #00ffcc);">${icon}</div>
+                        <h3 style="color: #00ffcc;">${itemName}</h3>
+                        ${btnHTML}
+                    </div>
+                `;
+            });
+        }
+    }
+
+    // --- MAIN API WRAPPER FOR OFFER UPDATES ---
+    // This dynamically packages the pet ages of ONLY the pets you are offering
+    // and sends it to the backend so the other player can fetch it and see the levels.
+    async function pushOfferUpdate() {
+        let myOfferedPetAges = {};
+        
+        myOffer.forEach(id => {
+            // Check if it's a pet (has :: but is not an item)
+            if (id.includes('::') && !id.startsWith('item::') && gameState.pet_ages[id] !== undefined) {
+                myOfferedPetAges[id] = gameState.pet_ages[id];
+            }
+        });
+        
+        await api('update_offer', { 
+            room_code: currentRoom, 
+            offer: JSON.stringify(myOffer), 
+            gems: myGemOffer,
+            pet_ages: JSON.stringify(myOfferedPetAges) // Send the ages with the offer!
+        });
     }
 
     // --- OFFERING LOGIC ---
@@ -465,20 +541,20 @@
         inputField.value = ''; 
         
         renderMyOffer();
-        await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer), gems: myGemOffer });
+        await pushOfferUpdate();
     }
 
     async function removeGemsFromOffer() {
         myGemOffer = 0;
         renderMyOffer();
-        await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer), gems: myGemOffer });
+        await pushOfferUpdate();
     }
 
     async function addToOffer(id) {
         myOffer.push(id);
         renderMyOffer();
         renderInventory(); 
-        await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer), gems: myGemOffer });
+        await pushOfferUpdate();
     }
 
     async function removeFromOffer(id) {
@@ -487,15 +563,28 @@
             myOffer.splice(index, 1);
             renderMyOffer();
             renderInventory(); 
-            await api('update_offer', { room_code: currentRoom, offer: JSON.stringify(myOffer), gems: myGemOffer });
+            await pushOfferUpdate();
         }
     }
 
     function getItemData(id) {
-        if (id.includes('::')) {
+        if (id.startsWith('item::')) {
+            const itemName = id.split('::')[1];
+            return { name: `📦 ${itemName}`, isItem: true };
+        } else if (id.includes('::')) {
             const baseId = id.split('::')[0];
             const pet = PET_SHOP.find(p => p.id === baseId);
-            return { name: `🐾 ${pet?.name || 'Unknown Pet'}`, isPet: true };
+            
+            // Look up age based on whether it's OUR pet or THEIR pet
+            let age = 0;
+            if (gameState.pet_ages[id] !== undefined) {
+                age = gameState.pet_ages[id]; // Our pet
+            } else if (theirPetAges[id] !== undefined) {
+                age = theirPetAges[id]; // Their pet (fetched from sync payload)
+            }
+            
+            let level = Math.floor(age / 600) + 1;
+            return { name: `🐾 ${pet?.name || 'Unknown Pet'} <span style="color:#ffb7b2">(Lvl ${level})</span>`, isPet: true };
         } else {
             const cur = CURSORS.find(c => c.id === id);
             return { name: `🖱️ ${cur?.name || 'Unknown Cursor'}`, isPet: false };
@@ -533,9 +622,16 @@
 
         if (res.status === 'completed') {
             clearInterval(pollInterval);
-            alert("✅ TRADE SEQUENCE COMPLETED SUCCESSFULLY! Items & Gems have been swapped. ✅");
+            alert("✅ TRADE SEQUENCE COMPLETED SUCCESSFULLY! Items, Pets, & Gems have been swapped. ✅");
             window.location.href = "../"; 
             return;
+        }
+        
+        // Save their pet ages locally so getItemData() can use them to render levels!
+        if (res.their_pet_ages) {
+            try {
+                theirPetAges = JSON.parse(res.their_pet_ages);
+            } catch(e) { theirPetAges = {}; }
         }
 
         const theirList = document.getElementById('theirOfferList');
