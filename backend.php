@@ -2,7 +2,6 @@
 session_start();
 header('Content-Type: application/json');
 
-// --- READ CONFIG FILE ---
 $config_file = 'config.ini'; 
 
 if (!file_exists($config_file)) {
@@ -36,7 +35,6 @@ try {
 $action = $_POST['action'] ?? '';
 
 // --- INSTANT RECONNECT HELPER ---
-// If the session died but the browser sent the saved username, instantly log them back in.
 if (($action === 'load' || $action === 'save') && !isset($_SESSION['user_id']) && !empty($_POST['username'])) {
     $stmt = $pdo->prepare("SELECT id, username FROM users WHERE username = ?");
     $stmt->execute([$_POST['username']]);
@@ -102,7 +100,8 @@ if ($action === 'load') {
         exit;
     }
 
-    $stmt = $pdo->prepare("SELECT coins, gems, playtime, owned_cursors, equipped_cursor, owned_pets, active_pet, pet_ages, last_online, sakura_coins, event_tasks, owned_chests, prestige_level, profile_pic FROM users WHERE id = ?");
+    // ADDED owned_items to SELECT statement
+    $stmt = $pdo->prepare("SELECT coins, gems, playtime, owned_cursors, equipped_cursor, owned_pets, active_pet, pet_ages, last_online, sakura_coins, event_tasks, owned_chests, prestige_level, profile_pic, owned_items FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $data = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -134,13 +133,15 @@ if ($action === 'save') {
     $sakura_coins = (int)($_POST['sakura_coins'] ?? 0);
     $event_tasks = $_POST['event_tasks'] ?? '[]';
     $owned_chests = $_POST['owned_chests'] ?? '{}';
+    $owned_items = $_POST['owned_items'] ?? '[]'; // ADDED THIS
     
     $prestige_level = isset($_POST['prestige_level']) ? (int)$_POST['prestige_level'] : (int)$existing['prestige_level'];
     $profile_pic = isset($_POST['profile_pic']) ? $_POST['profile_pic'] : $existing['profile_pic'];
 
-    $stmt = $pdo->prepare("UPDATE users SET coins=?, gems=?, playtime=?, owned_cursors=?, equipped_cursor=?, owned_pets=?, active_pet=?, pet_ages=?, last_online=?, sakura_coins=?, event_tasks=?, owned_chests=?, prestige_level=?, profile_pic=? WHERE id=?");
+    // ADDED owned_items to UPDATE statement
+    $stmt = $pdo->prepare("UPDATE users SET coins=?, gems=?, playtime=?, owned_cursors=?, equipped_cursor=?, owned_pets=?, active_pet=?, pet_ages=?, last_online=?, sakura_coins=?, event_tasks=?, owned_chests=?, prestige_level=?, profile_pic=?, owned_items=? WHERE id=?");
     $stmt->execute([
-        $coins, $gems, $playtime, $owned_cursors, $equipped_cursor, $owned_pets, $active_pet, $pet_ages, $last_online, $sakura_coins, $event_tasks, $owned_chests, $prestige_level, $profile_pic, $_SESSION['user_id']
+        $coins, $gems, $playtime, $owned_cursors, $equipped_cursor, $owned_pets, $active_pet, $pet_ages, $last_online, $sakura_coins, $event_tasks, $owned_chests, $prestige_level, $profile_pic, $owned_items, $_SESSION['user_id']
     ]);
 
     echo json_encode(["success" => true]);
