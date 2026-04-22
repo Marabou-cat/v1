@@ -129,30 +129,33 @@
     </div>
 
     <script>
-        function loadUrl() {
-            let url = document.getElementById('urlInput').value.trim();
-            if (!url) return;
+    function loadUrl() {
+        let url = document.getElementById('urlInput').value.trim();
+        if (!url) return;
 
-            // If the user types "discord.com" instead of "https://discord.com"
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                // If it looks like a website (has a dot and no spaces)
-                if (url.includes('.') && !url.includes(' ')) {
-                    url = 'https://' + url;
-                } else {
-                    // Otherwise, treat it as a search query
-                    url = 'https://duckduckgo.com/?q=' + encodeURIComponent(url);
-                }
+        // If the user types "discord.com" instead of "https://discord.com"
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            if (url.includes('.') && !url.includes(' ')) {
+                url = 'https://' + url;
+            } else {
+                url = 'https://duckduckgo.com/?q=' + encodeURIComponent(url);
             }
-
-            document.getElementById('browserFrame').src = url;
         }
 
-        // Allow pressing "Enter" to search
-        document.getElementById('urlInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                loadUrl();
-            }
-        });
-    </script>
+        // --- THE MAGIC HAPPENS HERE ---
+        // Instead of putting the URL directly into the iframe, 
+        // we route it through YOUR proxy.php file!
+        const proxyUrl = '../proxy.php?url=' + encodeURIComponent(url);
+        
+        document.getElementById('browserFrame').src = proxyUrl;
+    }
+
+    // Allow pressing "Enter" to search
+    document.getElementById('urlInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            loadUrl();
+        }
+    });
+</script>
 </body>
 </html>
