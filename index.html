@@ -136,7 +136,15 @@
         .stats-bar { display: inline-flex; gap: 30px; background: var(--glass); padding: 12px 30px; border-radius: 30px; border: 1px solid var(--p0); margin-bottom: 30px; font-size: 15px; color: var(--w); font-weight: 700; box-shadow: var(--shadow); }
         .stats-bar span strong { color: var(--p1); font-size: 18px; }
 
-        .searchWrap input { width: 100%; max-width: 800px; padding: 18px 24px; border-radius: var(--r); background: var(--glass); border: 2px solid var(--p2); color: #fff; font-size: 16px; outline: none; transition: 0.3s; box-shadow: var(--shadow); margin: 0 auto; display: block; }
+        .searchWrap { display: flex; justify-content: center; gap: 15px; max-width: 850px; margin: 0 auto; }
+        .searchWrap input { flex: 1; padding: 18px 24px; border-radius: var(--r); background: var(--glass); border: 2px solid var(--p2); color: #fff; font-size: 16px; outline: none; transition: 0.3s; box-shadow: var(--shadow); }
+        .searchWrap input:focus { border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); background: var(--bg1); }
+        .btn-fav-tab { padding: 0 25px; border-radius: var(--r); background: var(--glass); border: 2px solid var(--p2); color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: var(--shadow); }
+        .btn-fav-tab:hover { border-color: #ffd700; color: #ffd700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
+        .btn-fav-tab.active { background: #ffd700; color: #000; border-color: #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+        
+        .star-btn { position: absolute; top: 8px; right: 8px; font-size: 22px; cursor: pointer; z-index: 10; transition: 0.2s; user-select: none; }
+        .star-btn:hover { transform: scale(1.25); }
         .searchWrap input:focus { border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); background: var(--bg1); }
 
         .gamesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 30px; text-align: left; }
@@ -317,7 +325,10 @@
         <span>Time Played: <strong id="stat-time">0</strong> mins</span>
     </div>
 
-    <div class="searchWrap"><input type="text" id="searchInput" placeholder="Search verified modules..."></div>
+    <div class="searchWrap">
+        <input type="text" id="searchInput" placeholder="Search verified modules...">
+        <button id="favTabBtn" class="btn-fav-tab" onclick="toggleFavoriteView()">⭐ Favorites</button>
+    </div>
     <div class="gamesGrid" id="gamesGrid"></div>
 </main>
 
@@ -1254,19 +1265,78 @@ function getIconForGame(name) {
     return '📘';
 }
 
+// --- FAVORITES LOGIC ---
+let showFavoritesOnly = false;
+
+function getFavorites() {
+    const user = localStorage.getItem('schoolExamsSavedUser') || 'guest';
+    return JSON.parse(localStorage.getItem('schoolExamsFavorites_' + user)) || [];
+}
+
+function saveFavorites(favs) {
+    const user = localStorage.getItem('schoolExamsSavedUser') || 'guest';
+    localStorage.setItem('schoolExamsFavorites_' + user, JSON.stringify(favs));
+}
+
+function toggleFavorite(e, file) {
+    e.stopPropagation(); // Stops the game from opening when clicking the star
+    let favs = getFavorites();
+    if (favs.includes(file)) {
+        favs = favs.filter(f => f !== file);
+    } else {
+        favs.push(file);
+    }
+    saveFavorites(favs);
+    renderGrid(document.getElementById('searchInput').value); // Refresh grid
+}
+
+function toggleFavoriteView() {
+    showFavoritesOnly = !showFavoritesOnly;
+    const btn = document.getElementById('favTabBtn');
+    if (showFavoritesOnly) {
+        btn.classList.add('active');
+    } else {
+        btn.classList.remove('active');
+    }
+    renderGrid(document.getElementById('searchInput').value);
+}
+
 function renderGrid(filter = "") {
     const grid = document.getElementById('gamesGrid'); grid.innerHTML = "";
     document.getElementById('searchInput').placeholder = `Search ${GAMES.length} verified modules...`;
     
-    GAMES.filter(g => g.name.toLowerCase().includes(filter.toLowerCase())).forEach(game => {
-        const card = document.createElement('div'); card.className = 'gameCard'; card.onclick = () => openGame(game.f, game.name);
+    let favs = getFavorites();
+    
+    // Filter games by search text AND favorites tab status
+    let gamesToRender = GAMES.filter(g => g.name.toLowerCase().includes(filter.toLowerCase()));
+    if (showFavoritesOnly) {
+        gamesToRender = gamesToRender.filter(g => favs.includes(g.f));
+    }
+    
+    if (gamesToRender.length === 0 && showFavoritesOnly) {
+        grid.innerHTML = `<div style="grid-column: 1/-1; color: gray; padding: 40px; text-align: center; border: 2px dashed #444; border-radius: 16px;">You haven't favorited any games yet! Click the dark stars on games to add them here.</div>`;
+        return;
+    }
+    
+    gamesToRender.forEach(game => {
+        const card = document.createElement('div'); 
+        card.className = 'gameCard'; 
+        card.style.position = 'relative'; // Required so the star sits in the corner
+        card.onclick = () => openGame(game.f, game.name);
+        
         let safeGameName = game.name.replace(/'/g, "\\'");
         
         let iconHTML = (game.icon && game.icon !== "") 
             ? `<img src="${game.icon}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.outerHTML='<span style=\\'font-size: 32px;\\'>${getIconForGame(safeGameName)}</span>'">`
             : `<span style="font-size: 32px;">${getIconForGame(game.name)}</span>`;
             
+        // Check if game is in favorites to style the star
+        let isFav = favs.includes(game.f);
+        let starColor = isFav ? '#ffd700' : 'rgba(0, 0, 0, 0.6)';
+        let starGlow = isFav ? 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))';
+            
         card.innerHTML = `
+            <div class="star-btn" style="color: ${starColor}; filter: ${starGlow};" onclick="toggleFavorite(event, '${game.f}')">⭐</div>
             <div class="gameIcon" style="padding: 0; overflow: hidden;">${iconHTML}</div>
             <div class="gameName">${game.name}</div>
         `;
