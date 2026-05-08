@@ -213,7 +213,7 @@ if ($action === 'open') {
             }
         } else if ($type === 'arcade') {
             if ($roll <= 60) {
-                $pool = ['VirusUSB' => 'VirusUSB']; // FIXED: Changed ID to VirusUSB
+                $pool = ['usb' => 'USB']; // FIXED: Changed ID to VirusUSB
                 $reward_type = 'cursor';              // FIXED: Changed type to item
             } else if ($roll <= 95) {
                 $pool = ['digital_minion' => 'Digital Minion'];
