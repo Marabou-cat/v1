@@ -780,6 +780,7 @@ function spawnFlyingCoin() {
     
     // Updated onclick to handle pet Auto-Clicks
     // Updated onclick to handle pet Auto-Clicks
+    // Updated onclick to handle pet Auto-Clicks and Multipliers
     coin.onclick = (e, isAutoClick = false) => {
         if(clicked) return;
         clicked = true;
@@ -792,22 +793,32 @@ function spawnFlyingCoin() {
         coin.style.display = 'none';
 
         const curInfo = CURSORS.find(c => c.id === gameState.equipped_cursor);
-        const reward = curInfo ? (curInfo.baseCoin || 1) : 1;
+        let reward = curInfo ? (curInfo.baseCoin || 1) : 1;
+
+        // 3. Check for Pet Abilities (Multiplier & Visual Effect)
+        let effectId = gameState.equipped_cursor;
+        if (gameState && gameState.active_pet) {
+            let baseId = gameState.active_pet.split('::')[0];
+            let ability = PET_ABILITIES[baseId];
+            
+            if (ability) {
+                // Apply the multiplier if the pet has one!
+                if (ability.multiplier) {
+                    reward = Math.floor(reward * ability.multiplier);
+                }
+                
+                // Override effect if it was an auto-click and pet has a custom effect
+                if (isAutoClick && ability.clickEffect) {
+                    effectId = ability.clickEffect;
+                }
+            }
+        }
 
         gameState.coins += reward;
         updateStatsUI();
         saveGameToServer();
         
         showFloatText(x, y, `+${reward}`);
-        
-        // 3. Check if pet overrides the cursor effect
-        let effectId = gameState.equipped_cursor;
-        if (isAutoClick && gameState.active_pet) {
-            let baseId = gameState.active_pet.split('::')[0];
-            if (PET_ABILITIES[baseId] && PET_ABILITIES[baseId].clickEffect) {
-                effectId = PET_ABILITIES[baseId].clickEffect;
-            }
-        }
         triggerCursorEffect(x, y, effectId);
     };
     // --- NEW: Pet Auto Clicker Logic ---
@@ -1238,18 +1249,22 @@ const CURSOR_EFFECTS = {
 
 // --- PET ABILITIES CONFIGURATION ---
 // Add new pet abilities here using their base ID!
+// --- PET ABILITIES CONFIGURATION ---
 const PET_ABILITIES = {
     "virus_kitty": {
-        name: "Hack In",
-        desc: "Automaticly Click ALL Flying Coins. Absolutely NO WORK needed for ExamCoins!",
+        name: "Hacked Bitcoins",
+        desc: "Automatically clicks any flying ExamCoins after they fly for 2 seconds! Multiplies your cursor click power by 1.2x. Triggers the Hacked glitch effect upon collection.",
         autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
-        clickEffect: "hacked"   // Uses the "hacked" effect from CURSOR_EFFECTS
+        clickEffect: "hacked",  // Uses the "hacked" effect from CURSOR_EFFECTS
+        multiplier: 1.2           // <--- NEW: Multiplies cursor power by 2
     },
     "artificial_virus": {
-        name: "Hack In",
-        desc: "Automaticly Click ALL Flying Coins. Absolutely NO WORK needed for ExamCoins!",
+        name: "Hacked Bitcoins",
+        desc: "Automatically clicks any flying ExamCoins after they fly for 2 seconds! Multiplies your cursor click power by 1.4x. Triggers the Hacked glitch effect upon collection.",
         autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
-        clickEffect: "hacked"   // Uses the "hacked" effect from CURSOR_EFFECTS
+        clickEffect: "hacked",  // Uses the "hacked" effect from CURSOR_EFFECTS
+        multiplier: 1.4  
+       // Uses the "hacked" effect from CURSOR_EFFECTS
     }
     // "dragon": {
     //     name: "Fire Breath",
