@@ -19,6 +19,18 @@
             --r: 16px;
         }
 
+#boostNotification {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px);
+    background: linear-gradient(90deg, #ffb703, #f72585); color: white;
+    padding: 12px 30px; border-radius: 50px; font-weight: 900; opacity: 0;
+    transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 9999; box-shadow: 0 0 20px rgba(255, 183, 3, 0.8);
+    pointer-events: none; border: 2px solid #fff; font-size: 16px;
+}
+#boostNotification.show {
+    transform: translateX(-50%) translateY(0); opacity: 1;
+}
+
         /* CURSOR CLICK EFFECTS */
 @keyframes fadeOutEffect {
     0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
