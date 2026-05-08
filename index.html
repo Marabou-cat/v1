@@ -382,6 +382,18 @@
     <div class="shop-container" id="petShopContainer"></div>
 </div>
 
+<div class="overlay" id="abilityOverlay" style="z-index: 4000;">
+    <div class="overlay-bar">
+        <div class="bar-title" style="color: #9d4edd;">✨ Pet Ability Info</div>
+        <button class="btn-close" onclick="document.getElementById('abilityOverlay').classList.remove('open')">CLOSE ✕</button>
+    </div>
+    <div class="shop-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; max-width: 500px; height: 100%;">
+        <div id="abilityContent" style="background: rgba(0,0,0,0.8); padding: 30px; border-radius: 20px; border: 2px solid #9d4edd; width: 100%; box-shadow: 0 0 20px rgba(157, 78, 221, 0.5);">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+</div>
+
 <div class="overlay" id="inventoryOverlay">
     <div class="overlay-bar">
         <div class="bar-title" style="color: #e67e22;">🎒 Your Inventory</div>
@@ -765,7 +777,9 @@ function spawnFlyingCoin() {
     document.body.appendChild(coin);
 
     let clicked = false;
-    coin.onclick = (e) => {
+    
+    // Updated onclick to handle pet Auto-Clicks
+    coin.onclick = (e, isAutoClick = false) => {
         if(clicked) return;
         clicked = true;
         coin.style.display = 'none';
@@ -776,11 +790,38 @@ function spawnFlyingCoin() {
         gameState.coins += reward;
         updateStatsUI();
         saveGameToServer();
-        showFloatText(e.clientX, e.clientY, `+${reward}`);
         
-        // Trigger the visual effect based on the equipped cursor
-        triggerCursorEffect(e.clientX, e.clientY, gameState.equipped_cursor);
+        // Grab coordinates depending on if user clicked it or pet auto-clicked it
+        let x = isAutoClick ? (coin.getBoundingClientRect().left + 40) : e.clientX;
+        let y = isAutoClick ? (coin.getBoundingClientRect().top + 40) : e.clientY;
+
+        showFloatText(x, y, `+${reward}`);
+        
+        // Check if pet overrides the cursor effect
+        let effectId = gameState.equipped_cursor;
+        if (isAutoClick && gameState.active_pet) {
+            let baseId = gameState.active_pet.split('::')[0];
+            if (PET_ABILITIES[baseId] && PET_ABILITIES[baseId].clickEffect) {
+                effectId = PET_ABILITIES[baseId].clickEffect;
+            }
+        }
+        triggerCursorEffect(x, y, effectId);
     };
+
+    // --- NEW: Pet Auto Clicker Logic ---
+    if (gameState && gameState.active_pet) {
+        let baseId = gameState.active_pet.split('::')[0];
+        let ability = PET_ABILITIES[baseId];
+        
+        if (ability && ability.autoClickDelay) {
+            setTimeout(() => {
+                if (!clicked && document.body.contains(coin)) {
+                    // Trigger the click programmatically!
+                    coin.onclick(null, true);
+                }
+            }, ability.autoClickDelay);
+        }
+    }
 
     setTimeout(() => { if(document.body.contains(coin)) coin.remove(); }, 8000);
 }
@@ -1330,15 +1371,19 @@ function showInvTab(tabName) {
     document.getElementById('invItemsContainer').style.display = 'none';
     
     // 3. Show the correct one
+    // 3. Show the correct one
     if(tabName === 'pets') {
         document.getElementById('tabBtnPets').classList.add('active');
         document.getElementById('invPetsContainer').style.display = 'grid';
+        document.getElementById('btnAbility').style.display = 'inline-block'; // Shows button
     } else if (tabName === 'cursors') {
         document.getElementById('tabBtnCursors').classList.add('active');
         document.getElementById('invCursorsContainer').style.display = 'grid';
+        document.getElementById('btnAbility').style.display = 'none'; // Hides button
     } else if (tabName === 'items') {
         document.getElementById('tabBtnItems').classList.add('active');
         document.getElementById('invItemsContainer').style.display = 'grid';
+        document.getElementById('btnAbility').style.display = 'none'; // Hides button
     }
     renderInventory();
 }
