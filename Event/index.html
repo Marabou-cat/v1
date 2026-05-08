@@ -48,16 +48,28 @@
         
         .grabbed-ball { position: absolute; top: 290px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; border-radius: 50%; z-index: 5; transition: top 1s ease-in-out, left 0.2s linear, opacity 0.2s; box-shadow: inset -5px -5px 15px rgba(0,0,0,0.6); border: 2px solid #fff; opacity: 0; display: block; }
 
-        .controls-panel { display: flex; align-items: center; justify-content: center; gap: 30px; background: rgba(0,0,0,0.6); padding: 15px 30px; border-radius: 20px; border: 2px solid var(--p2); box-shadow: var(--glow-pink); }
+        .controls-panel { display: flex; align-items: center; justify-content: center; gap: 25px; background: rgba(0,0,0,0.6); padding: 15px 30px; border-radius: 20px; border: 2px solid var(--p2); box-shadow: var(--glow-pink); flex-wrap: wrap; }
         .controller-box { display: flex; align-items: center; gap: 10px; }
-        .dir-btn { background: var(--bg2); border: none; color: #fff; width: 40px; height: 40px; border-radius: 8px; font-size: 20px; cursor: pointer; transition: 0.1s; }
+        .dir-btn { background: var(--bg2); border: none; color: #fff; width: 40px; height: 40px; border-radius: 8px; font-size: 20px; cursor: pointer; transition: 0.1s; user-select: none; }
         .dir-btn:active { background: var(--p2); transform: scale(0.9); }
 
         .controller-img { height: 60px; object-fit: contain; }
-        .action-box { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: 0.1s; }
+        .action-box { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: 0.1s; user-select: none; }
         .action-box:active { transform: scale(0.95); }
-        .button-img { height: 60px; object-fit: contain; filter: drop-shadow(0 0 10px var(--p2)); }
+        .button-img { height: 60px; object-fit: contain; filter: drop-shadow(0 0 10px var(--p2)); pointer-events: none; }
         .action-text { font-weight: 900; color: var(--p2); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- BOOST BUTTON (Brawl Stars Style) --- */
+        .boost-wrapper { position: relative; width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none; }
+        .boost-ring { position: absolute; top: 0; left: 0; transform: rotate(-90deg); pointer-events: none; }
+        .boost-circle-bg { fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 8; }
+        .boost-circle-fill { fill: none; stroke: #ffb703; stroke-width: 8; stroke-dasharray: 226; stroke-dashoffset: 226; transition: stroke-dashoffset 0.1s linear; stroke-linecap: round; }
+        .boost-img { width: 50px; height: 50px; object-fit: contain; z-index: 2; transition: transform 0.1s, filter 0.3s; filter: drop-shadow(0 0 5px #ffb703); pointer-events: none; }
+        .boost-wrapper:active .boost-img { transform: scale(0.9); }
+        .boost-active .boost-circle-fill { stroke: var(--p1); stroke-dashoffset: 0 !important; }
+        .boost-active .boost-img { filter: drop-shadow(0 0 15px var(--p1)) brightness(1.2); }
+        .boost-cooldown { opacity: 0.5; filter: grayscale(1); pointer-events: none; }
+        .boost-status { font-size: 12px; font-weight: bold; color: #ffb703; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
 
         /* --- TASKS --- */
         .task-grid { display: flex; flex-direction: column; gap: 20px; max-width: 700px; margin: 0 auto; }
@@ -128,6 +140,21 @@
                 <img src="controller.png" class="controller-img" onerror="this.outerHTML='<div style=\\'font-size:40px;\\'>🎮</div>'">
                 <button class="dir-btn" onmousedown="moveClaw(1)">▶</button>
             </div>
+
+            <!-- NEW BOOST BUTTON -->
+            <div style="display:flex; flex-direction:column; align-items:center;">
+                <div class="boost-wrapper" id="boostWrapper" 
+                     onmousedown="startBoostCharge(event)" onmouseup="stopBoostCharge(event)" onmouseleave="stopBoostCharge(event)"
+                     ontouchstart="startBoostCharge(event)" ontouchend="stopBoostCharge(event)" ontouchcancel="stopBoostCharge(event)">
+                    <svg class="boost-ring" width="80" height="80" viewBox="0 0 80 80">
+                        <circle class="boost-circle-bg" cx="40" cy="40" r="36"></circle>
+                        <circle class="boost-circle-fill" id="boostCircleFill" cx="40" cy="40" r="36"></circle>
+                    </svg>
+                    <img src="boost.png" class="boost-img" onerror="this.outerHTML='<div class=\\'boost-img\\' style=\\'font-size:40px; display:flex; justify-content:center; align-items:center;\\'>⚡</div>'">
+                </div>
+                <div class="boost-status" id="boostStatusText">HOLD TO BOOST</div>
+            </div>
+
             <div class="action-box" onclick="handleClawButton()">
                 <img src="button.png" class="button-img" onerror="this.outerHTML='<div style=\\'font-size:50px; filter: drop-shadow(0 0 10px #f72585);\\'>🔴</div>'">
                 <div class="action-text" id="arcadeActionText">Insert Coin (100 👾)</div>
@@ -222,18 +249,6 @@ const ARCADE_SHOP = [
     { type: 'chest', id: 'arcade', name: 'Arcade Chest', img: '../png/arcade_chest.png', desc: 'Contains Ultra-Rare Arcade Drops!', cost: 500, isChest: true, color: '#f72585' }
 ];
 
-const PET_SHOP = [
-    { id: "doge", name: "Pixel Doge", icon: "🐕" }, { id: "cat", name: "Cyber Kitty", icon: "🐈" },
-    { id: "frog", name: "Ninja Frog", icon: "🐸" }, { id: "dragon", name: "Neon Dragon", icon: "🐲" },
-    { id: "panda", name: "Ghost Panda", icon: "🐼" }, { id: "kraken", name: "67 Kraken", icon: "🦑" }
-];
-
-const CURSORS = [
-    { id: "m1", name: "Egg Twins", src: "../png/Twins.png" }, { id: "m2", name: "Gold Ingot", src: "../png/Goldingot.png" }, 
-    { id: "m3", name: "Cheesy Cursor", src: "../png/mouse.png" }, { id: "m4", name: "Sword Cursor", src: "../png/Katana.png" }, 
-    { id: "m5", name: "Pizza Slice", src: "../png/pizza.png" }
-];
-
 async function loadGameFromServer() {
     try {
         const formData = new FormData(); 
@@ -257,11 +272,14 @@ async function loadGameFromServer() {
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
                 active_pet: result.data.active_pet || '',
                 pet_ages: JSON.parse(result.data.pet_ages || '{}'),
-                owned_items: JSON.parse(result.data.owned_items || '[]')
+                owned_items: JSON.parse(result.data.owned_items || '[]'),
+                boost_end: parseInt(result.data.boost_end) || 0,
+                boost_cd: parseInt(result.data.boost_cd) || 0
             };
             updateCurrencies();
             syncStoryTask(); 
             renderArcadeShop(); 
+            updateBoostUI();
         }
     } catch(e) { console.error("Event failed to load state."); }
 }
@@ -286,6 +304,8 @@ async function saveGameToServer() {
         formData.append('active_pet', gameState.active_pet);
         formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
         formData.append('owned_items', JSON.stringify(gameState.owned_items || []));
+        formData.append('boost_end', gameState.boost_end || 0);
+        formData.append('boost_cd', gameState.boost_cd || 0);
         
         await fetch('../backend.php', { method: 'POST', body: formData });
     } catch(e) { console.error("Event failed to save state."); }
@@ -298,6 +318,104 @@ function updateCurrencies() {
     }
 }
 
+// --- BOOST BUTTON SYSTEM ---
+let boostCharge = 0;
+let chargeTimer = null;
+const CHARGE_TIME_MS = 1500; // 1.5 seconds to hold
+const TICK_RATE = 30; // ms
+const CHARGE_PER_TICK = 100 / (CHARGE_TIME_MS / TICK_RATE);
+
+function startBoostCharge(e) {
+    if (e && e.type.includes('mouse') && e.button !== 0) return; // Only left click
+    if (!gameState) return;
+
+    let now = Math.floor(Date.now() / 1000);
+    if (now < gameState.boost_cd) {
+        showToast("Boost is on cooldown!");
+        return;
+    }
+    if (now < gameState.boost_end) {
+        showToast("Boost is already active!");
+        return;
+    }
+
+    if (chargeTimer) clearInterval(chargeTimer);
+    
+    chargeTimer = setInterval(() => {
+        boostCharge += CHARGE_PER_TICK;
+        updateBoostRing(boostCharge);
+        
+        if (boostCharge >= 100) {
+            clearInterval(chargeTimer);
+            activateBoost();
+        }
+    }, TICK_RATE);
+}
+
+function stopBoostCharge(e) {
+    if (chargeTimer) {
+        clearInterval(chargeTimer);
+        chargeTimer = null;
+    }
+    if (boostCharge < 100) {
+        boostCharge = 0;
+        updateBoostRing(0);
+    }
+}
+
+function updateBoostRing(percent) {
+    let circle = document.getElementById('boostCircleFill');
+    if (!circle) return;
+    let maxDash = 226; // 2 * PI * R (36) ≈ 226
+    let offset = maxDash - (Math.min(percent, 100) / 100 * maxDash);
+    circle.style.strokeDashoffset = offset;
+}
+
+function activateBoost() {
+    let now = Math.floor(Date.now() / 1000);
+    gameState.boost_end = now + (10 * 60); // Active for 10 minutes
+    gameState.boost_cd = now + (30 * 60);  // Cooldown for 30 minutes
+    boostCharge = 0;
+    
+    saveGameToServer();
+    showToast("⚡ Boost Activated! Gain 50 ExamCoins/min in Portal!");
+    updateBoostUI();
+}
+
+function updateBoostUI() {
+    if (!gameState) return;
+    let now = Math.floor(Date.now() / 1000);
+    let wrapper = document.getElementById('boostWrapper');
+    let statusText = document.getElementById('boostStatusText');
+    let circle = document.getElementById('boostCircleFill');
+
+    if (now < gameState.boost_end) {
+        wrapper.className = "boost-wrapper boost-active";
+        let left = gameState.boost_end - now;
+        let m = Math.floor(left / 60);
+        let s = left % 60;
+        statusText.innerText = `ACTIVE (${m}:${s.toString().padStart(2, '0')})`;
+        statusText.style.color = "var(--p1)";
+    } else if (now < gameState.boost_cd) {
+        wrapper.className = "boost-wrapper boost-cooldown";
+        let left = gameState.boost_cd - now;
+        let m = Math.floor(left / 60);
+        let s = left % 60;
+        statusText.innerText = `COOLDOWN (${m}:${s.toString().padStart(2, '0')})`;
+        statusText.style.color = "#ff4d6d";
+        if (boostCharge === 0) circle.style.strokeDashoffset = 226;
+    } else {
+        wrapper.className = "boost-wrapper";
+        statusText.innerText = "HOLD TO BOOST";
+        statusText.style.color = "#ffb703";
+        if (boostCharge === 0) circle.style.strokeDashoffset = 226;
+    }
+}
+
+// Tick the UI for the timer
+setInterval(updateBoostUI, 1000);
+
+
 // --- POPUP REWARD ENGINE ---
 function showPurchasePopup(iconHTML, itemName, extraDesc = '') {
     document.getElementById('rewardTitle').innerText = "PURCHASE SUCCESSFUL!";
@@ -309,7 +427,6 @@ function showPurchasePopup(iconHTML, itemName, extraDesc = '') {
     
     document.getElementById('rewardPopup').style.display = 'flex';
 }
-
 
 function exchangeGems() {
     if (!gameState) return;
@@ -428,7 +545,6 @@ function checkClawTask() {
         renderTasks();
     }
 }
-
 
 // --- MATTER.JS 2D PHYSICS ENGINE & CLAW LOGIC ---
 const Engine = Matter.Engine,
@@ -549,7 +665,6 @@ function handleClawButton() {
 }
 
 function getClawReward() {
-    // Reset styling just in case the shop changed it
     document.getElementById('rewardTitle').innerText = "PRIZE GRABBED!";
     document.getElementById('rewardTitle').style.color = "var(--p1)";
 
@@ -580,7 +695,6 @@ function getClawReward() {
             descHTML = `You won a Pet, but your inventory was full! Here are <span style="color:#00ffcc;">100 Gems</span> instead.`;
         }
     } else {
-        // 1% JACKPOT - 50/50 split between Hacked Cursor and VirusUSB
         if (Math.random() > 0.5) {
             if (gameState.owned_cursors.length < MAX_CURSORS && !gameState.owned_cursors.includes('hacked')) {
                 gameState.owned_cursors.push('hacked');
@@ -683,7 +797,7 @@ async function buyArcadeChest() {
     if (gameState.sakura_coins < 500) return alert("Not enough Arcade Coins!");
     gameState.sakura_coins -= 500;
     if (!gameState.owned_chests) gameState.owned_chests = {};
-    gameState.owned_chests['arcade'] = (gameState.owned_chests['arcade'] || 0) + 1; // <--- FIXED THIS LINE
+    gameState.owned_chests['arcade'] = (gameState.owned_chests['arcade'] || 0) + 1;
     updateCurrencies();
     await saveGameToServer();
     showPurchasePopup('📦', 'Arcade Chest', 'It has been sent to your Vault to open!');
