@@ -1239,6 +1239,11 @@ const CURSOR_EFFECTS = {
         size: 100,                    // Size in pixels
         duration: 2300               // How long the effect lasts in milliseconds
     },
+    "sakura_ribbon": {
+        src: "png/bloom.gif", // Replace with your actual GIF path
+        size: 100,                    // Size in pixels
+        duration: 5000               // How long the effect lasts in milliseconds
+    },
     // Example of adding another one later:
     // "dragon": {
     //     src: "png/fire_burst.gif",
@@ -1265,11 +1270,24 @@ const PET_ABILITIES = {
         clickEffect: "hacked",  // Uses the "hacked" effect from CURSOR_EFFECTS
         multiplier: 1.4  
        // Uses the "hacked" effect from CURSOR_EFFECTS
+    },
+    "kitsune": {
+        name: "The Smell Of Sakura",
+        desc: "Automatically clicks any flying ExamCoins after they fly for 2 seconds! Multiplies your cursor click power by 1.5x. Triggers the Bloom effect upon collection.",
+        autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
+        clickEffect: "bloom",  // Uses the "hacked" effect from CURSOR_EFFECTS
+        multiplier: 1.5  
+       // Uses the "hacked" effect from CURSOR_EFFECTS
+    },
+    "bn": {
+        name: "Hacked Bitcoins",
+        desc: "Automatically clicks any flying ExamCoins after they fly for 2 seconds! Multiplies your cursor click power by 1.8x. Triggers the Bloom effect upon collection.",
+        autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
+        clickEffect: "bloom",  // Uses the "hacked" effect from CURSOR_EFFECTS
+        multiplier: 1.8  
+       // Uses the "hacked" effect from CURSOR_EFFECTS
     }
-    // "dragon": {
-    //     name: "Fire Breath",
-    //     desc: "Burns things..."
-    // }
+    
 };
 
 function showPetAbility() {
