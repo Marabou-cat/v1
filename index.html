@@ -424,6 +424,8 @@
     </div>
 </div>
 
+<div id="boostNotification">⚡ Boost Active! +50 ArcadeCoins</div>
+
 <div class="toast" id="coinToast">
     <span>🎉</span> <span id="toastMsg">You earned 100 ExamCoins!</span>
 </div>
@@ -683,6 +685,8 @@ async function loadGameFromServer() {
                 prestige_level: parseInt(result.data.prestige_level) || 0,
                 profile_pic: result.data.profile_pic || null,
                 owned_items: JSON.parse(result.data.owned_items || '[]')
+                boost_end: parseInt(result.data.boost_end) || 0, // <--- ADD THIS
+                boost_cd: parseInt(result.data.boost_cd) || 0    // <--- ADD THIS
             };
             
             sanitizePets(); 
@@ -723,6 +727,10 @@ async function saveGameToServer() {
     formData.append('prestige_level', gameState.prestige_level || 0);
     formData.append('profile_pic', gameState.profile_pic || '');
     formData.append('owned_items', JSON.stringify(gameState.owned_items || []));
+    formData.append('boost_end', gameState.boost_end || 0); // <--- ADD THIS
+    formData.append('boost_cd', gameState.boost_cd || 0);   // <--- ADD THIS
+
+try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 
     try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 }
@@ -1003,6 +1011,28 @@ setInterval(() => {
     if (document.hidden) return; 
 
     gameState.playtime++;
+
+    // --- BOOST REWARD LOGIC ---
+    let now = Math.floor(Date.now() / 1000);
+    if (now < gameState.boost_end) {
+        if (!window.lastBoostRewardTime) window.lastBoostRewardTime = now;
+        
+        // Give 50 coins every 60 seconds
+        if (now - window.lastBoostRewardTime >= 60) {
+            gameState.coins += 50;
+            updateStatsUI();
+            
+            // Show the cool notification banner
+            const notif = document.getElementById('boostNotification');
+            if (notif) {
+                notif.classList.add('show');
+                setTimeout(() => notif.classList.remove('show'), 4000);
+            }
+            
+            saveGameToServer();
+            window.lastBoostRewardTime = now;
+        }
+    }
 
     if (document.getElementById('gameOverlay').classList.contains('open')) {
         let activeGame = document.getElementById('activeTitle').textContent;
