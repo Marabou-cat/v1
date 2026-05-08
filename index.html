@@ -779,9 +779,16 @@ function spawnFlyingCoin() {
     let clicked = false;
     
     // Updated onclick to handle pet Auto-Clicks
+    // Updated onclick to handle pet Auto-Clicks
     coin.onclick = (e, isAutoClick = false) => {
         if(clicked) return;
         clicked = true;
+        
+        // 1. Grab coordinates BEFORE hiding the coin!
+        let x = isAutoClick ? (coin.getBoundingClientRect().left + 40) : e.clientX;
+        let y = isAutoClick ? (coin.getBoundingClientRect().top + 40) : e.clientY;
+
+        // 2. Now hide it
         coin.style.display = 'none';
 
         const curInfo = CURSORS.find(c => c.id === gameState.equipped_cursor);
@@ -791,13 +798,9 @@ function spawnFlyingCoin() {
         updateStatsUI();
         saveGameToServer();
         
-        // Grab coordinates depending on if user clicked it or pet auto-clicked it
-        let x = isAutoClick ? (coin.getBoundingClientRect().left + 40) : e.clientX;
-        let y = isAutoClick ? (coin.getBoundingClientRect().top + 40) : e.clientY;
-
         showFloatText(x, y, `+${reward}`);
         
-        // Check if pet overrides the cursor effect
+        // 3. Check if pet overrides the cursor effect
         let effectId = gameState.equipped_cursor;
         if (isAutoClick && gameState.active_pet) {
             let baseId = gameState.active_pet.split('::')[0];
@@ -807,7 +810,6 @@ function spawnFlyingCoin() {
         }
         triggerCursorEffect(x, y, effectId);
     };
-
     // --- NEW: Pet Auto Clicker Logic ---
     if (gameState && gameState.active_pet) {
         let baseId = gameState.active_pet.split('::')[0];
