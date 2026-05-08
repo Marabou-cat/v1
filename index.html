@@ -393,10 +393,12 @@
         <button id="btnCancelSell" class="btn" style="width: auto; background: #555; display: none;" onclick="cancelSellMode()">Cancel</button>
     </div>
 
-    <div class="inv-tabs">
+   <div class="inv-tabs">
         <button class="inv-tab-btn active" id="tabBtnPets" onclick="showInvTab('pets')">🐾 My Pets</button>
         <button class="inv-tab-btn" id="tabBtnCursors" onclick="showInvTab('cursors')">🖱️ My Cursors</button>
         <button class="inv-tab-btn" id="tabBtnItems" onclick="showInvTab('items')">🎒 My Items</button>
+        <!-- NEW ABILITY BUTTON -->
+        <button class="inv-tab-btn" id="btnAbility" onclick="showPetAbility()" style="background: #9d4edd; border-color: #c77dff;">✨ Pet Ability</button>
     </div>
     
     <div class="shop-container" id="invPetsContainer"></div>
@@ -1190,6 +1192,54 @@ const CURSOR_EFFECTS = {
     //     duration: 1000
     // }
 };
+
+// --- PET ABILITIES CONFIGURATION ---
+// Add new pet abilities here using their base ID!
+const PET_ABILITIES = {
+    "virus_kitty": {
+        name: "Hack In",
+        desc: "Automaticly Click ALL Flying Coins. Absolutely NO WORK needed for ExamCoins!",
+        autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
+        clickEffect: "hacked"   // Uses the "hacked" effect from CURSOR_EFFECTS
+    },
+    "artificial_virus": {
+        name: "Hack In",
+        desc: "Automaticly Click ALL Flying Coins. Absolutely NO WORK needed for ExamCoins!",
+        autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
+        clickEffect: "hacked"   // Uses the "hacked" effect from CURSOR_EFFECTS
+    }
+    // "dragon": {
+    //     name: "Fire Breath",
+    //     desc: "Burns things..."
+    // }
+};
+
+function showPetAbility() {
+    if (!gameState || !gameState.active_pet) {
+        return alert("You don't have a pet equipped!");
+    }
+    
+    let baseId = gameState.active_pet.split('::')[0];
+    let ability = PET_ABILITIES[baseId];
+    let petInfo = PET_SHOP.find(p => p.id === baseId);
+    
+    let content = document.getElementById('abilityContent');
+    if (ability) {
+        content.innerHTML = `
+            <div style="font-size: 80px; margin-bottom: 20px; filter: drop-shadow(0 0 15px #00f5d4);">${petInfo.icon}</div>
+            <h2 style="color: #00f5d4; font-size: 28px; margin-top: 0; text-transform: uppercase; text-shadow: 0 0 10px #00f5d4;">${ability.name}</h2>
+            <p style="font-size: 18px; color: #fff; line-height: 1.6; font-weight: bold;">${ability.desc}</p>
+        `;
+    } else {
+        content.innerHTML = `
+            <div style="font-size: 80px; margin-bottom: 20px; opacity: 0.5;">${petInfo.icon}</div>
+            <h2 style="color: #aaa; font-size: 24px; margin-top: 0;">No Special Ability</h2>
+            <p style="font-size: 16px; color: #ccc;">This pet does not have a unique ability yet!</p>
+        `;
+    }
+    
+    document.getElementById('abilityOverlay').classList.add('open');
+}
 
 // --- EFFECT TRIGGER FUNCTION ---
 function triggerCursorEffect(x, y, cursorId) {
