@@ -684,7 +684,7 @@ async function loadGameFromServer() {
                 last_online: parseInt(result.data.last_online) || Date.now(),
                 prestige_level: parseInt(result.data.prestige_level) || 0,
                 profile_pic: result.data.profile_pic || null,
-                owned_items: JSON.parse(result.data.owned_items || '[]')
+                owned_items: JSON.parse(result.data.owned_items || '[]'),
                 boost_end: parseInt(result.data.boost_end) || 0, // <--- ADD THIS
                 boost_cd: parseInt(result.data.boost_cd) || 0    // <--- ADD THIS
             };
