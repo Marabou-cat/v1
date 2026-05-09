@@ -515,19 +515,44 @@ function upgradePrestige() {
     let nextLevel = pLevel + 1;
     let isGemGate = (nextLevel % 5 === 0);
     let cost = isGemGate ? 500 : 5000 * Math.pow(2, pLevel);
+    let currencyType = isGemGate ? 'gems' : 'coins';
     
-    if (isGemGate) {
-        if (gameState.gems < cost) return alert("Not enough Gems for breakthrough!");
-        gameState.gems -= cost;
-    } else {
-        if (gameState.coins < cost) return alert("Not enough ExamCoins!");
-        gameState.coins -= cost;
+    // 1. Check if they have enough money
+    if (gameState[currencyType] < cost) {
+        return alert(`Not enough ${isGemGate ? 'Gems for breakthrough' : 'ExamCoins'}!`);
+    }
+
+    // 2. Take the full cost
+    gameState[currencyType] -= cost;
+    
+    // 3. Check for Pet Prestige Discount
+    if (gameState.active_pet) {
+        let baseId = gameState.active_pet.split('::')[0];
+        let ability = PET_ABILITIES[baseId];
+        
+        // If the pet has a cashback ability for the currency we just spent
+        if (ability && ability.cashbackCurrency === currencyType && ability.cashbackPercent) {
+            let refund = Math.floor(cost * (ability.cashbackPercent / 100));
+            
+            if (refund > 0) {
+                gameState[currencyType] += refund; // Give the percentage back instantly
+                
+                // Show a delayed toast so the player sees the refund message clearly
+                setTimeout(() => {
+                    let symbol = currencyType === 'gems' ? '💎' : '🪙';
+                    showToast(`💸 Prestige Discount! Refunded ${refund} ${symbol}`);
+                    updateStatsUI(); // Refresh the top bar
+                }, 800);
+            }
+        }
     }
     
+    // 4. Upgrade the level and save
     gameState.prestige_level = nextLevel;
     updateStatsUI();
     updateProfileUI();
     saveGameToServer();
+    
     showToast(`🎉 Prestige Level Upgraded to ${nextLevel}!`);
 }
 
@@ -1286,6 +1311,19 @@ const PET_ABILITIES = {
         clickEffect: "sakura_ribbon",  // Uses the "hacked" effect from CURSOR_EFFECTS
         multiplier: 1.8  
        // Uses the "hacked" effect from CURSOR_EFFECTS
+    },
+    "gb": {
+        name: "Crystal Curse",
+        desc: "Get 20% of your Gems back when upgrading Prestige through a Gem Breakthrough!",
+        cashbackCurrency: "gems", 
+        cashbackPercent: 20
+    },
+    // Example: Gives 20% of Coins back on normal Prestige
+    "midas": {
+        name: "Golden Touch",
+        desc: "Get 35% of ExamCoins back when Upgrading Prestige!",
+        cashbackCurrency: "coins",
+        cashbackPercent: 35
     }
     
 };
