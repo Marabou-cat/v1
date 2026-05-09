@@ -1242,10 +1242,10 @@ const PET_SHOP = [
 
     // --- GAMER CARDS CONFIGURATION ---
 const GAMER_CARDS = [
-    { id: "raging_noob", name: "Raging Noob", icon: "<img src='png/raging_noob.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
-    { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#3ba55c" },
+    { id: "raging_noob", name: "Raging Noob", icon: "<img src='png/raging_noob.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#0077b6" },
+    { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
     { id: "royal_knight", name: "Royal Knight", icon: "<img src='png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
-    { id: "speedrunner", name: "Speedrunner", icon: "<img src='png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" }
+    { id: "speedrunner", name: "Speedrunner", icon: "<img src='png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" }
 ];
 
 const GamerCardAbilities = {
@@ -1261,7 +1261,7 @@ const GamerCardAbilities = {
         desc: "Levels up your active pet by 2 levels every 35 minutes played.",
         type: "auto_level",
         levelsToAdd: 2,
-        intervalMinutes: 35
+        intervalMinutes: 25
     },
     "royal_knight": {
         name: "Royal Defender",
@@ -1272,9 +1272,9 @@ const GamerCardAbilities = {
     },
     "speedrunner": {
         name: "Flash Booster",
-        desc: "Your active pet generates coins every 60 seconds instead of 120 seconds.",
+        desc: "Your active pet generates coins every 90 seconds instead of 120 seconds.",
         type: "fast_coins",
-        newInterval: 60 // The new tick rate in seconds
+        newInterval: 90 // The new tick rate in seconds
     }
 };
 
