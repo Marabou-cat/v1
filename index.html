@@ -849,7 +849,6 @@ function loadGuestState() {
     isLoggedIn = false;
     document.getElementById('guestLoginBtn').style.display = 'inline-block';
     document.getElementById('loggedInProfile').style.display = 'none';
-    
     const guestData = localStorage.getItem('schoolExamsGuestState');
     if (guestData) {
         try {
@@ -858,23 +857,21 @@ function loadGuestState() {
                 coins: parsed.coins || 0,
                 gems: parsed.gems || 0,
                 playtime: parsed.playtime || 0,
+                sakura_coins: parsed.sakura_coins || 0,
+                event_tasks: parsed.event_tasks || [],
                 owned_cursors: parsed.owned_cursors || ["def"],
-                equipped_cursor: parsed.equipped_cursor || "def"
+                equipped_cursor: parsed.equipped_cursor || "def",
+                owned_pets: parsed.owned_pets || [],
+                active_pet: parsed.active_pet || "",
+                pet_ages: parsed.pet_ages || {},
+                owned_gamer_cards: parsed.owned_gamer_cards || [],
+                equipped_gamer_card: parsed.equipped_gamer_card || ""
             };
-            updateStatsUI();
-            applyCursor();
+            sanitizePets(); updateStatsUI(); applyCursor(); updateCompanionUI();
         } catch(e){}
     } else {
-        gameState = {
-            coins: 0, gems: 0, playtime: 0, sakura_coins: 0, event_tasks: [],
-            owned_cursors: ["def"], equipped_cursor: "def",
-            owned_pets: [], active_pet: "", pet_ages: {},
-            owned_items: [], prestige_level: 0, profile_pic: "",
-            last_online: Date.now(),
-            owned_gamer_cards: [], equipped_gamer_card: ""
-        };
-        updateStatsUI();
-        applyCursor();
+        gameState = { coins: 0, gems: 0, playtime: 0, sakura_coins: 0, event_tasks: [], owned_cursors: ["def"], equipped_cursor: "def", owned_pets: [], active_pet: "", pet_ages: {}, owned_gamer_cards: [], equipped_gamer_card: "" };
+        updateStatsUI(); applyCursor(); updateCompanionUI();
     }
 }
 
