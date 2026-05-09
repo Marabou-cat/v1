@@ -1145,9 +1145,27 @@ setInterval(() => {
     if (gameState.active_pet) {
         gameState.pet_ages[gameState.active_pet] = (gameState.pet_ages[gameState.active_pet] || 0) + 1; 
         
+        let baseId = gameState.active_pet.split('::')[0];
+        let petInfo = PET_SHOP.find(p => p.id === baseId);
+        let ability = PET_ABILITIES[baseId]; // Grab the pet's ability
+        
+        // --- NEW: COIN STORM ABILITY ---
+        // Checks if the pet has the ability, and if exactly 5 minutes (300 seconds) have passed
+        if (ability && ability.stormAmount) {
+            if (gameState.playtime > 0 && gameState.playtime % 300 === 0) {
+                showToast(`🌩️ ${ability.name} triggered! A Coin Storm is here!`);
+                
+                // Spawn the coins! We stagger them by 200ms so they fly across the screen in a cool wave
+                for (let i = 0; i < ability.stormAmount; i++) {
+                    setTimeout(() => {
+                        spawnFlyingCoin();
+                    }, i * 200); 
+                }
+            }
+        }
+        // ---------------------------------
+
         if (gameState.playtime % 120 === 0) {
-            const baseId = gameState.active_pet.split('::')[0];
-            const petInfo = PET_SHOP.find(p => p.id === baseId);
             if (petInfo) {
                 const level = Math.floor(gameState.pet_ages[gameState.active_pet] / 600) + 1; 
                 gameState.coins += (petInfo.baseCoin + (level * 2));
@@ -1324,6 +1342,16 @@ const PET_ABILITIES = {
         desc: "Get 35% of ExamCoins back when Upgrading Prestige!",
         cashbackCurrency: "coins",
         cashbackPercent: 35
+    },
+    "lva": {
+        name: "Opened Vault",
+        desc: "Every 5 minutes, spawns a massive storm of 15 flying ExamCoins!",
+        stormAmount: 15 // <--- Write how many coins you want to spawn here!
+    },
+    "lt": {
+        name: "Value Of Gold",
+        desc: "Every 5 minutes, spawns a massive storm of 8 flying ExamCoins!",
+        stormAmount: 8 // <--- Write how many coins you want to spawn here!
     }
     
 };
