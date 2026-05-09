@@ -1500,6 +1500,7 @@ function updateCompanionUI() {
     document.querySelector('#petPanel .rec-header').innerText = "🐾 Active Loadout 🃏";
 
     // 1. Generate Pet Side
+    // 1. Generate Pet Side
     let petHTML = `<div class="empty-card-slot" style="border:none;"><div style="font-size:30px; margin-bottom:10px;">🐾</div><div style="font-size:12px;">No Pet Equipped</div></div>`;
     if (gameState.active_pet) {
         const baseId = gameState.active_pet.split('::')[0];
@@ -1507,11 +1508,7 @@ function updateCompanionUI() {
         const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; 
         const feedCost = 50 + ((level - 1) * 25); 
         
-        petHTML = `
-            <div class="rec-icon" id="activePetIcon" style="width: 80px; height: 80px; font-size: 30px; margin-bottom: 10px;">${petInfo.icon}</div>
-            <div class="gc-title">${petInfo.name}</div>
-            <div style="font-size: 12px; color: var(--p1); margin-bottom: 5px;">Lvl ${level}</div>
-            // Check interval for dynamic UI text
+        // Check interval for dynamic UI text (Must be OUTSIDE the backticks)
         let displayInterval = "2m";
         if (gameState.equipped_gamer_card && GamerCardAbilities[gameState.equipped_gamer_card]?.type === "fast_coins") {
             displayInterval = (GamerCardAbilities[gameState.equipped_gamer_card].newInterval / 60) + "m";
@@ -1524,6 +1521,7 @@ function updateCompanionUI() {
             <div style="font-size: 11px; color: #ffd700; margin-bottom: 10px;">+${petInfo.baseCoin + (level * 2)} 🪙/${displayInterval}</div>
             <button class="rec-btn" style="background: #3ba55c; width: 100%; padding: 8px 0;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost})</button>
         `;
+    }
             <button class="rec-btn" style="background: #3ba55c; width: 100%; padding: 8px 0;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost})</button>
         `;
     }
