@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gamer Card Wish System</title>
+    <title>WISH</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #001d3d;
+            background: #000814;
             color: white;
             display: flex;
             flex-direction: column;
@@ -18,18 +18,75 @@
             overflow: hidden;
         }
 
-        /* --- TEST UI BUTTONS (Not part of overlay) --- */
-        .test-ui { text-align: center; z-index: 100; position: relative; }
-        .stats { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ffd700; }
-        .btn-wish {
-            background: linear-gradient(135deg, #00f5d4, #0077b6); border: 2px solid #00f5d4;
-            color: white; font-size: 20px; font-weight: bold; padding: 15px 40px;
-            border-radius: 30px; cursor: pointer; transition: 0.3s; box-shadow: 0 0 15px rgba(0, 245, 212, 0.4);
+        /* ========================================= */
+        /* --- GACHA BANNER SHOWCASE UI --- */
+        /* ========================================= */
+        .stats { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
+        
+        .banner-container {
+            position: relative;
+            width: 95%; max-width: 900px; height: 500px;
+            border-radius: 20px; overflow: hidden;
+            border: 4px solid #00f5d4;
+            box-shadow: 0 0 40px rgba(0, 245, 212, 0.4);
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+            padding-bottom: 40px; box-sizing: border-box;
         }
-        .btn-wish:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(0, 245, 212, 0.7); }
+
+        /* SET YOUR BANNER BACKGROUND HERE */
+        .banner-bg {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1; opacity: 0.6;
+        }
+
+        .banner-title {
+            position: absolute; top: 20px; z-index: 2;
+            font-size: 32px; font-weight: 900; color: #fff;
+            text-transform: uppercase; letter-spacing: 5px;
+            text-shadow: 0 0 15px #00f5d4, 0 0 30px #00f5d4;
+        }
+
+        .showcase {
+            position: relative; z-index: 2;
+            display: flex; align-items: center; justify-content: center; gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .showcase-item {
+            background: rgba(0, 0, 0, 0.7); border: 3px solid; border-radius: 20px;
+            backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: 0.3s; animation: float 4s ease-in-out infinite;
+        }
+        
+        .showcase-item img {
+            width: 80%; height: 80%; object-fit: contain; filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
+        }
+
+        /* EPIC & LEGENDARY STYLING FOR BANNER */
+        .showcase-item.epic {
+            border-color: #9b59b6; box-shadow: 0 0 20px rgba(155, 89, 182, 0.6);
+            width: 120px; height: 120px;
+        }
+        .showcase-item.legendary {
+            border-color: #f1c40f; box-shadow: 0 0 30px rgba(241, 196, 15, 0.8);
+            width: 160px; height: 160px; transform: translateY(-30px); z-index: 3;
+            animation: floatLegendary 4s ease-in-out infinite;
+        }
+
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes floatLegendary { 0%, 100% { transform: translateY(-30px); } 50% { transform: translateY(-45px); } }
+
+        .btn-wish {
+            position: relative; z-index: 2;
+            background: linear-gradient(135deg, #00f5d4, #0077b6); border: 2px solid #fff;
+            color: white; font-size: 22px; font-weight: 900; padding: 15px 50px;
+            border-radius: 40px; cursor: pointer; transition: 0.3s; box-shadow: 0 0 20px rgba(0, 245, 212, 0.6);
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+        .btn-wish:hover { transform: scale(1.05); box-shadow: 0 0 35px rgba(0, 245, 212, 0.9); }
 
         /* ========================================= */
-        /* --- WISH SYSTEM (GACHA) STYLES --- */
+        /* --- WISH ANIMATION (GACHA) STYLES --- */
         /* ========================================= */
         #wishOverlay {
             position: fixed; inset: 0; background: #000411; z-index: 5000;
@@ -52,13 +109,17 @@
 
         @keyframes driftSpace { from { transform: translateY(0); } to { transform: translateY(-200px); } }
 
+        /* BIGGER STAR, POINTING BOTTOM RIGHT */
         .shooting-star {
-            position: absolute; top: -10%; left: -10%; width: 8px; height: 8px; border-radius: 50%;
+            position: absolute; top: -10vw; left: -10vw; 
+            width: 15px; height: 15px; border-radius: 50%; /* Made Star Bigger */
             z-index: 3; opacity: 0; pointer-events: none;
+            transform: rotate(45deg); /* Points tail up-left, so it moves bottom-right perfectly */
         }
         .shooting-star::after {
-            content: ''; position: absolute; top: 50%; transform: translateY(-50%); right: 4px;
-            width: 300px; height: 3px; background: linear-gradient(to left, rgba(255,255,255,0), currentColor);
+            content: ''; position: absolute; top: 50%; transform: translateY(-50%); right: 6px;
+            width: 400px; height: 5px; /* Thicker and longer tail */
+            background: linear-gradient(to left, rgba(255,255,255,0), currentColor);
         }
 
         .wish-flash {
@@ -73,7 +134,7 @@
 
         .wish-card {
             padding: 50px; border-radius: 20px; border: 4px solid; background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(10px); margin-bottom: 25px;
+            backdrop-filter: blur(10px); margin-bottom: 25px; min-width: 300px;
         }
 
         .btn-confirm {
@@ -85,13 +146,40 @@
 </head>
 <body>
 
-    <!-- TEST UI -->
-    <div class="test-ui">
-        <div class="stats">
-            💎 Gems: <span id="gemDisplay">1000</span> | 🪙 Coins: <span id="coinDisplay">0</span>
+    <!-- MOCK CURRENCY STATS -->
+    <div class="stats">
+        💎 <span id="gemDisplay">1000</span> | 🪙 <span id="coinDisplay">0</span>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- GACHA BANNER SHOWCASE UI -->
+    <!-- ========================================= -->
+    <div class="banner-container">
+        <!-- 1. ADD YOUR CUSTOM BACKGROUND PNG HERE -->
+        <img class="banner-bg" src="../png/banner_background.png" alt="" onerror="this.style.display='none'">
+        
+        <div class="banner-title">Cosmic Gamer Gear</div>
+        
+        <!-- 2. ADD YOUR SHOWCASE PNGs HERE -->
+        <div class="showcase">
+            <div class="showcase-item epic" style="animation-delay: 0.2s;">
+                <img src="../png/epic_card_2.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
+            </div>
+            
+            <div class="showcase-item epic" style="animation-delay: 0.4s;">
+                <img src="../png/dog_trainer.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
+            </div>
+            
+            <div class="showcase-item legendary" style="animation-delay: 0s;">
+                <img src="../png/royal_knight.png" onerror="this.outerHTML='<span style=\\'font-size:60px\\'>👑</span>'">
+            </div>
+            
+            <div class="showcase-item epic" style="animation-delay: 0.6s;">
+                <img src="../png/epic_card_3.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
+            </div>
         </div>
-        <button class="btn-wish" onclick="performWish()">✨ Wish (100 💎)</button>
-        <p style="color: #aaa; font-size: 14px; margin-top: 15px;">(Click to test the animation!)</p>
+
+        <button class="btn-wish" onclick="performWish()">✨ Wish (100 💎) ✨</button>
     </div>
 
     <!-- ========================================= -->
@@ -109,20 +197,13 @@
 
     <script>
         // --- MOCK GAME STATE FOR TESTING ---
-        // (This simulates your main portal's variables so the file works on its own)
-        let gameState = {
-            gems: 1000,
-            coins: 0,
-            owned_gamer_cards: []
-        };
+        let gameState = { gems: 1000, coins: 0, owned_gamer_cards: [] };
 
         function updateStatsUI() {
             document.getElementById('gemDisplay').innerText = gameState.gems;
             document.getElementById('coinDisplay').innerText = gameState.coins;
         }
-        function saveGameToServer() {
-            console.log("Game Saved! Owned Cards:", gameState.owned_gamer_cards);
-        }
+        function saveGameToServer() { console.log("Saved! Owned Cards:", gameState.owned_gamer_cards); }
 
         // =========================================
         // --- WISH SYSTEM SCRIPT ---
@@ -131,14 +212,16 @@
         // 1. CARDS CONFIGURATION
         const GAMER_CARDS = [
             { id: "raging_noob", name: "Raging Noob", icon: "png/raging_noob.png", color: "#aaa" },
-            { id: "dog_trainer", name: "Dog Trainer", icon: "png/dog_trainer.png", color: "#3ba55c" },
-            { id: "royal_knight", name: "Royal Knight", icon: "png/royal_knight.png", color: "#ffd700" }
+            { id: "epic_2", name: "Pro Gamer", icon: "png/epic_card_2.png", color: "#9b59b6" },
+            { id: "epic_3", name: "Speedrunner", icon: "png/epic_card_3.png", color: "#9b59b6" },
+            { id: "dog_trainer", name: "Dog Trainer", icon: "png/dog_trainer.png", color: "#9b59b6" },
+            { id: "royal_knight", name: "Royal Knight", icon: "png/royal_knight.png", color: "#f1c40f" }
         ];
 
         // 2. RARITY POOLS
-        const RARE_CARDS = ["raging_noob"];         // 89% Chance (Blue)
-        const EPIC_CARDS = ["dog_trainer"];         // 10% Chance (Purple)
-        const LEGENDARY_CARDS = ["royal_knight"];   // 1% Chance (Yellow)
+        const RARE_CARDS = ["raging_noob"];         
+        const EPIC_CARDS = ["dog_trainer", "epic_2", "epic_3"];         
+        const LEGENDARY_CARDS = ["royal_knight"];   
 
         const RARITY_COLORS = {
             rare: "#3498db",      // Normal Blue
@@ -179,29 +262,30 @@
             let cardInfo = GAMER_CARDS.find(c => c.id === cardId);
 
             // Start the Animation Sequence
+            // Reset star to top left (using vw makes the 45 degree angle perfect on all screens)
             star.style.transition = 'none';
-            star.style.left = '-20%';
-            star.style.top = '10%';
+            star.style.left = '-15vw';
+            star.style.top = '-15vw';
             star.style.opacity = '1';
             
             // Starts as Light Blue glowing trail
             star.style.background = '#e0f7fa';
             star.style.color = '#e0f7fa';
-            star.style.boxShadow = '0 0 20px 10px #00f5d4';
+            star.style.boxShadow = '0 0 25px 12px #00f5d4';
 
             setTimeout(() => {
-                // Fly across screen
-                star.style.transition = 'top 3s cubic-bezier(.4,0,.2,1), left 3s cubic-bezier(.4,0,.2,1), background 1s, box-shadow 1s, color 1s';
-                star.style.left = '70%';
-                star.style.top = '70%';
+                // Fly across screen to bottom right
+                star.style.transition = 'top 2.5s cubic-bezier(.4,0,.2,1), left 2.5s cubic-bezier(.4,0,.2,1), background 1s, box-shadow 1s, color 1s';
+                star.style.left = '70vw';
+                star.style.top = '70vw';
 
                 // Change color midway based on what rarity you won!
                 setTimeout(() => {
                     let winColor = RARITY_COLORS[rarity];
                     star.style.background = winColor;
                     star.style.color = winColor;
-                    star.style.boxShadow = `0 0 40px 15px ${winColor}`;
-                }, 1200);
+                    star.style.boxShadow = `0 0 50px 20px ${winColor}`;
+                }, 1000);
 
                 // Flash the screen white
                 setTimeout(() => {
@@ -229,25 +313,25 @@
                         // Draw the Result Card
                         let resultUI = document.getElementById('wishResult');
                         
-                        // Smart icon render (checks if it is a png path or an emoji)
+                        // Smart icon render
                         let iconHTML = cardInfo.icon.includes('/') || cardInfo.icon.includes('.') 
-                            ? `<img src="${cardInfo.icon}" style="width: 150px; height: 150px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));" onerror="this.outerHTML='🎮'">` 
+                            ? `<img src="${cardInfo.icon}" style="width: 180px; height: 180px; object-fit: contain; filter: drop-shadow(0 0 15px rgba(255,255,255,0.4));" onerror="this.outerHTML='🎮'">` 
                             : cardInfo.icon;
 
                         resultUI.innerHTML = `
-                            <div class="wish-card" style="border-color: ${RARITY_COLORS[rarity]}; box-shadow: 0 0 60px ${RARITY_COLORS[rarity]}40;">
-                                <h3 style="color: #fff; margin: 0 0 20px 0; letter-spacing: 4px; text-transform: uppercase; font-size: 18px; text-shadow: 0 0 10px ${RARITY_COLORS[rarity]};">${rarity}</h3>
-                                <div style="font-size: 80px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 0 20px ${RARITY_COLORS[rarity]});">
+                            <div class="wish-card" style="border-color: ${RARITY_COLORS[rarity]}; box-shadow: 0 0 60px ${RARITY_COLORS[rarity]}50;">
+                                <h3 style="color: #fff; margin: 0 0 20px 0; letter-spacing: 5px; text-transform: uppercase; font-size: 20px; text-shadow: 0 0 10px ${RARITY_COLORS[rarity]};">${rarity}</h3>
+                                <div style="font-size: 80px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 0 25px ${RARITY_COLORS[rarity]});">
                                     ${iconHTML}
                                 </div>
-                                <h2 style="color: ${RARITY_COLORS[rarity]}; font-size: 36px; margin: 0 0 15px 0; text-transform: uppercase;">${cardInfo.name}</h2>
+                                <h2 style="color: ${RARITY_COLORS[rarity]}; font-size: 40px; margin: 0 0 15px 0; text-transform: uppercase; text-shadow: 0 0 10px rgba(0,0,0,0.8);">${cardInfo.name}</h2>
                                 ${dupText}
                             </div>
                             <button class="btn-confirm" onclick="closeWish()">Confirm</button>
                         `;
                         resultUI.classList.add('show');
                     }, 500); // Wait for flash peak to swap UI
-                }, 2600); // Time it takes star to reach center
+                }, 2200); // Time it takes star to reach center
             }, 100);
         }
 
