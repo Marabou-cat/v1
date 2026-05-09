@@ -1927,23 +1927,24 @@ function renderGrid(filter = "") {
 }
 
 let gameStartTime = null;
-let activeGameFile = null; // NEW: Keeps track of exactly which file is open
+let activeGameFile = null; 
+let globalGameStats = {}; // Stores the global leaderboard
 
 function openGame(file, title) {
     const overlay = document.getElementById('gameOverlay'); const frame = document.getElementById('gameFrame');
     document.getElementById('activeTitle').textContent = title; 
     
     gameStartTime = Date.now();
-    activeGameFile = file; // Save the file name
+    activeGameFile = file; 
     
-    // --- NEW: TRACK GAME CLICKS ---
-    if (gameState) {
-        if (!gameState.game_stats) gameState.game_stats = {};
-        if (!gameState.game_stats[file]) gameState.game_stats[file] = { clicks: 0, playtime: 0 };
-        gameState.game_stats[file].clicks += 1;
-        saveGameToServer();
-    }
-    // ------------------------------
+    // --- SEND +1 CLICK TO GLOBAL DATABASE ---
+    const fd = new FormData();
+    fd.append('action', 'update_global_stat');
+    fd.append('game', file);
+    fd.append('clicks', 1);
+    fd.append('playtime', 0);
+    fetch('backend.php', { method: 'POST', body: fd }).catch(e=>{});
+    // ----------------------------------------
     
     let count = parseInt(localStorage.getItem('schoolExamsGamesOpened') || '0'); localStorage.setItem('schoolExamsGamesOpened', count + 1);
     updateStatsUI();
@@ -1956,23 +1957,27 @@ function closeGame() {
         let sessionTimeMins = Math.floor((Date.now() - gameStartTime) / 60000); 
         if (sessionTimeMins < 1 && (Date.now() - gameStartTime) > 5000) sessionTimeMins = 1; 
         
-        // --- NEW: TRACK INDIVIDUAL GAME PLAYTIME (in seconds) ---
+        // --- SEND PLAYTIME (Seconds) TO GLOBAL DATABASE ---
         let sessionTimeSecs = Math.floor((Date.now() - gameStartTime) / 1000);
-        if (gameState && activeGameFile) {
-            if (!gameState.game_stats) gameState.game_stats = {};
-            if (!gameState.game_stats[activeGameFile]) gameState.game_stats[activeGameFile] = { clicks: 0, playtime: 0 };
-            gameState.game_stats[activeGameFile].playtime += sessionTimeSecs;
+        if (activeGameFile) {
+            const fd = new FormData();
+            fd.append('action', 'update_global_stat');
+            fd.append('game', activeGameFile);
+            fd.append('clicks', 0);
+            fd.append('playtime', sessionTimeSecs);
+            fetch('backend.php', { method: 'POST', body: fd }).catch(e=>{});
         }
-        // --------------------------------------------------------
+        // --------------------------------------------------
         
-        gameState.playtime += (sessionTimeMins * 60); 
+        if (gameState) {
+            gameState.playtime += (sessionTimeMins * 60); 
+            saveGameToServer();
+        }
         gameStartTime = null; 
         activeGameFile = null;
-        saveGameToServer();
     }
     frame.src = "about:blank"; overlay.classList.remove('open'); document.body.style.overflow = "auto"; updateStatsUI();
 }
-
 document.getElementById('searchInput').oninput = (e) => renderGrid(e.target.value);
 renderGrid();
 </script>
