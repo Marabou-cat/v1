@@ -416,7 +416,6 @@
         </div>
 
         <button class="btn-nav" style="background: linear-gradient(135deg, #00f5d4, #0077b6); color: #000; border: none; font-size: 16px; padding: 10px 20px;" onclick="openExpandMenu()">🚀 EXPAND</button>
-    </div>
         
         <a href="#" class="btn-nav btn-bp" onclick="navigateAuth('Pass/')">🎫Battle Pass</a>
         <a href="#" class="btn-nav btn-event" style="background: #00ffff; box-shadow: 0 0 10px rgba(255, 116, 140, 0.5);" onclick="navigateAuth('Event/')">🕹️Arcade Event</a>
@@ -1573,7 +1572,6 @@ function updateCompanionUI() {
     document.querySelector('#petPanel .rec-header').innerText = "🐾 Active Loadout 🃏";
 
     // 1. Generate Pet Side
-    // 1. Generate Pet Side
     let petHTML = `<div class="empty-card-slot" style="border:none;"><div style="font-size:30px; margin-bottom:10px;">🐾</div><div style="font-size:12px;">No Pet Equipped</div></div>`;
     if (gameState.active_pet) {
         const baseId = gameState.active_pet.split('::')[0];
@@ -1581,7 +1579,7 @@ function updateCompanionUI() {
         const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; 
         const feedCost = 50 + ((level - 1) * 25); 
         
-        // Check interval for dynamic UI text (Must be OUTSIDE the backticks)
+        // Check interval for dynamic UI text
         let displayInterval = "2m";
         if (gameState.equipped_gamer_card && GamerCardAbilities[gameState.equipped_gamer_card]?.type === "fast_coins") {
             displayInterval = (GamerCardAbilities[gameState.equipped_gamer_card].newInterval / 60) + "m";
@@ -1615,6 +1613,15 @@ function updateCompanionUI() {
             <button class="rec-btn" style="background: #e74c3c; width: 100%; padding: 8px 0; margin-top: auto;" onclick="unequipGamerCard(); event.stopPropagation();">Unequip</button>
         `;
     }
+
+    // Render both into the split layout
+    document.getElementById('petPanelContent').innerHTML = `
+        <div class="split-loadout">
+            <div class="loadout-half">${petHTML}</div>
+            <div class="loadout-half">${gcHTML}</div>
+        </div>
+    `;
+}
 
     // Render both into the split layout
     document.getElementById('petPanelContent').innerHTML = `
