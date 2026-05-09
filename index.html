@@ -975,46 +975,80 @@ function toggleMoreMenu() {
 }
 
 // --- REDEEM CODE SYSTEM ---
+// --- REDEEM CODE SYSTEM ---
+// Define all your valid codes here! You can easily add more later.
+const VALID_CODES = {
+    "100PLAYERSYAY": { type: "coins", amount: 5000 },
+    "ABILITIES": { type: "gems", amount: 100 },
+    "ARCADE_TIME": { type: "sakura_coins", amount: 1000 },
+    "PART1": { type: "sakura_coins", amount: 1000 },
+    "BLOOMEFFECT": { type: "cursor", id: "sakura_ribbon", name: "Sakura Ribbon" }
+};
+
 let usedCodes = JSON.parse(localStorage.getItem('schoolExamsUsedCodes')) || [];
 
 function redeemCode() {
-    const input = prompt("Enter your Encrypted Redeem Code:");
+    if (!gameState) return;
+    
+    const input = prompt("Enter your Promo Code:");
     if (!input) return;
 
-    try {
-        const decoded = atob(input.trim());
-        const separator = decoded.includes("_") ? "_" : "-";
-        const parts = decoded.split(separator);
-        const prefix = parts[0]; const amount = parseInt(parts[1]); const hash = parts[2];
+    // Convert input to UPPERCASE so "Beta_Tester" and "beta_tester" both work
+    const code = input.trim().toUpperCase();
 
-        if (isNaN(amount) || !hash || (prefix !== "EXAM" && prefix !== "GEM")) throw new Error("Invalid Format");
-        if (usedCodes.includes(input)) { alert("❌ This code has already been redeemed!"); return; }
+    // 1. Check if they already used it
+    if (usedCodes.includes(code)) {
+        alert("❌ You have already redeemed this code!");
+        return;
+    }
 
-        if (prefix === "EXAM") {
-            if (amount === 10000) {
-                if (gameState.owned_cursors.length >= MAX_CURSORS) return alert(`❌ Cursor Inventory Full! (${MAX_CURSORS}/${MAX_CURSORS})`);
-                gameState.owned_cursors.push("dragon"); usedCodes.push(input);
-                localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
-                equipCursor("dragon"); 
-                alert("🐉 INCREDIBLE! You redeemed the 1% Prize and unlocked the Dragon Cursor!");
-                showToast("Dragon Cursor Unlocked!");
-            } else {
-                gameState.coins += amount; usedCodes.push(input);
-                localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
-                updateStatsUI();
-                saveGameToServer();
-                alert(`✅ Success! ${amount} ExamCoins have been added to your account.`);
-                showToast(amount > 0 ? `+${amount} Coins Redeemed!` : `${amount} Coins... Oh no.`);
-            }
-        } else if (prefix === "GEM") {
-            gameState.gems += amount; usedCodes.push(input);
-            localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
-            updateStatsUI();
-            saveGameToServer();
-            alert(`💎 Success! ${amount} Gems have been added to your account.`);
-            showToast(`+${amount} Gems Redeemed!`);
+    // 2. Check if the code exists in your VALID_CODES list
+    const reward = VALID_CODES[code];
+    if (!reward) {
+        alert("❌ Invalid or expired Promo Code.");
+        return;
+    }
+
+    // 3. Give the specific reward
+    if (reward.type === "coins") {
+        gameState.coins += reward.amount;
+        alert(`✅ Success! ${reward.amount} ExamCoins have been added to your account.`);
+        showToast(`+${reward.amount} Coins Redeemed!`);
+        
+    } else if (reward.type === "gems") {
+        gameState.gems += reward.amount;
+        alert(`💎 Success! ${reward.amount} Gems have been added to your account.`);
+        showToast(`+${reward.amount} Gems Redeemed!`);
+        
+    } else if (reward.type === "sakura_coins") {
+        gameState.sakura_coins += reward.amount;
+        alert(`👾 Success! ${reward.amount} Arcade Coins have been added to your account.`);
+        showToast(`+${reward.amount} Arcade Coins Redeemed!`);
+        
+    } else if (reward.type === "pet") {
+        if (gameState.owned_pets.length >= MAX_PETS) return alert("❌ Pet Inventory Full!");
+        let uid = reward.id + '::' + Date.now();
+        gameState.owned_pets.push(uid);
+        gameState.pet_ages[uid] = 0;
+        alert(`🐾 INCREDIBLE! You redeemed a code for the ${reward.name} pet!`);
+        showToast(`${reward.name} Adopted!`);
+        
+    } else if (reward.type === "cursor") {
+        if (gameState.owned_cursors.length >= MAX_CURSORS) return alert("❌ Cursor Inventory Full!");
+        if (!gameState.owned_cursors.includes(reward.id)) {
+            gameState.owned_cursors.push(reward.id);
         }
-    } catch (e) { alert("❌ Invalid or corrupted Redeem Code."); }
+        equipCursor(reward.id);
+        alert(`🖱️ AWESOME! You unlocked the ${reward.name} cursor!`);
+        showToast(`${reward.name} Unlocked!`);
+    }
+
+    // 4. Mark code as used and save to server
+    usedCodes.push(code);
+    localStorage.setItem('schoolExamsUsedCodes', JSON.stringify(usedCodes));
+    
+    updateStatsUI();
+    saveGameToServer();
 }
 
 // --- RECOMMENDED ROTATION LOGIC ---
