@@ -2080,33 +2080,6 @@ function renderGrid(filter = "") {
     
     
     
-    // 3. Draw the cards
-    gamesToRender.forEach(game => {
-        const card = document.createElement('div'); 
-        card.className = 'gameCard'; 
-        card.style.position = 'relative'; 
-        card.onclick = () => openGame(game.f, game.name);
-        
-        let safeGameName = game.name.replace(/'/g, "\\'");
-        
-        let iconHTML = (game.icon && game.icon !== "") 
-            ? `<img src="${game.icon}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.outerHTML='<span style=\\'font-size: 32px;\\'>${getIconForGame(safeGameName)}</span>'">`
-            : `<span style="font-size: 32px;">${getIconForGame(game.name)}</span>`;
-            
-        // Check if game is in favorites to style the star
-        let isFav = favs.includes(game.f);
-        let starColor = isFav ? '#ffd700' : 'rgba(0, 0, 0, 0.6)';
-        let starGlow = isFav ? 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))';
-            
-        card.innerHTML = `
-            <div class="star-btn" style="color: ${starColor}; filter: ${starGlow};" onclick="toggleFavorite(event, '${game.f}')">⭐</div>
-            <div class="gameIcon" style="padding: 0; overflow: hidden;">${iconHTML}</div>
-            <div class="gameName">${game.name}</div>
-        `;
-        grid.appendChild(card);
-    });
-}
-
     
     
     // 3. Draw the cards
