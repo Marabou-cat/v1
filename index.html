@@ -1396,7 +1396,7 @@ setInterval(() => {
         }
         // ---------------------------------
 
-        if (gameState.playtime % 120 === 0) {
+       if (gameState.playtime % 120 === 0) {
             if (petInfo) {
                 const level = Math.floor(gameState.pet_ages[gameState.active_pet] / 600) + 1; 
                 gameState.coins += (petInfo.baseCoin + (level * 2));
@@ -1404,7 +1404,7 @@ setInterval(() => {
                 saveGameToServer();
             }
         }
-        if (gameState.playtime % 5 === 0) { updatePetUI(); }
+        if (gameState.playtime % 5 === 0) { updateCompanionUI(); } // <-- FIXED
     }
 }, 1000);
 
@@ -1450,7 +1450,7 @@ function equipPet(uid) {
     if(!gameState) return;
     gameState.active_pet = uid;
     renderInventory(); 
-    updatePetUI();
+    updateCompanionUI(); // <-- FIXED
     saveGameToServer();
 }
 
@@ -1460,7 +1460,7 @@ function feedPet() {
 
     if (gameState.coins >= feedCost) {
         gameState.coins -= feedCost; gameState.pet_ages[gameState.active_pet] = (gameState.pet_ages[gameState.active_pet] || 0) + 600; 
-        updateStatsUI(); updatePetUI(); showToast("🍖 Pet Fed! +1 Age Level");
+        updateStatsUI(); updateCompanionUI(); showToast("🍖 Pet Fed! +1 Age Level"); // <-- FIXED
         const petIcon = document.getElementById('activePetIcon'); if(petIcon) { petIcon.style.transform = 'scale(1.3)'; setTimeout(() => petIcon.style.transform = 'scale(1)', 200); }
         saveGameToServer();
     } else { alert(`You need ${feedCost} ExamCoins to feed your level ${level} pet!`); }
@@ -2060,24 +2060,7 @@ function renderGrid(filter = "") {
         return;
     }
 
-    // 2. --- APPLY GLOBAL SORTING (Must be OUTSIDE and BEFORE the forEach loop) ---
-    let sortSelect = document.getElementById('sortSelect');
-    let sortMethod = sortSelect ? sortSelect.value : 'default';
     
-    if (sortMethod === 'most_played') {
-        gamesToRender.sort((a, b) => {
-            let statA = globalGameStats[a.f] ? globalGameStats[a.f].clicks : 0;
-            let statB = globalGameStats[b.f] ? globalGameStats[b.f].clicks : 0;
-            return statB - statA; 
-        });
-    } else if (sortMethod === 'longest_played') {
-        gamesToRender.sort((a, b) => {
-            let statA = globalGameStats[a.f] ? globalGameStats[a.f].playtime : 0;
-            let statB = globalGameStats[b.f] ? globalGameStats[b.f].playtime : 0;
-            return statB - statA; 
-        });
-    }
-    // -----------------------------------------------------------------------------
     
     // 3. Draw the cards
     gamesToRender.forEach(game => {
