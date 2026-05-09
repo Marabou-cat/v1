@@ -35,8 +35,8 @@
         /* ADMIN PANEL */
         .admin-panel { background: rgba(255, 0, 85, 0.1); border: 2px solid #ff0055; border-radius: 16px; padding: 25px; display: none; flex-direction: column; gap: 15px; box-shadow: 0 0 20px rgba(255, 0, 85, 0.2); }
         .admin-panel h2 { margin: 0; color: #ff0055; text-transform: uppercase; }
-        .admin-input { width: 100%; padding: 12px; background: var(--bg0); border: 1px solid #ff0055; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; font-family: inherit; }
-        .admin-row { display: flex; gap: 15px; }
+        .admin-input { flex: 1; padding: 12px; background: var(--bg0); border: 1px solid #ff0055; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; font-family: inherit; }
+        .admin-row { display: flex; gap: 15px; flex-wrap: wrap; }
         .btn-admin { background: #ff0055; color: #fff; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; text-transform: uppercase; }
         .btn-admin:hover { background: #ff3377; box-shadow: 0 0 15px #ff0055; }
 
@@ -56,6 +56,7 @@
         .mail-reward { font-size: 18px; font-weight: bold; }
         .reward-coins { color: var(--gold); }
         .reward-gems { color: #00ffcc; }
+        .reward-pet { color: #ff00ff; text-shadow: 0 0 10px rgba(255, 0, 255, 0.5); }
         .reward-none { color: gray; font-size: 14px; }
 
         .btn-claim { background: #3ba55c; color: #fff; border: none; padding: 10px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
@@ -82,12 +83,19 @@
         <textarea id="mailMessage" class="admin-input" rows="4" placeholder="Write your message to all players here..."></textarea>
         
         <div class="admin-row">
-            <select id="mailRewardType" class="admin-input">
+            <select id="mailRewardType" class="admin-input" onchange="toggleRewardInputs()" style="flex: 0.5;">
                 <option value="none">No Reward</option>
                 <option value="coins">ExamCoins</option>
                 <option value="gems">Gems</option>
+                <option value="pet">Pet</option>
             </select>
-            <input type="number" id="mailRewardAmount" class="admin-input" placeholder="Amount (e.g. 500)" value="0">
+            
+            <!-- Standard Amount Input -->
+            <input type="number" id="mailRewardAmount" class="admin-input" placeholder="Amount (e.g. 500)" style="display:none;">
+            
+            <!-- Pet Inputs -->
+            <input type="text" id="mailPetId" class="admin-input" placeholder="Pet ID (e.g. dragon)" style="display:none;">
+            <input type="text" id="mailPetName" class="admin-input" placeholder="Pet Name (e.g. Neon Dragon)" style="display:none;">
         </div>
         
         <button class="btn-admin" onclick="sendGlobalMail()">Broadcast to All Players 📡</button>
@@ -102,6 +110,28 @@
 
 <script>
     let state = { coins: 0, gems: 0, claimed: [], mails: [], is_admin: false };
+
+    // Toggles the inputs based on what reward is selected
+    function toggleRewardInputs() {
+        const type = document.getElementById('mailRewardType').value;
+        const amtInput = document.getElementById('mailRewardAmount');
+        const petIdInput = document.getElementById('mailPetId');
+        const petNameInput = document.getElementById('mailPetName');
+        
+        if (type === 'none') {
+            amtInput.style.display = 'none';
+            petIdInput.style.display = 'none';
+            petNameInput.style.display = 'none';
+        } else if (type === 'pet') {
+            amtInput.style.display = 'none';
+            petIdInput.style.display = 'block';
+            petNameInput.style.display = 'block';
+        } else {
+            amtInput.style.display = 'block';
+            petIdInput.style.display = 'none';
+            petNameInput.style.display = 'none';
+        }
+    }
 
     async function api(action, data = {}) {
         const fd = new FormData();
@@ -132,12 +162,16 @@
             let rewardText = `<span class="reward-none">No Attachments</span>`;
             let canClaim = false;
 
-            if (mail.reward_amount > 0) {
+            // Check if there's a reward attached
+            if (mail.reward_type && mail.reward_type !== 'none') {
                 canClaim = true;
                 if (mail.reward_type === 'coins') {
-                    rewardText = `<span class="reward-coins">+${mail.reward_amount.toLocaleString()} 🪙 Coins</span>`;
+                    rewardText = `<span class="reward-coins">+${Number(mail.reward_amount).toLocaleString()} 🪙 Coins</span>`;
                 } else if (mail.reward_type === 'gems') {
-                    rewardText = `<span class="reward-gems">+${mail.reward_amount.toLocaleString()} 💎 Gems</span>`;
+                    rewardText = `<span class="reward-gems">+${Number(mail.reward_amount).toLocaleString()} 💎 Gems</span>`;
+                } else if (mail.reward_type === 'pet') {
+                    // For pets, the ID is in reward_amount and the Name is in reward_name
+                    rewardText = `<span class="reward-pet">🐾 Pet: ${mail.reward_name || mail.reward_amount}</span>`;
                 }
             }
 
@@ -152,7 +186,6 @@
                 btnHTML = `<button class="btn-claim" disabled style="border-color: gray; color: gray;">Read ✓</button>`;
             }
 
-            // Format date
             let dateStr = new Date(mail.created_at).toLocaleDateString();
 
             container.innerHTML += `
@@ -178,6 +211,7 @@
             state.claimed = res.claimed; state.mails = res.mails;
             state.is_admin = res.is_admin;
             renderUI();
+            toggleRewardInputs(); // Run once to set initial input states
         } else alert(res.message);
     }
 
@@ -185,15 +219,36 @@
         const title = document.getElementById('mailTitle').value;
         const msg = document.getElementById('mailMessage').value;
         const type = document.getElementById('mailRewardType').value;
-        const amount = document.getElementById('mailRewardAmount').value;
+        
+        let amount = '';
+        let petName = '';
+
+        if (type === 'pet') {
+            amount = document.getElementById('mailPetId').value;
+            petName = document.getElementById('mailPetName').value;
+            if (!amount || !petName) return alert("Please enter both Pet ID and Pet Name.");
+        } else if (type !== 'none') {
+            amount = document.getElementById('mailRewardAmount').value;
+            if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+        }
 
         if(!title || !msg) return alert("Please fill out Title and Message.");
 
-        const res = await api('send_mail', { title: title, message: msg, reward_type: type, reward_amount: amount });
+        const res = await api('send_mail', { 
+            title: title, 
+            message: msg, 
+            reward_type: type, 
+            reward_amount: amount,
+            reward_name: petName 
+        });
+        
         if(res.success) {
             alert("Broadcast Sent!");
             document.getElementById('mailTitle').value = '';
             document.getElementById('mailMessage').value = '';
+            document.getElementById('mailPetId').value = '';
+            document.getElementById('mailPetName').value = '';
+            document.getElementById('mailRewardAmount').value = '';
             loadData(); // Refresh to see the new mail
         } else {
             alert("❌ " + res.message);
@@ -206,7 +261,9 @@
             state.coins = res.coins;
             state.gems = res.gems;
             state.claimed = res.claimed;
-            renderUI(); // Re-render to disable the button
+            renderUI(); 
+            // We use a small alert just in case it was a pet
+            if (res.message) alert(res.message); 
         } else {
             alert("❌ " + res.message);
         }
