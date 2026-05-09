@@ -1052,6 +1052,21 @@ function toggleMoreMenu() {
     }
 }
 
+async function loadGlobalGameStats() {
+    try {
+        const fd = new FormData(); fd.append('action', 'get_global_stats');
+        const res = await fetch('backend.php', { method: 'POST', body: fd });
+        const json = await res.json();
+        if (json.success) {
+            globalGameStats = json.data;
+            renderGrid(document.getElementById('searchInput').value); // Re-render once we have the data
+        }
+    } catch(e) {}
+}
+
+// Call this immediately so it loads the stats when the page opens!
+loadGlobalGameStats();
+
 // --- REDEEM CODE SYSTEM ---
 // --- REDEEM CODE SYSTEM ---
 // Define all your valid codes here! You can easily add more later.
@@ -1895,19 +1910,21 @@ function renderGrid(filter = "") {
             : `<span style="font-size: 32px;">${getIconForGame(game.name)}</span>`;
 
          // --- NEW: APPLY SORTING ---
-    let sortMethod = document.getElementById('sortSelect').value;
+         // --- APPLY GLOBAL SORTING ---
+    let sortSelect = document.getElementById('sortSelect');
+    let sortMethod = sortSelect ? sortSelect.value : 'default';
     
     if (sortMethod === 'most_played') {
         gamesToRender.sort((a, b) => {
-            let statA = (gameState && gameState.game_stats && gameState.game_stats[a.f]) ? gameState.game_stats[a.f].clicks : 0;
-            let statB = (gameState && gameState.game_stats && gameState.game_stats[b.f]) ? gameState.game_stats[b.f].clicks : 0;
-            return statB - statA; // Highest clicks first
+            let statA = globalGameStats[a.f] ? globalGameStats[a.f].clicks : 0;
+            let statB = globalGameStats[b.f] ? globalGameStats[b.f].clicks : 0;
+            return statB - statA; 
         });
     } else if (sortMethod === 'longest_played') {
         gamesToRender.sort((a, b) => {
-            let statA = (gameState && gameState.game_stats && gameState.game_stats[a.f]) ? gameState.game_stats[a.f].playtime : 0;
-            let statB = (gameState && gameState.game_stats && gameState.game_stats[b.f]) ? gameState.game_stats[b.f].playtime : 0;
-            return statB - statA; // Highest playtime first
+            let statA = globalGameStats[a.f] ? globalGameStats[a.f].playtime : 0;
+            let statB = globalGameStats[b.f] ? globalGameStats[b.f].playtime : 0;
+            return statB - statA; 
         });
     }
     // --------------------------
