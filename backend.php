@@ -2,14 +2,13 @@
 session_start();
 header('Content-Type: application/json');
 
+// --- 1. CONFIG & CONNECTION ---
 $config_file = 'config.ini'; 
-
 if (!file_exists($config_file)) {
     die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing."]));
 }
 
 $lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-
 if (count($lines) < 2) {
     die(json_encode(["success" => false, "message" => "Server Error: Invalid configuration file format."]));
 }
@@ -22,19 +21,13 @@ $db_pass = trim($lines[1]);
 try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
-    $pdo->exec("CREATE TABLE IF NOT EXISTS global_state (
-        key_name VARCHAR(50) PRIMARY KEY,
-        key_value VARCHAR(255)
-    )");
-    
 } catch (PDOException $e) {
     die(json_encode(["success" => false, "message" => "Database connection failed."]));
 }
 
 $action = $_POST['action'] ?? '';
 
-// --- INSTANT RECONNECT HELPER ---
+// --- 2. INSTANT RECONNECT HELPER ---
 if (($action === 'load' || $action === 'save') && !isset($_SESSION['user_id']) && !empty($_POST['username'])) {
     $stmt = $pdo->prepare("SELECT id, username FROM users WHERE username = ?");
     $stmt->execute([$_POST['username']]);
@@ -45,21 +38,19 @@ if (($action === 'load' || $action === 'save') && !isset($_SESSION['user_id']) &
     }
 }
 
-// --- REGISTER ---
+// --- 3. REGISTER ---
 if ($action === 'register') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
     if (strlen($username) < 3 || strlen($password) < 4) {
-        echo json_encode(["success" => false, "message" => "Username >= 3 chars, Password >= 4 chars."]);
-        exit;
+        die(json_encode(["success" => false, "message" => "Username >= 3 chars, Password >= 4 chars."]));
     }
 
     $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
     $stmt->execute([$username]);
     if ($stmt->fetch()) {
-        echo json_encode(["success" => false, "message" => "Username already exists!"]);
-        exit;
+        die(json_encode(["success" => false, "message" => "Username already exists!"]));
     }
 
     $hashed = password_hash($password, PASSWORD_DEFAULT);
@@ -74,7 +65,7 @@ if ($action === 'register') {
     exit;
 }
 
-// --- LOGIN ---
+// --- 4. LOGIN ---
 if ($action === 'login') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -93,14 +84,10 @@ if ($action === 'login') {
     exit;
 }
 
-// --- LOAD DATA ---
+// --- 5. LOAD DATA ---
 if ($action === 'load') {
-    if (!isset($_SESSION['user_id'])) {
-        echo json_encode(["success" => false, "message" => "Not logged in."]);
-        exit;
-    }
+    if (!isset($_SESSION['user_id'])) die(json_encode(["success" => false, "message" => "Not logged in."]));
 
-    // ADDED game_stats to SELECT statement
     $stmt = $pdo->prepare("SELECT coins, gems, playtime, owned_cursors, equipped_cursor, owned_pets, active_pet, pet_ages, last_online, sakura_coins, event_tasks, owned_chests, prestige_level, profile_pic, owned_items, boost_end, boost_cd, game_stats FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $data = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -109,12 +96,9 @@ if ($action === 'load') {
     exit;
 }
 
-// --- SAVE DATA ---
+// --- 6. SAVE DATA ---
 if ($action === 'save') {
-    if (!isset($_SESSION['user_id'])) {
-        echo json_encode(["success" => false, "message" => "Not logged in."]);
-        exit;
-    }
+    if (!isset($_SESSION['user_id'])) die(json_encode(["success" => false, "message" => "Not logged in."]));
 
     $stmt = $pdo->prepare("SELECT prestige_level, profile_pic FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
@@ -134,18 +118,13 @@ if ($action === 'save') {
     $event_tasks = $_POST['event_tasks'] ?? '[]';
     $owned_chests = $_POST['owned_chests'] ?? '{}';
     $owned_items = $_POST['owned_items'] ?? '[]';
-    
-    // FETCH THE BOOST DATA
-    $boost_end = isset($_POST['boost_end']) ? (int)$_POST['boost_end'] : 0;
-    $boost_cd = isset($_POST['boost_cd']) ? (int)$_POST['boost_cd'] : 0;
-    
-    // NEW: FETCH GAME STATS
+    $boost_end = (int)($_POST['boost_end'] ?? 0);
+    $boost_cd = (int)($_POST['boost_cd'] ?? 0);
     $game_stats = $_POST['game_stats'] ?? '{}';
     
     $prestige_level = isset($_POST['prestige_level']) ? (int)$_POST['prestige_level'] : (int)$existing['prestige_level'];
     $profile_pic = isset($_POST['profile_pic']) ? $_POST['profile_pic'] : $existing['profile_pic'];
 
-    // ADDED game_stats to UPDATE statement
     $stmt = $pdo->prepare("UPDATE users SET coins=?, gems=?, playtime=?, owned_cursors=?, equipped_cursor=?, owned_pets=?, active_pet=?, pet_ages=?, last_online=?, sakura_coins=?, event_tasks=?, owned_chests=?, prestige_level=?, profile_pic=?, owned_items=?, boost_end=?, boost_cd=?, game_stats=? WHERE id=?");
     $stmt->execute([
         $coins, $gems, $playtime, $owned_cursors, $equipped_cursor, $owned_pets, $active_pet, $pet_ages, $last_online, $sakura_coins, $event_tasks, $owned_chests, $prestige_level, $profile_pic, $owned_items, $boost_end, $boost_cd, $game_stats, $_SESSION['user_id']
@@ -155,9 +134,40 @@ if ($action === 'save') {
     exit;
 }
 
-// --- GET LEADERBOARD & DISTRIBUTE MONTHLY REWARDS ---
-if ($action === 'get_leaderboard') {
+// --- 7. UPDATE GLOBAL GAME STATS (For "Most Played" tab) ---
+if ($action === 'update_global_stat') {
+    $game = $_POST['game'] ?? '';
+    $clicks = (int)($_POST['clicks'] ?? 0);
+    $playtime = (int)($_POST['playtime'] ?? 0);
     
+    if ($game) {
+        $stmt = $pdo->prepare("INSERT INTO global_game_stats (game_file, total_clicks, total_playtime) 
+                               VALUES (?, ?, ?) 
+                               ON DUPLICATE KEY UPDATE total_clicks = total_clicks + ?, total_playtime = total_playtime + ?");
+        $stmt->execute([$game, $clicks, $playtime, $clicks, $playtime]);
+    }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// --- 8. GET GLOBAL GAME STATS ---
+if ($action === 'get_global_stats') {
+    $stmt = $pdo->query("SELECT * FROM global_game_stats");
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $stats = [];
+    foreach($rows as $r) {
+        $stats[$r['game_file']] = [
+            'clicks' => (int)$r['total_clicks'], 
+            'playtime' => (int)$r['total_playtime']
+        ];
+    }
+    echo json_encode(['success' => true, 'data' => $stats]);
+    exit;
+}
+
+// --- 9. GET LEADERBOARD & DISTRIBUTE MONTHLY REWARDS ---
+if ($action === 'get_leaderboard') {
     $current_month = date('Y-m'); 
     $stmt = $pdo->query("SELECT key_value FROM global_state WHERE key_name = 'last_reward_month'");
     $last_reward = $stmt->fetchColumn() ?: '';
@@ -184,7 +194,6 @@ if ($action === 'get_leaderboard') {
             
             $stmt = $pdo->prepare("INSERT INTO global_state (key_name, key_value) VALUES ('last_reward_month', ?) ON DUPLICATE KEY UPDATE key_value = ?");
             $stmt->execute([$current_month, $current_month]);
-            
             $pdo->commit();
         } catch (Exception $e) {
             $pdo->rollBack();
