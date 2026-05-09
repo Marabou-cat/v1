@@ -154,7 +154,7 @@
 </head>
 <body>
 
-    <a href="index.html" class="btn-back">⬅ Back to Portal</a>
+    <a href="../index.html" class="btn-back">⬅ Back to Portal</a>
 
     <!-- REAL CURRENCY STATS -->
     <div class="stats">
@@ -165,23 +165,23 @@
     <!-- GACHA BANNER SHOWCASE UI -->
     <!-- ========================================= -->
     <div class="banner-container">
-        <!-- 1. ADD YOUR CUSTOM BACKGROUND PNG HERE -->
-        <img class="banner-bg" src="png/banner_background.png" alt="" onerror="this.style.display='none'">
+        <!-- CUSTOM BACKGROUND PNG -->
+        <img class="banner-bg" src="../png/banner_background.png" alt="" onerror="this.style.display='none'">
         
         <div class="banner-title">Cosmic Gamer Gear</div>
         
-        <!-- 2. ADD YOUR SHOWCASE PNGs HERE -->
+        <!-- SHOWCASE PNGs -->
         <div class="showcase">
             <div class="showcase-item epic" style="animation-delay: 0.2s;">
-                <img src="png/dog_trainer.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
+                <img src="../png/dog_trainer.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
             </div>
             
             <div class="showcase-item legendary" style="animation-delay: 0s;">
-                <img src="png/royal_knight.png" onerror="this.outerHTML='<span style=\\'font-size:60px\\'>👑</span>'">
+                <img src="../png/royal_knight.png" onerror="this.outerHTML='<span style=\\'font-size:60px\\'>👑</span>'">
             </div>
             
             <div class="showcase-item epic" style="animation-delay: 0.6s;">
-                <img src="png/raging_noob.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
+                <img src="../png/raging_noob.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
             </div>
         </div>
 
@@ -225,7 +225,7 @@
             formData.append('username', username);
 
             try {
-                const response = await fetch('backend.php', { method: 'POST', body: formData });
+                const response = await fetch('../backend.php', { method: 'POST', body: formData });
                 const result = await response.json();
                 
                 if (result.success && result.data) {
@@ -271,7 +271,7 @@
             formData.append('game_stats', typeof gameState.game_stats === 'string' ? gameState.game_stats : JSON.stringify(gameState.game_stats || {}));
             formData.append('equipped_gamer_card', gameState.equipped_gamer_card);
 
-            try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
+            try { fetch('../backend.php', { method: 'POST', body: formData }); } catch(e) {}
         }
 
         function updateStatsUI() {
@@ -285,11 +285,11 @@
         // --- WISH SYSTEM SCRIPT ---
         // =========================================
 
-        // 1. CARDS CONFIGURATION
+        // 1. CARDS CONFIGURATION (Paths updated to ../png)
         const GAMER_CARDS = [
-            { id: "raging_noob", name: "Raging Noob", icon: "<img src='png/raging_noob.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
-            { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#3ba55c" },
-            { id: "royal_knight", name: "Royal Knight", icon: "<img src='png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" }
+            { id: "raging_noob", name: "Raging Noob", icon: "<img src='../png/raging_noob.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
+            { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='../png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#3ba55c" },
+            { id: "royal_knight", name: "Royal Knight", icon: "<img src='../png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" }
         ];
 
         // 2. RARITY POOLS
