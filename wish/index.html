@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamer Card Wish System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #001d3d;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* --- TEST UI BUTTONS (Not part of overlay) --- */
+        .test-ui { text-align: center; z-index: 100; position: relative; }
+        .stats { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ffd700; }
+        .btn-wish {
+            background: linear-gradient(135deg, #00f5d4, #0077b6); border: 2px solid #00f5d4;
+            color: white; font-size: 20px; font-weight: bold; padding: 15px 40px;
+            border-radius: 30px; cursor: pointer; transition: 0.3s; box-shadow: 0 0 15px rgba(0, 245, 212, 0.4);
+        }
+        .btn-wish:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(0, 245, 212, 0.7); }
+
+        /* ========================================= */
+        /* --- WISH SYSTEM (GACHA) STYLES --- */
+        /* ========================================= */
+        #wishOverlay {
+            position: fixed; inset: 0; background: #000411; z-index: 5000;
+            display: none; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;
+        }
+        #wishOverlay.open { display: flex; }
+
+        .space-background {
+            position: absolute; inset: 0; z-index: 1;
+            background-image: 
+                radial-gradient(1px 1px at 10% 10%, #fff 100%, transparent),
+                radial-gradient(2px 2px at 20% 30%, #fff 100%, transparent),
+                radial-gradient(1px 1px at 40% 70%, #fff 100%, transparent),
+                radial-gradient(2px 2px at 60% 20%, #fff 100%, transparent),
+                radial-gradient(1px 1px at 80% 80%, #fff 100%, transparent),
+                radial-gradient(2px 2px at 90% 40%, #fff 100%, transparent);
+            background-size: 200px 200px;
+            animation: driftSpace 60s linear infinite;
+        }
+
+        @keyframes driftSpace { from { transform: translateY(0); } to { transform: translateY(-200px); } }
+
+        .shooting-star {
+            position: absolute; top: -10%; left: -10%; width: 8px; height: 8px; border-radius: 50%;
+            z-index: 3; opacity: 0; pointer-events: none;
+        }
+        .shooting-star::after {
+            content: ''; position: absolute; top: 50%; transform: translateY(-50%); right: 4px;
+            width: 300px; height: 3px; background: linear-gradient(to left, rgba(255,255,255,0), currentColor);
+        }
+
+        .wish-flash {
+            position: absolute; inset: 0; background: #fff; z-index: 5; opacity: 0; pointer-events: none; transition: opacity 0.5s ease-out;
+        }
+
+        .wish-result-container {
+            z-index: 10; display: none; flex-direction: column; align-items: center; text-align: center;
+            transform: scale(0.5); opacity: 0; transition: 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .wish-result-container.show { display: flex; transform: scale(1); opacity: 1; }
+
+        .wish-card {
+            padding: 50px; border-radius: 20px; border: 4px solid; background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px); margin-bottom: 25px;
+        }
+
+        .btn-confirm {
+            width: 250px; background: #fff; color: #000; font-size: 20px; font-weight: bold;
+            padding: 15px; border: none; border-radius: 30px; cursor: pointer; transition: 0.2s;
+        }
+        .btn-confirm:hover { background: #ddd; transform: scale(1.05); }
+    </style>
+</head>
+<body>
+
+    <!-- TEST UI -->
+    <div class="test-ui">
+        <div class="stats">
+            💎 Gems: <span id="gemDisplay">1000</span> | 🪙 Coins: <span id="coinDisplay">0</span>
+        </div>
+        <button class="btn-wish" onclick="performWish()">✨ Wish (100 💎)</button>
+        <p style="color: #aaa; font-size: 14px; margin-top: 15px;">(Click to test the animation!)</p>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- WISH ANIMATION OVERLAY -->
+    <!-- ========================================= -->
+    <div class="overlay" id="wishOverlay">
+        <div class="space-background"></div>
+        <div class="shooting-star" id="shootingStar"></div>
+        <div class="wish-flash" id="wishFlash"></div>
+        
+        <div class="wish-result-container" id="wishResult">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        // --- MOCK GAME STATE FOR TESTING ---
+        // (This simulates your main portal's variables so the file works on its own)
+        let gameState = {
+            gems: 1000,
+            coins: 0,
+            owned_gamer_cards: []
+        };
+
+        function updateStatsUI() {
+            document.getElementById('gemDisplay').innerText = gameState.gems;
+            document.getElementById('coinDisplay').innerText = gameState.coins;
+        }
+        function saveGameToServer() {
+            console.log("Game Saved! Owned Cards:", gameState.owned_gamer_cards);
+        }
+
+        // =========================================
+        // --- WISH SYSTEM SCRIPT ---
+        // =========================================
+
+        // 1. CARDS CONFIGURATION
+        const GAMER_CARDS = [
+            { id: "raging_noob", name: "Raging Noob", icon: "png/raging_noob.png", color: "#aaa" },
+            { id: "dog_trainer", name: "Dog Trainer", icon: "png/dog_trainer.png", color: "#3ba55c" },
+            { id: "royal_knight", name: "Royal Knight", icon: "png/royal_knight.png", color: "#ffd700" }
+        ];
+
+        // 2. RARITY POOLS
+        const RARE_CARDS = ["raging_noob"];         // 89% Chance (Blue)
+        const EPIC_CARDS = ["dog_trainer"];         // 10% Chance (Purple)
+        const LEGENDARY_CARDS = ["royal_knight"];   // 1% Chance (Yellow)
+
+        const RARITY_COLORS = {
+            rare: "#3498db",      // Normal Blue
+            epic: "#9b59b6",      // Purple
+            legendary: "#f1c40f"  // Yellow
+        };
+
+        // 3. MAIN WISH FUNCTION
+        function performWish() {
+            if (!gameState) return;
+            if (gameState.gems < 100) return alert("❌ Not enough Gems! You need 100 💎 to roll.");
+
+            // Deduct Cost & Prep UI
+            gameState.gems -= 100;
+            updateStatsUI();
+            saveGameToServer();
+
+            document.getElementById('wishFlash').style.opacity = '0';
+            document.getElementById('wishResult').classList.remove('show');
+            document.getElementById('wishOverlay').classList.add('open');
+
+            const star = document.getElementById('shootingStar');
+
+            // Roll the Dice! (0.0 to 1.0)
+            let roll = Math.random();
+            let rarity = 'rare';
+            let cardPool = RARE_CARDS;
+
+            // 89% Rare, 10% Epic, 1% Legendary
+            if (roll > 0.89 && roll <= 0.99) { 
+                rarity = 'epic'; cardPool = EPIC_CARDS; 
+            } else if (roll > 0.99) { 
+                rarity = 'legendary'; cardPool = LEGENDARY_CARDS; 
+            }
+
+            // Pick a random card from the winning rarity pool
+            let cardId = cardPool[Math.floor(Math.random() * cardPool.length)];
+            let cardInfo = GAMER_CARDS.find(c => c.id === cardId);
+
+            // Start the Animation Sequence
+            star.style.transition = 'none';
+            star.style.left = '-20%';
+            star.style.top = '10%';
+            star.style.opacity = '1';
+            
+            // Starts as Light Blue glowing trail
+            star.style.background = '#e0f7fa';
+            star.style.color = '#e0f7fa';
+            star.style.boxShadow = '0 0 20px 10px #00f5d4';
+
+            setTimeout(() => {
+                // Fly across screen
+                star.style.transition = 'top 3s cubic-bezier(.4,0,.2,1), left 3s cubic-bezier(.4,0,.2,1), background 1s, box-shadow 1s, color 1s';
+                star.style.left = '70%';
+                star.style.top = '70%';
+
+                // Change color midway based on what rarity you won!
+                setTimeout(() => {
+                    let winColor = RARITY_COLORS[rarity];
+                    star.style.background = winColor;
+                    star.style.color = winColor;
+                    star.style.boxShadow = `0 0 40px 15px ${winColor}`;
+                }, 1200);
+
+                // Flash the screen white
+                setTimeout(() => {
+                    document.getElementById('wishFlash').style.opacity = '1';
+
+                    // Reveal the Card
+                    setTimeout(() => {
+                        star.style.opacity = '0';
+                        document.getElementById('wishFlash').style.opacity = '0';
+
+                        // Check for Duplicates
+                        if (!gameState.owned_gamer_cards) gameState.owned_gamer_cards = [];
+                        let isDup = gameState.owned_gamer_cards.includes(cardId);
+                        let dupText = isDup ? `<br><span style="color:#ff4444; font-size:14px; font-weight:bold; background: rgba(255,0,0,0.2); padding: 5px 10px; border-radius: 8px;">Duplicate! Converted to 500 ExamCoins.</span>` : "";
+
+                        if (isDup) {
+                            gameState.coins += 500;
+                        } else {
+                            gameState.owned_gamer_cards.push(cardId);
+                        }
+                        
+                        saveGameToServer();
+                        updateStatsUI();
+
+                        // Draw the Result Card
+                        let resultUI = document.getElementById('wishResult');
+                        
+                        // Smart icon render (checks if it is a png path or an emoji)
+                        let iconHTML = cardInfo.icon.includes('/') || cardInfo.icon.includes('.') 
+                            ? `<img src="${cardInfo.icon}" style="width: 150px; height: 150px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));" onerror="this.outerHTML='🎮'">` 
+                            : cardInfo.icon;
+
+                        resultUI.innerHTML = `
+                            <div class="wish-card" style="border-color: ${RARITY_COLORS[rarity]}; box-shadow: 0 0 60px ${RARITY_COLORS[rarity]}40;">
+                                <h3 style="color: #fff; margin: 0 0 20px 0; letter-spacing: 4px; text-transform: uppercase; font-size: 18px; text-shadow: 0 0 10px ${RARITY_COLORS[rarity]};">${rarity}</h3>
+                                <div style="font-size: 80px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 0 20px ${RARITY_COLORS[rarity]});">
+                                    ${iconHTML}
+                                </div>
+                                <h2 style="color: ${RARITY_COLORS[rarity]}; font-size: 36px; margin: 0 0 15px 0; text-transform: uppercase;">${cardInfo.name}</h2>
+                                ${dupText}
+                            </div>
+                            <button class="btn-confirm" onclick="closeWish()">Confirm</button>
+                        `;
+                        resultUI.classList.add('show');
+                    }, 500); // Wait for flash peak to swap UI
+                }, 2600); // Time it takes star to reach center
+            }, 100);
+        }
+
+        function closeWish() {
+            document.getElementById('wishOverlay').classList.remove('open');
+        }
+    </script>
+</body>
+</html>
