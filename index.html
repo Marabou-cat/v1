@@ -427,6 +427,14 @@
 
     <div class="searchWrap">
         <input type="text" id="searchInput" placeholder="Search verified modules...">
+        
+        <!-- NEW SORTING DROPDOWN -->
+        <select id="sortSelect" class="btn-fav-tab" onchange="renderGrid(document.getElementById('searchInput').value)" style="outline: none; cursor: pointer; appearance: none; text-align: center;">
+            <option value="default" style="background: var(--bg1);">⬇️ Sort: Default</option>
+            <option value="most_played" style="background: var(--bg1);">🖱️ Most Played</option>
+            <option value="longest_played" style="background: var(--bg1);">⏳ Longest Played</option>
+        </select>
+        
         <button id="favTabBtn" class="btn-fav-tab" onclick="toggleFavoriteView()">⭐ Favorites</button>
     </div>
     <div class="gamesGrid" id="gamesGrid"></div>
@@ -863,6 +871,7 @@ async function saveGameToServer() {
     formData.append('owned_items', JSON.stringify(gameState.owned_items || []));
     formData.append('boost_end', gameState.boost_end || 0); // <--- ADD THIS
     formData.append('boost_cd', gameState.boost_cd || 0);   // <--- ADD THIS
+    formData.append('game_stats', JSON.stringify(gameState.game_stats || {})); // <--- ADD THIS
 
 try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 
@@ -1884,6 +1893,24 @@ function renderGrid(filter = "") {
         let iconHTML = (game.icon && game.icon !== "") 
             ? `<img src="${game.icon}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.outerHTML='<span style=\\'font-size: 32px;\\'>${getIconForGame(safeGameName)}</span>'">`
             : `<span style="font-size: 32px;">${getIconForGame(game.name)}</span>`;
+
+         // --- NEW: APPLY SORTING ---
+    let sortMethod = document.getElementById('sortSelect').value;
+    
+    if (sortMethod === 'most_played') {
+        gamesToRender.sort((a, b) => {
+            let statA = (gameState && gameState.game_stats && gameState.game_stats[a.f]) ? gameState.game_stats[a.f].clicks : 0;
+            let statB = (gameState && gameState.game_stats && gameState.game_stats[b.f]) ? gameState.game_stats[b.f].clicks : 0;
+            return statB - statA; // Highest clicks first
+        });
+    } else if (sortMethod === 'longest_played') {
+        gamesToRender.sort((a, b) => {
+            let statA = (gameState && gameState.game_stats && gameState.game_stats[a.f]) ? gameState.game_stats[a.f].playtime : 0;
+            let statB = (gameState && gameState.game_stats && gameState.game_stats[b.f]) ? gameState.game_stats[b.f].playtime : 0;
+            return statB - statA; // Highest playtime first
+        });
+    }
+    // --------------------------
             
         // Check if game is in favorites to style the star
         let isFav = favs.includes(game.f);
@@ -1899,9 +1926,25 @@ function renderGrid(filter = "") {
     });
 }
 
+let gameStartTime = null;
+let activeGameFile = null; // NEW: Keeps track of exactly which file is open
+
 function openGame(file, title) {
     const overlay = document.getElementById('gameOverlay'); const frame = document.getElementById('gameFrame');
-    document.getElementById('activeTitle').textContent = title; gameStartTime = Date.now();
+    document.getElementById('activeTitle').textContent = title; 
+    
+    gameStartTime = Date.now();
+    activeGameFile = file; // Save the file name
+    
+    // --- NEW: TRACK GAME CLICKS ---
+    if (gameState) {
+        if (!gameState.game_stats) gameState.game_stats = {};
+        if (!gameState.game_stats[file]) gameState.game_stats[file] = { clicks: 0, playtime: 0 };
+        gameState.game_stats[file].clicks += 1;
+        saveGameToServer();
+    }
+    // ------------------------------
+    
     let count = parseInt(localStorage.getItem('schoolExamsGamesOpened') || '0'); localStorage.setItem('schoolExamsGamesOpened', count + 1);
     updateStatsUI();
     frame.src = file.startsWith('http') ? file : BASE_URL + file; overlay.classList.add('open'); document.body.style.overflow = "hidden";
@@ -1912,7 +1955,20 @@ function closeGame() {
     if (gameStartTime) {
         let sessionTimeMins = Math.floor((Date.now() - gameStartTime) / 60000); 
         if (sessionTimeMins < 1 && (Date.now() - gameStartTime) > 5000) sessionTimeMins = 1; 
-        gameState.playtime += (sessionTimeMins * 60); gameStartTime = null; saveGameToServer();
+        
+        // --- NEW: TRACK INDIVIDUAL GAME PLAYTIME (in seconds) ---
+        let sessionTimeSecs = Math.floor((Date.now() - gameStartTime) / 1000);
+        if (gameState && activeGameFile) {
+            if (!gameState.game_stats) gameState.game_stats = {};
+            if (!gameState.game_stats[activeGameFile]) gameState.game_stats[activeGameFile] = { clicks: 0, playtime: 0 };
+            gameState.game_stats[activeGameFile].playtime += sessionTimeSecs;
+        }
+        // --------------------------------------------------------
+        
+        gameState.playtime += (sessionTimeMins * 60); 
+        gameStartTime = null; 
+        activeGameFile = null;
+        saveGameToServer();
     }
     frame.src = "about:blank"; overlay.classList.remove('open'); document.body.style.overflow = "auto"; updateStatsUI();
 }
