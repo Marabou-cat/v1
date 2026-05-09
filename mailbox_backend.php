@@ -52,12 +52,14 @@ if ($action === 'send_mail') {
     $title = trim($_POST['title'] ?? 'New Message');
     $message = trim($_POST['message'] ?? '');
     $reward_type = $_POST['reward_type'] ?? 'none';
-    $reward_amount = (int)($_POST['reward_amount'] ?? 0);
+    $reward_amount = trim($_POST['reward_amount'] ?? ''); // Left as string to handle Pet IDs
+    $reward_name = trim($_POST['reward_name'] ?? '');
 
     if (empty($message)) die(json_encode(["success" => false, "message" => "Message cannot be empty."]));
 
-    $stmt = $pdo->prepare("INSERT INTO global_mail (sender, title, message, reward_type, reward_amount) VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute(['Furry_Myrg', $title, $message, $reward_type, $reward_amount]);
+    // Updated INSERT statement to include reward_name
+    $stmt = $pdo->prepare("INSERT INTO global_mail (sender, title, message, reward_type, reward_amount, reward_name) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute(['Furry_Myrg', $title, $message, $reward_type, $reward_amount, $reward_name]);
 
     echo json_encode(["success" => true, "message" => "Global mail sent successfully!"]);
     exit;
@@ -70,11 +72,14 @@ if ($action === 'claim') {
     try {
         $pdo->beginTransaction();
 
-        // 1. Lock user row and get data
-        $stmt = $pdo->prepare("SELECT coins, gems, claimed_mail FROM users WHERE id = ? FOR UPDATE");
+        // 1. Lock user row and get data (Added owned_pets and pet_ages)
+        $stmt = $pdo->prepare("SELECT coins, gems, claimed_mail, owned_pets, pet_ages FROM users WHERE id = ? FOR UPDATE");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
         $claimed = json_decode($user['claimed_mail'], true) ?: [];
+        $owned_pets = json_decode($user['owned_pets'], true) ?: [];
+        $pet_ages = json_decode($user['pet_ages'], true) ?: [];
 
         // 2. Check if already claimed
         if (in_array($mail_id, $claimed)) throw new Exception("You already claimed this reward!");
@@ -89,20 +94,42 @@ if ($action === 'claim') {
         // 4. Apply Rewards
         $new_coins = (int)$user['coins'];
         $new_gems = (int)$user['gems'];
+        $response_message = "Reward Claimed!";
 
-        if ($mail['reward_type'] === 'coins') $new_coins += (int)$mail['reward_amount'];
-        if ($mail['reward_type'] === 'gems') $new_gems += (int)$mail['reward_amount'];
+        if ($mail['reward_type'] === 'coins') {
+            $new_coins += (int)$mail['reward_amount'];
+            $response_message = "Claimed " . number_format((int)$mail['reward_amount']) . " ExamCoins!";
+        } 
+        elseif ($mail['reward_type'] === 'gems') {
+            $new_gems += (int)$mail['reward_amount'];
+            $response_message = "Claimed " . number_format((int)$mail['reward_amount']) . " Gems!";
+        } 
+        elseif ($mail['reward_type'] === 'pet') {
+            // Check if their pet inventory is full (max 50)
+            if (count($owned_pets) >= 50) {
+                throw new Exception("Your Pet Inventory is full! Make some space before claiming.");
+            }
+            
+            // Create a unique ID for the pet
+            $baseId = $mail['reward_amount']; // e.g. "dragon"
+            $uid = $baseId . '::' . round(microtime(true) * 1000) . '_' . mt_rand(10, 99);
+            
+            $owned_pets[] = $uid;
+            $pet_ages[$uid] = 0;
+            $response_message = "🐾 You adopted the " . ($mail['reward_name'] ?: "New Pet") . "!";
+        }
 
         // 5. Save claim record
         $claimed[] = $mail_id;
 
-        $stmt = $pdo->prepare("UPDATE users SET coins = ?, gems = ?, claimed_mail = ? WHERE id = ?");
-        $stmt->execute([$new_coins, $new_gems, json_encode($claimed), $user_id]);
+        // Save everything back to the database
+        $stmt = $pdo->prepare("UPDATE users SET coins = ?, gems = ?, claimed_mail = ?, owned_pets = ?, pet_ages = ? WHERE id = ?");
+        $stmt->execute([$new_coins, $new_gems, json_encode($claimed), json_encode($owned_pets), json_encode($pet_ages), $user_id]);
 
         $pdo->commit();
         echo json_encode([
             "success" => true, 
-            "message" => "Reward Claimed!", 
+            "message" => $response_message, 
             "coins" => $new_coins, 
             "gems" => $new_gems,
             "claimed" => $claimed
