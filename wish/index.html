@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WISH</title>
+    <title>Gamer Card Wish System</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -18,10 +18,19 @@
             overflow: hidden;
         }
 
+        /* --- BACK BUTTON --- */
+        .btn-back {
+            position: absolute; top: 20px; left: 20px;
+            background: transparent; border: 2px solid #00f5d4; color: #00f5d4;
+            padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 16px;
+            cursor: pointer; transition: 0.3s; text-decoration: none; z-index: 100;
+        }
+        .btn-back:hover { background: #00f5d4; color: #000; box-shadow: 0 0 15px rgba(0, 245, 212, 0.5); }
+
         /* ========================================= */
         /* --- GACHA BANNER SHOWCASE UI --- */
         /* ========================================= */
-        .stats { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
+        .stats { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.5); z-index: 100; position: relative;}
         
         .banner-container {
             position: relative;
@@ -109,16 +118,15 @@
 
         @keyframes driftSpace { from { transform: translateY(0); } to { transform: translateY(-200px); } }
 
-        /* BIGGER STAR, POINTING BOTTOM RIGHT */
         .shooting-star {
             position: absolute; top: -10vw; left: -10vw; 
-            width: 15px; height: 15px; border-radius: 50%; /* Made Star Bigger */
+            width: 15px; height: 15px; border-radius: 50%; 
             z-index: 3; opacity: 0; pointer-events: none;
-            transform: rotate(45deg); /* Points tail up-left, so it moves bottom-right perfectly */
+            transform: rotate(45deg); 
         }
         .shooting-star::after {
             content: ''; position: absolute; top: 50%; transform: translateY(-50%); right: 6px;
-            width: 400px; height: 5px; /* Thicker and longer tail */
+            width: 400px; height: 5px; 
             background: linear-gradient(to left, rgba(255,255,255,0), currentColor);
         }
 
@@ -146,9 +154,11 @@
 </head>
 <body>
 
-    <!-- MOCK CURRENCY STATS -->
+    <a href="index.html" class="btn-back">⬅ Back to Portal</a>
+
+    <!-- REAL CURRENCY STATS -->
     <div class="stats">
-        💎 <span id="gemDisplay">1000</span> | 🪙 <span id="coinDisplay">0</span>
+        💎 <span id="gemDisplay">0</span> | 🪙 <span id="coinDisplay">0</span>
     </div>
 
     <!-- ========================================= -->
@@ -156,26 +166,22 @@
     <!-- ========================================= -->
     <div class="banner-container">
         <!-- 1. ADD YOUR CUSTOM BACKGROUND PNG HERE -->
-        <img class="banner-bg" src="../png/wish_bg.png" alt="" onerror="this.style.display='none'">
+        <img class="banner-bg" src="png/banner_background.png" alt="" onerror="this.style.display='none'">
         
         <div class="banner-title">Cosmic Gamer Gear</div>
         
         <!-- 2. ADD YOUR SHOWCASE PNGs HERE -->
         <div class="showcase">
             <div class="showcase-item epic" style="animation-delay: 0.2s;">
-                <img src="../png/epic_card_2.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
-            </div>
-            
-            <div class="showcase-item epic" style="animation-delay: 0.4s;">
-                <img src="../png/dog_trainer.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
+                <img src="png/dog_trainer.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
             </div>
             
             <div class="showcase-item legendary" style="animation-delay: 0s;">
-                <img src="../png/royal_knight.png" onerror="this.outerHTML='<span style=\\'font-size:60px\\'>👑</span>'">
+                <img src="png/royal_knight.png" onerror="this.outerHTML='<span style=\\'font-size:60px\\'>👑</span>'">
             </div>
             
             <div class="showcase-item epic" style="animation-delay: 0.6s;">
-                <img src="../png/epic_card_3.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
+                <img src="png/raging_noob.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
             </div>
         </div>
 
@@ -196,14 +202,84 @@
     </div>
 
     <script>
-        // --- MOCK GAME STATE FOR TESTING ---
-        let gameState = { gems: 1000, coins: 0, owned_gamer_cards: [] };
+        // =========================================
+        // --- DATABASE CONNECTION SCRIPT ---
+        // =========================================
+        let isLoggedIn = false;
+        let gameState = null;
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('schoolExamsSavedUser');
+            if (savedUser) {
+                isLoggedIn = true;
+                loadGameFromServer(savedUser);
+            } else {
+                alert("Please log in from the Main Portal first!");
+            }
+        });
+
+        async function loadGameFromServer(username) {
+            const formData = new FormData(); 
+            formData.append('action', 'load');
+            formData.append('username', username);
+
+            try {
+                const response = await fetch('backend.php', { method: 'POST', body: formData });
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    gameState = result.data;
+                    
+                    // Parse values we need to interact with
+                    gameState.coins = parseInt(gameState.coins) || 0;
+                    gameState.gems = parseInt(gameState.gems) || 0;
+                    gameState.owned_gamer_cards = JSON.parse(gameState.owned_gamer_cards || '[]');
+                    
+                    updateStatsUI();
+                }
+            } catch (e) {
+                console.error("Error loading game data:", e);
+            }
+        }
+
+        async function saveGameToServer() {
+            if (!isLoggedIn || !gameState) return;
+            const formData = new FormData();
+            formData.append('action', 'save');
+            formData.append('username', localStorage.getItem('schoolExamsSavedUser'));
+
+            // Values we modify in the Wish System
+            formData.append('coins', gameState.coins);
+            formData.append('gems', gameState.gems);
+            formData.append('owned_gamer_cards', JSON.stringify(gameState.owned_gamer_cards));
+            
+            // Unchanged values mapped back safely so they aren't erased!
+            formData.append('playtime', gameState.playtime);
+            formData.append('sakura_coins', gameState.sakura_coins);
+            formData.append('event_tasks', typeof gameState.event_tasks === 'string' ? gameState.event_tasks : JSON.stringify(gameState.event_tasks || []));
+            formData.append('owned_cursors', typeof gameState.owned_cursors === 'string' ? gameState.owned_cursors : JSON.stringify(gameState.owned_cursors || ["def"]));
+            formData.append('equipped_cursor', gameState.equipped_cursor);
+            formData.append('owned_pets', typeof gameState.owned_pets === 'string' ? gameState.owned_pets : JSON.stringify(gameState.owned_pets || []));
+            formData.append('active_pet', gameState.active_pet);
+            formData.append('pet_ages', typeof gameState.pet_ages === 'string' ? gameState.pet_ages : JSON.stringify(gameState.pet_ages || {}));
+            formData.append('prestige_level', gameState.prestige_level);
+            formData.append('profile_pic', gameState.profile_pic);
+            formData.append('owned_items', typeof gameState.owned_items === 'string' ? gameState.owned_items : JSON.stringify(gameState.owned_items || []));
+            formData.append('boost_end', gameState.boost_end);
+            formData.append('boost_cd', gameState.boost_cd);
+            formData.append('game_stats', typeof gameState.game_stats === 'string' ? gameState.game_stats : JSON.stringify(gameState.game_stats || {}));
+            formData.append('equipped_gamer_card', gameState.equipped_gamer_card);
+
+            try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
+        }
 
         function updateStatsUI() {
-            document.getElementById('gemDisplay').innerText = gameState.gems;
-            document.getElementById('coinDisplay').innerText = gameState.coins;
+            if(gameState) {
+                document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
+                document.getElementById('coinDisplay').innerText = gameState.coins.toLocaleString();
+            }
         }
-        function saveGameToServer() { console.log("Saved! Owned Cards:", gameState.owned_gamer_cards); }
 
         // =========================================
         // --- WISH SYSTEM SCRIPT ---
@@ -211,16 +287,14 @@
 
         // 1. CARDS CONFIGURATION
         const GAMER_CARDS = [
-            { id: "raging_noob", name: "Raging Noob", icon: "png/raging_noob.png", color: "#aaa" },
-            { id: "epic_2", name: "Pro Gamer", icon: "png/epic_card_2.png", color: "#9b59b6" },
-            { id: "epic_3", name: "Speedrunner", icon: "png/epic_card_3.png", color: "#9b59b6" },
-            { id: "dog_trainer", name: "Dog Trainer", icon: "png/dog_trainer.png", color: "#9b59b6" },
-            { id: "royal_knight", name: "Royal Knight", icon: "png/royal_knight.png", color: "#f1c40f" }
+            { id: "raging_noob", name: "Raging Noob", icon: "<img src='png/raging_noob.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
+            { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#3ba55c" },
+            { id: "royal_knight", name: "Royal Knight", icon: "<img src='png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" }
         ];
 
         // 2. RARITY POOLS
         const RARE_CARDS = ["raging_noob"];         
-        const EPIC_CARDS = ["dog_trainer", "epic_2", "epic_3"];         
+        const EPIC_CARDS = ["dog_trainer"];         
         const LEGENDARY_CARDS = ["royal_knight"];   
 
         const RARITY_COLORS = {
@@ -231,13 +305,15 @@
 
         // 3. MAIN WISH FUNCTION
         function performWish() {
+            if (!isLoggedIn) return alert("❌ Please log in to make a wish!");
             if (!gameState) return;
+            
             if (gameState.gems < 100) return alert("❌ Not enough Gems! You need 100 💎 to roll.");
 
             // Deduct Cost & Prep UI
             gameState.gems -= 100;
             updateStatsUI();
-            saveGameToServer();
+            saveGameToServer(); // Immediately save so they can't refresh to exploit
 
             document.getElementById('wishFlash').style.opacity = '0';
             document.getElementById('wishResult').classList.remove('show');
@@ -262,7 +338,6 @@
             let cardInfo = GAMER_CARDS.find(c => c.id === cardId);
 
             // Start the Animation Sequence
-            // Reset star to top left (using vw makes the 45 degree angle perfect on all screens)
             star.style.transition = 'none';
             star.style.left = '-15vw';
             star.style.top = '-15vw';
@@ -313,9 +388,12 @@
                         // Draw the Result Card
                         let resultUI = document.getElementById('wishResult');
                         
-                        // Smart icon render
-                        let iconHTML = cardInfo.icon.includes('/') || cardInfo.icon.includes('.') 
-                            ? `<img src="${cardInfo.icon}" style="width: 180px; height: 180px; object-fit: contain; filter: drop-shadow(0 0 15px rgba(255,255,255,0.4));" onerror="this.outerHTML='🎮'">` 
+                        // Extract just the src logic from the img tag for a bigger display
+                        let rawIconSrc = cardInfo.icon.match(/src='([^']+)'/);
+                        let imagePath = rawIconSrc ? rawIconSrc[1] : '';
+
+                        let iconHTML = imagePath 
+                            ? `<img src="${imagePath}" style="width: 180px; height: 180px; object-fit: contain; filter: drop-shadow(0 0 15px rgba(255,255,255,0.4));" onerror="this.outerHTML='🎮'">` 
                             : cardInfo.icon;
 
                         resultUI.innerHTML = `
