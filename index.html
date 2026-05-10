@@ -902,7 +902,11 @@ async function saveGameToServer() {
     formData.append('owned_gamer_cards', JSON.stringify(gameState.owned_gamer_cards || []));
     formData.append('equipped_gamer_card', gameState.equipped_gamer_card || '');
 
-    try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
+    try { 
+        fetch('backend.php', { method: 'POST', body: formData }); 
+    } catch(e) {
+        console.error("Failed to save", e);
+    }
 }
 
 // --- FLYING COIN MECHANIC ---
