@@ -31,13 +31,12 @@ $EVOLUTIONS = [
         "img" => "../png/lva.png",
         "color" => "#ffd700"
     ],
-    // NEW EVOLUTION: Mysterious Seed -> Full Moon Flytrap
     "seed" => [
         "base_name" => "Mysterious Seed",
         "target_id" => "flytrap",
         "target_name" => "Moonlight Flytrap",
         "req_level" => 20,
-        "req_item" => "Moonstone", // The required item
+        "req_item" => "Moonstone",
         "cost" => 500,
         "currency" => "gems",
         "img" => "../png/flytrap.png",
@@ -48,7 +47,7 @@ $EVOLUTIONS = [
         "target_id" => "mboe",
         "target_name" => "Moonlight Beast Of Eclipse",
         "req_level" => 75,
-        "req_item" => "Moonstone", // The required item
+        "req_item" => "Moonstone",
         "cost" => 1250,
         "currency" => "gems",
         "img" => "../png/mboe.png",
@@ -129,7 +128,6 @@ $EVOLUTIONS = [
 ];
 
 function getUser($pdo, $uid) {
-    // ADDED: equipped_gamer_card
     $stmt = $pdo->prepare("SELECT coins, gems, owned_pets, pet_ages, active_pet, owned_items, equipped_gamer_card FROM users WHERE id = ?");
     $stmt->execute([$uid]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -152,7 +150,8 @@ if ($action === 'load') {
         "gems" => (int)$user['gems'], 
         "owned_pets" => $owned_pets, 
         "levels" => $current_levels, 
-        "catalog" => $EVOLUTIONS
+        "catalog" => $EVOLUTIONS,
+        "equipped_gamer_card" => $user['equipped_gamer_card'] // Required so JS knows the card is equipped
     ]);
     exit;
 }
@@ -167,7 +166,6 @@ if ($action === 'evolve') {
     try {
         $pdo->beginTransaction();
         
-        // ADDED: equipped_gamer_card to FOR UPDATE query
         $stmt = $pdo->prepare("SELECT coins, gems, owned_pets, pet_ages, active_pet, owned_items, equipped_gamer_card FROM users WHERE id = ? FOR UPDATE");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -198,14 +196,13 @@ if ($action === 'evolve') {
         $currency = $evo_data['currency'];
         $cost = $evo_data['cost'];
         
-        // --- NEW: GAMER CARD DISCOUNT LOGIC ---
-        if (isset($user['equipped_gamer_card']) && $user['equipped_gamer_card'] === 'mad_scientist') {
-            $discount_percent = 25; // <--- CHANGE YOUR X% HERE! (100 means it costs 0)
+        // --- GAMER CARD DISCOUNT LOGIC ---
+        if (isset($user['equipped_gamer_card']) && $user['equipped_gamer_card'] === 'evolution_scientist') {
+            $discount_percent = 90; // 90% Discount
             $discount_amount = $cost * ($discount_percent / 100);
             $cost = max(0, floor($cost - $discount_amount)); // Applies discount and prevents negative numbers
         }
-        // --------------------------------------
-
+        
         if ((int)$user[$currency] < $cost) throw new Exception("Not enough $currency!");
         $new_balance = (int)$user[$currency] - $cost;
         
