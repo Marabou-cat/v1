@@ -95,7 +95,6 @@
 
 <script>
 // --- STATIC VISUAL MAPPINGS ---
-// We keep this purely for displaying the visual icons/names properly
 const PET_SHOP = [
     { id: "doge", name: "Pixel Doge", icon: "🐕" }, 
     { id: "cat", name: "Cyber Kitty", icon: "🐈" },
@@ -104,7 +103,31 @@ const PET_SHOP = [
     { id: "kitsune", name: "Sakura Kitsune", icon: "🦊" }
 ];
 
-let gameState = { coins: 0, gems: 0, owned_pets: [], levels: {} };
+// --- GAMER CARDS CONFIGURATION ---
+const GAMER_CARDS = [
+    { id: "raging_noob", name: "Raging Noob", icon: "<img src='../png/raging_noob.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#0077b6" },
+    { id: "good_morning", name: "Good Morning!", icon: "<img src='../png/good_morning.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#0077b6" },
+    { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='../png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
+    { id: "royal_knight", name: "Royal Knight", icon: "<img src='../png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
+    { id: "speedrunner", name: "Speedrunner", icon: "<img src='../png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
+    { id: "power_of_care", name: "Power Of Care", icon: "<img src='../png/power_of_care.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#0077b6" },
+    { id: "investor", name: "Investor", icon: "<img src='../png/investor.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
+    { id: "evolution_scientist", name: "Evolution Scientist", icon: "<img src='../png/evolution_scientist.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" }
+];
+
+const GamerCardAbilities = {
+    "evolution_scientist": {
+        name: "Science Experience",
+        desc: "Reduces the cost of Evolution in Evolution Lab by 90%",
+        type: "evo_discount",
+        discountPercent: 90 
+    }
+    // (Other abilities aren't strictly needed in the Evo Lab since it only handles evolutions, 
+    // but you can paste the rest here if you want to display them eventually!)
+};
+
+// ADDED equipped_gamer_card to the state
+let gameState = { coins: 0, gems: 0, owned_pets: [], levels: {}, equipped_gamer_card: "" };
 let EVO_CATALOG = {};
 
 async function loadGameFromServer() {
@@ -112,7 +135,6 @@ async function loadGameFromServer() {
         const formData = new FormData(); 
         formData.append('action', 'load');
         
-        // FIXED: Pointing correctly to the root folder where the PHP file is!
         const res = await fetch('../evolve_backend.php', { method: 'POST', body: formData });
         const result = await res.json();
         
@@ -122,6 +144,9 @@ async function loadGameFromServer() {
             gameState.owned_pets = result.owned_pets || [];
             gameState.levels = result.levels || {};
             EVO_CATALOG = result.catalog || {};
+            
+            // CAUGHT THE EQUIPPED CARD FROM PHP:
+            gameState.equipped_gamer_card = result.equipped_gamer_card || "";
             
             document.getElementById('coinDisplay').innerText = gameState.coins.toLocaleString();
             document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
@@ -145,15 +170,11 @@ function renderEvoLab() {
     gameState.owned_pets.forEach(petUid => {
         const baseId = petUid.split('::')[0];
         
-        // Check if this specific pet has an evolution recipe in the PHP config
         if (EVO_CATALOG[baseId]) {
             foundEligible = true;
             const recipe = EVO_CATALOG[baseId];
             
-            // Get the static visual for the starting pet
             const fromPet = PET_SHOP.find(p => p.id === baseId) || { name: recipe.base_name, icon: "🐾" };
-            
-            // Build the visual for the target pet using data directly from PHP
             const targetColor = recipe.color || '#ff3377';
             const toPetIcon = recipe.img 
                 ? `<img src="${recipe.img}" style="width: 2em; height: 2em; object-fit: contain;">`
@@ -165,7 +186,7 @@ function renderEvoLab() {
             let currencyVal = recipe.currency === 'gems' ? gameState.gems : gameState.coins;
             let currencyIcon = recipe.currency === 'gems' ? '💎' : '🪙';
             
-            // --- NEW: Calculate Discounted Cost ---
+            // --- Calculate Discounted Cost ---
             let finalCost = recipe.cost;
             if (gameState.equipped_gamer_card) {
                 let gcAbility = GamerCardAbilities[gameState.equipped_gamer_card];
@@ -177,14 +198,12 @@ function renderEvoLab() {
 
             const canAfford = currencyVal >= finalCost;
 
-            // Generate Button Logic
             let btnHTML = '';
             if (!isLevelMet) {
                 btnHTML = `<button class="btn-evo" disabled>Needs Lvl ${recipe.req_level}</button>`;
             } else if (!canAfford) {
                 btnHTML = `<button class="btn-evo" disabled>Not Enough ${recipe.currency}</button>`;
             } else {
-                // Updated to show finalCost instead of recipe.cost
                 btnHTML = `<button class="btn-evo" onclick="evolvePet('${petUid}', '${baseId}')">
                     Evolve (${finalCost.toLocaleString()} ${currencyIcon})
                 </button>`;
@@ -214,35 +233,30 @@ async function evolvePet(uid, baseId) {
     const recipe = EVO_CATALOG[baseId];
     if (!recipe) return;
 
-    // Send the secure request to PHP backend
     const fd = new FormData();
     fd.append('action', 'evolve');
-    fd.append('uid', uid); // Send the exact Unique ID
+    fd.append('uid', uid); 
     
     try {
-        // FIXED: Pointing correctly to the root folder!
         const res = await fetch('../evolve_backend.php', { method: 'POST', body: fd });
         const result = await res.json();
 
         if (result.success) {
-            // Update currency visually before the reload happens
             if (recipe.currency === 'gems') gameState.gems = result.new_balance;
             else gameState.coins = result.new_balance;
             
             document.getElementById('coinDisplay').innerText = gameState.coins.toLocaleString();
             document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
 
-            // Refresh the lab inventory
             await loadGameFromServer();
             
-            // Show the glorious animation
             const targetColor = recipe.color || '#ff3377';
             const toPetIcon = recipe.img 
                 ? `<img src="${recipe.img}" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 20px ${targetColor});">`
                 : `🧬`;
 
             document.getElementById('evoIcon').innerHTML = toPetIcon;
-            document.getElementById('evoIcon').style.animation = 'none'; // Stop spinning
+            document.getElementById('evoIcon').style.animation = 'none'; 
             
             document.getElementById('evoDesc').innerHTML = `
                 Your pet has successfully mutated into the <br>
