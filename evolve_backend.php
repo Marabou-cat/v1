@@ -129,8 +129,8 @@ $EVOLUTIONS = [
 ];
 
 function getUser($pdo, $uid) {
-    // Added owned_items to the select
-    $stmt = $pdo->prepare("SELECT coins, gems, owned_pets, pet_ages, active_pet, owned_items FROM users WHERE id = ?");
+    // ADDED: equipped_gamer_card
+    $stmt = $pdo->prepare("SELECT coins, gems, owned_pets, pet_ages, active_pet, owned_items, equipped_gamer_card FROM users WHERE id = ?");
     $stmt->execute([$uid]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
@@ -167,7 +167,8 @@ if ($action === 'evolve') {
     try {
         $pdo->beginTransaction();
         
-        $stmt = $pdo->prepare("SELECT coins, gems, owned_pets, pet_ages, active_pet, owned_items FROM users WHERE id = ? FOR UPDATE");
+        // ADDED: equipped_gamer_card to FOR UPDATE query
+        $stmt = $pdo->prepare("SELECT coins, gems, owned_pets, pet_ages, active_pet, owned_items, equipped_gamer_card FROM users WHERE id = ? FOR UPDATE");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -185,22 +186,26 @@ if ($action === 'evolve') {
         $current_level = floor($current_age / 600) + 1;
         if ($current_level < $evo_data['req_level']) throw new Exception("Pet level low! Needs Level " . $evo_data['req_level']);
         
-        // 3. NEW: Verify Required Item
+        // 3. Verify Required Item
         if (isset($evo_data['req_item'])) {
             $required = $evo_data['req_item'];
             if (!in_array($required, $owned_items)) {
                 throw new Exception("Missing required item: " . $required);
             }
-            // Consume the item? (Uncomment below if the item should be destroyed on use)
-            /*
-            $key = array_search($required, $owned_items);
-            unset($owned_items[$key]);
-            */
         }
 
         // 4. Verify & Deduct Currency
         $currency = $evo_data['currency'];
         $cost = $evo_data['cost'];
+        
+        // --- NEW: GAMER CARD DISCOUNT LOGIC ---
+        if (isset($user['equipped_gamer_card']) && $user['equipped_gamer_card'] === 'mad_scientist') {
+            $discount_percent = 25; // <--- CHANGE YOUR X% HERE! (100 means it costs 0)
+            $discount_amount = $cost * ($discount_percent / 100);
+            $cost = max(0, floor($cost - $discount_amount)); // Applies discount and prevents negative numbers
+        }
+        // --------------------------------------
+
         if ((int)$user[$currency] < $cost) throw new Exception("Not enough $currency!");
         $new_balance = (int)$user[$currency] - $cost;
         
