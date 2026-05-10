@@ -1248,6 +1248,7 @@ const GAMER_CARDS = [
     { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
     { id: "investor", name: "Investor", icon: "<img src='png/investor.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
     { id: "royal_knight", name: "Royal Knight", icon: "<img src='png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
+    { id: "evolution_scientist", name: "Evolution Scientist", icon: "<img src='png/evolution_scientist.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
     { id: "speedrunner", name: "Speedrunner", icon: "<img src='png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" }
 ];
 
@@ -1296,6 +1297,12 @@ const GamerCardAbilities = {
         desc: "Boosts your active pet's ExamCoin generation by 25%.",
         type: "coin_multiplier",
         boostPercent: 25
+    },
+    "evolution_scientist": {
+        name: "Science Experience",
+        desc: "Reduces the cost of Evolvolution in Evolution Lab by 90%",
+        type: "evo_discount",
+        discountPercent: 90 // <--- WRITE YOUR 'X' PERCENTAGE HERE (0 to 100)
     }
 };
 
