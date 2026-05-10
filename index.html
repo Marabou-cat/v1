@@ -1515,19 +1515,25 @@ function updateCompanionUI() {
     if (!gameState) return;
     const panel = document.getElementById('petPanel');
     
-    // Hide panel entirely if they have absolutely nothing
-    if (!gameState.active_pet && !gameState.equipped_gamer_card) { 
+    // --- THE FIX IS HERE ---
+    // Check if the player OWNS any pets or gamer cards
+    const hasPets = gameState.owned_pets && gameState.owned_pets.length > 0;
+    const hasCards = gameState.owned_gamer_cards && gameState.owned_gamer_cards.length > 0;
+
+    // Hide panel ONLY if they don't own absolutely anything
+    if (!hasPets && !hasCards) { 
         panel.style.display = "none"; 
         return; 
     }
+    // -----------------------
     
     panel.style.display = "block";
     document.querySelector('#petPanel .rec-header').innerText = "🐾 Active Loadout 🃏";
 
     // 1. Generate Pet Side
-    // 1. Generate Pet Side
-    // 1. Generate Pet Side
-    let petHTML = `<div class="empty-card-slot" style="border:none;"><div style="font-size:30px; margin-bottom:10px;">🐾</div><div style="font-size:12px;">No Pet Equipped</div></div>`;
+    // (Make the empty pet slot clickable to open inventory while we're at it!)
+    let petHTML = `<div class="empty-card-slot" style="border:none;" onclick="openInventory()"><div style="font-size:30px; margin-bottom:10px;">🐾</div><div style="font-size:12px;">No Pet Equipped</div></div>`;
+    
     if (gameState.active_pet) {
         const baseId = gameState.active_pet.split('::')[0];
         const petInfo = PET_SHOP.find(p => p.id === baseId);
