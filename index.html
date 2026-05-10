@@ -170,35 +170,24 @@
 
         @keyframes pulseEvent { 0% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } 50% { box-shadow: 0 0 20px rgba(255, 0, 68, 0.8); } 100% { box-shadow: 0 0 10px rgba(255, 0, 68, 0.5); } }
 
-        /* --- EXPAND MENU STYLES --- */
-        .expand-overlay {
-            position: fixed; inset: 0; background: rgba(0, 8, 20, 0.95);
-            backdrop-filter: blur(10px); z-index: 5000; display: none;
-            flex-direction: column; align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.3s ease;
+        /* FLOATING SIDE MENU */
+        .btn-more-oval {
+            position: fixed; right: -5px; top: 50%; transform: translateY(-50%); background: var(--bg1);
+            border: 2px solid var(--p1); color: var(--w); padding: 40px 12px; border-radius: 30px 0 0 30px;
+            font-weight: 900; letter-spacing: 2px; writing-mode: vertical-rl; text-orientation: mixed;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.7); z-index: 1001; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        .expand-overlay.open { display: flex; opacity: 1; }
-        .expand-container {
-            width: 95%; max-width: 800px; background: var(--bg1);
-            border: 2px solid var(--p0); border-radius: var(--r);
-            padding: 30px; box-shadow: var(--shadow), var(--glow);
-            position: relative; text-align: center;
-        }
-        .expand-grid {
-            display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;
-            margin-top: 20px; margin-bottom: 25px;
-        }
-        .expand-btn {
-            background: rgba(0,0,0,0.4); border: 2px solid var(--p2);
-            border-radius: 15px; padding: 20px 10px; color: #fff;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; text-decoration: none; transition: 0.3s;
-            cursor: pointer; aspect-ratio: 1; text-align: center; font-weight: bold; font-size: 13px;
-        }
-        .expand-btn:hover { border-color: var(--p1); transform: translateY(-5px); background: rgba(0,0,0,0.6); box-shadow: 0 0 15px var(--p1); }
-        .expand-btn .icon { font-size: 32px; margin-bottom: 10px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.4)); }
+        .btn-more-oval:hover { right: 0; background: var(--p0); box-shadow: -5px 0 25px rgba(144, 224, 239, 0.5); }
 
-        @media (max-width: 600px) { .expand-grid { grid-template-columns: repeat(2, 1fr); } }
+        .more-sidebar {
+            position: fixed; right: -300px; top: 50%; transform: translateY(-50%); background: var(--bg1);
+            border: 2px solid var(--p0); border-right: none; padding: 20px; border-radius: 20px 0 0 20px;
+            width: 220px; box-shadow: -10px 0 30px rgba(0,0,0,0.8); z-index: 1000; transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; flex-direction: column; gap: 15px;
+        }
+        .more-sidebar.open { right: 0; }
+        .more-sidebar-title { color: var(--p1); font-weight: 900; font-size: 14px; border-bottom: 2px solid var(--p0); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+
         .main { padding: 110px 24px 40px; max-width: 1400px; margin: 0 auto; text-align: center; }
         .hero { margin-bottom: 20px; }
         .hero h1 { font-size: 3.5rem; margin-bottom: 10px; color: var(--p1); text-shadow: 0 0 20px rgba(144, 224, 239, 0.3); letter-spacing: -1px; }
@@ -373,19 +362,28 @@
     </div>
 </div>
 
-<!-- NEW EXPAND OVERLAY -->
-<div class="expand-overlay" id="expandOverlay">
-    <div class="expand-container">
-        <button class="btn-close-auth" onclick="closeExpandMenu()">✕</button>
-        <h2 style="color: var(--p1); margin-top: 0; font-size: 28px; text-transform: uppercase; letter-spacing: 2px;">🚀 Player HQ</h2>
-        
-        <div class="expand-grid" id="expandGrid">
-            <!-- Buttons are generated here by JavaScript -->
-        </div>
+<button class="btn-more-oval" onclick="toggleMoreMenu()">⋮ MORE</button>
 
-        <!-- Logout Button ALWAYS at the bottom -->
-        <button id="logoutBtn" class="btn-auth" style="background: #d00000; border-color: #ff0000; display: none; max-width: 300px; margin: 0 auto;" onclick="logout(); closeExpandMenu();">🚪 Log Out</button>
-    </div>
+<div class="more-sidebar" id="moreSidebar">
+    <div class="more-sidebar-title" id="welcomeUserText">Guest Mode</div>
+
+    <button class="btn-nav" style="width: 100%; text-align: center; background: #e67e22; border-color: #d35400;" onclick="if(isLoggedIn){openInventory();}else{showLoginOverlay('Login required to access Inventory!');}; toggleMoreMenu();">🎒 Inventory</button>
+
+    <a href="#" class="btn-nav btn-event" style="width: 100%; text-align: center; display: block; box-sizing: border-box;" onclick="navigateAuth('leaderboard/'); toggleMoreMenu();">🏆 Hall Of Fame</a>
+
+    <a href="#" class="btn-nav btn-event" style="width: 100%; text-align: center; display: block; box-sizing: border-box;" onclick="navigateAuth('chestshop/'); toggleMoreMenu();">📦Chests</a>
+    
+    <a href="#" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; position: relative; background: #8e44ad; border-color: #9b59b6;" onclick="if(isLoggedIn){window.open('mailbox/','_blank'); markMailboxSeen();}else{showLoginOverlay('Login required to view Mail!');}; toggleMoreMenu();">
+        📮 Mailbox
+        <span id="mailBadge" style="display: none; position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; background: #ff0044; border: 2px solid var(--bg1); border-radius: 50%; box-shadow: 0 0 10px #ff0044; animation: pulseEvent 2s infinite;"></span>
+    </a>
+
+    <a href="#" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; background: #ff0055; border-color: #ff3377;" onclick="navigateAuth('evolve/'); toggleMoreMenu();">🧬 Evo Lab</a>
+    
+    <button class="btn-nav btn-redeem" style="width: 100%; text-align: center;" onclick="if(isLoggedIn){redeemCode();}else{showLoginOverlay('Login required to Redeem Codes!');}; toggleMoreMenu();">🎁 Redeem Code</button>
+    <a href="#" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; background: #ff0055; border-color: #ff3377;" onclick="navigateAuth('Trade/'); toggleMoreMenu();">🔄Trade</a>
+    
+    <button id="logoutBtn" class="btn-nav" style="width: 100%; text-align: center; background: #d00000; border-color: #ff0000; margin-top: 10px; display:none;" onclick="logout(); toggleMoreMenu();">🚪 Log Out</button>
 </div>
 
 <header class="topbar">
@@ -399,7 +397,6 @@
         <div class="prestige-badge" id="prestigeBadge">⭐ 0</div>
     </div>
     
-    <!-- Login Button Stays in Top Bar -->
     <button id="guestLoginBtn" class="btn-nav" style="margin-left: 20px; background: var(--p0); border: 1px solid var(--p1); color: #fff; padding: 8px 20px; font-size: 15px;" onclick="showLoginOverlay()">Log In / Register</button>
 
     <div class="nav-right">
@@ -409,9 +406,12 @@
         <div class="coin-tracker gem-tracker" title="Premium Currency!">
             💎 <span id="gemDisplay">0</span> Gems
         </div>
-
-        <!-- The NEW EXPAND Button -->
-        <button class="btn-nav" style="background: linear-gradient(135deg, #00f5d4, #0077b6); color: #000; border: none; font-size: 16px; padding: 10px 20px; margin-left: 10px;" onclick="openExpandMenu()">🚀 EXPAND</button>
+        
+        <a href="#" class="btn-nav btn-bp" onclick="navigateAuth('Pass/')">🎫Battle Pass</a>
+        <a href="#" class="btn-nav btn-event" style="background: #00ffff; box-shadow: 0 0 10px rgba(255, 116, 140, 0.5);" onclick="navigateAuth('Event/')">🕹️Arcade Event</a>
+        
+        <button class="btn-nav" onclick="if(isLoggedIn){openPetShop();}else{showLoginOverlay('Login required to adopt pets!');}" style="background: linear-gradient(135deg, #3ba55c, #2ecc71); color: #fff; border: none;">🐾 Pets</button>
+        <button class="btn-nav" onclick="if(isLoggedIn){openShop();}else{showLoginOverlay('Login required to buy cursors!');}" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Cursors</button>
     </div>
 </header>
 
@@ -902,11 +902,9 @@ async function saveGameToServer() {
     formData.append('owned_gamer_cards', JSON.stringify(gameState.owned_gamer_cards || []));
     formData.append('equipped_gamer_card', gameState.equipped_gamer_card || '');
 
-    try { 
-        fetch('backend.php', { method: 'POST', body: formData }); 
-    } catch(e) {
-        console.error("Failed to save", e);
-    }
+try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
+
+    try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 }
 
 // --- FLYING COIN MECHANIC ---
@@ -1065,48 +1063,10 @@ document.addEventListener('mouseout', (e) => { if (!e.relatedTarget && !isOverIf
 
 const BASE_URL = "UGS-Files/";
 
-// --- CONSTANT BUTTON CONFIGURATION ---
-const EXPAND_BUTTONS = [
-    { name: "Inventory", icon: "🎒", color: "#e67e22", action: "if(isLoggedIn){openInventory();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    { name: "Hall Of Fame", icon: "🏆", color: "#ff0044", action: "navigateAuth('leaderboard/'); closeExpandMenu();" },
-    { name: "Chests", icon: "📦", color: "#f1c40f", action: "navigateAuth('chestshop/'); closeExpandMenu();" },
-    { name: "Mailbox", icon: "📮", color: "#8e44ad", action: "if(isLoggedIn){window.open('mailbox/','_blank'); markMailboxSeen();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    { name: "Evo Lab", icon: "🧬", color: "#ff0055", action: "navigateAuth('evolve/'); closeExpandMenu();" },
-    { name: "Redeem Code", icon: "🎁", color: "#3ba55c", action: "if(isLoggedIn){redeemCode();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    { name: "Trade Hub", icon: "🔄", color: "#00f5d4", action: "navigateAuth('Trade/'); closeExpandMenu();" },
-    { name: "Battle Pass", icon: "🎫", color: "#9b59b6", action: "navigateAuth('Pass/'); closeExpandMenu();" },
-    { name: "Arcade Event", icon: "🕹️", color: "#00ffff", action: "navigateAuth('Event/'); closeExpandMenu();" },
-    { name: "Adopt Pets", icon: "🐾", color: "#2ecc71", action: "if(isLoggedIn){openPetShop();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    { name: "Buy Cursors", icon: "🛒", color: "#ffd700", action: "if(isLoggedIn){openShop();}else{showLoginOverlay('Login required!');} closeExpandMenu();" }
-];
+function toggleMoreMenu() { 
+    document.getElementById('moreSidebar').classList.toggle('open'); 
 
-// --- EXPAND MENU LOGIC ---
-function renderExpandMenu() {
-    const grid = document.getElementById('expandGrid');
-    grid.innerHTML = '';
-    
-    EXPAND_BUTTONS.forEach(btn => {
-        grid.innerHTML += `
-            <div class="expand-btn" style="border-color: ${btn.color}; color: ${btn.color};" onclick="${btn.action}">
-                <div class="icon">${btn.icon}</div>
-                <div>${btn.name}</div>
-            </div>
-        `;
-    });
-}
-
-function openExpandMenu() {
-    renderExpandMenu();
-    document.getElementById('expandOverlay').classList.add('open');
-    
-    // Only show the logout button if the user is logged in
-    document.getElementById('logoutBtn').style.display = isLoggedIn ? 'block' : 'none';
-}
-
-function closeExpandMenu() {
-    document.getElementById('expandOverlay').classList.remove('open');
-    
-    // Story Quest Logic
+    // ARCADE EVENT STORY QUEST LOGIC
     if (gameState && gameState.event_tasks && gameState.event_tasks.length > 0) {
         let task = gameState.event_tasks[0];
         if (task.type === 'ui_action' && task.game === 'open_more' && !task.completed) {
@@ -1120,6 +1080,7 @@ function closeExpandMenu() {
         }
     }
 }
+
 async function loadGlobalGameStats() {
     try {
         const fd = new FormData(); fd.append('action', 'get_global_stats');
