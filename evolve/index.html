@@ -164,7 +164,18 @@ function renderEvoLab() {
             
             let currencyVal = recipe.currency === 'gems' ? gameState.gems : gameState.coins;
             let currencyIcon = recipe.currency === 'gems' ? '💎' : '🪙';
-            const canAfford = currencyVal >= recipe.cost;
+            
+            // --- NEW: Calculate Discounted Cost ---
+            let finalCost = recipe.cost;
+            if (gameState.equipped_gamer_card) {
+                let gcAbility = GamerCardAbilities[gameState.equipped_gamer_card];
+                if (gcAbility && gcAbility.type === "evo_discount") {
+                    let discountAmount = finalCost * (gcAbility.discountPercent / 100);
+                    finalCost = Math.max(0, Math.floor(finalCost - discountAmount));
+                }
+            }
+
+            const canAfford = currencyVal >= finalCost;
 
             // Generate Button Logic
             let btnHTML = '';
@@ -173,8 +184,9 @@ function renderEvoLab() {
             } else if (!canAfford) {
                 btnHTML = `<button class="btn-evo" disabled>Not Enough ${recipe.currency}</button>`;
             } else {
+                // Updated to show finalCost instead of recipe.cost
                 btnHTML = `<button class="btn-evo" onclick="evolvePet('${petUid}', '${baseId}')">
-                    Evolve (${recipe.cost.toLocaleString()} ${currencyIcon})
+                    Evolve (${finalCost.toLocaleString()} ${currencyIcon})
                 </button>`;
             }
 
