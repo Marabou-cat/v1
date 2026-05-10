@@ -1282,6 +1282,12 @@ const GamerCardAbilities = {
         desc: "Your active pet generates coins every 105 seconds instead of 120 seconds.",
         type: "fast_coins",
         newInterval: 105 // The new tick rate in seconds
+    },
+    "power_of_care": {
+        name: "Power Of Care",
+        desc: "Boosts your active pet's ExamCoin generation by 10%.",
+        type: "coin_multiplier",
+        boostPercent: 10
     }
 };
 
@@ -1426,11 +1432,22 @@ setInterval(() => {
         if (gameState.playtime > 0 && gameState.playtime % coinInterval === 0) {
             if (petInfo) {
                 const level = Math.floor(gameState.pet_ages[gameState.active_pet] / 600) + 1; 
-                gameState.coins += (petInfo.baseCoin + (level * 2));
+                let petYield = petInfo.baseCoin + (level * 2);
+
+                // Check if they have the yield boost ability equipped!
+                if (gameState.equipped_gamer_card) {
+                    let gcAbility = GamerCardAbilities[gameState.equipped_gamer_card];
+                    if (gcAbility && gcAbility.type === "coin_multiplier") {
+                        petYield = petYield + (petYield * (gcAbility.boostPercent / 100));
+                    }
+                }
+
+                gameState.coins += Math.floor(petYield); // Math.floor prevents weird decimals
                 updateStatsUI();
                 saveGameToServer();
             }
         }
+        // ---------------------------------
         // ---------------------------------
         if (gameState.playtime % 5 === 0) { updateCompanionUI(); } // <-- FIXED
     }
@@ -1509,6 +1526,7 @@ function updateCompanionUI() {
 
     // 1. Generate Pet Side
     // 1. Generate Pet Side
+    // 1. Generate Pet Side
     let petHTML = `<div class="empty-card-slot" style="border:none;"><div style="font-size:30px; margin-bottom:10px;">🐾</div><div style="font-size:12px;">No Pet Equipped</div></div>`;
     if (gameState.active_pet) {
         const baseId = gameState.active_pet.split('::')[0];
@@ -1516,17 +1534,31 @@ function updateCompanionUI() {
         const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; 
         const feedCost = 50 + ((level - 1) * 25); 
         
-        // Check interval for dynamic UI text (Must be OUTSIDE the backticks)
+        // Base math
+        let petYield = petInfo.baseCoin + (level * 2);
         let displayInterval = "2m";
-        if (gameState.equipped_gamer_card && GamerCardAbilities[gameState.equipped_gamer_card]?.type === "fast_coins") {
-            displayInterval = (GamerCardAbilities[gameState.equipped_gamer_card].newInterval / 60) + "m";
+
+        // Apply Gamer Card modifications to the UI text
+        if (gameState.equipped_gamer_card) {
+            let gcAbility = GamerCardAbilities[gameState.equipped_gamer_card];
+            
+            // Check for speed change
+            if (gcAbility && gcAbility.type === "fast_coins") {
+                displayInterval = (gcAbility.newInterval / 60) + "m";
+            }
+            
+            // Check for yield boost change
+            if (gcAbility && gcAbility.type === "coin_multiplier") {
+                petYield = petYield + (petYield * (gcAbility.boostPercent / 100));
+            }
         }
+        petYield = Math.floor(petYield); // Round down for a clean look
 
         petHTML = `
             <div class="rec-icon" id="activePetIcon" style="width: 80px; height: 80px; font-size: 30px; margin-bottom: 10px;">${petInfo.icon}</div>
             <div class="gc-title">${petInfo.name}</div>
             <div style="font-size: 12px; color: var(--p1); margin-bottom: 5px;">Lvl ${level}</div>
-            <div style="font-size: 11px; color: #ffd700; margin-bottom: 10px;">+${petInfo.baseCoin + (level * 2)} 🪙/${displayInterval}</div>
+            <div style="font-size: 11px; color: #ffd700; margin-bottom: 10px;">+${petYield} 🪙/${displayInterval}</div>
             <button class="rec-btn" style="background: #3ba55c; width: 100%; padding: 8px 0;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost})</button>
         `;
     }
