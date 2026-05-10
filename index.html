@@ -291,38 +291,6 @@
         .gc-icon { font-size: 50px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.3)); margin-bottom: 10px; }
         .gc-title { font-size: 16px; font-weight: 900; color: #fff; margin-bottom: 5px; }
         .gc-desc { font-size: 11px; color: #00f5d4; font-weight: bold; }
-
-        /* --- EXPAND MENU STYLES --- */
-.expand-overlay {
-    position: fixed; inset: 0; background: rgba(0, 8, 20, 0.95);
-    backdrop-filter: blur(10px); z-index: 5000; display: none;
-    flex-direction: column; align-items: center; justify-content: center;
-    opacity: 0; transition: opacity 0.3s ease;
-}
-.expand-overlay.open { display: flex; opacity: 1; }
-.expand-container {
-    width: 95%; max-width: 800px; background: var(--bg1);
-    border: 2px solid var(--p0); border-radius: var(--r);
-    padding: 30px; box-shadow: var(--shadow), var(--glow);
-    position: relative; text-align: center;
-}
-.expand-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;
-    margin-top: 20px; margin-bottom: 25px;
-}
-.expand-btn {
-    background: rgba(0,0,0,0.4); border: 2px solid var(--p2);
-    border-radius: 15px; padding: 20px 10px; color: #fff;
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; text-decoration: none; transition: 0.3s;
-    cursor: pointer; aspect-ratio: 1; text-align: center; font-weight: bold; font-size: 13px;
-}
-.expand-btn:hover { border-color: var(--p1); transform: translateY(-5px); background: rgba(0,0,0,0.6); box-shadow: 0 0 15px var(--p1); }
-.expand-btn .icon { font-size: 32px; margin-bottom: 10px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.4)); }
-
-@media (max-width: 600px) {
-    .expand-grid { grid-template-columns: repeat(2, 1fr); }
-}
  
         /* FLYING COIN MECHANIC */
         @keyframes floatCoinAnim {
@@ -394,6 +362,30 @@
     </div>
 </div>
 
+<button class="btn-more-oval" onclick="toggleMoreMenu()">⋮ MORE</button>
+
+<div class="more-sidebar" id="moreSidebar">
+    <div class="more-sidebar-title" id="welcomeUserText">Guest Mode</div>
+
+    <button class="btn-nav" style="width: 100%; text-align: center; background: #e67e22; border-color: #d35400;" onclick="if(isLoggedIn){openInventory();}else{showLoginOverlay('Login required to access Inventory!');}; toggleMoreMenu();">🎒 Inventory</button>
+
+    <a href="#" class="btn-nav btn-event" style="width: 100%; text-align: center; display: block; box-sizing: border-box;" onclick="navigateAuth('leaderboard/'); toggleMoreMenu();">🏆 Hall Of Fame</a>
+
+    <a href="#" class="btn-nav btn-event" style="width: 100%; text-align: center; display: block; box-sizing: border-box;" onclick="navigateAuth('chestshop/'); toggleMoreMenu();">📦Chests</a>
+    
+    <a href="#" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; position: relative; background: #8e44ad; border-color: #9b59b6;" onclick="if(isLoggedIn){window.open('mailbox/','_blank'); markMailboxSeen();}else{showLoginOverlay('Login required to view Mail!');}; toggleMoreMenu();">
+        📮 Mailbox
+        <span id="mailBadge" style="display: none; position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; background: #ff0044; border: 2px solid var(--bg1); border-radius: 50%; box-shadow: 0 0 10px #ff0044; animation: pulseEvent 2s infinite;"></span>
+    </a>
+
+    <a href="#" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; background: #ff0055; border-color: #ff3377;" onclick="navigateAuth('evolve/'); toggleMoreMenu();">🧬 Evo Lab</a>
+    
+    <button class="btn-nav btn-redeem" style="width: 100%; text-align: center;" onclick="if(isLoggedIn){redeemCode();}else{showLoginOverlay('Login required to Redeem Codes!');}; toggleMoreMenu();">🎁 Redeem Code</button>
+    <a href="#" class="btn-nav" style="width: 100%; text-align: center; display: block; box-sizing: border-box; background: #ff0055; border-color: #ff3377;" onclick="navigateAuth('Trade/'); toggleMoreMenu();">🔄Trade</a>
+    
+    <button id="logoutBtn" class="btn-nav" style="width: 100%; text-align: center; background: #d00000; border-color: #ff0000; margin-top: 10px; display:none;" onclick="logout(); toggleMoreMenu();">🚪 Log Out</button>
+</div>
+
 <header class="topbar">
     <a href="#" class="brand" onclick="location.reload()">
         <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
@@ -414,8 +406,6 @@
         <div class="coin-tracker gem-tracker" title="Premium Currency!">
             💎 <span id="gemDisplay">0</span> Gems
         </div>
-
-        <button class="btn-nav" style="background: linear-gradient(135deg, #00f5d4, #0077b6); color: #000; border: none; font-size: 16px; padding: 10px 20px;" onclick="openExpandMenu()">🚀 EXPAND</button>
         
         <a href="#" class="btn-nav btn-bp" onclick="navigateAuth('Pass/')">🎫Battle Pass</a>
         <a href="#" class="btn-nav btn-event" style="background: #00ffff; box-shadow: 0 0 10px rgba(255, 116, 140, 0.5);" onclick="navigateAuth('Event/')">🕹️Arcade Event</a>
@@ -585,79 +575,7 @@
     </div>
 </a>
 
-<div class="expand-overlay" id="expandOverlay">
-    <div class="expand-container">
-        <button class="btn-close-auth" onclick="closeExpandMenu()">✕</button>
-        <h2 style="color: var(--p1); margin-top: 0; font-size: 28px; text-transform: uppercase; letter-spacing: 2px;">🚀 Player HQ</h2>
-        
-        <div class="expand-grid" id="expandGrid">
-            <!-- Buttons are generated here by JavaScript -->
-        </div>
-
-        <!-- Logout Button ALWAYS at the bottom -->
-        <button id="logoutBtnExpand" class="btn-auth" style="background: #d00000; border-color: #ff0000; display: none; max-width: 300px; margin: 0 auto;" onclick="logout(); closeExpandMenu();">🚪 Log Out</button>
-    </div>
-</div>
-
 <script>
-
-// --- CONSTANT BUTTON CONFIGURATION ---
-const EXPAND_BUTTONS = [
-    { name: "Inventory", icon: "🎒", color: "#e67e22", action: "if(isLoggedIn){openInventory();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    { name: "Hall Of Fame", icon: "🏆", color: "#ff0044", action: "navigateAuth('leaderboard/'); closeExpandMenu();" },
-    { name: "Chests", icon: "📦", color: "#f1c40f", action: "navigateAuth('chestshop/'); closeExpandMenu();" },
-    { name: "Mailbox", icon: "📮", color: "#8e44ad", action: "if(isLoggedIn){window.open('mailbox/','_blank'); markMailboxSeen();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    { name: "Evo Lab", icon: "🧬", color: "#ff0055", action: "navigateAuth('evolve/'); closeExpandMenu();" },
-    { name: "Redeem Code", icon: "🎁", color: "#3ba55c", action: "if(isLoggedIn){redeemCode();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    { name: "Trade Hub", icon: "🔄", color: "#00f5d4", action: "navigateAuth('Trade/'); closeExpandMenu();" },
-    { name: "Battle Pass", icon: "🎫", color: "#9b59b6", action: "navigateAuth('Pass/'); closeExpandMenu();" },
-    { name: "Arcade Event", icon: "🕹️", color: "#00ffff", action: "navigateAuth('Event/'); closeExpandMenu();" },
-    { name: "Adopt Pets", icon: "🐾", color: "#2ecc71", action: "if(isLoggedIn){openPetShop();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    { name: "Buy Cursors", icon: "🛒", color: "#ffd700", action: "if(isLoggedIn){openShop();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    // You can easily add custom links here, like this:
-    // { name: "My Website", icon: "🌐", color: "#fff", action: "window.open('https://google.com', '_blank'); closeExpandMenu();" }
-];
-
-// --- EXPAND MENU LOGIC ---
-function renderExpandMenu() {
-    const grid = document.getElementById('expandGrid');
-    grid.innerHTML = '';
-    
-    EXPAND_BUTTONS.forEach(btn => {
-        grid.innerHTML += `
-            <div class="expand-btn" style="border-color: ${btn.color}; color: ${btn.color};" onclick="${btn.action}">
-                <div class="icon">${btn.icon}</div>
-                <div>${btn.name}</div>
-            </div>
-        `;
-    });
-}
-
-function openExpandMenu() {
-    renderExpandMenu();
-    document.getElementById('expandOverlay').classList.add('open');
-    
-    // Only show the logout button if the user is actually logged in
-    document.getElementById('logoutBtnExpand').style.display = isLoggedIn ? 'block' : 'none';
-}
-
-function closeExpandMenu() {
-    document.getElementById('expandOverlay').classList.remove('open');
-    
-    // Fix Arcade Event Task check (migrated from old toggleMoreMenu)
-    if (gameState && gameState.event_tasks && gameState.event_tasks.length > 0) {
-        let task = gameState.event_tasks[0];
-        if (task.type === 'ui_action' && task.game === 'open_more' && !task.completed) {
-            task.current++;
-            if (task.current >= task.goal) {
-                task.current = task.goal;
-                task.completed = true;
-                showToast("✅ Mission Complete!");
-            }
-            saveGameToServer();
-        }
-    }
-}
 // --- BACKEND STATE MANAGEMENT ---
 let isLoggedIn = false;
 let gameState = null;
@@ -849,6 +767,7 @@ function loadGuestState() {
     isLoggedIn = false;
     document.getElementById('guestLoginBtn').style.display = 'inline-block';
     document.getElementById('loggedInProfile').style.display = 'none';
+    
     const guestData = localStorage.getItem('schoolExamsGuestState');
     if (guestData) {
         try {
@@ -857,21 +776,23 @@ function loadGuestState() {
                 coins: parsed.coins || 0,
                 gems: parsed.gems || 0,
                 playtime: parsed.playtime || 0,
-                sakura_coins: parsed.sakura_coins || 0,
-                event_tasks: parsed.event_tasks || [],
                 owned_cursors: parsed.owned_cursors || ["def"],
-                equipped_cursor: parsed.equipped_cursor || "def",
-                owned_pets: parsed.owned_pets || [],
-                active_pet: parsed.active_pet || "",
-                pet_ages: parsed.pet_ages || {},
-                owned_gamer_cards: parsed.owned_gamer_cards || [],
-                equipped_gamer_card: parsed.equipped_gamer_card || ""
+                equipped_cursor: parsed.equipped_cursor || "def"
             };
-            sanitizePets(); updateStatsUI(); applyCursor(); updateCompanionUI();
+            updateStatsUI();
+            applyCursor();
         } catch(e){}
     } else {
-        gameState = { coins: 0, gems: 0, playtime: 0, sakura_coins: 0, event_tasks: [], owned_cursors: ["def"], equipped_cursor: "def", owned_pets: [], active_pet: "", pet_ages: {}, owned_gamer_cards: [], equipped_gamer_card: "" };
-        updateStatsUI(); applyCursor(); updateCompanionUI();
+        gameState = {
+            coins: 0, gems: 0, playtime: 0, sakura_coins: 0, event_tasks: [],
+            owned_cursors: ["def"], equipped_cursor: "def",
+            owned_pets: [], active_pet: "", pet_ages: {},
+            owned_items: [], prestige_level: 0, profile_pic: "",
+            last_online: Date.now(),
+            owned_gamer_cards: [], equipped_gamer_card: ""
+        };
+        updateStatsUI();
+        applyCursor();
     }
 }
 
@@ -931,7 +852,7 @@ async function loadGameFromServer() {
                 prestige_level: parseInt(result.data.prestige_level) || 0,
                 profile_pic: result.data.profile_pic || null,
                 owned_items: JSON.parse(result.data.owned_items || '[]'),
-                boost_end: parseInt(result.data.boost_end) || 0, 
+                boost_end: parseInt(result.data.boost_end) || 0, // <--- ADD THIS
                 boost_cd: parseInt(result.data.boost_cd) || 0,
                 owned_gamer_cards: JSON.parse(result.data.owned_gamer_cards || '[]'),
                 equipped_gamer_card: result.data.equipped_gamer_card || ''
@@ -942,13 +863,12 @@ async function loadGameFromServer() {
             updateProfileUI(); 
             applyCursor();
             calculatePetNeglect();
-            updateCompanionUI(); // <--- FIXED: Changed from updatePetUI()
+            updatePetUI();
             checkMailbox();
         }
-    } catch (e) {
-        console.error("Error loading data:", e);
-    }
+    } catch (e) {}
 }
+
 async function saveGameToServer() {
     if (!gameState) return;
     
@@ -976,18 +896,15 @@ async function saveGameToServer() {
     formData.append('prestige_level', gameState.prestige_level || 0);
     formData.append('profile_pic', gameState.profile_pic || '');
     formData.append('owned_items', JSON.stringify(gameState.owned_items || []));
-    formData.append('boost_end', gameState.boost_end || 0); 
-    formData.append('boost_cd', gameState.boost_cd || 0);   
+    formData.append('boost_end', gameState.boost_end || 0); // <--- ADD THIS
+    formData.append('boost_cd', gameState.boost_cd || 0);   // <--- ADD THIS
     formData.append('game_stats', JSON.stringify(gameState.game_stats || {}));
     formData.append('owned_gamer_cards', JSON.stringify(gameState.owned_gamer_cards || []));
     formData.append('equipped_gamer_card', gameState.equipped_gamer_card || '');
 
-    // <--- FIXED: Removed the duplicated fetch call that was flooding the server
-    try { 
-        fetch('backend.php', { method: 'POST', body: formData }); 
-    } catch(e) {
-        console.error("Failed to save:", e);
-    }
+try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
+
+    try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 }
 
 // --- FLYING COIN MECHANIC ---
@@ -1145,6 +1062,24 @@ document.getElementById('gameFrame').addEventListener('mouseleave', () => { isOv
 document.addEventListener('mouseout', (e) => { if (!e.relatedTarget && !isOverIframe) { domCursor.style.display = 'none'; cursorVisible = false; } });
 
 const BASE_URL = "UGS-Files/";
+
+function toggleMoreMenu() { 
+    document.getElementById('moreSidebar').classList.toggle('open'); 
+
+    // ARCADE EVENT STORY QUEST LOGIC
+    if (gameState && gameState.event_tasks && gameState.event_tasks.length > 0) {
+        let task = gameState.event_tasks[0];
+        if (task.type === 'ui_action' && task.game === 'open_more' && !task.completed) {
+            task.current++;
+            if (task.current >= task.goal) {
+                task.current = task.goal;
+                task.completed = true;
+                showToast("✅ Mission Complete!");
+            }
+            saveGameToServer();
+        }
+    }
+}
 
 async function loadGlobalGameStats() {
     try {
@@ -1573,6 +1508,7 @@ function updateCompanionUI() {
     document.querySelector('#petPanel .rec-header').innerText = "🐾 Active Loadout 🃏";
 
     // 1. Generate Pet Side
+    // 1. Generate Pet Side
     let petHTML = `<div class="empty-card-slot" style="border:none;"><div style="font-size:30px; margin-bottom:10px;">🐾</div><div style="font-size:12px;">No Pet Equipped</div></div>`;
     if (gameState.active_pet) {
         const baseId = gameState.active_pet.split('::')[0];
@@ -1580,7 +1516,7 @@ function updateCompanionUI() {
         const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; 
         const feedCost = 50 + ((level - 1) * 25); 
         
-        // Check interval for dynamic UI text
+        // Check interval for dynamic UI text (Must be OUTSIDE the backticks)
         let displayInterval = "2m";
         if (gameState.equipped_gamer_card && GamerCardAbilities[gameState.equipped_gamer_card]?.type === "fast_coins") {
             displayInterval = (GamerCardAbilities[gameState.equipped_gamer_card].newInterval / 60) + "m";
