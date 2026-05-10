@@ -1246,6 +1246,7 @@ const GAMER_CARDS = [
     { id: "power_of_care", name: "Power Of Care", icon: "<img src='png/power_of_care.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#0077b6" },
     { id: "good_morning", name: "Good Morning!", icon: "<img src='png/good_morning.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#0077b6" },
     { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
+    { id: "investor", name: "Inverstor", icon: "<img src='png/investor.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
     { id: "royal_knight", name: "Royal Knight", icon: "<img src='png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
     { id: "speedrunner", name: "Speedrunner", icon: "<img src='png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" }
 ];
@@ -1267,10 +1268,10 @@ const GamerCardAbilities = {
     },
     "royal_knight": {
         name: "Royal Defender",
-        desc: "Levels up your active pet by 4 levels every 20 minutes played.",
+        desc: "Levels up your active pet by 1 level every 5 minutes played.",
         type: "auto_level",
-        levelsToAdd: 4,
-        intervalMinutes: 20
+        levelsToAdd: 1,
+        intervalMinutes: 5
     },
     "speedrunner": {
         name: "Flash Booster",
@@ -1289,6 +1290,12 @@ const GamerCardAbilities = {
         desc: "Boosts your active pet's ExamCoin generation by 10%.",
         type: "coin_multiplier",
         boostPercent: 10
+    },
+    "investor": {
+        name: "Rising Stock",
+        desc: "Boosts your active pet's ExamCoin generation by 25%.",
+        type: "coin_multiplier",
+        boostPercent: 25
     }
 };
 
