@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Fountain - SchoolExams</title>
+    <style>
+        :root {
+            --bg0: #000814; --p0: #0077b6; --p1: #90e0ef; 
+            --red: #ff0055; --blue: #0077b6;
+            --glow: 0 0 20px rgba(144, 224, 239, 0.3);
+        }
+
+        body { 
+            background: var(--bg0); color: #fff; font-family: 'Segoe UI', sans-serif; 
+            text-align: center; margin: 0; overflow-x: hidden;
+            background-image: linear-gradient(rgba(144, 224, 239, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(144, 224, 239, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px; min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .btn-back { position: absolute; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.85); border: 2px solid var(--p1); color: var(--p1); padding: 10px 20px; border-radius: 20px; text-decoration: none; font-weight: 900; transition: 0.3s; }
+        .btn-back:hover { background: var(--p1); color: #000; box-shadow: var(--glow); }
+
+        .header { margin-top: 50px; }
+        .header h1 { color: var(--p1); font-size: 3rem; margin: 0 0 10px 0; text-shadow: var(--glow); text-transform: uppercase; }
+        .header p { color: #ccc; margin: 0 0 20px 0; }
+
+        .coin-display { background: rgba(0,0,0,0.8); border: 2px solid #ffd700; color: #ffd700; padding: 10px 25px; border-radius: 20px; font-weight: bold; font-size: 20px; box-shadow: 0 0 15px rgba(255,215,0,0.3); display: inline-block; margin-bottom: 30px; }
+
+        /* --- PROGRESS BAR --- */
+        .progress-wrapper { width: 90%; max-width: 800px; margin: 0 auto 40px; background: #222; border-radius: 30px; border: 3px solid #fff; overflow: hidden; position: relative; height: 50px; box-shadow: 0 0 30px rgba(255,255,255,0.2); }
+        .progress-bar { height: 100%; display: flex; transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
+        .bar-red { background: linear-gradient(90deg, #990033, var(--red)); height: 100%; display: flex; align-items: center; padding-left: 20px; font-weight: 900; font-size: 20px; text-shadow: 0 2px 4px #000; transition: width 0.5s; white-space: nowrap; overflow: hidden;}
+        .bar-blue { background: linear-gradient(90deg, var(--blue), #03045e); height: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 20px; font-weight: 900; font-size: 20px; text-shadow: 0 2px 4px #000; transition: width 0.5s; white-space: nowrap; overflow: hidden;}
+
+        /* --- FOUNTAIN UI --- */
+        .fountain-container { position: relative; margin: 20px auto; width: 300px; height: 300px; }
+        .fountain-img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 20px rgba(255,255,255,0.3)); transition: 0.3s; }
+        .fountain-container.winning-red .fountain-img { filter: drop-shadow(0 0 40px var(--red)); }
+        .fountain-container.winning-blue .fountain-img { filter: drop-shadow(0 0 40px var(--p1)); }
+
+        .btn-donate { background: #ffd700; color: #000; border: none; padding: 20px 40px; border-radius: 40px; font-size: 24px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 30px rgba(255, 215, 0, 0.5); transition: 0.3s; margin-top: 20px; }
+        .btn-donate:hover:not(:disabled) { transform: scale(1.1); box-shadow: 0 0 50px rgba(255, 215, 0, 0.8); }
+        .btn-donate:disabled { background: #555; color: #aaa; cursor: not-allowed; box-shadow: none; }
+
+        .timer-box { margin-top: 30px; background: rgba(0,0,0,0.8); border: 2px solid var(--p1); padding: 15px 30px; border-radius: 20px; color: var(--p1); font-weight: bold; font-size: 18px; }
+
+        /* --- TEAM CHOOSER OVERLAY --- */
+        .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.95); backdrop-filter: blur(10px); z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .team-split { display: flex; gap: 30px; margin-top: 30px; }
+        .team-card { width: 250px; padding: 40px 20px; border-radius: 20px; cursor: pointer; transition: 0.3s; border: 4px solid; display: flex; flex-direction: column; align-items: center; }
+        
+        .card-red { border-color: var(--red); background: rgba(255,0,85,0.1); }
+        .card-red:hover { background: var(--red); box-shadow: 0 0 40px var(--red); transform: translateY(-10px); }
+        
+        .card-blue { border-color: var(--p1); background: rgba(144,224,239,0.1); }
+        .card-blue:hover { background: var(--blue); box-shadow: 0 0 40px var(--p1); transform: translateY(-10px); }
+
+        #toast { position: fixed; bottom: 20px; right: 20px; background: #3ba55c; color: white; padding: 15px 25px; border-radius: 10px; font-weight: bold; transform: translateY(100px); opacity: 0; transition: 0.3s; z-index: 9999; }
+        #toast.show { transform: translateY(0); opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <a href="../index.html" class="btn-back">⬅ Back to Portal</a>
+
+    <!-- TEAM CHOOSER (Hidden by default) -->
+    <div class="overlay" id="chooserOverlay" style="display: none;">
+        <h1 style="color: #fff; text-shadow: 0 0 20px #fff; font-size: 40px; margin: 0;">CHOOSE YOUR FACTION</h1>
+        <p style="color: #ccc; font-size: 18px;">Once chosen, you cannot change teams. The winning team each month unlocks the exclusive Reaper pet!</p>
+        <div class="team-split">
+            <div class="team-card card-red" onclick="chooseTeam('red')">
+                <span style="font-size: 60px;">🩸</span>
+                <h2 style="color: #fff; font-size: 28px; margin: 10px 0 0 0;">TEAM RED</h2>
+            </div>
+            <div class="team-card card-blue" onclick="chooseTeam('blue')">
+                <span style="font-size: 60px;">💧</span>
+                <h2 style="color: #fff; font-size: 28px; margin: 10px 0 0 0;">TEAM BLUE</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN UI -->
+    <div class="header">
+        <h1>Fountain of Legends</h1>
+        <p>Toss your ExamCoins into the fountain. The leading team at the end of the month wins!</p>
+    </div>
+
+    <div class="coin-display">
+        🪙 <span id="myCoins">Loading...</span>
+    </div>
+
+    <div class="progress-wrapper">
+        <div class="progress-bar" id="progressBar">
+            <div class="bar-red" id="barRed" style="width: 50%;">0%</div>
+            <div class="bar-blue" id="barBlue" style="width: 50%;">0%</div>
+        </div>
+    </div>
+
+    <div class="fountain-container" id="fountainBox">
+        <!-- Make sure to place your fontain.png image inside the /teams/ folder! -->
+        <img src="fontain.png" alt="Fountain" class="fountain-img" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3358/3358055.png'">
+    </div>
+
+    <button class="btn-donate" id="donateBtn" onclick="donateCoins()" disabled>Toss 10,000 🪙</button>
+
+    <div class="timer-box" id="timerBox">
+        ⏳ Next Reset In: Loading...
+    </div>
+
+    <div id="toast">Points Added!</div>
+
+    <script>
+        let myTeam = '';
+        let myCoins = 0;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('schoolExamsSavedUser');
+            if (!savedUser) {
+                alert("You must log in through the main portal to access the Fountain.");
+                window.location.href = '../index.html';
+                return;
+            }
+            loadTeamData();
+            startTimer();
+        });
+
+        async function loadTeamData() {
+            const fd = new FormData();
+            fd.append('action', 'load');
+
+            try {
+                const res = await fetch('teams_backend.php', { method: 'POST', body: fd });
+                const result = await res.json();
+
+                if (result.success) {
+                    myCoins = result.coins;
+                    myTeam = result.team;
+                    
+                    document.getElementById('myCoins').innerText = myCoins.toLocaleString();
+                    updateProgressBar(result.points.red, result.points.blue);
+
+                    // Show Team Chooser if they haven't picked!
+                    if (!myTeam) {
+                        document.getElementById('chooserOverlay').style.display = 'flex';
+                        document.getElementById('donateBtn').disabled = true;
+                    } else {
+                        // Update button text to match their team
+                        const btn = document.getElementById('donateBtn');
+                        btn.disabled = myCoins < 10000;
+                        btn.style.boxShadow = myTeam === 'red' ? '0 0 30px rgba(255,0,85,0.8)' : '0 0 30px rgba(0,119,182,0.8)';
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function chooseTeam(team) {
+            if (!confirm(`Are you sure you want to join Team ${team.toUpperCase()}? This is permanent!`)) return;
+
+            const fd = new FormData();
+            fd.append('action', 'choose_team');
+            fd.append('team', team);
+
+            try {
+                const res = await fetch('../teams_backend.php', { method: 'POST', body: fd });
+                const result = await res.json();
+
+                if (result.success) {
+                    document.getElementById('chooserOverlay').style.display = 'none';
+                    showToast(`Welcome to Team ${team.toUpperCase()}!`);
+                    loadTeamData(); // Refresh UI
+                } else {
+                    alert(result.message);
+                }
+            } catch(e) {}
+        }
+
+        async function donateCoins() {
+            if (myCoins < 10000) return alert("You don't have enough ExamCoins!");
+
+            document.getElementById('donateBtn').disabled = true; // Prevent double clicks
+
+            const fd = new FormData();
+            fd.append('action', 'donate');
+
+            try {
+                const res = await fetch('../teams_backend.php', { method: 'POST', body: fd });
+                const result = await res.json();
+
+                if (result.success) {
+                    myCoins = result.coins;
+                    document.getElementById('myCoins').innerText = myCoins.toLocaleString();
+                    updateProgressBar(result.points.red, result.points.blue);
+                    showToast("🪙 +1 Point to your team!");
+                } else {
+                    alert(result.message);
+                }
+            } catch (e) { console.error(e); }
+            
+            document.getElementById('donateBtn').disabled = myCoins < 10000;
+        }
+
+        function updateProgressBar(redPts, bluePts) {
+            const total = redPts + bluePts;
+            let redPercent = 50;
+            let bluePercent = 50;
+
+            if (total > 0) {
+                redPercent = (redPts / total) * 100;
+                bluePercent = (bluePts / total) * 100;
+            }
+
+            // Update Bars
+            document.getElementById('barRed').style.width = `${redPercent}%`;
+            document.getElementById('barBlue').style.width = `${bluePercent}%`;
+            
+            // Format text cleanly
+            document.getElementById('barRed').innerText = total > 0 ? `${redPercent.toFixed(1)}% (${redPts.toLocaleString()})` : '0%';
+            document.getElementById('barBlue').innerText = total > 0 ? `${bluePercent.toFixed(1)}% (${bluePts.toLocaleString()})` : '0%';
+
+            // Update Fountain Glow
+            const fountain = document.getElementById('fountainBox');
+            fountain.className = 'fountain-container'; // Reset
+            if (redPts > bluePts) fountain.classList.add('winning-red');
+            else if (bluePts > redPts) fountain.classList.add('winning-blue');
+        }
+
+        function startTimer() {
+            function update() {
+                const now = new Date();
+                // Get the 1st day of the NEXT month
+                const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                
+                const diff = nextMonth - now;
+                if (diff <= 0) {
+                    document.getElementById('timerBox').innerText = "⏳ Resetting now...";
+                    setTimeout(() => location.reload(), 5000);
+                    return;
+                }
+
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((diff / 1000 / 60) % 60);
+                const seconds = Math.floor((diff / 1000) % 60);
+
+                document.getElementById('timerBox').innerText = `⏳ Next Reset In: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>
