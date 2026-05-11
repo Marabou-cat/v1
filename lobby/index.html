@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>Chat Lobby-Online</title>
+    <title>Multiplayer Lobby - SchoolExams</title>
     <style>
         :root {
             --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
@@ -357,6 +357,7 @@
             if (res.success) renderPlayers(res.players, res.messages);
         }
 
+        // --- OPTIMISTIC CHAT SEND ---
         async function sendChat() {
             const input = document.getElementById('chatInput');
             const msg = input.value.trim();
@@ -365,7 +366,6 @@
             input.value = '';
 
             // --- INSTANT LOCAL UPDATE (Optimistic UI) ---
-            // Instantly find your player character and show the text bubble locally!
             const myPlayer = document.querySelector('.player.me');
             if (myPlayer) {
                 const bubble = myPlayer.querySelector('.chat-bubble');
@@ -374,9 +374,8 @@
                     bubble.style.display = 'block';
                 }
             }
-            
+
             // --- SEND TO SERVER IN BACKGROUND ---
-            // Notice we removed "await" so the game doesn't freeze waiting for the database!
             api('chat', { room_code: currentRoom, message: msg });
         }
 
