@@ -1887,12 +1887,11 @@ const CURSOR_EFFECTS = {
         size: 100,                    // Size in pixels
         duration: 5000               // How long the effect lasts in milliseconds
     },
-    // Example of adding another one later:
-    // "dragon": {
-    //     src: "png/fire_burst.gif",
-    //     size: 200,
-    //     duration: 1000
-    // }
+    "stick": {
+        src: "png/black_hole.gif", // Replace with your actual GIF path
+        size: 100,                    // Size in pixels
+        duration: 3000              // How long the effect lasts in milliseconds
+    },
 };
 
 // --- PET ABILITIES CONFIGURATION ---
@@ -1963,7 +1962,14 @@ const PET_ABILITIES = {
         name: "ExamCoin Party",
         desc: "Every 5 minutes, spawns a massive storm of 35 flying ExamCoins!You will not have time to pick them all up!",
         stormAmount: 35 // <--- Write how many coins you want to spawn here!
-    }
+    },
+    "reaper": {
+        name: "Coins Of Death",
+        desc: "Automatically clicks any flying ExamCoins after they fly for 2 seconds! Multiplies your cursor click power by 1.5x. Triggers the black hole effect upon collection.",
+        autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
+        clickEffect: "stick",  // Uses the "hacked" effect from CURSOR_EFFECTS
+        multiplier: 1.5  
+     }
     
 };
 
