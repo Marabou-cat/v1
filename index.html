@@ -2097,7 +2097,14 @@ function equipCursor(id) {
 function openShop() { document.getElementById('shopOverlay').classList.add('open'); renderShop(); }
 function closeShop() { document.getElementById('shopOverlay').classList.remove('open'); }
 
-function openInventory() { document.getElementById('inventoryOverlay').classList.add('open'); showInvTab('pets'); }
+function openInventory() { 
+    // 1. Close the More Menu sidebar if it is open
+    document.getElementById('moreSidebar').classList.remove('open');
+    
+    // 2. Open the inventory overlay as normal
+    document.getElementById('inventoryOverlay').classList.add('open'); 
+    showInvTab('pets'); 
+}
 function closeInventory() { document.getElementById('inventoryOverlay').classList.remove('open'); isSellMode = false; selectedForSale = []; }
 
 function showInvTab(tabName) {
