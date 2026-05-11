@@ -344,10 +344,10 @@
             if (keys.a || keys.ArrowLeft) myX -= SPEED;
             if (keys.d || keys.ArrowRight) myX += SPEED;
 
-            if (myX < 20) myX = 20;
+            if (myX < 50) myX = 50;
             if (myX > window.innerWidth - 50) myX = window.innerWidth - 50;
-            if (myY < 20) myY = 20;
-            if (myY > window.innerHeight - 150) myY = window.innerHeight - 150;
+            if (myY < 120) myY = 120;
+            if (myY > window.innerHeight - 120) myY = window.innerHeight - 120;
 
             requestAnimationFrame(gameLoop);
         }
