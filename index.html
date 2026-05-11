@@ -516,11 +516,8 @@
             💎 <span id="gemDisplay">0</span> Gems
         </div>
         
-        <a href="#" class="btn-nav btn-bp" onclick="navigateAuth('Pass/')">🎫Battle Pass</a>
-        <a href="#" class="btn-nav btn-event" style="background: #00ffff; box-shadow: 0 0 10px rgba(255, 116, 140, 0.5);" onclick="navigateAuth('Event/')">🕹️Arcade Event</a>
-        
-        <button class="btn-nav" onclick="if(isLoggedIn){openPetShop();}else{showLoginOverlay('Login required to adopt pets!');}" style="background: linear-gradient(135deg, #3ba55c, #2ecc71); color: #fff; border: none;">🐾 Pets</button>
-        <button class="btn-nav" onclick="if(isLoggedIn){openShop();}else{showLoginOverlay('Login required to buy cursors!');}" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Cursors</button>
+        <button class="btn-nav" onclick="if(isLoggedIn){openPetShop();}else{showLoginOverlay('Login required to adopt pets!');}" style="background: linear-gradient(135deg, #3ba55c, #2ecc71); color: #fff; border: none;">🐾 Pet Shop</button>
+        <button class="btn-nav" onclick="if(isLoggedIn){openShop();}else{showLoginOverlay('Login required to buy cursors!');}" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; border: none;">🛒 Cursors Shop</button>
     </div>
 </header>
 
@@ -916,9 +913,7 @@ const EXPAND_BUTTONS = [
     { name: "Redeem Code", icon: "🎁", color: "#3ba55c", action: "if(isLoggedIn){redeemCode();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
     { name: "Trade Hub", icon: "🔄", color: "#00f5d4", action: "navigateAuth('Trade/'); closeExpandMenu();" },
     { name: "Battle Pass", icon: "🎫", color: "#9b59b6", action: "navigateAuth('Pass/'); closeExpandMenu();" },
-    { name: "Arcade Event", icon: "🕹️", color: "#00ffff", action: "navigateAuth('Event/'); closeExpandMenu();" },
-    { name: "Adopt Pets", icon: "🐾", color: "#2ecc71", action: "if(isLoggedIn){openPetShop();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
-    { name: "Buy Cursors", icon: "🛒", color: "#ffd700", action: "if(isLoggedIn){openShop();}else{showLoginOverlay('Login required!');} closeExpandMenu();" }
+    { name: "Arcade Event", icon: "🕹️", color: "#00ffff", action: "navigateAuth('Event/'); closeExpandMenu();" }
 ];
 
 function renderMoreMenu() {
