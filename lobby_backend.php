@@ -20,12 +20,28 @@ $user_id = $_SESSION['user_id'];
 $username = $_SESSION['username'] ?? 'Guest';
 $action = $_POST['action'] ?? '';
 
-$now = round(microtime(true) * 1000); // Current time in MS
+$now = round(microtime(true) * 1000); 
+
+// --- FETCH PUBLIC SERVERS ---
+if ($action === 'list_public') {
+    // Clean up empty lobbies first
+    $pdo->query("DELETE FROM lobbies WHERE player_count <= 0");
+    
+    // Fetch up to 10 public lobbies
+    $stmt = $pdo->query("SELECT room_code, room_name, player_count FROM lobbies WHERE is_public = 1 AND player_count < 10 ORDER BY RAND() LIMIT 10");
+    $servers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo json_encode(["success" => true, "servers" => $servers]);
+    exit;
+}
 
 // --- CREATE ROOM ---
 if ($action === 'create') {
-    $code = strtoupper(substr(md5(uniqid()), 0, 6)); // Random 6 letter code
-    $pdo->prepare("INSERT INTO lobbies (room_code, player_count) VALUES (?, 1)")->execute([$code]);
+    $code = strtoupper(substr(md5(uniqid()), 0, 6)); 
+    $room_name = substr(htmlspecialchars($_POST['room_name'] ?? 'My Server'), 0, 30);
+    $is_public = (int)($_POST['is_public'] ?? 1);
+
+    $pdo->prepare("INSERT INTO lobbies (room_code, room_name, is_public, player_count) VALUES (?, ?, ?, 1)")->execute([$code, $room_name, $is_public]);
     
     $stmt = $pdo->prepare("INSERT INTO lobby_players (user_id, username, room_code, x, y, last_update) VALUES (?, ?, ?, 400, 300, ?) ON DUPLICATE KEY UPDATE room_code=?, last_update=?");
     $stmt->execute([$user_id, $username, $code, $now, $code, $now]);
@@ -43,7 +59,7 @@ if ($action === 'join') {
     $lobby = $stmt->fetch();
     
     if (!$lobby) die(json_encode(["success" => false, "message" => "Room not found."]));
-    if ((int)$lobby['player_count'] >= 30) die(json_encode(["success" => false, "message" => "Room is full (Max 30)."]));
+    if ((int)$lobby['player_count'] >= 10) die(json_encode(["success" => false, "message" => "Room is full (Max 10)."])); // LIMIT SET TO 10
 
     $pdo->prepare("UPDATE lobbies SET player_count = player_count + 1 WHERE room_code = ?")->execute([$code]);
     
@@ -54,10 +70,10 @@ if ($action === 'join') {
     exit;
 }
 
-// --- SEND MESSAGE ---
+// --- SEND CHAT ---
 if ($action === 'chat') {
     $code = $_POST['room_code'] ?? '';
-    $msg = substr(htmlspecialchars($_POST['message'] ?? ''), 0, 100); // Limit length and sanitize
+    $msg = substr(htmlspecialchars($_POST['message'] ?? ''), 0, 100); 
     
     if ($msg && $code) {
         $stmt = $pdo->prepare("INSERT INTO lobby_messages (user_id, room_code, message, created_at) VALUES (?, ?, ?, ?)");
@@ -67,7 +83,7 @@ if ($action === 'chat') {
     exit;
 }
 
-// --- SYNC STATE (Moves player, fetches others, deletes old stuff) ---
+// --- SYNC STATE ---
 if ($action === 'sync') {
     $code = $_POST['room_code'] ?? '';
     $x = (int)($_POST['x'] ?? 400);
@@ -77,22 +93,23 @@ if ($action === 'sync') {
     $stmt = $pdo->prepare("UPDATE lobby_players SET x=?, y=?, last_update=? WHERE user_id=?");
     $stmt->execute([$x, $y, $now, $user_id]);
 
-    // Cleanup: Delete messages older than 10 seconds (10000ms)
+    // Cleanup old messages & idle players
     $pdo->prepare("DELETE FROM lobby_messages WHERE created_at < ?")->execute([$now - 10000]);
-
-    // Cleanup: Remove players who haven't synced in 5 seconds (5000ms)
     $pdo->prepare("DELETE FROM lobby_players WHERE last_update < ?")->execute([$now - 5000]);
 
-    // Fetch all active players in this room
-    $stmtP = $pdo->prepare("SELECT user_id, username, x, y FROM lobby_players WHERE room_code = ?");
+    // FETCH PLAYERS AND THEIR EQUIPPED PETS!
+    $stmtP = $pdo->prepare("
+        SELECT lp.user_id, lp.username, lp.x, lp.y, u.active_pet 
+        FROM lobby_players lp 
+        JOIN users u ON lp.user_id = u.id 
+        WHERE lp.room_code = ?
+    ");
     $stmtP->execute([$code]);
     $players = $stmtP->fetchAll(PDO::FETCH_ASSOC);
 
-    // Fetch latest active message for each player
     $stmtM = $pdo->prepare("
         SELECT user_id, message FROM lobby_messages 
-        WHERE room_code = ? 
-        AND id IN (SELECT MAX(id) FROM lobby_messages GROUP BY user_id)
+        WHERE room_code = ? AND id IN (SELECT MAX(id) FROM lobby_messages GROUP BY user_id)
     ");
     $stmtM->execute([$code]);
     
