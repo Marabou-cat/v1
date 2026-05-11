@@ -132,7 +132,7 @@
             fd.append('action', 'load');
 
             try {
-                const res = await fetch('teams_backend.php', { method: 'POST', body: fd });
+                const res = await fetch('../teams_backend.php', { method: 'POST', body: fd });
                 const result = await res.json();
 
                 if (result.success) {
