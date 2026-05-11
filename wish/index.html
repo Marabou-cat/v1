@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wish</title>
+    <title>Wish - Cosmic Gamer Gear</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -263,12 +263,27 @@
                 const result = await response.json();
                 
                 if (result.success && result.data) {
-                    gameState = result.data;
-                    
-                    // Parse values we need to interact with
-                    gameState.coins = parseInt(gameState.coins) || 0;
-                    gameState.gems = parseInt(gameState.gems) || 0;
-                    gameState.owned_gamer_cards = JSON.parse(gameState.owned_gamer_cards || '[]');
+                    // Update gameState completely from database
+                    gameState = {
+                        coins: parseInt(result.data.coins) || 0,
+                        gems: parseInt(result.data.gems) || 0,
+                        playtime: parseInt(result.data.playtime) || 0,
+                        sakura_coins: parseInt(result.data.sakura_coins) || 0,
+                        event_tasks: result.data.event_tasks || '[]',
+                        owned_cursors: result.data.owned_cursors || '["def"]',
+                        equipped_cursor: result.data.equipped_cursor || 'def',
+                        owned_pets: result.data.owned_pets || '[]',
+                        active_pet: result.data.active_pet || '',
+                        pet_ages: result.data.pet_ages || '{}',
+                        prestige_level: parseInt(result.data.prestige_level) || 0,
+                        profile_pic: result.data.profile_pic || '',
+                        owned_items: result.data.owned_items || '[]',
+                        boost_end: parseInt(result.data.boost_end) || 0,
+                        boost_cd: parseInt(result.data.boost_cd) || 0,
+                        game_stats: result.data.game_stats || '{}',
+                        equipped_gamer_card: result.data.equipped_gamer_card || '',
+                        owned_gamer_cards: JSON.parse(result.data.owned_gamer_cards || '[]')
+                    };
                     
                     updateStatsUI();
                 }
@@ -291,21 +306,25 @@
             // Unchanged values mapped back safely so they aren't erased!
             formData.append('playtime', gameState.playtime);
             formData.append('sakura_coins', gameState.sakura_coins);
-            formData.append('event_tasks', typeof gameState.event_tasks === 'string' ? gameState.event_tasks : JSON.stringify(gameState.event_tasks || []));
-            formData.append('owned_cursors', typeof gameState.owned_cursors === 'string' ? gameState.owned_cursors : JSON.stringify(gameState.owned_cursors || ["def"]));
+            formData.append('event_tasks', gameState.event_tasks);
+            formData.append('owned_cursors', gameState.owned_cursors);
             formData.append('equipped_cursor', gameState.equipped_cursor);
-            formData.append('owned_pets', typeof gameState.owned_pets === 'string' ? gameState.owned_pets : JSON.stringify(gameState.owned_pets || []));
+            formData.append('owned_pets', gameState.owned_pets);
             formData.append('active_pet', gameState.active_pet);
-            formData.append('pet_ages', typeof gameState.pet_ages === 'string' ? gameState.pet_ages : JSON.stringify(gameState.pet_ages || {}));
+            formData.append('pet_ages', gameState.pet_ages);
             formData.append('prestige_level', gameState.prestige_level);
             formData.append('profile_pic', gameState.profile_pic);
-            formData.append('owned_items', typeof gameState.owned_items === 'string' ? gameState.owned_items : JSON.stringify(gameState.owned_items || []));
+            formData.append('owned_items', gameState.owned_items);
             formData.append('boost_end', gameState.boost_end);
             formData.append('boost_cd', gameState.boost_cd);
-            formData.append('game_stats', typeof gameState.game_stats === 'string' ? gameState.game_stats : JSON.stringify(gameState.game_stats || {}));
+            formData.append('game_stats', gameState.game_stats);
             formData.append('equipped_gamer_card', gameState.equipped_gamer_card);
 
-            try { fetch('../backend.php', { method: 'POST', body: formData }); } catch(e) {}
+            try { 
+                await fetch('../backend.php', { method: 'POST', body: formData }); 
+            } catch(e) {
+                console.error("Save error:", e);
+            }
         }
 
         function updateStatsUI() {
@@ -319,22 +338,22 @@
         // --- WISH SYSTEM SCRIPT ---
         // =========================================
 
-        // 1. CARDS CONFIGURATION (Paths updated to ../png)
+        // 1. CARDS CONFIGURATION
         const GAMER_CARDS = [
             { id: "raging_noob", name: "Raging Noob", icon: "<img src='../png/raging_noob.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
             { id: "good_morning", name: "Good Morning!", icon: "<img src='../png/good_morning.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
-            { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='../png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#3ba55c" },
-            { id: "investor", name: "Investor", icon: "<img src='../png/investor.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#3ba55c" },
-            { id: "royal_knight", name: "Royal Knight", icon: "<img src='../png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
-            { id: "speedrunner", name: "Speedrunner", icon: "<img src='../png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#3ba55c" },
             { id: "power_of_care", name: "Power Of Care", icon: "<img src='../png/power_of_care.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
-            { id: "evolution_scientist", name: "Evolution Scientist", icon: "<img src='../png/evolution_scientist.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" }
+            { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='../png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#9b59b6" },
+            { id: "speedrunner", name: "Speedrunner", icon: "<img src='../png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#9b59b6" },
+            { id: "investor", name: "Investor", icon: "<img src='../png/investor.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#9b59b6" },
+            { id: "royal_knight", name: "Royal Knight", icon: "<img src='../png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
+            { id: "evolution_scientist", name: "Evolution Scientist", icon: "<img src='../png/evolution_scientist.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" }
         ];
 
         // 2. RARITY POOLS
-        const RARE_CARDS = ["raging_noob","good_morning","power_of_care"];         
-        const EPIC_CARDS = ["dog_trainer","speedrunner","investor"];         
-        const LEGENDARY_CARDS = ["royal_knight","evolution_scientist"];   
+        const RARE_CARDS = ["raging_noob", "good_morning", "power_of_care"];         
+        const EPIC_CARDS = ["dog_trainer", "speedrunner", "investor"];         
+        const LEGENDARY_CARDS = ["royal_knight", "evolution_scientist"];   
 
         const RARITY_COLORS = {
             rare: "#3498db",      // Normal Blue
@@ -342,19 +361,23 @@
             legendary: "#f1c40f"  // Yellow
         };
 
-        const RARITY_WEIGHT = { rare: 1, epic: 2, legendary: 3 }; // For comparing highest rarity
+        const RARITY_WEIGHT = { rare: 1, epic: 2, legendary: 3 }; 
 
-        // 3. MAIN WISH FUNCTION (Modified for Multiple Pulls)
-        function performWish(count = 1, cost = 100) {
+        // 3. MAIN WISH FUNCTION
+        async function performWish(count = 1, cost = 100) { 
             if (!isLoggedIn) return alert("❌ Please log in to make a wish!");
-            if (!gameState) return;
             
+            // --- FORCE SYNC WITH DATABASE BEFORE ROLLING ---
+            const savedUser = localStorage.getItem('schoolExamsSavedUser');
+            await loadGameFromServer(savedUser);
+            
+            if (!gameState) return;
             if (gameState.gems < cost) return alert(`❌ Not enough Gems! You need ${cost} 💎 to roll.`);
 
             // Deduct Cost & Prep UI
             gameState.gems -= cost;
             updateStatsUI();
-            saveGameToServer(); // Immediately save so they can't refresh to exploit
+            await saveGameToServer(); // Immediately save charge so refresh won't exploit
 
             document.getElementById('wishFlash').style.opacity = '0';
             document.getElementById('wishResult').classList.remove('show');
@@ -378,29 +401,28 @@
                     rarity = 'legendary'; cardPool = LEGENDARY_CARDS; 
                 }
 
-                // Track the highest rarity seen in this pull
+                // Track highest rarity
                 if (RARITY_WEIGHT[rarity] > RARITY_WEIGHT[highestRarity]) {
                     highestRarity = rarity;
                 }
 
-                // Pick a random card from the winning rarity pool
+                // Pick a random card
                 let cardId = cardPool[Math.floor(Math.random() * cardPool.length)];
                 results.push({ id: cardId, rarity: rarity });
             }
 
-            // Start the Animation Sequence
+            // Start Animation Sequence
             star.style.transition = 'none';
             star.style.left = '-15vw';
             star.style.top = '-15vw';
             star.style.opacity = '1';
             
-            // Starts as Light Blue glowing trail
             star.style.background = '#e0f7fa';
             star.style.color = '#e0f7fa';
             star.style.boxShadow = '0 0 25px 12px #00f5d4';
 
             setTimeout(() => {
-                // Fly across screen to bottom right
+                // Fly across screen
                 star.style.transition = 'top 2.5s cubic-bezier(.4,0,.2,1), left 2.5s cubic-bezier(.4,0,.2,1), background 1s, box-shadow 1s, color 1s';
                 star.style.left = '70vw';
                 star.style.top = '70vw';
@@ -418,7 +440,7 @@
                     document.getElementById('wishFlash').style.opacity = '1';
 
                     // Reveal the Cards
-                    setTimeout(() => {
+                    setTimeout(async () => { 
                         star.style.opacity = '0';
                         document.getElementById('wishFlash').style.opacity = '0';
 
@@ -437,14 +459,12 @@
                                 gameState.owned_gamer_cards.push(result.id);
                             }
 
-                            // Extract the src for bigger display
                             let rawIconSrc = cardInfo.icon.match(/src='([^']+)'/);
                             let imagePath = rawIconSrc ? rawIconSrc[1] : '';
                             let iconHTML = imagePath 
                                 ? `<img src="${imagePath}" style="filter: drop-shadow(0 0 10px rgba(255,255,255,0.4));" onerror="this.outerHTML='🎮'">` 
                                 : cardInfo.icon;
 
-                            // Build HTML for this card
                             cardsHTML += `
                                 <div class="wish-card" style="border-color: ${RARITY_COLORS[result.rarity]}; box-shadow: 0 0 20px ${RARITY_COLORS[result.rarity]}30;">
                                     <h3 style="color: #fff; text-shadow: 0 0 10px ${RARITY_COLORS[result.rarity]};">${result.rarity}</h3>
@@ -457,10 +477,9 @@
                             `;
                         });
                         
-                        saveGameToServer();
+                        await saveGameToServer(); 
                         updateStatsUI();
 
-                        // Draw the Row and Confirm Button
                         let resultUI = document.getElementById('wishResult');
                         resultUI.innerHTML = `
                             <div class="wish-row ${count === 1 ? 'single' : ''}">
@@ -469,8 +488,8 @@
                             <button class="btn-confirm" onclick="closeWish()">Confirm</button>
                         `;
                         resultUI.classList.add('show');
-                    }, 500); // Wait for flash peak to swap UI
-                }, 2200); // Time it takes star to reach center
+                    }, 500); 
+                }, 2200); 
             }, 100);
         }
 
