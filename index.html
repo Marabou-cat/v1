@@ -179,12 +179,35 @@
         }
         .btn-more-oval:hover { right: 0; background: var(--p0); box-shadow: -5px 0 25px rgba(144, 224, 239, 0.5); }
 
-        .more-sidebar {
-            position: fixed; right: -300px; top: 50%; transform: translateY(-50%); background: var(--bg1);
-            border: 2px solid var(--p0); border-right: none; padding: 20px; border-radius: 20px 0 0 20px;
-            width: 220px; box-shadow: -10px 0 30px rgba(0,0,0,0.8); z-index: 1000; transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: flex; flex-direction: column; gap: 15px;
-        }
+       /* UPDATED: FIXED MORE MENU OVERLAY */
+.more-sidebar {
+    position: fixed; 
+    inset: 0; 
+    background: rgba(0, 8, 20, 0.95); 
+    backdrop-filter: blur(5px); 
+    z-index: 9500; 
+    display: none; /* Hidden by default */
+    align-items: center; 
+    justify-content: center; 
+    flex-direction: column;
+}
+
+/* This class is triggered by your JS toggle */
+.more-sidebar.open { 
+    display: flex !important; 
+}
+
+/* Ensure the square buttons look right in the grid */
+.square-btn {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px;
+    text-decoration: none;
+}
         .more-sidebar.open { right: 0; }
         .more-sidebar-title { color: var(--p1); font-weight: 900; font-size: 14px; border-bottom: 2px solid var(--p0); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
 
@@ -868,10 +891,8 @@ function toggleMoreMenu() {
     const isOpen = menu.classList.toggle('open');
     
     if (isOpen) {
-        menu.style.display = 'flex'; // Ensure it shows as a flex-centered overlay
+        // Trigger the button generation
         renderMoreMenu();
-    } else {
-        menu.style.display = 'none';
     }
 }
 
