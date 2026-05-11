@@ -422,7 +422,7 @@
         </div>
 
         <!-- Full-width Logout Button at the bottom -->
-        <button id="logoutBtn" class="btn-nav" style="width: 100%; background: #d00000; border-color: #ff0000; display:none; padding: 15px; border-radius: 12px; font-size: 16px;" onclick="logout()">🚪 Log Out</button>
+        <button id="logoutBtnExpand" class="btn-nav" style="width: 100%; background: #d00000; border-color: #ff0000; display:none; padding: 15px; border-radius: 12px; font-size: 16px;" onclick="logout()">🚪 Log Out</button>
     </div>
 </div>
 <header class="topbar">
@@ -770,7 +770,7 @@ async function performAuth(action, userField, passField) {
             document.getElementById('welcomeUserText').innerText = `Logged in as: ${user}`;
             document.getElementById('guestLoginBtn').style.display = 'none';
             document.getElementById('loggedInProfile').style.display = 'flex';
-            document.getElementById('logoutBtn').style.display = 'block';
+            document.getElementById('logoutBtnExpand').style.display = 'block';
             
             localStorage.removeItem('schoolExamsGuestState');
             loadGameFromServer(); 
@@ -795,7 +795,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('welcomeUserText').innerText = `Logged in as: ${savedUser}`;
         document.getElementById('guestLoginBtn').style.display = 'none';
         document.getElementById('loggedInProfile').style.display = 'flex';
-        document.getElementById('logoutBtn').style.display = 'block';
+        document.getElementById('logoutBtnExpand').style.display = 'block';
         loadGameFromServer(); 
     } else {
         loadGuestState();
