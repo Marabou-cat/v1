@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Multiplayer Lobby - SchoolExams</title>
+    <style>
+        :root {
+            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
+            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
+            --w: #caf0f8; --line: rgba(144, 224, 239, 0.2);
+            --glass: rgba(0, 29, 61, 0.85);
+            --shadow: 0 12px 40px rgba(0,0,0,0.7);
+            --glow: 0 0 20px rgba(144, 224, 239, 0.3);
+            --r: 16px;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: var(--bg0); 
+            color: var(--w); 
+            margin: 0; 
+            padding: 0;
+            overflow: hidden; /* Prevent scrolling when moving */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .btn-back { 
+            position: absolute; top: 20px; left: 20px; 
+            background: rgba(0, 0, 0, 0.85); border: 2px solid var(--p0); 
+            color: var(--p1); padding: 10px 20px; border-radius: 20px; 
+            text-decoration: none; font-weight: 900; transition: 0.3s; z-index: 1000;
+        }
+        .btn-back:hover { background: var(--p0); color: #fff; box-shadow: var(--glow); }
+
+        /* --- MENU SCREEN --- */
+        #menuScreen {
+            background: var(--glass); border: 2px solid var(--p0); border-radius: var(--r);
+            padding: 40px; width: 90%; max-width: 500px; text-align: center;
+            box-shadow: var(--shadow), var(--glow); z-index: 10;
+        }
+
+        h1 { color: var(--p1); text-shadow: var(--glow); margin-top: 0; text-transform: uppercase; letter-spacing: 2px;}
+
+        .input-box {
+            width: 100%; padding: 15px; margin-bottom: 20px; border-radius: 8px;
+            border: 2px solid var(--p2); background: var(--bg2); color: #fff;
+            font-size: 18px; outline: none; transition: 0.3s; box-sizing: border-box;
+            text-align: center; font-weight: bold; text-transform: uppercase;
+        }
+        .input-box:focus { border-color: var(--p1); box-shadow: var(--glow); }
+
+        .btn {
+            background: var(--p0); color: #fff; border: none; padding: 15px;
+            border-radius: 8px; font-size: 18px; font-weight: bold; transition: 0.3s;
+            width: 100%; cursor: pointer; margin-bottom: 10px; text-transform: uppercase;
+        }
+        .btn:hover { background: var(--p1); color: var(--bg0); box-shadow: var(--glow); transform: translateY(-2px); }
+        .btn-green { background: #3ba55c; }
+        .btn-green:hover { background: #43b581; box-shadow: 0 0 15px rgba(59,165,92,0.5); }
+
+        /* --- GAME SCREEN --- */
+        #gameScreen {
+            display: none; width: 100vw; height: 100vh; position: relative;
+        }
+
+        .room-info {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(0,0,0,0.8); border: 2px solid var(--p1); padding: 10px 20px;
+            border-radius: 12px; font-weight: bold; color: var(--p1); z-index: 10;
+            box-shadow: var(--glow);
+        }
+
+        /* The 2D Canvas Area */
+        #playArea {
+            width: 100%; height: 100%; position: relative; overflow: hidden;
+        }
+
+        .player {
+            position: absolute; width: 40px; height: 40px;
+            background: var(--p1); border-radius: 50%;
+            transform: translate(-50%, -50%); /* Center coordinate */
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; color: #000; box-shadow: 0 0 15px var(--p1);
+            transition: left 0.1s linear, top 0.1s linear; /* Smooth network movement */
+            user-select: none;
+        }
+        .player.me { background: #ffd700; box-shadow: 0 0 20px #ffd700; z-index: 5;}
+        
+        .player-name {
+            position: absolute; top: -25px; white-space: nowrap;
+            background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 8px;
+            font-size: 12px; color: #fff; font-weight: bold;
+        }
+
+        /* Chat Bubbles */
+        .chat-bubble {
+            position: absolute; bottom: 50px; background: #fff; color: #000;
+            padding: 8px 12px; border-radius: 12px; font-size: 14px; font-weight: bold;
+            white-space: nowrap; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            pointer-events: none; opacity: 1; z-index: 6;
+        }
+        .chat-bubble::after {
+            content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%);
+            border-width: 5px 5px 0; border-style: solid; border-color: #fff transparent transparent transparent;
+        }
+
+        /* Chat Input UI */
+        .chat-container {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; width: 90%; max-width: 600px; z-index: 10;
+        }
+        .chat-input {
+            flex: 1; padding: 15px; border-radius: 20px; border: 2px solid var(--p0);
+            background: rgba(0,0,0,0.8); color: #fff; font-size: 16px; outline: none;
+            backdrop-filter: blur(5px);
+        }
+        .chat-input:focus { border-color: #ffd700; box-shadow: 0 0 15px rgba(255,215,0,0.3); }
+        
+    </style>
+</head>
+<body>
+
+    <a href="../index.html" class="btn-back">⬅ Leave</a>
+
+    <!-- MENU SCREEN -->
+    <div id="menuScreen">
+        <h1>Multiplayer Lobby</h1>
+        <p style="color: #aaa; margin-bottom: 30px;">Move around with W A S D or Arrows. Chat with players in real-time!</p>
+        
+        <button class="btn btn-green" onclick="createRoom()">➕ Host New Room</button>
+        
+        <div style="margin: 20px 0; color: #555; font-weight: bold;">OR</div>
+        
+        <input type="text" id="joinCode" class="input-box" placeholder="ENTER 6-LETTER CODE" maxlength="6">
+        <button class="btn" onclick="joinRoom()">🔗 Join Room</button>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="gameScreen">
+        <div class="room-info" id="roomCodeDisplay">ROOM: -----</div>
+        
+        <div id="playArea">
+            <!-- Players injected here by JS -->
+        </div>
+
+        <div class="chat-container">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Type a message and press Enter..." maxlength="50">
+        </div>
+    </div>
+
+    <script>
+        // --- GAME STATE ---
+        let currentRoom = null;
+        let myId = null; // We'll extract this from local storage if available
+        let myUsername = localStorage.getItem('schoolExamsSavedUser') || "Guest_" + Math.floor(Math.random()*1000);
+        
+        // Physics / Movement
+        let myX = window.innerWidth / 2;
+        let myY = window.innerHeight / 2;
+        const SPEED = 8;
+        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
+
+        let syncInterval = null;
+
+        // --- API HELPER ---
+        async function api(action, data = {}) {
+            const fd = new FormData();
+            fd.append('action', action);
+            for (let key in data) fd.append(key, data[key]);
+            
+            try {
+                const res = await fetch('../lobby_backend.php', { method: 'POST', body: fd }); // UPDATE THIS PATH IF NEEDED
+                return await res.json();
+            } catch(e) {
+                console.error("API Error:", e);
+                return { success: false, message: "Connection lost." };
+            }
+        }
+
+        // --- MENU LOGIC ---
+        async function createRoom() {
+            const res = await api('create');
+            if (res.success) {
+                startGame(res.room_code);
+            } else {
+                alert(res.message);
+            }
+        }
+
+        async function joinRoom() {
+            const code = document.getElementById('joinCode').value.toUpperCase();
+            if(code.length !== 6) return alert("Code must be 6 letters.");
+            
+            const res = await api('join', { room_code: code });
+            if (res.success) {
+                startGame(code);
+            } else {
+                alert(res.message);
+            }
+        }
+
+        // --- CORE GAME LOOP ---
+        function startGame(code) {
+            currentRoom = code;
+            document.getElementById('menuScreen').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'block';
+            document.getElementById('roomCodeDisplay').innerText = `ROOM: ${code}`;
+            
+            // Start listening for keyboard movement
+            window.addEventListener('keydown', e => { if (keys.hasOwnProperty(e.key) && document.activeElement !== document.getElementById('chatInput')) keys[e.key] = true; });
+            window.addEventListener('keyup', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+            
+            // Chat listener
+            document.getElementById('chatInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendChat();
+            });
+
+            // Start Movement & Sync Loops
+            requestAnimationFrame(gameLoop);
+            syncInterval = setInterval(syncWithServer, 100); // Sync 10 times a second
+        }
+
+        // Local movement math (Runs at 60fps)
+        function gameLoop() {
+            if (!currentRoom) return;
+
+            let moved = false;
+            if (keys.w || keys.ArrowUp) { myY -= SPEED; moved = true; }
+            if (keys.s || keys.ArrowDown) { myY += SPEED; moved = true; }
+            if (keys.a || keys.ArrowLeft) { myX -= SPEED; moved = true; }
+            if (keys.d || keys.ArrowRight) { myX += SPEED; moved = true; }
+
+            // Boundary constraints
+            if (myX < 20) myX = 20;
+            if (myX > window.innerWidth - 20) myX = window.innerWidth - 20;
+            if (myY < 20) myY = 20;
+            if (myY > window.innerHeight - 80) myY = window.innerHeight - 80;
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- NETWORK SYNC ---
+        async function syncWithServer() {
+            const res = await api('sync', { room_code: currentRoom, x: Math.floor(myX), y: Math.floor(myY) });
+            
+            if (res.success) {
+                renderPlayers(res.players, res.messages);
+            }
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            
+            input.value = '';
+            await api('chat', { room_code: currentRoom, message: msg });
+            // Immediate sync so we see our own message instantly
+            syncWithServer(); 
+        }
+
+        // --- RENDER ENGINE ---
+        function renderPlayers(serverPlayers, messages) {
+            const area = document.getElementById('playArea');
+            
+            // 1. Mark all current DOM players as "stale"
+            const activeElements = Array.from(area.getElementsByClassName('player'));
+            activeElements.forEach(el => el.dataset.stale = "true");
+
+            // 2. Loop through server data and update/create dots
+            serverPlayers.forEach(p => {
+                let el = document.getElementById(`player_${p.user_id}`);
+                
+                // If player doesn't exist in HTML, create them
+                if (!el) {
+                    el = document.createElement('div');
+                    el.id = `player_${p.user_id}`;
+                    el.className = 'player';
+                    // Check if this is US (You can refine this if your backend session mapping is exact)
+                    if (p.username === myUsername) el.classList.add('me'); 
+                    
+                    // First letter of name as icon
+                    el.innerHTML = `
+                        ${p.username.charAt(0).toUpperCase()}
+                        <div class="player-name">${p.username}</div>
+                        <div class="chat-bubble" id="chat_${p.user_id}" style="display: none;"></div>
+                    `;
+                    area.appendChild(el);
+                }
+
+                // Smoothly update position via CSS transition
+                // If it's US, we trust our local physics (gameLoop) more than server to prevent jitter
+                if (!el.classList.contains('me')) {
+                    el.style.left = `${p.x}px`;
+                    el.style.top = `${p.y}px`;
+                } else {
+                    el.style.left = `${myX}px`;
+                    el.style.top = `${myY}px`;
+                }
+
+                // Handle Chat Bubble
+                const bubble = document.getElementById(`chat_${p.user_id}`);
+                if (messages[p.user_id]) {
+                    bubble.innerText = messages[p.user_id];
+                    bubble.style.display = 'block';
+                } else {
+                    bubble.style.display = 'none';
+                }
+
+                el.dataset.stale = "false";
+            });
+
+            // 3. Remove players who left the room (stale = true)
+            activeElements.forEach(el => {
+                if (el.dataset.stale === "true") {
+                    el.remove();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
