@@ -913,7 +913,7 @@ const EXPAND_BUTTONS = [
     { name: "Redeem Code", icon: "🎁", color: "#3ba55c", action: "if(isLoggedIn){redeemCode();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
     { name: "Trade Hub", icon: "🔄", color: "#00f5d4", action: "navigateAuth('Trade/'); closeExpandMenu();" },
     { name: "Battle Pass", icon: "🎫", color: "#9b59b6", action: "navigateAuth('Pass/'); closeExpandMenu();" },
-    { name: "Arcade Event", icon: "🕹️", color: "#00ffff", action: "navigateAuth('Event/'); closeExpandMenu();" }
+    { name: "Arcade Event", icon: "🕹️", color: "#00ffff", action: "navigateAuth('Event/'); closeExpandMenu();" },
     { name: "Wish", icon: "🌠", color: "#ffff00", action: "navigateAuth('wish/'); closeExpandMenu();" }
 ];
 
@@ -1813,7 +1813,7 @@ function openGamerCardSelect() {
     container.innerHTML = '';
 
     if (!gameState.owned_gamer_cards || gameState.owned_gamer_cards.length === 0) {
-        container.innerHTML = `<div style="grid-column: 1/-1; color: gray; text-align: center; padding: 40px; border: 2px dashed #444; border-radius: 12px;">You don't own any Gamer Cards yet!</div>`;
+        container.innerHTML = `<div style="grid-column: 1/-1; color: gray; text-align: center; padding: 40px; border: 2px dashed #444; border-radius: 12px;">You don't own any Gamer Cards yet! Click the More Tab and Wish for Gamer Cards!</div>`;
     } else {
         gameState.owned_gamer_cards.forEach(cardId => {
             const card = GAMER_CARDS.find(c => c.id === cardId);
