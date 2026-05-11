@@ -363,8 +363,21 @@
             if (!msg) return;
             
             input.value = '';
-            await api('chat', { room_code: currentRoom, message: msg });
-            syncWithServer(); 
+
+            // --- INSTANT LOCAL UPDATE (Optimistic UI) ---
+            // Instantly find your player character and show the text bubble locally!
+            const myPlayer = document.querySelector('.player.me');
+            if (myPlayer) {
+                const bubble = myPlayer.querySelector('.chat-bubble');
+                if (bubble) {
+                    bubble.innerText = msg;
+                    bubble.style.display = 'block';
+                }
+            }
+            
+            // --- SEND TO SERVER IN BACKGROUND ---
+            // Notice we removed "await" so the game doesn't freeze waiting for the database!
+            api('chat', { room_code: currentRoom, message: msg });
         }
 
         // --- RENDER ENGINE WITH PETS ---
