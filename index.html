@@ -425,7 +425,6 @@
         <button id="logoutBtn" class="btn-nav" style="width: 100%; background: #d00000; border-color: #ff0000; display:none; padding: 15px; border-radius: 12px; font-size: 16px;" onclick="logout()">🚪 Log Out</button>
     </div>
 </div>
-
 <header class="topbar">
     <a href="#" class="brand" onclick="location.reload()">
         <img src="logo.png" alt="Logo" onerror="this.style.display='none'">
@@ -837,67 +836,60 @@ function loadGuestState() {
 }
 
 // CONFIGURATION: Add your buttons here!
-const MoreButtons = [
-    { name: "Inventory", icon: "🎒", color: "#e67e22", border: "#d35400", action: () => openInventory() },
-    { name: "Hall Of Fame", icon: "🏆", color: "#ff0044", border: "#ff3366", action: () => navigateAuth('leaderboard/') },
-    { name: "Chests", icon: "📦", color: "#ff0044", border: "#ff3366", action: () => navigateAuth('chestshop/') },
-    { name: "Mailbox", icon: "📮", color: "#8e44ad", border: "#9b59b6", action: () => { window.open('mailbox/','_blank'); markMailboxSeen(); } },
-    { name: "Evo Lab", icon: "🧬", color: "#ff0055", border: "#ff3377", action: () => navigateAuth('evolve/') },
-    { name: "Redeem", icon: "🎁", color: "#3ba55c", border: "#43b581", action: () => redeemCode() },
-    { name: "Trade", icon: "🔄", color: "#ff0055", border: "#ff3377", action: () => navigateAuth('Trade/') },
-    { name: "Settings", icon: "⚙️", color: "#555", border: "#777", action: () => alert("Settings coming soon!") }
+// --- EXPAND MENU CONFIGURATION ---
+const EXPAND_BUTTONS = [
+    { name: "Inventory", icon: "🎒", color: "#e67e22", action: "if(isLoggedIn){openInventory();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
+    { name: "Hall Of Fame", icon: "🏆", color: "#ff0044", action: "navigateAuth('leaderboard/'); closeExpandMenu();" },
+    { name: "Chests", icon: "📦", color: "#f1c40f", action: "navigateAuth('chestshop/'); closeExpandMenu();" },
+    { name: "Mailbox", icon: "📮", color: "#8e44ad", action: "if(isLoggedIn){window.open('mailbox/','_blank'); markMailboxSeen();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
+    { name: "Evo Lab", icon: "🧬", color: "#ff0055", action: "navigateAuth('evolve/'); closeExpandMenu();" },
+    { name: "Redeem Code", icon: "🎁", color: "#3ba55c", action: "if(isLoggedIn){redeemCode();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
+    { name: "Trade Hub", icon: "🔄", color: "#00f5d4", action: "navigateAuth('Trade/'); closeExpandMenu();" },
+    { name: "Battle Pass", icon: "🎫", color: "#9b59b6", action: "navigateAuth('Pass/'); closeExpandMenu();" },
+    { name: "Arcade Event", icon: "🕹️", color: "#00ffff", action: "navigateAuth('Event/'); closeExpandMenu();" },
+    { name: "Adopt Pets", icon: "🐾", color: "#2ecc71", action: "if(isLoggedIn){openPetShop();}else{showLoginOverlay('Login required!');} closeExpandMenu();" },
+    { name: "Buy Cursors", icon: "🛒", color: "#ffd700", action: "if(isLoggedIn){openShop();}else{showLoginOverlay('Login required!');} closeExpandMenu();" }
 ];
 
-function renderMoreMenu() {
-    const grid = document.getElementById('moreButtonsGrid');
-    grid.innerHTML = ''; 
-
-    MoreButtons.forEach(btn => {
-        const buttonEl = document.createElement('button');
-        buttonEl.className = 'btn-nav square-btn';
-        
-        // 1. Check if logged in. If not, apply "locked" styles
-        if (!isLoggedIn) {
-            buttonEl.style.backgroundColor = "#333"; // Greyed out
-            buttonEl.style.borderColor = "#555";
-            buttonEl.style.opacity = "0.6";
-            buttonEl.style.cursor = "not-allowed !important";
-            
-            buttonEl.innerHTML = `<span style="filter: grayscale(1);">🔒</span><div style="font-size:11px; color:#aaa;">Login Required</div>`;
-            
-            // If clicked while logged out, show the login overlay
-            buttonEl.onclick = () => {
-                showLoginOverlay(`You must be logged in to use ${btn.name}!`);
-            };
-        } else {
-            // 2. Normal Styles if Logged In
-            buttonEl.style.backgroundColor = btn.color;
-            buttonEl.style.borderColor = btn.border;
-            buttonEl.style.opacity = "1";
-            
-            buttonEl.innerHTML = `<span>${btn.icon}</span>${btn.name}`;
-            
-            buttonEl.onclick = () => {
-                btn.action();
-                toggleMoreMenu(); 
-            };
-        }
-        
-        grid.appendChild(buttonEl);
+function renderExpandMenu() {
+    const grid = document.getElementById('expandGrid');
+    grid.innerHTML = '';
+    
+    EXPAND_BUTTONS.forEach(btn => {
+        grid.innerHTML += `
+            <div class="expand-btn" style="border-color: ${btn.color}; color: ${btn.color};" onclick="${btn.action}">
+                <div class="icon">${btn.icon}</div>
+                <div>${btn.name}</div>
+            </div>
+        `;
     });
 }
 
-// Update your toggle function to trigger the render
-function toggleMoreMenu() {
-    const menu = document.getElementById('moreSidebar');
-    const isOpen = menu.classList.toggle('open');
+function openExpandMenu() {
+    renderExpandMenu();
+    document.getElementById('expandOverlay').classList.add('open');
     
-    if (isOpen) {
-        // Trigger the button generation
-        renderMoreMenu();
-    }
+    // Only show the logout button if the user is actually logged in
+    document.getElementById('logoutBtn').style.display = isLoggedIn ? 'block' : 'none';
 }
 
+function closeExpandMenu() {
+    document.getElementById('expandOverlay').classList.remove('open');
+    
+    // Story Quest Logic check
+    if (gameState && gameState.event_tasks && gameState.event_tasks.length > 0) {
+        let task = gameState.event_tasks[0];
+        if (task.type === 'ui_action' && task.game === 'open_more' && !task.completed) {
+            task.current++;
+            if (task.current >= task.goal) {
+                task.current = task.goal;
+                task.completed = true;
+                showToast("✅ Mission Complete!");
+            }
+            saveGameToServer();
+        }
+    }
+}
 function sanitizePets() {
     if(!gameState) return;
     let migrated = false;
