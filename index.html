@@ -852,7 +852,7 @@ const EXPAND_BUTTONS = [
 ];
 
 function renderExpandMenu() {
-    const grid = document.getElementById('expandGrid');
+    const grid = document.getElementById('moreButtonsGrid');
     grid.innerHTML = '';
     
     EXPAND_BUTTONS.forEach(btn => {
@@ -1158,7 +1158,13 @@ document.addEventListener('mouseout', (e) => { if (!e.relatedTarget && !isOverIf
 const BASE_URL = "UGS-Files/";
 
 function toggleMoreMenu() { 
-    document.getElementById('moreSidebar').classList.toggle('open'); 
+    const menu = document.getElementById('moreSidebar');
+    menu.classList.toggle('open'); 
+
+    // If we just opened it, render the buttons
+    if (menu.classList.contains('open')) {
+        renderMoreMenu();
+    }
 
     // ARCADE EVENT STORY QUEST LOGIC
     if (gameState && gameState.event_tasks && gameState.event_tasks.length > 0) {
