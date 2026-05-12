@@ -1035,6 +1035,7 @@ async function loadGameFromServer() {
                 equipped_cursor: result.data.equipped_cursor || 'def',
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
                 active_pet: result.data.active_pet || '',
+                game_stats: JSON.parse(result.data.game_stats || '{}'),
                 pet_ages: JSON.parse(result.data.pet_ages || '{}'),
                 last_online: parseInt(result.data.last_online) || Date.now(),
                 prestige_level: parseInt(result.data.prestige_level) || 0,
@@ -1524,6 +1525,10 @@ function addCoins(amount) {
             
             // Ensure the stat exists
             if (!gameState.game_stats.card_progress) gameState.game_stats.card_progress = 0;
+
+            // Add this safety check inside addCoins()
+            if (!gameState.game_stats) gameState.game_stats = {};
+            if (!gameState.game_stats.card_progress) gameState.game_stats.card_progress = 0;
             
             // Add coins to the bar
             gameState.game_stats.card_progress += amount;
@@ -1770,6 +1775,16 @@ function feedPet() {
 function updateCompanionUI() {
     if (!gameState) return;
     const panel = document.getElementById('petPanel');
+
+    // --- DRAW PROGRESS BAR IF IT'S THE MINER CARD ---
+        let barHTML = "";
+        if (ability && ability.type === "gem_miner") {
+            // Add this safety check right here:
+            if (!gameState.game_stats) gameState.game_stats = {};
+            
+            let current = gameState.game_stats.card_progress || 0;
+            let max = ability.coinThreshold;
+            let percent = Math.min((current / max) * 100, 100);
     
     // --- THE FIX IS HERE ---
     // Check if the player OWNS any pets or gamer cards
