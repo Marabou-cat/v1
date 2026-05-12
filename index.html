@@ -1876,17 +1876,24 @@ function updateCompanionUI() {
         const ability = GamerCardAbilities[gc.id];
         let abilityText = ability ? ability.name : "No Ability";
         
-        // --- DRAW PROGRESS BAR IF IT'S THE MINER CARD ---
+        // --- DRAW PROGRESS BAR ---
         let barHTML = "";
         if (ability && ability.type === "gem_miner") {
-            if (!gameState.game_stats) gameState.game_stats = {}; // Safety check
+            if (!gameState.game_stats) gameState.game_stats = {}; 
             
             let current = gameState.game_stats.card_progress || 0;
             let max = ability.coinThreshold;
             let percent = Math.min((current / max) * 100, 100);
-        // --- DRAW PROGRESS BAR FOR CHRONO MASTER ---
+            
+            barHTML = `
+                <div style="width: 100%; background: #222; height: 10px; border-radius: 5px; margin-top: 8px; overflow: hidden; border: 1px solid #444;">
+                    <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #00ffcc, #00f5d4);"></div>
+                </div>
+                <div style="font-size: 10px; color: #aaa; margin-top: 3px; font-weight: bold;">${current.toLocaleString()} / ${max.toLocaleString()} 🪙</div>
+            `;
+        } 
         else if (ability && ability.type === "cooldown_skip") {
-            if (!gameState.game_stats) gameState.game_stats = {};
+            if (!gameState.game_stats) gameState.game_stats = {}; 
             
             let current = gameState.game_stats.skip_progress || 0;
             let max = ability.skipInterval;
@@ -1897,14 +1904,6 @@ function updateCompanionUI() {
                     <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #ff9f43, #ff6b6b);"></div>
                 </div>
                 <div style="font-size: 10px; color: #aaa; margin-top: 3px; font-weight: bold;">Time Warp: ${current}s / ${max}s ⏳</div>
-            `;
-        }
-            
-            barHTML = `
-                <div style="width: 100%; background: #222; height: 10px; border-radius: 5px; margin-top: 8px; overflow: hidden; border: 1px solid #444;">
-                    <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #00ffcc, #00f5d4);"></div>
-                </div>
-                <div style="font-size: 10px; color: #aaa; margin-top: 3px; font-weight: bold;">${current.toLocaleString()} / ${max.toLocaleString()} 🪙</div>
             `;
         }
         
@@ -1924,7 +1923,6 @@ function updateCompanionUI() {
         </div>
     `;
 }
-
 // Helper functions for Gamer Cards
 function openGamerCardSelect() {
     const container = document.getElementById('gamerCardContainer');
