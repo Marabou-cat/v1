@@ -1547,14 +1547,6 @@ function addCoins(amount) {
     saveGameToServer();
 }
 
-    // 2. If no card is absorbing it, give coins normally
-    if (!absorbedByCard) {
-        gameState.coins += amount;
-    }
-    
-    updateStatsUI();
-    saveGameToServer();
-}
     
 function calculatePetNeglect() {
     if(!gameState) return;
@@ -1824,6 +1816,53 @@ function updateCompanionUI() {
             <button class="rec-btn" style="background: #3ba55c; width: 100%; padding: 8px 0;" onclick="feedPet(); event.stopPropagation();">🍖 Feed (${feedCost})</button>
         `;
     }
+
+    // 2. Generate Gamer Card Side
+    let gcHTML = `
+        <div class="empty-card-slot" onclick="openGamerCardSelect()">
+            <div class="plus">+</div>
+            <div style="font-size: 12px; font-weight: bold;">Equip Gamer Card</div>
+        </div>
+    `;
+    
+    if (gameState.equipped_gamer_card) {
+        const gc = GAMER_CARDS.find(c => c.id === gameState.equipped_gamer_card);
+        const ability = GamerCardAbilities[gc.id];
+        let abilityText = ability ? ability.name : "No Ability";
+        
+        // --- DRAW PROGRESS BAR IF IT'S THE MINER CARD ---
+        let barHTML = "";
+        if (ability && ability.type === "gem_miner") {
+            if (!gameState.game_stats) gameState.game_stats = {}; // Safety check
+            
+            let current = gameState.game_stats.card_progress || 0;
+            let max = ability.coinThreshold;
+            let percent = Math.min((current / max) * 100, 100);
+            
+            barHTML = `
+                <div style="width: 100%; background: #222; height: 10px; border-radius: 5px; margin-top: 8px; overflow: hidden; border: 1px solid #444;">
+                    <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #00ffcc, #00f5d4);"></div>
+                </div>
+                <div style="font-size: 10px; color: #aaa; margin-top: 3px; font-weight: bold;">${current.toLocaleString()} / ${max.toLocaleString()} 🪙</div>
+            `;
+        }
+        
+        gcHTML = `
+            <div class="gc-icon" onclick="openGamerCardSelect()" style="cursor:pointer; transition: 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${gc.icon}</div>
+            <div class="gc-title" style="color: ${gc.color}; text-align: center;">${gc.name}</div>
+            <div class="gc-desc" style="text-align: center;">✨ ${abilityText}</div>
+            ${barHTML}
+            <button class="rec-btn" style="background: #e74c3c; width: 100%; padding: 8px 0; margin-top: 10px;" onclick="unequipGamerCard(); event.stopPropagation();">Unequip</button>
+        `;
+    }
+
+    document.getElementById('petPanelContent').innerHTML = `
+        <div class="split-loadout">
+            <div class="loadout-half">${petHTML}</div>
+            <div class="loadout-half">${gcHTML}</div>
+        </div>
+    `;
+}
 
     // 2. Generate Gamer Card Side
     let gcHTML = `
