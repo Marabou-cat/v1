@@ -1035,16 +1035,16 @@ async function loadGameFromServer() {
                 equipped_cursor: result.data.equipped_cursor || 'def',
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
                 active_pet: result.data.active_pet || '',
-                game_stats: JSON.parse(result.data.game_stats || '{}'),
                 pet_ages: JSON.parse(result.data.pet_ages || '{}'),
                 last_online: parseInt(result.data.last_online) || Date.now(),
                 prestige_level: parseInt(result.data.prestige_level) || 0,
                 profile_pic: result.data.profile_pic || null,
                 owned_items: JSON.parse(result.data.owned_items || '[]'),
-                boost_end: parseInt(result.data.boost_end) || 0, // <--- ADD THIS
+                boost_end: parseInt(result.data.boost_end) || 0, 
                 boost_cd: parseInt(result.data.boost_cd) || 0,
                 owned_gamer_cards: JSON.parse(result.data.owned_gamer_cards || '[]'),
-                equipped_gamer_card: result.data.equipped_gamer_card || ''
+                equipped_gamer_card: result.data.equipped_gamer_card || '',
+                game_stats: JSON.parse(result.data.game_stats || '{}') // <-- FIX
             };
             
             sanitizePets(); 
@@ -1052,7 +1052,7 @@ async function loadGameFromServer() {
             updateProfileUI(); 
             applyCursor();
             calculatePetNeglect();
-            updatePetUI();
+            updateCompanionUI();
             checkMailbox();
         }
     } catch (e) {}
@@ -1085,13 +1085,11 @@ async function saveGameToServer() {
     formData.append('prestige_level', gameState.prestige_level || 0);
     formData.append('profile_pic', gameState.profile_pic || '');
     formData.append('owned_items', JSON.stringify(gameState.owned_items || []));
-    formData.append('boost_end', gameState.boost_end || 0); // <--- ADD THIS
-    formData.append('boost_cd', gameState.boost_cd || 0);   // <--- ADD THIS
-    formData.append('game_stats', JSON.stringify(gameState.game_stats || {}));
+    formData.append('boost_end', gameState.boost_end || 0); 
+    formData.append('boost_cd', gameState.boost_cd || 0);   
     formData.append('owned_gamer_cards', JSON.stringify(gameState.owned_gamer_cards || []));
     formData.append('equipped_gamer_card', gameState.equipped_gamer_card || '');
-
-try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
+    formData.append('game_stats', JSON.stringify(gameState.game_stats || {})); // <-- FIX
 
     try { fetch('backend.php', { method: 'POST', body: formData }); } catch(e) {}
 }
@@ -1523,25 +1521,31 @@ function addCoins(amount) {
         if (gcAbility && gcAbility.type === "gem_miner") {
             absorbedByCard = true;
             
-            // Ensure the stat exists
-            if (!gameState.game_stats.card_progress) gameState.game_stats.card_progress = 0;
-
-            // Add this safety check inside addCoins()
+            // CRITICAL SAFETY CHECK (Order matters here!)
             if (!gameState.game_stats) gameState.game_stats = {};
-            if (!gameState.game_stats.card_progress) gameState.game_stats.card_progress = 0;
+            if (typeof gameState.game_stats.card_progress === 'undefined') gameState.game_stats.card_progress = 0;
             
             // Add coins to the bar
             gameState.game_stats.card_progress += amount;
             
             // Check if we hit 'X' (coinThreshold)
             while (gameState.game_stats.card_progress >= gcAbility.coinThreshold) {
-                gameState.game_stats.card_progress -= gcAbility.coinThreshold; // Reset bar mathematically
+                gameState.game_stats.card_progress -= gcAbility.coinThreshold; // Reset bar
                 gameState.gems += gcAbility.gemReward; // Give 'Y' Gems
                 showToast(`💎 Alchemy Complete! +${gcAbility.gemReward} Gems!`);
             }
             updateCompanionUI(); // Refresh the visual bar
         }
     }
+
+    // 2. If no card is absorbing it, give coins normally
+    if (!absorbedByCard) {
+        gameState.coins += amount;
+    }
+    
+    updateStatsUI();
+    saveGameToServer();
+}
 
     // 2. If no card is absorbing it, give coins normally
     if (!absorbedByCard) {
@@ -1776,17 +1780,6 @@ function updateCompanionUI() {
     if (!gameState) return;
     const panel = document.getElementById('petPanel');
 
-    // --- DRAW PROGRESS BAR IF IT'S THE MINER CARD ---
-        let barHTML = "";
-        if (ability && ability.type === "gem_miner") {
-            // Add this safety check right here:
-            if (!gameState.game_stats) gameState.game_stats = {};
-            
-            let current = gameState.game_stats.card_progress || 0;
-            let max = ability.coinThreshold;
-            let percent = Math.min((current / max) * 100, 100);
-    
-    // --- THE FIX IS HERE ---
     // Check if the player OWNS any pets or gamer cards
     const hasPets = gameState.owned_pets && gameState.owned_pets.length > 0;
     const hasCards = gameState.owned_gamer_cards && gameState.owned_gamer_cards.length > 0;
@@ -1796,13 +1789,11 @@ function updateCompanionUI() {
         panel.style.display = "none"; 
         return; 
     }
-    // -----------------------
     
     panel.style.display = "block";
     document.querySelector('#petPanel .rec-header').innerText = "🐾 Active Loadout 🃏";
 
     // 1. Generate Pet Side
-    // (Make the empty pet slot clickable to open inventory while we're at it!)
     let petHTML = `<div class="empty-card-slot" style="border:none;" onclick="openInventory()"><div style="font-size:30px; margin-bottom:10px;">🐾</div><div style="font-size:12px;">No Pet Equipped</div></div>`;
     
     if (gameState.active_pet) {
@@ -1811,25 +1802,19 @@ function updateCompanionUI() {
         const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1; 
         const feedCost = 50 + ((level - 1) * 25); 
         
-        // Base math
         let petYield = petInfo.baseCoin + (level * 2);
         let displayInterval = "2m";
 
-        // Apply Gamer Card modifications to the UI text
         if (gameState.equipped_gamer_card) {
             let gcAbility = GamerCardAbilities[gameState.equipped_gamer_card];
-            
-            // Check for speed change
             if (gcAbility && gcAbility.type === "fast_coins") {
                 displayInterval = (gcAbility.newInterval / 60) + "m";
             }
-            
-            // Check for yield boost change
             if (gcAbility && gcAbility.type === "coin_multiplier") {
                 petYield = petYield + (petYield * (gcAbility.boostPercent / 100));
             }
         }
-        petYield = Math.floor(petYield); // Round down for a clean look
+        petYield = Math.floor(petYield); 
 
         petHTML = `
             <div class="rec-icon" id="activePetIcon" style="width: 80px; height: 80px; font-size: 30px; margin-bottom: 10px;">${petInfo.icon}</div>
@@ -1847,6 +1832,7 @@ function updateCompanionUI() {
             <div style="font-size: 12px; font-weight: bold;">Equip Gamer Card</div>
         </div>
     `;
+    
     if (gameState.equipped_gamer_card) {
         const gc = GAMER_CARDS.find(c => c.id === gameState.equipped_gamer_card);
         const ability = GamerCardAbilities[gc.id];
@@ -1855,6 +1841,8 @@ function updateCompanionUI() {
         // --- DRAW PROGRESS BAR IF IT'S THE MINER CARD ---
         let barHTML = "";
         if (ability && ability.type === "gem_miner") {
+            if (!gameState.game_stats) gameState.game_stats = {}; // Safety check
+            
             let current = gameState.game_stats.card_progress || 0;
             let max = ability.coinThreshold;
             let percent = Math.min((current / max) * 100, 100);
@@ -1876,7 +1864,6 @@ function updateCompanionUI() {
         `;
     }
 
-    // Render both into the split layout
     document.getElementById('petPanelContent').innerHTML = `
         <div class="split-loadout">
             <div class="loadout-half">${petHTML}</div>
