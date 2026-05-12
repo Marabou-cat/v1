@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyCord</title>
+    <style>
+        :root {
+            --bg-tertiary: #1e1f22; /* Server Bar */
+            --bg-secondary: #2b2d31; /* Sidebars */
+            --bg-primary: #313338; /* Main Chat */
+            --bg-message-hover: #2e3035;
+            --text-normal: #dbdee1;
+            --text-muted: #949ba4;
+            --brand: #5865F2; /* Blurple */
+            --brand-hover: #4752c4;
+            --green: #23a559;
+            --red: #da373c;
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100vh; width: 100vw;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-normal);
+            background: var(--bg-primary);
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- 1. SERVER BAR (Leftmost) --- */
+        .server-bar {
+            width: 72px; background: var(--bg-tertiary);
+            display: flex; flex-direction: column; align-items: center;
+            padding-top: 12px; gap: 8px; overflow-y: auto;
+        }
+        .server-icon {
+            width: 48px; height: 48px; border-radius: 50%;
+            background: var(--bg-primary); display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.2s; font-weight: bold; color: var(--text-normal);
+        }
+        .server-icon:hover, .server-icon.active {
+            border-radius: 16px; background: var(--brand); color: #fff;
+        }
+        .server-icon.home { background: var(--bg-secondary); }
+        .server-icon.home:hover, .server-icon.home.active { background: var(--brand); }
+        .server-icon.add-server { background: var(--bg-primary); color: var(--green); }
+        .server-icon.add-server:hover { background: var(--green); color: #fff; }
+        .separator { width: 32px; height: 2px; background: var(--bg-secondary); margin: 4px 0; }
+
+        /* --- 2. SIDEBAR (Channels / DMs) --- */
+        .sidebar {
+            width: 240px; background: var(--bg-secondary);
+            display: flex; flex-direction: column;
+        }
+        .sidebar-header {
+            height: 48px; padding: 0 16px; display: flex; align-items: center;
+            font-weight: bold; border-bottom: 1px solid #1f2023; box-sizing: border-box;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .sidebar-content {
+            flex: 1; padding: 8px; overflow-y: auto;
+        }
+        .list-item {
+            padding: 8px 12px; margin-bottom: 2px; border-radius: 4px;
+            display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-muted);
+        }
+        .list-item:hover, .list-item.active { background: #3f4147; color: var(--text-normal); }
+        .avatar-small { width: 32px; height: 32px; border-radius: 50%; background: #444; }
+
+        /* Current User Profile Panel */
+        .user-panel {
+            height: 52px; background: #232428; display: flex; align-items: center;
+            padding: 0 8px; gap: 10px;
+        }
+        .user-panel .status { width: 10px; height: 10px; background: var(--green); border-radius: 50%; position: absolute; bottom: 0; right: 0; border: 2px solid #232428; }
+
+        /* --- 3. MAIN CHAT AREA --- */
+        .chat-area {
+            flex: 1; display: flex; flex-direction: column;
+            background: var(--bg-primary);
+        }
+        .chat-header {
+            height: 48px; border-bottom: 1px solid #1f2023;
+            display: flex; align-items: center; padding: 0 16px; font-weight: bold;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2); gap: 10px; justify-content: space-between;
+        }
+        .messages {
+            flex: 1; overflow-y: auto; padding: 16px 0;
+            display: flex; flex-direction: column;
+        }
+        .message {
+            padding: 4px 16px; display: flex; gap: 16px;
+        }
+        .message:hover { background: var(--bg-message-hover); }
+        .message .avatar { width: 40px; height: 40px; border-radius: 50%; background: #444; cursor: pointer; }
+        .msg-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+        .msg-username { font-weight: 500; cursor: pointer; }
+        .msg-username:hover { text-decoration: underline; }
+        .msg-timestamp { font-size: 12px; color: var(--text-muted); }
+        .msg-content { color: var(--text-normal); line-height: 1.4; }
+
+        .chat-input-wrapper { padding: 0 16px 24px 16px; }
+        .chat-input {
+            width: 100%; background: #383a40; border: none; border-radius: 8px;
+            padding: 12px 16px; color: var(--text-normal); font-size: 15px; outline: none;
+            box-sizing: border-box;
+        }
+
+        /* --- 4. RIGHT SIDEBAR (Members) --- */
+        .members-sidebar {
+            width: 240px; background: var(--bg-secondary); padding: 16px 8px;
+        }
+        .member-category {
+            font-size: 12px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; padding-left: 8px;
+        }
+
+        /* --- POPUPS / MODALS --- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            display: none; align-items: center; justify-content: center; z-index: 5000;
+        }
+        .modal {
+            background: var(--bg-primary); padding: 24px; border-radius: 8px; width: 400px;
+        }
+        .modal h2 { margin-top: 0; text-align: center; }
+        .modal input {
+            width: 100%; padding: 10px; margin-bottom: 15px; background: #1e1f22; border: none; color: #fff; border-radius: 4px; box-sizing: border-box; outline: none;
+        }
+        .btn {
+            background: var(--brand); color: #fff; border: none; padding: 10px 16px; width: 100%; border-radius: 4px; cursor: pointer; font-weight: bold;
+        }
+        .btn:hover { background: var(--brand-hover); }
+        
+        .profile-popup {
+            position: absolute; background: #111214; border-radius: 8px; padding: 16px;
+            width: 250px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); display: none; z-index: 2000;
+            border: 1px solid #333;
+        }
+        .btn-add-friend { background: var(--green); margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Server List -->
+    <div class="server-bar">
+        <div class="server-icon home active" onclick="switchView('dms')" title="Direct Messages">💬</div>
+        <div class="separator"></div>
+        <div class="server-icon" onclick="switchView('server', '1')" title="Math Study Group">M</div>
+        <div class="server-icon" onclick="switchView('server', '2')" title="Gaming Lounge">G</div>
+        <div class="server-icon add-server" onclick="openModal('createServerModal')" title="Add a Server">+</div>
+    </div>
+
+    <!-- 2. Dynamic Sidebar (Changes based on selected server/DMs) -->
+    <div class="sidebar" id="sidebar">
+        <!-- Injected via JS -->
+    </div>
+
+    <!-- 3. Main Chat -->
+    <div class="chat-area">
+        <div class="chat-header">
+            <span id="chatTitle">@ Welcome</span>
+            <div style="display:flex; gap:10px;">
+                <input type="text" placeholder="Search users..." id="userSearch" style="background:#1e1f22; border:none; padding:4px 8px; color:#fff; border-radius:4px; outline:none;" onkeypress="if(event.key==='Enter') searchUser(this.value)">
+            </div>
+        </div>
+        
+        <div class="messages" id="messageContainer">
+            <div class="message">
+                <div class="avatar" onclick="openProfile(event, 'System', 'Admin')"></div>
+                <div>
+                    <div class="msg-header">
+                        <span class="msg-username" onclick="openProfile(event, 'System', 'Admin')">System</span>
+                        <span class="msg-timestamp">Today at 12:00 PM</span>
+                    </div>
+                    <div class="msg-content">Welcome to StudyCord! Click on a username or avatar to view profiles and add friends.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-input-wrapper">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Message..." onkeypress="if(event.key === 'Enter') sendMessage()">
+        </div>
+    </div>
+
+    <!-- 4. Members Sidebar (Only shows in Servers) -->
+    <div class="members-sidebar" id="membersSidebar" style="display: none;">
+        <div class="member-category">Online — 2</div>
+        <div class="list-item" onclick="openProfile(event, 'Alice', 'Student')">
+            <div class="avatar-small" style="background: #e74c3c;"></div> Alice
+        </div>
+        <div class="list-item" onclick="openProfile(event, 'Bob', 'Gamer')">
+            <div class="avatar-small" style="background: #3498db;"></div> Bob
+        </div>
+    </div>
+
+    <!-- MODALS & POPUPS -->
+    <div class="modal-overlay" id="createServerModal" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h2>Create a Server</h2>
+            <input type="text" id="newServerName" placeholder="Server Name">
+            <button class="btn" onclick="submitCreateServer()">Create</button>
+        </div>
+    </div>
+
+    <div class="profile-popup" id="profilePopup">
+        <!-- Content injected by JS -->
+    </div>
+
+    <script>
+        // --- UI NAVIGATION LOGIC ---
+        function switchView(type, id = null) {
+            const sidebar = document.getElementById('sidebar');
+            const members = document.getElementById('membersSidebar');
+            
+            // Highlight active server
+            document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (type === 'dms') {
+                members.style.display = 'none';
+                document.getElementById('chatTitle').innerText = 'Friends & Direct Messages';
+                sidebar.innerHTML = `
+                    <div class="sidebar-header">Direct Messages</div>
+                    <div class="sidebar-content">
+                        <div class="list-item active">
+                            <div class="avatar-small" style="background: #e74c3c;"></div> Alice
+                        </div>
+                        <div class="list-item">
+                            <div class="avatar-small" style="background: #3498db;"></div> Bob
+                        </div>
+                    </div>
+                    ${getUserPanel()}
+                `;
+            } else if (type === 'server') {
+                members.style.display = 'block';
+                document.getElementById('chatTitle').innerText = '# general';
+                sidebar.innerHTML = `
+                    <div class="sidebar-header">Server Name</div>
+                    <div class="sidebar-content">
+                        <div class="list-item active"># general</div>
+                        <div class="list-item"># homework-help</div>
+                    </div>
+                    ${getUserPanel()}
+                `;
+            }
+        }
+
+        function getUserPanel() {
+            let user = localStorage.getItem('schoolExamsSavedUser') || "Guest";
+            return `
+                <div class="user-panel">
+                    <div style="position: relative;">
+                        <div class="avatar-small" style="background: #9b59b6;"></div>
+                        <div class="status"></div>
+                    </div>
+                    <div style="font-size: 14px; font-weight: bold;">${user}</div>
+                </div>
+            `;
+        }
+
+        // --- CHAT LOGIC ---
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if(!text) return;
+
+            let user = localStorage.getItem('schoolExamsSavedUser') || "Guest";
+            
+            const msgHTML = `
+                <div class="message">
+                    <div class="avatar" style="background: #9b59b6;" onclick="openProfile(event, '${user}', 'User')"></div>
+                    <div>
+                        <div class="msg-header">
+                            <span class="msg-username" onclick="openProfile(event, '${user}', 'User')">${user}</span>
+                            <span class="msg-timestamp">Just now</span>
+                        </div>
+                        <div class="msg-content">${text}</div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('messageContainer').innerHTML += msgHTML;
+            input.value = '';
+            document.getElementById('messageContainer').scrollTop = document.getElementById('messageContainer').scrollHeight;
+
+            // TODO: Send to backend database via fetch()
+        }
+
+        // --- PROFILE & FRIENDS LOGIC ---
+        function openProfile(e, username, role) {
+            e.stopPropagation(); // Stop click from propagating to body
+            const popup = document.getElementById('profilePopup');
+            
+            popup.innerHTML = `
+                <div style="display:flex; align-items:center; gap: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom:10px;">
+                    <div style="width: 50px; height: 50px; border-radius: 50%; background: #fff;"></div>
+                    <div>
+                        <h3 style="margin:0; font-size:18px;">${username}</h3>
+                        <span style="font-size:12px; color: var(--text-muted);">${role}</span>
+                    </div>
+                </div>
+                <button class="btn btn-add-friend" onclick="addFriend('${username}')">Add Friend</button>
+                <button class="btn" style="background: #444; margin-top: 5px;" onclick="messageUser('${username}')">Message</button>
+            `;
+
+            // Calculate position so it doesn't go off-screen
+            let x = e.clientX;
+            let y = e.clientY;
+            if (x + 250 > window.innerWidth) x -= 250;
+            
+            popup.style.left = x + 'px';
+            popup.style.top = y + 'px';
+            popup.style.display = 'block';
+        }
+
+        // Close popup when clicking anywhere else
+        document.addEventListener('click', () => {
+            document.getElementById('profilePopup').style.display = 'none';
+        });
+
+        function addFriend(username) {
+            alert(`Friend request sent to ${username}!`);
+            document.getElementById('profilePopup').style.display = 'none';
+            // TODO: Send to backend database: INSERT INTO friends...
+        }
+
+        function searchUser(query) {
+            if(!query) return;
+            // Fake search result
+            openProfile({clientX: window.innerWidth/2, clientY: window.innerHeight/2, stopPropagation:()=>{}}, query, "Found via Search");
+            document.getElementById('userSearch').value = '';
+        }
+
+        // --- MODAL LOGIC ---
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(e) { if(e.target.classList.contains('modal-overlay')) e.target.style.display = 'none'; }
+        
+        function submitCreateServer() {
+            const name = document.getElementById('newServerName').value;
+            if(!name) return;
+            alert(`Server "${name}" created!`);
+            document.getElementById('createServerModal').style.display = 'none';
+            // TODO: Send to backend: INSERT INTO servers...
+        }
+
+        // Boot UI
+        switchView('dms');
+    </script>
+</body>
+</html>
