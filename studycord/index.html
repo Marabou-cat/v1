@@ -39,7 +39,10 @@
 
         /* --- 2. SIDEBAR --- */
         .sidebar { width: 240px; background: var(--bg-secondary); display: flex; flex-direction: column; }
-        .sidebar-header { height: 48px; padding: 0 16px; display: flex; align-items: center; font-weight: bold; border-bottom: 1px solid #1f2023; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .sidebar-header { 
+            height: 48px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between;
+            font-weight: bold; border-bottom: 1px solid #1f2023; box-shadow: 0 1px 2px rgba(0,0,0,0.2); 
+        }
         .sidebar-content { flex: 1; padding: 8px; overflow-y: auto; }
         .list-item { padding: 8px 12px; margin-bottom: 2px; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-muted); }
         .list-item:hover, .list-item.active { background: #3f4147; color: var(--text-normal); }
@@ -61,15 +64,21 @@
 
         .chat-input-wrapper { padding: 0 16px 24px 16px; }
         .chat-input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 12px 16px; color: var(--text-normal); font-size: 15px; outline: none; box-sizing: border-box; }
+        .chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* --- MODALS & POPUPS --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 5000; }
         .modal { background: var(--bg-primary); padding: 24px; border-radius: 8px; width: 400px; text-align: center;}
-        .modal input { width: 100%; padding: 10px; margin-bottom: 15px; background: #1e1f22; border: none; color: #fff; border-radius: 4px; box-sizing: border-box; outline: none; }
+        .modal input[type="text"] { width: 100%; padding: 10px; margin-bottom: 15px; background: #1e1f22; border: none; color: #fff; border-radius: 4px; box-sizing: border-box; outline: none; }
         .btn { background: var(--brand); color: #fff; border: none; padding: 10px 16px; width: 100%; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn:hover { background: #4752c4; }
         
         .profile-popup { position: absolute; background: #111214; border-radius: 8px; padding: 16px; width: 250px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); display: none; z-index: 2000; border: 1px solid #333; }
         .btn-add-friend { background: var(--green); margin-top: 10px; }
+
+        /* Icon Additions */
+        .btn-icon { cursor: pointer; color: var(--text-muted); transition: 0.2s; font-size: 18px; user-select: none;}
+        .btn-icon:hover { color: #fff; transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -85,7 +94,9 @@
 
     <!-- 2. Sidebar -->
     <div class="sidebar">
-        <div class="sidebar-header" id="sidebarHeader">Direct Messages</div>
+        <div class="sidebar-header" id="sidebarHeader">
+            <span>Direct Messages</span>
+        </div>
         <div class="sidebar-content" id="channelList">
             <!-- Channels/Friends injected here -->
         </div>
@@ -120,6 +131,22 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="createChannelModal" onclick="if(event.target===this) this.style.display='none'">
+        <div class="modal">
+            <h2>Create Channel</h2>
+            <input type="text" id="newChannelName" placeholder="e.g., announcements">
+            <div style="text-align: left; margin-bottom: 15px; color: var(--text-muted); font-size: 14px; background: #1e1f22; padding: 10px; border-radius: 8px;">
+                <label style="display: block; margin-bottom: 10px; cursor: pointer; color: #fff;">
+                    <input type="radio" name="chanPerms" value="0" checked> 💬 Everyone can talk
+                </label>
+                <label style="display: block; cursor: pointer; color: #fff;">
+                    <input type="radio" name="chanPerms" value="1"> 🔒 Announcement (Only creator can talk)
+                </label>
+            </div>
+            <button class="btn" onclick="submitCreateChannel()">Create Channel</button>
+        </div>
+    </div>
+
     <div class="profile-popup" id="profilePopup">
         <!-- Injected via JS -->
     </div>
@@ -135,6 +162,7 @@
         document.getElementById('myAvatar').innerText = myUsername.charAt(0).toUpperCase();
 
         let currentServerId = null;
+        let currentServerName = null;
         let currentChannelId = null;
         let lastMessageTime = 0;
         let chatInterval = null;
@@ -157,7 +185,6 @@
             const res = await api('load_servers');
             if (!res.success) return;
 
-            // Keep Home and Add buttons, replace the middle
             const serverBar = document.getElementById('serverListBar');
             const homeBtn = serverBar.children[0].outerHTML;
             const sep = serverBar.children[1].outerHTML;
@@ -166,7 +193,7 @@
 
             let serverHTML = '';
             res.servers.forEach(s => {
-                serverHTML += `<div class="server-icon" onclick="loadServer(${s.id}, '${s.name}')" title="${s.name}">${s.name.charAt(0).toUpperCase()}</div>`;
+                serverHTML += `<div class="server-icon" onclick="loadServer(${s.id}, '${s.name.replace(/'/g, "\\'")}')" title="${s.name}">${s.name.charAt(0).toUpperCase()}</div>`;
             });
 
             serverBar.innerHTML = homeBtn + sep + serverHTML + addBtn + exitBtn;
@@ -188,7 +215,7 @@
         function loadDMs() {
             currentServerId = null;
             currentChannelId = null;
-            document.getElementById('sidebarHeader').innerText = "Direct Messages";
+            document.getElementById('sidebarHeader').innerHTML = `<span>Direct Messages</span>`;
             document.getElementById('channelList').innerHTML = `<div style="color:gray; padding:10px; font-size:12px;">DMs coming soon! Click the + icon on the left to create a server and invite friends.</div>`;
             document.getElementById('chatTitle').innerText = "Friends";
             document.getElementById('messageContainer').innerHTML = "";
@@ -198,45 +225,83 @@
 
         async function loadServer(id, name) {
             currentServerId = id;
-            document.getElementById('sidebarHeader').innerText = name;
+            currentServerName = name;
             
             const res = await api('load_channels', { server_id: id });
-            if(res.success && res.channels.length > 0) {
+            if(res.success) {
+                // If I am the owner, show the + Button for channels
+                let addChannelBtn = (res.owner === myUsername) 
+                    ? `<span class="btn-icon" title="Create Channel" onclick="document.getElementById('createChannelModal').style.display='flex'">+</span>` 
+                    : ``;
+
+                document.getElementById('sidebarHeader').innerHTML = `<span style="font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</span> ${addChannelBtn}`;
+                
                 let html = '';
                 res.channels.forEach(c => {
-                    html += `<div class="list-item" onclick="joinChannel(${c.id}, '${c.name}')"># ${c.name}</div>`;
+                    let lockIcon = c.is_readonly == 1 ? '🔒 ' : '# ';
+                    html += `<div class="list-item" onclick="joinChannel(${c.id}, '${c.name.replace(/'/g, "\\'")}', ${c.is_readonly}, '${res.owner}')">${lockIcon}${c.name}</div>`;
                 });
                 document.getElementById('channelList').innerHTML = html;
                 
                 // Auto join first channel
-                joinChannel(res.channels[0].id, res.channels[0].name);
+                if (res.channels.length > 0) {
+                    joinChannel(res.channels[0].id, res.channels[0].name, res.channels[0].is_readonly, res.owner);
+                }
             }
         }
 
-        async function joinChannel(id, name) {
+        async function submitCreateChannel() {
+            const name = document.getElementById('newChannelName').value;
+            const isReadonly = document.querySelector('input[name="chanPerms"]:checked').value;
+            
+            if(!name || !currentServerId) return;
+
+            const res = await api('create_channel', { server_id: currentServerId, channel_name: name, is_readonly: isReadonly });
+            if (res.success) {
+                document.getElementById('createChannelModal').style.display = 'none';
+                document.getElementById('newChannelName').value = ''; // Clear for next time
+                loadServer(currentServerId, currentServerName); // Refresh sidebar
+            } else {
+                alert(res.message);
+            }
+        }
+
+        async function joinChannel(id, name, isReadonly, serverOwner) {
             currentChannelId = id;
             lastMessageTime = 0; // Reset time so we pull all history
-            document.getElementById('chatTitle').innerText = `# ${name}`;
+            document.getElementById('chatTitle').innerText = (isReadonly == 1 ? '🔒 ' : '# ') + name;
             document.getElementById('messageContainer').innerHTML = ""; // Clear screen
             
             const input = document.getElementById('chatInput');
-            input.disabled = false;
-            input.placeholder = `Message #${name}`;
+            
+            // Check Permissions
+            if (isReadonly == 1 && serverOwner !== myUsername) {
+                input.disabled = true;
+                input.placeholder = "You do not have permission to send messages in this channel.";
+            } else {
+                input.disabled = false;
+                input.placeholder = `Message #${name}`;
+            }
 
             clearInterval(chatInterval);
-            fetchMessages(); // initial load
-            chatInterval = setInterval(fetchMessages, 2000); // Poll every 2 seconds
+            fetchMessages(); 
+            chatInterval = setInterval(fetchMessages, 2000); 
         }
 
         // --- CHAT SYSTEM ---
         async function sendMessage() {
             const input = document.getElementById('chatInput');
             const text = input.value.trim();
-            if(!text || !currentChannelId) return;
+            if(!text || !currentChannelId || input.disabled) return;
             
             input.value = ''; // clear instantly for good UX
-            await api('send_message', { channel_id: currentChannelId, content: text });
-            fetchMessages(); // Immediately fetch to show it
+            const res = await api('send_message', { channel_id: currentChannelId, content: text });
+            
+            if (!res.success) {
+                alert(res.message || "Failed to send message.");
+            }
+            
+            fetchMessages(); 
         }
 
         async function fetchMessages() {
@@ -263,8 +328,8 @@
                     `;
                 });
                 
-                lastMessageTime = res.current_time; // Update timestamp tracker
-                container.scrollTop = container.scrollHeight; // Scroll to bottom
+                lastMessageTime = res.current_time; 
+                container.scrollTop = container.scrollHeight; 
             }
         }
 
