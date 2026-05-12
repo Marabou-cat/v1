@@ -143,9 +143,21 @@
 
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        
+        /* Multi-tab Alert */
+        #tabAlert {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999;
+            display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center;
+        }
     </style>
 </head>
 <body>
+
+    <div id="tabAlert">
+        <h1 style="color: #ff4444; font-size: 40px;">⚠️ LOBBY OPEN IN ANOTHER TAB ⚠️</h1>
+        <p>You joined a server in another window. This window has been disconnected to prevent errors.</p>
+        <button class="btn btn-green" style="width: 250px; margin-top: 20px;" onclick="window.location.reload()">Reload Lobby</button>
+    </div>
 
     <a href="../index.html" class="btn-back" id="leaveBtn">⬅ Leave Room</a>
 
@@ -236,17 +248,37 @@
             { id: "reaper", name: "Reaper", icon: "<img src='../png/reaper.png'>", color: "#dc143c" }
         ];
 
+        // --- MULTI-TAB DETECTION ---
+        const tabID = Math.random().toString(36).substring(2);
+        
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'schoolexams_active_lobby_tab' && e.newValue !== tabID) {
+                // Another tab just joined a lobby! Disconnect this one.
+                if (currentRoom) {
+                    clearInterval(syncInterval);
+                    currentRoom = null;
+                    document.getElementById('tabAlert').style.display = 'flex';
+                }
+            }
+        });
+
         // --- GAME STATE ---
         let currentRoom = null;
-        let myUsername = localStorage.getItem('schoolExamsSavedUser') || "Guest";
+        let myUsername = localStorage.getItem('schoolExamsSavedUser') || "Guest_" + Math.floor(Math.random() * 1000);
+        let myPet = ""; 
+        
+        // Grab pet from Main Game State if available
+        try {
+            let mainState = JSON.parse(localStorage.getItem('schoolExamsGuestState') || '{}');
+            if (mainState.active_pet) myPet = mainState.active_pet;
+        } catch(e) {}
         
         let myX = window.innerWidth / 2;
         let myY = window.innerHeight / 2;
-        const SPEED = 8;
+        const SPEED = 1;
         const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
         let syncInterval = null;
 
-        // UI Tabs
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
@@ -257,10 +289,10 @@
             if(tabId === 'public') fetchPublicServers();
         }
 
-        // --- API HELPER ---
         async function api(action, data = {}) {
             const fd = new FormData();
             fd.append('action', action);
+            fd.append('username', myUsername); // Centralized ID
             for (let key in data) fd.append(key, data[key]);
             
             try {
@@ -272,7 +304,6 @@
             }
         }
 
-        // --- MENU LOGIC ---
         async function fetchPublicServers() {
             const res = await api('list_public');
             const list = document.getElementById('serverList');
@@ -284,7 +315,7 @@
                         <div class="server-item">
                             <div>
                                 <h3>${s.room_name}</h3>
-                                <span>Players: ${s.player_count}/10</span>
+                                <span>Players: ${s.player_count}</span>
                             </div>
                             <button class="btn-join-small" onclick="joinTargetRoom('${s.room_code}', '${s.room_name}')">Join</button>
                         </div>
@@ -316,15 +347,18 @@
             else alert(res.message);
         }
 
-        // --- CORE GAME LOOP ---
         function startGame(code, name) {
             currentRoom = code;
+            
+            // Shout to other tabs that we are taking over!
+            localStorage.setItem('schoolexams_active_lobby_tab', tabID);
+
             document.getElementById('menuScreen').style.display = 'none';
             document.getElementById('gameScreen').style.display = 'block';
             document.getElementById('roomNameDisplay').innerText = name;
             document.getElementById('roomCodeDisplay').innerText = `CODE: ${code}`;
             
-            // Explicitly leave the room when clicking the back button
+            // Explicit Leave Button
             document.getElementById('leaveBtn').onclick = async (e) => {
                 e.preventDefault();
                 await api('leave', { room_code: currentRoom });
@@ -339,6 +373,7 @@
             });
 
             requestAnimationFrame(gameLoop);
+            // Sync slightly faster to ensure the DB keeps players alive against the 5s cutoff
             syncInterval = setInterval(syncWithServer, 1000);
         }
 
@@ -359,11 +394,15 @@
         }
 
         async function syncWithServer() {
-            const res = await api('sync', { room_code: currentRoom, x: Math.floor(myX), y: Math.floor(myY) });
+            const res = await api('sync', { 
+                room_code: currentRoom, 
+                x: Math.floor(myX), 
+                y: Math.floor(myY),
+                active_pet: myPet 
+            });
             if (res.success) renderPlayers(res.players, res.messages);
         }
 
-        // --- OPTIMISTIC CHAT SEND ---
         async function sendChat() {
             const input = document.getElementById('chatInput');
             const msg = input.value.trim();
@@ -371,7 +410,6 @@
             
             input.value = '';
 
-            // --- INSTANT LOCAL UPDATE (Optimistic UI) ---
             const myPlayer = document.querySelector('.player.me');
             if (myPlayer) {
                 const bubble = myPlayer.querySelector('.chat-bubble');
@@ -381,31 +419,30 @@
                 }
             }
 
-            // --- SEND TO SERVER IN BACKGROUND ---
             api('chat', { room_code: currentRoom, message: msg });
         }
 
-        // --- RENDER ENGINE WITH PETS ---
         function renderPlayers(serverPlayers, messages) {
             const area = document.getElementById('playArea');
             
-            // Mark all current elements as stale
             Array.from(area.getElementsByClassName('player')).forEach(el => el.dataset.stale = "true");
             Array.from(area.getElementsByClassName('pet-follower')).forEach(el => el.dataset.stale = "true");
 
             serverPlayers.forEach(p => {
-                // 1. RENDER PLAYER
-                let el = document.getElementById(`player_${p.user_id}`);
+                // DOM ID uses username to match PHP DB primary key safely
+                let safeId = p.username.replace(/[^a-zA-Z0-9_]/g, "_");
+                let el = document.getElementById(`player_${safeId}`);
+                
                 if (!el) {
                     el = document.createElement('div');
-                    el.id = `player_${p.user_id}`;
+                    el.id = `player_${safeId}`;
                     el.className = 'player';
                     if (p.username === myUsername) el.classList.add('me'); 
                     
                     el.innerHTML = `
                         ${p.username.charAt(0).toUpperCase()}
                         <div class="player-name">${p.username}</div>
-                        <div class="chat-bubble" id="chat_${p.user_id}" style="display: none;"></div>
+                        <div class="chat-bubble" id="chat_${safeId}" style="display: none;"></div>
                     `;
                     area.appendChild(el);
                 }
@@ -418,10 +455,9 @@
                     el.style.top = `${myY}px`;
                 }
                 
-                // Handle Chat
-                const bubble = document.getElementById(`chat_${p.user_id}`);
-                if (messages[p.user_id]) {
-                    bubble.innerText = messages[p.user_id];
+                const bubble = document.getElementById(`chat_${safeId}`);
+                if (messages[p.username]) {
+                    bubble.innerText = messages[p.username];
                     bubble.style.display = 'block';
                 } else {
                     bubble.style.display = 'none';
@@ -429,19 +465,18 @@
 
                 el.dataset.stale = "false";
 
-                // 2. RENDER EQUIPPED PET
+                // RENDER PET
                 if (p.active_pet) {
                     let baseId = p.active_pet.split('::')[0];
                     let petInfo = PET_SHOP.find(x => x.id === baseId);
                     
                     if (petInfo) {
-                        let petEl = document.getElementById(`pet_${p.user_id}`);
+                        let petEl = document.getElementById(`pet_${safeId}`);
                         if (!petEl) {
                             petEl = document.createElement('div');
-                            petEl.id = `pet_${p.user_id}`;
+                            petEl.id = `pet_${safeId}`;
                             petEl.className = 'pet-follower';
                             
-                            // Parse Icon safely
                             let iconHTML = petInfo.icon;
                             let match = iconHTML.match(/src='([^']+)'/);
                             if (match) {
@@ -451,7 +486,6 @@
                             area.appendChild(petEl);
                         }
                         
-                        // Make pet trail behind/above player slightly
                         petEl.style.left = `${(el.classList.contains('me') ? myX : p.x) + 25}px`;
                         petEl.style.top = `${(el.classList.contains('me') ? myY : p.y) - 20}px`;
                         petEl.dataset.stale = "false";
@@ -459,11 +493,10 @@
                 }
             });
 
-            // Cleanup stales (removes players who left the room)
+            // Cleanup stales (removes players who left the room or closed the window)
             Array.from(area.querySelectorAll('[data-stale="true"]')).forEach(el => el.remove());
         }
         
-        // Auto-fetch list on boot
         window.addEventListener('DOMContentLoaded', () => {
             if(localStorage.getItem('schoolExamsSavedUser')) {
                 fetchPublicServers();
@@ -473,13 +506,13 @@
             }
         });
 
-        // --- CRITICAL FIX: CLEAN DISCONNECT ON TAB CLOSE ---
+        // --- CRITICAL UNLOAD BEACON ---
         window.addEventListener('beforeunload', () => {
             if (currentRoom) {
                 const fd = new FormData();
                 fd.append('action', 'leave');
+                fd.append('username', myUsername);
                 fd.append('room_code', currentRoom);
-                // sendBeacon fires in the background even if the page closes instantly
                 navigator.sendBeacon('../lobby_backend.php', fd);
             }
         });
