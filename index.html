@@ -1160,7 +1160,7 @@ function spawnFlyingCoin() {
             }
         }
 
-        gameState.coins += reward;
+        addCoins(reward);
         updateStatsUI();
         saveGameToServer();
         
@@ -1445,6 +1445,7 @@ const GAMER_CARDS = [
     { id: "investor", name: "Investor", icon: "<img src='png/investor.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
     { id: "royal_knight", name: "Royal Knight", icon: "<img src='png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
     { id: "evolution_scientist", name: "Evolution Scientist", icon: "<img src='png/evolution_scientist.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
+    { id: "digital_arcader", name: "Digital Arcader", icon: "<img src='png/digital_arcader.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
     { id: "speedrunner", name: "Speedrunner", icon: "<img src='png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" }
 ];
 
@@ -1499,9 +1500,53 @@ const GamerCardAbilities = {
         desc: "Reduces the cost of Evolvolution in Evolution Lab by 90%",
         type: "evo_discount",
         discountPercent: 90 // <--- WRITE YOUR 'X' PERCENTAGE HERE (0 to 100)
+    },
+    "digital_arcader": {
+        name: "Value Of IN GAME Currency",
+        desc: "Absorbs Earned ExamCoins From MAIN PORTAL And Convert Them Into Gems! 25000 -> 100",
+        type: "gem_miner",
+        coinThreshold: 25000, // <--- THIS IS X (Coins needed)
+        gemReward: 100        // <--- THIS IS Y (Gems rewarded)
     }
 };
 
+
+function addCoins(amount) {
+    if (!gameState) return;
+
+    let absorbedByCard = false;
+
+    // 1. Check if the Gem Miner card is equipped
+    if (gameState.equipped_gamer_card) {
+        let gcAbility = GamerCardAbilities[gameState.equipped_gamer_card];
+        if (gcAbility && gcAbility.type === "gem_miner") {
+            absorbedByCard = true;
+            
+            // Ensure the stat exists
+            if (!gameState.game_stats.card_progress) gameState.game_stats.card_progress = 0;
+            
+            // Add coins to the bar
+            gameState.game_stats.card_progress += amount;
+            
+            // Check if we hit 'X' (coinThreshold)
+            while (gameState.game_stats.card_progress >= gcAbility.coinThreshold) {
+                gameState.game_stats.card_progress -= gcAbility.coinThreshold; // Reset bar mathematically
+                gameState.gems += gcAbility.gemReward; // Give 'Y' Gems
+                showToast(`💎 Alchemy Complete! +${gcAbility.gemReward} Gems!`);
+            }
+            updateCompanionUI(); // Refresh the visual bar
+        }
+    }
+
+    // 2. If no card is absorbing it, give coins normally
+    if (!absorbedByCard) {
+        gameState.coins += amount;
+    }
+    
+    updateStatsUI();
+    saveGameToServer();
+}
+    
 function calculatePetNeglect() {
     if(!gameState) return;
     let hoursOffline = (Date.now() - gameState.last_online) / (1000 * 60 * 60);
@@ -1580,7 +1625,7 @@ setInterval(() => {
     }
 
     if (gameState.playtime > 0 && gameState.playtime % 600 === 0) {
-        gameState.coins += 100;
+        addCoins(100);
         updateStatsUI();
         showToast("Time Reward! +100 ExamCoins added.");
         saveGameToServer();
@@ -1653,7 +1698,7 @@ setInterval(() => {
                     }
                 }
 
-                gameState.coins += Math.floor(petYield); // Math.floor prevents weird decimals
+                addCoins(Math.floor(petYield)); // Math.floor prevents weird decimals
                 updateStatsUI();
                 saveGameToServer();
             }
@@ -1792,11 +1837,27 @@ function updateCompanionUI() {
         const ability = GamerCardAbilities[gc.id];
         let abilityText = ability ? ability.name : "No Ability";
         
+        // --- DRAW PROGRESS BAR IF IT'S THE MINER CARD ---
+        let barHTML = "";
+        if (ability && ability.type === "gem_miner") {
+            let current = gameState.game_stats.card_progress || 0;
+            let max = ability.coinThreshold;
+            let percent = Math.min((current / max) * 100, 100);
+            
+            barHTML = `
+                <div style="width: 100%; background: #222; height: 10px; border-radius: 5px; margin-top: 8px; overflow: hidden; border: 1px solid #444;">
+                    <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #00ffcc, #00f5d4);"></div>
+                </div>
+                <div style="font-size: 10px; color: #aaa; margin-top: 3px; font-weight: bold;">${current.toLocaleString()} / ${max.toLocaleString()} 🪙</div>
+            `;
+        }
+        
         gcHTML = `
             <div class="gc-icon" onclick="openGamerCardSelect()" style="cursor:pointer; transition: 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${gc.icon}</div>
             <div class="gc-title" style="color: ${gc.color}; text-align: center;">${gc.name}</div>
             <div class="gc-desc" style="text-align: center;">✨ ${abilityText}</div>
-            <button class="rec-btn" style="background: #e74c3c; width: 100%; padding: 8px 0; margin-top: auto;" onclick="unequipGamerCard(); event.stopPropagation();">Unequip</button>
+            ${barHTML}
+            <button class="rec-btn" style="background: #e74c3c; width: 100%; padding: 8px 0; margin-top: 10px;" onclick="unequipGamerCard(); event.stopPropagation();">Unequip</button>
         `;
     }
 
