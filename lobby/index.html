@@ -242,7 +242,7 @@
         
         let myX = window.innerWidth / 2;
         let myY = window.innerHeight / 2;
-        const SPEED = 1;
+        const SPEED = 8;
         const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
         let syncInterval = null;
 
@@ -323,7 +323,13 @@
             document.getElementById('gameScreen').style.display = 'block';
             document.getElementById('roomNameDisplay').innerText = name;
             document.getElementById('roomCodeDisplay').innerText = `CODE: ${code}`;
-            document.getElementById('leaveBtn').onclick = () => window.location.reload(); // Quick leave
+            
+            // Explicitly leave the room when clicking the back button
+            document.getElementById('leaveBtn').onclick = async (e) => {
+                e.preventDefault();
+                await api('leave', { room_code: currentRoom });
+                window.location.reload(); 
+            };
             
             window.addEventListener('keydown', e => { if (keys.hasOwnProperty(e.key) && document.activeElement !== document.getElementById('chatInput')) keys[e.key] = true; });
             window.addEventListener('keyup', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; });
@@ -344,10 +350,10 @@
             if (keys.a || keys.ArrowLeft) myX -= SPEED;
             if (keys.d || keys.ArrowRight) myX += SPEED;
 
-            if (myX < 50) myX = 50;
-            if (myX > window.innerWidth - 50) myX = window.innerWidth - 50;
-            if (myY < 120) myY = 120;
-            if (myY > window.innerHeight - 120) myY = window.innerHeight - 120;
+            if (myX < 20) myX = 20;
+            if (myX > window.innerWidth - 20) myX = window.innerWidth - 20;
+            if (myY < 20) myY = 20;
+            if (myY > window.innerHeight - 80) myY = window.innerHeight - 80;
 
             requestAnimationFrame(gameLoop);
         }
@@ -453,7 +459,7 @@
                 }
             });
 
-            // Cleanup stales
+            // Cleanup stales (removes players who left the room)
             Array.from(area.querySelectorAll('[data-stale="true"]')).forEach(el => el.remove());
         }
         
@@ -464,6 +470,17 @@
             } else {
                 alert("Please log in via the Main Portal first!");
                 window.location.href = "../index.html";
+            }
+        });
+
+        // --- CRITICAL FIX: CLEAN DISCONNECT ON TAB CLOSE ---
+        window.addEventListener('beforeunload', () => {
+            if (currentRoom) {
+                const fd = new FormData();
+                fd.append('action', 'leave');
+                fd.append('room_code', currentRoom);
+                // sendBeacon fires in the background even if the page closes instantly
+                navigator.sendBeacon('../lobby_backend.php', fd);
             }
         });
     </script>
