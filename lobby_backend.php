@@ -50,6 +50,21 @@ if ($action === 'create') {
     exit;
 }
 
+if ($action === 'leave') {
+    $room_code = $_POST['room_code'];
+    // Assuming you store session user_id
+    $user_id = $_SESSION['user_id']; 
+    
+    // Delete the player from the room table
+    $db->query("DELETE FROM lobby_players WHERE user_id = $user_id AND room_code = '$room_code'");
+    
+    // Update the room player count
+    $db->query("UPDATE lobbies SET player_count = player_count - 1 WHERE room_code = '$room_code'");
+    
+    echo json_encode(["success" => true]);
+    exit;
+}
+
 // --- JOIN ROOM ---
 if ($action === 'join') {
     $code = strtoupper($_POST['room_code'] ?? '');
