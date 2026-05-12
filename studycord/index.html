@@ -166,6 +166,9 @@
         let currentChannelId = null;
         let lastMessageTime = 0;
         let chatInterval = null;
+        
+        // --- Tracks if the user just booted up the page ---
+        let isFirstBoot = true;
 
         // --- API HELPER ---
         async function api(action, data = {}) {
@@ -180,7 +183,7 @@
             } catch(e) { return { success: false }; }
         }
 
-        // --- INITIAL BOOT ---
+        // --- INITIAL BOOT & LOAD SERVERS ---
         async function loadServers() {
             const res = await api('load_servers');
             if (!res.success) return;
@@ -197,6 +200,22 @@
             });
 
             serverBar.innerHTML = homeBtn + sep + serverHTML + addBtn + exitBtn;
+
+            // --- AUTO-JOIN SERVER 16 ON BOOT ---
+            if (isFirstBoot) {
+                isFirstBoot = false; // Prevent it from triggering again if they create a new server later
+                
+                // Find Server 16 in their list
+                let autoServer = res.servers.find(s => s.id == 16);
+                
+                if (autoServer) {
+                    // Open Server 16!
+                    loadServer(autoServer.id, autoServer.name);
+                } else {
+                    // Fallback to DMs if Server 16 doesn't exist at all
+                    loadDMs();
+                }
+            }
         }
 
         async function createServer() {
@@ -285,7 +304,7 @@
 
             clearInterval(chatInterval);
             fetchMessages(); 
-            chatInterval = setInterval(fetchMessages, 3000); 
+            chatInterval = setInterval(fetchMessages, 2000); 
         }
 
         // --- CHAT SYSTEM ---
