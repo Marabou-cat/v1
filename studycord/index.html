@@ -147,7 +147,7 @@
             for (let key in data) fd.append(key, data[key]);
             
             try {
-                const res = await fetch('studycord_backend.php', { method: 'POST', body: fd });
+                const res = await fetch('../studycord_backend.php', { method: 'POST', body: fd });
                 return await res.json();
             } catch(e) { return { success: false }; }
         }
