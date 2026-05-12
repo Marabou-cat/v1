@@ -1,141 +1,158 @@
 <?php
-session_start();
 header('Content-Type: application/json');
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Hide errors from breaking JSON
 
-$config_file = 'config.ini'; 
-if (!file_exists($config_file)) die(json_encode(["success" => false, "message" => "Config missing."]));
-
-$lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-$db_user = trim($lines[0]); $db_pass = trim($lines[1]);
+// ==========================================
+// 1. DATABASE CONFIGURATION
+// ==========================================
+$host = 'localhost';
+$db   = 'schoolexams'; // Change to your database name
+$user = 'root';        // Change to your database username
+$pass = '';            // Change to your database password
 
 try {
-    $pdo = new PDO("mysql:host=localhost;dbname=schoolexams;charset=utf8mb4", $db_user, $db_pass);
+    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die(json_encode(["success" => false, "message" => "Database connection failed."]));
+} catch(Exception $e) {
+    echo json_encode(["success" => false, "message" => "Database connection failed."]);
+    exit;
 }
 
-if (!isset($_SESSION['user_id'])) die(json_encode(["success" => false, "message" => "Not logged in."]));
-$user_id = $_SESSION['user_id'];
-$username = $_SESSION['username'] ?? 'Guest';
+// Automatically create tables if they don't exist
+$pdo->exec("CREATE TABLE IF NOT EXISTS lobbies (
+    room_code VARCHAR(6) PRIMARY KEY,
+    room_name VARCHAR(30) DEFAULT 'Local Server',
+    is_public TINYINT(1) DEFAULT 1,
+    player_count INT DEFAULT 1
+)");
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS lobby_players (
+    username VARCHAR(50) PRIMARY KEY,
+    room_code VARCHAR(6) NOT NULL,
+    x INT DEFAULT 400,
+    y INT DEFAULT 300,
+    active_pet VARCHAR(50) DEFAULT '',
+    last_update BIGINT NOT NULL
+)");
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS lobby_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    room_code VARCHAR(6) NOT NULL,
+    message VARCHAR(100) NOT NULL,
+    created_at BIGINT NOT NULL
+)");
+
+// ==========================================
+// 2. CRITICAL FIX: GHOST CLEANUP
+// ==========================================
+// Delete players who haven't pinged in the last 5 seconds (Tab closed, crashed, etc.)
+$cutoff_time = time() - 5;
+$pdo->exec("DELETE FROM lobby_players WHERE last_update < $cutoff_time");
+
+// Dynamically update all room player counts to match reality
+$pdo->exec("UPDATE lobbies l SET player_count = (SELECT COUNT(*) FROM lobby_players lp WHERE lp.room_code = l.room_code)");
+
+// Delete empty rooms
+$pdo->exec("DELETE FROM lobbies WHERE player_count <= 0");
+
+// ==========================================
+// 3. API ROUTER
+// ==========================================
 $action = $_POST['action'] ?? '';
+$username = $_POST['username'] ?? 'Guest_' . rand(1000,9999);
 
-$now = round(microtime(true) * 1000); 
-
-// --- FETCH PUBLIC SERVERS ---
 if ($action === 'list_public') {
-    // Clean up empty lobbies first
-    $pdo->query("DELETE FROM lobbies WHERE player_count <= 0");
-    
-    // Fetch up to 10 public lobbies
-    $stmt = $pdo->query("SELECT room_code, room_name, player_count FROM lobbies WHERE is_public = 1 AND player_count < 10 ORDER BY RAND() LIMIT 10");
+    $stmt = $pdo->query("SELECT * FROM lobbies WHERE is_public = 1 AND player_count > 0 LIMIT 20");
     $servers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
     echo json_encode(["success" => true, "servers" => $servers]);
     exit;
 }
 
-// --- CREATE ROOM ---
 if ($action === 'create') {
-    $code = strtoupper(substr(md5(uniqid()), 0, 6)); 
-    $room_name = substr(htmlspecialchars($_POST['room_name'] ?? 'My Server'), 0, 30);
-    $is_public = (int)($_POST['is_public'] ?? 1);
+    $room_code = strtoupper(substr(md5(uniqid()), 0, 6));
+    $room_name = $_POST['room_name'] ?? "$username's Server";
+    $is_public = $_POST['is_public'] ?? 1;
 
-    $pdo->prepare("INSERT INTO lobbies (room_code, room_name, is_public, player_count) VALUES (?, ?, ?, 1)")->execute([$code, $room_name, $is_public]);
-    
-    $stmt = $pdo->prepare("INSERT INTO lobby_players (user_id, username, room_code, x, y, last_update) VALUES (?, ?, ?, 400, 300, ?) ON DUPLICATE KEY UPDATE room_code=?, last_update=?");
-    $stmt->execute([$user_id, $username, $code, $now, $code, $now]);
-    
-    echo json_encode(["success" => true, "room_code" => $code]);
+    $stmt = $pdo->prepare("INSERT INTO lobbies (room_code, room_name, is_public, player_count) VALUES (?, ?, ?, 1)");
+    $stmt->execute([$room_code, $room_name, $is_public]);
+
+    // Force player into room
+    $stmt = $pdo->prepare("REPLACE INTO lobby_players (username, room_code, last_update) VALUES (?, ?, ?)");
+    $stmt->execute([$username, $room_code, time()]);
+
+    echo json_encode(["success" => true, "room_code" => $room_code]);
     exit;
 }
 
-if ($action === 'leave') {
-    $room_code = $_POST['room_code'];
-    // Assuming you store session user_id
-    $user_id = $_SESSION['user_id']; 
-    
-    // Delete the player from the room table
-    $db->query("DELETE FROM lobby_players WHERE user_id = $user_id AND room_code = '$room_code'");
-    
-    // Update the room player count
-    $db->query("UPDATE lobbies SET player_count = player_count - 1 WHERE room_code = '$room_code'");
-    
-    echo json_encode(["success" => true]);
-    exit;
-}
-
-// --- JOIN ROOM ---
 if ($action === 'join') {
-    $code = strtoupper($_POST['room_code'] ?? '');
+    $room_code = strtoupper($_POST['room_code'] ?? '');
     
-    $stmt = $pdo->prepare("SELECT player_count FROM lobbies WHERE room_code = ?");
-    $stmt->execute([$code]);
-    $lobby = $stmt->fetch();
-    
-    if (!$lobby) die(json_encode(["success" => false, "message" => "Room not found."]));
-    if ((int)$lobby['player_count'] >= 10) die(json_encode(["success" => false, "message" => "Room is full (Max 10)."])); // LIMIT SET TO 10
-
-    $pdo->prepare("UPDATE lobbies SET player_count = player_count + 1 WHERE room_code = ?")->execute([$code]);
-    
-    $stmt = $pdo->prepare("INSERT INTO lobby_players (user_id, username, room_code, x, y, last_update) VALUES (?, ?, ?, 400, 300, ?) ON DUPLICATE KEY UPDATE room_code=?, last_update=?");
-    $stmt->execute([$user_id, $username, $code, $now, $code, $now]);
-    
-    echo json_encode(["success" => true, "room_code" => $code]);
-    exit;
-}
-
-// --- SEND CHAT ---
-if ($action === 'chat') {
-    $code = $_POST['room_code'] ?? '';
-    $msg = substr(htmlspecialchars($_POST['message'] ?? ''), 0, 100); 
-    
-    if ($msg && $code) {
-        $stmt = $pdo->prepare("INSERT INTO lobby_messages (user_id, room_code, message, created_at) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$user_id, $code, $msg, $now]);
+    $stmt = $pdo->prepare("SELECT * FROM lobbies WHERE room_code = ?");
+    $stmt->execute([$room_code]);
+    if (!$stmt->fetch()) {
+        echo json_encode(["success" => false, "message" => "Room not found or expired."]);
+        exit;
     }
-    echo json_encode(["success" => true]);
+
+    $stmt = $pdo->prepare("REPLACE INTO lobby_players (username, room_code, last_update) VALUES (?, ?, ?)");
+    $stmt->execute([$username, $room_code, time()]);
+    
+    echo json_encode(["success" => true, "room_code" => $room_code]);
     exit;
 }
 
-// --- SYNC STATE ---
 if ($action === 'sync') {
-    $code = $_POST['room_code'] ?? '';
+    $room_code = $_POST['room_code'] ?? '';
     $x = (int)($_POST['x'] ?? 400);
     $y = (int)($_POST['y'] ?? 300);
+    $active_pet = $_POST['active_pet'] ?? '';
 
-    // Update my position
-    $stmt = $pdo->prepare("UPDATE lobby_players SET x=?, y=?, last_update=? WHERE user_id=?");
-    $stmt->execute([$x, $y, $now, $user_id]);
+    // 1. Update this player's position and reset their death-timer
+    $stmt = $pdo->prepare("UPDATE lobby_players SET x = ?, y = ?, active_pet = ?, last_update = ? WHERE username = ? AND room_code = ?");
+    $stmt->execute([$x, $y, $active_pet, time(), $username, $room_code]);
 
-    // Cleanup old messages & idle players
-    $pdo->prepare("DELETE FROM lobby_messages WHERE created_at < ?")->execute([$now - 10000]);
-    $pdo->prepare("DELETE FROM lobby_players WHERE last_update < ?")->execute([$now - 5000]);
+    // 2. Fetch all other players in this room
+    $stmt = $pdo->prepare("SELECT username, x, y, active_pet FROM lobby_players WHERE room_code = ?");
+    $stmt->execute([$room_code]);
+    $players = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // FETCH PLAYERS AND THEIR EQUIPPED PETS!
-    $stmtP = $pdo->prepare("
-        SELECT lp.user_id, lp.username, lp.x, lp.y, u.active_pet 
-        FROM lobby_players lp 
-        JOIN users u ON lp.user_id = u.id 
-        WHERE lp.room_code = ?
-    ");
-    $stmtP->execute([$code]);
-    $players = $stmtP->fetchAll(PDO::FETCH_ASSOC);
-
-    $stmtM = $pdo->prepare("
-        SELECT user_id, message FROM lobby_messages 
-        WHERE room_code = ? AND id IN (SELECT MAX(id) FROM lobby_messages GROUP BY user_id)
-    ");
-    $stmtM->execute([$code]);
+    // 3. Fetch recent chat messages (last 8 seconds only)
+    $chat_cutoff = time() - 8;
+    $stmt = $pdo->prepare("SELECT username, message FROM lobby_messages WHERE room_code = ? AND created_at >= ?");
+    $stmt->execute([$room_code, $chat_cutoff]);
+    $raw_messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Format messages for JS { "username1": "Hello", "username2": "Hi" }
     $messages = [];
-    foreach($stmtM->fetchAll(PDO::FETCH_ASSOC) as $m) {
-        $messages[$m['user_id']] = $m['message'];
+    foreach($raw_messages as $msg) {
+        $messages[$msg['username']] = $msg['message'];
     }
 
     echo json_encode(["success" => true, "players" => $players, "messages" => $messages]);
     exit;
 }
 
-echo json_encode(["success" => false, "message" => "Invalid action."]);
+if ($action === 'chat') {
+    $room_code = $_POST['room_code'] ?? '';
+    $message = substr(strip_tags($_POST['message'] ?? ''), 0, 50);
+
+    if ($message && $room_code) {
+        $stmt = $pdo->prepare("INSERT INTO lobby_messages (username, room_code, message, created_at) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$username, $room_code, $message, time()]);
+    }
+    echo json_encode(["success" => true]);
+    exit;
+}
+
+if ($action === 'leave') {
+    $room_code = $_POST['room_code'] ?? '';
+    $stmt = $pdo->prepare("DELETE FROM lobby_players WHERE username = ?");
+    $stmt->execute([$username]);
+    echo json_encode(["success" => true]);
+    exit;
+}
+
+echo json_encode(["success" => false, "message" => "Unknown action"]);
 ?>
