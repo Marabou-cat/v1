@@ -1445,7 +1445,8 @@ const GAMER_CARDS = [
     { id: "royal_knight", name: "Royal Knight", icon: "<img src='png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
     { id: "evolution_scientist", name: "Evolution Scientist", icon: "<img src='png/evolution_scientist.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
     { id: "digital_arcader", name: "Digital Arcader", icon: "<img src='png/digital_arcader.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
-    { id: "speedrunner", name: "Speedrunner", icon: "<img src='png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" }
+    { id: "speedrunner", name: "Speedrunner", icon: "<img src='png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" },
+    { id: "2d_city", name: "2D City", icon: "<img src='png/2d_city.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#7f00ff" }
 ];
 
 const GamerCardAbilities = {
@@ -1502,10 +1503,23 @@ const GamerCardAbilities = {
     },
     "digital_arcader": {
         name: "Value Of IN GAME Currency",
-        desc: "Absorbs Earned ExamCoins From MAIN PORTAL And Convert Them Into Gems! 25000 -> 100",
+        desc: "Absorbs Earned ExamCoins From MAIN PORTAL And Convert Them Into Gems! 1000 -> 5",
         type: "gem_miner",
-        coinThreshold: 25000, // <--- THIS IS X (Coins needed)
-        gemReward: 100        // <--- THIS IS Y (Gems rewarded)
+        coinThreshold: 1000, // <--- THIS IS X (Coins needed)
+        gemReward: 5       // <--- THIS IS Y (Gems rewarded)
+    },
+    "2d_city": {
+        name: "2D To 3D",
+        desc: "Absorbs Earned ExamCoins From MAIN PORTAL And Convert Them Into Gems! 1000 -> 2",
+        type: "gem_miner",
+        coinThreshold: 1000, // <--- THIS IS X (Coins needed)
+        gemReward: 2        // <--- THIS IS Y (Gems rewarded)
+    },
+    "space_police": {
+    name: "Arrested Cooldown",
+    desc: "Skip the flying coin PET ability cooldown every 4 minutes",
+    type: "cooldown_skip",
+    skipInterval: 240 // <--- THIS IS X (Seconds between skips)
     }
 };
 
@@ -1638,6 +1652,38 @@ setInterval(() => {
         let baseId = gameState.active_pet.split('::')[0];
         let petInfo = PET_SHOP.find(p => p.id === baseId);
         let ability = PET_ABILITIES[baseId]; // Grab the pet's ability
+
+    // --- CHRONO MASTER: COOLDOWN SKIP LOGIC ---
+    let gcAbility = GamerCardAbilities[gameState.equipped_gamer_card];
+    if (gcAbility && gcAbility.type === "cooldown_skip") {
+        if (!gameState.game_stats) gameState.game_stats = {};
+        if (typeof gameState.game_stats.skip_progress === 'undefined') gameState.game_stats.skip_progress = 0;
+
+        // 1. Increment the skip timer
+        gameState.game_stats.skip_progress++;
+
+        // 2. Check if we hit 'X' seconds
+        if (gameState.game_stats.skip_progress >= gcAbility.skipInterval) {
+            gameState.game_stats.skip_progress = 0; // Reset card timer
+
+            // 3. Find active pet ability
+            let baseId = gameState.active_pet.split('::')[0];
+            let petAbility = PET_ABILITIES[baseId];
+
+            if (petAbility) {
+                // If it's a Coin Storm pet, trigger the storm now!
+                if (petAbility.stormAmount) {
+                    showToast(`⏳ Time Warp! ${petAbility.name} triggered early!`);
+                    for (let i = 0; i < petAbility.stormAmount; i++) {
+                        setTimeout(() => { spawnFlyingCoin(); }, i * 200);
+                    }
+                }
+                
+                // You can add logic here for other pet ability types (like 2x buffs) later
+            }
+        }
+        updateCompanionUI(); // Keep the bar moving
+    }
 
         // --- GAMER CARD ABILITIES ---
     if (gameState.equipped_gamer_card && gameState.active_pet) {
@@ -1838,6 +1884,21 @@ function updateCompanionUI() {
             let current = gameState.game_stats.card_progress || 0;
             let max = ability.coinThreshold;
             let percent = Math.min((current / max) * 100, 100);
+        // --- DRAW PROGRESS BAR FOR CHRONO MASTER ---
+        else if (ability && ability.type === "cooldown_skip") {
+            if (!gameState.game_stats) gameState.game_stats = {};
+            
+            let current = gameState.game_stats.skip_progress || 0;
+            let max = ability.skipInterval;
+            let percent = Math.min((current / max) * 100, 100);
+            
+            barHTML = `
+                <div style="width: 100%; background: #222; height: 10px; border-radius: 5px; margin-top: 8px; overflow: hidden; border: 1px solid #444;">
+                    <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #ff9f43, #ff6b6b);"></div>
+                </div>
+                <div style="font-size: 10px; color: #aaa; margin-top: 3px; font-weight: bold;">Time Warp: ${current}s / ${max}s ⏳</div>
+            `;
+        }
             
             barHTML = `
                 <div style="width: 100%; background: #222; height: 10px; border-radius: 5px; margin-top: 8px; overflow: hidden; border: 1px solid #444;">
