@@ -126,9 +126,10 @@ if ($action === 'sync') {
     $y = (int)($_POST['y'] ?? 300);
     $active_pet = $_POST['active_pet'] ?? '';
 
-    // 1. Update this player's position and reset their death-timer
-    $stmt = $pdo->prepare("UPDATE lobby_players SET x = ?, y = ?, active_pet = ?, last_update = ? WHERE username = ? AND room_code = ?");
-    $stmt->execute([$x, $y, $active_pet, time(), $username, $room_code]);
+    // CRITICAL FIX: Use REPLACE INTO. If a tiny lag spike caused the server to delete the player 
+    // during Ghost Cleanup, this immediately spawns them right back into the room smoothly.
+    $stmt = $pdo->prepare("REPLACE INTO lobby_players (username, room_code, x, y, active_pet, last_update) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$username, $room_code, $x, $y, $active_pet, time()]);
 
     // 2. Fetch all other players in this room
     $stmt = $pdo->prepare("SELECT username, x, y, active_pet FROM lobby_players WHERE room_code = ?");
