@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wish - Gamer Cards</title>
+    <title>Wish - Cosmic Gamer Gear</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -18,7 +18,7 @@
             overflow: hidden;
         }
 
-        /* --- BACK BUTTON --- */
+        /* --- UI BUTTONS --- */
         .btn-back {
             position: absolute; top: 20px; left: 20px;
             background: transparent; border: 2px solid #00f5d4; color: #00f5d4;
@@ -26,6 +26,14 @@
             cursor: pointer; transition: 0.3s; text-decoration: none; z-index: 100;
         }
         .btn-back:hover { background: #00f5d4; color: #000; box-shadow: 0 0 15px rgba(0, 245, 212, 0.5); }
+
+        .btn-shop {
+            position: absolute; top: 20px; right: 20px;
+            background: #f1c40f; border: none; color: #000;
+            padding: 10px 20px; border-radius: 20px; font-weight: 900; font-size: 16px;
+            cursor: pointer; transition: 0.3s; box-shadow: 0 0 15px rgba(241, 196, 15, 0.5); z-index: 100;
+        }
+        .btn-shop:hover { background: #fff; transform: scale(1.05); }
 
         /* ========================================= */
         /* --- GACHA BANNER SHOWCASE UI --- */
@@ -35,7 +43,7 @@
             color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); 
             z-index: 100; position: relative;
             background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px;
-            border: 2px solid #444;
+            border: 2px solid #444; display: flex; gap: 15px; align-items: center;
         }
         
         /* BANNER TABS */
@@ -124,6 +132,45 @@
         .btn-wish:hover { transform: scale(1.05); box-shadow: 0 0 35px rgba(255, 255, 255, 0.6); }
 
         /* ========================================= */
+        /* --- SHOP OVERLAY STYLES --- */
+        /* ========================================= */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,8,20,0.95); z-index: 2000; 
+            display: none; flex-direction: column; backdrop-filter: blur(10px);
+        }
+        .overlay.open { display: flex; }
+        .overlay-bar {
+            height: 60px; background: #001d3d; display: flex; align-items: center; 
+            padding: 0 20px; border-bottom: 2px solid #00f5d4; justify-content: space-between;
+        }
+        .bar-title { font-weight: 900; color: #f1c40f; font-size: 20px; letter-spacing: 1px; }
+        .btn-close {
+            background: #d00000; border: none; color: #fff; padding: 8px 16px; 
+            border-radius: 8px; font-weight: 900; transition: 0.2s; cursor:pointer;
+        }
+        .btn-close:hover { background: #ff0000; box-shadow: 0 0 10px #ff0000; }
+        
+        .shop-container {
+            padding: 30px; overflow-y: auto; display: grid; gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+            width: 100%; max-width: 1000px; margin: 0 auto;
+        }
+        .shop-item {
+            background: #001d3d; border: 2px solid #00f5d4; border-radius: 16px; 
+            padding: 20px; text-align: center; display: flex; flex-direction: column; 
+            align-items: center; justify-content: space-between; gap: 10px; transition: 0.2s;
+        }
+        .shop-item:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(0, 245, 212, 0.4); }
+        .shop-btn {
+            background: #0077b6; border: none; color: #fff; padding: 12px 15px; 
+            border-radius: 10px; font-weight: bold; font-size: 14px; width: 100%; 
+            transition: 0.2s; cursor: pointer; margin-top: 10px; text-transform: uppercase;
+        }
+        .shop-btn.buy { background: #f1c40f; color: #000; }
+        .shop-btn.buy:hover { background: #ffea00; box-shadow: 0 0 15px #f1c40f; }
+        .shop-btn.equipped { background: #555; pointer-events: none; color:#ccc; }
+
+        /* ========================================= */
         /* --- WISH ANIMATION (GACHA) STYLES --- */
         /* ========================================= */
         #wishOverlay {
@@ -205,6 +252,7 @@
 <body>
 
     <a href="../index.html" class="btn-back">⬅ Back to Portal</a>
+    <button class="btn-shop" onclick="openWishShop()">🛒 Wish ITEM SHOP</button>
 
     <!-- TABS AT THE TOP -->
     <div class="banner-tabs">
@@ -212,10 +260,12 @@
         <button id="tab-meteor" class="banner-tab-btn" onclick="switchBanner('meteor')">Meteor Strike</button>
     </div>
 
-    <!-- ITEM CURRENCY STATS -->
+    <!-- CURRENCY STATS -->
     <div class="stats">
+        <span style="color: #00ffcc;">💎 <span id="gemDisplay">0</span> Gems</span>
+        <span style="color: #777;">|</span> 
         <span style="color: #00f5d4;">🔮 <span id="stoneDisplay">0</span> Wish Stones</span> 
-        <span style="color: #777; margin: 0 10px;">|</span> 
+        <span style="color: #777;">|</span> 
         <span style="color: #ff3377;">☄️ <span id="meteorDisplay">0</span> Wish Meteors</span>
     </div>
 
@@ -239,6 +289,19 @@
     </div>
 
     <!-- ========================================= -->
+    <!-- SHOP OVERLAY -->
+    <!-- ========================================= -->
+    <div class="overlay" id="wishShopOverlay">
+        <div class="overlay-bar">
+            <div class="bar-title">🛒 Stardust Exchange</div>
+            <button class="btn-close" onclick="closeWishShop()">CLOSE ✕</button>
+        </div>
+        <div class="shop-container" id="wishShopContainer">
+            <!-- Populated dynamically by JavaScript -->
+        </div>
+    </div>
+
+    <!-- ========================================= -->
     <!-- WISH ANIMATION OVERLAY -->
     <!-- ========================================= -->
     <div class="overlay" id="wishOverlay">
@@ -258,7 +321,6 @@
         let isLoggedIn = false;
         let gameState = null;
 
-        // Initialize on load
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('schoolExamsSavedUser');
             if (savedUser) {
@@ -292,7 +354,7 @@
                         pet_ages: result.data.pet_ages || '{}',
                         prestige_level: parseInt(result.data.prestige_level) || 0,
                         profile_pic: result.data.profile_pic || '',
-                        owned_items: JSON.parse(result.data.owned_items || '[]'), // Parses Items Array!
+                        owned_items: JSON.parse(result.data.owned_items || '[]'),
                         boost_end: parseInt(result.data.boost_end) || 0,
                         boost_cd: parseInt(result.data.boost_cd) || 0,
                         game_stats: result.data.game_stats || '{}',
@@ -301,7 +363,7 @@
                     };
                     
                     updateStatsUI();
-                    switchBanner('standard'); // Boot up banner
+                    switchBanner('standard');
                 }
             } catch (e) {
                 console.error("Error loading game data:", e);
@@ -314,13 +376,13 @@
             formData.append('action', 'save');
             formData.append('username', localStorage.getItem('schoolExamsSavedUser'));
 
-            // Values we modify in the Wish System
-            formData.append('coins', gameState.coins);
+            // Values we modify in the Wish System / Shop
+            formData.append('gems', gameState.gems);
             formData.append('owned_items', JSON.stringify(gameState.owned_items));
             formData.append('owned_gamer_cards', JSON.stringify(gameState.owned_gamer_cards));
+            formData.append('coins', gameState.coins);
             
-            // Unchanged values mapped back safely
-            formData.append('gems', gameState.gems);
+            // Safe pass-backs
             formData.append('playtime', gameState.playtime);
             formData.append('sakura_coins', gameState.sakura_coins);
             formData.append('event_tasks', gameState.event_tasks);
@@ -342,20 +404,19 @@
 
         function updateStatsUI() {
             if(gameState) {
-                // Count specific items in inventory array
                 const stones = gameState.owned_items.filter(i => i === "Wish Stone").length;
                 const meteors = gameState.owned_items.filter(i => i === "Wish Meteor").length;
                 
+                document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
                 document.getElementById('stoneDisplay').innerText = stones.toLocaleString();
                 document.getElementById('meteorDisplay').innerText = meteors.toLocaleString();
             }
         }
 
         // =========================================
-        // --- WISH SYSTEM SCRIPT ---
+        // --- DATA DICTIONARIES ---
         // =========================================
 
-        // 1. CARDS CONFIGURATION (Combines both pools)
         const GAMER_CARDS = [
             // Standard Pool
             { id: "raging_noob", name: "Raging Noob", icon: "<img src='../png/raging_noob.png'>", color: "#aaa" },
@@ -377,7 +438,7 @@
         const BANNERS = {
             standard: {
                 id: "standard",
-                name: "Standard Banner",
+                name: "Cosmic Gear",
                 currency: "Wish Stone",
                 icon: "🔮",
                 themeColor: "#00f5d4",
@@ -395,39 +456,112 @@
             },
             meteor: {
                 id: "meteor",
-                name: "Limited Banner",
+                name: "Meteor Strike",
                 currency: "Wish Meteor",
                 icon: "☄️",
                 themeColor: "#ff3377",
-                bg: "../png/wish_bg.png", // Make sure you have this image, or it falls back
+                bg: "../png/wish_bg_meteor.png", // Make sure you have this image
                 showcase: [
                     { id: "space_police", type: "epic", delay: "0.2s" },
                     { id: "digital_arcader", type: "legendary", delay: "0s" },
                     { id: "2d_city", type: "epic", delay: "0.6s" }
                 ],
                 pools: {
-                    rare: ["raging_noob", "good_morning", "power_of_care"], // Shares rare cards
-                    epic: ["space_police", "2d_city"],
-                    legendary: ["digital_arcader"]
+                    rare: ["raging_noob", "good_morning", "power_of_care"], 
+                    epic: ["space_police", "2d_city", "space_ninja", "time_traveler"],
+                    legendary: ["digital_arcader", "galaxy_emperor"]
                 }
             }
         };
 
-        let activeBanner = "standard";
+        const WISH_SHOP_ITEMS = [
+            { id: "Wish Stone", type: "item", name: "Wish Stone", icon: "🔮", price: 100, color: "#00f5d4" },
+            { id: "Wish Meteor", type: "item", name: "Wish Meteor", icon: "☄️", price: 150, color: "#ff3377" },
+            { id: "dog_trainer", type: "card", name: "Dog Trainer", icon: "<img src='../png/dog_trainer.png'>", price: 2000, color: "#9b59b6" },
+            { id: "speedrunner", type: "card", name: "Speedrunner", icon: "<img src='../png/speedrunner.png'>", price: 2000, color: "#9b59b6" },
+            { id: "investor", type: "card", name: "Investor", icon: "<img src='../png/investor.png'>", price: 2000, color: "#9b59b6" },
+            { id: "space_police", type: "card", name: "Space Police", icon: "<img src='../png/space_police.png'>", price: 2000, color: "#9b59b6" },
+            { id: "2d_city", type: "card", name: "2D City", icon: "<img src='../png/2d_city.png'>", price: 2000, color: "#9b59b6" },
+        ];
 
+        let activeBanner = "standard";
         const RARITY_COLORS = { rare: "#3498db", epic: "#9b59b6", legendary: "#f1c40f" };
         const RARITY_WEIGHT = { rare: 1, epic: 2, legendary: 3 }; 
 
-        // --- SWITCH BANNER UI ---
+        // =========================================
+        // --- SHOP FUNCTIONS ---
+        // =========================================
+        function openWishShop() {
+            renderWishShop();
+            document.getElementById('wishShopOverlay').classList.add('open');
+        }
+
+        function closeWishShop() {
+            document.getElementById('wishShopOverlay').classList.remove('open');
+        }
+
+        function renderWishShop() {
+            const container = document.getElementById('wishShopContainer');
+            container.innerHTML = '';
+
+            WISH_SHOP_ITEMS.forEach(item => {
+                let btnHTML = `<button class="shop-btn buy" onclick="buyWishShopItem('${item.id}', '${item.type}', ${item.price})">Buy 💎 ${item.price}</button>`;
+
+                // If it's a card and they own it, lock the button
+                if (item.type === 'card' && gameState.owned_gamer_cards.includes(item.id)) {
+                    btnHTML = `<button class="shop-btn equipped">Owned</button>`;
+                }
+
+                let iconHtml = item.icon.includes('<img') 
+                    ? item.icon.replace("<img", "<img style='width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(255,255,255,0.4));'") 
+                    : `<div style="font-size: 50px; filter: drop-shadow(0 0 10px ${item.color || '#fff'});">${item.icon}</div>`;
+
+                container.innerHTML += `
+                    <div class="shop-item" style="border-color: ${item.color || '#00f5d4'};">
+                        ${iconHtml}
+                        <h3 style="color: ${item.color || '#fff'}; margin: 10px 0 5px 0; font-size: 16px;">${item.name}</h3>
+                        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">${item.type === 'item' ? 'Gacha Currency' : 'Epic Gamer Card'}</p>
+                        ${btnHTML}
+                    </div>
+                `;
+            });
+        }
+
+        async function buyWishShopItem(id, type, price) {
+            if (!gameState) return;
+            if (gameState.gems < price) return alert("❌ Not enough Gems!");
+
+            if (type === "card" && gameState.owned_gamer_cards.includes(id)) {
+                return alert("You already own this card!");
+            }
+
+            // Deduct gems
+            gameState.gems -= price;
+
+            // Grant item
+            if (type === "item") {
+                gameState.owned_items.push(id);
+                alert(`✅ Successfully bought 1x ${id}!`);
+            } else if (type === "card") {
+                gameState.owned_gamer_cards.push(id);
+                alert(`🃏 Successfully unlocked the ${id.replace('_', ' ')} Gamer Card!`);
+            }
+
+            updateStatsUI();
+            renderWishShop();
+            await saveGameToServer();
+        }
+
+        // =========================================
+        // --- WISH BANNER FUNCTIONS ---
+        // =========================================
         function switchBanner(id) {
             activeBanner = id;
             const banner = BANNERS[id];
 
-            // Tabs
             document.querySelectorAll('.banner-tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + id).classList.add('active');
 
-            // Theming
             document.getElementById('bannerContainer').style.borderColor = banner.themeColor;
             document.getElementById('bannerContainer').style.boxShadow = `0 0 40px ${banner.themeColor}40`;
             
@@ -435,28 +569,23 @@
             document.getElementById('bannerTitle').style.textShadow = `0 0 15px ${banner.themeColor}, 0 0 30px ${banner.themeColor}`;
             document.getElementById('bannerBg').src = banner.bg;
 
-            // Buttons
             document.getElementById('btnWish1').innerHTML = `✨ Wish x1 (1 ${banner.icon})`;
             document.getElementById('btnWish10').innerHTML = `🌟 Wish x10 (10 ${banner.icon})`;
 
-            // Generate Showcase
             const showcaseDiv = document.getElementById('bannerShowcase');
             showcaseDiv.innerHTML = banner.showcase.map(s => {
                 const card = GAMER_CARDS.find(c => c.id === s.id);
-                // Extract image source securely
                 let rawIconSrc = card.icon.match(/src='([^']+)'/);
                 let imagePath = rawIconSrc ? rawIconSrc[1] : '';
                 let imgHtml = imagePath ? `<img src="${imagePath}" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">` : `<span style='font-size:40px'>🎮</span>`;
                 
-                return `<div class="showcase-item ${s.type}" style="animation-delay: ${s.delay};">${imgHtml}</div>`;
+                return `<div class="showcase-item ${s.type}" style="animation-delay: ${s.delay}; border-color:${card.color}; box-shadow: 0 0 20px ${card.color}80;">${imgHtml}</div>`;
             }).join('');
         }
 
-        // 3. MAIN WISH FUNCTION (TURBO MODE)
         async function performWish(count = 1) { 
             if (!isLoggedIn) return alert("❌ Please log in to make a wish!");
             
-            // --- FORCE SYNC WITH DATABASE BEFORE ROLLING ---
             const savedUser = localStorage.getItem('schoolExamsSavedUser');
             await loadGameFromServer(savedUser);
             if (!gameState) return;
@@ -464,29 +593,25 @@
             const banner = BANNERS[activeBanner];
             const currencyItem = banner.currency;
             
-            // Count how many of this item the player owns
             const ownedCount = gameState.owned_items.filter(i => i === currencyItem).length;
 
             if (ownedCount < count) {
-                return alert(`❌ Not enough items! You need ${count}x ${currencyItem} to roll on this banner.`);
+                return alert(`❌ Not enough items! You need ${count}x ${currencyItem} to roll on this banner. Visit the Exchange Shop to buy more!`);
             }
 
-            // Deduct Cost (Remove exactly 'count' instances of the item)
             for (let i = 0; i < count; i++) {
                 const index = gameState.owned_items.indexOf(currencyItem);
                 if (index > -1) gameState.owned_items.splice(index, 1);
             }
             
             updateStatsUI();
-            await saveGameToServer(); // Immediately save charge
+            await saveGameToServer(); 
 
             document.getElementById('wishFlash').style.opacity = '0';
             document.getElementById('wishResult').classList.remove('show');
             document.getElementById('wishOverlay').classList.add('open');
 
             const star = document.getElementById('shootingStar');
-
-            // Roll the Dice 'count' times against ACTIVE BANNER POOLS
             let results = [];
             let highestRarity = 'rare';
 
@@ -510,7 +635,6 @@
                 results.push({ id: cardId, rarity: rarity });
             }
 
-            // --- TURBO ANIMATION SEQUENCE ---
             star.style.transition = 'none';
             star.style.left = '-15vw';
             star.style.top = '-15vw';
@@ -521,12 +645,10 @@
             star.style.boxShadow = '0 0 25px 12px #00f5d4';
 
             setTimeout(() => {
-                // Fly across screen FAST (1s)
                 star.style.transition = 'top 1s cubic-bezier(.4,0,.2,1), left 1s cubic-bezier(.4,0,.2,1), background 0.4s, box-shadow 0.4s, color 0.4s';
                 star.style.left = '70vw';
                 star.style.top = '70vw';
 
-                // Change color (400ms)
                 setTimeout(() => {
                     let winColor = RARITY_COLORS[highestRarity];
                     star.style.background = winColor;
@@ -534,11 +656,9 @@
                     star.style.boxShadow = `0 0 50px 20px ${winColor}`;
                 }, 400);
 
-                // Flash white (900ms)
                 setTimeout(() => {
                     document.getElementById('wishFlash').style.opacity = '1';
 
-                    // Reveal Cards (200ms after flash)
                     setTimeout(async () => { 
                         star.style.opacity = '0';
                         document.getElementById('wishFlash').style.opacity = '0';
@@ -546,7 +666,6 @@
                         if (!gameState.owned_gamer_cards) gameState.owned_gamer_cards = [];
                         let cardsHTML = '';
 
-                        // Process pulls
                         results.forEach(result => {
                             let cardInfo = GAMER_CARDS.find(c => c.id === result.id);
                             let isDup = gameState.owned_gamer_cards.includes(result.id);
