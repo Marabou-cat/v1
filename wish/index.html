@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wish - Cosmic Gamer Gear</title>
+    <title>Wish - Gamer Cards</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -30,8 +30,28 @@
         /* ========================================= */
         /* --- GACHA BANNER SHOWCASE UI --- */
         /* ========================================= */
-        .stats { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.5); z-index: 100; position: relative;}
+        .stats { 
+            font-size: 24px; font-weight: bold; margin-bottom: 20px; 
+            color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); 
+            z-index: 100; position: relative;
+            background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 20px;
+            border: 2px solid #444;
+        }
         
+        /* BANNER TABS */
+        .banner-tabs {
+            display: flex; gap: 15px; margin-bottom: -2px; z-index: 10; position: relative;
+        }
+        .banner-tab-btn {
+            background: rgba(0,0,0,0.8); border: 2px solid #00f5d4; color: #fff;
+            padding: 12px 30px; border-radius: 20px 20px 0 0; font-weight: bold; font-size: 18px;
+            cursor: pointer; transition: 0.3s; opacity: 0.5; border-bottom: none;
+        }
+        .banner-tab-btn.active {
+            background: rgba(0, 245, 212, 0.15); opacity: 1; text-shadow: 0 0 10px #00f5d4;
+            padding-bottom: 18px; margin-top: -6px; border-width: 3px;
+        }
+
         .banner-container {
             position: relative;
             width: 95%; max-width: 900px; height: 500px;
@@ -40,11 +60,12 @@
             box-shadow: 0 0 40px rgba(0, 245, 212, 0.4);
             display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
             padding-bottom: 40px; box-sizing: border-box;
+            transition: border-color 0.4s, box-shadow 0.4s;
         }
 
         .banner-bg {
             position: absolute; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 1; opacity: 0.6;
+            object-fit: cover; z-index: 1; opacity: 0.6; transition: opacity 0.4s;
         }
 
         .banner-title {
@@ -52,6 +73,7 @@
             font-size: 32px; font-weight: 900; color: #fff;
             text-transform: uppercase; letter-spacing: 5px;
             text-shadow: 0 0 15px #00f5d4, 0 0 30px #00f5d4;
+            transition: text-shadow 0.4s;
         }
 
         .showcase {
@@ -148,7 +170,6 @@
         }
         .wish-result-container.show { display: flex; transform: scale(1); opacity: 1; }
 
-        /* WISH ROW (FOR 10 PULLS) */
         .wish-row {
             display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;
             max-width: 95vw; max-height: 70vh; overflow-y: auto; padding: 20px;
@@ -160,9 +181,7 @@
             justify-content: space-between; width: 130px; 
         }
         
-        /* SCALES UP IF IT'S A SINGLE PULL */
         .wish-row.single .wish-card { padding: 40px; width: 250px; border-width: 4px; margin-bottom: 25px; }
-
         .wish-card img { width: 70px; height: 70px; object-fit: contain; }
         .wish-row.single .wish-card img { width: 150px; height: 150px; margin-bottom: 15px; }
 
@@ -187,38 +206,35 @@
 
     <a href="../index.html" class="btn-back">⬅ Back to Portal</a>
 
-    <!-- REAL CURRENCY STATS -->
+    <!-- TABS AT THE TOP -->
+    <div class="banner-tabs">
+        <button id="tab-standard" class="banner-tab-btn active" onclick="switchBanner('standard')">Cosmic Gear</button>
+        <button id="tab-meteor" class="banner-tab-btn" onclick="switchBanner('meteor')">Meteor Strike</button>
+    </div>
+
+    <!-- ITEM CURRENCY STATS -->
     <div class="stats">
-        💎 <span id="gemDisplay">0</span> | 🪙 <span id="coinDisplay">0</span>
+        <span style="color: #00f5d4;">🔮 <span id="stoneDisplay">0</span> Wish Stones</span> 
+        <span style="color: #777; margin: 0 10px;">|</span> 
+        <span style="color: #ff3377;">☄️ <span id="meteorDisplay">0</span> Wish Meteors</span>
     </div>
 
     <!-- ========================================= -->
     <!-- GACHA BANNER SHOWCASE UI -->
     <!-- ========================================= -->
-    <div class="banner-container">
-        <!-- CUSTOM BACKGROUND PNG -->
-        <img class="banner-bg" src="../png/wish_bg.png" alt="" onerror="this.style.display='none'">
+    <div class="banner-container" id="bannerContainer">
+        <img class="banner-bg" id="bannerBg" src="../png/wish_bg.png" alt="" onerror="this.style.display='none'">
         
-        <div class="banner-title">Cosmic Gamer Gear</div>
+        <div class="banner-title" id="bannerTitle">Cosmic Gamer Gear</div>
         
-        <!-- SHOWCASE PNGs -->
-        <div class="showcase">
-            <div class="showcase-item epic" style="animation-delay: 0.2s;">
-                <img src="../png/dog_trainer.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
-            </div>
-            
-            <div class="showcase-item legendary" style="animation-delay: 0s;">
-                <img src="../png/royal_knight.png" onerror="this.outerHTML='<span style=\\'font-size:60px\\'>👑</span>'">
-            </div>
-            
-            <div class="showcase-item epic" style="animation-delay: 0.6s;">
-                <img src="../png/speedrunner.png" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">
-            </div>
+        <!-- SHOWCASE (Updates Dynamically) -->
+        <div class="showcase" id="bannerShowcase">
+            <!-- Injected by JavaScript -->
         </div>
 
         <div class="wish-buttons">
-            <button class="btn-wish" onclick="performWish(1, 100)">✨ Wish x1 (100 💎)</button>
-            <button class="btn-wish multi" onclick="performWish(10, 950)">🌟 Wish x10 (950 💎)</button>
+            <button class="btn-wish" id="btnWish1" onclick="performWish(1)">✨ Wish x1</button>
+            <button class="btn-wish multi" id="btnWish10" onclick="performWish(10)">🌟 Wish x10</button>
         </div>
     </div>
 
@@ -237,7 +253,7 @@
 
     <script>
         // =========================================
-        // --- DATABASE CONNECTION SCRIPT ---
+        // --- DATABASE & STATE SCRIPT ---
         // =========================================
         let isLoggedIn = false;
         let gameState = null;
@@ -263,7 +279,6 @@
                 const result = await response.json();
                 
                 if (result.success && result.data) {
-                    // Update gameState completely from database
                     gameState = {
                         coins: parseInt(result.data.coins) || 0,
                         gems: parseInt(result.data.gems) || 0,
@@ -277,7 +292,7 @@
                         pet_ages: result.data.pet_ages || '{}',
                         prestige_level: parseInt(result.data.prestige_level) || 0,
                         profile_pic: result.data.profile_pic || '',
-                        owned_items: result.data.owned_items || '[]',
+                        owned_items: JSON.parse(result.data.owned_items || '[]'), // Parses Items Array!
                         boost_end: parseInt(result.data.boost_end) || 0,
                         boost_cd: parseInt(result.data.boost_cd) || 0,
                         game_stats: result.data.game_stats || '{}',
@@ -286,6 +301,7 @@
                     };
                     
                     updateStatsUI();
+                    switchBanner('standard'); // Boot up banner
                 }
             } catch (e) {
                 console.error("Error loading game data:", e);
@@ -300,10 +316,11 @@
 
             // Values we modify in the Wish System
             formData.append('coins', gameState.coins);
-            formData.append('gems', gameState.gems);
+            formData.append('owned_items', JSON.stringify(gameState.owned_items));
             formData.append('owned_gamer_cards', JSON.stringify(gameState.owned_gamer_cards));
             
-            // Unchanged values mapped back safely so they aren't erased!
+            // Unchanged values mapped back safely
+            formData.append('gems', gameState.gems);
             formData.append('playtime', gameState.playtime);
             formData.append('sakura_coins', gameState.sakura_coins);
             formData.append('event_tasks', gameState.event_tasks);
@@ -314,23 +331,23 @@
             formData.append('pet_ages', gameState.pet_ages);
             formData.append('prestige_level', gameState.prestige_level);
             formData.append('profile_pic', gameState.profile_pic);
-            formData.append('owned_items', gameState.owned_items);
             formData.append('boost_end', gameState.boost_end);
             formData.append('boost_cd', gameState.boost_cd);
             formData.append('game_stats', gameState.game_stats);
             formData.append('equipped_gamer_card', gameState.equipped_gamer_card);
 
-            try { 
-                await fetch('../backend.php', { method: 'POST', body: formData }); 
-            } catch(e) {
-                console.error("Save error:", e);
-            }
+            try { await fetch('../backend.php', { method: 'POST', body: formData }); } 
+            catch(e) { console.error("Save error:", e); }
         }
 
         function updateStatsUI() {
             if(gameState) {
-                document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
-                document.getElementById('coinDisplay').innerText = gameState.coins.toLocaleString();
+                // Count specific items in inventory array
+                const stones = gameState.owned_items.filter(i => i === "Wish Stone").length;
+                const meteors = gameState.owned_items.filter(i => i === "Wish Meteor").length;
+                
+                document.getElementById('stoneDisplay').innerText = stones.toLocaleString();
+                document.getElementById('meteorDisplay').innerText = meteors.toLocaleString();
             }
         }
 
@@ -338,46 +355,130 @@
         // --- WISH SYSTEM SCRIPT ---
         // =========================================
 
-        // 1. CARDS CONFIGURATION
+        // 1. CARDS CONFIGURATION (Combines both pools)
         const GAMER_CARDS = [
-            { id: "raging_noob", name: "Raging Noob", icon: "<img src='../png/raging_noob.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
-            { id: "good_morning", name: "Good Morning!", icon: "<img src='../png/good_morning.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
-            { id: "power_of_care", name: "Power Of Care", icon: "<img src='../png/power_of_care.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#aaa" },
-            { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='../png/dog_trainer.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#9b59b6" },
-            { id: "speedrunner", name: "Speedrunner", icon: "<img src='../png/speedrunner.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#9b59b6" },
-            { id: "investor", name: "Investor", icon: "<img src='../png/investor.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#9b59b6" },
-            { id: "royal_knight", name: "Royal Knight", icon: "<img src='../png/royal_knight.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" },
-            { id: "evolution_scientist", name: "Evolution Scientist", icon: "<img src='../png/evolution_scientist.png' style='height: 2em; width: 2em; object-fit: contain;'>", color: "#ffd700" }
+            // Standard Pool
+            { id: "raging_noob", name: "Raging Noob", icon: "<img src='../png/raging_noob.png'>", color: "#aaa" },
+            { id: "good_morning", name: "Good Morning!", icon: "<img src='../png/good_morning.png'>", color: "#aaa" },
+            { id: "power_of_care", name: "Power Of Care", icon: "<img src='../png/power_of_care.png'>", color: "#aaa" },
+            { id: "dog_trainer", name: "Dog Trainer", icon: "<img src='../png/dog_trainer.png'>", color: "#9b59b6" },
+            { id: "speedrunner", name: "Speedrunner", icon: "<img src='../png/speedrunner.png'>", color: "#9b59b6" },
+            { id: "investor", name: "Investor", icon: "<img src='../png/investor.png'>", color: "#9b59b6" },
+            { id: "royal_knight", name: "Royal Knight", icon: "<img src='../png/royal_knight.png'>", color: "#f1c40f" },
+            { id: "evolution_scientist", name: "Evolution Scientist", icon: "<img src='../png/evolution_scientist.png'>", color: "#f1c40f" },
+            
+            // New Meteor Pool
+            { id: "space_police", name: "Space Police", icon: "<img src='../png/space_police.png'>", color: "#9b59b6" },
+            { id: "2d_city", name: "2D City", icon: "<img src='../png/2d_city.png'>", color: "#9b59b6" },
+            { id: "digital_arcader", name: "Digital Arcader", icon: "<img src='../png/digital_arcader.png'>", color: "#f1c40f" }
         ];
 
-        // 2. RARITY POOLS
-        const RARE_CARDS = ["raging_noob", "good_morning", "power_of_care"];         
-        const EPIC_CARDS = ["dog_trainer", "speedrunner", "investor"];         
-        const LEGENDARY_CARDS = ["royal_knight", "evolution_scientist"];   
-
-        const RARITY_COLORS = {
-            rare: "#3498db",      // Normal Blue
-            epic: "#9b59b6",      // Purple
-            legendary: "#f1c40f"  // Yellow
+        // 2. BANNER CONFIGURATION
+        const BANNERS = {
+            standard: {
+                id: "standard",
+                name: "Standard Banner",
+                currency: "Wish Stone",
+                icon: "🔮",
+                themeColor: "#00f5d4",
+                bg: "../png/wish_bg.png",
+                showcase: [
+                    { id: "dog_trainer", type: "epic", delay: "0.2s" },
+                    { id: "royal_knight", type: "legendary", delay: "0s" },
+                    { id: "speedrunner", type: "epic", delay: "0.6s" }
+                ],
+                pools: {
+                    rare: ["raging_noob", "good_morning", "power_of_care"],
+                    epic: ["dog_trainer", "speedrunner", "investor"],
+                    legendary: ["royal_knight", "evolution_scientist"]
+                }
+            },
+            meteor: {
+                id: "meteor",
+                name: "Limited Banner",
+                currency: "Wish Meteor",
+                icon: "☄️",
+                themeColor: "#ff3377",
+                bg: "../png/wish_bg.png", // Make sure you have this image, or it falls back
+                showcase: [
+                    { id: "space_ninja", type: "epic", delay: "0.2s" },
+                    { id: "digital_arcader", type: "legendary", delay: "0s" },
+                    { id: "time_traveler", type: "epic", delay: "0.6s" }
+                ],
+                pools: {
+                    rare: ["raging_noob", "good_morning", "power_of_care"], // Shares rare cards
+                    epic: ["space_police", "2d_city"],
+                    legendary: ["digital_arcader"]
+                }
+            }
         };
 
+        let activeBanner = "standard";
+
+        const RARITY_COLORS = { rare: "#3498db", epic: "#9b59b6", legendary: "#f1c40f" };
         const RARITY_WEIGHT = { rare: 1, epic: 2, legendary: 3 }; 
 
-        // 3. MAIN WISH FUNCTION
-        async function performWish(count = 1, cost = 100) { 
+        // --- SWITCH BANNER UI ---
+        function switchBanner(id) {
+            activeBanner = id;
+            const banner = BANNERS[id];
+
+            // Tabs
+            document.querySelectorAll('.banner-tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + id).classList.add('active');
+
+            // Theming
+            document.getElementById('bannerContainer').style.borderColor = banner.themeColor;
+            document.getElementById('bannerContainer').style.boxShadow = `0 0 40px ${banner.themeColor}40`;
+            
+            document.getElementById('bannerTitle').innerText = banner.name;
+            document.getElementById('bannerTitle').style.textShadow = `0 0 15px ${banner.themeColor}, 0 0 30px ${banner.themeColor}`;
+            document.getElementById('bannerBg').src = banner.bg;
+
+            // Buttons
+            document.getElementById('btnWish1').innerHTML = `✨ Wish x1 (1 ${banner.icon})`;
+            document.getElementById('btnWish10').innerHTML = `🌟 Wish x10 (10 ${banner.icon})`;
+
+            // Generate Showcase
+            const showcaseDiv = document.getElementById('bannerShowcase');
+            showcaseDiv.innerHTML = banner.showcase.map(s => {
+                const card = GAMER_CARDS.find(c => c.id === s.id);
+                // Extract image source securely
+                let rawIconSrc = card.icon.match(/src='([^']+)'/);
+                let imagePath = rawIconSrc ? rawIconSrc[1] : '';
+                let imgHtml = imagePath ? `<img src="${imagePath}" onerror="this.outerHTML='<span style=\\'font-size:40px\\'>🎮</span>'">` : `<span style='font-size:40px'>🎮</span>`;
+                
+                return `<div class="showcase-item ${s.type}" style="animation-delay: ${s.delay};">${imgHtml}</div>`;
+            }).join('');
+        }
+
+        // 3. MAIN WISH FUNCTION (TURBO MODE)
+        async function performWish(count = 1) { 
             if (!isLoggedIn) return alert("❌ Please log in to make a wish!");
             
             // --- FORCE SYNC WITH DATABASE BEFORE ROLLING ---
             const savedUser = localStorage.getItem('schoolExamsSavedUser');
             await loadGameFromServer(savedUser);
-            
             if (!gameState) return;
-            if (gameState.gems < cost) return alert(`❌ Not enough Gems! You need ${cost} 💎 to roll.`);
 
-            // Deduct Cost & Prep UI
-            gameState.gems -= cost;
+            const banner = BANNERS[activeBanner];
+            const currencyItem = banner.currency;
+            
+            // Count how many of this item the player owns
+            const ownedCount = gameState.owned_items.filter(i => i === currencyItem).length;
+
+            if (ownedCount < count) {
+                return alert(`❌ Not enough items! You need ${count}x ${currencyItem} to roll on this banner.`);
+            }
+
+            // Deduct Cost (Remove exactly 'count' instances of the item)
+            for (let i = 0; i < count; i++) {
+                const index = gameState.owned_items.indexOf(currencyItem);
+                if (index > -1) gameState.owned_items.splice(index, 1);
+            }
+            
             updateStatsUI();
-            await saveGameToServer(); // Immediately save charge so refresh won't exploit
+            await saveGameToServer(); // Immediately save charge
 
             document.getElementById('wishFlash').style.opacity = '0';
             document.getElementById('wishResult').classList.remove('show');
@@ -385,33 +486,31 @@
 
             const star = document.getElementById('shootingStar');
 
-            // Roll the Dice 'count' times
+            // Roll the Dice 'count' times against ACTIVE BANNER POOLS
             let results = [];
             let highestRarity = 'rare';
 
             for (let i = 0; i < count; i++) {
                 let roll = Math.random();
                 let rarity = 'rare';
-                let cardPool = RARE_CARDS;
+                let cardPool = banner.pools.rare;
 
                 // 89% Rare, 10% Epic, 1% Legendary
                 if (roll > 0.89 && roll <= 0.99) { 
-                    rarity = 'epic'; cardPool = EPIC_CARDS; 
+                    rarity = 'epic'; cardPool = banner.pools.epic; 
                 } else if (roll > 0.99) { 
-                    rarity = 'legendary'; cardPool = LEGENDARY_CARDS; 
+                    rarity = 'legendary'; cardPool = banner.pools.legendary; 
                 }
 
-                // Track highest rarity
                 if (RARITY_WEIGHT[rarity] > RARITY_WEIGHT[highestRarity]) {
                     highestRarity = rarity;
                 }
 
-                // Pick a random card
                 let cardId = cardPool[Math.floor(Math.random() * cardPool.length)];
                 results.push({ id: cardId, rarity: rarity });
             }
 
-            // Start Animation Sequence
+            // --- TURBO ANIMATION SEQUENCE ---
             star.style.transition = 'none';
             star.style.left = '-15vw';
             star.style.top = '-15vw';
@@ -422,24 +521,24 @@
             star.style.boxShadow = '0 0 25px 12px #00f5d4';
 
             setTimeout(() => {
-                // Fly across screen
-                star.style.transition = 'top 2.5s cubic-bezier(.4,0,.2,1), left 2.5s cubic-bezier(.4,0,.2,1), background 1s, box-shadow 1s, color 1s';
+                // Fly across screen FAST (1s)
+                star.style.transition = 'top 1s cubic-bezier(.4,0,.2,1), left 1s cubic-bezier(.4,0,.2,1), background 0.4s, box-shadow 0.4s, color 0.4s';
                 star.style.left = '70vw';
                 star.style.top = '70vw';
 
-                // Change color midway based on the HIGHEST rarity in the pulls!
+                // Change color (400ms)
                 setTimeout(() => {
                     let winColor = RARITY_COLORS[highestRarity];
                     star.style.background = winColor;
                     star.style.color = winColor;
                     star.style.boxShadow = `0 0 50px 20px ${winColor}`;
-                }, 1000);
+                }, 400);
 
-                // Flash the screen white
+                // Flash white (900ms)
                 setTimeout(() => {
                     document.getElementById('wishFlash').style.opacity = '1';
 
-                    // Reveal the Cards
+                    // Reveal Cards (200ms after flash)
                     setTimeout(async () => { 
                         star.style.opacity = '0';
                         document.getElementById('wishFlash').style.opacity = '0';
@@ -447,7 +546,7 @@
                         if (!gameState.owned_gamer_cards) gameState.owned_gamer_cards = [];
                         let cardsHTML = '';
 
-                        // Process each pulled card
+                        // Process pulls
                         results.forEach(result => {
                             let cardInfo = GAMER_CARDS.find(c => c.id === result.id);
                             let isDup = gameState.owned_gamer_cards.includes(result.id);
@@ -462,7 +561,7 @@
                             let rawIconSrc = cardInfo.icon.match(/src='([^']+)'/);
                             let imagePath = rawIconSrc ? rawIconSrc[1] : '';
                             let iconHTML = imagePath 
-                                ? `<img src="${imagePath}" style="filter: drop-shadow(0 0 10px rgba(255,255,255,0.4));" onerror="this.outerHTML='🎮'">` 
+                                ? `<img src="${imagePath}" style="filter: drop-shadow(0 0 10px rgba(255,255,255,0.4));" onerror="this.outerHTML='<span style=\\'font-size:30px;\\'>🎮</span>'">` 
                                 : cardInfo.icon;
 
                             cardsHTML += `
@@ -488,9 +587,9 @@
                             <button class="btn-confirm" onclick="closeWish()">Confirm</button>
                         `;
                         resultUI.classList.add('show');
-                    }, 500); 
-                }, 2200); 
-            }, 100);
+                    }, 200); 
+                }, 900); 
+            }, 50); 
         }
 
         function closeWish() {
