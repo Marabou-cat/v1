@@ -7,15 +7,32 @@ ini_set('display_errors', 0); // Hide errors from breaking JSON
 // 1. DATABASE CONFIGURATION
 // ==========================================
 $host = 'localhost';
-$db   = 'schoolexams'; // Change to your database name
-$user = 'root';        // Change to your database username
-$pass = '';            // Change to your database password
+$db   = 'schoolexams'; // Change this if your database name is different
+$user = 'root';        // Fallback default
+$pass = '';            // Fallback default
+
+// Read the first line as username, second line as password
+$configFile = 'config.ini';
+if (file_exists($configFile)) {
+    // Read file into an array, ignoring empty lines and newlines
+    $lines = file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    
+    if (isset($lines[0])) {
+        $user = trim($lines[0]);
+    }
+    if (isset($lines[1])) {
+        $pass = trim($lines[1]);
+    }
+} else {
+    echo json_encode(["success" => false, "message" => "Server Error: config.ini missing."]);
+    exit;
+}
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch(Exception $e) {
-    echo json_encode(["success" => false, "message" => "Database connection failed."]);
+    echo json_encode(["success" => false, "message" => "Database connection failed. Check config.ini credentials."]);
     exit;
 }
 
@@ -147,7 +164,6 @@ if ($action === 'chat') {
 }
 
 if ($action === 'leave') {
-    $room_code = $_POST['room_code'] ?? '';
     $stmt = $pdo->prepare("DELETE FROM lobby_players WHERE username = ?");
     $stmt->execute([$username]);
     echo json_encode(["success" => true]);
