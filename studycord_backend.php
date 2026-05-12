@@ -83,8 +83,19 @@ if ($action === 'create_channel') {
     exit;
 }
 
-// 3. Load User's Servers
+// 3. Load User's Servers (WITH AUTO-JOIN SERVER 16 LOGIC)
 if ($action === 'load_servers') {
+    
+    // --- AUTO JOIN SERVER 16 LOGIC ---
+    // Check if Server 16 exists first
+    $stmt = $pdo->query("SELECT id FROM sc_servers WHERE id = 16");
+    if ($stmt->fetch()) {
+        // If it exists, force the user into the members list (IGNORE prevents errors if they are already in it)
+        $stmt = $pdo->prepare("INSERT IGNORE INTO sc_server_members (server_id, username) VALUES (16, ?)");
+        $stmt->execute([$username]);
+    }
+    // ----------------------------------
+
     $stmt = $pdo->prepare("SELECT s.id, s.name FROM sc_servers s JOIN sc_server_members m ON s.id = m.server_id WHERE m.username = ?");
     $stmt->execute([$username]);
     $servers = $stmt->fetchAll(PDO::FETCH_ASSOC);
