@@ -170,6 +170,20 @@
         .shop-btn.buy:hover { background: #ffea00; box-shadow: 0 0 15px #f1c40f; }
         .shop-btn.equipped { background: #555; pointer-events: none; color:#ccc; }
 
+        /* SLIDER STYLES */
+        .slider-style {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 6px; background: #444; border-radius: 5px;
+            outline: none; transition: 0.2s; margin-top: 5px; cursor: pointer;
+        }
+        .slider-style::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #00f5d4; cursor: pointer; box-shadow: 0 0 10px #00f5d4;
+        }
+        .slider-style:disabled { background: #222; cursor: not-allowed; }
+        .slider-style:disabled::-webkit-slider-thumb { background: #555; box-shadow: none; cursor: not-allowed;}
+
         /* ========================================= */
         /* --- WISH ANIMATION (GACHA) STYLES --- */
         /* ========================================= */
@@ -424,7 +438,6 @@
         // =========================================
 
         const GAMER_CARDS = [
-            // Standard Pool
             { id: "raging_noob", name: "Raging Noob", icon: "<img src='../png/raging_noob.png'>", color: "#aaa" },
             { id: "good_morning", name: "Good Morning!", icon: "<img src='../png/good_morning.png'>", color: "#aaa" },
             { id: "power_of_care", name: "Power Of Care", icon: "<img src='../png/power_of_care.png'>", color: "#aaa" },
@@ -433,11 +446,12 @@
             { id: "investor", name: "Investor", icon: "<img src='../png/investor.png'>", color: "#9b59b6" },
             { id: "royal_knight", name: "Royal Knight", icon: "<img src='../png/royal_knight.png'>", color: "#f1c40f" },
             { id: "evolution_scientist", name: "Evolution Scientist", icon: "<img src='../png/evolution_scientist.png'>", color: "#f1c40f" },
-            
-            // New Meteor Pool
             { id: "space_police", name: "Space Police", icon: "<img src='../png/space_police.png'>", color: "#9b59b6" },
             { id: "2d_city", name: "2D City", icon: "<img src='../png/2d_city.png'>", color: "#9b59b6" },
-            { id: "digital_arcader", name: "Digital Arcader", icon: "<img src='../png/digital_arcader.png'>", color: "#f1c40f" }
+            { id: "space_ninja", name: "Space Ninja", icon: "<img src='../png/space_ninja.png'>", color: "#9b59b6" },
+            { id: "time_traveler", name: "Time Traveler", icon: "<img src='../png/time_traveler.png'>", color: "#9b59b6" },
+            { id: "digital_arcader", name: "Digital Arcader", icon: "<img src='../png/digital_arcader.png'>", color: "#f1c40f" },
+            { id: "galaxy_emperor", name: "Galaxy Emperor", icon: "<img src='../png/galaxy_emperor.png'>", color: "#f1c40f" }
         ];
 
         // 2. BANNER CONFIGURATION
@@ -474,8 +488,8 @@
                 ],
                 pools: {
                     rare: ["raging_noob", "good_morning", "power_of_care"], 
-                    epic: ["space_police", "2d_city"],
-                    legendary: ["digital_arcader"]
+                    epic: ["space_police", "2d_city", "space_ninja", "time_traveler"],
+                    legendary: ["digital_arcader", "galaxy_emperor"]
                 }
             }
         };
@@ -488,6 +502,8 @@
             { id: "investor", type: "card", name: "Investor", icon: "<img src='../png/investor.png'>", price: 2000, color: "#9b59b6" },
             { id: "space_police", type: "card", name: "Space Police", icon: "<img src='../png/space_police.png'>", price: 2000, color: "#9b59b6" },
             { id: "2d_city", type: "card", name: "2D City", icon: "<img src='../png/2d_city.png'>", price: 2000, color: "#9b59b6" },
+            { id: "space_ninja", type: "card", name: "Space Ninja", icon: "<img src='../png/space_ninja.png'>", price: 2000, color: "#9b59b6" },
+            { id: "time_traveler", type: "card", name: "Time Traveler", icon: "<img src='../png/time_traveler.png'>", price: 2000, color: "#9b59b6" }
         ];
 
         let activeBanner = "standard";
@@ -506,16 +522,47 @@
             document.getElementById('wishShopOverlay').classList.remove('open');
         }
 
+        function updateShopLabel(safeId, basePrice) {
+            let slider = document.getElementById('slider_' + safeId);
+            let label = document.getElementById('label_' + safeId);
+            let btn = document.getElementById('btn_buy_' + safeId);
+            
+            let qty = slider.value;
+            let total = qty * basePrice;
+            
+            label.innerText = `${qty}x for 💎 ${total.toLocaleString()}`;
+            if(btn) btn.innerText = `Buy 💎 ${total.toLocaleString()}`;
+        }
+
         function renderWishShop() {
             const container = document.getElementById('wishShopContainer');
             container.innerHTML = '';
 
             WISH_SHOP_ITEMS.forEach(item => {
-                let btnHTML = `<button class="shop-btn buy" onclick="buyWishShopItem('${item.id}', '${item.type}', ${item.price})">Buy 💎 ${item.price}</button>`;
+                let safeId = item.id.replace(/\s+/g, '');
+                let btnHTML = '';
+                let controlsHTML = '';
 
-                // If it's a card and they own it, lock the button
-                if (item.type === 'card' && gameState.owned_gamer_cards.includes(item.id)) {
-                    btnHTML = `<button class="shop-btn equipped">Owned</button>`;
+                if (item.type === 'item') {
+                    // Calculate max affordable based on current gems
+                    let maxAffordable = Math.floor((gameState?.gems || 0) / item.price);
+                    let sliderDisabled = maxAffordable < 1 ? 'disabled' : '';
+                    if (maxAffordable < 1) maxAffordable = 1; // Keep min/max valid visually
+
+                    controlsHTML = `
+                        <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 5px;">
+                            <div id="label_${safeId}" style="font-size: 13px; color: #fff; font-weight: bold; margin-bottom: 5px;">1x for 💎 ${item.price}</div>
+                            <input type="range" id="slider_${safeId}" class="slider-style" min="1" max="${maxAffordable}" value="1" oninput="updateShopLabel('${safeId}', ${item.price})" ${sliderDisabled}>
+                        </div>
+                    `;
+                    btnHTML = `<button id="btn_buy_${safeId}" class="shop-btn buy" ${sliderDisabled ? 'disabled style="background: #555; color: #aaa; cursor: not-allowed;"' : ''} onclick="buyWishShopItem('${item.id}', '${item.type}', ${item.price})">Buy 💎 ${item.price}</button>`;
+                } else {
+                    // For cards (you only buy one)
+                    if (gameState.owned_gamer_cards.includes(item.id)) {
+                        btnHTML = `<button class="shop-btn equipped">Owned</button>`;
+                    } else {
+                        btnHTML = `<button class="shop-btn buy" onclick="buyWishShopItem('${item.id}', '${item.type}', ${item.price})">Buy 💎 ${item.price.toLocaleString()}</button>`;
+                    }
                 }
 
                 let iconHtml = item.icon.includes('<img') 
@@ -525,8 +572,9 @@
                 container.innerHTML += `
                     <div class="shop-item" style="border-color: ${item.color || '#00f5d4'};">
                         ${iconHtml}
-                        <h3 style="color: ${item.color || '#fff'}; margin: 10px 0 5px 0; font-size: 16px;">${item.name}</h3>
-                        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">${item.type === 'item' ? 'Gacha Currency' : 'Epic Gamer Card'}</p>
+                        <h3 style="color: ${item.color || '#fff'}; margin: 10px 0 0 0; font-size: 16px;">${item.name}</h3>
+                        <p style="font-size: 12px; color: #aaa; margin-top: 5px; margin-bottom: 5px;">${item.type === 'item' ? 'Gacha Currency' : 'Epic Gamer Card'}</p>
+                        ${controlsHTML}
                         ${btnHTML}
                     </div>
                 `;
@@ -541,26 +589,38 @@
             await loadGameFromServer(savedUser);
             
             if (!gameState) return;
-            if (gameState.gems < price) return alert("❌ Not enough Gems!");
+
+            let qty = 1;
+            if (type === 'item') {
+                let safeId = id.replace(/\s+/g, '');
+                let slider = document.getElementById('slider_' + safeId);
+                if(slider) qty = parseInt(slider.value) || 1;
+            }
+
+            let totalCost = price * qty;
+
+            if (gameState.gems < totalCost) return alert("❌ Not enough Gems!");
 
             if (type === "card" && gameState.owned_gamer_cards.includes(id)) {
                 return alert("You already own this card!");
             }
 
             // Deduct gems
-            gameState.gems -= price;
+            gameState.gems -= totalCost;
 
             // Grant item
             if (type === "item") {
-                gameState.owned_items.push(id);
-                alert(`✅ Successfully bought 1x ${id}!`);
+                for(let i=0; i<qty; i++) {
+                    gameState.owned_items.push(id);
+                }
+                alert(`✅ Successfully bought ${qty}x ${id}!`);
             } else if (type === "card") {
                 gameState.owned_gamer_cards.push(id);
                 alert(`🃏 Successfully unlocked the ${id.replace('_', ' ')} Gamer Card!`);
             }
 
             updateStatsUI();
-            renderWishShop();
+            renderWishShop(); // Re-render to update the new max slider values
             await saveGameToServer();
         }
 
