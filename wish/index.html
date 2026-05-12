@@ -252,7 +252,7 @@
 <body>
 
     <a href="../index.html" class="btn-back">⬅ Back to Portal</a>
-    <button class="btn-shop" onclick="openWishShop()">🛒 Wish ITEM SHOP</button>
+    <button class="btn-shop" onclick="openWishShop()">🛒 Exchange Shop</button>
 
     <!-- TABS AT THE TOP -->
     <div class="banner-tabs">
@@ -325,13 +325,15 @@
             const savedUser = localStorage.getItem('schoolExamsSavedUser');
             if (savedUser) {
                 isLoggedIn = true;
-                loadGameFromServer(savedUser);
+                // Add TRUE to tell the function this is the initial boot
+                loadGameFromServer(savedUser, true); 
             } else {
                 alert("Please log in from the Main Portal first!");
             }
         });
 
-        async function loadGameFromServer(username) {
+        // Added 'isBoot' flag to prevent overriding the current banner
+        async function loadGameFromServer(username, isBoot = false) {
             const formData = new FormData(); 
             formData.append('action', 'load');
             formData.append('username', username);
@@ -357,13 +359,17 @@
                         owned_items: JSON.parse(result.data.owned_items || '[]'),
                         boost_end: parseInt(result.data.boost_end) || 0,
                         boost_cd: parseInt(result.data.boost_cd) || 0,
-                        game_stats: result.data.game_stats || '{}',
+                        game_stats: JSON.parse(result.data.game_stats || '{}'), // Fully parsed JSON!
                         equipped_gamer_card: result.data.equipped_gamer_card || '',
                         owned_gamer_cards: JSON.parse(result.data.owned_gamer_cards || '[]')
                     };
                     
                     updateStatsUI();
-                    switchBanner('standard');
+                    
+                    // Only jump to the Standard banner if this is the first load!
+                    if (isBoot) {
+                        switchBanner('standard');
+                    }
                 }
             } catch (e) {
                 console.error("Error loading game data:", e);
@@ -395,7 +401,7 @@
             formData.append('profile_pic', gameState.profile_pic);
             formData.append('boost_end', gameState.boost_end);
             formData.append('boost_cd', gameState.boost_cd);
-            formData.append('game_stats', gameState.game_stats);
+            formData.append('game_stats', JSON.stringify(gameState.game_stats || {})); // Securely stringified!
             formData.append('equipped_gamer_card', gameState.equipped_gamer_card);
 
             try { await fetch('../backend.php', { method: 'POST', body: formData }); } 
@@ -431,7 +437,10 @@
             // New Meteor Pool
             { id: "space_police", name: "Space Police", icon: "<img src='../png/space_police.png'>", color: "#9b59b6" },
             { id: "2d_city", name: "2D City", icon: "<img src='../png/2d_city.png'>", color: "#9b59b6" },
-            { id: "digital_arcader", name: "Digital Arcader", icon: "<img src='../png/digital_arcader.png'>", color: "#f1c40f" }
+            { id: "space_ninja", name: "Space Ninja", icon: "<img src='../png/space_ninja.png'>", color: "#9b59b6" },
+            { id: "time_traveler", name: "Time Traveler", icon: "<img src='../png/time_traveler.png'>", color: "#9b59b6" },
+            { id: "digital_arcader", name: "Digital Arcader", icon: "<img src='../png/digital_arcader.png'>", color: "#f1c40f" },
+            { id: "galaxy_emperor", name: "Galaxy Emperor", icon: "<img src='../png/galaxy_emperor.png'>", color: "#f1c40f" }
         ];
 
         // 2. BANNER CONFIGURATION
@@ -482,6 +491,8 @@
             { id: "investor", type: "card", name: "Investor", icon: "<img src='../png/investor.png'>", price: 2000, color: "#9b59b6" },
             { id: "space_police", type: "card", name: "Space Police", icon: "<img src='../png/space_police.png'>", price: 2000, color: "#9b59b6" },
             { id: "2d_city", type: "card", name: "2D City", icon: "<img src='../png/2d_city.png'>", price: 2000, color: "#9b59b6" },
+            { id: "space_ninja", type: "card", name: "Space Ninja", icon: "<img src='../png/space_ninja.png'>", price: 2000, color: "#9b59b6" },
+            { id: "time_traveler", type: "card", name: "Time Traveler", icon: "<img src='../png/time_traveler.png'>", price: 2000, color: "#9b59b6" }
         ];
 
         let activeBanner = "standard";
@@ -528,6 +539,12 @@
         }
 
         async function buyWishShopItem(id, type, price) {
+            if (!isLoggedIn) return alert("❌ Please log in to use the shop!");
+
+            // FORCE SYNC WITH DATABASE BEFORE PURCHASING TO PREVENT EXPLOITS
+            const savedUser = localStorage.getItem('schoolExamsSavedUser');
+            await loadGameFromServer(savedUser);
+            
             if (!gameState) return;
             if (gameState.gems < price) return alert("❌ Not enough Gems!");
 
