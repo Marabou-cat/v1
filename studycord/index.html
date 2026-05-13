@@ -48,7 +48,7 @@
         .list-item:hover, .list-item.active { background: #3f4147; color: var(--text-normal); }
         
         .user-panel { height: 52px; background: #232428; display: flex; align-items: center; padding: 0 8px; gap: 10px; }
-        .avatar-small { width: 32px; height: 32px; border-radius: 50%; background: #9b59b6; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; }
+        .avatar-small { width: 32px; height: 32px; border-radius: 50%; background: #9b59b6; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;}
 
         /* --- 3. MAIN CHAT AREA --- */
         .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-primary); }
@@ -76,9 +76,13 @@
         .profile-popup { position: absolute; background: #111214; border-radius: 8px; padding: 16px; width: 250px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); display: none; z-index: 2000; border: 1px solid #333; }
         .btn-add-friend { background: var(--green); margin-top: 10px; }
 
-        /* Icon Additions */
         .btn-icon { cursor: pointer; color: var(--text-muted); transition: 0.2s; font-size: 18px; user-select: none;}
         .btn-icon:hover { color: #fff; transform: scale(1.1); }
+        
+        /* Friend UI Styles */
+        .friend-category { font-size: 12px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin: 15px 0 5px 8px; }
+        .btn-accept { background: var(--green); border: none; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-left: auto; }
+        .btn-accept:hover { filter: brightness(1.2); }
     </style>
 </head>
 <body>
@@ -102,7 +106,7 @@
         </div>
         <div class="user-panel">
             <div class="avatar-small" id="myAvatar">U</div>
-            <div style="font-size: 14px; font-weight: bold;" id="myName">Guest</div>
+            <div style="font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="myName">Guest</div>
         </div>
     </div>
 
@@ -114,7 +118,7 @@
         </div>
         
         <div class="messages" id="messageContainer">
-            <div style="text-align:center; color:gray; margin-top: 50px;">Select a channel to start chatting!</div>
+            <div style="text-align:center; color:gray; margin-top: 50px;">Select a channel or friend to start chatting!</div>
         </div>
 
         <div class="chat-input-wrapper">
@@ -164,10 +168,12 @@
         let currentServerId = null;
         let currentServerName = null;
         let currentChannelId = null;
+        let currentDmUser = null; // Used for Direct Messages
+        
         let lastMessageTime = 0;
         let chatInterval = null;
+        let currentFetchId = 0; // CRITICAL: Fixes chat bleed bug
         
-        // --- Tracks if the user just booted up the page ---
         let isFirstBoot = true;
 
         // --- API HELPER ---
@@ -201,18 +207,12 @@
 
             serverBar.innerHTML = homeBtn + sep + serverHTML + addBtn + exitBtn;
 
-            // --- AUTO-JOIN SERVER 16 ON BOOT ---
             if (isFirstBoot) {
-                isFirstBoot = false; // Prevent it from triggering again if they create a new server later
-                
-                // Find Server 16 in their list
+                isFirstBoot = false; 
                 let autoServer = res.servers.find(s => s.id == 16);
-                
                 if (autoServer) {
-                    // Open Server 16!
                     loadServer(autoServer.id, autoServer.name);
                 } else {
-                    // Fallback to DMs if Server 16 doesn't exist at all
                     loadDMs();
                 }
             }
@@ -230,25 +230,95 @@
             }
         }
 
-        // --- NAVIGATION ---
-        function loadDMs() {
+        // --- NAVIGATION & DMs ---
+        async function loadDMs() {
             currentServerId = null;
             currentChannelId = null;
+            currentDmUser = null;
+            
+            // Unhighlight servers, highlight Home
+            document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
+            document.querySelector('.server-icon.home').classList.add('active');
+
             document.getElementById('sidebarHeader').innerHTML = `<span>Direct Messages</span>`;
-            document.getElementById('channelList').innerHTML = `<div style="color:gray; padding:10px; font-size:12px;">DMs coming soon! Click the + icon on the left to create a server and invite friends.</div>`;
             document.getElementById('chatTitle').innerText = "Friends";
-            document.getElementById('messageContainer').innerHTML = "";
+            document.getElementById('messageContainer').innerHTML = `<div style="text-align:center; color:gray; margin-top: 50px;">Select a friend to start chatting!</div>`;
             document.getElementById('chatInput').disabled = true;
+            document.getElementById('chatInput').placeholder = "Message...";
             clearInterval(chatInterval);
+
+            // Fetch Friends
+            const res = await api('load_friends');
+            if (res.success) {
+                let html = '';
+                
+                // Pending Requests
+                if (res.pending.length > 0) {
+                    html += `<div class="friend-category">Pending Requests</div>`;
+                    res.pending.forEach(p => {
+                        html += `
+                            <div class="list-item" style="cursor:default;">
+                                <div class="avatar-small" style="background:#e67e22;">${p.charAt(0).toUpperCase()}</div>
+                                <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">${p}</span>
+                                <button class="btn-accept" onclick="acceptFriend('${p}')">Accept</button>
+                            </div>
+                        `;
+                    });
+                }
+
+                // Accepted Friends
+                html += `<div class="friend-category">Friends - ${res.friends.length}</div>`;
+                if (res.friends.length === 0) {
+                    html += `<div style="color:gray; padding:10px; font-size:12px;">No friends yet. Search for a username at the top to add them!</div>`;
+                } else {
+                    res.friends.forEach(f => {
+                        html += `
+                            <div class="list-item" onclick="openDM('${f.replace(/'/g, "\\'")}')">
+                                <div class="avatar-small" style="background:#3ba55c;">${f.charAt(0).toUpperCase()}</div>
+                                <span style="overflow:hidden; text-overflow:ellipsis;">${f}</span>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('channelList').innerHTML = html;
+            }
         }
 
+        async function acceptFriend(user) {
+            const res = await api('accept_friend', { target: user });
+            if (res.success) loadDMs(); // Refresh friend list
+        }
+
+        function openDM(friendName) {
+            currentChannelId = 0; // 0 indicates DM mode to the backend
+            currentDmUser = friendName;
+            
+            currentFetchId++; // Fix Chat Bleed Bug
+            lastMessageTime = 0; 
+            
+            document.getElementById('chatTitle').innerText = `@ ${friendName}`;
+            document.getElementById('messageContainer').innerHTML = ""; 
+            
+            const input = document.getElementById('chatInput');
+            input.disabled = false;
+            input.placeholder = `Message @${friendName}`;
+
+            clearInterval(chatInterval);
+            fetchMessages(); 
+            chatInterval = setInterval(fetchMessages, 2000); 
+        }
+
+        // --- SERVER CHANNELS ---
         async function loadServer(id, name) {
             currentServerId = id;
             currentServerName = name;
             
+            // Highlight active server
+            document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
+            event.target.classList.add('active');
+            
             const res = await api('load_channels', { server_id: id });
             if(res.success) {
-                // If I am the owner, show the + Button for channels
                 let addChannelBtn = (res.owner === myUsername) 
                     ? `<span class="btn-icon" title="Create Channel" onclick="document.getElementById('createChannelModal').style.display='flex'">+</span>` 
                     : ``;
@@ -262,7 +332,6 @@
                 });
                 document.getElementById('channelList').innerHTML = html;
                 
-                // Auto join first channel
                 if (res.channels.length > 0) {
                     joinChannel(res.channels[0].id, res.channels[0].name, res.channels[0].is_readonly, res.owner);
                 }
@@ -278,8 +347,8 @@
             const res = await api('create_channel', { server_id: currentServerId, channel_name: name, is_readonly: isReadonly });
             if (res.success) {
                 document.getElementById('createChannelModal').style.display = 'none';
-                document.getElementById('newChannelName').value = ''; // Clear for next time
-                loadServer(currentServerId, currentServerName); // Refresh sidebar
+                document.getElementById('newChannelName').value = ''; 
+                loadServer(currentServerId, currentServerName); 
             } else {
                 alert(res.message);
             }
@@ -287,13 +356,16 @@
 
         async function joinChannel(id, name, isReadonly, serverOwner) {
             currentChannelId = id;
-            lastMessageTime = 0; // Reset time so we pull all history
+            currentDmUser = null; // Clear DM target
+            
+            currentFetchId++; // Fix Chat Bleed Bug
+            lastMessageTime = 0; 
+            
             document.getElementById('chatTitle').innerText = (isReadonly == 1 ? '🔒 ' : '# ') + name;
-            document.getElementById('messageContainer').innerHTML = ""; // Clear screen
+            document.getElementById('messageContainer').innerHTML = ""; 
             
             const input = document.getElementById('chatInput');
             
-            // Check Permissions
             if (isReadonly == 1 && serverOwner !== myUsername) {
                 input.disabled = true;
                 input.placeholder = "You do not have permission to send messages in this channel.";
@@ -311,22 +383,38 @@
         async function sendMessage() {
             const input = document.getElementById('chatInput');
             const text = input.value.trim();
-            if(!text || !currentChannelId || input.disabled) return;
+            if(!text || input.disabled) return;
+            if(currentChannelId === null) return;
             
             input.value = ''; // clear instantly for good UX
-            const res = await api('send_message', { channel_id: currentChannelId, content: text });
             
-            if (!res.success) {
-                alert(res.message || "Failed to send message.");
-            }
+            const res = await api('send_message', { 
+                channel_id: currentChannelId, 
+                receiver: currentDmUser, // Passed if in DM mode
+                content: text 
+            });
             
-            fetchMessages(); 
+            if (!res.success) alert(res.message || "Failed to send message.");
+            
+            // FIX: Removed manual fetchMessages() call to prevent message duplication bug.
+            // The chatInterval will naturally pick it up within 2 seconds.
         }
 
         async function fetchMessages() {
-            if(!currentChannelId) return;
+            if(currentChannelId === null) return;
             
-            const res = await api('fetch_messages', { channel_id: currentChannelId, last_time: lastMessageTime });
+            // Capture the fetch ID at start of request
+            const activeFetchId = currentFetchId; 
+            
+            const res = await api('fetch_messages', { 
+                channel_id: currentChannelId, 
+                receiver: currentDmUser, 
+                last_time: lastMessageTime 
+            });
+            
+            // FIX: If user clicked a different channel while waiting for the server, abort rendering
+            if (activeFetchId !== currentFetchId) return; 
+
             if (res.success && res.messages.length > 0) {
                 const container = document.getElementById('messageContainer');
                 
@@ -365,7 +453,7 @@
                         <span style="font-size:12px; color: var(--text-muted);">Student</span>
                     </div>
                 </div>
-                <button class="btn btn-add-friend" onclick="addFriend('${username}')">Send Friend Request</button>
+                <button class="btn btn-add-friend" onclick="sendFriendRequest('${username}')">Send Friend Request</button>
             `;
 
             let x = e.clientX; let y = e.clientY;
@@ -378,7 +466,7 @@
 
         document.addEventListener('click', () => { document.getElementById('profilePopup').style.display = 'none'; });
 
-        async function addFriend(targetUsername) {
+        async function sendFriendRequest(targetUsername) {
             if (targetUsername === myUsername) return alert("You can't add yourself!");
             await api('add_friend', { target: targetUsername });
             alert(`Friend request sent to ${targetUsername}!`);
