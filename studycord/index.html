@@ -168,11 +168,11 @@
         let currentServerId = null;
         let currentServerName = null;
         let currentChannelId = null;
-        let currentDmUser = null; // Used for Direct Messages
+        let currentDmUser = null;
         
-        let lastMessageTime = 0;
+        let lastMessageId = 0; // CRITICAL FIX: Track by ID instead of time to prevent duplicates
         let chatInterval = null;
-        let currentFetchId = 0; // CRITICAL: Fixes chat bleed bug
+        let currentFetchId = 0; 
         
         let isFirstBoot = true;
 
@@ -184,6 +184,7 @@
             for (let key in data) fd.append(key, data[key]);
             
             try {
+                // FIXED: URL updated to ../studycord_backend.php
                 const res = await fetch('../studycord_backend.php', { method: 'POST', body: fd });
                 return await res.json();
             } catch(e) { return { success: false }; }
@@ -236,7 +237,6 @@
             currentChannelId = null;
             currentDmUser = null;
             
-            // Unhighlight servers, highlight Home
             document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
             document.querySelector('.server-icon.home').classList.add('active');
 
@@ -286,15 +286,15 @@
 
         async function acceptFriend(user) {
             const res = await api('accept_friend', { target: user });
-            if (res.success) loadDMs(); // Refresh friend list
+            if (res.success) loadDMs(); 
         }
 
         function openDM(friendName) {
-            currentChannelId = 0; // 0 indicates DM mode to the backend
+            currentChannelId = 0; 
             currentDmUser = friendName;
             
-            currentFetchId++; // Fix Chat Bleed Bug
-            lastMessageTime = 0; 
+            currentFetchId++; 
+            lastMessageId = 0; // RESET ID TRACKER
             
             document.getElementById('chatTitle').innerText = `@ ${friendName}`;
             document.getElementById('messageContainer').innerHTML = ""; 
@@ -305,6 +305,7 @@
 
             clearInterval(chatInterval);
             fetchMessages(); 
+            // FIXED: Interval updated to 5000 (5 seconds)
             chatInterval = setInterval(fetchMessages, 5000); 
         }
 
@@ -313,7 +314,6 @@
             currentServerId = id;
             currentServerName = name;
             
-            // Highlight active server
             document.querySelectorAll('.server-icon').forEach(icon => icon.classList.remove('active'));
             event.target.classList.add('active');
             
@@ -356,10 +356,10 @@
 
         async function joinChannel(id, name, isReadonly, serverOwner) {
             currentChannelId = id;
-            currentDmUser = null; // Clear DM target
+            currentDmUser = null; 
             
-            currentFetchId++; // Fix Chat Bleed Bug
-            lastMessageTime = 0; 
+            currentFetchId++; 
+            lastMessageId = 0; // RESET ID TRACKER
             
             document.getElementById('chatTitle').innerText = (isReadonly == 1 ? '🔒 ' : '# ') + name;
             document.getElementById('messageContainer').innerHTML = ""; 
@@ -376,7 +376,8 @@
 
             clearInterval(chatInterval);
             fetchMessages(); 
-            chatInterval = setInterval(fetchMessages, 2000); 
+            // FIXED: Interval updated to 5000 (5 seconds)
+            chatInterval = setInterval(fetchMessages, 5000); 
         }
 
         // --- CHAT SYSTEM ---
@@ -386,33 +387,29 @@
             if(!text || input.disabled) return;
             if(currentChannelId === null) return;
             
-            input.value = ''; // clear instantly for good UX
+            input.value = ''; 
             
             const res = await api('send_message', { 
                 channel_id: currentChannelId, 
-                receiver: currentDmUser, // Passed if in DM mode
+                receiver: currentDmUser,
                 content: text 
             });
             
             if (!res.success) alert(res.message || "Failed to send message.");
-            
-            // FIX: Removed manual fetchMessages() call to prevent message duplication bug.
-            // The chatInterval will naturally pick it up within 2 seconds.
         }
 
         async function fetchMessages() {
             if(currentChannelId === null) return;
             
-            // Capture the fetch ID at start of request
             const activeFetchId = currentFetchId; 
             
+            // USING last_id INSTEAD OF last_time TO PREVENT DUPLICATES
             const res = await api('fetch_messages', { 
                 channel_id: currentChannelId, 
                 receiver: currentDmUser, 
-                last_time: lastMessageTime 
+                last_id: lastMessageId 
             });
             
-            // FIX: If user clicked a different channel while waiting for the server, abort rendering
             if (activeFetchId !== currentFetchId) return; 
 
             if (res.success && res.messages.length > 0) {
@@ -435,7 +432,8 @@
                     `;
                 });
                 
-                lastMessageTime = res.current_time; 
+                // Track the exact ID of the last message received
+                lastMessageId = res.messages[res.messages.length - 1].id; 
                 container.scrollTop = container.scrollHeight; 
             }
         }
