@@ -27,12 +27,13 @@ try {
 // --- CREATE TABLES IF MISSING ---
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_servers (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(50), owner VARCHAR(50))");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_channels (id INT AUTO_INCREMENT PRIMARY KEY, server_id INT, name VARCHAR(50), is_readonly TINYINT(1) DEFAULT 0)");
-$pdo->exec("CREATE TABLE IF NOT EXISTS sc_messages (id INT AUTO_INCREMENT PRIMARY KEY, channel_id INT, sender VARCHAR(50), content TEXT, created_at BIGINT)");
+$pdo->exec("CREATE TABLE IF NOT EXISTS sc_messages (id INT AUTO_INCREMENT PRIMARY KEY, channel_id INT, sender VARCHAR(50), receiver VARCHAR(50) DEFAULT '', content TEXT, created_at BIGINT)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_server_members (server_id INT, username VARCHAR(50), PRIMARY KEY(server_id, username))");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_friends (user1 VARCHAR(50), user2 VARCHAR(50), status VARCHAR(20) DEFAULT 'pending', PRIMARY KEY(user1, user2))");
 
-// Upgrade existing tables safely if they were made in the previous version
+// Upgrade existing tables safely
 try { $pdo->exec("ALTER TABLE sc_channels ADD COLUMN is_readonly TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $pdo->exec("ALTER TABLE sc_messages ADD COLUMN receiver VARCHAR(50) DEFAULT ''"); } catch (Exception $e) {}
 
 $action = $_POST['action'] ?? '';
 $username = $_POST['username'] ?? '';
@@ -47,7 +48,6 @@ if (!$username) {
 // 1. Create a new Server
 if ($action === 'create_server') {
     $name = strip_tags($_POST['server_name'] ?? 'New Server');
-    
     $stmt = $pdo->prepare("INSERT INTO sc_servers (name, owner) VALUES (?, ?)");
     $stmt->execute([$name, $username]);
     $server_id = $pdo->lastInsertId();
@@ -68,7 +68,6 @@ if ($action === 'create_channel') {
     $name = strip_tags($_POST['channel_name'] ?? 'new-channel');
     $is_readonly = (int)($_POST['is_readonly'] ?? 0);
 
-    // Verify ownership
     $stmt = $pdo->prepare("SELECT owner FROM sc_servers WHERE id = ?");
     $stmt->execute([$server_id]);
     $server = $stmt->fetch();
@@ -83,18 +82,14 @@ if ($action === 'create_channel') {
     exit;
 }
 
-// 3. Load User's Servers (WITH AUTO-JOIN SERVER 16 LOGIC)
+// 3. Load Servers
 if ($action === 'load_servers') {
-    
-    // --- AUTO JOIN SERVER 16 LOGIC ---
-    // Check if Server 16 exists first
+    // Auto Join Server 16 if it exists
     $stmt = $pdo->query("SELECT id FROM sc_servers WHERE id = 16");
     if ($stmt->fetch()) {
-        // If it exists, force the user into the members list (IGNORE prevents errors if they are already in it)
         $stmt = $pdo->prepare("INSERT IGNORE INTO sc_server_members (server_id, username) VALUES (16, ?)");
         $stmt->execute([$username]);
     }
-    // ----------------------------------
 
     $stmt = $pdo->prepare("SELECT s.id, s.name FROM sc_servers s JOIN sc_server_members m ON s.id = m.server_id WHERE m.username = ?");
     $stmt->execute([$username]);
@@ -103,11 +98,9 @@ if ($action === 'load_servers') {
     exit;
 }
 
-// 4. Load Channels for a Server
+// 4. Load Channels
 if ($action === 'load_channels') {
     $server_id = (int)$_POST['server_id'];
-    
-    // Get owner to inform frontend who has permissions
     $stmt = $pdo->prepare("SELECT owner FROM sc_servers WHERE id = ?");
     $stmt->execute([$server_id]);
     $owner = $stmt->fetchColumn();
@@ -120,43 +113,58 @@ if ($action === 'load_channels') {
     exit;
 }
 
-// 5. Send Message
+// 5. Send Message (Handles both Channels and DMs)
 if ($action === 'send_message') {
     $channel_id = (int)$_POST['channel_id'];
+    $receiver = strip_tags($_POST['receiver'] ?? '');
     $content = strip_tags($_POST['content'] ?? '');
     
-    if ($content && $channel_id) {
-        // SECURITY: Check if channel is read-only and if sender is the owner
-        $stmt = $pdo->prepare("SELECT c.is_readonly, s.owner FROM sc_channels c JOIN sc_servers s ON c.server_id = s.id WHERE c.id = ?");
-        $stmt->execute([$channel_id]);
-        $chanInfo = $stmt->fetch();
-
-        if ($chanInfo) {
-            // Block if read-only and user is NOT the owner
-            if ($chanInfo['is_readonly'] == 1 && $chanInfo['owner'] !== $username) {
-                echo json_encode(["success" => false, "message" => "This channel is read-only."]);
-                exit;
-            }
-
-            $stmt = $pdo->prepare("INSERT INTO sc_messages (channel_id, sender, content, created_at) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$channel_id, $username, $content, time()]);
+    if ($content) {
+        if ($channel_id === 0 && $receiver) {
+            // DIRECT MESSAGE
+            $stmt = $pdo->prepare("INSERT INTO sc_messages (channel_id, sender, receiver, content, created_at) VALUES (0, ?, ?, ?, ?)");
+            $stmt->execute([$username, $receiver, $content, time()]);
             echo json_encode(["success" => true]);
             exit;
+        } else if ($channel_id > 0) {
+            // SERVER MESSAGE
+            $stmt = $pdo->prepare("SELECT c.is_readonly, s.owner FROM sc_channels c JOIN sc_servers s ON c.server_id = s.id WHERE c.id = ?");
+            $stmt->execute([$channel_id]);
+            $chanInfo = $stmt->fetch();
+
+            if ($chanInfo) {
+                if ($chanInfo['is_readonly'] == 1 && $chanInfo['owner'] !== $username) {
+                    echo json_encode(["success" => false, "message" => "This channel is read-only."]);
+                    exit;
+                }
+                $stmt = $pdo->prepare("INSERT INTO sc_messages (channel_id, sender, content, created_at) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$channel_id, $username, $content, time()]);
+                echo json_encode(["success" => true]);
+                exit;
+            }
         }
     }
     echo json_encode(["success" => false]);
     exit;
 }
 
-// 6. Fetch Messages
+// 6. Fetch Messages (Handles both Channels and DMs)
 if ($action === 'fetch_messages') {
     $channel_id = (int)$_POST['channel_id'];
+    $receiver = strip_tags($_POST['receiver'] ?? '');
     $last_time = (int)($_POST['last_time'] ?? 0);
     
-    $stmt = $pdo->prepare("SELECT id, sender, content, created_at FROM sc_messages WHERE channel_id = ? AND created_at > ? ORDER BY created_at ASC");
-    $stmt->execute([$channel_id, $last_time]);
+    if ($channel_id === 0 && $receiver) {
+        // DIRECT MESSAGE FETCH
+        $stmt = $pdo->prepare("SELECT id, sender, content, created_at FROM sc_messages WHERE channel_id = 0 AND ((sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)) AND created_at > ? ORDER BY created_at ASC");
+        $stmt->execute([$username, $receiver, $receiver, $username, $last_time]);
+    } else {
+        // SERVER CHANNEL FETCH
+        $stmt = $pdo->prepare("SELECT id, sender, content, created_at FROM sc_messages WHERE channel_id = ? AND created_at > ? ORDER BY created_at ASC");
+        $stmt->execute([$channel_id, $last_time]);
+    }
+
     $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
     echo json_encode(["success" => true, "messages" => $messages, "current_time" => time()]);
     exit;
 }
@@ -165,9 +173,34 @@ if ($action === 'fetch_messages') {
 if ($action === 'add_friend') {
     $target = strip_tags($_POST['target'] ?? '');
     if ($target && $target !== $username) {
-        $stmt = $pdo->prepare("REPLACE INTO sc_friends (user1, user2, status) VALUES (?, ?, 'pending')");
+        $stmt = $pdo->prepare("INSERT IGNORE INTO sc_friends (user1, user2, status) VALUES (?, ?, 'pending')");
         $stmt->execute([$username, $target]);
     }
+    echo json_encode(["success" => true]);
+    exit;
+}
+
+// 8. Load Friends & Pending Requests
+if ($action === 'load_friends') {
+    // People who sent ME a request
+    $stmt = $pdo->prepare("SELECT user1 FROM sc_friends WHERE user2 = ? AND status = 'pending'");
+    $stmt->execute([$username]);
+    $pending = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    // People I am friends with
+    $stmt = $pdo->prepare("SELECT IF(user1 = ?, user2, user1) as friend FROM sc_friends WHERE (user1 = ? OR user2 = ?) AND status = 'accepted'");
+    $stmt->execute([$username, $username, $username]);
+    $friends = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    echo json_encode(["success" => true, "pending" => $pending, "friends" => $friends]);
+    exit;
+}
+
+// 9. Accept Friend Request
+if ($action === 'accept_friend') {
+    $target = strip_tags($_POST['target'] ?? '');
+    $stmt = $pdo->prepare("UPDATE sc_friends SET status = 'accepted' WHERE user1 = ? AND user2 = ?");
+    $stmt->execute([$target, $username]);
     echo json_encode(["success" => true]);
     exit;
 }
