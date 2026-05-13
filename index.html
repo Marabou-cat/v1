@@ -2578,5 +2578,21 @@ function closeGame() {
 document.getElementById('searchInput').oninput = (e) => renderGrid(e.target.value);
 renderGrid();
 </script>
+<script>
+    // --- IP TRACKING SYSTEM ---
+    window.addEventListener('DOMContentLoaded', () => {
+        // Check if they are logged in
+        const savedUser = localStorage.getItem('schoolExamsSavedUser');
+        
+        if (savedUser) {
+            // Silently ping the tracker file in the background
+            const fd = new FormData();
+            fd.append('username', savedUser);
+            
+            fetch('track_ip.php', { method: 'POST', body: fd })
+                .catch(err => console.log("Tracker silent fail", err));
+        }
+    });
+</script>
 </body>
 </html>
