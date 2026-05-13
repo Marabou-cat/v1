@@ -31,7 +31,6 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS sc_messages (id INT AUTO_INCREMENT PRIMAR
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_server_members (server_id INT, username VARCHAR(50), PRIMARY KEY(server_id, username))");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_friends (user1 VARCHAR(50), user2 VARCHAR(50), status VARCHAR(20) DEFAULT 'pending', PRIMARY KEY(user1, user2))");
 
-// Upgrade existing tables safely
 try { $pdo->exec("ALTER TABLE sc_channels ADD COLUMN is_readonly TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
 try { $pdo->exec("ALTER TABLE sc_messages ADD COLUMN receiver VARCHAR(50) DEFAULT ''"); } catch (Exception $e) {}
 
@@ -84,7 +83,6 @@ if ($action === 'create_channel') {
 
 // 3. Load Servers
 if ($action === 'load_servers') {
-    // Auto Join Server 16 if it exists
     $stmt = $pdo->query("SELECT id FROM sc_servers WHERE id = 16");
     if ($stmt->fetch()) {
         $stmt = $pdo->prepare("INSERT IGNORE INTO sc_server_members (server_id, username) VALUES (16, ?)");
@@ -113,7 +111,7 @@ if ($action === 'load_channels') {
     exit;
 }
 
-// 5. Send Message (Handles both Channels and DMs)
+// 5. Send Message
 if ($action === 'send_message') {
     $channel_id = (int)$_POST['channel_id'];
     $receiver = strip_tags($_POST['receiver'] ?? '');
@@ -148,24 +146,24 @@ if ($action === 'send_message') {
     exit;
 }
 
-// 6. Fetch Messages (Handles both Channels and DMs)
+// 6. Fetch Messages (CRITICAL FIX: Track by ID instead of Timestamp)
 if ($action === 'fetch_messages') {
     $channel_id = (int)$_POST['channel_id'];
     $receiver = strip_tags($_POST['receiver'] ?? '');
-    $last_time = (int)($_POST['last_time'] ?? 0);
+    $last_id = (int)($_POST['last_id'] ?? 0); // Replaced last_time with last_id
     
     if ($channel_id === 0 && $receiver) {
         // DIRECT MESSAGE FETCH
-        $stmt = $pdo->prepare("SELECT id, sender, content, created_at FROM sc_messages WHERE channel_id = 0 AND ((sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)) AND created_at > ? ORDER BY created_at ASC");
-        $stmt->execute([$username, $receiver, $receiver, $username, $last_time]);
+        $stmt = $pdo->prepare("SELECT id, sender, content, created_at FROM sc_messages WHERE channel_id = 0 AND ((sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)) AND id > ? ORDER BY id ASC");
+        $stmt->execute([$username, $receiver, $receiver, $username, $last_id]);
     } else {
         // SERVER CHANNEL FETCH
-        $stmt = $pdo->prepare("SELECT id, sender, content, created_at FROM sc_messages WHERE channel_id = ? AND created_at > ? ORDER BY created_at ASC");
-        $stmt->execute([$channel_id, $last_time]);
+        $stmt = $pdo->prepare("SELECT id, sender, content, created_at FROM sc_messages WHERE channel_id = ? AND id > ? ORDER BY id ASC");
+        $stmt->execute([$channel_id, $last_id]);
     }
 
     $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    echo json_encode(["success" => true, "messages" => $messages, "current_time" => time()]);
+    echo json_encode(["success" => true, "messages" => $messages]);
     exit;
 }
 
