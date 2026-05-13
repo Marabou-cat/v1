@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invite Friends - Cosmic Portal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000814;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background-image: radial-gradient(circle at top right, #001d3d, #000814);
+        }
+
+        .btn-back {
+            position: absolute; top: 20px; left: 20px;
+            background: transparent; border: 2px solid #00f5d4; color: #00f5d4;
+            padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 16px;
+            cursor: pointer; transition: 0.3s; text-decoration: none; z-index: 100;
+        }
+        .btn-back:hover { background: #00f5d4; color: #000; box-shadow: 0 0 15px rgba(0, 245, 212, 0.5); }
+
+        .panel {
+            background: rgba(0, 29, 61, 0.85); border: 2px solid #00f5d4; border-radius: 20px;
+            padding: 40px; width: 90%; max-width: 500px; box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 20px rgba(0, 245, 212, 0.2);
+            text-align: center; backdrop-filter: blur(10px);
+        }
+
+        h1 { color: #00f5d4; text-shadow: 0 0 10px rgba(0, 245, 212, 0.5); text-transform: uppercase; letter-spacing: 2px; margin-top: 0; }
+        p { color: #caf0f8; line-height: 1.6; margin-bottom: 25px; }
+
+        .link-box {
+            background: #000814; border: 2px solid #0077b6; padding: 15px; border-radius: 12px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;
+        }
+
+        .link-text {
+            color: #90e0ef; font-family: monospace; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        .btn-copy {
+            background: #0077b6; color: white; border: none; padding: 10px 20px; border-radius: 8px;
+            font-weight: bold; cursor: pointer; transition: 0.2s; text-transform: uppercase;
+        }
+        .btn-copy:hover { background: #00f5d4; color: #000; box-shadow: 0 0 15px #00f5d4; }
+
+        .stats-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+        }
+
+        .stat-card {
+            background: #001d3d; border: 1px solid #0077b6; border-radius: 12px; padding: 20px;
+        }
+
+        .stat-card h3 { margin: 0 0 10px 0; font-size: 32px; color: #fff; }
+        .stat-card span { font-size: 14px; color: #90e0ef; text-transform: uppercase; font-weight: bold; }
+        
+        .stat-card.gems h3 { color: #00f5d4; text-shadow: 0 0 10px rgba(0,245,212,0.5); }
+    </style>
+</head>
+<body>
+
+    <a href="../index.html" class="btn-back">⬅ Back to Portal</a>
+
+    <div class="panel">
+        <h1>Invite & Earn</h1>
+        <p>Invite your friends to join the Cosmic Portal! For every new player that joins using your link from a different network, you will instantly earn <b>200 Gems</b>.</p>
+
+        <div class="link-box">
+            <div class="link-text" id="inviteLink">Generating link...</div>
+            <button class="btn-copy" onclick="copyLink()" id="copyBtn">Copy</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3 id="statInvites">0</h3>
+                <span>Total Invites</span>
+            </div>
+            <div class="stat-card gems">
+                <h3 id="statGems">0</h3>
+                <span>Gems Earned 💎</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const myUsername = localStorage.getItem('schoolExamsSavedUser');
+
+        if (!myUsername) {
+            alert("Please log in from the main portal first!");
+            window.location.href = "../index.html";
+        }
+
+        // Generate the URL dynamically based on where this file is hosted
+        const baseURL = window.location.origin + window.location.pathname.replace('index.html', '');
+        const inviteURL = `${baseURL}process.php?ref=${encodeURIComponent(myUsername)}`;
+        
+        document.getElementById('inviteLink').innerText = inviteURL;
+
+        function copyLink() {
+            navigator.clipboard.writeText(inviteURL).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.innerText = "Copied!";
+                btn.style.background = "#00f5d4";
+                btn.style.color = "#000";
+                
+                setTimeout(() => {
+                    btn.innerText = "Copy";
+                    btn.style.background = "#0077b6";
+                    btn.style.color = "#fff";
+                }, 2000);
+            });
+        }
+
+        // Initialize and log IP on the backend
+        async function loadInviteData() {
+            const fd = new FormData();
+            fd.append('action', 'init_invite_panel');
+            fd.append('username', myUsername);
+
+            try {
+                const res = await fetch('invite_backend.php', { method: 'POST', body: fd });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('statInvites').innerText = data.total_invites;
+                    document.getElementById('statGems').innerText = data.gems_earned;
+                }
+            } catch(e) {
+                console.error("Error loading invite data", e);
+            }
+        }
+
+        loadInviteData();
+    </script>
+</body>
+</html>
