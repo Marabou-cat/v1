@@ -62,9 +62,22 @@
         .msg-timestamp { font-size: 12px; color: var(--text-muted); }
         .msg-content { color: var(--text-normal); line-height: 1.4; word-wrap: break-word;}
 
-        .chat-input-wrapper { padding: 0 16px 24px 16px; }
-        .chat-input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 12px 16px; color: var(--text-normal); font-size: 15px; outline: none; box-sizing: border-box; }
+        .chat-input-wrapper { padding: 0 16px 24px 16px; display: flex; gap: 12px; align-items: center;}
+        .chat-input { flex: 1; background: #383a40; border: none; border-radius: 8px; padding: 12px 16px; color: var(--text-normal); font-size: 15px; outline: none; box-sizing: border-box; }
         .chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-plus { background: #383a40; color: #fff; border: none; width: 44px; height: 44px; border-radius: 50%; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;}
+        .btn-plus:hover { background: var(--brand); }
+
+        /* --- POLL UI --- */
+        .poll-container { background: #2b2d31; border: 1px solid #1e1f22; border-radius: 8px; padding: 12px; margin-top: 8px; min-width: 250px; max-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);}
+        .poll-question { font-weight: bold; margin-bottom: 10px; color: #fff; font-size: 16px; }
+        .poll-option { position: relative; background: #1e1f22; border-radius: 6px; margin-bottom: 6px; cursor: pointer; overflow: hidden; border: 1px solid transparent; transition: 0.2s;}
+        .poll-option:hover { border-color: #5865F2; }
+        .poll-option.voted { border-color: var(--green); }
+        .poll-bg { position: absolute; top: 0; left: 0; bottom: 0; background: #5865F2; opacity: 0.3; transition: width 0.4s ease-out; width: 0%; }
+        .poll-option.voted .poll-bg { background: var(--green); opacity: 0.4; }
+        .poll-text { position: relative; padding: 10px 12px; font-size: 14px; display: flex; justify-content: space-between; pointer-events: none;}
 
         /* --- MODALS & POPUPS --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 5000; }
@@ -75,14 +88,10 @@
         
         .profile-popup { position: absolute; background: #111214; border-radius: 8px; padding: 16px; width: 250px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); display: none; z-index: 2000; border: 1px solid #333; }
         .btn-add-friend { background: var(--green); margin-top: 10px; }
-
         .btn-icon { cursor: pointer; color: var(--text-muted); transition: 0.2s; font-size: 18px; user-select: none;}
         .btn-icon:hover { color: #fff; transform: scale(1.1); }
-        
-        /* Friend UI Styles */
         .friend-category { font-size: 12px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin: 15px 0 5px 8px; }
         .btn-accept { background: var(--green); border: none; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-left: auto; }
-        .btn-accept:hover { filter: brightness(1.2); }
     </style>
 </head>
 <body>
@@ -122,16 +131,36 @@
         </div>
 
         <div class="chat-input-wrapper">
+            <button class="btn-plus" onclick="openPollModal()" title="Create a Poll">+</button>
             <input type="text" class="chat-input" id="chatInput" placeholder="Message..." onkeypress="if(event.key === 'Enter') sendMessage()" disabled>
         </div>
     </div>
 
     <!-- MODALS & POPUPS -->
     <div class="modal-overlay" id="createServerModal" onclick="if(event.target===this) this.style.display='none'">
+        <div class="modal" style="text-align: left;">
+            <h2 style="text-align: center;">Study Servers</h2>
+            
+            <div style="background:#1e1f22; padding:15px; border-radius:8px; margin-bottom:15px;">
+                <h3 style="margin-top:0; font-size:16px;">Create a New Server</h3>
+                <input type="text" id="newServerName" placeholder="e.g., Math Study Group">
+                <button class="btn" onclick="createServer()">Create</button>
+            </div>
+
+            <div style="background:#1e1f22; padding:15px; border-radius:8px;">
+                <h3 style="margin-top:0; font-size:16px;">Join a Server</h3>
+                <input type="text" id="joinServerId" placeholder="Enter Server ID">
+                <button class="btn" style="background:var(--green);" onclick="joinServer()">Join</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="inviteModal" onclick="if(event.target===this) this.style.display='none'">
         <div class="modal">
-            <h2>Create a Study Server</h2>
-            <input type="text" id="newServerName" placeholder="e.g., Advanced Math Group">
-            <button class="btn" onclick="createServer()">Create</button>
+            <h2>Invite Friends</h2>
+            <p>Tell your friends to click the <b>+</b> button and enter this Server ID to join!</p>
+            <input type="text" id="inviteServerIdDisplay" readonly style="text-align:center; font-size:32px; font-weight:bold; letter-spacing:2px; background:#111;">
+            <button class="btn" onclick="document.getElementById('inviteModal').style.display='none'">Close</button>
         </div>
     </div>
 
@@ -148,6 +177,18 @@
                 </label>
             </div>
             <button class="btn" onclick="submitCreateChannel()">Create Channel</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="createPollModal" onclick="if(event.target===this) this.style.display='none'">
+        <div class="modal" style="text-align: left;">
+            <h2 style="text-align: center;">Create a Poll</h2>
+            <input type="text" id="pollQuestion" placeholder="Ask a question... (e.g., What time should we study?)">
+            <input type="text" id="pollOpt1" placeholder="Option 1 (Required)">
+            <input type="text" id="pollOpt2" placeholder="Option 2 (Required)">
+            <input type="text" id="pollOpt3" placeholder="Option 3 (Optional)">
+            <input type="text" id="pollOpt4" placeholder="Option 4 (Optional)">
+            <button class="btn" style="background: var(--green);" onclick="submitPoll()">Send Poll</button>
         </div>
     </div>
 
@@ -170,13 +211,11 @@
         let currentChannelId = null;
         let currentDmUser = null;
         
-        let lastMessageId = 0; // CRITICAL FIX: Track by ID instead of time to prevent duplicates
+        let lastMessageId = 0; 
         let chatInterval = null;
         let currentFetchId = 0; 
-        
         let isFirstBoot = true;
 
-        // --- API HELPER ---
         async function api(action, data = {}) {
             const fd = new FormData();
             fd.append('action', action);
@@ -184,13 +223,11 @@
             for (let key in data) fd.append(key, data[key]);
             
             try {
-                // FIXED: URL updated to ../studycord_backend.php
                 const res = await fetch('../studycord_backend.php', { method: 'POST', body: fd });
                 return await res.json();
             } catch(e) { return { success: false }; }
         }
 
-        // --- INITIAL BOOT & LOAD SERVERS ---
         async function loadServers() {
             const res = await api('load_servers');
             if (!res.success) return;
@@ -222,7 +259,6 @@
         async function createServer() {
             const name = document.getElementById('newServerName').value;
             if(!name) return;
-            
             const res = await api('create_server', { server_name: name });
             if (res.success) {
                 document.getElementById('createServerModal').style.display = 'none';
@@ -231,7 +267,25 @@
             }
         }
 
-        // --- NAVIGATION & DMs ---
+        async function joinServer() {
+            const id = document.getElementById('joinServerId').value.trim();
+            if(!id) return;
+            const res = await api('join_server', { server_id: id });
+            if (res.success) {
+                document.getElementById('createServerModal').style.display = 'none';
+                document.getElementById('joinServerId').value = '';
+                loadServers();
+                loadServer(res.server_id, res.server_name);
+            } else {
+                alert(res.message);
+            }
+        }
+
+        function showInviteModal() {
+            document.getElementById('inviteServerIdDisplay').value = currentServerId;
+            document.getElementById('inviteModal').style.display = 'flex';
+        }
+
         async function loadDMs() {
             currentServerId = null;
             currentChannelId = null;
@@ -247,37 +301,28 @@
             document.getElementById('chatInput').placeholder = "Message...";
             clearInterval(chatInterval);
 
-            // Fetch Friends
             const res = await api('load_friends');
             if (res.success) {
                 let html = '';
-                
-                // Pending Requests
                 if (res.pending.length > 0) {
                     html += `<div class="friend-category">Pending Requests</div>`;
                     res.pending.forEach(p => {
-                        html += `
-                            <div class="list-item" style="cursor:default;">
-                                <div class="avatar-small" style="background:#e67e22;">${p.charAt(0).toUpperCase()}</div>
-                                <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">${p}</span>
-                                <button class="btn-accept" onclick="acceptFriend('${p}')">Accept</button>
-                            </div>
-                        `;
+                        html += `<div class="list-item" style="cursor:default;">
+                                    <div class="avatar-small" style="background:#e67e22;">${p.charAt(0).toUpperCase()}</div>
+                                    <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">${p}</span>
+                                    <button class="btn-accept" onclick="acceptFriend('${p}')">Accept</button>
+                                </div>`;
                     });
                 }
-
-                // Accepted Friends
                 html += `<div class="friend-category">Friends - ${res.friends.length}</div>`;
                 if (res.friends.length === 0) {
                     html += `<div style="color:gray; padding:10px; font-size:12px;">No friends yet. Search for a username at the top to add them!</div>`;
                 } else {
                     res.friends.forEach(f => {
-                        html += `
-                            <div class="list-item" onclick="openDM('${f.replace(/'/g, "\\'")}')">
-                                <div class="avatar-small" style="background:#3ba55c;">${f.charAt(0).toUpperCase()}</div>
-                                <span style="overflow:hidden; text-overflow:ellipsis;">${f}</span>
-                            </div>
-                        `;
+                        html += `<div class="list-item" onclick="openDM('${f.replace(/'/g, "\\'")}')">
+                                    <div class="avatar-small" style="background:#3ba55c;">${f.charAt(0).toUpperCase()}</div>
+                                    <span style="overflow:hidden; text-overflow:ellipsis;">${f}</span>
+                                </div>`;
                     });
                 }
                 document.getElementById('channelList').innerHTML = html;
@@ -292,9 +337,8 @@
         function openDM(friendName) {
             currentChannelId = 0; 
             currentDmUser = friendName;
-            
             currentFetchId++; 
-            lastMessageId = 0; // RESET ID TRACKER
+            lastMessageId = 0; 
             
             document.getElementById('chatTitle').innerText = `@ ${friendName}`;
             document.getElementById('messageContainer').innerHTML = ""; 
@@ -305,11 +349,9 @@
 
             clearInterval(chatInterval);
             fetchMessages(); 
-            // FIXED: Interval updated to 5000 (5 seconds)
             chatInterval = setInterval(fetchMessages, 5000); 
         }
 
-        // --- SERVER CHANNELS ---
         async function loadServer(id, name) {
             currentServerId = id;
             currentServerName = name;
@@ -320,10 +362,14 @@
             const res = await api('load_channels', { server_id: id });
             if(res.success) {
                 let addChannelBtn = (res.owner === myUsername) 
-                    ? `<span class="btn-icon" title="Create Channel" onclick="document.getElementById('createChannelModal').style.display='flex'">+</span>` 
-                    : ``;
+                    ? `<span class="btn-icon" title="Create Channel" onclick="document.getElementById('createChannelModal').style.display='flex'">+</span>` : ``;
+                
+                let inviteBtn = `<span class="btn-icon" title="Invite Friends" onclick="showInviteModal()">✉️</span>`;
 
-                document.getElementById('sidebarHeader').innerHTML = `<span style="font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</span> ${addChannelBtn}`;
+                document.getElementById('sidebarHeader').innerHTML = `
+                    <span style="font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</span> 
+                    <div style="display:flex; gap:10px;">${inviteBtn} ${addChannelBtn}</div>
+                `;
                 
                 let html = '';
                 res.channels.forEach(c => {
@@ -332,16 +378,13 @@
                 });
                 document.getElementById('channelList').innerHTML = html;
                 
-                if (res.channels.length > 0) {
-                    joinChannel(res.channels[0].id, res.channels[0].name, res.channels[0].is_readonly, res.owner);
-                }
+                if (res.channels.length > 0) joinChannel(res.channels[0].id, res.channels[0].name, res.channels[0].is_readonly, res.owner);
             }
         }
 
         async function submitCreateChannel() {
             const name = document.getElementById('newChannelName').value;
             const isReadonly = document.querySelector('input[name="chanPerms"]:checked').value;
-            
             if(!name || !currentServerId) return;
 
             const res = await api('create_channel', { server_id: currentServerId, channel_name: name, is_readonly: isReadonly });
@@ -357,9 +400,8 @@
         async function joinChannel(id, name, isReadonly, serverOwner) {
             currentChannelId = id;
             currentDmUser = null; 
-            
             currentFetchId++; 
-            lastMessageId = 0; // RESET ID TRACKER
+            lastMessageId = 0; 
             
             document.getElementById('chatTitle').innerText = (isReadonly == 1 ? '🔒 ' : '# ') + name;
             document.getElementById('messageContainer').innerHTML = ""; 
@@ -368,7 +410,7 @@
             
             if (isReadonly == 1 && serverOwner !== myUsername) {
                 input.disabled = true;
-                input.placeholder = "You do not have permission to send messages in this channel.";
+                input.placeholder = "Read-Only Channel. You can still click to vote on polls!";
             } else {
                 input.disabled = false;
                 input.placeholder = `Message #${name}`;
@@ -376,8 +418,50 @@
 
             clearInterval(chatInterval);
             fetchMessages(); 
-            // FIXED: Interval updated to 5000 (5 seconds)
             chatInterval = setInterval(fetchMessages, 5000); 
+        }
+
+        // --- POLL FUNCTIONS ---
+        function openPollModal() {
+            if (currentChannelId === null || currentChannelId === 0) return alert("Polls can only be created in Servers!");
+            document.getElementById('createPollModal').style.display = 'flex';
+        }
+
+        async function submitPoll() {
+            const q = document.getElementById('pollQuestion').value.trim();
+            const o1 = document.getElementById('pollOpt1').value.trim();
+            const o2 = document.getElementById('pollOpt2').value.trim();
+            const o3 = document.getElementById('pollOpt3').value.trim();
+            const o4 = document.getElementById('pollOpt4').value.trim();
+
+            if (!q || !o1 || !o2) return alert("Question and at least 2 options are required!");
+
+            let opts = [o1, o2];
+            if (o3) opts.push(o3);
+            if (o4) opts.push(o4);
+
+            const res = await api('send_poll', {
+                channel_id: currentChannelId,
+                question: q,
+                options: JSON.stringify(opts)
+            });
+
+            if (res.success) {
+                document.getElementById('createPollModal').style.display = 'none';
+                document.getElementById('pollQuestion').value = '';
+                document.getElementById('pollOpt1').value = '';
+                document.getElementById('pollOpt2').value = '';
+                document.getElementById('pollOpt3').value = '';
+                document.getElementById('pollOpt4').value = '';
+                fetchMessages(); // refresh to show poll
+            } else {
+                alert(res.message);
+            }
+        }
+
+        async function votePoll(msgId, optIndex) {
+            await api('vote_poll', { message_id: msgId, option_index: optIndex });
+            fetchMessages(); // Instantly fetch to update visual bars
         }
 
         // --- CHAT SYSTEM ---
@@ -388,36 +472,40 @@
             if(currentChannelId === null) return;
             
             input.value = ''; 
-            
-            const res = await api('send_message', { 
-                channel_id: currentChannelId, 
-                receiver: currentDmUser,
-                content: text 
-            });
-            
+            const res = await api('send_message', { channel_id: currentChannelId, receiver: currentDmUser, content: text });
             if (!res.success) alert(res.message || "Failed to send message.");
         }
 
         async function fetchMessages() {
             if(currentChannelId === null) return;
-            
             const activeFetchId = currentFetchId; 
             
-            // USING last_id INSTEAD OF last_time TO PREVENT DUPLICATES
-            const res = await api('fetch_messages', { 
-                channel_id: currentChannelId, 
-                receiver: currentDmUser, 
-                last_id: lastMessageId 
-            });
-            
+            const res = await api('fetch_messages', { channel_id: currentChannelId, receiver: currentDmUser, last_id: lastMessageId });
             if (activeFetchId !== currentFetchId) return; 
 
-            if (res.success && res.messages.length > 0) {
-                const container = document.getElementById('messageContainer');
-                
+            const container = document.getElementById('messageContainer');
+
+            // 1. Render new texts & polls
+            if (res.success && res.messages && res.messages.length > 0) {
                 res.messages.forEach(m => {
                     let date = new Date(m.created_at * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    
+                    let contentHTML = m.content;
+
+                    if (m.is_poll == 1) {
+                        try {
+                            let poll = JSON.parse(m.content);
+                            contentHTML = `<div class="poll-container" id="poll_${m.id}">
+                                <div class="poll-question">${poll.q}</div>
+                                ${poll.options.map((opt, i) => `
+                                    <div class="poll-option" id="poll_opt_${m.id}_${i}" onclick="votePoll(${m.id}, ${i})">
+                                        <div class="poll-bg" id="poll_bg_${m.id}_${i}"></div>
+                                        <div class="poll-text"><span>${opt}</span> <span id="poll_cnt_${m.id}_${i}">(0)</span></div>
+                                    </div>
+                                `).join('')}
+                            </div>`;
+                        } catch(e) { contentHTML = "[Broken Poll]"; }
+                    }
+
                     container.innerHTML += `
                         <div class="message">
                             <div class="avatar-small" style="background: #3498db; cursor:pointer;" onclick="openProfile(event, '${m.sender}')">${m.sender.charAt(0).toUpperCase()}</div>
@@ -426,15 +514,48 @@
                                     <span class="msg-username" onclick="openProfile(event, '${m.sender}')">${m.sender}</span>
                                     <span class="msg-timestamp">${date}</span>
                                 </div>
-                                <div class="msg-content">${m.content}</div>
+                                <div class="msg-content">${contentHTML}</div>
                             </div>
                         </div>
                     `;
                 });
-                
-                // Track the exact ID of the last message received
                 lastMessageId = res.messages[res.messages.length - 1].id; 
                 container.scrollTop = container.scrollHeight; 
+            }
+
+            // 2. Process and update Poll Votes dynamically
+            if (res.success && res.poll_votes) {
+                let voteMap = {}; // Tally up votes
+                res.poll_votes.forEach(v => {
+                    if (!voteMap[v.message_id]) voteMap[v.message_id] = { total: 0, opts: {}, myVote: null };
+                    if (!voteMap[v.message_id].opts[v.option_index]) voteMap[v.message_id].opts[v.option_index] = 0;
+                    
+                    voteMap[v.message_id].opts[v.option_index]++;
+                    voteMap[v.message_id].total++;
+                    
+                    if (v.username === myUsername) voteMap[v.message_id].myVote = v.option_index;
+                });
+
+                for (let msgId in voteMap) {
+                    let pData = voteMap[msgId];
+                    let optIndex = 0;
+                    
+                    while(document.getElementById(`poll_opt_${msgId}_${optIndex}`)) {
+                        let cnt = pData.opts[optIndex] || 0;
+                        let pct = pData.total > 0 ? (cnt / pData.total) * 100 : 0;
+                        
+                        document.getElementById(`poll_cnt_${msgId}_${optIndex}`).innerText = `(${cnt})`;
+                        document.getElementById(`poll_bg_${msgId}_${optIndex}`).style.width = `${pct}%`;
+                        
+                        let optDiv = document.getElementById(`poll_opt_${msgId}_${optIndex}`);
+                        if (pData.myVote === optIndex) {
+                            optDiv.classList.add('voted');
+                        } else {
+                            optDiv.classList.remove('voted');
+                        }
+                        optIndex++;
+                    }
+                }
             }
         }
 
@@ -442,7 +563,6 @@
         function openProfile(e, username) {
             e.stopPropagation();
             const popup = document.getElementById('profilePopup');
-            
             popup.innerHTML = `
                 <div style="display:flex; align-items:center; gap: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom:10px;">
                     <div class="avatar-small" style="background:#e74c3c; width:50px; height:50px; font-size:24px;">${username.charAt(0).toUpperCase()}</div>
@@ -453,11 +573,9 @@
                 </div>
                 <button class="btn btn-add-friend" onclick="sendFriendRequest('${username}')">Send Friend Request</button>
             `;
-
             let x = e.clientX; let y = e.clientY;
             if (x + 250 > window.innerWidth) x -= 250;
             if (y + 150 > window.innerHeight) y -= 150;
-            
             popup.style.left = x + 'px'; popup.style.top = y + 'px';
             popup.style.display = 'block';
         }
