@@ -1,7 +1,8 @@
 <?php
 header('Content-Type: application/json');
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+// KEEP THIS AT 0: It prevents PHP warnings from breaking the JSON response
+ini_set('display_errors', 0); 
 
 // --- LOAD CONFIG ---
 $host = 'localhost';
@@ -10,6 +11,11 @@ $user = 'root';
 $pass = '';
 
 $configFile = 'config.ini';
+// Check if the config is in the current folder or the parent folder
+if (!file_exists($configFile) && file_exists('../config.ini')) {
+    $configFile = '../config.ini';
+}
+
 if (file_exists($configFile)) {
     $lines = file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     if (isset($lines[0])) $user = trim($lines[0]);
@@ -24,24 +30,16 @@ try {
     exit;
 }
 
-// --- CREATE TABLES IF MISSING ---
+// --- 1. CREATE ALL REQUIRED TABLES ---
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_servers (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(50), owner VARCHAR(50))");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_channels (id INT AUTO_INCREMENT PRIMARY KEY, server_id INT, name VARCHAR(50), is_readonly TINYINT(1) DEFAULT 0)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_messages (id INT AUTO_INCREMENT PRIMARY KEY, channel_id INT, sender VARCHAR(50), receiver VARCHAR(50) DEFAULT '', content TEXT, created_at BIGINT, is_poll TINYINT(1) DEFAULT 0)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_server_members (server_id INT, username VARCHAR(50), PRIMARY KEY(server_id, username))");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sc_friends (user1 VARCHAR(50), user2 VARCHAR(50), status VARCHAR(20) DEFAULT 'pending', PRIMARY KEY(user1, user2))");
-
 $pdo->exec("CREATE TABLE IF NOT EXISTS user_ips (username VARCHAR(50) PRIMARY KEY, ip_address VARCHAR(45) NOT NULL, last_updated BIGINT NOT NULL)");
+$pdo->exec("CREATE TABLE IF NOT EXISTS sc_poll_votes (message_id INT, username VARCHAR(50), option_index INT, PRIMARY KEY(message_id, username))");
 
-// Poll Votes Table
-$pdo->exec("CREATE TABLE IF NOT EXISTS sc_poll_votes (
-    message_id INT,
-    username VARCHAR(50),
-    option_index INT,
-    PRIMARY KEY(message_id, username)
-)");
-
-// Safely upgrade older tables
+// --- 2. SAFELY UPGRADE OLD TABLES ---
 try { $pdo->exec("ALTER TABLE sc_channels ADD COLUMN is_readonly TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
 try { $pdo->exec("ALTER TABLE sc_messages ADD COLUMN receiver VARCHAR(50) DEFAULT ''"); } catch (Exception $e) {}
 try { $pdo->exec("ALTER TABLE sc_messages ADD COLUMN is_poll TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
@@ -54,12 +52,23 @@ if (!$username) {
     exit;
 }
 
-// ⭐ BACKGROUND IP TRACKER ⭐
+// ==========================================
+// ⭐ GLOBAL BACKGROUND IP TRACKER ⭐
+// ==========================================
+// Smart IP grabber that bypasses Proxies/Cloudflare if you ever host this online
 $current_ip = $_SERVER['REMOTE_ADDR'];
+if (isset($_SERVER["HTTP_CF_CONNECTING_IP"])) {
+    $current_ip = $_SERVER["HTTP_CF_CONNECTING_IP"];
+} else if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+    $ipList = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+    $current_ip = trim($ipList[0]);
+}
+
 $current_time = time();
 $stmt = $pdo->prepare("SELECT ip_address, last_updated FROM user_ips WHERE username = ?");
 $stmt->execute([$username]);
 $ip_data = $stmt->fetch();
+
 if (!$ip_data) {
     $stmt = $pdo->prepare("INSERT INTO user_ips (username, ip_address, last_updated) VALUES (?, ?, ?)");
     $stmt->execute([$username, $current_ip, $current_time]);
@@ -67,9 +76,12 @@ if (!$ip_data) {
     $stmt = $pdo->prepare("UPDATE user_ips SET ip_address = ?, last_updated = ? WHERE username = ?");
     $stmt->execute([$current_ip, $current_time, $username]);
 }
+// ==========================================
+
 
 // --- API ROUTER ---
 
+// 1. Create Server
 if ($action === 'create_server') {
     $name = strip_tags($_POST['server_name'] ?? 'New Server');
     $stmt = $pdo->prepare("INSERT INTO sc_servers (name, owner) VALUES (?, ?)");
@@ -86,6 +98,7 @@ if ($action === 'create_server') {
     exit;
 }
 
+// 2. Join Server via Invite Code
 if ($action === 'join_server') {
     $server_id = (int)$_POST['server_id'];
     $stmt = $pdo->prepare("SELECT id, name FROM sc_servers WHERE id = ?");
@@ -102,6 +115,7 @@ if ($action === 'join_server') {
     exit;
 }
 
+// 3. Create Channel
 if ($action === 'create_channel') {
     $server_id = (int)$_POST['server_id'];
     $name = strip_tags($_POST['channel_name'] ?? 'new-channel');
@@ -121,6 +135,7 @@ if ($action === 'create_channel') {
     exit;
 }
 
+// 4. Load Servers (Forces joining Server 16 if it exists)
 if ($action === 'load_servers') {
     $stmt = $pdo->query("SELECT id FROM sc_servers WHERE id = 16");
     if ($stmt->fetch()) {
@@ -135,6 +150,7 @@ if ($action === 'load_servers') {
     exit;
 }
 
+// 5. Load Channels
 if ($action === 'load_channels') {
     $server_id = (int)$_POST['server_id'];
     $stmt = $pdo->prepare("SELECT owner FROM sc_servers WHERE id = ?");
@@ -149,6 +165,7 @@ if ($action === 'load_channels') {
     exit;
 }
 
+// 6. Send Normal Message
 if ($action === 'send_message') {
     $channel_id = (int)$_POST['channel_id'];
     $receiver = strip_tags($_POST['receiver'] ?? '');
@@ -156,11 +173,13 @@ if ($action === 'send_message') {
     
     if ($content) {
         if ($channel_id === 0 && $receiver) {
+            // Send Direct Message
             $stmt = $pdo->prepare("INSERT INTO sc_messages (channel_id, sender, receiver, content, created_at, is_poll) VALUES (0, ?, ?, ?, ?, 0)");
             $stmt->execute([$username, $receiver, $content, time()]);
             echo json_encode(["success" => true]);
             exit;
         } else if ($channel_id > 0) {
+            // Send Server Message
             $stmt = $pdo->prepare("SELECT c.is_readonly, s.owner FROM sc_channels c JOIN sc_servers s ON c.server_id = s.id WHERE c.id = ?");
             $stmt->execute([$channel_id]);
             $chanInfo = $stmt->fetch();
@@ -181,7 +200,7 @@ if ($action === 'send_message') {
     exit;
 }
 
-// POLL ACTIONS
+// 7. Send Poll
 if ($action === 'send_poll') {
     $channel_id = (int)$_POST['channel_id'];
     $question = strip_tags($_POST['question'] ?? '');
@@ -214,22 +233,24 @@ if ($action === 'send_poll') {
     exit;
 }
 
+// 8. Vote on a Poll
 if ($action === 'vote_poll') {
     $message_id = (int)$_POST['message_id'];
     $option_index = (int)$_POST['option_index'];
     
-    // Admins and normal users can vote perfectly fine here
     $stmt = $pdo->prepare("INSERT INTO sc_poll_votes (message_id, username, option_index) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE option_index = ?");
     $stmt->execute([$message_id, $username, $option_index, $option_index]);
     echo json_encode(["success" => true]);
     exit;
 }
 
+// 9. Fetch Chat & Polls
 if ($action === 'fetch_messages') {
     $channel_id = (int)$_POST['channel_id'];
     $receiver = strip_tags($_POST['receiver'] ?? '');
     $last_id = (int)($_POST['last_id'] ?? 0); 
     
+    // Fetch Messages
     if ($channel_id === 0 && $receiver) {
         $stmt = $pdo->prepare("SELECT id, sender, content, created_at, is_poll FROM sc_messages WHERE channel_id = 0 AND ((sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)) AND id > ? ORDER BY id ASC");
         $stmt->execute([$username, $receiver, $receiver, $username, $last_id]);
@@ -237,10 +258,9 @@ if ($action === 'fetch_messages') {
         $stmt = $pdo->prepare("SELECT id, sender, content, created_at, is_poll FROM sc_messages WHERE channel_id = ? AND id > ? ORDER BY id ASC");
         $stmt->execute([$channel_id, $last_id]);
     }
-
     $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // FETCH POLL VOTES (Fetch all active votes for this channel so the visual bars update instantly)
+    // Fetch Poll Votes
     $poll_votes = [];
     if ($channel_id > 0) {
         $stmt = $pdo->prepare("
@@ -257,6 +277,7 @@ if ($action === 'fetch_messages') {
     exit;
 }
 
+// 10. Add Friend
 if ($action === 'add_friend') {
     $target = strip_tags($_POST['target'] ?? '');
     if ($target && $target !== $username) {
@@ -267,6 +288,7 @@ if ($action === 'add_friend') {
     exit;
 }
 
+// 11. Load Friends
 if ($action === 'load_friends') {
     $stmt = $pdo->prepare("SELECT user1 FROM sc_friends WHERE user2 = ? AND status = 'pending'");
     $stmt->execute([$username]);
@@ -280,6 +302,7 @@ if ($action === 'load_friends') {
     exit;
 }
 
+// 12. Accept Friend
 if ($action === 'accept_friend') {
     $target = strip_tags($_POST['target'] ?? '');
     $stmt = $pdo->prepare("UPDATE sc_friends SET status = 'accepted' WHERE user1 = ? AND user2 = ?");
