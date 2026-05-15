@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evolution Event Module</title>
     <style>
-        /* --- CORE STYLES (Match your portal) --- */
+        /* --- CORE STYLES --- */
         :root {
             --r: 16px;
             --glow: 0 0 20px rgba(0, 255, 255, 0.3);
@@ -72,13 +72,11 @@
 </head>
 <body>
 
-    <!-- Test Controls (Not needed in final game) -->
-    <button onclick="openEvolutionEvent()" style="padding: 15px; background: #00ffff; font-weight: bold; cursor: pointer;">Open Evolution Event</button>
-    <button onclick="mockPlaytimeFastForward()" style="padding: 15px; background: #f72585; color: #fff; font-weight: bold; cursor: pointer;">Fast Forward 5 Minutes</button>
+    <!-- Test Controls -->
+    <button onclick="openEvolutionEvent()" style="padding: 15px; background: #00ffff; font-weight: bold; cursor: pointer; border: none; border-radius: 8px;">Open Evolution Event</button>
+    <button onclick="mockPlaytimeFastForward()" style="padding: 15px; background: #f72585; color: #fff; font-weight: bold; cursor: pointer; border: none; border-radius: 8px;">Fast Forward 5 Minutes</button>
 
-    <!-- ========================================== -->
-    <!-- 1. EVENT PET SELECTION GATEWAY OVERLAY     -->
-    <!-- ========================================== -->
+    <!-- 1. EVENT PET SELECTION GATEWAY OVERLAY -->
     <div class="overlay" id="eventPetSelectionOverlay" style="z-index: 8500;">
         <div class="login-box">
             <h2 style="color: #00ffff; font-size: 32px; margin-top: 0;">🧬 Choose Your Specimen</h2>
@@ -106,9 +104,7 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 2. EVOLUTION EVENT MAIN HUB OVERLAY        -->
-    <!-- ========================================== -->
+    <!-- 2. EVOLUTION EVENT MAIN HUB OVERLAY -->
     <div class="overlay" id="evolutionEventOverlay">
         <div class="overlay-bar">
             <div class="bar-title" style="color: #00ffff; font-weight: 900;">🧬 EVOLUTION EVENT HUB</div>
@@ -139,14 +135,12 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 3. JAVASCRIPT ENGINE                       -->
-    <!-- ========================================== -->
+    <!-- 3. JAVASCRIPT ENGINE -->
     <script>
-        // --- MOCKED GLOBAL VARIABLES (Remove these when pasting into your real game) ---
+        // --- MOCKED GLOBAL VARIABLES ---
         let isLoggedIn = true;
         let gameState = {
-            sakura_coins: 0, // This functions as "DNA Points"
+            sakura_coins: 0, 
             gems: 500,
             owned_pets: [],
             pet_ages: {},
@@ -154,12 +148,12 @@
             game_stats: { evo_chosen: false, evo_timer: 0 }
         };
         const MAX_PETS = 50;
-        function saveGameToServer() { console.log("Game Saved", gameState); }
+        function saveGameToServer() { console.log("Main Game State Saved", gameState); }
         function showToast(msg) { console.log("TOAST:", msg); }
-        // -------------------------------------------------------------------------------
+        // --------------------------------
 
         // --- EVENT CONFIGURATION ---
-        const EVO_LOOP_LIMIT = 300; // 300 seconds = 5 minutes
+        const EVO_LOOP_LIMIT = 300; // 5 minutes
         const MUTATION_CHANCE = 0.10; // 10%
 
         const EVOLUTION_ITEMS = {
@@ -170,22 +164,18 @@
             "wish_meteor": { name: "Wish Meteor", icon: "☄️", price: 0, desc: "Unrivaled celestial mineral catalyst." }
         };
 
-        // --- MAIN UI FUNCTIONS ---
         function openEvolutionEvent() {
             if (!isLoggedIn) return alert("Authentication required!");
             
-            // Validate stats object exists
             if (!gameState.game_stats) gameState.game_stats = {};
             if (typeof gameState.game_stats.evo_chosen === 'undefined') gameState.game_stats.evo_chosen = false;
             if (typeof gameState.game_stats.evo_timer === 'undefined') gameState.game_stats.evo_timer = 0;
 
-            // Trigger Selection if they haven't picked a starter yet
             if (!gameState.game_stats.evo_chosen) {
                 document.getElementById('eventPetSelectionOverlay').classList.add('open');
                 return;
             }
 
-            // Open Main Hub
             document.getElementById('evolutionEventOverlay').classList.add('open');
             renderEvolutionShop();
             updateEvolutionUI();
@@ -201,8 +191,26 @@
             let uid = basePetId + '::' + Date.now();
             gameState.owned_pets.push(uid);
             gameState.pet_ages[uid] = 0;
-            
             gameState.game_stats.evo_chosen = true;
+
+            // --- DATABASE CONNECTION FOR NEW EVENT BACKEND ---
+            if (isLoggedIn) {
+                // If implemented in your main site, this fetches the currently logged-in user
+                const savedUser = localStorage.getItem('schoolExamsSavedUser') || 'TestUser'; 
+                
+                const fd = new FormData();
+                fd.append('action', 'enter_evolution_event');
+                fd.append('username', savedUser);
+
+                fetch('event_backend.php', { 
+                    method: 'POST', 
+                    body: fd 
+                })
+                .then(res => res.json())
+                .then(data => console.log("DB Entry Status:", data.message))
+                .catch(err => console.error("Failed to sync event entry with DB", err));
+            }
+            // ------------------------------------------------
 
             document.getElementById('eventPetSelectionOverlay').classList.remove('open');
             document.getElementById('evolutionEventOverlay').classList.add('open');
@@ -231,7 +239,6 @@
             const container = document.getElementById('evolutionShopContainer');
             container.innerHTML = "";
 
-            // The 3 Standard Items
             ["item1", "item2", "item3"].forEach(key => {
                 let config = EVOLUTION_ITEMS[key];
                 container.innerHTML += `
@@ -246,7 +253,6 @@
                 `;
             });
 
-            // The Gem Exchange
             container.innerHTML += `
                 <div class="shop-item" style="border-color: #00ffcc;">
                     <div style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px #00ffcc);">💎</div>
@@ -259,7 +265,6 @@
             `;
         }
 
-        // --- SHOP PURCHASING LOGIC ---
         function buyEvolutionItem(itemKey) {
             let config = EVOLUTION_ITEMS[itemKey];
 
@@ -289,8 +294,6 @@
             }
         }
 
-        // --- PLAYTIME TRACKER LOGIC ---
-        // This function should be placed inside your main game's `setInterval(..., 1000)` loop.
         function processEvolutionTick() {
             if (!isLoggedIn || !gameState || !gameState.game_stats || !gameState.game_stats.evo_chosen) return;
 
@@ -299,11 +302,9 @@
             if (gameState.game_stats.evo_timer >= EVO_LOOP_LIMIT) {
                 gameState.game_stats.evo_timer = 0; 
                 
-                // Base Drop
                 gameState.sakura_coins = (gameState.sakura_coins || 0) + 100;
                 let logText = "Received +100 DNA Points";
 
-                // Mutation Drop Logic (10% Chance)
                 if (Math.random() <= MUTATION_CHANCE) {
                     if (!gameState.owned_items) gameState.owned_items = [];
                     
@@ -327,19 +328,16 @@
                 saveGameToServer();
             }
 
-            // Keep UI updated if the overlay is open
             if (document.getElementById('evolutionEventOverlay').classList.contains('open')) {
                 updateEvolutionUI();
             }
         }
 
-        // Simulates the main game's 1-second interval
         setInterval(processEvolutionTick, 1000);
 
-        // Test function for developers to fast-forward the timer
         function mockPlaytimeFastForward() {
             if (gameState.game_stats.evo_chosen) {
-                gameState.game_stats.evo_timer += 299; // Skips to the last second
+                gameState.game_stats.evo_timer += 299; 
             } else {
                 alert("Please choose a starter pet first!");
             }
