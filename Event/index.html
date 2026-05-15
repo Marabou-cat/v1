@@ -156,7 +156,7 @@
                 <div class="progress-fill" id="evoProgressFill"></div>
                 <div class="progress-text" id="evoProgressText">0:00 / 5:00</div>
             </div>
-            <div style="font-size: 12px; color: #8892b0; margin-top: 10px;">Keep the page open to earn +100 DNA Points every 5 minutes, with a 10% chance to mutate a rare drop!</div>
+            <div style="font-size: 12px; color: #8892b0; margin-top: 10px;">Your playtime in the Main Portal syncs here! Every 5 total minutes awards <strong>+100 DNA Points</strong> with a 10% chance to mutate a rare drop!</div>
         </div>
     </div>
 
@@ -213,7 +213,6 @@
 let gameState = null;
 let activeUser = "";
 let dbHasEnteredEvent = false;
-let evoTimer = 0;
 const EVO_GOAL = 300; // 5 minutes in seconds
 
 // --- INITIALIZATION ---
@@ -257,16 +256,14 @@ async function loadGameFromServer() {
             gameState = {
                 coins: parseInt(result.data.coins) || 0,
                 gems: parseInt(result.data.gems) || 0,
-                playtime: parseInt(result.data.playtime) || 0,
+                playtime: parseInt(result.data.playtime) || 0, // Using main portal playtime!
                 sakura_coins: parseInt(result.data.sakura_coins) || 0,
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
                 pet_ages: JSON.parse(result.data.pet_ages || '{}'),
                 owned_items: JSON.parse(result.data.owned_items || '[]'),
-                event_playtime_count: parseInt(result.data.event_playtime_count) || 0
+                game_stats: JSON.parse(result.data.game_stats || '{}')
             };
 
-            evoTimer = gameState.event_playtime_count;
-            
             updateCurrencies();
             updateProgressBar();
         }
@@ -279,19 +276,17 @@ async function loadGameFromServer() {
 async function saveGameToServer() {
     if (!gameState) return;
     try {
-        gameState.event_playtime_count = evoTimer;
-
         const formData = new FormData();
         formData.append('action', 'save');
         formData.append('username', activeUser);
         formData.append('coins', gameState.coins);
         formData.append('gems', gameState.gems);
-        formData.append('playtime', gameState.playtime); 
+        formData.append('playtime', gameState.playtime); // Syncs back to the server
         formData.append('sakura_coins', gameState.sakura_coins);
         formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
         formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
         formData.append('owned_items', JSON.stringify(gameState.owned_items));
-        formData.append('event_playtime_count', gameState.event_playtime_count);
+        formData.append('game_stats', JSON.stringify(gameState.game_stats)); 
         
         await fetch('../backend.php', { method: 'POST', body: formData });
     } catch(e) { 
@@ -332,28 +327,32 @@ function startEvolutionLoop() {
     loopInterval = setInterval(() => {
         if (!gameState || !dbHasEnteredEvent) return;
 
+        // Tick global playtime upward
         gameState.playtime++; 
-        evoTimer++; 
         
         updateProgressBar();
 
-        if (evoTimer >= EVO_GOAL) {
-            evoTimer = 0; 
+        // Check if playtime hits a clean 5-minute (300s) milestone
+        if (gameState.playtime > 0 && gameState.playtime % EVO_GOAL === 0) {
             triggerEvolutionReward();
         }
         
-        if (evoTimer % 30 === 0) {
+        // Auto-save every 30 seconds
+        if (gameState.playtime % 30 === 0) {
             saveGameToServer();
         }
     }, 1000);
 }
 
 function updateProgressBar() {
-    let percent = Math.min(100, (evoTimer / EVO_GOAL) * 100);
+    // Math to figure out where we are in the current 300-second cycle
+    let currentCycleTime = gameState.playtime % EVO_GOAL;
+    let percent = Math.min(100, (currentCycleTime / EVO_GOAL) * 100);
+    
     document.getElementById('evoProgressFill').style.width = `${percent}%`;
     
-    let m = Math.floor(evoTimer / 60);
-    let s = evoTimer % 60;
+    let m = Math.floor(currentCycleTime / 60);
+    let s = currentCycleTime % 60;
     document.getElementById('evoProgressText').innerText = `${m}:${s.toString().padStart(2, '0')} / 5:00`;
 }
 
@@ -393,11 +392,8 @@ function triggerEvolutionReward() {
 // --- SHOP LOGIC ---
 async function exchangeGems() {
     if (!gameState) return;
-
-    // 1. Force a fresh read from the database
-    await loadGameFromServer();
-
-    // 2. Validate against the newly fetched data
+    await loadGameFromServer(); // Prevent overlapping tabs data
+    
     if (gameState.gems >= 100) {
         gameState.gems -= 100;
         gameState.sakura_coins += 500;
@@ -411,11 +407,8 @@ async function exchangeGems() {
 
 async function buyEvoItem(itemName, cost, icon) {
     if (!gameState) return;
-
-    // 1. Force a fresh read from the database
-    await loadGameFromServer();
-
-    // 2. Validate against the newly fetched data
+    await loadGameFromServer(); // Prevent overlapping tabs data
+    
     if (gameState.sakura_coins >= cost) {
         gameState.sakura_coins -= cost;
         if (!gameState.owned_items) gameState.owned_items = [];
