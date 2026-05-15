@@ -1437,7 +1437,10 @@ const PET_SHOP = [
     { id: "reaper", name: "Reaper", icon: "<img src='png/reaper.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Team battle May Reward", baseCoin: 650, isEvent: true, color: "#dc143c" },
     { id: "ember_caterpillar", name: "Ember Caterpillar", icon: "<img src='png/ember_caterpillar.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Starter Pet From Evolution Event 2026", baseCoin: 220, isEvent: true, color: "#dc143c" },
     { id: "paint_cat", name: "Paint Cat", icon: "<img src='png/paint_cat.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Starter Pet From Evolution Event 2026", baseCoin: 330, isEvent: true, color: "#dc143c" },
-    { id: "dreaming_chick", name: "Dreaming Chick", icon: "<img src='png/dreaming_chick.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Starter Pet From Evolution Event 2026", baseCoin: 250, isEvent: true, color: "#dc143c" }
+    { id: "dreaming_chick", name: "Dreaming Chick", icon: "<img src='png/dreaming_chick.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Starter Pet From Evolution Event 2026", baseCoin: 250, isEvent: true, color: "#dc143c" },
+    { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "<img src='png/nightmare_rooster.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Starter Pet Evolve From Evolution Event 2026", baseCoin: 450, isEvent: true, color: "#dc143c" },
+    { id: "cat_of_fame", name: "Cat Of Fame", icon: "<img src='png/cat_of_fame.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Starter Pet Evolve From Evolution Event 2026", baseCoin: 600, isEvent: true, color: "#dc143c" },
+    { id: "overheated_pupa", name: "Overheated Pupa", icon: "<img src='png/overheated_pupa.png' style='height: 2em; width: 2em; object-fit: contain;'>", price: "Starter Pet Evolve From Evolution Event 2026", baseCoin: 250, isEvent: true, color: "#dc143c" }
 ];
 
     // --- GAMER CARDS CONFIGURATION ---
@@ -2089,6 +2092,20 @@ const PET_ABILITIES = {
         autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
         clickEffect: "stick",  // Uses the "hacked" effect from CURSOR_EFFECTS
         multiplier: 1.5  
+     },
+     "dreaming_chick": {
+        name: "Sleepwalk",
+        desc: "Automatically clicks any flying ExamCoins after they fly for 2 seconds! Multiplies your cursor click power by 1.2x. Triggers Portal Effect",
+        autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
+        clickEffect: "stick",  // Uses the "hacked" effect from CURSOR_EFFECTS
+        multiplier: 1.2 
+     },
+     "nightmare_rooster": {
+        name: "Bad Dreams",
+        desc: "Automatically clicks any flying ExamCoins after they fly for 2 seconds! Multiplies your cursor click power by 1.4x. Triggers Portal Effect",
+        autoClickDelay: 2000,   // Delay in milliseconds (2 seconds)
+        clickEffect: "stick",  // Uses the "hacked" effect from CURSOR_EFFECTS
+        multiplier: 1.4 
      }
     
 };
