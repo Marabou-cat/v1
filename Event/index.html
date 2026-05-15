@@ -106,12 +106,12 @@
     <div class="overlay" id="starterSelection">
         <div class="selection-box">
             <h2 style="color: var(--p1); font-size: 32px; margin-top: 0; text-shadow: var(--glow);">🧬 INITIALIZE SEQUENCE</h2>
-            <p style="color: #8892b0; font-size: 16px;">Welcome to the world of Evolution, choose your starter pet! All of them is able to evolve inside EVOLUTION LAB.</p>
+            <p style="color: #8892b0; font-size: 16px;">Welcome to the Evolution Event. Select your starter specimen to begin synthesizing DNA. This action is permanent.</p>
             
             <div class="selection-grid">
                 <div class="pet-card" onclick="selectStarter('paint_cat', '🐈‍⬛', 'Splatter Paint Cat')">
                     <img src="../png/paint_cat.png" alt="Paint Cat" style="height: 80px; filter: drop-shadow(0 0 10px #a855f7);" onerror="this.outerHTML='<div style=\\'font-size:60px;\\'>🐈‍⬛</div>'">
-                    <h3 style="color: #a855f7; margin: 10px 0;">Paint Cat</h3>
+                    <h3 style="color: #a855f7; margin: 10px 0;">Splatter Paint Cat</h3>
                 </div>
                 
                 <div class="pet-card" onclick="selectStarter('ember_caterpillar', '🐛', 'Ember Caterpillar')">
@@ -262,10 +262,9 @@ async function loadGameFromServer() {
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
                 pet_ages: JSON.parse(result.data.pet_ages || '{}'),
                 owned_items: JSON.parse(result.data.owned_items || '[]'),
-                event_playtime_count: parseInt(result.data.event_playtime_count) || 0 // NEW ISOLATED VARIABLE
+                event_playtime_count: parseInt(result.data.event_playtime_count) || 0
             };
 
-            // Set the local timer variable to the dedicated database value
             evoTimer = gameState.event_playtime_count;
             
             updateCurrencies();
@@ -280,7 +279,6 @@ async function loadGameFromServer() {
 async function saveGameToServer() {
     if (!gameState) return;
     try {
-        // Sync memory timer to state
         gameState.event_playtime_count = evoTimer;
 
         const formData = new FormData();
@@ -293,8 +291,6 @@ async function saveGameToServer() {
         formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
         formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
         formData.append('owned_items', JSON.stringify(gameState.owned_items));
-        
-        // Append the new explicit DB column variable
         formData.append('event_playtime_count', gameState.event_playtime_count);
         
         await fetch('../backend.php', { method: 'POST', body: formData });
@@ -314,7 +310,6 @@ async function selectStarter(petId, emoji, name) {
     
     dbHasEnteredEvent = true;
 
-    // Send the trigger to DB to permanently lock the event entry column
     const fd = new FormData();
     fd.append('action', 'enter_evolution_event');
     fd.append('username', activeUser);
@@ -337,8 +332,8 @@ function startEvolutionLoop() {
     loopInterval = setInterval(() => {
         if (!gameState || !dbHasEnteredEvent) return;
 
-        gameState.playtime++; // Global playtime
-        evoTimer++; // Local event playtime
+        gameState.playtime++; 
+        evoTimer++; 
         
         updateProgressBar();
 
@@ -347,7 +342,6 @@ function startEvolutionLoop() {
             triggerEvolutionReward();
         }
         
-        // Auto-save every 30 seconds
         if (evoTimer % 30 === 0) {
             saveGameToServer();
         }
@@ -399,6 +393,11 @@ function triggerEvolutionReward() {
 // --- SHOP LOGIC ---
 async function exchangeGems() {
     if (!gameState) return;
+
+    // 1. Force a fresh read from the database
+    await loadGameFromServer();
+
+    // 2. Validate against the newly fetched data
     if (gameState.gems >= 100) {
         gameState.gems -= 100;
         gameState.sakura_coins += 500;
@@ -406,12 +405,17 @@ async function exchangeGems() {
         await saveGameToServer();
         showPopup('💎', 'EXTRACTION SUCCESS', 'Converted 100 Gems into <span style="color:var(--p1);">500 DNA Points</span>!');
     } else {
-        alert("Not enough Gems!");
+        alert("Not enough Gems! (Data synced with server)");
     }
 }
 
 async function buyEvoItem(itemName, cost, icon) {
     if (!gameState) return;
+
+    // 1. Force a fresh read from the database
+    await loadGameFromServer();
+
+    // 2. Validate against the newly fetched data
     if (gameState.sakura_coins >= cost) {
         gameState.sakura_coins -= cost;
         if (!gameState.owned_items) gameState.owned_items = [];
@@ -421,7 +425,7 @@ async function buyEvoItem(itemName, cost, icon) {
         await saveGameToServer();
         showPopup(icon, 'SYNTHESIS SUCCESS', `Successfully synthesized 1x <span style="color:var(--p1);">${itemName}</span>!`);
     } else {
-        alert("Not enough DNA Points!");
+        alert("Not enough DNA Points! (Data synced with server)");
     }
 }
 
