@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 
 // 1. Read credentials from config.ini (Line 1: User, Line 2: Pass)
-$configFile = 'config.ini';
+$configFile = '../config.ini';
 if (!file_exists($configFile)) {
     echo json_encode(['success' => false, 'message' => 'Config file missing.']);
     exit;
