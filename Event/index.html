@@ -16,7 +16,7 @@
             color: #fff;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Prevents background scrolling when overlay is active */
+            overflow: hidden;
         }
 
         /* --- OVERLAY STYLES --- */
@@ -99,19 +99,25 @@
             
             <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
                 <div class="shop-item" style="flex: 1; min-width: 200px; border-color: #a855f7;">
-                    <div style="font-size: 60px; margin-bottom: 10px;">🐈‍⬛</div>
+                    <div style="height: 80px; width: 80px; margin-bottom: 10px;">
+                        <img src="png/paint_cat.png" alt="Paint Cat" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.5));" onerror="this.outerHTML='🐈‍⬛'">
+                    </div>
                     <h3 style="color: #a855f7; margin: 5px 0;">Splatter Paint Cat</h3>
                     <button class="shop-btn" style="background: #a855f7; color: #fff;" onclick="selectEventStarter('paint_cat')">Sequence DNA</button>
                 </div>
                 
                 <div class="shop-item" style="flex: 1; min-width: 200px; border-color: #f97316;">
-                    <div style="font-size: 60px; margin-bottom: 10px;">🐛</div>
+                    <div style="height: 80px; width: 80px; margin-bottom: 10px;">
+                        <img src="png/ember_caterpillar.png" alt="Ember Caterpillar" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.5));" onerror="this.outerHTML='🐛'">
+                    </div>
                     <h3 style="color: #f97316; margin: 5px 0;">Ember Caterpillar</h3>
                     <button class="shop-btn" style="background: #f97316; color: #fff;" onclick="selectEventStarter('ember_caterpillar')">Sequence DNA</button>
                 </div>
                 
                 <div class="shop-item" style="flex: 1; min-width: 200px; border-color: #06b6d4;">
-                    <div style="font-size: 60px; margin-bottom: 10px;">🐥</div>
+                    <div style="height: 80px; width: 80px; margin-bottom: 10px;">
+                        <img src="png/dreaming_chick.png" alt="Dreaming Chick" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.5));" onerror="this.outerHTML='🐥'">
+                    </div>
                     <h3 style="color: #06b6d4; margin: 5px 0;">Cosmic Dreaming Chick</h3>
                     <button class="shop-btn" style="background: #06b6d4; color: #fff;" onclick="selectEventStarter('dreaming_chick')">Sequence DNA</button>
                 </div>
@@ -127,7 +133,8 @@
                 <span>🧬 <span id="eventDnaDisplay">0</span> DNA Points</span>
                 <span style="color: #00ffcc; border-left: 1px solid #00ffff; padding-left: 15px;">💎 <span id="eventGemsDisplay">0</span> Gems</span>
             </div>
-            <button class="btn-close" onclick="exitModule()">EXIT ✕</button>
+            <!-- UPDATED BUTTON: Text changed to "BACK TO PORTAL" -->
+            <button class="btn-close" onclick="exitModule()">BACK TO PORTAL ✕</button>
         </div>
         
         <div style="padding: 30px; max-width: 1100px; margin: 0 auto; width: 100%; box-sizing: border-box; overflow-y: auto; height: calc(100% - 60px);">
@@ -259,21 +266,22 @@
         }
 
         function exitModule() {
-            // Because this is a standalone module, closing it should probably take them back to index.html
+            // UPDATED FUNCTION: Forces a save, then teleports out to the main directory
             saveGameToServer().then(() => {
-                window.location.href = 'index.html';
+                window.location.href = '../';
             });
         }
 
         function selectEventStarter(basePetId) {
             if (gameState.owned_pets.length >= MAX_PETS) return alert("Pet Inventory Full! Free up space first.");
 
+            // Adds the selected pet physically into their global inventory
             let uid = basePetId + '::' + Date.now();
             gameState.owned_pets.push(uid);
             gameState.pet_ages[uid] = 0;
             gameState.game_stats.evo_chosen = true;
 
-            // Trigger the special event backend hook
+            // Trigger the special event backend hook to log entry status
             const fd = new FormData();
             fd.append('action', 'enter_evolution_event');
             fd.append('username', activeUser);
@@ -281,9 +289,10 @@
 
             document.getElementById('eventPetSelectionOverlay').classList.remove('open');
             
+            // Save the newly added pet to the database, then load the main hub
             saveGameToServer().then(() => {
-                alert(`🧬 Integration Successful! Specimen initialized.`);
-                openEvolutionEvent(); // Proceeds to the main hub
+                alert(`🧬 Integration Successful! Specimen initialized and added to your owned pets.`);
+                openEvolutionEvent(); 
             });
         }
 
