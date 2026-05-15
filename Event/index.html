@@ -3,323 +3,347 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evolution Event</title>
+    <title>Evolution Event Module</title>
     <style>
+        /* --- CORE STYLES (Match your portal) --- */
         :root {
-            --bg: #000814;
-            --panel-bg: #001d3d;
-            --brand: #00f5d4;
-            --accent: #ff006e;
-            --text-main: #fff;
-            --text-muted: #90e0ef;
+            --r: 16px;
+            --glow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #000814;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
         }
 
-        body, html {
-            margin: 0; padding: 0; height: 100%; width: 100%;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg); color: var(--text-main);
-            background-image: radial-gradient(circle at top right, #001d3d, #000814);
+        /* --- OVERLAY STYLES --- */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0, 8, 20, 0.95);
+            z-index: 3000; display: none; flex-direction: column;
+            backdrop-filter: blur(5px);
         }
-
-        .topbar {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 30px; background: rgba(0,0,0,0.5);
-            border-bottom: 2px solid var(--brand);
-        }
-
-        .btn-back {
-            background: transparent; border: 1px solid var(--brand); color: var(--brand);
-            padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; text-decoration: none;
-        }
-        .btn-back:hover { background: var(--brand); color: #000; }
-
-        .currency-box { display: flex; gap: 20px; font-weight: bold; font-size: 18px; }
-        .currency { display: flex; align-items: center; gap: 8px; background: #111; padding: 8px 16px; border-radius: 20px; border: 1px solid #333;}
-        .dna { color: var(--brand); }
-        .gems { color: #f1c40f; }
-
-        /* MODAL */
-        .modal-overlay {
-            position: fixed; top:0; left:0; right:0; bottom:0;
-            background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 100;
-        }
-        .modal {
-            background: var(--panel-bg); border: 2px solid var(--brand); border-radius: 16px;
-            padding: 40px; text-align: center; max-width: 800px; width: 90%;
-        }
-        .pet-grid { display: flex; gap: 20px; justify-content: center; margin-top: 30px; }
-        .pet-card {
-            background: #000; border: 2px solid #333; border-radius: 12px; padding: 20px; cursor: pointer; transition: 0.3s;
-            width: 200px;
-        }
-        .pet-card:hover { border-color: var(--brand); transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0, 245, 212, 0.2); }
-        .pet-emoji { font-size: 64px; margin-bottom: 10px; }
-
-        /* MAIN UI */
-        .main-container {
-            display: none; flex-direction: column; align-items: center; padding: 40px 20px; max-width: 1000px; margin: 0 auto;
-        }
-
-        .incubator {
-            background: rgba(0, 29, 61, 0.6); border: 2px dashed var(--brand); border-radius: 50%;
-            width: 250px; height: 250px; display: flex; align-items: center; justify-content: center;
-            font-size: 100px; box-shadow: inset 0 0 50px rgba(0, 245, 212, 0.2); margin-bottom: 30px;
-            animation: pulse 3s infinite alternate;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: inset 0 0 20px rgba(0, 245, 212, 0.1), 0 0 10px rgba(0, 245, 212, 0.1); }
-            100% { box-shadow: inset 0 0 80px rgba(0, 245, 212, 0.4), 0 0 30px rgba(0, 245, 212, 0.3); }
-        }
-
-        /* PROGRESS BAR */
-        .progress-container {
-            width: 100%; max-width: 600px; text-align: center; margin-bottom: 40px; background: #000; padding: 20px; border-radius: 16px; border: 1px solid #333;
-        }
-        .progress-bar {
-            width: 100%; height: 25px; background: #222; border-radius: 12.5px; overflow: hidden; margin: 15px 0; border: 1px solid #444;
-        }
-        .progress-fill {
-            height: 100%; width: 0%; background: linear-gradient(90deg, #00f5d4, #00b4d8); transition: width 0.5s;
-        }
-        .btn-claim {
-            background: #444; color: #888; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; font-size: 16px; transition: 0.3s;
-        }
-        .btn-claim.active { background: var(--brand); color: #000; cursor: pointer; box-shadow: 0 0 15px var(--brand); }
-
-        /* SHOP */
-        .shop-section { width: 100%; }
-        .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 15px; }
-        .shop-item { background: #001d3d; border: 1px solid #0077b6; border-radius: 12px; padding: 20px; text-align: center; }
-        .shop-item h3 { margin: 0 0 10px 0; font-size: 18px; color: var(--text-muted); }
-        .btn-buy { background: #0077b6; color: #fff; border: none; padding: 10px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 15px; transition: 0.2s;}
-        .btn-buy:hover { background: var(--brand); color: #000; }
+        .overlay.open { display: flex; }
         
+        .overlay-bar {
+            height: 60px; background: #001d3d; display: flex; align-items: center;
+            padding: 0 20px; border-bottom: 2px solid #00ffff; justify-content: space-between;
+        }
+        
+        .btn-close {
+            background: #d00000; border: none; color: #fff; padding: 8px 16px;
+            border-radius: 8px; font-weight: 900; cursor: pointer; transition: 0.2s;
+        }
+        .btn-close:hover { background: #ff0000; box-shadow: 0 0 10px #ff0000; }
+
+        .coin-tracker {
+            background: rgba(0,0,0,0.5); border: 1px solid #00ffff; padding: 8px 16px;
+            border-radius: 20px; font-weight: 800; color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+
+        /* --- SHOP & ITEMS --- */
+        .shop-container {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px; padding: 20px 0;
+        }
+        .shop-item {
+            background: rgba(0, 29, 61, 0.6); border: 2px solid #00ffff;
+            border-radius: var(--r); padding: 20px; text-align: center;
+            display: flex; flex-direction: column; align-items: center; transition: 0.2s;
+        }
+        .shop-item:hover { transform: translateY(-5px); box-shadow: var(--glow); }
+        
+        .shop-btn {
+            border: none; padding: 10px 15px; border-radius: 10px;
+            font-weight: bold; width: 100%; cursor: pointer; transition: 0.2s;
+            margin-top: auto;
+        }
+        .shop-btn:hover { filter: brightness(1.2); }
+
+        /* --- SELECTION GATEWAY --- */
+        .login-box {
+            background: #001d3d; border: 2px solid #00ffff; border-radius: var(--r);
+            padding: 40px; width: 95%; max-width: 850px; text-align: center;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.4); margin: auto;
+        }
     </style>
 </head>
 <body>
 
-    <div class="topbar">
-        <a href="../index.html" class="btn-back">⬅ Leave Event</a>
-        <div class="currency-box">
-            <div class="currency dna">🧬 <span id="ui-dna">0</span></div>
-            <div class="currency gems">💎 <span id="ui-gems">0</span></div>
-        </div>
-    </div>
+    <!-- Test Controls (Not needed in final game) -->
+    <button onclick="openEvolutionEvent()" style="padding: 15px; background: #00ffff; font-weight: bold; cursor: pointer;">Open Evolution Event</button>
+    <button onclick="mockPlaytimeFastForward()" style="padding: 15px; background: #f72585; color: #fff; font-weight: bold; cursor: pointer;">Fast Forward 5 Minutes</button>
 
-    <!-- 1. Pet Selection Modal -->
-    <div class="modal-overlay" id="petModal">
-        <div class="modal">
-            <h1 style="color:var(--brand);">Choose Your Evolution Pet</h1>
-            <p style="color:var(--text-muted);">This pet will accompany you during the event. Choose wisely!</p>
-            <div class="pet-grid">
-                <div class="pet-card" onclick="selectPet('paint_cat')">
-                    <div class="pet-emoji">🎨🐱</div>
-                    <h3>Paint Cat</h3>
-                </div>
-                <div class="pet-card" onclick="selectPet('ember_caterpillar')">
-                    <div class="pet-emoji">🔥🐛</div>
-                    <h3>Ember Caterpillar</h3>
-                </div>
-                <div class="pet-card" onclick="selectPet('dreaming_chick')">
-                    <div class="pet-emoji">💤🐥</div>
-                    <h3>Dreaming Chick</h3>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 2. Main Event Interface -->
-    <div class="main-container" id="mainUI">
-        
-        <h2 style="color:var(--brand); text-transform:uppercase; letter-spacing:2px;">Evolution Chamber</h2>
-        
-        <!-- Active Pet -->
-        <div class="incubator" id="activePetDisplay">🥚</div>
-
-        <!-- Playtime Tracker -->
-        <div class="progress-container">
-            <h3 style="margin:0; color:#fff;">Playtime Reward</h3>
-            <p style="margin:5px 0 0 0; font-size:14px; color:var(--text-muted);">Stay active for 5 minutes to earn 100 DNA Points & drop chances!</p>
+    <!-- ========================================== -->
+    <!-- 1. EVENT PET SELECTION GATEWAY OVERLAY     -->
+    <!-- ========================================== -->
+    <div class="overlay" id="eventPetSelectionOverlay" style="z-index: 8500;">
+        <div class="login-box">
+            <h2 style="color: #00ffff; font-size: 32px; margin-top: 0;">🧬 Choose Your Specimen</h2>
+            <p style="color: #caf0f8; margin-bottom: 30px; font-size: 15px;">Welcome to the Evolution Event! Select one of the unique biometric organisms below. This action cannot be reversed.</p>
             
-            <div class="progress-bar">
-                <div class="progress-fill" id="playtimeBar"></div>
-            </div>
-            
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span id="timeText" style="font-family:monospace; font-size:16px;">00:00 / 05:00</span>
-                <button class="btn-claim" id="btnClaim" onclick="claimReward()" disabled>Claim Reward</button>
-            </div>
-        </div>
-
-        <!-- Event Shop -->
-        <div class="shop-section">
-            <h2 style="border-bottom: 1px solid #333; padding-bottom:10px;">Event Shop</h2>
-            <div class="shop-grid">
-                <div class="shop-item">
-                    <div style="font-size:40px; margin-bottom:10px;">💎</div>
-                    <h3>100 Gems</h3>
-                    <button class="btn-buy" onclick="buyItem('100_gems')">500 🧬</button>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
+                <div class="shop-item" style="flex: 1; min-width: 200px; border-color: #a855f7;">
+                    <div style="font-size: 60px; margin-bottom: 10px;">🐈‍⬛</div>
+                    <h3 style="color: #a855f7; margin: 5px 0;">Splatter Paint Cat</h3>
+                    <button class="shop-btn" style="background: #a855f7; color: #fff;" onclick="selectEventStarter('paint_cat')">Sequence DNA</button>
                 </div>
-                <div class="shop-item">
-                    <div style="font-size:40px; margin-bottom:10px;">🔮</div>
-                    <h3>Evolution Stone</h3>
-                    <button class="btn-buy" onclick="buyItem('evo_stone')">1500 🧬</button>
+                
+                <div class="shop-item" style="flex: 1; min-width: 200px; border-color: #f97316;">
+                    <div style="font-size: 60px; margin-bottom: 10px;">🐛</div>
+                    <h3 style="color: #f97316; margin: 5px 0;">Ember Caterpillar</h3>
+                    <button class="shop-btn" style="background: #f97316; color: #fff;" onclick="selectEventStarter('ember_caterpillar')">Sequence DNA</button>
                 </div>
-                <div class="shop-item">
-                    <div style="font-size:40px; margin-bottom:10px;">🧬</div>
-                    <h3>DNA Mutator</h3>
-                    <button class="btn-buy" onclick="buyItem('dna_mutator')">1500 🧬</button>
-                </div>
-                <div class="shop-item">
-                    <div style="font-size:40px; margin-bottom:10px;">🧪</div>
-                    <h3>Growth Serum</h3>
-                    <button class="btn-buy" onclick="buyItem('growth_serum')">1500 🧬</button>
+                
+                <div class="shop-item" style="flex: 1; min-width: 200px; border-color: #06b6d4;">
+                    <div style="font-size: 60px; margin-bottom: 10px;">🐥</div>
+                    <h3 style="color: #06b6d4; margin: 5px 0;">Cosmic Dreaming Chick</h3>
+                    <button class="shop-btn" style="background: #06b6d4; color: #fff;" onclick="selectEventStarter('dreaming_chick')">Sequence DNA</button>
                 </div>
             </div>
         </div>
-
     </div>
 
+    <!-- ========================================== -->
+    <!-- 2. EVOLUTION EVENT MAIN HUB OVERLAY        -->
+    <!-- ========================================== -->
+    <div class="overlay" id="evolutionEventOverlay">
+        <div class="overlay-bar">
+            <div class="bar-title" style="color: #00ffff; font-weight: 900;">🧬 EVOLUTION EVENT HUB</div>
+            <div class="coin-tracker">
+                🧬 <span id="eventDnaDisplay">0</span> DNA Points
+            </div>
+            <button class="btn-close" onclick="closeEvolutionEvent()">CLOSE EVENT ✕</button>
+        </div>
+        
+        <div style="padding: 30px; max-width: 1100px; margin: 0 auto; width: 100%; box-sizing: border-box; overflow-y: auto; height: calc(100% - 60px);">
+            
+            <!-- Playtime DNA Progress Bar -->
+            <div style="background: rgba(0, 29, 61, 0.6); border: 2px solid #00ffff; border-radius: var(--r); padding: 25px; margin-bottom: 30px; box-shadow: var(--glow);">
+                <h3 style="margin-top: 0; color: #00ffff; font-size: 20px;">⚡ DNA Mutation Tracker</h3>
+                <p style="color: #caf0f8; font-size: 14px; margin-bottom: 15px;">Keep playing to sequence DNA. Every 5 minutes awards <strong>+100 DNA Points</strong> with a <strong>10% mutation chance</strong> for exceptional drops!</p>
+                
+                <div style="width: 100%; background: #000814; height: 20px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(144, 224, 239, 0.4); position: relative;">
+                    <div id="evoProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0077b6, #00ffff); transition: width 1s linear;"></div>
+                    <div id="evoProgressText" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #fff;">0:00 / 5:00</div>
+                </div>
+            </div>
+
+            <!-- Shop Area -->
+            <h2 style="color: #fff; border-bottom: 2px solid #00ffff; padding-bottom: 10px;">🛒 Gene Sequence Marketplace</h2>
+            <div class="shop-container" id="evolutionShopContainer">
+                <!-- Generated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 3. JAVASCRIPT ENGINE                       -->
+    <!-- ========================================== -->
     <script>
-        const myUsername = localStorage.getItem('schoolExamsSavedUser');
-        if (!myUsername) {
-            alert("Please log in first!");
-            window.location.href = "../index.html";
-        }
+        // --- MOCKED GLOBAL VARIABLES (Remove these when pasting into your real game) ---
+        let isLoggedIn = true;
+        let gameState = {
+            sakura_coins: 0, // This functions as "DNA Points"
+            gems: 500,
+            owned_pets: [],
+            pet_ages: {},
+            owned_items: [],
+            game_stats: { evo_chosen: false, evo_timer: 0 }
+        };
+        const MAX_PETS = 50;
+        function saveGameToServer() { console.log("Game Saved", gameState); }
+        function showToast(msg) { console.log("TOAST:", msg); }
+        // -------------------------------------------------------------------------------
 
-        // State variables
-        let totalPlaytime = 0;
-        let lastClaim = 0;
-        let localSeconds = 0; // Visual ticker
-        const REWARD_TIME = 300; // 5 mins in seconds
-        
-        const petEmojis = {
-            'paint_cat': '🎨🐱',
-            'ember_caterpillar': '🔥🐛',
-            'dreaming_chick': '💤🐥'
+        // --- EVENT CONFIGURATION ---
+        const EVO_LOOP_LIMIT = 300; // 300 seconds = 5 minutes
+        const MUTATION_CHANCE = 0.10; // 10%
+
+        const EVOLUTION_ITEMS = {
+            "item1": { name: "Biomimetic Flask", icon: "🧪", price: 1500, desc: "Essential sequencing component." },
+            "item2": { name: "Mutagenic Strain", icon: "🧫", price: 1500, desc: "Highly unstable biochemical structural agent." },
+            "item3": { name: "Anomalous Fossil", icon: "🦴", price: 1500, desc: "Ancient petrified structure teeming with genetic history." },
+            "wish_stone": { name: "Wish Stone", icon: "🪨", price: 0, desc: "Exceptional mutation artifact drop." },
+            "wish_meteor": { name: "Wish Meteor", icon: "☄️", price: 0, desc: "Unrivaled celestial mineral catalyst." }
         };
 
-        async function api(action, data = {}) {
-            const fd = new FormData();
-            fd.append('action', action);
-            fd.append('username', myUsername);
-            for (let key in data) fd.append(key, data[key]);
+        // --- MAIN UI FUNCTIONS ---
+        function openEvolutionEvent() {
+            if (!isLoggedIn) return alert("Authentication required!");
             
-            try {
-                // Adjust this path if the PHP file is inside a specific folder
-                const res = await fetch('evolution_backend.php', { method: 'POST', body: fd });
-                return await res.json();
-            } catch(e) { return { success: false }; }
+            // Validate stats object exists
+            if (!gameState.game_stats) gameState.game_stats = {};
+            if (typeof gameState.game_stats.evo_chosen === 'undefined') gameState.game_stats.evo_chosen = false;
+            if (typeof gameState.game_stats.evo_timer === 'undefined') gameState.game_stats.evo_timer = 0;
+
+            // Trigger Selection if they haven't picked a starter yet
+            if (!gameState.game_stats.evo_chosen) {
+                document.getElementById('eventPetSelectionOverlay').classList.add('open');
+                return;
+            }
+
+            // Open Main Hub
+            document.getElementById('evolutionEventOverlay').classList.add('open');
+            renderEvolutionShop();
+            updateEvolutionUI();
         }
 
-        // --- Initialization ---
-        async function loadEvent() {
-            const res = await api('init');
-            if (res.success) {
-                updateCurrencies(res.dna_points, res.gems);
+        function closeEvolutionEvent() {
+            document.getElementById('evolutionEventOverlay').classList.remove('open');
+        }
+
+        function selectEventStarter(basePetId) {
+            if (gameState.owned_pets.length >= MAX_PETS) return alert("Pet Inventory Full!");
+
+            let uid = basePetId + '::' + Date.now();
+            gameState.owned_pets.push(uid);
+            gameState.pet_ages[uid] = 0;
+            
+            gameState.game_stats.evo_chosen = true;
+
+            document.getElementById('eventPetSelectionOverlay').classList.remove('open');
+            document.getElementById('evolutionEventOverlay').classList.add('open');
+            
+            renderEvolutionShop();
+            updateEvolutionUI();
+            saveGameToServer();
+            
+            alert(`🧬 Integration Successful! The specimen has been added to your inventory.`);
+        }
+
+        function updateEvolutionUI() {
+            document.getElementById('eventDnaDisplay').innerText = (gameState.sakura_coins || 0).toLocaleString();
+            
+            let currentTicks = gameState.game_stats.evo_timer || 0;
+            let computedPercentage = (currentTicks / EVO_LOOP_LIMIT) * 100;
+            
+            document.getElementById('evoProgressBar').style.width = `${Math.min(computedPercentage, 100)}%`;
+            
+            let minutes = Math.floor(currentTicks / 60);
+            let seconds = currentTicks % 60;
+            document.getElementById('evoProgressText').innerText = `${minutes}:${seconds.toString().padStart(2, '0')} / 5:00`;
+        }
+
+        function renderEvolutionShop() {
+            const container = document.getElementById('evolutionShopContainer');
+            container.innerHTML = "";
+
+            // The 3 Standard Items
+            ["item1", "item2", "item3"].forEach(key => {
+                let config = EVOLUTION_ITEMS[key];
+                container.innerHTML += `
+                    <div class="shop-item">
+                        <div style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px #00ffff);">${config.icon}</div>
+                        <h3 style="font-size: 16px; margin-bottom: 5px; color: #fff;">${config.name}</h3>
+                        <p style="font-size: 11px; color: #caf0f8; min-height: 32px; margin-bottom: 10px;">${config.desc}</p>
+                        <button class="shop-btn buy" style="background:#0077b6; color:#fff;" onclick="buyEvolutionItem('${key}')">
+                            Synthesize 🧬 ${config.price.toLocaleString()}
+                        </button>
+                    </div>
+                `;
+            });
+
+            // The Gem Exchange
+            container.innerHTML += `
+                <div class="shop-item" style="border-color: #00ffcc;">
+                    <div style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px #00ffcc);">💎</div>
+                    <h3 style="font-size: 16px; margin-bottom: 5px; color: #00ffcc;">100 Premium Gems</h3>
+                    <p style="font-size: 11px; color: #caf0f8; min-height: 32px; margin-bottom: 10px;">Deconstruct gems into raw DNA processing cache points.</p>
+                    <button class="shop-btn" style="background: linear-gradient(135deg, #00ffcc, #0077b6); color:#000;" onclick="buyGemsExchange()">
+                        Exchange 💎 100 -> 🧬 500
+                    </button>
+                </div>
+            `;
+        }
+
+        // --- SHOP PURCHASING LOGIC ---
+        function buyEvolutionItem(itemKey) {
+            let config = EVOLUTION_ITEMS[itemKey];
+
+            if ((gameState.sakura_coins || 0) >= config.price) {
+                gameState.sakura_coins -= config.price;
+                if (!gameState.owned_items) gameState.owned_items = [];
+                gameState.owned_items.push(config.name);
                 
-                if (!res.pet_id) {
-                    document.getElementById('petModal').style.display = 'flex';
-                } else {
-                    startGame(res.pet_id, res.playtime, res.last_claim);
+                updateEvolutionUI();
+                saveGameToServer();
+                alert(`✅ Process Finalized: Synthesized 1x ${config.name}`);
+            } else {
+                alert("Inadequate DNA Points!");
+            }
+        }
+
+        function buyGemsExchange() {
+            if (gameState.gems >= 100) {
+                gameState.gems -= 100;
+                gameState.sakura_coins = (gameState.sakura_coins || 0) + 500;
+                
+                updateEvolutionUI();
+                saveGameToServer();
+                alert("💎 Extraction Completed! Exchanged 100 Gems for 500 DNA Points.");
+            } else {
+                alert("Inadequate Gems to exchange!");
+            }
+        }
+
+        // --- PLAYTIME TRACKER LOGIC ---
+        // This function should be placed inside your main game's `setInterval(..., 1000)` loop.
+        function processEvolutionTick() {
+            if (!isLoggedIn || !gameState || !gameState.game_stats || !gameState.game_stats.evo_chosen) return;
+
+            gameState.game_stats.evo_timer++;
+
+            if (gameState.game_stats.evo_timer >= EVO_LOOP_LIMIT) {
+                gameState.game_stats.evo_timer = 0; 
+                
+                // Base Drop
+                gameState.sakura_coins = (gameState.sakura_coins || 0) + 100;
+                let logText = "Received +100 DNA Points";
+
+                // Mutation Drop Logic (10% Chance)
+                if (Math.random() <= MUTATION_CHANCE) {
+                    if (!gameState.owned_items) gameState.owned_items = [];
+                    
+                    let roll = Math.random();
+                    if (roll < 0.33) {
+                        gameState.owned_items.push(EVOLUTION_ITEMS["wish_stone"].name);
+                        logText += " and 1x Wish Stone!";
+                        alert("✨ MUTATION: You found a Wish Stone!");
+                    } else if (roll < 0.66) {
+                        gameState.owned_items.push(EVOLUTION_ITEMS["wish_meteor"].name);
+                        logText += " and 1x Wish Meteor!";
+                        alert("☄️ MUTATION: You found a Wish Meteor!");
+                    } else {
+                        gameState.gems += 100;
+                        logText += " and 100 Gems!";
+                        alert("💎 MUTATION: You found 100 Premium Gems!");
+                    }
                 }
+
+                showToast(logText);
+                saveGameToServer();
+            }
+
+            // Keep UI updated if the overlay is open
+            if (document.getElementById('evolutionEventOverlay').classList.contains('open')) {
+                updateEvolutionUI();
             }
         }
 
-        async function selectPet(petId) {
-            const res = await api('choose_pet', { pet_id: petId });
-            if (res.success) {
-                document.getElementById('petModal').style.display = 'none';
-                loadEvent(); // Reload to get fresh timestamps
+        // Simulates the main game's 1-second interval
+        setInterval(processEvolutionTick, 1000);
+
+        // Test function for developers to fast-forward the timer
+        function mockPlaytimeFastForward() {
+            if (gameState.game_stats.evo_chosen) {
+                gameState.game_stats.evo_timer += 299; // Skips to the last second
             } else {
-                alert(res.message);
+                alert("Please choose a starter pet first!");
             }
         }
-
-        function startGame(petId, playtime, lastClaimTime) {
-            document.getElementById('mainUI').style.display = 'flex';
-            document.getElementById('activePetDisplay').innerText = petEmojis[petId] || '❓';
-            
-            totalPlaytime = playtime;
-            lastClaim = lastClaimTime;
-            
-            updateVisualBar();
-            
-            // Visual loop (Runs every 1 second)
-            setInterval(() => {
-                totalPlaytime++;
-                updateVisualBar();
-            }, 1000);
-
-            // Sync loop (Tells the server we are still playing every 10 seconds)
-            setInterval(() => {
-                api('ping_playtime');
-            }, 10000);
-        }
-
-        // --- Playtime & Rewards ---
-        function updateVisualBar() {
-            let unclaimedTime = totalPlaytime - lastClaim;
-            if (unclaimedTime < 0) unclaimedTime = 0;
-
-            let percentage = (unclaimedTime / REWARD_TIME) * 100;
-            if (percentage > 100) percentage = 100;
-
-            document.getElementById('playtimeBar').style.width = percentage + '%';
-
-            // Format mm:ss
-            let m = Math.floor(unclaimedTime / 60);
-            let s = unclaimedTime % 60;
-            if(unclaimedTime >= REWARD_TIME) {
-                document.getElementById('timeText').innerText = "READY TO CLAIM!";
-                document.getElementById('timeText').style.color = "var(--brand)";
-                document.getElementById('btnClaim').disabled = false;
-                document.getElementById('btnClaim').classList.add('active');
-            } else {
-                document.getElementById('timeText').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} / 05:00`;
-                document.getElementById('timeText').style.color = "#fff";
-                document.getElementById('btnClaim').disabled = true;
-                document.getElementById('btnClaim').classList.remove('active');
-            }
-        }
-
-        async function claimReward() {
-            const btn = document.getElementById('btnClaim');
-            btn.disabled = true;
-            btn.innerText = "Claiming...";
-
-            const res = await api('claim_reward');
-            if (res.success) {
-                alert(res.message);
-                // Reload data to resync currencies and timestamps from DB perfectly
-                loadEvent(); 
-            } else {
-                alert(res.message);
-            }
-            btn.innerText = "Claim Reward";
-        }
-
-        // --- Shop ---
-        async function buyItem(itemId) {
-            if(!confirm("Are you sure you want to buy this item?")) return;
-            
-            const res = await api('buy_item', { item_id: itemId });
-            if (res.success) {
-                alert(res.message);
-                loadEvent(); // Refresh UI currencies
-            } else {
-                alert(res.message);
-            }
-        }
-
-        function updateCurrencies(dna, gems) {
-            document.getElementById('ui-dna').innerText = dna;
-            document.getElementById('ui-gems').innerText = gems;
-        }
-
-        // Boot
-        loadEvent();
     </script>
 </body>
 </html>
