@@ -28,7 +28,7 @@ try {
 $action = $_POST['action'] ?? '';
 
 // --- 2. INSTANT RECONNECT HELPER ---
-if (($action === 'load' || $action === 'save') && !isset($_SESSION['user_id']) && !empty($_POST['username'])) {
+if (($action === 'load' || $action === 'save' || $action === 'enter_evolution_event') && !isset($_SESSION['user_id']) && !empty($_POST['username'])) {
     $stmt = $pdo->prepare("SELECT id, username FROM users WHERE username = ?");
     $stmt->execute([$_POST['username']]);
     $u = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -88,8 +88,8 @@ if ($action === 'login') {
 if ($action === 'load') {
     if (!isset($_SESSION['user_id'])) die(json_encode(["success" => false, "message" => "Not logged in."]));
 
-    // ADDED owned_gamer_cards and equipped_gamer_card to the SELECT query
-    $stmt = $pdo->prepare("SELECT coins, gems, playtime, owned_cursors, equipped_cursor, owned_pets, active_pet, pet_ages, last_online, sakura_coins, event_tasks, owned_chests, prestige_level, profile_pic, owned_items, boost_end, boost_cd, game_stats, owned_gamer_cards, equipped_gamer_card FROM users WHERE id = ?");
+    // ADDED has_entered_event to the SELECT query
+    $stmt = $pdo->prepare("SELECT coins, gems, playtime, owned_cursors, equipped_cursor, owned_pets, active_pet, pet_ages, last_online, sakura_coins, event_tasks, owned_chests, prestige_level, profile_pic, owned_items, boost_end, boost_cd, game_stats, owned_gamer_cards, equipped_gamer_card, has_entered_event FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $data = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -123,14 +123,12 @@ if ($action === 'save') {
     $boost_cd = (int)($_POST['boost_cd'] ?? 0);
     $game_stats = $_POST['game_stats'] ?? '{}';
     
-    // ADDED NEW CARD VARIABLES
     $owned_gamer_cards = $_POST['owned_gamer_cards'] ?? '[]';
     $equipped_gamer_card = $_POST['equipped_gamer_card'] ?? '';
     
     $prestige_level = isset($_POST['prestige_level']) ? (int)$_POST['prestige_level'] : (int)$existing['prestige_level'];
     $profile_pic = isset($_POST['profile_pic']) ? $_POST['profile_pic'] : $existing['profile_pic'];
 
-    // ADDED NEW CARD COLUMNS TO THE UPDATE QUERY
     $stmt = $pdo->prepare("UPDATE users SET coins=?, gems=?, playtime=?, owned_cursors=?, equipped_cursor=?, owned_pets=?, active_pet=?, pet_ages=?, last_online=?, sakura_coins=?, event_tasks=?, owned_chests=?, prestige_level=?, profile_pic=?, owned_items=?, boost_end=?, boost_cd=?, game_stats=?, owned_gamer_cards=?, equipped_gamer_card=? WHERE id=?");
     $stmt->execute([
         $coins, $gems, $playtime, $owned_cursors, $equipped_cursor, $owned_pets, $active_pet, $pet_ages, $last_online, $sakura_coins, $event_tasks, $owned_chests, $prestige_level, $profile_pic, $owned_items, $boost_end, $boost_cd, $game_stats, $owned_gamer_cards, $equipped_gamer_card, $_SESSION['user_id']
@@ -140,7 +138,21 @@ if ($action === 'save') {
     exit;
 }
 
-// --- 7. UPDATE GLOBAL GAME STATS (For "Most Played" tab) ---
+// --- 7. ENTER EVOLUTION EVENT ---
+if ($action === 'enter_evolution_event') {
+    if (!isset($_SESSION['user_id'])) die(json_encode(["success" => false, "message" => "Not logged in."]));
+
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET has_entered_event = 1 WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        echo json_encode(['success' => true, 'message' => 'Event entry locked successfully.']);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Failed to save event entry.']);
+    }
+    exit;
+}
+
+// --- 8. UPDATE GLOBAL GAME STATS ---
 if ($action === 'update_global_stat') {
     $game = $_POST['game'] ?? '';
     $clicks = (int)($_POST['clicks'] ?? 0);
@@ -156,7 +168,7 @@ if ($action === 'update_global_stat') {
     exit;
 }
 
-// --- 8. GET GLOBAL GAME STATS ---
+// --- 9. GET GLOBAL GAME STATS ---
 if ($action === 'get_global_stats') {
     $stmt = $pdo->query("SELECT * FROM global_game_stats");
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -172,7 +184,7 @@ if ($action === 'get_global_stats') {
     exit;
 }
 
-// --- 9. GET LEADERBOARD & DISTRIBUTE MONTHLY REWARDS ---
+// --- 10. GET LEADERBOARD & REWARDS ---
 if ($action === 'get_leaderboard') {
     $current_month = date('Y-m'); 
     $stmt = $pdo->query("SELECT key_value FROM global_state WHERE key_name = 'last_reward_month'");
