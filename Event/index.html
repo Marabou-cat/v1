@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evolution Event Module</title>
+    <title>Evolution Event - Live System</title>
     <style>
         /* --- CORE STYLES --- */
         :root {
@@ -15,14 +15,15 @@
             background: #000814;
             color: #fff;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            overflow: hidden; /* Prevents background scrolling when overlay is active */
         }
 
         /* --- OVERLAY STYLES --- */
         .overlay {
-            position: fixed; inset: 0; background: rgba(0, 8, 20, 0.95);
+            position: fixed; inset: 0; background: rgba(0, 8, 20, 0.98);
             z-index: 3000; display: none; flex-direction: column;
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(8px);
         }
         .overlay.open { display: flex; }
         
@@ -41,6 +42,7 @@
             background: rgba(0,0,0,0.5); border: 1px solid #00ffff; padding: 8px 16px;
             border-radius: 20px; font-weight: 800; color: #00ffff;
             box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            display: flex; gap: 15px;
         }
 
         /* --- SHOP & ITEMS --- */
@@ -60,27 +62,40 @@
             font-weight: bold; width: 100%; cursor: pointer; transition: 0.2s;
             margin-top: auto;
         }
-        .shop-btn:hover { filter: brightness(1.2); }
+        .shop-btn:hover { filter: brightness(1.2); transform: scale(1.02); }
 
         /* --- SELECTION GATEWAY --- */
         .login-box {
             background: #001d3d; border: 2px solid #00ffff; border-radius: var(--r);
             padding: 40px; width: 95%; max-width: 850px; text-align: center;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.4); margin: auto;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.2); margin: auto;
         }
+        
+        /* Loading Screen */
+        #loadingScreen {
+            position: fixed; inset: 0; background: #000814; z-index: 9999;
+            display: flex; align-items: center; justify-content: center; flex-direction: column;
+        }
+        .loader {
+            border: 4px solid rgba(0, 255, 255, 0.1); border-top: 4px solid #00ffff;
+            border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <!-- Test Controls -->
-    <button onclick="openEvolutionEvent()" style="padding: 15px; background: #00ffff; font-weight: bold; cursor: pointer; border: none; border-radius: 8px;">Open Evolution Event</button>
-    <button onclick="mockPlaytimeFastForward()" style="padding: 15px; background: #f72585; color: #fff; font-weight: bold; cursor: pointer; border: none; border-radius: 8px;">Fast Forward 5 Minutes</button>
+    <!-- 0. INITIAL LOADING SCREEN -->
+    <div id="loadingScreen">
+        <div class="loader"></div>
+        <h2 style="color: #00ffff; margin-top: 20px; font-weight: 900; letter-spacing: 2px;">SYNCING GENETIC DATA...</h2>
+    </div>
 
     <!-- 1. EVENT PET SELECTION GATEWAY OVERLAY -->
     <div class="overlay" id="eventPetSelectionOverlay" style="z-index: 8500;">
         <div class="login-box">
-            <h2 style="color: #00ffff; font-size: 32px; margin-top: 0;">🧬 Choose Your Specimen</h2>
-            <p style="color: #caf0f8; margin-bottom: 30px; font-size: 15px;">Welcome to the Evolution Event! Select one of the unique biometric organisms below. This action cannot be reversed.</p>
+            <h2 style="color: #00ffff; font-size: 32px; margin-top: 0; text-shadow: 0 0 10px #00ffff;">🧬 Choose Your Specimen</h2>
+            <p style="color: #caf0f8; margin-bottom: 30px; font-size: 16px;">Welcome to the Evolution Event! Select one of the unique biometric organisms below to initialize your sequence. This action cannot be reversed.</p>
             
             <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
                 <div class="shop-item" style="flex: 1; min-width: 200px; border-color: #a855f7;">
@@ -107,11 +122,12 @@
     <!-- 2. EVOLUTION EVENT MAIN HUB OVERLAY -->
     <div class="overlay" id="evolutionEventOverlay">
         <div class="overlay-bar">
-            <div class="bar-title" style="color: #00ffff; font-weight: 900;">🧬 EVOLUTION EVENT HUB</div>
+            <div class="bar-title" style="color: #00ffff; font-weight: 900; letter-spacing: 1px;">🧬 EVOLUTION EVENT HUB</div>
             <div class="coin-tracker">
-                🧬 <span id="eventDnaDisplay">0</span> DNA Points
+                <span>🧬 <span id="eventDnaDisplay">0</span> DNA Points</span>
+                <span style="color: #00ffcc; border-left: 1px solid #00ffff; padding-left: 15px;">💎 <span id="eventGemsDisplay">0</span> Gems</span>
             </div>
-            <button class="btn-close" onclick="closeEvolutionEvent()">CLOSE EVENT ✕</button>
+            <button class="btn-close" onclick="exitModule()">EXIT ✕</button>
         </div>
         
         <div style="padding: 30px; max-width: 1100px; margin: 0 auto; width: 100%; box-sizing: border-box; overflow-y: auto; height: calc(100% - 60px);">
@@ -135,24 +151,14 @@
         </div>
     </div>
 
-    <!-- 3. JAVASCRIPT ENGINE -->
+    <!-- 3. JAVASCRIPT ENGINE (LIVE DB CONNECTION) -->
     <script>
-        // --- MOCKED GLOBAL VARIABLES ---
-        let isLoggedIn = true;
-        let gameState = {
-            sakura_coins: 0, 
-            gems: 500,
-            owned_pets: [],
-            pet_ages: {},
-            owned_items: [],
-            game_stats: { evo_chosen: false, evo_timer: 0 }
-        };
+        // --- LIVE GLOBAL STATE ---
+        let isLoggedIn = false;
+        let activeUser = "";
+        let gameState = null;
+        
         const MAX_PETS = 50;
-        function saveGameToServer() { console.log("Main Game State Saved", gameState); }
-        function showToast(msg) { console.log("TOAST:", msg); }
-        // --------------------------------
-
-        // --- EVENT CONFIGURATION ---
         const EVO_LOOP_LIMIT = 300; // 5 minutes
         const MUTATION_CHANCE = 0.10; // 10%
 
@@ -164,66 +170,128 @@
             "wish_meteor": { name: "Wish Meteor", icon: "☄️", price: 0, desc: "Unrivaled celestial mineral catalyst." }
         };
 
-        function openEvolutionEvent() {
-            if (!isLoggedIn) return alert("Authentication required!");
+        // --- DIRECT ENTRY INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            const savedUser = localStorage.getItem('schoolExamsSavedUser');
             
-            if (!gameState.game_stats) gameState.game_stats = {};
-            if (typeof gameState.game_stats.evo_chosen === 'undefined') gameState.game_stats.evo_chosen = false;
-            if (typeof gameState.game_stats.evo_timer === 'undefined') gameState.game_stats.evo_timer = 0;
-
-            if (!gameState.game_stats.evo_chosen) {
-                document.getElementById('eventPetSelectionOverlay').classList.add('open');
+            if (!savedUser) {
+                document.getElementById('loadingScreen').innerHTML = `<h2 style="color:#ff4444;">Access Denied. Please log in from the main portal first.</h2>`;
                 return;
             }
 
-            document.getElementById('evolutionEventOverlay').classList.add('open');
-            renderEvolutionShop();
-            updateEvolutionUI();
+            activeUser = savedUser;
+            isLoggedIn = true;
+
+            // Load data from actual backend
+            await loadGameFromServer();
+            
+            // Remove loading screen and enter event
+            document.getElementById('loadingScreen').style.display = 'none';
+            openEvolutionEvent();
+        });
+
+        // --- DATABASE CONNECTION LOGIC ---
+        async function loadGameFromServer() {
+            const formData = new FormData(); 
+            formData.append('action', 'load');
+            formData.append('username', activeUser);
+
+            try {
+                const response = await fetch('backend.php', { method: 'POST', body: formData });
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    gameState = {
+                        coins: parseInt(result.data.coins) || 0,
+                        gems: parseInt(result.data.gems) || 0,
+                        sakura_coins: parseInt(result.data.sakura_coins) || 0,
+                        owned_pets: JSON.parse(result.data.owned_pets || '[]'),
+                        pet_ages: JSON.parse(result.data.pet_ages || '{}'),
+                        owned_items: JSON.parse(result.data.owned_items || '[]'),
+                        game_stats: JSON.parse(result.data.game_stats || '{}')
+                    };
+                    
+                    // Initialize missing game_stats properties safely
+                    if (typeof gameState.game_stats.evo_chosen === 'undefined') gameState.game_stats.evo_chosen = false;
+                    if (typeof gameState.game_stats.evo_timer === 'undefined') gameState.game_stats.evo_timer = 0;
+                } else {
+                    alert("Failed to load user data from database.");
+                }
+            } catch (e) {
+                console.error("Database load error:", e);
+                alert("Server connection failed.");
+            }
         }
 
-        function closeEvolutionEvent() {
-            document.getElementById('evolutionEventOverlay').classList.remove('open');
+        async function saveGameToServer() {
+            if (!gameState || !isLoggedIn) return;
+
+            const formData = new FormData();
+            formData.append('action', 'save');
+            formData.append('username', activeUser);
+            formData.append('coins', gameState.coins);
+            formData.append('gems', gameState.gems);
+            formData.append('sakura_coins', gameState.sakura_coins);
+            formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
+            formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
+            formData.append('owned_items', JSON.stringify(gameState.owned_items));
+            formData.append('game_stats', JSON.stringify(gameState.game_stats));
+
+            try {
+                await fetch('backend.php', { method: 'POST', body: formData });
+            } catch(e) {
+                console.error("Failed to save progress to server", e);
+            }
+        }
+
+        // --- EVENT UI LOGIC ---
+        function openEvolutionEvent() {
+            if (!gameState.game_stats.evo_chosen) {
+                document.getElementById('eventPetSelectionOverlay').classList.add('open');
+            } else {
+                document.getElementById('evolutionEventOverlay').classList.add('open');
+                renderEvolutionShop();
+                updateEvolutionUI();
+                
+                // Start the loop only when the event is open and chosen
+                setInterval(processEvolutionTick, 1000);
+            }
+        }
+
+        function exitModule() {
+            // Because this is a standalone module, closing it should probably take them back to index.html
+            saveGameToServer().then(() => {
+                window.location.href = 'index.html';
+            });
         }
 
         function selectEventStarter(basePetId) {
-            if (gameState.owned_pets.length >= MAX_PETS) return alert("Pet Inventory Full!");
+            if (gameState.owned_pets.length >= MAX_PETS) return alert("Pet Inventory Full! Free up space first.");
 
             let uid = basePetId + '::' + Date.now();
             gameState.owned_pets.push(uid);
             gameState.pet_ages[uid] = 0;
             gameState.game_stats.evo_chosen = true;
 
-            // --- DATABASE CONNECTION FOR NEW EVENT BACKEND ---
-            if (isLoggedIn) {
-                // If implemented in your main site, this fetches the currently logged-in user
-                const savedUser = localStorage.getItem('schoolExamsSavedUser') || 'TestUser'; 
-                
-                const fd = new FormData();
-                fd.append('action', 'enter_evolution_event');
-                fd.append('username', savedUser);
-
-                fetch('event_backend.php', { 
-                    method: 'POST', 
-                    body: fd 
-                })
-                .then(res => res.json())
-                .then(data => console.log("DB Entry Status:", data.message))
-                .catch(err => console.error("Failed to sync event entry with DB", err));
-            }
-            // ------------------------------------------------
+            // Trigger the special event backend hook
+            const fd = new FormData();
+            fd.append('action', 'enter_evolution_event');
+            fd.append('username', activeUser);
+            fetch('event_backend.php', { method: 'POST', body: fd }).catch(err => console.error(err));
 
             document.getElementById('eventPetSelectionOverlay').classList.remove('open');
-            document.getElementById('evolutionEventOverlay').classList.add('open');
             
-            renderEvolutionShop();
-            updateEvolutionUI();
-            saveGameToServer();
-            
-            alert(`🧬 Integration Successful! The specimen has been added to your inventory.`);
+            saveGameToServer().then(() => {
+                alert(`🧬 Integration Successful! Specimen initialized.`);
+                openEvolutionEvent(); // Proceeds to the main hub
+            });
         }
 
         function updateEvolutionUI() {
+            if(!gameState) return;
+            
             document.getElementById('eventDnaDisplay').innerText = (gameState.sakura_coins || 0).toLocaleString();
+            document.getElementById('eventGemsDisplay').innerText = (gameState.gems || 0).toLocaleString();
             
             let currentTicks = gameState.game_stats.evo_timer || 0;
             let computedPercentage = (currentTicks / EVO_LOOP_LIMIT) * 100;
@@ -239,6 +307,7 @@
             const container = document.getElementById('evolutionShopContainer');
             container.innerHTML = "";
 
+            // Synthesizer Items
             ["item1", "item2", "item3"].forEach(key => {
                 let config = EVOLUTION_ITEMS[key];
                 container.innerHTML += `
@@ -253,6 +322,7 @@
                 `;
             });
 
+            // Gem Deconstruction
             container.innerHTML += `
                 <div class="shop-item" style="border-color: #00ffcc;">
                     <div style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px #00ffcc);">💎</div>
@@ -265,6 +335,7 @@
             `;
         }
 
+        // --- PURCHASING LOGIC ---
         function buyEvolutionItem(itemKey) {
             let config = EVOLUTION_ITEMS[itemKey];
 
@@ -294,53 +365,40 @@
             }
         }
 
+        // --- PLAYTIME TRACKER LOGIC ---
         function processEvolutionTick() {
-            if (!isLoggedIn || !gameState || !gameState.game_stats || !gameState.game_stats.evo_chosen) return;
+            if (!gameState || !gameState.game_stats || !gameState.game_stats.evo_chosen) return;
 
             gameState.game_stats.evo_timer++;
 
+            // Trigger Time Drops
             if (gameState.game_stats.evo_timer >= EVO_LOOP_LIMIT) {
                 gameState.game_stats.evo_timer = 0; 
                 
                 gameState.sakura_coins = (gameState.sakura_coins || 0) + 100;
-                let logText = "Received +100 DNA Points";
 
+                // Mutation Drop Logic (10% Chance)
                 if (Math.random() <= MUTATION_CHANCE) {
                     if (!gameState.owned_items) gameState.owned_items = [];
                     
                     let roll = Math.random();
                     if (roll < 0.33) {
                         gameState.owned_items.push(EVOLUTION_ITEMS["wish_stone"].name);
-                        logText += " and 1x Wish Stone!";
-                        alert("✨ MUTATION: You found a Wish Stone!");
+                        alert("✨ MUTATION DETECTED: You synthesized a Wish Stone!");
                     } else if (roll < 0.66) {
                         gameState.owned_items.push(EVOLUTION_ITEMS["wish_meteor"].name);
-                        logText += " and 1x Wish Meteor!";
-                        alert("☄️ MUTATION: You found a Wish Meteor!");
+                        alert("☄️ MUTATION DETECTED: You synthesized a Wish Meteor!");
                     } else {
                         gameState.gems += 100;
-                        logText += " and 100 Gems!";
-                        alert("💎 MUTATION: You found 100 Premium Gems!");
+                        alert("💎 MUTATION DETECTED: 100 Premium Gems isolated!");
                     }
                 }
 
-                showToast(logText);
-                saveGameToServer();
+                saveGameToServer(); // Auto-save after drops
             }
 
-            if (document.getElementById('evolutionEventOverlay').classList.contains('open')) {
-                updateEvolutionUI();
-            }
-        }
-
-        setInterval(processEvolutionTick, 1000);
-
-        function mockPlaytimeFastForward() {
-            if (gameState.game_stats.evo_chosen) {
-                gameState.game_stats.evo_timer += 299; 
-            } else {
-                alert("Please choose a starter pet first!");
-            }
+            // Sync visual bar
+            updateEvolutionUI();
         }
     </script>
 </body>
