@@ -257,20 +257,16 @@ async function loadGameFromServer() {
             gameState = {
                 coins: parseInt(result.data.coins) || 0,
                 gems: parseInt(result.data.gems) || 0,
-                playtime: parseInt(result.data.playtime) || 0, // Pull overall playtime too
+                playtime: parseInt(result.data.playtime) || 0,
                 sakura_coins: parseInt(result.data.sakura_coins) || 0,
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
                 pet_ages: JSON.parse(result.data.pet_ages || '{}'),
                 owned_items: JSON.parse(result.data.owned_items || '[]'),
-                game_stats: JSON.parse(result.data.game_stats || '{}')
+                event_playtime_count: parseInt(result.data.event_playtime_count) || 0 // NEW ISOLATED VARIABLE
             };
 
-            // Restore the specific event timer from game_stats JSON
-            if (gameState.game_stats && gameState.game_stats.evo_timer !== undefined) {
-                evoTimer = parseInt(gameState.game_stats.evo_timer);
-            } else {
-                evoTimer = 0;
-            }
+            // Set the local timer variable to the dedicated database value
+            evoTimer = gameState.event_playtime_count;
             
             updateCurrencies();
             updateProgressBar();
@@ -284,21 +280,22 @@ async function loadGameFromServer() {
 async function saveGameToServer() {
     if (!gameState) return;
     try {
-        // Explicitly map the current evoTimer directly into the JSON string
-        if (!gameState.game_stats) gameState.game_stats = {};
-        gameState.game_stats.evo_timer = evoTimer;
+        // Sync memory timer to state
+        gameState.event_playtime_count = evoTimer;
 
         const formData = new FormData();
         formData.append('action', 'save');
         formData.append('username', activeUser);
         formData.append('coins', gameState.coins);
         formData.append('gems', gameState.gems);
-        formData.append('playtime', gameState.playtime); // Sync Global Playtime
+        formData.append('playtime', gameState.playtime); 
         formData.append('sakura_coins', gameState.sakura_coins);
         formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
         formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
         formData.append('owned_items', JSON.stringify(gameState.owned_items));
-        formData.append('game_stats', JSON.stringify(gameState.game_stats)); // Saves the timer inside JSON
+        
+        // Append the new explicit DB column variable
+        formData.append('event_playtime_count', gameState.event_playtime_count);
         
         await fetch('../backend.php', { method: 'POST', body: formData });
     } catch(e) { 
@@ -340,22 +337,17 @@ function startEvolutionLoop() {
     loopInterval = setInterval(() => {
         if (!gameState || !dbHasEnteredEvent) return;
 
-        gameState.playtime++; // Keep their global main-game playtime moving!
-        evoTimer++;
+        gameState.playtime++; // Global playtime
+        evoTimer++; // Local event playtime
         
-        // Immediately sync the memory state so it is 100% ready to be saved
-        if (!gameState.game_stats) gameState.game_stats = {};
-        gameState.game_stats.evo_timer = evoTimer;
-
         updateProgressBar();
 
         if (evoTimer >= EVO_GOAL) {
             evoTimer = 0; 
-            gameState.game_stats.evo_timer = 0; // Reset it in JSON
             triggerEvolutionReward();
         }
         
-        // Auto-save every 30 seconds to prevent data loss
+        // Auto-save every 30 seconds
         if (evoTimer % 30 === 0) {
             saveGameToServer();
         }
