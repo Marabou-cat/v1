@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>Arcade Event - SchoolExams</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <title>Evolution Event - SchoolExams</title>
     <style>
         :root {
-            /* Neon Arcade Theme Variables */
-            --bg0: #0b090a; --bg1: #161a1d; --bg2: #660708;
-            --p0: #9d4edd; --p1: #00f5d4; --p2: #f72585;
-            --line: rgba(0, 245, 212, 0.15);
-            --glow: 0 0 20px rgba(0, 245, 212, 0.5);
-            --glow-pink: 0 0 20px rgba(247, 37, 133, 0.6);
+            /* Biotech / Evolution Neon Theme */
+            --bg0: #050b14; --bg1: #0a192f; --bg2: #112240;
+            --p0: #00f5d4; --p1: #00ffff; --p2: #a855f7;
+            --line: rgba(0, 255, 255, 0.1);
+            --glow: 0 0 20px rgba(0, 255, 255, 0.5);
+            --glow-purple: 0 0 20px rgba(168, 85, 247, 0.6);
             --r: 16px;
         }
 
@@ -23,159 +22,185 @@
             background-size: 40px 40px;
         }
 
+        /* --- HEADER & CURRENCY --- */
         .header { margin-bottom: 20px; }
         .header h1 { color: var(--p1); font-size: 3rem; margin: 0 0 10px 0; text-shadow: var(--glow); text-transform: uppercase; letter-spacing: 2px; }
-        .header p { color: #ccc; font-size: 1.1rem; margin: 0; }
+        .header p { color: #8892b0; font-size: 1.1rem; margin: 0; }
         
-        .currency-bar { display: inline-flex; gap: 30px; background: rgba(0,0,0,0.8); border: 2px solid var(--p0); padding: 12px 30px; border-radius: 30px; margin-bottom: 20px; font-weight: bold; font-size: 18px; box-shadow: var(--glow-pink); }
-        .currency-bar .arcade { color: var(--p1); text-shadow: 0 0 10px var(--p1); }
-        .currency-bar .gems { color: #f72585; text-shadow: 0 0 10px #f72585;}
+        .currency-bar { display: inline-flex; gap: 30px; background: rgba(0,0,0,0.8); border: 2px solid var(--p0); padding: 12px 30px; border-radius: 30px; margin-bottom: 20px; font-weight: bold; font-size: 18px; box-shadow: var(--glow); }
+        .currency-bar .dna { color: var(--p1); text-shadow: 0 0 10px var(--p1); }
+        .currency-bar .gems { color: #00ffcc; text-shadow: 0 0 10px #00ffcc;}
 
         .top-actions { display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
         .btn-top { background: var(--bg1); border: 2px dashed var(--p1); color: var(--p1); padding: 10px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-top:hover { background: rgba(0, 245, 212, 0.1); box-shadow: var(--glow); transform: translateY(-2px); }
-        
-        .btn-shop { border-color: var(--p2); color: var(--p2); }
-        .btn-shop:hover { background: rgba(247, 37, 133, 0.1); box-shadow: var(--glow-pink); }
+        .btn-top:hover { background: rgba(0, 255, 255, 0.1); box-shadow: var(--glow); transform: translateY(-2px); }
 
-        /* --- CLAW MACHINE STYLES --- */
-        .arcade-container { margin: 0 auto 40px auto; display: flex; flex-direction: column; align-items: center; gap: 20px; }
-        .machine-box { position: relative; width: 320px; height: 350px; background: #111; border: 6px solid var(--p0); border-radius: 20px 20px 5px 5px; box-shadow: inset 0 0 50px rgba(0,0,0,0.9), var(--glow); overflow: hidden; }
-        #matter-box { position: absolute; inset: 0; z-index: 1; }
+        /* --- VISUALIZER (Replaces Claw Machine) --- */
+        .evo-container { margin: 0 auto 40px auto; display: flex; flex-direction: column; align-items: center; gap: 20px; max-width: 800px; }
+        .machine-box { 
+            position: relative; width: 100%; max-width: 400px; height: 400px; 
+            background: radial-gradient(circle at center, var(--bg2) 0%, #000 100%); 
+            border: 4px solid var(--p2); border-radius: 50%; 
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.9), var(--glow-purple); 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
 
-        .claw-line { position: absolute; top: 0; left: 50%; width: 4px; height: 20px; background: #aaa; transform: translateX(-50%); z-index: 4; transition: height 1s ease-in-out, left 0.2s linear; }
-        .claw-img { position: absolute; top: 20px; left: 50%; width: 80px; height: 80px; transform: translateX(-50%); z-index: 6; object-fit: contain; transition: top 1s ease-in-out, left 0.2s linear; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.8)); }
-        
-        .grabbed-ball { position: absolute; top: 290px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; border-radius: 50%; z-index: 5; transition: top 1s ease-in-out, left 0.2s linear, opacity 0.2s; box-shadow: inset -5px -5px 15px rgba(0,0,0,0.6); border: 2px solid #fff; opacity: 0; display: block; }
+        .dna-core {
+            font-size: 100px; filter: drop-shadow(0 0 20px var(--p1));
+            animation: float 3s ease-in-out infinite, pulse 2s linear infinite;
+        }
 
-        .controls-panel { display: flex; align-items: center; justify-content: center; gap: 25px; background: rgba(0,0,0,0.6); padding: 15px 30px; border-radius: 20px; border: 2px solid var(--p2); box-shadow: var(--glow-pink); flex-wrap: wrap; }
-        .controller-box { display: flex; align-items: center; gap: 10px; }
-        .dir-btn { background: var(--bg2); border: none; color: #fff; width: 40px; height: 40px; border-radius: 8px; font-size: 20px; cursor: pointer; transition: 0.1s; user-select: none; }
-        .dir-btn:active { background: var(--p2); transform: scale(0.9); }
+        @keyframes float { 0%, 100% { transform: translateY(-10px); } 50% { transform: translateY(10px); } }
+        @keyframes pulse { 0%, 100% { filter: drop-shadow(0 0 20px var(--p1)) brightness(1); } 50% { filter: drop-shadow(0 0 40px var(--p2)) brightness(1.3); } }
 
-        .controller-img { height: 60px; object-fit: contain; }
-        .action-box { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: 0.1s; user-select: none; }
-        .action-box:active { transform: scale(0.95); }
-        .button-img { height: 60px; object-fit: contain; filter: drop-shadow(0 0 10px var(--p2)); pointer-events: none; }
-        .action-text { font-weight: 900; color: var(--p2); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        /* --- PROGRESS BAR --- */
+        .progress-wrapper { width: 100%; background: rgba(0,0,0,0.6); border: 2px solid var(--p2); border-radius: 20px; padding: 20px; box-shadow: var(--glow-purple); box-sizing: border-box; }
+        .progress-title { color: var(--p1); font-weight: 900; font-size: 1.2rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .progress-bg { background: #000; height: 25px; border-radius: 15px; overflow: hidden; border: 1px solid var(--p0); position: relative; }
+        .progress-fill { background: linear-gradient(90deg, var(--p2), var(--p1)); height: 100%; width: 0%; transition: width 1s linear; box-shadow: 0 0 15px var(--p1); }
+        .progress-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: #fff; text-shadow: 0 2px 4px #000; }
 
-        /* --- BOOST BUTTON (Brawl Stars Style) --- */
-        .boost-wrapper { position: relative; width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; cursor: pointer; touch-action: none; }
-        .boost-ring { position: absolute; top: 0; left: 0; transform: rotate(-90deg); pointer-events: none; }
-        .boost-circle-bg { fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 8; }
-        .boost-circle-fill { fill: none; stroke: #ffb703; stroke-width: 8; stroke-dasharray: 226; stroke-dashoffset: 226; transition: stroke-dashoffset 0.1s linear; stroke-linecap: round; }
-        .boost-img { width: 50px; height: 50px; object-fit: contain; z-index: 2; transition: transform 0.1s, filter 0.3s; filter: drop-shadow(0 0 5px #ffb703); pointer-events: none; }
-        .boost-wrapper:active .boost-img { transform: scale(0.9); }
-        .boost-active .boost-circle-fill { stroke: var(--p1); stroke-dashoffset: 0 !important; }
-        .boost-active .boost-img { filter: drop-shadow(0 0 15px var(--p1)) brightness(1.2); }
-        .boost-cooldown { opacity: 0.5; filter: grayscale(1); pointer-events: none; }
-        .boost-status { font-size: 12px; font-weight: bold; color: #ffb703; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
-
-        /* --- TASKS --- */
-        .task-grid { display: flex; flex-direction: column; gap: 20px; max-width: 700px; margin: 0 auto; }
-        .task-card { background: rgba(0, 0, 0, 0.6); border: 2px solid var(--p2); border-radius: var(--r); padding: 25px; text-align: left; transition: 0.3s; position: relative; overflow: hidden; }
-        .task-card.done { border-color: var(--p1); background: rgba(0, 245, 212, 0.1); box-shadow: var(--glow); }
-        .task-title { font-weight: bold; font-size: 1.3rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; color: var(--p1); }
-        .task-desc { font-size: 1rem; color: #ccc; margin-bottom: 15px; }
-        .task-pts { background: var(--p0); color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 0.9rem; font-weight: 900; }
-        .progress-bg { background: var(--bg0); height: 16px; border-radius: 8px; overflow: hidden; border: 1px solid var(--p2); }
-        .progress-fill { background: var(--p2); height: 100%; width: 0%; transition: width 0.5s ease; box-shadow: 0 0 10px var(--p2); }
-        .done .progress-fill { background: var(--p1); box-shadow: var(--glow); }
-
-        .btn-claim { background: var(--p1); color: #000; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 900; font-size: 16px; cursor: pointer; margin-top: 15px; width: 100%; box-shadow: var(--glow); transition: 0.2s; }
-        .btn-claim:hover { transform: scale(1.02); background: #fff; }
-
-        /* --- OVERLAYS --- */
-        .overlay { position: fixed; inset: 0; background: var(--bg0); z-index: 2000; display: none; flex-direction: column; }
-        .overlay.open { display: flex; }
-        .overlay-bar { height: 60px; background: var(--bg1); display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--p0); justify-content: space-between; }
-        .btn-close { background: #d00000; border: none; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 900; cursor: pointer; }
-        
-        .shop-container { padding: 30px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; width: 100%; }
-        .shop-card { background: var(--bg1); border: 2px solid var(--line); border-radius: 12px; padding: 20px; text-align: center; transition: 0.3s; display: flex; flex-direction: column; align-items: center;}
+        /* --- SHOP GRID --- */
+        .shop-header { color: #fff; font-size: 2rem; border-bottom: 2px solid var(--p2); padding-bottom: 10px; margin-top: 40px; text-align: left; max-width: 1000px; margin-inline: auto; }
+        .shop-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; max-width: 1000px; margin: 20px auto; width: 100%; }
+        .shop-card { background: var(--bg1); border: 2px solid var(--line); border-radius: 12px; padding: 25px 20px; text-align: center; transition: 0.3s; display: flex; flex-direction: column; align-items: center; position: relative;}
         .shop-card:hover { border-color: var(--p1); box-shadow: var(--glow); transform: translateY(-5px); }
-        .shop-card img, .shop-card .emoji-icon { height: 80px; object-fit: contain; margin-bottom: 10px; font-size: 60px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5)); }
-        .btn-buy { background: var(--p0); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; width: 100%; margin-top: auto; cursor: pointer; }
+        .shop-card .emoji-icon { font-size: 60px; margin-bottom: 15px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5)); }
+        .shop-card h3 { color: var(--p1); margin: 0 0 10px 0; font-size: 18px; }
+        .shop-card p { color: #8892b0; font-size: 12px; margin-bottom: 20px; min-height: 35px; }
+        .btn-buy { background: var(--p2); color: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 900; width: 100%; margin-top: auto; cursor: pointer; transition: 0.2s; }
+        .btn-buy:hover { background: var(--p1); color: #000; box-shadow: var(--glow); }
 
-        .reward-popup { display: none; position: fixed; inset: 0; background: rgba(11, 9, 10, 0.95); flex-direction: column; align-items: center; justify-content: center; z-index: 3000; backdrop-filter: blur(5px); }
-        .reward-box { background: var(--bg1); border: 2px solid var(--p1); padding: 40px; border-radius: var(--r); text-align: center; box-shadow: var(--glow); max-width: 400px; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        /* --- OVERLAYS & POPUPS --- */
+        .overlay { position: fixed; inset: 0; background: rgba(5, 11, 20, 0.98); z-index: 5000; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+        .overlay.open { display: flex; }
+        
+        .selection-box { background: var(--bg2); border: 2px solid var(--p1); padding: 40px; border-radius: var(--r); text-align: center; box-shadow: var(--glow); max-width: 800px; width: 90%; }
+        .selection-grid { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+        .pet-card { background: var(--bg1); border: 2px solid var(--p2); padding: 20px; border-radius: 12px; flex: 1; min-width: 200px; transition: 0.3s; cursor: pointer; }
+        .pet-card:hover { border-color: var(--p1); transform: scale(1.05); box-shadow: var(--glow); }
+
+        .reward-popup { display: none; position: fixed; inset: 0; background: rgba(5, 11, 20, 0.95); flex-direction: column; align-items: center; justify-content: center; z-index: 6000; backdrop-filter: blur(5px); }
+        .reward-box { background: var(--bg1); border: 2px solid var(--p1); padding: 40px; border-radius: var(--r); text-align: center; box-shadow: var(--glow); max-width: 450px; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         
-        #toast { position: fixed; bottom: 20px; right: 20px; background: var(--p0); color: white; padding: 15px 25px; border-radius: 10px; font-weight: bold; transform: translateY(100px); opacity: 0; transition: 0.3s; z-index: 1000; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        #toast { position: fixed; bottom: 20px; right: 20px; background: var(--p2); color: white; padding: 15px 25px; border-radius: 10px; font-weight: bold; transform: translateY(100px); opacity: 0; transition: 0.3s; z-index: 7000; box-shadow: 0 5px 15px rgba(0,0,0,0.5); border: 1px solid var(--p1); }
         #toast.show { transform: translateY(0); opacity: 1; }
+
+        /* Loading Screen */
+        #loadingScreen { position: fixed; inset: 0; background: var(--bg0); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .loader { border: 4px solid rgba(0, 255, 255, 0.1); border-top: 4px solid var(--p1); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <audio id="bgm" src="arcade.mp3" loop preload="auto"></audio>
+    <!-- 0. LOADING SCREEN -->
+    <div id="loadingScreen">
+        <div class="loader"></div>
+        <h2 style="color: var(--p1); margin-top: 20px; font-weight: 900; letter-spacing: 2px;">SYNCING GENETIC DATA...</h2>
+    </div>
 
+    <!-- 1. STARTER PET SELECTION (Forces choice if not entered) -->
+    <div class="overlay" id="starterSelection">
+        <div class="selection-box">
+            <h2 style="color: var(--p1); font-size: 32px; margin-top: 0; text-shadow: var(--glow);">🧬 INITIALIZE SEQUENCE</h2>
+            <p style="color: #8892b0; font-size: 16px;">Welcome to the Evolution Event. Select your starter specimen to begin synthesizing DNA. This action is permanent.</p>
+            
+            <div class="selection-grid">
+                <div class="pet-card" onclick="selectStarter('paint_cat', '🐈‍⬛', 'Splatter Paint Cat')">
+                    <img src="../png/paint_cat.png" alt="Paint Cat" style="height: 80px; filter: drop-shadow(0 0 10px #a855f7);" onerror="this.outerHTML='<div style=\\'font-size:60px;\\'>🐈‍⬛</div>'">
+                    <h3 style="color: #a855f7; margin: 10px 0;">Splatter Paint Cat</h3>
+                </div>
+                
+                <div class="pet-card" onclick="selectStarter('ember_caterpillar', '🐛', 'Ember Caterpillar')">
+                    <img src="../png/ember_caterpillar.png" alt="Ember Caterpillar" style="height: 80px; filter: drop-shadow(0 0 10px #f97316);" onerror="this.outerHTML='<div style=\\'font-size:60px;\\'>🐛</div>'">
+                    <h3 style="color: #f97316; margin: 10px 0;">Ember Caterpillar</h3>
+                </div>
+                
+                <div class="pet-card" onclick="selectStarter('dreaming_chick', '🐥', 'Dreaming Chick')">
+                    <img src="../png/dreaming_chick.png" alt="Dreaming Chick" style="height: 80px; filter: drop-shadow(0 0 10px #06b6d4);" onerror="this.outerHTML='<div style=\\'font-size:60px;\\'>🐥</div>'">
+                    <h3 style="color: #06b6d4; margin: 10px 0;">Dreaming Chick</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. MAIN EVENT HUB -->
     <div class="header">
-        <h1>🕹️ Arcade Event</h1>
-        <p>Complete the story quests to get Arcade Coins. Drop the neon balls to win rare rewards!</p>
+        <h1>🧬 Evolution Event</h1>
+        <p>Synthesize DNA Points and mutate rare genetic artifacts.</p>
     </div>
 
     <div class="currency-bar">
-        <div class="arcade">👾 <span id="sakuraDisplay">0</span> Arcade Coins</div>
+        <div class="dna">🧬 <span id="dnaDisplay">0</span> DNA Points</div>
         <div class="gems">💎 <span id="gemDisplay">0</span> Gems</div>
     </div>
 
     <div class="top-actions">
-        <button class="btn-top" onclick="exchangeGems()">Convert 150 💎 ➞ 500 👾</button>
-        <button class="btn-top btn-shop" onclick="openShop()">🛍️ Open Arcade Shop</button>
-        <button class="btn-top" onclick="window.location.href='../'" style="border-color: #fff; color: #fff;">🏠 Back to Portal</button>
+        <button class="btn-top" onclick="window.location.href='../'" style="border-color: #fff; color: #fff; background: rgba(255,255,255,0.1);">🏠 Back to Portal</button>
     </div>
 
-    <div class="arcade-container">
+    <div class="evo-container">
+        <!-- Visualizer -->
         <div class="machine-box">
-            <div id="matter-box"></div>
-            <img src="arcade.png" class="machine-bg" onerror="this.style.display='none'">
-            <div class="claw-line" id="clawLine"></div>
-            <img src="claw.png" class="claw-img" id="theClaw" onerror="this.outerHTML='<div class=\\'claw-img\\' id=\\'theClaw\\' style=\\'font-size:60px;\\'>🪝</div>'">
-            <div class="grabbed-ball" id="grabbedBall"></div>
+            <div class="dna-core">🧬</div>
+            <div style="color: var(--p1); font-weight: 900; letter-spacing: 2px; margin-top: 20px; text-shadow: 0 0 10px var(--p1);">SEQUENCING ACTIVE</div>
         </div>
         
-        <div class="controls-panel">
-            <div class="controller-box">
-                <button class="dir-btn" onmousedown="moveClaw(-1)">◀</button>
-                <img src="controller.png" class="controller-img" onerror="this.outerHTML='<div style=\\'font-size:40px;\\'>🎮</div>'">
-                <button class="dir-btn" onmousedown="moveClaw(1)">▶</button>
+        <!-- Progress Bar -->
+        <div class="progress-wrapper">
+            <div class="progress-title">Mutation Cycle Progress</div>
+            <div class="progress-bg">
+                <div class="progress-fill" id="evoProgressFill"></div>
+                <div class="progress-text" id="evoProgressText">0:00 / 5:00</div>
             </div>
-
-            <!-- NEW BOOST BUTTON -->
-            <div style="display:flex; flex-direction:column; align-items:center;">
-                <div class="boost-wrapper" id="boostWrapper" 
-                     onmousedown="startBoostCharge(event)" onmouseup="stopBoostCharge(event)" onmouseleave="stopBoostCharge(event)"
-                     ontouchstart="startBoostCharge(event)" ontouchend="stopBoostCharge(event)" ontouchcancel="stopBoostCharge(event)">
-                    <svg class="boost-ring" width="80" height="80" viewBox="0 0 80 80">
-                        <circle class="boost-circle-bg" cx="40" cy="40" r="36"></circle>
-                        <circle class="boost-circle-fill" id="boostCircleFill" cx="40" cy="40" r="36"></circle>
-                    </svg>
-                    <img src="boost.png" class="boost-img" onerror="this.outerHTML='<div class=\\'boost-img\\' style=\\'font-size:40px; display:flex; justify-content:center; align-items:center;\\'>⚡</div>'">
-                </div>
-                <div class="boost-status" id="boostStatusText">HOLD TO BOOST</div>
-            </div>
-
-            <div class="action-box" onclick="handleClawButton()">
-                <img src="button.png" class="button-img" onerror="this.outerHTML='<div style=\\'font-size:50px; filter: drop-shadow(0 0 10px #f72585);\\'>🔴</div>'">
-                <div class="action-text" id="arcadeActionText">Insert Coin (100 👾)</div>
-            </div>
+            <div style="font-size: 12px; color: #8892b0; margin-top: 10px;">Keep the page open to earn +100 DNA Points every 5 minutes, with a 10% chance to mutate a rare drop!</div>
         </div>
     </div>
 
-    <div class="task-grid" id="taskList"></div>
-
-    <div class="overlay" id="shopOverlay">
-        <div class="overlay-bar">
-            <div class="bar-title" style="color: var(--p1); font-size: 20px; font-weight: 900;">🛍️ ARCADE PRIZE SHOP</div>
-            <button class="btn-close" onclick="closeShop()">CLOSE ✕</button>
+    <!-- 3. SHOP -->
+    <h2 class="shop-header">🛒 Genetic Marketplace</h2>
+    <div class="shop-container">
+        <!-- Gem Conversion -->
+        <div class="shop-card" style="border-color: #00ffcc;">
+            <div class="emoji-icon" style="filter: drop-shadow(0 0 15px #00ffcc);">💎</div>
+            <h3 style="color: #00ffcc;">Data Extraction</h3>
+            <p>Exchange 100 Gems for 500 DNA Points.</p>
+            <button class="btn-buy" style="background: #00ffcc; color: #000;" onclick="exchangeGems()">Extract (100 💎)</button>
         </div>
-        <div class="shop-container" id="arcadeShopGrid"></div>
+
+        <!-- Evo Item 1 -->
+        <div class="shop-card">
+            <div class="emoji-icon">🧪</div>
+            <h3>Biomimetic Flask</h3>
+            <p>Essential genetic sequencing component.</p>
+            <button class="btn-buy" onclick="buyEvoItem('Biomimetic Flask', 1500, '🧪')">Synthesize (1,500 🧬)</button>
+        </div>
+
+        <!-- Evo Item 2 -->
+        <div class="shop-card">
+            <div class="emoji-icon">🧫</div>
+            <h3>Mutagenic Strain</h3>
+            <p>Highly unstable biochemical structural agent.</p>
+            <button class="btn-buy" onclick="buyEvoItem('Mutagenic Strain', 1500, '🧫')">Synthesize (1,500 🧬)</button>
+        </div>
+
+        <!-- Evo Item 3 -->
+        <div class="shop-card">
+            <div class="emoji-icon">🦴</div>
+            <h3>Anomalous Fossil</h3>
+            <p>Ancient structure teeming with genetic history.</p>
+            <button class="btn-buy" onclick="buyEvoItem('Anomalous Fossil', 1500, '🦴')">Synthesize (1,500 🧬)</button>
+        </div>
     </div>
 
+    <!-- 4. REWARD POPUP -->
     <div class="reward-popup" id="rewardPopup">
         <div class="reward-box">
-            <h2 id="rewardTitle" style="color: var(--p1); margin-top:0; font-size: 28px;">PRIZE GET!</h2>
-            <div id="rewardIcon" style="margin: 20px 0; display: flex; justify-content: center; filter: drop-shadow(0 0 20px var(--p1));"></div>
+            <h2 id="rewardTitle" style="color: var(--p1); margin-top:0; font-size: 28px; text-shadow: var(--glow);">PRIZE GET!</h2>
+            <div id="rewardIcon" style="margin: 20px 0; display: flex; justify-content: center; font-size: 80px; filter: drop-shadow(0 0 20px var(--p1));"></div>
             <p id="rewardDesc" style="font-size: 18px; font-weight: bold; line-height: 1.5; color: #fff;"></p>
             <button class="btn-buy" style="margin-top: 25px; background: var(--p1); color: #000;" onclick="document.getElementById('rewardPopup').style.display='none'">AWESOME!</button>
         </div>
@@ -184,623 +209,233 @@
     <div id="toast">Data Synced Successfully</div>
 
 <script>
-// ==========================================
-// 📖 ARCADE STORY QUESTS
-// ==========================================
-const STORY_QUESTS = [
-    { 
-        type: 'ui_action', game: 'open_more', 
-        name: 'Chapter 1: Hidden Features', 
-        desc: 'Go back to the Main Portal and open the MORE (⋮) menu.', 
-        goal: 1, reward: 300
-    },
-    { 
-        type: 'arcade_action', game: 'play_claw', 
-        name: 'Chapter 2: The Gambler', 
-        desc: 'Insert coins and use the Claw Machine 3 times.', 
-        goal: 3, reward: 500 
-    },
-    { 
-        type: 'arcade_action', game: 'play_claw', 
-        name: 'Chapter 3: The Gambler 2', 
-        desc: 'Insert coins and use the Claw Machine 5 times.', 
-        goal: 5, reward: 200 
-    },
-    { 
-        type: 'play_specific', game: 'Monkey Mart', 
-        name: 'Chapter 4: The Market', 
-        desc: 'Play Monkey Mart for 10 minutes.', 
-        goal: 600, reward: 200 
-    },
-    { 
-        type: 'play_specific', game: 'Snow Rider 3D', 
-        name: 'Chapter 5: The Winter Trip', 
-        desc: 'Play Snow Rider for 10 minutes.', 
-        goal: 600, reward: 200 
-    },
-    { 
-        type: 'play_specific', game: 'Five Nights At Epsteins', 
-        name: 'Chapter 5: A Story hard to forget', 
-        desc: 'Play Five Nights At Epsteins for 10 minutes.', 
-        goal: 600, reward: 300 
-    }
-];
-
-const bgm = document.getElementById('bgm');
-bgm.volume = 0.4;
-function startMusic() {
-    if (bgm.paused) bgm.play().catch(e => {});
-    if (!bgm.paused) ['click', 'mousemove', 'keydown', 'touchstart'].forEach(evt => document.removeEventListener(evt, startMusic));
-}
-startMusic();
-['click', 'mousemove', 'keydown', 'touchstart'].forEach(evt => document.addEventListener(evt, startMusic));
-
-// --- GAME STATE & BACKEND SYNC ---
+// --- GLOBAL STATE ---
 let gameState = null;
-const MAX_PETS = 50;
-const MAX_CURSORS = 40;
+let activeUser = "";
+let dbHasEnteredEvent = false;
+let evoTimer = 0;
+const EVO_GOAL = 300; // 5 minutes in seconds
 
-const ARCADE_SHOP = [
-    { type: 'currency', id: 'buy_gems', name: '100 Gems', icon: '💎', desc: 'Exchange Arcade Coins back to Gems!', cost: 500, color: '#00ffcc' },
-    { type: 'cursor', id: 'prism', name: 'Prism Wing', img: '../png/Prism.png', desc: 'Exclusive Event Cursor', cost: 1500, color: '#00ffcc' },
-    { type: 'item', id: 'VirusUSB', name: 'VirusUSB', icon: '💾', desc: 'Evolution Material', cost: 1500, color: '#f72585' },
-    { type: 'item', id: 'Moonstone', name: 'Moonstone', icon: '🌑', desc: 'Evolution Material', cost: 2000, color: '#f72585' },
-    { type: 'pet', id: 'seed', name: 'Mysterious Seed', img: '../png/seed.png', desc: 'A Rare Arcade Pet', cost: 6000, color: '#9d4edd' },
-    { type: 'chest', id: 'arcade', name: 'Arcade Chest', img: '../png/arcade_chest.png', desc: 'Contains Ultra-Rare Arcade Drops!', cost: 500, isChest: true, color: '#f72585' }
-];
+// --- INITIALIZATION ---
+window.addEventListener('DOMContentLoaded', async () => {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    if (!savedUser) {
+        document.getElementById('loadingScreen').innerHTML = `<h2 style="color:#ff4444;">Access Denied. Please log in from the main portal.</h2>`;
+        return;
+    }
+    activeUser = savedUser;
 
+    await loadGameFromServer();
+    document.getElementById('loadingScreen').style.display = 'none';
+
+    // Gatekeeper Check
+    if (!dbHasEnteredEvent) {
+        document.getElementById('starterSelection').classList.add('open');
+    } else {
+        startEvolutionLoop();
+    }
+});
+
+// --- BACKEND SYNC ---
 async function loadGameFromServer() {
     try {
         const formData = new FormData(); 
         formData.append('action', 'load');
-        const savedUser = localStorage.getItem('schoolExamsSavedUser');
-        if (savedUser) formData.append('username', savedUser);
+        formData.append('username', activeUser);
 
         const res = await fetch('../backend.php', { method: 'POST', body: formData });
         const result = await res.json();
         
-        if(result.success && result.data) {
+        if (result.success && result.data) {
+            dbHasEnteredEvent = parseInt(result.data.has_entered_event) === 1;
+
             gameState = {
                 coins: parseInt(result.data.coins) || 0,
                 gems: parseInt(result.data.gems) || 0,
-                playtime: parseInt(result.data.playtime) || 0,
-                sakura_coins: parseInt(result.data.sakura_coins) || 0, 
-                event_tasks: JSON.parse(result.data.event_tasks || '[]'),
-                owned_chests: JSON.parse(result.data.owned_chests || '{}'), 
-                owned_cursors: JSON.parse(result.data.owned_cursors || '["def"]'),
-                equipped_cursor: result.data.equipped_cursor || 'def',
+                sakura_coins: parseInt(result.data.sakura_coins) || 0,
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
-                active_pet: result.data.active_pet || '',
                 pet_ages: JSON.parse(result.data.pet_ages || '{}'),
                 owned_items: JSON.parse(result.data.owned_items || '[]'),
-                boost_end: parseInt(result.data.boost_end) || 0,
-                boost_cd: parseInt(result.data.boost_cd) || 0
+                game_stats: JSON.parse(result.data.game_stats || '{}')
             };
+
+            // Restore timer if left midway
+            if (gameState.game_stats.evo_timer !== undefined) {
+                evoTimer = parseInt(gameState.game_stats.evo_timer);
+            }
+            
             updateCurrencies();
-            syncStoryTask(); 
-            renderArcadeShop(); 
-            updateBoostUI();
+            updateProgressBar();
         }
-    } catch(e) { console.error("Event failed to load state."); }
+    } catch(e) {
+        console.error("Event failed to load state.", e);
+        alert("Server connection failed.");
+    }
 }
 
 async function saveGameToServer() {
-    if(!gameState) return;
+    if (!gameState) return;
     try {
+        // Save current timer progress
+        if (!gameState.game_stats) gameState.game_stats = {};
+        gameState.game_stats.evo_timer = evoTimer;
+
         const formData = new FormData();
         formData.append('action', 'save');
-        const savedUser = localStorage.getItem('schoolExamsSavedUser');
-        if (savedUser) formData.append('username', savedUser);
-
+        formData.append('username', activeUser);
         formData.append('coins', gameState.coins);
         formData.append('gems', gameState.gems);
-        formData.append('playtime', gameState.playtime);
         formData.append('sakura_coins', gameState.sakura_coins);
-        formData.append('event_tasks', JSON.stringify(gameState.event_tasks));
-        formData.append('owned_chests', JSON.stringify(gameState.owned_chests || {})); 
-        formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors));
-        formData.append('equipped_cursor', gameState.equipped_cursor);
         formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
-        formData.append('active_pet', gameState.active_pet);
         formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
-        formData.append('owned_items', JSON.stringify(gameState.owned_items || []));
-        formData.append('boost_end', gameState.boost_end || 0);
-        formData.append('boost_cd', gameState.boost_cd || 0);
+        formData.append('owned_items', JSON.stringify(gameState.owned_items));
+        formData.append('game_stats', JSON.stringify(gameState.game_stats));
         
         await fetch('../backend.php', { method: 'POST', body: formData });
-    } catch(e) { console.error("Event failed to save state."); }
-}
-
-function updateCurrencies() {
-    if(gameState) {
-        document.getElementById('sakuraDisplay').innerText = gameState.sakura_coins.toLocaleString();
-        document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
+    } catch(e) { 
+        console.error("Event failed to save state.", e); 
     }
 }
 
-// --- BOOST BUTTON SYSTEM ---
-let boostCharge = 0;
-let chargeTimer = null;
-const CHARGE_TIME_MS = 1500; // 1.5 seconds to hold
-const TICK_RATE = 30; // ms
-const CHARGE_PER_TICK = 100 / (CHARGE_TIME_MS / TICK_RATE);
+// --- PET SELECTION LOGIC ---
+async function selectStarter(petId, emoji, name) {
+    if (dbHasEnteredEvent) return alert("You have already claimed an event specimen.");
+    if (gameState.owned_pets.length >= 50) return alert("Pet Inventory Full! Free up space in the main portal first.");
 
-function startBoostCharge(e) {
-    if (e && e.type.includes('mouse') && e.button !== 0) return; // Only left click
-    if (!gameState) return;
-
-    let now = Math.floor(Date.now() / 1000);
-    if (now < gameState.boost_cd) {
-        showToast("Boost is on cooldown!");
-        return;
-    }
-    if (now < gameState.boost_end) {
-        showToast("Boost is already active!");
-        return;
-    }
-
-    if (chargeTimer) clearInterval(chargeTimer);
+    // Add pet to inventory
+    let uid = petId + '::' + Date.now();
+    gameState.owned_pets.push(uid);
+    gameState.pet_ages[uid] = 0;
     
-    chargeTimer = setInterval(() => {
-        boostCharge += CHARGE_PER_TICK;
-        updateBoostRing(boostCharge);
-        
-        if (boostCharge >= 100) {
-            clearInterval(chargeTimer);
-            activateBoost();
+    dbHasEnteredEvent = true;
+
+    // Send the trigger to DB to lock the event entry
+    const fd = new FormData();
+    fd.append('action', 'enter_evolution_event');
+    fd.append('username', activeUser);
+    try {
+        await fetch('../backend.php', { method: 'POST', body: fd });
+    } catch(err) { console.error(err); }
+
+    document.getElementById('starterSelection').classList.remove('open');
+    
+    await saveGameToServer();
+    showPopup(emoji, 'SEQUENCE INITIALIZED!', `You selected the <span style="color:var(--p1);">${name}</span>.<br>It has been added to your Inventory!`);
+    
+    startEvolutionLoop();
+}
+
+// --- PLAYTIME LOOP LOGIC ---
+let loopInterval;
+function startEvolutionLoop() {
+    if (loopInterval) clearInterval(loopInterval);
+    loopInterval = setInterval(() => {
+        if (!gameState || !dbHasEnteredEvent) return;
+
+        evoTimer++;
+        updateProgressBar();
+
+        if (evoTimer >= EVO_GOAL) {
+            evoTimer = 0; 
+            triggerEvolutionReward();
         }
-    }, TICK_RATE);
+        
+        // Auto-save every 30 seconds to prevent data loss
+        if (evoTimer % 30 === 0) {
+            saveGameToServer();
+        }
+    }, 1000);
 }
 
-function stopBoostCharge(e) {
-    if (chargeTimer) {
-        clearInterval(chargeTimer);
-        chargeTimer = null;
-    }
-    if (boostCharge < 100) {
-        boostCharge = 0;
-        updateBoostRing(0);
-    }
-}
-
-function updateBoostRing(percent) {
-    let circle = document.getElementById('boostCircleFill');
-    if (!circle) return;
-    let maxDash = 226; // 2 * PI * R (36) ≈ 226
-    let offset = maxDash - (Math.min(percent, 100) / 100 * maxDash);
-    circle.style.strokeDashoffset = offset;
-}
-
-function activateBoost() {
-    let now = Math.floor(Date.now() / 1000);
-    gameState.boost_end = now + (10 * 60); // Active for 10 minutes
-    gameState.boost_cd = now + (30 * 60);  // Cooldown for 30 minutes
-    boostCharge = 0;
+function updateProgressBar() {
+    let percent = Math.min(100, (evoTimer / EVO_GOAL) * 100);
+    document.getElementById('evoProgressFill').style.width = `${percent}%`;
     
+    let m = Math.floor(evoTimer / 60);
+    let s = evoTimer % 60;
+    document.getElementById('evoProgressText').innerText = `${m}:${s.toString().padStart(2, '0')} / 5:00`;
+}
+
+function triggerEvolutionReward() {
+    // Base Reward
+    gameState.sakura_coins += 100;
+    let iconHTML = '🧬';
+    let title = 'CYCLE COMPLETE!';
+    let desc = `You synthesized <span style="color:var(--p1);">100 DNA Points</span>!`;
+
+    // 10% Mutation Chance
+    if (Math.random() <= 0.10) {
+        if (!gameState.owned_items) gameState.owned_items = [];
+        let roll = Math.random();
+        
+        if (roll < 0.33) {
+            gameState.owned_items.push('Wish Stone');
+            iconHTML = '🪨';
+            title = '✨ RARE MUTATION ✨';
+            desc += `<br><br>Anomaly detected! You generated a <span style="color:var(--p2);">Wish Stone</span>!`;
+        } else if (roll < 0.66) {
+            gameState.owned_items.push('Wish Meteor');
+            iconHTML = '☄️';
+            title = '✨ RARE MUTATION ✨';
+            desc += `<br><br>Cosmic anomaly detected! You generated a <span style="color:#ffb703;">Wish Meteor</span>!`;
+        } else {
+            gameState.gems += 100;
+            iconHTML = '💎';
+            title = '✨ RARE MUTATION ✨';
+            desc += `<br><br>Crystalline synthesis detected! You generated <span style="color:#00ffcc;">100 Gems</span>!`;
+        }
+    }
+
+    updateCurrencies();
     saveGameToServer();
-    showToast("⚡ Boost Activated! Gain 50 Arcade Coins/min in Portal!");
-    updateBoostUI();
+    showPopup(iconHTML, title, desc);
 }
 
-function updateBoostUI() {
+// --- SHOP LOGIC ---
+async function exchangeGems() {
     if (!gameState) return;
-    let now = Math.floor(Date.now() / 1000);
-    let wrapper = document.getElementById('boostWrapper');
-    let statusText = document.getElementById('boostStatusText');
-    let circle = document.getElementById('boostCircleFill');
-
-    if (now < gameState.boost_end) {
-        wrapper.className = "boost-wrapper boost-active";
-        let left = gameState.boost_end - now;
-        let m = Math.floor(left / 60);
-        let s = left % 60;
-        statusText.innerText = `ACTIVE (${m}:${s.toString().padStart(2, '0')})`;
-        statusText.style.color = "var(--p1)";
-    } else if (now < gameState.boost_cd) {
-        wrapper.className = "boost-wrapper boost-cooldown";
-        let left = gameState.boost_cd - now;
-        let m = Math.floor(left / 60);
-        let s = left % 60;
-        statusText.innerText = `COOLDOWN (${m}:${s.toString().padStart(2, '0')})`;
-        statusText.style.color = "#ff4d6d";
-        if (boostCharge === 0) circle.style.strokeDashoffset = 226;
-    } else {
-        wrapper.className = "boost-wrapper";
-        statusText.innerText = "HOLD TO BOOST";
-        statusText.style.color = "#ffb703";
-        if (boostCharge === 0) circle.style.strokeDashoffset = 226;
-    }
-}
-
-// Tick the UI for the timer
-setInterval(updateBoostUI, 1000);
-
-
-// --- POPUP REWARD ENGINE ---
-function showPurchasePopup(iconHTML, itemName, extraDesc = '') {
-    document.getElementById('rewardTitle').innerText = "PURCHASE SUCCESSFUL!";
-    document.getElementById('rewardTitle').style.color = "#3ba55c"; // Green for success
-    
-    document.getElementById('rewardIcon').innerHTML = `<div style="font-size: 80px; filter: drop-shadow(0 0 20px #3ba55c);">${iconHTML}</div>`;
-    
-    document.getElementById('rewardDesc').innerHTML = `Item Successfully Bought:<br><span style="color: var(--p1); font-size: 24px;">${itemName}</span><br><br><span style="font-size: 14px; color: #aaa;">${extraDesc}</span>`;
-    
-    document.getElementById('rewardPopup').style.display = 'flex';
-}
-
-function exchangeGems() {
-    if (!gameState) return;
-    if (gameState.gems >= 150) {
-        gameState.gems -= 150;
+    if (gameState.gems >= 100) {
+        gameState.gems -= 100;
         gameState.sakura_coins += 500;
         updateCurrencies();
-        saveGameToServer();
-        showPurchasePopup('💎', '500 Arcade Coins', 'Converted from 150 Gems!');
+        await saveGameToServer();
+        showPopup('💎', 'EXTRACTION SUCCESS', 'Converted 100 Gems into <span style="color:var(--p1);">500 DNA Points</span>!');
     } else {
         alert("Not enough Gems!");
     }
 }
 
-// --- STORY QUEST LOGIC ---
-function syncStoryTask() {
+async function buyEvoItem(itemName, cost, icon) {
     if (!gameState) return;
-    let currentTaskState = gameState.event_tasks[0];
-    if (!currentTaskState || currentTaskState.questIndex === undefined) {
-        loadQuest(0);
-    } else {
-        renderTasks();
-    }
-}
-
-function loadQuest(index) {
-    if (index >= STORY_QUESTS.length) {
-        gameState.event_tasks = [{ questIndex: index, completed: true, isEnd: true }];
-        saveGameToServer();
-        renderTasks();
-        return;
-    }
-
-    let q = STORY_QUESTS[index];
-    gameState.event_tasks = [{
-        id: Date.now(),
-        questIndex: index,
-        type: q.type,
-        game: q.game,
-        name: q.name,
-        desc: q.desc,
-        current: 0,
-        goal: q.goal,
-        reward: q.reward,
-        completed: false
-    }];
-    saveGameToServer();
-    renderTasks();
-}
-
-function renderTasks() {
-    if (!gameState) return;
-    const container = document.getElementById('taskList');
-    container.innerHTML = "";
-    
-    let task = gameState.event_tasks[0];
-    if (!task) return;
-
-    if (task.isEnd) {
-        container.innerHTML = `
-            <div class="task-card done" style="text-align: center; border-color: var(--p1); box-shadow: 0 0 30px rgba(0, 245, 212, 0.4);">
-                <h2 style="color: var(--p1); margin: 0; font-size: 2rem;">🎉 TO BE CONTINUED...</h2>
-                <p style="color: #ccc; margin: 15px 0 0 0; font-size: 1.1rem;">You have completed all current Arcade Story chapters! Check back later for new updates and more lore.</p>
-            </div>
-        `;
-        return;
-    }
-
-    let percent = Math.min(100, (task.current / task.goal) * 100);
-    let progressText = task.type === 'play_specific' 
-        ? `${Math.floor(task.current / 60)}m / ${Math.floor(task.goal / 60)}m`
-        : `${task.current} / ${task.goal}`;
-    
-    let statusText = task.completed ? 'READY TO CLAIM!' : progressText;
-    let btnHTML = task.completed 
-        ? `<button class="btn-claim" onclick="claimStoryTask()">Claim ${task.reward} 👾 & Next Chapter</button>` 
-        : ``;
-
-    const card = document.createElement('div');
-    card.className = `task-card ${task.completed ? 'done' : ''}`;
-    card.innerHTML = `
-        <div class="task-title">
-            <span>${task.name}</span>
-            <span class="task-pts">Reward: ${task.reward} 👾</span>
-        </div>
-        <div class="task-desc">${task.desc}</div>
-        <div style="font-size: 0.9rem; color: #aaa;">Status: <strong style="color: #fff;">${statusText}</strong></div>
-        <div class="progress-bg">
-            <div class="progress-fill" style="width: ${percent}%"></div>
-        </div>
-        ${btnHTML}
-    `;
-    container.appendChild(card);
-}
-
-function claimStoryTask() {
-    let task = gameState.event_tasks[0];
-    gameState.sakura_coins += task.reward;
-    updateCurrencies();
-    showToast(`Claimed ${task.reward} Arcade Coins!`);
-    loadQuest(task.questIndex + 1);
-}
-
-function checkClawTask() {
-    if (!gameState || !gameState.event_tasks || gameState.event_tasks.length === 0) return;
-    let task = gameState.event_tasks[0];
-    
-    if (task.type === 'arcade_action' && task.game === 'play_claw' && !task.completed) {
-        task.current++;
-        if (task.current >= task.goal) {
-            task.current = task.goal;
-            task.completed = true;
-            showToast("✅ Arcade Chapter Quest Completed!");
-        }
-        saveGameToServer();
-        renderTasks();
-    }
-}
-
-// --- MATTER.JS 2D PHYSICS ENGINE & CLAW LOGIC ---
-const Engine = Matter.Engine,
-      Render = Matter.Render,
-      Runner = Matter.Runner,
-      Bodies = Matter.Bodies,
-      Composite = Matter.Composite;
-
-let engine = Engine.create();
-let render = Render.create({
-    element: document.getElementById('matter-box'),
-    engine: engine,
-    options: { width: 320, height: 350, wireframes: false, background: 'transparent' }
-});
-
-const ground = Bodies.rectangle(160, 355, 320, 20, { isStatic: true, render: { fillStyle: 'transparent' } });
-const leftWall = Bodies.rectangle(-10, 175, 20, 350, { isStatic: true, render: { fillStyle: 'transparent' } });
-const rightWall = Bodies.rectangle(330, 175, 20, 350, { isStatic: true, render: { fillStyle: 'transparent' } });
-Composite.add(engine.world, [ground, leftWall, rightWall]);
-
-Render.run(render);
-Runner.run(Runner.create(), engine);
-
-const ballColors = ['#f72585', '#7209b7', '#3a0ca3', '#4361ee', '#4cc9f0', '#00f5d4', '#ffd700'];
-let activeBalls = [];
-
-function spawnInitialBalls() {
-    for(let i=0; i<30; i++) {
-        let color = ballColors[Math.floor(Math.random() * ballColors.length)];
-        let ball = Bodies.circle(Math.random() * 280 + 20, Math.random() * 100 - 200, 15, {
-            restitution: 0.1, friction: 0.8, density: 0.05,
-            render: { fillStyle: color, strokeStyle: '#fff', lineWidth: 2 }
-        });
-        activeBalls.push(ball);
-        Composite.add(engine.world, ball);
-    }
-}
-spawnInitialBalls();
-
-let clawState = 'idle'; 
-let clawPos = 50;
-
-function moveClaw(direction) {
-    if (clawState !== 'active') return;
-    clawPos += (direction * 5); 
-    if (clawPos < 10) clawPos = 10;
-    if (clawPos > 90) clawPos = 90;
-    
-    document.getElementById('theClaw').style.left = clawPos + '%';
-    document.getElementById('clawLine').style.left = clawPos + '%';
-    document.getElementById('grabbedBall').style.left = clawPos + '%'; 
-}
-
-function handleClawButton() {
-    if (clawState === 'idle') {
-        if (gameState.sakura_coins < 100) return showToast("Not enough Arcade Coins!");
+    if (gameState.sakura_coins >= cost) {
+        gameState.sakura_coins -= cost;
+        if (!gameState.owned_items) gameState.owned_items = [];
+        gameState.owned_items.push(itemName);
         
-        gameState.sakura_coins -= 100;
         updateCurrencies();
-        saveGameToServer();
-        
-        clawState = 'active';
-        document.getElementById('arcadeActionText').innerText = "DROP CLAW!";
-        showToast("🕹️ Coin Inserted! Move the claw, then drop!");
-        
-    } else if (clawState === 'active') {
-        clawState = 'dropping';
-        document.getElementById('arcadeActionText').innerText = "DROPPING...";
-        
-        const claw = document.getElementById('theClaw');
-        const line = document.getElementById('clawLine');
-        const grabbedBallDom = document.getElementById('grabbedBall');
-        
-        grabbedBallDom.style.opacity = '0';
-        grabbedBallDom.style.top = "290px"; 
-        
-        claw.style.top = "260px";
-        line.style.height = "260px";
-        
-        setTimeout(() => {
-            if (activeBalls.length > 0) {
-                let grabbed = activeBalls.pop(); 
-                let color = grabbed.render.fillStyle; 
-                Composite.remove(engine.world, grabbed); 
-                
-                grabbedBallDom.style.background = color;
-                grabbedBallDom.style.opacity = '1';
-            }
-
-            setTimeout(() => {
-                claw.style.top = "20px";
-                line.style.height = "20px";
-                grabbedBallDom.style.top = "50px"; 
-                
-                setTimeout(() => {
-                    getClawReward();
-                    checkClawTask();
-                    
-                    clawState = 'idle';
-                    document.getElementById('arcadeActionText').innerText = "INSERT COIN (100 👾)";
-                    grabbedBallDom.style.opacity = '0'; 
-                    
-                    if(activeBalls.length < 10) {
-                        for(let i=0; i<15; i++) {
-                            let c = ballColors[Math.floor(Math.random() * ballColors.length)];
-                            let b = Bodies.circle(Math.random() * 280 + 20, -50, 15, {
-                                restitution: 0.1, friction: 0.8, density: 0.05,
-                                render: { fillStyle: c, strokeStyle: '#fff', lineWidth: 2 }
-                            });
-                            activeBalls.push(b);
-                            Composite.add(engine.world, b);
-                        }
-                    }
-                }, 1000); 
-            }, 50); 
-        }, 1000); 
+        await saveGameToServer();
+        showPopup(icon, 'SYNTHESIS SUCCESS', `Successfully synthesized 1x <span style="color:var(--p1);">${itemName}</span>!`);
+    } else {
+        alert("Not enough DNA Points!");
     }
 }
 
-function getClawReward() {
-    document.getElementById('rewardTitle').innerText = "PRIZE GRABBED!";
-    document.getElementById('rewardTitle').style.color = "var(--p1)";
-
-    const roll = Math.random() * 100;
-    let iconHTML = "";
-    let descHTML = "";
-
-    if (roll < 70) {
-        let amt = Math.floor(Math.random() * 500) + 230;
-        gameState.coins += amt;
-        iconHTML = `<div style="font-size:80px;">🪙</div>`;
-        descHTML = `You won <span style="color:#ffd700;">${amt} ExamCoins</span>!`;
-    } else if (roll < 90) {
-        let amt = Math.floor(Math.random() * 10) + 5;
-        gameState.gems += amt;
-        iconHTML = `<div style="font-size:80px;">💎</div>`;
-        descHTML = `You won <span style="color:#00ffcc;">${amt} Gems</span>!`;
-    } else if (roll < 99) {
-        let uid = 'virus_kitty::' + Date.now();
-        if (gameState.owned_pets.length < MAX_PETS) {
-            gameState.owned_pets.push(uid);
-            gameState.pet_ages[uid] = 0;
-            iconHTML = `<img src="../png/virus_kitty.png" style="height:80px; object-fit:contain;" onerror="this.outerHTML='<div style=\\'font-size:80px;\\'>👾</div>'">`;
-            descHTML = `You grabbed the <span style="color:var(--p1);">Virus Kitty</span>!`;
-        } else {
-            gameState.gems += 100;
-            iconHTML = `<div style="font-size:80px;">🐾</div>`;
-            descHTML = `You won a Pet, but your inventory was full! Here are <span style="color:#00ffcc;">100 Gems</span> instead.`;
-        }
-    } else {
-        if (Math.random() > 0.5) {
-            if (gameState.owned_cursors.length < MAX_CURSORS && !gameState.owned_cursors.includes('hacked')) {
-                gameState.owned_cursors.push('hacked');
-                iconHTML = `<img src="../png/hacked.png" style="height:100px; object-fit:contain;" onerror="this.outerHTML='<div style=\\'font-size:80px;\\'>🖱️</div>'">`;
-                descHTML = `JACKPOT! You grabbed a <span style="color:var(--p2);">Hacked Cursor</span>!`;
-            } else {
-                gameState.gems += 200;
-                iconHTML = `<div style="font-size:80px;">🖱️</div>`;
-                descHTML = `JACKPOT! But your Cursor Inventory is full! Here are <span style="color:#00ffcc;">500 Gems</span> instead.`;
-            }
-        } else {
-            if (!gameState.owned_items) gameState.owned_items = [];
-            gameState.owned_items.push('VirusUSB');
-            iconHTML = `<div style="font-size:80px; filter: drop-shadow(0 0 10px #00ffcc);">💾</div>`; 
-            descHTML = `JACKPOT! You grabbed a rare <span style="color:#00ffcc;">VirusUSB</span>!`;
-        }
+// --- UI HELPERS ---
+function updateCurrencies() {
+    if(gameState) {
+        document.getElementById('dnaDisplay').innerText = gameState.sakura_coins.toLocaleString();
+        document.getElementById('gemDisplay').innerText = gameState.gems.toLocaleString();
     }
+}
 
-    saveGameToServer();
+function showPopup(iconHTML, title, descHTML) {
+    document.getElementById('rewardTitle').innerText = title;
+    // Set color based on title for extra flair
+    document.getElementById('rewardTitle').style.color = title.includes('MUTATION') ? 'var(--p2)' : 'var(--p1)';
+    
     document.getElementById('rewardIcon').innerHTML = iconHTML;
     document.getElementById('rewardDesc').innerHTML = descHTML;
     document.getElementById('rewardPopup').style.display = 'flex';
-}
-
-function openShop() { document.getElementById('shopOverlay').classList.add('open'); }
-function closeShop() { document.getElementById('shopOverlay').classList.remove('open'); }
-
-function renderArcadeShop() {
-    if (!gameState) return;
-    const grid = document.getElementById('arcadeShopGrid');
-    grid.innerHTML = '';
-
-    ARCADE_SHOP.forEach(item => {
-        let cardStyle = `border-color: ${item.color || 'var(--p1)'};`;
-        let imgStyle = item.isChest ? 'filter: drop-shadow(0 0 10px var(--p1));' : '';
-        let titleStyle = `color: ${item.color || 'var(--p1)'};`;
-        
-        let visual = item.img 
-            ? `<img src="${item.img}" alt="${item.name}" style="${imgStyle}">`
-            : `<div class="emoji-icon" style="filter: drop-shadow(0 0 10px ${item.color});">${item.icon}</div>`;
-
-        let btnHTML = '';
-        if (item.isChest) {
-            btnHTML = `<button class="btn-buy" style="background: ${item.color}; color:#000;" onclick="buyArcadeChest()">Buy for ${item.cost.toLocaleString()} 👾</button>`;
-        } else if (item.type === 'currency') {
-            btnHTML = `<button class="btn-buy" style="background: ${item.color}; color:#000;" onclick="buyGems()">Buy for ${item.cost.toLocaleString()} 👾</button>`;
-        } else {
-            btnHTML = `<button class="btn-buy" style="background: ${item.color}; color:#000;" onclick="buyItem('${item.type}', '${item.id}', ${item.cost}, '${item.name}')">Buy for ${item.cost.toLocaleString()} 👾</button>`;
-        }
-
-        grid.innerHTML += `
-            <div class="shop-card" style="${cardStyle}">
-                ${visual}
-                <h3 style="${titleStyle}">${item.name}</h3>
-                <p style="font-size: 12px; color: #aaa;">${item.desc}</p>
-                ${btnHTML}
-            </div>
-        `;
-    });
-}
-
-async function buyGems() {
-    if (gameState.sakura_coins < 500) return alert("Not enough Arcade Coins!");
-    gameState.sakura_coins -= 500;
-    gameState.gems += 100;
-    updateCurrencies();
-    await saveGameToServer();
-    showPurchasePopup('💎', '100 Gems', '');
-}
-
-async function buyItem(type, baseId, cost, name) {
-    if (gameState.sakura_coins < cost) return alert("Not enough Arcade Coins!");
-    
-    let iconHtml = '🛍️';
-    if (type === 'cursor') {
-        if (gameState.owned_cursors.length >= MAX_CURSORS) return alert(`❌ Cursor Inventory Full!`);
-        gameState.sakura_coins -= cost;
-        gameState.owned_cursors.push(baseId);
-        iconHtml = '🖱️';
-    } else if (type === 'pet') {
-        if (gameState.owned_pets.length >= MAX_PETS) return alert(`❌ Pet Inventory Full!`);
-        gameState.sakura_coins -= cost;
-        let uid = baseId + '::' + Date.now();
-        gameState.owned_pets.push(uid);
-        gameState.pet_ages[uid] = 0;
-        iconHtml = '🐾';
-    } else if (type === 'item') {
-        gameState.sakura_coins -= cost;
-        if (!gameState.owned_items) gameState.owned_items = [];
-        gameState.owned_items.push(baseId);
-        iconHtml = '💾';
-    }
-
-    updateCurrencies();
-    await saveGameToServer();
-    showPurchasePopup(iconHtml, name, 'It has been added to your inventory!');
-}
-
-async function buyArcadeChest() {
-    if (gameState.sakura_coins < 500) return alert("Not enough Arcade Coins!");
-    gameState.sakura_coins -= 500;
-    if (!gameState.owned_chests) gameState.owned_chests = {};
-    gameState.owned_chests['arcade'] = (gameState.owned_chests['arcade'] || 0) + 1;
-    updateCurrencies();
-    await saveGameToServer();
-    showPurchasePopup('📦', 'Arcade Chest', 'It has been sent to your Vault to open!');
 }
 
 function showToast(msg) {
@@ -809,9 +444,6 @@ function showToast(msg) {
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
 }
-
-setInterval(() => { loadGameFromServer(); }, 5000);
-loadGameFromServer();
 </script>
 </body>
 </html>
