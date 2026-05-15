@@ -35,7 +35,7 @@
         .btn-top { background: var(--bg1); border: 2px dashed var(--p1); color: var(--p1); padding: 10px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         .btn-top:hover { background: rgba(0, 255, 255, 0.1); box-shadow: var(--glow); transform: translateY(-2px); }
 
-        /* --- VISUALIZER (Replaces Claw Machine) --- */
+        /* --- VISUALIZER --- */
         .evo-container { margin: 0 auto 40px auto; display: flex; flex-direction: column; align-items: center; gap: 20px; max-width: 800px; }
         .machine-box { 
             position: relative; width: 100%; max-width: 400px; height: 400px; 
@@ -102,7 +102,7 @@
         <h2 style="color: var(--p1); margin-top: 20px; font-weight: 900; letter-spacing: 2px;">SYNCING GENETIC DATA...</h2>
     </div>
 
-    <!-- 1. STARTER PET SELECTION (Forces choice if not entered) -->
+    <!-- 1. STARTER PET SELECTION -->
     <div class="overlay" id="starterSelection">
         <div class="selection-box">
             <h2 style="color: var(--p1); font-size: 32px; margin-top: 0; text-shadow: var(--glow);">🧬 INITIALIZE SEQUENCE</h2>
@@ -139,7 +139,7 @@
     </div>
 
     <div class="top-actions">
-        <button class="btn-top" onclick="window.location.href='../'" style="border-color: #fff; color: #fff; background: rgba(255,255,255,0.1);">🏠 Back to Portal</button>
+        <button class="btn-top" onclick="exitEvent()" style="border-color: #fff; color: #fff; background: rgba(255,255,255,0.1);">🏠 Back to Portal</button>
     </div>
 
     <div class="evo-container">
@@ -228,13 +228,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     await loadGameFromServer();
     document.getElementById('loadingScreen').style.display = 'none';
 
-    // Gatekeeper Check
     if (!dbHasEnteredEvent) {
         document.getElementById('starterSelection').classList.add('open');
     } else {
         startEvolutionLoop();
     }
 });
+
+function exitEvent() {
+    saveGameToServer().then(() => {
+        window.location.href = '../';
+    });
+}
 
 // --- BACKEND SYNC ---
 async function loadGameFromServer() {
@@ -252,6 +257,7 @@ async function loadGameFromServer() {
             gameState = {
                 coins: parseInt(result.data.coins) || 0,
                 gems: parseInt(result.data.gems) || 0,
+                playtime: parseInt(result.data.playtime) || 0, // Pull overall playtime too
                 sakura_coins: parseInt(result.data.sakura_coins) || 0,
                 owned_pets: JSON.parse(result.data.owned_pets || '[]'),
                 pet_ages: JSON.parse(result.data.pet_ages || '{}'),
@@ -259,9 +265,11 @@ async function loadGameFromServer() {
                 game_stats: JSON.parse(result.data.game_stats || '{}')
             };
 
-            // Restore timer if left midway
-            if (gameState.game_stats.evo_timer !== undefined) {
+            // Restore the specific event timer from game_stats JSON
+            if (gameState.game_stats && gameState.game_stats.evo_timer !== undefined) {
                 evoTimer = parseInt(gameState.game_stats.evo_timer);
+            } else {
+                evoTimer = 0;
             }
             
             updateCurrencies();
@@ -276,7 +284,7 @@ async function loadGameFromServer() {
 async function saveGameToServer() {
     if (!gameState) return;
     try {
-        // Save current timer progress
+        // Explicitly map the current evoTimer directly into the JSON string
         if (!gameState.game_stats) gameState.game_stats = {};
         gameState.game_stats.evo_timer = evoTimer;
 
@@ -285,11 +293,12 @@ async function saveGameToServer() {
         formData.append('username', activeUser);
         formData.append('coins', gameState.coins);
         formData.append('gems', gameState.gems);
+        formData.append('playtime', gameState.playtime); // Sync Global Playtime
         formData.append('sakura_coins', gameState.sakura_coins);
         formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
         formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
         formData.append('owned_items', JSON.stringify(gameState.owned_items));
-        formData.append('game_stats', JSON.stringify(gameState.game_stats));
+        formData.append('game_stats', JSON.stringify(gameState.game_stats)); // Saves the timer inside JSON
         
         await fetch('../backend.php', { method: 'POST', body: formData });
     } catch(e) { 
@@ -302,14 +311,13 @@ async function selectStarter(petId, emoji, name) {
     if (dbHasEnteredEvent) return alert("You have already claimed an event specimen.");
     if (gameState.owned_pets.length >= 50) return alert("Pet Inventory Full! Free up space in the main portal first.");
 
-    // Add pet to inventory
     let uid = petId + '::' + Date.now();
     gameState.owned_pets.push(uid);
     gameState.pet_ages[uid] = 0;
     
     dbHasEnteredEvent = true;
 
-    // Send the trigger to DB to lock the event entry
+    // Send the trigger to DB to permanently lock the event entry column
     const fd = new FormData();
     fd.append('action', 'enter_evolution_event');
     fd.append('username', activeUser);
@@ -332,11 +340,18 @@ function startEvolutionLoop() {
     loopInterval = setInterval(() => {
         if (!gameState || !dbHasEnteredEvent) return;
 
+        gameState.playtime++; // Keep their global main-game playtime moving!
         evoTimer++;
+        
+        // Immediately sync the memory state so it is 100% ready to be saved
+        if (!gameState.game_stats) gameState.game_stats = {};
+        gameState.game_stats.evo_timer = evoTimer;
+
         updateProgressBar();
 
         if (evoTimer >= EVO_GOAL) {
             evoTimer = 0; 
+            gameState.game_stats.evo_timer = 0; // Reset it in JSON
             triggerEvolutionReward();
         }
         
@@ -357,13 +372,11 @@ function updateProgressBar() {
 }
 
 function triggerEvolutionReward() {
-    // Base Reward
     gameState.sakura_coins += 100;
     let iconHTML = '🧬';
     let title = 'CYCLE COMPLETE!';
     let desc = `You synthesized <span style="color:var(--p1);">100 DNA Points</span>!`;
 
-    // 10% Mutation Chance
     if (Math.random() <= 0.10) {
         if (!gameState.owned_items) gameState.owned_items = [];
         let roll = Math.random();
@@ -430,9 +443,7 @@ function updateCurrencies() {
 
 function showPopup(iconHTML, title, descHTML) {
     document.getElementById('rewardTitle').innerText = title;
-    // Set color based on title for extra flair
     document.getElementById('rewardTitle').style.color = title.includes('MUTATION') ? 'var(--p2)' : 'var(--p1)';
-    
     document.getElementById('rewardIcon').innerHTML = iconHTML;
     document.getElementById('rewardDesc').innerHTML = descHTML;
     document.getElementById('rewardPopup').style.display = 'flex';
