@@ -88,8 +88,8 @@ if ($action === 'login') {
 if ($action === 'load') {
     if (!isset($_SESSION['user_id'])) die(json_encode(["success" => false, "message" => "Not logged in."]));
 
-    // ADDED has_entered_event to the SELECT query
-    $stmt = $pdo->prepare("SELECT coins, gems, playtime, owned_cursors, equipped_cursor, owned_pets, active_pet, pet_ages, last_online, sakura_coins, event_tasks, owned_chests, prestige_level, profile_pic, owned_items, boost_end, boost_cd, game_stats, owned_gamer_cards, equipped_gamer_card, has_entered_event FROM users WHERE id = ?");
+    // ADDED event_playtime_count to the SELECT query
+    $stmt = $pdo->prepare("SELECT coins, gems, playtime, owned_cursors, equipped_cursor, owned_pets, active_pet, pet_ages, last_online, sakura_coins, event_tasks, owned_chests, prestige_level, profile_pic, owned_items, boost_end, boost_cd, game_stats, owned_gamer_cards, equipped_gamer_card, has_entered_event, event_playtime_count FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $data = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -129,9 +129,13 @@ if ($action === 'save') {
     $prestige_level = isset($_POST['prestige_level']) ? (int)$_POST['prestige_level'] : (int)$existing['prestige_level'];
     $profile_pic = isset($_POST['profile_pic']) ? $_POST['profile_pic'] : $existing['profile_pic'];
 
-    $stmt = $pdo->prepare("UPDATE users SET coins=?, gems=?, playtime=?, owned_cursors=?, equipped_cursor=?, owned_pets=?, active_pet=?, pet_ages=?, last_online=?, sakura_coins=?, event_tasks=?, owned_chests=?, prestige_level=?, profile_pic=?, owned_items=?, boost_end=?, boost_cd=?, game_stats=?, owned_gamer_cards=?, equipped_gamer_card=? WHERE id=?");
+    // ADDED event_playtime_count
+    $event_playtime_count = (int)($_POST['event_playtime_count'] ?? 0);
+
+    // ADDED event_playtime_count TO UPDATE QUERY
+    $stmt = $pdo->prepare("UPDATE users SET coins=?, gems=?, playtime=?, owned_cursors=?, equipped_cursor=?, owned_pets=?, active_pet=?, pet_ages=?, last_online=?, sakura_coins=?, event_tasks=?, owned_chests=?, prestige_level=?, profile_pic=?, owned_items=?, boost_end=?, boost_cd=?, game_stats=?, owned_gamer_cards=?, equipped_gamer_card=?, event_playtime_count=? WHERE id=?");
     $stmt->execute([
-        $coins, $gems, $playtime, $owned_cursors, $equipped_cursor, $owned_pets, $active_pet, $pet_ages, $last_online, $sakura_coins, $event_tasks, $owned_chests, $prestige_level, $profile_pic, $owned_items, $boost_end, $boost_cd, $game_stats, $owned_gamer_cards, $equipped_gamer_card, $_SESSION['user_id']
+        $coins, $gems, $playtime, $owned_cursors, $equipped_cursor, $owned_pets, $active_pet, $pet_ages, $last_online, $sakura_coins, $event_tasks, $owned_chests, $prestige_level, $profile_pic, $owned_items, $boost_end, $boost_cd, $game_stats, $owned_gamer_cards, $equipped_gamer_card, $event_playtime_count, $_SESSION['user_id']
     ]);
 
     echo json_encode(["success" => true]);
