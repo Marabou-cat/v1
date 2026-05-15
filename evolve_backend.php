@@ -124,6 +124,39 @@ $EVOLUTIONS = [
         "currency" => "gems",
         "img" => "../png/clawed_plushie.png",
         "color" => "#00ffcc"
+    ],
+    "dreaming_chick" => [
+        "base_name" => "Dreaming Chick",
+        "target_id" => "nightmare_rooster",
+        "target_name" => "Nightmare Rooster",
+        "req_level" => 20,
+        "req_item" => "Biomimetic Flask",
+        "cost" => 250,
+        "currency" => "gems",
+        "img" => "../png/nightmare_rooster.png",
+        "color" => "#00ffcc"
+    ],
+    "paint_cat" => [
+        "base_name" => "Paint Cat",
+        "target_id" => "cat_of_fame",
+        "target_name" => "Cat Of Fame",
+        "req_level" => 20,
+        "req_item" => "Anomalous Fossil",
+        "cost" => 250,
+        "currency" => "gems",
+        "img" => "../png/cat_of_fame.png",
+        "color" => "#00ffcc"
+    ],
+    "ember_caterpillar" => [
+        "base_name" => "Ember_Caterpillar",
+        "target_id" => "overheated_pupa",
+        "target_name" => "Overheated Pupa",
+        "req_level" => 20,
+        "req_item" => "Mutagenic Strain",
+        "cost" => 150,
+        "currency" => "gems",
+        "img" => "../png/overheated_pupa.png",
+        "color" => "#00ffcc"
     ]
 ];
 
