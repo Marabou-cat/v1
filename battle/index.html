@@ -85,11 +85,9 @@
             cursor: pointer; position: relative; font-size: 11px; overflow: hidden; height: 105px; box-sizing: border-box;
         }
         
-        /* Fixed Sizing for Inventory Portfolio Assets */
         .pet-mini-card .img-wrap { width: 35px; height: 35px; min-height: 35px; max-height: 35px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .pet-mini-card .img-wrap img { width: 100%; height: 100%; object-fit: contain; max-width: 35px; max-height: 35px; }
         .pet-mini-card .img-wrap span { font-size: 28px; line-height: 1; }
-        .pet-mini-card dishonesty-protection { display: none; }
         .pet-mini-card.selected-in-team { border-color: #ffd700; opacity: 0.5; }
 
         .elem-badge {
@@ -101,47 +99,60 @@
         .elem-badge.cryo { background: var(--cryo); }
         .elem-badge.electro { background: var(--electro); color: #fff; }
 
-        /* --- BATTLE SYSTEM --- */
+        /* --- REDESIGNED POKEMON BATTLESTAGE CONTROLLER --- */
         .wave-banner { font-size: 20px; font-weight: 800; color: #ff0055; margin: 0; }
+        
         .battle-stage {
-            display: grid; grid-template-columns: 1fr auto 1fr; gap: 15px;
-            background: rgba(0,0,0,0.5); border-radius: 12px; padding: 20px;
-            min-height: 320px; border: 1px solid var(--line); align-items: center; position: relative;
+            width: 100%; height: 420px;
+            /* 👇 You can rename this file path format below to fit your custom arena map assets */
+            background-image: url('../png/battle_bg.png');
+            background-size: cover; background-position: center;
+            border-radius: var(--r); border: 2px solid var(--p0);
+            position: relative; overflow: hidden; box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
         }
 
-        .team-column { display: flex; flex-direction: column; gap: 12px; align-items: center; z-index: 2; width: 100%; }
+        #fxCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+
+        /* Left Side (Player Field Space) */
+        .side-lane-player {
+            position: absolute; left: 5%; bottom: 8%; width: 40%;
+            display: flex; flex-direction: column; gap: 15px; z-index: 5;
+        }
+        
+        /* Right Side (Enemy Field Space) */
+        .side-lane-enemy {
+            position: absolute; right: 5%; top: 8%; width: 40%;
+            display: flex; flex-direction: column; gap: 15px; z-index: 5;
+        }
+
+        /* Battle Card Elements */
         .fighter-row {
             display: flex; align-items: center; gap: 10px; width: 100%;
-            padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4);
-            border: 2px solid transparent; position: relative; box-sizing: border-box;
+            padding: 8px 12px; border-radius: 10px; background: rgba(0, 8, 20, 0.75);
+            backdrop-filter: blur(4px); border: 2px solid rgba(255,255,255,0.1);
+            box-sizing: border-box; transition: transform 0.3s, border-color 0.3s;
         }
-        .fighter-row.active-turn { border-color: var(--p1); background: rgba(0, 119, 182, 0.2); }
-        .fighter-row.fainted { opacity: 0.2; filter: grayscale(1); }
+        .fighter-row.active-turn { border-color: var(--p1); box-shadow: 0 0 15px var(--p0); }
+        .fighter-row.fainted { opacity: 0.15; filter: grayscale(1); transform: scale(0.9); }
 
         .graphic-box {
-            width: 55px; height: 55px; min-width: 55px; max-width: 55px;
-            border-radius: 6px; background: rgba(0,0,0,0.3);
-            display: flex; align-items: center; justify-content: center; position: relative; overflow: visible;
+            width: 50px; height: 50px; min-width: 50px; max-width: 50px;
+            border-radius: 6px; background: rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: center; position: relative;
         }
-        .graphic-box img { width: 100%; height: 100%; object-fit: contain; max-width: 55px; max-height: 55px; }
-        .graphic-box span { font-size: 36px; line-height: 1; display: block; }
-        .team-slot img { width: 45px; height: 45px; object-fit: contain; }
+        .graphic-box img { width: 100%; height: 100%; object-fit: contain; max-width: 50px; max-height: 50px; }
+        .graphic-box span { font-size: 32px; line-height: 1; display: block; }
 
-        .status-aura-container {
-            position: absolute; top: -6px; right: -6px; display: flex; gap: 2px; z-index: 5;
-        }
-        .status-dot {
-            width: 14px; height: 14px; border-radius: 50%; border: 1px solid #fff;
-            box-shadow: 0 0 5px rgba(255,255,255,0.8);
-        }
+        .status-aura-container { position: absolute; top: -6px; right: -6px; display: flex; gap: 2px; z-index: 5; }
+        .status-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
 
         .bars-container { flex: 1; text-align: left; overflow: hidden; }
-        .name-label { font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; }
+        .name-label { font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; text-shadow: 1px 1px 2px #000; }
         
-        .hp-container { width: 100%; background: #222; border-radius: 4px; overflow: hidden; margin-top: 4px; border: 1px solid #444; }
-        .hp-bar { height: 8px; width: 100%; transition: width 0.2s ease; }
-        .team-column.player-side .hp-bar { background: linear-gradient(90deg, #2ecc71, #27ae60); }
-        .team-column.enemy-side .hp-bar { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+        .hp-container { width: 100%; background: #111; border-radius: 4px; overflow: hidden; margin-top: 4px; border: 1px solid #333; }
+        .hp-bar { height: 7px; width: 100%; transition: width 0.2s ease; }
+        .player-side .hp-bar { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .enemy-side .hp-bar { background: linear-gradient(90deg, #e74c3c, #c0392b); }
 
         .battle-log {
             background: var(--bg2); border: 2px solid var(--p0); border-radius: 8px;
@@ -156,8 +167,6 @@
         }
         .btn-move:hover:not(:disabled) { background: var(--p0); box-shadow: var(--glow); }
 
-        #fxCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
-
         @keyframes floatDamage {
             0% { transform: translateY(10px) scale(0.5); opacity: 0; }
             15% { transform: translateY(-20px) scale(1.3); opacity: 1; }
@@ -166,10 +175,10 @@
             100% { transform: translateY(-65px) scale(0.8); opacity: 0; }
         }
         .float-dmg-text {
-            position: absolute; font-weight: 900; font-size: 28px;
-            text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 10px rgba(0,0,0,0.8);
+            position: absolute; font-weight: 900; font-size: 32px;
+            text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
             pointer-events: none; z-index: 1000; animation: floatDamage 1.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            white-space: nowrap; font-family: 'Impact', 'Arial Black', sans-serif; letter-spacing: 0.5px;
+            white-space: nowrap; font-family: 'Impact', sans-serif;
         }
 
         .lock-overlay {
@@ -179,8 +188,9 @@
             justify-content: center; gap: 15px; z-index: 100; padding: 20px;
         }
 
-        @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(35px); } }
-        @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-35px); } }
+        /* Handheld Pokémon Core Combat Tweaks */
+        @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(45px) translateY(-15px); } }
+        @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-45px) translateY(15px); } }
         .anim-attack-left { animation: attackLeft 0.3s ease-in-out; }
         .anim-attack-right { animation: attackRight 0.3s ease-in-out; }
     </style>
@@ -229,9 +239,10 @@
         
         <div class="battle-stage" id="battleStage">
             <canvas id="fxCanvas"></canvas>
-            <div class="team-column player-side" id="playerTeamContainer"></div>
-            <div style="font-weight:900; font-size:24px; color:#ff0055; z-index:2;">VS</div>
-            <div class="team-column enemy-side" id="enemyTeamContainer"></div>
+            
+            <!-- Reordered Layout Track Layers -->
+            <div class="team-column player-side side-lane-player" id="playerTeamContainer"></div>
+            <div class="team-column enemy-side side-lane-enemy" id="enemyTeamContainer"></div>
         </div>
 
         <div id="battleLog" class="battle-log">Initializing battle elements...</div>
@@ -322,6 +333,19 @@ let isGauntletLive = false;
 let canvas, ctx;
 let particles = [];
 
+// --- DETAILED PARSING SAFE GUARD (FINALLY STOPS THE SLASH BUG FOREVER) ---
+function safeParse(input, fallback) {
+    if (!input) return fallback;
+    if (typeof input === 'object') return input;
+    try {
+        let parsed = JSON.parse(input);
+        if (typeof parsed === 'string') return JSON.parse(parsed);
+        return parsed;
+    } catch(e) {
+        return fallback;
+    }
+}
+
 function initParticles() {
     canvas = document.getElementById('fxCanvas');
     ctx = canvas.getContext('2d');
@@ -346,7 +370,6 @@ function spawnElementParticles(element, targetRowId) {
     
     const centerX = (rowBox.left + rowBox.width / 2) - stageBox.left;
     const centerY = (rowBox.top + rowBox.height / 2) - stageBox.top;
-    
     const color = MULTIPLIERS[element]?.color || "#ffffff";
 
     for (let i = 0; i < 25; i++) {
@@ -363,12 +386,10 @@ function spawnElementParticles(element, targetRowId) {
 function updateParticlesLoop() {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
     for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
         p.x += p.vx; p.y += p.vy; p.alpha -= p.decay;
         if (p.alpha <= 0) { particles.splice(i, 1); continue; }
-        
         ctx.save();
         ctx.globalAlpha = p.alpha;
         ctx.beginPath();
@@ -427,10 +448,26 @@ async function loadArenaConfiguration() {
         const response = await fetch(BACKEND_URL, { method: 'POST', body: fd });
         const res = await response.json();
         if (res.success && res.data) {
-            gameState = res.data;
-            gameState.owned_pets = JSON.parse(gameState.owned_pets || '[]');
-            gameState.pet_ages = JSON.parse(gameState.pet_ages || '{}');
-            gameState.game_stats = JSON.parse(gameState.game_stats || '{}');
+            let serverData = res.data;
+            gameState = {
+                coins: parseInt(serverData.coins) || 0,
+                gems: parseInt(serverData.gems) || 0,
+                playtime: parseInt(serverData.playtime) || 0,
+                sakura_coins: parseInt(serverData.sakura_coins) || 0,
+                equipped_cursor: serverData.equipped_cursor || 'def',
+                active_pet: serverData.active_pet || '',
+                prestige_level: parseInt(serverData.prestige_level) || 0,
+                boost_end: parseInt(serverData.boost_end) || 0,
+                boost_cd: parseInt(serverData.boost_cd) || 0,
+                
+                // Pure serialization protection mappings
+                event_tasks: safeParse(serverData.event_tasks, []),
+                owned_cursors: safeParse(serverData.owned_cursors, ["def"]),
+                owned_pets: safeParse(serverData.owned_pets, []),
+                pet_ages: safeParse(serverData.pet_ages, {}),
+                owned_items: safeParse(serverData.owned_items, []),
+                game_stats: safeParse(serverData.game_stats, {})
+            };
         } else { throw new Error(); }
     } catch(e) {
         let raw = localStorage.getItem('schoolExamsGuestState');
@@ -536,7 +573,6 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
 
     if (moveType === 'special' && attacker.elem && attacker.elem !== "none") {
         let currentStatus = target.statusEffect;
-
         if (!currentStatus) {
             target.statusEffect = attacker.elem;
         } else if (currentStatus !== attacker.elem) {
@@ -583,7 +619,6 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
     }
 
     target.hp = Math.max(0, target.hp - finalDmg);
-    
     let targetIdx = targetTeam.indexOf(target);
     createFloatingText(finalDmg, elementColor, reactionLabel, `${targetPrefix}${targetIdx}`);
     spawnElementParticles(moveType === 'special' ? attacker.elem : 'physical', `${targetPrefix}${targetIdx}`);
@@ -624,7 +659,6 @@ function generateWaveOpponents() {
     activeEnemyTeam = [];
     let rp = gameState.game_stats.battle_points || 0;
     
-    // Smooth, dynamic exponential rank scaling formula
     let rankMultiplier = 1.0 + Math.log10(1 + rp / 50); 
     let waveBonus = 1.0 + (battleWave - 1) * 0.40;
     let finalScalingFactor = rankMultiplier * waveBonus;
@@ -670,7 +704,7 @@ function drawCombatArenaStage() {
                     <div class="name-label"><span>${p.name}</span><span style="color:var(--p1)">Lvl ${p.level}</span></div>
                     <div class="hp-container"><div class="hp-bar" style="width:${pct}%"></div></div>
                     <div style="font-size:9px; display:flex; justify-content:space-between; margin-top:2px;">
-                        <span>${p.hp}/${p.maxHp} HP</span>
+                        <span>${p.hp}/${p.maxHp}</span>
                         <span class="elem-badge ${p.elem}">${p.elem}</span>
                     </div>
                 </div>
@@ -681,7 +715,7 @@ function drawCombatArenaStage() {
     activeEnemyTeam.forEach((e, idx) => {
         let pct = (e.hp / e.maxHp) * 100;
         let auraHtml = e.statusEffect ? `<div class="status-dot" style="background:var(--${e.statusEffect})"></div>` : '';
-        let specialRowStyle = e.isBoss ? 'border: 2px solid #ffd700; background: rgba(255, 215, 0, 0.15);' : '';
+        let specialRowStyle = e.isBoss ? 'border: 2px solid #ffd700; background: rgba(0,0,0,0.85);' : '';
 
         eContainer.innerHTML += `
             <div class="fighter-row ${e.hp <= 0 ? 'fainted' : ''}" id="eRow${idx}" style="${specialRowStyle}">
@@ -693,7 +727,7 @@ function drawCombatArenaStage() {
                     <div class="name-label"><span style="color:${e.isBoss ? '#ffd700' : '#ff4444'}">${e.name}</span></div>
                     <div class="hp-container"><div class="hp-bar" style="width:${pct}%"></div></div>
                     <div style="font-size:9px; display:flex; justify-content:space-between; margin-top:2px;">
-                        <span>${e.hp}/${e.maxHp} HP</span>
+                        <span>${e.hp}/${e.maxHp}</span>
                         <span class="elem-badge ${e.elem}">${e.elem}</span>
                     </div>
                 </div>
@@ -711,10 +745,8 @@ let currentQueueIndex = 0;
 function processRoundLoopSequence() {
     if (!isGauntletLive) return;
 
-    // Core validation checks
     if (activePlayerTeam.every(p => p.hp <= 0)) { endMatch(false); return; }
     
-    // 👇 FIXED CRITICAL BUG: Force immediate breakthrough checks when a whole enemy line faints mid-round
     if (activeEnemyTeam.every(e => e.hp <= 0)) {
         if (battleWave >= 3) {
             endMatch(true); 
@@ -736,7 +768,6 @@ function processRoundLoopSequence() {
 }
 
 function executeNextQueueStep() {
-    // 👇 CHECK FOR ENEMY WIPEOUT BEFORE NEXT ATTACK ATTEMPT
     if (activeEnemyTeam.every(e => e.hp <= 0)) {
         processRoundLoopSequence();
         return;
