@@ -21,6 +21,7 @@
             --cryo: #80f3ff;
             --electro: #b533ff;
             --dendro: #2ecc71;
+            --geo: #e0a96d;
             --physical: #ffffff;
             --freeze: #a5f3fc;
         }
@@ -107,6 +108,7 @@
         .elem-badge.cryo { background: var(--cryo) !important; }
         .elem-badge.electro { background: var(--electro) !important; color: #fff !important; }
         .elem-badge.dendro { background: var(--dendro) !important; color: #fff !important; }
+        .elem-badge.geo { background: var(--geo) !important; }
 
         .rewards-container { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; height: 100%; padding-right: 5px; }
         .reward-row {
@@ -169,10 +171,17 @@
         .bars-container { flex: 1; text-align: left; overflow: hidden; }
         .name-label { font-size: 12px; font-weight: bold; display: flex; justify-content: space-between; text-shadow: 1px 1px 2px #000; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
         
-        .hp-container { width: 100%; background: #111; border-radius: 4px; overflow: hidden; margin-top: 3px; border: 1px solid #333; }
+        .hp-container { width: 100%; background: #111; border-radius: 4px; overflow: hidden; margin-top: 3px; border: 1px solid #333; position: relative; }
         .hp-bar { height: 6px; width: 100%; transition: width 0.2s ease; }
         .player-side .hp-bar { background: linear-gradient(90deg, #2ecc71, #27ae60); }
         .enemy-side .hp-bar { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+        
+        /* 👇 NEW SHIELD VISUAL LAYER BAR OVERLAY */
+        .shield-bar {
+            position: absolute; top: 0; left: 0; height: 100%;
+            background: linear-gradient(90deg, #f39c12, #f1c40f);
+            box-shadow: 0 0 8px #f1c40f; transition: width 0.2s ease; width: 0%;
+        }
 
         .battle-log {
             background: var(--bg2); border: 2px solid var(--p0); border-radius: 8px;
@@ -281,7 +290,6 @@
         <div id="battleLog" class="battle-log">Initializing battle elements...</div>
 
         <div class="battle-actions">
-            <!-- 👇 RENAMED PRIMARY BUTTON INTERFACE -->
             <button id="btnAttack" class="btn-move" style="background:#0077b6; border-color:#90e0ef;" onclick="executeTurn('splash')">💦 Elemental Splash</button>
             <button id="btnSpecial" class="btn-move" style="background:#8e44ad; border-color:#a29bfe;" onclick="executeTurn('special')">✨ Elemental Spell</button>
             <button id="btnFlee" class="btn-move" style="background:#333; border-color:#555;" onclick="endMatch(false, true)">🏃 Abandon Gauntlet</button>
@@ -332,7 +340,9 @@ const PET_SHOP = [
     { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "nightmare_rooster.png", baseCoin: 450, elem: "pyro" },
     { id: "cat_of_fame", name: "Cat Of Fame", icon: "cat_of_fame.png", baseCoin: 600, elem: "hydro" },
     { id: "overheated_pupa", name: "Overheated Pupa", icon: "overheated_pupa.png", baseCoin: 250, elem: "pyro" },
-    { id: "electro_hydra", name: "Electro Hydra", icon: "hydra.png", baseCoin: 800, elem: "electro" }
+    { id: "electro_hydra", name: "Electro Hydra", icon: "hydra.png", baseCoin: 800, elem: "electro" },
+    // 👇 ADDED MANUALLY MAPPED UNIQUE GEO PET EXPLICITLY NATIVELY
+    { id: "rocky_golem", name: "Ancient Golem", icon: "🪨", baseCoin: 300, elem: "geo" }
 ];
 
 const MULTIPLIERS = {
@@ -341,6 +351,7 @@ const MULTIPLIERS = {
     "cryo": { hp: 16.0, dmg: 1.4, speed: 1.2, color: "#80f3ff" },
     "electro": { hp: 11.0, dmg: 2.0, speed: 2.4, color: "#b533ff" },
     "dendro": { hp: 13.0, dmg: 1.5, speed: 2.0, color: "#2ecc71" },
+    "geo": { hp: 18.0, dmg: 1.4, speed: 1.4, color: "#e0a96d" }, // Solid defensive multipliers
     "physical": { color: "#ffffff" }
 };
 
@@ -349,7 +360,8 @@ const MINIONS = [
     { name: "Corrupted Script", icon: "📝", elem: "cryo", baseHp: 1000, baseDmg: 100, speed: 10 },
     { name: "Malware Worm", icon: "🐛", elem: "pyro", baseHp: 500, baseDmg: 175, speed: 50 },
     { name: "Data Leak", icon: "💧", elem: "hydro", baseHp: 600, baseDmg: 300, speed: 5 },
-    { name: "Reviving Moss", icon: "🌱", elem: "dendro", baseHp: 900, baseDmg: 135, speed: 8 }
+    { name: "Reviving Moss", icon: "🌱", elem: "dendro", baseHp: 900, baseDmg: 135, speed: 8 },
+    { name: "Rolling Rock", icon: "🪨", elem: "geo", baseHp: 1500, baseDmg: 50, speed: 1 }
 ];
 
 const BOSSES = [
@@ -357,7 +369,8 @@ const BOSSES = [
     { name: "Mecha Cat Annihilator", icon: "mc.png", baseHp: 1400, elem: "electro", baseDmg: 350, speed: 20 },
     { name: "Void Hound Alpha", icon: "vh.png", elem: "electro", baseHp: 1500, baseDmg: 200, speed: 100 },
     { name: "King Midas Avatar", icon: "King.png", elem: "cryo", baseHp: 1500, baseDmg: 500, speed: 18 },
-    { name: "Shadow Of The Moonlight", icon: "mboe.png", elem: "dendro", baseHp: 2000, baseDmg: 175, speed: 30 }
+    { name: "Shadow Of The Moonlight", icon: "mboe.png", elem: "dendro", baseHp: 2000, baseDmg: 175, speed: 30 },
+    { name: "Boulder Golem", icon: "golem.png", elem: "geo", baseHp: 3000, baseDmg: 100, speed: 5 }
 ];
 
 const MILESTONES = [
@@ -600,32 +613,15 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
     let finalDmg = incomingDmg;
     let reactionLabel = "";
     let splashDmg = 0;
+    let isSplashMove = (moveType === 'splash');
     
     let targetTeam = (activePlayerTeam.includes(target)) ? activePlayerTeam : activeEnemyTeam;
+    let allyTeam = (activePlayerTeam.includes(target)) ? activeEnemyTeam : activePlayerTeam;
     let targetPrefix = (activePlayerTeam.includes(target)) ? "pRow" : "eRow";
+    let allyPrefix = (activePlayerTeam.includes(target)) ? "eRow" : "pRow";
     let elementColor = MULTIPLIERS[attacker.elem]?.color || "#ffffff";
 
-    // 👇 REMOVED PHYSICAL COLOR DEVIATIONS TO INTRODUCE ELEMENTAL SPLASH MECHANICS
-    if (moveType === 'splash' && attacker.elem && attacker.elem !== "none") {
-        let currentStatus = target.statusEffect;
-        if (!currentStatus) {
-            target.statusEffect = attacker.elem;
-        } else if (currentStatus !== attacker.elem) {
-            let combination = [currentStatus, attacker.elem].sort().join('+');
-            // Allow elemental reactions to trigger inside the Splash utility model
-            if (combination === "cryo+pyro") { finalDmg = Math.floor(finalDmg * 2.0); reactionLabel = "MELT SPLASH! ⚔️"; }
-            else if (combination === "hydro+pyro") { finalDmg = Math.floor(finalDmg * 2.5); reactionLabel = "VAPORIZE SPLASH! 💧"; }
-            else if (combination === "cryo+electro") { finalDmg = Math.floor(finalDmg * 1.5); target.speed = Math.max(1, Math.floor(target.speed * 0.5)); reactionLabel = "SUPERCONDUCT SPLASH! ⚡"; }
-            else if (combination === "electro+pyro") { splashDmg = 15; reactionLabel = "OVERLOAD SPLASH! 💥"; targetTeam.forEach((t, i) => { if (t.hp > 0) t.hp = Math.max(0, t.hp - splashDmg); }); }
-            else if (combination === "cryo+hydro") { reactionLabel = "FROZEN SPLASH! 🧊"; target.isFrozen = true; target.cryoSnapshotDmg = attacker.dmg * 0.6; }
-            else if (combination === "dendro+pyro") { finalDmg = Math.floor(finalDmg * 1.5); reactionLabel = "BURNING SPLASH! 🔥"; }
-            else if (combination === "dendro+hydro") { finalDmg = Math.floor(finalDmg + 30); reactionLabel = "BLOOM SPLASH! 🌿"; }
-            else if (combination === "dendro+electro") { attacker.dmg = Math.floor(attacker.dmg * 1.2); reactionLabel = "CATALYZE SPLASH! ⚡"; }
-            else if (combination === "cryo+dendro") { target.speed = Math.max(1, Math.floor(target.speed * 0.7)); reactionLabel = "OVERGROW SPLASH! ❄️"; }
-            target.statusEffect = null;
-        }
-    } 
-    else if (moveType === 'special' && attacker.elem && attacker.elem !== "none") {
+    if (attacker.elem && attacker.elem !== "none") {
         let currentStatus = target.statusEffect;
 
         if (!currentStatus) {
@@ -633,8 +629,34 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
         } else if (currentStatus !== attacker.elem) {
             let combination = [currentStatus, attacker.elem].sort().join('+');
 
-            if (combination === "cryo+pyro") { // MELT
-                finalDmg = Math.floor(finalDmg * 2.0); splashDmg = Math.floor(finalDmg * 0.4); reactionLabel = "MELT! ⚔️";
+            // 👇 GEO REACTIONS DETECT LAYER: CRISTALLIZE DEFENSIVE BUFF SHIELDS (No extra damage)
+            if (currentStatus === "geo" || attacker.elem === "geo") {
+                reactionLabel = "CRYSTALLIZE! 🪨";
+                let otherElement = (currentStatus === "geo") ? attacker.elem : currentStatus;
+                let effectColor = MULTIPLIERS[otherElement]?.color || "#ffd700";
+
+                // 1. Apply absolute shield block capacity to active attacking parent caster
+                attacker.shield = Math.min(attacker.maxHp * 0.5, (attacker.shield || 0) + Math.floor(attacker.dmg * 0.6));
+                let casterIdx = allyTeam.indexOf(attacker);
+                createFloatingText(Math.floor(attacker.dmg * 0.6), "#f1c40f", "SHIELD 🛡️", `${allyPrefix}${casterIdx}`);
+
+                // 2. Distribute immediate health restorations across all non-fainted companions
+                allyTeam.forEach((ally, i) => {
+                    if (ally.hp > 0) {
+                        let healValue = Math.floor(attacker.dmg * 0.3);
+                        ally.hp = Math.min(ally.maxHp, ally.hp + healValue);
+                        setTimeout(() => {
+                            createFloatingText(healValue, "#2ecc71", "HEAL 💖", `${allyPrefix}${i}`);
+                        }, i * 50);
+                    }
+                });
+            }
+            // --- STANDARD DAMAGE AMPLIFYING REACTIONS ---
+            else if (combination === "cryo+pyro") { // MELT
+                let scalar = isSplashMove ? 1.2 : 2.0; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                finalDmg = Math.floor(finalDmg * scalar); 
+                splashDmg = isSplashMove ? 10 : Math.floor(finalDmg * 0.4);
+                reactionLabel = isSplashMove ? "MELT SPLASH! ⚔️" : "MELT! ⚔️";
                 targetTeam.forEach((t, i) => {
                     if (t !== target && t.hp > 0) {
                         t.hp = Math.max(0, t.hp - splashDmg);
@@ -643,13 +665,19 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                 });
             } 
             else if (combination === "hydro+pyro") { // VAPORIZE
-                finalDmg = Math.floor(finalDmg * 2.5); reactionLabel = "VAPORIZE! 💧";
+                let scalar = isSplashMove ? 1.3 : 2.5; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                finalDmg = Math.floor(finalDmg * scalar); 
+                reactionLabel = isSplashMove ? "VAPORIZE SPLASH! 💧" : "VAPORIZE! 💧";
             } 
             else if (combination === "cryo+electro") { // SUPERCONDUCT
-                finalDmg = Math.floor(finalDmg * 1.5); target.speed = Math.max(1, Math.floor(target.speed * 0.5)); reactionLabel = "SUPERCONDUCT! ⚡";
+                let scalar = isSplashMove ? 1.1 : 1.5; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                finalDmg = Math.floor(finalDmg * scalar); 
+                target.speed = Math.max(1, Math.floor(target.speed * (isSplashMove ? 0.75 : 0.5))); 
+                reactionLabel = isSplashMove ? "SUPERCONDUCT SPLASH! ⚡" : "SUPERCONDUCT! ⚡";
             } 
             else if (combination === "electro+pyro") { // OVERLOADED
-                splashDmg = Math.floor(attacker.dmg * 0.8); reactionLabel = "OVERLOADED! 💥";
+                splashDmg = isSplashMove ? 15 : Math.floor(attacker.dmg * 0.8);
+                reactionLabel = isSplashMove ? "OVERLOAD SPLASH! 💥" : "OVERLOADED! 💥";
                 targetTeam.forEach((t, i) => {
                     if (t.hp > 0) {
                         t.hp = Math.max(0, t.hp - splashDmg);
@@ -660,11 +688,14 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
             else if (combination === "cryo+hydro") { // FREEZE
                 reactionLabel = "FROZEN! ❄️💧";
                 target.isFrozen = true;
-                target.cryoSnapshotDmg = attacker.dmg; 
-                writeLog(`❄️ Dynamic Reaction! <strong>${target.name}</strong> was frozen solid! Turn will be skipped next round.`);
+                target.cryoSnapshotDmg = attacker.dmg * (isSplashMove ? 0.5 : 1.0); 
+                writeLog(`❄️ Dynamic Reaction! <strong>${target.name}</strong> was frozen solid!`);
             }
             else if (combination === "dendro+pyro") { // BURNING
-                finalDmg = Math.floor(finalDmg * 1.8); splashDmg = Math.floor(attacker.dmg * 0.5); reactionLabel = "BURNING! 🔥🌿";
+                let scalar = isSplashMove ? 1.2 : 1.8; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                finalDmg = Math.floor(finalDmg * scalar);
+                splashDmg = isSplashMove ? 10 : Math.floor(attacker.dmg * 0.5); 
+                reactionLabel = "BURNING! 🔥🌿";
                 targetTeam.forEach((t, i) => {
                     if (t !== target && t.hp > 0) {
                         t.hp = Math.max(0, t.hp - splashDmg);
@@ -673,17 +704,33 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                 });
             }
             else if (combination === "dendro+hydro") { // BLOOM
-                finalDmg = Math.floor(finalDmg + (attacker.dmg * 1.2)); reactionLabel = "BLOOM EXPLOSION! 🌿💧";
+                let flatBonus = isSplashMove ? 20 : Math.floor(attacker.dmg * 1.2); // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                finalDmg = Math.floor(finalDmg + flatBonus); 
+                reactionLabel = "BLOOM EXPLOSION! 🌿💧";
             }
             else if (combination === "dendro+electro") { // CATALYZE
-                attacker.dmg = Math.floor(attacker.dmg * 1.5); reactionLabel = "CATALYZE BUFF! 🌿⚡";
-                writeLog(`⚡ Intensified Core! <strong>${attacker.name}</strong> gained 1.5x permanent Attack Power for the match duration.`);
+                let scalar = isSplashMove ? 1.15 : 1.5; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                attacker.dmg = Math.floor(attacker.dmg * scalar); 
+                reactionLabel = "CATALYZE BUFF! 🌿⚡";
             }
             else if (combination === "cryo+dendro") { // OVERGROW
-                target.speed = 1; reactionLabel = "OVERGROW LOCK! 🌿❄️";
-                writeLog(`❄️ Molecular slowdown! <strong>${target.name}</strong>'s speed parameter plummeted to 1.`);
+                target.speed = isSplashMove ? Math.max(1, Math.floor(target.speed * 0.6)) : 1;
+                reactionLabel = "OVERGROW LOCK! 🌿❄️";
             }
             target.statusEffect = null;
+        }
+    }
+
+    // Shield mitigates raw incoming hit value processing
+    if (target.shield && target.shield > 0) {
+        if (target.shield >= finalDmg) {
+            target.shield -= finalDmg;
+            createFloatingText(finalDmg, "#f1c40f", "ABSORBED 🛡️", `${targetPrefix}${targetTeam.indexOf(target)}`);
+            finalDmg = 0;
+        } else {
+            finalDmg -= target.shield;
+            createFloatingText(target.shield, "#f1c40f", "ABSORBED 🛡️", `${targetPrefix}${targetTeam.indexOf(target)}`);
+            target.shield = 0;
         }
     }
 
@@ -704,7 +751,7 @@ function startBattle() {
             name: config.name, icon: config.icon, elem: config.elem, level: lvl,
             maxHp: Math.floor(baseYield * m.hp), hp: Math.floor(baseYield * m.hp),
             dmg: Math.floor(baseYield * m.dmg), speed: Math.floor(baseYield * m.speed),
-            statusEffect: null, isPlayer: true, isFrozen: false, cryoSnapshotDmg: 0
+            statusEffect: null, isPlayer: true, isFrozen: false, cryoSnapshotDmg: 0, shield: 0
         };
     });
 
@@ -727,7 +774,7 @@ function generateWaveOpponents() {
                 name: `${base.name} #${i+1}`, icon: base.icon, elem: base.elem, level: battleWave,
                 maxHp: Math.floor(base.baseHp * finalScalingFactor), hp: Math.floor(base.baseHp * finalScalingFactor),
                 dmg: Math.floor(base.baseDmg * finalScalingFactor), speed: Math.floor(base.speed * waveBonus),
-                statusEffect: null, isPlayer: false, isBoss: false, isFrozen: false, cryoSnapshotDmg: 0
+                statusEffect: null, isPlayer: false, isBoss: false, isFrozen: false, cryoSnapshotDmg: 0, shield: 0
             });
         }
     } else {
@@ -736,10 +783,9 @@ function generateWaveOpponents() {
             name: `👑 BOSS: ${baseBoss.name}`, icon: baseBoss.icon, elem: baseBoss.elem, level: "BOSS",
             maxHp: Math.floor(baseBoss.baseHp * finalScalingFactor * 1.5), hp: Math.floor(baseBoss.baseHp * finalScalingFactor * 1.5),
             dmg: Math.floor(baseBoss.baseDmg * finalScalingFactor * 1.3), speed: Math.floor(baseBoss.speed * waveBonus),
-            statusEffect: null, isPlayer: false, isBoss: true, isFrozen: false, cryoSnapshotDmg: 0
+            statusEffect: null, isPlayer: false, isBoss: true, isFrozen: false, cryoSnapshotDmg: 0, shield: 0
         });
     }
-    
     autoSelectNextLivingEnemy();
 }
 
@@ -756,20 +802,23 @@ function autoSelectNextLivingEnemy() {
     }
 }
 
-styleElementsFix = null;
-
 function drawCombatArenaStage() {
     const pContainer = document.getElementById('playerTeamContainer'); const eContainer = document.getElementById('enemyTeamContainer');
     pContainer.innerHTML = ''; eContainer.innerHTML = '';
 
     activePlayerTeam.forEach((p, idx) => {
-        let pct = (p.hp / p.maxHp) * 100; let auraHtml = p.statusEffect ? `<div class="status-dot" style="background:var(--${p.statusEffect})"></div>` : '';
+        let pct = (p.hp / p.maxHp) * 100; 
+        let shdPct = ((p.shield || 0) / p.maxHp) * 100; // Shield overlay tracking math
+        let auraHtml = p.statusEffect ? `<div class="status-dot" style="background:var(--${p.statusEffect})"></div>` : '';
         let frozenClass = p.isFrozen ? 'frozen-stunned' : '';
         pContainer.innerHTML += `<div class="fighter-row ${p.hp <= 0 ? 'fainted' : ''} ${frozenClass}" id="pRow${idx}">
                 <div class="graphic-box">${parseGraphic(p.icon)}<div class="status-aura-container">${auraHtml}</div></div>
                 <div class="bars-container">
-                    <div class="name-label"><span>${p.name} ${p.isFrozen?'🧊':''}</span><span style="color:var(--p1)">Lvl ${p.level}</span></div>
-                    <div class="hp-container"><div class="hp-bar" style="width:${pct}%"></div></div>
+                    <div class="name-label"><span>${p.name} ${p.isFrozen?'🧊':''} ${p.shield>0?'🛡️':''}</span><span style="color:var(--p1)">Lvl ${p.level}</span></div>
+                    <div class="hp-container">
+                        <div class="hp-bar" style="width:${pct}%"></div>
+                        <div class="shield-bar" style="width:${shdPct}%"></div>
+                    </div>
                     <div style="font-size:9px; display:flex; justify-content:space-between; margin-top:2px;">
                         <span>${p.hp}/${p.maxHp} HP</span><span class="elem-badge ${p.elem}">${p.elem}</span>
                     </div>
@@ -777,7 +826,9 @@ function drawCombatArenaStage() {
     });
 
     activeEnemyTeam.forEach((e, idx) => {
-        let pct = (e.hp / e.maxHp) * 100; let auraHtml = e.statusEffect ? `<div class="status-dot" style="background:var(--${e.statusEffect})"></div>` : '';
+        let pct = (e.hp / e.maxHp) * 100;
+        let shdPct = ((e.shield || 0) / e.maxHp) * 100;
+        let auraHtml = e.statusEffect ? `<div class="status-dot" style="background:var(--${e.statusEffect})"></div>` : '';
         let specialRowStyle = e.isBoss ? 'border: 2px solid #ffd700; background: rgba(0,0,0,0.85);' : '';
         let frozenClass = e.isFrozen ? 'frozen-stunned' : '';
         let targetClass = (idx === userTargetedEnemyIndex && e.hp > 0) ? 'player-targeted' : '';
@@ -786,7 +837,10 @@ function drawCombatArenaStage() {
                 <div class="graphic-box">${parseGraphic(e.icon)}<div class="status-aura-container">${auraHtml}</div></div>
                 <div class="bars-container">
                     <div class="name-label"><span style="color:${e.isBoss ? '#ffd700' : '#ff4444'}">${e.name} ${e.isFrozen?'🧊':''}</span></div>
-                    <div class="hp-container"><div class="hp-bar" style="width:${pct}%"></div></div>
+                    <div class="hp-container">
+                        <div class="hp-bar" style="width:${pct}%"></div>
+                        <div class="shield-bar" style="width:${shdPct}%"></div>
+                    </div>
                     <div style="font-size:9px; display:flex; justify-content:space-between; margin-top:2px;">
                         <span>${e.hp}/${e.maxHp} HP</span><span class="elem-badge ${e.elem}">${e.elem}</span>
                     </div>
@@ -841,7 +895,7 @@ function handleBossSummonLogic() {
                     hp: Math.floor(base.baseHp * finalScalingFactor * 0.7),
                     dmg: Math.floor(base.baseDmg * finalScalingFactor * 0.7),
                     speed: Math.floor(base.speed * waveBonus),
-                    statusEffect: null, isPlayer: false, isBoss: false, isFrozen: false, cryoSnapshotDmg: 0
+                    statusEffect: null, isPlayer: false, isBoss: false, isFrozen: false, cryoSnapshotDmg: 0, shield: 0
                 };
 
                 if (!activeEnemyTeam[i]) {
@@ -916,24 +970,16 @@ function highlightActiveUnitRow(unit) {
 function toggleControls(disabledState) { document.getElementById('btnAttack').disabled = disabledState; document.getElementById('btnSpecial').disabled = disabledState; }
 function writeLog(msg) { document.getElementById('battleLog').innerHTML = msg; }
 
-// 👇 FULLY RE-ARCHITECTED MOVE CONTROLLER
 function executeTurn(moveType) {
-    let activeUnit = attackTurnQueue[currentQueueIndex]; 
-    toggleControls(true);
-    
-    let pIdx = activePlayerTeam.indexOf(activeUnit); 
-    let rowEl = document.getElementById(`pRow${pIdx}`);
+    let activeUnit = attackTurnQueue[currentQueueIndex]; toggleControls(true);
+    let pIdx = activePlayerTeam.indexOf(activeUnit); let rowEl = document.getElementById(`pRow${pIdx}`);
     rowEl.classList.add('anim-attack-left');
 
     if (moveType === 'splash') {
-        // --- MULTI-TARGET ELEMENTAL SPLASH MECHANIC ---
         setTimeout(() => {
             writeLog(`💦 <strong>${activeUnit.name}</strong> unleashes an extensive <strong>Elemental Splash</strong> aura across the arena!`);
-            
-            // Loop and hit all currently living enemy targets inside the array cluster
             activeEnemyTeam.forEach((enemy, i) => {
                 if (enemy.hp > 0) {
-                    // Deals 1/4 (25%) of the special attack power
                     let splashDmg = Math.floor((activeUnit.dmg * 1.5) * 0.25);
                     applyElementalDamageAndCheckReactions(activeUnit, enemy, splashDmg, 'splash');
                     document.getElementById(`eRow${i}`)?.classList.add('anim-hit');
@@ -941,7 +987,6 @@ function executeTurn(moveType) {
             });
         }, 200);
     } else {
-        // --- SINGLE-TARGET ELEMENTAL SPELL MECHANIC ---
         if (activeEnemyTeam[userTargetedEnemyIndex].hp <= 0) {
             autoSelectNextLivingEnemy();
         }
