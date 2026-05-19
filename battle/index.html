@@ -280,7 +280,7 @@ function saveEcosystemState() {
         formData.append('game_stats', JSON.stringify(gameState.game_stats));
         formData.append('prestige_level', gameState.prestige_level || 0);
         
-        fetch('backend.php', { method: 'POST', body: formData }).catch(err => console.log("Silent DB Update Fail"));
+        fetch('../backend.php', { method: 'POST', body: formData }).catch(err => console.log("Silent DB Update Fail"));
     }
 }
 
