@@ -235,12 +235,7 @@ const PET_SHOP = [
 // --- 4. DATA SYNCHRONIZATION AND STATE MANAGEMENT ---
 function loadEcosystemState() {
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
-    let dataKey = savedUser ? 'schoolExamsGuestState' : 'schoolExamsGuestState'; 
-    // If authenticated profile engine handles backend injection arrays natively, load via shared local pointer mirroring save blocks
-    let rawData = localStorage.getItem(savedUser ? 'schoolExamsGuestState' : 'schoolExamsGuestState');
-    
-    // Fallback checks mirroring structural schemas
-    if (!rawData && savedUser) rawData = localStorage.getItem('schoolExamsGuestState');
+    let rawData = localStorage.getItem('schoolExamsGuestState');
 
     try {
         if (rawData) {
@@ -252,6 +247,9 @@ function loadEcosystemState() {
         gameState = { game_stats: {} };
     }
 
+    // Double check arrays exist structurally
+    if (!gameState.owned_pets) gameState.owned_pets = [];
+    if (!gameState.pet_ages) gameState.pet_ages = {};
     if (!gameState.game_stats) gameState.game_stats = {};
     if (typeof gameState.game_stats.battle_points === 'undefined') gameState.game_stats.battle_points = 0;
     if (typeof gameState.game_stats.battle_wins === 'undefined') gameState.game_stats.battle_wins = 0;
@@ -259,7 +257,6 @@ function loadEcosystemState() {
 
     buildLobbyUI();
 }
-
 function saveEcosystemState() {
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
     localStorage.setItem('schoolExamsGuestState', JSON.stringify(gameState));
