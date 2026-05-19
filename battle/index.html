@@ -149,8 +149,6 @@
         }
         .enemy-side .fighter-row { padding: 4px 8px; cursor: pointer; }
         .fighter-row.active-turn { border-color: var(--p1); box-shadow: 0 0 15px var(--p0); transform: scale(1.02); }
-        
-        /* Interactive Target Crosshair styles */
         .enemy-side .fighter-row.player-targeted { border-color: #ff3838 !important; box-shadow: 0 0 15px rgba(255, 56, 56, 0.6) !important; }
         
         .fighter-row.fainted { opacity: 0.12; filter: grayscale(1); transform: scale(0.92); pointer-events: none !important; }
@@ -381,7 +379,7 @@ let activeEnemyTeam = [];
 let battleWave = 1;
 let battleRound = 1;
 let isGauntletLive = false;
-let userTargetedEnemyIndex = 0; // Tracks manual target indices
+let userTargetedEnemyIndex = 0;
 
 let canvas, ctx;
 let particles = [];
@@ -690,7 +688,7 @@ function startBattle() {
     });
 
     battleWave = 1; battleRound = 1; isGauntletLive = true;
-    userTargetedEnemyIndex = 0; // Default target index setup
+    userTargetedEnemyIndex = 0; 
     document.getElementById('lobbyScreen').style.display = 'none';
     document.getElementById('battleScreen').style.display = 'flex';
     resizeCanvas(); generateWaveOpponents(); drawCombatArenaStage(); processRoundLoopSequence();
@@ -721,11 +719,9 @@ function generateWaveOpponents() {
         });
     }
     
-    // Auto-select first living enemy when loading a brand new wave array container
     autoSelectNextLivingEnemy();
 }
 
-// Manual user selection helper logic
 function setManualTargetEnemy(index) {
     if (!isGauntletLive || activeEnemyTeam[index].hp <= 0) return;
     userTargetedEnemyIndex = index;
@@ -761,8 +757,6 @@ function drawCombatArenaStage() {
         let pct = (e.hp / e.maxHp) * 100; let auraHtml = e.statusEffect ? `<div class="status-dot" style="background:var(--${e.statusEffect})"></div>` : '';
         let specialRowStyle = e.isBoss ? 'border: 2px solid #ffd700; background: rgba(0,0,0,0.85);' : '';
         let frozenClass = e.isFrozen ? 'frozen-stunned' : '';
-        
-        // 👇 Added targeted highlight visibility logic
         let targetClass = (idx === userTargetedEnemyIndex && e.hp > 0) ? 'player-targeted' : '';
 
         eContainer.innerHTML += `<div class="fighter-row ${e.hp <= 0 ? 'fainted' : ''} ${frozenClass} ${targetClass}" id="eRow${idx}" style="${specialRowStyle}" onclick="setManualTargetEnemy(${idx})">
@@ -791,10 +785,60 @@ function processRoundLoopSequence() {
         } return;
     }
     
+    // 👇 BOSS MINION SUMMON CHECK: Spawns extra defenses at the beginning of each round if slots are empty!
+    if (battleWave === 3) {
+        handleBossSummonLogic();
+    }
+    
     attackTurnQueue = [];
     activePlayerTeam.forEach(p => { if (p.hp > 0) attackTurnQueue.push(p); });
     activeEnemyTeam.forEach(e => { if (e.hp > 0) attackTurnQueue.push(e); });
     attackTurnQueue.sort((a, b) => b.speed - a.speed); currentQueueIndex = 0; executeNextQueueStep();
+}
+
+// 👇 Brand new helper processing automated reinforcement spawns
+function handleBossSummonLogic() {
+    let bossUnit = activeEnemyTeam.find(e => e.isBoss && e.hp > 0);
+    if (!bossUnit) return;
+
+    let totalLivingEnemies = activeEnemyTeam.filter(e => e.hp > 0).length;
+    let emptySlotsCount = 5 - totalLivingEnemies;
+
+    if (emptySlotsCount > 0) {
+        let rp = gameState.game_stats.battle_points || 0;
+        let rankMultiplier = 1.0 + Math.log10(1 + rp / 50);
+        let waveBonus = 1.0 + (battleWave - 1) * 0.40;
+        let finalScalingFactor = rankMultiplier * waveBonus;
+
+        let itemsSummoned = 0;
+        // Search through the array to clean out dead entries or fill missing array positions up to 5 max
+        for (let i = 0; i < 5; i++) {
+            if (!activeEnemyTeam[i] || activeEnemyTeam[i].hp <= 0) {
+                let base = MINIONS[Math.floor(Math.random() * MINIONS.length)];
+                let newMinion = {
+                    name: `${base.name} (Summon)`, icon: base.icon, elem: base.elem, level: 3,
+                    maxHp: Math.floor(base.baseHp * finalScalingFactor * 0.7), // Summoned minions have 70% stats
+                    hp: Math.floor(base.baseHp * finalScalingFactor * 0.7),
+                    dmg: Math.floor(base.baseDmg * finalScalingFactor * 0.7),
+                    speed: Math.floor(base.speed * waveBonus),
+                    statusEffect: null, isPlayer: false, isBoss: false, isFrozen: false, cryoSnapshotDmg: 0
+                };
+
+                if (!activeEnemyTeam[i]) {
+                    activeEnemyTeam.push(newMinion);
+                } else {
+                    activeEnemyTeam[i] = newMinion; // Override fainted position cleanly
+                }
+                itemsSummoned++;
+                if (activeEnemyTeam.filter(e => e.hp > 0).length >= 5) break;
+            }
+        }
+        if (itemsSummoned > 0) {
+            writeLog(`👑 <strong>${bossUnit.name}</strong> channels local net structures! Summoned ${itemsSummoned} reinforcements!`);
+            autoSelectNextLivingEnemy();
+            drawCombatArenaStage();
+        }
+    }
 }
 
 function executeNextQueueStep() {
@@ -805,7 +849,6 @@ function executeNextQueueStep() {
     let activeUnit = attackTurnQueue[currentQueueIndex];
     if (activeUnit.hp <= 0) { currentQueueIndex++; executeNextQueueStep(); return; }
 
-    // If our current targeted enemy has fainted, instantly redirect focus safely
     if (!activeUnit.isPlayer && activeEnemyTeam[userTargetedEnemyIndex].hp <= 0) {
         autoSelectNextLivingEnemy();
     }
@@ -856,7 +899,6 @@ function writeLog(msg) { document.getElementById('battleLog').innerHTML = msg; }
 function executeTurn(moveType) {
     let activeUnit = attackTurnQueue[currentQueueIndex]; toggleControls(true);
     
-    // 👇 Double validation safety fallback checking if targeted enemy is valid
     if (activeEnemyTeam[userTargetedEnemyIndex].hp <= 0) {
         autoSelectNextLivingEnemy();
     }
@@ -872,18 +914,47 @@ function executeTurn(moveType) {
 }
 
 function enemyAutomatedAIAction(enemyUnit) {
-    // 👇 CHOSEN SELECTION CHANGE: Gather all available living targets in a filtered reference array
     let livingPlayerPets = activePlayerTeam.filter(p => p.hp > 0);
     if (livingPlayerPets.length === 0) return;
     
-    // Pick an completely randomized entity from your living squad matrix
-    let target = livingPlayerPets[Math.floor(Math.random() * livingPlayerPets.length)];
-
-    let baseDmg = Math.floor(enemyUnit.dmg * (0.85 + Math.random() * 0.3));
-    let eIdx = activeEnemyTeam.indexOf(enemyUnit); let rowEl = document.getElementById(`eRow${eIdx}`);
+    let eIdx = activeEnemyTeam.indexOf(enemyUnit); 
+    let rowEl = document.getElementById(`eRow${eIdx}`);
     rowEl.classList.add('anim-attack-right');
-    setTimeout(() => { applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special'); }, 200);
-    setTimeout(() => { rowEl.classList.remove('anim-attack-right'); currentQueueIndex++; executeNextQueueStep(); }, 800);
+
+    // 👇 BOSS AOE DAMAGE ENGINE LOGIC
+    if (enemyUnit.isBoss) {
+        setTimeout(() => {
+            writeLog(`💥 🚨 <strong>${enemyUnit.name}</strong> unleashes a crushing AOE ultimate attack!`);
+            // Hits ALL living friendly slots simultaneously
+            livingPlayerPets.forEach(target => {
+                let baseDmg = Math.floor(enemyUnit.dmg * (0.75 + Math.random() * 0.25)); // Lightly adjusted for multi-target balancing
+                applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special');
+                
+                let pIdx = activePlayerTeam.indexOf(target);
+                document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
+            });
+        }, 200);
+    } 
+    // Regular minion single-target randomized hit logic
+    else {
+        let target = livingPlayerPets[Math.floor(Math.random() * livingPlayerPets.length)];
+        let baseDmg = Math.floor(enemyUnit.dmg * (0.85 + Math.random() * 0.3));
+        setTimeout(() => { 
+            applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special'); 
+            let pIdx = activePlayerTeam.indexOf(target);
+            document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
+        }, 200);
+    }
+
+    setTimeout(() => { 
+        rowEl.classList.remove('anim-attack-right');
+        activePlayerTeam.forEach(p => {
+            let pIdx = activePlayerTeam.indexOf(p);
+            document.getElementById(`pRow${pIdx}`)?.classList.remove('anim-hit');
+        });
+        currentQueueIndex++; 
+        executeNextQueueStep(); 
+    }, 800);
 }
 
 function endMatch(isVictory, fled = false) {
