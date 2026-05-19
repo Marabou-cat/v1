@@ -20,15 +20,16 @@
             --hydro: #3399ff;
             --cryo: #80f3ff;
             --electro: #b533ff;
+            --physical: #ffffff;
         }
 
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
-            background: var(--bg0);
-            color: var(--w);
+            background: var(--bg0); color: var(--w);
             margin: 0; padding: 20px;
             display: flex; justify-content: center; align-items: center;
             min-height: 100vh; box-sizing: border-box;
+            overflow-x: hidden;
         }
 
         .bg-grid {
@@ -45,20 +46,17 @@
         }
 
         h1 { color: var(--p1); font-weight: 900; text-shadow: 0 0 15px rgba(144, 224, 239, 0.4); margin: 0 0 15px 0; }
-        h2, h3 { color: #fff; margin: 10px 0; }
+        h3 { color: #fff; margin: 10px 0; }
 
-        /* --- UI VIEWS --- */
         .lobby-view { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-        .battle-view { display: none; flex-direction: column; gap: 20px; }
+        .battle-view { display: none; flex-direction: column; gap: 20px; position: relative; }
 
         .rank-badge {
             font-size: 24px; font-weight: 900; padding: 10px 25px;
             border-radius: 30px; border: 2px solid #ffd700;
             background: rgba(0,0,0,0.4); text-transform: uppercase;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
         }
 
-        /* --- TEAM BUILDER & INVENTORY MANAGER --- */
         .management-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; margin: 15px 0; }
         @media (max-width: 768px) { .management-split { grid-template-columns: 1fr; } }
 
@@ -68,81 +66,84 @@
         }
 
         .slots-row { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+        
+        /* Fixed Sizing Frameworks */
         .team-slot {
             width: 90px; height: 110px; border: 2px dashed #555; border-radius: 8px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; position: relative; background: rgba(0,0,0,0.3); transition: 0.2s;
+            cursor: pointer; position: relative; background: rgba(0,0,0,0.3); overflow: hidden; box-sizing: border-box;
         }
         .team-slot.active-filled { border-style: solid; border-color: var(--p1); }
-        .team-slot:hover { border-color: #ffd700; background: rgba(255,255,255,0.05); }
 
         .inv-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
             gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px; margin-top: 10px;
         }
-        .inv-grid::-webkit-scrollbar { width: 6px; }
-        .inv-grid::-webkit-scrollbar-thumb { background: var(--p0); border-radius: 4px; }
 
         .pet-mini-card {
             background: var(--bg2); border: 1px solid var(--line); border-radius: 6px;
             padding: 8px; display: flex; flex-direction: column; align-items: center;
-            cursor: pointer; position: relative; transition: 0.2s; font-size: 11px;
+            cursor: pointer; position: relative; font-size: 11px; overflow: hidden; height: 95px; box-sizing: border-box;
         }
-        .pet-mini-card:hover { transform: translateY(-2px); border-color: #fff; }
+        .pet-mini-card .img-wrap { width: 35px; height: 35px; min-height: 35px; max-height: 35px; display: flex; align-items: center; justify-content: center; }
         .pet-mini-card.selected-in-team { border-color: #ffd700; opacity: 0.5; }
 
-        /* --- ELEMENTAL BADGES --- */
         .elem-badge {
             font-size: 9px; font-weight: 900; padding: 2px 5px; border-radius: 4px;
-            text-transform: uppercase; color: #000; margin-top: 2px;
+            text-transform: uppercase; color: #000; margin-top: auto;
         }
         .elem-badge.pyro { background: var(--pyro); }
         .elem-badge.hydro { background: var(--hydro); color: #fff; }
         .elem-badge.cryo { background: var(--cryo); }
         .elem-badge.electro { background: var(--electro); color: #fff; }
 
-        /* --- BATTLE SYSTEM --- */
+        /* --- BATTLE VECTORS --- */
         .wave-banner { font-size: 20px; font-weight: 800; color: #ff0055; margin: 0; }
         .battle-stage {
             display: grid; grid-template-columns: 1fr auto 1fr; gap: 15px;
             background: rgba(0,0,0,0.5); border-radius: 12px; padding: 20px;
-            min-height: 260px; border: 1px solid var(--line); align-items: center;
+            min-height: 320px; border: 1px solid var(--line); align-items: center; position: relative;
         }
 
-        .team-column { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+        .team-column { display: flex; flex-direction: column; gap: 12px; align-items: center; z-index: 2; }
         .fighter-row {
             display: flex; align-items: center; gap: 10px; width: 100%;
-            padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.3);
-            border: 1px solid transparent; transition: 0.3s;
+            padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4);
+            border: 2px solid transparent; position: relative; box-sizing: border-box;
         }
         .fighter-row.active-turn { border-color: var(--p1); background: rgba(0, 119, 182, 0.2); }
-        .fighter-row.fainted { opacity: 0.3; filter: grayscale(1); }
+        .fighter-row.fainted { opacity: 0.2; filter: grayscale(1); }
 
+        /* Icon Containment Constraint Fixes */
         .graphic-box {
-            width: 50px; height: 50px; object-fit: contain; font-size: 36px;
-            display: flex; align-items: center; justify-content: center; position: relative;
+            width: 55px; height: 55px; min-width: 55px; max-width: 55px;
+            border-radius: 6px; background: rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center; position: relative; overflow: visible;
         }
-        .graphic-box img { width: 100%; height: 100%; object-fit: contain; }
-        
+        .graphic-box img { width: 100%; height: 100%; object-fit: contain; max-width: 55px; max-height: 55px; }
+        .graphic-box span { font-size: 36px; line-height: 1; display: block; }
+        .team-slot img { width: 45px; height: 45px; object-fit: contain; }
+
         .status-aura-container {
-            position: absolute; top: -5px; right: -5px; display: flex; gap: 2px;
+            position: absolute; top: -6px; right: -6px; display: flex; gap: 2px; z-index: 5;
         }
         .status-dot {
-            width: 12px; height: 12px; border-radius: 50%; border: 1px solid #fff;
+            width: 14px; height: 14px; border-radius: 50%; border: 1px solid #fff;
+            box-shadow: 0 0 5px rgba(255,255,255,0.8);
         }
 
-        .bars-container { flex: 1; text-align: left; }
+        .bars-container { flex: 1; text-align: left; overflow: hidden; }
         .name-label { font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; }
         
         .hp-container { width: 100%; background: #222; border-radius: 4px; overflow: hidden; margin-top: 4px; border: 1px solid #444; }
-        .hp-bar { height: 8px; width: 100%; transition: width 0.3s ease; }
+        .hp-bar { height: 8px; width: 100%; transition: width 0.2s ease; }
         .team-column.player-side .hp-bar { background: linear-gradient(90deg, #2ecc71, #27ae60); }
         .team-column.enemy-side .hp-bar { background: linear-gradient(90deg, #e74c3c, #c0392b); }
 
         .battle-log {
             background: var(--bg2); border: 2px solid var(--p0); border-radius: 8px;
-            padding: 15px; text-align: left; font-weight: bold; min-height: 60px;
-            font-size: 14px; color: #fff; line-height: 1.4; max-height: 100px; overflow-y: auto;
+            padding: 15px; text-align: left; font-weight: bold; min-height: 50px;
+            font-size: 14px; color: #fff; line-height: 1.4;
         }
 
         .battle-actions { display: flex; gap: 10px; justify-content: center; }
@@ -151,7 +152,24 @@
             padding: 12px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;
         }
         .btn-move:hover:not(:disabled) { background: var(--p0); box-shadow: var(--glow); }
-        .btn-move:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* --- PARTICLES CANVAS --- */
+        #fxCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+
+        /* --- FLOATING TEXT ENGINE ANIMATION --- */
+        @keyframes floatDamage {
+            0% { transform: translateY(10px) scale(0.5); opacity: 0; }
+            15% { transform: translateY(-20px) scale(1.3); opacity: 1; }
+            30% { transform: translateY(-35px) scale(1.0); }
+            85% { opacity: 1; }
+            100% { transform: translateY(-65px) scale(0.8); opacity: 0; }
+        }
+        .float-dmg-text {
+            position: absolute; font-weight: 900; font-size: 28px;
+            text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 10px rgba(0,0,0,0.8);
+            pointer-events: none; z-index: 1000; animation: floatDamage 1.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            white-space: nowrap; font-family: 'Impact', 'Arial Black', sans-serif; letter-spacing: 0.5px;
+        }
 
         .lock-overlay {
             position: absolute; inset: 0; background: rgba(0, 8, 20, 0.96);
@@ -159,15 +177,13 @@
             display: none; flex-direction: column; align-items: center;
             justify-content: center; gap: 15px; z-index: 100; padding: 20px;
         }
-        .lock-overlay h2 { color: #ff0055; font-size: 26px; font-weight: 900; margin:0; }
 
-        /* Combat Animation triggers */
-        @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(20px); } }
-        @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-20px); } }
-        @keyframes flashHit { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; background: rgba(255,0,0,0.4); } }
+        /* Animations */
+        @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(35px); } }
+        @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-35px); } }
         .anim-attack-left { animation: attackLeft 0.3s ease-in-out; }
         .anim-attack-right { animation: attackRight 0.3s ease-in-out; }
-        .anim-hit { animation: flashHit 0.3s ease-in-out; }
+        .anim-hit { animation: flashHit 0.2s ease-in-out; }
     </style>
 </head>
 <body>
@@ -175,10 +191,9 @@
 <div class="bg-grid"></div>
 
 <div class="arena-container">
-    <!-- AUTHENTICATION CHECK LOCK -->
     <div id="lockOverlay" class="lock-overlay">
         <h2>🔒 Portal Sync Required</h2>
-        <p>The elite 5-Wave Battle Arena requires an authorized data profile to load your companion portfolio and store your updated Rank Points. Please login on the main dashboard.</p>
+        <p>The elite 5-Wave Battle Arena requires an authorized data profile to load your companion portfolio and store your updated Rank Points.</p>
     </div>
 
     <!-- LOBBY SCREEN -->
@@ -188,10 +203,8 @@
         <div id="recordDisplay" style="font-weight: bold; font-size: 15px; color: var(--p1);">Wins: 0 | Losses: 0 (0 RP)</div>
 
         <div class="management-split">
-            <!-- Selected Battle Lineup (3 Slots) -->
             <div class="panel-box">
                 <h3>⚔️ Battle Squad (Choose 3)</h3>
-                <p style="font-size:12px; color:#aaa; margin:0;">Click a slot to empty it, or click from your stable on the right to fill it.</p>
                 <div class="slots-row">
                     <div class="team-slot" id="tSlot0" onclick="removeFromSquad(0)"><span>+</span></div>
                     <div class="team-slot" id="tSlot1" onclick="removeFromSquad(1)"><span>+</span></div>
@@ -199,39 +212,31 @@
                 </div>
             </div>
 
-            <!-- Full Player Inventory -->
             <div class="panel-box">
                 <h3>🎒 Your Stable Portfolio</h3>
-                <div class="inv-grid" id="invGrid">
-                    <!-- Loaded dynamically via user state -->
-                </div>
+                <div class="inv-grid" id="invGrid"></div>
             </div>
         </div>
 
         <button id="btnStartBattle" class="btn-action" onclick="startBattle()" disabled>DEPLOY COMBAT SQUAD ▶</button>
     </div>
 
-    <!-- 5-WAVE BATTLE SCREEN -->
+    <!-- BATTLE SCREEN -->
     <div id="battleScreen" class="battle-view">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div class="wave-banner" id="waveTracker">WAVE 1 / 5</div>
             <div style="font-size:14px; font-weight:bold; color:#aaa;" id="roundTracker">Round 1</div>
         </div>
         
-        <div class="battle-stage">
-            <!-- Left Side: Player Active Squad -->
+        <div class="battle-stage" id="battleStage">
+            <canvas id="fxCanvas"></canvas>
             <div class="team-column player-side" id="playerTeamContainer"></div>
-
-            <div style="font-weight:900; font-size:24px; color:#ff0055;">VS</div>
-
-            <!-- Right Side: 5 Random Enemies -->
+            <div style="font-weight:900; font-size:24px; color:#ff0055; z-index:2;">VS</div>
             <div class="team-column enemy-side" id="enemyTeamContainer"></div>
         </div>
 
-        <!-- Combat Narrative -->
-        <div id="battleLog" class="battle-log">Initializing arena logic... Prepare your elemental sequences.</div>
+        <div id="battleLog" class="battle-log">Initializing battle elements...</div>
 
-        <!-- Controls -->
         <div class="battle-actions">
             <button id="btnAttack" class="btn-move" onclick="executeTurn('attack')">⚔️ Primary Attack</button>
             <button id="btnSpecial" class="btn-move" style="background:#8e44ad; border-color:#a29bfe;" onclick="executeTurn('special')">✨ Elemental Spell</button>
@@ -241,7 +246,7 @@
 </div>
 
 <script>
-// --- GLOBAL STRUCTURAL CONSTANTS ---
+const BACKEND_URL = '../backend.php';
 const ASSET_DIR = '../png/';
 
 const PET_SHOP = [
@@ -286,13 +291,13 @@ const PET_SHOP = [
 ];
 
 const MULTIPLIERS = {
-    "pyro": { hp: 12.0, dmg: 3.8, speed: 1.8 },
-    "hydro": { hp: 16.0, dmg: 2.8, speed: 1.6 },
-    "cryo": { hp: 22.0, dmg: 2.4, speed: 1.2 },
-    "electro": { hp: 13.0, dmg: 3.2, speed: 2.4 }
+    "pyro": { hp: 12.0, dmg: 3.8, speed: 1.8, color: "#ff4d4d" },
+    "hydro": { hp: 16.0, dmg: 2.8, speed: 1.6, color: "#3399ff" },
+    "cryo": { hp: 22.0, dmg: 2.4, speed: 1.2, color: "#80f3ff" },
+    "electro": { hp: 13.0, dmg: 3.2, speed: 2.4, color: "#b533ff" },
+    "physical": { color: "#ffffff" }
 };
 
-// Raw template designs for dynamically loaded wave spawns
 const BASE_MONSTERS = [
     { name: "Alpha Glitch", icon: "👾", elem: "electro", hp: 180, dmg: 14, speed: 14 },
     { name: "Corrupted Script", icon: "📝", elem: "cryo", hp: 220, dmg: 18, speed: 10 },
@@ -301,16 +306,117 @@ const BASE_MONSTERS = [
     { name: "Mainframe Guardian", icon: "🤖", elem: "electro", hp: 450, dmg: 32, speed: 18 }
 ];
 
-// --- CORE SYSTEM STATE CONTROLLERS ---
 let gameState = null;
-let chosenSquadUIDs = []; // Length max 3
-let activePlayerTeam = []; // Operational active battle stats cloned arrays
+let chosenSquadUIDs = [];
+let activePlayerTeam = [];
 let activeEnemyTeam = [];
 let battleWave = 1;
 let battleRound = 1;
 let isGauntletLive = false;
 
-// Helper to convert data strings into rich HTML nodes
+// --- CANVAS PARTICLE ENGINE ENGINE ---
+let canvas, ctx;
+let particles = [];
+
+function initParticles() {
+    canvas = document.getElementById('fxCanvas');
+    ctx = canvas.getContext('2d');
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    requestAnimationFrame(updateParticlesLoop);
+}
+
+function resizeCanvas() {
+    if (!canvas) return;
+    const box = document.getElementById('battleStage').getBoundingClientRect();
+    canvas.width = box.width;
+    canvas.height = box.height;
+}
+
+function spawnElementParticles(element, targetRowId) {
+    const row = document.getElementById(targetRowId);
+    if (!row) return;
+    
+    const stageBox = document.getElementById('battleStage').getBoundingClientRect();
+    const rowBox = row.getBoundingClientRect();
+    
+    // Find absolute center point inside canvas container coordinates
+    const centerX = (rowBox.left + rowBox.width / 2) - stageBox.left;
+    const centerY = (rowBox.top + rowBox.height / 2) - stageBox.top;
+    
+    const color = MULTIPLIERS[element]?.color || "#ffffff";
+
+    for (let i = 0; i < 25; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 5;
+        particles.push({
+            x: centerX,
+            y: centerY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            radius: 2 + Math.random() * 3,
+            color: color,
+            alpha: 1,
+            decay: 0.02 + Math.random() * 0.03
+        });
+    }
+}
+
+function updateParticlesLoop() {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= p.decay;
+        
+        if (p.alpha <= 0) {
+            particles.splice(i, 1);
+            continue;
+        }
+        
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = p.color;
+        ctx.fill();
+        ctx.restore();
+    }
+    requestAnimationFrame(updateParticlesLoop);
+}
+
+// --- FLOATING TEXT ENGINE ---
+function createFloatingText(amount, colorCode, labelText, targetRowId) {
+    const row = document.getElementById(targetRowId);
+    if (!row) return;
+
+    const stage = document.getElementById('battleStage');
+    const stageBox = stage.getBoundingClientRect();
+    const rowBox = row.getBoundingClientRect();
+
+    const textEl = document.createElement('div');
+    textEl.className = 'float-dmg-text';
+    textEl.style.color = colorCode;
+    
+    textEl.innerHTML = labelText ? `${labelText}<br>${amount}` : amount;
+
+    // Center horizontally on targeted card bounding layers
+    const x = (rowBox.left + rowBox.width / 2) - stageBox.left;
+    const y = (rowBox.top + rowBox.height / 3) - stageBox.top;
+
+    textEl.style.left = `${x}px`;
+    textEl.style.top = `${y}px`;
+    textEl.style.transform = 'translate(-50%, -50%)';
+
+    stage.appendChild(textEl);
+    setTimeout(() => textEl.remove(), 1600);
+}
+
 function parseGraphic(iconString) {
     if (iconString.includes('.png') || iconString.includes('.gif')) {
         return `<img src="${ASSET_DIR}${iconString}" onerror="this.outerHTML='<span>🐾</span>'">`;
@@ -318,7 +424,7 @@ function parseGraphic(iconString) {
     return `<span>${iconString}</span>`;
 }
 
-// --- INITIALIZATION & ACCOUNT VERIFICATION ENGINE ---
+// --- INIT DATA & SYNC CODES ---
 async function loadArenaConfiguration() {
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
     if (!savedUser) {
@@ -335,7 +441,6 @@ async function loadArenaConfiguration() {
         const res = await response.json();
         if (res.success && res.data) {
             gameState = res.data;
-            // Parse embedded structural nodes
             gameState.owned_pets = JSON.parse(gameState.owned_pets || '[]');
             gameState.pet_ages = JSON.parse(gameState.pet_ages || '{}');
             gameState.game_stats = JSON.parse(gameState.game_stats || '{}');
@@ -345,7 +450,6 @@ async function loadArenaConfiguration() {
         gameState = raw ? JSON.parse(raw) : { owned_pets: [], pet_ages: {}, game_stats: {} };
     }
 
-    // Safety checks for metrics tracking objects
     if (!gameState.game_stats) gameState.game_stats = {};
     if (typeof gameState.game_stats.battle_points === 'undefined') gameState.game_stats.battle_points = 0;
     if (typeof gameState.game_stats.battle_wins === 'undefined') gameState.game_stats.battle_wins = 0;
@@ -369,7 +473,6 @@ function renderLobbyInterface() {
     document.getElementById('rankDisplay').innerText = rank;
     document.getElementById('recordDisplay').innerText = `Wins: ${wins} | Losses: ${losses} (${rp.toLocaleString()} RP)`;
 
-    // Render User Inventory Stable Grid Selection
     const grid = document.getElementById('invGrid');
     grid.innerHTML = '';
 
@@ -390,15 +493,14 @@ function renderLobbyInterface() {
         card.className = `pet-mini-card ${isSelected ? 'selected-in-team' : ''}`;
         card.onclick = () => selectPetForSquad(uid);
         card.innerHTML = `
-            <div style="width:30px; height:30px; display:flex; align-items:center; justify-content:center;">${parseGraphic(config.icon)}</div>
-            <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%;">${config.name}</div>
+            <div class="img-wrap">${parseGraphic(config.icon)}</div>
+            <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; text-align:center;">${config.name}</div>
             <div style="color:var(--p1)">Lvl ${lvl}</div>
             <span class="elem-badge ${config.elem}">${config.elem}</span>
         `;
         grid.appendChild(card);
     });
 
-    // Update the 3 visual deployment slots
     for (let i = 0; i < 3; i++) {
         const slotEl = document.getElementById(`tSlot${i}`);
         if (chosenSquadUIDs[i]) {
@@ -407,8 +509,8 @@ function renderLobbyInterface() {
             const config = PET_SHOP.find(p => p.id === baseId);
             slotEl.className = "team-slot active-filled";
             slotEl.innerHTML = `
-                <div style="font-size:32px;">${parseGraphic(config.icon)}</div>
-                <div style="font-size:10px; font-weight:bold; overflow:hidden; width:90%;">${config.name}</div>
+                <div style="width:45px; height:45px; display:flex; align-items:center; justify-content:center; overflow:hidden;">${parseGraphic(config.icon)}</div>
+                <div style="font-size:10px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:90%; text-align:center;">${config.name}</div>
                 <span class="elem-badge ${config.elem}" style="position:absolute; bottom:4px;">${config.elem}</span>
             `;
         } else {
@@ -421,10 +523,8 @@ function renderLobbyInterface() {
 }
 
 function selectPetForSquad(uid) {
-    if (chosenSquadUIDs.includes(uid)) return; // Already loaded
-    if (chosenSquadUIDs.length >= 3) {
-        chosenSquadUIDs.shift(); // Cycle off old slots to prioritize space dynamically
-    }
+    if (chosenSquadUIDs.includes(uid)) return;
+    if (chosenSquadUIDs.length >= 3) chosenSquadUIDs.shift();
     chosenSquadUIDs.push(uid);
     renderLobbyInterface();
 }
@@ -436,59 +536,82 @@ function removeFromSquad(index) {
     }
 }
 
-// --- ELEMENTAL ENGINE MATRIX ---
-function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, logArray) {
+// --- ELEMENTAL SYSTEM REACTIONS ---
+function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, moveType) {
     let finalDmg = incomingDmg;
-    let reactionTxt = "";
+    let reactionLabel = "";
     let splashDmg = 0;
+    
     let targetTeam = (activePlayerTeam.includes(target)) ? activePlayerTeam : activeEnemyTeam;
+    let targetPrefix = (activePlayerTeam.includes(target)) ? "pRow" : "eRow";
+    
+    // Fallback default colors mapping
+    let elementColor = MULTIPLIERS[attacker.elem]?.color || "#ffffff";
+    if (moveType === 'attack') elementColor = "#ffffff"; // White color metrics on physical primary loops
 
-    if (attacker.elem && attacker.elem !== "none") {
+    if (moveType === 'special' && attacker.elem && attacker.elem !== "none") {
         let currentStatus = target.statusEffect;
 
         if (!currentStatus) {
-            // No aura present, infect with element directly
             target.statusEffect = attacker.elem;
         } else if (currentStatus !== attacker.elem) {
-            // Reaction check logic
             let combination = [currentStatus, attacker.elem].sort().join('+');
 
-            if (combination === "cryo+pyro") { // MELT: Deal massive flat damage spread to all enemies
+            if (combination === "cryo+pyro") { // MELT (Double Dmg + Splash Area)
                 finalDmg = Math.floor(finalDmg * 2.0);
-                splashDmg = Math.floor(finalDmg * 0.5);
-                reactionTxt = `🔥❄️ MELT EFFECT! Double damage dealt! Splash shockwave hit all active combatants for ${splashDmg}!`;
+                splashDmg = Math.floor(finalDmg * 0.4);
+                reactionLabel = "MELT! ⚔️";
                 
-                targetTeam.forEach(t => { if (t !== target && t.hp > 0) t.hp = Math.max(0, t.hp - splashDmg); });
+                targetTeam.forEach((t, i) => {
+                    if (t !== target && t.hp > 0) {
+                        t.hp = Math.max(0, t.hp - splashDmg);
+                        setTimeout(() => {
+                            createFloatingText(splashDmg, "#ff4d4d", "SPLASH", `${targetPrefix}${i}`);
+                            spawnElementParticles("pyro", `${targetPrefix}${i}`);
+                        }, 150);
+                    }
+                });
             } 
-            else if (combination === "hydro+pyro") { // VAPORIZE: Massive singular focused blast multiplier
+            else if (combination === "hydro+pyro") { // VAPORIZE (Burst multiplier)
                 finalDmg = Math.floor(finalDmg * 2.5);
-                reactionTxt = `💧🔥 VAPORIZE TRIGGERED! Single-target burst increased to 2.5x multiplier!`;
+                reactionLabel = "VAPORIZE! 💧";
             } 
-            else if (combination === "cryo+electro") { // SUPERCONDUCT: Break targets, hit physical flat speed down and defense reduction
+            else if (combination === "cryo+electro") { // SUPERCONDUCT (Def Break Down + Speed Half)
                 finalDmg = Math.floor(finalDmg * 1.5);
                 target.speed = Math.max(1, Math.floor(target.speed * 0.5));
-                reactionTxt = `⚡❄️ SUPERCONDUCT! Target defense broken and speed cut in half!`;
+                reactionLabel = "SUPERCONDUCT! ⚡";
             } 
-            else if (combination === "electro+pyro") { // OVERLOADED: Explosion breaks entire formation for flat damage
-                splashDmg = 40;
-                reactionTxt = `⚡🔥 OVERLOADED BOMB EXPLOSION! Flat 40 damage ruptured across the entire lineup container!`;
-                targetTeam.forEach(t => { if (t.hp > 0) t.hp = Math.max(0, t.hp - splashDmg); });
+            else if (combination === "electro+pyro") { // OVERLOADED (Explosive Cluster Burst)
+                splashDmg = Math.floor(attacker.dmg * 0.8);
+                reactionLabel = "OVERLOADED! 💥";
+                targetTeam.forEach((t, i) => {
+                    if (t.hp > 0) {
+                        t.hp = Math.max(0, t.hp - splashDmg);
+                        setTimeout(() => {
+                            createFloatingText(splashDmg, "#b533ff", "BURST", `${targetPrefix}${i}`);
+                            spawnElementParticles("electro", `${targetPrefix}${i}`);
+                        }, 150);
+                    }
+                });
             }
-
-            target.statusEffect = null; // Consume status aura cleanly
+            target.statusEffect = null; // Clean up atomic states
         }
     }
 
     target.hp = Math.max(0, target.hp - finalDmg);
-    if (reactionTxt) logArray.push(reactionTxt);
+    
+    // Spawn core visual float graphics onto primary targeted rows
+    let targetIdx = targetTeam.indexOf(target);
+    createFloatingText(finalDmg, elementColor, reactionLabel, `${targetPrefix}${targetIdx}`);
+    spawnElementParticles(moveType === 'special' ? attacker.elem : 'physical', `${targetPrefix}${targetIdx}`);
+
     return finalDmg;
 }
 
-// --- GAUNTLET WARFARE SIMULATOR SYSTEM ---
+// --- COMBAT CORE MATRIX ---
 function startBattle() {
     if (chosenSquadUIDs.length === 0) return;
 
-    // 1. Build Player Cloned Working Entities
     activePlayerTeam = chosenSquadUIDs.map(uid => {
         const baseId = uid.split('::')[0];
         const config = PET_SHOP.find(p => p.id === baseId);
@@ -497,26 +620,19 @@ function startBattle() {
         let m = MULTIPLIERS[config.elem];
 
         return {
-            name: config.name,
-            icon: config.icon,
-            elem: config.elem,
-            level: lvl,
-            maxHp: Math.floor(baseYield * m.hp),
-            hp: Math.floor(baseYield * m.hp),
-            dmg: Math.floor(baseYield * m.dmg),
-            speed: Math.floor(baseYield * m.speed),
-            statusEffect: null,
-            isPlayer: true
+            name: config.name, icon: config.icon, elem: config.elem, level: lvl,
+            maxHp: Math.floor(baseYield * m.hp), hp: Math.floor(baseYield * m.hp),
+            dmg: Math.floor(baseYield * m.dmg), speed: Math.floor(baseYield * m.speed),
+            statusEffect: null, isPlayer: true
         };
     });
 
-    battleWave = 1;
-    battleRound = 1;
-    isGauntletLive = true;
+    battleWave = 1; battleRound = 1; isGauntletLive = true;
 
     document.getElementById('lobbyScreen').style.display = 'none';
     document.getElementById('battleScreen').style.display = 'flex';
 
+    resizeCanvas();
     generateWaveOpponents();
     drawCombatArenaStage();
     processRoundLoopSequence();
@@ -524,23 +640,15 @@ function startBattle() {
 
 function generateWaveOpponents() {
     activeEnemyTeam = [];
-    // Scale modifier calculation factor per wave step escalation
     let scalar = 1.0 + (battleWave - 1) * 0.35;
 
-    // Spawn exactly 5 enemies matching requirements
     for (let i = 0; i < 5; i++) {
         let base = BASE_MONSTERS[Math.floor(Math.random() * BASE_MONSTERS.length)];
         activeEnemyTeam.push({
-            name: `${base.name} #${i+1}`,
-            icon: base.icon,
-            elem: base.elem,
-            level: battleWave,
-            maxHp: Math.floor(base.hp * scalar),
-            hp: Math.floor(base.hp * scalar),
-            dmg: Math.floor(base.dmg * scalar),
-            speed: Math.floor(base.speed * scalar),
-            statusEffect: null,
-            isPlayer: false
+            name: `${base.name} #${i+1}`, icon: base.icon, elem: base.elem, level: battleWave,
+            maxHp: Math.floor(base.hp * scalar), hp: Math.floor(base.hp * scalar),
+            dmg: Math.floor(base.dmg * scalar), speed: Math.floor(base.speed * scalar),
+            statusEffect: null, isPlayer: false
         });
     }
 }
@@ -549,10 +657,8 @@ function drawCombatArenaStage() {
     const pContainer = document.getElementById('playerTeamContainer');
     const eContainer = document.getElementById('enemyTeamContainer');
     
-    pContainer.innerHTML = '';
-    eContainer.innerHTML = '';
+    pContainer.innerHTML = ''; eContainer.innerHTML = '';
 
-    // Render Player Squad Dom Elements
     activePlayerTeam.forEach((p, idx) => {
         let pct = (p.hp / p.maxHp) * 100;
         let auraHtml = p.statusEffect ? `<div class="status-dot" style="background:var(--${p.statusEffect})"></div>` : '';
@@ -575,7 +681,6 @@ function drawCombatArenaStage() {
         `;
     });
 
-    // Render Enemies
     activeEnemyTeam.forEach((e, idx) => {
         let pct = (e.hp / e.maxHp) * 100;
         let auraHtml = e.statusEffect ? `<div class="status-dot" style="background:var(--${e.statusEffect})"></div>` : '';
@@ -583,7 +688,7 @@ function drawCombatArenaStage() {
         eContainer.innerHTML += `
             <div class="fighter-row ${e.hp <= 0 ? 'fainted' : ''}" id="eRow${idx}">
                 <div class="graphic-box">
-                    ${e.icon}
+                    <span>${e.icon}</span>
                     <div class="status-aura-container">${auraHtml}</div>
                 </div>
                 <div class="bars-container">
@@ -602,33 +707,24 @@ function drawCombatArenaStage() {
     document.getElementById('roundTracker').innerText = `Round ${battleRound}`;
 }
 
-// --- ROUND SPEED CHECK SEQUENCER ENGINE ---
 let attackTurnQueue = [];
 let currentQueueIndex = 0;
 
 function processRoundLoopSequence() {
     if (!isGauntletLive) return;
 
-    // Check win/loss parameters first before allocating tracking slots
-    if (activePlayerTeam.every(p => p.hp <= 0)) {
-        endMatch(false);
-        return;
-    }
+    if (activePlayerTeam.every(p => p.hp <= 0)) { endMatch(false); return; }
     if (activeEnemyTeam.every(e => e.hp <= 0)) {
         if (battleWave >= 5) {
-            endMatch(true); // Gauntlet complete
+            endMatch(true);
         } else {
-            battleWave++;
-            battleRound = 1;
-            writeLog(`✨ Wave Defeated! Spawning Wave ${battleWave}...`);
-            generateWaveOpponents();
-            drawCombatArenaStage();
-            processRoundLoopSequence();
+            battleWave++; battleRound = 1;
+            writeLog(`✨ Wave Defeated! Teleporting inside Wave ${battleWave}...`);
+            generateWaveOpponents(); drawCombatArenaStage(); processRoundLoopSequence();
         }
         return;
     }
 
-    // Build Priority Queue across all live entities sorted by Combat Speed metrics
     attackTurnQueue = [];
     activePlayerTeam.forEach(p => { if (p.hp > 0) attackTurnQueue.push(p); });
     activeEnemyTeam.forEach(e => { if (e.hp > 0) attackTurnQueue.push(e); });
@@ -640,25 +736,19 @@ function processRoundLoopSequence() {
 
 function executeNextQueueStep() {
     if (currentQueueIndex >= attackTurnQueue.length) {
-        battleRound++;
-        drawCombatArenaStage();
-        processRoundLoopSequence();
-        return;
+        battleRound++; drawCombatArenaStage(); processRoundLoopSequence(); return;
     }
 
     let activeUnit = attackTurnQueue[currentQueueIndex];
     if (activeUnit.hp <= 0) {
-        currentQueueIndex++;
-        executeNextQueueStep();
-        return;
+        currentQueueIndex++; executeNextQueueStep(); return;
     }
 
-    // Apply UI highlight effects onto turning track slot rows
     drawCombatArenaStage();
     highlightActiveUnitRow(activeUnit);
 
     if (activeUnit.isPlayer) {
-        writeLog(`Your turn! Choose an action for ${activeUnit.name}.`);
+        writeLog(`Your turn! Choose an action for <strong>${activeUnit.name}</strong>.`);
         toggleControls(false);
     } else {
         toggleControls(true);
@@ -669,10 +759,10 @@ function executeNextQueueStep() {
 function highlightActiveUnitRow(unit) {
     if (unit.isPlayer) {
         let pIdx = activePlayerTeam.indexOf(unit);
-        document.getElementById(`pRow${pIdx}`).classList.add('active-turn');
+        document.getElementById(`pRow${pIdx}`)?.classList.add('active-turn');
     } else {
         let eIdx = activeEnemyTeam.indexOf(unit);
-        document.getElementById(`eRow${eIdx}`).classList.add('active-turn');
+        document.getElementById(`eRow${eIdx}`)?.classList.add('active-turn');
     }
 }
 
@@ -682,46 +772,36 @@ function toggleControls(disabledState) {
 }
 
 function writeLog(msg) {
-    const logBox = document.getElementById('battleLog');
-    logBox.innerHTML = msg;
-    logBox.scrollTop = logBox.scrollHeight;
+    document.getElementById('battleLog').innerHTML = msg;
 }
 
-// --- COMBAT ACTIONS SEQUENCES ---
 function executeTurn(moveType) {
     let activeUnit = attackTurnQueue[currentQueueIndex];
     toggleControls(true);
 
-    // Target selection (Always auto target the first available living enemy row container)
     let target = activeEnemyTeam.find(e => e.hp > 0);
     if (!target) return;
 
     let baseDmg = moveType === 'attack' ? activeUnit.dmg : Math.floor(activeUnit.dmg * 1.5);
-    let logLines = [];
-
-    if (moveType === 'attack') {
-        logLines.push(`⚔️ ${activeUnit.name} attacks ${target.name}!`);
-    } else {
-        logLines.push(`✨ ${activeUnit.name} casts an Elemental Spell on ${target.name}!`);
-    }
-
-    // Attack Trigger Anim
     let pIdx = activePlayerTeam.indexOf(activeUnit);
     let rowEl = document.getElementById(`pRow${pIdx}`);
+    
     rowEl.classList.add('anim-attack-left');
 
     setTimeout(() => {
-        let finalDmg = applyElementalDamageAndCheckReactions(activeUnit, target, baseDmg, logLines);
-        logLines.push(`Dealt ${finalDmg} base kinetic value damage output.`);
-        writeLog(logLines.join('<br>'));
-        drawCombatArenaStage();
-    }, 1500);
+        applyElementalDamageAndCheckReactions(activeUnit, target, baseDmg, moveType);
+        let tIdx = activeEnemyTeam.indexOf(target);
+        document.getElementById(`eRow${tIdx}`)?.classList.add('anim-hit');
+    }, 200);
 
     setTimeout(() => {
         rowEl.classList.remove('anim-attack-left');
+        let tIdx = activeEnemyTeam.indexOf(target);
+        document.getElementById(`eRow${tIdx}`)?.classList.remove('anim-hit');
+        
         currentQueueIndex++;
         executeNextQueueStep();
-    }, 2000);
+    }, 800);
 }
 
 function enemyAutomatedAIAction(enemyUnit) {
@@ -729,27 +809,27 @@ function enemyAutomatedAIAction(enemyUnit) {
     if (!target) return;
 
     let baseDmg = Math.floor(enemyUnit.dmg * (0.85 + Math.random() * 0.3));
-    let logLines = [`💥 Enemy ${enemyUnit.name} strikes back at your ${target.name}!`];
-
     let eIdx = activeEnemyTeam.indexOf(enemyUnit);
     let rowEl = document.getElementById(`eRow${eIdx}`);
+    
     rowEl.classList.add('anim-attack-right');
 
     setTimeout(() => {
-        let finalDmg = applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, logLines);
-        logLines.push(`Your squad entity sustained ${finalDmg} damage.`);
-        writeLog(logLines.join('<br>'));
-        drawCombatArenaStage();
-    }, 1500);
+        applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special');
+        let pIdx = activePlayerTeam.indexOf(target);
+        document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
+    }, 200);
 
     setTimeout(() => {
         rowEl.classList.remove('anim-attack-right');
+        let pIdx = activePlayerTeam.indexOf(target);
+        document.getElementById(`pRow${pIdx}`)?.classList.remove('anim-hit');
+        
         currentQueueIndex++;
         executeNextQueueStep();
-    }, 2000);
+    }, 800);
 }
 
-// --- ECOSYSTEM SAVE ROUTINES ---
 function endMatch(isVictory, fled = false) {
     isGauntletLive = false;
     toggleControls(true);
@@ -757,25 +837,24 @@ function endMatch(isVictory, fled = false) {
     if (fled) {
         gameState.game_stats.battle_losses++;
         gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 20);
-        writeLog("🏃 Lineup withdrawal executed! Abandoned match tracking triggers -20 RP reduction penalization.");
+        writeLog("🏃 Abandoned match. Lost -20 RP.");
     } else if (isVictory) {
         gameState.game_stats.battle_wins++;
-        gameState.game_stats.battle_points += 100; // High return reward tier models for clear paths
-        writeLog("🏆 COMPLETE GAUNTLET GAIN! You crushed all 5 Waves! Added +100 Rank Points directly.");
+        gameState.game_stats.battle_points += 100;
+        writeLog("🏆 COMPLETE GAUNTLET CLEAR! Added +100 Rank Points!");
     } else {
         gameState.game_stats.battle_losses++;
         gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 15);
-        writeLog("💀 SQUAD FAINTED! The active wave monsters overwhelmed your team container line. Lost -15 RP.");
+        writeLog("💀 DEFEAT! Your lineup fainted. Lost -15 RP.");
     }
 
-    // Dispatch payload data block update streams
     saveStateDataPacket();
 
     setTimeout(() => {
         document.getElementById('battleScreen').style.display = 'none';
         document.getElementById('lobbyScreen').style.display = 'flex';
         loadArenaConfiguration();
-    }, 5000);
+    }, 4000);
 }
 
 async function saveStateDataPacket() {
@@ -804,7 +883,10 @@ async function saveStateDataPacket() {
     try { await fetch(BACKEND_URL, { method: 'POST', body: formData }); } catch(e){}
 }
 
-window.addEventListener('DOMContentLoaded', loadArenaConfiguration);
+window.addEventListener('DOMContentLoaded', () => {
+    loadArenaConfiguration();
+    initParticles();
+});
 </script>
 </body>
 </html>
