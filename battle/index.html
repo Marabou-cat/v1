@@ -281,7 +281,8 @@
         <div id="battleLog" class="battle-log">Initializing battle elements...</div>
 
         <div class="battle-actions">
-            <button id="btnAttack" class="btn-move" onclick="executeTurn('attack')">⚔️ Primary Attack</button>
+            <!-- 👇 RENAMED PRIMARY BUTTON INTERFACE -->
+            <button id="btnAttack" class="btn-move" style="background:#0077b6; border-color:#90e0ef;" onclick="executeTurn('splash')">💦 Elemental Splash</button>
             <button id="btnSpecial" class="btn-move" style="background:#8e44ad; border-color:#a29bfe;" onclick="executeTurn('special')">✨ Elemental Spell</button>
             <button id="btnFlee" class="btn-move" style="background:#333; border-color:#555;" onclick="endMatch(false, true)">🏃 Abandon Gauntlet</button>
         </div>
@@ -326,7 +327,7 @@ const PET_SHOP = [
     { id: "celebration_monkey", name: "Celebration Monkey", icon: "celebration_monkey.png", baseCoin: 500, elem: "electro" },
     { id: "reaper", name: "Reaper", icon: "reaper.png", baseCoin: 650, elem: "electro" },
     { id: "ember_caterpillar", name: "Ember Caterpillar", icon: "ember_caterpillar.png", baseCoin: 220, elem: "pyro" },
-    { id: "paint_cat", name: "Paint Cat", icon: "paint_cat.png", baseCoin: 330, elem: "hydro" },
+    { id: "paint_cat", name: "Paint Cat", icon: "paint_cat.png", baseCoin: 330, font: "hydro" },
     { id: "dreaming_chick", name: "Dreaming Chick", icon: "dreaming_chick.png", baseCoin: 250, elem: "cryo" },
     { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "nightmare_rooster.png", baseCoin: 450, elem: "pyro" },
     { id: "cat_of_fame", name: "Cat Of Fame", icon: "cat_of_fame.png", baseCoin: 600, elem: "hydro" },
@@ -594,6 +595,7 @@ function selectPetForSquad(uid) {
 }
 function removeFromSquad(index) { if (chosenSquadUIDs[index]) { chosenSquadUIDs.splice(index, 1); renderLobbyInterface(); } }
 
+// --- ELEMENTAL DAMAGE ENGINE WITH ADVANCED REACTION CONTROLLERS ---
 function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, moveType) {
     let finalDmg = incomingDmg;
     let reactionLabel = "";
@@ -602,9 +604,28 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
     let targetTeam = (activePlayerTeam.includes(target)) ? activePlayerTeam : activeEnemyTeam;
     let targetPrefix = (activePlayerTeam.includes(target)) ? "pRow" : "eRow";
     let elementColor = MULTIPLIERS[attacker.elem]?.color || "#ffffff";
-    if (moveType === 'attack') elementColor = "#ffffff";
 
-    if (moveType === 'special' && attacker.elem && attacker.elem !== "none") {
+    // 👇 REMOVED PHYSICAL COLOR DEVIATIONS TO INTRODUCE ELEMENTAL SPLASH MECHANICS
+    if (moveType === 'splash' && attacker.elem && attacker.elem !== "none") {
+        let currentStatus = target.statusEffect;
+        if (!currentStatus) {
+            target.statusEffect = attacker.elem;
+        } else if (currentStatus !== attacker.elem) {
+            let combination = [currentStatus, attacker.elem].sort().join('+');
+            // Allow elemental reactions to trigger inside the Splash utility model
+            if (combination === "cryo+pyro") { finalDmg = Math.floor(finalDmg * 2.0); reactionLabel = "MELT SPLASH! ⚔️"; }
+            else if (combination === "hydro+pyro") { finalDmg = Math.floor(finalDmg * 2.5); reactionLabel = "VAPORIZE SPLASH! 💧"; }
+            else if (combination === "cryo+electro") { finalDmg = Math.floor(finalDmg * 1.5); target.speed = Math.max(1, Math.floor(target.speed * 0.5)); reactionLabel = "SUPERCONDUCT SPLASH! ⚡"; }
+            else if (combination === "electro+pyro") { splashDmg = 15; reactionLabel = "OVERLOAD SPLASH! 💥"; targetTeam.forEach((t, i) => { if (t.hp > 0) t.hp = Math.max(0, t.hp - splashDmg); }); }
+            else if (combination === "cryo+hydro") { reactionLabel = "FROZEN SPLASH! 🧊"; target.isFrozen = true; target.cryoSnapshotDmg = attacker.dmg * 0.6; }
+            else if (combination === "dendro+pyro") { finalDmg = Math.floor(finalDmg * 1.5); reactionLabel = "BURNING SPLASH! 🔥"; }
+            else if (combination === "dendro+hydro") { finalDmg = Math.floor(finalDmg + 30); reactionLabel = "BLOOM SPLASH! 🌿"; }
+            else if (combination === "dendro+electro") { attacker.dmg = Math.floor(attacker.dmg * 1.2); reactionLabel = "CATALYZE SPLASH! ⚡"; }
+            else if (combination === "cryo+dendro") { target.speed = Math.max(1, Math.floor(target.speed * 0.7)); reactionLabel = "OVERGROW SPLASH! ❄️"; }
+            target.statusEffect = null;
+        }
+    } 
+    else if (moveType === 'special' && attacker.elem && attacker.elem !== "none") {
         let currentStatus = target.statusEffect;
 
         if (!currentStatus) {
@@ -669,7 +690,7 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
     target.hp = Math.max(0, target.hp - finalDmg);
     let targetIdx = targetTeam.indexOf(target);
     createFloatingText(finalDmg, elementColor, reactionLabel, `${targetPrefix}${targetIdx}`);
-    spawnElementParticles(moveType === 'special' ? attacker.elem : 'physical', `${targetPrefix}${targetIdx}`);
+    spawnElementParticles(attacker.elem, `${targetPrefix}${targetIdx}`);
     return finalDmg;
 }
 
@@ -735,6 +756,8 @@ function autoSelectNextLivingEnemy() {
     }
 }
 
+styleElementsFix = null;
+
 function drawCombatArenaStage() {
     const pContainer = document.getElementById('playerTeamContainer'); const eContainer = document.getElementById('enemyTeamContainer');
     pContainer.innerHTML = ''; eContainer.innerHTML = '';
@@ -785,7 +808,6 @@ function processRoundLoopSequence() {
         } return;
     }
     
-    // 👇 BOSS MINION SUMMON CHECK: Spawns extra defenses at the beginning of each round if slots are empty!
     if (battleWave === 3) {
         handleBossSummonLogic();
     }
@@ -796,7 +818,6 @@ function processRoundLoopSequence() {
     attackTurnQueue.sort((a, b) => b.speed - a.speed); currentQueueIndex = 0; executeNextQueueStep();
 }
 
-// 👇 Brand new helper processing automated reinforcement spawns
 function handleBossSummonLogic() {
     let bossUnit = activeEnemyTeam.find(e => e.isBoss && e.hp > 0);
     if (!bossUnit) return;
@@ -811,13 +832,12 @@ function handleBossSummonLogic() {
         let finalScalingFactor = rankMultiplier * waveBonus;
 
         let itemsSummoned = 0;
-        // Search through the array to clean out dead entries or fill missing array positions up to 5 max
         for (let i = 0; i < 5; i++) {
             if (!activeEnemyTeam[i] || activeEnemyTeam[i].hp <= 0) {
                 let base = MINIONS[Math.floor(Math.random() * MINIONS.length)];
                 let newMinion = {
                     name: `${base.name} (Summon)`, icon: base.icon, elem: base.elem, level: 3,
-                    maxHp: Math.floor(base.baseHp * finalScalingFactor * 0.7), // Summoned minions have 70% stats
+                    maxHp: Math.floor(base.baseHp * finalScalingFactor * 0.7), 
                     hp: Math.floor(base.baseHp * finalScalingFactor * 0.7),
                     dmg: Math.floor(base.baseDmg * finalScalingFactor * 0.7),
                     speed: Math.floor(base.speed * waveBonus),
@@ -827,7 +847,7 @@ function handleBossSummonLogic() {
                 if (!activeEnemyTeam[i]) {
                     activeEnemyTeam.push(newMinion);
                 } else {
-                    activeEnemyTeam[i] = newMinion; // Override fainted position cleanly
+                    activeEnemyTeam[i] = newMinion; 
                 }
                 itemsSummoned++;
                 if (activeEnemyTeam.filter(e => e.hp > 0).length >= 5) break;
@@ -896,21 +916,54 @@ function highlightActiveUnitRow(unit) {
 function toggleControls(disabledState) { document.getElementById('btnAttack').disabled = disabledState; document.getElementById('btnSpecial').disabled = disabledState; }
 function writeLog(msg) { document.getElementById('battleLog').innerHTML = msg; }
 
+// 👇 FULLY RE-ARCHITECTED MOVE CONTROLLER
 function executeTurn(moveType) {
-    let activeUnit = attackTurnQueue[currentQueueIndex]; toggleControls(true);
+    let activeUnit = attackTurnQueue[currentQueueIndex]; 
+    toggleControls(true);
     
-    if (activeEnemyTeam[userTargetedEnemyIndex].hp <= 0) {
-        autoSelectNextLivingEnemy();
-    }
-    
-    let target = activeEnemyTeam[userTargetedEnemyIndex];
-    if (!target || target.hp <= 0) return;
-
-    let baseDmg = moveType === 'attack' ? activeUnit.dmg : Math.floor(activeUnit.dmg * 1.5);
-    let pIdx = activePlayerTeam.indexOf(activeUnit); let rowEl = document.getElementById(`pRow${pIdx}`);
+    let pIdx = activePlayerTeam.indexOf(activeUnit); 
+    let rowEl = document.getElementById(`pRow${pIdx}`);
     rowEl.classList.add('anim-attack-left');
-    setTimeout(() => { applyElementalDamageAndCheckReactions(activeUnit, target, baseDmg, moveType); }, 200);
-    setTimeout(() => { rowEl.classList.remove('anim-attack-left'); currentQueueIndex++; executeNextQueueStep(); }, 800);
+
+    if (moveType === 'splash') {
+        // --- MULTI-TARGET ELEMENTAL SPLASH MECHANIC ---
+        setTimeout(() => {
+            writeLog(`💦 <strong>${activeUnit.name}</strong> unleashes an extensive <strong>Elemental Splash</strong> aura across the arena!`);
+            
+            // Loop and hit all currently living enemy targets inside the array cluster
+            activeEnemyTeam.forEach((enemy, i) => {
+                if (enemy.hp > 0) {
+                    // Deals 1/4 (25%) of the special attack power
+                    let splashDmg = Math.floor((activeUnit.dmg * 1.5) * 0.25);
+                    applyElementalDamageAndCheckReactions(activeUnit, enemy, splashDmg, 'splash');
+                    document.getElementById(`eRow${i}`)?.classList.add('anim-hit');
+                }
+            });
+        }, 200);
+    } else {
+        // --- SINGLE-TARGET ELEMENTAL SPELL MECHANIC ---
+        if (activeEnemyTeam[userTargetedEnemyIndex].hp <= 0) {
+            autoSelectNextLivingEnemy();
+        }
+        let target = activeEnemyTeam[userTargetedEnemyIndex];
+        if (!target || target.hp <= 0) return;
+
+        let baseDmg = Math.floor(activeUnit.dmg * 1.5);
+        setTimeout(() => { 
+            applyElementalDamageAndCheckReactions(activeUnit, target, baseDmg, 'special'); 
+            let tIdx = activeEnemyTeam.indexOf(target);
+            document.getElementById(`eRow${tIdx}`)?.classList.add('anim-hit');
+        }, 200);
+    }
+
+    setTimeout(() => {
+        rowEl.classList.remove('anim-attack-left');
+        activeEnemyTeam.forEach((e, i) => {
+            document.getElementById(`eRow${i}`)?.classList.remove('anim-hit');
+        });
+        currentQueueIndex++;
+        executeNextQueueStep();
+    }, 800);
 }
 
 function enemyAutomatedAIAction(enemyUnit) {
@@ -918,25 +971,20 @@ function enemyAutomatedAIAction(enemyUnit) {
     if (livingPlayerPets.length === 0) return;
     
     let eIdx = activeEnemyTeam.indexOf(enemyUnit); 
-    let rowEl = document.getElementById(`eRow${eIdx}`);
+    let rowEl = document.getElementById('eRow' + eIdx);
     rowEl.classList.add('anim-attack-right');
 
-    // 👇 BOSS AOE DAMAGE ENGINE LOGIC
     if (enemyUnit.isBoss) {
         setTimeout(() => {
             writeLog(`💥 🚨 <strong>${enemyUnit.name}</strong> unleashes a crushing AOE ultimate attack!`);
-            // Hits ALL living friendly slots simultaneously
             livingPlayerPets.forEach(target => {
-                let baseDmg = Math.floor(enemyUnit.dmg * (0.75 + Math.random() * 0.25)); // Lightly adjusted for multi-target balancing
+                let baseDmg = Math.floor(enemyUnit.dmg * (0.75 + Math.random() * 0.25)); 
                 applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special');
-                
                 let pIdx = activePlayerTeam.indexOf(target);
                 document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
             });
         }, 200);
-    } 
-    // Regular minion single-target randomized hit logic
-    else {
+    } else {
         let target = livingPlayerPets[Math.floor(Math.random() * livingPlayerPets.length)];
         let baseDmg = Math.floor(enemyUnit.dmg * (0.85 + Math.random() * 0.3));
         setTimeout(() => { 
