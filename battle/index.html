@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SchoolExams - Battle Arena</title>
+    <title>SchoolExams - Battle Arena Pro</title>
     <style>
         :root {
             --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
@@ -14,19 +14,21 @@
             --shadow: 0 12px 40px rgba(0,0,0,0.7);
             --glow: 0 0 20px rgba(144, 224, 239, 0.3);
             --r: 16px;
+            
+            /* Elements */
+            --pyro: #ff4d4d;
+            --hydro: #3399ff;
+            --cryo: #80f3ff;
+            --electro: #b533ff;
         }
 
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
             background: var(--bg0);
             color: var(--w);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
+            margin: 0; padding: 20px;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; box-sizing: border-box;
         }
 
         .bg-grid {
@@ -36,65 +38,113 @@
         }
 
         .arena-container {
-            width: 100%;
-            max-width: 800px;
-            background: var(--bg1);
-            border: 2px solid var(--p0);
-            border-radius: var(--r);
-            box-shadow: var(--shadow), var(--glow);
-            padding: 30px;
-            text-align: center;
-            position: relative;
+            width: 100%; max-width: 950px;
+            background: var(--bg1); border: 2px solid var(--p0); border-radius: var(--r);
+            box-shadow: var(--shadow), var(--glow); padding: 30px;
+            text-align: center; position: relative;
         }
 
-        h1 { color: var(--p1); font-weight: 900; text-shadow: 0 0 15px rgba(144, 224, 239, 0.4); margin-top: 0; }
-        
-        /* --- LOBBY SCREEN --- */
+        h1 { color: var(--p1); font-weight: 900; text-shadow: 0 0 15px rgba(144, 224, 239, 0.4); margin: 0 0 15px 0; }
+        h2, h3 { color: #fff; margin: 10px 0; }
+
+        /* --- UI VIEWS --- */
         .lobby-view { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .battle-view { display: none; flex-direction: column; gap: 20px; }
+
         .rank-badge {
             font-size: 24px; font-weight: 900; padding: 10px 25px;
             border-radius: 30px; border: 2px solid #ffd700;
             background: rgba(0,0,0,0.4); text-transform: uppercase;
-            letter-spacing: 1px; box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
         }
-        .stats-split { display: flex; gap: 20px; width: 100%; justify-content: center; flex-wrap: wrap; margin: 15px 0; }
-        .stat-box {
-            flex: 1; min-width: 200px; background: rgba(0,0,0,0.3);
-            border: 1px solid var(--line); padding: 15px; border-radius: 12px;
-        }
-        .stat-box h3 { margin: 0 0 10px 0; color: var(--p1); font-size: 16px; text-transform: uppercase;}
-        
-        .btn-action {
-            background: linear-gradient(135deg, #ff0055, #f72585); color: #fff;
-            border: 2px solid #fff; padding: 15px 40px; border-radius: 30px;
-            font-size: 20px; font-weight: 900; cursor: pointer; transition: 0.3s;
-            box-shadow: 0 5px 15px rgba(247, 37, 133, 0.4);
-        }
-        .btn-action:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 5px 25px rgba(247, 37, 133, 0.8); }
-        .btn-action:disabled { background: #555; border-color: #777; cursor: not-allowed; box-shadow: none; }
 
-        /* --- BATTLE SCREEN --- */
-        .battle-view { display: none; flex-direction: column; gap: 30px; }
+        /* --- TEAM BUILDER & INVENTORY MANAGER --- */
+        .management-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; margin: 15px 0; }
+        @media (max-width: 768px) { .management-split { grid-template-columns: 1fr; } }
+
+        .panel-box {
+            background: rgba(0,0,0,0.4); border: 1px solid var(--line);
+            padding: 15px; border-radius: 12px; display: flex; flex-direction: column;
+        }
+
+        .slots-row { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+        .team-slot {
+            width: 90px; height: 110px; border: 2px dashed #555; border-radius: 8px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; position: relative; background: rgba(0,0,0,0.3); transition: 0.2s;
+        }
+        .team-slot.active-filled { border-style: solid; border-color: var(--p1); }
+        .team-slot:hover { border-color: #ffd700; background: rgba(255,255,255,0.05); }
+
+        .inv-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px; margin-top: 10px;
+        }
+        .inv-grid::-webkit-scrollbar { width: 6px; }
+        .inv-grid::-webkit-scrollbar-thumb { background: var(--p0); border-radius: 4px; }
+
+        .pet-mini-card {
+            background: var(--bg2); border: 1px solid var(--line); border-radius: 6px;
+            padding: 8px; display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; position: relative; transition: 0.2s; font-size: 11px;
+        }
+        .pet-mini-card:hover { transform: translateY(-2px); border-color: #fff; }
+        .pet-mini-card.selected-in-team { border-color: #ffd700; opacity: 0.5; }
+
+        /* --- ELEMENTAL BADGES --- */
+        .elem-badge {
+            font-size: 9px; font-weight: 900; padding: 2px 5px; border-radius: 4px;
+            text-transform: uppercase; color: #000; margin-top: 2px;
+        }
+        .elem-badge.pyro { background: var(--pyro); }
+        .elem-badge.hydro { background: var(--hydro); color: #fff; }
+        .elem-badge.cryo { background: var(--cryo); }
+        .elem-badge.electro { background: var(--electro); color: #fff; }
+
+        /* --- BATTLE SYSTEM --- */
+        .wave-banner { font-size: 20px; font-weight: 800; color: #ff0055; margin: 0; }
         .battle-stage {
-            display: flex; justify-content: space-between; align-items: flex-end;
+            display: grid; grid-template-columns: 1fr auto 1fr; gap: 15px;
             background: rgba(0,0,0,0.5); border-radius: 12px; padding: 20px;
-            min-height: 220px; position: relative; border: 1px solid var(--line);
+            min-height: 260px; border: 1px solid var(--line); align-items: center;
         }
-        .fighter { display: flex; flex-direction: column; align-items: center; width: 40%; position: relative; }
-        .fighter-icon { font-size: 70px; filter: drop-shadow(0 0 15px rgba(255,255,255,0.3)); min-height: 90px; display: flex; align-items: center; justify-content: center; }
-        .fighter-icon img, .fighter-icon span { height: 75px; width: 75px; object-fit: contain; display: flex; align-items: center; justify-content: center; }
-        
-        /* Health Bar */
-        .hp-container { width: 100%; background: #222; border-radius: 8px; border: 1px solid #444; overflow: hidden; margin-top: 10px; }
-        .hp-bar { height: 14px; background: linear-gradient(90deg, #2ecc71, #27ae60); width: 100%; transition: width 0.3s ease; }
-        .hp-text { font-size: 11px; font-weight: bold; margin-top: 3px; }
 
-        /* Combat Textbox */
+        .team-column { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+        .fighter-row {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.3);
+            border: 1px solid transparent; transition: 0.3s;
+        }
+        .fighter-row.active-turn { border-color: var(--p1); background: rgba(0, 119, 182, 0.2); }
+        .fighter-row.fainted { opacity: 0.3; filter: grayscale(1); }
+
+        .graphic-box {
+            width: 50px; height: 50px; object-fit: contain; font-size: 36px;
+            display: flex; align-items: center; justify-content: center; position: relative;
+        }
+        .graphic-box img { width: 100%; height: 100%; object-fit: contain; }
+        
+        .status-aura-container {
+            position: absolute; top: -5px; right: -5px; display: flex; gap: 2px;
+        }
+        .status-dot {
+            width: 12px; height: 12px; border-radius: 50%; border: 1px solid #fff;
+        }
+
+        .bars-container { flex: 1; text-align: left; }
+        .name-label { font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; }
+        
+        .hp-container { width: 100%; background: #222; border-radius: 4px; overflow: hidden; margin-top: 4px; border: 1px solid #444; }
+        .hp-bar { height: 8px; width: 100%; transition: width 0.3s ease; }
+        .team-column.player-side .hp-bar { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .team-column.enemy-side .hp-bar { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+
         .battle-log {
             background: var(--bg2); border: 2px solid var(--p0); border-radius: 8px;
             padding: 15px; text-align: left; font-weight: bold; min-height: 60px;
-            font-size: 15px; color: #fff; line-height: 1.4;
+            font-size: 14px; color: #fff; line-height: 1.4; max-height: 100px; overflow-y: auto;
         }
+
         .battle-actions { display: flex; gap: 10px; justify-content: center; }
         .btn-move {
             background: var(--p2); border: 1px solid var(--p1); color: #fff;
@@ -103,23 +153,21 @@
         .btn-move:hover:not(:disabled) { background: var(--p0); box-shadow: var(--glow); }
         .btn-move:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* --- LOCK OVERLAY --- */
         .lock-overlay {
-            position: absolute; inset: 0; background: rgba(0, 8, 20, 0.95);
+            position: absolute; inset: 0; background: rgba(0, 8, 20, 0.96);
             backdrop-filter: blur(8px); border-radius: var(--r);
             display: none; flex-direction: column; align-items: center;
             justify-content: center; gap: 15px; z-index: 100; padding: 20px;
         }
-        .lock-overlay h2 { color: #ff0055; margin: 0; font-size: 26px; font-weight: 900; }
-        .lock-overlay p { color: #aaa; max-width: 400px; font-size: 15px; margin: 0; }
+        .lock-overlay h2 { color: #ff0055; font-size: 26px; font-weight: 900; margin:0; }
 
-        /* Animations */
-        @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(30px); } }
-        @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-30px); } }
-        @keyframes hit { 0%, 100% { opacity: 1; } 25%, 75% { opacity: 0.3; transform: scale(0.95); } 50% { opacity: 1; } }
-        .animate-attack-left { animation: attackLeft 0.4s ease-in-out; }
-        .animate-attack-right { animation: attackRight 0.4s ease-in-out; }
-        .animate-hit { animation: hit 0.4s ease-in-out; }
+        /* Combat Animation triggers */
+        @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(20px); } }
+        @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-20px); } }
+        @keyframes flashHit { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; background: rgba(255,0,0,0.4); } }
+        .anim-attack-left { animation: attackLeft 0.3s ease-in-out; }
+        .anim-attack-right { animation: attackRight 0.3s ease-in-out; }
+        .anim-hit { animation: flashHit 0.3s ease-in-out; }
     </style>
 </head>
 <body>
@@ -127,468 +175,636 @@
 <div class="bg-grid"></div>
 
 <div class="arena-container">
-    <!-- GUEST LOCK OVERLAY -->
+    <!-- AUTHENTICATION CHECK LOCK -->
     <div id="lockOverlay" class="lock-overlay">
-        <h2>🔒 Portal Access Restricted</h2>
-        <p>The Battle Arena requires an authorized account profile synchronization to preserve Rank Points and competitive standings. Please register or log in on the main terminal screen.</p>
+        <h2>🔒 Portal Sync Required</h2>
+        <p>The elite 5-Wave Battle Arena requires an authorized data profile to load your companion portfolio and store your updated Rank Points. Please login on the main dashboard.</p>
     </div>
 
     <!-- LOBBY SCREEN -->
     <div id="lobbyScreen" class="lobby-view">
-        <h1>🏆 Battle Arena Lobby 🏆</h1>
+        <h1>🏆 Gauntlet Arena Lobby 🏆</h1>
         <div id="rankDisplay" class="rank-badge">Bronze</div>
-        <div id="pointsDisplay" style="font-size: 14px; color: var(--p1); font-weight: bold;">Rank Points: 0</div>
+        <div id="recordDisplay" style="font-weight: bold; font-size: 15px; color: var(--p1);">Wins: 0 | Losses: 0 (0 RP)</div>
 
-        <div class="stats-split">
-            <div class="stat-box">
-                <h3>🐾 Active Combatant</h3>
-                <div id="lobbyPetIcon" class="fighter-icon" style="font-size: 50px; min-height: 80px; margin-bottom: 5px;">🐾</div>
-                <div id="lobbyPetName" style="font-weight: 900; font-size: 18px;">No Pet Equipped</div>
-                <div id="lobbyPetStats" style="font-size: 13px; color: #aaa; margin-top: 5px; line-height: 1.3;"></div>
+        <div class="management-split">
+            <!-- Selected Battle Lineup (3 Slots) -->
+            <div class="panel-box">
+                <h3>⚔️ Battle Squad (Choose 3)</h3>
+                <p style="font-size:12px; color:#aaa; margin:0;">Click a slot to empty it, or click from your stable on the right to fill it.</p>
+                <div class="slots-row">
+                    <div class="team-slot" id="tSlot0" onclick="removeFromSquad(0)"><span>+</span></div>
+                    <div class="team-slot" id="tSlot1" onclick="removeFromSquad(1)"><span>+</span></div>
+                    <div class="team-slot" id="tSlot2" onclick="removeFromSquad(2)"><span>+</span></div>
+                </div>
             </div>
-            <div class="stat-box">
-                <h3>📊 Battle Record</h3>
-                <div style="font-size: 32px; margin-bottom: 5px;">⚔️</div>
-                <div id="recordDisplay" style="font-weight: 900; font-size: 20px; color: #fff;">Wins: 0 | Losses: 0</div>
-                <div style="font-size: 12px; color: #777; margin-top: 8px;">Gain +25 RP on Victory<br>Lose -10 RP on Defeat</div>
+
+            <!-- Full Player Inventory -->
+            <div class="panel-box">
+                <h3>🎒 Your Stable Portfolio</h3>
+                <div class="inv-grid" id="invGrid">
+                    <!-- Loaded dynamically via user state -->
+                </div>
             </div>
         </div>
 
-        <button id="btnStartBattle" class="btn-action" onclick="startBattle()">START BATTLE ▶</button>
+        <button id="btnStartBattle" class="btn-action" onclick="startBattle()" disabled>DEPLOY COMBAT SQUAD ▶</button>
     </div>
 
-    <!-- BATTLE SCREEN -->
+    <!-- 5-WAVE BATTLE SCREEN -->
     <div id="battleScreen" class="battle-view">
-        <h1 id="roundCounter">Round 1</h1>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="wave-banner" id="waveTracker">WAVE 1 / 5</div>
+            <div style="font-size:14px; font-weight:bold; color:#aaa;" id="roundTracker">Round 1</div>
+        </div>
         
         <div class="battle-stage">
-            <div class="fighter" id="playerFighter">
-                <div style="font-size: 14px; font-weight: bold;" id="bPlayerName">Your Pet</div>
-                <div style="font-size: 12px; color: var(--p1);" id="bPlayerLevel">Lvl 1</div>
-                <div class="fighter-icon" id="bPlayerIcon">🐾</div>
-                <div class="hp-container"><div id="playerHpBar" class="hp-bar"></div></div>
-                <div class="hp-text" id="playerHpText">0 / 0 HP</div>
-            </div>
+            <!-- Left Side: Player Active Squad -->
+            <div class="team-column player-side" id="playerTeamContainer"></div>
 
-            <div style="font-size: 28px; font-weight: 900; color: #ff0055; align-self: center; text-shadow: 0 0 10px rgba(255,0,85,0.5);">VS</div>
+            <div style="font-weight:900; font-size:24px; color:#ff0055;">VS</div>
 
-            <div class="fighter" id="enemyFighter">
-                <div style="font-size: 14px; font-weight: bold; color: #ff4444;" id="bEnemyName">Wild Enemy</div>
-                <div style="font-size: 12px; color: #ff8888;" id="bEnemyLevel">Threat Lvl</div>
-                <div class="fighter-icon" id="bEnemyIcon">👾</div>
-                <div class="hp-container"><div id="enemyHpBar" class="hp-bar" style="background: linear-gradient(90deg, #e74c3c, #c0392b);"></div></div>
-                <div class="hp-text" id="enemyHpText">0 / 0 HP</div>
-            </div>
+            <!-- Right Side: 5 Random Enemies -->
+            <div class="team-column enemy-side" id="enemyTeamContainer"></div>
         </div>
 
-        <div id="battleLog" class="battle-log">Loading arena parameters...</div>
+        <!-- Combat Narrative -->
+        <div id="battleLog" class="battle-log">Initializing arena logic... Prepare your elemental sequences.</div>
 
+        <!-- Controls -->
         <div class="battle-actions">
-            <button id="btnAttack" class="btn-move" onclick="playerAction('attack')">⚔️ Basic Attack</button>
-            <button id="btnSpecial" class="btn-move" style="background: #8e44ad; border-color: #a29bfe;" onclick="playerAction('special')">✨ Special Hit</button>
-            <button id="btnRun" class="btn-move" style="background: #333; border-color: #555;" onclick="endMatch(false, true)">🏃 Flee Match</button>
+            <button id="btnAttack" class="btn-move" onclick="executeTurn('attack')">⚔️ Primary Attack</button>
+            <button id="btnSpecial" class="btn-move" style="background:#8e44ad; border-color:#a29bfe;" onclick="executeTurn('special')">✨ Elemental Spell</button>
+            <button id="btnFlee" class="btn-move" style="background:#333; border-color:#555;" onclick="endMatch(false, true)">🏃 Abandon Gauntlet</button>
         </div>
     </div>
 </div>
 
 <script>
-const BACKEND_URL = '../backend.php';
+// --- GLOBAL STRUCTURAL CONSTANTS ---
+const ASSET_DIR = '../png/';
 
-// --- ENEMIES ARRAY ---
-const ENEMIES = [
-    { id: "glitch_matrix", name: "System Glitch", icon: "👾", hp: 60, dmg: 8, speed: 12, minPoints: 0 },
-    { id: "exam_paper", name: "Surprise Pop Quiz", icon: "📝", hp: 140, dmg: 14, speed: 8, minPoints: 100 },
-    { id: "firewall_hound", name: "Network Firewall", icon: "🔥", hp: 250, dmg: 22, speed: 20, minPoints: 300 },
-    { id: "ai_overlord", name: "Server Mainframe Core", icon: "🖥️", hp: 500, dmg: 45, speed: 25, minPoints: 600 },
-    { id: "unstoppable_boss", name: "The Unstoppable Processor", icon: "👑", hp: 1200, dmg: 95, speed: 45, minPoints: 1000 }
-];
-
-// --- COMPLETE PET DATABASE MATCHING MAIN PORTAL ---
 const PET_SHOP = [
-    { id: "doge", name: "Pixel Doge", icon: "🐕", baseCoin: 9 }, 
-    { id: "cat", name: "Cyber Kitty", icon: "🐈", baseCoin: 15 },
-    { id: "frog", name: "Ninja Frog", icon: "🐸", baseCoin: 25 }, 
-    { id: "mecha_cat", name: "Mecha Cat", icon: "<img src='png/mc.png'>", baseCoin: 350 },
-    { id: "dragon", name: "Neon Dragon", icon: "🐲", baseCoin: 45 },
-    { id: "panda", name: "Ghost Panda", icon: "🐼", baseCoin: 367 }, 
-    { id: "kraken", name: "67 Kraken", icon: "🦑", baseCoin: 265 },
-    { id: "midas", name: "King Midas", icon: "<img src='png/King.png'>", baseCoin: 600 },
-    { id: "phoenix", name: "Mythic Phoenix", icon: "<img src='png/phoenix.png'>", baseCoin: 298 }, 
-    { id: "griffin", name: "Flaming Griffin", icon: "<img src='png/griffin.png'>", baseCoin: 628 },
-    { id: "aerodactylus", name: "Eruption Aerodactylus", icon: "<img src='png/aerodactylus.png'>", baseCoin: 878 }, 
-    { id: "gb", name: "Gem Beast", icon: "<img src='png/gb.png'>", baseCoin: 600 },
-    { id: "hs", name: "Void Hound", icon: "<img src='png/vh.png'>", baseCoin: 798 },
-    { id: "gs", name: "Glowing Shadow", icon: "<img src='png/gs.png'>", baseCoin: 198 },
-    { id: "lt", name: "Living Treasure", icon: "<img src='png/lt.png'>", baseCoin: 65 },
-    { id: "lva", name: "Living Vault", icon: "<img src='png/lva.png'>", baseCoin: 565 },
-    { id: "kitsune", name: "Sakura Kitsune", icon: "<img src='png/kitsune.png'>", baseCoin: 478 },
-    { id: "blossom", name: "Elder Sakura Blossom", icon: "<img src='png/blossom.png'>", baseCoin: 358 },
-    { id: "katanaspirit", name: "Katana Spirit", icon: "<img src='png/spirit.png'>", baseCoin: 198 },
-    { id: "bn", name: "Blossom Ninetails", icon: "<img src='png/blossom_ninetails.png'>", baseCoin: 838 },
-    { id: "crystal_dragon", name: "Crystal Dragon", icon: "<img src='png/crystal_dragon.png'>", baseCoin: 900 },
-    { id: "seed", name: "Mysterious Seed", icon: "<img src='png/seed.png'>", baseCoin: 60 },
-    { id: "flytrap", name: "Moonlight Flytrap", icon: "<img src='png/flytrap.png'>", baseCoin: 655 },
-    { id: "mboe", name: "Moonlight Beast Of Eclipse", icon: "<img src='png/mboe.png'>", baseCoin: 1100 },
-    { id: "virus_kitty", name: "Virus Kitty", icon: "<img src='png/virus_kitty.png'>", baseCoin: 250 },
-    { id: "artificial_virus", name: "Artificial Virus", icon: "<img src='png/artificial_virus.png'>", baseCoin: 650 },
-    { id: "claws_machine", name: "Claws Machine", icon: "<img src='png/claws_machine.png'>", baseCoin: 600 },
-    { id: "clawed_plushie", name: "Clawed Plushie", icon: "<img src='png/clawed_plushie.png'>", baseCoin: 950 },
-    { id: "digital_minion", name: "Digital Minion", icon: "<img src='png/digital_minion.png'>", baseCoin: 350 },
-    { id: "poseidon", name: "Poseidon", icon: "<img src='png/poseidon.png'>", baseCoin: 700 },
-    { id: "celebration_monkey", name: "Celebration Monkey", icon: "<img src='png/celebration_monkey.png'>", baseCoin: 500 },
-    { id: "reaper", name: "Reaper", icon: "<img src='png/reaper.png'>", baseCoin: 650 },
-    { id: "ember_caterpillar", name: "Ember Caterpillar", icon: "<img src='png/ember_caterpillar.png'>", baseCoin: 220 },
-    { id: "paint_cat", name: "Paint Cat", icon: "<img src='png/paint_cat.png'>", baseCoin: 330 },
-    { id: "dreaming_chick", name: "Dreaming Chick", icon: "<img src='png/dreaming_chick.png'>", baseCoin: 250 },
-    { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "<img src='png/nightmare_rooster.png'>", baseCoin: 450 },
-    { id: "cat_of_fame", name: "Cat Of Fame", icon: "<img src='png/cat_of_fame.png'>", baseCoin: 600 },
-    { id: "overheated_pupa", name: "Overheated Pupa", icon: "<img src='png/overheated_pupa.png'>", baseCoin: 250 }
+    { id: "doge", name: "Pixel Doge", icon: "🐕", baseCoin: 9, elem: "pyro" }, 
+    { id: "cat", name: "Cyber Kitty", icon: "🐈", baseCoin: 15, elem: "hydro" },
+    { id: "frog", name: "Ninja Frog", icon: "🐸", baseCoin: 25, elem: "cryo" }, 
+    { id: "mecha_cat", name: "Mecha Cat", icon: "mc.png", baseCoin: 350, elem: "electro" },
+    { id: "dragon", name: "Neon Dragon", icon: "🐲", baseCoin: 45, elem: "pyro" },
+    { id: "panda", name: "Ghost Panda", icon: "🐼", baseCoin: 367, elem: "cryo" }, 
+    { id: "kraken", name: "67 Kraken", icon: "🦑", baseCoin: 265, elem: "hydro" },
+    { id: "midas", name: "King Midas", icon: "King.png", baseCoin: 600, elem: "pyro" },
+    { id: "phoenix", name: "Mythic Phoenix", icon: "phoenix.png", baseCoin: 298, elem: "pyro" }, 
+    { id: "griffin", name: "Flaming Griffin", icon: "griffin.png", baseCoin: 628, elem: "pyro" },
+    { id: "aerodactylus", name: "Eruption Aerodactylus", icon: "aerodactylus.png", baseCoin: 878, elem: "pyro" }, 
+    { id: "gb", name: "Gem Beast", icon: "gb.png", baseCoin: 600, elem: "cryo" },
+    { id: "hs", name: "Void Hound", icon: "vh.png", baseCoin: 798, elem: "electro" },
+    { id: "gs", name: "Glowing Shadow", icon: "gs.png", baseCoin: 198, elem: "electro" },
+    { id: "lt", name: "Living Treasure", icon: "lt.png", baseCoin: 65, elem: "hydro" },
+    { id: "lva", name: "Living Vault", icon: "lva.png", baseCoin: 565, elem: "cryo" },
+    { id: "kitsune", name: "Sakura Kitsune", icon: "kitsune.png", baseCoin: 478, elem: "pyro" },
+    { id: "blossom", name: "Elder Sakura Blossom", icon: "blossom.png", baseCoin: 358, elem: "cryo" },
+    { id: "katanaspirit", name: "Katana Spirit", icon: "spirit.png", baseCoin: 198, elem: "cryo" },
+    { id: "bn", name: "Blossom Ninetails", icon: "blossom_ninetails.png", baseCoin: 838, elem: "pyro" },
+    { id: "crystal_dragon", name: "Crystal Dragon", icon: "crystal_dragon.png", baseCoin: 900, elem: "hydro" },
+    { id: "seed", name: "Mysterious Seed", icon: "seed.png", baseCoin: 60, elem: "hydro" },
+    { id: "flytrap", name: "Moonlight Flytrap", icon: "flytrap.png", baseCoin: 655, elem: "hydro" },
+    { id: "mboe", name: "Moonlight Beast Of Eclipse", icon: "mboe.png", baseCoin: 1100, elem: "electro" },
+    { id: "virus_kitty", name: "Virus Kitty", icon: "virus_kitty.png", baseCoin: 250, elem: "electro" },
+    { id: "artificial_virus", name: "Artificial Virus", icon: "artificial_virus.png", baseCoin: 650, elem: "electro" },
+    { id: "claws_machine", name: "Claws Machine", icon: "claws_machine.png", baseCoin: 600, elem: "electro" },
+    { id: "clawed_plushie", name: "Clawed Plushie", icon: "clawed_plushie.png", baseCoin: 950, elem: "pyro" },
+    { id: "digital_minion", name: "Digital Minion", icon: "digital_minion.png", baseCoin: 350, elem: "hydro" },
+    { id: "poseidon", name: "Poseidon", icon: "poseidon.png", baseCoin: 700, elem: "hydro" },
+    { id: "celebration_monkey", name: "Celebration Monkey", icon: "celebration_monkey.png", baseCoin: 500, elem: "electro" },
+    { id: "reaper", name: "Reaper", icon: "reaper.png", baseCoin: 650, elem: "electro" },
+    { id: "ember_caterpillar", name: "Ember Caterpillar", icon: "ember_caterpillar.png", baseCoin: 220, elem: "pyro" },
+    { id: "paint_cat", name: "Paint Cat", icon: "paint_cat.png", baseCoin: 330, elem: "hydro" },
+    { id: "dreaming_chick", name: "Dreaming Chick", icon: "dreaming_chick.png", baseCoin: 250, elem: "cryo" },
+    { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "nightmare_rooster.png", baseCoin: 450, elem: "pyro" },
+    { id: "cat_of_fame", name: "Cat Of Fame", icon: "cat_of_fame.png", baseCoin: 600, elem: "hydro" },
+    { id: "overheated_pupa", name: "Overheated Pupa", icon: "overheated_pupa.png", baseCoin: 250, elem: "pyro" }
 ];
 
-// --- STAT SCALING MULTIPLIERS FOR ALL 38 PETS ---
-const PET_STAT_MULTIPLIERS = {
-    "doge":                 { hp: 12.0, dmg: 2.2, speed: 1.4 },
-    "cat":                  { hp: 10.0, dmg: 2.5, speed: 1.8 },
-    "frog":                 { hp: 11.0, dmg: 2.0, speed: 2.5 },
-    "mecha_cat":            { hp: 14.5, dmg: 3.2, speed: 2.2 },
-    "dragon":               { hp: 18.0, dmg: 4.2, speed: 1.6 },
-    "panda":                { hp: 24.0, dmg: 2.4, speed: 0.9 },
-    "kraken":               { hp: 22.0, dmg: 3.8, speed: 1.2 },
-    "midas":                { hp: 15.0, dmg: 3.6, speed: 2.0 },
-    "phoenix":              { hp: 13.5, dmg: 4.0, speed: 2.4 },
-    "griffin":              { hp: 16.0, dmg: 3.5, speed: 1.9 },
-    "aerodactylus":         { hp: 14.0, dmg: 4.4, speed: 2.1 },
-    "gb":                   { hp: 17.0, dmg: 3.4, speed: 1.7 },
-    "hs":                   { hp: 15.5, dmg: 3.9, speed: 2.3 },
-    "gs":                   { hp: 13.0, dmg: 3.0, speed: 2.0 },
-    "lt":                   { hp: 12.0, dmg: 2.6, speed: 1.5 },
-    "lva":                  { hp: 19.0, dmg: 3.1, speed: 1.1 },
-    "kitsune":              { hp: 14.0, dmg: 3.7, speed: 2.5 },
-    "blossom":              { hp: 18.5, dmg: 2.8, speed: 1.3 },
-    "katanaspirit":         { hp: 12.5, dmg: 4.1, speed: 2.2 },
-    "bn":                   { hp: 15.0, dmg: 3.8, speed: 2.4 },
-    "crystal_dragon":       { hp: 5, dmg: 5, speed: 10 },
-    "seed":                 { hp: 10.0, dmg: 1.8, speed: 1.2 },
-    "flytrap":              { hp: 16.5, dmg: 3.3, speed: 1.8 },
-    "mboe":                 { hp: 22.0, dmg: 4.5, speed: 1.6 },
-    "virus_kitty":          { hp: 13.5, dmg: 3.5, speed: 2.1 },
-    "artificial_virus":     { hp: 14.0, dmg: 3.8, speed: 2.3 },
-    "claws_machine":        { hp: 18.0, dmg: 2.9, speed: 1.4 },
-    "clawed_plushie":       { hp: 16.0, dmg: 3.7, speed: 2.0 },
-    "digital_minion":       { hp: 12.0, dmg: 3.2, speed: 1.8 },
-    "poseidon":             { hp: 19.5, dmg: 3.6, speed: 1.7 },
-    "celebration_monkey":   { hp: 15.0, dmg: 3.0, speed: 3.0 },
-    "reaper":               { hp: 11.5, dmg: 4.6, speed: 2.5 },
-    "ember_caterpillar":    { hp: 13.0, dmg: 2.7, speed: 1.5 },
-    "paint_cat":            { hp: 14.0, dmg: 3.1, speed: 1.9 },
-    "dreaming_chick":       { hp: 12.0, dmg: 2.8, speed: 1.6 },
-    "nightmare_rooster":    { hp: 15.0, dmg: 3.6, speed: 1.8 },
-    "cat_of_fame":          { hp: 16.0, dmg: 3.5, speed: 2.0 },
-    "overheated_pupa":      { hp: 14.5, dmg: 2.9, speed: 1.3 },
-    "default_fallback":     { hp: 12.0, dmg: 2.5, speed: 1.5 }
+const MULTIPLIERS = {
+    "pyro": { hp: 12.0, dmg: 3.8, speed: 1.8 },
+    "hydro": { hp: 16.0, dmg: 2.8, speed: 1.6 },
+    "cryo": { hp: 22.0, dmg: 2.4, speed: 1.2 },
+    "electro": { hp: 13.0, dmg: 3.2, speed: 2.4 }
 };
 
-let gameState = null;
-let activeCombatant = null;
-let currentEnemy = null;
-let currentTurn = "player";
-let roundNumber = 1;
-let isMatchActive = false;
+// Raw template designs for dynamically loaded wave spawns
+const BASE_MONSTERS = [
+    { name: "Alpha Glitch", icon: "👾", elem: "electro", hp: 180, dmg: 14, speed: 14 },
+    { name: "Corrupted Script", icon: "📝", elem: "cryo", hp: 220, dmg: 18, speed: 10 },
+    { name: "Malware Worm", icon: "🐛", elem: "pyro", hp: 160, dmg: 25, speed: 22 },
+    { name: "Data Leak", icon: "💧", elem: "hydro", hp: 310, dmg: 16, speed: 12 },
+    { name: "Mainframe Guardian", icon: "🤖", elem: "electro", hp: 450, dmg: 32, speed: 18 }
+];
 
-async function loadEcosystemState() {
+// --- CORE SYSTEM STATE CONTROLLERS ---
+let gameState = null;
+let chosenSquadUIDs = []; // Length max 3
+let activePlayerTeam = []; // Operational active battle stats cloned arrays
+let activeEnemyTeam = [];
+let battleWave = 1;
+let battleRound = 1;
+let isGauntletLive = false;
+
+// Helper to convert data strings into rich HTML nodes
+function parseGraphic(iconString) {
+    if (iconString.includes('.png') || iconString.includes('.gif')) {
+        return `<img src="${ASSET_DIR}${iconString}" onerror="this.outerHTML='<span>🐾</span>'">`;
+    }
+    return `<span>${iconString}</span>`;
+}
+
+// --- INITIALIZATION & ACCOUNT VERIFICATION ENGINE ---
+async function loadArenaConfiguration() {
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
-    
     if (!savedUser) {
         document.getElementById('lockOverlay').style.display = 'flex';
-        document.getElementById('btnStartBattle').disabled = true;
         return;
     }
 
-    const formData = new FormData();
-    formData.append('action', 'load');
-    formData.append('username', savedUser);
+    const fd = new FormData();
+    fd.append('action', 'load');
+    fd.append('username', savedUser);
 
     try {
-        const response = await fetch(BACKEND_URL, { method: 'POST', body: formData });
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-            let serverData = result.data;
-            gameState = {
-                coins: parseInt(serverData.coins) || 0,
-                gems: parseInt(serverData.gems) || 0,
-                playtime: parseInt(serverData.playtime) || 0,
-                sakura_coins: parseInt(serverData.sakura_coins) || 0,
-                event_tasks: JSON.parse(serverData.event_tasks || '[]'),
-                owned_cursors: JSON.parse(serverData.owned_cursors || '["def"]'),
-                equipped_cursor: serverData.equipped_cursor || 'def',
-                owned_pets: JSON.parse(serverData.owned_pets || '[]'),
-                active_pet: serverData.active_pet || '',
-                pet_ages: JSON.parse(serverData.pet_ages || '{}'),
-                prestige_level: parseInt(serverData.prestige_level) || 0,
-                owned_items: JSON.parse(serverData.owned_items || '[]'),
-                boost_end: parseInt(serverData.boost_end) || 0,
-                boost_cd: parseInt(serverData.boost_cd) || 0,
-                game_stats: JSON.parse(serverData.game_stats || '{}')
-            };
-        } else {
-            throw new Error("DB load signature bounce");
-        }
-    } catch (e) {
-        let rawData = localStorage.getItem('schoolExamsGuestState');
-        if (rawData) {
-            gameState = JSON.parse(rawData);
-        } else {
-            gameState = { game_stats: {} };
-        }
+        const response = await fetch(BACKEND_URL, { method: 'POST', body: fd });
+        const res = await response.json();
+        if (res.success && res.data) {
+            gameState = res.data;
+            // Parse embedded structural nodes
+            gameState.owned_pets = JSON.parse(gameState.owned_pets || '[]');
+            gameState.pet_ages = JSON.parse(gameState.pet_ages || '{}');
+            gameState.game_stats = JSON.parse(gameState.game_stats || '{}');
+        } else { throw new Error(); }
+    } catch(e) {
+        let raw = localStorage.getItem('schoolExamsGuestState');
+        gameState = raw ? JSON.parse(raw) : { owned_pets: [], pet_ages: {}, game_stats: {} };
     }
 
+    // Safety checks for metrics tracking objects
     if (!gameState.game_stats) gameState.game_stats = {};
     if (typeof gameState.game_stats.battle_points === 'undefined') gameState.game_stats.battle_points = 0;
     if (typeof gameState.game_stats.battle_wins === 'undefined') gameState.game_stats.battle_wins = 0;
     if (typeof gameState.game_stats.battle_losses === 'undefined') gameState.game_stats.battle_losses = 0;
 
-    buildLobbyUI();
+    renderLobbyInterface();
 }
 
-async function saveEcosystemState() {
-    const savedUser = localStorage.getItem('schoolExamsSavedUser');
-    if (!savedUser) return;
-
-    localStorage.setItem('schoolExamsGuestState', JSON.stringify(gameState));
-    
-    const formData = new FormData();
-    formData.append('action', 'save');
-    formData.append('username', savedUser);
-    formData.append('coins', gameState.coins);
-    formData.append('gems', gameState.gems);
-    formData.append('playtime', gameState.playtime);
-    formData.append('sakura_coins', gameState.sakura_coins);
-    formData.append('event_tasks', JSON.stringify(gameState.event_tasks));
-    formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors));
-    formData.append('equipped_cursor', gameState.equipped_cursor);
-    formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
-    formData.append('active_pet', gameState.active_pet);
-    formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
-    formData.append('prestige_level', gameState.prestige_level || 0);
-    formData.append('owned_items', JSON.stringify(gameState.owned_items || []));
-    formData.append('boost_end', gameState.boost_end || 0);
-    formData.append('boost_cd', gameState.boost_cd || 0);
-    formData.append('game_stats', JSON.stringify(gameState.game_stats));
-
-    try {
-        await fetch(BACKEND_URL, { method: 'POST', body: formData });
-    } catch(err) {
-        console.log("DB transaction network fail.");
-    }
-}
-
-function buildLobbyUI() {
+function renderLobbyInterface() {
     let rp = gameState.game_stats.battle_points;
+    let wins = gameState.game_stats.battle_wins;
+    let losses = gameState.game_stats.battle_losses;
+    
     let rank = "Bronze";
-    if (rp >= 100 && rp < 250) rank = "Silver";
-    else if (rp >= 250 && rp < 500) rank = "Gold";
-    else if (rp >= 500 && rp < 800) rank = "Platinum";
-    else if (rp >= 800 && rp < 1200) rank = "Diamond";
-    else if (rp >= 1200 && rp < 2000) rank = "Masters";
-    else if (rp >= 2000) rank = "💥 Unstoppable 💥";
+    if (rp >= 150 && rp < 400) rank = "Silver";
+    else if (rp >= 400 && rp < 800) rank = "Gold";
+    else if (rp >= 800 && rp < 1400) rank = "Platinum";
+    else if (rp >= 1400 && rp < 2200) rank = "Diamond";
+    else if (rp >= 2200) rank = "💥 Unstoppable 💥";
 
     document.getElementById('rankDisplay').innerText = rank;
-    document.getElementById('pointsDisplay').innerText = `Rank Points: ${rp.toLocaleString()} RP`;
-    document.getElementById('recordDisplay').innerText = `Wins: ${gameState.game_stats.battle_wins} | Losses: ${gameState.game_stats.battle_losses}`;
+    document.getElementById('recordDisplay').innerText = `Wins: ${wins} | Losses: ${losses} (${rp.toLocaleString()} RP)`;
 
-    if (gameState.active_pet && gameState.owned_pets.includes(gameState.active_pet)) {
-        const baseId = gameState.active_pet.split('::')[0];
-        const petInfo = PET_SHOP.find(p => p.id === baseId) || { name: "Mystery Variant", icon: "🐾", baseCoin: 5 };
-        const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1;
-        
-        let petYield = petInfo.baseCoin + (level * 2);
-        let mult = PET_STAT_MULTIPLIERS[baseId] || PET_STAT_MULTIPLIERS["default_fallback"];
+    // Render User Inventory Stable Grid Selection
+    const grid = document.getElementById('invGrid');
+    grid.innerHTML = '';
 
-        activeCombatant = {
-            name: petInfo.name,
-            icon: petInfo.icon,
-            level: level,
-            maxHp: Math.floor(petYield * mult.hp),
-            hp: Math.floor(petYield * mult.hp),
-            dmg: Math.floor(petYield * mult.dmg),
-            speed: Math.floor(petYield * mult.speed)
-        };
+    if (!gameState.owned_pets || gameState.owned_pets.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1; color:gray; font-size:12px;">No pets owned. Acquire them from the main hub.</div>`;
+        return;
+    }
 
-        document.getElementById('lobbyPetIcon').innerHTML = activeCombatant.icon;
-        document.getElementById('lobbyPetName').innerText = `${activeCombatant.name} (Lvl ${activeCombatant.level})`;
-        document.getElementById('lobbyPetStats').innerHTML = `❤️ Max HP: ${activeCombatant.maxHp}<br>⚔️ Attack Power: ${activeCombatant.dmg}<br>⚡ Combat Speed: ${activeCombatant.speed}`;
-        document.getElementById('btnStartBattle').disabled = false;
-    } else {
-        activeCombatant = null;
-        document.getElementById('lobbyPetIcon').innerHTML = "<span>🐾</span>";
-        document.getElementById('lobbyPetName').innerText = "No Pet Equipped";
-        document.getElementById('lobbyPetStats').innerText = "Equip an active companion in your inventory via Main Portal to begin combat loops.";
-        document.getElementById('btnStartBattle').disabled = true;
+    gameState.owned_pets.forEach(uid => {
+        const baseId = uid.split('::')[0];
+        const config = PET_SHOP.find(p => p.id === baseId);
+        if (!config) return;
+
+        const lvl = Math.floor((gameState.pet_ages[uid] || 0) / 600) + 1;
+        const isSelected = chosenSquadUIDs.includes(uid);
+
+        const card = document.createElement('div');
+        card.className = `pet-mini-card ${isSelected ? 'selected-in-team' : ''}`;
+        card.onclick = () => selectPetForSquad(uid);
+        card.innerHTML = `
+            <div style="width:30px; height:30px; display:flex; align-items:center; justify-content:center;">${parseGraphic(config.icon)}</div>
+            <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%;">${config.name}</div>
+            <div style="color:var(--p1)">Lvl ${lvl}</div>
+            <span class="elem-badge ${config.elem}">${config.elem}</span>
+        `;
+        grid.appendChild(card);
+    });
+
+    // Update the 3 visual deployment slots
+    for (let i = 0; i < 3; i++) {
+        const slotEl = document.getElementById(`tSlot${i}`);
+        if (chosenSquadUIDs[i]) {
+            const uid = chosenSquadUIDs[i];
+            const baseId = uid.split('::')[0];
+            const config = PET_SHOP.find(p => p.id === baseId);
+            slotEl.className = "team-slot active-filled";
+            slotEl.innerHTML = `
+                <div style="font-size:32px;">${parseGraphic(config.icon)}</div>
+                <div style="font-size:10px; font-weight:bold; overflow:hidden; width:90%;">${config.name}</div>
+                <span class="elem-badge ${config.elem}" style="position:absolute; bottom:4px;">${config.elem}</span>
+            `;
+        } else {
+            slotEl.className = "team-slot";
+            slotEl.innerHTML = `<span>+</span>`;
+        }
+    }
+
+    document.getElementById('btnStartBattle').disabled = (chosenSquadUIDs.length === 0);
+}
+
+function selectPetForSquad(uid) {
+    if (chosenSquadUIDs.includes(uid)) return; // Already loaded
+    if (chosenSquadUIDs.length >= 3) {
+        chosenSquadUIDs.shift(); // Cycle off old slots to prioritize space dynamically
+    }
+    chosenSquadUIDs.push(uid);
+    renderLobbyInterface();
+}
+
+function removeFromSquad(index) {
+    if (chosenSquadUIDs[index]) {
+        chosenSquadUIDs.splice(index, 1);
+        renderLobbyInterface();
     }
 }
 
-function startBattle() {
-    if (!activeCombatant) return;
+// --- ELEMENTAL ENGINE MATRIX ---
+function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, logArray) {
+    let finalDmg = incomingDmg;
+    let reactionTxt = "";
+    let splashDmg = 0;
+    let targetTeam = (activePlayerTeam.includes(target)) ? activePlayerTeam : activeEnemyTeam;
 
-    let playerRP = gameState.game_stats.battle_points;
-    let availablePool = ENEMIES.filter(e => playerRP >= e.minPoints);
-    if (availablePool.length === 0) availablePool = [ENEMIES[0]];
-    
-    let selected = availablePool[Math.floor(Math.random() * availablePool.length)];
-    currentEnemy = { ...selected, maxHp: selected.hp };
-    
+    if (attacker.elem && attacker.elem !== "none") {
+        let currentStatus = target.statusEffect;
+
+        if (!currentStatus) {
+            // No aura present, infect with element directly
+            target.statusEffect = attacker.elem;
+        } else if (currentStatus !== attacker.elem) {
+            // Reaction check logic
+            let combination = [currentStatus, attacker.elem].sort().join('+');
+
+            if (combination === "cryo+pyro") { // MELT: Deal massive flat damage spread to all enemies
+                finalDmg = Math.floor(finalDmg * 2.0);
+                splashDmg = Math.floor(finalDmg * 0.5);
+                reactionTxt = `🔥❄️ MELT EFFECT! Double damage dealt! Splash shockwave hit all active combatants for ${splashDmg}!`;
+                
+                targetTeam.forEach(t => { if (t !== target && t.hp > 0) t.hp = Math.max(0, t.hp - splashDmg); });
+            } 
+            else if (combination === "hydro+pyro") { // VAPORIZE: Massive singular focused blast multiplier
+                finalDmg = Math.floor(finalDmg * 2.5);
+                reactionTxt = `💧🔥 VAPORIZE TRIGGERED! Single-target burst increased to 2.5x multiplier!`;
+            } 
+            else if (combination === "cryo+electro") { // SUPERCONDUCT: Break targets, hit physical flat speed down and defense reduction
+                finalDmg = Math.floor(finalDmg * 1.5);
+                target.speed = Math.max(1, Math.floor(target.speed * 0.5));
+                reactionTxt = `⚡❄️ SUPERCONDUCT! Target defense broken and speed cut in half!`;
+            } 
+            else if (combination === "electro+pyro") { // OVERLOADED: Explosion breaks entire formation for flat damage
+                splashDmg = 40;
+                reactionTxt = `⚡🔥 OVERLOADED BOMB EXPLOSION! Flat 40 damage ruptured across the entire lineup container!`;
+                targetTeam.forEach(t => { if (t.hp > 0) t.hp = Math.max(0, t.hp - splashDmg); });
+            }
+
+            target.statusEffect = null; // Consume status aura cleanly
+        }
+    }
+
+    target.hp = Math.max(0, target.hp - finalDmg);
+    if (reactionTxt) logArray.push(reactionTxt);
+    return finalDmg;
+}
+
+// --- GAUNTLET WARFARE SIMULATOR SYSTEM ---
+function startBattle() {
+    if (chosenSquadUIDs.length === 0) return;
+
+    // 1. Build Player Cloned Working Entities
+    activePlayerTeam = chosenSquadUIDs.map(uid => {
+        const baseId = uid.split('::')[0];
+        const config = PET_SHOP.find(p => p.id === baseId);
+        const lvl = Math.floor((gameState.pet_ages[uid] || 0) / 600) + 1;
+        let baseYield = config.baseCoin + (lvl * 2);
+        let m = MULTIPLIERS[config.elem];
+
+        return {
+            name: config.name,
+            icon: config.icon,
+            elem: config.elem,
+            level: lvl,
+            maxHp: Math.floor(baseYield * m.hp),
+            hp: Math.floor(baseYield * m.hp),
+            dmg: Math.floor(baseYield * m.dmg),
+            speed: Math.floor(baseYield * m.speed),
+            statusEffect: null,
+            isPlayer: true
+        };
+    });
+
+    battleWave = 1;
+    battleRound = 1;
+    isGauntletLive = true;
+
     document.getElementById('lobbyScreen').style.display = 'none';
     document.getElementById('battleScreen').style.display = 'flex';
-    
-    document.getElementById('bPlayerName').innerText = activeCombatant.name;
-    document.getElementById('bPlayerLevel').innerText = `Lvl ${activeCombatant.level}`;
-    document.getElementById('bPlayerIcon').innerHTML = activeCombatant.icon;
-    activeCombatant.hp = activeCombatant.maxHp;
 
-    document.getElementById('bEnemyName').innerText = currentEnemy.name;
-    document.getElementById('bEnemyLevel').innerText = `Threat Index: ${currentEnemy.hp}`;
-    document.getElementById('bEnemyIcon').innerHTML = currentEnemy.icon;
+    generateWaveOpponents();
+    drawCombatArenaStage();
+    processRoundLoopSequence();
+}
 
-    roundNumber = 1;
-    isMatchActive = true;
-    updateHealthBars();
+function generateWaveOpponents() {
+    activeEnemyTeam = [];
+    // Scale modifier calculation factor per wave step escalation
+    let scalar = 1.0 + (battleWave - 1) * 0.35;
 
-    if (activeCombatant.speed >= currentEnemy.speed) {
-        currentTurn = "player";
-        updateLog(`⚔️ Fight Commenced! Your ${activeCombatant.name} acts first due to higher Speed!`);
-        toggleMoveButtons(false);
-    } else {
-        currentTurn = "enemy";
-        updateLog(`⚠️ Opponent detected! ${currentEnemy.name} caught you off guard and moves first!`);
-        toggleMoveButtons(true);
-        setTimeout(enemyActionTurn, 1500);
+    // Spawn exactly 5 enemies matching requirements
+    for (let i = 0; i < 5; i++) {
+        let base = BASE_MONSTERS[Math.floor(Math.random() * BASE_MONSTERS.length)];
+        activeEnemyTeam.push({
+            name: `${base.name} #${i+1}`,
+            icon: base.icon,
+            elem: base.elem,
+            level: battleWave,
+            maxHp: Math.floor(base.hp * scalar),
+            hp: Math.floor(base.hp * scalar),
+            dmg: Math.floor(base.dmg * scalar),
+            speed: Math.floor(base.speed * scalar),
+            statusEffect: null,
+            isPlayer: false
+        });
     }
 }
 
-function updateHealthBars() {
-    let pPct = Math.max(0, (activeCombatant.hp / activeCombatant.maxHp) * 100);
-    document.getElementById('playerHpBar').style.width = `${pPct}%`;
-    document.getElementById('playerHpText').innerText = `${activeCombatant.hp} / ${activeCombatant.maxHp} HP`;
-
-    let ePct = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp) * 100);
-    document.getElementById('enemyHpBar').style.width = `${ePct}%`;
-    document.getElementById('enemyHpText').innerText = `${currentEnemy.hp} / ${currentEnemy.maxHp} HP`;
+function drawCombatArenaStage() {
+    const pContainer = document.getElementById('playerTeamContainer');
+    const eContainer = document.getElementById('enemyTeamContainer');
     
-    document.getElementById('roundCounter').innerText = `Round ${roundNumber}`;
+    pContainer.innerHTML = '';
+    eContainer.innerHTML = '';
+
+    // Render Player Squad Dom Elements
+    activePlayerTeam.forEach((p, idx) => {
+        let pct = (p.hp / p.maxHp) * 100;
+        let auraHtml = p.statusEffect ? `<div class="status-dot" style="background:var(--${p.statusEffect})"></div>` : '';
+        
+        pContainer.innerHTML += `
+            <div class="fighter-row ${p.hp <= 0 ? 'fainted' : ''}" id="pRow${idx}">
+                <div class="graphic-box">
+                    ${parseGraphic(p.icon)}
+                    <div class="status-aura-container">${auraHtml}</div>
+                </div>
+                <div class="bars-container">
+                    <div class="name-label"><span>${p.name}</span><span style="color:var(--p1)">Lvl ${p.level}</span></div>
+                    <div class="hp-container"><div class="hp-bar" style="width:${pct}%"></div></div>
+                    <div style="font-size:9px; display:flex; justify-content:space-between; margin-top:2px;">
+                        <span>${p.hp}/${p.maxHp} HP</span>
+                        <span class="elem-badge ${p.elem}">${p.elem}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    // Render Enemies
+    activeEnemyTeam.forEach((e, idx) => {
+        let pct = (e.hp / e.maxHp) * 100;
+        let auraHtml = e.statusEffect ? `<div class="status-dot" style="background:var(--${e.statusEffect})"></div>` : '';
+
+        eContainer.innerHTML += `
+            <div class="fighter-row ${e.hp <= 0 ? 'fainted' : ''}" id="eRow${idx}">
+                <div class="graphic-box">
+                    ${e.icon}
+                    <div class="status-aura-container">${auraHtml}</div>
+                </div>
+                <div class="bars-container">
+                    <div class="name-label"><span style="color:#ff4444">${e.name}</span></div>
+                    <div class="hp-container"><div class="hp-bar" style="width:${pct}%"></div></div>
+                    <div style="font-size:9px; display:flex; justify-content:space-between; margin-top:2px;">
+                        <span>${e.hp}/${e.maxHp} HP</span>
+                        <span class="elem-badge ${e.elem}">${e.elem}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    document.getElementById('waveTracker').innerText = `WAVE ${battleWave} / 5`;
+    document.getElementById('roundTracker').innerText = `Round ${battleRound}`;
 }
 
-function toggleMoveButtons(disabledState) {
+// --- ROUND SPEED CHECK SEQUENCER ENGINE ---
+let attackTurnQueue = [];
+let currentQueueIndex = 0;
+
+function processRoundLoopSequence() {
+    if (!isGauntletLive) return;
+
+    // Check win/loss parameters first before allocating tracking slots
+    if (activePlayerTeam.every(p => p.hp <= 0)) {
+        endMatch(false);
+        return;
+    }
+    if (activeEnemyTeam.every(e => e.hp <= 0)) {
+        if (battleWave >= 5) {
+            endMatch(true); // Gauntlet complete
+        } else {
+            battleWave++;
+            battleRound = 1;
+            writeLog(`✨ Wave Defeated! Spawning Wave ${battleWave}...`);
+            generateWaveOpponents();
+            drawCombatArenaStage();
+            processRoundLoopSequence();
+        }
+        return;
+    }
+
+    // Build Priority Queue across all live entities sorted by Combat Speed metrics
+    attackTurnQueue = [];
+    activePlayerTeam.forEach(p => { if (p.hp > 0) attackTurnQueue.push(p); });
+    activeEnemyTeam.forEach(e => { if (e.hp > 0) attackTurnQueue.push(e); });
+
+    attackTurnQueue.sort((a, b) => b.speed - a.speed);
+    currentQueueIndex = 0;
+    executeNextQueueStep();
+}
+
+function executeNextQueueStep() {
+    if (currentQueueIndex >= attackTurnQueue.length) {
+        battleRound++;
+        drawCombatArenaStage();
+        processRoundLoopSequence();
+        return;
+    }
+
+    let activeUnit = attackTurnQueue[currentQueueIndex];
+    if (activeUnit.hp <= 0) {
+        currentQueueIndex++;
+        executeNextQueueStep();
+        return;
+    }
+
+    // Apply UI highlight effects onto turning track slot rows
+    drawCombatArenaStage();
+    highlightActiveUnitRow(activeUnit);
+
+    if (activeUnit.isPlayer) {
+        writeLog(`Your turn! Choose an action for ${activeUnit.name}.`);
+        toggleControls(false);
+    } else {
+        toggleControls(true);
+        setTimeout(() => { enemyAutomatedAIAction(activeUnit); }, 1200);
+    }
+}
+
+function highlightActiveUnitRow(unit) {
+    if (unit.isPlayer) {
+        let pIdx = activePlayerTeam.indexOf(unit);
+        document.getElementById(`pRow${pIdx}`).classList.add('active-turn');
+    } else {
+        let eIdx = activeEnemyTeam.indexOf(unit);
+        document.getElementById(`eRow${eIdx}`).classList.add('active-turn');
+    }
+}
+
+function toggleControls(disabledState) {
     document.getElementById('btnAttack').disabled = disabledState;
     document.getElementById('btnSpecial').disabled = disabledState;
 }
 
-function updateLog(msg) {
-    document.getElementById('battleLog').innerText = msg;
+function writeLog(msg) {
+    const logBox = document.getElementById('battleLog');
+    logBox.innerHTML = msg;
+    logBox.scrollTop = logBox.scrollHeight;
 }
 
-function playerAction(type) {
-    if (!isMatchActive || currentTurn !== "player") return;
-    toggleMoveButtons(true);
+// --- COMBAT ACTIONS SEQUENCES ---
+function executeTurn(moveType) {
+    let activeUnit = attackTurnQueue[currentQueueIndex];
+    toggleControls(true);
 
-    let dmgDealt = 0;
-    let attackLogStr = "";
-    const pIconEl = document.getElementById('playerFighter');
-    const eIconEl = document.getElementById('enemyFighter');
+    // Target selection (Always auto target the first available living enemy row container)
+    let target = activeEnemyTeam.find(e => e.hp > 0);
+    if (!target) return;
 
-    if (type === 'attack') {
-        dmgDealt = Math.floor(activeCombatant.dmg * (0.9 + Math.random() * 0.2));
-        attackLogStr = `⚔️ ${activeCombatant.name} used Basic Strike! Hit for ${dmgDealt} damage.`;
-    } else if (type === 'special') {
-        if (Math.random() > 0.35) {
-            dmgDealt = Math.floor(activeCombatant.dmg * 1.8);
-            attackLogStr = `✨ Critical Hit! ${activeCombatant.name} unleashes an ultimate element smash for ${dmgDealt} damage!`;
-        } else {
-            dmgDealt = Math.floor(activeCombatant.dmg * 0.4);
-            attackLogStr = `💨 Missed target arc! ${activeCombatant.name} botched their configuration charge and only dealt ${dmgDealt} damage.`;
-        }
+    let baseDmg = moveType === 'attack' ? activeUnit.dmg : Math.floor(activeUnit.dmg * 1.5);
+    let logLines = [];
+
+    if (moveType === 'attack') {
+        logLines.push(`⚔️ ${activeUnit.name} attacks ${target.name}!`);
+    } else {
+        logLines.push(`✨ ${activeUnit.name} casts an Elemental Spell on ${target.name}!`);
     }
 
-    pIconEl.classList.add('animate-attack-left');
-    setTimeout(() => {
-        eIconEl.classList.add('animate-hit');
-        currentEnemy.hp = Math.max(0, currentEnemy.hp - dmgDealt);
-        updateHealthBars();
-        updateLog(attackLogStr);
-    }, 200);
+    // Attack Trigger Anim
+    let pIdx = activePlayerTeam.indexOf(activeUnit);
+    let rowEl = document.getElementById(`pRow${pIdx}`);
+    rowEl.classList.add('anim-attack-left');
 
     setTimeout(() => {
-        pIconEl.classList.remove('animate-attack-left');
-        eIconEl.classList.remove('animate-hit');
-        
-        if (currentEnemy.hp <= 0) {
-            endMatch(true);
-        } else {
-            currentTurn = "enemy";
-            setTimeout(enemyActionTurn, 1500);
-        }
-    }, 600);
+        let finalDmg = applyElementalDamageAndCheckReactions(activeUnit, target, baseDmg, logLines);
+        logLines.push(`Dealt ${finalDmg} base kinetic value damage output.`);
+        writeLog(logLines.join('<br>'));
+        drawCombatArenaStage();
+    }, 1500);
+
+    setTimeout(() => {
+        rowEl.classList.remove('anim-attack-left');
+        currentQueueIndex++;
+        executeNextQueueStep();
+    }, 2000);
 }
 
-function enemyActionTurn() {
-    if (!isMatchActive) return;
-    
-    const pIconEl = document.getElementById('playerFighter');
-    const eIconEl = document.getElementById('enemyFighter');
-    
-    let enemyDmg = Math.floor(currentEnemy.dmg * (0.85 + Math.random() * 0.3));
-    
-    eIconEl.classList.add('animate-attack-right');
-    setTimeout(() => {
-        pIconEl.classList.add('animate-hit');
-        activeCombatant.hp = Math.max(0, activeCombatant.hp - enemyDmg);
-        updateHealthBars();
-        updateLog(`💥 ${currentEnemy.name} retaliated with a quick strike! Your pet takes ${enemyDmg} damage.`);
-    }, 200);
+function enemyAutomatedAIAction(enemyUnit) {
+    let target = activePlayerTeam.find(p => p.hp > 0);
+    if (!target) return;
+
+    let baseDmg = Math.floor(enemyUnit.dmg * (0.85 + Math.random() * 0.3));
+    let logLines = [`💥 Enemy ${enemyUnit.name} strikes back at your ${target.name}!`];
+
+    let eIdx = activeEnemyTeam.indexOf(enemyUnit);
+    let rowEl = document.getElementById(`eRow${eIdx}`);
+    rowEl.classList.add('anim-attack-right');
 
     setTimeout(() => {
-        eIconEl.classList.remove('animate-attack-right');
-        pIconEl.classList.remove('animate-hit');
-        
-        if (activeCombatant.hp <= 0) {
-            endMatch(false);
-        } else {
-            roundNumber++;
-            currentTurn = "player";
-            updateHealthBars();
-            toggleMoveButtons(false);
-        }
-    }, 600);
+        let finalDmg = applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, logLines);
+        logLines.push(`Your squad entity sustained ${finalDmg} damage.`);
+        writeLog(logLines.join('<br>'));
+        drawCombatArenaStage();
+    }, 1500);
+
+    setTimeout(() => {
+        rowEl.classList.remove('anim-attack-right');
+        currentQueueIndex++;
+        executeNextQueueStep();
+    }, 2000);
 }
 
-function endMatch(playerVictory, fled = false) {
-    isMatchActive = false;
-    toggleMoveButtons(true);
+// --- ECOSYSTEM SAVE ROUTINES ---
+function endMatch(isVictory, fled = false) {
+    isGauntletLive = false;
+    toggleControls(true);
 
     if (fled) {
         gameState.game_stats.battle_losses++;
-        gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 10);
-        updateLog("🏃 You fled the battlefield! Lost -10 RP due to withdrawal penalization metrics.");
-    } else if (playerVictory) {
+        gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 20);
+        writeLog("🏃 Lineup withdrawal executed! Abandoned match tracking triggers -20 RP reduction penalization.");
+    } else if (isVictory) {
         gameState.game_stats.battle_wins++;
-        gameState.game_stats.battle_points += 25;
-        updateLog(`🎉 VICTORY! Your pet defeated ${currentEnemy.name}! You gained +25 Rank Points.`);
+        gameState.game_stats.battle_points += 100; // High return reward tier models for clear paths
+        writeLog("🏆 COMPLETE GAUNTLET GAIN! You crushed all 5 Waves! Added +100 Rank Points directly.");
     } else {
         gameState.game_stats.battle_losses++;
-        gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 10);
-        updateLog(`💀 DEFEAT! Your pet fainted. ${currentEnemy.name} won the match. Lost -10 RP.`);
+        gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 15);
+        writeLog("💀 SQUAD FAINTED! The active wave monsters overwhelmed your team container line. Lost -15 RP.");
     }
 
-    saveEcosystemState();
+    // Dispatch payload data block update streams
+    saveStateDataPacket();
 
     setTimeout(() => {
         document.getElementById('battleScreen').style.display = 'none';
         document.getElementById('lobbyScreen').style.display = 'flex';
-        loadEcosystemState();
-    }, 4000);
+        loadArenaConfiguration();
+    }, 5000);
 }
 
-window.addEventListener('DOMContentLoaded', loadEcosystemState);
+async function saveStateDataPacket() {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    if (!savedUser) return;
+
+    localStorage.setItem('schoolExamsGuestState', JSON.stringify(gameState));
+
+    const formData = new FormData();
+    formData.append('action', 'save');
+    formData.append('username', savedUser);
+    formData.append('coins', gameState.coins || 0);
+    formData.append('gems', gameState.gems || 0);
+    formData.append('playtime', gameState.playtime || 0);
+    formData.append('sakura_coins', gameState.sakura_coins || 0);
+    formData.append('event_tasks', JSON.stringify(gameState.event_tasks || []));
+    formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors || ["def"]));
+    formData.append('equipped_cursor', gameState.equipped_cursor || "def");
+    formData.append('owned_pets', JSON.stringify(gameState.owned_pets || []));
+    formData.append('active_pet', gameState.active_pet || "");
+    formData.append('pet_ages', JSON.stringify(gameState.pet_ages || {}));
+    formData.append('prestige_level', gameState.prestige_level || 0);
+    formData.append('owned_items', JSON.stringify(gameState.owned_items || []));
+    formData.append('game_stats', JSON.stringify(gameState.game_stats));
+
+    try { await fetch(BACKEND_URL, { method: 'POST', body: formData }); } catch(e){}
+}
+
+window.addEventListener('DOMContentLoaded', loadArenaConfiguration);
 </script>
 </body>
 </html>
