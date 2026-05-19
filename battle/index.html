@@ -67,7 +67,6 @@
 
         .slots-row { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
         
-        /* Fixed Sizing Frameworks */
         .team-slot {
             width: 90px; height: 110px; border: 2px dashed #555; border-radius: 8px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -105,7 +104,7 @@
             min-height: 320px; border: 1px solid var(--line); align-items: center; position: relative;
         }
 
-        .team-column { display: flex; flex-direction: column; gap: 12px; align-items: center; z-index: 2; }
+        .team-column { display: flex; flex-direction: column; gap: 12px; align-items: center; z-index: 2; width: 100%; }
         .fighter-row {
             display: flex; align-items: center; gap: 10px; width: 100%;
             padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4);
@@ -114,7 +113,6 @@
         .fighter-row.active-turn { border-color: var(--p1); background: rgba(0, 119, 182, 0.2); }
         .fighter-row.fainted { opacity: 0.2; filter: grayscale(1); }
 
-        /* Icon Containment Constraint Fixes */
         .graphic-box {
             width: 55px; height: 55px; min-width: 55px; max-width: 55px;
             border-radius: 6px; background: rgba(0,0,0,0.3);
@@ -153,10 +151,8 @@
         }
         .btn-move:hover:not(:disabled) { background: var(--p0); box-shadow: var(--glow); }
 
-        /* --- PARTICLES CANVAS --- */
         #fxCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
 
-        /* --- FLOATING TEXT ENGINE ANIMATION --- */
         @keyframes floatDamage {
             0% { transform: translateY(10px) scale(0.5); opacity: 0; }
             15% { transform: translateY(-20px) scale(1.3); opacity: 1; }
@@ -178,12 +174,10 @@
             justify-content: center; gap: 15px; z-index: 100; padding: 20px;
         }
 
-        /* Animations */
         @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(35px); } }
         @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-35px); } }
         .anim-attack-left { animation: attackLeft 0.3s ease-in-out; }
         .anim-attack-right { animation: attackRight 0.3s ease-in-out; }
-        .anim-hit { animation: flashHit 0.2s ease-in-out; }
     </style>
 </head>
 <body>
@@ -193,7 +187,7 @@
 <div class="arena-container">
     <div id="lockOverlay" class="lock-overlay">
         <h2>🔒 Portal Sync Required</h2>
-        <p>The elite 5-Wave Battle Arena requires an authorized data profile to load your companion portfolio and store your updated Rank Points.</p>
+        <p>The elite Gauntlet Arena requires an authorized data profile to load your companion portfolio and store your updated Rank Points.</p>
     </div>
 
     <!-- LOBBY SCREEN -->
@@ -221,10 +215,10 @@
         <button id="btnStartBattle" class="btn-action" onclick="startBattle()" disabled>DEPLOY COMBAT SQUAD ▶</button>
     </div>
 
-    <!-- BATTLE SCREEN -->
+    <!-- 3-WAVE BATTLE SCREEN -->
     <div id="battleScreen" class="battle-view">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="wave-banner" id="waveTracker">WAVE 1 / 5</div>
+            <div class="wave-banner" id="waveTracker">WAVE 1 / 3</div>
             <div style="font-size:14px; font-weight:bold; color:#aaa;" id="roundTracker">Round 1</div>
         </div>
         
@@ -298,12 +292,20 @@ const MULTIPLIERS = {
     "physical": { color: "#ffffff" }
 };
 
-const BASE_MONSTERS = [
-    { name: "Alpha Glitch", icon: "👾", elem: "electro", hp: 180, dmg: 14, speed: 14 },
-    { name: "Corrupted Script", icon: "📝", elem: "cryo", hp: 220, dmg: 18, speed: 10 },
-    { name: "Malware Worm", icon: "🐛", elem: "pyro", hp: 160, dmg: 25, speed: 22 },
-    { name: "Data Leak", icon: "💧", elem: "hydro", hp: 310, dmg: 16, speed: 12 },
-    { name: "Mainframe Guardian", icon: "🤖", elem: "electro", hp: 450, dmg: 32, speed: 18 }
+// --- BASE STANDARD MINIONS (WAVES 1 & 2) ---
+const MINIONS = [
+    { name: "Alpha Glitch", icon: "👾", elem: "electro", baseHp: 150, baseDmg: 12, speed: 14 },
+    { name: "Corrupted Script", icon: "📝", elem: "cryo", baseHp: 190, baseDmg: 15, speed: 10 },
+    { name: "Malware Worm", icon: "🐛", elem: "pyro", baseHp: 130, baseDmg: 20, speed: 22 },
+    { name: "Data Leak", icon: "💧", elem: "hydro", baseHp: 260, baseDmg: 13, speed: 12 }
+];
+
+// --- BRAND NEW SEVERE BOSSES SYSTEM (WAVE 3 ONLY) ---
+const BOSSES = [
+    { name: "Virus Kitty Overlord", icon: "virus_kitty.png", elem: "electro", baseHp: 800, baseDmg: 45, speed: 26 },
+    { name: "Mecha Cat Annihilator", icon: "mc.png", baseHp: 1000, elem: "electro", baseDmg: 50, speed: 20 },
+    { name: "Void Hound Alpha", icon: "vh.png", elem: "electro", baseHp: 1200, baseDmg: 55, speed: 24 },
+    { name: "King Midas Avatar", icon: "King.png", elem: "pyro", baseHp: 1500, baseDmg: 65, speed: 18 }
 ];
 
 let gameState = null;
@@ -314,7 +316,6 @@ let battleWave = 1;
 let battleRound = 1;
 let isGauntletLive = false;
 
-// --- CANVAS PARTICLE ENGINE ENGINE ---
 let canvas, ctx;
 let particles = [];
 
@@ -340,7 +341,6 @@ function spawnElementParticles(element, targetRowId) {
     const stageBox = document.getElementById('battleStage').getBoundingClientRect();
     const rowBox = row.getBoundingClientRect();
     
-    // Find absolute center point inside canvas container coordinates
     const centerX = (rowBox.left + rowBox.width / 2) - stageBox.left;
     const centerY = (rowBox.top + rowBox.height / 2) - stageBox.top;
     
@@ -350,14 +350,9 @@ function spawnElementParticles(element, targetRowId) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 2 + Math.random() * 5;
         particles.push({
-            x: centerX,
-            y: centerY,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            radius: 2 + Math.random() * 3,
-            color: color,
-            alpha: 1,
-            decay: 0.02 + Math.random() * 0.03
+            x: centerX, y: centerY,
+            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+            radius: 2 + Math.random() * 3, color: color, alpha: 1, decay: 0.02 + Math.random() * 0.03
         });
     }
 }
@@ -368,29 +363,21 @@ function updateParticlesLoop() {
     
     for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.alpha -= p.decay;
-        
-        if (p.alpha <= 0) {
-            particles.splice(i, 1);
-            continue;
-        }
+        p.x += p.vx; p.y += p.vy; p.alpha -= p.decay;
+        if (p.alpha <= 0) { particles.splice(i, 1); continue; }
         
         ctx.save();
         ctx.globalAlpha = p.alpha;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8; ctx.shadowColor = p.color;
         ctx.fill();
         ctx.restore();
     }
     requestAnimationFrame(updateParticlesLoop);
 }
 
-// --- FLOATING TEXT ENGINE ---
 function createFloatingText(amount, colorCode, labelText, targetRowId) {
     const row = document.getElementById(targetRowId);
     if (!row) return;
@@ -402,10 +389,8 @@ function createFloatingText(amount, colorCode, labelText, targetRowId) {
     const textEl = document.createElement('div');
     textEl.className = 'float-dmg-text';
     textEl.style.color = colorCode;
-    
     textEl.innerHTML = labelText ? `${labelText}<br>${amount}` : amount;
 
-    // Center horizontally on targeted card bounding layers
     const x = (rowBox.left + rowBox.width / 2) - stageBox.left;
     const y = (rowBox.top + rowBox.height / 3) - stageBox.top;
 
@@ -424,7 +409,6 @@ function parseGraphic(iconString) {
     return `<span>${iconString}</span>`;
 }
 
-// --- INIT DATA & SYNC CODES ---
 async function loadArenaConfiguration() {
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
     if (!savedUser) {
@@ -477,7 +461,7 @@ function renderLobbyInterface() {
     grid.innerHTML = '';
 
     if (!gameState.owned_pets || gameState.owned_pets.length === 0) {
-        grid.innerHTML = `<div style="grid-column:1/-1; color:gray; font-size:12px;">No pets owned. Acquire them from the main hub.</div>`;
+        grid.innerHTML = `<div style="grid-column:1/-1; color:gray; font-size:12px;">No pets owned.</div>`;
         return;
     }
 
@@ -536,7 +520,6 @@ function removeFromSquad(index) {
     }
 }
 
-// --- ELEMENTAL SYSTEM REACTIONS ---
 function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, moveType) {
     let finalDmg = incomingDmg;
     let reactionLabel = "";
@@ -545,9 +528,8 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
     let targetTeam = (activePlayerTeam.includes(target)) ? activePlayerTeam : activeEnemyTeam;
     let targetPrefix = (activePlayerTeam.includes(target)) ? "pRow" : "eRow";
     
-    // Fallback default colors mapping
     let elementColor = MULTIPLIERS[attacker.elem]?.color || "#ffffff";
-    if (moveType === 'attack') elementColor = "#ffffff"; // White color metrics on physical primary loops
+    if (moveType === 'attack') elementColor = "#ffffff";
 
     if (moveType === 'special' && attacker.elem && attacker.elem !== "none") {
         let currentStatus = target.statusEffect;
@@ -557,11 +539,10 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
         } else if (currentStatus !== attacker.elem) {
             let combination = [currentStatus, attacker.elem].sort().join('+');
 
-            if (combination === "cryo+pyro") { // MELT (Double Dmg + Splash Area)
+            if (combination === "cryo+pyro") {
                 finalDmg = Math.floor(finalDmg * 2.0);
                 splashDmg = Math.floor(finalDmg * 0.4);
                 reactionLabel = "MELT! ⚔️";
-                
                 targetTeam.forEach((t, i) => {
                     if (t !== target && t.hp > 0) {
                         t.hp = Math.max(0, t.hp - splashDmg);
@@ -572,16 +553,16 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     }
                 });
             } 
-            else if (combination === "hydro+pyro") { // VAPORIZE (Burst multiplier)
+            else if (combination === "hydro+pyro") {
                 finalDmg = Math.floor(finalDmg * 2.5);
                 reactionLabel = "VAPORIZE! 💧";
             } 
-            else if (combination === "cryo+electro") { // SUPERCONDUCT (Def Break Down + Speed Half)
+            else if (combination === "cryo+electro") {
                 finalDmg = Math.floor(finalDmg * 1.5);
                 target.speed = Math.max(1, Math.floor(target.speed * 0.5));
                 reactionLabel = "SUPERCONDUCT! ⚡";
             } 
-            else if (combination === "electro+pyro") { // OVERLOADED (Explosive Cluster Burst)
+            else if (combination === "electro+pyro") {
                 splashDmg = Math.floor(attacker.dmg * 0.8);
                 reactionLabel = "OVERLOADED! 💥";
                 targetTeam.forEach((t, i) => {
@@ -594,13 +575,12 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     }
                 });
             }
-            target.statusEffect = null; // Clean up atomic states
+            target.statusEffect = null;
         }
     }
 
     target.hp = Math.max(0, target.hp - finalDmg);
     
-    // Spawn core visual float graphics onto primary targeted rows
     let targetIdx = targetTeam.indexOf(target);
     createFloatingText(finalDmg, elementColor, reactionLabel, `${targetPrefix}${targetIdx}`);
     spawnElementParticles(moveType === 'special' ? attacker.elem : 'physical', `${targetPrefix}${targetIdx}`);
@@ -608,7 +588,6 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
     return finalDmg;
 }
 
-// --- COMBAT CORE MATRIX ---
 function startBattle() {
     if (chosenSquadUIDs.length === 0) return;
 
@@ -638,17 +617,50 @@ function startBattle() {
     processRoundLoopSequence();
 }
 
+// --- NEW SYSTEM: LOGARITHMIC RANK POINTS SCALING ENGINE ---
 function generateWaveOpponents() {
     activeEnemyTeam = [];
-    let scalar = 1.0 + (battleWave - 1) * 0.35;
+    
+    // Grabs active user rank points to calculate power multiplier
+    let rp = gameState.game_stats.battle_points || 0;
+    
+    // Logarithmic scaling formula: players with high RP encounter significantly beefier opponents
+    let rankMultiplier = 1.0 + Math.log10(1 + rp / 50); 
+    
+    // Escalates threat index dynamically on each wave
+    let waveBonus = 1.0 + (battleWave - 1) * 0.40;
+    let finalScalingFactor = rankMultiplier * waveBonus;
 
-    for (let i = 0; i < 5; i++) {
-        let base = BASE_MONSTERS[Math.floor(Math.random() * BASE_MONSTERS.length)];
+    // --- WAVES 1 & 2: MULTIPLE INDIVIDUAL MINIONS ---
+    if (battleWave < 3) {
+        for (let i = 0; i < 5; i++) {
+            let base = MINIONS[Math.floor(Math.random() * MINIONS.length)];
+            activeEnemyTeam.push({
+                name: `${base.name} #${i+1}`,
+                icon: base.icon,
+                elem: base.elem,
+                level: battleWave,
+                maxHp: Math.floor(base.baseHp * finalScalingFactor),
+                hp: Math.floor(base.baseHp * finalScalingFactor),
+                dmg: Math.floor(base.baseDmg * finalScalingFactor),
+                speed: Math.floor(base.speed * waveBonus), // Speed scales lightly with waves only
+                statusEffect: null, isPlayer: false, isBoss: false
+            });
+        }
+    } 
+    // --- WAVE 3: THE ENDGAME BOSS WAVE ---
+    else {
+        let baseBoss = BOSSES[Math.floor(Math.random() * BOSSES.length)];
         activeEnemyTeam.push({
-            name: `${base.name} #${i+1}`, icon: base.icon, elem: base.elem, level: battleWave,
-            maxHp: Math.floor(base.hp * scalar), hp: Math.floor(base.hp * scalar),
-            dmg: Math.floor(base.dmg * scalar), speed: Math.floor(base.speed * scalar),
-            statusEffect: null, isPlayer: false
+            name: `👑 BOSS: ${baseBoss.name}`,
+            icon: baseBoss.icon, // Uses dedicated high quality custom .png assets
+            elem: baseBoss.elem,
+            level: "BOSS",
+            maxHp: Math.floor(baseBoss.baseHp * finalScalingFactor * 1.5), // Boss gets an extra 1.5x multiplier
+            hp: Math.floor(baseBoss.baseHp * finalScalingFactor * 1.5),
+            dmg: Math.floor(baseBoss.baseDmg * finalScalingFactor * 1.3),
+            speed: Math.floor(baseBoss.speed * waveBonus),
+            statusEffect: null, isPlayer: false, isBoss: true
         });
     }
 }
@@ -685,14 +697,17 @@ function drawCombatArenaStage() {
         let pct = (e.hp / e.maxHp) * 100;
         let auraHtml = e.statusEffect ? `<div class="status-dot" style="background:var(--${e.statusEffect})"></div>` : '';
 
+        // Add special custom branding for the final boss row container layout
+        let specialRowStyle = e.isBoss ? 'border: 2px solid #ffd700; background: rgba(255, 215, 0, 0.15);' : '';
+
         eContainer.innerHTML += `
-            <div class="fighter-row ${e.hp <= 0 ? 'fainted' : ''}" id="eRow${idx}">
+            <div class="fighter-row ${e.hp <= 0 ? 'fainted' : ''}" id="eRow${idx}" style="${specialRowStyle}">
                 <div class="graphic-box">
-                    <span>${e.icon}</span>
+                    ${parseGraphic(e.icon)}
                     <div class="status-aura-container">${auraHtml}</div>
                 </div>
                 <div class="bars-container">
-                    <div class="name-label"><span style="color:#ff4444">${e.name}</span></div>
+                    <div class="name-label"><span style="color:${e.isBoss ? '#ffd700' : '#ff4444'}">${e.name}</span></div>
                     <div class="hp-container"><div class="hp-bar" style="width:${pct}%"></div></div>
                     <div style="font-size:9px; display:flex; justify-content:space-between; margin-top:2px;">
                         <span>${e.hp}/${e.maxHp} HP</span>
@@ -703,7 +718,7 @@ function drawCombatArenaStage() {
         `;
     });
 
-    document.getElementById('waveTracker').innerText = `WAVE ${battleWave} / 5`;
+    document.getElementById('waveTracker').innerText = `WAVE ${battleWave} / 3`;
     document.getElementById('roundTracker').innerText = `Round ${battleRound}`;
 }
 
@@ -715,8 +730,8 @@ function processRoundLoopSequence() {
 
     if (activePlayerTeam.every(p => p.hp <= 0)) { endMatch(false); return; }
     if (activeEnemyTeam.every(e => e.hp <= 0)) {
-        if (battleWave >= 5) {
-            endMatch(true);
+        if (battleWave >= 3) {
+            endMatch(true); // Complete Victory!
         } else {
             battleWave++; battleRound = 1;
             writeLog(`✨ Wave Defeated! Teleporting inside Wave ${battleWave}...`);
@@ -790,15 +805,10 @@ function executeTurn(moveType) {
 
     setTimeout(() => {
         applyElementalDamageAndCheckReactions(activeUnit, target, baseDmg, moveType);
-        let tIdx = activeEnemyTeam.indexOf(target);
-        document.getElementById(`eRow${tIdx}`)?.classList.add('anim-hit');
     }, 200);
 
     setTimeout(() => {
         rowEl.classList.remove('anim-attack-left');
-        let tIdx = activeEnemyTeam.indexOf(target);
-        document.getElementById(`eRow${tIdx}`)?.classList.remove('anim-hit');
-        
         currentQueueIndex++;
         executeNextQueueStep();
     }, 800);
@@ -816,15 +826,10 @@ function enemyAutomatedAIAction(enemyUnit) {
 
     setTimeout(() => {
         applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special');
-        let pIdx = activePlayerTeam.indexOf(target);
-        document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
     }, 200);
 
     setTimeout(() => {
         rowEl.classList.remove('anim-attack-right');
-        let pIdx = activePlayerTeam.indexOf(target);
-        document.getElementById(`pRow${pIdx}`)?.classList.remove('anim-hit');
-        
         currentQueueIndex++;
         executeNextQueueStep();
     }, 800);
@@ -841,7 +846,7 @@ function endMatch(isVictory, fled = false) {
     } else if (isVictory) {
         gameState.game_stats.battle_wins++;
         gameState.game_stats.battle_points += 100;
-        writeLog("🏆 COMPLETE GAUNTLET CLEAR! Added +100 Rank Points!");
+        writeLog("🏆 COMPLETE GAUNTLET CLEAR! You defeated the final boss and gained +100 Rank Points!");
     } else {
         gameState.game_stats.battle_losses++;
         gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 15);
