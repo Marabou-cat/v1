@@ -147,9 +147,13 @@
             backdrop-filter: blur(4px); border: 2px solid rgba(255,255,255,0.08);
             box-sizing: border-box; transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
         }
-        .enemy-side .fighter-row { padding: 4px 8px; }
+        .enemy-side .fighter-row { padding: 4px 8px; cursor: pointer; }
         .fighter-row.active-turn { border-color: var(--p1); box-shadow: 0 0 15px var(--p0); transform: scale(1.02); }
-        .fighter-row.fainted { opacity: 0.12; filter: grayscale(1); transform: scale(0.92); }
+        
+        /* Interactive Target Crosshair styles */
+        .enemy-side .fighter-row.player-targeted { border-color: #ff3838 !important; box-shadow: 0 0 15px rgba(255, 56, 56, 0.6) !important; }
+        
+        .fighter-row.fainted { opacity: 0.12; filter: grayscale(1); transform: scale(0.92); pointer-events: none !important; }
         .fighter-row.frozen-stunned { border-color: var(--cryo) !important; background: rgba(0, 243, 255, 0.15) !important; box-shadow: inset 0 0 15px rgba(128, 243, 255, 0.5) !important; }
 
         .graphic-box {
@@ -377,6 +381,7 @@ let activeEnemyTeam = [];
 let battleWave = 1;
 let battleRound = 1;
 let isGauntletLive = false;
+let userTargetedEnemyIndex = 0; // Tracks manual target indices
 
 let canvas, ctx;
 let particles = [];
@@ -591,7 +596,6 @@ function selectPetForSquad(uid) {
 }
 function removeFromSquad(index) { if (chosenSquadUIDs[index]) { chosenSquadUIDs.splice(index, 1); renderLobbyInterface(); } }
 
-// --- ELEMENTAL DAMAGE ENGINE WITH ADVANCED REACTION CONTROLLERS ---
 function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, moveType) {
     let finalDmg = incomingDmg;
     let reactionLabel = "";
@@ -640,8 +644,7 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                 target.cryoSnapshotDmg = attacker.dmg; 
                 writeLog(`❄️ Dynamic Reaction! <strong>${target.name}</strong> was frozen solid! Turn will be skipped next round.`);
             }
-            // 👇 NEW DENDRO SYSTEMS MATRIX ACTIONS 👇
-            else if (combination === "dendro+pyro") { // BURNING (Continuous dynamic chain cascading damage)
+            else if (combination === "dendro+pyro") { // BURNING
                 finalDmg = Math.floor(finalDmg * 1.8); splashDmg = Math.floor(attacker.dmg * 0.5); reactionLabel = "BURNING! 🔥🌿";
                 targetTeam.forEach((t, i) => {
                     if (t !== target && t.hp > 0) {
@@ -650,14 +653,14 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     }
                 });
             }
-            else if (combination === "dendro+hydro") { // BLOOM (Instant heavy explosive tracking explosion scaling)
+            else if (combination === "dendro+hydro") { // BLOOM
                 finalDmg = Math.floor(finalDmg + (attacker.dmg * 1.2)); reactionLabel = "BLOOM EXPLOSION! 🌿💧";
             }
-            else if (combination === "dendro+electro") { // CATALYZE (Permanent combat round layout damage scalar modifier)
+            else if (combination === "dendro+electro") { // CATALYZE
                 attacker.dmg = Math.floor(attacker.dmg * 1.5); reactionLabel = "CATALYZE BUFF! 🌿⚡";
                 writeLog(`⚡ Intensified Core! <strong>${attacker.name}</strong> gained 1.5x permanent Attack Power for the match duration.`);
             }
-            else if (combination === "cryo+dendro") { // OVERGROW (Deep absolute zero crystallization velocity lock)
+            else if (combination === "cryo+dendro") { // OVERGROW
                 target.speed = 1; reactionLabel = "OVERGROW LOCK! 🌿❄️";
                 writeLog(`❄️ Molecular slowdown! <strong>${target.name}</strong>'s speed parameter plummeted to 1.`);
             }
@@ -687,6 +690,7 @@ function startBattle() {
     });
 
     battleWave = 1; battleRound = 1; isGauntletLive = true;
+    userTargetedEnemyIndex = 0; // Default target index setup
     document.getElementById('lobbyScreen').style.display = 'none';
     document.getElementById('battleScreen').style.display = 'flex';
     resizeCanvas(); generateWaveOpponents(); drawCombatArenaStage(); processRoundLoopSequence();
@@ -716,6 +720,23 @@ function generateWaveOpponents() {
             statusEffect: null, isPlayer: false, isBoss: true, isFrozen: false, cryoSnapshotDmg: 0
         });
     }
+    
+    // Auto-select first living enemy when loading a brand new wave array container
+    autoSelectNextLivingEnemy();
+}
+
+// Manual user selection helper logic
+function setManualTargetEnemy(index) {
+    if (!isGauntletLive || activeEnemyTeam[index].hp <= 0) return;
+    userTargetedEnemyIndex = index;
+    drawCombatArenaStage();
+}
+
+function autoSelectNextLivingEnemy() {
+    let firstLiving = activeEnemyTeam.findIndex(e => e.hp > 0);
+    if (firstLiving !== -1) {
+        userTargetedEnemyIndex = firstLiving;
+    }
 }
 
 function drawCombatArenaStage() {
@@ -740,7 +761,11 @@ function drawCombatArenaStage() {
         let pct = (e.hp / e.maxHp) * 100; let auraHtml = e.statusEffect ? `<div class="status-dot" style="background:var(--${e.statusEffect})"></div>` : '';
         let specialRowStyle = e.isBoss ? 'border: 2px solid #ffd700; background: rgba(0,0,0,0.85);' : '';
         let frozenClass = e.isFrozen ? 'frozen-stunned' : '';
-        eContainer.innerHTML += `<div class="fighter-row ${e.hp <= 0 ? 'fainted' : ''} ${frozenClass}" id="eRow${idx}" style="${specialRowStyle}">
+        
+        // 👇 Added targeted highlight visibility logic
+        let targetClass = (idx === userTargetedEnemyIndex && e.hp > 0) ? 'player-targeted' : '';
+
+        eContainer.innerHTML += `<div class="fighter-row ${e.hp <= 0 ? 'fainted' : ''} ${frozenClass} ${targetClass}" id="eRow${idx}" style="${specialRowStyle}" onclick="setManualTargetEnemy(${idx})">
                 <div class="graphic-box">${parseGraphic(e.icon)}<div class="status-aura-container">${auraHtml}</div></div>
                 <div class="bars-container">
                     <div class="name-label"><span style="color:${e.isBoss ? '#ffd700' : '#ff4444'}">${e.name} ${e.isFrozen?'🧊':''}</span></div>
@@ -758,7 +783,6 @@ let attackTurnQueue = []; let currentQueueIndex = 0;
 function processRoundLoopSequence() {
     if (!isGauntletLive) return;
     
-    // 👇 CRITICAL CRASH PATCH FIRST: Process immediate team-wide wipes before loading action queues
     if (activePlayerTeam.every(p => p.hp <= 0)) { endMatch(false); return; }
     if (activeEnemyTeam.every(e => e.hp <= 0)) {
         if (battleWave >= 3) { endMatch(true); } else {
@@ -774,7 +798,6 @@ function processRoundLoopSequence() {
 }
 
 function executeNextQueueStep() {
-    // Re-check fainted array matrices dynamically to trap asynchronous faints from splash damage
     if (activePlayerTeam.every(p => p.hp <= 0)) { processRoundLoopSequence(); return; }
     if (activeEnemyTeam.every(e => e.hp <= 0)) { processRoundLoopSequence(); return; }
     if (currentQueueIndex >= attackTurnQueue.length) { battleRound++; drawCombatArenaStage(); processRoundLoopSequence(); return; }
@@ -782,10 +805,14 @@ function executeNextQueueStep() {
     let activeUnit = attackTurnQueue[currentQueueIndex];
     if (activeUnit.hp <= 0) { currentQueueIndex++; executeNextQueueStep(); return; }
 
+    // If our current targeted enemy has fainted, instantly redirect focus safely
+    if (!activeUnit.isPlayer && activeEnemyTeam[userTargetedEnemyIndex].hp <= 0) {
+        autoSelectNextLivingEnemy();
+    }
+
     drawCombatArenaStage();
     highlightActiveUnitRow(activeUnit);
 
-    // INTERCEPT TURN LOOP: FREEZE SKIP ACTION CHECKER MECHANICS
     if (activeUnit.isFrozen) {
         activeUnit.isFrozen = false; 
         let shatterDmg = Math.floor(activeUnit.cryoSnapshotDmg * 0.5);
@@ -798,10 +825,8 @@ function executeNextQueueStep() {
         
         setTimeout(() => {
             createFloatingText(shatterDmg, "#80f3ff", "SHATTER 🧊", `${prefix}${idx}`);
-            boxBlastParticlesCheck = (prefix === "pRow") ? "player" : "enemy";
             spawnElementParticles("cryo", `${prefix}${idx}`);
             
-            // Re-validate global game bounds instantly post-shatter damage before unlocking engine controls
             if (activePlayerTeam.every(p => p.hp <= 0) || activeEnemyTeam.every(e => e.hp <= 0)) {
                 processRoundLoopSequence();
             } else {
@@ -830,7 +855,15 @@ function writeLog(msg) { document.getElementById('battleLog').innerHTML = msg; }
 
 function executeTurn(moveType) {
     let activeUnit = attackTurnQueue[currentQueueIndex]; toggleControls(true);
-    let target = activeEnemyTeam.find(e => e.hp > 0); if (!target) return;
+    
+    // 👇 Double validation safety fallback checking if targeted enemy is valid
+    if (activeEnemyTeam[userTargetedEnemyIndex].hp <= 0) {
+        autoSelectNextLivingEnemy();
+    }
+    
+    let target = activeEnemyTeam[userTargetedEnemyIndex];
+    if (!target || target.hp <= 0) return;
+
     let baseDmg = moveType === 'attack' ? activeUnit.dmg : Math.floor(activeUnit.dmg * 1.5);
     let pIdx = activePlayerTeam.indexOf(activeUnit); let rowEl = document.getElementById(`pRow${pIdx}`);
     rowEl.classList.add('anim-attack-left');
@@ -839,7 +872,13 @@ function executeTurn(moveType) {
 }
 
 function enemyAutomatedAIAction(enemyUnit) {
-    let target = activePlayerTeam.find(p => p.hp > 0); if (!target) return;
+    // 👇 CHOSEN SELECTION CHANGE: Gather all available living targets in a filtered reference array
+    let livingPlayerPets = activePlayerTeam.filter(p => p.hp > 0);
+    if (livingPlayerPets.length === 0) return;
+    
+    // Pick an completely randomized entity from your living squad matrix
+    let target = livingPlayerPets[Math.floor(Math.random() * livingPlayerPets.length)];
+
     let baseDmg = Math.floor(enemyUnit.dmg * (0.85 + Math.random() * 0.3));
     let eIdx = activeEnemyTeam.indexOf(enemyUnit); let rowEl = document.getElementById(`eRow${eIdx}`);
     rowEl.classList.add('anim-attack-right');
