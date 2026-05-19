@@ -38,74 +38,93 @@
             background-size: 40px 40px;
         }
 
-        /* --- IMMERSIVE FULL SCREEN CONTAINER CHANGE --- */
         .arena-container {
             width: 100vw; height: 100vh;
             background: var(--bg1);
             display: flex; flex-direction: column;
-            padding: 20px; box-sizing: border-box;
+            padding: 15px; box-sizing: border-box;
             position: relative; justify-content: space-between;
         }
 
-        h1 { color: var(--p1); font-weight: 900; text-shadow: 0 0 15px rgba(144, 224, 239, 0.4); margin: 0 0 10px 0; font-size: 28px; }
-        h3 { color: #fff; margin: 5px 0 10px 0; font-size: 16px; }
+        h1 { color: var(--p1); font-weight: 900; text-shadow: 0 0 15px rgba(144, 224, 239, 0.4); margin: 0 0 5px 0; font-size: 26px; }
+        h3 { color: #fff; margin: 0 0 10px 0; font-size: 15px; }
 
-        .lobby-view { display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; height: 100%; justify-content: center; }
-        .battle-view { display: none; flex-direction: column; width: 100%; height: 100%; gap: 15px; position: relative; justify-content: space-between; }
+        .lobby-view { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; height: 100%; justify-content: flex-start; overflow-y: auto; padding: 10px 0; }
+        .battle-view { display: none; flex-direction: column; width: 100%; height: 100%; gap: 10px; position: relative; justify-content: space-between; }
 
         .rank-badge {
-            font-size: 22px; font-weight: 900; padding: 8px 25px;
+            font-size: 20px; font-weight: 900; padding: 6px 20px;
             border-radius: 30px; border: 2px solid #ffd700;
             background: rgba(0,0,0,0.4); text-transform: uppercase;
+            margin-bottom: 5px;
         }
 
-        .management-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 1100px; }
-        @media (max-width: 768px) { .management-split { grid-template-columns: 1fr; } }
+        .management-split { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 15px; width: 100%; max-width: 1300px; align-items: stretch; }
+        @media (max-width: 900px) { .management-split { grid-template-columns: 1fr; } }
 
         .panel-box {
             background: rgba(0,0,0,0.4); border: 1px solid var(--line);
-            padding: 15px; border-radius: 12px; display: flex; flex-direction: column; height: 320px; box-sizing: border-box;
+            padding: 12px; border-radius: 12px; display: flex; flex-direction: column; height: 340px; box-sizing: border-box;
         }
 
-        .slots-row { display: flex; gap: 15px; justify-content: center; margin-top: 15px; }
+        .slots-row { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
         
-        /* Fixed Sizing for Lobby Squad Interfaces */
         .team-slot {
-            width: 95px; height: 115px; border: 2px dashed #555; border-radius: 8px;
+            width: 85px; height: 105px; border: 2px dashed #555; border-radius: 8px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             cursor: pointer; position: relative; background: rgba(0,0,0,0.3); overflow: hidden; box-sizing: border-box; padding: 5px;
         }
         .team-slot.active-filled { border-style: solid; border-color: var(--p1); }
-        .team-slot img { width: 45px; height: 45px; min-height: 45px; max-height: 45px; object-fit: contain; }
-        .team-slot span { font-size: 32px; line-height: 1; }
+        .team-slot img { width: 40px; height: 40px; min-height: 40px; max-height: 40px; object-fit: contain; }
+        .team-slot span { font-size: 28px; line-height: 1; }
 
         .inv-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
-            gap: 10px; overflow-y: auto; padding-right: 5px; height: 100%;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 8px; overflow-y: auto; padding-right: 5px; height: 100%;
         }
 
         .pet-mini-card {
             background: var(--bg2); border: 1px solid var(--line); border-radius: 6px;
-            padding: 8px; display: flex; flex-direction: column; align-items: center;
-            cursor: pointer; position: relative; font-size: 11px; overflow: hidden; height: 105px; box-sizing: border-box;
+            padding: 6px; display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; position: relative; font-size: 11px; overflow: hidden; height: 100px; box-sizing: border-box;
         }
         
         .pet-mini-card .img-wrap { width: 35px; height: 35px; min-height: 35px; max-height: 35px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .pet-mini-card .img-wrap img { width: 100%; height: 100%; object-fit: contain; max-width: 35px; max-height: 35px; }
-        .pet-mini-card .img-wrap span { font-size: 28px; line-height: 1; }
+        .pet-mini-card .img-wrap span { font-size: 24px; line-height: 1; }
         .pet-mini-card.selected-in-team { border-color: #ffd700; opacity: 0.5; }
 
         .elem-badge {
-            font-size: 9px; font-weight: 900; padding: 2px 5px; border-radius: 4px;
-            text-transform: uppercase; color: #000; margin-top: auto;
+            font-size: 8px; font-weight: 900; padding: 1px 4px; border-radius: 4px;
+            text-transform: uppercase; color: #000; margin-top: auto; display: inline-block; max-height: 14px;
         }
         .elem-badge.pyro { background: var(--pyro); }
         .elem-badge.hydro { background: var(--hydro); color: #fff; }
         .elem-badge.cryo { background: var(--cryo); }
         .elem-badge.electro { background: var(--electro); color: #fff; }
 
-        /* --- TRUE EXPANDED FULLSCREEN BATTLESTAGE --- */
-        .wave-banner { font-size: 22px; font-weight: 800; color: #ff0055; margin: 0; text-shadow: 0 0 10px rgba(255,0,85,0.4); }
+        /* --- REWARDS ROAD COMPONENT --- */
+        .rewards-container {
+            display: flex; flex-direction: column; gap: 8px; overflow-y: auto; height: 100%; padding-right: 5px;
+        }
+        .reward-row {
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(144, 224, 239, 0.1);
+            padding: 8px 12px; border-radius: 8px; box-sizing: border-box; font-size: 12px;
+        }
+        .reward-row.unlocked { border-color: #ffd700; background: rgba(255, 215, 0, 0.05); }
+        .reward-row.claimed { opacity: 0.5; background: rgba(0,0,0,0.2); border-color: #555; }
+        .reward-info { text-align: left; }
+        .reward-title { font-weight: 800; color: #ffd700; font-size: 13px; }
+        .btn-claim {
+            background: #3ba55c; border: none; color: #fff; padding: 6px 12px;
+            font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; font-size: 11px;
+        }
+        .btn-claim:hover:not(:disabled) { background: #43b581; transform: translateY(-1px); }
+        .btn-claim:disabled { background: #444; color: #888; cursor: not-allowed; transform: none; }
+
+        /* --- THE GAMEPLAY VIEW STAGE --- */
+        .wave-banner { font-size: 20px; font-weight: 800; color: #ff0055; margin: 0; text-shadow: 0 0 10px rgba(255,0,85,0.4); }
         
         .battle-stage {
             width: 100%; flex: 1; min-height: 0;
@@ -113,72 +132,67 @@
             background-size: cover; background-position: center;
             border-radius: var(--r); border: 2px solid var(--p0);
             position: relative; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.9);
-            margin: 10px 0;
+            margin: 5px 0; display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; box-sizing: border-box;
         }
 
         #fxCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
 
-        /* Left Side (Player Field Space) */
-        .side-lane-player {
-            position: absolute; left: 6%; bottom: 10%; width: 38%;
-            display: flex; flex-direction: column; gap: 15px; z-index: 5;
-        }
-        
-        /* Right Side (Enemy Field Space) */
-        .side-lane-enemy {
-            position: absolute; right: 6%; top: 10%; width: 38%;
-            display: flex; flex-direction: column; gap: 15px; z-index: 5;
-        }
+        /* Fixed Sizing Flex Columns Preventing Out of Bound Overflow */
+        .team-column { display: flex; flex-direction: column; gap: 8px; z-index: 5; width: 38%; max-height: 100%; justify-content: center; }
+        .team-column.enemy-side { gap: 6px; } /* Pack 5 enemies tighter together */
 
         .fighter-row {
-            display: flex; align-items: center; gap: 12px; width: 100%;
-            padding: 10px 14px; border-radius: 12px; background: rgba(0, 8, 20, 0.8);
-            backdrop-filter: blur(6px); border: 2px solid rgba(255,255,255,0.1);
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            padding: 6px 10px; border-radius: 8px; background: rgba(0, 8, 20, 0.85);
+            backdrop-filter: blur(4px); border: 2px solid rgba(255,255,255,0.08);
             box-sizing: border-box; transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
         }
-        .fighter-row.active-turn { border-color: var(--p1); box-shadow: 0 0 20px var(--p0); transform: scale(1.02); }
-        .fighter-row.fainted { opacity: 0.12; filter: grayscale(1); transform: scale(0.88); }
+        .enemy-side .fighter-row { padding: 4px 8px; } /* Compact size parameters specifically matching 5 targets */
+        .fighter-row.active-turn { border-color: var(--p1); box-shadow: 0 0 15px var(--p0); transform: scale(1.02); }
+        .fighter-row.fainted { opacity: 0.12; filter: grayscale(1); transform: scale(0.92); }
 
         .graphic-box {
-            width: 55px; height: 55px; min-width: 55px; max-width: 55px;
+            width: 45px; height: 45px; min-width: 45px; max-width: 45px;
             border-radius: 6px; background: rgba(255,255,255,0.05);
             display: flex; align-items: center; justify-content: center; position: relative; overflow: visible;
         }
-        .graphic-box img { width: 100%; height: 100%; object-fit: contain; max-width: 55px; max-height: 55px; }
-        .graphic-box span { font-size: 36px; line-height: 1; display: block; }
+        .enemy-side .graphic-box { width: 38px; height: 38px; min-width: 38px; max-width: 38px; }
+        .graphic-box img { width: 100%; height: 100%; object-fit: contain; max-width: 100%; max-height: 100%; }
+        .graphic-box span { font-size: 26px; line-height: 1; display: block; }
+        .team-slot img { width: 45px; height: 45px; object-fit: contain; }
 
         .status-aura-container { position: absolute; top: -6px; right: -6px; display: flex; gap: 2px; z-index: 5; }
-        .status-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
 
         .bars-container { flex: 1; text-align: left; overflow: hidden; }
-        .name-label { font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; text-shadow: 1px 1px 2px #000; }
+        .name-label { font-size: 12px; font-weight: bold; display: flex; justify-content: space-between; text-shadow: 1px 1px 2px #000; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
         
-        .hp-container { width: 100%; background: #111; border-radius: 4px; overflow: hidden; margin-top: 5px; border: 1px solid #333; }
-        .hp-bar { height: 8px; width: 100%; transition: width 0.2s ease; }
+        .hp-container { width: 100%; background: #111; border-radius: 4px; overflow: hidden; margin-top: 3px; border: 1px solid #333; }
+        .hp-bar { height: 6px; width: 100%; transition: width 0.2s ease; }
         .player-side .hp-bar { background: linear-gradient(90deg, #2ecc71, #27ae60); }
         .enemy-side .hp-bar { background: linear-gradient(90deg, #e74c3c, #c0392b); }
 
         .battle-log {
             background: var(--bg2); border: 2px solid var(--p0); border-radius: 8px;
-            padding: 12px 20px; text-align: left; font-weight: bold; height: 50px; min-height: 50px;
-            font-size: 14px; color: #fff; line-height: 1.4; box-sizing: border-box;
+            padding: 10px 15px; text-align: left; font-weight: bold; height: 46px; min-height: 46px;
+            font-size: 13px; color: #fff; line-height: 1.3; box-sizing: border-box;
         }
 
-        .battle-actions { display: flex; gap: 15px; justify-content: center; width: 100%; }
+        .battle-actions { display: flex; gap: 12px; justify-content: center; width: 100%; }
         .btn-move {
             background: var(--p2); border: 1px solid var(--p1); color: #fff;
-            padding: 14px 35px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 15px;
+            padding: 10px 30px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px;
         }
-        .btn-move:hover:not(:disabled) { background: var(--p0); box-shadow: var(--glow); transform: translateY(-2px); }
+        .btn-move:hover:not(:disabled) { background: var(--p0); box-shadow: var(--glow); transform: translateY(-1px); }
         .btn-move:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
         .btn-action {
             background: linear-gradient(135deg, #ff0055, #f72585); color: #fff;
-            border: 2px solid #fff; padding: 15px 50px; border-radius: 30px;
-            font-size: 22px; font-weight: 900; cursor: pointer; transition: 0.3s;
+            border: 2px solid #fff; padding: 12px 45px; border-radius: 30px;
+            font-size: 20px; font-weight: 900; cursor: pointer; transition: 0.3s;
             box-shadow: 0 5px 15px rgba(247, 37, 133, 0.4);
         }
-        .btn-action:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 5px 25px rgba(247, 37, 133, 0.8); }
+        .btn-action:hover:not(:disabled) { transform: scale(1.03); box-shadow: 0 5px 25px rgba(247, 37, 133, 0.8); }
         .btn-action:disabled { background: #555; border-color: #777; cursor: not-allowed; box-shadow: none; }
 
         @keyframes floatDamage {
@@ -189,7 +203,7 @@
             100% { transform: translateY(-70px) scale(0.8); opacity: 0; }
         }
         .float-dmg-text {
-            position: absolute; font-weight: 900; font-size: 36px;
+            position: absolute; font-weight: 900; font-size: 34px;
             text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
             pointer-events: none; z-index: 1000; animation: floatDamage 1.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             white-space: nowrap; font-family: 'Impact', sans-serif;
@@ -202,8 +216,8 @@
             justify-content: center; gap: 15px; z-index: 100; padding: 20px;
         }
 
-        @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(45px) translateY(-15px); } }
-        @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-45px) translateY(15px); } }
+        @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(35px) translateY(-10px); } }
+        @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-35px) translateY(10px); } }
         .anim-attack-left { animation: attackLeft 0.3s ease-in-out; }
         .anim-attack-right { animation: attackRight 0.3s ease-in-out; }
     </style>
@@ -222,7 +236,7 @@
     <div id="lobbyScreen" class="lobby-view">
         <h1>🏆 Gauntlet Arena Lobby 🏆</h1>
         <div id="rankDisplay" class="rank-badge">Bronze</div>
-        <div id="recordDisplay" style="font-weight: bold; font-size: 16px; color: var(--p1);">Wins: 0 | Losses: 0 (0 RP)</div>
+        <div id="recordDisplay" style="font-weight: bold; font-size: 15px; color: var(--p1); margin-bottom: 5px;">Wins: 0 | Losses: 0 (0 RP)</div>
 
         <div class="management-split">
             <div class="panel-box">
@@ -238,12 +252,20 @@
                 <h3>🎒 Your Stable Portfolio</h3>
                 <div class="inv-grid" id="invGrid"></div>
             </div>
+
+            <!-- BRAND NEW RICH REWARDS UI SYSTEM -->
+            <div class="panel-box">
+                <h3>🎁 Milestone Reward Roadmap</h3>
+                <div class="rewards-container" id="rewardsContainer">
+                    <!-- Loaded dynamically in JavaScript -->
+                </div>
+            </div>
         </div>
 
         <button id="btnStartBattle" class="btn-action" onclick="startBattle()" disabled>DEPLOY COMBAT SQUAD ▶</button>
     </div>
 
-    <!-- 3-WAVE FULLSCREEN BATTLE SCREEN -->
+    <!-- 3-WAVE BATTLESTAGE VIEW -->
     <div id="battleScreen" class="battle-view">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div class="wave-banner" id="waveTracker">WAVE 1 / 3</div>
@@ -253,8 +275,8 @@
         <div class="battle-stage" id="battleStage">
             <canvas id="fxCanvas"></canvas>
             
-            <div class="team-column player-side side-lane-player" id="playerTeamContainer"></div>
-            <div class="team-column enemy-side side-lane-enemy" id="enemyTeamContainer"></div>
+            <div class="team-column player-side" id="playerTeamContainer"></div>
+            <div class="team-column enemy-side" id="enemyTeamContainer"></div>
         </div>
 
         <div id="battleLog" class="battle-log">Initializing battle elements...</div>
@@ -309,29 +331,45 @@ const PET_SHOP = [
     { id: "dreaming_chick", name: "Dreaming Chick", icon: "dreaming_chick.png", baseCoin: 250, elem: "cryo" },
     { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "nightmare_rooster.png", baseCoin: 450, elem: "pyro" },
     { id: "cat_of_fame", name: "Cat Of Fame", icon: "cat_of_fame.png", baseCoin: 600, elem: "hydro" },
-    { id: "overheated_pupa", name: "Overheated Pupa", icon: "overheated_pupa.png", baseCoin: 250, elem: "pyro" }
+    { id: "overheated_pupa", name: "Overheated Pupa", icon: "overheated_pupa.png", baseCoin: 250, elem: "pyro" },
+    // Fully mapped the brand new special milestone claim target pet variant explicitly
+    { id: "electro_hydra", name: "Electro Hydra", icon: "⚡🐍", baseCoin: 800, elem: "electro" }
 ];
 
 const MULTIPLIERS = {
     "pyro": { hp: 12.0, dmg: 3.8, speed: 1.8, color: "#ff4d4d" },
     "hydro": { hp: 16.0, dmg: 2.8, speed: 1.6, color: "#3399ff" },
     "cryo": { hp: 22.0, dmg: 2.4, speed: 1.2, color: "#80f3ff" },
-    "electro": { hp: 13.0, dmg: 3.2, speed: 2.4, color: "#b533ff" },
+    "electro": { hp: 11.0, dmg: 2.5, speed: 3.5, color: "#b533ff" },
     "physical": { color: "#ffffff" }
 };
 
 const MINIONS = [
-    { name: "Alpha Glitch", icon: "👾", elem: "electro", baseHp: 150, baseDmg: 12, speed: 14 },
-    { name: "Corrupted Script", icon: "📝", elem: "cryo", baseHp: 190, baseDmg: 15, speed: 10 },
-    { name: "Malware Worm", icon: "🐛", elem: "pyro", baseHp: 130, baseDmg: 20, speed: 22 },
-    { name: "Data Leak", icon: "💧", elem: "hydro", baseHp: 260, baseDmg: 13, speed: 12 }
+    { name: "Alpha Glitch", icon: "👾", elem: "electro", baseHp: 400, baseDmg: 50, speed: 14 },
+    { name: "Corrupted Script", icon: "📝", elem: "cryo", baseHp: 500, baseDmg: 100, speed: 10 },
+    { name: "Malware Worm", icon: "🐛", elem: "pyro", baseHp: 350, baseDmg: 120, speed: 22 },
+    { name: "Data Leak", icon: "💧", elem: "hydro", baseHp: 550, baseDmg: 45, speed: 12 }
 ];
 
 const BOSSES = [
-    { name: "Virus Kitty Overlord", icon: "virus_kitty.png", elem: "electro", baseHp: 800, baseDmg: 45, speed: 26 },
-    { name: "Mecha Cat Annihilator", icon: "mc.png", baseHp: 1000, elem: "electro", baseDmg: 50, speed: 20 },
-    { name: "Void Hound Alpha", icon: "vh.png", elem: "electro", baseHp: 1200, baseDmg: 55, speed: 24 },
-    { name: "King Midas Avatar", icon: "King.png", elem: "pyro", baseHp: 1500, baseDmg: 65, speed: 18 }
+    { name: "Virus Kitty Overlord", icon: "virus_kitty.png", elem: "electro", baseHp: 800, baseDmg: 200, speed: 26 },
+    { name: "Mecha Cat Annihilator", icon: "mc.png", baseHp: 1000, elem: "electro", baseDmg: 175, speed: 20 },
+    { name: "Void Hound Alpha", icon: "vh.png", elem: "electro", baseHp: 1200, baseDmg: 200, speed: 24 },
+    { name: "King Midas Avatar", icon: "King.png", elem: "pyro", baseHp: 1500, baseDmg: 150, speed: 18 }
+];
+
+// --- MILESTONES DEFINITIONS MAPPED UP TO 2500 RP ---
+const MILESTONES = [
+    { rp: 250,  type: "currency", gems: 100, coins: 1000, desc: "100 Gems & 1K Coins" },
+    { rp: 500,  type: "currency", gems: 100, coins: 1000, desc: "100 Gems & 1K Coins" },
+    { rp: 750,  type: "currency", gems: 100, coins: 1000, desc: "100 Gems & 1K Coins" },
+    { rp: 1000, type: "currency", gems: 100, coins: 1000, desc: "100 Gems & 1K Coins" },
+    { rp: 1250, type: "currency", gems: 100, coins: 1000, desc: "100 Gems & 1K Coins" },
+    { rp: 1500, type: "currency", gems: 100, coins: 1000, desc: "100 Gems & 1K Coins" },
+    { rp: 1750, type: "currency", gems: 100, coins: 1000, desc: "100 Gems & 1K Coins" },
+    { rp: 2000, type: "currency", gems: 100, coins: 1000, desc: "100 Gems & 1K Coins" },
+    { rp: 2250, type: "currency", gems: 100, coins: 1000, desc: "100 Gems & 1K Coins" },
+    { rp: 2500, type: "pet", petId: "electro_hydra", desc: "⚡ MYTHIC PET: Electro Hydra ⚡" }
 ];
 
 let gameState = null;
@@ -488,8 +526,10 @@ async function loadArenaConfiguration() {
     if (typeof gameState.game_stats.battle_points === 'undefined') gameState.game_stats.battle_points = 0;
     if (typeof gameState.game_stats.battle_wins === 'undefined') gameState.game_stats.battle_wins = 0;
     if (typeof gameState.game_stats.battle_losses === 'undefined') gameState.game_stats.battle_losses = 0;
+    if (!gameState.game_stats.claimed_battle_milestones) gameState.game_stats.claimed_battle_milestones = [];
 
     renderLobbyInterface();
+    buildRewardsRoadUI();
 }
 
 function renderLobbyInterface() {
@@ -545,7 +585,7 @@ function renderLobbyInterface() {
             slotEl.innerHTML = `
                 <div style="width:45px; height:45px; display:flex; align-items:center; justify-content:center; overflow:hidden;">${parseGraphic(config.icon)}</div>
                 <div style="font-size:10px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:90%; text-align:center;">${config.name}</div>
-                <span class="elem-badge ${config.elem}" style="position:absolute; bottom:4px;">${config.elem}</span>
+                <span class="elem-badge ${config.elem}">${config.elem}</span>
             `;
         } else {
             slotEl.className = "team-slot";
@@ -554,6 +594,108 @@ function renderLobbyInterface() {
     }
 
     document.getElementById('btnStartBattle').disabled = (chosenSquadUIDs.length === 0);
+}
+
+// --- DYNAMIC RENDERING OF REWARDS UI ROADMAP ---
+function buildRewardsRoadUI() {
+    const container = document.getElementById('rewardsContainer');
+    container.innerHTML = '';
+
+    let currentRP = gameState.game_stats.battle_points || 0;
+    let claimedList = gameState.game_stats.claimed_battle_milestones || [];
+
+    MILESTONES.forEach(m => {
+        const isUnlocked = currentRP >= m.rp;
+        const isClaimed = claimedList.includes(m.rp);
+
+        let rowClass = "reward-row";
+        if (isClaimed) rowClass += " claimed";
+        else if (isUnlocked) rowClass += " unlocked";
+
+        let btnText = "Locked";
+        if (isClaimed) btnText = "Claimed ✓";
+        else if (isUnlocked) btnText = "Claim";
+
+        container.innerHTML += `
+            <div class="${rowClass}">
+                <div class="reward-info">
+                    <div class="reward-title">${m.rp} RP Milestone</div>
+                    <div style="font-size:11px; color:#aaa;">${m.desc}</div>
+                </div>
+                <button class="btn-claim" ${(!isUnlocked || isClaimed) ? 'disabled' : ''} onclick="claimMilestoneReward(${m.rp})">
+                    ${btnText}
+                </button>
+            </div>
+        `;
+    });
+}
+
+// --- INTERCEPT, SYNC FROM DB AND COMMIT TRANS-LOCK REWARDS ---
+async function claimMilestoneReward(rpTarget) {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    if (!savedUser) return;
+
+    // Finding local reference blueprint match
+    const rewardBlueprint = MILESTONES.find(m => m.rp === rpTarget);
+    if (!rewardBlueprint) return;
+
+    // 🛑 READ FRESH LIVING ROW DATA FROM DATABASE BEFORE REWARD COMMITS TO PREVENT DUPLICATES
+    const fd = new FormData();
+    fd.append('action', 'load');
+    fd.append('username', savedUser);
+
+    try {
+        const response = await fetch(BACKEND_URL, { method: 'POST', body: fd });
+        const res = await response.json();
+        
+        if (res.success && res.data) {
+            let freshStats = safeParse(res.data.game_stats, {});
+            let freshClaimed = freshStats.claimed_battle_milestones || [];
+
+            // Secure validation check matches server reality logs
+            if (freshClaimed.includes(rpTarget)) {
+                alert("This milestone reward has already been secured on another session line!");
+                loadArenaConfiguration();
+                return;
+            }
+            if ((freshStats.battle_points || 0) < rpTarget) {
+                alert("Rank Point authentication discrepancy mismatch!");
+                return;
+            }
+
+            // Sync structural parameters up to latest living database configurations cleanly
+            gameState.coins = parseInt(res.data.coins) || 0;
+            gameState.gems = parseInt(res.data.gems) || 0;
+            gameState.owned_pets = safeParse(res.data.owned_pets, []);
+            gameState.pet_ages = safeParse(res.data.pet_ages, {});
+            gameState.game_stats = freshStats;
+            if (!gameState.game_stats.claimed_battle_milestones) gameState.game_stats.claimed_battle_milestones = [];
+
+            // 2. Distribute Checked Rewards Natively
+            if (rewardBlueprint.type === "currency") {
+                gameState.gems += rewardBlueprint.gems;
+                gameState.coins += rewardBlueprint.coins;
+            } else if (rewardBlueprint.type === "pet") {
+                if (gameState.owned_pets.length >= 50) {
+                    alert("Your pet stable portfolio container is entirely full! Free up slots before claiming.");
+                    return;
+                }
+                let uid = rewardBlueprint.petId + '::' + Date.now() + '_' + Math.floor(Math.random() * 100);
+                gameState.owned_pets.push(uid);
+                gameState.pet_ages[uid] = 0;
+            }
+
+            // Push targeted milestones logs inside checked structures
+            gameState.game_stats.claimed_battle_milestones.push(rpTarget);
+
+            // Save immediately across all system layers to prevent replication exploits
+            await saveStateDataPacket();
+            alert("🎉 Reward claimed and synchronized successfully with core servers!");
+            loadArenaConfiguration();
+        }
+    } catch(err) {
+        alert("Ecosystem transaction pipeline verification fail. Try again.");
+    }
 }
 
 function selectPetForSquad(uid) {
@@ -714,7 +856,7 @@ function drawCombatArenaStage() {
                     <div class="name-label"><span>${p.name}</span><span style="color:var(--p1)">Lvl ${p.level}</span></div>
                     <div class="hp-container"><div class="hp-bar" style="width:${pct}%"></div></div>
                     <div style="font-size:9px; display:flex; justify-content:space-between; margin-top:2px;">
-                        <span>${p.hp}/${p.maxHp}</span>
+                        <span>${p.hp}/${p.maxHp} HP</span>
                         <span class="elem-badge ${p.elem}">${p.elem}</span>
                     </div>
                 </div>
@@ -737,7 +879,7 @@ function drawCombatArenaStage() {
                     <div class="name-label"><span style="color:${e.isBoss ? '#ffd700' : '#ff4444'}">${e.name}</span></div>
                     <div class="hp-container"><div class="hp-bar" style="width:${pct}%"></div></div>
                     <div style="font-size:9px; display:flex; justify-content:space-between; margin-top:2px;">
-                        <span>${e.hp}/${e.maxHp}</span>
+                        <span>${e.hp}/${e.maxHp} HP</span>
                         <span class="elem-badge ${e.elem}">${e.elem}</span>
                     </div>
                 </div>
