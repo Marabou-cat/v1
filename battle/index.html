@@ -103,6 +103,16 @@
         .btn-move:hover:not(:disabled) { background: var(--p0); box-shadow: var(--glow); }
         .btn-move:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        /* --- LOCK OVERLAY --- */
+        .lock-overlay {
+            position: absolute; inset: 0; background: rgba(0, 8, 20, 0.95);
+            backdrop-filter: blur(8px); border-radius: var(--r);
+            display: none; flex-direction: column; align-items: center;
+            justify-content: center; gap: 15px; z-index: 100; padding: 20px;
+        }
+        .lock-overlay h2 { color: #ff0055; margin: 0; font-size: 26px; font-weight: 900; }
+        .lock-overlay p { color: #aaa; max-width: 400px; font-size: 15px; margin: 0; }
+
         /* Animations */
         @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(30px); } }
         @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-30px); } }
@@ -117,6 +127,12 @@
 <div class="bg-grid"></div>
 
 <div class="arena-container">
+    <!-- GUEST BLOCKED LAYER -->
+    <div id="lockOverlay" class="lock-overlay">
+        <h2>🔒 Portal Access Restricted</h2>
+        <p>The Battle Arena requires an authorized account profile synchronization to preserve Rank Points and competitive standings. Please register or log in on the main terminal screen.</p>
+    </div>
+
     <!-- LOBBY SCREEN -->
     <div id="lobbyScreen" class="lobby-view">
         <h1>🏆 Battle Arena Lobby 🏆</h1>
@@ -124,14 +140,12 @@
         <div id="pointsDisplay" style="font-size: 14px; color: var(--p1); font-weight: bold;">Rank Points: 0</div>
 
         <div class="stats-split">
-            <!-- Active Combatant Info -->
             <div class="stat-box">
                 <h3>🐾 Active Combatant</h3>
                 <div id="lobbyPetIcon" style="font-size: 50px; margin-bottom: 5px;">🐾</div>
                 <div id="lobbyPetName" style="font-weight: 900; font-size: 18px;">No Pet Equipped</div>
                 <div id="lobbyPetStats" style="font-size: 13px; color: #aaa; margin-top: 5px; line-height: 1.3;"></div>
             </div>
-            <!-- Win/Loss Record -->
             <div class="stat-box">
                 <h3>📊 Battle Record</h3>
                 <div style="font-size: 32px; margin-bottom: 5px;">⚔️</div>
@@ -143,12 +157,11 @@
         <button id="btnStartBattle" class="btn-action" onclick="startBattle()">START BATTLE ▶</button>
     </div>
 
-    <!-- POKEMON STYLE BATTLE SCREEN -->
+    <!-- BATTLE SCREEN -->
     <div id="battleScreen" class="battle-view">
         <h1 id="roundCounter">Round 1</h1>
         
         <div class="battle-stage">
-            <!-- Player Pet Module -->
             <div class="fighter" id="playerFighter">
                 <div style="font-size: 14px; font-weight: bold;" id="bPlayerName">Your Pet</div>
                 <div style="font-size: 12px; color: var(--p1);" id="bPlayerLevel">Lvl 1</div>
@@ -159,7 +172,6 @@
 
             <div style="font-size: 28px; font-weight: 900; color: #ff0055; align-self: center; text-shadow: 0 0 10px rgba(255,0,85,0.5);">VS</div>
 
-            <!-- Enemy Module -->
             <div class="fighter" id="enemyFighter">
                 <div style="font-size: 14px; font-weight: bold; color: #ff4444;" id="bEnemyName">Wild Enemy</div>
                 <div style="font-size: 12px; color: #ff8888;" id="bEnemyLevel">Threat Lvl</div>
@@ -169,10 +181,8 @@
             </div>
         </div>
 
-        <!-- System Narrative Box -->
-        <div id="battleLog" class="battle-log">The combat arena matches are loading... Prepare your moves!</div>
+        <div id="battleLog" class="battle-log">Loading arena parameters...</div>
 
-        <!-- User Controls -->
         <div class="battle-actions">
             <button id="btnAttack" class="btn-move" onclick="playerAction('attack')">⚔️ Basic Attack</button>
             <button id="btnSpecial" class="btn-move" style="background: #8e44ad; border-color: #a29bfe;" onclick="playerAction('special')">✨ Special Hit</button>
@@ -182,8 +192,8 @@
 </div>
 
 <script>
-// --- 1. ENEMY ARRAYS CONFIGURATION ---
-// You can add, adjust, edit, or customize any stats/rewards or metrics here easily.
+const BACKEND_URL = '../backend.php';
+
 const ENEMIES = [
     { id: "glitch_matrix", name: "System Glitch", icon: "👾", hp: 60, dmg: 8, speed: 12, minPoints: 0 },
     { id: "exam_paper", name: "Surprise Pop Quiz", icon: "📝", hp: 140, dmg: 14, speed: 8, minPoints: 100 },
@@ -192,9 +202,6 @@ const ENEMIES = [
     { id: "unstoppable_boss", name: "The Unstoppable Processor", icon: "👑", hp: 1200, dmg: 95, speed: 45, minPoints: 1000 }
 ];
 
-// --- 2. PET STAT MULTIPLIERS ---
-// This chains the final stats directly to the base calculation formulas: (BaseCoin + Level * 2) * Multiplier.
-// Customize each pet configuration below to make their stat spreads unique!
 const PET_STAT_MULTIPLIERS = {
     "doge":              { hp: 12, dmg: 2.2, speed: 1.4 },
     "cat":               { hp: 10, dmg: 2.5, speed: 1.8 },
@@ -206,19 +213,16 @@ const PET_STAT_MULTIPLIERS = {
     "midas":             { hp: 16, dmg: 3.8, speed: 2.2 },
     "phoenix":           { hp: 14, dmg: 4.2, speed: 2.6 },
     "celebration_monkey":{ hp: 15, dmg: 3.0, speed: 3.0 },
-    // Fallback defaults used if a custom id is missing
     "default_fallback":  { hp: 12, dmg: 2.5, speed: 1.5 }
 };
 
-// --- 3. CORE COUPLING CORE ENGINE STATE ---
 let gameState = null;
 let activeCombatant = null;
 let currentEnemy = null;
-let currentTurn = "player"; // player / enemy
+let currentTurn = "player";
 let roundNumber = 1;
 let isMatchActive = false;
 
-// Shared reference array fallback matching main index engine pointers
 const PET_SHOP = [
     { id: "doge", name: "Pixel Doge", icon: "🐕", baseCoin: 9 }, 
     { id: "cat", name: "Cyber Kitty", icon: "🐈", baseCoin: 15 },
@@ -232,24 +236,57 @@ const PET_SHOP = [
     { id: "celebration_monkey", name: "Celebration Monkey", icon: "🐒", baseCoin: 500 }
 ];
 
-// --- 4. DATA SYNCHRONIZATION AND STATE MANAGEMENT ---
-function loadEcosystemState() {
+async function loadEcosystemState() {
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
-    let rawData = localStorage.getItem('schoolExamsGuestState');
+    
+    // 🛑 AUTH BLOCK RULE: Block guest entry straight from the client side
+    if (!savedUser) {
+        document.getElementById('lockOverlay').style.display = 'flex';
+        document.getElementById('btnStartBattle').disabled = true;
+        return;
+    }
+
+    // Ping existing live row from server database directly
+    const formData = new FormData();
+    formData.append('action', 'load');
+    formData.append('username', savedUser);
 
     try {
+        const response = await fetch(BACKEND_URL, { method: 'POST', body: formData });
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            let serverData = result.data;
+            gameState = {
+                coins: parseInt(serverData.coins) || 0,
+                gems: parseInt(serverData.gems) || 0,
+                playtime: parseInt(serverData.playtime) || 0,
+                sakura_coins: parseInt(serverData.sakura_coins) || 0,
+                event_tasks: JSON.parse(serverData.event_tasks || '[]'),
+                owned_cursors: JSON.parse(serverData.owned_cursors || '["def"]'),
+                equipped_cursor: serverData.equipped_cursor || 'def',
+                owned_pets: JSON.parse(serverData.owned_pets || '[]'),
+                active_pet: serverData.active_pet || '',
+                pet_ages: JSON.parse(serverData.pet_ages || '{}'),
+                prestige_level: parseInt(serverData.prestige_level) || 0,
+                owned_items: JSON.parse(serverData.owned_items || '[]'),
+                boost_end: parseInt(serverData.boost_end) || 0,
+                boost_cd: parseInt(serverData.boost_cd) || 0,
+                game_stats: JSON.parse(serverData.game_stats || '{}')
+            };
+        } else {
+            // Drop back to mirrored sync space if load flags bounce
+            throw new Error("Direct DB load failed");
+        }
+    } catch (e) {
+        let rawData = localStorage.getItem('schoolExamsGuestState');
         if (rawData) {
             gameState = JSON.parse(rawData);
         } else {
             gameState = { game_stats: {} };
         }
-    } catch (e) {
-        gameState = { game_stats: {} };
     }
 
-    // Double check arrays exist structurally
-    if (!gameState.owned_pets) gameState.owned_pets = [];
-    if (!gameState.pet_ages) gameState.pet_ages = {};
     if (!gameState.game_stats) gameState.game_stats = {};
     if (typeof gameState.game_stats.battle_points === 'undefined') gameState.game_stats.battle_points = 0;
     if (typeof gameState.game_stats.battle_wins === 'undefined') gameState.game_stats.battle_wins = 0;
@@ -257,33 +294,42 @@ function loadEcosystemState() {
 
     buildLobbyUI();
 }
-function saveEcosystemState() {
+
+async function saveEcosystemState() {
     const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    if (!savedUser) return; // Secure fallback
+
+    // Mirror updates inside the storage cluster
     localStorage.setItem('schoolExamsGuestState', JSON.stringify(gameState));
     
-    // Silently perform network post mirror updates to server if account is linked
-    if (savedUser) {
-        const formData = new FormData();
-        formData.append('action', 'save');
-        formData.append('username', savedUser);
-        formData.append('coins', gameState.coins || 0);
-        formData.append('gems', gameState.gems || 0);
-        formData.append('playtime', gameState.playtime || 0);
-        formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors || ["def"]));
-        formData.append('equipped_cursor', gameState.equipped_cursor || "def");
-        formData.append('owned_pets', JSON.stringify(gameState.owned_pets || []));
-        formData.append('active_pet', gameState.active_pet || "");
-        formData.append('pet_ages', JSON.stringify(gameState.pet_ages || {}));
-        formData.append('game_stats', JSON.stringify(gameState.game_stats));
-        formData.append('prestige_level', gameState.prestige_level || 0);
-        
-        fetch('../backend.php', { method: 'POST', body: formData }).catch(err => console.log("Silent DB Update Fail"));
+    // Save points directly to database records via parent directory script route mapping
+    const formData = new FormData();
+    formData.append('action', 'save');
+    formData.append('username', savedUser);
+    formData.append('coins', gameState.coins);
+    formData.append('gems', gameState.gems);
+    formData.append('playtime', gameState.playtime);
+    formData.append('sakura_coins', gameState.sakura_coins);
+    formData.append('event_tasks', JSON.stringify(gameState.event_tasks));
+    formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors));
+    formData.append('equipped_cursor', gameState.equipped_cursor);
+    formData.append('owned_pets', JSON.stringify(gameState.owned_pets));
+    formData.append('active_pet', gameState.active_pet);
+    formData.append('pet_ages', JSON.stringify(gameState.pet_ages));
+    formData.append('prestige_level', gameState.prestige_level || 0);
+    formData.append('owned_items', JSON.stringify(gameState.owned_items || []));
+    formData.append('boost_end', gameState.boost_end || 0);
+    formData.append('boost_cd', gameState.boost_cd || 0);
+    formData.append('game_stats', JSON.stringify(gameState.game_stats));
+
+    try {
+        await fetch(BACKEND_URL, { method: 'POST', body: formData });
+    } catch(err) {
+        console.log("Database save synchronization error.");
     }
 }
 
-// --- 5. STATS GENERATION LOGIC ---
 function buildLobbyUI() {
-    // 1. Calculate Rank Bracket
     let rp = gameState.game_stats.battle_points;
     let rank = "Bronze";
     if (rp >= 100 && rp < 250) rank = "Silver";
@@ -297,13 +343,11 @@ function buildLobbyUI() {
     document.getElementById('pointsDisplay').innerText = `Rank Points: ${rp.toLocaleString()} RP`;
     document.getElementById('recordDisplay').innerText = `Wins: ${gameState.game_stats.battle_wins} | Losses: ${gameState.game_stats.battle_losses}`;
 
-    // 2. Map Active Pet Attributes
     if (gameState.active_pet && gameState.owned_pets.includes(gameState.active_pet)) {
         const baseId = gameState.active_pet.split('::')[0];
         const petInfo = PET_SHOP.find(p => p.id === baseId) || { name: "Mystery Variant", icon: "🐾", baseCoin: 5 };
         const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1;
         
-        // Yield base calculations tied down directly to core engine
         let petYield = petInfo.baseCoin + (level * 2);
         let mult = PET_STAT_MULTIPLIERS[baseId] || PET_STAT_MULTIPLIERS["default_fallback"];
 
@@ -330,22 +374,16 @@ function buildLobbyUI() {
     }
 }
 
-// --- 6. POKEMON STYLE COMBAT ENGINE FLOW ---
 function startBattle() {
     if (!activeCombatant) return;
 
-    // Filter enemy arrays by current ranking floor criteria matches
     let playerRP = gameState.game_stats.battle_points;
     let availablePool = ENEMIES.filter(e => playerRP >= e.minPoints);
     if (availablePool.length === 0) availablePool = [ENEMIES[0]];
     
-    // Choose a random valid opponent from matched ranges
     let selected = availablePool[Math.floor(Math.random() * availablePool.length)];
-    
-    // Deep clone enemy configuration metrics
     currentEnemy = { ...selected, maxHp: selected.hp };
     
-    // Initialize Interface elements
     document.getElementById('lobbyScreen').style.display = 'none';
     document.getElementById('battleScreen').style.display = 'flex';
     
@@ -362,7 +400,6 @@ function startBattle() {
     isMatchActive = true;
     updateHealthBars();
 
-    // Determine Turn Priority Speed Checks
     if (activeCombatant.speed >= currentEnemy.speed) {
         currentTurn = "player";
         updateLog(`⚔️ Fight Commenced! Your ${activeCombatant.name} acts first due to higher Speed!`);
@@ -376,12 +413,10 @@ function startBattle() {
 }
 
 function updateHealthBars() {
-    // Player Display calculations
     let pPct = Math.max(0, (activeCombatant.hp / activeCombatant.maxHp) * 100);
     document.getElementById('playerHpBar').style.width = `${pPct}%`;
     document.getElementById('playerHpText').innerText = `${activeCombatant.hp} / ${activeCombatant.maxHp} HP`;
 
-    // Enemy Display calculations
     let ePct = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp) * 100);
     document.getElementById('enemyHpBar').style.width = `${ePct}%`;
     document.getElementById('enemyHpText').innerText = `${currentEnemy.hp} / ${currentEnemy.maxHp} HP`;
@@ -398,7 +433,6 @@ function updateLog(msg) {
     document.getElementById('battleLog').innerText = msg;
 }
 
-// --- Player Move Sequences ---
 function playerAction(type) {
     if (!isMatchActive || currentTurn !== "player") return;
     toggleMoveButtons(true);
@@ -408,13 +442,10 @@ function playerAction(type) {
     const pIconEl = document.getElementById('playerFighter');
     const eIconEl = document.getElementById('enemyFighter');
 
-    // Execution calculations
     if (type === 'attack') {
-        // Normal range swing variations
         dmgDealt = Math.floor(activeCombatant.dmg * (0.9 + Math.random() * 0.2));
         attackLogStr = `⚔️ ${activeCombatant.name} used Basic Strike! Hit for ${dmgDealt} damage.`;
     } else if (type === 'special') {
-        // High risk crit calculation models
         if (Math.random() > 0.35) {
             dmgDealt = Math.floor(activeCombatant.dmg * 1.8);
             attackLogStr = `✨ Critical Hit! ${activeCombatant.name} unleashes an ultimate element smash for ${dmgDealt} damage!`;
@@ -424,7 +455,6 @@ function playerAction(type) {
         }
     }
 
-    // Trigger Visual Animations
     pIconEl.classList.add('animate-attack-left');
     setTimeout(() => {
         eIconEl.classList.add('animate-hit');
@@ -433,12 +463,10 @@ function playerAction(type) {
         updateLog(attackLogStr);
     }, 200);
 
-    // Clean animation cycles
     setTimeout(() => {
         pIconEl.classList.remove('animate-attack-left');
         eIconEl.classList.remove('animate-hit');
         
-        // Status checks
         if (currentEnemy.hp <= 0) {
             endMatch(true);
         } else {
@@ -448,14 +476,12 @@ function playerAction(type) {
     }, 600);
 }
 
-// --- Enemy Engine Move Sequences ---
 function enemyActionTurn() {
     if (!isMatchActive) return;
     
     const pIconEl = document.getElementById('playerFighter');
     const eIconEl = document.getElementById('enemyFighter');
     
-    // Auto engine attack ranges calculations
     let enemyDmg = Math.floor(currentEnemy.dmg * (0.85 + Math.random() * 0.3));
     
     eIconEl.classList.add('animate-attack-right');
@@ -481,7 +507,6 @@ function enemyActionTurn() {
     }, 600);
 }
 
-// --- 7. WIN / LOSS TRANSACTION STATES ---
 function endMatch(playerVictory, fled = false) {
     isMatchActive = false;
     toggleMoveButtons(true);
@@ -500,10 +525,8 @@ function endMatch(playerVictory, fled = false) {
         updateLog(`💀 DEFEAT! Your pet fainted. ${currentEnemy.name} won the match. Lost -10 RP.`);
     }
 
-    // Flush updates directly down to persistent system matrices
     saveEcosystemState();
 
-    // Append return transitions overlay UI button resets
     setTimeout(() => {
         document.getElementById('battleScreen').style.display = 'none';
         document.getElementById('lobbyScreen').style.display = 'flex';
@@ -511,7 +534,6 @@ function endMatch(playerVictory, fled = false) {
     }, 4000);
 }
 
-// Global initialization
 window.addEventListener('DOMContentLoaded', loadEcosystemState);
 </script>
 </body>
