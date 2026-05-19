@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SchoolExams - Battle Arena</title>
+    <style>
+        :root {
+            --bg0: #000814; --bg1: #001d3d; --bg2: #003566;
+            --p0: #0077b6; --p1: #90e0ef; --p2: #03045e;
+            --w: #caf0f8; --m: #90e0ef; --d: #48cae4;
+            --line: rgba(144, 224, 239, 0.2);
+            --glass: rgba(0, 29, 61, 0.85);
+            --shadow: 0 12px 40px rgba(0,0,0,0.7);
+            --glow: 0 0 20px rgba(144, 224, 239, 0.3);
+            --r: 16px;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg0);
+            color: var(--w);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .bg-grid {
+            position: fixed; inset: 0; z-index: -1;
+            background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .arena-container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--bg1);
+            border: 2px solid var(--p0);
+            border-radius: var(--r);
+            box-shadow: var(--shadow), var(--glow);
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        h1 { color: var(--p1); font-weight: 900; text-shadow: 0 0 15px rgba(144, 224, 239, 0.4); margin-top: 0; }
+        
+        /* --- LOBBY SCREEN --- */
+        .lobby-view { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .rank-badge {
+            font-size: 24px; font-weight: 900; padding: 10px 25px;
+            border-radius: 30px; border: 2px solid #ffd700;
+            background: rgba(0,0,0,0.4); text-transform: uppercase;
+            letter-spacing: 1px; box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        }
+        .stats-split { display: flex; gap: 20px; width: 100%; justify-content: center; flex-wrap: wrap; margin: 15px 0; }
+        .stat-box {
+            flex: 1; min-width: 200px; background: rgba(0,0,0,0.3);
+            border: 1px solid var(--line); padding: 15px; border-radius: 12px;
+        }
+        .stat-box h3 { margin: 0 0 10px 0; color: var(--p1); font-size: 16px; text-transform: uppercase;}
+        
+        .btn-action {
+            background: linear-gradient(135deg, #ff0055, #f72585); color: #fff;
+            border: 2px solid #fff; padding: 15px 40px; border-radius: 30px;
+            font-size: 20px; font-weight: 900; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(247, 37, 133, 0.4);
+        }
+        .btn-action:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 5px 25px rgba(247, 37, 133, 0.8); }
+        .btn-action:disabled { background: #555; border-color: #777; cursor: not-allowed; box-shadow: none; }
+
+        /* --- BATTLE SCREEN --- */
+        .battle-view { display: none; flex-direction: column; gap: 30px; }
+        .battle-stage {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            background: rgba(0,0,0,0.5); border-radius: 12px; padding: 20px;
+            min-height: 220px; position: relative; border: 1px solid var(--line);
+        }
+        .fighter { display: flex; flex-direction: column; align-items: center; width: 40%; position: relative; }
+        .fighter-icon { font-size: 70px; filter: drop-shadow(0 0 15px rgba(255,255,255,0.3)); min-height: 90px; display: flex; align-items: center; justify-content: center; }
+        .fighter-icon img { height: 70px; width: 70px; object-fit: contain; }
+        
+        /* Health Bar */
+        .hp-container { width: 100%; background: #222; border-radius: 8px; border: 1px solid #444; overflow: hidden; margin-top: 10px; }
+        .hp-bar { height: 14px; background: linear-gradient(90deg, #2ecc71, #27ae60); width: 100%; transition: width 0.3s ease; }
+        .hp-text { font-size: 11px; font-weight: bold; margin-top: 3px; }
+
+        /* Combat Textbox */
+        .battle-log {
+            background: var(--bg2); border: 2px solid var(--p0); border-radius: 8px;
+            padding: 15px; text-align: left; font-weight: bold; min-height: 60px;
+            font-size: 15px; color: #fff; line-height: 1.4;
+        }
+        .battle-actions { display: flex; gap: 10px; justify-content: center; }
+        .btn-move {
+            background: var(--p2); border: 1px solid var(--p1); color: #fff;
+            padding: 12px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .btn-move:hover:not(:disabled) { background: var(--p0); box-shadow: var(--glow); }
+        .btn-move:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Animations */
+        @keyframes attackLeft { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(30px); } }
+        @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-30px); } }
+        @keyframes hit { 0%, 100% { opacity: 1; } 25%, 75% { opacity: 0.3; transform: scale(0.95); } 50% { opacity: 1; } }
+        .animate-attack-left { animation: attackLeft 0.4s ease-in-out; }
+        .animate-attack-right { animation: attackRight 0.4s ease-in-out; }
+        .animate-hit { animation: hit 0.4s ease-in-out; }
+    </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+
+<div class="arena-container">
+    <!-- LOBBY SCREEN -->
+    <div id="lobbyScreen" class="lobby-view">
+        <h1>🏆 Battle Arena Lobby 🏆</h1>
+        <div id="rankDisplay" class="rank-badge">Bronze</div>
+        <div id="pointsDisplay" style="font-size: 14px; color: var(--p1); font-weight: bold;">Rank Points: 0</div>
+
+        <div class="stats-split">
+            <!-- Active Combatant Info -->
+            <div class="stat-box">
+                <h3>🐾 Active Combatant</h3>
+                <div id="lobbyPetIcon" style="font-size: 50px; margin-bottom: 5px;">🐾</div>
+                <div id="lobbyPetName" style="font-weight: 900; font-size: 18px;">No Pet Equipped</div>
+                <div id="lobbyPetStats" style="font-size: 13px; color: #aaa; margin-top: 5px; line-height: 1.3;"></div>
+            </div>
+            <!-- Win/Loss Record -->
+            <div class="stat-box">
+                <h3>📊 Battle Record</h3>
+                <div style="font-size: 32px; margin-bottom: 5px;">⚔️</div>
+                <div id="recordDisplay" style="font-weight: 900; font-size: 20px; color: #fff;">Wins: 0 | Losses: 0</div>
+                <div style="font-size: 12px; color: #777; margin-top: 8px;">Gain +25 RP on Victory<br>Lose -10 RP on Defeat</div>
+            </div>
+        </div>
+
+        <button id="btnStartBattle" class="btn-action" onclick="startBattle()">START BATTLE ▶</button>
+    </div>
+
+    <!-- POKEMON STYLE BATTLE SCREEN -->
+    <div id="battleScreen" class="battle-view">
+        <h1 id="roundCounter">Round 1</h1>
+        
+        <div class="battle-stage">
+            <!-- Player Pet Module -->
+            <div class="fighter" id="playerFighter">
+                <div style="font-size: 14px; font-weight: bold;" id="bPlayerName">Your Pet</div>
+                <div style="font-size: 12px; color: var(--p1);" id="bPlayerLevel">Lvl 1</div>
+                <div class="fighter-icon" id="bPlayerIcon">🐾</div>
+                <div class="hp-container"><div id="playerHpBar" class="hp-bar"></div></div>
+                <div class="hp-text" id="playerHpText">0 / 0 HP</div>
+            </div>
+
+            <div style="font-size: 28px; font-weight: 900; color: #ff0055; align-self: center; text-shadow: 0 0 10px rgba(255,0,85,0.5);">VS</div>
+
+            <!-- Enemy Module -->
+            <div class="fighter" id="enemyFighter">
+                <div style="font-size: 14px; font-weight: bold; color: #ff4444;" id="bEnemyName">Wild Enemy</div>
+                <div style="font-size: 12px; color: #ff8888;" id="bEnemyLevel">Threat Lvl</div>
+                <div class="fighter-icon" id="bEnemyIcon">👾</div>
+                <div class="hp-container"><div id="enemyHpBar" class="hp-bar" style="background: linear-gradient(90deg, #e74c3c, #c0392b);"></div></div>
+                <div class="hp-text" id="enemyHpText">0 / 0 HP</div>
+            </div>
+        </div>
+
+        <!-- System Narrative Box -->
+        <div id="battleLog" class="battle-log">The combat arena matches are loading... Prepare your moves!</div>
+
+        <!-- User Controls -->
+        <div class="battle-actions">
+            <button id="btnAttack" class="btn-move" onclick="playerAction('attack')">⚔️ Basic Attack</button>
+            <button id="btnSpecial" class="btn-move" style="background: #8e44ad; border-color: #a29bfe;" onclick="playerAction('special')">✨ Special Hit</button>
+            <button id="btnRun" class="btn-move" style="background: #333; border-color: #555;" onclick="endMatch(false, true)">🏃 Flee Match</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- 1. ENEMY ARRAYS CONFIGURATION ---
+// You can add, adjust, edit, or customize any stats/rewards or metrics here easily.
+const ENEMIES = [
+    { id: "glitch_matrix", name: "System Glitch", icon: "👾", hp: 60, dmg: 8, speed: 12, minPoints: 0 },
+    { id: "exam_paper", name: "Surprise Pop Quiz", icon: "📝", hp: 140, dmg: 14, speed: 8, minPoints: 100 },
+    { id: "firewall_hound", name: "Network Firewall", icon: "🔥", hp: 250, dmg: 22, speed: 20, minPoints: 300 },
+    { id: "ai_overlord", name: "Server Mainframe Core", icon: "🖥️", hp: 500, dmg: 45, speed: 25, minPoints: 600 },
+    { id: "unstoppable_boss", name: "The Unstoppable Processor", icon: "👑", hp: 1200, dmg: 95, speed: 45, minPoints: 1000 }
+];
+
+// --- 2. PET STAT MULTIPLIERS ---
+// This chains the final stats directly to the base calculation formulas: (BaseCoin + Level * 2) * Multiplier.
+// Customize each pet configuration below to make their stat spreads unique!
+const PET_STAT_MULTIPLIERS = {
+    "doge":              { hp: 12, dmg: 2.2, speed: 1.4 },
+    "cat":               { hp: 10, dmg: 2.5, speed: 1.8 },
+    "frog":              { hp: 11, dmg: 2.0, speed: 2.5 },
+    "mecha_cat":         { hp: 15, dmg: 3.5, speed: 2.0 },
+    "dragon":            { hp: 18, dmg: 4.0, speed: 1.5 },
+    "panda":             { hp: 22, dmg: 2.8, speed: 1.0 },
+    "kraken":            { hp: 25, dmg: 4.5, speed: 1.1 },
+    "midas":             { hp: 16, dmg: 3.8, speed: 2.2 },
+    "phoenix":           { hp: 14, dmg: 4.2, speed: 2.6 },
+    "celebration_monkey":{ hp: 15, dmg: 3.0, speed: 3.0 },
+    // Fallback defaults used if a custom id is missing
+    "default_fallback":  { hp: 12, dmg: 2.5, speed: 1.5 }
+};
+
+// --- 3. CORE COUPLING CORE ENGINE STATE ---
+let gameState = null;
+let activeCombatant = null;
+let currentEnemy = null;
+let currentTurn = "player"; // player / enemy
+let roundNumber = 1;
+let isMatchActive = false;
+
+// Shared reference array fallback matching main index engine pointers
+const PET_SHOP = [
+    { id: "doge", name: "Pixel Doge", icon: "🐕", baseCoin: 9 }, 
+    { id: "cat", name: "Cyber Kitty", icon: "🐈", baseCoin: 15 },
+    { id: "frog", name: "Ninja Frog", icon: "🐸", baseCoin: 25 }, 
+    { id: "mecha_cat", name: "Mecha Cat", icon: "🤖", baseCoin: 350 },
+    { id: "dragon", name: "Neon Dragon", icon: "🐲", baseCoin: 45 },
+    { id: "panda", name: "Ghost Panda", icon: "🐼", baseCoin: 123 }, 
+    { id: "kraken", name: "67 Kraken", icon: "🦑", baseCoin: 265 },
+    { id: "midas", name: "King Midas", icon: "👑", baseCoin: 600 },
+    { id: "phoenix", name: "Mythic Phoenix", icon: "🦅", baseCoin: 298 },
+    { id: "celebration_monkey", name: "Celebration Monkey", icon: "🐒", baseCoin: 500 }
+];
+
+// --- 4. DATA SYNCHRONIZATION AND STATE MANAGEMENT ---
+function loadEcosystemState() {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    let dataKey = savedUser ? 'schoolExamsGuestState' : 'schoolExamsGuestState'; 
+    // If authenticated profile engine handles backend injection arrays natively, load via shared local pointer mirroring save blocks
+    let rawData = localStorage.getItem(savedUser ? 'schoolExamsGuestState' : 'schoolExamsGuestState');
+    
+    // Fallback checks mirroring structural schemas
+    if (!rawData && savedUser) rawData = localStorage.getItem('schoolExamsGuestState');
+
+    try {
+        if (rawData) {
+            gameState = JSON.parse(rawData);
+        } else {
+            gameState = { game_stats: {} };
+        }
+    } catch (e) {
+        gameState = { game_stats: {} };
+    }
+
+    if (!gameState.game_stats) gameState.game_stats = {};
+    if (typeof gameState.game_stats.battle_points === 'undefined') gameState.game_stats.battle_points = 0;
+    if (typeof gameState.game_stats.battle_wins === 'undefined') gameState.game_stats.battle_wins = 0;
+    if (typeof gameState.game_stats.battle_losses === 'undefined') gameState.game_stats.battle_losses = 0;
+
+    buildLobbyUI();
+}
+
+function saveEcosystemState() {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    localStorage.setItem('schoolExamsGuestState', JSON.stringify(gameState));
+    
+    // Silently perform network post mirror updates to server if account is linked
+    if (savedUser) {
+        const formData = new FormData();
+        formData.append('action', 'save');
+        formData.append('username', savedUser);
+        formData.append('coins', gameState.coins || 0);
+        formData.append('gems', gameState.gems || 0);
+        formData.append('playtime', gameState.playtime || 0);
+        formData.append('owned_cursors', JSON.stringify(gameState.owned_cursors || ["def"]));
+        formData.append('equipped_cursor', gameState.equipped_cursor || "def");
+        formData.append('owned_pets', JSON.stringify(gameState.owned_pets || []));
+        formData.append('active_pet', gameState.active_pet || "");
+        formData.append('pet_ages', JSON.stringify(gameState.pet_ages || {}));
+        formData.append('game_stats', JSON.stringify(gameState.game_stats));
+        formData.append('prestige_level', gameState.prestige_level || 0);
+        
+        fetch('backend.php', { method: 'POST', body: formData }).catch(err => console.log("Silent DB Update Fail"));
+    }
+}
+
+// --- 5. STATS GENERATION LOGIC ---
+function buildLobbyUI() {
+    // 1. Calculate Rank Bracket
+    let rp = gameState.game_stats.battle_points;
+    let rank = "Bronze";
+    if (rp >= 100 && rp < 250) rank = "Silver";
+    else if (rp >= 250 && rp < 500) rank = "Gold";
+    else if (rp >= 500 && rp < 800) rank = "Platinum";
+    else if (rp >= 800 && rp < 1200) rank = "Diamond";
+    else if (rp >= 1200 && rp < 2000) rank = "Masters";
+    else if (rp >= 2000) rank = "💥 Unstoppable 💥";
+
+    document.getElementById('rankDisplay').innerText = rank;
+    document.getElementById('pointsDisplay').innerText = `Rank Points: ${rp.toLocaleString()} RP`;
+    document.getElementById('recordDisplay').innerText = `Wins: ${gameState.game_stats.battle_wins} | Losses: ${gameState.game_stats.battle_losses}`;
+
+    // 2. Map Active Pet Attributes
+    if (gameState.active_pet && gameState.owned_pets.includes(gameState.active_pet)) {
+        const baseId = gameState.active_pet.split('::')[0];
+        const petInfo = PET_SHOP.find(p => p.id === baseId) || { name: "Mystery Variant", icon: "🐾", baseCoin: 5 };
+        const level = Math.floor((gameState.pet_ages[gameState.active_pet] || 0) / 600) + 1;
+        
+        // Yield base calculations tied down directly to core engine
+        let petYield = petInfo.baseCoin + (level * 2);
+        let mult = PET_STAT_MULTIPLIERS[baseId] || PET_STAT_MULTIPLIERS["default_fallback"];
+
+        activeCombatant = {
+            name: petInfo.name,
+            icon: petInfo.icon,
+            level: level,
+            maxHp: Math.floor(petYield * mult.hp),
+            hp: Math.floor(petYield * mult.hp),
+            dmg: Math.floor(petYield * mult.dmg),
+            speed: Math.floor(petYield * mult.speed)
+        };
+
+        document.getElementById('lobbyPetIcon').innerHTML = activeCombatant.icon;
+        document.getElementById('lobbyPetName').innerText = `${activeCombatant.name} (Lvl ${activeCombatant.level})`;
+        document.getElementById('lobbyPetStats').innerHTML = `❤️ Max HP: ${activeCombatant.maxHp}<br>⚔️ Attack Power: ${activeCombatant.dmg}<br>⚡ Combat Speed: ${activeCombatant.speed}`;
+        document.getElementById('btnStartBattle').disabled = false;
+    } else {
+        activeCombatant = null;
+        document.getElementById('lobbyPetIcon').innerText = "🐾";
+        document.getElementById('lobbyPetName').innerText = "No Pet Equipped";
+        document.getElementById('lobbyPetStats').innerText = "Equip an active companion in your inventory via Main Portal to begin combat loops.";
+        document.getElementById('btnStartBattle').disabled = true;
+    }
+}
+
+// --- 6. POKEMON STYLE COMBAT ENGINE FLOW ---
+function startBattle() {
+    if (!activeCombatant) return;
+
+    // Filter enemy arrays by current ranking floor criteria matches
+    let playerRP = gameState.game_stats.battle_points;
+    let availablePool = ENEMIES.filter(e => playerRP >= e.minPoints);
+    if (availablePool.length === 0) availablePool = [ENEMIES[0]];
+    
+    // Choose a random valid opponent from matched ranges
+    let selected = availablePool[Math.floor(Math.random() * availablePool.length)];
+    
+    // Deep clone enemy configuration metrics
+    currentEnemy = { ...selected, maxHp: selected.hp };
+    
+    // Initialize Interface elements
+    document.getElementById('lobbyScreen').style.display = 'none';
+    document.getElementById('battleScreen').style.display = 'flex';
+    
+    document.getElementById('bPlayerName').innerText = activeCombatant.name;
+    document.getElementById('bPlayerLevel').innerText = `Lvl ${activeCombatant.level}`;
+    document.getElementById('bPlayerIcon').innerHTML = activeCombatant.icon;
+    activeCombatant.hp = activeCombatant.maxHp;
+
+    document.getElementById('bEnemyName').innerText = currentEnemy.name;
+    document.getElementById('bEnemyLevel').innerText = `Threat Index: ${currentEnemy.hp}`;
+    document.getElementById('bEnemyIcon').innerHTML = currentEnemy.icon;
+
+    roundNumber = 1;
+    isMatchActive = true;
+    updateHealthBars();
+
+    // Determine Turn Priority Speed Checks
+    if (activeCombatant.speed >= currentEnemy.speed) {
+        currentTurn = "player";
+        updateLog(`⚔️ Fight Commenced! Your ${activeCombatant.name} acts first due to higher Speed!`);
+        toggleMoveButtons(false);
+    } else {
+        currentTurn = "enemy";
+        updateLog(`⚠️ Opponent detected! ${currentEnemy.name} caught you off guard and moves first!`);
+        toggleMoveButtons(true);
+        setTimeout(enemyActionTurn, 1500);
+    }
+}
+
+function updateHealthBars() {
+    // Player Display calculations
+    let pPct = Math.max(0, (activeCombatant.hp / activeCombatant.maxHp) * 100);
+    document.getElementById('playerHpBar').style.width = `${pPct}%`;
+    document.getElementById('playerHpText').innerText = `${activeCombatant.hp} / ${activeCombatant.maxHp} HP`;
+
+    // Enemy Display calculations
+    let ePct = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp) * 100);
+    document.getElementById('enemyHpBar').style.width = `${ePct}%`;
+    document.getElementById('enemyHpText').innerText = `${currentEnemy.hp} / ${currentEnemy.maxHp} HP`;
+    
+    document.getElementById('roundCounter').innerText = `Round ${roundNumber}`;
+}
+
+function toggleMoveButtons(disabledState) {
+    document.getElementById('btnAttack').disabled = disabledState;
+    document.getElementById('btnSpecial').disabled = disabledState;
+}
+
+function updateLog(msg) {
+    document.getElementById('battleLog').innerText = msg;
+}
+
+// --- Player Move Sequences ---
+function playerAction(type) {
+    if (!isMatchActive || currentTurn !== "player") return;
+    toggleMoveButtons(true);
+
+    let dmgDealt = 0;
+    let attackLogStr = "";
+    const pIconEl = document.getElementById('playerFighter');
+    const eIconEl = document.getElementById('enemyFighter');
+
+    // Execution calculations
+    if (type === 'attack') {
+        // Normal range swing variations
+        dmgDealt = Math.floor(activeCombatant.dmg * (0.9 + Math.random() * 0.2));
+        attackLogStr = `⚔️ ${activeCombatant.name} used Basic Strike! Hit for ${dmgDealt} damage.`;
+    } else if (type === 'special') {
+        // High risk crit calculation models
+        if (Math.random() > 0.35) {
+            dmgDealt = Math.floor(activeCombatant.dmg * 1.8);
+            attackLogStr = `✨ Critical Hit! ${activeCombatant.name} unleashes an ultimate element smash for ${dmgDealt} damage!`;
+        } else {
+            dmgDealt = Math.floor(activeCombatant.dmg * 0.4);
+            attackLogStr = `💨 Missed target arc! ${activeCombatant.name} botched their configuration charge and only dealt ${dmgDealt} damage.`;
+        }
+    }
+
+    // Trigger Visual Animations
+    pIconEl.classList.add('animate-attack-left');
+    setTimeout(() => {
+        eIconEl.classList.add('animate-hit');
+        currentEnemy.hp = Math.max(0, currentEnemy.hp - dmgDealt);
+        updateHealthBars();
+        updateLog(attackLogStr);
+    }, 200);
+
+    // Clean animation cycles
+    setTimeout(() => {
+        pIconEl.classList.remove('animate-attack-left');
+        eIconEl.classList.remove('animate-hit');
+        
+        // Status checks
+        if (currentEnemy.hp <= 0) {
+            endMatch(true);
+        } else {
+            currentTurn = "enemy";
+            setTimeout(enemyActionTurn, 1500);
+        }
+    }, 600);
+}
+
+// --- Enemy Engine Move Sequences ---
+function enemyActionTurn() {
+    if (!isMatchActive) return;
+    
+    const pIconEl = document.getElementById('playerFighter');
+    const eIconEl = document.getElementById('enemyFighter');
+    
+    // Auto engine attack ranges calculations
+    let enemyDmg = Math.floor(currentEnemy.dmg * (0.85 + Math.random() * 0.3));
+    
+    eIconEl.classList.add('animate-attack-right');
+    setTimeout(() => {
+        pIconEl.classList.add('animate-hit');
+        activeCombatant.hp = Math.max(0, activeCombatant.hp - enemyDmg);
+        updateHealthBars();
+        updateLog(`💥 ${currentEnemy.name} retaliated with a quick strike! Your pet takes ${enemyDmg} damage.`);
+    }, 200);
+
+    setTimeout(() => {
+        eIconEl.classList.remove('animate-attack-right');
+        pIconEl.classList.remove('animate-hit');
+        
+        if (activeCombatant.hp <= 0) {
+            endMatch(false);
+        } else {
+            roundNumber++;
+            currentTurn = "player";
+            updateHealthBars();
+            toggleMoveButtons(false);
+        }
+    }, 600);
+}
+
+// --- 7. WIN / LOSS TRANSACTION STATES ---
+function endMatch(playerVictory, fled = false) {
+    isMatchActive = false;
+    toggleMoveButtons(true);
+
+    if (fled) {
+        gameState.game_stats.battle_losses++;
+        gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 10);
+        updateLog("🏃 You fled the battlefield! Lost -10 RP due to withdrawal penalization metrics.");
+    } else if (playerVictory) {
+        gameState.game_stats.battle_wins++;
+        gameState.game_stats.battle_points += 25;
+        updateLog(`🎉 VICTORY! Your pet defeated ${currentEnemy.name}! You gained +25 Rank Points.`);
+    } else {
+        gameState.game_stats.battle_losses++;
+        gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 10);
+        updateLog(`💀 DEFEAT! Your pet fainted. ${currentEnemy.name} won the match. Lost -10 RP.`);
+    }
+
+    // Flush updates directly down to persistent system matrices
+    saveEcosystemState();
+
+    // Append return transitions overlay UI button resets
+    setTimeout(() => {
+        document.getElementById('battleScreen').style.display = 'none';
+        document.getElementById('lobbyScreen').style.display = 'flex';
+        loadEcosystemState();
+    }, 4000);
+}
+
+// Global initialization
+window.addEventListener('DOMContentLoaded', loadEcosystemState);
+</script>
+</body>
+</html>
