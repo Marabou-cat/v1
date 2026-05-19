@@ -20,6 +20,7 @@
             --hydro: #3399ff;
             --cryo: #80f3ff;
             --electro: #b533ff;
+            --dendro: #2ecc71;
             --physical: #ffffff;
             --freeze: #a5f3fc;
         }
@@ -95,7 +96,6 @@
         .pet-mini-card .img-wrap span { font-size: 24px; line-height: 1; }
         .pet-mini-card.selected-in-team { border-color: #ffd700; opacity: 0.5; }
 
-        /* FIXED: Force rigid constraints on all element badges to stop giant formatting */
         .elem-badge {
             font-size: 9px !important; font-weight: 900 !important; padding: 2px 6px !important; border-radius: 4px !important;
             text-transform: uppercase !important; color: #000 !important; margin-top: auto !important; 
@@ -106,8 +106,8 @@
         .elem-badge.hydro { background: var(--hydro) !important; color: #fff !important; }
         .elem-badge.cryo { background: var(--cryo) !important; }
         .elem-badge.electro { background: var(--electro) !important; color: #fff !important; }
+        .elem-badge.dendro { background: var(--dendro) !important; color: #fff !important; }
 
-        /* --- REWARDS COMPONENT --- */
         .rewards-container { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; height: 100%; padding-right: 5px; }
         .reward-row {
             display: flex; align-items: center; justify-content: space-between;
@@ -125,7 +125,6 @@
         .btn-claim:hover:not(:disabled) { background: #43b581; transform: translateY(-1px); }
         .btn-claim:disabled { background: #444; color: #888; cursor: not-allowed; transform: none; }
 
-        /* --- THE PLAYGAME SYSTEMVIEW --- */
         .wave-banner { font-size: 20px; font-weight: 800; color: #ff0055; margin: 0; text-shadow: 0 0 10px rgba(255,0,85,0.4); }
         
         .battle-stage {
@@ -151,8 +150,6 @@
         .enemy-side .fighter-row { padding: 4px 8px; }
         .fighter-row.active-turn { border-color: var(--p1); box-shadow: 0 0 15px var(--p0); transform: scale(1.02); }
         .fighter-row.fainted { opacity: 0.12; filter: grayscale(1); transform: scale(0.92); }
-        
-        /* FREEZE SYSTEM VISUAL INTERACTION LAYER */
         .fighter-row.frozen-stunned { border-color: var(--cryo) !important; background: rgba(0, 243, 255, 0.15) !important; box-shadow: inset 0 0 15px rgba(128, 243, 255, 0.5) !important; }
 
         .graphic-box {
@@ -340,6 +337,7 @@ const MULTIPLIERS = {
     "hydro": { hp: 16.0, dmg: 2.8, speed: 1.6, color: "#3399ff" },
     "cryo": { hp: 22.0, dmg: 2.4, speed: 1.2, color: "#80f3ff" },
     "electro": { hp: 13.0, dmg: 3.2, speed: 2.4, color: "#b533ff" },
+    "dendro": { hp: 15.0, dmg: 3.0, speed: 2.0, color: "#2ecc71" },
     "physical": { color: "#ffffff" }
 };
 
@@ -591,7 +589,7 @@ function selectPetForSquad(uid) {
 }
 function removeFromSquad(index) { if (chosenSquadUIDs[index]) { chosenSquadUIDs.splice(index, 1); renderLobbyInterface(); } }
 
-// --- ELEMENTAL DAMAGE ENGINE WITH FREEZE REACTION LOOP ---
+// --- ELEMENTAL DAMAGE ENGINE WITH ADVANCED REACTION CONTROLLERS ---
 function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, moveType) {
     let finalDmg = incomingDmg;
     let reactionLabel = "";
@@ -634,12 +632,32 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     }
                 });
             }
-            // 👇 UPDATED NEW REACTION SYSTEM MODEL: FREEZE ENGINE LOOP MATCHES
-            else if (combination === "cryo+hydro") { 
+            else if (combination === "cryo+hydro") { // FREEZE
                 reactionLabel = "FROZEN! ❄️💧";
                 target.isFrozen = true;
-                target.cryoSnapshotDmg = attacker.dmg; // Cache attacker damage for structural unfreeze calculations
+                target.cryoSnapshotDmg = attacker.dmg; 
                 writeLog(`❄️ Dynamic Reaction! <strong>${target.name}</strong> was frozen solid! Turn will be skipped next round.`);
+            }
+            // 👇 NEW DENDRO SYSTEMS MATRIX ACTIONS 👇
+            else if (combination === "dendro+pyro") { // BURNING (Continuous dynamic chain cascading damage)
+                finalDmg = Math.floor(finalDmg * 1.8); splashDmg = Math.floor(attacker.dmg * 0.5); reactionLabel = "BURNING! 🔥🌿";
+                targetTeam.forEach((t, i) => {
+                    if (t !== target && t.hp > 0) {
+                        t.hp = Math.max(0, t.hp - splashDmg);
+                        setTimeout(() => { createFloatingText(splashDmg, "#ff4d4d", "BURN SPARK", `${targetPrefix}${i}`); spawnElementParticles("pyro", `${targetPrefix}${i}`); }, 150);
+                    }
+                });
+            }
+            else if (combination === "dendro+hydro") { // BLOOM (Instant heavy explosive tracking explosion scaling)
+                finalDmg = Math.floor(finalDmg + (attacker.dmg * 1.2)); reactionLabel = "BLOOM EXPLOSION! 🌿💧";
+            }
+            else if (combination === "dendro+electro") { // CATALYZE (Permanent combat round layout damage scalar modifier)
+                attacker.dmg = Math.floor(attacker.dmg * 1.5); reactionLabel = "CATALYZE BUFF! 🌿⚡";
+                writeLog(`⚡ Intensified Core! <strong>${attacker.name}</strong> gained 1.5x permanent Attack Power for the match duration.`);
+            }
+            else if (combination === "cryo+dendro") { // OVERGROW (Deep absolute zero crystallization velocity lock)
+                target.speed = 1; reactionLabel = "OVERGROW LOCK! 🌿❄️";
+                writeLog(`❄️ Molecular slowdown! <strong>${target.name}</strong>'s speed parameter plummeted to 1.`);
             }
             target.statusEffect = null;
         }
@@ -737,6 +755,8 @@ let attackTurnQueue = []; let currentQueueIndex = 0;
 
 function processRoundLoopSequence() {
     if (!isGauntletLive) return;
+    
+    // 👇 CRITICAL CRASH PATCH FIRST: Process immediate team-wide wipes before loading action queues
     if (activePlayerTeam.every(p => p.hp <= 0)) { endMatch(false); return; }
     if (activeEnemyTeam.every(e => e.hp <= 0)) {
         if (battleWave >= 3) { endMatch(true); } else {
@@ -744,6 +764,7 @@ function processRoundLoopSequence() {
             generateWaveOpponents(); drawCombatArenaStage(); processRoundLoopSequence();
         } return;
     }
+    
     attackTurnQueue = [];
     activePlayerTeam.forEach(p => { if (p.hp > 0) attackTurnQueue.push(p); });
     activeEnemyTeam.forEach(e => { if (e.hp > 0) attackTurnQueue.push(e); });
@@ -751,6 +772,8 @@ function processRoundLoopSequence() {
 }
 
 function executeNextQueueStep() {
+    // Re-check fainted array matrices dynamically to trap asynchronous faints from splash damage
+    if (activePlayerTeam.every(p => p.hp <= 0)) { processRoundLoopSequence(); return; }
     if (activeEnemyTeam.every(e => e.hp <= 0)) { processRoundLoopSequence(); return; }
     if (currentQueueIndex >= attackTurnQueue.length) { battleRound++; drawCombatArenaStage(); processRoundLoopSequence(); return; }
 
@@ -760,9 +783,9 @@ function executeNextQueueStep() {
     drawCombatArenaStage();
     highlightActiveUnitRow(activeUnit);
 
-    // 👇 INTERCEPT TURN LOOP: FREEZE SKIP ACTION CHECKER MECHANICS
+    // INTERCEPT TURN LOOP: FREEZE SKIP ACTION CHECKER MECHANICS
     if (activeUnit.isFrozen) {
-        activeUnit.isFrozen = false; // Thaw cleanly for subsequent round paths
+        activeUnit.isFrozen = false; 
         let shatterDmg = Math.floor(activeUnit.cryoSnapshotDmg * 0.5);
         activeUnit.hp = Math.max(0, activeUnit.hp - shatterDmg);
 
@@ -773,10 +796,17 @@ function executeNextQueueStep() {
         
         setTimeout(() => {
             createFloatingText(shatterDmg, "#80f3ff", "SHATTER 🧊", `${prefix}${idx}`);
+            boxBlastParticlesCheck = (prefix === "pRow") ? "player" : "enemy";
             spawnElementParticles("cryo", `${prefix}${idx}`);
-            drawCombatArenaStage();
-            currentQueueIndex++;
-            executeNextQueueStep();
+            
+            // Re-validate global game bounds instantly post-shatter damage before unlocking engine controls
+            if (activePlayerTeam.every(p => p.hp <= 0) || activeEnemyTeam.every(e => e.hp <= 0)) {
+                processRoundLoopSequence();
+            } else {
+                drawCombatArenaStage();
+                currentQueueIndex++;
+                executeNextQueueStep();
+            }
         }, 1200);
         return;
     }
