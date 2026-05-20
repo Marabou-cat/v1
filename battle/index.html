@@ -232,11 +232,62 @@
         @keyframes attackRight { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-35px) translateY(10px); } }
         .anim-attack-left { animation: attackLeft 0.3s ease-in-out; }
         .anim-attack-right { animation: attackRight 0.3s ease-in-out; }
+
+        /* 👇 CUTSCENE OVERLAY ANIMATION HOOKS */
+        .cutscene-overlay {
+            position: fixed; inset: 0; background: #000; z-index: 99999;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.5s ease; pointer-events: none;
+        }
+        .cutscene-overlay.active { display: flex; opacity: 1; pointer-events: auto; }
+        
+        .intro-banner {
+            font-size: 44px; font-weight: 900; color: #ff0055; text-transform: uppercase;
+            letter-spacing: 4px; text-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
+            animation: pulseIntro 1s ease-in-out infinite alternate;
+        }
+        .intro-sub { font-size: 18px; font-weight: bold; color: var(--p1); margin-top: 15px; letter-spacing: 1px; }
+
+        .outro-card {
+            background: var(--bg1); border: 3px solid var(--p0); border-radius: 20px;
+            padding: 40px; text-align: center; box-shadow: var(--shadow), var(--glow);
+            max-width: 450px; width: 85%; transform: scale(0.8); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .cutscene-overlay.active .outro-card { transform: scale(1); }
+        .outro-title { font-size: 36px; font-weight: 900; margin-bottom: 20px; text-transform: uppercase; }
+        .outro-stats { font-size: 18px; margin: 10px 0; color: #fff; font-weight: bold; }
+        .btn-dismiss {
+            background: linear-gradient(135deg, #3ba55c, #2ecc71); color: #fff; border: none;
+            padding: 12px 35px; border-radius: 25px; font-size: 16px; font-weight: bold;
+            cursor: pointer; margin-top: 25px; box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+        }
+        .btn-dismiss:hover { transform: scale(1.05); box-shadow: 0 5px 20px rgba(46, 204, 113, 0.6); }
+
+        @keyframes pulseIntro { 0% { transform: scale(0.95); opacity: 0.8; } 100% { transform: scale(1.05); opacity: 1; } }
     </style>
 </head>
 <body>
 
 <div class="bg-grid"></div>
+
+<!-- 👇 ENTER MATCH INTRO CUTSCENE -->
+<div id="introCutscene" class="cutscene-overlay" style="background: radial-gradient(circle, #001d3d 0%, #000814 100%);">
+    <div class="intro-banner">⚠️ Warning Scan ⚠️</div>
+    <div class="intro-sub" id="introSubText">LOCATING LOCAL COMBAT SEGMENTS...</div>
+    <div style="width: 200px; background: #222; height: 6px; border-radius: 3px; margin-top: 30px; overflow: hidden; border: 1px solid #444;">
+        <div style="width: 100%; height: 100%; background: #ff0055; animation: loadArenaBar 2s linear forwards;"></div>
+    </div>
+</div>
+
+<!-- 👇 LEAVE MATCH OUTRO CUTSCENE -->
+<div id="outroCutscene" class="cutscene-overlay" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);">
+    <div class="outro-card" id="outroCard">
+        <div class="outro-title" id="outroTitle">Match Concluded</div>
+        <div class="outro-stats" id="outroWinsDisplay">Wins: 0 | Losses: 0</div>
+        <div class="outro-stats" id="outroPointsDisplay" style="color: #ffd700; font-size: 22px;">+100 RP Gained!</div>
+        <button class="btn-dismiss" onclick="dismissOutroCutscene()">RETURN TO LOBBY 🚪</button>
+    </div>
+</div>
 
 <div class="arena-container">
     <div id="lockOverlay" class="lock-overlay">
@@ -271,7 +322,7 @@
             </div>
         </div>
 
-        <button id="btnStartBattle" class="btn-action" onclick="startBattle()" disabled>DEPLOY COMBAT SQUAD ▶</button>
+        <button id="btnStartBattle" class="btn-action" onclick="triggerIntroCutscene()">DEPLOY COMBAT SQUAD ▶</button>
     </div>
 
     <!-- 3-WAVE BATTLE SCREEN -->
@@ -304,46 +355,45 @@ const ASSET_DIR = '../png/';
 
 const PET_SHOP = [
     { id: "doge", name: "Pixel Doge", icon: "🐕", baseCoin: 9, elem: "pyro" }, 
-    { id: "cat", name: "Cyber Kitty", icon: "🐈", baseCoin: 15, elem: "electro" },
+    { id: "cat", name: "Cyber Kitty", icon: "🐈", baseCoin: 15, elem: "hydro" },
     { id: "frog", name: "Ninja Frog", icon: "🐸", baseCoin: 25, elem: "cryo" }, 
     { id: "mecha_cat", name: "Mecha Cat", icon: "mc.png", baseCoin: 350, elem: "electro" },
     { id: "dragon", name: "Neon Dragon", icon: "🐲", baseCoin: 45, elem: "pyro" },
     { id: "panda", name: "Ghost Panda", icon: "🐼", baseCoin: 367, elem: "cryo" }, 
     { id: "kraken", name: "67 Kraken", icon: "🦑", baseCoin: 265, elem: "hydro" },
-    { id: "midas", name: "King Midas", icon: "King.png", baseCoin: 600, elem: "geo" },
+    { id: "midas", name: "King Midas", icon: "King.png", baseCoin: 600, elem: "pyro" },
     { id: "phoenix", name: "Mythic Phoenix", icon: "phoenix.png", baseCoin: 298, elem: "pyro" }, 
     { id: "griffin", name: "Flaming Griffin", icon: "griffin.png", baseCoin: 628, elem: "pyro" },
     { id: "aerodactylus", name: "Eruption Aerodactylus", icon: "aerodactylus.png", baseCoin: 878, elem: "pyro" }, 
-    { id: "gb", name: "Gem Beast", icon: "gb.png", baseCoin: 600, elem: "geo" },
+    { id: "gb", name: "Gem Beast", icon: "gb.png", baseCoin: 600, elem: "cryo" },
     { id: "hs", name: "Void Hound", icon: "vh.png", baseCoin: 798, elem: "electro" },
     { id: "gs", name: "Glowing Shadow", icon: "gs.png", baseCoin: 198, elem: "electro" },
-    { id: "lt", name: "Living Treasure", icon: "lt.png", baseCoin: 65, elem: "geo" },
-    { id: "lva", name: "Living Vault", icon: "lva.png", baseCoin: 565, elem: "geo" },
+    { id: "lt", name: "Living Treasure", icon: "lt.png", baseCoin: 65, elem: "hydro" },
+    { id: "lva", name: "Living Vault", icon: "lva.png", baseCoin: 565, elem: "cryo" },
     { id: "kitsune", name: "Sakura Kitsune", icon: "kitsune.png", baseCoin: 478, elem: "dendro" },
     { id: "blossom", name: "Elder Sakura Blossom", icon: "blossom.png", baseCoin: 358, elem: "dendro" },
     { id: "katanaspirit", name: "Katana Spirit", icon: "spirit.png", baseCoin: 198, elem: "cryo" },
     { id: "bn", name: "Blossom Ninetails", icon: "blossom_ninetails.png", baseCoin: 838, elem: "dendro" },
-    { id: "crystal_dragon", name: "Crystal Dragon", icon: "crystal_dragon.png", baseCoin: 900, elem: "geo" },
+    { id: "crystal_dragon", name: "Crystal Dragon", icon: "crystal_dragon.png", baseCoin: 900, elem: "hydro" },
     { id: "seed", name: "Mysterious Seed", icon: "seed.png", baseCoin: 60, elem: "dendro" },
     { id: "flytrap", name: "Moonlight Flytrap", icon: "flytrap.png", baseCoin: 655, elem: "dendro" },
     { id: "mboe", name: "Moonlight Beast Of Eclipse", icon: "mboe.png", baseCoin: 1100, elem: "dendro" },
     { id: "virus_kitty", name: "Virus Kitty", icon: "virus_kitty.png", baseCoin: 250, elem: "electro" },
     { id: "artificial_virus", name: "Artificial Virus", icon: "artificial_virus.png", baseCoin: 650, elem: "electro" },
     { id: "claws_machine", name: "Claws Machine", icon: "claws_machine.png", baseCoin: 600, elem: "electro" },
-    { id: "clawed_plushie", name: "Clawed Plushie", icon: "clawed_plushie.png", baseCoin: 950, elem: "electro" },
-    { id: "digital_minion", name: "Digital Minion", icon: "digital_minion.png", baseCoin: 350, elem: "wind" },
+    { id: "clawed_plushie", name: "Clawed Plushie", icon: "clawed_plushie.png", baseCoin: 950, elem: "pyro" },
+    { id: "digital_minion", name: "Digital Minion", icon: "digital_minion.png", baseCoin: 350, elem: "hydro" },
     { id: "poseidon", name: "Poseidon", icon: "poseidon.png", baseCoin: 700, elem: "hydro" },
-    { id: "celebration_monkey", name: "Celebration Monkey", icon: "celebration_monkey.png", baseCoin: 500, elem: "wind" },
+    { id: "celebration_monkey", name: "Celebration Monkey", icon: "celebration_monkey.png", baseCoin: 500, elem: "electro" },
     { id: "reaper", name: "Reaper", icon: "reaper.png", baseCoin: 650, elem: "electro" },
     { id: "ember_caterpillar", name: "Ember Caterpillar", icon: "ember_caterpillar.png", baseCoin: 220, elem: "pyro" },
     { id: "paint_cat", name: "Paint Cat", icon: "paint_cat.png", baseCoin: 330, elem: "hydro" },
-    { id: "dreaming_chick", name: "Dreaming Chick", icon: "dreaming_chick.png", baseCoin: 250, elem: "wind" },
-    { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "nightmare_rooster.png", baseCoin: 450, elem: "wind" },
+    { id: "dreaming_chick", name: "Dreaming Chick", icon: "dreaming_chick.png", baseCoin: 250, elem: "cryo" },
+    { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "nightmare_rooster.png", baseCoin: 450, elem: "pyro" },
     { id: "cat_of_fame", name: "Cat Of Fame", icon: "cat_of_fame.png", baseCoin: 600, elem: "hydro" },
     { id: "overheated_pupa", name: "Overheated Pupa", icon: "overheated_pupa.png", baseCoin: 250, elem: "pyro" },
     { id: "electro_hydra", name: "Electro Hydra", icon: "hydra.png", baseCoin: 800, elem: "electro" },
     { id: "rocky_golem", name: "Ancient Golem", icon: "🪨", baseCoin: 300, elem: "geo" },
-    // 👇 ADDED MANUALLY MAPPED WIND PET ENTITY BLUEPRINTS
     { id: "wind_spirit", name: "Zephyr Spirit", icon: "💨", baseCoin: 280, elem: "wind" }
 ];
 
@@ -354,25 +404,24 @@ const MULTIPLIERS = {
     "electro": { hp: 11.0, dmg: 2.0, speed: 2.4, color: "#b533ff" },
     "dendro": { hp: 13.0, dmg: 1.5, speed: 2.0, color: "#2ecc71" },
     "geo": { hp: 18.0, dmg: 1.4, speed: 1.4, color: "#e0a96d" },
-    "wind": { hp: 12.0, dmg: 2.2, speed: 2.5, color: "#71faca" }, // Fast combo engine setup
+    "wind": { hp: 12.0, dmg: 2.2, speed: 2.5, color: "#71faca" },
     "physical": { color: "#ffffff" }
 };
 
 const MINIONS = [
-    { name: "Alpha Glitch", icon: "👾", elem: "electro", baseHp: 800, baseDmg: 200, speed: 14 },
-    { name: "Corrupted Script", icon: "📝", elem: "cryo", baseHp: 1300, baseDmg: 100, speed: 10 },
-    { name: "Malware Worm", icon: "🐛", elem: "pyro", baseHp: 1000, baseDmg: 175, speed: 50 },
-    { name: "Data Leak", icon: "💧", elem: "hydro", baseHp: 700, baseDmg: 300, speed: 5 },
-    { name: "Reviving Moss", icon: "🌱", elem: "dendro", baseHp: 1250, baseDmg: 135, speed: 8 },
-    { name: "Wind Spirit", icon: "🌪️", elem: "wind", baseHp: 700, baseDmg: 200, speed: 100 }
+    { name: "Alpha Glitch", icon: "👾", elem: "electro", baseHp: 600, baseDmg: 200, speed: 14 },
+    { name: "Corrupted Script", icon: "📝", elem: "cryo", baseHp: 1000, baseDmg: 100, speed: 10 },
+    { name: "Malware Worm", icon: "🐛", elem: "pyro", baseHp: 500, baseDmg: 175, speed: 50 },
+    { name: "Data Leak", icon: "💧", elem: "hydro", baseHp: 600, baseDmg: 300, speed: 5 },
+    { name: "Reviving Moss", icon: "🌱", elem: "dendro", baseHp: 900, baseDmg: 135, speed: 8 }
 ];
 
 const BOSSES = [
-    { name: "Virus Kitty Overlord", icon: "virus_kitty.png", elem: "hydro", baseHp: 2500, baseDmg: 350, speed: 26 },
-    { name: "Mecha Cat Annihilator", icon: "mc.png", baseHp: 2750, elem: "electro", baseDmg: 350, speed: 20 },
-    { name: "Void Hound Alpha", icon: "vh.png", elem: "electro", baseHp: 2000, baseDmg: 400, speed: 100 },
-    { name: "King Midas Avatar", icon: "King.png", elem: "cryo", baseHp: 3000, baseDmg: 275, speed: 18 },
-    { name: "Shadow Of The Moonlight", icon: "mboe.png", elem: "dendro", baseHp: 3500, baseDmg: 150, speed: 30 }
+    { name: "Virus Kitty Overlord", icon: "virus_kitty.png", elem: "hydro", baseHp: 1200, baseDmg: 350, speed: 26 },
+    { name: "Mecha Cat Annihilator", icon: "mc.png", baseHp: 1400, elem: "electro", baseDmg: 350, speed: 20 },
+    { name: "Void Hound Alpha", icon: "vh.png", elem: "electro", baseHp: 1500, baseDmg: 200, speed: 100 },
+    { name: "King Midas Avatar", icon: "King.png", elem: "cryo", baseHp: 1500, baseDmg: 500, speed: 18 },
+    { name: "Shadow Of The Moonlight", icon: "mboe.png", elem: "dendro", baseHp: 2000, baseDmg: 175, speed: 30 }
 ];
 
 const MILESTONES = [
@@ -399,6 +448,59 @@ let userTargetedEnemyIndex = 0;
 
 let canvas, ctx;
 let particles = [];
+
+// Style rule handling scroll definitions inside styles blocks
+const injectStyle = document.createElement('style');
+injectStyle.innerHTML = `@keyframes loadArenaBar { 0% { width: 0%; } 100% { width: 100%; } }`;
+document.head.appendChild(injectStyle);
+
+// --- 👇 NEW CUTSCENE INTERACTION ENGINE SEQUENCES ---
+function triggerIntroCutscene() {
+    if (chosenSquadUIDs.length === 0) return;
+    
+    const cutscene = document.getElementById('introCutscene');
+    const subtext = document.getElementById('introSubText');
+    cutscene.classList.add('active');
+
+    // Dynamic tactical scans telemetry text reads
+    setTimeout(() => { subtext.innerText = "SYNCHRONIZING SQUAD INVENTORY COMPONENT PACKETS..."; }, 600);
+    setTimeout(() => { subtext.innerText = "GENERATING PROCEDURAL MONSTER GRID LAYOUTS..."; }, 1300);
+
+    setTimeout(() => {
+        cutscene.classList.remove('active');
+        startBattle(); // Begin combat after cutscene closes
+    }, 2100);
+}
+
+function triggerOutroCutscene(playerWon, rpDelta) {
+    const cutscene = document.getElementById('outroCutscene');
+    const title = document.getElementById('outroTitle');
+    const points = document.getElementById('outroPointsDisplay');
+    const records = document.getElementById('outroWinsDisplay');
+
+    // Setup presentation parameters matching victory data states
+    if (playerWon) {
+        title.innerText = "🏆 Gauntlet Cleared 🏆";
+        title.style.color = "#2ecc71";
+        points.innerText = `+${rpDelta} Rank Points Synchronized!`;
+        points.style.color = "#ffd700";
+    } else {
+        title.innerText = "💀 Combat Interrupted 💀";
+        title.style.color = "#ff0055";
+        points.innerText = `${rpDelta} Rank Points Deducted.`;
+        points.style.color = "#ff4d4d";
+    }
+
+    records.innerText = `Wins: ${gameState.game_stats.battle_wins} | Losses: ${gameState.game_stats.battle_losses}`;
+    cutscene.classList.add('active');
+}
+
+function dismissOutroCutscene() {
+    document.getElementById('outroCutscene').classList.remove('active');
+    document.getElementById('battleScreen').style.display = 'none';
+    document.getElementById('lobbyScreen').style.display = 'flex';
+    loadArenaConfiguration();
+}
 
 function safeParse(input, fallback) {
     if (!input) return fallback;
@@ -610,7 +712,6 @@ function selectPetForSquad(uid) {
 }
 function removeFromSquad(index) { if (chosenSquadUIDs[index]) { chosenSquadUIDs.splice(index, 1); renderLobbyInterface(); } }
 
-// --- ELEMENTAL DAMAGE ENGINE WITH ADVANCED REACTION CONTROLLERS ---
 function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, moveType) {
     let finalDmg = incomingDmg;
     let reactionLabel = "";
@@ -631,26 +732,22 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
         } else if (currentStatus !== attacker.elem) {
             let combination = [currentStatus, attacker.elem].sort().join('+');
 
-            // 👇 1. WIND ELEMENT REACTION DEPLOYMENT LAYER (SWIRL MECHANIC) 👇
             if (currentStatus === "wind" || attacker.elem === "wind") {
                 let existingAura = (currentStatus === "wind") ? attacker.elem : currentStatus;
                 
                 if (existingAura && existingAura !== "none" && existingAura !== "geo" && existingAura !== "wind") {
                     reactionLabel = "SWIRL! 💨";
                     let swirlColor = MULTIPLIERS[existingAura]?.color || "#ffffff";
-                    
-                    // Wind Swirl spreads damage and the aura to 2 adjacent targets
                     let targetIdx = targetTeam.indexOf(target);
                     let leftIdx = targetIdx - 1;
                     let rightIdx = targetIdx + 1;
-                    
                     let spreadDmg = Math.floor(incomingDmg * (isSplashMove ? 0.3 : 0.6));
                     
                     [leftIdx, rightIdx].forEach(idx => {
                         if (targetTeam[idx] && targetTeam[idx].hp > 0) {
                             let neighbor = targetTeam[idx];
                             neighbor.hp = Math.max(0, neighbor.hp - spreadDmg);
-                            neighbor.statusEffect = existingAura; // Spread status aura
+                            neighbor.statusEffect = existingAura; 
                             
                             setTimeout(() => {
                                 createFloatingText(spreadDmg, swirlColor, `${existingAura.toUpperCase()} SWIRL`, `${targetPrefix}${idx}`);
@@ -659,15 +756,13 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                         }
                     });
                 } 
-                // 👇 WIND + GEO SPECIAL INTERACTION LOOP (DUST STORM)
                 else if (existingAura === "geo") {
                     reactionLabel = "DUST STORM! 🪨💨";
-                    let dustDmg = Math.floor(attacker.dmg * 0.15); // Very low flat baseline damage output
-                    
+                    let dustDmg = Math.floor(attacker.dmg * 0.15);
                     targetTeam.forEach((t, i) => {
                         if (t.hp > 0) {
                             t.hp = Math.max(0, t.hp - dustDmg);
-                            t.statusEffect = "geo"; // Gives all enemies the Geo reaction effect
+                            t.statusEffect = "geo";
                             setTimeout(() => {
                                 createFloatingText(dustDmg, "#e0a96d", "DUST", `${targetPrefix}${i}`);
                                 spawnElementParticles("geo", `${targetPrefix}${i}`);
@@ -677,11 +772,8 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     finalDmg = dustDmg;
                 }
             }
-            // 👇 2. GEO ELEMENT REACTION DEPLOYMENT LAYER (CRYSTALLIZE SHIELDS) 👇
             else if (currentStatus === "geo" || attacker.elem === "geo") {
                 reactionLabel = "CRYSTALLIZE! 🪨";
-                let otherElement = (currentStatus === "geo") ? attacker.elem : currentStatus;
-                
                 attacker.shield = Math.min(attacker.maxHp * 0.5, (attacker.shield || 0) + Math.floor(attacker.dmg * 0.6));
                 let casterIdx = allyTeam.indexOf(attacker);
                 createFloatingText(Math.floor(attacker.dmg * 0.6), "#f1c40f", "SHIELD 🛡️", `${allyPrefix}${casterIdx}`);
@@ -694,7 +786,6 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     }
                 });
             }
-            // --- STANDARD AMPLIFYING ELEMENTAL COMBOS ---
             else if (combination === "cryo+pyro") { // MELT
                 let scalar = isSplashMove ? 1.2 : 2.0; 
                 finalDmg = Math.floor(finalDmg * scalar); 
@@ -761,7 +852,6 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                 reactionLabel = "OVERGROW LOCK! 🌿❄️";
             }
             
-            // Clean state parameters dynamically if Wind didn't consume it directly
             if (currentStatus !== "wind" && attacker.elem !== "wind") {
                 target.statusEffect = null;
             }
@@ -788,7 +878,9 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
 }
 
 function startBattle() {
-    if (chosenSquadUIDs.length === 0) return;
+    document.getElementById('lobbyScreen').style.display = 'none';
+    document.getElementById('battleScreen').style.display = 'flex';
+
     activePlayerTeam = chosenSquadUIDs.map(uid => {
         const baseId = uid.split('::')[0]; const config = PET_SHOP.find(p => p.id === baseId);
         const lvl = Math.floor((gameState.pet_ages[uid] || 0) / 600) + 1;
@@ -803,8 +895,6 @@ function startBattle() {
 
     battleWave = 1; battleRound = 1; isGauntletLive = true;
     userTargetedEnemyIndex = 0; 
-    document.getElementById('lobbyScreen').style.display = 'none';
-    document.getElementById('battleScreen').style.display = 'flex';
     resizeCanvas(); generateWaveOpponents(); drawCombatArenaStage(); processRoundLoopSequence();
 }
 
@@ -1044,7 +1134,7 @@ function executeTurn(moveType) {
         setTimeout(() => { 
             applyElementalDamageAndCheckReactions(activeUnit, target, baseDmg, 'special'); 
             let tIdx = activeEnemyTeam.indexOf(target);
-            document.getElementById(`tIdx`)?.classList.add('anim-hit');
+            document.getElementById(`eRow${tIdx}`)?.classList.add('anim-hit');
         }, 200);
     }
 
@@ -1097,23 +1187,32 @@ function enemyAutomatedAIAction(enemyUnit) {
     }, 800);
 }
 
+// 👇 UPDATED TRANSITION MAPS HANDLING CINEMATIC STATE SWAPS
 function endMatch(isVictory, fled = false) {
     isGauntletLive = false; toggleControls(true);
+    let pointsDelta = 0;
+
     if (fled) {
-        gameState.game_stats.battle_losses++; gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 20);
+        gameState.game_stats.battle_losses++; 
+        pointsDelta = -20;
+        gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points + pointsDelta);
         writeLog("🏃 Abandoned gauntlet match. Lost -20 RP.");
     } else if (isVictory) {
-        gameState.game_stats.battle_wins++; gameState.game_stats.battle_points += 100;
+        gameState.game_stats.battle_wins++; 
+        pointsDelta = 100;
+        gameState.game_stats.battle_points += pointsDelta;
         writeLog("🏆 COMPLETE GAUNTLET CLEAR! Gained +100 Rank Points!");
     } else {
-        gameState.game_stats.battle_losses++; gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points - 15);
+        gameState.game_stats.battle_losses++; 
+        pointsDelta = -15;
+        gameState.game_stats.battle_points = Math.max(0, gameState.game_stats.battle_points + pointsDelta);
         writeLog("💀 DEFEAT! Your lineup fainted. Lost -15 RP.");
     }
+
     saveStateDataPacket();
-    setTimeout(() => {
-        document.getElementById('battleScreen').style.display = 'none'; document.getElementById('lobbyScreen').style.display = 'flex';
-        loadArenaConfiguration();
-    }, 4000);
+    
+    // Launch dynamic summary screen overview
+    triggerOutroCutscene(isVictory && !fled, pointsDelta);
 }
 
 async function saveStateDataPacket() {
