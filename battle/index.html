@@ -22,6 +22,7 @@
             --electro: #b533ff;
             --dendro: #2ecc71;
             --geo: #e0a96d;
+            --wind: #71faca;
             --physical: #ffffff;
             --freeze: #a5f3fc;
         }
@@ -109,6 +110,7 @@
         .elem-badge.electro { background: var(--electro) !important; color: #fff !important; }
         .elem-badge.dendro { background: var(--dendro) !important; color: #fff !important; }
         .elem-badge.geo { background: var(--geo) !important; }
+        .elem-badge.wind { background: var(--wind) !important; }
 
         .rewards-container { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; height: 100%; padding-right: 5px; }
         .reward-row {
@@ -176,7 +178,6 @@
         .player-side .hp-bar { background: linear-gradient(90deg, #2ecc71, #27ae60); }
         .enemy-side .hp-bar { background: linear-gradient(90deg, #e74c3c, #c0392b); }
         
-        /* 👇 NEW SHIELD VISUAL LAYER BAR OVERLAY */
         .shield-bar {
             position: absolute; top: 0; left: 0; height: 100%;
             background: linear-gradient(90deg, #f39c12, #f1c40f);
@@ -302,47 +303,48 @@ const BACKEND_URL = '../backend.php';
 const ASSET_DIR = '../png/';
 
 const PET_SHOP = [
-    { id: "doge", name: "Pixel Doge", icon: "🐕", baseCoin: 9, elem: "geo" }, 
-    { id: "cat", name: "Cyber Kitty", icon: "🐈", baseCoin: 15, elem: "electro" },
+    { id: "doge", name: "Pixel Doge", icon: "🐕", baseCoin: 9, elem: "pyro" }, 
+    { id: "cat", name: "Cyber Kitty", icon: "🐈", baseCoin: 15, elem: "hydro" },
     { id: "frog", name: "Ninja Frog", icon: "🐸", baseCoin: 25, elem: "cryo" }, 
     { id: "mecha_cat", name: "Mecha Cat", icon: "mc.png", baseCoin: 350, elem: "electro" },
     { id: "dragon", name: "Neon Dragon", icon: "🐲", baseCoin: 45, elem: "pyro" },
     { id: "panda", name: "Ghost Panda", icon: "🐼", baseCoin: 367, elem: "cryo" }, 
     { id: "kraken", name: "67 Kraken", icon: "🦑", baseCoin: 265, elem: "hydro" },
-    { id: "midas", name: "King Midas", icon: "King.png", baseCoin: 600, elem: "geo" },
+    { id: "midas", name: "King Midas", icon: "King.png", baseCoin: 600, elem: "pyro" },
     { id: "phoenix", name: "Mythic Phoenix", icon: "phoenix.png", baseCoin: 298, elem: "pyro" }, 
     { id: "griffin", name: "Flaming Griffin", icon: "griffin.png", baseCoin: 628, elem: "pyro" },
     { id: "aerodactylus", name: "Eruption Aerodactylus", icon: "aerodactylus.png", baseCoin: 878, elem: "pyro" }, 
-    { id: "gb", name: "Gem Beast", icon: "gb.png", baseCoin: 600, elem: "geo" },
+    { id: "gb", name: "Gem Beast", icon: "gb.png", baseCoin: 600, elem: "cryo" },
     { id: "hs", name: "Void Hound", icon: "vh.png", baseCoin: 798, elem: "electro" },
     { id: "gs", name: "Glowing Shadow", icon: "gs.png", baseCoin: 198, elem: "electro" },
-    { id: "lt", name: "Living Treasure", icon: "lt.png", baseCoin: 65, elem: "geo" },
-    { id: "lva", name: "Living Vault", icon: "lva.png", baseCoin: 565, elem: "geo" },
+    { id: "lt", name: "Living Treasure", icon: "lt.png", baseCoin: 65, elem: "hydro" },
+    { id: "lva", name: "Living Vault", icon: "lva.png", baseCoin: 565, elem: "cryo" },
     { id: "kitsune", name: "Sakura Kitsune", icon: "kitsune.png", baseCoin: 478, elem: "dendro" },
     { id: "blossom", name: "Elder Sakura Blossom", icon: "blossom.png", baseCoin: 358, elem: "dendro" },
     { id: "katanaspirit", name: "Katana Spirit", icon: "spirit.png", baseCoin: 198, elem: "cryo" },
     { id: "bn", name: "Blossom Ninetails", icon: "blossom_ninetails.png", baseCoin: 838, elem: "dendro" },
-    { id: "crystal_dragon", name: "Crystal Dragon", icon: "crystal_dragon.png", baseCoin: 900, elem: "geo" },
+    { id: "crystal_dragon", name: "Crystal Dragon", icon: "crystal_dragon.png", baseCoin: 900, elem: "hydro" },
     { id: "seed", name: "Mysterious Seed", icon: "seed.png", baseCoin: 60, elem: "dendro" },
     { id: "flytrap", name: "Moonlight Flytrap", icon: "flytrap.png", baseCoin: 655, elem: "dendro" },
     { id: "mboe", name: "Moonlight Beast Of Eclipse", icon: "mboe.png", baseCoin: 1100, elem: "dendro" },
     { id: "virus_kitty", name: "Virus Kitty", icon: "virus_kitty.png", baseCoin: 250, elem: "electro" },
     { id: "artificial_virus", name: "Artificial Virus", icon: "artificial_virus.png", baseCoin: 650, elem: "electro" },
     { id: "claws_machine", name: "Claws Machine", icon: "claws_machine.png", baseCoin: 600, elem: "electro" },
-    { id: "clawed_plushie", name: "Clawed Plushie", icon: "clawed_plushie.png", baseCoin: 950, elem: "electro" },
+    { id: "clawed_plushie", name: "Clawed Plushie", icon: "clawed_plushie.png", baseCoin: 950, elem: "pyro" },
     { id: "digital_minion", name: "Digital Minion", icon: "digital_minion.png", baseCoin: 350, elem: "hydro" },
     { id: "poseidon", name: "Poseidon", icon: "poseidon.png", baseCoin: 700, elem: "hydro" },
     { id: "celebration_monkey", name: "Celebration Monkey", icon: "celebration_monkey.png", baseCoin: 500, elem: "electro" },
     { id: "reaper", name: "Reaper", icon: "reaper.png", baseCoin: 650, elem: "electro" },
     { id: "ember_caterpillar", name: "Ember Caterpillar", icon: "ember_caterpillar.png", baseCoin: 220, elem: "pyro" },
-    { id: "paint_cat", name: "Paint Cat", icon: "paint_cat.png", baseCoin: 330, font: "hydro" },
+    { id: "paint_cat", name: "Paint Cat", icon: "paint_cat.png", baseCoin: 330, elem: "hydro" },
     { id: "dreaming_chick", name: "Dreaming Chick", icon: "dreaming_chick.png", baseCoin: 250, elem: "cryo" },
     { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "nightmare_rooster.png", baseCoin: 450, elem: "pyro" },
     { id: "cat_of_fame", name: "Cat Of Fame", icon: "cat_of_fame.png", baseCoin: 600, elem: "hydro" },
     { id: "overheated_pupa", name: "Overheated Pupa", icon: "overheated_pupa.png", baseCoin: 250, elem: "pyro" },
     { id: "electro_hydra", name: "Electro Hydra", icon: "hydra.png", baseCoin: 800, elem: "electro" },
-    // 👇 ADDED MANUALLY MAPPED UNIQUE GEO PET EXPLICITLY NATIVELY
-    { id: "rocky_golem", name: "Ancient Golem", icon: "🪨", baseCoin: 300, elem: "geo" }
+    { id: "rocky_golem", name: "Ancient Golem", icon: "🪨", baseCoin: 300, elem: "geo" },
+    // 👇 ADDED MANUALLY MAPPED WIND PET ENTITY BLUEPRINTS
+    { id: "wind_spirit", name: "Zephyr Spirit", icon: "💨", baseCoin: 280, elem: "wind" }
 ];
 
 const MULTIPLIERS = {
@@ -351,7 +353,8 @@ const MULTIPLIERS = {
     "cryo": { hp: 16.0, dmg: 1.4, speed: 1.2, color: "#80f3ff" },
     "electro": { hp: 11.0, dmg: 2.0, speed: 2.4, color: "#b533ff" },
     "dendro": { hp: 13.0, dmg: 1.5, speed: 2.0, color: "#2ecc71" },
-    "geo": { hp: 18.0, dmg: 1.4, speed: 1.4, color: "#e0a96d" }, // Solid defensive multipliers
+    "geo": { hp: 18.0, dmg: 1.4, speed: 1.4, color: "#e0a96d" },
+    "wind": { hp: 12.0, dmg: 2.2, speed: 2.5, color: "#71faca" }, // Fast combo engine setup
     "physical": { color: "#ffffff" }
 };
 
@@ -360,8 +363,7 @@ const MINIONS = [
     { name: "Corrupted Script", icon: "📝", elem: "cryo", baseHp: 1000, baseDmg: 100, speed: 10 },
     { name: "Malware Worm", icon: "🐛", elem: "pyro", baseHp: 500, baseDmg: 175, speed: 50 },
     { name: "Data Leak", icon: "💧", elem: "hydro", baseHp: 600, baseDmg: 300, speed: 5 },
-    { name: "Reviving Moss", icon: "🌱", elem: "dendro", baseHp: 900, baseDmg: 135, speed: 8 },
-    { name: "Rolling Rock", icon: "🪨", elem: "geo", baseHp: 1500, baseDmg: 50, speed: 1 }
+    { name: "Reviving Moss", icon: "🌱", elem: "dendro", baseHp: 900, baseDmg: 135, speed: 8 }
 ];
 
 const BOSSES = [
@@ -369,8 +371,7 @@ const BOSSES = [
     { name: "Mecha Cat Annihilator", icon: "mc.png", baseHp: 1400, elem: "electro", baseDmg: 350, speed: 20 },
     { name: "Void Hound Alpha", icon: "vh.png", elem: "electro", baseHp: 1500, baseDmg: 200, speed: 100 },
     { name: "King Midas Avatar", icon: "King.png", elem: "cryo", baseHp: 1500, baseDmg: 500, speed: 18 },
-    { name: "Shadow Of The Moonlight", icon: "mboe.png", elem: "dendro", baseHp: 2000, baseDmg: 175, speed: 30 },
-    { name: "Boulder Golem", icon: "golem.png", elem: "geo", baseHp: 3000, baseDmg: 100, speed: 5 }
+    { name: "Shadow Of The Moonlight", icon: "mboe.png", elem: "dendro", baseHp: 2000, baseDmg: 175, speed: 30 }
 ];
 
 const MILESTONES = [
@@ -629,31 +630,72 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
         } else if (currentStatus !== attacker.elem) {
             let combination = [currentStatus, attacker.elem].sort().join('+');
 
-            // 👇 GEO REACTIONS DETECT LAYER: CRISTALLIZE DEFENSIVE BUFF SHIELDS (No extra damage)
-            if (currentStatus === "geo" || attacker.elem === "geo") {
+            // 👇 1. WIND ELEMENT REACTION DEPLOYMENT LAYER (SWIRL MECHANIC) 👇
+            if (currentStatus === "wind" || attacker.elem === "wind") {
+                let existingAura = (currentStatus === "wind") ? attacker.elem : currentStatus;
+                
+                if (existingAura && existingAura !== "none" && existingAura !== "geo" && existingAura !== "wind") {
+                    reactionLabel = "SWIRL! 💨";
+                    let swirlColor = MULTIPLIERS[existingAura]?.color || "#ffffff";
+                    
+                    // Wind Swirl spreads damage and the aura to 2 adjacent targets
+                    let targetIdx = targetTeam.indexOf(target);
+                    let leftIdx = targetIdx - 1;
+                    let rightIdx = targetIdx + 1;
+                    
+                    let spreadDmg = Math.floor(incomingDmg * (isSplashMove ? 0.3 : 0.6));
+                    
+                    [leftIdx, rightIdx].forEach(idx => {
+                        if (targetTeam[idx] && targetTeam[idx].hp > 0) {
+                            let neighbor = targetTeam[idx];
+                            neighbor.hp = Math.max(0, neighbor.hp - spreadDmg);
+                            neighbor.statusEffect = existingAura; // Spread status aura
+                            
+                            setTimeout(() => {
+                                createFloatingText(spreadDmg, swirlColor, `${existingAura.toUpperCase()} SWIRL`, `${targetPrefix}${idx}`);
+                                spawnElementParticles(existingAura, `${targetPrefix}${idx}`);
+                            }, 150);
+                        }
+                    });
+                } 
+                // 👇 WIND + GEO SPECIAL INTERACTION LOOP (DUST STORM)
+                else if (existingAura === "geo") {
+                    reactionLabel = "DUST STORM! 🪨💨";
+                    let dustDmg = Math.floor(attacker.dmg * 0.15); // Very low flat baseline damage output
+                    
+                    targetTeam.forEach((t, i) => {
+                        if (t.hp > 0) {
+                            t.hp = Math.max(0, t.hp - dustDmg);
+                            t.statusEffect = "geo"; // Gives all enemies the Geo reaction effect
+                            setTimeout(() => {
+                                createFloatingText(dustDmg, "#e0a96d", "DUST", `${targetPrefix}${i}`);
+                                spawnElementParticles("geo", `${targetPrefix}${i}`);
+                            }, i * 50);
+                        }
+                    });
+                    finalDmg = dustDmg;
+                }
+            }
+            // 👇 2. GEO ELEMENT REACTION DEPLOYMENT LAYER (CRYSTALLIZE SHIELDS) 👇
+            else if (currentStatus === "geo" || attacker.elem === "geo") {
                 reactionLabel = "CRYSTALLIZE! 🪨";
                 let otherElement = (currentStatus === "geo") ? attacker.elem : currentStatus;
-                let effectColor = MULTIPLIERS[otherElement]?.color || "#ffd700";
-
-                // 1. Apply absolute shield block capacity to active attacking parent caster
+                
                 attacker.shield = Math.min(attacker.maxHp * 0.5, (attacker.shield || 0) + Math.floor(attacker.dmg * 0.6));
                 let casterIdx = allyTeam.indexOf(attacker);
                 createFloatingText(Math.floor(attacker.dmg * 0.6), "#f1c40f", "SHIELD 🛡️", `${allyPrefix}${casterIdx}`);
 
-                // 2. Distribute immediate health restorations across all non-fainted companions
                 allyTeam.forEach((ally, i) => {
                     if (ally.hp > 0) {
                         let healValue = Math.floor(attacker.dmg * 0.3);
                         ally.hp = Math.min(ally.maxHp, ally.hp + healValue);
-                        setTimeout(() => {
-                            createFloatingText(healValue, "#2ecc71", "HEAL 💖", `${allyPrefix}${i}`);
-                        }, i * 50);
+                        setTimeout(() => { createFloatingText(healValue, "#2ecc71", "HEAL 💖", `${allyPrefix}${i}`); }, i * 50);
                     }
                 });
             }
-            // --- STANDARD DAMAGE AMPLIFYING REACTIONS ---
+            // --- STANDARD AMPLIFYING ELEMENTAL COMBOS ---
             else if (combination === "cryo+pyro") { // MELT
-                let scalar = isSplashMove ? 1.2 : 2.0; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                let scalar = isSplashMove ? 1.2 : 2.0; 
                 finalDmg = Math.floor(finalDmg * scalar); 
                 splashDmg = isSplashMove ? 10 : Math.floor(finalDmg * 0.4);
                 reactionLabel = isSplashMove ? "MELT SPLASH! ⚔️" : "MELT! ⚔️";
@@ -665,12 +707,12 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                 });
             } 
             else if (combination === "hydro+pyro") { // VAPORIZE
-                let scalar = isSplashMove ? 1.3 : 2.5; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                let scalar = isSplashMove ? 1.3 : 2.5; 
                 finalDmg = Math.floor(finalDmg * scalar); 
                 reactionLabel = isSplashMove ? "VAPORIZE SPLASH! 💧" : "VAPORIZE! 💧";
             } 
             else if (combination === "cryo+electro") { // SUPERCONDUCT
-                let scalar = isSplashMove ? 1.1 : 1.5; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                let scalar = isSplashMove ? 1.1 : 1.5; 
                 finalDmg = Math.floor(finalDmg * scalar); 
                 target.speed = Math.max(1, Math.floor(target.speed * (isSplashMove ? 0.75 : 0.5))); 
                 reactionLabel = isSplashMove ? "SUPERCONDUCT SPLASH! ⚡" : "SUPERCONDUCT! ⚡";
@@ -692,7 +734,7 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                 writeLog(`❄️ Dynamic Reaction! <strong>${target.name}</strong> was frozen solid!`);
             }
             else if (combination === "dendro+pyro") { // BURNING
-                let scalar = isSplashMove ? 1.2 : 1.8; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                let scalar = isSplashMove ? 1.2 : 1.8; 
                 finalDmg = Math.floor(finalDmg * scalar);
                 splashDmg = isSplashMove ? 10 : Math.floor(attacker.dmg * 0.5); 
                 reactionLabel = "BURNING! 🔥🌿";
@@ -704,12 +746,12 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                 });
             }
             else if (combination === "dendro+hydro") { // BLOOM
-                let flatBonus = isSplashMove ? 20 : Math.floor(attacker.dmg * 1.2); // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                let flatBonus = isSplashMove ? 20 : Math.floor(attacker.dmg * 1.2); 
                 finalDmg = Math.floor(finalDmg + flatBonus); 
                 reactionLabel = "BLOOM EXPLOSION! 🌿💧";
             }
             else if (combination === "dendro+electro") { // CATALYZE
-                let scalar = isSplashMove ? 1.15 : 1.5; // 🛑 NERFED ATTACK MULTIPLIER ON ELEMENTS SPLASH
+                let scalar = isSplashMove ? 1.15 : 1.5; 
                 attacker.dmg = Math.floor(attacker.dmg * scalar); 
                 reactionLabel = "CATALYZE BUFF! 🌿⚡";
             }
@@ -717,11 +759,14 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                 target.speed = isSplashMove ? Math.max(1, Math.floor(target.speed * 0.6)) : 1;
                 reactionLabel = "OVERGROW LOCK! 🌿❄️";
             }
-            target.statusEffect = null;
+            
+            // Clean state parameters dynamically if Wind didn't consume it directly
+            if (currentStatus !== "wind" && attacker.elem !== "wind") {
+                target.statusEffect = null;
+            }
         }
     }
 
-    // Shield mitigates raw incoming hit value processing
     if (target.shield && target.shield > 0) {
         if (target.shield >= finalDmg) {
             target.shield -= finalDmg;
@@ -786,6 +831,7 @@ function generateWaveOpponents() {
             statusEffect: null, isPlayer: false, isBoss: true, isFrozen: false, cryoSnapshotDmg: 0, shield: 0
         });
     }
+    
     autoSelectNextLivingEnemy();
 }
 
@@ -808,7 +854,7 @@ function drawCombatArenaStage() {
 
     activePlayerTeam.forEach((p, idx) => {
         let pct = (p.hp / p.maxHp) * 100; 
-        let shdPct = ((p.shield || 0) / p.maxHp) * 100; // Shield overlay tracking math
+        let shdPct = ((p.shield || 0) / p.maxHp) * 100; 
         let auraHtml = p.statusEffect ? `<div class="status-dot" style="background:var(--${p.statusEffect})"></div>` : '';
         let frozenClass = p.isFrozen ? 'frozen-stunned' : '';
         pContainer.innerHTML += `<div class="fighter-row ${p.hp <= 0 ? 'fainted' : ''} ${frozenClass}" id="pRow${idx}">
@@ -997,7 +1043,7 @@ function executeTurn(moveType) {
         setTimeout(() => { 
             applyElementalDamageAndCheckReactions(activeUnit, target, baseDmg, 'special'); 
             let tIdx = activeEnemyTeam.indexOf(target);
-            document.getElementById(`eRow${tIdx}`)?.classList.add('anim-hit');
+            document.getElementById(`tIdx`)?.classList.add('anim-hit');
         }, 200);
     }
 
