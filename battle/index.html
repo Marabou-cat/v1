@@ -389,6 +389,15 @@
 const BACKEND_URL = '../backend.php';
 const ASSET_DIR = '../png/';
 
+// --- FIXED: Helper function added for rendering ---
+function parseGraphic(icon) {
+    if (!icon) return '<span>❓</span>';
+    if (icon.toLowerCase().endsWith('.png') || icon.toLowerCase().endsWith('.jpg')) {
+        return `<img src="${ASSET_DIR}${icon}" onerror="this.style.display='none'" />`;
+    }
+    return `<span>${icon}</span>`;
+}
+
 const PET_SHOP = [
     { id: "doge", name: "Pixel Doge", icon: "🐕", baseCoin: 9, elem: "geo" }, 
     { id: "cat", name: "Cyber Kitty", icon: "🐈", baseCoin: 15, elem: "electro" },
@@ -412,7 +421,7 @@ const PET_SHOP = [
     { id: "bn", name: "Blossom Ninetails", icon: "blossom_ninetails.png", baseCoin: 838, elem: "dendro" },
     { id: "crystal_dragon", name: "Crystal Dragon", icon: "crystal_dragon.png", baseCoin: 900, elem: "geo" },
     { id: "seed", name: "Mysterious Seed", icon: "seed.png", baseCoin: 60, elem: "dendro" },
-    { id: "flytrap", name: "Moonlight Flytrap", icon: "flytrap.png", baseCoin: 655, elem: "dendro" }, // FIXED: Changed broken config property back to elem
+    { id: "flytrap", name: "Moonlight Flytrap", icon: "flytrap.png", baseCoin: 655, elem: "dendro" }, 
     { id: "mboe", name: "Moonlight Beast Of Eclipse", icon: "mboe.png", baseCoin: 1100, elem: "dendro" },
     { id: "virus_kitty", name: "Virus Kitty", icon: "virus_kitty.png", baseCoin: 250, elem: "electro" },
     { id: "artificial_virus", name: "Artificial Virus", icon: "artificial_virus.png", baseCoin: 650, elem: "electro" },
@@ -488,6 +497,8 @@ let currentAbilityPoints = 3;
 
 let canvas, ctx;
 let particles = [];
+let attackTurnQueue = [];
+let currentQueueIndex = 0;
 
 function triggerIntroCutscene() {
     if (chosenSquadUIDs.length === 0) return;
@@ -502,15 +513,6 @@ function triggerIntroCutscene() {
         cutscene.classList.remove('active');
         startBattle();
     }, 2100);
-}
-
-function parseGraphic(icon) {
-    // If the icon ends with .png or .jpg, it's an image file
-    if (icon.toLowerCase().endsWith('.png') || icon.toLowerCase().endsWith('.jpg')) {
-        return `<img src="${ASSET_DIR}${icon}" onerror="this.style.display='none'" />`;
-    }
-    // Otherwise, assume it is an emoji
-    return `<span>${icon}</span>`;
 }
 
 function triggerOutroCutscene(playerWon, rpDelta) {
@@ -828,7 +830,7 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     }
                 });
             }
-            else if (combination === "cryo+pyro") { // MELT
+            else if (combination === "cryo+pyro") {
                 let scalar = isSplashMove ? 1.2 : 2.0; 
                 finalDmg = Math.floor(finalDmg * scalar); 
                 splashDmg = isSplashMove ? 10 : Math.floor(finalDmg * 0.4);
@@ -840,18 +842,18 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     }
                 });
             } 
-            else if (combination === "hydro+pyro") { // VAPORIZE
+            else if (combination === "hydro+pyro") {
                 let scalar = isSplashMove ? 1.3 : 2.5; 
                 finalDmg = Math.floor(finalDmg * scalar); 
                 reactionLabel = isSplashMove ? "VAPORIZE SPLASH! 💧" : "VAPORIZE! 💧";
             } 
-            else if (combination === "cryo+electro") { // SUPERCONDUCT
+            else if (combination === "cryo+electro") {
                 let scalar = isSplashMove ? 1.1 : 1.5; 
                 finalDmg = Math.floor(finalDmg * scalar); 
                 target.speed = Math.max(1, Math.floor(target.speed * (isSplashMove ? 0.75 : 0.5))); 
                 reactionLabel = isSplashMove ? "SUPERCONDUCT SPLASH! ⚡" : "SUPERCONDUCT! ⚡";
             } 
-            else if (combination === "electro+pyro") { // OVERLOADED
+            else if (combination === "electro+pyro") {
                 splashDmg = isSplashMove ? 15 : Math.floor(attacker.dmg * 0.8);
                 reactionLabel = isSplashMove ? "OVERLOAD SPLASH! 💥" : "OVERLOADED! 💥";
                 targetTeam.forEach((t, i) => {
@@ -861,13 +863,13 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     }
                 });
             }
-            else if (combination === "cryo+hydro") { // FREEZE
+            else if (combination === "cryo+hydro") {
                 reactionLabel = "FROZEN! ❄️💧";
                 target.isFrozen = true;
                 target.cryoSnapshotDmg = attacker.dmg * (isSplashMove ? 0.5 : 1.0); 
                 writeLog(`❄️ Dynamic Reaction! <strong>${target.name}</strong> was frozen solid!`);
             }
-            else if (combination === "dendro+pyro") { // BURNING
+            else if (combination === "dendro+pyro") {
                 let scalar = isSplashMove ? 1.2 : 1.8; 
                 finalDmg = Math.floor(finalDmg * scalar);
                 splashDmg = isSplashMove ? 10 : Math.floor(attacker.dmg * 0.5); 
@@ -879,17 +881,17 @@ function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, mo
                     }
                 });
             }
-            else if (combination === "dendro+hydro") { // BLOOM
+            else if (combination === "dendro+hydro") {
                 let flatBonus = isSplashMove ? 20 : Math.floor(attacker.dmg * 1.2); 
                 finalDmg = Math.floor(finalDmg + flatBonus); 
                 reactionLabel = "BLOOM EXPLOSION! 🌿💧";
             }
-            else if (combination === "dendro+electro") { // CATALYZE
+            else if (combination === "dendro+electro") {
                 let scalar = isSplashMove ? 1.15 : 1.5; 
                 attacker.dmg = Math.floor(attacker.dmg * scalar); 
                 reactionLabel = "CATALYZE BUFF! 🌿⚡";
             }
-            else if (combination === "cryo+dendro") { // OVERGROW
+            else if (combination === "cryo+dendro") {
                 target.speed = isSplashMove ? Math.max(1, Math.floor(target.speed * 0.6)) : 1;
                 reactionLabel = "OVERGROW LOCK! 🌿❄️";
             }
@@ -1089,7 +1091,6 @@ function handleBossSummonLogic() {
     }
 }
 
-// 👇 FIXED: SUCCESSFULLY INJECTED HIGHLIGTER FUNCTION BLOCK INTO SCOPE
 function highlightActiveUnitRow(unit) {
     let prefix = unit.isPlayer ? 'pRow' : 'eRow';
     let idx = unit.isPlayer ? activePlayerTeam.indexOf(unit) : activeEnemyTeam.indexOf(unit);
