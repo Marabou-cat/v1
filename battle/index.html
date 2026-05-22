@@ -412,7 +412,7 @@ const PET_SHOP = [
     { id: "bn", name: "Blossom Ninetails", icon: "blossom_ninetails.png", baseCoin: 838, elem: "dendro" },
     { id: "crystal_dragon", name: "Crystal Dragon", icon: "crystal_dragon.png", baseCoin: 900, elem: "geo" },
     { id: "seed", name: "Mysterious Seed", icon: "seed.png", baseCoin: 60, elem: "dendro" },
-    { id: "flytrap", name: "Moonlight Flytrap", icon: "flytrap.png", baseCoin: 655, elem: "dendro" },
+    { id: "flytrap", name: "Moonlight Flytrap", icon: "flytrap.png", baseCoin: 655, elem: "dendro" }, // FIXED: Changed broken config property back to elem
     { id: "mboe", name: "Moonlight Beast Of Eclipse", icon: "mboe.png", baseCoin: 1100, elem: "dendro" },
     { id: "virus_kitty", name: "Virus Kitty", icon: "virus_kitty.png", baseCoin: 250, elem: "electro" },
     { id: "artificial_virus", name: "Artificial Virus", icon: "artificial_virus.png", baseCoin: 650, elem: "electro" },
@@ -458,7 +458,7 @@ const BOSSES = [
     { name: "Virus Kitty Overlord", icon: "virus_kitty.png", elem: "hydro", baseHp: 1200, baseDmg: 350, speed: 26 },
     { name: "Mecha Cat Annihilator", icon: "mc.png", baseHp: 1400, elem: "electro", baseDmg: 350, speed: 20 },
     { name: "Void Hound Alpha", icon: "vh.png", elem: "electro", baseHp: 1500, baseDmg: 200, speed: 100 },
-    { name: "King Midas Avatar", icon: "King.png", elem: "cryo", baseHp: 1500, baseDmg: 500, speed: 18 },
+    { name: "King Midas Avatar", icon: "King.png", baseHp: 1500, elem: "cryo", baseDmg: 500, speed: 18 },
     { name: "Shadow Of The Moonlight", icon: "mboe.png", elem: "dendro", baseHp: 2000, baseDmg: 175, speed: 30 }
 ];
 
@@ -488,6 +488,50 @@ let currentAbilityPoints = 3;
 
 let canvas, ctx;
 let particles = [];
+
+function triggerIntroCutscene() {
+    if (chosenSquadUIDs.length === 0) return;
+    const cutscene = document.getElementById('introCutscene');
+    const subtext = document.getElementById('introSubText');
+    cutscene.classList.add('active');
+
+    setTimeout(() => { subtext.innerText = "SYNCHRONIZING SQUAD INVENTORY COMPONENT PACKETS..."; }, 600);
+    setTimeout(() => { subtext.innerText = "GENERATING PROCEDURAL MONSTER GRID LAYOUTS..."; }, 1300);
+
+    setTimeout(() => {
+        cutscene.classList.remove('active');
+        startBattle();
+    }, 2100);
+}
+
+function triggerOutroCutscene(playerWon, rpDelta) {
+    const cutscene = document.getElementById('outroCutscene');
+    const title = document.getElementById('outroTitle');
+    const points = document.getElementById('outroPointsDisplay');
+    const records = document.getElementById('outroWinsDisplay');
+
+    if (playerWon) {
+        title.innerText = "🏆 Gauntlet Cleared 🏆";
+        title.style.color = "#2ecc71";
+        points.innerText = `+${rpDelta} Rank Points Synchronized!`;
+        points.style.color = "#ffd700";
+    } else {
+        title.innerText = "💀 Combat Interrupted 💀";
+        title.style.color = "#ff0055";
+        points.innerText = `${rpDelta} Rank Points Deducted.`;
+        points.style.color = "#ff4d4d";
+    }
+
+    records.innerText = `Wins: ${gameState.game_stats.battle_wins} | Losses: ${gameState.game_stats.battle_losses}`;
+    cutscene.classList.add('active');
+}
+
+function dismissOutroCutscene() {
+    document.getElementById('outroCutscene').classList.remove('active');
+    document.getElementById('battleScreen').style.display = 'none';
+    document.getElementById('lobbyScreen').style.display = 'flex';
+    loadArenaConfiguration();
+}
 
 function safeParse(input, fallback) {
     if (!input) return fallback;
@@ -561,6 +605,137 @@ function createFloatingText(amount, colorCode, labelText, targetRowId) {
     stage.appendChild(textEl);
     setTimeout(() => textEl.remove(), 1600);
 }
+
+async function loadArenaConfiguration() {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    if (!savedUser) {
+        document.getElementById('lockOverlay').style.display = 'flex';
+        return;
+    }
+    const fd = new FormData(); fd.append('action', 'load'); fd.append('username', savedUser);
+    try {
+        const response = await fetch(BACKEND_URL, { method: 'POST', body: fd });
+        const res = await response.json();
+        if (res.success && res.data) {
+            let serverData = res.data;
+            gameState = {
+                coins: parseInt(serverData.coins) || 0, gems: parseInt(serverData.gems) || 0,
+                playtime: parseInt(serverData.playtime) || 0, sakura_coins: parseInt(serverData.sakura_coins) || 0,
+                equipped_cursor: serverData.equipped_cursor || 'def', active_pet: serverData.active_pet || '',
+                prestige_level: parseInt(serverData.prestige_level) || 0, boost_end: parseInt(serverData.boost_end) || 0, boost_cd: parseInt(serverData.boost_cd) || 0,
+                event_tasks: safeParse(serverData.event_tasks, []), owned_cursors: safeParse(serverData.owned_cursors, ["def"]),
+                owned_pets: safeParse(serverData.owned_pets, []), pet_ages: safeParse(serverData.pet_ages, {}),
+                owned_items: safeParse(serverData.owned_items, []), game_stats: safeParse(serverData.game_stats, {})
+            };
+        } else { throw new Error(); }
+    } catch(e) {
+        let raw = localStorage.getItem('schoolExamsGuestState');
+        gameState = raw ? JSON.parse(raw) : { owned_pets: [], pet_ages: {}, game_stats: {} };
+    }
+    if (!gameState.game_stats) gameState.game_stats = {};
+    if (typeof gameState.game_stats.battle_points === 'undefined') gameState.game_stats.battle_points = 0;
+    if (typeof gameState.game_stats.battle_wins === 'undefined') gameState.game_stats.battle_wins = 0;
+    if (typeof gameState.game_stats.battle_losses === 'undefined') gameState.game_stats.battle_losses = 0;
+    if (!gameState.game_stats.claimed_battle_milestones) gameState.game_stats.claimed_battle_milestones = [];
+
+    renderLobbyInterface();
+    buildRewardsRoadUI();
+}
+
+function renderLobbyInterface() {
+    let rp = gameState.game_stats.battle_points;
+    let rank = "Bronze";
+    if (rp >= 150 && rp < 400) rank = "Silver";
+    else if (rp >= 400 && rp < 800) rank = "Gold";
+    else if (rp >= 800 && rp < 1400) rank = "Platinum";
+    else if (rp >= 1400 && rp < 2200) rank = "Diamond";
+    else if (rp >= 2200) rank = "💥 Unstoppable 💥";
+
+    document.getElementById('rankDisplay').innerText = rank;
+    document.getElementById('recordDisplay').innerText = `Wins: ${gameState.game_stats.battle_wins} | Losses: ${gameState.game_stats.battle_losses} (${rp.toLocaleString()} RP)`;
+
+    const grid = document.getElementById('invGrid'); grid.innerHTML = '';
+    if (!gameState.owned_pets || gameState.owned_pets.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1; color:gray; font-size:12px;">No owned combatants.</div>`; return;
+    }
+    gameState.owned_pets.forEach(uid => {
+        const baseId = uid.split('::')[0]; const config = PET_SHOP.find(p => p.id === baseId); if (!config) return;
+        const lvl = Math.floor((gameState.pet_ages[uid] || 0) / 600) + 1; const isSelected = chosenSquadUIDs.includes(uid);
+        const card = document.createElement('div'); card.className = `pet-mini-card ${isSelected ? 'selected-in-team' : ''}`;
+        card.onclick = () => selectPetForSquad(uid);
+        card.innerHTML = `<div class="img-wrap">${parseGraphic(config.icon)}</div>
+            <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; text-align:center;">${config.name}</div>
+            <div style="color:var(--p1)">Lvl ${lvl}</div><span class="elem-badge ${config.elem}">${config.elem}</span>`;
+        grid.appendChild(card);
+    });
+
+    for (let i = 0; i < 3; i++) {
+        const slotEl = document.getElementById(`tSlot${i}`);
+        if (chosenSquadUIDs[i]) {
+            const uid = chosenSquadUIDs[i]; const baseId = uid.split('::')[0]; const config = PET_SHOP.find(p => p.id === baseId);
+            slotEl.className = "team-slot active-filled";
+            slotEl.innerHTML = `<div style="width:45px; height:45px; display:flex; align-items:center; justify-content:center; overflow:hidden;">${parseGraphic(config.icon)}</div>
+                <div style="font-size:10px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:90%; text-align:center;">${config.name}</div>
+                <span class="elem-badge ${config.elem}">${config.elem}</span>`;
+        } else { slotEl.className = "team-slot"; slotEl.innerHTML = `<span>+</span>`; }
+    }
+    document.getElementById('btnStartBattle').disabled = (chosenSquadUIDs.length === 0);
+}
+
+function buildRewardsRoadUI() {
+    const container = document.getElementById('rewardsContainer'); container.innerHTML = '';
+    let currentRP = gameState.game_stats.battle_points || 0;
+    let claimedList = gameState.game_stats.claimed_battle_milestones || [];
+
+    MILESTONES.forEach(m => {
+        const isUnlocked = currentRP >= m.rp; const isClaimed = claimedList.includes(m.rp);
+        let rowClass = "reward-row"; if (isClaimed) rowClass += " claimed"; else if (isUnlocked) rowClass += " unlocked";
+        let btnText = "Locked"; if (isClaimed) btnText = "Claimed ✓"; else if (isUnlocked) btnText = "Claim";
+
+        container.innerHTML += `<div class="${rowClass}"><div class="reward-info"><div class="reward-title">${m.rp} RP Milestone</div>
+                    <div style="font-size:11px; color:#aaa;">${m.desc}</div></div>
+                <button class="btn-claim" ${(!isUnlocked || isClaimed) ? 'disabled' : ''} onclick="claimMilestoneReward(${m.rp})">${btnText}</button></div>`;
+    });
+}
+
+async function claimMilestoneReward(rpTarget) {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser'); if (!savedUser) return;
+    const rewardBlueprint = MILESTONES.find(m => m.rp === rpTarget); if (!rewardBlueprint) return;
+
+    const fd = new FormData(); fd.append('action', 'load'); fd.append('username', savedUser);
+    try {
+        const response = await fetch(BACKEND_URL, { method: 'POST', body: fd });
+        const res = await response.json();
+        if (res.success && res.data) {
+            let freshStats = safeParse(res.data.game_stats, {});
+            let freshClaimed = freshStats.claimed_battle_milestones || [];
+            if (freshClaimed.includes(rpTarget)) { alert("Milestone already secured!"); loadArenaConfiguration(); return; }
+            if ((freshStats.battle_points || 0) < rpTarget) { alert("Discrepancy validation error!"); return; }
+
+            gameState.coins = parseInt(res.data.coins) || 0; gameState.gems = parseInt(res.data.gems) || 0;
+            gameState.owned_pets = safeParse(res.data.owned_pets, []); gameState.pet_ages = safeParse(res.data.pet_ages, {});
+            gameState.game_stats = freshStats; if (!gameState.game_stats.claimed_battle_milestones) gameState.game_stats.claimed_battle_milestones = [];
+
+            if (rewardBlueprint.type === "currency") {
+                gameState.gems += rewardBlueprint.gems; gameState.coins += rewardBlueprint.coins;
+            } else if (rewardBlueprint.type === "pet") {
+                if (gameState.owned_pets.length >= 50) { alert("Stable full!"); return; }
+                let uid = rewardBlueprint.petId + '::' + Date.now() + '_' + Math.floor(Math.random() * 100);
+                gameState.owned_pets.push(uid); gameState.pet_ages[uid] = 0;
+            }
+            gameState.game_stats.claimed_battle_milestones.push(rpTarget);
+            await saveStateDataPacket(); alert("🎉 Reward stored safely on server!"); loadArenaConfiguration();
+        }
+    } catch(err) { alert("Transaction pipeline failed."); }
+}
+
+function selectPetForSquad(uid) {
+    const baseId = uid.split('::')[0]; const config = PET_SHOP.find(p => p.id === baseId); if (!config) return;
+    if (chosenSquadUIDs.includes(uid)) return;
+    if (chosenSquadUIDs.length >= 3) chosenSquadUIDs.shift();
+    chosenSquadUIDs.push(uid); renderLobbyInterface();
+}
+function removeFromSquad(index) { if (chosenSquadUIDs[index]) { chosenSquadUIDs.splice(index, 1); renderLobbyInterface(); } }
 
 function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, moveType) {
     let finalDmg = incomingDmg;
@@ -905,16 +1080,14 @@ function handleBossSummonLogic() {
     }
 }
 
-// 👇 RE-ADDED MISSING HIGHLIGHT ACTIVE SELECTION LOOPS 👇
+// 👇 FIXED: SUCCESSFULLY INJECTED HIGHLIGTER FUNCTION BLOCK INTO SCOPE
 function highlightActiveUnitRow(unit) {
     let prefix = unit.isPlayer ? 'pRow' : 'eRow';
     let idx = unit.isPlayer ? activePlayerTeam.indexOf(unit) : activeEnemyTeam.indexOf(unit);
     
-    // Clear out any old traces of active visual state frames
     for (let i = 0; i < 3; i++) document.getElementById(`pRow${i}`)?.classList.remove('active-turn');
     for (let i = 0; i < 5; i++) document.getElementById(`eRow${i}`)?.classList.remove('active-turn');
     
-    // Attach fresh visual glow outline onto current moving actor row index
     document.getElementById(`${prefix}${idx}`)?.classList.add('active-turn');
 }
 
