@@ -504,6 +504,15 @@ function triggerIntroCutscene() {
     }, 2100);
 }
 
+function parseGraphic(icon) {
+    // If the icon ends with .png or .jpg, it's an image file
+    if (icon.toLowerCase().endsWith('.png') || icon.toLowerCase().endsWith('.jpg')) {
+        return `<img src="${ASSET_DIR}${icon}" onerror="this.style.display='none'" />`;
+    }
+    // Otherwise, assume it is an emoji
+    return `<span>${icon}</span>`;
+}
+
 function triggerOutroCutscene(playerWon, rpDelta) {
     const cutscene = document.getElementById('outroCutscene');
     const title = document.getElementById('outroTitle');
