@@ -154,8 +154,6 @@
         }
         .enemy-side .fighter-row { padding: 4px 8px; cursor: pointer; }
         .fighter-row.active-turn { border-color: var(--p1); box-shadow: 0 0 15px var(--p0); transform: scale(1.02); }
-        
-        /* Interactive Target Crosshair styles with Pointer Indicator */
         .enemy-side .fighter-row.player-targeted { border-color: #ff3838 !important; box-shadow: 0 0 15px rgba(255, 56, 56, 0.6) !important; }
         .enemy-side .fighter-row.player-targeted::before {
             content: "▼"; position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
@@ -425,7 +423,7 @@ const PET_SHOP = [
     { id: "celebration_monkey", name: "Celebration Monkey", icon: "celebration_monkey.png", baseCoin: 500, elem: "wind" },
     { id: "reaper", name: "Reaper", icon: "reaper.png", baseCoin: 650, elem: "electro" },
     { id: "ember_caterpillar", name: "Ember Caterpillar", icon: "ember_caterpillar.png", baseCoin: 220, elem: "pyro" },
-    { id: "paint_cat", name: "Paint Cat", icon: "paint_cat.png", baseCoin: 330, elem: "hydro" }, // FIXED TYPO: changed font back to elem
+    { id: "paint_cat", name: "Paint Cat", icon: "paint_cat.png", baseCoin: 330, elem: "hydro" },
     { id: "dreaming_chick", name: "Dreaming Chick", icon: "dreaming_chick.png", baseCoin: 250, elem: "wind" },
     { id: "nightmare_rooster", name: "Nightmare Rooster", icon: "nightmare_rooster.png", baseCoin: 450, elem: "wind" },
     { id: "cat_of_fame", name: "Cat Of Fame", icon: "cat_of_fame.png", baseCoin: 600, elem: "hydro" },
@@ -485,7 +483,7 @@ let activeEnemyTeam = [];
 let battleWave = 1;
 let battleRound = 1;
 let isGauntletLive = false;
-let userTargetedEnemyIndex = 2; // Fixed targeting: centers index 2 default
+let userTargetedEnemyIndex = 2; 
 let currentAbilityPoints = 3;
 
 let canvas, ctx;
@@ -695,7 +693,6 @@ async function claimMilestoneReward(rpTarget) {
 }
 
 function selectPetForSquad(uid) {
-    // 👇 BUG FIX: Verified configuration logic check prevents execution blockage patterns
     const baseId = uid.split('::')[0];
     const config = PET_SHOP.find(p => p.id === baseId);
     if (!config) return;
@@ -895,7 +892,7 @@ function startBattle() {
     });
 
     battleWave = 1; battleRound = 1; isGauntletLive = true;
-    userTargetedEnemyIndex = 2; // Fixed targeting: centers index 2 default
+    userTargetedEnemyIndex = 2; 
     currentAbilityPoints = 3;   
     document.getElementById('lobbyScreen').style.display = 'none';
     document.getElementById('battleScreen').style.display = 'flex';
@@ -905,6 +902,7 @@ function startBattle() {
 
 function updateAbilityPointsUI() {
     const row = document.getElementById('apSlotsRow');
+    if (!row) return;
     row.innerHTML = '';
     for (let i = 0; i < 5; i++) {
         let isFilled = i < currentAbilityPoints;
@@ -945,7 +943,7 @@ function generateWaveOpponents() {
 }
 
 function setManualTargetEnemy(index) {
-    if (!isGauntletLive || activeEnemyTeam[index].hp <= 0) return;
+    if (!isGauntletLive || !activeEnemyTeam[index] || activeEnemyTeam[index].hp <= 0) return;
     userTargetedEnemyIndex = index;
     drawCombatArenaStage();
 }
@@ -959,6 +957,7 @@ function autoSelectNextLivingEnemy() {
 
 function drawCombatArenaStage() {
     const pContainer = document.getElementById('playerTeamContainer'); const eContainer = document.getElementById('enemyTeamContainer');
+    if (!pContainer || !eContainer) return;
     pContainer.innerHTML = ''; eContainer.innerHTML = '';
 
     activePlayerTeam.forEach((p, idx) => {
@@ -1088,6 +1087,7 @@ function executeNextQueueStep() {
     drawCombatArenaStage();
     highlightActiveUnitRow(activeUnit);
 
+    // 👇 FIXED: Unified validation re-ordering handles frozen state post-wipes perfectly now
     if (activeUnit.isFrozen) {
         activeUnit.isFrozen = false; 
         let shatterDmg = Math.floor(activeUnit.cryoSnapshotDmg * 0.5);
@@ -1123,45 +1123,6 @@ function executeNextQueueStep() {
     }
 }
 
-function enemyAutomatedAIAction(enemyUnit) {
-    let livingPlayerPets = activePlayerTeam.filter(p => p.hp > 0);
-    if (livingPlayerPets.length === 0) return;
-    
-    let eIdx = activeEnemyTeam.indexOf(enemyUnit); 
-    let rowEl = document.getElementById('eRow' + eIdx);
-    rowEl.classList.add('anim-attack-right');
-
-    if (enemyUnit.isBoss) {
-        setTimeout(() => {
-            writeLog(`💥 🚨 <strong>${enemyUnit.name}</strong> unleashes a crushing AOE ultimate attack!`);
-            livingPlayerPets.forEach(target => {
-                let baseDmg = Math.floor(enemyUnit.dmg * (0.75 + Math.random() * 0.25)); 
-                applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special');
-                let pIdx = activePlayerTeam.indexOf(target);
-                document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
-            });
-        }, 200);
-    } else {
-        let target = livingPlayerPets[Math.floor(Math.random() * livingPlayerPets.length)];
-        let baseDmg = Math.floor(enemyUnit.dmg * (0.85 + Math.random() * 0.3));
-        setTimeout(() => { 
-            applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special'); 
-            let pIdx = activePlayerTeam.indexOf(target);
-            document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
-        }, 200);
-    }
-
-    setTimeout(() => { 
-        rowEl.classList.remove('anim-attack-right');
-        activePlayerTeam.forEach(p => {
-            let pIdx = activePlayerTeam.indexOf(p);
-            document.getElementById(`pRow${pIdx}`)?.classList.remove('anim-hit');
-        });
-        currentQueueIndex++; 
-        executeNextQueueStep(); 
-    }, 800);
-}
-
 function executeTurn(moveType) {
     let activeUnit = attackTurnQueue[currentQueueIndex]; 
     toggleControls(true);
@@ -1176,10 +1137,8 @@ function executeTurn(moveType) {
     updateAbilityPointsUI();
 
     if (moveType === 'splash') {
-        // --- ADJACENT NEIGHBOR ELEMENTAL SPLASH MECHANIC (MAX 3 ENEMIES) ---
         setTimeout(() => {
-            writeLog(`💦 <strong>${activeUnit.name}</strong> shoots a concentrated <strong>Elemental Splash</strong> aura across adjacent vectors!`);
-            
+            writeLog(`💦 <strong>${activeUnit.name}</strong> unleashes an extensive <strong>Elemental Splash</strong> aura across the arena!`);
             let centerIdx = userTargetedEnemyIndex;
             let targetIndices = [centerIdx - 1, centerIdx, centerIdx + 1];
             
@@ -1192,8 +1151,7 @@ function executeTurn(moveType) {
                 }
             });
         }, 200);
-    } 
-    else if (moveType === 'physical') {
+    } else if (moveType === 'physical') {
         if (activeEnemyTeam[userTargetedEnemyIndex].hp <= 0) {
             autoSelectNextLivingEnemy();
         }
@@ -1220,8 +1178,7 @@ function executeTurn(moveType) {
             let tIdx = activeEnemyTeam.indexOf(target);
             document.getElementById(`eRow${tIdx}`)?.classList.add('anim-hit');
         }, 200);
-    }
-    else {
+    } else {
         if (activeEnemyTeam[userTargetedEnemyIndex].hp <= 0) {
             autoSelectNextLivingEnemy();
         }
@@ -1237,12 +1194,51 @@ function executeTurn(moveType) {
     }
 
     setTimeout(() => {
-        rowEl.classList.remove('anim-attack-left');
+        if (rowEl) rowEl.classList.remove('anim-attack-left');
         activeEnemyTeam.forEach((e, i) => {
             if (e) document.getElementById(`eRow${i}`)?.classList.remove('anim-hit');
         });
         currentQueueIndex++;
         executeNextQueueStep();
+    }, 800);
+}
+
+function enemyAutomatedAIAction(enemyUnit) {
+    let livingPlayerPets = activePlayerTeam.filter(p => p.hp > 0);
+    if (livingPlayerPets.length === 0) return;
+    
+    let eIdx = activeEnemyTeam.indexOf(enemyUnit); 
+    let rowEl = document.getElementById('eRow' + eIdx);
+    if (rowEl) rowEl.classList.add('anim-attack-right');
+
+    if (enemyUnit.isBoss) {
+        setTimeout(() => {
+            writeLog(`💥 🚨 <strong>${enemyUnit.name}</strong> unleashes a crushing AOE ultimate attack!`);
+            livingPlayerPets.forEach(target => {
+                let baseDmg = Math.floor(enemyUnit.dmg * (0.75 + Math.random() * 0.25)); 
+                applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special');
+                let pIdx = activePlayerTeam.indexOf(target);
+                document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
+            });
+        }, 200);
+    } else {
+        let target = livingPlayerPets[Math.floor(Math.random() * livingPlayerPets.length)];
+        let baseDmg = Math.floor(enemyUnit.dmg * (0.85 + Math.random() * 0.3));
+        setTimeout(() => { 
+            applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special'); 
+            let pIdx = activePlayerTeam.indexOf(target);
+            document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
+        }, 200);
+    }
+
+    setTimeout(() => { 
+        if (rowEl) rowEl.classList.remove('anim-attack-right');
+        activePlayerTeam.forEach(p => {
+            let pIdx = activePlayerTeam.indexOf(p);
+            document.getElementById(`pRow${pIdx}`)?.classList.remove('anim-hit');
+        });
+        currentQueueIndex++; 
+        executeNextQueueStep(); 
     }, 800);
 }
 
