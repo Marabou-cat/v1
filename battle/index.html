@@ -155,7 +155,6 @@
         .enemy-side .fighter-row { padding: 4px 8px; cursor: pointer; }
         .fighter-row.active-turn { border-color: var(--p1); box-shadow: 0 0 15px var(--p0); transform: scale(1.02); }
         
-        /* Crosshair indicator targeting styles */
         .enemy-side .fighter-row.player-targeted { border-color: #ff3838 !important; box-shadow: 0 0 15px rgba(255, 56, 56, 0.6) !important; }
         .enemy-side .fighter-row.player-targeted::before {
             content: "▼"; position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
@@ -203,7 +202,6 @@
             font-size: 13px; color: #fff; line-height: 1.3; box-sizing: border-box;
         }
 
-        /* Ability Points (AP) Display Layout Styles */
         .ap-bar-container { display: flex; align-items: center; gap: 8px; justify-content: center; margin: 2px 0; }
         .ap-title { font-size: 12px; font-weight: bold; text-transform: uppercase; color: var(--p1); }
         .ap-slots-row { display: flex; gap: 6px; }
@@ -259,7 +257,6 @@
         .anim-attack-left { animation: attackLeft 0.3s ease-in-out; }
         .anim-attack-right { animation: attackRight 0.3s ease-in-out; }
 
-        /* CUTSCENE OVERLAY ANIMATION CODES */
         .cutscene-overlay {
             position: fixed; inset: 0; background: #000; z-index: 99999;
             display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -416,7 +413,7 @@ const PET_SHOP = [
     { id: "bn", name: "Blossom Ninetails", icon: "blossom_ninetails.png", baseCoin: 838, elem: "dendro" },
     { id: "crystal_dragon", name: "Crystal Dragon", icon: "crystal_dragon.png", baseCoin: 900, elem: "geo" },
     { id: "seed", name: "Mysterious Seed", icon: "seed.png", baseCoin: 60, elem: "dendro" },
-    { id: "flytrap", name: "Moonlight Flytrap", icon: "flytrap.png", baseCoin: 655, elem: "dendro" },
+    { id: "flytrap", name: "Moonlight Flytrap", icon: "flytrap.png", baseCoin: 655, border: "dendro" },
     { id: "mboe", name: "Moonlight Beast Of Eclipse", icon: "mboe.png", baseCoin: 1100, elem: "dendro" },
     { id: "virus_kitty", name: "Virus Kitty", icon: "virus_kitty.png", baseCoin: 250, elem: "electro" },
     { id: "artificial_virus", name: "Artificial Virus", icon: "artificial_virus.png", baseCoin: 650, elem: "electro" },
@@ -493,10 +490,18 @@ let currentAbilityPoints = 3;
 let canvas, ctx;
 let particles = [];
 
-// --- 👇 EMBEDDED CUTSCENE ENGINE INTERACTIVE HOOKS (SQUASHES F12 BUG FOREVER) ---
+function safeParse(input, fallback) {
+    if (!input) return fallback;
+    if (typeof input === 'object') return input;
+    try {
+        let parsed = JSON.parse(input);
+        if (typeof parsed === 'string') return JSON.parse(parsed);
+        return parsed;
+    } catch(e) { return fallback; }
+}
+
 function triggerIntroCutscene() {
     if (chosenSquadUIDs.length === 0) return;
-    
     const cutscene = document.getElementById('introCutscene');
     const subtext = document.getElementById('introSubText');
     cutscene.classList.add('active');
@@ -506,7 +511,7 @@ function triggerIntroCutscene() {
 
     setTimeout(() => {
         cutscene.classList.remove('active');
-        startBattle(); 
+        startBattle();
     }, 2100);
 }
 
@@ -537,16 +542,6 @@ function dismissOutroCutscene() {
     document.getElementById('battleScreen').style.display = 'none';
     document.getElementById('lobbyScreen').style.display = 'flex';
     loadArenaConfiguration();
-}
-
-function safeParse(input, fallback) {
-    if (!input) return fallback;
-    if (typeof input === 'object') return input;
-    try {
-        let parsed = JSON.parse(input);
-        if (typeof parsed === 'string') return JSON.parse(parsed);
-        return parsed;
-    } catch(e) { return fallback; }
 }
 
 function initParticles() {
@@ -610,6 +605,144 @@ function createFloatingText(amount, colorCode, labelText, targetRowId) {
     textEl.style.left = `${x}px`; textEl.style.top = `${y}px`; textEl.style.transform = 'translate(-50%, -50%)';
     stage.appendChild(textEl);
     setTimeout(() => textEl.remove(), 1600);
+}
+
+async function loadArenaConfiguration() {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser');
+    if (!savedUser) {
+        document.getElementById('lockOverlay').style.display = 'flex';
+        return;
+    }
+    const fd = new FormData(); fd.append('action', 'load'); fd.append('username', savedUser);
+    try {
+        const response = await fetch(BACKEND_URL, { method: 'POST', body: fd });
+        const res = await response.json();
+        if (res.success && res.data) {
+            let serverData = res.data;
+            gameState = {
+                coins: parseInt(serverData.coins) || 0, gems: parseInt(serverData.gems) || 0,
+                playtime: parseInt(serverData.playtime) || 0, sakura_coins: parseInt(serverData.sakura_coins) || 0,
+                equipped_cursor: serverData.equipped_cursor || 'def', active_pet: serverData.active_pet || '',
+                prestige_level: parseInt(serverData.prestige_level) || 0, boost_end: parseInt(serverData.boost_end) || 0, boost_cd: parseInt(serverData.boost_cd) || 0,
+                event_tasks: safeParse(serverData.event_tasks, []), owned_cursors: safeParse(serverData.owned_cursors, ["def"]),
+                owned_pets: safeParse(serverData.owned_pets, []), pet_ages: safeParse(serverData.pet_ages, {}),
+                owned_items: safeParse(serverData.owned_items, []), game_stats: safeParse(serverData.game_stats, {})
+            };
+        } else { throw new Error(); }
+    } catch(e) {
+        let raw = localStorage.getItem('schoolExamsGuestState');
+        gameState = raw ? JSON.parse(raw) : { owned_pets: [], pet_ages: {}, game_stats: {} };
+    }
+    if (!gameState.game_stats) gameState.game_stats = {};
+    if (typeof gameState.game_stats.battle_points === 'undefined') gameState.game_stats.battle_points = 0;
+    if (typeof gameState.game_stats.battle_wins === 'undefined') gameState.game_stats.battle_wins = 0;
+    if (typeof gameState.game_stats.battle_losses === 'undefined') gameState.game_stats.battle_losses = 0;
+    if (!gameState.game_stats.claimed_battle_milestones) gameState.game_stats.claimed_battle_milestones = [];
+
+    renderLobbyInterface();
+    buildRewardsRoadUI();
+}
+
+function renderLobbyInterface() {
+    let rp = gameState.game_stats.battle_points;
+    let rank = "Bronze";
+    if (rp >= 150 && rp < 400) rank = "Silver";
+    else if (rp >= 400 && rp < 800) rank = "Gold";
+    else if (rp >= 800 && rp < 1400) rank = "Platinum";
+    else if (rp >= 1400 && rp < 2200) rank = "Diamond";
+    else if (rp >= 2200) rank = "💥 Unstoppable 💥";
+
+    document.getElementById('rankDisplay').innerText = rank;
+    document.getElementById('recordDisplay').innerText = `Wins: ${gameState.game_stats.battle_wins} | Losses: ${gameState.game_stats.battle_losses} (${rp.toLocaleString()} RP)`;
+
+    const grid = document.getElementById('invGrid'); grid.innerHTML = '';
+    if (!gameState.owned_pets || gameState.owned_pets.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1; color:gray; font-size:12px;">No owned combatants.</div>`; return;
+    }
+    gameState.owned_pets.forEach(uid => {
+        const baseId = uid.split('::')[0]; const config = PET_SHOP.find(p => p.id === baseId); if (!config) return;
+        const lvl = Math.floor((gameState.pet_ages[uid] || 0) / 600) + 1; const isSelected = chosenSquadUIDs.includes(uid);
+        const card = document.createElement('div'); card.className = `pet-mini-card ${isSelected ? 'selected-in-team' : ''}`;
+        card.onclick = () => selectPetForSquad(uid);
+        card.innerHTML = `<div class="img-wrap">${parseGraphic(config.icon)}</div>
+            <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; text-align:center;">${config.name}</div>
+            <div style="color:var(--p1)">Lvl ${lvl}</div><span class="elem-badge ${config.elem}">${config.elem}</span>`;
+        grid.appendChild(card);
+    });
+
+    for (let i = 0; i < 3; i++) {
+        const slotEl = document.getElementById(`tSlot${i}`);
+        if (chosenSquadUIDs[i]) {
+            const uid = chosenSquadUIDs[i]; const baseId = uid.split('::')[0]; const config = PET_SHOP.find(p => p.id === baseId);
+            slotEl.className = "team-slot active-filled";
+            slotEl.innerHTML = `<div style="width:45px; height:45px; display:flex; align-items:center; justify-content:center; overflow:hidden;">${parseGraphic(config.icon)}</div>
+                <div style="font-size:10px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:90%; text-align:center;">${config.name}</div>
+                <span class="elem-badge ${config.elem}">${config.elem}</span>`;
+        } else { slotEl.className = "team-slot"; slotEl.innerHTML = `<span>+</span>`; }
+    }
+    document.getElementById('btnStartBattle').disabled = (chosenSquadUIDs.length === 0);
+}
+
+function buildRewardsRoadUI() {
+    const container = document.getElementById('rewardsContainer'); container.innerHTML = '';
+    let currentRP = gameState.game_stats.battle_points || 0;
+    let claimedList = gameState.game_stats.claimed_battle_milestones || [];
+
+    MILESTONES.forEach(m => {
+        const isUnlocked = currentRP >= m.rp; const isClaimed = claimedList.includes(m.rp);
+        let rowClass = "reward-row"; if (isClaimed) rowClass += " claimed"; else if (isUnlocked) rowClass += " unlocked";
+        let btnText = "Locked"; if (isClaimed) btnText = "Claimed ✓"; else if (isUnlocked) btnText = "Claim";
+
+        container.innerHTML += `<div class="${rowClass}"><div class="reward-info"><div class="reward-title">${m.rp} RP Milestone</div>
+                    <div style="font-size:11px; color:#aaa;">${m.desc}</div></div>
+                <button class="btn-claim" ${(!isUnlocked || isClaimed) ? 'disabled' : ''} onclick="claimMilestoneReward(${m.rp})">${btnText}</button></div>`;
+    });
+}
+
+async function claimMilestoneReward(rpTarget) {
+    const savedUser = localStorage.getItem('schoolExamsSavedUser'); if (!savedUser) return;
+    const rewardBlueprint = MILESTONES.find(m => m.rp === rpTarget); if (!rewardBlueprint) return;
+
+    const fd = new FormData(); fd.append('action', 'load'); fd.append('username', savedUser);
+    try {
+        const response = await fetch(BACKEND_URL, { method: 'POST', body: fd });
+        const res = await response.json();
+        if (res.success && res.data) {
+            let freshStats = safeParse(res.data.game_stats, {});
+            let freshClaimed = freshStats.claimed_battle_milestones || [];
+            if (freshClaimed.includes(rpTarget)) { alert("Milestone already secured!"); loadArenaConfiguration(); return; }
+            if ((freshStats.battle_points || 0) < rpTarget) { alert("Discrepancy validation error!"); return; }
+
+            gameState.coins = parseInt(res.data.coins) || 0; gameState.gems = parseInt(res.data.gems) || 0;
+            gameState.owned_pets = safeParse(res.data.owned_pets, []); gameState.pet_ages = safeParse(res.data.pet_ages, {});
+            gameState.game_stats = freshStats; if (!gameState.game_stats.claimed_battle_milestones) gameState.game_stats.claimed_battle_milestones = [];
+
+            if (rewardBlueprint.type === "currency") {
+                gameState.gems += rewardBlueprint.gems; gameState.coins += rewardBlueprint.coins;
+            } else if (rewardBlueprint.type === "pet") {
+                if (gameState.owned_pets.length >= 50) { alert("Stable full!"); return; }
+                let uid = rewardBlueprint.petId + '::' + Date.now() + '_' + Math.floor(Math.random() * 100);
+                gameState.owned_pets.push(uid); gameState.pet_ages[uid] = 0;
+            }
+            gameState.game_stats.claimed_battle_milestones.push(rpTarget);
+            await saveStateDataPacket(); alert("🎉 Reward stored safely on server!"); loadArenaConfiguration();
+        }
+    } catch(err) { alert("Transaction pipeline failed."); }
+}
+
+function selectPetForSquad(uid) {
+    const baseId = uid.split('::')[0]; const config = PET_SHOP.find(p => p.id === baseId); if (!config) return;
+    if (chosenSquadUIDs.includes(uid)) return;
+    if (chosenSquadUIDs.length >= 3) chosenSquadUIDs.shift();
+    chosenSquadUIDs.push(uid); renderLobbyInterface();
+}
+function removeFromSquad(index) { if (chosenSquadUIDs[index]) { chosenSquadUIDs.splice(index, 1); renderLobbyInterface(); } }
+
+function parseGraphic(iconString) {
+    if (iconString.includes('.png') || iconString.includes('.gif')) {
+        return `<img src="${ASSET_DIR}${iconString}" onerror="this.outerHTML='<span>🐾</span>'">`;
+    }
+    return `<span>${iconString}</span>`;
 }
 
 function applyElementalDamageAndCheckReactions(attacker, target, incomingDmg, moveType) {
@@ -1005,43 +1138,25 @@ function executeNextQueueStep() {
     }
 }
 
-function enemyAutomatedAIAction(enemyUnit) {
-    let livingPlayerPets = activePlayerTeam.filter(p => p.hp > 0);
-    if (livingPlayerPets.length === 0) return;
+function processRoundLoopSequence() {
+    if (!isGauntletLive) return;
     
-    let eIdx = activeEnemyTeam.indexOf(enemyUnit); 
-    let rowEl = document.getElementById('eRow' + eIdx);
-    if (rowEl) rowEl.classList.add('anim-attack-right');
-
-    if (enemyUnit.isBoss) {
-        setTimeout(() => {
-            writeLog(`💥 🚨 <strong>${enemyUnit.name}</strong> unleashes a crushing AOE ultimate attack!`);
-            livingPlayerPets.forEach(target => {
-                let baseDmg = Math.floor(enemyUnit.dmg * (0.75 + Math.random() * 0.25)); 
-                applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special');
-                let pIdx = activePlayerTeam.indexOf(target);
-                document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
-            });
-        }, 200);
-    } else {
-        let target = livingPlayerPets[Math.floor(Math.random() * livingPlayerPets.length)];
-        let baseDmg = Math.floor(enemyUnit.dmg * (0.85 + Math.random() * 0.3));
-        setTimeout(() => { 
-            applyElementalDamageAndCheckReactions(enemyUnit, target, baseDmg, 'special'); 
-            let pIdx = activePlayerTeam.indexOf(target);
-            document.getElementById(`pRow${pIdx}`)?.classList.add('anim-hit');
-        }, 200);
+    if (activePlayerTeam.every(p => p.hp <= 0)) { endMatch(false); return; }
+    if (activeEnemyTeam.every(e => e && e.hp <= 0)) {
+        if (battleWave >= 3) { endMatch(true); } else {
+            battleWave++; battleRound = 1; writeLog(`✨ Wave Defeated! Teleporting inside Wave ${battleWave}...`);
+            generateWaveOpponents(); drawCombatArenaStage(); processRoundLoopSequence();
+        } return;
     }
-
-    setTimeout(() => { 
-        if (rowEl) rowEl.classList.remove('anim-attack-right');
-        activePlayerTeam.forEach(p => {
-            let pIdx = activePlayerTeam.indexOf(p);
-            document.getElementById(`pRow${pIdx}`)?.classList.remove('anim-hit');
-        });
-        currentQueueIndex++; 
-        executeNextQueueStep(); 
-    }, 800);
+    
+    if (battleWave === 3) {
+        handleBossSummonLogic();
+    }
+    
+    attackTurnQueue = [];
+    activePlayerTeam.forEach(p => { if (p.hp > 0) attackTurnQueue.push(p); });
+    activeEnemyTeam.forEach(e => { if (e && e.hp > 0) attackTurnQueue.push(e); });
+    attackTurnQueue.sort((a, b) => b.speed - a.speed); currentQueueIndex = 0; executeNextQueueStep();
 }
 
 function executeTurn(moveType) {
@@ -1110,6 +1225,7 @@ function executeTurn(moveType) {
         setTimeout(() => { 
             applyElementalDamageAndCheckReactions(activeUnit, target, baseDmg, 'special'); 
             let tIdx = activeEnemyTeam.indexOf(target);
+            // 👇 FIXED EXPLICIT STRING BUG REFERENCE HERE:
             document.getElementById(`eRow${tIdx}`)?.classList.add('anim-hit');
         }, 200);
     }
