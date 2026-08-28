@@ -285,7 +285,6 @@
             text-align: center;
         }
 
-        /* --- PITCH BLACK STARTER OVERLAY & NO BLUE BORDERS --- */
         #starterOverlay {
             background: #000000;
             backdrop-filter: blur(10px);
@@ -357,7 +356,6 @@
 
         .starter-card:hover {
             transform: translateY(-8px);
-            border-color: transparent;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
         }
 
@@ -399,7 +397,6 @@
         .type-bubbitty { background: rgba(0, 180, 216, 0.2); color: #00b4d8; border: 1px solid #00b4d8; }
         .type-flaragon { background: rgba(255, 107, 53, 0.2); color: #ff6b35; border: 1px solid #ff6b35; }
 
-        /* --- CONFIRMATION DIALOGUE MODAL --- */
         .confirm-box {
             background: var(--bg1);
             border: 2px solid var(--p1);
@@ -444,24 +441,102 @@
             transition: 0.2s;
         }
 
-        .btn-yes {
-            background: #2ecc71;
+        .btn-yes { background: #2ecc71; color: #fff; }
+        .btn-yes:hover { background: #27ae60; box-shadow: 0 0 15px rgba(46, 204, 113, 0.5); }
+        .btn-no { background: #e74c3c; color: #fff; }
+        .btn-no:hover { background: #c0392b; box-shadow: 0 0 15px rgba(231, 76, 60, 0.5); }
+
+        /* --- POKEMON BATTLE SCREEN CUTSCENE --- */
+        .battle-overlay {
+            position: fixed;
+            inset: 0;
+            background: #111;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 30px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .battle-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Flash Screen Cutscene Animation */
+        @keyframes pokemonFlash {
+            0% { background-color: #fff; }
+            25% { background-color: #000; }
+            50% { background-color: #fff; }
+            75% { background-color: #000; }
+            100% { background-color: #111; }
+        }
+
+        .battle-overlay.flash {
+            animation: pokemonFlash 0.8s ease-in-out;
+        }
+
+        .battle-arena {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            position: relative;
+        }
+
+        .battle-combatant {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .battle-pet-img {
+            width: 140px;
+            height: 140px;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8));
+        }
+
+        .battle-hud {
+            background: rgba(0, 29, 61, 0.9);
+            border: 2px solid var(--p1);
+            padding: 10px 15px;
+            border-radius: 10px;
+            min-width: 180px;
+        }
+
+        .battle-menu-box {
+            background: var(--bg1);
+            border: 3px solid var(--p0);
+            border-radius: var(--r);
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .battle-dialogue {
+            font-size: 16px;
+            font-weight: bold;
             color: #fff;
+            line-height: 1.4;
         }
 
-        .btn-yes:hover {
-            background: #27ae60;
-            box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
-        }
-
-        .btn-no {
-            background: #e74c3c;
-            color: #fff;
-        }
-
-        .btn-no:hover {
-            background: #c0392b;
-            box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
+        .battle-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
         }
 
         /* --- MAIN GAME STYLES --- */
@@ -508,19 +583,19 @@
 
         /* --- GRID MAP SYSTEM STYLES --- */
         .map-container {
-            display: grid;
-            grid-template-columns: repeat(10, 40px);
-            grid-template-rows: repeat(10, 40px);
-            gap: 2px;
+            width: 424px;
+            height: 424px;
             background: #000d1a;
             padding: 6px;
             border: 3px solid var(--p0);
             border-radius: 10px;
             box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
             position: relative;
+            overflow: hidden;
         }
 
         .tile {
+            position: absolute;
             width: 40px;
             height: 40px;
             border-radius: 4px;
@@ -529,7 +604,6 @@
             justify-content: center;
             font-size: 18px;
             user-select: none;
-            position: relative;
         }
 
         .tile-grass { background: #27ae60; }
@@ -549,7 +623,7 @@
             font-size: 14px;
         }
 
-        /* PLAYER: Cube body with stick arms */
+        /* PLAYER: Cube body with smooth positioning */
         .player-cube {
             width: 26px;
             height: 26px;
@@ -559,9 +633,9 @@
             position: absolute;
             z-index: 10;
             box-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
+            transition: transform 0.05s linear;
         }
 
-        /* Left stick arm */
         .player-cube::before {
             content: "";
             position: absolute;
@@ -572,7 +646,6 @@
             background: #000000;
         }
 
-        /* Right stick arm */
         .player-cube::after {
             content: "";
             position: absolute;
@@ -708,6 +781,39 @@
     </div>
 </header>
 
+<!-- POKEMON BATTLE CUTSCENE OVERLAY -->
+<div class="battle-overlay" id="battleOverlay">
+    <div style="text-align: center; font-weight: 900; font-size: 24px; color: var(--p1); letter-spacing: 2px;">WILD ENCOUNTER BATTLE</div>
+    
+    <div class="battle-arena">
+        <!-- Wild Opponent Pet -->
+        <div class="battle-combatant">
+            <div class="battle-hud">
+                <div id="battleWildName" style="font-weight: bold; color: #ff6b35;">Wild Pet</div>
+                <div class="hp-bar-bg"><div id="battleWildHp" class="hp-bar-fill" style="width: 100%;"></div></div>
+            </div>
+            <img id="battleWildImg" src="" alt="Wild Pet" class="battle-pet-img">
+        </div>
+
+        <!-- Player Active Pet -->
+        <div class="battle-combatant" style="align-self: flex-end;">
+            <img id="battlePlayerImg" src="" alt="Player Pet" class="battle-pet-img" style="transform: scaleX(-1);">
+            <div class="battle-hud">
+                <div id="battlePlayerName" style="font-weight: bold; color: var(--p1);">Player Pet</div>
+                <div class="hp-bar-bg"><div id="battlePlayerHp" class="hp-bar-fill" style="width: 100%;"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="battle-menu-box">
+        <div class="battle-dialogue" id="battleDialogueText">A wild pet appeared! What will you do?</div>
+        <div class="battle-actions">
+            <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
+            <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
+        </div>
+    </div>
+</div>
+
 <!-- LOGIN / REGISTER OVERLAY -->
 <div class="modal-overlay hidden" id="loginOverlay">
     <div class="login-box">
@@ -781,7 +887,7 @@
     <div class="location-banner">
         <div>
             <h2 id="locationTitle">📍 Gate 1: Route 1 Map</h2>
-            <p id="locationSubText">Use Arrow Keys or WASD to move around the grid coordinates!</p>
+            <p id="locationSubText">Use Arrow Keys or WASD to smoothly move around the map!</p>
         </div>
         <button class="btn-nav" id="btnSave" onclick="saveGameData()" style="display:none; background:#2ecc71; border-color:#27ae60;">💾 Save Progress</button>
     </div>
@@ -790,10 +896,10 @@
         <div class="viewport-card">
             <!-- 10x10 Coordinate Map Grid -->
             <div class="map-container" id="mapContainer"></div>
-            <div class="controls-hint">🎮 Controls: Arrow Keys or W / A / S / D</div>
+            <div class="controls-hint">🎮 Controls: Arrow Keys or W / A / S / D (Smooth Motion)</div>
 
             <div class="scene-box" id="sceneBox">
-                <div>Welcome Trainer! Walk through 🌿 Tall Grass tiles to encounter wild pets.</div>
+                <div>Welcome Trainer! Walk through 🌿 Tall Grass to smoothly trigger wild encounters.</div>
             </div>
 
             <div class="action-grid">
@@ -822,9 +928,12 @@
     let pendingStarter = null;
     let playerParty = [];
 
-    // --- GRID MAP CONFIGURATION ---
+    // --- CONTINUOUS SMOOTH MOVEMENT STATE ---
     const MAP_SIZE = 10;
-    let playerPos = { x: 1, y: 1 };
+    const TILE_SIZE = 42; // 40px tile + 2px gap
+    let playerPos = { x: 1.0, y: 1.0 }; // Can hold floating point positions between coordinates
+    const moveSpeed = 0.08; // Movement interpolation speed multiplier per frame
+    const keysPressed = {};
 
     // Map Legend: 'grass', 'tall_grass', 'wall'
     const route1Map = [
@@ -844,9 +953,10 @@
         runLoadingSequence();
         initMap();
         setupMovementListeners();
+        requestAnimationFrame(gameLoop);
     });
 
-    // --- MAP RENDER & MOVEMENT ---
+    // --- MAP RENDER & SMOOTH MOVEMENT LOOP ---
     function initMap() {
         const container = document.getElementById('mapContainer');
         container.innerHTML = '';
@@ -856,15 +966,15 @@
                 const tile = document.createElement('div');
                 const tileType = route1Map[r][c];
                 tile.className = `tile tile-${tileType}`;
-                tile.id = `tile-${r}-${c}`;
+                tile.style.top = (r * TILE_SIZE + 6) + 'px';
+                tile.style.left = (c * TILE_SIZE + 6) + 'px';
                 container.appendChild(tile);
             }
         }
-
-        renderPlayer();
+        renderPlayerElement();
     }
 
-    function renderPlayer() {
+    function renderPlayerElement() {
         let playerEl = document.getElementById('playerCube');
         if (!playerEl) {
             playerEl = document.createElement('div');
@@ -873,76 +983,193 @@
             document.getElementById('mapContainer').appendChild(playerEl);
         }
 
-        // 40px tile + 2px gap = 42px spacing offset
-        playerEl.style.top = (playerPos.y * 42 + 13) + 'px';
-        playerEl.style.left = (playerPos.x * 42 + 13) + 'px';
+        // Smooth pixel position offset
+        playerEl.style.top = (playerPos.y * TILE_SIZE + 13) + 'px';
+        playerEl.style.left = (playerPos.x * TILE_SIZE + 13) + 'px';
     }
 
     function setupMovementListeners() {
         window.addEventListener('keydown', (e) => {
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
                 e.preventDefault();
+                keysPressed[e.code] = true;
             }
+        });
 
-            let dx = 0;
-            let dy = 0;
-
-            if (e.code === 'ArrowUp' || e.code === 'KeyW') dy = -1;
-            if (e.code === 'ArrowDown' || e.code === 'KeyS') dy = 1;
-            if (e.code === 'ArrowLeft' || e.code === 'KeyA') dx = -1;
-            if (e.code === 'ArrowRight' || e.code === 'KeyD') dx = 1;
-
-            if (dx !== 0 || dy !== 0) {
-                movePlayer(dx, dy);
+        window.addEventListener('keyup', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+                keysPressed[e.code] = false;
             }
         });
     }
 
-    function movePlayer(dx, dy) {
-        if (!playerParty || playerParty.length === 0) {
-            checkStarterRequirement();
+    function gameLoop() {
+        if (!document.getElementById('battleOverlay').classList.contains('active') && 
+            document.getElementById('starterOverlay').classList.contains('hidden') &&
+            document.getElementById('loginOverlay').classList.contains('hidden')) {
+            
+            let dx = 0;
+            let dy = 0;
+
+            if (keysPressed['ArrowUp'] || keysPressed['KeyW']) dy -= 1;
+            if (keysPressed['ArrowDown'] || keysPressed['KeyS']) dy += 1;
+            if (keysPressed['ArrowLeft'] || keysPressed['KeyA']) dx -= 1;
+            if (keysPressed['ArrowRight'] || keysPressed['KeyD']) dx += 1;
+
+            if (dx !== 0 || dy !== 0) {
+                // Normalize diagonal movement speed vector
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.7071;
+                    dy *= 0.7071;
+                }
+
+                let targetX = playerPos.x + dx * moveSpeed;
+                let targetY = playerPos.y + dy * moveSpeed;
+
+                // Collision Box Buffer Check against map boundaries & wall tiles
+                if (isValidPosition(targetX, targetY)) {
+                    playerPos.x = targetX;
+                    playerPos.y = targetY;
+                    renderPlayerElement();
+                    checkTileEncounter();
+                }
+            }
+        }
+        requestAnimationFrame(gameLoop);
+    }
+
+    function isValidPosition(x, y) {
+        // Check bounding edges
+        if (x < 0.2 || x > MAP_SIZE - 1.2 || y < 0.2 || y > MAP_SIZE - 1.2) return false;
+
+        // Check corner bounding boxes of player against grid wall tiles
+        const radius = 0.25;
+        const checkPoints = [
+            { x: x + radius, y: y + radius },
+            { x: x + 0.8 - radius, y: y + radius },
+            { x: x + radius, y: y + 0.8 - radius },
+            { x: x + 0.8 - radius, y: y + 0.8 - radius }
+        ];
+
+        for (let pt of checkPoints) {
+            let tileX = Math.floor(pt.x + 0.2);
+            let tileY = Math.floor(pt.y + 0.2);
+            if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
+            if (route1Map[tileY][tileX] === 'wall') return false;
+        }
+
+        return true;
+    }
+
+    let encounterCooldown = false;
+    function checkTileEncounter() {
+        if (encounterCooldown) return;
+
+        let currentTileX = Math.floor(playerPos.x + 0.5);
+        let currentTileY = Math.floor(playerPos.y + 0.5);
+
+        if (currentTileX >= 0 && currentTileX < MAP_SIZE && currentTileY >= 0 && currentTileY < MAP_SIZE) {
+            const tileType = route1Map[currentTileY][currentTileX];
+
+            if (tileType === 'tall_grass') {
+                // 1.5% chance per animation frame while walking in tall grass to trigger wild encounter cutscene
+                if (Math.random() < 0.015) {
+                    triggerWildEncounter();
+                }
+            }
+        }
+    }
+
+    // --- POKEMON CUTSCENE BATTLE TRIGGER ---
+    function triggerWildEncounter() {
+        if (!playerParty || playerParty.length === 0) return;
+
+        encounterCooldown = true;
+        const speciesKeys = Object.keys(PETS);
+        const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
+        const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
+        activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
+
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
+
+        // Setup Battle Cutscene Elements
+        document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
+        document.getElementById('battleWildImg').src = `${activeEncounter.id}.png`;
+        document.getElementById('battleWildHp').style.width = '100%';
+
+        document.getElementById('battlePlayerName').innerText = `${activePlayerPet.name} (Lv. ${activePlayerPet.level})`;
+        document.getElementById('battlePlayerImg').src = `${activePlayerPet.id}.png`;
+        document.getElementById('battlePlayerHp').style.width = '100%';
+
+        document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
+
+        const overlay = document.getElementById('battleOverlay');
+        overlay.classList.add('flash');
+        overlay.classList.add('active');
+
+        setTimeout(() => {
+            overlay.classList.remove('flash');
+        }, 800);
+    }
+
+    function executeBattleCatch() {
+        if (!activeEncounter) return;
+
+        if (balls <= 0) {
+            document.getElementById('battleDialogueText').innerText = `❌ You don't have any Catch Balls left!`;
             return;
         }
 
-        const newX = playerPos.x + dx;
-        const newY = playerPos.y + dy;
+        balls--;
+        updateUI();
 
-        if (newX < 0 || newX >= MAP_SIZE || newY < 0 || newY >= MAP_SIZE) return;
+        if (playerParty.length >= 6) {
+            document.getElementById('battleDialogueText').innerText = `⚠️ Your party is full (6/6)! Cannot catch more pets.`;
+            setTimeout(() => endBattle(false), 1500);
+            return;
+        }
 
-        const targetTile = route1Map[newY][newX];
-        if (targetTile === 'wall') return; // Wall Collision
+        if (Math.random() < 0.75) {
+            playerParty.push({
+                id: activeEncounter.id,
+                lvl: activeEncounter.level,
+                hp: activeEncounter.maxHp
+            });
 
-        playerPos.x = newX;
-        playerPos.y = newY;
-        renderPlayer();
+            document.getElementById('battleDialogueText').innerText = `🎉 Gotcha! Successfully caught ${activeEncounter.name}!`;
+            coins += 30;
+            renderParty();
+            updateUI();
+            saveGameData(true);
 
-        onStepTile(targetTile);
-    }
-
-    function onStepTile(tileType) {
-        const scene = document.getElementById('sceneBox');
-        const btnCatch = document.getElementById('btnCatch');
-
-        if (tileType === 'tall_grass') {
-            // 40% Chance for Wild Pet Encounter on Tall Grass Step
-            if (Math.random() < 0.4) {
-                const speciesKeys = Object.keys(PETS);
-                const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
-                const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
-
-                activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
-
-                scene.innerHTML = `⚔️ <strong>Wild Encounter!</strong><br>A wild <span style="color:var(--p1); font-weight:bold;">${activeEncounter.name}</span> (Lv. ${activeEncounter.level}) popped out of the tall grass at coordinate [${playerPos.x}, ${playerPos.y}]!`;
-                btnCatch.disabled = false;
-            } else {
-                scene.innerHTML = `🌿 Rustling grass at coordinate [${playerPos.x}, ${playerPos.y}]... but no pet appeared.`;
-            }
+            setTimeout(() => endBattle(true), 1500);
         } else {
-            scene.innerHTML = `🚶 Moving along Route 1 grid coordinate: [${playerPos.x}, ${playerPos.y}].`;
+            document.getElementById('battleDialogueText').innerText = `💨 Oh no! ${activeEncounter.name} broke free from the ball!`;
+            setTimeout(() => {
+                document.getElementById('battleDialogueText').innerText = `The wild ${activeEncounter.name} counterattacked and fled!`;
+                setTimeout(() => endBattle(false), 1500);
+            }, 1200);
         }
     }
 
-    // --- LOADING SEQUENCE ---
+    function endBattle(isCaptured) {
+        const overlay = document.getElementById('battleOverlay');
+        overlay.classList.remove('active');
+        activeEncounter = null;
+
+        const scene = document.getElementById('sceneBox');
+        if (isCaptured) {
+            scene.innerHTML = `✨ <strong style="color:#2ecc71;">Victory!</strong> Returned safely from battle encounter.`;
+        } else {
+            scene.innerHTML = `🏃 Fled successfully from the wild encounter.`;
+        }
+
+        setTimeout(() => {
+            encounterCooldown = false;
+        }, 2000); // Cooldown to prevent instant re-triggering on the exact same tile
+    }
+
+    // --- LOADING SEQUENCE & AUTH ---
     function runLoadingSequence() {
         const duration = 5000;
         const startTime = Date.now();
@@ -988,7 +1215,6 @@
         }, 500);
     }
 
-    // --- STARTER SELECTION & GAME MECHANICS ---
     function checkStarterRequirement() {
         if (!playerParty || playerParty.length === 0) {
             document.getElementById('starterOverlay').classList.remove('hidden');
@@ -1019,7 +1245,7 @@
             renderParty();
             updateUI();
             
-            document.getElementById('sceneBox').innerHTML = `🎉 Congratulations! You received your starter pet <strong>${pendingStarter.name}</strong>! Use Arrow keys/WASD to explore the map.`;
+            document.getElementById('sceneBox').innerHTML = `🎉 Congratulations! You received your starter pet <strong>${pendingStarter.name}</strong>! Use Arrow keys/WASD to smoothly explore.`;
             
             if (currentUser) {
                 saveGameData(true);
@@ -1048,7 +1274,7 @@
                 renderParty();
                 document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
                 document.getElementById('btnSave').style.display = 'inline-block';
-                document.getElementById('sceneBox').innerHTML = `👋 Welcome back, <strong>${currentUser}</strong>! Use Arrow keys/WASD to explore.`;
+                document.getElementById('sceneBox').innerHTML = `👋 Welcome back, <strong>${currentUser}</strong>!`;
                 return true;
             }
         } catch (err) {
@@ -1150,45 +1376,8 @@
     }
 
     function catchWildPet() {
-        const scene = document.getElementById('sceneBox');
-        const btnCatch = document.getElementById('btnCatch');
-
-        if (!activeEncounter) return;
-
-        if (balls <= 0) {
-            scene.innerHTML = `❌ You don't have any Catch Balls left!`;
-            return;
-        }
-
-        balls--;
-        updateUI();
-
-        if (playerParty.length >= 6) {
-            scene.innerHTML = `⚠️ Your party is full (6/6)! Heal or manage party first.`;
-            btnCatch.disabled = true;
-            return;
-        }
-
-        const catchRate = 0.7; 
-        if (Math.random() < catchRate) {
-            playerParty.push({
-                id: activeEncounter.id,
-                lvl: activeEncounter.level,
-                hp: activeEncounter.maxHp
-            });
-
-            scene.innerHTML = `🎉 <strong>Gotcha!</strong> You successfully caught <span style="color:#2ecc71; font-weight:bold;">${activeEncounter.name}</span>!`;
-            coins += 25;
-            activeEncounter = null;
-            btnCatch.disabled = true;
-            renderParty();
-            updateUI();
-            saveGameData(true);
-        } else {
-            scene.innerHTML = `💨 Oh no! The wild <strong>${activeEncounter.name}</strong> broke free and fled!`;
-            activeEncounter = null;
-            btnCatch.disabled = true;
-        }
+        // Fallback catch button logic
+        triggerWildEncounter();
     }
 
     function visitCenter() {
