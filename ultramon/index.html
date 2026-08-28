@@ -520,23 +520,24 @@
     });
 
     function runLoadingSequence() {
-        let progress = 0;
-        const barFill = document.getElementById('loadingBarFill');
-        const barText = document.getElementById('loadingText');
+    const duration = 5000; // Total loading duration in milliseconds (5 seconds)
+    const startTime = Date.now();
+    const barFill = document.getElementById('loadingBarFill');
+    const barText = document.getElementById('loadingText');
 
-        const interval = setInterval(() => {
-            progress += Math.floor(Math.random() * 8) + 4;
-            if (progress > 100) progress = 100;
+    const interval = setInterval(() => {
+        const elapsedTime = Date.now() - startTime;
+        const progress = Math.min(100, Math.floor((elapsedTime / duration) * 100));
 
-            barFill.style.width = progress + '%';
-            barText.innerText = `CONNECTING TO SERVER... ${progress}%`;
+        barFill.style.width = progress + '%';
+        barText.innerText = `CONNECTING TO SERVER... ${progress}%`;
 
-            if (progress >= 100) {
-                clearInterval(interval);
-                setTimeout(finishLoadingScreen, 300);
-            }
-        }, 50);
-    }
+        if (progress >= 100) {
+            clearInterval(interval);
+            finishLoadingScreen();
+        }
+    }, 30); // Updates every 30ms for smooth progress
+}
 
     async function finishLoadingScreen() {
         const savedUsername = localStorage.getItem('pet_remembered_user');
