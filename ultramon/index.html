@@ -34,6 +34,116 @@
             min-height: 100vh;
         }
 
+        /* --- LOADING SCREEN STYLES --- */
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: linear-gradient(rgba(0, 8, 20, 0.75), rgba(0, 8, 20, 0.85)), 
+                        url('petpng/bg.png') no-repeat center center / cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .loading-screen.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loading-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            max-width: 550px;
+            width: 90%;
+            background: rgba(0, 29, 61, 0.65);
+            padding: 35px 25px;
+            border-radius: 20px;
+            border: 2px solid var(--p0);
+            box-shadow: var(--shadow), var(--glow);
+            backdrop-filter: blur(8px);
+        }
+
+        .loading-title {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--p1);
+            text-shadow: 0 0 15px rgba(144, 224, 239, 0.6);
+            letter-spacing: 2px;
+            margin: 0;
+            text-transform: uppercase;
+        }
+
+        .loading-logo {
+            max-width: 320px;
+            width: 85%;
+            height: auto;
+            filter: drop-shadow(0 0 20px rgba(0, 119, 182, 0.8));
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .loading-bar-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .loading-bar-outer {
+            width: 100%;
+            height: 26px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid var(--p1);
+            border-radius: 13px;
+            overflow: hidden;
+            box-shadow: 0 0 15px rgba(0, 119, 182, 0.5);
+            padding: 2px;
+        }
+
+        /* Blue Animated Striped Loading Bar */
+        .loading-bar-inner {
+            height: 100%;
+            width: 0%;
+            border-radius: 9px;
+            background-color: var(--p0);
+            background-image: linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.35) 25%,
+                transparent 25%,
+                transparent 50%,
+                rgba(255, 255, 255, 0.35) 50%,
+                rgba(255, 255, 255, 0.35) 75%,
+                transparent 75%,
+                transparent
+            );
+            background-size: 30px 30px;
+            animation: moveStripes 1s linear infinite;
+            transition: width 0.08s linear;
+        }
+
+        @keyframes moveStripes {
+            0% { background-position: 0 0; }
+            100% { background-position: 30px 0; }
+        }
+
+        .loading-text {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--p1);
+            letter-spacing: 1px;
+        }
+
+        /* --- GAME MAIN STYLES --- */
         .bg-grid {
             position: fixed;
             inset: 0;
@@ -347,6 +457,20 @@
 </head>
 <body>
 
+<!-- LOADING SCREEN -->
+<div id="loadingScreen" class="loading-screen">
+    <div class="loading-content">
+        <h1 class="loading-title">Pet Catching RPG</h1>
+        <img src="petpng/logo.png" alt="Pet RPG Logo" class="loading-logo">
+        <div class="loading-bar-container">
+            <div class="loading-bar-outer">
+                <div id="loadingBarFill" class="loading-bar-inner"></div>
+            </div>
+            <div id="loadingText" class="loading-text">INITIALIZING GAME SYSTEM... 0%</div>
+        </div>
+    </div>
+</div>
+
 <div class="bg-grid"></div>
 
 <header class="topbar">
@@ -358,7 +482,7 @@
     </div>
 </header>
 
-<div class="login-overlay" id="loginOverlay">
+<div class="login-overlay hidden" id="loginOverlay">
     <div class="login-box">
         <h2>Trainer Portal Access</h2>
         <div id="authError" class="auth-error">Invalid Credentials</div>
@@ -411,7 +535,7 @@
     </div>
 </main>
 
-<!-- Load Pet Specs and Math Formulas from external JS file -->
+<!-- Load Pet Specs from external JS file -->
 <script src="pets.js"></script>
 
 <script>
@@ -421,11 +545,102 @@
     let balls = 5;
     let currentRoute = 1;
     let activeEncounter = null;
+    let autoSaveTimer = null;
     
-    // Minimal stored party array: [{ id: "emberkin", lvl: 5, hp: 45 }]
+    // Minimal stored party array
     let playerParty = [
         { id: "emberkin", lvl: 5, hp: 45 }
     ];
+
+    // --- INITIAL LOADING SEQUENCE ---
+    window.addEventListener('DOMContentLoaded', () => {
+        runLoadingSequence();
+    });
+
+    function runLoadingSequence() {
+        let progress = 0;
+        const barFill = document.getElementById('loadingBarFill');
+        const barText = document.getElementById('loadingText');
+
+        const interval = setInterval(() => {
+            progress += Math.floor(Math.random() * 8) + 4;
+            if (progress > 100) progress = 100;
+
+            barFill.style.width = progress + '%';
+            barText.innerText = `CONNECTING TO SERVER... ${progress}%`;
+
+            if (progress >= 100) {
+                clearInterval(interval);
+                setTimeout(finishLoadingScreen, 300);
+            }
+        }, 50);
+    }
+
+    async function finishLoadingScreen() {
+        const savedUsername = localStorage.getItem('pet_remembered_user');
+
+        if (savedUsername) {
+            // Attempt Auto Login
+            const loggedIn = await attemptAutoLogin(savedUsername);
+            if (loggedIn) {
+                dismissLoadingScreen();
+                startAutoSave();
+                return;
+            }
+        }
+
+        // If not logged in previously or auto login fails
+        dismissLoadingScreen();
+        showLoginOverlay();
+    }
+
+    function dismissLoadingScreen() {
+        const screen = document.getElementById('loadingScreen');
+        screen.classList.add('fade-out');
+        setTimeout(() => {
+            screen.style.display = 'none';
+        }, 500);
+    }
+
+    // --- AUTO LOGIN & SAVE SYSTEM ---
+    async function attemptAutoLogin(username) {
+        const formData = new FormData();
+        formData.append('action', 'load');
+        formData.append('username', username);
+
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                currentUser = result.data.username;
+                coins = parseInt(result.data.coins);
+                balls = parseInt(result.data.balls);
+                currentRoute = parseInt(result.data.current_route);
+                playerParty = result.data.party_data || playerParty;
+
+                updateUI();
+                renderParty();
+                document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
+                document.getElementById('btnSave').style.display = 'inline-block';
+                document.getElementById('sceneBox').innerHTML = `👋 Welcome back, <strong>${currentUser}</strong>! Progress auto-loaded.`;
+                return true;
+            }
+        } catch (err) {
+            console.error("Auto-login error:", err);
+        }
+        return false;
+    }
+
+    function startAutoSave() {
+        if (autoSaveTimer) clearInterval(autoSaveTimer);
+        // Auto-save every 30 seconds
+        autoSaveTimer = setInterval(() => {
+            if (currentUser) {
+                saveGameData(true);
+            }
+        }, 30000);
+    }
 
     // --- AUTHENTICATION ---
     async function performAuth(action, userFieldId, passFieldId) {
@@ -460,11 +675,15 @@
                     currentRoute = parseInt(result.data.current_route);
                     playerParty = result.data.party_data || playerParty;
 
+                    // Store remembered user for auto-login next time
+                    localStorage.setItem('pet_remembered_user', currentUser);
+
                     updateUI();
                     renderParty();
                     document.getElementById('loginOverlay').classList.add('hidden');
                     document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
                     document.getElementById('btnSave').style.display = 'inline-block';
+                    startAutoSave();
                 }
             } else {
                 showError(result.message || "Authentication failed.");
@@ -476,7 +695,7 @@
     }
 
     // --- SAVE PROGRESS ---
-    async function saveGameData() {
+    async function saveGameData(isSilent = false) {
         if (!currentUser) return;
 
         const formData = new FormData();
@@ -491,14 +710,11 @@
             const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
             const result = await response.json();
 
-            if (result.success) {
-                document.getElementById('sceneBox').innerHTML = `✅ <strong style="color:#2ecc71;">Game Progress Saved!</strong>`;
-            } else {
-                alert("Failed to save progress: " + result.message);
+            if (result.success && !isSilent) {
+                document.getElementById('sceneBox').innerHTML = `💾 <strong style="color:#2ecc71;">Game Progress Saved!</strong>`;
             }
         } catch (err) {
             console.error("Save error:", err);
-            alert("Error saving progress to backend.");
         }
     }
 
@@ -523,7 +739,6 @@
             const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
             const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
             
-            // Calculate encounter dynamically using pets.js helper
             activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
 
             scene.innerHTML = `⚔️ <strong>Wild Encounter!</strong><br><br>A wild <span style="color:var(--p1); font-weight:bold;">${activeEncounter.name}</span> (Lv. ${activeEncounter.level}) appeared!`;
@@ -557,7 +772,6 @@
 
         const catchRate = 0.7; 
         if (Math.random() < catchRate) {
-            // Push lightweight record to playerParty
             playerParty.push({
                 id: activeEncounter.id,
                 lvl: activeEncounter.level,
@@ -570,6 +784,7 @@
             btnCatch.disabled = true;
             renderParty();
             updateUI();
+            saveGameData(true); // Auto-save after catching
         } else {
             scene.innerHTML = `💨 Oh no! The wild <strong>${activeEncounter.name}</strong> broke free and fled!`;
             activeEncounter = null;
@@ -584,6 +799,7 @@
         });
         renderParty();
         document.getElementById('sceneBox').innerHTML = `🏥 <strong>Pokémon Center:</strong> All pets in your party have been restored to full health!`;
+        saveGameData(true);
     }
 
     function toggleRoute() {
@@ -602,7 +818,6 @@
         container.innerHTML = '';
 
         playerParty.forEach(petData => {
-            // Compute stats dynamically from pets.js
             const pet = getCalculatedPet(petData);
             if (!pet) return;
 
@@ -636,7 +851,6 @@
         document.getElementById('ballDisplay').innerText = balls;
     }
 
-    // Initial load
     renderParty();
     updateUI();
 </script>
