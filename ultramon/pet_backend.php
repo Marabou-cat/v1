@@ -71,10 +71,8 @@ if ($action === 'register') {
         die(json_encode(["success" => false, "message" => "Username already exists in Pet RPG!"]));
     }
 
-    // Ultra-compact starter party data format
-    $starter_party = [
-        ["id" => "emberkin", "lvl" => 5, "hp" => 45]
-    ];
+    // Set empty party array so the frontend starter selection displays
+    $starter_party = [];
 
     $hashed = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("INSERT INTO petgame_users (username, password, party_data, last_online) VALUES (?, ?, ?, ?)");
