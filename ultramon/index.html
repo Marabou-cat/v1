@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pet Catching RPG - Fixed Hitboxes</title>
+    <title>Pet Catching RPG - Fixed Hitboxes & Sprites</title>
     <style>
         :root {
             --bg0: #000814; 
@@ -322,6 +322,22 @@
             border-radius: 10px;
             padding: 12px;
             margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .pet-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .pet-card-thumb {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
         }
 
         .stat-grid {
@@ -329,7 +345,7 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 6px;
             font-size: 11px;
-            margin-top: 8px;
+            margin-top: 4px;
             background: rgba(0,0,0,0.3);
             padding: 8px;
             border-radius: 6px;
@@ -340,7 +356,7 @@
             height: 8px;
             border-radius: 4px;
             overflow: hidden;
-            margin-top: 6px;
+            margin-top: 4px;
         }
 
         .hp-bar-fill {
@@ -718,23 +734,23 @@
         <p>Before stepping out on your journey, choose your very first partner pet:</p>
         
         <div class="starter-grid">
-            <div class="starter-card" onclick="promptStarterChoice('sproupup', 'Sproupup', 'sproupup.png')">
+            <div class="starter-card" onclick="promptStarterChoice('sproupup', 'Sproupup', 'petpng/sproupup.png')">
                 <div class="starter-light light-sproupup"></div>
-                <img src="sproupup.png" alt="Sproupup" class="starter-img">
+                <img src="petpng/sproupup.png" alt="Sproupup" class="starter-img">
                 <div class="starter-name">Sproupup</div>
                 <div class="starter-type type-sproupup">Grass Type</div>
             </div>
 
-            <div class="starter-card" onclick="promptStarterChoice('bubbitty', 'Bubbitty', 'bubbitty.png')">
+            <div class="starter-card" onclick="promptStarterChoice('bubbitty', 'Bubbitty', 'petpng/bubbitty.png')">
                 <div class="starter-light light-bubbitty"></div>
-                <img src="bubbitty.png" alt="Bubbitty" class="starter-img">
+                <img src="petpng/bubbitty.png" alt="Bubbitty" class="starter-img">
                 <div class="starter-name">Bubbitty</div>
                 <div class="starter-type type-bubbitty">Water Type</div>
             </div>
 
-            <div class="starter-card" onclick="promptStarterChoice('flaragon', 'Flaragon', 'flaragon.png')">
+            <div class="starter-card" onclick="promptStarterChoice('flaragon', 'Flaragon', 'petpng/flaragon.png')">
                 <div class="starter-light light-flaragon"></div>
-                <img src="flaragon.png" alt="Flaragon" class="starter-img">
+                <img src="petpng/flaragon.png" alt="Flaragon" class="starter-img">
                 <div class="starter-name">Flaragon</div>
                 <div class="starter-type type-flaragon">Fire Type</div>
             </div>
@@ -882,19 +898,20 @@
     }
 
     function isValidPosition(x, y) {
-        if (x < 0.2 || x > MAP_SIZE - 1.2 || y < 0.2 || y > MAP_SIZE - 1.2) return false;
+        // Correct bounding box matching the 0.6 tile size and 0.2 tile visual centering offset
+        if (x < 0.0 || x > MAP_SIZE - 0.8 || y < 0.0 || y > MAP_SIZE - 0.8) return false;
 
-        const radius = 0.25;
+        const margin = 0.08;
         const checkPoints = [
-            { x: x + radius, y: y + radius },
-            { x: x + 0.8 - radius, y: y + radius },
-            { x: x + radius, y: y + 0.8 - radius },
-            { x: x + 0.8 - radius, y: y + 0.8 - radius }
+            { x: x + 0.2 + margin, y: y + 0.2 + margin },
+            { x: x + 0.8 - margin, y: y + 0.2 + margin },
+            { x: x + 0.2 + margin, y: y + 0.8 - margin },
+            { x: x + 0.8 - margin, y: y + 0.8 - margin }
         ];
 
         for (let pt of checkPoints) {
-            let tileX = Math.floor(pt.x + 0.2);
-            let tileY = Math.floor(pt.y + 0.2);
+            let tileX = Math.floor(pt.x);
+            let tileY = Math.floor(pt.y);
             if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
             if (route1Map[tileY][tileX] === 'wall') return false;
         }
@@ -955,11 +972,11 @@
         const activePlayerPet = getCalculatedPet(playerParty[0]);
 
         document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
-        document.getElementById('battleWildImg').src = `${activeEncounter.id}.png`;
+        document.getElementById('battleWildImg').src = activeEncounter.img;
         document.getElementById('battleWildHp').style.width = '100%';
 
         document.getElementById('battlePlayerName').innerText = `${activePlayerPet.name} (Lv. ${activePlayerPet.level})`;
-        document.getElementById('battlePlayerImg').src = `${activePlayerPet.id}.png`;
+        document.getElementById('battlePlayerImg').src = activePlayerPet.img;
         document.getElementById('battlePlayerHp').style.width = '100%';
 
         document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
@@ -1249,9 +1266,12 @@
             const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
             container.innerHTML += `
                 <div class="pet-card">
-                    <div style="display:flex; justify-content:space-between; font-weight:bold;">
-                        <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
-                        <span style="color:var(--p1);">${pet.type}</span>
+                    <div class="pet-card-header">
+                        <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
+                        <div style="flex:1; display:flex; justify-content:space-between; font-weight:bold;">
+                            <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
+                            <span style="color:var(--p1);">${pet.type}</span>
+                        </div>
                     </div>
                     <div class="hp-bar-bg">
                         <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
