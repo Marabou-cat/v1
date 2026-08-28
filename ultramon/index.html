@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pet Catching RPG</title>
+    <title>Pet Catching RPG - Tile Map</title>
     <style>
         :root {
             --bg0: #000814; 
@@ -14,7 +14,6 @@
             --p2: #03045e;
             --w: #caf0f8;
             --line: rgba(144, 224, 239, 0.2);
-            --glass: rgba(0, 29, 61, 0.85);
             --shadow: 0 12px 40px rgba(0,0,0,0.7);
             --glow: 0 0 20px rgba(144, 224, 239, 0.3);
             --r: 16px;
@@ -286,16 +285,21 @@
             text-align: center;
         }
 
-        /* --- STARTER PET SELECTION DIALOGUE --- */
+        /* --- PITCH BLACK STARTER OVERLAY & NO BLUE BORDERS --- */
+        #starterOverlay {
+            background: #000000;
+            backdrop-filter: blur(10px);
+        }
+
         .starter-box {
-            background: var(--bg1);
-            border: 2px solid var(--p1);
+            background: #090a0f;
+            border: none;
             border-radius: var(--r);
             padding: 30px;
             width: 100%;
             max-width: 850px;
             text-align: center;
-            box-shadow: var(--shadow), var(--glow);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.95);
         }
 
         .starter-box h2 {
@@ -319,20 +323,19 @@
         }
 
         .starter-card {
-            background: rgba(0, 29, 61, 0.7);
-            border: 2px solid var(--p2);
+            background: rgba(255, 255, 255, 0.03);
+            border: none;
             border-radius: 16px;
             padding: 20px 15px;
             cursor: pointer;
             position: relative;
-            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
             display: flex;
             flex-direction: column;
             align-items: center;
             overflow: hidden;
         }
 
-        /* Spotlight effect on pets */
         .starter-light {
             position: absolute;
             top: 40%;
@@ -354,8 +357,8 @@
 
         .starter-card:hover {
             transform: translateY(-8px);
-            border-color: var(--p1);
-            box-shadow: 0 10px 25px rgba(144, 224, 239, 0.3);
+            border-color: transparent;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
         }
 
         .starter-card:hover .starter-light {
@@ -464,7 +467,7 @@
         /* --- MAIN GAME STYLES --- */
         .main-game {
             padding: 90px 20px 40px;
-            max-width: 1100px;
+            max-width: 1150px;
             margin: 0 auto;
             display: flex;
             flex-direction: column;
@@ -497,25 +500,109 @@
             border: 2px solid var(--line);
             border-radius: var(--r);
             padding: 20px;
-            min-height: 420px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* --- GRID MAP SYSTEM STYLES --- */
+        .map-container {
+            display: grid;
+            grid-template-columns: repeat(10, 40px);
+            grid-template-rows: repeat(10, 40px);
+            gap: 2px;
+            background: #000d1a;
+            padding: 6px;
+            border: 3px solid var(--p0);
+            border-radius: 10px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        .tile {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            user-select: none;
+            position: relative;
+        }
+
+        .tile-grass { background: #27ae60; }
+        .tile-tall_grass { background: #1e8449; }
+        .tile-tall_grass::after {
+            content: "🌿";
+            font-size: 16px;
+            opacity: 0.7;
+        }
+
+        .tile-wall {
+            background: #4a5568;
+            border: 1px solid #2d3748;
+        }
+        .tile-wall::after {
+            content: "🪨";
+            font-size: 14px;
+        }
+
+        /* PLAYER: Cube body with stick arms */
+        .player-cube {
+            width: 26px;
+            height: 26px;
+            background: #e74c3c;
+            border: 2px solid #ffffff;
+            border-radius: 4px;
+            position: absolute;
+            z-index: 10;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
+        }
+
+        /* Left stick arm */
+        .player-cube::before {
+            content: "";
+            position: absolute;
+            left: -8px;
+            top: 10px;
+            width: 8px;
+            height: 3px;
+            background: #000000;
+        }
+
+        /* Right stick arm */
+        .player-cube::after {
+            content: "";
+            position: absolute;
+            right: -8px;
+            top: 10px;
+            width: 8px;
+            height: 3px;
+            background: #000000;
+        }
+
+        .controls-hint {
+            font-size: 13px;
+            color: var(--p1);
+            font-weight: bold;
         }
 
         .scene-box {
             background: rgba(0,0,0,0.4);
             border: 1px solid var(--p2);
             border-radius: 12px;
-            padding: 20px;
-            min-height: 200px;
+            padding: 15px;
+            width: 100%;
+            min-height: 90px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
-            font-size: 18px;
-            line-height: 1.5;
+            font-size: 15px;
+            line-height: 1.4;
         }
 
         .team-panel {
@@ -563,16 +650,16 @@
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 10px;
-            margin-top: 15px;
+            width: 100%;
         }
 
         .btn-action {
             background: var(--bg2);
             border: 1px solid var(--p0);
             color: #fff;
-            padding: 14px;
+            padding: 12px;
             border-radius: 10px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
             transition: 0.2s;
@@ -599,7 +686,7 @@
 </head>
 <body>
 
-<!-- FULLSCREEN ROCO KINGDOM STYLE LOADING SCREEN -->
+<!-- FULLSCREEN LOADING SCREEN -->
 <div id="loadingScreen" class="loading-screen">
     <div class="loading-bar-container">
         <div class="loading-bar-outer">
@@ -652,7 +739,6 @@
         <p>Before stepping out on your journey, choose your very first partner pet:</p>
         
         <div class="starter-grid">
-            <!-- Sproupup -->
             <div class="starter-card" onclick="promptStarterChoice('sproupup', 'Sproupup', 'sproupup.png')">
                 <div class="starter-light light-sproupup"></div>
                 <img src="sproupup.png" alt="Sproupup" class="starter-img">
@@ -660,7 +746,6 @@
                 <div class="starter-type type-sproupup">Grass Type</div>
             </div>
 
-            <!-- Bubbitty -->
             <div class="starter-card" onclick="promptStarterChoice('bubbitty', 'Bubbitty', 'bubbitty.png')">
                 <div class="starter-light light-bubbitty"></div>
                 <img src="bubbitty.png" alt="Bubbitty" class="starter-img">
@@ -668,7 +753,6 @@
                 <div class="starter-type type-bubbitty">Water Type</div>
             </div>
 
-            <!-- Flaragon -->
             <div class="starter-card" onclick="promptStarterChoice('flaragon', 'Flaragon', 'flaragon.png')">
                 <div class="starter-light light-flaragon"></div>
                 <img src="flaragon.png" alt="Flaragon" class="starter-img">
@@ -696,23 +780,25 @@
 <main class="main-game">
     <div class="location-banner">
         <div>
-            <h2 id="locationTitle">📍 Gate 1: Starting Town</h2>
-            <p id="locationSubText">Rest up or head out onto the routes to encounter wild pets!</p>
+            <h2 id="locationTitle">📍 Gate 1: Route 1 Map</h2>
+            <p id="locationSubText">Use Arrow Keys or WASD to move around the grid coordinates!</p>
         </div>
         <button class="btn-nav" id="btnSave" onclick="saveGameData()" style="display:none; background:#2ecc71; border-color:#27ae60;">💾 Save Progress</button>
     </div>
 
     <div class="game-layout">
         <div class="viewport-card">
+            <!-- 10x10 Coordinate Map Grid -->
+            <div class="map-container" id="mapContainer"></div>
+            <div class="controls-hint">🎮 Controls: Arrow Keys or W / A / S / D</div>
+
             <div class="scene-box" id="sceneBox">
-                <div>Welcome Trainer! Log in to save your game, or start exploring immediately.</div>
+                <div>Welcome Trainer! Walk through 🌿 Tall Grass tiles to encounter wild pets.</div>
             </div>
 
-            <div class="action-grid" id="actionGrid">
-                <button class="btn-action" onclick="exploreRoute()">🌿 Explore Tall Grass</button>
+            <div class="action-grid">
                 <button class="btn-action" onclick="visitCenter()">🏥 Pokémon Center</button>
                 <button class="btn-action" id="btnCatch" onclick="catchWildPet()" disabled>🎾 Catch Wild Pet</button>
-                <button class="btn-action" id="btnGate2" onclick="toggleRoute()">🚪 Travel to Gate 2</button>
             </div>
         </div>
 
@@ -723,7 +809,6 @@
     </div>
 </main>
 
-<!-- Load Pet Specs from external JS file -->
 <script src="pets.js"></script>
 
 <script>
@@ -734,17 +819,132 @@
     let currentRoute = 1;
     let activeEncounter = null;
     let autoSaveTimer = null;
-    let pendingStarter = null; // Stores temporary pet choice
-    
+    let pendingStarter = null;
     let playerParty = [];
 
-    // --- 5-SECOND LOADING SEQUENCE ---
+    // --- GRID MAP CONFIGURATION ---
+    const MAP_SIZE = 10;
+    let playerPos = { x: 1, y: 1 };
+
+    // Map Legend: 'grass', 'tall_grass', 'wall'
+    const route1Map = [
+        ['wall', 'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall'],
+        ['wall', 'grass',      'grass',      'tall_grass', 'tall_grass', 'grass',      'grass',      'grass',      'grass',      'wall'],
+        ['wall', 'grass',      'wall',       'wall',       'tall_grass', 'grass',      'wall',       'wall',       'grass',      'wall'],
+        ['wall', 'tall_grass', 'wall',       'grass',      'grass',      'grass',      'grass',      'wall',       'tall_grass', 'wall'],
+        ['wall', 'tall_grass', 'grass',      'grass',      'tall_grass', 'tall_grass', 'grass',      'grass',      'tall_grass', 'wall'],
+        ['wall', 'grass',      'grass',      'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass',      'grass',      'wall'],
+        ['wall', 'grass',      'wall',       'tall_grass', 'grass',      'grass',      'tall_grass', 'wall',       'grass',      'wall'],
+        ['wall', 'grass',      'wall',       'grass',      'grass',      'grass',      'grass',      'wall',       'grass',      'wall'],
+        ['wall', 'grass',      'grass',      'grass',      'tall_grass', 'tall_grass', 'grass',      'grass',      'grass',      'wall'],
+        ['wall', 'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall']
+    ];
+
     window.addEventListener('DOMContentLoaded', () => {
         runLoadingSequence();
+        initMap();
+        setupMovementListeners();
     });
 
+    // --- MAP RENDER & MOVEMENT ---
+    function initMap() {
+        const container = document.getElementById('mapContainer');
+        container.innerHTML = '';
+
+        for (let r = 0; r < MAP_SIZE; r++) {
+            for (let c = 0; c < MAP_SIZE; c++) {
+                const tile = document.createElement('div');
+                const tileType = route1Map[r][c];
+                tile.className = `tile tile-${tileType}`;
+                tile.id = `tile-${r}-${c}`;
+                container.appendChild(tile);
+            }
+        }
+
+        renderPlayer();
+    }
+
+    function renderPlayer() {
+        let playerEl = document.getElementById('playerCube');
+        if (!playerEl) {
+            playerEl = document.createElement('div');
+            playerEl.id = 'playerCube';
+            playerEl.className = 'player-cube';
+            document.getElementById('mapContainer').appendChild(playerEl);
+        }
+
+        // 40px tile + 2px gap = 42px spacing offset
+        playerEl.style.top = (playerPos.y * 42 + 13) + 'px';
+        playerEl.style.left = (playerPos.x * 42 + 13) + 'px';
+    }
+
+    function setupMovementListeners() {
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+                e.preventDefault();
+            }
+
+            let dx = 0;
+            let dy = 0;
+
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') dy = -1;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') dy = 1;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') dx = -1;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') dx = 1;
+
+            if (dx !== 0 || dy !== 0) {
+                movePlayer(dx, dy);
+            }
+        });
+    }
+
+    function movePlayer(dx, dy) {
+        if (!playerParty || playerParty.length === 0) {
+            checkStarterRequirement();
+            return;
+        }
+
+        const newX = playerPos.x + dx;
+        const newY = playerPos.y + dy;
+
+        if (newX < 0 || newX >= MAP_SIZE || newY < 0 || newY >= MAP_SIZE) return;
+
+        const targetTile = route1Map[newY][newX];
+        if (targetTile === 'wall') return; // Wall Collision
+
+        playerPos.x = newX;
+        playerPos.y = newY;
+        renderPlayer();
+
+        onStepTile(targetTile);
+    }
+
+    function onStepTile(tileType) {
+        const scene = document.getElementById('sceneBox');
+        const btnCatch = document.getElementById('btnCatch');
+
+        if (tileType === 'tall_grass') {
+            // 40% Chance for Wild Pet Encounter on Tall Grass Step
+            if (Math.random() < 0.4) {
+                const speciesKeys = Object.keys(PETS);
+                const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
+                const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
+
+                activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
+
+                scene.innerHTML = `⚔️ <strong>Wild Encounter!</strong><br>A wild <span style="color:var(--p1); font-weight:bold;">${activeEncounter.name}</span> (Lv. ${activeEncounter.level}) popped out of the tall grass at coordinate [${playerPos.x}, ${playerPos.y}]!`;
+                btnCatch.disabled = false;
+            } else {
+                scene.innerHTML = `🌿 Rustling grass at coordinate [${playerPos.x}, ${playerPos.y}]... but no pet appeared.`;
+            }
+        } else {
+            scene.innerHTML = `🚶 Moving along Route 1 grid coordinate: [${playerPos.x}, ${playerPos.y}].`;
+        }
+    }
+
+    // --- LOADING SEQUENCE ---
     function runLoadingSequence() {
-        const duration = 5000; // Exactly 5 seconds loading duration
+        const duration = 5000;
         const startTime = Date.now();
         const barFill = document.getElementById('loadingBarFill');
         const barText = document.getElementById('loadingText');
@@ -767,7 +967,6 @@
         const savedUsername = localStorage.getItem('pet_remembered_user');
 
         if (savedUsername) {
-            // Attempt Auto Login
             const loggedIn = await attemptAutoLogin(savedUsername);
             if (loggedIn) {
                 dismissLoadingScreen();
@@ -777,7 +976,6 @@
             }
         }
 
-        // If not logged in previously or auto login fails
         dismissLoadingScreen();
         showLoginOverlay();
     }
@@ -790,7 +988,7 @@
         }, 500);
     }
 
-    // --- CHECK & SHOW STARTER SELECTION ---
+    // --- STARTER SELECTION & GAME MECHANICS ---
     function checkStarterRequirement() {
         if (!playerParty || playerParty.length === 0) {
             document.getElementById('starterOverlay').classList.remove('hidden');
@@ -810,7 +1008,6 @@
         document.getElementById('confirmOverlay').classList.add('hidden');
 
         if (isYes && pendingStarter) {
-            // Grant chosen starter pet
             playerParty = [{
                 id: pendingStarter.id,
                 lvl: 5,
@@ -818,10 +1015,11 @@
             }];
 
             document.getElementById('starterOverlay').classList.add('hidden');
+            document.getElementById('loginOverlay').classList.add('hidden');
             renderParty();
             updateUI();
             
-            document.getElementById('sceneBox').innerHTML = `🎉 Congratulations! You received your starter pet <strong>${pendingStarter.name}</strong>!`;
+            document.getElementById('sceneBox').innerHTML = `🎉 Congratulations! You received your starter pet <strong>${pendingStarter.name}</strong>! Use Arrow keys/WASD to explore the map.`;
             
             if (currentUser) {
                 saveGameData(true);
@@ -830,7 +1028,6 @@
         pendingStarter = null;
     }
 
-    // --- AUTO LOGIN & SAVE SYSTEM ---
     async function attemptAutoLogin(username) {
         const formData = new FormData();
         formData.append('action', 'load');
@@ -851,7 +1048,7 @@
                 renderParty();
                 document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
                 document.getElementById('btnSave').style.display = 'inline-block';
-                document.getElementById('sceneBox').innerHTML = `👋 Welcome back, <strong>${currentUser}</strong>!`;
+                document.getElementById('sceneBox').innerHTML = `👋 Welcome back, <strong>${currentUser}</strong>! Use Arrow keys/WASD to explore.`;
                 return true;
             }
         } catch (err) {
@@ -869,7 +1066,6 @@
         }, 30000);
     }
 
-    // --- AUTHENTICATION ---
     async function performAuth(action, userFieldId, passFieldId) {
         const username = document.getElementById(userFieldId).value.trim();
         const password = document.getElementById(passFieldId).value.trim();
@@ -919,7 +1115,6 @@
         }
     }
 
-    // --- SAVE PROGRESS ---
     async function saveGameData(isSilent = false) {
         if (!currentUser) return;
 
@@ -952,32 +1147,6 @@
 
     function showLoginOverlay() {
         document.getElementById('loginOverlay').classList.remove('hidden');
-    }
-
-    // --- GAMEPLAY MECHANICS ---
-    function exploreRoute() {
-        if (!playerParty || playerParty.length === 0) {
-            checkStarterRequirement();
-            return;
-        }
-
-        const scene = document.getElementById('sceneBox');
-        const btnCatch = document.getElementById('btnCatch');
-
-        if (Math.random() > 0.3) {
-            const speciesKeys = Object.keys(PETS);
-            const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
-            const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
-            
-            activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
-
-            scene.innerHTML = `⚔️ <strong>Wild Encounter!</strong><br><br>A wild <span style="color:var(--p1); font-weight:bold;">${activeEncounter.name}</span> (Lv. ${activeEncounter.level}) appeared!`;
-            btnCatch.disabled = false;
-        } else {
-            activeEncounter = null;
-            scene.innerHTML = `🌿 You explored Route ${currentRoute}. The tall grass rustled, but no wild pets were found.`;
-            btnCatch.disabled = true;
-        }
     }
 
     function catchWildPet() {
@@ -1027,23 +1196,13 @@
         
         playerParty.forEach(pet => {
             const calculated = getCalculatedPet(pet);
-            pet.hp = calculated.maxHp;
+            if (calculated) pet.hp = calculated.maxHp;
         });
         renderParty();
         document.getElementById('sceneBox').innerHTML = `🏥 <strong>Pokémon Center:</strong> All pets in your party have been restored to full health!`;
         saveGameData(true);
     }
 
-    function toggleRoute() {
-        currentRoute = currentRoute === 1 ? 2 : 1;
-        document.getElementById('locationTitle').innerText = `📍 Gate ${currentRoute}: Route Center`;
-        document.getElementById('btnGate2').innerText = `🚪 Travel to Gate ${currentRoute === 1 ? 2 : 1}`;
-        document.getElementById('sceneBox').innerText = `You crossed the gate into Route ${currentRoute}.`;
-        activeEncounter = null;
-        document.getElementById('btnCatch').disabled = true;
-    }
-
-    // --- RENDER FUNCTIONS ---
     function renderParty() {
         const container = document.getElementById('teamContainer');
         document.getElementById('partyCount').innerText = playerParty.length;
