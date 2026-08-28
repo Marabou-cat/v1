@@ -3,7 +3,7 @@ session_start();
 header('Content-Type: application/json');
 
 // --- 1. CONFIG & CONNECTION (SCHOOLEXAMS DB) ---
-$config_file = '../config.ini'; 
+$config_file = 'config.ini'; 
 if (!file_exists($config_file)) {
     die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing."]));
 }
@@ -14,17 +14,19 @@ if (count($lines) < 2) {
 }
 
 $db_host = 'localhost';
-$db_name = 'schoolexams'; // Reverted back to schoolexams
+$db_name = 'schoolexams'; 
 $db_user = trim($lines[0]); 
 $db_pass = trim($lines[1]); 
 
 try {
-    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass, [
+    $pdo = new PDO("mysql:host=$db_host;charset=utf8mb4", $db_user, $db_pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
     
-    // Automatically create the dedicated petgame_users table inside schoolexams
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $pdo->exec("USE `$db_name`");
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS `petgame_users` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `username` VARCHAR(50) NOT NULL UNIQUE,
@@ -69,19 +71,9 @@ if ($action === 'register') {
         die(json_encode(["success" => false, "message" => "Username already exists in Pet RPG!"]));
     }
 
+    // Ultra-compact starter party data format
     $starter_party = [
-        [
-            "name" => "Emberkin",
-            "level" => 5,
-            "hp" => 45,
-            "currentHp" => 45,
-            "attack" => 52,
-            "defense" => 43,
-            "spAttack" => 60,
-            "spDefense" => 50,
-            "speed" => 65,
-            "type" => "Fire"
-        ]
+        ["id" => "emberkin", "lvl" => 5, "hp" => 45]
     ];
 
     $hashed = password_hash($password, PASSWORD_DEFAULT);
