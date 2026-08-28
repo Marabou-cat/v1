@@ -1,1 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Catching RPG</title>
+    <style>
+        :root {
+            --bg0: #000814; 
+            --bg1: #001d3d; 
+            --bg2: #003566;
+            --p0: #0077b6; 
+            --p1: #90e0ef; 
+            --p2: #03045e;
+            --w: #caf0f8;
+            --line: rgba(144, 224, 239, 0.2);
+            --glass: rgba(0, 29, 61, 0.85);
+            --shadow: 0 12px 40px rgba(0,0,0,0.7);
+            --glow: 0 0 20px rgba(144, 224, 239, 0.3);
+            --r: 16px;
+            --hp-green: #2ecc71;
+            --gold: #ffd700;
+        }
 
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg0);
+            color: var(--w);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* HEADER & TOPBAR */
+        header.topbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 70px;
+            background: rgba(0, 29, 61, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid var(--p0);
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            z-index: 1000;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 900;
+            font-size: 22px;
+            color: var(--p1);
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .stat-badge {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--p1);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-weight: 800;
+            color: var(--gold);
+            font-size: 14px;
+        }
+
+        .btn-nav {
+            background: var(--p2);
+            border: 1px solid var(--p0);
+            color: var(--w);
+            padding: 10px 18px;
+            border-radius: 20px;
+            font-weight: 700;
+            transition: 0.3s;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn-nav:hover {
+            background: var(--p0);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(144, 224, 239, 0.4);
+        }
+
+        /* LOGIN / REGISTER OVERLAY MODAL */
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 8, 20, 0.95);
+            backdrop-filter: blur(8px);
+            z-index: 9000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .login-overlay.hidden { display: none; }
+
+        .login-box {
+            background: var(--bg1);
+            border: 2px solid var(--p0);
+            border-radius: var(--r);
+            padding: 35px;
+            width: 95%;
+            max-width: 650px;
+            text-align: center;
+            box-shadow: var(--shadow), var(--glow);
+            position: relative;
+        }
+
+        .login-box h2 {
+            color: var(--p1);
+            margin: 0 0 15px 0;
+            font-size: 26px;
+            font-weight: 900;
+        }
+
+        .auth-split {
+            display: flex;
+            gap: 20px;
+            text-align: left;
+            margin-top: 15px;
+        }
+
+        .auth-col {
+            flex: 1;
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--p2);
+        }
+
+        .auth-col h3 {
+            margin-top: 0;
+            color: var(--w);
+            border-bottom: 2px solid var(--p0);
+            padding-bottom: 8px;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            border: 2px solid var(--p2);
+            background: var(--bg2);
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        .login-input:focus { border-color: var(--p1); }
+
+        .btn-auth {
+            background: var(--p0);
+            color: #fff;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .btn-auth:hover {
+            background: var(--p1);
+            color: var(--bg0);
+            box-shadow: 0 0 15px var(--p1);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--p0);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 119, 182, 0.2);
+            color: #fff;
+        }
+
+        .auth-error {
+            color: #ff4444;
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: none;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* MAIN LAYOUT */
+        .main-game {
+            padding: 90px 20px 40px;
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .location-banner {
+            background: var(--glass);
+            border: 2px solid var(--p0);
+            border-radius: var(--r);
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .location-banner h2 { margin: 0; color: var(--p1); font-size: 22px; }
+        .location-banner p { margin: 5px 0 0 0; font-size: 14px; opacity: 0.8; }
+
+        .game-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .viewport-card {
+            background: var(--bg1);
+            border: 2px solid var(--line);
+            border-radius: var(--r);
+            padding: 20px;
+            min-height: 420px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .scene-box {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--p2);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 18px;
+            line-height: 1.5;
+        }
+
+        .team-panel {
+            background: var(--bg1);
+            border: 2px solid var(--line);
+            border-radius: var(--r);
+            padding: 20px;
+        }
+
+        .pet-card {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--p2);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            font-size: 11px;
+            margin-top: 8px;
+            background: rgba(0,0,0,0.3);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .hp-bar-bg {
+            background: #444;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .hp-bar-fill {
+            background: var(--hp-green);
+            height: 100%;
+            width: 100%;
+            transition: width 0.3s;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-action {
+            background: var(--bg2);
+            border: 1px solid var(--p0);
+            color: #fff;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-action:hover:not(:disabled) {
+            background: var(--p0);
+            transform: translateY(-2px);
+        }
+
+        .btn-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: #555;
+        }
+
+        @media (max-width: 768px) {
+            .game-layout { grid-template-columns: 1fr; }
+            .auth-split { flex-direction: column; }
+            .location-banner { flex-direction: column; gap: 10px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+
+<!-- TOP NAVIGATION -->
+<header class="topbar">
+    <a href="#" class="brand">🐾 Pet Catching RPG</a>
+    <div class="nav-right">
+        <div class="stat-badge">🪙 <span id="coinDisplay">100</span> Coins</div>
+        <div class="stat-badge" style="border-color: #00ffcc; color: #00ffcc;">🎾 <span id="ballDisplay">5</span> Catch Balls</div>
+        <button id="authHeaderBtn" class="btn-nav" onclick="showLoginOverlay()">Log In / Register</button>
+    </div>
+</header>
+
+<!-- AUTHENTICATION MODAL -->
+<div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+        <h2>Trainer Portal Access</h2>
+        <div id="authError" class="auth-error">Invalid Credentials</div>
+        
+        <div class="auth-split">
+            <div class="auth-col">
+                <h3>Log In</h3>
+                <input type="text" id="loginUsername" class="login-input" placeholder="Username" autocomplete="off">
+                <input type="password" id="loginPassword" class="login-input" placeholder="Password">
+                <button class="btn-auth" onclick="performAuth('login', 'loginUsername', 'loginPassword')">Log In</button>
+            </div>
+            
+            <div class="auth-col">
+                <h3>Create Account</h3>
+                <input type="text" id="regUsername" class="login-input" placeholder="New Username" autocomplete="off">
+                <input type="password" id="regPassword" class="login-input" placeholder="New Password">
+                <button class="btn-auth btn-secondary" onclick="performAuth('register', 'regUsername', 'regPassword')">Register</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN GAME CONTAINER -->
+<main class="main-game">
+    <div class="location-banner">
+        <div>
+            <h2 id="locationTitle">📍 Gate 1: Starting Town</h2>
+            <p id="locationSubText">Rest up or head out onto the routes to encounter wild pets!</p>
+        </div>
+        <button class="btn-nav" id="btnSave" onclick="saveGameData()" style="display:none; background:#2ecc71; border-color:#27ae60;">💾 Save Progress</button>
+    </div>
+
+    <div class="game-layout">
+        <!-- VIEWPORT & BATTLE ACTIONS -->
+        <div class="viewport-card">
+            <div class="scene-box" id="sceneBox">
+                <div>Welcome Trainer! Log in to save your game, or start exploring immediately.</div>
+            </div>
+
+            <div class="action-grid" id="actionGrid">
+                <button class="btn-action" onclick="exploreRoute()">🌿 Explore Tall Grass</button>
+                <button class="btn-action" onclick="visitCenter()">🏥 Pokémon Center</button>
+                <button class="btn-action" id="btnCatch" onclick="catchWildPet()" disabled>🎾 Catch Wild Pet</button>
+                <button class="btn-action" id="btnGate2" onclick="toggleRoute()">🚪 Travel to Gate 2</button>
+            </div>
+        </div>
+
+        <!-- PARTY VIEW -->
+        <div class="team-panel">
+            <h3 style="margin-top: 0; color: var(--p1); border-bottom: 2px solid var(--p0); padding-bottom: 8px;">Your Party (<span id="partyCount">0</span>/6)</h3>
+            <div id="teamContainer"></div>
+        </div>
+    </div>
+</main>
+
+<script>
+    // --- DATABASE PET SPECIES TEMPLATES ---
+    const SPECIES_DATABASE = [
+        { name: "Emberkin", hp: 45, attack: 52, defense: 43, spAttack: 60, spDefense: 50, speed: 65, type: "Fire" },
+        { name: "Aqualeaf", hp: 50, attack: 45, defense: 55, spAttack: 50, spDefense: 65, speed: 45, type: "Water" },
+        { name: "Terrawulf", hp: 55, attack: 60, defense: 50, spAttack: 40, spDefense: 45, speed: 55, type: "Earth" },
+        { name: "Sparkwing", hp: 40, attack: 58, defense: 38, spAttack: 65, spDefense: 42, speed: 75, type: "Electric" }
+    ];
+
+    // --- GAME STATE ---
+    let currentUser = null;
+    let coins = 100;
+    let balls = 5;
+    let currentRoute = 1;
+    let activeEncounter = null;
+    let playerParty = [
+        { name: "Emberkin", level: 5, hp: 45, currentHp: 45, attack: 52, defense: 43, spAttack: 60, spDefense: 50, speed: 65, type: "Fire" }
+    ];
+
+    // --- AUTHENTICATION (POST -> pet_backend.php) ---
+    async function performAuth(action, userFieldId, passFieldId) {
+        const username = document.getElementById(userFieldId).value.trim();
+        const password = document.getElementById(passFieldId).value.trim();
+        const errDiv = document.getElementById('authError');
+
+        if (!username || !password) {
+            showError("Username and password are required.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('username', username);
+        formData.append('password', password);
+
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success) {
+                if (action === 'register') {
+                    errDiv.style.color = '#2ecc71';
+                    errDiv.innerText = "Account created! Logging you in...";
+                    errDiv.style.display = 'block';
+                    setTimeout(() => performAuth('login', userFieldId, passFieldId), 1000);
+                } else if (action === 'login') {
+                    currentUser = result.data.username;
+                    coins = parseInt(result.data.coins);
+                    balls = parseInt(result.data.balls);
+                    currentRoute = parseInt(result.data.current_route);
+                    playerParty = result.data.party_data || playerParty;
+
+                    updateUI();
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
+                    document.getElementById('btnSave').style.display = 'inline-block';
+                }
+            } else {
+                showError(result.message || "Authentication failed.");
+            }
+        } catch (err) {
+            console.error("Authentication error:", err);
+            showError("Unable to connect to backend server.");
+        }
+    }
+
+    // --- SAVE PROGRESS (POST -> pet_backend.php) ---
+    async function saveGameData() {
+        if (!currentUser) return;
+
+        const formData = new FormData();
+        formData.append('action', 'save');
+        formData.append('username', currentUser);
+        formData.append('coins', coins);
+        formData.append('balls', balls);
+        formData.append('current_route', currentRoute);
+        formData.append('party_data', JSON.stringify(playerParty));
+
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success) {
+                const scene = document.getElementById('sceneBox');
+                scene.innerHTML = `✅ <strong style="color:#2ecc71;">Game Progress Saved!</strong>`;
+            } else {
+                alert("Failed to save progress: " + result.message);
+            }
+        } catch (err) {
+            console.error("Save error:", err);
+            alert("Error saving progress to backend.");
+        }
+    }
+
+    function showError(msg) {
+        const err = document.getElementById('authError');
+        err.style.color = '#ff4444';
+        err.innerText = msg;
+        err.style.display = 'block';
+    }
+
+    function showLoginOverlay() {
+        document.getElementById('loginOverlay').classList.remove('hidden');
+    }
+
+    // --- GAMEPLAY MECHANICS ---
+    function exploreRoute() {
+        const scene = document.getElementById('sceneBox');
+        const btnCatch = document.getElementById('btnCatch');
+
+        if (Math.random() > 0.3) {
+            const template = SPECIES_DATABASE[Math.floor(Math.random() * SPECIES_DATABASE.length)];
+            const wildLevel = Math.floor(Math.random() * 3) + (currentRoute * 2);
+            
+            activeEncounter = { ...template, level: wildLevel, currentHp: template.hp };
+            scene.innerHTML = `⚔️ <strong>Wild Encounter!</strong><br><br>A wild <span style="color:var(--p1); font-weight:bold;">${activeEncounter.name}</span> (Lv. ${activeEncounter.level}) appeared!`;
+            btnCatch.disabled = false;
+        } else {
+            activeEncounter = null;
+            scene.innerHTML = `🌿 You explored Route ${currentRoute}. The tall grass rustled, but no wild pets were found.`;
+            btnCatch.disabled = true;
+        }
+    }
+
+    function catchWildPet() {
+        const scene = document.getElementById('sceneBox');
+        const btnCatch = document.getElementById('btnCatch');
+
+        if (!activeEncounter) return;
+
+        if (balls <= 0) {
+            scene.innerHTML = `❌ You don't have any Catch Balls left!`;
+            return;
+        }
+
+        balls--;
+        updateUI();
+
+        if (playerParty.length >= 6) {
+            scene.innerHTML = `⚠️ Your party is full (6/6)! Heal or manage party first.`;
+            btnCatch.disabled = true;
+            return;
+        }
+
+        const catchRate = 0.7; // 70% success rate
+        if (Math.random() < catchRate) {
+            playerParty.push(activeEncounter);
+            scene.innerHTML = `🎉 <strong>Gotcha!</strong> You successfully caught <span style="color:#2ecc71; font-weight:bold;">${activeEncounter.name}</span>!`;
+            coins += 25; // Catch reward
+            activeEncounter = null;
+            btnCatch.disabled = true;
+            renderParty();
+            updateUI();
+        } else {
+            scene.innerHTML = `💨 Oh no! The wild <strong>${activeEncounter.name}</strong> broke free and fled!`;
+            activeEncounter = null;
+            btnCatch.disabled = true;
+        }
+    }
+
+    function visitCenter() {
+        playerParty.forEach(pet => pet.currentHp = pet.hp);
+        renderParty();
+        document.getElementById('sceneBox').innerHTML = `🏥 <strong>Pokémon Center:</strong> All pets in your party have been restored to full health!`;
+    }
+
+    function toggleRoute() {
+        currentRoute = currentRoute === 1 ? 2 : 1;
+        document.getElementById('locationTitle').innerText = `📍 Gate ${currentRoute}: Route Center`;
+        document.getElementById('btnGate2').innerText = `🚪 Travel to Gate ${currentRoute === 1 ? 2 : 1}`;
+        document.getElementById('sceneBox').innerText = `You crossed the gate into Route ${currentRoute}.`;
+        activeEncounter = null;
+        document.getElementById('btnCatch').disabled = true;
+    }
+
+    // --- RENDER FUNCTIONS ---
+    function renderParty() {
+        const container = document.getElementById('teamContainer');
+        document.getElementById('partyCount').innerText = playerParty.length;
+        container.innerHTML = '';
+
+        playerParty.forEach(pet => {
+            const hpPct = Math.max(0, (pet.currentHp / pet.hp) * 100);
+            container.innerHTML += `
+                <div class="pet-card">
+                    <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                        <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
+                        <span style="color:var(--p1);">${pet.type}</span>
+                    </div>
+                    <div class="hp-bar-bg">
+                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
+                    </div>
+                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.hp}</div>
+                    
+                    <div class="stat-grid">
+                        <span>ATK: ${pet.attack}</span>
+                        <span>DEF: ${pet.defense}</span>
+                        <span>SPD: ${pet.speed}</span>
+                        <span>SP.ATK: ${pet.spAttack}</span>
+                        <span>SP.DEF: ${pet.spDefense}</span>
+                        <span>TYPE: ${pet.type}</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    function updateUI() {
+        document.getElementById('coinDisplay').innerText = coins;
+        document.getElementById('ballDisplay').innerText = balls;
+    }
+
+    // Initial load
+    renderParty();
+    updateUI();
+</script>
+</body>
+</html>
