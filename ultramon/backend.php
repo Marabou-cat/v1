@@ -3,9 +3,9 @@ session_start();
 header('Content-Type: application/json');
 
 // --- 1. CONFIG & SEPARATE DATABASE INITIALIZATION ---
-$config_file = '../config.ini'; 
+$config_file = '../config.ini'; // Updated path to parent directory
 if (!file_exists($config_file)) {
-    die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing."]));
+    die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing at " . realpath('../') . "/config.ini"]));
 }
 
 $lines = file($config_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -14,22 +14,19 @@ if (count($lines) < 2) {
 }
 
 $db_host = 'localhost';
-$db_name = 'petgame_db'; // Separate database isolated from schoolexams
+$db_name = 'petgame_db'; 
 $db_user = trim($lines[0]); 
 $db_pass = trim($lines[1]); 
 
 try {
-    // Connect to MySQL server without selecting a DB first
     $pdo = new PDO("mysql:host=$db_host;charset=utf8mb4", $db_user, $db_pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
     
-    // Automatically create and select the isolated pet game database
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $pdo->exec("USE `$db_name`");
 
-    // Create the pet game users table if it does not exist
     $pdo->exec("CREATE TABLE IF NOT EXISTS `petgame_users` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `username` VARCHAR(50) NOT NULL UNIQUE,
@@ -74,7 +71,6 @@ if ($action === 'register') {
         die(json_encode(["success" => false, "message" => "Username already exists in Pet RPG!"]));
     }
 
-    // Default starter pet structure
     $starter_party = [
         [
             "name" => "Emberkin",
@@ -116,9 +112,8 @@ if ($action === 'login') {
         $_SESSION['pet_user_id'] = $user['id'];
         $_SESSION['pet_username'] = $user['username'];
         
-        // Decode JSON party data before sending back to client
         $user['party_data'] = json_decode($user['party_data'], true);
-        unset($user['password']); // Exclude hashed password from response
+        unset($user['password']);
 
         echo json_encode(["success" => true, "data" => $user]);
     } else {
