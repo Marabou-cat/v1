@@ -3,7 +3,7 @@ session_start();
 header('Content-Type: application/json');
 
 // --- 1. CONFIG & CONNECTION (SCHOOLEXAMS DB) ---
-$config_file = 'config.ini'; 
+$config_file = '../config.ini'; 
 if (!file_exists($config_file)) {
     die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing."]));
 }
