@@ -8,7 +8,7 @@ const PETS = {
         maxStats:  { hp: 210, attack: 110, defense: 120, spAttack: 190, spDefense: 140, speed: 175 }
     },
     bubbitty: {
-        id: "bubbity",
+        id: "bubbitty", // Fixed typo: changed "bubbity" to "bubbitty"
         name: "Bubbitty",
         type: "Water",
         baseStats: { hp: 22, attack: 10, defense: 14, spAttack: 12, spDefense: 16, speed: 10 },
@@ -35,7 +35,9 @@ const PETS = {
  * Stat = BaseStat + Math.floor((MaxStat - BaseStat) * ((Level - 1) / 99))
  */
 function getCalculatedPet(petData) {
-    const species = PETS[petData.id];
+    if (!petData || !petData.id) return null; // Added safety check
+
+    const species = PETS[petData.id.toLowerCase()]; // Added case-insensitivity
     if (!species) return null;
 
     const level = petData.lvl || 1;
