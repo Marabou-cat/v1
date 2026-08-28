@@ -53,7 +53,6 @@
             visibility: hidden;
         }
 
-        /* Bottom Loading Controls */
         .loading-bar-container {
             width: 100%;
             max-width: 650px;
@@ -75,7 +74,6 @@
             backdrop-filter: blur(4px);
         }
 
-        /* Blue Animated Striped Loading Bar */
         .loading-bar-inner {
             height: 100%;
             width: 0%;
@@ -177,7 +175,8 @@
             box-shadow: 0 0 15px rgba(144, 224, 239, 0.4);
         }
 
-        .login-overlay {
+        /* --- OVERLAYS & MODALS --- */
+        .modal-overlay {
             position: fixed;
             inset: 0;
             background: rgba(0, 8, 20, 0.95);
@@ -187,9 +186,10 @@
             align-items: center;
             justify-content: center;
             flex-direction: column;
+            padding: 20px;
         }
 
-        .login-overlay.hidden { display: none; }
+        .modal-overlay.hidden { display: none; }
 
         .login-box {
             background: var(--bg1);
@@ -200,7 +200,6 @@
             max-width: 650px;
             text-align: center;
             box-shadow: var(--shadow), var(--glow);
-            position: relative;
         }
 
         .login-box h2 {
@@ -287,6 +286,182 @@
             text-align: center;
         }
 
+        /* --- STARTER PET SELECTION DIALOGUE --- */
+        .starter-box {
+            background: var(--bg1);
+            border: 2px solid var(--p1);
+            border-radius: var(--r);
+            padding: 30px;
+            width: 100%;
+            max-width: 850px;
+            text-align: center;
+            box-shadow: var(--shadow), var(--glow);
+        }
+
+        .starter-box h2 {
+            color: var(--p1);
+            font-size: 28px;
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .starter-box p {
+            color: var(--w);
+            font-size: 16px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .starter-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .starter-card {
+            background: rgba(0, 29, 61, 0.7);
+            border: 2px solid var(--p2);
+            border-radius: 16px;
+            padding: 20px 15px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Spotlight effect on pets */
+        .starter-light {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            pointer-events: none;
+            filter: blur(10px);
+            z-index: 1;
+            opacity: 0.8;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .light-sproupup { background: radial-gradient(circle, #2ecc71 0%, rgba(46, 204, 113, 0.1) 70%, transparent 100%); }
+        .light-bubbitty { background: radial-gradient(circle, #00b4d8 0%, rgba(0, 180, 216, 0.1) 70%, transparent 100%); }
+        .light-flaragon { background: radial-gradient(circle, #ff6b35 0%, rgba(255, 107, 53, 0.1) 70%, transparent 100%); }
+
+        .starter-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--p1);
+            box-shadow: 0 10px 25px rgba(144, 224, 239, 0.3);
+        }
+
+        .starter-card:hover .starter-light {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.15);
+        }
+
+        .starter-img {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
+            position: relative;
+            z-index: 2;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));
+        }
+
+        .starter-name {
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 5px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .starter-type {
+            font-size: 13px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 12px;
+            position: relative;
+            z-index: 2;
+            text-transform: uppercase;
+        }
+
+        .type-sproupup { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+        .type-bubbitty { background: rgba(0, 180, 216, 0.2); color: #00b4d8; border: 1px solid #00b4d8; }
+        .type-flaragon { background: rgba(255, 107, 53, 0.2); color: #ff6b35; border: 1px solid #ff6b35; }
+
+        /* --- CONFIRMATION DIALOGUE MODAL --- */
+        .confirm-box {
+            background: var(--bg1);
+            border: 2px solid var(--p1);
+            border-radius: 16px;
+            padding: 30px;
+            width: 90%;
+            max-width: 450px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.9), var(--glow);
+            z-index: 9500;
+        }
+
+        .confirm-box h3 {
+            margin-top: 0;
+            font-size: 22px;
+            color: var(--p1);
+        }
+
+        .confirm-img {
+            width: 110px;
+            height: 110px;
+            object-fit: contain;
+            margin: 15px 0;
+            filter: drop-shadow(0 0 12px var(--p0));
+        }
+
+        .confirm-btns {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn-confirm {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+        }
+
+        .btn-yes {
+            background: #2ecc71;
+            color: #fff;
+        }
+
+        .btn-yes:hover {
+            background: #27ae60;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
+        }
+
+        .btn-no {
+            background: #e74c3c;
+            color: #fff;
+        }
+
+        .btn-no:hover {
+            background: #c0392b;
+            box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
+        }
+
+        /* --- MAIN GAME STYLES --- */
         .main-game {
             padding: 90px 20px 40px;
             max-width: 1100px;
@@ -417,6 +592,7 @@
         @media (max-width: 768px) {
             .game-layout { grid-template-columns: 1fr; }
             .auth-split { flex-direction: column; }
+            .starter-grid { grid-template-columns: 1fr; }
             .location-banner { flex-direction: column; gap: 10px; text-align: center; }
         }
     </style>
@@ -429,12 +605,13 @@
         <div class="loading-bar-outer">
             <div id="loadingBarFill" class="loading-bar-inner"></div>
         </div>
-        <div id="loadingText" class="loading-text">INITIALIZING GAME SYSTEM... 0%</div>
+        <div id="loadingText" class="loading-text">CONNECTING TO SERVER... 0%</div>
     </div>
 </div>
 
 <div class="bg-grid"></div>
 
+<!-- TOPBAR -->
 <header class="topbar">
     <a href="#" class="brand">🐾 Pet Catching RPG</a>
     <div class="nav-right">
@@ -444,7 +621,8 @@
     </div>
 </header>
 
-<div class="login-overlay hidden" id="loginOverlay">
+<!-- LOGIN / REGISTER OVERLAY -->
+<div class="modal-overlay hidden" id="loginOverlay">
     <div class="login-box">
         <h2>Trainer Portal Access</h2>
         <div id="authError" class="auth-error">Invalid Credentials</div>
@@ -467,6 +645,54 @@
     </div>
 </div>
 
+<!-- STARTER PET SELECTION DIALOGUE OVERLAY -->
+<div class="modal-overlay hidden" id="starterOverlay">
+    <div class="starter-box">
+        <h2>Welcome, New Trainer!</h2>
+        <p>Before stepping out on your journey, choose your very first partner pet:</p>
+        
+        <div class="starter-grid">
+            <!-- Sproupup -->
+            <div class="starter-card" onclick="promptStarterChoice('sproupup', 'Sproupup', 'sproupup.png')">
+                <div class="starter-light light-sproupup"></div>
+                <img src="sproupup.png" alt="Sproupup" class="starter-img">
+                <div class="starter-name">Sproupup</div>
+                <div class="starter-type type-sproupup">Grass Type</div>
+            </div>
+
+            <!-- Bubbitty -->
+            <div class="starter-card" onclick="promptStarterChoice('bubbitty', 'Bubbitty', 'bubbitty.png')">
+                <div class="starter-light light-bubbitty"></div>
+                <img src="bubbitty.png" alt="Bubbitty" class="starter-img">
+                <div class="starter-name">Bubbitty</div>
+                <div class="starter-type type-bubbitty">Water Type</div>
+            </div>
+
+            <!-- Flaragon -->
+            <div class="starter-card" onclick="promptStarterChoice('flaragon', 'Flaragon', 'flaragon.png')">
+                <div class="starter-light light-flaragon"></div>
+                <img src="flaragon.png" alt="Flaragon" class="starter-img">
+                <div class="starter-name">Flaragon</div>
+                <div class="starter-type type-flaragon">Fire Type</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CONFIRMATION PROMPT OVERLAY -->
+<div class="modal-overlay hidden" id="confirmOverlay" style="z-index: 9999;">
+    <div class="confirm-box">
+        <h3 id="confirmTitle">Confirm Selection</h3>
+        <img id="confirmPetImg" src="" alt="Selected Pet" class="confirm-img">
+        <p id="confirmText" style="font-size: 16px; margin: 10px 0 20px 0;">Are you sure that you want this pet?</p>
+        <div class="confirm-btns">
+            <button class="btn-confirm btn-yes" onclick="confirmStarter(true)">Yes</button>
+            <button class="btn-confirm btn-no" onclick="confirmStarter(false)">No</button>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN GAME VIEW -->
 <main class="main-game">
     <div class="location-banner">
         <div>
@@ -508,36 +734,34 @@
     let currentRoute = 1;
     let activeEncounter = null;
     let autoSaveTimer = null;
+    let pendingStarter = null; // Stores temporary pet choice
     
-    // Minimal stored party array
-    let playerParty = [
-        { id: "emberkin", lvl: 5, hp: 45 }
-    ];
+    let playerParty = [];
 
-    // --- INITIAL LOADING SEQUENCE ---
+    // --- 5-SECOND LOADING SEQUENCE ---
     window.addEventListener('DOMContentLoaded', () => {
         runLoadingSequence();
     });
 
     function runLoadingSequence() {
-    const duration = 5000; // Total loading duration in milliseconds (5 seconds)
-    const startTime = Date.now();
-    const barFill = document.getElementById('loadingBarFill');
-    const barText = document.getElementById('loadingText');
+        const duration = 5000; // Exactly 5 seconds loading duration
+        const startTime = Date.now();
+        const barFill = document.getElementById('loadingBarFill');
+        const barText = document.getElementById('loadingText');
 
-    const interval = setInterval(() => {
-        const elapsedTime = Date.now() - startTime;
-        const progress = Math.min(100, Math.floor((elapsedTime / duration) * 100));
+        const interval = setInterval(() => {
+            const elapsedTime = Date.now() - startTime;
+            const progress = Math.min(100, Math.floor((elapsedTime / duration) * 100));
 
-        barFill.style.width = progress + '%';
-        barText.innerText = `CONNECTING TO SERVER... ${progress}%`;
+            barFill.style.width = progress + '%';
+            barText.innerText = `CONNECTING TO SERVER... ${progress}%`;
 
-        if (progress >= 100) {
-            clearInterval(interval);
-            finishLoadingScreen();
-        }
-    }, 30); // Updates every 30ms for smooth progress
-}
+            if (progress >= 100) {
+                clearInterval(interval);
+                finishLoadingScreen();
+            }
+        }, 30);
+    }
 
     async function finishLoadingScreen() {
         const savedUsername = localStorage.getItem('pet_remembered_user');
@@ -547,6 +771,7 @@
             const loggedIn = await attemptAutoLogin(savedUsername);
             if (loggedIn) {
                 dismissLoadingScreen();
+                checkStarterRequirement();
                 startAutoSave();
                 return;
             }
@@ -565,6 +790,46 @@
         }, 500);
     }
 
+    // --- CHECK & SHOW STARTER SELECTION ---
+    function checkStarterRequirement() {
+        if (!playerParty || playerParty.length === 0) {
+            document.getElementById('starterOverlay').classList.remove('hidden');
+        } else {
+            document.getElementById('starterOverlay').classList.add('hidden');
+        }
+    }
+
+    function promptStarterChoice(id, name, imgSrc) {
+        pendingStarter = { id, name, imgSrc };
+        document.getElementById('confirmPetImg').src = imgSrc;
+        document.getElementById('confirmText').innerText = `Are you sure that you want ${name}?`;
+        document.getElementById('confirmOverlay').classList.remove('hidden');
+    }
+
+    function confirmStarter(isYes) {
+        document.getElementById('confirmOverlay').classList.add('hidden');
+
+        if (isYes && pendingStarter) {
+            // Grant chosen starter pet
+            playerParty = [{
+                id: pendingStarter.id,
+                lvl: 5,
+                hp: 50
+            }];
+
+            document.getElementById('starterOverlay').classList.add('hidden');
+            renderParty();
+            updateUI();
+            
+            document.getElementById('sceneBox').innerHTML = `🎉 Congratulations! You received your starter pet <strong>${pendingStarter.name}</strong>!`;
+            
+            if (currentUser) {
+                saveGameData(true);
+            }
+        }
+        pendingStarter = null;
+    }
+
     // --- AUTO LOGIN & SAVE SYSTEM ---
     async function attemptAutoLogin(username) {
         const formData = new FormData();
@@ -580,13 +845,13 @@
                 coins = parseInt(result.data.coins);
                 balls = parseInt(result.data.balls);
                 currentRoute = parseInt(result.data.current_route);
-                playerParty = result.data.party_data || playerParty;
+                playerParty = result.data.party_data || [];
 
                 updateUI();
                 renderParty();
                 document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
                 document.getElementById('btnSave').style.display = 'inline-block';
-                document.getElementById('sceneBox').innerHTML = `👋 Welcome back, <strong>${currentUser}</strong>! Progress auto-loaded.`;
+                document.getElementById('sceneBox').innerHTML = `👋 Welcome back, <strong>${currentUser}</strong>!`;
                 return true;
             }
         } catch (err) {
@@ -597,7 +862,6 @@
 
     function startAutoSave() {
         if (autoSaveTimer) clearInterval(autoSaveTimer);
-        // Auto-save every 30 seconds
         autoSaveTimer = setInterval(() => {
             if (currentUser) {
                 saveGameData(true);
@@ -609,7 +873,6 @@
     async function performAuth(action, userFieldId, passFieldId) {
         const username = document.getElementById(userFieldId).value.trim();
         const password = document.getElementById(passFieldId).value.trim();
-        const errDiv = document.getElementById('authError');
 
         if (!username || !password) {
             showError("Username and password are required.");
@@ -627,18 +890,15 @@
 
             if (result.success) {
                 if (action === 'register') {
-                    errDiv.style.color = '#2ecc71';
-                    errDiv.innerText = "Account created! Logging you in...";
-                    errDiv.style.display = 'block';
+                    showError("Account created! Logging you in...", "#2ecc71");
                     setTimeout(() => performAuth('login', userFieldId, passFieldId), 1000);
                 } else if (action === 'login') {
                     currentUser = result.data.username;
                     coins = parseInt(result.data.coins);
                     balls = parseInt(result.data.balls);
                     currentRoute = parseInt(result.data.current_route);
-                    playerParty = result.data.party_data || playerParty;
+                    playerParty = result.data.party_data || [];
 
-                    // Store remembered user for auto-login next time
                     localStorage.setItem('pet_remembered_user', currentUser);
 
                     updateUI();
@@ -646,6 +906,8 @@
                     document.getElementById('loginOverlay').classList.add('hidden');
                     document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
                     document.getElementById('btnSave').style.display = 'inline-block';
+                    
+                    checkStarterRequirement();
                     startAutoSave();
                 }
             } else {
@@ -681,9 +943,9 @@
         }
     }
 
-    function showError(msg) {
+    function showError(msg, color = '#ff4444') {
         const err = document.getElementById('authError');
-        err.style.color = '#ff4444';
+        err.style.color = color;
         err.innerText = msg;
         err.style.display = 'block';
     }
@@ -694,6 +956,11 @@
 
     // --- GAMEPLAY MECHANICS ---
     function exploreRoute() {
+        if (!playerParty || playerParty.length === 0) {
+            checkStarterRequirement();
+            return;
+        }
+
         const scene = document.getElementById('sceneBox');
         const btnCatch = document.getElementById('btnCatch');
 
@@ -756,6 +1023,8 @@
     }
 
     function visitCenter() {
+        if (!playerParty || playerParty.length === 0) return;
+        
         playerParty.forEach(pet => {
             const calculated = getCalculatedPet(pet);
             pet.hp = calculated.maxHp;
@@ -779,6 +1048,11 @@
         const container = document.getElementById('teamContainer');
         document.getElementById('partyCount').innerText = playerParty.length;
         container.innerHTML = '';
+
+        if (playerParty.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding: 20px; color:#888;">No pets in party yet!</div>`;
+            return;
+        }
 
         playerParty.forEach(petData => {
             const pet = getCalculatedPet(petData);
