@@ -42,7 +42,7 @@
             background: url('petpng/bg.jpeg') no-repeat center center / cover;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
             padding: 50px 20px 60px 20px;
             transition: opacity 0.5s ease, visibility 0.5s ease;
@@ -51,21 +51,6 @@
         .loading-screen.fade-out {
             opacity: 0;
             visibility: hidden;
-        }
-
-        /* Top Standalone Logo */
-        .loading-logo {
-            max-width: 480px;
-            width: 85%;
-            height: auto;
-            margin-top: 10px;
-            filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 15px rgba(0, 119, 182, 0.6));
-            animation: logoFloat 3s ease-in-out infinite;
-        }
-
-        @keyframes logoFloat {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-12px); }
         }
 
         /* Bottom Loading Controls */
@@ -440,8 +425,6 @@
 
 <!-- FULLSCREEN ROCO KINGDOM STYLE LOADING SCREEN -->
 <div id="loadingScreen" class="loading-screen">
-    <img src="petpng/logo.png" alt="Pet RPG Logo" class="loading-logo">
-    
     <div class="loading-bar-container">
         <div class="loading-bar-outer">
             <div id="loadingBarFill" class="loading-bar-inner"></div>
