@@ -42,7 +42,6 @@
             background-size: 40px 40px;
         }
 
-        /* HEADER & TOPBAR */
         header.topbar {
             position: fixed;
             top: 0; left: 0; right: 0;
@@ -102,7 +101,6 @@
             box-shadow: 0 0 15px rgba(144, 224, 239, 0.4);
         }
 
-        /* LOGIN / REGISTER OVERLAY MODAL */
         .login-overlay {
             position: fixed;
             inset: 0;
@@ -213,7 +211,6 @@
             text-align: center;
         }
 
-        /* MAIN LAYOUT */
         .main-game {
             padding: 90px 20px 40px;
             max-width: 1100px;
@@ -352,7 +349,6 @@
 
 <div class="bg-grid"></div>
 
-<!-- TOP NAVIGATION -->
 <header class="topbar">
     <a href="#" class="brand">🐾 Pet Catching RPG</a>
     <div class="nav-right">
@@ -362,7 +358,6 @@
     </div>
 </header>
 
-<!-- AUTHENTICATION MODAL -->
 <div class="login-overlay" id="loginOverlay">
     <div class="login-box">
         <h2>Trainer Portal Access</h2>
@@ -386,7 +381,6 @@
     </div>
 </div>
 
-<!-- MAIN GAME CONTAINER -->
 <main class="main-game">
     <div class="location-banner">
         <div>
@@ -397,7 +391,6 @@
     </div>
 
     <div class="game-layout">
-        <!-- VIEWPORT & BATTLE ACTIONS -->
         <div class="viewport-card">
             <div class="scene-box" id="sceneBox">
                 <div>Welcome Trainer! Log in to save your game, or start exploring immediately.</div>
@@ -411,7 +404,6 @@
             </div>
         </div>
 
-        <!-- PARTY VIEW -->
         <div class="team-panel">
             <h3 style="margin-top: 0; color: var(--p1); border-bottom: 2px solid var(--p0); padding-bottom: 8px;">Your Party (<span id="partyCount">0</span>/6)</h3>
             <div id="teamContainer"></div>
@@ -419,26 +411,23 @@
     </div>
 </main>
 
-<script>
-    // --- DATABASE PET SPECIES TEMPLATES ---
-    const SPECIES_DATABASE = [
-        { name: "Emberkin", hp: 45, attack: 52, defense: 43, spAttack: 60, spDefense: 50, speed: 65, type: "Fire" },
-        { name: "Aqualeaf", hp: 50, attack: 45, defense: 55, spAttack: 50, spDefense: 65, speed: 45, type: "Water" },
-        { name: "Terrawulf", hp: 55, attack: 60, defense: 50, spAttack: 40, spDefense: 45, speed: 55, type: "Earth" },
-        { name: "Sparkwing", hp: 40, attack: 58, defense: 38, spAttack: 65, spDefense: 42, speed: 75, type: "Electric" }
-    ];
+<!-- Load Pet Specs and Math Formulas from external JS file -->
+<script src="pets.js"></script>
 
+<script>
     // --- GAME STATE ---
     let currentUser = null;
     let coins = 100;
     let balls = 5;
     let currentRoute = 1;
     let activeEncounter = null;
+    
+    // Minimal stored party array: [{ id: "emberkin", lvl: 5, hp: 45 }]
     let playerParty = [
-        { name: "Emberkin", level: 5, hp: 45, currentHp: 45, attack: 52, defense: 43, spAttack: 60, spDefense: 50, speed: 65, type: "Fire" }
+        { id: "emberkin", lvl: 5, hp: 45 }
     ];
 
-    // --- AUTHENTICATION (POST -> pet_backend.php) ---
+    // --- AUTHENTICATION ---
     async function performAuth(action, userFieldId, passFieldId) {
         const username = document.getElementById(userFieldId).value.trim();
         const password = document.getElementById(passFieldId).value.trim();
@@ -472,6 +461,7 @@
                     playerParty = result.data.party_data || playerParty;
 
                     updateUI();
+                    renderParty();
                     document.getElementById('loginOverlay').classList.add('hidden');
                     document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
                     document.getElementById('btnSave').style.display = 'inline-block';
@@ -485,7 +475,7 @@
         }
     }
 
-    // --- SAVE PROGRESS (POST -> pet_backend.php) ---
+    // --- SAVE PROGRESS ---
     async function saveGameData() {
         if (!currentUser) return;
 
@@ -502,8 +492,7 @@
             const result = await response.json();
 
             if (result.success) {
-                const scene = document.getElementById('sceneBox');
-                scene.innerHTML = `✅ <strong style="color:#2ecc71;">Game Progress Saved!</strong>`;
+                document.getElementById('sceneBox').innerHTML = `✅ <strong style="color:#2ecc71;">Game Progress Saved!</strong>`;
             } else {
                 alert("Failed to save progress: " + result.message);
             }
@@ -530,10 +519,13 @@
         const btnCatch = document.getElementById('btnCatch');
 
         if (Math.random() > 0.3) {
-            const template = SPECIES_DATABASE[Math.floor(Math.random() * SPECIES_DATABASE.length)];
-            const wildLevel = Math.floor(Math.random() * 3) + (currentRoute * 2);
+            const speciesKeys = Object.keys(PETS);
+            const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
+            const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
             
-            activeEncounter = { ...template, level: wildLevel, currentHp: template.hp };
+            // Calculate encounter dynamically using pets.js helper
+            activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
+
             scene.innerHTML = `⚔️ <strong>Wild Encounter!</strong><br><br>A wild <span style="color:var(--p1); font-weight:bold;">${activeEncounter.name}</span> (Lv. ${activeEncounter.level}) appeared!`;
             btnCatch.disabled = false;
         } else {
@@ -563,11 +555,17 @@
             return;
         }
 
-        const catchRate = 0.7; // 70% success rate
+        const catchRate = 0.7; 
         if (Math.random() < catchRate) {
-            playerParty.push(activeEncounter);
+            // Push lightweight record to playerParty
+            playerParty.push({
+                id: activeEncounter.id,
+                lvl: activeEncounter.level,
+                hp: activeEncounter.maxHp
+            });
+
             scene.innerHTML = `🎉 <strong>Gotcha!</strong> You successfully caught <span style="color:#2ecc71; font-weight:bold;">${activeEncounter.name}</span>!`;
-            coins += 25; // Catch reward
+            coins += 25;
             activeEncounter = null;
             btnCatch.disabled = true;
             renderParty();
@@ -580,7 +578,10 @@
     }
 
     function visitCenter() {
-        playerParty.forEach(pet => pet.currentHp = pet.hp);
+        playerParty.forEach(pet => {
+            const calculated = getCalculatedPet(pet);
+            pet.hp = calculated.maxHp;
+        });
         renderParty();
         document.getElementById('sceneBox').innerHTML = `🏥 <strong>Pokémon Center:</strong> All pets in your party have been restored to full health!`;
     }
@@ -600,8 +601,12 @@
         document.getElementById('partyCount').innerText = playerParty.length;
         container.innerHTML = '';
 
-        playerParty.forEach(pet => {
-            const hpPct = Math.max(0, (pet.currentHp / pet.hp) * 100);
+        playerParty.forEach(petData => {
+            // Compute stats dynamically from pets.js
+            const pet = getCalculatedPet(petData);
+            if (!pet) return;
+
+            const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
             container.innerHTML += `
                 <div class="pet-card">
                     <div style="display:flex; justify-content:space-between; font-weight:bold;">
@@ -611,7 +616,7 @@
                     <div class="hp-bar-bg">
                         <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
                     </div>
-                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.hp}</div>
+                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
                     
                     <div class="stat-grid">
                         <span>ATK: ${pet.attack}</span>
