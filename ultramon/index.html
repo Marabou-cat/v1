@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pet Catching RPG - Fixed Hitboxes & Sprites</title>
+    <title>Pet Catching RPG - Move Combat & Customization</title>
     <style>
         :root {
             --bg0: #000814; 
@@ -18,6 +18,7 @@
             --glow: 0 0 20px rgba(144, 224, 239, 0.3);
             --r: 16px;
             --hp-green: #2ecc71;
+            --energy-blue: #3498db;
             --gold: #ffd700;
         }
 
@@ -110,7 +111,7 @@
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 8px var(--p0);
         }
 
-        /* --- SQUARE ASPECT-FIXED FULLSCREEN MAP CONTAINER --- */
+        /* --- MAP CONTAINER --- */
         .map-container {
             position: relative;
             width: 100vmin;
@@ -138,22 +139,12 @@
 
         .tile-grass { background: #27ae60; border: 1px solid rgba(0,0,0,0.1); }
         .tile-tall_grass { background: #1e8449; border: 1px solid rgba(0,0,0,0.1); }
-        .tile-tall_grass::after {
-            content: "🌿";
-            font-size: 2.2vmin;
-            opacity: 0.8;
-        }
+        .tile-tall_grass::after { content: "🌿"; font-size: 2.2vmin; opacity: 0.8; }
 
-        .tile-wall {
-            background: #4a5568;
-            border: 1px solid #2d3748;
-        }
-        .tile-wall::after {
-            content: "🪨";
-            font-size: 2vmin;
-        }
+        .tile-wall { background: #4a5568; border: 1px solid #2d3748; }
+        .tile-wall::after { content: "🪨"; font-size: 2vmin; }
 
-        /* --- SIDE-VIEW ANIMATED CUBE PLAYER --- */
+        /* --- PLAYER CUBE --- */
         .player-cube {
             width: 6vmin;
             height: 6vmin;
@@ -169,7 +160,6 @@
             box-shadow: 0 4px 12px rgba(231, 76, 60, 0.8);
             transform-origin: bottom center;
         }
-
         .player-cube::after {
             content: "";
             position: absolute;
@@ -180,17 +170,14 @@
             background: #ffffff;
             border-radius: 2px;
         }
-
-        .player-cube.walking {
-            animation: sideWalk 0.25s infinite alternate ease-in-out;
-        }
+        .player-cube.walking { animation: sideWalk 0.25s infinite alternate ease-in-out; }
 
         @keyframes sideWalk {
             0% { transform: translateY(0) scaleY(1) rotate(0deg); }
             100% { transform: translateY(-5px) scaleY(0.95) rotate(-3deg); }
         }
 
-        /* --- TOP-LEFT CORNER MENU BUTTON --- */
+        /* --- MENU BUTTON --- */
         .menu-btn-tl {
             position: fixed;
             top: 20px;
@@ -208,14 +195,9 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             transition: 0.3s;
         }
+        .menu-btn-tl:hover { background: var(--p0); color: #fff; box-shadow: 0 0 20px var(--p0); }
 
-        .menu-btn-tl:hover {
-            background: var(--p0);
-            color: #fff;
-            box-shadow: 0 0 20px var(--p0);
-        }
-
-        /* --- OVERLAYS & MODALS --- */
+        /* --- MODALS --- */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -228,7 +210,6 @@
             flex-direction: column;
             padding: 20px;
         }
-
         .modal-overlay.hidden { display: none; }
 
         .menu-box {
@@ -236,9 +217,9 @@
             border: 2px solid var(--p0);
             border-radius: var(--r);
             width: 90%;
-            max-width: 650px;
-            height: 80vh;
-            max-height: 550px;
+            max-width: 750px;
+            height: 85vh;
+            max-height: 650px;
             display: flex;
             flex-direction: column;
             box-shadow: var(--shadow), var(--glow);
@@ -254,11 +235,7 @@
             border-bottom: 2px solid var(--p2);
         }
 
-        .menu-tabs {
-            display: flex;
-            gap: 10px;
-        }
-
+        .menu-tabs { display: flex; gap: 10px; }
         .tab-btn {
             background: var(--bg2);
             border: 1px solid var(--p0);
@@ -269,12 +246,7 @@
             cursor: pointer;
             transition: 0.2s;
         }
-
-        .tab-btn.active {
-            background: var(--p0);
-            color: #fff;
-            box-shadow: 0 0 12px var(--p0);
-        }
+        .tab-btn.active { background: var(--p0); color: #fff; box-shadow: 0 0 12px var(--p0); }
 
         .btn-close-modal {
             background: #e74c3c;
@@ -289,21 +261,11 @@
         }
         .btn-close-modal:hover { background: #c0392b; }
 
-        .menu-content-area {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-        }
-
+        .menu-content-area { flex: 1; padding: 20px; overflow-y: auto; }
         .tab-pane { display: none; }
         .tab-pane.active { display: block; }
 
-        .items-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-
+        .items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
         .item-card {
             background: rgba(0,0,0,0.4);
             border: 1px solid var(--p2);
@@ -313,29 +275,23 @@
             align-items: center;
             gap: 15px;
         }
-
         .item-card span { font-size: 28px; }
 
         .pet-card {
             background: rgba(0,0,0,0.4);
             border: 1px solid var(--p2);
             border-radius: 10px;
-            padding: 12px;
-            margin-bottom: 12px;
+            padding: 14px;
+            margin-bottom: 15px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
         }
 
-        .pet-card-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
+        .pet-card-header { display: flex; align-items: center; gap: 12px; }
         .pet-card-thumb {
-            width: 48px;
-            height: 48px;
+            width: 52px;
+            height: 52px;
             object-fit: contain;
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
         }
@@ -345,27 +301,35 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 6px;
             font-size: 11px;
-            margin-top: 4px;
             background: rgba(0,0,0,0.3);
             padding: 8px;
             border-radius: 6px;
         }
 
-        .hp-bar-bg {
-            background: #444;
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 4px;
+        .hp-bar-bg { background: #444; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+        .hp-bar-fill { background: var(--hp-green); height: 100%; width: 100%; transition: width 0.3s; }
+
+        .moves-section {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
         }
 
-        .hp-bar-fill {
-            background: var(--hp-green);
-            height: 100%;
-            width: 100%;
-            transition: width 0.3s;
+        .moves-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .move-chip {
+            background: var(--bg2);
+            border: 1px solid var(--p2);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: 0.2s;
         }
+        .move-chip.active-move { background: var(--p0); border-color: var(--p1); color: #fff; font-weight: bold; }
+        .move-chip.locked { opacity: 0.4; cursor: not-allowed; }
 
+        /* --- LOGIN & STARTER --- */
         .login-box {
             background: var(--bg1);
             border: 2px solid var(--p0);
@@ -376,32 +340,11 @@
             text-align: center;
             box-shadow: var(--shadow), var(--glow);
         }
-
         .login-box h2 { color: var(--p1); margin: 0 0 15px 0; font-size: 26px; font-weight: 900; }
 
-        .auth-split {
-            display: flex;
-            gap: 20px;
-            text-align: left;
-            margin-top: 15px;
-        }
-
-        .auth-col {
-            flex: 1;
-            background: rgba(0,0,0,0.4);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--p2);
-        }
-
-        .auth-col h3 {
-            margin-top: 0;
-            color: var(--w);
-            border-bottom: 2px solid var(--p0);
-            padding-bottom: 8px;
-            text-align: center;
-            font-size: 18px;
-        }
+        .auth-split { display: flex; gap: 20px; text-align: left; margin-top: 15px; }
+        .auth-col { flex: 1; background: rgba(0,0,0,0.4); padding: 20px; border-radius: 12px; border: 1px solid var(--p2); }
+        .auth-col h3 { margin-top: 0; color: var(--w); border-bottom: 2px solid var(--p0); padding-bottom: 8px; text-align: center; font-size: 18px; }
 
         .login-input {
             width: 100%;
@@ -433,17 +376,9 @@
         .btn-secondary { background: transparent; border: 2px solid var(--p0); }
         .btn-secondary:hover { background: rgba(0, 119, 182, 0.2); color: #fff; }
 
-        .auth-error {
-            color: #ff4444;
-            font-size: 14px;
-            margin-bottom: 15px;
-            display: none;
-            font-weight: bold;
-            text-align: center;
-        }
+        .auth-error { color: #ff4444; font-size: 14px; margin-bottom: 15px; display: none; font-weight: bold; text-align: center; }
 
         #starterOverlay { background: #000000; backdrop-filter: blur(10px); }
-
         .starter-box {
             background: #090a0f;
             border-radius: var(--r);
@@ -453,16 +388,10 @@
             text-align: center;
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.95);
         }
-
         .starter-box h2 { color: var(--p1); font-size: 28px; margin-top: 0; margin-bottom: 8px; }
         .starter-box p { color: var(--w); font-size: 16px; margin-bottom: 30px; opacity: 0.9; }
 
-        .starter-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-        }
-
+        .starter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
         .starter-card {
             background: rgba(255, 255, 255, 0.03);
             border-radius: 16px;
@@ -490,7 +419,6 @@
             opacity: 0.8;
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
-
         .light-sproupup { background: radial-gradient(circle, #2ecc71 0%, rgba(46, 204, 113, 0.1) 70%, transparent 100%); }
         .light-bubbitty { background: radial-gradient(circle, #00b4d8 0%, rgba(0, 180, 216, 0.1) 70%, transparent 100%); }
         .light-flaragon { background: radial-gradient(circle, #ff6b35 0%, rgba(255, 107, 53, 0.1) 70%, transparent 100%); }
@@ -526,7 +454,6 @@
             box-shadow: 0 0 30px rgba(0,0,0,0.9), var(--glow);
             z-index: 9500;
         }
-
         .confirm-box h3 { margin-top: 0; font-size: 22px; color: var(--p1); }
         .confirm-img { width: 110px; height: 110px; object-fit: contain; margin: 15px 0; filter: drop-shadow(0 0 12px var(--p0)); }
         .confirm-btns { display: flex; gap: 15px; justify-content: center; margin-top: 20px; }
@@ -536,6 +463,7 @@
         .btn-no { background: #e74c3c; color: #fff; }
         .btn-no:hover { background: #c0392b; box-shadow: 0 0 15px rgba(231, 76, 60, 0.5); }
 
+        /* --- BATTLE SYSTEM --- */
         .battle-overlay {
             position: fixed;
             inset: 0;
@@ -549,7 +477,6 @@
             pointer-events: none;
             transition: opacity 0.4s ease;
         }
-
         .battle-overlay.active { opacity: 1; pointer-events: auto; }
 
         @keyframes pokemonFlash {
@@ -559,7 +486,6 @@
             75% { background-color: #000; }
             100% { background-color: #111; }
         }
-
         .battle-overlay.flash { animation: pokemonFlash 0.8s ease-in-out; }
 
         .battle-arena {
@@ -574,7 +500,10 @@
 
         .battle-combatant { display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .battle-pet-img { width: 140px; height: 140px; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); }
-        .battle-hud { background: rgba(0, 29, 61, 0.9); border: 2px solid var(--p1); padding: 10px 15px; border-radius: 10px; min-width: 180px; }
+        .battle-hud { background: rgba(0, 29, 61, 0.9); border: 2px solid var(--p1); padding: 10px 15px; border-radius: 10px; min-width: 200px; }
+
+        .energy-bar-bg { background: #444; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+        .energy-bar-fill { background: var(--energy-blue); height: 100%; width: 100%; transition: width 0.3s; }
 
         .battle-menu-box {
             background: var(--bg1);
@@ -590,7 +519,7 @@
             align-items: center;
         }
 
-        .battle-dialogue { font-size: 16px; font-weight: bold; color: #fff; line-height: 1.4; }
+        .battle-dialogue { font-size: 15px; font-weight: bold; color: #fff; line-height: 1.4; max-height: 90px; overflow-y: auto; }
         .battle-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
         .btn-action {
@@ -606,9 +535,25 @@
         }
         .btn-action:hover { background: var(--p0); transform: translateY(-2px); }
 
+        .btn-move {
+            background: rgba(0, 119, 182, 0.4);
+            border: 1px solid var(--p1);
+            color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: left;
+            transition: 0.2s;
+        }
+        .btn-move:hover { background: var(--p0); }
+        .btn-move:disabled { opacity: 0.4; cursor: not-allowed; }
+
         @media (max-width: 768px) {
             .auth-split { flex-direction: column; }
             .starter-grid { grid-template-columns: 1fr; }
+            .battle-menu-box { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -681,6 +626,7 @@
             <div class="battle-hud">
                 <div id="battleWildName" style="font-weight: bold; color: #ff6b35;">Wild Pet</div>
                 <div class="hp-bar-bg"><div id="battleWildHp" class="hp-bar-fill" style="width: 100%;"></div></div>
+                <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: <span id="battleWildHpText">100/100</span></div>
             </div>
             <img id="battleWildImg" src="" alt="Wild Pet" class="battle-pet-img">
         </div>
@@ -690,14 +636,19 @@
             <div class="battle-hud">
                 <div id="battlePlayerName" style="font-weight: bold; color: var(--p1);">Player Pet</div>
                 <div class="hp-bar-bg"><div id="battlePlayerHp" class="hp-bar-fill" style="width: 100%;"></div></div>
+                <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: <span id="battlePlayerHpText">100/100</span></div>
+                <div style="font-size: 11px; margin-top: 4px;">Energy: <span id="battlePlayerEnergyText">100/100</span></div>
+                <div class="energy-bar-bg"><div id="battlePlayerEnergy" class="energy-bar-fill" style="width: 100%;"></div></div>
             </div>
         </div>
     </div>
 
     <div class="battle-menu-box">
         <div class="battle-dialogue" id="battleDialogueText">A wild pet appeared! What will you do?</div>
-        <div class="battle-actions">
+        <div class="battle-actions" id="battleActionButtons">
+            <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
             <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
+            <button class="btn-action" onclick="visitCenterAndHealBattle()">🎒 Items</button>
             <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
         </div>
     </div>
@@ -779,6 +730,7 @@
     let balls = 5;
     let currentRoute = 1;
     let activeEncounter = null;
+    let playerBattleEnergy = 100;
     let autoSaveTimer = null;
     let pendingStarter = null;
     let playerParty = [];
@@ -898,7 +850,6 @@
     }
 
     function isValidPosition(x, y) {
-        // Correct bounding box matching the 0.6 tile size and 0.2 tile visual centering offset
         if (x < 0.0 || x > MAP_SIZE - 0.8 || y < 0.0 || y > MAP_SIZE - 0.8) return false;
 
         const margin = 0.08;
@@ -967,27 +918,127 @@
         const speciesKeys = Object.keys(PETS);
         const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
         const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
+        
         activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
+        playerBattleEnergy = 100;
 
-        const activePlayerPet = getCalculatedPet(playerParty[0]);
-
-        document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
-        document.getElementById('battleWildImg').src = activeEncounter.img;
-        document.getElementById('battleWildHp').style.width = '100%';
-
-        document.getElementById('battlePlayerName').innerText = `${activePlayerPet.name} (Lv. ${activePlayerPet.level})`;
-        document.getElementById('battlePlayerImg').src = activePlayerPet.img;
-        document.getElementById('battlePlayerHp').style.width = '100%';
-
+        updateBattleHUD();
         document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
+        resetBattleActionButtons();
 
         const overlay = document.getElementById('battleOverlay');
         overlay.classList.add('flash');
         overlay.classList.add('active');
 
-        setTimeout(() => {
-            overlay.classList.remove('flash');
-        }, 800);
+        setTimeout(() => overlay.classList.remove('flash'), 800);
+    }
+
+    function updateBattleHUD() {
+        if (!playerParty || playerParty.length === 0) return;
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
+
+        document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
+        document.getElementById('battleWildImg').src = activeEncounter.img;
+        const wildHpPct = Math.max(0, (activeEncounter.currentHp / activeEncounter.maxHp) * 100);
+        document.getElementById('battleWildHp').style.width = wildHpPct + '%';
+        document.getElementById('battleWildHpText').innerText = `${activeEncounter.currentHp}/${activeEncounter.maxHp}`;
+
+        document.getElementById('battlePlayerName').innerText = `${activePlayerPet.name} (Lv. ${activePlayerPet.level})`;
+        document.getElementById('battlePlayerImg').src = activePlayerPet.img;
+        const playerHpPct = Math.max(0, (playerParty[0].hp / activePlayerPet.maxHp) * 100);
+        document.getElementById('battlePlayerHp').style.width = playerHpPct + '%';
+        document.getElementById('battlePlayerHpText').innerText = `${playerParty[0].hp}/${activePlayerPet.maxHp}`;
+
+        const energyPct = Math.max(0, playerBattleEnergy);
+        document.getElementById('battlePlayerEnergy').style.width = energyPct + '%';
+        document.getElementById('battlePlayerEnergyText').innerText = `${playerBattleEnergy}/100`;
+    }
+
+    function resetBattleActionButtons() {
+        document.getElementById('battleActionButtons').innerHTML = `
+            <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
+            <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
+            <button class="btn-action" onclick="visitCenterAndHealBattle()">🎒 Items</button>
+            <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
+        `;
+    }
+
+    function openBattleFightMenu() {
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
+        let movesHtml = '';
+
+        activePlayerPet.activeMoves.forEach(moveName => {
+            const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
+            if (moveObj) {
+                const canAfford = playerBattleEnergy >= moveObj.powerCost;
+                movesHtml += `<button class="btn-move" ${!canAfford ? 'disabled' : ''} onclick="executePlayerAttack('${moveObj.name}')">
+                    <b>${moveObj.name}</b> (${moveObj.damageType.toUpperCase()})<br><small>Dmg: ${moveObj.damage} | Cost: ${moveObj.powerCost}</small>
+                </button>`;
+            }
+        });
+
+        movesHtml += `<button class="btn-action" onclick="resetBattleActionButtons()" style="background:#555; grid-column: span 2; padding:8px;">↩ Back</button>`;
+        document.getElementById('battleActionButtons').innerHTML = movesHtml;
+    }
+
+    function executePlayerAttack(moveName) {
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
+        const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
+        if (!moveObj) return;
+
+        if (playerBattleEnergy < moveObj.powerCost) {
+            document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
+            return;
+        }
+
+        playerBattleEnergy -= moveObj.powerCost;
+
+        // Calculate damage
+        let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
+        let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
+        let damage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
+
+        activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - damage);
+        updateBattleHUD();
+
+        document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${damage} damage to wild ${activeEncounter.name}.`;
+
+        if (activeEncounter.currentHp <= 0) {
+            document.getElementById('battleDialogueText').innerText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
+            coins += 40;
+            updateUI();
+            setTimeout(() => endBattle(true), 2000);
+            return;
+        }
+
+        // Enemy turn after brief delay
+        setTimeout(() => executeEnemyAttack(), 1500);
+    }
+
+    function executeEnemyAttack() {
+        if (!activeEncounter || activeEncounter.currentHp <= 0) return;
+
+        const enemyMoves = activeEncounter.unlockedMoves;
+        const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
+
+        let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
+        let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
+        let damage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
+
+        playerParty[0].hp = Math.max(0, playerParty[0].hp - damage);
+        playerBattleEnergy = Math.min(100, playerBattleEnergy + 15); // Recover energy each turn
+        updateBattleHUD();
+
+        document.getElementById('battleDialogueText').innerText = `Wild ${activeEncounter.name} used ${randomMove.name}! Dealt ${damage} damage to ${activePlayerPet.name}.`;
+
+        if (playerParty[0].hp <= 0) {
+            document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted!`;
+            setTimeout(() => endBattle(false), 2000);
+            return;
+        }
+
+        resetBattleActionButtons();
     }
 
     function executeBattleCatch() {
@@ -1011,7 +1062,8 @@
             playerParty.push({
                 id: activeEncounter.id,
                 lvl: activeEncounter.level,
-                hp: activeEncounter.maxHp
+                hp: activeEncounter.maxHp,
+                activeMoves: activeEncounter.unlockedMoves.slice(0, 4).map(m => m.name)
             });
 
             document.getElementById('battleDialogueText').innerText = `🎉 Gotcha! Successfully caught ${activeEncounter.name}!`;
@@ -1030,10 +1082,15 @@
         }
     }
 
-    function endBattle(isCaptured) {
+    function visitCenterAndHealBattle() {
+        document.getElementById('battleDialogueText').innerText = `💡 Tip: Use Fight moves or Catch the pet with a ball!`;
+    }
+
+    function endBattle(isFinished) {
         const overlay = document.getElementById('battleOverlay');
         overlay.classList.remove('active');
         activeEncounter = null;
+        renderParty();
 
         setTimeout(() => {
             encounterCooldown = false;
@@ -1080,9 +1137,7 @@
     function dismissLoadingScreen() {
         const screen = document.getElementById('loadingScreen');
         screen.classList.add('fade-out');
-        setTimeout(() => {
-            screen.style.display = 'none';
-        }, 500);
+        setTimeout(() => { screen.style.display = 'none'; }, 500);
     }
 
     function showLoginOverlay() {
@@ -1108,10 +1163,12 @@
         document.getElementById('confirmOverlay').classList.add('hidden');
 
         if (isYes && pendingStarter) {
+            const starterCalc = getCalculatedPet({ id: pendingStarter.id, lvl: 5 });
             playerParty = [{
                 id: pendingStarter.id,
                 lvl: 5,
-                hp: 50
+                hp: starterCalc.maxHp,
+                activeMoves: starterCalc.unlockedMoves.slice(0, 4).map(m => m.name)
             }];
 
             document.getElementById('starterOverlay').classList.add('hidden');
@@ -1249,6 +1306,39 @@
         saveGameData(true);
     }
 
+    function togglePetMove(petIndex, moveName) {
+        const petData = playerParty[petIndex];
+        const pet = getCalculatedPet(petData);
+        if (!pet) return;
+
+        const isUnlocked = pet.unlockedMoves.some(m => m.name === moveName);
+        if (!isUnlocked) return;
+
+        if (!petData.activeMoves) {
+            petData.activeMoves = pet.activeMoves;
+        }
+
+        const index = petData.activeMoves.indexOf(moveName);
+        if (index > -1) {
+            if (petData.activeMoves.length > 1) {
+                petData.activeMoves.splice(index, 1);
+            } else {
+                alert("You must keep at least 1 active move!");
+                return;
+            }
+        } else {
+            if (petData.activeMoves.length < 4) {
+                petData.activeMoves.push(moveName);
+            } else {
+                alert("Maximum 4 active moves allowed!");
+                return;
+            }
+        }
+
+        renderParty();
+        saveGameData(true);
+    }
+
     function renderParty() {
         const container = document.getElementById('teamContainer');
         document.getElementById('partyCount').innerText = playerParty.length;
@@ -1259,11 +1349,23 @@
             return;
         }
 
-        playerParty.forEach(petData => {
+        playerParty.forEach((petData, petIndex) => {
             const pet = getCalculatedPet(petData);
             if (!pet) return;
 
             const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
+
+            let movesChipsHtml = '';
+            pet.moves.forEach(m => {
+                const isUnlocked = pet.level >= m.levelToLearn;
+                const isActive = pet.activeMoves.includes(m.name);
+                let cssClass = 'move-chip';
+                if (!isUnlocked) cssClass += ' locked';
+                else if (isActive) cssClass += ' active-move';
+
+                movesChipsHtml += `<span class="${cssClass}" onclick="togglePetMove(${petIndex}, '${m.name}')" title="Lv. ${m.levelToLearn} required">${m.name} (${m.damageType[0].toUpperCase()})</span>`;
+            });
+
             container.innerHTML += `
                 <div class="pet-card">
                     <div class="pet-card-header">
@@ -1285,6 +1387,11 @@
                         <span>SP.ATK: ${pet.spAttack}</span>
                         <span>SP.DEF: ${pet.spDefense}</span>
                         <span>TYPE: ${pet.type}</span>
+                    </div>
+
+                    <div class="moves-section">
+                        <div style="font-weight:bold; color:var(--p1);">Equipped Moves (Click to toggle up to 4):</div>
+                        <div class="moves-chips">${movesChipsHtml}</div>
                     </div>
                 </div>
             `;
