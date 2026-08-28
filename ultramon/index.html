@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pet Catching RPG - Fullscreen Map & Battle</title>
+    <title>Pet Catching RPG - Tile Map</title>
     <style>
         :root {
             --bg0: #000814; 
@@ -13,288 +13,165 @@
             --p1: #90e0ef; 
             --p2: #03045e;
             --w: #caf0f8;
+            --line: rgba(144, 224, 239, 0.2);
+            --shadow: 0 12px 40px rgba(0,0,0,0.7);
+            --glow: 0 0 20px rgba(144, 224, 239, 0.3);
+            --r: 16px;
             --hp-green: #2ecc71;
-            --hp-red: #e74c3c;
             --gold: #ffd700;
         }
 
         *, *::before, *::after { box-sizing: border-box; }
 
-        html, body {
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg0);
+            color: var(--w);
             margin: 0;
             padding: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden; /* Lock viewport scroll */
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: #000;
-            color: var(--w);
+            overflow-x: hidden;
+            min-height: 100vh;
         }
 
-        /* --- TOP LEFT ICON BAR --- */
-        .top-nav-bar {
+        /* --- FULLSCREEN ROCO-STYLE LOADING SCREEN --- */
+        .loading-screen {
             position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 500;
+            inset: 0;
+            z-index: 10000;
+            background: url('petpng/bg.jpeg') no-repeat center center / cover;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 50px 20px 60px 20px;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .loading-screen.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loading-bar-container {
+            width: 100%;
+            max-width: 650px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .loading-bar-outer {
+            width: 100%;
+            height: 28px;
+            background: rgba(0, 0, 0, 0.65);
+            border: 2px solid var(--p1);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.9), 0 0 10px var(--p0);
+            padding: 2px;
+            backdrop-filter: blur(4px);
+        }
+
+        .loading-bar-inner {
+            height: 100%;
+            width: 0%;
+            border-radius: 10px;
+            background-color: var(--p0);
+            background-image: linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.4) 25%,
+                transparent 25%,
+                transparent 50%,
+                rgba(255, 255, 255, 0.4) 50%,
+                rgba(255, 255, 255, 0.4) 75%,
+                transparent 75%,
+                transparent
+            );
+            background-size: 30px 30px;
+            animation: moveStripes 1s linear infinite;
+            transition: width 0.08s linear;
+        }
+
+        @keyframes moveStripes {
+            0% { background-position: 0 0; }
+            100% { background-position: 30px 0; }
+        }
+
+        .loading-text {
+            font-size: 15px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 1.5px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 8px var(--p0);
+        }
+
+        /* --- GAME MAIN STYLES --- */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        header.topbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 70px;
+            background: rgba(0, 29, 61, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid var(--p0);
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            z-index: 1000;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 900;
+            font-size: 22px;
+            color: var(--p1);
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-right {
             display: flex;
             align-items: center;
             gap: 12px;
         }
 
-        .nav-btn {
-            background: rgba(0, 29, 61, 0.85);
-            border: 2px solid var(--p0);
-            border-radius: 12px;
-            padding: 8px 16px;
-            color: #fff;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            backdrop-filter: blur(8px);
-            transition: 0.2s;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-
-        .nav-btn:hover {
-            background: var(--p0);
-            transform: translateY(-2px);
-        }
-
-        .hamburger-icon {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            width: 18px;
-        }
-
-        .hamburger-icon span {
-            display: block;
-            height: 3px;
-            background: #fff;
-            border-radius: 2px;
-        }
-
-        .pet-nav-icon {
-            width: 24px;
-            height: 24px;
-            object-fit: contain;
-        }
-
-        /* --- STATS HUD (TOP RIGHT) --- */
-        .top-right-hud {
-            position: fixed;
-            top: 15px;
-            right: 15px;
-            z-index: 500;
-            display: flex;
-            gap: 10px;
-        }
-
-        .hud-badge {
-            background: rgba(0, 0, 0, 0.75);
+        .stat-badge {
+            background: rgba(0,0,0,0.5);
             border: 1px solid var(--p1);
             padding: 8px 14px;
             border-radius: 20px;
             font-weight: 800;
             color: var(--gold);
             font-size: 14px;
-            backdrop-filter: blur(6px);
         }
 
-        /* --- FULLSCREEN MAP --- */
-        .map-viewport {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: #000;
-        }
-
-        .map-grid {
-            display: grid;
-            grid-template-columns: repeat(12, 1fr);
-            grid-template-rows: repeat(12, 1fr);
-            width: 100vw;
-            height: 100vh;
-            position: relative;
-        }
-
-        .tile {
-            width: 100%;
-            height: 100%;
-            user-select: none;
-            position: relative;
-            box-sizing: border-radius;
-            border: 1px solid rgba(255, 255, 255, 0.03);
-        }
-
-        .tile-grass { background: #27ae60; }
-        .tile-tall_grass { background: #1e8449; }
-        .tile-tall_grass::after {
-            content: "🌿";
-            font-size: calc(2vw + 1vh);
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0.6;
-        }
-
-        .tile-wall {
-            background: #34495e;
-            border: 1px solid #2c3e50;
-        }
-        .tile-wall::after {
-            content: "🪨";
-            font-size: calc(1.5vw + 1vh);
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* PLAYER: Cube Body + Stick Arms */
-        .player-cube {
-            position: absolute;
-            z-index: 100;
-            background: #e74c3c;
-            border: 3px solid #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(231, 76, 60, 0.9);
-            transition: all 0.12s ease-out;
-            transform: translate(-50%, -50%);
-        }
-
-        .player-cube::before {
-            content: "";
-            position: absolute;
-            left: -10px;
-            top: 40%;
-            width: 10px;
-            height: 4px;
-            background: #000000;
-        }
-
-        .player-cube::after {
-            content: "";
-            position: absolute;
-            right: -10px;
-            top: 40%;
-            width: 10px;
-            height: 4px;
-            background: #000000;
-        }
-
-        /* --- FULLSCREEN POKÉMON BATTLE OVERLAY --- */
-        .battle-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 8000;
-            background: rgba(0, 0, 0, 0.95);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 30px;
-            backdrop-filter: blur(10px);
-        }
-
-        .battle-overlay.hidden { display: none; }
-
-        .battle-arena {
-            flex: 1;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 80px;
-            position: relative;
-        }
-
-        .battle-entity {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .pet-sprite {
-            width: 180px;
-            height: 180px;
-            object-fit: contain;
-            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8));
-        }
-
-        .pet-stats-box {
-            background: rgba(0, 29, 61, 0.9);
-            border: 2px solid var(--p0);
-            border-radius: 12px;
-            padding: 12px 20px;
-            width: 220px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
-        }
-
-        .hp-bar-outer {
-            background: #333;
-            height: 12px;
-            border-radius: 6px;
-            overflow: hidden;
-            margin-top: 6px;
-        }
-
-        .hp-bar-inner {
-            background: var(--hp-green);
-            height: 100%;
-            width: 100%;
-            transition: width 0.3s ease;
-        }
-
-        .battle-console {
-            background: var(--bg1);
-            border: 3px solid var(--p0);
-            border-radius: 16px;
-            height: 160px;
-            display: flex;
-            padding: 15px;
-            gap: 20px;
-        }
-
-        .battle-log {
-            flex: 2;
-            background: rgba(0,0,0,0.5);
-            border-radius: 10px;
-            padding: 15px;
-            font-size: 18px;
-            line-height: 1.5;
-            display: flex;
-            align-items: center;
-        }
-
-        .battle-actions {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        .btn-battle {
-            background: var(--bg2);
-            border: 2px solid var(--p0);
-            color: #fff;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 16px;
+        .btn-nav {
+            background: var(--p2);
+            border: 1px solid var(--p0);
+            color: var(--w);
+            padding: 10px 18px;
+            border-radius: 20px;
+            font-weight: 700;
+            transition: 0.3s;
+            font-size: 14px;
             cursor: pointer;
-            transition: 0.2s;
         }
 
-        .btn-battle:hover {
+        .btn-nav:hover {
             background: var(--p0);
-            transform: scale(1.02);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(144, 224, 239, 0.4);
         }
 
         /* --- OVERLAYS & MODALS --- */
@@ -313,15 +190,130 @@
 
         .modal-overlay.hidden { display: none; }
 
-        #starterOverlay { background: #000000; }
+        .login-box {
+            background: var(--bg1);
+            border: 2px solid var(--p0);
+            border-radius: var(--r);
+            padding: 35px;
+            width: 95%;
+            max-width: 650px;
+            text-align: center;
+            box-shadow: var(--shadow), var(--glow);
+        }
+
+        .login-box h2 {
+            color: var(--p1);
+            margin: 0 0 15px 0;
+            font-size: 26px;
+            font-weight: 900;
+        }
+
+        .auth-split {
+            display: flex;
+            gap: 20px;
+            text-align: left;
+            margin-top: 15px;
+        }
+
+        .auth-col {
+            flex: 1;
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--p2);
+        }
+
+        .auth-col h3 {
+            margin-top: 0;
+            color: var(--w);
+            border-bottom: 2px solid var(--p0);
+            padding-bottom: 8px;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            border: 2px solid var(--p2);
+            background: var(--bg2);
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        .login-input:focus { border-color: var(--p1); }
+
+        .btn-auth {
+            background: var(--p0);
+            color: #fff;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .btn-auth:hover {
+            background: var(--p1);
+            color: var(--bg0);
+            box-shadow: 0 0 15px var(--p1);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--p0);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 119, 182, 0.2);
+            color: #fff;
+        }
+
+        .auth-error {
+            color: #ff4444;
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: none;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* --- PITCH BLACK STARTER OVERLAY & NO BLUE BORDERS --- */
+        #starterOverlay {
+            background: #000000;
+            backdrop-filter: blur(10px);
+        }
 
         .starter-box {
             background: #090a0f;
-            border-radius: 16px;
+            border: none;
+            border-radius: var(--r);
             padding: 30px;
             width: 100%;
             max-width: 850px;
             text-align: center;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.95);
+        }
+
+        .starter-box h2 {
+            color: var(--p1);
+            font-size: 28px;
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .starter-box p {
+            color: var(--w);
+            font-size: 16px;
+            margin-bottom: 30px;
+            opacity: 0.9;
         }
 
         .starter-grid {
@@ -332,194 +324,540 @@
 
         .starter-card {
             background: rgba(255, 255, 255, 0.03);
+            border: none;
             border-radius: 16px;
             padding: 20px 15px;
             cursor: pointer;
+            position: relative;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
             display: flex;
             flex-direction: column;
             align-items: center;
-            transition: 0.3s;
+            overflow: hidden;
         }
 
-        .starter-card:hover { transform: translateY(-8px); }
+        .starter-light {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            pointer-events: none;
+            filter: blur(10px);
+            z-index: 1;
+            opacity: 0.8;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .light-sproupup { background: radial-gradient(circle, #2ecc71 0%, rgba(46, 204, 113, 0.1) 70%, transparent 100%); }
+        .light-bubbitty { background: radial-gradient(circle, #00b4d8 0%, rgba(0, 180, 216, 0.1) 70%, transparent 100%); }
+        .light-flaragon { background: radial-gradient(circle, #ff6b35 0%, rgba(255, 107, 53, 0.1) 70%, transparent 100%); }
+
+        .starter-card:hover {
+            transform: translateY(-8px);
+            border-color: transparent;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
+        }
+
+        .starter-card:hover .starter-light {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.15);
+        }
 
         .starter-img {
             width: 120px;
             height: 120px;
             object-fit: contain;
+            position: relative;
+            z-index: 2;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));
         }
 
-        .side-drawer {
-            position: fixed;
-            top: 0; left: 0; bottom: 0;
-            width: 320px;
+        .starter-name {
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 5px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .starter-type {
+            font-size: 13px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 12px;
+            position: relative;
+            z-index: 2;
+            text-transform: uppercase;
+        }
+
+        .type-sproupup { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+        .type-bubbitty { background: rgba(0, 180, 216, 0.2); color: #00b4d8; border: 1px solid #00b4d8; }
+        .type-flaragon { background: rgba(255, 107, 53, 0.2); color: #ff6b35; border: 1px solid #ff6b35; }
+
+        /* --- CONFIRMATION DIALOGUE MODAL --- */
+        .confirm-box {
             background: var(--bg1);
-            border-right: 2px solid var(--p0);
-            z-index: 7000;
-            padding: 80px 20px 20px;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-            box-shadow: 10px 0 30px rgba(0,0,0,0.8);
+            border: 2px solid var(--p1);
+            border-radius: 16px;
+            padding: 30px;
+            width: 90%;
+            max-width: 450px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.9), var(--glow);
+            z-index: 9500;
         }
 
-        .side-drawer.open { transform: translateX(0); }
+        .confirm-box h3 {
+            margin-top: 0;
+            font-size: 22px;
+            color: var(--p1);
+        }
+
+        .confirm-img {
+            width: 110px;
+            height: 110px;
+            object-fit: contain;
+            margin: 15px 0;
+            filter: drop-shadow(0 0 12px var(--p0));
+        }
+
+        .confirm-btns {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn-confirm {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+        }
+
+        .btn-yes {
+            background: #2ecc71;
+            color: #fff;
+        }
+
+        .btn-yes:hover {
+            background: #27ae60;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
+        }
+
+        .btn-no {
+            background: #e74c3c;
+            color: #fff;
+        }
+
+        .btn-no:hover {
+            background: #c0392b;
+            box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
+        }
+
+        /* --- MAIN GAME STYLES --- */
+        .main-game {
+            padding: 90px 20px 40px;
+            max-width: 1150px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .location-banner {
+            background: var(--glass);
+            border: 2px solid var(--p0);
+            border-radius: var(--r);
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .location-banner h2 { margin: 0; color: var(--p1); font-size: 22px; }
+        .location-banner p { margin: 5px 0 0 0; font-size: 14px; opacity: 0.8; }
+
+        .game-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .viewport-card {
+            background: var(--bg1);
+            border: 2px solid var(--line);
+            border-radius: var(--r);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* --- GRID MAP SYSTEM STYLES --- */
+        .map-container {
+            display: grid;
+            grid-template-columns: repeat(10, 40px);
+            grid-template-rows: repeat(10, 40px);
+            gap: 2px;
+            background: #000d1a;
+            padding: 6px;
+            border: 3px solid var(--p0);
+            border-radius: 10px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        .tile {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            user-select: none;
+            position: relative;
+        }
+
+        .tile-grass { background: #27ae60; }
+        .tile-tall_grass { background: #1e8449; }
+        .tile-tall_grass::after {
+            content: "🌿";
+            font-size: 16px;
+            opacity: 0.7;
+        }
+
+        .tile-wall {
+            background: #4a5568;
+            border: 1px solid #2d3748;
+        }
+        .tile-wall::after {
+            content: "🪨";
+            font-size: 14px;
+        }
+
+        /* PLAYER: Cube body with stick arms */
+        .player-cube {
+            width: 26px;
+            height: 26px;
+            background: #e74c3c;
+            border: 2px solid #ffffff;
+            border-radius: 4px;
+            position: absolute;
+            z-index: 10;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
+        }
+
+        /* Left stick arm */
+        .player-cube::before {
+            content: "";
+            position: absolute;
+            left: -8px;
+            top: 10px;
+            width: 8px;
+            height: 3px;
+            background: #000000;
+        }
+
+        /* Right stick arm */
+        .player-cube::after {
+            content: "";
+            position: absolute;
+            right: -8px;
+            top: 10px;
+            width: 8px;
+            height: 3px;
+            background: #000000;
+        }
+
+        .controls-hint {
+            font-size: 13px;
+            color: var(--p1);
+            font-weight: bold;
+        }
+
+        .scene-box {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--p2);
+            border-radius: 12px;
+            padding: 15px;
+            width: 100%;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 15px;
+            line-height: 1.4;
+        }
+
+        .team-panel {
+            background: var(--bg1);
+            border: 2px solid var(--line);
+            border-radius: var(--r);
+            padding: 20px;
+        }
+
+        .pet-card {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--p2);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            font-size: 11px;
+            margin-top: 8px;
+            background: rgba(0,0,0,0.3);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .hp-bar-bg {
+            background: #444;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .hp-bar-fill {
+            background: var(--hp-green);
+            height: 100%;
+            width: 100%;
+            transition: width 0.3s;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-action {
+            background: var(--bg2);
+            border: 1px solid var(--p0);
+            color: #fff;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-action:hover:not(:disabled) {
+            background: var(--p0);
+            transform: translateY(-2px);
+        }
+
+        .btn-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: #555;
+        }
+
+        @media (max-width: 768px) {
+            .game-layout { grid-template-columns: 1fr; }
+            .auth-split { flex-direction: column; }
+            .starter-grid { grid-template-columns: 1fr; }
+            .location-banner { flex-direction: column; gap: 10px; text-align: center; }
+        }
     </style>
 </head>
 <body>
 
-<!-- TOP LEFT ACTION ICON BAR -->
-<div class="top-nav-bar">
-    <button class="nav-btn" onclick="toggleMenuDrawer()">
-        <div class="hamburger-icon">
-            <span></span>
-            <span></span>
-            <span></span>
+<!-- FULLSCREEN LOADING SCREEN -->
+<div id="loadingScreen" class="loading-screen">
+    <div class="loading-bar-container">
+        <div class="loading-bar-outer">
+            <div id="loadingBarFill" class="loading-bar-inner"></div>
         </div>
-        <span>MENU</span>
-    </button>
-
-    <button class="nav-btn" onclick="togglePartyDrawer()">
-        <img src="petpng/petmenu" alt="Pet Menu" class="pet-nav-icon" onerror="this.src='sproupup.png'">
-        <span>PETS</span>
-    </button>
+        <div id="loadingText" class="loading-text">CONNECTING TO SERVER... 0%</div>
+    </div>
 </div>
 
-<!-- TOP RIGHT HUD -->
-<div class="top-right-hud">
-    <div class="hud-badge">🪙 <span id="coinDisplay">100</span></div>
-    <div class="hud-badge" style="color:#00ffcc; border-color:#00ffcc;">🎾 <span id="ballDisplay">5</span></div>
+<div class="bg-grid"></div>
+
+<!-- TOPBAR -->
+<header class="topbar">
+    <a href="#" class="brand">🐾 Pet Catching RPG</a>
+    <div class="nav-right">
+        <div class="stat-badge">🪙 <span id="coinDisplay">100</span> Coins</div>
+        <div class="stat-badge" style="border-color: #00ffcc; color: #00ffcc;">🎾 <span id="ballDisplay">5</span> Catch Balls</div>
+        <button id="authHeaderBtn" class="btn-nav" onclick="showLoginOverlay()">Log In / Register</button>
+    </div>
+</header>
+
+<!-- LOGIN / REGISTER OVERLAY -->
+<div class="modal-overlay hidden" id="loginOverlay">
+    <div class="login-box">
+        <h2>Trainer Portal Access</h2>
+        <div id="authError" class="auth-error">Invalid Credentials</div>
+        
+        <div class="auth-split">
+            <div class="auth-col">
+                <h3>Log In</h3>
+                <input type="text" id="loginUsername" class="login-input" placeholder="Username" autocomplete="off">
+                <input type="password" id="loginPassword" class="login-input" placeholder="Password">
+                <button class="btn-auth" onclick="performAuth('login', 'loginUsername', 'loginPassword')">Log In</button>
+            </div>
+            
+            <div class="auth-col">
+                <h3>Create Account</h3>
+                <input type="text" id="regUsername" class="login-input" placeholder="New Username" autocomplete="off">
+                <input type="password" id="regPassword" class="login-input" placeholder="New Password">
+                <button class="btn-auth btn-secondary" onclick="performAuth('register', 'regUsername', 'regPassword')">Register</button>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- SIDE MENU DRAWER -->
-<div class="side-drawer" id="menuDrawer">
-    <h2 style="color:var(--p1); margin-top:0;">Game Menu</h2>
-    <hr style="border-color:var(--p0);">
-    <p>Route: 1 (Map Coordinates)</p>
-    <button class="nav-btn" style="width:100%; margin-top:15px;" onclick="visitCenter()">🏥 Pokémon Center</button>
-    <button class="nav-btn" style="width:100%; margin-top:10px; background:#2ecc71;" onclick="saveGameData()">💾 Save Game</button>
-</div>
-
-<!-- SIDE PETS DRAWER -->
-<div class="side-drawer" id="partyDrawer">
-    <h2 style="color:var(--p1); margin-top:0;">Your Pets (<span id="partyCount">0</span>/6)</h2>
-    <hr style="border-color:var(--p0);">
-    <div id="drawerPartyList"></div>
-</div>
-
-<!-- FULLSCREEN 12x12 MAP -->
-<div class="map-viewport">
-    <div class="map-grid" id="mapGrid"></div>
-</div>
-
-<!-- STARTER SELECTION MODAL -->
+<!-- STARTER PET SELECTION DIALOGUE OVERLAY -->
 <div class="modal-overlay hidden" id="starterOverlay">
     <div class="starter-box">
-        <h2 style="color:var(--p1); font-size:28px;">Choose Your Partner</h2>
-        <p style="opacity:0.8;">Select your starting pet to begin exploring:</p>
+        <h2>Welcome, New Trainer!</h2>
+        <p>Before stepping out on your journey, choose your very first partner pet:</p>
         
         <div class="starter-grid">
-            <div class="starter-card" onclick="selectStarter('sproupup', 'Sproupup')">
-                <img src="sproupup.png" class="starter-img">
-                <h3>Sproupup</h3>
+            <div class="starter-card" onclick="promptStarterChoice('sproupup', 'Sproupup', 'sproupup.png')">
+                <div class="starter-light light-sproupup"></div>
+                <img src="sproupup.png" alt="Sproupup" class="starter-img">
+                <div class="starter-name">Sproupup</div>
+                <div class="starter-type type-sproupup">Grass Type</div>
             </div>
-            <div class="starter-card" onclick="selectStarter('bubbitty', 'Bubbitty')">
-                <img src="bubbitty.png" class="starter-img">
-                <h3>Bubbitty</h3>
+
+            <div class="starter-card" onclick="promptStarterChoice('bubbitty', 'Bubbitty', 'bubbitty.png')">
+                <div class="starter-light light-bubbitty"></div>
+                <img src="bubbitty.png" alt="Bubbitty" class="starter-img">
+                <div class="starter-name">Bubbitty</div>
+                <div class="starter-type type-bubbitty">Water Type</div>
             </div>
-            <div class="starter-card" onclick="selectStarter('flaragon', 'Flaragon')">
-                <img src="flaragon.png" class="starter-img">
-                <h3>Flaragon</h3>
+
+            <div class="starter-card" onclick="promptStarterChoice('flaragon', 'Flaragon', 'flaragon.png')">
+                <div class="starter-light light-flaragon"></div>
+                <img src="flaragon.png" alt="Flaragon" class="starter-img">
+                <div class="starter-name">Flaragon</div>
+                <div class="starter-type type-flaragon">Fire Type</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- POKEMON BATTLE SCREEN OVERLAY -->
-<div class="battle-overlay hidden" id="battleOverlay">
-    <div class="battle-arena">
-        <!-- Player Active Pet -->
-        <div class="battle-entity">
-            <div class="pet-stats-box">
-                <div style="font-weight:bold; font-size:16px;" id="playerPetName">Sproupup</div>
-                <div style="font-size:12px; opacity:0.8;" id="playerPetLvl">Lv. 5</div>
-                <div class="hp-bar-outer">
-                    <div class="hp-bar-inner" id="playerHpBar"></div>
-                </div>
-                <div style="font-size:11px; text-align:right; margin-top:3px;" id="playerHpText">50/50</div>
-            </div>
-            <img id="playerPetImg" src="sproupup.png" class="pet-sprite">
-        </div>
-
-        <!-- Wild Pet Enemy -->
-        <div class="battle-entity">
-            <img id="wildPetImg" src="flaragon.png" class="pet-sprite">
-            <div class="pet-stats-box">
-                <div style="font-weight:bold; font-size:16px;" id="wildPetName">Wild Pet</div>
-                <div style="font-size:12px; opacity:0.8;" id="wildPetLvl">Lv. 3</div>
-                <div class="hp-bar-outer">
-                    <div class="hp-bar-inner" id="wildHpBar"></div>
-                </div>
-                <div style="font-size:11px; text-align:right; margin-top:3px;" id="wildHpText">30/30</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="battle-console">
-        <div class="battle-log" id="battleLogText">A wild pet appeared! What will you do?</div>
-        <div class="battle-actions">
-            <button class="btn-battle" onclick="battleAttack()">⚔️ Attack</button>
-            <button class="btn-battle" onclick="battleCatch()">🎾 Catch</button>
-            <button class="btn-battle" style="grid-column: span 2; background:#e74c3c;" onclick="battleRun()">🏃 Run</button>
+<!-- CONFIRMATION PROMPT OVERLAY -->
+<div class="modal-overlay hidden" id="confirmOverlay" style="z-index: 9999;">
+    <div class="confirm-box">
+        <h3 id="confirmTitle">Confirm Selection</h3>
+        <img id="confirmPetImg" src="" alt="Selected Pet" class="confirm-img">
+        <p id="confirmText" style="font-size: 16px; margin: 10px 0 20px 0;">Are you sure that you want this pet?</p>
+        <div class="confirm-btns">
+            <button class="btn-confirm btn-yes" onclick="confirmStarter(true)">Yes</button>
+            <button class="btn-confirm btn-no" onclick="confirmStarter(false)">No</button>
         </div>
     </div>
 </div>
+
+<!-- MAIN GAME VIEW -->
+<main class="main-game">
+    <div class="location-banner">
+        <div>
+            <h2 id="locationTitle">📍 Gate 1: Route 1 Map</h2>
+            <p id="locationSubText">Use Arrow Keys or WASD to move around the grid coordinates!</p>
+        </div>
+        <button class="btn-nav" id="btnSave" onclick="saveGameData()" style="display:none; background:#2ecc71; border-color:#27ae60;">💾 Save Progress</button>
+    </div>
+
+    <div class="game-layout">
+        <div class="viewport-card">
+            <!-- 10x10 Coordinate Map Grid -->
+            <div class="map-container" id="mapContainer"></div>
+            <div class="controls-hint">🎮 Controls: Arrow Keys or W / A / S / D</div>
+
+            <div class="scene-box" id="sceneBox">
+                <div>Welcome Trainer! Walk through 🌿 Tall Grass tiles to encounter wild pets.</div>
+            </div>
+
+            <div class="action-grid">
+                <button class="btn-action" onclick="visitCenter()">🏥 Pokémon Center</button>
+                <button class="btn-action" id="btnCatch" onclick="catchWildPet()" disabled>🎾 Catch Wild Pet</button>
+            </div>
+        </div>
+
+        <div class="team-panel">
+            <h3 style="margin-top: 0; color: var(--p1); border-bottom: 2px solid var(--p0); padding-bottom: 8px;">Your Party (<span id="partyCount">0</span>/6)</h3>
+            <div id="teamContainer"></div>
+        </div>
+    </div>
+</main>
 
 <script src="pets.js"></script>
+
 <script>
-    // --- STATE ---
-    let playerParty = [];
+    // --- GAME STATE ---
+    let currentUser = null;
     let coins = 100;
     let balls = 5;
-    let inBattle = false;
-    let wildPet = null;
-    let activePlayerPet = null;
+    let currentRoute = 1;
+    let activeEncounter = null;
+    let autoSaveTimer = null;
+    let pendingStarter = null;
+    let playerParty = [];
 
-    // --- MAP CONFIG (12x12 Fullscreen) ---
-    const GRID_SIZE = 12;
+    // --- GRID MAP CONFIGURATION ---
+    const MAP_SIZE = 10;
     let playerPos = { x: 1, y: 1 };
 
-    const mapTiles = [
-        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
-        ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','grass','grass','wall'],
-        ['wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','wall','grass','wall'],
-        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','grass','wall'],
-        ['wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','grass','grass','wall'],
-        ['wall','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','grass','grass','wall'],
-        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall'],
-        ['wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','wall'],
-        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','grass','wall'],
-        ['wall','tall_grass','grass','grass','tall_grass','grass','grass','tall_grass','grass','grass','grass','wall'],
-        ['wall','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','wall'],
-        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall']
+    // Map Legend: 'grass', 'tall_grass', 'wall'
+    const route1Map = [
+        ['wall', 'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall'],
+        ['wall', 'grass',      'grass',      'tall_grass', 'tall_grass', 'grass',      'grass',      'grass',      'grass',      'wall'],
+        ['wall', 'grass',      'wall',       'wall',       'tall_grass', 'grass',      'wall',       'wall',       'grass',      'wall'],
+        ['wall', 'tall_grass', 'wall',       'grass',      'grass',      'grass',      'grass',      'wall',       'tall_grass', 'wall'],
+        ['wall', 'tall_grass', 'grass',      'grass',      'tall_grass', 'tall_grass', 'grass',      'grass',      'tall_grass', 'wall'],
+        ['wall', 'grass',      'grass',      'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass',      'grass',      'wall'],
+        ['wall', 'grass',      'wall',       'tall_grass', 'grass',      'grass',      'tall_grass', 'wall',       'grass',      'wall'],
+        ['wall', 'grass',      'wall',       'grass',      'grass',      'grass',      'grass',      'wall',       'grass',      'wall'],
+        ['wall', 'grass',      'grass',      'grass',      'tall_grass', 'tall_grass', 'grass',      'grass',      'grass',      'wall'],
+        ['wall', 'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall']
     ];
 
     window.addEventListener('DOMContentLoaded', () => {
-        buildMap();
-        setupInput();
-        checkStarter();
+        runLoadingSequence();
+        initMap();
+        setupMovementListeners();
     });
 
-    function buildMap() {
-        const grid = document.getElementById('mapGrid');
-        grid.innerHTML = '';
+    // --- MAP RENDER & MOVEMENT ---
+    function initMap() {
+        const container = document.getElementById('mapContainer');
+        container.innerHTML = '';
 
-        for (let r = 0; r < GRID_SIZE; r++) {
-            for (let c = 0; c < GRID_SIZE; c++) {
+        for (let r = 0; r < MAP_SIZE; r++) {
+            for (let c = 0; c < MAP_SIZE; c++) {
                 const tile = document.createElement('div');
-                const type = mapTiles[r][c];
-                tile.className = `tile tile-${type}`;
+                const tileType = route1Map[r][c];
+                tile.className = `tile tile-${tileType}`;
                 tile.id = `tile-${r}-${c}`;
-                grid.appendChild(tile);
+                container.appendChild(tile);
             }
         }
 
@@ -527,115 +865,298 @@
     }
 
     function renderPlayer() {
-        let player = document.getElementById('playerCube');
-        if (!player) {
-            player = document.createElement('div');
-            player.id = 'playerCube';
-            player.className = 'player-cube';
-            document.getElementById('mapGrid').appendChild(player);
+        let playerEl = document.getElementById('playerCube');
+        if (!playerEl) {
+            playerEl = document.createElement('div');
+            playerEl.id = 'playerCube';
+            playerEl.className = 'player-cube';
+            document.getElementById('mapContainer').appendChild(playerEl);
         }
 
-        const tileWidth = window.innerWidth / GRID_SIZE;
-        const tileHeight = window.innerHeight / GRID_SIZE;
-
-        player.style.width = (tileWidth * 0.6) + 'px';
-        player.style.height = (tileHeight * 0.6) + 'px';
-
-        player.style.left = (playerPos.x * tileWidth + tileWidth / 2) + 'px';
-        player.style.top = (playerPos.y * tileHeight + tileHeight / 2) + 'px';
+        // 40px tile + 2px gap = 42px spacing offset
+        playerEl.style.top = (playerPos.y * 42 + 13) + 'px';
+        playerEl.style.left = (playerPos.x * 42 + 13) + 'px';
     }
 
-    window.addEventListener('resize', renderPlayer);
-
-    function setupInput() {
+    function setupMovementListeners() {
         window.addEventListener('keydown', (e) => {
-            if (inBattle || playerParty.length === 0) return; // Freeze movement during battle/starter pick
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+                e.preventDefault();
+            }
 
-            let dx = 0, dy = 0;
+            let dx = 0;
+            let dy = 0;
+
             if (e.code === 'ArrowUp' || e.code === 'KeyW') dy = -1;
             if (e.code === 'ArrowDown' || e.code === 'KeyS') dy = 1;
             if (e.code === 'ArrowLeft' || e.code === 'KeyA') dx = -1;
             if (e.code === 'ArrowRight' || e.code === 'KeyD') dx = 1;
 
             if (dx !== 0 || dy !== 0) {
-                const nx = playerPos.x + dx;
-                const ny = playerPos.y + dy;
-
-                if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) {
-                    if (mapTiles[ny][nx] !== 'wall') {
-                        playerPos.x = nx;
-                        playerPos.y = ny;
-                        renderPlayer();
-
-                        if (mapTiles[ny][nx] === 'tall_grass' && Math.random() < 0.45) {
-                            startBattle();
-                        }
-                    }
-                }
+                movePlayer(dx, dy);
             }
         });
     }
 
-    // --- POKÉMON-STYLE BATTLE SYSTEM ---
-    function startBattle() {
-        inBattle = true;
-        
-        const speciesKeys = Object.keys(PETS);
-        const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
-        const wildLevel = Math.floor(Math.random() * 3) + 3;
-
-        wildPet = getCalculatedPet({ id: randomId, lvl: wildLevel });
-        activePlayerPet = getCalculatedPet(playerParty[0]);
-
-        // Setup Player UI
-        document.getElementById('playerPetName').innerText = activePlayerPet.name;
-        document.getElementById('playerPetLvl').innerText = `Lv. ${activePlayerPet.level}`;
-        document.getElementById('playerPetImg').src = `${activePlayerPet.id}.png`;
-        updateBattleHp('player', activePlayerPet.currentHp, activePlayerPet.maxHp);
-
-        // Setup Enemy UI
-        document.getElementById('wildPetName').innerText = wildPet.name;
-        document.getElementById('wildPetLvl').innerText = `Lv. ${wildPet.level}`;
-        document.getElementById('wildPetImg').src = `${wildPet.id}.png`;
-        updateBattleHp('wild', wildPet.currentHp, wildPet.maxHp);
-
-        document.getElementById('battleLogText').innerHTML = `⚔️ A wild <strong>${wildPet.name}</strong> appeared! Movement frozen.`;
-        document.getElementById('battleOverlay').classList.remove('hidden');
-    }
-
-    function battleAttack() {
-        if (!wildPet || !activePlayerPet) return;
-
-        // Player attacks enemy
-        const dmg = Math.max(2, activePlayerPet.attack - Math.floor(wildPet.defense / 2));
-        wildPet.currentHp = Math.max(0, wildPet.currentHp - dmg);
-        updateBattleHp('wild', wildPet.currentHp, wildPet.maxHp);
-
-        if (wildPet.currentHp <= 0) {
-            document.getElementById('battleLogText').innerHTML = `💥 You defeated wild <strong>${wildPet.name}</strong>! Earned +15 Coins.`;
-            coins += 15;
-            updateUI();
-            setTimeout(endBattle, 1500);
+    function movePlayer(dx, dy) {
+        if (!playerParty || playerParty.length === 0) {
+            checkStarterRequirement();
             return;
         }
 
-        // Enemy counters
-        const enemyDmg = Math.max(2, wildPet.attack - Math.floor(activePlayerPet.defense / 2));
-        activePlayerPet.currentHp = Math.max(0, activePlayerPet.currentHp - enemyDmg);
-        playerParty[0].hp = activePlayerPet.currentHp;
-        updateBattleHp('player', activePlayerPet.currentHp, activePlayerPet.maxHp);
+        const newX = playerPos.x + dx;
+        const newY = playerPos.y + dy;
 
-        if (activePlayerPet.currentHp <= 0) {
-            document.getElementById('battleLogText').innerHTML = `💀 Your pet fainted! You safely fled back to center.`;
-            setTimeout(endBattle, 1500);
+        if (newX < 0 || newX >= MAP_SIZE || newY < 0 || newY >= MAP_SIZE) return;
+
+        const targetTile = route1Map[newY][newX];
+        if (targetTile === 'wall') return; // Wall Collision
+
+        playerPos.x = newX;
+        playerPos.y = newY;
+        renderPlayer();
+
+        onStepTile(targetTile);
+    }
+
+    function onStepTile(tileType) {
+        const scene = document.getElementById('sceneBox');
+        const btnCatch = document.getElementById('btnCatch');
+
+        if (tileType === 'tall_grass') {
+            // 40% Chance for Wild Pet Encounter on Tall Grass Step
+            if (Math.random() < 0.4) {
+                const speciesKeys = Object.keys(PETS);
+                const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
+                const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
+
+                activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
+
+                scene.innerHTML = `⚔️ <strong>Wild Encounter!</strong><br>A wild <span style="color:var(--p1); font-weight:bold;">${activeEncounter.name}</span> (Lv. ${activeEncounter.level}) popped out of the tall grass at coordinate [${playerPos.x}, ${playerPos.y}]!`;
+                btnCatch.disabled = false;
+            } else {
+                scene.innerHTML = `🌿 Rustling grass at coordinate [${playerPos.x}, ${playerPos.y}]... but no pet appeared.`;
+            }
         } else {
-            document.getElementById('battleLogText').innerHTML = `Hit wild <strong>${wildPet.name}</strong> for ${dmg} DMG! Enemy dealt ${enemyDmg} DMG.`;
+            scene.innerHTML = `🚶 Moving along Route 1 grid coordinate: [${playerPos.x}, ${playerPos.y}].`;
         }
     }
 
-    function battleCatch() {
+    // --- LOADING SEQUENCE ---
+    function runLoadingSequence() {
+        const duration = 5000;
+        const startTime = Date.now();
+        const barFill = document.getElementById('loadingBarFill');
+        const barText = document.getElementById('loadingText');
+
+        const interval = setInterval(() => {
+            const elapsedTime = Date.now() - startTime;
+            const progress = Math.min(100, Math.floor((elapsedTime / duration) * 100));
+
+            barFill.style.width = progress + '%';
+            barText.innerText = `CONNECTING TO SERVER... ${progress}%`;
+
+            if (progress >= 100) {
+                clearInterval(interval);
+                finishLoadingScreen();
+            }
+        }, 30);
+    }
+
+    async function finishLoadingScreen() {
+        const savedUsername = localStorage.getItem('pet_remembered_user');
+
+        if (savedUsername) {
+            const loggedIn = await attemptAutoLogin(savedUsername);
+            if (loggedIn) {
+                dismissLoadingScreen();
+                checkStarterRequirement();
+                startAutoSave();
+                return;
+            }
+        }
+
+        dismissLoadingScreen();
+        showLoginOverlay();
+    }
+
+    function dismissLoadingScreen() {
+        const screen = document.getElementById('loadingScreen');
+        screen.classList.add('fade-out');
+        setTimeout(() => {
+            screen.style.display = 'none';
+        }, 500);
+    }
+
+    // --- STARTER SELECTION & GAME MECHANICS ---
+    function checkStarterRequirement() {
+        if (!playerParty || playerParty.length === 0) {
+            document.getElementById('starterOverlay').classList.remove('hidden');
+        } else {
+            document.getElementById('starterOverlay').classList.add('hidden');
+        }
+    }
+
+    function promptStarterChoice(id, name, imgSrc) {
+        pendingStarter = { id, name, imgSrc };
+        document.getElementById('confirmPetImg').src = imgSrc;
+        document.getElementById('confirmText').innerText = `Are you sure that you want ${name}?`;
+        document.getElementById('confirmOverlay').classList.remove('hidden');
+    }
+
+    function confirmStarter(isYes) {
+        document.getElementById('confirmOverlay').classList.add('hidden');
+
+        if (isYes && pendingStarter) {
+            playerParty = [{
+                id: pendingStarter.id,
+                lvl: 5,
+                hp: 50
+            }];
+
+            document.getElementById('starterOverlay').classList.add('hidden');
+            document.getElementById('loginOverlay').classList.add('hidden');
+            renderParty();
+            updateUI();
+            
+            document.getElementById('sceneBox').innerHTML = `🎉 Congratulations! You received your starter pet <strong>${pendingStarter.name}</strong>! Use Arrow keys/WASD to explore the map.`;
+            
+            if (currentUser) {
+                saveGameData(true);
+            }
+        }
+        pendingStarter = null;
+    }
+
+    async function attemptAutoLogin(username) {
+        const formData = new FormData();
+        formData.append('action', 'load');
+        formData.append('username', username);
+
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                currentUser = result.data.username;
+                coins = parseInt(result.data.coins);
+                balls = parseInt(result.data.balls);
+                currentRoute = parseInt(result.data.current_route);
+                playerParty = result.data.party_data || [];
+
+                updateUI();
+                renderParty();
+                document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
+                document.getElementById('btnSave').style.display = 'inline-block';
+                document.getElementById('sceneBox').innerHTML = `👋 Welcome back, <strong>${currentUser}</strong>! Use Arrow keys/WASD to explore.`;
+                return true;
+            }
+        } catch (err) {
+            console.error("Auto-login error:", err);
+        }
+        return false;
+    }
+
+    function startAutoSave() {
+        if (autoSaveTimer) clearInterval(autoSaveTimer);
+        autoSaveTimer = setInterval(() => {
+            if (currentUser) {
+                saveGameData(true);
+            }
+        }, 30000);
+    }
+
+    async function performAuth(action, userFieldId, passFieldId) {
+        const username = document.getElementById(userFieldId).value.trim();
+        const password = document.getElementById(passFieldId).value.trim();
+
+        if (!username || !password) {
+            showError("Username and password are required.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('username', username);
+        formData.append('password', password);
+
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success) {
+                if (action === 'register') {
+                    showError("Account created! Logging you in...", "#2ecc71");
+                    setTimeout(() => performAuth('login', userFieldId, passFieldId), 1000);
+                } else if (action === 'login') {
+                    currentUser = result.data.username;
+                    coins = parseInt(result.data.coins);
+                    balls = parseInt(result.data.balls);
+                    currentRoute = parseInt(result.data.current_route);
+                    playerParty = result.data.party_data || [];
+
+                    localStorage.setItem('pet_remembered_user', currentUser);
+
+                    updateUI();
+                    renderParty();
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    document.getElementById('authHeaderBtn').innerText = `👤 ${currentUser}`;
+                    document.getElementById('btnSave').style.display = 'inline-block';
+                    
+                    checkStarterRequirement();
+                    startAutoSave();
+                }
+            } else {
+                showError(result.message || "Authentication failed.");
+            }
+        } catch (err) {
+            console.error("Authentication error:", err);
+            showError("Unable to connect to backend server.");
+        }
+    }
+
+    async function saveGameData(isSilent = false) {
+        if (!currentUser) return;
+
+        const formData = new FormData();
+        formData.append('action', 'save');
+        formData.append('username', currentUser);
+        formData.append('coins', coins);
+        formData.append('balls', balls);
+        formData.append('current_route', currentRoute);
+        formData.append('party_data', JSON.stringify(playerParty));
+
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success && !isSilent) {
+                document.getElementById('sceneBox').innerHTML = `💾 <strong style="color:#2ecc71;">Game Progress Saved!</strong>`;
+            }
+        } catch (err) {
+            console.error("Save error:", err);
+        }
+    }
+
+    function showError(msg, color = '#ff4444') {
+        const err = document.getElementById('authError');
+        err.style.color = color;
+        err.innerText = msg;
+        err.style.display = 'block';
+    }
+
+    function showLoginOverlay() {
+        document.getElementById('loginOverlay').classList.remove('hidden');
+    }
+
+    function catchWildPet() {
+        const scene = document.getElementById('sceneBox');
+        const btnCatch = document.getElementById('btnCatch');
+
+        if (!activeEncounter) return;
+
         if (balls <= 0) {
-            document.getElementById('battleLogText').innerHTML = `❌ Out of Catch Balls!`;
+            scene.innerHTML = `❌ You don't have any Catch Balls left!`;
             return;
         }
 
@@ -643,93 +1164,91 @@
         updateUI();
 
         if (playerParty.length >= 6) {
-            document.getElementById('battleLogText').innerHTML = `⚠️ Your pet party is full!`;
+            scene.innerHTML = `⚠️ Your party is full (6/6)! Heal or manage party first.`;
+            btnCatch.disabled = true;
             return;
         }
 
-        if (Math.random() < 0.65) {
-            playerParty.push({ id: wildPet.id, lvl: wildPet.level, hp: wildPet.maxHp });
-            document.getElementById('battleLogText').innerHTML = `🎉 Gotcha! <strong>${wildPet.name}</strong> was caught!`;
-            setTimeout(endBattle, 1500);
+        const catchRate = 0.7; 
+        if (Math.random() < catchRate) {
+            playerParty.push({
+                id: activeEncounter.id,
+                lvl: activeEncounter.level,
+                hp: activeEncounter.maxHp
+            });
+
+            scene.innerHTML = `🎉 <strong>Gotcha!</strong> You successfully caught <span style="color:#2ecc71; font-weight:bold;">${activeEncounter.name}</span>!`;
+            coins += 25;
+            activeEncounter = null;
+            btnCatch.disabled = true;
+            renderParty();
+            updateUI();
+            saveGameData(true);
         } else {
-            document.getElementById('battleLogText').innerHTML = `💨 Wild <strong>${wildPet.name}</strong> broke free!`;
+            scene.innerHTML = `💨 Oh no! The wild <strong>${activeEncounter.name}</strong> broke free and fled!`;
+            activeEncounter = null;
+            btnCatch.disabled = true;
         }
-    }
-
-    function battleRun() {
-        document.getElementById('battleLogText').innerHTML = `🏃 Got away safely!`;
-        setTimeout(endBattle, 1000);
-    }
-
-    function endBattle() {
-        inBattle = false;
-        document.getElementById('battleOverlay').classList.add('hidden');
-        renderPartyDrawers();
-    }
-
-    function updateBattleHp(type, cur, max) {
-        const pct = Math.max(0, (cur / max) * 100);
-        const bar = document.getElementById(type === 'player' ? 'playerHpBar' : 'wildHpBar');
-        const text = document.getElementById(type === 'player' ? 'playerHpText' : 'wildHpText');
-
-        bar.style.width = pct + '%';
-        bar.style.background = pct < 30 ? 'var(--hp-red)' : 'var(--hp-green)';
-        text.innerText = `${cur}/${max}`;
-    }
-
-    // --- UTILITIES ---
-    function checkStarter() {
-        if (playerParty.length === 0) {
-            document.getElementById('starterOverlay').classList.remove('hidden');
-        }
-    }
-
-    function selectStarter(id, name) {
-        playerParty = [{ id, lvl: 5, hp: 50 }];
-        document.getElementById('starterOverlay').classList.add('hidden');
-        renderPartyDrawers();
-    }
-
-    function toggleMenuDrawer() {
-        document.getElementById('menuDrawer').classList.toggle('open');
-        document.getElementById('partyDrawer').classList.remove('open');
-    }
-
-    function togglePartyDrawer() {
-        document.getElementById('partyDrawer').classList.toggle('open');
-        document.getElementById('menuDrawer').classList.remove('open');
-    }
-
-    function renderPartyDrawers() {
-        const list = document.getElementById('drawerPartyList');
-        document.getElementById('partyCount').innerText = playerParty.length;
-        list.innerHTML = '';
-
-        playerParty.forEach(p => {
-            const pet = getCalculatedPet(p);
-            if (!pet) return;
-            list.innerHTML += `
-                <div style="background:rgba(0,0,0,0.4); border:1px solid var(--p2); border-radius:8px; padding:10px; margin-bottom:8px;">
-                    <strong>${pet.name}</strong> (Lv. ${pet.level})<br>
-                    <small>HP: ${pet.currentHp}/${pet.maxHp} | Type: ${pet.type}</small>
-                </div>
-            `;
-        });
     }
 
     function visitCenter() {
-        playerParty.forEach(p => {
-            const pet = getCalculatedPet(p);
-            if (pet) p.hp = pet.maxHp;
+        if (!playerParty || playerParty.length === 0) return;
+        
+        playerParty.forEach(pet => {
+            const calculated = getCalculatedPet(pet);
+            if (calculated) pet.hp = calculated.maxHp;
         });
-        renderPartyDrawers();
-        alert('🏥 All pets healed to full HP!');
+        renderParty();
+        document.getElementById('sceneBox').innerHTML = `🏥 <strong>Pokémon Center:</strong> All pets in your party have been restored to full health!`;
+        saveGameData(true);
+    }
+
+    function renderParty() {
+        const container = document.getElementById('teamContainer');
+        document.getElementById('partyCount').innerText = playerParty.length;
+        container.innerHTML = '';
+
+        if (playerParty.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding: 20px; color:#888;">No pets in party yet!</div>`;
+            return;
+        }
+
+        playerParty.forEach(petData => {
+            const pet = getCalculatedPet(petData);
+            if (!pet) return;
+
+            const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
+            container.innerHTML += `
+                <div class="pet-card">
+                    <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                        <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
+                        <span style="color:var(--p1);">${pet.type}</span>
+                    </div>
+                    <div class="hp-bar-bg">
+                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
+                    </div>
+                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
+                    
+                    <div class="stat-grid">
+                        <span>ATK: ${pet.attack}</span>
+                        <span>DEF: ${pet.defense}</span>
+                        <span>SPD: ${pet.speed}</span>
+                        <span>SP.ATK: ${pet.spAttack}</span>
+                        <span>SP.DEF: ${pet.spDefense}</span>
+                        <span>TYPE: ${pet.type}</span>
+                    </div>
+                </div>
+            `;
+        });
     }
 
     function updateUI() {
         document.getElementById('coinDisplay').innerText = coins;
         document.getElementById('ballDisplay').innerText = balls;
     }
+
+    renderParty();
+    updateUI();
 </script>
 </body>
 </html>
