@@ -4,13 +4,15 @@ const PETS = {
         id: "flaragon",
         name: "Flaragon",
         type: "Fire",
+        img: "petpng/flaragon.png",
         baseStats: { hp: 20, attack: 10, defense: 10, spAttack: 16, spDefense: 12, speed: 15 },
         maxStats:  { hp: 210, attack: 110, defense: 120, spAttack: 190, spDefense: 140, speed: 175 }
     },
     bubbitty: {
-        id: "bubbitty", // Fixed typo: changed "bubbity" to "bubbitty"
+        id: "bubbitty",
         name: "Bubbitty",
         type: "Water",
+        img: "petpng/bubbitty.png",
         baseStats: { hp: 22, attack: 10, defense: 14, spAttack: 12, spDefense: 16, speed: 10 },
         maxStats:  { hp: 230, attack: 130, defense: 170, spAttack: 150, spDefense: 195, speed: 120 }
     },
@@ -18,6 +20,7 @@ const PETS = {
         id: "sproupup",
         name: "Sproupup",
         type: "Grass",
+        img: "petpng/sproupup.png",
         baseStats: { hp: 25, attack: 16, defense: 13, spAttack: 8, spDefense: 10, speed: 12 },
         maxStats:  { hp: 260, attack: 185, defense: 155, spAttack: 100, spDefense: 130, speed: 145 }
     },
@@ -25,6 +28,7 @@ const PETS = {
         id: "sparkwing",
         name: "Sparkwing",
         type: "Electric",
+        img: "petpng/sparkwing.png",
         baseStats: { hp: 18, attack: 13, defense: 8, spAttack: 17, spDefense: 9, speed: 18 },
         maxStats:  { hp: 195, attack: 150, defense: 105, spAttack: 205, spDefense: 115, speed: 210 }
     }
@@ -35,9 +39,9 @@ const PETS = {
  * Stat = BaseStat + Math.floor((MaxStat - BaseStat) * ((Level - 1) / 99))
  */
 function getCalculatedPet(petData) {
-    if (!petData || !petData.id) return null; // Added safety check
+    if (!petData || !petData.id) return null;
 
-    const species = PETS[petData.id.toLowerCase()]; // Added case-insensitivity
+    const species = PETS[petData.id.toLowerCase()];
     if (!species) return null;
 
     const level = petData.lvl || 1;
@@ -49,6 +53,7 @@ function getCalculatedPet(petData) {
         id: species.id,
         name: species.name,
         type: species.type,
+        img: species.img,
         level: level,
         maxHp: maxHp,
         currentHp: petData.hp !== undefined ? Math.min(petData.hp, maxHp) : maxHp,
