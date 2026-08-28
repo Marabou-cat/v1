@@ -34,17 +34,17 @@
             min-height: 100vh;
         }
 
-        /* --- LOADING SCREEN STYLES --- */
+        /* --- FULLSCREEN ROCO-STYLE LOADING SCREEN --- */
         .loading-screen {
             position: fixed;
             inset: 0;
             z-index: 10000;
-            background: linear-gradient(rgba(0, 8, 20, 0.75), rgba(0, 8, 20, 0.85)), 
-                        url('petpng/bg.png') no-repeat center center / cover;
+            background: url('petpng/bg.png') no-repeat center center / cover;
             display: flex;
+            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            text-align: center;
+            padding: 50px 20px 60px 20px;
             transition: opacity 0.5s ease, visibility 0.5s ease;
         }
 
@@ -53,76 +53,56 @@
             visibility: hidden;
         }
 
-        .loading-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            max-width: 550px;
-            width: 90%;
-            background: rgba(0, 29, 61, 0.65);
-            padding: 35px 25px;
-            border-radius: 20px;
-            border: 2px solid var(--p0);
-            box-shadow: var(--shadow), var(--glow);
-            backdrop-filter: blur(8px);
-        }
-
-        .loading-title {
-            font-size: 32px;
-            font-weight: 900;
-            color: var(--p1);
-            text-shadow: 0 0 15px rgba(144, 224, 239, 0.6);
-            letter-spacing: 2px;
-            margin: 0;
-            text-transform: uppercase;
-        }
-
+        /* Top Standalone Logo */
         .loading-logo {
-            max-width: 320px;
+            max-width: 480px;
             width: 85%;
             height: auto;
-            filter: drop-shadow(0 0 20px rgba(0, 119, 182, 0.8));
+            margin-top: 10px;
+            filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 15px rgba(0, 119, 182, 0.6));
             animation: logoFloat 3s ease-in-out infinite;
         }
 
         @keyframes logoFloat {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-12px); }
         }
 
+        /* Bottom Loading Controls */
         .loading-bar-container {
             width: 100%;
+            max-width: 650px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         .loading-bar-outer {
             width: 100%;
-            height: 26px;
-            background: rgba(0, 0, 0, 0.7);
+            height: 28px;
+            background: rgba(0, 0, 0, 0.65);
             border: 2px solid var(--p1);
-            border-radius: 13px;
+            border-radius: 14px;
             overflow: hidden;
-            box-shadow: 0 0 15px rgba(0, 119, 182, 0.5);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.9), 0 0 10px var(--p0);
             padding: 2px;
+            backdrop-filter: blur(4px);
         }
 
         /* Blue Animated Striped Loading Bar */
         .loading-bar-inner {
             height: 100%;
             width: 0%;
-            border-radius: 9px;
+            border-radius: 10px;
             background-color: var(--p0);
             background-image: linear-gradient(
                 45deg,
-                rgba(255, 255, 255, 0.35) 25%,
+                rgba(255, 255, 255, 0.4) 25%,
                 transparent 25%,
                 transparent 50%,
-                rgba(255, 255, 255, 0.35) 50%,
-                rgba(255, 255, 255, 0.35) 75%,
+                rgba(255, 255, 255, 0.4) 50%,
+                rgba(255, 255, 255, 0.4) 75%,
                 transparent 75%,
                 transparent
             );
@@ -137,10 +117,11 @@
         }
 
         .loading-text {
-            font-size: 14px;
-            font-weight: bold;
-            color: var(--p1);
-            letter-spacing: 1px;
+            font-size: 15px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 1.5px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 8px var(--p0);
         }
 
         /* --- GAME MAIN STYLES --- */
@@ -457,17 +438,15 @@
 </head>
 <body>
 
-<!-- LOADING SCREEN -->
+<!-- FULLSCREEN ROCO KINGDOM STYLE LOADING SCREEN -->
 <div id="loadingScreen" class="loading-screen">
-    <div class="loading-content">
-        <h1 class="loading-title">Pet Catching RPG</h1>
-        <img src="petpng/logo.png" alt="Pet RPG Logo" class="loading-logo">
-        <div class="loading-bar-container">
-            <div class="loading-bar-outer">
-                <div id="loadingBarFill" class="loading-bar-inner"></div>
-            </div>
-            <div id="loadingText" class="loading-text">INITIALIZING GAME SYSTEM... 0%</div>
+    <img src="petpng/logo.png" alt="Pet RPG Logo" class="loading-logo">
+    
+    <div class="loading-bar-container">
+        <div class="loading-bar-outer">
+            <div id="loadingBarFill" class="loading-bar-inner"></div>
         </div>
+        <div id="loadingText" class="loading-text">INITIALIZING GAME SYSTEM... 0%</div>
     </div>
 </div>
 
@@ -784,7 +763,7 @@
             btnCatch.disabled = true;
             renderParty();
             updateUI();
-            saveGameData(true); // Auto-save after catching
+            saveGameData(true);
         } else {
             scene.innerHTML = `💨 Oh no! The wild <strong>${activeEncounter.name}</strong> broke free and fled!`;
             activeEncounter = null;
