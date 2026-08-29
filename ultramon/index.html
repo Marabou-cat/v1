@@ -1167,63 +1167,80 @@
     }
 
     function executePlayerAttack(moveName) {
-        const activePlayerPet = getCalculatedPet(playerParty[0]);
-        const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
-        if (!moveObj) return;
+    const activePlayerPet = getCalculatedPet(playerParty[0]);
+    const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
+    if (!moveObj) return;
 
-        if (playerBattleEnergy < moveObj.powerCost) {
-            document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
-            return;
-        }
-
-        playerBattleEnergy -= moveObj.powerCost;
-
-        let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
-        let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
-        let damage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
-
-        activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - damage);
-        updateBattleHUD();
-
-        document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${damage} damage to wild ${activeEncounter.name}.`;
-
-        if (activeEncounter.currentHp <= 0) {
-            document.getElementById('battleDialogueText').innerText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
-            coins += 40;
-            updateUI();
-            setTimeout(() => endBattle(true), 2000);
-            return;
-        }
-
-        setTimeout(() => executeEnemyAttack(), 1500);
+    if (playerBattleEnergy < moveObj.powerCost) {
+        document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
+        return;
     }
 
-    function executeEnemyAttack() {
-        if (!activeEncounter || activeEncounter.currentHp <= 0) return;
+    playerBattleEnergy -= moveObj.powerCost;
 
-        const enemyMoves = activeEncounter.unlockedMoves;
-        const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
-        const activePlayerPet = getCalculatedPet(playerParty[0]);
+    let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
+    let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
+    
+    // Calculate type effectiveness multiplier
+    let typeMultiplier = getTypeEffectiveness(moveObj.type, activeEncounter.type);
+    
+    let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
+    let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
 
-        let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
-        let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
-        let damage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
+    activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - finalDamage);
+    updateBattleHUD();
 
-        playerParty[0].hp = Math.max(0, playerParty[0].hp - damage);
-        playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
-        updateBattleHUD();
+    let effectivenessText = "";
+    if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
+    else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
 
-        document.getElementById('battleDialogueText').innerText = `Wild ${activeEncounter.name} used ${randomMove.name}! Dealt ${damage} damage to ${activePlayerPet.name}.`;
+    document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
 
-        if (playerParty[0].hp <= 0) {
-            document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted!`;
-            setTimeout(() => endBattle(false), 2000);
-            return;
-        }
-
-        resetBattleActionButtons();
+    if (activeEncounter.currentHp <= 0) {
+        document.getElementById('battleDialogueText').innerText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
+        coins += 40;
+        updateUI();
+        setTimeout(() => endBattle(true), 2000);
+        return;
     }
 
+    setTimeout(() => executeEnemyAttack(), 1500);
+}
+
+function executeEnemyAttack() {
+    if (!activeEncounter || activeEncounter.currentHp <= 0) return;
+
+    const enemyMoves = activeEncounter.unlockedMoves;
+    const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
+    const activePlayerPet = getCalculatedPet(playerParty[0]);
+
+    let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
+    let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
+    
+    // Calculate type effectiveness multiplier against player pet types
+    let typeMultiplier = getTypeEffectiveness(randomMove.type, activePlayerPet.type);
+
+    let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
+    let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+
+    playerParty[0].hp = Math.max(0, playerParty[0].hp - finalDamage);
+    playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
+    updateBattleHUD();
+
+    let effectivenessText = "";
+    if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
+    else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
+
+    document.getElementById('battleDialogueText').innerText = `Wild ${activeEncounter.name} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+
+    if (playerParty[0].hp <= 0) {
+        document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted!`;
+        setTimeout(() => endBattle(false), 2000);
+        return;
+    }
+
+    resetBattleActionButtons();
+}
     function executeBattleCatch() {
         if (!activeEncounter) return;
 
