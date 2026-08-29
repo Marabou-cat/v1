@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pet Catching RPG - Move Combat & Customization</title>
+    <title>Pet Catching RPG - Large Map & Camera Viewport</title>
     <style>
         :root {
             --bg0: #000814; 
@@ -111,51 +111,58 @@
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 8px var(--p0);
         }
 
-        /* --- MAP CONTAINER --- */
+        /* --- MAP VIEWPORT CONTAINER --- */
         .map-container {
             position: relative;
-            width: 100vmin;
-            height: 100vmin;
-            max-width: 100vw;
-            max-height: 100vh;
-            display: grid;
-            grid-template-columns: repeat(10, 10vmin);
-            grid-template-rows: repeat(10, 10vmin);
+            width: 480px;
+            height: 480px;
+            max-width: 90vw;
+            max-height: 90vh;
             background: #000d1a;
-            z-index: 1;
+            border: 3px solid var(--p0);
+            border-radius: 16px;
             overflow: hidden;
+            z-index: 1;
+            box-shadow: var(--shadow), var(--glow);
+        }
+
+        .map-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1440px; /* 30 tiles * 48px */
+            height: 1440px;
         }
 
         .tile {
             position: absolute;
-            width: 10vmin;
-            height: 10vmin;
+            width: 48px;
+            height: 48px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2vmin;
+            font-size: 16px;
             user-select: none;
         }
 
         .tile-grass { background: #27ae60; border: 1px solid rgba(0,0,0,0.1); }
         .tile-tall_grass { background: #1e8449; border: 1px solid rgba(0,0,0,0.1); }
-        .tile-tall_grass::after { content: "🌿"; font-size: 2.2vmin; opacity: 0.8; }
+        .tile-tall_grass::after { content: "🌿"; font-size: 18px; opacity: 0.8; }
 
         .tile-wall { background: #4a5568; border: 1px solid #2d3748; }
-        .tile-wall::after { content: "🪨"; font-size: 2vmin; }
+        .tile-wall::after { content: "🪨"; font-size: 16px; }
 
         /* --- PLAYER CUBE --- */
         .player-cube {
-            width: 6vmin;
-            height: 6vmin;
-            max-width: 45px;
-            max-height: 45px;
-            min-width: 25px;
-            min-height: 25px;
+            width: 32px;
+            height: 32px;
             background: #e74c3c;
             border: 2px solid #ffffff;
             border-radius: 6px;
             position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             z-index: 10;
             box-shadow: 0 4px 12px rgba(231, 76, 60, 0.8);
             transform-origin: bottom center;
@@ -163,18 +170,18 @@
         .player-cube::after {
             content: "";
             position: absolute;
-            right: 6px;
-            top: 10px;
-            width: 8px;
-            height: 6px;
+            right: 4px;
+            top: 6px;
+            width: 6px;
+            height: 4px;
             background: #ffffff;
             border-radius: 2px;
         }
         .player-cube.walking { animation: sideWalk 0.25s infinite alternate ease-in-out; }
 
         @keyframes sideWalk {
-            0% { transform: translateY(0) scaleY(1) rotate(0deg); }
-            100% { transform: translateY(-5px) scaleY(0.95) rotate(-3deg); }
+            0% { transform: translate(-50%, -50%) translateY(0) scaleY(1) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) translateY(-3px) scaleY(0.95) rotate(-3deg); }
         }
 
         /* --- MENU BUTTON --- */
@@ -614,8 +621,11 @@
     </div>
 </div>
 
-<!-- SQUARE MAP CONTAINER -->
-<div class="map-container" id="mapContainer"></div>
+<!-- MAP VIEWPORT CONTAINER -->
+<div class="map-container" id="mapContainer">
+    <div class="map-grid" id="mapGrid"></div>
+    <div class="player-cube" id="playerCube"></div>
+</div>
 
 <!-- BATTLE OVERLAY -->
 <div class="battle-overlay" id="battleOverlay">
@@ -735,22 +745,46 @@
     let pendingStarter = null;
     let playerParty = [];
 
-    const MAP_SIZE = 10;
-    let playerPos = { x: 1.0, y: 1.0 };
-    const moveSpeed = 0.08;
+    const MAP_SIZE = 30;
+    const TILE_SIZE = 48;
+    const VIEWPORT_SIZE = 480;
+
+    let playerPos = { x: 3.0, y: 3.0 };
+    const moveSpeed = 0.035; // Slower movement speed
     const keysPressed = {};
 
+    // Expanded 30x30 Large Map
     const route1Map = [
-        ['wall', 'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall'],
-        ['wall', 'grass',      'grass',      'tall_grass', 'tall_grass', 'grass',      'grass',      'grass',      'grass',      'wall'],
-        ['wall', 'grass',      'wall',       'wall',       'tall_grass', 'grass',      'wall',       'wall',       'grass',      'wall'],
-        ['wall', 'tall_grass', 'wall',       'grass',      'grass',      'grass',      'grass',      'wall',       'tall_grass', 'wall'],
-        ['wall', 'tall_grass', 'grass',      'grass',      'tall_grass', 'tall_grass', 'grass',      'grass',      'tall_grass', 'wall'],
-        ['wall', 'grass',      'grass',      'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass',      'grass',      'wall'],
-        ['wall', 'grass',      'wall',       'tall_grass', 'grass',      'grass',      'tall_grass', 'wall',       'grass',      'wall'],
-        ['wall', 'grass',      'wall',       'grass',      'grass',      'grass',      'grass',      'wall',       'grass',      'wall'],
-        ['wall', 'grass',      'grass',      'grass',      'tall_grass', 'tall_grass', 'grass',      'grass',      'grass',      'wall'],
-        ['wall', 'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall',       'wall']
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','grass','wall'],
+        ['wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','tall_grass','wall'],
+        ['wall','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','grass','grass','wall'],
+        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
+        ['wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','grass','grass','wall','grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','tall_grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
+        ['wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','grass','grass','wall','grass','wall'],
+        ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','grass','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','grass','wall'],
+        ['wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','tall_grass','wall'],
+        ['wall','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','grass','grass','wall'],
+        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
+        ['wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','grass','grass','wall','grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall']
     ];
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -761,33 +795,37 @@
     });
 
     function initMap() {
-        const container = document.getElementById('mapContainer');
-        container.innerHTML = '';
+        const grid = document.getElementById('mapGrid');
+        grid.innerHTML = '';
+        grid.style.width = (MAP_SIZE * TILE_SIZE) + 'px';
+        grid.style.height = (MAP_SIZE * TILE_SIZE) + 'px';
 
         for (let r = 0; r < MAP_SIZE; r++) {
             for (let c = 0; c < MAP_SIZE; c++) {
                 const tile = document.createElement('div');
                 const tileType = route1Map[r][c];
                 tile.className = `tile tile-${tileType}`;
-                tile.style.top = (r * 10) + 'vmin';
-                tile.style.left = (c * 10) + 'vmin';
-                container.appendChild(tile);
+                tile.style.top = (r * TILE_SIZE) + 'px';
+                tile.style.left = (c * TILE_SIZE) + 'px';
+                tile.style.width = TILE_SIZE + 'px';
+                tile.style.height = TILE_SIZE + 'px';
+                grid.appendChild(tile);
             }
         }
         renderPlayerElement();
     }
 
     function renderPlayerElement() {
-        let playerEl = document.getElementById('playerCube');
-        if (!playerEl) {
-            playerEl = document.createElement('div');
-            playerEl.id = 'playerCube';
-            playerEl.className = 'player-cube';
-            document.getElementById('mapContainer').appendChild(playerEl);
-        }
+        const grid = document.getElementById('mapGrid');
+        if (!grid) return;
 
-        playerEl.style.top = (playerPos.y * 10 + 2) + 'vmin';
-        playerEl.style.left = (playerPos.x * 10 + 2) + 'vmin';
+        // Keep player centered in the viewport and scroll the map underneath
+        const viewportHalf = VIEWPORT_SIZE / 2;
+        const mapX = viewportHalf - (playerPos.x * TILE_SIZE);
+        const mapY = viewportHalf - (playerPos.y * TILE_SIZE);
+
+        grid.style.left = mapX + 'px';
+        grid.style.top = mapY + 'px';
     }
 
     function setupMovementListeners() {
@@ -850,14 +888,14 @@
     }
 
     function isValidPosition(x, y) {
-        if (x < 0.0 || x > MAP_SIZE - 0.8 || y < 0.0 || y > MAP_SIZE - 0.8) return false;
+        if (x < 0.5 || x > MAP_SIZE - 1.5 || y < 0.5 || y > MAP_SIZE - 1.5) return false;
 
-        const margin = 0.08;
+        const margin = 0.15;
         const checkPoints = [
-            { x: x + 0.2 + margin, y: y + 0.2 + margin },
-            { x: x + 0.8 - margin, y: y + 0.2 + margin },
-            { x: x + 0.2 + margin, y: y + 0.8 - margin },
-            { x: x + 0.8 - margin, y: y + 0.8 - margin }
+            { x: x + margin, y: y + margin },
+            { x: x + 1 - margin, y: y + margin },
+            { x: x + margin, y: y + 1 - margin },
+            { x: x + 1 - margin, y: y + 1 - margin }
         ];
 
         for (let pt of checkPoints) {
@@ -993,7 +1031,6 @@
 
         playerBattleEnergy -= moveObj.powerCost;
 
-        // Calculate damage
         let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
         let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
         let damage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
@@ -1011,7 +1048,6 @@
             return;
         }
 
-        // Enemy turn after brief delay
         setTimeout(() => executeEnemyAttack(), 1500);
     }
 
@@ -1027,7 +1063,7 @@
         let damage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
 
         playerParty[0].hp = Math.max(0, playerParty[0].hp - damage);
-        playerBattleEnergy = Math.min(100, playerBattleEnergy + 15); // Recover energy each turn
+        playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
         updateBattleHUD();
 
         document.getElementById('battleDialogueText').innerText = `Wild ${activeEncounter.name} used ${randomMove.name}! Dealt ${damage} damage to ${activePlayerPet.name}.`;
