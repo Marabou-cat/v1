@@ -1559,7 +1559,9 @@
     }
 
     function playCatchAnimation(onComplete) {
-        const success = Math.random() < 0.40; // Catch success rate
+        let rawCatchRate = activeEncounter.catchRate !== undefined ? activeEncounter.catchRate : 0.40;
+        const catchRate = rawCatchRate > 1 ? rawCatchRate / 100 : rawCatchRate;
+        const success = Math.random() < catchRate; // Catch success rate read from pets.js
         const shakes = success ? 3 : (Math.random() < 0.5 ? 1 : 2);
 
         const wildImg = document.getElementById('battleWildImg');
