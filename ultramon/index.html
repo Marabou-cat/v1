@@ -820,7 +820,7 @@
         ['grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','grass','tall_grass','grass'],
         ['grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass'],
         ['grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass'],
-        ['grass','grass','wall' /* Wait, replaced with grass */,'grass','tall_grass','grass','grass','tall_grass','grass','grass','grass','grass','grass','tall_grass','grass','grass','tall_grass','grass','grass','grass','tall_grass','grass','grass','tall_grass','grass','grass','grass','tall_grass','grass','grass','grass'],
+        ['grass','grass','grass','grass','tall_grass','grass','grass','tall_grass','grass','grass','grass','grass','grass','tall_grass','grass','grass','tall_grass','grass','grass','grass','tall_grass','grass','grass','tall_grass','grass','grass','grass','tall_grass','grass','grass','grass'],
         ['grass','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','grass'],
         ['grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass','grass'],
         ['gate','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','gate'],
@@ -938,13 +938,19 @@
                 let targetY = playerPos.y + dy * moveSpeed;
                 let moved = false;
 
-                if (isValidPosition(targetX, playerPos.y)) {
+                if (isValidPosition(targetX, targetY)) {
                     playerPos.x = targetX;
-                    moved = true;
-                }
-                if (isValidPosition(playerPos.x, targetY)) {
                     playerPos.y = targetY;
                     moved = true;
+                } else {
+                    if (isValidPosition(targetX, playerPos.y)) {
+                        playerPos.x = targetX;
+                        moved = true;
+                    }
+                    if (isValidPosition(playerPos.x, targetY)) {
+                        playerPos.y = targetY;
+                        moved = true;
+                    }
                 }
 
                 if (moved) {
@@ -959,7 +965,7 @@
     }
 
     function isValidPosition(x, y) {
-        const radius = 0.3;
+        const radius = 0.32; // Adjusted hitbox bounds
 
         if (x < radius || x > MAP_SIZE - radius || y < radius || y > MAP_SIZE - radius) return false;
 
@@ -977,7 +983,6 @@
             
             if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
             
-            // Walls are now grass, so only map bounds restrict movement
             if (activeMap[tileY][tileX] === 'wall') return false;
         }
 
