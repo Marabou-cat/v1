@@ -1058,61 +1058,133 @@
         if (currentMapIndex === 0) {
             currentMapIndex = 1;
             currentRoute = 2;
-            playerPos = { x: 1.5, y: 15.0 }; // Start of Route 2
+            playerPos = { x: 1.5, y: 15.5 }; // Safe y coordinate avoiding row 14 wall on Route 2
         } else {
             currentMapIndex = 0;
             currentRoute = 1;
-            playerPos = { x: 27.5, y: 15.0 }; // End of Route 1
+            playerPos = { x: 27.5, y: 15.0 }; 
         }
         initMap();
+        renderPlayerElement();
         saveGameData(true);
     }
 
-    function openMenuModal() {
-        document.getElementById('menuModal').classList.remove('hidden');
-        renderParty();
-        updateUI();
+    async function attemptAutoLogin(username) {
+        const formData = new FormData();
+        formData.append('action', 'load');
+        formData.append('username', username);
+
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                currentUser = result.data.username;
+                coins = parseInt(result.data.coins);
+                balls = parseInt(result.data.balls);
+                currentRoute = parseInt(result.data.current_route);
+                currentMapIndex = currentRoute === 2 ? 1 : 0;
+                playerParty = result.data.party_data || [];
+
+                let loadedX = parseFloat(result.data.pos_x);
+                let loadedY = parseFloat(result.data.pos_y);
+                if (!isNaN(loadedX) && !isNaN(loadedY)) {
+                    playerPos = { x: loadedX, y: loadedY };
+                } else {
+                    playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
+                }
+
+                updateUI();
+                renderParty();
+                renderPlayerElement();
+                return true;
+            }
+        } catch (err) {
+            console.error("Auto-login error:", err);
+        }
+        return false;
     }
 
-    function closeMenuModal() {
-        document.getElementById('menuModal').classList.add('hidden');
-    }
+    async function performAuth(action, userFieldId, passFieldId) {
+        const username = document.getElementById(userFieldId).value.trim();
+        const password = document.getElementById(passFieldId).value.trim();
 
-    function switchTab(tabName) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+        if (!username || !password) {
+            showError("Username and password are required.");
+            return;
+        }
 
-        if (tabName === 'pets') {
-            document.querySelectorAll('.tab-btn')[0].classList.add('active');
-            document.getElementById('tabPets').classList.add('active');
-        } else if (tabName === 'items') {
-            document.querySelectorAll('.tab-btn')[1].classList.add('active');
-            document.getElementById('tabItems').classList.add('active');
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('username', username);
+        formData.append('password', password);
+
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success) {
+                if (action === 'register') {
+                    showError("Account created! Logging you in...", "#2ecc71");
+                    setTimeout(() => performAuth('login', userFieldId, passFieldId), 1000);
+                } else if (action === 'login') {
+                    currentUser = result.data.username;
+                    coins = parseInt(result.data.coins);
+                    balls = parseInt(result.data.balls);
+                    currentRoute = parseInt(result.data.current_route);
+                    currentMapIndex = currentRoute === 2 ? 1 : 0;
+                    playerParty = result.data.party_data || [];
+
+                    let loadedX = parseFloat(result.data.pos_x);
+                    let loadedY = parseFloat(result.data.pos_y);
+                    if (!isNaN(loadedX) && !isNaN(loadedY)) {
+                        playerPos = { x: loadedX, y: loadedY };
+                    } else {
+                        playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
+                    }
+
+                    localStorage.setItem('pet_remembered_user', currentUser);
+
+                    updateUI();
+                    renderParty();
+                    renderPlayerElement();
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    
+                    checkStarterRequirement();
+                    startAutoSave();
+                }
+            } else {
+                showError(result.message || "Authentication failed.");
+            }
+        } catch (err) {
+            console.error("Authentication error:", err);
+            showError("Unable to connect to backend server.");
         }
     }
 
-    function triggerWildEncounter() {
-        if (!playerParty || playerParty.length === 0) return;
+    async function saveGameData(isSilent = false) {
+        if (!currentUser) return;
 
-        encounterCooldown = true;
-        const speciesKeys = Object.keys(PETS);
-        const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
-        const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
-        
-        activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
-        playerBattleEnergy = 100;
+        const formData = new FormData();
+        formData.append('action', 'save');
+        formData.append('username', currentUser);
+        formData.append('coins', coins);
+        formData.append('balls', balls);
+        formData.append('current_route', currentRoute);
+        formData.append('pos_x', playerPos.x);
+        formData.append('pos_y', playerPos.y);
+        formData.append('party_data', JSON.stringify(playerParty));
 
-        updateBattleHUD();
-        document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
-        resetBattleActionButtons();
-
-        const overlay = document.getElementById('battleOverlay');
-        overlay.classList.add('flash');
-        overlay.classList.add('active');
-
-        setTimeout(() => overlay.classList.remove('flash'), 800);
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+            if (result.success && !isSilent) {
+                alert("Game Progress Saved!");
+            }
+        } catch (err) {
+            console.error("Save error:", err);
+        }
     }
-
     function updateBattleHUD() {
         if (!playerParty || playerParty.length === 0) return;
         const activePlayerPet = getCalculatedPet(playerParty[0]);
