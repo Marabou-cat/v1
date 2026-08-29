@@ -939,10 +939,19 @@
 
                 let targetX = playerPos.x + dx * moveSpeed;
                 let targetY = playerPos.y + dy * moveSpeed;
+                let moved = false;
 
-                if (isValidPosition(targetX, targetY)) {
+                // Axis-independent collision checking prevents sticking against walls/corners[cite: 2]
+                if (isValidPosition(targetX, playerPos.y)) {
                     playerPos.x = targetX;
+                    moved = true;
+                }
+                if (isValidPosition(playerPos.x, targetY)) {
                     playerPos.y = targetY;
+                    moved = true;
+                }
+
+                if (moved) {
                     renderPlayerElement();
                     checkTileInteractions();
                 }
@@ -1565,3 +1574,4 @@
 </script>
 </body>
 </html>
+```[cite: 2]
