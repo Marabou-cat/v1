@@ -618,6 +618,12 @@
         .btn-move:hover { background: var(--p0); }
         .btn-move:disabled { opacity: 0.4; cursor: not-allowed; }
 
+        .battle-switch-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; width: 100%; max-height: 110px; overflow-y: auto; }
+        .battle-switch-card { background: rgba(0,0,0,0.5); border: 1px solid var(--p2); border-radius: 6px; padding: 4px 8px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: 0.2s; }
+        .battle-switch-card:hover:not(.fainted):not(.active) { background: var(--p0); border-color: var(--p1); }
+        .battle-switch-card.fainted { opacity: 0.4; cursor: not-allowed; background: rgba(231,76,60,0.2); }
+        .battle-switch-card.active { border-color: var(--gold); background: rgba(255,215,0,0.15); cursor: not-allowed; }
+
         @media (max-width: 768px) {
             .auth-split { flex-direction: column; }
             .starter-grid { grid-template-columns: 1fr; }
@@ -741,7 +747,7 @@
         <div class="battle-actions" id="battleActionButtons">
             <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
             <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
-            <button class="btn-action" onclick="visitCenterAndHealBattle()">🎒 Items</button>
+            <button class="btn-action" onclick="openBattleSwitchMenu()">🔄 Switch</button>
             <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
         </div>
     </div>
@@ -1153,19 +1159,6 @@
             return;
         }
 
-        if (inForcedSwitch) {
-            const temp = playerParty[0];
-            playerParty[0] = playerParty[index];
-            playerParty[index] = temp;
-
-            inForcedSwitch = false;
-            updateBattleHUD();
-            resetBattleActionButtons();
-            document.getElementById('battleDialogueText').innerText = `Go! ${getCalculatedPet(playerParty[0]).name}!`;
-            renderPartyCircles();
-            return;
-        }
-
         const temp = playerParty[0];
         playerParty[0] = playerParty[index];
         playerParty[index] = temp;
@@ -1287,7 +1280,7 @@
         document.getElementById('battleActionButtons').innerHTML = `
             <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
             <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
-            <button class="btn-action" onclick="visitCenterAndHealBattle()">🎒 Items</button>
+            <button class="btn-action" onclick="openBattleSwitchMenu()">🔄 Switch</button>
             <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
         `;
     }
@@ -1309,6 +1302,64 @@
 
         movesHtml += `<button class="btn-action" onclick="resetBattleActionButtons()" style="background:#555; grid-column: span 2; padding:8px;">↩ Back</button>`;
         document.getElementById('battleActionButtons').innerHTML = movesHtml;
+    }
+
+    function openBattleSwitchMenu() {
+        let html = `<div class="battle-switch-grid" style="grid-column: span 2;">`;
+        playerParty.forEach((petData, index) => {
+            const pet = getCalculatedPet(petData);
+            if (!pet) return;
+            const isFainted = petData.hp <= 0;
+            const isActive = index === 0;
+
+            let cardClass = 'battle-switch-card';
+            if (isFainted) cardClass += ' fainted';
+            else if (isActive) cardClass += ' active';
+
+            html += `<div class="${cardClass}" ${(!isFainted && !isActive) ? `onclick="executeBattleSwitch(${index})"` : ''}>
+                <img src="${pet.img}" width="32" height="32" style="object-fit:contain;">
+                <div style="font-size:11px; overflow:hidden;">
+                    <div style="font-weight:bold; color:#fff;">${pet.name} (Lv.${pet.level})</div>
+                    <div style="color:var(--hp-green);">HP: ${petData.hp}/${pet.maxHp}</div>
+                </div>
+            </div>`;
+        });
+        html += `</div>`;
+        
+        if (!inForcedSwitch) {
+            html += `<button class="btn-action" onclick="resetBattleActionButtons()" style="background:#555; grid-column: span 2; padding:6px; font-size:12px;">↩ Back</button>`;
+        }
+        
+        document.getElementById('battleActionButtons').innerHTML = html;
+    }
+
+    function executeBattleSwitch(newIndex) {
+        if (newIndex === 0) return;
+        const targetPetData = playerParty[newIndex];
+        const targetPet = getCalculatedPet(targetPetData);
+        if (!targetPet || targetPetData.hp <= 0) {
+            alert("Cannot switch to a fainted pet!");
+            return;
+        }
+
+        const oldPetData = playerParty[0];
+        const oldPet = getCalculatedPet(oldPetData);
+
+        playerParty.splice(newIndex, 1);
+        playerParty.unshift(targetPetData);
+
+        updateBattleHUD();
+
+        if (inForcedSwitch) {
+            inForcedSwitch = false;
+            document.getElementById('battleDialogueText').innerText = `Go! ${targetPet.name}!`;
+            resetBattleActionButtons();
+        } else {
+            document.getElementById('battleDialogueText').innerText = `You withdrew ${oldPet.name} and sent out ${targetPet.name}!`;
+            setTimeout(() => {
+                executeEnemyAttack();
+            }, 1200);
+        }
     }
 
     function executePlayerAttack(moveName) {
@@ -1381,8 +1432,8 @@
             const hasLivingPets = playerParty.some(p => p.hp > 0);
             if (hasLivingPets) {
                 inForcedSwitch = true;
-                document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Click one of your available living pets in the top-right icons to switch in!`;
-                document.getElementById('battleActionButtons').innerHTML = `<div style="grid-column: span 2; text-align: center; color: #ff4444; font-weight: bold;">⚠️ Forced Switch Required! Choose a living pet from top-right.</div>`;
+                document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Choose your next pet to continue battle!`;
+                openBattleSwitchMenu();
             } else {
                 document.getElementById('battleDialogueText').innerText += ` All your pets fainted! You blacked out and fled...`;
                 setTimeout(() => endBattle(false), 2000);
@@ -1433,10 +1484,6 @@
                 setTimeout(() => endBattle(false), 1500);
             }, 1200);
         }
-    }
-
-    function visitCenterAndHealBattle() {
-        document.getElementById('battleDialogueText').innerText = `💡 Tip: Visit gate tunnels to heal your pets or buy items!`;
     }
 
     function endBattle(isFinished) {
@@ -1780,4 +1827,3 @@
 </script>
 </body>
 </html>
-```[cite: 1]
