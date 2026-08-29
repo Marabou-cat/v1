@@ -149,6 +149,8 @@
         .tile-wall { background: #4a5568; border: 1px solid #2d3748; }
         .tile-wall::after { content: "🪨"; font-size: 16px; }
 
+        .tile-floor { background: #2c3e50; border: 1px solid #1a252f; }
+
         /* YELLOW ROUTE BLOCKS & GATE */
         .tile-route { background: #f1c40f; border: 1px solid #d4ac0d; }
         .tile-gate { background: #d35400; border: 1px solid #ba4a00; }
@@ -180,6 +182,29 @@
             border-radius: 2px;
         }
         .player-cube.walking { animation: sideWalk 0.25s infinite alternate ease-in-out; }
+
+        /* --- DOCTOR CUBE (PINK) --- */
+        .doctor-cube {
+            width: 32px;
+            height: 32px;
+            background: #ff69b4;
+            border: 2px solid #ffffff;
+            border-radius: 6px;
+            position: absolute;
+            z-index: 9;
+            box-shadow: 0 4px 12px rgba(255, 105, 180, 0.8);
+            transform: translate(-50%, -50%);
+        }
+        .doctor-cube::after {
+            content: "";
+            position: absolute;
+            right: 4px;
+            top: 6px;
+            width: 6px;
+            height: 4px;
+            background: #ffffff;
+            border-radius: 2px;
+        }
 
         @keyframes sideWalk {
             0% { transform: translate(-50%, -50%) translateY(0) scaleY(1) rotate(0deg); }
@@ -622,29 +647,23 @@
     </div>
 </div>
 
-<!-- GATE PET CENTER MODAL -->
-<div class="modal-overlay hidden" id="gateModal">
-    <div class="menu-box" style="height: auto; max-height: 480px;">
-        <div class="menu-header-bar">
-            <div style="font-weight: bold; color: var(--p1);">🚪 Route Gate & Pet Center Tunnel</div>
-            <button class="btn-close-modal" onclick="closeGateModal()">✕</button>
-        </div>
-        <div class="menu-content-area" style="text-align: center;">
-            <p style="margin-bottom: 20px;">Welcome to the tunnel center! Rest your pets or stock up on catch balls before crossing to the next route.</p>
-            <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px;">
-                <button class="btn-action" onclick="gateHealParty()">🏥 Heal Party (Free)</button>
-                <button class="btn-action" onclick="gateBuyBall()">🎾 Buy Ball (50🪙)</button>
-            </div>
-            <div style="border-top: 1px solid var(--p2); padding-top: 20px;">
-                <button class="btn-action" id="gateTravelBtn" onclick="travelThroughGate()" style="width: 100%; background: #2ecc71; border-color: #27ae60;">🚶 Proceed Through Gate</button>
-            </div>
+<!-- DOCTOR DIALOGUE MODAL -->
+<div class="modal-overlay hidden" id="doctorModal" style="z-index: 9999;">
+    <div class="confirm-box">
+        <h3>Nurse Pink</h3>
+        <p id="doctorDialogueText" style="font-size: 16px; margin: 10px 0 20px 0;">Would you like to heal your pets?</p>
+        <div class="confirm-btns">
+            <button class="btn-confirm btn-yes" onclick="answerDoctor(true)">Yes</button>
+            <button class="btn-confirm btn-no" onclick="answerDoctor(false)">No</button>
         </div>
     </div>
 </div>
 
 <!-- MAP VIEWPORT CONTAINER -->
 <div class="map-container" id="mapContainer">
-    <div class="map-grid" id="mapGrid"></div>
+    <div class="map-grid" id="mapGrid">
+        <div class="doctor-cube" id="doctorCube" style="display: none;"></div>
+    </div>
     <div class="player-cube" id="playerCube"></div>
 </div>
 
@@ -760,13 +779,12 @@
     let coins = 100;
     let balls = 5;
     let currentRoute = 1;
-    let currentMapIndex = 0; // 0 = Route 1, 1 = Route 2
+    let currentMapIndex = 0; // 0 = Route 1, 1 = Pet Center, 2 = Route 2
     let activeEncounter = null;
     let playerBattleEnergy = 100;
     let autoSaveTimer = null;
     let pendingStarter = null;
     let playerParty = [];
-    let inGateModal = false;
 
     const MAP_SIZE = 30;
     const TILE_SIZE = 48;
@@ -775,7 +793,7 @@
     const moveSpeed = 0.035;
     const keysPressed = {};
 
-    // Map 1: Start at left (no start gate), ends with a gate on the right
+    // Map 1: Route 1
     const route1Map = [
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
         ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
@@ -809,7 +827,28 @@
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall']
     ];
 
-    // Map 2: Starts with a gate on the left and ends with a gate on the right
+    // Map 2: Pet Center (Small Map Room with Counter and Pink Doctor)
+    const petCenterMap = [];
+    for (let r = 0; r < MAP_SIZE; r++) {
+        let row = [];
+        for (let c = 0; c < MAP_SIZE; c++) {
+            if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) {
+                if (r === 15 && c === 0) row.push('gate'); // Left entrance from Route 1
+                else if (r === 15 && c === MAP_SIZE - 1) row.push('gate'); // Right exit to Route 2
+                else row.push('wall');
+            } else {
+                // Counter desk configuration
+                if ((r === 12 && c >= 12 && c <= 18) || (r === 14 && c === 12) || (r === 14 && c === 18)) {
+                    row.push('wall');
+                } else {
+                    row.push('floor');
+                }
+            }
+        }
+        petCenterMap.push(row);
+    }
+
+    // Map 3: Route 2
     const route2Map = [
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
         ['wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','wall'],
@@ -843,7 +882,8 @@
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall']
     ];
 
-    const allMaps = [route1Map, route2Map];
+    const allMaps = [route1Map, petCenterMap, route2Map];
+    const doctorPos = { x: 15, y: 13 }; // Doctor position inside Pet Center map
 
     window.addEventListener('DOMContentLoaded', () => {
         runLoadingSequence();
@@ -860,7 +900,7 @@
 
     function initMap() {
         const grid = document.getElementById('mapGrid');
-        grid.innerHTML = '';
+        grid.innerHTML = '<div class="doctor-cube" id="doctorCube" style="display:none;"></div>';
         grid.style.width = (MAP_SIZE * TILE_SIZE) + 'px';
         grid.style.height = (MAP_SIZE * TILE_SIZE) + 'px';
 
@@ -877,6 +917,15 @@
                 grid.appendChild(tile);
             }
         }
+
+        // Render Doctor if on Pet Center map
+        const docEl = document.getElementById('doctorCube');
+        if (currentMapIndex === 1 && docEl) {
+            docEl.style.display = 'block';
+            docEl.style.left = (doctorPos.x * TILE_SIZE + (TILE_SIZE - 32) / 2) + 'px';
+            docEl.style.top = (doctorPos.y * TILE_SIZE + (TILE_SIZE - 32) / 2) + 'px';
+        }
+
         renderPlayerElement();
     }
 
@@ -899,6 +948,10 @@
                 e.preventDefault();
                 keysPressed[e.code] = true;
             }
+            if (e.code === 'Space') {
+                e.preventDefault();
+                checkSpaceInteraction();
+            }
         });
 
         window.addEventListener('keyup', (e) => {
@@ -908,14 +961,43 @@
         });
     }
 
+    function checkSpaceInteraction() {
+        // If on Pet Center map, check proximity to Nurse Pink
+        if (currentMapIndex === 1) {
+            const dist = Math.hypot(playerPos.x - (doctorPos.x + 0.5), playerPos.y - (doctorPos.y + 0.5));
+            if (dist < 2.0) {
+                document.getElementById('doctorModal').classList.remove('hidden');
+            }
+        }
+    }
+
+    function answerDoctor(isYes) {
+        document.getElementById('doctorModal').classList.add('hidden');
+        if (isYes) {
+            if (playerParty && playerParty.length > 0) {
+                playerParty.forEach(pet => {
+                    const calc = getCalculatedPet(pet);
+                    if (calc) pet.hp = calc.maxHp;
+                });
+                renderParty();
+                saveGameData(true);
+                alert("Nurse Pink: Your pets have been fully healed!");
+            } else {
+                alert("Nurse Pink: You don't have any pets to heal right now!");
+            }
+        } else {
+            alert("Nurse Pink: Come back if you need any help!");
+        }
+    }
+
     function gameLoop() {
         const isMenuOpen = !document.getElementById('menuModal').classList.contains('hidden');
         const isBattleOpen = document.getElementById('battleOverlay').classList.contains('active');
         const isStarterOpen = !document.getElementById('starterOverlay').classList.contains('hidden');
         const isLoginOpen = !document.getElementById('loginOverlay').classList.contains('hidden');
-        const isGateOpen = !document.getElementById('gateModal').classList.contains('hidden');
+        const isDocOpen = !document.getElementById('doctorModal').classList.contains('hidden');
 
-        if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen && !isGateOpen) {
+        if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen && !isDocOpen) {
             let dx = 0;
             let dy = 0;
             let isMoving = false;
@@ -994,67 +1076,40 @@
                     triggerWildEncounter();
                 }
             } else if (tileType === 'gate' && !gateCooldown) {
-                openGateModal();
+                handleGateTransition(currentTileX);
             }
         }
     }
 
-    function openGateModal() {
-        inGateModal = true;
+    function handleGateTransition(xCoord) {
         gateCooldown = true;
-        
-        const travelBtn = document.getElementById('gateTravelBtn');
         if (currentMapIndex === 0) {
-            travelBtn.innerText = "🚪 Travel to Route 2";
-        } else {
-            travelBtn.innerText = "🚪 Travel to Route 1";
-        }
-
-        document.getElementById('gateModal').classList.remove('hidden');
-    }
-
-    function closeGateModal() {
-        document.getElementById('gateModal').classList.add('hidden');
-        inGateModal = false;
-        setTimeout(() => { gateCooldown = false; }, 1500);
-    }
-
-    function gateHealParty() {
-        if (!playerParty || playerParty.length === 0) return;
-        playerParty.forEach(pet => {
-            const calculated = getCalculatedPet(pet);
-            if (calculated) pet.hp = calculated.maxHp;
-        });
-        alert("🏥 Tunnel Center: All pets in your party have been fully healed!");
-        saveGameData(true);
-    }
-
-    function gateBuyBall() {
-        const cost = 50;
-        if (coins >= cost) {
-            coins -= cost;
-            balls++;
-            updateUI();
-            alert("🎾 Purchased 1 Catch Ball!");
-            saveGameData(true);
-        } else {
-            alert("❌ Not enough coins! You need 50 coins.");
-        }
-    }
-
-    function travelThroughGate() {
-        closeGateModal();
-        if (currentMapIndex === 0) {
+            // Route 1 right gate -> Pet Center
+            currentMapIndex = 1;
+            currentRoute = 1;
+            playerPos = { x: 2.5, y: 15.0 };
+        } else if (currentMapIndex === 1) {
+            // Pet Center gates
+            if (xCoord <= 2) {
+                // Exit left back to Route 1
+                currentMapIndex = 0;
+                currentRoute = 1;
+                playerPos = { x: 27.5, y: 15.0 };
+            } else {
+                // Exit right to Route 2
+                currentMapIndex = 2;
+                currentRoute = 2;
+                playerPos = { x: 2.5, y: 15.0 };
+            }
+        } else if (currentMapIndex === 2) {
+            // Route 2 left gate -> Pet Center
             currentMapIndex = 1;
             currentRoute = 2;
-            playerPos = { x: 1.5, y: 15.0 }; // Start of Route 2
-        } else {
-            currentMapIndex = 0;
-            currentRoute = 1;
-            playerPos = { x: 27.5, y: 15.0 }; // End of Route 1
+            playerPos = { x: 27.5, y: 15.0 };
         }
         initMap();
         saveGameData(true);
+        setTimeout(() => { gateCooldown = false; }, 1500);
     }
 
     function openMenuModal() {
@@ -1250,7 +1305,7 @@
     }
 
     function visitCenterAndHealBattle() {
-        document.getElementById('battleDialogueText').innerText = `💡 Tip: Visit gate tunnels to heal your pets or buy items!`;
+        document.getElementById('battleDialogueText').innerText = `💡 Tip: Visit the Pet Center map to talk to Nurse Pink and heal your pets!`;
     }
 
     function endBattle(isFinished) {
@@ -1364,7 +1419,7 @@
                 coins = parseInt(result.data.coins);
                 balls = parseInt(result.data.balls);
                 currentRoute = parseInt(result.data.current_route);
-                currentMapIndex = currentRoute === 2 ? 1 : 0;
+                currentMapIndex = currentRoute === 2 ? 2 : 0;
                 playerParty = result.data.party_data || [];
 
                 updateUI();
@@ -1413,7 +1468,7 @@
                     coins = parseInt(result.data.coins);
                     balls = parseInt(result.data.balls);
                     currentRoute = parseInt(result.data.current_route);
-                    currentMapIndex = currentRoute === 2 ? 1 : 0;
+                    currentMapIndex = currentRoute === 2 ? 2 : 0;
                     playerParty = result.data.party_data || [];
 
                     localStorage.setItem('pet_remembered_user', currentUser);
