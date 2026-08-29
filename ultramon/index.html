@@ -678,8 +678,8 @@
         <div class="battle-dialogue" id="battleDialogueText">A wild pet appeared! What will you do?</div>
         <div class="battle-actions" id="battleActionButtons">
             <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
+            <button class="btn-action" onclick="openBattleSwitchMenu()">🔄 Switch</button>
             <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
-            <button class="btn-action" onclick="visitCenterAndHealBattle()">🎒 Items</button>
             <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
         </div>
     </div>
@@ -896,7 +896,6 @@
     function setupMovementListeners() {
         window.addEventListener('keydown', (e) => {
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
-                // FIXED: Prevent global hotkeys from capturing inputs while typing in login or other fields
                 if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
                 e.preventDefault();
                 keysPressed[e.code] = true;
@@ -1049,7 +1048,7 @@
         if (currentMapIndex === 0) {
             currentMapIndex = 1;
             currentRoute = 2;
-            playerPos = { x: 1.5, y: 15.5 }; // Safe y coordinate avoiding the row 14 wall on Route 2
+            playerPos = { x: 1.5, y: 15.5 }; 
         } else {
             currentMapIndex = 0;
             currentRoute = 1;
@@ -1084,39 +1083,37 @@
     }
 
     function triggerWildEncounter() {
-    if (!playerParty || playerParty.length === 0) return;
+        if (!playerParty || playerParty.length === 0) return;
 
-    encounterCooldown = true;
+        encounterCooldown = true;
 
-    // Filter pets allowed to spawn on the current route
-    const availableSpecies = Object.keys(PETS).filter(id => {
-        const petInfo = PETS[id];
-        const routes = petInfo.spawn_routes || [1]; // Fallback to Route 1 if not specified
-        return routes.includes(currentRoute);
-    });
+        const availableSpecies = Object.keys(PETS).filter(id => {
+            const petInfo = PETS[id];
+            const routes = petInfo.spawn_routes || [1]; 
+            return routes.includes(currentRoute);
+        });
 
-    if (availableSpecies.length === 0) {
-        encounterCooldown = false;
-        return;
+        if (availableSpecies.length === 0) {
+            encounterCooldown = false;
+            return;
+        }
+
+        const randomId = availableSpecies[Math.floor(Math.random() * availableSpecies.length)];
+        const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
+        
+        activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
+        playerBattleEnergy = 100;
+
+        updateBattleHUD();
+        document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
+        resetBattleActionButtons();
+
+        const overlay = document.getElementById('battleOverlay');
+        overlay.classList.add('flash');
+        overlay.classList.add('active');
+
+        setTimeout(() => overlay.classList.remove('flash'), 800);
     }
-
-    // Select a random pet from the valid pool for this specific route
-    const randomId = availableSpecies[Math.floor(Math.random() * availableSpecies.length)];
-    const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
-    
-    activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
-    playerBattleEnergy = 100;
-
-    updateBattleHUD();
-    document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
-    resetBattleActionButtons();
-
-    const overlay = document.getElementById('battleOverlay');
-    overlay.classList.add('flash');
-    overlay.classList.add('active');
-
-    setTimeout(() => overlay.classList.remove('flash'), 800);
-}
 
     function updateBattleHUD() {
         if (!playerParty || playerParty.length === 0) return;
@@ -1142,8 +1139,8 @@
     function resetBattleActionButtons() {
         document.getElementById('battleActionButtons').innerHTML = `
             <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
+            <button class="btn-action" onclick="openBattleSwitchMenu()">🔄 Switch</button>
             <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
-            <button class="btn-action" onclick="visitCenterAndHealBattle()">🎒 Items</button>
             <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
         `;
     }
@@ -1166,81 +1163,123 @@
         document.getElementById('battleActionButtons').innerHTML = movesHtml;
     }
 
+    function openBattleSwitchMenu() {
+        let partyHtml = '';
+
+        playerParty.forEach((petData, index) => {
+            const pet = getCalculatedPet(petData);
+            if (!pet) return;
+
+            const isCurrent = (index === 0);
+            const isFainted = petData.hp <= 0;
+
+            partyHtml += `<button class="btn-move" ${isCurrent || isFainted ? 'disabled' : ''} onclick="switchPlayerPet(${index})">
+                <b>${pet.name}</b> (Lv. ${pet.level})<br><small>HP: ${petData.hp}/${pet.maxHp} ${isCurrent ? '[Active]' : isFainted ? '[Fainted]' : ''}</small>
+            </button>`;
+        });
+
+        partyHtml += `<button class="btn-action" onclick="resetBattleActionButtons()" style="background:#555; grid-column: span 2; padding:8px;">↩ Back</button>`;
+        document.getElementById('battleActionButtons').innerHTML = partyHtml;
+    }
+
+    function switchPlayerPet(targetIndex) {
+        if (targetIndex === 0) {
+            document.getElementById('battleDialogueText').innerText = `Your ${getCalculatedPet(playerParty[0]).name} is already in battle!`;
+            return;
+        }
+
+        if (!playerParty[targetIndex] || playerParty[targetIndex].hp <= 0) {
+            document.getElementById('battleDialogueText').innerText = `That pet cannot fight!`;
+            return;
+        }
+
+        // Move the selected pet to the front of the party array to make it active
+        const switchedPet = playerParty.splice(targetIndex, 1)[0];
+        playerParty.unshift(switchedPet);
+
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
+        updateBattleHUD();
+
+        document.getElementById('battleDialogueText').innerText = `You withdrew your pet and sent out ${activePlayerPet.name}!`;
+
+        // Switching consumes your turn, meaning you cannot attack this round and the opponent gets to attack.
+        setTimeout(() => executeEnemyAttack(), 1500);
+    }
+
     function executePlayerAttack(moveName) {
-    const activePlayerPet = getCalculatedPet(playerParty[0]);
-    const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
-    if (!moveObj) return;
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
+        const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
+        if (!moveObj) return;
 
-    if (playerBattleEnergy < moveObj.powerCost) {
-        document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
-        return;
+        if (playerBattleEnergy < moveObj.powerCost) {
+            document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
+            return;
+        }
+
+        playerBattleEnergy -= moveObj.powerCost;
+
+        let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
+        let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
+        
+        let typeMultiplier = getTypeEffectiveness(moveObj.type, activeEncounter.type);
+        
+        let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
+        let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+
+        activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - finalDamage);
+        updateBattleHUD();
+
+        let effectivenessText = "";
+        if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
+        else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
+
+        document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+
+        if (activeEncounter.currentHp <= 0) {
+            document.getElementById('battleDialogueText').innerText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
+            coins += 40;
+            updateUI();
+            setTimeout(() => endBattle(true), 2000);
+            return;
+        }
+
+        setTimeout(() => executeEnemyAttack(), 1500);
     }
 
-    playerBattleEnergy -= moveObj.powerCost;
+    function executeEnemyAttack() {
+        if (!activeEncounter || activeEncounter.currentHp <= 0) return;
 
-    let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
-    let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
-    
-    // Calculate type effectiveness multiplier
-    let typeMultiplier = getTypeEffectiveness(moveObj.type, activeEncounter.type);
-    
-    let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
-    let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+        const enemyMoves = activeEncounter.unlockedMoves;
+        const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
 
-    activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - finalDamage);
-    updateBattleHUD();
+        let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
+        let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
+        
+        let typeMultiplier = getTypeEffectiveness(randomMove.type, activePlayerPet.type);
 
-    let effectivenessText = "";
-    if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
-    else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
+        let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
+        let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
 
-    document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+        playerParty[0].hp = Math.max(0, playerParty[0].hp - finalDamage);
+        playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
+        updateBattleHUD();
 
-    if (activeEncounter.currentHp <= 0) {
-        document.getElementById('battleDialogueText').innerText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
-        coins += 40;
-        updateUI();
-        setTimeout(() => endBattle(true), 2000);
-        return;
+        let effectivenessText = "";
+        if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
+        else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
+
+        document.getElementById('battleDialogueText').innerText = `Wild ${activeEncounter.name} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+
+        if (playerParty[0].hp <= 0) {
+            document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted!`;
+            setTimeout(() => endBattle(false), 2000);
+            return;
+        }
+
+        resetBattleActionButtons();
     }
 
-    setTimeout(() => executeEnemyAttack(), 1500);
-}
-
-function executeEnemyAttack() {
-    if (!activeEncounter || activeEncounter.currentHp <= 0) return;
-
-    const enemyMoves = activeEncounter.unlockedMoves;
-    const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
-    const activePlayerPet = getCalculatedPet(playerParty[0]);
-
-    let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
-    let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
-    
-    // Calculate type effectiveness multiplier against player pet types
-    let typeMultiplier = getTypeEffectiveness(randomMove.type, activePlayerPet.type);
-
-    let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
-    let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
-
-    playerParty[0].hp = Math.max(0, playerParty[0].hp - finalDamage);
-    playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
-    updateBattleHUD();
-
-    let effectivenessText = "";
-    if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
-    else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
-
-    document.getElementById('battleDialogueText').innerText = `Wild ${activeEncounter.name} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
-
-    if (playerParty[0].hp <= 0) {
-        document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted!`;
-        setTimeout(() => endBattle(false), 2000);
-        return;
-    }
-
-    resetBattleActionButtons();
-}
     function executeBattleCatch() {
         if (!activeEncounter) return;
 
@@ -1410,7 +1449,7 @@ function executeEnemyAttack() {
 
                 updateUI();
                 renderParty();
-                initMap(); // FIXED: Re-render map tiles to match the loaded database route index
+                initMap(); 
                 renderPlayerElement();
                 return true;
             }
@@ -1471,7 +1510,7 @@ function executeEnemyAttack() {
 
                     updateUI();
                     renderParty();
-                    initMap(); // FIXED: Re-render map tiles to match the logged-in route index
+                    initMap(); 
                     renderPlayerElement();
                     document.getElementById('loginOverlay').classList.add('hidden');
                     
