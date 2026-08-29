@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pet Catching RPG - Route Map</title>
+    <title>Pet Catching RPG - Multi-Route Map</title>
     <style>
         :root {
             --bg0: #000814; 
@@ -149,8 +149,10 @@
         .tile-wall { background: #4a5568; border: 1px solid #2d3748; }
         .tile-wall::after { content: "🪨"; font-size: 16px; }
 
-        /* YELLOW ROUTE BLOCKS */
+        /* YELLOW ROUTE BLOCKS & GATE */
         .tile-route { background: #f1c40f; border: 1px solid #d4ac0d; }
+        .tile-gate { background: #d35400; border: 1px solid #ba4a00; }
+        .tile-gate::after { content: "🚪"; font-size: 20px; }
 
         /* --- PLAYER CUBE --- */
         .player-cube {
@@ -613,9 +615,28 @@
                     </div>
                 </div>
                 <div style="margin-top: 25px; text-align: center;">
-                    <button class="btn-action" onclick="visitCenter()" style="width:100%;">🏥 Pokémon Center (Heal All Party)</button>
-                    <button class="btn-action" onclick="saveGameData()" style="width:100%; margin-top:10px; background:#2ecc71; border-color:#27ae60;">💾 Save Progress</button>
+                    <button class="btn-action" onclick="saveGameData()" style="width:100%; background:#2ecc71; border-color:#27ae60;">💾 Save Progress</button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GATE PET CENTER MODAL -->
+<div class="modal-overlay hidden" id="gateModal">
+    <div class="menu-box" style="height: auto; max-height: 480px;">
+        <div class="menu-header-bar">
+            <div style="font-weight: bold; color: var(--p1);">🚪 Route Gate & Pet Center Tunnel</div>
+            <button class="btn-close-modal" onclick="closeGateModal()">✕</button>
+        </div>
+        <div class="menu-content-area" style="text-align: center;">
+            <p style="margin-bottom: 20px;">Welcome to the tunnel center! Rest your pets or stock up on catch balls before crossing to the next route.</p>
+            <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px;">
+                <button class="btn-action" onclick="gateHealParty()">🏥 Heal Party (Free)</button>
+                <button class="btn-action" onclick="gateBuyBall()">🎾 Buy Ball (50🪙)</button>
+            </div>
+            <div style="border-top: 1px solid var(--p2); padding-top: 20px;">
+                <button class="btn-action" id="gateTravelBtn" onclick="travelThroughGate()" style="width: 100%; background: #2ecc71; border-color: #27ae60;">🚶 Proceed Through Gate</button>
             </div>
         </div>
     </div>
@@ -739,21 +760,22 @@
     let coins = 100;
     let balls = 5;
     let currentRoute = 1;
+    let currentMapIndex = 0; // 0 = Route 1, 1 = Route 2
     let activeEncounter = null;
     let playerBattleEnergy = 100;
     let autoSaveTimer = null;
     let pendingStarter = null;
     let playerParty = [];
+    let inGateModal = false;
 
     const MAP_SIZE = 30;
     const TILE_SIZE = 48;
 
-    // Player starts on the far left side, exactly where the path begins
-    let playerPos = { x: 1.0, y: 15.0 };
-    const moveSpeed = 0.035; // Movement speed
+    let playerPos = { x: 1.5, y: 15.0 };
+    const moveSpeed = 0.035;
     const keysPressed = {};
 
-    // Expanded 30x30 Map containing the winding 'route' path
+    // Map 1: Start at left (no start gate), ends with a gate on the right
     const route1Map = [
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
         ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
@@ -770,7 +792,7 @@
         ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','route','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','route','grass','grass','tall_grass','wall','tall_grass','tall_grass','wall'],
         ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','route','grass','grass','grass','grass','tall_grass','tall_grass','grass','route','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
         ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','route','tall_grass','wall','grass','wall','tall_grass','grass','grass','route','wall','grass','grass','tall_grass','wall','grass','wall'],
-        ['wall','route','route','route','route','route','route','wall','grass','wall','grass','wall','grass','grass','route','grass','wall','grass','wall','grass','grass','grass','route','route','route','route','route','route','route','wall'],
+        ['wall','route','route','route','route','route','route','wall','grass','wall','grass','wall','grass','grass','route','grass','wall','grass','wall','grass','grass','grass','route','route','route','route','route','route','gate','wall'],
         ['wall','grass','grass','tall_grass','tall_grass','grass','route','grass','grass','wall','grass','grass','tall_grass','tall_grass','route','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
         ['wall','grass','wall','wall','tall_grass','grass','route','wall','grass','wall','grass','wall','wall','tall_grass','route','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
         ['wall','tall_grass','wall','grass','grass','grass','route','wall','tall_grass','wall','tall_grass','wall','grass','grass','route','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','grass','wall'],
@@ -787,6 +809,42 @@
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall']
     ];
 
+    // Map 2: Starts with a gate on the left and ends with a gate on the right
+    const route2Map = [
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
+        ['wall','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['gate','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','gate'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
+        ['wall','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','wall','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','wall','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','tall_grass','wall'],
+        ['wall','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','wall'],
+        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
+        ['wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','grass','grass','wall','grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall']
+    ];
+
+    const allMaps = [route1Map, route2Map];
+
     window.addEventListener('DOMContentLoaded', () => {
         runLoadingSequence();
         initMap();
@@ -796,16 +854,21 @@
 
     window.addEventListener('resize', renderPlayerElement);
 
+    function getCurrentMap() {
+        return allMaps[currentMapIndex];
+    }
+
     function initMap() {
         const grid = document.getElementById('mapGrid');
         grid.innerHTML = '';
         grid.style.width = (MAP_SIZE * TILE_SIZE) + 'px';
         grid.style.height = (MAP_SIZE * TILE_SIZE) + 'px';
 
+        const activeMap = getCurrentMap();
         for (let r = 0; r < MAP_SIZE; r++) {
             for (let c = 0; c < MAP_SIZE; c++) {
                 const tile = document.createElement('div');
-                const tileType = route1Map[r][c];
+                const tileType = activeMap[r][c];
                 tile.className = `tile tile-${tileType}`;
                 tile.style.top = (r * TILE_SIZE) + 'px';
                 tile.style.left = (c * TILE_SIZE) + 'px';
@@ -850,8 +913,9 @@
         const isBattleOpen = document.getElementById('battleOverlay').classList.contains('active');
         const isStarterOpen = !document.getElementById('starterOverlay').classList.contains('hidden');
         const isLoginOpen = !document.getElementById('loginOverlay').classList.contains('hidden');
+        const isGateOpen = !document.getElementById('gateModal').classList.contains('hidden');
 
-        if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen) {
+        if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen && !isGateOpen) {
             let dx = 0;
             let dy = 0;
             let isMoving = false;
@@ -880,7 +944,7 @@
                     playerPos.x = targetX;
                     playerPos.y = targetY;
                     renderPlayerElement();
-                    checkTileEncounter();
+                    checkTileInteractions();
                 }
             } else {
                 if (playerEl) playerEl.classList.remove('walking');
@@ -890,9 +954,8 @@
     }
 
     function isValidPosition(x, y) {
-        const radius = 0.3; // Half of ~0.66 (32/48 tile ratio). Leeway prevents catching corners.
+        const radius = 0.3;
 
-        // Absolute boundaries
         if (x < radius || x > MAP_SIZE - radius || y < radius || y > MAP_SIZE - radius) return false;
 
         const checkPoints = [
@@ -902,35 +965,96 @@
             { x: x + radius, y: y + radius }
         ];
 
+        const activeMap = getCurrentMap();
         for (let pt of checkPoints) {
             let tileX = Math.floor(pt.x);
             let tileY = Math.floor(pt.y);
             
             if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
             
-            // Solid object detection (Players can walk on route, grass, and tall_grass)
-            if (route1Map[tileY][tileX] === 'wall') return false;
+            if (activeMap[tileY][tileX] === 'wall') return false;
         }
 
         return true;
     }
 
     let encounterCooldown = false;
-    function checkTileEncounter() {
-        if (encounterCooldown) return;
+    let gateCooldown = false;
 
+    function checkTileInteractions() {
         let currentTileX = Math.floor(playerPos.x);
         let currentTileY = Math.floor(playerPos.y);
 
         if (currentTileX >= 0 && currentTileX < MAP_SIZE && currentTileY >= 0 && currentTileY < MAP_SIZE) {
-            const tileType = route1Map[currentTileY][currentTileX];
+            const activeMap = getCurrentMap();
+            const tileType = activeMap[currentTileY][currentTileX];
 
-            if (tileType === 'tall_grass') {
+            if (tileType === 'tall_grass' && !encounterCooldown) {
                 if (Math.random() < 0.015) {
                     triggerWildEncounter();
                 }
+            } else if (tileType === 'gate' && !gateCooldown) {
+                openGateModal();
             }
         }
+    }
+
+    function openGateModal() {
+        inGateModal = true;
+        gateCooldown = true;
+        
+        const travelBtn = document.getElementById('gateTravelBtn');
+        if (currentMapIndex === 0) {
+            travelBtn.innerText = "🚪 Travel to Route 2";
+        } else {
+            travelBtn.innerText = "🚪 Travel to Route 1";
+        }
+
+        document.getElementById('gateModal').classList.remove('hidden');
+    }
+
+    function closeGateModal() {
+        document.getElementById('gateModal').classList.add('hidden');
+        inGateModal = false;
+        setTimeout(() => { gateCooldown = false; }, 1500);
+    }
+
+    function gateHealParty() {
+        if (!playerParty || playerParty.length === 0) return;
+        playerParty.forEach(pet => {
+            const calculated = getCalculatedPet(pet);
+            if (calculated) pet.hp = calculated.maxHp;
+        });
+        alert("🏥 Tunnel Center: All pets in your party have been fully healed!");
+        saveGameData(true);
+    }
+
+    function gateBuyBall() {
+        const cost = 50;
+        if (coins >= cost) {
+            coins -= cost;
+            balls++;
+            updateUI();
+            alert("🎾 Purchased 1 Catch Ball!");
+            saveGameData(true);
+        } else {
+            alert("❌ Not enough coins! You need 50 coins.");
+        }
+    }
+
+    function travelThroughGate() {
+        closeGateModal();
+        if (currentMapIndex === 0) {
+            currentMapIndex = 1;
+            currentRoute = 2;
+            playerPos = { x: 1.5, y: 15.0 }; // Start of Route 2
+        } else {
+            currentMapIndex = 0;
+            currentRoute = 1;
+            playerPos = { x: 27.5, y: 15.0 }; // End of Route 1
+        }
+        initMap();
+        saveGameData(true);
     }
 
     function openMenuModal() {
@@ -1126,7 +1250,7 @@
     }
 
     function visitCenterAndHealBattle() {
-        document.getElementById('battleDialogueText').innerText = `💡 Tip: Use Fight moves or Catch the pet with a ball!`;
+        document.getElementById('battleDialogueText').innerText = `💡 Tip: Visit gate tunnels to heal your pets or buy items!`;
     }
 
     function endBattle(isFinished) {
@@ -1240,6 +1364,7 @@
                 coins = parseInt(result.data.coins);
                 balls = parseInt(result.data.balls);
                 currentRoute = parseInt(result.data.current_route);
+                currentMapIndex = currentRoute === 2 ? 1 : 0;
                 playerParty = result.data.party_data || [];
 
                 updateUI();
@@ -1288,6 +1413,7 @@
                     coins = parseInt(result.data.coins);
                     balls = parseInt(result.data.balls);
                     currentRoute = parseInt(result.data.current_route);
+                    currentMapIndex = currentRoute === 2 ? 1 : 0;
                     playerParty = result.data.party_data || [];
 
                     localStorage.setItem('pet_remembered_user', currentUser);
@@ -1335,18 +1461,6 @@
         err.style.color = color;
         err.innerText = msg;
         err.style.display = 'block';
-    }
-
-    function visitCenter() {
-        if (!playerParty || playerParty.length === 0) return;
-        
-        playerParty.forEach(pet => {
-            const calculated = getCalculatedPet(pet);
-            if (calculated) pet.hp = calculated.maxHp;
-        });
-        renderParty();
-        alert("Pokémon Center: All pets in your party have been restored to full health!");
-        saveGameData(true);
     }
 
     function togglePetMove(petIndex, moveName) {
