@@ -149,22 +149,26 @@
         .tile-gate { background: #d35400; border: 1px solid #ba4a00; }
         .tile-gate::after { content: "🚪"; font-size: 20px; }
 
-        /* --- PLAYER CUBE --- */
-        .player-cube {
+        /* --- PLAYER & NPC CUBES --- */
+        .player-cube, .npc-cube {
             width: 32px;
             height: 32px;
-            background: #e74c3c;
             border: 2px solid #ffffff;
             border-radius: 6px;
             position: absolute;
-            top: 50%;
-            left: 50%;
             transform: translate(-50%, -50%);
             z-index: 10;
-            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.8);
             transform-origin: bottom center;
         }
-        .player-cube::after {
+        .player-cube {
+            background: #e74c3c;
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.8);
+        }
+        .npc-cube {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+            cursor: pointer;
+        }
+        .player-cube::after, .npc-cube::after {
             content: "";
             position: absolute;
             right: 4px;
@@ -609,6 +613,7 @@
             transition: 0.2s;
         }
         .btn-action:hover { background: var(--p0); transform: translateY(-2px); }
+        .btn-action:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
         .btn-move {
             background: rgba(0, 119, 182, 0.4);
@@ -785,7 +790,7 @@
 
 <!-- BATTLE OVERLAY -->
 <div class="battle-overlay" id="battleOverlay">
-    <div style="text-align: center; font-weight: 900; font-size: 24px; color: var(--p1); letter-spacing: 2px;">WILD ENCOUNTER BATTLE</div>
+    <div id="battleTitleHeader" style="text-align: center; font-weight: 900; font-size: 24px; color: var(--p1); letter-spacing: 2px;">WILD ENCOUNTER BATTLE</div>
     
     <div class="battle-arena">
         <div class="battle-combatant">
@@ -889,6 +894,7 @@
 </div>
 
 <script src="pets.js"></script>
+<script src="npc.js"></script>
 
 <script>
     let currentUser = null;
@@ -897,6 +903,8 @@
     let currentRoute = 1;
     let currentMapIndex = 0; 
     let activeEncounter = null;
+    let activeTrainer = null;
+    let trainerPetIndex = 0;
     let playerBattleEnergy = 100;
     let autoSaveTimer = null;
     let pendingStarter = null;
@@ -1012,7 +1020,30 @@
                 grid.appendChild(tile);
             }
         }
+        renderNPCs();
         renderPlayerElement();
+    }
+
+    function renderNPCs() {
+        const grid = document.getElementById('mapGrid');
+        if (!grid) return;
+
+        // Remove old rendered NPC cubes
+        document.querySelectorAll('.npc-cube').forEach(el => el.remove());
+
+        if (typeof npc === 'undefined') return;
+
+        npc.forEach(trainer => {
+            if (trainer.route === currentRoute && !trainer.defeated) {
+                const npcEl = document.createElement('div');
+                npcEl.className = 'npc-cube';
+                npcEl.style.backgroundColor = trainer.color || '#3498db';
+                npcEl.style.left = (trainer.x * TILE_SIZE + TILE_SIZE / 2) + 'px';
+                npcEl.style.top = (trainer.y * TILE_SIZE + TILE_SIZE / 2) + 'px';
+                npcEl.title = trainer.name;
+                grid.appendChild(npcEl);
+            }
+        });
     }
 
     function renderPlayerElement() {
@@ -1081,6 +1112,7 @@
                     playerPos.y = targetY;
                     renderPlayerElement();
                     checkTileInteractions();
+                    checkNpcCollisions();
                 }
             } else {
                 if (playerEl) playerEl.classList.remove('walking');
@@ -1131,6 +1163,20 @@
                 }
             } else if (tileType === 'gate' && !gateCooldown) {
                 openGateModal();
+            }
+        }
+    }
+
+    function checkNpcCollisions() {
+        if (encounterCooldown || typeof npc === 'undefined') return;
+
+        for (let trainer of npc) {
+            if (trainer.route === currentRoute && !trainer.defeated) {
+                let dist = Math.hypot(playerPos.x - trainer.x, playerPos.y - trainer.y);
+                if (dist < 0.85) {
+                    triggerTrainerEncounter(trainer);
+                    break;
+                }
             }
         }
     }
@@ -1359,6 +1405,7 @@
         }
 
         encounterCooldown = true;
+        activeTrainer = null;
 
         const availableSpecies = Object.keys(PETS).filter(id => {
             const petInfo = PETS[id];
@@ -1378,8 +1425,54 @@
         playerBattleEnergy = 100;
         inForcedSwitch = false;
 
+        document.getElementById('battleTitleHeader').innerText = "WILD ENCOUNTER BATTLE";
+        const catchBtn = document.querySelector('.battle-actions button:nth-child(2)');
+        if (catchBtn) catchBtn.disabled = false;
+
         updateBattleHUD();
         document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
+        resetBattleActionButtons();
+
+        const overlay = document.getElementById('battleOverlay');
+        overlay.classList.add('flash');
+        overlay.classList.add('active');
+
+        setTimeout(() => overlay.classList.remove('flash'), 800);
+    }
+
+    function triggerTrainerEncounter(trainer) {
+        if (!playerParty || playerParty.length === 0) return;
+
+        if (playerParty[0].hp <= 0) {
+            const livingIndex = playerParty.findIndex(p => p.hp > 0);
+            if (livingIndex !== -1) {
+                const temp = playerParty[0];
+                playerParty[0] = playerParty[livingIndex];
+                playerParty[livingIndex] = temp;
+                renderPartyCircles();
+            } else {
+                return;
+            }
+        }
+
+        encounterCooldown = true;
+        activeTrainer = trainer;
+        trainerPetIndex = 0;
+
+        const petRef = trainer.team[trainerPetIndex];
+        activeEncounter = getCalculatedPet({ id: petRef.id, lvl: petRef.lvl });
+        playerBattleEnergy = 100;
+        inForcedSwitch = false;
+
+        document.getElementById('battleTitleHeader').innerText = `TRAINER BATTLE: ${trainer.name.toUpperCase()}`;
+        
+        // Disable catching during trainer battles
+        const catchBtn = document.querySelector('.battle-actions button:nth-child(2)');
+        if (catchBtn) catchBtn.disabled = true;
+
+        updateBattleHUD();
+        document.getElementById('battleWildName').innerText = `${trainer.name}'s ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
+        document.getElementById('battleDialogueText').innerText = `${trainer.name} wants to battle! They sent out ${activeEncounter.name}!`;
         resetBattleActionButtons();
 
         const overlay = document.getElementById('battleOverlay');
@@ -1393,7 +1486,12 @@
         if (!playerParty || playerParty.length === 0) return;
         const activePlayerPet = getCalculatedPet(playerParty[0]);
 
-        document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
+        if (activeTrainer) {
+            document.getElementById('battleWildName').innerText = `${activeTrainer.name}'s ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
+        } else {
+            document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
+        }
+
         document.getElementById('battleWildImg').src = activeEncounter.img;
         const wildHpPct = Math.max(0, (activeEncounter.currentHp / activeEncounter.maxHp) * 100);
         document.getElementById('battleWildHp').style.width = wildHpPct + '%';
@@ -1413,9 +1511,10 @@
     }
 
     function resetBattleActionButtons() {
+        const catchDisabled = activeTrainer ? 'disabled' : '';
         document.getElementById('battleActionButtons').innerHTML = `
             <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
-            <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
+            <button class="btn-action" ${catchDisabled} onclick="executeBattleCatch()">🎾 Catch Pet</button>
             <button class="btn-action" onclick="openBattleSwitchMenu()">🔄 Switch</button>
             <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
         `;
@@ -1526,12 +1625,32 @@
         if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
         else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
 
-        document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+        let targetLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
+        document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
 
         if (activeEncounter.currentHp <= 0) {
-            document.getElementById('battleDialogueText').innerText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
-            coins += 40;
-            updateUI();
+            if (activeTrainer && trainerPetIndex < activeTrainer.team.length - 1) {
+                trainerPetIndex++;
+                const nextRef = activeTrainer.team[trainerPetIndex];
+                activeEncounter = getCalculatedPet({ id: nextRef.id, lvl: nextRef.lvl });
+                updateBattleHUD();
+                document.getElementById('battleDialogueText').innerText += ` ${targetLabel} fainted! ${activeTrainer.name} sent out ${activeEncounter.name}!`;
+                resetBattleActionButtons();
+                return;
+            }
+
+            if (activeTrainer) {
+                activeTrainer.defeated = true;
+                const rewardCoins = activeTrainer.rewards.coins || 100;
+                coins += rewardCoins;
+                updateUI();
+                document.getElementById('battleDialogueText').innerText += ` You defeated ${activeTrainer.name}! Earned +${rewardCoins} coins!`;
+            } else {
+                coins += 40;
+                updateUI();
+                document.getElementById('battleDialogueText').innerText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
+            }
+
             setTimeout(() => endBattle(true), 2000);
             return;
         }
@@ -1562,7 +1681,8 @@
         if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
         else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
 
-        document.getElementById('battleDialogueText').innerText = `Wild ${activeEncounter.name} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+        let attackerLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
+        document.getElementById('battleDialogueText').innerText = `${attackerLabel} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
 
         if (playerParty[0].hp <= 0) {
             const hasLivingPets = playerParty.some(p => p.hp > 0);
@@ -1581,7 +1701,7 @@
     }
 
     function executeBattleCatch() {
-        if (inForcedSwitch || !activeEncounter) return;
+        if (inForcedSwitch || !activeEncounter || activeTrainer) return;
 
         if (balls <= 0) {
             document.getElementById('battleDialogueText').innerText = `❌ You don't have any Catch Balls left!`;
@@ -1731,6 +1851,7 @@
         const overlay = document.getElementById('battleOverlay');
         overlay.classList.remove('active');
         activeEncounter = null;
+        activeTrainer = null;
         inForcedSwitch = false;
 
         document.querySelectorAll('.anim-ball').forEach(el => el.remove());
@@ -1741,6 +1862,7 @@
             wildImg.style.transition = '';
         }
 
+        renderNPCs();
         renderParty();
         renderPCStorage();
         renderPartyCircles();
