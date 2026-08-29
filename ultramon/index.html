@@ -185,7 +185,7 @@
             100% { transform: translate(-50%, -50%) translateY(-3px) scaleY(0.95) rotate(-3deg); }
         }
 
-        /* --- MENU BUTTON --- */
+        /* --- MENU BUTTON & PARTY HUD --- */
         .menu-btn-tl {
             position: fixed;
             top: 20px;
@@ -204,6 +204,68 @@
             transition: 0.3s;
         }
         .menu-btn-tl:hover { background: var(--p0); color: #fff; box-shadow: 0 0 20px var(--p0); }
+
+        .party-hud-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3000;
+            display: flex;
+            gap: 8px;
+            background: rgba(0, 29, 61, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 8px 12px;
+            border: 2px solid var(--p0);
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .party-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--bg2);
+            border: 2px solid var(--p2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: 0.2s;
+        }
+
+        .party-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .party-circle.lead {
+            border-color: var(--gold);
+            box-shadow: 0 0 10px var(--gold);
+        }
+
+        .party-circle.fainted {
+            filter: grayscale(100%);
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .party-circle:hover:not(.fainted) {
+            transform: scale(1.1);
+            border-color: var(--p1);
+        }
+
+        .party-circle .hp-dot {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 1px solid #000;
+        }
 
         /* --- MODALS --- */
         .modal-overlay {
@@ -580,6 +642,9 @@
 <!-- TOP-LEFT CORNER MENU BUTTON -->
 <button class="menu-btn-tl" onclick="openMenuModal()">☰ Menu</button>
 
+<!-- TOP-RIGHT PARTY CIRCLES HUD -->
+<div class="party-hud-container" id="partyHudContainer"></div>
+
 <!-- MENU MODAL -->
 <div class="modal-overlay hidden" id="menuModal">
     <div class="menu-box">
@@ -766,6 +831,7 @@
     let pendingStarter = null;
     let playerParty = [];
     let inGateModal = false;
+    let inForcedSwitch = false;
 
     const MAP_SIZE = 30;
     const TILE_SIZE = 48;
@@ -1024,6 +1090,7 @@
             if (calculated) pet.hp = calculated.maxHp;
         });
         alert("🏥 Tunnel Center: All pets in your party have been fully healed!");
+        renderPartyCircles();
         saveGameData(true);
     }
 
@@ -1079,8 +1146,90 @@
         }
     }
 
+    function selectLeadPet(index) {
+        if (index <= 0 || index >= playerParty.length) return;
+
+        const targetPetData = playerParty[index];
+        if (targetPetData.hp <= 0) {
+            alert("❌ Cannot choose a fainted pet to start first!");
+            return;
+        }
+
+        if (inForcedSwitch) {
+            const temp = playerParty[0];
+            playerParty[0] = playerParty[index];
+            playerParty[index] = temp;
+
+            inForcedSwitch = false;
+            updateBattleHUD();
+            resetBattleActionButtons();
+            document.getElementById('battleDialogueText').innerText = `Go! ${getCalculatedPet(playerParty[0]).name}!`;
+            renderPartyCircles();
+            return;
+        }
+
+        const temp = playerParty[0];
+        playerParty[0] = playerParty[index];
+        playerParty[index] = temp;
+
+        renderParty();
+        renderPartyCircles();
+        saveGameData(true);
+    }
+
+    function renderPartyCircles() {
+        const container = document.getElementById('partyHudContainer');
+        if (!container) return;
+        container.innerHTML = '';
+
+        for (let i = 0; i < 6; i++) {
+            const petData = playerParty[i];
+            const circle = document.createElement('div');
+            circle.className = 'party-circle';
+
+            if (petData) {
+                const pet = getCalculatedPet(petData);
+                const isFainted = petData.hp <= 0;
+
+                if (i === 0) circle.classList.add('lead');
+                if (isFainted) circle.classList.add('fainted');
+
+                circle.innerHTML = `
+                    <img src="${pet.img}" alt="${pet.name}" title="${pet.name} (Lv.${pet.level}, HP: ${petData.hp}/${pet.maxHp})">
+                    <div class="hp-dot" style="background: ${isFainted ? '#e74c3c' : '#2ecc71'};"></div>
+                `;
+
+                circle.onclick = () => {
+                    if (isFainted) {
+                        alert(`❌ ${pet.name} has 0 HP and is fainted! Cannot select.`);
+                        return;
+                    }
+                    selectLeadPet(i);
+                };
+            } else {
+                circle.style.opacity = '0.3';
+                circle.style.cursor = 'default';
+                circle.innerHTML = `<span style="font-size:16px; color:#555;">+</span>`;
+            }
+
+            container.appendChild(circle);
+        }
+    }
+
     function triggerWildEncounter() {
         if (!playerParty || playerParty.length === 0) return;
+
+        if (playerParty[0].hp <= 0) {
+            const livingIndex = playerParty.findIndex(p => p.hp > 0);
+            if (livingIndex !== -1) {
+                const temp = playerParty[0];
+                playerParty[0] = playerParty[livingIndex];
+                playerParty[livingIndex] = temp;
+                renderPartyCircles();
+            } else {
+                return;
+            }
+        }
 
         encounterCooldown = true;
 
@@ -1100,6 +1249,7 @@
         
         activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
         playerBattleEnergy = 100;
+        inForcedSwitch = false;
 
         updateBattleHUD();
         document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
@@ -1131,6 +1281,8 @@
         const energyPct = Math.max(0, playerBattleEnergy);
         document.getElementById('battlePlayerEnergy').style.width = energyPct + '%';
         document.getElementById('battlePlayerEnergyText').innerText = `${playerBattleEnergy}/100`;
+
+        renderPartyCircles();
     }
 
     function resetBattleActionButtons() {
@@ -1143,6 +1295,7 @@
     }
 
     function openBattleFightMenu() {
+        if (inForcedSwitch) return;
         const activePlayerPet = getCalculatedPet(playerParty[0]);
         let movesHtml = '';
 
@@ -1161,6 +1314,7 @@
     }
 
     function executePlayerAttack(moveName) {
+        if (inForcedSwitch) return;
         const activePlayerPet = getCalculatedPet(playerParty[0]);
         const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
         if (!moveObj) return;
@@ -1226,8 +1380,15 @@
         document.getElementById('battleDialogueText').innerText = `Wild ${activeEncounter.name} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
 
         if (playerParty[0].hp <= 0) {
-            document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted!`;
-            setTimeout(() => endBattle(false), 2000);
+            const hasLivingPets = playerParty.some(p => p.hp > 0);
+            if (hasLivingPets) {
+                inForcedSwitch = true;
+                document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Click one of your available living pets in the top-right icons to switch in!`;
+                document.getElementById('battleActionButtons').innerHTML = `<div style="grid-column: span 2; text-align: center; color: #ff4444; font-weight: bold;">⚠️ Forced Switch Required! Choose a living pet from top-right.</div>`;
+            } else {
+                document.getElementById('battleDialogueText').innerText += ` All your pets fainted! You blacked out and fled...`;
+                setTimeout(() => endBattle(false), 2000);
+            }
             return;
         }
 
@@ -1235,7 +1396,7 @@
     }
 
     function executeBattleCatch() {
-        if (!activeEncounter) return;
+        if (inForcedSwitch || !activeEncounter) return;
 
         if (balls <= 0) {
             document.getElementById('battleDialogueText').innerText = `❌ You don't have any Catch Balls left!`;
@@ -1262,6 +1423,7 @@
             document.getElementById('battleDialogueText').innerText = `🎉 Gotcha! Successfully caught ${activeEncounter.name}!`;
             coins += 30;
             renderParty();
+            renderPartyCircles();
             updateUI();
             saveGameData(true);
 
@@ -1283,7 +1445,9 @@
         const overlay = document.getElementById('battleOverlay');
         overlay.classList.remove('active');
         activeEncounter = null;
+        inForcedSwitch = false;
         renderParty();
+        renderPartyCircles();
 
         setTimeout(() => {
             encounterCooldown = false;
@@ -1367,6 +1531,7 @@
             document.getElementById('starterOverlay').classList.add('hidden');
             document.getElementById('loginOverlay').classList.add('hidden');
             renderParty();
+            renderPartyCircles();
             updateUI();
             
             if (currentUser) {
@@ -1403,6 +1568,7 @@
 
                 updateUI();
                 renderParty();
+                renderPartyCircles();
                 initMap();
                 renderPlayerElement();
                 return true;
@@ -1464,6 +1630,7 @@
 
                     updateUI();
                     renderParty();
+                    renderPartyCircles();
                     initMap();
                     renderPlayerElement();
                     document.getElementById('loginOverlay').classList.add('hidden');
@@ -1541,6 +1708,7 @@
         }
 
         renderParty();
+        renderPartyCircles();
         saveGameData(true);
     }
 
@@ -1609,8 +1777,8 @@
     }
 
     renderParty();
+    renderPartyCircles();
     updateUI();
 </script>
 </body>
 </html>
-```[cite: 3]
