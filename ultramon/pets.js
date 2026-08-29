@@ -1,93 +1,117 @@
-// Database of Pet Species with Base Stats, Max Stats, and Move Pools
+// Type Chart: Super Effective = 1.5x damage, Resistance = 1 / 1.5 (~0.67)x damage
+const TYPE_CHART = {
+    fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5 },
+    water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 },
+    grass:    { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67 },
+    electric: { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0 },
+    combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5 },
+    basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 },
+    bug:     { fire: 0.67,  water: 1.0,  grass: 1.5, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 }
+};
+
+// Helper function to calculate type effectiveness across multi-type pets (max 2 types)
+function getTypeEffectiveness(moveType, defenderTypes) {
+    let multiplier = 1.0;
+    if (!TYPE_CHART[moveType]) return multiplier;
+
+    defenderTypes.forEach(defType => {
+        if (TYPE_CHART[moveType][defType] !== undefined) {
+            multiplier *= TYPE_CHART[moveType][defType];
+        }
+    });
+    return multiplier;
+}
+
+// Database of Pet Species with Base Stats, Max Stats, Move Pools, and Types (Max 2 types)
 const PETS = {
     flaragon: {
         id: "flaragon",
         name: "Flaragon",
-        type: "Fire",
+        type: ["fire"],
         spawn_routes: [],
         img: "petpng/flaragon.png",
         baseStats: { hp: 20, attack: 10, defense: 10, spAttack: 16, spDefense: 12, speed: 15 },
         maxStats:  { hp: 210, attack: 110, defense: 120, spAttack: 190, spDefense: 140, speed: 175 },
         moves: [
-            { name: "Scratch", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Ember", damage: 50, powerCost: 5, damageType: "special", levelToLearn: 1 },
-            { name: "Flame Dash", damage: 70, powerCost: 10, damageType: "physical", levelToLearn: 5 },
-            { name: "Inferno Blast", damage: 95, powerCost: 20, damageType: "special", levelToLearn: 10 }
+            { name: "Scratch", type: "basic", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Ember", type: "fire", damage: 50, powerCost: 5, damageType: "special", levelToLearn: 1 },
+            { name: "Flame Dash", type: "fire", damage: 70, powerCost: 10, damageType: "physical", levelToLearn: 5 },
+            { name: "Inferno Blast", type: "fire", damage: 95, powerCost: 20, damageType: "special", levelToLearn: 10 }
         ]
     },
     bubbitty: {
         id: "bubbitty",
         name: "Bubbitty",
-        type: "Water",
+        type: ["water"],
         spawn_routes: [],
         img: "petpng/bubbitty.png",
         baseStats: { hp: 22, attack: 10, defense: 14, spAttack: 12, spDefense: 16, speed: 10 },
         maxStats:  { hp: 230, attack: 130, defense: 170, spAttack: 150, spDefense: 195, speed: 240 },
         moves: [
-            { name: "Tackle", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Water Gun", damage: 45, powerCost: 5, damageType: "special", levelToLearn: 1 },
-            { name: "Bubble Beam", damage: 70, powerCost: 12, damageType: "special", levelToLearn: 5 },
-            { name: "Hydro Pump", damage: 100, powerCost: 22, damageType: "special", levelToLearn: 10 }
+            { name: "Tackle", type: "basic", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Water Gun", type: "water", damage: 45, powerCost: 5, damageType: "special", levelToLearn: 1 },
+            { name: "Bubble Beam", type: "water", damage: 70, powerCost: 12, damageType: "special", levelToLearn: 5 },
+            { name: "Hydro Pump", type: "water", damage: 100, powerCost: 22, damageType: "special", levelToLearn: 10 }
         ]
     },
     sproupup: {
         id: "sproupup",
         name: "Sproupup",
-        type: "Grass",
+        type: ["grass"],
         spawn_routes: [],
         img: "petpng/sproupup.png",
         baseStats: { hp: 25, attack: 16, defense: 13, spAttack: 8, spDefense: 10, speed: 12 },
         maxStats:  { hp: 260, attack: 185, defense: 155, spAttack: 100, spDefense: 130, speed: 145 },
         moves: [
-            { name: "Tackle", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Vine Whip", damage: 45, powerCost: 5, damageType: "physical", levelToLearn: 1 },
-            { name: "Razor Leaf", damage: 75, powerCost: 14, damageType: "physical", levelToLearn: 5 },
-            { name: "Solar Beam", damage: 105, powerCost: 25, damageType: "special", levelToLearn: 10 }
+            { name: "Tackle", type: "basic", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Vine Whip", type: "grass", damage: 45, powerCost: 5, damageType: "physical", levelToLearn: 1 },
+            { name: "Razor Leaf", type: "grass", damage: 75, powerCost: 14, damageType: "physical", levelToLearn: 5 },
+            { name: "Solar Beam", type: "grass", damage: 105, powerCost: 25, damageType: "special", levelToLearn: 10 }
         ]
     },
     sparkwing: {
         id: "sparkwing",
         name: "Sparkwing",
-        type: "Electric",
-        spawn_routes: [1,2],
+        type: ["electric"],
+        spawn_routes: [1, 2],
         img: "petpng/sparkwing.png",
         baseStats: { hp: 18, attack: 13, defense: 8, spAttack: 17, spDefense: 9, speed: 18 },
         maxStats:  { hp: 195, attack: 150, defense: 105, spAttack: 205, spDefense: 115, speed: 210 },
         moves: [
-            { name: "Quick Peck", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Thundershock", damage: 50, powerCost: 6, damageType: "special", levelToLearn: 1 },
-            { name: "Spark Wing", damage: 70, powerCost: 12, damageType: "physical", levelToLearn: 5 },
-            { name: "Thunderbolt", damage: 95, powerCost: 20, damageType: "special", levelToLearn: 10 }
+            { name: "Quick Peck", type: "basic", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Thundershock", type: "electric", damage: 50, powerCost: 6, damageType: "special", levelToLearn: 1 },
+            { name: "Spark Wing", type: "electric", damage: 70, powerCost: 12, damageType: "physical", levelToLearn: 5 },
+            { name: "Thunderbolt", type: "electric", damage: 95, powerCost: 20, damageType: "special", levelToLearn: 10 }
         ]
     },
     coalapling: {
         id: "coalapling",
         name: "Coalapling",
-        type: "Grass",
-        spawn_routes: [1,2],
+        type: ["grass", "fire"],
+        spawn_routes: [1, 2],
         img: "petpng/coalapling.png",
         baseStats: { hp: 25, attack: 17, defense: 25, spAttack: 17, spDefense: 25, speed: 10 },
         maxStats:  { hp: 250, attack: 150, defense: 180, spAttack: 150, spDefense: 180, speed: 120 },
         moves: [
-            { name: "Stick Impact", damage: 20, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Burn Out", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 1 },
-            { name: "Heavy Slam", damage: 100, powerCost: 70, damageType: "physical", levelToLearn: 5 },
-            { name: "Flamethrower", damage: 95, powerCost: 70, damageType: "special", levelToLearn: 10 }
+            { name: "Stick Impact", type: "basic", damage: 20, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Burn Out", type: "fire", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 1 },
+            { name: "Heavy Slam", type: "basic", damage: 100, powerCost: 70, damageType: "physical", levelToLearn: 5 },
+            { name: "Flamethrower", type: "fire", damage: 95, powerCost: 70, damageType: "special", levelToLearn: 10 }
         ]
     },
     samupillar: {
         id: "samupillar",
         name: "Samupillar",
-        type: "Fighting",
-        spawn_routes: [1,2],
+        type: ["combat","bug"],
+        spawn_routes: [1, 2],
         img: "petpng/samupillar.png",
         baseStats: { hp: 15, attack: 15, defense: 12, spAttack: 12, spDefense: 5, speed: 5 },
         maxStats:  { hp: 150, attack: 125, defense: 120, spAttack: 95, spDefense: 60, speed: 100 },
         moves: [
-            { name: "Sticky Webs", damage: 20, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Power Punch", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
-            { name: "Fighting Aura", damage: 90, powerCost: 60, damageType: "physical", levelToLearn: 5 },
-            { name: "Bug Bite", damage: 67, powerCost: 40, damageType: "physical", levelToLearn: 10 }
+            { name: "Sticky Webs", type: "basic", damage: 20, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Power Punch", type: "combat", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
+            { name: "Fighting Aura", type: "combat", damage: 90, powerCost: 60, damageType: "physical", levelToLearn: 5 },
+            { name: "Bug Bite", type: "basic", damage: 67, powerCost: 40, damageType: "physical", levelToLearn: 10 }
         ]
     }
 };
