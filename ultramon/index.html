@@ -1498,7 +1498,7 @@
         resetBattleActionButtons();
     }
 
-    /* --- UPDATED CATCH PET LOGIC & ANIMATION --- */
+    /* --- CATCH PET LOGIC & ANIMATION --- */
     function executeBattleCatch() {
         if (inForcedSwitch || !activeEncounter) return;
 
@@ -1655,6 +1655,16 @@
         overlay.classList.remove('active');
         activeEncounter = null;
         inForcedSwitch = false;
+
+        // Clean up lingering catch balls and reset wild pet image styling
+        document.querySelectorAll('.anim-ball').forEach(el => el.remove());
+        const wildImg = document.getElementById('battleWildImg');
+        if (wildImg) {
+            wildImg.style.transform = '';
+            wildImg.style.opacity = '';
+            wildImg.style.transition = '';
+        }
+
         renderParty();
         renderPartyCircles();
 
