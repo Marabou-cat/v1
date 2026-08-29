@@ -2,7 +2,7 @@
 session_start();
 header('Content-Type: application/json');
 
-// --- 1. CONFIG & CONNECTION (SCHOOLEXAMS DB) ---[cite: 3]
+// --- 1. CONFIG & CONNECTION (SCHOOLEXAMS DB) ---
 $config_file = '../config.ini'; 
 if (!file_exists($config_file)) {
     die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing."]));
@@ -37,85 +37,58 @@ try {
         `pos_x` FLOAT DEFAULT 1.5,
         `pos_y` FLOAT DEFAULT 15.0,
         `party_data` LONGTEXT NOT NULL,
+        `pc_data` LONGTEXT NOT NULL DEFAULT '[]',
         `last_online` BIGINT NOT NULL,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // Create pet_box table for storing overflow and excess caught pets (Max 100 handled via logic)[cite: 3]
-    $pdo->exec("CREATE TABLE IF NOT EXISTS `pet_box` (
-        `id` INT AUTO_INCREMENT PRIMARY KEY,
-        `user_id` INT NOT NULL,
-        `pet_data` LONGTEXT NOT NULL,
-        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX (`user_id`)
-    )");
-
+    // Safely ensure coordinate and pc_data columns exist on older tables
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_x` FLOAT DEFAULT 1.5"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_y` FLOAT DEFAULT 15.0"); } catch (PDOException $e) {}
+    try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pc_data` LONGTEXT NOT NULL DEFAULT '[]'"); } catch (PDOException $e) {}
 
 } catch (PDOException $e) {
     die(json_encode(["success" => false, "message" => "Database connection failed: " . $e->getMessage()]));
 }
 
-// --- HELPER FUNCTION: GET PET BOX ---[cite: 3]
-function getUserPetBox($pdo, $user_id) {
-    $stmt = $pdo->prepare("SELECT id, pet_data FROM pet_box WHERE user_id = ? ORDER BY id ASC");
-    $stmt->execute([$user_id]);
-    $rows = $stmt->fetchAll();
-    $box = [];
-    foreach ($rows as $row) {
-        $pet = json_decode($row['pet_data'], true);
-        if (is_array($pet)) {
-            $pet['box_id'] = (int)$row['id']; 
-            $box[] = $pet;
-        }
-    }
-    return $box;
-}
-
 $action = $_POST['action'] ?? '';
 
-// --- 2. INSTANT RECONNECT HELPER ---[cite: 3]
+// --- 2. INSTANT RECONNECT & LOAD HELPER ---
 if (($action === 'load' || $action === 'save') && !isset($_SESSION['pet_user_id']) && !empty($_POST['username'])) {
-    $stmt = $pdo->prepare("SELECT id, username FROM petgame_users WHERE username = ?");
+    $stmt = $pdo->prepare("SELECT * FROM petgame_users WHERE username = ?");
     $stmt->execute([$_POST['username']]);
-    $u = $stmt->fetch();
-    if ($u) {
-        $_SESSION['pet_user_id'] = $u['id'];
-        $_SESSION['pet_username'] = $u['username'];
+    $user = $stmt->fetch();
+    if ($user) {
+        $_SESSION['pet_user_id'] = $user['id'];
+        $_SESSION['pet_username'] = $user['username'];
     }
 }
 
-// --- 3. REGISTER ---[cite: 3]
+// --- 3. ACTIONS HANDLER ---
 if ($action === 'register') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if (strlen($username) < 3 || strlen($password) < 4) {
-        die(json_encode(["success" => false, "message" => "Username must be >= 3 chars, Password >= 4 chars."]));
+    if (empty($username) || empty($password)) {
+        echo json_encode(["success" => false, "message" => "Username and password are required."]);
+        exit;
     }
 
-    $stmt = $pdo->prepare("SELECT id FROM petgame_users WHERE username = ?");
-    $stmt->execute([$username]);
-    if ($stmt->fetch()) {
-        die(json_encode(["success" => false, "message" => "Username already exists in Pet RPG!"]));
-    }
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+    $defaultParty = json_encode([]);
+    $defaultPC = json_encode([]);
+    $time = time();
 
-    $starter_party = [];
-    $hashed = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare("INSERT INTO petgame_users (username, password, party_data, last_online) VALUES (?, ?, ?, ?)");
-    
-    if ($stmt->execute([$username, $hashed, json_encode($starter_party), time() * 1000])) {
-        $_SESSION['pet_user_id'] = $pdo->lastInsertId();
-        $_SESSION['pet_username'] = $username;
-        echo json_encode(["success" => true, "message" => "Registration successful!"]);
-    } else {
-        echo json_encode(["success" => false, "message" => "Error creating game account."]);
+    try {
+        $stmt = $pdo->prepare("INSERT INTO petgame_users (username, password, party_data, pc_data, last_online) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$username, $hashedPassword, $defaultParty, $defaultPC, $time]);
+        echo json_encode(["success" => true, "message" => "Account registered successfully."]);
+    } catch (PDOException $e) {
+        echo json_encode(["success" => false, "message" => "Username already exists or database error."]);
     }
     exit;
 }
 
-// --- 4. LOGIN ---[cite: 3]
 if ($action === 'login') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -127,196 +100,77 @@ if ($action === 'login') {
     if ($user && password_verify($password, $user['password'])) {
         $_SESSION['pet_user_id'] = $user['id'];
         $_SESSION['pet_username'] = $user['username'];
-        
-        $user['party_data'] = json_decode($user['party_data'], true);
-        $user['pet_box'] = getUserPetBox($pdo, $user['id']);
-        unset($user['password']);
 
-        echo json_encode(["success" => true, "data" => $user]);
+        echo json_encode([
+            "success" => true,
+            "data" => [
+                "username" => $user['username'],
+                "coins" => (int)$user['coins'],
+                "balls" => (int)$user['balls'],
+                "current_route" => (int)$user['current_route'],
+                "pos_x" => (float)$user['pos_x'],
+                "pos_y" => (float)$user['pos_y'],
+                "party_data" => $user['party_data'],
+                "pc_data" => $user['pc_data']
+            ]
+        ]);
     } else {
         echo json_encode(["success" => false, "message" => "Invalid username or password."]);
     }
     exit;
 }
 
-// --- 5. LOAD GAME DATA ---[cite: 3]
 if ($action === 'load') {
-    if (!isset($_SESSION['pet_user_id'])) {
-        die(json_encode(["success" => false, "message" => "Not logged in."]));
+    $username = trim($_POST['username'] ?? '');
+    if (empty($username)) {
+        echo json_encode(["success" => false, "message" => "No username provided."]);
+        exit;
     }
 
-    $stmt = $pdo->prepare("SELECT id, username, coins, balls, current_route, pos_x, pos_y, party_data, last_online FROM petgame_users WHERE id = ?");
-    $stmt->execute([$_SESSION['pet_user_id']]);
-    $data = $stmt->fetch();
-    
-    if ($data) {
-        $data['party_data'] = json_decode($data['party_data'], true);
-        $data['pet_box'] = getUserPetBox($pdo, $_SESSION['pet_user_id']);
-        echo json_encode(["success" => true, "data" => $data]);
+    $stmt = $pdo->prepare("SELECT * FROM petgame_users WHERE username = ?");
+    $stmt->execute([$username]);
+    $user = $stmt->fetch();
+
+    if ($user) {
+        echo json_encode([
+            "success" => true,
+            "data" => [
+                "username" => $user['username'],
+                "coins" => (int)$user['coins'],
+                "balls" => (int)$user['balls'],
+                "current_route" => (int)$user['current_route'],
+                "pos_x" => (float)$user['pos_x'],
+                "pos_y" => (float)$user['pos_y'],
+                "party_data" => $user['party_data'],
+                "pc_data" => $user['pc_data']
+            ]
+        ]);
     } else {
         echo json_encode(["success" => false, "message" => "User data not found."]);
     }
     exit;
 }
 
-// --- 6. SAVE GAME DATA ---[cite: 3]
 if ($action === 'save') {
-    if (!isset($_SESSION['pet_user_id'])) {
-        die(json_encode(["success" => false, "message" => "Not logged in."]));
+    $username = trim($_POST['username'] ?? '');
+    if (empty($username)) {
+        echo json_encode(["success" => false, "message" => "Unauthorized save request."]);
+        exit;
     }
 
-    $user_id = $_SESSION['pet_user_id'];
-    $coins = (int)($_POST['coins'] ?? 100);
-    $balls = (int)($_POST['balls'] ?? 5);
-    $current_route = (int)($_POST['current_route'] ?? 1);
-    $pos_x = (float)($_POST['pos_x'] ?? 1.5);
-    $pos_y = (float)($_POST['pos_y'] ?? 15.0);
+    $coins = intval($_POST['coins'] ?? 100);
+    $balls = intval($_POST['balls'] ?? 5);
+    $current_route = intval($_POST['current_route'] ?? 1);
+    $pos_x = floatval($_POST['pos_x'] ?? 1.5);
+    $pos_y = floatval($_POST['pos_y'] ?? 15.0);
     $party_data = $_POST['party_data'] ?? '[]';
-    $pc_storage_data = $_POST['pc_storage'] ?? null;
-    $last_online = time() * 1000;
+    $pc_data = $_POST['pc_data'] ?? '[]';
+    $time = time();
 
-    $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, last_online = ? WHERE id = ?");
-    $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $last_online, $user_id]);
+    $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, pc_data = ?, last_online = ? WHERE username = ?");
+    $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $pc_data, $time, $username]);
 
-    if ($pc_storage_data !== null) {
-        $pc_array = json_decode($pc_storage_data, true);
-        if (is_array($pc_array)) {
-            $del_stmt = $pdo->prepare("DELETE FROM pet_box WHERE user_id = ?");
-            $del_stmt->execute([$user_id]);
-
-            $ins_stmt = $pdo->prepare("INSERT INTO pet_box (user_id, pet_data) VALUES (?, ?)");
-            $count = 0;
-            foreach ($pc_array as $pet) {
-                if ($count >= 100) break;
-                unset($pet['box_id']);
-                $ins_stmt->execute([$user_id, json_encode($pet)]);
-                $count++;
-            }
-        }
-    }
-
-    echo json_encode([
-        "success" => true, 
-        "message" => "Progress and PC storage saved successfully!",
-        "pet_box" => getUserPetBox($pdo, $user_id)
-    ]);
-    exit;
-}
-
-// --- 7. ADD PET TO BOX ---[cite: 3]
-if ($action === 'add_to_box') {
-    if (!isset($_SESSION['pet_user_id'])) {
-        die(json_encode(["success" => false, "message" => "Not logged in."]));
-    }
-
-    $user_id = $_SESSION['pet_user_id'];
-
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM pet_box WHERE user_id = ?");
-    $stmt->execute([$user_id]);
-    $count = $stmt->fetchColumn();
-
-    if ($count >= 100) {
-        die(json_encode(["success" => false, "message" => "Pet Box is full! (Maximum 100 pets reached). Release pets to make space."]));
-    }
-
-    $pet_data = $_POST['pet_data'] ?? '';
-    if (empty($pet_data)) {
-        die(json_encode(["success" => false, "message" => "Invalid pet data provided."]));
-    }
-
-    if (is_array($pet_data)) {
-        $pet_data = json_encode($pet_data);
-    }
-
-    $stmt = $pdo->prepare("INSERT INTO pet_box (user_id, pet_data) VALUES (?, ?)");
-    if ($stmt->execute([$user_id, $pet_data])) {
-        echo json_encode([
-            "success" => true, 
-            "message" => "Pet successfully sent to the Pet Box!", 
-            "pet_box" => getUserPetBox($pdo, $user_id)
-        ]);
-    } else {
-        echo json_encode(["success" => false, "message" => "Failed to store pet in box."]);
-    }
-    exit;
-}
-
-// --- 8. RELEASE PET FROM BOX ---[cite: 3]
-if ($action === 'release_pet') {
-    if (!isset($_SESSION['pet_user_id'])) {
-        die(json_encode(["success" => false, "message" => "Not logged in."]));
-    }
-
-    $box_id = (int)($_POST['box_id'] ?? 0);
-    if ($box_id <= 0) {
-        die(json_encode(["success" => false, "message" => "Invalid box ID."]));
-    }
-
-    $stmt = $pdo->prepare("DELETE FROM pet_box WHERE id = ? AND user_id = ?");
-    $stmt->execute([$box_id, $_SESSION['pet_user_id']]);
-
-    if ($stmt->rowCount() > 0) {
-        echo json_encode([
-            "success" => true, 
-            "message" => "Pet released and made space in the box.", 
-            "pet_box" => getUserPetBox($pdo, $_SESSION['pet_user_id'])
-        ]);
-    } else {
-        echo json_encode(["success" => false, "message" => "Pet not found in your box."]);
-    }
-    exit;
-}
-
-// --- 9. SWAP PET BETWEEN TEAM (PARTY) AND BOX ---[cite: 3]
-if ($action === 'swap_pet') {
-    if (!isset($_SESSION['pet_user_id'])) {
-        die(json_encode(["success" => false, "message" => "Not logged in."]));
-    }
-
-    $user_id = $_SESSION['pet_user_id'];
-    $party_index = (int)($_POST['party_index'] ?? -1);
-    $box_id = (int)($_POST['box_id'] ?? -1);
-
-    if ($party_index < 0 || $box_id <= 0) {
-        die(json_encode(["success" => false, "message" => "Invalid swap configuration."]));
-    }
-
-    $stmt = $pdo->prepare("SELECT party_data FROM petgame_users WHERE id = ?");
-    $stmt->execute([$user_id]);
-    $user_row = $stmt->fetch();
-    if (!$user_row) {
-        die(json_encode(["success" => false, "message" => "User data not found."]));
-    }
-
-    $party = json_decode($user_row['party_data'], true);
-    if (!isset($party[$party_index])) {
-        die(json_encode(["success" => false, "message" => "Invalid party slot index."]));
-    }
-
-    $stmt_box = $pdo->prepare("SELECT id, pet_data FROM pet_box WHERE id = ? AND user_id = ?");
-    $stmt_box->execute([$box_id, $user_id]);
-    $box_row = $stmt_box->fetch();
-    if (!$box_row) {
-        die(json_encode(["success" => false, "message" => "Target pet not found in box."]));
-    }
-
-    $box_pet_data = json_decode($box_row['pet_data'], true);
-    $party_pet_data = $party[$party_index];
-
-    $update_box = $pdo->prepare("UPDATE pet_box SET pet_data = ? WHERE id = ? AND user_id = ?");
-    $update_box->execute([json_encode($party_pet_data), $box_id, $user_id]);
-
-    $party[$party_index] = $box_pet_data;
-
-    $update_party = $pdo->prepare("UPDATE petgame_users SET party_data = ? WHERE id = ?");
-    $update_party.execute([json_encode($party), $user_id]);
-
-    echo json_encode([
-        "success" => true,
-        "message" => "Equipped pet successfully!",
-        "party_data" => $party,
-        "pet_box" => getUserPetBox($pdo, $user_id)
-    ]);
+    echo json_encode(["success" => true, "message" => "Game saved successfully."]);
     exit;
 }
 
