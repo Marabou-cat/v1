@@ -34,10 +34,16 @@ try {
         `coins` INT DEFAULT 100,
         `balls` INT DEFAULT 5,
         `current_route` INT DEFAULT 1,
+        `pos_x` FLOAT DEFAULT 1.5,
+        `pos_y` FLOAT DEFAULT 15.0,
         `party_data` LONGTEXT NOT NULL,
         `last_online` BIGINT NOT NULL,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
+
+    // Safely ensure coordinate columns exist on older tables
+    try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_x` FLOAT DEFAULT 1.5"); } catch (PDOException $e) {}
+    try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_y` FLOAT DEFAULT 15.0"); } catch (PDOException $e) {}
 
 } catch (PDOException $e) {
     die(json_encode(["success" => false, "message" => "Database connection failed: " . $e->getMessage()]));
@@ -71,9 +77,7 @@ if ($action === 'register') {
         die(json_encode(["success" => false, "message" => "Username already exists in Pet RPG!"]));
     }
 
-    // Set empty party array so the frontend starter selection displays
     $starter_party = [];
-
     $hashed = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("INSERT INTO petgame_users (username, password, party_data, last_online) VALUES (?, ?, ?, ?)");
     
@@ -116,7 +120,7 @@ if ($action === 'load') {
         die(json_encode(["success" => false, "message" => "Not logged in."]));
     }
 
-    $stmt = $pdo->prepare("SELECT id, username, coins, balls, current_route, party_data, last_online FROM petgame_users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT id, username, coins, balls, current_route, pos_x, pos_y, party_data, last_online FROM petgame_users WHERE id = ?");
     $stmt->execute([$_SESSION['pet_user_id']]);
     $data = $stmt->fetch();
     
@@ -138,11 +142,13 @@ if ($action === 'save') {
     $coins = (int)($_POST['coins'] ?? 100);
     $balls = (int)($_POST['balls'] ?? 5);
     $current_route = (int)($_POST['current_route'] ?? 1);
+    $pos_x = (float)($_POST['pos_x'] ?? 1.5);
+    $pos_y = (float)($_POST['pos_y'] ?? 15.0);
     $party_data = $_POST['party_data'] ?? '[]';
     $last_online = time() * 1000;
 
-    $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, party_data = ?, last_online = ? WHERE id = ?");
-    $stmt->execute([$coins, $balls, $current_route, $party_data, $last_online, $_SESSION['pet_user_id']]);
+    $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, last_online = ? WHERE id = ?");
+    $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $last_online, $_SESSION['pet_user_id']]);
 
     echo json_encode(["success" => true, "message" => "Progress saved successfully!"]);
     exit;
