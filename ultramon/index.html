@@ -146,16 +146,12 @@
         .tile-tall_grass { background: #1e8449 url('petpng/tall_grass.png') no-repeat center center / cover; border: 1px solid rgba(0,0,0,0.1); }
 
         .tile-wall { background: #4a5568 url('petpng/tree.png') no-repeat center center / cover; border: 1px solid #2d3748; }
-        .tile-grey-wall { background: #718096; border: 1px solid #4a5568; }
-        .tile-white { background: #ffffff; border: 1px solid #e2e8f0; }
-        .tile-exit { background: #e67e22; border: 1px solid #d35400; }
-        .tile-exit::after { content: "🚪"; font-size: 18px; }
 
         .tile-route { background: #f1c40f; border: 1px solid #d4ac0d; }
         .tile-gate { background: #d35400; border: 1px solid #ba4a00; }
         .tile-gate::after { content: "🚪"; font-size: 20px; }
 
-        /* --- PLAYER CUBE & NPC CUBES --- */
+        /* --- PLAYER CUBE --- */
         .player-cube {
             width: 32px;
             height: 32px;
@@ -185,60 +181,6 @@
         @keyframes sideWalk {
             0% { transform: translate(-50%, -50%) translateY(0) scaleY(1) rotate(0deg); }
             100% { transform: translate(-50%, -50%) translateY(-3px) scaleY(0.95) rotate(-3deg); }
-        }
-
-        .npc-cube {
-            width: 32px;
-            height: 32px;
-            border: 2px solid #ffffff;
-            border-radius: 6px;
-            position: absolute;
-            z-index: 9;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
-        .npc-cube::after {
-            content: "";
-            position: absolute;
-            right: 4px;
-            top: 6px;
-            width: 6px;
-            height: 4px;
-            background: #ffffff;
-            border-radius: 2px;
-        }
-        .npc-pink {
-            background: #ff6584;
-            box-shadow: 0 4px 15px rgba(255, 101, 132, 0.8);
-        }
-        .npc-blue {
-            background: #00b4d8;
-            box-shadow: 0 4px 15px rgba(0, 180, 216, 0.8);
-            filter: blur(0.4px);
-        }
-
-        /* --- OVERWORLD DIALOGUE BANNER --- */
-        .overworld-dialogue {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 29, 61, 0.95);
-            border: 2px solid var(--p1);
-            color: #fff;
-            padding: 15px 25px;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: bold;
-            z-index: 5000;
-            box-shadow: var(--shadow), var(--glow);
-            max-width: 600px;
-            width: 90%;
-            text-align: center;
-            display: none;
         }
 
         /* --- MENU BUTTON & PARTY HUD --- */
@@ -707,9 +649,6 @@
 <!-- TOP-RIGHT PARTY CIRCLES HUD -->
 <div class="party-hud-container" id="partyHudContainer"></div>
 
-<!-- OVERWORLD DIALOGUE BANNER -->
-<div class="overworld-dialogue" id="overworldDialogue"></div>
-
 <!-- MENU MODAL -->
 <div class="modal-overlay hidden" id="menuModal">
     <div class="menu-box">
@@ -751,11 +690,30 @@
     </div>
 </div>
 
+<!-- GATE PET CENTER MODAL -->
+<div class="modal-overlay hidden" id="gateModal">
+    <div class="menu-box" style="height: auto; max-height: 480px;">
+        <div class="menu-header-bar">
+            <div style="font-weight: bold; color: var(--p1);">🚪 Route Gate & Pet Center Tunnel</div>
+            <button class="btn-close-modal" onclick="closeGateModal()">✕</button>
+        </div>
+        <div class="menu-content-area" style="text-align: center;">
+            <p style="margin-bottom: 20px;">Welcome to the tunnel center! Rest your pets or stock up on catch balls before crossing to the next route.</p>
+            <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px;">
+                <button class="btn-action" onclick="gateHealParty()">🏥 Heal Party (Free)</button>
+                <button class="btn-action" onclick="gateBuyBall()">🎾 Buy Ball (50🪙)</button>
+            </div>
+            <div style="border-top: 1px solid var(--p2); padding-top: 20px;">
+                <button class="btn-action" id="gateTravelBtn" onclick="travelThroughGate()" style="width: 100%; background: #2ecc71; border-color: #27ae60;">🚶 Proceed Through Gate</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MAP VIEWPORT CONTAINER -->
 <div class="map-container" id="mapContainer">
     <div class="map-grid" id="mapGrid"></div>
     <div class="player-cube" id="playerCube"></div>
-    <div id="npcContainer"></div>
 </div>
 
 <!-- BATTLE OVERLAY -->
@@ -870,13 +828,13 @@
     let coins = 100;
     let balls = 5;
     let currentRoute = 1;
-    let currentMapIndex = 0; // 0 = Route 1, 1 = Route 2, 2 = Pokémon Center Center
+    let currentMapIndex = 0; 
     let activeEncounter = null;
     let playerBattleEnergy = 100;
     let autoSaveTimer = null;
     let pendingStarter = null;
     let playerParty = [];
-    let gateCooldown = false;
+    let inGateModal = false;
     let inForcedSwitch = false;
 
     const MAP_SIZE = 30;
@@ -952,26 +910,7 @@
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall']
     ];
 
-    // Pokémon Center Room Map (White floor, Grey walls, Exit at bottom)
-    const gateCenterMap = [
-        ['grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','white','white','white','white','white','white','white','white','white','white','white','white','white','grey-wall'],
-        ['grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','exit','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall','grey-wall']
-    ];
-
-    const allMaps = [route1Map, route2Map, gateCenterMap];
+    const allMaps = [route1Map, route2Map];
 
     window.addEventListener('DOMContentLoaded', () => {
         runLoadingSequence();
@@ -989,15 +928,12 @@
     function initMap() {
         const grid = document.getElementById('mapGrid');
         grid.innerHTML = '';
+        grid.style.width = (MAP_SIZE * TILE_SIZE) + 'px';
+        grid.style.height = (MAP_SIZE * TILE_SIZE) + 'px';
+
         const activeMap = getCurrentMap();
-        const mapHeight = activeMap.length;
-        const mapWidth = activeMap[0].length;
-
-        grid.style.width = (mapWidth * TILE_SIZE) + 'px';
-        grid.style.height = (mapHeight * TILE_SIZE) + 'px';
-
-        for (let r = 0; r < mapHeight; r++) {
-            for (let c = 0; c < mapWidth; c++) {
+        for (let r = 0; r < MAP_SIZE; r++) {
+            for (let c = 0; c < MAP_SIZE; c++) {
                 const tile = document.createElement('div');
                 const tileType = activeMap[r][c];
                 tile.className = `tile tile-${tileType}`;
@@ -1008,34 +944,7 @@
                 grid.appendChild(tile);
             }
         }
-        renderNPCs();
         renderPlayerElement();
-    }
-
-    function renderNPCs() {
-        const npcContainer = document.getElementById('npcContainer');
-        npcContainer.innerHTML = '';
-
-        if (currentMapIndex === 2) {
-            // Pokémon Center NPCs
-            // Pink Cube (Healer) at grid (7, 4)
-            const pinkCube = document.createElement('div');
-            pinkCube.className = 'npc-cube npc-pink';
-            pinkCube.style.left = (7 * TILE_SIZE + 8) + 'px';
-            pinkCube.style.top = (4 * TILE_SIZE + 8) + 'px';
-            pinkCube.title = "Talk to heal pets";
-            pinkCube.onclick = () => talkToPinkCube();
-            npcContainer.appendChild(pinkCube);
-
-            // Blue Cube (Shop) at grid (11, 4)
-            const blueCube = document.createElement('div');
-            blueCube.className = 'npc-cube npc-blue';
-            blueCube.style.left = (11 * TILE_SIZE + 8) + 'px';
-            blueCube.style.top = (4 * TILE_SIZE + 8) + 'px';
-            blueCube.title = "Talk to buy balls (50🪙)";
-            blueCube.onclick = () => talkToBlueCube();
-            npcContainer.appendChild(blueCube);
-        }
     }
 
     function renderPlayerElement() {
@@ -1049,28 +958,19 @@
 
         grid.style.left = mapX + 'px';
         grid.style.top = mapY + 'px';
-
-        const npcContainer = document.getElementById('npcContainer');
-        if (npcContainer) {
-            npcContainer.style.transform = `translate(${mapX}px, ${mapY}px)`;
-        }
     }
 
     function setupMovementListeners() {
         window.addEventListener('keydown', (e) => {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyE'].includes(e.code)) {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
                 if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
                 e.preventDefault();
                 keysPressed[e.code] = true;
-
-                if (e.code === 'Space' || e.code === 'KeyE') {
-                    checkNPCInteraction();
-                }
             }
         });
 
         window.addEventListener('keyup', (e) => {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyE'].includes(e.code)) {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
                 keysPressed[e.code] = false;
             }
         });
@@ -1081,8 +981,9 @@
         const isBattleOpen = document.getElementById('battleOverlay').classList.contains('active');
         const isStarterOpen = !document.getElementById('starterOverlay').classList.contains('hidden');
         const isLoginOpen = !document.getElementById('loginOverlay').classList.contains('hidden');
+        const isGateOpen = !document.getElementById('gateModal').classList.contains('hidden');
 
-        if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen) {
+        if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen && !isGateOpen) {
             let dx = 0;
             let dy = 0;
             let isMoving = false;
@@ -1122,11 +1023,8 @@
 
     function isValidPosition(x, y) {
         const radius = 0.3;
-        const activeMap = getCurrentMap();
-        const mapHeight = activeMap.length;
-        const mapWidth = activeMap[0].length;
 
-        if (x < radius || x > mapWidth - radius || y < radius || y > mapHeight - radius) return false;
+        if (x < radius || x > MAP_SIZE - radius || y < radius || y > MAP_SIZE - radius) return false;
 
         const checkPoints = [
             { x: x - radius, y: y - radius },
@@ -1135,14 +1033,14 @@
             { x: x + radius, y: y + radius }
         ];
 
+        const activeMap = getCurrentMap();
         for (let pt of checkPoints) {
             let tileX = Math.floor(pt.x);
             let tileY = Math.floor(pt.y);
             
-            if (tileX < 0 || tileX >= mapWidth || tileY < 0 || tileY >= mapHeight) return false;
+            if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
             
-            let t = activeMap[tileY][tileX];
-            if (t === 'wall' || t === 'grey-wall') return false;
+            if (activeMap[tileY][tileX] === 'wall') return false;
         }
 
         return true;
@@ -1155,8 +1053,8 @@
         let currentTileX = Math.floor(playerPos.x);
         let currentTileY = Math.floor(playerPos.y);
 
-        const activeMap = getCurrentMap();
-        if (currentTileY >= 0 && currentTileY < activeMap.length && currentTileX >= 0 && currentTileX < activeMap[0].length) {
+        if (currentTileX >= 0 && currentTileX < MAP_SIZE && currentTileY >= 0 && currentTileY < MAP_SIZE) {
+            const activeMap = getCurrentMap();
             const tileType = activeMap[currentTileY][currentTileX];
 
             if (tileType === 'tall_grass' && !encounterCooldown) {
@@ -1164,74 +1062,69 @@
                     triggerWildEncounter();
                 }
             } else if (tileType === 'gate' && !gateCooldown) {
-                // Enter Pokémon Center Center
-                gateCooldown = true;
-                currentMapIndex = 2; // Pokémon Center map
-                playerPos = { x: 7.5, y: 13.0 };
-                initMap();
-                renderPlayerElement();
-                showDialogue("Welcome to the Pokémon Center! Talk to the pink cube to heal, or the blue cube to buy balls.");
-                setTimeout(() => { gateCooldown = false; }, 2000);
-            } else if (tileType === 'exit' && !gateCooldown) {
-                // Exit back to Route 1 or Route 2
-                gateCooldown = true;
-                currentMapIndex = currentRoute === 2 ? 1 : 0;
-                playerPos = currentRoute === 2 ? { x: 1.5, y: 14.0 } : { x: 28.5, y: 15.0 };
-                initMap();
-                renderPlayerElement();
-                showDialogue(`Returned to Route ${currentRoute}.`);
-                setTimeout(() => { gateCooldown = false; }, 2000);
+                openGateModal();
             }
         }
     }
 
-    function checkNPCInteraction() {
-        if (currentMapIndex !== 2) return;
-        // Check distance to Pink Cube (7.5, 4.5) and Blue Cube (11.5, 4.5)
-        const distPink = Math.hypot(playerPos.x - 7.5, playerPos.y - 4.5);
-        const distBlue = Math.hypot(playerPos.x - 11.5, playerPos.y - 4.5);
-
-        if (distPink < 1.8) {
-            talkToPinkCube();
-        } else if (distBlue < 1.8) {
-            talkToBlueCube();
+    function openGateModal() {
+        inGateModal = true;
+        gateCooldown = true;
+        
+        const travelBtn = document.getElementById('gateTravelBtn');
+        if (currentMapIndex === 0) {
+            travelBtn.innerText = "🚪 Travel to Route 2";
+        } else {
+            travelBtn.innerText = "🚪 Travel to Route 1";
         }
+
+        document.getElementById('gateModal').classList.remove('hidden');
     }
 
-    function talkToPinkCube() {
+    function closeGateModal() {
+        document.getElementById('gateModal').classList.add('hidden');
+        inGateModal = false;
+        setTimeout(() => { gateCooldown = false; }, 1500);
+    }
+
+    function gateHealParty() {
         if (!playerParty || playerParty.length === 0) return;
         playerParty.forEach(pet => {
             const calculated = getCalculatedPet(pet);
             if (calculated) pet.hp = calculated.maxHp;
         });
+        alert("🏥 Tunnel Center: All pets in your party have been fully healed!");
         renderPartyCircles();
-        renderParty();
         saveGameData(true);
-        showDialogue("Nurse Pink Cube: \"Your pets have been fully healed back to peak condition!\"");
     }
 
-    function talkToBlueCube() {
+    function gateBuyBall() {
         const cost = 50;
         if (coins >= cost) {
             coins -= cost;
             balls++;
             updateUI();
+            alert("🎾 Purchased 1 Catch Ball!");
             saveGameData(true);
-            showDialogue(`Shop Blue Cube: \"Thanks for your purchase! You bought 1 Catch Ball for 50🪙.\"`);
         } else {
-            showDialogue("Shop Blue Cube: \"You don't have enough coins! You need 50🪙 to buy a ball.\"");
+            alert("❌ Not enough coins! You need 50 coins.");
         }
     }
 
-    let dialogueTimeout = null;
-    function showDialogue(text) {
-        const box = document.getElementById('overworldDialogue');
-        box.innerText = text;
-        box.style.display = 'block';
-        if (dialogueTimeout) clearTimeout(dialogueTimeout);
-        dialogueTimeout = setTimeout(() => {
-            box.style.display = 'none';
-        }, 4000);
+    function travelThroughGate() {
+        closeGateModal();
+        if (currentMapIndex === 0) {
+            currentMapIndex = 1;
+            currentRoute = 2;
+            playerPos = { x: 1.5, y: 15.5 };
+        } else {
+            currentMapIndex = 0;
+            currentRoute = 1;
+            playerPos = { x: 27.5, y: 15.0 }; 
+        }
+        initMap();
+        renderPlayerElement();
+        saveGameData(true);
     }
 
     function openMenuModal() {
