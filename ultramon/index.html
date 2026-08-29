@@ -1976,7 +1976,6 @@
                 currentRoute = parseInt(result.data.current_route);
                 currentMapIndex = currentRoute === 2 ? 1 : 0;
                 
-                // Safely read and parse party and PC storage data whether returned as JSON string or array
                 playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
                 playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
 
@@ -2040,7 +2039,6 @@
                     currentRoute = parseInt(result.data.current_route);
                     currentMapIndex = currentRoute === 2 ? 1 : 0;
                     
-                    // Safely read and parse party and PC storage data whether returned as JSON string or array
                     playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
                     playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
 
@@ -2278,3 +2276,4 @@
 </script>
 </body>
 </html>
+```[cite: 4]
