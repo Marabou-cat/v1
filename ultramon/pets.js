@@ -62,7 +62,7 @@ const PETS = {
         name: "Sproupup",
         type: ["grass"],
         spawn_routes: [],
-        img: "petpng/sproupup.png",
+        img: "petpng/sproupu.png",
         catchRate: 45,
         baseStats: { hp: 120, attack: 16, defense: 13, spAttack: 8, spDefense: 10, speed: 12 },
         maxStats:  { hp: 600, attack: 185, defense: 155, spAttack: 100, spDefense: 130, speed: 145 },
