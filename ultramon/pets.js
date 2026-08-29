@@ -9,9 +9,9 @@ const PETS = {
         maxStats:  { hp: 210, attack: 110, defense: 120, spAttack: 190, spDefense: 140, speed: 175 },
         moves: [
             { name: "Scratch", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Ember", damage: 35, powerCost: 5, damageType: "special", levelToLearn: 1 },
+            { name: "Ember", damage: 50, powerCost: 5, damageType: "special", levelToLearn: 1 },
             { name: "Flame Dash", damage: 70, powerCost: 10, damageType: "physical", levelToLearn: 5 },
-            { name: "Inferno Blast", damage: 70, powerCost: 10, damageType: "special", levelToLearn: 10 }
+            { name: "Inferno Blast", damage: 95, powerCost: 20, damageType: "special", levelToLearn: 10 }
         ]
     },
     bubbitty: {
@@ -23,9 +23,9 @@ const PETS = {
         maxStats:  { hp: 230, attack: 130, defense: 170, spAttack: 150, spDefense: 195, speed: 120 },
         moves: [
             { name: "Tackle", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Water Gun", damage: 35, powerCost: 5, damageType: "special", levelToLearn: 1 },
-            { name: "Bubble Beam", damage: 70, powerCost: 10, damageType: "special", levelToLearn: 5 },
-            { name: "Hydro Pump", damage: 120, powerCost: 30, damageType: "special", levelToLearn: 10 }
+            { name: "Water Gun", damage: 45, powerCost: 5, damageType: "special", levelToLearn: 1 },
+            { name: "Bubble Beam", damage: 70, powerCost: 12, damageType: "special", levelToLearn: 5 },
+            { name: "Hydro Pump", damage: 100, powerCost: 22, damageType: "special", levelToLearn: 10 }
         ]
     },
     sproupup: {
