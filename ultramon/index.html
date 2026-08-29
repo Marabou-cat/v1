@@ -784,21 +784,21 @@
                 <div class="starter-light light-sproupup"></div>
                 <img src="petpng/sproupup.png" alt="Sproupup" class="starter-img">
                 <div class="starter-name">Sproupup</div>
-                <div class="starter-type type-sproupup">🌿 Grass Type</div>
+                <div class="starter-type type-sproupup">Grass Type</div>
             </div>
 
             <div class="starter-card" onclick="promptStarterChoice('bubbitty', 'Bubbitty', 'petpng/bubbitty.png')">
                 <div class="starter-light light-bubbitty"></div>
                 <img src="petpng/bubbitty.png" alt="Bubbitty" class="starter-img">
                 <div class="starter-name">Bubbitty</div>
-                <div class="starter-type type-bubbitty">💧 Water Type</div>
+                <div class="starter-type type-bubbitty">Water Type</div>
             </div>
 
             <div class="starter-card" onclick="promptStarterChoice('flaragon', 'Flaragon', 'petpng/flaragon.png')">
                 <div class="starter-light light-flaragon"></div>
                 <img src="petpng/flaragon.png" alt="Flaragon" class="starter-img">
                 <div class="starter-name">Flaragon</div>
-                <div class="starter-type type-flaragon">🔥 Fire Type</div>
+                <div class="starter-type type-flaragon">Fire Type</div>
             </div>
         </div>
     </div>
@@ -907,21 +907,6 @@
     ];
 
     const allMaps = [route1Map, route2Map];
-
-    // Helper function to return an icon based on the pet type[cite: 1]
-    function getTypeIcon(type) {
-        if (!type) return '🐾';
-        const t = type.toLowerCase();
-        if (t.includes('grass')) return '🌿';
-        if (t.includes('water')) return '💧';
-        if (t.includes('fire')) return '🔥';
-        if (t.includes('electric')) return '⚡';
-        if (t.includes('poison')) return '☠️';
-        if (t.includes('bug')) return '🐛';
-        if (t.includes('rock')) return '🪨';
-        if (t.includes('ground')) return '🌍';
-        return '🐾';
-    }
 
     window.addEventListener('DOMContentLoaded', () => {
         runLoadingSequence();
@@ -1742,7 +1727,6 @@
             if (!pet) return;
 
             const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
-            const typeIcon = getTypeIcon(pet.type);[cite: 1]
 
             let movesChipsHtml = '';
             pet.moves.forEach(m => {
@@ -1761,7 +1745,7 @@
                         <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
                         <div style="flex:1; display:flex; justify-content:space-between; font-weight:bold;">
                             <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
-                            <span style="color:var(--p1);">${typeIcon} ${pet.type}</span>
+                            <span style="color:var(--p1);">${pet.type}</span>
                         </div>
                     </div>
                     <div class="hp-bar-bg">
@@ -1775,7 +1759,7 @@
                         <span>SPD: ${pet.speed}</span>
                         <span>SP.ATK: ${pet.spAttack}</span>
                         <span>SP.DEF: ${pet.spDefense}</span>
-                        <span>TYPE: ${typeIcon} ${pet.type}</span>
+                        <span>TYPE: ${pet.type}</span>
                     </div>
 
                     <div class="moves-section">
