@@ -1,4 +1,4 @@
-// Rebalanced version of pets.js with adjusted base HP, lowered move power, and integrated stat-scaling[cite: 2]
+// Rebalanced version of pets.js with adjusted base HP, lowered move power, and integrated stat-scaling[cite: 2, 5]
 const TYPE_CHART = {
     fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5 },
     water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 },
@@ -6,7 +6,7 @@ const TYPE_CHART = {
     electric: { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0 },
     combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5 },
     basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 },
-    bug:     { fire: 0.67,  water: 1.0,  grass: 1.5, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 }
+    bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 }
 };
 
 // Helper function to calculate type effectiveness across multi-type pets (max 2 types)
@@ -22,7 +22,7 @@ function getTypeEffectiveness(moveType, defenderTypes) {
     return multiplier;
 }
 
-// Database of Pet Species with Rebalanced Base HP and Move Powers
+// Database of Pet Species with Rebalanced Base HP, Move Powers, and Base Catch Rates
 const PETS = {
     flaragon: {
         id: "flaragon",
@@ -30,6 +30,7 @@ const PETS = {
         type: ["fire"],
         spawn_routes: [],
         img: "petpng/flaragon.png",
+        catchRate: 45,
         baseStats: { hp: 100, attack: 10, defense: 10, spAttack: 16, spDefense: 12, speed: 15 },
         maxStats:  { hp: 500, attack: 110, defense: 120, spAttack: 190, spDefense: 140, speed: 175 },
         moves: [
@@ -45,6 +46,7 @@ const PETS = {
         type: ["water"],
         spawn_routes: [],
         img: "petpng/bubbitty.png",
+        catchRate: 45,
         baseStats: { hp: 110, attack: 10, defense: 14, spAttack: 12, spDefense: 16, speed: 10 },
         maxStats:  { hp: 540, attack: 130, defense: 170, spAttack: 150, spDefense: 195, speed: 240 },
         moves: [
@@ -60,6 +62,7 @@ const PETS = {
         type: ["grass"],
         spawn_routes: [],
         img: "petpng/sproupup.png",
+        catchRate: 45,
         baseStats: { hp: 120, attack: 16, defense: 13, spAttack: 8, spDefense: 10, speed: 12 },
         maxStats:  { hp: 600, attack: 185, defense: 155, spAttack: 100, spDefense: 130, speed: 145 },
         moves: [
@@ -75,6 +78,7 @@ const PETS = {
         type: ["electric"],
         spawn_routes: [1, 2],
         img: "petpng/sparkwing.png",
+        catchRate: 40,
         baseStats: { hp: 95, attack: 13, defense: 8, spAttack: 17, spDefense: 9, speed: 18 },
         maxStats:  { hp: 450, attack: 150, defense: 105, spAttack: 205, spDefense: 115, speed: 210 },
         moves: [
@@ -90,6 +94,7 @@ const PETS = {
         type: ["grass", "fire"],
         spawn_routes: [1, 2],
         img: "petpng/coalapling.png",
+        catchRate: 35,
         baseStats: { hp: 120, attack: 17, defense: 25, spAttack: 17, spDefense: 25, speed: 10 },
         maxStats:  { hp: 650, attack: 150, defense: 180, spAttack: 150, spDefense: 180, speed: 120 },
         moves: [
@@ -102,9 +107,10 @@ const PETS = {
     samupillar: {
         id: "samupillar",
         name: "Samupillar",
-        type: ["combat","bug"],
+        type: ["combat", "bug"],
         spawn_routes: [1, 2],
         img: "petpng/samupillar.png",
+        catchRate: 45,
         baseStats: { hp: 80, attack: 15, defense: 12, spAttack: 12, spDefense: 5, speed: 5 },
         maxStats:  { hp: 350, attack: 125, defense: 120, spAttack: 95, spDefense: 60, speed: 100 },
         moves: [
@@ -130,7 +136,7 @@ function getCalculatedPet(petData) {
     const calc = (base, max) => Math.floor(base + (max - base) * ((level - 1) / 99));
 
     const maxHp = calc(species.baseStats.hp, species.maxStats.hp);
-    const unlockedMoves = species.moves.export ? species.moves.filter(m => level >= m.levelToLearn) : species.moves.filter(m => level >= m.levelToLearn);
+    const unlockedMoves = species.moves.filter(m => level >= m.levelToLearn);
 
     let activeMoves = petData.activeMoves;
     if (!activeMoves || activeMoves.length === 0) {
@@ -165,13 +171,30 @@ function calculateDamage(attacker, defender, move) {
     const atk = isPhysical ? attacker.attack : attacker.spAttack;
     const def = isPhysical ? defender.defense : defender.spDefense;
 
-    // Scale damage using stat ratio and a balancing divisor
     let damage = (move.damage * (atk / def)) / 1.5;
-
-    // Factor in type multipliers
     const effectiveness = getTypeEffectiveness(move.type, defender.type);
     damage *= effectiveness;
 
-    // Ensure a minimum of 1 damage is always dealt on a hit
     return Math.max(1, Math.floor(damage));
+}
+
+/**
+ * Scaling Catch Rate Function:
+ * Calculates the effective catch rate based on species base catch rate, current health percentage,
+ * and an optional item/ball multiplier. Scales linearly from a 1× multiplier at full health 
+ * up to a 2× multiplier at 1% health.
+ */
+function calculateCatchRate(petInstance, ballMultiplier = 1) {
+    const species = PETS[petInstance.id.toLowerCase()];
+    if (!species) return 0;
+
+    const baseRate = species.catchRate || 45;
+    
+    // Clamp HP ratio between 0.01 (1%) and 1.0 (100%)
+    const hpRatio = Math.max(0.01, Math.min(1.0, petInstance.currentHp / petInstance.maxHp));
+    
+    // Multiplier calculation: 1.0x at full HP (hpRatio = 1) scaling up to 2.0x at 1% HP (hpRatio = 0.01)
+    const healthMultiplier = 1 + ((1 - hpRatio) / 0.99);
+
+    return Math.floor(baseRate * healthMultiplier * ballMultiplier);
 }
