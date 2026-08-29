@@ -1084,26 +1084,39 @@
     }
 
     function triggerWildEncounter() {
-        if (!playerParty || playerParty.length === 0) return;
+    if (!playerParty || playerParty.length === 0) return;
 
-        encounterCooldown = true;
-        const speciesKeys = Object.keys(PETS);
-        const randomId = speciesKeys[Math.floor(Math.random() * speciesKeys.length)];
-        const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
-        
-        activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
-        playerBattleEnergy = 100;
+    encounterCooldown = true;
 
-        updateBattleHUD();
-        document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
-        resetBattleActionButtons();
+    // Filter pets allowed to spawn on the current route
+    const availableSpecies = Object.keys(PETS).filter(id => {
+        const petInfo = PETS[id];
+        const routes = petInfo.spawn_routes || [1]; // Fallback to Route 1 if not specified
+        return routes.includes(currentRoute);
+    });
 
-        const overlay = document.getElementById('battleOverlay');
-        overlay.classList.add('flash');
-        overlay.classList.add('active');
-
-        setTimeout(() => overlay.classList.remove('flash'), 800);
+    if (availableSpecies.length === 0) {
+        encounterCooldown = false;
+        return;
     }
+
+    // Select a random pet from the valid pool for this specific route
+    const randomId = availableSpecies[Math.floor(Math.random() * availableSpecies.length)];
+    const wildLevel = Math.floor(Math.random() * 4) + (currentRoute * 2);
+    
+    activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
+    playerBattleEnergy = 100;
+
+    updateBattleHUD();
+    document.getElementById('battleDialogueText').innerText = `A wild ${activeEncounter.name} jumped out from the tall grass!`;
+    resetBattleActionButtons();
+
+    const overlay = document.getElementById('battleOverlay');
+    overlay.classList.add('flash');
+    overlay.classList.add('active');
+
+    setTimeout(() => overlay.classList.remove('flash'), 800);
+}
 
     function updateBattleHUD() {
         if (!playerParty || playerParty.length === 0) return;
