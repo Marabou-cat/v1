@@ -74,6 +74,21 @@ const PETS = {
             { name: "Heavy Slam", damage: 100, powerCost: 70, damageType: "physical", levelToLearn: 5 },
             { name: "Flamethrower", damage: 95, powerCost: 70, damageType: "special", levelToLearn: 10 }
         ]
+    },
+    samupillar: {
+        id: "samupillar",
+        name: "Samupillar",
+        type: "Fighting",
+        spawn_routes: [1,2],
+        img: "petpng/samupillar.png",
+        baseStats: { hp: 15, attack: 15, defense: 12, spAttack: 12, spDefense: 5, speed: 5 },
+        maxStats:  { hp: 150, attack: 125, defense: 120, spAttack: 95, spDefense: 60, speed: 100 },
+        moves: [
+            { name: "Sticky Webs", damage: 20, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Power Punch", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
+            { name: "Fighting Aura", damage: 90, powerCost: 60, damageType: "physical", levelToLearn: 5 },
+            { name: "Bug Bite", damage: 67, powerCost: 40, damageType: "physical", levelToLearn: 10 }
+        ]
     }
 };
 
