@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pet Catching RPG - Large Map & Camera Viewport</title>
+    <title>Pet Catching RPG - Full Screen Exploration</title>
     <style>
         :root {
             --bg0: #000814; 
@@ -26,7 +26,7 @@
 
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
-            background: var(--bg0);
+            background: #000000;
             color: var(--w);
             margin: 0;
             padding: 0;
@@ -43,7 +43,7 @@
             position: fixed;
             inset: 0;
             z-index: 10000;
-            background: url('petpng/bg.jpeg') no-repeat center center / cover;
+            background: url('petpng/bg.jpeg') no-repeat center center / cover, #000814;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
@@ -111,19 +111,16 @@
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 8px var(--p0);
         }
 
-        /* --- MAP VIEWPORT CONTAINER --- */
+        /* --- MAP VIEWPORT CONTAINER (FULL SCREEN) --- */
         .map-container {
-            position: relative;
-            width: 480px;
-            height: 480px;
-            max-width: 90vw;
-            max-height: 90vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
             background: #000d1a;
-            border: 3px solid var(--p0);
-            border-radius: 16px;
             overflow: hidden;
             z-index: 1;
-            box-shadow: var(--shadow), var(--glow);
         }
 
         .map-grid {
@@ -747,10 +744,9 @@
 
     const MAP_SIZE = 30;
     const TILE_SIZE = 48;
-    const VIEWPORT_SIZE = 480;
 
     let playerPos = { x: 3.0, y: 3.0 };
-    const moveSpeed = 0.035; // Slower movement speed
+    const moveSpeed = 0.035; // Movement speed
     const keysPressed = {};
 
     // Expanded 30x30 Large Map
@@ -794,6 +790,8 @@
         requestAnimationFrame(gameLoop);
     });
 
+    window.addEventListener('resize', renderPlayerElement);
+
     function initMap() {
         const grid = document.getElementById('mapGrid');
         grid.innerHTML = '';
@@ -819,10 +817,11 @@
         const grid = document.getElementById('mapGrid');
         if (!grid) return;
 
-        // Keep player centered in the viewport and scroll the map underneath
-        const viewportHalf = VIEWPORT_SIZE / 2;
-        const mapX = viewportHalf - (playerPos.x * TILE_SIZE);
-        const mapY = viewportHalf - (playerPos.y * TILE_SIZE);
+        // Keep player centered dynamically relative to full window size
+        const vw = window.innerWidth / 2;
+        const vh = window.innerHeight / 2;
+        const mapX = vw - (playerPos.x * TILE_SIZE);
+        const mapY = vh - (playerPos.y * TILE_SIZE);
 
         grid.style.left = mapX + 'px';
         grid.style.top = mapY + 'px';
@@ -888,20 +887,27 @@
     }
 
     function isValidPosition(x, y) {
-        if (x < 0.5 || x > MAP_SIZE - 1.5 || y < 0.5 || y > MAP_SIZE - 1.5) return false;
+        // Since (x, y) acts as the dead center of the player, check a radius slightly smaller than the 32px block to map the hitboxes perfectly 
+        const radius = 0.3; // Half of ~0.66 (32/48 tile ratio). Leeway prevents catching corners.
 
-        const margin = 0.15;
+        // Absolute boundaries
+        if (x < radius || x > MAP_SIZE - radius || y < radius || y > MAP_SIZE - radius) return false;
+
         const checkPoints = [
-            { x: x + margin, y: y + margin },
-            { x: x + 1 - margin, y: y + margin },
-            { x: x + margin, y: y + 1 - margin },
-            { x: x + 1 - margin, y: y + 1 - margin }
+            { x: x - radius, y: y - radius },
+            { x: x + radius, y: y - radius },
+            { x: x - radius, y: y + radius },
+            { x: x + radius, y: y + radius }
         ];
 
         for (let pt of checkPoints) {
             let tileX = Math.floor(pt.x);
             let tileY = Math.floor(pt.y);
+            
+            // Check out of array bounds fallback
             if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
+            
+            // Solid object detection
             if (route1Map[tileY][tileX] === 'wall') return false;
         }
 
@@ -912,8 +918,8 @@
     function checkTileEncounter() {
         if (encounterCooldown) return;
 
-        let currentTileX = Math.floor(playerPos.x + 0.5);
-        let currentTileY = Math.floor(playerPos.y + 0.5);
+        let currentTileX = Math.floor(playerPos.x);
+        let currentTileY = Math.floor(playerPos.y);
 
         if (currentTileX >= 0 && currentTileX < MAP_SIZE && currentTileY >= 0 && currentTileY < MAP_SIZE) {
             const tileType = route1Map[currentTileY][currentTileX];
