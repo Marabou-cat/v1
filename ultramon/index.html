@@ -362,6 +362,13 @@
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
         }
 
+        .pet-actions-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
         .stat-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -1222,6 +1229,33 @@
         saveGameData(true);
     }
 
+    function movePartyPet(index, direction) {
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= playerParty.length) return;
+        
+        const temp = playerParty[index];
+        playerParty[index] = playerParty[newIndex];
+        playerParty[newIndex] = temp;
+
+        renderParty();
+        renderPartyCircles();
+        saveGameData(true);
+    }
+
+    function releasePet(index) {
+        if (playerParty.length <= 1) {
+            alert("❌ You cannot release your last remaining pet!");
+            return;
+        }
+        const pet = getCalculatedPet(playerParty[index]);
+        if (confirm(`Are you sure you want to release ${pet.name} (Lv. ${pet.level})? This cannot be undone!`)) {
+            playerParty.splice(index, 1);
+            renderParty();
+            renderPartyCircles();
+            saveGameData(true);
+        }
+    }
+
     function renderPartyCircles() {
         const container = document.getElementById('partyHudContainer');
         if (!container) return;
@@ -1498,7 +1532,6 @@
         resetBattleActionButtons();
     }
 
-    /* --- CATCH PET LOGIC & ANIMATION --- */
     function executeBattleCatch() {
         if (inForcedSwitch || !activeEncounter) return;
 
@@ -1519,7 +1552,6 @@
         document.getElementById('battleDialogueText').innerText = `You threw a Catch Ball at wild ${activeEncounter.name}!`;
         document.getElementById('battleActionButtons').innerHTML = `<div style="color:var(--p1); font-weight:bold; grid-column:span 2; text-align:center;">Catching...</div>`;
 
-        // 10% chance of the pet escaping from battle immediately
         const escapeFromBattle = Math.random() < 0.10;
         if (escapeFromBattle) {
             playEscapeAnimation(() => {
@@ -1561,13 +1593,12 @@
     function playCatchAnimation(onComplete) {
         let rawCatchRate = activeEncounter.catchRate !== undefined ? activeEncounter.catchRate : 0.40;
         const catchRate = rawCatchRate > 1 ? rawCatchRate / 100 : rawCatchRate;
-        const success = Math.random() < catchRate; // Catch success rate read from pets.js
+        const success = Math.random() < catchRate;
         const shakes = success ? 3 : (Math.random() < 0.5 ? 1 : 2);
 
         const wildImg = document.getElementById('battleWildImg');
         const arena = document.querySelector('.battle-arena');
 
-        // Absorb wild pet into the ball
         wildImg.style.transition = 'opacity 0.3s, transform 0.3s';
         wildImg.style.transform = 'scale(0)';
         wildImg.style.opacity = '0';
@@ -1577,7 +1608,6 @@
         ballEl.className = 'anim-ball';
         arena.appendChild(ballEl);
 
-        // Throw ball
         ballEl.style.animation = 'ballThrow 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards';
 
         setTimeout(() => {
@@ -1591,14 +1621,12 @@
                     setTimeout(doShake, 500);
                 } else {
                     if (success) {
-                        // Ball falls onto the ground and stays there
                         ballEl.style.animation = 'ballFallToGround 0.5s ease-in forwards';
                         showSuccessStars(arena, () => {
                             arena.style.transform = 'scale(1)';
                             onComplete('caught');
                         });
                     } else {
-                        // When catching failed, 90% chance that you can catch again, 10% chance it escapes
                         const canRetry = Math.random() < 0.90;
                         if (canRetry) {
                             ballEl.style.animation = 'ballBreak 0.5s ease-in-out forwards';
@@ -1610,7 +1638,6 @@
                                 onComplete('retry');
                             }, 500);
                         } else {
-                            // Ball and pet disappear (escaped)
                             ballEl.style.animation = 'ballBreak 0.5s ease-in-out forwards';
                             setTimeout(() => {
                                 arena.style.transform = 'scale(1)';
@@ -1656,7 +1683,6 @@
         activeEncounter = null;
         inForcedSwitch = false;
 
-        // Clean up lingering catch balls and reset wild pet image styling
         document.querySelectorAll('.anim-ball').forEach(el => el.remove());
         const wildImg = document.getElementById('battleWildImg');
         if (wildImg) {
@@ -1958,12 +1984,26 @@
                 movesChipsHtml += `<span class="${cssClass}" onclick="togglePetMove(${petIndex}, '${m.name}')" title="Lv. ${m.levelToLearn} required">${m.name} (${m.damageType[0].toUpperCase()})</span>`;
             });
 
+            let managementButtons = '';
+            if (petIndex > 0 && petData.hp > 0) {
+                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px;" onclick="selectLeadPet(${petIndex})">⭐ Set Lead</button>`;
+            }
+            if (petIndex > 0) {
+                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:var(--bg2);" onclick="movePartyPet(${petIndex}, -1)">⬆️ Up</button>`;
+            }
+            if (petIndex < playerParty.length - 1) {
+                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:var(--bg2);" onclick="movePartyPet(${petIndex}, 1)">⬇️ Down</button>`;
+            }
+            if (playerParty.length > 1) {
+                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:#e74c3c; border-color:#c0392b;" onclick="releasePet(${petIndex})">🗑️ Release</button>`;
+            }
+
             container.innerHTML += `
                 <div class="pet-card">
                     <div class="pet-card-header">
                         <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
                         <div style="flex:1; display:flex; justify-content:space-between; font-weight:bold;">
-                            <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
+                            <span>${pet.name} <small>(Lv. ${pet.level})</small>${petIndex === 0 ? ' <span style="color:var(--gold);">(Lead)</span>' : ''}</span>
                             <span style="color:var(--p1);">${pet.type}</span>
                         </div>
                     </div>
@@ -1979,6 +2019,10 @@
                         <span>SP.ATK: ${pet.spAttack}</span>
                         <span>SP.DEF: ${pet.spDefense}</span>
                         <span>TYPE: ${pet.type}</span>
+                    </div>
+
+                    <div class="pet-actions-row">
+                        ${managementButtons}
                     </div>
 
                     <div class="moves-section">
