@@ -163,6 +163,8 @@
         .player-cube {
             background: #e74c3c;
             box-shadow: 0 4px 12px rgba(231, 76, 60, 0.8);
+            top: 50%;
+            left: 50%;
         }
         .npc-cube {
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
@@ -1028,7 +1030,6 @@
         const grid = document.getElementById('mapGrid');
         if (!grid) return;
 
-        // Remove old rendered NPC cubes
         document.querySelectorAll('.npc-cube').forEach(el => el.remove());
 
         if (typeof npc === 'undefined') return;
@@ -1466,7 +1467,6 @@
 
         document.getElementById('battleTitleHeader').innerText = `TRAINER BATTLE: ${trainer.name.toUpperCase()}`;
         
-        // Disable catching during trainer battles
         const catchBtn = document.querySelector('.battle-actions button:nth-child(2)');
         if (catchBtn) catchBtn.disabled = true;
 
