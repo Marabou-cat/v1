@@ -2,7 +2,7 @@
 session_start();
 header('Content-Type: application/json');
 
-// --- 1. CONFIG & CONNECTION (SCHOOLEXAMS DB) ---
+// --- 1. CONFIG & CONNECTION (SCHOOLEXAMS DB) ---[cite: 3]
 $config_file = '../config.ini'; 
 if (!file_exists($config_file)) {
     die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing."]));
@@ -41,7 +41,7 @@ try {
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // Create pet_box table for storing overflow and excess caught pets (Max 100 handled via logic)
+    // Create pet_box table for storing overflow and excess caught pets (Max 100 handled via logic)[cite: 3]
     $pdo->exec("CREATE TABLE IF NOT EXISTS `pet_box` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `user_id` INT NOT NULL,
@@ -50,7 +50,6 @@ try {
         INDEX (`user_id`)
     )");
 
-    // Safely ensure coordinate columns exist on older tables
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_x` FLOAT DEFAULT 1.5"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_y` FLOAT DEFAULT 15.0"); } catch (PDOException $e) {}
 
@@ -58,7 +57,7 @@ try {
     die(json_encode(["success" => false, "message" => "Database connection failed: " . $e->getMessage()]));
 }
 
-// --- HELPER FUNCTION: GET PET BOX ---
+// --- HELPER FUNCTION: GET PET BOX ---[cite: 3]
 function getUserPetBox($pdo, $user_id) {
     $stmt = $pdo->prepare("SELECT id, pet_data FROM pet_box WHERE user_id = ? ORDER BY id ASC");
     $stmt->execute([$user_id]);
@@ -67,7 +66,7 @@ function getUserPetBox($pdo, $user_id) {
     foreach ($rows as $row) {
         $pet = json_decode($row['pet_data'], true);
         if (is_array($pet)) {
-            $pet['box_id'] = (int)$row['id']; // Attach database box ID for reference
+            $pet['box_id'] = (int)$row['id']; 
             $box[] = $pet;
         }
     }
@@ -76,7 +75,7 @@ function getUserPetBox($pdo, $user_id) {
 
 $action = $_POST['action'] ?? '';
 
-// --- 2. INSTANT RECONNECT HELPER ---
+// --- 2. INSTANT RECONNECT HELPER ---[cite: 3]
 if (($action === 'load' || $action === 'save') && !isset($_SESSION['pet_user_id']) && !empty($_POST['username'])) {
     $stmt = $pdo->prepare("SELECT id, username FROM petgame_users WHERE username = ?");
     $stmt->execute([$_POST['username']]);
@@ -87,7 +86,7 @@ if (($action === 'load' || $action === 'save') && !isset($_SESSION['pet_user_id'
     }
 }
 
-// --- 3. REGISTER ---
+// --- 3. REGISTER ---[cite: 3]
 if ($action === 'register') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -116,7 +115,7 @@ if ($action === 'register') {
     exit;
 }
 
-// --- 4. LOGIN ---
+// --- 4. LOGIN ---[cite: 3]
 if ($action === 'login') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -140,7 +139,7 @@ if ($action === 'login') {
     exit;
 }
 
-// --- 5. LOAD GAME DATA ---
+// --- 5. LOAD GAME DATA ---[cite: 3]
 if ($action === 'load') {
     if (!isset($_SESSION['pet_user_id'])) {
         die(json_encode(["success" => false, "message" => "Not logged in."]));
@@ -160,7 +159,7 @@ if ($action === 'load') {
     exit;
 }
 
-// --- 6. SAVE GAME DATA ---
+// --- 6. SAVE GAME DATA ---[cite: 3]
 if ($action === 'save') {
     if (!isset($_SESSION['pet_user_id'])) {
         die(json_encode(["success" => false, "message" => "Not logged in."]));
@@ -179,7 +178,6 @@ if ($action === 'save') {
     $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, last_online = ? WHERE id = ?");
     $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $last_online, $user_id]);
 
-    // Sync PC storage (pet_box table) if provided during save
     if ($pc_storage_data !== null) {
         $pc_array = json_decode($pc_storage_data, true);
         if (is_array($pc_array)) {
@@ -205,7 +203,7 @@ if ($action === 'save') {
     exit;
 }
 
-// --- 7. ADD PET TO BOX (Overflow / Full Team Catch) ---
+// --- 7. ADD PET TO BOX ---[cite: 3]
 if ($action === 'add_to_box') {
     if (!isset($_SESSION['pet_user_id'])) {
         die(json_encode(["success" => false, "message" => "Not logged in."]));
@@ -213,7 +211,6 @@ if ($action === 'add_to_box') {
 
     $user_id = $_SESSION['pet_user_id'];
 
-    // Enforce max 100 pets rule in box
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM pet_box WHERE user_id = ?");
     $stmt->execute([$user_id]);
     $count = $stmt->fetchColumn();
@@ -244,7 +241,7 @@ if ($action === 'add_to_box') {
     exit;
 }
 
-// --- 8. RELEASE PET FROM BOX ---
+// --- 8. RELEASE PET FROM BOX ---[cite: 3]
 if ($action === 'release_pet') {
     if (!isset($_SESSION['pet_user_id'])) {
         die(json_encode(["success" => false, "message" => "Not logged in."]));
@@ -270,7 +267,7 @@ if ($action === 'release_pet') {
     exit;
 }
 
-// --- 9. SWAP PET BETWEEN TEAM (PARTY) AND BOX ---
+// --- 9. SWAP PET BETWEEN TEAM (PARTY) AND BOX ---[cite: 3]
 if ($action === 'swap_pet') {
     if (!isset($_SESSION['pet_user_id'])) {
         die(json_encode(["success" => false, "message" => "Not logged in."]));
