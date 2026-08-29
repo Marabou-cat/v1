@@ -301,12 +301,12 @@
             border-bottom: 2px solid var(--p2);
         }
 
-        .menu-tabs { display: flex; gap: 10px; }
+        .menu-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
         .tab-btn {
             background: var(--bg2);
             border: 1px solid var(--p0);
             color: var(--w);
-            padding: 8px 18px;
+            padding: 8px 14px;
             border-radius: 10px;
             font-weight: bold;
             cursor: pointer;
@@ -716,6 +716,7 @@
         <div class="menu-header-bar">
             <div class="menu-tabs">
                 <button class="tab-btn active" onclick="switchTab('pets')">Pets Party (<span id="partyCount">0</span>/6)</button>
+                <button class="tab-btn" onclick="switchTab('pc')">PC Storage (<span id="pcCount">0</span>)</button>
                 <button class="tab-btn" onclick="switchTab('items')">Items & Inventory</button>
             </div>
             <button class="btn-close-modal" onclick="closeMenuModal()">✕</button>
@@ -724,6 +725,11 @@
         <div class="menu-content-area">
             <div id="tabPets" class="tab-pane active">
                 <div id="teamContainer"></div>
+            </div>
+
+            <div id="tabPC" class="tab-pane">
+                <div style="font-weight:bold; color:var(--p1); margin-bottom:12px;">Trainer PC Storage Box</div>
+                <div id="pcContainer"></div>
             </div>
             
             <div id="tabItems" class="tab-pane">
@@ -895,6 +901,7 @@
     let autoSaveTimer = null;
     let pendingStarter = null;
     let playerParty = [];
+    let playerPCStorage = [];
     let inGateModal = false;
     let inForcedSwitch = false;
 
@@ -1191,6 +1198,7 @@
     function openMenuModal() {
         document.getElementById('menuModal').classList.remove('hidden');
         renderParty();
+        renderPCStorage();
         updateUI();
     }
 
@@ -1205,8 +1213,13 @@
         if (tabName === 'pets') {
             document.querySelectorAll('.tab-btn')[0].classList.add('active');
             document.getElementById('tabPets').classList.add('active');
-        } else if (tabName === 'items') {
+            renderParty();
+        } else if (tabName === 'pc') {
             document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('tabPC').classList.add('active');
+            renderPCStorage();
+        } else if (tabName === 'items') {
+            document.querySelectorAll('.tab-btn')[2].classList.add('active');
             document.getElementById('tabItems').classList.add('active');
         }
     }
@@ -1242,6 +1255,32 @@
         saveGameData(true);
     }
 
+    function depositToPC(partyIndex) {
+        if (playerParty.length <= 1) {
+            alert("❌ You cannot deposit your last remaining party pet!");
+            return;
+        }
+        const petData = playerParty.splice(partyIndex, 1)[0];
+        playerPCStorage.push(petData);
+        renderParty();
+        renderPartyCircles();
+        renderPCStorage();
+        saveGameData(true);
+    }
+
+    function withdrawFromPC(pcIndex) {
+        if (playerParty.length >= 6) {
+            alert("❌ Your party is full (6/6)! Deposit a pet to PC first.");
+            return;
+        }
+        const petData = playerPCStorage.splice(pcIndex, 1)[0];
+        playerParty.push(petData);
+        renderParty();
+        renderPartyCircles();
+        renderPCStorage();
+        saveGameData(true);
+    }
+
     function releasePet(index) {
         if (playerParty.length <= 1) {
             alert("❌ You cannot release your last remaining pet!");
@@ -1252,6 +1291,15 @@
             playerParty.splice(index, 1);
             renderParty();
             renderPartyCircles();
+            saveGameData(true);
+        }
+    }
+
+    function releaseFromPC(pcIndex) {
+        const pet = getCalculatedPet(playerPCStorage[pcIndex]);
+        if (confirm(`Are you sure you want to release ${pet.name} (Lv. ${pet.level}) from PC storage? This cannot be undone!`)) {
+            playerPCStorage.splice(pcIndex, 1);
+            renderPCStorage();
             saveGameData(true);
         }
     }
@@ -1543,12 +1591,6 @@
         balls--;
         updateUI();
 
-        if (playerParty.length >= 6) {
-            document.getElementById('battleDialogueText').innerText = `⚠️ Your party is full (6/6)! Cannot catch more pets.`;
-            setTimeout(() => endBattle(false), 1500);
-            return;
-        }
-
         document.getElementById('battleDialogueText').innerText = `You threw a Catch Ball at wild ${activeEncounter.name}!`;
         document.getElementById('battleActionButtons').innerHTML = `<div style="color:var(--p1); font-weight:bold; grid-column:span 2; text-align:center;">Catching...</div>`;
 
@@ -1563,16 +1605,24 @@
 
         playCatchAnimation((result) => {
             if (result === 'caught') {
-                playerParty.push({
+                const newCaughtPet = {
                     id: activeEncounter.id,
                     lvl: activeEncounter.level,
                     hp: activeEncounter.maxHp,
                     activeMoves: activeEncounter.unlockedMoves.slice(0, 4).map(m => m.name)
-                });
+                };
 
-                document.getElementById('battleDialogueText').innerText = `🎉 Gotcha! Successfully caught ${activeEncounter.name}!`;
+                if (playerParty.length < 6) {
+                    playerParty.push(newCaughtPet);
+                    document.getElementById('battleDialogueText').innerText = `🎉 Gotcha! Successfully caught ${activeEncounter.name} and added to party!`;
+                } else {
+                    playerPCStorage.push(newCaughtPet);
+                    document.getElementById('battleDialogueText').innerText = `🎉 Gotcha! Party is full (6/6), so ${activeEncounter.name} was sent to PC Storage!`;
+                }
+
                 coins += 30;
                 renderParty();
+                renderPCStorage();
                 renderPartyCircles();
                 updateUI();
                 saveGameData(true);
@@ -1692,6 +1742,7 @@
         }
 
         renderParty();
+        renderPCStorage();
         renderPartyCircles();
 
         setTimeout(() => {
@@ -1776,6 +1827,7 @@
             document.getElementById('starterOverlay').classList.add('hidden');
             document.getElementById('loginOverlay').classList.add('hidden');
             renderParty();
+            renderPCStorage();
             renderPartyCircles();
             updateUI();
             
@@ -1802,6 +1854,7 @@
                 currentRoute = parseInt(result.data.current_route);
                 currentMapIndex = currentRoute === 2 ? 1 : 0;
                 playerParty = result.data.party_data || [];
+                playerPCStorage = result.data.pc_data || [];
 
                 let loadedX = parseFloat(result.data.pos_x);
                 let loadedY = parseFloat(result.data.pos_y);
@@ -1813,6 +1866,7 @@
 
                 updateUI();
                 renderParty();
+                renderPCStorage();
                 renderPartyCircles();
                 initMap();
                 renderPlayerElement();
@@ -1862,6 +1916,7 @@
                     currentRoute = parseInt(result.data.current_route);
                     currentMapIndex = currentRoute === 2 ? 1 : 0;
                     playerParty = result.data.party_data || [];
+                    playerPCStorage = result.data.pc_data || [];
 
                     let loadedX = parseFloat(result.data.pos_x);
                     let loadedY = parseFloat(result.data.pos_y);
@@ -1875,6 +1930,7 @@
 
                     updateUI();
                     renderParty();
+                    renderPCStorage();
                     renderPartyCircles();
                     initMap();
                     renderPlayerElement();
@@ -1904,6 +1960,7 @@
         formData.append('pos_x', playerPos.x);
         formData.append('pos_y', playerPos.y);
         formData.append('party_data', JSON.stringify(playerParty));
+        formData.append('pc_data', JSON.stringify(playerPCStorage));
 
         try {
             const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
@@ -1995,6 +2052,7 @@
                 managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:var(--bg2);" onclick="movePartyPet(${petIndex}, 1)">⬇️ Down</button>`;
             }
             if (playerParty.length > 1) {
+                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:var(--p2); border-color:var(--p0);" onclick="depositToPC(${petIndex})">📦 Deposit to PC</button>`;
                 managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:#e74c3c; border-color:#c0392b;" onclick="releasePet(${petIndex})">🗑️ Release</button>`;
             }
 
@@ -2034,12 +2092,61 @@
         });
     }
 
+    function renderPCStorage() {
+        const container = document.getElementById('pcContainer');
+        document.getElementById('pcCount').innerText = playerPCStorage.length;
+        container.innerHTML = '';
+
+        if (playerPCStorage.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding: 20px; color:#888;">No pets stored in PC box yet!</div>`;
+            return;
+        }
+
+        playerPCStorage.forEach((petData, pcIndex) => {
+            const pet = getCalculatedPet(petData);
+            if (!pet) return;
+
+            const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
+
+            container.innerHTML += `
+                <div class="pet-card">
+                    <div class="pet-card-header">
+                        <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
+                        <div style="flex:1; display:flex; justify-content:space-between; font-weight:bold;">
+                            <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
+                            <span style="color:var(--p1);">${pet.type}</span>
+                        </div>
+                    </div>
+                    <div class="hp-bar-bg">
+                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
+                    </div>
+                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
+                    
+                    <div class="stat-grid">
+                        <span>ATK: ${pet.attack}</span>
+                        <span>DEF: ${pet.defense}</span>
+                        <span>SPD: ${pet.speed}</span>
+                        <span>SP.ATK: ${pet.spAttack}</span>
+                        <span>SP.DEF: ${pet.spDefense}</span>
+                        <span>TYPE: ${pet.type}</span>
+                    </div>
+
+                    <div class="pet-actions-row">
+                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#2ecc71; border-color:#27ae60;" onclick="withdrawFromPC(${pcIndex})">📥 Withdraw to Party</button>
+                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#e74c3c; border-color:#c0392b;" onclick="releaseFromPC(${pcIndex})">🗑️ Release</button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
     function updateUI() {
         document.getElementById('coinDisplay').innerText = coins;
         document.getElementById('ballDisplay').innerText = balls;
     }
 
     renderParty();
+    renderPCStorage();
     renderPartyCircles();
     updateUI();
 </script>
