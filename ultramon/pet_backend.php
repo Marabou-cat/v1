@@ -166,18 +166,42 @@ if ($action === 'save') {
         die(json_encode(["success" => false, "message" => "Not logged in."]));
     }
 
+    $user_id = $_SESSION['pet_user_id'];
     $coins = (int)($_POST['coins'] ?? 100);
     $balls = (int)($_POST['balls'] ?? 5);
     $current_route = (int)($_POST['current_route'] ?? 1);
     $pos_x = (float)($_POST['pos_x'] ?? 1.5);
     $pos_y = (float)($_POST['pos_y'] ?? 15.0);
     $party_data = $_POST['party_data'] ?? '[]';
+    $pc_storage_data = $_POST['pc_storage'] ?? null;
     $last_online = time() * 1000;
 
     $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, last_online = ? WHERE id = ?");
-    $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $last_online, $_SESSION['pet_user_id']]);
+    $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $last_online, $user_id]);
 
-    echo json_encode(["success" => true, "message" => "Progress saved successfully!"]);
+    // Sync PC storage (pet_box table) if provided during save
+    if ($pc_storage_data !== null) {
+        $pc_array = json_decode($pc_storage_data, true);
+        if (is_array($pc_array)) {
+            $del_stmt = $pdo->prepare("DELETE FROM pet_box WHERE user_id = ?");
+            $del_stmt->execute([$user_id]);
+
+            $ins_stmt = $pdo->prepare("INSERT INTO pet_box (user_id, pet_data) VALUES (?, ?)");
+            $count = 0;
+            foreach ($pc_array as $pet) {
+                if ($count >= 100) break;
+                unset($pet['box_id']);
+                $ins_stmt->execute([$user_id, json_encode($pet)]);
+                $count++;
+            }
+        }
+    }
+
+    echo json_encode([
+        "success" => true, 
+        "message" => "Progress and PC storage saved successfully!",
+        "pet_box" => getUserPetBox($pdo, $user_id)
+    ]);
     exit;
 }
 
@@ -203,7 +227,6 @@ if ($action === 'add_to_box') {
         die(json_encode(["success" => false, "message" => "Invalid pet data provided."]));
     }
 
-    // Ensure proper JSON string storage
     if (is_array($pet_data)) {
         $pet_data = json_encode($pet_data);
     }
@@ -261,7 +284,6 @@ if ($action === 'swap_pet') {
         die(json_encode(["success" => false, "message" => "Invalid swap configuration."]));
     }
 
-    // Fetch active party
     $stmt = $pdo->prepare("SELECT party_data FROM petgame_users WHERE id = ?");
     $stmt->execute([$user_id]);
     $user_row = $stmt->fetch();
@@ -274,7 +296,6 @@ if ($action === 'swap_pet') {
         die(json_encode(["success" => false, "message" => "Invalid party slot index."]));
     }
 
-    // Fetch target pet from box
     $stmt_box = $pdo->prepare("SELECT id, pet_data FROM pet_box WHERE id = ? AND user_id = ?");
     $stmt_box->execute([$box_id, $user_id]);
     $box_row = $stmt_box->fetch();
@@ -285,16 +306,13 @@ if ($action === 'swap_pet') {
     $box_pet_data = json_decode($box_row['pet_data'], true);
     $party_pet_data = $party[$party_index];
 
-    // Swap data: Move current party pet into the specific box record slot
     $update_box = $pdo->prepare("UPDATE pet_box SET pet_data = ? WHERE id = ? AND user_id = ?");
     $update_box->execute([json_encode($party_pet_data), $box_id, $user_id]);
 
-    // Move box pet into the active party array slot
     $party[$party_index] = $box_pet_data;
 
-    // Save updated party back to user table
     $update_party = $pdo->prepare("UPDATE petgame_users SET party_data = ? WHERE id = ?");
-    $update_party->execute([json_encode($party), $user_id]);
+    $update_party.execute([json_encode($party), $user_id]);
 
     echo json_encode([
         "success" => true,
