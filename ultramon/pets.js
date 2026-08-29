@@ -1,12 +1,13 @@
 // Rebalanced version of pets.js with adjusted base HP, lowered move power, and integrated stat-scaling[cite: 2, 5]
 const TYPE_CHART = {
-    fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5 },
-    water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 },
-    grass:    { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67 },
-    electric: { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0 },
-    combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5 },
-    basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 },
-    bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0 }
+    fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67 },
+    water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67 },
+    grass:    { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67, dragon: 0.67 },
+    electric: { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67 },
+    combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67 },
+    basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
+    bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
+    dragon:      { fire: 1.0, water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5 }
 };
 
 // Helper function to calculate type effectiveness across multi-type pets (max 2 types)
@@ -117,6 +118,22 @@ const PETS = {
             { name: "Sticky Webs", type: "bug", damage: 12, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Power Punch", type: "combat", damage: 50, powerCost: 40, damageType: "physical", levelToLearn: 1 },
             { name: "Fighting Aura", type: "combat", damage: 60, powerCost: 60, damageType: "physical", levelToLearn: 5 },
+            { name: "Bug Bite", type: "bug", damage: 45, powerCost: 40, damageType: "physical", levelToLearn: 10 }
+        ]
+    },
+    dragorm: {
+        id: "dragorm",
+        name: "Dragorm",
+        type: ["dragon", "bug"],
+        spawn_routes: [1, 2],
+        img: "petpng/samupillar.png",
+        catchRate: 45,
+        baseStats: { hp: 90, attack: 19, defense: 30, spAttack: 5, spDefense: 15, speed: 15 },
+        maxStats:  { hp: 450, attack: 125, defense: 250, spAttack: 95, spDefense: 70, speed: 150 },
+        moves: [
+            { name: "Sticky Webs", type: "bug", damage: 12, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Dragons Breath", type: "dragon", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
+            { name: "Dragon Webs", type: "dragon", damage: 200, powerCost: 100, damageType: "physical", levelToLearn: 15 },
             { name: "Bug Bite", type: "bug", damage: 45, powerCost: 40, damageType: "physical", levelToLearn: 10 }
         ]
     }
