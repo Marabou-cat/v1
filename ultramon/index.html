@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pet Catching RPG - Full Screen Exploration</title>
+    <title>Pet Catching RPG - Route Map</title>
     <style>
         :root {
             --bg0: #000814; 
@@ -148,6 +148,9 @@
 
         .tile-wall { background: #4a5568; border: 1px solid #2d3748; }
         .tile-wall::after { content: "🪨"; font-size: 16px; }
+
+        /* YELLOW ROUTE BLOCKS */
+        .tile-route { background: #f1c40f; border: 1px solid #d4ac0d; }
 
         /* --- PLAYER CUBE --- */
         .player-cube {
@@ -745,11 +748,12 @@
     const MAP_SIZE = 30;
     const TILE_SIZE = 48;
 
-    let playerPos = { x: 3.0, y: 3.0 };
+    // Player starts on the far left side, exactly where the path begins
+    let playerPos = { x: 1.0, y: 15.0 };
     const moveSpeed = 0.035; // Movement speed
     const keysPressed = {};
 
-    // Expanded 30x30 Large Map
+    // Expanded 30x30 Map containing the winding 'route' path
     const route1Map = [
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
         ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
@@ -759,21 +763,21 @@
         ['wall','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','grass','grass','wall'],
         ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
         ['wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','grass','grass','wall','grass','wall'],
-        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
-        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
-        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
-        ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','tall_grass','wall'],
-        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','tall_grass','wall'],
-        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
-        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
-        ['wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','grass','grass','wall','grass','wall'],
-        ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
-        ['wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
-        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','grass','wall'],
-        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
-        ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
-        ['wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
-        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','route','route','route','route','route','route','route','route','route','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','route','wall','wall','wall','wall','wall','wall','wall','route','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','route','grass','grass','grass','grass','tall_grass','tall_grass','grass','route','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','route','wall','wall','tall_grass','tall_grass','wall','wall','tall_grass','route','wall','wall','tall_grass','grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','route','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','route','grass','grass','tall_grass','wall','tall_grass','tall_grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','route','grass','grass','grass','grass','tall_grass','tall_grass','grass','route','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','route','tall_grass','wall','grass','wall','tall_grass','grass','grass','route','wall','grass','grass','tall_grass','wall','grass','wall'],
+        ['wall','route','route','route','route','route','route','wall','grass','wall','grass','wall','grass','grass','route','grass','wall','grass','wall','grass','grass','grass','route','route','route','route','route','route','route','wall'],
+        ['wall','grass','grass','tall_grass','tall_grass','grass','route','grass','grass','wall','grass','grass','tall_grass','tall_grass','route','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','wall','tall_grass','grass','route','wall','grass','wall','grass','wall','wall','tall_grass','route','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','route','wall','tall_grass','wall','tall_grass','wall','grass','grass','route','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','grass','wall'],
+        ['wall','wall','wall','wall','wall','wall','route','wall','wall','wall','wall','wall','wall','wall','route','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','grass','tall_grass','tall_grass','grass','route','grass','grass','wall','grass','grass','tall_grass','tall_grass','route','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','wall','tall_grass','grass','route','wall','grass','wall','grass','wall','wall','tall_grass','route','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','route','route','route','route','route','route','route','route','route','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','wall','tall_grass','grass','wall'],
         ['wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','tall_grass','wall'],
         ['wall','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','grass','grass','wall'],
         ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
@@ -817,7 +821,6 @@
         const grid = document.getElementById('mapGrid');
         if (!grid) return;
 
-        // Keep player centered dynamically relative to full window size
         const vw = window.innerWidth / 2;
         const vh = window.innerHeight / 2;
         const mapX = vw - (playerPos.x * TILE_SIZE);
@@ -887,7 +890,6 @@
     }
 
     function isValidPosition(x, y) {
-        // Since (x, y) acts as the dead center of the player, check a radius slightly smaller than the 32px block to map the hitboxes perfectly 
         const radius = 0.3; // Half of ~0.66 (32/48 tile ratio). Leeway prevents catching corners.
 
         // Absolute boundaries
@@ -904,10 +906,9 @@
             let tileX = Math.floor(pt.x);
             let tileY = Math.floor(pt.y);
             
-            // Check out of array bounds fallback
             if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
             
-            // Solid object detection
+            // Solid object detection (Players can walk on route, grass, and tall_grass)
             if (route1Map[tileY][tileX] === 'wall') return false;
         }
 
