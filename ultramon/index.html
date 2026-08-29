@@ -896,6 +896,8 @@
     function setupMovementListeners() {
         window.addEventListener('keydown', (e) => {
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+                // FIXED: Prevent global hotkeys from capturing inputs while typing in login or other fields
+                if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
                 e.preventDefault();
                 keysPressed[e.code] = true;
             }
@@ -1378,6 +1380,7 @@
 
                 updateUI();
                 renderParty();
+                initMap(); // FIXED: Re-render map tiles to match the loaded database route index
                 renderPlayerElement();
                 return true;
             }
@@ -1438,6 +1441,7 @@
 
                     updateUI();
                     renderParty();
+                    initMap(); // FIXED: Re-render map tiles to match the logged-in route index
                     renderPlayerElement();
                     document.getElementById('loginOverlay').classList.add('hidden');
                     
