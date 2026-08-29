@@ -661,6 +661,11 @@
             75% { transform: translate(-164px, -15px) rotate(30deg); }
         }
 
+        @keyframes ballFallToGround {
+            0% { transform: translate(-180px, -15px) rotate(0deg); }
+            100% { transform: translate(-180px, 55px) rotate(10deg); }
+        }
+
         @keyframes ballBreak {
             0% { transform: translate(-180px, -15px) scale(1); filter: brightness(1); }
             40% { transform: translate(-180px, -15px) scale(1.3); filter: brightness(2.5) drop-shadow(0 0 12px #ff4444); }
@@ -1514,8 +1519,18 @@
         document.getElementById('battleDialogueText').innerText = `You threw a Catch Ball at wild ${activeEncounter.name}!`;
         document.getElementById('battleActionButtons').innerHTML = `<div style="color:var(--p1); font-weight:bold; grid-column:span 2; text-align:center;">Catching...</div>`;
 
-        playCatchAnimation((success) => {
-            if (success) {
+        // 10% chance of the pet escaping from battle immediately
+        const escapeFromBattle = Math.random() < 0.10;
+        if (escapeFromBattle) {
+            playEscapeAnimation(() => {
+                document.getElementById('battleDialogueText').innerText = `💨 The wild ${activeEncounter.name} escaped from battle!`;
+                setTimeout(() => endBattle(false), 1500);
+            });
+            return;
+        }
+
+        playCatchAnimation((result) => {
+            if (result === 'caught') {
                 playerParty.push({
                     id: activeEncounter.id,
                     lvl: activeEncounter.level,
@@ -1531,39 +1546,39 @@
                 saveGameData(true);
 
                 setTimeout(() => endBattle(true), 1500);
-            } else {
-                document.getElementById('battleDialogueText').innerText = `💨 Oh no! ${activeEncounter.name} broke free from the ball!`;
+            } else if (result === 'retry') {
+                document.getElementById('battleDialogueText').innerText = `💨 Oh no! ${activeEncounter.name} broke free, but you have another chance to catch!`;
                 setTimeout(() => {
-                    document.getElementById('battleDialogueText').innerText = `The wild ${activeEncounter.name} counterattacked and fled!`;
-                    setTimeout(() => endBattle(false), 1500);
-                }, 1200);
+                    resetBattleActionButtons();
+                }, 1500);
+            } else {
+                document.getElementById('battleDialogueText').innerText = `💨 ${activeEncounter.name} broke free and escaped from battle!`;
+                setTimeout(() => endBattle(false), 1500);
             }
         });
     }
 
     function playCatchAnimation(onComplete) {
-        const success = Math.random() < 0.75;
+        const success = Math.random() < 0.40; // Catch success rate
         const shakes = success ? 3 : (Math.random() < 0.5 ? 1 : 2);
 
         const wildImg = document.getElementById('battleWildImg');
         const arena = document.querySelector('.battle-arena');
 
-        // Shrink/absorb wild pet into the ball
+        // Absorb wild pet into the ball
         wildImg.style.transition = 'opacity 0.3s, transform 0.3s';
         wildImg.style.transform = 'scale(0)';
         wildImg.style.opacity = '0';
 
-        // Create the flying ball using petpng/ball.png
         const ballEl = document.createElement('img');
         ballEl.src = 'petpng/ball.png';
         ballEl.className = 'anim-ball';
         arena.appendChild(ballEl);
 
-        // Step 1: Throw ball towards the wild pet
+        // Throw ball
         ballEl.style.animation = 'ballThrow 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards';
 
         setTimeout(() => {
-            // Step 2: Zoom in on the ball
             arena.style.transform = 'scale(1.35)';
 
             let currentShake = 0;
@@ -1573,30 +1588,47 @@
                     ballEl.style.animation = `ballShake${currentShake} 0.5s ease-in-out`;
                     setTimeout(doShake, 500);
                 } else {
-                    // Step 3: Finish (3 stars or break)
                     if (success) {
-                        ballEl.style.animation = 'none';
+                        // Ball falls onto the ground and stays there
+                        ballEl.style.animation = 'ballFallToGround 0.5s ease-in forwards';
                         showSuccessStars(arena, () => {
                             arena.style.transform = 'scale(1)';
-                            ballEl.remove();
-                            wildImg.style.transform = 'scale(1)';
-                            wildImg.style.opacity = '1';
-                            onComplete(true);
+                            onComplete('caught');
                         });
                     } else {
-                        ballEl.style.animation = 'ballBreak 0.5s ease-in-out forwards';
-                        setTimeout(() => {
-                            arena.style.transform = 'scale(1)';
-                            ballEl.remove();
+                        // When catching failed, 90% chance that you can catch again, 10% chance it escapes
+                        const canRetry = Math.random() < 0.90;
+                        if (canRetry) {
+                            ballEl.style.animation = 'ballBreak 0.5s ease-in-out forwards';
                             wildImg.style.transform = 'scale(1)';
                             wildImg.style.opacity = '1';
-                            onComplete(false);
-                        }, 500);
+                            setTimeout(() => {
+                                arena.style.transform = 'scale(1)';
+                                ballEl.remove();
+                                onComplete('retry');
+                            }, 500);
+                        } else {
+                            // Ball and pet disappear (escaped)
+                            ballEl.style.animation = 'ballBreak 0.5s ease-in-out forwards';
+                            setTimeout(() => {
+                                arena.style.transform = 'scale(1)';
+                                ballEl.remove();
+                                onComplete('escaped');
+                            }, 500);
+                        }
                     }
                 }
             }
             doShake();
         }, 600);
+    }
+
+    function playEscapeAnimation(callback) {
+        const wildImg = document.getElementById('battleWildImg');
+        wildImg.style.transition = 'opacity 0.5s, transform 0.5s';
+        wildImg.style.transform = 'scale(0) translateY(-20px)';
+        wildImg.style.opacity = '0';
+        setTimeout(callback, 600);
     }
 
     function showSuccessStars(arena, callback) {
