@@ -937,7 +937,7 @@
         ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','route','wall','wall','tall_grass','tall_grass','wall','wall','tall_grass','route','wall','wall','tall_grass','grass','wall','tall_grass','wall'],
         ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','route','grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','route','grass','grass','tall_grass','wall','tall_grass','tall_grass','wall'],
         ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','route','grass','grass','grass','grass','tall_grass','tall_grass','grass','route','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
-        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','route','tall_grass','wall','grass','wall','tall_grass','grass','grass','route','wall','grass','grass','tall_grass','grass','grass','wall'],
+        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','route','tall_grass','wall','grass','wall','tall_grass','grass','grass','route','wall','grass','grass','tall_grass','wall','grass','wall'],
         ['wall','route','route','route','route','route','route','wall','grass','wall','grass','wall','grass','grass','route','grass','wall','grass','wall','grass','grass','grass','route','route','route','route','route','route','gate','wall'],
         ['wall','grass','grass','tall_grass','tall_grass','grass','route','grass','grass','wall','grass','grass','tall_grass','tall_grass','route','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
         ['wall','grass','wall','wall','tall_grass','grass','route','wall','grass','wall','grass','wall','wall','tall_grass','route','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
@@ -1975,8 +1975,10 @@
                 balls = parseInt(result.data.balls);
                 currentRoute = parseInt(result.data.current_route);
                 currentMapIndex = currentRoute === 2 ? 1 : 0;
-                playerParty = result.data.party_data || [];
-                playerPCStorage = result.data.pc_data || [];
+                
+                // Safely read and parse party and PC storage data whether returned as JSON string or array
+                playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
+                playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
 
                 let loadedX = parseFloat(result.data.pos_x);
                 let loadedY = parseFloat(result.data.pos_y);
@@ -2037,8 +2039,10 @@
                     balls = parseInt(result.data.balls);
                     currentRoute = parseInt(result.data.current_route);
                     currentMapIndex = currentRoute === 2 ? 1 : 0;
-                    playerParty = result.data.party_data || [];
-                    playerPCStorage = result.data.pc_data || [];
+                    
+                    // Safely read and parse party and PC storage data whether returned as JSON string or array
+                    playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
+                    playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
 
                     let loadedX = parseFloat(result.data.pos_x);
                     let loadedY = parseFloat(result.data.pos_y);
