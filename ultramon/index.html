@@ -127,7 +127,7 @@
             position: absolute;
             top: 0;
             left: 0;
-            width: 1440px; /* 30 tiles * 48px */
+            width: 1440px;
             height: 1440px;
         }
 
@@ -149,7 +149,6 @@
         .tile-wall { background: #4a5568; border: 1px solid #2d3748; }
         .tile-wall::after { content: "🪨"; font-size: 16px; }
 
-        /* YELLOW ROUTE BLOCKS & GATE */
         .tile-route { background: #f1c40f; border: 1px solid #d4ac0d; }
         .tile-gate { background: #d35400; border: 1px solid #ba4a00; }
         .tile-gate::after { content: "🚪"; font-size: 20px; }
@@ -678,8 +677,8 @@
         <div class="battle-dialogue" id="battleDialogueText">A wild pet appeared! What will you do?</div>
         <div class="battle-actions" id="battleActionButtons">
             <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
-            <button class="btn-action" onclick="openBattleSwitchMenu()">🔄 Switch</button>
             <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
+            <button class="btn-action" onclick="visitCenterAndHealBattle()">🎒 Items</button>
             <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
         </div>
     </div>
@@ -760,7 +759,7 @@
     let coins = 100;
     let balls = 5;
     let currentRoute = 1;
-    let currentMapIndex = 0; // 0 = Route 1, 1 = Route 2
+    let currentMapIndex = 0; 
     let activeEncounter = null;
     let playerBattleEnergy = 100;
     let autoSaveTimer = null;
@@ -775,7 +774,6 @@
     const moveSpeed = 0.035;
     const keysPressed = {};
 
-    // Map 1: Start at left (no start gate), ends with a gate on the right
     const route1Map = [
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
         ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
@@ -809,7 +807,6 @@
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall']
     ];
 
-    // Map 2: Starts with a gate on the left and ends with a gate on the right
     const route2Map = [
         ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
         ['wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','wall'],
@@ -1048,7 +1045,7 @@
         if (currentMapIndex === 0) {
             currentMapIndex = 1;
             currentRoute = 2;
-            playerPos = { x: 1.5, y: 15.5 }; 
+            playerPos = { x: 1.5, y: 15.5 };
         } else {
             currentMapIndex = 0;
             currentRoute = 1;
@@ -1089,7 +1086,7 @@
 
         const availableSpecies = Object.keys(PETS).filter(id => {
             const petInfo = PETS[id];
-            const routes = petInfo.spawn_routes || [1]; 
+            const routes = petInfo.spawn_routes || [1];
             return routes.includes(currentRoute);
         });
 
@@ -1139,8 +1136,8 @@
     function resetBattleActionButtons() {
         document.getElementById('battleActionButtons').innerHTML = `
             <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
-            <button class="btn-action" onclick="openBattleSwitchMenu()">🔄 Switch</button>
             <button class="btn-action" onclick="executeBattleCatch()">🎾 Catch Pet</button>
+            <button class="btn-action" onclick="visitCenterAndHealBattle()">🎒 Items</button>
             <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
         `;
     }
@@ -1163,49 +1160,6 @@
         document.getElementById('battleActionButtons').innerHTML = movesHtml;
     }
 
-    function openBattleSwitchMenu() {
-        let partyHtml = '';
-
-        playerParty.forEach((petData, index) => {
-            const pet = getCalculatedPet(petData);
-            if (!pet) return;
-
-            const isCurrent = (index === 0);
-            const isFainted = petData.hp <= 0;
-
-            partyHtml += `<button class="btn-move" ${isCurrent || isFainted ? 'disabled' : ''} onclick="switchPlayerPet(${index})">
-                <b>${pet.name}</b> (Lv. ${pet.level})<br><small>HP: ${petData.hp}/${pet.maxHp} ${isCurrent ? '[Active]' : isFainted ? '[Fainted]' : ''}</small>
-            </button>`;
-        });
-
-        partyHtml += `<button class="btn-action" onclick="resetBattleActionButtons()" style="background:#555; grid-column: span 2; padding:8px;">↩ Back</button>`;
-        document.getElementById('battleActionButtons').innerHTML = partyHtml;
-    }
-
-    function switchPlayerPet(targetIndex) {
-        if (targetIndex === 0) {
-            document.getElementById('battleDialogueText').innerText = `Your ${getCalculatedPet(playerParty[0]).name} is already in battle!`;
-            return;
-        }
-
-        if (!playerParty[targetIndex] || playerParty[targetIndex].hp <= 0) {
-            document.getElementById('battleDialogueText').innerText = `That pet cannot fight!`;
-            return;
-        }
-
-        // Move the selected pet to the front of the party array to make it active
-        const switchedPet = playerParty.splice(targetIndex, 1)[0];
-        playerParty.unshift(switchedPet);
-
-        const activePlayerPet = getCalculatedPet(playerParty[0]);
-        updateBattleHUD();
-
-        document.getElementById('battleDialogueText').innerText = `You withdrew your pet and sent out ${activePlayerPet.name}!`;
-
-        // Switching consumes your turn, meaning you cannot attack this round and the opponent gets to attack.
-        setTimeout(() => executeEnemyAttack(), 1500);
-    }
-
     function executePlayerAttack(moveName) {
         const activePlayerPet = getCalculatedPet(playerParty[0]);
         const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
@@ -1221,7 +1175,7 @@
         let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
         let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
         
-        let typeMultiplier = getTypeEffectiveness(moveObj.type, activeEncounter.type);
+        let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
         
         let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
         let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
@@ -1256,7 +1210,7 @@
         let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
         let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
         
-        let typeMultiplier = getTypeEffectiveness(randomMove.type, activePlayerPet.type);
+        let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(randomMove.type, activePlayerPet.type) : 1.0;
 
         let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
         let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
@@ -1449,7 +1403,7 @@
 
                 updateUI();
                 renderParty();
-                initMap(); 
+                initMap();
                 renderPlayerElement();
                 return true;
             }
@@ -1510,7 +1464,7 @@
 
                     updateUI();
                     renderParty();
-                    initMap(); 
+                    initMap();
                     renderPlayerElement();
                     document.getElementById('loginOverlay').classList.add('hidden');
                     
@@ -1659,3 +1613,4 @@
 </script>
 </body>
 </html>
+```[cite: 3]
