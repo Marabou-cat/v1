@@ -706,19 +706,6 @@
     </div>
 </div>
 
-<!-- BATTLE SWITCH PET MODAL -->
-<div class="modal-overlay hidden" id="switchModal">
-    <div class="menu-box" style="height: auto; max-height: 550px;">
-        <div class="menu-header-bar">
-            <div style="font-weight: bold; color: var(--p1);">🔄 Choose Next Pet</div>
-            <button class="btn-close-modal" id="switchModalCloseBtn" onclick="closeSwitchModal()">✕</button>
-        </div>
-        <div class="menu-content-area">
-            <div id="switchTeamContainer" style="display: flex; flex-direction: column; gap: 10px;"></div>
-        </div>
-    </div>
-</div>
-
 <!-- MAP VIEWPORT CONTAINER -->
 <div class="map-container" id="mapContainer">
     <div class="map-grid" id="mapGrid"></div>
@@ -797,21 +784,21 @@
                 <div class="starter-light light-sproupup"></div>
                 <img src="petpng/sproupup.png" alt="Sproupup" class="starter-img">
                 <div class="starter-name">Sproupup</div>
-                <div class="starter-type type-sproupup">Grass Type</div>
+                <div class="starter-type type-sproupup">🌿 Grass Type</div>
             </div>
 
             <div class="starter-card" onclick="promptStarterChoice('bubbitty', 'Bubbitty', 'petpng/bubbitty.png')">
                 <div class="starter-light light-bubbitty"></div>
                 <img src="petpng/bubbitty.png" alt="Bubbitty" class="starter-img">
                 <div class="starter-name">Bubbitty</div>
-                <div class="starter-type type-bubbitty">Water Type</div>
+                <div class="starter-type type-bubbitty">💧 Water Type</div>
             </div>
 
             <div class="starter-card" onclick="promptStarterChoice('flaragon', 'Flaragon', 'petpng/flaragon.png')">
                 <div class="starter-light light-flaragon"></div>
                 <img src="petpng/flaragon.png" alt="Flaragon" class="starter-img">
                 <div class="starter-name">Flaragon</div>
-                <div class="starter-type type-flaragon">Fire Type</div>
+                <div class="starter-type type-flaragon">🔥 Fire Type</div>
             </div>
         </div>
     </div>
@@ -921,6 +908,21 @@
 
     const allMaps = [route1Map, route2Map];
 
+    // Helper function to return an icon based on the pet type[cite: 1]
+    function getTypeIcon(type) {
+        if (!type) return '🐾';
+        const t = type.toLowerCase();
+        if (t.includes('grass')) return '🌿';
+        if (t.includes('water')) return '💧';
+        if (t.includes('fire')) return '🔥';
+        if (t.includes('electric')) return '⚡';
+        if (t.includes('poison')) return '☠️';
+        if (t.includes('bug')) return '🐛';
+        if (t.includes('rock')) return '🪨';
+        if (t.includes('ground')) return '🌍';
+        return '🐾';
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
         runLoadingSequence();
         initMap();
@@ -991,9 +993,8 @@
         const isStarterOpen = !document.getElementById('starterOverlay').classList.contains('hidden');
         const isLoginOpen = !document.getElementById('loginOverlay').classList.contains('hidden');
         const isGateOpen = !document.getElementById('gateModal').classList.contains('hidden');
-        const isSwitchOpen = !document.getElementById('switchModal').classList.contains('hidden');
 
-        if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen && !isGateOpen && !isSwitchOpen) {
+        if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen && !isGateOpen) {
             let dx = 0;
             let dy = 0;
             let isMoving = false;
@@ -1169,75 +1170,16 @@
             return;
         }
 
-        const temp = playerParty[0];
-        playerParty[0] = playerParty[index];
-        playerParty[index] = temp;
+        if (inForcedSwitch) {
+            const temp = playerParty[0];
+            playerParty[0] = playerParty[index];
+            playerParty[index] = temp;
 
-        renderParty();
-        renderPartyCircles();
-        saveGameData(true);
-    }
-
-    function openSwitchModal() {
-        const container = document.getElementById('switchTeamContainer');
-        container.innerHTML = '';
-        
-        const closeBtn = document.getElementById('switchModalCloseBtn');
-        if (playerParty[0] && playerParty[0].hp <= 0) {
-            closeBtn.style.display = 'none';
-        } else {
-            closeBtn.style.display = 'block';
-        }
-
-        playerParty.forEach((petData, index) => {
-            const pet = getCalculatedPet(petData);
-            const isFainted = petData.hp <= 0;
-            const isCurrentLead = (index === 0);
-
-            const card = document.createElement('div');
-            card.className = 'pet-card';
-            if (isFainted) card.style.opacity = '0.5';
-            if (isCurrentLead) card.style.borderColor = 'var(--gold)';
-
-            card.innerHTML = `
-                <div class="pet-card-header">
-                    <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
-                    <div style="flex:1; display:flex; justify-content:space-between; align-items:center; font-weight:bold;">
-                        <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <img src="petpng/${pet.type.toLowerCase()}.png" alt="${pet.type}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; border:1px solid var(--p1);" title="${pet.type}">
-                            <span style="color:var(--p1); font-size:12px;">${pet.type}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="hp-bar-bg">
-                    <div class="hp-bar-fill" style="width: ${(petData.hp / pet.maxHp) * 100}%;"></div>
-                </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-                    <span style="font-size: 11px;">HP: ${petData.hp}/${pet.maxHp}</span>
-                    <button class="btn-action" style="padding:6px 14px; font-size:12px;" ${isFainted || isCurrentLead ? 'disabled' : ''} onclick="executeSwitchPet(${index})">
-                        ${isCurrentLead ? 'In Battle' : isFainted ? 'Fainted' : 'Send Out'}
-                    </button>
-                </div>
-            `;
-            container.appendChild(card);
-        });
-
-        document.getElementById('switchModal').classList.remove('hidden');
-    }
-
-    function closeSwitchModal() {
-        if (playerParty[0] && playerParty[0].hp <= 0) {
-            alert("❌ Your active pet has fainted! You must choose a living pet to continue.");
-            return;
-        }
-        document.getElementById('switchModal').classList.add('hidden');
-    }
-
-    function executeSwitchPet(index) {
-        if (index < 0 || index >= playerParty.length) return;
-        if (playerParty[index].hp <= 0) {
-            alert("❌ Cannot switch to a fainted pet!");
+            inForcedSwitch = false;
+            updateBattleHUD();
+            resetBattleActionButtons();
+            document.getElementById('battleDialogueText').innerText = `Go! ${getCalculatedPet(playerParty[0]).name}!`;
+            renderPartyCircles();
             return;
         }
 
@@ -1245,14 +1187,8 @@
         playerParty[0] = playerParty[index];
         playerParty[index] = temp;
 
-        inForcedSwitch = false;
-        document.getElementById('switchModal').classList.add('hidden');
-        
-        updateBattleHUD();
-        resetBattleActionButtons();
-        document.getElementById('battleDialogueText').innerText = `Go! ${getCalculatedPet(playerParty[0]).name}!`;
-        renderPartyCircles();
         renderParty();
+        renderPartyCircles();
         saveGameData(true);
     }
 
@@ -1283,11 +1219,7 @@
                         alert(`❌ ${pet.name} has 0 HP and is fainted! Cannot select.`);
                         return;
                     }
-                    if (document.getElementById('battleOverlay').classList.contains('active')) {
-                        openSwitchModal();
-                    } else {
-                        selectLeadPet(i);
-                    }
+                    selectLeadPet(i);
                 };
             } else {
                 circle.style.opacity = '0.3';
@@ -1466,8 +1398,8 @@
             const hasLivingPets = playerParty.some(p => p.hp > 0);
             if (hasLivingPets) {
                 inForcedSwitch = true;
-                document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Choose your next pet.`;
-                openSwitchModal();
+                document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Click one of your available living pets in the top-right icons to switch in!`;
+                document.getElementById('battleActionButtons').innerHTML = `<div style="grid-column: span 2; text-align: center; color: #ff4444; font-weight: bold;">⚠️ Forced Switch Required! Choose a living pet from top-right.</div>`;
             } else {
                 document.getElementById('battleDialogueText').innerText += ` All your pets fainted! You blacked out and fled...`;
                 setTimeout(() => endBattle(false), 2000);
@@ -1810,6 +1742,7 @@
             if (!pet) return;
 
             const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
+            const typeIcon = getTypeIcon(pet.type);[cite: 1]
 
             let movesChipsHtml = '';
             pet.moves.forEach(m => {
@@ -1826,12 +1759,9 @@
                 <div class="pet-card">
                     <div class="pet-card-header">
                         <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
-                        <div style="flex:1; display:flex; justify-content:space-between; align-items:center; font-weight:bold;">
+                        <div style="flex:1; display:flex; justify-content:space-between; font-weight:bold;">
                             <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <img src="petpng/${pet.type.toLowerCase()}.png" alt="${pet.type}" style="width:24px; height:24px; border-radius:50%; object-fit:cover; border:1px solid var(--p1);" title="${pet.type}">
-                                <span style="color:var(--p1); font-size:12px;">${pet.type}</span>
-                            </div>
+                            <span style="color:var(--p1);">${typeIcon} ${pet.type}</span>
                         </div>
                     </div>
                     <div class="hp-bar-bg">
@@ -1845,7 +1775,7 @@
                         <span>SPD: ${pet.speed}</span>
                         <span>SP.ATK: ${pet.spAttack}</span>
                         <span>SP.DEF: ${pet.spDefense}</span>
-                        <span>TYPE: ${pet.type}</span>
+                        <span>TYPE: ${typeIcon} ${pet.type}</span>
                     </div>
 
                     <div class="moves-section">
