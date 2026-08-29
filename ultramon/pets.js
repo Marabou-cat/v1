@@ -108,10 +108,10 @@ const PETS = {
         baseStats: { hp: 15, attack: 15, defense: 12, spAttack: 12, spDefense: 5, speed: 5 },
         maxStats:  { hp: 150, attack: 125, defense: 120, spAttack: 95, spDefense: 60, speed: 100 },
         moves: [
-            { name: "Sticky Webs", type: "basic", damage: 20, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Sticky Webs", type: "bug", damage: 20, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Power Punch", type: "combat", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
             { name: "Fighting Aura", type: "combat", damage: 90, powerCost: 60, damageType: "physical", levelToLearn: 5 },
-            { name: "Bug Bite", type: "basic", damage: 67, powerCost: 40, damageType: "physical", levelToLearn: 10 }
+            { name: "Bug Bite", type: "bug", damage: 67, powerCost: 40, damageType: "physical", levelToLearn: 10 }
         ]
     }
 };
