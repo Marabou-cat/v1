@@ -1008,10 +1008,6 @@
             if (keysPressed['ArrowRight'] || keysPressed['KeyD']) { dx += 1; isMoving = true; }
 
             const playerEl = document.getElementById('playerCube');
-            if (playerEl) {
-                if (isMoving) playerEl.classList.add('walking');
-                else playerEl.classList.remove('walking');
-            }
 
             if (dx !== 0 || dy !== 0) {
                 if (dx !== 0 && dy !== 0) {
@@ -1036,11 +1032,11 @@
                 }
 
                 if (moved) {
-                    playerEl.classList.add('walking');
+                    if (playerEl) playerEl.classList.add('walking');
                     renderPlayerElement();
                     checkTileInteractions();
                 } else {
-                    playerEl.classList.remove('walking');
+                    if (playerEl) playerEl.classList.remove('walking');
                 }
             } else {
                 if (playerEl) playerEl.classList.remove('walking');
@@ -1050,29 +1046,29 @@
     }
 
     function isValidPosition(x, y) {
-    const radius = 0.26; // Tighter radius to prevent corner snagging on grass
+        const radius = 0.26; // Tighter radius to prevent corner snagging on grass
 
-    if (x < radius || x > MAP_SIZE - radius || y < radius || y > MAP_SIZE - radius) return false;
+        if (x < radius || x > MAP_SIZE - radius || y < radius || y > MAP_SIZE - radius) return false;
 
-    const checkPoints = [
-        { x: x - radius, y: y - radius },
-        { x: x + radius, y: y - radius },
-        { x: x - radius, y: y + radius },
-        { x: x + radius, y: y + radius }
-    ];
+        const checkPoints = [
+            { x: x - radius, y: y - radius },
+            { x: x + radius, y: y - radius },
+            { x: x - radius, y: y + radius },
+            { x: x + radius, y: y + radius }
+        ];
 
-    const activeMap = getCurrentMap();
-    for (let pt of checkPoints) {
-        let tileX = Math.floor(pt.x);
-        let tileY = Math.floor(pt.y);
-        
-        if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
-        
-        if (activeMap[tileY][tileX] === 'wall') return false;
+        const activeMap = getCurrentMap();
+        for (let pt of checkPoints) {
+            let tileX = Math.floor(pt.x);
+            let tileY = Math.floor(pt.y);
+            
+            if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
+            
+            if (activeMap[tileY][tileX] === 'wall') return false;
+        }
+
+        return true;
     }
-
-    return true;
-}
 
     let encounterCooldown = false;
     let gateCooldown = false;
