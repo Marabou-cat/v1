@@ -4,7 +4,7 @@ const PETS = {
         id: "flaragon",
         name: "Flaragon",
         type: "Fire",
-        spawn_routes: [2],
+        spawn_routes: [],
         img: "petpng/flaragon.png",
         baseStats: { hp: 20, attack: 10, defense: 10, spAttack: 16, spDefense: 12, speed: 15 },
         maxStats:  { hp: 210, attack: 110, defense: 120, spAttack: 190, spDefense: 140, speed: 175 },
@@ -19,10 +19,10 @@ const PETS = {
         id: "bubbitty",
         name: "Bubbitty",
         type: "Water",
-        spawn_routes: [1, 2],
+        spawn_routes: [],
         img: "petpng/bubbitty.png",
         baseStats: { hp: 22, attack: 10, defense: 14, spAttack: 12, spDefense: 16, speed: 10 },
-        maxStats:  { hp: 230, attack: 130, defense: 170, spAttack: 150, spDefense: 195, speed: 120 },
+        maxStats:  { hp: 230, attack: 130, defense: 170, spAttack: 150, spDefense: 195, speed: 240 },
         moves: [
             { name: "Tackle", damage: 35, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Water Gun", damage: 45, powerCost: 5, damageType: "special", levelToLearn: 1 },
@@ -34,7 +34,7 @@ const PETS = {
         id: "sproupup",
         name: "Sproupup",
         type: "Grass",
-        spawn_routes: [1],
+        spawn_routes: [],
         img: "petpng/sproupup.png",
         baseStats: { hp: 25, attack: 16, defense: 13, spAttack: 8, spDefense: 10, speed: 12 },
         maxStats:  { hp: 260, attack: 185, defense: 155, spAttack: 100, spDefense: 130, speed: 145 },
@@ -49,7 +49,7 @@ const PETS = {
         id: "sparkwing",
         name: "Sparkwing",
         type: "Electric",
-        spawn_routes: [2],
+        spawn_routes: [1,2],
         img: "petpng/sparkwing.png",
         baseStats: { hp: 18, attack: 13, defense: 8, spAttack: 17, spDefense: 9, speed: 18 },
         maxStats:  { hp: 195, attack: 150, defense: 105, spAttack: 205, spDefense: 115, speed: 210 },
@@ -58,6 +58,21 @@ const PETS = {
             { name: "Thundershock", damage: 50, powerCost: 6, damageType: "special", levelToLearn: 1 },
             { name: "Spark Wing", damage: 70, powerCost: 12, damageType: "physical", levelToLearn: 5 },
             { name: "Thunderbolt", damage: 95, powerCost: 20, damageType: "special", levelToLearn: 10 }
+        ]
+    },
+    coalapling: {
+        id: "coalapling",
+        name: "Coalapling",
+        type: "Grass",
+        spawn_routes: [1,2],
+        img: "petpng/coalapling.png",
+        baseStats: { hp: 25, attack: 17, defense: 25, spAttack: 17, spDefense: 25, speed: 10 },
+        maxStats:  { hp: 250, attack: 150, defense: 180, spAttack: 150, spDefense: 180, speed: 120 },
+        moves: [
+            { name: "Stick Impact", damage: 20, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Burn Out", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 1 },
+            { name: "Heavy Slam", damage: 100, powerCost: 70, damageType: "physical", levelToLearn: 5 },
+            { name: "Flamethrower", damage: 95, powerCost: 70, damageType: "special", levelToLearn: 10 }
         ]
     }
 };
