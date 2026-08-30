@@ -8,6 +8,18 @@ const TYPE_CHART = {
     bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
     dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5 }
 };
+const TYPE_COLORS = {
+    fire:     "#ff6b35",
+    water:    "#00b4d8",
+    grass:    "#2ecc71",
+    electric: "#f1c40f",
+    combat:   "#d35400",
+    basic:    "#ffffff",
+    bug:      "#27ae60",
+    dragon:   "#9b59b6"
+};
+
+let isActionLocked = false; // Prevents spamming and input abuse during animations
 
 function getTypeEffectiveness(moveType, defenderTypes) {
     let multiplier = 1.0;
