@@ -701,50 +701,51 @@
             .starter-grid { grid-template-columns: 1fr; }
             .battle-menu-box { grid-template-columns: 1fr; }
         }
-        /* Animation Styles for Attacks */
-@keyframes playerDash {
-    0% { transform: translateX(0); }
-    30% { transform: translateX(140px) scale(1.15); }
-    50% { transform: translateX(120px); }
-    100% { transform: translateX(0); }
-}
 
-@keyframes enemyDash {
-    0% { transform: scaleX(-1) translateX(0); }
-    30% { transform: scaleX(-1) translateX(-140px) scale(1.15); }
-    50% { transform: scaleX(-1) translateX(-120px); }
-    100% { transform: scaleX(-1) translateX(0); }
-}
+        /* Animation Styles for Attacks (Corrected Dash Directions & Scale Retention) */
+        @keyframes playerDash {
+            0% { transform: scaleX(-1) translateX(0); }
+            30% { transform: scaleX(-1) translateX(-140px) scale(1.15); }
+            50% { transform: scaleX(-1) translateX(-120px); }
+            100% { transform: scaleX(-1) translateX(0); }
+        }
 
-@keyframes projectileTravel {
-    0% { transform: translate(0, 0) scale(0.5); opacity: 1; }
-    80% { transform: translate(var(--target-x), var(--target-y)) scale(1.4); opacity: 1; }
-    100% { transform: translate(var(--target-x), var(--target-y)) scale(2); opacity: 0; }
-}
+        @keyframes enemyDash {
+            0% { transform: translateX(0); }
+            30% { transform: translateX(140px) scale(1.15); }
+            50% { transform: translateX(120px); }
+            100% { transform: translateX(0); }
+        }
 
-.anim-dash-player { animation: playerDash 0.6s ease-in-out; }
-.anim-dash-enemy { animation: enemyDash 0.6s ease-in-out; }
+        @keyframes projectileTravel {
+            0% { transform: translate(0, 0) scale(0.5); opacity: 1; }
+            80% { transform: translate(var(--target-x), var(--target-y)) scale(1.4); opacity: 1; }
+            100% { transform: translate(var(--target-x), var(--target-y)) scale(2); opacity: 0; }
+        }
 
-.battle-projectile {
-    position: absolute;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    z-index: 1000;
-    pointer-events: none;
-    box-shadow: 0 0 20px currentColor;
-    background: radial-gradient(circle, #fff 0%, currentColor 70%);
-}
+        .anim-dash-player { animation: playerDash 0.6s ease-in-out; }
+        .anim-dash-enemy { animation: enemyDash 0.6s ease-in-out; }
 
-.target-hit-flash {
-    animation: hitFlash 0.3s ease-in-out 2;
-}
+        .battle-projectile {
+            position: absolute;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            z-index: 1000;
+            pointer-events: none;
+            box-shadow: 0 0 20px currentColor;
+            background: radial-gradient(circle, #fff 0%, currentColor 70%);
+        }
 
-@keyframes hitFlash {
-    0% { filter: brightness(1); }
-    50% { filter: brightness(3) drop-shadow(0 0 15px var(--anim-color, #fff)); }
-    100% { filter: brightness(1); }
-}
+        .target-hit-flash {
+            animation: hitFlash 0.3s ease-in-out 2;
+        }
+
+        @keyframes hitFlash {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(3) drop-shadow(0 0 15px var(--anim-color, #fff)); }
+            100% { filter: brightness(1); }
+        }
     </style>
 </head>
 <body>
@@ -962,6 +963,7 @@
     let playerPCStorage = [];
     let inGateModal = false;
     let inForcedSwitch = false;
+    let isActionLocked = false;
 
     const MAP_SIZE = 30;
     const TILE_SIZE = 48;
@@ -1169,77 +1171,109 @@
         }
         requestAnimationFrame(gameLoop);
     }
+
     function checkPetEvolution(petData, onComplete) {
-    const species = PETS[petData.id.toLowerCase()];
-    if (!species || !species.evolutionId || species.evolutionId === "") {
-        if (onComplete) onComplete();
-        return;
-    }
-
-    const currentLevel = petData.lvl || 1;
-    if (currentLevel >= species.evolvingLevel) {
-        triggerEvolutionAnimation(petData, species.evolutionId, onComplete);
-    } else {
-        if (onComplete) onComplete();
-    }
-}
-
-function triggerEvolutionAnimation(petData, newSpeciesId, onComplete) {
-    const oldSpecies = PETS[petData.id.toLowerCase()];
-    const newSpecies = PETS[newSpeciesId.toLowerCase()];
-    if (!newSpecies) {
-        if (onComplete) onComplete();
-        return;
-    }
-
-    const dialogue = document.getElementById('battleDialogueText');
-    const playerImg = document.getElementById('battlePlayerImg');
-    const arena = document.querySelector('.battle-arena');
-
-    dialogue.innerText = `What? ${oldSpecies.name} is evolving!`;
-    arena.style.transform = 'scale(1.25)';
-
-    let flashCount = 0;
-    const flashInterval = setInterval(() => {
-        playerImg.style.filter = flashCount % 2 === 0 ? 'brightness(4) drop-shadow(0 0 25px #ffffff)' : 'brightness(1)';
-        flashCount++;
-
-        if (flashCount > 8) {
-            clearInterval(flashInterval);
-            
-            petData.id = newSpecies.id;
-            const newCalc = getCalculatedPet(petData);
-            petData.hp = newCalc.maxHp; 
-            petData.activeMoves = newCalc.unlockedMoves.slice(0, 4).map(m => m.name);
-
-            playerImg.src = newSpecies.img;
-            playerImg.style.filter = 'none';
-            arena.style.transform = 'scale(1)';
-            dialogue.innerText = `Congratulations! Your ${oldSpecies.name} evolved into ${newSpecies.name}!`;
-
-            renderParty();
-            renderPartyCircles();
-
-            setTimeout(() => {
-                if (onComplete) onComplete();
-            }, 2500);
+        const species = PETS[petData.id.toLowerCase()];
+        if (!species || !species.evolutionId || species.evolutionId === "") {
+            if (onComplete) onComplete();
+            return;
         }
-    }, 350);
-}
 
-function endBattle(won) {
-    const overlay = document.getElementById('battleOverlay');
-    overlay.classList.remove('active');
-    encounterCooldown = false;
+        const currentLevel = petData.lvl || 1;
+        if (currentLevel >= species.evolvingLevel) {
+            triggerEvolutionAnimation(petData, species.evolutionId, onComplete);
+        } else {
+            if (onComplete) onComplete();
+        }
+    }
 
-    if (won && playerParty.length > 0) {
-        checkPetEvolution(playerParty[0], () => {
-            saveGameData(true);
-        });
-    } else {
+    function triggerEvolutionAnimation(petData, newSpeciesId, onComplete) {
+        const oldSpecies = PETS[petData.id.toLowerCase()];
+        const newSpecies = PETS[newSpeciesId.toLowerCase()];
+        if (!newSpecies) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        const dialogue = document.getElementById('battleDialogueText');
+        const playerImg = document.getElementById('battlePlayerImg');
+        const arena = document.querySelector('.battle-arena');
+
+        dialogue.innerText = `What? ${oldSpecies.name} is evolving!`;
+        arena.style.transform = 'scale(1.25)';
+
+        let flashCount = 0;
+        const flashInterval = setInterval(() => {
+            playerImg.style.filter = flashCount % 2 === 0 ? 'brightness(4) drop-shadow(0 0 25px #ffffff)' : 'brightness(1)';
+            flashCount++;
+
+            if (flashCount > 8) {
+                clearInterval(flashInterval);
+                
+                petData.id = newSpecies.id;
+                const newCalc = getCalculatedPet(petData);
+                petData.hp = newCalc.maxHp; 
+                petData.activeMoves = newCalc.unlockedMoves.slice(0, 4).map(m => m.name);
+
+                playerImg.src = newSpecies.img;
+                playerImg.style.filter = 'none';
+                arena.style.transform = 'scale(1)';
+                dialogue.innerText = `Congratulations! Your ${oldSpecies.name} evolved into ${newSpecies.name}!`;
+
+                renderParty();
+                renderPartyCircles();
+
+                setTimeout(() => {
+                    if (onComplete) onComplete();
+                }, 2500);
+            }
+        }, 350);
+    }
+
+    function handleBattleVictory(activePlayerPet) {
+        let expGain = activeEncounter.level * 15;
+        playerParty[0].exp = (playerParty[0].exp || 0) + expGain;
+        
+        let expNeeded = activePlayerPet.level * 30;
+        let leveledUp = false;
+
+        while (playerParty[0].exp >= expNeeded) {
+            playerParty[0].exp -= expNeeded;
+            playerParty[0].lvl = (playerParty[0].lvl || 1) + 1;
+            leveledUp = true;
+            const newCalc = getCalculatedPet(playerParty[0]);
+            playerParty[0].hp = newCalc.maxHp;
+            expNeeded = newCalc.level * 30;
+        }
+
+        coins += activeEncounter.level * 10;
+        updateUI();
+
+        if (activeTrainer) {
+            activeTrainer.defeated = true;
+            document.getElementById('battleDialogueText').innerText = `You defeated ${activeTrainer.name}! Earned ${activeEncounter.level * 10} coins and ${expGain} EXP!`;
+            setTimeout(() => {
+                checkPetEvolution(playerParty[0], () => {
+                    endBattle(true);
+                });
+            }, 2000);
+        } else {
+            let levelUpText = leveledUp ? ` Your ${activePlayerPet.name} grew to level ${playerParty[0].lvl}!` : "";
+            document.getElementById('battleDialogueText').innerText = `Won the battle! Earned ${activeEncounter.level * 10} coins and ${expGain} EXP.${levelUpText}`;
+            setTimeout(() => {
+                checkPetEvolution(playerParty[0], () => {
+                    endBattle(true);
+                });
+            }, 2000);
+        }
+    }
+
+    function endBattle(won) {
+        const overlay = document.getElementById('battleOverlay');
+        overlay.classList.remove('active');
+        encounterCooldown = false;
         saveGameData(true);
     }
-}
 
     function isValidPosition(x, y) {
         const radius = 0.3;
@@ -1611,7 +1645,6 @@ function endBattle(won) {
             document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
         }
 
-        // Apply dynamic size scaling for the wild pet sprite[cite: 2]
         const wildImg = document.getElementById('battleWildImg');
         wildImg.src = activeEncounter.img;
         const wildBaseSize = 140;
@@ -1624,7 +1657,6 @@ function endBattle(won) {
 
         document.getElementById('battlePlayerName').innerText = `${activePlayerPet.name} (Lv. ${activePlayerPet.level})`;
         
-        // Apply dynamic size scaling for the player pet sprite[cite: 2]
         const playerImg = document.getElementById('battlePlayerImg');
         playerImg.src = activePlayerPet.img;
         const playerBaseSize = 140;
@@ -1730,205 +1762,204 @@ function endBattle(won) {
     }
 
     function executePlayerAttack(moveName) {
-    if (isActionLocked || inForcedSwitch) return;
-    
-    const activePlayerPet = getCalculatedPet(playerParty[0]);
-    const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
-    if (!moveObj) return;
-
-    if (playerBattleEnergy < moveObj.powerCost) {
-        document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
-        return;
-    }
-
-    // Lock actions to prevent spamming
-    isActionLocked = true;
-    document.querySelectorAll('.btn-move, .btn-action').forEach(btn => btn.disabled = true);
-
-    playerBattleEnergy -= moveObj.powerCost;
-    updateBattleHUD();
-
-    document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}!`;
-
-    const animColor = TYPE_COLORS[moveObj.type] || "#ffffff";
-    const playerImgEl = document.getElementById('battlePlayerImg');
-    const wildImgEl = document.getElementById('battleWildImg');
-
-    if (moveObj.damageType === "physical") {
-        // Physical Attack Animation: Dash forward and back
-        playerImgEl.classList.add('anim-dash-player');
+        if (isActionLocked || inForcedSwitch) return;
         
-        setTimeout(() => {
-            wildImgEl.style.setProperty('--anim-color', animColor);
-            wildImgEl.classList.add('target-hit-flash');
-        }, 300);
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
+        const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
+        if (!moveObj) return;
 
-        setTimeout(() => {
-            playerImgEl.classList.remove('anim-dash-player');
-            wildImgEl.classList.remove('target-hit-flash');
-            applyPlayerDamage(moveObj, activePlayerPet);
-        }, 600);
-
-    } else {
-        // Special Attack Animation: Projectile flies from player to wild pet
-        const arenaRect = document.querySelector('.battle-arena').getBoundingClientRect();
-        const pRect = playerImgEl.getBoundingClientRect();
-        const wRect = wildImgEl.getBoundingClientRect();
-
-        const startX = (pRect.left + pRect.width / 2) - arenaRect.left;
-        const startY = (pRect.top + pRect.height / 2) - arenaRect.top;
-        const endX = (wRect.left + wRect.width / 2) - arenaRect.left;
-        const endY = (wRect.top + wRect.height / 2) - arenaRect.top;
-
-        const projectile = document.createElement('div');
-        projectile.className = 'battle-projectile';
-        projectile.style.color = animColor;
-        projectile.style.left = startX + 'px';
-        projectile.style.top = startY + 'px';
-        projectile.style.setProperty('--target-x', (endX - startX) + 'px');
-        projectile.style.setProperty('--target-y', (endY - startY) + 'px');
-        projectile.style.animation = 'projectileTravel 0.7s ease-in-out forwards';
-
-        document.querySelector('.battle-arena').appendChild(projectile);
-
-        setTimeout(() => {
-            projectile.remove();
-            wildImgEl.style.setProperty('--anim-color', animColor);
-            wildImgEl.classList.add('target-hit-flash');
-        }, 600);
-
-        setTimeout(() => {
-            wildImgEl.classList.remove('target-hit-flash');
-            applyPlayerDamage(moveObj, activePlayerPet);
-        }, 850);
-    }
-}
-
-function applyPlayerDamage(moveObj, activePlayerPet) {
-    let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
-    let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
-    
-    let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
-    let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
-    let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
-
-    activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - finalDamage);
-    updateBattleHUD();
-
-    let effectivenessText = "";
-    if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
-    else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
-
-    let targetLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
-    document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
-
-    if (activeEncounter.currentHp <= 0) {
-        handleBattleVictory(activePlayerPet);
-        return;
-    }
-
-    setTimeout(() => {
-        executeEnemyAttack();
-    }, 1200);
-}
-
-function executeEnemyAttack() {
-    if (!activeEncounter || activeEncounter.currentHp <= 0) return;
-
-    const enemyMoves = activeEncounter.unlockedMoves;
-    const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
-    const activePlayerPet = getCalculatedPet(playerParty[0]);
-
-    let animColor = TYPE_COLORS[randomMove.type] || "#ffffff";
-    let wildImgEl = document.getElementById('battleWildImg');
-    let playerImgEl = document.getElementById('battlePlayerImg');
-
-    document.getElementById('battleDialogueText').innerText = `${activeEncounter.name} used ${randomMove.name}!`;
-
-    if (randomMove.damageType === "physical") {
-        wildImgEl.classList.add('anim-dash-enemy');
-
-        setTimeout(() => {
-            playerImgEl.style.setProperty('--anim-color', animColor);
-            playerImgEl.classList.add('target-hit-flash');
-        }, 300);
-
-        setTimeout(() => {
-            wildImgEl.classList.remove('anim-dash-enemy');
-            playerImgEl.classList.remove('target-hit-flash');
-            applyEnemyDamage(randomMove, activePlayerPet);
-        }, 600);
-
-    } else {
-        const arenaRect = document.querySelector('.battle-arena').getBoundingClientRect();
-        const wRect = wildImgEl.getBoundingClientRect();
-        const pRect = playerImgEl.getBoundingClientRect();
-
-        const startX = (wRect.left + wRect.width / 2) - arenaRect.left;
-        const startY = (wRect.top + wRect.height / 2) - arenaRect.top;
-        const endX = (pRect.left + pRect.width / 2) - arenaRect.left;
-        const endY = (pRect.top + pRect.height / 2) - arenaRect.top;
-
-        const projectile = document.createElement('div');
-        projectile.className = 'battle-projectile';
-        projectile.style.color = animColor;
-        projectile.style.left = startX + 'px';
-        projectile.style.top = startY + 'px';
-        projectile.style.setProperty('--target-x', (endX - startX) + 'px');
-        projectile.style.setProperty('--target-y', (endY - startY) + 'px');
-        projectile.style.animation = 'projectileTravel 0.7s ease-in-out forwards';
-
-        document.querySelector('.battle-arena').appendChild(projectile);
-
-        setTimeout(() => {
-            projectile.remove();
-            playerImgEl.style.setProperty('--anim-color', animColor);
-            playerImgEl.classList.add('target-hit-flash');
-        }, 600);
-
-        setTimeout(() => {
-            playerImgEl.classList.remove('target-hit-flash');
-            applyEnemyDamage(randomMove, activePlayerPet);
-        }, 850);
-    }
-}
-
-function applyEnemyDamage(randomMove, activePlayerPet) {
-    let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
-    let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
-    
-    let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(randomMove.type, activePlayerPet.type) : 1.0;
-    let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
-    let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
-
-    playerParty[0].hp = Math.max(0, playerParty[0].hp - finalDamage);
-    playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
-    updateBattleHUD();
-
-    let effectivenessText = "";
-    if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
-    else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
-
-    let attackerLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
-    document.getElementById('battleDialogueText').innerText = `${attackerLabel} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
-
-    if (playerParty[0].hp <= 0) {
-        const hasLivingPets = playerParty.some(p => p.hp > 0);
-        if (hasLivingPets) {
-            inForcedSwitch = true;
-            isActionLocked = false;
-            document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Choose your next pet to continue battle!`;
-            openBattleSwitchMenu();
-        } else {
-            document.getElementById('battleDialogueText').innerText += ` All your pets fainted! You blacked out and fled...`;
-            setTimeout(() => endBattle(false), 2000);
+        if (playerBattleEnergy < moveObj.powerCost) {
+            document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
+            return;
         }
-        return;
+
+        isActionLocked = true;
+        document.querySelectorAll('.btn-move, .btn-action').forEach(btn => btn.disabled = true);
+
+        playerBattleEnergy -= moveObj.powerCost;
+        updateBattleHUD();
+
+        document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}!`;
+
+        const animColor = TYPE_COLORS[moveObj.type] || "#ffffff";
+        const playerImgEl = document.getElementById('battlePlayerImg');
+        const wildImgEl = document.getElementById('battleWildImg');
+
+        if (moveObj.damageType === "physical") {
+            playerImgEl.classList.add('anim-dash-player');
+            
+            setTimeout(() => {
+                wildImgEl.style.setProperty('--anim-color', animColor);
+                wildImgEl.classList.add('target-hit-flash');
+            }, 300);
+
+            setTimeout(() => {
+                playerImgEl.classList.remove('anim-dash-player');
+                wildImgEl.classList.remove('target-hit-flash');
+                applyPlayerDamage(moveObj, activePlayerPet);
+            }, 600);
+
+        } else {
+            const arenaRect = document.querySelector('.battle-arena').getBoundingClientRect();
+            const pRect = playerImgEl.getBoundingClientRect();
+            const wRect = wildImgEl.getBoundingClientRect();
+
+            const startX = (pRect.left + pRect.width / 2) - arenaRect.left;
+            const startY = (pRect.top + pRect.height / 2) - arenaRect.top;
+            const endX = (wRect.left + wRect.width / 2) - arenaRect.left;
+            const endY = (wRect.top + wRect.height / 2) - arenaRect.top;
+
+            const projectile = document.createElement('div');
+            projectile.className = 'battle-projectile';
+            projectile.style.color = animColor;
+            projectile.style.left = startX + 'px';
+            projectile.style.top = startY + 'px';
+            projectile.style.setProperty('--target-x', (endX - startX) + 'px');
+            projectile.style.setProperty('--target-y', (endY - startY) + 'px');
+            projectile.style.animation = 'projectileTravel 0.7s ease-in-out forwards';
+
+            document.querySelector('.battle-arena').appendChild(projectile);
+
+            setTimeout(() => {
+                projectile.remove();
+                wildImgEl.style.setProperty('--anim-color', animColor);
+                wildImgEl.classList.add('target-hit-flash');
+            }, 600);
+
+            setTimeout(() => {
+                wildImgEl.classList.remove('target-hit-flash');
+                applyPlayerDamage(moveObj, activePlayerPet);
+            }, 850);
+        }
     }
 
-    isActionLocked = false;
-    resetBattleActionButtons();
-}
+    function applyPlayerDamage(moveObj, activePlayerPet) {
+        let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
+        let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
+        
+        let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
+        let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
+        let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+
+        activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - finalDamage);
+        updateBattleHUD();
+
+        let effectivenessText = "";
+        if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
+        else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
+
+        let targetLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
+        document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
+
+        if (activeEncounter.currentHp <= 0) {
+            isActionLocked = false;
+            handleBattleVictory(activePlayerPet);
+            return;
+        }
+
+        setTimeout(() => {
+            executeEnemyAttack();
+        }, 1200);
+    }
+
+    function executeEnemyAttack() {
+        if (!activeEncounter || activeEncounter.currentHp <= 0) return;
+
+        const enemyMoves = activeEncounter.unlockedMoves;
+        const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
+        const activePlayerPet = getCalculatedPet(playerParty[0]);
+
+        let animColor = TYPE_COLORS[randomMove.type] || "#ffffff";
+        let wildImgEl = document.getElementById('battleWildImg');
+        let playerImgEl = document.getElementById('battlePlayerImg');
+
+        document.getElementById('battleDialogueText').innerText = `${activeEncounter.name} used ${randomMove.name}!`;
+
+        if (randomMove.damageType === "physical") {
+            wildImgEl.classList.add('anim-dash-enemy');
+
+            setTimeout(() => {
+                playerImgEl.style.setProperty('--anim-color', animColor);
+                playerImgEl.classList.add('target-hit-flash');
+            }, 300);
+
+            setTimeout(() => {
+                wildImgEl.classList.remove('anim-dash-enemy');
+                playerImgEl.classList.remove('target-hit-flash');
+                applyEnemyDamage(randomMove, activePlayerPet);
+            }, 600);
+
+        } else {
+            const arenaRect = document.querySelector('.battle-arena').getBoundingClientRect();
+            const wRect = wildImgEl.getBoundingClientRect();
+            const pRect = playerImgEl.getBoundingClientRect();
+
+            const startX = (wRect.left + wRect.width / 2) - arenaRect.left;
+            const startY = (wRect.top + wRect.height / 2) - arenaRect.top;
+            const endX = (pRect.left + pRect.width / 2) - arenaRect.left;
+            const endY = (pRect.top + pRect.height / 2) - arenaRect.top;
+
+            const projectile = document.createElement('div');
+            projectile.className = 'battle-projectile';
+            projectile.style.color = animColor;
+            projectile.style.left = startX + 'px';
+            projectile.style.top = startY + 'px';
+            projectile.style.setProperty('--target-x', (endX - startX) + 'px');
+            projectile.style.setProperty('--target-y', (endY - startY) + 'px');
+            projectile.style.animation = 'projectileTravel 0.7s ease-in-out forwards';
+
+            document.querySelector('.battle-arena').appendChild(projectile);
+
+            setTimeout(() => {
+                projectile.remove();
+                playerImgEl.style.setProperty('--anim-color', animColor);
+                playerImgEl.classList.add('target-hit-flash');
+            }, 600);
+
+            setTimeout(() => {
+                playerImgEl.classList.remove('target-hit-flash');
+                applyEnemyDamage(randomMove, activePlayerPet);
+            }, 850);
+        }
+    }
+
+    function applyEnemyDamage(randomMove, activePlayerPet) {
+        let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
+        let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
+        
+        let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(randomMove.type, activePlayerPet.type) : 1.0;
+        let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
+        let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+
+        playerParty[0].hp = Math.max(0, playerParty[0].hp - finalDamage);
+        playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
+        updateBattleHUD();
+
+        let effectivenessText = "";
+        if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
+        else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
+
+        let attackerLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
+        document.getElementById('battleDialogueText').innerText = `${attackerLabel} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+
+        if (playerParty[0].hp <= 0) {
+            const hasLivingPets = playerParty.some(p => p.hp > 0);
+            if (hasLivingPets) {
+                inForcedSwitch = true;
+                isActionLocked = false;
+                document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Choose your next pet to continue battle!`;
+                openBattleSwitchMenu();
+            } else {
+                document.getElementById('battleDialogueText').innerText += ` All your pets fainted! You blacked out and fled...`;
+                setTimeout(() => endBattle(false), 2000);
+            }
+            return;
+        }
+
+        isActionLocked = false;
+        resetBattleActionButtons();
+    }
+
     function executeBattleCatch() {
         if (inForcedSwitch || !activeEncounter || activeTrainer) return;
 
@@ -2075,36 +2106,6 @@ function applyEnemyDamage(randomMove, activePlayerPet) {
             setTimeout(() => star.remove(), 900);
         }
         setTimeout(callback, 900);
-    }
-
-    function endBattle(isFinished) {
-        const overlay = document.getElementById('battleOverlay');
-        overlay.classList.remove('active');
-        activeEncounter = null;
-        activeTrainer = null;
-        inForcedSwitch = false;
-
-        document.querySelectorAll('.anim-ball').forEach(el => el.remove());
-        const wildImg = document.getElementById('battleWildImg');
-        if (wildImg) {
-            wildImg.style.transform = '';
-            wildImg.style.opacity = '';
-            wildImg.style.transition = '';
-        }
-
-        renderNPCs();
-        renderParty();
-        renderPCStorage();
-        renderPartyCircles();
-
-        // Save progress to the server if the battle finished successfully (win)
-        if (isFinished) {
-            saveGameData(true);
-        }
-
-        setTimeout(() => {
-            encounterCooldown = false;
-        }, 2000);
     }
 
     function runLoadingSequence() {
@@ -2395,78 +2396,59 @@ function applyEnemyDamage(randomMove, activePlayerPet) {
             const pet = getCalculatedPet(petData);
             if (!pet) return;
 
-            const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
-            const currentExp = petData.exp || 0;
-            const expNeeded = pet.level * 50;
-            const expPct = Math.min(100, (currentExp / expNeeded) * 100);
+            const hpPct = Math.max(0, (petData.hp / pet.maxHp) * 100);
+            const expPct = Math.min(100, ((petData.exp || 0) / (pet.level * 30)) * 100);
+            const isLead = petIndex === 0;
 
             let movesChipsHtml = '';
-            pet.moves.forEach(m => {
-                const isUnlocked = pet.level >= m.levelToLearn;
-                const isActive = pet.activeMoves.includes(m.name);
-                let cssClass = 'move-chip';
-                if (!isUnlocked) cssClass += ' locked';
-                else if (isActive) cssClass += ' active-move';
-
-                movesChipsHtml += `<span class="${cssClass}" onclick="togglePetMove(${petIndex}, '${m.name}')" title="Lv. ${m.levelToLearn} required">${m.name} (${m.damageType[0].toUpperCase()})</span>`;
+            pet.unlockedMoves.forEach(move => {
+                const isActive = petData.activeMoves && petData.activeMoves.includes(move.name);
+                let chipClass = 'move-chip';
+                if (isActive) chipClass += ' active-move';
+                movesChipsHtml += `<span class="${chipClass}" onclick="togglePetMove(${petIndex}, '${move.name}')">${move.name}</span>`;
             });
 
-            let managementButtons = '';
-            if (petIndex > 0 && petData.hp > 0) {
-                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px;" onclick="selectLeadPet(${petIndex})">⭐ Set Lead</button>`;
-            }
-            if (petIndex > 0) {
-                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:var(--bg2);" onclick="movePartyPet(${petIndex}, -1)">⬆️ Up</button>`;
-            }
-            if (petIndex < playerParty.length - 1) {
-                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:var(--bg2);" onclick="movePartyPet(${petIndex}, 1)">⬇️ Down</button>`;
-            }
-            if (playerParty.length > 1) {
-                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:var(--p2); border-color:var(--p0);" onclick="depositToPC(${petIndex})">📦 Deposit to PC</button>`;
-                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:#e74c3c; border-color:#c0392b;" onclick="releasePet(${petIndex})">🗑️ Release</button>`;
-            }
-
-            container.innerHTML += `
-                <div class="pet-card">
-                    <div class="pet-card-header">
-                        <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
-                        <div style="flex:1; display:flex; justify-content:space-between; font-weight:bold;">
-                            <span>${pet.name} <small>(Lv. ${pet.level})</small>${petIndex === 0 ? ' <span style="color:var(--gold);">(Lead)</span>' : ''}</span>
-                            <span style="color:var(--p1);">${pet.type}</span>
+            const card = document.createElement('div');
+            card.className = 'pet-card';
+            card.style.borderColor = isLead ? 'var(--gold)' : 'var(--p2)';
+            card.innerHTML = `
+                <div class="pet-card-header">
+                    <img src="${pet.img}" class="pet-card-thumb">
+                    <div style="flex:1;">
+                        <div style="font-weight:bold; color:#fff; display:flex; justify-content:space-between;">
+                            <span>${pet.name} ${isLead ? '<span style="color:var(--gold); font-size:12px;">★ LEAD</span>' : ''}</span>
+                            <span style="font-size:12px; color:var(--p1);">Lv. ${pet.level}</span>
                         </div>
-                    </div>
-                    
-                    <!-- HP Bar -->
-                    <div class="hp-bar-bg">
-                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
-                    </div>
-                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
-                    
-                    <!-- EXP Bar -->
-                    <div class="exp-bar-bg">
-                        <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
-                    </div>
-                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top:2px;">EXP: ${currentExp}/${expNeeded}</div>
-
-                    <div class="stat-grid" style="margin-top:6px;">
-                        <span>ATK: ${pet.attack}</span>
-                        <span>DEF: ${pet.defense}</span>
-                        <span>SPD: ${pet.speed}</span>
-                        <span>SP.ATK: ${pet.spAttack}</span>
-                        <span>SP.DEF: ${pet.spDefense}</span>
-                        <span>TYPE: ${pet.type}</span>
-                    </div>
-
-                    <div class="pet-actions-row">
-                        ${managementButtons}
-                    </div>
-
-                    <div class="moves-section">
-                        <div style="font-weight:bold; color:var(--p1);">Equipped Moves (Click to toggle up to 4):</div>
-                        <div class="moves-chips">${movesChipsHtml}</div>
+                        <div style="font-size:11px; color:#aaa;">Type: ${pet.type.toUpperCase()}</div>
+                        <div class="hp-bar-bg"><div class="hp-bar-fill" style="width: ${hpPct}%;"></div></div>
+                        <div style="font-size:10px; display:flex; justify-content:space-between; margin-top:2px;">
+                            <span>HP: ${petData.hp}/${pet.maxHp}</span>
+                            <span>EXP: ${petData.exp || 0}/${pet.level * 30}</span>
+                        </div>
+                        <div class="exp-bar-bg"><div class="exp-bar-fill" style="width: ${expPct}%;"></div></div>
                     </div>
                 </div>
+                <div class="stat-grid">
+                    <div>Atk: ${pet.attack}</div>
+                    <div>Def: ${pet.defense}</div>
+                    <div>SpAtk: ${pet.spAttack}</div>
+                    <div>SpDef: ${pet.spDefense}</div>
+                    <div>Speed: ${pet.speed}</div>
+                    <div>Catch: ${Math.round(pet.catchRate * 100)}%</div>
+                </div>
+                <div class="moves-section">
+                    <div style="font-weight:bold; color:var(--p1); font-size:11px; margin-bottom:4px;">Active Moves (Click to toggle up to 4):</div>
+                    <div class="moves-chips">${movesChipsHtml}</div>
+                </div>
+                <div class="pet-actions-row">
+                    ${!isLead ? `<button class="tab-btn" style="padding:4px 10px; font-size:11px;" onclick="selectLeadPet(${petIndex})">⭐ Make Lead</button>` : ''}
+                    ${petIndex > 0 ? `<button class="tab-btn" style="padding:4px 10px; font-size:11px;" onclick="movePartyPet(${petIndex}, -1)">⬆ Move Up</button>` : ''}
+                    ${petIndex < playerParty.length - 1 ? `<button class="tab-btn" style="padding:4px 10px; font-size:11px;" onclick="movePartyPet(${petIndex}, 1)">⬇ Move Down</button>` : ''}
+                    <button class="tab-btn" style="padding:4px 10px; font-size:11px; background:rgba(231,76,60,0.3); border-color:#e74c3c;" onclick="depositToPC(${petIndex})">📦 Deposit to PC</button>
+                    <button class="tab-btn" style="padding:4px 10px; font-size:11px; background:rgba(192,57,43,0.5); border-color:#c0392b;" onclick="releasePet(${petIndex})">🗑️ Release</button>
+                </div>
             `;
+            container.appendChild(card);
         });
     }
 
@@ -2476,7 +2458,7 @@ function applyEnemyDamage(randomMove, activePlayerPet) {
         container.innerHTML = '';
 
         if (playerPCStorage.length === 0) {
-            container.innerHTML = `<div style="text-align:center; padding: 20px; color:#888;">No pets stored in PC box yet!</div>`;
+            container.innerHTML = `<div style="text-align:center; padding: 20px; color:#888;">PC Storage is empty!</div>`;
             return;
         }
 
@@ -2484,48 +2466,25 @@ function applyEnemyDamage(randomMove, activePlayerPet) {
             const pet = getCalculatedPet(petData);
             if (!pet) return;
 
-            const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
-            const currentExp = petData.exp || 0;
-            const expNeeded = pet.level * 50;
-            const expPct = Math.min(100, (currentExp / expNeeded) * 100);
-
-            container.innerHTML += `
-                <div class="pet-card">
-                    <div class="pet-card-header">
-                        <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
-                        <div style="flex:1; display:flex; justify-content:space-between; font-weight:bold;">
-                            <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
-                            <span style="color:var(--p1);">${pet.type}</span>
+            const card = document.createElement('div');
+            card.className = 'pet-card';
+            card.innerHTML = `
+                <div class="pet-card-header">
+                    <img src="${pet.img}" class="pet-card-thumb">
+                    <div style="flex:1;">
+                        <div style="font-weight:bold; color:#fff; display:flex; justify-content:space-between;">
+                            <span>${pet.name}</span>
+                            <span style="font-size:12px; color:var(--p1);">Lv. ${pet.level}</span>
                         </div>
-                    </div>
-
-                    <!-- HP Bar -->
-                    <div class="hp-bar-bg">
-                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
-                    </div>
-                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
-                    
-                    <!-- EXP Bar -->
-                    <div class="exp-bar-bg">
-                        <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
-                    </div>
-                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top:2px;">EXP: ${currentExp}/${expNeeded}</div>
-                    
-                    <div class="stat-grid" style="margin-top:6px;">
-                        <span>ATK: ${pet.attack}</span>
-                        <span>DEF: ${pet.defense}</span>
-                        <span>SPD: ${pet.speed}</span>
-                        <span>SP.ATK: ${pet.spAttack}</span>
-                        <span>SP.DEF: ${pet.spDefense}</span>
-                        <span>TYPE: ${pet.type}</span>
-                    </div>
-
-                    <div class="pet-actions-row">
-                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#2ecc71; border-color:#27ae60;" onclick="withdrawFromPC(${pcIndex})">📥 Withdraw to Party</button>
-                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#e74c3c; border-color:#c0392b;" onclick="releaseFromPC(${pcIndex})">🗑️ Release</button>
+                        <div style="font-size:11px; color:#aaa;">Type: ${pet.type.toUpperCase()} | HP: ${petData.hp}/${pet.maxHp}</div>
                     </div>
                 </div>
+                <div class="pet-actions-row">
+                    <button class="tab-btn" style="padding:4px 10px; font-size:11px; background:#2ecc71; border-color:#27ae60;" onclick="withdrawFromPC(${pcIndex})">📥 Withdraw to Party</button>
+                    <button class="tab-btn" style="padding:4px 10px; font-size:11px; background:rgba(192,57,43,0.5); border-color:#c0392b;" onclick="releaseFromPC(${pcIndex})">🗑️ Release</button>
+                </div>
             `;
+            container.appendChild(card);
         });
     }
 </script>
