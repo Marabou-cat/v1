@@ -166,7 +166,7 @@ const PETS = {
         catchRate: 35,
         evolvingLevel: 10,
         evolutionId: "",
-        size: 1.2, // Added size stat[cite: 1]
+        size: 1.5, // Added size stat[cite: 1]
         baseStats: { hp: 120, attack: 17, defense: 25, spAttack: 17, spDefense: 25, speed: 10 },
         maxStats:  { hp: 650, attack: 150, defense: 180, spAttack: 150, spDefense: 180, speed: 120 },
         moves: [
