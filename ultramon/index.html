@@ -701,6 +701,61 @@
             .starter-grid { grid-template-columns: 1fr; }
             .battle-menu-box { grid-template-columns: 1fr; }
         }
+        /* --- BATTLE ANIMATIONS --- */
+.anim-physical-player { animation: lungeRight 0.3s ease-in-out; }
+.anim-physical-enemy { animation: lungeLeft 0.3s ease-in-out; }
+.anim-special { animation: specialCast 0.6s ease-in-out; }
+.anim-hit { animation: damageFlash 0.4s ease-out; }
+
+/* Physical Lunges */
+@keyframes lungeRight {
+    0% { transform: scaleX(-1) translateX(0); } /* Player is already scaled X -1 */
+    50% { transform: scaleX(-1) translateX(-60px) scale(1.1); }
+    100% { transform: scaleX(-1) translateX(0); }
+}
+@keyframes lungeLeft {
+    0% { transform: translateX(0); }
+    50% { transform: translateX(-60px) scale(1.1); }
+    100% { transform: translateX(0); }
+}
+
+/* Special Attack Glow */
+@keyframes specialCast {
+    0% { filter: brightness(1) drop-shadow(0 0 0 transparent); transform: scale(1) scaleX(var(--facing, 1)); }
+    50% { filter: brightness(1.3) drop-shadow(0 0 25px var(--move-color)); transform: scale(1.1) scaleX(var(--facing, 1)); }
+    100% { filter: brightness(1) drop-shadow(0 0 0 transparent); transform: scale(1) scaleX(var(--facing, 1)); }
+}
+
+/* Projectile Element */
+.battle-projectile {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0;
+}
+.anim-projectile-player { animation: shootRight 0.4s ease-in forwards; }
+.anim-projectile-enemy { animation: shootLeft 0.4s ease-in forwards; }
+
+@keyframes shootRight {
+    0% { left: 25%; top: 40%; opacity: 1; transform: scale(0.5); }
+    100% { left: 75%; top: 40%; opacity: 0; transform: scale(1.5); }
+}
+@keyframes shootLeft {
+    0% { left: 75%; top: 40%; opacity: 1; transform: scale(0.5); }
+    100% { left: 25%; top: 40%; opacity: 0; transform: scale(1.5); }
+}
+
+/* Hit Reaction */
+@keyframes damageFlash {
+    0% { filter: brightness(1); transform: translateX(0) scaleX(var(--facing, 1)); }
+    25% { filter: brightness(2) drop-shadow(0 0 20px var(--move-color)); transform: translateX(-10px) scaleX(var(--facing, 1)); }
+    50% { filter: brightness(1); transform: translateX(10px) scaleX(var(--facing, 1)); }
+    75% { filter: brightness(2) drop-shadow(0 0 20px var(--move-color)); transform: translateX(-10px) scaleX(var(--facing, 1)); }
+    100% { filter: brightness(1); transform: translateX(0) scaleX(var(--facing, 1)); }
+}
     </style>
 </head>
 <body>
@@ -1006,6 +1061,64 @@
     function getCurrentMap() {
         return allMaps[currentMapIndex];
     }
+    function playAttackVisuals(attackerId, defenderId, moveObj, isPlayer, callback) {
+    const attackerImg = document.getElementById(attackerId);
+    const defenderImg = document.getElementById(defenderId);
+    const arena = document.querySelector('.battle-arena');
+
+    // Define colors based on the elemental types in your TYPE_CHART
+    const typeColors = {
+        fire: '#ff6b35', water: '#00b4d8', grass: '#2ecc71',
+        electric: '#f1c40f', combat: '#e74c3c', basic: '#ffffff',
+        bug: '#a2b918', dragon: '#6f35fc'
+    };
+    const moveColor = typeColors[moveObj.type.toLowerCase()] || '#ffffff';
+    
+    // Set variables for CSS to use
+    attackerImg.style.setProperty('--move-color', moveColor);
+    defenderImg.style.setProperty('--move-color', moveColor);
+    attackerImg.style.setProperty('--facing', isPlayer ? '-1' : '1');
+    defenderImg.style.setProperty('--facing', !isPlayer ? '-1' : '1');
+
+    if (moveObj.damageType === 'physical') {
+        // Physical Attack: Lunge forward, then hit
+        attackerImg.classList.add(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
+        
+        setTimeout(() => {
+            attackerImg.classList.remove(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
+            defenderImg.classList.add('anim-hit');
+            
+            setTimeout(() => {
+                defenderImg.classList.remove('anim-hit');
+                callback(); // Apply damage after animation
+            }, 400);
+        }, 300); // Time it to hit at the peak of the lunge
+
+    } else {
+        // Special Attack: Glow, shoot projectile, then hit
+        attackerImg.classList.add('anim-special');
+        
+        setTimeout(() => {
+            // Create projectile
+            const proj = document.createElement('div');
+            proj.className = `battle-projectile ${isPlayer ? 'anim-projectile-player' : 'anim-projectile-enemy'}`;
+            proj.style.background = `radial-gradient(circle, #fff 10%, ${moveColor} 60%, transparent 100%)`;
+            proj.style.boxShadow = `0 0 15px ${moveColor}`;
+            arena.appendChild(proj);
+
+            setTimeout(() => {
+                proj.remove();
+                attackerImg.classList.remove('anim-special');
+                defenderImg.classList.add('anim-hit');
+                
+                setTimeout(() => {
+                    defenderImg.classList.remove('anim-hit');
+                    callback(); // Apply damage after animation
+                }, 400);
+            }, 400); // Wait for projectile travel time
+        }, 200); // Shoot the projectile halfway through the cast
+    }
+}
 
     function initMap() {
         const grid = document.getElementById('mapGrid');
