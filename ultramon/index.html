@@ -582,6 +582,11 @@
             position: relative;
             transition: transform 0.4s ease;
         }
+        .tile-prev_gate { background: #8e44ad; border: 1px solid #732d91; }
+.tile-prev_gate::after { content: "◀️🚪"; font-size: 16px; }
+
+.tile-next_gate { background: #d35400; border: 1px solid #ba4a00; }
+.tile-next_gate::after { content: "🚪▶️"; font-size: 16px; }
 
         .battle-combatant { display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .battle-pet-img { width: 140px; height: 140px; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); transition: all 0.3s ease; }
