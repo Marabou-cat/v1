@@ -1799,21 +1799,26 @@ function endBattle(won) {
     }
 
     function executePlayerAttack(moveName) {
-        if (inForcedSwitch) return;
-        const activePlayerPet = getCalculatedPet(playerParty[0]);
-        const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
-        if (!moveObj) return;
+    if (inForcedSwitch) return;
+    const activePlayerPet = getCalculatedPet(playerParty[0]);
+    const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
+    if (!moveObj) return;
 
-        if (playerBattleEnergy < moveObj.powerCost) {
-            document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
-            return;
-        }
+    if (playerBattleEnergy < moveObj.powerCost) {
+        document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
+        return;
+    }
 
-        playerBattleEnergy -= moveObj.powerCost;
+    playerBattleEnergy -= moveObj.powerCost;
+    
+    // UI updates before animation
+    document.getElementById('battleActionButtons').innerHTML = ''; // Hide buttons during attack
+    document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}!`;
 
+    playAttackVisuals('battlePlayerImg', 'battleWildImg', moveObj, true, () => {
+        // --- Damage Calculation ---
         let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
         let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
-        
         let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
         
         let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
@@ -1827,18 +1832,16 @@ function endBattle(won) {
         else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
 
         let targetLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
-        document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
+        document.getElementById('battleDialogueText').innerText += ` Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
 
+        // --- Defeat Logic ---
         if (activeEncounter.currentHp <= 0) {
-            
-            // Generate EXP when defeating an opponent
             let expGained = activeEncounter.level * 15;
             playerParty[0].exp = (playerParty[0].exp || 0) + expGained;
             let leveledUp = false;
             let currentLvl = playerParty[0].lvl;
             let expNeeded = currentLvl * 50;
 
-            // Handle level upgrades (Loop handles huge EXP gains causing multiple levels)
             while (playerParty[0].exp >= expNeeded && playerParty[0].lvl < 100) {
                 playerParty[0].exp -= expNeeded;
                 playerParty[0].lvl++;
@@ -1848,7 +1851,7 @@ function endBattle(won) {
 
             if (leveledUp) {
                 const recalcPet = getCalculatedPet(playerParty[0]);
-                playerParty[0].hp = recalcPet.maxHp; // Heal to full on level up
+                playerParty[0].hp = recalcPet.maxHp; 
             }
 
             if (activeTrainer && trainerPetIndex < activeTrainer.team.length - 1) {
@@ -1886,19 +1889,24 @@ function endBattle(won) {
             return;
         }
 
+        // Enemy turn if not defeated
         setTimeout(() => executeEnemyAttack(), 1500);
-    }
+    });
+}
 
     function executeEnemyAttack() {
-        if (!activeEncounter || activeEncounter.currentHp <= 0) return;
+    if (!activeEncounter || activeEncounter.currentHp <= 0) return;
 
-        const enemyMoves = activeEncounter.unlockedMoves;
-        const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
-        const activePlayerPet = getCalculatedPet(playerParty[0]);
+    const enemyMoves = activeEncounter.unlockedMoves;
+    const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
+    const activePlayerPet = getCalculatedPet(playerParty[0]);
+    let attackerLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
+    
+    document.getElementById('battleDialogueText').innerText = `${attackerLabel} used ${randomMove.name}!`;
 
+    playAttackVisuals('battleWildImg', 'battlePlayerImg', randomMove, false, () => {
         let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
         let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
-        
         let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(randomMove.type, activePlayerPet.type) : 1.0;
 
         let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
@@ -1912,8 +1920,7 @@ function endBattle(won) {
         if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
         else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
 
-        let attackerLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
-        document.getElementById('battleDialogueText').innerText = `${attackerLabel} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+        document.getElementById('battleDialogueText').innerText += ` Dealt ${finalDamage} damage.${effectivenessText}`;
 
         if (playerParty[0].hp <= 0) {
             const hasLivingPets = playerParty.some(p => p.hp > 0);
@@ -1929,68 +1936,8 @@ function endBattle(won) {
         }
 
         resetBattleActionButtons();
-    }
-
-    function executeBattleCatch() {
-        if (inForcedSwitch || !activeEncounter || activeTrainer) return;
-
-        if (balls <= 0) {
-            document.getElementById('battleDialogueText').innerText = `❌ You don't have any Catch Balls left!`;
-            return;
-        }
-
-        balls--;
-        updateUI();
-
-        document.getElementById('battleDialogueText').innerText = `You threw a Catch Ball at wild ${activeEncounter.name}!`;
-        document.getElementById('battleActionButtons').innerHTML = `<div style="color:var(--p1); font-weight:bold; grid-column:span 2; text-align:center;">Catching...</div>`;
-
-        const escapeFromBattle = Math.random() < 0.10;
-        if (escapeFromBattle) {
-            playEscapeAnimation(() => {
-                document.getElementById('battleDialogueText').innerText = `💨 The wild ${activeEncounter.name} escaped from battle!`;
-                setTimeout(() => endBattle(false), 1500);
-            });
-            return;
-        }
-
-        playCatchAnimation((result) => {
-            if (result === 'caught') {
-                const newCaughtPet = {
-                    id: activeEncounter.id,
-                    lvl: activeEncounter.level,
-                    hp: activeEncounter.maxHp,
-                    exp: 0,
-                    activeMoves: activeEncounter.unlockedMoves.slice(0, 4).map(m => m.name)
-                };
-
-                if (playerParty.length < 6) {
-                    playerParty.push(newCaughtPet);
-                    document.getElementById('battleDialogueText').innerText = `🎉 Gotcha! Successfully caught ${activeEncounter.name} and added to party!`;
-                } else {
-                    playerPCStorage.push(newCaughtPet);
-                    document.getElementById('battleDialogueText').innerText = `🎉 Gotcha! Party is full (6/6), so ${activeEncounter.name} was sent to PC Storage!`;
-                }
-
-                coins += 30;
-                renderParty();
-                renderPCStorage();
-                renderPartyCircles();
-                updateUI();
-                saveGameData(true);
-
-                setTimeout(() => endBattle(true), 1500);
-            } else if (result === 'retry') {
-                document.getElementById('battleDialogueText').innerText = `💨 Oh no! ${activeEncounter.name} broke free, but you have another chance to catch!`;
-                setTimeout(() => {
-                    resetBattleActionButtons();
-                }, 1500);
-            } else {
-                document.getElementById('battleDialogueText').innerText = `💨 ${activeEncounter.name} broke free and escaped from battle!`;
-                setTimeout(() => endBattle(false), 1500);
-            }
-        });
-    }
+    });
+}
 
     function playCatchAnimation(onComplete) {
         let rawCatchRate = activeEncounter.catchRate !== undefined ? activeEncounter.catchRate : 0.40;
