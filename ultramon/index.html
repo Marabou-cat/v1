@@ -1060,6 +1060,32 @@
         }, 200); // Shoot the projectile halfway through the cast
     }
 }
+    function evolvePetFromMenu(petIndex) {
+    const petData = playerParty[petIndex];
+    const species = PETS[petData.id.toLowerCase()];
+    
+    if (!species || !species.evolutionId || species.evolutionId === "") return;
+
+    const currentLevel = petData.lvl || 1;
+    if (currentLevel >= species.evolvingLevel) {
+        const newSpecies = PETS[species.evolutionId.toLowerCase()];
+        if (!newSpecies) return;
+
+        const oldName = species.name;
+        petData.id = newSpecies.id;
+        
+        // Recalculate stats and reset/update active moves and full HP for the new form
+        const newCalc = getCalculatedPet(petData);
+        petData.hp = newCalc.maxHp; 
+        petData.activeMoves = newCalc.unlockedMoves.slice(0, 4).map(m => m.name);
+
+        alert(`🎉 Congratulations! Your ${oldName} successfully evolved into ${newSpecies.name}!`);
+
+        renderParty();
+        renderPartyCircles();
+        saveGameData(true);
+    }
+}
 
     function initMap() {
         const grid = document.getElementById('mapGrid');
@@ -2411,6 +2437,13 @@ function travelThroughGate() {
             let managementButtons = '';
             if (petIndex > 0 && petData.hp > 0) {
                 managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px;" onclick="selectLeadPet(${petIndex})">⭐ Set Lead</button>`;
+            }
+            // Check if pet is eligible for evolution
+            const species = PETS[petData.id.toLowerCase()];
+            const canEvolve = species && species.evolutionId && species.evolutionId !== "" && (petData.lvl || 1) >= species.evolvingLevel;
+            
+            if (canEvolve) {
+                managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:#f1c40f; color:#000; border-color:#d4ac0d; font-weight:bold;" onclick="evolvePetFromMenu(${petIndex})">✨ Evolve</button>`;
             }
             if (petIndex > 0) {
                 managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px; background:var(--bg2);" onclick="movePartyPet(${petIndex}, -1)">⬆️ Up</button>`;
