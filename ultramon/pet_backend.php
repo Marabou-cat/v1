@@ -27,6 +27,8 @@ try {
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $pdo->exec("USE `$db_name`");
 
+    // The party_data and pc_data columns use LONGTEXT to store JSON.
+    // This allows the frontend to save the new "exp" values seamlessly.
     $pdo->exec("CREATE TABLE IF NOT EXISTS `petgame_users` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `username` VARCHAR(50) NOT NULL UNIQUE,
