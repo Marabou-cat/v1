@@ -1125,6 +1125,77 @@
         }
         requestAnimationFrame(gameLoop);
     }
+    function checkPetEvolution(petData, onComplete) {
+    const species = PETS[petData.id.toLowerCase()];
+    if (!species || !species.evolutionId || species.evolutionId === "") {
+        if (onComplete) onComplete();
+        return;
+    }
+
+    const currentLevel = petData.lvl || 1;
+    if (currentLevel >= species.evolvingLevel) {
+        triggerEvolutionAnimation(petData, species.evolutionId, onComplete);
+    } else {
+        if (onComplete) onComplete();
+    }
+}
+
+function triggerEvolutionAnimation(petData, newSpeciesId, onComplete) {
+    const oldSpecies = PETS[petData.id.toLowerCase()];
+    const newSpecies = PETS[newSpeciesId.toLowerCase()];
+    if (!newSpecies) {
+        if (onComplete) onComplete();
+        return;
+    }
+
+    const dialogue = document.getElementById('battleDialogueText');
+    const playerImg = document.getElementById('battlePlayerImg');
+    const arena = document.querySelector('.battle-arena');
+
+    dialogue.innerText = `What? ${oldSpecies.name} is evolving!`;
+    arena.style.transform = 'scale(1.25)';
+
+    let flashCount = 0;
+    const flashInterval = setInterval(() => {
+        playerImg.style.filter = flashCount % 2 === 0 ? 'brightness(4) drop-shadow(0 0 25px #ffffff)' : 'brightness(1)';
+        flashCount++;
+
+        if (flashCount > 8) {
+            clearInterval(flashInterval);
+            
+            petData.id = newSpecies.id;
+            const newCalc = getCalculatedPet(petData);
+            petData.hp = newCalc.maxHp; 
+            petData.activeMoves = newCalc.unlockedMoves.slice(0, 4).map(m => m.name);
+
+            playerImg.src = newSpecies.img;
+            playerImg.style.filter = 'none';
+            arena.style.transform = 'scale(1)';
+            dialogue.innerText = `Congratulations! Your ${oldSpecies.name} evolved into ${newSpecies.name}!`;
+
+            renderParty();
+            renderPartyCircles();
+
+            setTimeout(() => {
+                if (onComplete) onComplete();
+            }, 2500);
+        }
+    }, 350);
+}
+
+function endBattle(won) {
+    const overlay = document.getElementById('battleOverlay');
+    overlay.classList.remove('active');
+    encounterCooldown = false;
+
+    if (won && playerParty.length > 0) {
+        checkPetEvolution(playerParty[0], () => {
+            saveGameData(true);
+        });
+    } else {
+        saveGameData(true);
+    }
+}
 
     function isValidPosition(x, y) {
         const radius = 0.3;
