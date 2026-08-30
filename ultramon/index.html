@@ -702,60 +702,60 @@
             .battle-menu-box { grid-template-columns: 1fr; }
         }
         /* --- BATTLE ANIMATIONS --- */
-.anim-physical-player { animation: lungeRight 0.3s ease-in-out; }
-.anim-physical-enemy { animation: lungeLeft 0.3s ease-in-out; }
-.anim-special { animation: specialCast 0.6s ease-in-out; }
-.anim-hit { animation: damageFlash 0.4s ease-out; }
+        .anim-physical-player { animation: lungeRight 0.3s ease-in-out; }
+        .anim-physical-enemy { animation: lungeLeft 0.3s ease-in-out; }
+        .anim-special { animation: specialCast 0.6s ease-in-out; }
+        .anim-hit { animation: damageFlash 0.4s ease-out; }
 
-/* Physical Lunges */
-@keyframes lungeRight {
-    0% { transform: scaleX(-1) translateX(0); } /* Player is already scaled X -1 */
-    50% { transform: scaleX(-1) translateX(-60px) scale(1.1); }
-    100% { transform: scaleX(-1) translateX(0); }
-}
-@keyframes lungeLeft {
-    0% { transform: translateX(0); }
-    50% { transform: translateX(-60px) scale(1.1); }
-    100% { transform: translateX(0); }
-}
+        /* Physical Lunges */
+        @keyframes lungeRight {
+            0% { transform: scaleX(-1) translateX(0); }
+            50% { transform: scaleX(-1) translateX(-60px) scale(1.1); }
+            100% { transform: scaleX(-1) translateX(0); }
+        }
+        @keyframes lungeLeft {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(-60px) scale(1.1); }
+            100% { transform: translateX(0); }
+        }
 
-/* Special Attack Glow */
-@keyframes specialCast {
-    0% { filter: brightness(1) drop-shadow(0 0 0 transparent); transform: scale(1) scaleX(var(--facing, 1)); }
-    50% { filter: brightness(1.3) drop-shadow(0 0 25px var(--move-color)); transform: scale(1.1) scaleX(var(--facing, 1)); }
-    100% { filter: brightness(1) drop-shadow(0 0 0 transparent); transform: scale(1) scaleX(var(--facing, 1)); }
-}
+        /* Special Attack Glow */
+        @keyframes specialCast {
+            0% { filter: brightness(1) drop-shadow(0 0 0 transparent); transform: scale(1) scaleX(var(--facing, 1)); }
+            50% { filter: brightness(1.3) drop-shadow(0 0 25px var(--move-color)); transform: scale(1.1) scaleX(var(--facing, 1)); }
+            100% { filter: brightness(1) drop-shadow(0 0 0 transparent); transform: scale(1) scaleX(var(--facing, 1)); }
+        }
 
-/* Projectile Element */
-.battle-projectile {
-    position: absolute;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    z-index: 1000;
-    pointer-events: none;
-    opacity: 0;
-}
-.anim-projectile-player { animation: shootRight 0.4s ease-in forwards; }
-.anim-projectile-enemy { animation: shootLeft 0.4s ease-in forwards; }
+        /* Projectile Element */
+        .battle-projectile {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .anim-projectile-player { animation: shootRight 0.4s ease-in forwards; }
+        .anim-projectile-enemy { animation: shootLeft 0.4s ease-in forwards; }
 
-@keyframes shootRight {
-    0% { left: 25%; top: 40%; opacity: 1; transform: scale(0.5); }
-    100% { left: 75%; top: 40%; opacity: 0; transform: scale(1.5); }
-}
-@keyframes shootLeft {
-    0% { left: 75%; top: 40%; opacity: 1; transform: scale(0.5); }
-    100% { left: 25%; top: 40%; opacity: 0; transform: scale(1.5); }
-}
+        @keyframes shootRight {
+            0% { left: 25%; top: 40%; opacity: 1; transform: scale(0.5); }
+            100% { left: 75%; top: 40%; opacity: 0; transform: scale(1.5); }
+        }
+        @keyframes shootLeft {
+            0% { left: 75%; top: 40%; opacity: 1; transform: scale(0.5); }
+            100% { left: 25%; top: 40%; opacity: 0; transform: scale(1.5); }
+        }
 
-/* Hit Reaction */
-@keyframes damageFlash {
-    0% { filter: brightness(1); transform: translateX(0) scaleX(var(--facing, 1)); }
-    25% { filter: brightness(2) drop-shadow(0 0 20px var(--move-color)); transform: translateX(-10px) scaleX(var(--facing, 1)); }
-    50% { filter: brightness(1); transform: translateX(10px) scaleX(var(--facing, 1)); }
-    75% { filter: brightness(2) drop-shadow(0 0 20px var(--move-color)); transform: translateX(-10px) scaleX(var(--facing, 1)); }
-    100% { filter: brightness(1); transform: translateX(0) scaleX(var(--facing, 1)); }
-}
+        /* Hit Reaction */
+        @keyframes damageFlash {
+            0% { filter: brightness(1); transform: translateX(0) scaleX(var(--facing, 1)); }
+            25% { filter: brightness(2) drop-shadow(0 0 20px var(--move-color)); transform: translateX(-10px) scaleX(var(--facing, 1)); }
+            50% { filter: brightness(1); transform: translateX(10px) scaleX(var(--facing, 1)); }
+            75% { filter: brightness(2) drop-shadow(0 0 20px var(--move-color)); transform: translateX(-10px) scaleX(var(--facing, 1)); }
+            100% { filter: brightness(1); transform: translateX(0) scaleX(var(--facing, 1)); }
+        }
     </style>
 </head>
 <body>
@@ -954,6 +954,7 @@
     </div>
 </div>
 
+<script src="maps.js"></script>
 <script src="pets.js"></script>
 <script src="npc.js"></script>
 
@@ -1015,37 +1016,37 @@
     ];
 
     const route2Map = [
-        ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'gate', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall', 'route', 'wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'grass', 'grass', 'grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'grass', 'grass', 'grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall', 'wall', 'wall', 'wall', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'route', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
-    ['wall', 'wall', 'wall', 'wall', 'wall', 'grass', 'grass', 'grass', 'wall', 'wall', 'route', 'route', 'route', 'route', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'route', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'grass', 'grass', 'grass', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'grass', 'grass', 'grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'grass', 'grass', 'grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'grass', 'route', 'route', 'wall', 'wall', 'wall'],
-    ['wall', 'grass', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'grass', 'route', 'wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'route', 'route', 'gate'],
-    ['wall', 'grass', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'grass', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'route', 'route', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'route', 'route', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'route', 'route', 'wall'],
-    ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'route', 'route', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'route', 'route', 'wall'],
-    ['wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'route', 'route', 'wall'],
-    ['wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'route', 'route', 'wall'],
-    ['wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'route', 'route', 'route', 'wall'],
-    ['wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'wall'],
-    ['wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall'],
-    ['wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall', 'route', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall'],
-    ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall', 'route', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall'],
-    ['wall', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall'],
-    ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall']
-];
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall','grass','grass','grass','grass','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','tall_grass','wall','tall_grass','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
+        ['wall','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['gate','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','gate'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','wall','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','wall','grass','wall','wall','tall_grass','grass','wall','wall','grass','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','grass','wall','grass','wall'],
+        ['wall','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall'],
+        ['wall','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','wall','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','wall','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall','wall','tall_grass','grass','wall','wall','tall_grass','wall','tall_grass','wall'],
+        ['wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','wall','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','grass','tall_grass','tall_grass','grass','tall_grass','wall'],
+        ['wall','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','route','wall'],
+        ['wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','wall','tall_grass','grass','grass','tall_grass','wall','grass','grass','tall_grass','wall','grass','wall'],
+        ['wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','wall','grass','grass','grass','grass','wall','grass','grass','grass','wall','grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','tall_grass','tall_grass','grass','grass','grass','wall'],
+        ['wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall','wall']
+    ];
 
     const allMaps = [route1Map, route2Map];
 
@@ -1059,6 +1060,9 @@
     window.addEventListener('resize', renderPlayerElement);
 
     function getCurrentMap() {
+        if (typeof window.allMaps !== 'undefined' && window.allMaps[currentMapIndex]) {
+            return window.allMaps[currentMapIndex];
+        }
         return allMaps[currentMapIndex];
     }
     function playAttackVisuals(attackerId, defenderId, moveObj, isPlayer, callback) {
@@ -1066,7 +1070,7 @@
     const defenderImg = document.getElementById(defenderId);
     const arena = document.querySelector('.battle-arena');
 
-    // Define colors based on the elemental types in your TYPE_CHART
+    // Define colors based on elemental types
     const typeColors = {
         fire: '#ff6b35', water: '#00b4d8', grass: '#2ecc71',
         electric: '#f1c40f', combat: '#e74c3c', basic: '#ffffff',
@@ -1680,7 +1684,7 @@ function endBattle(won) {
             document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
         }
 
-        // Apply dynamic size scaling for the wild pet sprite[cite: 2]
+        // Apply dynamic size scaling for the wild pet sprite
         const wildImg = document.getElementById('battleWildImg');
         wildImg.src = activeEncounter.img;
         const wildBaseSize = 140;
@@ -1693,7 +1697,7 @@ function endBattle(won) {
 
         document.getElementById('battlePlayerName').innerText = `${activePlayerPet.name} (Lv. ${activePlayerPet.level})`;
         
-        // Apply dynamic size scaling for the player pet sprite[cite: 2]
+        // Apply dynamic size scaling for the player pet sprite
         const playerImg = document.getElementById('battlePlayerImg');
         playerImg.src = activePlayerPet.img;
         const playerBaseSize = 140;
@@ -1812,11 +1816,10 @@ function endBattle(won) {
     playerBattleEnergy -= moveObj.powerCost;
     
     // UI updates before animation
-    document.getElementById('battleActionButtons').innerHTML = ''; // Hide buttons during attack
+    document.getElementById('battleActionButtons').innerHTML = '';
     document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}!`;
 
     playAttackVisuals('battlePlayerImg', 'battleWildImg', moveObj, true, () => {
-        // --- Damage Calculation ---
         let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
         let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
         let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
@@ -1834,7 +1837,6 @@ function endBattle(won) {
         let targetLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
         document.getElementById('battleDialogueText').innerText += ` Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
 
-        // --- Defeat Logic ---
         if (activeEncounter.currentHp <= 0) {
             let expGained = activeEncounter.level * 15;
             playerParty[0].exp = (playerParty[0].exp || 0) + expGained;
@@ -1889,7 +1891,6 @@ function endBattle(won) {
             return;
         }
 
-        // Enemy turn if not defeated
         setTimeout(() => executeEnemyAttack(), 1500);
     });
 }
@@ -2046,7 +2047,6 @@ function endBattle(won) {
         renderPCStorage();
         renderPartyCircles();
 
-        // Save progress to the server if the battle finished successfully (win)
         if (isFinished) {
             saveGameData(true);
         }
@@ -2344,7 +2344,7 @@ function endBattle(won) {
             const pet = getCalculatedPet(petData);
             if (!pet) return;
 
-            const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
+            const hpPct = Math.max(0, (petData.hp / pet.maxHp) * 100);
             const currentExp = petData.exp || 0;
             const expNeeded = pet.level * 50;
             const expPct = Math.min(100, (currentExp / expNeeded) * 100);
@@ -2378,41 +2378,28 @@ function endBattle(won) {
             container.innerHTML += `
                 <div class="pet-card">
                     <div class="pet-card-header">
-                        <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
-                        <div style="flex:1; display:flex; justify-content:space-between; font-weight:bold;">
-                            <span>${pet.name} <small>(Lv. ${pet.level})</small>${petIndex === 0 ? ' <span style="color:var(--gold);">(Lead)</span>' : ''}</span>
-                            <span style="color:var(--p1);">${pet.type}</span>
+                        <img src="${pet.img}" class="pet-card-thumb" alt="${pet.name}">
+                        <div style="flex:1;">
+                            <div style="font-weight:bold; color:var(--p1); font-size:16px;">${pet.name} <span style="font-size:12px; color:#aaa;">(Lv. ${pet.level})</span> ${petIndex === 0 ? '<span style="color:var(--gold); font-size:12px;">★ Lead</span>' : ''}</div>
+                            <div class="hp-bar-bg"><div class="hp-bar-fill" style="width:${hpPct}%;"></div></div>
+                            <div style="font-size:10px; text-align:right; margin-top:2px;">HP: ${petData.hp}/${pet.maxHp}</div>
+                            <div class="exp-bar-bg"><div class="exp-bar-fill" style="width:${expPct}%;"></div></div>
+                            <div style="font-size:10px; text-align:right; margin-top:2px;">EXP: ${currentExp}/${expNeeded}</div>
                         </div>
                     </div>
-                    
-                    <!-- HP Bar -->
-                    <div class="hp-bar-bg">
-                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
+                    <div class="stat-grid">
+                        <div>Atk: ${pet.attack}</div>
+                        <div>Def: ${pet.defense}</div>
+                        <div>SpAtk: ${pet.spAttack}</div>
+                        <div>SpDef: ${pet.spDefense}</div>
+                        <div>Type: ${pet.type.toUpperCase()}</div>
                     </div>
-                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
-                    
-                    <!-- EXP Bar -->
-                    <div class="exp-bar-bg">
-                        <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
+                    <div class="moves-section">
+                        <div style="font-weight:bold; margin-bottom:4px;">Moves (Select 1-4 active):</div>
+                        <div class="moves-chips">${movesChipsHtml}</div>
                     </div>
-                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top:2px;">EXP: ${currentExp}/${expNeeded}</div>
-
-                    <div class="stat-grid" style="margin-top:6px;">
-                        <span>ATK: ${pet.attack}</span>
-                        <span>DEF: ${pet.defense}</span>
-                        <span>SPD: ${pet.speed}</span>
-                        <span>SP.ATK: ${pet.spAttack}</span>
-                        <span>SP.DEF: ${pet.spDefense}</span>
-                        <span>TYPE: ${pet.type}</span>
-                    </div>
-
                     <div class="pet-actions-row">
                         ${managementButtons}
-                    </div>
-
-                    <div class="moves-section">
-                        <div style="font-weight:bold; color:var(--p1);">Equipped Moves (Click to toggle up to 4):</div>
-                        <div class="moves-chips">${movesChipsHtml}</div>
                     </div>
                 </div>
             `;
@@ -2425,7 +2412,7 @@ function endBattle(won) {
         container.innerHTML = '';
 
         if (playerPCStorage.length === 0) {
-            container.innerHTML = `<div style="text-align:center; padding: 20px; color:#888;">No pets stored in PC box yet!</div>`;
+            container.innerHTML = `<div style="text-align:center; padding: 20px; color:#888;">No pets stored in PC box.</div>`;
             return;
         }
 
@@ -2433,48 +2420,67 @@ function endBattle(won) {
             const pet = getCalculatedPet(petData);
             if (!pet) return;
 
-            const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
-            const currentExp = petData.exp || 0;
-            const expNeeded = pet.level * 50;
-            const expPct = Math.min(100, (currentExp / expNeeded) * 100);
-
             container.innerHTML += `
                 <div class="pet-card">
                     <div class="pet-card-header">
-                        <img src="${pet.img}" alt="${pet.name}" class="pet-card-thumb">
-                        <div style="flex:1; display:flex; justify-content:space-between; font-weight:bold;">
-                            <span>${pet.name} <small>(Lv. ${pet.level})</small></span>
-                            <span style="color:var(--p1);">${pet.type}</span>
+                        <img src="${pet.img}" class="pet-card-thumb" alt="${pet.name}">
+                        <div style="flex:1;">
+                            <div style="font-weight:bold; color:var(--p1); font-size:16px;">${pet.name} <span style="font-size:12px; color:#aaa;">(Lv. ${pet.level})</span></div>
+                            <div style="font-size:12px; color:#aaa;">Type: ${pet.type.toUpperCase()}</div>
                         </div>
                     </div>
-
-                    <!-- HP Bar -->
-                    <div class="hp-bar-bg">
-                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
-                    </div>
-                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
-                    
-                    <!-- EXP Bar -->
-                    <div class="exp-bar-bg">
-                        <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
-                    </div>
-                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top:2px;">EXP: ${currentExp}/${expNeeded}</div>
-                    
-                    <div class="stat-grid" style="margin-top:6px;">
-                        <span>ATK: ${pet.attack}</span>
-                        <span>DEF: ${pet.defense}</span>
-                        <span>SPD: ${pet.speed}</span>
-                        <span>SP.ATK: ${pet.spAttack}</span>
-                        <span>SP.DEF: ${pet.spDefense}</span>
-                        <span>TYPE: ${pet.type}</span>
-                    </div>
-
                     <div class="pet-actions-row">
-                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#2ecc71; border-color:#27ae60;" onclick="withdrawFromPC(${pcIndex})">📥 Withdraw to Party</button>
+                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:var(--p0);" onclick="withdrawFromPC(${pcIndex})">📥 Withdraw to Party</button>
                         <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#e74c3c; border-color:#c0392b;" onclick="releaseFromPC(${pcIndex})">🗑️ Release</button>
                     </div>
                 </div>
             `;
+        });
+    }
+
+    function executeBattleCatch() {
+        if (activeTrainer) {
+            document.getElementById('battleDialogueText').innerText = "You can't catch another trainer's pet!";
+            return;
+        }
+        if (balls <= 0) {
+            document.getElementById('battleDialogueText').innerText = "You don't have any Catch Balls left!";
+            return;
+        }
+
+        balls--;
+        updateUI();
+
+        document.getElementById('battleActionButtons').innerHTML = '';
+        document.getElementById('battleDialogueText').innerText = `You threw a Catch Ball!`;
+
+        playCatchAnimation((result) => {
+            if (result === 'caught') {
+                document.getElementById('battleDialogueText').innerText = `Gotcha! ${activeEncounter.name} was caught!`;
+                
+                const caughtPetData = {
+                    id: activeEncounter.id,
+                    lvl: activeEncounter.level,
+                    hp: activeEncounter.maxHp,
+                    exp: 0,
+                    activeMoves: activeEncounter.unlockedMoves.slice(0, 4).map(m => m.name)
+                };
+
+                if (playerParty.length < 6) {
+                    playerParty.push(caughtPetData);
+                } else {
+                    playerPCStorage.push(caughtPetData);
+                    alert(`${activeEncounter.name} was transferred to your PC Storage!`);
+                }
+
+                setTimeout(() => endBattle(true), 2500);
+            } else if (result === 'retry') {
+                document.getElementById('battleDialogueText').innerText = `${activeEncounter.name} broke free!`;
+                setTimeout(() => executeEnemyAttack(), 1500);
+            } else {
+                document.getElementById('battleDialogueText').innerText = `${activeEncounter.name} broke free and fled!`;
+                playEscapeAnimation(() => endBattle(false));
+            }
         });
     }
 </script>
