@@ -36,6 +36,8 @@
             padding: 15px;
             border-radius: var(--r);
             border: 2px solid var(--p0);
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .brush-btn {
@@ -52,16 +54,17 @@
         .brush-btn:hover { filter: brightness(1.2); }
         .brush-btn.active { border-color: var(--p1); box-shadow: 0 0 10px var(--p0); }
 
-        /* Brush Colors matching the game */
+        /* Brush Colors */
         .brush-grass { background: #27ae60; }
         .brush-tall_grass { background: #1e8449; }
         .brush-wall { background: #4a5568; }
         .brush-route { background: #f1c40f; color: black; }
-        .brush-gate { background: #d35400; }
+        .brush-gate_next { background: #d35400; }
+        .brush-gate_prev { background: #c0392b; }
 
         .editor-container {
             display: grid;
-            grid-template-columns: repeat(30, 20px); /* 30x30 Map */
+            grid-template-columns: repeat(30, 20px);
             grid-template-rows: repeat(30, 20px);
             gap: 1px;
             background: #000;
@@ -75,13 +78,29 @@
             cursor: crosshair;
         }
 
-        /* Tile visual representation */
+        /* Tile visuals */
         .cell.grass { background: #27ae60; }
         .cell.tall_grass { background: #1e8449; }
         .cell.wall { background: #4a5568; }
         .cell.route { background: #f1c40f; }
-        .cell.gate { background: #d35400; display: flex; align-items: center; justify-content: center; font-size: 10px; }
-        .cell.gate::after { content: "🚪"; }
+        
+        .cell.gate_next { 
+            background: #d35400; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 10px; 
+        }
+        .cell.gate_next::after { content: "➡️"; }
+
+        .cell.gate_prev { 
+            background: #c0392b; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 10px; 
+        }
+        .cell.gate_prev::after { content: "⬅️"; }
 
         .action-row {
             margin-top: 20px;
@@ -138,7 +157,8 @@
         <button class="brush-btn brush-tall_grass" onclick="setBrush('tall_grass')">Tall Grass</button>
         <button class="brush-btn brush-wall" onclick="setBrush('wall')">Wall</button>
         <button class="brush-btn brush-route" onclick="setBrush('route')">Route</button>
-        <button class="brush-btn brush-gate" onclick="setBrush('gate')">Gate</button>
+        <button class="brush-btn brush-gate_prev" onclick="setBrush('gate_prev')">Gate Prev ⬅️</button>
+        <button class="brush-btn brush-gate_next" onclick="setBrush('gate_next')">Gate Next ➡️</button>
     </div>
 
     <div class="editor-container" id="grid"></div>
@@ -150,23 +170,20 @@
 
     <div class="output-container" id="outputContainer">
         <h3 style="color: var(--p1); margin-bottom: 5px;">Generated Map Array:</h3>
-        <p style="font-size: 14px; margin-top: 0; color: #aaa;">Copy this code and paste it into your game file (e.g., replace <code>route1Map</code>).</p>
+        <p style="font-size: 14px; margin-top: 0; color: #aaa;">Copy this code and paste it into your game file array.</p>
         <textarea id="outputCode" readonly></textarea>
     </div>
 
     <script>
-        const MAP_SIZE = 30; // Matches your game map size
+        const MAP_SIZE = 30;
         let currentBrush = 'grass';
         let isMouseDown = false;
         
-        // Internal 2D array representation
         let mapData = Array.from({ length: MAP_SIZE }, () => Array(MAP_SIZE).fill('grass'));
 
-        // Handle mouse drag state
         document.body.addEventListener('mousedown', () => isMouseDown = true);
         document.body.addEventListener('mouseup', () => isMouseDown = false);
 
-        // Initialize UI Grid
         const gridElement = document.getElementById('grid');
         
         function drawGrid() {
@@ -178,7 +195,6 @@
                     cell.dataset.row = r;
                     cell.dataset.col = c;
                     
-                    // Painting events
                     cell.addEventListener('mousedown', (e) => paintCell(e.target));
                     cell.addEventListener('mouseenter', (e) => {
                         if (isMouseDown) paintCell(e.target);
@@ -193,22 +209,18 @@
             const r = element.dataset.row;
             const c = element.dataset.col;
             
-            // Update array
             mapData[r][c] = currentBrush;
-            
-            // Update DOM class
             element.className = `cell ${currentBrush}`;
         }
 
         function setBrush(brushType) {
             currentBrush = brushType;
-            // Update UI buttons
             document.querySelectorAll('.brush-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelector(`.brush-${brushType}`).classList.add('active');
         }
 
         function clearMap() {
-            if(confirm("Are you sure you want to fill the map with grass?")) {
+            if(confirm("Are you sure you want to reset the map to all grass?")) {
                 mapData = Array.from({ length: MAP_SIZE }, () => Array(MAP_SIZE).fill('grass'));
                 drawGrid();
                 document.getElementById('outputContainer').style.display = 'none';
@@ -216,9 +228,9 @@
         }
 
         function generateMap() {
-            let code = "const newCustomMap = [\n";
+            let code = "const customMap = [\n";
             for(let r = 0; r < MAP_SIZE; r++) {
-                const rowString = mapData[r].map(tile => `'${tile}'`).join(',');
+                const rowString = mapData[r].map(tile => `'${tile}'`).join(', ');
                 code += `    [${rowString}]`;
                 if(r < MAP_SIZE - 1) {
                     code += ",\n";
@@ -230,12 +242,9 @@
             
             document.getElementById('outputContainer').style.display = 'block';
             document.getElementById('outputCode').value = code;
-            
-            // Scroll to code block
             document.getElementById('outputContainer').scrollIntoView({ behavior: 'smooth' });
         }
 
-        // Initialize the grid on load
         drawGrid();
     </script>
 </body>
