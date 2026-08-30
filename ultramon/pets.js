@@ -45,9 +45,9 @@ const PETS = {
         name: "Pyrodon",
         type: ["fire"],
         spawn_routes: [],
-        img: "petpng/flaragon.png",
+        img: "petpng/pyrodon.png",
         catchRate: 25,
-        evolvingLevel: 0,
+        evolvingLevel: 16,
         evolutionId: "",
         baseStats: { hp: 160, attack: 15, defense: 16, spAttack: 24, spDefense: 18, speed: 22 },
         maxStats:  { hp: 750, attack: 150, defense: 160, spAttack: 240, spDefense: 180, speed: 220 },
@@ -55,7 +55,8 @@ const PETS = {
             { name: "Scratch", type: "basic", damage: 10, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Ember", type: "fire", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
             { name: "Flame Dash", type: "fire", damage: 45, powerCost: 10, damageType: "physical", levelToLearn: 5 },
-            { name: "Inferno Blast", type: "fire", damage: 70, powerCost: 20, damageType: "special", levelToLearn: 10 }
+            { name: "Inferno Blast", type: "fire", damage: 70, powerCost: 20, damageType: "special", levelToLearn: 10 },
+            { name: "Burn Out", type: "fire", damage: 200, powerCost: 100, damageType: "special", levelToLearn:  }
         ]
     },
     bubbitty: {
@@ -65,7 +66,7 @@ const PETS = {
         spawn_routes: [],
         img: "petpng/bubbitty.png",
         catchRate: 45,
-        evolvingLevel: 5,
+        evolvingLevel: 16,
         evolutionId: "tideleel",
         baseStats: { hp: 110, attack: 10, defense: 14, spAttack: 12, spDefense: 16, speed: 10 },
         maxStats:  { hp: 540, attack: 130, defense: 170, spAttack: 150, spDefense: 195, speed: 240 },
@@ -73,12 +74,12 @@ const PETS = {
             { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Water Gun", type: "water", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
             { name: "Bubble Beam", type: "water", damage: 45, powerCost: 12, damageType: "special", levelToLearn: 5 },
-            { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special", levelToLearn: 10 }
+            { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special", levelToLearn: 16 }
         ]
     },
-    tideleel: {
-        id: "tideleel",
-        name: "Tideleel",
+    charmpaw: {
+        id: "charmpaw",
+        name: "Charmpaw",
         type: ["water"],
         spawn_routes: [],
         img: "petpng/bubbitty.png",
@@ -91,7 +92,8 @@ const PETS = {
             { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Water Gun", type: "water", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
             { name: "Bubble Beam", type: "water", damage: 45, powerCost: 12, damageType: "special", levelToLearn: 5 },
-            { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special", levelToLearn: 10 }
+            { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special", levelToLearn: 10 },
+            { name: "Charm", type: "basic", damage: 90, powerCost: 55, damageType: "special", levelToLearn: 16 }
         ]
     },
     sproupup: {
