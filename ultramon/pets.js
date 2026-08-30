@@ -41,7 +41,7 @@ const PETS = {
         spawn_routes: [],
         img: "petpng/flaragon.png",
         catchRate: 45,
-        evolvingLevel: 5,
+        evolvingLevel: 16,
         evolutionId: "pyrodon",
         size: 1.0, // Added size stat[cite: 1]
         baseStats: { hp: 100, attack: 10, defense: 10, spAttack: 16, spDefense: 12, speed: 15 },
