@@ -1567,13 +1567,26 @@ function endBattle(won) {
             document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
         }
 
-        document.getElementById('battleWildImg').src = activeEncounter.img;
+        // Apply dynamic size scaling for the wild pet sprite[cite: 2]
+        const wildImg = document.getElementById('battleWildImg');
+        wildImg.src = activeEncounter.img;
+        const wildBaseSize = 140;
+        wildImg.style.width = (wildBaseSize * activeEncounter.size) + 'px';
+        wildImg.style.height = (wildBaseSize * activeEncounter.size) + 'px';
+
         const wildHpPct = Math.max(0, (activeEncounter.currentHp / activeEncounter.maxHp) * 100);
         document.getElementById('battleWildHp').style.width = wildHpPct + '%';
         document.getElementById('battleWildHpText').innerText = `${activeEncounter.currentHp}/${activeEncounter.maxHp}`;
 
         document.getElementById('battlePlayerName').innerText = `${activePlayerPet.name} (Lv. ${activePlayerPet.level})`;
-        document.getElementById('battlePlayerImg').src = activePlayerPet.img;
+        
+        // Apply dynamic size scaling for the player pet sprite[cite: 2]
+        const playerImg = document.getElementById('battlePlayerImg');
+        playerImg.src = activePlayerPet.img;
+        const playerBaseSize = 140;
+        playerImg.style.width = (playerBaseSize * activePlayerPet.size) + 'px';
+        playerImg.style.height = (playerBaseSize * activePlayerPet.size) + 'px';
+
         const playerHpPct = Math.max(0, (playerParty[0].hp / activePlayerPet.maxHp) * 100);
         document.getElementById('battlePlayerHp').style.width = playerHpPct + '%';
         document.getElementById('battlePlayerHpText').innerText = `${playerParty[0].hp}/${activePlayerPet.maxHp}`;
