@@ -1,4 +1,3 @@
-// Rebalanced version of pets.js with adjusted base HP, lowered move power, and integrated stat-scaling[cite: 2, 5]
 const TYPE_CHART = {
     fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67 },
     water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67 },
@@ -7,10 +6,9 @@ const TYPE_CHART = {
     combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67 },
     basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
     bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
-    dragon:      { fire: 1.0, water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5 }
+    dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5 }
 };
 
-// Helper function to calculate type effectiveness across multi-type pets (max 2 types)
 function getTypeEffectiveness(moveType, defenderTypes) {
     let multiplier = 1.0;
     if (!TYPE_CHART[moveType]) return multiplier;
@@ -23,7 +21,6 @@ function getTypeEffectiveness(moveType, defenderTypes) {
     return multiplier;
 }
 
-// Database of Pet Species with Rebalanced Base HP, Move Powers, and Base Catch Rates
 const PETS = {
     flaragon: {
         id: "flaragon",
@@ -32,8 +29,28 @@ const PETS = {
         spawn_routes: [],
         img: "petpng/flaragon.png",
         catchRate: 45,
+        evolvingLevel: 5,
+        evolutionId: "pyrodon",
         baseStats: { hp: 100, attack: 10, defense: 10, spAttack: 16, spDefense: 12, speed: 15 },
         maxStats:  { hp: 500, attack: 110, defense: 120, spAttack: 190, spDefense: 140, speed: 175 },
+        moves: [
+            { name: "Scratch", type: "basic", damage: 10, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Ember", type: "fire", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
+            { name: "Flame Dash", type: "fire", damage: 45, powerCost: 10, damageType: "physical", levelToLearn: 5 },
+            { name: "Inferno Blast", type: "fire", damage: 70, powerCost: 20, damageType: "special", levelToLearn: 10 }
+        ]
+    },
+    pyrodon: {
+        id: "pyrodon",
+        name: "Pyrodon",
+        type: ["fire"],
+        spawn_routes: [],
+        img: "petpng/flaragon.png",
+        catchRate: 25,
+        evolvingLevel: 0,
+        evolutionId: "",
+        baseStats: { hp: 160, attack: 15, defense: 16, spAttack: 24, spDefense: 18, speed: 22 },
+        maxStats:  { hp: 750, attack: 150, defense: 160, spAttack: 240, spDefense: 180, speed: 220 },
         moves: [
             { name: "Scratch", type: "basic", damage: 10, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Ember", type: "fire", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
@@ -48,8 +65,28 @@ const PETS = {
         spawn_routes: [],
         img: "petpng/bubbitty.png",
         catchRate: 45,
+        evolvingLevel: 5,
+        evolutionId: "tideleel",
         baseStats: { hp: 110, attack: 10, defense: 14, spAttack: 12, spDefense: 16, speed: 10 },
         maxStats:  { hp: 540, attack: 130, defense: 170, spAttack: 150, spDefense: 195, speed: 240 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Water Gun", type: "water", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
+            { name: "Bubble Beam", type: "water", damage: 45, powerCost: 12, damageType: "special", levelToLearn: 5 },
+            { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special", levelToLearn: 10 }
+        ]
+    },
+    tideleel: {
+        id: "tideleel",
+        name: "Tideleel",
+        type: ["water"],
+        spawn_routes: [],
+        img: "petpng/bubbitty.png",
+        catchRate: 25,
+        evolvingLevel: 0,
+        evolutionId: "",
+        baseStats: { hp: 170, attack: 14, defense: 20, spAttack: 18, spDefense: 22, speed: 15 },
+        maxStats:  { hp: 780, attack: 160, defense: 210, spAttack: 190, spDefense: 240, speed: 280 },
         moves: [
             { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Water Gun", type: "water", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
@@ -64,8 +101,28 @@ const PETS = {
         spawn_routes: [],
         img: "petpng/sproupu.png",
         catchRate: 45,
+        evolvingLevel: 5,
+        evolutionId: "floraplnt",
         baseStats: { hp: 120, attack: 16, defense: 13, spAttack: 8, spDefense: 10, speed: 12 },
         maxStats:  { hp: 600, attack: 185, defense: 155, spAttack: 100, spDefense: 130, speed: 145 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Vine Whip", type: "grass", damage: 25, powerCost: 5, damageType: "physical", levelToLearn: 1 },
+            { name: "Razor Leaf", type: "grass", damage: 50, powerCost: 14, damageType: "physical", levelToLearn: 5 },
+            { name: "Solar Beam", type: "grass", damage: 75, powerCost: 25, damageType: "special", levelToLearn: 10 }
+        ]
+    },
+    floraplnt: {
+        id: "floraplnt",
+        name: "Floraplnt",
+        type: ["grass"],
+        spawn_routes: [],
+        img: "petpng/sproupu.png",
+        catchRate: 25,
+        evolvingLevel: 0,
+        evolutionId: "",
+        baseStats: { hp: 180, attack: 22, defense: 18, spAttack: 12, spDefense: 15, speed: 16 },
+        maxStats:  { hp: 820, attack: 230, defense: 190, spAttack: 130, spDefense: 170, speed: 180 },
         moves: [
             { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Vine Whip", type: "grass", damage: 25, powerCost: 5, damageType: "physical", levelToLearn: 1 },
@@ -80,6 +137,8 @@ const PETS = {
         spawn_routes: [1, 2],
         img: "petpng/sparkwing.png",
         catchRate: 40,
+        evolvingLevel: 8,
+        evolutionId: "",
         baseStats: { hp: 95, attack: 13, defense: 8, spAttack: 17, spDefense: 9, speed: 18 },
         maxStats:  { hp: 450, attack: 150, defense: 105, spAttack: 205, spDefense: 115, speed: 210 },
         moves: [
@@ -96,6 +155,8 @@ const PETS = {
         spawn_routes: [1, 2],
         img: "petpng/coalapling.png",
         catchRate: 35,
+        evolvingLevel: 10,
+        evolutionId: "",
         baseStats: { hp: 120, attack: 17, defense: 25, spAttack: 17, spDefense: 25, speed: 10 },
         maxStats:  { hp: 650, attack: 150, defense: 180, spAttack: 150, spDefense: 180, speed: 120 },
         moves: [
@@ -112,6 +173,8 @@ const PETS = {
         spawn_routes: [1, 2],
         img: "petpng/samupillar.png",
         catchRate: 45,
+        evolvingLevel: 7,
+        evolutionId: "",
         baseStats: { hp: 80, attack: 15, defense: 12, spAttack: 12, spDefense: 5, speed: 5 },
         maxStats:  { hp: 350, attack: 125, defense: 120, spAttack: 95, spDefense: 60, speed: 100 },
         moves: [
@@ -128,6 +191,8 @@ const PETS = {
         spawn_routes: [2],
         img: "petpng/dragorm.png",
         catchRate: 45,
+        evolvingLevel: 12,
+        evolutionId: "",
         baseStats: { hp: 90, attack: 19, defense: 30, spAttack: 5, spDefense: 15, speed: 15 },
         maxStats:  { hp: 450, attack: 125, defense: 250, spAttack: 95, spDefense: 70, speed: 150 },
         moves: [
@@ -139,10 +204,6 @@ const PETS = {
     }
 };
 
-/**
- * Dynamic Stat Calculation Formula:
- * Stat = BaseStat + Math.floor((MaxStat - BaseStat) * ((Level - 1) / 99))
- */
 function getCalculatedPet(petData) {
     if (!petData || !petData.id) return null;
 
@@ -179,10 +240,6 @@ function getCalculatedPet(petData) {
     };
 }
 
-/**
- * Stat-Scaling Damage Function:
- * Scales raw move damage based on the attacker's offensive stat vs. the defender's defensive stat.
- */
 function calculateDamage(attacker, defender, move) {
     const isPhysical = move.damageType === "physical";
     const atk = isPhysical ? attacker.attack : attacker.spAttack;
@@ -195,22 +252,12 @@ function calculateDamage(attacker, defender, move) {
     return Math.max(1, Math.floor(damage));
 }
 
-/**
- * Scaling Catch Rate Function:
- * Calculates the effective catch rate based on species base catch rate, current health percentage,
- * and an optional item/ball multiplier. Scales linearly from a 1× multiplier at full health 
- * up to a 2× multiplier at 1% health.
- */
 function calculateCatchRate(petInstance, ballMultiplier = 1) {
     const species = PETS[petInstance.id.toLowerCase()];
     if (!species) return 0;
 
     const baseRate = species.catchRate || 45;
-    
-    // Clamp HP ratio between 0.01 (1%) and 1.0 (100%)
     const hpRatio = Math.max(0.01, Math.min(1.0, petInstance.currentHp / petInstance.maxHp));
-    
-    // Multiplier calculation: 1.0x at full HP (hpRatio = 1) scaling up to 2.0x at 1% HP (hpRatio = 0.01)
     const healthMultiplier = 1 + ((1 - hpRatio) / 0.99);
 
     return Math.floor(baseRate * healthMultiplier * ballMultiplier);
