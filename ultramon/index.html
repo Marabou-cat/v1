@@ -979,6 +979,7 @@
     let playerPCStorage = [];
     let inGateModal = false;
     let inForcedSwitch = false;
+    let activeGateType = null; // 'prev' or 'next'
 
     const MAP_SIZE = 30;
     const TILE_SIZE = 48;
@@ -1279,22 +1280,23 @@ function endBattle(won) {
     let gateCooldown = false;
 
     function checkTileInteractions() {
-        let currentTileX = Math.floor(playerPos.x);
-        let currentTileY = Math.floor(playerPos.y);
+    let currentTileX = Math.floor(playerPos.x);
+    let currentTileY = Math.floor(playerPos.y);
 
-        if (currentTileX >= 0 && currentTileX < MAP_SIZE && currentTileY >= 0 && currentTileY < MAP_SIZE) {
-            const activeMap = getCurrentMap();
-            const tileType = activeMap[currentTileY][currentTileX];
+    if (currentTileX >= 0 && currentTileX < MAP_SIZE && currentTileY >= 0 && currentTileY < MAP_SIZE) {
+        const activeMap = getCurrentMap();
+        const tileType = activeMap[currentTileY][currentTileX];
 
-            if (tileType === 'tall_grass' && !encounterCooldown) {
-                if (Math.random() < 0.015) {
-                    triggerWildEncounter();
-                }
-            } else if (tileType === 'gate' && !gateCooldown) {
-                openGateModal();
+        if (tileType === 'tall_grass' && !encounterCooldown) {
+            if (Math.random() < 0.015) {
+                triggerWildEncounter();
             }
+        } else if ((tileType === 'prev_gate' || tileType === 'next_gate') && !gateCooldown) {
+            activeGateType = tileType === 'next_gate' ? 'next' : 'prev';
+            openGateModal();
         }
     }
+}
 
     function checkNpcCollisions() {
         if (encounterCooldown || typeof npc === 'undefined') return;
@@ -1311,18 +1313,22 @@ function endBattle(won) {
     }
 
     function openGateModal() {
-        inGateModal = true;
-        gateCooldown = true;
-        
-        const travelBtn = document.getElementById('gateTravelBtn');
-        if (currentMapIndex === 0) {
-            travelBtn.innerText = "🚪 Travel to Route 2";
-        } else {
-            travelBtn.innerText = "🚪 Travel to Route 1";
-        }
+    inGateModal = true;
+    gateCooldown = true;
+    
+    const travelBtn = document.getElementById('gateTravelBtn');
+    const modalTitle = document.querySelector('#gateModal .menu-header-bar div');
 
-        document.getElementById('gateModal').classList.remove('hidden');
+    if (activeGateType === 'next') {
+        modalTitle.innerText = "🚪 Next Route Gate & Pet Center";
+        travelBtn.innerText = "🚶 Proceed to Next Map";
+    } else {
+        modalTitle.innerText = "🚪 Previous Route Gate & Pet Center";
+        travelBtn.innerText = "🚶 Return to Previous Map";
     }
+
+    document.getElementById('gateModal').classList.remove('hidden');
+}
 
     function closeGateModal() {
         document.getElementById('gateModal').classList.add('hidden');
@@ -1354,21 +1360,56 @@ function endBattle(won) {
         }
     }
 
-    function travelThroughGate() {
-        closeGateModal();
-        if (currentMapIndex === 0) {
-            currentMapIndex = 1;
-            currentRoute = 2;
-            playerPos = { x: 1.5, y: 15.5 };
-        } else {
-            currentMapIndex = 0;
-            currentRoute = 1;
-            playerPos = { x: 27.5, y: 15.0 }; 
+    function getSafeSpawnNearGate(map, gateType) {
+    for (let r = 0; r < map.length; r++) {
+        for (let c = 0; c < map[r].length; c++) {
+            if (map[r][c] === gateType) {
+                const directions = [
+                    { x: c - 1, y: r },
+                    { x: c + 1, y: r },
+                    { x: c, y: r - 1 },
+                    { x: c, y: r + 1 }
+                ];
+                for (let dir of directions) {
+                    if (dir.y >= 0 && dir.y < MAP_SIZE && dir.x >= 0 && dir.x < MAP_SIZE) {
+                        if (map[dir.y][dir.x] !== 'wall') {
+                            return { x: dir.x + 0.5, y: dir.y + 0.5 };
+                        }
+                    }
+                }
+            }
         }
-        initMap();
-        renderPlayerElement();
-        saveGameData(true);
     }
+    return { x: 1.5, y: 15.0 }; // Fallback coordinate
+}
+
+function travelThroughGate() {
+    closeGateModal();
+
+    if (activeGateType === 'next') {
+        // Move forward to the next map if available
+        if (currentMapIndex < allMaps.length - 1) {
+            currentMapIndex++;
+            currentRoute++;
+            playerPos = getSafeSpawnNearGate(getCurrentMap(), 'prev_gate');
+        } else {
+            alert("❌ You have reached the end of the current maps!");
+        }
+    } else {
+        // Move backward to the previous map
+        if (currentMapIndex > 0) {
+            currentMapIndex--;
+            currentRoute--;
+            playerPos = getSafeSpawnNearGate(getCurrentMap(), 'next_gate');
+        } else {
+            alert("❌ This is the starting area!");
+        }
+    }
+
+    initMap();
+    renderPlayerElement();
+    saveGameData(true);
+}
 
     function openMenuModal() {
         document.getElementById('menuModal').classList.remove('hidden');
