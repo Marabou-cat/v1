@@ -1893,6 +1893,56 @@ function endBattle(won) {
         setTimeout(() => executeEnemyAttack(), 1500);
     });
 }
+    function executeBattleCatch() {
+        if (activeTrainer) {
+            alert("❌ You cannot catch a trainer's pet!");
+            return;
+        }
+        if (balls <= 0) {
+            alert("❌ You have no catch balls left!");
+            return;
+        }
+
+        balls--;
+        updateUI();
+        document.getElementById('battleActionButtons').innerHTML = '';
+        document.getElementById('battleDialogueText').innerText = `You threw a catch ball!`;
+
+        playCatchAnimation((result) => {
+            if (result === 'caught') {
+                document.getElementById('battleDialogueText').innerText = `Gotcha! ${activeEncounter.name} was caught!`;
+                
+                const caughtPetData = {
+                    id: activeEncounter.id,
+                    lvl: activeEncounter.level,
+                    hp: activeEncounter.currentHp,
+                    exp: 0,
+                    activeMoves: activeEncounter.unlockedMoves.slice(0, 4).map(m => m.name)
+                };
+
+                if (playerParty.length < 6) {
+                    playerParty.push(caughtPetData);
+                } else {
+                    playerPCStorage.push(caughtPetData);
+                    document.getElementById('battleDialogueText').innerText += ` Party is full! Sent to PC storage.`;
+                }
+
+                renderParty();
+                renderPCStorage();
+                renderPartyCircles();
+
+                setTimeout(() => endBattle(true), 2500);
+            } else if (result === 'retry') {
+                document.getElementById('battleDialogueText').innerText = `Oh no! The pet broke free!`;
+                setTimeout(() => {
+                    executeEnemyAttack();
+                }, 1200);
+            } else {
+                document.getElementById('battleDialogueText').innerText = `Aww! It broke free and fled!`;
+                setTimeout(() => endBattle(false), 2500);
+            }
+        });
+    }
 
     function executeEnemyAttack() {
     if (!activeEncounter || activeEncounter.currentHp <= 0) return;
