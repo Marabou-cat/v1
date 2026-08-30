@@ -1237,13 +1237,25 @@ function triggerEvolutionAnimation(petData, newSpeciesId, onComplete) {
     }, 350);
 }
 
+function checkTeamEvolutions(partyIndex, onComplete) {
+    if (partyIndex >= playerParty.length) {
+        if (onComplete) onComplete();
+        return;
+    }
+
+    checkPetEvolution(playerParty[partyIndex], () => {
+        checkTeamEvolutions(partyIndex + 1, onComplete);
+    });
+}
+
 function endBattle(won) {
     const overlay = document.getElementById('battleOverlay');
     overlay.classList.remove('active');
     encounterCooldown = false;
 
     if (won && playerParty.length > 0) {
-        checkPetEvolution(playerParty[0], () => {
+        // Sequentially check evolution for every pet in the team[cite: 1]
+        checkTeamEvolutions(0, () => {
             saveGameData(true);
         });
     } else {
@@ -1816,24 +1828,31 @@ function travelThroughGate() {
         document.getElementById('battleDialogueText').innerText += ` Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
 
         // --- Defeat Logic ---
+        // --- Defeat Logic ---
         if (activeEncounter.currentHp <= 0) {
             let expGained = activeEncounter.level * 15;
-            playerParty[0].exp = (playerParty[0].exp || 0) + expGained;
-            let leveledUp = false;
-            let currentLvl = playerParty[0].lvl;
-            let expNeeded = currentLvl * 50;
+            let levelUpSummary = "";
 
-            while (playerParty[0].exp >= expNeeded && playerParty[0].lvl < 100) {
-                playerParty[0].exp -= expNeeded;
-                playerParty[0].lvl++;
-                leveledUp = true;
-                expNeeded = playerParty[0].lvl * 50;
-            }
+            // Loop through every pet in the player's party to award EXP
+            playerParty.forEach((petData, index) => {
+                petData.exp = (petData.exp || 0) + expGained;
+                let currentLvl = petData.lvl;
+                let expNeeded = currentLvl * 50;
+                let leveledUp = false;
 
-            if (leveledUp) {
-                const recalcPet = getCalculatedPet(playerParty[0]);
-                playerParty[0].hp = recalcPet.maxHp; 
-            }
+                while (petData.exp >= expNeeded && petData.lvl < 100) {
+                    petData.exp -= expNeeded;
+                    petData.lvl++;
+                    leveledUp = true;
+                    expNeeded = petData.lvl * 50;
+                }
+
+                if (leveledUp) {
+                    const recalcPet = getCalculatedPet(petData);
+                    petData.hp = recalcPet.maxHp; // Heal fully on level up
+                    levelUpSummary += ` ${recalcPet.name} grew to Lv. ${petData.lvl}!`;
+                }
+            });
 
             if (activeTrainer && trainerPetIndex < activeTrainer.team.length - 1) {
                 trainerPetIndex++;
@@ -1841,8 +1860,7 @@ function travelThroughGate() {
                 activeEncounter = getCalculatedPet({ id: nextRef.id, lvl: nextRef.lvl });
                 updateBattleHUD();
                 
-                let advanceText = ` ${targetLabel} fainted! ${activePlayerPet.name} gained ${expGained} EXP!`;
-                if (leveledUp) advanceText += ` ${activePlayerPet.name} grew to Lv. ${playerParty[0].lvl}!`;
+                let advanceText = ` ${targetLabel} fainted! All party pets gained ${expGained} EXP!${levelUpSummary}`;
                 advanceText += ` ${activeTrainer.name} sent out ${activeEncounter.name}!`;
 
                 document.getElementById('battleDialogueText').innerText += advanceText;
@@ -1850,8 +1868,7 @@ function travelThroughGate() {
                 return;
             }
 
-            let defeatText = ` ${activePlayerPet.name} gained ${expGained} EXP!`;
-            if (leveledUp) defeatText += ` ${activePlayerPet.name} grew to Lv. ${playerParty[0].lvl}!`;
+            let defeatText = ` All party pets gained ${expGained} EXP!${levelUpSummary}`;
 
             if (activeTrainer) {
                 activeTrainer.defeated = true;
