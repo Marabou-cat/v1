@@ -1730,138 +1730,205 @@ function endBattle(won) {
     }
 
     function executePlayerAttack(moveName) {
-        if (inForcedSwitch) return;
-        const activePlayerPet = getCalculatedPet(playerParty[0]);
-        const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
-        if (!moveObj) return;
+    if (isActionLocked || inForcedSwitch) return;
+    
+    const activePlayerPet = getCalculatedPet(playerParty[0]);
+    const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
+    if (!moveObj) return;
 
-        if (playerBattleEnergy < moveObj.powerCost) {
-            document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
-            return;
-        }
-
-        playerBattleEnergy -= moveObj.powerCost;
-
-        let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
-        let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
-        
-        let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
-        
-        let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
-        let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
-
-        activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - finalDamage);
-        updateBattleHUD();
-
-        let effectivenessText = "";
-        if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
-        else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
-
-        let targetLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
-        document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
-
-        if (activeEncounter.currentHp <= 0) {
-            
-            // Generate EXP when defeating an opponent
-            let expGained = activeEncounter.level * 15;
-            playerParty[0].exp = (playerParty[0].exp || 0) + expGained;
-            let leveledUp = false;
-            let currentLvl = playerParty[0].lvl;
-            let expNeeded = currentLvl * 50;
-
-            // Handle level upgrades (Loop handles huge EXP gains causing multiple levels)
-            while (playerParty[0].exp >= expNeeded && playerParty[0].lvl < 100) {
-                playerParty[0].exp -= expNeeded;
-                playerParty[0].lvl++;
-                leveledUp = true;
-                expNeeded = playerParty[0].lvl * 50;
-            }
-
-            if (leveledUp) {
-                const recalcPet = getCalculatedPet(playerParty[0]);
-                playerParty[0].hp = recalcPet.maxHp; // Heal to full on level up
-            }
-
-            if (activeTrainer && trainerPetIndex < activeTrainer.team.length - 1) {
-                trainerPetIndex++;
-                const nextRef = activeTrainer.team[trainerPetIndex];
-                activeEncounter = getCalculatedPet({ id: nextRef.id, lvl: nextRef.lvl });
-                updateBattleHUD();
-                
-                let advanceText = ` ${targetLabel} fainted! ${activePlayerPet.name} gained ${expGained} EXP!`;
-                if (leveledUp) advanceText += ` ${activePlayerPet.name} grew to Lv. ${playerParty[0].lvl}!`;
-                advanceText += ` ${activeTrainer.name} sent out ${activeEncounter.name}!`;
-
-                document.getElementById('battleDialogueText').innerText += advanceText;
-                resetBattleActionButtons();
-                return;
-            }
-
-            let defeatText = ` ${activePlayerPet.name} gained ${expGained} EXP!`;
-            if (leveledUp) defeatText += ` ${activePlayerPet.name} grew to Lv. ${playerParty[0].lvl}!`;
-
-            if (activeTrainer) {
-                activeTrainer.defeated = true;
-                const rewardCoins = activeTrainer.rewards.coins || 100;
-                coins += rewardCoins;
-                updateUI();
-                defeatText += ` You defeated ${activeTrainer.name}! Earned +${rewardCoins} coins!`;
-            } else {
-                coins += 40;
-                updateUI();
-                defeatText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
-            }
-
-            document.getElementById('battleDialogueText').innerText += defeatText;
-            setTimeout(() => endBattle(true), 3500);
-            return;
-        }
-
-        setTimeout(() => executeEnemyAttack(), 1500);
+    if (playerBattleEnergy < moveObj.powerCost) {
+        document.getElementById('battleDialogueText').innerText = `Not enough energy for ${moveObj.name}!`;
+        return;
     }
 
-    function executeEnemyAttack() {
-        if (!activeEncounter || activeEncounter.currentHp <= 0) return;
+    // Lock actions to prevent spamming
+    isActionLocked = true;
+    document.querySelectorAll('.btn-move, .btn-action').forEach(btn => btn.disabled = true);
 
-        const enemyMoves = activeEncounter.unlockedMoves;
-        const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
-        const activePlayerPet = getCalculatedPet(playerParty[0]);
+    playerBattleEnergy -= moveObj.powerCost;
+    updateBattleHUD();
 
-        let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
-        let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
+    document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}!`;
+
+    const animColor = TYPE_COLORS[moveObj.type] || "#ffffff";
+    const playerImgEl = document.getElementById('battlePlayerImg');
+    const wildImgEl = document.getElementById('battleWildImg');
+
+    if (moveObj.damageType === "physical") {
+        // Physical Attack Animation: Dash forward and back
+        playerImgEl.classList.add('anim-dash-player');
         
-        let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(randomMove.type, activePlayerPet.type) : 1.0;
+        setTimeout(() => {
+            wildImgEl.style.setProperty('--anim-color', animColor);
+            wildImgEl.classList.add('target-hit-flash');
+        }, 300);
 
-        let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
-        let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+        setTimeout(() => {
+            playerImgEl.classList.remove('anim-dash-player');
+            wildImgEl.classList.remove('target-hit-flash');
+            applyPlayerDamage(moveObj, activePlayerPet);
+        }, 600);
 
-        playerParty[0].hp = Math.max(0, playerParty[0].hp - finalDamage);
-        playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
-        updateBattleHUD();
+    } else {
+        // Special Attack Animation: Projectile flies from player to wild pet
+        const arenaRect = document.querySelector('.battle-arena').getBoundingClientRect();
+        const pRect = playerImgEl.getBoundingClientRect();
+        const wRect = wildImgEl.getBoundingClientRect();
 
-        let effectivenessText = "";
-        if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
-        else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
+        const startX = (pRect.left + pRect.width / 2) - arenaRect.left;
+        const startY = (pRect.top + pRect.height / 2) - arenaRect.top;
+        const endX = (wRect.left + wRect.width / 2) - arenaRect.left;
+        const endY = (wRect.top + wRect.height / 2) - arenaRect.top;
 
-        let attackerLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
-        document.getElementById('battleDialogueText').innerText = `${attackerLabel} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+        const projectile = document.createElement('div');
+        projectile.className = 'battle-projectile';
+        projectile.style.color = animColor;
+        projectile.style.left = startX + 'px';
+        projectile.style.top = startY + 'px';
+        projectile.style.setProperty('--target-x', (endX - startX) + 'px');
+        projectile.style.setProperty('--target-y', (endY - startY) + 'px');
+        projectile.style.animation = 'projectileTravel 0.7s ease-in-out forwards';
 
-        if (playerParty[0].hp <= 0) {
-            const hasLivingPets = playerParty.some(p => p.hp > 0);
-            if (hasLivingPets) {
-                inForcedSwitch = true;
-                document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Choose your next pet to continue battle!`;
-                openBattleSwitchMenu();
-            } else {
-                document.getElementById('battleDialogueText').innerText += ` All your pets fainted! You blacked out and fled...`;
-                setTimeout(() => endBattle(false), 2000);
-            }
-            return;
-        }
+        document.querySelector('.battle-arena').appendChild(projectile);
 
-        resetBattleActionButtons();
+        setTimeout(() => {
+            projectile.remove();
+            wildImgEl.style.setProperty('--anim-color', animColor);
+            wildImgEl.classList.add('target-hit-flash');
+        }, 600);
+
+        setTimeout(() => {
+            wildImgEl.classList.remove('target-hit-flash');
+            applyPlayerDamage(moveObj, activePlayerPet);
+        }, 850);
+    }
+}
+
+function applyPlayerDamage(moveObj, activePlayerPet) {
+    let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
+    let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
+    
+    let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
+    let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
+    let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+
+    activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - finalDamage);
+    updateBattleHUD();
+
+    let effectivenessText = "";
+    if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
+    else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
+
+    let targetLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
+    document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
+
+    if (activeEncounter.currentHp <= 0) {
+        handleBattleVictory(activePlayerPet);
+        return;
     }
 
+    setTimeout(() => {
+        executeEnemyAttack();
+    }, 1200);
+}
+
+function executeEnemyAttack() {
+    if (!activeEncounter || activeEncounter.currentHp <= 0) return;
+
+    const enemyMoves = activeEncounter.unlockedMoves;
+    const randomMove = enemyMoves[Math.floor(Math.random() * enemyMoves.length)];
+    const activePlayerPet = getCalculatedPet(playerParty[0]);
+
+    let animColor = TYPE_COLORS[randomMove.type] || "#ffffff";
+    let wildImgEl = document.getElementById('battleWildImg');
+    let playerImgEl = document.getElementById('battlePlayerImg');
+
+    document.getElementById('battleDialogueText').innerText = `${activeEncounter.name} used ${randomMove.name}!`;
+
+    if (randomMove.damageType === "physical") {
+        wildImgEl.classList.add('anim-dash-enemy');
+
+        setTimeout(() => {
+            playerImgEl.style.setProperty('--anim-color', animColor);
+            playerImgEl.classList.add('target-hit-flash');
+        }, 300);
+
+        setTimeout(() => {
+            wildImgEl.classList.remove('anim-dash-enemy');
+            playerImgEl.classList.remove('target-hit-flash');
+            applyEnemyDamage(randomMove, activePlayerPet);
+        }, 600);
+
+    } else {
+        const arenaRect = document.querySelector('.battle-arena').getBoundingClientRect();
+        const wRect = wildImgEl.getBoundingClientRect();
+        const pRect = playerImgEl.getBoundingClientRect();
+
+        const startX = (wRect.left + wRect.width / 2) - arenaRect.left;
+        const startY = (wRect.top + wRect.height / 2) - arenaRect.top;
+        const endX = (pRect.left + pRect.width / 2) - arenaRect.left;
+        const endY = (pRect.top + pRect.height / 2) - arenaRect.top;
+
+        const projectile = document.createElement('div');
+        projectile.className = 'battle-projectile';
+        projectile.style.color = animColor;
+        projectile.style.left = startX + 'px';
+        projectile.style.top = startY + 'px';
+        projectile.style.setProperty('--target-x', (endX - startX) + 'px');
+        projectile.style.setProperty('--target-y', (endY - startY) + 'px');
+        projectile.style.animation = 'projectileTravel 0.7s ease-in-out forwards';
+
+        document.querySelector('.battle-arena').appendChild(projectile);
+
+        setTimeout(() => {
+            projectile.remove();
+            playerImgEl.style.setProperty('--anim-color', animColor);
+            playerImgEl.classList.add('target-hit-flash');
+        }, 600);
+
+        setTimeout(() => {
+            playerImgEl.classList.remove('target-hit-flash');
+            applyEnemyDamage(randomMove, activePlayerPet);
+        }, 850);
+    }
+}
+
+function applyEnemyDamage(randomMove, activePlayerPet) {
+    let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
+    let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
+    
+    let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(randomMove.type, activePlayerPet.type) : 1.0;
+    let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
+    let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+
+    playerParty[0].hp = Math.max(0, playerParty[0].hp - finalDamage);
+    playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
+    updateBattleHUD();
+
+    let effectivenessText = "";
+    if (typeMultiplier > 1.0) effectivenessText = " It's super effective!";
+    else if (typeMultiplier < 1.0) effectivenessText = " It's not very effective...";
+
+    let attackerLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
+    document.getElementById('battleDialogueText').innerText = `${attackerLabel} used ${randomMove.name}! Dealt ${finalDamage} damage.${effectivenessText}`;
+
+    if (playerParty[0].hp <= 0) {
+        const hasLivingPets = playerParty.some(p => p.hp > 0);
+        if (hasLivingPets) {
+            inForcedSwitch = true;
+            isActionLocked = false;
+            document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Choose your next pet to continue battle!`;
+            openBattleSwitchMenu();
+        } else {
+            document.getElementById('battleDialogueText').innerText += ` All your pets fainted! You blacked out and fled...`;
+            setTimeout(() => endBattle(false), 2000);
+        }
+        return;
+    }
+
+    isActionLocked = false;
+    resetBattleActionButtons();
+}
     function executeBattleCatch() {
         if (inForcedSwitch || !activeEncounter || activeTrainer) return;
 
