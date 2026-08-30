@@ -19,6 +19,7 @@
             --r: 16px;
             --hp-green: #2ecc71;
             --energy-blue: #3498db;
+            --exp-blue: #00b4d8;
             --gold: #ffd700;
         }
 
@@ -387,6 +388,9 @@
 
         .hp-bar-bg { background: #444; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 4px; }
         .hp-bar-fill { background: var(--hp-green); height: 100%; width: 100%; transition: width 0.3s; }
+        
+        .exp-bar-bg { background: #444; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+        .exp-bar-fill { background: var(--exp-blue); height: 100%; width: 100%; transition: width 0.3s; }
 
         .moves-section {
             background: rgba(0,0,0,0.3);
@@ -1629,29 +1633,59 @@
         document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}! Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
 
         if (activeEncounter.currentHp <= 0) {
+            
+            // Generate EXP when defeating an opponent
+            let expGained = activeEncounter.level * 15;
+            playerParty[0].exp = (playerParty[0].exp || 0) + expGained;
+            let leveledUp = false;
+            let currentLvl = playerParty[0].lvl;
+            let expNeeded = currentLvl * 50;
+
+            // Handle level upgrades (Loop handles huge EXP gains causing multiple levels)
+            while (playerParty[0].exp >= expNeeded && playerParty[0].lvl < 100) {
+                playerParty[0].exp -= expNeeded;
+                playerParty[0].lvl++;
+                leveledUp = true;
+                expNeeded = playerParty[0].lvl * 50;
+            }
+
+            if (leveledUp) {
+                const recalcPet = getCalculatedPet(playerParty[0]);
+                playerParty[0].hp = recalcPet.maxHp; // Heal to full on level up
+            }
+
             if (activeTrainer && trainerPetIndex < activeTrainer.team.length - 1) {
                 trainerPetIndex++;
                 const nextRef = activeTrainer.team[trainerPetIndex];
                 activeEncounter = getCalculatedPet({ id: nextRef.id, lvl: nextRef.lvl });
                 updateBattleHUD();
-                document.getElementById('battleDialogueText').innerText += ` ${targetLabel} fainted! ${activeTrainer.name} sent out ${activeEncounter.name}!`;
+                
+                let advanceText = ` ${targetLabel} fainted! ${activePlayerPet.name} gained ${expGained} EXP!`;
+                if (leveledUp) advanceText += ` ${activePlayerPet.name} grew to Lv. ${playerParty[0].lvl}!`;
+                advanceText += ` ${activeTrainer.name} sent out ${activeEncounter.name}!`;
+
+                document.getElementById('battleDialogueText').innerText += advanceText;
                 resetBattleActionButtons();
                 return;
             }
+
+            let defeatText = ` ${activePlayerPet.name} gained ${expGained} EXP!`;
+            if (leveledUp) defeatText += ` ${activePlayerPet.name} grew to Lv. ${playerParty[0].lvl}!`;
 
             if (activeTrainer) {
                 activeTrainer.defeated = true;
                 const rewardCoins = activeTrainer.rewards.coins || 100;
                 coins += rewardCoins;
                 updateUI();
-                document.getElementById('battleDialogueText').innerText += ` You defeated ${activeTrainer.name}! Earned +${rewardCoins} coins!`;
+                defeatText += ` You defeated ${activeTrainer.name}! Earned +${rewardCoins} coins!`;
             } else {
                 coins += 40;
                 updateUI();
-                document.getElementById('battleDialogueText').innerText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
+                defeatText += ` Wild ${activeEncounter.name} fainted! You earned 40 coins.`;
             }
 
-            setTimeout(() => endBattle(true), 2000);
+            document.getElementById('battleDialogueText').innerText += defeatText;
+            setTimeout(() => endBattle(true), 3500);
             return;
         }
 
@@ -1729,6 +1763,7 @@
                     id: activeEncounter.id,
                     lvl: activeEncounter.level,
                     hp: activeEncounter.maxHp,
+                    exp: 0,
                     activeMoves: activeEncounter.unlockedMoves.slice(0, 4).map(m => m.name)
                 };
 
@@ -1943,6 +1978,7 @@
                 id: pendingStarter.id,
                 lvl: 5,
                 hp: starterCalc.maxHp,
+                exp: 0,
                 activeMoves: starterCalc.unlockedMoves.slice(0, 4).map(m => m.name)
             }];
 
@@ -2138,6 +2174,13 @@
         saveGameData(true);
     }
 
+    function updateUI() {
+        const ballDisplay = document.getElementById('ballDisplay');
+        const coinDisplay = document.getElementById('coinDisplay');
+        if(ballDisplay) ballDisplay.innerText = balls;
+        if(coinDisplay) coinDisplay.innerText = coins;
+    }
+
     function renderParty() {
         const container = document.getElementById('teamContainer');
         document.getElementById('partyCount').innerText = playerParty.length;
@@ -2153,6 +2196,9 @@
             if (!pet) return;
 
             const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
+            const currentExp = petData.exp || 0;
+            const expNeeded = pet.level * 50;
+            const expPct = Math.min(100, (currentExp / expNeeded) * 100);
 
             let movesChipsHtml = '';
             pet.moves.forEach(m => {
@@ -2189,12 +2235,20 @@
                             <span style="color:var(--p1);">${pet.type}</span>
                         </div>
                     </div>
+                    
+                    <!-- HP Bar -->
                     <div class="hp-bar-bg">
                         <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
                     </div>
                     <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
                     
-                    <div class="stat-grid">
+                    <!-- EXP Bar -->
+                    <div class="exp-bar-bg">
+                        <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
+                    </div>
+                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top:2px;">EXP: ${currentExp}/${expNeeded}</div>
+
+                    <div class="stat-grid" style="margin-top:6px;">
                         <span>ATK: ${pet.attack}</span>
                         <span>DEF: ${pet.defense}</span>
                         <span>SPD: ${pet.speed}</span>
@@ -2231,6 +2285,9 @@
             if (!pet) return;
 
             const hpPct = Math.max(0, (pet.currentHp / pet.maxHp) * 100);
+            const currentExp = petData.exp || 0;
+            const expNeeded = pet.level * 50;
+            const expPct = Math.min(100, (currentExp / expNeeded) * 100);
 
             container.innerHTML += `
                 <div class="pet-card">
@@ -2241,12 +2298,20 @@
                             <span style="color:var(--p1);">${pet.type}</span>
                         </div>
                     </div>
+
+                    <!-- HP Bar -->
                     <div class="hp-bar-bg">
                         <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
                     </div>
                     <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
                     
-                    <div class="stat-grid">
+                    <!-- EXP Bar -->
+                    <div class="exp-bar-bg">
+                        <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
+                    </div>
+                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top:2px;">EXP: ${currentExp}/${expNeeded}</div>
+                    
+                    <div class="stat-grid" style="margin-top:6px;">
                         <span>ATK: ${pet.attack}</span>
                         <span>DEF: ${pet.defense}</span>
                         <span>SPD: ${pet.speed}</span>
@@ -2263,17 +2328,6 @@
             `;
         });
     }
-
-    function updateUI() {
-        document.getElementById('coinDisplay').innerText = coins;
-        document.getElementById('ballDisplay').innerText = balls;
-    }
-
-    renderParty();
-    renderPCStorage();
-    renderPartyCircles();
-    updateUI();
 </script>
 </body>
 </html>
-```[cite: 4]
