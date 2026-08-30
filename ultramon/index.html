@@ -1902,6 +1902,11 @@
         renderPCStorage();
         renderPartyCircles();
 
+        // Save progress to the server if the battle finished successfully (win)
+        if (isFinished) {
+            saveGameData(true);
+        }
+
         setTimeout(() => {
             encounterCooldown = false;
         }, 2000);
