@@ -63,7 +63,7 @@ const route1Map = [
     ['wall', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'route', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall'],
     ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall']
 ];
-    const route3Map = [
+    const route3 = [
     ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "water", "water", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
     ["wall", "wall", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "water", "water", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "wall"],
     ["wall", "wall", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "water", "water", "grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "grass", "grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "wall"],
@@ -96,4 +96,4 @@ const route1Map = [
     ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "water", "water", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
 ];
 
-    const allMaps = [route1Map, route2Map, route3Map];
+    const allMaps = [route1Map, route2Map, route3];
