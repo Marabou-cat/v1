@@ -2234,7 +2234,7 @@ function travelThroughGate() {
                 coins = parseInt(result.data.coins);
                 balls = parseInt(result.data.balls);
                 currentRoute = parseInt(result.data.current_route);
-                currentMapIndex = currentRoute === 2 ? 1 : 0;
+                currentMapIndex = Math.max(0, Math.min(allMaps.length - 1, currentRoute - 1));
                 
                 playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
                 playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
@@ -2242,11 +2242,10 @@ function travelThroughGate() {
                 let loadedX = parseFloat(result.data.pos_x);
                 let loadedY = parseFloat(result.data.pos_y);
                 if (!isNaN(loadedX) && !isNaN(loadedY)) {
-                    playerPos = { x: loadedX, y: loadedY };
-                } else {
-                    playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
-                }
-
+    playerPos = { x: loadedX, y: loadedY };
+} else {
+    playerPos = { x: 1.5, y: 15.0 };
+}
                 updateUI();
                 renderParty();
                 renderPCStorage();
@@ -2297,7 +2296,7 @@ function travelThroughGate() {
                     coins = parseInt(result.data.coins);
                     balls = parseInt(result.data.balls);
                     currentRoute = parseInt(result.data.current_route);
-                    currentMapIndex = currentRoute === 2 ? 1 : 0;
+                    currentMapIndex = Math.max(0, Math.min(allMaps.length - 1, currentRoute - 1));
                     
                     playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
                     playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
@@ -2305,10 +2304,10 @@ function travelThroughGate() {
                     let loadedX = parseFloat(result.data.pos_x);
                     let loadedY = parseFloat(result.data.pos_y);
                     if (!isNaN(loadedX) && !isNaN(loadedY)) {
-                        playerPos = { x: loadedX, y: loadedY };
-                    } else {
-                        playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
-                    }
+    playerPos = { x: loadedX, y: loadedY };
+} else {
+    playerPos = { x: 1.5, y: 15.0 };
+}
 
                     localStorage.setItem('pet_remembered_user', currentUser);
 
