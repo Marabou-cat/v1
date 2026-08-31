@@ -1737,14 +1737,17 @@ function travelThroughGate() {
     }
 
     function resetBattleActionButtons() {
-        const catchDisabled = activeTrainer ? 'disabled' : '';
-        document.getElementById('battleActionButtons').innerHTML = `
-            <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
-            <button class="btn-action" ${catchDisabled} onclick="executeBattleCatch()">🎾 Catch Pet</button>
-            <button class="btn-action" onclick="openBattleSwitchMenu()">🔄 Switch</button>
-            <button class="btn-action" onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
-        `;
-    }
+    // Check if it's a trainer battle to disable catching and running
+    const catchDisabled = activeTrainer ? 'disabled' : '';
+    const runDisabled = activeTrainer ? 'disabled' : ''; 
+
+    document.getElementById('battleActionButtons').innerHTML = `
+        <button class="btn-action" onclick="openBattleFightMenu()">⚔️ Fight</button>
+        <button class="btn-action" ${catchDisabled} onclick="executeBattleCatch()">🎾 Catch Pet</button>
+        <button class="btn-action" onclick="openBattleSwitchMenu()">🔄 Switch</button>
+        <button class="btn-action" ${runDisabled} onclick="endBattle(false)" style="background: #e74c3c;">🏃 Run Away</button>
+    `;
+}
 
     function openBattleFightMenu() {
         if (inForcedSwitch) return;
@@ -2003,8 +2006,23 @@ function travelThroughGate() {
                 document.getElementById('battleDialogueText').innerText += ` Your ${activePlayerPet.name} fainted! Choose your next pet to continue battle!`;
                 openBattleSwitchMenu();
             } else {
-                document.getElementById('battleDialogueText').innerText += ` All your pets fainted! You blacked out and fled...`;
-                setTimeout(() => endBattle(false), 2000);
+                document.getElementById('battleDialogueText').innerText += ` All your pets fainted! You blacked out and were rushed to safety...`;
+                
+                // 1. Move the player's coordinates to the previous gate
+                playerPos = getSafeSpawnNearGate(getCurrentMap(), 'prev_gate');
+                
+                // 2. Heal the party so they aren't stuck with 0 HP upon respawn
+                playerParty.forEach(pet => {
+                    const calculated = getCalculatedPet(pet);
+                    if (calculated) pet.hp = calculated.maxHp;
+                });
+
+                // 3. Render the updated map position, update the UI, and end the battle
+                setTimeout(() => {
+                    renderPlayerElement();
+                    renderPartyCircles();
+                    endBattle(false);
+                }, 2000);
             }
             return;
         }
