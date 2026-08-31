@@ -58,6 +58,8 @@
         .brush-grass { background: #27ae60; }
         .brush-tall_grass { background: #1e8449; }
         .brush-wall { background: #4a5568; }
+        .brush-water { background: #3498db; }
+        .brush-planks { background: #8b5a2b; }
         .brush-route { background: #f1c40f; color: black; }
         .brush-gate_next { background: #d35400; }
         .brush-gate_prev { background: #c0392b; }
@@ -78,10 +80,12 @@
             cursor: crosshair;
         }
 
-        /* Tile visuals */
+        /* Tile visuals matching game specifications[cite: 3] */
         .cell.grass { background: #27ae60; }
         .cell.tall_grass { background: #1e8449; }
         .cell.wall { background: #4a5568; }
+        .cell.water { background: #3498db; }
+        .cell.planks { background: #8b5a2b; }
         .cell.route { background: #f1c40f; }
         
         .cell.gate_next { 
@@ -156,21 +160,22 @@
         <button class="brush-btn brush-grass active" onclick="setBrush('grass')">Grass</button>
         <button class="brush-btn brush-tall_grass" onclick="setBrush('tall_grass')">Tall Grass</button>
         <button class="brush-btn brush-wall" onclick="setBrush('wall')">Wall</button>
+        <button class="brush-btn brush-water" onclick="setBrush('water')">Water</button>
+        <button class="brush-btn brush-planks" onclick="setBrush('planks')">Planks</button>
         <button class="brush-btn brush-route" onclick="setBrush('route')">Route</button>
-        <button class="brush-btn brush-gate_prev" onclick="setBrush('gate_prev')">Gate Prev ⬅️</button>
-        <button class="brush-btn brush-gate_next" onclick="setBrush('gate_next')">Gate Next ➡️</button>
+        <button class="brush-btn brush-gate_next" onclick="setBrush('gate_next')">Next Gate</button>
+        <button class="brush-btn brush-gate_prev" onclick="setBrush('gate_prev')">Prev Gate</button>
     </div>
 
-    <div class="editor-container" id="grid"></div>
+    <div class="editor-container" id="editorContainer"></div>
 
     <div class="action-row">
-        <button class="btn-clear" onclick="clearMap()">🗑️ Clear Map</button>
-        <button class="btn-ready" onclick="generateMap()">✅ Ready (Generate Code)</button>
+        <button class="btn-ready" onclick="generateMapCode()">Generate Map Code</button>
+        <button class="btn-clear" onclick="clearMap()">Clear Map</button>
     </div>
 
     <div class="output-container" id="outputContainer">
-        <h3 style="color: var(--p1); margin-bottom: 5px;">Generated Map Array:</h3>
-        <p style="font-size: 14px; margin-top: 0; color: #aaa;">Copy this code and paste it into your game file array.</p>
+        <h3>Generated Map Array</h3>
         <textarea id="outputCode" readonly></textarea>
     </div>
 
@@ -178,74 +183,71 @@
         const MAP_SIZE = 30;
         let currentBrush = 'grass';
         let isMouseDown = false;
-        
-        let mapData = Array.from({ length: MAP_SIZE }, () => Array(MAP_SIZE).fill('grass'));
+        let mapData = Array(MAP_SIZE).fill().map(() => Array(MAP_SIZE).fill('grass'));
 
-        document.body.addEventListener('mousedown', () => isMouseDown = true);
-        document.body.addEventListener('mouseup', () => isMouseDown = false);
+        const editorContainer = document.getElementById('editorContainer');
 
-        const gridElement = document.getElementById('grid');
-        
-        function drawGrid() {
-            gridElement.innerHTML = '';
+        function initEditor() {
+            editorContainer.innerHTML = '';
             for (let r = 0; r < MAP_SIZE; r++) {
                 for (let c = 0; c < MAP_SIZE; c++) {
                     const cell = document.createElement('div');
                     cell.className = `cell ${mapData[r][c]}`;
                     cell.dataset.row = r;
                     cell.dataset.col = c;
-                    
-                    cell.addEventListener('mousedown', (e) => paintCell(e.target));
-                    cell.addEventListener('mouseenter', (e) => {
-                        if (isMouseDown) paintCell(e.target);
+
+                    cell.addEventListener('mousedown', (e) => {
+                        isMouseDown = true;
+                        paintCell(r, c);
                     });
-                    
-                    gridElement.appendChild(cell);
+
+                    cell.addEventListener('mouseover', (e) => {
+                        if (isMouseDown) paintCell(r, c);
+                    });
+
+                    editorContainer.appendChild(cell);
                 }
             }
         }
 
-        function paintCell(element) {
-            const r = element.dataset.row;
-            const c = element.dataset.col;
-            
-            mapData[r][c] = currentBrush;
-            element.className = `cell ${currentBrush}`;
-        }
+        window.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
 
         function setBrush(brushType) {
             currentBrush = brushType;
             document.querySelectorAll('.brush-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelector(`.brush-${brushType}`).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        function paintCell(r, c) {
+            mapData[r][c] = currentBrush;
+            const cell = editorContainer.children[r * MAP_SIZE + c];
+            cell.className = `cell ${currentBrush}`;
         }
 
         function clearMap() {
-            if(confirm("Are you sure you want to reset the map to all grass?")) {
-                mapData = Array.from({ length: MAP_SIZE }, () => Array(MAP_SIZE).fill('grass'));
-                drawGrid();
+            if (confirm("Are you sure you want to clear the map?")) {
+                mapData = Array(MAP_SIZE).fill().map(() => Array(MAP_SIZE).fill('grass'));
+                initEditor();
                 document.getElementById('outputContainer').style.display = 'none';
             }
         }
 
-        function generateMap() {
-            let code = "const customMap = [\n";
-            for(let r = 0; r < MAP_SIZE; r++) {
-                const rowString = mapData[r].map(tile => `'${tile}'`).join(', ');
-                code += `    [${rowString}]`;
-                if(r < MAP_SIZE - 1) {
-                    code += ",\n";
-                } else {
-                    code += "\n";
-                }
+        function generateMapCode() {
+            let output = "[\n";
+            for (let r = 0; r < MAP_SIZE; r++) {
+                output += "    [\"" + mapData[r].join("\", \"") + "\"]";
+                if (r < MAP_SIZE - 1) output += ",";
+                output += "\n";
             }
-            code += "];";
+            output += "]";
             
+            document.getElementById('outputCode').value = output;
             document.getElementById('outputContainer').style.display = 'block';
-            document.getElementById('outputCode').value = code;
-            document.getElementById('outputContainer').scrollIntoView({ behavior: 'smooth' });
         }
 
-        drawGrid();
+        window.addEventListener('DOMContentLoaded', initEditor);
     </script>
 </body>
 </html>
