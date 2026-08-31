@@ -6,7 +6,8 @@ const TYPE_CHART = {
     combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67 },
     basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
     bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
-    dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5 }
+    dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5 },
+    poison:   { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67 }
 };
 const TYPE_COLORS = {
     fire:     "#ff6b35",
@@ -16,7 +17,8 @@ const TYPE_COLORS = {
     combat:   "#d35400",
     basic:    "#ffffff",
     bug:      "#27ae60",
-    dragon:   "#9b59b6"
+    dragon:   "#9b59b6",
+    poison:   "#7f00ff"
 };
 
 let isActionLocked = false; // Prevents spamming and input abuse during animations
@@ -224,6 +226,25 @@ const PETS = {
             { name: "Dragons Breath", type: "dragon", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
             { name: "Dragon Webs", type: "dragon", damage: 200, powerCost: 100, damageType: "physical", levelToLearn: 15 },
             { name: "Bug Bite", type: "bug", damage: 45, powerCost: 40, damageType: "physical", levelToLearn: 10 }
+        ]
+    },
+    hydrini: {
+        id: "hydrini",
+        name: "Hydrini",
+        type: ["dragon"],
+        spawn_routes: [2],
+        img: "petpng/hydrini.png",
+        catchRate: 45,
+        evolvingLevel: 20,
+        evolutionId: "",
+        size: 1.0, // Added size stat[cite: 1]
+        baseStats: { hp: 90, attack: 19, defense: 30, spAttack: 25, spDefense: 30, speed: 30 },
+        maxStats:  { hp: 450, attack: 125, defense: 120, spAttack: 145, spDefense: 120, speed: 220 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Dragons Breath", type: "dragon", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
+            { name: "Dragon Orb", type: "dragon", damage: 75, powerCost: 55, damageType: "special", levelToLearn: 15 },
+            { name: "Magical Burst", type: "basic", damage: 75, powerCost: 55, damageType: "special", levelToLearn: 20 }
         ]
     }
 };
