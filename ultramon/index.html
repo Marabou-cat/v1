@@ -1222,6 +1222,15 @@
     }
 }
 
+function applyDefeatedNPCs(defeatedList) {
+    if (typeof npc === 'undefined' || !Array.isArray(defeatedList)) return;
+    npc.forEach(trainer => {
+        if (defeatedList.includes(trainer.name)) {
+            trainer.defeated = true;
+        }
+    });
+}
+
 function triggerEvolutionAnimation(petData, newSpeciesId, onComplete) {
     const oldSpecies = PETS[petData.id.toLowerCase()];
     const newSpecies = PETS[newSpeciesId.toLowerCase()];
@@ -2236,6 +2245,38 @@ function travelThroughGate() {
                     playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
                 }
 
+                // Inside attemptAutoLogin(username)
+if (result.success && result.data) {
+    currentUser = result.data.username;
+    coins = parseInt(result.data.coins);
+    balls = parseInt(result.data.balls);
+    currentRoute = parseInt(result.data.current_route);
+    currentMapIndex = Math.max(0, currentRoute - 1);
+    
+    playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
+    playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
+
+    // Load and mark defeated NPCs
+    let defeatedNpcs = typeof result.data.defeated_npcs === 'string' ? JSON.parse(result.data.defeated_npcs) : (result.data.defeated_npcs || []);
+    applyDefeatedNPCs(defeatedNpcs);
+
+    let loadedX = parseFloat(result.data.pos_x);
+    let loadedY = parseFloat(result.data.pos_y);
+    if (!isNaN(loadedX) && !isNaN(loadedY)) {
+        playerPos = { x: loadedX, y: loadedY };
+    } else {
+        playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
+    }
+
+    updateUI();
+    renderParty();
+    renderPCStorage();
+    renderPartyCircles();
+    initMap();
+    renderPlayerElement();
+    return true;
+}
+
                 updateUI();
                 renderParty();
                 renderPCStorage();
@@ -2287,6 +2328,13 @@ function travelThroughGate() {
                     balls = parseInt(result.data.balls);
                     currentRoute = parseInt(result.data.current_route);
                     currentMapIndex = Math.max(0, currentRoute - 1);
+                    // Inside performAuth('login') section
+playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
+playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
+
+// Load and mark defeated NPCs
+let defeatedNpcs = typeof result.data.defeated_npcs === 'string' ? JSON.parse(result.data.defeated_npcs) : (result.data.defeated_npcs || []);
+applyDefeatedNPCs(defeatedNpcs);
                     
                     playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
                     playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
@@ -2322,29 +2370,33 @@ function travelThroughGate() {
     }
 
     async function saveGameData(isSilent = false) {
-        if (!currentUser) return;
+    if (!currentUser) return;
 
-        const formData = new FormData();
-        formData.append('action', 'save');
-        formData.append('username', currentUser);
-        formData.append('coins', coins);
-        formData.append('balls', balls);
-        formData.append('current_route', currentRoute);
-        formData.append('pos_x', playerPos.x);
-        formData.append('pos_y', playerPos.y);
-        formData.append('party_data', JSON.stringify(playerParty));
-        formData.append('pc_data', JSON.stringify(playerPCStorage));
+    // Extract all defeated NPC names from the npc array
+    const defeatedNpcs = (typeof npc !== 'undefined') ? npc.filter(t => t.defeated).map(t => t.name) : [];
 
-        try {
-            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
-            const result = await response.json();
-            if (result.success && !isSilent) {
-                alert("Game Progress Saved!");
-            }
-        } catch (err) {
-            console.error("Save error:", err);
+    const formData = new FormData();
+    formData.append('action', 'save');
+    formData.append('username', currentUser);
+    formData.append('coins', coins);
+    formData.append('balls', balls);
+    formData.append('current_route', currentRoute);
+    formData.append('pos_x', playerPos.x);
+    formData.append('pos_y', playerPos.y);
+    formData.append('party_data', JSON.stringify(playerParty));
+    formData.append('pc_data', JSON.stringify(playerPCStorage));
+    formData.append('defeated_npcs', JSON.stringify(defeatedNpcs));
+
+    try {
+        const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+        const result = await response.json();
+        if (result.success && !isSilent) {
+            alert("Game Progress Saved!");
         }
+    } catch (err) {
+        console.error("Save error:", err);
     }
+}
 
     function showError(msg, color = '#ff4444') {
         const err = document.getElementById('authError');
