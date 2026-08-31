@@ -7,7 +7,7 @@ const TYPE_CHART = {
     basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
     bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
     dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5 },
-    poison:   { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67 }
+    air:   { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 0.67, combat: 1.5, basic: 1.0, bug: 1.5, dragon: 1.0 }
 };
 const TYPE_COLORS = {
     fire:     "#ff6b35",
@@ -18,7 +18,7 @@ const TYPE_COLORS = {
     basic:    "#ffffff",
     bug:      "#27ae60",
     dragon:   "#9b59b6",
-    poison:   "#7f00ff"
+    air:   "#d5ffff"
 };
 
 let isActionLocked = false; // Prevents spamming and input abuse during animations
@@ -155,7 +155,7 @@ const PETS = {
     sparkwing: {
         id: "sparkwing",
         name: "Sparkwing",
-        type: ["electric"],
+        type: ["electric", "air"],
         spawn_routes: [1, 2],
         img: "petpng/sparkwing.png",
         catchRate: 40,
@@ -165,7 +165,7 @@ const PETS = {
         baseStats: { hp: 95, attack: 13, defense: 8, spAttack: 17, spDefense: 9, speed: 18 },
         maxStats:  { hp: 450, attack: 150, defense: 105, spAttack: 205, spDefense: 115, speed: 210 },
         moves: [
-            { name: "Quick Peck", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Quick Peck", type: "air", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Thundershock", type: "electric", damage: 25, powerCost: 6, damageType: "special", levelToLearn: 1 },
             { name: "Spark Wing", type: "electric", damage: 45, powerCost: 12, damageType: "physical", levelToLearn: 5 },
             { name: "Thunderbolt", type: "electric", damage: 70, powerCost: 20, damageType: "special", levelToLearn: 10 }
@@ -184,10 +184,11 @@ const PETS = {
         baseStats: { hp: 120, attack: 17, defense: 25, spAttack: 17, spDefense: 25, speed: 10 },
         maxStats:  { hp: 650, attack: 150, defense: 180, spAttack: 150, spDefense: 180, speed: 120 },
         moves: [
-            { name: "Stick Impact", type: "basic", damage: 12, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Stick Impact", type: "grass", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Burn Out", type: "fire", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
             { name: "Heavy Slam", type: "basic", damage: 65, powerCost: 70, damageType: "physical", levelToLearn: 5 },
-            { name: "Flamethrower", type: "fire", damage: 65, powerCost: 70, damageType: "special", levelToLearn: 10 }
+            { name: "Flamethrower", type: "fire", damage: 65, powerCost: 70, damageType: "special", levelToLearn: 10 },
+            { name: "Vine Whip", type: "fire", damage: 80, powerCost: 75, damageType: "physical", levelToLearn: 16 }
         ]
     },
     samupillar: {
@@ -232,7 +233,7 @@ const PETS = {
         id: "hydrini",
         name: "Hydrini",
         type: ["dragon"],
-        spawn_routes: [2],
+        spawn_routes: [2, 3],
         img: "petpng/hydrini.png",
         catchRate: 45,
         evolvingLevel: 20,
