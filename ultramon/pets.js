@@ -1,13 +1,14 @@
 const TYPE_CHART = {
-    fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67 },
-    water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67 },
-    grass:    { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67, dragon: 0.67 },
-    electric: { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67 },
-    combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67 },
-    basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
-    bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0 },
-    dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5 },
-    air:   { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 0.67, combat: 1.5, basic: 1.0, bug: 1.5, dragon: 1.0 }
+    fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67, air: 1.0, metal: 1.5 },
+    water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.0, metal: 1.0 },
+    grass:    { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67, dragon: 0.67, air: 0.67, metal: 0.67 },
+    electric: { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.5, metal: 1.0 },
+    combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67, air: 0.67, metal: 1.5 },
+    basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67 },
+    bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 0.67, metal: 0.67 },
+    dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5, air: 1.0, metal: 0.67 },
+    air:   { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 0.67, combat: 1.5, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67 },
+    metal:   { fire: 0.67,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67 }
 };
 const TYPE_COLORS = {
     fire:     "#ff6b35",
@@ -18,7 +19,8 @@ const TYPE_COLORS = {
     basic:    "#ffffff",
     bug:      "#27ae60",
     dragon:   "#9b59b6",
-    air:   "#d5ffff"
+    air:   "#d5ffff",
+    metal: "#c0c0c0"
 };
 
 let isActionLocked = false; // Prevents spamming and input abuse during animations
@@ -246,6 +248,45 @@ const PETS = {
             { name: "Dragons Breath", type: "dragon", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
             { name: "Dragon Orb", type: "dragon", damage: 75, powerCost: 55, damageType: "special", levelToLearn: 15 },
             { name: "Magical Burst", type: "basic", damage: 75, powerCost: 55, damageType: "special", levelToLearn: 20 }
+        ]
+    },
+    shocket: {
+        id: "shocket",
+        name: "Shocket",
+        type: ["water"],
+        spawn_routes: [3],
+        img: "petpng/shocket.png",
+        catchRate: 45,
+        evolvingLevel: 20,
+        evolutionId: "trishock",
+        size: 1.0, // Added size stat[cite: 1]
+        baseStats: { hp: 100, attack: 25, defense: 30, spAttack: 25, spDefense: 15, speed: 30 },
+        maxStats:  { hp: 500, attack: 130, defense: 150, spAttack: 145, spDefense: 75, speed: 250 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Flame Burst", type: "fire", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
+            { name: "Water Blade", type: "water", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 15 },
+            { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical", levelToLearn: 20 }
+        ]
+    },
+    trishock: {
+        id: "trishock",
+        name: "Trishock",
+        type: ["water"],
+        spawn_routes: [],
+        img: "petpng/trishock.png",
+        catchRate: 45,
+        evolvingLevel: 20,
+        evolutionId: "",
+        size: 1.5, // Added size stat[cite: 1]
+        baseStats: { hp: 150, attack: 35, defense: 45, spAttack: 35, spDefense: 20, speed: 45 },
+        maxStats:  { hp: 800, attack: 200, defense: 190, spAttack: 210, spDefense: 90, speed: 320 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Flame Burst", type: "fire", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
+            { name: "Water Blade", type: "water", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 15 },
+            { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical", levelToLearn: 20 },
+            { name: "Silver Gleam", type: "metal", damage: 65, powerCost: 35, damageType: "special", levelToLearn: 20 }
         ]
     }
 };
