@@ -146,6 +146,8 @@
         .tile-grass { background: #27ae60 url('petpng/gras.png') no-repeat center center / cover; border: 1px solid rgba(0,0,0,0.1); }
         .tile-tall_grass { background: #1e8449 url('petpng/tall_grass.png') no-repeat center center / cover; border: 1px solid rgba(0,0,0,0.1); }
         .tile-wall { background: #4a5568 url('petpng/tree.png') no-repeat center center / cover; border: 1px solid #2d3748; }
+        .tile-water { background: #3498db url('petpng/water.png') no-repeat center center / cover; border: 1px solid rgba(0,0,0,0.1); }
+        .tile-planks { background: #8b5a2b url('petpng/planks.png') no-repeat center center / cover; border: 1px solid rgba(0,0,0,0.1); }
         .tile-route { background: #f1c40f; border: 1px solid #d4ac0d; }
         .tile-gate { background: #d35400; border: 1px solid #ba4a00; }
         .tile-gate::after { content: "🚪"; font-size: 20px; }
@@ -1280,7 +1282,6 @@ function endBattle(won) {
     encounterCooldown = false;
 
     if (won && playerParty.length > 0) {
-        // Sequentially check evolution for every pet in the team[cite: 1]
         checkTeamEvolutions(0, () => {
             saveGameData(true);
         });
@@ -1308,7 +1309,7 @@ function endBattle(won) {
             
             if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
             
-            if (activeMap[tileY][tileX] === 'wall') return false;
+            if (activeMap[tileY][tileX] === 'wall' || activeMap[tileY][tileX] === 'water') return false;
         }
 
         return true;
@@ -1425,7 +1426,6 @@ function travelThroughGate() {
     closeGateModal();
 
     if (activeGateType === 'next') {
-        // Move forward to the next map if available
         if (currentMapIndex < allMaps.length - 1) {
             currentMapIndex++;
             currentRoute++;
@@ -1434,7 +1434,6 @@ function travelThroughGate() {
             alert("❌ You have reached the end of the current maps!");
         }
     } else {
-        // Move backward to the previous map
         if (currentMapIndex > 0) {
             currentMapIndex--;
             currentRoute--;
@@ -1699,7 +1698,6 @@ function travelThroughGate() {
             document.getElementById('battleWildName').innerText = `Wild ${activeEncounter.name} (Lv. ${activeEncounter.level})`;
         }
 
-        // Apply dynamic size scaling for the wild pet sprite[cite: 2]
         const wildImg = document.getElementById('battleWildImg');
         wildImg.src = activeEncounter.img;
         const wildBaseSize = 140;
@@ -1712,7 +1710,6 @@ function travelThroughGate() {
 
         document.getElementById('battlePlayerName').innerText = `${activePlayerPet.name} (Lv. ${activePlayerPet.level})`;
         
-        // Apply dynamic size scaling for the player pet sprite[cite: 2]
         const playerImg = document.getElementById('battlePlayerImg');
         playerImg.src = activePlayerPet.img;
         const playerBaseSize = 140;
@@ -1830,12 +1827,10 @@ function travelThroughGate() {
 
     playerBattleEnergy -= moveObj.powerCost;
     
-    // UI updates before animation
-    document.getElementById('battleActionButtons').innerHTML = ''; // Hide buttons during attack
+    document.getElementById('battleActionButtons').innerHTML = '';
     document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}!`;
 
     playAttackVisuals('battlePlayerImg', 'battleWildImg', moveObj, true, () => {
-        // --- Damage Calculation ---
         let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
         let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
         let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
@@ -1853,13 +1848,10 @@ function travelThroughGate() {
         let targetLabel = activeTrainer ? `${activeTrainer.name}'s ${activeEncounter.name}` : `Wild ${activeEncounter.name}`;
         document.getElementById('battleDialogueText').innerText += ` Dealt ${finalDamage} damage to ${targetLabel}.${effectivenessText}`;
 
-        // --- Defeat Logic ---
-        // --- Defeat Logic ---
         if (activeEncounter.currentHp <= 0) {
             let expGained = activeEncounter.level * 15;
             let levelUpSummary = "";
 
-            // Loop through every pet in the player's party to award EXP
             playerParty.forEach((petData, index) => {
                 petData.exp = (petData.exp || 0) + expGained;
                 let currentLvl = petData.lvl;
@@ -1875,7 +1867,7 @@ function travelThroughGate() {
 
                 if (leveledUp) {
                     const recalcPet = getCalculatedPet(petData);
-                    petData.hp = recalcPet.maxHp; // Heal fully on level up
+                    petData.hp = recalcPet.maxHp;
                     levelUpSummary += ` ${recalcPet.name} grew to Lv. ${petData.lvl}!`;
                 }
             });
@@ -1913,7 +1905,6 @@ function travelThroughGate() {
             return;
         }
 
-        // Enemy turn if not defeated
         setTimeout(() => executeEnemyAttack(), 1500);
     });
 }
@@ -2120,7 +2111,6 @@ function travelThroughGate() {
         renderPCStorage();
         renderPartyCircles();
 
-        // Save progress to the server if the battle finished successfully (win)
         if (isFinished) {
             saveGameData(true);
         }
@@ -2438,7 +2428,6 @@ function travelThroughGate() {
             if (petIndex > 0 && petData.hp > 0) {
                 managementButtons += `<button class="btn-action" style="padding:5px 10px; font-size:11px;" onclick="selectLeadPet(${petIndex})">⭐ Set Lead</button>`;
             }
-            // Check if pet is eligible for evolution
             const species = PETS[petData.id.toLowerCase()];
             const canEvolve = species && species.evolutionId && species.evolutionId !== "" && (petData.lvl || 1) >= species.evolvingLevel;
             
@@ -2466,13 +2455,11 @@ function travelThroughGate() {
                         </div>
                     </div>
                     
-                    <!-- HP Bar -->
                     <div class="hp-bar-bg">
                         <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
                     </div>
                     <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
                     
-                    <!-- EXP Bar -->
                     <div class="exp-bar-bg">
                         <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
                     </div>
@@ -2529,13 +2516,11 @@ function travelThroughGate() {
                         </div>
                     </div>
 
-                    <!-- HP Bar -->
                     <div class="hp-bar-bg">
                         <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
                     </div>
                     <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
                     
-                    <!-- EXP Bar -->
                     <div class="exp-bar-bg">
                         <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
                     </div>
