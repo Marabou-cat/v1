@@ -96,4 +96,8 @@ const route1Map = [
     ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "water", "water", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
 ];
 
-    const allMaps = [route1Map, route2Map, route3Map];
+    const allMaps = [
+    route1Map,
+    route2Map,
+    route3Map
+];
