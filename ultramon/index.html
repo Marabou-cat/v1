@@ -1037,12 +1037,12 @@
     
 
     window.addEventListener('DOMContentLoaded', () => {
-        runLoadingSequence();
-        initMap();
-        setupMovementListeners();
-        requestAnimationFrame(gameLoop);
-    });
-
+    runLoadingSequence();
+    initMap();
+    setupMovementListeners();
+    updateQuestUI(); // <-- Add this line here
+    requestAnimationFrame(gameLoop);
+});
     window.addEventListener('resize', renderPlayerElement);
 
     function getCurrentMap() {
