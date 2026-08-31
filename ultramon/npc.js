@@ -31,8 +31,8 @@ const npc = [
         id: "expert_leo",
         name: "Route Expert Leo",
         route: 2,
-        x: 15,
-        y: 4,
+        x: 14,
+        y: 16,
         color: "#e67e22",
         team: [
             { id: "flaragon", lvl: 6 },
