@@ -970,7 +970,7 @@
     let coins = 100;
     let balls = 5;
     let currentRoute = 1;
-    let currentMapIndex = 0; 
+    let currentMap = 1;
     let activeEncounter = null;
     let activeTrainer = null;
     let trainerPetIndex = 0;
@@ -1002,8 +1002,8 @@
     window.addEventListener('resize', renderPlayerElement);
 
     function getCurrentMap() {
-        return allMaps[currentMapIndex];
-    }
+    return maps[currentMap];
+}
     function playAttackVisuals(attackerId, defenderId, moveObj, isPlayer, callback) {
     const attackerImg = document.getElementById(attackerId);
     const defenderImg = document.getElementById(defenderId);
@@ -1425,24 +1425,22 @@ function endBattle(won) {
 let isTransitioning = false;
 
 function travelThroughGate() {
-    // Prevent rapid multiple clicks from incrementing map index twice
-    if (isTransitioning) return;
-    isTransitioning = true;
-
     closeGateModal();
 
     if (activeGateType === 'next') {
-        if (currentMapIndex < allMaps.length - 1) {
-            currentMapIndex++;
-            currentRoute = currentMapIndex + 1;
+        const nextMapNumber = currentMap + 1;
+        if (maps[nextMapNumber]) {
+            currentMap = nextMapNumber;
+            currentRoute = nextMapNumber;
             playerPos = getSafeSpawnNearGate(getCurrentMap(), 'prev_gate');
         } else {
             alert("❌ You have reached the end of the current maps!");
         }
-    } else if (activeGateType === 'prev') {
-        if (currentMapIndex > 0) {
-            currentMapIndex--;
-            currentRoute = currentMapIndex + 1;
+    } else {
+        const prevMapNumber = currentMap - 1;
+        if (maps[prevMapNumber]) {
+            currentMap = prevMapNumber;
+            currentRoute = prevMapNumber;
             playerPos = getSafeSpawnNearGate(getCurrentMap(), 'next_gate');
         } else {
             alert("❌ This is the starting area!");
@@ -1452,11 +1450,6 @@ function travelThroughGate() {
     initMap();
     renderPlayerElement();
     saveGameData(true);
-
-    // Release transition lock after rendering
-    setTimeout(() => {
-        isTransitioning = false;
-    }, 500);
 }
 
     function openMenuModal() {
