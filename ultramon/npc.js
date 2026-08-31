@@ -2,7 +2,7 @@
 const npc = [
     {
         id: "pelle",
-        name: "Pelle",
+        name: "Rival Pelle",
         route: 1,
         x: 14,
         y: 8,
