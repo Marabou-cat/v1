@@ -2223,7 +2223,7 @@ function travelThroughGate() {
                 coins = parseInt(result.data.coins);
                 balls = parseInt(result.data.balls);
                 currentRoute = parseInt(result.data.current_route);
-                currentMapIndex = currentRoute === 2 ? 1 : 0;
+                currentMapIndex = Math.max(0, currentRoute - 1);
                 
                 playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
                 playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
@@ -2286,7 +2286,7 @@ function travelThroughGate() {
                     coins = parseInt(result.data.coins);
                     balls = parseInt(result.data.balls);
                     currentRoute = parseInt(result.data.current_route);
-                    currentMapIndex = currentRoute === 2 ? 1 : 0;
+                    currentMapIndex = Math.max(0, currentRoute - 1);
                     
                     playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
                     playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
