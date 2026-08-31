@@ -2,7 +2,7 @@
 session_start();
 header('Content-Type: application/json');
 
-// --- 1. CONFIG & CONNECTION (SCHOOLEXAMS DB) ---
+// --- 1. CONFIG & CONNECTION ---
 $config_file = '../config.ini'; 
 if (!file_exists($config_file)) {
     die(json_encode(["success" => false, "message" => "Server Error: Configuration file missing."]));
@@ -27,8 +27,6 @@ try {
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $pdo->exec("USE `$db_name`");
 
-    // The party_data and pc_data columns use LONGTEXT to store JSON.
-    // This allows the frontend to save the new "exp" values seamlessly.
     $pdo->exec("CREATE TABLE IF NOT EXISTS `petgame_users` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `username` VARCHAR(50) NOT NULL UNIQUE,
@@ -40,14 +38,16 @@ try {
         `pos_y` FLOAT DEFAULT 15.0,
         `party_data` LONGTEXT NOT NULL,
         `pc_data` LONGTEXT NOT NULL DEFAULT '[]',
+        `defeated_npcs` LONGTEXT NOT NULL DEFAULT '[]',
         `last_online` BIGINT NOT NULL,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // Safely ensure coordinate and pc_data columns exist on older tables
+    // Ensure columns exist on older tables
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_x` FLOAT DEFAULT 1.5"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_y` FLOAT DEFAULT 15.0"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pc_data` LONGTEXT NOT NULL DEFAULT '[]'"); } catch (PDOException $e) {}
+    try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `defeated_npcs` LONGTEXT NOT NULL DEFAULT '[]'"); } catch (PDOException $e) {}
 
 } catch (PDOException $e) {
     die(json_encode(["success" => false, "message" => "Database connection failed: " . $e->getMessage()]));
@@ -79,11 +79,12 @@ if ($action === 'register') {
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
     $defaultParty = json_encode([]);
     $defaultPC = json_encode([]);
+    $defaultNpcs = json_encode([]);
     $time = time();
 
     try {
-        $stmt = $pdo->prepare("INSERT INTO petgame_users (username, password, party_data, pc_data, last_online) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$username, $hashedPassword, $defaultParty, $defaultPC, $time]);
+        $stmt = $pdo->prepare("INSERT INTO petgame_users (username, password, party_data, pc_data, defeated_npcs, last_online) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$username, $hashedPassword, $defaultParty, $defaultPC, $defaultNpcs, $time]);
         echo json_encode(["success" => true, "message" => "Account registered successfully."]);
     } catch (PDOException $e) {
         echo json_encode(["success" => false, "message" => "Username already exists or database error."]);
@@ -113,7 +114,8 @@ if ($action === 'login') {
                 "pos_x" => (float)$user['pos_x'],
                 "pos_y" => (float)$user['pos_y'],
                 "party_data" => $user['party_data'],
-                "pc_data" => $user['pc_data']
+                "pc_data" => $user['pc_data'],
+                "defeated_npcs" => $user['defeated_npcs']
             ]
         ]);
     } else {
@@ -144,7 +146,8 @@ if ($action === 'load') {
                 "pos_x" => (float)$user['pos_x'],
                 "pos_y" => (float)$user['pos_y'],
                 "party_data" => $user['party_data'],
-                "pc_data" => $user['pc_data']
+                "pc_data" => $user['pc_data'],
+                "defeated_npcs" => $user['defeated_npcs']
             ]
         ]);
     } else {
@@ -156,23 +159,27 @@ if ($action === 'load') {
 if ($action === 'save') {
     $username = trim($_POST['username'] ?? '');
     if (empty($username)) {
-        echo json_encode(["success" => false, "message" => "Unauthorized save request."]);
+        echo json_encode(["success" => false, "message" => "No username provided."]);
         exit;
     }
 
-    $coins = intval($_POST['coins'] ?? 100);
-    $balls = intval($_POST['balls'] ?? 5);
-    $current_route = intval($_POST['current_route'] ?? 1);
-    $pos_x = floatval($_POST['pos_x'] ?? 1.5);
-    $pos_y = floatval($_POST['pos_y'] ?? 15.0);
+    $coins = (int)($_POST['coins'] ?? 100);
+    $balls = (int)($_POST['balls'] ?? 5);
+    $current_route = (int)($_POST['current_route'] ?? 1);
+    $pos_x = (float)($_POST['pos_x'] ?? 1.5);
+    $pos_y = (float)($_POST['pos_y'] ?? 15.0);
     $party_data = $_POST['party_data'] ?? '[]';
     $pc_data = $_POST['pc_data'] ?? '[]';
+    $defeated_npcs = $_POST['defeated_npcs'] ?? '[]';
     $time = time();
 
-    $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, pc_data = ?, last_online = ? WHERE username = ?");
-    $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $pc_data, $time, $username]);
-
-    echo json_encode(["success" => true, "message" => "Game saved successfully."]);
+    try {
+        $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, pc_data = ?, defeated_npcs = ?, last_online = ? WHERE username = ?");
+        $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $pc_data, $defeated_npcs, $time, $username]);
+        echo json_encode(["success" => true, "message" => "Game saved successfully."]);
+    } catch (PDOException $e) {
+        echo json_encode(["success" => false, "message" => "Failed to save game data: " . $e->getMessage()]);
+    }
     exit;
 }
 
