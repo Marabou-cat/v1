@@ -1422,21 +1422,27 @@ function endBattle(won) {
     return { x: 1.5, y: 15.0 }; // Fallback coordinate
 }
 
+let isTransitioning = false;
+
 function travelThroughGate() {
+    // Prevent rapid multiple clicks from incrementing map index twice
+    if (isTransitioning) return;
+    isTransitioning = true;
+
     closeGateModal();
 
     if (activeGateType === 'next') {
         if (currentMapIndex < allMaps.length - 1) {
             currentMapIndex++;
-            currentRoute++;
+            currentRoute = currentMapIndex + 1;
             playerPos = getSafeSpawnNearGate(getCurrentMap(), 'prev_gate');
         } else {
             alert("❌ You have reached the end of the current maps!");
         }
-    } else {
+    } else if (activeGateType === 'prev') {
         if (currentMapIndex > 0) {
             currentMapIndex--;
-            currentRoute--;
+            currentRoute = currentMapIndex + 1;
             playerPos = getSafeSpawnNearGate(getCurrentMap(), 'next_gate');
         } else {
             alert("❌ This is the starting area!");
@@ -1446,6 +1452,11 @@ function travelThroughGate() {
     initMap();
     renderPlayerElement();
     saveGameData(true);
+
+    // Release transition lock after rendering
+    setTimeout(() => {
+        isTransitioning = false;
+    }, 500);
 }
 
     function openMenuModal() {
