@@ -32,7 +32,7 @@ const route1Map = [
     ];
 
     const route2Map = [
-        ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'prev_gate', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
+    ['wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'prev_gate', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall', 'wall'],
     ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'wall', 'route', 'wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'route', 'grass', 'grass', 'grass', 'wall'],
     ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
     ['wall', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'tall_grass', 'tall_grass', 'grass', 'wall', 'route', 'wall', 'grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'tall_grass', 'grass', 'grass', 'route', 'grass', 'tall_grass', 'tall_grass', 'wall'],
