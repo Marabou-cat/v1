@@ -2464,6 +2464,7 @@ applyDefeatedNPCs(defeatedNpcs);
     formData.append('party_data', JSON.stringify(playerParty));
     formData.append('pc_data', JSON.stringify(playerPCStorage));
     formData.append('defeated_npcs', JSON.stringify(defeatedNpcs));
+    formData.append('quest_data', JSON.stringify(playerQuestData));
 
     try {
         const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
