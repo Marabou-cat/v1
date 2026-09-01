@@ -298,7 +298,7 @@ const PETS = {
         catchRate: 45,
         evolvingLevel: 16,
         evolutionId: "bladee",
-        size: 1.5, // Added size stat[cite: 1]
+        size: 0.8, // Added size stat[cite: 1]
         baseStats: { hp: 100, attack: 15, defense: 45, spAttack: 15, spDefense: 45, speed: 5 },
         maxStats:  { hp: 500, attack: 120, defense: 190, spAttack: 120, spDefense: 190, speed: 80 },
         moves: [
