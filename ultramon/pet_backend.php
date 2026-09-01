@@ -48,6 +48,7 @@ try {
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_y` FLOAT DEFAULT 15.0"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pc_data` LONGTEXT NOT NULL DEFAULT '[]'"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `defeated_npcs` LONGTEXT NOT NULL DEFAULT '[]'"); } catch (PDOException $e) {}
+    try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `quest_data` LONGTEXT NOT NULL DEFAULT '{}'"); } catch (PDOException $e) {}
 
 } catch (PDOException $e) {
     die(json_encode(["success" => false, "message" => "Database connection failed: " . $e->getMessage()]));
@@ -172,6 +173,7 @@ if ($action === 'save') {
     $pc_data = $_POST['pc_data'] ?? '[]';
     $defeated_npcs = $_POST['defeated_npcs'] ?? '[]';
     $time = time();
+    $quest_data = $_POST['quest_data'] ?? '{}';
 
     try {
         $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, pc_data = ?, defeated_npcs = ?, last_online = ? WHERE username = ?");
