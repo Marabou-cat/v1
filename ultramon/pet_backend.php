@@ -39,6 +39,7 @@ try {
         `party_data` LONGTEXT NOT NULL,
         `pc_data` LONGTEXT NOT NULL DEFAULT '[]',
         `defeated_npcs` LONGTEXT NOT NULL DEFAULT '[]',
+        `quest_data` LONGTEXT NOT NULL DEFAULT '{}',
         `last_online` BIGINT NOT NULL,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
@@ -81,11 +82,12 @@ if ($action === 'register') {
     $defaultParty = json_encode([]);
     $defaultPC = json_encode([]);
     $defaultNpcs = json_encode([]);
+    $defaultQuest = json_encode({});
     $time = time();
 
     try {
-        $stmt = $pdo->prepare("INSERT INTO petgame_users (username, password, party_data, pc_data, defeated_npcs, last_online) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$username, $hashedPassword, $defaultParty, $defaultPC, $defaultNpcs, $time]);
+        $stmt = $pdo->prepare("INSERT INTO petgame_users (username, password, party_data, pc_data, defeated_npcs, quest_data, last_online) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$username, $hashedPassword, $defaultParty, $defaultPC, $defaultNpcs, $defaultQuest, $time]);
         echo json_encode(["success" => true, "message" => "Account registered successfully."]);
     } catch (PDOException $e) {
         echo json_encode(["success" => false, "message" => "Username already exists or database error."]);
@@ -116,7 +118,8 @@ if ($action === 'login') {
                 "pos_y" => (float)$user['pos_y'],
                 "party_data" => $user['party_data'],
                 "pc_data" => $user['pc_data'],
-                "defeated_npcs" => $user['defeated_npcs']
+                "defeated_npcs" => $user['defeated_npcs'],
+                "quest_data" => $user['quest_data']
             ]
         ]);
     } else {
@@ -148,7 +151,8 @@ if ($action === 'load') {
                 "pos_y" => (float)$user['pos_y'],
                 "party_data" => $user['party_data'],
                 "pc_data" => $user['pc_data'],
-                "defeated_npcs" => $user['defeated_npcs']
+                "defeated_npcs" => $user['defeated_npcs'],
+                "quest_data" => $user['quest_data']
             ]
         ]);
     } else {
@@ -172,12 +176,12 @@ if ($action === 'save') {
     $party_data = $_POST['party_data'] ?? '[]';
     $pc_data = $_POST['pc_data'] ?? '[]';
     $defeated_npcs = $_POST['defeated_npcs'] ?? '[]';
-    $time = time();
     $quest_data = $_POST['quest_data'] ?? '{}';
+    $time = time();
 
     try {
-        $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, pc_data = ?, defeated_npcs = ?, last_online = ? WHERE username = ?");
-        $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $pc_data, $defeated_npcs, $time, $username]);
+        $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, pc_data = ?, defeated_npcs = ?, quest_data = ?, last_online = ? WHERE username = ?");
+        $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $pc_data, $defeated_npcs, $quest_data, $time, $username]);
         echo json_encode(["success" => true, "message" => "Game saved successfully."]);
     } catch (PDOException $e) {
         echo json_encode(["success" => false, "message" => "Failed to save game data: " . $e->getMessage()]);
