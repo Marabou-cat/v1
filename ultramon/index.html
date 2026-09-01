@@ -2338,6 +2338,8 @@ if (result.success && result.data) {
     let defeatedNpcs = typeof result.data.defeated_npcs === 'string' ? JSON.parse(result.data.defeated_npcs) : (result.data.defeated_npcs || []);
     applyDefeatedNPCs(defeatedNpcs);
 
+    let playerQuests = typeof result.data.quest_data === 'string' ? JSON.parse(result.data.quest_data) : (result.data.quest_data || []);
+
     let loadedX = parseFloat(result.data.pos_x);
     let loadedY = parseFloat(result.data.pos_y);
     if (!isNaN(loadedX) && !isNaN(loadedY)) {
@@ -2417,6 +2419,8 @@ applyDefeatedNPCs(defeatedNpcs);
                     playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
                     playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
 
+                    let playerQuests = typeof result.data.quest_data === 'string' ? JSON.parse(result.data.quest_data) : (result.data.quest_data || []);
+
                     let loadedX = parseFloat(result.data.pos_x);
                     let loadedY = parseFloat(result.data.pos_y);
                     if (!isNaN(loadedX) && !isNaN(loadedY)) {
@@ -2464,6 +2468,7 @@ applyDefeatedNPCs(defeatedNpcs);
     formData.append('party_data', JSON.stringify(playerParty));
     formData.append('pc_data', JSON.stringify(playerPCStorage));
     formData.append('defeated_npcs', JSON.stringify(defeatedNpcs));
+    formData.append('quest_data', questsPayload);
 
     try {
         const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
