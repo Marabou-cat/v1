@@ -41,6 +41,7 @@ try {
         `defeated_npcs` LONGTEXT NOT NULL DEFAULT '[]',
         `last_online` BIGINT NOT NULL,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        `quest_data` LONGTEXT NOT NULL DEFAULT '[]',
     )");
 
     // Ensure columns exist on older tables
@@ -48,6 +49,7 @@ try {
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pos_y` FLOAT DEFAULT 15.0"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `pc_data` LONGTEXT NOT NULL DEFAULT '[]'"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `defeated_npcs` LONGTEXT NOT NULL DEFAULT '[]'"); } catch (PDOException $e) {}
+    try { $pdo->exec("ALTER TABLE `petgame_users` ADD COLUMN `quest_data` LONGTEXT NOT NULL DEFAULT '[]'"); } catch (PDOException $e) {}
 
 } catch (PDOException $e) {
     die(json_encode(["success" => false, "message" => "Database connection failed: " . $e->getMessage()]));
@@ -116,6 +118,7 @@ if ($action === 'login') {
                 "party_data" => $user['party_data'],
                 "pc_data" => $user['pc_data'],
                 "defeated_npcs" => $user['defeated_npcs']
+                "quest_data" => $user['quest_data'] // Add this line
             ]
         ]);
     } else {
@@ -148,6 +151,7 @@ if ($action === 'load') {
                 "party_data" => $user['party_data'],
                 "pc_data" => $user['pc_data'],
                 "defeated_npcs" => $user['defeated_npcs']
+                "quest_data" => $user['quest_data'] // Add this line
             ]
         ]);
     } else {
@@ -171,15 +175,16 @@ if ($action === 'save') {
     $party_data = $_POST['party_data'] ?? '[]';
     $pc_data = $_POST['pc_data'] ?? '[]';
     $defeated_npcs = $_POST['defeated_npcs'] ?? '[]';
+    $quest_data = $_POST['quest_data'] ?? '[]'; // Add this line
     $time = time();
 
     try {
-        $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, pc_data = ?, defeated_npcs = ?, last_online = ? WHERE username = ?");
-        $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $pc_data, $defeated_npcs, $time, $username]);
-        echo json_encode(["success" => true, "message" => "Game saved successfully."]);
-    } catch (PDOException $e) {
-        echo json_encode(["success" => false, "message" => "Failed to save game data: " . $e->getMessage()]);
-    }
+    $stmt = $pdo->prepare("UPDATE petgame_users SET coins = ?, balls = ?, current_route = ?, pos_x = ?, pos_y = ?, party_data = ?, pc_data = ?, defeated_npcs = ?, quest_data = ?, last_online = ? WHERE username = ?");
+    $stmt->execute([$coins, $balls, $current_route, $pos_x, $pos_y, $party_data, $pc_data, $defeated_npcs, $quest_data, $time, $username]);
+    echo json_encode(["success" => true, "message" => "Game saved successfully."]);
+} catch (PDOException $e) {
+    echo json_encode(["success" => false, "message" => "Failed to save game data: " . $e->getMessage()]);
+}
     exit;
 }
 
