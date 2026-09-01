@@ -255,7 +255,7 @@ const PETS = {
         name: "Shocket",
         type: ["water"],
         spawn_routes: [3],
-        img: "petpng/shocket.png",
+        img: "petpng/pyrodon.png",
         catchRate: 45,
         evolvingLevel: 20,
         evolutionId: "trishock",
