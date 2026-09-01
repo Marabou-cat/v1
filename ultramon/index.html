@@ -2338,6 +2338,13 @@ if (result.success && result.data) {
     let defeatedNpcs = typeof result.data.defeated_npcs === 'string' ? JSON.parse(result.data.defeated_npcs) : (result.data.defeated_npcs || []);
     applyDefeatedNPCs(defeatedNpcs);
 
+    if (typeof result.data.quest_data !== 'undefined' && result.data.quest_data) {
+    playerQuestData = typeof result.data.quest_data === 'string' ? JSON.parse(result.data.quest_data) : result.data.quest_data;
+}
+if (typeof updateQuestUI === 'function') {
+    updateQuestUI();
+}
+
     let loadedX = parseFloat(result.data.pos_x);
     let loadedY = parseFloat(result.data.pos_y);
     if (!isNaN(loadedX) && !isNaN(loadedY)) {
@@ -2406,6 +2413,13 @@ if (result.success && result.data) {
                     balls = parseInt(result.data.balls);
                     currentRoute = parseInt(result.data.current_route);
                     currentMapIndex = Math.max(0, currentRoute - 1);
+
+                    if (typeof result.data.quest_data !== 'undefined' && result.data.quest_data) {
+    playerQuestData = typeof result.data.quest_data === 'string' ? JSON.parse(result.data.quest_data) : result.data.quest_data;
+}
+if (typeof updateQuestUI === 'function') {
+    updateQuestUI();
+}
                     // Inside performAuth('login') section
 playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
 playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
