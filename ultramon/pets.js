@@ -201,7 +201,7 @@ const PETS = {
         img: "petpng/samupillar.png",
         catchRate: 45,
         evolvingLevel: 7,
-        evolutionId: "",
+        evolutionId: "samupod",
         size: 0.7, // Added size stat[cite: 1]
         baseStats: { hp: 80, attack: 15, defense: 12, spAttack: 12, spDefense: 5, speed: 5 },
         maxStats:  { hp: 350, attack: 125, defense: 120, spAttack: 95, spDefense: 60, speed: 100 },
@@ -287,6 +287,46 @@ const PETS = {
             { name: "Water Blade", type: "water", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 15 },
             { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical", levelToLearn: 20 },
             { name: "Silver Gleam", type: "metal", damage: 65, powerCost: 35, damageType: "special", levelToLearn: 20 }
+        ]
+    },
+    samupod: {
+        id: "samupod",
+        name: "Samupod",
+        type: ["bug", "combat"],
+        spawn_routes: [3],
+        img: "petpng/samupod.png",
+        catchRate: 45,
+        evolvingLevel: 16,
+        evolutionId: "bladee",
+        size: 1.5, // Added size stat[cite: 1]
+        baseStats: { hp: 100, attack: 15, defense: 45, spAttack: 15, spDefense: 45, speed: 5 },
+        maxStats:  { hp: 500, attack: 120, defense: 190, spAttack: 120, spDefense: 190, speed: 80 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Web", type: "bug", damage: 15, powerCost: 0, damageType: "special", levelToLearn: 1 },
+            { name: "Charged Tackle", type: "combat", damage: 70, powerCost: 45, damageType: "physical", levelToLearn: 5 },
+            { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical", levelToLearn: 10 },
+            { name: "Shining Eye", type: "metal", damage: 65, powerCost: 35, damageType: "special", levelToLearn: 15 }
+        ]
+    },
+    bladee: {
+        id: "bladee",
+        name: "Bladee",
+        type: ["bug", "combat"],
+        spawn_routes: [],
+        img: "petpng/bladee.png",
+        catchRate: 45,
+        evolvingLevel: 20,
+        evolutionId: "",
+        size: 1.5, // Added size stat[cite: 1]
+        baseStats: { hp: 150, attack: 25, defense: 35, spAttack: 15, spDefense: 20, speed: 35 },
+        maxStats:  { hp: 600, attack: 190, defense: 180, spAttack: 120, spDefense: 130, speed: 270 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Blade Slash", type: "combat", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
+            { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 15 },
+            { name: "Heavy Tackle", type: "basic", damage: 110, powerCost: 80, damageType: "physical", levelToLearn: 20 },
+            { name: "Thunder Slash", type: "electric", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 20 }
         ]
     }
 };
