@@ -370,6 +370,26 @@ const PETS = {
             { name: "Heavy Tackle", type: "basic", damage: 110, powerCost: 80, damageType: "physical", levelToLearn: 20 },
             { name: "Thunder Slash", type: "electric", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 20 }
         ]
+    },
+    Venefish: {
+        id: "venefish",
+        name: "Venefish",
+        type: ["water", "poison"],
+        spawn_routes: [2, 3],
+        img: "petpng/venefish.png",
+        catchRate: 45,
+        evolvingLevel: 20,
+        evolutionId: "",
+        size: 1.5,
+        baseStats: { hp: 200, attack: 50, defense: 25, spAttack: 25, spDefense: 35, speed: 35 },
+        maxStats:  { hp: 650, attack: 220, defense: 130, spAttack: 120, spDefense: 150, speed: 250 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Tentacle Venom", type: "poison", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
+            { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
+            { name: "Poison Spread", type: "poison", damage: 250, powerCost: 100, damageType: "special", levelToLearn: 10 },
+            { name: "Sun Light", type: "grass", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 10 }
+        ]
     }
 };
 
