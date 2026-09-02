@@ -1,14 +1,15 @@
 const TYPE_CHART = {
-    fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67, air: 1.0, metal: 1.5 },
-    water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.0, metal: 1.0 },
-    grass:    { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67, dragon: 0.67, air: 0.67, metal: 0.67 },
-    electric: { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.5, metal: 1.0 },
-    combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67, air: 0.67, metal: 1.5 },
-    basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67 },
-    bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 0.67, metal: 0.67 },
-    dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5, air: 1.0, metal: 0.67 },
-    air:   { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 0.67, combat: 1.5, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67 },
-    metal:   { fire: 0.67,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67 }
+    fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67, air: 1.0, metal: 1.5, stone: 0.67 },
+    water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.0, metal: 1.0, stone: 1.5 },
+    grass:    { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67, dragon: 0.67, air: 0.67, metal: 0.67, stone: 1.5 },
+    electric: { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.5, metal: 1.0, stone: 0.67 },
+    combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67, air: 0.67, metal: 1.5, stone: 1.5 },
+    basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67 },
+    bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 0.67, metal: 0.67, stone: 0.67 },
+    dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5, air: 1.0, metal: 0.67, stone: 1.0 },
+    air:   { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 0.67, combat: 1.5, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67 },
+    metal:   { fire: 0.67,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 1.5 },
+    stone:   { fire: 1.5,  water: 1.0,  grass: 0.67,  electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.5, metal: 0.67, stone: 0.67 }
 };
 const TYPE_COLORS = {
     fire:     "#ff6b35",
@@ -327,6 +328,47 @@ const PETS = {
             { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 15 },
             { name: "Heavy Tackle", type: "basic", damage: 110, powerCost: 80, damageType: "physical", levelToLearn: 20 },
             { name: "Thunder Slash", type: "electric", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 20 }
+        ]
+    },
+    malime: {
+        id: "malime",
+        name: "Malime",
+        type: ["fire"],
+        spawn_routes: [4],
+        img: "petpng/malime.png",
+        catchRate: 45,
+        evolvingLevel: 20,
+        evolutionId: "magmud",
+        size: 1.2, // Added size stat[cite: 1]
+        baseStats: { hp: 125, attack: 15, defense: 35, spAttack: 15, spDefense: 20, speed: 15 },
+        maxStats:  { hp: 450, attack: 125, defense: 180, spAttack: 120, spDefense: 150, speed: 125 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Heat Wave", type: "fire", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 10 },
+            { name: "Rock Blast", type: "stone", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 10 },
+            { name: "Magma River", type: "fire", damage: 110, powerCost: 80, damageType: "special", levelToLearn: 15 },
+            { name: "Earthquake", type: "stone", damage: 135, powerCost: 100, damageType: "physical", levelToLearn: 15 }
+        ]
+    },
+    magmud: {
+        id: "magmud",
+        name: "Magmud",
+        type: ["fire", "stone"],
+        spawn_routes: [],
+        img: "petpng/magmud.png",
+        catchRate: 45,
+        evolvingLevel: 20,
+        evolutionId: "",
+        size: 1.5, // Added size stat[cite: 1]
+        baseStats: { hp: 250, attack: 10, defense: 35, spAttack: 10, spDefense: 35, speed: 15 },
+        maxStats:  { hp: 1000, attack: 100, defense: 180, spAttack: 90, spDefense: 180, speed: 125 },
+        moves: [
+            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Heat Wave", type: "fire", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 10 },
+            { name: "Rock Blast", type: "stone", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 10 },
+            { name: "Magma River", type: "fire", damage: 110, powerCost: 80, damageType: "special", levelToLearn: 15 },
+            { name: "Earthquake", type: "stone", damage: 135, powerCost: 100, damageType: "physical", levelToLearn: 15 },
+            { name: "Dry Out", type: "fire", damage: 135, powerCost: 100, damageType: "physical", levelToLearn: 25 },
         ]
     }
 };
