@@ -84,7 +84,7 @@ const PETS = {
         id: "malime",
         name: "Malime",
         type: ["fire"],
-        spawn_routes: [1],
+        spawn_routes: [4],
         img: "petpng/malime.png",
         catchRate: 45,
         evolvingLevel: 16,
