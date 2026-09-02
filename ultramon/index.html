@@ -181,13 +181,43 @@
     display: none;
 }
 
-.player-cube.walking {
-    animation: playerWalk 0.3s steps(1) infinite;
+/* Directional Idle / Default Faces */
+.player-cube[data-facing="right"] { background-image: url('petpng/Rplayer.png'); }
+.player-cube[data-facing="left"] { background-image: url('petpng/Lplayer.png'); }
+.player-cube[data-facing="up"] { background-image: url('petpng/Uplayer.png'); }
+.player-cube[data-facing="down"] { background-image: url('petpng/Dplayer.png'); }
+
+/* Directional Walking Animations */
+.player-cube.walking[data-facing="right"] {
+    animation: walkRight 0.3s steps(1) infinite;
+}
+@keyframes walkRight {
+    0% { background-image: url('petpng/Rwalk.png'); }
+    50% { background-image: url('petpng/Rwalk2.png'); }
 }
 
-@keyframes playerWalk {
-    0% { background-image: url('petpng/playerwalk.png'); }
-    50% { background-image: url('petpng/playerwalk2.png'); }
+.player-cube.walking[data-facing="left"] {
+    animation: walkLeft 0.3s steps(1) infinite;
+}
+@keyframes walkLeft {
+    0% { background-image: url('petpng/Lwalk.png'); }
+    50% { background-image: url('petpng/Lwalk2.png'); }
+}
+
+.player-cube.walking[data-facing="up"] {
+    animation: walkUp 0.3s steps(1) infinite;
+}
+@keyframes walkUp {
+    0% { background-image: url('petpng/Uwalk.png'); }
+    50% { background-image: url('petpng/Uwalk2.png'); }
+}
+
+.player-cube.walking[data-facing="down"] {
+    animation: walkDown 0.3s steps(1) infinite;
+}
+@keyframes walkDown {
+    0% { background-image: url('petpng/Dwalk.png'); }
+    50% { background-image: url('petpng/Dwalk2.png'); }
 }
         .npc-cube {
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
@@ -1231,7 +1261,7 @@ let lastTime = performance.now();
 const baseMoveSpeed = 2.1; // Adjust this value to set the desired movement speed (units per second)
 
 function gameLoop(currentTime) {
-    const dt = (currentTime - lastTime) / 1000; // Time elapsed in seconds
+    const dt = (currentTime - lastTime) / 1000;
     lastTime = currentTime;
 
     const isMenuOpen = !document.getElementById('menuModal').classList.contains('hidden');
@@ -1261,8 +1291,22 @@ function gameLoop(currentTime) {
 
         const playerEl = document.getElementById('playerCube');
         if (playerEl) {
-            if (isMoving) playerEl.classList.add('walking');
-            else playerEl.classList.remove('walking');
+            if (isMoving) {
+                playerEl.classList.add('walking');
+                
+                // Determine and set facing direction based on movement vector
+                if (dx > 0) {
+                    playerEl.dataset.facing = 'right';
+                } else if (dx < 0) {
+                    playerEl.dataset.facing = 'left';
+                } else if (dy > 0) {
+                    playerEl.dataset.facing = 'down';
+                } else if (dy < 0) {
+                    playerEl.dataset.facing = 'up';
+                }
+            } else {
+                playerEl.classList.remove('walking');
+            }
         }
 
         if (dx !== 0 || dy !== 0) {
@@ -1271,7 +1315,6 @@ function gameLoop(currentTime) {
                 dy *= 0.7071;
             }
 
-            // Scale movement by dt so speed remains constant regardless of frame rate drops
             let targetX = playerPos.x + dx * baseMoveSpeed * dt;
             let targetY = playerPos.y + dy * baseMoveSpeed * dt;
 
@@ -1282,8 +1325,6 @@ function gameLoop(currentTime) {
                 checkTileInteractions();
                 checkNpcCollisions();
             }
-        } else {
-            if (playerEl) playerEl.classList.remove('walking');
         }
     }
     requestAnimationFrame(gameLoop);
