@@ -61,6 +61,8 @@
         .brush-water { background: #3498db; }
         .brush-planks { background: #8b5a2b; }
         .brush-route { background: #f1c40f; color: black; }
+        .brush-stone { background: #718096; }
+        .brush-lava { background: #c0392b; }
         .brush-gate_next { background: #d35400; }
         .brush-gate_prev { background: #c0392b; }
 
@@ -80,13 +82,15 @@
             cursor: crosshair;
         }
 
-        /* Tile visuals matching game specifications[cite: 3] */
+        /* Tile visuals matching game specifications */
         .cell.grass { background: #27ae60; }
         .cell.tall_grass { background: #1e8449; }
         .cell.wall { background: #4a5568; }
         .cell.water { background: #3498db; }
         .cell.planks { background: #8b5a2b; }
         .cell.route { background: #f1c40f; }
+        .cell.stone { background: #718096; }
+        .cell.lava { background: #c0392b; }
         
         .cell.gate_next { 
             background: #d35400; 
@@ -163,6 +167,8 @@
         <button class="brush-btn brush-water" onclick="setBrush('water')">Water</button>
         <button class="brush-btn brush-planks" onclick="setBrush('planks')">Planks</button>
         <button class="brush-btn brush-route" onclick="setBrush('route')">Route</button>
+        <button class="brush-btn brush-stone" onclick="setBrush('stone')">Stone</button>
+        <button class="brush-btn brush-lava" onclick="setBrush('lava')">Lava</button>
         <button class="brush-btn brush-gate_next" onclick="setBrush('gate_next')">Next Gate</button>
         <button class="brush-btn brush-gate_prev" onclick="setBrush('gate_prev')">Prev Gate</button>
     </div>
