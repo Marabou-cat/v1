@@ -95,9 +95,42 @@ const route1Map = [
     ["wall", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "prev_gate", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "wall"],
     ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"]
 ];
+    const route4Map = [
+    ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "gate_next"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "lava"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "lava"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "lava", "stone", "lava", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "route", "route", "route", "route", "stone", "wall"],
+    ["wall", "stone", "lava", "lava", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "route", "stone", "wall"],
+    ["wall", "lava", "lava", "lava", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "route", "route", "route", "route", "stone", "wall"],
+    ["wall", "lava", "lava", "lava", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "lava", "lava", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "route", "route", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "lava", "lava", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "route", "route", "route", "route", "route", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "route", "route", "route", "route", "route", "route", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "stone", "route", "route", "route", "route", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "wall"],
+    ["wall", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "wall"],
+    ["wall", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "wall"],
+    ["wall", "stone", "lava", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "route", "route", "lava", "lava", "lava", "wall"],
+    ["wall", "stone", "lava", "lava", "lava", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "route", "lava", "lava", "lava", "wall"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "lava", "lava", "lava", "wall"],
+    ["wall", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "route", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "wall"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "stone", "stone", "wall"],
+    ["wall", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "grass", "grass", "grass", "grass", "grass", "route", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "lava", "lava", "lava", "lava", "lava", "stone", "stone", "wall"],
+    ["wall", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "grass", "grass", "grass", "gate_prev", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "lava", "lava", "lava", "lava", "lava", "wall", "wall", "wall"]
+]
     
     const allMaps = [
     route1Map,
     route2Map,
-    route3Map
+    route3Map,
+    route4Map
 ];
