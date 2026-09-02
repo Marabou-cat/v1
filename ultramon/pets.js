@@ -224,8 +224,8 @@ const PETS = {
         spawn_routes: [1, 2],
         img: "petpng/coalapling.png",
         catchRate: 35,
-        evolvingLevel: 10,
-        evolutionId: "",
+        evolvingLevel: 16,
+        evolutionId: "turnace",
         size: 1.5,
         baseStats: { hp: 120, attack: 17, defense: 25, spAttack: 17, spDefense: 25, speed: 10 },
         maxStats:  { hp: 650, attack: 150, defense: 180, spAttack: 150, spDefense: 180, speed: 120 },
@@ -234,7 +234,29 @@ const PETS = {
             { name: "Burn Out", type: "fire", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
             { name: "Heavy Slam", type: "basic", damage: 65, powerCost: 70, damageType: "physical", levelToLearn: 5 },
             { name: "Flamethrower", type: "fire", damage: 65, powerCost: 70, damageType: "special", levelToLearn: 10 },
-            { name: "Vine Whip", type: "fire", damage: 80, powerCost: 75, damageType: "physical", levelToLearn: 16 }
+            { name: "Vine Whip", type: "grass", damage: 80, powerCost: 75, damageType: "physical", levelToLearn: 16 }
+        ]
+    },
+    turnace: {
+        id: "turnace",
+        name: "Turnace",
+        type: ["grass", "fire"],
+        spawn_routes: [],
+        img: "petpng/turnace.png",
+        catchRate: 35,
+        evolvingLevel: 16,
+        evolutionId: "",
+        size: 2.0,
+        baseStats: { hp: 150, attack: 17, defense: 25, spAttack: 25, spDefense: 25, speed: 10 },
+        maxStats:  { hp: 700, attack: 150, defense: 180, spAttack: 180, spDefense: 180, speed: 120 },
+        moves: [
+            { name: "Stick Impact", type: "grass", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
+            { name: "Burn Out", type: "fire", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
+            { name: "Heavy Slam", type: "basic", damage: 65, powerCost: 70, damageType: "physical", levelToLearn: 5 },
+            { name: "Flamethrower", type: "fire", damage: 65, powerCost: 70, damageType: "special", levelToLearn: 10 },
+            { name: "Vine Whip", type: "grass", damage: 80, powerCost: 75, damageType: "physical", levelToLearn: 16 },
+            { name: "Heat Rain", type: "fire", damage: 80, powerCost: 60, damageType: "special", levelToLearn: 16 },
+            { name: "Meteor Rain", type: "stone", damage: 100, powerCost: 85, damageType: "special", levelToLearn: 16 }
         ]
     },
     samupillar: {
@@ -383,8 +405,8 @@ const PETS = {
         evolvingLevel: 20,
         evolutionId: "",
         size: 1.5,
-        baseStats: { hp: 200, attack: 50, defense: 25, spAttack: 25, spDefense: 35, speed: 35 },
-        maxStats:  { hp: 650, attack: 220, defense: 130, spAttack: 120, spDefense: 150, speed: 250 },
+        baseStats: { hp: 100, attack: 30, defense: 25, spAttack: 25, spDefense: 35, speed: 35 },
+        maxStats:  { hp: 500, attack: 190, defense: 130, spAttack: 120, spDefense: 150, speed: 250 },
         moves: [
             { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
             { name: "Tentacle Venom", type: "poison", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
