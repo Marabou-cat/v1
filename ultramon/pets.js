@@ -344,9 +344,9 @@ const PETS = {
         maxStats:  { hp: 450, attack: 125, defense: 180, spAttack: 120, spDefense: 150, speed: 125 },
         moves: [
             { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Heat Wave", type: "fire", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 5 },
-            { name: "Rock Blast", type: "stone", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 5 },
-            { name: "Magma River", type: "fire", damage: 110, powerCost: 80, damageType: "special", levelToLearn: 10 },
+            { name: "Heat Wave", type: "fire", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 10 },
+            { name: "Rock Blast", type: "stone", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 10 },
+            { name: "Magma River", type: "fire", damage: 110, powerCost: 80, damageType: "special", levelToLearn: 15 },
             { name: "Earthquake", type: "stone", damage: 135, powerCost: 100, damageType: "physical", levelToLearn: 15 }
         ]
     },
