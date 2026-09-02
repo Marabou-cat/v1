@@ -1208,64 +1208,67 @@
         });
     }
 
-    function gameLoop() {
-        const isMenuOpen = !document.getElementById('menuModal').classList.contains('hidden');
-        const isBattleOpen = document.getElementById('battleOverlay').classList.contains('active');
-        const isStarterOpen = !document.getElementById('starterOverlay').classList.contains('hidden');
-        const isLoginOpen = !document.getElementById('loginOverlay').classList.contains('hidden');
-        const isGateOpen = !document.getElementById('gateModal').classList.contains('hidden');
+let lastTime = performance.now();
+const baseMoveSpeed = 2.1; // Adjust this value to set the desired movement speed (units per second)
 
-        // ... existing checks ...
+function gameLoop(currentTime) {
+    const dt = (currentTime - lastTime) / 1000; // Time elapsed in seconds
+    lastTime = currentTime;
 
-// --- NEW QUEST VISIBILITY LOGIC ---
-const questTracker = document.getElementById('questTracker');
-if (questTracker) {
-    if (isMenuOpen || isBattleOpen || isStarterOpen || isLoginOpen || isGateOpen) {
-        questTracker.classList.add('hidden');
-    } else {
-        questTracker.classList.remove('hidden');
-    }
-}
-// -----------------------------------
+    const isMenuOpen = !document.getElementById('menuModal').classList.contains('hidden');
+    const isBattleOpen = document.getElementById('battleOverlay').classList.contains('active');
+    const isStarterOpen = !document.getElementById('starterOverlay').classList.contains('hidden');
+    const isLoginOpen = !document.getElementById('loginOverlay').classList.contains('hidden');
+    const isGateOpen = !document.getElementById('gateModal').classList.contains('hidden');
 
-        if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen && !isGateOpen) {
-            let dx = 0;
-            let dy = 0;
-            let isMoving = false;
-
-            if (keysPressed['ArrowUp'] || keysPressed['KeyW']) { dy -= 1; isMoving = true; }
-            if (keysPressed['ArrowDown'] || keysPressed['KeyS']) { dy += 1; isMoving = true; }
-            if (keysPressed['ArrowLeft'] || keysPressed['KeyA']) { dx -= 1; isMoving = true; }
-            if (keysPressed['ArrowRight'] || keysPressed['KeyD']) { dx += 1; isMoving = true; }
-
-            const playerEl = document.getElementById('playerCube');
-            if (playerEl) {
-                if (isMoving) playerEl.classList.add('walking');
-                else playerEl.classList.remove('walking');
-            }
-
-            if (dx !== 0 || dy !== 0) {
-                if (dx !== 0 && dy !== 0) {
-                    dx *= 0.7071;
-                    dy *= 0.7071;
-                }
-
-                let targetX = playerPos.x + dx * moveSpeed;
-                let targetY = playerPos.y + dy * moveSpeed;
-
-                if (isValidPosition(targetX, targetY)) {
-                    playerPos.x = targetX;
-                    playerPos.y = targetY;
-                    renderPlayerElement();
-                    checkTileInteractions();
-                    checkNpcCollisions();
-                }
-            } else {
-                if (playerEl) playerEl.classList.remove('walking');
-            }
+    const questTracker = document.getElementById('questTracker');
+    if (questTracker) {
+        if (isMenuOpen || isBattleOpen || isStarterOpen || isLoginOpen || isGateOpen) {
+            questTracker.classList.add('hidden');
+        } else {
+            questTracker.classList.remove('hidden');
         }
-        requestAnimationFrame(gameLoop);
     }
+
+    if (!isMenuOpen && !isBattleOpen && !isStarterOpen && !isLoginOpen && !isGateOpen) {
+        let dx = 0;
+        let dy = 0;
+        let isMoving = false;
+
+        if (keysPressed['ArrowUp'] || keysPressed['KeyW']) { dy -= 1; isMoving = true; }
+        if (keysPressed['ArrowDown'] || keysPressed['KeyS']) { dy += 1; isMoving = true; }
+        if (keysPressed['ArrowLeft'] || keysPressed['KeyA']) { dx -= 1; isMoving = true; }
+        if (keysPressed['ArrowRight'] || keysPressed['KeyD']) { dx += 1; isMoving = true; }
+
+        const playerEl = document.getElementById('playerCube');
+        if (playerEl) {
+            if (isMoving) playerEl.classList.add('walking');
+            else playerEl.classList.remove('walking');
+        }
+
+        if (dx !== 0 || dy !== 0) {
+            if (dx !== 0 && dy !== 0) {
+                dx *= 0.7071;
+                dy *= 0.7071;
+            }
+
+            // Scale movement by dt so speed remains constant regardless of frame rate drops
+            let targetX = playerPos.x + dx * baseMoveSpeed * dt;
+            let targetY = playerPos.y + dy * baseMoveSpeed * dt;
+
+            if (isValidPosition(targetX, targetY)) {
+                playerPos.x = targetX;
+                playerPos.y = targetY;
+                renderPlayerElement();
+                checkTileInteractions();
+                checkNpcCollisions();
+            }
+        } else {
+            if (playerEl) playerEl.classList.remove('walking');
+        }
+    }
+    requestAnimationFrame(gameLoop);
+}
     function checkPetEvolution(petData, onComplete) {
     const species = PETS[petData.id.toLowerCase()];
     if (!species || !species.evolutionId || species.evolutionId === "") {
