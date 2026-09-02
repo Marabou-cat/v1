@@ -151,6 +151,8 @@
         .tile-route { background: #f1c40f; border: 1px solid #d4ac0d; }
         .tile-gate { background: #d35400; border: 1px solid #ba4a00; }
         .tile-gate::after { content: "🚪"; font-size: 20px; }
+        .tile-stone { background: #718096 url('petpng/stone.png') no-repeat center center / cover; border: 1px solid #4a5568; }
+        .tile-lava { background: #c0392b url('petpng/lava.png') no-repeat center center / cover; border: 1px solid rgba(0,0,0,0.1); }
 
         /* --- PLAYER & NPC CUBES --- */
         .player-cube, .npc-cube {
@@ -1357,29 +1359,30 @@ function endBattle(won) {
 }
 
     function isValidPosition(x, y) {
-        const radius = 0.3;
+    const radius = 0.3;
 
-        if (x < radius || x > MAP_SIZE - radius || y < radius || y > MAP_SIZE - radius) return false;
+    if (x < radius || x > MAP_SIZE - radius || y < radius || y > MAP_SIZE - radius) return false;
 
-        const checkPoints = [
-            { x: x - radius, y: y - radius },
-            { x: x + radius, y: y - radius },
-            { x: x - radius, y: y + radius },
-            { x: x + radius, y: y + radius }
-        ];
+    const checkPoints = [
+        { x: x - radius, y: y - radius },
+        { x: x + radius, y: y - radius },
+        { x: x - radius, y: y + radius },
+        { x: x + radius, y: y + radius }
+    ];
 
-        const activeMap = getCurrentMap();
-        for (let pt of checkPoints) {
-            let tileX = Math.floor(pt.x);
-            let tileY = Math.floor(pt.y);
-            
-            if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
-            
-            if (activeMap[tileY][tileX] === 'wall' || activeMap[tileY][tileX] === 'water') return false;
-        }
-
-        return true;
+    const activeMap = getCurrentMap();
+    for (let pt of checkPoints) {
+        let tileX = Math.floor(pt.x);
+        let tileY = Math.floor(pt.y);
+        
+        if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
+        
+        // Block movement if tile is wall, water, or lava
+        if (activeMap[tileY][tileX] === 'wall' || activeMap[tileY][tileX] === 'water' || activeMap[tileY][tileX] === 'lava') return false;
     }
+
+    return true;
+}
 
     let encounterCooldown = false;
     let gateCooldown = false;
