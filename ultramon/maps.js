@@ -97,7 +97,7 @@ const route1Map = [
 ];
     const route4Map = [
     ["wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"],
-    ["wall", "stone", "stone", "stone", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "gate_next"],
+    ["wall", "stone", "stone", "stone", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "next_gate"],
     ["wall", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "lava"],
     ["wall", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "lava"],
     ["wall", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava"],
@@ -125,7 +125,7 @@ const route1Map = [
     ["wall", "stone", "stone", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "wall"],
     ["wall", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "route", "stone", "stone", "stone", "stone", "stone", "stone", "stone", "lava", "lava", "lava", "lava", "lava", "stone", "stone", "wall"],
     ["wall", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "grass", "grass", "grass", "grass", "grass", "route", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "lava", "lava", "lava", "lava", "lava", "stone", "stone", "wall"],
-    ["wall", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "grass", "grass", "grass", "gate_prev", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "lava", "lava", "lava", "lava", "lava", "wall", "wall", "wall"]
+    ["wall", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "lava", "grass", "grass", "grass", "prev_gate", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "lava", "lava", "lava", "lava", "lava", "wall", "wall", "wall"]
 ]
     
     const allMaps = [
