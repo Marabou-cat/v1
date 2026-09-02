@@ -1,29 +1,31 @@
 const TYPE_CHART = {
-    fire:     { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67, air: 1.0, metal: 1.5, stone: 0.67 },
-    water:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.0, metal: 1.0, stone: 1.5 },
-    grass:    { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67, dragon: 0.67, air: 0.67, metal: 0.67, stone: 1.5 },
-    electric: { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.5, metal: 1.0, stone: 1.0 },
-    combat:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67, air: 0.67, metal: 1.5, stone: 1.5 },
-    basic:    { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67, stone: 1.0 },
-    bug:      { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 0.67, metal: 0.67, stone: 0.67 },
-    dragon:   { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5, air: 1.0, metal: 0.67, stone: 1.0 },
-    air:      { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 0.67, combat: 1.5, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67 },
-    metal:    { fire: 0.67, water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67 },
-    stone:    { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.5, metal: 0.67, stone: 1.0 }
+    fire:       { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67, air: 1.0, metal: 1.5, stone: 0.67, poison: 1.0 },
+    water:      { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.0, metal: 1.0, stone: 1.5,  poison: 1.0 },
+    grass:      { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67, dragon: 0.67, air: 0.67, metal: 0.67, stone: 1.5, poison: 1.0 },
+    electric:   { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.5, metal: 1.0, stone: 1.0, poison: 1.0 },
+    combat:     { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67, air: 0.67, metal: 1.5, stone: 1.5, poison: 0.67 },
+    basic:      { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67, stone: 1.0, poison: 1.0 },
+    bug:        { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 0.67, metal: 0.67, stone: 0.67, poison: 0.67 },
+    dragon:     { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5, air: 1.0, metal: 0.67, stone: 1.0, poison: 1.0 },
+    air:        { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 0.67, combat: 1.5, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0 },
+    metal:      { fire: 0.67, water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0 },
+    stone:      { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.5, metal: 0.67, stone: 1.0, poison: 1.0 },
+    poison:     { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 0.67 }
 };
 
 const TYPE_COLORS = {
-    fire:     "#ff6b35",
-    water:    "#00b4d8",
-    grass:    "#2ecc71",
-    electric: "#f1c40f",
-    combat:   "#d35400",
-    basic:    "#ffffff",
-    bug:      "#27ae60",
-    dragon:   "#9b59b6",
-    air:      "#d5ffff",
-    metal:    "#c0c0c0",
-    stone:    "#95a5a6"
+    fire:       "#ff6b35",
+    water:      "#00b4d8",
+    grass:      "#2ecc71",
+    electric:   "#f1c40f",
+    combat:     "#d35400",
+    basic:      "#ffffff",
+    bug:        "#27ae60",
+    dragon:     "#9b59b6",
+    air:        "#d5ffff",
+    metal:      "#c0c0c0",
+    stone:      "#95a5a6",
+    poison:     "#8e44ad"
 };
 
 let isActionLocked = false; // Prevents spamming and input abuse during animations
@@ -371,7 +373,7 @@ const PETS = {
             { name: "Thunder Slash", type: "electric", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 20 }
         ]
     },
-    Venefish: {
+    venefish: {
         id: "venefish",
         name: "Venefish",
         type: ["water", "poison"],
