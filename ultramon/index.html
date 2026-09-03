@@ -2759,28 +2759,28 @@ applyDefeatedNPCs(defeatedNpcs);
                         </div>
                     </div>
 
-                    <div class="hp-bar-bg">
-                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
-                    </div>
-                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
-                    
                     <div class="exp-bar-bg">
                         <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
                     </div>
-                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top:2px;">EXP: ${currentExp}/${expNeeded}</div>
-                    
-                    <div class="stat-grid" style="margin-top:6px;">
-                        <span>ATK: ${pet.attack}</span>
-                        <span>DEF: ${pet.defense}</span>
-                        <span>SPD: ${pet.speed}</span>
-                        <span>SP.ATK: ${pet.spAttack}</span>
-                        <span>SP.DEF: ${pet.spDefense}</span>
-                        <span>TYPE: ${pet.type}</span>
+                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top: 2px;">
+                        EXP: ${currentExp}/${expNeeded}
+                    </div>
+
+                    <div class="stat-grid">
+                        <div>Atk: ${pet.attack}</div>
+                        <div>Def: ${pet.defense}</div>
+                        <div>SpA: ${pet.spAttack}</div>
+                        <div>SpD: ${pet.spDefense}</div>
+                        <div>Spd: ${pet.speed}</div>
+                    </div>
+
+                    <div class="moves-section">
+                        <div style="font-weight:bold; margin-bottom:4px;">Active Moves (Click to toggle):</div>
+                        <div class="moves-chips">${movesChipsHtml}</div>
                     </div>
 
                     <div class="pet-actions-row">
-                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#2ecc71; border-color:#27ae60;" onclick="withdrawFromPC(${pcIndex})">📥 Withdraw to Party</button>
-                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#e74c3c; border-color:#c0392b;" onclick="releaseFromPC(${pcIndex})">🗑️ Release</button>
+                        ${managementButtons}
                     </div>
                 </div>
             `;
