@@ -2410,78 +2410,70 @@ function travelThroughGate() {
     }
 
     async function attemptAutoLogin(username) {
-        const formData = new FormData();
-        formData.append('action', 'load');
-        formData.append('username', username);
+    const formData = new FormData();
+    formData.append('action', 'load');
+    formData.append('username', username);
 
-        try {
-            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
-            const result = await response.json();
+    try {
+        const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+        const result = await response.json();
 
-            if (result.success && result.data) {
-                currentUser = result.data.username;
-                coins = parseInt(result.data.coins);
-                balls = parseInt(result.data.balls);
-                currentRoute = parseInt(result.data.current_route);
-                currentMapIndex = Math.max(0, currentRoute - 1);
-                
-                playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
-                playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
+        if (result.success && result.data) {
+            currentUser = result.data.username;
+            coins = parseInt(result.data.coins) || 0;
+            balls = parseInt(result.data.balls) || 0;
+            currentRoute = parseInt(result.data.current_route) || 1;
+            currentMapIndex = Math.max(0, currentRoute - 1);
 
-                let loadedX = parseFloat(result.data.pos_x);
-                let loadedY = parseFloat(result.data.pos_y);
-                if (!isNaN(loadedX) && !isNaN(loadedY)) {
-                    playerPos = { x: loadedX, y: loadedY };
-                } else {
-                    playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
-                }
-
-                // Inside attemptAutoLogin(username)
-if (result.success && result.data) {
-    currentUser = result.data.username;
-    coins = parseInt(result.data.coins);
-    balls = parseInt(result.data.balls);
-    currentRoute = parseInt(result.data.current_route);
-    currentMapIndex = Math.max(0, currentRoute - 1);
-    
-    playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
-    playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
-
-    // Load and mark defeated NPCs
-    let defeatedNpcs = typeof result.data.defeated_npcs === 'string' ? JSON.parse(result.data.defeated_npcs) : (result.data.defeated_npcs || []);
-    applyDefeatedNPCs(defeatedNpcs);
-
-    let loadedX = parseFloat(result.data.pos_x);
-    let loadedY = parseFloat(result.data.pos_y);
-    if (!isNaN(loadedX) && !isNaN(loadedY)) {
-        playerPos = { x: loadedX, y: loadedY };
-    } else {
-        playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
-    }
-
-    updateUI();
-    renderParty();
-    renderPCStorage();
-    renderPartyCircles();
-    initMap();
-    renderPlayerElement();
-    return true;
-}
-
-                updateUI();
-                renderParty();
-                renderPCStorage();
-                renderPartyCircles();
-                initMap();
-                renderPlayerElement();
-                return true;
+            // Safely parse JSON arrays to prevent script breakage
+            try {
+                playerParty = typeof result.data.party_data === 'string' 
+                    ? JSON.parse(result.data.party_data) 
+                    : (result.data.party_data || []);
+            } catch (e) { 
+                playerParty = []; 
             }
-        } catch (err) {
-            console.error("Auto-login error:", err);
-        }
-        return false;
-    }
 
+            try {
+                playerPCStorage = typeof result.data.pc_data === 'string' 
+                    ? JSON.parse(result.data.pc_data) 
+                    : (result.data.pc_data || []);
+            } catch (e) { 
+                playerPCStorage = []; 
+            }
+
+            try {
+                let defeatedNpcs = typeof result.data.defeated_npcs === 'string' 
+                    ? JSON.parse(result.data.defeated_npcs) 
+                    : (result.data.defeated_npcs || []);
+                applyDefeatedNPCs(defeatedNpcs);
+            } catch (e) {}
+
+            let loadedX = parseFloat(result.data.pos_x);
+            let loadedY = parseFloat(result.data.pos_y);
+            if (!isNaN(loadedX) && !isNaN(loadedY)) {
+                playerPos = { x: loadedX, y: loadedY };
+            } else {
+                playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
+            }
+
+            updateUI();
+            renderParty();
+            renderPCStorage();
+            renderPartyCircles();
+            initMap();
+            renderPlayerElement();
+            return true;
+        } else {
+            // Clear invalid remembered user if server returns failure
+            localStorage.removeItem('pet_remembered_user');
+        }
+    } catch (err) {
+        console.error("Auto-login error:", err);
+        localStorage.removeItem('pet_remembered_user');
+    }
+    return false;
+}
     function startAutoSave() {
         if (autoSaveTimer) clearInterval(autoSaveTimer);
         autoSaveTimer = setInterval(() => {
@@ -2492,74 +2484,95 @@ if (result.success && result.data) {
     }
 
     async function performAuth(action, userFieldId, passFieldId) {
-        const username = document.getElementById(userFieldId).value.trim();
-        const password = document.getElementById(passFieldId).value.trim();
+    const username = document.getElementById(userFieldId).value.trim();
+    const password = document.getElementById(passFieldId).value.trim();
 
-        if (!username || !password) {
-            showError("Username and password are required.");
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('action', action);
-        formData.append('username', username);
-        formData.append('password', password);
-
-        try {
-            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
-            const result = await response.json();
-
-            if (result.success) {
-                if (action === 'register') {
-                    showError("Account created! Logging you in...", "#2ecc71");
-                    setTimeout(() => performAuth('login', userFieldId, passFieldId), 1000);
-                } else if (action === 'login') {
-                    currentUser = result.data.username;
-                    coins = parseInt(result.data.coins);
-                    balls = parseInt(result.data.balls);
-                    currentRoute = parseInt(result.data.current_route);
-                    currentMapIndex = Math.max(0, currentRoute - 1);
-                    // Inside performAuth('login') section
-playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
-playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
-
-// Load and mark defeated NPCs
-let defeatedNpcs = typeof result.data.defeated_npcs === 'string' ? JSON.parse(result.data.defeated_npcs) : (result.data.defeated_npcs || []);
-applyDefeatedNPCs(defeatedNpcs);
-                    
-                    playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
-                    playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
-
-                    let loadedX = parseFloat(result.data.pos_x);
-                    let loadedY = parseFloat(result.data.pos_y);
-                    if (!isNaN(loadedX) && !isNaN(loadedY)) {
-                        playerPos = { x: loadedX, y: loadedY };
-                    } else {
-                        playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
-                    }
-
-                    localStorage.setItem('pet_remembered_user', currentUser);
-
-                    updateUI();
-                    renderParty();
-                    renderPCStorage();
-                    renderPartyCircles();
-                    initMap();
-                    renderPlayerElement();
-                    document.getElementById('loginOverlay').classList.add('hidden');
-                    
-                    checkStarterRequirement();
-                    startAutoSave();
-                }
-            } else {
-                showError(result.message || "Authentication failed.");
-            }
-        } catch (err) {
-            console.error("Authentication error:", err);
-            showError("Unable to connect to backend server.");
-        }
+    if (!username || !password) {
+        showError("Username and password are required.");
+        return;
     }
 
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('username', username);
+    formData.append('password', password);
+
+    try {
+        const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+        const result = await response.json();
+
+        if (result.success) {
+            if (action === 'register') {
+                showError("Account created! Logging you in...", "#2ecc71");
+                setTimeout(() => performAuth('login', userFieldId, passFieldId), 1000);
+            } else if (action === 'login') {
+                currentUser = result.data.username;
+                coins = parseInt(result.data.coins) || 0;
+                balls = parseInt(result.data.balls) || 0;
+                currentRoute = parseInt(result.data.current_route) || 1;
+                currentMapIndex = Math.max(0, currentRoute - 1);
+
+                try {
+                    playerParty = typeof result.data.party_data === 'string' 
+                        ? JSON.parse(result.data.party_data) 
+                        : (result.data.party_data || []);
+                } catch (e) { 
+                    playerParty = []; 
+                }
+
+                try {
+                    playerPCStorage = typeof result.data.pc_data === 'string' 
+                        ? JSON.parse(result.data.pc_data) 
+                        : (result.data.pc_data || []);
+                } catch (e) { 
+                    playerPCStorage = []; 
+                }
+
+                try {
+                    let defeatedNpcs = typeof result.data.defeated_npcs === 'string' 
+                        ? JSON.parse(result.data.defeated_npcs) 
+                        : (result.data.defeated_npcs || []);
+                    applyDefeatedNPCs(defeatedNpcs);
+                } catch (e) {}
+
+                let loadedX = parseFloat(result.data.pos_x);
+                let loadedY = parseFloat(result.data.pos_y);
+                if (!isNaN(loadedX) && !isNaN(loadedY)) {
+                    playerPos = { x: loadedX, y: loadedY };
+                } else {
+                    playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
+                }
+
+                localStorage.setItem('pet_remembered_user', currentUser);
+
+                updateUI();
+                renderParty();
+                renderPCStorage();
+                renderPartyCircles();
+                initMap();
+                renderPlayerElement();
+                document.getElementById('loginOverlay').classList.add('hidden');
+                
+                checkStarterRequirement();
+                startAutoSave();
+            }
+        } else {
+            showError(result.message || "Authentication failed.");
+        }
+    } catch (err) {
+        console.error("Authentication error:", err);
+        showError("Unable to connect to backend server.");
+    }
+}
+    function logoutUser() {
+    if (autoSaveTimer) clearInterval(autoSaveTimer);
+    currentUser = null;
+    localStorage.removeItem('pet_remembered_user');
+    
+    // Close open menus and present login screen
+    if (typeof closeMenuModal === 'function') closeMenuModal();
+    showLoginOverlay();
+}
     async function saveGameData(isSilent = false) {
     if (!currentUser) return;
 
