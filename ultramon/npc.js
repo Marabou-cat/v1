@@ -7,6 +7,7 @@ const npc = [
         x: 14,
         y: 8,
         color: "#3498db",
+        img: "petpng/pelle.png",
         team: [
             { id: "sproupup", lvl: 5 }
         ],
@@ -20,6 +21,7 @@ const npc = [
         x: 22,
         y: 15,
         color: "#9b59b6",
+        img: "petpng/trainer1.png",
         team: [
             { id: "samupillar", lvl: 5 },
             { id: "coalapling", lvl: 4 }
@@ -34,11 +36,31 @@ const npc = [
         x: 14,
         y: 16,
         color: "#e67e22",
+        img: "petpng/trainer2.png",
         team: [
             { id: "flaragon", lvl: 6 },
-            { id: "sproupup", lvl: 6 }
+            { id: "samupod", lvl: 6 },
+            { id: "hydrini", lvl: 6 }
+            
         ],
         rewards: { coins: 300 },
+        defeated: false
+    },
+    {
+        id: "team_cosmic_1",
+        name: "Team Cosmic Trainer Amir",
+        route: 3,
+        x: 14,
+        y: 16,
+        color: "#e67e22",
+        img: "petpng/trainer2.png",
+        team: [
+            { id: "samupod", lvl: 8 },
+            { id: "turnace", lvl: 8 },
+            { id: "bladee", lvl: 10 }
+            
+        ],
+        rewards: { coins: 1500 },
         defeated: false
     }
 ];
