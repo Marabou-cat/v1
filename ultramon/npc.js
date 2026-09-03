@@ -7,7 +7,7 @@ const npc = [
         x: 14,
         y: 8,
         color: "#3498db",
-        img: "petpng/pelle.png",
+        img: "npcpng/pelle.png",
         team: [
             { id: "sproupup", lvl: 5 }
         ],
@@ -21,7 +21,7 @@ const npc = [
         x: 22,
         y: 15,
         color: "#9b59b6",
-        img: "petpng/trainer1.png",
+        img: "npcpng/trainer1.png",
         team: [
             { id: "samupillar", lvl: 5 },
             { id: "coalapling", lvl: 4 }
@@ -36,7 +36,7 @@ const npc = [
         x: 14,
         y: 16,
         color: "#e67e22",
-        img: "petpng/trainer2.png",
+        img: "npcpng/trainer2.png",
         team: [
             { id: "flaragon", lvl: 6 },
             { id: "samupod", lvl: 6 },
@@ -53,7 +53,7 @@ const npc = [
         x: 14,
         y: 16,
         color: "#e67e22",
-        img: "petpng/trainer2.png",
+        img: "npcpng/trainer2.png",
         team: [
             { id: "samupod", lvl: 8 },
             { id: "turnace", lvl: 8 },
