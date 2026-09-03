@@ -396,6 +396,21 @@
             cursor: pointer;
             transition: 0.2s;
         }
+        /* Hit Effect PNG Animation */
+.hit-effect-sprite {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    z-index: 1001; /* Ensures it renders above the pets */
+    pointer-events: none;
+    animation: hitPop 0.4s ease-out forwards;
+}
+
+@keyframes hitPop {
+    0% { transform: scale(0.5) rotate(-15deg); opacity: 0; }
+    30% { transform: scale(1.2) rotate(10deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 0; }
+}
         .btn-close-modal:hover { background: #c0392b; }
 
         .menu-content-area { flex: 1; padding: 20px; overflow-y: auto; }
@@ -1128,18 +1143,36 @@
     attackerImg.style.setProperty('--facing', isPlayer ? '-1' : '1');
     defenderImg.style.setProperty('--facing', !isPlayer ? '-1' : '1');
 
+    // NEW: Helper function to spawn the hit PNG
+    const spawnHitEffect = () => {
+        const effect = document.createElement('img');
+        // Uses your ATTACKS dictionary effectImg, or defaults to the type name
+        effect.src = moveObj.effectImg || `petpng/${moveObj.type.toLowerCase()}_hit.png`;
+        effect.className = 'hit-effect-sprite';
+        
+        // Calculate position to center it on the defending pet
+        const defRect = defenderImg.getBoundingClientRect();
+        const arenaRect = arena.getBoundingClientRect();
+        effect.style.left = (defRect.left - arenaRect.left + (defRect.width / 2) - 45) + 'px';
+        effect.style.top = (defRect.top - arenaRect.top + (defRect.height / 2) - 45) + 'px';
+        
+        arena.appendChild(effect);
+        setTimeout(() => effect.remove(), 400); // Remove after animation ends
+    };
+
     if (moveObj.damageType === 'physical') {
         attackerImg.classList.add(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
         
         setTimeout(() => {
             attackerImg.classList.remove(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
             defenderImg.classList.add('anim-hit');
+            spawnHitEffect(); // Trigger hit effect
             
             setTimeout(() => {
                 defenderImg.classList.remove('anim-hit');
-                callback();
+                callback(); 
             }, 400);
-        }, 300);
+        }, 300); 
 
     } else {
         attackerImg.classList.add('anim-special');
@@ -1147,28 +1180,22 @@
         setTimeout(() => {
             const proj = document.createElement('div');
             proj.className = `battle-projectile ${isPlayer ? 'anim-projectile-player' : 'anim-projectile-enemy'}`;
-            
-            // Check if a custom PNG was provided in pets.js for this move
-            if (moveObj.effectImg) {
-                proj.style.background = `url('${moveObj.effectImg}') no-repeat center center / contain`;
-            } else {
-                proj.style.background = `radial-gradient(circle, #fff 10%, ${moveColor} 60%, transparent 100%)`;
-                proj.style.boxShadow = `0 0 15px ${moveColor}`;
-            }
-
+            proj.style.background = `radial-gradient(circle, #fff 10%, ${moveColor} 60%, transparent 100%)`;
+            proj.style.boxShadow = `0 0 15px ${moveColor}`;
             arena.appendChild(proj);
 
             setTimeout(() => {
                 proj.remove();
                 attackerImg.classList.remove('anim-special');
                 defenderImg.classList.add('anim-hit');
+                spawnHitEffect(); // Trigger hit effect
                 
                 setTimeout(() => {
                     defenderImg.classList.remove('anim-hit');
-                    callback();
+                    callback(); 
                 }, 400);
-            }, 400);
-        }, 200);
+            }, 400); 
+        }, 200); 
     }
 }
     function evolvePetFromMenu(petIndex) {
