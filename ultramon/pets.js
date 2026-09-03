@@ -41,15 +41,15 @@ const ATTACKS = {
     bubble_beam: { name: "Bubble Beam", type: "water", damage: 45, powerCost: 12, damageType: "special", effectImg: "petpng/water_hit.png" },
     hydro_pump: { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special", effectImg: "petpng/water_hit.png" },
     charm: { name: "Charm", type: "basic", damage: 90, powerCost: 55, damageType: "special", effectImg: "petpng/scratch_hit.png" },
-    vine_whip: { name: "Vine Whip", type: "grass", damage: 25, powerCost: 5, damageType: "physical", effectImg: "petpng/grass_hit.png" },
-    vine_whip_strong: { name: "Vine Whip", type: "grass", damage: 80, powerCost: 75, damageType: "physical", effectImg: "petpng/grass_hit.png" },
-    razor_leaf: { name: "Razor Leaf", type: "grass", damage: 50, powerCost: 14, damageType: "physical", effectImg: "petpng/grass_hit.png" },
-    solar_beam: { name: "Solar Beam", type: "grass", damage: 75, powerCost: 25, damageType: "special", effectImg: "petpng/grass_hit.png" },
+    vine_whip: { name: "Vine Whip", type: "grass", damage: 25, powerCost: 5, damageType: "physical", effectImg: "petpng/grass_hit1.png" },
+    vine_whip_strong: { name: "Vine Whip", type: "grass", damage: 80, powerCost: 75, damageType: "physical", effectImg: "petpng/grass_hit1.png" },
+    razor_leaf: { name: "Razor Leaf", type: "grass", damage: 50, powerCost: 14, damageType: "physical", effectImg: "petpng/grass_hit1.png" },
+    solar_beam: { name: "Solar Beam", type: "grass", damage: 75, powerCost: 25, damageType: "special", effectImg: "petpng/grass_hit1.png" },
     quick_peck: { name: "Quick Peck", type: "air", damage: 15, powerCost: 0, damageType: "physical", effectImg: "petpng/air_hit.png" },
     thundershock: { name: "Thundershock", type: "electric", damage: 25, powerCost: 6, damageType: "special", effectImg: "petpng/electric_hit.png" },
     spark_wing: { name: "Spark Wing", type: "electric", damage: 45, powerCost: 12, damageType: "physical", effectImg: "petpng/electric_hit.png" },
     thunderbolt: { name: "Thunderbolt", type: "electric", damage: 70, powerCost: 20, damageType: "special", effectImg: "petpng/electric_hit.png" },
-    stick_impact: { name: "Stick Impact", type: "grass", damage: 15, powerCost: 0, damageType: "physical", effectImg: "petpng/grass_hit.png" },
+    stick_impact: { name: "Stick Impact", type: "grass", damage: 15, powerCost: 0, damageType: "physical", effectImg: "petpng/grass_hit1.png" },
     burn_out_low: { name: "Burn Out", type: "fire", damage: 50, powerCost: 40, damageType: "special", effectImg: "petpng/fire_hit.png" },
     heavy_slam: { name: "Heavy Slam", type: "basic", damage: 65, powerCost: 70, damageType: "physical", effectImg: "petpng/scratch_hit.png" },
     flamethrower: { name: "Flamethrower", type: "fire", damage: 65, powerCost: 70, damageType: "special", effectImg: "petpng/fire_hit.png" },
@@ -77,7 +77,7 @@ const ATTACKS = {
     water_blade_phys: { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "physical", effectImg: "petpng/water_hit.png" },
     water_blade_spec: { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "special", effectImg: "petpng/water_hit.png" },
     poison_spread: { name: "Poison Spread", type: "poison", damage: 250, powerCost: 100, damageType: "special", effectImg: "petpng/poison_hit.png" },
-    sun_light: { name: "Sun Light", type: "grass", damage: 75, powerCost: 40, damageType: "special", effectImg: "petpng/grass_hit.png" }
+    sun_light: { name: "Sun Light", type: "grass", damage: 75, powerCost: 40, damageType: "special", effectImg: "petpng/grass_hit1.png" }
 };
 
 let isActionLocked = false; // Prevents spamming and input abuse during animations
