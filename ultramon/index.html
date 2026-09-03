@@ -396,21 +396,6 @@
             cursor: pointer;
             transition: 0.2s;
         }
-        /* Hit Effect PNG Animation */
-.hit-effect-sprite {
-    position: absolute;
-    width: 90px;
-    height: 90px;
-    z-index: 1001; /* Ensures it renders above the pets */
-    pointer-events: none;
-    animation: hitPop 0.4s ease-out forwards;
-}
-
-@keyframes hitPop {
-    0% { transform: scale(0.5) rotate(-15deg); opacity: 0; }
-    30% { transform: scale(1.2) rotate(10deg); opacity: 1; }
-    100% { transform: scale(1) rotate(0deg); opacity: 0; }
-}
         .btn-close-modal:hover { background: #c0392b; }
 
         .menu-content-area { flex: 1; padding: 20px; overflow-y: auto; }
@@ -1131,6 +1116,7 @@
     const defenderImg = document.getElementById(defenderId);
     const arena = document.querySelector('.battle-arena');
 
+    // Define colors based on the elemental types in your TYPE_CHART
     const typeColors = {
         fire: '#ff6b35', water: '#00b4d8', grass: '#2ecc71',
         electric: '#f1c40f', combat: '#e74c3c', basic: '#ffffff',
@@ -1138,46 +1124,32 @@
     };
     const moveColor = typeColors[moveObj.type.toLowerCase()] || '#ffffff';
     
+    // Set variables for CSS to use
     attackerImg.style.setProperty('--move-color', moveColor);
     defenderImg.style.setProperty('--move-color', moveColor);
     attackerImg.style.setProperty('--facing', isPlayer ? '-1' : '1');
     defenderImg.style.setProperty('--facing', !isPlayer ? '-1' : '1');
 
-    // NEW: Helper function to spawn the hit PNG
-    const spawnHitEffect = () => {
-        const effect = document.createElement('img');
-        // Uses your ATTACKS dictionary effectImg, or defaults to the type name
-        effect.src = moveObj.effectImg || `petpng/${moveObj.type.toLowerCase()}_hit.png`;
-        effect.className = 'hit-effect-sprite';
-        
-        // Calculate position to center it on the defending pet
-        const defRect = defenderImg.getBoundingClientRect();
-        const arenaRect = arena.getBoundingClientRect();
-        effect.style.left = (defRect.left - arenaRect.left + (defRect.width / 2) - 45) + 'px';
-        effect.style.top = (defRect.top - arenaRect.top + (defRect.height / 2) - 45) + 'px';
-        
-        arena.appendChild(effect);
-        setTimeout(() => effect.remove(), 400); // Remove after animation ends
-    };
-
     if (moveObj.damageType === 'physical') {
+        // Physical Attack: Lunge forward, then hit
         attackerImg.classList.add(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
         
         setTimeout(() => {
             attackerImg.classList.remove(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
             defenderImg.classList.add('anim-hit');
-            spawnHitEffect(); // Trigger hit effect
             
             setTimeout(() => {
                 defenderImg.classList.remove('anim-hit');
-                callback(); 
+                callback(); // Apply damage after animation
             }, 400);
-        }, 300); 
+        }, 300); // Time it to hit at the peak of the lunge
 
     } else {
+        // Special Attack: Glow, shoot projectile, then hit
         attackerImg.classList.add('anim-special');
         
         setTimeout(() => {
+            // Create projectile
             const proj = document.createElement('div');
             proj.className = `battle-projectile ${isPlayer ? 'anim-projectile-player' : 'anim-projectile-enemy'}`;
             proj.style.background = `radial-gradient(circle, #fff 10%, ${moveColor} 60%, transparent 100%)`;
@@ -1188,14 +1160,13 @@
                 proj.remove();
                 attackerImg.classList.remove('anim-special');
                 defenderImg.classList.add('anim-hit');
-                spawnHitEffect(); // Trigger hit effect
                 
                 setTimeout(() => {
                     defenderImg.classList.remove('anim-hit');
-                    callback(); 
+                    callback(); // Apply damage after animation
                 }, 400);
-            }, 400); 
-        }, 200); 
+            }, 400); // Wait for projectile travel time
+        }, 200); // Shoot the projectile halfway through the cast
     }
 }
     function evolvePetFromMenu(petIndex) {
@@ -2410,70 +2381,78 @@ function travelThroughGate() {
     }
 
     async function attemptAutoLogin(username) {
-    const formData = new FormData();
-    formData.append('action', 'load');
-    formData.append('username', username);
+        const formData = new FormData();
+        formData.append('action', 'load');
+        formData.append('username', username);
 
-    try {
-        const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
-        const result = await response.json();
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
 
-        if (result.success && result.data) {
-            currentUser = result.data.username;
-            coins = parseInt(result.data.coins) || 0;
-            balls = parseInt(result.data.balls) || 0;
-            currentRoute = parseInt(result.data.current_route) || 1;
-            currentMapIndex = Math.max(0, currentRoute - 1);
+            if (result.success && result.data) {
+                currentUser = result.data.username;
+                coins = parseInt(result.data.coins);
+                balls = parseInt(result.data.balls);
+                currentRoute = parseInt(result.data.current_route);
+                currentMapIndex = Math.max(0, currentRoute - 1);
+                
+                playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
+                playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
 
-            // Safely parse JSON arrays to prevent script breakage
-            try {
-                playerParty = typeof result.data.party_data === 'string' 
-                    ? JSON.parse(result.data.party_data) 
-                    : (result.data.party_data || []);
-            } catch (e) { 
-                playerParty = []; 
-            }
+                let loadedX = parseFloat(result.data.pos_x);
+                let loadedY = parseFloat(result.data.pos_y);
+                if (!isNaN(loadedX) && !isNaN(loadedY)) {
+                    playerPos = { x: loadedX, y: loadedY };
+                } else {
+                    playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
+                }
 
-            try {
-                playerPCStorage = typeof result.data.pc_data === 'string' 
-                    ? JSON.parse(result.data.pc_data) 
-                    : (result.data.pc_data || []);
-            } catch (e) { 
-                playerPCStorage = []; 
-            }
+                // Inside attemptAutoLogin(username)
+if (result.success && result.data) {
+    currentUser = result.data.username;
+    coins = parseInt(result.data.coins);
+    balls = parseInt(result.data.balls);
+    currentRoute = parseInt(result.data.current_route);
+    currentMapIndex = Math.max(0, currentRoute - 1);
+    
+    playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
+    playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
 
-            try {
-                let defeatedNpcs = typeof result.data.defeated_npcs === 'string' 
-                    ? JSON.parse(result.data.defeated_npcs) 
-                    : (result.data.defeated_npcs || []);
-                applyDefeatedNPCs(defeatedNpcs);
-            } catch (e) {}
+    // Load and mark defeated NPCs
+    let defeatedNpcs = typeof result.data.defeated_npcs === 'string' ? JSON.parse(result.data.defeated_npcs) : (result.data.defeated_npcs || []);
+    applyDefeatedNPCs(defeatedNpcs);
 
-            let loadedX = parseFloat(result.data.pos_x);
-            let loadedY = parseFloat(result.data.pos_y);
-            if (!isNaN(loadedX) && !isNaN(loadedY)) {
-                playerPos = { x: loadedX, y: loadedY };
-            } else {
-                playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
-            }
-
-            updateUI();
-            renderParty();
-            renderPCStorage();
-            renderPartyCircles();
-            initMap();
-            renderPlayerElement();
-            return true;
-        } else {
-            // Clear invalid remembered user if server returns failure
-            localStorage.removeItem('pet_remembered_user');
-        }
-    } catch (err) {
-        console.error("Auto-login error:", err);
-        localStorage.removeItem('pet_remembered_user');
+    let loadedX = parseFloat(result.data.pos_x);
+    let loadedY = parseFloat(result.data.pos_y);
+    if (!isNaN(loadedX) && !isNaN(loadedY)) {
+        playerPos = { x: loadedX, y: loadedY };
+    } else {
+        playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
     }
-    return false;
+
+    updateUI();
+    renderParty();
+    renderPCStorage();
+    renderPartyCircles();
+    initMap();
+    renderPlayerElement();
+    return true;
 }
+
+                updateUI();
+                renderParty();
+                renderPCStorage();
+                renderPartyCircles();
+                initMap();
+                renderPlayerElement();
+                return true;
+            }
+        } catch (err) {
+            console.error("Auto-login error:", err);
+        }
+        return false;
+    }
+
     function startAutoSave() {
         if (autoSaveTimer) clearInterval(autoSaveTimer);
         autoSaveTimer = setInterval(() => {
@@ -2484,95 +2463,74 @@ function travelThroughGate() {
     }
 
     async function performAuth(action, userFieldId, passFieldId) {
-    const username = document.getElementById(userFieldId).value.trim();
-    const password = document.getElementById(passFieldId).value.trim();
+        const username = document.getElementById(userFieldId).value.trim();
+        const password = document.getElementById(passFieldId).value.trim();
 
-    if (!username || !password) {
-        showError("Username and password are required.");
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('action', action);
-    formData.append('username', username);
-    formData.append('password', password);
-
-    try {
-        const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
-        const result = await response.json();
-
-        if (result.success) {
-            if (action === 'register') {
-                showError("Account created! Logging you in...", "#2ecc71");
-                setTimeout(() => performAuth('login', userFieldId, passFieldId), 1000);
-            } else if (action === 'login') {
-                currentUser = result.data.username;
-                coins = parseInt(result.data.coins) || 0;
-                balls = parseInt(result.data.balls) || 0;
-                currentRoute = parseInt(result.data.current_route) || 1;
-                currentMapIndex = Math.max(0, currentRoute - 1);
-
-                try {
-                    playerParty = typeof result.data.party_data === 'string' 
-                        ? JSON.parse(result.data.party_data) 
-                        : (result.data.party_data || []);
-                } catch (e) { 
-                    playerParty = []; 
-                }
-
-                try {
-                    playerPCStorage = typeof result.data.pc_data === 'string' 
-                        ? JSON.parse(result.data.pc_data) 
-                        : (result.data.pc_data || []);
-                } catch (e) { 
-                    playerPCStorage = []; 
-                }
-
-                try {
-                    let defeatedNpcs = typeof result.data.defeated_npcs === 'string' 
-                        ? JSON.parse(result.data.defeated_npcs) 
-                        : (result.data.defeated_npcs || []);
-                    applyDefeatedNPCs(defeatedNpcs);
-                } catch (e) {}
-
-                let loadedX = parseFloat(result.data.pos_x);
-                let loadedY = parseFloat(result.data.pos_y);
-                if (!isNaN(loadedX) && !isNaN(loadedY)) {
-                    playerPos = { x: loadedX, y: loadedY };
-                } else {
-                    playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
-                }
-
-                localStorage.setItem('pet_remembered_user', currentUser);
-
-                updateUI();
-                renderParty();
-                renderPCStorage();
-                renderPartyCircles();
-                initMap();
-                renderPlayerElement();
-                document.getElementById('loginOverlay').classList.add('hidden');
-                
-                checkStarterRequirement();
-                startAutoSave();
-            }
-        } else {
-            showError(result.message || "Authentication failed.");
+        if (!username || !password) {
+            showError("Username and password are required.");
+            return;
         }
-    } catch (err) {
-        console.error("Authentication error:", err);
-        showError("Unable to connect to backend server.");
+
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('username', username);
+        formData.append('password', password);
+
+        try {
+            const response = await fetch('pet_backend.php', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.success) {
+                if (action === 'register') {
+                    showError("Account created! Logging you in...", "#2ecc71");
+                    setTimeout(() => performAuth('login', userFieldId, passFieldId), 1000);
+                } else if (action === 'login') {
+                    currentUser = result.data.username;
+                    coins = parseInt(result.data.coins);
+                    balls = parseInt(result.data.balls);
+                    currentRoute = parseInt(result.data.current_route);
+                    currentMapIndex = Math.max(0, currentRoute - 1);
+                    // Inside performAuth('login') section
+playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
+playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
+
+// Load and mark defeated NPCs
+let defeatedNpcs = typeof result.data.defeated_npcs === 'string' ? JSON.parse(result.data.defeated_npcs) : (result.data.defeated_npcs || []);
+applyDefeatedNPCs(defeatedNpcs);
+                    
+                    playerParty = typeof result.data.party_data === 'string' ? JSON.parse(result.data.party_data) : (result.data.party_data || []);
+                    playerPCStorage = typeof result.data.pc_data === 'string' ? JSON.parse(result.data.pc_data) : (result.data.pc_data || []);
+
+                    let loadedX = parseFloat(result.data.pos_x);
+                    let loadedY = parseFloat(result.data.pos_y);
+                    if (!isNaN(loadedX) && !isNaN(loadedY)) {
+                        playerPos = { x: loadedX, y: loadedY };
+                    } else {
+                        playerPos = currentRoute === 2 ? { x: 1.5, y: 15.5 } : { x: 1.5, y: 15.0 };
+                    }
+
+                    localStorage.setItem('pet_remembered_user', currentUser);
+
+                    updateUI();
+                    renderParty();
+                    renderPCStorage();
+                    renderPartyCircles();
+                    initMap();
+                    renderPlayerElement();
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    
+                    checkStarterRequirement();
+                    startAutoSave();
+                }
+            } else {
+                showError(result.message || "Authentication failed.");
+            }
+        } catch (err) {
+            console.error("Authentication error:", err);
+            showError("Unable to connect to backend server.");
+        }
     }
-}
-    function logoutUser() {
-    if (autoSaveTimer) clearInterval(autoSaveTimer);
-    currentUser = null;
-    localStorage.removeItem('pet_remembered_user');
-    
-    // Close open menus and present login screen
-    if (typeof closeMenuModal === 'function') closeMenuModal();
-    showLoginOverlay();
-}
+
     async function saveGameData(isSilent = false) {
     if (!currentUser) return;
 
@@ -2772,28 +2730,28 @@ function travelThroughGate() {
                         </div>
                     </div>
 
+                    <div class="hp-bar-bg">
+                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
+                    </div>
+                    <div style="font-size: 11px; text-align: right; margin-top:2px;">HP: ${pet.currentHp}/${pet.maxHp}</div>
+                    
                     <div class="exp-bar-bg">
                         <div class="exp-bar-fill" style="width: ${expPct}%;"></div>
                     </div>
-                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top: 2px;">
-                        EXP: ${currentExp}/${expNeeded}
-                    </div>
-
-                    <div class="stat-grid">
-                        <div>Atk: ${pet.attack}</div>
-                        <div>Def: ${pet.defense}</div>
-                        <div>SpA: ${pet.spAttack}</div>
-                        <div>SpD: ${pet.spDefense}</div>
-                        <div>Spd: ${pet.speed}</div>
-                    </div>
-
-                    <div class="moves-section">
-                        <div style="font-weight:bold; margin-bottom:4px;">Active Moves (Click to toggle):</div>
-                        <div class="moves-chips">${movesChipsHtml}</div>
+                    <div style="font-size: 10px; text-align: right; color:#aaa; margin-top:2px;">EXP: ${currentExp}/${expNeeded}</div>
+                    
+                    <div class="stat-grid" style="margin-top:6px;">
+                        <span>ATK: ${pet.attack}</span>
+                        <span>DEF: ${pet.defense}</span>
+                        <span>SPD: ${pet.speed}</span>
+                        <span>SP.ATK: ${pet.spAttack}</span>
+                        <span>SP.DEF: ${pet.spDefense}</span>
+                        <span>TYPE: ${pet.type}</span>
                     </div>
 
                     <div class="pet-actions-row">
-                        ${managementButtons}
+                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#2ecc71; border-color:#27ae60;" onclick="withdrawFromPC(${pcIndex})">📥 Withdraw to Party</button>
+                        <button class="btn-action" style="padding:5px 10px; font-size:11px; background:#e74c3c; border-color:#c0392b;" onclick="releaseFromPC(${pcIndex})">🗑️ Release</button>
                     </div>
                 </div>
             `;
