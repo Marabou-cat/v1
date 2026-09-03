@@ -28,6 +28,58 @@ const TYPE_COLORS = {
     poison:     "#8e44ad"
 };
 
+const ATTACKS = {
+    scratch: { name: "Scratch", type: "basic", damage: 10, powerCost: 0, damageType: "physical" },
+    ember: { name: "Ember", type: "fire", damage: 25, powerCost: 5, damageType: "special" },
+    flame_dash: { name: "Flame Dash", type: "fire", damage: 45, powerCost: 10, damageType: "physical" },
+    inferno_blast: { name: "Inferno Blast", type: "fire", damage: 70, powerCost: 20, damageType: "special" },
+    burn_out_high: { name: "Burn Out", type: "fire", damage: 200, powerCost: 100, damageType: "special" },
+    rock_throw: { name: "Rock Throw", type: "stone", damage: 40, powerCost: 10, damageType: "physical" },
+    stone_edge: { name: "Stone Edge", type: "stone", damage: 90, powerCost: 50, damageType: "physical" },
+    tackle: { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical" },
+    water_gun: { name: "Water Gun", type: "water", damage: 25, powerCost: 5, damageType: "special" },
+    bubble_beam: { name: "Bubble Beam", type: "water", damage: 45, powerCost: 12, damageType: "special" },
+    hydro_pump: { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special" },
+    charm: { name: "Charm", type: "basic", damage: 90, powerCost: 55, damageType: "special" },
+    vine_whip: { name: "Vine Whip", type: "grass", damage: 25, powerCost: 5, damageType: "physical" },
+    vine_whip_strong: { name: "Vine Whip", type: "grass", damage: 80, powerCost: 75, damageType: "physical" },
+    razor_leaf: { name: "Razor Leaf", type: "grass", damage: 50, powerCost: 14, damageType: "physical" },
+    solar_beam: { name: "Solar Beam", type: "grass", damage: 75, powerCost: 25, damageType: "special" },
+    quick_peck: { name: "Quick Peck", type: "air", damage: 15, powerCost: 0, damageType: "physical" },
+    thundershock: { name: "Thundershock", type: "electric", damage: 25, powerCost: 6, damageType: "special" },
+    spark_wing: { name: "Spark Wing", type: "electric", damage: 45, powerCost: 12, damageType: "physical" },
+    thunderbolt: { name: "Thunderbolt", type: "electric", damage: 70, powerCost: 20, damageType: "special" },
+    stick_impact: { name: "Stick Impact", type: "grass", damage: 15, powerCost: 0, damageType: "physical" },
+    burn_out_low: { name: "Burn Out", type: "fire", damage: 50, powerCost: 40, damageType: "special" },
+    heavy_slam: { name: "Heavy Slam", type: "basic", damage: 65, powerCost: 70, damageType: "physical" },
+    flamethrower: { name: "Flamethrower", type: "fire", damage: 65, powerCost: 70, damageType: "special" },
+    heat_rain: { name: "Heat Rain", type: "fire", damage: 80, powerCost: 60, damageType: "special" },
+    meteor_rain: { name: "Meteor Rain", type: "stone", damage: 100, powerCost: 85, damageType: "special" },
+    sticky_webs: { name: "Sticky Webs", type: "bug", damage: 12, powerCost: 0, damageType: "physical" },
+    power_punch: { name: "Power Punch", type: "combat", damage: 50, powerCost: 40, damageType: "physical" },
+    fighting_aura: { name: "Fighting Aura", type: "combat", damage: 60, powerCost: 60, damageType: "physical" },
+    bug_bite: { name: "Bug Bite", type: "bug", damage: 45, powerCost: 40, damageType: "physical" },
+    dragons_breath: { name: "Dragons Breath", type: "dragon", damage: 50, powerCost: 40, damageType: "special" },
+    dragon_webs: { name: "Dragon Webs", type: "dragon", damage: 200, powerCost: 100, damageType: "physical" },
+    dragon_orb: { name: "Dragon Orb", type: "dragon", damage: 75, powerCost: 55, damageType: "special" },
+    magical_burst: { name: "Magical Burst", type: "basic", damage: 75, powerCost: 55, damageType: "special" },
+    flame_burst: { name: "Flame Burst", type: "fire", damage: 50, powerCost: 40, damageType: "special" },
+    water_blade: { name: "Water Blade", type: "water", damage: 50, powerCost: 40, damageType: "special" },
+    self_destruct: { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical" },
+    silver_gleam: { name: "Silver Gleam", type: "metal", damage: 65, powerCost: 35, damageType: "special" },
+    web: { name: "Web", type: "bug", damage: 15, powerCost: 0, damageType: "special" },
+    charged_tackle: { name: "Charged Tackle", type: "combat", damage: 70, powerCost: 45, damageType: "physical" },
+    shining_eye: { name: "Shining Eye", type: "metal", damage: 65, powerCost: 35, damageType: "special" },
+    blade_slash: { name: "Blade Slash", type: "combat", damage: 75, powerCost: 40, damageType: "physical" },
+    heavy_tackle: { name: "Heavy Tackle", type: "basic", damage: 110, powerCost: 80, damageType: "physical" },
+    thunder_slash: { name: "Thunder Slash", type: "electric", damage: 75, powerCost: 40, damageType: "special" },
+    tentacle_venom: { name: "Tentacle Venom", type: "poison", damage: 75, powerCost: 40, damageType: "physical" },
+    water_blade_phys: { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "physical" },
+    water_blade_spec: { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "special" },
+    poison_spread: { name: "Poison Spread", type: "poison", damage: 250, powerCost: 100, damageType: "special" },
+    sun_light: { name: "Sun Light", type: "grass", damage: 75, powerCost: 40, damageType: "special" }
+};
+
 let isActionLocked = false; // Prevents spamming and input abuse during animations
 
 function getTypeEffectiveness(moveType, defenderTypes) {
@@ -56,10 +108,10 @@ const PETS = {
         baseStats: { hp: 100, attack: 10, defense: 10, spAttack: 16, spDefense: 12, speed: 15 },
         maxStats:  { hp: 500, attack: 110, defense: 120, spAttack: 190, spDefense: 140, speed: 175 },
         moves: [
-            { name: "Scratch", type: "basic", damage: 10, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Ember", type: "fire", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
-            { name: "Flame Dash", type: "fire", damage: 45, powerCost: 10, damageType: "physical", levelToLearn: 5 },
-            { name: "Inferno Blast", type: "fire", damage: 70, powerCost: 20, damageType: "special", levelToLearn: 10 }
+            { id: "scratch", levelToLearn: 1 },
+            { id: "ember", levelToLearn: 1 },
+            { id: "flame_dash", levelToLearn: 5 },
+            { id: "inferno_blast", levelToLearn: 10 }
         ]
     },
     pyrodon: {
@@ -75,11 +127,11 @@ const PETS = {
         baseStats: { hp: 160, attack: 15, defense: 16, spAttack: 24, spDefense: 18, speed: 22 },
         maxStats:  { hp: 750, attack: 150, defense: 160, spAttack: 240, spDefense: 180, speed: 220 },
         moves: [
-            { name: "Scratch", type: "basic", damage: 10, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Ember", type: "fire", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
-            { name: "Flame Dash", type: "fire", damage: 45, powerCost: 10, damageType: "physical", levelToLearn: 5 },
-            { name: "Inferno Blast", type: "fire", damage: 70, powerCost: 20, damageType: "special", levelToLearn: 10 },
-            { name: "Burn Out", type: "fire", damage: 200, powerCost: 100, damageType: "special", levelToLearn: 1 }
+            { id: "scratch", levelToLearn: 1 },
+            { id: "ember", levelToLearn: 1 },
+            { id: "flame_dash", levelToLearn: 5 },
+            { id: "inferno_blast", levelToLearn: 10 },
+            { id: "burn_out_high", levelToLearn: 1 }
         ]
     },
     malime: {
@@ -95,10 +147,10 @@ const PETS = {
         baseStats: { hp: 105, attack: 12, defense: 14, spAttack: 15, spDefense: 13, speed: 14 },
         maxStats:  { hp: 520, attack: 120, defense: 140, spAttack: 180, spDefense: 150, speed: 160 },
         moves: [
-            { name: "Scratch", type: "basic", damage: 10, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Ember", type: "fire", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
-            { name: "Rock Throw", type: "stone", damage: 40, powerCost: 10, damageType: "physical", levelToLearn: 5 },
-            { name: "Flame Dash", type: "fire", damage: 45, powerCost: 10, damageType: "physical", levelToLearn: 10 }
+            { id: "scratch", levelToLearn: 1 },
+            { id: "ember", levelToLearn: 1 },
+            { id: "rock_throw", levelToLearn: 5 },
+            { id: "flame_dash", levelToLearn: 10 }
         ]
     },
     magmud: {
@@ -114,11 +166,11 @@ const PETS = {
         baseStats: { hp: 165, attack: 18, defense: 22, spAttack: 22, spDefense: 20, speed: 18 },
         maxStats:  { hp: 780, attack: 160, defense: 200, spAttack: 220, spDefense: 190, speed: 190 },
         moves: [
-            { name: "Scratch", type: "basic", damage: 10, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Ember", type: "fire", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
-            { name: "Rock Throw", type: "stone", damage: 40, powerCost: 10, damageType: "physical", levelToLearn: 5 },
-            { name: "Flame Dash", type: "fire", damage: 45, powerCost: 10, damageType: "physical", levelToLearn: 10 },
-            { name: "Stone Edge", type: "stone", damage: 90, powerCost: 50, damageType: "physical", levelToLearn: 16 }
+            { id: "scratch", levelToLearn: 1 },
+            { id: "ember", levelToLearn: 1 },
+            { id: "rock_throw", levelToLearn: 5 },
+            { id: "flame_dash", levelToLearn: 10 },
+            { id: "stone_edge", levelToLearn: 16 }
         ]
     },
     bubbitty: {
@@ -134,10 +186,10 @@ const PETS = {
         baseStats: { hp: 110, attack: 10, defense: 14, spAttack: 12, spDefense: 16, speed: 10 },
         maxStats:  { hp: 540, attack: 130, defense: 170, spAttack: 150, spDefense: 195, speed: 240 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Water Gun", type: "water", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
-            { name: "Bubble Beam", type: "water", damage: 45, powerCost: 12, damageType: "special", levelToLearn: 5 },
-            { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special", levelToLearn: 16 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "water_gun", levelToLearn: 1 },
+            { id: "bubble_beam", levelToLearn: 5 },
+            { id: "hydro_pump", levelToLearn: 16 }
         ]
     },
     charmpaw: {
@@ -153,11 +205,11 @@ const PETS = {
         baseStats: { hp: 170, attack: 14, defense: 20, spAttack: 18, spDefense: 22, speed: 15 },
         maxStats:  { hp: 780, attack: 160, defense: 210, spAttack: 190, spDefense: 240, speed: 280 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Water Gun", type: "water", damage: 25, powerCost: 5, damageType: "special", levelToLearn: 1 },
-            { name: "Bubble Beam", type: "water", damage: 45, powerCost: 12, damageType: "special", levelToLearn: 5 },
-            { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special", levelToLearn: 10 },
-            { name: "Charm", type: "basic", damage: 90, powerCost: 55, damageType: "special", levelToLearn: 16 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "water_gun", levelToLearn: 1 },
+            { id: "bubble_beam", levelToLearn: 5 },
+            { id: "hydro_pump", levelToLearn: 10 },
+            { id: "charm", levelToLearn: 16 }
         ]
     },
     sproupup: {
@@ -173,10 +225,10 @@ const PETS = {
         baseStats: { hp: 120, attack: 16, defense: 13, spAttack: 8, spDefense: 10, speed: 12 },
         maxStats:  { hp: 600, attack: 185, defense: 155, spAttack: 100, spDefense: 130, speed: 145 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Vine Whip", type: "grass", damage: 25, powerCost: 5, damageType: "physical", levelToLearn: 1 },
-            { name: "Razor Leaf", type: "grass", damage: 50, powerCost: 14, damageType: "physical", levelToLearn: 5 },
-            { name: "Solar Beam", type: "grass", damage: 75, powerCost: 25, damageType: "special", levelToLearn: 10 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "vine_whip", levelToLearn: 1 },
+            { id: "razor_leaf", levelToLearn: 5 },
+            { id: "solar_beam", levelToLearn: 10 }
         ]
     },
     floraplnt: {
@@ -192,10 +244,10 @@ const PETS = {
         baseStats: { hp: 180, attack: 22, defense: 18, spAttack: 12, spDefense: 15, speed: 16 },
         maxStats:  { hp: 820, attack: 230, defense: 190, spAttack: 130, spDefense: 170, speed: 180 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Vine Whip", type: "grass", damage: 25, powerCost: 5, damageType: "physical", levelToLearn: 1 },
-            { name: "Razor Leaf", type: "grass", damage: 50, powerCost: 14, damageType: "physical", levelToLearn: 5 },
-            { name: "Solar Beam", type: "grass", damage: 75, powerCost: 25, damageType: "special", levelToLearn: 10 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "vine_whip", levelToLearn: 1 },
+            { id: "razor_leaf", levelToLearn: 5 },
+            { id: "solar_beam", levelToLearn: 10 }
         ]
     },
     sparkwing: {
@@ -211,10 +263,10 @@ const PETS = {
         baseStats: { hp: 95, attack: 13, defense: 8, spAttack: 17, spDefense: 9, speed: 18 },
         maxStats:  { hp: 450, attack: 150, defense: 105, spAttack: 205, spDefense: 115, speed: 210 },
         moves: [
-            { name: "Quick Peck", type: "air", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Thundershock", type: "electric", damage: 25, powerCost: 6, damageType: "special", levelToLearn: 1 },
-            { name: "Spark Wing", type: "electric", damage: 45, powerCost: 12, damageType: "physical", levelToLearn: 5 },
-            { name: "Thunderbolt", type: "electric", damage: 70, powerCost: 20, damageType: "special", levelToLearn: 10 }
+            { id: "quick_peck", levelToLearn: 1 },
+            { id: "thundershock", levelToLearn: 1 },
+            { id: "spark_wing", levelToLearn: 5 },
+            { id: "thunderbolt", levelToLearn: 10 }
         ]
     },
     coalapling: {
@@ -230,11 +282,11 @@ const PETS = {
         baseStats: { hp: 120, attack: 17, defense: 25, spAttack: 17, spDefense: 25, speed: 10 },
         maxStats:  { hp: 650, attack: 150, defense: 180, spAttack: 150, spDefense: 180, speed: 120 },
         moves: [
-            { name: "Stick Impact", type: "grass", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Burn Out", type: "fire", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
-            { name: "Heavy Slam", type: "basic", damage: 65, powerCost: 70, damageType: "physical", levelToLearn: 5 },
-            { name: "Flamethrower", type: "fire", damage: 65, powerCost: 70, damageType: "special", levelToLearn: 10 },
-            { name: "Vine Whip", type: "grass", damage: 80, powerCost: 75, damageType: "physical", levelToLearn: 16 }
+            { id: "stick_impact", levelToLearn: 1 },
+            { id: "burn_out_low", levelToLearn: 1 },
+            { id: "heavy_slam", levelToLearn: 5 },
+            { id: "flamethrower", levelToLearn: 10 },
+            { id: "vine_whip_strong", levelToLearn: 16 }
         ]
     },
     turnace: {
@@ -250,13 +302,13 @@ const PETS = {
         baseStats: { hp: 150, attack: 17, defense: 25, spAttack: 25, spDefense: 25, speed: 10 },
         maxStats:  { hp: 700, attack: 150, defense: 180, spAttack: 180, spDefense: 180, speed: 120 },
         moves: [
-            { name: "Stick Impact", type: "grass", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Burn Out", type: "fire", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
-            { name: "Heavy Slam", type: "basic", damage: 65, powerCost: 70, damageType: "physical", levelToLearn: 5 },
-            { name: "Flamethrower", type: "fire", damage: 65, powerCost: 70, damageType: "special", levelToLearn: 10 },
-            { name: "Vine Whip", type: "grass", damage: 80, powerCost: 75, damageType: "physical", levelToLearn: 16 },
-            { name: "Heat Rain", type: "fire", damage: 80, powerCost: 60, damageType: "special", levelToLearn: 16 },
-            { name: "Meteor Rain", type: "stone", damage: 100, powerCost: 85, damageType: "special", levelToLearn: 16 }
+            { id: "stick_impact", levelToLearn: 1 },
+            { id: "burn_out_low", levelToLearn: 1 },
+            { id: "heavy_slam", levelToLearn: 5 },
+            { id: "flamethrower", levelToLearn: 10 },
+            { id: "vine_whip_strong", levelToLearn: 16 },
+            { id: "heat_rain", levelToLearn: 16 },
+            { id: "meteor_rain", levelToLearn: 16 }
         ]
     },
     samupillar: {
@@ -272,10 +324,10 @@ const PETS = {
         baseStats: { hp: 80, attack: 15, defense: 12, spAttack: 12, spDefense: 5, speed: 5 },
         maxStats:  { hp: 350, attack: 125, defense: 120, spAttack: 95, spDefense: 60, speed: 100 },
         moves: [
-            { name: "Sticky Webs", type: "bug", damage: 12, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Power Punch", type: "combat", damage: 50, powerCost: 40, damageType: "physical", levelToLearn: 1 },
-            { name: "Fighting Aura", type: "combat", damage: 60, powerCost: 60, damageType: "physical", levelToLearn: 5 },
-            { name: "Bug Bite", type: "bug", damage: 45, powerCost: 40, damageType: "physical", levelToLearn: 10 }
+            { id: "sticky_webs", levelToLearn: 1 },
+            { id: "power_punch", levelToLearn: 1 },
+            { id: "fighting_aura", levelToLearn: 5 },
+            { id: "bug_bite", levelToLearn: 10 }
         ]
     },
     dragorm: {
@@ -291,10 +343,10 @@ const PETS = {
         baseStats: { hp: 90, attack: 19, defense: 30, spAttack: 5, spDefense: 15, speed: 15 },
         maxStats:  { hp: 450, attack: 125, defense: 250, spAttack: 95, spDefense: 70, speed: 150 },
         moves: [
-            { name: "Sticky Webs", type: "bug", damage: 12, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Dragons Breath", type: "dragon", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
-            { name: "Dragon Webs", type: "dragon", damage: 200, powerCost: 100, damageType: "physical", levelToLearn: 15 },
-            { name: "Bug Bite", type: "bug", damage: 45, powerCost: 40, damageType: "physical", levelToLearn: 10 }
+            { id: "sticky_webs", levelToLearn: 1 },
+            { id: "dragons_breath", levelToLearn: 1 },
+            { id: "dragon_webs", levelToLearn: 15 },
+            { id: "bug_bite", levelToLearn: 10 }
         ]
     },
     hydrini: {
@@ -310,10 +362,10 @@ const PETS = {
         baseStats: { hp: 90, attack: 19, defense: 30, spAttack: 25, spDefense: 30, speed: 30 },
         maxStats:  { hp: 450, attack: 125, defense: 120, spAttack: 145, spDefense: 120, speed: 220 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Dragons Breath", type: "dragon", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
-            { name: "Dragon Orb", type: "dragon", damage: 75, powerCost: 55, damageType: "special", levelToLearn: 15 },
-            { name: "Magical Burst", type: "basic", damage: 75, powerCost: 55, damageType: "special", levelToLearn: 20 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "dragons_breath", levelToLearn: 1 },
+            { id: "dragon_orb", levelToLearn: 15 },
+            { id: "magical_burst", levelToLearn: 20 }
         ]
     },
     shocket: {
@@ -329,10 +381,10 @@ const PETS = {
         baseStats: { hp: 100, attack: 25, defense: 30, spAttack: 25, spDefense: 15, speed: 30 },
         maxStats:  { hp: 500, attack: 130, defense: 150, spAttack: 145, spDefense: 75, speed: 250 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Flame Burst", type: "fire", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
-            { name: "Water Blade", type: "water", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 15 },
-            { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical", levelToLearn: 20 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "flame_burst", levelToLearn: 1 },
+            { id: "water_blade", levelToLearn: 15 },
+            { id: "self_destruct", levelToLearn: 20 }
         ]
     },
     trishock: {
@@ -348,11 +400,11 @@ const PETS = {
         baseStats: { hp: 150, attack: 35, defense: 45, spAttack: 35, spDefense: 20, speed: 45 },
         maxStats:  { hp: 800, attack: 200, defense: 190, spAttack: 210, spDefense: 90, speed: 320 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Flame Burst", type: "fire", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 1 },
-            { name: "Water Blade", type: "water", damage: 50, powerCost: 40, damageType: "special", levelToLearn: 15 },
-            { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical", levelToLearn: 20 },
-            { name: "Silver Gleam", type: "metal", damage: 65, powerCost: 35, damageType: "special", levelToLearn: 20 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "flame_burst", levelToLearn: 1 },
+            { id: "water_blade", levelToLearn: 15 },
+            { id: "self_destruct", levelToLearn: 20 },
+            { id: "silver_gleam", levelToLearn: 20 }
         ]
     },
     samupod: {
@@ -368,11 +420,11 @@ const PETS = {
         baseStats: { hp: 100, attack: 15, defense: 45, spAttack: 15, spDefense: 45, speed: 5 },
         maxStats:  { hp: 500, attack: 120, defense: 190, spAttack: 120, spDefense: 190, speed: 80 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Web", type: "bug", damage: 15, powerCost: 0, damageType: "special", levelToLearn: 1 },
-            { name: "Charged Tackle", type: "combat", damage: 70, powerCost: 45, damageType: "physical", levelToLearn: 5 },
-            { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical", levelToLearn: 10 },
-            { name: "Shining Eye", type: "metal", damage: 65, powerCost: 35, damageType: "special", levelToLearn: 15 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "web", levelToLearn: 1 },
+            { id: "charged_tackle", levelToLearn: 5 },
+            { id: "self_destruct", levelToLearn: 10 },
+            { id: "shining_eye", levelToLearn: 15 }
         ]
     },
     bladee: {
@@ -388,11 +440,11 @@ const PETS = {
         baseStats: { hp: 150, attack: 25, defense: 35, spAttack: 15, spDefense: 20, speed: 35 },
         maxStats:  { hp: 600, attack: 190, defense: 180, spAttack: 120, spDefense: 130, speed: 270 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Blade Slash", type: "combat", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
-            { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 15 },
-            { name: "Heavy Tackle", type: "basic", damage: 110, powerCost: 80, damageType: "physical", levelToLearn: 20 },
-            { name: "Thunder Slash", type: "electric", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 20 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "blade_slash", levelToLearn: 1 },
+            { id: "water_blade_spec", levelToLearn: 15 },
+            { id: "heavy_tackle", levelToLearn: 20 },
+            { id: "thunder_slash", levelToLearn: 20 }
         ]
     },
     venefish: {
@@ -408,11 +460,11 @@ const PETS = {
         baseStats: { hp: 100, attack: 30, defense: 25, spAttack: 25, spDefense: 35, speed: 35 },
         maxStats:  { hp: 500, attack: 190, defense: 130, spAttack: 120, spDefense: 150, speed: 250 },
         moves: [
-            { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", levelToLearn: 1 },
-            { name: "Tentacle Venom", type: "poison", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
-            { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "physical", levelToLearn: 1 },
-            { name: "Poison Spread", type: "poison", damage: 250, powerCost: 100, damageType: "special", levelToLearn: 10 },
-            { name: "Sun Light", type: "grass", damage: 75, powerCost: 40, damageType: "special", levelToLearn: 10 }
+            { id: "tackle", levelToLearn: 1 },
+            { id: "tentacle_venom", levelToLearn: 1 },
+            { id: "water_blade_phys", levelToLearn: 1 },
+            { id: "poison_spread", levelToLearn: 10 },
+            { id: "sun_light", levelToLearn: 10 }
         ]
     }
 };
@@ -427,7 +479,16 @@ function getCalculatedPet(petData) {
     const calc = (base, max) => Math.floor(base + (max - base) * ((level - 1) / 99));
 
     const maxHp = calc(species.baseStats.hp, species.maxStats.hp);
-    const unlockedMoves = species.moves.filter(m => level >= m.levelToLearn);
+    
+    const resolvedMoves = species.moves.map(m => {
+        const attackInfo = ATTACKS[m.id];
+        return {
+            ...attackInfo,
+            levelToLearn: m.levelToLearn
+        };
+    });
+
+    const unlockedMoves = resolvedMoves.filter(m => level >= m.levelToLearn);
 
     let activeMoves = petData.activeMoves;
     if (!activeMoves || activeMoves.length === 0) {
@@ -448,7 +509,7 @@ function getCalculatedPet(petData) {
         spAttack: calc(species.baseStats.spAttack, species.maxStats.spAttack),
         spDefense: calc(species.baseStats.spDefense, species.maxStats.spDefense),
         speed: calc(species.baseStats.speed, species.maxStats.speed),
-        moves: species.moves,
+        moves: resolvedMoves,
         unlockedMoves: unlockedMoves,
         activeMoves: activeMoves
     };
