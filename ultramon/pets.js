@@ -479,7 +479,7 @@ function getCalculatedPet(petData) {
     const calc = (base, max) => Math.floor(base + (max - base) * ((level - 1) / 99));
 
     const maxHp = calc(species.baseStats.hp, species.maxStats.hp);
-    
+
     const resolvedMoves = species.moves.map(m => {
         const attackInfo = ATTACKS[m.id];
         return {
@@ -537,4 +537,4 @@ function calculateCatchRate(petInstance, ballMultiplier = 1) {
 
     return Math.floor(baseRate * healthMultiplier * ballMultiplier);
 }
-```[cite: 6]
+
