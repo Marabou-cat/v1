@@ -219,9 +219,22 @@
     50% { background-image: url('petpng/Dwalk2.png'); }
 }
         .npc-cube {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
-            cursor: pointer;
-        }
+    width: 32px;
+    height: 32px;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    transform-origin: bottom center;
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+    cursor: pointer;
+}
+
+.npc-cube::after {
+    display: none;
+}
         .player-cube::after, .npc-cube::after {
             content: "";
             position: absolute;
@@ -1207,25 +1220,31 @@
     }
 
     function renderNPCs() {
-        const grid = document.getElementById('mapGrid');
-        if (!grid) return;
+    const grid = document.getElementById('mapGrid');
+    if (!grid) return;
 
-        document.querySelectorAll('.npc-cube').forEach(el => el.remove());
+    document.querySelectorAll('.npc-cube').forEach(el => el.remove());
 
-        if (typeof npc === 'undefined') return;
+    if (typeof npc === 'undefined') return;
 
-        npc.forEach(trainer => {
-            if (trainer.route === currentRoute && !trainer.defeated) {
-                const npcEl = document.createElement('div');
-                npcEl.className = 'npc-cube';
+    npc.forEach(trainer => {
+        if (trainer.route === currentRoute && !trainer.defeated) {
+            const npcEl = document.createElement('div');
+            npcEl.className = 'npc-cube';
+            
+            if (trainer.img) {
+                npcEl.style.backgroundImage = `url('${trainer.img}')`;
+            } else {
                 npcEl.style.backgroundColor = trainer.color || '#3498db';
-                npcEl.style.left = (trainer.x * TILE_SIZE + TILE_SIZE / 2) + 'px';
-                npcEl.style.top = (trainer.y * TILE_SIZE + TILE_SIZE / 2) + 'px';
-                npcEl.title = trainer.name;
-                grid.appendChild(npcEl);
             }
-        });
-    }
+
+            npcEl.style.left = (trainer.x * TILE_SIZE + TILE_SIZE / 2) + 'px';
+            npcEl.style.top = (trainer.y * TILE_SIZE + TILE_SIZE / 2) + 'px';
+            npcEl.title = trainer.name;
+            grid.appendChild(npcEl);
+        }
+    });
+}
 
     function renderPlayerElement() {
         const grid = document.getElementById('mapGrid');
