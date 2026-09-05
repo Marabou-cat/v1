@@ -1131,6 +1131,30 @@
     attackerImg.style.setProperty('--facing', isPlayer ? '-1' : '1');
     defenderImg.style.setProperty('--facing', !isPlayer ? '-1' : '1');
 
+    // NEW: Helper function to display the hit effect image
+    const showHitEffect = () => {
+        if (moveObj.effectImg) {
+            const effect = document.createElement('img');
+            effect.src = moveObj.effectImg;
+            effect.style.position = 'absolute';
+            effect.style.width = '120px';
+            effect.style.height = '120px';
+            effect.style.zIndex = '1005';
+            effect.style.pointerEvents = 'none';
+            
+            // Center the effect image over the defender
+            effect.style.top = (defenderImg.offsetTop + (defenderImg.offsetHeight / 2) - 60) + 'px';
+            effect.style.left = (defenderImg.offsetLeft + (defenderImg.offsetWidth / 2) - 60) + 'px';
+            
+            arena.appendChild(effect);
+            
+            // Remove the effect image at the exact time the flash animation finishes
+            setTimeout(() => {
+                effect.remove();
+            }, 400);
+        }
+    };
+
     if (moveObj.damageType === 'physical') {
         // Physical Attack: Lunge forward, then hit
         attackerImg.classList.add(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
@@ -1138,6 +1162,7 @@
         setTimeout(() => {
             attackerImg.classList.remove(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
             defenderImg.classList.add('anim-hit');
+            showHitEffect(); // <-- TRIGGER HIT EFFECT
             
             setTimeout(() => {
                 defenderImg.classList.remove('anim-hit');
@@ -1161,6 +1186,7 @@
                 proj.remove();
                 attackerImg.classList.remove('anim-special');
                 defenderImg.classList.add('anim-hit');
+                showHitEffect(); // <-- TRIGGER HIT EFFECT
                 
                 setTimeout(() => {
                     defenderImg.classList.remove('anim-hit');
