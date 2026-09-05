@@ -79,7 +79,12 @@ const ATTACKS = {
     water_blade_phys: { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "physical", effectImg: "petpng/water_hit.png" },
     water_blade_spec: { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "special", effectImg: "petpng/water_hit.png" },
     poison_spread: { name: "Poison Spread", type: "poison", damage: 250, powerCost: 100, damageType: "special", effectImg: "petpng/poison_hit.png" },
-    sun_light: { name: "Sun Light", type: "grass", damage: 75, powerCost: 40, damageType: "special", effectImg: "petpng/grass_hit.png" }
+    sun_light: { name: "Sun Light", type: "grass", damage: 75, powerCost: 40, damageType: "special", effectImg: "petpng/grass_hit.png" },
+    focus_energy: { name: "Focus Energy", type: "basic", damage: 0, powerCost: 0, damageType: "boost", boostType: "energy", amount: 40, effectImg: "petpng/basic_hit.png" },
+    synthesize: { name: "Synthesize", type: "grass", damage: 0, powerCost: 20, damageType: "boost", boostType: "hp", amount: 60, effectImg: "petpng/grass_hit.png" },
+    sharpen: { name: "Sharpen", type: "stone", damage: 0, powerCost: 15, damageType: "boost", boostType: "stat", statTarget: "attack", amount: 20, effectImg: "petpng/stone_hit.png" },
+    iron_defense: { name: "Iron Defense", type: "metal", damage: 0, powerCost: 15, damageType: "boost", boostType: "stat", statTarget: "defense", amount: 20, effectImg: "petpng/metal_hit.png" },
+    mystic_water: { name: "Mystic Water", type: "water", damage: 0, powerCost: 25, damageType: "boost", boostType: "stat", statTarget: "spAttack", amount: 25, effectImg: "petpng/water_hit.png" }
 };
 
 let isActionLocked = false; // Prevents spamming and input abuse during animations
@@ -386,7 +391,8 @@ const PETS = {
             { id: "tackle", levelToLearn: 1 },
             { id: "flame_burst", levelToLearn: 1 },
             { id: "water_blade", levelToLearn: 15 },
-            { id: "self_destruct", levelToLearn: 20 }
+            { id: "self_destruct", levelToLearn: 20 },
+            { id: "mystic_water", levelToLearn: 5 }
         ]
     },
     trishock: {
