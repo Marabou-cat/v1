@@ -153,6 +153,7 @@
         .tile-gate::after { content: "🚪"; font-size: 20px; }
         .tile-stone { background: #718096 url('petpng/stone.png') no-repeat center center / cover; border: 1px solid #4a5568; }
         .tile-lava { background: #c0392b url('petpng/lava.png') no-repeat center center / cover; border: 1px solid rgba(0,0,0,0.1); }
+        .tile-tree { background: #27ae60 url('petpng/tree.png') no-repeat center center / cover; border: 1px solid rgba(0,0,0,0.1); }
 
         /* --- PLAYER & NPC CUBES --- */
         .player-cube, .npc-cube {
@@ -1459,7 +1460,7 @@ function endBattle(won) {
         if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return false;
         
         // Block movement if tile is wall, water, or lava
-        if (activeMap[tileY][tileX] === 'wall' || activeMap[tileY][tileX] === 'water' || activeMap[tileY][tileX] === 'lava') return false;
+        if (activeMap[tileY][tileX] === 'wall' || activeMap[tileY][tileX] === 'water' || activeMap[tileY][tileX] === 'lava' || activeMap[tileY][tileX] === 'tree') return false;
     }
 
     return true;
