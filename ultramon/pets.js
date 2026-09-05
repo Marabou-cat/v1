@@ -377,6 +377,7 @@ const PETS = {
         moves: [
             { id: "tackle", levelToLearn: 1 },
             { id: "dragons_breath", levelToLearn: 1 },
+            { id: "mystic_water", levelToLearn: 5 },
             { id: "dragon_orb", levelToLearn: 15 },
             { id: "magical_burst", levelToLearn: 20 }
         ]
