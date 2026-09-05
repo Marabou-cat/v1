@@ -1,16 +1,17 @@
 const TYPE_CHART = {
-    fire:       { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67, air: 1.0, metal: 1.5, stone: 0.67, poison: 1.0 },
-    water:      { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.0, metal: 1.0, stone: 1.5,  poison: 1.0 },
-    grass:      { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67, dragon: 0.67, air: 0.67, metal: 0.67, stone: 1.5, poison: 1.0 },
-    electric:   { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.5, metal: 1.0, stone: 1.0, poison: 1.0 },
-    combat:     { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67, air: 0.67, metal: 1.5, stone: 1.5, poison: 0.67 },
-    basic:      { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67, stone: 1.0, poison: 1.0 },
-    bug:        { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 0.67, metal: 0.67, stone: 0.67, poison: 0.67 },
-    dragon:     { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5, air: 1.0, metal: 0.67, stone: 1.0, poison: 1.0 },
-    air:        { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 0.67, combat: 1.5, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0 },
-    metal:      { fire: 0.67, water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0 },
-    stone:      { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.5, metal: 0.67, stone: 1.0, poison: 1.0 },
-    poison:     { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 0.67 }
+    fire:       { fire: 0.67, water: 0.67, grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.5, dragon: 0.67, air: 1.0, metal: 1.5, stone: 0.67, poison: 1.0, charm: 1.0 },
+    water:      { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.0, metal: 1.0, stone: 1.5,  poison: 1.0, charm: 1.0 },
+    grass:      { fire: 0.67, water: 1.5,  grass: 0.67, electric: 1.0, combat: 1.0, basic: 1.0, bug: 0.67, dragon: 0.67, air: 0.67, metal: 0.67, stone: 1.5, poison: 1.0, charm: 1.0 },
+    electric:   { fire: 1.0,  water: 1.5,  grass: 0.67, electric: 0.67, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 0.67, air: 1.5, metal: 1.0, stone: 1.0, poison: 1.0, charm: 1.0 },
+    combat:     { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.5, bug: 1.5, dragon: 0.67, air: 0.67, metal: 1.5, stone: 1.5, poison: 0.67, charm: 0.67 },
+    basic:      { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67, stone: 1.0, poison: 1.0, charm: 1.0 },
+    bug:        { fire: 0.67, water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 0.67, metal: 0.67, stone: 0.67, poison: 0.67, charm: 1.5 },
+    dragon:     { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.5, air: 1.0, metal: 0.67, stone: 1.0, poison: 1.0, charm: 0.67 },
+    air:        { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 0.67, combat: 1.5, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0, charm: 1.0 },
+    metal:      { fire: 0.67, water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0, charm: 1.5 },
+    stone:      { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.5, metal: 0.67, stone: 1.0, poison: 1.0, charm: 1.0 },
+    poison:     { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 0.67, charm: 1.0 },
+    charm:     { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.5, basic: 1.0, bug: 0.67, dragon: 1.5, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0, charm: 1.0 }
 };
 
 const TYPE_COLORS = {
@@ -25,7 +26,8 @@ const TYPE_COLORS = {
     air:        "#d5ffff",
     metal:      "#c0c0c0",
     stone:      "#95a5a6",
-    poison:     "#8e44ad"
+    poison:     "#8e44ad",
+    charm:     "#ffc0cb"
 };
 
 const ATTACKS = {
@@ -36,11 +38,11 @@ const ATTACKS = {
     burn_out_high: { name: "Burn Out", type: "fire", damage: 200, powerCost: 100, damageType: "special", effectImg: "petpng/fire_hit.png" },
     rock_throw: { name: "Rock Throw", type: "stone", damage: 40, powerCost: 10, damageType: "physical", effectImg: "petpng/stone_hit.png" },
     stone_edge: { name: "Stone Edge", type: "stone", damage: 90, powerCost: 50, damageType: "physical", effectImg: "petpng/stone_hit.png" },
-    tackle: { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", effectImg: "petpng/scratch_hit.png" },
+    tackle: { name: "Tackle", type: "basic", damage: 15, powerCost: 0, damageType: "physical", effectImg: "petpng/basic_hit.png" },
     water_gun: { name: "Water Gun", type: "water", damage: 25, powerCost: 5, damageType: "special", effectImg: "petpng/water_hit.png" },
     bubble_beam: { name: "Bubble Beam", type: "water", damage: 45, powerCost: 12, damageType: "special", effectImg: "petpng/water_hit.png" },
     hydro_pump: { name: "Hydro Pump", type: "water", damage: 75, powerCost: 22, damageType: "special", effectImg: "petpng/water_hit.png" },
-    charm: { name: "Charm", type: "basic", damage: 90, powerCost: 55, damageType: "special", effectImg: "petpng/scratch_hit.png" },
+    charm: { name: "Charm", type: "basic", damage: 90, powerCost: 55, damageType: "special", effectImg: "petpng/charm_hit.png" },
     vine_whip: { name: "Vine Whip", type: "grass", damage: 25, powerCost: 5, damageType: "physical", effectImg: "petpng/grass_hit.png" },
     vine_whip_strong: { name: "Vine Whip", type: "grass", damage: 80, powerCost: 75, damageType: "physical", effectImg: "petpng/grass_hit.png" },
     razor_leaf: { name: "Razor Leaf", type: "grass", damage: 50, powerCost: 14, damageType: "physical", effectImg: "petpng/grass_hit.png" },
@@ -51,7 +53,7 @@ const ATTACKS = {
     thunderbolt: { name: "Thunderbolt", type: "electric", damage: 70, powerCost: 20, damageType: "special", effectImg: "petpng/electric_hit.png" },
     stick_impact: { name: "Stick Impact", type: "grass", damage: 15, powerCost: 0, damageType: "physical", effectImg: "petpng/grass_hit.png" },
     burn_out_low: { name: "Burn Out", type: "fire", damage: 50, powerCost: 40, damageType: "special", effectImg: "petpng/fire_hit.png" },
-    heavy_slam: { name: "Heavy Slam", type: "basic", damage: 65, powerCost: 70, damageType: "physical", effectImg: "petpng/scratch_hit.png" },
+    heavy_slam: { name: "Heavy Slam", type: "basic", damage: 65, powerCost: 70, damageType: "physical", effectImg: "petpng/basic_hit.png" },
     flamethrower: { name: "Flamethrower", type: "fire", damage: 65, powerCost: 70, damageType: "special", effectImg: "petpng/fire_hit.png" },
     heat_rain: { name: "Heat Rain", type: "fire", damage: 80, powerCost: 60, damageType: "special", effectImg: "petpng/fire_hit.png" },
     meteor_rain: { name: "Meteor Rain", type: "stone", damage: 100, powerCost: 85, damageType: "special", effectImg: "petpng/stone_hit.png" },
@@ -62,16 +64,16 @@ const ATTACKS = {
     dragons_breath: { name: "Dragons Breath", type: "dragon", damage: 50, powerCost: 40, damageType: "special", effectImg: "petpng/dragon_hit.png" },
     dragon_webs: { name: "Dragon Webs", type: "dragon", damage: 200, powerCost: 100, damageType: "physical", effectImg: "petpng/dragon_hit.png" },
     dragon_orb: { name: "Dragon Orb", type: "dragon", damage: 75, powerCost: 55, damageType: "special", effectImg: "petpng/dragon_hit.png" },
-    magical_burst: { name: "Magical Burst", type: "basic", damage: 75, powerCost: 55, damageType: "special", effectImg: "petpng/scratch_hit.png" },
+    magical_burst: { name: "Magical Burst", type: "basic", damage: 75, powerCost: 55, damageType: "special", effectImg: "petpng/basic_hit.png" },
     flame_burst: { name: "Flame Burst", type: "fire", damage: 50, powerCost: 40, damageType: "special", effectImg: "petpng/fire_hit.png" },
     water_blade: { name: "Water Blade", type: "water", damage: 50, powerCost: 40, damageType: "special", effectImg: "petpng/water_hit.png" },
-    self_destruct: { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical", effectImg: "petpng/scratch_hit.png" },
+    self_destruct: { name: "Self Destruct", type: "basic", damage: 150, powerCost: 100, damageType: "physical", effectImg: "petpng/basic_hit.png" },
     silver_gleam: { name: "Silver Gleam", type: "metal", damage: 65, powerCost: 35, damageType: "special", effectImg: "petpng/metal_hit.png" },
     web: { name: "Web", type: "bug", damage: 15, powerCost: 0, damageType: "special", effectImg: "petpng/bug_hit.png" },
     charged_tackle: { name: "Charged Tackle", type: "combat", damage: 70, powerCost: 45, damageType: "physical", effectImg: "petpng/combat_hit.png" },
     shining_eye: { name: "Shining Eye", type: "metal", damage: 65, powerCost: 35, damageType: "special", effectImg: "petpng/metal_hit.png" },
     blade_slash: { name: "Blade Slash", type: "combat", damage: 75, powerCost: 40, damageType: "physical", effectImg: "petpng/combat_hit.png" },
-    heavy_tackle: { name: "Heavy Tackle", type: "basic", damage: 110, powerCost: 80, damageType: "physical", effectImg: "petpng/scratch_hit.png" },
+    heavy_tackle: { name: "Heavy Tackle", type: "basic", damage: 110, powerCost: 80, damageType: "physical", effectImg: "petpng/basic_hit.png" },
     thunder_slash: { name: "Thunder Slash", type: "electric", damage: 75, powerCost: 40, damageType: "special", effectImg: "petpng/electric_hit.png" },
     tentacle_venom: { name: "Tentacle Venom", type: "poison", damage: 75, powerCost: 40, damageType: "physical", effectImg: "petpng/poison_hit.png" },
     water_blade_phys: { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "physical", effectImg: "petpng/water_hit.png" },
