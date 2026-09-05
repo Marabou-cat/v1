@@ -1108,6 +1108,8 @@
     let inGateModal = false;
     let inForcedSwitch = false;
     let activeGateType = null; // 'prev' or 'next'
+    let playerStatBoosts = { attack: 0, defense: 0, spAttack: 0, spDefense: 0 };
+    let enemyStatBoosts = { attack: 0, defense: 0, spAttack: 0, spDefense: 0 };
 
     const MAP_SIZE = 30;
     const TILE_SIZE = 48;
@@ -1131,6 +1133,12 @@
     function getCurrentMap() {
         return allMaps[currentMapIndex];
     }
+    function resetStatBoosts(playerOnly = false) {
+    playerStatBoosts = { attack: 0, defense: 0, spAttack: 0, spDefense: 0 };
+    if (!playerOnly) {
+        enemyStatBoosts = { attack: 0, defense: 0, spAttack: 0, spDefense: 0 };
+    }
+}
     function playAttackVisuals(attackerId, defenderId, moveObj, isPlayer, callback) {
     const attackerImg = document.getElementById(attackerId);
     const defenderImg = document.getElementById(defenderId);
@@ -1833,6 +1841,7 @@ function travelThroughGate() {
         activeEncounter = getCalculatedPet({ id: randomId, lvl: wildLevel });
         playerBattleEnergy = 100;
         inForcedSwitch = false;
+        resetStatBoosts();
 
         document.getElementById('battleTitleHeader').innerText = "WILD ENCOUNTER BATTLE";
         const catchBtn = document.querySelector('.battle-actions button:nth-child(2)');
@@ -1872,6 +1881,7 @@ function travelThroughGate() {
         activeEncounter = getCalculatedPet({ id: petRef.id, lvl: petRef.lvl });
         playerBattleEnergy = 100;
         inForcedSwitch = false;
+        resetStatBoosts();
 
         document.getElementById('battleTitleHeader').innerText = `TRAINER BATTLE: ${trainer.name.toUpperCase()}`;
         
@@ -2022,6 +2032,7 @@ function travelThroughGate() {
         } else {
             document.getElementById('battleDialogueText').innerText = `You withdrew ${oldPet.name} and sent out ${targetPet.name}!`;
             setTimeout(() => {
+                resetStatBoosts(true);
                 executeEnemyAttack();
             }, 1200);
         }
@@ -2053,22 +2064,28 @@ function travelThroughGate() {
             playerParty[0].hp = Math.min(activePlayerPet.maxHp, playerParty[0].hp + moveObj.amount);
             msg = `Healed ${moveObj.amount} HP!`;
         } else if (moveObj.boostType === 'stat') {
-            const stat = moveObj.statTarget;
-            activePlayerPet[stat] = (activePlayerPet[stat] || 0) + moveObj.amount;
-            msg = `Raised ${stat.toUpperCase()} by +${moveObj.amount}!`;
-        }
+    const stat = moveObj.statTarget;
+    playerStatBoosts[stat] = (playerStatBoosts[stat] || 0) + moveObj.amount;
+    msg = `Raised ${stat.toUpperCase()} by +${moveObj.amount}!`;
+}
 
         updateBattleHUD();
         document.getElementById('battleDialogueText').innerText += ` ${msg}`;
         setTimeout(() => executeEnemyAttack(), 1500);
         return;
     }
-        let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
-        let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
-        let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
-        
-        let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
-        let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+       let baseAttack = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
+let boostAttack = moveObj.damageType === 'special' ? playerStatBoosts.spAttack : playerStatBoosts.attack;
+let attackStat = baseAttack + boostAttack;
+
+let baseDefense = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
+let boostDefense = moveObj.damageType === 'special' ? enemyStatBoosts.spDefense : enemyStatBoosts.spDefense;
+let defenseStat = baseDefense + boostDefense;
+
+let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
+
+let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + moveObj.damage - (defenseStat * 0.3)));
+let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
 
         activeEncounter.currentHp = Math.max(0, activeEncounter.currentHp - finalDamage);
         updateBattleHUD();
@@ -2212,24 +2229,29 @@ function travelThroughGate() {
         } else if (randomMove.boostType === 'hp') {
             activeEncounter.currentHp = Math.min(activeEncounter.maxHp, activeEncounter.currentHp + randomMove.amount);
             msg = `Healed ${randomMove.amount} HP!`;
-        } else if (randomMove.boostType === 'stat') {
-            const stat = randomMove.statTarget;
-            activeEncounter[stat] = (activeEncounter[stat] || 0) + randomMove.amount;
-            msg = `Raised its ${stat.toUpperCase()} by +${randomMove.amount}!`;
-        }
+       } else if (randomMove.boostType === 'stat') {
+    const stat = randomMove.statTarget;
+    enemyStatBoosts[stat] = (enemyStatBoosts[stat] || 0) + randomMove.amount;
+    msg = `Raised its ${stat.toUpperCase()} by +${randomMove.amount}!`;
+}
 
         updateBattleHUD();
         document.getElementById('battleDialogueText').innerText += ` ${msg}`;
         resetBattleActionButtons();
         return;
     }
-        let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
-        let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
-        let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(randomMove.type, activePlayerPet.type) : 1.0;
+        let baseAttack = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
+let boostAttack = randomMove.damageType === 'special' ? enemyStatBoosts.spAttack : enemyStatBoosts.attack;
+let attackStat = baseAttack + boostAttack;
 
-        let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
-        let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
+let baseDefense = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
+let boostDefense = randomMove.damageType === 'special' ? playerStatBoosts.spDefense : playerStatBoosts.defense;
+let defenseStat = baseDefense + boostDefense;
 
+let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(randomMove.type, activePlayerPet.type) : 1.0;
+
+let baseDamage = Math.max(1, Math.floor((attackStat * 0.4) + randomMove.damage - (defenseStat * 0.3)));
+let finalDamage = Math.max(1, Math.floor(baseDamage * typeMultiplier));
         playerParty[0].hp = Math.max(0, playerParty[0].hp - finalDamage);
         playerBattleEnergy = Math.min(100, playerBattleEnergy + 15);
         updateBattleHUD();
@@ -2378,6 +2400,7 @@ function travelThroughGate() {
         renderParty();
         renderPCStorage();
         renderPartyCircles();
+        resetStatBoosts();
 
         if (isFinished) {
             saveGameData(true);
