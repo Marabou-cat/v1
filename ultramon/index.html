@@ -219,6 +219,25 @@
     0% { background-image: url('petpng/Dwalk.png'); }
     50% { background-image: url('petpng/Dwalk2.png'); }
 }
+
+@keyframes hitEffectScale {
+    0% {
+        transform: scale(0.2);
+        opacity: 0;
+    }
+    45% {
+        transform: scale(1.25);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(0.1);
+        opacity: 0;
+    }
+}
+
+.anim-hit-effect {
+    animation: hitEffectScale 0.4s ease-out forwards;
+}
         .npc-cube {
     width: 32px;
     height: 32px;
@@ -1131,29 +1150,28 @@
     attackerImg.style.setProperty('--facing', isPlayer ? '-1' : '1');
     defenderImg.style.setProperty('--facing', !isPlayer ? '-1' : '1');
 
-    // NEW: Helper function to display the hit effect image
     const showHitEffect = () => {
-        if (moveObj.effectImg) {
-            const effect = document.createElement('img');
-            effect.src = moveObj.effectImg;
-            effect.style.position = 'absolute';
-            effect.style.width = '120px';
-            effect.style.height = '120px';
-            effect.style.zIndex = '1005';
-            effect.style.pointerEvents = 'none';
-            
-            // Center the effect image over the defender
-            effect.style.top = (defenderImg.offsetTop + (defenderImg.offsetHeight / 2) - 60) + 'px';
-            effect.style.left = (defenderImg.offsetLeft + (defenderImg.offsetWidth / 2) - 60) + 'px';
-            
-            arena.appendChild(effect);
-            
-            // Remove the effect image at the exact time the flash animation finishes
-            setTimeout(() => {
-                effect.remove();
-            }, 400);
-        }
-    };
+    if (moveObj.effectImg) {
+        const effect = document.createElement('img');
+        effect.src = moveObj.effectImg;
+        effect.className = 'anim-hit-effect'; // Assign the keyframe animation
+        effect.style.position = 'absolute';
+        effect.style.width = '120px';
+        effect.style.height = '120px';
+        effect.style.zIndex = '1005';
+        effect.style.pointerEvents = 'none';
+        
+        // Center the effect image over the defender
+        effect.style.top = (defenderImg.offsetTop + (defenderImg.offsetHeight / 2) - 60) + 'px';
+        effect.style.left = (defenderImg.offsetLeft + (defenderImg.offsetWidth / 2) - 60) + 'px';
+        
+        arena.appendChild(effect);
+        
+        setTimeout(() => {
+            effect.remove();
+        }, 400);
+    }
+};
 
     if (moveObj.damageType === 'physical') {
         // Physical Attack: Lunge forward, then hit
