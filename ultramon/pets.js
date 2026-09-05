@@ -11,7 +11,7 @@ const TYPE_CHART = {
     metal:      { fire: 0.67, water: 1.0,  grass: 1.0,  electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0, charm: 1.5 },
     stone:      { fire: 1.5,  water: 0.67, grass: 0.67, electric: 1.0, combat: 0.67, basic: 1.0, bug: 1.5, dragon: 1.0, air: 1.5, metal: 0.67, stone: 1.0, poison: 1.0, charm: 1.0 },
     poison:     { fire: 1.0,  water: 1.0,  grass: 1.5,  electric: 1.0, combat: 1.0, basic: 1.0, bug: 1.0, dragon: 1.0, air: 1.0, metal: 0.67, stone: 0.67, poison: 0.67, charm: 1.0 },
-    charm:     { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.5, basic: 1.0, bug: 0.67, dragon: 1.5, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0, charm: 1.0 }
+    charm:      { fire: 1.0,  water: 1.0,  grass: 1.0,  electric: 1.0, combat: 1.5, basic: 1.0, bug: 0.67, dragon: 1.5, air: 1.0, metal: 0.67, stone: 0.67, poison: 1.0, charm: 1.0 }
 };
 
 const TYPE_COLORS = {
@@ -27,7 +27,7 @@ const TYPE_COLORS = {
     metal:      "#c0c0c0",
     stone:      "#95a5a6",
     poison:     "#8e44ad",
-    charm:     "#ffc0cb"
+    charm:      "#ffc0cb"
 };
 
 const ATTACKS = {
@@ -80,6 +80,8 @@ const ATTACKS = {
     water_blade_spec: { name: "Water Blade", type: "water", damage: 75, powerCost: 40, damageType: "special", effectImg: "petpng/water_hit.png" },
     poison_spread: { name: "Poison Spread", type: "poison", damage: 250, powerCost: 100, damageType: "special", effectImg: "petpng/poison_hit.png" },
     sun_light: { name: "Sun Light", type: "grass", damage: 75, powerCost: 40, damageType: "special", effectImg: "petpng/grass_hit.png" },
+    
+    // Boost Moves
     focus_energy: { name: "Focus Energy", type: "basic", damage: 0, powerCost: 0, damageType: "boost", boostType: "energy", amount: 40, effectImg: "petpng/basic_hit.png" },
     synthesize: { name: "Synthesize", type: "grass", damage: 0, powerCost: 20, damageType: "boost", boostType: "hp", amount: 60, effectImg: "petpng/grass_hit.png" },
     sharpen: { name: "Sharpen", type: "stone", damage: 0, powerCost: 15, damageType: "boost", boostType: "stat", statTarget: "attack", amount: 20, effectImg: "petpng/stone_hit.png" },
@@ -176,6 +178,7 @@ const PETS = {
             { id: "scratch", levelToLearn: 1 },
             { id: "ember", levelToLearn: 1 },
             { id: "rock_throw", levelToLearn: 5 },
+            { id: "sharpen", levelToLearn: 8 },
             { id: "flame_dash", levelToLearn: 10 },
             { id: "stone_edge", levelToLearn: 16 }
         ]
@@ -234,6 +237,7 @@ const PETS = {
         moves: [
             { id: "tackle", levelToLearn: 1 },
             { id: "vine_whip", levelToLearn: 1 },
+            { id: "synthesize", levelToLearn: 4 },
             { id: "razor_leaf", levelToLearn: 5 },
             { id: "solar_beam", levelToLearn: 10 }
         ]
@@ -253,6 +257,7 @@ const PETS = {
         moves: [
             { id: "tackle", levelToLearn: 1 },
             { id: "vine_whip", levelToLearn: 1 },
+            { id: "synthesize", levelToLearn: 4 },
             { id: "razor_leaf", levelToLearn: 5 },
             { id: "solar_beam", levelToLearn: 10 }
         ]
@@ -333,6 +338,7 @@ const PETS = {
         moves: [
             { id: "sticky_webs", levelToLearn: 1 },
             { id: "power_punch", levelToLearn: 1 },
+            { id: "focus_energy", levelToLearn: 3 },
             { id: "fighting_aura", levelToLearn: 5 },
             { id: "bug_bite", levelToLearn: 10 }
         ]
@@ -391,8 +397,7 @@ const PETS = {
             { id: "tackle", levelToLearn: 1 },
             { id: "flame_burst", levelToLearn: 1 },
             { id: "water_blade", levelToLearn: 15 },
-            { id: "self_destruct", levelToLearn: 20 },
-            { id: "mystic_water", levelToLearn: 5 }
+            { id: "self_destruct", levelToLearn: 20 }
         ]
     },
     trishock: {
@@ -450,6 +455,7 @@ const PETS = {
         moves: [
             { id: "tackle", levelToLearn: 1 },
             { id: "blade_slash", levelToLearn: 1 },
+            { id: "iron_defense", levelToLearn: 10 },
             { id: "water_blade_spec", levelToLearn: 15 },
             { id: "heavy_tackle", levelToLearn: 20 },
             { id: "thunder_slash", levelToLearn: 20 }
@@ -471,6 +477,7 @@ const PETS = {
             { id: "tackle", levelToLearn: 1 },
             { id: "tentacle_venom", levelToLearn: 1 },
             { id: "water_blade_phys", levelToLearn: 1 },
+            { id: "mystic_water", levelToLearn: 5 },
             { id: "poison_spread", levelToLearn: 10 },
             { id: "sun_light", levelToLearn: 10 }
         ]
@@ -544,4 +551,3 @@ function calculateCatchRate(petInstance, ballMultiplier = 1) {
 
     return Math.floor(baseRate * healthMultiplier * ballMultiplier);
 }
-
