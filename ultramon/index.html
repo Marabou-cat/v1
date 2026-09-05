@@ -1173,22 +1173,29 @@
     }
 };
 
-    if (moveObj.damageType === 'physical') {
-        // Physical Attack: Lunge forward, then hit
-        attackerImg.classList.add(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
+    if (moveObj.damageType === 'boost') {
+    // Boost Animation: Self-glow without attacking defender
+    attackerImg.classList.add('anim-special');
+    setTimeout(() => {
+        attackerImg.classList.remove('anim-special');
+        callback();
+    }, 500);
+} else if (moveObj.damageType === 'physical') {
+    // Physical Attack: Lunge forward, then hit
+    attackerImg.classList.add(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
+    
+    setTimeout(() => {
+        attackerImg.classList.remove(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
+        defenderImg.classList.add('anim-hit');
+        showHitEffect();
         
         setTimeout(() => {
-            attackerImg.classList.remove(isPlayer ? 'anim-physical-player' : 'anim-physical-enemy');
-            defenderImg.classList.add('anim-hit');
-            showHitEffect(); // <-- TRIGGER HIT EFFECT
-            
-            setTimeout(() => {
-                defenderImg.classList.remove('anim-hit');
-                callback(); // Apply damage after animation
-            }, 400);
-        }, 300); // Time it to hit at the peak of the lunge
-
-    } else {
+            defenderImg.classList.remove('anim-hit');
+            callback();
+        }, 400);
+    }, 300);
+} else {
+    // Special Attack logic...
         // Special Attack: Glow, shoot projectile, then hit
         attackerImg.classList.add('anim-special');
         
@@ -1941,15 +1948,23 @@ function travelThroughGate() {
         let movesHtml = '';
 
         activePlayerPet.activeMoves.forEach(moveName => {
-            const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
-            if (moveObj) {
-                const canAfford = playerBattleEnergy >= moveObj.powerCost;
-                movesHtml += `<button class="btn-move" ${!canAfford ? 'disabled' : ''} onclick="executePlayerAttack('${moveObj.name}')">
-                    <b>${moveObj.name}</b> (${moveObj.damageType.toUpperCase()})<br><small>Dmg: ${moveObj.damage} | Cost: ${moveObj.powerCost}</small>
-                </button>`;
-            }
-        });
+    const moveObj = activePlayerPet.moves.find(m => m.name === moveName);
+    if (moveObj) {
+        const canAfford = playerBattleEnergy >= moveObj.powerCost;
+        
+        // Dynamic description display
+        let desc = `Dmg: ${moveObj.damage}`;
+        if (moveObj.damageType === 'boost') {
+            if (moveObj.boostType === 'energy') desc = `+${moveObj.amount} Energy`;
+            else if (moveObj.boostType === 'hp') desc = `+${moveObj.amount} HP`;
+            else if (moveObj.boostType === 'stat') desc = `+${moveObj.amount} ${moveObj.statTarget.toUpperCase()}`;
+        }
 
+        movesHtml += `<button class="btn-move" ${!canAfford ? 'disabled' : ''} onclick="executePlayerAttack('${moveObj.name}')">
+            <b>${moveObj.name}</b> (${moveObj.damageType.toUpperCase()})<br><small>${desc} | Cost: ${moveObj.powerCost}</small>
+        </button>`;
+    }
+});
         movesHtml += `<button class="btn-action" onclick="resetBattleActionButtons()" style="background:#555; grid-column: span 2; padding:8px;">↩ Back</button>`;
         document.getElementById('battleActionButtons').innerHTML = movesHtml;
     }
@@ -2029,6 +2044,25 @@ function travelThroughGate() {
     document.getElementById('battleDialogueText').innerText = `${activePlayerPet.name} used ${moveObj.name}!`;
 
     playAttackVisuals('battlePlayerImg', 'battleWildImg', moveObj, true, () => {
+        if (moveObj.damageType === 'boost') {
+        let msg = "";
+        if (moveObj.boostType === 'energy') {
+            playerBattleEnergy = Math.min(100, playerBattleEnergy + moveObj.amount);
+            msg = `Restored ${moveObj.amount} Energy!`;
+        } else if (moveObj.boostType === 'hp') {
+            playerParty[0].hp = Math.min(activePlayerPet.maxHp, playerParty[0].hp + moveObj.amount);
+            msg = `Healed ${moveObj.amount} HP!`;
+        } else if (moveObj.boostType === 'stat') {
+            const stat = moveObj.statTarget;
+            activePlayerPet[stat] = (activePlayerPet[stat] || 0) + moveObj.amount;
+            msg = `Raised ${stat.toUpperCase()} by +${moveObj.amount}!`;
+        }
+
+        updateBattleHUD();
+        document.getElementById('battleDialogueText').innerText += ` ${msg}`;
+        setTimeout(() => executeEnemyAttack(), 1500);
+        return;
+    }
         let attackStat = moveObj.damageType === 'special' ? activePlayerPet.spAttack : activePlayerPet.attack;
         let defenseStat = moveObj.damageType === 'special' ? activeEncounter.spDefense : activeEncounter.defense;
         let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(moveObj.type, activeEncounter.type) : 1.0;
@@ -2171,6 +2205,24 @@ function travelThroughGate() {
     document.getElementById('battleDialogueText').innerText = `${attackerLabel} used ${randomMove.name}!`;
 
     playAttackVisuals('battleWildImg', 'battlePlayerImg', randomMove, false, () => {
+        if (randomMove.damageType === 'boost') {
+        let msg = "";
+        if (randomMove.boostType === 'energy') {
+            msg = `${attackerLabel} recharged energy!`;
+        } else if (randomMove.boostType === 'hp') {
+            activeEncounter.currentHp = Math.min(activeEncounter.maxHp, activeEncounter.currentHp + randomMove.amount);
+            msg = `Healed ${randomMove.amount} HP!`;
+        } else if (randomMove.boostType === 'stat') {
+            const stat = randomMove.statTarget;
+            activeEncounter[stat] = (activeEncounter[stat] || 0) + randomMove.amount;
+            msg = `Raised its ${stat.toUpperCase()} by +${randomMove.amount}!`;
+        }
+
+        updateBattleHUD();
+        document.getElementById('battleDialogueText').innerText += ` ${msg}`;
+        resetBattleActionButtons();
+        return;
+    }
         let attackStat = randomMove.damageType === 'special' ? activeEncounter.spAttack : activeEncounter.attack;
         let defenseStat = randomMove.damageType === 'special' ? activePlayerPet.spDefense : activePlayerPet.defense;
         let typeMultiplier = typeof getTypeEffectiveness === 'function' ? getTypeEffectiveness(randomMove.type, activePlayerPet.type) : 1.0;
