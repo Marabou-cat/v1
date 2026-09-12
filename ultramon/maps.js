@@ -190,6 +190,38 @@ const route1Map = [
     ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void"],
     ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void"],
     ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void"]
+];
+    const route6Map = [
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "next_gate", "tree", "tree", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "grass", "grass", "tree", "tree", "tree", "grass", "grass", "tree", "grass", "grass", "tall_grass", "tall_grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tall_grass", "tall_grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "grass", "grass", "tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tall_grass", "tall_grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "grass", "grass", "grass", "grass", "tree", "grass", "grass", "tree", "grass", "grass", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "grass", "grass", "grass", "grass", "water", "water", "water", "water", "grass", "grass", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "water", "water", "water", "water", "water", "grass", "grass", "water", "grass", "grass", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "grass", "grass", "water", "grass", "grass", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "planks", "planks", "planks", "planks", "grass", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "planks", "planks", "planks", "planks", "grass", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "grass", "grass", "water", "grass", "grass", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "grass", "grass", "water", "grass", "grass", "tree", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "grass", "grass", "water", "grass", "grass", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "water", "grass", "grass", "grass", "grass", "tree"],
+    ["void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "void", "tree", "grass", "grass", "tree", "grass", "grass", "grass", "water", "water", "grass", "grass", "grass", "grass", "tree"],
+    ["wall", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "grass", "grass", "grass", "grass", "tree", "grass", "water", "grass", "grass", "grass", "grass", "tree", "tree"],
+    ["wall", "grass", "grass", "grass", "tree", "tree", "tree", "tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "water", "grass", "grass", "grass", "grass", "grass", "tree"],
+    ["wall", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "water", "water", "water", "water", "water", "water", "water", "grass", "tree", "grass", "grass", "grass", "tree"],
+    ["wall", "water", "water", "water", "water", "water", "water", "water", "water", "water", "grass", "grass", "grass", "grass", "tree", "grass", "water", "water", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"],
+    ["wall", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "water", "water", "water", "water", "water", "water", "water", "water", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree", "grass", "grass", "grass", "grass", "tree"],
+    ["wall", "grass", "grass", "grass", "tree", "grass", "grass", "tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"],
+    ["wall", "grass", "grass", "grass", "grass", "grass", "grass", "tree", "grass", "grass", "grass", "grass", "tree", "grass", "tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"],
+    ["prev_gate", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree", "grass", "grass", "tree"],
+    ["wall", "tall_grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree", "grass", "grass", "grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tree"],
+    ["wall", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "grass", "grass", "grass", "grass", "tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tree"],
+    ["wall", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tree"],
+    ["wall", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "grass", "tree", "grass", "grass", "grass", "grass", "grass", "tree", "grass", "grass", "grass", "tree", "grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tree"],
+    ["wall", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tall_grass", "tree"],
+    ["wall", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"]
 ]
     
     const allMaps = [
@@ -198,5 +230,6 @@ const route1Map = [
     route3Map,
     route4Map,
     route5Map,
-    cosmicGate1
+    cosmicGate1,
+    route6Map
 ];
