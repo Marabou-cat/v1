@@ -8,27 +8,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Read Credentials strictly from ../config.ini
-// Line 1: Username
-// Line 2: Password
-$configFile = __DIR__ . '/../config.ini';
-if (!file_exists($configFile)) {
-    die(json_encode(["status" => "error", "message" => "Missing ../config.ini", "cutscene" => "scene_error"]));
-}
-
-$lines = file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-$db_user = trim($lines[0] ?? '');
-$db_pass = trim($lines[1] ?? '');
-$db_host = 'localhost';
-$db_name = 'werewolf_db';
-
 try {
+    // Read Credentials strictly from ../config.ini
+    $configFile = __DIR__ . '/../config.ini';
+    if (!file_exists($configFile) || !is_readable($configFile)) {
+        die(json_encode([
+            "status" => "error", 
+            "message" => "Missing or unreadable ../config.ini", 
+            "cutscene" => "scene_error"
+        ]));
+    }
+
+    $lines = @file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false || count($lines) < 2) {
+        die(json_encode([
+            "status" => "error", 
+            "message" => "Invalid ../config.ini formatting (requires username on line 1, password on line 2)", 
+            "cutscene" => "scene_error"
+        ]));
+    }
+
+    $db_user = trim($lines[0]);
+    $db_pass = trim($lines[1]);
+    $db_host = 'localhost';
+    $db_name = 'werewolf_db';
+
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
-} catch (PDOException $e) {
-    die(json_encode(["status" => "error", "message" => "Database Connection Error", "cutscene" => "scene_error"]));
+} catch (Throwable $e) {
+    die(json_encode([
+        "status" => "error", 
+        "message" => "Database Connection Error: " . $e->getMessage(), 
+        "cutscene" => "scene_error"
+    ]));
 }
 
 function calculateRoles($playerCount) {
@@ -120,7 +134,6 @@ switch ($action) {
     case 'find_online_game':
         $nickname = trim($_REQUEST['nickname'] ?? 'Brawler');
 
-        // Compatible with MySQL strict mode ONLY_FULL_GROUP_BY
         $stmt = $pdo->query("
             SELECT r.room_code, r.max_players, COUNT(p.id) as current_players 
             FROM rooms r 
@@ -147,7 +160,6 @@ switch ($action) {
                 "message" => "Match Found!"
             ]);
         } else {
-            // Automatically build a public room for 6 players
             $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $sessionToken = bin2hex(random_bytes(16));
 
@@ -192,7 +204,10 @@ switch ($action) {
             }
         }
 
-        $playerNames = array_map(fn($p) => $p['nickname'], $players);
+        // Standard anonymous function for backward compatibility
+        $playerNames = array_map(function($p) {
+            return $p['nickname'];
+        }, $players);
 
         echo json_encode([
             "status" => "success",
