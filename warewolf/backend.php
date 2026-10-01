@@ -17,7 +17,7 @@ $lines = file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 $db_user = $lines[0] ?? '';
 $db_pass = $lines[1] ?? '';
 $db_host = 'localhost';
-$db_name = 'werewolf_db';
+$db_name = 'schoolexams';
 
 // 2. Connect to Database
 try {
