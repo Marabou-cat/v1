@@ -2,14 +2,10 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
-// 1. Read Database Credentials from ../config.ini
+// Read Credentials from ../config.ini
 $configFile = __DIR__ . '/../config.ini';
 if (!file_exists($configFile)) {
-    die(json_encode([
-        "status" => "error", 
-        "message" => "Missing ../config.ini file.", 
-        "cutscene" => "scene_error"
-    ]));
+    die(json_encode(["status" => "error", "message" => "Missing ../config.ini", "cutscene" => "scene_error"]));
 }
 
 $lines = file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -24,21 +20,15 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
 } catch (PDOException $e) {
-    die(json_encode([
-        "status" => "error", 
-        "message" => "Database connection error: " . $e->getMessage(), 
-        "cutscene" => "scene_error"
-    ]));
+    die(json_encode(["status" => "error", "message" => "Database Connection Error", "cutscene" => "scene_error"]));
 }
 
-// 2. Helper: Calculate Role Distribution
 function calculateRoles($playerCount) {
     if ($playerCount < 4) return null;
     $werewolves = 1 + (int)floor(($playerCount - 4) / 3);
     $specials = ($playerCount === 4) ? 0 : (int)floor(($playerCount - 3) / 2);
     $villagers = $playerCount - ($werewolves + $specials);
     
-    // Select special roles sequentially from pool
     $specialPool = ['Seer', 'Doctor', 'Witch', 'Hunter', 'Cupid'];
     $assignedSpecials = array_slice($specialPool, 0, $specials);
     
@@ -50,29 +40,26 @@ function calculateRoles($playerCount) {
     ];
 }
 
-// 3. Request Routing
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 switch ($action) {
 
-    // --- BUTTON 1: CREATE ROOM ---
     case 'create_room':
-        $nickname = trim($_POST['nickname'] ?? 'Host');
-        $maxPlayers = (int)($_POST['max_players'] ?? 4);
+        $nickname = trim($_POST['nickname'] ?? 'Brawler');
+        $maxPlayers = (int)($_POST['max_players'] ?? 6);
+        $isPublic = (int)($_POST['is_public'] ?? 0);
 
         if ($maxPlayers < 4) {
-            echo json_encode(["status" => "error", "message" => "Room must allow at least 4 players.", "cutscene" => "scene_error"]);
+            echo json_encode(["status" => "error", "message" => "Room requires at least 4 players.", "cutscene" => "scene_error"]);
             exit;
         }
 
         $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
         $sessionToken = bin2hex(random_bytes(16));
 
-        // Create Room
-        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players) VALUES (?, ?, ?)");
-        $stmt->execute([$roomCode, $sessionToken, $maxPlayers]);
+        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, is_public) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$roomCode, $sessionToken, $maxPlayers, $isPublic]);
 
-        // Add Host as Player #1
         $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname) VALUES (?, ?, ?)");
         $stmt->execute([$roomCode, $sessionToken, $nickname]);
 
@@ -81,36 +68,29 @@ switch ($action) {
             "room_code" => $roomCode,
             "token" => $sessionToken,
             "max_players" => $maxPlayers,
-            "message" => "Room created! Share your code.",
-            "cutscene" => "scene_room_created"
+            "cutscene" => "scene_room_created",
+            "message" => "Custom Room Ready!"
         ]);
         break;
 
-    // --- BUTTON 2: JOIN ROOM ---
     case 'join_room':
-        $nickname = trim($_POST['nickname'] ?? 'Villager');
+        $nickname = trim($_POST['nickname'] ?? 'Brawler');
         $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
 
         $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
         $stmt->execute([$roomCode]);
         $room = $stmt->fetch();
 
-        if (!$room) {
-            echo json_encode(["status" => "error", "message" => "Room code not found.", "cutscene" => "scene_error"]);
+        if (!$room || $room['status'] !== 'lobby') {
+            echo json_encode(["status" => "error", "message" => "Lobby unavailable or full.", "cutscene" => "scene_error"]);
             exit;
         }
 
-        if ($room['status'] !== 'lobby') {
-            echo json_encode(["status" => "error", "message" => "Game is already in progress.", "cutscene" => "scene_error"]);
-            exit;
-        }
-
-        // Check Capacity
         $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM players WHERE room_code = ?");
         $stmt->execute([$roomCode]);
-        $currentPlayers = $stmt->fetch()['count'];
+        $count = $stmt->fetch()['count'];
 
-        if ($currentPlayers >= $room['max_players']) {
+        if ($count >= $room['max_players']) {
             echo json_encode(["status" => "error", "message" => "Room is full!", "cutscene" => "scene_error"]);
             exit;
         }
@@ -123,12 +103,62 @@ switch ($action) {
             "status" => "success",
             "room_code" => $roomCode,
             "token" => $sessionToken,
-            "message" => "Welcome to the village!",
-            "cutscene" => "scene_door_open"
+            "cutscene" => "scene_joining_room",
+            "message" => "Lobby Joined!"
         ]);
         break;
 
-    // --- REAL-TIME LOBBY POLLING ---
+    // --- MATCHMAKING: FIND ONLINE PLAYERS ---
+    case 'find_online_game':
+        $nickname = trim($_POST['nickname'] ?? 'Brawler');
+
+        // Look for existing public rooms with open slots
+        $stmt = $pdo->query("
+            SELECT r.room_code, r.max_players, COUNT(p.id) as current_players 
+            FROM rooms r 
+            LEFT JOIN players p ON r.room_code = p.room_code 
+            WHERE r.is_public = 1 AND r.status = 'lobby' 
+            GROUP BY r.room_code 
+            HAVING current_players < r.max_players 
+            LIMIT 1
+        ");
+        $openRoom = $stmt->fetch();
+
+        if ($openRoom) {
+            $roomCode = $openRoom['room_code'];
+            $sessionToken = bin2hex(random_bytes(16));
+
+            $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname) VALUES (?, ?, ?)");
+            $stmt->execute([$roomCode, $sessionToken, $nickname]);
+
+            echo json_encode([
+                "status" => "success",
+                "room_code" => $roomCode,
+                "token" => $sessionToken,
+                "cutscene" => "scene_match_found",
+                "message" => "Match Found!"
+            ]);
+        } else {
+            // No public room available; automatically build a public room for 6 players
+            $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
+            $sessionToken = bin2hex(random_bytes(16));
+
+            $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, is_public) VALUES (?, ?, 6, 1)");
+            $stmt->execute([$roomCode, $sessionToken]);
+
+            $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname) VALUES (?, ?, ?)");
+            $stmt->execute([$roomCode, $sessionToken, $nickname]);
+
+            echo json_encode([
+                "status" => "success",
+                "room_code" => $roomCode,
+                "token" => $sessionToken,
+                "cutscene" => "scene_matchmaking_search",
+                "message" => "Created Matchmaking Lobby!"
+            ]);
+        }
+        break;
+
     case 'poll_lobby':
         $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $token = trim($_POST['token'] ?? '');
@@ -138,7 +168,7 @@ switch ($action) {
         $room = $stmt->fetch();
 
         if (!$room) {
-            echo json_encode(["status" => "error", "message" => "Room collapsed."]);
+            echo json_encode(["status" => "error", "message" => "Lobby disbanded."]);
             exit;
         }
 
@@ -146,7 +176,6 @@ switch ($action) {
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
-        // Identify current player's role
         $myRole = 'unassigned';
         foreach ($players as $p) {
             if ($p['session_token'] === $token) {
@@ -155,8 +184,7 @@ switch ($action) {
             }
         }
 
-        $playerNames = array_map(function($p) { return $p['nickname']; }, $players);
-        $roleBreakdown = calculateRoles(count($players));
+        $playerNames = array_map(fn($p) => $p['nickname'], $players);
 
         echo json_encode([
             "status" => "success",
@@ -165,12 +193,11 @@ switch ($action) {
             "max_players" => (int)$room['max_players'],
             "current_count" => count($players),
             "players" => $playerNames,
-            "role_breakdown" => $roleBreakdown,
+            "role_breakdown" => calculateRoles(count($players)),
             "my_role" => $myRole
         ]);
         break;
 
-    // --- BUTTON 3: START GAME ---
     case 'start_game':
         $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $token = trim($_POST['token'] ?? '');
@@ -180,7 +207,7 @@ switch ($action) {
         $room = $stmt->fetch();
 
         if (!$room || $room['host_token'] !== $token) {
-            echo json_encode(["status" => "error", "message" => "Only the room host can start the game.", "cutscene" => "scene_error"]);
+            echo json_encode(["status" => "error", "message" => "Host permission required.", "cutscene" => "scene_error"]);
             exit;
         }
 
@@ -190,11 +217,10 @@ switch ($action) {
         $total = count($players);
 
         if ($total < 4) {
-            echo json_encode(["status" => "error", "message" => "At least 4 players are required to start.", "cutscene" => "scene_error"]);
+            echo json_encode(["status" => "error", "message" => "Min 4 Brawlers required to Play!", "cutscene" => "scene_error"]);
             exit;
         }
 
-        // Role Distribution Assignment
         $breakdown = calculateRoles($total);
         $deck = array_fill(0, $breakdown['werewolves'], 'Werewolf');
         foreach ($breakdown['special_cards'] as $card) {
@@ -206,26 +232,23 @@ switch ($action) {
 
         shuffle($deck);
 
-        // Assign shuffled cards to players in DB
         foreach ($players as $index => $player) {
-            $assignedRole = $deck[$index];
             $stmt = $pdo->prepare("UPDATE players SET role = ? WHERE id = ?");
-            $stmt->execute([$assignedRole, $player['id']]);
+            $stmt->execute([$deck[$index], $player['id']]);
         }
 
-        // Update room status
         $stmt = $pdo->prepare("UPDATE rooms SET status = 'night' WHERE room_code = ?");
         $stmt->execute([$roomCode]);
 
         echo json_encode([
             "status" => "success",
-            "message" => "Cards dealt! Night falls upon the village...",
-            "cutscene" => "scene_night_falls"
+            "cutscene" => "scene_night_falls",
+            "message" => "BRAWL START!"
         ]);
         break;
 
     default:
-        echo json_encode(["status" => "error", "message" => "Invalid API action."]);
+        echo json_encode(["status" => "error", "message" => "Invalid Route."]);
         break;
 }
 ?>
