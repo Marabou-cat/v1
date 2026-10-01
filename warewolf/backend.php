@@ -8,30 +8,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Load Credentials from config.ini (supports key=value INI or line-by-line format)
+// Read Credentials strictly from ../config.ini
+// Line 1: Username
+// Line 2: Password
 $configFile = __DIR__ . '/../config.ini';
 if (!file_exists($configFile)) {
-    $configFile = __DIR__ . '/config.ini';
+    die(json_encode(["status" => "error", "message" => "Missing ../config.ini", "cutscene" => "scene_error"]));
 }
 
-$db_host = '127.0.0.1';
+$lines = file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+$db_user = trim($lines[0] ?? '');
+$db_pass = trim($lines[1] ?? '');
+$db_host = 'localhost';
 $db_name = 'werewolf_db';
-$db_user = 'root';
-$db_pass = '';
-
-if (file_exists($configFile)) {
-    $ini = @parse_ini_file($configFile);
-    if ($ini !== false && !empty($ini)) {
-        $db_host = $ini['db_host'] ?? $ini['host'] ?? $db_host;
-        $db_name = $ini['db_name'] ?? $ini['dbname'] ?? $db_name;
-        $db_user = $ini['db_user'] ?? $ini['user'] ?? $db_user;
-        $db_pass = $ini['db_pass'] ?? $ini['pass'] ?? $db_pass;
-    } else {
-        $lines = file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if (isset($lines[0])) $db_user = trim($lines[0]);
-        if (isset($lines[1])) $db_pass = trim($lines[1]);
-    }
-}
 
 try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass, [
@@ -39,7 +28,7 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
 } catch (PDOException $e) {
-    die(json_encode(["status" => "error", "message" => "Database Connection Error: " . $e->getMessage(), "cutscene" => "scene_error"]));
+    die(json_encode(["status" => "error", "message" => "Database Connection Error", "cutscene" => "scene_error"]));
 }
 
 function calculateRoles($playerCount) {
