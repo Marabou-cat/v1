@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Werewolf Online</title>
+    <style>
+        body { font-family: sans-serif; background: #222; color: white; text-align: center; padding: 50px; }
+        #cutscene-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 999; justify-content: center; align-items: center;
+            font-size: 2rem; color: #ff4444; text-transform: uppercase; letter-spacing: 5px;
+        }
+        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; margin: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>Werewolf Village</h1>
+    <button onclick="sendAction('create_room')">Create Room</button>
+    <button onclick="sendAction('join_room')">Join Room</button>
+    <button onclick="startGame(4)">Start Game (4 Players)</button>
+    <button onclick="startGame(3)">Start Game (3 Players - Error Test)</button>
+
+    <div id="output"></div>
+
+    <!-- Fullscreen Cutscene Player -->
+    <div id="cutscene-overlay">
+        <span id="cutscene-text">Playing Cutscene...</span>
+    </div>
+
+    <script>
+        // Send a request to backend.php
+        async function sendAction(actionType, extraData = {}) {
+            const formData = new URLSearchParams();
+            formData.append('action', actionType);
+            for (const key in extraData) formData.append(key, extraData[key]);
+
+            const response = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            });
+
+            const data = await response.json();
+            document.getElementById('output').innerText = JSON.stringify(data, null, 2);
+            
+            // Trigger the cutscene attached to the backend response
+            if (data.cutscene) {
+                playCutscene(data.cutscene, data.message);
+            }
+        }
+
+        function startGame(playerCount) {
+            sendAction('start_game', { player_count: playerCount });
+        }
+
+        // Cutscene Engine
+        function playCutscene(sceneName, message) {
+            const overlay = document.getElementById('cutscene-overlay');
+            const text = document.getElementById('cutscene-text');
+            
+            overlay.style.display = 'flex';
+            
+            // Map the backend scene keys to visual outputs (could be videos or GIFs in production)
+            const sceneMap = {
+                'scene_room_created': '🏰 Building Village...',
+                'scene_door_open': '🚪 Entering Tavern...',
+                'scene_night_falls': '🌙 The Village goes to sleep...',
+                'scene_angry_mob': '🔥 Mob refuses to start! Need 4+ players.',
+                'scene_error_glitch': '⚡ System Glitch!',
+                'scene_server_crash': '🔥 Database on Fire!'
+            };
+
+            text.innerText = sceneMap[sceneName] || 'Playing Video: ' + sceneName;
+
+            // Hide cutscene after 3 seconds
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
