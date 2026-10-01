@@ -311,7 +311,7 @@
                 
                 <ul id="lb-players" style="list-style: none; margin: 15px 0; max-height: 120px; overflow-y: auto;"></ul>
 
-                <button id="btn-start-brawl" class="btn-brawl" style="font-size: 1.2rem; padding: 12px;" onclick="handleStartGame()" disabled>START BRAWL</button>
+                <button id="btn-start-brawl" class="btn-brawl" style="font-size: 1.2rem; padding: 12px; display: none;" onclick="handleStartGame()" disabled>START BRAWL</button>
             </div>
         </div>
 
@@ -340,6 +340,24 @@
             pollInterval: null
         };
 
+        let cutsceneTimer = null;
+
+        // Sync player input name with hero title
+        document.getElementById('player-name').addEventListener('input', (e) => {
+            const val = e.target.value.trim() || 'Brawler';
+            document.getElementById('hero-display-name').innerText = val.toUpperCase();
+        });
+
+        // Utility: Escape HTML strings to prevent XSS
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // Brawl Stars Cutscene Player
         function playBrawlCutscene(sceneKey, onComplete) {
             const overlay = document.getElementById('cutscene-overlay');
@@ -363,31 +381,33 @@
 
             overlay.style.display = 'flex';
 
-            setTimeout(() => {
+            if (cutsceneTimer) {
+                clearTimeout(cutsceneTimer);
+            }
+
+            cutsceneTimer = setTimeout(() => {
                 overlay.style.display = 'none';
                 if (onComplete) onComplete();
-            }, 2500);
+            }, 2000);
         }
 
         function getNickname() {
-            return document.getElementById('player-name').value || 'Brawler';
+            return document.getElementById('player-name').value.trim() || 'Brawler';
         }
 
         // FIND PLAYERS ONLINE (Matchmaking)
         async function handleFindOnlineGame() {
             gameState.nickname = getNickname();
-
             playBrawlCutscene('scene_matchmaking_search');
 
-            const res = await fetch('backend.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'find_online_game', nickname: gameState.nickname })
-            });
+            try {
+                const res = await fetch('backend.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ action: 'find_online_game', nickname: gameState.nickname })
+                });
 
-            const data = await res.json();
-            
-            setTimeout(() => {
+                const data = await res.json();
                 if (data.status === 'success') {
                     gameState.roomCode = data.room_code;
                     gameState.token = data.token;
@@ -395,9 +415,15 @@
                         enterLobby();
                     });
                 } else {
-                    alert(data.message);
+                    playBrawlCutscene('scene_error', () => {
+                        alert(data.message || 'Unable to find game.');
+                    });
                 }
-            }, 1000);
+            } catch (e) {
+                playBrawlCutscene('scene_error', () => {
+                    alert("Network error connecting to backend server.");
+                });
+            }
         }
 
         // CREATE CUSTOM ROOM
@@ -405,65 +431,89 @@
             gameState.nickname = getNickname();
             const max = document.getElementById('create-max').value;
 
-            const res = await fetch('backend.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'create_room', nickname: gameState.nickname, max_players: max, is_public: 0 })
-            });
-
-            const data = await res.json();
-            if (data.status === 'success') {
-                gameState.roomCode = data.room_code;
-                gameState.token = data.token;
-                playBrawlCutscene(data.cutscene, () => {
-                    enterLobby();
+            try {
+                const res = await fetch('backend.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ action: 'create_room', nickname: gameState.nickname, max_players: max, is_public: 0 })
                 });
-            } else {
-                alert(data.message);
+
+                const data = await res.json();
+                if (data.status === 'success') {
+                    gameState.roomCode = data.room_code;
+                    gameState.token = data.token;
+                    playBrawlCutscene(data.cutscene, () => {
+                        enterLobby();
+                    });
+                } else {
+                    playBrawlCutscene('scene_error', () => {
+                        alert(data.message || 'Error creating room.');
+                    });
+                }
+            } catch (e) {
+                playBrawlCutscene('scene_error', () => {
+                    alert("Network error connecting to backend server.");
+                });
             }
         }
 
         // JOIN WITH CODE
         async function handleJoinRoom() {
             gameState.nickname = getNickname();
-            const code = document.getElementById('join-code-input').value.trim();
+            const code = document.getElementById('join-code-input').value.trim().toUpperCase();
 
             if (code.length !== 5) {
                 alert("Enter a valid 5-character Code!");
                 return;
             }
 
-            const res = await fetch('backend.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'join_room', nickname: gameState.nickname, room_code: code })
-            });
-
-            const data = await res.json();
-            if (data.status === 'success') {
-                gameState.roomCode = data.room_code;
-                gameState.token = data.token;
-                playBrawlCutscene(data.cutscene, () => {
-                    enterLobby();
+            try {
+                const res = await fetch('backend.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ action: 'join_room', nickname: gameState.nickname, room_code: code })
                 });
-            } else {
-                alert(data.message);
+
+                const data = await res.json();
+                if (data.status === 'success') {
+                    gameState.roomCode = data.room_code;
+                    gameState.token = data.token;
+                    playBrawlCutscene(data.cutscene, () => {
+                        enterLobby();
+                    });
+                } else {
+                    playBrawlCutscene('scene_error', () => {
+                        alert(data.message || 'Failed to join room.');
+                    });
+                }
+            } catch (e) {
+                playBrawlCutscene('scene_error', () => {
+                    alert("Network error connecting to backend server.");
+                });
             }
         }
 
         // START GAME
         async function handleStartGame() {
-            const res = await fetch('backend.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'start_game', room_code: gameState.roomCode, token: gameState.token })
-            });
+            try {
+                const res = await fetch('backend.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ action: 'start_game', room_code: gameState.roomCode, token: gameState.token })
+                });
 
-            const data = await res.json();
-            if (data.status === 'success') {
-                playBrawlCutscene(data.cutscene);
-            } else {
-                alert(data.message);
+                const data = await res.json();
+                if (data.status === 'success') {
+                    playBrawlCutscene(data.cutscene);
+                } else {
+                    playBrawlCutscene('scene_error', () => {
+                        alert(data.message || 'Error starting game.');
+                    });
+                }
+            } catch (e) {
+                playBrawlCutscene('scene_error', () => {
+                    alert("Network error connecting to backend server.");
+                });
             }
         }
 
@@ -472,36 +522,50 @@
             document.getElementById('lobby-card').classList.remove('hidden');
             document.getElementById('lb-code').innerText = gameState.roomCode;
 
-            gameState.pollInterval = setInterval(async () => {
-                const res = await fetch('backend.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ action: 'poll_lobby', room_code: gameState.roomCode, token: gameState.token })
-                });
+            if (gameState.pollInterval) {
+                clearInterval(gameState.pollInterval);
+            }
 
-                const data = await res.json();
-                if (data.status === 'success') {
-                    document.getElementById('lb-count').innerText = data.current_count;
-                    document.getElementById('lb-max').innerText = data.max_players;
+            const poll = async () => {
+                try {
+                    const res = await fetch('backend.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({ action: 'poll_lobby', room_code: gameState.roomCode, token: gameState.token })
+                    });
 
-                    document.getElementById('lb-players').innerHTML = data.players.map(p => 
-                        `<li style="background:#0d101a; padding:6px 12px; margin-bottom:4px; border-radius:6px; border-left:3px solid var(--bs-yellow);">👤 ${p}</li>`
-                    ).join('');
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        document.getElementById('lb-count').innerText = data.current_count;
+                        document.getElementById('lb-max').innerText = data.max_players;
 
-                    const startBtn = document.getElementById('btn-start-brawl');
-                    if (data.is_host) {
-                        startBtn.style.display = 'block';
-                        startBtn.disabled = data.current_count < 4;
+                        document.getElementById('lb-players').innerHTML = data.players.map(p => 
+                            `<li style="background:#0d101a; padding:6px 12px; margin-bottom:4px; border-radius:6px; border-left:3px solid var(--bs-yellow);">👤 ${escapeHtml(p)}</li>`
+                        ).join('');
+
+                        const startBtn = document.getElementById('btn-start-brawl');
+                        if (data.is_host) {
+                            startBtn.style.display = 'block';
+                            startBtn.disabled = data.current_count < 4;
+                        } else {
+                            startBtn.style.display = 'none';
+                        }
+
+                        if (data.room_status === 'night') {
+                            clearInterval(gameState.pollInterval);
+                            alert(`Game Started! Your Secret Role: ${data.my_role}`);
+                        }
                     } else {
-                        startBtn.style.display = 'none';
-                    }
-
-                    if (data.room_status === 'night') {
                         clearInterval(gameState.pollInterval);
-                        alert(`Game Started! Your Secret Role: ${data.my_role}`);
+                        alert(data.message || 'Disconnected from lobby.');
                     }
+                } catch (err) {
+                    console.error('Polling error:', err);
                 }
-            }, 1500);
+            };
+
+            poll();
+            gameState.pollInterval = setInterval(poll, 1500);
         }
     </script>
 </body>
