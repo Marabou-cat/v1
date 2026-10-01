@@ -1,18 +1,37 @@
 <?php
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 
-// Read Credentials from ../config.ini
-$configFile = __DIR__ . '/../config.ini';
-if (!file_exists($configFile)) {
-    die(json_encode(["status" => "error", "message" => "Missing ../config.ini", "cutscene" => "scene_error"]));
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
 }
 
-$lines = file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-$db_user = trim($lines[0] ?? '');
-$db_pass = trim($lines[1] ?? '');
+// Load Credentials from config.ini (supports key=value INI or line-by-line format)
+$configFile = __DIR__ . '/../config.ini';
+if (!file_exists($configFile)) {
+    $configFile = __DIR__ . '/config.ini';
+}
+
 $db_host = '127.0.0.1';
 $db_name = 'werewolf_db';
+$db_user = 'root';
+$db_pass = '';
+
+if (file_exists($configFile)) {
+    $ini = @parse_ini_file($configFile);
+    if ($ini !== false && !empty($ini)) {
+        $db_host = $ini['db_host'] ?? $ini['host'] ?? $db_host;
+        $db_name = $ini['db_name'] ?? $ini['dbname'] ?? $db_name;
+        $db_user = $ini['db_user'] ?? $ini['user'] ?? $db_user;
+        $db_pass = $ini['db_pass'] ?? $ini['pass'] ?? $db_pass;
+    } else {
+        $lines = file($configFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (isset($lines[0])) $db_user = trim($lines[0]);
+        if (isset($lines[1])) $db_pass = trim($lines[1]);
+    }
+}
 
 try {
     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass, [
@@ -20,7 +39,7 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
 } catch (PDOException $e) {
-    die(json_encode(["status" => "error", "message" => "Database Connection Error", "cutscene" => "scene_error"]));
+    die(json_encode(["status" => "error", "message" => "Database Connection Error: " . $e->getMessage(), "cutscene" => "scene_error"]));
 }
 
 function calculateRoles($playerCount) {
@@ -40,14 +59,14 @@ function calculateRoles($playerCount) {
     ];
 }
 
-$action = $_POST['action'] ?? $_GET['action'] ?? '';
+$action = $_REQUEST['action'] ?? '';
 
 switch ($action) {
 
     case 'create_room':
-        $nickname = trim($_POST['nickname'] ?? 'Brawler');
-        $maxPlayers = (int)($_POST['max_players'] ?? 6);
-        $isPublic = (int)($_POST['is_public'] ?? 0);
+        $nickname = trim($_REQUEST['nickname'] ?? 'Brawler');
+        $maxPlayers = (int)($_REQUEST['max_players'] ?? 6);
+        $isPublic = (int)($_REQUEST['is_public'] ?? 0);
 
         if ($maxPlayers < 4) {
             echo json_encode(["status" => "error", "message" => "Room requires at least 4 players.", "cutscene" => "scene_error"]);
@@ -74,8 +93,8 @@ switch ($action) {
         break;
 
     case 'join_room':
-        $nickname = trim($_POST['nickname'] ?? 'Brawler');
-        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
+        $nickname = trim($_REQUEST['nickname'] ?? 'Brawler');
+        $roomCode = strtoupper(trim($_REQUEST['room_code'] ?? ''));
 
         $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
         $stmt->execute([$roomCode]);
@@ -110,15 +129,15 @@ switch ($action) {
 
     // --- MATCHMAKING: FIND ONLINE PLAYERS ---
     case 'find_online_game':
-        $nickname = trim($_POST['nickname'] ?? 'Brawler');
+        $nickname = trim($_REQUEST['nickname'] ?? 'Brawler');
 
-        // Look for existing public rooms with open slots
+        // Compatible with MySQL strict mode ONLY_FULL_GROUP_BY
         $stmt = $pdo->query("
             SELECT r.room_code, r.max_players, COUNT(p.id) as current_players 
             FROM rooms r 
             LEFT JOIN players p ON r.room_code = p.room_code 
             WHERE r.is_public = 1 AND r.status = 'lobby' 
-            GROUP BY r.room_code 
+            GROUP BY r.room_code, r.max_players 
             HAVING current_players < r.max_players 
             LIMIT 1
         ");
@@ -139,7 +158,7 @@ switch ($action) {
                 "message" => "Match Found!"
             ]);
         } else {
-            // No public room available; automatically build a public room for 6 players
+            // Automatically build a public room for 6 players
             $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $sessionToken = bin2hex(random_bytes(16));
 
@@ -160,8 +179,8 @@ switch ($action) {
         break;
 
     case 'poll_lobby':
-        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
-        $token = trim($_POST['token'] ?? '');
+        $roomCode = strtoupper(trim($_REQUEST['room_code'] ?? ''));
+        $token = trim($_REQUEST['token'] ?? '');
 
         $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
         $stmt->execute([$roomCode]);
@@ -199,8 +218,8 @@ switch ($action) {
         break;
 
     case 'start_game':
-        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
-        $token = trim($_POST['token'] ?? '');
+        $roomCode = strtoupper(trim($_REQUEST['room_code'] ?? ''));
+        $token = trim($_REQUEST['token'] ?? '');
 
         $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
         $stmt->execute([$roomCode]);
