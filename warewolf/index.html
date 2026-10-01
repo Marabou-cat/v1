@@ -2,81 +2,420 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Werewolf Online</title>
     <style>
-        body { font-family: sans-serif; background: #222; color: white; text-align: center; padding: 50px; }
-        #cutscene-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 999; justify-content: center; align-items: center;
-            font-size: 2rem; color: #ff4444; text-transform: uppercase; letter-spacing: 5px;
+        :root {
+            --bg-color: #0d0f12;
+            --panel-bg: #161a22;
+            --accent-red: #e63946;
+            --accent-gold: #ffb703;
+            --text-light: #f1faee;
+            --border-color: #2a3241;
         }
-        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; margin: 10px; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+        }
+
+        h1 { text-align: center; color: var(--accent-red); font-size: 2.2rem; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; }
+        p.subtitle { text-align: center; color: #8b9bb4; font-size: 0.9rem; margin-bottom: 25px; }
+
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: #c9d1d9; }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            background: #0d1117;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: white;
+            font-size: 1rem;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--accent-red); }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-primary { background: var(--accent-red); color: white; }
+        .btn-primary:hover { background: #b82e3b; }
+        .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid var(--border-color); }
+        .btn-secondary:hover { background: #30363d; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Lobby & Details */
+        .room-badge {
+            background: #21262d;
+            border: 2px dashed var(--accent-gold);
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .room-code { font-size: 2rem; font-weight: bold; color: var(--accent-gold); letter-spacing: 4px; }
+
+        .player-list { list-style: none; margin-bottom: 20px; }
+        .player-item {
+            background: #0d1117;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--accent-gold);
+        }
+
+        .role-preview {
+            background: #11141a;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+        .role-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #21262d; margin: 2px; }
+
+        /* Card Reveal */
+        .role-card {
+            background: linear-gradient(145deg, #1f242d, #0d1117);
+            border: 2px solid var(--accent-gold);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            margin-top: 20px;
+            box-shadow: 0 0 20px rgba(255, 183, 3, 0.2);
+        }
+        .card-title { font-size: 1.8rem; color: var(--accent-gold); margin-bottom: 10px; }
+
+        /* Cutscene Overlay */
+        #cutscene-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            animation: fadeIn 0.4s ease;
+        }
+        .cutscene-icon { font-size: 5rem; margin-bottom: 20px; animation: pulse 1.5s infinite; }
+        .cutscene-text { font-size: 1.8rem; font-weight: bold; color: var(--accent-red); letter-spacing: 2px; text-transform: uppercase; }
+        .cutscene-sub { font-size: 1rem; color: #8b9bb4; margin-top: 10px; }
+
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <h1>Werewolf Village</h1>
-    <button onclick="sendAction('create_room')">Create Room</button>
-    <button onclick="sendAction('join_room')">Join Room</button>
-    <button onclick="startGame(4)">Start Game (4 Players)</button>
-    <button onclick="startGame(3)">Start Game (3 Players - Error Test)</button>
-
-    <div id="output"></div>
-
-    <!-- Fullscreen Cutscene Player -->
+    <!-- CUTSCENE OVERLAY -->
     <div id="cutscene-overlay">
-        <span id="cutscene-text">Playing Cutscene...</span>
+        <div id="cutscene-icon" class="cutscene-icon">🏰</div>
+        <div id="cutscene-text" class="cutscene-text">Building Fortress...</div>
+        <div id="cutscene-sub" class="cutscene-sub">Preparing the lobby</div>
+    </div>
+
+    <div class="container">
+        <h1>Werewolf</h1>
+        <p class="subtitle">Online Multiplayer Deduction</p>
+
+        <!-- VIEW 1: MAIN MENU -->
+        <div id="view-menu">
+            <div class="form-group">
+                <label for="nickname">Your Nickname</label>
+                <input type="text" id="nickname" placeholder="e.g., HunterJohn" value="Player1">
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-primary" onclick="showScreen('view-create')">Create Room</button>
+                <button class="btn-secondary" onclick="showScreen('view-join')">Join Room</button>
+            </div>
+        </div>
+
+        <!-- VIEW 2: CREATE ROOM DETAILS -->
+        <div id="view-create" class="hidden">
+            <div class="form-group">
+                <label for="max-players">Select Total Players (Min 4)</label>
+                <select id="max-players" onchange="updateRolePreview()">
+                    <option value="4" selected>4 Players (1 Werewolf, 0 Specials)</option>
+                    <option value="5">5 Players (1 Werewolf, 1 Special)</option>
+                    <option value="6">6 Players (1 Werewolf, 1 Special)</option>
+                    <option value="7">7 Players (2 Werewolves, 2 Specials)</option>
+                    <option value="8">8 Players (2 Werewolves, 2 Specials)</option>
+                    <option value="9">9 Players (2 Werewolves, 3 Specials)</option>
+                    <option value="10">10 Players (3 Werewolves, 3 Specials)</option>
+                </select>
+            </div>
+
+            <div id="create-role-info" class="role-preview">
+                Role Calculation Preview...
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-primary" onclick="handleCreateRoom()">Confirm & Host</button>
+                <button class="btn-secondary" onclick="showScreen('view-menu')">Back</button>
+            </div>
+        </div>
+
+        <!-- VIEW 3: JOIN ROOM DETAILS -->
+        <div id="view-join" class="hidden">
+            <div class="form-group">
+                <label for="join-code">Enter 5-Character Room Code</label>
+                <input type="text" id="join-code" placeholder="e.g., A1B2C" maxlength="5" style="text-transform: uppercase;">
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-primary" onclick="handleJoinRoom()">Join Lobby</button>
+                <button class="btn-secondary" onclick="showScreen('view-menu')">Back</button>
+            </div>
+        </div>
+
+        <!-- VIEW 4: LOBBY SCREEN -->
+        <div id="view-lobby" class="hidden">
+            <div class="room-badge">
+                <span style="font-size: 0.8rem; color: #8b9bb4; display: block;">ROOM CODE</span>
+                <span id="display-room-code" class="room-code">-----</span>
+            </div>
+
+            <label>Players Joined (<span id="player-count">0</span>/<span id="player-max">0</span>):</label>
+            <ul id="player-list-ui" class="player-list"></ul>
+
+            <div id="lobby-role-breakdown" class="role-preview">
+                Waiting for roster...
+            </div>
+
+            <div id="host-controls">
+                <button id="btn-start-game" class="btn-primary" style="width: 100%;" onclick="handleStartGame()" disabled>
+                    Start Game (Host Only)
+                </button>
+            </div>
+        </div>
+
+        <!-- VIEW 5: ACTIVE GAME SCREEN -->
+        <div id="view-game" class="hidden">
+            <h2 style="text-align: center; color: var(--accent-gold);">Game Started</h2>
+            <div class="role-card">
+                <p style="font-size: 0.9rem; color: #8b9bb4; margin-bottom: 5px;">YOUR SECRET ROLE</p>
+                <div id="my-role-display" class="card-title">Secret Card</div>
+                <p id="my-role-desc" style="font-size: 0.85rem; color: #c9d1d9; margin-top: 10px;">
+                    Keep your card hidden from other players!
+                </p>
+            </div>
+        </div>
+
     </div>
 
     <script>
-        // Send a request to backend.php
-        async function sendAction(actionType, extraData = {}) {
-            const formData = new URLSearchParams();
-            formData.append('action', actionType);
-            for (const key in extraData) formData.append(key, extraData[key]);
+        // State Variables
+        let state = {
+            roomCode: '',
+            token: '',
+            nickname: '',
+            isHost: false,
+            pollInterval: null
+        };
 
-            const response = await fetch('backend.php', {
+        // Navigation Helper
+        function showScreen(screenId) {
+            ['view-menu', 'view-create', 'view-join', 'view-lobby', 'view-game'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+            if(screenId === 'view-create') updateRolePreview();
+        }
+
+        // Calculate dynamic roles locally for the creation preview selector
+        function updateRolePreview() {
+            const count = parseInt(document.getElementById('max-players').value);
+            const wolves = 1 + Math.floor((count - 4) / 3);
+            const specials = count === 4 ? 0 : Math.floor((count - 3) / 2);
+            const villagers = count - (wolves + specials);
+
+            document.getElementById('create-role-info').innerHTML = `
+                <strong>Card Distribution:</strong><br>
+                <span class="role-tag" style="color: #ff4444;">Werewolves: ${wolves}</span>
+                <span class="role-tag" style="color: #ffb703;">Special Roles: ${specials}</span>
+                <span class="role-tag" style="color: #4cc9f0;">Villagers: ${villagers}</span>
+            `;
+        }
+
+        // Cutscene Player Function
+        function triggerCutscene(sceneKey, callback) {
+            const overlay = document.getElementById('cutscene-overlay');
+            const icon = document.getElementById('cutscene-icon');
+            const text = document.getElementById('cutscene-text');
+            const sub = document.getElementById('cutscene-sub');
+
+            const scenes = {
+                'scene_room_created': { icon: '🏰', title: 'Fortress Created', sub: 'Gathering local villagers...' },
+                'scene_door_open': { icon: '🚪', title: 'Tavern Doors Open', sub: 'Entering the room...' },
+                'scene_night_falls': { icon: '🌙', title: 'Blood Moon Rises', sub: 'The village falls asleep...' },
+                'scene_error': { icon: '⚡', title: 'Action Failed', sub: 'An error occurred' }
+            };
+
+            const scene = scenes[sceneKey] || { icon: '🔮', title: 'Processing...', sub: '' };
+            icon.innerText = scene.icon;
+            text.innerText = scene.title;
+            sub.innerText = scene.sub;
+
+            overlay.style.display = 'flex';
+
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                if(callback) callback();
+            }, 2500);
+        }
+
+        // BUTTON 1: Confirm & Create Room
+        async function handleCreateRoom() {
+            state.nickname = document.getElementById('nickname').value || 'Host';
+            const maxPlayers = document.getElementById('max-players').value;
+
+            const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString()
+                body: new URLSearchParams({ action: 'create_room', nickname: state.nickname, max_players: maxPlayers })
             });
 
-            const data = await response.json();
-            document.getElementById('output').innerText = JSON.stringify(data, null, 2);
-            
-            // Trigger the cutscene attached to the backend response
-            if (data.cutscene) {
-                playCutscene(data.cutscene, data.message);
+            const data = await res.json();
+            if (data.status === 'success') {
+                state.roomCode = data.room_code;
+                state.token = data.token;
+                state.isHost = true;
+
+                triggerCutscene(data.cutscene, () => {
+                    showScreen('view-lobby');
+                    startLobbyPolling();
+                });
+            } else {
+                alert(data.message);
             }
         }
 
-        function startGame(playerCount) {
-            sendAction('start_game', { player_count: playerCount });
+        // BUTTON 2: Confirm & Join Room
+        async function handleJoinRoom() {
+            state.nickname = document.getElementById('nickname').value || 'Villager';
+            const code = document.getElementById('join-code').value.trim();
+
+            if (code.length !== 5) {
+                alert("Please enter a valid 5-character room code.");
+                return;
+            }
+
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'join_room', nickname: state.nickname, room_code: code })
+            });
+
+            const data = await res.json();
+            if (data.status === 'success') {
+                state.roomCode = data.room_code;
+                state.token = data.token;
+                state.isHost = false;
+
+                triggerCutscene(data.cutscene, () => {
+                    showScreen('view-lobby');
+                    startLobbyPolling();
+                });
+            } else {
+                alert(data.message);
+            }
         }
 
-        // Cutscene Engine
-        function playCutscene(sceneName, message) {
-            const overlay = document.getElementById('cutscene-overlay');
-            const text = document.getElementById('cutscene-text');
-            
-            overlay.style.display = 'flex';
-            
-            // Map the backend scene keys to visual outputs (could be videos or GIFs in production)
-            const sceneMap = {
-                'scene_room_created': '🏰 Building Village...',
-                'scene_door_open': '🚪 Entering Tavern...',
-                'scene_night_falls': '🌙 The Village goes to sleep...',
-                'scene_angry_mob': '🔥 Mob refuses to start! Need 4+ players.',
-                'scene_error_glitch': '⚡ System Glitch!',
-                'scene_server_crash': '🔥 Database on Fire!'
-            };
+        // BUTTON 3: Start Game (Host)
+        async function handleStartGame() {
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'start_game', room_code: state.roomCode, token: state.token })
+            });
 
-            text.innerText = sceneMap[sceneName] || 'Playing Video: ' + sceneName;
+            const data = await res.json();
+            if (data.status === 'success') {
+                triggerCutscene(data.cutscene);
+            } else {
+                alert(data.message);
+            }
+        }
 
-            // Hide cutscene after 3 seconds
-            setTimeout(() => {
-                overlay.style.display = 'none';
-            }, 3000);
+        // Real-Time Polling Engine
+        function startLobbyPolling() {
+            document.getElementById('display-room-code').innerText = state.roomCode;
+            
+            state.pollInterval = setInterval(async () => {
+                const res = await fetch('backend.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ action: 'poll_lobby', room_code: state.roomCode, token: state.token })
+                });
+
+                const data = await res.json();
+                if (data.status === 'success') {
+                    // Update Player Lists
+                    document.getElementById('player-count').innerText = data.current_count;
+                    document.getElementById('player-max').innerText = data.max_players;
+
+                    const listUI = document.getElementById('player-list-ui');
+                    listUI.innerHTML = data.players.map(p => `<li class="player-item"><span>👤 ${p}</span></li>`).join('');
+
+                    // Update Dynamic Breakdown Text
+                    if(data.role_breakdown) {
+                        const b = data.role_breakdown;
+                        document.getElementById('lobby-role-breakdown').innerHTML = `
+                            <strong>Current Role Pool (${data.current_count} Players):</strong><br>
+                            🐺 ${b.werewolves} Werewolf | 🔮 ${b.specials} Special Cards (${b.special_cards.join(', ') || 'None'}) | 🌾 ${b.villagers} Villagers
+                        `;
+                    }
+
+                    // Enable/Disable Start Game Button
+                    const startBtn = document.getElementById('btn-start-game');
+                    if (data.is_host) {
+                        startBtn.style.display = 'block';
+                        startBtn.disabled = data.current_count < 4;
+                    } else {
+                        startBtn.style.display = 'none';
+                    }
+
+                    // Transition to active game when night falls
+                    if (data.room_status === 'night') {
+                        clearInterval(state.pollInterval);
+                        showScreen('view-game');
+                        document.getElementById('my-role-display').innerText = data.my_role;
+                    }
+                }
+            }, 1500);
         }
     </script>
 </body>
