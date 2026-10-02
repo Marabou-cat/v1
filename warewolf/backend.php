@@ -9,12 +9,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 try {
-    // Read Credentials strictly from ../config.ini
+    // Read Credentials strictly from the parent directory's config.ini
     $configFile = __DIR__ . '/../config.ini';
     if (!file_exists($configFile) || !is_readable($configFile)) {
         die(json_encode([
             "status" => "error", 
-            "message" => "Missing or unreadable ../config.ini", 
+            "message" => "Missing or unreadable config.ini", 
             "cutscene" => "scene_error"
         ]));
     }
@@ -23,7 +23,7 @@ try {
     if ($lines === false || count($lines) < 2) {
         die(json_encode([
             "status" => "error", 
-            "message" => "Invalid ../config.ini formatting (requires username on line 1, password on line 2)", 
+            "message" => "Invalid config.ini formatting (requires username on line 1, password on line 2)", 
             "cutscene" => "scene_error"
         ]));
     }
@@ -79,7 +79,6 @@ switch ($action) {
         $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
         $sessionToken = bin2hex(random_bytes(16));
 
-        // FIX: Explicitly set status to 'lobby'
         $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, is_public, status) VALUES (?, ?, ?, ?, 'lobby')");
         $stmt->execute([$roomCode, $sessionToken, $maxPlayers, $isPublic]);
 
@@ -131,7 +130,6 @@ switch ($action) {
         ]);
         break;
 
-    // --- MATCHMAKING: FIND ONLINE PLAYERS ---
     case 'find_online_game':
         $nickname = trim($_REQUEST['nickname'] ?? 'Brawler');
 
@@ -164,7 +162,6 @@ switch ($action) {
             $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $sessionToken = bin2hex(random_bytes(16));
 
-            // FIX: Explicitly set status to 'lobby'
             $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, is_public, status) VALUES (?, ?, 6, 1, 'lobby')");
             $stmt->execute([$roomCode, $sessionToken]);
 
