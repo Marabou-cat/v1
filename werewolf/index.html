@@ -4,325 +4,779 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Werewolf Online</title>
-    <!-- Embedded Styled Fonts from Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
-    <!-- Lucide Icons CDN -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="assets/fonts.css">
+    <script src="assets/lucide.min.js"></script>
     <style>
         :root {
             --bg-color: #050508;
-            --panel-bg: #0d0e14;
+            --panel-bg: rgba(13, 14, 20, 0.78);
+            --panel-solid: #0d0e14;
             --panel-border: #1a1d26;
+            --panel-line: rgba(255, 255, 255, 0.08);
             --accent-red: #e60012;
             --accent-red-hover: #ff1a2c;
             --accent-gold: #ffcc00;
+            --accent-blue: #38bdf8;
+            --accent-green: #38ef7d;
             --text-light: #ffffff;
             --text-muted: #8c92a4;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
 
+        html, body { height: 100%; }
+
         body {
             background-color: var(--bg-color);
             color: var(--text-light);
-            display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
-            padding: 16px;
-            background-image: radial-gradient(circle at center, #14080a 0%, #050508 70%);
+            overflow-x: hidden;
         }
 
-        .container {
-            width: 100%;
-            max-width: 650px;
-            background: var(--panel-bg);
-            border: 3px solid var(--panel-border);
-            border-radius: 24px;
-            padding: 32px;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), inset 0 2px 6px rgba(255, 255, 255, 0.05);
+        /* ================= AMBIENT BACKGROUND ================= */
+        .sky {
+            position: fixed; inset: 0; z-index: 0;
+            background: linear-gradient(180deg, #0b0614 0%, #0a0710 45%, #050508 100%);
+        }
+        body[data-phase="night"] .sky {
+            background: linear-gradient(180deg, #180409 0%, #0d0409 45%, #050508 100%);
+        }
+        body[data-phase="day"] .sky {
+            background: linear-gradient(180deg, #1d2c4a 0%, #141b30 55%, #080a12 100%);
+        }
+        body[data-phase="ended"] .sky {
+            background: linear-gradient(180deg, #1c1408 0%, #120e07 55%, #050508 100%);
+        }
+
+        .stars { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+        .star {
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+            animation: twinkle var(--tw, 3s) ease-in-out infinite;
+            opacity: 0.3;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.15; transform: scale(0.8); }
+            50% { opacity: 0.9; transform: scale(1.15); }
+        }
+
+        .moon {
+            position: fixed;
+            top: 7vh; right: 8vw;
+            width: 110px; height: 110px;
+            z-index: 1; pointer-events: none;
+            animation: moonFloat 9s ease-in-out infinite;
+        }
+        .moon-core {
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            background: radial-gradient(circle at 34% 30%, #fdf6d8 0%, #e8dcae 45%, #b8a86a 100%);
+            box-shadow: 0 0 50px 18px rgba(255, 240, 180, 0.35), 0 0 140px 60px rgba(255, 240, 180, 0.12);
+            transition: background 1.6s ease, box-shadow 1.6s ease, opacity 1.6s ease;
+        }
+        .moon-core::after {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 62% 40%, rgba(0,0,0,0.10) 0 9%, transparent 10%),
+                radial-gradient(circle at 40% 64%, rgba(0,0,0,0.08) 0 7%, transparent 8%),
+                radial-gradient(circle at 70% 70%, rgba(0,0,0,0.07) 0 5%, transparent 6%);
+        }
+        body[data-phase="night"] .moon-core {
+            background: radial-gradient(circle at 34% 30%, #ffd9cf 0%, #f07a6a 45%, #a02030 100%);
+            box-shadow: 0 0 60px 22px rgba(255, 40, 50, 0.45), 0 0 160px 70px rgba(230, 0, 18, 0.20);
+        }
+        body[data-phase="day"] .moon-core { opacity: 0.18; }
+        @keyframes moonFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        .fog {
+            position: fixed; z-index: 2; pointer-events: none;
+            width: 200vw; height: 55vh;
+            background: radial-gradient(ellipse 55% 60% at 30% 60%, rgba(160, 170, 210, 0.055) 0%, transparent 70%);
+            filter: blur(30px);
+        }
+        .fog-a { bottom: -10vh; left: -50vw; animation: fogDrift 70s linear infinite; }
+        .fog-b {
+            bottom: 4vh; left: -30vw;
+            background: radial-gradient(ellipse 45% 55% at 60% 50%, rgba(190, 60, 70, 0.05) 0%, transparent 70%);
+            animation: fogDrift 95s linear infinite reverse;
+        }
+        @keyframes fogDrift {
+            from { transform: translateX(0); }
+            to { transform: translateX(25vw); }
+        }
+
+        .embers { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+        .ember {
+            position: absolute;
+            bottom: -12px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ffb066 0%, #ff5a2c 60%, transparent 75%);
+            filter: blur(0.4px);
+            animation: emberRise var(--er, 12s) linear infinite;
+            opacity: 0;
+        }
+        @keyframes emberRise {
+            0% { transform: translate(0, 0) scale(1); opacity: 0; }
+            8% { opacity: var(--eo, 0.7); }
+            70% { opacity: var(--eo, 0.7); }
+            100% { transform: translate(var(--ex, 30px), -108vh) scale(0.4); opacity: 0; }
+        }
+
+        .vignette {
+            position: fixed; inset: 0; z-index: 3; pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 52%, rgba(0, 0, 0, 0.5) 100%);
+        }
+
+        .phase-flash {
+            position: fixed; inset: 0; z-index: 400; pointer-events: none;
+            opacity: 0;
+        }
+        .phase-flash.night { animation: flashNight 1.4s ease-out; }
+        .phase-flash.day { animation: flashDay 1.4s ease-out; }
+        @keyframes flashNight {
+            0% { opacity: 0; background: rgba(150, 0, 15, 0); }
+            25% { opacity: 1; background: rgba(150, 0, 15, 0.5); }
+            100% { opacity: 0; background: rgba(150, 0, 15, 0); }
+        }
+        @keyframes flashDay {
+            0% { opacity: 0; background: rgba(255, 205, 90, 0); }
+            25% { opacity: 1; background: rgba(255, 205, 90, 0.22); }
+            100% { opacity: 0; background: rgba(255, 205, 90, 0); }
+        }
+
+        /* ================= LAYOUT ================= */
+        .stage { position: relative; z-index: 5; }
+
+        .screen {
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 28px 20px 40px;
+            animation: screenIn 0.5s cubic-bezier(0.22, 0.9, 0.3, 1.2) both;
             position: relative;
         }
-
-        @media (min-width: 768px) {
-            .container { padding: 44px; }
+        .screen { justify-content: safe center; }
+        #view-lobby { padding-top: 72px; }
+        @keyframes screenIn {
+            from { opacity: 0; transform: translateY(22px) scale(0.985); }
+            to { opacity: 1; transform: none; }
         }
 
-        body.in-game-layout {
-            padding: 0;
-            align-items: stretch;
-        }
+        .hidden { display: none !important; }
 
-        body.in-game-layout .container {
-            max-width: 100% !important;
-            height: 100vh;
-            border-radius: 0;
-            border: none;
-            display: flex;
-            flex-direction: column;
-            background: var(--bg-color);
-            padding: 24px;
-            box-shadow: none;
-        }
-
-        @media (min-width: 768px) {
-            body.in-game-layout .container { padding: 32px 48px; }
-        }
-
-        body.in-game-layout #view-game {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            max-width: 1200px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        body.in-game-layout #game-player-list {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            max-height: 250px;
-            overflow-y: auto;
-            align-content: start;
-            padding: 4px;
-        }
-
-        h1 { 
-            text-align: center; 
-            color: var(--accent-red); 
-            font-family: 'Cinzel', serif;
-            font-size: 2.8rem; 
-            font-weight: 900;
-            margin-bottom: 2px; 
-            text-transform: uppercase; 
-            letter-spacing: 2px;
-            text-shadow: 0 4px 15px rgba(230, 0, 18, 0.5), 0 0 30px rgba(230, 0, 18, 0.2);
-            -webkit-text-stroke: 1px #5c0006;
-        }
-
-        @media (min-width: 768px) {
-            h1 { font-size: 3.6rem; }
-        }
-
-        p.subtitle { 
-            text-align: center; 
-            color: var(--text-muted); 
-            font-size: 0.9rem; 
+        .back-btn {
+            position: absolute;
+            top: 22px; left: 24px;
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(13, 14, 20, 0.6);
+            border: 1px solid var(--panel-line);
+            color: var(--text-muted);
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-size: 0.85rem;
             font-weight: 800;
-            margin-bottom: 28px; 
+            letter-spacing: 1px;
             text-transform: uppercase;
-            letter-spacing: 2.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(8px);
+        }
+        .back-btn:hover { color: #fff; border-color: rgba(255,255,255,0.25); transform: translateX(-3px); }
+
+        /* ================= TYPOGRAPHY ================= */
+        h1.title {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(3rem, 9vw, 5.8rem);
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: var(--accent-red);
+            text-align: center;
+            text-shadow: 0 4px 18px rgba(230, 0, 18, 0.55), 0 0 40px rgba(230, 0, 18, 0.25);
+            -webkit-text-stroke: 1px #5c0006;
+            animation: titleFlicker 7s ease-in-out infinite;
+        }
+        @keyframes titleFlicker {
+            0%, 100% { opacity: 1; text-shadow: 0 4px 18px rgba(230, 0, 18, 0.55), 0 0 40px rgba(230, 0, 18, 0.25); }
+            42% { opacity: 1; }
+            45% { opacity: 0.82; text-shadow: 0 4px 8px rgba(230, 0, 18, 0.3); }
+            48% { opacity: 1; }
+            74% { opacity: 0.92; }
+            76% { opacity: 1; }
         }
 
+        p.subtitle {
+            text-align: center;
+            color: var(--accent-gold);
+            font-size: clamp(0.75rem, 2vw, 0.95rem);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            margin-top: 10px;
+        }
+
+        /* ================= MENU ================= */
+        .hero-icon {
+            display: flex; justify-content: center;
+            color: var(--accent-red);
+            filter: drop-shadow(0 0 18px rgba(230, 0, 18, 0.6)) drop-shadow(0 0 45px rgba(230, 0, 18, 0.3));
+            animation: heroFloat 4.5s ease-in-out infinite;
+            margin-bottom: 6px;
+        }
+        @keyframes heroFloat {
+            0%, 100% { transform: translateY(0) rotate(-2deg); }
+            50% { transform: translateY(-14px) rotate(2deg); }
+        }
+
+        .menu-panel {
+            width: 100%;
+            max-width: 480px;
+            margin-top: 40px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-line);
+            border-radius: 22px;
+            padding: 30px;
+            backdrop-filter: blur(14px);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 40px rgba(230, 0, 18, 0.06);
+            animation: panelIn 0.7s 0.15s cubic-bezier(0.22, 0.9, 0.3, 1.2) both;
+        }
+        @keyframes panelIn {
+            from { opacity: 0; transform: translateY(26px); }
+            to { opacity: 1; transform: none; }
+        }
+
+        .menu-hint {
+            margin-top: 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* ================= PANELS (create / join) ================= */
+        .panel-wide {
+            width: 100%;
+            max-width: 560px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-line);
+            border-radius: 22px;
+            padding: 34px 30px 30px;
+            backdrop-filter: blur(14px);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            animation: panelIn 0.55s cubic-bezier(0.22, 0.9, 0.3, 1.2) both;
+        }
+
+        .screen-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.7rem;
+            font-weight: 900;
+            color: var(--accent-gold);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-shadow: 0 2px 10px rgba(255, 204, 0, 0.4);
+        }
+
+        /* ================= FORMS ================= */
         .form-group { margin-bottom: 24px; }
-        label { display: block; margin-bottom: 10px; font-weight: 800; font-size: 0.95rem; color: #a0aec0; letter-spacing: 1px; text-transform: uppercase; }
-        
+        label {
+            display: block; margin-bottom: 10px;
+            font-weight: 800; font-size: 0.88rem;
+            color: #a0aec0; letter-spacing: 1.5px; text-transform: uppercase;
+        }
         input, select {
             width: 100%;
-            padding: 18px;
+            padding: 17px 18px;
             background: #050608;
             border: 2px solid var(--panel-border);
             border-radius: 14px;
             color: white;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: 700;
-            transition: all 0.2s ease;
+            transition: all 0.25s ease;
+            appearance: none;
         }
-        input:focus, select:focus { outline: none; border-color: var(--accent-red); box-shadow: 0 0 15px rgba(230, 0, 18, 0.4); }
+        select {
+            background-image: linear-gradient(45deg, transparent 50%, #8c92a4 50%), linear-gradient(135deg, #8c92a4 50%, transparent 50%);
+            background-position: calc(100% - 24px) 50%, calc(100% - 18px) 50%;
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+            cursor: pointer;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-red);
+            box-shadow: 0 0 0 3px rgba(230, 0, 18, 0.18), 0 0 22px rgba(230, 0, 18, 0.25);
+        }
+        input::placeholder { color: #4b5163; }
 
-        .btn-group { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
-        @media (min-width: 480px) {
-            .btn-group { flex-direction: row; }
+        /* ================= BUTTONS ================= */
+        .btn-row {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 8px;
+        }
+        @media (min-width: 560px) {
+            .btn-row { flex-direction: row; }
         }
 
         button {
+            position: relative;
+            overflow: hidden;
             width: 100%;
-            padding: 22px 24px;
+            padding: 19px 22px;
             border: none;
             border-radius: 16px;
             font-weight: 800;
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: all 0.18s ease;
             letter-spacing: 1.5px;
             text-transform: uppercase;
             box-shadow: 0 8px 0 rgba(0, 0, 0, 0.6);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex: 1;
         }
-
-        button:active {
-            transform: translateY(6px);
-            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
+        button::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 60%; height: 100%;
+            background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.14) 50%, transparent 80%);
+            transform: translateX(-130%) skewX(-15deg);
+            animation: btnShine 3.8s ease-in-out infinite;
+            pointer-events: none;
         }
+        @keyframes btnShine {
+            0%, 55% { transform: translateX(-130%) skewX(-15deg); }
+            75%, 100% { transform: translateX(230%) skewX(-15deg); }
+        }
+        button:hover { transform: translateY(-3px); }
+        button:active { transform: translateY(5px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.6); }
 
-        .btn-primary { 
-            background: linear-gradient(180deg, #ff1a2c 0%, var(--accent-red) 100%); 
-            color: white; 
+        .btn-primary {
+            background: linear-gradient(180deg, #ff1a2c 0%, var(--accent-red) 100%);
+            color: white;
             border: 2px solid #ff6b75;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         }
-        .btn-primary:hover { background: linear-gradient(180deg, #ff3342 0%, #ff1a2c 100%); }
-        
-        .btn-secondary { 
-            background: linear-gradient(180deg, #242836 0%, #151821 100%); 
-            color: #cbd5e1; 
-            border: 2px solid #2f3545; 
+        .btn-primary:hover {
+            background: linear-gradient(180deg, #ff3342 0%, #ff1a2c 100%);
+            box-shadow: 0 11px 0 rgba(0, 0, 0, 0.6), 0 0 30px rgba(230, 0, 18, 0.45);
         }
-        .btn-secondary:hover { background: linear-gradient(180deg, #2e3445 0%, #1a1d26 100%); color: white; }
-        
-        .btn-action { 
-            background: linear-gradient(180deg, #38ef7d 0%, #11998e 100%); 
-            color: #050508; 
-            padding: 12px 20px; 
-            font-size: 0.95rem; 
-            width: auto; 
-            border-radius: 10px; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            box-shadow: 0 6px 0 #0b5d56;
-            font-weight: 800;
+
+        .btn-secondary {
+            background: linear-gradient(180deg, #242836 0%, #151821 100%);
+            color: #cbd5e1;
+            border: 2px solid #2f3545;
         }
-        .btn-action:active { transform: translateY(3px); box-shadow: 0 3px 0 #0b5d56; }
-        
-        .btn-voted { background: linear-gradient(180deg, #4facfe 0%, #00f2fe 100%) !important; color: #050508 !important; cursor: default; box-shadow: 0 6px 0 #006096 !important; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+        .btn-secondary:hover {
+            background: linear-gradient(180deg, #2e3445 0%, #1a1d26 100%);
+            color: white;
+            box-shadow: 0 11px 0 rgba(0, 0, 0, 0.6), 0 0 20px rgba(140, 146, 164, 0.2);
+        }
+
+        .btn-action {
+            background: linear-gradient(180deg, #38ef7d 0%, #11998e 100%);
+            color: #050508;
+            padding: 11px 18px;
+            font-size: 0.85rem;
+            width: auto;
+            flex: none;
+            border-radius: 10px;
+            box-shadow: 0 5px 0 #0b5d56;
+        }
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #0b5d56, 0 0 22px rgba(56, 239, 125, 0.4);
+        }
+        .btn-action:active { transform: translateY(3px); box-shadow: 0 2px 0 #0b5d56; }
+
+        .btn-kill {
+            background: linear-gradient(180deg, #ff4d5e 0%, #c00517 100%);
+            color: #fff;
+            border: 1px solid #ff8890;
+            box-shadow: 0 5px 0 #6d020d;
+        }
+        .btn-kill:hover {
+            box-shadow: 0 7px 0 #6d020d, 0 0 24px rgba(230, 0, 18, 0.5);
+        }
+        .btn-kill:active { box-shadow: 0 2px 0 #6d020d; }
+
+        .btn-voted {
+            background: linear-gradient(180deg, #4facfe 0%, #00c6fb 100%) !important;
+            color: #050508 !important;
+            cursor: default;
+            box-shadow: 0 5px 0 #006096 !important;
+            border-color: #9fd4ff !important;
+        }
+        .btn-voted:hover { transform: none; }
+        button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; box-shadow: 0 3px 0 rgba(0,0,0,0.4) !important; }
+        button:disabled::after { animation: none; display: none; }
+
+        .btn-start-ready { animation: startPulse 1.8s ease-in-out infinite; }
+        @keyframes startPulse {
+            0%, 100% { box-shadow: 0 8px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(230, 0, 18, 0.35); }
+            50% { box-shadow: 0 8px 0 rgba(0, 0, 0, 0.6), 0 0 48px rgba(230, 0, 18, 0.75); }
+        }
+
+        /* ================= LOBBY ================= */
+        .lobby-wrap {
+            width: 100%;
+            max-width: 1150px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 26px;
+        }
+        .lobby-wrap .btn-start-row { margin-top: auto; padding-top: 20px; width: 100%; display: flex; justify-content: center; }
+        .lobby-wrap .btn-start-row button { max-width: 460px; width: 100%; padding: 22px; font-size: 1.2rem; }
 
         .room-badge {
-            background: linear-gradient(180deg, #151821 0%, #090a0f 100%);
+            background: linear-gradient(180deg, rgba(21, 24, 33, 0.85) 0%, rgba(9, 10, 15, 0.85) 100%);
             border: 3px solid var(--accent-gold);
-            padding: 20px;
+            padding: 22px 48px;
             text-align: center;
-            border-radius: 16px;
-            margin-bottom: 24px;
-            box-shadow: inset 0 2px 10px rgba(255, 204, 0, 0.2);
+            border-radius: 18px;
+            box-shadow: inset 0 2px 10px rgba(255, 204, 0, 0.15), 0 0 45px rgba(255, 204, 0, 0.12);
+            backdrop-filter: blur(10px);
+            animation: panelIn 0.6s cubic-bezier(0.22, 0.9, 0.3, 1.2) both;
         }
-        .room-code { 
+        .room-code {
             font-family: 'Cinzel', serif;
-            font-size: 3rem; 
-            font-weight: 900; 
-            color: var(--accent-gold); 
-            letter-spacing: 10px; 
-            text-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
+            font-size: clamp(2.4rem, 7vw, 3.8rem);
+            font-weight: 900;
+            color: var(--accent-gold);
+            letter-spacing: 14px;
+            text-shadow: 0 0 24px rgba(255, 204, 0, 0.55);
+            display: inline-block;
+            animation: codeGlow 2.6s ease-in-out infinite;
+        }
+        @keyframes codeGlow {
+            0%, 100% { text-shadow: 0 0 18px rgba(255, 204, 0, 0.4); }
+            50% { text-shadow: 0 0 34px rgba(255, 204, 0, 0.85), 0 0 70px rgba(255, 204, 0, 0.3); }
         }
 
-        .player-list { list-style: none; margin-bottom: 20px; max-height: 320px; overflow-y: auto; padding-right: 4px; }
-        .player-list::-webkit-scrollbar { width: 8px; }
-        .player-list::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 4px; }
+        .lobby-section-label {
+            align-self: flex-start;
+            font-weight: 800; font-size: 0.9rem;
+            color: #a0aec0; letter-spacing: 1.5px; text-transform: uppercase;
+            width: 100%;
+        }
+
+        .player-grid {
+            width: 100%;
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 14px;
+        }
 
         .player-item {
-            background: linear-gradient(90deg, #12151e 0%, #0a0c12 100%);
-            padding: 16px 20px;
+            background: linear-gradient(90deg, rgba(18, 21, 30, 0.92) 0%, rgba(10, 12, 18, 0.92) 100%);
+            padding: 15px 18px;
             border-radius: 14px;
-            margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-left: 6px solid var(--accent-gold);
-            font-size: 1.05rem;
+            gap: 10px;
+            border-left: 5px solid var(--accent-gold);
+            font-size: 1rem;
             font-weight: 700;
-            border-top: 1px solid var(--panel-border);
-            border-right: 1px solid var(--panel-border);
-            border-bottom: 1px solid var(--panel-border);
+            border-top: 1px solid var(--panel-line);
+            border-right: 1px solid var(--panel-line);
+            border-bottom: 1px solid var(--panel-line);
             position: relative;
+            animation: playerIn 0.45s cubic-bezier(0.22, 0.9, 0.3, 1.3) both;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.3s ease;
         }
-        .player-item.dead { 
-            border-left-color: var(--accent-red); 
-            opacity: 0.7; 
-            background: linear-gradient(90deg, #180a0d 0%, #0d0608 100%);
+        @keyframes playerIn {
+            from { opacity: 0; transform: translateY(16px) scale(0.95); }
+            to { opacity: 1; transform: none; }
         }
-        .player-info-wrap { display: flex; align-items: center; gap: 14px; position: relative; }
+        .player-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 18px rgba(255, 204, 0, 0.12);
+        }
+        .player-item.dead {
+            border-left-color: var(--accent-red);
+            opacity: 0.62;
+            background: linear-gradient(90deg, rgba(24, 10, 13, 0.92) 0%, rgba(13, 6, 8, 0.92) 100%);
+            filter: saturate(0.6);
+        }
+        .player-item.me { border-left-color: var(--accent-blue); box-shadow: 0 0 16px rgba(56, 189, 248, 0.15); }
+
+        .player-info-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            min-width: 0;
+        }
+        .player-info-wrap .pname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .you-tag {
+            font-size: 0.7rem; font-weight: 800;
+            background: rgba(56, 189, 248, 0.18);
+            color: var(--accent-blue);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            padding: 2px 8px;
+            border-radius: 20px;
+            letter-spacing: 1px;
+        }
 
         .blood-pile {
             position: absolute;
-            bottom: -6px;
-            left: 20px;
-            width: 32px;
-            height: 10px;
+            bottom: -7px;
+            left: 18px;
+            width: 34px;
+            height: 11px;
             background: radial-gradient(ellipse at center, #ff1a2c 0%, #800008 60%, transparent 80%);
             border-radius: 50%;
-            filter: drop-shadow(0 2px 4px #e60012);
+            filter: drop-shadow(0 2px 5px #e60012);
             animation: ooze 2s infinite alternate;
         }
-        @keyframes ooze { from { transform: scale(1); } to { transform: scale(1.08); } }
+        @keyframes ooze { from { transform: scale(1); } to { transform: scale(1.12); } }
 
         .role-preview {
-            background: #07080c;
-            padding: 20px;
+            background: rgba(7, 8, 12, 0.85);
+            padding: 18px 20px;
             border-radius: 14px;
-            font-size: 1rem;
-            margin-bottom: 24px;
+            font-size: 0.95rem;
             border: 2px solid var(--panel-border);
-            line-height: 1.8;
+            line-height: 2;
             font-weight: 700;
+            width: 100%;
+            backdrop-filter: blur(8px);
         }
-        .role-tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px; background: #151821; margin: 4px; border: 1px solid #232836; font-weight: 800; }
+        .role-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 13px;
+            border-radius: 9px;
+            background: rgba(21, 24, 33, 0.9);
+            margin: 4px 4px 0 0;
+            border: 1px solid #232836;
+            font-weight: 800;
+            font-size: 0.85rem;
+        }
 
         .role-card {
-            background: linear-gradient(135deg, #1b151a 0%, #0d0e14 100%);
+            background: linear-gradient(135deg, rgba(27, 21, 26, 0.95) 0%, rgba(13, 14, 20, 0.95) 100%);
             border: 3px solid var(--accent-red);
-            border-radius: 20px;
-            padding: 20px;
+            border-radius: 18px;
+            padding: 20px 22px;
             text-align: center;
-            margin-bottom: 16px;
-            box-shadow: 0 12px 35px rgba(230, 0, 18, 0.3);
+            box-shadow: 0 12px 35px rgba(230, 0, 18, 0.28);
+            position: relative;
+            overflow: hidden;
+            animation: cardDeal 0.7s cubic-bezier(0.22, 0.9, 0.3, 1.3) both;
         }
-        .card-title { 
+        @keyframes cardDeal {
+            from { opacity: 0; transform: rotate(-6deg) translateY(30px) scale(0.9); }
+            to { opacity: 1; transform: none; }
+        }
+        .role-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 50% -20%, rgba(230, 0, 18, 0.22) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .card-title {
             font-family: 'Cinzel', serif;
-            font-size: 2rem; 
-            font-weight: 900; 
-            color: var(--accent-gold); 
-            margin-bottom: 4px; 
+            font-size: 1.9rem;
+            font-weight: 900;
+            color: var(--accent-gold);
             letter-spacing: 2px;
             text-shadow: 0 2px 10px rgba(255, 204, 0, 0.5);
+            display: flex; align-items: center; justify-content: center; gap: 10px;
         }
 
         .event-banner {
-            background: linear-gradient(180deg, #141013 0%, #0a0b0f 100%);
+            background: linear-gradient(180deg, rgba(20, 16, 19, 0.95) 0%, rgba(10, 11, 15, 0.95) 100%);
             border-left: 6px solid var(--accent-red);
-            padding: 16px;
+            padding: 18px 20px;
             border-radius: 14px;
-            font-size: 1rem;
-            margin-bottom: 16px;
+            font-size: 0.98rem;
             color: #f1f5f9;
-            line-height: 1.6;
+            line-height: 1.65;
             font-weight: 700;
-            border-top: 1px solid var(--panel-border);
-            border-right: 1px solid var(--panel-border);
-            border-bottom: 1px solid var(--panel-border);
+            border-top: 1px solid var(--panel-line);
+            border-right: 1px solid var(--panel-line);
+            border-bottom: 1px solid var(--panel-line);
+            backdrop-filter: blur(8px);
+        }
+        .event-banner.flash { animation: bannerFlash 1.1s ease; }
+        @keyframes bannerFlash {
+            0% { box-shadow: 0 0 0 rgba(230, 0, 18, 0); background-color: transparent; }
+            25% { box-shadow: 0 0 34px rgba(230, 0, 18, 0.55); }
+            100% { box-shadow: 0 0 0 rgba(230, 0, 18, 0); }
+        }
+        .timer-badge {
+            float: right;
+            font-weight: 800;
+            color: var(--accent-gold);
+            background: rgba(255, 204, 0, 0.1);
+            border: 1px solid rgba(255, 204, 0, 0.35);
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 0.9rem;
         }
 
-        /* In-Game Chat Box Styles */
+        /* ================= GAME SCREEN ================= */
+        #view-game {
+            justify-content: flex-start;
+            padding: 20px 22px 24px;
+        }
+        .game-topbar {
+            width: 100%;
+            max-width: 1400px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+        .game-brand {
+            font-family: 'Cinzel', serif;
+            font-weight: 900;
+            font-size: 1.15rem;
+            letter-spacing: 2px;
+            color: var(--accent-red);
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            text-shadow: 0 0 14px rgba(230, 0, 18, 0.5);
+        }
+        .game-room-tag {
+            font-weight: 800;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            color: var(--accent-gold);
+            border: 1px solid rgba(255, 204, 0, 0.4);
+            background: rgba(255, 204, 0, 0.08);
+            padding: 6px 14px;
+            border-radius: 30px;
+        }
+        .exit-btn {
+            width: auto;
+            flex: none;
+            padding: 10px 18px;
+            font-size: 0.8rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .game-grid {
+            width: 100%;
+            max-width: 1400px;
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
+            grid-template-rows: auto minmax(0, 1fr);
+            gap: 16px;
+        }
+        .game-main {
+            grid-column: 1;
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-height: 0;
+        }
+        .game-side {
+            grid-column: 2;
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .game-role-row { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; }
+
+        .game-player-list {
+            list-style: none;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+            gap: 13px;
+            align-content: start;
+            padding: 4px;
+            padding-right: 8px;
+        }
+        .game-player-list::-webkit-scrollbar { width: 8px; }
+        .game-player-list::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 4px; }
+        .game-player-list .player-item { padding: 14px 16px; }
+
+        /* Chat */
         .chat-container {
-            background: #050608;
+            background: rgba(5, 6, 8, 0.9);
             border: 2px solid var(--panel-border);
-            border-radius: 14px;
+            border-radius: 16px;
             display: flex;
             flex-direction: column;
             flex: 1;
-            min-height: 140px;
-            margin-top: 12px;
+            min-height: 0;
             overflow: hidden;
+            backdrop-filter: blur(8px);
+        }
+        .chat-header {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 13px 18px;
+            font-weight: 800;
+            font-size: 0.85rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            border-bottom: 1px solid var(--panel-line);
+            background: rgba(13, 14, 20, 0.6);
         }
         .chat-messages {
             flex: 1;
-            padding: 12px;
+            padding: 14px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            max-height: 160px;
+            gap: 9px;
+            min-height: 0;
         }
+        .chat-messages::-webkit-scrollbar { width: 8px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 4px; }
         .chat-message {
-            font-size: 0.95rem;
-            background: #11141d;
-            padding: 8px 12px;
-            border-radius: 8px;
+            font-size: 0.93rem;
+            background: rgba(17, 20, 29, 0.9);
+            padding: 9px 13px;
+            border-radius: 10px;
             border-left: 3px solid var(--accent-gold);
             font-weight: 600;
             word-break: break-word;
+            animation: msgIn 0.3s ease both;
+        }
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: none; }
         }
         .chat-message span.sender {
             color: var(--accent-gold);
@@ -332,24 +786,30 @@
         .chat-input-bar {
             display: flex;
             border-top: 2px solid var(--panel-border);
-            background: #0d0e14;
+            background: rgba(13, 14, 20, 0.85);
         }
         .chat-input-bar input {
             border: none;
             background: transparent;
-            padding: 12px 16px;
+            padding: 14px 16px;
             font-size: 0.95rem;
             border-radius: 0;
+            flex: 1;
         }
         .chat-input-bar input:focus { box-shadow: none; border-color: transparent; }
         .chat-send-btn {
             width: auto !important;
-            padding: 0 24px !important;
+            flex: none;
+            padding: 0 26px !important;
             border-radius: 0 !important;
-            font-size: 0.95rem !important;
+            font-size: 0.9rem !important;
             box-shadow: none !important;
+            background: linear-gradient(180deg, #ff1a2c 0%, var(--accent-red) 100%);
+            color: white;
         }
+        .chat-send-btn::after { display: none; }
 
+        /* ================= CUTSCENE ================= */
         #cutscene-overlay {
             display: none;
             position: fixed;
@@ -363,140 +823,221 @@
             padding: 24px;
             animation: fadeIn 0.3s ease;
         }
-        .cutscene-icon { font-size: 5rem; margin-bottom: 24px; animation: pulse 1.5s infinite; color: var(--accent-red); }
-        .cutscene-text { 
+        #cutscene-overlay.fade-out { animation: fadeOut 0.35s ease forwards; }
+        .cutscene-bg {
+            position: absolute; inset: 0;
+            background: radial-gradient(circle at center, rgba(230, 0, 18, 0.12) 0%, transparent 55%);
+            animation: cutscenePulse 1.2s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes cutscenePulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.06); }
+        }
+        .cutscene-icon {
+            font-size: 5rem;
+            margin-bottom: 26px;
+            color: var(--accent-red);
+            filter: drop-shadow(0 0 24px rgba(230, 0, 18, 0.7));
+            animation: cutsceneIcon 1.4s ease-in-out infinite;
+            position: relative;
+        }
+        @keyframes cutsceneIcon {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.12) rotate(3deg); }
+        }
+        .cutscene-text {
             font-family: 'Cinzel', serif;
-            font-size: 2.4rem; 
-            font-weight: 900; 
-            color: var(--accent-gold); 
-            letter-spacing: 3px; 
-            text-transform: uppercase; 
+            font-size: 2.4rem;
+            font-weight: 900;
+            color: var(--accent-gold);
+            letter-spacing: 3px;
+            text-transform: uppercase;
             text-shadow: 0 2px 12px rgba(255, 204, 0, 0.5);
+            animation: screenIn 0.5s ease both;
         }
-        .cutscene-sub { font-size: 1.1rem; color: var(--text-muted); margin-top: 12px; font-weight: 800; letter-spacing: 1.5px; }
-
-        @media (min-width: 768px) {
-            .cutscene-text { font-size: 3rem; }
-        }
+        .cutscene-sub { font-size: 1.05rem; color: var(--text-muted); margin-top: 14px; font-weight: 800; letter-spacing: 1.5px; }
+        @media (min-width: 768px) { .cutscene-text { font-size: 3rem; } }
 
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
-        .hidden { display: none !important; }
+        /* ================= RESPONSIVE ================= */
+        @media (max-width: 960px) {
+            .game-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            .game-main { grid-column: 1; grid-row: 1; }
+            .game-side { grid-column: 1; grid-row: 2; }
+            .game-role-row { grid-template-columns: 1fr; }
+            .game-player-list { max-height: 36vh; }
+            .chat-container { min-height: 300px; }
+            .moon { width: 74px; height: 74px; top: 5vh; right: 6vw; }
+        }
+        @media (max-width: 560px) {
+            .player-grid { grid-template-columns: 1fr 1fr; }
+            .game-player-list { grid-template-columns: 1fr; }
+            .room-badge { padding: 18px 26px; }
+            .room-code { letter-spacing: 8px; }
+        }
     </style>
 </head>
-<body>
+<body data-phase="menu">
+
+    <!-- AMBIENT BACKGROUND LAYERS -->
+    <div class="sky"></div>
+    <div class="stars" id="stars"></div>
+    <div class="moon"><div class="moon-core"></div></div>
+    <div class="fog fog-a"></div>
+    <div class="fog fog-b"></div>
+    <div class="embers" id="embers"></div>
+    <div class="vignette"></div>
+    <div class="phase-flash" id="phase-flash"></div>
 
     <!-- CUTSCENE OVERLAY -->
     <div id="cutscene-overlay">
+        <div class="cutscene-bg"></div>
         <div id="cutscene-icon" class="cutscene-icon"><i data-lucide="castle" size="84"></i></div>
         <div id="cutscene-text" class="cutscene-text">Building Fortress...</div>
         <div id="cutscene-sub" class="cutscene-sub">Preparing the lobby</div>
     </div>
 
-    <div class="container">
-        <h1>Werewolf</h1>
-        <p class="subtitle">Online Multiplayer Arena</p>
+    <main class="stage">
 
         <!-- VIEW 1: MAIN MENU -->
-        <div id="view-menu">
-            <div class="form-group">
-                <label for="nickname">Your Nickname</label>
-                <input type="text" id="nickname" placeholder="e.g., HunterJohn" value="Player1">
-            </div>
+        <section id="view-menu" class="screen">
+            <div style="width:100%; max-width: 760px; display:flex; flex-direction:column; align-items:center;">
+                <div class="hero-icon"><i data-lucide="paw-print" size="92"></i></div>
+                <h1 class="title">Werewolf</h1>
+                <p class="subtitle">Online Multiplayer Arena</p>
 
-            <div class="btn-group">
-                <button class="btn-primary" onclick="showScreen('view-create')">Create Room</button>
-                <button class="btn-secondary" onclick="showScreen('view-join')">Join Room</button>
+                <div class="menu-panel">
+                    <div class="form-group">
+                        <label for="nickname">Your Nickname</label>
+                        <input type="text" id="nickname" placeholder="e.g., HunterJohn" value="Player1" maxlength="20">
+                    </div>
+
+                    <div class="btn-row">
+                        <button class="btn-primary" onclick="showScreen('view-create')"><i data-lucide="swords" size="20"></i> Create Room</button>
+                        <button class="btn-secondary" onclick="showScreen('view-join')"><i data-lucide="door-open" size="20"></i> Join Room</button>
+                    </div>
+                    <p class="menu-hint">4–10 players &middot; Werewolves hunt by night &middot; The village votes by day</p>
+                </div>
             </div>
-        </div>
+        </section>
 
         <!-- VIEW 2: CREATE ROOM -->
-        <div id="view-create" class="hidden">
-            <div class="form-group">
-                <label for="max-players">Select Total Players (Min 4)</label>
-                <select id="max-players" onchange="updateRolePreview()">
-                    <option value="4" selected>4 Players (1 Werewolf, 0 Specials)</option>
-                    <option value="5">5 Players (1 Werewolf, 1 Special)</option>
-                    <option value="6">6 Players (1 Werewolf, 1 Special)</option>
-                    <option value="7">7 Players (2 Werewolves, 2 Specials)</option>
-                    <option value="8">8 Players (2 Werewolves, 2 Specials)</option>
-                    <option value="9">9 Players (2 Werewolves, 3 Specials)</option>
-                    <option value="10">10 Players (3 Werewolves, 3 Specials)</option>
-                </select>
-            </div>
+        <section id="view-create" class="screen hidden">
+            <button class="back-btn" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="18"></i> Back</button>
+            <div class="panel-wide">
+                <h2 class="screen-title"><i data-lucide="swords" size="26"></i> Create Room</h2>
+                <div class="form-group">
+                    <label for="max-players">Select Total Players (Min 4)</label>
+                    <select id="max-players" onchange="updateRolePreview()">
+                        <option value="4" selected>4 Players (1 Werewolf, 0 Specials)</option>
+                        <option value="5">5 Players (1 Werewolf, 1 Special)</option>
+                        <option value="6">6 Players (1 Werewolf, 1 Special)</option>
+                        <option value="7">7 Players (2 Werewolves, 2 Specials)</option>
+                        <option value="8">8 Players (2 Werewolves, 2 Specials)</option>
+                        <option value="9">9 Players (2 Werewolves, 3 Specials)</option>
+                        <option value="10">10 Players (3 Werewolves, 3 Specials)</option>
+                    </select>
+                </div>
 
-            <div id="create-role-info" class="role-preview">Role Calculation Preview...</div>
+                <div id="create-role-info" class="role-preview">Role Calculation Preview...</div>
 
-            <div class="btn-group">
-                <button class="btn-primary" onclick="handleCreateRoom()">Confirm & Host</button>
-                <button class="btn-secondary" onclick="showScreen('view-menu')">Back</button>
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="handleCreateRoom()"><i data-lucide="play" size="20"></i> Confirm &amp; Host</button>
+                    <button class="btn-secondary" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="20"></i> Back</button>
+                </div>
             </div>
-        </div>
+        </section>
 
         <!-- VIEW 3: JOIN ROOM -->
-        <div id="view-join" class="hidden">
-            <div class="form-group">
-                <label for="join-code">Enter 5-Character Room Code</label>
-                <input type="text" id="join-code" placeholder="e.g., A1B2C" maxlength="5" style="text-transform: uppercase;">
-            </div>
+        <section id="view-join" class="screen hidden">
+            <button class="back-btn" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="18"></i> Back</button>
+            <div class="panel-wide">
+                <h2 class="screen-title"><i data-lucide="door-open" size="26"></i> Join Room</h2>
+                <div class="form-group">
+                    <label for="join-code">Enter 5-Character Room Code</label>
+                    <input type="text" id="join-code" placeholder="e.g., A1B2C" maxlength="5" style="text-transform: uppercase; letter-spacing: 6px; font-size: 1.3rem;">
+                </div>
 
-            <div class="btn-group">
-                <button class="btn-primary" onclick="handleJoinRoom()">Join Lobby</button>
-                <button class="btn-secondary" onclick="showScreen('view-menu')">Back</button>
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="handleJoinRoom()"><i data-lucide="key-round" size="20"></i> Join Lobby</button>
+                    <button class="btn-secondary" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="20"></i> Back</button>
+                </div>
             </div>
-        </div>
+        </section>
 
         <!-- VIEW 4: LOBBY SCREEN -->
-        <div id="view-lobby" class="hidden">
-            <div class="room-badge">
-                <span style="font-size: 0.85rem; color: var(--accent-gold); display: block; margin-bottom: 6px; letter-spacing: 2.5px; font-weight: 800;">BATTLE CODE</span>
-                <span id="display-room-code" class="room-code">-----</span>
+        <section id="view-lobby" class="screen hidden">
+            <button class="back-btn" onclick="leaveToMenu()"><i data-lucide="arrow-left" size="18"></i> Leave</button>
+            <div class="lobby-wrap">
+                <div class="room-badge">
+                    <span style="font-size: 0.85rem; color: var(--accent-gold); display: block; margin-bottom: 8px; letter-spacing: 3px; font-weight: 800;">BATTLE CODE</span>
+                    <span id="display-room-code" class="room-code">-----</span>
+                </div>
+
+                <label class="lobby-section-label">Squad Members (<span id="player-count">0</span>/<span id="player-max">0</span>)</label>
+                <ul id="player-list-ui" class="player-grid"></ul>
+
+                <div id="lobby-role-breakdown" class="role-preview">Waiting for roster...</div>
+
+                <div class="btn-start-row" id="host-controls">
+                    <button id="btn-start-game" class="btn-primary" onclick="handleStartGame()" disabled>
+                        <i data-lucide="moon" size="22"></i> Start Match (Host Only)
+                    </button>
+                </div>
             </div>
-
-            <label style="margin-bottom: 12px;">Squad Members (<span id="player-count">0</span>/<span id="player-max">0</span>):</label>
-            <ul id="player-list-ui" class="player-list"></ul>
-
-            <div id="lobby-role-breakdown" class="role-preview">Waiting for roster...</div>
-
-            <div id="host-controls">
-                <button id="btn-start-game" class="btn-primary" style="width: 100%;" onclick="handleStartGame()" disabled>
-                    Start Match (Host Only)
-                </button>
-            </div>
-        </div>
+        </section>
 
         <!-- VIEW 5: ACTIVE GAME SCREEN -->
-        <div id="view-game" class="hidden">
-            <div class="role-card">
-                <p style="font-size: 0.75rem; color: var(--accent-gold); margin-bottom: 4px; letter-spacing: 2.5px; text-transform: uppercase; font-weight: 800;">Assigned Role</p>
-                <div id="my-role-display" class="card-title">Secret Card</div>
-                <p id="my-role-desc" style="font-size: 0.9rem; color: #cbd5e1; font-weight: 700;">Survive the night and expose the threat!</p>
+        <section id="view-game" class="screen hidden">
+            <div class="game-topbar">
+                <div class="game-brand"><i data-lucide="paw-print" size="22"></i> Werewolf</div>
+                <span class="game-room-tag" id="game-room-code">-----</span>
+                <button class="btn-secondary exit-btn" id="btn-back-menu" onclick="leaveToMenu()"><i data-lucide="log-out" size="16"></i> Exit</button>
             </div>
 
-            <div class="event-banner">
-                <strong>Phase: <span id="game-phase-text" style="color: var(--accent-gold);">Day Chat</span></strong> <span id="chat-timer-badge" style="float: right; font-weight: 800; color: var(--accent-gold);">⏱️️ 15s</span><br>
-                <span id="game-event-log">Discuss before the first night falls...</span>
-            </div>
+            <div class="game-grid">
+                <div class="game-main">
+                    <div class="game-role-row">
+                        <div class="role-card">
+                            <p style="font-size: 0.72rem; color: var(--accent-gold); margin-bottom: 6px; letter-spacing: 2.5px; text-transform: uppercase; font-weight: 800;">Assigned Role</p>
+                            <div id="my-role-display" class="card-title"><i data-lucide="paw-print" size="26"></i> Secret Card</div>
+                            <p id="my-role-desc" style="font-size: 0.88rem; color: #cbd5e1; font-weight: 700; margin-top: 6px;">Survive the night and expose the threat!</p>
+                        </div>
 
-            <label id="game-list-label" style="margin-bottom: 8px;">Living Players:</label>
-            <ul id="game-player-list" class="player-list"></ul>
+                        <div class="event-banner" id="event-banner">
+                                <strong>Phase: <span id="game-phase-text" style="color: var(--accent-gold);">Day Chat</span></strong>
+                                <span id="chat-timer-badge" class="timer-badge">⏱️ 15s</span><br>
+                                <span id="game-event-log">Discuss before the first night falls...</span>
+                        </div>
+                    </div>
 
-            <!-- In-game Chat Box -->
-            <div class="chat-container">
-                <div id="chat-messages" class="chat-messages">
-                    <div class="chat-message"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>
+                    <label id="game-list-label" style="margin-bottom: 8px; font-size: 0.9rem;">Living Players:</label>
+                    <ul id="game-player-list" class="game-player-list"></ul>
                 </div>
-                <div class="chat-input-bar">
-                    <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
-                    <button class="btn-primary chat-send-btn" onclick="sendChatMessage()">Send</button>
+
+                <div class="game-side">
+                    <div class="chat-container">
+                        <div class="chat-header"><i data-lucide="message-square" size="17"></i> Village Chat</div>
+                        <div id="chat-messages" class="chat-messages">
+                            <div class="chat-message"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>
+                        </div>
+                        <div class="chat-input-bar">
+                            <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                            <button class="chat-send-btn" onclick="sendChatMessage()"><i data-lucide="send" size="18"></i></button>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </section>
 
-            <button id="btn-back-menu" class="btn-secondary hidden" style="width: 100%; margin-top: 16px;" onclick="showScreen('view-menu')">Return to Menu</button>
-        </div>
-
-    </div>
+    </main>
 
     <script>
         let state = {
@@ -507,25 +1048,88 @@
             pollInterval: null,
             chatTimerInterval: null,
             chatTimeRemaining: 15,
-            inPreNightChat: true
+            inPreNightChat: true,
+            lastEvent: '',
+            lastPhase: ''
         };
 
+        /* ================= AMBIENT PARTICLES ================= */
+        function initAmbient() {
+            const starsEl = document.getElementById('stars');
+            let starsHtml = '';
+            for (let i = 0; i < 110; i++) {
+                const size = (Math.random() * 2 + 1).toFixed(1);
+                const x = (Math.random() * 100).toFixed(2);
+                const y = (Math.random() * 100).toFixed(2);
+                const tw = (Math.random() * 4 + 2).toFixed(1);
+                const delay = (Math.random() * 5).toFixed(1);
+                starsHtml += `<div class="star" style="width:${size}px;height:${size}px;left:${x}%;top:${y}%;--tw:${tw}s;animation-delay:${delay}s;"></div>`;
+            }
+            starsEl.innerHTML = starsHtml;
+
+            const embersEl = document.getElementById('embers');
+            let embersHtml = '';
+            for (let i = 0; i < 24; i++) {
+                const size = (Math.random() * 4 + 3).toFixed(1);
+                const x = (Math.random() * 100).toFixed(2);
+                const dur = (Math.random() * 10 + 9).toFixed(1);
+                const delay = (Math.random() * 14).toFixed(1);
+                const drift = (Math.random() * 120 - 60).toFixed(0);
+                const op = (Math.random() * 0.4 + 0.35).toFixed(2);
+                embersHtml += `<div class="ember" style="width:${size}px;height:${size}px;left:${x}%;--er:${dur}s;animation-delay:${delay}s;--ex:${drift}px;--eo:${op};"></div>`;
+            }
+            embersEl.innerHTML = embersHtml;
+        }
+
+        /* ================= PHASE THEMING ================= */
+        function setPhase(phase) {
+            if (state.lastPhase === phase) return;
+            state.lastPhase = phase;
+            document.body.dataset.phase = phase;
+            const flash = document.getElementById('phase-flash');
+            if (phase === 'night') {
+                flash.className = 'phase-flash';
+                void flash.offsetWidth; // restart animation
+                flash.classList.add('night');
+            } else if (phase === 'day') {
+                flash.className = 'phase-flash';
+                void flash.offsetWidth;
+                flash.classList.add('day');
+            }
+        }
+
+        /* ================= NAVIGATION ================= */
         function showScreen(screenId) {
             ['view-menu', 'view-create', 'view-join', 'view-lobby', 'view-game'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
-            document.getElementById(screenId).classList.remove('hidden');
-
-            if (screenId === 'view-game') {
-                document.body.classList.add('in-game-layout');
-            } else {
-                document.body.classList.remove('in-game-layout');
+            const target = document.getElementById(screenId);
+            target.classList.add('hidden'); // reset animation
+            target.classList.remove('hidden');
+            target.style.animation = 'none';
+            void target.offsetWidth;
+            target.style.animation = '';
+            if (screenId === 'view-menu' || screenId === 'view-create' || screenId === 'view-join') {
+                setPhase('menu');
             }
-
-            if(screenId === 'view-create') updateRolePreview();
+            if (screenId === 'view-lobby') setPhase('lobby');
+            if (screenId === 'view-create') updateRolePreview();
             lucide.createIcons();
         }
 
+        function leaveToMenu() {
+            if (state.pollInterval) { clearInterval(state.pollInterval); state.pollInterval = null; }
+            if (state.chatTimerInterval) { clearInterval(state.chatTimerInterval); state.chatTimerInterval = null; }
+            state.roomCode = '';
+            state.token = '';
+            state.inPreNightChat = true;
+            state.lastEvent = '';
+            state.lastPhase = '';
+            document.getElementById('game-event-log').innerText = 'Discuss before the first night falls...';
+            showScreen('view-menu');
+        }
+
+        /* ================= ROLE PREVIEW ================= */
         function updateRolePreview() {
             const count = parseInt(document.getElementById('max-players').value);
             const wolves = 1 + Math.floor((count - 4) / 3);
@@ -541,6 +1145,7 @@
             lucide.createIcons();
         }
 
+        /* ================= CUTSCENES ================= */
         function triggerCutscene(sceneKey, callback) {
             const overlay = document.getElementById('cutscene-overlay');
             const iconContainer = document.getElementById('cutscene-icon');
@@ -560,13 +1165,19 @@
             sub.innerText = scene.sub;
             lucide.createIcons();
 
+            overlay.classList.remove('fade-out');
             overlay.style.display = 'flex';
             setTimeout(() => {
-                overlay.style.display = 'none';
-                if(callback) callback();
-            }, 2000);
+                overlay.classList.add('fade-out');
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    overlay.classList.remove('fade-out');
+                    if (callback) callback();
+                }, 320);
+            }, 1700);
         }
 
+        /* ================= ROOM ACTIONS ================= */
         async function handleCreateRoom() {
             state.nickname = document.getElementById('nickname').value || 'Host';
             const maxPlayers = document.getElementById('max-players').value;
@@ -621,6 +1232,8 @@
         }
 
         async function handleStartGame() {
+            const btn = document.getElementById('btn-start-game');
+            btn.disabled = true;
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -634,34 +1247,37 @@
                 });
             } else {
                 alert(data.message);
+                btn.disabled = false;
             }
         }
 
+        /* ================= PRE-NIGHT CHAT TIMER ================= */
         function startPreNightChat() {
             state.inPreNightChat = true;
             state.chatTimeRemaining = 15;
-            document.getElementById('chat-timer-badge').style.display = 'inline';
-            
-            if(state.chatTimerInterval) clearInterval(state.chatTimerInterval);
+            document.getElementById('chat-timer-badge').style.display = 'inline-block';
+
+            if (state.chatTimerInterval) clearInterval(state.chatTimerInterval);
 
             state.chatTimerInterval = setInterval(() => {
                 state.chatTimeRemaining--;
                 const badge = document.getElementById('chat-timer-badge');
-                if(badge) badge.innerText = `⏱️️ ${state.chatTimeRemaining}s`;
+                if (badge) badge.innerText = `⏱️ ${state.chatTimeRemaining}s`;
 
-                if(state.chatTimeRemaining <= 0) {
+                if (state.chatTimeRemaining <= 0) {
                     clearInterval(state.chatTimerInterval);
                     state.inPreNightChat = false;
-                    if(badge) badge.style.display = 'none';
+                    if (badge) badge.style.display = 'none';
                     appendSystemMessage("Chat time ended! First night begins...");
                 }
             }, 1000);
         }
 
+        /* ================= CHAT ================= */
         async function sendChatMessage() {
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
-            if(!text) return;
+            if (!text) return;
 
             const res = await fetch('backend.php', {
                 method: 'POST',
@@ -682,6 +1298,7 @@
             chatMsgs.scrollTop = chatMsgs.scrollHeight;
         }
 
+        /* ================= ACTIONS ================= */
         async function submitNightAction(targetId) {
             const res = await fetch('backend.php', {
                 method: 'POST',
@@ -689,7 +1306,7 @@
                 body: new URLSearchParams({ action: 'night_action', room_code: state.roomCode, token: state.token, target_id: targetId })
             });
             const data = await res.json();
-            if(data.status !== 'success') alert(data.message);
+            if (data.status !== 'success') alert(data.message);
         }
 
         async function submitDayVote(voteId) {
@@ -699,12 +1316,51 @@
                 body: new URLSearchParams({ action: 'day_vote', room_code: state.roomCode, token: state.token, vote_id: voteId })
             });
             const data = await res.json();
-            if(data.status !== 'success') alert(data.message);
+            if (data.status !== 'success') alert(data.message);
         }
 
+        /* ================= RENDER HELPERS ================= */
+        function playerCardHtml(p, data, extra, index) {
+            const isMe = (p.id === data.my_id);
+            const statusIcon = p.is_alive
+                ? '<i data-lucide="shield" size="20" style="color: #38bdf8; flex: none;"></i>'
+                : '<i data-lucide="skull" size="20" style="color: var(--accent-red); flex: none;"></i>';
+            const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
+            const youTag = isMe ? '<span class="you-tag">YOU</span>' : '';
+            const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''}`;
+            return `
+                <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
+                    <span class="player-info-wrap">${statusIcon} <span class="pname">${p.nickname}</span> ${youTag} ${bloodPile}</span>
+                    ${extra}
+                </li>
+            `;
+        }
+
+        function flashEventBanner() {
+            const banner = document.getElementById('event-banner');
+            banner.classList.remove('flash');
+            void banner.offsetWidth;
+            banner.classList.add('flash');
+        }
+
+        function setRoleIcon(role) {
+            const icons = {
+                'Werewolf': 'paw-print',
+                'Villager': 'shield',
+                'Seer': 'eye',
+                'Doctor': 'cross',
+                'Witch': 'flask-conical',
+                'Hunter': 'crosshair',
+                'Cupid': 'heart'
+            };
+            return `<i data-lucide="${icons[role] || 'user'}" size="26"></i>`;
+        }
+
+        /* ================= POLLING ================= */
         function startGamePolling() {
             document.getElementById('display-room-code').innerText = state.roomCode;
-            
+            document.getElementById('game-room-code').innerText = state.roomCode;
+
             state.pollInterval = setInterval(async () => {
                 const res = await fetch('backend.php', {
                     method: 'POST',
@@ -713,169 +1369,152 @@
                 });
 
                 const data = await res.json();
-                if (data.status === 'success') {
-                    // Render incoming messages from database
-                    if (data.messages) {
-                        const chatMsgs = document.getElementById('chat-messages');
-                        chatMsgs.innerHTML = data.messages.map(m => `
-                            <div class="chat-message"><span class="sender">${m.sender_name}:</span> ${m.message}</div>
-                        `).join('');
-                        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+                if (data.status !== 'success') return;
+
+                // Render incoming messages from database
+                if (data.messages) {
+                    const chatMsgs = document.getElementById('chat-messages');
+                    const newHtml = data.messages.map(m => `
+                        <div class="chat-message"><span class="sender">${m.sender_name}:</span> ${m.message}</div>
+                    `).join('');
+                    if (chatMsgs.dataset.lastCount !== String(data.messages.length)) {
+                        chatMsgs.innerHTML = newHtml;
+                        chatMsgs.dataset.lastCount = data.messages.length;
+                    }
+                    chatMsgs.scrollTop = chatMsgs.scrollHeight;
+                }
+
+                if (data.room_status === 'lobby') {
+                    setPhase('lobby');
+                    document.getElementById('player-count').innerText = data.current_count;
+                    document.getElementById('player-max').innerText = data.max_players;
+
+                    const listUI = document.getElementById('player-list-ui');
+                    listUI.innerHTML = data.players.map((p, i) => playerCardHtml(p, data, '', i)).join('');
+                    lucide.createIcons();
+
+                    if (data.role_breakdown) {
+                        const b = data.role_breakdown;
+                        document.getElementById('lobby-role-breakdown').innerHTML = `
+                            <strong>Squad Allocation (${data.current_count} Players):</strong><br>
+                            <span class="role-tag"><i data-lucide="skull" size="16" style="color: #ff4d4d;"></i> ${b.werewolves} Werewolf</span>
+                            <span class="role-tag"><i data-lucide="sparkles" size="16" style="color: var(--accent-gold);"></i> ${b.specials} Specials</span>
+                            <span class="role-tag"><i data-lucide="shield" size="16" style="color: #38bdf8;"></i> ${b.villagers} Villagers</span>
+                        `;
+                        lucide.createIcons();
                     }
 
-                    if (data.room_status === 'lobby') {
-                        document.getElementById('player-count').innerText = data.current_count;
-                        document.getElementById('player-max').innerText = data.max_players;
-
-                        const listUI = document.getElementById('player-list-ui');
-                        listUI.innerHTML = data.players.map(p => `
-                            <li class="player-item">
-                                <span class="player-info-wrap"><i data-lucide="user" size="20" style="color: var(--accent-gold);"></i> ${p.nickname}</span>
-                            </li>
-                        `).join('');
-                        lucide.createIcons();
-
-                        if(data.role_breakdown) {
-                            const b = data.role_breakdown;
-                            document.getElementById('lobby-role-breakdown').innerHTML = `
-                                <strong>Squad Allocation (${data.current_count} Players):</strong><br>
-                                <span class="role-tag"><i data-lucide="skull" size="16" style="color: #ff4d4d;"></i> ${b.werewolves} Werewolf</span> 
-                                <span class="role-tag"><i data-lucide="sparkles" size="16" style="color: var(--accent-gold);"></i> ${b.specials} Specials</span> 
-                                <span class="role-tag"><i data-lucide="shield" size="16" style="color: #38bdf8;"></i> ${b.villagers} Villagers</span>
-                            `;
-                            lucide.createIcons();
-                        }
-
-                        const startBtn = document.getElementById('btn-start-game');
-                        if (data.is_host) {
-                            startBtn.style.display = 'block';
-                            startBtn.disabled = data.current_count < 4;
-                        } else {
-                            startBtn.style.display = 'none';
-                        }
+                    const startBtn = document.getElementById('btn-start-game');
+                    const hostControls = document.getElementById('host-controls');
+                    if (data.is_host) {
+                        hostControls.style.display = 'flex';
+                        const canStart = data.current_count >= 4;
+                        startBtn.disabled = !canStart;
+                        startBtn.classList.toggle('btn-start-ready', canStart);
                     } else {
-                        const viewGame = document.getElementById('view-game');
-                        if (viewGame.classList.contains('hidden')) {
-                            showScreen('view-game');
-                            startPreNightChat();
-                        }
+                        hostControls.style.display = 'none';
+                    }
+                } else {
+                    const viewGame = document.getElementById('view-game');
+                    if (viewGame.classList.contains('hidden')) {
+                        showScreen('view-game');
+                        startPreNightChat();
+                    }
 
-                        document.getElementById('my-role-display').innerText = data.my_role;
+                    setPhase(data.room_status);
+
+                    const roleDisplay = document.getElementById('my-role-display');
+                    if (roleDisplay.dataset.role !== data.my_role) {
+                        roleDisplay.dataset.role = data.my_role;
+                        roleDisplay.innerHTML = `${setRoleIcon(data.my_role)} ${data.my_role}`;
+                        lucide.createIcons();
+                    }
+
+                    if (data.last_event && data.last_event !== state.lastEvent) {
+                        state.lastEvent = data.last_event;
                         document.getElementById('game-event-log').innerHTML = data.last_event || 'Game in progress...';
+                        flashEventBanner();
+                    }
 
-                        const phaseText = document.getElementById('game-phase-text');
-                        const gameListLabel = document.getElementById('game-list-label');
-                        const gamePlayerList = document.getElementById('game-player-list');
-                        const backMenuBtn = document.getElementById('btn-back-menu');
+                    const phaseText = document.getElementById('game-phase-text');
+                    const gameListLabel = document.getElementById('game-list-label');
+                    const gamePlayerList = document.getElementById('game-player-list');
 
-                        // Handle Pre-Night 15s chat window override
-                        if (state.inPreNightChat && data.room_status === 'night') {
-                            phaseText.innerHTML = '<i data-lucide="message-square" size="18" style="vertical-align: middle;"></i> Opening Chat Phase';
-                            phaseText.style.color = 'var(--accent-gold)';
-                            gameListLabel.innerText = 'Squad Roster (Talking before night):';
+                    // Handle Pre-Night 15s chat window override
+                    if (state.inPreNightChat && data.room_status === 'night') {
+                        phaseText.innerHTML = '<i data-lucide="message-square" size="18" style="vertical-align: middle;"></i> Opening Chat Phase';
+                        phaseText.style.color = 'var(--accent-gold)';
+                        gameListLabel.innerText = 'Squad Roster (Talking before night):';
 
-                            gamePlayerList.innerHTML = data.players.map(p => {
-                                const isMe = (p.id === data.my_id);
-                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="20" style="color: var(--accent-red);"></i>';
-                                const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
+                        gamePlayerList.innerHTML = data.players.map((p, i) => playerCardHtml(p, data, '', i)).join('');
+                        lucide.createIcons();
+                        return; // Skip standard night targeting until timer elapses
+                    }
 
-                                return `
-                                    <li class="player-item ${p.is_alive ? '' : 'dead'}">
-                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} ${isMe ? '(You)' : ''} ${bloodPile}</span>
-                                    </li>
-                                `;
-                            }).join('');
-                            lucide.createIcons();
-                            return; // Skip standard night targeting until timer elapses
+                    if (data.room_status === 'night') {
+                        phaseText.innerHTML = '<i data-lucide="moon" size="18" style="vertical-align: middle;"></i> Night Phase';
+                        phaseText.style.color = '#ff4d4d';
+
+                        if (data.my_role === 'Werewolf' && data.is_alive) {
+                            gameListLabel.innerText = data.has_voted ? '🔒 Target locked in! Waiting for others...' : 'Select a Victim to Eliminate:';
+                        } else {
+                            gameListLabel.innerText = 'Squad Members (Asleep):';
                         }
 
-                        if (data.room_status === 'night') {
-                            phaseText.innerHTML = '<i data-lucide="moon" size="18" style="vertical-align: middle;"></i> Night Phase';
-                            phaseText.style.color = '#ff4d4d';
-                            
-                            if (data.my_role === 'Werewolf' && data.is_alive) {
-                                gameListLabel.innerText = data.has_voted ? '🔒 Target locked in! Waiting for others...' : 'Select a Victim to Eliminate:';
-                            } else {
-                                gameListLabel.innerText = 'Squad Members (Asleep):';
+                        gamePlayerList.innerHTML = data.players.map((p, i) => {
+                            const canKill = (data.my_role === 'Werewolf' && data.is_alive && p.is_alive && p.id !== data.my_id);
+                            const isTarget = (data.my_target_id === p.id);
+
+                            let actionBtn = '';
+                            if (canKill) {
+                                if (isTarget) {
+                                    actionBtn = `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Targeted</button>`;
+                                } else {
+                                    actionBtn = `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
+                                }
                             }
-                            
-                            gamePlayerList.innerHTML = data.players.map(p => {
-                                const isMe = (p.id === data.my_id);
-                                const canKill = (data.my_role === 'Werewolf' && data.is_alive && p.is_alive && !isMe);
-                                const isTarget = (data.my_target_id === p.id);
+                            return playerCardHtml(p, data, actionBtn, i);
+                        }).join('');
+                        lucide.createIcons();
+                    } else if (data.room_status === 'day') {
+                        phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Voting Phase';
+                        phaseText.style.color = 'var(--accent-gold)';
 
-                                let actionBtn = '';
-                                if (canKill) {
-                                    if (isTarget) {
-                                        actionBtn = `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Targeted ✓</button>`;
-                                    } else {
-                                        actionBtn = `<button class="btn-action" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
-                                    }
+                        gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):');
+
+                        gamePlayerList.innerHTML = data.players.map((p, i) => {
+                            const canVote = (data.is_alive && p.is_alive);
+                            const isVoteTarget = (data.my_vote_id === p.id);
+
+                            let actionBtn = '';
+                            if (canVote) {
+                                if (isVoteTarget) {
+                                    actionBtn = `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Voted</button>`;
+                                } else {
+                                    actionBtn = `<button class="btn-action" onclick="submitDayVote(${p.id})"><i data-lucide="vote" size="16"></i> Vote</button>`;
                                 }
+                            }
+                            return playerCardHtml(p, data, actionBtn, i);
+                        }).join('');
+                        lucide.createIcons();
+                    } else if (data.room_status === 'ended') {
+                        phaseText.innerHTML = '<i data-lucide="trophy" size="18" style="vertical-align: middle;"></i> Match Concluded';
+                        phaseText.style.color = '#38bdf8';
+                        gameListLabel.innerText = 'Final Squad Roster:';
 
-                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="20" style="color: var(--accent-red);"></i>';
-                                const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
-
-                                return `
-                                    <li class="player-item ${p.is_alive ? '' : 'dead'}">
-                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} ${isMe ? '(You)' : ''} ${bloodPile}</span>
-                                        ${actionBtn}
-                                    </li>
-                                `;
-                            }).join('');
-                            lucide.createIcons();
-                        } else if (data.room_status === 'day') {
-                            phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Voting Phase';
-                            phaseText.style.color = 'var(--accent-gold)';
-                            
-                            gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):');
-
-                            gamePlayerList.innerHTML = data.players.map(p => {
-                                const isMe = (p.id === data.my_id);
-                                const canVote = (data.is_alive && p.is_alive);
-                                const isVoteTarget = (data.my_vote_id === p.id);
-
-                                let actionBtn = '';
-                                if (canVote) {
-                                    if (isVoteTarget) {
-                                        actionBtn = `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Voted ✓</button>`;
-                                    } else {
-                                        actionBtn = `<button class="btn-action" onclick="submitDayVote(${p.id})"><i data-lucide="vote" size="16"></i> Vote</button>`;
-                                    }
-                                }
-
-                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="20" style="color: var(--accent-red);"></i>';
-                                const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
-
-                                return `
-                                    <li class="player-item ${p.is_alive ? '' : 'dead'}">
-                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} ${isMe ? '(You)' : ''} ${bloodPile}</span>
-                                        ${actionBtn}
-                                    </li>
-                                `;
-                            }).join('');
-                            lucide.createIcons();
-                        } else if (data.room_status === 'ended') {
-                            phaseText.innerHTML = '<i data-lucide="trophy" size="18" style="vertical-align: middle;"></i> Match Concluded';
-                            phaseText.style.color = '#38bdf8';
-                            gameListLabel.innerText = 'Final Squad Roster:';
-                            backMenuBtn.classList.remove('hidden');
-
-                            gamePlayerList.innerHTML = data.players.map(p => {
-                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="20" style="color: var(--accent-red);"></i>';
-                                const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
-                                return `
-                                    <li class="player-item ${p.is_alive ? '' : 'dead'}">
-                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} — Role: <strong>${p.role}</strong> ${bloodPile}</span>
-                                    </li>
-                                `;
-                            }).join('');
-                            lucide.createIcons();
-                        }
+                        gamePlayerList.innerHTML = data.players.map((p, i) => {
+                            const roleChip = `<span style="font-weight: 800; color: ${p.role === 'Werewolf' ? '#ff4d4d' : 'var(--accent-gold)'};">${p.role}</span>`;
+                            return playerCardHtml(p, data, roleChip, i);
+                        }).join('');
+                        lucide.createIcons();
                     }
                 }
             }, 1500);
         }
+
+        /* ================= INIT ================= */
+        initAmbient();
+        lucide.createIcons();
     </script>
 </body>
 </html>
