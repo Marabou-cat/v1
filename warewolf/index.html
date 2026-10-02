@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
             --bg-color: #08090c;
@@ -32,6 +34,7 @@
             padding: 16px;
         }
 
+        /* Default container for Menus and Lobby */
         .container {
             width: 100%;
             max-width: 600px;
@@ -44,6 +47,42 @@
 
         @media (min-width: 768px) {
             .container { padding: 40px; }
+        }
+
+        /* Full-screen override when active game view is open */
+        body.in-game-layout {
+            padding: 0;
+            align-items: stretch;
+        }
+
+        body.in-game-layout .container {
+            max-width: 100% !important;
+            height: 100vh;
+            border-radius: 0;
+            border: none;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-color);
+            padding: 20px;
+            box-shadow: none;
+        }
+
+        @media (min-width: 768px) {
+            body.in-game-layout .container { padding: 32px 48px; }
+        }
+
+        body.in-game-layout #view-game {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        body.in-game-layout #game-player-list {
+            flex: 1;
+            max-height: none;
         }
 
         h1 { 
@@ -110,7 +149,17 @@
         .btn-secondary { background: #1a202c; color: #cbd5e1; border: 1px solid var(--border-color); }
         .btn-secondary:hover { background: #252c38; color: white; }
         
-        .btn-action { background: #2b8a3e; color: white; padding: 8px 14px; font-size: 0.8rem; width: auto; border-radius: 6px; }
+        .btn-action { 
+            background: #2b8a3e; 
+            color: white; 
+            padding: 8px 14px; 
+            font-size: 0.8rem; 
+            width: auto; 
+            border-radius: 6px; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 6px; 
+        }
         .btn-action:hover { background: #2f9e44; }
         
         .btn-voted { background: #1864ab !important; color: white !important; cursor: default; box-shadow: none; }
@@ -137,7 +186,7 @@
         .player-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
 
         .player-item {
-            background: #090b0e;
+            background: var(--panel-bg);
             padding: 12px 16px;
             border-radius: 8px;
             margin-bottom: 8px;
@@ -146,8 +195,12 @@
             align-items: center;
             border-left: 4px solid var(--accent-gold);
             font-size: 0.95rem;
+            border-top: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
         }
         .player-item.dead { border-left-color: var(--accent-red); opacity: 0.55; text-decoration: line-through; }
+        .player-info-wrap { display: flex; align-items: center; gap: 10px; }
 
         .role-preview {
             background: #090b0e;
@@ -158,7 +211,7 @@
             border: 1px solid var(--border-color);
             line-height: 1.6;
         }
-        .role-tag { display: inline-block; padding: 3px 8px; border-radius: 4px; background: #1a202c; margin: 2px; font-weight: 600; }
+        .role-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; background: #1a202c; margin: 2px; font-weight: 600; }
 
         .role-card {
             background: linear-gradient(145deg, #181d26, #090b0e);
@@ -179,7 +232,7 @@
         }
 
         .event-banner {
-            background: #090b0e;
+            background: var(--panel-bg);
             border-left: 4px solid var(--accent-gold);
             padding: 14px;
             border-radius: 8px;
@@ -187,6 +240,9 @@
             margin-bottom: 20px;
             color: #e2e8f0;
             line-height: 1.5;
+            border-top: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
         }
 
         #cutscene-overlay {
@@ -202,7 +258,7 @@
             padding: 20px;
             animation: fadeIn 0.3s ease;
         }
-        .cutscene-icon { font-size: 4rem; margin-bottom: 16px; animation: pulse 1.5s infinite; }
+        .cutscene-icon { font-size: 4rem; margin-bottom: 16px; animation: pulse 1.5s infinite; color: var(--accent-gold); }
         .cutscene-text { 
             font-family: 'Cinzel', serif;
             font-size: 1.6rem; 
@@ -214,7 +270,6 @@
         .cutscene-sub { font-size: 0.95rem; color: var(--text-muted); margin-top: 8px; }
 
         @media (min-width: 768px) {
-            .cutscene-icon { font-size: 5rem; }
             .cutscene-text { font-size: 2.2rem; }
         }
 
@@ -228,7 +283,7 @@
 
     <!-- CUTSCENE OVERLAY -->
     <div id="cutscene-overlay">
-        <div id="cutscene-icon" class="cutscene-icon">🏰</div>
+        <div id="cutscene-icon" class="cutscene-icon"><i data-lucide="castle" size="64"></i></div>
         <div id="cutscene-text" class="cutscene-text">Building Fortress...</div>
         <div id="cutscene-sub" class="cutscene-sub">Preparing the lobby</div>
     </div>
@@ -340,7 +395,15 @@
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById(screenId).classList.remove('hidden');
+
+            if (screenId === 'view-game') {
+                document.body.classList.add('in-game-layout');
+            } else {
+                document.body.classList.remove('in-game-layout');
+            }
+
             if(screenId === 'view-create') updateRolePreview();
+            lucide.createIcons();
         }
 
         function updateRolePreview() {
@@ -351,29 +414,31 @@
 
             document.getElementById('create-role-info').innerHTML = `
                 <strong>Card Distribution:</strong><br>
-                <span class="role-tag" style="color: #ff6b6b;">Werewolves: ${wolves}</span>
-                <span class="role-tag" style="color: var(--accent-gold);">Special Roles: ${specials}</span>
-                <span class="role-tag" style="color: #38bdf8;">Villagers: ${villagers}</span>
+                <span class="role-tag" style="color: #ff6b6b;"><i data-lucide="skull" size="14"></i> Werewolves: ${wolves}</span>
+                <span class="role-tag" style="color: var(--accent-gold);"><i data-lucide="sparkles" size="14"></i> Special Roles: ${specials}</span>
+                <span class="role-tag" style="color: #38bdf8;"><i data-lucide="user" size="14"></i> Villagers: ${villagers}</span>
             `;
+            lucide.createIcons();
         }
 
         function triggerCutscene(sceneKey, callback) {
             const overlay = document.getElementById('cutscene-overlay');
-            const icon = document.getElementById('cutscene-icon');
+            const iconContainer = document.getElementById('cutscene-icon');
             const text = document.getElementById('cutscene-text');
             const sub = document.getElementById('cutscene-sub');
 
             const scenes = {
-                'scene_room_created': { icon: '🏰', title: 'Fortress Created', sub: 'Gathering local villagers...' },
-                'scene_door_open': { icon: '🚪', title: 'Tavern Doors Open', sub: 'Entering the room...' },
-                'scene_night_falls': { icon: '🌙', title: 'Blood Moon Rises', sub: 'The village falls asleep...' },
-                'scene_error': { icon: '⚡', title: 'Action Failed', sub: 'An error occurred' }
+                'scene_room_created': { icon: 'castle', title: 'Fortress Created', sub: 'Gathering local villagers...' },
+                'scene_door_open': { icon: 'door-open', title: 'Tavern Doors Open', sub: 'Entering the room...' },
+                'scene_night_falls': { icon: 'moon', title: 'Blood Moon Rises', sub: 'The village falls asleep...' },
+                'scene_error': { icon: 'zap', title: 'Action Failed', sub: 'An error occurred' }
             };
 
-            const scene = scenes[sceneKey] || { icon: '🔮', title: 'Processing...', sub: '' };
-            icon.innerText = scene.icon;
+            const scene = scenes[sceneKey] || { icon: 'help-circle', title: 'Processing...', sub: '' };
+            iconContainer.innerHTML = `<i data-lucide="${scene.icon}" size="64"></i>`;
             text.innerText = scene.title;
             sub.innerText = scene.sub;
+            lucide.createIcons();
 
             overlay.style.display = 'flex';
             setTimeout(() => {
@@ -487,14 +552,22 @@
                         document.getElementById('player-max').innerText = data.max_players;
 
                         const listUI = document.getElementById('player-list-ui');
-                        listUI.innerHTML = data.players.map(p => `<li class="player-item">👤 ${p.nickname}</li>`).join('');
+                        listUI.innerHTML = data.players.map(p => `
+                            <li class="player-item">
+                                <span class="player-info-wrap"><i data-lucide="user" size="16" style="color: var(--text-muted);"></i> ${p.nickname}</span>
+                            </li>
+                        `).join('');
+                        lucide.createIcons();
 
                         if(data.role_breakdown) {
                             const b = data.role_breakdown;
                             document.getElementById('lobby-role-breakdown').innerHTML = `
                                 <strong>Current Role Pool (${data.current_count} Players):</strong><br>
-                                🐺 ${b.werewolves} Werewolf | 🔮 ${b.specials} Special Cards | 🌾 ${b.villagers} Villagers
+                                <span class="role-tag"><i data-lucide="skull" size="14" style="color: #ff6b6b;"></i> ${b.werewolves} Werewolf</span> 
+                                <span class="role-tag"><i data-lucide="sparkles" size="14" style="color: var(--accent-gold);"></i> ${b.specials} Special Cards</span> 
+                                <span class="role-tag"><i data-lucide="user" size="14" style="color: #38bdf8;"></i> ${b.villagers} Villagers</span>
                             `;
+                            lucide.createIcons();
                         }
 
                         const startBtn = document.getElementById('btn-start-game');
@@ -519,7 +592,7 @@
                         const backMenuBtn = document.getElementById('btn-back-menu');
 
                         if (data.room_status === 'night') {
-                            phaseText.innerText = '🌙 Night Phase';
+                            phaseText.innerHTML = '<i data-lucide="moon" size="16" style="vertical-align: middle;"></i> Night Phase';
                             phaseText.style.color = '#ff6b6b';
                             
                             if (data.my_role === 'Werewolf' && data.is_alive) {
@@ -536,21 +609,24 @@
                                 let actionBtn = '';
                                 if (canKill) {
                                     if (isTarget) {
-                                        actionBtn = `<button class="btn-action btn-voted" disabled>Targeted ✓</button>`;
+                                        actionBtn = `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="14"></i> Targeted ✓</button>`;
                                     } else {
-                                        actionBtn = `<button class="btn-action" onclick="submitNightAction(${p.id})">Kill</button>`;
+                                        actionBtn = `<button class="btn-action" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="14"></i> Kill</button>`;
                                     }
                                 }
 
+                                const statusIcon = p.is_alive ? '<i data-lucide="user" size="16" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="16" style="color: var(--accent-red);"></i>';
+
                                 return `
                                     <li class="player-item ${p.is_alive ? '' : 'dead'}">
-                                        <span>${p.is_alive ? '👤' : '💀'} ${p.nickname} ${isMe ? '(You)' : ''}</span>
+                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} ${isMe ? '(You)' : ''}</span>
                                         ${actionBtn}
                                     </li>
                                 `;
                             }).join('');
+                            lucide.createIcons();
                         } else if (data.room_status === 'day') {
-                            phaseText.innerText = '☀️ Day Voting Phase';
+                            phaseText.innerHTML = '<i data-lucide="sun" size="16" style="vertical-align: middle;"></i> Day Voting Phase';
                             phaseText.style.color = 'var(--accent-gold)';
                             
                             gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Living Players (You are dead):');
@@ -563,30 +639,37 @@
                                 let actionBtn = '';
                                 if (canVote) {
                                     if (isVoteTarget) {
-                                        actionBtn = `<button class="btn-action btn-voted" disabled>Voted ✓</button>`;
+                                        actionBtn = `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="14"></i> Voted ✓</button>`;
                                     } else {
-                                        actionBtn = `<button class="btn-action" onclick="submitDayVote(${p.id})">Vote</button>`;
+                                        actionBtn = `<button class="btn-action" onclick="submitDayVote(${p.id})"><i data-lucide="vote" size="14"></i> Vote</button>`;
                                     }
                                 }
 
+                                const statusIcon = p.is_alive ? '<i data-lucide="user" size="16" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="16" style="color: var(--accent-red);"></i>';
+
                                 return `
                                     <li class="player-item ${p.is_alive ? '' : 'dead'}">
-                                        <span>${p.is_alive ? '👤' : '💀'} ${p.nickname} ${isMe ? '(You)' : ''}</span>
+                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} ${isMe ? '(You)' : ''}</span>
                                         ${actionBtn}
                                     </li>
                                 `;
                             }).join('');
+                            lucide.createIcons();
                         } else if (data.room_status === 'ended') {
-                            phaseText.innerText = '🏆 Game Over';
+                            phaseText.innerHTML = '<i data-lucide="trophy" size="16" style="vertical-align: middle;"></i> Game Over';
                             phaseText.style.color = '#38bdf8';
                             gameListLabel.innerText = 'Final Player Roster:';
                             backMenuBtn.classList.remove('hidden');
 
-                            gamePlayerList.innerHTML = data.players.map(p => `
-                                <li class="player-item ${p.is_alive ? '' : 'dead'}">
-                                    <span>${p.is_alive ? '👤' : '💀'} ${p.nickname} — Role: <strong>${p.role}</strong></span>
-                                </li>
-                            `).join('');
+                            gamePlayerList.innerHTML = data.players.map(p => {
+                                const statusIcon = p.is_alive ? '<i data-lucide="user" size="16" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="16" style="color: var(--accent-red);"></i>';
+                                return `
+                                    <li class="player-item ${p.is_alive ? '' : 'dead'}">
+                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} — Role: <strong>${p.role}</strong></span>
+                                    </li>
+                                `;
+                            }).join('');
+                            lucide.createIcons();
                         }
                     }
                 }
