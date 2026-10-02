@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 try {
     // Read Credentials strictly from ../config.ini
-    $configFile = __DIR__ . '../config.ini';
+    $configFile = __DIR__ . '/../config.ini';
     if (!file_exists($configFile) || !is_readable($configFile)) {
         die(json_encode([
             "status" => "error", 
