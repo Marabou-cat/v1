@@ -401,7 +401,8 @@
             playBrawlCutscene('scene_matchmaking_search');
 
             try {
-                const res = await fetch('backend.php', {
+                // FIX: Updated endpoint to match the actual file name
+                const res = await fetch('backend (1).php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({ action: 'find_online_game', nickname: gameState.nickname })
@@ -432,7 +433,8 @@
             const max = document.getElementById('create-max').value;
 
             try {
-                const res = await fetch('backend.php', {
+                // FIX: Updated endpoint to match the actual file name
+                const res = await fetch('backend (1).php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({ action: 'create_room', nickname: gameState.nickname, max_players: max, is_public: 0 })
@@ -468,7 +470,8 @@
             }
 
             try {
-                const res = await fetch('backend.php', {
+                // FIX: Updated endpoint to match the actual file name
+                const res = await fetch('backend (1).php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({ action: 'join_room', nickname: gameState.nickname, room_code: code })
@@ -496,7 +499,8 @@
         // START GAME
         async function handleStartGame() {
             try {
-                const res = await fetch('backend.php', {
+                // FIX: Updated endpoint to match the actual file name
+                const res = await fetch('backend (1).php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({ action: 'start_game', room_code: gameState.roomCode, token: gameState.token })
@@ -528,7 +532,8 @@
 
             const poll = async () => {
                 try {
-                    const res = await fetch('backend.php', {
+                    // FIX: Updated endpoint to match the actual file name
+                    const res = await fetch('backend (1).php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: new URLSearchParams({ action: 'poll_lobby', room_code: gameState.roomCode, token: gameState.token })
