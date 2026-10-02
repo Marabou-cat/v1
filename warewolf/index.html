@@ -28,7 +28,7 @@
 
         .container {
             width: 100%;
-            max-width: 500px;
+            max-width: 550px;
             background: var(--panel-bg);
             border: 1px solid var(--border-color);
             border-radius: 12px;
@@ -67,9 +67,10 @@
         .btn-primary:hover { background: #b82e3b; }
         .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid var(--border-color); }
         .btn-secondary:hover { background: #30363d; }
+        .btn-action { background: #238636; color: white; padding: 8px 12px; font-size: 0.85rem; }
+        .btn-action:hover { background: #2ea043; }
         button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        /* Lobby & Details */
         .room-badge {
             background: #21262d;
             border: 2px dashed var(--accent-gold);
@@ -80,7 +81,7 @@
         }
         .room-code { font-size: 2rem; font-weight: bold; color: var(--accent-gold); letter-spacing: 4px; }
 
-        .player-list { list-style: none; margin-bottom: 20px; }
+        .player-list { list-style: none; margin-bottom: 20px; max-height: 250px; overflow-y: auto; }
         .player-item {
             background: #0d1117;
             padding: 10px 15px;
@@ -91,6 +92,7 @@
             align-items: center;
             border-left: 4px solid var(--accent-gold);
         }
+        .player-item.dead { border-left-color: var(--accent-red); opacity: 0.6; text-decoration: line-through; }
 
         .role-preview {
             background: #11141a;
@@ -102,19 +104,27 @@
         }
         .role-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #21262d; margin: 2px; }
 
-        /* Card Reveal */
         .role-card {
             background: linear-gradient(145deg, #1f242d, #0d1117);
             border: 2px solid var(--accent-gold);
             border-radius: 12px;
-            padding: 30px;
+            padding: 20px;
             text-align: center;
-            margin-top: 20px;
+            margin-bottom: 20px;
             box-shadow: 0 0 20px rgba(255, 183, 3, 0.2);
         }
-        .card-title { font-size: 1.8rem; color: var(--accent-gold); margin-bottom: 10px; }
+        .card-title { font-size: 1.5rem; color: var(--accent-gold); margin-bottom: 5px; }
 
-        /* Cutscene Overlay */
+        .event-banner {
+            background: #21262d;
+            border-left: 4px solid var(--accent-gold);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            color: #e6edf3;
+        }
+
         #cutscene-overlay {
             display: none;
             position: fixed;
@@ -163,7 +173,7 @@
             </div>
         </div>
 
-        <!-- VIEW 2: CREATE ROOM DETAILS -->
+        <!-- VIEW 2: CREATE ROOM -->
         <div id="view-create" class="hidden">
             <div class="form-group">
                 <label for="max-players">Select Total Players (Min 4)</label>
@@ -178,9 +188,7 @@
                 </select>
             </div>
 
-            <div id="create-role-info" class="role-preview">
-                Role Calculation Preview...
-            </div>
+            <div id="create-role-info" class="role-preview">Role Calculation Preview...</div>
 
             <div class="btn-group">
                 <button class="btn-primary" onclick="handleCreateRoom()">Confirm & Host</button>
@@ -188,7 +196,7 @@
             </div>
         </div>
 
-        <!-- VIEW 3: JOIN ROOM DETAILS -->
+        <!-- VIEW 3: JOIN ROOM -->
         <div id="view-join" class="hidden">
             <div class="form-group">
                 <label for="join-code">Enter 5-Character Room Code</label>
@@ -211,9 +219,7 @@
             <label>Players Joined (<span id="player-count">0</span>/<span id="player-max">0</span>):</label>
             <ul id="player-list-ui" class="player-list"></ul>
 
-            <div id="lobby-role-breakdown" class="role-preview">
-                Waiting for roster...
-            </div>
+            <div id="lobby-role-breakdown" class="role-preview">Waiting for roster...</div>
 
             <div id="host-controls">
                 <button id="btn-start-game" class="btn-primary" style="width: 100%;" onclick="handleStartGame()" disabled>
@@ -224,20 +230,26 @@
 
         <!-- VIEW 5: ACTIVE GAME SCREEN -->
         <div id="view-game" class="hidden">
-            <h2 style="text-align: center; color: var(--accent-gold);">Game Started</h2>
             <div class="role-card">
-                <p style="font-size: 0.9rem; color: #8b9bb4; margin-bottom: 5px;">YOUR SECRET ROLE</p>
+                <p style="font-size: 0.8rem; color: #8b9bb4; margin-bottom: 3px;">YOUR ROLE</p>
                 <div id="my-role-display" class="card-title">Secret Card</div>
-                <p id="my-role-desc" style="font-size: 0.85rem; color: #c9d1d9; margin-top: 10px;">
-                    Keep your card hidden from other players!
-                </p>
+                <p id="my-role-desc" style="font-size: 0.8rem; color: #c9d1d9;">Stay alive and find the truth!</p>
             </div>
+
+            <div class="event-banner">
+                <strong>Phase: <span id="game-phase-text" style="color: var(--accent-gold);">Night</span></strong><br>
+                <span id="game-event-log">Night falls upon the village...</span>
+            </div>
+
+            <label id="game-list-label">Living Players:</label>
+            <ul id="game-player-list" class="player-list"></ul>
+
+            <button id="btn-back-menu" class="btn-secondary hidden" style="width: 100%;" onclick="showScreen('view-menu')">Back to Menu</button>
         </div>
 
     </div>
 
     <script>
-        // State Variables
         let state = {
             roomCode: '',
             token: '',
@@ -246,7 +258,6 @@
             pollInterval: null
         };
 
-        // Navigation Helper
         function showScreen(screenId) {
             ['view-menu', 'view-create', 'view-join', 'view-lobby', 'view-game'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
@@ -255,7 +266,6 @@
             if(screenId === 'view-create') updateRolePreview();
         }
 
-        // Calculate dynamic roles locally for the creation preview selector
         function updateRolePreview() {
             const count = parseInt(document.getElementById('max-players').value);
             const wolves = 1 + Math.floor((count - 4) / 3);
@@ -270,7 +280,6 @@
             `;
         }
 
-        // Cutscene Player Function
         function triggerCutscene(sceneKey, callback) {
             const overlay = document.getElementById('cutscene-overlay');
             const icon = document.getElementById('cutscene-icon');
@@ -290,14 +299,12 @@
             sub.innerText = scene.sub;
 
             overlay.style.display = 'flex';
-
             setTimeout(() => {
                 overlay.style.display = 'none';
                 if(callback) callback();
-            }, 2500);
+            }, 2000);
         }
 
-        // BUTTON 1: Confirm & Create Room
         async function handleCreateRoom() {
             state.nickname = document.getElementById('nickname').value || 'Host';
             const maxPlayers = document.getElementById('max-players').value;
@@ -313,17 +320,15 @@
                 state.roomCode = data.room_code;
                 state.token = data.token;
                 state.isHost = true;
-
                 triggerCutscene(data.cutscene, () => {
                     showScreen('view-lobby');
-                    startLobbyPolling();
+                    startGamePolling();
                 });
             } else {
                 alert(data.message);
             }
         }
 
-        // BUTTON 2: Confirm & Join Room
         async function handleJoinRoom() {
             state.nickname = document.getElementById('nickname').value || 'Villager';
             const code = document.getElementById('join-code').value.trim();
@@ -344,17 +349,15 @@
                 state.roomCode = data.room_code;
                 state.token = data.token;
                 state.isHost = false;
-
                 triggerCutscene(data.cutscene, () => {
                     showScreen('view-lobby');
-                    startLobbyPolling();
+                    startGamePolling();
                 });
             } else {
                 alert(data.message);
             }
         }
 
-        // BUTTON 3: Start Game (Host)
         async function handleStartGame() {
             const res = await fetch('backend.php', {
                 method: 'POST',
@@ -370,49 +373,119 @@
             }
         }
 
-        // Real-Time Polling Engine
-        function startLobbyPolling() {
+        async function submitNightAction(targetId) {
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'night_action', room_code: state.roomCode, token: state.token, target_id: targetId })
+            });
+            const data = await res.json();
+            if(data.status !== 'success') alert(data.message);
+        }
+
+        async function submitDayVote(voteId) {
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'day_vote', room_code: state.roomCode, token: state.token, vote_id: voteId })
+            });
+            const data = await res.json();
+            if(data.status !== 'success') alert(data.message);
+        }
+
+        function startGamePolling() {
             document.getElementById('display-room-code').innerText = state.roomCode;
             
             state.pollInterval = setInterval(async () => {
                 const res = await fetch('backend.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ action: 'poll_lobby', room_code: state.roomCode, token: state.token })
+                    body: new URLSearchParams({ action: 'poll_game', room_code: state.roomCode, token: state.token })
                 });
 
                 const data = await res.json();
                 if (data.status === 'success') {
-                    // Update Player Lists
-                    document.getElementById('player-count').innerText = data.current_count;
-                    document.getElementById('player-max').innerText = data.max_players;
+                    // LOBBY PHASE
+                    if (data.room_status === 'lobby') {
+                        document.getElementById('player-count').innerText = data.current_count;
+                        document.getElementById('player-max').innerText = data.max_players;
 
-                    const listUI = document.getElementById('player-list-ui');
-                    listUI.innerHTML = data.players.map(p => `<li class="player-item"><span>👤 ${p}</span></li>`).join('');
+                        const listUI = document.getElementById('player-list-ui');
+                        listUI.innerHTML = data.players.map(p => `<li class="player-item"><span>👤 ${p.nickname}</span></li>`).join('');
 
-                    // Update Dynamic Breakdown Text
-                    if(data.role_breakdown) {
-                        const b = data.role_breakdown;
-                        document.getElementById('lobby-role-breakdown').innerHTML = `
-                            <strong>Current Role Pool (${data.current_count} Players):</strong><br>
-                            🐺 ${b.werewolves} Werewolf | 🔮 ${b.specials} Special Cards (${b.special_cards.join(', ') || 'None'}) | 🌾 ${b.villagers} Villagers
-                        `;
-                    }
+                        if(data.role_breakdown) {
+                            const b = data.role_breakdown;
+                            document.getElementById('lobby-role-breakdown').innerHTML = `
+                                <strong>Current Role Pool (${data.current_count} Players):</strong><br>
+                                🐺 ${b.werewolves} Werewolf | 🔮 ${b.specials} Special Cards | 🌾 ${b.villagers} Villagers
+                            `;
+                        }
 
-                    // Enable/Disable Start Game Button
-                    const startBtn = document.getElementById('btn-start-game');
-                    if (data.is_host) {
-                        startBtn.style.display = 'block';
-                        startBtn.disabled = data.current_count < 4;
-                    } else {
-                        startBtn.style.display = 'none';
-                    }
+                        const startBtn = document.getElementById('btn-start-game');
+                        if (data.is_host) {
+                            startBtn.style.display = 'block';
+                            startBtn.disabled = data.current_count < 4;
+                        } else {
+                            startBtn.style.display = 'none';
+                        }
+                    } 
+                    // ACTIVE GAME OR ENDED PHASE
+                    else {
+                        const viewGame = document.getElementById('view-game');
+                        if (viewGame.classList.contains('hidden')) {
+                            showScreen('view-game');
+                        }
 
-                    // Transition to active game when night falls
-                    if (data.room_status === 'night') {
-                        clearInterval(state.pollInterval);
-                        showScreen('view-game');
                         document.getElementById('my-role-display').innerText = data.my_role;
+                        document.getElementById('game-event-log').innerHTML = data.last_event || 'Game in progress...';
+
+                        const phaseText = document.getElementById('game-phase-text');
+                        const gameListLabel = document.getElementById('game-list-label');
+                        const gamePlayerList = document.getElementById('game-player-list');
+                        const backMenuBtn = document.getElementById('btn-back-menu');
+
+                        if (data.room_status === 'night') {
+                            phaseText.innerText = '🌙 Night Phase';
+                            phaseText.style.color = 'var(--accent-red)';
+                            gameListLabel.innerText = data.my_role === 'Werewolf' && data.is_alive ? 'Select a Victim to Eliminate:' : 'Living Players:';
+                            
+                            gamePlayerList.innerHTML = data.players.map(p => {
+                                const isMe = (p.id === data.my_id);
+                                const canKill = (data.my_role === 'Werewolf' && data.is_alive && p.is_alive && !isMe);
+                                return `
+                                    <li class="player-item ${p.is_alive ? '' : 'dead'}">
+                                        <span>${p.is_alive ? '👤' : '💀'} ${p.nickname} ${isMe ? '(You)' : ''}</span>
+                                        ${canKill ? `<button class="btn-action" onclick="submitNightAction(${p.id})">Kill</button>` : ''}
+                                    </li>
+                                `;
+                            }).join('');
+                        } else if (data.room_status === 'day') {
+                            phaseText.innerText = '☀️ Day Voting Phase';
+                            phaseText.style.color = 'var(--accent-gold)';
+                            gameListLabel.innerText = data.is_alive ? 'Cast Your Vote to Lynch:' : 'Living Players (You are dead):';
+
+                            gamePlayerList.innerHTML = data.players.map(p => {
+                                const isMe = (p.id === data.my_id);
+                                const canVote = (data.is_alive && p.is_alive);
+                                return `
+                                    <li class="player-item ${p.is_alive ? '' : 'dead'}">
+                                        <span>${p.is_alive ? '👤' : '💀'} ${p.nickname} ${isMe ? '(You)' : ''}</span>
+                                        ${canVote ? `<button class="btn-action" onclick="submitDayVote(${p.id})">Vote</button>` : ''}
+                                    </li>
+                                `;
+                            }).join('');
+                        } else if (data.room_status === 'ended') {
+                            phaseText.innerText = '🏆 Game Over';
+                            phaseText.style.color = '#4cc9f0';
+                            gameListLabel.innerText = 'Final Player Roster:';
+                            backMenuBtn.classList.remove('hidden');
+
+                            gamePlayerList.innerHTML = data.players.map(p => `
+                                <li class="player-item ${p.is_alive ? '' : 'dead'}">
+                                    <span>${p.is_alive ? '👤' : '💀'} ${p.nickname} — Role: <strong>${p.role}</strong></span>
+                                </li>
+                            `).join('');
+                        }
                     }
                 }
             }, 1500);
