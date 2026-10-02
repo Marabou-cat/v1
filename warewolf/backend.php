@@ -2,7 +2,6 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
-// 1. Read Database Credentials from ../config.ini
 $configFile = __DIR__ . '/../config.ini';
 if (!file_exists($configFile)) {
     die(json_encode([
@@ -31,17 +30,13 @@ try {
     ]));
 }
 
-// Ensure columns exist for tracking game state
 try {
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_alive TINYINT DEFAULT 1");
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS target_id INT DEFAULT NULL");
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS vote_id INT DEFAULT NULL");
     $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_event VARCHAR(255) DEFAULT NULL");
-} catch (Exception $e) {
-    // Ignore if unsupported or already exists
-}
+} catch (Exception $e) {}
 
-// 2. Helper: Calculate Role Distribution
 function calculateRoles($playerCount) {
     if ($playerCount < 4) return null;
     $werewolves = 1 + (int)floor(($playerCount - 4) / 3);
@@ -59,7 +54,6 @@ function calculateRoles($playerCount) {
     ];
 }
 
-// 3. Request Routing
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 switch ($action) {
@@ -196,23 +190,34 @@ switch ($action) {
             exit;
         }
 
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
         $myRole = 'unassigned';
         $myId = null;
         $isAlive = 1;
+        $myTargetId = null;
+        $myVoteId = null;
+        $hasVoted = false;
+
         foreach ($players as $p) {
             if ($p['session_token'] === $token) {
                 $myRole = $p['role'];
                 $myId = $p['id'];
                 $isAlive = (int)$p['is_alive'];
+                $myTargetId = $p['target_id'];
+                $myVoteId = $p['vote_id'];
+                
+                if ($room['status'] === 'night' && $p['role'] === 'Werewolf') {
+                    $hasVoted = ($p['target_id'] !== null);
+                } elseif ($room['status'] === 'day') {
+                    $hasVoted = ($p['vote_id'] !== null);
+                }
                 break;
             }
         }
 
-        // Win Condition Check
         if ($room['status'] !== 'lobby' && $room['status'] !== 'ended') {
             $aliveWerewolves = 0;
             $aliveVillagersOrSpecials = 0;
@@ -261,6 +266,9 @@ switch ($action) {
             "my_role" => $myRole,
             "my_id" => $myId,
             "is_alive" => $isAlive,
+            "my_target_id" => $myTargetId,
+            "my_vote_id" => $myVoteId,
+            "has_voted" => $hasVoted,
             "last_event" => $room['last_event'] ?? ''
         ]);
         break;
@@ -296,7 +304,6 @@ switch ($action) {
         $stmt = $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?");
         $stmt->execute([$targetId, $me['id']]);
 
-        // Check if all living werewolves have targeted someone
         $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND role = 'Werewolf' AND is_alive = 1");
         $stmt->execute([$roomCode]);
         $werewolves = $stmt->fetchAll();
