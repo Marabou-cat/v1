@@ -475,7 +475,7 @@
             </div>
 
             <div class="event-banner">
-                <strong>Phase: <span id="game-phase-text" style="color: var(--accent-gold);">Day Chat</span></strong> <span id="chat-timer-badge" style="float: right; font-weight: 800; color: var(--accent-gold);">⏱️ 15s</span><br>
+                <strong>Phase: <span id="game-phase-text" style="color: var(--accent-gold);">Day Chat</span></strong> <span id="chat-timer-badge" style="float: right; font-weight: 800; color: var(--accent-gold);">⏱️️ 15s</span><br>
                 <span id="game-event-log">Discuss before the first night falls...</span>
             </div>
 
@@ -647,7 +647,7 @@
             state.chatTimerInterval = setInterval(() => {
                 state.chatTimeRemaining--;
                 const badge = document.getElementById('chat-timer-badge');
-                if(badge) badge.innerText = `⏱️ ${state.chatTimeRemaining}s`;
+                if(badge) badge.innerText = `⏱️️ ${state.chatTimeRemaining}s`;
 
                 if(state.chatTimeRemaining <= 0) {
                     clearInterval(state.chatTimerInterval);
@@ -658,19 +658,22 @@
             }, 1000);
         }
 
-        function sendChatMessage() {
+        async function sendChatMessage() {
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
             if(!text) return;
 
-            appendChatMessage(state.nickname, text);
-            input.value = '';
-        }
-
-        function appendChatMessage(sender, text) {
-            const chatMsgs = document.getElementById('chat-messages');
-            chatMsgs.innerHTML += `<div class="chat-message"><span class="sender">${sender}:</span> ${text}</div>`;
-            chatMsgs.scrollTop = chatMsgs.scrollHeight;
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'send_message', room_code: state.roomCode, token: state.token, message: text })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                input.value = '';
+            } else {
+                alert(data.message);
+            }
         }
 
         function appendSystemMessage(text) {
@@ -711,6 +714,15 @@
 
                 const data = await res.json();
                 if (data.status === 'success') {
+                    // Render incoming messages from database
+                    if (data.messages) {
+                        const chatMsgs = document.getElementById('chat-messages');
+                        chatMsgs.innerHTML = data.messages.map(m => `
+                            <div class="chat-message"><span class="sender">${m.sender_name}:</span> ${m.message}</div>
+                        `).join('');
+                        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+                    }
+
                     if (data.room_status === 'lobby') {
                         document.getElementById('player-count').innerText = data.current_count;
                         document.getElementById('player-max').innerText = data.max_players;
