@@ -3,53 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Werewolf Online</title>
-    <!-- Embedded Styled Fonts from Google Fonts -->
+    <title>Werewolf Online - Brawl Arena</title>
+    <!-- Google Fonts: SuperCell / Brawl Stars Style (Fredoka & Montserrat) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --bg-color: #050508;
-            --panel-bg: #0d0e14;
-            --panel-border: #1a1d26;
-            --accent-red: #e60012;
-            --accent-red-hover: #ff1a2c;
-            --accent-gold: #ffcc00;
-            --text-light: #ffffff;
-            --text-muted: #8c92a4;
+            --bs-bg-dark: #121526;
+            --bs-panel: #1b203a;
+            --bs-border: #0a0d18;
+            --bs-yellow: #ffcc00;
+            --bs-orange: #ff7700;
+            --bs-red: #ff334b;
+            --bs-blue: #00c3ff;
+            --bs-green: #2ecc71;
+            --bs-text: #ffffff;
+            --bs-muted: #94a3b8;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Fredoka', sans-serif; }
 
         body {
-            background-color: var(--bg-color);
-            color: var(--text-light);
+            background-color: var(--bs-bg-dark);
+            color: var(--bs-text);
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             padding: 16px;
-            background-image: radial-gradient(circle at center, #14080a 0%, #050508 70%);
+            background-image: 
+                radial-gradient(circle at 20% 20%, #293264 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, #201338 0%, transparent 40%),
+                linear-gradient(135deg, #0d101d 0%, #171c32 100%);
         }
 
         .container {
             width: 100%;
-            max-width: 650px;
-            background: var(--panel-bg);
-            border: 3px solid var(--panel-border);
-            border-radius: 24px;
-            padding: 32px;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), inset 0 2px 6px rgba(255, 255, 255, 0.05);
+            max-width: 500px;
+            background: var(--bs-panel);
+            border: 4px solid var(--bs-border);
+            border-radius: 28px;
+            padding: 28px;
+            box-shadow: 0 16px 0 var(--bs-border), 0 25px 40px rgba(0, 0, 0, 0.6);
             position: relative;
         }
 
         @media (min-width: 768px) {
-            .container { padding: 44px; }
+            .container { max-width: 560px; padding: 36px; }
         }
 
+        /* In-Game Layout Mode */
         body.in-game-layout {
             padding: 0;
             align-items: stretch;
@@ -62,20 +68,16 @@
             border: none;
             display: flex;
             flex-direction: column;
-            background: var(--bg-color);
-            padding: 24px;
+            background: var(--bs-bg-dark);
+            padding: 20px;
             box-shadow: none;
-        }
-
-        @media (min-width: 768px) {
-            body.in-game-layout .container { padding: 32px 48px; }
         }
 
         body.in-game-layout #view-game {
             display: flex;
             flex-direction: column;
             flex: 1;
-            max-width: 1200px;
+            max-width: 900px;
             margin: 0 auto;
             width: 100%;
         }
@@ -83,228 +85,247 @@
         body.in-game-layout #game-player-list {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            max-height: 250px;
+            gap: 12px;
+            max-height: 220px;
             overflow-y: auto;
             align-content: start;
             padding: 4px;
         }
 
+        /* Brawl Stars Typography Style Header */
         h1 { 
             text-align: center; 
-            color: var(--accent-red); 
-            font-family: 'Cinzel', serif;
+            color: var(--bs-yellow); 
+            font-family: 'Montserrat', sans-serif;
             font-size: 2.8rem; 
             font-weight: 900;
             margin-bottom: 2px; 
             text-transform: uppercase; 
-            letter-spacing: 2px;
-            text-shadow: 0 4px 15px rgba(230, 0, 18, 0.5), 0 0 30px rgba(230, 0, 18, 0.2);
-            -webkit-text-stroke: 1px #5c0006;
+            letter-spacing: 1px;
+            -webkit-text-stroke: 2px #7a5f00;
+            text-shadow: 3px 3px 0px #944000, 0 10px 20px rgba(0,0,0,0.5);
         }
 
         @media (min-width: 768px) {
-            h1 { font-size: 3.6rem; }
+            h1 { font-size: 3.4rem; }
         }
 
         p.subtitle { 
             text-align: center; 
-            color: var(--text-muted); 
-            font-size: 0.9rem; 
-            font-weight: 800;
-            margin-bottom: 28px; 
+            color: var(--bs-orange); 
+            font-size: 0.95rem; 
+            font-weight: 700;
+            margin-bottom: 24px; 
             text-transform: uppercase;
-            letter-spacing: 2.5px;
+            letter-spacing: 2px;
+            text-shadow: 1px 1px 0px #000;
         }
 
-        .form-group { margin-bottom: 24px; }
-        label { display: block; margin-bottom: 10px; font-weight: 800; font-size: 0.95rem; color: #a0aec0; letter-spacing: 1px; text-transform: uppercase; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 700; font-size: 0.95rem; color: var(--bs-muted); letter-spacing: 0.5px; text-transform: uppercase; }
         
         input, select {
             width: 100%;
-            padding: 18px;
-            background: #050608;
-            border: 2px solid var(--panel-border);
-            border-radius: 14px;
+            padding: 16px;
+            background: #111422;
+            border: 3px solid var(--bs-border);
+            border-radius: 16px;
             color: white;
             font-size: 1.1rem;
-            font-weight: 700;
-            transition: all 0.2s ease;
+            font-weight: 600;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.4);
+            transition: all 0.15s ease;
         }
-        input:focus, select:focus { outline: none; border-color: var(--accent-red); box-shadow: 0 0 15px rgba(230, 0, 18, 0.4); }
+        input:focus, select:focus { outline: none; border-color: var(--bs-blue); box-shadow: 0 0 12px rgba(0, 195, 255, 0.4), inset 0 3px 6px rgba(0,0,0,0.4); }
 
-        .btn-group { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+        .btn-group { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
         @media (min-width: 480px) {
             .btn-group { flex-direction: row; }
         }
 
         button {
             width: 100%;
-            padding: 22px 24px;
-            border: none;
+            padding: 18px 20px;
+            border: 3px solid var(--bs-border);
             border-radius: 16px;
-            font-weight: 800;
-            font-size: 1.15rem;
+            font-weight: 700;
+            font-size: 1.1rem;
             cursor: pointer;
-            transition: all 0.15s ease;
-            letter-spacing: 1.5px;
+            transition: all 0.1s ease;
+            letter-spacing: 1px;
             text-transform: uppercase;
-            box-shadow: 0 8px 0 rgba(0, 0, 0, 0.6);
+            box-shadow: 0 6px 0 var(--bs-border);
         }
 
         button:active {
-            transform: translateY(6px);
-            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 var(--bs-border);
         }
 
         .btn-primary { 
-            background: linear-gradient(180deg, #ff1a2c 0%, var(--accent-red) 100%); 
-            color: white; 
-            border: 2px solid #ff6b75;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            background: linear-gradient(180deg, #ffde59 0%, #ff9100 100%); 
+            color: #3b1800; 
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 900;
+            border-color: #703800;
+            box-shadow: 0 6px 0 #703800;
+            text-shadow: 1px 1px 0px rgba(255,255,255,0.6);
         }
-        .btn-primary:hover { background: linear-gradient(180deg, #ff3342 0%, #ff1a2c 100%); }
+        .btn-primary:active { transform: translateY(4px); box-shadow: 0 2px 0 #703800; }
         
         .btn-secondary { 
-            background: linear-gradient(180deg, #242836 0%, #151821 100%); 
-            color: #cbd5e1; 
-            border: 2px solid #2f3545; 
+            background: linear-gradient(180deg, #384266 0%, #202742 100%); 
+            color: white; 
+            border-color: #0f1324;
+            box-shadow: 0 6px 0 #0f1324;
         }
-        .btn-secondary:hover { background: linear-gradient(180deg, #2e3445 0%, #1a1d26 100%); color: white; }
+        .btn-secondary:active { transform: translateY(4px); box-shadow: 0 2px 0 #0f1324; }
         
         .btn-action { 
-            background: linear-gradient(180deg, #38ef7d 0%, #11998e 100%); 
-            color: #050508; 
-            padding: 12px 20px; 
-            font-size: 0.95rem; 
+            background: linear-gradient(180deg, #55ff77 0%, #11aa44 100%); 
+            color: #06260e; 
+            padding: 10px 16px; 
+            font-size: 0.9rem; 
             width: auto; 
-            border-radius: 10px; 
+            border-radius: 12px; 
             display: inline-flex; 
             align-items: center; 
-            gap: 8px; 
-            box-shadow: 0 6px 0 #0b5d56;
-            font-weight: 800;
+            gap: 6px; 
+            box-shadow: 0 4px 0 #08481b;
+            font-weight: 700;
+            border: 2px solid #08481b;
         }
-        .btn-action:active { transform: translateY(3px); box-shadow: 0 3px 0 #0b5d56; }
+        .btn-action:active { transform: translateY(2px); box-shadow: 0 2px 0 #08481b; }
         
-        .btn-voted { background: linear-gradient(180deg, #4facfe 0%, #00f2fe 100%) !important; color: #050508 !important; cursor: default; box-shadow: 0 6px 0 #006096 !important; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+        .btn-voted { background: linear-gradient(180deg, #00f2fe 100%, #4facfe 0%) !important; color: #022b40 !important; border-color: #005580 !important; box-shadow: 0 4px 0 #005580 !important; cursor: default; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
+        /* Brawl Stars Lobby Room Code Badge */
         .room-badge {
-            background: linear-gradient(180deg, #151821 0%, #090a0f 100%);
-            border: 3px solid var(--accent-gold);
-            padding: 20px;
+            background: #111422;
+            border: 4px solid var(--bs-border);
+            padding: 16px;
             text-align: center;
-            border-radius: 16px;
-            margin-bottom: 24px;
-            box-shadow: inset 0 2px 10px rgba(255, 204, 0, 0.2);
+            border-radius: 20px;
+            margin-bottom: 20px;
+            box-shadow: inset 0 4px 8px rgba(0,0,0,0.5);
         }
         .room-code { 
-            font-family: 'Cinzel', serif;
-            font-size: 3rem; 
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2.8rem; 
             font-weight: 900; 
-            color: var(--accent-gold); 
-            letter-spacing: 10px; 
-            text-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
+            color: var(--bs-yellow); 
+            letter-spacing: 8px; 
+            -webkit-text-stroke: 1.5px #7a5f00;
+            text-shadow: 2px 2px 0px #944000;
         }
 
-        .player-list { list-style: none; margin-bottom: 20px; max-height: 320px; overflow-y: auto; padding-right: 4px; }
-        .player-list::-webkit-scrollbar { width: 8px; }
-        .player-list::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 4px; }
+        .player-list { list-style: none; margin-bottom: 16px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
+        .player-list::-webkit-scrollbar { width: 6px; }
+        .player-list::-webkit-scrollbar-thumb { background: #2f385c; border-radius: 3px; }
 
         .player-item {
-            background: linear-gradient(90deg, #12151e 0%, #0a0c12 100%);
-            padding: 16px 20px;
+            background: linear-gradient(90deg, #242c4c 0%, #171d36 100%);
+            padding: 14px 18px;
             border-radius: 14px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-left: 6px solid var(--accent-gold);
+            border: 3px solid var(--bs-border);
             font-size: 1.05rem;
-            font-weight: 700;
-            border-top: 1px solid var(--panel-border);
-            border-right: 1px solid var(--panel-border);
-            border-bottom: 1px solid var(--panel-border);
+            font-weight: 600;
             position: relative;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
         }
         .player-item.dead { 
-            border-left-color: var(--accent-red); 
-            opacity: 0.7; 
-            background: linear-gradient(90deg, #180a0d 0%, #0d0608 100%);
+            background: linear-gradient(90deg, #381c22 0%, #241116 100%);
+            opacity: 0.75;
         }
-        .player-info-wrap { display: flex; align-items: center; gap: 14px; position: relative; }
+        .player-info-wrap { display: flex; align-items: center; gap: 12px; position: relative; }
 
         .blood-pile {
             position: absolute;
             bottom: -6px;
-            left: 20px;
-            width: 32px;
-            height: 10px;
-            background: radial-gradient(ellipse at center, #ff1a2c 0%, #800008 60%, transparent 80%);
+            left: 16px;
+            width: 28px;
+            height: 8px;
+            background: radial-gradient(ellipse at center, #ff334b 0%, #800008 70%, transparent 90%);
             border-radius: 50%;
-            filter: drop-shadow(0 2px 4px #e60012);
             animation: ooze 2s infinite alternate;
         }
-        @keyframes ooze { from { transform: scale(1); } to { transform: scale(1.08); } }
+        @keyframes ooze { from { transform: scale(1); } to { transform: scale(1.1); } }
 
         .role-preview {
-            background: #07080c;
-            padding: 20px;
-            border-radius: 14px;
-            font-size: 1rem;
-            margin-bottom: 24px;
-            border: 2px solid var(--panel-border);
-            line-height: 1.8;
-            font-weight: 700;
+            background: #111422;
+            padding: 16px;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+            border: 3px solid var(--bs-border);
+            line-height: 1.6;
+            font-weight: 600;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
         }
-        .role-tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px; background: #151821; margin: 4px; border: 1px solid #232836; font-weight: 800; }
+        .role-tag { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 6px; 
+            padding: 6px 10px; 
+            border-radius: 10px; 
+            background: #1b203a; 
+            margin: 3px; 
+            border: 2px solid var(--bs-border); 
+            font-weight: 700; 
+            font-size: 0.9rem;
+        }
 
         .role-card {
-            background: linear-gradient(135deg, #1b151a 0%, #0d0e14 100%);
-            border: 3px solid var(--accent-red);
+            background: linear-gradient(135deg, #3d1c24 0%, #1c1522 100%);
+            border: 4px solid var(--bs-red);
             border-radius: 20px;
-            padding: 20px;
+            padding: 18px;
             text-align: center;
-            margin-bottom: 16px;
-            box-shadow: 0 12px 35px rgba(230, 0, 18, 0.3);
+            margin-bottom: 14px;
+            box-shadow: 0 8px 0 #5c0f1c, 0 12px 25px rgba(255, 51, 75, 0.3);
         }
         .card-title { 
-            font-family: 'Cinzel', serif;
-            font-size: 2rem; 
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2.2rem; 
             font-weight: 900; 
-            color: var(--accent-gold); 
-            margin-bottom: 4px; 
-            letter-spacing: 2px;
-            text-shadow: 0 2px 10px rgba(255, 204, 0, 0.5);
+            color: var(--bs-yellow); 
+            margin-bottom: 2px; 
+            letter-spacing: 1px;
+            -webkit-text-stroke: 1.5px #7a5f00;
+            text-shadow: 2px 2px 0px #944000;
         }
 
         .event-banner {
-            background: linear-gradient(180deg, #141013 0%, #0a0b0f 100%);
-            border-left: 6px solid var(--accent-red);
-            padding: 16px;
+            background: linear-gradient(180deg, #241e33 0%, #141726 100%);
+            border: 3px solid var(--bs-border);
+            border-left: 6px solid var(--bs-yellow);
+            padding: 14px 16px;
             border-radius: 14px;
-            font-size: 1rem;
-            margin-bottom: 16px;
+            font-size: 0.95rem;
+            margin-bottom: 14px;
             color: #f1f5f9;
-            line-height: 1.6;
-            font-weight: 700;
-            border-top: 1px solid var(--panel-border);
-            border-right: 1px solid var(--panel-border);
-            border-bottom: 1px solid var(--panel-border);
+            line-height: 1.5;
+            font-weight: 600;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
         }
 
-        /* In-Game Chat Box Styles */
+        /* Brawl Stars Styled Chat Box */
         .chat-container {
-            background: #050608;
-            border: 2px solid var(--panel-border);
-            border-radius: 14px;
+            background: #111422;
+            border: 3px solid var(--bs-border);
+            border-radius: 16px;
             display: flex;
             flex-direction: column;
             flex: 1;
-            min-height: 140px;
-            margin-top: 12px;
+            min-height: 130px;
+            margin-top: 10px;
             overflow: hidden;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.4);
         }
         .chat-messages {
             flex: 1;
@@ -313,73 +334,78 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: 160px;
+            max-height: 150px;
         }
         .chat-message {
-            font-size: 0.95rem;
-            background: #11141d;
+            font-size: 0.9rem;
+            background: #1b203a;
             padding: 8px 12px;
-            border-radius: 8px;
-            border-left: 3px solid var(--accent-gold);
+            border-radius: 10px;
+            border: 2px solid #293264;
             font-weight: 600;
             word-break: break-word;
         }
         .chat-message span.sender {
-            color: var(--accent-gold);
+            color: var(--bs-yellow);
             font-weight: 800;
             margin-right: 6px;
         }
         .chat-input-bar {
             display: flex;
-            border-top: 2px solid var(--panel-border);
-            background: #0d0e14;
+            border-top: 3px solid var(--bs-border);
+            background: #171d36;
         }
         .chat-input-bar input {
             border: none;
             background: transparent;
-            padding: 12px 16px;
-            font-size: 0.95rem;
+            padding: 12px 14px;
+            font-size: 0.9rem;
             border-radius: 0;
+            box-shadow: none;
         }
         .chat-input-bar input:focus { box-shadow: none; border-color: transparent; }
         .chat-send-btn {
             width: auto !important;
-            padding: 0 24px !important;
+            padding: 0 20px !important;
             border-radius: 0 !important;
-            font-size: 0.95rem !important;
+            font-size: 0.9rem !important;
             box-shadow: none !important;
+            border: none !important;
+            border-left: 3px solid var(--bs-border) !important;
         }
 
+        /* Brawl Stars Style Cutscene Popup Overlay */
         #cutscene-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(3, 3, 5, 0.97);
+            background: rgba(10, 13, 24, 0.95);
             z-index: 9999;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
             padding: 24px;
-            animation: fadeIn 0.3s ease;
+            animation: fadeIn 0.2s ease;
         }
-        .cutscene-icon { font-size: 5rem; margin-bottom: 24px; animation: pulse 1.5s infinite; color: var(--accent-red); }
+        .cutscene-icon { font-size: 5rem; margin-bottom: 20px; animation: bounce 1s infinite alternate; color: var(--bs-yellow); }
         .cutscene-text { 
-            font-family: 'Cinzel', serif;
-            font-size: 2.4rem; 
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2.5rem; 
             font-weight: 900; 
-            color: var(--accent-gold); 
-            letter-spacing: 3px; 
+            color: var(--bs-yellow); 
+            letter-spacing: 2px; 
             text-transform: uppercase; 
-            text-shadow: 0 2px 12px rgba(255, 204, 0, 0.5);
+            -webkit-text-stroke: 2px #7a5f00;
+            text-shadow: 4px 4px 0px #944000;
         }
-        .cutscene-sub { font-size: 1.1rem; color: var(--text-muted); margin-top: 12px; font-weight: 800; letter-spacing: 1.5px; }
+        .cutscene-sub { font-size: 1.1rem; color: var(--bs-orange); margin-top: 10px; font-weight: 700; letter-spacing: 1px; text-shadow: 1px 1px 0px #000; }
 
         @media (min-width: 768px) {
-            .cutscene-text { font-size: 3rem; }
+            .cutscene-text { font-size: 3.2rem; }
         }
 
-        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-12px); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         .hidden { display: none !important; }
@@ -389,20 +415,20 @@
 
     <!-- CUTSCENE OVERLAY -->
     <div id="cutscene-overlay">
-        <div id="cutscene-icon" class="cutscene-icon"><i data-lucide="castle" size="84"></i></div>
-        <div id="cutscene-text" class="cutscene-text">Building Fortress...</div>
-        <div id="cutscene-sub" class="cutscene-sub">Preparing the lobby</div>
+        <div id="cutscene-icon" class="cutscene-icon"><i data-lucide="shield-alert" size="80"></i></div>
+        <div id="cutscene-text" class="cutscene-text">Brawl Arena</div>
+        <div id="cutscene-sub" class="cutscene-sub">Getting ready...</div>
     </div>
 
     <div class="container">
         <h1>Werewolf</h1>
-        <p class="subtitle">Online Multiplayer Arena</p>
+        <p class="subtitle">Brawl Edition</p>
 
         <!-- VIEW 1: MAIN MENU -->
         <div id="view-menu">
             <div class="form-group">
-                <label for="nickname">Your Nickname</label>
-                <input type="text" id="nickname" placeholder="e.g., HunterJohn" value="Player1">
+                <label for="nickname">Player Nickname</label>
+                <input type="text" id="nickname" placeholder="e.g., ShellyWolf" value="Brawler1">
             </div>
 
             <div class="btn-group">
@@ -414,7 +440,7 @@
         <!-- VIEW 2: CREATE ROOM -->
         <div id="view-create" class="hidden">
             <div class="form-group">
-                <label for="max-players">Select Total Players (Min 4)</label>
+                <label for="max-players">Total Brawlers (Min 4)</label>
                 <select id="max-players" onchange="updateRolePreview()">
                     <option value="4" selected>4 Players (1 Werewolf, 0 Specials)</option>
                     <option value="5">5 Players (1 Werewolf, 1 Special)</option>
@@ -426,7 +452,7 @@
                 </select>
             </div>
 
-            <div id="create-role-info" class="role-preview">Role Calculation Preview...</div>
+            <div id="create-role-info" class="role-preview">Role breakdown preview...</div>
 
             <div class="btn-group">
                 <button class="btn-primary" onclick="handleCreateRoom()">Confirm & Host</button>
@@ -437,12 +463,12 @@
         <!-- VIEW 3: JOIN ROOM -->
         <div id="view-join" class="hidden">
             <div class="form-group">
-                <label for="join-code">Enter 5-Character Room Code</label>
+                <label for="join-code">Room Code (5 Characters)</label>
                 <input type="text" id="join-code" placeholder="e.g., A1B2C" maxlength="5" style="text-transform: uppercase;">
             </div>
 
             <div class="btn-group">
-                <button class="btn-primary" onclick="handleJoinRoom()">Join Lobby</button>
+                <button class="btn-primary" onclick="handleJoinRoom()">Join Arena</button>
                 <button class="btn-secondary" onclick="showScreen('view-menu')">Back</button>
             </div>
         </div>
@@ -450,14 +476,14 @@
         <!-- VIEW 4: LOBBY SCREEN -->
         <div id="view-lobby" class="hidden">
             <div class="room-badge">
-                <span style="font-size: 0.85rem; color: var(--accent-gold); display: block; margin-bottom: 6px; letter-spacing: 2.5px; font-weight: 800;">BATTLE CODE</span>
+                <span style="font-size: 0.8rem; color: var(--bs-orange); display: block; margin-bottom: 4px; letter-spacing: 2px; font-weight: 800;">BATTLE ROOM CODE</span>
                 <span id="display-room-code" class="room-code">-----</span>
             </div>
 
-            <label style="margin-bottom: 12px;">Squad Members (<span id="player-count">0</span>/<span id="player-max">0</span>):</label>
+            <label style="margin-bottom: 10px;">Brawlers Joined (<span id="player-count">0</span>/<span id="player-max">0</span>):</label>
             <ul id="player-list-ui" class="player-list"></ul>
 
-            <div id="lobby-role-breakdown" class="role-preview">Waiting for roster...</div>
+            <div id="lobby-role-breakdown" class="role-preview">Waiting for squad roster...</div>
 
             <div id="host-controls">
                 <button id="btn-start-game" class="btn-primary" style="width: 100%;" onclick="handleStartGame()" disabled>
@@ -469,23 +495,23 @@
         <!-- VIEW 5: ACTIVE GAME SCREEN -->
         <div id="view-game" class="hidden">
             <div class="role-card">
-                <p style="font-size: 0.75rem; color: var(--accent-gold); margin-bottom: 4px; letter-spacing: 2.5px; text-transform: uppercase; font-weight: 800;">Assigned Role</p>
-                <div id="my-role-display" class="card-title">Secret Card</div>
-                <p id="my-role-desc" style="font-size: 0.9rem; color: #cbd5e1; font-weight: 700;">Survive the night and expose the threat!</p>
+                <p style="font-size: 0.75rem; color: var(--bs-yellow); margin-bottom: 2px; letter-spacing: 2px; text-transform: uppercase; font-weight: 800;">Assigned Role</p>
+                <div id="my-role-display" class="card-title">Secret Role</div>
+                <p id="my-role-desc" style="font-size: 0.85rem; color: #cbd5e1; font-weight: 600;">Survive the arena showdown!</p>
             </div>
 
             <div class="event-banner">
-                <strong>Phase: <span id="game-phase-text" style="color: var(--accent-gold);">Day Chat</span></strong> <span id="chat-timer-badge" style="float: right; font-weight: 800; color: var(--accent-gold);">⏱️️ 15s</span><br>
-                <span id="game-event-log">Discuss before the first night falls...</span>
+                <strong>Phase: <span id="game-phase-text" style="color: var(--bs-yellow);">Day Chat</span></strong> <span id="chat-timer-badge" style="float: right; font-weight: 800; color: var(--bs-yellow);">⏱ 15s</span><br>
+                <span id="game-event-log">Chat with your brawlers before night hits...</span>
             </div>
 
-            <label id="game-list-label" style="margin-bottom: 8px;">Living Players:</label>
+            <label id="game-list-label" style="margin-bottom: 6px;">Living Brawlers:</label>
             <ul id="game-player-list" class="player-list"></ul>
 
             <!-- In-game Chat Box -->
             <div class="chat-container">
                 <div id="chat-messages" class="chat-messages">
-                    <div class="chat-message"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>
+                    <div class="chat-message"><span class="sender">System:</span> Welcome to Brawl Werewolf! Talk strategy before nightfall.</div>
                 </div>
                 <div class="chat-input-bar">
                     <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
@@ -493,7 +519,7 @@
                 </div>
             </div>
 
-            <button id="btn-back-menu" class="btn-secondary hidden" style="width: 100%; margin-top: 16px;" onclick="showScreen('view-menu')">Return to Menu</button>
+            <button id="btn-back-menu" class="btn-secondary hidden" style="width: 100%; margin-top: 14px;" onclick="showScreen('view-menu')">Return to Menu</button>
         </div>
 
     </div>
@@ -533,10 +559,10 @@
             const villagers = count - (wolves + specials);
 
             document.getElementById('create-role-info').innerHTML = `
-                <strong>Squad Composition:</strong><br>
-                <span class="role-tag" style="color: #ff4d4d;"><i data-lucide="skull" size="16"></i> Werewolves: ${wolves}</span>
-                <span class="role-tag" style="color: var(--accent-gold);"><i data-lucide="sparkles" size="16"></i> Specials: ${specials}</span>
-                <span class="role-tag" style="color: #38bdf8;"><i data-lucide="shield" size="16"></i> Villagers: ${villagers}</span>
+                <strong>Arena Squad Composition:</strong><br>
+                <span class="role-tag" style="color: #ff5566;"><i data-lucide="skull" size="16"></i> Werewolves: ${wolves}</span>
+                <span class="role-tag" style="color: var(--bs-yellow);"><i data-lucide="zap" size="16"></i> Specials: ${specials}</span>
+                <span class="role-tag" style="color: var(--bs-blue);"><i data-lucide="shield" size="16"></i> Villagers: ${villagers}</span>
             `;
             lucide.createIcons();
         }
@@ -548,14 +574,14 @@
             const sub = document.getElementById('cutscene-sub');
 
             const scenes = {
-                'scene_room_created': { icon: 'castle', title: 'Fortress Created', sub: 'Assembling players...' },
-                'scene_door_open': { icon: 'door-open', title: 'Entering Arena', sub: 'Joining squad room...' },
-                'scene_night_falls': { icon: 'moon', title: 'Blood Moon Rises', sub: 'Battle phase beginning...' },
-                'scene_error': { icon: 'zap', title: 'Action Failed', sub: 'An error occurred' }
+                'scene_room_created': { icon: 'crown', title: 'Arena Created', sub: 'Gathering brawlers...' },
+                'scene_door_open': { icon: 'users', title: 'Entering Room', sub: 'Joining squad...' },
+                'scene_night_falls': { icon: 'moon', title: 'Night Falls!', sub: 'The hunt begins...' },
+                'scene_error': { icon: 'alert-triangle', title: 'Brawl Error', sub: 'Action failed' }
             };
 
-            const scene = scenes[sceneKey] || { icon: 'help-circle', title: 'Processing...', sub: '' };
-            iconContainer.innerHTML = `<i data-lucide="${scene.icon}" size="84"></i>`;
+            const scene = scenes[sceneKey] || { icon: 'sparkles', title: 'Loading...', sub: '' };
+            iconContainer.innerHTML = `<i data-lucide="${scene.icon}" size="80"></i>`;
             text.innerText = scene.title;
             sub.innerText = scene.sub;
             lucide.createIcons();
@@ -564,11 +590,11 @@
             setTimeout(() => {
                 overlay.style.display = 'none';
                 if(callback) callback();
-            }, 2000);
+            }, 1800);
         }
 
         async function handleCreateRoom() {
-            state.nickname = document.getElementById('nickname').value || 'Host';
+            state.nickname = document.getElementById('nickname').value || 'Brawler1';
             const maxPlayers = document.getElementById('max-players').value;
 
             const res = await fetch('backend.php', {
@@ -592,7 +618,7 @@
         }
 
         async function handleJoinRoom() {
-            state.nickname = document.getElementById('nickname').value || 'Villager';
+            state.nickname = document.getElementById('nickname').value || 'Brawler2';
             const code = document.getElementById('join-code').value.trim();
 
             if (code.length !== 5) {
@@ -647,7 +673,7 @@
             state.chatTimerInterval = setInterval(() => {
                 state.chatTimeRemaining--;
                 const badge = document.getElementById('chat-timer-badge');
-                if(badge) badge.innerText = `⏱️️ ${state.chatTimeRemaining}s`;
+                if(badge) badge.innerText = `⏱ ${state.chatTimeRemaining}s`;
 
                 if(state.chatTimeRemaining <= 0) {
                     clearInterval(state.chatTimerInterval);
@@ -678,7 +704,7 @@
 
         function appendSystemMessage(text) {
             const chatMsgs = document.getElementById('chat-messages');
-            chatMsgs.innerHTML += `<div class="chat-message" style="border-left-color: #38bdf8;"><span class="sender" style="color: #38bdf8;">System:</span> ${text}</div>`;
+            chatMsgs.innerHTML += `<div class="chat-message" style="border-color: #00c3ff;"><span class="sender" style="color: #00c3ff;">System:</span> ${text}</div>`;
             chatMsgs.scrollTop = chatMsgs.scrollHeight;
         }
 
@@ -714,7 +740,6 @@
 
                 const data = await res.json();
                 if (data.status === 'success') {
-                    // Render incoming messages from database
                     if (data.messages) {
                         const chatMsgs = document.getElementById('chat-messages');
                         chatMsgs.innerHTML = data.messages.map(m => `
@@ -730,7 +755,7 @@
                         const listUI = document.getElementById('player-list-ui');
                         listUI.innerHTML = data.players.map(p => `
                             <li class="player-item">
-                                <span class="player-info-wrap"><i data-lucide="user" size="20" style="color: var(--accent-gold);"></i> ${p.nickname}</span>
+                                <span class="player-info-wrap"><i data-lucide="user" size="20" style="color: var(--bs-yellow);"></i> ${p.nickname}</span>
                             </li>
                         `).join('');
                         lucide.createIcons();
@@ -738,10 +763,10 @@
                         if(data.role_breakdown) {
                             const b = data.role_breakdown;
                             document.getElementById('lobby-role-breakdown').innerHTML = `
-                                <strong>Squad Allocation (${data.current_count} Players):</strong><br>
-                                <span class="role-tag"><i data-lucide="skull" size="16" style="color: #ff4d4d;"></i> ${b.werewolves} Werewolf</span> 
-                                <span class="role-tag"><i data-lucide="sparkles" size="16" style="color: var(--accent-gold);"></i> ${b.specials} Specials</span> 
-                                <span class="role-tag"><i data-lucide="shield" size="16" style="color: #38bdf8;"></i> ${b.villagers} Villagers</span>
+                                <strong>Squad Setup (${data.current_count} Players):</strong><br>
+                                <span class="role-tag"><i data-lucide="skull" size="16" style="color: #ff5566;"></i> ${b.werewolves} Werewolf</span> 
+                                <span class="role-tag"><i data-lucide="zap" size="16" style="color: var(--bs-yellow);"></i> ${b.specials} Specials</span> 
+                                <span class="role-tag"><i data-lucide="shield" size="16" style="color: var(--bs-blue);"></i> ${b.villagers} Villagers</span>
                             `;
                             lucide.createIcons();
                         }
@@ -761,22 +786,21 @@
                         }
 
                         document.getElementById('my-role-display').innerText = data.my_role;
-                        document.getElementById('game-event-log').innerHTML = data.last_event || 'Game in progress...';
+                        document.getElementById('game-event-log').innerHTML = data.last_event || 'Brawl match ongoing...';
 
                         const phaseText = document.getElementById('game-phase-text');
                         const gameListLabel = document.getElementById('game-list-label');
                         const gamePlayerList = document.getElementById('game-player-list');
                         const backMenuBtn = document.getElementById('btn-back-menu');
 
-                        // Handle Pre-Night 15s chat window override
                         if (state.inPreNightChat && data.room_status === 'night') {
-                            phaseText.innerHTML = '<i data-lucide="message-square" size="18" style="vertical-align: middle;"></i> Opening Chat Phase';
-                            phaseText.style.color = 'var(--accent-gold)';
+                            phaseText.innerHTML = '<i data-lucide="message-square" size="18" style="vertical-align: middle;"></i> Opening Chat';
+                            phaseText.style.color = 'var(--bs-yellow)';
                             gameListLabel.innerText = 'Squad Roster (Talking before night):';
 
                             gamePlayerList.innerHTML = data.players.map(p => {
                                 const isMe = (p.id === data.my_id);
-                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="20" style="color: var(--accent-red);"></i>';
+                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: var(--bs-blue);"></i>' : '<i data-lucide="skull" size="20" style="color: var(--bs-red);"></i>';
                                 const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
 
                                 return `
@@ -786,17 +810,17 @@
                                 `;
                             }).join('');
                             lucide.createIcons();
-                            return; // Skip standard night targeting until timer elapses
+                            return;
                         }
 
                         if (data.room_status === 'night') {
                             phaseText.innerHTML = '<i data-lucide="moon" size="18" style="vertical-align: middle;"></i> Night Phase';
-                            phaseText.style.color = '#ff4d4d';
+                            phaseText.style.color = 'var(--bs-red)';
                             
                             if (data.my_role === 'Werewolf' && data.is_alive) {
-                                gameListLabel.innerText = data.has_voted ? '🔒 Target locked in! Waiting for others...' : 'Select a Victim to Eliminate:';
+                                gameListLabel.innerText = data.has_voted ? '🔒 Target locked! Waiting for pack...' : 'Select Brawler to Eliminate:';
                             } else {
-                                gameListLabel.innerText = 'Squad Members (Asleep):';
+                                gameListLabel.innerText = 'Brawlers Asleep:';
                             }
                             
                             gamePlayerList.innerHTML = data.players.map(p => {
@@ -809,11 +833,11 @@
                                     if (isTarget) {
                                         actionBtn = `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Targeted ✓</button>`;
                                     } else {
-                                        actionBtn = `<button class="btn-action" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
+                                        actionBtn = `<button class="btn-action" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="16"></i> Hunt</button>`;
                                     }
                                 }
 
-                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="20" style="color: var(--accent-red);"></i>';
+                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: var(--bs-blue);"></i>' : '<i data-lucide="skull" size="20" style="color: var(--bs-red);"></i>';
                                 const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
 
                                 return `
@@ -825,10 +849,10 @@
                             }).join('');
                             lucide.createIcons();
                         } else if (data.room_status === 'day') {
-                            phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Voting Phase';
-                            phaseText.style.color = 'var(--accent-gold)';
+                            phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Vote Phase';
+                            phaseText.style.color = 'var(--bs-yellow)';
                             
-                            gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):');
+                            gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for verdict...' : (data.is_alive ? 'Vote to Eliminate Brawler:' : 'Squad Roster (Eliminated):');
 
                             gamePlayerList.innerHTML = data.players.map(p => {
                                 const isMe = (p.id === data.my_id);
@@ -844,7 +868,7 @@
                                     }
                                 }
 
-                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="20" style="color: var(--accent-red);"></i>';
+                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: var(--bs-blue);"></i>' : '<i data-lucide="skull" size="20" style="color: var(--bs-red);"></i>';
                                 const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
 
                                 return `
@@ -856,17 +880,17 @@
                             }).join('');
                             lucide.createIcons();
                         } else if (data.room_status === 'ended') {
-                            phaseText.innerHTML = '<i data-lucide="trophy" size="18" style="vertical-align: middle;"></i> Match Concluded';
-                            phaseText.style.color = '#38bdf8';
-                            gameListLabel.innerText = 'Final Squad Roster:';
+                            phaseText.innerHTML = '<i data-lucide="trophy" size="18" style="vertical-align: middle;"></i> Match Ended';
+                            phaseText.style.color = 'var(--bs-blue)';
+                            gameListLabel.innerText = 'Final Brawler Reveal:';
                             backMenuBtn.classList.remove('hidden');
 
                             gamePlayerList.innerHTML = data.players.map(p => {
-                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="20" style="color: var(--accent-red);"></i>';
+                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: var(--bs-blue);"></i>' : '<i data-lucide="skull" size="20" style="color: var(--bs-red);"></i>';
                                 const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
                                 return `
                                     <li class="player-item ${p.is_alive ? '' : 'dead'}">
-                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} — Role: <strong>${p.role}</strong> ${bloodPile}</span>
+                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} — <strong>${p.role}</strong> ${bloodPile}</span>
                                     </li>
                                 `;
                             }).join('');
