@@ -69,7 +69,8 @@
         .btn-secondary:hover { background: #30363d; }
         .btn-action { background: #238636; color: white; padding: 8px 12px; font-size: 0.85rem; }
         .btn-action:hover { background: #2ea043; }
-        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-voted { background: #1f6feb !important; color: white !important; cursor: default; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .room-badge {
             background: #21262d;
@@ -405,13 +406,12 @@
 
                 const data = await res.json();
                 if (data.status === 'success') {
-                    // LOBBY PHASE
                     if (data.room_status === 'lobby') {
                         document.getElementById('player-count').innerText = data.current_count;
                         document.getElementById('player-max').innerText = data.max_players;
 
                         const listUI = document.getElementById('player-list-ui');
-                        listUI.innerHTML = data.players.map(p => `<li class="player-item"><span>👤 ${p.nickname}</span></li>`).join('');
+                        listUI.innerHTML = data.players.map(p => `<li class="player-item">👤 ${p.nickname}</li>`).join('');
 
                         if(data.role_breakdown) {
                             const b = data.role_breakdown;
@@ -428,9 +428,7 @@
                         } else {
                             startBtn.style.display = 'none';
                         }
-                    } 
-                    // ACTIVE GAME OR ENDED PHASE
-                    else {
+                    } else {
                         const viewGame = document.getElementById('view-game');
                         if (viewGame.classList.contains('hidden')) {
                             showScreen('view-game');
@@ -447,30 +445,58 @@
                         if (data.room_status === 'night') {
                             phaseText.innerText = '🌙 Night Phase';
                             phaseText.style.color = 'var(--accent-red)';
-                            gameListLabel.innerText = data.my_role === 'Werewolf' && data.is_alive ? 'Select a Victim to Eliminate:' : 'Living Players:';
+                            
+                            if (data.my_role === 'Werewolf' && data.is_alive) {
+                                gameListLabel.innerText = data.has_voted ? '🔒 Target locked in! Waiting for others...' : 'Select a Victim to Eliminate:';
+                            } else {
+                                gameListLabel.innerText = 'Living Players (Asleep):';
+                            }
                             
                             gamePlayerList.innerHTML = data.players.map(p => {
                                 const isMe = (p.id === data.my_id);
                                 const canKill = (data.my_role === 'Werewolf' && data.is_alive && p.is_alive && !isMe);
+                                const isTarget = (data.my_target_id === p.id);
+
+                                let actionBtn = '';
+                                if (canKill) {
+                                    if (isTarget) {
+                                        actionBtn = `<button class="btn-action btn-voted" disabled>Targeted ✓</button>`;
+                                    } else {
+                                        actionBtn = `<button class="btn-action" onclick="submitNightAction(${p.id})">Kill</button>`;
+                                    }
+                                }
+
                                 return `
                                     <li class="player-item ${p.is_alive ? '' : 'dead'}">
                                         <span>${p.is_alive ? '👤' : '💀'} ${p.nickname} ${isMe ? '(You)' : ''}</span>
-                                        ${canKill ? `<button class="btn-action" onclick="submitNightAction(${p.id})">Kill</button>` : ''}
+                                        ${actionBtn}
                                     </li>
                                 `;
                             }).join('');
                         } else if (data.room_status === 'day') {
                             phaseText.innerText = '☀️ Day Voting Phase';
                             phaseText.style.color = 'var(--accent-gold)';
-                            gameListLabel.innerText = data.is_alive ? 'Cast Your Vote to Lynch:' : 'Living Players (You are dead):';
+                            
+                            gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Living Players (You are dead):');
 
                             gamePlayerList.innerHTML = data.players.map(p => {
                                 const isMe = (p.id === data.my_id);
                                 const canVote = (data.is_alive && p.is_alive);
+                                const isVoteTarget = (data.my_vote_id === p.id);
+
+                                let actionBtn = '';
+                                if (canVote) {
+                                    if (isVoteTarget) {
+                                        actionBtn = `<button class="btn-action btn-voted" disabled>Voted ✓</button>`;
+                                    } else {
+                                        actionBtn = `<button class="btn-action" onclick="submitDayVote(${p.id})">Vote</button>`;
+                                    }
+                                }
+
                                 return `
                                     <li class="player-item ${p.is_alive ? '' : 'dead'}">
                                         <span>${p.is_alive ? '👤' : '💀'} ${p.nickname} ${isMe ? '(You)' : ''}</span>
-                                        ${canVote ? `<button class="btn-action" onclick="submitDayVote(${p.id})">Vote</button>` : ''}
+                                        ${actionBtn}
                                     </li>
                                 `;
                             }).join('');
