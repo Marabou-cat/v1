@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Werewolf Online - Brawl Arena</title>
-    <!-- Google Fonts: SuperCell / Brawl Stars Style (Fredoka & Montserrat) -->
+    <!-- Google Fonts: Brawl Stars Style (Fredoka & Montserrat) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
@@ -12,16 +12,17 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --bs-bg-dark: #121526;
-            --bs-panel: #1b203a;
-            --bs-border: #0a0d18;
+            --bs-bg-dark: #220814;
+            --bs-panel: #340c20;
+            --bs-border: #11030a;
             --bs-yellow: #ffcc00;
-            --bs-orange: #ff7700;
-            --bs-red: #ff334b;
+            --bs-orange: #ff6600;
+            --bs-red: #ff2244;
+            --bs-dark-red: #b3142d;
             --bs-blue: #00c3ff;
             --bs-green: #2ecc71;
             --bs-text: #ffffff;
-            --bs-muted: #94a3b8;
+            --bs-muted: #fca5a5;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Fredoka', sans-serif; }
@@ -35,9 +36,9 @@
             min-height: 100vh;
             padding: 16px;
             background-image: 
-                radial-gradient(circle at 20% 20%, #293264 0%, transparent 40%),
-                radial-gradient(circle at 80% 80%, #201338 0%, transparent 40%),
-                linear-gradient(135deg, #0d101d 0%, #171c32 100%);
+                radial-gradient(circle at 20% 20%, #5c112d 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, #3b0a1e 0%, transparent 40%),
+                linear-gradient(135deg, #16040c 0%, #2b0818 100%);
         }
 
         .container {
@@ -47,7 +48,7 @@
             border: 4px solid var(--bs-border);
             border-radius: 28px;
             padding: 28px;
-            box-shadow: 0 16px 0 var(--bs-border), 0 25px 40px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 16px 0 var(--bs-border), 0 25px 40px rgba(0, 0, 0, 0.7);
             position: relative;
         }
 
@@ -92,7 +93,7 @@
             padding: 4px;
         }
 
-        /* Brawl Stars Typography Style Header */
+        /* Typography */
         h1 { 
             text-align: center; 
             color: var(--bs-yellow); 
@@ -127,16 +128,24 @@
         input, select {
             width: 100%;
             padding: 16px;
-            background: #111422;
+            background: #1a0510;
             border: 3px solid var(--bs-border);
             border-radius: 16px;
             color: white;
             font-size: 1.1rem;
             font-weight: 600;
-            box-shadow: inset 0 3px 6px rgba(0,0,0,0.4);
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.5);
             transition: all 0.15s ease;
         }
-        input:focus, select:focus { outline: none; border-color: var(--bs-blue); box-shadow: 0 0 12px rgba(0, 195, 255, 0.4), inset 0 3px 6px rgba(0,0,0,0.4); }
+        input:focus, select:focus { outline: none; border-color: var(--bs-yellow); box-shadow: 0 0 12px rgba(255, 204, 0, 0.4), inset 0 3px 6px rgba(0,0,0,0.5); }
+
+        /* Brawl Stars Lobby Action Layout Style */
+        .brawl-lobby-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 10px;
+        }
 
         .btn-group { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
         @media (min-width: 480px) {
@@ -162,24 +171,29 @@
             box-shadow: 0 2px 0 var(--bs-border);
         }
 
+        /* Brawl Stars Main Yellow "Play / Battle" Button Style */
         .btn-primary { 
-            background: linear-gradient(180deg, #ffde59 0%, #ff9100 100%); 
+            background: linear-gradient(180deg, #ffe600 0%, #ff8800 100%); 
             color: #3b1800; 
             font-family: 'Montserrat', sans-serif;
             font-weight: 900;
-            border-color: #703800;
-            box-shadow: 0 6px 0 #703800;
+            border-color: #612700;
+            box-shadow: 0 6px 0 #612700;
             text-shadow: 1px 1px 0px rgba(255,255,255,0.6);
+            font-size: 1.3rem;
+            padding: 22px;
+            letter-spacing: 1.5px;
         }
-        .btn-primary:active { transform: translateY(4px); box-shadow: 0 2px 0 #703800; }
+        .btn-primary:active { transform: translateY(4px); box-shadow: 0 2px 0 #612700; }
         
+        /* Brawl Stars Secondary Side Buttons (Darker Red / Slate Accent) */
         .btn-secondary { 
-            background: linear-gradient(180deg, #384266 0%, #202742 100%); 
+            background: linear-gradient(180deg, #781c33 0%, #470d1d 100%); 
             color: white; 
-            border-color: #0f1324;
-            box-shadow: 0 6px 0 #0f1324;
+            border-color: #1a030b;
+            box-shadow: 0 6px 0 #1a030b;
         }
-        .btn-secondary:active { transform: translateY(4px); box-shadow: 0 2px 0 #0f1324; }
+        .btn-secondary:active { transform: translateY(4px); box-shadow: 0 2px 0 #1a030b; }
         
         .btn-action { 
             background: linear-gradient(180deg, #55ff77 0%, #11aa44 100%); 
@@ -202,7 +216,7 @@
 
         /* Brawl Stars Lobby Room Code Badge */
         .room-badge {
-            background: #111422;
+            background: #1a0510;
             border: 4px solid var(--bs-border);
             padding: 16px;
             text-align: center;
@@ -222,10 +236,10 @@
 
         .player-list { list-style: none; margin-bottom: 16px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
         .player-list::-webkit-scrollbar { width: 6px; }
-        .player-list::-webkit-scrollbar-thumb { background: #2f385c; border-radius: 3px; }
+        .player-list::-webkit-scrollbar-thumb { background: #5c182d; border-radius: 3px; }
 
         .player-item {
-            background: linear-gradient(90deg, #242c4c 0%, #171d36 100%);
+            background: linear-gradient(90deg, #471123 0%, #2e0915 100%);
             padding: 14px 18px;
             border-radius: 14px;
             margin-bottom: 10px;
@@ -236,10 +250,10 @@
             font-size: 1.05rem;
             font-weight: 600;
             position: relative;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+            box-shadow: 0 4px 0 rgba(0,0,0,0.4);
         }
         .player-item.dead { 
-            background: linear-gradient(90deg, #381c22 0%, #241116 100%);
+            background: linear-gradient(90deg, #3d151c 0%, #220b10 100%);
             opacity: 0.75;
         }
         .player-info-wrap { display: flex; align-items: center; gap: 12px; position: relative; }
@@ -250,14 +264,14 @@
             left: 16px;
             width: 28px;
             height: 8px;
-            background: radial-gradient(ellipse at center, #ff334b 0%, #800008 70%, transparent 90%);
+            background: radial-gradient(ellipse at center, #ff2244 0%, #800008 70%, transparent 90%);
             border-radius: 50%;
             animation: ooze 2s infinite alternate;
         }
         @keyframes ooze { from { transform: scale(1); } to { transform: scale(1.1); } }
 
         .role-preview {
-            background: #111422;
+            background: #1a0510;
             padding: 16px;
             border-radius: 16px;
             font-size: 0.95rem;
@@ -265,7 +279,7 @@
             border: 3px solid var(--bs-border);
             line-height: 1.6;
             font-weight: 600;
-            box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
         }
         .role-tag { 
             display: inline-flex; 
@@ -273,7 +287,7 @@
             gap: 6px; 
             padding: 6px 10px; 
             border-radius: 10px; 
-            background: #1b203a; 
+            background: #340c20; 
             margin: 3px; 
             border: 2px solid var(--bs-border); 
             font-weight: 700; 
@@ -281,13 +295,13 @@
         }
 
         .role-card {
-            background: linear-gradient(135deg, #3d1c24 0%, #1c1522 100%);
+            background: linear-gradient(135deg, #591524 0%, #2b0b14 100%);
             border: 4px solid var(--bs-red);
             border-radius: 20px;
             padding: 18px;
             text-align: center;
             margin-bottom: 14px;
-            box-shadow: 0 8px 0 #5c0f1c, 0 12px 25px rgba(255, 51, 75, 0.3);
+            box-shadow: 0 8px 0 #3b050f, 0 12px 25px rgba(255, 34, 68, 0.3);
         }
         .card-title { 
             font-family: 'Montserrat', sans-serif;
@@ -301,7 +315,7 @@
         }
 
         .event-banner {
-            background: linear-gradient(180deg, #241e33 0%, #141726 100%);
+            background: linear-gradient(180deg, #421121 0%, #240711 100%);
             border: 3px solid var(--bs-border);
             border-left: 6px solid var(--bs-yellow);
             padding: 14px 16px;
@@ -311,12 +325,12 @@
             color: #f1f5f9;
             line-height: 1.5;
             font-weight: 600;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+            box-shadow: 0 4px 0 rgba(0,0,0,0.4);
         }
 
         /* Brawl Stars Styled Chat Box */
         .chat-container {
-            background: #111422;
+            background: #1a0510;
             border: 3px solid var(--bs-border);
             border-radius: 16px;
             display: flex;
@@ -325,7 +339,7 @@
             min-height: 130px;
             margin-top: 10px;
             overflow: hidden;
-            box-shadow: inset 0 3px 6px rgba(0,0,0,0.4);
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.5);
         }
         .chat-messages {
             flex: 1;
@@ -338,10 +352,10 @@
         }
         .chat-message {
             font-size: 0.9rem;
-            background: #1b203a;
+            background: #340c20;
             padding: 8px 12px;
             border-radius: 10px;
-            border: 2px solid #293264;
+            border: 2px solid #571633;
             font-weight: 600;
             word-break: break-word;
         }
@@ -353,7 +367,7 @@
         .chat-input-bar {
             display: flex;
             border-top: 3px solid var(--bs-border);
-            background: #171d36;
+            background: #2b0818;
         }
         .chat-input-bar input {
             border: none;
@@ -374,12 +388,12 @@
             border-left: 3px solid var(--bs-border) !important;
         }
 
-        /* Brawl Stars Style Cutscene Popup Overlay */
+        /* Cutscene Popup Overlay */
         #cutscene-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(10, 13, 24, 0.95);
+            background: rgba(16, 3, 9, 0.95);
             z-index: 9999;
             flex-direction: column;
             justify-content: center;
@@ -424,16 +438,23 @@
         <h1>Werewolf</h1>
         <p class="subtitle">Brawl Edition</p>
 
-        <!-- VIEW 1: MAIN MENU -->
+        <!-- VIEW 1: MAIN MENU (Brawl Stars Styled Central Play Lobby) -->
         <div id="view-menu">
             <div class="form-group">
                 <label for="nickname">Player Nickname</label>
                 <input type="text" id="nickname" placeholder="e.g., ShellyWolf" value="Brawler1">
             </div>
 
-            <div class="btn-group">
-                <button class="btn-primary" onclick="showScreen('view-create')">Create Room</button>
-                <button class="btn-secondary" onclick="showScreen('view-join')">Join Room</button>
+            <!-- Brawl Stars structured lobby button deck: Big primary action button in center, secondary buttons side-by-side below -->
+            <div class="brawl-lobby-menu">
+                <button class="btn-primary" onclick="showScreen('view-create')">
+                    <i data-lucide="zap" size="24" style="vertical-align: middle; margin-right: 8px;"></i> Create Room
+                </button>
+                <div class="btn-group" style="margin-top: 0;">
+                    <button class="btn-secondary" onclick="showScreen('view-join')">
+                        <i data-lucide="users" size="18" style="vertical-align: middle; margin-right: 6px;"></i> Join Room
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -455,7 +476,7 @@
             <div id="create-role-info" class="role-preview">Role breakdown preview...</div>
 
             <div class="btn-group">
-                <button class="btn-primary" onclick="handleCreateRoom()">Confirm & Host</button>
+                <button class="btn-primary" onclick="handleCreateRoom()" style="font-size: 1.1rem; padding: 18px;">Confirm & Host</button>
                 <button class="btn-secondary" onclick="showScreen('view-menu')">Back</button>
             </div>
         </div>
@@ -468,7 +489,7 @@
             </div>
 
             <div class="btn-group">
-                <button class="btn-primary" onclick="handleJoinRoom()">Join Arena</button>
+                <button class="btn-primary" onclick="handleJoinRoom()" style="font-size: 1.1rem; padding: 18px;">Join Arena</button>
                 <button class="btn-secondary" onclick="showScreen('view-menu')">Back</button>
             </div>
         </div>
@@ -486,7 +507,7 @@
             <div id="lobby-role-breakdown" class="role-preview">Waiting for squad roster...</div>
 
             <div id="host-controls">
-                <button id="btn-start-game" class="btn-primary" style="width: 100%;" onclick="handleStartGame()" disabled>
+                <button id="btn-start-game" class="btn-primary" style="width: 100%; font-size: 1.2rem;" onclick="handleStartGame()" disabled>
                     Start Match (Host Only)
                 </button>
             </div>
@@ -515,7 +536,7 @@
                 </div>
                 <div class="chat-input-bar">
                     <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
-                    <button class="btn-primary chat-send-btn" onclick="sendChatMessage()">Send</button>
+                    <button class="btn-primary chat-send-btn" onclick="sendChatMessage()" style="font-size: 0.9rem; padding: 0 20px;">Send</button>
                 </div>
             </div>
 
