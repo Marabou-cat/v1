@@ -79,7 +79,8 @@ switch ($action) {
         $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
         $sessionToken = bin2hex(random_bytes(16));
 
-        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, is_public) VALUES (?, ?, ?, ?)");
+        // FIX: Explicitly set status to 'lobby'
+        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, is_public, status) VALUES (?, ?, ?, ?, 'lobby')");
         $stmt->execute([$roomCode, $sessionToken, $maxPlayers, $isPublic]);
 
         $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname) VALUES (?, ?, ?)");
@@ -163,7 +164,8 @@ switch ($action) {
             $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $sessionToken = bin2hex(random_bytes(16));
 
-            $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, is_public) VALUES (?, ?, 6, 1)");
+            // FIX: Explicitly set status to 'lobby'
+            $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, is_public, status) VALUES (?, ?, 6, 1, 'lobby')");
             $stmt->execute([$roomCode, $sessionToken]);
 
             $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname) VALUES (?, ?, ?)");
@@ -204,7 +206,6 @@ switch ($action) {
             }
         }
 
-        // Standard anonymous function for backward compatibility
         $playerNames = array_map(function($p) {
             return $p['nickname'];
         }, $players);
