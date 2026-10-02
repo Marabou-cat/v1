@@ -31,6 +31,16 @@ try {
     ]));
 }
 
+// Ensure columns exist for tracking game state
+try {
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_alive TINYINT DEFAULT 1");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS target_id INT DEFAULT NULL");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS vote_id INT DEFAULT NULL");
+    $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_event VARCHAR(255) DEFAULT NULL");
+} catch (Exception $e) {
+    // Ignore if unsupported or already exists
+}
+
 // 2. Helper: Calculate Role Distribution
 function calculateRoles($playerCount) {
     if ($playerCount < 4) return null;
@@ -38,7 +48,6 @@ function calculateRoles($playerCount) {
     $specials = ($playerCount === 4) ? 0 : (int)floor(($playerCount - 3) / 2);
     $villagers = $playerCount - ($werewolves + $specials);
     
-    // Select special roles sequentially from pool
     $specialPool = ['Seer', 'Doctor', 'Witch', 'Hunter', 'Cupid'];
     $assignedSpecials = array_slice($specialPool, 0, $specials);
     
@@ -55,7 +64,6 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 switch ($action) {
 
-    // --- BUTTON 1: CREATE ROOM ---
     case 'create_room':
         $nickname = trim($_POST['nickname'] ?? 'Host');
         $maxPlayers = (int)($_POST['max_players'] ?? 4);
@@ -68,12 +76,10 @@ switch ($action) {
         $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
         $sessionToken = bin2hex(random_bytes(16));
 
-        // Create Room
-        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players) VALUES (?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, status) VALUES (?, ?, ?, 'lobby')");
         $stmt->execute([$roomCode, $sessionToken, $maxPlayers]);
 
-        // Add Host as Player #1
-        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname) VALUES (?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
         $stmt->execute([$roomCode, $sessionToken, $nickname]);
 
         echo json_encode([
@@ -86,7 +92,6 @@ switch ($action) {
         ]);
         break;
 
-    // --- BUTTON 2: JOIN ROOM ---
     case 'join_room':
         $nickname = trim($_POST['nickname'] ?? 'Villager');
         $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
@@ -105,7 +110,6 @@ switch ($action) {
             exit;
         }
 
-        // Check Capacity
         $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM players WHERE room_code = ?");
         $stmt->execute([$roomCode]);
         $currentPlayers = $stmt->fetch()['count'];
@@ -116,7 +120,7 @@ switch ($action) {
         }
 
         $sessionToken = bin2hex(random_bytes(16));
-        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname) VALUES (?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
         $stmt->execute([$roomCode, $sessionToken, $nickname]);
 
         echo json_encode([
@@ -128,49 +132,6 @@ switch ($action) {
         ]);
         break;
 
-    // --- REAL-TIME LOBBY POLLING ---
-    case 'poll_lobby':
-        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
-        $token = trim($_POST['token'] ?? '');
-
-        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
-        $stmt->execute([$roomCode]);
-        $room = $stmt->fetch();
-
-        if (!$room) {
-            echo json_encode(["status" => "error", "message" => "Room collapsed."]);
-            exit;
-        }
-
-        $stmt = $pdo->prepare("SELECT nickname, session_token, role FROM players WHERE room_code = ? ORDER BY id ASC");
-        $stmt->execute([$roomCode]);
-        $players = $stmt->fetchAll();
-
-        // Identify current player's role
-        $myRole = 'unassigned';
-        foreach ($players as $p) {
-            if ($p['session_token'] === $token) {
-                $myRole = $p['role'];
-                break;
-            }
-        }
-
-        $playerNames = array_map(function($p) { return $p['nickname']; }, $players);
-        $roleBreakdown = calculateRoles(count($players));
-
-        echo json_encode([
-            "status" => "success",
-            "room_status" => $room['status'],
-            "is_host" => ($room['host_token'] === $token),
-            "max_players" => (int)$room['max_players'],
-            "current_count" => count($players),
-            "players" => $playerNames,
-            "role_breakdown" => $roleBreakdown,
-            "my_role" => $myRole
-        ]);
-        break;
-
-    // --- BUTTON 3: START GAME ---
     case 'start_game':
         $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $token = trim($_POST['token'] ?? '');
@@ -194,7 +155,6 @@ switch ($action) {
             exit;
         }
 
-        // Role Distribution Assignment
         $breakdown = calculateRoles($total);
         $deck = array_fill(0, $breakdown['werewolves'], 'Werewolf');
         foreach ($breakdown['special_cards'] as $card) {
@@ -206,15 +166,13 @@ switch ($action) {
 
         shuffle($deck);
 
-        // Assign shuffled cards to players in DB
         foreach ($players as $index => $player) {
             $assignedRole = $deck[$index];
-            $stmt = $pdo->prepare("UPDATE players SET role = ? WHERE id = ?");
+            $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL WHERE id = ?");
             $stmt->execute([$assignedRole, $player['id']]);
         }
 
-        // Update room status
-        $stmt = $pdo->prepare("UPDATE rooms SET status = 'night' WHERE room_code = ?");
+        $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = 'Night falls upon the village...' WHERE room_code = ?");
         $stmt->execute([$roomCode]);
 
         echo json_encode([
@@ -222,6 +180,216 @@ switch ($action) {
             "message" => "Cards dealt! Night falls upon the village...",
             "cutscene" => "scene_night_falls"
         ]);
+        break;
+
+    case 'poll_game':
+    case 'poll_lobby':
+        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
+        $token = trim($_POST['token'] ?? '');
+
+        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
+        $stmt->execute([$roomCode]);
+        $room = $stmt->fetch();
+
+        if (!$room) {
+            echo json_encode(["status" => "error", "message" => "Room collapsed."]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt->execute([$roomCode]);
+        $players = $stmt->fetchAll();
+
+        $myRole = 'unassigned';
+        $myId = null;
+        $isAlive = 1;
+        foreach ($players as $p) {
+            if ($p['session_token'] === $token) {
+                $myRole = $p['role'];
+                $myId = $p['id'];
+                $isAlive = (int)$p['is_alive'];
+                break;
+            }
+        }
+
+        // Win Condition Check
+        if ($room['status'] !== 'lobby' && $room['status'] !== 'ended') {
+            $aliveWerewolves = 0;
+            $aliveVillagersOrSpecials = 0;
+            foreach ($players as $p) {
+                if ($p['is_alive'] == 1) {
+                    if ($p['role'] === 'Werewolf') {
+                        $aliveWerewolves++;
+                    } else {
+                        $aliveVillagersOrSpecials++;
+                    }
+                }
+            }
+
+            if ($aliveWerewolves === 0) {
+                $stmt = $pdo->prepare("UPDATE rooms SET status = 'ended', last_event = 'Villagers win! All werewolves have been eliminated.' WHERE room_code = ?");
+                $stmt->execute([$roomCode]);
+                $room['status'] = 'ended';
+                $room['last_event'] = 'Villagers win! All werewolves have been eliminated.';
+            } elseif ($aliveWerewolves >= $aliveVillagersOrSpecials) {
+                $stmt = $pdo->prepare("UPDATE rooms SET status = 'ended', last_event = 'Werewolves win! They have outnumbered the villagers.' WHERE room_code = ?");
+                $stmt->execute([$roomCode]);
+                $room['status'] = 'ended';
+                $room['last_event'] = 'Werewolves win! They have outnumbered the villagers.';
+            }
+        }
+
+        $playerData = array_map(function($p) {
+            return [
+                "id" => $p['id'],
+                "nickname" => $p['nickname'],
+                "is_alive" => (int)$p['is_alive'],
+                "role" => $p['role']
+            ];
+        }, $players);
+
+        $roleBreakdown = calculateRoles(count($players));
+
+        echo json_encode([
+            "status" => "success",
+            "room_status" => $room['status'],
+            "is_host" => ($room['host_token'] === $token),
+            "max_players" => (int)$room['max_players'],
+            "current_count" => count($players),
+            "players" => $playerData,
+            "role_breakdown" => $roleBreakdown,
+            "my_role" => $myRole,
+            "my_id" => $myId,
+            "is_alive" => $isAlive,
+            "last_event" => $room['last_event'] ?? ''
+        ]);
+        break;
+
+    case 'night_action':
+        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
+        $token = trim($_POST['token'] ?? '');
+        $targetId = (int)($_POST['target_id'] ?? 0);
+
+        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
+        $stmt->execute([$roomCode]);
+        $room = $stmt->fetch();
+
+        if (!$room || $room['status'] !== 'night') {
+            echo json_encode(["status" => "error", "message" => "It is not night phase."]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND session_token = ?");
+        $stmt->execute([$roomCode, $token]);
+        $me = $stmt->fetch();
+
+        if (!$me || $me['is_alive'] == 0) {
+            echo json_encode(["status" => "error", "message" => "You are dead or invalid."]);
+            exit;
+        }
+
+        if ($me['role'] !== 'Werewolf') {
+            echo json_encode(["status" => "success", "message" => "Night action recorded."]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?");
+        $stmt->execute([$targetId, $me['id']]);
+
+        // Check if all living werewolves have targeted someone
+        $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND role = 'Werewolf' AND is_alive = 1");
+        $stmt->execute([$roomCode]);
+        $werewolves = $stmt->fetchAll();
+
+        $allVoted = true;
+        $targetVotes = [];
+        foreach ($werewolves as $w) {
+            if (!$w['target_id']) {
+                $allVoted = false;
+            } else {
+                $targetVotes[$w['target_id']] = ($targetVotes[$w['target_id']] ?? 0) + 1;
+            }
+        }
+
+        if ($allVoted && count($werewolves) > 0) {
+            arsort($targetVotes);
+            $victimId = array_key_first($targetVotes);
+
+            $stmt = $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?");
+            $stmt->execute([$victimId]);
+
+            $stmt = $pdo->prepare("SELECT nickname FROM players WHERE id = ?");
+            $stmt->execute([$victimId]);
+            $victim = $stmt->fetch();
+            $victimName = $victim ? $victim['nickname'] : 'Someone';
+
+            $pdo->prepare("UPDATE players SET target_id = NULL")->execute();
+            $stmt = $pdo->prepare("UPDATE rooms SET status = 'day', last_event = ? WHERE room_code = ?");
+            $stmt->execute(["During the night, werewolves attacked and killed **{$victimName}**!", $roomCode]);
+        }
+
+        echo json_encode(["status" => "success", "message" => "Night action submitted."]);
+        break;
+
+    case 'day_vote':
+        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
+        $token = trim($_POST['token'] ?? '');
+        $voteId = (int)($_POST['vote_id'] ?? 0);
+
+        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
+        $stmt->execute([$roomCode]);
+        $room = $stmt->fetch();
+
+        if (!$room || $room['status'] !== 'day') {
+            echo json_encode(["status" => "error", "message" => "It is not day voting phase."]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND session_token = ?");
+        $stmt->execute([$roomCode, $token]);
+        $me = $stmt->fetch();
+
+        if (!$me || $me['is_alive'] == 0) {
+            echo json_encode(["status" => "error", "message" => "You are dead and cannot vote."]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("UPDATE players SET vote_id = ? WHERE id = ?");
+        $stmt->execute([$voteId, $me['id']]);
+
+        $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND is_alive = 1");
+        $stmt->execute([$roomCode]);
+        $livingPlayers = $stmt->fetchAll();
+
+        $allVoted = true;
+        $voteCounts = [];
+        foreach ($livingPlayers as $p) {
+            if ($p['vote_id'] === null) {
+                $allVoted = false;
+            } else {
+                $voteCounts[$p['vote_id']] = ($voteCounts[$p['vote_id']] ?? 0) + 1;
+            }
+        }
+
+        if ($allVoted && count($livingPlayers) > 0) {
+            arsort($voteCounts);
+            $lynchedId = array_key_first($voteCounts);
+
+            $stmt = $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?");
+            $stmt->execute([$lynchedId]);
+
+            $stmt = $pdo->prepare("SELECT nickname, role FROM players WHERE id = ?");
+            $stmt->execute([$lynchedId]);
+            $lynched = $stmt->fetch();
+            $lynchedName = $lynched ? $lynched['nickname'] : 'Someone';
+            $lynchedRole = $lynched ? $lynched['role'] : 'Villager';
+
+            $pdo->prepare("UPDATE players SET vote_id = NULL")->execute();
+            $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = ? WHERE room_code = ?");
+            $stmt->execute(["The village voted and lynched **{$lynchedName}**. They were a **{$lynchedRole}**! Night falls again...", $roomCode]);
+        }
+
+        echo json_encode(["status" => "success", "message" => "Vote submitted."]);
         break;
 
     default:
