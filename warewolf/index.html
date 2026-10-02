@@ -2,1444 +2,863 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Brawl Werewolf - Online Arcade Lobby & Game</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRAWL WEREWOLF | Online Multiplayer</title>
+    <!-- Google Fonts for Brawl Stars Styling -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Luckiest+Guy&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <style>
-        /* Custom Font Stacks */
-        .font-brawl { font-family: 'Lilita One', 'Luckiest Guy', cursive, sans-serif; }
-        .font-comic { font-family: 'Luckiest Guy', cursive, sans-serif; }
-        .font-body { font-family: 'Nunito', sans-serif; }
-
-        /* Skewed Brawl Stars Headers */
-        .brawl-skew {
-            transform: skewX(-6deg);
-            display: inline-block;
+        :root {
+            --bs-yellow: #ffce00;
+            --bs-yellow-shadow: #b38f00;
+            --bs-blue: #0088ff;
+            --bs-blue-shadow: #0055a5;
+            --bs-green: #28e02c;
+            --bs-green-shadow: #188a1b;
+            --bs-purple: #9d2bf5;
+            --bs-purple-shadow: #5c1199;
+            --bs-red: #ff3344;
+            --bs-red-shadow: #a81320;
+            --bs-dark: #121829;
+            --bs-border: #000000;
         }
 
-        /* Brawl Stars Text Outline / Stroke Effect */
-        .brawl-stroke {
-            text-shadow: 
-                3px 3px 0 #000, -3px -3px 0 #000, 
-                3px -3px 0 #000, -3px 3px 0 #000, 
-                0 4px 0 #000, 0 8px 12px rgba(0,0,0,0.8);
-        }
-        .brawl-stroke-sm {
-            text-shadow: 
-                1.5px 1.5px 0 #000, -1.5px -1.5px 0 #000, 
-                1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 
-                0 2px 0 #000;
-        }
-
-        /* Animated Dark Indigo Radial Background */
         body {
-            background-color: #0b0f19;
-            background-image: 
-                radial-gradient(circle at 50% 30%, #2e1065 0%, #090d16 80%),
-                radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 0);
-            background-size: 100% 100%, 28px 28px;
+            font-family: 'Lilita One', 'Luckiest Guy', cursive, sans-serif;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            color: #ffffff;
             user-select: none;
-            touch-action: manipulation;
             overflow-x: hidden;
+            letter-spacing: 0.5px;
         }
 
-        /* Chunky 3D Arcade Buttons */
+        .font-luckiest { font-family: 'Luckiest Guy', cursive; }
+        .font-nunito { font-family: 'Nunito', sans-serif; font-weight: 900; }
+
+        /* Text Shadows & Outlines */
+        .text-stroke-sm { -webkit-text-stroke: 1.5px #000; text-shadow: 2px 2px 0 #000; }
+        .text-stroke-md { -webkit-text-stroke: 2.5px #000; text-shadow: 3px 3px 0 #000; }
+        .text-stroke-lg { -webkit-text-stroke: 4px #000; text-shadow: 4px 5px 0 #000; }
+
+        /* Brawl Stars Buttons */
         .brawl-btn {
-            transition: all 0.08s ease-in-out;
             position: relative;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-family: 'Lilita One', cursive;
-            letter-spacing: 0.05em;
+            border: 3.5px solid var(--bs-border);
+            border-radius: 14px;
+            font-family: 'Luckiest Guy', cursive;
             text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.08s ease-in-out;
             cursor: pointer;
-            border: 4px solid #000;
-            border-radius: 1rem;
-        }
-        .brawl-btn:active:not(:disabled) {
-            transform: translateY(4px) scale(0.98);
+            box-shadow: 0 6px 0 var(--btn-shadow), 0 8px 10px rgba(0,0,0,0.4);
+            transform: translateY(0);
         }
 
-        /* Yellow Button (Primary Action / Neon Yellow #FFE600) */
-        .brawl-btn-yellow {
-            background: linear-gradient(180deg, #fff152 0%, #ffe600 45%, #d9b200 100%);
-            box-shadow: 0 6px 0 #000, 0 10px 14px rgba(0,0,0,0.6);
-            color: #261600;
-        }
-        .brawl-btn-yellow:active:not(:disabled) {
-            box-shadow: 0 2px 0 #000, 0 4px 6px rgba(0,0,0,0.6);
+        .brawl-btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 var(--btn-shadow), 0 2px 4px rgba(0,0,0,0.4);
         }
 
-        /* Green Button (Ready / Play #28E000) */
-        .brawl-btn-green {
-            background: linear-gradient(180deg, #64ff3b 0%, #28e000 45%, #189800 100%);
-            box-shadow: 0 6px 0 #000, 0 10px 14px rgba(0,0,0,0.6);
-            color: #ffffff;
-            text-shadow: 1.5px 1.5px 0 #000, -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000;
-        }
-        .brawl-btn-green:active:not(:disabled) {
-            box-shadow: 0 2px 0 #000, 0 4px 6px rgba(0,0,0,0.6);
-        }
+        .brawl-btn-yellow { background: linear-gradient(180deg, #ffea47 0%, #ffaa00 100%); color: #fff; --btn-shadow: var(--bs-yellow-shadow); }
+        .brawl-btn-green  { background: linear-gradient(180deg, #51f555 0%, #1db821 100%); color: #fff; --btn-shadow: var(--bs-green-shadow); }
+        .brawl-btn-blue   { background: linear-gradient(180deg, #38b6ff 0%, #0066cc 100%); color: #fff; --btn-shadow: var(--bs-blue-shadow); }
+        .brawl-btn-purple { background: linear-gradient(180deg, #c45eff 0%, #7b12d4 100%); color: #fff; --btn-shadow: var(--bs-purple-shadow); }
+        .brawl-btn-red    { background: linear-gradient(180deg, #ff5e6c 0%, #cc1122 100%); color: #fff; --btn-shadow: var(--bs-red-shadow); }
 
-        /* Blue Button (Secondary / Brawl Blue #008CFF) */
-        .brawl-btn-blue {
-            background: linear-gradient(180deg, #57b8ff 0%, #008cff 45%, #005bb5 100%);
-            box-shadow: 0 6px 0 #000, 0 10px 14px rgba(0,0,0,0.6);
-            color: #ffffff;
-            text-shadow: 1.5px 1.5px 0 #000, -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000;
-        }
-        .brawl-btn-blue:active:not(:disabled) {
-            box-shadow: 0 2px 0 #000, 0 4px 6px rgba(0,0,0,0.6);
-        }
-
-        /* Skull Red Button (#FF2E55) */
-        .brawl-btn-red {
-            background: linear-gradient(180deg, #ff6b84 0%, #ff2e55 45%, #ba0022 100%);
-            box-shadow: 0 6px 0 #000, 0 10px 14px rgba(0,0,0,0.6);
-            color: #ffffff;
-            text-shadow: 1.5px 1.5px 0 #000, -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000;
-        }
-        .brawl-btn-red:active:not(:disabled) {
-            box-shadow: 0 2px 0 #000, 0 4px 6px rgba(0,0,0,0.6);
-        }
-
-        /* Purple Button */
-        .brawl-btn-purple {
-            background: linear-gradient(180deg, #e879f9 0%, #c026d3 45%, #701a75 100%);
-            box-shadow: 0 6px 0 #000, 0 10px 14px rgba(0,0,0,0.6);
-            color: #ffffff;
-            text-shadow: 1.5px 1.5px 0 #000, -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000;
-        }
-
-        /* Container & Card Styling with Thick 4px Dark Borders */
+        /* Panels & Containers */
         .brawl-panel {
-            background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%);
-            border: 4px solid #111827;
-            box-shadow: inset 0 2px 4px rgba(255,255,255,0.15), 0 10px 24px rgba(0,0,0,0.8);
-            border-radius: 1.5rem;
+            background: rgba(18, 24, 41, 0.92);
+            border: 4px solid #000;
+            border-radius: 20px;
+            box-shadow: inset 0 2px 0 rgba(255,255,255,0.2), 0 10px 25px rgba(0,0,0,0.6);
         }
 
-        .brawl-card {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border: 4px solid #111;
-            box-shadow: 0 6px 0 #000, 0 8px 12px rgba(0,0,0,0.6);
-            border-radius: 1.2rem;
-        }
-
-        /* Animated Podium Glow */
-        .podium-glow {
-            background: radial-gradient(circle, rgba(255, 230, 0, 0.35) 0%, rgba(0,0,0,0) 70%);
-        }
-
-        /* Floating Hero Animation */
-        @keyframes brawlFloat {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-12px) rotate(2deg); }
-        }
-        .animate-brawl-float {
-            animation: brawlFloat 3s ease-in-out infinite;
-        }
-
-        /* Keypad Button */
-        .keypad-btn {
-            background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+        .brawl-header-skew {
+            transform: skewX(-8deg);
             border: 3px solid #000;
-            box-shadow: 0 4px 0 #000;
-            color: #f8fafc;
-            cursor: pointer;
-            transition: all 0.05s ease;
-        }
-        .keypad-btn:active {
-            transform: translateY(3px);
-            box-shadow: 0 1px 0 #000;
+            box-shadow: 3px 3px 0 #000;
         }
 
-        /* Secret Card Flip Effect */
+        /* Keypad Grid */
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        /* Secret Role Flip Card */
         .flip-card {
             perspective: 1000px;
         }
         .flip-card-inner {
-            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             transform-style: preserve-3d;
         }
         .flip-card.flipped .flip-card-inner {
             transform: rotateY(180deg);
         }
         .flip-card-front, .flip-card-back {
-            backface-visibility: hidden;
+            position: absolute;
+            width: 100%;
+            height: 100%;
             -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 16px;
+            border: 4px solid #000;
         }
         .flip-card-back {
             transform: rotateY(180deg);
         }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #090d16; }
-        ::-webkit-scrollbar-thumb { background: #008cff; border-radius: 4px; border: 2px solid #000; }
+        /* Pulse animations */
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(0, 136, 255, 0.6)); }
+            50% { filter: drop-shadow(0 0 20px rgba(0, 136, 255, 0.9)); }
+        }
+        .glow-pulse { animation: pulse-glow 2s infinite; }
     </style>
 </head>
-<body class="min-h-screen text-white font-body flex flex-col justify-between select-none">
+<body class="min-h-screen flex flex-col justify-between relative bg-slate-900 text-white">
 
-    <!-- TOP HEADER BAR -->
-    <header class="w-full bg-slate-950/90 border-b-4 border-black px-4 py-2 sticky top-0 z-40 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
-            
-            <!-- Player Profile Badge -->
-            <div onclick="openModal('modal-profile')" class="flex items-center gap-2.5 cursor-pointer bg-slate-800/90 hover:bg-slate-700/90 border-3 border-amber-400 rounded-2xl px-3 py-1.5 transition shadow-lg border-2 border-black">
-                <div class="relative">
-                    <div id="header-avatar-container" class="w-10 h-10 rounded-xl bg-amber-500 border-2 border-black flex items-center justify-center text-2xl shadow-inner">
-                        🐺
-                    </div>
-                    <span id="header-level" class="absolute -bottom-1 -right-1 bg-amber-400 text-slate-950 font-brawl text-[10px] px-1 py-0.2 rounded-md border border-black leading-none">
-                        LV.12
+    <!-- TOP HEADER / PLAYER STATS BAR -->
+    <header class="w-full bg-slate-950/80 border-b-4 border-black px-4 py-3 flex items-center justify-between z-30 relative">
+        <!-- Player Info -->
+        <div class="flex items-center space-x-3">
+            <div class="relative cursor-pointer" onclick="openProfileModal()">
+                <div id="playerAvatarHead" class="w-12 h-12 rounded-xl border-2 border-black bg-yellow-400 flex items-center justify-center text-2xl shadow-md">
+                    🤠
+                </div>
+                <div class="absolute -bottom-1 -right-1 bg-blue-600 text-[10px] px-1.5 py-0.5 rounded-full border border-black font-bold">
+                    LV.10
+                </div>
+            </div>
+            <div>
+                <div id="displayUsername" class="text-xl font-bold text-yellow-300 text-stroke-sm">PLAYER</div>
+                <div class="flex items-center space-x-2 text-xs font-nunito">
+                    <span class="bg-amber-600/80 px-2 py-0.5 rounded-full border border-black flex items-center gap-1">
+                        🏆 <span id="trophyCount">1,250</span>
+                    </span>
+                    <span class="bg-emerald-600/80 px-2 py-0.5 rounded-full border border-black flex items-center gap-1">
+                        🪙 <span id="coinCount">450</span>
                     </span>
                 </div>
-                <div class="hidden sm:block">
-                    <div id="header-username" class="font-brawl text-base sm:text-lg text-amber-300 leading-none brawl-stroke-sm">ALPHA_WOLF</div>
-                    <div class="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Tap to Edit</div>
-                </div>
             </div>
+        </div>
 
-            <!-- Currencies & Trophies -->
-            <div class="flex items-center gap-2 sm:gap-4">
-                <!-- Trophy Counter -->
-                <div class="flex items-center bg-slate-900 border-2 border-black rounded-xl px-2.5 py-1 gap-1.5 shadow">
-                    <i class="fa-solid fa-trophy text-amber-400 text-base drop-shadow"></i>
-                    <span id="header-trophies" class="font-brawl text-amber-300 text-xs sm:text-sm brawl-stroke-sm">1,240</span>
-                </div>
+        <!-- Room Code Status Banner (When in lobby/game) -->
+        <div id="topRoomBanner" class="hidden flex items-center bg-purple-900/90 border-2 border-black px-4 py-1.5 rounded-xl brawl-header-skew">
+            <span class="text-xs text-purple-200 mr-2">ROOM CODE:</span>
+            <span id="topRoomCode" class="text-lg text-yellow-400 text-stroke-sm tracking-wider">------</span>
+            <button onclick="copyRoomCode()" class="ml-3 bg-purple-700 hover:bg-purple-600 p-1 rounded border border-black text-xs">📋</button>
+        </div>
 
-                <!-- Coins Counter -->
-                <div class="flex items-center bg-slate-900 border-2 border-black rounded-xl px-2.5 py-1 gap-1.5 shadow">
-                    <span class="text-base">🪙</span>
-                    <span id="header-coins" class="font-brawl text-yellow-300 text-xs sm:text-sm brawl-stroke-sm">3,850</span>
-                </div>
-
-                <!-- Gems Counter -->
-                <div class="flex items-center bg-slate-900 border-2 border-black rounded-xl px-2.5 py-1 gap-1.5 shadow">
-                    <span class="text-base">💎</span>
-                    <span id="header-gems" class="font-brawl text-emerald-300 text-xs sm:text-sm brawl-stroke-sm">150</span>
-                </div>
-            </div>
-
-            <!-- Settings Button -->
-            <div class="flex items-center gap-2">
-                <button onclick="openModal('modal-settings')" class="brawl-btn brawl-btn-blue text-xs px-3 py-1.5 rounded-xl">
-                    <i class="fa-solid fa-gear text-base"></i>
-                </button>
+        <!-- Connection Badge -->
+        <div class="flex items-center space-x-2">
+            <div id="serverStatusBadge" class="flex items-center gap-1.5 bg-emerald-950/80 border border-emerald-500 px-3 py-1 rounded-full text-xs text-emerald-400 font-nunito">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>ONLINE</span>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto w-full flex-1 p-3 sm:p-6 flex flex-col justify-center items-center relative">
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 flex items-center justify-center p-4 relative z-10 max-w-5xl mx-auto w-full">
 
-        <!-- ================= VIEW 1: MAIN MENU ================= -->
-        <div id="view-main-menu" class="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            
-            <!-- Left Showcase: Character Podium -->
-            <div class="lg:col-span-5 flex flex-col items-center justify-center relative min-h-[320px]">
-                <div class="absolute w-80 h-80 rounded-full podium-glow -z-10 animate-pulse"></div>
-                
-                <!-- Skin Selector Tag -->
-                <div class="bg-indigo-950/90 border-3 border-black rounded-full px-4 py-1 mb-2 text-xs font-brawl tracking-widest text-amber-300 uppercase flex items-center gap-2 shadow-lg">
-                    <i class="fa-solid fa-mask text-amber-400"></i>
-                    <span id="current-skin-name">Midnight Alpha</span>
+        <!-- ================= MAIN MENU VIEW ================= -->
+        <div id="viewMainMenu" class="w-full flex flex-col items-center justify-center space-y-8 py-6">
+            <!-- Game Title Logo -->
+            <div class="text-center space-y-1">
+                <div class="inline-block bg-red-600 text-yellow-300 px-6 py-2 rounded-2xl border-4 border-black text-4xl sm:text-6xl text-stroke-lg brawl-header-skew shadow-2xl">
+                    BRAWL WEREWOLF
                 </div>
+                <p class="text-slate-300 font-nunito text-sm sm:text-base tracking-widest uppercase">Multiplayer Arcade Social Deduction</p>
+            </div>
 
-                <!-- Big Character Avatar Showcase -->
-                <div id="hero-avatar" class="text-8xl sm:text-9xl my-4 animate-brawl-float cursor-pointer filter drop-shadow-[0_15px_20px_rgba(0,0,0,0.8)] transition-transform active:scale-95" onclick="cycleHeroSkin(1)">
-                    🐺
+            <!-- Avatar Podium Showcase -->
+            <div class="relative my-4 group cursor-pointer" onclick="nextAvatar()">
+                <div class="w-40 h-40 sm:w-48 sm:h-48 rounded-full bg-gradient-to-b from-blue-500 to-indigo-900 border-4 border-black flex items-center justify-center text-7xl sm:text-8xl shadow-2xl glow-pulse transition-transform group-hover:scale-105">
+                    <span id="showcaseAvatar">🤠</span>
                 </div>
-
-                <!-- Skin Switcher Controls -->
-                <div class="flex items-center gap-3 mt-2">
-                    <button onclick="cycleHeroSkin(-1)" class="brawl-btn brawl-btn-blue px-3.5 py-1.5 rounded-xl text-sm"><i class="fa-solid fa-chevron-left"></i></button>
-                    <span class="text-xs font-brawl text-slate-300 tracking-wider">CHANGE SKIN</span>
-                    <button onclick="cycleHeroSkin(1)" class="brawl-btn brawl-btn-blue px-3.5 py-1.5 rounded-xl text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+                <div class="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-yellow-400 text-black px-4 py-1 rounded-full border-2 border-black text-sm text-stroke-sm whitespace-nowrap">
+                    CLICK TO CHANGE BRAWLER
                 </div>
             </div>
 
-            <!-- Right Panel: Main Game Menu Actions -->
-            <div class="lg:col-span-7 flex flex-col gap-4">
+            <!-- Main Actions Grid -->
+            <div class="w-full max-w-md space-y-4">
+                <button onclick="handleQuickMatch()" class="w-full py-4 text-2xl brawl-btn brawl-btn-yellow text-stroke-md">
+                    ⚡ QUICK MATCH
+                </button>
                 
-                <!-- Title Header -->
-                <div class="text-center lg:text-left mb-2">
-                    <h1 class="font-brawl text-4xl sm:text-6xl text-amber-400 brawl-stroke brawl-skew tracking-wider uppercase">
-                        BRAWL WEREWOLF
-                    </h1>
-                    <p class="text-xs sm:text-sm text-indigo-300 font-bold uppercase tracking-widest mt-1">
-                        Online Multiplayer Arena • Deceive & Survive
-                    </p>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="handleCreateRoom()" class="py-3 text-lg brawl-btn brawl-btn-green text-stroke-sm">
+                        ➕ CREATE ROOM
+                    </button>
+                    <button onclick="openKeypadModal()" class="py-3 text-lg brawl-btn brawl-btn-blue text-stroke-sm">
+                        🔑 JOIN CODE
+                    </button>
                 </div>
-
-                <!-- Quick Match Action Card -->
-                <div onclick="apiFindGame()" class="brawl-card p-5 cursor-pointer border-4 border-black bg-gradient-to-r from-emerald-900/90 to-slate-900 hover:border-emerald-400 transition transform hover:-translate-y-1 relative overflow-hidden group">
-                    <div class="absolute -right-8 -bottom-8 opacity-20 group-hover:opacity-30 transition text-9xl text-emerald-400">
-                        <i class="fa-solid fa-bolt"></i>
-                    </div>
-                    <div class="flex items-center justify-between relative z-10">
-                        <div class="flex items-center gap-4">
-                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-green-400 border-3 border-black flex items-center justify-center text-3xl shadow-lg">
-                                ⚡
-                            </div>
-                            <div>
-                                <h3 class="font-brawl text-2xl text-emerald-300 brawl-stroke-sm">QUICK MATCH</h3>
-                                <p class="text-xs text-slate-300">Auto-match with active rooms via API</p>
-                            </div>
-                        </div>
-                        <button class="brawl-btn brawl-btn-green px-6 py-2.5 rounded-2xl text-lg hidden sm:block">PLAY</button>
-                    </div>
-                </div>
-
-                <!-- Two-Column Actions -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    
-                    <!-- Create Private Room -->
-                    <div onclick="apiCreateRoom()" class="brawl-card p-4 cursor-pointer border-4 border-black hover:border-amber-400 transition transform hover:-translate-y-1 relative group">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-300 border-3 border-black flex items-center justify-center text-2xl shadow">
-                                👑
-                            </div>
-                            <div>
-                                <h4 class="font-brawl text-xl text-amber-300 brawl-stroke-sm">CREATE ROOM</h4>
-                                <p class="text-[11px] text-slate-300">Host private custom match</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Join Room with Code -->
-                    <div onclick="openModal('modal-join-code')" class="brawl-card p-4 cursor-pointer border-4 border-black hover:border-sky-400 transition transform hover:-translate-y-1 relative group">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-cyan-300 border-3 border-black flex items-center justify-center text-2xl shadow">
-                                🔑
-                            </div>
-                            <div>
-                                <h4 class="font-brawl text-xl text-sky-300 brawl-stroke-sm">ENTER CODE</h4>
-                                <p class="text-[11px] text-slate-300">Join room via numeric code</p>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- Connection Endpoint Indicator -->
-                <div class="flex items-center justify-between bg-slate-900/90 rounded-xl px-4 py-2 border-2 border-black text-xs">
-                    <div class="flex items-center gap-2">
-                        <span id="backend-status-dot" class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span id="backend-status-text" class="text-indigo-200 font-bold">API Endpoint: ../wolf_backend.php</span>
-                    </div>
-                    <span class="text-indigo-400 text-[10px]">v3.0 Live Engine</span>
-                </div>
-
             </div>
-
         </div>
 
-        <!-- ================= VIEW 2: BRAWL ROOM LOBBY ================= -->
-        <div id="view-room-lobby" class="w-full hidden flex-col gap-4">
-            
-            <!-- Room Header Banner -->
+
+        <!-- ================= ROOM LOBBY VIEW ================= -->
+        <div id="viewLobby" class="hidden w-full max-w-4xl space-y-4">
+            <!-- Lobby Top Bar -->
             <div class="brawl-panel p-4 flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <button onclick="leaveRoom()" class="brawl-btn brawl-btn-red px-3 py-1.5 rounded-xl text-xs">
-                        <i class="fa-solid fa-arrow-left mr-1"></i> LEAVE
+                <div>
+                    <h2 class="text-2xl text-yellow-400 text-stroke-sm flex items-center gap-2">
+                        <span>ROOM LOBBY</span>
+                        <span id="lobbyCodeBadge" class="bg-purple-900 border border-black text-yellow-300 text-base px-3 py-0.5 rounded-lg">#------</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 font-nunito">Waiting for players to get ready...</p>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <button onclick="toggleChatDrawer()" class="brawl-btn brawl-btn-blue px-3 py-2 text-sm text-stroke-sm">
+                        💬 CHAT
                     </button>
-                    <div>
-                        <span class="text-[10px] text-indigo-300 font-bold uppercase tracking-widest block">ROOM CODE</span>
-                        <div class="flex items-center gap-2">
-                            <span id="lobby-room-code" class="font-brawl text-2xl text-amber-300 brawl-stroke tracking-widest">------</span>
-                            <button onclick="copyRoomCode()" class="brawl-btn brawl-btn-blue text-xs px-2.5 py-1 rounded-lg" title="Copy Code">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Lobby Player Counter & Bot Control -->
-                <div class="flex items-center gap-3">
-                    <button onclick="toggleBotFiller()" class="brawl-btn brawl-btn-purple text-xs px-3 py-1.5 rounded-xl hidden sm:inline-flex">
-                        <i class="fa-solid fa-robot mr-1"></i> <span id="btn-bot-text">FILL BOTS</span>
-                    </button>
-                    <div class="bg-slate-950 px-4 py-2 rounded-xl border-2 border-black flex items-center gap-2">
-                        <i class="fa-solid fa-users text-amber-400"></i>
-                        <span id="lobby-player-count" class="font-brawl text-lg text-white">0 / 10</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Main Lobby Grid & Options -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                
-                <!-- 10 Player Card Grid (Left) -->
-                <div class="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3" id="lobby-slots-container">
-                    <!-- Populated dynamically via backend polling -->
-                </div>
-
-                <!-- Host Settings & Rules (Right) -->
-                <div class="lg:col-span-4 brawl-panel p-4 flex flex-col justify-between gap-4">
-                    <div>
-                        <h3 class="font-brawl text-xl text-amber-400 brawl-stroke-sm mb-3 border-b-2 border-indigo-900 pb-2 flex items-center justify-between">
-                            <span>MATCH CONFIG</span>
-                            <i class="fa-solid fa-sliders text-indigo-400"></i>
-                        </h3>
-
-                        <!-- Roles Configuration Controls -->
-                        <div class="space-y-3 text-xs">
-                            <div class="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-xl border-2 border-black">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xl">🐺</span>
-                                    <span class="font-brawl text-sm text-rose-300">Werewolves</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <button onclick="updateWerewolfCount(-1)" class="w-6 h-6 bg-slate-800 rounded font-brawl text-amber-400 border border-black">-</button>
-                                    <span id="config-wolf-count" class="font-brawl text-base text-amber-300 min-w-[16px] text-center">2</span>
-                                    <button onclick="updateWerewolfCount(1)" class="w-6 h-6 bg-slate-800 rounded font-brawl text-amber-400 border border-black">+</button>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-xl border-2 border-black">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xl">🔮</span>
-                                    <span class="font-brawl text-sm text-cyan-300">Seer Role</span>
-                                </div>
-                                <button onclick="toggleRoleConfig('seer')" id="btn-toggle-seer" class="text-emerald-400 font-brawl bg-slate-800 px-2 py-1 rounded border border-black">ENABLED</button>
-                            </div>
-
-                            <div class="flex items-center justify-between bg-slate-900/90 p-2.5 rounded-xl border-2 border-black">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xl">🧪</span>
-                                    <span class="font-brawl text-sm text-emerald-300">Doctor Role</span>
-                                </div>
-                                <button onclick="toggleRoleConfig('doctor')" id="btn-toggle-doctor" class="text-emerald-400 font-brawl bg-slate-800 px-2 py-1 rounded border border-black">ENABLED</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Chat Drawer Toggle Button -->
-                    <button onclick="toggleChatDrawer()" class="brawl-btn brawl-btn-blue w-full py-2.5 rounded-xl text-xs flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-comments text-sm"></i>
-                        <span>ROOM CHAT & LOGS</span>
+                    <button onclick="leaveRoom()" class="brawl-btn brawl-btn-red px-3 py-2 text-sm text-stroke-sm">
+                        🚪 LEAVE
                     </button>
                 </div>
-
             </div>
 
-            <!-- Big Bottom Ready / Start Action Bar -->
-            <div class="w-full flex justify-center mt-2">
-                <button id="btn-ready-start" onclick="handleReadyOrStart()" class="brawl-btn brawl-btn-yellow w-full sm:w-80 py-4 rounded-2xl text-2xl brawl-stroke tracking-wider shadow-2xl">
-                    READY!
-                </button>
+            <!-- 10 Player Cards Grid -->
+            <div id="playerGrid" class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <!-- Dynamically populated via JS -->
             </div>
 
-        </div>
-
-        <!-- ================= VIEW 3: IN-GAME PLAYABLE PHASE ================= -->
-        <div id="view-game-play" class="w-full hidden flex-col gap-4">
-            
-            <!-- Game Status Top Banner -->
-            <div class="brawl-panel p-3 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div id="phase-badge" class="px-3 py-1 rounded-xl bg-indigo-950 border-2 border-amber-400 text-xs font-brawl uppercase tracking-widest text-amber-300">
-                        NIGHT PHASE 🌙
-                    </div>
-                    <span id="phase-instruction" class="text-xs sm:text-sm text-indigo-200 font-bold">
-                        Perform your secret action...
-                    </span>
-                </div>
-                
-                <!-- Timer Ring -->
-                <div class="flex items-center gap-2 bg-slate-950 px-3 py-1 rounded-xl border-2 border-black">
-                    <i class="fa-solid fa-stopwatch text-amber-400"></i>
-                    <span id="game-timer" class="font-brawl text-xl text-amber-300">20s</span>
-                </div>
-            </div>
-
-            <!-- Seer Inspection Result Banner (Hidden by default) -->
-            <div id="seer-result-banner" class="hidden bg-cyan-950/90 border-3 border-cyan-400 rounded-xl p-3 text-center text-cyan-200 font-brawl text-sm animate-bounce">
-                <!-- Dynamically populated -->
-            </div>
-
-            <!-- Player Game Table Grid -->
-            <div id="game-players-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 my-2">
-                <!-- Dynamically populated targetable player cards -->
-            </div>
-
-            <!-- Secret Role Reveal Card Trigger & Action Bar -->
+            <!-- Host Options & Action Control Bar -->
             <div class="brawl-panel p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div onclick="openModal('modal-role-card')" class="flex items-center gap-3 cursor-pointer hover:opacity-90 transition">
-                    <div id="my-secret-role-icon" class="w-12 h-12 rounded-2xl bg-slate-900 border-3 border-amber-400 flex items-center justify-center text-2xl shadow">
-                        ❓
+                <!-- Host Game Settings -->
+                <div id="hostControls" class="flex flex-wrap items-center gap-3 text-xs font-nunito w-full sm:w-auto">
+                    <div class="bg-slate-800 p-2 rounded-xl border border-black flex items-center gap-2">
+                        <span>🐺 Werewolves:</span>
+                        <select id="settingWolves" onchange="updateHostSettings()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-yellow-400 font-bold">
+                            <option value="1">1</option>
+                            <option value="2" selected>2</option>
+                            <option value="3">3</option>
+                        </select>
                     </div>
-                    <div>
-                        <div class="text-[10px] text-indigo-300 font-bold uppercase">YOUR SECRET ROLE (TAP TO VIEW)</div>
-                        <div id="my-secret-role-name" class="font-brawl text-xl text-amber-300 brawl-stroke-sm">UNKNOWN</div>
+                    <div class="bg-slate-800 p-2 rounded-xl border border-black flex items-center gap-2">
+                        <span>🔮 Seer:</span>
+                        <input type="checkbox" id="settingSeer" checked onchange="updateHostSettings()" class="w-4 h-4 rounded">
+                    </div>
+                    <div class="bg-slate-800 p-2 rounded-xl border border-black flex items-center gap-2">
+                        <span>🧪 Doctor:</span>
+                        <input type="checkbox" id="settingDoctor" checked onchange="updateHostSettings()" class="w-4 h-4 rounded">
                     </div>
                 </div>
 
-                <!-- Primary Interactive Action Button -->
-                <button id="btn-game-action" onclick="submitRoleAction()" class="brawl-btn brawl-btn-yellow px-8 py-3 rounded-2xl text-lg opacity-50 cursor-not-allowed" disabled>
-                    CONFIRM TARGET
-                </button>
+                <!-- Big Main Ready / Start Action Button -->
+                <div class="w-full sm:w-auto flex justify-end">
+                    <button id="btnLobbyAction" onclick="handleLobbyAction()" class="w-full sm:w-64 py-4 text-2xl brawl-btn brawl-btn-green text-stroke-md">
+                        READY!
+                    </button>
+                </div>
             </div>
-
-            <!-- Game Log Event Drawer -->
-            <div class="bg-slate-950/90 border-2 border-black rounded-xl p-3 max-h-32 overflow-y-auto text-xs font-mono space-y-1" id="game-log">
-                <div class="text-amber-400">[SYSTEM]: Match initialized via ../wolf_backend.php. Check your secret role!</div>
-            </div>
-
         </div>
 
-        <!-- ================= VIEW 4: GAME OVER SUMMARY ================= -->
-        <div id="view-game-over" class="w-full hidden flex-col items-center justify-center gap-6 py-6 text-center">
-            
-            <div id="victory-banner-box" class="transform scale-110 animate-bounce">
-                <h2 id="victory-title" class="font-brawl text-5xl sm:text-7xl text-amber-400 brawl-stroke brawl-skew uppercase tracking-widest">
-                    VICTORY!
-                </h2>
-                <p id="victory-subtitle" class="text-base text-emerald-300 font-bold uppercase tracking-wider mt-2">
-                    The Werewolves eliminated all villagers!
-                </p>
-            </div>
 
-            <!-- Rewards & Stats Box -->
-            <div class="brawl-panel p-6 max-w-md w-full border-4 border-amber-400 flex flex-col items-center gap-3">
-                <span class="text-xs font-brawl tracking-widest text-amber-400 uppercase">MATCH REWARDS</span>
-                <div class="text-6xl my-1">🏆</div>
-                <div id="end-trophies-gained" class="font-brawl text-2xl text-amber-300 brawl-stroke-sm">+8 TROPHIES</div>
-                
-                <div class="flex items-center gap-4 mt-2 bg-slate-950 px-6 py-2 rounded-2xl border-2 border-black text-sm font-brawl text-yellow-300">
-                    <span>🪙 +50 COINS</span>
-                    <span>💎 +5 GEMS</span>
+        <!-- ================= IN-GAME PLAY VIEW ================= -->
+        <div id="viewGame" class="hidden w-full max-w-4xl space-y-4">
+            <!-- Phase Banner Header -->
+            <div class="brawl-panel p-4 flex items-center justify-between bg-slate-950">
+                <div class="flex items-center space-x-3">
+                    <span id="phaseIcon" class="text-3xl">🌙</span>
+                    <div>
+                        <div id="phaseTitle" class="text-xl text-yellow-400 text-stroke-sm">NIGHT PHASE</div>
+                        <div id="phaseSubtext" class="text-xs text-slate-300 font-nunito">Werewolves are choosing a target...</div>
+                    </div>
+                </div>
+
+                <div class="text-right">
+                    <div class="text-xs text-slate-400 font-nunito">TIME REMAINING</div>
+                    <div id="phaseTimer" class="text-3xl text-red-500 text-stroke-sm">30s</div>
                 </div>
             </div>
 
-            <button onclick="leaveRoom()" class="brawl-btn brawl-btn-green px-10 py-4 rounded-2xl text-xl brawl-stroke">
-                RETURN TO LOBBY
-            </button>
+            <!-- Center Gameplay Grid / Targets -->
+            <div id="gameTargetsGrid" class="grid grid-cols-2 sm:grid-cols-5 gap-3 min-h-[280px]">
+                <!-- Dynamically populated target player cards -->
+            </div>
+
+            <!-- Secret Role Drawer & Action Bar -->
+            <div class="brawl-panel p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <button onclick="openRoleCardModal()" class="brawl-btn brawl-btn-purple px-4 py-2 text-sm text-stroke-sm flex items-center gap-2">
+                    <span>🃏 MY SECRET ROLE:</span>
+                    <span id="myRoleBadge" class="text-yellow-300 font-bold">???</span>
+                </button>
+
+                <div id="gameActionPrompt" class="text-sm font-nunito text-slate-300 text-center sm:text-right">
+                    Select a player above to submit your action.
+                </div>
+            </div>
         </div>
 
     </main>
 
-    <!-- SLIDE-OUT ROOM CHAT DRAWER -->
-    <div id="drawer-chat" class="fixed bottom-0 right-0 w-full sm:w-96 bg-slate-950 border-t-4 sm:border-l-4 border-black rounded-t-2xl sm:rounded-tl-2xl z-50 transform translate-y-full sm:translate-y-0 sm:translate-x-full transition-transform duration-300 shadow-2xl flex flex-col h-80 sm:h-96">
-        <div class="bg-indigo-950 px-4 py-2 flex items-center justify-between border-b-2 border-black">
-            <span class="font-brawl text-amber-300 text-sm">ROOM CHAT & LOGS</span>
-            <button onclick="toggleChatDrawer()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
-        </div>
-        <div id="chat-messages-container" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs">
-            <div class="text-slate-400 italic text-center">[System]: Room chat initialized.</div>
-        </div>
-        <div class="p-2 bg-slate-900 flex gap-2 border-t-2 border-black">
-            <input type="text" id="chat-input" placeholder="Type a message..." class="flex-1 bg-slate-950 border-2 border-black rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400" onkeydown="if(event.key==='Enter') apiSendChat()">
-            <button onclick="apiSendChat()" class="brawl-btn brawl-btn-yellow px-3 py-1 rounded-xl text-xs"><i class="fa-solid fa-paper-plane"></i></button>
-        </div>
-    </div>
 
-    <!-- MODAL 1: JOIN ROOM BY NUMERIC CODE (KEYPAD) -->
-    <div id="modal-join-code" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
-        <div class="brawl-panel p-6 max-w-sm w-full relative">
-            <button onclick="closeModal('modal-join-code')" class="absolute top-3 right-3 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+    <!-- ================= MODAL: NUMERIC KEYPAD ROOM JOIN ================= -->
+    <div id="modalKeypad" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="brawl-panel p-6 w-full max-w-sm space-y-5 text-center">
+            <h3 class="text-2xl text-yellow-400 text-stroke-sm">ENTER ROOM CODE</h3>
             
-            <h3 class="font-brawl text-2xl text-sky-300 brawl-stroke text-center mb-4">ENTER ROOM CODE</h3>
-            
-            <!-- Code Display Input -->
-            <div class="bg-slate-950 border-3 border-black rounded-2xl p-3 text-center mb-4">
-                <input type="text" id="join-code-input" maxlength="6" placeholder="6-DIGIT CODE" class="bg-transparent font-brawl text-3xl text-center text-amber-300 uppercase tracking-widest focus:outline-none w-full" readonly>
+            <!-- Code Display Boxes -->
+            <div id="keypadDisplay" class="flex justify-center gap-2 py-2">
+                <span class="w-10 h-12 bg-slate-900 border-2 border-black rounded-lg flex items-center justify-center text-2xl text-yellow-400 font-bold"></span>
+                <span class="w-10 h-12 bg-slate-900 border-2 border-black rounded-lg flex items-center justify-center text-2xl text-yellow-400 font-bold"></span>
+                <span class="w-10 h-12 bg-slate-900 border-2 border-black rounded-lg flex items-center justify-center text-2xl text-yellow-400 font-bold"></span>
+                <span class="w-10 h-12 bg-slate-900 border-2 border-black rounded-lg flex items-center justify-center text-2xl text-yellow-400 font-bold"></span>
+                <span class="w-10 h-12 bg-slate-900 border-2 border-black rounded-lg flex items-center justify-center text-2xl text-yellow-400 font-bold"></span>
+                <span class="w-10 h-12 bg-slate-900 border-2 border-black rounded-lg flex items-center justify-center text-2xl text-yellow-400 font-bold"></span>
             </div>
 
-            <!-- Keypad Grid -->
-            <div class="grid grid-cols-3 gap-2 mb-4">
-                <button onclick="pressKeypad('1')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">1</button>
-                <button onclick="pressKeypad('2')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">2</button>
-                <button onclick="pressKeypad('3')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">3</button>
-                <button onclick="pressKeypad('4')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">4</button>
-                <button onclick="pressKeypad('5')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">5</button>
-                <button onclick="pressKeypad('6')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">6</button>
-                <button onclick="pressKeypad('7')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">7</button>
-                <button onclick="pressKeypad('8')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">8</button>
-                <button onclick="pressKeypad('9')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">9</button>
-                <button onclick="pressKeypad('CLEAR')" class="keypad-btn p-3 rounded-xl font-brawl text-xs text-rose-400">CLR</button>
-                <button onclick="pressKeypad('0')" class="keypad-btn p-3 rounded-xl font-brawl text-xl">0</button>
-                <button onclick="pressKeypad('BACK')" class="keypad-btn p-3 rounded-xl font-brawl text-base text-amber-400"><i class="fa-solid fa-delete-left"></i></button>
+            <!-- Keypad Buttons -->
+            <div class="keypad-grid font-luckiest">
+                <button onclick="pressKey('1')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">1</button>
+                <button onclick="pressKey('2')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">2</button>
+                <button onclick="pressKey('3')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">3</button>
+                <button onclick="pressKey('4')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">4</button>
+                <button onclick="pressKey('5')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">5</button>
+                <button onclick="pressKey('6')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">6</button>
+                <button onclick="pressKey('7')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">7</button>
+                <button onclick="pressKey('8')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">8</button>
+                <button onclick="pressKey('9')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">9</button>
+                <button onclick="pressKey('CLEAR')" class="py-3 bg-red-900 border-2 border-black rounded-xl text-xs text-red-200 hover:bg-red-800 active:scale-95">CLR</button>
+                <button onclick="pressKey('0')" class="py-3 bg-slate-800 border-2 border-black rounded-xl text-xl hover:bg-slate-700 active:scale-95">0</button>
+                <button onclick="pressKey('BACK')" class="py-3 bg-amber-900 border-2 border-black rounded-xl text-sm text-amber-200 hover:bg-amber-800 active:scale-95">⌫</button>
             </div>
 
-            <button onclick="apiSubmitJoinCode()" class="brawl-btn brawl-btn-green w-full py-3 rounded-2xl text-lg">JOIN ROOM</button>
-        </div>
-    </div>
-
-    <!-- MODAL 2: EDIT PLAYER PROFILE -->
-    <div id="modal-profile" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
-        <div class="brawl-panel p-6 max-w-sm w-full relative">
-            <button onclick="closeModal('modal-profile')" class="absolute top-3 right-3 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
-            <h3 class="font-brawl text-2xl text-amber-300 brawl-stroke text-center mb-4">EDIT PROFILE</h3>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="text-xs font-bold text-indigo-300 block mb-1">PLAYER USERNAME</label>
-                    <input type="text" id="input-username" value="ALPHA_WOLF" class="w-full bg-slate-950 border-2 border-black rounded-xl px-3 py-2 font-brawl text-amber-300 text-lg focus:outline-none focus:border-amber-400">
-                </div>
-                <button onclick="saveProfile()" class="brawl-btn brawl-btn-yellow w-full py-3 rounded-2xl text-base">SAVE CHANGES</button>
+            <div class="flex gap-3 pt-2">
+                <button onclick="closeKeypadModal()" class="w-1/2 py-3 brawl-btn brawl-btn-red text-stroke-sm text-sm">CANCEL</button>
+                <button onclick="submitKeypadJoin()" class="w-1/2 py-3 brawl-btn brawl-btn-green text-stroke-sm text-sm">JOIN</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 3: SECRET ROLE CARD REVEAL FLIP -->
-    <div id="modal-role-card" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4">
-        <div class="max-w-xs w-full flex flex-col items-center">
-            <div id="secret-flip-container" class="flip-card w-64 h-96 cursor-pointer mb-4" onclick="toggleCardFlip()">
-                <div class="flip-card-inner relative w-full h-full rounded-2xl shadow-2xl">
-                    
-                    <!-- Card Front (Hidden) -->
-                    <div class="flip-card-front absolute inset-0 bg-gradient-to-br from-indigo-900 to-slate-950 border-4 border-amber-400 rounded-2xl flex flex-col items-center justify-center p-4">
-                        <div class="text-7xl mb-2">🐺</div>
-                        <h4 class="font-brawl text-2xl text-amber-300 brawl-stroke">BRAWL WEREWOLF</h4>
-                        <p class="text-xs text-indigo-300 mt-4 text-center font-bold">TAP CARD TO REVEAL SECRET ROLE</p>
-                    </div>
 
-                    <!-- Card Back (Revealed Role) -->
-                    <div class="flip-card-back absolute inset-0 bg-gradient-to-br from-amber-600 to-slate-950 border-4 border-amber-300 rounded-2xl flex flex-col items-center justify-between p-6">
-                        <div class="text-xs font-brawl text-amber-200 tracking-widest uppercase">CONFIDENTIAL ROLE</div>
-                        <div id="card-revealed-icon" class="text-8xl filter drop-shadow-lg">🐺</div>
-                        <div class="text-center">
-                            <h3 id="card-revealed-title" class="font-brawl text-3xl text-amber-300 brawl-stroke">WEREWOLF</h3>
-                            <p id="card-revealed-desc" class="text-xs text-slate-200 mt-2 font-body">Eliminate townsfolk during the night without getting caught!</p>
+    <!-- ================= MODAL: SECRET ROLE CARD REVEAL ================= -->
+    <div id="modalRoleCard" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="w-full max-w-xs flex flex-col items-center space-y-4">
+            <div id="roleFlipCard" class="flip-card w-64 h-96 cursor-pointer" onclick="toggleRoleFlip()">
+                <div class="flip-card-inner">
+                    <!-- Card Back (Cover) -->
+                    <div class="flip-card-front bg-gradient-to-br from-purple-900 to-indigo-950 flex flex-col items-center justify-center p-6 text-center shadow-2xl">
+                        <div class="w-20 h-20 rounded-full border-4 border-yellow-400 bg-purple-800 flex items-center justify-center text-4xl mb-4 glow-pulse">
+                            ❓
                         </div>
-                        <span class="text-[10px] text-indigo-300">Tap to flip back</span>
+                        <h4 class="text-2xl text-yellow-300 text-stroke-sm">SECRET ROLE</h4>
+                        <p class="text-xs text-purple-200 font-nunito mt-2">TAP CARD TO FLIP REVEAL</p>
                     </div>
 
+                    <!-- Card Front (Revealed Role) -->
+                    <div id="roleCardBack" class="flip-card-back bg-slate-900 flex flex-col items-center justify-between p-6 text-center shadow-2xl">
+                        <div id="roleBadgeHeader" class="text-xs px-3 py-1 rounded-full border border-black font-bold uppercase">TEAM VILLAGE</div>
+                        <div id="roleAvatarBig" class="text-6xl my-2">🐺</div>
+                        <div>
+                            <h3 id="roleTitle" class="text-3xl text-yellow-400 text-stroke-sm">WEREWOLF</h3>
+                            <p id="roleDescription" class="text-xs text-slate-300 font-nunito mt-2 leading-relaxed">
+                                Eliminate villagers each night without getting caught!
+                            </p>
+                        </div>
+                        <div class="text-[10px] text-slate-400 font-nunito">KEEP THIS SECRET FROM OTHERS</div>
+                    </div>
                 </div>
             </div>
 
-            <button onclick="closeModal('modal-role-card')" class="brawl-btn brawl-btn-yellow px-8 py-2.5 rounded-xl text-sm">GOT IT</button>
+            <button onclick="closeRoleCardModal()" class="w-full py-3 brawl-btn brawl-btn-yellow text-stroke-sm">
+                GOT IT!
+            </button>
         </div>
     </div>
 
-    <!-- MODAL 4: SETTINGS -->
-    <div id="modal-settings" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
-        <div class="brawl-panel p-6 max-w-sm w-full relative">
-            <button onclick="closeModal('modal-settings')" class="absolute top-3 right-3 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
-            <h3 class="font-brawl text-2xl text-sky-300 brawl-stroke text-center mb-4">SETTINGS</h3>
-            
-            <div class="space-y-4 text-xs">
-                <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border-2 border-black">
-                    <span class="font-brawl text-sm text-white">SOUND EFFECTS</span>
-                    <button onclick="toggleAudio()" id="btn-audio-toggle" class="brawl-btn brawl-btn-green px-3 py-1 rounded-lg text-xs">ON</button>
-                </div>
-                <div class="bg-slate-950 p-3 rounded-xl border-2 border-black text-slate-300 leading-relaxed">
-                    <div class="font-brawl text-amber-400 mb-1">API ENDPOINT:</div>
-                    <code class="text-[11px] text-cyan-300">../wolf_backend.php</code>
-                </div>
-            </div>
+
+    <!-- ================= SLIDE-OUT CHAT DRAWER ================= -->
+    <div id="chatDrawer" class="fixed bottom-0 right-0 w-full sm:w-80 bg-slate-950 border-t-4 sm:border-l-4 border-black z-40 transform translate-y-full transition-transform duration-300 flex flex-col h-80 shadow-2xl">
+        <div class="bg-slate-900 px-4 py-2 border-b-2 border-black flex items-center justify-between">
+            <span class="text-sm text-yellow-400 text-stroke-sm">ROOM CHAT</span>
+            <button onclick="toggleChatDrawer()" class="text-slate-400 hover:text-white font-bold">✕</button>
         </div>
+        
+        <div id="chatMessages" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs font-nunito">
+            <!-- Messages dynamic -->
+        </div>
+
+        <form onsubmit="handleSendChat(event)" class="p-2 bg-slate-900 border-t border-slate-800 flex gap-2">
+            <input type="text" id="chatInput" placeholder="Type a message..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-yellow-400 font-nunito">
+            <button type="submit" class="brawl-btn brawl-btn-yellow px-3 py-1 text-xs text-stroke-sm">SEND</button>
+        </form>
     </div>
 
+
+    <!-- FOOTER STATUS BAR -->
+    <footer class="w-full bg-slate-950/90 border-t-2 border-black py-1.5 px-4 text-center text-[11px] text-slate-400 font-nunito z-20">
+        Brawl Werewolf Online &bull; Direct Backend Sync: <span class="text-yellow-400">../wolf_backend.php</span>
+    </footer>
+
+
+    <!-- ================= JAVASCRIPT ONLINE GAME ENGINE ================= -->
     <script>
-        // Key Backend Endpoint Configuration
+        // CONFIGURATION
         const API_ENDPOINT = '../wolf_backend.php';
+        const POLL_INTERVAL = 1500; // 1.5 seconds real-time update loop
 
-        // Custom Web Audio API Sound Synthesizer (Zero External Audio Files)
-        const AudioEngine = {
-            ctx: null,
-            enabled: true,
-
-            init() {
-                if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-            },
-
-            playClick() {
-                if (!this.enabled) return;
-                this.init();
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.05);
-                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.05);
-            },
-
-            playJoin() {
-                if (!this.enabled) return;
-                this.init();
-                const now = this.ctx.currentTime;
-                [440, 554.37, 659.25, 880].forEach((freq, idx) => {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(freq, now + idx * 0.06);
-                    gain.gain.setValueAtTime(0.15, now + idx * 0.06);
-                    gain.gain.linearRampToValueAtTime(0.01, now + idx * 0.06 + 0.1);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start(now + idx * 0.06);
-                    osc.stop(now + idx * 0.06 + 0.1);
-                });
-            },
-
-            playTick() {
-                if (!this.enabled) return;
-                this.init();
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.03);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.03);
-            },
-
-            playFlip() {
-                if (!this.enabled) return;
-                this.init();
-                this.playClick();
-            },
-
-            playVote() {
-                if (!this.enabled) return;
-                this.init();
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.15);
-                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.15);
-            },
-
-            playVictory() {
-                if (!this.enabled) return;
-                this.init();
-                const now = this.ctx.currentTime;
-                const notes = [523.25, 659.25, 783.99, 1046.50];
-                notes.forEach((freq, i) => {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(freq, now + i * 0.12);
-                    gain.gain.setValueAtTime(0.25, now + i * 0.12);
-                    gain.gain.linearRampToValueAtTime(0.01, now + i * 0.12 + 0.3);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start(now + i * 0.12);
-                    osc.stop(now + i * 0.12 + 0.3);
-                });
-            },
-
-            playDefeat() {
-                if (!this.enabled) return;
-                this.init();
-                const now = this.ctx.currentTime;
-                const notes = [400, 350, 300, 250];
-                notes.forEach((freq, i) => {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(freq, now + i * 0.15);
-                    gain.gain.setValueAtTime(0.2, now + i * 0.15);
-                    gain.gain.linearRampToValueAtTime(0.01, now + i * 0.15 + 0.25);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start(now + i * 0.15);
-                    osc.stop(now + i * 0.15 + 0.25);
-                });
-            }
+        const AVATARS = ['shelly', 'colt', 'el_primo', 'spike', 'crow', 'leon'];
+        const AVATAR_EMOJIS = {
+            'shelly': '🤠',
+            'colt': '🔫',
+            'el_primo': '🥊',
+            'spike': '🌵',
+            'crow': '🦅',
+            'leon': '🦎'
         };
 
-        // Persistent LocalStorage Initialization
-        let LOCAL_PLAYER_ID = localStorage.getItem('bw_player_id');
-        if (!LOCAL_PLAYER_ID) {
-            LOCAL_PLAYER_ID = 'BW_' + Math.random().toString(36).substring(2, 9).toUpperCase();
-            localStorage.setItem('bw_player_id', LOCAL_PLAYER_ID);
+        // APPLICATION STATE
+        let state = {
+            playerId: localStorage.getItem('bw_player_id') || 'PID_' + Math.random().toString(36).substr(2, 9),
+            username: localStorage.getItem('bw_username') || 'Brawler_' + Math.floor(1000 + Math.random() * 9000),
+            avatar: localStorage.getItem('bw_avatar') || 'shelly',
+            roomCode: null,
+            isHost: false,
+            isReady: false,
+            role: null,
+            isAlive: true,
+            phase: 'lobby', // 'lobby', 'NIGHT', 'DAY', 'VOTE', 'ENDED'
+            players: [],
+            messages: [],
+            selectedTargetId: null,
+            keypadInput: '',
+            pollingTimer: null
+        };
+
+        // SAVE PLAYER ID IN LOCALSTORAGE
+        localStorage.setItem('bw_player_id', state.playerId);
+
+        // WEB AUDIO API SOUND SYNTHESIZER
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+                if (type === 'click') {
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.linearRampToValueAtTime(0, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'chime') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.1);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.linearRampToValueAtTime(0, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            } catch (e) { console.log('Audio disabled', e); }
         }
 
-        const State = {
-            player: {
-                id: LOCAL_PLAYER_ID,
-                name: localStorage.getItem('bw_username') || "ALPHA_WOLF",
-                level: parseInt(localStorage.getItem('bw_level') || "12"),
-                trophies: parseInt(localStorage.getItem('bw_trophies') || "1240"),
-                coins: parseInt(localStorage.getItem('bw_coins') || "3850"),
-                gems: parseInt(localStorage.getItem('bw_gems') || "150"),
-                avatarIdx: parseInt(localStorage.getItem('bw_avatar_idx') || "0"),
-                isReady: false,
-                isHost: false,
-                role: "UNKNOWN",
-                alive: true,
-                hasVoted: false
-            },
-            skins: [
-                { name: "Midnight Alpha", icon: "🐺" },
-                { name: "Town Doctor", icon: "🧪" },
-                { name: "Cyber Seer", icon: "🔮" },
-                { name: "Brawl Villager", icon: "🤠" },
-                { name: "Shadow Fox", icon: "🦊" },
-                { name: "Brawl Mech", icon: "🤖" },
-                { name: "Bear Warrior", icon: "🐻" },
-                { name: "Skull Boss", icon: "💀" }
-            ],
-            room: {
-                code: null,
-                players: [],
-                status: 'waiting',
-                phase: 'lobby',
-                hostId: null,
-                config: {
-                    werewolves: 2,
-                    seer: true,
-                    doctor: true
-                }
-            },
-            game: {
-                timer: 20,
-                selectedTargetId: null,
-                votes: {},
-                seerResult: null
-            },
-            pollInterval: null,
-            timerInterval: null
-        };
+        // INIT ON LOAD
+        window.addEventListener('DOMContentLoaded', () => {
+            updateProfileDisplay();
+            // Start listening or polling
+        });
 
-        window.onload = function() {
-            // Restore player header display
-            document.getElementById('header-username').textContent = State.player.name;
-            document.getElementById('input-username').value = State.player.name;
-            document.getElementById('header-trophies').textContent = State.player.trophies.toLocaleString();
-            document.getElementById('header-coins').textContent = State.player.coins.toLocaleString();
-            document.getElementById('header-gems').textContent = State.player.gems.toLocaleString();
-            
-            const skin = State.skins[State.player.avatarIdx];
-            document.getElementById('hero-avatar').textContent = skin.icon;
-            document.getElementById('current-skin-name').textContent = skin.name;
-            document.getElementById('header-avatar-container').textContent = skin.icon;
-        };
-
+        // -------------------------------------------------------------
+        // BACKEND API AJAX CONNECTOR
+        // -------------------------------------------------------------
         async function apiCall(action, payload = {}) {
-            payload.action = action;
-            payload.player_id = State.player.id;
+            const formData = new FormData();
+            formData.append('action', action);
+            formData.append('player_id', state.playerId);
+            formData.append('username', state.username);
+            formData.append('avatar', state.avatar);
+
+            for (let key in payload) {
+                formData.append(key, payload[key]);
+            }
 
             try {
-                const response = await fetch(API_ENDPOINT, {
+                const res = await fetch(API_ENDPOINT, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: formData
                 });
 
-                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                const data = await response.json();
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 
-                document.getElementById('backend-status-dot').className = "w-3 h-3 rounded-full bg-emerald-400 animate-pulse";
-                document.getElementById('backend-status-text').textContent = `Connected (${API_ENDPOINT})`;
-
-                return data;
+                const json = await res.json();
+                if (!json.success) {
+                    throw new Error(json.message || 'API request failed');
+                }
+                return json.data || json;
             } catch (err) {
-                console.warn('Backend API note:', err);
-                document.getElementById('backend-status-dot').className = "w-3 h-3 rounded-full bg-amber-400";
-                document.getElementById('backend-status-text').textContent = `Standby/Demo (${API_ENDPOINT})`;
-                
-                // Return synthetic mock response for standalone interactive playability
-                return mockBackendHandler(action, payload);
+                console.warn(`[API ${action}] Error/Fallback:`, err.message);
+                throw err;
             }
         }
 
-        // Mock Fallback Handler when wolf_backend.php is in offline or setup state
-        function mockBackendHandler(action, payload) {
-            if (action === 'create_room' || action === 'find_game') {
-                const code = payload.room_code || Math.floor(100000 + Math.random() * 900000).toString();
-                return { status: 'success', room_code: code };
-            }
-            if (action === 'get_room') {
-                return {
-                    status: 'success',
-                    room: {
-                        status: State.room.status,
-                        phase: State.room.phase,
-                        host_id: State.room.hostId || State.player.id
-                    },
-                    players: State.room.players,
-                    messages: [
-                        { sender: 'System', text: 'Room session active.', is_system: true }
-                    ]
-                };
-            }
-            return { status: 'success' };
+        // -------------------------------------------------------------
+        // MAIN MENU ACTIONS
+        // -------------------------------------------------------------
+        function updateProfileDisplay() {
+            document.getElementById('displayUsername').innerText = state.username;
+            document.getElementById('playerAvatarHead').innerText = AVATAR_EMOJIS[state.avatar] || '🤠';
+            document.getElementById('showcaseAvatar').innerText = AVATAR_EMOJIS[state.avatar] || '🤠';
         }
 
-        // Action Trigger: Create Room
-        async function apiCreateRoom() {
-            AudioEngine.playClick();
-            const res = await apiCall('create_room', {
-                username: State.player.name,
-                avatar: State.skins[State.player.avatarIdx].icon
-            });
+        function nextAvatar() {
+            playSound('click');
+            const idx = AVATARS.indexOf(state.avatar);
+            state.avatar = AVATARS[(idx + 1) % AVATARS.length];
+            localStorage.setItem('bw_avatar', state.avatar);
+            updateProfileDisplay();
+        }
 
-            if (res.status === 'success') {
-                State.room.code = res.room_code;
-                State.player.isHost = true;
-                State.room.hostId = State.player.id;
-                enterLobbyScreen(res.room_code);
+        async function handleCreateRoom() {
+            playSound('click');
+            try {
+                const data = await apiCall('create_room');
+                state.roomCode = data.room_code;
+                state.isHost = true;
+                enterLobbyView();
+            } catch (err) {
+                alert('Failed to create room: ' + err.message);
             }
         }
 
-        // Action Trigger: Find Game
-        async function apiFindGame() {
-            AudioEngine.playClick();
-            const res = await apiCall('find_game', {
-                username: State.player.name,
-                avatar: State.skins[State.player.avatarIdx].icon
-            });
-
-            if (res.status === 'success') {
-                State.room.code = res.room_code;
-                enterLobbyScreen(res.room_code);
-            } else {
-                apiCreateRoom();
+        async function handleQuickMatch() {
+            playSound('click');
+            try {
+                const data = await apiCall('find_game');
+                state.roomCode = data.room_code;
+                enterLobbyView();
+            } catch (err) {
+                alert('Could not find match: ' + err.message);
             }
         }
 
-        // Action Trigger: Submit Keypad Join Code
-        async function apiSubmitJoinCode() {
-            const input = document.getElementById('join-code-input');
-            const code = input.value.trim();
-            if (code.length < 4) return;
-            AudioEngine.playClick();
-
-            const res = await apiCall('join_room', {
-                room_code: code,
-                username: State.player.name,
-                avatar: State.skins[State.player.avatarIdx].icon
-            });
-
-            closeModal('modal-join-code');
-            State.room.code = code;
-            enterLobbyScreen(code);
+        // -------------------------------------------------------------
+        // KEYPAD MODAL (JOIN CODE)
+        // -------------------------------------------------------------
+        function openKeypadModal() {
+            playSound('click');
+            state.keypadInput = '';
+            updateKeypadDisplay();
+            document.getElementById('modalKeypad').classList.remove('hidden');
         }
 
-        function enterLobbyScreen(roomCode) {
-            AudioEngine.playJoin();
-            document.getElementById('lobby-room-code').textContent = roomCode;
-            showView('view-room-lobby');
-            startPollingRoomState();
+        function closeKeypadModal() {
+            playSound('click');
+            document.getElementById('modalKeypad').classList.add('hidden');
         }
 
-        function startPollingRoomState() {
+        function pressKey(key) {
+            playSound('click');
+            if (key === 'CLEAR') {
+                state.keypadInput = '';
+            } else if (key === 'BACK') {
+                state.keypadInput = state.keypadInput.slice(0, -1);
+            } else if (state.keypadInput.length < 6) {
+                state.keypadInput += key;
+            }
+            updateKeypadDisplay();
+        }
+
+        function updateKeypadDisplay() {
+            const boxes = document.getElementById('keypadDisplay').children;
+            for (let i = 0; i < 6; i++) {
+                boxes[i].innerText = state.keypadInput[i] || '';
+            }
+        }
+
+        async function submitKeypadJoin() {
+            playSound('click');
+            if (state.keypadInput.length !== 6) {
+                alert('Please enter a valid 6-digit room code!');
+                return;
+            }
+
+            try {
+                const data = await apiCall('join_room', { room_code: state.keypadInput });
+                state.roomCode = data.room_code;
+                closeKeypadModal();
+                enterLobbyView();
+            } catch (err) {
+                alert('Join Room Error: ' + err.message);
+            }
+        }
+
+        // -------------------------------------------------------------
+        // LOBBY & POLLING ENGINE
+        // -------------------------------------------------------------
+        function enterLobbyView() {
+            document.getElementById('viewMainMenu').classList.add('hidden');
+            document.getElementById('viewGame').classList.add('hidden');
+            document.getElementById('viewLobby').classList.remove('hidden');
+
+            document.getElementById('topRoomBanner').classList.remove('hidden');
+            document.getElementById('topRoomBanner').classList.add('flex');
+            document.getElementById('topRoomCode').innerText = state.roomCode;
+            document.getElementById('lobbyCodeBadge').innerText = '#' + state.roomCode;
+
+            startPolling();
+        }
+
+        function startPolling() {
             stopPolling();
-            pollRoomData();
-            State.pollInterval = setInterval(pollRoomData, 1500);
+            pollRoomState();
+            state.pollingTimer = setInterval(pollRoomState, POLL_INTERVAL);
         }
 
         function stopPolling() {
-            if (State.pollInterval) clearInterval(State.pollInterval);
+            if (state.pollingTimer) clearInterval(state.pollingTimer);
         }
 
-        async function pollRoomData() {
-            if (!State.room.code) return;
+        async function pollRoomState() {
+            if (!state.roomCode) return;
 
-            const res = await apiCall('get_room', { room_code: State.room.code });
+            try {
+                const data = await apiCall('get_room', { room_code: state.roomCode });
+                const room = data.room;
+                state.players = data.players || [];
+                state.messages = data.messages || [];
 
-            if (res.status === 'success' && res.room) {
-                if (!res.players || res.players.length === 0) {
-                    // Populate local user if fresh room
-                    State.room.players = [{
-                        player_id: State.player.id,
-                        username: State.player.name,
-                        avatar: State.skins[State.player.avatarIdx].icon,
-                        is_host: State.player.isHost ? 1 : 0,
-                        is_ready: State.player.isReady ? 1 : 0,
-                        is_alive: 1,
-                        role: State.player.role,
-                        votes: 0
-                    }];
-                } else {
-                    State.room.players = res.players;
-                }
-
-                State.room.status = res.room.status;
-                State.room.phase = res.room.phase;
-                if (res.room.host_id) State.room.hostId = res.room.host_id;
-
-                const me = State.room.players.find(p => p.player_id === State.player.id);
+                // Update Host Status
+                const me = state.players.find(p => p.player_id === state.playerId);
                 if (me) {
-                    if (me.role && me.role !== 'UNKNOWN') {
-                        State.player.role = me.role;
-                        document.getElementById('my-secret-role-name').textContent = me.role;
-                        updateRoleCardModal(me.role);
-                    }
+                    state.isHost = (me.is_host == 1);
+                    state.isReady = (me.is_ready == 1);
+                    state.role = me.role;
+                    state.isAlive = (me.is_alive == 1);
+                    document.getElementById('myRoleBadge').innerText = me.role || '???';
                 }
 
-                renderLobbySlots();
-                if (res.messages) renderChatMessages(res.messages);
+                // Render Chat & Views based on Phase
+                renderChatMessages();
 
-                if (res.room.status === 'playing' && document.getElementById('view-game-play').classList.contains('hidden')) {
-                    startMatchPhase();
+                if (room.status === 'waiting') {
+                    renderLobbyView();
+                } else if (room.status === 'playing') {
+                    state.phase = room.phase;
+                    renderGameView();
                 }
+            } catch (err) {
+                console.error('Polling error:', err);
             }
         }
 
-        function renderLobbySlots() {
-            const container = document.getElementById('lobby-slots-container');
-            container.innerHTML = '';
-            const players = State.room.players;
-            document.getElementById('lobby-player-count').textContent = `${players.length} / 10`;
+        function renderLobbyView() {
+            const grid = document.getElementById('playerGrid');
+            grid.innerHTML = '';
 
+            // Render up to 10 slots
             for (let i = 0; i < 10; i++) {
-                const p = players[i];
-                const card = document.createElement('div');
-                card.className = "brawl-card p-3 flex flex-col items-center justify-between min-h-[130px] relative border-3 " + 
-                    (p ? (p.is_ready ? "border-emerald-400" : "border-amber-400/60") : "border-dashed border-slate-700/60");
-
+                const p = state.players[i];
                 if (p) {
-                    card.innerHTML = `
-                        ${p.is_host ? '<span class="absolute top-1 left-1 text-sm drop-shadow" title="Host">👑</span>' : ''}
-                        <div class="text-4xl my-1 animate-brawl-float">${p.avatar || '🐺'}</div>
-                        <div class="font-brawl text-xs text-amber-300 truncate w-full text-center">${p.username}</div>
-                        <div class="mt-1">
-                            ${p.is_ready 
-                                ? '<span class="bg-emerald-500 text-black font-brawl text-[10px] px-2 py-0.5 rounded-full border border-black">READY</span>' 
-                                : '<span class="bg-rose-500 text-white font-brawl text-[10px] px-2 py-0.5 rounded-full border border-black">WAITING</span>'}
+                    const isMe = p.player_id === state.playerId;
+                    grid.innerHTML += `
+                        <div class="brawl-panel p-3 flex flex-col items-center justify-between text-center relative ${isMe ? 'border-yellow-400 bg-slate-800' : ''}">
+                            ${p.is_host == 1 ? '<span class="absolute top-1 left-1 text-xs">👑</span>' : ''}
+                            <div class="text-3xl my-1">${AVATAR_EMOJIS[p.avatar] || '🤠'}</div>
+                            <div class="text-xs text-yellow-300 font-bold truncate w-full">${p.username}</div>
+                            <div class="mt-2 text-[10px] px-2 py-0.5 rounded-full ${p.is_ready == 1 ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-400'}">
+                                ${p.is_ready == 1 ? 'READY' : 'NOT READY'}
+                            </div>
                         </div>
                     `;
                 } else {
-                    card.innerHTML = `<div class="my-auto text-slate-600 text-xs font-brawl uppercase">EMPTY</div>`;
+                    grid.innerHTML += `
+                        <div class="brawl-panel p-3 flex flex-col items-center justify-center text-center opacity-40 border-dashed">
+                            <div class="text-2xl mb-1">👤</div>
+                            <div class="text-[10px] text-slate-400">EMPTY</div>
+                        </div>
+                    `;
                 }
-                container.appendChild(card);
             }
 
-            // Update Start/Ready action button
-            const btn = document.getElementById('btn-ready-start');
-            if (State.player.isHost) {
-                btn.textContent = "START GAME";
-                btn.className = "brawl-btn brawl-btn-yellow w-full sm:w-80 py-4 rounded-2xl text-2xl brawl-stroke tracking-wider shadow-2xl";
+            // Action Button Setup
+            const btn = document.getElementById('btnLobbyAction');
+            if (state.isHost) {
+                btn.className = "w-full sm:w-64 py-4 text-2xl brawl-btn brawl-btn-yellow text-stroke-md";
+                btn.innerText = "START GAME";
             } else {
-                btn.textContent = State.player.isReady ? "READY!" : "SET READY";
-                btn.className = State.player.isReady 
-                    ? "brawl-btn brawl-btn-green w-full sm:w-80 py-4 rounded-2xl text-2xl brawl-stroke" 
-                    : "brawl-btn brawl-btn-yellow w-full sm:w-80 py-4 rounded-2xl text-2xl brawl-stroke";
+                btn.className = state.isReady 
+                    ? "w-full sm:w-64 py-4 text-2xl brawl-btn brawl-btn-red text-stroke-md"
+                    : "w-full sm:w-64 py-4 text-2xl brawl-btn brawl-btn-green text-stroke-md";
+                btn.innerText = state.isReady ? "CANCEL READY" : "READY!";
             }
 
-            renderInGameGrid();
+            // Show host controls only to host
+            document.getElementById('hostControls').style.display = state.isHost ? 'flex' : 'none';
         }
 
-        function startMatchPhase() {
-            assignRolesIfEmpty();
-            showView('view-game-play');
-            openModal('modal-role-card');
-            startPhaseTimer(20, 'NIGHT PHASE 🌙', 'Perform your secret role action...');
-        }
-
-        function assignRolesIfEmpty() {
-            const rolesPool = ['Werewolf', 'Werewolf', 'Seer', 'Doctor', 'Villager', 'Villager', 'Villager', 'Villager', 'Villager', 'Villager'];
-            // Shuffle
-            for (let i = rolesPool.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [rolesPool[i], rolesPool[j]] = [rolesPool[j], rolesPool[i]];
-            }
-
-            State.room.players.forEach((p, idx) => {
-                p.role = rolesPool[idx % rolesPool.length];
-                p.is_alive = 1;
-                p.votes = 0;
-            });
-
-            const me = State.room.players.find(p => p.player_id === State.player.id);
-            if (me) {
-                State.player.role = me.role;
-                document.getElementById('my-secret-role-name').textContent = me.role;
-                updateRoleCardModal(me.role);
-            }
-        }
-
-        function startPhaseTimer(seconds, phaseBadgeText, instructionText) {
-            if (State.timerInterval) clearInterval(State.timerInterval);
-            
-            State.game.timer = seconds;
-            document.getElementById('phase-badge').textContent = phaseBadgeText;
-            document.getElementById('phase-instruction').textContent = instructionText;
-            document.getElementById('game-timer').textContent = `${State.game.timer}s`;
-
-            State.timerInterval = setInterval(() => {
-                State.game.timer--;
-                document.getElementById('game-timer').textContent = `${State.game.timer}s`;
-                AudioEngine.playTick();
-
-                if (State.game.timer <= 0) {
-                    clearInterval(State.timerInterval);
-                    advanceGamePhase();
+        async function handleLobbyAction() {
+            playSound('click');
+            if (state.isHost) {
+                try {
+                    await apiCall('start_game', { room_code: state.roomCode });
+                    playSound('chime');
+                } catch (err) {
+                    alert(err.message);
                 }
-            }, 1000);
-        }
-
-        function advanceGamePhase() {
-            const currentBadge = document.getElementById('phase-badge').textContent;
-            
-            if (currentBadge.includes('NIGHT')) {
-                // Shift to Day Phase
-                startPhaseTimer(15, 'DAY DISCUSSION ☀️', 'Discuss and identify suspicious behavior!');
-                logGameEvent('[DAY PHASE]: The sun rises. Discuss who the Werewolf might be!');
-            } else if (currentBadge.includes('DAY')) {
-                // Shift to Voting Phase
-                startPhaseTimer(20, 'VOTING PHASE 🗳️', 'Cast your vote to eliminate a suspect!');
-                logGameEvent('[VOTING PHASE]: Voting line open! Select a player and confirm vote.');
-            } else if (currentBadge.includes('VOTING')) {
-                // Process Votes & Elimination
-                processVoteResults();
-            }
-        }
-
-        function processVoteResults() {
-            let maxVotes = -1;
-            let eliminatedPlayer = null;
-
-            State.room.players.forEach(p => {
-                if (p.votes > maxVotes && p.is_alive) {
-                    maxVotes = p.votes;
-                    eliminatedPlayer = p;
+            } else {
+                try {
+                    await apiCall('toggle_ready', { room_code: state.roomCode });
+                } catch (err) {
+                    alert(err.message);
                 }
-            });
-
-            if (eliminatedPlayer && maxVotes > 0) {
-                eliminatedPlayer.is_alive = 0;
-                logGameEvent(`[ELIMINATION]: ${eliminatedPlayer.username} was voted out! Role was: ${eliminatedPlayer.role}`);
-            } else {
-                logGameEvent('[ELIMINATION]: Tie or no votes cast. Nobody was eliminated.');
-            }
-
-            renderInGameGrid();
-            checkVictoryCondition();
-        }
-
-        function checkVictoryCondition() {
-            const aliveWolves = State.room.players.filter(p => p.is_alive && p.role === 'Werewolf').length;
-            const aliveTown = State.room.players.filter(p => p.is_alive && p.role !== 'Werewolf').length;
-
-            if (aliveWolves === 0) {
-                triggerGameOver(true, "Town Victory! All Werewolves eliminated!");
-            } else if (aliveWolves >= aliveTown) {
-                triggerGameOver(false, "Werewolf Victory! Wolves overwhelmed the town!");
-            } else {
-                // Loop back to Night Phase
-                startPhaseTimer(20, 'NIGHT PHASE 🌙', 'Perform your secret role action...');
             }
         }
 
-        function triggerGameOver(isTownWin, subtitle) {
+        async function leaveRoom() {
+            playSound('click');
             stopPolling();
-            if (State.timerInterval) clearInterval(State.timerInterval);
-
-            const isMyTeamWin = (isTownWin && State.player.role !== 'Werewolf') || (!isTownWin && State.player.role === 'Werewolf');
-            
-            const titleEl = document.getElementById('victory-title');
-            const subEl = document.getElementById('victory-subtitle');
-            const trophiesEl = document.getElementById('end-trophies-gained');
-
-            if (isMyTeamWin) {
-                AudioEngine.playVictory();
-                titleEl.textContent = "VICTORY!";
-                titleEl.className = "font-brawl text-5xl sm:text-7xl text-amber-400 brawl-stroke brawl-skew uppercase tracking-widest";
-                subEl.textContent = subtitle;
-                trophiesEl.textContent = "+8 TROPHIES";
-                
-                State.player.trophies += 8;
-                State.player.coins += 50;
-                State.player.gems += 5;
-            } else {
-                AudioEngine.playDefeat();
-                titleEl.textContent = "DEFEAT!";
-                titleEl.className = "font-brawl text-5xl sm:text-7xl text-rose-500 brawl-stroke brawl-skew uppercase tracking-widest";
-                subEl.textContent = subtitle;
-                trophiesEl.textContent = "-4 TROPHIES";
-                
-                State.player.trophies = Math.max(0, State.player.trophies - 4);
-            }
-
-            // Save Stats
-            localStorage.setItem('bw_trophies', State.player.trophies);
-            localStorage.setItem('bw_coins', State.player.coins);
-            localStorage.setItem('bw_gems', State.player.gems);
-
-            document.getElementById('header-trophies').textContent = State.player.trophies.toLocaleString();
-            document.getElementById('header-coins').textContent = State.player.coins.toLocaleString();
-            document.getElementById('header-gems').textContent = State.player.gems.toLocaleString();
-
-            showView('view-game-over');
-        }
-
-        function renderInGameGrid() {
-            const container = document.getElementById('game-players-grid');
-            container.innerHTML = '';
-
-            State.room.players.forEach(p => {
-                const isSelected = State.game.selectedTargetId === p.player_id;
-                const card = document.createElement('div');
-                card.className = `brawl-card p-3 flex flex-col items-center justify-between min-h-[125px] cursor-pointer transition border-3 ${
-                    !p.is_alive ? 'opacity-40 bg-rose-950/30 border-rose-900' : 
-                    isSelected ? 'border-amber-400 bg-amber-950/40 scale-105 shadow-xl' : 'border-black hover:border-indigo-500'
-                }`;
-
-                card.onclick = () => {
-                    if (!p.is_alive) return;
-                    AudioEngine.playClick();
-                    State.game.selectedTargetId = p.player_id;
-                    renderInGameGrid();
-                    const btn = document.getElementById('btn-game-action');
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                };
-
-                card.innerHTML = `
-                    <div class="relative w-full flex justify-center">
-                        <div class="text-4xl my-1">${p.is_alive ? p.avatar : '💀'}</div>
-                        ${p.votes > 0 ? `<span class="absolute top-0 right-0 bg-amber-400 text-black font-brawl text-xs px-2 py-0.5 rounded-full border border-black shadow">${p.votes} VOTES</span>` : ''}
-                    </div>
-                    <div class="font-brawl text-xs text-amber-300 truncate w-full text-center">${p.username}</div>
-                    <div class="text-[10px] ${p.is_alive ? 'text-emerald-400' : 'text-rose-400'} font-bold">
-                        ${p.is_alive ? 'ALIVE' : 'ELIMINATED'}
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        async function submitRoleAction() {
-            if (!State.game.selectedTargetId) return;
-            AudioEngine.playVote();
-
-            const target = State.room.players.find(p => p.player_id === State.game.selectedTargetId);
-            const targetName = target ? target.username : 'selected target';
-
-            const phaseText = document.getElementById('phase-badge').textContent;
-
-            if (phaseText.includes('VOTING')) {
-                if (target) target.votes = (target.votes || 0) + 1;
-                logGameEvent(`[VOTE CONFIRMED]: You voted for ${targetName}.`);
-            } else {
-                if (State.player.role === 'Seer') {
-                    const banner = document.getElementById('seer-result-banner');
-                    banner.classList.remove('hidden');
-                    banner.textContent = `🔮 SEER INSPECTION: ${targetName} is ${target.role === 'Werewolf' ? 'a WEREWOLF 🐺!' : 'a TOWN MEMBER 🛡️.'}`;
-                }
-                logGameEvent(`[ROLE ACTION]: Target confirmed on ${targetName}.`);
-            }
-
-            await apiCall('submit_action', {
-                room_code: State.room.code,
-                target_id: State.game.selectedTargetId,
-                action_type: State.player.role.toLowerCase()
-            });
-
-            renderInGameGrid();
-            const btn = document.getElementById('btn-game-action');
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
-        }
-
-        function toggleBotFiller() {
-            AudioEngine.playClick();
-            const botNames = ['BrawlBot', 'CyberWolf', 'RoboSeer', 'DocBot', 'IronVillager', 'MechaBrawler', 'NitroWolf', 'ArcadeBot', 'ByteNinja'];
-            
-            if (State.room.players.length < 10) {
-                while (State.room.players.length < 10) {
-                    const idx = State.room.players.length;
-                    State.room.players.push({
-                        player_id: 'BOT_' + idx,
-                        username: botNames[idx - 1] || `Bot_${idx}`,
-                        avatar: State.skins[idx % State.skins.length].icon,
-                        is_host: 0,
-                        is_ready: 1,
-                        is_alive: 1,
-                        role: 'VILLAGER',
-                        votes: 0
-                    });
-                }
-                document.getElementById('btn-bot-text').textContent = "CLEAR BOTS";
-            } else {
-                State.room.players = State.room.players.filter(p => !p.player_id.startsWith('BOT_'));
-                document.getElementById('btn-bot-text').textContent = "FILL BOTS";
-            }
-            renderLobbySlots();
-        }
-
-        function updateWerewolfCount(delta) {
-            AudioEngine.playClick();
-            State.room.config.werewolves = Math.max(1, Math.min(3, State.room.config.werewolves + delta));
-            document.getElementById('config-wolf-count').textContent = State.room.config.werewolves;
-        }
-
-        function toggleRoleConfig(role) {
-            AudioEngine.playClick();
-            if (role === 'seer') {
-                State.room.config.seer = !State.room.config.seer;
-                const btn = document.getElementById('btn-toggle-seer');
-                btn.textContent = State.room.config.seer ? "ENABLED" : "DISABLED";
-                btn.className = State.room.config.seer ? "text-emerald-400 font-brawl bg-slate-800 px-2 py-1 rounded border border-black" : "text-rose-400 font-brawl bg-slate-800 px-2 py-1 rounded border border-black";
-            } else if (role === 'doctor') {
-                State.room.config.doctor = !State.room.config.doctor;
-                const btn = document.getElementById('btn-toggle-doctor');
-                btn.textContent = State.room.config.doctor ? "ENABLED" : "DISABLED";
-                btn.className = State.room.config.doctor ? "text-emerald-400 font-brawl bg-slate-800 px-2 py-1 rounded border border-black" : "text-rose-400 font-brawl bg-slate-800 px-2 py-1 rounded border border-black";
-            }
-        }
-
-        async function handleReadyOrStart() {
-            AudioEngine.playClick();
-            if (State.player.isHost) {
-                await apiCall('start_game', { room_code: State.room.code });
-                State.room.status = 'playing';
-                startMatchPhase();
-            } else {
-                State.player.isReady = !State.player.isReady;
-                await apiCall('toggle_ready', { room_code: State.room.code });
-                renderLobbySlots();
-            }
-        }
-
-        async function apiSendChat() {
-            const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-            if (!text || !State.room.code) return;
-            AudioEngine.playClick();
-
-            await apiCall('send_chat', {
-                room_code: State.room.code,
-                username: State.player.name,
-                text: text
-            });
-            
-            input.value = '';
-            pollRoomData();
-        }
-
-        function renderChatMessages(messages) {
-            const container = document.getElementById('chat-messages-container');
-            container.innerHTML = '';
-            messages.forEach(m => {
-                const div = document.createElement('div');
-                div.className = m.is_system ? "text-amber-400 font-bold text-center italic text-[11px]" : "bg-indigo-900/50 p-2 rounded-xl border border-indigo-800/60";
-                div.innerHTML = m.is_system ? m.text : `<span class="font-brawl text-amber-300 mr-1">${m.sender}:</span><span class="text-indigo-100">${m.text}</span>`;
-                container.appendChild(div);
-            });
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function logGameEvent(msg) {
-            const log = document.getElementById('game-log');
-            const entry = document.createElement('div');
-            entry.textContent = msg;
-            log.appendChild(entry);
-            log.scrollTop = log.scrollHeight;
-        }
-
-        function updateRoleCardModal(role) {
-            const icons = { Werewolf: '🐺', Seer: '🔮', Doctor: '🧪', Villager: '🤠' };
-            const descs = {
-                Werewolf: 'Hunt and eliminate town members under cover of night!',
-                Seer: 'Inspect one player each night to uncover their true secret role.',
-                Doctor: 'Protect one player each night from potential werewolf attacks.',
-                Villager: 'Deduce who the werewolves are during day discussions and vote them out!'
-            };
-            document.getElementById('card-revealed-icon').textContent = icons[role] || '🐺';
-            document.getElementById('card-revealed-title').textContent = role.toUpperCase();
-            document.getElementById('card-revealed-desc').textContent = descs[role] || descs.Villager;
-            document.getElementById('my-secret-role-icon').textContent = icons[role] || '❓';
-        }
-
-        function toggleCardFlip() {
-            AudioEngine.playFlip();
-            document.getElementById('secret-flip-container').classList.toggle('flipped');
-        }
-
-        function cycleHeroSkin(dir = 1) {
-            AudioEngine.playClick();
-            State.player.avatarIdx = (State.player.avatarIdx + dir + State.skins.length) % State.skins.length;
-            localStorage.setItem('bw_avatar_idx', State.player.avatarIdx);
-            
-            const skin = State.skins[State.player.avatarIdx];
-            document.getElementById('hero-avatar').textContent = skin.icon;
-            document.getElementById('current-skin-name').textContent = skin.name;
-            document.getElementById('header-avatar-container').textContent = skin.icon;
-        }
-
-        function showView(viewId) {
-            ['view-main-menu', 'view-room-lobby', 'view-game-play', 'view-game-over'].forEach(id => {
-                document.getElementById(id).classList.add('hidden');
-            });
-            document.getElementById(viewId).classList.remove('hidden');
-            document.getElementById(viewId).classList.add('flex');
-        }
-
-        function openModal(id) {
-            AudioEngine.playClick();
-            document.getElementById(id).classList.remove('hidden');
-        }
-
-        function closeModal(id) {
-            AudioEngine.playClick();
-            document.getElementById(id).classList.add('hidden');
-        }
-
-        function pressKeypad(val) {
-            AudioEngine.playClick();
-            const input = document.getElementById('join-code-input');
-            if (val === 'CLEAR') input.value = '';
-            else if (val === 'BACK') input.value = input.value.slice(0, -1);
-            else if (input.value.length < 6) input.value += val;
-        }
-
-        function toggleChatDrawer() {
-            AudioEngine.playClick();
-            const drawer = document.getElementById('drawer-chat');
-            drawer.classList.toggle('translate-y-full');
-            drawer.classList.toggle('translate-x-full');
+            state.roomCode = null;
+            document.getElementById('viewLobby').classList.add('hidden');
+            document.getElementById('viewGame').classList.add('hidden');
+            document.getElementById('viewMainMenu').classList.remove('hidden');
+            document.getElementById('topRoomBanner').classList.add('hidden');
         }
 
         function copyRoomCode() {
-            AudioEngine.playClick();
-            if (State.room.code) {
-                document.execCommand('copy');
+            playSound('click');
+            navigator.clipboard.writeText(state.roomCode);
+            alert('Room Code copied to clipboard: ' + state.roomCode);
+        }
+
+        // -------------------------------------------------------------
+        // IN-GAME VIEW & TARGET ACTIONS
+        // -------------------------------------------------------------
+        function renderGameView() {
+            document.getElementById('viewLobby').classList.add('hidden');
+            document.getElementById('viewGame').classList.remove('hidden');
+
+            const isNight = state.phase === 'NIGHT';
+            document.getElementById('phaseIcon').innerText = isNight ? '🌙' : '☀️';
+            document.getElementById('phaseTitle').innerText = isNight ? 'NIGHT PHASE' : 'DAY PHASE';
+            document.getElementById('phaseSubtext').innerText = isNight 
+                ? 'Perform secret role actions...' 
+                : 'Discuss and vote who to eliminate!';
+
+            // Render Target Player Cards
+            const grid = document.getElementById('gameTargetsGrid');
+            grid.innerHTML = '';
+
+            state.players.forEach(p => {
+                const isSelected = state.selectedTargetId === p.player_id;
+                const isMe = p.player_id === state.playerId;
+
+                grid.innerHTML += `
+                    <div onclick="selectTarget('${p.player_id}')" class="brawl-panel p-3 flex flex-col items-center justify-between text-center cursor-pointer transition-transform hover:scale-105 ${isSelected ? 'border-red-500 bg-red-950/40' : ''} ${!p.is_alive ? 'opacity-30 grayscale' : ''}">
+                        <div class="text-3xl my-1">${AVATAR_EMOJIS[p.avatar] || '🤠'}</div>
+                        <div class="text-xs text-yellow-300 font-bold truncate w-full">${p.username} ${isMe ? '(YOU)' : ''}</div>
+                        <div class="mt-1 text-[10px] px-2 py-0.5 rounded-full ${p.is_alive ? 'bg-emerald-800 text-emerald-200' : 'bg-red-900 text-red-200'}">
+                            ${p.is_alive ? 'ALIVE' : 'ELIMINATED'}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function selectTarget(targetId) {
+            playSound('click');
+            state.selectedTargetId = targetId;
+            renderGameView();
+
+            let actionType = 'vote';
+            if (state.phase === 'NIGHT') {
+                if (state.role === 'Werewolf') actionType = 'kill';
+                else if (state.role === 'Seer') actionType = 'inspect';
+                else if (state.role === 'Doctor') actionType = 'protect';
+                else return; // Villager has no night action
+            }
+
+            try {
+                await apiCall('submit_action', {
+                    room_code: state.roomCode,
+                    target_id: targetId,
+                    action_type: actionType,
+                    phase: state.phase
+                });
+                alert('Action submitted!');
+            } catch (err) {
+                console.error(err);
             }
         }
 
-        function leaveRoom() {
-            AudioEngine.playClick();
-            stopPolling();
-            if (State.timerInterval) clearInterval(State.timerInterval);
-            State.room.code = null;
-            showView('view-main-menu');
+        // -------------------------------------------------------------
+        // SECRET ROLE MODAL & FLIP
+        // -------------------------------------------------------------
+        function openRoleCardModal() {
+            playSound('click');
+            const role = state.role || 'Villager';
+            document.getElementById('roleTitle').innerText = role.toUpperCase();
+            document.getElementById('roleAvatarBig').innerText = role === 'Werewolf' ? '🐺' : (role === 'Seer' ? '🔮' : (role === 'Doctor' ? '🧪' : '👨‍🌾'));
+            document.getElementById('modalRoleCard').classList.remove('hidden');
         }
 
-        function saveProfile() {
-            AudioEngine.playClick();
-            const newName = document.getElementById('input-username').value.trim();
-            if (newName) {
-                State.player.name = newName;
-                localStorage.setItem('bw_username', newName);
-                document.getElementById('header-username').textContent = newName;
+        function closeRoleCardModal() {
+            playSound('click');
+            document.getElementById('modalRoleCard').classList.add('hidden');
+        }
+
+        function toggleRoleFlip() {
+            playSound('chime');
+            document.getElementById('roleFlipCard').classList.toggle('flipped');
+        }
+
+        // -------------------------------------------------------------
+        // CHAT DRAWER
+        // -------------------------------------------------------------
+        function toggleChatDrawer() {
+            playSound('click');
+            document.getElementById('chatDrawer').classList.toggle('translate-y-full');
+        }
+
+        async function handleSendChat(e) {
+            e.preventDefault();
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text || !state.roomCode) return;
+
+            try {
+                await apiCall('send_chat', { room_code: state.roomCode, text: text });
+                input.value = '';
+            } catch (err) {
+                console.error(err);
             }
-            closeModal('modal-profile');
         }
 
-        function toggleAudio() {
-            AudioEngine.enabled = !AudioEngine.enabled;
-            document.getElementById('btn-audio-toggle').textContent = AudioEngine.enabled ? "ON" : "OFF";
+        function renderChatMessages() {
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = '';
+            state.messages.forEach(m => {
+                if (m.is_system == 1) {
+                    container.innerHTML += `<div class="text-yellow-400 italic text-center text-[11px] bg-slate-900/60 p-1 rounded border border-yellow-500/20">${m.text}</div>`;
+                } else {
+                    container.innerHTML += `<div><span class="text-blue-400 font-bold">${m.sender}:</span> <span class="text-slate-200">${m.text}</span></div>`;
+                }
+            });
+            container.scrollTop = container.scrollHeight;
         }
     </script>
 </body>
