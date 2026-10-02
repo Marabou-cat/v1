@@ -7,19 +7,19 @@
     <!-- Embedded Styled Fonts from Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --bg-color: #08090c;
-            --panel-bg: #12151c;
-            --accent-red: #c92a2a;
-            --accent-red-hover: #e03131;
-            --accent-gold: #fcc419;
-            --text-light: #edf2f7;
-            --text-muted: #94a3b8;
-            --border-color: #1e2530;
+            --bg-color: #050508;
+            --panel-bg: #0d0e14;
+            --panel-border: #1a1d26;
+            --accent-red: #e60012;
+            --accent-red-hover: #ff1a2c;
+            --accent-gold: #ffcc00;
+            --text-light: #ffffff;
+            --text-muted: #8c92a4;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -32,24 +32,26 @@
             align-items: center;
             min-height: 100vh;
             padding: 16px;
+            background-image: radial-gradient(circle at center, #14080a 0%, #050508 70%);
         }
 
-        /* Default container for Menus and Lobby */
+        /* Container - Brawl Stars Arena Panel Look */
         .container {
             width: 100%;
-            max-width: 600px;
+            max-width: 580px;
             background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
+            border: 3px solid var(--panel-border);
+            border-radius: 20px;
             padding: 24px;
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), inset 0 2px 5px rgba(255, 255, 255, 0.05);
+            position: relative;
         }
 
         @media (min-width: 768px) {
-            .container { padding: 40px; }
+            .container { padding: 36px; }
         }
 
-        /* Full-screen override when active game view is open */
+        /* Full-screen override for active game arena */
         body.in-game-layout {
             padding: 0;
             align-items: stretch;
@@ -89,167 +91,193 @@
             text-align: center; 
             color: var(--accent-red); 
             font-family: 'Cinzel', serif;
-            font-size: 2.2rem; 
+            font-size: 2.5rem; 
             font-weight: 900;
-            margin-bottom: 4px; 
+            margin-bottom: 2px; 
             text-transform: uppercase; 
-            letter-spacing: 3px;
-            text-shadow: 0 2px 10px rgba(201, 42, 42, 0.3);
+            letter-spacing: 2px;
+            text-shadow: 0 4px 15px rgba(230, 0, 18, 0.5), 0 0 30px rgba(230, 0, 18, 0.2);
+            -webkit-text-stroke: 1px #5c0006;
         }
 
         @media (min-width: 768px) {
-            h1 { font-size: 2.8rem; }
+            h1 { font-size: 3.2rem; }
         }
 
         p.subtitle { 
             text-align: center; 
             color: var(--text-muted); 
-            font-size: 0.85rem; 
-            font-weight: 500;
+            font-size: 0.8rem; 
+            font-weight: 800;
             margin-bottom: 24px; 
             text-transform: uppercase;
-            letter-spacing: 1.5px;
+            letter-spacing: 2px;
         }
 
         .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.85rem; color: #cbd5e1; letter-spacing: 0.5px; }
+        label { display: block; margin-bottom: 8px; font-weight: 800; font-size: 0.85rem; color: #a0aec0; letter-spacing: 1px; text-transform: uppercase; }
         
         input, select {
             width: 100%;
-            padding: 14px;
-            background: #090b0e;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
+            padding: 16px;
+            background: #050608;
+            border: 2px solid var(--panel-border);
+            border-radius: 12px;
             color: white;
             font-size: 1rem;
-            transition: border-color 0.2s ease;
+            font-weight: 700;
+            transition: all 0.2s ease;
         }
-        input:focus, select:focus { outline: none; border-color: var(--accent-red); }
+        input:focus, select:focus { outline: none; border-color: var(--accent-red); box-shadow: 0 0 12px rgba(230, 0, 18, 0.3); }
 
-        .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+        .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
         @media (min-width: 480px) {
             .btn-group { flex-direction: row; }
         }
 
         button {
             width: 100%;
-            padding: 14px;
+            padding: 16px;
             border: none;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 0.95rem;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 1rem;
             cursor: pointer;
-            transition: all 0.2s ease;
-            letter-spacing: 0.5px;
+            transition: all 0.15s ease;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 6px 0 rgba(0, 0, 0, 0.5);
         }
 
-        .btn-primary { background: var(--accent-red); color: white; box-shadow: 0 4px 14px rgba(201, 42, 42, 0.4); }
-        .btn-primary:hover { background: var(--accent-red-hover); transform: translateY(-1px); }
+        button:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-primary { 
+            background: linear-gradient(180deg, #ff1a2c 0%, var(--accent-red) 100%); 
+            color: white; 
+            border: 2px solid #ff6b75;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .btn-primary:hover { background: linear-gradient(180deg, #ff3342 0%, #ff1a2c 100%); }
         
-        .btn-secondary { background: #1a202c; color: #cbd5e1; border: 1px solid var(--border-color); }
-        .btn-secondary:hover { background: #252c38; color: white; }
+        .btn-secondary { 
+            background: linear-gradient(180deg, #242836 0%, #151821 100%); 
+            color: #cbd5e1; 
+            border: 2px solid #2f3545; 
+        }
+        .btn-secondary:hover { background: linear-gradient(180deg, #2e3445 0%, #1a1d26 100%); color: white; }
         
         .btn-action { 
-            background: #2b8a3e; 
-            color: white; 
-            padding: 8px 14px; 
+            background: linear-gradient(180deg, #38ef7d 0%, #11998e 100%); 
+            color: #050508; 
+            padding: 8px 16px; 
             font-size: 0.8rem; 
             width: auto; 
-            border-radius: 6px; 
+            border-radius: 8px; 
             display: inline-flex; 
             align-items: center; 
             gap: 6px; 
+            box-shadow: 0 4px 0 #0b5d56;
+            font-weight: 800;
         }
-        .btn-action:hover { background: #2f9e44; }
+        .btn-action:active { transform: translateY(2px); box-shadow: 0 2px 0 #0b5d56; }
         
-        .btn-voted { background: #1864ab !important; color: white !important; cursor: default; box-shadow: none; }
-        button:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+        .btn-voted { background: linear-gradient(180deg, #4facfe 0%, #00f2fe 100%) !important; color: #050508 !important; cursor: default; box-shadow: 0 4px 0 #006096 !important; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
         .room-badge {
-            background: #090b0e;
-            border: 2px dashed var(--accent-gold);
+            background: linear-gradient(180deg, #151821 0%, #090a0f 100%);
+            border: 3px solid var(--accent-gold);
             padding: 16px;
             text-align: center;
-            border-radius: 10px;
+            border-radius: 14px;
             margin-bottom: 20px;
+            box-shadow: inset 0 2px 8px rgba(255, 204, 0, 0.2);
         }
         .room-code { 
             font-family: 'Cinzel', serif;
-            font-size: 2.2rem; 
-            font-weight: 700; 
+            font-size: 2.6rem; 
+            font-weight: 900; 
             color: var(--accent-gold); 
-            letter-spacing: 6px; 
+            letter-spacing: 8px; 
+            text-shadow: 0 0 15px rgba(255, 204, 0, 0.5);
         }
 
         .player-list { list-style: none; margin-bottom: 20px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
         .player-list::-webkit-scrollbar { width: 6px; }
-        .player-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        .player-list::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
 
         .player-item {
-            background: var(--panel-bg);
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 8px;
+            background: linear-gradient(90deg, #12151e 0%, #0a0c12 100%);
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-left: 4px solid var(--accent-gold);
-            font-size: 0.95rem;
-            border-top: 1px solid var(--border-color);
-            border-right: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
+            border-left: 6px solid var(--accent-gold);
+            font-size: 1rem;
+            font-weight: 700;
+            border-top: 1px solid var(--panel-border);
+            border-right: 1px solid var(--panel-border);
+            border-bottom: 1px solid var(--panel-border);
         }
-        .player-item.dead { border-left-color: var(--accent-red); opacity: 0.55; text-decoration: line-through; }
-        .player-info-wrap { display: flex; align-items: center; gap: 10px; }
+        .player-item.dead { border-left-color: var(--accent-red); opacity: 0.5; text-decoration: line-through; }
+        .player-info-wrap { display: flex; align-items: center; gap: 12px; }
 
         .role-preview {
-            background: #090b0e;
-            padding: 14px;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            background: #07080c;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 0.9rem;
             margin-bottom: 20px;
-            border: 1px solid var(--border-color);
+            border: 2px solid var(--panel-border);
             line-height: 1.6;
+            font-weight: 700;
         }
-        .role-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; background: #1a202c; margin: 2px; font-weight: 600; }
+        .role-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: #151821; margin: 3px; border: 1px solid #232836; font-weight: 800; }
 
         .role-card {
-            background: linear-gradient(145deg, #181d26, #090b0e);
-            border: 2px solid var(--accent-gold);
-            border-radius: 12px;
-            padding: 20px;
+            background: linear-gradient(135deg, #1b151a 0%, #0d0e14 100%);
+            border: 3px solid var(--accent-red);
+            border-radius: 16px;
+            padding: 24px;
             text-align: center;
             margin-bottom: 20px;
-            box-shadow: 0 8px 24px rgba(252, 196, 25, 0.1);
+            box-shadow: 0 10px 30px rgba(230, 0, 18, 0.25);
         }
         .card-title { 
             font-family: 'Cinzel', serif;
-            font-size: 1.8rem; 
-            font-weight: 700; 
+            font-size: 2rem; 
+            font-weight: 900; 
             color: var(--accent-gold); 
-            margin-bottom: 4px; 
-            letter-spacing: 1px;
+            margin-bottom: 6px; 
+            letter-spacing: 2px;
+            text-shadow: 0 2px 8px rgba(255, 204, 0, 0.4);
         }
 
         .event-banner {
-            background: var(--panel-bg);
-            border-left: 4px solid var(--accent-gold);
-            padding: 14px;
-            border-radius: 8px;
-            font-size: 0.9rem;
+            background: linear-gradient(180deg, #141013 0%, #0a0b0f 100%);
+            border-left: 6px solid var(--accent-red);
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
             margin-bottom: 20px;
-            color: #e2e8f0;
-            line-height: 1.5;
-            border-top: 1px solid var(--border-color);
-            border-right: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
+            color: #f1f5f9;
+            line-height: 1.6;
+            font-weight: 700;
+            border-top: 1px solid var(--panel-border);
+            border-right: 1px solid var(--panel-border);
+            border-bottom: 1px solid var(--panel-border);
         }
 
         #cutscene-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(5, 6, 8, 0.96);
+            background: rgba(3, 3, 5, 0.97);
             z-index: 9999;
             flex-direction: column;
             justify-content: center;
@@ -258,22 +286,23 @@
             padding: 20px;
             animation: fadeIn 0.3s ease;
         }
-        .cutscene-icon { font-size: 4rem; margin-bottom: 16px; animation: pulse 1.5s infinite; color: var(--accent-gold); }
+        .cutscene-icon { font-size: 4.5rem; margin-bottom: 20px; animation: pulse 1.5s infinite; color: var(--accent-red); }
         .cutscene-text { 
             font-family: 'Cinzel', serif;
-            font-size: 1.6rem; 
-            font-weight: 700; 
-            color: var(--accent-red); 
-            letter-spacing: 2px; 
+            font-size: 2rem; 
+            font-weight: 900; 
+            color: var(--accent-gold); 
+            letter-spacing: 3px; 
             text-transform: uppercase; 
+            text-shadow: 0 2px 10px rgba(255, 204, 0, 0.4);
         }
-        .cutscene-sub { font-size: 0.95rem; color: var(--text-muted); margin-top: 8px; }
+        .cutscene-sub { font-size: 1rem; color: var(--text-muted); margin-top: 10px; font-weight: 800; letter-spacing: 1px; }
 
         @media (min-width: 768px) {
-            .cutscene-text { font-size: 2.2rem; }
+            .cutscene-text { font-size: 2.6rem; }
         }
 
-        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         .hidden { display: none !important; }
@@ -283,14 +312,14 @@
 
     <!-- CUTSCENE OVERLAY -->
     <div id="cutscene-overlay">
-        <div id="cutscene-icon" class="cutscene-icon"><i data-lucide="castle" size="64"></i></div>
+        <div id="cutscene-icon" class="cutscene-icon"><i data-lucide="castle" size="72"></i></div>
         <div id="cutscene-text" class="cutscene-text">Building Fortress...</div>
         <div id="cutscene-sub" class="cutscene-sub">Preparing the lobby</div>
     </div>
 
     <div class="container">
         <h1>Werewolf</h1>
-        <p class="subtitle">Online Multiplayer Deduction</p>
+        <p class="subtitle">Online Multiplayer Arena</p>
 
         <!-- VIEW 1: MAIN MENU -->
         <div id="view-menu">
@@ -344,18 +373,18 @@
         <!-- VIEW 4: LOBBY SCREEN -->
         <div id="view-lobby" class="hidden">
             <div class="room-badge">
-                <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px; letter-spacing: 1px;">ROOM CODE</span>
+                <span style="font-size: 0.75rem; color: var(--accent-gold); display: block; margin-bottom: 4px; letter-spacing: 2px; font-weight: 800;">BATTLE CODE</span>
                 <span id="display-room-code" class="room-code">-----</span>
             </div>
 
-            <label style="margin-bottom: 8px;">Players Joined (<span id="player-count">0</span>/<span id="player-max">0</span>):</label>
+            <label style="margin-bottom: 10px;">Squad Members (<span id="player-count">0</span>/<span id="player-max">0</span>):</label>
             <ul id="player-list-ui" class="player-list"></ul>
 
             <div id="lobby-role-breakdown" class="role-preview">Waiting for roster...</div>
 
             <div id="host-controls">
                 <button id="btn-start-game" class="btn-primary" style="width: 100%;" onclick="handleStartGame()" disabled>
-                    Start Game (Host Only)
+                    Start Match (Host Only)
                 </button>
             </div>
         </div>
@@ -363,9 +392,9 @@
         <!-- VIEW 5: ACTIVE GAME SCREEN -->
         <div id="view-game" class="hidden">
             <div class="role-card">
-                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 1px; text-transform: uppercase;">Your Role</p>
+                <p style="font-size: 0.75rem; color: var(--accent-gold); margin-bottom: 4px; letter-spacing: 2px; text-transform: uppercase; font-weight: 800;">Assigned Role</p>
                 <div id="my-role-display" class="card-title">Secret Card</div>
-                <p id="my-role-desc" style="font-size: 0.85rem; color: #cbd5e1;">Stay alive and find the truth!</p>
+                <p id="my-role-desc" style="font-size: 0.9rem; color: #cbd5e1; font-weight: 700;">Survive the night and expose the threat!</p>
             </div>
 
             <div class="event-banner">
@@ -373,10 +402,10 @@
                 <span id="game-event-log">Night falls upon the village...</span>
             </div>
 
-            <label id="game-list-label" style="margin-bottom: 8px;">Living Players:</label>
+            <label id="game-list-label" style="margin-bottom: 10px;">Living Players:</label>
             <ul id="game-player-list" class="player-list"></ul>
 
-            <button id="btn-back-menu" class="btn-secondary hidden" style="width: 100%; margin-top: 10px;" onclick="showScreen('view-menu')">Back to Menu</button>
+            <button id="btn-back-menu" class="btn-secondary hidden" style="width: 100%; margin-top: 12px;" onclick="showScreen('view-menu')">Return to Menu</button>
         </div>
 
     </div>
@@ -413,10 +442,10 @@
             const villagers = count - (wolves + specials);
 
             document.getElementById('create-role-info').innerHTML = `
-                <strong>Card Distribution:</strong><br>
-                <span class="role-tag" style="color: #ff6b6b;"><i data-lucide="skull" size="14"></i> Werewolves: ${wolves}</span>
-                <span class="role-tag" style="color: var(--accent-gold);"><i data-lucide="sparkles" size="14"></i> Special Roles: ${specials}</span>
-                <span class="role-tag" style="color: #38bdf8;"><i data-lucide="user" size="14"></i> Villagers: ${villagers}</span>
+                <strong>Squad Composition:</strong><br>
+                <span class="role-tag" style="color: #ff4d4d;"><i data-lucide="skull" size="14"></i> Werewolves: ${wolves}</span>
+                <span class="role-tag" style="color: var(--accent-gold);"><i data-lucide="sparkles" size="14"></i> Specials: ${specials}</span>
+                <span class="role-tag" style="color: #38bdf8;"><i data-lucide="shield" size="14"></i> Villagers: ${villagers}</span>
             `;
             lucide.createIcons();
         }
@@ -428,14 +457,14 @@
             const sub = document.getElementById('cutscene-sub');
 
             const scenes = {
-                'scene_room_created': { icon: 'castle', title: 'Fortress Created', sub: 'Gathering local villagers...' },
-                'scene_door_open': { icon: 'door-open', title: 'Tavern Doors Open', sub: 'Entering the room...' },
-                'scene_night_falls': { icon: 'moon', title: 'Blood Moon Rises', sub: 'The village falls asleep...' },
+                'scene_room_created': { icon: 'castle', title: 'Fortress Created', sub: 'Assembling players...' },
+                'scene_door_open': { icon: 'door-open', title: 'Entering Arena', sub: 'Joining squad room...' },
+                'scene_night_falls': { icon: 'moon', title: 'Blood Moon Rises', sub: 'Battle phase beginning...' },
                 'scene_error': { icon: 'zap', title: 'Action Failed', sub: 'An error occurred' }
             };
 
             const scene = scenes[sceneKey] || { icon: 'help-circle', title: 'Processing...', sub: '' };
-            iconContainer.innerHTML = `<i data-lucide="${scene.icon}" size="64"></i>`;
+            iconContainer.innerHTML = `<i data-lucide="${scene.icon}" size="72"></i>`;
             text.innerText = scene.title;
             sub.innerText = scene.sub;
             lucide.createIcons();
@@ -554,7 +583,7 @@
                         const listUI = document.getElementById('player-list-ui');
                         listUI.innerHTML = data.players.map(p => `
                             <li class="player-item">
-                                <span class="player-info-wrap"><i data-lucide="user" size="16" style="color: var(--text-muted);"></i> ${p.nickname}</span>
+                                <span class="player-info-wrap"><i data-lucide="user" size="18" style="color: var(--accent-gold);"></i> ${p.nickname}</span>
                             </li>
                         `).join('');
                         lucide.createIcons();
@@ -562,10 +591,10 @@
                         if(data.role_breakdown) {
                             const b = data.role_breakdown;
                             document.getElementById('lobby-role-breakdown').innerHTML = `
-                                <strong>Current Role Pool (${data.current_count} Players):</strong><br>
-                                <span class="role-tag"><i data-lucide="skull" size="14" style="color: #ff6b6b;"></i> ${b.werewolves} Werewolf</span> 
-                                <span class="role-tag"><i data-lucide="sparkles" size="14" style="color: var(--accent-gold);"></i> ${b.specials} Special Cards</span> 
-                                <span class="role-tag"><i data-lucide="user" size="14" style="color: #38bdf8;"></i> ${b.villagers} Villagers</span>
+                                <strong>Squad Allocation (${data.current_count} Players):</strong><br>
+                                <span class="role-tag"><i data-lucide="skull" size="14" style="color: #ff4d4d;"></i> ${b.werewolves} Werewolf</span> 
+                                <span class="role-tag"><i data-lucide="sparkles" size="14" style="color: var(--accent-gold);"></i> ${b.specials} Specials</span> 
+                                <span class="role-tag"><i data-lucide="shield" size="14" style="color: #38bdf8;"></i> ${b.villagers} Villagers</span>
                             `;
                             lucide.createIcons();
                         }
@@ -593,12 +622,12 @@
 
                         if (data.room_status === 'night') {
                             phaseText.innerHTML = '<i data-lucide="moon" size="16" style="vertical-align: middle;"></i> Night Phase';
-                            phaseText.style.color = '#ff6b6b';
+                            phaseText.style.color = '#ff4d4d';
                             
                             if (data.my_role === 'Werewolf' && data.is_alive) {
                                 gameListLabel.innerText = data.has_voted ? '🔒 Target locked in! Waiting for others...' : 'Select a Victim to Eliminate:';
                             } else {
-                                gameListLabel.innerText = 'Living Players (Asleep):';
+                                gameListLabel.innerText = 'Squad Members (Asleep):';
                             }
                             
                             gamePlayerList.innerHTML = data.players.map(p => {
@@ -615,7 +644,7 @@
                                     }
                                 }
 
-                                const statusIcon = p.is_alive ? '<i data-lucide="user" size="16" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="16" style="color: var(--accent-red);"></i>';
+                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="18" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="18" style="color: var(--accent-red);"></i>';
 
                                 return `
                                     <li class="player-item ${p.is_alive ? '' : 'dead'}">
@@ -629,7 +658,7 @@
                             phaseText.innerHTML = '<i data-lucide="sun" size="16" style="vertical-align: middle;"></i> Day Voting Phase';
                             phaseText.style.color = 'var(--accent-gold)';
                             
-                            gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Living Players (You are dead):');
+                            gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):');
 
                             gamePlayerList.innerHTML = data.players.map(p => {
                                 const isMe = (p.id === data.my_id);
@@ -645,7 +674,7 @@
                                     }
                                 }
 
-                                const statusIcon = p.is_alive ? '<i data-lucide="user" size="16" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="16" style="color: var(--accent-red);"></i>';
+                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="18" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="18" style="color: var(--accent-red);"></i>';
 
                                 return `
                                     <li class="player-item ${p.is_alive ? '' : 'dead'}">
@@ -656,13 +685,13 @@
                             }).join('');
                             lucide.createIcons();
                         } else if (data.room_status === 'ended') {
-                            phaseText.innerHTML = '<i data-lucide="trophy" size="16" style="vertical-align: middle;"></i> Game Over';
+                            phaseText.innerHTML = '<i data-lucide="trophy" size="16" style="vertical-align: middle;"></i> Match Concluded';
                             phaseText.style.color = '#38bdf8';
-                            gameListLabel.innerText = 'Final Player Roster:';
+                            gameListLabel.innerText = 'Final Squad Roster:';
                             backMenuBtn.classList.remove('hidden');
 
                             gamePlayerList.innerHTML = data.players.map(p => {
-                                const statusIcon = p.is_alive ? '<i data-lucide="user" size="16" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="16" style="color: var(--accent-red);"></i>';
+                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="18" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="18" style="color: var(--accent-red);"></i>';
                                 return `
                                     <li class="player-item ${p.is_alive ? '' : 'dead'}">
                                         <span class="player-info-wrap">${statusIcon} ${p.nickname} — Role: <strong>${p.role}</strong></span>
