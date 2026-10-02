@@ -35,7 +35,6 @@
             background-image: radial-gradient(circle at center, #14080a 0%, #050508 70%);
         }
 
-        /* Container - Brawl Stars Arena Panel Look */
         .container {
             width: 100%;
             max-width: 650px;
@@ -51,7 +50,6 @@
             .container { padding: 44px; }
         }
 
-        /* Full-screen override for active game arena */
         body.in-game-layout {
             padding: 0;
             align-items: stretch;
@@ -82,13 +80,11 @@
             width: 100%;
         }
 
-        /* Split Screen Grid Layout for Players in Game */
         body.in-game-layout #game-player-list {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 16px;
-            flex: 1;
-            max-height: none;
+            max-height: 250px;
             overflow-y: auto;
             align-content: start;
             padding: 4px;
@@ -142,7 +138,6 @@
             .btn-group { flex-direction: row; }
         }
 
-        /* Massive Action Buttons filling large screen proportions */
         button {
             width: 100%;
             padding: 22px 24px;
@@ -240,7 +235,6 @@
         }
         .player-info-wrap { display: flex; align-items: center; gap: 14px; position: relative; }
 
-        /* Blood pile container element for dead players */
         .blood-pile {
             position: absolute;
             bottom: -6px;
@@ -270,17 +264,17 @@
             background: linear-gradient(135deg, #1b151a 0%, #0d0e14 100%);
             border: 3px solid var(--accent-red);
             border-radius: 20px;
-            padding: 28px;
+            padding: 20px;
             text-align: center;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             box-shadow: 0 12px 35px rgba(230, 0, 18, 0.3);
         }
         .card-title { 
             font-family: 'Cinzel', serif;
-            font-size: 2.4rem; 
+            font-size: 2rem; 
             font-weight: 900; 
             color: var(--accent-gold); 
-            margin-bottom: 6px; 
+            margin-bottom: 4px; 
             letter-spacing: 2px;
             text-shadow: 0 2px 10px rgba(255, 204, 0, 0.5);
         }
@@ -288,16 +282,72 @@
         .event-banner {
             background: linear-gradient(180deg, #141013 0%, #0a0b0f 100%);
             border-left: 6px solid var(--accent-red);
-            padding: 20px;
+            padding: 16px;
             border-radius: 14px;
-            font-size: 1.05rem;
-            margin-bottom: 24px;
+            font-size: 1rem;
+            margin-bottom: 16px;
             color: #f1f5f9;
-            line-height: 1.7;
+            line-height: 1.6;
             font-weight: 700;
             border-top: 1px solid var(--panel-border);
             border-right: 1px solid var(--panel-border);
             border-bottom: 1px solid var(--panel-border);
+        }
+
+        /* In-Game Chat Box Styles */
+        .chat-container {
+            background: #050608;
+            border: 2px solid var(--panel-border);
+            border-radius: 14px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 140px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 160px;
+        }
+        .chat-message {
+            font-size: 0.95rem;
+            background: #11141d;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border-left: 3px solid var(--accent-gold);
+            font-weight: 600;
+            word-break: break-word;
+        }
+        .chat-message span.sender {
+            color: var(--accent-gold);
+            font-weight: 800;
+            margin-right: 6px;
+        }
+        .chat-input-bar {
+            display: flex;
+            border-top: 2px solid var(--panel-border);
+            background: #0d0e14;
+        }
+        .chat-input-bar input {
+            border: none;
+            background: transparent;
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            border-radius: 0;
+        }
+        .chat-input-bar input:focus { box-shadow: none; border-color: transparent; }
+        .chat-send-btn {
+            width: auto !important;
+            padding: 0 24px !important;
+            border-radius: 0 !important;
+            font-size: 0.95rem !important;
+            box-shadow: none !important;
         }
 
         #cutscene-overlay {
@@ -419,18 +469,29 @@
         <!-- VIEW 5: ACTIVE GAME SCREEN -->
         <div id="view-game" class="hidden">
             <div class="role-card">
-                <p style="font-size: 0.8rem; color: var(--accent-gold); margin-bottom: 6px; letter-spacing: 2.5px; text-transform: uppercase; font-weight: 800;">Assigned Role</p>
+                <p style="font-size: 0.75rem; color: var(--accent-gold); margin-bottom: 4px; letter-spacing: 2.5px; text-transform: uppercase; font-weight: 800;">Assigned Role</p>
                 <div id="my-role-display" class="card-title">Secret Card</div>
-                <p id="my-role-desc" style="font-size: 1rem; color: #cbd5e1; font-weight: 700;">Survive the night and expose the threat!</p>
+                <p id="my-role-desc" style="font-size: 0.9rem; color: #cbd5e1; font-weight: 700;">Survive the night and expose the threat!</p>
             </div>
 
             <div class="event-banner">
-                <strong>Phase: <span id="game-phase-text" style="color: var(--accent-gold);">Night</span></strong><br>
-                <span id="game-event-log">Night falls upon the village...</span>
+                <strong>Phase: <span id="game-phase-text" style="color: var(--accent-gold);">Day Chat</span></strong> <span id="chat-timer-badge" style="float: right; font-weight: 800; color: var(--accent-gold);">⏱️ 15s</span><br>
+                <span id="game-event-log">Discuss before the first night falls...</span>
             </div>
 
-            <label id="game-list-label" style="margin-bottom: 12px;">Living Players:</label>
+            <label id="game-list-label" style="margin-bottom: 8px;">Living Players:</label>
             <ul id="game-player-list" class="player-list"></ul>
+
+            <!-- In-game Chat Box -->
+            <div class="chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="chat-message"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>
+                </div>
+                <div class="chat-input-bar">
+                    <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                    <button class="btn-primary chat-send-btn" onclick="sendChatMessage()">Send</button>
+                </div>
+            </div>
 
             <button id="btn-back-menu" class="btn-secondary hidden" style="width: 100%; margin-top: 16px;" onclick="showScreen('view-menu')">Return to Menu</button>
         </div>
@@ -443,7 +504,10 @@
             token: '',
             nickname: '',
             isHost: false,
-            pollInterval: null
+            pollInterval: null,
+            chatTimerInterval: null,
+            chatTimeRemaining: 15,
+            inPreNightChat: true
         };
 
         function showScreen(screenId) {
@@ -565,10 +629,54 @@
 
             const data = await res.json();
             if (data.status === 'success') {
-                triggerCutscene(data.cutscene);
+                triggerCutscene(data.cutscene, () => {
+                    startPreNightChat();
+                });
             } else {
                 alert(data.message);
             }
+        }
+
+        function startPreNightChat() {
+            state.inPreNightChat = true;
+            state.chatTimeRemaining = 15;
+            document.getElementById('chat-timer-badge').style.display = 'inline';
+            
+            if(state.chatTimerInterval) clearInterval(state.chatTimerInterval);
+
+            state.chatTimerInterval = setInterval(() => {
+                state.chatTimeRemaining--;
+                const badge = document.getElementById('chat-timer-badge');
+                if(badge) badge.innerText = `⏱️ ${state.chatTimeRemaining}s`;
+
+                if(state.chatTimeRemaining <= 0) {
+                    clearInterval(state.chatTimerInterval);
+                    state.inPreNightChat = false;
+                    if(badge) badge.style.display = 'none';
+                    appendSystemMessage("Chat time ended! First night begins...");
+                }
+            }, 1000);
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            appendChatMessage(state.nickname, text);
+            input.value = '';
+        }
+
+        function appendChatMessage(sender, text) {
+            const chatMsgs = document.getElementById('chat-messages');
+            chatMsgs.innerHTML += `<div class="chat-message"><span class="sender">${sender}:</span> ${text}</div>`;
+            chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        }
+
+        function appendSystemMessage(text) {
+            const chatMsgs = document.getElementById('chat-messages');
+            chatMsgs.innerHTML += `<div class="chat-message" style="border-left-color: #38bdf8;"><span class="sender" style="color: #38bdf8;">System:</span> ${text}</div>`;
+            chatMsgs.scrollTop = chatMsgs.scrollHeight;
         }
 
         async function submitNightAction(targetId) {
@@ -637,6 +745,7 @@
                         const viewGame = document.getElementById('view-game');
                         if (viewGame.classList.contains('hidden')) {
                             showScreen('view-game');
+                            startPreNightChat();
                         }
 
                         document.getElementById('my-role-display').innerText = data.my_role;
@@ -646,6 +755,27 @@
                         const gameListLabel = document.getElementById('game-list-label');
                         const gamePlayerList = document.getElementById('game-player-list');
                         const backMenuBtn = document.getElementById('btn-back-menu');
+
+                        // Handle Pre-Night 15s chat window override
+                        if (state.inPreNightChat && data.room_status === 'night') {
+                            phaseText.innerHTML = '<i data-lucide="message-square" size="18" style="vertical-align: middle;"></i> Opening Chat Phase';
+                            phaseText.style.color = 'var(--accent-gold)';
+                            gameListLabel.innerText = 'Squad Roster (Talking before night):';
+
+                            gamePlayerList.innerHTML = data.players.map(p => {
+                                const isMe = (p.id === data.my_id);
+                                const statusIcon = p.is_alive ? '<i data-lucide="shield" size="20" style="color: #38bdf8;"></i>' : '<i data-lucide="skull" size="20" style="color: var(--accent-red);"></i>';
+                                const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
+
+                                return `
+                                    <li class="player-item ${p.is_alive ? '' : 'dead'}">
+                                        <span class="player-info-wrap">${statusIcon} ${p.nickname} ${isMe ? '(You)' : ''} ${bloodPile}</span>
+                                    </li>
+                                `;
+                            }).join('');
+                            lucide.createIcons();
+                            return; // Skip standard night targeting until timer elapses
+                        }
 
                         if (data.room_status === 'night') {
                             phaseText.innerHTML = '<i data-lucide="moon" size="18" style="vertical-align: middle;"></i> Night Phase';
