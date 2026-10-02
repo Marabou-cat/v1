@@ -35,6 +35,13 @@ try {
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS target_id INT DEFAULT NULL");
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS vote_id INT DEFAULT NULL");
     $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_event VARCHAR(255) DEFAULT NULL");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        room_code VARCHAR(10) NOT NULL,
+        sender_name VARCHAR(50) NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
 } catch (Exception $e) {}
 
 function calculateRoles($playerCount) {
@@ -176,6 +183,31 @@ switch ($action) {
         ]);
         break;
 
+    case 'send_message':
+        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
+        $token = trim($_POST['token'] ?? '');
+        $messageText = trim($_POST['message'] ?? '');
+
+        if ($messageText === '') {
+            echo json_encode(["status" => "error", "message" => "Message cannot be empty."]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND session_token = ?");
+        $stmt->execute([$roomCode, $token]);
+        $me = $stmt->fetch();
+
+        if (!$me) {
+            echo json_encode(["status" => "error", "message" => "Unauthorized sender."]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO messages (room_code, sender_name, message) VALUES (?, ?, ?)");
+        $stmt->execute([$roomCode, $me['nickname'], htmlspecialchars($messageText)]);
+
+        echo json_encode(["status" => "success", "message" => "Message sent."]);
+        break;
+
     case 'poll_game':
     case 'poll_lobby':
         $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
@@ -193,6 +225,11 @@ switch ($action) {
         $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
+
+        // Fetch room messages
+        $stmtMsg = $pdo->prepare("SELECT sender_name, message, created_at FROM messages WHERE room_code = ? ORDER BY id ASC LIMIT 50");
+        $stmtMsg->execute([$roomCode]);
+        $messages = $stmtMsg->fetchAll();
 
         $myRole = 'unassigned';
         $myId = null;
@@ -269,7 +306,8 @@ switch ($action) {
             "my_target_id" => $myTargetId,
             "my_vote_id" => $myVoteId,
             "has_voted" => $hasVoted,
-            "last_event" => $room['last_event'] ?? ''
+            "last_event" => $room['last_event'] ?? '',
+            "messages" => $messages
         ]);
         break;
 
