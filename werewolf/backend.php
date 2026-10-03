@@ -46,6 +46,10 @@ try {
         message TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
+    // Human-like bot behaviour: bots arm a random "thinking" delay before
+    // acting (bot_ready_at) and throttle their chat (bot_last_chat).
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS bot_ready_at INT DEFAULT NULL");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS bot_last_chat INT DEFAULT 0");
 } catch (Exception $e) {}
 
 function calculateRoles($playerCount) {
@@ -71,11 +75,16 @@ const MATCH_WAIT_SECONDS = 30;
 // Top-level (global) pool of bot nicknames. Helper functions below must pull
 // it in with `global $BOT_NAMES;` — PHP functions do NOT see top-level vars
 // automatically (referencing it without `global` yields null).
+// Names are deliberately realistic / human-sounding (casual gamer handles),
+// so AI fillers are indistinguishable from real players.
 $BOT_NAMES = [
-    'Wolfram', 'Raven', 'Ash', 'Milo', 'Bruno', 'Sable', 'Corvin', 'Fen',
-    'Gale', 'Holt', 'Ivo', 'Juno', 'Koda', 'Lars', 'Moss', 'Nico',
-    'Onyx', 'Piper', 'Quill', 'Rook', 'Sage', 'Talon', 'Uma', 'Vex',
-    'Wren', 'York', 'Zeke', 'Bram', 'Cleo', 'Dax'
+    'Mia Chen', 'Leo Park', 'Sofia', 'Jack', 'Emma', 'Lucas', 'Ava', 'Noah',
+    'Mason', 'Isabella', 'Ethan', 'Olivia', 'Liam', 'Sophia', 'Mateo', 'Aria',
+    'Kai', 'Nina', 'Diego', 'Chloe', 'Ryan', 'Ella', 'Max', 'Lena',
+    'Theo', 'Ivy', 'Owen', 'Ruby', 'Felix', 'Hana', 'Marco', 'Priya',
+    'Dylan', 'Grace', 'Oscar', 'Lily', 'Victor', 'Maya', 'Andre', 'Tara',
+    'Sam', 'Nora', 'Cole', 'Iris', 'Ezra', 'Dana', 'Rex', 'Bella',
+    'Nico', 'Faye', 'Gus', 'Ivy Rose', 'Jude', 'Kira', 'Luca', 'Mila'
 ];
 
 // Add a single AI player to a lobby room. Returns the bot row or null.
@@ -132,7 +141,9 @@ function beginGame(PDO $pdo, $roomCode) {
     shuffle($deck);
 
     foreach ($players as $index => $player) {
-        $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL WHERE id = ?");
+        // bot_ready_at is reset to NULL so each bot re-arms its own random
+        // "thinking" delay on the very first night (see processNightBots).
+        $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL, bot_ready_at = NULL WHERE id = ?");
         $stmt->execute([$deck[$index], $player['id']]);
     }
 
@@ -141,8 +152,11 @@ function beginGame(PDO $pdo, $roomCode) {
 }
 
 // Make every alive bot werewolf lock a victim (never itself, prefers a
-// non-werewolf). Does NOT resolve the phase — resolveNight() does that.
+// non-werewolf). Each bot "thinks" for a random 2-8s before acting so the
+// kills are spread out instead of landing all at once (reads human-like).
+// Does NOT resolve the phase — resolveNight() does that.
 function processNightBots(PDO $pdo, $roomCode) {
+    $now = time();
     $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND is_bot = 1 AND is_alive = 1");
     $stmt->execute([$roomCode]);
     $bots = $stmt->fetchAll();
@@ -150,6 +164,16 @@ function processNightBots(PDO $pdo, $roomCode) {
 
     foreach ($bots as $bot) {
         if ($bot['role'] !== 'Werewolf' || $bot['target_id']) continue;
+
+        // Arm / wait out this bot's personal "thinking" delay.
+        if (empty($bot['bot_ready_at'])) {
+            $readyAt = $now + random_int(2, 8);
+            $pdo->prepare("UPDATE players SET bot_ready_at = ? WHERE id = ?")->execute([$readyAt, $bot['id']]);
+            if ($now < $readyAt) continue;
+        } elseif ($now < (int)$bot['bot_ready_at']) {
+            continue;
+        }
+
         $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ? AND role != 'Werewolf'");
         $stmt->execute([$roomCode, $bot['id']]);
         $options = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -165,7 +189,9 @@ function processNightBots(PDO $pdo, $roomCode) {
 }
 
 // Make every alive bot cast a day vote (random living player, never itself).
+// Each bot "thinks" for a random 2-8s so the votes trickle in naturally.
 function processDayBots(PDO $pdo, $roomCode) {
+    $now = time();
     $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND is_bot = 1 AND is_alive = 1");
     $stmt->execute([$roomCode]);
     $bots = $stmt->fetchAll();
@@ -178,11 +204,52 @@ function processDayBots(PDO $pdo, $roomCode) {
 
     foreach ($bots as $bot) {
         if ($bot['vote_id'] !== null) continue;
+
+        // Arm this bot's "thinking" delay once; on later polls just wait for
+        // it to elapse (never reset the clock mid-phase).
+        if (empty($bot['bot_ready_at'])) {
+            $readyAt = $now + random_int(2, 8);
+            $pdo->prepare("UPDATE players SET bot_ready_at = ? WHERE id = ?")->execute([$readyAt, $bot['id']]);
+            if ($now < $readyAt) continue;
+        } elseif ($now < (int)$bot['bot_ready_at']) {
+            continue;
+        }
+
         $options = array_values(array_diff($aliveIds, [$bot['id']]));
         if (count($options) === 0) continue;
         $target = $options[array_rand($options)];
         $pdo->prepare("UPDATE players SET vote_id = ? WHERE id = ?")->execute([$target, $bot['id']]);
     }
+}
+
+// Casual lines a bot might drop in room chat, so the table feels alive.
+const BOT_CHAT_LINES = [
+    'gg last night was wild', 'who do yall think it is?', 'i really trust my gut on this one',
+    'no way that was a coincidence', 'my role is strong, i promise', 'someone is lying to us',
+    'i will not be the one to get it next', 'this is getting close', 'ok my turn to talk',
+    'brb my cat jumped on the keyboard', 'trust me, vote with me this time',
+    'the seer should speak up already', 'i felt something off about that vote',
+    'not dead yet, keep it coming', 'my hands are literally shaking rn',
+    'if i were you i would check that person', 'classic play', 'lets keep the momentum',
+    'i have a theory but i need one more day', 'the wolf is trying to bait us',
+];
+
+// Occasionally have a living bot post a short chat line (throttled per bot so
+// it reads like a person, not a script). No-op when there is no one to talk.
+function botChat(PDO $pdo, $roomCode, array $players) {
+    $now = time();
+    $candidates = array_values(array_filter($players, function ($p) use ($now) {
+        return (int)$p['is_bot'] === 1 && (int)$p['is_alive'] === 1
+            && ($now - (int)($p['bot_last_chat'] ?? 0)) >= 12;
+    }));
+    if (count($candidates) === 0) return;
+    if (random_int(1, 100) > 30) return; // ~30% of polls a bot says something
+
+    $bot = $candidates[array_rand($candidates)];
+    $line = BOT_CHAT_LINES[array_rand(BOT_CHAT_LINES)];
+    $pdo->prepare("UPDATE players SET bot_last_chat = ? WHERE id = ?")->execute([$now, $bot['id']]);
+    $pdo->prepare("INSERT INTO messages (room_code, sender_name, message) VALUES (?, ?, ?)")
+        ->execute([$roomCode, $bot['nickname'], htmlspecialchars($line)]);
 }
 
 // Resolve the night: every alive werewolf has a victim -> kill the top
@@ -210,6 +277,8 @@ function resolveNight(PDO $pdo, $roomCode) {
     $victimName = $victim ? $victim['nickname'] : 'Someone';
 
     $pdo->prepare("UPDATE players SET target_id = NULL WHERE room_code = ?")->execute([$roomCode]);
+    // New day: reset bot "thinking" timers so votes trickle in again.
+    $pdo->prepare("UPDATE players SET bot_ready_at = NULL WHERE room_code = ? AND is_bot = 1")->execute([$roomCode]);
     $pdo->prepare("UPDATE rooms SET status = 'day', last_event = ? WHERE room_code = ?")
         ->execute(["During the night, werewolves attacked and killed **{$victimName}**!", $roomCode]);
     return true;
@@ -241,6 +310,8 @@ function resolveDay(PDO $pdo, $roomCode) {
     $lynchedRole = $lynched ? $lynched['role'] : 'Villager';
 
     $pdo->prepare("UPDATE players SET vote_id = NULL WHERE room_code = ?")->execute([$roomCode]);
+    // New night: reset bot "thinking" timers so kills land at varying times.
+    $pdo->prepare("UPDATE players SET bot_ready_at = NULL WHERE room_code = ? AND is_bot = 1")->execute([$roomCode]);
     $pdo->prepare("UPDATE rooms SET status = 'night', last_event = ? WHERE room_code = ?")
         ->execute(["The village voted and lynched **{$lynchedName}**. They were a **{$lynchedRole}**! Night falls again...", $roomCode]);
     return true;
@@ -538,11 +609,17 @@ switch ($action) {
             if (resolveDay($pdo, $roomCode)) $room['status'] = 'night';
         }
 
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot, bot_ready_at, bot_last_chat FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
-        // Fetch room messages
+        // Let a bot occasionally drop a chat line while the game is live.
+        if ($room['status'] === 'night' || $room['status'] === 'day') {
+            botChat($pdo, $roomCode, $players);
+        }
+
+        // Fetch room messages (runs after botChat so a fresh bot line can be
+        // included in this same poll).
         $stmtMsg = $pdo->prepare("SELECT sender_name, message, created_at FROM messages WHERE room_code = ? ORDER BY id ASC LIMIT 50");
         $stmtMsg->execute([$roomCode]);
         $messages = $stmtMsg->fetchAll();
