@@ -107,8 +107,9 @@
             animation: fogDrift 95s linear infinite reverse;
         }
         @keyframes fogDrift {
-            from { transform: translateX(0); }
-            to { transform: translateX(25vw); }
+            0% { transform: translateX(0); }
+            50% { transform: translateX(12.5vw); }
+            100% { transform: translateX(0); }
         }
 
         .embers { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
@@ -151,7 +152,7 @@
         }
 
         /* ================= LAYOUT ================= */
-        .stage { position: relative; z-index: 5; }
+        .stage { position: relative; z-index: 5; overflow: hidden; overflow: clip; }
 
         .screen {
             min-height: 100dvh;
@@ -882,6 +883,18 @@
             .room-badge { padding: 18px 26px; }
             .room-code { letter-spacing: 8px; }
         }
+
+        /* Entry animations must NOT keep forwards fill:
+           'both'/'forwards' would (a) inflate the scrollable overflow area
+           during the entrance transform -> scrollbar flash on every load,
+           and (b) lock transform:none on .player-item so its :hover lift
+           never works. Natural resting state is already the final frame,
+           so 'backwards' (hidden during the stagger delay) is all we need.
+           Placed at the end so it beats the component rules above. */
+        .screen, .menu-panel, .panel-wide, .room-badge, .role-card, .player-item, .chat-message {
+            animation-fill-mode: backwards;
+        }
+        .no-anim { animation: none !important; }
     </style>
 </head>
 <body data-phase="menu">
@@ -1255,6 +1268,14 @@
         function startPreNightChat() {
             state.inPreNightChat = true;
             state.chatTimeRemaining = 15;
+            // Fresh match: wipe previous chat and reset player list state
+            const chatMsgs = document.getElementById('chat-messages');
+            chatMsgs.innerHTML = '<div class="chat-message no-anim"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>';
+            chatMsgs.dataset.lastCount = '0';
+            chatMsgs.dataset.lastSig = '';
+            const gpl = document.getElementById('game-player-list');
+            gpl.dataset.fullSig = '';
+            gpl.dataset.rosterSig = '';
             document.getElementById('chat-timer-badge').style.display = 'inline-block';
 
             if (state.chatTimerInterval) clearInterval(state.chatTimerInterval);
@@ -1294,7 +1315,10 @@
 
         function appendSystemMessage(text) {
             const chatMsgs = document.getElementById('chat-messages');
-            chatMsgs.innerHTML += `<div class="chat-message" style="border-left-color: #38bdf8;"><span class="sender" style="color: #38bdf8;">System:</span> ${text}</div>`;
+            // insertAdjacentHTML: appending via innerHTML+= would rebuild the
+            // whole container and replay the entrance animation on every
+            // existing message
+            chatMsgs.insertAdjacentHTML('beforeend', `<div class="chat-message no-anim" style="border-left-color: #38bdf8;"><span class="sender" style="color: #38bdf8;">System:</span> ${text}</div>`);
             chatMsgs.scrollTop = chatMsgs.scrollHeight;
         }
 
@@ -1320,20 +1344,42 @@
         }
 
         /* ================= RENDER HELPERS ================= */
-        function playerCardHtml(p, data, extra, index) {
+        function playerCardHtml(p, data, extra, index, noAnim) {
             const isMe = (p.id === data.my_id);
             const statusIcon = p.is_alive
                 ? '<i data-lucide="shield" size="20" style="color: #38bdf8; flex: none;"></i>'
                 : '<i data-lucide="skull" size="20" style="color: var(--accent-red); flex: none;"></i>';
             const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
             const youTag = isMe ? '<span class="you-tag">YOU</span>' : '';
-            const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''}`;
+            const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''} ${noAnim ? 'no-anim' : ''}`;
             return `
                 <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
                     <span class="player-info-wrap">${statusIcon} <span class="pname">${p.nickname}</span> ${youTag} ${bloodPile}</span>
                     ${extra}
                 </li>
             `;
+        }
+
+        // Renders a roster list idempotently.
+        //  - fullSig:   everything that changes the markup (roster + buttons).
+        //                If unchanged -> skip entirely (no DOM write).
+        //  - rosterSig: only who is in the room (ids/names/alive/roles).
+        //                If unchanged -> static re-render with no-anim so
+        //                button states flip without replaying the entrance
+        //                stagger on every 1.5s poll.
+        function renderRosterList(listEl, data, buildExtra, mode) {
+            const rosterSig = data.players.map(p => [p.id, p.nickname, p.is_alive, p.role]).join('|');
+            // mode matters: the same roster renders different markup per phase
+            // (e.g. pre-night has no action buttons, night does)
+            const fullSig = mode + '|' + rosterSig + '#' + [data.my_role, data.is_alive, data.has_voted, data.my_target_id, data.my_vote_id].join('|');
+            if (listEl.dataset.fullSig === fullSig) return;
+            const rosterChanged = listEl.dataset.rosterSig !== rosterSig;
+            listEl.dataset.fullSig = fullSig;
+            listEl.dataset.rosterSig = rosterSig;
+            listEl.innerHTML = data.players.map((p, i) =>
+                playerCardHtml(p, data, buildExtra ? buildExtra(p) : '', i, !rosterChanged)
+            ).join('');
+            lucide.createIcons();
         }
 
         function flashEventBanner() {
@@ -1371,17 +1417,46 @@
                 const data = await res.json();
                 if (data.status !== 'success') return;
 
-                // Render incoming messages from database
+                // Render incoming messages from database (incrementally:
+                // append only new ones, and only auto-scroll if the user is
+                // already near the bottom — never yank them while reading up)
                 if (data.messages) {
                     const chatMsgs = document.getElementById('chat-messages');
-                    const newHtml = data.messages.map(m => `
-                        <div class="chat-message"><span class="sender">${m.sender_name}:</span> ${m.message}</div>
-                    `).join('');
-                    if (chatMsgs.dataset.lastCount !== String(data.messages.length)) {
-                        chatMsgs.innerHTML = newHtml;
-                        chatMsgs.dataset.lastCount = data.messages.length;
+                    const known = parseInt(chatMsgs.dataset.lastCount || '0', 10);
+                    const total = data.messages.length;
+                    const lastM = data.messages[total - 1] || {};
+                    // Signature of the newest message: the backend caps the
+                    // list at 50, so past that the count stops changing and
+                    // only this signature can detect the window shifting.
+                    const lastSig = total + ':' + (lastM.sender_name || '') + '|' + (lastM.message || '');
+                    if (total === 0) {
+                        if (known !== 0) {
+                            // Server side is empty (fresh match): restore the
+                            // local welcome line
+                            chatMsgs.innerHTML = '<div class="chat-message no-anim"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>';
+                            chatMsgs.dataset.lastCount = '0';
+                            chatMsgs.dataset.lastSig = '';
+                        }
+                    } else if (chatMsgs.dataset.lastSig !== lastSig) {
+                        const nearBottom = (chatMsgs.scrollHeight - chatMsgs.scrollTop - chatMsgs.clientHeight) < 90;
+                        const safeAppend = total > known && known < 40;
+                        if (safeAppend) {
+                            const fresh = data.messages.slice(Math.max(0, known));
+                            const html = fresh.map(m => `
+                                <div class="chat-message"><span class="sender">${m.sender_name}:</span> ${m.message}</div>
+                            `).join('');
+                            if (html) chatMsgs.insertAdjacentHTML('beforeend', html);
+                        } else {
+                            // Reset (new match), window shift, first paint, or
+                            // near the 50-cap: full rebuild, statically (no
+                            // entrance animation replay on the history)
+                            chatMsgs.innerHTML = data.messages.map(m => `<div class="chat-message no-anim"><span class="sender">${m.sender_name}:</span> ${m.message}</div>`).join('');
+                        }
+                        chatMsgs.dataset.lastCount = total;
+                        chatMsgs.dataset.lastSig = lastSig;
+                        if (nearBottom) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+                        lucide.createIcons();
                     }
-                    chatMsgs.scrollTop = chatMsgs.scrollHeight;
                 }
 
                 if (data.room_status === 'lobby') {
@@ -1389,9 +1464,7 @@
                     document.getElementById('player-count').innerText = data.current_count;
                     document.getElementById('player-max').innerText = data.max_players;
 
-                    const listUI = document.getElementById('player-list-ui');
-                    listUI.innerHTML = data.players.map((p, i) => playerCardHtml(p, data, '', i)).join('');
-                    lucide.createIcons();
+                    renderRosterList(document.getElementById('player-list-ui'), data, null, 'lobby');
 
                     if (data.role_breakdown) {
                         const b = data.role_breakdown;
@@ -1445,9 +1518,7 @@
                         phaseText.innerHTML = '<i data-lucide="message-square" size="18" style="vertical-align: middle;"></i> Opening Chat Phase';
                         phaseText.style.color = 'var(--accent-gold)';
                         gameListLabel.innerText = 'Squad Roster (Talking before night):';
-
-                        gamePlayerList.innerHTML = data.players.map((p, i) => playerCardHtml(p, data, '', i)).join('');
-                        lucide.createIcons();
+                        renderRosterList(gamePlayerList, data, null, 'pre-night');
                         return; // Skip standard night targeting until timer elapses
                     }
 
@@ -1461,52 +1532,34 @@
                             gameListLabel.innerText = 'Squad Members (Asleep):';
                         }
 
-                        gamePlayerList.innerHTML = data.players.map((p, i) => {
+                        renderRosterList(gamePlayerList, data, (p) => {
                             const canKill = (data.my_role === 'Werewolf' && data.is_alive && p.is_alive && p.id !== data.my_id);
                             const isTarget = (data.my_target_id === p.id);
-
-                            let actionBtn = '';
-                            if (canKill) {
-                                if (isTarget) {
-                                    actionBtn = `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Targeted</button>`;
-                                } else {
-                                    actionBtn = `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
-                                }
-                            }
-                            return playerCardHtml(p, data, actionBtn, i);
-                        }).join('');
-                        lucide.createIcons();
+                            if (!canKill) return '';
+                            if (isTarget) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Targeted</button>`;
+                            return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
+                        }, 'night');
                     } else if (data.room_status === 'day') {
                         phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Voting Phase';
                         phaseText.style.color = 'var(--accent-gold)';
 
                         gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):');
 
-                        gamePlayerList.innerHTML = data.players.map((p, i) => {
+                        renderRosterList(gamePlayerList, data, (p) => {
                             const canVote = (data.is_alive && p.is_alive);
                             const isVoteTarget = (data.my_vote_id === p.id);
-
-                            let actionBtn = '';
-                            if (canVote) {
-                                if (isVoteTarget) {
-                                    actionBtn = `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Voted</button>`;
-                                } else {
-                                    actionBtn = `<button class="btn-action" onclick="submitDayVote(${p.id})"><i data-lucide="vote" size="16"></i> Vote</button>`;
-                                }
-                            }
-                            return playerCardHtml(p, data, actionBtn, i);
-                        }).join('');
-                        lucide.createIcons();
+                            if (!canVote) return '';
+                            if (isVoteTarget) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Voted</button>`;
+                            return `<button class="btn-action" onclick="submitDayVote(${p.id})"><i data-lucide="vote" size="16"></i> Vote</button>`;
+                        }, 'day');
                     } else if (data.room_status === 'ended') {
                         phaseText.innerHTML = '<i data-lucide="trophy" size="18" style="vertical-align: middle;"></i> Match Concluded';
                         phaseText.style.color = '#38bdf8';
                         gameListLabel.innerText = 'Final Squad Roster:';
 
-                        gamePlayerList.innerHTML = data.players.map((p, i) => {
-                            const roleChip = `<span style="font-weight: 800; color: ${p.role === 'Werewolf' ? '#ff4d4d' : 'var(--accent-gold)'};">${p.role}</span>`;
-                            return playerCardHtml(p, data, roleChip, i);
-                        }).join('');
-                        lucide.createIcons();
+                        renderRosterList(gamePlayerList, data, (p) =>
+                            `<span style="font-weight: 800; color: ${p.role === 'Werewolf' ? '#ff4d4d' : 'var(--accent-gold)'};">${p.role}</span>`,
+                            'ended');
                     }
                 }
             }, 1500);
