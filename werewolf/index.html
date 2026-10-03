@@ -621,43 +621,65 @@
         }
         .bot-icon { color: #c4a6ff; }
 
-        /* Matchmaking wait strip in the lobby */
-        .mm-status {
+        /* ===== Matching-in-progress screen: radar animation + match timer ===== */
+        .mm-stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 6px 0 2px;
+        }
+        .mm-view-title {
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 10px;
-            width: 100%;
-            padding: 14px 18px;
-            border-radius: 14px;
-            border: 2px solid var(--panel-border);
-            background: rgba(7, 8, 12, 0.85);
-            font-weight: 800;
-            font-size: 0.92rem;
-            letter-spacing: 0.5px;
-            margin-bottom: 18px;
-            backdrop-filter: blur(8px);
-        }
-        .mm-status .mm-timer {
             font-size: 1.35rem;
             font-weight: 900;
-            color: var(--accent-gold);
-            min-width: 46px;
-            text-align: center;
+            letter-spacing: 1px;
+            color: #f1f5f9;
+            margin-bottom: 18px;
         }
-        .mm-status .mm-spinner {
-            width: 22px; height: 22px;
-            border: 3px solid rgba(255, 204, 0, 0.25);
-            border-top-color: var(--accent-gold);
+        .mm-view-title i { color: var(--accent-red); filter: drop-shadow(0 0 10px rgba(255, 61, 98, 0.7)); }
+        .mm-radar { position: relative; width: 240px; height: 240px; flex: none; }
+        .mm-ring { position: absolute; border-radius: 50%; }
+        .mm-ring.r1 { inset: 0;    border: 1px solid rgba(168, 130, 255, 0.20); }
+        .mm-ring.r2 { inset: 22%;  border: 1px solid rgba(168, 130, 255, 0.32); }
+        .mm-ring.r3 { inset: 44%;  border: 1px solid rgba(168, 130, 255, 0.45); }
+        .mm-cross { position: absolute; inset: 0; }
+        .mm-cross::before, .mm-cross::after { content: ''; position: absolute; background: rgba(168, 130, 255, 0.14); }
+        .mm-cross::before { left: 50%; top: 6%; bottom: 6%; width: 1px; }
+        .mm-cross::after  { top: 50%; left: 6%; right: 6%;  height: 1px; }
+        .mm-sweep {
+            position: absolute; inset: 0; border-radius: 50%;
+            background: conic-gradient(from 0deg, rgba(255, 61, 98, 0) 0deg, rgba(255, 61, 98, 0.30) 52deg, rgba(255, 61, 98, 0) 68deg);
+            animation: mmSweep 2.4s linear infinite;
+        }
+        @keyframes mmSweep { to { transform: rotate(360deg); } }
+        .mm-orbit { position: absolute; inset: 22%; animation: mmSweep 7s linear infinite; }
+        .mm-seat {
+            position: absolute; top: 50%; left: 50%;
+            width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px;
             border-radius: 50%;
-            animation: mmSpin 0.9s linear infinite;
-            flex: none;
+            background: rgba(168, 130, 255, 0.18);
+            border: 1px solid rgba(168, 130, 255, 0.45);
+            transform: rotate(var(--a)) translateY(-67px);
+            transition: background 0.4s, box-shadow 0.4s;
         }
-        @keyframes mmSpin { to { transform: rotate(360deg); } }
-        .mm-status.bot-filled { border-color: rgba(168, 130, 255, 0.5); }
-        .mm-status.bot-filled .mm-timer { color: #c4a6ff; }
+        .mm-seat.filled { background: var(--accent-gold); border-color: var(--accent-gold); box-shadow: 0 0 12px rgba(255, 204, 0, 0.85); }
+        .mm-seat.bot { background: #c4a6ff; border-color: #c4a6ff; box-shadow: 0 0 12px rgba(196, 166, 255, 0.85); }
+        .mm-core { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+        .mm-core i { color: var(--accent-red); filter: drop-shadow(0 0 16px rgba(255, 61, 98, 0.85)); animation: mmPulse 1.6s ease-in-out infinite; }
+        @keyframes mmPulse { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.14); opacity: 1; } }
+        .mm-info { margin-top: 26px; text-align: center; width: 100%; }
+        .mm-status-line { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 800; font-size: 1.05rem; letter-spacing: 1px; color: #e2e8f0; }
+        .mm-live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-red); box-shadow: 0 0 10px rgba(255, 61, 98, 0.9); animation: mmPulse 1.2s ease-in-out infinite; }
+        .mm-time { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .mm-time-label { font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase; color: var(--accent-gold); font-weight: 800; }
+        .mm-time-value { font-size: 2.5rem; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px rgba(168, 130, 255, 0.55); line-height: 1; }
+        .mm-count-line { margin-top: 12px; font-size: 0.9rem; font-weight: 700; color: #94a3b8; }
+        .mm-count-line b { color: var(--accent-gold); }
+        .mm-note { opacity: 0.7; }
         .mm-suggest-btn {
-            margin-top: 14px;
+            margin-top: 16px;
             width: 100%;
         }
 
@@ -1156,17 +1178,38 @@
             </div>
         </section>
 
+        <!-- VIEW 3b: MATCHING IN PROGRESS (radar animation + elapsed match time) -->
+        <section id="view-matching" class="screen hidden">
+            <button class="back-btn" onclick="leaveToMenu()"><i data-lucide="arrow-left" size="18"></i> Cancel</button>
+            <div class="panel-wide mm-stage">
+                <h2 class="mm-view-title"><i data-lucide="radar" size="26"></i> Finding Match</h2>
+
+                <div class="mm-radar">
+                    <div class="mm-ring r1"></div>
+                    <div class="mm-ring r2"></div>
+                    <div class="mm-ring r3"></div>
+                    <div class="mm-cross"></div>
+                    <div class="mm-sweep"></div>
+                    <div class="mm-orbit" id="mm-orbit"></div>
+                    <div class="mm-core"><i data-lucide="paw-print" size="54"></i></div>
+                </div>
+
+                <div class="mm-info">
+                    <div class="mm-status-line"><span class="mm-live-dot"></span><span id="mm-status-text">Searching for players...</span></div>
+                    <div class="mm-time">
+                        <span class="mm-time-label">Match Time</span>
+                        <span class="mm-time-value" id="mm-elapsed">0:00</span>
+                    </div>
+                    <div class="mm-count-line">Seats: <b id="mm-filled">1</b>/<span id="mm-total">6</span> <span class="mm-note">&middot; Bots fill the room after 30s</span></div>
+                    <button id="mm-suggest-btn" class="btn-secondary mm-suggest-btn hidden"></button>
+                </div>
+            </div>
+        </section>
+
         <!-- VIEW 4: LOBBY SCREEN -->
         <section id="view-lobby" class="screen hidden">
             <button class="back-btn" onclick="leaveToMenu()"><i data-lucide="arrow-left" size="18"></i> Leave</button>
             <div class="lobby-wrap">
-                <div class="mm-status hidden" id="mm-status">
-                    <span class="mm-spinner" id="mm-spinner"></span>
-                    <span id="mm-status-text">Waiting for players...</span>
-                    <span class="mm-timer" id="mm-timer">30s</span>
-                </div>
-                <button id="mm-suggest-btn" class="btn-secondary mm-suggest-btn hidden"></button>
-
                 <div class="room-badge">
                     <span style="font-size: 0.85rem; color: var(--accent-gold); display: block; margin-bottom: 8px; letter-spacing: 3px; font-weight: 800;">BATTLE CODE</span>
                     <span id="display-room-code" class="room-code">-----</span>
@@ -1239,6 +1282,8 @@
             isMatch: false,
             matchCount: 6,
             matchSuggest: null,
+            matchTransitioning: false,
+            mmStartTs: null,
             pollInterval: null,
             chatTimerInterval: null,
             chatTimeRemaining: 15,
@@ -1294,7 +1339,7 @@
 
         /* ================= NAVIGATION ================= */
         function showScreen(screenId) {
-            ['view-menu', 'view-create', 'view-join', 'view-match', 'view-lobby', 'view-game'].forEach(id => {
+            ['view-menu', 'view-create', 'view-join', 'view-match', 'view-matching', 'view-lobby', 'view-game'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             const target = document.getElementById(screenId);
@@ -1343,13 +1388,13 @@
             state.token = '';
             state.isHost = false;
             state.isMatch = false;
+            state.matchTransitioning = false;
+            state.mmStartTs = null;
             state.matchSuggest = null;
             state.inPreNightChat = true;
             state.lastEvent = '';
             state.lastPhase = '';
             document.getElementById('game-event-log').innerText = 'Discuss before the first night falls...';
-            const mmStatus = document.getElementById('mm-status');
-            if (mmStatus) mmStatus.classList.add('hidden');
             const mmSuggest = document.getElementById('mm-suggest-btn');
             if (mmSuggest) mmSuggest.classList.add('hidden');
             showScreen('view-menu');
@@ -1440,11 +1485,41 @@
             state.isMatch = true;
             state.matchCount = data.max_players;
             state.matchSuggest = (data.suggest_count && data.suggest_count !== data.max_players) ? data.suggest_count : null;
-            triggerCutscene(data.cutscene || 'scene_door_open', () => {
-                showScreen('view-lobby');
-                renderMmSuggest();
-                startGamePolling();
-            });
+            state.mmStartTs = Date.now();
+            // No "enter room" lobby — go straight to the matching-in-progress
+            // screen (radar animation + live match time).
+            buildMatchSeats(data.max_players);
+            showScreen('view-matching');
+            updateMatchTime();
+            renderMmSuggest();
+            startGamePolling();
+        }
+
+        // Draw one seat dot per player slot around the radar's orbit ring.
+        function buildMatchSeats(total) {
+            const orbit = document.getElementById('mm-orbit');
+            if (!orbit) return;
+            orbit.innerHTML = '';
+            const n = Math.max(1, total | 0);
+            for (let i = 0; i < n; i++) {
+                const seat = document.createElement('span');
+                seat.className = 'mm-seat';
+                seat.style.setProperty('--a', (i * 360 / n - 90) + 'deg');
+                orbit.appendChild(seat);
+            }
+            const totEl = document.getElementById('mm-total');
+            if (totEl) totEl.innerText = n;
+            const filledEl = document.getElementById('mm-filled');
+            if (filledEl) filledEl.innerText = '0';
+        }
+
+        // Ticking "Match Time" = how long we've been in the queue.
+        function updateMatchTime() {
+            if (!state.mmStartTs) return;
+            const el = document.getElementById('mm-elapsed');
+            if (!el) return;
+            const secs = Math.max(0, Math.floor((Date.now() - state.mmStartTs) / 1000));
+            el.innerText = Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
         }
 
         function renderMmSuggest() {
@@ -1529,34 +1604,37 @@
         }
 
         function updateMmStatus(data) {
-            const strip = document.getElementById('mm-status');
+            // Only the dedicated matching screen is driven from here.
             const textEl = document.getElementById('mm-status-text');
-            const timerEl = document.getElementById('mm-timer');
-            const spinnerEl = document.getElementById('mm-spinner');
-            if (!strip) return;
+            if (!textEl) return;
 
             const isMatchLobby = data.is_match === 1 && data.room_status === 'lobby';
-            if (!isMatchLobby) {
-                strip.classList.add('hidden');
-                strip.classList.remove('bot-filled');
-                if (spinnerEl) spinnerEl.style.display = '';
-                return;
-            }
+            if (!isMatchLobby) return;
 
-            const remaining = data.mm_remaining;
-            const bots = (data.players || []).filter(p => p.is_bot).length;
-            strip.classList.remove('hidden');
+            const players = data.players || [];
+            const humans = players.filter(p => !p.is_bot).length;
+            const bots = players.filter(p => p.is_bot).length;
 
-            if (bots > 0) {
-                strip.classList.add('bot-filled');
-                textEl.innerText = 'Bots joining — starting soon...';
-                if (spinnerEl) spinnerEl.style.display = 'none';
-            } else {
-                strip.classList.remove('bot-filled');
-                textEl.innerText = 'Waiting for players...';
-                if (spinnerEl) spinnerEl.style.display = '';
-            }
-            if (timerEl) timerEl.innerText = remaining + 's';
+            // Live match-time tick.
+            updateMatchTime();
+
+            // Status line.
+            textEl.innerText = bots > 0
+                ? 'Bots filling the room — starting soon...'
+                : (humans > 1 ? 'Players found — waiting to fill...' : 'Searching for players...');
+
+            // Seat fill on the radar orbit.
+            const orbit = document.getElementById('mm-orbit');
+            const seats = orbit ? Array.from(orbit.querySelectorAll('.mm-seat')) : [];
+            seats.forEach((s, i) => {
+                s.classList.toggle('filled', i < humans);
+                s.classList.toggle('bot', i >= humans && i < humans + bots);
+            });
+
+            const filledEl = document.getElementById('mm-filled');
+            if (filledEl) filledEl.innerText = String(humans + bots);
+            const totalEl = document.getElementById('mm-total');
+            if (totalEl) totalEl.innerText = String(data.max_players || state.matchCount);
         }
 
         /* ================= ROOM ACTIONS ================= */
@@ -1840,6 +1918,9 @@
 
                 if (data.room_status === 'lobby') {
                     setPhase('lobby');
+                    const lobbyVisible = !document.getElementById('view-lobby').classList.contains('hidden');
+                    if (!lobbyVisible) return; // matching screen drives itself via updateMmStatus
+
                     document.getElementById('player-count').innerText = data.current_count;
                     document.getElementById('player-max').innerText = data.max_players;
 
@@ -1869,8 +1950,27 @@
                 } else {
                     const viewGame = document.getElementById('view-game');
                     if (viewGame.classList.contains('hidden')) {
+                        // While the matching->game cutscene is playing, ignore
+                        // ticks so we don't double-transition mid-fade.
+                        if (state.matchTransitioning) return;
+                        const fromMatching = state.isMatch
+                            && !document.getElementById('view-matching').classList.contains('hidden');
+                        state.isMatch = false;
+                        state.mmStartTs = null;
+                        if (fromMatching) {
+                            // Coming off the matching screen: play the
+                            // "Entering Arena" cutscene, then drop into game.
+                            state.matchTransitioning = true;
+                            triggerCutscene('scene_door_open', () => {
+                                state.matchTransitioning = false;
+                                showScreen('view-game');
+                                startPreNightChat();
+                            });
+                            return; // let the cutscene callback drive the rest
+                        }
                         showScreen('view-game');
                         startPreNightChat();
+                        // fall through to render the game below (existing flow)
                     }
 
                     setPhase(data.room_status);
