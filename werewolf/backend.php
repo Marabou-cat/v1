@@ -68,6 +68,9 @@ function calculateRoles($playerCount) {
 /* ================= MATCHMAKING + BOTS ================= */
 const MATCH_WAIT_SECONDS = 30;
 
+// Top-level (global) pool of bot nicknames. Helper functions below must pull
+// it in with `global $BOT_NAMES;` — PHP functions do NOT see top-level vars
+// automatically (referencing it without `global` yields null).
 $BOT_NAMES = [
     'Wolfram', 'Raven', 'Ash', 'Milo', 'Bruno', 'Sable', 'Corvin', 'Fen',
     'Gale', 'Holt', 'Ivo', 'Juno', 'Koda', 'Lars', 'Moss', 'Nico',
@@ -77,6 +80,7 @@ $BOT_NAMES = [
 
 // Add a single AI player to a lobby room. Returns the bot row or null.
 function addBot(PDO $pdo, $roomCode) {
+    global $BOT_NAMES;
     $stmt = $pdo->prepare("SELECT nickname FROM players WHERE room_code = ?");
     $stmt->execute([$roomCode]);
     $used = $stmt->fetchAll(PDO::FETCH_COLUMN);
