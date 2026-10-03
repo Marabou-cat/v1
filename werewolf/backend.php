@@ -74,6 +74,9 @@ try {
     $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS night_step VARCHAR(12) DEFAULT 'actions'");
     $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS pending_victim INT DEFAULT NULL");
     $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS night_deadline INT DEFAULT 0");
+    // "Sleep" tap: everyone without a night action (villagers, the Doctor)
+    // must tap sleep so the night's click-sounds are masked (voice-call safe).
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS asleep TINYINT DEFAULT 0");
 } catch (Exception $e) {}
 
 function calculateRoles($playerCount) {
@@ -132,18 +135,29 @@ function addBot(PDO $pdo, $roomCode) {
 }
 
 // If a matchmade lobby is past its 30s deadline and not full, fill with bots.
-// The count is re-read on EVERY iteration so two concurrent polls (two humans
-// in one match) can't both top up from a stale count and double-fill the room.
+// The whole top-up runs under a room-row lock: the count-then-insert is then
+// atomic, so two concurrent polls (two humans in one match) can never both add
+// a bot from the same "not full" reading and overshoot max_players by one.
 function fillBotsIfNeeded(PDO $pdo, $room) {
     if (empty($room['is_match']) || $room['status'] !== 'lobby') return;
     $deadline = (int)($room['mm_deadline'] ?? 0);
     if ($deadline <= 0 || time() < $deadline) return;
 
-    for (;;) {
-        $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM players WHERE room_code = ?");
-        $stmt->execute([$room['room_code']]);
-        if ((int)$stmt->fetch()['c'] >= (int)$room['max_players']) break;
-        addBot($pdo, $room['room_code']);
+    $roomCode = $room['room_code'];
+    $max = (int)$room['max_players'];
+
+    try {
+        $pdo->beginTransaction();
+        $pdo->prepare("SELECT room_code FROM rooms WHERE room_code = ? FOR UPDATE")->execute([$roomCode]);
+        for (;;) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM players WHERE room_code = ?");
+            $stmt->execute([$roomCode]);
+            if ((int)$stmt->fetch()['c'] >= $max) break;
+            addBot($pdo, $roomCode);
+        }
+        $pdo->commit();
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
     }
 }
 
@@ -235,9 +249,28 @@ function beginGame(PDO $pdo, $roomCode) {
             return; // already started by another poll (its deal is committed)
         }
 
-        $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, is_bot FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
+
+        // Defensive: a concurrent fill/join could have overshot max_players by
+        // one. Never deal more seats than the room allows — drop the newest BOTS
+        // first (never kick a human), then re-read.
+        $mp = $pdo->prepare("SELECT max_players FROM rooms WHERE room_code = ?");
+        $mp->execute([$roomCode]);
+        $maxP = (int)$mp->fetchColumn();
+        if ($maxP > 0 && count($players) > $maxP) {
+            $overflow = count($players) - $maxP;
+            for ($i = count($players) - 1; $i >= 0 && $overflow > 0; $i--) {
+                if ((int)$players[$i]['is_bot'] === 1) {
+                    $pdo->prepare("DELETE FROM players WHERE id = ?")->execute([$players[$i]['id']]);
+                    $overflow--;
+                }
+            }
+            $stmt = $pdo->prepare("SELECT id, is_bot FROM players WHERE room_code = ? ORDER BY id ASC");
+            $stmt->execute([$roomCode]);
+            $players = $stmt->fetchAll();
+        }
         $total = count($players);
 
         $breakdown = calculateRoles($total);
@@ -294,7 +327,8 @@ function processNightBots(PDO $pdo, $roomCode) {
         } elseif ($role === 'Witch') {
             if ((int)$bot['poison_used'] || $bot['poison_target'] !== null || (int)$bot['poison_skip']) continue;
         } else {
-            continue;
+            // Villager / Doctor: their "action" is bunking down for the night.
+            if ((int)$bot['asleep']) continue;
         }
 
         // Arm / wait out this bot's personal "thinking" delay.
@@ -335,6 +369,9 @@ function processNightBots(PDO $pdo, $roomCode) {
             } else {
                 $pdo->prepare("UPDATE players SET poison_skip = 1 WHERE id = ?")->execute([$bot['id']]);
             }
+        } else {
+            // Villager / Doctor bot: tap sleep.
+            $pdo->prepare("UPDATE players SET asleep = 1 WHERE id = ?")->execute([$bot['id']]);
         }
     }
 }
@@ -423,7 +460,7 @@ function botChat(PDO $pdo, $roomCode, array $players) {
 
 // Clear the per-night action state (called the moment night begins).
 function resetNightState(PDO $pdo, $roomCode) {
-    $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0, doctor_choice = NULL WHERE room_code = ?")
+    $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0, doctor_choice = NULL, asleep = 0 WHERE room_code = ?")
         ->execute([$roomCode]);
     $pdo->prepare("UPDATE rooms SET night_step = 'actions', pending_victim = NULL, night_deadline = ? WHERE room_code = ?")
         ->execute([time() + NIGHT_SECONDS, $roomCode]);
@@ -431,15 +468,23 @@ function resetNightState(PDO $pdo, $roomCode) {
 
 // Has every night actor finished? Alive wolves must have locked a victim,
 // an alive Seer must have divined, an alive Witch must have spent or passed
-// her poison. (Bots are filled in by processNightBots first.)
+// her poison, and everyone with NO night action (villagers + the Doctor) must
+// have tapped "sleep" (which also masks the sound of the kill tap on a call).
 function nightActionsComplete(PDO $pdo, $roomCode) {
-    $s = $pdo->prepare("SELECT role, target_id, check_target, poison_target, poison_skip, poison_used
+    $s = $pdo->prepare("SELECT role, target_id, check_target, poison_target, poison_skip, poison_used, asleep
                           FROM players WHERE room_code = ? AND is_alive = 1");
     $s->execute([$roomCode]);
     foreach ($s->fetchAll() as $p) {
-        if ($p['role'] === 'Werewolf' && $p['target_id'] === null) return false;
-        if ($p['role'] === 'Seer' && $p['check_target'] === null) return false;
-        if ($p['role'] === 'Witch' && !(int)$p['poison_used'] && $p['poison_target'] === null && !(int)$p['poison_skip']) return false;
+        if ($p['role'] === 'Werewolf') {
+            if ($p['target_id'] === null) return false;
+        } elseif ($p['role'] === 'Seer') {
+            if ($p['check_target'] === null) return false;
+        } elseif ($p['role'] === 'Witch') {
+            if (!(int)$p['poison_used'] && $p['poison_target'] === null && !(int)$p['poison_skip']) return false;
+        } else {
+            // Villager / Doctor: must bunk down before the night resolves.
+            if (!(int)$p['asleep']) return false;
+        }
     }
     return true;
 }
@@ -590,7 +635,7 @@ function finalizeNight(PDO $pdo, $roomCode) {
     $event = implode(' ', $parts);
 
     // Clear per-night state and flip to day.
-    $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0, doctor_choice = NULL, bot_ready_at = NULL WHERE room_code = ?")
+    $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0, doctor_choice = NULL, asleep = 0, bot_ready_at = NULL WHERE room_code = ?")
         ->execute([$roomCode]);
     $pdo->prepare("UPDATE rooms SET status = 'day', phase_started_at = ?, night_step = 'actions', pending_victim = NULL, night_deadline = 0, last_event = ? WHERE room_code = ?")
         ->execute([$now, $event, $roomCode]);
@@ -691,18 +736,30 @@ switch ($action) {
         $candidates = $stmt->fetchAll();
 
         foreach ($candidates as $room) {
-            $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM players WHERE room_code = ?");
-            $stmt->execute([$room['room_code']]);
-            $c = (int)$stmt->fetch()['c'];
-            if ($c >= (int)$room['max_players']) continue;
-
-            // Defensive: clear any stale same-nickname seat so a player can't
-            // duplicate themselves when re-queueing.
-            $pdo->prepare("DELETE FROM players WHERE room_code = ? AND nickname = ?")->execute([$room['room_code'], $nickname]);
-
+            // Join under a room-row lock so a concurrent bot top-up can't race
+            // this insert and overfill the lobby.
             $sessionToken = bin2hex(random_bytes(16));
-            $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
-            $stmt->execute([$room['room_code'], $sessionToken, $nickname]);
+            $joined = false;
+            try {
+                $pdo->beginTransaction();
+                $pdo->prepare("SELECT room_code FROM rooms WHERE room_code = ? FOR UPDATE")->execute([$room['room_code']]);
+                $cc = $pdo->prepare("SELECT COUNT(*) AS c FROM players WHERE room_code = ?");
+                $cc->execute([$room['room_code']]);
+                if ((int)$cc->fetch()['c'] < (int)$room['max_players']) {
+                    // Defensive: clear any stale same-nickname seat so a player
+                    // can't duplicate themselves when re-queueing.
+                    $pdo->prepare("DELETE FROM players WHERE room_code = ? AND nickname = ?")->execute([$room['room_code'], $nickname]);
+                    $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)")
+                        ->execute([$room['room_code'], $sessionToken, $nickname]);
+                    $joined = true;
+                }
+                $pdo->commit();
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                throw $e;
+            }
+            if (!$joined) continue;
+
             touchPresence($pdo, $room['room_code'], $sessionToken);
 
             echo json_encode([
@@ -788,27 +845,35 @@ switch ($action) {
             exit;
         }
 
-        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM players WHERE room_code = ?");
-        $stmt->execute([$roomCode]);
-        $currentPlayers = $stmt->fetch()['count'];
+        $sessionToken = bin2hex(random_bytes(16));
 
-        if ($currentPlayers >= $room['max_players']) {
+        // Cap the room under a row lock so a bot top-up can't race this insert
+        // and push the room over max_players.
+        $roomFull = false;
+        try {
+            $pdo->beginTransaction();
+            $pdo->prepare("SELECT room_code FROM rooms WHERE room_code = ? FOR UPDATE")->execute([$roomCode]);
+            $cc = $pdo->prepare("SELECT COUNT(*) as c FROM players WHERE room_code = ?");
+            $cc->execute([$roomCode]);
+            if ((int)$cc->fetch()['c'] >= (int)$room['max_players']) {
+                $roomFull = true;
+            } else {
+                // Drop any stale leftover entry with the same nickname in this
+                // lobby (a previous session that crashed before leaving), so a
+                // player can never "duplicate" themselves by rejoining.
+                $pdo->prepare("DELETE FROM players WHERE room_code = ? AND nickname = ?")->execute([$roomCode, $nickname]);
+                $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)")
+                    ->execute([$roomCode, $sessionToken, $nickname]);
+            }
+            $pdo->commit();
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        if ($roomFull) {
             echo json_encode(["status" => "error", "message" => "Room is full!", "cutscene" => "scene_error"]);
             exit;
         }
-
-        $sessionToken = bin2hex(random_bytes(16));
-
-        // Defensive: drop any stale leftover entry with the same nickname in
-        // this lobby (e.g. a previous session that crashed before leaving),
-        // so a player can never "duplicate" themselves by rejoining.
-        if ($room['status'] === 'lobby') {
-            $stmt = $pdo->prepare("DELETE FROM players WHERE room_code = ? AND nickname = ?");
-            $stmt->execute([$roomCode, $nickname]);
-        }
-
-        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
-        $stmt->execute([$roomCode, $sessionToken, $nickname]);
         touchPresence($pdo, $roomCode, $sessionToken);
 
         echo json_encode([
@@ -1010,7 +1075,7 @@ switch ($action) {
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -1039,6 +1104,7 @@ switch ($action) {
         $myPoisonSkip = 0;
         $myReviveUsed = 0;
         $myDoctorChoice = null;
+        $myAsleep = 0;
 
         foreach ($players as $p) {
             if ($p['session_token'] === $token) {
@@ -1055,6 +1121,7 @@ switch ($action) {
                 $myPoisonSkip = (int)$p['poison_skip'];
                 $myReviveUsed = (int)$p['revive_used'];
                 $myDoctorChoice = $p['doctor_choice'];
+                $myAsleep = (int)$p['asleep'];
 
                 if ($room['status'] === 'night' && $p['role'] === 'Werewolf') {
                     $hasVoted = ($p['target_id'] !== null);
@@ -1186,6 +1253,7 @@ switch ($action) {
             "my_poison_skip" => $myPoisonSkip,
             "my_revive_used" => $myReviveUsed,
             "my_doctor_choice" => $myDoctorChoice,
+            "my_asleep" => $myAsleep,
             "doctor_victim_name" => $doctorVictimName,
             "last_event" => $room['last_event'] ?? '',
             "messages" => $messages
@@ -1197,6 +1265,7 @@ switch ($action) {
         $token = trim($_POST['token'] ?? '');
         $targetId = (int)($_POST['target_id'] ?? 0);
         $skip = (int)($_POST['skip'] ?? 0);
+        $sleep = (int)($_POST['sleep'] ?? 0);
 
         $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
         $stmt->execute([$roomCode]);
@@ -1217,6 +1286,16 @@ switch ($action) {
         }
 
         $myId = (int)$me['id'];
+
+        // "Sleep": anyone may tap it, and everyone WITHOUT a night action
+        // (villagers + the Doctor) is required to — their taps mask the sound of
+        // the werewolf's kill tap when friends are on a voice call.
+        if ($sleep) {
+            $pdo->prepare("UPDATE players SET asleep = 1 WHERE id = ?")->execute([$myId]);
+            advanceNight($pdo, $roomCode);
+            echo json_encode(["status" => "success", "message" => "You drift off to sleep."]);
+            exit;
+        }
 
         if ($me['role'] === 'Werewolf') {
             // Werewolves secretly vote for tonight's victim.

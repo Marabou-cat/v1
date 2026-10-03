@@ -1887,6 +1887,16 @@
             if (data.status !== 'success') alert(data.message);
         }
 
+        async function submitSleep() {
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'night_action', room_code: state.roomCode, token: state.token, sleep: 1 })
+            });
+            const data = await res.json();
+            if (data.status !== 'success') alert(data.message);
+        }
+
         // Renders the role's night-skill panel: Seer vision, Witch poison
         // control, and the Doctor's shared revive prompt. Hidden off-night and
         // during the pre-night chat window.
@@ -1906,6 +1916,27 @@
                         <button class="btn-action btn-kill" onclick="submitDoctorAction(1)"><i data-lucide="heart-pulse" size="16"></i> Revive (once per game)</button>
                         <button class="btn-action" onclick="submitDoctorAction(0)"><i data-lucide="x" size="16"></i> Let them die</button>
                     </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            // Villager / Doctor (outside the doctor step): tap Sleep. Everyone who
+            // has no night action must tap it, which also masks the sound of the
+            // werewolf's kill tap when friends are on a voice call.
+            if ((data.my_role === 'Villager' || data.my_role === 'Doctor') && !data.my_asleep) {
+                el.style.display = 'block';
+                el.innerHTML = `
+                    <div class="skill-head"><i data-lucide="moon" size="18"></i> Sleep</div>
+                    <div class="skill-body">Tap <b>Sleep</b> to get through the night — everyone taps, so on a voice call nobody can tell who acted.</div>
+                    <div class="skill-actions"><button class="btn-action" onclick="submitSleep()"><i data-lucide="moon" size="16"></i> Sleep</button></div>`;
+                lucide.createIcons();
+                return;
+            }
+            if ((data.my_role === 'Villager' || data.my_role === 'Doctor') && data.my_asleep) {
+                el.style.display = 'block';
+                el.innerHTML = `
+                    <div class="skill-head"><i data-lucide="moon" size="18"></i> Sleeping</div>
+                    <div class="skill-body">You are asleep. Waiting for the night to pass...</div>`;
                 lucide.createIcons();
                 return;
             }
@@ -2210,6 +2241,8 @@
                             gameListLabel.innerText = data.my_check_target ? '🔮 Divination complete — waiting for others...' : 'Select a player to Divine:';
                         } else if (data.my_role === 'Witch' && data.is_alive && !data.my_poison_used) {
                             gameListLabel.innerText = (data.my_poison_target || data.my_poison_skip) ? '🧪 Decision made — waiting for others...' : 'Select a player to Poison (once per game):';
+                        } else if ((data.my_role === 'Villager' || data.my_role === 'Doctor') && data.is_alive) {
+                            gameListLabel.innerText = data.my_asleep ? '😴 You are asleep. Waiting for the night to pass...' : 'Bunk down — tap Sleep to get through the night:';
                         } else {
                             gameListLabel.innerText = 'Squad Members (Asleep):';
                         }
