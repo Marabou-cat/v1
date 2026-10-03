@@ -610,6 +610,56 @@
             border-radius: 20px;
             letter-spacing: 1px;
         }
+        .bot-tag {
+            font-size: 0.66rem; font-weight: 800;
+            background: rgba(168, 130, 255, 0.16);
+            color: #c4a6ff;
+            border: 1px solid rgba(168, 130, 255, 0.42);
+            padding: 2px 8px;
+            border-radius: 20px;
+            letter-spacing: 1px;
+        }
+        .bot-icon { color: #c4a6ff; }
+
+        /* Matchmaking wait strip in the lobby */
+        .mm-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 14px;
+            border: 2px solid var(--panel-border);
+            background: rgba(7, 8, 12, 0.85);
+            font-weight: 800;
+            font-size: 0.92rem;
+            letter-spacing: 0.5px;
+            margin-bottom: 18px;
+            backdrop-filter: blur(8px);
+        }
+        .mm-status .mm-timer {
+            font-size: 1.35rem;
+            font-weight: 900;
+            color: var(--accent-gold);
+            min-width: 46px;
+            text-align: center;
+        }
+        .mm-status .mm-spinner {
+            width: 22px; height: 22px;
+            border: 3px solid rgba(255, 204, 0, 0.25);
+            border-top-color: var(--accent-gold);
+            border-radius: 50%;
+            animation: mmSpin 0.9s linear infinite;
+            flex: none;
+        }
+        @keyframes mmSpin { to { transform: rotate(360deg); } }
+        .mm-status.bot-filled { border-color: rgba(168, 130, 255, 0.5); }
+        .mm-status.bot-filled .mm-timer { color: #c4a6ff; }
+        .mm-suggest-btn {
+            margin-top: 14px;
+            width: 100%;
+        }
 
         .blood-pile {
             position: absolute;
@@ -1024,7 +1074,8 @@
                     </div>
 
                     <div class="btn-row">
-                        <button class="btn-primary" onclick="showScreen('view-create')"><i data-lucide="swords" size="20"></i> Create Room</button>
+                        <button class="btn-primary" onclick="openQuickMatch()"><i data-lucide="zap" size="20"></i> Quick Match</button>
+                        <button class="btn-secondary" onclick="showScreen('view-create')"><i data-lucide="swords" size="20"></i> Create Room</button>
                         <button class="btn-secondary" onclick="showScreen('view-join')"><i data-lucide="door-open" size="20"></i> Join Room</button>
                     </div>
                     <p class="menu-hint">4–10 players &middot; Werewolves hunt by night &middot; The village votes by day</p>
@@ -1076,10 +1127,46 @@
             </div>
         </section>
 
+        <!-- VIEW 3B: QUICK MATCH -->
+        <section id="view-match" class="screen hidden">
+            <button class="back-btn" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="18"></i> Back</button>
+            <div class="panel-wide">
+                <h2 class="screen-title"><i data-lucide="zap" size="26"></i> Quick Match</h2>
+                <div class="form-group">
+                    <label for="match-count">Select Total Players (Min 4)</label>
+                    <select id="match-count" onchange="updateMatchRolePreview()">
+                        <option value="4">4 Players (1 Werewolf, 0 Specials)</option>
+                        <option value="5">5 Players (1 Werewolf, 1 Special)</option>
+                        <option value="6" selected>6 Players (1 Werewolf, 1 Special)</option>
+                        <option value="7">7 Players (2 Werewolves, 2 Specials)</option>
+                        <option value="8">8 Players (2 Werewolves, 2 Specials)</option>
+                        <option value="9">9 Players (2 Werewolves, 3 Specials)</option>
+                        <option value="10">10 Players (3 Werewolves, 3 Specials)</option>
+                    </select>
+                </div>
+
+                <div id="match-role-info" class="role-preview">Role Calculation Preview...</div>
+
+                <p class="menu-hint" style="margin-top: 16px;">Matches you with other players at this size &middot; If no one joins in <b>30s</b>, bots fill the room and the match starts</p>
+
+                <div class="btn-row">
+                    <button class="btn-primary" id="btn-match" onclick="handleQuickMatch()"><i data-lucide="zap" size="20"></i> Find Match</button>
+                    <button class="btn-secondary" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="20"></i> Back</button>
+                </div>
+            </div>
+        </section>
+
         <!-- VIEW 4: LOBBY SCREEN -->
         <section id="view-lobby" class="screen hidden">
             <button class="back-btn" onclick="leaveToMenu()"><i data-lucide="arrow-left" size="18"></i> Leave</button>
             <div class="lobby-wrap">
+                <div class="mm-status hidden" id="mm-status">
+                    <span class="mm-spinner" id="mm-spinner"></span>
+                    <span id="mm-status-text">Waiting for players...</span>
+                    <span class="mm-timer" id="mm-timer">30s</span>
+                </div>
+                <button id="mm-suggest-btn" class="btn-secondary mm-suggest-btn hidden"></button>
+
                 <div class="room-badge">
                     <span style="font-size: 0.85rem; color: var(--accent-gold); display: block; margin-bottom: 8px; letter-spacing: 3px; font-weight: 800;">BATTLE CODE</span>
                     <span id="display-room-code" class="room-code">-----</span>
@@ -1149,6 +1236,9 @@
             token: '',
             nickname: '',
             isHost: false,
+            isMatch: false,
+            matchCount: 6,
+            matchSuggest: null,
             pollInterval: null,
             chatTimerInterval: null,
             chatTimeRemaining: 15,
@@ -1204,7 +1294,7 @@
 
         /* ================= NAVIGATION ================= */
         function showScreen(screenId) {
-            ['view-menu', 'view-create', 'view-join', 'view-lobby', 'view-game'].forEach(id => {
+            ['view-menu', 'view-create', 'view-join', 'view-match', 'view-lobby', 'view-game'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             const target = document.getElementById(screenId);
@@ -1213,11 +1303,12 @@
             target.style.animation = 'none';
             void target.offsetWidth;
             target.style.animation = '';
-            if (screenId === 'view-menu' || screenId === 'view-create' || screenId === 'view-join') {
+            if (screenId === 'view-menu' || screenId === 'view-create' || screenId === 'view-join' || screenId === 'view-match') {
                 setPhase('menu');
             }
             if (screenId === 'view-lobby') setPhase('lobby');
             if (screenId === 'view-create') updateRolePreview();
+            if (screenId === 'view-match') updateMatchRolePreview();
             lucide.createIcons();
         }
 
@@ -1251,10 +1342,16 @@
             state.roomCode = '';
             state.token = '';
             state.isHost = false;
+            state.isMatch = false;
+            state.matchSuggest = null;
             state.inPreNightChat = true;
             state.lastEvent = '';
             state.lastPhase = '';
             document.getElementById('game-event-log').innerText = 'Discuss before the first night falls...';
+            const mmStatus = document.getElementById('mm-status');
+            if (mmStatus) mmStatus.classList.add('hidden');
+            const mmSuggest = document.getElementById('mm-suggest-btn');
+            if (mmSuggest) mmSuggest.classList.add('hidden');
             showScreen('view-menu');
         }
 
@@ -1310,6 +1407,156 @@
                     if (callback) callback();
                 }, 320);
             }, 1700);
+        }
+
+        /* ================= QUICK MATCH ================= */
+        function openQuickMatch() {
+            const nick = (document.getElementById('nickname').value || '').trim();
+            if (!nick) {
+                alert('Enter a nickname first.');
+                return;
+            }
+            showScreen('view-match');
+        }
+
+        function updateMatchRolePreview() {
+            const count = parseInt(document.getElementById('match-count').value, 10);
+            const wolves = 1 + Math.floor((count - 4) / 3);
+            const specials = count === 4 ? 0 : Math.floor((count - 3) / 2);
+            const villagers = count - (wolves + specials);
+            document.getElementById('match-role-info').innerHTML = `
+                <strong>Squad Composition:</strong><br>
+                <span class="role-tag" style="color: #ff4d4d;"><i data-lucide="skull" size="16"></i> Werewolves: ${wolves}</span>
+                <span class="role-tag" style="color: var(--accent-gold);"><i data-lucide="sparkles" size="16"></i> Specials: ${specials}</span>
+                <span class="role-tag" style="color: #38bdf8;"><i data-lucide="shield" size="16"></i> Villagers: ${villagers}</span>
+            `;
+            lucide.createIcons();
+        }
+
+        function enterMatchLobby(data) {
+            state.roomCode = data.room_code;
+            state.token = data.token;
+            state.isHost = false;
+            state.isMatch = true;
+            state.matchCount = data.max_players;
+            state.matchSuggest = (data.suggest_count && data.suggest_count !== data.max_players) ? data.suggest_count : null;
+            triggerCutscene(data.cutscene || 'scene_door_open', () => {
+                showScreen('view-lobby');
+                renderMmSuggest();
+                startGamePolling();
+            });
+        }
+
+        function renderMmSuggest() {
+            const btn = document.getElementById('mm-suggest-btn');
+            if (!btn) return;
+            if (state.matchSuggest) {
+                btn.classList.remove('hidden');
+                btn.innerHTML = `<i data-lucide="users" size="18"></i> ${state.matchSuggest} players are waiting — switch to ${state.matchSuggest}?`;
+                btn.onclick = () => confirmMatchSwitch(state.matchSuggest);
+                lucide.createIcons();
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        function confirmMatchSwitch(count) {
+            const btn = document.getElementById('mm-suggest-btn');
+            if (btn) { btn.disabled = true; }
+            const msg = `Other players are matching at ${count} players. Switch from ${state.matchCount} to ${count} players?`;
+            if (!confirm(msg)) {
+                if (btn) { btn.disabled = false; }
+                return;
+            }
+            doMatchMake(count, true);
+        }
+
+        function doMatchMake(count, silent) {
+            state.nickname = document.getElementById('nickname').value || 'Player';
+            return fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count })
+            }).then(res => res.json()).then(data => {
+                if (data.status !== 'success') {
+                    const b = document.getElementById('btn-match');
+                    if (b) b.disabled = false;
+                    if (!silent) alert(data.message);
+                    return;
+                }
+                // Leaving our old match lobby before re-queueing (switch case).
+                if (silent && state.roomCode) callLeaveRoom(state.roomCode, state.token);
+                enterMatchLobby(data);
+            }).catch(() => {
+                if (!silent) alert('Network error while finding a match.');
+            });
+        }
+
+        async function handleQuickMatch() {
+            const btn = document.getElementById('btn-match');
+            btn.disabled = true;
+            const count = parseInt(document.getElementById('match-count').value, 10);
+            state.nickname = document.getElementById('nickname').value || 'Player';
+
+            const data = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count })
+            }).then(res => res.json());
+
+            if (data.status === 'success') {
+                // No open lobby at this size, but one exists at another size:
+                // ask the player whether to jump into that busy lobby instead.
+                if (data.suggest_count && data.suggest_count !== count) {
+                    btn.disabled = false;
+                    const ans = confirm(
+                        `There are no ${count}-player lobbies open right now, but a ${data.suggest_count}-player lobby is waiting.\n\nClick OK to join the ${data.suggest_count}-player lobby, or Cancel to start a fresh ${count}-player lobby.`
+                    );
+                    if (ans) {
+                        // Re-queue at the suggested size.
+                        await doMatchMake(data.suggest_count, true);
+                    } else {
+                        // Join the lobby the server just created for us.
+                        enterMatchLobby(data);
+                    }
+                    return;
+                }
+                enterMatchLobby(data);
+            } else {
+                btn.disabled = false;
+                alert(data.message);
+            }
+        }
+
+        function updateMmStatus(data) {
+            const strip = document.getElementById('mm-status');
+            const textEl = document.getElementById('mm-status-text');
+            const timerEl = document.getElementById('mm-timer');
+            const spinnerEl = document.getElementById('mm-spinner');
+            if (!strip) return;
+
+            const isMatchLobby = data.is_match === 1 && data.room_status === 'lobby';
+            if (!isMatchLobby) {
+                strip.classList.add('hidden');
+                strip.classList.remove('bot-filled');
+                if (spinnerEl) spinnerEl.style.display = '';
+                return;
+            }
+
+            const remaining = data.mm_remaining;
+            const bots = (data.players || []).filter(p => p.is_bot).length;
+            strip.classList.remove('hidden');
+
+            if (bots > 0) {
+                strip.classList.add('bot-filled');
+                textEl.innerText = 'Bots joining — starting soon...';
+                if (spinnerEl) spinnerEl.style.display = 'none';
+            } else {
+                strip.classList.remove('bot-filled');
+                textEl.innerText = 'Waiting for players...';
+                if (spinnerEl) spinnerEl.style.display = '';
+            }
+            if (timerEl) timerEl.innerText = remaining + 's';
         }
 
         /* ================= ROOM ACTIONS ================= */
@@ -1472,11 +1719,12 @@
                 ? '<i data-lucide="shield" size="20" style="color: #38bdf8; flex: none;"></i>'
                 : '<i data-lucide="skull" size="20" style="color: var(--accent-red); flex: none;"></i>';
             const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
+            const botTag = p.is_bot ? '<span class="bot-tag"><i data-lucide="cpu" size="11" style="vertical-align:-1px;"></i> BOT</span>' : '';
             const youTag = isMe ? '<span class="you-tag">YOU</span>' : '';
             const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''} ${noAnim ? 'no-anim' : ''}`;
             return `
                 <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
-                    <span class="player-info-wrap">${statusIcon} <span class="pname">${p.nickname}</span> ${youTag} ${bloodPile}</span>
+                    <span class="player-info-wrap">${statusIcon} <span class="pname">${p.nickname}</span> ${botTag} ${youTag} ${bloodPile}</span>
                     ${extra}
                 </li>
             `;
@@ -1537,7 +1785,16 @@
                 });
 
                 const data = await res.json();
-                if (data.status !== 'success') return;
+                if (data.status !== 'success') {
+                    // Room dissolved (everyone left) — drop back to the menu.
+                    if (data.message === 'Room collapsed.') {
+                        leaveToMenu();
+                    }
+                    return;
+                }
+
+                // Matchmaking wait strip (countdown + bot-fill indicator).
+                updateMmStatus(data);
 
                 // Render incoming messages from database (incrementally:
                 // append only new ones, and only auto-scroll if the user is

@@ -5,8 +5,8 @@ header('Access-Control-Allow-Origin: *');
 $configFile = __DIR__ . '/../config.ini';
 if (!file_exists($configFile)) {
     die(json_encode([
-        "status" => "error", 
-        "message" => "Missing ../config.ini file.", 
+        "status" => "error",
+        "message" => "Missing ../config.ini file.",
         "cutscene" => "scene_error"
     ]));
 }
@@ -24,8 +24,8 @@ try {
     ]);
 } catch (PDOException $e) {
     die(json_encode([
-        "status" => "error", 
-        "message" => "Database connection error: " . $e->getMessage(), 
+        "status" => "error",
+        "message" => "Database connection error: " . $e->getMessage(),
         "cutscene" => "scene_error"
     ]));
 }
@@ -35,6 +35,10 @@ try {
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS target_id INT DEFAULT NULL");
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS vote_id INT DEFAULT NULL");
     $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_event VARCHAR(255) DEFAULT NULL");
+    // Matchmaking + bot columns
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS is_bot TINYINT DEFAULT 0");
+    $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_match TINYINT DEFAULT 0");
+    $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS mm_deadline INT DEFAULT NULL");
     $pdo->exec("CREATE TABLE IF NOT EXISTS messages (
         id INT AUTO_INCREMENT PRIMARY KEY,
         room_code VARCHAR(10) NOT NULL,
@@ -49,16 +53,193 @@ function calculateRoles($playerCount) {
     $werewolves = 1 + (int)floor(($playerCount - 4) / 3);
     $specials = ($playerCount === 4) ? 0 : (int)floor(($playerCount - 3) / 2);
     $villagers = $playerCount - ($werewolves + $specials);
-    
+
     $specialPool = ['Seer', 'Doctor', 'Witch', 'Hunter', 'Cupid'];
     $assignedSpecials = array_slice($specialPool, 0, $specials);
-    
+
     return [
         "werewolves" => $werewolves,
         "specials" => $specials,
         "special_cards" => $assignedSpecials,
         "villagers" => $villagers
     ];
+}
+
+/* ================= MATCHMAKING + BOTS ================= */
+const MATCH_WAIT_SECONDS = 30;
+
+$BOT_NAMES = [
+    'Wolfram', 'Raven', 'Ash', 'Milo', 'Bruno', 'Sable', 'Corvin', 'Fen',
+    'Gale', 'Holt', 'Ivo', 'Juno', 'Koda', 'Lars', 'Moss', 'Nico',
+    'Onyx', 'Piper', 'Quill', 'Rook', 'Sage', 'Talon', 'Uma', 'Vex',
+    'Wren', 'York', 'Zeke', 'Bram', 'Cleo', 'Dax'
+];
+
+// Add a single AI player to a lobby room. Returns the bot row or null.
+function addBot(PDO $pdo, $roomCode) {
+    $stmt = $pdo->prepare("SELECT nickname FROM players WHERE room_code = ?");
+    $stmt->execute([$roomCode]);
+    $used = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $name = null;
+    $guard = 0;
+    do {
+        $name = $BOT_NAMES[array_rand($BOT_NAMES)];
+    } while (in_array($name, $used, true) && $guard++ < 100);
+
+    $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive, is_bot) VALUES (?, ?, ?, 1, 1)");
+    $stmt->execute([$roomCode, 'bot_' . bin2hex(random_bytes(8)), $name]);
+    $id = (int)$pdo->lastInsertId();
+    $stmt = $pdo->prepare("SELECT * FROM players WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch();
+}
+
+// If a matchmade lobby is past its 30s deadline and not full, fill with bots.
+function fillBotsIfNeeded(PDO $pdo, $room) {
+    if (empty($room['is_match']) || $room['status'] !== 'lobby') return;
+    $deadline = (int)($room['mm_deadline'] ?? 0);
+    if ($deadline <= 0 || time() < $deadline) return;
+
+    $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM players WHERE room_code = ?");
+    $stmt->execute([$room['room_code']]);
+    $count = (int)$stmt->fetch()['c'];
+    $target = (int)$room['max_players'];
+    for ($i = $count; $i < $target; $i++) {
+        addBot($pdo, $room['room_code']);
+    }
+}
+
+// Deal cards and flip a full room into the night phase (shared by manual
+// start and the matchmaker auto-start).
+function beginGame(PDO $pdo, $roomCode) {
+    $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? ORDER BY id ASC");
+    $stmt->execute([$roomCode]);
+    $players = $stmt->fetchAll();
+    $total = count($players);
+
+    $breakdown = calculateRoles($total);
+    $deck = array_fill(0, $breakdown['werewolves'], 'Werewolf');
+    foreach ($breakdown['special_cards'] as $card) {
+        $deck[] = $card;
+    }
+    while (count($deck) < $total) {
+        $deck[] = 'Villager';
+    }
+    shuffle($deck);
+
+    foreach ($players as $index => $player) {
+        $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL WHERE id = ?");
+        $stmt->execute([$deck[$index], $player['id']]);
+    }
+
+    $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = 'Night falls upon the village...' WHERE room_code = ?");
+    $stmt->execute([$roomCode]);
+}
+
+// Make every alive bot werewolf lock a victim (never itself, prefers a
+// non-werewolf). Does NOT resolve the phase — resolveNight() does that.
+function processNightBots(PDO $pdo, $roomCode) {
+    $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND is_bot = 1 AND is_alive = 1");
+    $stmt->execute([$roomCode]);
+    $bots = $stmt->fetchAll();
+    if (count($bots) === 0) return;
+
+    foreach ($bots as $bot) {
+        if ($bot['role'] !== 'Werewolf' || $bot['target_id']) continue;
+        $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ? AND role != 'Werewolf'");
+        $stmt->execute([$roomCode, $bot['id']]);
+        $options = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (count($options) === 0) {
+            $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ?");
+            $stmt->execute([$roomCode, $bot['id']]);
+            $options = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        }
+        if (count($options) === 0) continue;
+        $victim = $options[array_rand($options)];
+        $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?")->execute([$victim, $bot['id']]);
+    }
+}
+
+// Make every alive bot cast a day vote (random living player, never itself).
+function processDayBots(PDO $pdo, $roomCode) {
+    $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND is_bot = 1 AND is_alive = 1");
+    $stmt->execute([$roomCode]);
+    $bots = $stmt->fetchAll();
+    if (count($bots) === 0) return;
+
+    $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1");
+    $stmt->execute([$roomCode]);
+    $aliveIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    if (count($aliveIds) === 0) return;
+
+    foreach ($bots as $bot) {
+        if ($bot['vote_id'] !== null) continue;
+        $options = array_values(array_diff($aliveIds, [$bot['id']]));
+        if (count($options) === 0) continue;
+        $target = $options[array_rand($options)];
+        $pdo->prepare("UPDATE players SET vote_id = ? WHERE id = ?")->execute([$target, $bot['id']]);
+    }
+}
+
+// Resolve the night: every alive werewolf has a victim -> kill the top
+// target, wipe targets, flip to day. Returns true if the phase advanced.
+function resolveNight(PDO $pdo, $roomCode) {
+    $stmt = $pdo->prepare("SELECT id, target_id FROM players WHERE room_code = ? AND role = 'Werewolf' AND is_alive = 1");
+    $stmt->execute([$roomCode]);
+    $werewolves = $stmt->fetchAll();
+    if (count($werewolves) === 0) return false;
+
+    $targetVotes = [];
+    foreach ($werewolves as $w) {
+        if (!$w['target_id']) return false; // someone has not acted yet
+        $targetVotes[$w['target_id']] = ($targetVotes[$w['target_id']] ?? 0) + 1;
+    }
+
+    arsort($targetVotes);
+    $victimId = array_key_first($targetVotes);
+
+    $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?")->execute([$victimId]);
+
+    $stmt = $pdo->prepare("SELECT nickname FROM players WHERE id = ?");
+    $stmt->execute([$victimId]);
+    $victim = $stmt->fetch();
+    $victimName = $victim ? $victim['nickname'] : 'Someone';
+
+    $pdo->prepare("UPDATE players SET target_id = NULL WHERE room_code = ?")->execute([$roomCode]);
+    $pdo->prepare("UPDATE rooms SET status = 'day', last_event = ? WHERE room_code = ?")
+        ->execute(["During the night, werewolves attacked and killed **{$victimName}**!", $roomCode]);
+    return true;
+}
+
+// Resolve the day: every alive player has voted -> lynch the top target,
+// wipe votes, flip to night. Returns true if the phase advanced.
+function resolveDay(PDO $pdo, $roomCode) {
+    $stmt = $pdo->prepare("SELECT id, vote_id FROM players WHERE room_code = ? AND is_alive = 1");
+    $stmt->execute([$roomCode]);
+    $living = $stmt->fetchAll();
+    if (count($living) === 0) return false;
+
+    $voteCounts = [];
+    foreach ($living as $p) {
+        if ($p['vote_id'] === null) return false; // someone has not voted yet
+        $voteCounts[$p['vote_id']] = ($voteCounts[$p['vote_id']] ?? 0) + 1;
+    }
+
+    arsort($voteCounts);
+    $lynchedId = array_key_first($voteCounts);
+
+    $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?")->execute([$lynchedId]);
+
+    $stmt = $pdo->prepare("SELECT nickname, role FROM players WHERE id = ?");
+    $stmt->execute([$lynchedId]);
+    $lynched = $stmt->fetch();
+    $lynchedName = $lynched ? $lynched['nickname'] : 'Someone';
+    $lynchedRole = $lynched ? $lynched['role'] : 'Villager';
+
+    $pdo->prepare("UPDATE players SET vote_id = NULL WHERE room_code = ?")->execute([$roomCode]);
+    $pdo->prepare("UPDATE rooms SET status = 'night', last_event = ? WHERE room_code = ?")
+        ->execute(["The village voted and lynched **{$lynchedName}**. They were a **{$lynchedRole}**! Night falls again...", $roomCode]);
+    return true;
 }
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -91,6 +272,84 @@ switch ($action) {
             "message" => "Room created! Share your code.",
             "cutscene" => "scene_room_created"
         ]);
+        break;
+
+    case 'matchmake':
+        $nickname = trim($_POST['nickname'] ?? 'Player');
+        $count = (int)($_POST['count'] ?? 0);
+
+        if ($count < 4 || $count > 10) {
+            echo json_encode(["status" => "error", "message" => "Choose 4 to 10 players."]);
+            exit;
+        }
+
+        // 1) Join an existing matchmade lobby that wants exactly this count.
+        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE is_match = 1 AND status = 'lobby' AND max_players = ? ORDER BY id ASC");
+        $stmt->execute([$count]);
+        $candidates = $stmt->fetchAll();
+
+        foreach ($candidates as $room) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM players WHERE room_code = ?");
+            $stmt->execute([$room['room_code']]);
+            $c = (int)$stmt->fetch()['c'];
+            if ($c >= (int)$room['max_players']) continue;
+
+            // Defensive: clear any stale same-nickname seat so a player can't
+            // duplicate themselves when re-queueing.
+            $pdo->prepare("DELETE FROM players WHERE room_code = ? AND nickname = ?")->execute([$room['room_code'], $nickname]);
+
+            $sessionToken = bin2hex(random_bytes(16));
+            $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
+            $stmt->execute([$room['room_code'], $sessionToken, $nickname]);
+
+            echo json_encode([
+                "status" => "success",
+                "joined" => true,
+                "room_code" => $room['room_code'],
+                "token" => $sessionToken,
+                "max_players" => (int)$room['max_players'],
+                "message" => "Matched with a waiting lobby!",
+                "cutscene" => "scene_door_open"
+            ]);
+            exit;
+        }
+
+        // 2) Nobody waiting at this size: note the nearest busy size so the
+        //    client can offer a quick switch.
+        $stmt = $pdo->prepare("SELECT max_players FROM rooms WHERE is_match = 1 AND status = 'lobby' GROUP BY max_players");
+        $stmt->execute();
+        $busySizes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $suggest = null;
+        $best = PHP_INT_MAX;
+        foreach ($busySizes as $mp) {
+            $diff = abs((int)$mp - $count);
+            if ($diff < $best) { $best = $diff; $suggest = (int)$mp; }
+        }
+
+        // 3) Create a fresh matchmade room with a 30s fill deadline.
+        $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
+        $sessionToken = bin2hex(random_bytes(16));
+
+        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, status, is_match, mm_deadline) VALUES (?, ?, ?, 'lobby', 1, ?)");
+        $stmt->execute([$roomCode, $sessionToken, $count, time() + MATCH_WAIT_SECONDS]);
+
+        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
+        $stmt->execute([$roomCode, $sessionToken, $nickname]);
+
+        $payload = [
+            "status" => "success",
+            "joined" => false,
+            "created" => true,
+            "room_code" => $roomCode,
+            "token" => $sessionToken,
+            "max_players" => $count,
+            "mm_wait_seconds" => MATCH_WAIT_SECONDS,
+            "message" => "No open lobby for " . $count . " players. You are first — waiting for others (bots fill the room if it is not full in " . MATCH_WAIT_SECONDS . "s)."
+        ];
+        if ($suggest !== null && $suggest !== $count) {
+            $payload["suggest_count"] = $suggest;
+        }
+        echo json_encode($payload);
         break;
 
     case 'join_room':
@@ -201,25 +460,7 @@ switch ($action) {
             exit;
         }
 
-        $breakdown = calculateRoles($total);
-        $deck = array_fill(0, $breakdown['werewolves'], 'Werewolf');
-        foreach ($breakdown['special_cards'] as $card) {
-            $deck[] = $card;
-        }
-        while (count($deck) < $total) {
-            $deck[] = 'Villager';
-        }
-
-        shuffle($deck);
-
-        foreach ($players as $index => $player) {
-            $assignedRole = $deck[$index];
-            $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL WHERE id = ?");
-            $stmt->execute([$assignedRole, $player['id']]);
-        }
-
-        $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = 'Night falls upon the village...' WHERE room_code = ?");
-        $stmt->execute([$roomCode]);
+        beginGame($pdo, $roomCode);
 
         echo json_encode([
             "status" => "success",
@@ -267,7 +508,32 @@ switch ($action) {
             exit;
         }
 
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id FROM players WHERE room_code = ? ORDER BY id ASC");
+        // Matchmaker: once the 30s window is up, top up with bots...
+        fillBotsIfNeeded($pdo, $room);
+        // ...and auto-start the moment the room is full.
+        if (!empty($room['is_match']) && $room['status'] === 'lobby') {
+            $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM players WHERE room_code = ?");
+            $stmt->execute([$roomCode]);
+            if ((int)$stmt->fetch()['c'] >= (int)$room['max_players']) {
+                beginGame($pdo, $roomCode);
+                $room['status'] = 'night';
+                $room['last_event'] = 'Room full — the match begins!';
+            }
+        }
+
+        // Drive the AI so a match never stalls waiting on a bot, then let the
+        // phase resolve as soon as every actor has acted (this also covers the
+        // "everyone who can act is a bot" case, which no client call would
+        // otherwise ever trigger).
+        if ($room['status'] === 'night') {
+            processNightBots($pdo, $roomCode);
+            if (resolveNight($pdo, $roomCode)) $room['status'] = 'day';
+        } elseif ($room['status'] === 'day') {
+            processDayBots($pdo, $roomCode);
+            if (resolveDay($pdo, $roomCode)) $room['status'] = 'night';
+        }
+
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -290,7 +556,7 @@ switch ($action) {
                 $isAlive = (int)$p['is_alive'];
                 $myTargetId = $p['target_id'];
                 $myVoteId = $p['vote_id'];
-                
+
                 if ($room['status'] === 'night' && $p['role'] === 'Werewolf') {
                     $hasVoted = ($p['target_id'] !== null);
                 } elseif ($room['status'] === 'day') {
@@ -331,16 +597,24 @@ switch ($action) {
                 "id" => $p['id'],
                 "nickname" => $p['nickname'],
                 "is_alive" => (int)$p['is_alive'],
-                "role" => $p['role']
+                "role" => $p['role'],
+                "is_bot" => (int)($p['is_bot'] ?? 0)
             ];
         }, $players);
 
         $roleBreakdown = calculateRoles(count($players));
 
+        $mmRemaining = 0;
+        if (!empty($room['is_match']) && $room['status'] === 'lobby') {
+            $mmRemaining = max(0, (int)$room['mm_deadline'] - time());
+        }
+
         echo json_encode([
             "status" => "success",
             "room_status" => $room['status'],
             "is_host" => ($room['host_token'] === $token),
+            "is_match" => (int)($room['is_match'] ?? 0),
+            "mm_remaining" => $mmRemaining,
             "max_players" => (int)$room['max_players'],
             "current_count" => count($players),
             "players" => $playerData,
@@ -387,36 +661,9 @@ switch ($action) {
         $stmt = $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?");
         $stmt->execute([$targetId, $me['id']]);
 
-        $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND role = 'Werewolf' AND is_alive = 1");
-        $stmt->execute([$roomCode]);
-        $werewolves = $stmt->fetchAll();
-
-        $allVoted = true;
-        $targetVotes = [];
-        foreach ($werewolves as $w) {
-            if (!$w['target_id']) {
-                $allVoted = false;
-            } else {
-                $targetVotes[$w['target_id']] = ($targetVotes[$w['target_id']] ?? 0) + 1;
-            }
-        }
-
-        if ($allVoted && count($werewolves) > 0) {
-            arsort($targetVotes);
-            $victimId = array_key_first($targetVotes);
-
-            $stmt = $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?");
-            $stmt->execute([$victimId]);
-
-            $stmt = $pdo->prepare("SELECT nickname FROM players WHERE id = ?");
-            $stmt->execute([$victimId]);
-            $victim = $stmt->fetch();
-            $victimName = $victim ? $victim['nickname'] : 'Someone';
-
-            $pdo->prepare("UPDATE players SET target_id = NULL")->execute();
-            $stmt = $pdo->prepare("UPDATE rooms SET status = 'day', last_event = ? WHERE room_code = ?");
-            $stmt->execute(["During the night, werewolves attacked and killed **{$victimName}**!", $roomCode]);
-        }
+        // Bots may have already locked victims; resolve if everyone acted.
+        processNightBots($pdo, $roomCode);
+        resolveNight($pdo, $roomCode);
 
         echo json_encode(["status" => "success", "message" => "Night action submitted."]);
         break;
@@ -447,37 +694,9 @@ switch ($action) {
         $stmt = $pdo->prepare("UPDATE players SET vote_id = ? WHERE id = ?");
         $stmt->execute([$voteId, $me['id']]);
 
-        $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND is_alive = 1");
-        $stmt->execute([$roomCode]);
-        $livingPlayers = $stmt->fetchAll();
-
-        $allVoted = true;
-        $voteCounts = [];
-        foreach ($livingPlayers as $p) {
-            if ($p['vote_id'] === null) {
-                $allVoted = false;
-            } else {
-                $voteCounts[$p['vote_id']] = ($voteCounts[$p['vote_id']] ?? 0) + 1;
-            }
-        }
-
-        if ($allVoted && count($livingPlayers) > 0) {
-            arsort($voteCounts);
-            $lynchedId = array_key_first($voteCounts);
-
-            $stmt = $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?");
-            $stmt->execute([$lynchedId]);
-
-            $stmt = $pdo->prepare("SELECT nickname, role FROM players WHERE id = ?");
-            $stmt->execute([$lynchedId]);
-            $lynched = $stmt->fetch();
-            $lynchedName = $lynched ? $lynched['nickname'] : 'Someone';
-            $lynchedRole = $lynched ? $lynched['role'] : 'Villager';
-
-            $pdo->prepare("UPDATE players SET vote_id = NULL")->execute();
-            $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = ? WHERE room_code = ?");
-            $stmt->execute(["The village voted and lynched **{$lynchedName}**. They were a **{$lynchedRole}**! Night falls again...", $roomCode]);
-        }
+        // Bots may have already voted; resolve if everyone acted.
+        processDayBots($pdo, $roomCode);
+        resolveDay($pdo, $roomCode);
 
         echo json_encode(["status" => "success", "message" => "Vote submitted."]);
         break;
