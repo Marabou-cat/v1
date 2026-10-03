@@ -193,25 +193,92 @@
         .back-btn:hover { color: #fff; border-color: rgba(255,255,255,0.25); transform: translateX(-3px); }
 
         /* ================= TYPOGRAPHY ================= */
+        .title-wrap {
+            position: relative;
+            display: inline-block;
+            line-height: 1;
+            /* slow "closing-in" breathing — subtle scale for oppressive weight */
+            animation: titleCreep 6.5s ease-in-out infinite;
+            transform-origin: 50% 20%;
+        }
+        @keyframes titleCreep {
+            0%, 100% { transform: scale(1) translateY(0); }
+            50%      { transform: scale(1.045) translateY(3px); }
+        }
         h1.title {
-            font-family: 'Cinzel', serif;
-            font-size: clamp(3rem, 9vw, 5.8rem);
-            font-weight: 900;
+            font-family: 'Nosifer', 'Cinzel', serif;
+            font-size: clamp(2.6rem, 8vw, 5.2rem);
+            font-weight: 400;
             text-transform: uppercase;
-            letter-spacing: 4px;
+            letter-spacing: 2px;
             color: var(--accent-red);
             text-align: center;
-            text-shadow: 0 4px 18px rgba(230, 0, 18, 0.55), 0 0 40px rgba(230, 0, 18, 0.25);
-            -webkit-text-stroke: 1px #5c0006;
+            line-height: 1;
+            text-shadow:
+                0 0 14px rgba(230, 0, 18, 0.85),
+                0 0 38px rgba(230, 0, 18, 0.45),
+                0 6px 22px rgba(90, 0, 6, 0.9),
+                0 2px 3px #3d0003;
             animation: titleFlicker 7s ease-in-out infinite;
         }
         @keyframes titleFlicker {
-            0%, 100% { opacity: 1; text-shadow: 0 4px 18px rgba(230, 0, 18, 0.55), 0 0 40px rgba(230, 0, 18, 0.25); }
+            0%, 100% { opacity: 1; }
             42% { opacity: 1; }
-            45% { opacity: 0.82; text-shadow: 0 4px 8px rgba(230, 0, 18, 0.3); }
+            45% { opacity: 0.8; text-shadow: 0 0 8px rgba(230, 0, 18, 0.4), 0 6px 14px rgba(90, 0, 6, 0.6); }
             48% { opacity: 1; }
-            74% { opacity: 0.92; }
+            74% { opacity: 0.93; }
             76% { opacity: 1; }
+        }
+
+        /* ---- blood drips falling from the title ---- */
+        .drips {
+            position: absolute;
+            left: 0; right: 0;
+            bottom: 2px;
+            height: 0;
+            pointer-events: none;
+            overflow: visible;
+            z-index: 2;
+        }
+        .drip {
+            position: absolute;
+            top: -6px;
+            width: 7px;
+            height: 0;
+            border-radius: 0 0 7px 7px;
+            background: linear-gradient(to bottom,
+                #5c0006 0%,
+                #a8000f 18%,
+                #d50017 55%,
+                #e8051f 100%);
+            box-shadow:
+                0 0 6px rgba(232, 5, 31, 0.55),
+                inset 0 0 2px rgba(255, 255, 255, 0.25);
+            transform-origin: top center;
+            animation: dripFall var(--dur, 3.6s) cubic-bezier(0.5, 0.02, 0.85, 0.4) var(--delay, 0s) infinite;
+            opacity: 0;
+        }
+        .drip::after {
+            /* the droplet bead at the tip */
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: -5px;
+            width: 9px;
+            height: 9px;
+            margin-left: -4.5px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #ff4d5e 0%, #d50017 45%, #7a0009 100%);
+            box-shadow: 0 0 8px rgba(232, 5, 31, 0.6);
+        }
+        @keyframes dripFall {
+            0%      { height: 0;    opacity: 0; }
+            12%     { opacity: 1; }
+            30%     { height: 26px; opacity: 1; }           /* bead forms + swells */
+            62%     { height: 44px; opacity: 1; }           /* stretches down */
+            80%     { height: 72px; opacity: 1; }           /* long tail */
+            90%     { height: 96px; opacity: 0.85; }
+            100%    { height: 120px; opacity: 0; transform: translateY(26px); }  /* falls away */
         }
 
         p.subtitle {
@@ -908,6 +975,11 @@
             animation-fill-mode: backwards;
         }
         .no-anim { animation: none !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .title-wrap, h1.title, .drip, .hero-icon { animation: none !important; }
+            .drips { display: none; }
+        }
     </style>
 </head>
 <body data-phase="menu">
@@ -936,7 +1008,10 @@
         <section id="view-menu" class="screen">
             <div style="width:100%; max-width: 760px; display:flex; flex-direction:column; align-items:center;">
                 <div class="hero-icon"><i data-lucide="paw-print" size="92"></i></div>
-                <h1 class="title">Werewolf</h1>
+                <div class="title-wrap">
+                    <h1 class="title">Werewolf</h1>
+                    <div class="drips" id="title-drips" aria-hidden="true"></div>
+                </div>
                 <p class="subtitle">Online Multiplayer Arena</p>
 
                 <div class="menu-panel">
@@ -1578,7 +1653,39 @@
             }, 1500);
         }
 
+        /* ================= TITLE BLOOD DRIPS ================= */
+        function initTitleDrips() {
+            const holder = document.getElementById('title-drips');
+            if (!holder) return;
+            // Respect reduced-motion: no drips, no creep
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+            function rand(min, max) { return min + Math.random() * (max - min); }
+
+            // Static set of drips with randomised position / length / timing.
+            const COUNT = 9;
+            let prevLeft = -99;
+            for (let i = 0; i < COUNT; i++) {
+                const d = document.createElement('span');
+                d.className = 'drip';
+                // position: 4% .. 96% (avoid dead-edges), keep some spacing
+                let left = rand(4, 96);
+                let guard = 0;
+                while (i > 0 && Math.abs(left - prevLeft) < 7 && guard++ < 20) left = rand(4, 96);
+                prevLeft = left;
+                d.style.left = left + '%';
+                d.style.setProperty('--dur', rand(2.6, 4.6).toFixed(2) + 's');
+                d.style.setProperty('--delay', rand(0, 3.2).toFixed(2) + 's');
+                const w = rand(5, 9);
+                d.style.width = w + 'px';
+                d.style.borderRadius = '0 0 ' + w + 'px ' + w + 'px';
+                d.style.filter = `brightness(${rand(0.85, 1.12).toFixed(2)})`;
+                holder.appendChild(d);
+            }
+        }
+
         /* ================= INIT ================= */
+        initTitleDrips();
         initAmbient();
         lucide.createIcons();
     </script>
