@@ -519,6 +519,10 @@ function advanceNight(PDO $pdo, $roomCode) {
         return false; // wait for the Doctor's revive decision
     }
 
+    // Persist the victim so finalizeNight can apply it — it reads
+    // rooms.pending_victim, which is NULL after resetNightState. (Without this
+    // the werewolves killed nobody whenever there was no doctor step.)
+    $pdo->prepare("UPDATE rooms SET pending_victim = ? WHERE room_code = ?")->execute([$victimId, $roomCode]);
     return finalizeNight($pdo, $roomCode);
 }
 
@@ -1115,15 +1119,19 @@ switch ($action) {
         // masked so no client can read the table from the poll payload.
         $playerData = array_map(function($p) use ($room, $myId, $voteTally) {
             $role = $p['role'];
-            if ($p['id'] !== $myId
-                && !in_array($room['status'], ['lobby', 'ended'], true)
-                && $role !== 'unassigned') {
-                $role = 'Hidden';
-            }
+            $isAlive = (int)$p['is_alive'];
+            // Reveal rule: your own card is always real; a DEAD player's role is
+            // public the moment they die (and stays shown); everyone else stays
+            // masked until the final reveal at 'ended'.
+            $reveal = ($p['id'] === $myId)
+                || ($isAlive === 0)
+                || in_array($room['status'], ['lobby', 'ended'], true)
+                || $role === 'unassigned';
+            if (!$reveal) $role = 'Hidden';
             return [
                 "id" => $p['id'],
                 "nickname" => $p['nickname'],
-                "is_alive" => (int)$p['is_alive'],
+                "is_alive" => $isAlive,
                 "role" => $role,
                 "is_bot" => (int)($p['is_bot'] ?? 0),
                 "votes" => (int)($voteTally[(int)$p['id']] ?? 0)

@@ -877,6 +877,14 @@
         }
         .player-item.voted-by-me { box-shadow: inset 0 0 0 2px #38bdf8; }
 
+        /* Revealed role chip (own seat + dead players + final reveal) */
+        .role-chip {
+            display: inline-block; font-size: 0.68rem; font-weight: 800;
+            letter-spacing: 0.5px; text-transform: uppercase;
+            padding: 2px 8px; border-radius: 999px;
+            border: 1px solid currentColor; opacity: 0.95;
+        }
+
         .game-player-list {
             list-style: none;
             flex: 1;
@@ -1966,10 +1974,16 @@
             const voteBadge = (voting && p.votes > 0)
                 ? `<span class="vote-badge"><i data-lucide="vote" size="14"></i> ${p.votes}</span>` : '';
             const myVoteTag = iVotedThis ? '<span class="my-vote-tag">YOUR VOTE</span>' : '';
+            // Role chip: the backend reveals it for your own seat AND for any
+            // dead player (dead roles are public and stay visible); alive
+            // opponents show 'Hidden' until the final reveal.
+            const revealedRole = (p.role && p.role !== 'Hidden' && p.role !== 'unassigned') ? p.role : null;
+            const roleChip = revealedRole
+                ? `<span class="role-chip" style="color:${roleChipColor(revealedRole)};">${revealedRole}</span>` : '';
             const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''} ${iVotedThis ? 'voted-by-me' : ''} ${noAnim ? 'no-anim' : ''}`;
             return `
                 <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
-                    <span class="player-info-wrap">${statusIcon} <span class="pname">${p.nickname}</span> ${youTag} ${myVoteTag} ${voteBadge} ${bloodPile}</span>
+                    <span class="player-info-wrap">${statusIcon} <span class="pname">${p.nickname}</span> ${youTag} ${roleChip} ${myVoteTag} ${voteBadge} ${bloodPile}</span>
                     ${extra}
                 </li>
             `;
@@ -2015,6 +2029,14 @@
                 'Cupid': 'heart'
             };
             return `<i data-lucide="${icons[role] || 'user'}" size="26"></i>`;
+        }
+
+        // Colour for a revealed role chip: wolves red, special roles blue,
+        // plain villagers gold.
+        function roleChipColor(role) {
+            if (role === 'Werewolf') return '#ff4d4d';
+            if (['Seer', 'Doctor', 'Witch', 'Hunter', 'Cupid'].includes(role)) return '#38bdf8';
+            return 'var(--accent-gold)';
         }
 
         /* ================= POLLING ================= */
@@ -2238,9 +2260,9 @@
                         phaseText.style.color = '#38bdf8';
                         gameListLabel.innerText = 'Final Squad Roster:';
 
-                        renderRosterList(gamePlayerList, data, (p) =>
-                            `<span style="font-weight: 800; color: ${p.role === 'Werewolf' ? '#ff4d4d' : 'var(--accent-gold)'};">${p.role}</span>`,
-                            'ended');
+                        // Every role is revealed by the backend at 'ended', so the
+                        // card's role chip renders it — no extra markup needed.
+                        renderRosterList(gamePlayerList, data, null, 'ended');
                     }
                 }
             }, 1500);
