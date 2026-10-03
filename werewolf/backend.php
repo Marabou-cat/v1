@@ -108,16 +108,17 @@ function addBot(PDO $pdo, $roomCode) {
 }
 
 // If a matchmade lobby is past its 30s deadline and not full, fill with bots.
+// The count is re-read on EVERY iteration so two concurrent polls (two humans
+// in one match) can't both top up from a stale count and double-fill the room.
 function fillBotsIfNeeded(PDO $pdo, $room) {
     if (empty($room['is_match']) || $room['status'] !== 'lobby') return;
     $deadline = (int)($room['mm_deadline'] ?? 0);
     if ($deadline <= 0 || time() < $deadline) return;
 
-    $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM players WHERE room_code = ?");
-    $stmt->execute([$room['room_code']]);
-    $count = (int)$stmt->fetch()['c'];
-    $target = (int)$room['max_players'];
-    for ($i = $count; $i < $target; $i++) {
+    for (;;) {
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM players WHERE room_code = ?");
+        $stmt->execute([$room['room_code']]);
+        if ((int)$stmt->fetch()['c'] >= (int)$room['max_players']) break;
         addBot($pdo, $room['room_code']);
     }
 }
@@ -622,8 +623,14 @@ switch ($action) {
             $stmt->execute([$roomCode]);
             if ((int)$stmt->fetch()['c'] >= (int)$room['max_players']) {
                 beginGame($pdo, $roomCode);
-                $room['status'] = 'night';
-                $room['last_event'] = 'Room full — the match begins!';
+                // Re-read the room: beginGame may have been a no-op because a
+                // concurrent poll already started the game (atomic claim). The
+                // stale in-memory copy must never be used for win checks.
+                $ri = $pdo->prepare("SELECT status, last_event FROM rooms WHERE room_code = ?");
+                $ri->execute([$roomCode]);
+                $fresh = $ri->fetch();
+                $room['status'] = $fresh['status'];
+                if ($fresh['last_event'] !== null) $room['last_event'] = $fresh['last_event'];
             }
         }
 
@@ -639,6 +646,9 @@ switch ($action) {
             if (resolveDay($pdo, $roomCode)) $room['status'] = 'night';
         }
 
+        // Players are read AFTER deal/phase resolution so the win check below
+        // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
+        // that race could falsely mark a fresh game as 'ended'.
         $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot, bot_ready_at, bot_last_chat FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
