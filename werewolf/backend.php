@@ -284,7 +284,7 @@ switch ($action) {
         }
 
         // 1) Join an existing matchmade lobby that wants exactly this count.
-        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE is_match = 1 AND status = 'lobby' AND max_players = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE is_match = 1 AND status = 'lobby' AND max_players = ? ORDER BY created_at ASC");
         $stmt->execute([$count]);
         $candidates = $stmt->fetchAll();
 
