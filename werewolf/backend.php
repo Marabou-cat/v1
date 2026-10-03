@@ -121,6 +121,15 @@ switch ($action) {
         }
 
         $sessionToken = bin2hex(random_bytes(16));
+
+        // Defensive: drop any stale leftover entry with the same nickname in
+        // this lobby (e.g. a previous session that crashed before leaving),
+        // so a player can never "duplicate" themselves by rejoining.
+        if ($room['status'] === 'lobby') {
+            $stmt = $pdo->prepare("DELETE FROM players WHERE room_code = ? AND nickname = ?");
+            $stmt->execute([$roomCode, $nickname]);
+        }
+
         $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
         $stmt->execute([$roomCode, $sessionToken, $nickname]);
 
@@ -131,6 +140,42 @@ switch ($action) {
             "message" => "Welcome to the village!",
             "cutscene" => "scene_door_open"
         ]);
+        break;
+
+    case 'leave_room':
+        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
+        $token = trim($_POST['token'] ?? '');
+
+        if ($roomCode === '' || $token === '') {
+            echo json_encode(["status" => "success", "message" => "Nothing to leave."]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT id, room_code FROM players WHERE room_code = ? AND session_token = ?");
+        $stmt->execute([$roomCode, $token]);
+        $me = $stmt->fetch();
+
+        if ($me) {
+            // Remove this player's chat so the room history stays clean.
+            $stmt = $pdo->prepare("DELETE FROM messages WHERE room_code = ? AND sender_name = (SELECT nickname FROM players WHERE id = ?)");
+            $stmt->execute([$me['room_code'], $me['id']]);
+
+            // Remove the player itself.
+            $stmt = $pdo->prepare("DELETE FROM players WHERE id = ?");
+            $stmt->execute([$me['id']]);
+        }
+
+        // If a lobby is now empty, dissolve the room entirely (codes are
+        // one-shot, so an empty lobby has no reason to live on).
+        $stmt = $pdo->prepare("SELECT status, (SELECT COUNT(*) FROM players WHERE room_code = ?) AS pc FROM rooms WHERE room_code = ?");
+        $stmt->execute([$roomCode, $roomCode]);
+        $room = $stmt->fetch();
+        if ($room && $room['status'] === 'lobby' && (int)$room['pc'] === 0) {
+            $pdo->prepare("DELETE FROM messages WHERE room_code = ?")->execute([$roomCode]);
+            $pdo->prepare("DELETE FROM rooms WHERE room_code = ?")->execute([$roomCode]);
+        }
+
+        echo json_encode(["status" => "success", "message" => "You have left the room."]);
         break;
 
     case 'start_game':
