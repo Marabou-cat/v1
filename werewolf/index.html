@@ -855,9 +855,22 @@
             letter-spacing: 3px;
             text-transform: uppercase;
             text-shadow: 0 2px 12px rgba(255, 204, 0, 0.5);
-            animation: screenIn 0.5s ease both;
+            /* Enters from ABOVE (never from below) so the sliding text can
+               never collide with the sub-caption underneath it. */
+            animation: cutsceneTextIn 0.55s cubic-bezier(0.22, 0.9, 0.3, 1) both;
         }
-        .cutscene-sub { font-size: 1.05rem; color: var(--text-muted); margin-top: 14px; font-weight: 800; letter-spacing: 1.5px; }
+        @keyframes cutsceneTextIn {
+            from { opacity: 0; transform: translateY(-16px) scale(1.04); }
+            to   { opacity: 1; transform: none; }
+        }
+        .cutscene-sub {
+            font-size: 1.05rem; color: var(--text-muted); margin-top: 16px; font-weight: 800; letter-spacing: 1.5px;
+            animation: cutsceneSubIn 0.5s ease 0.15s both;
+        }
+        @keyframes cutsceneSubIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: none; }
+        }
         @media (min-width: 768px) { .cutscene-text { font-size: 3rem; } }
 
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
