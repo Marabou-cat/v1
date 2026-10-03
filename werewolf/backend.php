@@ -244,6 +244,7 @@ function resolveDay(PDO $pdo, $roomCode) {
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
+try {
 switch ($action) {
 
     case 'create_room':
@@ -704,5 +705,15 @@ switch ($action) {
     default:
         echo json_encode(["status" => "error", "message" => "Invalid API action."]);
         break;
+}
+} catch (Throwable $e) {
+    // Surface the real error instead of a silent 500 (helps production
+    // debugging; clients still get a JSON error they can display).
+    http_response_code(500);
+    echo json_encode([
+        "status" => "error",
+        "message" => "Server error: " . $e->getMessage(),
+        "cutscene" => "scene_error"
+    ]);
 }
 ?>
