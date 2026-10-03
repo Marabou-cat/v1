@@ -56,6 +56,11 @@ try {
     // deserted game would otherwise sit in night/day forever).
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_seen INT DEFAULT 0");
     $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_activity INT DEFAULT 0");
+    // Shared phase clocks: started_at = when the game began (anchors the
+    // pre-night chat window), phase_started_at = when the current night/day
+    // began. Both let every client derive the SAME timer from server time.
+    $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS started_at INT DEFAULT 0");
+    $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS phase_started_at INT DEFAULT 0");
 } catch (Exception $e) {}
 
 function calculateRoles($playerCount) {
@@ -237,8 +242,9 @@ function beginGame(PDO $pdo, $roomCode) {
             $stmt->execute([$deck[$index], $player['id']]);
         }
 
-        $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = 'Night falls upon the village...' WHERE room_code = ?");
-        $stmt->execute([$roomCode]);
+        $now = time();
+        $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = 'Night falls upon the village...', started_at = ?, phase_started_at = ? WHERE room_code = ?");
+        $stmt->execute([$now, $now, $roomCode]);
 
         $pdo->commit();
     } catch (Exception $e) {
@@ -375,8 +381,8 @@ function resolveNight(PDO $pdo, $roomCode) {
     $pdo->prepare("UPDATE players SET target_id = NULL WHERE room_code = ?")->execute([$roomCode]);
     // New day: reset bot "thinking" timers so votes trickle in again.
     $pdo->prepare("UPDATE players SET bot_ready_at = NULL WHERE room_code = ? AND is_bot = 1")->execute([$roomCode]);
-    $pdo->prepare("UPDATE rooms SET status = 'day', last_event = ? WHERE room_code = ?")
-        ->execute(["During the night, werewolves attacked and killed **{$victimName}**!", $roomCode]);
+    $pdo->prepare("UPDATE rooms SET status = 'day', phase_started_at = ?, last_event = ? WHERE room_code = ?")
+        ->execute([time(), "During the night, werewolves attacked and killed **{$victimName}**!", $roomCode]);
     return true;
 }
 
@@ -408,8 +414,8 @@ function resolveDay(PDO $pdo, $roomCode) {
     $pdo->prepare("UPDATE players SET vote_id = NULL WHERE room_code = ?")->execute([$roomCode]);
     // New night: reset bot "thinking" timers so kills land at varying times.
     $pdo->prepare("UPDATE players SET bot_ready_at = NULL WHERE room_code = ? AND is_bot = 1")->execute([$roomCode]);
-    $pdo->prepare("UPDATE rooms SET status = 'night', last_event = ? WHERE room_code = ?")
-        ->execute(["The village voted and lynched **{$lynchedName}**. They were a **{$lynchedRole}**! Night falls again...", $roomCode]);
+    $pdo->prepare("UPDATE rooms SET status = 'night', phase_started_at = ?, last_event = ? WHERE room_code = ?")
+        ->execute([time(), "The village voted and lynched **{$lynchedName}**. They were a **{$lynchedRole}**! Night falls again...", $roomCode]);
     return true;
 }
 
@@ -492,6 +498,8 @@ switch ($action) {
                 "room_code" => $room['room_code'],
                 "token" => $sessionToken,
                 "max_players" => (int)$room['max_players'],
+                "server_now" => time(),
+                "mm_started_at" => max(0, (int)$room['mm_deadline'] - MATCH_WAIT_SECONDS),
                 "message" => "Matched with a waiting lobby!",
                 "cutscene" => "scene_door_open"
             ]);
@@ -519,9 +527,13 @@ switch ($action) {
         // 3) Create a fresh matchmade room with a 30s fill deadline.
         $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
         $sessionToken = bin2hex(random_bytes(16));
+        // One timestamp drives both the deadline and the shared match clock, so
+        // a joiner (mm_deadline - MATCH_WAIT_SECONDS) and the creator always
+        // agree on when the queue started.
+        $mmStartedAt = time();
 
         $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, status, is_match, mm_deadline) VALUES (?, ?, ?, 'lobby', 1, ?)");
-        $stmt->execute([$roomCode, $sessionToken, $count, time() + MATCH_WAIT_SECONDS]);
+        $stmt->execute([$roomCode, $sessionToken, $count, $mmStartedAt + MATCH_WAIT_SECONDS]);
 
         $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
         $stmt->execute([$roomCode, $sessionToken, $nickname]);
@@ -540,6 +552,8 @@ switch ($action) {
         if ($suggest !== null && $suggest !== $count) {
             $payload["suggest_count"] = $suggest;
         }
+        $payload["server_now"] = time();
+        $payload["mm_started_at"] = $mmStartedAt;
         echo json_encode($payload);
         break;
 
@@ -676,10 +690,16 @@ switch ($action) {
 
         beginGame($pdo, $roomCode);
 
+        $rs = $pdo->prepare("SELECT started_at FROM rooms WHERE room_code = ?");
+        $rs->execute([$roomCode]);
+        $rd = $rs->fetch();
+
         echo json_encode([
             "status" => "success",
             "message" => "Cards dealt! Night falls upon the village...",
-            "cutscene" => "scene_night_falls"
+            "cutscene" => "scene_night_falls",
+            "server_now" => time(),
+            "started_at" => (int)($rd['started_at'] ?? 0)
         ]);
         break;
 
@@ -757,6 +777,19 @@ switch ($action) {
         } elseif ($room['status'] === 'day') {
             processDayBots($pdo, $roomCode);
             if (resolveDay($pdo, $roomCode)) $room['status'] = 'night';
+        }
+
+        // Refresh the room's phase clocks after any phase change so the client
+        // always receives the authoritative server timestamps for the CURRENT
+        // phase (status/last_event/started_at/phase_started_at).
+        $ri2 = $pdo->prepare("SELECT status, last_event, started_at, phase_started_at FROM rooms WHERE room_code = ?");
+        $ri2->execute([$roomCode]);
+        $fresh2 = $ri2->fetch();
+        if ($fresh2) {
+            $room['status'] = $fresh2['status'];
+            if ($fresh2['last_event'] !== null) $room['last_event'] = $fresh2['last_event'];
+            $room['started_at'] = (int)$fresh2['started_at'];
+            $room['phase_started_at'] = (int)$fresh2['phase_started_at'];
         }
 
         // Players are read AFTER deal/phase resolution so the win check below
@@ -853,12 +886,27 @@ switch ($action) {
             $mmRemaining = max(0, (int)$room['mm_deadline'] - time());
         }
 
+        // Shared clocks. Every client derives the match timer and the
+        // pre-night chat countdown from these SERVER timestamps (never a local
+        // "when did *I* join" timestamp), so two players in the same room can
+        // never show different elapsed times or different phases.
+        $serverNow = time();
+        $mmStartedAt = 0;
+        if (!empty($room['is_match']) && $room['status'] === 'lobby' && !empty($room['mm_deadline'])) {
+            $mmStartedAt = max(0, (int)$room['mm_deadline'] - MATCH_WAIT_SECONDS);
+        }
+
         echo json_encode([
             "status" => "success",
             "room_status" => $room['status'],
             "is_host" => ($room['host_token'] === $token),
             "is_match" => (int)($room['is_match'] ?? 0),
             "mm_remaining" => $mmRemaining,
+            "server_now" => $serverNow,
+            "mm_started_at" => $mmStartedAt,
+            "started_at" => (int)($room['started_at'] ?? 0),
+            "phase_started_at" => (int)($room['phase_started_at'] ?? 0),
+            "pre_night_seconds" => 15,
             "max_players" => (int)$room['max_players'],
             "current_count" => count($players),
             "players" => $playerData,

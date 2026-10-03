@@ -1275,10 +1275,13 @@
             matchSuggest: null,
             matchTransitioning: false,
             mmStartTs: null,
+            mmStartedAt: 0,
+            gameStartedAt: 0,
+            serverOffset: 0,
             pollInterval: null,
             chatTimerInterval: null,
             chatTimeRemaining: 15,
-            inPreNightChat: true,
+            inPreNightChat: false,
             lastEvent: '',
             lastPhase: ''
         };
@@ -1381,8 +1384,10 @@
             state.isMatch = false;
             state.matchTransitioning = false;
             state.mmStartTs = null;
+            state.mmStartedAt = 0;
+            state.gameStartedAt = 0;
             state.matchSuggest = null;
-            state.inPreNightChat = true;
+            state.inPreNightChat = false;
             state.lastEvent = '';
             state.lastPhase = '';
             document.getElementById('game-event-log').innerText = 'Discuss before the first night falls...';
@@ -1477,6 +1482,8 @@
             state.matchCount = data.max_players;
             state.matchSuggest = (data.suggest_count && data.suggest_count !== data.max_players) ? data.suggest_count : null;
             state.mmStartTs = Date.now();
+            applyServerClock(data);
+            state.mmStartedAt = data.mm_started_at || Math.floor(Date.now() / 1000);
             // No "enter room" lobby — go straight to the matching-in-progress
             // screen (radar animation + live match time).
             buildMatchSeats(data.max_players);
@@ -1504,12 +1511,38 @@
             if (filledEl) filledEl.innerText = '0';
         }
 
-        // Ticking "Match Time" = how long we've been in the queue.
+        // ---- Shared server clock ------------------------------------------
+        // Every countdown is derived from the SERVER's timestamps (server_now +
+        // started_at / phase_started_at / mm_started_at in the poll payload)
+        // plus a one-time client/server offset — never from "when did *I* join".
+        // That guarantees two players in one room always agree on the match
+        // time and on which phase they are in.
+        const PRE_NIGHT_SECONDS = 15;
+
+        function applyServerClock(data) {
+            if (data && typeof data.server_now === 'number' && data.server_now > 0) {
+                state.serverOffset = data.server_now - Math.floor(Date.now() / 1000);
+            }
+        }
+
+        function serverNow() {
+            return Math.floor(Date.now() / 1000) + (state.serverOffset || 0);
+        }
+
+        // Remaining seconds of the shared pre-night chat window (0 once past).
+        function preNightRemaining() {
+            if (!state.gameStartedAt) return 0;
+            return Math.max(0, Math.ceil(PRE_NIGHT_SECONDS - (serverNow() - state.gameStartedAt)));
+        }
+
+        // Ticking "Match Time" = how long the QUEUE has been waiting, on the
+        // shared server clock (same number for everyone in the room).
         function updateMatchTime() {
-            if (!state.mmStartTs) return;
             const el = document.getElementById('mm-elapsed');
             if (!el) return;
-            const secs = Math.max(0, Math.floor((Date.now() - state.mmStartTs) / 1000));
+            const start = state.mmStartedAt || (state.mmStartTs ? Math.floor(state.mmStartTs / 1000) : 0);
+            if (!start) return;
+            const secs = Math.max(0, serverNow() - start);
             el.innerText = Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
         }
 
@@ -1702,6 +1735,8 @@
 
             const data = await res.json();
             if (data.status === 'success') {
+                applyServerClock(data);
+                if (data.started_at) state.gameStartedAt = data.started_at;
                 triggerCutscene(data.cutscene, () => {
                     startPreNightChat();
                 });
@@ -1711,10 +1746,14 @@
             }
         }
 
-        /* ================= PRE-NIGHT CHAT TIMER ================= */
+        /* ===== PRE-NIGHT CHAT TIMER (shared server clock) ===== */
         function startPreNightChat() {
-            state.inPreNightChat = true;
-            state.chatTimeRemaining = 15;
+            // The window is anchored to the SERVER's game-start timestamp, so
+            // every player counts down the same 15s together. If this client
+            // arrives after the window already closed, it skips straight to the
+            // night phase instead of showing a phantom "chat phase".
+            state.inPreNightChat = preNightRemaining() > 0;
+
             // Fresh match: wipe previous chat and reset player list state
             const chatMsgs = document.getElementById('chat-messages');
             chatMsgs.innerHTML = '<div class="chat-message no-anim"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>';
@@ -1723,22 +1762,28 @@
             const gpl = document.getElementById('game-player-list');
             gpl.dataset.fullSig = '';
             gpl.dataset.rosterSig = '';
-            document.getElementById('chat-timer-badge').style.display = 'inline-block';
+            const badge = document.getElementById('chat-timer-badge');
 
-            if (state.chatTimerInterval) clearInterval(state.chatTimerInterval);
+            if (state.chatTimerInterval) { clearInterval(state.chatTimerInterval); state.chatTimerInterval = null; }
 
-            state.chatTimerInterval = setInterval(() => {
-                state.chatTimeRemaining--;
-                const badge = document.getElementById('chat-timer-badge');
-                if (badge) badge.innerText = `⏱️ ${state.chatTimeRemaining}s`;
-
-                if (state.chatTimeRemaining <= 0) {
-                    clearInterval(state.chatTimerInterval);
-                    state.inPreNightChat = false;
-                    if (badge) badge.style.display = 'none';
-                    appendSystemMessage("Chat time ended! First night begins...");
+            const tick = () => {
+                const rem = preNightRemaining();
+                if (badge) {
+                    if (state.inPreNightChat && rem > 0) {
+                        badge.style.display = 'inline-block';
+                        badge.innerText = `⏱️ ${rem}s`;
+                    } else {
+                        badge.style.display = 'none';
+                    }
                 }
-            }, 1000);
+                if (state.inPreNightChat && rem <= 0) {
+                    state.inPreNightChat = false;
+                    appendSystemMessage("Chat time ended! First night begins...");
+                    if (state.chatTimerInterval) { clearInterval(state.chatTimerInterval); state.chatTimerInterval = null; }
+                }
+            };
+            tick();
+            state.chatTimerInterval = setInterval(tick, 500);
         }
 
         /* ================= CHAT ================= */
@@ -1869,6 +1914,12 @@
                     }
                     return;
                 }
+
+                // Shared server clock + phase anchors (drive the match timer
+                // and the pre-night chat countdown identically on every client).
+                applyServerClock(data);
+                if (data.mm_started_at) state.mmStartedAt = data.mm_started_at;
+                if (data.started_at) state.gameStartedAt = data.started_at;
 
                 // Matchmaking wait strip (countdown + bot-fill indicator).
                 updateMmStatus(data);
