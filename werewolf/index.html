@@ -845,6 +845,24 @@
 
         .game-role-row { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; }
 
+        /* Night skill panel (Seer vision / Witch poison / Doctor revive) */
+        .skill-panel {
+            margin: 0 0 14px;
+            padding: 14px 18px;
+            border: 1px solid var(--accent-gold);
+            border-left: 4px solid var(--accent-gold);
+            border-radius: 10px;
+            background: rgba(255, 204, 0, 0.06);
+        }
+        .skill-panel .skill-head {
+            display: flex; align-items: center; gap: 8px;
+            font-weight: 800; color: var(--accent-gold);
+            letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem;
+            margin-bottom: 8px;
+        }
+        .skill-panel .skill-body { color: #e2e8f0; font-weight: 600; font-size: 0.98rem; }
+        .skill-panel .skill-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
         .game-player-list {
             list-style: none;
             flex: 1;
@@ -1242,6 +1260,8 @@
                                 <span id="game-event-log">Discuss before the first night falls...</span>
                         </div>
                     </div>
+
+                    <div id="skill-panel" class="skill-panel" style="display:none;"></div>
 
                     <label id="game-list-label" style="margin-bottom: 8px; font-size: 0.9rem;">Living Players:</label>
                     <ul id="game-player-list" class="game-player-list"></ul>
@@ -1825,6 +1845,88 @@
             if (data.status !== 'success') alert(data.message);
         }
 
+        async function submitNightSkip() {
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'night_action', room_code: state.roomCode, token: state.token, skip: 1 })
+            });
+            const data = await res.json();
+            if (data.status !== 'success') alert(data.message);
+        }
+
+        async function submitDoctorAction(revive) {
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'doctor_action', room_code: state.roomCode, token: state.token, revive: revive ? 1 : 0 })
+            });
+            const data = await res.json();
+            if (data.status !== 'success') alert(data.message);
+        }
+
+        // Renders the role's night-skill panel: Seer vision, Witch poison
+        // control, and the Doctor's shared revive prompt. Hidden off-night and
+        // during the pre-night chat window.
+        function renderSkillPanel(data) {
+            const el = document.getElementById('skill-panel');
+            if (!el) return;
+            const active = (data.room_status === 'night') && !state.inPreNightChat && !!data.is_alive;
+            if (!active) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+            // Doctor: the prompt appears only while the night waits on us.
+            if (data.my_role === 'Doctor' && data.night_step === 'doctor' && data.doctor_victim_name) {
+                el.style.display = 'block';
+                el.innerHTML = `
+                    <div class="skill-head"><i data-lucide="cross" size="18"></i> Doctor — Night Vision</div>
+                    <div class="skill-body">Tonight the werewolves are about to kill <b style="color:#ff4d4d;">${data.doctor_victim_name}</b>. Use your one revive?</div>
+                    <div class="skill-actions">
+                        <button class="btn-action btn-kill" onclick="submitDoctorAction(1)"><i data-lucide="heart-pulse" size="16"></i> Revive (once per game)</button>
+                        <button class="btn-action" onclick="submitDoctorAction(0)"><i data-lucide="x" size="16"></i> Let them die</button>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            // Seer: show the most recent divination.
+            if (data.my_role === 'Seer' && data.my_seer_result) {
+                const isWolf = data.my_seer_result === 'wolf';
+                el.style.display = 'block';
+                el.innerHTML = `
+                    <div class="skill-head"><i data-lucide="eye" size="18"></i> Seer — Divination</div>
+                    <div class="skill-body">Your vision of <b>${data.my_seer_target_name}</b>:
+                        <b style="color:${isWolf ? '#ff4d4d' : '#38bdf8'};">${isWolf ? 'WEREWOLF 🐺' : 'not a werewolf ✅'}</b></div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            // Witch: explain the one-shot poison and allow an explicit pass.
+            if (data.my_role === 'Witch') {
+                let body;
+                if (data.my_poison_used) {
+                    body = 'Your poison has been spent for this game.';
+                } else if (data.my_poison_target) {
+                    body = 'You have marked who to poison tonight.';
+                } else if (data.my_poison_skip) {
+                    body = 'You chose not to poison anyone tonight.';
+                } else {
+                    body = 'You hold one poison for the whole game. Pick a player above, or pass tonight.';
+                }
+                el.style.display = 'block';
+                el.innerHTML = `
+                    <div class="skill-head"><i data-lucide="flask-conical" size="18"></i> Witch — Poison</div>
+                    <div class="skill-body">${body}</div>
+                    ${(!data.my_poison_used && !data.my_poison_target && !data.my_poison_skip)
+                        ? '<div class="skill-actions"><button class="btn-action" onclick="submitNightSkip()"><i data-lucide="moon" size="16"></i> Pass tonight</button></div>'
+                        : ''}`;
+                lucide.createIcons();
+                return;
+            }
+
+            el.style.display = 'none';
+            el.innerHTML = '';
+        }
+
         async function submitDayVote(voteId) {
             const res = await fetch('backend.php', {
                 method: 'POST',
@@ -2025,6 +2127,9 @@
 
                     setPhase(data.room_status);
 
+                    // Night skill panel (Seer/Witch/Doctor) — hides itself off-night.
+                    renderSkillPanel(data);
+
                     const roleDisplay = document.getElementById('my-role-display');
                     if (roleDisplay.dataset.role !== data.my_role) {
                         roleDisplay.dataset.role = data.my_role;
@@ -2055,19 +2160,45 @@
                         phaseText.innerHTML = '<i data-lucide="moon" size="18" style="vertical-align: middle;"></i> Night Phase';
                         phaseText.style.color = '#ff4d4d';
 
+                        // Tell the player what their own role can do tonight.
                         if (data.my_role === 'Werewolf' && data.is_alive) {
                             gameListLabel.innerText = data.has_voted ? '🔒 Target locked in! Waiting for others...' : 'Select a Victim to Eliminate:';
+                        } else if (data.my_role === 'Seer' && data.is_alive) {
+                            gameListLabel.innerText = data.my_check_target ? '🔮 Divination complete — waiting for others...' : 'Select a player to Divine:';
+                        } else if (data.my_role === 'Witch' && data.is_alive && !data.my_poison_used) {
+                            gameListLabel.innerText = (data.my_poison_target || data.my_poison_skip) ? '🧪 Decision made — waiting for others...' : 'Select a player to Poison (once per game):';
                         } else {
                             gameListLabel.innerText = 'Squad Members (Asleep):';
                         }
 
                         renderRosterList(gamePlayerList, data, (p) => {
-                            const canKill = (data.my_role === 'Werewolf' && data.is_alive && p.is_alive && p.id !== data.my_id);
-                            const isTarget = (data.my_target_id === p.id);
-                            if (!canKill) return '';
-                            if (isTarget) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Targeted</button>`;
-                            return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
+                            const canAct = (data.is_alive && p.is_alive && p.id !== data.my_id);
+                            if (!canAct) return '';
+
+                            if (data.my_role === 'Werewolf') {
+                                if (data.my_target_id === p.id) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Targeted</button>`;
+                                return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
+                            }
+                            if (data.my_role === 'Seer') {
+                                if (data.my_check_target) {
+                                    return (data.my_check_target === p.id)
+                                        ? `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Divined</button>`
+                                        : '';
+                                }
+                                return `<button class="btn-action" onclick="submitNightAction(${p.id})"><i data-lucide="eye" size="16"></i> Divine</button>`;
+                            }
+                            if (data.my_role === 'Witch' && !data.my_poison_used) {
+                                if (data.my_poison_target || data.my_poison_skip) {
+                                    return (data.my_poison_target === p.id)
+                                        ? `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Poisoned</button>`
+                                        : '';
+                                }
+                                return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id})"><i data-lucide="flask-conical" size="16"></i> Poison</button>`;
+                            }
+                            return '';
                         }, 'night');
+
+                        renderSkillPanel(data);
                     } else if (data.room_status === 'day') {
                         phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Voting Phase';
                         phaseText.style.color = 'var(--accent-gold)';

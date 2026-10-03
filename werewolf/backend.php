@@ -61,6 +61,19 @@ try {
     // began. Both let every client derive the SAME timer from server time.
     $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS started_at INT DEFAULT 0");
     $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS phase_started_at INT DEFAULT 0");
+    // Night skills (Seer / Doctor / Witch). Per-night choices are cleared each
+    // night; the *_used flags are the once-per-game one-shots.
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS check_target INT DEFAULT NULL");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS seer_target INT DEFAULT NULL");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS seer_result VARCHAR(16) DEFAULT NULL");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS poison_target INT DEFAULT NULL");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS poison_skip TINYINT DEFAULT 0");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS poison_used TINYINT DEFAULT 0");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS revive_used TINYINT DEFAULT 0");
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS doctor_choice TINYINT DEFAULT NULL");
+    $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS night_step VARCHAR(12) DEFAULT 'actions'");
+    $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS pending_victim INT DEFAULT NULL");
+    $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS night_deadline INT DEFAULT 0");
 } catch (Exception $e) {}
 
 function calculateRoles($playerCount) {
@@ -145,6 +158,12 @@ const PLAYER_TIMEOUT = 45;
 const GAME_TIMEOUT = 150;
 // Finished rooms older than this are deleted so the table can't grow forever.
 const ENDED_TTL = 1800;
+// Max time the night "actions" step waits for everyone (wolves/Seer/Witch).
+// On expiry the night force-resolves so an AFK player can't stall the game.
+const NIGHT_SECONDS = 35;
+// Extra window for the Doctor's revive decision (generous: the 15s pre-night
+// chat overlaps the start of the night, so the prompt may only appear later).
+const DOCTOR_SECONDS = 25;
 
 // Stamp a room (and optionally one player) as "seen just now". Called from
 // every poll/action so the reaper can tell a live participant from a ghost.
@@ -245,6 +264,8 @@ function beginGame(PDO $pdo, $roomCode) {
         $now = time();
         $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = 'Night falls upon the village...', started_at = ?, phase_started_at = ? WHERE room_code = ?");
         $stmt->execute([$now, $now, $roomCode]);
+        // Arm the first night's skill state (clears per-night fields, sets deadline).
+        resetNightState($pdo, $roomCode);
 
         $pdo->commit();
     } catch (Exception $e) {
@@ -253,10 +274,10 @@ function beginGame(PDO $pdo, $roomCode) {
     }
 }
 
-// Make every alive bot werewolf lock a victim (never itself, prefers a
-// non-werewolf). Each bot "thinks" for a random 2-8s before acting so the
-// kills are spread out instead of landing all at once (reads human-like).
-// Does NOT resolve the phase — resolveNight() does that.
+// Night AI: every alive bot acts with a random 2-8s "thinking" delay so the
+// actions trickle in like real players. Wolves lock a victim (preferring a
+// non-werewolf), the Seer divines a random player, the Witch may spend her
+// one poison (or pass). Does NOT resolve the phase — advanceNight() does that.
 function processNightBots(PDO $pdo, $roomCode) {
     $now = time();
     $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND is_bot = 1 AND is_alive = 1");
@@ -265,29 +286,75 @@ function processNightBots(PDO $pdo, $roomCode) {
     if (count($bots) === 0) return;
 
     foreach ($bots as $bot) {
-        if ($bot['role'] !== 'Werewolf' || $bot['target_id']) continue;
-
-        // Arm / wait out this bot's personal "thinking" delay.
-        if (empty($bot['bot_ready_at'])) {
-            $readyAt = $now + random_int(2, 8);
-            $pdo->prepare("UPDATE players SET bot_ready_at = ? WHERE id = ?")->execute([$readyAt, $bot['id']]);
-            if ($now < $readyAt) continue;
-        } elseif ($now < (int)$bot['bot_ready_at']) {
+        $role = $bot['role'];
+        if ($role === 'Werewolf') {
+            if ($bot['target_id'] !== null) continue;
+        } elseif ($role === 'Seer') {
+            if ($bot['check_target'] !== null) continue;
+        } elseif ($role === 'Witch') {
+            if ((int)$bot['poison_used'] || $bot['poison_target'] !== null || (int)$bot['poison_skip']) continue;
+        } else {
             continue;
         }
 
-        $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ? AND role != 'Werewolf'");
-        $stmt->execute([$roomCode, $bot['id']]);
-        $options = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        if (count($options) === 0) {
-            $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ?");
-            $stmt->execute([$roomCode, $bot['id']]);
-            $options = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        // Arm / wait out this bot's personal "thinking" delay.
+        if (empty($bot['bot_ready_at'])) {
+            $pdo->prepare("UPDATE players SET bot_ready_at = ? WHERE id = ?")->execute([$now + random_int(2, 8), $bot['id']]);
+            continue;
         }
-        if (count($options) === 0) continue;
-        $victim = $options[array_rand($options)];
-        $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?")->execute([$victim, $bot['id']]);
+        if ($now < (int)$bot['bot_ready_at']) continue;
+
+        if ($role === 'Werewolf') {
+            $s = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ? AND role != 'Werewolf'");
+            $s->execute([$roomCode, $bot['id']]);
+            $options = $s->fetchAll(PDO::FETCH_COLUMN);
+            if (count($options) === 0) {
+                $s = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ?");
+                $s->execute([$roomCode, $bot['id']]);
+                $options = $s->fetchAll(PDO::FETCH_COLUMN);
+            }
+            if (count($options) === 0) continue;
+            $victim = $options[array_rand($options)];
+            $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?")->execute([$victim, $bot['id']]);
+        } elseif ($role === 'Seer') {
+            $s = $pdo->prepare("SELECT id, role FROM players WHERE room_code = ? AND is_alive = 1 AND id != ?");
+            $s->execute([$roomCode, $bot['id']]);
+            $options = $s->fetchAll();
+            if (count($options) === 0) continue;
+            $pick = $options[array_rand($options)];
+            $res = ($pick['role'] === 'Werewolf') ? 'wolf' : 'good';
+            $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ? WHERE id = ?")
+                ->execute([$pick['id'], $pick['id'], $res, $bot['id']]);
+        } elseif ($role === 'Witch') {
+            $s = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ?");
+            $s->execute([$roomCode, $bot['id']]);
+            $options = $s->fetchAll(PDO::FETCH_COLUMN);
+            if (count($options) > 0 && random_int(1, 100) <= 35) {
+                $pick = $options[array_rand($options)];
+                $pdo->prepare("UPDATE players SET poison_target = ? WHERE id = ?")->execute([$pick, $bot['id']]);
+            } else {
+                $pdo->prepare("UPDATE players SET poison_skip = 1 WHERE id = ?")->execute([$bot['id']]);
+            }
+        }
     }
+}
+
+// Doctor bot: in the doctor step, decide after a short delay (70% revive).
+function processDoctorBot(PDO $pdo, $roomCode) {
+    $s = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND role = 'Doctor' AND is_alive = 1 AND is_bot = 1");
+    $s->execute([$roomCode]);
+    $doc = $s->fetch();
+    if (!$doc || $doc['doctor_choice'] !== null) return;
+
+    $now = time();
+    if (empty($doc['bot_ready_at'])) {
+        $pdo->prepare("UPDATE players SET bot_ready_at = ? WHERE id = ?")->execute([$now + random_int(3, 9), $doc['id']]);
+        return;
+    }
+    if ($now < (int)$doc['bot_ready_at']) return;
+
+    $choice = (random_int(1, 100) <= 70) ? 1 : 0;
+    $pdo->prepare("UPDATE players SET doctor_choice = ? WHERE id = ?")->execute([$choice, $doc['id']]);
 }
 
 // Make every alive bot cast a day vote (random living player, never itself).
@@ -354,35 +421,175 @@ function botChat(PDO $pdo, $roomCode, array $players) {
         ->execute([$roomCode, $bot['nickname'], htmlspecialchars($line)]);
 }
 
-// Resolve the night: every alive werewolf has a victim -> kill the top
-// target, wipe targets, flip to day. Returns true if the phase advanced.
-function resolveNight(PDO $pdo, $roomCode) {
-    $stmt = $pdo->prepare("SELECT id, target_id FROM players WHERE room_code = ? AND role = 'Werewolf' AND is_alive = 1");
-    $stmt->execute([$roomCode]);
-    $werewolves = $stmt->fetchAll();
-    if (count($werewolves) === 0) return false;
+// Clear the per-night action state (called the moment night begins).
+function resetNightState(PDO $pdo, $roomCode) {
+    $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0, doctor_choice = NULL WHERE room_code = ?")
+        ->execute([$roomCode]);
+    $pdo->prepare("UPDATE rooms SET night_step = 'actions', pending_victim = NULL, night_deadline = ? WHERE room_code = ?")
+        ->execute([time() + NIGHT_SECONDS, $roomCode]);
+}
 
-    $targetVotes = [];
-    foreach ($werewolves as $w) {
-        if (!$w['target_id']) return false; // someone has not acted yet
-        $targetVotes[$w['target_id']] = ($targetVotes[$w['target_id']] ?? 0) + 1;
+// Has every night actor finished? Alive wolves must have locked a victim,
+// an alive Seer must have divined, an alive Witch must have spent or passed
+// her poison. (Bots are filled in by processNightBots first.)
+function nightActionsComplete(PDO $pdo, $roomCode) {
+    $s = $pdo->prepare("SELECT role, target_id, check_target, poison_target, poison_skip, poison_used
+                          FROM players WHERE room_code = ? AND is_alive = 1");
+    $s->execute([$roomCode]);
+    foreach ($s->fetchAll() as $p) {
+        if ($p['role'] === 'Werewolf' && $p['target_id'] === null) return false;
+        if ($p['role'] === 'Seer' && $p['check_target'] === null) return false;
+        if ($p['role'] === 'Witch' && !(int)$p['poison_used'] && $p['poison_target'] === null && !(int)$p['poison_skip']) return false;
+    }
+    return true;
+}
+
+// The werewolves' majority victim among targets that are still alive (null if none).
+function computeWolfVictim(PDO $pdo, $roomCode) {
+    $s = $pdo->prepare("SELECT target_id FROM players WHERE room_code = ? AND role = 'Werewolf' AND is_alive = 1 AND target_id IS NOT NULL");
+    $s->execute([$roomCode]);
+    $targets = $s->fetchAll(PDO::FETCH_COLUMN);
+    if (count($targets) === 0) return null;
+
+    $a = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1");
+    $a->execute([$roomCode]);
+    $alive = array_flip($a->fetchAll(PDO::FETCH_COLUMN));
+
+    $counts = [];
+    foreach ($targets as $id) { $counts[$id] = ($counts[$id] ?? 0) + 1; }
+    $best = null; $bestN = 0;
+    foreach ($counts as $id => $n) {
+        if (!isset($alive[$id])) continue;
+        if ($n > $bestN) { $bestN = $n; $best = (int)$id; }
+    }
+    return $best;
+}
+
+// Drive the night forward (called from poll_game while status == 'night').
+// Step order: 'actions' (wolves + Seer + Witch) → 'doctor' (revive window) →
+// finalize. Returns true if the phase advanced to day.
+function advanceNight(PDO $pdo, $roomCode) {
+    $now = time();
+    $r = $pdo->prepare("SELECT status, night_step, night_deadline FROM rooms WHERE room_code = ?");
+    $r->execute([$roomCode]);
+    $room = $r->fetch();
+    if (!$room || $room['status'] !== 'night') return false;
+
+    // ---- Doctor step: waiting on the revive decision ----
+    if ($room['night_step'] === 'doctor') {
+        processDoctorBot($pdo, $roomCode);
+        $d = $pdo->prepare("SELECT doctor_choice FROM players WHERE room_code = ? AND role = 'Doctor' AND is_alive = 1");
+        $d->execute([$roomCode]);
+        $doc = $d->fetch();
+        $decided = (!$doc) || ($doc['doctor_choice'] !== null);
+        if ($decided || $now >= (int)$room['night_deadline']) {
+            return finalizeNight($pdo, $roomCode);
+        }
+        return false;
     }
 
-    arsort($targetVotes);
-    $victimId = array_key_first($targetVotes);
+    // ---- Actions step ----
+    processNightBots($pdo, $roomCode);
+    $timedOut = ($now >= (int)$room['night_deadline']);
+    if (!nightActionsComplete($pdo, $roomCode) && !$timedOut) return false;
 
-    $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?")->execute([$victimId]);
+    // Timeout safety: give any silent wolf a random target so the night still
+    // resolves (an AFK werewolf must not stall the game forever).
+    if ($timedOut) {
+        $ws = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND role = 'Werewolf' AND is_alive = 1 AND target_id IS NULL");
+        $ws->execute([$roomCode]);
+        foreach ($ws->fetchAll(PDO::FETCH_COLUMN) as $wid) {
+            $o = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ? ORDER BY RAND() LIMIT 1");
+            $o->execute([$roomCode, $wid]);
+            $tid = $o->fetchColumn();
+            if ($tid) $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?")->execute([$tid, $wid]);
+        }
+    }
 
-    $stmt = $pdo->prepare("SELECT nickname FROM players WHERE id = ?");
-    $stmt->execute([$victimId]);
-    $victim = $stmt->fetch();
-    $victimName = $victim ? $victim['nickname'] : 'Someone';
+    $victimId = computeWolfVictim($pdo, $roomCode);
 
-    $pdo->prepare("UPDATE players SET target_id = NULL WHERE room_code = ?")->execute([$roomCode]);
-    // New day: reset bot "thinking" timers so votes trickle in again.
-    $pdo->prepare("UPDATE players SET bot_ready_at = NULL WHERE room_code = ? AND is_bot = 1")->execute([$roomCode]);
-    $pdo->prepare("UPDATE rooms SET status = 'day', phase_started_at = ?, last_event = ? WHERE room_code = ?")
-        ->execute([time(), "During the night, werewolves attacked and killed **{$victimName}**!", $roomCode]);
+    // If a living Doctor still holds their revive, hand them the victim first.
+    $d = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND role = 'Doctor' AND is_alive = 1 AND revive_used = 0 LIMIT 1");
+    $d->execute([$roomCode]);
+    $hasDoctor = (bool)$d->fetch();
+
+    if ($victimId && $hasDoctor) {
+        $pdo->prepare("UPDATE rooms SET night_step = 'doctor', pending_victim = ?, night_deadline = ? WHERE room_code = ?")
+            ->execute([$victimId, $now + DOCTOR_SECONDS, $roomCode]);
+        return false; // wait for the Doctor's revive decision
+    }
+
+    return finalizeNight($pdo, $roomCode);
+}
+
+// Apply the night's deaths (werewolf victim unless revived + Witch poison),
+// write the narrative, clear all per-night state and flip to day.
+function finalizeNight(PDO $pdo, $roomCode) {
+    $now = time();
+    $r = $pdo->prepare("SELECT pending_victim FROM rooms WHERE room_code = ?");
+    $r->execute([$roomCode]);
+    $row = $r->fetch();
+    $victimId = $row ? (int)$row['pending_victim'] : 0;
+
+    // Doctor revive — the once-per-game one-shot.
+    $revived = false;
+    $docId = 0;
+    if ($victimId) {
+        $d = $pdo->prepare("SELECT id, doctor_choice, revive_used FROM players WHERE room_code = ? AND role = 'Doctor' AND is_alive = 1");
+        $d->execute([$roomCode]);
+        $doc = $d->fetch();
+        if ($doc && (int)$doc['doctor_choice'] === 1 && !(int)$doc['revive_used']) {
+            $revived = true;
+            $docId = (int)$doc['id'];
+        }
+    }
+
+    $deaths = [];
+    if ($victimId && !$revived) $deaths[$victimId] = true;
+
+    // Witch poison (one-shot; spent once applied).
+    $poisonId = 0;
+    $w = $pdo->prepare("SELECT id, poison_target, poison_used FROM players WHERE room_code = ? AND role = 'Witch' AND poison_target IS NOT NULL LIMIT 1");
+    $w->execute([$roomCode]);
+    $witch = $w->fetch();
+    if ($witch && !(int)$witch['poison_used'] && (int)$witch['poison_target'] > 0) {
+        $poisonId = (int)$witch['poison_target'];
+        $deaths[$poisonId] = true;
+        $pdo->prepare("UPDATE players SET poison_used = 1 WHERE id = ?")->execute([$witch['id']]);
+    }
+
+    $nameOf = function ($id) use ($pdo, $roomCode) {
+        $s = $pdo->prepare("SELECT nickname FROM players WHERE id = ? AND room_code = ?");
+        $s->execute([$id, $roomCode]);
+        $x = $s->fetch();
+        return $x ? $x['nickname'] : 'Someone';
+    };
+
+    foreach (array_keys($deaths) as $id) {
+        $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ? AND room_code = ?")->execute([$id, $roomCode]);
+    }
+    if ($revived && $docId) {
+        $pdo->prepare("UPDATE players SET revive_used = 1 WHERE id = ?")->execute([$docId]);
+    }
+
+    // Narrative
+    $parts = [];
+    if ($victimId) {
+        $vn = $nameOf($victimId);
+        $parts[] = $revived
+            ? "During the night, the werewolves attacked **{$vn}**, but the Doctor saved them!"
+            : "During the night, the werewolves attacked and killed **{$vn}**!";
+    } else {
+        $parts[] = "The night passed quietly — nobody was attacked.";
+    }
+    if ($poisonId) $parts[] = "**" . $nameOf($poisonId) . "** was found dead, poisoned!";
+    $event = implode(' ', $parts);
+
+    // Clear per-night state and flip to day.
+    $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0, doctor_choice = NULL, bot_ready_at = NULL WHERE room_code = ?")
+        ->execute([$roomCode]);
+    $pdo->prepare("UPDATE rooms SET status = 'day', phase_started_at = ?, night_step = 'actions', pending_victim = NULL, night_deadline = 0, last_event = ? WHERE room_code = ?")
+        ->execute([$now, $event, $roomCode]);
     return true;
 }
 
@@ -416,6 +623,8 @@ function resolveDay(PDO $pdo, $roomCode) {
     $pdo->prepare("UPDATE players SET bot_ready_at = NULL WHERE room_code = ? AND is_bot = 1")->execute([$roomCode]);
     $pdo->prepare("UPDATE rooms SET status = 'night', phase_started_at = ?, last_event = ? WHERE room_code = ?")
         ->execute([time(), "The village voted and lynched **{$lynchedName}**. They were a **{$lynchedRole}**! Night falls again...", $roomCode]);
+    // Arm the new night's skill state.
+    resetNightState($pdo, $roomCode);
     return true;
 }
 
@@ -772,8 +981,7 @@ switch ($action) {
         // "everyone who can act is a bot" case, which no client call would
         // otherwise ever trigger).
         if ($room['status'] === 'night') {
-            processNightBots($pdo, $roomCode);
-            if (resolveNight($pdo, $roomCode)) $room['status'] = 'day';
+            if (advanceNight($pdo, $roomCode)) $room['status'] = 'day';
         } elseif ($room['status'] === 'day') {
             processDayBots($pdo, $roomCode);
             if (resolveDay($pdo, $roomCode)) $room['status'] = 'night';
@@ -781,8 +989,8 @@ switch ($action) {
 
         // Refresh the room's phase clocks after any phase change so the client
         // always receives the authoritative server timestamps for the CURRENT
-        // phase (status/last_event/started_at/phase_started_at).
-        $ri2 = $pdo->prepare("SELECT status, last_event, started_at, phase_started_at FROM rooms WHERE room_code = ?");
+        // phase (status/last_event/started_at/phase_started_at + night step).
+        $ri2 = $pdo->prepare("SELECT status, last_event, started_at, phase_started_at, night_step, pending_victim, night_deadline FROM rooms WHERE room_code = ?");
         $ri2->execute([$roomCode]);
         $fresh2 = $ri2->fetch();
         if ($fresh2) {
@@ -790,12 +998,15 @@ switch ($action) {
             if ($fresh2['last_event'] !== null) $room['last_event'] = $fresh2['last_event'];
             $room['started_at'] = (int)$fresh2['started_at'];
             $room['phase_started_at'] = (int)$fresh2['phase_started_at'];
+            $room['night_step'] = $fresh2['night_step'];
+            $room['pending_victim'] = $fresh2['pending_victim'];
+            $room['night_deadline'] = (int)$fresh2['night_deadline'];
         }
 
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot, bot_ready_at, bot_last_chat FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -816,6 +1027,14 @@ switch ($action) {
         $myTargetId = null;
         $myVoteId = null;
         $hasVoted = false;
+        $myCheckTarget = null;
+        $mySeerTarget = null;
+        $mySeerResult = null;
+        $myPoisonTarget = null;
+        $myPoisonUsed = 0;
+        $myPoisonSkip = 0;
+        $myReviveUsed = 0;
+        $myDoctorChoice = null;
 
         foreach ($players as $p) {
             if ($p['session_token'] === $token) {
@@ -824,6 +1043,14 @@ switch ($action) {
                 $isAlive = (int)$p['is_alive'];
                 $myTargetId = $p['target_id'];
                 $myVoteId = $p['vote_id'];
+                $myCheckTarget = $p['check_target'];
+                $mySeerTarget = $p['seer_target'];
+                $mySeerResult = $p['seer_result'];
+                $myPoisonTarget = $p['poison_target'];
+                $myPoisonUsed = (int)$p['poison_used'];
+                $myPoisonSkip = (int)$p['poison_skip'];
+                $myReviveUsed = (int)$p['revive_used'];
+                $myDoctorChoice = $p['doctor_choice'];
 
                 if ($room['status'] === 'night' && $p['role'] === 'Werewolf') {
                     $hasVoted = ($p['target_id'] !== null);
@@ -832,6 +1059,18 @@ switch ($action) {
                 }
                 break;
             }
+        }
+
+        // Skill info for THIS player only (never leaked to other seats).
+        $mySeerTargetName = null;
+        if ($mySeerTarget) {
+            foreach ($players as $p) { if ((int)$p['id'] === (int)$mySeerTarget) { $mySeerTargetName = $p['nickname']; break; } }
+        }
+        // The Doctor only learns tonight's victim while the night is waiting on
+        // their revive decision.
+        $doctorVictimName = null;
+        if ($myRole === 'Doctor' && $isAlive && ($room['night_step'] ?? '') === 'doctor' && (int)($room['pending_victim'] ?? 0) > 0) {
+            foreach ($players as $p) { if ((int)$p['id'] === (int)$room['pending_victim']) { $doctorVictimName = $p['nickname']; break; } }
         }
 
         if ($room['status'] !== 'lobby' && $room['status'] !== 'ended') {
@@ -917,6 +1156,17 @@ switch ($action) {
             "my_target_id" => $myTargetId,
             "my_vote_id" => $myVoteId,
             "has_voted" => $hasVoted,
+            "night_step" => $room['night_step'] ?? 'actions',
+            "my_check_target" => $myCheckTarget,
+            "my_seer_target" => $mySeerTarget,
+            "my_seer_target_name" => $mySeerTargetName,
+            "my_seer_result" => $mySeerResult,
+            "my_poison_target" => $myPoisonTarget,
+            "my_poison_used" => $myPoisonUsed,
+            "my_poison_skip" => $myPoisonSkip,
+            "my_revive_used" => $myReviveUsed,
+            "my_doctor_choice" => $myDoctorChoice,
+            "doctor_victim_name" => $doctorVictimName,
             "last_event" => $room['last_event'] ?? '',
             "messages" => $messages
         ]);
@@ -926,6 +1176,7 @@ switch ($action) {
         $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $token = trim($_POST['token'] ?? '');
         $targetId = (int)($_POST['target_id'] ?? 0);
+        $skip = (int)($_POST['skip'] ?? 0);
 
         $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
         $stmt->execute([$roomCode]);
@@ -945,19 +1196,89 @@ switch ($action) {
             exit;
         }
 
-        if ($me['role'] !== 'Werewolf') {
-            echo json_encode(["status" => "success", "message" => "Night action recorded."]);
+        $myId = (int)$me['id'];
+
+        if ($me['role'] === 'Werewolf') {
+            // Werewolves secretly vote for tonight's victim.
+            $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?")->execute([$targetId, $myId]);
+
+        } elseif ($me['role'] === 'Seer') {
+            // Divine one player: learn whether they are a werewolf.
+            if ($targetId <= 0) {
+                echo json_encode(["status" => "error", "message" => "Pick a player to divine."]);
+                exit;
+            }
+            $t = $pdo->prepare("SELECT id, role FROM players WHERE id = ? AND room_code = ? AND is_alive = 1");
+            $t->execute([$targetId, $roomCode]);
+            $target = $t->fetch();
+            if (!$target) {
+                echo json_encode(["status" => "error", "message" => "Invalid target."]);
+                exit;
+            }
+            $result = ($target['role'] === 'Werewolf') ? 'wolf' : 'good';
+            $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ? WHERE id = ?")
+                ->execute([$targetId, $targetId, $result, $myId]);
+
+        } elseif ($me['role'] === 'Witch') {
+            // One poison per game. Either name a victim or explicitly pass.
+            if ((int)$me['poison_used']) {
+                echo json_encode(["status" => "error", "message" => "Your poison is already spent."]);
+                exit;
+            }
+            if ($skip) {
+                $pdo->prepare("UPDATE players SET poison_skip = 1 WHERE id = ?")->execute([$myId]);
+            } else {
+                if ($targetId <= 0) {
+                    echo json_encode(["status" => "error", "message" => "Pick a player to poison, or skip."]);
+                    exit;
+                }
+                if ($targetId === $myId) {
+                    echo json_encode(["status" => "error", "message" => "You cannot poison yourself."]);
+                    exit;
+                }
+                $pdo->prepare("UPDATE players SET poison_target = ? WHERE id = ?")->execute([$targetId, $myId]);
+            }
+
+        } else {
+            // Villagers and the Doctor have no action in this step.
+            echo json_encode(["status" => "success", "message" => "Nothing to do."]);
             exit;
         }
 
-        $stmt = $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?");
-        $stmt->execute([$targetId, $me['id']]);
-
-        // Bots may have already locked victims; resolve if everyone acted.
-        processNightBots($pdo, $roomCode);
-        resolveNight($pdo, $roomCode);
+        // Advance the night if every night actor has now finished.
+        advanceNight($pdo, $roomCode);
 
         echo json_encode(["status" => "success", "message" => "Night action submitted."]);
+        break;
+
+    case 'doctor_action':
+        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
+        $token = trim($_POST['token'] ?? '');
+        $revive = (int)($_POST['revive'] ?? 0);
+
+        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
+        $stmt->execute([$roomCode]);
+        $room = $stmt->fetch();
+
+        if (!$room || $room['status'] !== 'night' || ($room['night_step'] ?? '') !== 'doctor') {
+            echo json_encode(["status" => "error", "message" => "There is no revive decision to make right now."]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND session_token = ?");
+        $stmt->execute([$roomCode, $token]);
+        $me = $stmt->fetch();
+
+        if (!$me || $me['role'] !== 'Doctor' || $me['is_alive'] == 0) {
+            echo json_encode(["status" => "error", "message" => "Only the living Doctor may decide."]);
+            exit;
+        }
+
+        $pdo->prepare("UPDATE players SET doctor_choice = ? WHERE id = ?")->execute([$revive ? 1 : 0, (int)$me['id']]);
+
+        advanceNight($pdo, $roomCode);
+
+        echo json_encode(["status" => "success", "message" => $revive ? "You chose to save them." : "You chose not to intervene."]);
         break;
 
     case 'day_vote':
