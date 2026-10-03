@@ -125,6 +125,14 @@ function fillBotsIfNeeded(PDO $pdo, $room) {
 // Deal cards and flip a full room into the night phase (shared by manual
 // start and the matchmaker auto-start).
 function beginGame(PDO $pdo, $roomCode) {
+    // Atomically claim the start: only the first caller flips lobby->night.
+    // Without this, two simultaneous polls (e.g. two humans in one match)
+    // can both "start" the game and interleave their role writes, which can
+    // produce a deck with zero werewolves.
+    $claim = $pdo->prepare("UPDATE rooms SET status = 'night' WHERE room_code = ? AND status = 'lobby'");
+    $claim->execute([$roomCode]);
+    if ((int)$claim->rowCount() === 0) return; // already started by another poll
+
     $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? ORDER BY id ASC");
     $stmt->execute([$roomCode]);
     $players = $stmt->fetchAll();
@@ -486,7 +494,7 @@ switch ($action) {
             exit;
         }
 
-        $stmt = $pdo->prepare("SELECT id, room_code FROM players WHERE room_code = ? AND session_token = ?");
+        $stmt = $pdo->prepare("SELECT id, room_code, role, is_bot, is_alive FROM players WHERE room_code = ? AND session_token = ?");
         $stmt->execute([$roomCode, $token]);
         $me = $stmt->fetch();
 
@@ -498,6 +506,28 @@ switch ($action) {
             // Remove the player itself.
             $stmt = $pdo->prepare("DELETE FROM players WHERE id = ?");
             $stmt->execute([$me['id']]);
+
+            // Keep a full, balanced table: if a LIVING player leaves
+            // mid-game, seat a bot with the SAME role in their place. This
+            // is what stops the "no werewolf left / unbalanced" tables —
+            // e.g. a human werewolf quitting no longer leaves a 0-wolf room
+            // that instantly ends "Villagers win".
+            if ((int)$me['is_bot'] === 0 && (int)$me['is_alive'] === 1) {
+                $ri = $pdo->prepare("SELECT status FROM rooms WHERE room_code = ?");
+                $ri->execute([$roomCode]);
+                $roomInfo = $ri->fetch();
+                if ($roomInfo && in_array($roomInfo['status'], ['night', 'day'], true)
+                    && !empty($me['role']) && $me['role'] !== 'unassigned') {
+                    $bot = addBot($pdo, $roomCode);
+                    if ($bot) {
+                        // Inherit the leaver's role so the role counts never shift.
+                        $pdo->prepare("UPDATE players SET role = ?, bot_last_chat = 0 WHERE id = ?")
+                            ->execute([$me['role'], $bot['id']]);
+                        $pdo->prepare("UPDATE rooms SET last_event = ? WHERE room_code = ?")
+                            ->execute(["A new villager slipped into the seat...", $roomCode]);
+                    }
+                }
+            }
         }
 
         // If a lobby is now empty, dissolve the room entirely (codes are
@@ -674,12 +704,21 @@ switch ($action) {
             }
         }
 
-        $playerData = array_map(function($p) {
+        // Role visibility: your own card is always real. Others' roles are
+        // only revealed at the END (final reveal); during night/day they are
+        // masked so no client can read the table from the poll payload.
+        $playerData = array_map(function($p) use ($room, $myId) {
+            $role = $p['role'];
+            if ($p['id'] !== $myId
+                && !in_array($room['status'], ['lobby', 'ended'], true)
+                && $role !== 'unassigned') {
+                $role = 'Hidden';
+            }
             return [
                 "id" => $p['id'],
                 "nickname" => $p['nickname'],
                 "is_alive" => (int)$p['is_alive'],
-                "role" => $p['role'],
+                "role" => $role,
                 "is_bot" => (int)($p['is_bot'] ?? 0)
             ];
         }, $players);
