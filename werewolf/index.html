@@ -1191,6 +1191,7 @@
                         <span class="mm-time-value" id="mm-elapsed">0:00</span>
                     </div>
                     <div class="mm-count-line">Seats: <b id="mm-filled">1</b>/<span id="mm-total">6</span> <span class="mm-note">&middot; waiting for players...</span></div>
+                    <div id="mm-players" style="font-size:0.82rem;color:#cbd5e1;margin-top:10px;line-height:1.5;font-weight:600;">Waiting for players...</div>
                     <button id="mm-suggest-btn" class="btn-secondary mm-suggest-btn hidden"></button>
                 </div>
             </div>
@@ -1625,6 +1626,15 @@
             if (filledEl) filledEl.innerText = String(humans + bots);
             const totalEl = document.getElementById('mm-total');
             if (totalEl) totalEl.innerText = String(data.max_players || state.matchCount);
+
+            // Show WHO is in the queue, not just a seat count, so a player can
+            // see the others they have actually been matched with.
+            const namesEl = document.getElementById('mm-players');
+            if (namesEl) {
+                namesEl.innerText = players.length
+                    ? 'In lobby: ' + players.map(p => p.nickname).join(', ')
+                    : 'Waiting for players...';
+            }
         }
 
         /* ================= ROOM ACTIONS ================= */

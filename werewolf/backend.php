@@ -50,6 +50,12 @@ try {
     // acting (bot_ready_at) and throttle their chat (bot_last_chat).
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS bot_ready_at INT DEFAULT NULL");
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS bot_last_chat INT DEFAULT 0");
+    // Presence tracking: last_seen (per player) + last_activity (per room) let
+    // the reaper tell a live player from a ghost seat, and end games that every
+    // human has walked away from (bots only act when a client polls, so a
+    // deserted game would otherwise sit in night/day forever).
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_seen INT DEFAULT 0");
+    $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_activity INT DEFAULT 0");
 } catch (Exception $e) {}
 
 function calculateRoles($playerCount) {
@@ -123,41 +129,122 @@ function fillBotsIfNeeded(PDO $pdo, $room) {
     }
 }
 
+/* ================= PRESENCE + STALE-ROOM REAPING ================= */
+
+// How long a human may go without polling before we treat them as gone
+// (tab closed / phone locked). Comfortably above the ~1.5s client poll.
+const PLAYER_TIMEOUT = 45;
+// A live game whose room has had no client poll for this long is abandoned:
+// bots only move when a client polls, so without this the game would freeze in
+// night/day for hours (the "ran for 2h and never ended" report).
+const GAME_TIMEOUT = 150;
+// Finished rooms older than this are deleted so the table can't grow forever.
+const ENDED_TTL = 1800;
+
+// Stamp a room (and optionally one player) as "seen just now". Called from
+// every poll/action so the reaper can tell a live participant from a ghost.
+function touchPresence(PDO $pdo, $roomCode, $token = '') {
+    if ($roomCode === '') return;
+    $now = time();
+    try {
+        $pdo->prepare("UPDATE rooms SET last_activity = ? WHERE room_code = ?")->execute([$now, $roomCode]);
+        if ($token !== '') {
+            $pdo->prepare("UPDATE players SET last_seen = ? WHERE room_code = ? AND session_token = ?")->execute([$now, $roomCode, $token]);
+        }
+    } catch (Exception $e) {}
+}
+
+// Sweep away dead weight. Without this the rooms table grows forever AND
+// matchmaking keeps pairing new players with long-abandoned "ghost" lobbies
+// (they look populated, but every seat belongs to someone who closed the tab),
+// which is what made "Find Match" look broken and kept offering non-existent
+// rooms. Cheap enough to run on a short throttle from the poll path.
+function reapStaleRooms(PDO $pdo) {
+    $now = time();
+    try {
+        // 1) Ghost humans sitting in a lobby (stopped polling).
+        $pdo->prepare("DELETE p FROM players p JOIN rooms r ON r.room_code = p.room_code
+                        WHERE p.is_bot = 0 AND r.status = 'lobby' AND p.last_seen < ?")
+            ->execute([$now - PLAYER_TIMEOUT]);
+
+        // 2) End lobbies that no longer hold a single human.
+        $pdo->prepare("UPDATE rooms SET status = 'ended', last_event = 'This lobby was abandoned.', last_activity = ?
+                        WHERE status = 'lobby'
+                          AND room_code NOT IN (SELECT room_code FROM (SELECT DISTINCT room_code FROM players WHERE is_bot = 0) h)")
+            ->execute([$now]);
+
+        // 3) Force-end live games every human has walked away from.
+        $pdo->prepare("UPDATE rooms SET status = 'ended', last_event = 'This game was abandoned by its players.', last_activity = ?
+                        WHERE status IN ('night','day') AND last_activity < ?")
+            ->execute([$now, $now - GAME_TIMEOUT]);
+
+        // 4) Delete long-finished rooms + any orphaned player rows.
+        $pdo->prepare("DELETE FROM rooms WHERE status = 'ended' AND last_activity < ?")->execute([$now - ENDED_TTL]);
+        $pdo->prepare("DELETE FROM players WHERE room_code NOT IN (SELECT room_code FROM rooms)")->execute();
+    } catch (Exception $e) {}
+}
+
+// Run the reaper at most once every 20s (the poll path fires every ~1.5s).
+function maybeReap(PDO $pdo) {
+    $marker = sys_get_temp_dir() . '/wolf_last_reap';
+    $last = @filemtime($marker) ?: 0;
+    if (time() - $last < 20) return;
+    @touch($marker);
+    reapStaleRooms($pdo);
+}
+
 // Deal cards and flip a full room into the night phase (shared by manual
 // start and the matchmaker auto-start).
+//
+// The claim AND the whole deal run in ONE transaction. The claim's UPDATE
+// takes a row lock on the rooms row, so a concurrent poll that loses the
+// claim BLOCKS until the winner's deal has committed — which guarantees the
+// loser can never read a pre-deal "all unassigned" snapshot and falsely
+// declare a winner (the old 0-werewolf race).
 function beginGame(PDO $pdo, $roomCode) {
-    // Atomically claim the start: only the first caller flips lobby->night.
-    // Without this, two simultaneous polls (e.g. two humans in one match)
-    // can both "start" the game and interleave their role writes, which can
-    // produce a deck with zero werewolves.
-    $claim = $pdo->prepare("UPDATE rooms SET status = 'night' WHERE room_code = ? AND status = 'lobby'");
-    $claim->execute([$roomCode]);
-    if ((int)$claim->rowCount() === 0) return; // already started by another poll
+    $pdo->beginTransaction();
+    try {
+        $claim = $pdo->prepare("UPDATE rooms SET status = 'night' WHERE room_code = ? AND status = 'lobby'");
+        $claim->execute([$roomCode]);
+        if ((int)$claim->rowCount() === 0) {
+            $pdo->rollBack();
+            return; // already started by another poll (its deal is committed)
+        }
 
-    $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? ORDER BY id ASC");
-    $stmt->execute([$roomCode]);
-    $players = $stmt->fetchAll();
-    $total = count($players);
+        $stmt = $pdo->prepare("SELECT id FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt->execute([$roomCode]);
+        $players = $stmt->fetchAll();
+        $total = count($players);
 
-    $breakdown = calculateRoles($total);
-    $deck = array_fill(0, $breakdown['werewolves'], 'Werewolf');
-    foreach ($breakdown['special_cards'] as $card) {
-        $deck[] = $card;
+        $breakdown = calculateRoles($total);
+        if ($breakdown === null || $total < 4) {
+            $pdo->rollBack();
+            return;
+        }
+        $deck = array_fill(0, $breakdown['werewolves'], 'Werewolf');
+        foreach ($breakdown['special_cards'] as $card) {
+            $deck[] = $card;
+        }
+        while (count($deck) < $total) {
+            $deck[] = 'Villager';
+        }
+        shuffle($deck);
+
+        foreach ($players as $index => $player) {
+            // bot_ready_at is reset to NULL so each bot re-arms its own random
+            // "thinking" delay on the very first night (see processNightBots).
+            $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL, bot_ready_at = NULL WHERE id = ?");
+            $stmt->execute([$deck[$index], $player['id']]);
+        }
+
+        $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = 'Night falls upon the village...' WHERE room_code = ?");
+        $stmt->execute([$roomCode]);
+
+        $pdo->commit();
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        throw $e;
     }
-    while (count($deck) < $total) {
-        $deck[] = 'Villager';
-    }
-    shuffle($deck);
-
-    foreach ($players as $index => $player) {
-        // bot_ready_at is reset to NULL so each bot re-arms its own random
-        // "thinking" delay on the very first night (see processNightBots).
-        $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL, bot_ready_at = NULL WHERE id = ?");
-        $stmt->execute([$deck[$index], $player['id']]);
-    }
-
-    $stmt = $pdo->prepare("UPDATE rooms SET status = 'night', last_event = 'Night falls upon the village...' WHERE room_code = ?");
-    $stmt->execute([$roomCode]);
 }
 
 // Make every alive bot werewolf lock a victim (never itself, prefers a
@@ -348,6 +435,7 @@ switch ($action) {
 
         $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
         $stmt->execute([$roomCode, $sessionToken, $nickname]);
+        touchPresence($pdo, $roomCode, $sessionToken);
 
         echo json_encode([
             "status" => "success",
@@ -368,9 +456,19 @@ switch ($action) {
             exit;
         }
 
-        // 1) Join an existing matchmade lobby that wants exactly this count.
-        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE is_match = 1 AND status = 'lobby' AND max_players = ? ORDER BY created_at ASC");
-        $stmt->execute([$count]);
+        // Clear out dead lobbies first so we never match into a ghost room.
+        reapStaleRooms($pdo);
+
+        // 1) Join an existing matchmade lobby that wants exactly this count AND
+        //    actually has a live human waiting (last_seen recent). Rooms whose
+        //    only occupants closed the tab are skipped — that is what used to
+        //    match two live players into different abandoned rooms.
+        $stmt = $pdo->prepare("SELECT r.* FROM rooms r
+            WHERE r.is_match = 1 AND r.status = 'lobby' AND r.max_players = ?
+              AND EXISTS (SELECT 1 FROM players p
+                          WHERE p.room_code = r.room_code AND p.is_bot = 0 AND p.last_seen >= ?)
+            ORDER BY r.created_at ASC");
+        $stmt->execute([$count, time() - PLAYER_TIMEOUT]);
         $candidates = $stmt->fetchAll();
 
         foreach ($candidates as $room) {
@@ -386,6 +484,7 @@ switch ($action) {
             $sessionToken = bin2hex(random_bytes(16));
             $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
             $stmt->execute([$room['room_code'], $sessionToken, $nickname]);
+            touchPresence($pdo, $room['room_code'], $sessionToken);
 
             echo json_encode([
                 "status" => "success",
@@ -400,9 +499,15 @@ switch ($action) {
         }
 
         // 2) Nobody waiting at this size: note the nearest busy size so the
-        //    client can offer a quick switch.
-        $stmt = $pdo->prepare("SELECT max_players FROM rooms WHERE is_match = 1 AND status = 'lobby' GROUP BY max_players");
-        $stmt->execute();
+        //    client can offer a quick switch. Only sizes with a live human
+        //    count — otherwise we'd dangle a non-existent room in front of the
+        //    player ("a 10-player lobby is waiting" that is actually empty).
+        $stmt = $pdo->prepare("SELECT r.max_players FROM rooms r
+            WHERE r.is_match = 1 AND r.status = 'lobby'
+              AND EXISTS (SELECT 1 FROM players p
+                          WHERE p.room_code = r.room_code AND p.is_bot = 0 AND p.last_seen >= ?)
+            GROUP BY r.max_players");
+        $stmt->execute([time() - PLAYER_TIMEOUT]);
         $busySizes = $stmt->fetchAll(PDO::FETCH_COLUMN);
         $suggest = null;
         $best = PHP_INT_MAX;
@@ -420,6 +525,7 @@ switch ($action) {
 
         $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
         $stmt->execute([$roomCode, $sessionToken, $nickname]);
+        touchPresence($pdo, $roomCode, $sessionToken);
 
         $payload = [
             "status" => "success",
@@ -476,6 +582,7 @@ switch ($action) {
 
         $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
         $stmt->execute([$roomCode, $sessionToken, $nickname]);
+        touchPresence($pdo, $roomCode, $sessionToken);
 
         echo json_encode([
             "status" => "success",
@@ -614,6 +721,12 @@ switch ($action) {
             echo json_encode(["status" => "error", "message" => "Room collapsed."]);
             exit;
         }
+
+        // Heartbeat: mark this room (and player) live so the reaper never
+        // mistakes an active lobby/game for an abandoned one, then sweep any
+        // stale rooms on a short throttle.
+        touchPresence($pdo, $roomCode, $token);
+        maybeReap($pdo);
 
         // Matchmaker: once the 30s window is up, top up with bots...
         fillBotsIfNeeded($pdo, $room);
