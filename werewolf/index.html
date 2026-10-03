@@ -863,6 +863,20 @@
         .skill-panel .skill-body { color: #e2e8f0; font-weight: 600; font-size: 0.98rem; }
         .skill-panel .skill-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 
+        /* Day-voting: running vote count + "you voted here" marker */
+        .vote-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: var(--accent-gold); color: #1a1205;
+            font-weight: 800; font-size: 0.82rem;
+            padding: 2px 9px; border-radius: 999px;
+        }
+        .my-vote-tag {
+            display: inline-block; font-size: 0.6rem; font-weight: 800;
+            letter-spacing: 1px; color: #0b0f19; background: #38bdf8;
+            padding: 2px 7px; border-radius: 999px; text-transform: uppercase;
+        }
+        .player-item.voted-by-me { box-shadow: inset 0 0 0 2px #38bdf8; }
+
         .game-player-list {
             list-style: none;
             flex: 1;
@@ -1100,7 +1114,7 @@
                 <div class="menu-panel">
                     <div class="form-group">
                         <label for="nickname">Your Nickname</label>
-                        <input type="text" id="nickname" placeholder="e.g., HunterJohn" value="Player1" maxlength="20">
+                        <input type="text" id="nickname" placeholder="e.g., HunterJohn" value="" maxlength="20">
                     </div>
 
                     <div class="btn-row">
@@ -1945,10 +1959,17 @@
                 : '<i data-lucide="skull" size="20" style="color: var(--accent-red); flex: none;"></i>';
             const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
             const youTag = isMe ? '<span class="you-tag">YOU</span>' : '';
-            const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''} ${noAnim ? 'no-anim' : ''}`;
+            // Day voting: show the running vote count on every card, and flag
+            // the player YOU voted for.
+            const voting = (data.room_status === 'day');
+            const iVotedThis = voting && (data.my_vote_id === p.id);
+            const voteBadge = (voting && p.votes > 0)
+                ? `<span class="vote-badge"><i data-lucide="vote" size="14"></i> ${p.votes}</span>` : '';
+            const myVoteTag = iVotedThis ? '<span class="my-vote-tag">YOUR VOTE</span>' : '';
+            const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''} ${iVotedThis ? 'voted-by-me' : ''} ${noAnim ? 'no-anim' : ''}`;
             return `
                 <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
-                    <span class="player-info-wrap">${statusIcon} <span class="pname">${p.nickname}</span> ${youTag} ${bloodPile}</span>
+                    <span class="player-info-wrap">${statusIcon} <span class="pname">${p.nickname}</span> ${youTag} ${myVoteTag} ${voteBadge} ${bloodPile}</span>
                     ${extra}
                 </li>
             `;
@@ -1962,7 +1983,7 @@
         //                button states flip without replaying the entrance
         //                stagger on every 1.5s poll.
         function renderRosterList(listEl, data, buildExtra, mode) {
-            const rosterSig = data.players.map(p => [p.id, p.nickname, p.is_alive, p.role]).join('|');
+            const rosterSig = data.players.map(p => [p.id, p.nickname, p.is_alive, p.role, p.votes]).join('|');
             // mode matters: the same roster renders different markup per phase
             // (e.g. pre-night has no action buttons, night does)
             const fullSig = mode + '|' + rosterSig + '#' + [data.my_role, data.is_alive, data.has_voted, data.my_target_id, data.my_vote_id].join('|');
@@ -2256,9 +2277,34 @@
             }
         }
 
+        /* ================= NICKNAME (persisted to localStorage) ================= */
+        const NICKNAME_KEY = 'werewolf.nickname';
+
+        // Default handle: "player" followed by 5 random digits.
+        function randomNickname() {
+            return 'player' + Math.floor(10000 + Math.random() * 90000);
+        }
+        function loadSavedNickname() {
+            try { return localStorage.getItem(NICKNAME_KEY) || ''; } catch (e) { return ''; }
+        }
+        function saveNickname(value) {
+            try { localStorage.setItem(NICKNAME_KEY, value); } catch (e) {}
+        }
+        function initNickname() {
+            const el = document.getElementById('nickname');
+            if (!el) return;
+            // Restore the saved handle, or mint a fresh random default.
+            el.value = loadSavedNickname() || randomNickname();
+            saveNickname(el.value);
+            // Persist on every edit.
+            el.addEventListener('input', () => saveNickname(el.value.trim()));
+            el.addEventListener('change', () => saveNickname(el.value.trim()));
+        }
+
         /* ================= INIT ================= */
         initTitleDrips();
         initAmbient();
+        initNickname();
         lucide.createIcons();
     </script>
 </body>

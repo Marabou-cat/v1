@@ -1099,10 +1099,21 @@ switch ($action) {
             }
         }
 
+        // Live vote tally — only counted (and only revealed) during the day, so
+        // the roster can show each player's running vote count.
+        $voteTally = [];
+        if ($room['status'] === 'day') {
+            foreach ($players as $p) {
+                if ($p['vote_id'] !== null) {
+                    $voteTally[(int)$p['vote_id']] = ($voteTally[(int)$p['vote_id']] ?? 0) + 1;
+                }
+            }
+        }
+
         // Role visibility: your own card is always real. Others' roles are
         // only revealed at the END (final reveal); during night/day they are
         // masked so no client can read the table from the poll payload.
-        $playerData = array_map(function($p) use ($room, $myId) {
+        $playerData = array_map(function($p) use ($room, $myId, $voteTally) {
             $role = $p['role'];
             if ($p['id'] !== $myId
                 && !in_array($room['status'], ['lobby', 'ended'], true)
@@ -1114,7 +1125,8 @@ switch ($action) {
                 "nickname" => $p['nickname'],
                 "is_alive" => (int)$p['is_alive'],
                 "role" => $role,
-                "is_bot" => (int)($p['is_bot'] ?? 0)
+                "is_bot" => (int)($p['is_bot'] ?? 0),
+                "votes" => (int)($voteTally[(int)$p['id']] ?? 0)
             ];
         }, $players);
 
