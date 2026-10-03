@@ -912,6 +912,39 @@
         .game-player-list .player-item { padding: 16px 20px; font-size: 1.18rem; }
 
         /* Chat */
+        .voice-bar {
+            flex: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 14px;
+            margin-bottom: 10px;
+            background: rgba(5, 6, 8, 0.9);
+            border: 2px solid var(--panel-border);
+            border-radius: 12px;
+        }
+        .voice-bar .voice-title {
+            display: flex; align-items: center; gap: 6px;
+            font-weight: 800; font-size: 0.78rem; letter-spacing: 1.5px;
+            text-transform: uppercase; color: var(--accent-gold);
+        }
+        .voice-bar .voice-label {
+            flex: 1; font-size: 0.8rem; font-weight: 700; color: #38bdf8;
+        }
+        .voice-btn {
+            width: auto !important;
+            flex: none;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 14px !important;
+            font-size: 0.8rem !important;
+            border-radius: 30px !important;
+            box-shadow: none !important;
+        }
+        .voice-btn.voicing {
+            background: #16a34a !important;
+            border-color: #16a34a !important;
+            color: #04120a !important;
+        }
         .chat-container {
             background: rgba(5, 6, 8, 0.9);
             border: 2px solid var(--panel-border);
@@ -1302,6 +1335,12 @@
                 </div>
 
                 <div class="game-side">
+                    <div class="voice-bar">
+                        <span class="voice-title"><i data-lucide="volume-2" size="15"></i> Voice</span>
+                        <span id="voice-label" class="voice-label"></span>
+                        <button id="voice-btn" class="voice-btn" onclick="toggleVoice()"><i data-lucide="mic-off" size="15"></i> Join Voice</button>
+                        <button id="voice-mute-btn" class="voice-btn" style="display:none;" onclick="voiceMuteToggle()"><i data-lucide="mic" size="15"></i> Mute</button>
+                    </div>
                     <div class="chat-container">
                         <div class="chat-header"><i data-lucide="message-square" size="17"></i> Village Chat</div>
                         <div id="chat-messages" class="chat-messages">
@@ -1337,7 +1376,9 @@
             chatTimeRemaining: 15,
             inPreNightChat: false,
             lastEvent: '',
-            lastPhase: ''
+            lastPhase: '',
+            myId: 0,
+            voice: { on: false, muted: false, stream: null, pcs: {}, pendingIce: {}, audioEls: {} }
         };
 
         /* ================= AMBIENT PARTICLES ================= */
@@ -1432,6 +1473,7 @@
 
             if (state.pollInterval) { clearInterval(state.pollInterval); state.pollInterval = null; }
             if (state.chatTimerInterval) { clearInterval(state.chatTimerInterval); state.chatTimerInterval = null; }
+            if (typeof stopVoice === 'function') stopVoice();
             state.roomCode = '';
             state.token = '';
             state.isHost = false;
@@ -2092,6 +2134,200 @@
             return 'var(--accent-gold)';
         }
 
+        /* ================= VOICE CHAT (WebRTC mesh) ================= */
+        // Signalling rides the existing poll (voice_signals) — no extra server.
+        // One RTCPeerConnection per other player who has joined the voice room;
+        // the LOWER player id is the offerer so there is never a glare.
+        const VOICE_ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        function voiceSupported() {
+            return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.RTCPeerConnection);
+        }
+        function voiceSignalPost(toId, kind, payload) {
+            fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'voice', room_code: state.roomCode, token: state.token,
+                    to_id: toId, kind: kind, payload: JSON.stringify(payload || {})
+                })
+            }).catch(() => {});
+        }
+        function voicePost(on) {
+            fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'voice', room_code: state.roomCode, token: state.token, on: on ? 1 : 0 })
+            }).catch(() => {});
+        }
+
+        async function toggleVoice() {
+            if (state.voice.on) { stopVoice(); return; }
+            if (!voiceSupported()) { alert('Voice chat is not supported in this browser.'); return; }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                state.voice.stream = stream;
+                state.voice.on = true;
+                state.voice.muted = false;
+                voicePost(1);
+                renderVoiceBar();
+                syncVoicePeers(state.lastPlayers || []);
+            } catch (e) {
+                alert('Could not access the microphone (permission denied or unavailable).');
+            }
+        }
+
+        function stopVoice() {
+            const wasOn = state.voice.on;
+            state.voice.on = false;
+            if (wasOn) {
+                Object.keys(state.voice.pcs).forEach(id => voiceSignalPost(id, 'bye', {}));
+                voicePost(0);
+            }
+            Object.keys(state.voice.pcs).forEach(id => { try { state.voice.pcs[id].close(); } catch (e) {} });
+            state.voice.pcs = {};
+            state.voice.pendingIce = {};
+            Object.keys(state.voice.audioEls).forEach(id => { try { state.voice.audioEls[id].remove(); } catch (e) {} });
+            state.voice.audioEls = {};
+            if (state.voice.stream) {
+                state.voice.stream.getTracks().forEach(t => t.stop());
+                state.voice.stream = null;
+            }
+            renderVoiceBar();
+        }
+
+        function voiceMuteToggle() {
+            if (!state.voice.on || !state.voice.stream) return;
+            state.voice.muted = !state.voice.muted;
+            state.voice.stream.getAudioTracks().forEach(t => { t.enabled = !state.voice.muted; });
+            renderVoiceBar();
+        }
+
+        function voiceAttachAudio(peerId, stream) {
+            let el = state.voice.audioEls[peerId];
+            if (!el) {
+                el = document.createElement('audio');
+                el.autoplay = true;
+                el.setAttribute('playsinline', '');
+                el.dataset.peer = peerId;
+                document.body.appendChild(el);
+                state.voice.audioEls[peerId] = el;
+            }
+            el.srcObject = stream;
+            const p = el.play();
+            if (p && p.catch) p.catch(() => {});
+        }
+
+        function voiceMakePeer(peerId, isInitiator) {
+            const pc = new RTCPeerConnection(VOICE_ICE);
+            state.voice.pcs[peerId] = pc;
+            state.voice.pendingIce[peerId] = [];
+            if (state.voice.stream) state.voice.stream.getTracks().forEach(t => pc.addTrack(t, state.voice.stream));
+            pc.onicecandidate = (ev) => { if (ev.candidate) voiceSignalPost(peerId, 'ice', ev.candidate.toJSON()); };
+            pc.ontrack = (ev) => { if (ev.streams && ev.streams[0]) voiceAttachAudio(peerId, ev.streams[0]); };
+            if (isInitiator) {
+                // Explicit offer (never onnegotiationneeded) so the two sides
+                // can't both offer and deadlock.
+                (async () => {
+                    try {
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        voiceSignalPost(peerId, 'offer', pc.localDescription);
+                    } catch (e) {}
+                })();
+            }
+            return pc;
+        }
+
+        function voiceFlushIce(peerId) {
+            const pc = state.voice.pcs[peerId];
+            if (!pc) return;
+            (state.voice.pendingIce[peerId] || []).forEach(c => {
+                try { pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {}
+            });
+            state.voice.pendingIce[peerId] = [];
+        }
+
+        // Reconcile connections with the current roster (called each poll).
+        function syncVoicePeers(players) {
+            state.lastPlayers = players || [];
+            if (!state.voice.on) { renderVoiceBar(); return; }
+            players.forEach(p => {
+                if (p.id === state.myId || !p.voice) return;
+                if (state.voice.pcs[p.id]) return;
+                voiceMakePeer(p.id, state.myId < p.id);
+            });
+            // Drop peers who left the voice room.
+            Object.keys(state.voice.pcs).forEach(id => {
+                const p = players.find(x => String(x.id) === String(id));
+                if (!p || !p.voice) {
+                    try { state.voice.pcs[id].close(); } catch (e) {}
+                    delete state.voice.pcs[id];
+                    delete state.voice.pendingIce[id];
+                    if (state.voice.audioEls[id]) { try { state.voice.audioEls[id].remove(); } catch (e) {} delete state.voice.audioEls[id]; }
+                }
+            });
+            renderVoiceBar();
+        }
+
+        async function handleVoiceSignals(signals) {
+            for (const s of signals) {
+                const peerId = s.from_id;
+                let data = null;
+                try { data = JSON.parse(s.payload); } catch (e) { data = {}; }
+                try {
+                    if (s.kind === 'offer') {
+                        if (!state.voice.on) continue;
+                        const pc = state.voice.pcs[peerId] || voiceMakePeer(peerId, false);
+                        await pc.setRemoteDescription(new RTCSessionDescription(data));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        voiceSignalPost(peerId, 'answer', pc.localDescription);
+                        voiceFlushIce(peerId);
+                    } else if (s.kind === 'answer') {
+                        const pc = state.voice.pcs[peerId];
+                        if (!pc) continue;
+                        await pc.setRemoteDescription(new RTCSessionDescription(data));
+                        voiceFlushIce(peerId);
+                    } else if (s.kind === 'ice') {
+                        const pc = state.voice.pcs[peerId];
+                        if (!pc) continue;
+                        if (pc.remoteDescription && pc.remoteDescription.type) {
+                            try { await pc.addIceCandidate(new RTCIceCandidate(data)); } catch (e) {}
+                        } else {
+                            (state.voice.pendingIce[peerId] = state.voice.pendingIce[peerId] || []).push(data);
+                        }
+                    } else if (s.kind === 'bye') {
+                        const pc = state.voice.pcs[peerId];
+                        if (pc) { try { pc.close(); } catch (e) {} }
+                        delete state.voice.pcs[peerId];
+                    }
+                } catch (e) {}
+            }
+        }
+
+        function renderVoiceBar() {
+            const btn = document.getElementById('voice-btn');
+            const mute = document.getElementById('voice-mute-btn');
+            const label = document.getElementById('voice-label');
+            if (!btn) return;
+            if (state.voice.on) {
+                btn.classList.add('voicing');
+                btn.innerHTML = '<i data-lucide="mic" size="15"></i> Leave Voice';
+                if (mute) {
+                    mute.style.display = 'inline-flex';
+                    mute.innerHTML = `<i data-lucide="${state.voice.muted ? 'mic-off' : 'mic'}" size="15"></i> ${state.voice.muted ? 'Unmute' : 'Mute'}`;
+                }
+                if (label) label.innerText = state.voice.muted ? 'You are muted' : 'Live — mic on';
+            } else {
+                btn.classList.remove('voicing');
+                btn.innerHTML = '<i data-lucide="mic-off" size="15"></i> Join Voice';
+                if (mute) mute.style.display = 'none';
+                if (label) label.innerText = '';
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
         /* ================= POLLING ================= */
         function startGamePolling() {
             document.getElementById('display-room-code').innerText = state.roomCode;
@@ -2118,6 +2354,7 @@
                 applyServerClock(data);
                 if (data.mm_started_at) state.mmStartedAt = data.mm_started_at;
                 if (data.started_at) state.gameStartedAt = data.started_at;
+                if (data.my_id) state.myId = data.my_id;
 
                 // Matchmaking wait strip (countdown + bot-fill indicator).
                 updateMmStatus(data);
@@ -2164,6 +2401,11 @@
                         lucide.createIcons();
                     }
                 }
+
+                // Voice: keep peer connections in sync with the roster and
+                // consume any WebRTC signalling relayed through this poll.
+                if (data.players) syncVoicePeers(data.players);
+                if (data.voice_signals && data.voice_signals.length) handleVoiceSignals(data.voice_signals);
 
                 if (data.room_status === 'lobby') {
                     setPhase('lobby');

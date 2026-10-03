@@ -77,6 +77,21 @@ try {
     // "Sleep" tap: everyone without a night action (villagers, the Doctor)
     // must tap sleep so the night's click-sounds are masked (voice-call safe).
     $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS asleep TINYINT DEFAULT 0");
+    // Voice chat: voice_on flags who has joined the voice room, and
+    // voice_signals relays WebRTC offer/answer/ICE between peers (the client
+    // poll is the signalling channel — no extra server/socket needed).
+    $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS voice_on TINYINT DEFAULT 0");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS voice_signals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        room_code VARCHAR(10) NOT NULL,
+        from_id INT NOT NULL,
+        to_id INT NOT NULL,
+        kind VARCHAR(12) NOT NULL,
+        payload TEXT,
+        delivered TINYINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_to (to_id, delivered)
+    )");
 } catch (Exception $e) {}
 
 function calculateRoles($playerCount) {
@@ -1075,7 +1090,7 @@ switch ($action) {
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -1144,6 +1159,22 @@ switch ($action) {
             foreach ($players as $p) { if ((int)$p['id'] === (int)$room['pending_victim']) { $doctorVictimName = $p['nickname']; break; } }
         }
 
+        // Voice signalling: hand this client any WebRTC messages addressed to
+        // it, then mark them delivered (the poll IS the signalling channel).
+        $voiceSignals = [];
+        if ($myId) {
+            $vs = $pdo->prepare("SELECT id, from_id, kind, payload FROM voice_signals WHERE to_id = ? AND delivered = 0 ORDER BY id ASC LIMIT 60");
+            $vs->execute([$myId]);
+            $voiceSignals = $vs->fetchAll();
+            if (count($voiceSignals) > 0) {
+                $ids = array_column($voiceSignals, 'id');
+                $in = implode(',', array_fill(0, count($ids), '?'));
+                $pdo->prepare("UPDATE voice_signals SET delivered = 1 WHERE id IN ($in)")->execute($ids);
+            }
+            // Housekeeping: drop stale signals (delivered or not) after 2 min.
+            $pdo->prepare("DELETE FROM voice_signals WHERE room_code = ? AND created_at < (NOW() - INTERVAL 2 MINUTE)")->execute([$roomCode]);
+        }
+
         if ($room['status'] !== 'lobby' && $room['status'] !== 'ended') {
             $aliveWerewolves = 0;
             $aliveVillagersOrSpecials = 0;
@@ -1201,7 +1232,8 @@ switch ($action) {
                 "is_alive" => $isAlive,
                 "role" => $role,
                 "is_bot" => (int)($p['is_bot'] ?? 0),
-                "votes" => (int)($voteTally[(int)$p['id']] ?? 0)
+                "votes" => (int)($voteTally[(int)$p['id']] ?? 0),
+                "voice" => (int)($p['voice_on'] ?? 0)
             ];
         }, $players);
 
@@ -1255,6 +1287,7 @@ switch ($action) {
             "my_doctor_choice" => $myDoctorChoice,
             "my_asleep" => $myAsleep,
             "doctor_victim_name" => $doctorVictimName,
+            "voice_signals" => $voiceSignals,
             "last_event" => $room['last_event'] ?? '',
             "messages" => $messages
         ]);
@@ -1378,6 +1411,45 @@ switch ($action) {
         advanceNight($pdo, $roomCode);
 
         echo json_encode(["status" => "success", "message" => $revive ? "You chose to save them." : "You chose not to intervene."]);
+        break;
+
+    case 'voice':
+        // Toggle voice-room presence and relay WebRTC signalling to peers.
+        $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
+        $token = trim($_POST['token'] ?? '');
+
+        $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND session_token = ?");
+        $stmt->execute([$roomCode, $token]);
+        $me = $stmt->fetch();
+
+        if (!$me) {
+            echo json_encode(["status" => "error", "message" => "Invalid session."]);
+            exit;
+        }
+
+        if (isset($_POST['on'])) {
+            $on = (int)$_POST['on'] ? 1 : 0;
+            $pdo->prepare("UPDATE players SET voice_on = ? WHERE id = ?")->execute([$on, (int)$me['id']]);
+            if (!$on) {
+                // Left the voice room: drop anything queued for/from us.
+                $pdo->prepare("DELETE FROM voice_signals WHERE room_code = ? AND (from_id = ? OR to_id = ?)")
+                    ->execute([$roomCode, (int)$me['id'], (int)$me['id']]);
+            }
+        }
+
+        $kind = trim($_POST['kind'] ?? '');
+        $toId = (int)($_POST['to_id'] ?? 0);
+        if ($kind !== '' && $toId > 0) {
+            $payload = (string)($_POST['payload'] ?? '');
+            if (strlen($payload) > 20000) {
+                echo json_encode(["status" => "error", "message" => "Signal too large."]);
+                exit;
+            }
+            $pdo->prepare("INSERT INTO voice_signals (room_code, from_id, to_id, kind, payload) VALUES (?, ?, ?, ?, ?)")
+                ->execute([$roomCode, (int)$me['id'], $toId, substr($kind, 0, 12), $payload]);
+        }
+
+        echo json_encode(["status" => "success"]);
         break;
 
     case 'day_vote':
