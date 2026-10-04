@@ -7,11 +7,42 @@ function touchPresence(PDO $pdo, $roomCode, $token = '') {
     if ($roomCode === '') return;
     $now = time();
     try {
-        $pdo->prepare("UPDATE rooms SET last_activity = ? WHERE room_code = ?")->execute([$now, $roomCode]);
+        // Only write when the stored heartbeat is actually stale (>3s old).  The
+        // guard turns the common case into a read-only no-op instead of a row
+        // write on every poll, so a busy room stops churning the redo log — and
+        // the columns stay accurate to within 3s, far tighter than the reaper's
+        // 150s timeout needs.
+        $pdo->prepare("UPDATE rooms SET last_activity = ? WHERE room_code = ? AND last_activity < ?")
+            ->execute([$now, $roomCode, $now - 3]);
         if ($token !== '') {
-            $pdo->prepare("UPDATE players SET last_seen = ? WHERE room_code = ? AND session_token = ?")->execute([$now, $roomCode, $token]);
+            $pdo->prepare("UPDATE players SET last_seen = ? WHERE room_code = ? AND session_token = ? AND last_seen < ?")
+                ->execute([$now, $roomCode, $token, $now - 3]);
         }
     } catch (Exception $e) {}
+}
+
+// Cheap "did anything the players can SEE change?" fingerprint, used by the
+// poll's long-poll wait.  Deliberately EXCLUDES the heartbeat columns
+// (last_seen / last_activity): they change on every presence touch, so
+// including them would make the signature flap forever and turn the wait loop
+// into a busy loop that never parks.
+function wolfStateSig(PDO $pdo, $roomCode) {
+    $s = $pdo->prepare("SELECT r.status, r.night_step, r.started_at, r.phase_started_at,
+              r.last_event, r.pending_victim, r.mm_deadline,
+              (SELECT COUNT(*) FROM players WHERE room_code = r.room_code),
+              (SELECT COUNT(*) FROM players WHERE room_code = r.room_code AND is_alive = 1),
+              (SELECT COUNT(*) FROM players WHERE room_code = r.room_code AND asleep = 1),
+              (SELECT COUNT(*) FROM players WHERE room_code = r.room_code AND target_id IS NOT NULL),
+              (SELECT COUNT(*) FROM players WHERE room_code = r.room_code AND vote_id IS NOT NULL),
+              (SELECT COUNT(*) FROM players WHERE room_code = r.room_code AND check_target IS NOT NULL),
+              (SELECT COUNT(*) FROM players WHERE room_code = r.room_code AND poison_target IS NOT NULL),
+              (SELECT COUNT(*) FROM players WHERE room_code = r.room_code AND doctor_choice IS NOT NULL),
+              (SELECT COUNT(*) FROM players WHERE room_code = r.room_code AND voice_on = 1),
+              (SELECT COALESCE(MAX(id), 0) FROM messages WHERE room_code = r.room_code)
+            FROM rooms r WHERE r.room_code = ? LIMIT 1");
+    $s->execute([$roomCode]);
+    $row = $s->fetch(PDO::FETCH_NUM);
+    return $row ? md5(implode('|', $row)) : '';
 }
 
 // Sweep away dead weight. Without this the rooms table grows forever AND

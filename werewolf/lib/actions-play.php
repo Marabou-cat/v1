@@ -40,6 +40,28 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             exit;
         }
 
+        // --- Long-poll -------------------------------------------------------
+        // Hold this request until something the CLIENT can see actually changes
+        // (or the wait budget expires) BEFORE doing any work.  The client then
+        // re-requests immediately, so the request RATE stays about the same
+        // while perceived latency drops from the old fixed 1.5s poll interval to
+        // the change-detection granularity (~200ms).  Each check is one
+        // sub-millisecond indexed query, so a "small server" stays idle.
+        // Clients that omit wait/sig keep the old immediate-response behaviour.
+        $waitMs = (int)($_POST['wait'] ?? 0);
+        $sigIn  = (string)($_POST['sig'] ?? '');
+        if ($waitMs > 0 && $sigIn !== '') {
+            $deadline = microtime(true) + min($waitMs, 15000) / 1000.0;
+            while (microtime(true) < $deadline) {
+                try {
+                    if (wolfStateSig($pdo, $roomCode) !== $sigIn) break;  // changed -> respond now
+                } catch (Exception $e) {
+                    break;
+                }
+                usleep(200000);   // 200 ms
+            }
+        }
+
         // Heartbeat: mark this room (and player) live so the reaper never
         // mistakes an active lobby/game for an abandoned one, then sweep any
         // stale rooms on a short throttle.
@@ -261,6 +283,10 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
 
         echo json_encode([
             "status" => "success",
+
+            // Fingerprint of everything the client can see, so the next poll can
+            // long-poll against it (see the wait loop at the top of this handler).
+            "state_sig" => wolfStateSig($pdo, $roomCode),
             "room_status" => $room['status'],
             "is_host" => ($room['host_token'] === $token),
             "is_match" => (int)($room['is_match'] ?? 0),

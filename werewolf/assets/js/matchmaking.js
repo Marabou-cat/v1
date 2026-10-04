@@ -43,6 +43,19 @@
             updateMatchTime();
             renderMmSuggest();
             startGamePolling();
+
+            // The poll long-polls now (responses can be up to ~1.2s apart), so
+            // drive the elapsed-time readout from a local ticker instead — the
+            // number stays smooth while the network does the waiting.
+            if (state.mmTickInterval) clearInterval(state.mmTickInterval);
+            state.mmTickInterval = setInterval(() => {
+                if (document.getElementById('view-matching').classList.contains('hidden')) {
+                    clearInterval(state.mmTickInterval);
+                    state.mmTickInterval = null;
+                    return;
+                }
+                updateMatchTime();
+            }, 500);
         }
 
         // Draw one seat dot per player slot around the radar's orbit ring.

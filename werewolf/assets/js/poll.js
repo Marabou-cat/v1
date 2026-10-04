@@ -3,18 +3,36 @@
    the page global scope (order matters; see index.html script tags). */
 
 /* ================= POLLING ================= */
+        // How long the server may hold an idle poll open (ms).  The client
+        // re-polls the moment a response lands, so this only bounds the
+        // worst-case "nothing is happening" request rate (~1 per 1.2s — the same
+        // as the old fixed 1.5s interval) while keeping bot/phase advancement
+        // ticking.  Any real change returns within the server's ~200ms check.
+        const POLL_WAIT_MS = 1200;
+
         function startGamePolling() {
             document.getElementById('display-room-code').innerText = state.roomCode;
             document.getElementById('game-room-code').innerText = state.roomCode;
+            state.pollSig = '';
+            gamePollLoop();
+        }
 
-            state.pollInterval = setInterval(async () => {
-                const res = await fetch('backend.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ action: 'poll_game', room_code: state.roomCode, token: state.token })
-                });
-
+        // One poll.  Asks the server to HOLD the request until something changes
+        // (long-poll) and hands back the state fingerprint to wait against.
+        async function gamePollOnce() {
+            const body = new URLSearchParams({
+                action: 'poll_game', room_code: state.roomCode, token: state.token,
+                wait: POLL_WAIT_MS
+            });
+            if (state.pollSig) body.set('sig', state.pollSig);
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body
+            });
+            {
                 const data = await res.json();
+                if (data.state_sig) state.pollSig = data.state_sig;
                 if (data.status !== 'success') {
                     // Room dissolved (everyone left) — drop back to the menu.
                     if (data.message === 'Room collapsed.') {
@@ -257,7 +275,25 @@
                         renderRosterList(gamePlayerList, data, null, 'ended');
                     }
                 }
-            }, 1500);
+            }
+        }
+
+        // Self-scheduling poll loop: re-issue the moment the previous response
+        // lands (the server already did the waiting), so updates arrive within
+        // ~200ms of a change.  The floor delay keeps a fast-failing server from
+        // turning this into a hot loop.
+        async function gamePollLoop() {
+            state.pollRunning = true;
+            while (state.pollRunning) {
+                const t0 = Date.now();
+                try {
+                    await gamePollOnce();
+                } catch (e) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
+                const spent = Date.now() - t0;
+                if (spent < 150) await new Promise(r => setTimeout(r, 150 - spent));
+            }
         }
 
         

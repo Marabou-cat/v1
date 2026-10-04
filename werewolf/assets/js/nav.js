@@ -48,6 +48,9 @@
             callLeaveRoom(rc, tk);
 
             if (state.pollInterval) { clearInterval(state.pollInterval); state.pollInterval = null; }
+            state.pollRunning = false;   // stops the self-scheduling long-poll loop
+            state.pollSig = '';
+            if (state.mmTickInterval) { clearInterval(state.mmTickInterval); state.mmTickInterval = null; }
             if (state.chatTimerInterval) { clearInterval(state.chatTimerInterval); state.chatTimerInterval = null; }
             if (typeof stopVoice === 'function') stopVoice();
             if (typeof hideGameOverlays === 'function') hideGameOverlays();
