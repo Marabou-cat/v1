@@ -7,7 +7,7 @@
             const isMe = (p.id === data.my_id);
             const statusIcon = p.is_alive
                 ? '<i data-lucide="shield" size="20" style="color: #38bdf8; flex: none;"></i>'
-                : '<i data-lucide="skull" size="20" style="color: var(--accent-red); flex: none;"></i>';
+                : '<span class="status-dead-ico" title="eliminated" aria-label="eliminated"></span>';
             const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
             const youTag = isMe ? '<span class="you-tag">YOU</span>' : '';
             // Account-bound face. Denormalised onto the seat server-side, so it

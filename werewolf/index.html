@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="assets/css/cutscene.css">
     <link rel="stylesheet" href="assets/css/responsive.css">
     <link rel="stylesheet" href="assets/css/hall.css">
+    <link rel="stylesheet" href="assets/css/scene.css">
 </head>
 <body data-phase="menu">
 
@@ -274,9 +275,12 @@
                         </div>
 
                         <div class="event-banner" id="event-banner">
-                                <strong>Phase: <span id="game-phase-text" style="color: var(--accent-gold);">Day Chat</span></strong>
-                                <span id="chat-timer-badge" class="timer-badge">⏱️ 15s</span><br>
-                                <span id="game-event-log">Discuss before the first night falls...</span>
+                                <span class="pb-ico pb-day" id="phase-ico" aria-hidden="true"></span>
+                                <div class="event-banner-body">
+                                    <span id="game-phase-text" style="color: var(--accent-gold); font-weight: 800;">Day Chat</span>
+                                    <span id="chat-timer-badge" class="timer-badge">15s</span>
+                                    <span id="game-event-log">Discuss before the first night falls...</span>
+                                </div>
                         </div>
                     </div>
 
@@ -514,6 +518,7 @@
     <script src="assets/js/title.js"></script>
     <script src="assets/js/nickname.js"></script>
     <script src="assets/js/hall.js"></script>
+    <script src="assets/js/scene.js"></script>
     <script src="assets/js/init.js"></script>
 </body>
 </html>

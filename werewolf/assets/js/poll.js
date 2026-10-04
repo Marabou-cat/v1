@@ -232,15 +232,19 @@
                     const roleDisplay = document.getElementById('my-role-display');
                     if (roleDisplay.dataset.role !== data.my_role) {
                         roleDisplay.dataset.role = data.my_role;
-                        roleDisplay.innerHTML = `${setRoleIcon(data.my_role)} ${data.my_role}`;
+                        roleDisplay.innerHTML = `${roleIconHtml(data.my_role)} ${data.my_role}`;
                         lucide.createIcons();
                     }
+                    // The banner says the time of day at a glance (icon + wording).
+                    if (typeof updatePhaseBannerText === 'function') updatePhaseBannerText(data.room_status, data.mode, data);
 
                     if (data.last_event && data.last_event !== state.lastEvent) {
                         state.lastEvent = data.last_event;
                         // One character at a time, fast (see combat.js).
                         typewriteEvent(data.last_event);
                         flashEventBanner();
+                        // ...and colour it by what the event actually is.
+                        if (typeof classifyEvent === 'function') classifyEvent(data.last_event);
                     }
 
                     const phaseText = document.getElementById('game-phase-text');

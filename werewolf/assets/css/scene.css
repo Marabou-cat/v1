@@ -1,0 +1,327 @@
+/* =========================================================================
+   werewolf / scene.css — the world, and the premium pass over the game UI.
+   Loaded LAST: everything here is meant to override the per-screen files.
+
+   DAY IS DAY: a real daylight sky, a sun, rolling hills and a village on the
+   horizon, warm light on parchment surfaces.
+   NIGHT IS NIGHT: the dark sky, a blood moon, drifting cloud, leather surfaces.
+
+   Notes for whoever touches this next:
+     * relative url() in THIS file resolves against assets/css/ — so ../img/… is
+       correct here (unlike an inline style, which resolves against the document)
+     * the scene layers are all pointer-events:none and never in the layout flow,
+       so they cannot cost the game any interaction or layout work
+   ========================================================================= */
+
+/* ---------------- phase palette ---------------- */
+:root {
+    --scene-ink: #f2ece0;
+    --scene-ink-soft: #9aa4b2;
+    --scene-surface: rgba(13, 14, 20, 0.78);
+    --scene-line: rgba(255, 255, 255, 0.08);
+    --scene-glow: rgba(233, 200, 106, 0.16);
+}
+body[data-phase="day"] {
+    --scene-ink: #2b2418;
+    --scene-ink-soft: #6b5f45;
+    --scene-surface: rgba(246, 238, 219, 0.93);
+    --scene-line: rgba(92, 74, 42, 0.30);
+    --scene-glow: rgba(255, 186, 74, 0.28);
+}
+
+/* ================= THE SKY ================= */
+/* Day: a believable daylight sky — deep blue overhead, haze and warmth low down. */
+body[data-phase="day"] .sky {
+    background: linear-gradient(180deg,
+        #2f6bb0 0%,
+        #5f9bd4 26%,
+        #a8c8e2 52%,
+        #dcd6b8 74%,
+        #efd9a4 100%);
+    transition: background 1.2s ease;
+}
+/* Night keeps the dark sky but with a little more depth. */
+body[data-phase="night"] .sky,
+body[data-phase="ended"] .sky {
+    transition: background 1.2s ease;
+}
+
+/* ---- hills + village on the horizon (day only) ---- */
+body[data-phase="day"] .sky::after {
+    content: '';
+    position: absolute; left: 0; right: 0; bottom: 0; height: 34%;
+    background:
+        radial-gradient(58% 100% at 8% 100%,  #7d9a63 0 62%, transparent 63%),
+        radial-gradient(72% 100% at 38% 100%, #8ea971 0 60%, transparent 61%),
+        radial-gradient(64% 100% at 70% 100%, #6d8c57 0 61%, transparent 62%),
+        radial-gradient(86% 100% at 100% 100%, #5c7a48 0 63%, transparent 64%);
+    opacity: 0.95;
+}
+
+/* ---- sunlight ---- */
+body[data-phase="day"] .moon-core {
+    opacity: 1;
+    background: radial-gradient(circle at 42% 38%, #fffdf2 0%, #ffe9a8 46%, #ffbe4d 100%);
+    box-shadow:
+        0 0 60px 24px rgba(255, 226, 140, 0.55),
+        0 0 160px 80px rgba(255, 196, 90, 0.28),
+        0 0 320px 140px rgba(255, 200, 120, 0.12);
+}
+/* Sun rays sweeping slowly across the field. */
+body[data-phase="day"] .moon::after {
+    content: '';
+    position: absolute; inset: -60%;
+    background: conic-gradient(from 0deg,
+        rgba(255, 236, 170, 0.16) 0deg 6deg, transparent 6deg 26deg,
+        rgba(255, 236, 170, 0.12) 26deg 32deg, transparent 32deg 54deg,
+        rgba(255, 236, 170, 0.15) 54deg 60deg, transparent 60deg 86deg,
+        rgba(255, 236, 170, 0.11) 86deg 92deg, transparent 92deg 124deg,
+        rgba(255, 236, 170, 0.16) 124deg 130deg, transparent 130deg 168deg,
+        rgba(255, 236, 170, 0.12) 168deg 174deg, transparent 174deg 214deg,
+        rgba(255, 236, 170, 0.15) 214deg 220deg, transparent 220deg 258deg,
+        rgba(255, 236, 170, 0.11) 258deg 264deg, transparent 264deg 300deg,
+        rgba(255, 236, 170, 0.16) 300deg 306deg, transparent 306deg 340deg,
+        rgba(255, 236, 170, 0.12) 340deg 346deg, transparent 346deg 360deg);
+    filter: blur(6px);
+    opacity: 0.75;
+    animation: sunSweep 90s linear infinite;
+    pointer-events: none;
+}
+@keyframes sunSweep { to { transform: rotate(360deg); } }
+
+/* ---- stars out, warm dust in, when it is day ---- */
+body[data-phase="day"] .stars { opacity: 0; transition: opacity 1.2s ease; }
+body[data-phase="day"] .stars .star { background: #fff6d8; }
+
+/* Daytime haze instead of night fog. */
+body[data-phase="day"] .fog {
+    background: radial-gradient(ellipse 60% 60% at 30% 70%, rgba(255, 240, 200, 0.20) 0%, transparent 72%);
+    opacity: 1;
+}
+
+/* ================= DAY SURFACES (parchment) =================
+   The functional difference between the two times of day: daylight falls on paper.
+   Scoped to the main panels so contrast is easy to keep an eye on. */
+body[data-phase="day"] .menu-panel,
+body[data-phase="day"] .panel-wide,
+body[data-phase="day"] .lobby-wrap,
+body[data-phase="day"] .mm-stage,
+body[data-phase="day"] .room-badge,
+body[data-phase="day"] .player-item,
+body[data-phase="day"] .vc-card,
+body[data-phase="day"] .death-card,
+body[data-phase="day"] .vote-card,
+body[data-phase="day"] .game-panel,
+/* the board surfaces that were still night-dark under a bright sky */
+body[data-phase="day"] .role-card,
+body[data-phase="day"] .event-banner,
+body[data-phase="day"] .game-main,
+body[data-phase="day"] .game-side,
+body[data-phase="day"] .chat-container,
+body[data-phase="day"] .chat-header,
+body[data-phase="day"] .game-player-list,
+body[data-phase="day"] .game-topbar,
+body[data-phase="day"] .skill-panel,
+body[data-phase="day"] .vitals {
+    background: var(--scene-surface) url("../img/tex/paper.jpg");
+    background-size: 340px;
+    background-blend-mode: multiply;
+    border-color: var(--scene-line);
+    color: var(--scene-ink);
+    box-shadow: 0 16px 38px rgba(74, 56, 24, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+body[data-phase="day"] .player-item.me { box-shadow: 0 0 0 1px rgba(161, 116, 28, 0.5), 0 8px 22px rgba(74, 56, 24, 0.25); }
+body[data-phase="day"] .pname,
+body[data-phase="day"] .screen-title,
+body[data-phase="day"] .menu-panel label,
+body[data-phase="day"] .lobby-section-label,
+body[data-phase="day"] .room-code { color: var(--scene-ink); }
+body[data-phase="day"] .subtitle,
+body[data-phase="day"] .menu-hint,
+body[data-phase="day"] .mm-note { color: var(--scene-ink-soft); }
+body[data-phase="day"] .room-code { text-shadow: 0 0 16px rgba(161, 116, 28, 0.35); }
+
+/* Inputs must stay readable on paper. */
+body[data-phase="day"] input[type="text"],
+body[data-phase="day"] input[type="email"] {
+    background: rgba(255, 253, 246, 0.9);
+    border-color: rgba(92, 74, 42, 0.35);
+    color: #2b2418;
+}
+body[data-phase="day"] input::placeholder { color: rgba(107, 95, 69, 0.7); }
+
+/* Secondary buttons invert on paper; the primary red stays (it reads on both). */
+body[data-phase="day"] .btn-secondary {
+    background: rgba(255, 252, 243, 0.72);
+    border-color: rgba(92, 74, 42, 0.32);
+    color: #4a3d22;
+}
+body[data-phase="day"] .btn-secondary:hover { background: rgba(255, 255, 250, 0.92); }
+
+/* ================= PREMIUM DETAILING ================= */
+
+/* A soft vignette focuses the eye on the board (both phases, tuned per phase). */
+.sky::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 78% 70% at 50% 42%, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+    pointer-events: none;
+}
+body[data-phase="day"] .sky::before {
+    background: radial-gradient(ellipse 80% 72% at 50% 40%, transparent 46%, rgba(46, 30, 8, 0.34) 100%);
+}
+
+/* Dividers / section rules pick up the metal of the phase. */
+.section-rule {
+    height: 1px; border: 0; margin: 12px 0;
+    background: linear-gradient(90deg, transparent, var(--scene-glow) 20%, var(--scene-glow) 80%, transparent);
+}
+
+/* ================= CLEAR EVENTS (client-side only) =================
+   A phase banner that says, in words, what just happened — with the sun for dawn and
+   the moon for nightfall. Driven entirely by data the poll already sends: no extra
+   request, no extra server work, so latency is untouched. */
+.phase-banner {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--scene-line);
+    background: var(--scene-surface);
+    color: var(--scene-ink);
+    font-weight: 800; letter-spacing: 0.4px;
+    margin-bottom: 10px;
+    animation: bannerIn 0.4s ease both;
+}
+@keyframes bannerIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.phase-banner .pb-ico {
+    width: 26px; height: 26px; flex: none;
+    -webkit-mask-size: contain; mask-size: contain;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center; mask-position: center;
+    background: var(--accent-gold, #ffcc00);
+}
+body[data-phase="day"] .phase-banner .pb-ico { background: #d98b12; }
+.phase-banner .pb-title { font-size: 0.8rem; text-transform: uppercase; }
+.phase-banner .pb-sub { margin-left: auto; font-size: 0.68rem; color: var(--scene-ink-soft); font-weight: 700; }
+
+/* Phase transition flash already exists; give it the phase colour, tuned. */
+body[data-phase="day"] .phase-flash.day {
+    background: radial-gradient(circle at 50% 34%, rgba(255, 232, 170, 0.95) 0%, rgba(255, 196, 92, 0.55) 45%, transparent 78%);
+}
+
+/* ================= EVENT LOG (clearer, no server cost) ================= */
+#game-event-log { line-height: 1.55; }
+.ev-row { display: flex; gap: 8px; align-items: flex-start; padding: 3px 0; }
+.ev-row .ev-ico {
+    width: 16px; height: 16px; flex: none; margin-top: 2px;
+    -webkit-mask-size: contain; mask-size: contain;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center; mask-position: center;
+    background: currentColor; opacity: 0.9;
+}
+.ev-death { color: #ff6b6b; }
+.ev-night { color: #a5b4fc; }
+.ev-day   { color: #fcd34d; }
+.ev-vote  { color: #67e8f9; }
+body[data-phase="day"] .ev-death { color: #a01f1f; }
+body[data-phase="day"] .ev-night { color: #3b4b8f; }
+body[data-phase="day"] .ev-day   { color: #8a5b06; }
+body[data-phase="day"] .ev-vote  { color: #0d6b7a; }
+
+/* ================= ROLE CARD ICONS (downloaded art) ================= */
+.role-ico {
+    width: 46px; height: 46px; flex: none;
+    -webkit-mask-size: contain; mask-size: contain;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center; mask-position: center;
+    background: linear-gradient(180deg, #ffe9a8, #c99b2e);
+}
+.role-ico.ico-werewolf { -webkit-mask-image: url("../img/icons/werewolf.svg"); mask-image: url("../img/icons/werewolf.svg"); }
+.role-ico.ico-seer     { -webkit-mask-image: url("../img/icons/crystal-wand.svg"); mask-image: url("../img/icons/crystal-wand.svg"); }
+.role-ico.ico-doctor   { -webkit-mask-image: url("../img/icons/herbs-bundle.svg"); mask-image: url("../img/icons/herbs-bundle.svg"); }
+.role-ico.ico-witch    { -webkit-mask-image: url("../img/icons/cauldron.svg"); mask-image: url("../img/icons/cauldron.svg"); }
+.role-ico.ico-hunter   { -webkit-mask-image: url("../img/icons/bowman.svg"); mask-image: url("../img/icons/bowman.svg"); }
+.role-ico.ico-villager { -webkit-mask-image: url("../img/icons/pitchfork.svg"); mask-image: url("../img/icons/pitchfork.svg"); }
+
+/* The seat marker for an eliminated player. */
+.player-item.dead .status-dead-ico {
+    -webkit-mask-image: url("../img/icons/broken-skull.svg"); mask-image: url("../img/icons/broken-skull.svg");
+    -webkit-mask-size: contain; mask-size: contain;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    display: inline-block; width: 18px; height: 18px; flex: none;
+    background: #b04545;
+}
+
+/* ================= MOTION SAFETY ================= */
+@media (prefers-reduced-motion: reduce) {
+    body[data-phase="day"] .moon::after { animation: none; }
+    .phase-banner { animation: none; }
+}
+
+/* ---- the phase icon in the event banner (downloaded art as masks) ---- */
+.pb-ico.pb-day   { -webkit-mask-image: url("../img/icons/sunrise.svg");  mask-image: url("../img/icons/sunrise.svg"); }
+.pb-ico.pb-night { -webkit-mask-image: url("../img/icons/moon.svg");     mask-image: url("../img/icons/moon.svg"); }
+.pb-ico.pb-chaos { -webkit-mask-image: url("../img/icons/wolf-trap.svg"); mask-image: url("../img/icons/wolf-trap.svg"); }
+.pb-ico.pb-over  { -webkit-mask-image: url("../img/icons/candle-skull.svg"); mask-image: url("../img/icons/candle-skull.svg"); }
+
+/* The banner is the game's headline: give it weight and a left rail in the phase hue. */
+.event-banner { position: relative; overflow: hidden; }
+.event-banner::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(180deg, var(--accent-gold, #ffcc00), transparent);
+}
+body[data-phase="day"] .event-banner::before { background: linear-gradient(180deg, #d98b12, transparent); }
+
+/* banner: icon on the left, wording stacked on the right */
+.event-banner { display: flex; gap: 10px; align-items: flex-start; padding-left: 12px; }
+.event-banner-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.event-banner .pb-ico { width: 30px; height: 30px; margin-top: 1px; }
+#game-event-log { font-weight: 700; }
+
+/* Day: the board's own text turns to ink so it stays readable on parchment. */
+body[data-phase="day"] .role-card .card-title,
+body[data-phase="day"] .chat-header,
+body[data-phase="day"] #my-role-desc,
+body[data-phase="day"] #game-event-log,
+body[data-phase="day"] .game-brand,
+body[data-phase="day"] .game-room-tag,
+body[data-phase="day"] .game-list-label { color: #2b2418; }
+body[data-phase="day"] .chat-message,
+body[data-phase="day"] .chat-message .sender { color: #3a3122; }
+body[data-phase="day"] .chat-messages { background: rgba(255, 252, 243, 0.55); }
+body[data-phase="day"] .chat-input-bar input { color: #2b2418; }
+
+/* ================= DAY SURFACES, BELT AND BRACES =================
+   A phase theme has to beat component defaults that are declared with equal or
+   higher specificity in the per-screen files (lobby.css/game.css). `!important` on
+   background/border/text colour is the honest tool here, and it is contained to
+   day-mode surfaces only. */
+body[data-phase="day"] .role-card,
+body[data-phase="day"] .event-banner,
+body[data-phase="day"] .chat-container,
+body[data-phase="day"] .game-player-list,
+body[data-phase="day"] .game-topbar,
+body[data-phase="day"] .game-side,
+body[data-phase="day"] .player-item,
+body[data-phase="day"] .death-card,
+body[data-phase="day"] .vote-card {
+    background: rgba(246, 238, 219, 0.94) !important;
+    border-color: rgba(92, 74, 42, 0.30) !important;
+}
+body[data-phase="day"] .role-card .card-title,
+body[data-phase="day"] #my-role-desc,
+body[data-phase="day"] #game-event-log,
+body[data-phase="day"] .chat-header,
+body[data-phase="day"] .game-brand,
+body[data-phase="day"] .game-room-tag,
+body[data-phase="day"] #game-list-label,
+body[data-phase="day"] .lobby-section-label,
+body[data-phase="day"] .pname {
+    color: #2b2418 !important;
+}
+body[data-phase="day"] .chat-message,
+body[data-phase="day"] .chat-message .sender { color: #3a3122 !important; }
+body[data-phase="day"] .chat-messages { background: rgba(255, 252, 243, 0.5) !important; }
+body[data-phase="day"] .chat-input-bar input { color: #2b2418 !important; background: rgba(255,253,246,.92) !important; }
+/* Section labels that float directly over the bright sky need a dark ink. */
+body[data-phase="day"] .game-list-label { text-shadow: 0 1px 0 rgba(255,255,255,.5); }
