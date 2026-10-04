@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
@@ -241,6 +241,11 @@ if (!$schemaOk) {
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS seer_hp INT DEFAULT NULL");
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS hp_delta INT DEFAULT NULL");
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS damage_done INT DEFAULT 0");
+
+        // v11: Chaos Night distrust — a PUBLIC standing meter. Unlike HP it is sent
+        // to every client. Each day a seat's votes push it up by that vote's share
+        // of the day's total; reaching 100% is the only way the day removes anyone.
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS distrust DECIMAL(6,2) NOT NULL DEFAULT 0");
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS email_codes (
             id INT AUTO_INCREMENT PRIMARY KEY,

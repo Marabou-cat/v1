@@ -67,7 +67,7 @@ function beginGame(PDO $pdo, $roomCode) {
             // Settlement stats reset too, so a replayed room starts clean.
             $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL, bot_ready_at = NULL,
                                      hp = ?, max_hp = ?, heal_target = NULL, seer_hp = NULL, hp_delta = NULL,
-                                     damage_done = 0, wolf_votes = 0, special_kills = 0 WHERE id = ?");
+                                     damage_done = 0, wolf_votes = 0, special_kills = 0, distrust = 0 WHERE id = ?");
             $stmt->execute([$deck[$index], $startHp, $startHp, $player['id']]);
         }
 
@@ -450,6 +450,14 @@ function resolveDay(PDO $pdo, $roomCode) {
     $livingIds = [];
     foreach ($living as $p) $livingIds[(int)$p['id']] = true;
 
+    // Chaos Night plays its day by different rules: no execution, a public
+    // distrust meter instead. See resolveDayChaos().
+    $mRow = $pdo->prepare("SELECT mode FROM rooms WHERE room_code = ?");
+    $mRow->execute([$roomCode]);
+    if (validMode($mRow->fetchColumn()) === MODE_CHAOS) {
+        return resolveDayChaos($pdo, $roomCode, $living, $livingIds);
+    }
+
     $voteCounts = [];
     $skipCount = 0;
     foreach ($living as $p) {
@@ -528,6 +536,109 @@ function resolveDay(PDO $pdo, $roomCode) {
     $pdo->prepare("UPDATE rooms SET status = 'night', phase_started_at = ?, last_event = ?, last_vote = ? WHERE room_code = ?")
         ->execute([time(), $event, $result, $roomCode]);
     // Arm the new night's skill state.
+    resetNightState($pdo, $roomCode);
+    return true;
+}
+
+/* ================= CHAOS NIGHT DAY VOTE =================
+   Nobody is executed by a plurality here. Every vote pushes its target's PUBLIC
+   distrust up by that vote's SHARE of the day's votes:
+
+       distrust += 100 * (votes this seat received) / (total votes cast)
+
+   which means the points handed out in a round always sum to exactly 100, and a
+   unanimous vote exiles instantly. A seat is removed only when its distrust
+   REACHES 100%.
+   Distrust never decays — EXCEPT that a round in which nobody voted for you wipes
+   it back to zero, so pressure has to be kept on rather than spread once. */
+function resolveDayChaos(PDO $pdo, $roomCode, array $living, array $livingIds) {
+    // Everyone alive must have acted: a vote or an explicit abstention.
+    foreach ($living as $p) {
+        if (!(int)$p['vote_skip'] && $p['vote_id'] === null) return false;
+    }
+
+    $voteCounts = [];
+    $skips = 0;
+    $totalVotes = 0;
+    foreach ($living as $p) {
+        if ((int)$p['vote_skip']) { $skips++; continue; }
+        $tid = (int)$p['vote_id'];
+        // A vote aimed at someone no longer alive is not a vote.
+        if ($tid <= 0 || !isset($livingIds[$tid])) continue;
+        $voteCounts[$tid] = ($voteCounts[$tid] ?? 0) + 1;
+        $totalVotes++;
+    }
+
+    $roleById = [];
+    foreach ($living as $p) $roleById[(int)$p['id']] = $p['role'];
+
+    // Settlement stat: who aimed their vote at a werewolf. Folded into the same
+    // statement that clears the votes, so it costs no extra durable write.
+    $hitIds = [];
+    foreach ($living as $p) {
+        $tid = (int)$p['vote_id'];
+        if ($tid > 0 && isset($livingIds[$tid]) && ($roleById[$tid] ?? '') === 'Werewolf') {
+            $hitIds[] = (int)$p['id'];
+        }
+    }
+    $wolfVoteExpr = $hitIds
+        ? 'wolf_votes + (CASE WHEN id IN (' . implode(',', $hitIds) . ') THEN 1 ELSE 0 END)'
+        : 'wolf_votes';
+    $pdo->prepare("UPDATE players SET vote_id = NULL, vote_skip = 0, wolf_votes = $wolfVoteExpr WHERE room_code = ?")->execute([$roomCode]);
+
+    // Award the distrust. One short statement per living seat — this runs once per
+    // day, not on the poll hot path.
+    foreach ($living as $p) {
+        $id = (int)$p['id'];
+        $got = (int)($voteCounts[$id] ?? 0);
+        if ($totalVotes === 0 || $got === 0) {
+            $pdo->prepare("UPDATE players SET distrust = 0 WHERE id = ?")->execute([$id]);
+        } else {
+            $gain = 100.0 * $got / $totalVotes;
+            $pdo->prepare("UPDATE players SET distrust = LEAST(100, distrust + ?) WHERE id = ?")->execute([$gain, $id]);
+        }
+    }
+
+    // Read the meters back and exile anyone who hit 100%.
+    $s = $pdo->prepare("SELECT id, nickname, role, distrust FROM players WHERE room_code = ? AND is_alive = 1 ORDER BY distrust DESC");
+    $s->execute([$roomCode]);
+    $burning = [];
+    $exiled = [];
+    foreach ($s->fetchAll() as $p) {
+        $d = round((float)$p['distrust'], 1);
+        if ($d > 0) $burning[] = ['name' => $p['nickname'], 'distrust' => $d];
+        if ((float)$p['distrust'] >= 100.0) {
+            $pdo->prepare("UPDATE players SET is_alive = 0, hp = 0 WHERE id = ?")->execute([(int)$p['id']]);
+            $exiled[] = ['name' => $p['nickname'], 'role' => $p['role']];
+        }
+    }
+
+    if ($exiled) {
+        $who = [];
+        foreach ($exiled as $e) $who[] = '**' . $e['name'] . '** (' . $e['role'] . ')';
+        $event = 'Distrust boiled over — ' . implode(', ', $who)
+               . (count($exiled) === 1 ? ' was' : ' were') . ' driven out of the village. Night falls again...';
+    } elseif ($totalVotes === 0) {
+        $event = 'Everyone abstained — with nobody accused, all distrust faded back to zero. Night falls again...';
+    } else {
+        $event = 'The village cast ' . $totalVotes . ' vote' . ($totalVotes === 1 ? '' : 's')
+               . ' — distrust rose, but nobody was driven out yet. Night falls again...';
+    }
+
+    $result = json_encode([
+        'outcome' => $exiled ? 'exiled' : ($totalVotes === 0 ? 'quiet' : 'distrust'),
+        'chaos'   => true,
+        'votes'   => $totalVotes,
+        'skipped' => $skips,
+        'tied'    => 0,
+        'name'    => $exiled ? $exiled[0]['name'] : '',
+        'role'    => $exiled ? $exiled[0]['role'] : '',
+        'burning' => array_slice($burning, 0, 4)
+    ]);
+
+    $pdo->prepare("UPDATE players SET bot_ready_at = NULL WHERE room_code = ? AND is_bot = 1")->execute([$roomCode]);
+    $pdo->prepare("UPDATE rooms SET status = 'night', phase_started_at = ?, last_event = ?, last_vote = ? WHERE room_code = ?")
+        ->execute([time(), $event, $result, $roomCode]);
     resetNightState($pdo, $roomCode);
     return true;
 }

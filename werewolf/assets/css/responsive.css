@@ -105,3 +105,43 @@
 .player-info-wrap > .vote-badge,
 .player-info-wrap > .p-hp,
 .player-info-wrap > svg { flex: none; }
+
+/* ================= SHORT LEAVE / CANCEL, BELOW THE CONTENT =================
+   These used to be full-width bars pinned at the top of the matching and lobby
+   screens. They are secondary actions, so they now sit under the content as a
+   short pill. */
+.back-row { display: flex; justify-content: center; margin-top: 14px; }
+.back-btn.compact {
+    /* The base .back-btn is position:absolute at top-left (a pinned bar) — that is
+       exactly what has to be undone for it to sit in the flow under the content. */
+    position: static;
+    top: auto; left: auto;
+    width: auto;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    padding: 6px 14px 6px 10px;
+    gap: 5px;
+    border-radius: 999px;
+    opacity: 0.88;
+}
+.back-btn.compact:hover { opacity: 1; }
+
+/* ================= NAME LINE STABILITY =================
+   A FIXED flex-basis on the name made it wrap onto its own line on narrow cards,
+   so seats with a vote chip put their name on line 1 while seats without one
+   pushed it down. Let the name shrink (it ellipsises) and let the CHIPS be the
+   things that wrap — every card then keeps its name on the avatar's line. */
+.player-info-wrap > .pname { flex: 0 1 auto; min-width: 0; }
+
+/* ================= CHAOS NIGHT: PUBLIC DISTRUST METER ================= */
+.distrust-chip {
+    display: inline-flex; align-items: center; gap: 4px; flex: none;
+    font-size: 0.62rem; font-weight: 900; letter-spacing: 0.4px;
+    padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+    background: rgba(168, 85, 247, 0.18);
+    color: #d8b4fe;
+    border: 1px solid rgba(168, 85, 247, 0.45);
+}
+.distrust-chip.warn { background: rgba(251, 191, 36, 0.18); color: #fcd34d; border-color: rgba(251, 191, 36, 0.5); }
+.distrust-chip.hot { background: rgba(239, 68, 68, 0.22); color: #fca5a5; border-color: rgba(239, 68, 68, 0.6); }

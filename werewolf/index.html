@@ -177,7 +177,6 @@
 
         <!-- VIEW 3b: MATCHING IN PROGRESS (radar animation + elapsed match time) -->
         <section id="view-matching" class="screen hidden">
-            <button class="back-btn" onclick="leaveToMenu()"><i data-lucide="arrow-left" size="18"></i> Cancel</button>
             <div class="panel-wide mm-stage">
                 <h2 class="mm-view-title"><i data-lucide="radar" size="26"></i> Finding Match</h2>
 
@@ -201,12 +200,17 @@
                     <div id="mm-players" style="font-size:0.82rem;color:#cbd5e1;margin-top:10px;line-height:1.5;font-weight:600;">Waiting for players...</div>
                     <button id="mm-suggest-btn" class="btn-secondary mm-suggest-btn hidden"></button>
                 </div>
+
+                <!-- Kept short and BELOW the content rather than as a top-left
+                     bar: cancelling is not the primary action here. -->
+                <div class="back-row">
+                    <button class="back-btn compact" onclick="leaveToMenu()"><i data-lucide="x" size="14"></i> Cancel</button>
+                </div>
             </div>
         </section>
 
         <!-- VIEW 4: LOBBY SCREEN -->
         <section id="view-lobby" class="screen hidden">
-            <button class="back-btn" onclick="leaveToMenu()"><i data-lucide="arrow-left" size="18"></i> Leave</button>
             <div class="lobby-wrap">
                 <div class="room-badge">
                     <span style="font-size: 0.85rem; color: var(--accent-gold); display: block; margin-bottom: 8px; letter-spacing: 3px; font-weight: 800;">BATTLE CODE</span>
@@ -222,6 +226,11 @@
                     <button id="btn-start-game" class="btn-primary" onclick="handleStartGame()" disabled>
                         <i data-lucide="moon" size="22"></i> Start Match (Host Only)
                     </button>
+                </div>
+
+                <!-- Short, and below the room content instead of a top-left bar. -->
+                <div class="back-row">
+                    <button class="back-btn compact" onclick="leaveToMenu()"><i data-lucide="log-out" size="14"></i> Leave</button>
                 </div>
             </div>
         </section>

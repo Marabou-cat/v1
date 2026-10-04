@@ -69,6 +69,37 @@
                 el.classList.remove('show');
                 return;
             }
+            // Chaos Night: the day never executes anybody — votes feed a PUBLIC
+            // distrust meter, and only reaching 100% removes a player.
+            if (v.chaos) {
+                if (v.outcome === 'exiled') {
+                    el.classList.add('lynched');
+                    icon.innerText = '⚖️';
+                    title.innerText = (v.name || 'Someone') + ' was driven out';
+                    sub.innerText = 'Distrust hit 100%. They were a ' + (v.role || '?') + '.';
+                    playSound('lynch');
+                } else if (v.outcome === 'quiet') {
+                    el.classList.add('skip');
+                    icon.innerText = '🕊️';
+                    title.innerText = 'Nobody was accused';
+                    sub.innerText = 'Every distrust meter faded back to zero.';
+                    playSound('ui_confirm');
+                } else {
+                    el.classList.add('tie');
+                    icon.innerText = '⚖️';
+                    title.innerText = 'Distrust rises';
+                    const top = (v.burning && v.burning.length)
+                        ? v.burning.map(function (b) { return b.name + ' ' + Math.round(b.distrust) + '%'; }).join(' · ')
+                        : '';
+                    sub.innerText = (v.votes || 0) + ' vote' + ((v.votes === 1) ? '' : 's') + ' cast — nobody driven out yet.'
+                        + (top ? ' ' + top : '');
+                    playSound('ui_confirm');
+                }
+                el.classList.add('show');
+                clearTimeout(state.voteCutsceneTimer);
+                state.voteCutsceneTimer = setTimeout(() => el.classList.remove('show'), 3200);
+                return;
+            }
             if (v.outcome === 'lynched') {
                 el.classList.add('lynched');
                 icon.innerText = '⚖️';

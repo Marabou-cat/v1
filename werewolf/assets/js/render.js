@@ -38,9 +38,17 @@
                 hpBar = `<span class="p-hp"><span class="p-hp-track"><span class="p-hp-fill${lvl}" style="width:${pct}%"></span></span><span class="p-hp-num">${p.hp}</span></span>`;
             }
             const packTag = p.is_wolf ? '<span class="pack-tag">PACK</span>' : '';
+            // Chaos Night: distrust is PUBLIC — every seat reads every meter, and
+            // hitting 100% is what drives a player out of the village.
+            let distrustChip = '';
+            if (p.distrust !== null && p.distrust !== undefined) {
+                const d = Math.round(p.distrust);
+                const dc = d >= 67 ? ' hot' : (d >= 34 ? ' warn' : '');
+                distrustChip = `<span class="distrust-chip${dc}" title="Public distrust — at 100% they are driven out">⚖ ${d}%</span>`;
+            }
             return `
                 <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
-                    <span class="player-info-wrap">${avatar} ${statusIcon} <span class="pname">${esc(p.nickname)}</span> ${youTag} ${packTag} ${roleChip} ${myVoteTag} ${voteBadge} ${hpBar} ${bloodPile}</span>
+                    <span class="player-info-wrap">${avatar} ${statusIcon} <span class="pname">${esc(p.nickname)}</span> ${youTag} ${packTag} ${roleChip} ${myVoteTag} ${voteBadge} ${distrustChip} ${hpBar} ${bloodPile}</span>
                     ${extra}
                 </li>
             `;
