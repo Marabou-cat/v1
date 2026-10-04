@@ -58,9 +58,11 @@ function renderHall(data) {
     if (!hero || !stage) return;
 
     const mine = myCharacter();
-    hero.innerHTML = '<span class="hall-you">' + avatarHtml(mine, 104) + '</span>'
+    hero.innerHTML = '<button class="hall-you-btn" onclick="openCharacterPicker()" title="Tap to choose your character">'
+        + '<span class="hall-you">' + avatarHtml(mine, 104) + '</span>'
         + '<span class="hall-you-info"><b>' + esc(hallNickname()) + '</b>'
-        + '<span class="hall-you-tag" title="Change this in Settings">your character</span></span>';
+        + '<span class="hall-you-tag">your character &middot; tap to change</span></span>'
+        + '</button>';
 
     const list = (data && data.hall) ? data.hall : [];
     let html = '';
@@ -129,3 +131,60 @@ function stopHall() {
 function refreshHallSeat() {
     if (state.hallOn) { renderHall(state.lastHall || null); hallBeat(); }
 }
+
+/* ================= CHOOSING YOUR CHARACTER =================
+   A GUEST has no account to hang an avatar on, so the hall is where they pick one
+   — tap your own portrait. Signed-in players who pick here also save it to the
+   account (pickAvatar), so the choice follows them to every device. */
+function openCharacterPicker() {
+    let m = document.getElementById('char-picker');
+    if (!m) {
+        m = document.createElement('div');
+        m.id = 'char-picker';
+        m.className = 'char-picker';
+        document.body.appendChild(m);
+    }
+    const cur = myCharacter();
+    m.innerHTML = '<div class="cp-card">'
+        + '<div class="cp-head"><h3>Choose your character</h3>'
+        + '<span class="cp-sub">This is the face you wear in the hall and at the table.</span></div>'
+        + '<div class="cp-grid">'
+        + avatarAllIds().map(function (k) {
+            const d = avatarDef(k);
+            const on = (k === cur) ? ' on' : '';
+            return '<button class="cp-item' + on + '" onclick="chooseCharacter(\'' + k + '\')" title="' + esc(d.label) + '">'
+                + avatarHtml(k, 52) + '<b>' + esc(d.label) + '</b></button>';
+        }).join('')
+        + '</div>'
+        + '<button class="cp-close" onclick="closeCharacterPicker()">Done</button>'
+        + '</div>';
+    m.classList.add('show');
+    if (window.lucide) lucide.createIcons();
+}
+
+function chooseCharacter(id) {
+    if (!isCharacterAvatar(id) && !AVATARS[id]) return;
+    state.hallChar = id;
+    hallStore(HALL_KEY_AV, id);
+    if (typeof playSound === 'function') playSound('ui_click');
+    // Signed in: persist to the account too so every device agrees.
+    if (state.authUser && typeof pickAvatar === 'function') pickAvatar(id);
+    renderHall(state.lastHall || null);
+    openCharacterPicker();                  // repaint the grid with the new tick
+    if (state.hallOn) hallBeat();            // show the new face to the hall at once
+}
+
+function closeCharacterPicker() {
+    const m = document.getElementById('char-picker');
+    if (m) m.classList.remove('show');
+}
+
+/* Tap anywhere outside the card, or Esc, to dismiss. */
+document.addEventListener('click', function (e) {
+    const m = document.getElementById('char-picker');
+    if (!m || !m.classList.contains('show')) return;
+    if (e.target === m) closeCharacterPicker();
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeCharacterPicker();
+});

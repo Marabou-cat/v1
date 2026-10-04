@@ -150,3 +150,88 @@ input:focus-visible, button:focus-visible {
 @media (prefers-reduced-motion: reduce) {
     .hall, .hall-seat, .screen, .hall-you .avatar { animation: none !important; }
 }
+
+/* ================= CHOOSING YOUR CHARACTER ================= */
+/* The hero is a button now — strip the browser chrome. */
+.hall-you-btn {
+    display: flex; align-items: center; gap: 14px;
+    background: none; border: 0; padding: 0; margin: 0;
+    cursor: pointer; text-align: left; font: inherit; color: inherit;
+}
+.hall-you-btn:hover .hall-you .avatar,
+.hall-you-btn:focus-visible .hall-you .avatar {
+    box-shadow: 0 0 0 3px rgba(233, 200, 106, 0.7), 0 0 42px rgba(233, 200, 106, 0.45);
+}
+
+.char-picker {
+    position: fixed; inset: 0; z-index: 70;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(4, 6, 10, 0.74);
+    backdrop-filter: blur(3px);
+    padding: 18px;
+}
+.char-picker.show { display: flex; animation: cpIn 0.2s ease both; }
+@keyframes cpIn { from { opacity: 0; } to { opacity: 1; } }
+.cp-card {
+    width: min(560px, 94vw); max-height: 88vh; overflow-y: auto;
+    border-radius: 20px;
+    border: 1px solid rgba(233, 200, 106, 0.28);
+    background: linear-gradient(180deg, #171b26, #0e1118);
+    padding: 18px;
+    box-shadow: 0 26px 64px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.cp-head h3 { margin: 0; font: 800 1.05rem/1.2 system-ui; color: #f2ece0; letter-spacing: 0.3px; }
+.cp-sub { display: block; margin: 4px 0 14px; font-size: 0.72rem; color: rgba(148, 163, 184, 0.9); }
+.cp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
+.cp-item {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 9px 4px; border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+.cp-item:hover { transform: translateY(-2px); border-color: rgba(233, 200, 106, 0.42); }
+.cp-item.on { border-color: var(--accent-gold, #e9c86a); box-shadow: 0 0 0 2px rgba(233, 200, 106, 0.35); }
+.cp-item b { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.4px; color: rgba(226, 232, 240, 0.85); }
+.cp-close {
+    margin-top: 16px; width: 100%; padding: 11px; border-radius: 12px; border: 0; cursor: pointer;
+    background: linear-gradient(180deg, #e9c86a, #c99b2e); color: #1a1408;
+    font-weight: 900; letter-spacing: 0.6px;
+}
+
+/* ================= POLISH PASS 2 (in-game surfaces) =================
+   Conservative: colour, depth, motion and spacing only. No layout changes, so
+   nothing here can break a flow — and it loads last, so it can gently correct
+   the per-screen files without specificity fights. */
+
+/* --- roster cards: a clear hover/selected state, and a softer seat --- */
+.player-item {
+    border-radius: 14px;
+    transition: transform 0.14s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.player-item:hover { transform: translateY(-1px); }
+.player-item.me { box-shadow: inset 0 0 0 1px rgba(233, 200, 106, 0.32), 0 6px 18px rgba(0, 0, 0, 0.34); }
+.player-item.voted-by-me { box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.45), 0 6px 20px rgba(56, 189, 248, 0.16); }
+.player-item.dead { filter: saturate(0.55); }
+.p-hp-track { border-radius: 999px; overflow: hidden; }
+.p-hp-fill { transition: width 0.4s ease; }
+
+/* --- chat: readable bubbles with a little lift --- */
+#chat-messages .msg, #chat-messages .chat-msg { border-radius: 12px; }
+#chat-messages .msg + .msg { margin-top: 6px; }
+
+/* --- lobby: the battle code is the thing people read out loud --- */
+.room-badge { border-radius: 18px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 12px 30px rgba(0, 0, 0, 0.35); }
+.room-code { letter-spacing: 10px; text-shadow: 0 0 22px rgba(233, 200, 106, 0.35); }
+
+/* --- panels/section labels get one consistent rhythm --- */
+.lobby-section-label { letter-spacing: 1.8px; }
+
+/* --- the phase banner is the board's heartbeat: give it presence --- */
+.game-topbar { backdrop-filter: blur(4px); }
+
+/* --- nothing should ever animate for someone who asked it not to --- */
+@media (prefers-reduced-motion: reduce) {
+    .player-item, .p-hp-fill, .btn-primary, .btn-secondary, .btn-action { transition: none !important; transform: none !important; }
+}
