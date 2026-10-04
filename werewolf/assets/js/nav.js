@@ -68,8 +68,11 @@
         function leaveToMenu() {
             const rc = state.roomCode;
             const tk = state.token;
-            const inGame = state.lastPhase && state.lastPhase !== 'lobby';
-            if (inGame && !confirm('Leave the match? Your seat will be abandoned.')) {
+            // Only ask while a match is genuinely LIVE. Keying this off "not in the
+            // lobby" meant a finished table still demanded "Leave the match? Your
+            // seat will be abandoned." — there is nothing left to abandon by then.
+            const live = (state.lastRoomStatus === 'night' || state.lastRoomStatus === 'day');
+            if (live && !confirm('Leave the match? Your seat will be abandoned.')) {
                 return;
             }
             // Tell the server to remove us BEFORE we wipe local state, so we

@@ -32,6 +32,11 @@
             });
             {
                 const data = await res.json();
+                // A response that lands AFTER we left the table must be dropped whole.
+                // The room is still 'ended'/'night' server-side for a moment after we
+                // leave, and the game-screen branch below re-opened it on top of the
+                // menu — which made "Back to Menu" look like it had not worked.
+                if (!state.roomCode) return;
                 if (data.state_sig) state.pollSig = data.state_sig;
                 if (data.status !== 'success') {
                     // Room dissolved (everyone left) — drop back to the menu.
