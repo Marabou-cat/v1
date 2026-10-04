@@ -6,6 +6,7 @@
         initTitleDrips();
         initAmbient();
         initNickname();
+        initSettings();
         initAuth();
         lucide.createIcons();
     

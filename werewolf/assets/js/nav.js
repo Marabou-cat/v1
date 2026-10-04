@@ -20,6 +20,7 @@
             if (screenId === 'view-create') updateRolePreview();
             if (screenId === 'view-match') updateMatchRolePreview();
             if (typeof placeAuthBar === 'function') placeAuthBar(screenId);
+            if (typeof updateBgmForScreen === 'function') updateBgmForScreen(screenId, state.roomStatus);
             lucide.createIcons();
         }
 

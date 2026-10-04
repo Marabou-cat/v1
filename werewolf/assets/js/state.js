@@ -37,6 +37,7 @@
             myId: 0,
             authUser: null,
             authSig: '',
+            lobbyCount: 0,
             voice: { on: false, muted: false, stream: null, pcs: {}, pendingIce: {}, audioEls: {} },
             lastRoomStatus: '',
             lastAlive: null,

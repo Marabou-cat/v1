@@ -81,6 +81,9 @@
                 document.body.appendChild(el);
                 state.voice.audioEls[peerId] = el;
             }
+            // Settings > "Mute other players" applies to every incoming stream,
+            // including ones that connect after the toggle was flipped.
+            if (typeof sound !== 'undefined' && sound.cfg) el.muted = !!sound.cfg.muteOthers;
             el.srcObject = stream;
             const p = el.play();
             if (p && p.catch) p.catch(() => {});

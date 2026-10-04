@@ -385,4 +385,48 @@
             .auth-stats { display: none; }
         }
 
+        /* ---- Rank emblems (inline <symbol>s; asset files in assets/img/rank/) ---- */
+        .rank-icon { width: 18px; height: 18px; fill: currentColor; display: block; flex: none; }
+        .rank-icon.rank-lg { width: 36px; height: 36px; }
+        .rank-bronze   { color: #cd7f32; }
+        .rank-silver   { color: #cbd5e1; }
+        .rank-gold     { color: #ffcc00; }
+        .rank-platinum { color: #7dd3fc; }
+        .rank-diamond  { color: #a78bfa; }
+        .rank-master   { color: #ff4d4d; }
+        .rank-diamond, .rank-master { filter: drop-shadow(0 0 5px currentColor); }
+        .tier-wrap { display: inline-flex; align-items: center; }
+
+        /* ---- Settings panel ---- */
+        .set-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 14px; padding: 11px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .set-row:last-of-type { border-bottom: none; }
+        .set-txt { min-width: 0; }
+        .set-label { font-size: 0.86rem; font-weight: 800; color: #e2e8f0; }
+        .set-hint { font-size: 0.72rem; color: #64748b; font-weight: 600; margin-top: 2px; }
+        .toggle {
+            width: 58px !important; flex: none; padding: 6px 0 !important;
+            font-size: 0.72rem !important; font-weight: 800 !important;
+            border-radius: 999px !important; box-shadow: none !important;
+            cursor: pointer; opacity: 0.5; letter-spacing: 1px; text-transform: uppercase;
+        }
+        .toggle.on {
+            opacity: 1; background: var(--accent-gold) !important;
+            border-color: var(--accent-gold) !important; color: #1a1205 !important;
+        }
+        .set-sep { height: 1px; background: rgba(255, 255, 255, 0.06); margin: 16px 0; }
+        .set-account { display: flex; align-items: center; gap: 12px; }
+        .set-account-txt { display: flex; flex-direction: column; min-width: 0; }
+        .set-account-txt b { font-size: 0.95rem; color: #f1f5f9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .set-account-txt span { font-size: 0.75rem; color: #94a3b8; font-weight: 700; }
+        .set-signout {
+            margin-top: 14px; width: 100% !important; padding: 9px 0 !important;
+            font-size: 0.78rem !important; border-radius: 10px !important;
+            box-shadow: none !important; opacity: 0.75; cursor: pointer;
+        }
+        .set-guest { font-size: 0.8rem; color: #94a3b8; font-weight: 600; margin: 0; }
+        .set-credit { margin-top: 16px; font-size: 0.63rem; color: #475569; font-weight: 600; text-align: center; line-height: 1.5; }
+
         

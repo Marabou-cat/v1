@@ -78,6 +78,8 @@
                         const safeAppend = total > known && known < 40;
                         if (safeAppend) {
                             const fresh = data.messages.slice(Math.max(0, known));
+                            // Soft bong for incoming chat, but not for my own echo.
+                            if (fresh.some(m => m.sender_name !== state.nickname)) playSound('chat');
                             const html = fresh.map(m => `
                                 <div class="chat-message"><span class="sender">${esc(m.sender_name)}:</span> ${m.message}</div>
                             `).join('');
@@ -112,6 +114,10 @@
                         // The village has just tallied: cut to the result
                         // (executed / tied / abstained) before night takes over.
                         showVoteCutscene(data.last_vote);
+                        playSound('night_fall');       // the wolf howl
+                    }
+                    if (prevStatus === 'night' && data.room_status === 'day') {
+                        playSound('day_break');        // dawn bell
                     }
                     if (prevStatus === 'lobby' && data.room_status === 'night') {
                         // New match: reset per-game death / blackout state.
@@ -120,9 +126,19 @@
                         state.spectating = false;
                         const dEl = document.getElementById('death-overlay');
                         if (dEl) dEl.classList.remove('show');
+                        playSound('game_start');
+                    }
+                    if (data.room_status === 'ended') {
+                        // Either side can win, and guests have no recorded result,
+                        // so derive it from the winning side + my own role.
+                        const villagersWon = /Villagers win/i.test(data.last_event || '');
+                        const iWon = (data.my_role === 'Werewolf') ? !villagersWon : villagersWon;
+                        playSound(iWon ? 'victory' : 'defeat', { volume: 0.8 });
                     }
                     state.lastRoomStatus = data.room_status;
                 }
+                // Music follows the phase (no-op when the track is unchanged).
+                updateBgmForScreen('view-game', data.room_status);
                 updateNightUI(data);
                 updateDeathUI(data);
 
@@ -133,6 +149,12 @@
 
                     document.getElementById('player-count').innerText = data.current_count;
                     document.getElementById('player-max').innerText = data.max_players;
+
+                    // Doorbell for the lobby roster.
+                    const prevCount = state.lobbyCount || 0;
+                    if (prevCount && data.current_count > prevCount) playSound('join');
+                    else if (prevCount && data.current_count < prevCount) playSound('leave');
+                    state.lobbyCount = data.current_count;
 
                     renderRosterList(document.getElementById('player-list-ui'), data, null, 'lobby');
 

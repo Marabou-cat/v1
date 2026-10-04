@@ -41,11 +41,8 @@
             });
             const data = await res.json();
             if (data.status !== 'success') alert(data.message);
+            else playSound('sleep');
         }
-
-        // Renders the role's night-skill panel: Seer vision, Witch poison
-        // control, and the Doctor's shared revive prompt. Hidden off-night and
-        // during the pre-night chat window.
         function renderSkillPanel(data) {
             const el = document.getElementById('skill-panel');
             if (!el) return;
@@ -156,7 +153,8 @@
                 body: new URLSearchParams({ action: 'day_vote', room_code: state.roomCode, token: state.token, vote_id: voteId })
             });
             const data = await res.json();
-            if (data.status !== 'success') alert(data.message);
+            if (data.status !== 'success') { playSound('ui_error'); alert(data.message); }
+            else playSound('vote_cast');
         }
 
         // Abstain. Tallied as a "skip" vote: if abstentions outnumber the most
@@ -168,7 +166,8 @@
                 body: new URLSearchParams({ action: 'day_vote', room_code: state.roomCode, token: state.token, skip: 1 })
             });
             const data = await res.json();
-            if (data.status !== 'success') alert(data.message);
+            if (data.status !== 'success') { playSound('ui_error'); alert(data.message); }
+            else playSound('vote_cast', { volume: 0.5 });
         }
 
         

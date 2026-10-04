@@ -26,9 +26,10 @@ function applyAuthUser(u) {
     if (state.authUser) {
         guest.style.display = 'none';
         user.style.display = 'flex';
+        // Rank emblem instead of text; the tier name rides the tooltip.
         const tier = document.getElementById('auth-tier');
-        tier.innerText = u.tier;
-        tier.className = 'tier-badge ' + authTierClass(u.tier);
+        tier.innerHTML = rankIconSvg(u.tier);
+        tier.title = u.tier;
         document.getElementById('auth-name').innerText = u.name;
         document.getElementById('auth-stats').innerText = u.games > 0
             ? `${u.rating} · ${u.wins}W-${u.losses}L · ${u.win_rate}%`
@@ -38,6 +39,7 @@ function applyAuthUser(u) {
         user.style.display = 'none';
     }
     if (window.lucide) lucide.createIcons();
+    if (typeof renderSettingsAccount === 'function') renderSettingsAccount();
 }
 
 async function refreshAuth() {

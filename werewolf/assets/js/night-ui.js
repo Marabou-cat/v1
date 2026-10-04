@@ -51,6 +51,7 @@
                 el.classList.add('show');
                 if (window.lucide) lucide.createIcons();
                 if (state.voice && state.voice.on) stopVoice();  // mic off for the dead
+                playSound('death');
             }
             state.lastAlive = alive;
         }
@@ -73,11 +74,13 @@
                 icon.innerText = '⚖️';
                 title.innerText = (v.name || 'Someone') + ' was executed';
                 sub.innerText = 'The village voted them out. They were a ' + (v.role || '?') + '.';
+                playSound('lynch');
             } else if (v.outcome === 'tie') {
                 el.classList.add('tie');
                 icon.innerText = '🤝';
                 title.innerText = 'The vote was tied';
                 sub.innerText = (v.tied || 2) + ' players shared the most votes — nobody was executed.';
+                playSound('ui_confirm');
             } else {
                 el.classList.add('skip');
                 icon.innerText = '🕊️';
