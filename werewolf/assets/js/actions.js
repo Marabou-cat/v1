@@ -5,7 +5,14 @@
 /* ================= ACTIONS ================= */
         async function submitNightAction(targetId, btn) {
             // Acknowledge the tap before the write: see feedback.js for why.
-            if (btn) { lockChoice(document.getElementById('game-player-list'), btn); markCardActed(btn); }
+            if (btn) {
+                lockChoice(document.getElementById('game-player-list'), btn);
+                markCardActed(btn);
+                // Only the pack gets the bite animation — the Seer's and Doctor's
+                // buttons post through this same handler.
+                const g = state.lastGame;
+                if (g && g.my_role === 'Werewolf') clawSlash(btn);
+            }
             playSound('ui_click');
             const res = await fetch('backend.php', {
                 method: 'POST',

@@ -221,6 +221,25 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             $myMaxHp = CHAOS_HP;
         }
 
+        // Chaos Night: a WEREWOLF reads every player's vitals and can pick out the
+        // rest of the pack. Everyone else still sees nothing but their own numbers.
+        $wolfVision = (validMode($room['mode'] ?? '') === MODE_CHAOS
+                       && $myRole === 'Werewolf'
+                       && in_array($room['status'], ['night', 'day'], true));
+
+        // Being bitten is FELT immediately: while the night is running, tell the
+        // victim a claw is on them, so the sting lands before dawn announces the
+        // body. Sums every wolf whose bite is pointed at this seat.
+        $incomingDamage = 0;
+        if ($room['status'] === 'night' && $isAlive && (int)$myId > 0) {
+            foreach ($players as $p) {
+                if ($p['role'] === 'Werewolf' && (int)$p['is_alive'] === 1
+                    && (int)($p['target_id'] ?? 0) === (int)$myId) {
+                    $incomingDamage += CHAOS_BITE;
+                }
+            }
+        }
+
         // Skill info for THIS player only (never leaked to other seats).
         $mySeerTargetName = null;
         if ($mySeerTarget) {
@@ -279,6 +298,25 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $room['status'] = 'ended';
                 $room['last_event'] = 'Werewolves win! They have outnumbered the villagers.';
             }
+
+            // A finished table must not keep pending day-vote marks. The client
+            // renders "Voted"/"YOUR VOTE" straight from my_vote_id, but the tally is
+            // only computed while the room is in the day phase — so a leftover mark
+            // showed up as a vote that was never counted anywhere.
+            if ($room['status'] === 'ended') {
+                $pdo->prepare("UPDATE players SET vote_id = NULL, vote_skip = 0 WHERE room_code = ?")->execute([$roomCode]);
+                foreach ($players as $i => $pp) {
+                    $players[$i]['vote_id'] = null;
+                    $players[$i]['vote_skip'] = 0;
+                }
+                // The per-viewer scalars were captured from the snapshot read
+                // BEFORE this point, so they must be reset too — otherwise the
+                // payload still carried my_vote_id and the client drew a vote mark
+                // for a vote that no longer exists anywhere.
+                $myVoteId = null;
+                $myVoteSkip = 0;
+                $hasVoted = false;
+            }
         }
 
         // Live vote tally — only counted (and only revealed) during the day, so
@@ -311,10 +349,13 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 "nickname" => $p['nickname'],
                 "avatar" => $p['avatar'] ?: 'paw',
                 "is_alive" => $isAlive,
-                // HP is HIDDEN during play: it is only revealed once the match is
-                // over. Sending another player's HP mid-game would leak the whole
-                // point of the mode to anyone reading the network response.
-                "hp" => ($room['status'] === 'ended' && $p['hp'] !== null) ? (int)$p['hp'] : null,
+                // HP is HIDDEN during play — EXCEPT from a werewolf, who was given
+                // full vision of the table (and of the pack). It is also public once
+                // the match is over. Never send anyone else's HP to a non-wolf seat:
+                // the response is readable by whoever holds that browser.
+                "hp" => (($room['status'] === 'ended' || $wolfVision) && $p['hp'] !== null) ? (int)$p['hp'] : null,
+                "max_hp" => (($room['status'] === 'ended' || $wolfVision) && $p['max_hp'] !== null) ? (int)$p['max_hp'] : null,
+                "is_wolf" => ($wolfVision && $p['role'] === 'Werewolf') ? 1 : 0,
                 "role" => $role,
                 "is_bot" => (int)($p['is_bot'] ?? 0),
                 "votes" => (int)($voteTally[(int)$p['id']] ?? 0),
@@ -383,6 +424,8 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             "my_hp_delta" => $myHpDelta,
             "my_heal_target" => $myHealTarget,
             "my_seer_hp" => $mySeerHp,
+            // How hard the pack is biting THIS seat right now (0 = not attacked).
+            "incoming_damage" => $incomingDamage,
             "mvp_villager" => $mvpVillager,
             "mvp_wolf" => $mvpWolf,
 

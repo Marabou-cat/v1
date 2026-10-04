@@ -27,9 +27,20 @@
             const roleChip = revealedRole
                 ? `<span class="role-chip" style="color:${roleChipColor(revealedRole)};">${revealedRole}</span>` : '';
             const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''} ${iVotedThis ? 'voted-by-me' : ''} ${noAnim ? 'no-anim' : ''}`;
+            // Chaos Night: a werewolf is sent every player's HP (the server only
+            // includes it for that seat — it is null for everyone else). Show a
+            // compact bar + number when it is present. `is_wolf` marks the pack.
+            let hpBar = '';
+            if (p.hp !== null && p.hp !== undefined) {
+                const mx = p.max_hp || 100;
+                const pct = Math.max(0, Math.min(100, Math.round(p.hp * 100 / mx)));
+                const lvl = pct <= 34 ? ' low' : (pct <= 67 ? ' mid' : '');
+                hpBar = `<span class="p-hp"><span class="p-hp-track"><span class="p-hp-fill${lvl}" style="width:${pct}%"></span></span><span class="p-hp-num">${p.hp}</span></span>`;
+            }
+            const packTag = p.is_wolf ? '<span class="pack-tag">PACK</span>' : '';
             return `
                 <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
-                    <span class="player-info-wrap">${avatar} ${statusIcon} <span class="pname">${esc(p.nickname)}</span> ${youTag} ${roleChip} ${myVoteTag} ${voteBadge} ${bloodPile}</span>
+                    <span class="player-info-wrap">${avatar} ${statusIcon} <span class="pname">${esc(p.nickname)}</span> ${youTag} ${packTag} ${roleChip} ${myVoteTag} ${voteBadge} ${hpBar} ${bloodPile}</span>
                     ${extra}
                 </li>
             `;

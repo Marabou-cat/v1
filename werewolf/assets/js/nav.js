@@ -88,6 +88,7 @@
             // stops a duplicate replay), so it must be dismissed explicitly here —
             // otherwise EXIT leaves it sitting over the menu.
             if (typeof hideVictory === 'function') hideVictory();
+            if (typeof clearClaw === 'function') clearClaw();
             state.lastRoomStatus = '';
             state.lastAlive = null;
             state.deathShown = false;

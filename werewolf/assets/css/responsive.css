@@ -84,3 +84,24 @@
             .drips { display: none; }
         }
     
+
+/* ================= ROSTER CARD: NO OVERFLOW / NO OVERLAP =================
+   Loaded last on purpose: this must beat the per-file base rules above.
+   The meta row carries avatar + status + name + YOU/PACK/role/vote chips + the
+   HP bar with a 12px gap each. That easily exceeded the card width, so the chips
+   collided with each other and the vote count was unreadable. Now the row wraps
+   and NOTHING shrinks except the name, which ellipsises. */
+.player-info-wrap {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    align-items: center;
+}
+.player-info-wrap > .pname { flex: 1 1 60px; min-width: 0; }
+.player-info-wrap > .avatar,
+.player-info-wrap > .you-tag,
+.player-info-wrap > .pack-tag,
+.player-info-wrap > .role-chip,
+.player-info-wrap > .my-vote-tag,
+.player-info-wrap > .vote-badge,
+.player-info-wrap > .p-hp,
+.player-info-wrap > svg { flex: none; }

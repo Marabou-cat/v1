@@ -55,6 +55,8 @@
                 if ('me' in data) applyAuthUser(data.me);
                 // Your own HP pill (Chaos Night only; hides itself otherwise).
                 renderVitals(data);
+                // The bite: claw marks + red smoke while wolves are on this seat.
+                renderClaw(data);
 
                 // Matchmaking wait strip (countdown + bot-fill indicator).
                 updateMmStatus(data);
@@ -231,7 +233,8 @@
 
                     if (data.last_event && data.last_event !== state.lastEvent) {
                         state.lastEvent = data.last_event;
-                        document.getElementById('game-event-log').innerHTML = data.last_event || 'Game in progress...';
+                        // One character at a time, fast (see combat.js).
+                        typewriteEvent(data.last_event);
                         flashEventBanner();
                     }
 

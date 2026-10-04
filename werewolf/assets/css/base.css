@@ -607,3 +607,121 @@
         @media (prefers-reduced-motion: reduce) {
             .vitals-delta.down { animation: none !important; }
         }
+
+        /* ================= BITE: CLAW + RED SMOKE =================
+           A bitten player feels it during the night. Intensity is driven by
+           data-lvl (0-4) on #claw-overlay, set from the server's incoming_damage. */
+        #claw-overlay {
+            position: fixed; inset: 0; z-index: 9500; pointer-events: none;
+            opacity: 0; transition: opacity 0.55s ease;
+        }
+        #claw-overlay.show { opacity: 1; }
+        .claw-smoke { position: absolute; inset: -12%; filter: blur(40px); transition: opacity 0.5s ease; }
+        .claw-smoke i {
+            position: absolute; display: block; border-radius: 50%;
+            background: radial-gradient(circle, rgba(206, 0, 26, 0.8), rgba(120, 0, 12, 0.28) 55%, transparent 74%);
+            animation: smokeDrift 7.5s ease-in-out infinite alternate;
+        }
+        .claw-smoke i:nth-child(1) { left: -6%; top: 4%;    width: 62%; height: 58%; }
+        .claw-smoke i:nth-child(2) { right: -8%; top: 12%;  width: 58%; height: 62%; animation-delay: -1.8s; }
+        .claw-smoke i:nth-child(3) { left: 12%; bottom: -8%; width: 66%; height: 56%; animation-delay: -3.4s; }
+        .claw-smoke i:nth-child(4) { right: 4%; bottom: 2%; width: 54%; height: 54%; animation-delay: -5.1s; }
+        @keyframes smokeDrift {
+            from { transform: translate3d(0, 0, 0) scale(1); }
+            to   { transform: translate3d(4%, -3%, 0) scale(1.16); }
+        }
+        /* How hard the pack is mauling you. */
+        #claw-overlay[data-lvl="1"] .claw-smoke { opacity: 0.28; }
+        #claw-overlay[data-lvl="2"] .claw-smoke { opacity: 0.55; }
+        #claw-overlay[data-lvl="3"] .claw-smoke { opacity: 0.8; }
+        #claw-overlay[data-lvl="4"] .claw-smoke { opacity: 1; }
+        .claw-vignette {
+            position: absolute; inset: 0; opacity: 0.75;
+            background: radial-gradient(circle at 50% 45%, transparent 26%, rgba(150, 0, 14, 0.62) 100%);
+        }
+        .claw-mark {
+            position: absolute; left: 50%; top: 50%;
+            width: 68vmin; height: 68vmin; transform: translate(-50%, -50%);
+        }
+        .claw-mark b {
+            position: absolute; top: 2%; bottom: 2%; width: 8px; border-radius: 8px;
+            background: linear-gradient(180deg, rgba(255, 70, 70, 0.05), #ff3646 38%, #a8000f 62%, rgba(255, 70, 70, 0.05));
+            box-shadow: 0 0 16px rgba(255, 20, 40, 0.95), 0 0 34px rgba(255, 0, 30, 0.5);
+            transform: rotate(17deg) scaleY(0.2); opacity: 0;
+        }
+        .claw-mark b:nth-child(1) { left: 20%; }
+        .claw-mark b:nth-child(2) { left: 46%; }
+        .claw-mark b:nth-child(3) { left: 72%; }
+        .claw-mark.strike b { animation: clawStrike 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.5) both; }
+        .claw-mark.strike b:nth-child(1) { animation-delay: 0.02s; }
+        .claw-mark.strike b:nth-child(2) { animation-delay: 0.13s; }
+        .claw-mark.strike b:nth-child(3) { animation-delay: 0.24s; }
+        @keyframes clawStrike {
+            from { transform: rotate(17deg) scaleY(0.2); opacity: 0; }
+            to   { transform: rotate(17deg) scaleY(1); opacity: 1; }
+        }
+        .claw-dmg {
+            position: absolute; left: 50%; top: 17%; transform: translateX(-50%);
+            font-family: 'Nosifer', cursive; font-size: clamp(1.4rem, 5vw, 2.6rem);
+            color: #ff3646; text-shadow: 0 0 18px rgba(255, 0, 30, 0.9);
+        }
+        body.bite-shake #view-game { animation: biteShake 0.5s ease; }
+        @keyframes biteShake {
+            0%, 100% { transform: none; }
+            18% { transform: translate(-7px, 4px); }
+            42% { transform: translate(6px, -5px); }
+            66% { transform: translate(-4px, 3px); }
+            85% { transform: translate(3px, -2px); }
+        }
+
+        /* The pack's own bite, slashed across the card they went for. */
+        .player-item { position: relative; }
+        .claw-slash { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: inherit; }
+        .claw-slash b {
+            position: absolute; left: 50%; top: -10%; bottom: -10%; width: 5px; border-radius: 5px;
+            background: linear-gradient(180deg, rgba(255, 80, 80, 0), #ff3d4d 40%, #b00014 70%, rgba(255, 80, 80, 0));
+            box-shadow: 0 0 12px rgba(255, 30, 50, 0.9);
+            animation: slashIn 0.55s ease-out both;
+        }
+        .claw-slash b:nth-child(1) { margin-left: -1.6rem; }
+        .claw-slash b:nth-child(2) { margin-left: 0; animation-delay: 0.06s; }
+        .claw-slash b:nth-child(3) { margin-left: 1.6rem; animation-delay: 0.12s; }
+        @keyframes slashIn {
+            from { transform: rotate(20deg) scaleY(0); opacity: 0; }
+            55%  { opacity: 1; }
+            to   { transform: rotate(20deg) scaleY(1); opacity: 0; }
+        }
+
+        /* ================= WOLF VISION: HP + PACK =================
+           Only ever populated for a werewolf seat in Chaos Night (the server sends
+           other players' HP to that seat alone). */
+        .p-hp { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+        .p-hp-track {
+            width: 44px; height: 6px; border-radius: 999px; display: block;
+            background: rgba(255, 255, 255, 0.14); overflow: hidden;
+        }
+        .p-hp-fill {
+            display: block; height: 100%; border-radius: 999px;
+            background: linear-gradient(90deg, #34d399, #10b981);
+            transition: width 0.4s ease, background 0.3s ease;
+        }
+        .p-hp-fill.mid { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+        .p-hp-fill.low { background: linear-gradient(90deg, #ff4d5e, #c00517); }
+        .p-hp-num { font-size: 0.68rem; font-weight: 900; color: #c4b5fd; min-width: 2ch; text-align: right; }
+        .pack-tag {
+            font-size: 0.55rem; font-weight: 900; letter-spacing: 1px; flex: none;
+            padding: 1px 6px; border-radius: 999px;
+            background: rgba(230, 0, 18, 0.22); color: #ff6b6b; border: 1px solid rgba(230, 0, 18, 0.5);
+        }
+        .player-info-wrap { min-width: 0; }
+        .pname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .claw-smoke i, .claw-mark b, .claw-slash b { animation: none !important; }
+            .claw-mark b { opacity: 1; transform: rotate(17deg); }
+            body.bite-shake #view-game { animation: none !important; }
+        }
+        @media (max-width: 640px) {
+            .claw-mark { width: 84vmin; height: 84vmin; }
+            .p-hp-track { width: 34px; }
+        }
