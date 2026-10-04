@@ -438,4 +438,22 @@
         .set-guest { font-size: 0.8rem; color: #94a3b8; font-weight: 600; margin: 0; }
         .set-credit { margin-top: 16px; font-size: 0.63rem; color: #475569; font-weight: 600; text-align: center; line-height: 1.5; }
 
+        /* ---- Level chip + XP progress ---- */
+        .level-chip {
+            display: inline-flex; align-items: center; white-space: nowrap;
+            font-size: 0.68rem; font-weight: 900; letter-spacing: 0.5px;
+            padding: 3px 8px; border-radius: 6px;
+            background: linear-gradient(180deg, #2b3242, #171b24);
+            border: 1px solid rgba(255, 204, 0, 0.45);
+            color: var(--accent-gold);
+        }
+        .xp-wrap { margin-top: 12px; }
+        .xp-track { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+        .xp-fill {
+            height: 100%; border-radius: 999px;
+            background: linear-gradient(90deg, #ffcc00, #ff8a00);
+            transition: width 0.4s ease;
+        }
+        .xp-text { display: flex; justify-content: space-between; font-size: 0.68rem; font-weight: 700; color: #64748b; margin-top: 5px; }
+
         

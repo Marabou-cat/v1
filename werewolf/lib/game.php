@@ -258,6 +258,20 @@ function finalizeNight(PDO $pdo, $roomCode) {
     return true;
 }
 
+// A vote/action target must exist, belong to THIS room, and still be alive.
+// Stale clients are the real risk: a backgrounded tab can still be showing a
+// roster from before somebody died, so its "vote for Bob" would otherwise count
+// toward a corpse — which let an already-dead player be executed a second time
+// and quietly wasted the village's whole day.
+function validLiveTarget(PDO $pdo, $roomCode, $targetId) {
+    $targetId = (int)$targetId;
+    if ($targetId <= 0) return null;
+    $s = $pdo->prepare("SELECT * FROM players WHERE id = ? AND room_code = ? AND is_alive = 1 LIMIT 1");
+    $s->execute([$targetId, $roomCode]);
+    $t = $s->fetch();
+    return $t ?: null;
+}
+
 // Resolve the day: every alive player has voted OR skipped -> apply the lynch
 // rules, wipe the votes, flip to night. Returns true if the phase advanced.
 //
@@ -270,12 +284,18 @@ function resolveDay(PDO $pdo, $roomCode) {
     $living = $stmt->fetchAll();
     if (count($living) === 0) return false;
 
+    $livingIds = [];
+    foreach ($living as $p) $livingIds[(int)$p['id']] = true;
+
     $voteCounts = [];
     $skipCount = 0;
     foreach ($living as $p) {
         if ((int)$p['vote_skip']) { $skipCount++; continue; }
         if ($p['vote_id'] === null) return false;   // still waiting on somebody
-        $voteCounts[(int)$p['vote_id']] = ($voteCounts[(int)$p['vote_id']] ?? 0) + 1;
+        $tid = (int)$p['vote_id'];
+        // A vote aimed at someone who is no longer alive is not a vote.
+        if (!isset($livingIds[$tid])) continue;
+        $voteCounts[$tid] = ($voteCounts[$tid] ?? 0) + 1;
     }
 
     arsort($voteCounts);

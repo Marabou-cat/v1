@@ -305,11 +305,13 @@
                         // Signed-in players see what the match did to their rank;
                         // guests are told that signing in is what counts.
                         const d = data.my_rating_delta;
+                        const xp = data.my_xp_delta;
                         if (data.my_user_id && d !== null && d !== undefined) {
                             gameListLabel.innerText = (data.my_user_won ? 'Victory' : 'Defeat')
-                                + '  ·  Rank ' + (d >= 0 ? '+' : '') + d;
+                                + '  ·  Rank ' + (d >= 0 ? '+' : '') + d
+                                + (xp ? '  ·  +' + xp + ' XP' : '');
                         } else if (!data.my_user_id) {
-                            gameListLabel.innerText = 'Final Squad Roster:  (sign in to rank this match)';
+                            gameListLabel.innerText = 'Final Squad Roster:  (sign in to earn rank & XP)';
                         } else {
                             gameListLabel.innerText = 'Final Squad Roster:';
                         }
@@ -336,7 +338,10 @@
                     await new Promise(r => setTimeout(r, 500));
                 }
                 const spent = Date.now() - t0;
-                if (spent < 150) await new Promise(r => setTimeout(r, 150 - spent));
+                // A response that came back fast means "something changed" — the
+                // old 150ms floor then added 150ms of dead time right when the
+                // player wanted the update. 40ms is just enough to not hammer.
+                if (spent < 40) await new Promise(r => setTimeout(r, 40 - spent));
             }
         }
 

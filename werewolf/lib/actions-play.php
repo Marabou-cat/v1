@@ -47,10 +47,12 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // --- Long-poll -------------------------------------------------------
         // Hold this request until something the CLIENT can see actually changes
         // (or the wait budget expires) BEFORE doing any work.  The client then
-        // re-requests immediately, so the request RATE stays about the same
-        // while perceived latency drops from the old fixed 1.5s poll interval to
-        // the change-detection granularity (~200ms).  Each check is one
-        // sub-millisecond indexed query, so a "small server" stays idle.
+        // re-requests immediately, so the request RATE stays low while perceived
+        // latency becomes the change-detection granularity.
+        //
+        // The tick is 40ms: wolfStateSig() is now a single ~0.3ms aggregate, so a
+        // tight loop is still nearly free on a small server, and worst-case
+        // detection is ~40ms + RTT instead of the old 200ms + RTT.
         // Clients that omit wait/sig keep the old immediate-response behaviour.
         $waitMs = (int)($_POST['wait'] ?? 0);
         $sigIn  = (string)($_POST['sig'] ?? '');
@@ -62,7 +64,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 } catch (Exception $e) {
                     break;
                 }
-                usleep(200000);   // 200 ms
+                usleep(40000);   // 40 ms
             }
         }
 
@@ -121,7 +123,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won, xp_delta FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -145,6 +147,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $myUserId = null;
         $myRatingDelta = null;
         $myUserWon = null;
+        $myXpDelta = null;
         $hasVoted = false;
         $myCheckTarget = null;
         $mySeerTarget = null;
@@ -176,6 +179,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $myUserId = $p['user_id'] !== null ? (int)$p['user_id'] : null;
                 $myRatingDelta = ($p['rating_delta'] !== null) ? (int)$p['rating_delta'] : null;
                 $myUserWon = ($p['user_won'] !== null) ? (int)$p['user_won'] : null;
+                $myXpDelta = ($p['xp_delta'] !== null) ? (int)$p['xp_delta'] : null;
 
                 // Signed in but still sitting in a guest seat (joined before
                 // logging in): attach the account once so this match counts.
@@ -350,6 +354,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             "my_user_id" => $myUserId,
             "my_rating_delta" => $myRatingDelta,
             "my_user_won" => $myUserWon,
+            "my_xp_delta" => $myXpDelta,
             "doctor_victim_name" => $doctorVictimName,
             "voice_signals" => $voiceSignals,
             "last_event" => $room['last_event'] ?? '',
@@ -397,7 +402,12 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         }
 
         if ($me['role'] === 'Werewolf') {
-            // Werewolves secretly vote for tonight's victim.
+            // Werewolves secretly vote for tonight's victim. Never trust the
+            // client's id — a stale tab can offer a corpse as the target.
+            if ($targetId > 0 && !validLiveTarget($pdo, $roomCode, $targetId)) {
+                echo json_encode(["status" => "error", "message" => "That player is no longer available."]);
+                exit;
+            }
             $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?")->execute([$targetId, $myId]);
 
         } elseif ($me['role'] === 'Seer') {
@@ -432,6 +442,10 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 }
                 if ($targetId === $myId) {
                     echo json_encode(["status" => "error", "message" => "You cannot poison yourself."]);
+                    exit;
+                }
+                if (!validLiveTarget($pdo, $roomCode, $targetId)) {
+                    echo json_encode(["status" => "error", "message" => "That player is no longer available."]);
                     exit;
                 }
                 $pdo->prepare("UPDATE players SET poison_target = ? WHERE id = ?")->execute([$targetId, $myId]);
@@ -507,6 +521,14 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             $stmt = $pdo->prepare("UPDATE players SET vote_id = NULL, vote_skip = 1 WHERE id = ?");
             $stmt->execute([$me['id']]);
         } else {
+            // NEVER trust the client's target id. A backgrounded tab can still be
+            // rendering a roster from before someone died, and a vote aimed at a
+            // corpse used to be accepted, counted, and could "execute" a player
+            // who was already dead — wasting the village's entire day.
+            if (!validLiveTarget($pdo, $roomCode, $voteId)) {
+                echo json_encode(["status" => "error", "message" => "That player is no longer available to vote for. Refreshing…"]);
+                exit;
+            }
             $stmt = $pdo->prepare("UPDATE players SET vote_id = ?, vote_skip = 0 WHERE id = ?");
             $stmt->execute([$voteId, $me['id']]);
         }

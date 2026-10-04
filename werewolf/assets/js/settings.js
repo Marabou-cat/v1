@@ -31,6 +31,7 @@ function renderSettingsAccount() {
     if (!box) return;
     const u = state.authUser;
     if (u) {
+        const pct = Math.max(0, Math.min(100, Math.round((u.xp_progress || 0) * 100)));
         box.innerHTML =
             '<div class="set-account">' + rankIconSvg(u.tier, 'rank-lg') +
                 '<div class="set-account-txt">' +
@@ -39,10 +40,15 @@ function renderSettingsAccount() {
                     '<span>' + esc(u.tier) + ' · ' + u.rating + ' · ' + u.wins + 'W-' + u.losses + 'L · ' + u.win_rate + '%</span>' +
                 '</div>' +
             '</div>' +
+            '<div class="xp-wrap">' +
+                '<div class="xp-track"><div class="xp-fill" style="width:' + pct + '%"></div></div>' +
+                '<div class="xp-text"><span>Level ' + (u.level || 1) + '</span>' +
+                    '<span>' + (u.xp_into || 0) + ' / ' + (u.xp_need || 0) + ' XP</span></div>' +
+            '</div>' +
             '<button class="set-signout" onclick="signOutFromSettings()">Sign out</button>';
     } else {
         box.innerHTML =
-            '<p class="set-guest">Playing as a guest — your matches are not ranked.</p>' +
+            '<p class="set-guest">Playing as a guest. Win rate, rank and <b>levels / XP</b> are locked — they live on an account.</p>' +
             '<button class="set-signout" onclick="closeSettings(); openAuth(\'register\')">Create an account</button>';
     }
 }

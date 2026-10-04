@@ -83,6 +83,36 @@ function authTier($rating) {
     return 'Bronze';
 }
 
+// Level curve: level n starts at 50*n*(n-1) cumulative XP, so the gap grows by
+// 100 XP per level — L2 @100, L3 @300, L4 @600, L5 @1000, L6 @1500 …
+function authXpForLevel($level) {
+    $l = max(1, (int)$level);
+    return 50 * $l * ($l - 1);
+}
+
+// XP is the only thing stored; the level is ALWAYS derived, so they can't drift.
+function authLevelForXp($xp) {
+    $xp = max(0, (int)$xp);
+    $level = (int)floor((1 + sqrt(1 + 0.08 * $xp)) / 2);   // inverse of the curve
+    return max(1, $level);
+}
+
+function authLevelProgress($xp) {
+    $xp = max(0, (int)$xp);
+    $level = authLevelForXp($xp);
+    $cur = authXpForLevel($level);
+    $next = authXpForLevel($level + 1);
+    $span = max(1, $next - $cur);
+    $into = $xp - $cur;
+    return [
+        'xp'          => $xp,
+        'level'       => $level,
+        'xp_into'     => $into,
+        'xp_need'     => $next - $cur,
+        'xp_progress' => round($into / $span, 4),
+    ];
+}
+
 // The shape the client sees. Never leaks anything secret.
 function authUserPublic($u) {
     if (!$u) return null;
@@ -112,7 +142,7 @@ function authUserPublic($u) {
         'peak'     => (int)$u['peak_rating'],
         'tier'     => authTier($rating),
         'win_rate' => $games > 0 ? round($wins * 100 / $games, 1) : 0.0,
-    ];
+    ] + authLevelProgress((int)($u['xp'] ?? 0));
 }
 
 function authIssueSession(PDO $pdo, $userId) {
@@ -156,7 +186,7 @@ function authLinkSeat(PDO $pdo, $userId, $roomCode, $playerToken, $name = '') {
 // transaction, which means ONE fsync (~270ms) instead of one per player.
 function authAwardGame(PDO $pdo, $roomCode, $winner) {
     try {
-        $s = $pdo->prepare("SELECT p.id AS player_id, p.user_id, p.role, u.rating
+        $s = $pdo->prepare("SELECT p.id AS player_id, p.user_id, p.role, p.is_alive, u.rating
                               FROM players p JOIN users u ON u.id = p.user_id
                              WHERE p.room_code = ? AND p.user_id IS NOT NULL AND p.is_bot = 0");
         $s->execute([$roomCode]);
@@ -185,11 +215,16 @@ function authAwardGame(PDO $pdo, $roomCode, $winner) {
             $delta = (int)round(AUTH_K * (($won ? 1 : 0) - $expected));
             $new = max(100, $my + $delta);
 
+            // XP: everyone who finishes earns; winning and surviving pay extra.
+            // Guests have no account row here, so they simply earn nothing.
+            $xpGain = AUTH_XP_PLAY + ($won ? AUTH_XP_WIN : 0)
+                    + ((int)$r['is_alive'] === 1 ? AUTH_XP_SURVIVE : 0);
+
             $pdo->prepare("UPDATE users SET games = games + 1, wins = wins + ?, rating = ?,
-                                  peak_rating = GREATEST(peak_rating, ?) WHERE id = ?")
-                ->execute([$won ? 1 : 0, $new, $new, (int)$r['user_id']]);
-            $pdo->prepare("UPDATE players SET rating_delta = ?, user_won = ? WHERE id = ?")
-                ->execute([$delta, $won ? 1 : 0, (int)$r['player_id']]);
+                                  peak_rating = GREATEST(peak_rating, ?), xp = xp + ? WHERE id = ?")
+                ->execute([$won ? 1 : 0, $new, $new, $xpGain, (int)$r['user_id']]);
+            $pdo->prepare("UPDATE players SET rating_delta = ?, user_won = ?, xp_delta = ? WHERE id = ?")
+                ->execute([$delta, $won ? 1 : 0, $xpGain, (int)$r['player_id']]);
         }
         $pdo->commit();
         return count($rows);

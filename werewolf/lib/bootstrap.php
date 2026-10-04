@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
@@ -55,6 +55,13 @@ const SCHEMA_VERSION = 6;
 const AUTH_SESSION_TTL = 2592000;   // 30 days
 const AUTH_RATING_START = 1000;
 const AUTH_K = 32;                  // Elo K-factor
+
+// --- XP / levels -----------------------------------------------------------
+// XP belongs to the ACCOUNT, so guests (who have no account) never earn any —
+// that's the whole point of the progression being account-bound.
+const AUTH_XP_PLAY    = 20;   // for finishing a match
+const AUTH_XP_WIN     = 30;   // extra when your side wins
+const AUTH_XP_SURVIVE = 10;   // extra if you were still alive at the end
 
 $schemaOk = false;
 try {
@@ -177,6 +184,11 @@ if (!$schemaOk) {
         // Guests have no account, so their nickname is simply a fresh default
         // every time they load the page — nothing is persisted for them.
         $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(24) DEFAULT NULL");
+        // v7: XP + levels. Level is DERIVED from xp (never stored) so the two can
+        // never drift apart. players.xp_delta mirrors rating_delta so the result
+        // screen can show "+50 XP" without another request.
+        $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_delta INT DEFAULT NULL");
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS email_codes (
             id INT AUTO_INCREMENT PRIMARY KEY,
