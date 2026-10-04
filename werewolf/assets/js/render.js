@@ -26,7 +26,7 @@
             const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''} ${iVotedThis ? 'voted-by-me' : ''} ${noAnim ? 'no-anim' : ''}`;
             return `
                 <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
-                    <span class="player-info-wrap">${statusIcon} <span class="pname">${p.nickname}</span> ${youTag} ${roleChip} ${myVoteTag} ${voteBadge} ${bloodPile}</span>
+                    <span class="player-info-wrap">${statusIcon} <span class="pname">${esc(p.nickname)}</span> ${youTag} ${roleChip} ${myVoteTag} ${voteBadge} ${bloodPile}</span>
                     ${extra}
                 </li>
             `;

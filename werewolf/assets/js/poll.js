@@ -79,14 +79,14 @@
                         if (safeAppend) {
                             const fresh = data.messages.slice(Math.max(0, known));
                             const html = fresh.map(m => `
-                                <div class="chat-message"><span class="sender">${m.sender_name}:</span> ${m.message}</div>
+                                <div class="chat-message"><span class="sender">${esc(m.sender_name)}:</span> ${m.message}</div>
                             `).join('');
                             if (html) chatMsgs.insertAdjacentHTML('beforeend', html);
                         } else {
                             // Reset (new match), window shift, first paint, or
                             // near the 50-cap: full rebuild, statically (no
                             // entrance animation replay on the history)
-                            chatMsgs.innerHTML = data.messages.map(m => `<div class="chat-message no-anim"><span class="sender">${m.sender_name}:</span> ${m.message}</div>`).join('');
+                            chatMsgs.innerHTML = data.messages.map(m => `<div class="chat-message no-anim"><span class="sender">${esc(m.sender_name)}:</span> ${m.message}</div>`).join('');
                         }
                         chatMsgs.dataset.lastCount = total;
                         chatMsgs.dataset.lastSig = lastSig;

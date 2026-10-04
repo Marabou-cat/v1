@@ -1,6 +1,16 @@
-/* werewolf / state — shared client state
-   split out of the old monolithic index.html — classic script, shares
-   the page global scope (order matters; see index.html script tags). */
+/* ================= STATE ================= */
+        // Escape untrusted text before it goes into innerHTML. Guest-chosen
+        // nicknames are free text and get rendered into EVERY other player's
+        // roster + chat, so this is the difference between a nickname and a
+        // stored-XSS payload. (Chat bodies are already escaped server-side.)
+        function esc(s) {
+            return String(s === null || s === undefined ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
         let state = {
             roomCode: '',
