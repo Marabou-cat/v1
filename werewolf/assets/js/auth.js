@@ -24,7 +24,7 @@ function applyAuthUser(u) {
 
     // The poll calls this every tick; only touch the DOM when it really changed.
     const sig = state.authUser
-        ? [u.name, u.tier, u.rating, u.games, u.wins].join('|')
+        ? [u.id, u.name, u.nickname, u.tier, u.rating, u.games, u.wins].join('|')
         : '';
     if (sig === state.authSig) return;
     state.authSig = sig;
@@ -45,6 +45,8 @@ function applyAuthUser(u) {
         user.style.display = 'none';
     }
     if (window.lucide) lucide.createIcons();
+    // Sign in / sign out moves the in-game handle to (or away from) the account.
+    if (typeof syncNicknameField === 'function') syncNicknameField();
     if (typeof renderSettingsAccount === 'function') renderSettingsAccount();
 }
 
@@ -181,7 +183,6 @@ async function verifyAuthCode() {
             playSound('ui_error');
         } else {
             applyAuthUser(data.user);
-            adoptAccountNickname(data.user.name);
             closeAuth();
             playSound('ui_confirm');
             if (data.seat_linked && typeof appendSystemMessage === 'function') {
@@ -193,16 +194,6 @@ async function verifyAuthCode() {
     }
     btn.disabled = false;
     return false;
-}
-
-// If the player hasn't chosen a handle yet, use the account name in-game.
-function adoptAccountNickname(name) {
-    const el = authEl('nickname');
-    if (!el || !name) return;
-    if (/^player\d{5}$/.test((el.value || '').trim())) {
-        el.value = name.slice(0, 20);
-        try { localStorage.setItem('werewolf.nickname', el.value); } catch (e) {}
-    }
 }
 
 async function doLogout() {

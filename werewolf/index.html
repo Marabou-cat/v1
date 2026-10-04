@@ -38,17 +38,58 @@
         <!-- VIEW 1: MAIN MENU -->
         <section id="view-menu" class="screen">
             <div style="width:100%; max-width: 760px; display:flex; flex-direction:column; align-items:center;">
-                <div class="hero-icon"><i data-lucide="paw-print" size="92"></i></div>
-                <div class="title-wrap">
-                    <h1 class="title">Werewolf</h1>
-                    <div class="drips" id="title-drips" aria-hidden="true"></div>
+                <div class="title-row">
+                    <!-- Hand-drawn SVG emblem; source file: assets/img/logo.svg -->
+                    <svg class="wolf-logo" viewBox="0 0 120 120" role="img" aria-label="Werewolf emblem">
+                        <defs>
+                            <linearGradient id="wfFur" x1="0" y1="0" x2="0.35" y2="1">
+                                <stop offset="0%" stop-color="#f8fafc"/>
+                                <stop offset="48%" stop-color="#cbd5e1"/>
+                                <stop offset="100%" stop-color="#7c8a9e"/>
+                            </linearGradient>
+                            <radialGradient id="wfHalo" cx="0.5" cy="0.5" r="0.5">
+                                <stop offset="55%" stop-color="#ffcc00" stop-opacity="0.26"/>
+                                <stop offset="100%" stop-color="#ffcc00" stop-opacity="0"/>
+                            </radialGradient>
+                            <mask id="wfMoon" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="120">
+                                <circle cx="40" cy="42" r="26" fill="#fff"/>
+                                <circle cx="54" cy="31" r="23" fill="#000"/>
+                            </mask>
+                            <filter id="wfEyeGlow" x="-80%" y="-80%" width="260%" height="260%">
+                                <feGaussianBlur stdDeviation="2.4" result="b"/>
+                                <feMerge>
+                                    <feMergeNode in="b"/>
+                                    <feMergeNode in="b"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <circle cx="60" cy="60" r="58" fill="url(#wfHalo)"/>
+                        <circle cx="40" cy="42" r="26" fill="#ffcc00" opacity="0.9" mask="url(#wfMoon)"/>
+                        <circle cx="60" cy="60" r="55" fill="none" stroke="#ffcc00" stroke-opacity="0.42" stroke-width="2"/>
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#ffcc00" stroke-opacity="0.16" stroke-width="1"/>
+                        <g stroke="#ffcc00" stroke-opacity="0.38" stroke-width="1.5" stroke-linecap="round">
+                            <path d="M60 5 V11 M60 109 V115 M5 60 H11 M109 60 H115"/>
+                        </g>
+                        <path fill="url(#wfFur)" stroke="#39414f" stroke-width="1.6" stroke-linejoin="round" d="M60 104 L42 90 L24 58 L30 18 L44 44 L60 38 L76 44 L90 18 L96 58 L78 90 Z"/>
+                        <g fill="#ff2d2d" filter="url(#wfEyeGlow)">
+                            <path d="M36 59 L53 64 L38 69 Z"/>
+                            <path d="M84 59 L67 64 L82 69 Z"/>
+                        </g>
+                        <path fill="#2b3242" d="M52 79 L68 79 L60 90 Z"/>
+                        <path fill="#f8fafc" d="M50 91 L55 91 L52.5 98 Z M65 91 L70 91 L67.5 98 Z"/>
+                    </svg>
+                    <div class="title-wrap">
+                        <h1 class="title">Werewolf</h1>
+                        <div class="drips" id="title-drips" aria-hidden="true"></div>
+                    </div>
                 </div>
                 <p class="subtitle">Online Multiplayer Arena</p>
 
                 <div class="menu-panel">
                     <div class="form-group">
                         <label for="nickname">Your Nickname</label>
-                        <input type="text" id="nickname" placeholder="e.g., HunterJohn" value="" maxlength="20">
+                        <input type="text" id="nickname" placeholder="e.g., HunterJohn" value="" maxlength="24">
                     </div>
 
                     <div class="btn-row">

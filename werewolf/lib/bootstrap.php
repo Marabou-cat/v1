@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
@@ -173,6 +173,10 @@ if (!$schemaOk) {
                                           WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
                                             AND INDEX_NAME = 'uniq_email'")->fetchColumn();
         if ($hasEmailIdx === 0) $pdo->exec("CREATE UNIQUE INDEX uniq_email ON users (email)");
+        // v6: the in-game handle lives on the ACCOUNT (not in browser storage).
+        // Guests have no account, so their nickname is simply a fresh default
+        // every time they load the page — nothing is persisted for them.
+        $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(24) DEFAULT NULL");
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS email_codes (
             id INT AUTO_INCREMENT PRIMARY KEY,

@@ -89,15 +89,21 @@ function authUserPublic($u) {
     $games  = (int)$u['games'];
     $wins   = (int)$u['wins'];
     $rating = (int)$u['rating'];
-    $name = $u['display_name'] ?? '';
-    if ($name === '' || $name === null) $name = $u['username'] ?? '';
-    if ($name === '' || $name === null) {
+
+    // In-game handle: the account nickname wins, then the account display name,
+    // then the email local part.
+    $nick = trim((string)($u['nickname'] ?? ''));
+    $name = $nick;
+    if ($name === '') $name = trim((string)($u['display_name'] ?? ''));
+    if ($name === '') {
         $local = strstr((string)($u['email'] ?? ''), '@', true);
         $name = $local === false ? 'Player' : $local;
     }
+
     return [
         'id'       => (int)$u['id'],
         'name'     => $name,
+        'nickname' => $nick !== '' ? $nick : null,
         'email'    => $u['email'] ?? null,
         'games'    => $games,
         'wins'     => $wins,

@@ -76,6 +76,38 @@ function handleLogout(PDO $pdo) {
     echo json_encode(["status" => "success", "message" => "Signed out.", "user" => null]);
 }
 
+// The in-game handle is stored ON THE ACCOUNT, so it follows the player between
+// devices and browsers. Guests never call this — nothing is persisted for them.
+function handleSetNickname(PDO $pdo) {
+    $me = authUser($pdo);
+    if (!$me) {
+        echo json_encode(["status" => "error", "message" => "Sign in to save your nickname."]);
+        return;
+    }
+    // Single-line, printable, length-capped. It gets injected into every other
+    // player's roster, so keep control characters out (the client escapes it too).
+    $nick = trim((string)($_POST['nickname'] ?? ''));
+    $nick = preg_replace('/[\x00-\x1F\x7F]/u', '', $nick);
+    $nick = trim(mb_substr($nick, 0, 24));
+    if ($nick === '') {
+        echo json_encode(["status" => "error", "message" => "Nickname cannot be empty."]);
+        return;
+    }
+    try {
+        $pdo->prepare("UPDATE users SET nickname = ? WHERE id = ?")->execute([$nick, (int)$me['id']]);
+    } catch (Exception $e) {
+        echo json_encode(["status" => "error", "message" => "Could not save the nickname."]);
+        return;
+    }
+    $s = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $s->execute([(int)$me['id']]);
+    echo json_encode([
+        "status"  => "success",
+        "message" => "Nickname saved.",
+        "user"    => authUserPublic($s->fetch())
+    ]);
+}
+
 function handleMe(PDO $pdo) {
     echo json_encode(["status" => "success", "user" => authUserPublic(authUser($pdo))]);
 }

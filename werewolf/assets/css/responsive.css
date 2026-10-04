@@ -34,7 +34,7 @@
         .no-anim { animation: none !important; }
 
         @media (prefers-reduced-motion: reduce) {
-            .title-wrap, h1.title, .drip, .hero-icon { animation: none !important; }
+            .title-wrap, h1.title, .drip, .hero-icon, .wolf-logo { animation: none !important; }
             .drips { display: none; }
         }
     
