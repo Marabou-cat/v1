@@ -3,6 +3,23 @@
    the page global scope (order matters; see index.html script tags). */
 
 /* ================= NAVIGATION ================= */
+        /* Re-arm the menu action buttons.
+           handleQuickMatch() disables #btn-match for the duration of the request
+           and, on its SUCCESS path, navigates to the matching screen leaving the
+           button disabled. Nothing ever re-enabled it, so exiting matchmaking or
+           finishing/leaving a game handed the player a permanently dead
+           "Find Match" button — the "can't match again" bug.
+           Every route back to the menu funnels through showScreen(), so the
+           buttons are re-armed there and no caller has to remember. */
+        function resetMenuButtons() {
+            // #btn-match is the only one that leaks today (handleQuickMatch
+            // disables it). Keep the list so future buttons are covered.
+            ['btn-match'].forEach(function (id) {
+                const b = document.getElementById(id);
+                if (b) b.disabled = false;
+            });
+        }
+
         function showScreen(screenId) {
             ['view-menu', 'view-create', 'view-join', 'view-match', 'view-matching', 'view-lobby', 'view-game'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
@@ -19,6 +36,14 @@
             if (screenId === 'view-lobby') setPhase('lobby');
             if (screenId === 'view-create') updateRolePreview();
             if (screenId === 'view-match') updateMatchRolePreview();
+            // Re-arm the pre-game action buttons on EVERY entry to these screens.
+            // #btn-match lives on the size picker (view-match), NOT the main menu,
+            // so re-arming only on view-menu was not enough: coming back to the
+            // picker still showed a dead "Find Match" button.
+            if (screenId === 'view-menu' || screenId === 'view-match'
+                || screenId === 'view-create' || screenId === 'view-join') {
+                resetMenuButtons();
+            }
             if (typeof placeAuthBar === 'function') placeAuthBar(screenId);
             if (typeof updateBgmForScreen === 'function') updateBgmForScreen(screenId, state.roomStatus);
             lucide.createIcons();

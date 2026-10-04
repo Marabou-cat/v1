@@ -177,7 +177,10 @@
                         `There are no ${count}-player lobbies open right now, but a ${data.suggest_count}-player lobby is waiting.\n\nClick OK to join the ${data.suggest_count}-player lobby, or Cancel to start a fresh ${count}-player lobby.`
                     );
                     if (ans) {
-                        // Re-queue at the suggested size.
+                        // This request ALREADY created a lobby at the original size
+                        // server-side. Abandon it before re-queueing, or it lingers
+                        // as a ghost room that other players can be matched into.
+                        callLeaveRoom(data.room_code, data.token);
                         await doMatchMake(data.suggest_count, true);
                     } else {
                         // Join the lobby the server just created for us.
