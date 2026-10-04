@@ -43,6 +43,26 @@ function roleBreakdown(count, mode) {
     return { wolves: wolves, specials: specials, villagers: count - wolves - specials };
 }
 
+/* Rewrite the size-picker option labels from the ACTUAL deal for the current
+   mode. The markup ships with Classic's numbers baked in, so without this a
+   Chaos table would promise "6 Players (1 Werewolf, 1 Special)" and then deal
+   two wolves — the count shown at selection MUST match the count dealt. */
+function refreshSizeOptions() {
+    const mode = state.mode || 'classic';
+    ['max-players', 'match-count'].forEach(function (id) {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        Array.prototype.forEach.call(sel.options, function (o) {
+            const n = parseInt(o.value, 10);
+            if (!n) return;
+            const b = roleBreakdown(n, mode);
+            o.textContent = n + ' Players ('
+                + b.wolves + (b.wolves === 1 ? ' Werewolf' : ' Werewolves') + ', '
+                + b.specials + (b.specials === 1 ? ' Special' : ' Specials') + ')';
+        });
+    });
+}
+
 /* ---- Mode picker (shown for Create Room and Quick Match) ---- */
 let modePickerTarget = 'match';
 

@@ -40,9 +40,11 @@
             // #btn-match lives on the size picker (view-match), NOT the main menu,
             // so re-arming only on view-menu was not enough: coming back to the
             // picker still showed a dead "Find Match" button.
-            if (screenId === 'view-menu' || screenId === 'view-match'
-                || screenId === 'view-create' || screenId === 'view-join') {
+            if (screenId === 'view-menu' || screenId === 'view-match' ||
+                screenId === 'view-create' || screenId === 'view-join') {
                 resetMenuButtons();
+                // Size labels carry the REAL composition for the chosen mode.
+                if (typeof refreshSizeOptions === 'function') refreshSizeOptions();
             }
             if (typeof placeAuthBar === 'function') placeAuthBar(screenId);
             if (typeof updateBgmForScreen === 'function') updateBgmForScreen(screenId, state.roomStatus);

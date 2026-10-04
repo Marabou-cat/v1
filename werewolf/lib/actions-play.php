@@ -123,7 +123,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, avatar, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won, xp_delta, wolf_votes, special_kills, damage_done FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, avatar, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won, xp_delta, wolf_votes, special_kills, damage_done, hp, max_hp, hp_delta, heal_target, seer_hp FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
