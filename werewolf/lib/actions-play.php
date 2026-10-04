@@ -230,8 +230,15 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Being bitten is FELT immediately: while the night is running, tell the
         // victim a claw is on them, so the sting lands before dawn announces the
         // body. Sums every wolf whose bite is pointed at this seat.
+        //
+        // CHAOS ONLY. Classic has no HP pools — a claw there is meaningless AND a
+        // spoiler (the victim is not supposed to know the wolves picked them, and
+        // the Doctor may still save them). Without this gate a classic player who
+        // merely got targeted saw claw marks, red smoke and a bite readout out of
+        // nowhere seconds into the night, since bot wolves pick within 2-8s.
         $incomingDamage = 0;
-        if ($room['status'] === 'night' && $isAlive && (int)$myId > 0) {
+        if ($room['status'] === 'night' && $isAlive && (int)$myId > 0
+            && validMode($room['mode'] ?? '') === MODE_CHAOS) {
             foreach ($players as $p) {
                 if ($p['role'] === 'Werewolf' && (int)$p['is_alive'] === 1
                     && (int)($p['target_id'] ?? 0) === (int)$myId) {

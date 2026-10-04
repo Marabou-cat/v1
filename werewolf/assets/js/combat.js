@@ -67,8 +67,12 @@ function renderClaw(data) {
     if (!el) return;
 
     // Only while the night is actually running and this seat is being bitten.
+    // Chaos only: Classic has no HP pools, so a bite readout there would be both
+    // meaningless and a spoiler. (The server already refuses to send it — this is
+    // the client-side half of the same rule.)
+    const chaos = !!(data && data.mode === 'chaos');
     const night = !!(data && data.room_status === 'night');
-    const dmg = (data && night && data.is_alive) ? (Number(data.incoming_damage) || 0) : 0;
+    const dmg = (chaos && night && data.is_alive) ? (Number(data.incoming_damage) || 0) : 0;
     const lvl = clawLevel(dmg);
     const hide = document.getElementById('claw-dmg');
 
