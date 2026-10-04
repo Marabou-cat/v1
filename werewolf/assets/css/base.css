@@ -372,6 +372,15 @@
         }
         .auth-field input:focus { outline: none; border-color: var(--accent-gold); }
         .auth-error { min-height: 18px; font-size: 0.8rem; font-weight: 700; color: #ff6b6b; margin-bottom: 8px; }
+        /* email-code step */
+        #auth-code { letter-spacing: 0.55em; font-size: 1.3rem !important; text-align: center; font-weight: 800; }
+        .auth-code-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -4px 0 10px; }
+        .auth-sent-to { font-size: 0.7rem; color: #64748b; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .auth-resend {
+            flex: none; width: auto !important; padding: 5px 12px !important; font-size: 0.72rem !important;
+            border-radius: 999px !important; box-shadow: none !important; cursor: pointer;
+        }
+        .auth-resend:disabled { opacity: 0.45; cursor: default; }
         .auth-submit {
             width: 100%; padding: 13px 0 !important; font-size: 0.95rem !important;
             border-radius: 10px !important; cursor: pointer;

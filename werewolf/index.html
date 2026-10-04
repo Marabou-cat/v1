@@ -294,7 +294,7 @@
          guests play exactly the same, they just don't accrue a rank. -->
     <div id="auth-bar" class="auth-bar">
         <div id="auth-guest" class="auth-guest">
-            <button class="auth-btn" onclick="openAuth('login')"><i data-lucide="log-in" size="15"></i> Log In</button>
+            <button class="auth-btn" onclick="openAuth('login')"><i data-lucide="log-in" size="15"></i> Sign In</button>
             <button class="auth-btn auth-btn-primary" onclick="openAuth('register')"><i data-lucide="user-plus" size="15"></i> Sign Up</button>
         </div>
         <div id="auth-user" class="auth-user" style="display:none;">
@@ -310,20 +310,26 @@
             <button class="auth-close" onclick="closeAuth()" aria-label="Close">&times;</button>
             <h2 id="auth-title" class="auth-title">Log In</h2>
             <div class="auth-tabs">
-                <button id="auth-tab-login" class="auth-tab" onclick="openAuth('login')">Log In</button>
+                <button id="auth-tab-login" class="auth-tab" onclick="openAuth('login')">Sign In</button>
                 <button id="auth-tab-register" class="auth-tab" onclick="openAuth('register')">Sign Up</button>
             </div>
             <form id="auth-form" onsubmit="return submitAuth(event)">
-                <label class="auth-field">Username
-                    <input id="auth-username" maxlength="24" autocomplete="username" spellcheck="false" placeholder="3-24 letters, numbers, _">
+                <label class="auth-field">Email
+                    <input id="auth-email" type="email" maxlength="190" autocomplete="email" spellcheck="false" placeholder="you@example.com">
                 </label>
-                <label class="auth-field">Password
-                    <input id="auth-password" type="password" autocomplete="current-password" placeholder="at least 6 characters">
-                </label>
+                <div id="auth-step-code" style="display:none;">
+                    <label class="auth-field">Verification code
+                        <input id="auth-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+                    </label>
+                    <div class="auth-code-row">
+                        <span id="auth-sent-to" class="auth-sent-to"></span>
+                        <button type="button" id="auth-resend" class="auth-resend" onclick="requestAuthCode()">Resend</button>
+                    </div>
+                </div>
                 <div id="auth-error" class="auth-error"></div>
-                <button type="submit" id="auth-submit" class="auth-submit">Log In</button>
+                <button type="submit" id="auth-submit" class="auth-submit">Email Me a Code</button>
             </form>
-            <p class="auth-note">Accounts are optional — you can always play as a guest. Signing in is what unlocks your <b>win rate</b> and <b>rank</b>.</p>
+            <p class="auth-note">No password needed — we email you a 6-digit code, and if you're new that code creates your account. Accounts are optional: guests can always play, they just don't earn a <b>win rate</b> or <b>rank</b>.</p>
         </div>
     </div>
 

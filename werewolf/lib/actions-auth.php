@@ -1,49 +1,72 @@
 <?php
-/* werewolf / lib/actions-auth.php — register / login / logout / me / leaderboard.
-   Guests never call these; nothing here is required to play. */
+/* werewolf / lib/actions-auth.php — passwordless email-code sign in.
+   Guests never call these; nothing here is required to play.
 
-function handleRegister(PDO $pdo) {
-    $username = trim($_POST['username'] ?? '');
-    $password = (string)($_POST['password'] ?? '');
+   Two endpoints:
+     request_code  {email}              -> mails a 6-digit code
+     verify_code   {email, code, ...}   -> creates the account if new, signs in
+   Register and login are the same flow on purpose. */
 
-    [$ok, $res] = authRegister($pdo, $username, $password);
-    if (!$ok) {
-        echo json_encode(["status" => "error", "message" => $res]);
+function handleRequestCode(PDO $pdo) {
+    $email = authNormEmail($_POST['email'] ?? '');
+    if (!authValidEmail($email)) {
+        echo json_encode(["status" => "error", "message" => "Enter a valid email address."]);
         return;
     }
-    // A guest who signs up mid-game keeps the seat they were already holding,
-    // so the match they're in still counts for them.
-    $linked = authLinkSeat($pdo, $res['id'], strtoupper(trim($_POST['room_code'] ?? '')), trim($_POST['player_token'] ?? ''));
+    $wait = authSendAllowed($pdo, $email, authClientIp());
+    if ($wait > 0) {
+        echo json_encode(["status" => "error", "cooldown" => $wait,
+                          "message" => "Please wait {$wait}s before requesting another code."]);
+        return;
+    }
+    if ($wait < 0) {
+        echo json_encode(["status" => "error",
+                          "message" => "Too many codes requested for this address. Try again in an hour."]);
+        return;
+    }
 
-    // Read the row back rather than using authUser(): the cookie was only just
-    // set in this response, so $_COOKIE is not populated yet.
-    $s = $pdo->prepare("SELECT * FROM users WHERE id = ?");
-    $s->execute([$res['id']]);
+    $err = '';
+    if (!authIssueLoginCode($pdo, $email, $err)) {
+        // Operational failure (SMTP). Tell them, rather than leaving them waiting.
+        echo json_encode(["status" => "error",
+                          "message" => "We could not send the email just now. Please try again in a minute."]);
+        return;
+    }
     echo json_encode([
-        "status"      => "success",
-        "message"     => "Account created — your matches now count.",
-        "user"        => authUserPublic($s->fetch()),
-        "seat_linked" => $linked
+        "status"   => "success",
+        "message"  => "Code sent to $email.",
+        "cooldown" => CODE_RESEND_COOLDOWN,
+        "expires"  => CODE_TTL
     ]);
 }
 
-function handleLogin(PDO $pdo) {
-    $username = trim($_POST['username'] ?? '');
-    $password = (string)($_POST['password'] ?? '');
-
-    [$ok, $res] = authLogin($pdo, $username, $password);
-    if (!$ok) {
-        echo json_encode(["status" => "error", "message" => $res]);
+function handleVerifyCode(PDO $pdo) {
+    $email = authNormEmail($_POST['email'] ?? '');
+    $code  = preg_replace('/\D/', '', (string)($_POST['code'] ?? ''));
+    if (!authValidEmail($email) || strlen($code) !== 6) {
+        echo json_encode(["status" => "error", "message" => "Enter the 6-digit code from the email."]);
         return;
     }
-    $linked = authLinkSeat($pdo, $res['id'], strtoupper(trim($_POST['room_code'] ?? '')), trim($_POST['player_token'] ?? ''));
 
-    $s = $pdo->prepare("SELECT * FROM users WHERE id = ?");
-    $s->execute([$res['id']]);
+    $err = '';
+    $res = authVerifyLoginCode($pdo, $email, $code, $err);
+    if (!$res) {
+        echo json_encode(["status" => "error", "message" => $err]);
+        return;
+    }
+
+    $u = authUserPublic($res['user']);
+    // Signing in mid-match hands the seat over and adopts the account name.
+    $linked = authLinkSeat($pdo, $u['id'],
+        strtoupper(trim($_POST['room_code'] ?? '')),
+        trim($_POST['player_token'] ?? ''),
+        $u['name']);
+
     echo json_encode([
         "status"      => "success",
-        "message"     => "Signed in.",
-        "user"        => authUserPublic($s->fetch()),
+        "message"     => $res['is_new'] ? "Account created — your matches now count." : "Signed in.",
+        "user"        => $u,
+        "is_new"      => $res['is_new'],
         "seat_linked" => $linked
     ]);
 }
@@ -60,16 +83,21 @@ function handleMe(PDO $pdo) {
 // Top accounts by rank — one indexed read, cheap enough to poll.
 function handleLeaderboard(PDO $pdo) {
     $limit = min(50, max(3, (int)($_POST['limit'] ?? 10)));
-    $rows = $pdo->query("SELECT username, display_name, games, wins, rating
+    $rows = $pdo->query("SELECT email, display_name, games, wins, rating
                            FROM users WHERE status = 1 AND games > 0
                           ORDER BY rating DESC, wins DESC LIMIT $limit")->fetchAll();
     $out = [];
     foreach ($rows as $r) {
-        $games = (int)$r['games'];
-        $wins  = (int)$r['wins'];
+        $games  = (int)$r['games'];
+        $wins   = (int)$r['wins'];
         $rating = (int)$r['rating'];
+        $name = $r['display_name'];
+        if ($name === null || $name === '') {
+            $local = strstr((string)$r['email'], '@', true);
+            $name = $local === false ? 'Player' : $local;
+        }
         $out[] = [
-            'name'     => ($r['display_name'] !== null && $r['display_name'] !== '') ? $r['display_name'] : $r['username'],
+            'name'     => $name,
             'games'    => $games,
             'wins'     => $wins,
             'rating'   => $rating,

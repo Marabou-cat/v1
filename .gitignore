@@ -1,0 +1,6 @@
+# --- Local secrets / runtime config: NEVER commit these ---
+mail.ini
+config.ini
+
+# --- Throwaway debug probes (must never ship) ---
+werewolf/_*.php

@@ -1,3 +1,16 @@
 <Files "config.ini">
     Require all denied
 </Files>
+
+# Secrets must never be servable, whatever their permissions happen to be.
+<Files "mail.ini">
+    Require all denied
+</Files>
+
+# Always revalidate the game list data so new games appear immediately
+# (prevents browsers from serving a stale cached copy).
+<FilesMatch "\.js$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, must-revalidate"
+    </IfModule>
+</FilesMatch>

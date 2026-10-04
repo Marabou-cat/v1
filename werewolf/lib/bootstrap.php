@@ -43,19 +43,18 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
-// rate or a rank. Sessions are opaque tokens in a HttpOnly cookie backed by a
-// DB row — deliberately NOT PHP native sessions, because file sessions lock and
-// our poll long-polls for over a second, which would serialise a player's own
-// requests.
+// rate or a rank. Sign-in is PASSWORDLESS: an emailed 6-digit code is the only
+// credential (see lib/auth-mail.php). Sessions are opaque tokens in a HttpOnly
+// cookie backed by a DB row — deliberately NOT PHP native sessions, because
+// file sessions lock and our poll long-polls for over a second, which would
+// serialise a player's own requests.
 const AUTH_SESSION_TTL = 2592000;   // 30 days
 const AUTH_RATING_START = 1000;
 const AUTH_K = 32;                  // Elo K-factor
-const AUTH_MAX_ATTEMPTS = 8;        // failed logins before a cooldown
-const AUTH_LOCK_SECONDS = 600;
 
 $schemaOk = false;
 try {
@@ -162,6 +161,39 @@ if (!$schemaOk) {
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS rating_delta INT DEFAULT NULL");
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS user_won TINYINT DEFAULT NULL");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_players_user ON players (user_id)");
+        // --- v5: passwordless email-code auth -------------------------------
+        // email becomes the account identity; username is now a legacy column
+        // (kept, relaxed, no longer unique) and password_hash is unused.
+        $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(190) DEFAULT NULL");
+        $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at INT DEFAULT 0");
+        $pdo->exec("ALTER TABLE users MODIFY username VARCHAR(190) DEFAULT NULL");
+        $pdo->exec("ALTER TABLE users MODIFY password_hash VARCHAR(255) DEFAULT NULL");
+        try { $pdo->exec("ALTER TABLE users DROP INDEX uniq_username"); } catch (Exception $e) {}
+        $hasEmailIdx = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.STATISTICS
+                                          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+                                            AND INDEX_NAME = 'uniq_email'")->fetchColumn();
+        if ($hasEmailIdx === 0) $pdo->exec("CREATE UNIQUE INDEX uniq_email ON users (email)");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS email_codes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(190) NOT NULL,
+            code_hash CHAR(64) NOT NULL,
+            purpose VARCHAR(16) DEFAULT 'login',
+            attempts TINYINT DEFAULT 0,
+            created_at INT DEFAULT 0,
+            expires_at INT DEFAULT 0,
+            used_at INT DEFAULT 0,
+            INDEX idx_email_time (email, created_at)
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS email_sends (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(190) DEFAULT NULL,
+            ip VARCHAR(45) DEFAULT NULL,
+            ok TINYINT DEFAULT 0,
+            created_at INT DEFAULT 0,
+            INDEX idx_email_time (email, created_at),
+            INDEX idx_ip_time (ip, created_at)
+        )");
         $pdo->exec("CREATE TABLE IF NOT EXISTS voice_signals (
             id INT AUTO_INCREMENT PRIMARY KEY,
             room_code VARCHAR(10) NOT NULL,

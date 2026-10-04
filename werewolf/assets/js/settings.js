@@ -35,6 +35,7 @@ function renderSettingsAccount() {
             '<div class="set-account">' + rankIconSvg(u.tier, 'rank-lg') +
                 '<div class="set-account-txt">' +
                     '<b>' + esc(u.name) + '</b>' +
+                    '<span>' + esc(u.email || '') + '</span>' +
                     '<span>' + esc(u.tier) + ' · ' + u.rating + ' · ' + u.wins + 'W-' + u.losses + 'L · ' + u.win_rate + '%</span>' +
                 '</div>' +
             '</div>' +
