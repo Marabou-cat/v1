@@ -25,8 +25,10 @@ function flashInfo(msg, isError) {
     flashInfo._t = setTimeout(function () { el.className = 'toast'; }, 2800);
 }
 
-/* Lock a roster of choice-buttons onto one pick, right now. */
-function lockChoice(scope, chosenBtn) {
+/* Lock a roster of choice-buttons onto one pick, right now.
+   `label` names the phase's action (night "Chosen" / day "Voted") so the feedback
+   matches what the player actually did. */
+function lockChoice(scope, chosenBtn, label) {
     if (!scope) return;
     const btns = scope.querySelectorAll('.btn-action');
     Array.prototype.forEach.call(btns, function (b) {
@@ -35,7 +37,7 @@ function lockChoice(scope, chosenBtn) {
         if (b === chosenBtn) {
             b.classList.remove('choice-locked');
             b.classList.add('choice-picked');
-            b.innerHTML = '<i data-lucide="check" size="16"></i> Chosen';
+            b.innerHTML = '<i data-lucide="check" size="16"></i> ' + (label || 'Chosen');
         }
     });
     if (window.lucide) lucide.createIcons();

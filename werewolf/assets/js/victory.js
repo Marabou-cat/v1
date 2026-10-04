@@ -14,20 +14,33 @@ function victoryWinnerLabel(w) {
     return (w === 'werewolves') ? 'WEREWOLVES WIN' : 'VILLAGE WINS';
 }
 
+/* The result we have already presented. The overlay is HIDDEN (not removed) when
+   dismissed, so this guard also survives a late in-flight poll response arriving
+   after the player has left — which is what used to make the animation replay. */
+let victoryShownSig = null;
+
 function showVictoryOverlay(data) {
     const w = data.winner || '';
     if (!w) return;                      // abandoned lobby: nothing to celebrate
 
     const mv = data.mvp_villager, mw = data.mvp_wolf;
-    const sig = [w, mv ? mv.name + mv.count : '', mw ? mw.name + mw.count : ''].join('|');
+    // Room code is part of the identity: a replay in the SAME table is impossible,
+    // while a genuinely new match still gets to present its own result.
+    const sig = [state.roomCode || '', w, mv ? mv.name + mv.count : '', mw ? mw.name + mw.count : ''].join('|');
+    if (victoryShownSig === sig) return;          // never replay the same result
+    // Already back at the menu (left the room): a straggling response must not
+    // resurrect the settlement on top of the menu.
+    if (!state.roomCode) return;
+
+    victoryShownSig = sig;
     let el = document.getElementById('victory-overlay');
-    if (el && el.dataset.sig === sig) return;     // never replay the same result
     if (!el) {
         el = document.createElement('div');
         el.id = 'victory-overlay';
         document.body.appendChild(el);
     }
     el.dataset.sig = sig;
+    el.style.display = '';                        // undo a previous dismissal
     el.className = 'victory-overlay ' + (w === 'werewolves' ? 'vc-wolf-side' : 'vc-villager-side');
 
     const chaos = (data.mode === 'chaos');
@@ -96,6 +109,22 @@ function showVictoryOverlay(data) {
 
 function closeVictory() {
     const el = document.getElementById('victory-overlay');
-    if (el) el.remove();
+    // HIDE rather than remove: the element keeps the sig that stops the settlement
+    // from being presented twice for the same result.
+    if (el) {
+        el.classList.remove('vc-in');
+        el.style.display = 'none';
+        if (el.dataset.sig) victoryShownSig = el.dataset.sig;
+    }
     if (typeof leaveToMenu === 'function') leaveToMenu();
+}
+
+/* Called when leaving the table (EXIT button, etc.) so the card cannot be left
+   hanging over the menu. */
+function hideVictory() {
+    const el = document.getElementById('victory-overlay');
+    if (el) {
+        el.classList.remove('vc-in');
+        el.style.display = 'none';
+    }
 }

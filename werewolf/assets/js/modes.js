@@ -100,9 +100,13 @@ function renderVitals(data) {
     if (!el) return;
     const chaos = !!(data && data.mode === 'chaos');
     const hp = data ? data.my_hp : null;
-    if (!chaos || hp === null || hp === undefined) {
-        el.style.display = 'none';
-        document.body.classList.remove('chaos-mode');
+    // ONLY while actually playing. The poll still reports the room while you sit
+    // in the lobby, on the matching screen, or on the settlement, and the pill
+    // used to linger there (and after the room was gone) — it belongs to the
+    // night/day board, nowhere else.
+    const inGame = !!(data && (data.room_status === 'night' || data.room_status === 'day'));
+    if (!chaos || !inGame || hp === null || hp === undefined) {
+        hideVitals();
         return;
     }
     document.body.classList.add('chaos-mode');

@@ -195,7 +195,7 @@
             const g = state.lastGame;
             if (g) { g.my_vote_id = voteId; g.has_voted = true; g.my_vote_skip = 0; }
             if (btn) {
-                lockChoice(document.getElementById('game-player-list'), btn);
+                lockChoice(document.getElementById('game-player-list'), btn, 'Voted');
                 markCardActed(btn);
             }
             const label = document.getElementById('game-list-label');

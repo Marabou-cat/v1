@@ -191,3 +191,23 @@
                 transform: none !important; filter: none !important;
             }
         }
+
+        /* ================= SETTLEMENT ROSTER: NO OVERLAP =================
+           The added HP column (Chaos Night) gave each row one more child, and the
+           avatar is a span with an inline width but no flex:none — so it shrank and
+           the row's text overlapped. Fix: nothing shrinks except the name, which
+           truncates; and the card scrolls instead of overflowing. */
+        .vc-row { min-width: 0; }
+        .vc-row > * { min-width: 0; }
+        .vc-row .avatar { flex: none; }
+        .vc-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .vc-role, .vc-hp, .vc-x { flex: none; white-space: nowrap; }
+        .vc-hp { min-width: 2.4em; text-align: right; }
+        .vc-card { max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain; }
+
+        @media (max-width: 760px) {
+            /* Half-width cells cannot hold avatar + name + HP + role without
+               cramping, so go single column on anything narrow. */
+            .vc-roster { grid-template-columns: 1fr; }
+            .vc-row { font-size: 0.76rem; padding: 6px 8px; gap: 6px; }
+        }

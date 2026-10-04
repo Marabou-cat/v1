@@ -112,6 +112,12 @@
                 // Phase-change fade + night blackout + the death card.
                 const prevStatus = state.lastRoomStatus || '';
                 if (prevStatus !== data.room_status) {
+                    // Force a clean roster rebuild on every phase flip. The
+                    // optimistic lock (lockChoice) mutates the roster DOM directly,
+                    // so without this a leftover "Chosen" from the night action
+                    // could survive into the day vote. Same trick chat-timer uses.
+                    const gpl = document.getElementById('game-player-list');
+                    if (gpl) { gpl.dataset.fullSig = ''; gpl.dataset.rosterSig = ''; }
                     if ((prevStatus === 'night' && data.room_status === 'day') ||
                         (prevStatus === 'day' && data.room_status === 'night')) {
                         playPhaseTransition(data.room_status);

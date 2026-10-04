@@ -84,6 +84,10 @@
             if (typeof stopVoice === 'function') stopVoice();
             if (typeof hideGameOverlays === 'function') hideGameOverlays();
             if (typeof hideVitals === 'function') hideVitals();
+            // The settlement card is hidden, not removed (it carries the sig that
+            // stops a duplicate replay), so it must be dismissed explicitly here —
+            // otherwise EXIT leaves it sitting over the menu.
+            if (typeof hideVictory === 'function') hideVictory();
             state.lastRoomStatus = '';
             state.lastAlive = null;
             state.deathShown = false;
