@@ -123,7 +123,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, avatar, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won, xp_delta, wolf_votes, special_kills FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, avatar, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won, xp_delta, wolf_votes, special_kills, damage_done FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -158,6 +158,13 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $myReviveUsed = 0;
         $myDoctorChoice = null;
         $myAsleep = 0;
+        // Chaos Night (all NULL/absent in classic, which is how the client knows
+        // to hide every HP affordance).
+        $myHp = null;
+        $myMaxHp = null;
+        $myHpDelta = null;
+        $myHealTarget = null;
+        $mySeerHp = null;
 
         foreach ($players as $p) {
             if ($p['session_token'] === $token) {
@@ -176,6 +183,11 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $myDoctorChoice = $p['doctor_choice'];
                 $myAsleep = (int)$p['asleep'];
                 $myVoteSkip = (int)$p['vote_skip'];
+                $myHp = ($p['hp'] !== null) ? (int)$p['hp'] : null;
+                $myMaxHp = ($p['max_hp'] !== null) ? (int)$p['max_hp'] : null;
+                $myHpDelta = ($p['hp_delta'] !== null) ? (int)$p['hp_delta'] : null;
+                $myHealTarget = ($p['heal_target'] !== null) ? (int)$p['heal_target'] : null;
+                $mySeerHp = ($p['seer_hp'] !== null) ? (int)$p['seer_hp'] : null;
                 $myUserId = $p['user_id'] !== null ? (int)$p['user_id'] : null;
                 $myRatingDelta = ($p['rating_delta'] !== null) ? (int)$p['rating_delta'] : null;
                 $myUserWon = ($p['user_won'] !== null) ? (int)$p['user_won'] : null;
@@ -208,7 +220,8 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // The Doctor only learns tonight's victim while the night is waiting on
         // their revive decision.
         $doctorVictimName = null;
-        if ($myRole === 'Doctor' && $isAlive && ($room['night_step'] ?? '') === 'doctor' && (int)($room['pending_victim'] ?? 0) > 0) {
+        if ($myRole === 'Doctor' && $isAlive && validMode($room['mode'] ?? '') !== MODE_CHAOS
+            && ($room['night_step'] ?? '') === 'doctor' && (int)($room['pending_victim'] ?? 0) > 0) {
             foreach ($players as $p) { if ((int)$p['id'] === (int)$room['pending_victim']) { $doctorVictimName = $p['nickname']; break; } }
         }
 
@@ -289,6 +302,10 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 "nickname" => $p['nickname'],
                 "avatar" => $p['avatar'] ?: 'paw',
                 "is_alive" => $isAlive,
+                // HP is HIDDEN during play: it is only revealed once the match is
+                // over. Sending another player's HP mid-game would leak the whole
+                // point of the mode to anyone reading the network response.
+                "hp" => ($room['status'] === 'ended' && $p['hp'] !== null) ? (int)$p['hp'] : null,
                 "role" => $role,
                 "is_bot" => (int)($p['is_bot'] ?? 0),
                 "votes" => (int)($voteTally[(int)$p['id']] ?? 0),
@@ -322,10 +339,13 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $mvpVillager = null;
         $mvpWolf = null;
         if (($room['status'] ?? '') === 'ended') {
+            // In Chaos the wolves' headline stat is raw damage dealt (they rarely
+            // one-shot a power role); in Classic it stays power roles removed.
+            $chaos = (validMode($room['mode'] ?? '') === MODE_CHAOS);
             foreach ($players as $p) {
                 $isWolf = ($p['role'] === 'Werewolf');
                 $wv = (int)($p['wolf_votes'] ?? 0);
-                $sk = (int)($p['special_kills'] ?? 0);
+                $sk = $chaos ? (int)($p['damage_done'] ?? 0) : (int)($p['special_kills'] ?? 0);
                 if (!$isWolf && $wv > 0 && (!$mvpVillager || $wv > $mvpVillager['count'])) {
                     $mvpVillager = [
                         'name'   => $p['nickname'],
@@ -338,6 +358,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                         'name'   => $p['nickname'],
                         'avatar' => $p['avatar'] ?: 'paw',
                         'count'  => $sk,
+                        'unit'   => $chaos ? 'dmg' : 'roles',
                     ];
                 }
             }
@@ -346,6 +367,13 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         echo json_encode([
             "status" => "success",
             "winner" => $room['winner'] ?? '',
+            // Game mode + MY OWN vitals only. Other seats' HP is never sent.
+            "mode" => validMode($room['mode'] ?? ''),
+            "my_hp" => $myHp,
+            "my_max_hp" => $myMaxHp,
+            "my_hp_delta" => $myHpDelta,
+            "my_heal_target" => $myHealTarget,
+            "my_seer_hp" => $mySeerHp,
             "mvp_villager" => $mvpVillager,
             "mvp_wolf" => $mvpWolf,
 
@@ -413,6 +441,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             echo json_encode(["status" => "error", "message" => "It is not night phase."]);
             exit;
         }
+        $mode = validMode($room['mode'] ?? '');
 
         $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND session_token = ?");
         $stmt->execute([$roomCode, $token]);
@@ -450,16 +479,24 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 echo json_encode(["status" => "error", "message" => "Pick a player to divine."]);
                 exit;
             }
-            $t = $pdo->prepare("SELECT id, role FROM players WHERE id = ? AND room_code = ? AND is_alive = 1");
+            $t = $pdo->prepare("SELECT id, role, hp FROM players WHERE id = ? AND room_code = ? AND is_alive = 1");
             $t->execute([$targetId, $roomCode]);
             $target = $t->fetch();
             if (!$target) {
                 echo json_encode(["status" => "error", "message" => "Invalid target."]);
                 exit;
             }
-            $result = ($target['role'] === 'Werewolf') ? 'wolf' : 'good';
-            $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ? WHERE id = ?")
-                ->execute([$targetId, $targetId, $result, $myId]);
+            if ($mode === MODE_CHAOS) {
+                // Chaos: the Seer reads the REAL role and the target's CURRENT HP.
+                // This is the only way anyone ever sees another player's HP.
+                $hp = ($target['hp'] === null) ? CHAOS_HP : (int)$target['hp'];
+                $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ?, seer_hp = ? WHERE id = ?")
+                    ->execute([$targetId, $targetId, $target['role'], $hp, $myId]);
+            } else {
+                $result = ($target['role'] === 'Werewolf') ? 'wolf' : 'good';
+                $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ? WHERE id = ?")
+                    ->execute([$targetId, $targetId, $result, $myId]);
+            }
 
         } elseif ($me['role'] === 'Witch') {
             // One poison per game. Either name a victim or explicitly pass.
@@ -485,8 +522,24 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $pdo->prepare("UPDATE players SET poison_target = ? WHERE id = ?")->execute([$targetId, $myId]);
             }
 
+        } elseif ($me['role'] === 'Doctor' && $mode === MODE_CHAOS) {
+            // Chaos: a BLIND nightly heal. The Doctor is never told whether the
+            // target needed it, or even whether they were attacked at all.
+            if ($skip) {
+                $pdo->prepare("UPDATE players SET heal_target = NULL, doctor_choice = 0 WHERE id = ?")->execute([$myId]);
+            } else {
+                if ($targetId <= 0) {
+                    echo json_encode(["status" => "error", "message" => "Pick a player to treat, or hold."]);
+                    exit;
+                }
+                if (!validLiveTarget($pdo, $roomCode, $targetId)) {
+                    echo json_encode(["status" => "error", "message" => "That player is no longer available."]);
+                    exit;
+                }
+                $pdo->prepare("UPDATE players SET heal_target = ?, doctor_choice = 1 WHERE id = ?")->execute([$targetId, $myId]);
+            }
         } else {
-            // Villagers and the Doctor have no action in this step.
+            // Villagers have no action in this step.
             echo json_encode(["status" => "success", "message" => "Nothing to do."]);
             exit;
         }

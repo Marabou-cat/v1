@@ -53,6 +53,8 @@
                 if (data.my_id) state.myId = data.my_id;
                 // Account state rides the poll, so rank changes show up live.
                 if ('me' in data) applyAuthUser(data.me);
+                // Your own HP pill (Chaos Night only; hides itself otherwise).
+                renderVitals(data);
 
                 // Matchmaking wait strip (countdown + bot-fill indicator).
                 updateMmStatus(data);
@@ -262,8 +264,8 @@
                             if (!canAct) return '';
 
                             if (data.my_role === 'Werewolf') {
-                                if (data.my_target_id === p.id) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Targeted</button>`;
-                                return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id}, this)"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
+                                if (data.my_target_id === p.id) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> ${data.mode === 'chaos' ? 'Attacking' : 'Targeted'}</button>`;
+                                return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id}, this)"><i data-lucide="crosshair" size="16"></i> ${data.mode === 'chaos' ? 'Attack' : 'Kill'}</button>`;
                             }
                             if (data.my_role === 'Seer') {
                                 if (data.my_check_target) {
@@ -280,6 +282,13 @@
                                         : '';
                                 }
                                 return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id}, this)"><i data-lucide="flask-conical" size="16"></i> Poison</button>`;
+                            }
+                            // Chaos Night: the Doctor takes a real action — a BLIND
+                            // heal of one player. They are never told whether that
+                            // player actually needed it.
+                            if (data.my_role === 'Doctor' && data.mode === 'chaos') {
+                                if (data.my_heal_target === p.id) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Treating</button>`;
+                                return `<button class="btn-action" onclick="submitNightAction(${p.id}, this)"><i data-lucide="heart-pulse" size="16"></i> Heal</button>`;
                             }
                             return '';
                         }, 'night');

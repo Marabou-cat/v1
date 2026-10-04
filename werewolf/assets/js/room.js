@@ -10,7 +10,7 @@
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'create_room', nickname: state.nickname, max_players: maxPlayers })
+                body: new URLSearchParams({ action: 'create_room', nickname: state.nickname, max_players: maxPlayers, mode: state.mode || 'classic' })
             });
 
             const data = await res.json();

@@ -37,7 +37,13 @@ function beginGame(PDO $pdo, $roomCode) {
         }
         $total = count($players);
 
-        $breakdown = calculateRoles($total);
+        // Which ruleset this table plays. Rows created before v10 default to
+        // 'classic', so nothing about the original game changes.
+        $modeRow = $pdo->prepare("SELECT mode FROM rooms WHERE room_code = ?");
+        $modeRow->execute([$roomCode]);
+        $mode = validMode($modeRow->fetchColumn());
+
+        $breakdown = calculateRoles($total, $mode);
         if ($breakdown === null || $total < 4) {
             $pdo->rollBack();
             return;
@@ -51,11 +57,18 @@ function beginGame(PDO $pdo, $roomCode) {
         }
         shuffle($deck);
 
+        // Chaos tables start everyone at full HP; classic leaves the column NULL
+        // (which is also how the client knows to hide the HP bar).
+        $startHp = ($mode === MODE_CHAOS) ? CHAOS_HP : null;
+
         foreach ($players as $index => $player) {
             // bot_ready_at is reset to NULL so each bot re-arms its own random
             // "thinking" delay on the very first night (see processNightBots).
-            $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL, bot_ready_at = NULL WHERE id = ?");
-            $stmt->execute([$deck[$index], $player['id']]);
+            // Settlement stats reset too, so a replayed room starts clean.
+            $stmt = $pdo->prepare("UPDATE players SET role = ?, is_alive = 1, target_id = NULL, vote_id = NULL, bot_ready_at = NULL,
+                                     hp = ?, max_hp = ?, heal_target = NULL, seer_hp = NULL, hp_delta = NULL,
+                                     damage_done = 0, wolf_votes = 0, special_kills = 0 WHERE id = ?");
+            $stmt->execute([$deck[$index], $startHp, $startHp, $player['id']]);
         }
 
         $now = time();
@@ -76,7 +89,11 @@ function beginGame(PDO $pdo, $roomCode) {
 // non-werewolf), the Seer divines a random player, the Witch may spend her
 // one poison (or pass). Does NOT resolve the phase — advanceNight() does that.
 function resetNightState(PDO $pdo, $roomCode) {
-    $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0, doctor_choice = NULL, asleep = 0 WHERE room_code = ?")
+    // heal_target belongs to Chaos (the Doctor's blind heal), and hp_delta is
+    // last night's reading — cleared here so a stale "you were wounded" line
+    // never survives into the next night.
+    $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0,
+                          doctor_choice = NULL, heal_target = NULL, hp_delta = NULL, asleep = 0 WHERE room_code = ?")
         ->execute([$roomCode]);
     $pdo->prepare("UPDATE rooms SET night_step = 'actions', pending_victim = NULL, night_deadline = ? WHERE room_code = ?")
         ->execute([time() + NIGHT_SECONDS, $roomCode]);
@@ -86,8 +103,8 @@ function resetNightState(PDO $pdo, $roomCode) {
 // an alive Seer must have divined, an alive Witch must have spent or passed
 // her poison, and everyone with NO night action (villagers + the Doctor) must
 // have tapped "sleep" (which also masks the sound of the kill tap on a call).
-function nightActionsComplete(PDO $pdo, $roomCode) {
-    $s = $pdo->prepare("SELECT role, target_id, check_target, poison_target, poison_skip, poison_used, asleep
+function nightActionsComplete(PDO $pdo, $roomCode, $mode = 'classic') {
+    $s = $pdo->prepare("SELECT role, target_id, check_target, poison_target, poison_skip, poison_used, doctor_choice, asleep
                           FROM players WHERE room_code = ? AND is_alive = 1");
     $s->execute([$roomCode]);
     foreach ($s->fetchAll() as $p) {
@@ -97,8 +114,12 @@ function nightActionsComplete(PDO $pdo, $roomCode) {
             if ($p['check_target'] === null) return false;
         } elseif ($p['role'] === 'Witch') {
             if (!(int)$p['poison_used'] && $p['poison_target'] === null && !(int)$p['poison_skip']) return false;
+        } elseif ($p['role'] === 'Doctor' && $mode === 'chaos') {
+            // Chaos: the Doctor takes a real action — a blind heal of one player.
+            // Declining is allowed (doctor_choice = 0, no heal_target).
+            if ($p['doctor_choice'] === null) return false;
         } else {
-            // Villager / Doctor: must bunk down before the night resolves.
+            // Villager / (classic) Doctor: must bunk down before the night resolves.
             if (!(int)$p['asleep']) return false;
         }
     }
@@ -131,13 +152,16 @@ function computeWolfVictim(PDO $pdo, $roomCode) {
 // finalize. Returns true if the phase advanced to day.
 function advanceNight(PDO $pdo, $roomCode) {
     $now = time();
-    $r = $pdo->prepare("SELECT status, night_step, night_deadline FROM rooms WHERE room_code = ?");
+    $r = $pdo->prepare("SELECT status, night_step, night_deadline, mode FROM rooms WHERE room_code = ?");
     $r->execute([$roomCode]);
     $room = $r->fetch();
     if (!$room || $room['status'] !== 'night') return false;
+    $mode = validMode($room['mode']);
 
-    // ---- Doctor step: waiting on the revive decision ----
-    if ($room['night_step'] === 'doctor') {
+    // ---- Doctor step: CLASSIC ONLY (the revive window) ----
+    // Chaos deliberately has no such step: handing the Doctor tonight's victim
+    // would tell them exactly who needed help, which this mode forbids.
+    if ($room['night_step'] === 'doctor' && $mode !== MODE_CHAOS) {
         processDoctorBot($pdo, $roomCode);
         $d = $pdo->prepare("SELECT doctor_choice FROM players WHERE room_code = ? AND role = 'Doctor' AND is_alive = 1");
         $d->execute([$roomCode]);
@@ -152,7 +176,7 @@ function advanceNight(PDO $pdo, $roomCode) {
     // ---- Actions step ----
     processNightBots($pdo, $roomCode);
     $timedOut = ($now >= (int)$room['night_deadline']);
-    if (!nightActionsComplete($pdo, $roomCode) && !$timedOut) return false;
+    if (!nightActionsComplete($pdo, $roomCode, $mode) && !$timedOut) return false;
 
     // Timeout safety: give any silent wolf a random target so the night still
     // resolves (an AFK werewolf must not stall the game forever).
@@ -165,6 +189,12 @@ function advanceNight(PDO $pdo, $roomCode) {
             $tid = $o->fetchColumn();
             if ($tid) $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?")->execute([$tid, $wid]);
         }
+    }
+
+    // Chaos: there is no single victim and no Doctor window — every wolf's bite
+    // is applied in finalizeNightChaos, which also keeps the wounded anonymous.
+    if ($mode === MODE_CHAOS) {
+        return finalizeNight($pdo, $roomCode);
     }
 
     $victimId = computeWolfVictim($pdo, $roomCode);
@@ -191,6 +221,14 @@ function advanceNight(PDO $pdo, $roomCode) {
 // write the narrative, clear all per-night state and flip to day.
 function finalizeNight(PDO $pdo, $roomCode) {
     $now = time();
+
+    // Chaos resolves completely differently: bites WOUND instead of executing.
+    $mRow = $pdo->prepare("SELECT mode FROM rooms WHERE room_code = ?");
+    $mRow->execute([$roomCode]);
+    if (validMode($mRow->fetchColumn()) === MODE_CHAOS) {
+        return finalizeNightChaos($pdo, $roomCode);
+    }
+
     $r = $pdo->prepare("SELECT pending_victim FROM rooms WHERE room_code = ?");
     $r->execute([$roomCode]);
     $row = $r->fetch();
@@ -275,6 +313,114 @@ function finalizeNight(PDO $pdo, $roomCode) {
     return true;
 }
 
+/* ================= CHAOS NIGHT NIGHT-RESOLUTION =================
+   Nights WOUND instead of executing. Everyone's HP is hidden, so a non-lethal
+   attack must stay completely invisible: the public narrative only ever names
+   the DEAD. An attacked-but-surviving player learns only that they lost HP —
+   never who hit them.
+
+   Resolution order: all bites (stacking) + poison, then healing capped at max.
+   Applying healing AFTER damage is what makes overhealing simply wasted. */
+function finalizeNightChaos(PDO $pdo, $roomCode) {
+    $now = time();
+
+    $s = $pdo->prepare("SELECT id, nickname, role, is_alive, hp, target_id, heal_target, poison_target, poison_used, doctor_choice
+                          FROM players WHERE room_code = ? ORDER BY id");
+    $s->execute([$roomCode]);
+    $all = $s->fetchAll();
+
+    $hp = []; $alive = []; $name = [];
+    foreach ($all as $p) {
+        $id = (int)$p['id'];
+        $hp[$id]    = ($p['hp'] === null) ? CHAOS_HP : (int)$p['hp'];
+        $alive[$id] = ((int)$p['is_alive'] === 1);
+        $name[$id]  = $p['nickname'];
+    }
+
+    $dmg = [];       // target id => total damage
+    $heal = [];      // target id => total healing
+    $wolfDmg = [];   // wolf id  => damage it dealt (settlement award)
+
+    // 1) Every alive wolf bites its own target. Damage STACKS, so a pack that
+    //    focuses one player can drop them in a single night.
+    foreach ($all as $p) {
+        $id = (int)$p['id'];
+        if ($p['role'] !== 'Werewolf' || !$alive[$id]) continue;
+        $t = (int)($p['target_id'] ?? 0);
+        if ($t <= 0 || empty($alive[$t])) continue;
+        $dmg[$t] = ($dmg[$t] ?? 0) + CHAOS_BITE;
+        $wolfDmg[$id] = ($wolfDmg[$id] ?? 0) + CHAOS_BITE;
+    }
+
+    // 2) The Witch's one-shot poison — heavy damage, spent on use.
+    foreach ($all as $p) {
+        if ($p['role'] !== 'Witch') continue;
+        if (!(int)$p['poison_used'] && (int)($p['poison_target'] ?? 0) > 0) {
+            $t = (int)$p['poison_target'];
+            if (!empty($alive[$t])) $dmg[$t] = ($dmg[$t] ?? 0) + CHAOS_POISON;
+            $pdo->prepare("UPDATE players SET poison_used = 1 WHERE id = ?")->execute([(int)$p['id']]);
+        }
+    }
+
+    // 3) The Doctor's blind heal. It lands whether or not it was needed, and the
+    //    Doctor is NEVER told which — that uncertainty is the point of the role
+    //    in this mode.
+    foreach ($all as $p) {
+        $id = (int)$p['id'];
+        if ($p['role'] !== 'Doctor' || !$alive[$id]) continue;
+        $t = (int)($p['heal_target'] ?? 0);
+        if ($t > 0 && !empty($alive[$t])) $heal[$t] = ($heal[$t] ?? 0) + CHAOS_HEAL;
+    }
+
+    // 4) Apply. hp_delta is the ONLY thing the affected seat gets to see.
+    $touched = array_values(array_unique(array_merge(array_keys($dmg), array_keys($heal))));
+    $dead = [];
+    foreach ($touched as $id) {
+        $id = (int)$id;
+        if (empty($alive[$id])) continue;
+        $before = $hp[$id];
+        $after  = $before - (int)($dmg[$id] ?? 0) + (int)($heal[$id] ?? 0);
+        if ($after > CHAOS_HP) $after = CHAOS_HP;     // overheal is wasted
+        if ($after < 0) $after = 0;
+        $pdo->prepare("UPDATE players SET hp = ?, hp_delta = ? WHERE id = ?")
+            ->execute([$after, $after - $before, $id]);
+        if ($after <= 0) $dead[$id] = true;
+    }
+
+    foreach ($wolfDmg as $wid => $amount) {
+        $pdo->prepare("UPDATE players SET damage_done = damage_done + ? WHERE id = ?")->execute([$amount, (int)$wid]);
+    }
+
+    // Anything untouched this night gets its stale reading cleared.
+    $notTouched = $touched ? " AND id NOT IN (" . implode(',', array_map('intval', $touched)) . ")" : "";
+    $pdo->prepare("UPDATE players SET hp_delta = NULL WHERE room_code = ? AND hp_delta IS NOT NULL$notTouched")
+        ->execute([$roomCode]);
+
+    foreach (array_keys($dead) as $id) {
+        $pdo->prepare("UPDATE players SET is_alive = 0, hp = 0 WHERE id = ? AND room_code = ?")->execute([(int)$id, $roomCode]);
+    }
+
+    // Public narrative: only DEATHS are visible. A night where people were hurt
+    // but nobody died reads exactly like a quiet night — that is the mode.
+    if ($dead) {
+        $names = [];
+        foreach (array_keys($dead) as $id) $names[] = '**' . $name[$id] . '**';
+        $event = (count($names) === 1)
+            ? "During the night, {$names[0]} was found dead."
+            : 'During the night, ' . implode(', ', $names) . ' were found dead.';
+    } else {
+        $event = 'The night passed quietly — nobody was found dead.';
+    }
+
+    // Clear per-night state and flip to day.
+    $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0,
+                          doctor_choice = NULL, heal_target = NULL, asleep = 0, bot_ready_at = NULL WHERE room_code = ?")
+        ->execute([$roomCode]);
+    $pdo->prepare("UPDATE rooms SET status = 'day', phase_started_at = ?, night_step = 'actions', pending_victim = NULL, night_deadline = 0, last_event = ? WHERE room_code = ?")
+        ->execute([$now, $event, $roomCode]);
+    return true;
+}
+
 // A vote/action target must exist, belong to THIS room, and still be alive.
 // Stale clients are the real risk: a backgrounded tab can still be showing a
 // roster from before somebody died, so its "vote for Bob" would otherwise count
@@ -337,7 +483,7 @@ function resolveDay(PDO $pdo, $roomCode) {
     $lynchedName = '';
     $lynchedRole = '';
     if ($outcome === 'lynched') {
-        $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?")->execute([$lynchedId]);
+        $pdo->prepare("UPDATE players SET is_alive = 0, hp = 0 WHERE id = ?")->execute([$lynchedId]);
         $stmt = $pdo->prepare("SELECT nickname, role FROM players WHERE id = ?");
         $stmt->execute([$lynchedId]);
         $row = $stmt->fetch();

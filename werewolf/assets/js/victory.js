@@ -30,12 +30,18 @@ function showVictoryOverlay(data) {
     el.dataset.sig = sig;
     el.className = 'victory-overlay ' + (w === 'werewolves' ? 'vc-wolf-side' : 'vc-villager-side');
 
+    const chaos = (data.mode === 'chaos');
+
     const roster = (data.players || []).map(function (p) {
         const role = (p.role && p.role !== 'Hidden' && p.role !== 'unassigned') ? p.role : 'Unknown';
         const wolf = (role === 'Werewolf');
+        // HP is revealed to everyone only now that the match is over.
+        const hpCell = (chaos && p.hp !== null && p.hp !== undefined)
+            ? '<span class="vc-hp">' + p.hp + '</span>' : '';
         return '<li class="vc-row' + (p.is_alive ? '' : ' vc-dead') + (wolf ? ' vc-is-wolf' : '') + '">'
             + avatarHtml(p.avatar, 26)
             + '<span class="vc-name">' + esc(p.nickname) + '</span>'
+            + hpCell
             + '<span class="vc-role">' + esc(role) + '</span>'
             + (p.is_alive ? '' : '<span class="vc-x">✝</span>')
             + '</li>';
@@ -57,7 +63,7 @@ function showVictoryOverlay(data) {
             + '<div class="vc-award-h">' + title + '</div>'
             + '<div class="vc-award-b">' + avatarHtml(m.avatar, 38)
             + '<span class="vc-award-n">' + esc(m.name) + '</span>'
-            + '<span class="vc-award-c">' + m.count + '</span></div>'
+            + '<span class="vc-award-c">' + m.count + (m.unit ? ' ' + esc(m.unit) : '') + '</span></div>'
             + '<div class="vc-award-s">' + sub + '</div>'
             + '</div>';
     }
@@ -70,7 +76,7 @@ function showVictoryOverlay(data) {
         + mine
         + '<div class="vc-awards">'
         + award(mv, 'vc-a1', 'Sharpest Villager', 'day votes that landed on a werewolf')
-        + award(mw, 'vc-a2', 'Deadliest Wolf', 'power roles taken at night')
+        + award(mw, 'vc-a2', 'Deadliest Wolf', chaos ? 'total damage dealt' : 'power roles taken at night')
         + '</div>'
         + '<div class="vc-head">Final Roster</div>'
         + '<ul class="vc-roster">' + roster + '</ul>'

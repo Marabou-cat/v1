@@ -20,6 +20,7 @@
             isMatch: false,
             matchCount: 6,
             matchSuggest: null,
+            mode: 'classic',
             matchTransitioning: false,
             mmStartTs: null,
             mmStartedAt: 0,

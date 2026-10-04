@@ -15,8 +15,9 @@ $nickname = trim($_POST['nickname'] ?? 'Host');
         $roomCode = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
         $sessionToken = bin2hex(random_bytes(16));
 
-        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, status) VALUES (?, ?, ?, 'lobby')");
-        $stmt->execute([$roomCode, $sessionToken, $maxPlayers]);
+        $mode = validMode($_POST['mode'] ?? '');
+        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, status, mode) VALUES (?, ?, ?, 'lobby', ?)");
+        $stmt->execute([$roomCode, $sessionToken, $maxPlayers, $mode]);
 
         $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive, avatar) VALUES (?, ?, ?, 1, ?)");
         $stmt->execute([$roomCode, $sessionToken, $nickname, seatAvatar($pdo)]);
@@ -34,6 +35,10 @@ $nickname = trim($_POST['nickname'] ?? 'Host');
 function handleMatchmake(PDO $pdo) {
 $nickname = trim($_POST['nickname'] ?? 'Player');
         $count = (int)($_POST['count'] ?? 0);
+        // Modes must NEVER mix — a classic player dropped into a Chaos table (or
+        // vice versa) would see a completely broken game. Every queue lookup and
+        // room creation below is scoped to this.
+        $mode = validMode($_POST['mode'] ?? '');
 
         if ($count < 4 || $count > 10) {
             echo json_encode(["status" => "error", "message" => "Choose 4 to 10 players."]);
@@ -48,11 +53,11 @@ $nickname = trim($_POST['nickname'] ?? 'Player');
         //    only occupants closed the tab are skipped — that is what used to
         //    match two live players into different abandoned rooms.
         $stmt = $pdo->prepare("SELECT r.* FROM rooms r
-            WHERE r.is_match = 1 AND r.status = 'lobby' AND r.max_players = ?
+            WHERE r.is_match = 1 AND r.status = 'lobby' AND r.max_players = ? AND r.mode = ?
               AND EXISTS (SELECT 1 FROM players p
                           WHERE p.room_code = r.room_code AND p.is_bot = 0 AND p.last_seen >= ?)
             ORDER BY r.created_at ASC");
-        $stmt->execute([$count, time() - PLAYER_TIMEOUT]);
+        $stmt->execute([$count, $mode, time() - PLAYER_TIMEOUT]);
         $candidates = $stmt->fetchAll();
 
         foreach ($candidates as $room) {
@@ -101,11 +106,11 @@ $nickname = trim($_POST['nickname'] ?? 'Player');
         //    count — otherwise we'd dangle a non-existent room in front of the
         //    player ("a 10-player lobby is waiting" that is actually empty).
         $stmt = $pdo->prepare("SELECT r.max_players FROM rooms r
-            WHERE r.is_match = 1 AND r.status = 'lobby'
+            WHERE r.is_match = 1 AND r.status = 'lobby' AND r.mode = ?
               AND EXISTS (SELECT 1 FROM players p
                           WHERE p.room_code = r.room_code AND p.is_bot = 0 AND p.last_seen >= ?)
             GROUP BY r.max_players");
-        $stmt->execute([time() - PLAYER_TIMEOUT]);
+        $stmt->execute([$mode, time() - PLAYER_TIMEOUT]);
         $busySizes = $stmt->fetchAll(PDO::FETCH_COLUMN);
         $suggest = null;
         $best = PHP_INT_MAX;
@@ -122,8 +127,8 @@ $nickname = trim($_POST['nickname'] ?? 'Player');
         // agree on when the queue started.
         $mmStartedAt = time();
 
-        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, status, is_match, mm_deadline) VALUES (?, ?, ?, 'lobby', 1, ?)");
-        $stmt->execute([$roomCode, $sessionToken, $count, $mmStartedAt + MATCH_WAIT_SECONDS]);
+        $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, status, is_match, mm_deadline, mode) VALUES (?, ?, ?, 'lobby', 1, ?, ?)");
+        $stmt->execute([$roomCode, $sessionToken, $count, $mmStartedAt + MATCH_WAIT_SECONDS, $mode]);
 
         $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive, avatar) VALUES (?, ?, ?, 1, ?)");
         $stmt->execute([$roomCode, $sessionToken, $nickname, seatAvatar($pdo)]);
@@ -136,6 +141,7 @@ $nickname = trim($_POST['nickname'] ?? 'Player');
             "room_code" => $roomCode,
             "token" => $sessionToken,
             "max_players" => $count,
+            "mode" => $mode,
             "mm_wait_seconds" => MATCH_WAIT_SECONDS,
             "message" => "No open lobby for " . $count . " players. You are first — waiting for others (bots fill the room if it is not full in " . MATCH_WAIT_SECONDS . "s)."
         ];

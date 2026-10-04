@@ -81,6 +81,7 @@
             if (state.chatTimerInterval) { clearInterval(state.chatTimerInterval); state.chatTimerInterval = null; }
             if (typeof stopVoice === 'function') stopVoice();
             if (typeof hideGameOverlays === 'function') hideGameOverlays();
+            if (typeof hideVitals === 'function') hideVitals();
             state.lastRoomStatus = '';
             state.lastAlive = null;
             state.deathShown = false;

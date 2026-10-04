@@ -88,6 +88,9 @@ function botChat(PDO $pdo, $roomCode, array $players) {
 // Clear the per-night action state (called the moment night begins).
 function processNightBots(PDO $pdo, $roomCode) {
     $now = time();
+    $mr = $pdo->prepare("SELECT mode FROM rooms WHERE room_code = ?");
+    $mr->execute([$roomCode]);
+    $mode = validMode($mr->fetchColumn());
     $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND is_bot = 1 AND is_alive = 1");
     $stmt->execute([$roomCode]);
     $bots = $stmt->fetchAll();
@@ -101,8 +104,11 @@ function processNightBots(PDO $pdo, $roomCode) {
             if ($bot['check_target'] !== null) continue;
         } elseif ($role === 'Witch') {
             if ((int)$bot['poison_used'] || $bot['poison_target'] !== null || (int)$bot['poison_skip']) continue;
+        } elseif ($role === 'Doctor' && $mode === MODE_CHAOS) {
+            // Chaos: the Doctor must actually decide (heal someone, or hold).
+            if ($bot['doctor_choice'] !== null) continue;
         } else {
-            // Villager / Doctor: their "action" is bunking down for the night.
+            // Villager / (classic) Doctor: their "action" is bunking down.
             if ((int)$bot['asleep']) continue;
         }
 
@@ -126,14 +132,21 @@ function processNightBots(PDO $pdo, $roomCode) {
             $victim = $options[array_rand($options)];
             $pdo->prepare("UPDATE players SET target_id = ? WHERE id = ?")->execute([$victim, $bot['id']]);
         } elseif ($role === 'Seer') {
-            $s = $pdo->prepare("SELECT id, role FROM players WHERE room_code = ? AND is_alive = 1 AND id != ?");
+            $s = $pdo->prepare("SELECT id, role, hp FROM players WHERE room_code = ? AND is_alive = 1 AND id != ?");
             $s->execute([$roomCode, $bot['id']]);
             $options = $s->fetchAll();
             if (count($options) === 0) continue;
             $pick = $options[array_rand($options)];
-            $res = ($pick['role'] === 'Werewolf') ? 'wolf' : 'good';
-            $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ? WHERE id = ?")
-                ->execute([$pick['id'], $pick['id'], $res, $bot['id']]);
+            if ($mode === MODE_CHAOS) {
+                // Chaos: the Seer learns the REAL role AND the current HP.
+                $hp = ($pick['hp'] === null) ? CHAOS_HP : (int)$pick['hp'];
+                $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ?, seer_hp = ? WHERE id = ?")
+                    ->execute([$pick['id'], $pick['id'], $pick['role'], $hp, $bot['id']]);
+            } else {
+                $res = ($pick['role'] === 'Werewolf') ? 'wolf' : 'good';
+                $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ? WHERE id = ?")
+                    ->execute([$pick['id'], $pick['id'], $res, $bot['id']]);
+            }
         } elseif ($role === 'Witch') {
             $s = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 AND id != ?");
             $s->execute([$roomCode, $bot['id']]);
@@ -144,8 +157,20 @@ function processNightBots(PDO $pdo, $roomCode) {
             } else {
                 $pdo->prepare("UPDATE players SET poison_skip = 1 WHERE id = ?")->execute([$bot['id']]);
             }
+        } elseif ($role === 'Doctor' && $mode === MODE_CHAOS) {
+            // Chaos: heal a random living player, BLIND. The bot has no more idea
+            // than a human whether that player actually needed it.
+            $s = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1");
+            $s->execute([$roomCode]);
+            $options = $s->fetchAll(PDO::FETCH_COLUMN);
+            if (count($options) > 0) {
+                $pdo->prepare("UPDATE players SET heal_target = ?, doctor_choice = 1 WHERE id = ?")
+                    ->execute([$options[array_rand($options)], $bot['id']]);
+            } else {
+                $pdo->prepare("UPDATE players SET doctor_choice = 0 WHERE id = ?")->execute([$bot['id']]);
+            }
         } else {
-            // Villager / Doctor bot: tap sleep.
+            // Villager / (classic) Doctor bot: tap sleep.
             $pdo->prepare("UPDATE players SET asleep = 1 WHERE id = ?")->execute([$bot['id']]);
         }
     }

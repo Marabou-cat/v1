@@ -3,9 +3,14 @@
    Included by backend.php into its scope (shares $pdo and constants).
    Split out of the old monolithic backend.php. */
 
-function calculateRoles($playerCount) {
+function calculateRoles($playerCount, $mode = 'classic') {
     if ($playerCount < 4) return null;
     $werewolves = 1 + (int)floor(($playerCount - 4) / 3);
+    // Chaos Night: nights only WOUND (34 a bite), so a single wolf can no longer
+    // remove a player a night. One extra wolf keeps the pressure comparable to
+    // Classic's guaranteed kill — three focused wolves can still drop someone in
+    // one night. Skipped at 4 players, where an extra wolf would be brutal.
+    if ($mode === 'chaos' && $playerCount >= 5) $werewolves++;
     $specials = ($playerCount === 4) ? 0 : (int)floor(($playerCount - 3) / 2);
     $villagers = $playerCount - ($werewolves + $specials);
 

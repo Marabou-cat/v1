@@ -9,19 +9,19 @@
                 alert('Enter a nickname first.');
                 return;
             }
-            showScreen('view-match');
+            // Mode first (the picker continues to the size screen), so the queue
+            // we join is always scoped to the chosen ruleset.
+            openModePicker('match');
         }
 
         function updateMatchRolePreview() {
             const count = parseInt(document.getElementById('match-count').value, 10);
-            const wolves = 1 + Math.floor((count - 4) / 3);
-            const specials = count === 4 ? 0 : Math.floor((count - 3) / 2);
-            const villagers = count - (wolves + specials);
+            const b = roleBreakdown(count, state.mode || 'classic');
             document.getElementById('match-role-info').innerHTML = `
-                <strong>Squad Composition:</strong><br>
-                <span class="role-tag" style="color: #ff4d4d;"><i data-lucide="skull" size="16"></i> Werewolves: ${wolves}</span>
-                <span class="role-tag" style="color: var(--accent-gold);"><i data-lucide="sparkles" size="16"></i> Specials: ${specials}</span>
-                <span class="role-tag" style="color: #38bdf8;"><i data-lucide="shield" size="16"></i> Villagers: ${villagers}</span>
+                <strong>${esc(modeLabel(state.mode || 'classic'))} &middot; Squad Composition:</strong><br>
+                <span class="role-tag" style="color: #ff4d4d;"><i data-lucide="skull" size="16"></i> Werewolves: ${b.wolves}</span>
+                <span class="role-tag" style="color: var(--accent-gold);"><i data-lucide="sparkles" size="16"></i> Specials: ${b.specials}</span>
+                <span class="role-tag" style="color: #38bdf8;"><i data-lucide="shield" size="16"></i> Villagers: ${b.villagers}</span>
             `;
             lucide.createIcons();
         }
@@ -31,6 +31,7 @@
             state.token = data.token;
             state.isHost = false;
             state.isMatch = true;
+            if (data.mode) state.mode = data.mode;
             state.matchCount = data.max_players;
             state.matchSuggest = (data.suggest_count && data.suggest_count !== data.max_players) ? data.suggest_count : null;
             state.mmStartTs = Date.now();
@@ -140,7 +141,7 @@
             return fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count })
+                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count, mode: state.mode || 'classic' })
             }).then(res => res.json()).then(data => {
                 if (data.status !== 'success') {
                     const b = document.getElementById('btn-match');
@@ -165,7 +166,7 @@
             const data = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count })
+                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count, mode: state.mode || 'classic' })
             }).then(res => res.json());
 
             if (data.status === 'success') {

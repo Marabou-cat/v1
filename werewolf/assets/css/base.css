@@ -530,3 +530,80 @@
         .set-avatar-head span { font-size: 0.66rem; font-weight: 600; color: #64748b; }
 
         
+
+        /* ================= GAME MODES ================= */
+        .mode-modal {
+            position: fixed; inset: 0; z-index: 9600;
+            display: none; align-items: center; justify-content: center;
+            padding: 16px; overflow-y: auto;
+            background: rgba(3, 4, 7, 0.86); backdrop-filter: blur(7px);
+        }
+        .mode-modal.open { display: flex; }
+        .mode-lead { text-align: center; color: #94a3b8; font-size: 0.82rem; font-weight: 600; margin: -6px 0 14px; }
+        .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .mode-card {
+            position: relative; cursor: pointer; text-align: left;
+            display: flex; flex-direction: column; gap: 4px;
+            padding: 16px 14px; border-radius: 14px;
+            background: linear-gradient(180deg, rgba(28, 32, 44, 0.95), rgba(14, 16, 22, 0.95));
+            border: 1.5px solid var(--panel-border); color: #cbd5e1;
+            transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+        }
+        .mode-card:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.28); }
+        .mode-card.on { border-color: var(--accent-gold); box-shadow: 0 0 0 1px var(--accent-gold), 0 10px 34px rgba(0, 0, 0, 0.5); }
+        .mode-icon { color: var(--accent-gold); display: inline-flex; }
+        .mode-name { font-size: 1.06rem; font-weight: 900; color: #f1f5f9; letter-spacing: 0.4px; }
+        .mode-tagline { font-size: 0.66rem; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #64748b; }
+        .mode-blurb { font-size: 0.78rem; line-height: 1.45; color: #94a3b8; font-weight: 600; }
+        .mode-new {
+            position: absolute; top: 10px; right: 10px;
+            font-size: 0.58rem; font-weight: 900; letter-spacing: 1px;
+            padding: 2px 7px; border-radius: 999px; background: #8b5cf6; color: #fff;
+        }
+        .mode-card[data-mode="chaos"] { border-color: rgba(139, 92, 246, 0.45); }
+        .mode-card[data-mode="chaos"] .mode-icon { color: #c4b5fd; }
+        .mode-card[data-mode="chaos"].on { border-color: #8b5cf6; box-shadow: 0 0 0 1px #8b5cf6, 0 10px 34px rgba(139, 92, 246, 0.35); }
+
+        /* ---- Chaos Night: YOUR vitals.
+           Other players' HP is never sent to the client, so this pill is the
+           only HP display that can exist. Hidden entirely in Classic. ---- */
+        .vitals {
+            position: fixed; left: 14px; top: 12px; z-index: 9400;
+            width: 178px; padding: 9px 11px; border-radius: 12px;
+            background: rgba(5, 6, 8, 0.86); border: 1px solid rgba(139, 92, 246, 0.45);
+            backdrop-filter: blur(8px); box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
+        }
+        .vitals-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .vitals-label {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 0.56rem; font-weight: 900; letter-spacing: 1.1px; color: #c4b5fd;
+        }
+        .vitals-num { font-size: 0.76rem; font-weight: 900; color: #f1f5f9; }
+        .vitals-track { height: 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+        .vitals-fill {
+            height: 100%; border-radius: 999px;
+            background: linear-gradient(90deg, #34d399, #10b981);
+            transition: width 0.45s ease, background 0.3s ease;
+        }
+        .vitals-fill.mid { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+        .vitals-fill.low { background: linear-gradient(90deg, #ff4d5e, #c00517); }
+        .vitals-delta { font-size: 0.62rem; font-weight: 800; margin-top: 5px; min-height: 0.8em; }
+        .vitals-delta.up { color: #34d399; }
+        .vitals-delta.down { color: #ff6b6b; animation: vitalsHit 0.5s ease; }
+        @keyframes vitalsHit {
+            0% { transform: translateX(0); } 25% { transform: translateX(-3px); }
+            60% { transform: translateX(3px); } 100% { transform: none; }
+        }
+        body.chaos-mode .game-main { border-color: rgba(139, 92, 246, 0.35); }
+        .seer-hp { color: #c4b5fd; font-weight: 900; }
+        .vc-hp { font-size: 0.68rem; font-weight: 900; color: #c4b5fd; }
+
+        @media (max-width: 640px) {
+            .mode-grid { grid-template-columns: 1fr; }
+            .vitals { width: 132px; left: 8px; top: 8px; padding: 7px 9px; }
+            .vitals-num { font-size: 0.7rem; }
+            .vitals-label { font-size: 0.5rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .vitals-delta.down { animation: none !important; }
+        }

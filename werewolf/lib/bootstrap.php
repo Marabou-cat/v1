@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
@@ -70,6 +70,26 @@ const AUTH_XP_SURVIVE = 10;   // extra if you were still alive at the end
 const AUTH_AVATARS = ['paw', 'moon', 'skull', 'ghost', 'blade', 'ember', 'warden',
                       'royal', 'seer', 'hunter', 'raven', 'cat', 'hound', 'bone',
                       'forest', 'frost'];
+
+// --- Game modes ------------------------------------------------------------
+// 'classic' is the original game and its code path must never change behaviour.
+// 'chaos' (Chaos Night) replaces the nightly guaranteed kill with HIDDEN HP:
+// nights wound instead of execute, so nobody can tell whether an attack landed.
+const MODE_CLASSIC = 'classic';
+const MODE_CHAOS   = 'chaos';
+const GAME_MODES   = [MODE_CLASSIC, MODE_CHAOS];
+
+// Chaos Night tuning. 34 x3 = 102, so one wolf needs three bites while three
+// wolves focusing the same target kill them in a single night.
+const CHAOS_HP     = 100;   // everyone starts (and caps) here
+const CHAOS_BITE   = 34;    // damage per werewolf attack
+const CHAOS_HEAL   = 30;    // HP restored by the Doctor's nightly heal
+const CHAOS_POISON = 60;    // damage from the Witch's one-shot poison
+
+function validMode($m) {
+    $m = strtolower(trim((string)$m));
+    return in_array($m, GAME_MODES, true) ? $m : MODE_CLASSIC;
+}
 
 $schemaOk = false;
 try {
@@ -210,6 +230,17 @@ if (!$schemaOk) {
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS wolf_votes INT DEFAULT 0");
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS special_kills INT DEFAULT 0");
         $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS winner VARCHAR(12) DEFAULT NULL");
+        // v10: Chaos Night. rooms.mode defaults to 'classic', so every existing
+        // room keeps the original rules. HP columns stay NULL in classic.
+        // IMPORTANT: other players' HP must NEVER be sent to the client — only
+        // my_hp for your own seat (and the Seer's one checked target) travels.
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS mode VARCHAR(16) NOT NULL DEFAULT 'classic'");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS hp INT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS max_hp INT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS heal_target INT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS seer_hp INT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS hp_delta INT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS damage_done INT DEFAULT 0");
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS email_codes (
             id INT AUTO_INCREMENT PRIMARY KEY,

@@ -94,7 +94,7 @@
 
                     <div class="btn-row">
                         <button class="btn-primary" onclick="openQuickMatch()"><i data-lucide="zap" size="20"></i> Quick Match</button>
-                        <button class="btn-secondary" onclick="showScreen('view-create')"><i data-lucide="swords" size="20"></i> Create Room</button>
+                        <button class="btn-secondary" onclick="openModePicker('create')"><i data-lucide="swords" size="20"></i> Create Room</button>
                         <button class="btn-secondary" onclick="showScreen('view-join')"><i data-lucide="door-open" size="20"></i> Join Room</button>
                     </div>
                     <p class="menu-hint">4–10 players &middot; Werewolves hunt by night &middot; The village votes by day</p>
@@ -412,9 +412,46 @@
         </div>
     </div>
 
+    <!-- Mode picker: shown when starting a Create Room or a Quick Match. Both
+         players and the matchmaker are scoped by mode, so a table never mixes. -->
+    <div id="mode-modal" class="mode-modal">
+        <div class="auth-card">
+            <button class="auth-close" onclick="closeModePicker()" aria-label="Close">&times;</button>
+            <h2 class="auth-title">Choose Mode</h2>
+            <p class="mode-lead">Everyone at a table plays the same mode.</p>
+            <div class="mode-grid">
+                <button class="mode-card" data-mode="classic" onclick="chooseMode('classic')">
+                    <span class="mode-icon"><i data-lucide="moon" size="26"></i></span>
+                    <span class="mode-name">Classic</span>
+                    <span class="mode-tagline">The original</span>
+                    <span class="mode-blurb">One kill every night. The village votes out a suspect each day.</span>
+                </button>
+                <button class="mode-card" data-mode="chaos" onclick="chooseMode('chaos')">
+                    <span class="mode-new">NEW</span>
+                    <span class="mode-icon"><i data-lucide="heart-pulse" size="26"></i></span>
+                    <span class="mode-name">Chaos Night</span>
+                    <span class="mode-tagline">Hidden wounds</span>
+                    <span class="mode-blurb">Everyone hides an HP pool. Wolves wound instead of kill, the Doctor heals blind, and only the Seer can read a body.</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chaos Night: YOUR vitals only. Other players' HP never leaves the server,
+         so nothing here can leak it. Hidden entirely in Classic. -->
+    <div id="vitals" class="vitals" style="display:none;">
+        <div class="vitals-top">
+            <span class="vitals-label"><i data-lucide="heart-pulse" size="13"></i> CHAOS NIGHT</span>
+            <span id="vitals-num" class="vitals-num">100 / 100</span>
+        </div>
+        <div class="vitals-track"><div id="vitals-fill" class="vitals-fill" style="width:100%"></div></div>
+        <div id="vitals-delta" class="vitals-delta"></div>
+    </div>
+
     <script src="assets/js/state.js"></script>
     <script src="assets/js/avatar.js"></script>
     <script src="assets/js/feedback.js"></script>
+    <script src="assets/js/modes.js"></script>
     <script src="assets/js/victory.js"></script>
     <script src="assets/js/ambient.js"></script>
     <script src="assets/js/phase.js"></script>

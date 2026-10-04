@@ -97,6 +97,26 @@
             // Villager / Doctor (outside the doctor step): tap Sleep. Everyone who
             // has no night action must tap it, which also masks the sound of the
             // werewolf's kill tap when friends are on a voice call.
+            // Chaos Night: the Doctor's action is a BLIND heal (Heal buttons live
+            // on the roster) plus the option to hold the medicine. They are never
+            // told whether the player they treated actually needed it.
+            if (data.my_role === 'Doctor' && data.mode === 'chaos') {
+                const treating = !!data.my_heal_target;
+                const held = (Number(data.my_doctor_choice) === 0);
+                el.style.display = 'block';
+                el.innerHTML = `
+                    <div class="skill-head"><i data-lucide="heart-pulse" size="18"></i> Doctor — Treat</div>
+                    <div class="skill-body">${treating
+                        ? 'You have chosen who to treat. You will never be told whether it helped.'
+                        : (held ? 'You are holding your medicine tonight.'
+                                : 'Pick a player above to treat — or hold your medicine. Nobody tells you who needed it.')}</div>
+                    ${(!treating && !held)
+                        ? '<div class="skill-actions"><button class="btn-action" onclick="submitNightSkip(this)"><i data-lucide="moon" size="16"></i> Hold medicine</button></div>'
+                        : ''}`;
+                lucide.createIcons();
+                return;
+            }
+
             if ((data.my_role === 'Villager' || data.my_role === 'Doctor') && !data.my_asleep) {
                 el.style.display = 'block';
                 el.innerHTML = `
@@ -117,6 +137,20 @@
 
             // Seer: show the most recent divination.
             if (data.my_role === 'Seer' && data.my_seer_result) {
+                // Chaos Night: the Seer reads the REAL role and the CURRENT HP —
+                // the only way anyone ever sees another player's numbers.
+                if (data.mode === 'chaos') {
+                    const r = String(data.my_seer_result);
+                    const isWolf = (r === 'Werewolf');
+                    el.style.display = 'block';
+                    el.innerHTML = `
+                        <div class="skill-head"><i data-lucide="eye" size="18"></i> Seer — Read</div>
+                        <div class="skill-body">You read <b>${esc(data.my_seer_target_name)}</b>:<br>
+                            <b style="color:${isWolf ? '#ff4d4d' : '#38bdf8'};">${esc(r)}</b>
+                            <span class="seer-hp">· ${data.my_seer_hp} HP</span></div>`;
+                    lucide.createIcons();
+                    return;
+                }
                 const isWolf = data.my_seer_result === 'wolf';
                 el.style.display = 'block';
                 el.innerHTML = `
