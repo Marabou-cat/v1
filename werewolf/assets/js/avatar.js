@@ -65,6 +65,8 @@ function avatarAllIds() {
    self-hosted lucide glyph. The caller runs lucide.createIcons() after
    inserting glyph ones (portraits need no such pass). */
 function avatarHtml(id, size) {
+    // A player-BUILT character travels as a short code; render the paper-doll.
+    if (typeof isCustomAvatar === 'function' && isCustomAvatar(id)) return customAvatarHtml(id, size);
     const d = avatarDef(id);
     const s = size || 28;
     if (d.img) {

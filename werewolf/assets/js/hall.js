@@ -25,17 +25,17 @@ function hallToken() {
     return t;
 }
 
-/* The character I am wearing. Account pick > the one I chose here > a fresh
-   random one, persisted so it does not reshuffle on every refresh. */
+/* The character I am wearing: a BUILT one (code), an account pick, the one I chose
+   here, or a fresh random cast member — persisted so it never reshuffles. */
 function myCharacter() {
+    const custom = (typeof isCustomAvatar === 'function') ? isCustomAvatar : function () { return false; };
     const acct = state.authUser && state.authUser.avatar;
-    if (isCharacterAvatar(acct)) return acct;
+    if (acct && (custom(acct) || isCharacterAvatar(acct))) return acct;
     let a = state.hallChar || hallLoad(HALL_KEY_AV);
-    if (!isCharacterAvatar(a)) {
-        const all = Object.keys(AVATAR_CHARS);
-        a = all[Math.floor(Math.random() * all.length)];
-        hallStore(HALL_KEY_AV, a);
-    }
+    if (a && (custom(a) || isCharacterAvatar(a))) { state.hallChar = a; return a; }
+    const all = Object.keys(AVATAR_CHARS);
+    a = all[Math.floor(Math.random() * all.length)];
+    hallStore(HALL_KEY_AV, a);
     state.hallChar = a;
     return a;
 }
@@ -58,10 +58,10 @@ function renderHall(data) {
     if (!hero || !stage) return;
 
     const mine = myCharacter();
-    hero.innerHTML = '<button class="hall-you-btn" onclick="openCharacterPicker()" title="Tap to choose your character">'
+    hero.innerHTML = '<button class="hall-you-btn" onclick="openAvatarBuilder()" title="Build your character">'
         + '<span class="hall-you">' + avatarHtml(mine, 104) + '</span>'
         + '<span class="hall-you-info"><b>' + esc(hallNickname()) + '</b>'
-        + '<span class="hall-you-tag">your character &middot; tap to change</span></span>'
+        + '<span class="hall-you-tag">your character &middot; tap to build</span></span>'
         + '</button>';
 
     const list = (data && data.hall) ? data.hall : [];

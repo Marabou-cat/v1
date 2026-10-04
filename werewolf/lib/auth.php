@@ -116,6 +116,10 @@ function authLevelProgress($xp) {
 // --- Avatars ---------------------------------------------------------------
 function authValidAvatar($id) {
     $id = strtolower(trim((string)$id));
+    // A player-BUILT avatar travels as a short code (see assets/js/avatar-builder.js):
+    // 'v1' plus twelve one-char fields. It rides the same column, so the hall, the
+    // seat, the payload and the roster all keep working untouched.
+    if (preg_match('/^v1[0-9a-z]{12}$/', $id)) return $id;
     return in_array($id, AUTH_AVATARS, true) ? $id : null;
 }
 
