@@ -288,4 +288,101 @@
             text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85), 0 0 14px rgba(0, 0, 0, 0.6);
         }
 
+        /* ================= ACCOUNTS (top-right) ================= */
+        .auth-bar {
+            position: fixed; top: 12px; right: 14px; z-index: 9500;
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 8px; border-radius: 999px;
+            background: rgba(5, 6, 8, 0.82);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(8px);
+        }
+        /* In the game screen JS moves the bar into the top bar, so it can never
+           collide with the Exit button there. */
+        .auth-bar.in-topbar {
+            position: static; top: auto; right: auto;
+            background: none; border: none; backdrop-filter: none; padding: 0;
+        }
+        .auth-guest, .auth-user { display: flex; align-items: center; gap: 8px; }
+        .auth-btn {
+            width: auto !important; flex: none; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 13px !important; font-size: 0.78rem !important;
+            border-radius: 999px !important; box-shadow: none !important;
+        }
+        .auth-btn-primary {
+            background: var(--accent-gold) !important; border-color: var(--accent-gold) !important;
+            color: #1a1205 !important; font-weight: 800 !important;
+        }
+        .auth-btn-quiet { padding: 7px 10px !important; }
+        .auth-name {
+            font-weight: 800; font-size: 0.82rem; color: #e2e8f0;
+            max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .auth-stats { font-size: 0.74rem; font-weight: 700; color: #94a3b8; }
+        .tier-badge {
+            display: inline-block; font-size: 0.66rem; font-weight: 900;
+            letter-spacing: 1px; text-transform: uppercase;
+            padding: 3px 8px; border-radius: 999px; border: 1px solid currentColor;
+        }
+        .tier-badge.tier-bronze   { color: #cd7f32; }
+        .tier-badge.tier-silver   { color: #cbd5e1; }
+        .tier-badge.tier-gold     { color: #ffcc00; }
+        .tier-badge.tier-platinum { color: #7dd3fc; }
+        .tier-badge.tier-diamond  { color: #a78bfa; }
+        .tier-badge.tier-master   { color: #ff4d4d; }
+
+        .auth-modal {
+            position: fixed; inset: 0; z-index: 9600;
+            display: none; align-items: center; justify-content: center;
+            background: rgba(2, 3, 6, 0.82); backdrop-filter: blur(6px); padding: 20px;
+        }
+        .auth-modal.show { display: flex; animation: authIn 0.25s ease both; }
+        @keyframes authIn { from { opacity: 0; } to { opacity: 1; } }
+        .auth-card {
+            position: relative; width: min(94vw, 420px); text-align: left;
+            background: linear-gradient(180deg, #12141c, #0a0b10);
+            border: 2px solid var(--panel-border); border-radius: 16px;
+            padding: 26px 24px 20px;
+        }
+        .auth-close {
+            position: absolute; top: 6px; right: 12px; width: auto !important;
+            background: none !important; border: none !important; box-shadow: none !important;
+            color: #94a3b8; font-size: 1.6rem; line-height: 1; cursor: pointer; padding: 0 !important;
+        }
+        .auth-title {
+            font-family: 'Cinzel', serif; color: var(--accent-gold);
+            font-size: 1.4rem; letter-spacing: 2px; margin: 0 0 14px; text-align: center;
+        }
+        .auth-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .auth-tab {
+            flex: 1; width: auto !important; padding: 9px 0 !important;
+            font-size: 0.8rem !important; border-radius: 10px !important;
+            box-shadow: none !important; cursor: pointer; opacity: 0.55;
+        }
+        .auth-tab.active { opacity: 1; border-color: var(--accent-gold) !important; color: var(--accent-gold) !important; }
+        .auth-field {
+            display: block; margin-bottom: 12px; font-size: 0.72rem; font-weight: 800;
+            letter-spacing: 1.5px; text-transform: uppercase; color: #94a3b8;
+        }
+        .auth-field input {
+            width: 100%; margin-top: 6px; padding: 12px 14px; font-size: 0.95rem;
+            background: rgba(6, 7, 11, 0.9); border: 1px solid var(--panel-border);
+            border-radius: 10px; color: #f1f5f9; font-weight: 600;
+        }
+        .auth-field input:focus { outline: none; border-color: var(--accent-gold); }
+        .auth-error { min-height: 18px; font-size: 0.8rem; font-weight: 700; color: #ff6b6b; margin-bottom: 8px; }
+        .auth-submit {
+            width: 100%; padding: 13px 0 !important; font-size: 0.95rem !important;
+            border-radius: 10px !important; cursor: pointer;
+            background: var(--accent-gold) !important; border-color: var(--accent-gold) !important;
+            color: #1a1205 !important; font-weight: 900 !important;
+        }
+        .auth-submit:disabled { opacity: 0.6; cursor: default; }
+        .auth-note { font-size: 0.74rem; color: #64748b; font-weight: 600; margin: 14px 0 0; text-align: center; line-height: 1.5; }
+        @media (max-width: 700px) {
+            .auth-bar { top: 8px; right: 8px; padding: 4px 6px; }
+            .auth-stats { display: none; }
+        }
+
         

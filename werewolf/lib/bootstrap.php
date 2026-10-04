@@ -43,7 +43,19 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
+
+// --- Auth / accounts -------------------------------------------------------
+// Accounts are OPTIONAL: a guest can play forever, they just don't get a win
+// rate or a rank. Sessions are opaque tokens in a HttpOnly cookie backed by a
+// DB row — deliberately NOT PHP native sessions, because file sessions lock and
+// our poll long-polls for over a second, which would serialise a player's own
+// requests.
+const AUTH_SESSION_TTL = 2592000;   // 30 days
+const AUTH_RATING_START = 1000;
+const AUTH_K = 32;                  // Elo K-factor
+const AUTH_MAX_ATTEMPTS = 8;        // failed logins before a cooldown
+const AUTH_LOCK_SECONDS = 600;
 
 $schemaOk = false;
 try {
@@ -109,6 +121,47 @@ if (!$schemaOk) {
         // play the vote-result cutscene.
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS vote_skip TINYINT DEFAULT 0");
         $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_vote TEXT DEFAULT NULL");
+        // --- Accounts ------------------------------------------------------
+        $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(24) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            display_name VARCHAR(24) DEFAULT NULL,
+            status TINYINT DEFAULT 1,
+            games INT DEFAULT 0,
+            wins INT DEFAULT 0,
+            rating INT DEFAULT 1000,
+            peak_rating INT DEFAULT 1000,
+            created_at INT DEFAULT 0,
+            last_login_at INT DEFAULT 0,
+            UNIQUE KEY uniq_username (username)
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS auth_sessions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            token_hash CHAR(64) NOT NULL,
+            created_at INT DEFAULT 0,
+            expires_at INT DEFAULT 0,
+            revoked_at INT DEFAULT 0,
+            ip VARCHAR(45) DEFAULT NULL,
+            UNIQUE KEY uniq_token (token_hash),
+            INDEX idx_user (user_id)
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS auth_attempts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(24) DEFAULT NULL,
+            ip VARCHAR(45) DEFAULT NULL,
+            ok TINYINT DEFAULT 0,
+            created_at INT DEFAULT 0,
+            INDEX idx_user_time (username, created_at)
+        )");
+        // players.user_id links a seat to an account (NULL = guest, no stats).
+        // rating_delta/user_won are written at game end so the result screen can
+        // show what the match did to your rank.
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS user_id INT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS rating_delta INT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS user_won TINYINT DEFAULT NULL");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_players_user ON players (user_id)");
         $pdo->exec("CREATE TABLE IF NOT EXISTS voice_signals (
             id INT AUTO_INCREMENT PRIMARY KEY,
             room_code VARCHAR(10) NOT NULL,

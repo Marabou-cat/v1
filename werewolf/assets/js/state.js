@@ -25,6 +25,8 @@
             lastEvent: '',
             lastPhase: '',
             myId: 0,
+            authUser: null,
+            authSig: '',
             voice: { on: false, muted: false, stream: null, pcs: {}, pendingIce: {}, audioEls: {} },
             lastRoomStatus: '',
             lastAlive: null,

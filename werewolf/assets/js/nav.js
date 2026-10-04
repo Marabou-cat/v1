@@ -19,6 +19,7 @@
             if (screenId === 'view-lobby') setPhase('lobby');
             if (screenId === 'view-create') updateRolePreview();
             if (screenId === 'view-match') updateMatchRolePreview();
+            if (typeof placeAuthBar === 'function') placeAuthBar(screenId);
             lucide.createIcons();
         }
 

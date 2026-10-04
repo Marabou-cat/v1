@@ -40,6 +40,10 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             exit;
         }
 
+        // Signed-in user for this request (null for guests). Accounts are
+        // optional — everything below works exactly the same without one.
+        $authUser = authUser($pdo);
+
         // --- Long-poll -------------------------------------------------------
         // Hold this request until something the CLIENT can see actually changes
         // (or the wait budget expires) BEFORE doing any work.  The client then
@@ -117,7 +121,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -138,6 +142,9 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $myTargetId = null;
         $myVoteId = null;
         $myVoteSkip = 0;
+        $myUserId = null;
+        $myRatingDelta = null;
+        $myUserWon = null;
         $hasVoted = false;
         $myCheckTarget = null;
         $mySeerTarget = null;
@@ -166,6 +173,19 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $myDoctorChoice = $p['doctor_choice'];
                 $myAsleep = (int)$p['asleep'];
                 $myVoteSkip = (int)$p['vote_skip'];
+                $myUserId = $p['user_id'] !== null ? (int)$p['user_id'] : null;
+                $myRatingDelta = ($p['rating_delta'] !== null) ? (int)$p['rating_delta'] : null;
+                $myUserWon = ($p['user_won'] !== null) ? (int)$p['user_won'] : null;
+
+                // Signed in but still sitting in a guest seat (joined before
+                // logging in): attach the account once so this match counts.
+                if ($authUser && $myUserId === null) {
+                    try {
+                        $pdo->prepare("UPDATE players SET user_id = ? WHERE id = ?")
+                            ->execute([(int)$authUser['id'], (int)$p['id']]);
+                        $myUserId = (int)$authUser['id'];
+                    } catch (Exception $e) {}
+                }
 
                 if ($room['status'] === 'night' && $p['role'] === 'Werewolf') {
                     $hasVoted = ($p['target_id'] !== null);
@@ -220,11 +240,16 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             if ($aliveWerewolves === 0) {
                 $stmt = $pdo->prepare("UPDATE rooms SET status = 'ended', last_event = 'Villagers win! All werewolves have been eliminated.' WHERE room_code = ?");
                 $stmt->execute([$roomCode]);
+                // rowCount() > 0 means THIS request flipped the room, so the
+                // one-time stats award happens exactly once even if two polls
+                // compute the win simultaneously.
+                if ($stmt->rowCount() > 0) authAwardGame($pdo, $roomCode, 'villagers');
                 $room['status'] = 'ended';
                 $room['last_event'] = 'Villagers win! All werewolves have been eliminated.';
             } elseif ($aliveWerewolves >= $aliveVillagersOrSpecials) {
                 $stmt = $pdo->prepare("UPDATE rooms SET status = 'ended', last_event = 'Werewolves win! They have outnumbered the villagers.' WHERE room_code = ?");
                 $stmt->execute([$roomCode]);
+                if ($stmt->rowCount() > 0) authAwardGame($pdo, $roomCode, 'werewolves');
                 $room['status'] = 'ended';
                 $room['last_event'] = 'Werewolves win! They have outnumbered the villagers.';
             }
@@ -320,6 +345,11 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             "my_doctor_choice" => $myDoctorChoice,
             "my_asleep" => $myAsleep,
             "my_vote_skip" => $myVoteSkip,
+            // Account info (null for guests) + what this match did to my rank.
+            "me" => authUserPublic($authUser),
+            "my_user_id" => $myUserId,
+            "my_rating_delta" => $myRatingDelta,
+            "my_user_won" => $myUserWon,
             "doctor_victim_name" => $doctorVictimName,
             "voice_signals" => $voiceSignals,
             "last_event" => $room['last_event'] ?? '',

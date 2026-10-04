@@ -47,6 +47,8 @@
                 if (data.mm_started_at) state.mmStartedAt = data.mm_started_at;
                 if (data.started_at) state.gameStartedAt = data.started_at;
                 if (data.my_id) state.myId = data.my_id;
+                // Account state rides the poll, so rank changes show up live.
+                if ('me' in data) applyAuthUser(data.me);
 
                 // Matchmaking wait strip (countdown + bot-fill indicator).
                 updateMmStatus(data);
@@ -277,7 +279,18 @@
                     } else if (data.room_status === 'ended') {
                         phaseText.innerHTML = '<i data-lucide="trophy" size="18" style="vertical-align: middle;"></i> Match Concluded';
                         phaseText.style.color = '#38bdf8';
-                        gameListLabel.innerText = 'Final Squad Roster:';
+
+                        // Signed-in players see what the match did to their rank;
+                        // guests are told that signing in is what counts.
+                        const d = data.my_rating_delta;
+                        if (data.my_user_id && d !== null && d !== undefined) {
+                            gameListLabel.innerText = (data.my_user_won ? 'Victory' : 'Defeat')
+                                + '  ·  Rank ' + (d >= 0 ? '+' : '') + d;
+                        } else if (!data.my_user_id) {
+                            gameListLabel.innerText = 'Final Squad Roster:  (sign in to rank this match)';
+                        } else {
+                            gameListLabel.innerText = 'Final Squad Roster:';
+                        }
 
                         // Every role is revealed by the backend at 'ended', so the
                         // card's role chip renders it — no extra markup needed.

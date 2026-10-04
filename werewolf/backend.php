@@ -3,6 +3,7 @@
    Implementation lives in lib/; this file only wires it together and routes
    the request.  See lib/bootstrap.php for config + schema. */
 require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/auth.php';
 require_once __DIR__ . '/lib/roles.php';
 require_once __DIR__ . '/lib/bots.php';
 require_once __DIR__ . '/lib/presence.php';
@@ -10,6 +11,7 @@ require_once __DIR__ . '/lib/game.php';
 require_once __DIR__ . '/lib/actions-room.php';
 require_once __DIR__ . '/lib/actions-play.php';
 require_once __DIR__ . '/lib/actions-voice.php';
+require_once __DIR__ . '/lib/actions-auth.php';
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
@@ -28,6 +30,11 @@ switch ($action) {
     case 'doctor_action': handleDoctorAction($pdo); break;
     case 'voice': handleVoice($pdo); break;
     case 'day_vote': handleDayVote($pdo); break;
+    case 'register': handleRegister($pdo); break;
+    case 'login': handleLogin($pdo); break;
+    case 'logout': handleLogout($pdo); break;
+    case 'me': handleMe($pdo); break;
+    case 'leaderboard': handleLeaderboard($pdo); break;
 
     default:
         echo json_encode(["status" => "error", "message" => "Invalid API action."]);

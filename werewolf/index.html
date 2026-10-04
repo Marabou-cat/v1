@@ -278,6 +278,43 @@
         </div>
     </div>
 
+    <!-- Accounts: sign-in / sign-up live in the top-right corner. Optional —
+         guests play exactly the same, they just don't accrue a rank. -->
+    <div id="auth-bar" class="auth-bar">
+        <div id="auth-guest" class="auth-guest">
+            <button class="auth-btn" onclick="openAuth('login')"><i data-lucide="log-in" size="15"></i> Log In</button>
+            <button class="auth-btn auth-btn-primary" onclick="openAuth('register')"><i data-lucide="user-plus" size="15"></i> Sign Up</button>
+        </div>
+        <div id="auth-user" class="auth-user" style="display:none;">
+            <span id="auth-tier" class="tier-badge">Bronze</span>
+            <span id="auth-name" class="auth-name"></span>
+            <span id="auth-stats" class="auth-stats"></span>
+            <button class="auth-btn auth-btn-quiet" onclick="doLogout()" title="Sign out"><i data-lucide="log-out" size="15"></i></button>
+        </div>
+    </div>
+
+    <div id="auth-modal" class="auth-modal">
+        <div class="auth-card">
+            <button class="auth-close" onclick="closeAuth()" aria-label="Close">&times;</button>
+            <h2 id="auth-title" class="auth-title">Log In</h2>
+            <div class="auth-tabs">
+                <button id="auth-tab-login" class="auth-tab" onclick="openAuth('login')">Log In</button>
+                <button id="auth-tab-register" class="auth-tab" onclick="openAuth('register')">Sign Up</button>
+            </div>
+            <form id="auth-form" onsubmit="return submitAuth(event)">
+                <label class="auth-field">Username
+                    <input id="auth-username" maxlength="24" autocomplete="username" spellcheck="false" placeholder="3-24 letters, numbers, _">
+                </label>
+                <label class="auth-field">Password
+                    <input id="auth-password" type="password" autocomplete="current-password" placeholder="at least 6 characters">
+                </label>
+                <div id="auth-error" class="auth-error"></div>
+                <button type="submit" id="auth-submit" class="auth-submit">Log In</button>
+            </form>
+            <p class="auth-note">Accounts are optional — you can always play as a guest. Signing in is what unlocks your <b>win rate</b> and <b>rank</b>.</p>
+        </div>
+    </div>
+
     <script src="assets/js/state.js"></script>
     <script src="assets/js/ambient.js"></script>
     <script src="assets/js/phase.js"></script>
@@ -292,6 +329,7 @@
     <script src="assets/js/render.js"></script>
     <script src="assets/js/voice.js"></script>
     <script src="assets/js/night-ui.js"></script>
+    <script src="assets/js/auth.js"></script>
     <script src="assets/js/poll.js"></script>
     <script src="assets/js/title.js"></script>
     <script src="assets/js/nickname.js"></script>
