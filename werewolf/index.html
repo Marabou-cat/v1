@@ -945,6 +945,102 @@
             border-color: #16a34a !important;
             color: #04120a !important;
         }
+
+        /* ---- Night/day transition + blackout + death card + centred sleep ---- */
+        .phase-fade {
+            position: fixed; inset: 0; z-index: 9200;
+            background: #000; opacity: 0; pointer-events: none;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.85s ease;
+        }
+        .phase-fade.show { opacity: 1; }
+        .phase-fade-text {
+            font-family: 'Cinzel', serif; font-weight: 900;
+            letter-spacing: 5px; text-transform: uppercase;
+            font-size: clamp(1.3rem, 4vw, 2.5rem);
+            color: var(--accent-gold); opacity: 0; transition: opacity 0.55s ease;
+            text-shadow: 0 0 30px rgba(255, 204, 0, 0.55);
+        }
+        .phase-fade.show .phase-fade-text { opacity: 1; }
+
+        .night-blackout {
+            position: fixed; inset: 0; z-index: 9100;
+            background: #000; display: none;
+            align-items: center; justify-content: center; flex-direction: column; gap: 10px;
+            color: #94a3b8; text-align: center; padding: 24px;
+        }
+        .night-blackout.show { display: flex; animation: blackoutIn 0.7s ease both; }
+        @keyframes blackoutIn { from { opacity: 0; } to { opacity: 1; } }
+        .night-blackout .nb-title { font-weight: 800; letter-spacing: 2px; color: #e2e8f0; font-size: 1.1rem; }
+        .night-blackout .nb-sub { font-size: 0.86rem; }
+
+        .sleep-overlay {
+            position: fixed; inset: 0; z-index: 9150;
+            display: none;
+            background: rgba(3, 4, 7, 0.5); backdrop-filter: blur(2px);
+            pointer-events: none; text-align: center;
+        }
+        .sleep-overlay.show { display: block; }
+        /* Exact dead-centre: the wrapper is translated to 50%/50%; the button's
+           pulse animates scale on the INNER element so it never fights the
+           centring translate. */
+        .sleep-btn-wrap {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .sleep-big-btn {
+            width: auto !important; pointer-events: auto;
+            display: inline-flex; align-items: center; gap: 14px;
+            padding: 26px 56px !important;
+            font-size: 1.5rem !important; font-weight: 900 !important;
+            letter-spacing: 4px; text-transform: uppercase;
+            border-radius: 999px !important;
+            background: linear-gradient(180deg, #1e293b, #0b1120) !important;
+            border: 3px solid var(--accent-gold) !important;
+            color: var(--accent-gold) !important;
+            animation: sleepPulse 2.2s ease-in-out infinite;
+            box-shadow: none !important;
+        }
+        @keyframes sleepPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 34px rgba(255, 204, 0, 0.22); }
+            50% { transform: scale(1.045); box-shadow: 0 0 58px rgba(255, 204, 0, 0.42); }
+        }
+        .sleep-hint {
+            position: absolute; top: calc(50% + 96px); left: 50%;
+            transform: translateX(-50%); width: min(90vw, 540px);
+            color: #cbd5e1; font-size: 0.85rem; font-weight: 600; text-shadow: 0 2px 8px #000;
+        }
+
+        .death-overlay {
+            position: fixed; inset: 0; z-index: 9300;
+            display: none; align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        .death-overlay.show { display: flex; animation: deathIn 1.1s ease both; }
+        @keyframes deathIn {
+            0% { opacity: 0; background: rgba(150, 8, 8, 0.96); }
+            40% { opacity: 1; background: rgba(120, 6, 6, 0.88); }
+            100% { opacity: 1; background: rgba(10, 0, 0, 0.94); }
+        }
+        .death-card { text-align: center; display: flex; flex-direction: column; align-items: center; }
+        .death-skull {
+            font-size: 4.6rem; line-height: 1;
+            animation: skullDrop 1s cubic-bezier(0.22, 1.5, 0.4, 1) both;
+            filter: drop-shadow(0 0 24px rgba(230, 0, 18, 0.75));
+        }
+        @keyframes skullDrop {
+            from { transform: translateY(-70px) scale(0.4) rotate(-14deg); opacity: 0; }
+            to   { transform: none; opacity: 1; }
+        }
+        .death-title {
+            font-family: 'Cinzel', serif; font-size: clamp(2rem, 7vw, 3rem);
+            color: #ff4d4d; letter-spacing: 6px; margin: 14px 0 0;
+            text-shadow: 0 0 26px rgba(230, 0, 18, 0.65);
+            animation: deathTitle 1.2s ease both;
+        }
+        @keyframes deathTitle { from { opacity: 0; letter-spacing: 18px; } to { opacity: 1; letter-spacing: 6px; } }
+        .death-sub { color: #fca5a5; font-weight: 700; margin: 6px 0 0; }
+        .death-actions { display: flex; gap: 14px; margin-top: 26px; flex-wrap: wrap; justify-content: center; }
         .chat-container {
             background: rgba(5, 6, 8, 0.9);
             border: 2px solid var(--panel-border);
@@ -1357,6 +1453,37 @@
 
     </main>
 
+    <!-- Night/day transition: the screen fades to black and back -->
+    <div id="phase-fade" class="phase-fade"><span id="phase-fade-text" class="phase-fade-text"></span></div>
+
+    <!-- Full-screen blackout once your night action is locked in -->
+    <div id="night-blackout" class="night-blackout">
+        <i data-lucide="moon" size="34"></i>
+        <div class="nb-title">Everyone is asleep</div>
+        <div class="nb-sub">Waiting for the night to end…</div>
+    </div>
+
+    <!-- Centred Sleep button (villagers / doctor with no night action) -->
+    <div id="sleep-overlay" class="sleep-overlay">
+        <div class="sleep-btn-wrap">
+            <button class="sleep-big-btn" onclick="submitSleep()"><i data-lucide="moon" size="24"></i> <span>Sleep</span></button>
+        </div>
+        <div class="sleep-hint">Tap to sleep — everyone taps, so on a call nobody can tell who acted.</div>
+    </div>
+
+    <!-- You-died card: exit or spectate -->
+    <div id="death-overlay" class="death-overlay">
+        <div class="death-card">
+            <div class="death-skull">☠</div>
+            <h2 class="death-title">你已死亡</h2>
+            <p class="death-sub">You were killed during the night.</p>
+            <div class="death-actions">
+                <button class="btn-action btn-kill" onclick="exitGame()"><i data-lucide="log-out" size="16"></i> 退出</button>
+                <button class="btn-action" onclick="spectateGame()"><i data-lucide="eye" size="16"></i> 观战</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let state = {
             roomCode: '',
@@ -1378,7 +1505,12 @@
             lastEvent: '',
             lastPhase: '',
             myId: 0,
-            voice: { on: false, muted: false, stream: null, pcs: {}, pendingIce: {}, audioEls: {} }
+            voice: { on: false, muted: false, stream: null, pcs: {}, pendingIce: {}, audioEls: {} },
+            lastRoomStatus: '',
+            lastAlive: null,
+            deathShown: false,
+            spectating: false,
+            fadeTimer: null
         };
 
         /* ================= AMBIENT PARTICLES ================= */
@@ -1474,6 +1606,11 @@
             if (state.pollInterval) { clearInterval(state.pollInterval); state.pollInterval = null; }
             if (state.chatTimerInterval) { clearInterval(state.chatTimerInterval); state.chatTimerInterval = null; }
             if (typeof stopVoice === 'function') stopVoice();
+            if (typeof hideGameOverlays === 'function') hideGameOverlays();
+            state.lastRoomStatus = '';
+            state.lastAlive = null;
+            state.deathShown = false;
+            state.spectating = false;
             state.roomCode = '';
             state.token = '';
             state.isHost = false;
@@ -2328,6 +2465,87 @@
             if (window.lucide) lucide.createIcons();
         }
 
+        /* ================= NIGHT/DAY TRANSITION, BLACKOUT, DEATH ================= */
+        // Fade the whole screen to black and back ("Night falls" / "Dawn breaks").
+        function playPhaseTransition(toStatus) {
+            const el = document.getElementById('phase-fade');
+            const txt = document.getElementById('phase-fade-text');
+            if (!el) return;
+            if (txt) txt.innerText = (toStatus === 'night') ? 'Night falls' : 'Dawn breaks';
+            el.classList.add('show');
+            clearTimeout(state.fadeTimer);
+            state.fadeTimer = setTimeout(() => el.classList.remove('show'), 1450);
+        }
+
+        // Once your night action is locked in, black your own screen out so
+        // nobody (even someone glancing over) sees the board until dawn.
+        function nightBlackoutActive(d) {
+            if (d.room_status !== 'night') return false;
+            if (!d.is_alive) return false;
+            // Doctor: keep the screen clear while the revive prompt is up.
+            if (d.my_role === 'Doctor' && d.night_step === 'doctor' && !d.my_doctor_choice) return false;
+            if (d.my_role === 'Werewolf') return !!d.has_voted;
+            if (d.my_role === 'Seer') return !!d.my_check_target;
+            if (d.my_role === 'Witch') return !!(d.my_poison_target || d.my_poison_skip || d.my_poison_used);
+            return !!d.my_asleep;   // Villager, and the Doctor once bunked down
+        }
+
+        function updateNightUI(d) {
+            const bo = document.getElementById('night-blackout');
+            const so = document.getElementById('sleep-overlay');
+            if (bo) bo.classList.toggle('show', nightBlackoutActive(d));
+
+            // Centred Sleep button: alive villagers / doctor who haven't tapped yet.
+            const doctorPromptUp = (d.my_role === 'Doctor' && d.night_step === 'doctor' && !d.my_doctor_choice);
+            const needsSleep = d.room_status === 'night' && !!d.is_alive && !d.my_asleep
+                && (d.my_role === 'Villager' || d.my_role === 'Doctor') && !doctorPromptUp;
+            if (so) so.classList.toggle('show', !!needsSleep);
+            if (needsSleep && window.lucide) lucide.createIcons();
+        }
+
+        // Show the "you died" card on the alive -> dead edge, once per game.
+        function updateDeathUI(d) {
+            const el = document.getElementById('death-overlay');
+            if (!el || typeof d.is_alive === 'undefined') return;
+            const alive = !!d.is_alive;
+            if (state.lastAlive === true && alive === false && !state.deathShown) {
+                state.deathShown = true;
+                state.spectating = false;
+                el.classList.add('show');
+                if (window.lucide) lucide.createIcons();
+                if (state.voice && state.voice.on) stopVoice();  // mic off for the dead
+            }
+            state.lastAlive = alive;
+        }
+
+        function hideGameOverlays() {
+            ['phase-fade', 'night-blackout', 'sleep-overlay', 'death-overlay'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('show');
+            });
+            clearTimeout(state.fadeTimer);
+        }
+
+        function exitGame() {
+            const el = document.getElementById('death-overlay');
+            if (el) el.classList.remove('show');
+            leaveToMenu();
+        }
+
+        function spectateGame() {
+            const el = document.getElementById('death-overlay');
+            if (el) el.classList.remove('show');
+            state.spectating = true;
+            appendSystemMessage('You are now spectating — watch the rest of the match.');
+            setPhaseLabelForSpectator();
+        }
+
+        function setPhaseLabelForSpectator() {
+            const pt = document.getElementById('game-phase-text');
+            if (pt) pt.innerHTML = '<i data-lucide="eye" size="18" style="vertical-align: middle;"></i> Spectating';
+            if (window.lucide) lucide.createIcons();
+        }
+
         /* ================= POLLING ================= */
         function startGamePolling() {
             document.getElementById('display-room-code').innerText = state.roomCode;
@@ -2406,6 +2624,26 @@
                 // consume any WebRTC signalling relayed through this poll.
                 if (data.players) syncVoicePeers(data.players);
                 if (data.voice_signals && data.voice_signals.length) handleVoiceSignals(data.voice_signals);
+
+                // Phase-change fade + night blackout + the death card.
+                const prevStatus = state.lastRoomStatus || '';
+                if (prevStatus !== data.room_status) {
+                    if ((prevStatus === 'night' && data.room_status === 'day') ||
+                        (prevStatus === 'day' && data.room_status === 'night')) {
+                        playPhaseTransition(data.room_status);
+                    }
+                    if (prevStatus === 'lobby' && data.room_status === 'night') {
+                        // New match: reset per-game death / blackout state.
+                        state.lastAlive = true;
+                        state.deathShown = false;
+                        state.spectating = false;
+                        const dEl = document.getElementById('death-overlay');
+                        if (dEl) dEl.classList.remove('show');
+                    }
+                    state.lastRoomStatus = data.room_status;
+                }
+                updateNightUI(data);
+                updateDeathUI(data);
 
                 if (data.room_status === 'lobby') {
                     setPhase('lobby');
