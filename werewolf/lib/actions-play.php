@@ -212,6 +212,15 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             }
         }
 
+        // Defence in depth: a Chaos seat must always have an HP pool. If one ever
+        // ends up without (e.g. a bot that inherited a mid-game seat before the
+        // leave-handler was fixed), fall back to full so the player's own vitals
+        // still render. Read-only: the hot path never writes.
+        if (validMode($room['mode'] ?? '') === MODE_CHAOS && $myHp === null) {
+            $myHp = CHAOS_HP;
+            $myMaxHp = CHAOS_HP;
+        }
+
         // Skill info for THIS player only (never leaked to other seats).
         $mySeerTargetName = null;
         if ($mySeerTarget) {

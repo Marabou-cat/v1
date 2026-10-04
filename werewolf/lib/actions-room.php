@@ -218,7 +218,9 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             exit;
         }
 
-        $stmt = $pdo->prepare("SELECT id, room_code, role, is_bot, is_alive FROM players WHERE room_code = ? AND session_token = ?");
+        // hp/max_hp + the settlement stats are read so a mid-game replacement bot
+        // can inherit the WHOLE seat (see below) — not just the role.
+        $stmt = $pdo->prepare("SELECT id, room_code, role, is_bot, is_alive, hp, max_hp, damage_done, wolf_votes, special_kills FROM players WHERE room_code = ? AND session_token = ?");
         $stmt->execute([$roomCode, $token]);
         $me = $stmt->fetch();
 
@@ -244,9 +246,17 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                     && !empty($me['role']) && $me['role'] !== 'unassigned') {
                     $bot = addBot($pdo, $roomCode);
                     if ($bot) {
-                        // Inherit the leaver's role so the role counts never shift.
-                        $pdo->prepare("UPDATE players SET role = ?, bot_last_chat = 0 WHERE id = ?")
-                            ->execute([$me['role'], $bot['id']]);
+                        // Inherit the leaver's FULL seat state, not just the role.
+                        // In Chaos Night a replacement that only copied the role had
+                        // no HP pool at all — a living player with no vitals (its own
+                        // HP bar could never render) plus reset damage stats.
+                        // In Classic hp/max_hp are NULL, so this is a no-op there.
+                        $pdo->prepare("UPDATE players SET role = ?, bot_last_chat = 0,
+                                         hp = ?, max_hp = ?, damage_done = ?, wolf_votes = ?, special_kills = ?
+                                       WHERE id = ?")
+                            ->execute([$me['role'], $me['hp'], $me['max_hp'],
+                                       (int)($me['damage_done'] ?? 0), (int)($me['wolf_votes'] ?? 0),
+                                       (int)($me['special_kills'] ?? 0), $bot['id']]);
                         $pdo->prepare("UPDATE rooms SET last_event = ? WHERE room_code = ?")
                             ->execute(["A new villager slipped into the seat...", $roomCode]);
                     }
