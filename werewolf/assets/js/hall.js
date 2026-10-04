@@ -26,15 +26,21 @@ function hallToken() {
 }
 
 /* The character I am wearing: a BUILT one (code), an account pick, the one I chose
-   here, or a fresh random cast member — persisted so it never reshuffles. */
+   here, or a fresh random cast member — persisted so it never reshuffles.
+
+   A BUILT character wins over an old preset, wherever it is stored. Before this, an
+   account that still held a preset shadowed the freshly built code, so the new
+   avatar never showed up for anyone who had ever used a fixed one. */
 function myCharacter() {
     const custom = (typeof isCustomAvatar === 'function') ? isCustomAvatar : function () { return false; };
     const acct = state.authUser && state.authUser.avatar;
-    if (acct && (custom(acct) || isCharacterAvatar(acct))) return acct;
-    let a = state.hallChar || hallLoad(HALL_KEY_AV);
-    if (a && (custom(a) || isCharacterAvatar(a))) { state.hallChar = a; return a; }
+    const local = state.hallChar || hallLoad(HALL_KEY_AV);
+    if (custom(acct)) return acct;                                    // account build
+    if (custom(local)) { state.hallChar = local; return local; }      // build on this device
+    if (isCharacterAvatar(acct)) return acct;                         // account preset
+    if (isCharacterAvatar(local)) { state.hallChar = local; return local; }
     const all = Object.keys(AVATAR_CHARS);
-    a = all[Math.floor(Math.random() * all.length)];
+    const a = all[Math.floor(Math.random() * all.length)];
     hallStore(HALL_KEY_AV, a);
     state.hallChar = a;
     return a;

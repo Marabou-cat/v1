@@ -249,7 +249,9 @@ input:focus-visible, button:focus-visible {
     box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2), 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 .avatar.av-custom .av-layer {
-    position: absolute; inset: 0;
+    /* inset a hair so the shoulders are not sliced off by the round rim: the parts
+       are drawn to the 120x120 edges, and a circle of r=59 has no width left at y=120. */
+    position: absolute; inset: 2.5%;
     /* The mask-image itself is set INLINE by avLayer(): a relative url() inside a
        CSS custom property would resolve against THIS stylesheet and 404. */
     -webkit-mask-size: contain;   mask-size: contain;
@@ -298,9 +300,10 @@ input:focus-visible, button:focus-visible {
 .avb-opts { display: flex; gap: 6px; flex-wrap: wrap; }
 .avb-opt {
     flex: none;
-    width: 34px; height: 34px;
+    position: relative;          /* the ghost head is absolute inside the tile */
+    width: 42px; height: 42px;
     min-height: 0;
-    padding: 4px; border-radius: 9px; cursor: pointer;
+    padding: 5px; border-radius: 11px; cursor: pointer;
     background: rgba(255, 255, 255, 0.035);
     border: 1px solid rgba(255, 255, 255, 0.07);
     transition: transform 0.12s ease, border-color 0.12s ease;
@@ -310,6 +313,15 @@ input:focus-visible, button:focus-visible {
 .avb-opt i {
     display: block; width: 100%; height: 100%;
     background: #cfd8e3;
+    -webkit-mask-size: contain; mask-size: contain;
+    -webkit-mask-position: center; mask-position: center;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
+/* A faint head behind the part, so a hairstyle / brow / mouth tile reads as what it
+   is instead of a sliver at the top of the box. */
+.avb-ghosthead {
+    position: absolute; inset: 5px;
+    pointer-events: none;
     -webkit-mask-size: contain; mask-size: contain;
     -webkit-mask-position: center; mask-position: center;
     -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;

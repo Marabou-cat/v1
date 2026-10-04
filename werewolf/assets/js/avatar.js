@@ -106,7 +106,11 @@ function avatarPickerHtml(current, size) {
 /* Paint first, save after: the badge updates on the spot so the tap feels
    instant, and the server write confirms in the background. */
 function pickAvatar(id) {
-    if (!AVATARS[id] && !AVATAR_CHARS[id]) return;
+    // A player-BUILT avatar is a code, not a preset — accepting only presets here
+    // meant "Use this character" silently refused to save it, so anyone who had ever
+    // picked an old avatar kept seeing that old one instead of their new build.
+    const custom = (typeof isCustomAvatar === 'function') && isCustomAvatar(id);
+    if (!AVATARS[id] && !AVATAR_CHARS[id] && !custom) return;
     if (!state.authUser) {
         flashInfo('Sign in to choose an avatar — it lives on your account.');
         return;

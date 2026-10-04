@@ -78,18 +78,31 @@ function avLayer(slot, shape, color) {
         + ';-webkit-mask-image:url(' + u + ');mask-image:url(' + u + ')"></i>';
 }
 
+/* hex (#rrggbb) -> rgba() at the given alpha, for tinting the token's glow. */
+function avRgba(hex, a) {
+    const h = String(hex).replace('#', '');
+    const n = parseInt(h.length === 3 ? h.replace(/(.)/g, '$1$1') : h, 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+
 /* Compose the doll from a code (or from a working config object). */
 function customAvatarHtml(code, size) {
     const c = (typeof code === 'object') ? code : avatarCodeToCfg(code);
     const s = size || 28;
     const skin = AV_SKIN[c.s % AV_SKIN.length];
     const hair = AV_HAIR[c.R % AV_HAIR.length];
+    const cloth = AV_CLOTH[c.B % AV_CLOTH.length];
     const ears = AVATAR_PARTS.ears[c.e];
     // Wolf/tuft ears are FUR, so they follow the hair colour rather than the skin —
     // a black-haired wolf gets black ears. Little detail, big difference.
     const earCol = (c.e === 1 || c.e === 3) ? hair : skin;
-    return '<span class="avatar av-custom" style="width:' + s + 'px;height:' + s + 'px" title="Custom character">'
-        + avLayer('body', AVATAR_PARTS.body[c.b], AV_CLOTH[c.B % AV_CLOTH.length])
+    // The token glows in the character's OWN outfit colour. Without it the round
+    // frame read as a dark, empty hole around the figure — the preset portraits get
+    // that glow from their baked-in gradient, so a built one has to carry it too.
+    const glow = 'radial-gradient(circle at 50% 32%, ' + avRgba(cloth, 0.42)
+        + ' 0%, rgba(18,21,31,0.98) 60%, #0b0d13 100%)';
+    return '<span class="avatar av-custom" style="width:' + s + 'px;height:' + s + 'px;background:' + glow + '" title="Custom character">'
+        + avLayer('body', AVATAR_PARTS.body[c.b], cloth)
         + avLayer('head', AVATAR_PARTS.head[c.h], skin)
         + avLayer('ears', ears, earCol)
         + avLayer('hair', AVATAR_PARTS.hair[c.r], hair)
@@ -104,20 +117,29 @@ function customAvatarHtml(code, size) {
    Body / Hair / Face / Extras, each with its shapes and its colours, over a live
    preview. Guests get this too — the hall is where they pick a face, and there is
    no account needed to build one. */
+/* Tabs. Each option row is [config key, asset slot, label, shapes] — the KEY is the
+   one-char field in the code ('b' for body), the SLOT is the file prefix
+   (body_cloak.svg). Conflating the two made the Body tab silently write to a field
+   the codec never reads, so clicking those options did nothing. */
 const AV_TABS = [
     { id: 'body',  label: 'Body',   icon: 'shirt',
-      opts: [['body', 'body', AVATAR_PARTS.body], ['head', 'head', AVATAR_PARTS.head]],
+      opts: [['b', 'body', 'Shape', AVATAR_PARTS.body], ['h', 'head', 'Head', AVATAR_PARTS.head]],
       cols: [['B', 'Outfit', AV_CLOTH], ['s', 'Skin', AV_SKIN]] },
     { id: 'hair',  label: 'Hair',   icon: 'scissors',
-      opts: [['r', 'hair', AVATAR_PARTS.hair], ['e', 'ears', AVATAR_PARTS.ears]],
+      opts: [['r', 'hair', 'Style', AVATAR_PARTS.hair], ['e', 'ears', 'Ears', AVATAR_PARTS.ears]],
       cols: [['R', 'Hair colour', AV_HAIR]] },
     { id: 'face',  label: 'Face',   icon: 'smile',
-      opts: [['y', 'eyes', AVATAR_PARTS.eyes], ['w', 'brows', AVATAR_PARTS.brows], ['m', 'mouth', AVATAR_PARTS.mouth]],
+      opts: [['y', 'eyes', 'Eyes', AVATAR_PARTS.eyes], ['w', 'brows', 'Brows', AVATAR_PARTS.brows],
+             ['m', 'mouth', 'Mouth', AVATAR_PARTS.mouth]],
       cols: [['y', 'Eye colour', AV_EYE]] },
     { id: 'extra', label: 'Extras', icon: 'crown',
-      opts: [['x', 'extra', AVATAR_PARTS.extra]],
+      opts: [['x', 'extra', 'Worn', AVATAR_PARTS.extra]],
       cols: [['X', 'Accessory', AV_EXTRA]] },
 ];
+
+/* Slots drawn ON the head. Their tiles get a faint head behind them, otherwise a
+   hairstyle is just a sliver at the top of the tile and unreadable. */
+const AV_ON_HEAD = { hair: 1, ears: 1, brows: 1, eyes: 1, mouth: 1, extra: 1 };
 
 let avTab = 0;
 
@@ -170,13 +192,18 @@ function avSwatchRow(key, label, palette) {
         + '</span></div>';
 }
 
-function avOptRow(key, label, list) {
+function avOptRow(key, slot, label, list) {
     const cur = avCfg()[key];
+    const ghost = AV_ON_HEAD[slot]
+        ? '<i class="avb-ghosthead" style="background:rgba(226,232,240,0.3);'
+          + '-webkit-mask-image:url(assets/img/avatar/head_round.svg);mask-image:url(assets/img/avatar/head_round.svg)"></i>'
+        : '';
     return '<div class="avb-row"><span class="avb-lab">' + label + '</span><span class="avb-opts">'
         + list.map(function (shape, i) {
             const empty = (shape === 'none' || shape === 'bald');
-            const u = 'assets/img/avatar/' + key + '_' + shape + '.svg';
+            const u = 'assets/img/avatar/' + slot + '_' + shape + '.svg';
             return '<button class="avb-opt' + (i === cur ? ' on' : '') + '" onclick="avPick(\'' + key + '\',' + i + ')" title="' + shape + '">'
+                + ghost
                 + (empty
                     ? '<span class="avb-none">&times;</span>'
                     : '<i style="-webkit-mask-image:url(' + u + ');mask-image:url(' + u + ')"></i>')
@@ -189,7 +216,7 @@ function renderAvatarBuilder() {
     const m = document.getElementById('avatar-builder');
     if (!m) return;
     const tab = AV_TABS[avTab];
-    const body = tab.opts.map(function (o) { return avOptRow(o[0], o[1], o[2]); }).join('')
+    const body = tab.opts.map(function (o) { return avOptRow(o[0], o[1], o[2], o[3]); }).join('')
         + tab.cols.map(function (c) { return avSwatchRow(c[0], c[1], c[2]); }).join('');
     m.innerHTML = '<div class="avb-card">'
         + '<div class="avb-head"><h3>Build your character</h3>'
