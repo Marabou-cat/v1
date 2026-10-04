@@ -1,0 +1,291 @@
+/* werewolf / base — variables, stage, layout, typography
+   split out of the old monolithic index.html — see assets/css/_order.txt */
+
+        :root {
+            --bg-color: #050508;
+            --panel-bg: rgba(13, 14, 20, 0.78);
+            --panel-solid: #0d0e14;
+            --panel-border: #1a1d26;
+            --panel-line: rgba(255, 255, 255, 0.08);
+            --accent-red: #e60012;
+            --accent-red-hover: #ff1a2c;
+            --accent-gold: #ffcc00;
+            --accent-blue: #38bdf8;
+            --accent-green: #38ef7d;
+            --text-light: #ffffff;
+            --text-muted: #8c92a4;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        html, body { height: 100%; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ================= AMBIENT BACKGROUND ================= */
+        .sky {
+            position: fixed; inset: 0; z-index: 0;
+            background: linear-gradient(180deg, #0b0614 0%, #0a0710 45%, #050508 100%);
+        }
+        body[data-phase="night"] .sky {
+            background: linear-gradient(180deg, #180409 0%, #0d0409 45%, #050508 100%);
+        }
+        body[data-phase="day"] .sky {
+            background: linear-gradient(180deg, #1d2c4a 0%, #141b30 55%, #080a12 100%);
+        }
+        body[data-phase="ended"] .sky {
+            background: linear-gradient(180deg, #1c1408 0%, #120e07 55%, #050508 100%);
+        }
+
+        .stars { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+        .star {
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+            animation: twinkle var(--tw, 3s) ease-in-out infinite;
+            opacity: 0.3;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.15; transform: scale(0.8); }
+            50% { opacity: 0.9; transform: scale(1.15); }
+        }
+
+        .moon {
+            position: fixed;
+            top: 7vh; right: 8vw;
+            width: 110px; height: 110px;
+            z-index: 1; pointer-events: none;
+            animation: moonFloat 9s ease-in-out infinite;
+        }
+        .moon-core {
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            background: radial-gradient(circle at 34% 30%, #fdf6d8 0%, #e8dcae 45%, #b8a86a 100%);
+            box-shadow: 0 0 50px 18px rgba(255, 240, 180, 0.35), 0 0 140px 60px rgba(255, 240, 180, 0.12);
+            transition: background 1.6s ease, box-shadow 1.6s ease, opacity 1.6s ease;
+        }
+        .moon-core::after {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 62% 40%, rgba(0,0,0,0.10) 0 9%, transparent 10%),
+                radial-gradient(circle at 40% 64%, rgba(0,0,0,0.08) 0 7%, transparent 8%),
+                radial-gradient(circle at 70% 70%, rgba(0,0,0,0.07) 0 5%, transparent 6%);
+        }
+        body[data-phase="night"] .moon-core {
+            background: radial-gradient(circle at 34% 30%, #ffd9cf 0%, #f07a6a 45%, #a02030 100%);
+            box-shadow: 0 0 60px 22px rgba(255, 40, 50, 0.45), 0 0 160px 70px rgba(230, 0, 18, 0.20);
+        }
+        body[data-phase="day"] .moon-core { opacity: 0.18; }
+        @keyframes moonFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        .fog {
+            position: fixed; z-index: 2; pointer-events: none;
+            width: 200vw; height: 55vh;
+            background: radial-gradient(ellipse 55% 60% at 30% 60%, rgba(160, 170, 210, 0.055) 0%, transparent 70%);
+            filter: blur(30px);
+        }
+        .fog-a { bottom: -10vh; left: -50vw; animation: fogDrift 70s linear infinite; }
+        .fog-b {
+            bottom: 4vh; left: -30vw;
+            background: radial-gradient(ellipse 45% 55% at 60% 50%, rgba(190, 60, 70, 0.05) 0%, transparent 70%);
+            animation: fogDrift 95s linear infinite reverse;
+        }
+        @keyframes fogDrift {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(12.5vw); }
+            100% { transform: translateX(0); }
+        }
+
+        .embers { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+        .ember {
+            position: absolute;
+            bottom: -12px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ffb066 0%, #ff5a2c 60%, transparent 75%);
+            filter: blur(0.4px);
+            animation: emberRise var(--er, 12s) linear infinite;
+            opacity: 0;
+        }
+        @keyframes emberRise {
+            0% { transform: translate(0, 0) scale(1); opacity: 0; }
+            8% { opacity: var(--eo, 0.7); }
+            70% { opacity: var(--eo, 0.7); }
+            100% { transform: translate(var(--ex, 30px), -108vh) scale(0.4); opacity: 0; }
+        }
+
+        .vignette {
+            position: fixed; inset: 0; z-index: 3; pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 52%, rgba(0, 0, 0, 0.5) 100%);
+        }
+
+        .phase-flash {
+            position: fixed; inset: 0; z-index: 400; pointer-events: none;
+            opacity: 0;
+        }
+        .phase-flash.night { animation: flashNight 1.4s ease-out; }
+        .phase-flash.day { animation: flashDay 1.4s ease-out; }
+        @keyframes flashNight {
+            0% { opacity: 0; background: rgba(150, 0, 15, 0); }
+            25% { opacity: 1; background: rgba(150, 0, 15, 0.5); }
+            100% { opacity: 0; background: rgba(150, 0, 15, 0); }
+        }
+        @keyframes flashDay {
+            0% { opacity: 0; background: rgba(255, 205, 90, 0); }
+            25% { opacity: 1; background: rgba(255, 205, 90, 0.22); }
+            100% { opacity: 0; background: rgba(255, 205, 90, 0); }
+        }
+
+        /* ================= LAYOUT ================= */
+        .stage { position: relative; z-index: 5; overflow: hidden; overflow: clip; }
+
+        .screen {
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 28px 20px 40px;
+            animation: screenIn 0.5s cubic-bezier(0.22, 0.9, 0.3, 1.2) both;
+            position: relative;
+        }
+        .screen { justify-content: safe center; }
+        #view-lobby { padding-top: 72px; }
+        @keyframes screenIn {
+            from { opacity: 0; transform: translateY(22px) scale(0.985); }
+            to { opacity: 1; transform: none; }
+        }
+
+        .hidden { display: none !important; }
+
+        .back-btn {
+            position: absolute;
+            top: 22px; left: 24px;
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(13, 14, 20, 0.6);
+            border: 1px solid var(--panel-line);
+            color: var(--text-muted);
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(8px);
+        }
+        .back-btn:hover { color: #fff; border-color: rgba(255,255,255,0.25); transform: translateX(-3px); }
+
+        /* ================= TYPOGRAPHY ================= */
+        .title-wrap {
+            position: relative;
+            display: inline-block;
+            line-height: 1;
+            /* slow "closing-in" breathing — subtle scale for oppressive weight */
+            animation: titleCreep 6.5s ease-in-out infinite;
+            transform-origin: 50% 20%;
+        }
+        @keyframes titleCreep {
+            0%, 100% { transform: scale(1) translateY(0); }
+            50%      { transform: scale(1.045) translateY(3px); }
+        }
+        h1.title {
+            font-family: 'Nosifer', 'Cinzel', serif;
+            font-size: clamp(2.6rem, 8vw, 5.2rem);
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-red);
+            text-align: center;
+            line-height: 1;
+            text-shadow:
+                0 0 14px rgba(230, 0, 18, 0.85),
+                0 0 38px rgba(230, 0, 18, 0.45),
+                0 6px 22px rgba(90, 0, 6, 0.9),
+                0 2px 3px #3d0003;
+            animation: titleFlicker 7s ease-in-out infinite;
+        }
+        @keyframes titleFlicker {
+            0%, 100% { opacity: 1; }
+            42% { opacity: 1; }
+            45% { opacity: 0.8; text-shadow: 0 0 8px rgba(230, 0, 18, 0.4), 0 6px 14px rgba(90, 0, 6, 0.6); }
+            48% { opacity: 1; }
+            74% { opacity: 0.93; }
+            76% { opacity: 1; }
+        }
+
+        /* ---- blood drips falling from the title ---- */
+        .drips {
+            position: absolute;
+            left: 0; right: 0;
+            bottom: 2px;
+            height: 0;
+            pointer-events: none;
+            overflow: visible;
+            z-index: 2;
+        }
+        .drip {
+            position: absolute;
+            top: -6px;
+            width: 7px;
+            height: 0;
+            border-radius: 0 0 7px 7px;
+            background: linear-gradient(to bottom,
+                #5c0006 0%,
+                #a8000f 18%,
+                #d50017 55%,
+                #e8051f 100%);
+            box-shadow:
+                0 0 6px rgba(232, 5, 31, 0.55),
+                inset 0 0 2px rgba(255, 255, 255, 0.25);
+            transform-origin: top center;
+            animation: dripFall var(--dur, 3.6s) cubic-bezier(0.5, 0.02, 0.85, 0.4) var(--delay, 0s) infinite;
+            opacity: 0;
+        }
+        .drip::after {
+            /* the droplet bead at the tip */
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: -5px;
+            width: 9px;
+            height: 9px;
+            margin-left: -4.5px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #ff4d5e 0%, #d50017 45%, #7a0009 100%);
+            box-shadow: 0 0 8px rgba(232, 5, 31, 0.6);
+        }
+        @keyframes dripFall {
+            0%      { height: 0;    opacity: 0; }
+            12%     { opacity: 1; }
+            30%     { height: 22px; opacity: 1; }           /* bead forms + swells */
+            62%     { height: 40px; opacity: 1; }           /* stretches down */
+            80%     { height: 56px; opacity: 1; }           /* long tail */
+            90%     { height: 68px; opacity: 0.85; }
+            100%    { height: 78px; opacity: 0; transform: translateY(18px); }  /* falls away */
+        }
+
+        p.subtitle {
+            position: relative;
+            z-index: 3;                 /* sit ABOVE the blood drips for legibility */
+            text-align: center;
+            color: var(--accent-gold);
+            font-size: clamp(0.75rem, 2vw, 0.95rem);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            margin-top: 24px;           /* clear the drip zone under the title */
+            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85), 0 0 14px rgba(0, 0, 0, 0.6);
+        }
+
+        

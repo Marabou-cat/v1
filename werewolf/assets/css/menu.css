@@ -1,0 +1,217 @@
+/* werewolf / menu — main menu, panels, forms, buttons
+   split out of the old monolithic index.html — see assets/css/_order.txt */
+
+/* ================= MENU ================= */
+        .hero-icon {
+            display: flex; justify-content: center;
+            color: var(--accent-red);
+            filter: drop-shadow(0 0 18px rgba(230, 0, 18, 0.6)) drop-shadow(0 0 45px rgba(230, 0, 18, 0.3));
+            animation: heroFloat 4.5s ease-in-out infinite;
+            margin-bottom: 6px;
+        }
+        @keyframes heroFloat {
+            0%, 100% { transform: translateY(0) rotate(-2deg); }
+            50% { transform: translateY(-14px) rotate(2deg); }
+        }
+
+        .menu-panel {
+            width: 100%;
+            max-width: 480px;
+            margin-top: 40px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-line);
+            border-radius: 22px;
+            padding: 30px;
+            backdrop-filter: blur(14px);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 40px rgba(230, 0, 18, 0.06);
+            animation: panelIn 0.7s 0.15s cubic-bezier(0.22, 0.9, 0.3, 1.2) both;
+        }
+        @keyframes panelIn {
+            from { opacity: 0; transform: translateY(26px); }
+            to { opacity: 1; transform: none; }
+        }
+
+        .menu-hint {
+            margin-top: 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* ================= PANELS (create / join) ================= */
+        .panel-wide {
+            width: 100%;
+            max-width: 560px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-line);
+            border-radius: 22px;
+            padding: 34px 30px 30px;
+            backdrop-filter: blur(14px);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            animation: panelIn 0.55s cubic-bezier(0.22, 0.9, 0.3, 1.2) both;
+        }
+
+        .screen-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.7rem;
+            font-weight: 900;
+            color: var(--accent-gold);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-shadow: 0 2px 10px rgba(255, 204, 0, 0.4);
+        }
+
+        /* ================= FORMS ================= */
+        .form-group { margin-bottom: 24px; }
+        label {
+            display: block; margin-bottom: 10px;
+            font-weight: 800; font-size: 0.88rem;
+            color: #a0aec0; letter-spacing: 1.5px; text-transform: uppercase;
+        }
+        input, select {
+            width: 100%;
+            padding: 17px 18px;
+            background: #050608;
+            border: 2px solid var(--panel-border);
+            border-radius: 14px;
+            color: white;
+            font-size: 1.05rem;
+            font-weight: 700;
+            transition: all 0.25s ease;
+            appearance: none;
+        }
+        select {
+            background-image: linear-gradient(45deg, transparent 50%, #8c92a4 50%), linear-gradient(135deg, #8c92a4 50%, transparent 50%);
+            background-position: calc(100% - 24px) 50%, calc(100% - 18px) 50%;
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+            cursor: pointer;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-red);
+            box-shadow: 0 0 0 3px rgba(230, 0, 18, 0.18), 0 0 22px rgba(230, 0, 18, 0.25);
+        }
+        input::placeholder { color: #4b5163; }
+
+        /* ================= BUTTONS ================= */
+        .btn-row {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 8px;
+        }
+        @media (min-width: 560px) {
+            .btn-row { flex-direction: row; }
+        }
+
+        button {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            padding: 19px 22px;
+            border: none;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            box-shadow: 0 8px 0 rgba(0, 0, 0, 0.6);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex: 1;
+        }
+        button::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 60%; height: 100%;
+            background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.14) 50%, transparent 80%);
+            transform: translateX(-130%) skewX(-15deg);
+            animation: btnShine 3.8s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes btnShine {
+            0%, 55% { transform: translateX(-130%) skewX(-15deg); }
+            75%, 100% { transform: translateX(230%) skewX(-15deg); }
+        }
+        button:hover { transform: translateY(-3px); }
+        button:active { transform: translateY(5px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.6); }
+
+        .btn-primary {
+            background: linear-gradient(180deg, #ff1a2c 0%, var(--accent-red) 100%);
+            color: white;
+            border: 2px solid #ff6b75;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .btn-primary:hover {
+            background: linear-gradient(180deg, #ff3342 0%, #ff1a2c 100%);
+            box-shadow: 0 11px 0 rgba(0, 0, 0, 0.6), 0 0 30px rgba(230, 0, 18, 0.45);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(180deg, #242836 0%, #151821 100%);
+            color: #cbd5e1;
+            border: 2px solid #2f3545;
+        }
+        .btn-secondary:hover {
+            background: linear-gradient(180deg, #2e3445 0%, #1a1d26 100%);
+            color: white;
+            box-shadow: 0 11px 0 rgba(0, 0, 0, 0.6), 0 0 20px rgba(140, 146, 164, 0.2);
+        }
+
+        .btn-action {
+            background: linear-gradient(180deg, #38ef7d 0%, #11998e 100%);
+            color: #050508;
+            padding: 11px 18px;
+            font-size: 0.85rem;
+            width: auto;
+            flex: none;
+            border-radius: 10px;
+            box-shadow: 0 5px 0 #0b5d56;
+        }
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #0b5d56, 0 0 22px rgba(56, 239, 125, 0.4);
+        }
+        .btn-action:active { transform: translateY(3px); box-shadow: 0 2px 0 #0b5d56; }
+
+        .btn-kill {
+            background: linear-gradient(180deg, #ff4d5e 0%, #c00517 100%);
+            color: #fff;
+            border: 1px solid #ff8890;
+            box-shadow: 0 5px 0 #6d020d;
+        }
+        .btn-kill:hover {
+            box-shadow: 0 7px 0 #6d020d, 0 0 24px rgba(230, 0, 18, 0.5);
+        }
+        .btn-kill:active { box-shadow: 0 2px 0 #6d020d; }
+
+        .btn-voted {
+            background: linear-gradient(180deg, #4facfe 0%, #00c6fb 100%) !important;
+            color: #050508 !important;
+            cursor: default;
+            box-shadow: 0 5px 0 #006096 !important;
+            border-color: #9fd4ff !important;
+        }
+        .btn-voted:hover { transform: none; }
+        button:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; box-shadow: 0 3px 0 rgba(0,0,0,0.4) !important; }
+        button:disabled::after { animation: none; display: none; }
+
+        .btn-start-ready { animation: startPulse 1.8s ease-in-out infinite; }
+        @keyframes startPulse {
+            0%, 100% { box-shadow: 0 8px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(230, 0, 18, 0.35); }
+            50% { box-shadow: 0 8px 0 rgba(0, 0, 0, 0.6), 0 0 48px rgba(230, 0, 18, 0.75); }
+        }
+
+        

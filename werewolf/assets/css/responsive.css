@@ -1,0 +1,40 @@
+/* werewolf / responsive — media queries
+   split out of the old monolithic index.html — see assets/css/_order.txt */
+
+/* ================= RESPONSIVE ================= */
+        @media (max-width: 960px) {
+            .game-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            .game-main { grid-column: 1; grid-row: 1; }
+            .game-side { grid-column: 1; grid-row: 2; }
+            .game-role-row { grid-template-columns: 1fr; }
+            .game-player-list { max-height: 36vh; }
+            .chat-container { min-height: 300px; }
+            .moon { width: 74px; height: 74px; top: 5vh; right: 6vw; }
+        }
+        @media (max-width: 560px) {
+            .player-grid { grid-template-columns: 1fr 1fr; }
+            .game-player-list { grid-template-columns: 1fr; }
+            .room-badge { padding: 18px 26px; }
+            .room-code { letter-spacing: 8px; }
+        }
+
+        /* Entry animations must NOT keep forwards fill:
+           'both'/'forwards' would (a) inflate the scrollable overflow area
+           during the entrance transform -> scrollbar flash on every load,
+           and (b) lock transform:none on .player-item so its :hover lift
+           never works. Natural resting state is already the final frame,
+           so 'backwards' (hidden during the stagger delay) is all we need.
+           Placed at the end so it beats the component rules above. */
+        .screen, .menu-panel, .panel-wide, .room-badge, .role-card, .player-item, .chat-message {
+            animation-fill-mode: backwards;
+        }
+        .no-anim { animation: none !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .title-wrap, h1.title, .drip, .hero-icon { animation: none !important; }
+            .drips { display: none; }
+        }
+    
