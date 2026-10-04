@@ -230,8 +230,25 @@ function finalizeNight(PDO $pdo, $roomCode) {
         return $x ? $x['nickname'] : 'Someone';
     };
 
+    // --- Settlement stat -----------------------------------------------------
+    // Did the wolves' call kill a POWER ROLE? Only the werewolf victim counts
+    // (the Witch's poison is not a wolf kill) and only when the Doctor didn't
+    // save them. Every wolf who named the victim shares the credit for the call.
+    $killCredit = false;
+    if ($victimId && !$revived) {
+        $vr = $pdo->prepare("SELECT role FROM players WHERE id = ? AND room_code = ?");
+        $vr->execute([$victimId, $roomCode]);
+        $killCredit = in_array((string)$vr->fetchColumn(), ['Seer', 'Witch', 'Doctor'], true);
+    }
+
     foreach (array_keys($deaths) as $id) {
         $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ? AND room_code = ?")->execute([$id, $roomCode]);
+        if ($killCredit && (int)$id === (int)$victimId) {
+            // target_id still holds tonight's wolf picks (resetNightState runs later).
+            $pdo->prepare("UPDATE players SET special_kills = special_kills + 1
+                            WHERE room_code = ? AND role = 'Werewolf' AND target_id = ?")
+                ->execute([$roomCode, $victimId]);
+        }
     }
     if ($revived && $docId) {
         $pdo->prepare("UPDATE players SET revive_used = 1 WHERE id = ?")->execute([$docId]);
@@ -279,7 +296,7 @@ function validLiveTarget(PDO $pdo, $roomCode, $targetId) {
 //   * two or more players tied on the highest vote count -> nobody is executed
 //   * the skip count beats the highest vote count        -> nobody is executed
 function resolveDay(PDO $pdo, $roomCode) {
-    $stmt = $pdo->prepare("SELECT id, vote_id, vote_skip FROM players WHERE room_code = ? AND is_alive = 1");
+    $stmt = $pdo->prepare("SELECT id, vote_id, vote_skip, role FROM players WHERE room_code = ? AND is_alive = 1");
     $stmt->execute([$roomCode]);
     $living = $stmt->fetchAll();
     if (count($living) === 0) return false;
@@ -343,7 +360,23 @@ function resolveDay(PDO $pdo, $roomCode) {
         'role'    => $lynchedRole
     ]);
 
-    $pdo->prepare("UPDATE players SET vote_id = NULL, vote_skip = 0 WHERE room_code = ?")->execute([$roomCode]);
+    // --- Settlement stat -----------------------------------------------------
+    // Who put their day vote ON a werewolf? Folded into the SAME statement that
+    // clears the votes, so the extra stat costs no additional durable write.
+    $roleById = [];
+    foreach ($living as $p) $roleById[(int)$p['id']] = $p['role'];
+    $hitIds = [];
+    foreach ($living as $p) {
+        $tid = (int)$p['vote_id'];
+        if ($tid > 0 && isset($livingIds[$tid]) && ($roleById[$tid] ?? '') === 'Werewolf') {
+            $hitIds[] = (int)$p['id'];
+        }
+    }
+    $wolfVoteExpr = $hitIds
+        ? 'wolf_votes + (CASE WHEN id IN (' . implode(',', $hitIds) . ') THEN 1 ELSE 0 END)'
+        : 'wolf_votes';
+
+    $pdo->prepare("UPDATE players SET vote_id = NULL, vote_skip = 0, wolf_votes = $wolfVoteExpr WHERE room_code = ?")->execute([$roomCode]);
     // New night: reset bot "thinking" timers so kills land at varying times.
     $pdo->prepare("UPDATE players SET bot_ready_at = NULL WHERE room_code = ? AND is_bot = 1")->execute([$roomCode]);
     $pdo->prepare("UPDATE rooms SET status = 'night', phase_started_at = ?, last_event = ?, last_vote = ? WHERE room_code = ?")

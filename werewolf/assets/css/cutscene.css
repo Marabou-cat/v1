@@ -69,3 +69,125 @@
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
         
+
+        /* ================= VICTORY SETTLEMENT =================
+           Cinematic end-of-match reveal: winner banner, final roles, and the
+           two callouts. Entrance is staged (card -> banner -> awards -> rows). */
+        .victory-overlay {
+            position: fixed; inset: 0; z-index: 4000;
+            display: flex; align-items: center; justify-content: center;
+            padding: 18px; overflow-y: auto;
+            background: radial-gradient(circle at 50% 28%, rgba(22, 0, 5, 0.88), rgba(0, 0, 0, 0.96));
+            backdrop-filter: blur(6px);
+            opacity: 0; transition: opacity 0.35s ease;
+        }
+        .victory-overlay.vc-in { opacity: 1; }
+        .vc-card {
+            position: relative; width: 100%; max-width: 620px;
+            padding: 26px 22px 20px; border-radius: 20px; overflow: hidden;
+            background: linear-gradient(180deg, rgba(18, 20, 28, 0.98), rgba(8, 9, 13, 0.98));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.75);
+            transform: translateY(24px) scale(0.94); opacity: 0;
+        }
+        .victory-overlay.vc-in .vc-card { animation: vcCardIn 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.1) 0.05s forwards; }
+        @keyframes vcCardIn { to { transform: none; opacity: 1; } }
+
+        .vc-glow {
+            position: absolute; left: 50%; top: -150px; width: 460px; height: 460px;
+            transform: translateX(-50%); border-radius: 50%; pointer-events: none;
+            filter: blur(34px); opacity: 0.4;
+        }
+        .vc-wolf-side .vc-glow { background: radial-gradient(circle, rgba(230, 0, 18, 0.8), transparent 68%); }
+        .vc-villager-side .vc-glow { background: radial-gradient(circle, rgba(255, 204, 0, 0.75), transparent 68%); }
+        .victory-overlay.vc-in .vc-glow { animation: vcGlowPulse 2.6s ease-in-out infinite; }
+        @keyframes vcGlowPulse {
+            0%, 100% { opacity: 0.3; transform: translateX(-50%) scale(1); }
+            50%      { opacity: 0.75; transform: translateX(-50%) scale(1.14); }
+        }
+
+        .vc-banner {
+            position: relative; text-align: center;
+            font-family: 'Nosifer', system-ui, sans-serif;
+            font-size: clamp(1.4rem, 6.2vw, 2.9rem);
+            letter-spacing: 5px; line-height: 1.2; margin-bottom: 8px;
+        }
+        .vc-wolf-side .vc-banner { color: #ff2d2d; text-shadow: 0 0 22px rgba(230, 0, 18, 0.78), 0 0 60px rgba(230, 0, 18, 0.42); }
+        .vc-villager-side .vc-banner { color: var(--accent-gold); text-shadow: 0 0 22px rgba(255, 204, 0, 0.72), 0 0 60px rgba(255, 204, 0, 0.34); }
+        .victory-overlay.vc-in .vc-banner { animation: vcBannerIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both; }
+        @keyframes vcBannerIn {
+            0%   { opacity: 0; letter-spacing: 26px; filter: blur(13px); transform: scale(1.3); }
+            55%  { opacity: 1; filter: blur(0); }
+            100% { opacity: 1; letter-spacing: 5px; transform: scale(1); }
+        }
+
+        .vc-sub { text-align: center; color: #94a3b8; font-size: 0.82rem; font-weight: 600; margin-bottom: 12px; }
+        .vc-mine {
+            text-align: center; font-weight: 900; font-size: 0.9rem; color: #e2e8f0;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px; padding: 9px 12px; margin-bottom: 16px;
+        }
+        .vc-mine-guest { color: #64748b; font-weight: 700; font-size: 0.8rem; }
+
+        .vc-awards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+        .vc-award {
+            border-radius: 14px; padding: 11px 12px; text-align: center;
+            background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .vc-a1 { border-color: rgba(56, 189, 248, 0.42); }
+        .vc-a2 { border-color: rgba(230, 0, 18, 0.46); }
+        .vc-award-h { font-size: 0.62rem; font-weight: 900; letter-spacing: 1.4px; text-transform: uppercase; color: #94a3b8; }
+        .vc-a1 .vc-award-h { color: #7dd3fc; }
+        .vc-a2 .vc-award-h { color: #fca5a5; }
+        .vc-award-b { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0 4px; }
+        .vc-award-n { font-weight: 900; font-size: 0.95rem; color: #f1f5f9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .vc-award-c { font-weight: 900; font-size: 1.15rem; color: var(--accent-gold); }
+        .vc-award-s { font-size: 0.62rem; color: #64748b; font-weight: 600; }
+        .victory-overlay.vc-in .vc-award { animation: vcRowIn 0.5s ease both; }
+        .victory-overlay.vc-in .vc-a1 { animation-delay: 0.46s; }
+        .victory-overlay.vc-in .vc-a2 { animation-delay: 0.58s; }
+
+        .vc-head { font-size: 0.66rem; font-weight: 900; letter-spacing: 1.6px; text-transform: uppercase; color: #64748b; margin-bottom: 7px; }
+        .vc-roster { list-style: none; margin: 0 0 18px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .vc-row {
+            display: flex; align-items: center; gap: 7px; font-size: 0.8rem;
+            padding: 7px 9px; border-radius: 9px;
+            background: rgba(255, 255, 255, 0.035); border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .victory-overlay.vc-in .vc-row { animation: vcRowIn 0.42s ease both; }
+        .vc-roster .vc-row:nth-child(1) { animation-delay: 0.66s; }
+        .vc-roster .vc-row:nth-child(2) { animation-delay: 0.72s; }
+        .vc-roster .vc-row:nth-child(3) { animation-delay: 0.78s; }
+        .vc-roster .vc-row:nth-child(4) { animation-delay: 0.84s; }
+        .vc-roster .vc-row:nth-child(5) { animation-delay: 0.90s; }
+        .vc-roster .vc-row:nth-child(6) { animation-delay: 0.96s; }
+        .vc-roster .vc-row:nth-child(7) { animation-delay: 1.02s; }
+        .vc-roster .vc-row:nth-child(8) { animation-delay: 1.08s; }
+        .vc-roster .vc-row:nth-child(9) { animation-delay: 1.14s; }
+        .vc-roster .vc-row:nth-child(10) { animation-delay: 1.20s; }
+        .vc-row.vc-is-wolf { background: rgba(230, 0, 18, 0.13); border-color: rgba(230, 0, 18, 0.42); }
+        .vc-row.vc-dead { opacity: 0.55; }
+        .vc-name { flex: 1; font-weight: 700; color: #e2e8f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .vc-row.vc-dead .vc-name { text-decoration: line-through; }
+        .vc-role { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.4px; color: #94a3b8; text-transform: uppercase; }
+        .vc-is-wolf .vc-role { color: #ff6b6b; }
+        .vc-x { color: var(--accent-red); font-weight: 900; }
+        @keyframes vcRowIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+        .vc-actions { display: flex; justify-content: center; }
+        .vc-actions .btn-primary { min-width: 190px; }
+
+        @media (max-width: 560px) {
+            .vc-awards, .vc-roster { grid-template-columns: 1fr; }
+            .vc-banner { letter-spacing: 2px; }
+            .victory-overlay { align-items: flex-start; padding-top: 4vh; }
+            .vc-card { padding: 20px 15px 16px; }
+            .vc-actions .btn-primary { width: 100%; min-height: 48px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .victory-overlay, .victory-overlay .vc-card, .victory-overlay .vc-banner,
+            .victory-overlay .vc-glow, .victory-overlay .vc-row, .victory-overlay .vc-award {
+                animation: none !important; opacity: 1 !important;
+                transform: none !important; filter: none !important;
+            }
+        }

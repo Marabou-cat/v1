@@ -50,9 +50,9 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // re-requests immediately, so the request RATE stays low while perceived
         // latency becomes the change-detection granularity.
         //
-        // The tick is 40ms: wolfStateSig() is now a single ~0.3ms aggregate, so a
+        // The tick is 25ms: wolfStateSig() is a single ~0.3ms aggregate, so a
         // tight loop is still nearly free on a small server, and worst-case
-        // detection is ~40ms + RTT instead of the old 200ms + RTT.
+        // detection is ~25ms + RTT instead of the old 200ms + RTT.
         // Clients that omit wait/sig keep the old immediate-response behaviour.
         $waitMs = (int)($_POST['wait'] ?? 0);
         $sigIn  = (string)($_POST['sig'] ?? '');
@@ -64,7 +64,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 } catch (Exception $e) {
                     break;
                 }
-                usleep(40000);   // 40 ms
+                usleep(25000);   // 25 ms
             }
         }
 
@@ -123,7 +123,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won, xp_delta FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, avatar, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won, xp_delta, wolf_votes, special_kills FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -242,7 +242,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             }
 
             if ($aliveWerewolves === 0) {
-                $stmt = $pdo->prepare("UPDATE rooms SET status = 'ended', last_event = 'Villagers win! All werewolves have been eliminated.' WHERE room_code = ?");
+                $stmt = $pdo->prepare("UPDATE rooms SET status = 'ended', winner = 'villagers', last_event = 'Villagers win! All werewolves have been eliminated.' WHERE room_code = ?");
                 $stmt->execute([$roomCode]);
                 // rowCount() > 0 means THIS request flipped the room, so the
                 // one-time stats award happens exactly once even if two polls
@@ -251,7 +251,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $room['status'] = 'ended';
                 $room['last_event'] = 'Villagers win! All werewolves have been eliminated.';
             } elseif ($aliveWerewolves >= $aliveVillagersOrSpecials) {
-                $stmt = $pdo->prepare("UPDATE rooms SET status = 'ended', last_event = 'Werewolves win! They have outnumbered the villagers.' WHERE room_code = ?");
+                $stmt = $pdo->prepare("UPDATE rooms SET status = 'ended', winner = 'werewolves', last_event = 'Werewolves win! They have outnumbered the villagers.' WHERE room_code = ?");
                 $stmt->execute([$roomCode]);
                 if ($stmt->rowCount() > 0) authAwardGame($pdo, $roomCode, 'werewolves');
                 $room['status'] = 'ended';
@@ -287,6 +287,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             return [
                 "id" => $p['id'],
                 "nickname" => $p['nickname'],
+                "avatar" => $p['avatar'] ?: 'paw',
                 "is_alive" => $isAlive,
                 "role" => $role,
                 "is_bot" => (int)($p['is_bot'] ?? 0),
@@ -312,8 +313,41 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             $mmStartedAt = max(0, (int)$room['mm_deadline'] - MATCH_WAIT_SECONDS);
         }
 
+        // --- Settlement awards (final frame only) ------------------------------
+        // Two MVP-style callouts for the end-of-match screen:
+        //   * the VILLAGER whose day votes landed on werewolves most often
+        //   * the WOLF whose kills took the most power roles
+        // Computed from the roster we already fetched, so the hot poll path pays
+        // nothing and only the 'ended' frame does this tiny loop.
+        $mvpVillager = null;
+        $mvpWolf = null;
+        if (($room['status'] ?? '') === 'ended') {
+            foreach ($players as $p) {
+                $isWolf = ($p['role'] === 'Werewolf');
+                $wv = (int)($p['wolf_votes'] ?? 0);
+                $sk = (int)($p['special_kills'] ?? 0);
+                if (!$isWolf && $wv > 0 && (!$mvpVillager || $wv > $mvpVillager['count'])) {
+                    $mvpVillager = [
+                        'name'   => $p['nickname'],
+                        'avatar' => $p['avatar'] ?: 'paw',
+                        'count'  => $wv,
+                    ];
+                }
+                if ($isWolf && $sk > 0 && (!$mvpWolf || $sk > $mvpWolf['count'])) {
+                    $mvpWolf = [
+                        'name'   => $p['nickname'],
+                        'avatar' => $p['avatar'] ?: 'paw',
+                        'count'  => $sk,
+                    ];
+                }
+            }
+        }
+
         echo json_encode([
             "status" => "success",
+            "winner" => $room['winner'] ?? '',
+            "mvp_villager" => $mvpVillager,
+            "mvp_wolf" => $mvpWolf,
 
             // Fingerprint of everything the client can see, so the next poll can
             // long-poll against it (see the wait loop at the top of this handler).

@@ -456,4 +456,77 @@
         }
         .xp-text { display: flex; justify-content: space-between; font-size: 0.68rem; font-weight: 700; color: #64748b; margin-top: 5px; }
 
+        /* ================= INSTANT TAP FEEDBACK =================
+           Every action endpoint has to commit a durable DB write (~270ms fsync)
+           before it can answer. Waiting for that makes taps feel dead, so the UI
+           acknowledges immediately and reconciles on the next poll. These
+           classes are applied by feedback.js and the action handlers. */
+        .is-pressed {
+            animation: pressPop 0.17s ease-out;
+            box-shadow: 0 0 0 3px rgba(56, 239, 125, 0.45), 0 0 26px rgba(56, 239, 125, 0.35) !important;
+        }
+        @keyframes pressPop {
+            0%   { transform: scale(1); }
+            45%  { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+        /* The roster card you just acted on — the tap visibly "lands". */
+        .player-item.just-acted {
+            border-color: var(--accent-gold) !important;
+            animation: cardLanded 0.55s ease-out;
+        }
+        @keyframes cardLanded {
+            0%   { box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.65); }
+            100% { box-shadow: 0 0 0 14px rgba(255, 204, 0, 0); }
+        }
+        .btn-action.choice-locked { opacity: 0.42; filter: saturate(0.35); }
+        .btn-action.choice-picked {
+            background: linear-gradient(180deg, #ffd76a, #f0a500);
+            box-shadow: 0 5px 0 #8a5a00;
+            color: #1a1206;
+        }
+
+        /* Non-blocking toast. Replaces alert(), which froze the poll loop and
+           looked terrible on a phone. */
+        .toast {
+            position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px);
+            max-width: min(90vw, 420px);
+            padding: 11px 18px; border-radius: 12px;
+            background: rgba(15, 18, 26, 0.96);
+            border: 1px solid rgba(255, 204, 0, 0.45);
+            color: #f1f5f9; font-size: 0.86rem; font-weight: 700; text-align: center;
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.6);
+            opacity: 0; pointer-events: none; z-index: 3000;
+            transition: opacity 0.22s ease, transform 0.22s ease;
+        }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+        .toast.toast-err { border-color: var(--accent-red); color: #ffd9dc; }
+
+        /* ================= AVATARS =================
+           The face is chosen from a fixed built-in set and stored on the ACCOUNT
+           (never uploaded), so it needs no storage and nothing to moderate. */
+        .avatar {
+            display: inline-flex; align-items: center; justify-content: center;
+            flex: none; border-radius: 50%;
+            background: radial-gradient(circle at 32% 26%, var(--av-a), var(--av-b));
+            box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.3), 0 2px 6px rgba(0, 0, 0, 0.5);
+        }
+        .avatar svg { color: #fff; stroke-width: 2.1; }
+        .auth-avatar-slot { display: inline-flex; align-items: center; }
+        .avatar-pick { cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease; }
+        .avatar-pick:hover { transform: translateY(-3px) scale(1.07); }
+        .avatar-pick.on {
+            box-shadow: 0 0 0 2.5px var(--accent-gold), inset 0 0 0 1.5px rgba(255, 255, 255, 0.35);
+            transform: scale(1.06);
+        }
+        .avatar-grid {
+            display: grid; grid-template-columns: repeat(8, 1fr);
+            gap: 9px; justify-items: center; margin-top: 10px;
+        }
+        .set-avatar-head {
+            display: flex; justify-content: space-between; align-items: baseline;
+            font-size: 0.8rem; font-weight: 800; color: #cbd5e1; margin-top: 16px;
+        }
+        .set-avatar-head span { font-size: 0.66rem; font-weight: 600; color: #64748b; }
+
         

@@ -36,6 +36,7 @@ switch ($action) {
     case 'verify_code': handleVerifyCode($pdo); break;
     case 'logout': handleLogout($pdo); break;
     case 'set_nickname': handleSetNickname($pdo); break;
+    case 'set_avatar': handleSetAvatar($pdo); break;
     case 'me': handleMe($pdo); break;
     case 'leaderboard': handleLeaderboard($pdo); break;
 

@@ -41,6 +41,10 @@
                     return;
                 }
 
+                // Keep the latest payload around so optimistic action handlers can
+                // mutate it and survive an incidental re-render (see actions.js).
+                state.lastGame = data;
+
                 // Shared server clock + phase anchors (drive the match timer
                 // and the pre-night chat countdown identically on every client).
                 applyServerClock(data);
@@ -259,7 +263,7 @@
 
                             if (data.my_role === 'Werewolf') {
                                 if (data.my_target_id === p.id) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Targeted</button>`;
-                                return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id})"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
+                                return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id}, this)"><i data-lucide="crosshair" size="16"></i> Kill</button>`;
                             }
                             if (data.my_role === 'Seer') {
                                 if (data.my_check_target) {
@@ -267,7 +271,7 @@
                                         ? `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Divined</button>`
                                         : '';
                                 }
-                                return `<button class="btn-action" onclick="submitNightAction(${p.id})"><i data-lucide="eye" size="16"></i> Divine</button>`;
+                                return `<button class="btn-action" onclick="submitNightAction(${p.id}, this)"><i data-lucide="eye" size="16"></i> Divine</button>`;
                             }
                             if (data.my_role === 'Witch' && !data.my_poison_used) {
                                 if (data.my_poison_target || data.my_poison_skip) {
@@ -275,7 +279,7 @@
                                         ? `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Poisoned</button>`
                                         : '';
                                 }
-                                return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id})"><i data-lucide="flask-conical" size="16"></i> Poison</button>`;
+                                return `<button class="btn-action btn-kill" onclick="submitNightAction(${p.id}, this)"><i data-lucide="flask-conical" size="16"></i> Poison</button>`;
                             }
                             return '';
                         }, 'night');
@@ -296,7 +300,7 @@
                             const isVoteTarget = (data.my_vote_id === p.id);
                             if (!canVote) return '';
                             if (isVoteTarget) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Voted</button>`;
-                            return `<button class="btn-action" onclick="submitDayVote(${p.id})"><i data-lucide="vote" size="16"></i> Vote</button>`;
+                            return `<button class="btn-action" onclick="submitDayVote(${p.id}, this)"><i data-lucide="vote" size="16"></i> Vote</button>`;
                         }, 'day');
                     } else if (data.room_status === 'ended') {
                         phaseText.innerHTML = '<i data-lucide="trophy" size="18" style="vertical-align: middle;"></i> Match Concluded';
@@ -315,6 +319,11 @@
                         } else {
                             gameListLabel.innerText = 'Final Squad Roster:';
                         }
+
+                        // End-of-match settlement: winner reveal + role list +
+                        // the two callouts. Idempotent, so the poll can call it
+                        // on every ended frame.
+                        showVictoryOverlay(data);
 
                         // Every role is revealed by the backend at 'ended', so the
                         // card's role chip renders it — no extra markup needed.

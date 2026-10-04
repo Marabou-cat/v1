@@ -18,8 +18,8 @@ $nickname = trim($_POST['nickname'] ?? 'Host');
         $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, status) VALUES (?, ?, ?, 'lobby')");
         $stmt->execute([$roomCode, $sessionToken, $maxPlayers]);
 
-        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
-        $stmt->execute([$roomCode, $sessionToken, $nickname]);
+        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive, avatar) VALUES (?, ?, ?, 1, ?)");
+        $stmt->execute([$roomCode, $sessionToken, $nickname, seatAvatar($pdo)]);
         touchPresence($pdo, $roomCode, $sessionToken);
 
         echo json_encode([
@@ -69,8 +69,8 @@ $nickname = trim($_POST['nickname'] ?? 'Player');
                     // Defensive: clear any stale same-nickname seat so a player
                     // can't duplicate themselves when re-queueing.
                     $pdo->prepare("DELETE FROM players WHERE room_code = ? AND nickname = ?")->execute([$room['room_code'], $nickname]);
-                    $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)")
-                        ->execute([$room['room_code'], $sessionToken, $nickname]);
+                    $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive, avatar) VALUES (?, ?, ?, 1, ?)")
+                        ->execute([$room['room_code'], $sessionToken, $nickname, seatAvatar($pdo)]);
                     $joined = true;
                 }
                 $pdo->commit();
@@ -125,8 +125,8 @@ $nickname = trim($_POST['nickname'] ?? 'Player');
         $stmt = $pdo->prepare("INSERT INTO rooms (room_code, host_token, max_players, status, is_match, mm_deadline) VALUES (?, ?, ?, 'lobby', 1, ?)");
         $stmt->execute([$roomCode, $sessionToken, $count, $mmStartedAt + MATCH_WAIT_SECONDS]);
 
-        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)");
-        $stmt->execute([$roomCode, $sessionToken, $nickname]);
+        $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive, avatar) VALUES (?, ?, ?, 1, ?)");
+        $stmt->execute([$roomCode, $sessionToken, $nickname, seatAvatar($pdo)]);
         touchPresence($pdo, $roomCode, $sessionToken);
 
         $payload = [
@@ -181,8 +181,8 @@ $nickname = trim($_POST['nickname'] ?? 'Villager');
                 // lobby (a previous session that crashed before leaving), so a
                 // player can never "duplicate" themselves by rejoining.
                 $pdo->prepare("DELETE FROM players WHERE room_code = ? AND nickname = ?")->execute([$roomCode, $nickname]);
-                $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive) VALUES (?, ?, ?, 1)")
-                    ->execute([$roomCode, $sessionToken, $nickname]);
+                $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive, avatar) VALUES (?, ?, ?, 1, ?)")
+                    ->execute([$roomCode, $sessionToken, $nickname, seatAvatar($pdo)]);
             }
             $pdo->commit();
         } catch (Exception $e) {

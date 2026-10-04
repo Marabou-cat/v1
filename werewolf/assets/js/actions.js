@@ -3,34 +3,42 @@
    the page global scope (order matters; see index.html script tags). */
 
 /* ================= ACTIONS ================= */
-        async function submitNightAction(targetId) {
+        async function submitNightAction(targetId, btn) {
+            // Acknowledge the tap before the write: see feedback.js for why.
+            if (btn) { lockChoice(document.getElementById('game-player-list'), btn); markCardActed(btn); }
+            playSound('ui_click');
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ action: 'night_action', room_code: state.roomCode, token: state.token, target_id: targetId })
             });
             const data = await res.json();
-            if (data.status !== 'success') alert(data.message);
+            if (data.status !== 'success') { playSound('ui_error'); flashInfo(data.message, true); state.pollSig = ''; }
+            else flashInfo('Choice locked in');
         }
 
-        async function submitNightSkip() {
+        async function submitNightSkip(btn) {
+            if (btn) btn.disabled = true;
+            playSound('ui_click');
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ action: 'night_action', room_code: state.roomCode, token: state.token, skip: 1 })
             });
             const data = await res.json();
-            if (data.status !== 'success') alert(data.message);
+            if (data.status !== 'success') { playSound('ui_error'); flashInfo(data.message, true); state.pollSig = ''; }
         }
 
-        async function submitDoctorAction(revive) {
+        async function submitDoctorAction(revive, btn) {
+            if (btn) { btn.disabled = true; btn.classList.add('is-pressed'); }
+            playSound('ui_click');
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ action: 'doctor_action', room_code: state.roomCode, token: state.token, revive: revive ? 1 : 0 })
             });
             const data = await res.json();
-            if (data.status !== 'success') alert(data.message);
+            if (data.status !== 'success') { playSound('ui_error'); flashInfo(data.message, true); state.pollSig = ''; }
         }
 
         async function submitSleep() {
@@ -63,7 +71,7 @@
                     el.innerHTML = `
                         <div class="skill-head"><i data-lucide="vote" size="18"></i> Cast Your Vote</div>
                         <div class="skill-body">Pick a player above to lynch — or abstain. A tie for the most votes, or a majority of abstentions, means nobody is executed.</div>
-                        <div class="skill-actions"><button class="btn-action" onclick="submitDayVoteSkip()"><i data-lucide="skip-forward" size="16"></i> Skip Vote</button></div>`;
+                        <div class="skill-actions"><button class="btn-action" onclick="submitDayVoteSkip(this)"><i data-lucide="skip-forward" size="16"></i> Skip Vote</button></div>`;
                 }
                 lucide.createIcons();
                 return;
@@ -79,8 +87,8 @@
                     <div class="skill-head"><i data-lucide="cross" size="18"></i> Doctor — Night Vision</div>
                     <div class="skill-body">Tonight the werewolves are about to kill <b style="color:#ff4d4d;">${data.doctor_victim_name}</b>. Use your one revive?</div>
                     <div class="skill-actions">
-                        <button class="btn-action btn-kill" onclick="submitDoctorAction(1)"><i data-lucide="heart-pulse" size="16"></i> Revive (once per game)</button>
-                        <button class="btn-action" onclick="submitDoctorAction(0)"><i data-lucide="x" size="16"></i> Let them die</button>
+                        <button class="btn-action btn-kill" onclick="submitDoctorAction(1, this)"><i data-lucide="heart-pulse" size="16"></i> Revive (once per game)</button>
+                        <button class="btn-action" onclick="submitDoctorAction(0, this)"><i data-lucide="x" size="16"></i> Let them die</button>
                     </div>`;
                 lucide.createIcons();
                 return;
@@ -136,7 +144,7 @@
                     <div class="skill-head"><i data-lucide="flask-conical" size="18"></i> Witch — Poison</div>
                     <div class="skill-body">${body}</div>
                     ${(!data.my_poison_used && !data.my_poison_target && !data.my_poison_skip)
-                        ? '<div class="skill-actions"><button class="btn-action" onclick="submitNightSkip()"><i data-lucide="moon" size="16"></i> Pass tonight</button></div>'
+                        ? '<div class="skill-actions"><button class="btn-action" onclick="submitNightSkip(this)"><i data-lucide="moon" size="16"></i> Pass tonight</button></div>'
                         : ''}`;
                 lucide.createIcons();
                 return;
@@ -146,28 +154,59 @@
             el.innerHTML = '';
         }
 
-        async function submitDayVote(voteId) {
+        async function submitDayVote(voteId, btn) {
+            // Optimistic: paint the vote NOW. The server has to commit a durable
+            // write (~270ms fsync) before it can answer, and making the player
+            // stare at an unchanged screen for that long reads as "broken".
+            const g = state.lastGame;
+            if (g) { g.my_vote_id = voteId; g.has_voted = true; g.my_vote_skip = 0; }
+            if (btn) {
+                lockChoice(document.getElementById('game-player-list'), btn);
+                markCardActed(btn);
+            }
+            const label = document.getElementById('game-list-label');
+            if (label) label.innerText = '🔒 Vote cast! Waiting for results...';
+            playSound('vote_cast');
+            flashInfo('Vote locked in');
+
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ action: 'day_vote', room_code: state.roomCode, token: state.token, vote_id: voteId })
             });
             const data = await res.json();
-            if (data.status !== 'success') { playSound('ui_error'); alert(data.message); }
-            else playSound('vote_cast');
+            if (data.status !== 'success') {
+                // Roll the optimistic paint back so the UI never lies.
+                if (g) { g.my_vote_id = null; g.has_voted = false; }
+                playSound('ui_error');
+                flashInfo(data.message, true);
+                state.pollSig = '';       // '' disables the long wait -> fresh render now
+            }
         }
 
         // Abstain. Tallied as a "skip" vote: if abstentions outnumber the most
         // voted-for player, nobody is executed.
-        async function submitDayVoteSkip() {
+        async function submitDayVoteSkip(btn) {
+            const g = state.lastGame;
+            if (g) { g.my_vote_skip = 1; g.has_voted = true; g.my_vote_id = null; }
+            if (btn) btn.disabled = true;
+            const label = document.getElementById('game-list-label');
+            if (label) label.innerText = '🔒 You abstained — waiting for the tally...';
+            playSound('vote_cast', { volume: 0.5 });
+            flashInfo('Abstained');
+
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ action: 'day_vote', room_code: state.roomCode, token: state.token, skip: 1 })
             });
             const data = await res.json();
-            if (data.status !== 'success') { playSound('ui_error'); alert(data.message); }
-            else playSound('vote_cast', { volume: 0.5 });
+            if (data.status !== 'success') {
+                if (g) { g.my_vote_skip = 0; g.has_voted = false; }
+                playSound('ui_error');
+                flashInfo(data.message, true);
+                state.pollSig = '';
+            }
         }
 
         

@@ -24,7 +24,7 @@ function applyAuthUser(u) {
 
     // The poll calls this every tick; only touch the DOM when it really changed.
     const sig = state.authUser
-        ? [u.id, u.name, u.nickname, u.tier, u.rating, u.games, u.wins, u.level, u.xp].join('|')
+        ? [u.id, u.name, u.nickname, u.avatar, u.tier, u.rating, u.games, u.wins, u.level, u.xp].join('|')
         : '';
     if (sig === state.authSig) return;
     state.authSig = sig;
@@ -32,7 +32,9 @@ function applyAuthUser(u) {
     if (state.authUser) {
         guest.style.display = 'none';
         user.style.display = 'flex';
-        // Level chip + rank emblem (the tier name rides the tooltip).
+        // Level chip + rank emblem + avatar (the tier name rides the tooltip).
+        const av = authEl('auth-avatar');
+        if (av) av.innerHTML = avatarHtml(u.avatar, 30);
         const lvl = authEl('auth-level');
         if (lvl) lvl.innerText = 'Lv ' + (u.level || 1);
         const tier = authEl('auth-tier');

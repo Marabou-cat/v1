@@ -38,6 +38,7 @@
             authUser: null,
             authSig: '',
             nicknameOwner: null,
+            lastGame: null,
             lobbyCount: 0,
             voice: { on: false, muted: false, stream: null, pcs: {}, pendingIce: {}, audioEls: {} },
             lastRoomStatus: '',

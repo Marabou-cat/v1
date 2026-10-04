@@ -10,6 +10,9 @@
                 : '<i data-lucide="skull" size="20" style="color: var(--accent-red); flex: none;"></i>';
             const bloodPile = p.is_alive ? '' : '<div class="blood-pile"></div>';
             const youTag = isMe ? '<span class="you-tag">YOU</span>' : '';
+            // Account-bound face. Denormalised onto the seat server-side, so it
+            // costs the poll nothing extra.
+            const avatar = avatarHtml(p.avatar, 30);
             // Day voting: show the running vote count on every card, and flag
             // the player YOU voted for.
             const voting = (data.room_status === 'day');
@@ -26,7 +29,7 @@
             const cls = `player-item ${p.is_alive ? '' : 'dead'} ${isMe ? 'me' : ''} ${iVotedThis ? 'voted-by-me' : ''} ${noAnim ? 'no-anim' : ''}`;
             return `
                 <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
-                    <span class="player-info-wrap">${statusIcon} <span class="pname">${esc(p.nickname)}</span> ${youTag} ${roleChip} ${myVoteTag} ${voteBadge} ${bloodPile}</span>
+                    <span class="player-info-wrap">${avatar} ${statusIcon} <span class="pname">${esc(p.nickname)}</span> ${youTag} ${roleChip} ${myVoteTag} ${voteBadge} ${bloodPile}</span>
                     ${extra}
                 </li>
             `;
@@ -40,7 +43,7 @@
         //                button states flip without replaying the entrance
         //                stagger on every 1.5s poll.
         function renderRosterList(listEl, data, buildExtra, mode) {
-            const rosterSig = data.players.map(p => [p.id, p.nickname, p.is_alive, p.role, p.votes]).join('|');
+            const rosterSig = data.players.map(p => [p.id, p.nickname, p.avatar, p.is_alive, p.role, p.votes]).join('|');
             // mode matters: the same roster renders different markup per phase
             // (e.g. pre-night has no action buttons, night does)
             const fullSig = mode + '|' + rosterSig + '#' + [data.my_role, data.is_alive, data.has_voted, data.my_target_id, data.my_vote_id].join('|');

@@ -77,7 +77,7 @@ function handleLogout(PDO $pdo) {
 }
 
 // The in-game handle is stored ON THE ACCOUNT, so it follows the player between
-// devices and browsers. Guests never call this — nothing is persisted for them.
+// devices and browsers rather than living in one browser's storage.
 function handleSetNickname(PDO $pdo) {
     $me = authUser($pdo);
     if (!$me) {
@@ -112,10 +112,40 @@ function handleMe(PDO $pdo) {
     echo json_encode(["status" => "success", "user" => authUserPublic(authUser($pdo))]);
 }
 
+// The avatar is bound to the ACCOUNT, like the nickname. Only ids from the fixed
+// built-in set are accepted (no uploads => no storage, no moderation).
+function handleSetAvatar(PDO $pdo) {
+    $me = authUser($pdo);
+    if (!$me) {
+        echo json_encode(["status" => "error", "message" => "Sign in to choose an avatar."]);
+        return;
+    }
+    $av = authValidAvatar($_POST['avatar'] ?? '');
+    if ($av === null) {
+        echo json_encode(["status" => "error", "message" => "Unknown avatar."]);
+        return;
+    }
+    try {
+        $pdo->prepare("UPDATE users SET avatar = ? WHERE id = ?")->execute([$av, (int)$me['id']]);
+        // Keep any seat this account is CURRENTLY sitting in in sync so the rest of
+        // the table sees the new face at once. Finished rooms are left alone (they
+        // are history), which also keeps this to a couple of rows.
+        $pdo->prepare("UPDATE players p JOIN rooms r ON r.room_code = p.room_code
+                          SET p.avatar = ?
+                        WHERE p.user_id = ? AND r.status <> 'ended'")->execute([$av, (int)$me['id']]);
+    } catch (Exception $e) {
+        echo json_encode(["status" => "error", "message" => "Could not save the avatar."]);
+        return;
+    }
+    $s = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $s->execute([(int)$me['id']]);
+    echo json_encode(["status" => "success", "message" => "Avatar updated.", "user" => authUserPublic($s->fetch())]);
+}
+
 // Top accounts by rank — one indexed read, cheap enough to poll.
 function handleLeaderboard(PDO $pdo) {
     $limit = min(50, max(3, (int)($_POST['limit'] ?? 10)));
-    $rows = $pdo->query("SELECT email, display_name, games, wins, rating
+    $rows = $pdo->query("SELECT id, email, display_name, nickname, avatar, games, wins, rating, xp
                            FROM users WHERE status = 1 AND games > 0
                           ORDER BY rating DESC, wins DESC LIMIT $limit")->fetchAll();
     $out = [];
@@ -123,13 +153,16 @@ function handleLeaderboard(PDO $pdo) {
         $games  = (int)$r['games'];
         $wins   = (int)$r['wins'];
         $rating = (int)$r['rating'];
-        $name = $r['display_name'];
-        if ($name === null || $name === '') {
+        $name = trim((string)($r['nickname'] ?? ''));
+        if ($name === '') $name = (string)$r['display_name'];
+        if ($name === '') {
             $local = strstr((string)$r['email'], '@', true);
             $name = $local === false ? 'Player' : $local;
         }
         $out[] = [
             'name'     => $name,
+            'avatar'   => authAvatarFor($r),
+            'level'    => authLevelForXp((int)$r['xp']),
             'games'    => $games,
             'wins'     => $wins,
             'rating'   => $rating,

@@ -113,6 +113,41 @@ function authLevelProgress($xp) {
     ];
 }
 
+// --- Avatars ---------------------------------------------------------------
+function authValidAvatar($id) {
+    $id = strtolower(trim((string)$id));
+    return in_array($id, AUTH_AVATARS, true) ? $id : null;
+}
+
+// Every account always has *an* avatar, even before the player picks one.
+function authDefaultAvatar($userId) {
+    $n = count(AUTH_AVATARS);
+    return AUTH_AVATARS[abs((int)$userId) % $n];
+}
+
+function authAvatarFor($u) {
+    $a = authValidAvatar($u['avatar'] ?? '');
+    return $a !== null ? $a : authDefaultAvatar((int)$u['id']);
+}
+
+function authAvatarOfUser(PDO $pdo, $userId) {
+    try {
+        $q = $pdo->prepare("SELECT avatar FROM users WHERE id = ?");
+        $q->execute([(int)$userId]);
+        $v = authValidAvatar((string)$q->fetchColumn());
+    } catch (Exception $e) {
+        $v = null;
+    }
+    return $v !== null ? $v : authDefaultAvatar((int)$userId);
+}
+
+// What a NEW seat wears: the account's pick, or a throwaway random one for a
+// guest (guests persist nothing, so it is per-seat).
+function seatAvatar(PDO $pdo) {
+    $u = authUser($pdo);
+    return $u ? authAvatarFor($u) : AUTH_AVATARS[array_rand(AUTH_AVATARS)];
+}
+
 // The shape the client sees. Never leaks anything secret.
 function authUserPublic($u) {
     if (!$u) return null;
@@ -134,6 +169,7 @@ function authUserPublic($u) {
         'id'       => (int)$u['id'],
         'name'     => $name,
         'nickname' => $nick !== '' ? $nick : null,
+        'avatar'   => authAvatarFor($u),
         'email'    => $u['email'] ?? null,
         'games'    => $games,
         'wins'     => $wins,
@@ -173,9 +209,9 @@ function authLogout(PDO $pdo) {
 function authLinkSeat(PDO $pdo, $userId, $roomCode, $playerToken, $name = '') {
     if (!$userId || $roomCode === '' || $playerToken === '') return false;
     try {
-        $s = $pdo->prepare("UPDATE players SET user_id = ?, nickname = IF(? = '', nickname, ?)
+        $s = $pdo->prepare("UPDATE players SET user_id = ?, nickname = IF(? = '', nickname, ?), avatar = ?
                              WHERE room_code = ? AND session_token = ? AND is_bot = 0 AND user_id IS NULL");
-        $s->execute([$userId, $name, $name, $roomCode, $playerToken]);
+        $s->execute([$userId, $name, $name, authAvatarOfUser($pdo, $userId), $roomCode, $playerToken]);
         return $s->rowCount() > 0;
     } catch (Exception $e) {
         return false;

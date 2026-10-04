@@ -45,12 +45,17 @@ function renderSettingsAccount() {
                 '<div class="xp-text"><span>Level ' + (u.level || 1) + '</span>' +
                     '<span>' + (u.xp_into || 0) + ' / ' + (u.xp_need || 0) + ' XP</span></div>' +
             '</div>' +
+            '<div class="set-avatar-head">Avatar <span>tap to change</span></div>' +
+            '<div class="avatar-grid">' + avatarPickerHtml(u.avatar, 34) + '</div>' +
             '<button class="set-signout" onclick="signOutFromSettings()">Sign out</button>';
     } else {
         box.innerHTML =
             '<p class="set-guest">Playing as a guest. Win rate, rank and <b>levels / XP</b> are locked — they live on an account.</p>' +
             '<button class="set-signout" onclick="closeSettings(); openAuth(\'register\')">Create an account</button>';
     }
+    // The avatar grid is icon-based, so the glyphs need rendering after the
+    // innerHTML swap (same reason the roster does it).
+    if (window.lucide) lucide.createIcons();
 }
 
 function toggleSetting(key) {

@@ -14,8 +14,8 @@ function addBot(PDO $pdo, $roomCode) {
         $name = $BOT_NAMES[array_rand($BOT_NAMES)];
     } while (in_array($name, $used, true) && $guard++ < 100);
 
-    $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive, is_bot) VALUES (?, ?, ?, 1, 1)");
-    $stmt->execute([$roomCode, 'bot_' . bin2hex(random_bytes(8)), $name]);
+    $stmt = $pdo->prepare("INSERT INTO players (room_code, session_token, nickname, is_alive, is_bot, avatar) VALUES (?, ?, ?, 1, 1, ?)");
+    $stmt->execute([$roomCode, 'bot_' . bin2hex(random_bytes(8)), $name, AUTH_AVATARS[array_rand(AUTH_AVATARS)]]);
     $id = (int)$pdo->lastInsertId();
     $stmt = $pdo->prepare("SELECT * FROM players WHERE id = ?");
     $stmt->execute([$id]);

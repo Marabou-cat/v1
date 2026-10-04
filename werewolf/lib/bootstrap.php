@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 9;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
@@ -62,6 +62,14 @@ const AUTH_K = 32;                  // Elo K-factor
 const AUTH_XP_PLAY    = 20;   // for finishing a match
 const AUTH_XP_WIN     = 30;   // extra when your side wins
 const AUTH_XP_SURVIVE = 10;   // extra if you were still alive at the end
+
+// --- Avatars ---------------------------------------------------------------
+// A FIXED set of built-in ids. Only the id is stored; the client draws it (a
+// coloured badge + a self-hosted lucide glyph). Uploads were deliberately not
+// offered: no storage, no resizing, and nothing to moderate.
+const AUTH_AVATARS = ['paw', 'moon', 'skull', 'ghost', 'blade', 'ember', 'warden',
+                      'royal', 'seer', 'hunter', 'raven', 'cat', 'hound', 'bone',
+                      'forest', 'frost'];
 
 $schemaOk = false;
 try {
@@ -189,6 +197,19 @@ if (!$schemaOk) {
         // screen can show "+50 XP" without another request.
         $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0");
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS xp_delta INT DEFAULT NULL");
+        // v8: avatars. Chosen from a fixed built-in set — no uploads means no file
+        // storage, no image processing, and nothing to moderate (important on a
+        // school site). Denormalised onto the seat so the hot poll needs no join.
+        $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar VARCHAR(24) DEFAULT NULL");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar VARCHAR(24) DEFAULT NULL");
+        // v9: settlement stats for the end-of-match screen.
+        //   wolf_votes    - times this seat's DAY vote landed on a werewolf
+        //   special_kills - power roles (Seer/Witch/Doctor) this wolf's call killed
+        //   winner        - 'villagers' | 'werewolves', so the client doesn't have
+        //                   to parse the prose in last_event
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS wolf_votes INT DEFAULT 0");
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS special_kills INT DEFAULT 0");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS winner VARCHAR(12) DEFAULT NULL");
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS email_codes (
             id INT AUTO_INCREMENT PRIMARY KEY,
