@@ -13,6 +13,7 @@ require_once __DIR__ . '/lib/game.php';
 require_once __DIR__ . '/lib/actions-room.php';
 require_once __DIR__ . '/lib/actions-play.php';
 require_once __DIR__ . '/lib/actions-voice.php';
+require_once __DIR__ . '/lib/actions-hall.php';
 require_once __DIR__ . '/lib/actions-auth.php';
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -39,6 +40,7 @@ switch ($action) {
     case 'set_avatar': handleSetAvatar($pdo); break;
     case 'me': handleMe($pdo); break;
     case 'leaderboard': handleLeaderboard($pdo); break;
+    case 'hall_beat': handleHallBeat($pdo); break;
 
     default:
         echo json_encode(["status" => "error", "message" => "Invalid API action."]);

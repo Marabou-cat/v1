@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Smith">
+  <defs>
+    <radialGradient id="bgsmith" cx="50%" cy="34%" r="76%">
+      <stop offset="0%" stop-color="#c26a34" stop-opacity=".45"/>
+      <stop offset="62%" stop-color="#3a1e10" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#0b0d13"/>
+    </radialGradient>
+    <clipPath id="clipsmith"><circle cx="60" cy="60" r="59"/></clipPath>
+  </defs>
+  <g clip-path="url(#clipsmith)">
+    <circle cx="60" cy="60" r="60" fill="url(#bgsmith)"/>
+    <circle cx="60" cy="52" r="30" fill="#f7b183" opacity=".12"/>
+    <!-- cloak / shoulders -->
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#3a1e10"/>
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#c26a34" opacity=".28"/>
+    <!-- collar -->
+    <path d="M42 92 q18 12 36 0 q-2 10 -18 10 q-16 0 -18 -10 Z" fill="#f7b183" opacity=".35"/>
+    <circle cx="60" cy="60" r="24" fill="#f7b183"/><path d="M36 48 q4 -24 24 -24 q20 0 24 24 Z" fill="#c26a34"/><rect x="34" y="46" width="52" height="7" rx="3.5" fill="#3a1e10" opacity=".6"/><path d="M44 74 q16 10 32 0 q-4 12 -16 12 q-12 0 -16 -12 Z" fill="#c26a34"/><ellipse cx="51" cy="60" rx="3.2" ry="3.6" fill="#3a1e10"/><ellipse cx="69" cy="60" rx="3.2" ry="3.6" fill="#3a1e10"/>
+  </g>
+  <circle cx="60" cy="60" r="58.5" fill="none" stroke="#f7b183" stroke-opacity=".38" stroke-width="1.6"/>
+</svg>

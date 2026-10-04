@@ -10,7 +10,7 @@
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'create_room', nickname: state.nickname, max_players: maxPlayers, mode: state.mode || 'classic' })
+                body: new URLSearchParams({ action: 'create_room', nickname: state.nickname, max_players: maxPlayers, mode: state.mode || 'classic', avatar: (typeof myCharacter === 'function' ? myCharacter() : '') })
             });
 
             const data = await res.json();
@@ -39,7 +39,7 @@
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'join_room', nickname: state.nickname, room_code: code })
+                body: new URLSearchParams({ action: 'join_room', nickname: state.nickname, room_code: code, avatar: (typeof myCharacter === 'function' ? myCharacter() : '') })
             });
 
             const data = await res.json();

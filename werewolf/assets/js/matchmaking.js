@@ -141,7 +141,9 @@
             return fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count, mode: state.mode || 'classic' })
+                // Carry the character worn in the hall into the seat (guests only:
+                // an account avatar wins server-side).
+                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count, mode: state.mode || 'classic', avatar: (typeof myCharacter === 'function' ? myCharacter() : '') })
             }).then(res => res.json()).then(data => {
                 if (data.status !== 'success') {
                     const b = document.getElementById('btn-match');
@@ -166,7 +168,9 @@
             const data = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count, mode: state.mode || 'classic' })
+                // Carry the character worn in the hall into the seat (guests only:
+                // an account avatar wins server-side).
+                body: new URLSearchParams({ action: 'matchmake', nickname: state.nickname, count: count, mode: state.mode || 'classic', avatar: (typeof myCharacter === 'function' ? myCharacter() : '') })
             }).then(res => res.json());
 
             if (data.status === 'success') {

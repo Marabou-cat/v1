@@ -30,8 +30,14 @@
             // Chaos Night: a werewolf is sent every player's HP (the server only
             // includes it for that seat — it is null for everyone else). Show a
             // compact bar + number when it is present. `is_wolf` marks the pack.
+            // Gated on the MODE too: a classic board has no health bars at all, so
+            // even a stray value must not draw one. And once the match is OVER the
+            // board stops drawing bars entirely — the settlement card is where the
+            // final numbers are revealed, so a bar must never linger on a finished
+            // table (that was the "HP bar at the end of the match" report).
             let hpBar = '';
-            if (p.hp !== null && p.hp !== undefined) {
+            if (data && data.mode === 'chaos' && data.room_status !== 'ended'
+                && p.hp !== null && p.hp !== undefined) {
                 const mx = p.max_hp || 100;
                 const pct = Math.max(0, Math.min(100, Math.round(p.hp * 100 / mx)));
                 const lvl = pct <= 34 ? ' low' : (pct <= 67 ? ' mid' : '');

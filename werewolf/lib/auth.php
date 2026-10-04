@@ -144,8 +144,14 @@ function authAvatarOfUser(PDO $pdo, $userId) {
 // What a NEW seat wears: the account's pick, or a throwaway random one for a
 // guest (guests persist nothing, so it is per-seat).
 function seatAvatar(PDO $pdo) {
+    // An account avatar always wins (it is the player's own identity).
     $u = authUser($pdo);
-    return $u ? authAvatarFor($u) : AUTH_AVATARS[array_rand(AUTH_AVATARS)];
+    if ($u) return authAvatarFor($u);
+    // Otherwise honour the character the player is wearing in the hall, so the face
+    // they chose on the home screen is the face that sits down at the table.
+    $posted = authValidAvatar($_POST['avatar'] ?? '');
+    if ($posted !== null) return $posted;
+    return AUTH_AVATARS[array_rand(AUTH_AVATARS)];
 }
 
 // The shape the client sees. Never leaks anything secret.

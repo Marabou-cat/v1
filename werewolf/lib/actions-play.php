@@ -138,6 +138,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $stmtMsg->execute([$roomCode]);
         $messages = $stmtMsg->fetchAll();
 
+        $isChaos = (validMode($room['mode'] ?? '') === MODE_CHAOS);
         $myRole = 'unassigned';
         $myId = null;
         $isAlive = 1;
@@ -183,9 +184,11 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $myDoctorChoice = $p['doctor_choice'];
                 $myAsleep = (int)$p['asleep'];
                 $myVoteSkip = (int)$p['vote_skip'];
-                $myHp = ($p['hp'] !== null) ? (int)$p['hp'] : null;
-                $myMaxHp = ($p['max_hp'] !== null) ? (int)$p['max_hp'] : null;
-                $myHpDelta = ($p['hp_delta'] !== null) ? (int)$p['hp_delta'] : null;
+                // HP is a chaos-only quantity: gate these on the MODE, not merely on
+                // the value being non-null, so a classic seat can never ship one.
+                $myHp = ($isChaos && $p['hp'] !== null) ? (int)$p['hp'] : null;
+                $myMaxHp = ($isChaos && $p['max_hp'] !== null) ? (int)$p['max_hp'] : null;
+                $myHpDelta = ($isChaos && $p['hp_delta'] !== null) ? (int)$p['hp_delta'] : null;
                 $myHealTarget = ($p['heal_target'] !== null) ? (int)$p['heal_target'] : null;
                 $mySeerHp = ($p['seer_hp'] !== null) ? (int)$p['seer_hp'] : null;
                 $myUserId = $p['user_id'] !== null ? (int)$p['user_id'] : null;
@@ -360,8 +363,12 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 // full vision of the table (and of the pack). It is also public once
                 // the match is over. Never send anyone else's HP to a non-wolf seat:
                 // the response is readable by whoever holds that browser.
-                "hp" => (($room['status'] === 'ended' || $wolfVision) && $p['hp'] !== null) ? (int)$p['hp'] : null,
-                "max_hp" => (($room['status'] === 'ended' || $wolfVision) && $p['max_hp'] !== null) ? (int)$p['max_hp'] : null,
+                // HP is a CHAOS concept. Gate it on the MODE, not merely on the value
+                // being non-null: a classic seat must never render a health bar even
+                // if a stray value ever lands in the column (e.g. a seat inherited
+                // from a chaos predecessor). Revealed to everyone only once ended.
+                "hp" => ((validMode($room['mode'] ?? '') === MODE_CHAOS) && ($room['status'] === 'ended' || $wolfVision) && $p['hp'] !== null) ? (int)$p['hp'] : null,
+                "max_hp" => ((validMode($room['mode'] ?? '') === MODE_CHAOS) && ($room['status'] === 'ended' || $wolfVision) && $p['max_hp'] !== null) ? (int)$p['max_hp'] : null,
                 "is_wolf" => ($wolfVision && $p['role'] === 'Werewolf') ? 1 : 0,
                 // Distrust is PUBLIC (unlike HP) — every seat may read every meter.
                 "distrust" => (validMode($room['mode'] ?? '') === MODE_CHAOS && $p['distrust'] !== null)

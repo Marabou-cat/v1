@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Seer">
+  <defs>
+    <radialGradient id="bgseer" cx="50%" cy="34%" r="76%">
+      <stop offset="0%" stop-color="#5b6bd6" stop-opacity=".45"/>
+      <stop offset="62%" stop-color="#1a1f45" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#0b0d13"/>
+    </radialGradient>
+    <clipPath id="clipseer"><circle cx="60" cy="60" r="59"/></clipPath>
+  </defs>
+  <g clip-path="url(#clipseer)">
+    <circle cx="60" cy="60" r="60" fill="url(#bgseer)"/>
+    <circle cx="60" cy="52" r="30" fill="#b3bcff" opacity=".12"/>
+    <!-- cloak / shoulders -->
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#1a1f45"/>
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#5b6bd6" opacity=".28"/>
+    <!-- collar -->
+    <path d="M42 92 q18 12 36 0 q-2 10 -18 10 q-16 0 -18 -10 Z" fill="#b3bcff" opacity=".35"/>
+    <circle cx="60" cy="60" r="24" fill="#b3bcff"/><path d="M28 60 q0 -38 32 -38 q32 0 32 38 q-10 -18 -32 -18 q-22 0 -32 18 Z" fill="#5b6bd6"/><circle cx="60" cy="38" r="6" fill="#1a1f45" opacity=".85"/><circle cx="60" cy="38" r="3" fill="#b3bcff"><animate attributeName="opacity" values="1;.25;1" dur="2.4s" repeatCount="indefinite"/></circle><ellipse cx="51" cy="60" rx="3.2" ry="3.6" fill="#1a1f45"/><ellipse cx="69" cy="60" rx="3.2" ry="3.6" fill="#1a1f45"/>
+  </g>
+  <circle cx="60" cy="60" r="58.5" fill="none" stroke="#b3bcff" stroke-opacity=".38" stroke-width="1.6"/>
+</svg>

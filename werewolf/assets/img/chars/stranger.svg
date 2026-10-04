@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Stranger">
+  <defs>
+    <radialGradient id="bgstranger" cx="50%" cy="34%" r="76%">
+      <stop offset="0%" stop-color="#6b7280" stop-opacity=".45"/>
+      <stop offset="62%" stop-color="#191c22" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#0b0d13"/>
+    </radialGradient>
+    <clipPath id="clipstranger"><circle cx="60" cy="60" r="59"/></clipPath>
+  </defs>
+  <g clip-path="url(#clipstranger)">
+    <circle cx="60" cy="60" r="60" fill="url(#bgstranger)"/>
+    <circle cx="60" cy="52" r="30" fill="#b9c2cf" opacity=".12"/>
+    <!-- cloak / shoulders -->
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#191c22"/>
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#6b7280" opacity=".28"/>
+    <!-- collar -->
+    <path d="M42 92 q18 12 36 0 q-2 10 -18 10 q-16 0 -18 -10 Z" fill="#b9c2cf" opacity=".35"/>
+    <circle cx="60" cy="60" r="24" fill="#b9c2cf"/><path d="M26 62 q0 -42 34 -42 q34 0 34 42 q-10 -20 -34 -20 q-24 0 -34 20 Z" fill="#6b7280"/><path d="M32 56 q10 -24 28 -24 q18 0 28 24 q-14 -10 -28 -10 q-14 0 -28 10 Z" fill="#191c22" opacity=".9"/><ellipse cx="51" cy="60" rx="3.2" ry="3.6" fill="#191c22"/><ellipse cx="69" cy="60" rx="3.2" ry="3.6" fill="#191c22"/>
+  </g>
+  <circle cx="60" cy="60" r="58.5" fill="none" stroke="#b9c2cf" stroke-opacity=".38" stroke-width="1.6"/>
+</svg>

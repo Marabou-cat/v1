@@ -9,4 +9,10 @@
         initSettings();
         initAuth();
         lucide.createIcons();
+
+        /* The menu is the DEFAULT visible section (the others ship `hidden`), so on a
+           cold load no showScreen() ever runs — and the hall, which is driven by that
+           hook, would sit empty until the player wandered to another screen and back.
+           Start it here, after the nickname is prefilled. */
+        if (typeof startHall === 'function') startHall();
     

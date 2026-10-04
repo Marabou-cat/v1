@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
@@ -69,7 +69,19 @@ const AUTH_XP_SURVIVE = 10;   // extra if you were still alive at the end
 // offered: no storage, no resizing, and nothing to moderate.
 const AUTH_AVATARS = ['paw', 'moon', 'skull', 'ghost', 'blade', 'ember', 'warden',
                       'royal', 'seer', 'hunter', 'raven', 'cat', 'hound', 'bone',
-                      'forest', 'frost'];
+                      'forest', 'frost',
+                      // Character portraits (assets/img/chars/*.svg — ours). Note
+                      // 'seer'/'hunter' double as character ids; the client lets the
+                      // character win, so those two ids are already covered.
+                      'alpha', 'fang', 'moonhowl', 'elder', 'maiden', 'smith',
+                      'witch', 'bard', 'guard', 'stranger'];
+
+// --- Hall (home screen) ----------------------------------------------------
+// A visitor's heartbeat row is dropped once it is this old, so the hall empties
+// itself when a tab goes away.
+const HALL_TTL = 45;
+// Cap the roster the menu is asked to draw (it is a mood, not a scoreboard).
+const HALL_MAX = 12;
 
 // --- Game modes ------------------------------------------------------------
 // 'classic' is the original game and its code path must never change behaviour.
@@ -246,6 +258,17 @@ if (!$schemaOk) {
         // to every client. Each day a seat's votes push it up by that vote's share
         // of the day's total; reaching 100% is the only way the day removes anyone.
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS distrust DECIMAL(6,2) NOT NULL DEFAULT 0");
+
+        // v12: the Hall (home screen presence board). Ephemeral by design — one row
+        // per visitor with a heartbeat, swept by the next beat once it goes stale.
+        // Nothing sensitive is stored: nickname + avatar id + a timestamp.
+        $pdo->exec("CREATE TABLE IF NOT EXISTS hall_presence (
+            token VARCHAR(64) NOT NULL PRIMARY KEY,
+            nickname VARCHAR(32) NOT NULL,
+            avatar VARCHAR(32) NOT NULL,
+            last_seen INT NOT NULL,
+            KEY idx_seen (last_seen)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS email_codes (
             id INT AUTO_INCREMENT PRIMARY KEY,

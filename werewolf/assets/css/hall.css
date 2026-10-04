@@ -1,0 +1,152 @@
+/* =========================================================================
+   werewolf / hall.css — THE HALL (home screen) + the last-loaded polish pass.
+   Loaded last on purpose: everything here is allowed to override the per-screen
+   files (base/menu/lobby/game/cutscene/responsive) without fighting specificity.
+   ========================================================================= */
+
+/* ---------- character portraits reuse the .avatar badge ---------- */
+/* A portrait is an image inside the same round badge the glyph avatars use, so
+   every call site (roster, settlement, chat, top bar, hall) keeps working. */
+.avatar.av-char {
+    background: none;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.22), 0 2px 8px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+    padding: 0;
+}
+.avatar.av-char img {
+    width: 100%; height: 100%; display: block; border-radius: 50%;
+    object-fit: cover;
+    /* A hair of saturation so the flat art keeps up with the gold UI. */
+    filter: saturate(1.06) contrast(1.03);
+}
+
+/* ================= THE HALL ================= */
+.hall {
+    position: relative;
+    width: 100%;
+    max-width: 760px;
+    margin: 4px 0 16px;
+    padding: 16px 18px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    border-radius: 20px;
+    border: 1px solid rgba(233, 200, 106, 0.2);
+    background:
+        radial-gradient(120% 150% at 6% 0%, rgba(233, 200, 106, 0.10) 0%, rgba(233, 200, 106, 0) 58%),
+        linear-gradient(180deg, rgba(19, 23, 34, 0.94), rgba(11, 13, 20, 0.97));
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+    animation: hallIn 0.5s ease both;
+}
+@keyframes hallIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Warm light pooling on the floor of the hall. */
+.hall::after {
+    content: '';
+    position: absolute; left: 0; right: 0; bottom: -70px; height: 120px;
+    background: radial-gradient(58% 100% at 50% 0%, rgba(233, 200, 106, 0.13), transparent 72%);
+    pointer-events: none;
+}
+
+/* ---- your character ---- */
+.hall-hero { display: flex; align-items: center; gap: 14px; flex: none; }
+.hall-you { display: inline-flex; border-radius: 50%; }
+.hall-you .avatar {
+    box-shadow: 0 0 0 2px rgba(233, 200, 106, 0.45), 0 0 30px rgba(233, 200, 106, 0.28);
+    animation: hallPulse 4.2s ease-in-out infinite;
+}
+@keyframes hallPulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(233, 200, 106, 0.45), 0 0 26px rgba(233, 200, 106, 0.22); }
+    50%      { box-shadow: 0 0 0 2px rgba(233, 200, 106, 0.62), 0 0 38px rgba(233, 200, 106, 0.38); }
+}
+.hall-you-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.hall-you-info b {
+    font: 800 1.05rem/1.15 var(--font-display, system-ui);
+    color: var(--text-main, #f2ece0);
+    letter-spacing: 0.3px;
+    max-width: 15ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hall-you-tag {
+    font-size: 0.62rem; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase;
+    color: var(--accent-gold, #e9c86a); opacity: 0.85;
+}
+
+/* ---- the rest of the hall ---- */
+.hall-side { flex: 1 1 auto; min-width: 0; }
+.hall-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 0.64rem; font-weight: 900; letter-spacing: 1.6px; text-transform: uppercase;
+    color: rgba(226, 232, 240, 0.66);
+    margin-bottom: 9px;
+}
+.hall-title svg { color: var(--accent-gold, #e9c86a); }
+.hall-count {
+    margin-left: auto; font-size: 0.6rem; letter-spacing: 0.8px;
+    color: var(--accent-gold, #e9c86a); opacity: 0.9;
+}
+.hall-stage { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.hall-seat {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 7px 3px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.028);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    animation: seatIn 0.34s ease both;
+}
+@keyframes seatIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+.hall-seat b {
+    font-size: 0.58rem; font-weight: 800; letter-spacing: 0.2px;
+    color: rgba(226, 232, 240, 0.86);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hall-seat.empty { opacity: 0.34; border-style: dashed; }
+.hall-seat.empty b { color: rgba(148, 163, 184, 0.7); }
+.hall-seat-av { display: inline-flex; border-radius: 50%; }
+.hall-seat.empty .hall-seat-av {
+    width: 46px; height: 46px; align-items: center; justify-content: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    color: rgba(148, 163, 184, 0.7);
+}
+
+/* ================= POLISH PASS =================
+   Small, deliberately conservative touches. Nothing here changes behaviour. */
+
+/* The logo gets a slow breathing halo so the front page feels alive. */
+.wolf-logo { filter: drop-shadow(0 6px 26px rgba(255, 204, 0, 0.18)); }
+
+/* Buttons: a consistent lift, and a soft gold rim on the primary action. */
+.btn-primary { box-shadow: 0 8px 22px rgba(233, 200, 106, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(233, 200, 106, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.18); }
+.btn-secondary:hover { transform: translateY(-1px); }
+.btn-primary, .btn-secondary, .btn-action { transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease; }
+
+/* Screens fade up instead of hard-cutting between views. */
+.screen { animation: screenIn 0.26s ease both; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Panels get one shared edge treatment so every screen looks like one product. */
+.menu-panel, .panel-wide, .lobby-wrap, .room-badge, .death-card, .vote-card {
+    backdrop-filter: blur(2px);
+}
+
+/* Focused inputs are obvious for keyboard users. */
+input:focus-visible, button:focus-visible {
+    outline: 2px solid rgba(233, 200, 106, 0.75);
+    outline-offset: 2px;
+}
+
+/* Thin, styled scrollbars (chat / rosters) rather than the OS default. */
+.hall-stage, #game-player-list, #chat-messages { scrollbar-width: thin; scrollbar-color: rgba(233, 200, 106, 0.35) transparent; }
+
+@media (max-width: 720px) {
+    .hall { flex-direction: column; align-items: stretch; gap: 14px; }
+    .hall-stage { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+    .hall-stage { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hall, .hall-seat, .screen, .hall-you .avatar { animation: none !important; }
+}

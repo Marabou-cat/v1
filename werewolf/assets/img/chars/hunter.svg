@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Hunter">
+  <defs>
+    <radialGradient id="bghunter" cx="50%" cy="34%" r="76%">
+      <stop offset="0%" stop-color="#c08a3e" stop-opacity=".45"/>
+      <stop offset="62%" stop-color="#3a2a12" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#0b0d13"/>
+    </radialGradient>
+    <clipPath id="cliphunter"><circle cx="60" cy="60" r="59"/></clipPath>
+  </defs>
+  <g clip-path="url(#cliphunter)">
+    <circle cx="60" cy="60" r="60" fill="url(#bghunter)"/>
+    <circle cx="60" cy="52" r="30" fill="#f2cf8a" opacity=".12"/>
+    <!-- cloak / shoulders -->
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#3a2a12"/>
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#c08a3e" opacity=".28"/>
+    <!-- collar -->
+    <path d="M42 92 q18 12 36 0 q-2 10 -18 10 q-16 0 -18 -10 Z" fill="#f2cf8a" opacity=".35"/>
+    <circle cx="60" cy="60" r="24" fill="#f2cf8a"/><ellipse cx="60" cy="44" rx="38" ry="8" fill="#c08a3e"/><path d="M40 44 q4 -26 20 -26 q16 0 20 26 Z" fill="#c08a3e"/><path d="M38 42 h44 l-2 6 h-40 Z" fill="#3a2a12" opacity=".55"/><ellipse cx="51" cy="60" rx="3.2" ry="3.6" fill="#3a2a12"/><ellipse cx="69" cy="60" rx="3.2" ry="3.6" fill="#3a2a12"/>
+  </g>
+  <circle cx="60" cy="60" r="58.5" fill="none" stroke="#f2cf8a" stroke-opacity=".38" stroke-width="1.6"/>
+</svg>

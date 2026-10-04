@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="assets/css/game.css">
     <link rel="stylesheet" href="assets/css/cutscene.css">
     <link rel="stylesheet" href="assets/css/responsive.css">
+    <link rel="stylesheet" href="assets/css/hall.css">
 </head>
 <body data-phase="menu">
 
@@ -85,6 +86,26 @@
                     </div>
                 </div>
                 <p class="subtitle">Online Multiplayer Arena</p>
+
+                <!-- THE HALL. The front page is a place with people standing in it:
+                     your own character, and whoever else is here right now. Everyone
+                     gets a portrait, and the one you wear here is the seat you take. -->
+                <div class="hall" id="hall">
+                    <div class="hall-hero" id="hall-hero">
+                        <span class="hall-you"></span>
+                        <span class="hall-you-info">
+                            <b>Wanderer</b>
+                            <span class="hall-you-tag">your character</span>
+                        </span>
+                    </div>
+                    <div class="hall-side">
+                        <div class="hall-title">
+                            <i data-lucide="users" size="15"></i> IN THE HALL
+                            <span class="hall-count" id="hall-count">&mdash;</span>
+                        </div>
+                        <div class="hall-stage" id="hall-stage"></div>
+                    </div>
+                </div>
 
                 <div class="menu-panel">
                     <div class="form-group">
@@ -491,6 +512,7 @@
     <script src="assets/js/poll.js"></script>
     <script src="assets/js/title.js"></script>
     <script src="assets/js/nickname.js"></script>
+    <script src="assets/js/hall.js"></script>
     <script src="assets/js/init.js"></script>
 </body>
 </html>

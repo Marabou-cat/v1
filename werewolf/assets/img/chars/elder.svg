@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Elder">
+  <defs>
+    <radialGradient id="bgelder" cx="50%" cy="34%" r="76%">
+      <stop offset="0%" stop-color="#9a7a4a" stop-opacity=".45"/>
+      <stop offset="62%" stop-color="#2f2517" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#0b0d13"/>
+    </radialGradient>
+    <clipPath id="clipelder"><circle cx="60" cy="60" r="59"/></clipPath>
+  </defs>
+  <g clip-path="url(#clipelder)">
+    <circle cx="60" cy="60" r="60" fill="url(#bgelder)"/>
+    <circle cx="60" cy="52" r="30" fill="#e2c48d" opacity=".12"/>
+    <!-- cloak / shoulders -->
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#2f2517"/>
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#9a7a4a" opacity=".28"/>
+    <!-- collar -->
+    <path d="M42 92 q18 12 36 0 q-2 10 -18 10 q-16 0 -18 -10 Z" fill="#e2c48d" opacity=".35"/>
+    <circle cx="60" cy="60" r="24" fill="#e2c48d"/><path d="M28 62 q0 -40 32 -40 q32 0 32 40 q-8 -14 -32 -14 q-24 0 -32 14 Z" fill="#9a7a4a"/><path d="M60 88 q-14 0 -18 -8 q6 -10 18 -10 q12 0 18 10 q-4 8 -18 8 Z" fill="#9a7a4a"/><ellipse cx="51" cy="60" rx="3.2" ry="3.6" fill="#2f2517"/><ellipse cx="69" cy="60" rx="3.2" ry="3.6" fill="#2f2517"/>
+  </g>
+  <circle cx="60" cy="60" r="58.5" fill="none" stroke="#e2c48d" stroke-opacity=".38" stroke-width="1.6"/>
+</svg>

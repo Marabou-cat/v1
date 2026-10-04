@@ -48,6 +48,11 @@
             }
             if (typeof placeAuthBar === 'function') placeAuthBar(screenId);
             if (typeof updateBgmForScreen === 'function') updateBgmForScreen(screenId, state.roomStatus);
+            // The Hall is the home screen's own business: heartbeats run while it is
+            // on screen and stop the instant the player walks away from it.
+            if (typeof startHall === 'function') {
+                if (screenId === 'view-menu') startHall(); else stopHall();
+            }
             lucide.createIcons();
         }
 

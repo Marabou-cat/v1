@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Moonhowl">
+  <defs>
+    <radialGradient id="bgmoonhowl" cx="50%" cy="34%" r="76%">
+      <stop offset="0%" stop-color="#8a6fc4" stop-opacity=".45"/>
+      <stop offset="62%" stop-color="#241a3d" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#0b0d13"/>
+    </radialGradient>
+    <clipPath id="clipmoonhowl"><circle cx="60" cy="60" r="59"/></clipPath>
+  </defs>
+  <g clip-path="url(#clipmoonhowl)">
+    <circle cx="60" cy="60" r="60" fill="url(#bgmoonhowl)"/>
+    <circle cx="60" cy="52" r="30" fill="#d7c4ff" opacity=".12"/>
+    <!-- cloak / shoulders -->
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#241a3d"/>
+    <path d="M6 120 q10 -34 54 -34 q44 0 54 34 Z" fill="#8a6fc4" opacity=".28"/>
+    <!-- collar -->
+    <path d="M42 92 q18 12 36 0 q-2 10 -18 10 q-16 0 -18 -10 Z" fill="#d7c4ff" opacity=".35"/>
+    <path d="M34 46 L30 22 L52 36 Z" fill="#8a6fc4"/><path d="M86 46 L90 22 L68 36 Z" fill="#8a6fc4"/><path d="M37 43 L35 30 L47 38 Z" fill="#d7c4ff" opacity=".55"/><path d="M83 43 L85 30 L73 38 Z" fill="#d7c4ff" opacity=".55"/><ellipse cx="60" cy="58" rx="25" ry="24" fill="#8a6fc4"/><path d="M60 62 q-13 4 -13 12 q0 10 13 10 q13 0 13 -10 q0 -8 -13 -12 Z" fill="#d7c4ff" opacity=".92"/><path d="M60 66 l-5 -4 h10 Z" fill="#241a3d"/><ellipse cx="60" cy="84" rx="4" ry="3" fill="#241a3d"/><ellipse cx="48" cy="56" rx="4.2" ry="3.4" fill="#241a3d"/><ellipse cx="72" cy="56" rx="4.2" ry="3.4" fill="#241a3d"/><circle cx="48" cy="56" r="1.7" fill="#d7c4ff"/><circle cx="72" cy="56" r="1.7" fill="#d7c4ff"/>
+  </g>
+  <circle cx="60" cy="60" r="58.5" fill="none" stroke="#d7c4ff" stroke-opacity=".38" stroke-width="1.6"/>
+</svg>
