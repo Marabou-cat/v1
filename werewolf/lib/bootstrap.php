@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 $schemaOk = false;
 try {
@@ -104,6 +104,11 @@ if (!$schemaOk) {
         // voice_signals relays WebRTC offer/answer/ICE between peers (the client
         // poll is the signalling channel — no extra server/socket needed).
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS voice_on TINYINT DEFAULT 0");
+        // Day vote: vote_skip records an abstention ("Skip Vote"); last_vote
+        // carries the resolved outcome (lynched / tie / skip) so the client can
+        // play the vote-result cutscene.
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS vote_skip TINYINT DEFAULT 0");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_vote TEXT DEFAULT NULL");
         $pdo->exec("CREATE TABLE IF NOT EXISTS voice_signals (
             id INT AUTO_INCREMENT PRIMARY KEY,
             room_code VARCHAR(10) NOT NULL,

@@ -30,7 +30,8 @@
             lastAlive: null,
             deathShown: false,
             spectating: false,
-            fadeTimer: null
+            fadeTimer: null,
+            voteCutsceneTimer: null
         };
 
         

@@ -55,12 +55,47 @@
             state.lastAlive = alive;
         }
 
+        // Day-vote result cutscene. Played on the day -> night edge so everyone
+        // sees who (if anyone) was executed before night takes over.
+        function showVoteCutscene(v) {
+            const el = document.getElementById('vote-cutscene');
+            if (!el) return;
+            const icon = document.getElementById('vote-cutscene-icon');
+            const title = document.getElementById('vote-cutscene-title');
+            const sub = document.getElementById('vote-cutscene-sub');
+            el.classList.remove('lynched', 'tie', 'skip');
+            if (!v || !v.outcome) {
+                el.classList.remove('show');
+                return;
+            }
+            if (v.outcome === 'lynched') {
+                el.classList.add('lynched');
+                icon.innerText = '⚖️';
+                title.innerText = (v.name || 'Someone') + ' was executed';
+                sub.innerText = 'The village voted them out. They were a ' + (v.role || '?') + '.';
+            } else if (v.outcome === 'tie') {
+                el.classList.add('tie');
+                icon.innerText = '🤝';
+                title.innerText = 'The vote was tied';
+                sub.innerText = (v.tied || 2) + ' players shared the most votes — nobody was executed.';
+            } else {
+                el.classList.add('skip');
+                icon.innerText = '🕊️';
+                title.innerText = 'The village abstained';
+                sub.innerText = (v.skipped || 0) + ' abstained — nobody was executed.';
+            }
+            el.classList.add('show');
+            clearTimeout(state.voteCutsceneTimer);
+            state.voteCutsceneTimer = setTimeout(() => el.classList.remove('show'), 3200);
+        }
+
         function hideGameOverlays() {
-            ['phase-fade', 'night-blackout', 'sleep-overlay', 'death-overlay'].forEach(id => {
+            ['phase-fade', 'night-blackout', 'sleep-overlay', 'death-overlay', 'vote-cutscene'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.remove('show');
             });
             clearTimeout(state.fadeTimer);
+            clearTimeout(state.voteCutsceneTimer);
         }
 
         function exitGame() {

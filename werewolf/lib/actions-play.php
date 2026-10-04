@@ -117,7 +117,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -137,6 +137,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $isAlive = 1;
         $myTargetId = null;
         $myVoteId = null;
+        $myVoteSkip = 0;
         $hasVoted = false;
         $myCheckTarget = null;
         $mySeerTarget = null;
@@ -164,11 +165,12 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $myReviveUsed = (int)$p['revive_used'];
                 $myDoctorChoice = $p['doctor_choice'];
                 $myAsleep = (int)$p['asleep'];
+                $myVoteSkip = (int)$p['vote_skip'];
 
                 if ($room['status'] === 'night' && $p['role'] === 'Werewolf') {
                     $hasVoted = ($p['target_id'] !== null);
                 } elseif ($room['status'] === 'day') {
-                    $hasVoted = ($p['vote_id'] !== null);
+                    $hasVoted = ($p['vote_id'] !== null || (int)$p['vote_skip']);
                 }
                 break;
             }
@@ -317,9 +319,13 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             "my_revive_used" => $myReviveUsed,
             "my_doctor_choice" => $myDoctorChoice,
             "my_asleep" => $myAsleep,
+            "my_vote_skip" => $myVoteSkip,
             "doctor_victim_name" => $doctorVictimName,
             "voice_signals" => $voiceSignals,
             "last_event" => $room['last_event'] ?? '',
+            // Resolved day-vote outcome ({"outcome":"lynched|tie|skip",...}) so
+            // the client can play the vote-result cutscene on the day->night edge.
+            "last_vote" => (!empty($room['last_vote']) ? json_decode($room['last_vote'], true) : null),
             "messages" => $messages
         ]);
 }
@@ -445,6 +451,7 @@ function handleDayVote(PDO $pdo) {
 $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $token = trim($_POST['token'] ?? '');
         $voteId = (int)($_POST['vote_id'] ?? 0);
+        $skip = (int)($_POST['skip'] ?? 0);
 
         $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
         $stmt->execute([$roomCode]);
@@ -464,12 +471,19 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             exit;
         }
 
-        $stmt = $pdo->prepare("UPDATE players SET vote_id = ? WHERE id = ?");
-        $stmt->execute([$voteId, $me['id']]);
+        if ($skip) {
+            // Abstain. Tallied as a "skip" vote at the end of the day: if the
+            // skip count beats the highest vote count, nobody is executed.
+            $stmt = $pdo->prepare("UPDATE players SET vote_id = NULL, vote_skip = 1 WHERE id = ?");
+            $stmt->execute([$me['id']]);
+        } else {
+            $stmt = $pdo->prepare("UPDATE players SET vote_id = ?, vote_skip = 0 WHERE id = ?");
+            $stmt->execute([$voteId, $me['id']]);
+        }
 
         // Bots may have already voted; resolve if everyone acted.
         processDayBots($pdo, $roomCode);
         resolveDay($pdo, $roomCode);
 
-        echo json_encode(["status" => "success", "message" => "Vote submitted."]);
+        echo json_encode(["status" => "success", "message" => $skip ? "You skipped your vote." : "Vote submitted."]);
 }

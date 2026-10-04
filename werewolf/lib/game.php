@@ -258,36 +258,76 @@ function finalizeNight(PDO $pdo, $roomCode) {
     return true;
 }
 
-// Resolve the day: every alive player has voted -> lynch the top target,
-// wipe votes, flip to night. Returns true if the phase advanced.
+// Resolve the day: every alive player has voted OR skipped -> apply the lynch
+// rules, wipe the votes, flip to night. Returns true if the phase advanced.
+//
+// House rules (user-specified):
+//   * two or more players tied on the highest vote count -> nobody is executed
+//   * the skip count beats the highest vote count        -> nobody is executed
 function resolveDay(PDO $pdo, $roomCode) {
-    $stmt = $pdo->prepare("SELECT id, vote_id FROM players WHERE room_code = ? AND is_alive = 1");
+    $stmt = $pdo->prepare("SELECT id, vote_id, vote_skip FROM players WHERE room_code = ? AND is_alive = 1");
     $stmt->execute([$roomCode]);
     $living = $stmt->fetchAll();
     if (count($living) === 0) return false;
 
     $voteCounts = [];
+    $skipCount = 0;
     foreach ($living as $p) {
-        if ($p['vote_id'] === null) return false; // someone has not voted yet
-        $voteCounts[$p['vote_id']] = ($voteCounts[$p['vote_id']] ?? 0) + 1;
+        if ((int)$p['vote_skip']) { $skipCount++; continue; }
+        if ($p['vote_id'] === null) return false;   // still waiting on somebody
+        $voteCounts[(int)$p['vote_id']] = ($voteCounts[(int)$p['vote_id']] ?? 0) + 1;
     }
 
     arsort($voteCounts);
-    $lynchedId = array_key_first($voteCounts);
+    $maxVotes = $voteCounts ? max($voteCounts) : 0;
+    $tops = [];
+    foreach ($voteCounts as $tid => $c) {
+        if ($c === $maxVotes) $tops[] = (int)$tid; else break;
+    }
 
-    $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?")->execute([$lynchedId]);
+    $outcome = 'skip';
+    $lynchedId = 0;
+    if (count($tops) >= 2) {
+        $outcome = 'tie';
+    } elseif ($skipCount > $maxVotes) {
+        $outcome = 'skip';
+    } elseif ($maxVotes > 0) {
+        $outcome = 'lynched';
+        $lynchedId = $tops[0];
+    }
+    // (all-skipped falls through to 'skip': maxVotes = 0, skipCount > 0)
 
-    $stmt = $pdo->prepare("SELECT nickname, role FROM players WHERE id = ?");
-    $stmt->execute([$lynchedId]);
-    $lynched = $stmt->fetch();
-    $lynchedName = $lynched ? $lynched['nickname'] : 'Someone';
-    $lynchedRole = $lynched ? $lynched['role'] : 'Villager';
+    $lynchedName = '';
+    $lynchedRole = '';
+    if ($outcome === 'lynched') {
+        $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ?")->execute([$lynchedId]);
+        $stmt = $pdo->prepare("SELECT nickname, role FROM players WHERE id = ?");
+        $stmt->execute([$lynchedId]);
+        $row = $stmt->fetch();
+        $lynchedName = $row ? $row['nickname'] : 'Someone';
+        $lynchedRole = $row ? $row['role'] : 'Villager';
+        $event = "The village voted and lynched **{$lynchedName}**. They were a **{$lynchedRole}**! Night falls again...";
+    } elseif ($outcome === 'tie') {
+        $event = 'The vote was tied — ' . count($tops) . ' players shared the most votes, so nobody was executed. Night falls again...';
+    } else {
+        $event = 'The village voted to skip' . ($skipCount > 0 ? " ({$skipCount} abstained)" : '')
+               . ' — nobody was executed. Night falls again...';
+    }
 
-    $pdo->prepare("UPDATE players SET vote_id = NULL WHERE room_code = ?")->execute([$roomCode]);
+    $result = json_encode([
+        'outcome' => $outcome,
+        'votes'   => $maxVotes,
+        'skipped' => $skipCount,
+        'tied'    => count($tops),
+        'name'    => $lynchedName,
+        'role'    => $lynchedRole
+    ]);
+
+    $pdo->prepare("UPDATE players SET vote_id = NULL, vote_skip = 0 WHERE room_code = ?")->execute([$roomCode]);
     // New night: reset bot "thinking" timers so kills land at varying times.
     $pdo->prepare("UPDATE players SET bot_ready_at = NULL WHERE room_code = ? AND is_bot = 1")->execute([$roomCode]);
-    $pdo->prepare("UPDATE rooms SET status = 'night', phase_started_at = ?, last_event = ? WHERE room_code = ?")
-        ->execute([time(), "The village voted and lynched **{$lynchedName}**. They were a **{$lynchedRole}**! Night falls again...", $roomCode]);
+    $pdo->prepare("UPDATE rooms SET status = 'night', phase_started_at = ?, last_event = ?, last_vote = ? WHERE room_code = ?")
+        ->execute([time(), $event, $result, $roomCode]);
     // Arm the new night's skill state.
     resetNightState($pdo, $roomCode);
     return true;

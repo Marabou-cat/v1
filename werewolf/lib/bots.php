@@ -184,7 +184,7 @@ function processDayBots(PDO $pdo, $roomCode) {
     if (count($aliveIds) === 0) return;
 
     foreach ($bots as $bot) {
-        if ($bot['vote_id'] !== null) continue;
+        if ($bot['vote_id'] !== null || (int)$bot['vote_skip']) continue;
 
         // Arm this bot's "thinking" delay once; on later polls just wait for
         // it to elapse (never reset the clock mid-phase).
@@ -193,6 +193,14 @@ function processDayBots(PDO $pdo, $roomCode) {
             $pdo->prepare("UPDATE players SET bot_ready_at = ? WHERE id = ?")->execute([$readyAt, $bot['id']]);
             if ($now < $readyAt) continue;
         } elseif ($now < (int)$bot['bot_ready_at']) {
+            continue;
+        }
+
+        // Mostly they pile onto a target, but occasionally abstain — otherwise
+        // the "skip beats the top vote" rule could never fire in a bot-heavy
+        // table and the new outcome would be dead code in practice.
+        if (random_int(1, 100) <= 15) {
+            $pdo->prepare("UPDATE players SET vote_skip = 1 WHERE id = ?")->execute([$bot['id']]);
             continue;
         }
 

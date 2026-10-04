@@ -49,6 +49,29 @@
         function renderSkillPanel(data) {
             const el = document.getElementById('skill-panel');
             if (!el) return;
+
+            // --- Day: the vote panel (pick a target above, or abstain) ---------
+            if (data.room_status === 'day') {
+                if (!data.is_alive) { el.style.display = 'none'; el.innerHTML = ''; return; }
+                el.style.display = 'block';
+                if (data.my_vote_skip) {
+                    el.innerHTML = `
+                        <div class="skill-head"><i data-lucide="skip-forward" size="18"></i> Vote Skipped</div>
+                        <div class="skill-body">You abstained. Waiting for the rest of the village…</div>`;
+                } else if (data.has_voted) {
+                    el.innerHTML = `
+                        <div class="skill-head"><i data-lucide="check" size="18"></i> Vote Cast</div>
+                        <div class="skill-body">Waiting for the rest of the village…</div>`;
+                } else {
+                    el.innerHTML = `
+                        <div class="skill-head"><i data-lucide="vote" size="18"></i> Cast Your Vote</div>
+                        <div class="skill-body">Pick a player above to lynch — or abstain. A tie for the most votes, or a majority of abstentions, means nobody is executed.</div>
+                        <div class="skill-actions"><button class="btn-action" onclick="submitDayVoteSkip()"><i data-lucide="skip-forward" size="16"></i> Skip Vote</button></div>`;
+                }
+                lucide.createIcons();
+                return;
+            }
+
             const active = (data.room_status === 'night') && !state.inPreNightChat && !!data.is_alive;
             if (!active) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
@@ -131,6 +154,18 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ action: 'day_vote', room_code: state.roomCode, token: state.token, vote_id: voteId })
+            });
+            const data = await res.json();
+            if (data.status !== 'success') alert(data.message);
+        }
+
+        // Abstain. Tallied as a "skip" vote: if abstentions outnumber the most
+        // voted-for player, nobody is executed.
+        async function submitDayVoteSkip() {
+            const res = await fetch('backend.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'day_vote', room_code: state.roomCode, token: state.token, skip: 1 })
             });
             const data = await res.json();
             if (data.status !== 'success') alert(data.message);

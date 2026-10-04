@@ -106,6 +106,11 @@
                         (prevStatus === 'day' && data.room_status === 'night')) {
                         playPhaseTransition(data.room_status);
                     }
+                    if (prevStatus === 'day' && data.room_status === 'night') {
+                        // The village has just tallied: cut to the result
+                        // (executed / tied / abstained) before night takes over.
+                        showVoteCutscene(data.last_vote);
+                    }
                     if (prevStatus === 'lobby' && data.room_status === 'night') {
                         // New match: reset per-game death / blackout state.
                         state.lastAlive = true;
@@ -256,7 +261,11 @@
                         phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Voting Phase';
                         phaseText.style.color = 'var(--accent-gold)';
 
-                        gameListLabel.innerText = data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):');
+                        gameListLabel.innerText = data.my_vote_skip
+                            ? '🔒 You abstained — waiting for the tally...'
+                            : (data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):'));
+
+                        renderSkillPanel(data);   // day = vote panel + Skip Vote
 
                         renderRosterList(gamePlayerList, data, (p) => {
                             const canVote = (data.is_alive && p.is_alive);
