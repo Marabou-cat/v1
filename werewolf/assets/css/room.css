@@ -277,8 +277,22 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 /* --- floating, flippable role card (top-left) --- */
 .role-float {
     position: absolute; top: calc(var(--gr-top-h, 15%) + 8px); left: 16px; z-index: 40;
-    width: 250px; display: flex; flex-direction: column; gap: 10px;
+    display: flex; flex-direction: row; align-items: flex-start; gap: 10px;
 }
+.role-main { flex: none; width: 250px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Voice — a card sitting BESIDE the role card, not stacked under it */
+.role-float .voice-bar {
+    flex: none; width: 156px; margin: 0;
+    flex-direction: column; align-items: stretch; gap: 9px;
+    padding: 14px 12px; text-align: center;
+    border-radius: 16px; border: 1px solid var(--scene-line); border-bottom: 2px solid var(--ink, #0b0c11);
+    background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 6px 16px rgba(0,0,0,.4);
+}
+.role-float .voice-bar .voice-title { justify-content: center; }
+.role-float .voice-bar .voice-label { flex: none; width: 100%; text-align: center; }
+.role-float .voice-bar .voice-btn { width: 100% !important; justify-content: center; }
 .role-flip { perspective: 900px; cursor: pointer; }
 .role-flip .flip-inner {
     position: relative; width: 100%;
