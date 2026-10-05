@@ -51,45 +51,20 @@
    Opened, it takes the screen and turns into a proper player chat box.
    Nothing here touches the server: messages already arrive on the poll. */
 
-function chatIsOpen() { return document.body.classList.contains('chat-open'); }
+function chatIsOpen() { return true; }   // chat is an always-visible panel now (demo-style)
 
 function openChatLog() {
-    document.body.classList.add('chat-open');
-    const c = document.getElementById('chat-close-btn');
-    if (c) c.hidden = false;
     chatMarkRead();
     const m = document.getElementById('chat-messages');
     if (m) m.scrollTop = m.scrollHeight;
-    if (window.lucide) lucide.createIcons();
 }
 
-function closeChatLog() {
-    document.body.classList.remove('chat-open');
-    const c = document.getElementById('chat-close-btn');
-    if (c) c.hidden = true;
-    stopTyping();
-}
+function closeChatLog() { /* no-op: the chat is always visible */ }
 
 /* "打字时改为玩家发送聊天框" — the composer exists only while you are writing. */
-function startTyping() {
-    openChatLog();
-    const co = document.getElementById('chat-composer');
-    if (co) co.hidden = false;
-    const av = document.getElementById('chat-me-avatar');
-    if (av && !av.innerHTML && typeof myCharacter === 'function' && typeof avatarHtml === 'function') {
-        av.innerHTML = avatarHtml(myCharacter(), 26);
-    }
-    if (window.lucide) lucide.createIcons();
-    const inp = document.getElementById('chat-input');
-    if (inp) setTimeout(function () { inp.focus(); }, 40);
-}
+function startTyping() { /* no-op: the composer is always visible */ }
 
-function stopTyping() {
-    const co = document.getElementById('chat-composer');
-    if (co) co.hidden = true;
-    const inp = document.getElementById('chat-input');
-    if (inp) inp.value = '';
-}
+function stopTyping() { /* no-op: keep the composer up */ }
 
 function chatMarkRead() {
     state.chatUnread = 0;

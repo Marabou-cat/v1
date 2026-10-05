@@ -95,6 +95,12 @@ body[data-phase="day"] .gr-log li.ev-vote  { color: #0d5b68; border-left-color: 
 /* ---------------- bottom: chat / action ---------------- */
 .gr-bottom { flex: none; padding: 11px 16px 14px; display: flex; flex-direction: column; gap: 10px; }
 .gr-bottom .skill-panel { flex: none; }
+.gr-bottom .chat-container { max-height: 30vh; }
+.chat-container { display: flex; flex-direction: column; flex: 1 1 auto; }
+.chat-messages { max-height: none !important; flex: 1 1 auto; min-height: 56px; }
+.chat-compact { display: none !important; }
+.chat-composer { display: flex !important; }
+.chat-close-btn, .chat-cancel-btn { display: none !important; }
 .gr-bottom .chat-container { max-height: 38vh; }
 .game-list-label { display: none; }   /* replaced by the column header */
 
@@ -219,22 +225,27 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 /* --- 3-column round table: players | events/log | players --- */
 .gr-grid {
     position: relative;
+    width: 100%; align-self: stretch;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     column-gap: 220px !important; row-gap: 0 !important;
     padding-top: 300px !important;   /* clears the floating role card + team + voice */
 }
 .gr-col-left, .gr-col-right { overflow: visible !important; }
+.gr-col-left { justify-self: start; width: 260px; }
+.gr-col-right { justify-self: end; width: 260px; }
+.gr-col-left .gr-head, .gr-col-right .gr-head { width: 100%; }
+.gr-col-left .gr-head span, .gr-col-right .gr-head span { white-space: normal; min-width: 0; word-break: break-word; line-height: 1.25; }
 .gr-center { overflow-x: hidden; }
 
 /* single-column rails on both sides */
 .gr-col-left .game-player-list, .gr-col-right .game-player-list {
     grid-template-columns: 1fr !important;
-    gap: 9px !important;
+    gap: 12px !important;
     padding: 0 !important;
     align-content: start !important;
 }
 .gr-col-left .player-item, .gr-col-right .player-item {
-    width: 100%; min-width: 0; padding: 9px 11px !important; gap: 9px !important;
+    width: 260px; min-width: 0; padding: 9px 11px !important; gap: 9px !important;
     position: relative;   /* the last-message bubble anchors here */
 }
 

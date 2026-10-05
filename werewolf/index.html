@@ -365,34 +365,14 @@
                 <div class="chat-container" id="chat-container">
                     <div class="chat-header">
                         <i data-lucide="message-square" size="17"></i> Village Chat
-                        <button class="chat-close-btn" id="chat-close-btn" onclick="closeChatLog()" hidden aria-label="Close chat"><i data-lucide="x" size="16"></i></button>
                     </div>
                     <div id="chat-messages" class="chat-messages">
                         <div class="chat-message no-anim"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>
                     </div>
-
-                    <!-- COLLAPSED: one small bar. The log is something you OPEN. -->
-                    <div class="chat-compact" id="chat-compact">
-                        <button class="chat-log-btn" onclick="openChatLog()">
-                            <i data-lucide="scroll-text" size="16"></i>
-                            <span class="clb-text">
-                                <b id="chat-last-line">No messages yet</b>
-                                <small>观看对话记录 · View chat log</small>
-                            </span>
-                            <span class="chat-unread" id="chat-unread" hidden>0</span>
-                        </button>
-                        <button class="chat-write-btn" onclick="startTyping()" title="Send a message" aria-label="Send a message">
-                            <i data-lucide="send" size="16"></i>
-                        </button>
-                    </div>
-
-                    <!-- WRITING: a proper player chat box, only while you type -->
-                    <div class="chat-composer" id="chat-composer" hidden>
-                        <span class="chat-me" id="chat-me-avatar"></span>
-                        <input type="text" id="chat-input" placeholder="Speak to the village..."
-                               onkeydown="if(event.key==='Enter') sendChatMessage(); if(event.key==='Escape') stopTyping();">
+                    <div class="chat-composer" id="chat-composer">
+                        <input type="text" id="chat-input" placeholder="Type your message..."
+                               onkeydown="if(event.key==='Enter') sendChatMessage();">
                         <button class="chat-send-btn" onclick="sendChatMessage()" aria-label="Send"><i data-lucide="send" size="17"></i></button>
-                        <button class="chat-cancel-btn" onclick="stopTyping()" aria-label="Cancel">&#10005;</button>
                     </div>
                 </div>
             </div>
