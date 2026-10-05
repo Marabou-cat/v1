@@ -32,6 +32,10 @@ function touchPresence(PDO $pdo, $roomCode, $token = '') {
 //  2. It must include EVERY field a client renders. `vote_skip` was missing, so
 //     an abstention ("Skip Vote") left the signature unchanged and other players
 //     didn't see it until something else moved.
+//     `n_voted` alone was not enough for the day vote either: it counts HOW MANY
+//     voted, so re-pointing your vote at a different player left it identical and
+//     the other clients' long-polls stayed parked until the 1.2s timeout. `vote_sum`
+//     (the sum of the vote destinations) moves whenever anyone changes target.
 //
 // Deliberately EXCLUDES the heartbeat columns (last_seen / last_activity):
 // those change on every presence touch, so including them would make the
@@ -44,6 +48,7 @@ function wolfStateSig(PDO $pdo, $roomCode) {
               SUM(p.asleep = 1)                  AS n_asleep,
               SUM(p.target_id IS NOT NULL)       AS n_kill,
               SUM(p.vote_id IS NOT NULL)         AS n_voted,
+              SUM(COALESCE(p.vote_id, 0))        AS vote_sum,
               SUM(p.vote_skip = 1)               AS n_skipped,
               SUM(p.check_target IS NOT NULL)    AS n_checked,
               SUM(p.poison_target IS NOT NULL)   AS n_poison,

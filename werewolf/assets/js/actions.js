@@ -185,11 +185,26 @@
             // write (~270ms fsync) before it can answer, and making the player
             // stare at an unchanged screen for that long reads as "broken".
             const g = state.lastGame;
+            const prevVoteId = g ? g.my_vote_id : null;
+            // Move the TALLY locally right now, so the count under the card updates
+            // on the same frame as the tap (the server's authoritative tally arrives
+            // with this request's response and overwrites it). Re-pointing a vote
+            // also has to give the old target its vote back.
+            let undo = null;
+            if (g && g.players) {
+                const prev = (prevVoteId && prevVoteId !== voteId) ? g.players.find(p => p.id === prevVoteId) : null;
+                const target = g.players.find(p => p.id === voteId);
+                undo = { prev: prev, prevVotes: prev ? (prev.votes || 0) : null,
+                         target: target, targetVotes: target ? (target.votes || 0) : null };
+                if (prev && prev.votes > 0) prev.votes = prev.votes - 1;
+                if (target) target.votes = (target.votes || 0) + 1;
+            }
             if (g) { g.my_vote_id = voteId; g.has_voted = true; g.my_vote_skip = 0; }
             if (btn) {
                 lockChoice(document.getElementById('game-player-list'), btn, 'Voted');
                 markCardActed(btn);
             }
+            if (typeof dRepaintVoteChips === 'function') dRepaintVoteChips(g);
             const label = document.getElementById('game-list-label');
             if (label) { label.innerHTML = '<i data-lucide="lock" size="15"></i> Vote cast! Waiting for results...'; if (window.lucide) lucide.createIcons(); }
             playSound('vote_cast');
@@ -202,11 +217,24 @@
             });
             const data = await res.json();
             if (data.status !== 'success') {
-                // Roll the optimistic paint back so the UI never lies.
-                if (g) { g.my_vote_id = null; g.has_voted = false; }
+                // Roll the optimistic paint back — vote mark AND tally — so the UI
+                // never lies about who is about to be executed.
+                if (undo) {
+                    if (undo.prev && undo.prevVotes !== null) undo.prev.votes = undo.prevVotes;
+                    if (undo.target && undo.targetVotes !== null) undo.target.votes = undo.targetVotes;
+                }
+                if (g) { g.my_vote_id = prevVoteId; g.has_voted = false; }
+                if (typeof dRepaintVoteChips === 'function') dRepaintVoteChips(g);
                 playSound('ui_error');
                 flashInfo(data.message, true);
                 state.pollSig = '';       // '' disables the long wait -> fresh render now
+            } else if (data.votes && g && g.players) {
+                // The response carries the authoritative live tally — adopt it
+                // immediately instead of waiting for the next poll frame.
+                g.players.forEach(function (p) {
+                    if (data.votes[p.id] !== undefined) p.votes = data.votes[p.id];
+                });
+                if (typeof dRepaintVoteChips === 'function') dRepaintVoteChips(g);
             }
         }
 

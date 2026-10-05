@@ -693,5 +693,29 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         processDayBots($pdo, $roomCode);
         resolveDay($pdo, $roomCode);
 
-        echo json_encode(["status" => "success", "message" => $skip ? "You skipped your vote." : "Vote submitted."]);
+        // Hand the voter the AUTHORITATIVE tally in this very response. The client
+        // moves the count the instant the tap lands, but without this it then had to
+        // wait for a poll cycle to confirm it — which is what made the vote count sit
+        // stale for ~half a second. Two cheap reads on a path that has already paid a
+        // ~270ms InnoDB fsync, so it costs nothing measurable.
+        $tally = [];
+        $tq = $pdo->prepare("SELECT vote_id, COUNT(*) AS n FROM players
+                              WHERE room_code = ? AND vote_id IS NOT NULL GROUP BY vote_id");
+        $tq->execute([$roomCode]);
+        foreach ($tq->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $tally[(int)$row['vote_id']] = (int)$row['n'];
+        }
+        $sq = $pdo->prepare("SELECT status FROM rooms WHERE room_code = ?");
+        $sq->execute([$roomCode]);
+        $statusNow = (string)$sq->fetchColumn();
+
+        echo json_encode([
+            "status" => "success",
+            "message" => $skip ? "You skipped your vote." : "Vote submitted.",
+            "votes" => $tally,
+            "my_vote_id" => $skip ? null : $voteId,
+            "has_voted" => true,
+            "my_vote_skip" => $skip ? 1 : 0,
+            "room_status" => $statusNow
+        ]);
 }

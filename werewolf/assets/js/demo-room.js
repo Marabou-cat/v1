@@ -19,14 +19,11 @@ function dRoleChipClass(role) {
     return 'alive';
 }
 
-function dPlayerCard(p, data, extra, index, noAnim) {
+/* The chip row, on its own, so an optimistic vote can repaint JUST the badges
+   without rebuilding (and re-animating) the whole roster. */
+function dCardChips(p, data) {
     const isMe = (p.id === data.my_id);
     const alive = !!p.is_alive;
-    const cls = ['d-pcard'];
-    if (isMe) cls.push('me');
-    if (!alive) cls.push('dead');
-    if (noAnim) cls.push('no-anim');
-
     const chips = [];
     if (isMe) chips.push('<span class="d-chip you">YOU</span>');
     if (!alive) chips.push('<span class="d-chip dead"><i data-lucide="skull" size="11"></i> DEAD</span>');
@@ -44,6 +41,18 @@ function dPlayerCard(p, data, extra, index, noAnim) {
     if (p.distrust !== null && p.distrust !== undefined) {
         chips.push('<span class="d-chip distrust" title="Public distrust"><i data-lucide="scale" size="11"></i> ' + Math.round(p.distrust) + '%</span>');
     }
+    return chips.join('');
+}
+
+function dPlayerCard(p, data, extra, index, noAnim) {
+    const isMe = (p.id === data.my_id);
+    const alive = !!p.is_alive;
+    const cls = ['d-pcard'];
+    if (isMe) cls.push('me');
+    if (!alive) cls.push('dead');
+    if (noAnim) cls.push('no-anim');
+
+    const chipsHtml = dCardChips(p, data);
     let hp = '';
     if (data.mode === 'chaos' && data.room_status !== 'ended' && p.hp !== null && p.hp !== undefined) {
         const mx = p.max_hp || 100;
@@ -69,15 +78,45 @@ function dPlayerCard(p, data, extra, index, noAnim) {
         ? avatarHtml(p.avatar, 34)
         : '<span class="avatar" style="width:34px;height:34px"><img src="assets/img/icons/broken-skull.svg" alt=""></span>';
 
-    return '<li class="' + cls.join(' ') + '" style="animation-delay:' + ((index * 60) % 500) + 'ms">'
+    return '<li class="' + cls.join(' ') + '" data-pid="' + p.id + '" style="animation-delay:' + ((index * 60) % 500) + 'ms">'
         + bubble
         + '<span class="d-pnum">' + p.id + '</span>'
         + '<span class="d-pava">' + face + '</span>'
         + '<span class="d-pbody"><span class="d-pname">' + esc(p.nickname) + '</span></span>'
         + (extra || '')
         + hp
-        + (chips.length ? '<span class="d-pmeta">' + chips.join('') + '</span>' : '')
+        + (chipsHtml ? '<span class="d-pmeta">' + chipsHtml + '</span>' : '')
         + '</li>';
+}
+
+/* Repaint ONLY the badge rows from a (possibly optimistically mutated) payload.
+   Used right after a day vote so the tally moves the instant you tap; the next
+   poll overwrites it with the server's truth, which is idempotent. */
+function dRepaintVoteChips(data) {
+    if (!data || !data.players) return;
+    const byId = {};
+    data.players.forEach(function (p) { byId[p.id] = p; });
+    ['game-player-list', 'game-player-list-right'].forEach(function (id) {
+        const list = document.getElementById(id);
+        if (!list) return;
+        Array.prototype.forEach.call(list.querySelectorAll('.d-pcard'), function (card) {
+            const p = byId[parseInt(card.dataset.pid, 10)];
+            if (!p) return;
+            const chips = dCardChips(p, data);
+            let meta = card.querySelector('.d-pmeta');
+            if (chips) {
+                if (!meta) {
+                    meta = document.createElement('span');
+                    meta.className = 'd-pmeta';
+                    card.appendChild(meta);
+                }
+                meta.innerHTML = chips;
+            } else if (meta) {
+                meta.remove();
+            }
+        });
+    });
+    if (window.lucide) lucide.createIcons();
 }
 
 /* The roster renderer.  The game list gets the demo's two rails of cards; the
