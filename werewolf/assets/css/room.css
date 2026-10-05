@@ -511,6 +511,33 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 
 
 /* keep the tiled columns INSIDE the board: one bounded row + internal scroll */
-.gr-grid { grid-template-rows: minmax(0, 1fr) !important; }
+.gr-grid { grid-template-rows: auto !important; }
 .gr-grid > .gr-col { min-height: 0; overflow: auto !important; }
 .gr-grid > .gr-col::-webkit-scrollbar { width: 6px; }
+
+
+/* =====================================================================
+   BOARD SIZES ITSELF so each column holds n SQUARE tiles of side = 1/4 page.
+   tile side  = 1/4 of the page width          (square, aspect-ratio 1)
+   column h   = n * tile side                  (the height divides by n)
+   board h    = that, capped to the middle band (scrolls only if it can't fit)
+   ===================================================================== */
+#view-game { justify-content: space-between; }
+.gr-grid {
+    flex: 0 1 auto !important;
+    height: auto !important;
+    max-height: var(--gr-mid-h, 50%) !important;
+    overflow-y: auto !important;
+}
+.gr-grid > .gr-col { min-height: 0; overflow: visible !important; }
+.gr-grid .game-player-list { display: block !important; }
+.gr-grid .player-item {
+    width: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    margin: 0 0 10px 0 !important;
+}
+.gr-grid .game-list-label, .gr-grid .gr-head { flex: none; }
+
+
+/* the list must size to its tiles (not flex-grow), so the board = n * tile */
+.gr-grid .game-player-list { flex: none !important; height: auto !important; overflow: visible !important; }
