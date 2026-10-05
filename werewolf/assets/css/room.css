@@ -11,7 +11,7 @@
 
 #view-game {
     display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
-    position: relative; padding: 0; --gr-top-h: 15%; --gr-mid-h: 52%; --gr-bot-h: 33%;
+    position: relative; padding: 0; --gr-top-h: 15%; --gr-mid-h: 50%; --gr-bot-h: 35%;
 }
 
 /* ---------------- top bar ---------------- */
@@ -389,3 +389,55 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 /* chat composer: input fills, Send + Skip stay compact (they must override the
    global button { width:100%; flex:1 } style that leaks into the game view) */
 .chat-composer #chat-input { flex: 1 1 auto; min-width: 0; }
+
+
+/* =====================================================================
+   LAYOUT CLEANUP  (review pass)
+   1. role card + voice card -> one matched pair (equal width & height)
+   2. chat composer buttons  -> exactly the input height
+   3. bottom banner          -> skill + chat always fit, nothing clipped
+   4. board starts below the role card (no overlap)
+   ===================================================================== */
+
+/* --- 1. matched pair: same width, stretch to the same height --- */
+.role-float { align-items: stretch; }
+.role-float .voice-bar {
+    width: 250px;                 /* same width as the role card */
+    justify-content: space-between;
+}
+.role-float .voice-bar .voice-label { margin: 2px 0; }
+
+/* a touch tighter role card so the board keeps room */
+.role-card { padding: 15px 17px; }
+.role-card .rc-desc { margin-top: 6px; font-size: 0.73rem; }
+.rc-meta { margin-top: 8px; padding-top: 7px; gap: 5px; }
+
+/* --- 4. board clears the role card --- */
+.gr-grid { padding-top: 230px !important; }
+
+/* --- 3. compact skill panel + chat header so they fit the fixed bottom --- */
+.gr-bottom .skill-panel { margin: 0; padding: 9px 13px; }
+.gr-bottom .skill-panel .skill-head { font-size: 0.7rem; margin-bottom: 5px; gap: 6px; }
+.gr-bottom .skill-panel .skill-body { font-size: 0.82rem; line-height: 1.35; }
+.gr-bottom .skill-panel .skill-actions { margin-top: 7px; gap: 8px; }
+.gr-bottom .skill-panel .skill-actions .btn-action { padding: 7px 13px; font-size: 0.8rem; }
+.gr-bottom .chat-header { padding: 9px 14px; font-size: 0.78rem; letter-spacing: 1.2px; }
+.chat-messages { min-height: 40px !important; }
+.gr-bottom .chat-container { flex: 1 1 auto; min-height: 0; max-height: none; }
+
+/* --- 2. composer: send + skip are exactly the input height --- */
+.chat-composer { align-items: stretch !important; padding: 7px; gap: 8px; }
+.chat-composer #chat-input { padding: 10px 14px; font-size: 0.92rem; }
+.chat-composer .chat-send-btn,
+.chat-composer .chat-skip-btn { height: auto; }
+
+
+/* --- bottom banner v2: skill + chat BOTH always fit; composer never clips --- */
+.gr-bottom .skill-panel { padding: 7px 12px; }
+.gr-bottom .skill-panel .skill-head { font-size: 0.66rem; margin-bottom: 3px; gap: 6px; }
+.gr-bottom .skill-panel .skill-body { font-size: 0.76rem; line-height: 1.3; }
+.gr-bottom .skill-panel .skill-actions { margin-top: 5px; gap: 7px; }
+.gr-bottom .skill-panel .skill-actions .btn-action { padding: 5px 11px; font-size: 0.74rem; }
+.gr-bottom .chat-header { padding: 8px 14px; font-size: 0.74rem; }
+.gr-bottom .chat-header, .gr-bottom .chat-composer { flex: none; }
+.chat-messages { min-height: 30px !important; }
