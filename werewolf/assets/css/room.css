@@ -441,3 +441,76 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 .gr-bottom .chat-header { padding: 8px 14px; font-size: 0.74rem; }
 .gr-bottom .chat-header, .gr-bottom .chat-composer { flex: none; }
 .chat-messages { min-height: 30px !important; }
+
+
+/* =====================================================================
+   THE MIDDLE IS ONE BIG TILE (the board).
+   players are tiles hugging the two sides, each 1/4 of the page wide;
+   your role + voice cards sit in the middle of the board.
+   ===================================================================== */
+.gr-grid {
+    display: grid;
+    grid-template-columns: 25% minmax(0, 1fr) 25% !important;
+    column-gap: 0 !important; row-gap: 0 !important;
+    padding: 12px !important;
+    background: linear-gradient(180deg, #14161e 0%, #0b0c12 100%);
+    border: 1px solid var(--scene-line);
+    border-radius: 18px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.5);
+}
+.gr-grid > .gr-col-left   { grid-column: 1; justify-self: stretch; width: auto; }
+.gr-grid > .gr-col-right  { grid-column: 3; justify-self: stretch; width: auto; }
+.gr-grid > .role-float    { grid-column: 2; position: static; align-self: center; justify-self: center; }
+.gr-grid .player-item     { width: 100%; }
+
+
+/* =====================================================================
+   PLAYERS AS SQUARE TILES  (width = 1/4 of the page, height = width)
+   content scales with the tile via container-query units (cqw)
+   ===================================================================== */
+.gr-grid .game-player-list {
+    display: flex !important; flex-direction: column !important;
+    gap: 10px !important; padding: 0 !important;
+    grid-template-columns: none !important;
+}
+.gr-grid .player-item {
+    container-type: inline-size;
+    width: 100% !important;
+    aspect-ratio: 1 / 1;
+    display: flex !important; flex-direction: column; align-items: center;
+    justify-content: flex-start; text-align: center;
+    gap: 4px; padding: 13px 10px !important;
+    border-radius: 13px; overflow: hidden;
+}
+.gr-grid .player-item .player-info-wrap {
+    display: flex !important; flex-direction: column; align-items: center;
+    gap: 5px; width: 100%; min-width: 0;
+}
+.gr-grid .player-item .avatar { width: 42cqw !important; height: 42cqw !important; }
+.gr-grid .player-item .pname {
+    font-size: 9cqw !important; max-width: 100%; line-height: 1.15;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gr-grid .player-item .pbubble { display: none !important; }
+.gr-grid .player-item .role-chip,
+.gr-grid .player-item .you-tag,
+.gr-grid .player-item .pack-tag,
+.gr-grid .player-item .my-vote-tag,
+.gr-grid .player-item .vote-badge,
+.gr-grid .player-item .distrust-chip { font-size: 5.4cqw !important; padding: 1px 5px !important; }
+.gr-grid .player-item .btn-action,
+.gr-grid .player-item > button {
+    margin-top: auto !important; width: 100% !important;
+    font-size: 7cqw !important; padding: 2.6cqw 4cqw !important;
+}
+
+
+/* aspect-ratio must not fight a flex main-axis: list is a plain block */
+.gr-grid .game-player-list { display: block !important; }
+.gr-grid .game-player-list > .player-item { margin-bottom: 10px; }
+
+
+/* keep the tiled columns INSIDE the board: one bounded row + internal scroll */
+.gr-grid { grid-template-rows: minmax(0, 1fr) !important; }
+.gr-grid > .gr-col { min-height: 0; overflow: auto !important; }
+.gr-grid > .gr-col::-webkit-scrollbar { width: 6px; }

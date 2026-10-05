@@ -309,7 +309,17 @@
             <div class="gr-progress" id="gr-progress"></div>
             </div><!-- /gr-top-banner -->
 
-            <!-- ============ ROLE CARD (fixed overlay, outside the scroll) ============ -->
+            <!-- ============ MIDDLE: one big tile board (players L/R, your cards centred) ============ -->
+            <div class="gr-grid">
+                <!-- LEFT: half the table -->
+                <aside class="gr-col gr-players gr-col-left">
+                    <div class="gr-head">
+                        <span id="game-list-label">Living Players</span>
+                        <b id="gr-living-count">0</b>
+                    </div>
+                    <ul id="game-player-list" class="game-player-list"></ul>
+                </aside>
+
             <div class="role-float">
                 <div class="role-main">
                     <div class="role-flip" id="role-flip" onclick="flipRole()" title="Click to hide your role">
@@ -344,17 +354,6 @@
                         <button id="voice-mute-btn" class="voice-btn" style="display:none;" onclick="voiceMuteToggle()"><i data-lucide="mic" size="15"></i> Mute</button>
                     </div>
             </div>
-
-            <!-- ============ MIDDLE: players left/right (scrollable) ============ -->
-            <div class="gr-grid">
-                <!-- LEFT: half the table -->
-                <aside class="gr-col gr-players gr-col-left">
-                    <div class="gr-head">
-                        <span id="game-list-label">Living Players</span>
-                        <b id="gr-living-count">0</b>
-                    </div>
-                    <ul id="game-player-list" class="game-player-list"></ul>
-                </aside>
 
                 <!-- RIGHT: the other half of the table -->
                 <aside class="gr-col gr-players gr-col-right">
