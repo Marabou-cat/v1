@@ -39,19 +39,25 @@ function updatePhaseBannerText(status, mode, data) {
     if (!el) return;
     updatePhaseIcon(status, mode);
     el.dataset.phase = status || '';
+    const sub = document.getElementById('game-phase-sub');
+    if (sub) sub.innerText = phaseSubline(status, mode);
 }
 
 /* Colour-code the running event by what it IS, so a death reads differently from a
    phase change without having to parse the sentence. */
+function eventClassOf(text) {
+    const t = String(text || '').toLowerCase();
+    if (/died|dead|killed|slain|lynch|execut|driven out|mauled|body of|no longer among/.test(t)) return 'ev-death';
+    if (/vote|abstain|ballot|distrust/.test(t)) return 'ev-vote';
+    if (/night|moon|dark/.test(t)) return 'ev-night';
+    if (/day|sun|dawn|discuss|village|morning/.test(t)) return 'ev-day';
+    return '';
+}
+
 function classifyEvent(text) {
     const el = document.getElementById('game-event-log');
     if (!el) return;
-    const t = String(text || '').toLowerCase();
-    let cls = '';
-    if (/died|dead|killed|slain|lynch|execut|driven out|mauled|body of|no longer among/.test(t)) cls = 'ev-death';
-    else if (/vote|abstain|ballot|distrust/.test(t)) cls = 'ev-vote';
-    else if (/night|moon|dark/.test(t)) cls = 'ev-night';
-    else if (/day|sun|dawn|discuss|village|morning/.test(t)) cls = 'ev-day';
+    const cls = eventClassOf(text);
     el.classList.remove('ev-death', 'ev-night', 'ev-day', 'ev-vote');
     if (cls) el.classList.add(cls);
 }
@@ -60,4 +66,147 @@ function classifyEvent(text) {
 function seatStatusIconHtml(alive) {
     if (alive) return '<i data-lucide="shield" size="20" style="color:#38bdf8;flex:none"></i>';
     return '<span class="status-dead-ico" title="eliminated" aria-label="eliminated"></span>';
+}
+
+/* ================= THE ROOM'S PANELS (top bar / role rail / log) ================= */
+
+const ROLE_INFO = {
+    Werewolf: { goal: 'Eliminate the villagers.',       ability: 'Choose one player to kill each night.' },
+    Seer:     { goal: 'Find the werewolves.',           ability: 'Inspect one player each night.' },
+    Doctor:   { goal: 'Keep the village alive.',        ability: 'Protect one player each night.' },
+    Witch:    { goal: 'Tip the balance.',               ability: 'One healing draught, one poison.' },
+    Hunter:   { goal: 'Take a wolf down with you.',      ability: 'Shoot one player when you die.' },
+    Villager: { goal: 'Survive and expose the threat.',  ability: 'Reason, and vote. That is all you have.' },
+};
+
+function renderRolePanel(role, isWolf) {
+    const card = document.querySelector('.role-card');
+    if (!card || !role) return;
+    const info = ROLE_INFO[role] || {};
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.innerText = v; };
+    set('rc-goal', info.goal);
+    set('rc-ability', info.ability);
+    set('my-role-desc', info.goal);
+    card.classList.toggle('is-wolf', !!isWolf || role === 'Werewolf');
+}
+
+/* Who is on your side. The payload only carries is_wolf for wolves, so for anyone
+   else this list is empty and the panel hides — the data never reaches them. */
+function renderWolfTeam(data) {
+    const box = document.getElementById('wolf-team');
+    const list = document.getElementById('wolf-team-list');
+    if (!box || !list) return;
+    const team = (data.players || []).filter(function (p) { return p.is_wolf && p.id !== data.my_id; });
+    if (!team.length) { box.hidden = true; list.innerHTML = ''; list.dataset.sig = ''; return; }
+    box.hidden = false;
+    const sig = team.map(function (p) { return p.id + (p.is_alive ? 'a' : 'd'); }).join(',');
+    if (list.dataset.sig === sig) return;                 // only redraw on real change
+    list.dataset.sig = sig;
+    list.innerHTML = team.map(function (p) {
+        return '<div class="gt-item">' + avatarHtml(p.avatar, 28)
+            + '<b>' + esc(p.nickname) + '</b>'
+            + (p.is_alive ? '' : '<span class="gt-tag" style="opacity:.55">DEAD</span>')
+            + '<span class="gt-tag">WEREWOLF</span></div>';
+    }).join('');
+}
+
+function renderRoomCounts(data) {
+    const ps = data.players || [];
+    const alive = ps.filter(function (p) { return p.is_alive; }).length;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && el.innerText !== String(v)) el.innerText = String(v); };
+    set('gr-count-alive', alive);
+    set('gr-count-total', ps.length);
+    set('gr-living-count', alive);
+}
+
+/* The running log. Client-side narration of what the poll already delivers: no extra
+   request, no extra server work. Newest entry sits on top, consistently. */
+const GAME_LOG_MAX = 40;
+function pushGameLog(text) {
+    const ol = document.getElementById('game-log');
+    if (!ol) return;
+    const t = String(text || '').trim();
+    if (!t || ol.dataset.last === t) return;              // the poll repeats events
+    ol.dataset.last = t;
+    const li = document.createElement('li');
+    const cls = (typeof eventClassOf === 'function') ? eventClassOf(t) : '';
+    if (cls) li.className = cls;
+    const now = new Date();
+    const hh = ('0' + now.getHours()).slice(-2), mm = ('0' + now.getMinutes()).slice(-2);
+    li.innerHTML = '<span class="gl-time">' + hh + ':' + mm + '</span><span class="gl-msg"></span>';
+    li.querySelector('.gl-msg').innerHTML = t;            // server text carries <b> names
+    ol.insertBefore(li, ol.firstChild);
+    while (ol.children.length > GAME_LOG_MAX) ol.removeChild(ol.lastChild);
+}
+
+/* Short, self-dismissing notices. */
+function toast(msg, kind) {
+    let wrap = document.getElementById('toast-wrap');
+    if (!wrap) { wrap = document.createElement('div'); wrap.id = 'toast-wrap'; document.body.appendChild(wrap); }
+    const el = document.createElement('div');
+    el.className = 'toast ' + (kind || '');
+    el.innerHTML = msg;
+    wrap.appendChild(el);
+    setTimeout(function () {
+        el.classList.add('out');
+        setTimeout(function () { el.remove(); }, 240);
+    }, 2200);
+}
+
+function phaseSubline(status, mode) {
+    if (status === 'night') return (mode === 'chaos') ? 'Distrust is rising...' : 'Werewolves are choosing a target...';
+    if (status === 'day')   return 'Players are discussing...';
+    if (status === 'ended') return 'The match has ended.';
+    return 'Waiting for players...';
+}
+
+
+/* ================= ROUND-TABLE PORT (demo) ================= */
+
+/* Flip the secret role card to its neutral back. */
+function flipRole() {
+    const f = document.getElementById('role-flip');
+    if (f) f.classList.toggle('flipped');
+}
+
+/* Top-bar sound-effects toggle (maps to the settings SFX flag). */
+function toggleSoundFx() {
+    if (typeof toggleSetting === 'function') toggleSetting('sfx');
+    const b = document.getElementById('btn-sfx');
+    if (b) {
+        const on = !!(window.sound && sound.cfg && sound.cfg.sfx);
+        b.classList.toggle('off', !on);
+        b.title = on ? 'Sound effects: on' : 'Sound effects: off';
+        b.innerHTML = '<i data-lucide="' + (on ? 'volume-2' : 'volume-x') + '" size="16"></i>';
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+/* The left-to-right timeline banner (phase progression, current node lit). */
+function renderGrProgress(data) {
+    const el = document.getElementById('gr-progress');
+    if (!el) return;
+    const status = data && data.room_status;
+    const round = (typeof state !== 'undefined' && state.round) || 1;
+    const steps = [];
+    if (status === 'lobby' || !status) {
+        steps.push({ label: 'Lobby', st: 'current' });
+    } else {
+        for (let r = 1; r <= round; r++) {
+            const cur = (r === round);
+            steps.push({ label: 'Night ' + r, st: (cur && status === 'night') ? 'current' : 'done' });
+            const dayReached = (r < round) || (status === 'day' || status === 'ended');
+            if (dayReached) {
+                steps.push({ label: 'Day ' + r, st: (cur && status === 'day') ? 'current' : 'done' });
+            }
+        }
+        if (status === 'ended') steps.push({ label: 'Game Over', st: 'current' });
+    }
+    let html = '';
+    for (let i = 0; i < steps.length; i++) {
+        const st = steps[i];
+        html += '<span class="pstep"><span class="node ' + st.st + '"></span><span class="plabel ' + (st.st === 'current' ? 'current' : '') + '">' + st.label + '</span></span>';
+        if (i < steps.length - 1) html += '<span class="pline ' + (st.st === 'done' ? 'done' : '') + '"></span>';
+    }
+    el.innerHTML = html;
 }

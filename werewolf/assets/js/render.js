@@ -52,8 +52,22 @@
                 const dc = d >= 67 ? ' hot' : (d >= 34 ? ' warn' : '');
                 distrustChip = `<span class="distrust-chip${dc}" title="Public distrust — at 100% they are driven out">⚖ ${d}%</span>`;
             }
+            // Round-table: the player's latest chat line floats toward the middle
+            // as a speech bubble (client-side last-message preview).
+            let bubble = '';
+            if (data && data.messages && p.nickname) {
+                for (let bi = data.messages.length - 1; bi >= 0; bi--) {
+                    const mm = data.messages[bi];
+                    if (mm && mm.sender_name === p.nickname) {
+                        const txt = String(mm.message || '');
+                        bubble = '<span class="pbubble">' + esc(txt.length > 64 ? txt.slice(0, 64) + '…' : txt) + '</span>';
+                        break;
+                    }
+                }
+            }
             return `
                 <li class="${cls}" style="animation-delay: ${(index * 60) % 500}ms;">
+                    ${bubble}
                     <span class="player-info-wrap">${avatar} ${statusIcon} <span class="pname">${esc(p.nickname)}</span> ${youTag} ${packTag} ${roleChip} ${myVoteTag} ${voteBadge} ${distrustChip} ${hpBar} ${bloodPile}</span>
                     ${extra}
                 </li>
@@ -80,9 +94,23 @@
             const rosterChanged = listEl.dataset.rosterSig !== rosterSig;
             listEl.dataset.fullSig = fullSig;
             listEl.dataset.rosterSig = rosterSig;
-            listEl.innerHTML = data.players.map((p, i) =>
-                playerCardHtml(p, data, buildExtra ? buildExtra(p) : '', i, !rosterChanged)
-            ).join('');
+            const isGame = (listEl.id === 'game-player-list');
+            if (isGame) {
+                // Round-table: half the seats on each side of the table.
+                const players = data.players || [];
+                const half = Math.ceil(players.length / 2);
+                const rightEl = document.getElementById('game-player-list-right');
+                listEl.innerHTML = players.slice(0, half).map((p, i) =>
+                    playerCardHtml(p, data, buildExtra ? buildExtra(p) : '', i, !rosterChanged)
+                ).join('');
+                if (rightEl) rightEl.innerHTML = players.slice(half).map((p, i) =>
+                    playerCardHtml(p, data, buildExtra ? buildExtra(p) : '', i + half, !rosterChanged)
+                ).join('');
+            } else {
+                listEl.innerHTML = (data.players || []).map((p, i) =>
+                    playerCardHtml(p, data, buildExtra ? buildExtra(p) : '', i, !rosterChanged)
+                ).join('');
+            }
             lucide.createIcons();
         }
 
