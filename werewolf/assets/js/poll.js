@@ -247,6 +247,10 @@
                     }
                     // The banner says the time of day at a glance (icon + wording).
                     if (typeof updatePhaseBannerText === 'function') updatePhaseBannerText(data.room_status, data.mode, data);
+                    // Room panels: role card, your team, header counts.
+                    if (typeof renderRolePanel === 'function') renderRolePanel(data.my_role, data.my_role === 'Werewolf');
+                    if (typeof renderWolfTeam === 'function') renderWolfTeam(data);
+                    if (typeof renderRoomCounts === 'function') renderRoomCounts(data);
 
                     if (data.last_event && data.last_event !== state.lastEvent) {
                         state.lastEvent = data.last_event;
@@ -255,6 +259,8 @@
                         flashEventBanner();
                         // ...and colour it by what the event actually is.
                         if (typeof classifyEvent === 'function') classifyEvent(data.last_event);
+                        // ...into the running log too.
+                        if (typeof pushGameLog === 'function') pushGameLog(data.last_event);
                     }
 
                     const phaseText = document.getElementById('game-phase-text');

@@ -1,0 +1,210 @@
+/* =========================================================================
+   werewolf / room.css — the game room's information architecture.
+   Loaded LAST so it owns the room layout.
+
+   TOP BAR (room # · phase · alive count · leave)
+     ├── LEFT   PLAYERS       — who is in the room, at a glance
+     ├── CENTER GAME CENTER   — what just happened + the running log
+     └── RIGHT  ROLE          — who you are, your goal/ability, your team
+   BOTTOM     CHAT / ACTION
+   ========================================================================= */
+
+#view-game { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+
+/* ---------------- top bar ---------------- */
+.gr-top {
+    flex: none; display: flex; align-items: center; gap: 14px;
+    padding: 9px 16px;
+    background: var(--scene-surface);
+    border-bottom: 1px solid var(--scene-line);
+}
+.gr-brand {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'Cinzel', serif; font-weight: 800; font-size: 1.05rem; letter-spacing: 1.2px;
+}
+.grb-room { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.6rem; font-weight: 800; letter-spacing: 1.6px; opacity: 0.72; }
+.grb-room b { color: var(--accent-gold, #ffcc00); }
+body[data-phase="day"] .grb-room b { color: #8a5b06; }
+
+/* the phase is the loudest thing on the screen */
+.gr-phase { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 11px; min-width: 0; }
+.gr-phase .pb-ico { width: 30px; height: 30px; flex: none; }
+.grp-text { display: flex; flex-direction: column; align-items: center; line-height: 1.14; min-width: 0; }
+.grp-text b {
+    font-family: 'Cinzel', serif; font-size: 1.45rem; font-weight: 800; letter-spacing: 2px;
+    color: var(--accent-gold, #ffcc00);
+}
+body[data-phase="day"] .grp-text b { color: #8a5b06; }
+.grp-text small { font-size: 0.64rem; font-weight: 700; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
+
+.gr-actions { display: flex; align-items: center; gap: 9px; flex: none; }
+.gr-count {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 10px; border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid var(--scene-line);
+    font-size: 0.74rem; font-weight: 800;
+}
+.gr-count b { color: var(--accent-green, #38ef7d); }
+body[data-phase="day"] .gr-count b { color: #1f7a45; }
+.grc-sep { opacity: 0.35; }
+.gr-icon-btn {
+    width: 34px; height: 34px; border-radius: 10px; cursor: pointer;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid var(--scene-line); color: inherit;
+}
+.gr-icon-btn:hover { background: rgba(230, 0, 18, 0.18); border-color: rgba(255, 80, 80, 0.4); }
+
+/* ---------------- the three columns ---------------- */
+.gr-grid {
+    flex: 1 1 auto; min-height: 0;
+    display: grid; grid-template-columns: 22% minmax(0, 1fr) 25%;
+    gap: 14px; padding: 13px 16px 0;
+}
+.gr-col { min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; }
+
+.gr-head {
+    display: flex; align-items: center; gap: 8px; flex: none;
+    font-size: 0.64rem; font-weight: 800; letter-spacing: 1.7px; text-transform: uppercase;
+    opacity: 0.9;
+}
+.gr-head b { color: var(--accent-gold, #ffcc00); font-size: 0.72rem; }
+body[data-phase="day"] .gr-head b { color: #8a5b06; }
+.gr-head::after { content: ''; flex: 1 1 auto; height: 1px; background: linear-gradient(90deg, var(--scene-glow), transparent); }
+
+/* ---------------- the game log ---------------- */
+.gr-log { list-style: none; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.gr-log li {
+    display: flex; gap: 9px; align-items: baseline;
+    padding: 6px 9px; border-radius: 9px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--scene-line); border-left-width: 3px;
+    font-size: 0.74rem; font-weight: 600; line-height: 1.35;
+    animation: logIn 0.25s ease both;
+}
+@keyframes logIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: none; } }
+.gr-log .gl-time { flex: none; opacity: 0.5; font-size: 0.64rem; font-variant-numeric: tabular-nums; font-weight: 800; }
+.gr-log li.ev-death { border-left-color: #ff5b5b; }
+.gr-log li.ev-night { border-left-color: #8b9bff; }
+.gr-log li.ev-day   { border-left-color: #e9c86a; }
+.gr-log li.ev-vote  { border-left-color: #38bdf8; }
+body[data-phase="day"] .gr-log li { background: rgba(255, 255, 255, 0.5); }
+body[data-phase="day"] .gr-log li.ev-death { color: #8f1d1d; border-left-color: #a01f1f; }
+body[data-phase="day"] .gr-log li.ev-night { color: #2f3b78; border-left-color: #3b4b8f; }
+body[data-phase="day"] .gr-log li.ev-day   { color: #7a5105; border-left-color: #b8860b; }
+body[data-phase="day"] .gr-log li.ev-vote  { color: #0d5b68; border-left-color: #0d6b7a; }
+
+/* ---------------- bottom: chat / action ---------------- */
+.gr-bottom { flex: none; padding: 11px 16px 14px; }
+.gr-bottom .chat-container { max-height: 38vh; }
+.game-list-label { display: none; }   /* replaced by the column header */
+
+/* ---------------- the role rail ---------------- */
+.role-card .rc-label {
+    font-size: 0.6rem; letter-spacing: 2.6px; text-transform: uppercase;
+    font-weight: 800; color: var(--accent-gold, #ffcc00); margin-bottom: 9px;
+}
+body[data-phase="day"] .role-card .rc-label { color: #8a5b06 !important; }
+.role-card .card-title { display: flex; align-items: center; gap: 10px; font-family: 'Cinzel', serif; font-size: 1.42rem; letter-spacing: 1.4px; }
+.role-card .rc-desc { font-size: 0.78rem; margin-top: 9px; opacity: 0.88; line-height: 1.4; }
+.rc-meta { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--scene-line); display: flex; flex-direction: column; gap: 7px; }
+.rcm-row { display: flex; gap: 9px; font-size: 0.72rem; }
+.rcm-row span {
+    flex: none; min-width: 50px; padding-top: 2px;
+    font-size: 0.58rem; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; opacity: 0.55;
+}
+.rcm-row b { font-weight: 700; line-height: 1.35; }
+
+/* A werewolf must be unmistakable at a glance. */
+.role-card.is-wolf {
+    background: linear-gradient(150deg, rgba(104, 14, 22, 0.94), rgba(22, 6, 10, 0.97)) !important;
+    border-color: rgba(255, 84, 84, 0.45) !important;
+    box-shadow: 0 0 0 1px rgba(255, 60, 60, 0.22), 0 18px 44px rgba(0, 0, 0, 0.5) !important;
+}
+.role-card.is-wolf .card-title,
+.role-card.is-wolf .rc-label { color: #ff9a9a !important; }
+.role-card.is-wolf .role-ico { background: linear-gradient(180deg, #ffb3b3, #c0392b); }
+
+/* ---------------- your team (wolves only) ---------------- */
+.gt-list { display: flex; flex-direction: column; gap: 8px; }
+.gt-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px; border-radius: 11px;
+    background: rgba(126, 16, 24, 0.55);
+    border: 1px solid rgba(255, 84, 84, 0.34);
+}
+.gt-item b { font-size: 0.76rem; }
+.gt-item .gt-tag {
+    margin-left: auto; flex: none;
+    font-size: 0.54rem; font-weight: 800; letter-spacing: 1.1px; color: #ff9a9a;
+}
+
+/* ---------------- toasts ---------------- */
+#toast-wrap {
+    position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+    z-index: 990; display: flex; flex-direction: column; gap: 8px; align-items: center;
+    pointer-events: none;
+}
+.toast {
+    display: flex; align-items: center; gap: 9px;
+    padding: 10px 16px; border-radius: 12px;
+    background: rgba(16, 18, 26, 0.96);
+    border: 1px solid var(--scene-line);
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.55);
+    font-size: 0.78rem; font-weight: 800;
+    animation: toastIn 0.22s ease both;
+}
+.toast.ok    { border-color: rgba(56, 239, 125, 0.5); color: #9df5c0; }
+.toast.warn  { border-color: rgba(255, 196, 0, 0.55); color: #ffdf8a; }
+.toast.wolf  { border-color: rgba(255, 84, 84, 0.55); color: #ff9a9a; }
+.toast.out   { animation: toastOut 0.22s ease both; }
+@keyframes toastIn  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(8px); } }
+
+/* ---------------- responsive: stack instead of squeezing ---------------- */
+@media (max-width: 1080px) {
+    .gr-grid { grid-template-columns: 34% minmax(0, 1fr); grid-template-rows: auto auto; padding-bottom: 0; }
+    /* the role rail moves to the top: who you are matters most on a small screen */
+    .gr-role { grid-column: 1 / -1; grid-row: 1; }
+    .gr-players { grid-row: 2; }
+    .gr-center { grid-row: 2; }
+    .grp-text b { font-size: 1.15rem; }
+}
+@media (max-width: 760px) {
+    #view-game { height: auto; min-height: 100dvh; overflow: visible; }
+    .gr-grid { grid-template-columns: 1fr; gap: 12px; }
+    .gr-players, .gr-center { grid-row: auto; }
+    .gr-col { overflow: visible; }
+    .gr-top { flex-wrap: wrap; gap: 8px; }
+    .gr-phase { order: 3; flex-basis: 100%; }
+    .grp-text small { max-width: 90vw; }
+    .gr-bottom .chat-container { max-height: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .gr-log li, .toast { animation: none; }
+}
+
+/* ================= FIT THE VIEWPORT =================
+   The room overflowed: the players column is ~265px wide, but the roster's shared
+   rule forces every seat to minmax(290px, 1fr), so the cards pushed the whole screen
+   wider than the window and the outer cards were clipped. The players rail is a
+   single column; nothing in here may exceed its track. */
+#view-game { width: 100%; max-width: 100vw; overflow-x: hidden; }
+.gr-grid, .gr-col, .gr-center, .gr-players { min-width: 0; }
+.gr-players .game-player-list {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    padding: 0 !important;
+    align-content: start !important;
+}
+.gr-players .player-item { min-width: 0; padding: 11px 12px !important; gap: 9px !important; }
+.gr-players .player-item .pname { font-size: 0.86rem; }
+.gr-center { overflow-x: hidden; }
+.gr-log li { min-width: 0; }
+.gr-log .gl-msg { min-width: 0; overflow-wrap: anywhere; }
+
+/* The global sign-in / settings cluster competes with the room's own top bar. */
+body:has(#view-game:not(.hidden)) #auth-bar,
+body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important; }
+
+@media (max-width: 1080px) {
+    .gr-players .game-player-list { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important; }
+}
