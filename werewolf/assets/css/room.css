@@ -541,3 +541,29 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 
 /* the list must size to its tiles (not flex-grow), so the board = n * tile */
 .gr-grid .game-player-list { flex: none !important; height: auto !important; overflow: visible !important; }
+
+
+/* =====================================================================
+   TILES FILL THE COLUMN: the n tiles of a column share its height equally
+   (sum of tile heights == list height). Square, capped at the column width.
+   ===================================================================== */
+.gr-grid { flex: 0 0 var(--gr-mid-h, 50%) !important; max-height: none !important; height: auto !important; }
+.gr-grid > .gr-col { display: flex !important; flex-direction: column; min-height: 0; overflow: hidden !important; }
+.gr-grid .game-player-list {
+    display: flex !important; flex-direction: column !important;
+    flex: 1 1 auto !important; min-height: 0 !important;
+    gap: 0 !important; overflow: visible !important;
+}
+.gr-grid .player-item {
+    flex: 1 1 0 !important; min-height: 0 !important;
+    aspect-ratio: 1 / 1 !important;
+    width: auto !important; max-width: 100% !important;
+    align-self: center !important; margin: 0 !important;
+}
+
+.gr-grid .player-item + .player-item { box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
+
+
+/* board height = (n x 1/4 page) so square tiles of side 1/4 page divide it evenly;
+   capped at the middle band, in which case the tiles shrink to keep filling it */
+.gr-grid { height: calc(var(--per-col, 3) * 25vw + 54px) !important; max-height: var(--gr-mid-h, 50%) !important; }

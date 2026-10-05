@@ -106,6 +106,10 @@
                 if (rightEl) rightEl.innerHTML = players.slice(half).map((p, i) =>
                     playerCardHtml(p, data, buildExtra ? buildExtra(p) : '', i + half, !rosterChanged)
                 ).join('');
+                // tell CSS how many tiles sit in the longer column, so the board
+                // can size itself to (n x tile) instead of a fixed band
+                const boardEl = listEl.closest('.gr-grid');
+                if (boardEl) boardEl.style.setProperty('--per-col', Math.max(half, players.length - half));
             } else {
                 listEl.innerHTML = (data.players || []).map((p, i) =>
                     playerCardHtml(p, data, buildExtra ? buildExtra(p) : '', i, !rosterChanged)
