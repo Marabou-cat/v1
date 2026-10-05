@@ -74,8 +74,24 @@ function cfgToAvatarCode(c) {
 function avLayer(slot, shape, color) {
     if (!shape) return '';
     const u = 'assets/img/avatar/' + slot + '_' + shape + '.svg';
-    return '<i class="av-layer" style="background:' + color
+    // Shade from a single light direction instead of a flat fill: the preset
+    // portraits carry a baked gradient, so flat parts beside them look cheap.
+    const fill = 'linear-gradient(160deg,' + avShade(color, 0.2) + ' 0%,' + color
+        + ' 54%,' + avShade(color, -0.26) + ' 100%)';
+    return '<i class="av-layer" style="background:' + fill
         + ';-webkit-mask-image:url(' + u + ');mask-image:url(' + u + ')"></i>';
+}
+
+/* Lighten (amt > 0) / darken (amt < 0) a hex colour. Done in JS rather than with
+   CSS color-mix() so an older Safari paints a colour instead of dropping the whole
+   declaration — an invalid background would make the layer vanish entirely. */
+function avShade(hex, amt) {
+    const h = String(hex).replace('#', '');
+    const n = parseInt(h.length === 3 ? h.replace(/(.)/g, '$1$1') : h, 16);
+    const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    return 'rgb(' + ch.map(function (v) {
+        return Math.max(0, Math.min(255, Math.round(amt > 0 ? v + (255 - v) * amt : v * (1 + amt))));
+    }).join(',') + ')';
 }
 
 /* hex (#rrggbb) -> rgba() at the given alpha, for tinting the token's glow. */
@@ -83,6 +99,43 @@ function avRgba(hex, a) {
     const h = String(hex).replace('#', '');
     const n = parseInt(h.length === 3 ? h.replace(/(.)/g, '$1$1') : h, 16);
     return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+
+/* ================= FITTING THE FIGURE TO ITS FRAME =================
+   Every part is authored in the same 120x120 reference box (head centred at 60,60
+   with r=24, bodies drawn down to y=120). Showing that whole box inside the round
+   frame left a bare character floating small in the middle of it, because a bare
+   head only reaches y=36 while the tallest accessory reaches y=2.
+
+   These are the topmost extents of every shape that can form the TOP of a figure,
+   measured from the part files; AV_TOP plus the fixed bottom edge is all avFit()
+   needs to scale the doll so it fills the frame whatever it is wearing. */
+const AV_TOP = {
+    head:  { round: 36, oval: 35, square: 39 },
+    ears:  { wolf: 21, small: 33, tuft: 31 },
+    hair:  { short: 33, long: 33, pony: 33, bun: 17, mohawk: 27, wild: 31 },
+    extra: { hood: 16, pointed: 2, helm: 26, horns: 10, mask: 45, crown: 14 },
+};
+const AV_FIG_BOTTOM = 120;   // every body is authored down to the bottom edge
+const AV_FRAME_TOP  = 4;     // breathing room left above the tallest part
+
+/* Returns {k, ty}: the zoom, and the vertical pan as a % of the layer box. */
+function avFit(c) {
+    let top = AV_FIG_BOTTOM;
+    const consider = function (slot, shape) {
+        const v = (AV_TOP[slot] || {})[shape];
+        if (v !== undefined && v < top) top = v;
+    };
+    consider('head', AVATAR_PARTS.head[c.h]);
+    consider('ears', AVATAR_PARTS.ears[c.e]);
+    consider('hair', AVATAR_PARTS.hair[c.r]);
+    consider('extra', AVATAR_PARTS.extra[c.x]);
+    if (top > AV_FIG_BOTTOM - 20) top = AV_FIG_BOTTOM - 20;      // degenerate guard
+    const k = (AV_FIG_BOTTOM - AV_FRAME_TOP) / (AV_FIG_BOTTOM - top);
+    // Place `top` at AV_FRAME_TOP, rotating/scaling about the reference head centre
+    // (60,60) — which is also the layer box centre, hence transform-origin: 50% 50%.
+    const pan = AV_FRAME_TOP - 60 - (top - 60) * k;
+    return { k: k, ty: pan * (100 / AV_FIG_BOTTOM) };
 }
 
 /* Compose the doll from a code (or from a working config object). */
@@ -101,7 +154,9 @@ function customAvatarHtml(code, size) {
     // that glow from their baked-in gradient, so a built one has to carry it too.
     const glow = 'radial-gradient(circle at 50% 32%, ' + avRgba(cloth, 0.42)
         + ' 0%, rgba(18,21,31,0.98) 60%, #0b0d13 100%)';
-    return '<span class="avatar av-custom" style="width:' + s + 'px;height:' + s + 'px;background:' + glow + '" title="Custom character">'
+    const fit = avFit(c);
+    return '<span class="avatar av-custom" style="width:' + s + 'px;height:' + s + 'px;background:' + glow
+        + ';--av-k:' + fit.k.toFixed(4) + ';--av-ty:' + fit.ty.toFixed(2) + '%" title="Custom character">'
         + avLayer('body', AVATAR_PARTS.body[c.b], cloth)
         + avLayer('head', AVATAR_PARTS.head[c.h], skin)
         + avLayer('ears', ears, earCol)

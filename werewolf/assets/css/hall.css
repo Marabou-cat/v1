@@ -252,6 +252,13 @@ input:focus-visible, button:focus-visible {
     /* inset a hair so the shoulders are not sliced off by the round rim: the parts
        are drawn to the 120x120 edges, and a circle of r=59 has no width left at y=120. */
     position: absolute; inset: 2.5%;
+    /* Fit the character to the frame: --av-k / --av-ty are computed per character by
+       avFit() in avatar-builder.js so the figure spans the round frame instead of
+       floating small in the middle of it. The origin is the box centre, which is the
+       reference head centre (60,60), so the zoom happens about the face. The layers
+       are NOT clipped by this box, so wide shoulders simply run under the round rim. */
+    transform-origin: 50% 50%;
+    transform: translateY(var(--av-ty, 0%)) scale(var(--av-k, 1));
     /* The mask-image itself is set INLINE by avLayer(): a relative url() inside a
        CSS custom property would resolve against THIS stylesheet and 404. */
     -webkit-mask-size: contain;   mask-size: contain;
