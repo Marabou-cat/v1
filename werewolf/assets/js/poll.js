@@ -344,7 +344,9 @@
                         renderSkillPanel(data);   // day = vote panel + Skip Vote
 
                         renderRosterList(gamePlayerList, data, (p) => {
-                            const canVote = (data.is_alive && p.is_alive);
+                            // Your own seat is not a target: the backend rejects a
+                            // self-vote, so do not offer the button either.
+                            const canVote = (data.is_alive && p.is_alive && p.id !== data.my_id);
                             const isVoteTarget = (data.my_vote_id === p.id);
                             if (!canVote) return '';
                             if (isVoteTarget) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Voted</button>`;

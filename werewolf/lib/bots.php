@@ -229,9 +229,33 @@ function processDayBots(PDO $pdo, $roomCode) {
             continue;
         }
 
-        $options = array_values(array_diff($aliveIds, [$bot['id']]));
+        $options = [];
+        foreach ($aliveIds as $aid) {
+            $aid = (int)$aid;
+            if ($aid !== (int)$bot['id']) $options[] = $aid;
+        }
         if (count($options) === 0) continue;
-        $target = $options[array_rand($options)];
+
+        // Vote like a table, not like dice. Picking a uniformly random living seat
+        // scattered the votes so thinly that two or more seats shared the top count on
+        // nearly every day — and a tie executes nobody, so the village could
+        // essentially never lynch anyone. Most bots now pile onto whoever is already
+        // in front (the human's vote counts as being in front, which is what makes the
+        // table feel like it is reading the room), while some still scatter.
+        $target = 0;
+        if (random_int(1, 100) <= 70) {
+            $t = $pdo->prepare("SELECT v.vote_id, COUNT(*) AS n
+                                  FROM players v JOIN players t ON t.id = v.vote_id
+                                 WHERE v.room_code = ? AND v.is_alive = 1 AND v.vote_skip = 0
+                                   AND v.vote_id IS NOT NULL AND t.is_alive = 1
+                                 GROUP BY v.vote_id ORDER BY n DESC, v.vote_id ASC LIMIT 1");
+            $t->execute([$roomCode]);
+            $lead = $t->fetch();
+            if ($lead && in_array((int)$lead['vote_id'], $options, true)) {
+                $target = (int)$lead['vote_id'];
+            }
+        }
+        if ($target <= 0) $target = $options[array_rand($options)];
         $pdo->prepare("UPDATE players SET vote_id = ? WHERE id = ?")->execute([$target, $bot['id']]);
     }
 }

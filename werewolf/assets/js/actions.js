@@ -185,6 +185,8 @@
             // write (~270ms fsync) before it can answer, and making the player
             // stare at an unchanged screen for that long reads as "broken".
             const g = state.lastGame;
+            // Belt and braces: never paint an optimistic vote for your own seat.
+            if (g && voteId === g.my_id) { flashInfo('You cannot vote for yourself.', true); return; }
             const prevVoteId = g ? g.my_vote_id : null;
             // Move the TALLY locally right now, so the count under the card updates
             // on the same frame as the tap (the server's authoritative tally arrives

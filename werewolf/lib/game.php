@@ -435,6 +435,25 @@ function validLiveTarget(PDO $pdo, $roomCode, $targetId) {
     return $t ?: null;
 }
 
+// The day tally, counted with EXACTLY the rule resolveDay() uses below: only LIVING
+// voters count, an abstention is not a vote, and a vote aimed at a seat that is
+// already dead is not a vote either. The roster display and the day_vote response
+// both read this, because the two drifting apart is what let the screen disagree
+// with the actual lynch.
+function dayVoteTally(PDO $pdo, $roomCode) {
+    $s = $pdo->prepare("SELECT v.vote_id, COUNT(*) AS n
+                          FROM players v JOIN players t ON t.id = v.vote_id
+                         WHERE v.room_code = ? AND v.is_alive = 1 AND v.vote_skip = 0
+                           AND v.vote_id IS NOT NULL AND t.is_alive = 1
+                         GROUP BY v.vote_id");
+    $s->execute([$roomCode]);
+    $tally = [];
+    foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $tally[(int)$row['vote_id']] = (int)$row['n'];
+    }
+    return $tally;
+}
+
 // Resolve the day: every alive player has voted OR skipped -> apply the lynch
 // rules, wipe the votes, flip to night. Returns true if the phase advanced.
 //

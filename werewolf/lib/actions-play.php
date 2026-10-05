@@ -329,14 +329,24 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             }
         }
 
-        // Live vote tally — only counted (and only revealed) during the day, so
-        // the roster can show each player's running vote count.
+        // Live vote tally — only counted (and only revealed) during the day, so the
+        // roster can show each player's running vote count. This must apply the SAME
+        // rule as dayVoteTally()/resolveDay(): a dead seat's leftover vote_id is not a
+        // vote, and neither is a vote aimed at a seat that is no longer alive. Counting
+        // those (as this block used to) made the cards show counts that did not add up
+        // to the lynch, and often made several seats look level when they were not.
         $voteTally = [];
         if ($room['status'] === 'day') {
+            $livingIds = [];
             foreach ($players as $p) {
-                if ($p['vote_id'] !== null) {
-                    $voteTally[(int)$p['vote_id']] = ($voteTally[(int)$p['vote_id']] ?? 0) + 1;
-                }
+                if ((int)$p['is_alive'] === 1) $livingIds[(int)$p['id']] = true;
+            }
+            foreach ($players as $p) {
+                if ((int)$p['is_alive'] !== 1) continue;          // dead seats do not vote
+                if ((int)$p['vote_skip']) continue;               // abstentions are separate
+                $tid = (int)$p['vote_id'];
+                if ($tid <= 0 || !isset($livingIds[$tid])) continue;   // vote at a corpse
+                $voteTally[$tid] = ($voteTally[$tid] ?? 0) + 1;
             }
         }
 
@@ -671,6 +681,15 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             exit;
         }
 
+        // Your own seat is not a valid target. The roster used to offer a Vote button
+        // on your own card, and the server accepted it as an ordinary vote for you —
+        // which both padded your own count and helped manufacture the all-tied days
+        // that stopped the village from ever lynching anyone.
+        if (!$skip && $voteId === (int)$me['id']) {
+            echo json_encode(["status" => "error", "message" => "You cannot vote for yourself."]);
+            exit;
+        }
+
         if ($skip) {
             // Abstain. Tallied as a "skip" vote at the end of the day: if the
             // skip count beats the highest vote count, nobody is executed.
@@ -698,13 +717,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // wait for a poll cycle to confirm it — which is what made the vote count sit
         // stale for ~half a second. Two cheap reads on a path that has already paid a
         // ~270ms InnoDB fsync, so it costs nothing measurable.
-        $tally = [];
-        $tq = $pdo->prepare("SELECT vote_id, COUNT(*) AS n FROM players
-                              WHERE room_code = ? AND vote_id IS NOT NULL GROUP BY vote_id");
-        $tq->execute([$roomCode]);
-        foreach ($tq->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $tally[(int)$row['vote_id']] = (int)$row['n'];
-        }
+        $tally = dayVoteTally($pdo, $roomCode);   // same rule the resolver uses
         $sq = $pdo->prepare("SELECT status FROM rooms WHERE room_code = ?");
         $sq->execute([$roomCode]);
         $statusNow = (string)$sq->fetchColumn();
