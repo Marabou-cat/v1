@@ -26,7 +26,7 @@ function calculateRoles($playerCount, $mode = 'classic') {
 }
 
 /* ================= MATCHMAKING + BOTS ================= */
-const MATCH_WAIT_SECONDS = 30;
+const MATCH_WAIT_SECONDS = 2;
 
 // Top-level (global) pool of bot nicknames. Helper functions below must pull
 // it in with `global $BOT_NAMES;` — PHP functions do NOT see top-level vars

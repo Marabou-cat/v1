@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Werewolf Online</title>
+    <link rel="stylesheet" href="assets/fonts.css">
+    <script src="assets/lucide.min.js"></script>
+    <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/menu.css">
+    <link rel="stylesheet" href="assets/css/lobby.css">
+    <link rel="stylesheet" href="assets/css/game.css">
+    <link rel="stylesheet" href="assets/css/cutscene.css">
+    <link rel="stylesheet" href="assets/css/responsive.css">
+    <link rel="stylesheet" href="assets/css/hall.css">
+    <link rel="stylesheet" href="assets/css/scene.css">
+    <link rel="stylesheet" href="assets/css/room.css">
+</head>
+<body data-phase="menu">
+
+    <!-- AMBIENT BACKGROUND LAYERS -->
+    <div class="sky"></div>
+    <!-- The village on the horizon: downloaded art (castle/tree/tent), lit at night. -->
+    <div class="scene-village" aria-hidden="true">
+        <!-- Layered horizon, back to front: far range, ridge, treeline, the village. -->
+        <div class="scene-layer scene-far">
+            <span class="sl sl-peaks"></span><span class="sl sl-mount"></span>
+        </div>
+        <div class="scene-layer scene-mid">
+            <span class="sl sl-forest"></span><span class="sl sl-birch"></span><span class="sl sl-forest2"></span>
+        </div>
+        <div class="scene-layer scene-near">
+            <span class="sl sl-tree"></span><span class="sl sl-church"></span><span class="sl sl-huts"></span>
+            <span class="sl sl-mill"></span><span class="sl sl-ruins"></span><span class="sl sl-tower"></span>
+            <span class="sl sl-tree2"></span>
+        </div>
+    </div>
+    <div class="stars" id="stars"></div>
+    <div class="moon"><div class="moon-core"></div></div>
+    <div class="fog fog-a"></div>
+    <div class="fog fog-b"></div>
+    <div class="embers" id="embers"></div>
+    <div class="vignette"></div>
+    <div class="phase-flash" id="phase-flash"></div>
+
+    <!-- CUTSCENE OVERLAY -->
+    <div id="cutscene-overlay">
+        <div class="cutscene-bg"></div>
+        <div id="cutscene-icon" class="cutscene-icon"><i data-lucide="castle" size="84"></i></div>
+        <div id="cutscene-text" class="cutscene-text">Building Fortress...</div>
+        <div id="cutscene-sub" class="cutscene-sub">Preparing the lobby</div>
+    </div>
+
+    <main class="stage">
+
+        <!-- VIEW 1: MAIN MENU -->
+        <section id="view-menu" class="screen">
+            <div style="width:100%; max-width: 760px; display:flex; flex-direction:column; align-items:center;">
+                <div class="title-row">
+                    <!-- Hand-drawn SVG emblem; source file: assets/img/logo.svg -->
+                    <svg class="wolf-logo" viewBox="0 0 120 120" role="img" aria-label="Werewolf emblem">
+                        <defs>
+                            <linearGradient id="wfFur" x1="0" y1="0" x2="0.35" y2="1">
+                                <stop offset="0%" stop-color="#f8fafc"/>
+                                <stop offset="48%" stop-color="#cbd5e1"/>
+                                <stop offset="100%" stop-color="#7c8a9e"/>
+                            </linearGradient>
+                            <radialGradient id="wfHalo" cx="0.5" cy="0.5" r="0.5">
+                                <stop offset="55%" stop-color="#ffcc00" stop-opacity="0.26"/>
+                                <stop offset="100%" stop-color="#ffcc00" stop-opacity="0"/>
+                            </radialGradient>
+                            <mask id="wfMoon" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="120">
+                                <circle cx="40" cy="42" r="26" fill="#fff"/>
+                                <circle cx="54" cy="31" r="23" fill="#000"/>
+                            </mask>
+                            <filter id="wfEyeGlow" x="-80%" y="-80%" width="260%" height="260%">
+                                <feGaussianBlur stdDeviation="2.4" result="b"/>
+                                <feMerge>
+                                    <feMergeNode in="b"/>
+                                    <feMergeNode in="b"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <circle cx="60" cy="60" r="58" fill="url(#wfHalo)"/>
+                        <circle cx="40" cy="42" r="26" fill="#ffcc00" opacity="0.9" mask="url(#wfMoon)"/>
+                        <circle cx="60" cy="60" r="55" fill="none" stroke="#ffcc00" stroke-opacity="0.42" stroke-width="2"/>
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#ffcc00" stroke-opacity="0.16" stroke-width="1"/>
+                        <g stroke="#ffcc00" stroke-opacity="0.38" stroke-width="1.5" stroke-linecap="round">
+                            <path d="M60 5 V11 M60 109 V115 M5 60 H11 M109 60 H115"/>
+                        </g>
+                        <path fill="url(#wfFur)" stroke="#39414f" stroke-width="1.6" stroke-linejoin="round" d="M60 104 L42 90 L24 58 L30 18 L44 44 L60 38 L76 44 L90 18 L96 58 L78 90 Z"/>
+                        <g fill="#ff2d2d" filter="url(#wfEyeGlow)">
+                            <path d="M36 59 L53 64 L38 69 Z"/>
+                            <path d="M84 59 L67 64 L82 69 Z"/>
+                        </g>
+                        <path fill="#2b3242" d="M52 79 L68 79 L60 90 Z"/>
+                        <path fill="#f8fafc" d="M50 91 L55 91 L52.5 98 Z M65 91 L70 91 L67.5 98 Z"/>
+                    </svg>
+                    <div class="title-wrap">
+                        <h1 class="title">Werewolf</h1>
+                        <div class="drips" id="title-drips" aria-hidden="true"></div>
+                    </div>
+                </div>
+                <p class="subtitle">Online Multiplayer Arena</p>
+
+                <!-- THE HALL. The front page is a place with people standing in it:
+                     your own character, and whoever else is here right now. Everyone
+                     gets a portrait, and the one you wear here is the seat you take. -->
+                <div class="hall" id="hall">
+                    <div class="hall-hero" id="hall-hero">
+                        <span class="hall-you"></span>
+                        <span class="hall-you-info">
+                            <b>Wanderer</b>
+                            <span class="hall-you-tag">your character</span>
+                        </span>
+                    </div>
+                    <div class="hall-side">
+                        <div class="hall-title">
+                            <i data-lucide="users" size="15"></i> IN THE HALL
+                            <span class="hall-count" id="hall-count">&mdash;</span>
+                        </div>
+                        <div class="hall-stage" id="hall-stage"></div>
+                    </div>
+                </div>
+
+                <div class="menu-panel">
+                    <div class="form-group">
+                        <label for="nickname">Your Nickname</label>
+                        <input type="text" id="nickname" placeholder="e.g., HunterJohn" value="" maxlength="24">
+                    </div>
+
+                    <div class="btn-row">
+                        <button class="btn-primary" onclick="openQuickMatch()"><i data-lucide="zap" size="20"></i> Quick Match</button>
+                        <button class="btn-secondary" onclick="openModePicker('create')"><i data-lucide="swords" size="20"></i> Create Room</button>
+                        <button class="btn-secondary" onclick="showScreen('view-join')"><i data-lucide="door-open" size="20"></i> Join Room</button>
+                    </div>
+                    <p class="menu-hint">4–10 players &middot; Werewolves hunt by night &middot; The village votes by day</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 2: CREATE ROOM -->
+        <section id="view-create" class="screen hidden">
+            <button class="back-btn" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="18"></i> Back</button>
+            <div class="panel-wide">
+                <h2 class="screen-title"><i data-lucide="swords" size="26"></i> Create Room</h2>
+                <div class="form-group">
+                    <label for="max-players">Select Total Players (Min 4)</label>
+                    <select id="max-players" onchange="updateRolePreview()">
+                        <option value="4" selected>4 Players (1 Werewolf, 0 Specials)</option>
+                        <option value="5">5 Players (1 Werewolf, 1 Special)</option>
+                        <option value="6">6 Players (1 Werewolf, 1 Special)</option>
+                        <option value="7">7 Players (2 Werewolves, 2 Specials)</option>
+                        <option value="8">8 Players (2 Werewolves, 2 Specials)</option>
+                        <option value="9">9 Players (2 Werewolves, 3 Specials)</option>
+                        <option value="10">10 Players (3 Werewolves, 3 Specials)</option>
+                    </select>
+                </div>
+
+                <div id="create-role-info" class="role-preview">Role Calculation Preview...</div>
+
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="handleCreateRoom()"><i data-lucide="play" size="20"></i> Confirm &amp; Host</button>
+                    <button class="btn-secondary" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="20"></i> Back</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 3: JOIN ROOM -->
+        <section id="view-join" class="screen hidden">
+            <button class="back-btn" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="18"></i> Back</button>
+            <div class="panel-wide">
+                <h2 class="screen-title"><i data-lucide="door-open" size="26"></i> Join Room</h2>
+                <div class="form-group">
+                    <label for="join-code">Enter 5-Character Room Code</label>
+                    <input type="text" id="join-code" placeholder="e.g., A1B2C" maxlength="5" style="text-transform: uppercase; letter-spacing: 6px; font-size: 1.3rem;">
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="handleJoinRoom()"><i data-lucide="key-round" size="20"></i> Join Lobby</button>
+                    <button class="btn-secondary" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="20"></i> Back</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 3B: QUICK MATCH -->
+        <section id="view-match" class="screen hidden">
+            <button class="back-btn" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="18"></i> Back</button>
+            <div class="panel-wide">
+                <h2 class="screen-title"><i data-lucide="zap" size="26"></i> Quick Match</h2>
+                <div class="form-group">
+                    <label for="match-count">Select Total Players (Min 4)</label>
+                    <select id="match-count" onchange="updateMatchRolePreview()">
+                        <option value="4">4 Players (1 Werewolf, 0 Specials)</option>
+                        <option value="5">5 Players (1 Werewolf, 1 Special)</option>
+                        <option value="6" selected>6 Players (1 Werewolf, 1 Special)</option>
+                        <option value="7">7 Players (2 Werewolves, 2 Specials)</option>
+                        <option value="8">8 Players (2 Werewolves, 2 Specials)</option>
+                        <option value="9">9 Players (2 Werewolves, 3 Specials)</option>
+                        <option value="10">10 Players (3 Werewolves, 3 Specials)</option>
+                    </select>
+                </div>
+
+                <div id="match-role-info" class="role-preview">Role Calculation Preview...</div>
+
+                <p class="menu-hint" style="margin-top: 16px;">Matches you with other players at this size &middot; The match starts within <b>30s</b></p>
+
+                <div class="btn-row">
+                    <button class="btn-primary" id="btn-match" onclick="handleQuickMatch()"><i data-lucide="zap" size="20"></i> Find Match</button>
+                    <button class="btn-secondary" onclick="showScreen('view-menu')"><i data-lucide="arrow-left" size="20"></i> Back</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 3b: MATCHING IN PROGRESS (radar animation + elapsed match time) -->
+        <section id="view-matching" class="screen hidden">
+            <div class="panel-wide mm-stage">
+                <h2 class="mm-view-title"><i data-lucide="radar" size="26"></i> Finding Match</h2>
+
+                <div class="mm-radar">
+                    <div class="mm-ring r1"></div>
+                    <div class="mm-ring r2"></div>
+                    <div class="mm-ring r3"></div>
+                    <div class="mm-cross"></div>
+                    <div class="mm-sweep"></div>
+                    <div class="mm-orbit" id="mm-orbit"></div>
+                    <div class="mm-core"><i data-lucide="paw-print" size="54"></i></div>
+                </div>
+
+                <div class="mm-info">
+                    <div class="mm-status-line"><span class="mm-live-dot"></span><span id="mm-status-text">Searching for players...</span></div>
+                    <div class="mm-time">
+                        <span class="mm-time-label">Match Time</span>
+                        <span class="mm-time-value" id="mm-elapsed">0:00</span>
+                    </div>
+                    <div class="mm-count-line">Seats: <b id="mm-filled">1</b>/<span id="mm-total">6</span> <span class="mm-note">&middot; waiting for players...</span></div>
+                    <div id="mm-players" style="font-size:0.82rem;color:#cbd5e1;margin-top:10px;line-height:1.5;font-weight:600;">Waiting for players...</div>
+                    <button id="mm-suggest-btn" class="btn-secondary mm-suggest-btn hidden"></button>
+                </div>
+
+                <!-- Kept short and BELOW the content rather than as a top-left
+                     bar: cancelling is not the primary action here. -->
+                <div class="back-row">
+                    <button class="back-btn compact" onclick="leaveToMenu()"><i data-lucide="x" size="14"></i> Cancel</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 4: LOBBY SCREEN -->
+        <section id="view-lobby" class="screen hidden">
+            <div class="lobby-wrap">
+                <div class="room-badge">
+                    <span style="font-size: 0.85rem; color: var(--accent-gold); display: block; margin-bottom: 8px; letter-spacing: 3px; font-weight: 800;">BATTLE CODE</span>
+                    <span id="display-room-code" class="room-code">-----</span>
+                </div>
+
+                <label class="lobby-section-label">Squad Members (<span id="player-count">0</span>/<span id="player-max">0</span>)</label>
+                <ul id="player-list-ui" class="player-grid"></ul>
+
+                <div id="lobby-role-breakdown" class="role-preview">Waiting for roster...</div>
+
+                <div class="btn-start-row" id="host-controls">
+                    <button id="btn-start-game" class="btn-primary" onclick="handleStartGame()" disabled>
+                        <i data-lucide="moon" size="22"></i> Start Match (Host Only)
+                    </button>
+                </div>
+
+                <!-- Short, and below the room content instead of a top-left bar. -->
+                <div class="back-row">
+                    <button class="back-btn compact" onclick="leaveToMenu()"><i data-lucide="log-out" size="14"></i> Leave</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 5: ACTIVE GAME SCREEN -->
+        <section id="view-game" class="screen hidden">
+                        <!-- ============ TOP BANNER (3-section: top) ============ -->
+            <div class="gr-top-banner">
+            <header class="gr-top">
+                <div class="gr-brand">
+                    <i data-lucide="paw-print" size="20"></i>
+                    <span class="grb-name">Werewolf</span>
+                    <span class="grb-room">ROOM #<b id="game-room-code">-----</b></span>
+                </div>
+                <div class="gr-phase">
+                    <span class="pb-ico pb-day" id="phase-ico" aria-hidden="true"></span>
+                    <span class="grp-text">
+                        <b id="game-phase-text">Lobby</b>
+                        <small id="game-phase-sub">Waiting for players...</small>
+                    </span>
+                    <span id="chat-timer-badge" class="timer-badge">15s</span>
+                </div>
+                <div class="gr-actions">
+                    <span class="gr-count" title="alive / total">
+                        <i data-lucide="users" size="15"></i>
+                        <b id="gr-count-alive">0</b><span class="grc-sep">/</span><span id="gr-count-total">0</span>
+                    </span>
+                    <button class="gr-icon-btn" id="btn-sfx" onclick="toggleSoundFx()" title="Sound effects" aria-label="Sound effects">
+                        <i data-lucide="volume-2" size="16"></i>
+                    </button>
+                    <button class="gr-icon-btn" onclick="leaveToMenu()" title="Leave room" aria-label="Leave room">
+                        <i data-lucide="log-out" size="16"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- ============ TIMELINE BANNER ============ -->
+            <div class="gr-progress" id="gr-progress"></div>
+            </div><!-- /gr-top-banner -->
+
+            <!-- ============ ROUND-TABLE BODY: players left/right, events in the middle ============ -->
+            <div class="gr-grid">
+                <!-- floating top-left: your (secret, flippable) role card + team + voice -->
+                <div class="role-float">
+                    <div class="role-flip" id="role-flip" onclick="flipRole()" title="Click to hide your role">
+                        <div class="flip-inner">
+                            <div class="role-card role-front">
+                                <p class="rc-label">Your Role</p>
+                                <div id="my-role-display" class="card-title"><i data-lucide="paw-print" size="26"></i> Secret Card</div>
+                                <p id="my-role-desc" class="rc-desc">Survive the night and expose the threat!</p>
+                                <div class="rc-meta">
+                                    <div class="rcm-row"><span>Goal</span><b id="rc-goal">&mdash;</b></div>
+                                    <div class="rcm-row"><span>Ability</span><b id="rc-ability">&mdash;</b></div>
+                                </div>
+                            </div>
+                            <div class="role-card role-back">
+                                <span class="rb-moon"><i data-lucide="moon" size="28"></i></span>
+                                <span class="rb-txt">WEREWOLF</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Only wolves ever see this; the server withholds it from everyone else. -->
+                    <div class="gr-team" id="wolf-team" hidden>
+                        <div class="gr-head"><span>Your Team</span></div>
+                        <div class="gt-list" id="wolf-team-list"></div>
+                    </div>
+
+                    <div class="voice-bar">
+                        <span class="voice-title"><i data-lucide="volume-2" size="15"></i> Voice</span>
+                        <span id="voice-label" class="voice-label"></span>
+                        <button id="voice-btn" class="voice-btn" onclick="toggleVoice()"><i data-lucide="mic-off" size="15"></i> Join Voice</button>
+                        <button id="voice-mute-btn" class="voice-btn" style="display:none;" onclick="voiceMuteToggle()"><i data-lucide="mic" size="15"></i> Mute</button>
+                    </div>
+                </div>
+
+                <!-- LEFT: half the table -->
+                <aside class="gr-col gr-players gr-col-left">
+                    <div class="gr-head">
+                        <span id="game-list-label">Living Players</span>
+                        <b id="gr-living-count">0</b>
+                    </div>
+                    <ul id="game-player-list" class="game-player-list"></ul>
+                </aside>
+
+                <!-- RIGHT: the other half of the table -->
+                <aside class="gr-col gr-players gr-col-right">
+                    <div class="gr-head"><span>Players</span></div>
+                    <ul id="game-player-list-right" class="game-player-list"></ul>
+                </aside>
+            </div>
+
+            <!-- ============ BOTTOM: CHAT / ACTION ============ -->
+            <div class="gr-bottom">
+                <div id="skill-panel" class="skill-panel" style="display:none;"></div>
+                <div class="chat-container" id="chat-container">
+                    <div class="chat-header">
+                        <i data-lucide="message-square" size="17"></i> Village Chat
+                    </div>
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="chat-message no-anim"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>
+                    </div>
+                    <div class="chat-composer" id="chat-composer">
+                        <input type="text" id="chat-input" placeholder="Type your message..."
+                               onkeydown="if(event.key==='Enter') sendChatMessage();">
+                        <button class="chat-send-btn" onclick="sendChatMessage()" aria-label="Send"><i data-lucide="send" size="17"></i></button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Night/day transition: the screen fades to black and back -->
+    <div id="phase-fade" class="phase-fade"><span id="phase-fade-text" class="phase-fade-text"></span></div>
+
+    <!-- Full-screen blackout once your night action is locked in -->
+    <div id="night-blackout" class="night-blackout">
+        <i data-lucide="moon" size="34"></i>
+        <div class="nb-title">Everyone is asleep</div>
+        <div class="nb-sub">Waiting for the night to end…</div>
+    </div>
+
+    <!-- Centred Sleep button (villagers / doctor with no night action) -->
+    <div id="sleep-overlay" class="sleep-overlay">
+        <div class="sleep-btn-wrap">
+            <button class="sleep-big-btn" onclick="submitSleep()"><i data-lucide="moon" size="24"></i> <span>Sleep</span></button>
+        </div>
+        <div class="sleep-hint">Tap to sleep — everyone taps, so on a call nobody can tell who acted.</div>
+    </div>
+
+    <!-- You-died card: exit or spectate -->
+    <div id="death-overlay" class="death-overlay">
+        <div class="death-card">
+            <div class="death-skull">☠</div>
+            <h2 class="death-title">You Have Died</h2>
+            <p class="death-sub">You were killed during the night.</p>
+            <div class="death-actions">
+                <button class="btn-action btn-kill" onclick="exitGame()"><i data-lucide="log-out" size="16"></i> Exit</button>
+                <button class="btn-action" onclick="spectateGame()"><i data-lucide="eye" size="16"></i> Spectate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day-vote result cutscene (who was executed, or nobody) -->
+    <div id="vote-cutscene" class="vote-cutscene">
+        <div class="vote-card">
+            <div id="vote-cutscene-icon" class="vote-icon"></div>
+            <h2 id="vote-cutscene-title" class="vote-title"></h2>
+            <p id="vote-cutscene-sub" class="vote-sub"></p>
+        </div>
+    </div>
+
+    <!-- Rank tier emblems. Inlined as <symbol>s so CSS `color` tints them per
+         tier (asset source files live in assets/img/rank/). Font Awesome Free
+         6.7.2, icons licensed CC BY 4.0 — see assets/audio/CREDITS.md. -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+        <symbol id="rank-bronze" viewBox="0 0 512 512"><path d="M256 0c4.6 0 9.2 1 13.4 2.9L457.7 82.8c22 9.3 38.4 31 38.3 57.2c-.5 99.2-41.3 280.7-213.6 363.2c-16.7 8-36.1 8-52.8 0C57.3 420.7 16.5 239.2 16 140c-.1-26.2 16.3-47.9 38.3-57.2L242.7 2.9C246.8 1 251.4 0 256 0zm0 66.8l0 378.1C394 378 431.1 230.1 432 141.4L256 66.8s0 0 0 0z"/></symbol>
+        <symbol id="rank-silver" viewBox="0 0 512 512"><path d="M4.1 38.2C1.4 34.2 0 29.4 0 24.6C0 11 11 0 24.6 0L133.9 0c11.2 0 21.7 5.9 27.4 15.5l68.5 114.1c-48.2 6.1-91.3 28.6-123.4 61.9L4.1 38.2zm503.7 0L405.6 191.5c-32.1-33.3-75.2-55.8-123.4-61.9L350.7 15.5C356.5 5.9 366.9 0 378.1 0L487.4 0C501 0 512 11 512 24.6c0 4.8-1.4 9.6-4.1 13.6zM80 336a176 176 0 1 1 352 0A176 176 0 1 1 80 336zm184.4-94.9c-3.4-7-13.3-7-16.8 0l-22.4 45.4c-1.4 2.8-4 4.7-7 5.1L168 298.9c-7.7 1.1-10.7 10.5-5.2 16l36.3 35.4c2.2 2.2 3.2 5.2 2.7 8.3l-8.6 49.9c-1.3 7.6 6.7 13.5 13.6 9.9l44.8-23.6c2.7-1.4 6-1.4 8.7 0l44.8 23.6c6.9 3.6 14.9-2.2 13.6-9.9l-8.6-49.9c-.5-3 .5-6.1 2.7-8.3l36.3-35.4c5.6-5.4 2.5-14.8-5.2-16l-50.1-7.3c-3-.4-5.7-2.4-7-5.1l-22.4-45.4z"/></symbol>
+        <symbol id="rank-gold" viewBox="0 0 384 512"><path d="M173.8 5.5c11-7.3 25.4-7.3 36.4 0L228 17.2c6 3.9 13 5.8 20.1 5.4l21.3-1.3c13.2-.8 25.6 6.4 31.5 18.2l9.6 19.1c3.2 6.4 8.4 11.5 14.7 14.7L344.5 83c11.8 5.9 19 18.3 18.2 31.5l-1.3 21.3c-.4 7.1 1.5 14.2 5.4 20.1l11.8 17.8c7.3 11 7.3 25.4 0 36.4L366.8 228c-3.9 6-5.8 13-5.4 20.1l1.3 21.3c.8 13.2-6.4 25.6-18.2 31.5l-19.1 9.6c-6.4 3.2-11.5 8.4-14.7 14.7L301 344.5c-5.9 11.8-18.3 19-31.5 18.2l-21.3-1.3c-7.1-.4-14.2 1.5-20.1 5.4l-17.8 11.8c-11 7.3-25.4 7.3-36.4 0L156 366.8c-6-3.9-13-5.8-20.1-5.4l-21.3 1.3c-13.2 .8-25.6-6.4-31.5-18.2l-9.6-19.1c-3.2-6.4-8.4-11.5-14.7-14.7L39.5 301c-11.8-5.9-19-18.3-18.2-31.5l1.3-21.3c.4-7.1-1.5-14.2-5.4-20.1L5.5 210.2c-7.3-11-7.3-25.4 0-36.4L17.2 156c3.9-6 5.8-13 5.4-20.1l-1.3-21.3c-.8-13.2 6.4-25.6 18.2-31.5l19.1-9.6C65 70.2 70.2 65 73.4 58.6L83 39.5c5.9-11.8 18.3-19 31.5-18.2l21.3 1.3c7.1 .4 14.2-1.5 20.1-5.4L173.8 5.5zM272 192a80 80 0 1 0 -160 0 80 80 0 1 0 160 0zM1.3 441.8L44.4 339.3c.2 .1 .3 .2 .4 .4l9.6 19.1c11.7 23.2 36 37.3 62 35.8l21.3-1.3c.2 0 .5 0 .7 .2l17.8 11.8c5.1 3.3 10.5 5.9 16.1 7.7l-37.6 89.3c-2.3 5.5-7.4 9.2-13.3 9.7s-11.6-2.2-14.8-7.2L74.4 455.5l-56.1 8.3c-5.7 .8-11.4-1.5-15-6s-4.3-10.7-2.1-16zm248 60.4L211.7 413c5.6-1.8 11-4.3 16.1-7.7l17.8-11.8c.2-.1 .4-.2 .7-.2l21.3 1.3c26 1.5 50.3-12.6 62-35.8l9.6-19.1c.1-.2 .2-.3 .4-.4l43.2 102.5c2.2 5.3 1.4 11.4-2.1 16s-9.3 6.9-15 6l-56.1-8.3-32.2 49.2c-3.2 5-8.9 7.7-14.8 7.2s-11-4.3-13.3-9.7z"/></symbol>
+        <symbol id="rank-platinum" viewBox="0 0 512 512"><path d="M116.7 33.8c4.5-6.1 11.7-9.8 19.3-9.8l240 0c7.6 0 14.8 3.6 19.3 9.8l112 152c6.8 9.2 6.1 21.9-1.5 30.4l-232 256c-4.5 5-11 7.9-17.8 7.9s-13.2-2.9-17.8-7.9l-232-256c-7.7-8.5-8.3-21.2-1.5-30.4l112-152zm38.5 39.8c-3.3 2.5-4.2 7-2.1 10.5l57.4 95.6L63.3 192c-4.1 .3-7.3 3.8-7.3 8s3.2 7.6 7.3 8l192 16c.4 0 .9 0 1.3 0l192-16c4.1-.3 7.3-3.8 7.3-8s-3.2-7.6-7.3-8L301.5 179.8l57.4-95.6c2.1-3.5 1.2-8.1-2.1-10.5s-7.9-2-10.7 1L256 172.2 165.9 74.6c-2.8-3-7.4-3.4-10.7-1z"/></symbol>
+        <symbol id="rank-diamond" viewBox="0 0 512 512"><path d="M284.3 11.7c-15.6-15.6-40.9-15.6-56.6 0l-216 216c-15.6 15.6-15.6 40.9 0 56.6l216 216c15.6 15.6 40.9 15.6 56.6 0l216-216c15.6-15.6 15.6-40.9 0-56.6l-216-216z"/></symbol>
+        <symbol id="rank-master" viewBox="0 0 576 512"><path d="M309 106c11.4-7 19-19.7 19-34c0-22.1-17.9-40-40-40s-40 17.9-40 40c0 14.4 7.6 27 19 34L209.7 220.6c-9.1 18.2-32.7 23.4-48.6 10.7L72 160c5-6.7 8-15 8-24c0-22.1-17.9-40-40-40S0 113.9 0 136s17.9 40 40 40c.2 0 .5 0 .7 0L86.4 427.4c5.5 30.4 32 52.6 63 52.6l277.2 0c30.9 0 57.4-22.1 63-52.6L535.3 176c.2 0 .5 0 .7 0c22.1 0 40-17.9 40-40s-17.9-40-40-40s-40 17.9-40 40c0 9 3 17.3 8 24l-89.1 71.3c-15.9 12.7-39.5 7.5-48.6-10.7L309 106z"/></symbol>
+    </svg>
+
+    <!-- Accounts: sign-in / sign-up live in the top-right corner. Optional —
+         guests play exactly the same, they just don't accrue a rank. -->
+    <div id="auth-bar" class="auth-bar">
+        <div id="auth-guest" class="auth-guest">
+            <button class="auth-btn" onclick="openAuth('login')"><i data-lucide="log-in" size="15"></i> Sign In</button>
+            <button class="auth-btn auth-btn-primary" onclick="openAuth('register')"><i data-lucide="user-plus" size="15"></i> Sign Up</button>
+        </div>
+        <div id="auth-user" class="auth-user" style="display:none;">
+            <span id="auth-avatar" class="auth-avatar-slot"></span>
+            <span id="auth-level" class="level-chip"></span>
+            <span id="auth-tier" class="tier-wrap"></span>
+            <span id="auth-name" class="auth-name"></span>
+            <span id="auth-stats" class="auth-stats"></span>
+        </div>
+        <button id="settings-btn" class="auth-btn auth-btn-quiet" onclick="openSettings()" title="Settings" aria-label="Settings"><i data-lucide="settings" size="15"></i></button>
+    </div>
+
+    <div id="auth-modal" class="auth-modal">
+        <div class="auth-card">
+            <button class="auth-close" onclick="closeAuth()" aria-label="Close">&times;</button>
+            <h2 id="auth-title" class="auth-title">Log In</h2>
+            <div class="auth-tabs">
+                <button id="auth-tab-login" class="auth-tab" onclick="openAuth('login')">Sign In</button>
+                <button id="auth-tab-register" class="auth-tab" onclick="openAuth('register')">Sign Up</button>
+            </div>
+            <form id="auth-form" onsubmit="return submitAuth(event)">
+                <label class="auth-field">Email
+                    <input id="auth-email" type="email" maxlength="190" autocomplete="email" spellcheck="false" placeholder="you@example.com">
+                </label>
+                <div id="auth-step-code" style="display:none;">
+                    <label class="auth-field">Verification code
+                        <input id="auth-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+                    </label>
+                    <div class="auth-code-row">
+                        <span id="auth-sent-to" class="auth-sent-to"></span>
+                        <button type="button" id="auth-resend" class="auth-resend" onclick="requestAuthCode()">Resend</button>
+                    </div>
+                </div>
+                <div id="auth-error" class="auth-error"></div>
+                <button type="submit" id="auth-submit" class="auth-submit">Email Me a Code</button>
+            </form>
+            <p class="auth-note">No password needed — we email you a 6-digit code, and if you're new that code creates your account. Accounts are optional: guests can always play, they just don't earn a <b>win rate</b> or <b>rank</b>.</p>
+        </div>
+    </div>
+
+    <!-- Settings: sound, music, other players' voice, and sign out. -->
+    <div id="settings-modal" class="auth-modal">
+        <div class="auth-card">
+            <button class="auth-close" onclick="closeSettings()" aria-label="Close">&times;</button>
+            <h2 class="auth-title">Settings</h2>
+
+            <div class="set-row">
+                <div class="set-txt">
+                    <div class="set-label">Sound effects</div>
+                    <div class="set-hint">Clicks, deaths, vote results</div>
+                </div>
+                <button id="set-sfx" class="toggle" onclick="toggleSetting('sfx')">On</button>
+            </div>
+
+            <div class="set-row">
+                <div class="set-txt">
+                    <div class="set-label">Background music</div>
+                    <div class="set-hint">Ambient score, changes with the phase</div>
+                </div>
+                <button id="set-music" class="toggle" onclick="toggleSetting('music')">On</button>
+            </div>
+
+            <div class="set-row">
+                <div class="set-txt">
+                    <div class="set-label">Mute other players</div>
+                    <div class="set-hint">Silences incoming voice, your mic stays live</div>
+                </div>
+                <button id="set-mute" class="toggle" onclick="toggleSetting('muteOthers')">Off</button>
+            </div>
+
+            <div class="set-sep"></div>
+            <div id="set-account"></div>
+            <div class="set-credit">Audio by Kenney.nl &amp; OpenGameArt (CC0) · Rank emblems: Font Awesome (CC BY 4.0)</div>
+        </div>
+    </div>
+
+    <!-- Mode picker: shown when starting a Create Room or a Quick Match. Both
+         players and the matchmaker are scoped by mode, so a table never mixes. -->
+    <div id="mode-modal" class="mode-modal">
+        <div class="auth-card">
+            <button class="auth-close" onclick="closeModePicker()" aria-label="Close">&times;</button>
+            <h2 class="auth-title">Choose Mode</h2>
+            <p class="mode-lead">Everyone at a table plays the same mode.</p>
+            <div class="mode-grid">
+                <button class="mode-card" data-mode="classic" onclick="chooseMode('classic')">
+                    <span class="mode-icon"><i data-lucide="moon" size="26"></i></span>
+                    <span class="mode-name">Classic</span>
+                    <span class="mode-tagline">The original</span>
+                    <span class="mode-blurb">One kill every night. The village votes out a suspect each day.</span>
+                </button>
+                <button class="mode-card" data-mode="chaos" onclick="chooseMode('chaos')">
+                    <span class="mode-new">NEW</span>
+                    <span class="mode-icon"><i data-lucide="heart-pulse" size="26"></i></span>
+                    <span class="mode-name">Chaos Night</span>
+                    <span class="mode-tagline">Hidden wounds</span>
+                    <span class="mode-blurb">Everyone hides an HP pool. Wolves wound instead of kill, the Doctor heals blind, and only the Seer can read a body.</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chaos Night: YOUR vitals only. Other players' HP never leaves the server,
+         so nothing here can leak it. Hidden entirely in Classic. -->
+    <div id="vitals" class="vitals" style="display:none;">
+        <div class="vitals-top">
+            <span class="vitals-label"><i data-lucide="heart-pulse" size="13"></i> CHAOS NIGHT</span>
+            <span id="vitals-num" class="vitals-num">100 / 100</span>
+        </div>
+        <div class="vitals-track"><div id="vitals-fill" class="vitals-fill" style="width:100%"></div></div>
+        <div id="vitals-delta" class="vitals-delta"></div>
+    </div>
+
+    <!-- Being bitten (Chaos Night): a claw lands across the screen and red smoke
+         closes in, scaled by how hard the pack is mauling this seat. Night only. -->
+    <div id="claw-overlay" data-lvl="0">
+        <div class="claw-smoke"><i></i><i></i><i></i><i></i></div>
+        <div class="claw-vignette"></div>
+        <div class="claw-mark"><b></b><b></b><b></b></div>
+        <div id="claw-dmg" class="claw-dmg"></div>
+    </div>
+
+    <script src="assets/js/state.js"></script>
+    <script src="assets/js/avatar.js"></script>
+    <script src="assets/js/avatar-builder.js"></script>
+    <script src="assets/js/feedback.js"></script>
+    <script src="assets/js/modes.js"></script>
+    <script src="assets/js/combat.js"></script>
+    <script src="assets/js/victory.js"></script>
+    <script src="assets/js/ambient.js"></script>
+    <script src="assets/js/phase.js"></script>
+    <script src="assets/js/nav.js"></script>
+    <script src="assets/js/role-preview.js"></script>
+    <script src="assets/js/cutscenes.js"></script>
+    <script src="assets/js/matchmaking.js"></script>
+    <script src="assets/js/room.js"></script>
+    <script src="assets/js/chat-timer.js"></script>
+    <script src="assets/js/chat.js"></script>
+    <script src="assets/js/actions.js"></script>
+    <script src="assets/js/render.js"></script>
+    <script src="assets/js/voice.js"></script>
+    <script src="assets/js/night-ui.js"></script>
+    <script src="assets/js/sound.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/settings.js"></script>
+    <script src="assets/js/poll.js"></script>
+    <script src="assets/js/title.js"></script>
+    <script src="assets/js/nickname.js"></script>
+    <script src="assets/js/hall.js"></script>
+    <script src="assets/js/scene.js"></script>
+    <script src="assets/js/init.js"></script>
+</body>
+</html>

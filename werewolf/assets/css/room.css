@@ -53,6 +53,20 @@ body[data-phase="day"] .gr-count b { color: #1f7a45; }
 }
 .gr-icon-btn:hover { background: rgba(230, 0, 18, 0.18); border-color: rgba(255, 80, 80, 0.4); }
 
+/* ===== 3-SECTION LAYOUT: top banner / players / bottom banner ===== */
+.gr-top-banner {
+    flex: none; width: 100%; align-self: stretch; display: flex; flex-direction: column; gap: 8px;
+    padding: 9px 12px 12px;
+    background: var(--scene-surface);
+    border-bottom: 2px solid var(--ink, #0b0c11);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 6px 18px rgba(0,0,0,.4);
+}
+.gr-top-banner .gr-top { background: none; border-bottom: none; padding: 0 4px; }
+.gr-top-banner .gr-progress {
+    margin: 0; padding: 7px 4px 0; background: none; border: none; border-radius: 0;
+    box-shadow: none; border-top: 1px solid var(--scene-line);
+}
+
 /* ---------------- the three columns ---------------- */
 .gr-grid {
     flex: 1 1 auto; min-height: 0;
@@ -93,7 +107,12 @@ body[data-phase="day"] .gr-log li.ev-day   { color: #7a5105; border-left-color: 
 body[data-phase="day"] .gr-log li.ev-vote  { color: #0d5b68; border-left-color: #0d6b7a; }
 
 /* ---------------- bottom: chat / action ---------------- */
-.gr-bottom { flex: none; padding: 11px 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+.gr-bottom {
+    flex: none; width: 100%; align-self: stretch; padding: 11px 12px 12px; display: flex; flex-direction: column; gap: 10px;
+    background: var(--scene-surface);
+    border-top: 2px solid var(--ink, #0b0c11);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 -6px 18px rgba(0,0,0,.4);
+}
 .gr-bottom .skill-panel { flex: none; }
 .gr-bottom .chat-container { max-height: 30vh; }
 .chat-container { display: flex; flex-direction: column; flex: 1 1 auto; }
@@ -330,8 +349,9 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
     .gr-grid { column-gap: 90px !important; }
 }
 @media (max-width: 760px) {
-    .gr-grid { grid-template-columns: 1fr !important; column-gap: 0 !important; padding-top: 300px !important; }
-    .gr-col-left, .gr-col-right { grid-column: 1; }
+    .gr-grid { grid-template-columns: 1fr 1fr !important; column-gap: 12px !important; padding-top: 230px !important; }
+    .gr-col-left, .gr-col-right { width: 100%; }
+    .gr-col-left .player-item, .gr-col-right .player-item { width: 100% !important; min-width: 0; padding: 8px 9px !important; }
 }
 
 .gr-icon-btn.off { opacity: 0.45; filter: grayscale(0.7); }
