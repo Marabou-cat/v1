@@ -16,6 +16,9 @@
             const data = await res.json();
             if (data.status === 'success') {
                 input.value = '';
+                // My own line shows in the collapsed bar immediately.
+                if (typeof noteChatActivity === 'function') noteChatActivity(text, state.nickname, true);
+                input.focus();
             } else {
                 alert(data.message);
             }
@@ -41,3 +44,73 @@
         }
 
         
+
+/* ================= THE CHAT LOG IS SOMETHING YOU OPEN =================
+   Collapsed, the whole chat is ONE small bar, so the board keeps its space.
+   Opened, it takes the screen and turns into a proper player chat box.
+   Nothing here touches the server: messages already arrive on the poll. */
+
+function chatIsOpen() { return document.body.classList.contains('chat-open'); }
+
+function openChatLog() {
+    document.body.classList.add('chat-open');
+    const c = document.getElementById('chat-close-btn');
+    if (c) c.hidden = false;
+    chatMarkRead();
+    const m = document.getElementById('chat-messages');
+    if (m) m.scrollTop = m.scrollHeight;
+    if (window.lucide) lucide.createIcons();
+}
+
+function closeChatLog() {
+    document.body.classList.remove('chat-open');
+    const c = document.getElementById('chat-close-btn');
+    if (c) c.hidden = true;
+    stopTyping();
+}
+
+/* "打字时改为玩家发送聊天框" — the composer exists only while you are writing. */
+function startTyping() {
+    openChatLog();
+    const co = document.getElementById('chat-composer');
+    if (co) co.hidden = false;
+    const av = document.getElementById('chat-me-avatar');
+    if (av && !av.innerHTML && typeof myCharacter === 'function' && typeof avatarHtml === 'function') {
+        av.innerHTML = avatarHtml(myCharacter(), 26);
+    }
+    if (window.lucide) lucide.createIcons();
+    const inp = document.getElementById('chat-input');
+    if (inp) setTimeout(function () { inp.focus(); }, 40);
+}
+
+function stopTyping() {
+    const co = document.getElementById('chat-composer');
+    if (co) co.hidden = true;
+    const inp = document.getElementById('chat-input');
+    if (inp) inp.value = '';
+}
+
+function chatMarkRead() {
+    state.chatUnread = 0;
+    const b = document.getElementById('chat-unread');
+    if (b) { b.hidden = true; b.innerText = '0'; }
+}
+
+/* One-line preview so the collapsed bar still tells you what is being said. */
+function chatPreview(text, who) {
+    const el = document.getElementById('chat-last-line');
+    if (!el) return;
+    const t = String(text || '').replace(/\s+/g, ' ').slice(0, 44);
+    el.innerText = (who ? who + ': ' : '') + t;
+}
+
+/* Every incoming message: always update the preview, badge only while collapsed. */
+function noteChatActivity(text, who, mine) {
+    chatPreview(text, who);
+    if (mine) return;
+    if (!chatIsOpen()) {
+        state.chatUnread = (state.chatUnread || 0) + 1;
+        const b = document.getElementById('chat-unread');
+        if (b) { b.hidden = false; b.innerText = String(state.chatUnread); }
+    }
+}

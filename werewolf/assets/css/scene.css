@@ -325,3 +325,193 @@ body[data-phase="day"] .chat-messages { background: rgba(255, 252, 243, 0.5) !im
 body[data-phase="day"] .chat-input-bar input { color: #2b2418 !important; background: rgba(255,253,246,.92) !important; }
 /* Section labels that float directly over the bright sky need a dark ink. */
 body[data-phase="day"] .game-list-label { text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+
+/* =========================================================================
+   PART 2 — the game screen, rearranged; the night; the village on the horizon.
+   ========================================================================= */
+
+/* ================= A. CHAT: ONE SMALL BAR THAT OPENS =================
+   The chat used to be a permanently open half-height column with a typing bar
+   under it. Now it costs the board one line: a preview button. Opening it is
+   explicit, and only then does it become a player chat box. */
+.chat-compact {
+    display: flex; gap: 6px; padding: 6px;
+    border-top: 1px solid var(--scene-line);
+}
+.chat-log-btn {
+    flex: 1 1 auto; min-width: 0;
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 10px; border-radius: 11px; cursor: pointer; text-align: left;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--scene-line);
+    color: inherit; font: inherit;
+}
+.chat-log-btn:hover { background: rgba(255, 255, 255, 0.09); }
+.clb-text { display: flex; flex-direction: column; min-width: 0; }
+.clb-text b {
+    font-size: 0.72rem; font-weight: 800;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.clb-text small { font-size: 0.57rem; opacity: 0.62; letter-spacing: 0.3px; }
+.chat-unread {
+    flex: none; min-width: 19px; height: 19px; padding: 0 5px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 10px; background: var(--accent-red, #e60012);
+    color: #fff; font-size: 0.6rem; font-weight: 800;
+}
+.chat-unread[hidden] { display: none; }
+.chat-write-btn {
+    flex: none; width: 38px; border-radius: 11px; cursor: pointer;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--scene-line); color: inherit;
+}
+.chat-write-btn:hover { background: rgba(255, 255, 255, 0.09); }
+
+/* The collapsed panel shows only a short tail of the conversation. */
+.chat-messages { max-height: 132px; }
+
+/* --- opened: the log takes the screen and becomes the composer --- */
+body.chat-open .chat-container {
+    position: fixed; inset: 3vh 3vw; z-index: 950;
+    display: flex; flex-direction: column;
+    border-radius: 18px; overflow: hidden;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.62);
+}
+body.chat-open .chat-messages { flex: 1 1 auto; max-height: none; height: auto; }
+body.chat-open .chat-compact { display: none; }
+body.chat-open::after {
+    content: ''; position: fixed; inset: 0; z-index: 940;
+    background: rgba(2, 3, 6, 0.62);
+}
+.chat-close-btn {
+    margin-left: auto; width: 30px; height: 30px; border-radius: 9px; cursor: pointer;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid var(--scene-line); color: inherit;
+}
+.chat-close-btn[hidden] { display: none; }
+
+/* --- the composer: a player chat box, present only while writing --- */
+.chat-composer {
+    display: flex; align-items: center; gap: 8px; padding: 8px;
+    border-top: 1px solid var(--scene-line);
+}
+.chat-composer[hidden] { display: none; }
+.chat-me { flex: none; width: 26px; height: 26px; }
+.chat-cancel-btn {
+    flex: none; width: 36px; height: 36px; border-radius: 10px; cursor: pointer;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid var(--scene-line); color: inherit;
+}
+
+/* ================= B. THE BOARD: room to breathe =================
+   "玩家之间的距离拉长一点" — wider columns and much bigger gaps between seats. */
+.game-player-list {
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)) !important;
+    gap: 18px !important;
+    padding: 16px !important;
+}
+.player-item { padding: 15px 16px !important; gap: 12px !important; }
+@media (min-width: 1200px) {
+    .game-player-list { gap: 22px !important; }
+}
+@media (max-width: 700px) {
+    .game-player-list { grid-template-columns: 1fr !important; gap: 12px !important; }
+}
+
+/* Seat rail: a colour edge tells you a seat's state before you read anything. */
+.player-item { position: relative; overflow: hidden; }
+.player-item::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(180deg, #ffd98a, rgba(255, 200, 100, 0.25));
+}
+.player-item.dead::before { background: linear-gradient(180deg, #ff5b5b, rgba(255, 60, 60, 0.2)); }
+.player-item .avatar { flex: none; }
+
+/* Section headings: a small gold rule above each block, so the screen reads as
+   designed sections instead of a pile of boxes. */
+.game-list-label, .lobby-section-label {
+    display: flex; align-items: center; gap: 9px;
+    font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase;
+    font-size: 0.66rem;
+}
+.game-list-label::after, .lobby-section-label::after {
+    content: ''; flex: 1 1 auto; height: 1px;
+    background: linear-gradient(90deg, var(--scene-glow), transparent);
+}
+
+/* The role card gets a medallion for the icon and a touch more presence. */
+.role-card { position: relative; }
+.role-card .card-title { display: flex; align-items: center; gap: 10px; }
+.role-ico {
+    padding: 6px; border-radius: 12px;
+    background-color: rgba(0, 0, 0, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(255, 210, 120, 0.35);
+}
+body[data-phase="day"] .role-ico { background-color: rgba(255, 255, 255, 0.45); }
+
+/* ================= C. THE NIGHT, GIVEN AS MUCH AS THE DAY ================= */
+
+/* Drifting cloud across the blood moon. */
+body[data-phase="night"] .fog { animation: cloudDrift 140s linear infinite; }
+@keyframes cloudDrift {
+    0%   { transform: translateX(-12vw); }
+    100% { transform: translateX(12vw); }
+}
+/* Moonlight: a cold shaft from the top right, where the moon sits. */
+body[data-phase="night"] .sky::after {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+        radial-gradient(ellipse 34% 46% at 86% 12%, rgba(255, 120, 110, 0.16) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 50% 4%, rgba(120, 140, 220, 0.10) 0%, transparent 72%);
+    pointer-events: none;
+}
+
+/* ================= D. THE VILLAGE ON THE HORIZON =================
+   Downloaded art (willow-tree / castle / camping-tent) as masks: dark by night with
+   a warm glow standing in for lit windows, hazy back-colour by day. */
+.scene-village {
+    position: fixed; left: 0; right: 0; bottom: 6vh; z-index: 1;
+    height: 22vh; pointer-events: none;
+    display: flex; align-items: flex-end; justify-content: space-around;
+}
+.sv {
+    display: block;
+    -webkit-mask-size: contain; mask-size: contain;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: bottom center; mask-position: bottom center;
+}
+.sv-tree  { width: 15vw; height: 20vh; -webkit-mask-image: url("../img/icons/willow-tree.svg");   mask-image: url("../img/icons/willow-tree.svg"); }
+.sv-tree2 { width: 12vw; height: 16vh; -webkit-mask-image: url("../img/icons/willow-tree.svg");   mask-image: url("../img/icons/willow-tree.svg"); }
+.sv-castle{ width: 19vw; height: 14vh; -webkit-mask-image: url("../img/icons/castle.svg");        mask-image: url("../img/icons/castle.svg"); }
+.sv-hut   { width: 10vw; height: 9vh;  -webkit-mask-image: url("../img/icons/camping-tent.svg");  mask-image: url("../img/icons/camping-tent.svg"); }
+
+/* night: near-black silhouettes with a faint warm glow behind them */
+body[data-phase="night"] .sv { background: #04060b; opacity: 0.95; }
+body[data-phase="night"] .scene-village { filter: drop-shadow(0 0 22px rgba(255, 168, 64, 0.25)); }
+/* day: the village sits back in the haze */
+body[data-phase="day"] .sv { background: rgba(64, 80, 52, 0.5); opacity: 0.85; }
+/* between matches / lobby: keep them as scenery */
+body:not([data-phase="day"]):not([data-phase="night"]) .sv { background: rgba(10, 12, 20, 0.85); opacity: 0.8; }
+body:not([data-phase="day"]):not([data-phase="night"]) .scene-village { filter: drop-shadow(0 0 18px rgba(120, 150, 220, 0.18)); }
+
+/* ================= E. THE HALL'S HEARTH (atmosphere art in use) ================= */
+#hall-hero { position: relative; }
+#hall-hero::before,
+#hall-hero::after {
+    content: ''; position: absolute; bottom: 6px;
+    width: 40px; height: 46px; pointer-events: none; opacity: 0.75;
+    -webkit-mask-size: contain; mask-size: contain;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: bottom center; mask-position: bottom center;
+    background: linear-gradient(180deg, #ffdf9a, #a8761f);
+}
+#hall-hero::before { left: 10px;  -webkit-mask-image: url("../img/icons/candles.svg");   mask-image: url("../img/icons/candles.svg"); }
+#hall-hero::after  { right: 10px; -webkit-mask-image: url("../img/icons/fireplace.svg"); mask-image: url("../img/icons/fireplace.svg"); }
+
+@media (prefers-reduced-motion: reduce) {
+    body[data-phase="night"] .fog { animation: none; }
+}
+
+/* Literal glyph in the cancel button: guaranteed visible, no icon-font dependency. */
+.chat-cancel-btn { font-size: 1rem; font-weight: 800; line-height: 1; color: inherit; opacity: 0.8; }
+.chat-cancel-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
+.chat-close-btn { display: flex; align-items: center; justify-content: center; }

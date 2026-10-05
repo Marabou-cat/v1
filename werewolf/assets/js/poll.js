@@ -96,12 +96,20 @@
                             const html = fresh.map(m => `
                                 <div class="chat-message"><span class="sender">${esc(m.sender_name)}:</span> ${m.message}</div>
                             `).join('');
+                            // Collapsed chat: preview line + unread badge (client-side only).
+                            if (typeof noteChatActivity === 'function') {
+                                const lm = fresh[fresh.length - 1] || lastM;
+                                if (lm) noteChatActivity(lm.message, lm.sender_name, lm.sender_name === state.nickname);
+                            }
                             if (html) chatMsgs.insertAdjacentHTML('beforeend', html);
                         } else {
                             // Reset (new match), window shift, first paint, or
                             // near the 50-cap: full rebuild, statically (no
                             // entrance animation replay on the history)
                             chatMsgs.innerHTML = data.messages.map(m => `<div class="chat-message no-anim"><span class="sender">${esc(m.sender_name)}:</span> ${m.message}</div>`).join('');
+                        }
+                        if (typeof noteChatActivity === 'function' && lastM && lastM.message) {
+                            noteChatActivity(lastM.message, lastM.sender_name, lastM.sender_name === state.nickname);
                         }
                         chatMsgs.dataset.lastCount = total;
                         chatMsgs.dataset.lastSig = lastSig;
