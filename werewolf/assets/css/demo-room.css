@@ -1,0 +1,334 @@
+/* =========================================================================
+   werewolf / demo-room.css — the werewolf-demo.html game room, wired to the
+   REAL backend.  Loaded ONLY by index-demo.html; the live index.html and
+   index-layout.html keep loading room.css, so nothing here touches them.
+
+   Everything is scoped to  #view-game.dmode  and  .d-*  classes, and the
+   markup is authored from the standalone demo — NOT from index.html's room.
+   ========================================================================= */
+
+#view-game.dmode {
+    --d-panel: rgba(13, 14, 20, 0.78);
+    --d-panel-solid: #0d0e14;
+    --d-line: #1a1d26;
+    --d-line-soft: rgba(255, 255, 255, 0.08);
+    --d-ink: #04050a;
+    --d-txt: #e6e9f2;
+    --d-muted: #8c92a4;
+    --d-red: #e60012;
+    --d-gold: #ffcc00;
+    --d-green: #38ef7d;
+    --d-blue: #38bdf8;
+    --d-btn-face: linear-gradient(180deg, #3d4252 0%, #262a36 100%);
+    --d-hs: 0 10px 26px rgba(0, 0, 0, 0.55);
+    --d-hs-sm: 0 5px 14px rgba(0, 0, 0, 0.45);
+
+    display: flex; flex-direction: column; align-items: stretch;
+    padding: 0; height: 100dvh; max-height: 100dvh; overflow: hidden;
+    color: var(--d-txt);
+}
+
+/* The auth bar is noise inside a match (room.css did this for the live page). */
+body:has(#view-game.dmode:not(.hidden)) #auth-bar,
+body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !important; }
+
+#view-game.dmode .d-room { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; width: 100%; }
+
+/* ================= TOP BAR ================= */
+#view-game.dmode .d-top {
+    flex: none; display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+    background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%);
+    border-bottom: 2px solid var(--d-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), var(--d-hs-sm);
+}
+#view-game.dmode .d-brand { display: flex; align-items: center; gap: 10px; font-family: 'Cinzel', serif; font-weight: 900; font-size: 1.02rem; letter-spacing: 0.5px; }
+#view-game.dmode .d-brand .d-logo { width: 26px; height: 26px; object-fit: contain; }
+#view-game.dmode .d-brand small { display: block; font-size: 0.62rem; font-weight: 800; letter-spacing: 1.6px; color: var(--d-muted); text-transform: uppercase; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+#view-game.dmode .d-brand small b { color: var(--d-gold); }
+#view-game.dmode .d-phase { flex: 1; display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; }
+#view-game.dmode .d-phase .pb-ico {
+    width: 34px; height: 34px; flex: none;
+    -webkit-mask-size: contain; mask-size: contain;
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center; mask-position: center;
+    background: var(--d-gold);
+}
+#view-game.dmode .d-ptxt { display: flex; flex-direction: column; align-items: center; line-height: 1.12; min-width: 0; }
+#view-game.dmode .d-ptxt b { font-family: 'Cinzel', serif; font-size: 1.4rem; letter-spacing: 2px; color: var(--d-gold); font-weight: 700; text-transform: uppercase; text-shadow: 0 0 14px rgba(230, 0, 18, 0.35); }
+#view-game.dmode .d-ptxt small { display: block; text-align: center; font-size: 0.64rem; color: var(--d-muted); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
+#view-game.dmode .d-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+#view-game.dmode .d-pill {
+    display: flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 10px;
+    background: var(--d-btn-face); border: 1px solid var(--d-ink); border-bottom: 2px solid var(--d-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), var(--d-hs-sm); font-size: 0.76rem; font-weight: 800;
+}
+#view-game.dmode .d-pill b { color: var(--d-green); }
+#view-game.dmode .d-icon-btn {
+    width: 36px; height: 36px; border-radius: 10px; background: var(--d-btn-face);
+    border: 1px solid var(--d-ink); border-bottom: 3px solid var(--d-ink); color: var(--d-txt);
+    font-size: 1rem; display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), var(--d-hs-sm);
+    transition: transform 0.06s ease, border-bottom-width 0.06s ease; cursor: pointer;
+}
+#view-game.dmode .d-icon-btn:hover { background: linear-gradient(180deg, #474d5e 0%, #2e3340 100%); }
+#view-game.dmode .d-icon-btn:active { transform: translateY(2px); border-bottom-width: 1px; }
+#view-game.dmode .d-icon-btn.off { opacity: 0.4; filter: grayscale(0.8); }
+
+/* ================= TIMELINE ================= */
+#view-game.dmode .d-progress {
+    flex: none; display: flex; align-items: center; margin: 10px 16px 0; padding: 8px 14px;
+    background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%);
+    border: 1px solid var(--d-line-soft); border-radius: 12px; overflow-x: auto;
+}
+#view-game.dmode .d-progress .pstep { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; }
+#view-game.dmode .d-progress .node { width: 11px; height: 11px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: 1px solid var(--d-line); }
+#view-game.dmode .d-progress .node.done { background: var(--d-gold); border-color: var(--d-gold); }
+#view-game.dmode .d-progress .node.current { background: var(--d-red); border-color: var(--d-red); box-shadow: 0 0 0 3px rgba(230, 0, 18, 0.25); animation: dnodePulse 1.5s ease-in-out infinite; }
+#view-game.dmode .d-progress .plabel { font-size: 0.5rem; font-weight: 800; letter-spacing: 0.6px; color: var(--d-muted); text-transform: uppercase; white-space: nowrap; }
+#view-game.dmode .d-progress .plabel.current { color: var(--d-red); }
+#view-game.dmode .d-progress .pline { flex: 1 1 auto; height: 2px; background: rgba(255, 255, 255, 0.1); margin: 0 8px 11px; min-width: 10px; }
+#view-game.dmode .d-progress .pline.done { background: var(--d-gold); opacity: 0.6; }
+@keyframes dnodePulse { 0%, 100% { box-shadow: 0 0 0 2px rgba(230, 0, 18, 0.28); } 50% { box-shadow: 0 0 0 6px rgba(230, 0, 18, 0.1); } }
+
+/* ================= BODY: role float + two rails ================= */
+#view-game.dmode .d-grid {
+    flex: 1 1 auto; min-height: 0; position: relative; width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto;   /* row1 = your cards, row2 = players */
+    column-gap: 180px; row-gap: 10px; padding: 12px 16px 8px;
+    overflow: auto;                  /* the BOARD scrolls, so rails stay unclipped
+                                        and the speech bubbles can float outward */
+}
+#view-game.dmode .d-col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; overflow: visible; }
+#view-game.dmode .d-col-left { grid-column: 1; grid-row: 2; justify-self: start; width: 236px; }
+#view-game.dmode .d-col-right { grid-column: 2; grid-row: 2; justify-self: end; width: 236px; }
+#view-game.dmode .d-head {
+    display: flex; align-items: center; gap: 8px; padding-bottom: 8px; flex: none;
+    border-bottom: 1px solid var(--d-line-soft); font-size: 0.68rem; font-weight: 800;
+    letter-spacing: 1.6px; text-transform: uppercase; color: var(--d-muted);
+}
+#view-game.dmode .d-head span { white-space: normal; word-break: break-word; min-width: 0; line-height: 1.25; }
+#view-game.dmode .d-head b { margin-left: auto; color: var(--d-gold); font-size: 0.78rem; background: rgba(255, 204, 0, 0.12); border: 1px solid rgba(255, 204, 0, 0.4); border-radius: 8px; padding: 1px 7px; flex: none; }
+#view-game.dmode .d-players { list-style: none; margin: 0; padding: 6px 0 2px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ---- player card (the demo's .pcard) ---- */
+#view-game.dmode .d-pcard {
+    display: flex; align-items: center; gap: 9px; padding: 8px 10px; position: relative;
+    width: 100%; flex: none; border-radius: 12px;
+    background: linear-gradient(180deg, #191c25 0%, #10121a 100%);
+    border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), var(--d-hs-sm);
+    transition: transform 0.08s ease, border-bottom-width 0.08s ease;
+}
+#view-game.dmode .d-pcard:hover { background: linear-gradient(180deg, #20232e 0%, #14161f 100%); }
+#view-game.dmode .d-pcard.dead { opacity: 0.5; filter: grayscale(1); }
+#view-game.dmode .d-pcard.me { border-color: var(--d-gold); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 2px var(--d-gold), var(--d-hs-sm); }
+#view-game.dmode .d-pcard.selected { border-color: var(--d-red); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 2px var(--d-red), var(--d-hs-sm); }
+#view-game.dmode .d-pcard.just-acted { animation: dPulse 0.6s ease; }
+@keyframes dPulse { 0%, 100% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), var(--d-hs-sm); } 40% { box-shadow: 0 0 0 3px rgba(230, 0, 18, 0.6), var(--d-hs-sm); } }
+#view-game.dmode .d-pnum { flex: none; width: 16px; text-align: center; font-size: 0.6rem; color: var(--d-muted); font-weight: 800; }
+#view-game.dmode .d-pava { flex: none; width: 34px; height: 34px; line-height: 0; }
+#view-game.dmode .d-pava .avatar { width: 34px !important; height: 34px !important; }
+#view-game.dmode .d-pava .avatar img { width: 100%; height: 100%; object-fit: cover; }
+#view-game.dmode .d-pbody { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#view-game.dmode .d-pname { font-weight: 800; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
+#view-game.dmode .d-pmeta { display: flex; align-items: center; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+#view-game.dmode .d-chip { font-size: 0.5rem; font-weight: 800; letter-spacing: 0.6px; padding: 1px 6px; border-radius: 20px; border: 2px solid transparent; }
+#view-game.dmode .d-chip.alive { color: var(--d-green); background: rgba(56, 239, 125, 0.12); border-color: rgba(56, 239, 125, 0.4); }
+#view-game.dmode .d-chip.dead { color: var(--d-red); background: rgba(230, 0, 18, 0.12); border-color: rgba(230, 0, 18, 0.4); }
+#view-game.dmode .d-chip.you { color: #1a1205; background: var(--d-gold); border-color: var(--d-gold); }
+#view-game.dmode .d-chip.wolf { color: #fff; background: var(--d-red); border-color: var(--d-red); }
+#view-game.dmode .d-chip.seer { color: var(--d-blue); background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.4); }
+#view-game.dmode .d-chip.pack { color: #fff; background: var(--d-red); border-color: var(--d-red); }
+#view-game.dmode .d-chip.vote { color: var(--d-gold); background: rgba(255, 204, 0, 0.12); border-color: rgba(255, 204, 0, 0.4); }
+#view-game.dmode .d-chip.distrust { color: #fca5a5; background: rgba(230, 0, 18, 0.14); border-color: rgba(230, 0, 18, 0.45); }
+#view-game.dmode .d-hp { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+#view-game.dmode .d-hp-track { flex: 1; min-width: 40px; height: 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+#view-game.dmode .d-hp-fill { display: block; height: 100%; background: var(--d-green); }
+#view-game.dmode .d-hp-fill.mid { background: var(--d-gold); }
+#view-game.dmode .d-hp-fill.low { background: var(--d-red); }
+#view-game.dmode .d-hp-num { font-size: 0.56rem; font-weight: 800; color: var(--d-muted); }
+
+/* the per-target action button (poll.js buildExtra) lives at the card's foot */
+#view-game.dmode .d-pcard .btn-action { margin: 0; margin-left: auto; flex: none; }
+#view-game.dmode .d-pcard > .btn-action { flex: none; }
+
+/* ---- floating speech bubble into the empty middle ---- */
+#view-game.dmode .d-pbubble {
+    position: absolute; top: 4px; width: 190px; z-index: 20;
+    padding: 8px 12px; border-radius: 12px; font-size: 0.72rem; line-height: 1.4; font-weight: 600; color: #e6e9f2;
+    word-break: break-word; background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%);
+    border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), var(--d-hs);
+}
+#view-game.dmode .d-col-left .d-pbubble { left: calc(100% + 20px); }
+#view-game.dmode .d-col-right .d-pbubble { right: calc(100% + 20px); }
+#view-game.dmode .d-col-left .d-pbubble::after {
+    content: ''; position: absolute; top: 15px; left: -8px; width: 13px; height: 13px;
+    background: #0c0d13; border-left: 1px solid var(--d-line); border-bottom: 1px solid var(--d-line); transform: rotate(45deg);
+}
+#view-game.dmode .d-col-right .d-pbubble::after {
+    content: ''; position: absolute; top: 15px; right: -8px; width: 13px; height: 13px;
+    background: #0c0d13; border-right: 1px solid var(--d-line); border-top: 1px solid var(--d-line); transform: rotate(45deg);
+}
+
+/* ================= ROLE CARD (flippable, top-left) + TEAM + VOICE ================= */
+#view-game.dmode .d-role-float { grid-column: 1 / -1; grid-row: 1; position: static; justify-self: start; align-self: start; z-index: 30; display: flex; flex-direction: row; align-items: flex-start; gap: 12px; }
+#view-game.dmode .d-role-flip { perspective: 900px; cursor: pointer; width: 210px; flex: none; }
+#view-game.dmode .d-flip-inner { position: relative; width: 100%; transform-style: preserve-3d; transition: transform 0.45s cubic-bezier(0.4, 0.2, 0.2, 1); }
+#view-game.dmode .d-role-flip.flipped .d-flip-inner { transform: rotateY(180deg); }
+#view-game.dmode .d-role-card {
+    margin: 0; padding: 12px 14px; min-height: 138px; border-radius: 16px;
+    border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink);
+    background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--d-hs);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+#view-game.dmode .d-role-card .d-rl { font-size: 0.56rem; letter-spacing: 2.4px; color: var(--d-muted); font-weight: 800; text-transform: uppercase; }
+#view-game.dmode .d-role-card .d-rn { display: flex; align-items: center; gap: 9px; font-family: 'Cinzel', serif; font-size: 1.2rem; font-weight: 700; letter-spacing: 1.2px; }
+#view-game.dmode .d-role-card .d-rn .role-ico { width: 34px; height: 34px; }
+#view-game.dmode .d-role-card .d-rg { font-size: 0.72rem; color: var(--d-muted); font-weight: 600; line-height: 1.35; }
+#view-game.dmode .d-role-card .d-ra { font-size: 0.62rem; color: var(--d-muted); font-weight: 600; opacity: 0.85; line-height: 1.35; }
+#view-game.dmode .d-role-card.is-wolf { background: linear-gradient(180deg, #4a0a12 0%, #2a060c 100%); border-color: var(--d-red); border-bottom-color: var(--d-red); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 2px rgba(230, 0, 18, 0.35), var(--d-hs); }
+#view-game.dmode .d-role-card.is-wolf .d-rn, #view-game.dmode .d-role-card.is-wolf .d-rl { color: #ff9a9a; }
+#view-game.dmode .d-role-back {
+    position: absolute; inset: 0; transform: rotateY(180deg);
+    background: repeating-linear-gradient(45deg, #0a0c12 0 9px, #10131c 9px 18px);
+    gap: 8px;
+}
+#view-game.dmode .d-role-back .d-rb-moon { width: 46px; height: 46px; color: #7c8496; }
+#view-game.dmode .d-role-back .d-rb-txt { font-family: 'Cinzel', serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 2.5px; color: #7c8496; }
+
+#view-game.dmode .d-team {
+    flex: 1; min-width: 0; max-width: 230px; padding: 12px 14px; border-radius: 16px;
+    background: linear-gradient(180deg, #2c0a10 0%, #19060a 100%);
+    border: 1px solid var(--d-red); border-bottom: 2px solid var(--d-red);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--d-hs);
+}
+#view-game.dmode .d-team .d-thead { font-size: 0.62rem; letter-spacing: 1.8px; font-weight: 800; text-transform: uppercase; color: var(--d-red); margin-bottom: 9px; }
+#view-game.dmode .d-team .gt-item { display: flex; align-items: center; gap: 9px; padding: 5px 0; }
+#view-game.dmode .d-team .gt-item .avatar { width: 30px !important; height: 30px !important; }
+#view-game.dmode .d-team .gt-item b { font-size: 0.8rem; font-weight: 700; }
+#view-game.dmode .d-team .gt-item .gt-tag { margin-left: auto; font-size: 0.56rem; letter-spacing: 1px; font-weight: 800; color: var(--d-red); }
+
+#view-game.dmode .d-voice {
+    flex: none; width: 210px; padding: 12px 14px; border-radius: 16px;
+    background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%);
+    border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--d-hs);
+    display: flex; flex-direction: column; gap: 8px;
+}
+#view-game.dmode .d-voice .d-vtitle { display: flex; align-items: center; gap: 7px; font-size: 0.6rem; letter-spacing: 1.8px; text-transform: uppercase; color: var(--d-gold); font-weight: 800; }
+#view-game.dmode .d-voice #voice-label { font-size: 0.68rem; color: var(--d-muted); font-weight: 700; min-height: 1em; }
+#view-game.dmode .d-voice .voice-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
+    padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 0.74rem;
+    background: var(--d-btn-face); border: 1px solid var(--d-ink); border-bottom: 3px solid var(--d-ink);
+    color: var(--d-txt); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), var(--d-hs-sm);
+}
+#view-game.dmode .d-voice .voice-btn.voicing { background: linear-gradient(180deg, #ff2a3c 0%, #c4000f 100%); border-color: #7a000a; }
+
+/* ================= BOTTOM: chat + action ================= */
+#view-game.dmode .d-bottom { flex: none; padding: 10px 16px 12px; display: flex; flex-direction: column; gap: 10px; }
+#view-game.dmode .d-chat-panel {
+    display: flex; flex-direction: column; max-height: 30vh; overflow: hidden;
+    background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%);
+    border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink); border-radius: 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--d-hs);
+}
+#view-game.dmode .d-chat-head { flex: none; padding: 9px 14px; border-bottom: 1px solid var(--d-line-soft); font-size: 0.66rem; font-weight: 800; letter-spacing: 1.6px; text-transform: uppercase; color: var(--d-muted); }
+#view-game.dmode .d-chat-msgs { flex: 1 1 auto; min-height: 52px; max-height: 22vh; overflow-y: auto; padding: 11px 14px; display: flex; flex-direction: column; gap: 9px; }
+#view-game.dmode .d-msg, #view-game.dmode .d-chat-msgs .chat-message { display: flex; gap: 9px; max-width: 82%; }
+#view-game.dmode .d-msg.mine, #view-game.dmode .d-chat-msgs .chat-message.mine { margin-left: auto; flex-direction: row-reverse; }
+#view-game.dmode .d-mav, #view-game.dmode .d-chat-msgs .cm-av { flex: none; width: 26px; height: 26px; line-height: 0; }
+#view-game.dmode .d-mav .avatar, #view-game.dmode .d-chat-msgs .cm-av .avatar { width: 26px !important; height: 26px !important; }
+#view-game.dmode .d-mbody { min-width: 0; }
+#view-game.dmode .d-mhead { display: block; font-size: 0.6rem; color: var(--d-muted); font-weight: 700; margin-bottom: 2px; }
+#view-game.dmode .d-mhead b { color: #e2e8f0; }
+#view-game.dmode .d-msg.mine .d-mhead { text-align: right; }
+#view-game.dmode .d-mtext, #view-game.dmode .d-chat-msgs .cm-text {
+    display: inline-block; padding: 7px 11px; border-radius: 11px; font-size: 0.8rem; line-height: 1.4; word-break: break-word;
+    background: linear-gradient(180deg, #161922 0%, #0d0f16 100%); border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink);
+}
+#view-game.dmode .d-msg.mine .d-mtext { background: rgba(255, 204, 0, 0.12); border-color: rgba(255, 204, 0, 0.4); }
+#view-game.dmode .d-msg.sys .d-mtext { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.4); }
+#view-game.dmode .d-chat-msgs .sender { font-weight: 700; color: var(--d-muted); margin-right: 5px; }
+#view-game.dmode .d-chat-input { flex: none; display: flex; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--d-line-soft); align-items: stretch; }
+#view-game.dmode .d-chat-input input {
+    flex: 1 1 auto; min-width: 0; padding: 10px 13px; border-radius: 11px; color: #f1f5f9; font-size: 0.84rem; font-weight: 600;
+    background: rgba(6, 7, 11, 0.9); border: 1px solid var(--d-ink); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
+}
+#view-game.dmode .d-chat-input input:focus { outline: none; border-color: var(--d-gold); }
+#view-game.dmode .d-send, #view-game.dmode .d-skip {
+    padding: 0 18px; border-radius: 11px; color: #fff; font-weight: 800; letter-spacing: 0.4px; cursor: pointer;
+    border: 1px solid #7a000a; border-bottom: 4px solid #7a000a;
+    background: linear-gradient(180deg, #ff2a3c 0%, #c4000f 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), var(--d-hs-sm);
+    transition: transform 0.06s ease, border-bottom-width 0.06s ease;
+}
+#view-game.dmode .d-skip { padding: 0 14px; background: var(--d-btn-face); border-color: var(--d-ink); border-bottom-color: var(--d-ink); }
+#view-game.dmode .d-send:active, #view-game.dmode .d-skip:active { transform: translateY(2px); border-bottom-width: 1px; }
+
+/* ---- action / skill bar ---- */
+#view-game.dmode .d-action, #view-game.dmode #skill-panel {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%);
+    border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink); border-radius: 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--d-hs);
+}
+#view-game.dmode #skill-panel .d-alabel { flex: none; font-size: 0.62rem; letter-spacing: 1.6px; font-weight: 800; text-transform: uppercase; color: var(--d-muted); }
+#view-game.dmode #skill-panel .d-aprompt { flex: 1; font-size: 0.84rem; font-weight: 700; color: #e2e8f0; min-width: 0; }
+#view-game.dmode #skill-panel .d-aprompt b { color: #ff8a8a; }
+#view-game.dmode #skill-panel .d-seer-hp { color: var(--d-muted); }
+
+/* ================= SHARED BUTTONS (action classes from the real game) ================= */
+#view-game.dmode .btn-action {
+    padding: 7px 13px; border-radius: 10px; cursor: pointer;
+    background: var(--d-btn-face); border: 1px solid var(--d-ink); border-bottom: 3px solid var(--d-ink);
+    color: #e2e8f0; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.3px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), var(--d-hs-sm);
+    transition: transform 0.06s ease, border-bottom-width 0.06s ease;
+    display: inline-flex; align-items: center; gap: 6px;
+}
+#view-game.dmode .btn-action:hover { background: linear-gradient(180deg, #474d5e 0%, #2e3340 100%); }
+#view-game.dmode .btn-action:active { transform: translateY(2px); border-bottom-width: 1px; }
+#view-game.dmode .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+#view-game.dmode .btn-action.btn-kill { background: linear-gradient(180deg, #ff2a3c 0%, #c4000f 100%); border-color: #7a000a; color: #fff; }
+#view-game.dmode .btn-action.btn-voted, #view-game.dmode .btn-action.choice-picked { background: rgba(56, 239, 125, 0.16); border-color: rgba(56, 239, 125, 0.5); color: var(--d-green); }
+#view-game.dmode .btn-action.choice-locked { opacity: 0.4; }
+
+/* toast (flashInfo #toast / scene.js #toast-wrap) */
+#toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 200; pointer-events: none; }
+#toast.show { display: flex; }
+#toast-wrap { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+#view-game.dmode ~ #toast-wrap .toast, .toast {
+    display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px;
+    background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%); border: 1px solid var(--d-line);
+    border-bottom: 2px solid var(--d-ink); box-shadow: var(--d-hs); font-size: 0.78rem; font-weight: 700;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 1080px) {
+    #view-game.dmode .d-grid { column-gap: 60px; }
+    #view-game.dmode .d-role-flip { width: 190px; }
+}
+@media (max-width: 820px) {
+    #view-game.dmode .d-grid { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr); column-gap: 0; row-gap: 12px; }
+    #view-game.dmode .d-col-left { grid-column: 1; grid-row: 2; justify-self: stretch; width: 100%; }
+    #view-game.dmode .d-col-right { grid-column: 1; grid-row: 3; justify-self: stretch; width: 100%; }
+    #view-game.dmode .d-pbubble { display: none; }
+    #view-game.dmode .d-role-float { flex-wrap: wrap; }
+    #view-game.dmode .d-team { max-width: none; }
+    #view-game.dmode .d-ptxt b { font-size: 1.15rem; }
+}
+@media (max-width: 560px) {
+    #view-game.dmode { height: auto; min-height: 100dvh; overflow-y: auto; }
+    #view-game.dmode .d-grid { overflow: visible; grid-template-rows: auto auto auto; }
+    #view-game.dmode .d-col { overflow: visible; }
+    #view-game.dmode .d-role-float { gap: 8px; }
+    #view-game.dmode .d-role-flip { width: 165px; }
+    #view-game.dmode .d-voice { width: 150px; }
+    #view-game.dmode .d-top { flex-wrap: wrap; gap: 8px; }
+}
