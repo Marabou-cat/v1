@@ -57,6 +57,12 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 #view-game.dmode .d-ptxt b { font-family: 'Cinzel', serif; font-size: 1.4rem; letter-spacing: 2px; color: var(--d-gold); font-weight: 700; text-transform: uppercase; text-shadow: 0 0 14px rgba(230, 0, 18, 0.35); }
 #view-game.dmode .d-ptxt small { display: block; text-align: center; font-size: 0.64rem; color: var(--d-muted); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
 #view-game.dmode .d-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+#view-game.dmode .d-phase .timer-badge {
+    flex: none; display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 9px; border-radius: 9px; font-size: 0.68rem; font-weight: 800;
+    color: #1a1205; background: var(--d-gold); border: 1px solid var(--d-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), var(--d-hs-sm);
+}
 #view-game.dmode .d-pill {
     display: flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 10px;
     background: var(--d-btn-face); border: 1px solid var(--d-ink); border-bottom: 2px solid var(--d-ink);
@@ -142,7 +148,7 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 #view-game.dmode .d-pname { font-weight: 800; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
 /* chips get their OWN full-width row — the card can never grow thicker than 2 rows */
 #view-game.dmode .d-pmeta { flex: 1 0 100%; display: flex; align-items: center; gap: 4px; margin-top: 5px; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
-#view-game.dmode .d-chip { font-size: 0.5rem; font-weight: 800; letter-spacing: 0.6px; padding: 1px 6px; border-radius: 20px; border: 2px solid transparent; white-space: nowrap; flex: none; }
+#view-game.dmode .d-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 0.5rem; font-weight: 800; letter-spacing: 0.6px; padding: 1px 6px; border-radius: 20px; border: 2px solid transparent; white-space: nowrap; flex: none; }
 #view-game.dmode .d-chip.alive { color: var(--d-green); background: rgba(56, 239, 125, 0.12); border-color: rgba(56, 239, 125, 0.4); }
 #view-game.dmode .d-chip.dead { color: var(--d-red); background: rgba(230, 0, 18, 0.12); border-color: rgba(230, 0, 18, 0.4); }
 #view-game.dmode .d-chip.you { color: #1a1205; background: var(--d-gold); border-color: var(--d-gold); }

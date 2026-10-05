@@ -27,7 +27,8 @@
                 if (badge) {
                     if (state.inPreNightChat && rem > 0) {
                         badge.style.display = 'inline-block';
-                        badge.innerText = `⏱️ ${rem}s`;
+                        badge.innerHTML = `<i data-lucide="clock" size="11"></i> ${rem}s`;
+                if (window.lucide) lucide.createIcons();
                     } else {
                         badge.style.display = 'none';
                     }

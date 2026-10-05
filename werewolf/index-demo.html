@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="assets/css/responsive.css">
     <link rel="stylesheet" href="assets/css/hall.css">
     <link rel="stylesheet" href="assets/css/scene.css">
-    <link rel="stylesheet" href="assets/css/demo-room.css?v=5">
+    <link rel="stylesheet" href="assets/css/demo-room.css?v=7">
 </head>
 <body data-phase="menu">
 
@@ -290,6 +290,8 @@
                             <b id="game-phase-text">Lobby</b>
                             <small id="game-phase-sub">Waiting for players...</small>
                         </span>
+                        <!-- pre-night 15s chat countdown (chat-timer.js writes here) -->
+                        <span id="chat-timer-badge" class="timer-badge" style="display:none;"></span>
                     </div>
                     <div class="d-actions">
                         <span class="d-pill" title="alive / total">
@@ -396,7 +398,7 @@
     <!-- You-died card: exit or spectate -->
     <div id="death-overlay" class="death-overlay">
         <div class="death-card">
-            <div class="death-skull">☠</div>
+            <div class="death-skull"><i data-lucide="skull" size="70"></i></div>
             <h2 class="death-title">You Have Died</h2>
             <p class="death-sub">You were killed during the night.</p>
             <div class="death-actions">
@@ -582,6 +584,6 @@
     <script src="assets/js/hall.js"></script>
     <script src="assets/js/scene.js"></script>
     <script src="assets/js/init.js"></script>
-    <script src="assets/js/demo-room.js?v=5"></script>
+    <script src="assets/js/demo-room.js?v=7"></script>
 </body>
 </html>

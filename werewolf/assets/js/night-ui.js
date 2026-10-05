@@ -74,19 +74,19 @@
             if (v.chaos) {
                 if (v.outcome === 'exiled') {
                     el.classList.add('lynched');
-                    icon.innerText = '⚖️';
+                    icon.innerHTML = '<i data-lucide="scale" size="52"></i>';
                     title.innerText = (v.name || 'Someone') + ' was driven out';
                     sub.innerText = 'Distrust hit 100%. They were a ' + (v.role || '?') + '.';
                     playSound('lynch');
                 } else if (v.outcome === 'quiet') {
                     el.classList.add('skip');
-                    icon.innerText = '🕊️';
+                    icon.innerHTML = '<i data-lucide="feather" size="52"></i>';
                     title.innerText = 'Nobody was accused';
                     sub.innerText = 'Every distrust meter faded back to zero.';
                     playSound('ui_confirm');
                 } else {
                     el.classList.add('tie');
-                    icon.innerText = '⚖️';
+                    icon.innerHTML = '<i data-lucide="scale" size="52"></i>';
                     title.innerText = 'Distrust rises';
                     const top = (v.burning && v.burning.length)
                         ? v.burning.map(function (b) { return b.name + ' ' + Math.round(b.distrust) + '%'; }).join(' · ')
@@ -95,6 +95,7 @@
                         + (top ? ' ' + top : '');
                     playSound('ui_confirm');
                 }
+                if (window.lucide) lucide.createIcons();
                 el.classList.add('show');
                 clearTimeout(state.voteCutsceneTimer);
                 state.voteCutsceneTimer = setTimeout(() => el.classList.remove('show'), 3200);
@@ -102,22 +103,23 @@
             }
             if (v.outcome === 'lynched') {
                 el.classList.add('lynched');
-                icon.innerText = '⚖️';
+                icon.innerHTML = '<i data-lucide="scale" size="52"></i>';
                 title.innerText = (v.name || 'Someone') + ' was executed';
                 sub.innerText = 'The village voted them out. They were a ' + (v.role || '?') + '.';
                 playSound('lynch');
             } else if (v.outcome === 'tie') {
                 el.classList.add('tie');
-                icon.innerText = '🤝';
+                icon.innerHTML = '<i data-lucide="handshake" size="52"></i>';
                 title.innerText = 'The vote was tied';
                 sub.innerText = (v.tied || 2) + ' players shared the most votes — nobody was executed.';
                 playSound('ui_confirm');
             } else {
                 el.classList.add('skip');
-                icon.innerText = '🕊️';
+                icon.innerHTML = '<i data-lucide="feather" size="52"></i>';
                 title.innerText = 'The village abstained';
                 sub.innerText = (v.skipped || 0) + ' abstained — nobody was executed.';
             }
+            if (window.lucide) lucide.createIcons();
             el.classList.add('show');
             clearTimeout(state.voteCutsceneTimer);
             state.voteCutsceneTimer = setTimeout(() => el.classList.remove('show'), 3200);

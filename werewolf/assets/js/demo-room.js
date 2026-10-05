@@ -28,7 +28,7 @@ function dPlayerCard(p, data, extra, index, noAnim) {
     if (noAnim) cls.push('no-anim');
 
     const chips = [];
-    if (!alive) chips.push('<span class="d-chip dead">✕ DEAD</span>');
+    if (!alive) chips.push('<span class="d-chip dead"><i data-lucide="skull" size="11"></i> DEAD</span>');
     if (isMe) chips.push('<span class="d-chip you">YOU</span>');
     if (p.is_wolf) chips.push('<span class="d-chip pack">PACK</span>');
 
@@ -38,12 +38,12 @@ function dPlayerCard(p, data, extra, index, noAnim) {
     if (revealed) chips.push('<span class="d-chip ' + dRoleChipClass(revealed) + '">' + esc(revealed) + '</span>');
 
     if (data.room_status === 'day') {
-        if (data.my_vote_id === p.id) chips.push('<span class="d-chip vote">YOUR VOTE</span>');
-        if (p.votes > 0) chips.push('<span class="d-chip vote">🗳 ' + p.votes + '</span>');
+        if (data.my_vote_id === p.id) chips.push('<span class="d-chip vote"><i data-lucide="vote" size="11"></i> YOUR VOTE</span>');
+        if (p.votes > 0) chips.push('<span class="d-chip vote"><i data-lucide="vote" size="11"></i> ' + p.votes + '</span>');
     }
     // Chaos Night: distrust is public; HP only ever reaches its own seat.
     if (p.distrust !== null && p.distrust !== undefined) {
-        chips.push('<span class="d-chip distrust" title="Public distrust">⚖ ' + Math.round(p.distrust) + '%</span>');
+        chips.push('<span class="d-chip distrust" title="Public distrust"><i data-lucide="scale" size="11"></i> ' + Math.round(p.distrust) + '%</span>');
     }
     let hp = '';
     if (data.mode === 'chaos' && data.room_status !== 'ended' && p.hp !== null && p.hp !== undefined) {
@@ -234,7 +234,7 @@ function renderSkillPanel(data) {
 
     // Villager / Doctor (classic): tap Sleep — everyone taps, masking who acted.
     if ((data.my_role === 'Villager' || data.my_role === 'Doctor') && data.mode !== 'chaos') {
-        if (data.my_asleep) { show(label('Night') + '<span class="d-aprompt">😴 You are asleep. Waiting for the night to pass…</span>'); return; }
+        if (data.my_asleep) { show(label('Night') + '<span class="d-aprompt"><i data-lucide="moon" size="15"></i> You are asleep. Waiting for the night to pass…</span>'); return; }
         show(label('Night')
             + '<span class="d-aprompt">Bunk down — tap Sleep to get through the night.</span>'
             + '<button class="btn-action" onclick="submitSleep()"><i data-lucide="moon" size="16"></i> Sleep</button>');
@@ -267,17 +267,17 @@ function renderSkillPanel(data) {
         const isWolf = data.my_seer_result === 'wolf';
         show(label('Night')
             + '<span class="d-aprompt">Your vision of <b>' + esc(data.my_seer_target_name) + '</b>: '
-            + '<b style="color:' + (isWolf ? '#ff4d4d' : '#38bdf8') + '">' + (isWolf ? 'WEREWOLF 🐺' : 'not a werewolf ✅') + '</b></span>');
+            + '<b style="color:' + (isWolf ? '#ff4d4d' : '#38bdf8') + '">' + (isWolf ? '<i data-lucide="paw-print" size="15"></i> WEREWOLF' : '<i data-lucide="shield-check" size="15"></i> not a werewolf') + '</b></span>');
         return;
     }
 
     // Werewolf / Seer mid-action: a short status line.
     if (data.my_role === 'Werewolf') {
-        show(label('Night') + '<span class="d-aprompt">' + (data.has_voted ? '🔒 Target locked in — waiting for the others…' : 'Choose a player to eliminate.') + '</span>');
+        show(label('Night') + '<span class="d-aprompt">' + (data.has_voted ? '<i data-lucide="lock" size="15"></i> Target locked in — waiting for the others…' : 'Choose a player to eliminate.') + '</span>');
         return;
     }
     if (data.my_role === 'Seer') {
-        show(label('Night') + '<span class="d-aprompt">' + (data.my_check_target ? '🔮 Divination complete — waiting for the others…' : 'Choose a player to divine.') + '</span>');
+        show(label('Night') + '<span class="d-aprompt">' + (data.my_check_target ? '<i data-lucide="eye" size="15"></i> Divination complete — waiting for the others…' : 'Choose a player to divine.') + '</span>');
         return;
     }
 

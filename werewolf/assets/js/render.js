@@ -50,7 +50,7 @@
             if (p.distrust !== null && p.distrust !== undefined) {
                 const d = Math.round(p.distrust);
                 const dc = d >= 67 ? ' hot' : (d >= 34 ? ' warn' : '');
-                distrustChip = `<span class="distrust-chip${dc}" title="Public distrust — at 100% they are driven out">⚖ ${d}%</span>`;
+                distrustChip = `<span class="distrust-chip${dc}" title="Public distrust — at 100% they are driven out"><i data-lucide="scale" size="11"></i> ${d}%</span>`;
             }
             // Round-table: the player's latest chat line floats toward the middle
             // as a speech bubble (client-side last-message preview).

@@ -287,13 +287,13 @@
 
                         // Tell the player what their own role can do tonight.
                         if (data.my_role === 'Werewolf' && data.is_alive) {
-                            gameListLabel.innerText = data.has_voted ? '🔒 Target locked in! Waiting for others...' : 'Select a Victim to Eliminate:';
+                            gameListLabel.innerHTML = data.has_voted ? '<i data-lucide="lock" size="13"></i> Target locked in! Waiting for others...' : 'Select a Victim to Eliminate:';
                         } else if (data.my_role === 'Seer' && data.is_alive) {
-                            gameListLabel.innerText = data.my_check_target ? '🔮 Divination complete — waiting for others...' : 'Select a player to Divine:';
+                            gameListLabel.innerHTML = data.my_check_target ? '<i data-lucide="eye" size="13"></i> Divination complete — waiting for others...' : 'Select a player to Divine:';
                         } else if (data.my_role === 'Witch' && data.is_alive && !data.my_poison_used) {
-                            gameListLabel.innerText = (data.my_poison_target || data.my_poison_skip) ? '🧪 Decision made — waiting for others...' : 'Select a player to Poison (once per game):';
+                            gameListLabel.innerHTML = (data.my_poison_target || data.my_poison_skip) ? '<i data-lucide="flask-conical" size="13"></i> Decision made — waiting for others...' : 'Select a player to Poison (once per game):';
                         } else if ((data.my_role === 'Villager' || data.my_role === 'Doctor') && data.is_alive) {
-                            gameListLabel.innerText = data.my_asleep ? '😴 You are asleep. Waiting for the night to pass...' : 'Bunk down — tap Sleep to get through the night:';
+                            gameListLabel.innerHTML = data.my_asleep ? '<i data-lucide="moon" size="13"></i> You are asleep. Waiting for the night to pass...' : 'Bunk down — tap Sleep to get through the night:';
                         } else {
                             gameListLabel.innerText = 'Squad Members (Asleep):';
                         }
@@ -337,9 +337,9 @@
                         phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Voting Phase';
                         phaseText.style.color = 'var(--accent-gold)';
 
-                        gameListLabel.innerText = data.my_vote_skip
-                            ? '🔒 You abstained — waiting for the tally...'
-                            : (data.has_voted ? '🔒 Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):'));
+                        gameListLabel.innerHTML = data.my_vote_skip
+                            ? '<i data-lucide="lock" size="13"></i> You abstained — waiting for the tally...'
+                            : (data.has_voted ? '<i data-lucide="lock" size="13"></i> Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):'));
 
                         renderSkillPanel(data);   // day = vote panel + Skip Vote
 

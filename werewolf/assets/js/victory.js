@@ -56,7 +56,7 @@ function showVictoryOverlay(data) {
             + '<span class="vc-name">' + esc(p.nickname) + '</span>'
             + hpCell
             + '<span class="vc-role">' + esc(role) + '</span>'
-            + (p.is_alive ? '' : '<span class="vc-x">✝</span>')
+            + (p.is_alive ? '' : '<span class="vc-x"><i data-lucide="skull" size="11"></i></span>')
             + '</li>';
     }).join('');
 

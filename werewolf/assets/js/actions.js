@@ -148,7 +148,7 @@
                 el.innerHTML = `
                     <div class="skill-head"><i data-lucide="eye" size="18"></i> Seer — Divination</div>
                     <div class="skill-body">Your vision of <b>${data.my_seer_target_name}</b>:
-                        <b style="color:${isWolf ? '#ff4d4d' : '#38bdf8'};">${isWolf ? 'WEREWOLF 🐺' : 'not a werewolf ✅'}</b></div>`;
+                        <b style="color:${isWolf ? '#ff4d4d' : '#38bdf8'};">${isWolf ? '<i data-lucide="paw-print" size="15"></i> WEREWOLF' : '<i data-lucide="shield-check" size="15"></i> not a werewolf'}</b></div>`;
                 lucide.createIcons();
                 return;
             }
@@ -191,7 +191,7 @@
                 markCardActed(btn);
             }
             const label = document.getElementById('game-list-label');
-            if (label) label.innerText = '🔒 Vote cast! Waiting for results...';
+            if (label) { label.innerHTML = '<i data-lucide="lock" size="15"></i> Vote cast! Waiting for results...'; if (window.lucide) lucide.createIcons(); }
             playSound('vote_cast');
             flashInfo('Vote locked in');
 
@@ -217,7 +217,7 @@
             if (g) { g.my_vote_skip = 1; g.has_voted = true; g.my_vote_id = null; }
             if (btn) btn.disabled = true;
             const label = document.getElementById('game-list-label');
-            if (label) label.innerText = '🔒 You abstained — waiting for the tally...';
+            if (label) { label.innerHTML = '<i data-lucide="lock" size="15"></i> You abstained — waiting for the tally...'; if (window.lucide) lucide.createIcons(); }
             playSound('vote_cast', { volume: 0.5 });
             flashInfo('Abstained');
 
