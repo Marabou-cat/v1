@@ -93,7 +93,8 @@ body[data-phase="day"] .gr-log li.ev-day   { color: #7a5105; border-left-color: 
 body[data-phase="day"] .gr-log li.ev-vote  { color: #0d5b68; border-left-color: #0d6b7a; }
 
 /* ---------------- bottom: chat / action ---------------- */
-.gr-bottom { flex: none; padding: 11px 16px 14px; }
+.gr-bottom { flex: none; padding: 11px 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+.gr-bottom .skill-panel { flex: none; }
 .gr-bottom .chat-container { max-height: 38vh; }
 .game-list-label { display: none; }   /* replaced by the column header */
 
@@ -218,8 +219,8 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 /* --- 3-column round table: players | events/log | players --- */
 .gr-grid {
     position: relative;
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 1.35fr) minmax(0, 1fr) !important;
-    gap: 14px !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    column-gap: 220px !important; row-gap: 0 !important;
     padding-top: 300px !important;   /* clears the floating role card + team + voice */
 }
 .gr-col-left, .gr-col-right { overflow: visible !important; }
@@ -315,14 +316,11 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 
 /* --- responsive: stack on narrow screens --- */
 @media (max-width: 1080px) {
-    .gr-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; grid-template-rows: auto auto; padding-top: 250px !important; }
-    .gr-center { grid-column: 1 / -1; grid-row: 2; }
-    .gr-col-left { grid-row: 1; }
-    .gr-col-right { grid-row: 1; }
+    .gr-grid { column-gap: 90px !important; }
 }
 @media (max-width: 760px) {
-    .gr-grid { grid-template-columns: 1fr !important; padding-top: 300px !important; }
-    .gr-col-left, .gr-col-right, .gr-center { grid-column: 1; grid-row: auto; }
+    .gr-grid { grid-template-columns: 1fr !important; column-gap: 0 !important; padding-top: 300px !important; }
+    .gr-col-left, .gr-col-right { grid-column: 1; }
 }
 
 .gr-icon-btn.off { opacity: 0.45; filter: grayscale(0.7); }

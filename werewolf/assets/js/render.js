@@ -116,6 +116,7 @@
 
         function flashEventBanner() {
             const banner = document.getElementById('event-banner');
+            if (!banner) return;   // the event banner was removed; the timeline banner took its place
             banner.classList.remove('flash');
             void banner.offsetWidth;
             banner.classList.add('flash');
