@@ -107,8 +107,8 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
     border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink); border-radius: 14px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--d-hs);
 }
-#view-game.dmode .d-col-left { grid-column: 1; grid-row: 2; justify-self: start; width: 300px; }
-#view-game.dmode .d-col-right { grid-column: 2; grid-row: 2; justify-self: end; width: 300px; }
+#view-game.dmode .d-col-left { grid-column: 1; grid-row: 2; justify-self: start; width: 380px; max-width: 100%; }
+#view-game.dmode .d-col-right { grid-column: 2; grid-row: 2; justify-self: end; width: 380px; max-width: 100%; }
 #view-game.dmode .d-head {
     display: flex; align-items: center; gap: 8px; padding-bottom: 8px; flex: none;
     border-bottom: 1px solid var(--d-line-soft); font-size: 0.68rem; font-weight: 800;
