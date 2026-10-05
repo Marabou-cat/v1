@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="assets/css/responsive.css">
     <link rel="stylesheet" href="assets/css/hall.css">
     <link rel="stylesheet" href="assets/css/scene.css">
-    <link rel="stylesheet" href="assets/css/room.css">
+    <link rel="stylesheet" href="assets/css/demo-room.css?v=5">
 </head>
 <body data-phase="menu">
 
@@ -274,109 +274,104 @@
         </section>
 
         <!-- VIEW 5: ACTIVE GAME SCREEN -->
-        <section id="view-game" class="screen hidden">
-                        <!-- ============ TOP BAR: room id, phase (the loudest thing here), actions ============ -->
-            <header class="gr-top">
-                <div class="gr-brand">
-                    <i data-lucide="paw-print" size="20"></i>
-                    <span class="grb-name">Werewolf</span>
-                    <span class="grb-room">ROOM #<b id="game-room-code">-----</b></span>
-                </div>
-                <div class="gr-phase">
-                    <span class="pb-ico pb-day" id="phase-ico" aria-hidden="true"></span>
-                    <span class="grp-text">
-                        <b id="game-phase-text">Lobby</b>
-                        <small id="game-phase-sub">Waiting for players...</small>
-                    </span>
-                    <span id="chat-timer-badge" class="timer-badge">15s</span>
-                </div>
-                <div class="gr-actions">
-                    <span class="gr-count" title="alive / total">
-                        <i data-lucide="users" size="15"></i>
-                        <b id="gr-count-alive">0</b><span class="grc-sep">/</span><span id="gr-count-total">0</span>
-                    </span>
-                    <button class="gr-icon-btn" id="btn-sfx" onclick="toggleSoundFx()" title="Sound effects" aria-label="Sound effects">
-                        <i data-lucide="volume-2" size="16"></i>
-                    </button>
-                    <button class="gr-icon-btn" onclick="leaveToMenu()" title="Leave room" aria-label="Leave room">
-                        <i data-lucide="log-out" size="16"></i>
-                    </button>
-                </div>
-            </header>
+        <!-- VIEW 5: ACTIVE GAME SCREEN — werewolf-demo.html UI, REAL backend -->
+        <section id="view-game" class="screen hidden dmode">
+            <div class="d-room">
 
-            <!-- ============ TIMELINE BANNER ============ -->
-            <div class="gr-progress" id="gr-progress"></div>
+                <!-- ============ TOP BAR ============ -->
+                <header class="d-top">
+                    <div class="d-brand">
+                        <img class="d-logo" src="assets/img/icons/wolf-head.svg" alt="">
+                        <span>WEREWOLF<small>Game Room · ROOM #<b id="game-room-code">-----</b></small></span>
+                    </div>
+                    <div class="d-phase">
+                        <span class="pb-ico pb-day" id="phase-ico" aria-hidden="true"></span>
+                        <span class="d-ptxt">
+                            <b id="game-phase-text">Lobby</b>
+                            <small id="game-phase-sub">Waiting for players...</small>
+                        </span>
+                    </div>
+                    <div class="d-actions">
+                        <span class="d-pill" title="alive / total">
+                            <i data-lucide="users" size="15"></i>
+                            <b id="gr-count-alive">0</b>/<span id="gr-count-total">0</span>
+                        </span>
+                        <button class="d-icon-btn" id="btn-sfx" onclick="toggleSoundFx()" title="Sound effects" aria-label="Sound effects"><i data-lucide="volume-2" size="16"></i></button>
+                        <button class="d-icon-btn" onclick="toggleVoice()" title="Voice" aria-label="Voice"><i data-lucide="mic-off" size="16"></i></button>
+                        <button class="d-icon-btn" onclick="openSettings()" title="Settings" aria-label="Settings"><i data-lucide="settings" size="16"></i></button>
+                        <button class="d-icon-btn" onclick="leaveToMenu()" title="Leave room" aria-label="Leave room"><i data-lucide="log-out" size="16"></i></button>
+                    </div>
+                </header>
 
-            <!-- ============ ROUND-TABLE BODY: players left/right, events in the middle ============ -->
-            <div class="gr-grid">
-                <!-- floating top-left: your (secret, flippable) role card + team + voice -->
-                <div class="role-float">
-                    <div class="role-flip" id="role-flip" onclick="flipRole()" title="Click to hide your role">
-                        <div class="flip-inner">
-                            <div class="role-card role-front">
-                                <p class="rc-label">Your Role</p>
-                                <div id="my-role-display" class="card-title"><i data-lucide="paw-print" size="26"></i> Secret Card</div>
-                                <p id="my-role-desc" class="rc-desc">Survive the night and expose the threat!</p>
-                                <div class="rc-meta">
-                                    <div class="rcm-row"><span>Goal</span><b id="rc-goal">&mdash;</b></div>
-                                    <div class="rcm-row"><span>Ability</span><b id="rc-ability">&mdash;</b></div>
+                <!-- ============ TIMELINE ============ -->
+                <div class="d-progress" id="gr-progress"></div>
+
+                <!-- ============ BODY: your cards top-left, players on two rails ============ -->
+                <div class="d-grid">
+                    <div class="d-role-float">
+                        <div class="d-role-flip" id="role-flip" onclick="flipRole()" title="Click to hide your role">
+                            <div class="d-flip-inner">
+                                <div class="d-role-card" id="d-role-card">
+                                    <span class="d-rl">Your Role</span>
+                                    <span class="d-rn" id="my-role-display">Secret Card</span>
+                                    <span class="d-rg" id="rc-goal">&mdash;</span>
+                                    <span class="d-ra" id="rc-ability">&mdash;</span>
+                                </div>
+                                <div class="d-role-card d-role-back">
+                                    <span class="d-rb-moon"><i data-lucide="moon" size="30"></i></span>
+                                    <span class="d-rb-txt">WEREWOLF</span>
                                 </div>
                             </div>
-                            <div class="role-card role-back">
-                                <span class="rb-moon"><i data-lucide="moon" size="28"></i></span>
-                                <span class="rb-txt">WEREWOLF</span>
-                            </div>
+                        </div>
+
+                        <!-- Only wolves ever see this; the server withholds it from everyone else. -->
+                        <div class="d-team" id="wolf-team" hidden>
+                            <div class="d-thead">Your Team</div>
+                            <div class="gt-list" id="wolf-team-list"></div>
+                        </div>
+
+                        <div class="d-voice">
+                            <span class="d-vtitle"><i data-lucide="volume-2" size="15"></i> Voice</span>
+                            <span id="voice-label"></span>
+                            <button id="voice-btn" class="voice-btn" onclick="toggleVoice()"><i data-lucide="mic-off" size="15"></i> Join Voice</button>
+                            <button id="voice-mute-btn" class="voice-btn" style="display:none;" onclick="voiceMuteToggle()"><i data-lucide="mic" size="15"></i> Mute</button>
                         </div>
                     </div>
 
-                    <!-- Only wolves ever see this; the server withholds it from everyone else. -->
-                    <div class="gr-team" id="wolf-team" hidden>
-                        <div class="gr-head"><span>Your Team</span></div>
-                        <div class="gt-list" id="wolf-team-list"></div>
-                    </div>
+                    <!-- LEFT: half the table -->
+                    <aside class="d-col d-col-left">
+                        <div class="d-head"><span id="game-list-label" class="game-list-label">Living Players</span><b id="gr-living-count">0</b></div>
+                        <ul id="game-player-list" class="d-players"></ul>
+                    </aside>
 
-                    <div class="voice-bar">
-                        <span class="voice-title"><i data-lucide="volume-2" size="15"></i> Voice</span>
-                        <span id="voice-label" class="voice-label"></span>
-                        <button id="voice-btn" class="voice-btn" onclick="toggleVoice()"><i data-lucide="mic-off" size="15"></i> Join Voice</button>
-                        <button id="voice-mute-btn" class="voice-btn" style="display:none;" onclick="voiceMuteToggle()"><i data-lucide="mic" size="15"></i> Mute</button>
-                    </div>
+                    <!-- RIGHT: the other half of the table -->
+                    <aside class="d-col d-col-right">
+                        <div class="d-head"><span>Players</span></div>
+                        <ul id="game-player-list-right" class="d-players"></ul>
+                    </aside>
                 </div>
 
-                <!-- LEFT: half the table -->
-                <aside class="gr-col gr-players gr-col-left">
-                    <div class="gr-head">
-                        <span id="game-list-label">Living Players</span>
-                        <b id="gr-living-count">0</b>
+                <!-- ============ BOTTOM: chat + action bar ============ -->
+                <div class="d-bottom">
+                    <div class="d-chat-panel" id="chat-container">
+                        <div class="d-chat-head"><i data-lucide="message-square" size="17"></i> Village Chat</div>
+                        <div class="d-chat-msgs" id="chat-messages">
+                            <div class="chat-message no-anim"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>
+                        </div>
+                        <div class="d-chat-input" id="chat-composer">
+                            <input type="text" id="chat-input" placeholder="Type your message..."
+                                   onkeydown="if(event.key==='Enter') sendChatMessage();">
+                            <button class="d-send" onclick="sendChatMessage()" aria-label="Send"><i data-lucide="send" size="17"></i></button>
+                            <button class="d-skip" id="btn-skip" onclick="skipRound(this)" title="Skip this round's action">Skip</button>
+                        </div>
                     </div>
-                    <ul id="game-player-list" class="game-player-list"></ul>
-                </aside>
-
-                <!-- RIGHT: the other half of the table -->
-                <aside class="gr-col gr-players gr-col-right">
-                    <div class="gr-head"><span>Players</span></div>
-                    <ul id="game-player-list-right" class="game-player-list"></ul>
-                </aside>
-            </div>
-
-            <!-- ============ BOTTOM: CHAT / ACTION ============ -->
-            <div class="gr-bottom">
-                <div id="skill-panel" class="skill-panel" style="display:none;"></div>
-                <div class="chat-container" id="chat-container">
-                    <div class="chat-header">
-                        <i data-lucide="message-square" size="17"></i> Village Chat
-                    </div>
-                    <div id="chat-messages" class="chat-messages">
-                        <div class="chat-message no-anim"><span class="sender">System:</span> Welcome to Werewolf Online! Talk before night falls.</div>
-                    </div>
-                    <div class="chat-composer" id="chat-composer">
-                        <input type="text" id="chat-input" placeholder="Type your message..."
-                               onkeydown="if(event.key==='Enter') sendChatMessage();">
-                        <button class="chat-send-btn" onclick="sendChatMessage()" aria-label="Send"><i data-lucide="send" size="17"></i></button>
-                    </div>
+                    <div class="d-action" id="skill-panel" style="display:none;"></div>
                 </div>
             </div>
         </section>
+
+        <!-- hidden: the live top-level code writes here on leave; the demo has no event banner -->
+    <span id="game-event-log" style="display:none" aria-hidden="true"></span>
 
     </main>
 
@@ -587,5 +582,6 @@
     <script src="assets/js/hall.js"></script>
     <script src="assets/js/scene.js"></script>
     <script src="assets/js/init.js"></script>
+    <script src="assets/js/demo-room.js?v=5"></script>
 </body>
 </html>
