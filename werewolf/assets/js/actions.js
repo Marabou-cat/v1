@@ -62,25 +62,10 @@
             const el = document.getElementById('skill-panel');
             if (!el) return;
 
-            // --- Day: the vote panel (pick a target above, or abstain) ---------
+            // --- Day: no skill banner. Vote by tapping a player; skip via the
+            // bottom "Skip" button (submitDayVoteSkip). ---
             if (data.room_status === 'day') {
-                if (!data.is_alive) { el.style.display = 'none'; el.innerHTML = ''; return; }
-                el.style.display = 'block';
-                if (data.my_vote_skip) {
-                    el.innerHTML = `
-                        <div class="skill-head"><i data-lucide="skip-forward" size="18"></i> Vote Skipped</div>
-                        <div class="skill-body">You abstained. Waiting for the rest of the village…</div>`;
-                } else if (data.has_voted) {
-                    el.innerHTML = `
-                        <div class="skill-head"><i data-lucide="check" size="18"></i> Vote Cast</div>
-                        <div class="skill-body">Waiting for the rest of the village…</div>`;
-                } else {
-                    el.innerHTML = `
-                        <div class="skill-head"><i data-lucide="vote" size="18"></i> Cast Your Vote</div>
-                        <div class="skill-body">Pick a player above to lynch — or abstain. A tie for the most votes, or a majority of abstentions, means nobody is executed.</div>
-                        <div class="skill-actions"><button class="btn-action" onclick="submitDayVoteSkip(this)"><i data-lucide="skip-forward" size="16"></i> Skip Vote</button></div>`;
-                }
-                lucide.createIcons();
+                el.style.display = 'none'; el.innerHTML = '';
                 return;
             }
 
@@ -251,3 +236,34 @@
         }
 
         
+
+
+/* ================= SKIP THIS ROUND (bottom bar button) =================
+   One button, phase-aware: abstain the vote by day, sleep / pass / hold
+   by night. Seer and Werewolf have no skipable action. */
+function skipRound(btn) {
+    const g = state.lastGame;
+    if (!g) return;
+    const st = g.room_status;
+    if (st === 'day') {
+        if (g.has_voted || g.my_vote_skip) { flashInfo('You already voted'); return; }
+        submitDayVoteSkip(btn);
+    } else if (st === 'night') {
+        const r = g.my_role;
+        if (r === 'Villager') {
+            if (g.my_asleep) { flashInfo('Already asleep'); return; }
+            submitSleep();
+        } else if (r === 'Doctor') {
+            if (g.night_step === 'doctor' && !g.my_doctor_choice) { submitDoctorAction(0, btn); }
+            else if (g.mode === 'chaos') { submitNightSkip(btn); }
+            else { submitSleep(); }
+        } else if (r === 'Witch') {
+            if (g.my_poison_used || g.my_poison_target || g.my_poison_skip) { flashInfo('Poison already decided'); return; }
+            submitNightSkip(btn);
+        } else {
+            flashInfo('No action to skip this phase');
+        }
+    } else {
+        flashInfo('Nothing to skip right now');
+    }
+}

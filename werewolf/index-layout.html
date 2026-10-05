@@ -309,10 +309,8 @@
             <div class="gr-progress" id="gr-progress"></div>
             </div><!-- /gr-top-banner -->
 
-            <!-- ============ ROUND-TABLE BODY: players left/right, events in the middle ============ -->
-            <div class="gr-grid">
-                <!-- floating top-left: your (secret, flippable) role card + team + voice -->
-                <div class="role-float">
+            <!-- ============ ROLE CARD (fixed overlay, outside the scroll) ============ -->
+            <div class="role-float">
                     <div class="role-flip" id="role-flip" onclick="flipRole()" title="Click to hide your role">
                         <div class="flip-inner">
                             <div class="role-card role-front">
@@ -343,8 +341,10 @@
                         <button id="voice-btn" class="voice-btn" onclick="toggleVoice()"><i data-lucide="mic-off" size="15"></i> Join Voice</button>
                         <button id="voice-mute-btn" class="voice-btn" style="display:none;" onclick="voiceMuteToggle()"><i data-lucide="mic" size="15"></i> Mute</button>
                     </div>
-                </div>
+            </div>
 
+            <!-- ============ MIDDLE: players left/right (scrollable) ============ -->
+            <div class="gr-grid">
                 <!-- LEFT: half the table -->
                 <aside class="gr-col gr-players gr-col-left">
                     <div class="gr-head">
@@ -375,6 +375,7 @@
                         <input type="text" id="chat-input" placeholder="Type your message..."
                                onkeydown="if(event.key==='Enter') sendChatMessage();">
                         <button class="chat-send-btn" onclick="sendChatMessage()" aria-label="Send"><i data-lucide="send" size="17"></i></button>
+                        <button class="chat-skip-btn" id="btn-skip" onclick="skipRound(this)" title="Skip this round's action">Skip</button>
                     </div>
                 </div>
             </div>
