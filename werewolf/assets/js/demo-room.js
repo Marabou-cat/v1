@@ -28,19 +28,18 @@ function dPlayerCard(p, data, extra, index, noAnim) {
     if (noAnim) cls.push('no-anim');
 
     const chips = [];
-    if (!alive) chips.push('<span class="d-chip dead"><i data-lucide="skull" size="11"></i> DEAD</span>');
     if (isMe) chips.push('<span class="d-chip you">YOU</span>');
-    if (p.is_wolf) chips.push('<span class="d-chip pack">PACK</span>');
-
-    // Roles are public for your own seat and for every DEAD player; living
-    // opponents stay 'Hidden' until the final reveal — same rule as the live game.
-    const revealed = (p.role && p.role !== 'Hidden' && p.role !== 'unassigned') ? p.role : null;
-    if (revealed) chips.push('<span class="d-chip ' + dRoleChipClass(revealed) + '">' + esc(revealed) + '</span>');
-
+    if (!alive) chips.push('<span class="d-chip dead"><i data-lucide="skull" size="11"></i> DEAD</span>');
+    // VOTE STATE FIRST: these are the badges that must never be squeezed out.
     if (data.room_status === 'day') {
         if (data.my_vote_id === p.id) chips.push('<span class="d-chip vote"><i data-lucide="vote" size="11"></i> YOUR VOTE</span>');
         if (p.votes > 0) chips.push('<span class="d-chip vote"><i data-lucide="vote" size="11"></i> ' + p.votes + '</span>');
     }
+    if (p.is_wolf) chips.push('<span class="d-chip pack">PACK</span>');
+    // Roles are public for your own seat and for every DEAD player; living
+    // opponents stay 'Hidden' until the final reveal — same rule as the live game.
+    const revealed = (p.role && p.role !== 'Hidden' && p.role !== 'unassigned') ? p.role : null;
+    if (revealed) chips.push('<span class="d-chip ' + dRoleChipClass(revealed) + '">' + esc(revealed) + '</span>');
     // Chaos Night: distrust is public; HP only ever reaches its own seat.
     if (p.distrust !== null && p.distrust !== undefined) {
         chips.push('<span class="d-chip distrust" title="Public distrust"><i data-lucide="scale" size="11"></i> ' + Math.round(p.distrust) + '%</span>');
