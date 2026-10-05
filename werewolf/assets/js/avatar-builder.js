@@ -39,6 +39,14 @@ const AV_EYE   = ['#12151f', '#3b2a1a', '#1f3a2a', '#2a1f3a'];
 
 const AV_KEY = 'werewolf_avatar_cfg';
 
+/* Bump when the part SVGs are redrawn. They are pulled in as CSS masks, and the
+   browser caches them by URL, so a redrawn part would otherwise keep showing
+   the old drawing until the cache happened to expire. */
+const AV_ASSET_V = '?v=2';
+function AV_PART_URL(slot, shape) {
+    return 'assets/img/avatar/' + slot + '_' + shape + '.svg' + AV_ASSET_V;
+}
+
 function isCustomAvatar(id) { return typeof id === 'string' && id.indexOf('v1') === 0 && id.length === 14; }
 
 function defaultAvatarCfg() {
@@ -73,7 +81,7 @@ function cfgToAvatarCode(c) {
    styles resolve against the document, so the path stays correct. */
 function avLayer(slot, shape, color) {
     if (!shape) return '';
-    const u = 'assets/img/avatar/' + slot + '_' + shape + '.svg';
+    const u = AV_PART_URL(slot, shape);
     // Shade from a single light direction instead of a flat fill: the preset
     // portraits carry a baked gradient, so flat parts beside them look cheap.
     const fill = 'linear-gradient(160deg,' + avShade(color, 0.2) + ' 0%,' + color
@@ -112,9 +120,9 @@ function avRgba(hex, a) {
    needs to scale the doll so it fills the frame whatever it is wearing. */
 const AV_TOP = {
     head:  { round: 36, oval: 35, square: 39 },
-    ears:  { wolf: 21, small: 33, tuft: 31 },
-    hair:  { short: 33, long: 33, pony: 33, bun: 17, mohawk: 27, wild: 31 },
-    extra: { hood: 16, pointed: 2, helm: 26, horns: 10, mask: 45, crown: 14 },
+    ears:  { wolf: 19, small: 44, tuft: 28 },
+    hair:  { short: 23, long: 29, pony: 29, bun: 13, mohawk: 15.5, wild: 16 },
+    extra: { hood: 16, pointed: 2, helm: 24, horns: 10, mask: 45, crown: 16 },
 };
 const AV_FIG_BOTTOM = 120;   // every body is authored down to the bottom edge
 const AV_FRAME_TOP  = 4;     // breathing room left above the tallest part
@@ -251,12 +259,12 @@ function avOptRow(key, slot, label, list) {
     const cur = avCfg()[key];
     const ghost = AV_ON_HEAD[slot]
         ? '<i class="avb-ghosthead" style="background:rgba(226,232,240,0.3);'
-          + '-webkit-mask-image:url(assets/img/avatar/head_round.svg);mask-image:url(assets/img/avatar/head_round.svg)"></i>'
+          + '-webkit-mask-image:url(' + AV_PART_URL('head', 'round') + ');mask-image:url(' + AV_PART_URL('head', 'round') + ')"></i>'
         : '';
     return '<div class="avb-row"><span class="avb-lab">' + label + '</span><span class="avb-opts">'
         + list.map(function (shape, i) {
             const empty = (shape === 'none' || shape === 'bald');
-            const u = 'assets/img/avatar/' + slot + '_' + shape + '.svg';
+            const u = AV_PART_URL(slot, shape);
             return '<button class="avb-opt' + (i === cur ? ' on' : '') + '" onclick="avPick(\'' + key + '\',' + i + ')" title="' + shape + '">'
                 + ghost
                 + (empty

@@ -1,1 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="#000"><path d="M10 120 q10 -34 50 -34 q40 0 50 34 Z"/><path d="M20 104 q40 -12 80 0 v6 q-40 -12 -80 0 Z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="#000"><path fill-rule="evenodd" d="M10 120 Q16 92 42 86 L60 93 L78 86 Q104 92 110 120 Z M26 101 H94 V103.6 H26 Z M30 109 H90 V111.6 H30 Z"/></svg>
