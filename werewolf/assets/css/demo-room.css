@@ -100,9 +100,15 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
     overflow: auto;                  /* the BOARD scrolls, so rails stay unclipped
                                         and the speech bubbles can float outward */
 }
-#view-game.dmode .d-col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; overflow: visible; }
-#view-game.dmode .d-col-left { grid-column: 1; grid-row: 2; justify-self: start; width: 236px; }
-#view-game.dmode .d-col-right { grid-column: 2; grid-row: 2; justify-self: end; width: 236px; }
+#view-game.dmode .d-col {
+    min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px;
+    overflow: visible; padding: 10px;
+    background: linear-gradient(180deg, #15171f 0%, #0c0d13 100%);
+    border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink); border-radius: 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--d-hs);
+}
+#view-game.dmode .d-col-left { grid-column: 1; grid-row: 2; justify-self: start; width: 300px; }
+#view-game.dmode .d-col-right { grid-column: 2; grid-row: 2; justify-self: end; width: 300px; }
 #view-game.dmode .d-head {
     display: flex; align-items: center; gap: 8px; padding-bottom: 8px; flex: none;
     border-bottom: 1px solid var(--d-line-soft); font-size: 0.68rem; font-weight: 800;
@@ -115,7 +121,8 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 /* ---- player card (the demo's .pcard) ---- */
 #view-game.dmode .d-pcard {
     display: flex; align-items: center; gap: 9px; padding: 8px 10px; position: relative;
-    width: 100%; flex: none; border-radius: 12px;
+    width: 100%; flex: none; flex-wrap: wrap;   /* chips wrap onto their OWN full-width row */
+    border-radius: 12px;
     background: linear-gradient(180deg, #191c25 0%, #10121a 100%);
     border: 1px solid var(--d-line); border-bottom: 2px solid var(--d-ink);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), var(--d-hs-sm);
@@ -131,10 +138,11 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 #view-game.dmode .d-pava { flex: none; width: 34px; height: 34px; line-height: 0; }
 #view-game.dmode .d-pava .avatar { width: 34px !important; height: 34px !important; }
 #view-game.dmode .d-pava .avatar img { width: 100%; height: 100%; object-fit: cover; }
-#view-game.dmode .d-pbody { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#view-game.dmode .d-pbody { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 #view-game.dmode .d-pname { font-weight: 800; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
-#view-game.dmode .d-pmeta { display: flex; align-items: center; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
-#view-game.dmode .d-chip { font-size: 0.5rem; font-weight: 800; letter-spacing: 0.6px; padding: 1px 6px; border-radius: 20px; border: 2px solid transparent; }
+/* chips get their OWN full-width row — the card can never grow thicker than 2 rows */
+#view-game.dmode .d-pmeta { flex: 1 0 100%; display: flex; align-items: center; gap: 4px; margin-top: 5px; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
+#view-game.dmode .d-chip { font-size: 0.5rem; font-weight: 800; letter-spacing: 0.6px; padding: 1px 6px; border-radius: 20px; border: 2px solid transparent; white-space: nowrap; flex: none; }
 #view-game.dmode .d-chip.alive { color: var(--d-green); background: rgba(56, 239, 125, 0.12); border-color: rgba(56, 239, 125, 0.4); }
 #view-game.dmode .d-chip.dead { color: var(--d-red); background: rgba(230, 0, 18, 0.12); border-color: rgba(230, 0, 18, 0.4); }
 #view-game.dmode .d-chip.you { color: #1a1205; background: var(--d-gold); border-color: var(--d-gold); }
@@ -143,7 +151,7 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 #view-game.dmode .d-chip.pack { color: #fff; background: var(--d-red); border-color: var(--d-red); }
 #view-game.dmode .d-chip.vote { color: var(--d-gold); background: rgba(255, 204, 0, 0.12); border-color: rgba(255, 204, 0, 0.4); }
 #view-game.dmode .d-chip.distrust { color: #fca5a5; background: rgba(230, 0, 18, 0.14); border-color: rgba(230, 0, 18, 0.45); }
-#view-game.dmode .d-hp { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+#view-game.dmode .d-hp { flex: 1 0 100%; display: flex; align-items: center; gap: 4px; margin-top: 5px; }
 #view-game.dmode .d-hp-track { flex: 1; min-width: 40px; height: 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 #view-game.dmode .d-hp-fill { display: block; height: 100%; background: var(--d-green); }
 #view-game.dmode .d-hp-fill.mid { background: var(--d-gold); }
@@ -285,12 +293,12 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 
 /* ================= SHARED BUTTONS (action classes from the real game) ================= */
 #view-game.dmode .btn-action {
-    padding: 7px 13px; border-radius: 10px; cursor: pointer;
+    padding: 7px 13px; border-radius: 10px; cursor: pointer; white-space: nowrap;
     background: var(--d-btn-face); border: 1px solid var(--d-ink); border-bottom: 3px solid var(--d-ink);
     color: #e2e8f0; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.3px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), var(--d-hs-sm);
     transition: transform 0.06s ease, border-bottom-width 0.06s ease;
-    display: inline-flex; align-items: center; gap: 6px;
+    display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
 }
 #view-game.dmode .btn-action:hover { background: linear-gradient(180deg, #474d5e 0%, #2e3340 100%); }
 #view-game.dmode .btn-action:active { transform: translateY(2px); border-bottom-width: 1px; }

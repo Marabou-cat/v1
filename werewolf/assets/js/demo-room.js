@@ -28,8 +28,7 @@ function dPlayerCard(p, data, extra, index, noAnim) {
     if (noAnim) cls.push('no-anim');
 
     const chips = [];
-    chips.push(alive ? '<span class="d-chip alive">● ALIVE</span>'
-                     : '<span class="d-chip dead">✕ DEAD</span>');
+    if (!alive) chips.push('<span class="d-chip dead">✕ DEAD</span>');
     if (isMe) chips.push('<span class="d-chip you">YOU</span>');
     if (p.is_wolf) chips.push('<span class="d-chip pack">PACK</span>');
 
@@ -75,12 +74,10 @@ function dPlayerCard(p, data, extra, index, noAnim) {
         + bubble
         + '<span class="d-pnum">' + p.id + '</span>'
         + '<span class="d-pava">' + face + '</span>'
-        + '<span class="d-pbody">'
-        +   '<span class="d-pname">' + esc(p.nickname) + '</span>'
-        +   '<span class="d-pmeta">' + chips.join('') + '</span>'
-        +   hp
-        + '</span>'
+        + '<span class="d-pbody"><span class="d-pname">' + esc(p.nickname) + '</span></span>'
         + (extra || '')
+        + hp
+        + (chips.length ? '<span class="d-pmeta">' + chips.join('') + '</span>' : '')
         + '</li>';
 }
 
@@ -135,6 +132,45 @@ function markCardActed(btn) {
     card.classList.remove('just-acted');
     void card.offsetWidth;
     card.classList.add('just-acted');
+}
+
+/* ================= BUG FIX: the choice lock must span BOTH rails =================
+   The live lockChoice() only walks the element it is handed, and actions.js hands
+   it `#game-player-list` — the LEFT rail. With the roster split across two rails
+   the RIGHT rail's Kill/Vote buttons stayed enabled after you had already acted,
+   so a player could fire a second action (the server rejects it and the optimistic
+   paint rolls back — janky). Lock both rails. */
+function lockChoice(scope, chosenBtn, label) {
+    const targets = [];
+    const add = (el) => { if (el && targets.indexOf(el) < 0) targets.push(el); };
+    add(scope);
+    add(document.getElementById('game-player-list'));
+    add(document.getElementById('game-player-list-right'));
+    targets.forEach(function (s) {
+        Array.prototype.forEach.call(s.querySelectorAll('.btn-action'), function (b) {
+            b.disabled = true;
+            b.classList.add('choice-locked');
+            if (b === chosenBtn) {
+                b.classList.remove('choice-locked');
+                b.classList.add('choice-picked');
+                b.innerHTML = '<i data-lucide="check" size="16"></i> ' + (label || 'Chosen');
+            }
+        });
+    });
+    if (window.lucide) lucide.createIcons();
+}
+
+/* ================= BUG FIX: the wolf's bite lands on a demo card =================
+   clawSlash() looks for `.player-item` (the live card); demo cards are `.d-pcard`,
+   so the slash was silently never drawn. Same effect, correct selector. */
+function clawSlash(btn) {
+    const card = (btn && btn.closest) ? btn.closest('.d-pcard') : null;
+    if (!card) return;
+    const s = document.createElement('span');
+    s.className = 'claw-slash';
+    s.innerHTML = '<b></b><b></b><b></b>';
+    card.appendChild(s);
+    setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 900);
 }
 
 /* ================= CHAT BUBBLES (demo .msg) ================= */
