@@ -567,3 +567,47 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 /* board height = (n x 1/4 page) so square tiles of side 1/4 page divide it evenly;
    capped at the middle band, in which case the tiles shrink to keep filling it */
 .gr-grid { height: calc(var(--per-col, 3) * 25vw + 54px) !important; max-height: var(--gr-mid-h, 50%) !important; }
+
+
+/* =====================================================================
+   v3 — board layout:
+     row 1: Your Role + Voice, side by side, at the TOP of the list
+     row 2: two player columns; each tile is 1/4 of the page WIDE and
+            (not square) tall enough that the column's tiles sum to its height
+   ===================================================================== */
+.gr-grid {
+    display: grid !important;
+    flex: 0 0 var(--gr-mid-h, 50%) !important;
+    height: auto !important;
+    max-height: none !important;
+    grid-template-columns: 25% minmax(0, 1fr) 25% !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+    row-gap: 10px !important;
+    padding: 12px !important;
+    overflow: hidden !important;
+}
+.gr-grid > .role-float {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-self: start !important;
+    width: auto !important;
+    height: auto !important;
+    position: static !important;
+}
+.gr-grid > .gr-col-left  { grid-column: 1 !important; grid-row: 2 !important; }
+.gr-grid > .gr-col-right { grid-column: 3 !important; grid-row: 2 !important; }
+
+/* tiles: 1/4-page wide rectangles that share the column height */
+.gr-grid .player-item {
+    width: 100% !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    aspect-ratio: auto !important;
+    align-self: stretch !important;
+}
+.gr-grid > .gr-col { overflow: hidden !important; }
+
+.gr-grid > .role-float { justify-self: start !important; }
