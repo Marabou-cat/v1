@@ -611,3 +611,45 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 .gr-grid > .gr-col { overflow: hidden !important; }
 
 .gr-grid > .role-float { justify-self: start !important; }
+
+
+/* =====================================================================
+   TILE CONTENT FIX: the tile is now a WIDE, SHORT rectangle, so its
+   contents go back to normal-size, laid out in a row (not cqw-scaled).
+   ===================================================================== */
+.gr-grid .player-item {
+    container-type: normal !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    padding: 4px 10px !important;
+    text-align: left !important;
+    overflow: hidden !important;
+}
+.gr-grid .player-item .player-info-wrap {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 7px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+}
+.gr-grid .player-item .avatar { width: 24px !important; height: 24px !important; }
+.gr-grid .player-item .pname {
+    font-size: 0.8rem !important; max-width: 100%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gr-grid .player-item .role-chip,
+.gr-grid .player-item .you-tag,
+.gr-grid .player-item .pack-tag,
+.gr-grid .player-item .my-vote-tag,
+.gr-grid .player-item .vote-badge,
+.gr-grid .player-item .distrust-chip { font-size: 0.6rem !important; padding: 1px 6px !important; }
+.gr-grid .player-item .btn-action,
+.gr-grid .player-item > button {
+    margin: 0 0 0 auto !important;
+    width: auto !important;
+    font-size: 0.68rem !important;
+    padding: 4px 10px !important;
+}
