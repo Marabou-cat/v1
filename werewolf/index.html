@@ -21,8 +21,18 @@
     <div class="sky"></div>
     <!-- The village on the horizon: downloaded art (castle/tree/tent), lit at night. -->
     <div class="scene-village" aria-hidden="true">
-        <span class="sv sv-tree"></span><span class="sv sv-castle"></span>
-        <span class="sv sv-hut"></span><span class="sv sv-tree2"></span>
+        <!-- Layered horizon, back to front: far range, ridge, treeline, the village. -->
+        <div class="scene-layer scene-far">
+            <span class="sl sl-peaks"></span><span class="sl sl-mount"></span>
+        </div>
+        <div class="scene-layer scene-mid">
+            <span class="sl sl-forest"></span><span class="sl sl-birch"></span><span class="sl sl-forest2"></span>
+        </div>
+        <div class="scene-layer scene-near">
+            <span class="sl sl-tree"></span><span class="sl sl-church"></span><span class="sl sl-huts"></span>
+            <span class="sl sl-mill"></span><span class="sl sl-ruins"></span><span class="sl sl-tower"></span>
+            <span class="sl sl-tree2"></span>
+        </div>
     </div>
     <div class="stars" id="stars"></div>
     <div class="moon"><div class="moon-core"></div></div>

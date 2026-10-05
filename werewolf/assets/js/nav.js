@@ -21,6 +21,8 @@
         }
 
         function showScreen(screenId) {
+            // Leaving the board dismisses the opened chat log with it.
+            if (screenId !== 'view-game' && typeof chatIsOpen === 'function' && chatIsOpen()) closeChatLog();
             ['view-menu', 'view-create', 'view-join', 'view-match', 'view-matching', 'view-lobby', 'view-game'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });

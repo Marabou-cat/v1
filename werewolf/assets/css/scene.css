@@ -465,33 +465,60 @@ body[data-phase="night"] .sky::after {
     pointer-events: none;
 }
 
-/* ================= D. THE VILLAGE ON THE HORIZON =================
-   Downloaded art (willow-tree / castle / camping-tent) as masks: dark by night with
-   a warm glow standing in for lit windows, hazy back-colour by day. */
+/* ================= D. THE SCENE: A LAYERED HORIZON =================
+   Downloaded art (game-icons) as masks, laid out back to front so both times of day
+   have real depth: a far range, a treeline, then the village itself. All of it is
+   pointer-events:none and out of the layout flow, so it can never cost the game
+   anything but paint. */
 .scene-village {
-    position: fixed; left: 0; right: 0; bottom: 6vh; z-index: 1;
-    height: 22vh; pointer-events: none;
+    position: fixed; left: 0; right: 0; bottom: 4vh; z-index: 1;
+    height: 34vh; pointer-events: none;
+}
+.scene-layer {
+    position: absolute; left: 0; right: 0; bottom: 0;
     display: flex; align-items: flex-end; justify-content: space-around;
 }
-.sv {
+.scene-far  { opacity: 0.55; bottom: 12vh; }
+.scene-mid  { opacity: 0.78; bottom: 4vh; }
+.scene-near { opacity: 1; }
+
+.sl {
     display: block;
     -webkit-mask-size: contain; mask-size: contain;
     -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
     -webkit-mask-position: bottom center; mask-position: bottom center;
 }
-.sv-tree  { width: 15vw; height: 20vh; -webkit-mask-image: url("../img/icons/willow-tree.svg");   mask-image: url("../img/icons/willow-tree.svg"); }
-.sv-tree2 { width: 12vw; height: 16vh; -webkit-mask-image: url("../img/icons/willow-tree.svg");   mask-image: url("../img/icons/willow-tree.svg"); }
-.sv-castle{ width: 19vw; height: 14vh; -webkit-mask-image: url("../img/icons/castle.svg");        mask-image: url("../img/icons/castle.svg"); }
-.sv-hut   { width: 10vw; height: 9vh;  -webkit-mask-image: url("../img/icons/camping-tent.svg");  mask-image: url("../img/icons/camping-tent.svg"); }
+/* far range */
+.sl-peaks   { width: 40vw; height: 16vh; -webkit-mask-image: url("../img/icons/peaks.svg");     mask-image: url("../img/icons/peaks.svg"); }
+.sl-mount   { width: 34vw; height: 13vh; -webkit-mask-image: url("../img/icons/mountains.svg"); mask-image: url("../img/icons/mountains.svg"); }
+/* treeline */
+.sl-forest  { width: 22vw; height: 13vh; -webkit-mask-image: url("../img/icons/circle-forest.svg");  mask-image: url("../img/icons/circle-forest.svg"); }
+.sl-birch   { width: 20vw; height: 14vh; -webkit-mask-image: url("../img/icons/birch-trees.svg");    mask-image: url("../img/icons/birch-trees.svg"); }
+.sl-forest2 { width: 24vw; height: 11vh; -webkit-mask-image: url("../img/icons/circle-forest.svg");  mask-image: url("../img/icons/circle-forest.svg"); }
+/* the village */
+.sl-tree    { width: 11vw; height: 17vh; -webkit-mask-image: url("../img/icons/willow-tree.svg");   mask-image: url("../img/icons/willow-tree.svg"); }
+.sl-tree2   { width: 9vw;  height: 14vh; -webkit-mask-image: url("../img/icons/willow-tree.svg");   mask-image: url("../img/icons/willow-tree.svg"); }
+.sl-church  { width: 11vw; height: 15vh; -webkit-mask-image: url("../img/icons/church.svg");        mask-image: url("../img/icons/church.svg"); }
+.sl-huts    { width: 15vw; height: 9vh;  -webkit-mask-image: url("../img/icons/huts-village.svg");  mask-image: url("../img/icons/huts-village.svg"); }
+.sl-mill    { width: 10vw; height: 12vh; -webkit-mask-image: url("../img/icons/water-mill.svg");    mask-image: url("../img/icons/water-mill.svg"); }
+.sl-ruins   { width: 10vw; height: 9vh;  -webkit-mask-image: url("../img/icons/castle-ruins.svg");  mask-image: url("../img/icons/castle-ruins.svg"); }
+.sl-tower   { width: 8vw;  height: 17vh; -webkit-mask-image: url("../img/icons/evil-tower.svg");    mask-image: url("../img/icons/evil-tower.svg"); }
 
-/* night: near-black silhouettes with a faint warm glow behind them */
-body[data-phase="night"] .sv { background: #04060b; opacity: 0.95; }
-body[data-phase="night"] .scene-village { filter: drop-shadow(0 0 22px rgba(255, 168, 64, 0.25)); }
-/* day: the village sits back in the haze */
-body[data-phase="day"] .sv { background: rgba(64, 80, 52, 0.5); opacity: 0.85; }
-/* between matches / lobby: keep them as scenery */
-body:not([data-phase="day"]):not([data-phase="night"]) .sv { background: rgba(10, 12, 20, 0.85); opacity: 0.8; }
-body:not([data-phase="day"]):not([data-phase="night"]) .scene-village { filter: drop-shadow(0 0 18px rgba(120, 150, 220, 0.18)); }
+/* night: near-black silhouettes, warm light standing in for lit windows */
+body[data-phase="night"] .sl { background: #04060b; }
+body[data-phase="night"] .scene-near {
+    filter: drop-shadow(0 0 20px rgba(255, 168, 64, 0.3));
+}
+body[data-phase="night"] .scene-mid .sl { background: #070a12; }
+body[data-phase="night"] .scene-far .sl  { background: #0b1018; }
+/* day: cool hazy blues/greens receding into the distance */
+body[data-phase="day"] .scene-near .sl { background: rgba(46, 62, 38, 0.82); }
+body[data-phase="day"] .scene-mid .sl  { background: rgba(74, 98, 66, 0.66); }
+body[data-phase="day"] .scene-far .sl  { background: rgba(112, 138, 146, 0.5); }
+/* outside a match: keep it as scenery, lit by the page */
+body:not([data-phase="day"]):not([data-phase="night"]) .scene-near .sl { background: rgba(12, 15, 24, 0.85); }
+body:not([data-phase="day"]):not([data-phase="night"]) .scene-mid .sl  { background: rgba(16, 20, 30, 0.7); }
+body:not([data-phase="day"]):not([data-phase="night"]) .scene-far .sl  { background: rgba(24, 30, 44, 0.55); }
 
 /* ================= E. THE HALL'S HEARTH (atmosphere art in use) ================= */
 #hall-hero { position: relative; }
@@ -515,3 +542,67 @@ body:not([data-phase="day"]):not([data-phase="night"]) .scene-village { filter: 
 .chat-cancel-btn { font-size: 1rem; font-weight: 800; line-height: 1; color: inherit; opacity: 0.8; }
 .chat-cancel-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
 .chat-close-btn { display: flex; align-items: center; justify-content: center; }
+
+/* ================= F. DAY CONTRAST FIXES =================
+   A contrast audit of day mode found six pieces of text below 1.5:1 — three of them
+   essentially invisible. Fixes, in the order the audit reported them. */
+
+/* 1. Gold on parchment is unreadable (1.31:1). Darken gold wherever it is TEXT.
+      The role card's label is inline-styled, so only !important reaches it. */
+body[data-phase="day"] #game-phase-text,
+body[data-phase="day"] #chat-timer-badge,
+body[data-phase="day"] .role-card > p:first-of-type,
+body[data-phase="day"] .chat-message .sender,
+body[data-phase="day"] .vc-title { color: #8a5b06 !important; }
+
+/* 2. Chat bubbles keep their own DARK background, so forcing dark ink on them made
+      the messages black-on-black. In daylight the bubbles go light instead. */
+body[data-phase="day"] .chat-message {
+    background: rgba(255, 255, 255, 0.66) !important;
+    color: #322a1c !important;
+    border-color: rgba(92, 74, 42, 0.26) !important;
+}
+/* 3. The collapsed chat bar's preview was white-on-parchment (1.16:1). */
+body[data-phase="day"] .clb-text b { color: #2b2418 !important; }
+body[data-phase="day"] .clb-text small { color: #6b5f45 !important; opacity: 1; }
+body[data-phase="day"] .chat-log-btn { background: rgba(255, 252, 243, 0.75) !important; }
+
+/* ================= G. THE BOARD USES ITS WHOLE AREA ================= */
+/* "让玩家分散开" — the seats fill the board instead of bunching at the top. */
+.game-player-list { align-content: space-evenly !important; }
+
+/* ================= H. ONE FRAME PER THING SAID ================= */
+/* Every message is its own framed bubble: avatar + name + speech, so who said what
+   is obvious at a glance instead of a wall of lines. */
+.chat-message {
+    display: flex; gap: 9px; align-items: flex-start;
+    padding: 8px 10px; margin-bottom: 6px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid var(--scene-line);
+    border-left-width: 3px;
+}
+.chat-message .cm-av { flex: none; width: 26px; height: 26px; }
+.chat-message .cm-av .avatar { width: 26px !important; height: 26px !important; }
+.chat-message .cm-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.chat-message .cm-body .sender { font-size: 0.68rem; font-weight: 800; }
+.chat-message .cm-text { font-size: 0.82rem; font-weight: 600; line-height: 1.35; word-break: break-word; }
+.chat-message.sys { opacity: 0.92; border-left-color: #38bdf8; }
+.chat-message.mine { background: rgba(233, 200, 106, 0.09); border-left-color: var(--accent-gold, #ffcc00); }
+
+/* 4. The roster chips (YOU / role / distrust) were built for a dark seat: pale text
+      on a translucent backing, which washes out to ~1.3:1 on parchment. In daylight
+      they go dark-on-light. The colour coding is redundant anyway — the chip text
+      already spells the role out. */
+body[data-phase="day"] .you-tag,
+body[data-phase="day"] .role-chip,
+body[data-phase="day"] .pack-tag,
+body[data-phase="day"] .my-vote-tag,
+body[data-phase="day"] [class*="distrust"] {
+    color: #2b2418 !important;
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid rgba(92, 74, 42, 0.34) !important;
+    text-shadow: none !important;
+}
+body[data-phase="day"] .distrust-chip.high,
+body[data-phase="day"] [class*="distrust"].high { color: #8a1f1f !important; }

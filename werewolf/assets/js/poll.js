@@ -93,9 +93,9 @@
                             const fresh = data.messages.slice(Math.max(0, known));
                             // Soft bong for incoming chat, but not for my own echo.
                             if (fresh.some(m => m.sender_name !== state.nickname)) playSound('chat');
-                            const html = fresh.map(m => `
-                                <div class="chat-message"><span class="sender">${esc(m.sender_name)}:</span> ${m.message}</div>
-                            `).join('');
+                            const html = fresh.map(m =>
+                                chatBubbleHtml(m.sender_name, m.message, m.sender_name === state.nickname, m.sender_name === 'System')
+                            ).join('');
                             // Collapsed chat: preview line + unread badge (client-side only).
                             if (typeof noteChatActivity === 'function') {
                                 const lm = fresh[fresh.length - 1] || lastM;
@@ -106,7 +106,9 @@
                             // Reset (new match), window shift, first paint, or
                             // near the 50-cap: full rebuild, statically (no
                             // entrance animation replay on the history)
-                            chatMsgs.innerHTML = data.messages.map(m => `<div class="chat-message no-anim"><span class="sender">${esc(m.sender_name)}:</span> ${m.message}</div>`).join('');
+                            chatMsgs.innerHTML = data.messages.map(m =>
+                                chatBubbleHtml(m.sender_name, m.message, m.sender_name === state.nickname, m.sender_name === 'System')
+                            ).join('');
                         }
                         if (typeof noteChatActivity === 'function' && lastM && lastM.message) {
                             noteChatActivity(lastM.message, lastM.sender_name, lastM.sender_name === state.nickname);

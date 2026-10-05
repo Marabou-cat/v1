@@ -38,7 +38,8 @@
             // insertAdjacentHTML: appending via innerHTML+= would rebuild the
             // whole container and replay the entrance animation on every
             // existing message
-            chatMsgs.insertAdjacentHTML('beforeend', `<div class="chat-message no-anim" style="border-left-color: #38bdf8;"><span class="sender" style="color: #38bdf8;">System:</span> ${text}</div>`);
+            chatMsgs.insertAdjacentHTML('beforeend', chatBubbleHtml('System', text, false, true));
+            if (window.lucide) lucide.createIcons();
             trimChat(chatMsgs);
             chatMsgs.scrollTop = chatMsgs.scrollHeight;
         }
@@ -114,3 +115,38 @@ function noteChatActivity(text, who, mine) {
         if (b) { b.hidden = false; b.innerText = String(state.chatUnread); }
     }
 }
+
+/* ================= ONE FRAME PER THING SAID =================
+   "每次说话生成一个聊天框" — every message gets its own bubble with the speaker's
+   face and name, so the log reads as a conversation instead of a wall of lines. */
+
+function chatAvatarFor(name) {
+    const map = state.rosterAvatars || {};
+    const id = map[name];
+    if (id && typeof avatarHtml === 'function') return avatarHtml(id, 26);
+    return '<span class="avatar" style="width:26px;height:26px"></span>';
+}
+
+function chatBubbleHtml(name, text, mine, system) {
+    const cls = 'chat-message' + (system ? ' sys' : '') + (mine ? ' mine' : '');
+    const av = system
+        ? '<span class="cm-av"><i data-lucide="info" size="18" style="color:#38bdf8"></i></span>'
+        : '<span class="cm-av">' + chatAvatarFor(name) + '</span>';
+    return '<div class="' + cls + '">'
+        + av
+        + '<div class="cm-body"><span class="sender">' + esc(name) + '</span>'
+        + '<span class="cm-text">' + text + '</span></div>'
+        + '</div>';
+}
+
+/* ================= CLOSING THE LOG MUST ALWAYS WORK =================
+   Three ways out: the X, Escape, or a click on the backdrop. Without the backdrop
+   click the only way out was the small X, which read as "the chat won't close". */
+document.addEventListener('click', function (e) {
+    if (!chatIsOpen()) return;
+    const c = document.getElementById('chat-container');
+    if (c && !c.contains(e.target)) closeChatLog();
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && chatIsOpen()) closeChatLog();
+});

@@ -68,6 +68,10 @@
         //                button states flip without replaying the entrance
         //                stagger on every 1.5s poll.
         function renderRosterList(listEl, data, buildExtra, mode) {
+            // nickname -> avatar, so a chat bubble can show the speaker's face.
+            state.rosterAvatars = {};
+            (data.players || []).forEach(function (p) { if (p.nickname) state.rosterAvatars[p.nickname] = p.avatar; });
+
             const rosterSig = data.players.map(p => [p.id, p.nickname, p.avatar, p.is_alive, p.role, p.votes]).join('|');
             // mode matters: the same roster renders different markup per phase
             // (e.g. pre-night has no action buttons, night does)
