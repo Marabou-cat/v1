@@ -11,7 +11,7 @@
 
 #view-game {
     display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
-    position: relative; --gr-top-h: 15%; --gr-mid-h: 52%; --gr-bot-h: 33%;
+    position: relative; padding: 0; --gr-top-h: 15%; --gr-mid-h: 52%; --gr-bot-h: 33%;
 }
 
 /* ---------------- top bar ---------------- */
@@ -363,7 +363,7 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
 .gr-icon-btn.off { opacity: 0.45; filter: grayscale(0.7); }
 
 .chat-skip-btn {
-    flex: none; padding: 0 15px; border-radius: 11px; cursor: pointer;
+    flex: 0 0 auto; width: auto; padding: 0 15px; border-radius: 11px; cursor: pointer;
     background: var(--btn-face, linear-gradient(180deg,#3d4252,#262a36));
     border: 1px solid var(--scene-line); border-bottom: 3px solid var(--ink, #0b0c11);
     color: var(--text); font-weight: 800; font-size: 0.78rem; letter-spacing: 0.4px;
@@ -371,3 +371,7 @@ body:has(#view-game:not(.hidden)) [onclick*="etting"] { display: none !important
     transition: transform .06s ease, border-bottom-width .06s ease;
 }
 .chat-skip-btn:active { transform: translateY(2px); border-bottom-width: 1px; }
+
+/* chat composer: input fills, Send + Skip stay compact (they must override the
+   global button { width:100%; flex:1 } style that leaks into the game view) */
+.chat-composer #chat-input { flex: 1 1 auto; min-width: 0; }
