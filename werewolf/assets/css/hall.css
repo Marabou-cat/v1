@@ -41,13 +41,10 @@
 }
 @keyframes hallIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-/* Warm light pooling on the floor of the hall. */
-.hall::after {
-    content: '';
-    position: absolute; left: 0; right: 0; bottom: -70px; height: 120px;
-    background: radial-gradient(58% 100% at 50% 0%, rgba(233, 200, 106, 0.13), transparent 72%);
-    pointer-events: none;
-}
+/* The warm floor-pool glow used to live here as .hall::after. Removed on request:
+   a 58%-wide dome-shaped gold gradient (radial at 50% 0%) sat across the lower half
+   of the panel — the same box as your character card — so it read as a lit fireplace
+   arch bleeding over the avatar. The panel keeps its own gradient and border. */
 
 /* ---- your character ---- */
 .hall-hero { display: flex; align-items: center; gap: 14px; flex: none; }
