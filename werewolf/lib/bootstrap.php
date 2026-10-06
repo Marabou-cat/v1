@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
@@ -162,6 +162,9 @@ if (!$schemaOk) {
         $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS talk_pass TINYINT DEFAULT 0");
         // A player who died overnight but has not spoken their last words yet.
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS death_pending TINYINT DEFAULT 0");
+        // Every player a seer has ever divined, as "id:label" pairs. NEVER cleared:
+        // the knowledge has to outlive the night (and the phase it was learned in).
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS seer_knowledge TEXT DEFAULT NULL");
         $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS pending_victim INT DEFAULT NULL");
         $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS night_deadline INT DEFAULT 0");
         // "Sleep" tap: everyone without a night action (villagers, the Doctor)

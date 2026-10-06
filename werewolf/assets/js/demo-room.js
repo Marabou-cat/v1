@@ -32,7 +32,21 @@ function dCardChips(p, data) {
         if (data.my_vote_id === p.id) chips.push('<span class="d-chip vote"><i data-lucide="vote" size="11"></i> YOUR VOTE</span>');
         if (p.votes > 0) chips.push('<span class="d-chip vote"><i data-lucide="vote" size="11"></i> ' + p.votes + '</span>');
     }
-    if (p.is_wolf) chips.push('<span class="d-chip pack">PACK</span>');
+    if (p.is_wolf && p.id !== data.my_id) chips.push('<span class="d-chip pack"><i data-lucide="paw-print" size="11"></i> PACK</span>');
+    // A wolf also watches the pack's picks while the night is running.
+    if (p.is_wolf && p.wolf_target_id) {
+        const tgt = (data.players || []).filter(x => x.id === p.wolf_target_id)[0];
+        chips.push('<span class="d-chip pack-target" title="Their pick tonight"><i data-lucide="crosshair" size="11"></i> ' + esc(tgt ? tgt.nickname : '?') + '</span>');
+    }
+    // The seer's notebook: a reading stays on the card for the rest of the game, in
+    // every phase — the night can end on the very tap that produced it, so a
+    // night-only panel was never enough.
+    if (p.seer_says) {
+        const v = String(p.seer_says);
+        const wolfish = (v === 'wolf' || v === 'Werewolf');
+        const text = wolfish ? 'WOLF' : (v === 'good' ? 'CLEAN' : v.toUpperCase());
+        chips.push('<span class="d-chip seer-says ' + (wolfish ? 'wolf' : 'good') + '" title="Your divination"><i data-lucide="eye" size="11"></i> ' + esc(text) + '</span>');
+    }
     // Roles are public for your own seat and for every DEAD player; living
     // opponents stay 'Hidden' until the final reveal — same rule as the live game.
     const revealed = (p.role && p.role !== 'Hidden' && p.role !== 'unassigned') ? p.role : null;
@@ -85,7 +99,8 @@ function dPlayerCard(p, data, extra, index, noAnim) {
         + bubble
         + '<span class="d-pnum">' + p.id + '</span>'
         + '<span class="d-pava">' + face + '</span>'
-        + '<span class="d-pbody"><span class="d-pname">' + esc(p.nickname) + '</span></span>'
+        + '<span class="d-pbody"><span class="d-pname' + (p.is_wolf ? ' wolfmate' : '') + '"'
+        + (p.is_wolf ? ' title="Your packmate"' : '') + '>' + esc(p.nickname) + '</span></span>'
         + (extra || '')
         + hp
         + (chipsHtml ? '<span class="d-pmeta">' + chipsHtml + '</span>' : '')
@@ -227,6 +242,23 @@ function chatBubbleHtml(name, text, mine, system) {
         + '</div>';
 }
 
+/* The seer's permanent readings, as one compact line. Shown in EVERY phase so a
+   reading can never be lost to the night ending. */
+function seerVisionsHtml(data) {
+    if (data.my_role !== 'Seer' || !data.my_seer_knowledge) return '';
+    const ids = Object.keys(data.my_seer_knowledge);
+    if (!ids.length) return '';
+    const byId = {};
+    (data.players || []).forEach(p => { byId[p.id] = p.nickname; });
+    const parts = ids.map(id => {
+        const v = String(data.my_seer_knowledge[id]);
+        const wolfish = (v === 'wolf' || v === 'Werewolf');
+        const text = wolfish ? 'WEREWOLF' : (v === 'good' ? 'not a werewolf' : v);
+        return esc(byId[id] || ('#' + id)) + ' <b style="color:' + (wolfish ? '#ff4d4d' : '#38bdf8') + '">' + esc(text) + '</b>';
+    });
+    return '<span class="d-aprompt d-visions"><i data-lucide="eye" size="14"></i> ' + parts.join(' · ') + '</span>';
+}
+
 /* ================= PHASE SUBLINE + ICON =================
    The demo has no event banner, so the live writer (which needs #event-banner)
    no-ops; this keeps the phase icon + subline alive in the demo top bar. */
@@ -265,7 +297,7 @@ function renderSkillPanel(data) {
         const prompt = data.my_vote_skip ? 'You abstained — waiting for the tally…'
             : (data.has_voted ? 'Vote cast. Waiting for the result…'
                               : 'Who should be eliminated? Tap a player — or Skip.');
-        show(label('Day') + '<span class="d-aprompt">' + prompt + '</span>');
+        show(label('Day') + '<span class="d-aprompt">' + prompt + '</span>' + seerVisionsHtml(data));
         return;
     }
     if (data.room_status === 'ended') {
@@ -322,7 +354,8 @@ function renderSkillPanel(data) {
         const isWolf = data.my_seer_result === 'wolf';
         show(label('Night')
             + '<span class="d-aprompt">Your vision of <b>' + esc(data.my_seer_target_name) + '</b>: '
-            + '<b style="color:' + (isWolf ? '#ff4d4d' : '#38bdf8') + '">' + (isWolf ? '<i data-lucide="paw-print" size="15"></i> WEREWOLF' : '<i data-lucide="shield-check" size="15"></i> not a werewolf') + '</b></span>');
+            + '<b style="color:' + (isWolf ? '#ff4d4d' : '#38bdf8') + '">' + (isWolf ? '<i data-lucide="paw-print" size="15"></i> WEREWOLF' : '<i data-lucide="shield-check" size="15"></i> not a werewolf') + '</b></span>'
+            + seerVisionsHtml(data));
         return;
     }
 

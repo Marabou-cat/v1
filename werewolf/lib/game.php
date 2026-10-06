@@ -542,6 +542,30 @@ function advanceDayStep(PDO $pdo, $roomCode) {
     return true;
 }
 
+/* The seer's permanent readings, "12:wolf,15:good" -> [12 => 'wolf', 15 => 'good'].
+   A string column keeps this additive (no join, no extra table) and it is only ever
+   sent to the seer whose row it is. */
+function seerKnowledgeMap($raw) {
+    $out = [];
+    foreach (explode(',', (string)$raw) as $pair) {
+        $pair = trim($pair);
+        if ($pair === '' || strpos($pair, ':') === false) continue;
+        $bits = explode(':', $pair, 2);
+        $id = (int)$bits[0];
+        if ($id > 0) $out[$id] = (string)$bits[1];
+    }
+    return $out;
+}
+
+// Add (or refresh) one reading and hand back the column value to store.
+function seerKnowledgeAdd($raw, $targetId, $label) {
+    $map = seerKnowledgeMap($raw);
+    $map[(int)$targetId] = (string)$label;
+    $parts = [];
+    foreach ($map as $id => $lbl) $parts[] = $id . ':' . $lbl;
+    return implode(',', $parts);
+}
+
 // The day tally, counted with EXACTLY the rule resolveDay() uses below: only LIVING
 // voters count, an abstention is not a vote, and a vote aimed at a seat that is
 // already dead is not a vote either. The roster display and the day_vote response

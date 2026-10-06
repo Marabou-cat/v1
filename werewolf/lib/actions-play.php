@@ -152,7 +152,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, avatar, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, death_pending, voice_on, user_id, rating_delta, user_won, xp_delta, wolf_votes, special_kills, damage_done, hp, max_hp, hp_delta, heal_target, seer_hp, distrust FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, avatar, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, seer_knowledge, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, death_pending, voice_on, user_id, rating_delta, user_won, xp_delta, wolf_votes, special_kills, damage_done, hp, max_hp, hp_delta, heal_target, seer_hp, distrust FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
@@ -184,6 +184,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $myCheckTarget = null;
         $mySeerTarget = null;
         $mySeerResult = null;
+        $mySeerKnowledgeRaw = '';
         $myPoisonTarget = null;
         $myPoisonUsed = 0;
         $myPoisonSkip = 0;
@@ -215,6 +216,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $myDoctorChoice = $p['doctor_choice'];
                 $myAsleep = (int)$p['asleep'];
                 $myVoteSkip = (int)$p['vote_skip'];
+                $mySeerKnowledgeRaw = (string)($p['seer_knowledge'] ?? '');
                 // HP is a chaos-only quantity: gate these on the MODE, not merely on
                 // the value being non-null, so a classic seat can never ship one.
                 $myHp = ($isChaos && $p['hp'] !== null) ? (int)$p['hp'] : null;
@@ -255,11 +257,12 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             $myMaxHp = CHAOS_HP;
         }
 
-        // Chaos Night: a WEREWOLF reads every player's vitals and can pick out the
-        // rest of the pack. Everyone else still sees nothing but their own numbers.
-        $wolfVision = (validMode($room['mode'] ?? '') === MODE_CHAOS
-                       && $myRole === 'Werewolf'
-                       && in_array($room['status'], ['night', 'day'], true));
+        // A werewolf ALWAYS sees the pack (both modes): the red names and, at night,
+        // what each packmate has picked. $wolfVision additionally gates the chaos-only
+        // vitals. Both are passed into the playerData closure below — an uncaptured
+        // $wolfVision used to leave is_wolf at 0 for everyone, so the pack was blind.
+        $isWolfSeat = ($myRole === 'Werewolf' && in_array($room['status'], ['night', 'day'], true));
+        $wolfVision = (validMode($room['mode'] ?? '') === MODE_CHAOS && $isWolfSeat);
 
         // Being bitten is FELT immediately: while the night is running, tell the
         // victim a claw is on them, so the sting lands before dawn announces the
@@ -384,7 +387,10 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Role visibility: your own card is always real. Others' roles are
         // only revealed at the END (final reveal); during night/day they are
         // masked so no client can read the table from the poll payload.
-        $playerData = array_map(function($p) use ($room, $myId, $voteTally) {
+        // My own seer notebook (empty for every other role, so nothing leaks).
+        $mySeerKnowledge = seerKnowledgeMap($mySeerKnowledgeRaw ?? '');
+
+        $playerData = array_map(function($p) use ($room, $myId, $voteTally, $isWolfSeat, $wolfVision, $mySeerKnowledge) {
             $role = $p['role'];
             $isAlive = (int)$p['is_alive'];
             // Reveal rule: your own card is always real; a DEAD player's role is
@@ -410,7 +416,14 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 // from a chaos predecessor). Revealed to everyone only once ended.
                 "hp" => ((validMode($room['mode'] ?? '') === MODE_CHAOS) && ($room['status'] === 'ended' || $wolfVision) && $p['hp'] !== null) ? (int)$p['hp'] : null,
                 "max_hp" => ((validMode($room['mode'] ?? '') === MODE_CHAOS) && ($room['status'] === 'ended' || $wolfVision) && $p['max_hp'] !== null) ? (int)$p['max_hp'] : null,
-                "is_wolf" => ($wolfVision && $p['role'] === 'Werewolf') ? 1 : 0,
+                // Pack insight, both modes: the client paints these names red.
+                "is_wolf" => ($isWolfSeat && $p['role'] === 'Werewolf') ? 1 : 0,
+                // At night a wolf also sees what each packmate has picked.
+                "wolf_target_id" => ($isWolfSeat && $p['role'] === 'Werewolf' && $p['target_id'] !== null)
+                    ? (int)$p['target_id'] : null,
+                // The seer's permanent reading of this seat ('wolf' | 'good' | a role
+                // in chaos), or null when I am not the seer or have not looked yet.
+                "seer_says" => isset($mySeerKnowledge[(int)$p['id']]) ? $mySeerKnowledge[(int)$p['id']] : null,
                 // Distrust is PUBLIC (unlike HP) — every seat may read every meter.
                 "distrust" => (validMode($room['mode'] ?? '') === MODE_CHAOS && $p['distrust'] !== null)
                     ? round((float)$p['distrust'], 1) : null,
@@ -531,6 +544,9 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             "my_seer_target" => $mySeerTarget,
             "my_seer_target_name" => $mySeerTargetName,
             "my_seer_result" => $mySeerResult,
+            // id => label for every seat this seer has ever divined (survives the
+            // night, the day and every phase change — the client keeps painting it).
+            "my_seer_knowledge" => $mySeerKnowledge,
             "my_poison_target" => $myPoisonTarget,
             "my_poison_used" => $myPoisonUsed,
             "my_poison_skip" => $myPoisonSkip,
@@ -628,12 +644,17 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 // Chaos: the Seer reads the REAL role and the target's CURRENT HP.
                 // This is the only way anyone ever sees another player's HP.
                 $hp = ($target['hp'] === null) ? CHAOS_HP : (int)$target['hp'];
-                $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ?, seer_hp = ? WHERE id = ?")
-                    ->execute([$targetId, $targetId, $target['role'], $hp, $myId]);
+                $know = seerKnowledgeAdd($me['seer_knowledge'] ?? '', $targetId, $target['role']);
+                $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ?, seer_hp = ?, seer_knowledge = ? WHERE id = ?")
+                    ->execute([$targetId, $targetId, $target['role'], $hp, $know, $myId]);
             } else {
                 $result = ($target['role'] === 'Werewolf') ? 'wolf' : 'good';
-                $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ? WHERE id = ?")
-                    ->execute([$targetId, $targetId, $result, $myId]);
+                // Append to the permanent notebook: the night can end on this very
+                // request (the seer is often the last actor), so the reading must not
+                // live only in this payload's transient fields.
+                $know = seerKnowledgeAdd($me['seer_knowledge'] ?? '', $targetId, $result);
+                $pdo->prepare("UPDATE players SET check_target = ?, seer_target = ?, seer_result = ?, seer_knowledge = ? WHERE id = ?")
+                    ->execute([$targetId, $targetId, $result, $know, $myId]);
             }
 
         } elseif ($me['role'] === 'Witch') {

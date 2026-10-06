@@ -392,3 +392,12 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 }
 #view-game.dmode .d-qchip:hover { transform: translateY(-1px); border-color: rgba(255, 204, 0, 0.55); color: #fff; }
 #view-game.dmode .d-qchip.q-back { background: rgba(230, 0, 18, 0.12); border-color: rgba(255, 80, 80, 0.4); }
+
+/* ---- the pack (wolves only: is_wolf reaches them in classic too) ----------- */
+#view-game.dmode .d-pname.wolfmate { color: #ff5c5c; text-shadow: 0 0 10px rgba(255, 60, 60, 0.35); }
+#view-game.dmode .d-chip.pack { background: rgba(255, 60, 60, 0.16); border-color: rgba(255, 80, 80, 0.55); color: #ffb3b3; }
+#view-game.dmode .d-chip.pack-target { background: rgba(255, 204, 0, 0.12); border-color: rgba(255, 204, 0, 0.45); color: var(--d-gold); }
+/* ---- the seer's notebook (only ever rendered for the seer) ---------------- */
+#view-game.dmode .d-chip.seer-says { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.45); color: #7dd3fc; }
+#view-game.dmode .d-chip.seer-says.wolf { background: rgba(255, 60, 60, 0.16); border-color: rgba(255, 80, 80, 0.55); color: #ffb3b3; }
+#view-game.dmode .d-aprompt.d-visions { display: block; margin-top: 4px; font-size: 0.72rem; }
