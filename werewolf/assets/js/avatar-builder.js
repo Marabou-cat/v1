@@ -42,7 +42,7 @@ const AV_KEY = 'werewolf_avatar_cfg';
 /* Bump when the part SVGs are redrawn. They are pulled in as CSS masks, and the
    browser caches them by URL, so a redrawn part would otherwise keep showing
    the old drawing until the cache happened to expire. */
-const AV_ASSET_V = '?v=2';
+const AV_ASSET_V = '?v=3';
 function AV_PART_URL(slot, shape) {
     return 'assets/img/avatar/' + slot + '_' + shape + '.svg' + AV_ASSET_V;
 }

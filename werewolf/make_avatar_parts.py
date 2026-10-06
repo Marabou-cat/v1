@@ -46,7 +46,11 @@ def mir(body):
 # single-colour silhouette can carry, and it is exactly how anime bangs read.
 CAP = 'M33 62 C31 38 45 29 60 29 C75 29 89 38 87 62'
 FRINGE = 'L83 48 L79 53 L75 44 L71 52 L66 43 L62 52 L58 43 L53 52 L49 44 L45 53 L41 48 L37 54'
-SHORT = CAP + FRINGE + ' Z'
+# Crown gloss: the anime "angel ring". A lens wound the OPPOSITE way round, so it
+# punches a HOLE in the hair silhouette (skin shows through) instead of filling dark —
+# the only way to draw a highlight in a single-colour mask.
+GLOSS = ' M38 41 C46 37 74 37 82 41 C74 32 46 32 38 41 Z'
+SHORT = CAP + FRINGE + ' Z' + GLOSS
 # Side locks: taper to a point at the jaw so the face is framed, not just topped.
 SIDELOCK = 'M34 62 C31 72 33 81 38 87 L44 82 C40 75 38 68 39 60 Z'
 # The ahoge. Kept SHORT on purpose: avFit() scales the doll by the topmost part, so a
@@ -125,26 +129,22 @@ PARTS = {
     # ---------------- eyes ----------------
     # Big, high-set, with a heavy upper lid and a highlight cut clean through the
     # shape so the skin behind it reads as a shine. Author the left eye, mirror it.
+    # ---------------- eyes ----------------
+    # Genshin-ish: a bold mass that still reads at 34px, THREE hole speculars
+    # (upper orb, lower spark, and the lower-rim crescent = the ring light that
+    # makes an eye look DRAWN), plus a thick lash with an outer flick, a lower
+    # lid line and a crease. Holes are kept apart: evenodd cancels overlaps.
+    # ---------------- eyes ----------------
+    # Single-colour anime anatomy: an almond OUTLINE ring whose interior is the
+    # HOLE (= the sclera), a separate filled IRIS carrying three hole speculars
+    # (upper orb, lower spark, lower-rim crescent), a thick lash with an outer
+    # flick, a lower lid line and a crease. Holes never overlap: evenodd cancels.
     'eyes': {
-        'calm':   mir('<path fill-rule="evenodd" d="M43 61 C43.6 56.4 46.4 54.6 50 54.6 '
-                      'C53.6 54.6 56.4 56.6 57 61 C55.4 64.8 44.6 64.8 43 61 Z '
-                      'M45.6 58 A1.6 1.6 0 1 0 48.8 58 A1.6 1.6 0 1 0 45.6 58 Z"/>'
-                      '<path d="M42.4 60.6 C43 55 46 52.8 50 52.8 C54 52.8 57 55.2 57.6 60.8 '
-                      'L55.6 60.8 C55 57 53 55 50 55 C47 55 44.8 56.8 44.4 60.6 Z"/>'),
-        'angry':  mir('<path fill-rule="evenodd" d="M43.4 59.6 C45 54.6 48.4 53 53.4 54.6 '
-                      'C54.4 56.6 54.6 59.6 53.4 62.2 C48.4 65.6 44.4 64 43.4 59.6 Z '
-                      'M46.4 57.6 A1.4 1.4 0 1 0 49.2 57.6 A1.4 1.4 0 1 0 46.4 57.6 Z"/>'
-                      '<path d="M42.6 58.6 L54.6 52.8 L55.6 54.8 L43.4 60.8 Z"/>'),
-        'sad':    mir('<path fill-rule="evenodd" d="M43.2 60.4 C44 55.4 47.2 53.8 50.8 54.6 '
-                      'C54 55.6 56.2 58.4 56.8 62 C54 65.6 44.8 65.4 43.2 60.4 Z '
-                      'M45.8 58.2 A1.5 1.5 0 1 0 48.8 58.2 A1.5 1.5 0 1 0 45.8 58.2 Z"/>'
-                      '<path d="M49.6 65.4 Q52.6 67.6 55.4 65.8 L54.6 64.2 Q52.4 65.6 50.2 64 Z"/>'),
-        'closed': mir('<path d="M43.4 62.6 Q49.8 54 56.2 61.6 L54.2 62.2 Q49.6 56.6 45.4 63.4 Z"/>'),
-        'wide':   mir('<path fill-rule="evenodd" d="M42.6 61.2 C43.2 55.6 46.2 53.4 50 53.4 '
-                      'C53.8 53.4 56.8 55.8 57.4 61.2 C55.6 66 44.4 66 42.6 61.2 Z '
-                      'M45 57.4 A2.2 2.2 0 1 0 49.4 57.4 A2.2 2.2 0 1 0 45 57.4 Z"/>'
-                      '<path d="M42 60.8 C42.6 54.2 46 51.6 50 51.6 C54 51.6 57.4 54.4 58 61 '
-                      'L55.8 61 C55.2 55.8 52.8 53.8 50 53.8 C47.2 53.8 45 56 44.4 60.8 Z"/>'),
+        'calm': mir('<path fill-rule="evenodd" d="M42.4 60.6 C43.0 54.2 46.7 51.5 50.7 51.5 C54.9 51.5 57.8 54.1 58.4 58.8 C58.6 61.2 57.7 63.4 56.3 64.6 C53.2 67.1 46.2 67.1 43.9 64.2 C43.0 63.0 42.2 61.9 42.4 60.6 Z M44.1 60.4 C44.7 55.6 47.6 53.4 50.7 53.4 C54.0 53.4 56.3 55.5 56.8 58.7 C57.0 60.6 56.3 62.3 55.3 63.2 C53.0 65.0 47.2 65.0 45.4 62.8 C44.7 61.9 44.1 61.2 44.1 60.4 Z"/><path fill-rule="evenodd" d="M50.7 56.3 A3.6 3.9 0 1 0 50.7 64.1 A3.6 3.9 0 1 0 50.7 56.3 Z M48.5 57.6 A1.35 1.35 0 1 0 51.2 57.6 A1.35 1.35 0 1 0 48.5 57.6 M51.9 62.3 A0.8 0.8 0 1 0 53.5 62.3 A0.8 0.8 0 1 0 51.9 62.3 M47.9 62.9 A3.5 3.5 0 0 0 53.4 63.4 L52.7 61.6 A2.2 2.2 0 0 1 48.6 61.2 Z"/><path d="M40.1 58.8 C41.2 52.6 45.3 49.8 50.6 49.8 C55.7 49.8 58.9 53.0 59.5 59.4 L56.4 59.6 C55.8 55.1 53.3 52.7 50.6 52.7 C47.5 52.7 44.4 54.6 43.0 60.3"/><path d="M44.6 65.4 Q50.8 68.2 56.4 65.1 L55.9 63.9 Q50.9 66.7 45.1 64.2"/>'),
+        'angry': mir('<path fill-rule="evenodd" d="M42.9 60.0 C44.6 54.4 48.2 52.4 53.2 53.7 C55.1 55.5 55.3 58.7 54.0 61.6 C48.6 65.5 44.5 64.0 42.9 60.0 Z M44.6 59.9 C46.0 55.6 48.8 54.0 52.6 55.0 C54.0 56.4 54.1 58.8 53.1 61.0 C49.0 63.9 45.8 62.7 44.6 59.9 Z"/><path fill-rule="evenodd" d="M50.6 56.9 A3.4 3.7 0 1 0 50.6 64.3 A3.4 3.7 0 1 0 50.6 56.9 Z M48.5 58.2 A1.3 1.3 0 1 0 51.1 58.2 A1.3 1.3 0 1 0 48.5 58.2 M52.0 61.9 A0.75 0.75 0 1 0 53.5 61.9 A0.75 0.75 0 1 0 52.0 61.9 Z"/><path d="M40.7 56.9 L55.6 50.4 L56.9 53.1 L42.0 59.6"/><path d="M44.8 64.4 Q51.1 67.5 57.1 64.1 L56.5 62.8 Q51.2 66.0 45.4 62.9"/>'),
+        'sad': mir('<path fill-rule="evenodd" d="M42.6 60.8 C43.5 55.0 47.0 53.0 50.9 53.9 C54.3 54.9 56.6 58.0 57.2 61.9 C54.2 65.8 44.5 65.5 42.6 60.8 Z M44.2 60.5 C45.0 56.0 47.7 54.6 50.8 55.3 C53.5 56.1 55.2 58.4 55.7 61.2 C53.3 64.1 45.7 63.9 44.2 60.5 Z"/><path fill-rule="evenodd" d="M50.8 57.0 A3.4 3.7 0 1 0 50.8 64.4 A3.4 3.7 0 1 0 50.8 57.0 Z M48.8 58.3 A1.3 1.3 0 1 0 51.4 58.3 A1.3 1.3 0 1 0 48.8 58.3 M52.2 62.1 A0.75 0.75 0 1 0 53.7 62.1 A0.75 0.75 0 1 0 52.2 62.1 Z"/><path d="M40.3 59.3 C41.5 53.6 45.4 51.1 50.6 51.4 C55.2 51.8 58.0 54.6 58.5 60.0 L55.6 60.1 C55.0 55.9 52.7 53.9 50.3 53.7 C47.3 53.4 44.4 55.3 43.0 60.5"/><path d="M49.0 66.6 Q52.3 69.0 55.4 66.9 L54.6 65.3 Q52.2 66.8 49.9 65.1"/>'),
+        'closed': mir('<path d="M40.3 59.5 L43.1 51.3 L45.3 57.0"/><path d="M43.1 62.5 Q50.3 53.3 57.5 61.3 L55.2 62.0 Q49.9 55.6 45.2 63.4"/><path d="M44.9 64.9 Q50.9 67.5 56.7 64.5 L56.2 63.2 Q51.1 66.0 45.4 63.5"/>'),
+        'wide': mir('<path fill-rule="evenodd" d="M42.0 60.9 C42.6 54.4 46.5 51.6 50.8 51.6 C55.3 51.6 58.3 54.4 58.9 59.5 C59.1 62.1 58.0 64.6 56.6 65.9 C53.3 68.6 45.9 68.6 43.5 65.4 C42.6 64.2 41.8 62.4 42.0 60.9 Z M43.8 60.7 C44.4 55.8 47.5 53.6 50.8 53.6 C54.3 53.6 56.7 55.9 57.2 59.4 C57.4 61.4 56.5 63.3 55.4 64.3 C52.8 66.4 46.5 66.4 44.8 64.1 C44.1 63.2 43.8 61.9 43.8 60.7 Z"/><path fill-rule="evenodd" d="M50.8 56.0 A4.0 4.3 0 1 0 50.8 64.6 A4.0 4.3 0 1 0 50.8 56.0 Z M48.3 57.4 A1.6 1.6 0 1 0 51.5 57.4 A1.6 1.6 0 1 0 48.3 57.4 M52.2 62.8 A0.9 0.9 0 1 0 54.0 62.8 A0.9 0.9 0 1 0 52.2 62.8 M47.6 63.2 A3.9 3.9 0 0 0 53.9 63.8 L53.1 61.8 A2.5 2.5 0 0 1 48.4 61.4 Z"/><path d="M39.7 58.9 C40.8 52.1 45.0 49.1 50.5 49.1 C56.0 49.1 59.4 52.6 60.0 59.5 L56.7 59.7 C56.1 54.7 53.4 52.1 50.5 52.1 C47.2 52.1 44.1 54.2 42.7 60.4"/><path d="M44.1 65.9 Q50.8 69.2 56.8 65.7 L56.2 64.3 Q50.9 67.6 44.7 64.5"/>'),
     },
     # ---------------- mouth / expression ----------------
     'mouth': {
