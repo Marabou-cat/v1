@@ -309,10 +309,118 @@ function processDayTurnTalk(PDO $pdo, $roomCode) {
     if ($now - (int)$talk['started_at'] < 2) return;            // let the turn breathe
     if ((int)($bot['bot_last_chat'] ?? 0) >= (int)$talk['started_at']) return;   // already spoke this turn
 
-    $line = BOT_CHAT_LINES[array_rand(BOT_CHAT_LINES)];
+    // Read the room first: a bot that answers the table beats one that monologues.
+    $line = botTableTalk($pdo, $roomCode, $bot);
+    if ($line === '') $line = BOT_CHAT_LINES[array_rand(BOT_CHAT_LINES)];
     $pdo->prepare("UPDATE players SET bot_last_chat = ? WHERE id = ?")->execute([$now, $bot['id']]);
     $pdo->prepare("INSERT INTO messages (room_code, sender_name, message) VALUES (?, ?, ?)")
         ->execute([$roomCode, $bot['nickname'], htmlspecialchars($line)]);
     // Done talking — hand the turn over on the next tick instead of burning 15s.
     $pdo->prepare("UPDATE rooms SET talk_pass = 1 WHERE room_code = ?")->execute([$roomCode]);
+}
+
+/* ================= TABLE TALK: bots that read the room =================
+   A bot's line is chosen against a small read of the day instead of at random:
+
+     defend -> the table is naming me: deny it, hard. A wolf defends hardest and
+               counter-accuses on the way out.
+     accuse -> name the seat I least trust. Wolves accuse quickest, and always a
+               villager.
+     claim  -> say what I am. A WOLF NEVER TELLS THE TRUTH HERE: it claims to be a
+               plain villager or — rarely — a power role, to bury the pack. An
+               innocent usually tells the truth and occasionally bluffs a power
+               role to bait the kill.
+     reason -> generic table talk (the original pool), the filler.
+
+   Nothing here touches the game state: it is talk, and talk can be a lie.
+*/
+function botTableTalk(PDO $pdo, $roomCode, array $bot) {
+    $me   = (int)$bot['id'];
+    $name = (string)$bot['nickname'];
+    $role = (string)$bot['role'];
+    $isWolf = ($role === 'Werewolf');
+
+    // Everyone I could name: alive, and not me.
+    $s = $pdo->prepare("SELECT id, nickname FROM players WHERE room_code = ? AND is_alive = 1 AND id <> ?");
+    $s->execute([$roomCode, $me]);
+    $others = $s->fetchAll();
+    if (count($others) === 0) return '';
+    $pick = $others[array_rand($others)];
+    $other = (string)$pick['nickname'];
+
+    // Is the table already pointing at me? Being NAMED in the last few lines is
+    // what makes a bot answer instead of monologue.
+    $named = false;
+    if ($name !== '') {
+        $m = $pdo->prepare("SELECT message FROM messages WHERE room_code = ? ORDER BY id DESC LIMIT 6");
+        $m->execute([$roomCode]);
+        foreach ($m->fetchAll(PDO::FETCH_COLUMN) as $line) {
+            if (stripos((string)$line, $name) !== false) { $named = true; break; }
+        }
+    }
+    // ...or already carrying the most votes (vote step / straight after a lynch).
+    $tally = dayVoteTally($pdo, $roomCode);
+    $myVotes = (int)($tally[$me] ?? 0);
+    $top = 0;
+    foreach ($tally as $n) { if ((int)$n > $top) $top = (int)$n; }
+    $leading = ($myVotes > 0 && $myVotes >= $top);
+
+    // --- category ------------------------------------------------------------
+    $w = [];
+    if ($named || $leading) $w['defend'] = 50;
+    if (!$named && $myVotes === 0) $w['accuse'] = 34;
+    $w['claim'] = $isWolf ? 24 : 14;
+    $w['reason'] = 26;
+    $total = array_sum($w);
+    $roll = random_int(1, max(1, $total));
+    $cat = 'reason';
+    foreach ($w as $k => $n) { $roll -= (int)$n; if ($roll <= 0) { $cat = $k; break; } }
+
+    if ($cat === 'defend') {
+        $pool = [
+            "I'm not the werewolf — I was asleep all night.",
+            "You're wasting the day on me. Look somewhere else.",
+            "Why me? I have said nothing but the truth all game.",
+            "Accusing me is exactly what the pack is hoping for.",
+            $isWolf
+                ? "Point at me all you like — " . $other . " has been far too quiet about this."
+                : "Check my record: I have never once pushed a bad vote.",
+        ];
+        return $pool[array_rand($pool)];
+    }
+
+    if ($cat === 'accuse') {
+        $pool = [
+            'I do not trust ' . $other . '.',
+            'My gut says ' . $other . ' is the wolf.',
+            $other . ' has been too quiet about all of this.',
+            'Something is off about ' . $other . '. I would vote there.',
+            'I have been watching ' . $other . ' — the story does not line up.',
+        ];
+        return $pool[array_rand($pool)];
+    }
+
+    if ($cat === 'claim') {
+        if ($isWolf) {
+            // LIES ONLY: a wolf never names its own role.
+            $lies = [
+                "I'm just a villager. No powers, nothing to hide.",
+                'I am a plain villager — same as most of you.',
+            ];
+            if (random_int(1, 100) <= 30) {
+                // The bold lie: impersonate a power role and clear a packmate.
+                $lies[] = 'I am the Seer. I checked ' . $other . ' — they came back clean.';
+                $lies[] = 'I am the Doctor. I have not had to save anyone yet.';
+            }
+            return $lies[array_rand($lies)];
+        }
+        $pool = [
+            'I will say it plainly: I am the ' . $role . '.',
+            'I am the ' . $role . '.',
+            'I have no information for you — I am a villager.',
+        ];
+        return $pool[array_rand($pool)];
+    }
+
+    return BOT_CHAT_LINES[array_rand(BOT_CHAT_LINES)];
 }

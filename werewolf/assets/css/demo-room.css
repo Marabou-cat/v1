@@ -372,3 +372,23 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 #view-game.dmode .d-pcard.d-speaking { box-shadow: 0 0 0 2px var(--accent-gold), 0 0 14px rgba(255, 200, 80, .35); }
 /* a composer you may not use should look like one */
 #view-game.dmode #chat-input:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ---- quick messages (quick-msgs.js) -------------------------------------- */
+#view-game.dmode .d-quick {
+    display: none; flex-wrap: wrap; align-items: center; gap: 6px;
+    margin: 0 0 6px;
+}
+#view-game.dmode .d-quick.show { display: flex; }
+#view-game.dmode .d-quick .q-hint {
+    display: inline-flex; align-items: center; gap: 4px; color: var(--d-gold);
+    font-size: 0.6rem; letter-spacing: 1px; text-transform: uppercase; font-weight: 800;
+}
+#view-game.dmode .d-qchip {
+    font: inherit; font-size: 0.7rem; font-weight: 700; cursor: pointer;
+    padding: 4px 9px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05); color: #dbe2ee;
+    border: 1px solid var(--d-line);
+    transition: transform 0.08s ease, border-color 0.12s ease;
+}
+#view-game.dmode .d-qchip:hover { transform: translateY(-1px); border-color: rgba(255, 204, 0, 0.55); color: #fff; }
+#view-game.dmode .d-qchip.q-back { background: rgba(230, 0, 18, 0.12); border-color: rgba(255, 80, 80, 0.4); }
