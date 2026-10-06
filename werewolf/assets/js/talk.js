@@ -65,6 +65,9 @@ function applyTalk(data) {
     renderTalkHighlight();
     applyTalkVoice();
     applyTalkComposer();
+    // The quick-phrase row lives and dies with the floor (its own ticker is only a
+    // safety net, so the row is never usable out of turn even for a moment).
+    if (typeof renderQuickRow === 'function') renderQuickRow();
 }
 
 /* ---- the bar above the chat composer -------------------------------------- */
