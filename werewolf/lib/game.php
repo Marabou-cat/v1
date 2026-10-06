@@ -663,6 +663,10 @@ function resolveDay(PDO $pdo, $roomCode) {
 
     $result = json_encode([
         'outcome' => $outcome,
+        // The tally's own timestamp. Two identical outcomes in a row are
+        // indistinguishable without it, and the client uses it to decide whether the
+        // execution banner is news.
+        'at'      => time(),
         'votes'   => $maxVotes,
         'skipped' => $skipCount,
         'tied'    => count($tops),
@@ -783,6 +787,7 @@ function resolveDayChaos(PDO $pdo, $roomCode, array $living, array $livingIds) {
 
     $result = json_encode([
         'outcome' => $exiled ? 'exiled' : ($totalVotes === 0 ? 'quiet' : 'distrust'),
+        'at'      => time(),
         'chaos'   => true,
         'votes'   => $totalVotes,
         'skipped' => $skips,

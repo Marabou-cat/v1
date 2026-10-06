@@ -128,6 +128,18 @@
                 if (data.players) syncVoicePeers(data.players);
                 if (data.voice_signals && data.voice_signals.length) handleVoiceSignals(data.voice_signals);
 
+                // The tally cutscene keys on the vote's OWN timestamp, never on catching
+                // a day->night edge inside one frame. On a phone that edge is routinely
+                // missed (backgrounded tab, slow response) — which is why "X was
+                // executed" used to surface rounds later, or never when the lynch itself
+                // ended the match. A few minutes of slack still counts as news.
+                const lv = data.last_vote;
+                if (lv && lv.outcome && lv.at && lv.at !== state.lastVoteShown
+                    && (Date.now() / 1000 - lv.at) < 240) {
+                    state.lastVoteShown = lv.at;
+                    showVoteCutscene(lv);
+                }
+
                 // Phase-change fade + night blackout + the death card.
                 const prevStatus = state.lastRoomStatus || '';
                 if (prevStatus !== data.room_status) {
@@ -146,9 +158,6 @@
                         playPhaseTransition(data.room_status);
                     }
                     if (prevStatus === 'day' && data.room_status === 'night') {
-                        // The village has just tallied: cut to the result
-                        // (executed / tied / abstained) before night takes over.
-                        showVoteCutscene(data.last_vote);
                         playSound('night_fall');       // the wolf howl
                     }
                     if (prevStatus === 'night' && data.room_status === 'day') {

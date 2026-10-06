@@ -131,12 +131,18 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         // Refresh the room's phase clocks after any phase change so the client
         // always receives the authoritative server timestamps for the CURRENT
         // phase (status/last_event/started_at/phase_started_at + night step).
-        $ri2 = $pdo->prepare("SELECT status, last_event, started_at, phase_started_at, night_step, pending_victim, night_deadline, day_step, talk_order, talk_index, talk_started_at, talk_pass FROM rooms WHERE room_code = ?");
+        // winner + last_vote belong in this re-read: the day tally is resolved a few
+        // lines above (in THIS request), so without them the frame that decides the
+        // match ships the previous frame's tally and an empty winner — the client then
+        // waits for another frame, which the settled long-poll can stall for a while.
+        $ri2 = $pdo->prepare("SELECT status, last_event, winner, last_vote, started_at, phase_started_at, night_step, pending_victim, night_deadline, day_step, talk_order, talk_index, talk_started_at, talk_pass FROM rooms WHERE room_code = ?");
         $ri2->execute([$roomCode]);
         $fresh2 = $ri2->fetch();
         if ($fresh2) {
             $room['status'] = $fresh2['status'];
             if ($fresh2['last_event'] !== null) $room['last_event'] = $fresh2['last_event'];
+            if ($fresh2['winner'] !== null) $room['winner'] = $fresh2['winner'];
+            $room['last_vote'] = $fresh2['last_vote'];
             $room['started_at'] = (int)$fresh2['started_at'];
             $room['phase_started_at'] = (int)$fresh2['phase_started_at'];
             $room['night_step'] = $fresh2['night_step'];
@@ -332,14 +338,28 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 // rowCount() > 0 means THIS request flipped the room, so the
                 // one-time stats award happens exactly once even if two polls
                 // compute the win simultaneously.
-                if ($stmt->rowCount() > 0) authAwardGame($pdo, $roomCode, 'villagers');
+                if ($stmt->rowCount() > 0) {
+                    authAwardGame($pdo, $roomCode, 'villagers');
+                    // The night's pending corpse can never take its farewell turn now
+                    // (advanceDayStep only runs while status = 'day'), so retire it here
+                    // or the final reveal shows a body that is somehow still alive.
+                    $pdo->prepare("UPDATE players SET is_alive = 0, hp = 0, death_pending = 0 WHERE room_code = ? AND death_pending = 1")->execute([$roomCode]);
+                }
                 $room['status'] = 'ended';
+                // WITHOUT this the frame that ends the game ships winner='' and the
+                // victory overlay (which renders off data.winner) draws nothing until
+                // some later frame — the reported freeze as the pack takes the match.
+                $room['winner'] = 'villagers';
                 $room['last_event'] = 'Villagers win! All werewolves have been eliminated.';
             } elseif ($aliveWerewolves >= $aliveVillagersOrSpecials) {
                 $stmt = $pdo->prepare("UPDATE rooms SET status = 'ended', winner = 'werewolves', last_event = 'Werewolves win! They have outnumbered the villagers.' WHERE room_code = ?");
                 $stmt->execute([$roomCode]);
-                if ($stmt->rowCount() > 0) authAwardGame($pdo, $roomCode, 'werewolves');
+                if ($stmt->rowCount() > 0) {
+                    authAwardGame($pdo, $roomCode, 'werewolves');
+                    $pdo->prepare("UPDATE players SET is_alive = 0, hp = 0, death_pending = 0 WHERE room_code = ? AND death_pending = 1")->execute([$roomCode]);
+                }
                 $room['status'] = 'ended';
+                $room['winner'] = 'werewolves';   // same reason as the villagers' branch
                 $room['last_event'] = 'Werewolves win! They have outnumbered the villagers.';
             }
 
