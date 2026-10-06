@@ -8,6 +8,13 @@
             const text = input.value.trim();
             if (!text) return;
 
+            // The discussion is turn-based; the server refuses an out-of-turn line,
+            // so do not fire the request at all.
+            if (typeof talkCanISpeak === 'function' && !talkCanISpeak()) {
+                if (typeof flashInfo === 'function') flashInfo('Not your turn to speak.', true);
+                return;
+            }
+
             const res = await fetch('backend.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

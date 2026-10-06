@@ -198,6 +198,16 @@ function processDoctorBot(PDO $pdo, $roomCode) {
 // Each bot "thinks" for a random 2-8s so the votes trickle in naturally.
 function processDayBots(PDO $pdo, $roomCode) {
     $now = time();
+
+    // Voting is the LAST day step. While the table is still giving last words or
+    // taking turns to speak, the bots' only job is to speak on their own turn.
+    $ds = $pdo->prepare("SELECT day_step FROM rooms WHERE room_code = ?");
+    $ds->execute([$roomCode]);
+    if (($ds->fetchColumn() ?: 'vote') !== 'vote') {
+        processDayTurnTalk($pdo, $roomCode);
+        return;
+    }
+
     $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND is_bot = 1 AND is_alive = 1");
     $stmt->execute([$roomCode]);
     $bots = $stmt->fetchAll();
@@ -274,3 +284,35 @@ const BOT_CHAT_LINES = [
 
 // Occasionally have a living bot post a short chat line (throttled per bot so
 // it reads like a person, not a script). No-op when there is no one to talk.
+
+// A bot speaks ONLY on its own turn, and never for the whole 15s: it drops one
+// line a couple of seconds in and ends the turn, which is what keeps a bot-heavy
+// table moving. Outside a bot turn it says nothing at all — the ambient botChat
+// would have talked straight over whoever holds the turn.
+function processDayTurnTalk(PDO $pdo, $roomCode) {
+    $s = $pdo->prepare("SELECT day_step, talk_order, talk_index, talk_started_at, talk_pass FROM rooms WHERE room_code = ?");
+    $s->execute([$roomCode]);
+    $room = $s->fetch();
+    if (!$room) return;
+    $step = $room['day_step'] ?: 'vote';
+    if ($step !== 'lastwords' && $step !== 'discuss') return;
+
+    $talk = dayTalkInfo($room);
+    if ($talk['speaker'] <= 0) return;
+
+    $b = $pdo->prepare("SELECT * FROM players WHERE id = ? AND room_code = ?");
+    $b->execute([$talk['speaker'], $roomCode]);
+    $bot = $b->fetch();
+    if (!$bot || !(int)$bot['is_bot']) return;                  // humans speak for themselves
+
+    $now = time();
+    if ($now - (int)$talk['started_at'] < 2) return;            // let the turn breathe
+    if ((int)($bot['bot_last_chat'] ?? 0) >= (int)$talk['started_at']) return;   // already spoke this turn
+
+    $line = BOT_CHAT_LINES[array_rand(BOT_CHAT_LINES)];
+    $pdo->prepare("UPDATE players SET bot_last_chat = ? WHERE id = ?")->execute([$now, $bot['id']]);
+    $pdo->prepare("INSERT INTO messages (room_code, sender_name, message) VALUES (?, ?, ?)")
+        ->execute([$roomCode, $bot['nickname'], htmlspecialchars($line)]);
+    // Done talking — hand the turn over on the next tick instead of burning 15s.
+    $pdo->prepare("UPDATE rooms SET talk_pass = 1 WHERE room_code = ?")->execute([$roomCode]);
+}

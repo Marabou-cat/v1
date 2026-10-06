@@ -37,6 +37,8 @@
                 state.voice.stream = stream;
                 state.voice.on = true;
                 state.voice.muted = false;
+                // Turn-based talk: the mic opens only while it is my turn.
+                if (typeof applyTalkVoice === 'function') applyTalkVoice();
                 voicePost(1);
                 renderVoiceBar();
                 syncVoicePeers(state.lastPlayers || []);
@@ -66,6 +68,10 @@
 
         function voiceMuteToggle() {
             if (!state.voice.on || !state.voice.stream) return;
+            if (typeof talkCanISpeak === 'function' && !talkCanISpeak()) {
+                if (typeof flashInfo === 'function') flashInfo('You are muted until it is your turn to speak.', true);
+                return;
+            }
             state.voice.muted = !state.voice.muted;
             state.voice.stream.getAudioTracks().forEach(t => { t.enabled = !state.voice.muted; });
             renderVoiceBar();
@@ -84,6 +90,8 @@
             // Settings > "Mute other players" applies to every incoming stream,
             // including ones that connect after the toggle was flipped.
             if (typeof sound !== 'undefined' && sound.cfg) el.muted = !!sound.cfg.muteOthers;
+            // Only the player holding the turn is audible to everyone else.
+            if (typeof talkPeerAudible === 'function' && !talkPeerAudible(peerId)) el.muted = true;
             el.srcObject = stream;
             const p = el.play();
             if (p && p.catch) p.catch(() => {});

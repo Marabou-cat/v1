@@ -33,6 +33,7 @@ switch ($action) {
     case 'doctor_action': handleDoctorAction($pdo); break;
     case 'voice': handleVoice($pdo); break;
     case 'day_vote': handleDayVote($pdo); break;
+    case 'end_talk': handleEndTalk($pdo); break;
     case 'request_code': handleRequestCode($pdo); break;
     case 'verify_code': handleVerifyCode($pdo); break;
     case 'logout': handleLogout($pdo); break;

@@ -348,3 +348,27 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
     #view-game.dmode .d-voice { width: 150px; }
     #view-game.dmode .d-top { flex-wrap: wrap; gap: 8px; }
 }
+
+/* ---- turn-based day talk (talk.js) ---------------------------------------- */
+#view-game.dmode .d-talkbar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(255, 77, 77, .12);
+    border: 1px solid rgba(255, 77, 77, .35);
+    font-size: 12px;
+    color: #ffd9d9;
+}
+#view-game.dmode .d-talkbar.show { display: flex; }
+#view-game.dmode .d-talk-who { flex: 1; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+#view-game.dmode .d-talk-time { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent-gold); }
+#view-game.dmode .d-talk-time.low { color: #ff4d4d; }
+#view-game.dmode .d-talk-step { font-size: 10px; letter-spacing: .08em; opacity: .7; }
+#view-game.dmode .d-talkbar .btn-action { padding: 3px 9px; font-size: 11px; }
+/* whoever holds the floor glows, so the table can see whose turn it is */
+#view-game.dmode .d-pcard.d-speaking { box-shadow: 0 0 0 2px var(--accent-gold), 0 0 14px rgba(255, 200, 80, .35); }
+/* a composer you may not use should look like one */
+#view-game.dmode #chat-input:disabled { opacity: .55; cursor: not-allowed; }

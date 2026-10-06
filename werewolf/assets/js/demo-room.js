@@ -244,8 +244,20 @@ function renderSkillPanel(data) {
     const round = (typeof state !== 'undefined' && state.round) || 1;
     const label = (status) => '<span class="d-alabel">' + status + ' ' + round + '</span>';
 
-    // Day: the vote lives on the cards + the Skip button; the bar just prompts.
+    // Day: last words -> discussion (one speaker at a time) -> the vote.
     if (data.room_status === 'day') {
+        if (!data.is_alive && (data.day_step === 'lastwords' || data.day_step === 'discuss')) { hide(); return; }
+        const step = data.day_step || 'vote';
+        if (step === 'lastwords' || step === 'discuss') {
+            const rem = (typeof talkRemaining === 'function') ? talkRemaining() : 0;
+            const who = data.my_turn
+                ? '<b>Your turn</b> — speak up'
+                : '<b>' + esc(data.talk_speaker_name || 'Someone') + '</b> is speaking';
+            show(label(step === 'lastwords' ? 'Last Words' : 'Talk')
+                + '<span class="d-aprompt"><i data-lucide="mic" size="14"></i> ' + who + ' — ' + rem + 's</span>'
+                + (data.my_turn ? '<button class="btn-action" onclick="endMyTalk()"><i data-lucide="check" size="16"></i> Done</button>' : ''));
+            return;
+        }
         if (!data.is_alive) { hide(); return; }
         const prompt = data.my_vote_skip ? 'You abstained — waiting for the tally…'
             : (data.has_voted ? 'Vote cast. Waiting for the result…'

@@ -43,6 +43,7 @@ function touchPresence(PDO $pdo, $roomCode, $token = '') {
 function wolfStateSig(PDO $pdo, $roomCode) {
     $s = $pdo->prepare("SELECT r.status, r.night_step, r.started_at, r.phase_started_at,
               r.last_event, r.pending_victim, r.mm_deadline,
+              r.day_step, r.talk_index, r.talk_pass,
               COUNT(p.id)                        AS n_all,
               SUM(p.is_alive = 1)                AS n_alive,
               SUM(p.asleep = 1)                  AS n_asleep,
@@ -55,6 +56,7 @@ function wolfStateSig(PDO $pdo, $roomCode) {
               SUM(p.poison_skip = 1)             AS n_poison_skip,
               SUM(p.doctor_choice IS NOT NULL)   AS n_doctor,
               SUM(p.voice_on = 1)                AS n_voice,
+              SUM(p.death_pending = 1)           AS n_pending,
               (SELECT COALESCE(MAX(m.id), 0) FROM messages m WHERE m.room_code = r.room_code) AS last_msg
             FROM rooms r LEFT JOIN players p ON p.room_code = r.room_code
             WHERE r.room_code = ? GROUP BY r.room_code LIMIT 1");

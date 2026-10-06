@@ -56,6 +56,8 @@
                 if (data.mm_started_at) state.mmStartedAt = data.mm_started_at;
                 if (data.started_at) state.gameStartedAt = data.started_at;
                 if (data.my_id) state.myId = data.my_id;
+                // Turn-based day talk: who holds the floor + the shared countdown.
+                if (typeof applyTalk === 'function') applyTalk(data);
                 // Account state rides the poll, so rank changes show up live.
                 if ('me' in data) applyAuthUser(data.me);
                 // Your own HP pill (Chaos Night only; hides itself otherwise).
@@ -336,18 +338,35 @@
 
                         renderSkillPanel(data);
                     } else if (data.room_status === 'day') {
-                        phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Voting Phase';
-                        phaseText.style.color = 'var(--accent-gold)';
+                        // The day runs in steps: last words -> discussion -> the vote.
+                        // The banner follows the step and the roster only offers vote
+                        // buttons once the talking is over.
+                        const dayStep = data.day_step || 'vote';
+                        const talking = (dayStep === 'lastwords' || dayStep === 'discuss');
 
-                        gameListLabel.innerHTML = data.my_vote_skip
-                            ? '<i data-lucide="lock" size="13"></i> You abstained — waiting for the tally...'
-                            : (data.has_voted ? '<i data-lucide="lock" size="13"></i> Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):'));
+                        if (talking) {
+                            const rem = (typeof talkRemaining === 'function') ? talkRemaining() : 0;
+                            phaseText.innerHTML = '<i data-lucide="mic" size="18" style="vertical-align: middle;"></i> '
+                                + (dayStep === 'lastwords' ? 'Last Words' : 'Discussion');
+                            phaseText.style.color = 'var(--accent-gold)';
+                            gameListLabel.innerHTML = '<i data-lucide="volume-2" size="13"></i> '
+                                + esc(data.talk_speaker_name || 'Someone')
+                                + (data.my_turn ? ' (you)' : '') + ' is speaking — ' + rem + 's';
+                        } else {
+                            phaseText.innerHTML = '<i data-lucide="sun" size="18" style="vertical-align: middle;"></i> Day Voting Phase';
+                            phaseText.style.color = 'var(--accent-gold)';
+
+                            gameListLabel.innerHTML = data.my_vote_skip
+                                ? '<i data-lucide="lock" size="13"></i> You abstained — waiting for the tally...'
+                                : (data.has_voted ? '<i data-lucide="lock" size="13"></i> Vote cast! Waiting for results...' : (data.is_alive ? 'Cast Your Vote to Lynch:' : 'Squad Roster (You are eliminated):'));
+                        }
 
                         renderSkillPanel(data);   // day = vote panel + Skip Vote
 
                         renderRosterList(gamePlayerList, data, (p) => {
                             // Your own seat is not a target: the backend rejects a
                             // self-vote, so do not offer the button either.
+                            if (talking) return '';   // no vote buttons while somebody holds the floor
                             const canVote = (data.is_alive && p.is_alive && p.id !== data.my_id);
                             const isVoteTarget = (data.my_vote_id === p.id);
                             if (!canVote) return '';

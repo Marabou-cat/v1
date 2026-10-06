@@ -22,6 +22,26 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             exit;
         }
 
+        // ---- Turn-based talk gate ------------------------------------------
+        // Outside the discussion nobody speaks; during it only the player whose 15s
+        // it is may send a line. A dead seat never gets a turn (the night's victims
+        // speak once, as their last words, and are removed right after).
+        $rq = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
+        $rq->execute([$roomCode]);
+        $room = $rq->fetch();
+        if ($room && in_array($room['status'], ['night', 'day'], true)) {
+            $step = $room['day_step'] ?: 'vote';
+            if ($room['status'] !== 'day' || ($step !== 'lastwords' && $step !== 'discuss')) {
+                echo json_encode(["status" => "error", "message" => "Talking is closed right now — wait for the discussion."]);
+                exit;
+            }
+            $talk = dayTalkInfo($room);
+            if ((int)$talk['speaker'] !== (int)$me['id']) {
+                echo json_encode(["status" => "error", "message" => "Not your turn to speak."]);
+                exit;
+            }
+        }
+
         $stmt = $pdo->prepare("INSERT INTO messages (room_code, sender_name, message) VALUES (?, ?, ?)");
         $stmt->execute([$roomCode, $me['nickname'], htmlspecialchars($messageText)]);
 
@@ -100,14 +120,18 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         if ($room['status'] === 'night') {
             if (advanceNight($pdo, $roomCode)) $room['status'] = 'day';
         } elseif ($room['status'] === 'day') {
+            // last words -> discussion (one speaker at a time) -> the lynch vote.
+            // Everything that can end a turn (a bot finishing its line, a speaker
+            // tapping Done, a turn running out of time) is applied here.
             processDayBots($pdo, $roomCode);
+            advanceDayStep($pdo, $roomCode);
             if (resolveDay($pdo, $roomCode)) $room['status'] = 'night';
         }
 
         // Refresh the room's phase clocks after any phase change so the client
         // always receives the authoritative server timestamps for the CURRENT
         // phase (status/last_event/started_at/phase_started_at + night step).
-        $ri2 = $pdo->prepare("SELECT status, last_event, started_at, phase_started_at, night_step, pending_victim, night_deadline FROM rooms WHERE room_code = ?");
+        $ri2 = $pdo->prepare("SELECT status, last_event, started_at, phase_started_at, night_step, pending_victim, night_deadline, day_step, talk_order, talk_index, talk_started_at, talk_pass FROM rooms WHERE room_code = ?");
         $ri2->execute([$roomCode]);
         $fresh2 = $ri2->fetch();
         if ($fresh2) {
@@ -118,17 +142,24 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             $room['night_step'] = $fresh2['night_step'];
             $room['pending_victim'] = $fresh2['pending_victim'];
             $room['night_deadline'] = (int)$fresh2['night_deadline'];
+            $room['day_step'] = $fresh2['day_step'];
+            $room['talk_order'] = $fresh2['talk_order'];
+            $room['talk_index'] = (int)$fresh2['talk_index'];
+            $room['talk_started_at'] = (int)$fresh2['talk_started_at'];
+            $room['talk_pass'] = (int)$fresh2['talk_pass'];
         }
 
         // Players are read AFTER deal/phase resolution so the win check below
         // never runs on the stale pre-deal snapshot (all "unassigned" roles) —
         // that race could falsely mark a fresh game as 'ended'.
-        $stmt = $pdo->prepare("SELECT id, nickname, avatar, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, voice_on, user_id, rating_delta, user_won, xp_delta, wolf_votes, special_kills, damage_done, hp, max_hp, hp_delta, heal_target, seer_hp, distrust FROM players WHERE room_code = ? ORDER BY id ASC");
+        $stmt = $pdo->prepare("SELECT id, nickname, avatar, session_token, role, is_alive, target_id, vote_id, vote_skip, is_bot, bot_ready_at, bot_last_chat, check_target, seer_target, seer_result, poison_target, poison_skip, poison_used, revive_used, doctor_choice, asleep, death_pending, voice_on, user_id, rating_delta, user_won, xp_delta, wolf_votes, special_kills, damage_done, hp, max_hp, hp_delta, heal_target, seer_hp, distrust FROM players WHERE room_code = ? ORDER BY id ASC");
         $stmt->execute([$roomCode]);
         $players = $stmt->fetchAll();
 
-        // Let a bot occasionally drop a chat line while the game is live.
-        if ($room['status'] === 'night' || $room['status'] === 'day') {
+        // Bots only speak on their OWN turn now (bots.php processDayTurnTalk), so the
+        // free-running ambient chatter is limited to the lobby / post-game — it would
+        // otherwise talk straight over whoever holds the turn.
+        if ($room['status'] === 'lobby' || $room['status'] === 'ended') {
             botChat($pdo, $roomCode, $players);
         }
 
@@ -386,6 +417,9 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 "role" => $role,
                 "is_bot" => (int)($p['is_bot'] ?? 0),
                 "votes" => (int)($voteTally[(int)$p['id']] ?? 0),
+                // Spoken their last words but not removed yet — the client marks the
+                // seat so it is obvious why they are still on the board.
+                "death_pending" => (int)($p['death_pending'] ?? 0),
                 "voice" => (int)($p['voice_on'] ?? 0)
             ];
         }, $players);
@@ -439,6 +473,20 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                     ];
                 }
             }
+        }
+
+        // ---- Turn-based day talk state (what the client renders) ----------
+        $talk = dayTalkInfo($room);
+        $dayStep        = $talk['step'];
+        $talkSpeakerId  = (int)$talk['speaker'];
+        $talkOrder      = $talk['ids'];
+        $talkIndex      = (int)$talk['index'];
+        $talkTotal      = (int)$talk['total'];
+        $talkStartedAt  = (int)$talk['started_at'];
+        $talkEndsAt     = (int)$talk['ends_at'];
+        $talkSpeakerName = '';
+        foreach ($players as $pp) {
+            if ((int)$pp['id'] === $talkSpeakerId) { $talkSpeakerName = $pp['nickname']; break; }
         }
 
         echo json_encode([
@@ -502,6 +550,17 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             // Resolved day-vote outcome ({"outcome":"lynched|tie|skip",...}) so
             // the client can play the vote-result cutscene on the day->night edge.
             "last_vote" => (!empty($room['last_vote']) ? json_decode($room['last_vote'], true) : null),
+            // Turn-based day talk: who holds the 15s right now, and what is next.
+            "day_step" => $dayStep,
+            "talk_speaker_id" => $talkSpeakerId,
+            "talk_speaker_name" => $talkSpeakerName,
+            "talk_order" => $talkOrder,
+            "talk_index" => $talkIndex,
+            "talk_total" => $talkTotal,
+            "talk_started_at" => $talkStartedAt,
+            "talk_ends_at" => $talkEndsAt,
+            "talk_seconds" => TALK_SECONDS,
+            "my_turn" => ($talkSpeakerId > 0 && $talkSpeakerId === (int)$myId),
             "messages" => $messages
         ]);
 }
@@ -672,6 +731,12 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             exit;
         }
 
+        // The vote opens only after last words + the discussion are done.
+        if (($room['day_step'] ?: 'vote') !== 'vote') {
+            echo json_encode(["status" => "error", "message" => "The discussion is still running — the vote opens after it."]);
+            exit;
+        }
+
         $stmt = $pdo->prepare("SELECT * FROM players WHERE room_code = ? AND session_token = ?");
         $stmt->execute([$roomCode, $token]);
         $me = $stmt->fetch();
@@ -731,4 +796,34 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             "my_vote_skip" => $skip ? 1 : 0,
             "room_status" => $statusNow
         ]);
+}
+
+// The speaker taps "Done": end the turn now instead of waiting out the 15s.
+function handleEndTalk(PDO $pdo) {
+    $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
+    $token = trim($_POST['token'] ?? '');
+
+    $stmt = $pdo->prepare("SELECT * FROM rooms WHERE room_code = ?");
+    $stmt->execute([$roomCode]);
+    $room = $stmt->fetch();
+    if (!$room || $room['status'] !== 'day') {
+        echo json_encode(["status" => "error", "message" => "Nothing to end right now."]);
+        exit;
+    }
+    $step = $room['day_step'] ?: 'vote';
+    if ($step !== 'lastwords' && $step !== 'discuss') {
+        echo json_encode(["status" => "error", "message" => "Talking is closed."]);
+        exit;
+    }
+    $p = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND session_token = ?");
+    $p->execute([$roomCode, $token]);
+    $myId = (int)$p->fetchColumn();
+    $talk = dayTalkInfo($room);
+    if (!$myId || (int)$talk['speaker'] !== $myId) {
+        echo json_encode(["status" => "error", "message" => "Not your turn to speak."]);
+        exit;
+    }
+    $pdo->prepare("UPDATE rooms SET talk_pass = 1 WHERE room_code = ?")->execute([$roomCode]);
+    advanceDayStep($pdo, $roomCode);   // end it now, not on the next poll
+    echo json_encode(["status" => "success", "message" => "Turn ended."]);
 }

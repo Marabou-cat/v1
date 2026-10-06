@@ -280,7 +280,11 @@ function finalizeNight(PDO $pdo, $roomCode) {
     }
 
     foreach (array_keys($deaths) as $id) {
-        $pdo->prepare("UPDATE players SET is_alive = 0 WHERE id = ? AND room_code = ?")->execute([$id, $roomCode]);
+        // NOT dead yet: at dawn the night's victims speak first (their last words)
+        // and are removed when their turn ends (advanceDayStep). Staying "alive"
+        // for those 15s also holds the win check back, so an ending cannot cut the
+        // farewell off mid-sentence.
+        $pdo->prepare("UPDATE players SET death_pending = 1 WHERE id = ? AND room_code = ?")->execute([$id, $roomCode]);
         if ($killCredit && (int)$id === (int)$victimId) {
             // target_id still holds tonight's wolf picks (resetNightState runs later).
             $pdo->prepare("UPDATE players SET special_kills = special_kills + 1
@@ -308,8 +312,13 @@ function finalizeNight(PDO $pdo, $roomCode) {
     // Clear per-night state and flip to day.
     $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0, doctor_choice = NULL, asleep = 0, bot_ready_at = NULL WHERE room_code = ?")
         ->execute([$roomCode]);
-    $pdo->prepare("UPDATE rooms SET status = 'day', phase_started_at = ?, night_step = 'actions', pending_victim = NULL, night_deadline = 0, last_event = ? WHERE room_code = ?")
-        ->execute([$now, $event, $roomCode]);
+    // Dawn opens on the victims' last words; with nobody to mourn, the living
+    // start talking straight away.
+    $pendingIds = array_map('intval', array_keys($deaths));
+    $pdo->prepare("UPDATE rooms SET status = 'day', phase_started_at = ?, day_step = ?, talk_order = ?, talk_index = 0, talk_started_at = ?, talk_pass = 0, night_step = 'actions', pending_victim = NULL, night_deadline = 0, last_event = ? WHERE room_code = ?")
+        ->execute([$now, ($pendingIds ? 'lastwords' : 'discuss'), implode(',', $pendingIds), $now, $event, $roomCode]);
+    // Fixed seat order keeps the discussion predictable; rebuilt from the living.
+    if (!$pendingIds) startDayDiscussion($pdo, $roomCode);
     return true;
 }
 
@@ -396,8 +405,11 @@ function finalizeNightChaos(PDO $pdo, $roomCode) {
     $pdo->prepare("UPDATE players SET hp_delta = NULL WHERE room_code = ? AND hp_delta IS NOT NULL$notTouched")
         ->execute([$roomCode]);
 
+    // Same as classic: HP hits 0 immediately, but the seat stays on the board until
+    // its last words are spoken (advanceDayStep removes it). HP is hidden from
+    // everyone but the wolves, so a pending seat looks like a wounded one.
     foreach (array_keys($dead) as $id) {
-        $pdo->prepare("UPDATE players SET is_alive = 0, hp = 0 WHERE id = ? AND room_code = ?")->execute([(int)$id, $roomCode]);
+        $pdo->prepare("UPDATE players SET hp = 0, death_pending = 1 WHERE id = ? AND room_code = ?")->execute([(int)$id, $roomCode]);
     }
 
     // Public narrative: only DEATHS are visible. A night where people were hurt
@@ -416,8 +428,10 @@ function finalizeNightChaos(PDO $pdo, $roomCode) {
     $pdo->prepare("UPDATE players SET target_id = NULL, check_target = NULL, poison_target = NULL, poison_skip = 0,
                           doctor_choice = NULL, heal_target = NULL, asleep = 0, bot_ready_at = NULL WHERE room_code = ?")
         ->execute([$roomCode]);
-    $pdo->prepare("UPDATE rooms SET status = 'day', phase_started_at = ?, night_step = 'actions', pending_victim = NULL, night_deadline = 0, last_event = ? WHERE room_code = ?")
-        ->execute([$now, $event, $roomCode]);
+    $pendingIds = array_map('intval', array_keys($dead));
+    $pdo->prepare("UPDATE rooms SET status = 'day', phase_started_at = ?, day_step = ?, talk_order = ?, talk_index = 0, talk_started_at = ?, talk_pass = 0, night_step = 'actions', pending_victim = NULL, night_deadline = 0, last_event = ? WHERE room_code = ?")
+        ->execute([$now, ($pendingIds ? 'lastwords' : 'discuss'), implode(',', $pendingIds), $now, $event, $roomCode]);
+    if (!$pendingIds) startDayDiscussion($pdo, $roomCode);
     return true;
 }
 
@@ -433,6 +447,99 @@ function validLiveTarget(PDO $pdo, $roomCode, $targetId) {
     $s->execute([$targetId, $roomCode]);
     $t = $s->fetch();
     return $t ?: null;
+}
+
+/* ================= DAY TALK (turn-based discussion) =================
+   The day is not one open-mic phase. It runs in three steps (rooms.day_step),
+   each anchored to a server timestamp so every client shows the same countdown:
+
+     lastwords -> if the night killed anyone, each victim speaks first (their
+                  dying words, TALK_SECONDS) and is removed the moment their turn
+                  ends. Nothing said can change their fate.
+     discuss   -> the living speak one at a time, seat order, TALK_SECONDS each.
+                  While somebody holds the turn nobody else may talk: the text
+                  gate is in handleSendMessage, the voice gate on the clients.
+     vote      -> the lynch vote, unchanged. Talking is closed.
+
+   A turn ALWAYS expires on its own, so a player who walks away cannot stall the
+   table; a speaker may also end their turn early ("Done").
+*/
+const TALK_SECONDS = 15;
+
+// "12,15,9" -> [12,15,9]
+function dayTalkIds($raw) {
+    $out = [];
+    foreach (explode(',', (string)$raw) as $x) {
+        $x = (int)trim($x);
+        if ($x > 0) $out[] = $x;
+    }
+    return $out;
+}
+
+// Who holds the turn right now. Pure read.
+function dayTalkInfo(array $room) {
+    $step    = $room['day_step'] ?? 'vote';
+    $ids     = dayTalkIds($room['talk_order'] ?? '');
+    $i       = (int)($room['talk_index'] ?? 0);
+    $started = (int)($room['talk_started_at'] ?? 0);
+    $talking = ($step === 'lastwords' || $step === 'discuss');
+    return [
+        'step'       => $step,
+        'ids'        => $ids,
+        'index'      => $i,
+        'speaker'    => $talking ? (int)($ids[$i] ?? 0) : 0,
+        'started_at' => $started,
+        'ends_at'    => $talking ? $started + TALK_SECONDS : 0,
+        'total'      => count($ids),
+    ];
+}
+
+// Freeze the speaking order (living seats, ascending) and open the discussion.
+function startDayDiscussion(PDO $pdo, $roomCode) {
+    $s = $pdo->prepare("SELECT id FROM players WHERE room_code = ? AND is_alive = 1 ORDER BY id ASC");
+    $s->execute([$roomCode]);
+    $ids = array_map('intval', $s->fetchAll(PDO::FETCH_COLUMN));
+    $pdo->prepare("UPDATE rooms SET day_step = 'discuss', talk_order = ?, talk_index = 0, talk_started_at = ?, talk_pass = 0 WHERE room_code = ?")
+        ->execute([implode(',', $ids), time(), $roomCode]);
+    return $ids;
+}
+
+// End the current turn and move the day on by one. Returns true when it moved.
+function advanceDayStep(PDO $pdo, $roomCode) {
+    $r = $pdo->prepare("SELECT status, day_step, talk_order, talk_index, talk_started_at, talk_pass FROM rooms WHERE room_code = ?");
+    $r->execute([$roomCode]);
+    $room = $r->fetch();
+    if (!$room || $room['status'] !== 'day') return false;
+
+    $talk = dayTalkInfo($room);
+    if ($talk['step'] === 'vote') return false;
+    $now = time();
+    if ($now < $talk['ends_at'] && !(int)($room['talk_pass'] ?? 0)) return false;   // still speaking
+
+    // Last words are spoken -> the speaker leaves the game now.
+    if ($talk['step'] === 'lastwords' && $talk['speaker'] > 0) {
+        $pdo->prepare("UPDATE players SET is_alive = 0, hp = 0, death_pending = 0 WHERE id = ? AND room_code = ?")
+            ->execute([$talk['speaker'], $roomCode]);
+    }
+
+    $next = $talk['index'] + 1;
+    if ($next < $talk['total']) {
+        $pdo->prepare("UPDATE rooms SET talk_index = ?, talk_started_at = ?, talk_pass = 0 WHERE room_code = ?")
+            ->execute([$next, $now, $roomCode]);
+        return true;
+    }
+
+    // The round is over.
+    if ($talk['step'] === 'lastwords') {
+        // Safety net: never leave a pending corpse walking because a turn was skipped.
+        $pdo->prepare("UPDATE players SET is_alive = 0, hp = 0, death_pending = 0 WHERE room_code = ? AND death_pending = 1")
+            ->execute([$roomCode]);
+        startDayDiscussion($pdo, $roomCode);
+        return true;
+    }
+    $pdo->prepare("UPDATE rooms SET day_step = 'vote', talk_order = NULL, talk_index = 0, talk_started_at = ?, talk_pass = 0 WHERE room_code = ?")
+        ->execute([$now, $roomCode]);
+    return true;
 }
 
 // The day tally, counted with EXACTLY the rule resolveDay() uses below: only LIVING
@@ -461,6 +568,12 @@ function dayVoteTally(PDO $pdo, $roomCode) {
 //   * two or more players tied on the highest vote count -> nobody is executed
 //   * the skip count beats the highest vote count        -> nobody is executed
 function resolveDay(PDO $pdo, $roomCode) {
+    // The lynch only exists in the VOTE step: a day still taking last words or
+    // discussing must never resolve just because everyone has voted already.
+    $ds = $pdo->prepare("SELECT day_step FROM rooms WHERE room_code = ?");
+    $ds->execute([$roomCode]);
+    if (($ds->fetchColumn() ?: 'vote') !== 'vote') return false;
+
     $stmt = $pdo->prepare("SELECT id, vote_id, vote_skip, role FROM players WHERE room_code = ? AND is_alive = 1");
     $stmt->execute([$roomCode]);
     $living = $stmt->fetchAll();

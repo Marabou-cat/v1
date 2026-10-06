@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
@@ -153,6 +153,15 @@ if (!$schemaOk) {
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS revive_used TINYINT DEFAULT 0");
         $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS doctor_choice TINYINT DEFAULT NULL");
         $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS night_step VARCHAR(12) DEFAULT 'actions'");
+        // Turn-based day talk: which step the day is in, who speaks in what order,
+        // whose turn it is, when that turn started, and whether they ended it early.
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS day_step VARCHAR(12) DEFAULT 'vote'");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS talk_order TEXT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS talk_index INT DEFAULT 0");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS talk_started_at INT DEFAULT 0");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS talk_pass TINYINT DEFAULT 0");
+        // A player who died overnight but has not spoken their last words yet.
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS death_pending TINYINT DEFAULT 0");
         $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS pending_victim INT DEFAULT NULL");
         $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS night_deadline INT DEFAULT 0");
         // "Sleep" tap: everyone without a night action (villagers, the Doctor)
