@@ -69,7 +69,10 @@
                 return;
             }
 
-            const active = (data.room_status === 'night') && !state.inPreNightChat && !!data.is_alive;
+            // Note: the pre-night chat window must NOT suppress actions. The centred
+            // Sleep button is only gated by role/asleep, so gating the panel here left
+            // the special roles with no way to act for the first 15s of every match.
+            const active = (data.room_status === 'night') && !!data.is_alive;
             if (!active) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
             // Doctor: the prompt appears only while the night waits on us.

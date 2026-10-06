@@ -272,18 +272,20 @@
                     const gameListLabel = document.getElementById('game-list-label');
                     const gamePlayerList = document.getElementById('game-player-list');
 
-                    // Handle Pre-Night 15s chat window override
-                    if (state.inPreNightChat && data.room_status === 'night') {
-                        phaseText.innerHTML = '<i data-lucide="message-square" size="18" style="vertical-align: middle;"></i> Opening Chat Phase';
-                        phaseText.style.color = 'var(--accent-gold)';
-                        gameListLabel.innerText = 'Squad Roster (Talking before night):';
-                        renderRosterList(gamePlayerList, data, null, 'pre-night');
-                        return; // Skip standard night targeting until timer elapses
-                    }
-
                     if (data.room_status === 'night') {
-                        phaseText.innerHTML = '<i data-lucide="moon" size="18" style="vertical-align: middle;"></i> Night Phase';
-                        phaseText.style.color = '#ff4d4d';
+                        // The 15s pre-night window is a TALKING window, not a lock-out.
+                        // It used to run as its own branch that rendered the roster with
+                        // NO action buttons and returned early, and renderSkillPanel()
+                        // hid the panel too — while the centred Sleep button (night-ui.js)
+                        // was never gated by it. So villagers could bunk down immediately
+                        // and a Seer/Werewolf/Witch had every button suppressed until the
+                        // window expired. Actions are open to everyone now; the banner
+                        // only says which part of the night this is.
+                        const inChat = !!state.inPreNightChat;
+                        phaseText.innerHTML = inChat
+                            ? '<i data-lucide="message-square" size="18" style="vertical-align: middle;"></i> Opening Chat Phase'
+                            : '<i data-lucide="moon" size="18" style="vertical-align: middle;"></i> Night Phase';
+                        phaseText.style.color = inChat ? 'var(--accent-gold)' : '#ff4d4d';
 
                         // Tell the player what their own role can do tonight.
                         if (data.my_role === 'Werewolf' && data.is_alive) {

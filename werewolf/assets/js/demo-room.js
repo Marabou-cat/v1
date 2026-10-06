@@ -258,7 +258,9 @@ function renderSkillPanel(data) {
         return;
     }
 
-    const active = (data.room_status === 'night') && !state.inPreNightChat && !!data.is_alive;
+    // Same rule as the live panel: the pre-night chat window must never suppress
+    // actions (the sleeping roles could always act through the centred Sleep button).
+    const active = (data.room_status === 'night') && !!data.is_alive;
     if (!active) { hide(); return; }
 
     // Doctor — the revive prompt appears only while the night waits on us.
