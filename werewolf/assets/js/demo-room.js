@@ -62,8 +62,11 @@ function dPlayerCard(p, data, extra, index, noAnim) {
     }
 
     // Their latest line floats toward the empty middle as a speech bubble.
+    // NOT for my own seat: my line is already in the chat log right under the
+    // composer, so echoing it back as a bubble on my own card read as "my message
+    // shows twice". The bubble is for reading OTHER people's table talk.
     let bubble = '';
-    if (data && data.messages && p.nickname) {
+    if (data && data.messages && p.nickname && p.id !== data.my_id) {
         for (let bi = data.messages.length - 1; bi >= 0; bi--) {
             const mm = data.messages[bi];
             if (mm && mm.sender_name === p.nickname) {
