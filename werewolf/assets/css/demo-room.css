@@ -101,7 +101,14 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
     flex: 1 1 auto; min-height: 0; position: relative; width: 100%;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto;   /* row1 = your cards, row2 = players */
+    /* min-content, NOT auto: a height-constrained grid is allowed to shrink an `auto`
+       track below its content, which squeezed the rails so cards spilled out of the rail
+       box and the lower seats were pushed out of frame. Each rail now wraps its own
+       cards, and the BOARD (which owns the scroll) takes the overflow. */
+    grid-template-rows: min-content min-content;   /* row1 = your cards, row2 = players */
+    align-content: start;
+    align-items: start;              /* each rail sizes to ITS OWN cards: a long roster on
+                                        one side must not stretch the other side's box */
     column-gap: 180px; row-gap: 10px; padding: 12px 16px 8px;
     overflow: auto;                  /* the BOARD scrolls, so rails stay unclipped
                                         and the speech bubbles can float outward */
@@ -136,6 +143,9 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 }
 #view-game.dmode .d-pcard:hover { background: linear-gradient(180deg, #20232e 0%, #14161f 100%); }
 #view-game.dmode .d-pcard.dead { opacity: 0.5; filter: grayscale(1); }
+/* Still speaking their last words: keep the death state obvious but not as flat as a
+   fully retired body, so the table can tell "just died" from "long gone". */
+#view-game.dmode .d-pcard.dead:has(.d-chip.pending) { opacity: 0.62; filter: grayscale(0.7); }
 #view-game.dmode .d-pcard.me { border-color: var(--d-gold); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 2px var(--d-gold), var(--d-hs-sm); }
 #view-game.dmode .d-pcard.selected { border-color: var(--d-red); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 2px var(--d-red), var(--d-hs-sm); }
 #view-game.dmode .d-pcard.just-acted { animation: dPulse 0.6s ease; }

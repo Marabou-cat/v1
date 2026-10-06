@@ -26,7 +26,10 @@ function dCardChips(p, data) {
     const alive = !!p.is_alive;
     const chips = [];
     if (isMe) chips.push('<span class="d-chip you">YOU</span>');
+    // Killed at night but still owed last words: the body must read as dead the moment
+    // dawn breaks, not 15s later when the farewell turn ends.
     if (!alive) chips.push('<span class="d-chip dead"><i data-lucide="skull" size="11"></i> DEAD</span>');
+    else if (p.death_pending) chips.push('<span class="d-chip dead pending"><i data-lucide="skull" size="11"></i> DEAD · LAST WORDS</span>');
     // VOTE STATE FIRST: these are the badges that must never be squeezed out.
     if (data.room_status === 'day') {
         if (data.my_vote_id === p.id) chips.push('<span class="d-chip vote"><i data-lucide="vote" size="11"></i> YOUR VOTE</span>');
@@ -61,9 +64,13 @@ function dCardChips(p, data) {
 function dPlayerCard(p, data, extra, index, noAnim) {
     const isMe = (p.id === data.my_id);
     const alive = !!p.is_alive;
+    // `death_pending` = killed at night, kept breathing only to speak its last words.
+    // To the table it is already a corpse at dawn; rendering it as a live player was
+    // the "the night's victim only shows up later in the day" bug.
+    const gone = (!alive || !!p.death_pending);
     const cls = ['d-pcard'];
     if (isMe) cls.push('me');
-    if (!alive) cls.push('dead');
+    if (gone) cls.push('dead');
     if (noAnim) cls.push('no-anim');
 
     const chipsHtml = dCardChips(p, data);
@@ -91,9 +98,9 @@ function dPlayerCard(p, data, extra, index, noAnim) {
         }
     }
 
-    const face = alive
-        ? avatarHtml(p.avatar, 34)
-        : '<span class="avatar" style="width:34px;height:34px"><img src="assets/img/icons/broken-skull.svg" alt=""></span>';
+    const face = gone
+        ? '<span class="avatar" style="width:34px;height:34px"><img src="assets/img/icons/broken-skull.svg" alt=""></span>'
+        : avatarHtml(p.avatar, 34);
 
     return '<li class="' + cls.join(' ') + '" data-pid="' + p.id + '" style="animation-delay:' + ((index * 60) % 500) + 'ms">'
         + bubble
