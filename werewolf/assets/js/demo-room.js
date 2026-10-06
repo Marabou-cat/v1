@@ -230,7 +230,7 @@ function chatBubbleHtml(name, text, mine, system) {
 function updatePhaseBannerText(status, mode, data) {
     if (typeof updatePhaseIcon === 'function') updatePhaseIcon(status, mode);
     const sub = document.getElementById('game-phase-sub');
-    if (sub) sub.innerText = (typeof phaseSubline === 'function') ? phaseSubline(status, mode) : '';
+    if (sub) sub.innerText = (typeof phaseSubline === 'function') ? phaseSubline(status, mode, (window.state && state.lastGame && state.lastGame.day_step) || '') : '';
 }
 
 /* ================= ACTION BAR (demo .action) =================

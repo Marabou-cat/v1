@@ -153,9 +153,11 @@ function toast(msg, kind) {
     }, 2200);
 }
 
-function phaseSubline(status, mode) {
+function phaseSubline(status, mode, step) {
     if (status === 'night') return (mode === 'chaos') ? 'Distrust is rising...' : 'Werewolves are choosing a target...';
-    if (status === 'day')   return 'Players are discussing...';
+    // The day runs in steps now: only the discussion step is for talking.
+    if (status === 'day')   return (step === 'vote') ? 'Vote to lynch someone — or skip.'
+        : (step === 'lastwords' ? 'The night\'s victim gives their last words...' : 'Players are discussing...');
     if (status === 'ended') return 'The match has ended.';
     return 'Waiting for players...';
 }
