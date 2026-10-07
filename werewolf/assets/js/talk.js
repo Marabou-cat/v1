@@ -143,9 +143,12 @@ function applyTalkComposer() {
     if (can) {
         input.placeholder = talkActive() ? 'Your turn — say something…' : 'Type your message...';
     } else if (talkActive()) {
+        // No speaker name here: the action panel at the bottom already names who holds
+        // the floor and counts them down, so repeating it inside the input read as a
+        // duplicate. The dialog box now only states YOUR state.
         input.placeholder = (t.step === 'lastwords')
-            ? (t.speaker_name || 'The victim') + ' is giving their last words…'
-            : (t.speaker_name || 'Someone') + ' is speaking — you are muted';
+            ? 'Listen to the last words…'
+            : 'You are muted — wait for your turn…';
     } else {
         input.placeholder = 'Talking is closed — wait for the discussion';
     }
