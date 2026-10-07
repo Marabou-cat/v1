@@ -254,12 +254,13 @@ function renderSkipNearTeam() {
         el.id = 'd-skip-near';
         // BESIDE THE IDENTITY CARD (user's call). Appending to the row put it at the
         // far end, past the voice/team boxes, which read as "nowhere near my card".
-        const card = document.querySelector('#view-game .d-role-card')
-                  || document.querySelector('#view-game .d-role-float')
-                  || document.getElementById('chat-container');
-        if (!card) return;
-        if (card.parentElement) card.parentElement.insertBefore(el, card.nextSibling);
-        else card.appendChild(el);
+        // WHERE THE EYE IS: the strip directly above the chat input, same place the
+        // quick phrases and the talk bar live. Anchoring it to the identity card put it
+        // inside a 3D flip container and nobody ever saw it.
+        const host = document.getElementById('chat-container');
+        const composer = document.getElementById('chat-composer');
+        if (!host) return;
+        host.insertBefore(el, composer || null);
     }
     if (dayVote) {
         el.className = 'btn-action d-skip-near';

@@ -54,10 +54,13 @@ $nickname = trim($_POST['nickname'] ?? 'Player');
         //    match two live players into different abandoned rooms.
         $stmt = $pdo->prepare("SELECT r.* FROM rooms r
             WHERE r.is_match = 1 AND r.status = 'lobby' AND r.max_players = ? AND r.mode = ?
+              AND r.last_activity >= ?
               AND EXISTS (SELECT 1 FROM players p
                           WHERE p.room_code = r.room_code AND p.is_bot = 0 AND p.last_seen >= ?)
             ORDER BY r.created_at ASC");
-        $stmt->execute([$count, $mode, time() - PLAYER_TIMEOUT]);
+        // last_activity wall: a lobby the sweeper has already given up on must never be
+        // offered as a match target - landing in a finished, empty room was exactly this.
+        $stmt->execute([$count, $mode, time() - PLAYER_TIMEOUT, time() - PLAYER_TIMEOUT]);
         $candidates = $stmt->fetchAll();
 
         foreach ($candidates as $room) {

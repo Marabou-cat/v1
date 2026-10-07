@@ -435,3 +435,13 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 
 /* #4 skip lives beside the team box */
 #view-game.dmode .d-skip-near { margin: 0; flex: none; }
+
+/* #4 the skip control: a full-width strip above the composer so it cannot be missed
+   (and it only exists while a ballot or a night action is actually open). */
+#view-game.dmode #d-skip-near {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; margin: 0 0 6px; padding: 9px 10px;
+    font-weight: 800; letter-spacing: 0.4px;
+    background: linear-gradient(180deg, rgba(255, 204, 0, 0.16), rgba(255, 204, 0, 0.08));
+    border: 1px solid rgba(255, 204, 0, 0.45); color: var(--d-gold); border-radius: 10px;
+}
