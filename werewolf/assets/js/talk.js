@@ -260,36 +260,3 @@ setInterval(function () {
     try { renderTalkReady(); } catch (e) {}
     try { renderSkipNearTeam(); } catch (e) {}
 }, 400);
-
-/* ---------------------------------------------------------------------------
-   #4  SKIP, DONE PROPERLY.
-
-   The site already owns this control: `#btn-skip` (`.d-skip`) with
-   `onclick="skipRound(this)"`. It sits at the right end of the composer row and is
-   THIRTY pixels wide, which is why nobody ever found it. My earlier attempt grew a
-   second button next to it and hid the wrong elements, so the tiny one stayed put.
-
-   Now: no second button. This function relocates the REAL one into a full-width strip
-   above the composer. Its native handler and its own show/hide logic stay untouched -
-   if the site hides it, the now-empty strip collapses to nothing on its own.
-   --------------------------------------------------------------------------- */
-function renderSkipNearTeam() {
-    const mine = document.getElementById('d-skip-near');
-    if (mine) mine.remove();                       // retire my earlier duplicate
-
-    const btn = document.getElementById('btn-skip');
-    if (!btn) return;
-
-    let strip = document.getElementById('d-skip-strip');
-    if (!strip) {
-        strip = document.createElement('div');
-        strip.id = 'd-skip-strip';
-        const host = document.getElementById('chat-container');
-        if (!host) return;
-        host.insertBefore(strip, document.getElementById('chat-composer') || null);
-    }
-    if (btn.parentElement !== strip) {
-        strip.appendChild(btn);                    // move, never clone: handler survives
-        if (window.lucide) lucide.createIcons();
-    }
-}
