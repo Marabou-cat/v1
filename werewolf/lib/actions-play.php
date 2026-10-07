@@ -782,7 +782,10 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         $stmt->execute([$roomCode, $token]);
         $me = $stmt->fetch();
 
-        if (!$me || $me['is_alive'] == 0) {
+        // death_pending counts as DEAD here. The night's victim is kept is_alive=1 only
+        // so it can speak its last words, and that window used to let an already-killed
+        // player cast a day vote.
+        if (!$me || $me['is_alive'] == 0 || (int)($me['death_pending'] ?? 0) === 1) {
             echo json_encode(["status" => "error", "message" => "You are dead and cannot vote."]);
             exit;
         }
