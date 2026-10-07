@@ -241,40 +241,19 @@ function renderTalkReady() {
 
 /* ---- #4 skip, beside the team box, only when there is something to skip ----- */
 function renderSkipNearTeam() {
-    const g = talkGame();
-    const dayVote = (g.room_status === 'day' && (g.day_step || 'vote') === 'vote' && g.is_alive && !g.death_pending);
-    const nightAct = (g.room_status === 'night' && g.is_alive && !g.death_pending
-                      && ['Werewolf', 'Seer', 'Witch', 'Doctor'].indexOf(g.my_role) >= 0 && !g.has_voted);
-
-    // the old in-panel skips are retired: same handlers, one home
-    const old = document.querySelectorAll('[onclick*="submitDayVoteSkip"], [onclick*="submitNightSkip"]');
-    for (let i = 0; i < old.length; i++) old[i].style.display = 'none';
-
-    let el = document.getElementById('d-skip-near');
-    if (!dayVote && !nightAct) { if (el) el.remove(); return; }
-    if (!el) {
-        el = document.createElement('button');
-        el.id = 'd-skip-near';
-        // BESIDE THE IDENTITY CARD (user's call). Appending to the row put it at the
-        // far end, past the voice/team boxes, which read as "nowhere near my card".
-        // WHERE THE EYE IS: the strip directly above the chat input, same place the
-        // quick phrases and the talk bar live. Anchoring it to the identity card put it
-        // inside a 3D flip container and nobody ever saw it.
-        const host = document.getElementById('chat-container');
+    // CSS-only from here on. The native #btn-skip must stay inside the composer row it
+    // was born in: yanking it out broke the site's own enable/disable lookup, which is
+    // why it went unclickable even during the vote. This function now only UNDOES my
+    // earlier relocation, so any stale strip repairs itself on the next tick.
+    const mine = document.getElementById('d-skip-near');
+    if (mine) mine.remove();
+    const strip = document.getElementById('d-skip-strip');
+    if (strip) {
+        const btn = document.getElementById('btn-skip');
         const composer = document.getElementById('chat-composer');
-        if (!host) return;
-        host.insertBefore(el, composer || null);
+        if (btn && composer && btn.parentElement === strip) composer.insertBefore(btn, composer.firstChild);
+        strip.remove();
     }
-    if (dayVote) {
-        el.className = 'btn-action d-skip-near';
-        el.innerHTML = '<i data-lucide="fast-forward" size="15"></i> Skip the vote';
-        el.setAttribute('onclick', 'submitDayVoteSkip(this)');
-    } else {
-        el.className = 'btn-action d-skip-near';
-        el.innerHTML = '<i data-lucide="moon" size="15"></i> Hold / skip tonight';
-        el.setAttribute('onclick', 'submitNightSkip(this)');
-    }
-    if (window.lucide) lucide.createIcons();
 }
 
 setInterval(function () {

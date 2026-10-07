@@ -457,3 +457,15 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
     background: linear-gradient(180deg, rgba(255, 204, 0, 0.18), rgba(255, 204, 0, 0.07));
     border: 1px solid rgba(255, 204, 0, 0.45); color: var(--d-gold); border-radius: 10px;
 }
+
+/* #4 skip, CSS ONLY. The button never leaves the composer it belongs to (moving it out
+   broke the site's own enable/disable lookup -> unclickable mid-vote). The composer row
+   wraps instead and the button claims the whole first line, so it still reads as a strip
+   above the input while staying a native child that the game can enable and disable. */
+#view-game.dmode .d-chat-input { flex-wrap: wrap; }
+#view-game.dmode .d-chat-input #btn-skip.d-skip {
+    order: -1; flex: 0 0 100%; width: 100%; margin: 0 0 6px; padding: 9px 12px;
+    min-height: 40px; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.6px;
+    background: linear-gradient(180deg, rgba(255, 204, 0, 0.18), rgba(255, 204, 0, 0.07));
+    border: 1px solid rgba(255, 204, 0, 0.45); color: var(--d-gold); border-radius: 10px;
+}
