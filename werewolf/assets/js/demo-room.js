@@ -150,8 +150,14 @@ function renderRosterList(listEl, data, buildExtra, mode) {
     state.rosterAvatars = {};
     (data.players || []).forEach(function (p) { if (p.nickname) state.rosterAvatars[p.nickname] = p.avatar; });
 
-    const rosterSig = data.players.map(p => [p.id, p.nickname, p.avatar, p.is_alive, p.role, p.votes, p.hp, p.distrust].join('|')).join('~');
-    const fullSig = mode + '|' + rosterSig + '#' + [data.my_role, data.is_alive, data.has_voted, data.my_target_id, data.my_vote_id].join('|');
+    // day_step BELONGS IN THIS SIGNATURE. The Vote buttons are generated while the
+    // roster is being rebuilt, so leaving the step out meant the flip from discussion
+    // to vote produced an identical signature, the rebuild was skipped, and the buttons
+    // only appeared once a bot vote moved \`votes\` (the reported 10-20s delay).
+    // death_pending / pack pick / seer reading ride along for the same reason: they all
+    // change what a card shows without touching any field that used to be in here.
+    const rosterSig = data.players.map(p => [p.id, p.nickname, p.avatar, p.is_alive, p.death_pending, p.role, p.votes, p.hp, p.distrust, p.wolf_target_id, p.seer_says].join('|')).join('~');
+    const fullSig = mode + '|' + (data.room_status || '') + '|' + (data.day_step || '') + '|' + rosterSig + '#' + [data.my_role, data.is_alive, data.has_voted, data.my_target_id, data.my_vote_id].join('|');
     if (listEl.dataset.fullSig === fullSig) return;
     const rosterChanged = listEl.dataset.rosterSig !== rosterSig;
     listEl.dataset.fullSig = fullSig;
