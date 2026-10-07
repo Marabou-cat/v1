@@ -252,9 +252,14 @@ function renderSkipNearTeam() {
     if (!el) {
         el = document.createElement('button');
         el.id = 'd-skip-near';
-        const host = document.querySelector('#view-game .d-role-float') || document.getElementById('chat-container');
-        if (!host) return;
-        host.appendChild(el);
+        // BESIDE THE IDENTITY CARD (user's call). Appending to the row put it at the
+        // far end, past the voice/team boxes, which read as "nowhere near my card".
+        const card = document.querySelector('#view-game .d-role-card')
+                  || document.querySelector('#view-game .d-role-float')
+                  || document.getElementById('chat-container');
+        if (!card) return;
+        if (card.parentElement) card.parentElement.insertBefore(el, card.nextSibling);
+        else card.appendChild(el);
     }
     if (dayVote) {
         el.className = 'btn-action d-skip-near';
