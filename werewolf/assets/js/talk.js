@@ -171,3 +171,104 @@ async function endMyTalk() {
 setInterval(function () {
     if (talkActive()) { renderTalkBar(); renderTalkHighlight(); }
 }, 250);
+
+
+/* ===========================================================================
+   #6  THE COMPOSER NEVER LEAVES. The chat panel used to be
+   `max-height: 30vh; overflow: hidden`, so the talk bar + the quick-phrase row
+   pushed the input past the clip line and it simply vanished mid-turn.
+   #4  SKIP moves next to the team box, and only exists while a ballot or a night
+   action is actually open (day vote / night actions).
+   #5  Five seconds before a seat's turn the next speaker is flagged "up next" and,
+   when that seat is yours, the bar counts you in.
+   =========================================================================== */
+
+function talkGame() { return state.lastGame || {}; }
+function talkNow() { return state.talk || {}; }
+
+function talkSecondsLeft() {
+    const t = talkNow();
+    if (!t.ends_at) return null;
+    return Math.max(0, Math.round(t.ends_at - Date.now() / 1000));
+}
+
+/* Who holds the floor next, or null when the round is about to close. */
+function talkNextSpeaker() {
+    const g = talkGame();
+    const order = g.talk_order || [];
+    const i = (typeof g.talk_index === 'number') ? g.talk_index : -1;
+    if (!order.length || i < 0) return null;
+    return order[i + 1] || null;
+}
+
+/* ---- #5 the "up next" cue -------------------------------------------------- */
+function renderTalkReady() {
+    const g = talkGame(), t = talkNow();
+    const active = (typeof talkActive === 'function') && talkActive();
+    const left = talkSecondsLeft();
+    const next = talkNextSpeaker();
+
+    // mark the next seat's card so the table can see who speaks next
+    const cards = document.querySelectorAll('.d-pcard');
+    for (let i = 0; i < cards.length; i++) cards[i].classList.remove('d-next');
+    if (active && next && left !== null && left <= 5) {
+        const c = document.querySelector('.d-pcard[data-pid="' + next + '"]');
+        if (c) c.classList.add('d-next');
+    }
+
+    let el = document.getElementById('talk-ready');
+    const iAmNext = !!(next && g.my_id && next === g.my_id);
+    const show = active && left !== null && left <= 5 && (iAmNext || !!next);
+    if (!show) { if (el) el.remove(); return; }
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'talk-ready';
+        const host = document.getElementById('chat-container');
+        const composer = document.getElementById('chat-composer');
+        if (!host) return;
+        host.insertBefore(el, composer || null);
+    }
+    el.className = iAmNext ? 'ready me' : 'ready';
+    el.innerHTML = (iAmNext
+        ? '<i data-lucide="mic" size="14"></i> Get ready to speak'
+        : '<i data-lucide="hourglass" size="14"></i> Next up: ' + esc(String((talkGame().talk_next_name) || 'someone')))
+        + ' <b>' + left + '</b>';
+    if (window.lucide) lucide.createIcons();
+}
+
+/* ---- #4 skip, beside the team box, only when there is something to skip ----- */
+function renderSkipNearTeam() {
+    const g = talkGame();
+    const dayVote = (g.room_status === 'day' && (g.day_step || 'vote') === 'vote' && g.is_alive && !g.death_pending);
+    const nightAct = (g.room_status === 'night' && g.is_alive && !g.death_pending
+                      && ['Werewolf', 'Seer', 'Witch', 'Doctor'].indexOf(g.my_role) >= 0 && !g.has_voted);
+
+    // the old in-panel skips are retired: same handlers, one home
+    const old = document.querySelectorAll('[onclick*="submitDayVoteSkip"], [onclick*="submitNightSkip"]');
+    for (let i = 0; i < old.length; i++) old[i].style.display = 'none';
+
+    let el = document.getElementById('d-skip-near');
+    if (!dayVote && !nightAct) { if (el) el.remove(); return; }
+    if (!el) {
+        el = document.createElement('button');
+        el.id = 'd-skip-near';
+        const host = document.querySelector('#view-game .d-role-float') || document.getElementById('chat-container');
+        if (!host) return;
+        host.appendChild(el);
+    }
+    if (dayVote) {
+        el.className = 'btn-action d-skip-near';
+        el.innerHTML = '<i data-lucide="fast-forward" size="15"></i> Skip the vote';
+        el.setAttribute('onclick', 'submitDayVoteSkip(this)');
+    } else {
+        el.className = 'btn-action d-skip-near';
+        el.innerHTML = '<i data-lucide="moon" size="15"></i> Hold / skip tonight';
+        el.setAttribute('onclick', 'submitNightSkip(this)');
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+setInterval(function () {
+    try { renderTalkReady(); } catch (e) {}
+    try { renderSkipNearTeam(); } catch (e) {}
+}, 400);

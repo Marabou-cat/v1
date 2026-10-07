@@ -376,7 +376,10 @@
                             // Your own seat is not a target: the backend rejects a
                             // self-vote, so do not offer the button either.
                             if (talking) return '';   // no vote buttons while somebody holds the floor
-                            const canVote = (data.is_alive && p.is_alive && p.id !== data.my_id);
+                            // death_pending = killed at night, still owed last words.
+                            // Dead to the table for voting: the server refuses both directions.
+                            const canVote = (data.is_alive && !data.death_pending && p.is_alive
+                                             && !p.death_pending && p.id !== data.my_id);
                             const isVoteTarget = (data.my_vote_id === p.id);
                             if (!canVote) return '';
                             if (isVoteTarget) return `<button class="btn-action btn-voted" disabled><i data-lucide="check" size="16"></i> Voted</button>`;

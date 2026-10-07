@@ -411,3 +411,27 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 #view-game.dmode .d-chip.seer-says { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.45); color: #7dd3fc; }
 #view-game.dmode .d-chip.seer-says.wolf { background: rgba(255, 60, 60, 0.16); border-color: rgba(255, 80, 80, 0.55); color: #ffb3b3; }
 #view-game.dmode .d-aprompt.d-visions { display: block; margin-top: 4px; font-size: 0.72rem; }
+
+/* ---- #6 the composer is pinned ------------------------------------------
+   The panel used to be `max-height: 30vh; overflow: hidden`, so the talk bar and
+   the quick-phrase row pushed the input past the clip line and it vanished while
+   you were mid-turn. The log flexes and scrolls; the controls never move. */
+#view-game.dmode .d-chat-panel { display: flex; flex-direction: column; max-height: 34vh; overflow: visible; }
+#view-game.dmode .d-chat-msgs { flex: 1 1 auto; min-height: 44px; overflow-y: auto; }
+#view-game.dmode .d-chat-panel > .d-quick,
+#view-game.dmode .d-chat-panel > #talk-bar,
+#view-game.dmode .d-chat-panel > #talk-ready,
+#view-game.dmode .d-chat-panel > #chat-composer { flex: none; }
+
+/* #5 who speaks next */
+#view-game.dmode .d-pcard.d-next { border-color: var(--d-gold); box-shadow: 0 0 0 1px rgba(255, 204, 0, 0.5); }
+#view-game.dmode #talk-ready, #view-game.dmode .d-chat-panel > .ready {
+    display: flex; align-items: center; gap: 7px; margin: 0 0 6px; padding: 5px 9px;
+    border-radius: 9px; font-size: 0.72rem; font-weight: 700;
+    background: rgba(255, 204, 0, 0.10); border: 1px solid rgba(255, 204, 0, 0.35); color: var(--d-gold);
+}
+#view-game.dmode #talk-ready.me { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.45); color: #7dd3fc; }
+#view-game.dmode #talk-ready b { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* #4 skip lives beside the team box */
+#view-game.dmode .d-skip-near { margin: 0; flex: none; }
