@@ -254,6 +254,15 @@ function renderSkipNearTeam() {
         if (btn && composer && btn.parentElement === strip) composer.insertBefore(btn, composer.firstChild);
         strip.remove();
     }
+    // Spell out the consequence. In the day this control routes to submitDayVoteSkip:
+    // pressing it IS your vote, so a silent tap costs the round's ballot.
+    const b = document.getElementById('btn-skip');
+    if (b && !b.title) {
+        const st = (state.lastGame || {}).room_status;
+        b.title = (st === 'day')
+            ? 'Skip your vote this round - you will not be able to vote afterwards'
+            : 'Skip / hold your night action this round';
+    }
 }
 
 setInterval(function () {

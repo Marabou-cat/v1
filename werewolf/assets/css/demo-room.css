@@ -464,8 +464,16 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
    above the input while staying a native child that the game can enable and disable. */
 #view-game.dmode .d-chat-input { flex-wrap: wrap; }
 #view-game.dmode .d-chat-input #btn-skip.d-skip {
-    order: -1; flex: 0 0 100%; width: 100%; margin: 0 0 6px; padding: 9px 12px;
-    min-height: 40px; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.6px;
-    background: linear-gradient(180deg, rgba(255, 204, 0, 0.18), rgba(255, 204, 0, 0.07));
-    border: 1px solid rgba(255, 204, 0, 0.45); color: var(--d-gold); border-radius: 10px;
+    order: -1; flex: 0 0 100%; width: 100%; margin: 0 0 6px; padding: 7px 12px;
+    min-height: 34px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.5px;
+    /* SECONDARY on purpose. Skip consumes your vote for the round (skipRound ->
+       submitDayVoteSkip), so when this was a full-width gold bar it became the most
+       tappable thing on screen and people spent their ballot by accident. It stays
+       findable and full-width, but it must not read as the primary action. */
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px dashed rgba(255, 204, 0, 0.35); color: rgba(255, 204, 0, 0.78);
+    border-radius: 9px;
+}
+#view-game.dmode .d-chat-input #btn-skip.d-skip:hover {
+    background: rgba(255, 204, 0, 0.10); color: var(--d-gold);
 }
