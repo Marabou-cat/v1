@@ -249,8 +249,9 @@ function finalizeNight(PDO $pdo, $roomCode) {
             //      player the pack actually attacked did nothing (the reported bug).
             //   2) doctor_choice = 1 - the once-per-game Revive on the pending victim.
             // Only (2) spends the one-shot.
-            if ((int)($doc['heal_target'] ?? 0) === $victimId) {
+            if ((int)($doc['heal_target'] ?? 0) === $victimId && !(int)$doc['revive_used']) {
                 $revived = true;
+                $docId = (int)$doc['id'];   // ONE save per game, whichever way it is spent
             } elseif ((int)$doc['doctor_choice'] === 1 && !(int)$doc['revive_used']) {
                 $revived = true;
                 $docId = (int)$doc['id'];
