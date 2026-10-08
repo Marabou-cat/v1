@@ -60,7 +60,11 @@ $nickname = trim($_POST['nickname'] ?? 'Player');
             ORDER BY r.created_at ASC");
         // last_activity wall: a lobby the sweeper has already given up on must never be
         // offered as a match target - landing in a finished, empty room was exactly this.
-        $stmt->execute([$count, $mode, time() - PLAYER_TIMEOUT, time() - PLAYER_TIMEOUT]);
+        // The last_activity wall is deliberately LOOSE (5 min). Tying it to PLAYER_TIMEOUT
+        // made live lobbies look stale whenever last_activity had not been bumped yet, so
+        // matchmaking skipped them, dropped the player into a fresh 0-player room and made
+        // the bot top-up look slow. The EXISTS clause above is what keeps the dead out.
+        $stmt->execute([$count, $mode, time() - 300, time() - PLAYER_TIMEOUT]);
         $candidates = $stmt->fetchAll();
 
         foreach ($candidates as $room) {

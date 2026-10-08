@@ -7,10 +7,27 @@
     Require all denied
 </Files>
 
-# Always revalidate the game list data so new games appear immediately
-# (prevents browsers from serving a stale cached copy).
-<FilesMatch "\.js$">
+# UNVERSIONED assets revalidate on every load: a plain refresh always paints the
+# current build (the browser keeps its copy, Apache answers 304 Not Modified).
+<FilesMatch "\.(js|css|html?|json)$">
     <IfModule mod_headers.c>
         Header set Cache-Control "no-cache, must-revalidate"
+    </IfModule>
+</FilesMatch>
+
+# VERSIONED assets are cached hard. These are always requested as file.svg?v=N, so a
+# change still reaches every player via the version bump - while the browser stops
+# re-asking for them on every load. The avatar alone is 37 part files, and paying a
+# round-trip for each of them on every page load is what made the game feel sluggish.
+<FilesMatch "\.(svg|png|jpe?g|webp|gif|ico|woff2?|ttf|otf)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=604800"
+    </IfModule>
+</FilesMatch>
+
+# Audio is versioned the same way; cache it too.
+<FilesMatch "\.(mp3|ogg|wav|m4a)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=604800"
     </IfModule>
 </FilesMatch>
