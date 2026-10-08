@@ -238,12 +238,23 @@ function finalizeNight(PDO $pdo, $roomCode) {
     $revived = false;
     $docId = 0;
     if ($victimId) {
-        $d = $pdo->prepare("SELECT id, doctor_choice, revive_used FROM players WHERE room_code = ? AND role = 'Doctor' AND is_alive = 1");
+        $d = $pdo->prepare("SELECT id, doctor_choice, revive_used, heal_target FROM players WHERE room_code = ? AND role = 'Doctor' AND is_alive = 1");
         $d->execute([$roomCode]);
         $doc = $d->fetch();
-        if ($doc && (int)$doc['doctor_choice'] === 1 && !(int)$doc['revive_used']) {
-            $revived = true;
-            $docId = (int)$doc['id'];
+        if ($doc) {
+            // The Doctor has TWO ways to save tonight's victim and only the second was
+            // ever wired up:
+            //   1) heal_target === the victim - the ordinary nightly treatment, the one
+            //      the panel shows as "Treating". Ignored here until now, so treating the
+            //      player the pack actually attacked did nothing (the reported bug).
+            //   2) doctor_choice = 1 - the once-per-game Revive on the pending victim.
+            // Only (2) spends the one-shot.
+            if ((int)($doc['heal_target'] ?? 0) === $victimId) {
+                $revived = true;
+            } elseif ((int)$doc['doctor_choice'] === 1 && !(int)$doc['revive_used']) {
+                $revived = true;
+                $docId = (int)$doc['id'];
+            }
         }
     }
 
