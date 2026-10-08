@@ -263,6 +263,23 @@ function renderSkipNearTeam() {
             ? 'Skip your vote this round - you will not be able to vote afterwards'
             : 'Skip / hold your night action this round';
     }
+
+    // WHEN TO OFFER IT: only while there is something to skip. Day -> the ballot is open
+    // and undecided. Night -> the skill panel is offering a real action right now; that
+    // panel is already step-aware, so reading it beats re-deriving the night timeline.
+    let show = false;
+    const gg = state.lastGame || {};
+    if (gg.is_alive && !gg.death_pending) {
+        if (gg.room_status === 'day') {
+            show = (gg.day_step || '') === 'vote' && !gg.has_voted && !gg.my_vote_skip;
+        } else if (gg.room_status === 'night') {
+            show = !gg.my_asleep
+                && ['Werewolf', 'Seer', 'Witch', 'Doctor'].indexOf(gg.my_role) >= 0
+                && !!document.querySelector('#view-game .skill-actions button[onclick*="submitNight"],'
+                    + ' #view-game .skill-actions button[onclick*="submitDoctorAction"]');
+        }
+    }
+    b.classList.toggle('d-skip-hidden', !show);
 }
 
 setInterval(function () {

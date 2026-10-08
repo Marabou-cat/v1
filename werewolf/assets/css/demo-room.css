@@ -477,3 +477,6 @@ body:has(#view-game.dmode:not(.hidden)) [onclick*="etting"] { display: none !imp
 #view-game.dmode .d-chat-input #btn-skip.d-skip:hover {
     background: rgba(255, 204, 0, 0.10); color: var(--d-gold);
 }
+
+/* the gate the JS toggles: skip is hidden unless an action is actually available */
+#view-game.dmode #btn-skip.d-skip.d-skip-hidden { display: none !important; }

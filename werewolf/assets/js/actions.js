@@ -293,6 +293,14 @@ function skipRound(btn) {
         } else if (r === 'Witch') {
             if (g.my_poison_used || g.my_poison_target || g.my_poison_skip) { flashInfo('Poison already decided'); return; }
             submitNightSkip(btn);
+        } else if (r === 'Werewolf') {
+            // Hold the bite. Was falling through to "No action to skip this phase":
+            // the pack simply had no way to pass, which stalled short-handed nights.
+            if (g.my_target_id) { flashInfo('Bite already chosen'); return; }
+            submitNightSkip(btn);
+        } else if (r === 'Seer') {
+            if (g.my_target_id) { flashInfo('Your vision is already chosen'); return; }
+            submitNightSkip(btn);
         } else {
             flashInfo('No action to skip this phase');
         }
