@@ -1,0 +1,14 @@
+
+# Throwaway versioned backups of the smash client
+_bak_smash_*.html
+# Daemon iteration backups
+sbgames/_bak_daemon_*.js
+sbgames/*.bak
+sbgames/*.bak-*
+# Runtime state of the multiplayer daemon
+sbgames/data/
+# macOS noise
+.DS_Store
+# Cloned third-party games: served from web root, deliberately NOT versioned (large assets + own .git)
+MineWorld/
+TheAviator/
