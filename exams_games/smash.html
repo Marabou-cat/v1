@@ -1114,8 +1114,9 @@ CHAR_EXTRA.blub = {
   weight:96, walk:9.8, run:14.8, air:10.4, jump:26.2, jumps:2, fall:30, fastFall:46,
   accel:50, airAccel:38, fric:30, mul:{ dmg:1.02, kb:1.0, spd:1.0 },
   special:{
-    /* 中立B：快速空气弹（单发，类型随机） */
-    n:{kind:'proj',label:'Air Bullet',cd:.85,dmg:6.4,bb:9,bg:22,ang:26,spd:24,size:.52,life:1.15,color:0xffd0ea,airBullet:true},
+    /* 中立B：吞咽 —— 长按把附近对手往自己这边吸，够近就吃掉（双方都不能动，对手持续掉血 5 秒）
+       冷却 = 持续时长 5.0 + 3.0 = **8.0s**（硬控类固定规则：冷却必须比控制时长久，否则无限控） */
+    n:{kind:'inhale',label:'Swallow',cd:8.0,radius:6.2,pull:26,eatR:1.6,hold:2.0,dur:5.0,tick:.25,dmg:1.3,color:0xff8fc7},
     /* 左右B：一边缓慢移动一边蓄力锤子 → 松手一锤（蓄满 KO 线 75%） */
     s:{kind:'chargeMelee',label:'Hammer Charge',cd:2.0,dmg:10.0,bb:10.4,bg:21.6,charge:.95,chargeMul:1.82,bgMul:true,
        walk:true,walkSpd:3.2,radius:2.9,reach:2.1,stun:.22,color:0xff9ecb,hammer:true,ember:true},
@@ -3472,6 +3473,7 @@ function kitBlub(def) {
     }
     const mouth = new THREE.Mesh(new THREE.TorusGeometry(.17, .045, 6, 14, Math.PI), ink);
     mouth.position.set(0, -.16, .12); mouth.rotation.z = Math.PI; side.add(mouth);
+    g.userData.mouth = mouth;
   }
   const armL = kitArm(g,-1,mats,{x:R*.88,y:R*.98,w:.16,len:.24,handGeo:new THREE.SphereGeometry(.16,8,6),handMat:mats.body});
   const armR = kitArm(g, 1,mats,{x:R*.88,y:R*.98,w:.16,len:.24,handGeo:new THREE.SphereGeometry(.16,8,6),handMat:mats.body});
@@ -3488,7 +3490,7 @@ function kitBlub(def) {
   mkw(.54, .34, .30, flatM(0xff7fb4), 0, .48, 0, hammer);                     // 锤头
   mkw(.17, .40, .34, flatM(0xffd6ea), 0, .48, 0, hammer);                     // 锤头高光条
   g.userData.ballSpin = ballSpin; g.userData.ball = ball; g.userData.hammer = hammer;
-  return { group:g, torso:ball, belly:ball, head:ball, armL, armR, legL, legR, tail:null, ballSpin, ball, hammer };
+  return { group:g, torso:ball, belly:ball, head:ball, armL, armR, legL, legR, tail:null, ballSpin, ball, hammer, mouth:g.userData.mouth };
 }
 const KITS = { blub:kitBlub, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
@@ -4190,7 +4192,8 @@ class Fighter {
     this.ironT = 0; this.pillar = null; this.eatT = 0; this.bowT = 0;   // Blocky：大招计时 / 立柱待生成 / 苹果·弓道具计时
     this.placeT = 0; this.pillarT = 0; this.ironAnim = 0; this._ironFx = 0;
     this.para = 0; this.slowT = 0; this.noJumpT = 0;      // ★ Blub 状态（开局/重生清空）
-    this.swingT = 0; this.throwT = 0; this._emberT = 0; this._emberMax = 0;   // ★ Blub 动作/着火计时   // Blocky：招式动作计时
+    this.swingT = 0; this.throwT = 0; this._emberT = 0; this._emberMax = 0;   // ★ Blub 动作/着火计时
+    this.inhale = null; this.eatHold = null; this.eaten = null; this._chomp = 0;   // ★ Blub 吞咽   // Blocky：招式动作计时
     this.fsMeter = 0; this.fsUsed = 0; this.fsT = 0; this.fsHits = 0; this.fsDone = 0;
     this.counter = null; this.reflect = null; this.buff = null; this._bm = 1; this._baseS = null;
     this.buf = { atk:0, sp:0, jump:0 };      // 输入Buffer：招式中按下的键不会丢
@@ -4221,6 +4224,7 @@ class Fighter {
     this.placeT = 0; this.pillarT = 0; this.ironAnim = 0; this._ironFx = 0;
     this.para = 0; this.slowT = 0; this.noJumpT = 0;      // ★ Blub 状态（开局/重生清空）
     this.swingT = 0; this.throwT = 0; this._emberT = 0; this._emberMax = 0;   // ★ Blub 动作/着火计时
+    this.inhale = null; this.eatHold = null; this.eaten = null; this._chomp = 0;   // ★ Blub 吞咽
     this.pullin = null; this.pull = null; this.clearPull();
     this.mark = null;                                   // Reaper·Death Mark 亡魂标记（被标记方）
     this.soulDmg = 0; this.soulStacks = 0; this._soulFx = 0;   // Reaper·Soul Harvest（每局/每次重生都从 0 层开始）
@@ -4629,6 +4633,9 @@ class Fighter {
       if (this.slowT <= 0) { this.slowT = 0; callout(this, 'SLOW ENDED', 0x6fd0ff); }
     }
     if (this.noJumpT > 0) { this.noJumpT -= dt; if (this.noJumpT < 0) this.noJumpT = 0; }
+    /* ★ Blub·吞咽：吸取 / 吃掉 两种状态在这里逐帧推进 */
+    if (this.inhale || this.eatHold) this.inhaleTick(dt, inp);
+    if (this._chomp > 0) this._chomp -= dt;
     /* ★ Hacker·System Lock：锁定倒计时（逐帧递减 → 两端确定性一致）
        ⚠ actionSelect 在锁定期间会提前 return，**地面摩擦那一段也不会跑** → 必须在这里自己把水平速度按住，
        否则被锁的人会带着命中瞬间的速度一直滑（实测能滑出台，等于白送一条命）。 */
@@ -5008,6 +5015,82 @@ class Fighter {
     const capT = SP.spinMax || 1.4;                    // 每招独立时限（旋转 4 秒，其余仍 1.4 秒）
     if (!held || this.chargeT > capT) this.releaseCharge();
   }
+  /* ★ Blub·吞咽（中立B）
+     - 吸取：长按把半径内的对手往自己这边拉（越近吸力越强），最多 2 秒
+     - 够近（< eatR）：吃掉 → **双方都不能动**，对手每 tick 掉一次血，持续 dur（5 秒）
+     - 结束：把对手朝自己面向吐出去（小击飞）
+     全程只依赖 dt 与位置，没有随机数 → 联机确定性 ✓ */
+  inhaleTick(dt, inp) {
+    /* ---- 吃掉中 ---- */
+    if (this.eatHold) {
+      const E = this.eatHold, f = E.f, cfg = E.cfg;
+      if (!f || f.eliminated || this.eliminated) { this.endEat(false); return; }
+      E.t -= dt; E.tick -= dt;
+      /* 双方都钉在原位（否则两人的推挤碰撞会把整对一起推着滑出场地） */
+      this.pos.x = E.ax; this.pos.y = E.ay;
+      f.pos.x = E.ax + this.facing * .95;
+      f.pos.y = E.ay + .95;
+      f.vel.set(0, 0, 0); this.vel.set(0, 0, 0);
+      if (E.tick <= 0) {                                   // 每 .25s 咬一口（不打断、不加击退）
+        E.tick = cfg.tick || .25;
+        const d = cfg.dmg || 1.3;
+        f.damage += d; f.maxDamage = Math.max(f.maxDamage || 0, f.damage);
+        FX.spark(f.pos.x, f.pos.y + .35, .32, 6, 0xff9ecb);
+        FX.ring(this.pos.x + this.facing * .8, this.pos.y + 1.0, .18, .9, 0xffb0d8, .16);
+        SFX.hit(8, 2.5);
+        this._chomp = .12;
+      }
+      if (E.t <= 0) this.endEat(true);
+      return;
+    }
+    /* ---- 吸取中 ---- */
+    const H = this.inhale;
+    if (!H) return;
+    H.t += dt;
+    const cfg = H.cfg, R = cfg.radius || 6.2, pull = cfg.pull || 26;
+    for (const f of FIGHTERS) {
+      /* ⚠ 队友过滤只在团队模式生效（FFA 里 team 都是 -1，isTeammate 会把所有人当队友） */
+      if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+      if (this.team >= 0 && isTeammate(this, f)) continue;
+      const dx = this.pos.x - f.pos.x, dy = (this.headY - .4) - (f.pos.y + 1.1 * f.def.shape.scale);
+      const d = Math.hypot(dx, dy) || 1;
+      if (d > R) continue;
+      const k = 1 - (d / R) * .45;                         // 越近吸力越强
+      /* ⚠ 直接改位置而不是加 vel：y=0.17/帧 的速度会被地面摩擦 + 速度死区直接吃掉（实测完全不动） */
+      const step2 = Math.min(Math.abs(dx), pull * k * dt);
+      f.pos.x += Math.sign(dx || 1) * step2;
+      f.vel.x *= .25;
+      if (Math.hypot(this.pos.x - f.pos.x, (this.pos.y + .9) - f.pos.y) < (cfg.eatR || 1.6)) { this.startEat(f, cfg); return; }
+      if (Math.random() < .4) FX.spark(f.pos.x + (RND()-.5)*.9, f.pos.y + .5 + RND()*.9, .3, 2, cfg.color);
+    }
+    if (!inp.spHeld || H.t > (cfg.hold || 2.0)) { this.inhale = null; this.state = this.grounded ? 'idle' : 'fall'; }
+  }
+  startEat(f, cfg) {
+    this.inhale = null;
+    const dur = cfg.dur || 5.0;
+    this.eatHold = { f, cfg, t: dur, tick: 0, ax: this.pos.x, ay: this.pos.y };
+    f.eaten = { t: dur };
+    f.vel.set(0, 0, 0); this.vel.set(0, 0, 0);
+    f.pos.x = this.pos.x + this.facing * .95; f.pos.y = this.pos.y + .95;
+    this.state = 'special'; this.animT = 0;
+    clearCallout(this); callout(this, 'CHOMP!', 0xff9ecb);
+    callout(f, 'EATEN ' + dur.toFixed(1) + 's', 0xff8fc7);
+    FX.flash(this.pos.x + this.facing * .9, this.pos.y + 1.0, .5, 5.5, 0xffb0d8, .3);
+    FX.ring(this.pos.x + this.facing * .9, this.pos.y + 1.0, .25, 2.4, 0xff9ecb, .4);
+    SFX.heavy();
+  }
+  endEat(pop) {
+    const E = this.eatHold; this.eatHold = null;
+    if (!E) return;
+    const f = E.f;
+    if (f && !f.eliminated) {
+      f.eaten = null;
+      if (pop) { f.hitstun = Math.max(f.hitstun, .18); f.vel.set((this.facing || 1) * 11, 13, 0); }
+      FX.ring(f.pos.x, f.pos.y + .8, .25, 2.0, 0xffb0d8, .3);
+      FX.spark(f.pos.x, f.pos.y + .6, .35, 12, 0xffc2de);
+    }
+    this.state = this.grounded ? 'idle' : 'fall';
+  }
   /* 横Special冲刺 / 上Special回场 期间的判定 */
   specialHitboxes(dt) {
     for (const key of ['dashAtk', 'recoverAtk']) {
@@ -5068,6 +5151,14 @@ class Fighter {
     const S = this.s;
     /* ★ Hacker·System Lock（被乱码包命中）：锁定期间做不了任何动作（盾/翻滚/跳/攻击/技能全封），
        但也不吃击退（见 takeHit）——所以对手只能干站 3 秒，等锁结束才可能被击飞。 */
+    /* ★ Blub·吞咽：吃别人的时候自己也不能动；被别人吃掉的时候完全不能动 */
+    if (this.eatHold || this.eaten) {
+      this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
+      inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false;
+      inp.spP = false; inp.shHeld = false; inp.atkHeld = false; inp.spHeld = false; inp.fsP = false; inp.mash = 0;
+      this.vel.x = 0;
+      return;
+    }
     /* ★ Blub·雷弹：麻痹期间做不了任何动作（但**会吃击退** —— 和 Hacker 的锁定不同） */
     if (this.para > 0) {
       this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
@@ -5523,6 +5614,12 @@ class Fighter {
           { dmg: cfg.dmg2 || cfg.dmg, bb: cfg.bb2 || cfg.bb, bg: cfg.bg2 || cfg.bg, ang: 82, stun: cfg.stun },
           dl + (sgn > 0 ? .10 : 0), R * .62, cfg.color);
       this.state = 'special'; this.animT = 0;
+    } else if (cfg.kind === 'inhale') {                    // ★ Blub·中立B：吞咽（长按吸取，够近就吃掉）
+      this.inhale = { cfg, t: 0 };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('wave');
+      FX.ring(this.pos.x + dir * .9, this.headY - .3, .3, 2.0, cfg.color, .32);
+      callout(this, 'INHALE…', cfg.color);
     } else if (cfg.kind === 'mojibake') {                  // Hacker·中立B：乱码包（命中即「系统锁定」3 秒）
       spawnProjectile(this, this.pos.x + dir * 1.05, this.headY - .30, dir, cfg);
       this.glitchT = .30;                                  // 推出动作计时（animStep 里做姿态）
@@ -6622,7 +6719,16 @@ class Fighter {
       /* ---- 技能动作（这段跑在「A.* → 骨骼」之后，所以姿态要直接写骨骼）---- */
       let pos2 = false;
       const ch = this.charging;
-      if (ch && ch.cfg && ch.cfg.ember) {                // 蓄力：举锤过顶 / 空气弹后拉
+      if (this.eatHold) {                                // 吃掉中：抱着对手一口一口吞（身体跟着咬合）
+        const chomp = Math.sin(A.t * 18);
+        A.armR = -1.15 + chomp * .12; A.armL = -1.15 - chomp * .12;
+        A.lean = this.facing * (.10 + chomp * .05);
+        pos2 = true;
+      } else if (this.inhale) {                          // 吸取中：双臂大张 + 后仰
+        A.armR = -1.95; A.armL = -1.95; A.lean = -this.facing * .18;
+        A.legL = -.12; A.legR = .12;
+        pos2 = true;
+      } else if (ch && ch.cfg && ch.cfg.ember) {         // 蓄力：举锤过顶 / 空气弹后拉
         const full = this.chargeT >= (ch.cfg.charge || 1);
         if (ch.melee) { A.armR = -2.55 + (full ? Math.sin(A.t * 16) * .055 : 0); A.armL = -1.55; A.lean = -this.facing * .20; }
         else { A.armR = -1.10; A.armL = -1.35; A.lean = -this.facing * .12; }
@@ -6647,6 +6753,12 @@ class Fighter {
         const ph2 = Math.sin(A.t * 26);
         A.armR = -1.45 - ph2 * .28; A.armL = -1.30 - ph2 * .22; A.lean = this.facing * .12;
         pos2 = true;
+      }
+      if (P.mouth) {                                     // 嘴：吸取时张大、吃掉时一口一口咬合
+        const wide = this.inhale || this.eatHold;
+        const ms = this.eatHold ? (1.5 + Math.abs(Math.sin(A.t * 18)) * .9) : (this.inhale ? 1.9 : 1);
+        P.mouth.scale.set(ms, wide ? ms * 1.4 : 1, 1);
+        P.mouth.position.y = wide ? -.22 : -.16;
       }
       if (pos2) {
         P.armR.rotation.x = A.armR; P.armL.rotation.x = A.armL;
@@ -7195,7 +7307,9 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
       const pr = f.para > 0 ? ('⚡ PARA ' + f.para.toFixed(1) + 's') : '';      // ★ Blub 雷弹：麻痹剩余
       const sl = f.slowT > 0 ? ('💧 SLOW ' + f.slowT.toFixed(1) + 's') : '';    // ★ Blub 水弹：减速剩余
       const nj = f.noJumpT > 0 ? ('🌿 NOJUMP ' + f.noJumpT.toFixed(1) + 's') : '';  // ★ Blub 草弹：禁跳剩余
-      const txt2 = [hs, fs2, lm, ib, pr, sl, nj].filter(Boolean).join(' ');
+      const et = f.eatHold ? ('🍖 EATING ' + f.eatHold.t.toFixed(1) + 's') : '';    // ★ Blub 正在吃人
+      const ev = f.eaten ? ('🍖 EATEN ' + f.eaten.t.toFixed(1) + 's') : '';         // ★ 被 Blub 吃掉
+      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev].filter(Boolean).join(' ');
       if (p.statTxt !== txt2 || p.statWasOn !== !!txt2) {
         p.statTxt = txt2; p.statWasOn = !!txt2;
         p.stat.textContent = txt2;
@@ -8216,7 +8330,7 @@ const NET = {
   localQ: new Map(), remote: new Map(), sendQ: [], evs: [], replayBits: null,
   names: {}, roomState: null, desync: null, status: 'idle', err: '', starved: 0,
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
-  build: 'net31',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net35',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -8551,8 +8665,12 @@ const NET = {
   /* ---- 传输 ---- */
   send(obj, wait) {
     if (this.mode === 'ws' && this.ws && this.ws.readyState === 1) {
-      try { this.ws.send(JSON.stringify(obj)); } catch (e) {}
-      return Promise.resolve(null);
+      try { this.ws.send(JSON.stringify(obj)); } catch (e) { return Promise.resolve({ ok:false, e:'net' }); }
+      if (!wait) return Promise.resolve(null);                 // 通知类动作：发出即完，应答经 onMsg/ingest 异步处理
+      return new Promise(res => {                              // 请求-应答：等下一个「无 a 字段」的直接响应
+        const t = setTimeout(() => res({ ok:false, e:'net' }), 3000);
+        (this._wsQueue = this._wsQueue || []).push(j => { clearTimeout(t); res(j); });
+      });
     }
     return fetch(this.apiBase, { method:'POST', headers:{ 'content-type':'text/plain;charset=UTF-8' },
       body: JSON.stringify(obj) }).then(r => r.json()).catch(e => ({ ok:false, e:'net' }));
@@ -8695,6 +8813,8 @@ const NET = {
   },
   onMsg(j) {
     if (!j) return;
+    /* WS 请求-应答：无 a 字段的直接响应先喂给等待中的 send(wait=true)（hello/list/rematch 等） */
+    if (!j.a) { const q = this._wsQueue; if (q && q.length) { q.shift()(j); return; } }
     if (j.a === 'in') { this.ingest(j); return; }
     if (j.a === 'seats') { this.applyRoom(j.room); return; }
     if (j.a === 'ev') { this.lastRecv = performance.now();
