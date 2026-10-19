@@ -307,6 +307,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
         }
 
         beginGame($pdo, $roomCode);
+        meadowMaybeStart($pdo, $roomCode);   // 村落模式：开局是白天
 
         $rs = $pdo->prepare("SELECT started_at FROM rooms WHERE room_code = ?");
         $rs->execute([$roomCode]);

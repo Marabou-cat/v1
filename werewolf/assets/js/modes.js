@@ -23,6 +23,16 @@ const GAME_MODES = {
         tagline: 'Hidden wounds',
         blurb: 'Everyone hides an HP pool. Wolves wound instead of kill, the Doctor heals blind, and only the Seer can read a body.',
         icon: 'heart-pulse'
+    },
+    /* 村落 · 草原 —— 正式版的第三种模式，和 classic/chaos 走同一套
+       建房 / 加房 / 快速匹配 / 大厅 / 聊天 / 结算（服务端 rooms.mode='meadow'）。
+       对局屏幕在 view-game 里换成草原地图（assets/js/meadow.js）。 */
+    meadow: {
+        id: 'meadow',
+        label: 'Meadow Village',
+        tagline: 'Walk the village',
+        blurb: 'Stroll the village and ask to stay at a house. Everyone must be indoors before night falls. Each role leaves to use its power, then dawn and the vote.',
+        icon: 'trees'
     }
 };
 

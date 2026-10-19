@@ -29,7 +29,7 @@ const AI_TAKEOVER_MS = 900;         // 原本 450ms。450ms 在校园网/Chromeb
                                     // 误判 → AI 接管 → 玩家迟到的输入到货 → 「谁控制这个座位」两个序列分叉 → 永久去同步。
                                     // 短卡顿（<900ms）根本不该接管：迟到的输入会被正常回放，全局仍然一致。
 const EV_MARGIN = 30;               // 「控制权切换」统一生效帧的余量（30 帧 = 250ms @120Hz）
-const START_GRACE_MS = 2500;        // 开局宽限：客户端要加载场景/建网格/连上先跑几帧，头一两秒供不上输入是正常的。
+const START_GRACE_MS = 8000;  // 短期修：2500->8000，覆盖慢设备开局加载/Shader编译，避免开局误判掉线->desync        // 开局宽限：客户端要加载场景/建网格/连上先跑几帧，头一两秒供不上输入是正常的。
                                     // 实测（无头/低帧率环境）开局 900ms 内所有座位就被判成离线 → 两个真人座位全被 AI 接管
                                     // → 房间失去锁定步（各端自由跑各自的 AI）→ 帧号漂移 → 「画面不同步」。
                                     // 真机（30~60fps）一般 100~300ms 就能供货，这个宽限不会挡住真正的掉线判活。
@@ -49,7 +49,7 @@ const ROOM_CODE_LEN = 5;
 /* 调试用人工延迟（毫秒）：SB_LAG_MS=120 可在本机复现 120ms 单程延迟，用于压测锁同步 */
 const LAG_MS = parseInt(process.env.SB_LAG_MS || '0', 10);
 /* 角色池：仅用于空位（AI）的确定性兜底 —— 必须与客户端 CHARS 顺序一致 */
-const CHAR_POOL = ['sparky','rocky','zephyr','cobalt','mage','warrior','archer','knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub'];
+const CHAR_POOL = ['sparky','rocky','zephyr','cobalt','mage','warrior','archer','knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'alien', 'mechanic'];
 
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 const RESULTS_FILE = path.join(DATA_DIR, 'results.jsonl');
@@ -195,7 +195,12 @@ function resetMatchInput(room) {
 function storeInput(room, seat, frame, bits) {
   if (frame > minAck(room) + 600) return;          // 跑太前的输入丢弃（正常客户端不会发生）
   const so = room.seats[seat];
-  if (so) so.inT = Date.now();                     // 「这个座位最后供货时间」→ AI 接管判据（见 AI_TAKEOVER_MS）
+  /* ★ 2026-10-19（第 58 轮）：只有**新帧**才算「还在供货」。
+     卡住的客户端每 350ms 会把前台那几帧原样重发（stallGuard 的判活心跳），旧代码把这算成供货
+     → 服务端永不判 AI → 房间卡死；各端只能各自在**自己的帧**上本地抢管 → 切换帧不同
+     → Bot 构造时随机数流错位 → 全场位置永久不一致；又因为服务端没置 ai=true，
+     客户端 applyRoom 的 resOk 保护会忽略「交还」快照 → AI 永远在操控（用户报的 bug）。 */
+  if (so && frame > (so.inTop | 0)) { so.inTop = frame | 0; so.inT = Date.now(); }
   let m = room.inputs.get(seat);
   if (!m) { m = new Map(); room.inputs.set(seat, m); }
   m.set(frame, bits);
@@ -312,7 +317,7 @@ function handle(act, ctx) {
       char: (room.state === 'lobby' && act.char) ? act.char : ((prev && prev.char) || 'sparky'),
       ready: reconnected ? (prev && prev.ready) : false,
       ai: false, bot: !!act.bot, connected: true, lastSeen: now,
-      frameSeen: 0, frameT: now, recoverMs: 0,          // 帧号推进判活用（见 AI_TAKEOVER_MS 注释）
+      frameSeen: 0, frameT: now, recoverMs: 0, inTop: 0,          // 帧号推进判活用（见 AI_TAKEOVER_MS 注释）
       joined: (prev && prev.joined) || now,
     };
     room.seats[idx] = s;
@@ -408,7 +413,7 @@ function handle(act, ctx) {
        而 ack 会带着上一局的帧号留下来（同一页面「打完一局回菜单再建房」或大厅里 FRAME 已非 0
        都会踩到）：minAck 一被抬高，新一局 1..N 帧的输入就会被裁剪掉 → 卡死。 */
     resetMatchInput(room);
-    for (const s of room.seats) if (s) { s.frameSeen = 0; s.frameT = now; s.recoverMs = 0; s.inT = now; }   // 开局重置判活基准
+    for (const s of room.seats) if (s) { s.frameSeen = 0; s.frameT = now; s.recoverMs = 0; s.inT = now; s.inTop = 0; }   // 开局重置判活基准（inTop 必须归零，否则上一局的帧号会挡住「新帧才算供货」）
     room.startT = now;                                  // 开局宽限起点（见 START_GRACE_MS）
     broadcast(room, { a:'go', room: roomPublic(room), seed: room.seed,
                       startFrame: room.startFrame, rules: room.rules,
@@ -449,7 +454,7 @@ function handle(act, ctx) {
        真已离场的人会在新局里被判活（450ms）重新接管，自愈。 */
     for (const x of room.seats) if (x) {
       if (!x.bot) x.ai = false;
-      x.ready = true; x.frameSeen = 0; x.frameT = now; x.recoverMs = 0; x.inT = now;
+      x.ready = true; x.frameSeen = 0; x.frameT = now; x.recoverMs = 0; x.inT = now; x.inTop = 0;
     }
     broadcast(room, { a:'go', room: roomPublic(room), seed: room.seed, startFrame: 0,
                       rules: room.rules, chars: room.seats.map(x => x && x.char) });
@@ -466,10 +471,17 @@ function handle(act, ctx) {
     if (!s) return { ok: false, e: 'bad_seat' };
     const vs = room.seats[act.seat | 0];
     if (vs && !vs.bot && !vs.ai && room.state === 'play') {
-      vs.ai = true; vs.recoverMs = 0; vs.aiFrom = eventFrame(room); vs.connected = false;
+      /* ★ 2026-10-19（第 58 轮）：生效帧必须用「上报者卡住的那一帧 act.f」，不能用 eventFrame()。
+         房间是被这个缺席座位卡死的 → 所有端都停在同一个帧 F；eventFrame() = 最高帧 + 余量 = F+30，
+         对卡住的端**永远到不了**（它们缺的就是 F+1 的输入）→ 各端只能各自按本地帧抢管，
+         切换帧不同 → Bot 构造时抽随机数的位置不同 → 全场位置永久不一致（用户报的 bug）。 */
+      const rf = act.f | 0;
+      const ef = eventFrame(room);
+      vs.ai = true; vs.recoverMs = 0; vs.connected = false;
+      vs.aiFrom = (rf > 0 && rf <= ef) ? rf : ef;
       room.updated = now;
       broadcast(room, { a:'ev', room: room.code, f: vs.aiFrom, seat: vs.seat, ai: true, why:'stall_report' });
-      log('[ai] takeover (client-reported stall)', room.code, 'seat', vs.seat);
+      log('[ai] takeover (client-reported stall)', room.code, 'seat', vs.seat, 'frame', vs.aiFrom, '(eventFrame would be ' + ef + ')');
     }
     return { ok: true, ai: !!(vs && vs.ai), aiFrom: (vs && vs.aiFrom) | 0 };
   }

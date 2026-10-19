@@ -555,6 +555,9 @@
         .mode-name { font-size: 1.06rem; font-weight: 900; color: #f1f5f9; letter-spacing: 0.4px; }
         .mode-tagline { font-size: 0.66rem; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #64748b; }
         .mode-blurb { font-size: 0.78rem; line-height: 1.45; color: #94a3b8; font-weight: 600; }
+        /* DEMO badge: 村落模式还是独立 Demo */
+        .mode-new.demo { background: var(--accent-gold, #e9c86a); color: #191103; }
+        .mode-blurb b { color: var(--accent-gold, #e9c86a); }
         .mode-new {
             position: absolute; top: 10px; right: 10px;
             font-size: 0.58rem; font-weight: 900; letter-spacing: 1px;

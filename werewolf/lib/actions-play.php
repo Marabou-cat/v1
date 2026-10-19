@@ -102,6 +102,7 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
             $stmt->execute([$roomCode]);
             if ((int)$stmt->fetch()['c'] >= (int)$room['max_players']) {
                 beginGame($pdo, $roomCode);
+                meadowMaybeStart($pdo, $roomCode);   // 村落模式：匹配满了自动开局也是白天
                 // Re-read the room: beginGame may have been a no-op because a
                 // concurrent poll already started the game (atomic claim). The
                 // stale in-memory copy must never be used for win checks.
@@ -111,6 +112,24 @@ $roomCode = strtoupper(trim($_POST['room_code'] ?? ''));
                 $room['status'] = $fresh['status'];
                 if ($fresh['last_event'] !== null) $room['last_event'] = $fresh['last_event'];
             }
+        }
+
+        // 村落 · 草原：阶段机走 advanceMeadow（lib/meadow.php），负载走 meadowPayload。
+        // 大厅里不推进（等 beginGame），开局后每帧推进一次。
+        if (($room['mode'] ?? 'classic') === MODE_MEADOW) {
+            // 和原版一样的长轮询：服务器持有请求，直到村落状态真的变了（25ms 粒度）
+            $waitMs = (int)($_POST['wait'] ?? 0);
+            $sigIn  = (string)($_POST['sig'] ?? '');
+            if ($waitMs > 0 && $sigIn !== '') {
+                $dl = microtime(true) + min($waitMs, 15000) / 1000.0;
+                while (microtime(true) < $dl) {
+                    try { if (meadowStateSig($pdo, $roomCode) !== $sigIn) break; } catch (Exception $e) { break; }
+                    usleep(25000);
+                }
+            }
+            if ($room['status'] !== 'lobby') advanceMeadow($pdo, $roomCode);
+            echo json_encode(meadowPayload($pdo, meadowRoom($pdo, $roomCode), meadowPlayerId($pdo, $roomCode, $token)));
+            exit;
         }
 
         // Drive the AI so a match never stalls waiting on a bot, then let the

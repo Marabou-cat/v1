@@ -43,7 +43,7 @@ try {
    later request pays only one primary-key lookup (sub-millisecond).
    Bump SCHEMA_VERSION when adding columns/indexes below.
 --------------------------------------------------------------------------- */
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 
 // --- Auth / accounts -------------------------------------------------------
 // Accounts are OPTIONAL: a guest can play forever, they just don't get a win
@@ -89,7 +89,19 @@ const HALL_MAX = 12;
 // nights wound instead of execute, so nobody can tell whether an attack landed.
 const MODE_CLASSIC = 'classic';
 const MODE_CHAOS   = 'chaos';
-const GAME_MODES   = [MODE_CLASSIC, MODE_CHAOS];
+// 村落 · 草原：地图上走动的模式。白天 60s 自由讨论 + 全员进屋 → 夜晚各职业轮流出门
+// （用完回自己屋）→ 天亮进屋查尸体 → 投票 → 循环。
+const MODE_MEADOW  = 'meadow';
+const GAME_MODES   = [MODE_CLASSIC, MODE_CHAOS, MODE_MEADOW];
+
+// 村落模式节奏（秒）
+const MEADOW_DAY_SECONDS   = 60;   // 白天自由讨论
+const MEADOW_DAWN_SECONDS  = 25;   // 天亮后进屋查尸体的时间，超时村民自己发现
+const MEADOW_WOLF_SECONDS  = 45;   // 狼群统一的时间上限
+const MEADOW_TURN_SECONDS  = 20;   // 单个特殊职业出门的时间上限
+const MEADOW_VOTE_SECONDS  = 25;   // 投票
+const MEADOW_HOUSE_R        = 110; // 门口的"进屋圈"半径（世界坐标 1000 高）
+const MEADOW_WORLD_H        = 1000;
 
 // Chaos Night tuning. 34 x3 = 102, so one wolf needs three bites while three
 // wolves focusing the same target kill them in a single night.
@@ -320,6 +332,33 @@ if (!$schemaOk) {
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_players_room_id ON players (room_code, id)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_messages_room_id ON messages (room_code, id)");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_rooms_activity ON rooms (last_activity)");
+        // v15: 村落 · 草原（MODE_MEADOW）。
+        // 阶段机放在 rooms 上：meadow_phase = day|dusk|night|dawn|vote|over，
+        // meadow_step = 夜晚轮到谁（wolf|Seer|Witch|Doctor|investigate|vote），
+        // meadow_deadline = 该阶段的服务器时间戳（所有客户端据此算同一条倒计时）。
+        // meadow_data 存小 JSON（狼群次数、救回的人、猎人开枪、投票结果）。
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS meadow_phase VARCHAR(12) DEFAULT NULL");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS meadow_step VARCHAR(16) DEFAULT NULL");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS meadow_deadline INT DEFAULT 0");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS meadow_day INT DEFAULT 0");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS meadow_target VARCHAR(16) DEFAULT NULL");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS meadow_corpses TEXT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS meadow_data TEXT DEFAULT NULL");
+        // 每个座位当前所在的房子（里面有谁，大地图上就看不见谁）
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS meadow_house VARCHAR(16) DEFAULT NULL");
+        // 今晚借宿/加入的房子（狼人加入成功 → 当晚可以多统一一间）
+        $pdo->exec("ALTER TABLE players ADD COLUMN IF NOT EXISTS meadow_stay VARCHAR(16) DEFAULT NULL");
+        // 坐标放 MEMORY 表：InnoDB 一次写要 ~270ms（fsync），移动同步用不起。
+        // MEMORY 引擎不落盘、微秒级写入，重启丢坐标无所谓（客户端会重报）。
+        $pdo->exec("CREATE TABLE IF NOT EXISTS meadow_pos (
+            room_code VARCHAR(10) NOT NULL,
+            player_id INT NOT NULL,
+            x INT NOT NULL DEFAULT 0,
+            y INT NOT NULL DEFAULT 0,
+            seen_at INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (room_code, player_id)
+        ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4");
+
         $pdo->exec("CREATE TABLE IF NOT EXISTS schema_meta (id TINYINT PRIMARY KEY, v INT NOT NULL)");
         $pdo->prepare("INSERT INTO schema_meta (id, v) VALUES (1, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")
             ->execute([SCHEMA_VERSION]);

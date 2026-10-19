@@ -328,7 +328,7 @@
         .star-btn:hover { transform: scale(1.25); }
         .searchWrap input:focus { border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); background: var(--bg1); }
 
-        .gamesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; margin-top: 30px; text-align: left; }
+        .gamesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; margin-top: 30px; text-align: left; }
         .gameCard { background: var(--bg1); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; transition: 0.3s; }
         .gameCard:hover { transform: translateY(-8px); border-color: var(--p1); box-shadow: 0 0 20px rgba(144, 224, 239, 0.3); }
         
@@ -562,7 +562,10 @@
 <div class="overlay" id="gameOverlay">
     <div class="overlay-bar">
         <div class="bar-title" id="activeTitle">Resource</div>
-        <button class="btn-close" onclick="closeGame()">EXIT SESSION ✕</button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="btn-close" id="fsBtn" style="background: #0077b6; box-shadow: 0 0 10px #0077b6;" onclick="toggleGameFullscreen()">⛶ Fullscreen</button>
+            <button class="btn-close" onclick="closeGame()">EXIT SESSION ✕</button>
+        </div>
     </div>
     <iframe id="gameFrame"></iframe>
 </div>
@@ -1370,10 +1373,9 @@ function redeemCode() {
 
 // --- RECOMMENDED ROTATION LOGIC ---
 const REC_GAMES = [
-    { f: "cl3dash.html", name: "3 Dash", icon: "games_icon/cl3dash.png" },
-    { f: "clsnowrider.html", name: "Snow Rider 3D", icon: "games_icon/clsnowrider.png" },
-    { f: "clspacewaves.html", name: "Space Wave", icon: "games_icon/clspacewaves.png" },
-    { f: "https://www.myinstants.com/en/categories/sound%20effects/us/", name: "Soundboard", icon: "games_icon/soundboard.png" }
+    { f: "/exams_games/smash.html", name: "Super Brawl", icon: "/exams_games/icon_smash.svg" },
+    { f: "/exams_games/TheAviator/", name: "The Aviator", icon: "/exams_games/icon_aviator.svg" },
+    { f: "/exams_games/MineWorld/", name: "MineWorld", icon: "/exams_games/icon_mineworld.svg" }
 ];
 
 let currentRecIdx = 0;
@@ -2550,6 +2552,42 @@ let gameStartTime = null;
 let activeGameFile = null; 
 let globalGameStats = {}; // Stores the global leaderboard
 
+/* ===== Fullscreen mode (added) ===== */
+const FS_PREF_KEY = 'schoolExamsFsPref';
+let fsAutoExit = false;
+function fsSupported() { return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled); }
+function fsIsOn() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function toggleGameFullscreen() {
+    const el = document.getElementById('gameOverlay');
+    if (!el) return;
+    if (fsIsOn()) {
+        const ex = document.exitFullscreen || document.webkitExitFullscreen;
+        if (ex) { const p = ex.call(document); if (p && p.catch) p.catch(() => {}); }
+    } else {
+        const rq = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+        if (!rq) { alert('This browser does not support element fullscreen. On iPhone: tap Share → Add to Home Screen, then open it from the home screen icon for a fullscreen game.'); return; }
+        const p = rq.call(el, { navigationUI: 'hide' });
+        if (p && p.catch) p.catch(() => {});
+    }
+}
+function syncFsBtn() {
+    const b = document.getElementById('fsBtn');
+    if (b) b.textContent = fsIsOn() ? '⛶ Exit Fullscreen' : '⛶ Fullscreen';
+    // We auto-exit fullscreen when closing a game - that is not a user preference change, so keep the pref
+    if (!fsIsOn() && fsAutoExit) { fsAutoExit = false; return; }
+    try { localStorage.setItem(FS_PREF_KEY, fsIsOn() ? '1' : '0'); } catch (e) {}
+}
+document.addEventListener('fullscreenchange', syncFsBtn);
+document.addEventListener('webkitfullscreenchange', syncFsBtn);
+window.addEventListener('DOMContentLoaded', function () {
+    const b = document.getElementById('fsBtn');
+    if (b && !fsSupported()) b.style.display = 'none';   // iPhone Safari has no element fullscreen
+    syncFsBtn();
+});
+function maybeAutoFullscreen() {
+    if (fsSupported() && !fsIsOn() && localStorage.getItem(FS_PREF_KEY) === '1') setTimeout(toggleGameFullscreen, 60);
+}
+
 function openGame(file, title) {
     const overlay = document.getElementById('gameOverlay'); const frame = document.getElementById('gameFrame');
     document.getElementById('activeTitle').textContent = title; 
@@ -2568,7 +2606,8 @@ function openGame(file, title) {
     
     let count = parseInt(localStorage.getItem('schoolExamsGamesOpened') || '0'); localStorage.setItem('schoolExamsGamesOpened', count + 1);
     updateStatsUI();
-    frame.src = file.startsWith('http') ? file : BASE_URL + file; overlay.classList.add('open'); document.body.style.overflow = "hidden";
+    frame.src = (file.startsWith('http') || file.startsWith('/')) ? file : BASE_URL + file; overlay.classList.add('open'); document.body.style.overflow = "hidden";
+    maybeAutoFullscreen();
 }
 
 function closeGame() {
@@ -2596,6 +2635,7 @@ function closeGame() {
         gameStartTime = null; 
         activeGameFile = null;
     }
+    if (fsIsOn()) { fsAutoExit = true; const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex) { const p = ex.call(document); if (p && p.catch) p.catch(() => {}); } }
     frame.src = "about:blank"; overlay.classList.remove('open'); document.body.style.overflow = "auto"; updateStatsUI();
 }
 document.getElementById('searchInput').oninput = (e) => renderGrid(e.target.value);

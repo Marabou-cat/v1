@@ -50,6 +50,28 @@
                 // mutate it and survive an incidental re-render (see actions.js).
                 state.lastGame = data;
 
+                // 村落 · 草原：同一套 state/poll，但那是地图不是棋盘。共享部分（服务器时钟、
+                // my_id、匹配等待条、大厅→对局的屏幕切换）照旧在这里补上，然后交给 meadow.js；
+                // 原版棋盘/夜晚/死亡渲染器全部跳过 —— 免得它们拿 meadow 的数据形状去画 classic 的板子。
+                if (data.mode === 'meadow') {
+                    applyServerClock(data);
+                    if (data.mm_started_at) state.mmStartedAt = data.mm_started_at;
+                    if (data.started_at) state.gameStartedAt = data.started_at;
+                    if (data.my_id) state.myId = data.my_id;
+                    // 匹配相关的共享状态：少了这几行，匹配界面会显示 0 个玩家，
+                    // state.isMatch / state.matchCount 也会一直是错的。
+                    if ('is_match' in data) state.isMatch = !!data.is_match;
+                    if (data.max_players) state.matchCount = data.max_players;
+                    if (typeof updateMmStatus === 'function') updateMmStatus(data);
+                    if (typeof updateMatchTime === 'function') updateMatchTime();
+                    if (data.room_status && data.room_status !== 'lobby') {
+                        const vg0 = document.getElementById('view-game');
+                        if (vg0 && vg0.classList.contains('hidden')) showScreen('view-game');
+                    }
+                    if (typeof meadowOnPoll === 'function') meadowOnPoll(data);
+                    return;
+                }
+
                 // Shared server clock + phase anchors (drive the match timer
                 // and the pre-night chat countdown identically on every client).
                 applyServerClock(data);

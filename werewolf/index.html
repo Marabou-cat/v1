@@ -276,6 +276,135 @@
         <!-- VIEW 5: ACTIVE GAME SCREEN -->
         <!-- VIEW 5: ACTIVE GAME SCREEN — werewolf-demo.html UI, REAL backend -->
         <section id="view-game" class="screen hidden dmode">
+
+            <!-- ============ 村落 · 草原 skin ============
+                 mode === 'meadow' 时显示在 view-game 之上：草原地图 + 走动 + 阶段 HUD。
+                 建房/加房/匹配/大厅/结算/退出全部复用正式版既有流程，
+                 这里只替换"对局"这一层。位置同步走 meadow_sync 独立快循环。 -->
+            <style>
+              #meadow-layer{position:absolute;inset:0;z-index:60;display:none;background:#3f7a3a;pointer-events:auto}
+              #meadow-layer.on{display:block}
+              /* demo 的走路动画：两条腿交替 */
+              .md-actor .leg{transform-origin:50% 0}
+              .md-actor.walking .leg{animation:md-step .42s linear infinite}
+              .md-actor.walking .leg.b{animation-delay:-.21s}
+              @keyframes md-step{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+              .md-actor.ghost{opacity:.45}
+              /* 走路的弹跳（村民 sprite） */
+              .md-actor.walking > g > image{animation:md-bob .34s ease-in-out infinite}
+              @keyframes md-bob{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-6px) scale(.97,1.04)}}
+              /* 屋内面板（走进门口虚线圈就打开） */
+              #md-inside{position:absolute;inset:0;z-index:62;display:none;flex-direction:column;
+                align-items:center;justify-content:center;gap:12px;background:rgba(8,6,4,.93);padding:16px}
+              #md-inside.on{display:flex}
+              #md-inside-scene{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;align-items:flex-end;
+                min-height:86px;padding:12px 18px;border-radius:14px;background:linear-gradient(180deg,#5b4632,#3a2c1e);
+                border:1px solid #6b5238;max-width:92%}
+              #md-inside-scene .md-fig{display:flex;flex-direction:column;align-items:center;gap:5px;
+                font-size:11.5px;color:#f0e2c8}
+              #md-inside-scene .md-figb{width:30px;height:38px;border-radius:11px;border:2px solid rgba(0,0,0,.35)}
+              #md-inside-scene .md-empty{color:#a89madjust;color:#a89a86;font-size:12.5px}
+              #md-inside-info{font-size:13.5px;color:#f2e6d0;text-align:center;max-width:92%}
+              #md-inside-info b{color:#e9c86a}
+              #md-ibar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+              #md-ibar button{padding:10px 16px;border-radius:999px;border:1px solid #4a3f2a;background:#241c12;
+                color:#f0e2c8;font-weight:800;font-size:13px}
+              #md-inside-join{border:0;background:linear-gradient(180deg,#f0d489,#d8a93f);color:#20180a}
+              #md-ibar button:disabled{opacity:.6}
+              #md-map{width:100%;height:100%;display:block;touch-action:none}
+              #md-hud{position:absolute;top:6px;left:0;right:0;display:flex;gap:6px;align-items:center;
+                padding:6px 8px;font-size:12.5px;background:linear-gradient(180deg,rgba(6,9,13,.9),rgba(6,9,13,0));flex-wrap:wrap}
+              .md-pill{padding:3px 9px;border-radius:999px;background:#1b232e;border:1px solid #26303c;color:#e8eef6;white-space:nowrap}
+              .md-pill.g{color:#e9c86a;border-color:#4a3f22}
+              #md-cap{position:absolute;left:50%;transform:translateX(-50%);top:46px;background:rgba(8,12,18,.9);
+                border:1px solid #26303c;border-radius:12px;padding:7px 13px;text-align:center;display:none;max-width:92%;z-index:41}
+              #md-cap.on{display:block}
+              #md-cap b{color:#e9c86a;display:block;font-size:13px}
+              #md-cap span{font-size:11.5px;color:#c7d2de}
+              #md-toast{position:absolute;left:50%;transform:translateX(-50%);bottom:120px;background:rgba(233,200,106,.95);
+                color:#1d1505;font-weight:800;font-size:13px;padding:7px 14px;border-radius:999px;opacity:0;transition:opacity .25s;z-index:42;pointer-events:none}
+              #md-toast.on{opacity:1}
+              #md-pad{position:absolute;right:10px;bottom:12px;display:grid;grid-template-columns:repeat(3,44px);
+                grid-template-rows:repeat(3,44px);gap:4px;z-index:42}
+              #md-pad button{background:rgba(20,26,34,.85);border:1px solid #33404f;color:#e8eef6;border-radius:10px;font-size:17px;padding:0}
+              #md-join{position:absolute;left:50%;transform:translateX(-50%);bottom:74px;z-index:42;display:none;
+                padding:9px 16px;border-radius:999px;border:0;background:linear-gradient(180deg,#f0d489,#d8a93f);
+                color:#20180a;font-weight:800;font-size:13px}
+              #md-join.on{display:block}
+              #md-chat{position:absolute;left:8px;bottom:12px;width:min(60%,400px);display:flex;flex-direction:column;gap:5px;z-index:42}
+              #md-log{max-height:120px;overflow-y:auto;font-size:12px;line-height:1.45;background:rgba(8,12,18,.75);
+                border:1px solid #26303c;border-radius:10px;padding:6px 8px;display:none;color:#e8eef6}
+              #md-log.on{display:block}
+              #md-log .wolf{color:#ffb0b0}
+              #md-say{display:flex;gap:5px}
+              #md-say input{flex:1;padding:8px 10px;border-radius:10px;border:1px solid #26303c;background:#0f151d;color:#e8eef6;font-size:13px}
+              #md-say button{padding:8px 12px;border-radius:10px;border:1px solid #33404f;background:#182130;color:#e8eef6;font-weight:700}
+              #md-vote{position:absolute;inset:0;background:rgba(5,8,12,.95);display:none;flex-direction:column;
+                align-items:center;justify-content:center;gap:10px;padding:16px;z-index:43}
+              #md-vote.on{display:flex}
+              #md-vote h3{margin:0;color:#e9c86a;font-size:16px}
+              #md-vote .sub{font-size:12px;color:#8894a6;text-align:center;max-width:92%}
+              #md-vgrid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:560px}
+              #md-vgrid button{padding:9px 13px;border-radius:10px;border:1px solid #33404f;background:#182130;color:#e8eef6;font-weight:700}
+              #md-vres{font-size:13px;color:#ffd9a0;min-height:16px}
+              .md-hname{font-size:15px;font-weight:800;fill:#f4ead2;paint-order:stroke;stroke:#12310f;stroke-width:4px}
+              .md-pname{font-size:16px;font-weight:700;fill:#fff;paint-order:stroke;stroke:#12310f;stroke-width:5px}
+              @media(max-width:540px){ #md-chat{width:min(58%,300px)} #md-hud{font-size:11.5px} }
+            </style>
+            <div id="meadow-layer">
+              <svg id="md-map" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                  <!-- 草地：Kenney "Tiny Town" (CC0) 无缝拼贴 -->
+                  <pattern id="md-grass" width="144" height="144" patternUnits="userSpaceOnUse">
+                    <image href="assets/img/meadow/grass.png?v=1" width="144" height="144"
+                           style="image-rendering:pixelated"/>
+                  </pattern>
+                </defs>
+                <rect width="1600" height="1000" fill="url(#md-grass)"/>
+                <ellipse cx="800" cy="505" rx="312" ry="126" fill="#2b6ea3" opacity=".92"/>
+                <ellipse cx="800" cy="480" rx="282" ry="104" fill="#3f8ec9" opacity=".6"/>
+                <ellipse cx="800" cy="470" rx="200" ry="66" fill="#59a6d8" opacity=".35"/>
+                <g id="md-props"></g>
+                <g id="md-people"></g>
+                <rect id="md-veil" width="1600" height="1000" fill="#05070a" opacity="0" style="transition:opacity .5s"/>
+                <g id="md-pack"></g>
+              </svg>
+              <div id="md-hud">
+                <span class="md-pill" id="md-phase">白天</span>
+                <span class="md-pill" id="md-day">第 1 天</span>
+                <span class="md-pill g" id="md-role">你：?</span>
+                <span class="md-pill" id="md-tick">—</span>
+                <span class="md-pill" id="md-tip"></span>
+              </div>
+              <div id="md-cap"></div>
+              <div id="md-toast"></div>
+              <button id="md-join">Apply to join</button>
+              <div id="md-pad">
+                <span></span><button data-k="up">↑</button><span></span>
+                <button data-k="left">←</button><span></span><button data-k="right">→</button>
+                <span></span><button data-k="down">↓</button><span></span>
+              </div>
+              <div id="md-chat">
+                <div id="md-log"></div>
+                <div id="md-say"><input id="md-say-in" maxlength="60" placeholder="Say something…"><button id="md-say-btn">Send</button></div>
+              </div>
+              <div id="md-vote">
+                <h3 id="md-vtitle">Vote</h3>
+                <div class="sub">A tie (2+ players) executes nobody. If abstentions beat the top count, nobody is executed. Only living players&rsquo; votes count.</div>
+                <div id="md-vgrid"></div>
+                <div id="md-vres"></div>
+              </div>
+              <!-- 屋内面板：走进房子门口的虚线圈就打开（自己家会显示 "This is your house"） -->
+              <div id="md-inside">
+                <div id="md-inside-scene"></div>
+                <div id="md-inside-info"></div>
+                <div id="md-ibar">
+                  <button id="md-inside-join">Apply to join</button>
+                  <button id="md-inside-leave">Step outside</button>
+                </div>
+              </div>
+            </div>
+
             <div class="d-room">
 
                 <!-- ============ TOP BAR ============ -->
@@ -531,6 +660,13 @@
                     <span class="mode-tagline">Hidden wounds</span>
                     <span class="mode-blurb">Everyone hides an HP pool. Wolves wound instead of kill, the Doctor heals blind, and only the Seer can read a body.</span>
                 </button>
+                <button class="mode-card" data-mode="meadow" onclick="chooseMode('meadow')">
+                    <span class="mode-new">NEW</span>
+                    <span class="mode-icon"><i data-lucide="trees" size="26"></i></span>
+                    <span class="mode-name">Meadow Village</span>
+                    <span class="mode-tagline">Walk the village</span>
+                    <span class="mode-blurb">Stroll the village and ask to stay at a house. Everyone must be indoors before night falls. Each role leaves to use its power, then dawn and the vote.</span>
+                </button>
             </div>
         </div>
     </div>
@@ -587,5 +723,6 @@
     <script src="assets/js/scene.js"></script>
     <script src="assets/js/init.js"></script>
     <script src="assets/js/demo-room.js?v=9"></script>
+    <script src="assets/js/meadow.js?v=1"></script>
 </body>
 </html>
