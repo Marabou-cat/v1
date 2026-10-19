@@ -4,3 +4,7 @@ config.ini
 
 # --- Throwaway debug probes (must never ship) ---
 werewolf/_*.php
+
+# --- macOS / Synology noise (auto-regenerates) ---
+.DS_Store
+@eaDir/
