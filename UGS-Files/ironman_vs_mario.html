@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>钢铁侠大战马里奥 · Iron Man vs Mario</title>
+<style>
+  :root{
+    --im:#e01a36; --im2:#7e0d1f;
+    --mario:#2b58c8; --mario2:#0f2a6b;
+    --gold:#ffd23f; --reactor:#4de3ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:"Arial Black","Segoe UI",Arial,sans-serif;
+    background:radial-gradient(120% 100% at 50% 0%, #16203f 0%, #0a1022 45%, #04060f 100%);
+    color:#fff; overflow-x:hidden; min-height:100%;
+    display:flex; flex-direction:column; align-items:center;
+    user-select:none; -webkit-user-select:none;
+  }
+  /* floating star field */
+  .stars{position:fixed;inset:0;z-index:0;pointer-events:none;}
+  .star{position:absolute;background:#fff;border-radius:50%;opacity:.6;animation:tw 3s infinite ease-in-out;}
+  @keyframes tw{0%,100%{opacity:.15;transform:scale(.8)}50%{opacity:.8;transform:scale(1.2)}}
+
+  .wrap{position:relative;z-index:2;width:100%;max-width:720px;padding:22px 18px 40px;display:flex;flex-direction:column;align-items:center;gap:18px;}
+
+  .badge{font-size:12px;letter-spacing:4px;color:#8fa3c8;text-transform:uppercase;}
+  h1{
+    font-size:clamp(30px,7vw,54px);text-align:center;line-height:1.05;
+    display:flex;gap:.35em;flex-wrap:wrap;justify-content:center;
+  }
+  h1 .im{color:var(--im);text-shadow:0 0 18px rgba(224,26,54,.55);}
+  h1 .mario{color:#5b8cff;text-shadow:0 0 18px rgba(43,88,200,.6);}
+  h1 .vs{
+    color:var(--gold);font-style:italic;
+    text-shadow:0 0 22px rgba(255,210,63,.6);
+    animation:pulse 1.6s infinite ease-in-out;
+  }
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+
+  .card{
+    width:100%;border-radius:18px;overflow:hidden;
+    border:1px solid rgba(120,140,190,.35);
+    box-shadow:0 20px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04) inset;
+    background:#0a1022;
+    transition:transform .25s ease, box-shadow .25s ease;
+    cursor:pointer;
+  }
+  .card:hover{transform:translateY(-6px) scale(1.01);box-shadow:0 28px 80px rgba(0,0,0,.7),0 0 30px rgba(77,227,255,.15);}
+  .card.shake{animation:shake .5s ease;}
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}
+    15%{transform:translateX(-10px) rotate(-1deg)}
+    30%{transform:translateX(9px) rotate(1deg)}
+    45%{transform:translateX(-7px)}
+    60%{transform:translateX(6px)}
+    75%{transform:translateX(-3px)}
+  }
+  .card svg{display:block;width:100%;height:auto;}
+
+  .flash{position:fixed;inset:0;z-index:5;background:#fff;opacity:0;pointer-events:none;}
+  .flash.go{animation:flash .35s ease;}
+  @keyframes flash{0%{opacity:.85}100%{opacity:0}}
+
+  .clash-pop{
+    position:fixed;top:44%;left:50%;z-index:6;
+    transform:translate(-50%,-50%) scale(0);
+    font-size:clamp(60px,16vw,150px);font-style:italic;font-weight:900;
+    color:var(--gold);-webkit-text-stroke:3px #c8102e;
+    text-shadow:0 0 40px rgba(255,210,63,.8);
+    pointer-events:none;opacity:0;
+  }
+  .clash-pop.go{animation:pop .8s ease forwards;}
+  @keyframes pop{
+    0%{transform:translate(-50%,-50%) scale(0);opacity:0}
+    30%{transform:translate(-50%,-50%) scale(1.25);opacity:1}
+    70%{transform:translate(-50%,-50%) scale(1);opacity:1}
+    100%{transform:translate(-50%,-50%) scale(1.4);opacity:0}
+  }
+
+  .hint{font-size:13px;color:#7f92b8;letter-spacing:1px;}
+  .hint b{color:#c7d4ee;}
+  .score{
+    display:flex;gap:26px;font-size:14px;letter-spacing:2px;margin-top:2px;
+  }
+  .score .im{color:var(--im);} .score .mario{color:#5b8cff;}
+  .score span{display:flex;align-items:center;gap:8px;}
+  .dot{width:9px;height:9px;border-radius:50%;}
+  .dot.im{background:var(--im);box-shadow:0 0 10px var(--im);}
+  .dot.m{background:var(--mario);box-shadow:0 0 10px var(--mario);}
+
+  footer{position:relative;z-index:2;padding:14px;font-size:11px;color:#4d5c7e;text-align:center;width:100%;}
+</style>
+</head>
+<body>
+  <div class="stars" id="stars"></div>
+  <div class="flash" id="flash"></div>
+  <div class="clash-pop" id="clash">CLASH!</div>
+
+  <div class="wrap">
+    <div class="badge">School Exams · Featured Module</div>
+    <h1><span class="im">钢铁侠</span><span class="vs">VS</span><span class="mario">马里奥</span></h1>
+
+    <div class="card" id="card" title="Click to clash!">
+      <!-- Inline SVG: Iron Man vs Mario -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 400" role="img" aria-label="Iron Man vs Mario">
+        <defs>
+          <radialGradient id="bg" cx="50%" cy="42%" r="80%">
+            <stop offset="0%" stop-color="#243158"/><stop offset="55%" stop-color="#101830"/><stop offset="100%" stop-color="#05070f"/>
+          </radialGradient>
+          <linearGradient id="imBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e01a36"/><stop offset="1" stop-color="#7e0d1f"/></linearGradient>
+          <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#d99a1f"/></linearGradient>
+          <radialGradient id="reactor" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#eafcff"/><stop offset="45%" stop-color="#4de3ff"/><stop offset="100%" stop-color="#0a5a70"/></radialGradient>
+          <radialGradient id="fireball" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff3b0"/><stop offset="40%" stop-color="#ffb300"/><stop offset="100%" stop-color="#ff5a00"/></radialGradient>
+          <radialGradient id="impact" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#ffe066" stop-opacity="0.75"/><stop offset="100%" stop-color="#ff8c00" stop-opacity="0"/></radialGradient>
+          <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4de3ff" stop-opacity="0.2"/><stop offset="1" stop-color="#eafcff"/></linearGradient>
+          <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <rect width="520" height="400" fill="url(#bg)"/>
+        <polygon points="0,0 262,0 172,400 0,400" fill="#7a0e1e" opacity="0.22"/>
+        <polygon points="520,0 262,0 348,400 520,400" fill="#1440a0" opacity="0.22"/>
+        <g fill="#ffffff"><circle cx="30" cy="40" r="1.6" opacity="0.7"/><circle cx="120" cy="48" r="1.3" opacity="0.5"/><circle cx="210" cy="30" r="1.5" opacity="0.6"/><circle cx="360" cy="44" r="1.6" opacity="0.7"/><circle cx="440" cy="30" r="1.2" opacity="0.5"/><circle cx="490" cy="58" r="1.5" opacity="0.6"/><circle cx="250" cy="60" r="1.1" opacity="0.5"/></g>
+        <g stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.35"><line x1="228" y1="150" x2="246" y2="164"/><line x1="292" y1="148" x2="276" y2="162"/><line x1="232" y1="240" x2="248" y2="228"/><line x1="290" y1="242" x2="275" y2="230"/></g>
+        <g>
+          <line x1="64" y1="202" x2="50" y2="290" stroke="#a30f27" stroke-width="26" stroke-linecap="round"/><line x1="53" y1="250" x2="50" y2="286" stroke="url(#gold)" stroke-width="21" stroke-linecap="round"/><circle cx="49" cy="297" r="13" fill="#c8102e"/>
+          <path d="M55,242 Q58,182 104,164 L120,158 L140,158 L156,164 Q202,182 205,242 L196,312 L64,312 Z" fill="url(#imBody)"/>
+          <path d="M68,224 Q130,246 192,224" stroke="url(#gold)" stroke-width="4" fill="none"/><path d="M130,162 L130,220" stroke="#7e0d1f" stroke-width="3"/><path d="M56,214 Q61,186 85,176" stroke="url(#gold)" stroke-width="5" fill="none"/><path d="M204,214 Q199,186 175,176" stroke="url(#gold)" stroke-width="5" fill="none"/>
+          <rect x="119" y="144" width="22" height="18" fill="#8a0e22"/>
+          <line x1="196" y1="196" x2="226" y2="222" stroke="#c8102e" stroke-width="26" stroke-linecap="round"/><line x1="226" y1="222" x2="240" y2="198" stroke="url(#gold)" stroke-width="21" stroke-linecap="round"/><circle cx="243" cy="194" r="13" fill="#c8102e"/><circle cx="247" cy="191" r="7.5" fill="url(#reactor)" filter="url(#soft)"/>
+          <rect x="100" y="76" width="60" height="74" rx="16" fill="url(#imBody)"/><rect x="110" y="94" width="40" height="36" rx="9" fill="url(#gold)"/><rect x="114" y="105" width="14" height="7" rx="3.5" fill="#eafcff" filter="url(#soft)"/><rect x="132" y="105" width="14" height="7" rx="3.5" fill="#eafcff" filter="url(#soft)"/><rect x="121" y="122" width="18" height="4" rx="2" fill="#b8860b"/><circle cx="100" cy="122" r="5" fill="url(#gold)"/><circle cx="160" cy="122" r="5" fill="url(#gold)"/>
+          <circle cx="130" cy="254" r="21" fill="#4de3ff" opacity="0.22"/><circle cx="130" cy="254" r="15" fill="url(#gold)" stroke="#b8860b" stroke-width="2"/><circle cx="130" cy="254" r="9.5" fill="url(#reactor)" filter="url(#soft)"/>
+        </g>
+        <g>
+          <line x1="424" y1="192" x2="446" y2="230" stroke="#c81e1a" stroke-width="20" stroke-linecap="round"/><circle cx="448" cy="234" r="10.5" fill="#ffffff"/>
+          <path d="M352,180 Q352,172 362,170 L418,170 Q428,172 428,180 L432,262 L348,262 Z" fill="#e52521"/>
+          <line x1="366" y1="196" x2="358" y2="174" stroke="#2b58c8" stroke-width="11" stroke-linecap="round"/><line x1="414" y1="196" x2="422" y2="174" stroke="#2b58c8" stroke-width="11" stroke-linecap="round"/>
+          <rect x="356" y="196" width="68" height="66" rx="9" fill="#2b58c8"/><circle cx="366" cy="204" r="4.5" fill="#ffd23f"/><circle cx="414" cy="204" r="4.5" fill="#ffd23f"/>
+          <line x1="356" y1="192" x2="326" y2="212" stroke="#e52521" stroke-width="20" stroke-linecap="round"/><line x1="326" y1="212" x2="308" y2="194" stroke="#e52521" stroke-width="17" stroke-linecap="round"/><circle cx="304" cy="190" r="10.5" fill="#ffffff"/>
+          <g filter="url(#soft)"><path d="M300,178 q10,-8 18,-2 q-8,2 -12,8 q8,0 12,6 q-10,4 -18,-2 z" fill="#ff8c00" opacity="0.9"/><circle cx="293" cy="184" r="13" fill="url(#fireball)"/><circle cx="291" cy="182" r="6" fill="#fff3b0"/></g>
+          <circle cx="388" cy="140" r="34" fill="#ffcc99"/><circle cx="418" cy="142" r="8" fill="#4a2c17"/><circle cx="414" cy="150" r="7" fill="#ffcc99"/><circle cx="414" cy="150" r="3.5" fill="#e8a86c"/><rect x="407" y="132" width="8" height="14" rx="3" fill="#4a2c17"/>
+          <path d="M352,128 Q352,90 388,90 Q422,90 422,128 L422,132 L352,132 Z" fill="#e52521"/><rect x="326" y="122" width="52" height="14" rx="7" fill="#e52521"/><circle cx="388" cy="112" r="11" fill="#ffffff"/><text x="388" y="118" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="15" fill="#e52521">M</text>
+          <ellipse cx="372" cy="140" rx="4" ry="6.5" fill="#1b1b1b"/><path d="M364,130 q8,-4 15,-1" stroke="#4a2c17" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="352" cy="152" r="11" fill="#ffcc99"/>
+          <path d="M334,166 Q346,156 358,165 Q370,156 382,166 Q374,179 358,174 Q342,179 334,166 Z" fill="#2b1a12"/>
+          <line x1="372" y1="262" x2="370" y2="316" stroke="#2b58c8" stroke-width="25" stroke-linecap="round"/><line x1="406" y1="262" x2="408" y2="316" stroke="#2b58c8" stroke-width="25" stroke-linecap="round"/><ellipse cx="366" cy="320" rx="17" ry="10" fill="#5a3218"/><ellipse cx="412" cy="320" rx="17" ry="10" fill="#5a3218"/>
+        </g>
+        <polygon points="253,186 259,193 259,199 253,206" fill="url(#beam)" filter="url(#soft)"/><line x1="253" y1="196" x2="259" y2="196" stroke="#eafcff" stroke-width="2.5"/>
+        <circle cx="263" cy="196" r="30" fill="url(#impact)"/>
+        <g filter="url(#soft)"><path d="M263,176 L267,192 L281,196 L267,200 L263,216 L259,200 L245,196 L259,192 Z" fill="#ffffff"/><path d="M263,183 L266,193 L276,196 L266,199 L263,209 L260,199 L250,196 L260,193 Z" fill="#ffe066"/></g>
+        <line x1="263" y1="168" x2="263" y2="180" stroke="#ffffff" stroke-width="2" opacity="0.7"/><line x1="263" y1="212" x2="263" y2="224" stroke="#ffffff" stroke-width="2" opacity="0.7"/><line x1="235" y1="196" x2="245" y2="196" stroke="#ffffff" stroke-width="2" opacity="0.7"/><line x1="281" y1="196" x2="291" y2="196" stroke="#ffffff" stroke-width="2" opacity="0.7"/>
+        <text x="263" y="292" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="54" font-style="italic" fill="url(#gold)" stroke="#c8102e" stroke-width="2.5" filter="url(#soft)">VS</text>
+        <text x="122" y="378" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="19" fill="#ff5a6e" letter-spacing="1">IRON MAN</text>
+        <text x="400" y="378" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="19" fill="#6ea8ff" letter-spacing="1">MARIO</text>
+        <rect x="3" y="3" width="514" height="394" rx="14" fill="none" stroke="#2a3550" stroke-width="3"/>
+      </svg>
+    </div>
+
+    <div class="score">
+      <span><i class="dot im"></i>钢铁侠 <b id="sIm">0</b></span>
+      <span><i class="dot m"></i>马里奥 <b id="sM">0</b></span>
+    </div>
+    <div class="hint">点击海报来一场 <b>CLASH</b> · 谁更胜一筹？</div>
+  </div>
+
+  <footer>School Exams Games · Iron Man vs Mario · 钢铁侠大战马里奥</footer>
+
+<script>
+  // star field
+  const stars=document.getElementById('stars');
+  for(let i=0;i<40;i++){
+    const s=document.createElement('div');s.className='star';
+    const sz=Math.random()*2.5+1;
+    s.style.width=s.style.height=sz+'px';
+    s.style.left=Math.random()*100+'%';
+    s.style.top=Math.random()*100+'%';
+    s.style.animationDelay=(Math.random()*3)+'s';
+    stars.appendChild(s);
+  }
+  const card=document.getElementById('card');
+  const flash=document.getElementById('flash');
+  const pop=document.getElementById('clash');
+  const sIm=document.getElementById('sIm');
+  const sM=document.getElementById('sM');
+  let im=0,mar=0;
+  function replay(el){el.classList.remove('go','shake');void el.offsetWidth;el.classList.add('go','shake');}
+  card.addEventListener('click',()=>{
+    im++;mar++;
+    sIm.textContent=im;sM.textContent=mar;
+    replay(card);replay(flash);replay(pop);
+  });
+</script>
+</body>
+</html>
