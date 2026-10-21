@@ -8974,11 +8974,16 @@ class Fighter {
     if (PF.t <= 0) { endPumpkinCurse(this, false); return; }
     if (this.eliminated || this.hitstun > 0) return;            // 被打飞时先飞，落地再追
     this.move = null; this.charging = null; this.throwT = 0;
-    /* 选目标：最近的、不是自己的、没出局；团队模式下跳过施法者的队友（施法者本人仍是目标 —— 1v1 才打得起来） */
+    /* 选目标：最近的、不是自己的、没出局。
+       ★ 第 110 轮修 bug：**绝不把施法者当目标**（用户原话「南瓜人会攻击 pumpkin 自己」）——
+       南瓜人是 pumpkin 的召唤物，打主人是错的。1v1 里就只剩施法者 ⇒ 没有目标，
+       南瓜人原地待着（等于把这名对手的 10 秒操作权废掉），不会反过来咬施法者。
+       团队模式下继续跳过施法者的队友。 */
     let tg = null, bd = 1e9;
     for (const f of FIGHTERS) {
       if (f === this || f.eliminated || f.pumpkinForm) continue;
-      if (PF.by && PF.by.team >= 0 && f !== PF.by && isTeammate(PF.by, f)) continue;
+      if (PF.by && f === PF.by) continue;                                  // 不打施法者本人
+      if (PF.by && PF.by.team >= 0 && isTeammate(PF.by, f)) continue;      // 也不打施法者的队友
       const d = Math.abs(f.pos.x - this.pos.x) + Math.abs(f.pos.y - this.pos.y) * .4;
       if (d < bd) { bd = d; tg = f; }
     }
@@ -9009,7 +9014,8 @@ class Fighter {
       if (PF.cd <= 0 && Math.abs(dy) < 2.40) {
         PF.cd = .62; PF.swing = .30;
         const atk = (PF.by && !PF.by.eliminated) ? PF.by : this;
-        const res = tg.takeHit(atk, { dmg:9.0, bb:10, bg:30, ang:52 }, this.facing, 1);
+        const res = (tg !== PF.by && !isTeammate(PF.by, tg))
+          ? tg.takeHit(atk, { dmg:9.0, bb:10, bg:30, ang:52 }, this.facing, 1) : null;   // 双保险：绝不误伤施法者
         FX.slash(tg.pos.x, tg.pos.y + 1.05, .48, this.facing > 0 ? 0 : Math.PI, 3.6, 0xff8a2a, .20);
         FX.spark(tg.pos.x, tg.pos.y + 1.00, .42, 12, 0xffb347);
         FX.bolt(this.pos.x + this.facing * .5, this.pos.y + 1.0, tg.pos.x, tg.pos.y + 1.0, 0xff8a2a, .09);
@@ -14818,7 +14824,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net82',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net83',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
