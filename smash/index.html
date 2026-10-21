@@ -1338,14 +1338,17 @@ const CHAR_EXTRA = {
 
   dragon: {
     trait:'Flame Breath · Dragon Rush · Magma Beam',
-    skills:'Neutral B Flame Breath (HOLD up to 5s: a continuous cone of fire that steadily burns anyone in front of you) · Side B Dragon Rush (a dash — if it connects the dragon GRABS the foe and breathes fire onto them, then hurls them) · Up B Wing Boost (wing-powered recovery) · Down B Magma Beam (a pillar of magma erupts from the ground UNDER the nearest foe — telegraphed, then a huge upward launch)',
+    skills:'Neutral B Flame Breath (HOLD up to 5s: a cone of hundreds of fireballs — anything it touches is BURN-LOCKED for 1s, so you can keep them in the flames until the hold cap) · Side B Dragon Rush (a dash — if it connects the dragon GRABS the foe and breathes fire onto them, then hurls them) · Up B Wing Boost (wing-powered recovery) · Down B Magma Beam (a pillar of magma erupts from the ground UNDER the nearest foe — telegraphed, then a huge upward launch)',
     shape:{ scale:1.20, headR:.46 },
     weight:112, walk:9.6, run:13.8, air:11.8, jump:26.8, jumps:3, fall:36, fastFall:54,
     accel:46, airAccel:34, fric:26, mul:{ dmg:1.06, kb:1.0, spd:.94 },
     special:{
-      // 中立B：长按持续喷火（最多 5 秒）。判定在物理步里按 pulse 跳，逐跳掉血、只轻推不锁人。
-      n:{kind:'breath',label:'Flame Breath',cd:1.5,dot:.70,pulse:.09,range:5.2,width:1.15,height:1.55,push:3.2,
-         hold:5.0,color:0xff7a2a},
+      /* 中立B：长按持续喷火（最多 5 秒），火柱由**无数小球**组成。
+         ★ 第 109 轮：命中后目标**1 秒不可动弹**（burnLock，逐跳刷新）⇒ 只要还在长按，对手就被钉在火里
+         一直烧到 hold 上限（5 秒）。硬控铁律「冷却 > 控制时长」：锁最长 5+1=6 秒 ⇒ cd 7.2 秒，
+         否则松手就能立刻再喷，对手永远动不了。 */
+      n:{kind:'breath',label:'Flame Breath',cd:7.2,dot:.70,pulse:.09,range:5.2,width:1.15,height:1.55,push:3.2,
+         hold:5.0,lock:1.0,color:0xff7a2a},
       // 横B：冲刺；撞到人 → 抓起来喷火（fireGrab）→ 结束时按 fthrow 抛出去
       s:{kind:'dash',label:'Dragon Rush',cd:2.2,dmg:0,bb:0,bg:0,spd:1.6,dur:.42,keep:true,
          grab:true,hold:.85,tick:.22,dot:3.4,color:0xff4a2a},
@@ -6185,7 +6188,7 @@ function flameInit() {
   for (let i = 0; i < FLAME.max; i++) {
     const mat = new THREE.MeshBasicMaterial({ color:0x8ef05a, transparent:true, opacity:.9, depthWrite:false });
     const m = new THREE.Mesh(geo, mat); m.visible = false; scene.add(m);
-    FLAME.pool.push({ mesh:m, vx:0, vy:0, life:0, max:1, r:.1 });
+    FLAME.pool.push({ mesh:m, vx:0, vy:0, life:0, max:1, r:.1, g:7.5 });
   }
 }
 const _fh = (i) => { const s = Math.sin(i * 12.9898) * 43758.5453; return s - Math.floor(s); };
@@ -6202,6 +6205,7 @@ function flameEmit(x, y, dir, n, spd) {
     p.vy = -s * (.62 + Math.abs(a) * .18);
     p.r = .075 + _fh(i + 5.1) * .085;
     p.max = p.life = .26 + _fh(i + 9.4) * .24;
+    p.g = 7.5;                                            // Tamer 的绿火照旧：下沉得快
     const h = _fh(i + 2.2);
     p.mesh.material.color.setHex(h > .62 ? 0x9bff5a : (h > .30 ? 0x4fd21f : 0xd8ff8a));
     p.mesh.material.opacity = .95;
@@ -6217,12 +6221,37 @@ function updateFlame(dt) {
     if (p.life <= 0) { p.mesh.visible = false; continue; }
     p.mesh.position.x += p.vx * dt;
     p.mesh.position.y += p.vy * dt;
-    p.vy -= 7.5 * dt;                                     // 一点重力：火苗往下沉
+    p.vy -= (p.g === undefined ? 7.5 : p.g) * dt;         // 每颗球自己的重力（Dragon 的火球更轻）
     const k = p.life / p.max;
     p.mesh.scale.setScalar(p.r * 3.0 * (.40 + k * .80));
     p.mesh.material.opacity = .95 * Math.min(1, k * 1.6);
   }
 }
+/* ★ Dragon·中立B 的火柱：一束由**很多小球**组成的锥形火（第 109 轮）——
+   复用 FLAME 那池球（不新建 mesh），但方向是「水平前喷 + 小散角 + 轻浮力」，
+   颜色在亮黄/橙/暗红之间按确定性散列分配，越飞越小越淡。纯表现层，不影响判定。 */
+function breathBalls(x, y, dir, n, range, color) {
+  flameInit();
+  const cols = [0xffe066, 0xffb347, 0xff7a2a, 0xff3d1a];   // 亮黄→橙→暗红：白芯只占少数，否则一团糊成白
+  for (let k = 0; k < n; k++) {
+    const idx = FLAME.cursor++ % FLAME.max;
+    const p = FLAME.pool[idx], i = FLAME.cursor;
+    const a = (_fh(i + 4.4) - .5) * .70;                  // 上下散角（锥形）
+    const spd = range * (4.2 + _fh(i + 7.7) * 2.6);       // 与射程挂钩：射程越远喷得越快
+    p.vx = dir * spd * (.62 + _fh(i + 3.3) * .46);
+    p.vy = spd * a * .95 + .9;                            // 略往上飘
+    p.r = .085 + _fh(i + 5.1) * .115;
+    p.max = p.life = .26 + _fh(i + 9.4) * .26;
+    p.g = 3.2;                                            // 火球比绿火轻：先飞出去再慢慢沉
+    const h = _fh(i + 2.2);
+    p.mesh.material.color.setHex(h > .78 ? cols[0] : (h > .50 ? cols[1] : (h > .18 ? cols[2] : cols[3])));
+    p.mesh.material.opacity = .95;
+    p.mesh.position.set(x + (_fh(i + 1.3) - .5) * .34, y + (_fh(i + 6.6) - .5) * .34, .12);
+    p.mesh.scale.setScalar(p.r * 3.1);
+    p.mesh.visible = true;
+  }
+}
+
 function clearFlame() {
   for (const p of FLAME.pool) { p.life = 0; p.mesh.visible = false; }
 }
@@ -6942,7 +6971,7 @@ class Fighter {
     this.recoil = null; this.railT = 0; this.march = null; this.aegis = null;
     if (this.pumpkinForm) endPumpkinCurse(this, true);          // ★ Pumpkin：换局/重生把南瓜人形态收掉
     this.reapCombo = null; this.hallowSweep = null; this.hallowRise = null;
-    this.flatT = 0; this.pumpkinForm = null;
+    this.flatT = 0; this.pumpkinForm = null; this.burnLock = 0;
     this.mesh.visible = true; this.shadow.visible = true;
     if (stocks !== undefined) this.stocks = stocks;
   }
@@ -7026,6 +7055,7 @@ class Fighter {
     if (this.sandT > 0) launch = 0;
     if (this.ironT > 0) launch = 0;                    // ★ Blocky·Iron Bloom：6 秒内免疫击退（照吃伤害）
     if (this.flatT > 0) launch = 0;                    // ★ Pumpkin：被砸扁期间钉在地上（照吃伤害，不位移）
+    if (this.burnLock > 0) launch = 0;                 // ★ Dragon：被火柱锁住期间不吃击退（照吃伤害）
     /* ★ Demon 角撞：全程不可打断（不吃击退、不进硬直） */
     if (this.horn) launch = 0;
     /* ★ Fang·蓄力跳：起手蓄能期间不会被打断（霸体：照吃伤害但不吃击退） */
@@ -7087,6 +7117,7 @@ class Fighter {
     if (this.eliminated) return;
     if (this.pumpkinForm) endPumpkinCurse(this, true);   // ★ 被诅咒的人被打出场 → 立刻恢复本体
     this.flatT = 0;                                      // ★ 砸扁状态不跨命
+    this.burnLock = 0;                                   // ★ 灼烧锁定不跨命
     this.stocks--; this.deaths++; this.koSpin = 0; this.koDir = this.vel.x >= 0 ? 1 : -1;
     SFX.ko(); shake = 1.35;
     hitstop = Math.max(hitstop, .30); camKick = 1;
@@ -7596,6 +7627,18 @@ class Fighter {
           callout(this, 'SAND CRUMBLES', 0xd9a24a);
         }
       }
+    }
+    /* ★ Dragon·中立B 灼烧锁定（burnLock）：被火柱命中后 1 秒完全不能动 ——
+       照吃伤害、但不吃击退（takeHit 里 launch=0），所以只能待在火里被继续烧。
+       ⚠ actionSelect 在锁定期间提前 return，地面摩擦那段不会跑 ⇒ 必须在这里自己按住水平速度。 */
+    if (this.burnLock > 0) {
+      this.burnLock -= dt;
+      this.vel.x *= .25;
+      if (Math.abs(this.vel.x) < .06) this.vel.x = 0;
+      /* 逐帧兜底：被锁期间绝不能带着「出到一半的招」动（moveUpdate 跑在 actionSelect 之前） */
+      if (this.move || this.charging) { this.move = null; this.charging = null; }
+      if (this.state === 'attack' || this.state === 'airatk' || this.state === 'special' || this.state === 'charge') this.state = 'idle';
+      if (this.burnLock <= 0) { this.burnLock = 0; callout(this, 'BURN LOCK ENDED', 0xffa24a); }
     }
     /* ★ Pumpkin：被砸扁（flatten）计时 —— 定身、速度清零；时间到自己弹起来 */
     if (this.flatT > 0) {
@@ -9335,7 +9378,14 @@ class Fighter {
     if (this.grounded) this.vel.x *= (1 - 9*dt);               // 喷火时基本站定
     const dir = this.facing;
     const ox = this.pos.x + dir * .95 * this.def.shape.scale, oy = this.headY - .22;
-    FX.beam(ox, oy, ox + dir * cfg.range, oy + .12, cfg.width, cfg.color, .13);
+    /* ★ 火柱不再是 beam：按 60Hz 的节拍从嘴里喷一束球（锥形、多色、越飞越小） */
+    B.fxT = (B.fxT || 0) + dt;
+    if (B.fxT >= 1/60) {
+      B.fxT -= 1/60;
+      breathBalls(ox, oy, dir, 6, cfg.range, cfg.color);
+      if ((B.fxC = (B.fxC || 0) + 1) % 3 === 0)            // 嘴边的亮核心：每 3 拍补一团
+        breathBalls(ox + dir * .35, oy, dir, 2, cfg.range * .5, cfg.color);
+    }
     if (this.head) this.head.rotation.x = -.16 + Math.sin(B.t * 26) * .05;
     if (B.tick >= cfg.pulse) {
       B.tick -= cfg.pulse;
@@ -9343,11 +9393,25 @@ class Fighter {
         if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0 || f.grabbed) continue;
         const fwd = (f.pos.x - this.pos.x) * dir;
         const dy = (f.pos.y + .95*f.def.shape.scale) - this.pos.y - .25;
-        if (fwd > .45 && fwd < cfg.range && Math.abs(dy) < cfg.height) {
-          f.damage = Math.min(CFG.dmgCap, f.damage + cfg.dot);   // 持续灼烧：直接掉血，不打断
+        if (fwd > .30 && fwd < cfg.range && Math.abs(dy) < cfg.height) {
+          const wasLocked = f.burnLock > 0;
+          f.damage = Math.min(CFG.dmgCap, f.damage + cfg.dot);   // 持续灼烧：直接掉血
           this.fsMeter = Math.min(1, this.fsMeter + cfg.dot * .013);
-          f.vel.x += dir * cfg.push * .11;                       // 一点点速度冲击（手感）
-          f.pos.x += dir * cfg.push * .015;                      // 真正的推力用位移给：速度会被帧摩擦在两次判定之间吃光
+          /* ★ 第 109 轮：命中 → 目标 1 秒不可动弹（逐跳刷新）⇒ 一直长按就能把人锁在火里烧到上限 */
+          if (!wasLocked) {
+            clearCallout(f); callout(f, 'BURN LOCK ' + (cfg.lock || 1).toFixed(1) + 's', cfg.color);
+            /* 锁住的瞬间把「正在出的招」也掐掉：moveUpdate 跑在 actionSelect 之前，
+               只拦输入的话对手可以带着一记出到一半的招动（实测 state 停在 attack）。 */
+            f.move = null; f.charging = null;
+            if (f.state === 'attack' || f.state === 'airatk' || f.state === 'special' || f.state === 'charge') f.state = 'idle';
+          }
+          f.burnLock = Math.max(f.burnLock || 0, cfg.lock || 1.0);
+          /* ⚠ 锁住的人**一点都不能被推**：原来每跳都 +0.048 位移，55 跳把他推进火口的死区
+             （fwd < 0.45 不判定）→ 最后 1 秒打不到，伤害从 39% 掉到 31%。没锁住（霸体/免控）才推。 */
+          if (!wasLocked) {
+            f.vel.x += dir * cfg.push * .11;                     // 一点点速度冲击（手感）
+            f.pos.x += dir * cfg.push * .015;                    // 真正的推力用位移给：速度会被帧摩擦在两次判定之间吃光
+          }
           FX.spark(f.pos.x, f.pos.y + .8, .45, 5, cfg.color);
         }
       }
@@ -9765,7 +9829,7 @@ class Fighter {
     if (this.eatHold || this.eaten || this.rush || this.hug || this.hugDash ||
         this.abducted || this.ufo || this.ufoCrash || this.saber || this.sandT > 0 || this.warp || this.bandage || this.duneRun ||
         this.tiger || this.tailS || this.devour || this.grab || this.angelGrab || this.angelFly || this.horn || this.tide || this.sharkBub ||
-        this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0) {
+        this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0 || this.burnLock > 0) {
       this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
       inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false;
       inp.spP = false; inp.shHeld = false; inp.atkHeld = false; inp.spHeld = false; inp.fsP = false; inp.mash = 0;
@@ -14754,7 +14818,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net81',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net82',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
