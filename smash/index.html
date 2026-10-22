@@ -11353,7 +11353,11 @@ class Fighter {
       if (this.doSpecial(inp)) return;
     } else if (inp.spP) {
       inp.spP = false;                                  // 被拒（冷却/正在放别的技能）：吃掉这帧边沿，别每帧重试
-      this.buf.sp = Math.min(this.buf.sp, .12);
+      /* ★ 2026-10-22 修（用户报「Blizzard 用完技能很容易不小心放出中立B 光束」）：
+         技能运行中被拒的这一次按键必须**真正吃掉**。原来这里还给 .12s 缓冲 —— 技能快结束时多按的
+         那一下 B，会在技能结束的那一帧从缓冲里冒出来，直接变成中立B（没有方向键就是激光）。
+         冷却被拒时仍保留短缓冲（贴着冷却末尾按的那下不丢），技能运行中则清空。 */
+      this.buf.sp = this.spBusy() ? 0 : Math.min(this.buf.sp, .12);
     }
     // Attack（含Buffer）
     if (inp.atkP || this.buf.atk > 0) {
@@ -11484,7 +11488,14 @@ class Fighter {
               this.halo || this.angelGrab || this.angelFly || this.angelDrop || this.fsHover > 0 || this.horn ||
               this.sharkSpin || this.tide || this.sharkBub || this.tridentUp || this.duel ||
               this.counter || this.reflect || this.charging || this.pullin || this.warpCast ||
-              this.reapCombo || this.hallowSweep || this.hallowRise);
+              this.reapCombo || this.hallowSweep || this.hallowRise ||
+              /* ★ 2026-10-22 修：以下「持续型技能」原来漏在这张互斥表外 → 技能还在跑的时候，
+                 另一个技能照样能起手。最典型的就是用户报的 Blizzard：滚雪球 / 踩地途中按 B，
+                 守卫 spBusy() 返回 false → 中立B 冰冻激光当场放出，还把位置钉死把雪球顶掉。 */
+              this.snowball || this.frostBeam || this.frostStomp || this.frostRise ||
+              this.burst || this.jet || this.bladeTrio ||
+              this.spinVortex || this.rollDamage || this.staffWaves ||
+              this.warp || this.duneRun || this.bandage);
   }
   doSpecial(inp) {
     this.spCount = (this.spCount || 0) + 1;        // 教程用：累计施放次数
