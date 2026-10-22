@@ -1087,9 +1087,9 @@ const CHARS = [
     accel:46, airAccel:34, fric:27,
     mul:{ dmg:1.04, kb:1.02, spd:.96 },
     trait:'Plasma Rush · Flame Jet · Singularity · Charge',
-    skills:'Neutral B Plasma Bolt (a purple plasma round fired from the palm) · Side B Overclock Rush (dash; on contact a 5-hit combo: three punches, a burst of purple fire, then an uppercut that launches them) · Up B Flame Jet (rises on downward purple flame; anyone caught is carried to the top and slammed down, bouncing them back up) · Down B Gravity Slam (dives fast and lands with a shockwave that blasts nearby foes away) · FINAL SMASH Singularity (a black hole drags foes in for about 50%) · PASSIVE Charge (every B special that connects gives +1 Charge \u2014 a multi-hit combo still counts once; each 15 Charge permanently adds +1 extra mid-air jump for the rest of the match, with no cap)',
+    skills:'Neutral B Cinder Spray (sprays purple fire forward and kicks Vexor backwards) · Side B Overclock Rush (dash; on contact a 5-hit combo: three punches, a burst of purple fire, then an uppercut that launches them) · Up B Flame Jet (rises on downward purple flame; anyone caught is carried to the top and slammed down, bouncing them back up) · Down B Gravity Slam (dives fast and lands with a shockwave that blasts nearby foes away) · FINAL SMASH Singularity (a black hole drags foes in for about 50%) · PASSIVE Charge (every B special that connects gives +1 Charge \u2014 a multi-hit combo still counts once; each 15 Charge permanently adds +1 extra mid-air jump for the rest of the match, with no cap)',
     special:{
-      n:{kind:'vexBolt',label:'Plasma Bolt',cd:1.5,dmg:6.5,bb:8,bg:24,color:0x9b5cff},
+      n:{kind:'vexSpray',label:'Cinder Spray',cd:1.8,dur:.46,tick:.075,dmg:1.9,bb:2,bg:4,ang:40,range:3.4,recoil:17,color:0x9b5cff},
       s:{kind:'vexRush',label:'Overclock Rush',cd:3.0,dashSpd:24,dur:.30,reach:2.2,gap:.13,color:0x9b5cff,
          hits:[{dmg:2.0,bb:4,bg:10,ang:26},{dmg:2.2,bb:4,bg:10,ang:-18},{dmg:2.4,bb:5,bg:12,ang:30},
                {dmg:3.6,bb:2,bg:6,ang:20,flame:true},{dmg:5.2,bb:9,bg:40,ang:86}]},
@@ -8044,7 +8044,7 @@ class Fighter {
     this.warpCast = null;                                                         // ★ Hacker：横B 结印（到点才传送）
     /* ★ Vexor·Charge：B 技能命中累计；满 15 → 本场永久 +1 连跳（vexJumpBonus 由跳跃代码叠加，
        不去改 this.s.jumps —— 那份会被 _baseS 还原路径覆盖） */
-    this.vexCharge = 0; this.vexJumpBonus = 0; this._vexBWin = 0; this._vexSpTok = 0; this._vexChargedTok = -1;
+    this.vexCharge = 0; this.vexJumpBonus = 0; this._vexBWin = 0; this._vexSpTok = 0; this._vexChargedTok = -1; this.vexSpray = null;
     this.s = { weight:def.weight, walk:def.walk, run:def.run, air:def.air, jump:def.jump, jumps:def.jumps,
       fall:def.fall, fastFall:def.fastFall, accel:def.accel, airAccel:def.airAccel, fric:def.fric, mul:def.mul };
     this.weight = def.weight;
@@ -9444,6 +9444,7 @@ class Fighter {
     if (this.mark) { this.mark.t -= dt; if (this.mark.t <= 0) this.mark = null; }
     /* ★ Cobalt 新招的逐帧驱动（全部走固定 dt → 联机确定性一致） */
     if (this._vexBWin > 0) this._vexBWin -= dt;
+    if (this.vexSpray) this.vexSprayTick(dt, inp);
     if (this.vexRush) this.vexRushTick(dt, inp);
     if (this.vexRise) this.vexRiseTick(dt, inp);
     if (this.vexDive) this.vexDiveTick(dt, inp);
@@ -10932,6 +10933,33 @@ class Fighter {
     if (V.t > 3.0) { this.reapCombo = null; this.vel.x *= .30; }      // 兜底超时
   }
   /* ================= ★ Vexor：五连击 / 喷火上升 + 携带砸地 / 重力下砸 ================= */
+  vexSprayTick(dt, inp) {
+    const S = this.vexSpray; if (!S) return;
+    const cfg = S.cfg || {}, dir = S.dir;
+    S.t += dt; this.state = 'special'; this.animT += dt;
+    this.vel.x *= (1 - 1.6 * dt);                       // 后坐力衰减（飞出去后自然滑停）
+    /* 火焰锥：每帧往前喷球体火焰 */
+    if (S.t % .03 < dt) vexFlame(this.pos.x + dir * .85, this.pos.y + 1.25, 0, dir, 5, 11, .15, .32);
+    S.tickT -= dt;
+    if (S.tickT <= 0) {
+      S.tickT = cfg.tick || .075;
+      const R = cfg.range || 3.4;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        const dx = (f.pos.x - this.pos.x) * dir;
+        if (dx < -.35 || dx > R) continue;
+        if (Math.abs((f.pos.y + 1.0) - (this.pos.y + 1.25)) > 1.9) continue;
+        f.takeHit(this, { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang || 40 }, dir, 1);
+        f.hitstun = Math.max(f.hitstun, .16);
+        f.vel.x *= .55;
+        FX.spark(f.pos.x, f.pos.y + 1.05, .34, 4, 0xc9a4ff);
+      }
+      FX.ring(this.pos.x + dir * 1.1, this.pos.y + 1.25, .2, 1.8, cfg.color, .16);
+      SFX.tone(300, 170, .07, 'sawtooth', .06);
+    }
+    if (S.t >= (cfg.dur || .46)) this.vexSpray = null;
+  }
   vexRushTick(dt, inp) {
     const V = this.vexRush; if (!V) return;
     const cfg = V.cfg || {};
@@ -11781,13 +11809,13 @@ class Fighter {
         this.abducted || this.ufo || this.ufoCrash || this.saber || this.sandT > 0 || this.warp || this.bandage || this.duneRun ||
         this.tiger || this.tailS || this.devour || this.grab || this.angelGrab || this.angelFly || this.horn || this.tide || this.sharkBub ||
         this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0 || this.burnLock > 0 ||
-        this.vexRush || this.vexRise || this.vexDive) {
+        this.vexRush || this.vexRise || this.vexDive || this.vexSpray) {
       this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
       inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false;
       inp.spP = false; inp.shHeld = false; inp.atkHeld = false; inp.spHeld = false; inp.fsP = false; inp.mash = 0;
       if (!this.hugDash && !this.rush && !this.ufo && !this.ufoCrash && !this.saber && !this.voltCombo && !this.tiger && !this.duneRun && !this.angelGrab && !this.horn && !this.tide &&
           !this.reapCombo && !this.pumpkinForm && !this.hallowSweep && !this.hallowRise &&
-          !this.vexRush && !this.vexRise && !this.vexDive) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪 自己管速度
+          !this.vexRush && !this.vexRise && !this.vexDive && !this.vexSpray) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪 自己管速度
       return;
     }
     /* ★ Blub·雷弹：麻痹期间做不了任何动作（但**会吃击退** —— 和 Hacker 的锁定不同） */
@@ -11975,7 +12003,7 @@ class Fighter {
               this.sharkSpin || this.tide || this.sharkBub || this.tridentUp || this.duel ||
               this.counter || this.reflect || this.charging || this.pullin || this.warpCast ||
               this.reapCombo || this.hallowSweep || this.hallowRise ||
-              this.vexRush || this.vexRise || this.vexDive ||
+              this.vexRush || this.vexRise || this.vexDive || this.vexSpray ||
               /* ★ 2026-10-22 修：以下「持续型技能」原来漏在这张互斥表外 → 技能还在跑的时候，
                  另一个技能照样能起手。最典型的就是用户报的 Blizzard：滚雪球 / 踩地途中按 B，
                  守卫 spBusy() 返回 false → 中立B 冰冻激光当场放出，还把位置钉死把雪球顶掉。 */
@@ -12197,13 +12225,16 @@ class Fighter {
       this.state = 'special'; this.animT = 0;
       SFX.special('dash');
       vexFlame(this.pos.x, this.pos.y + .35, 0, 0, 10, 3.6, .14, .34, 1);
-    } else if (cfg.kind === 'vexBolt') {                // ★ Vexor·中立B：掌心等离子弹
-      spawnProjectile(this, this.pos.x + dir * .9, this.pos.y + 1.45, dir,
-        { kind:'proj', label:'Plasma Bolt', dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:20,
-          spd:26, size:.30, life:1.2, color:cfg.color, techBolt:true }, 1);
+    } else if (cfg.kind === 'vexSpray') {               // ★ Vexor·中立B：向前喷紫火，自己向后弹射
+      this.vexSpray = { cfg, t:0, tickT:0, dir };
+      this.vel.x = -dir * (cfg.recoil || 17);            // 后坐力：人往后飞
+      this.vel.y = Math.max(this.vel.y, 2.2);
+      this.grounded = false;
       this.state = 'special'; this.animT = 0;
       SFX.special('proj');
-      FX.flash(this.pos.x + dir * .9, this.pos.y + 1.45, .4, 3.2, cfg.color, .20);
+      FX.flash(this.pos.x + dir * .9, this.pos.y + 1.30, .45, 4.0, cfg.color, .22);
+      FX.ring(this.pos.x - dir * .5, this.pos.y + .5, .3, 2.2, cfg.color, .3);
+      vexFlame(this.pos.x + dir * .8, this.pos.y + 1.25, 0, dir, 12, 9, .15, .34);
     } else if (cfg.kind === 'burstShot') {              // ★ Cobalt·中立B：连发小炮弹（10 发 × 5%）
       this.burst = { cfg, t:0, left:cfg.shots || 10, gap:cfg.gap || .055 };
       this.state = 'special'; this.animT = 0;
@@ -14025,8 +14056,11 @@ class Fighter {
       } else if (this.vexDive) {                            // 下砸：举拳过头
         P.armL.rotation.x = -2.85; P.armR.rotation.x = -2.85;
         P.armL.rotation.z = -.10; P.armR.rotation.z = .10;
-      } else if (this._spAnim > 0 && this._spAnim < .90 && this._spKey === 'n') {
-        P.armR.rotation.x = -1.75; P.armL.rotation.x = -.40;   // 中立B：抬手开枪
+      } else if (this.vexSpray) {                            // 中立B：双手前推喷火 + 身体后仰（后坐力）
+        P.armL.rotation.x = -1.62; P.armR.rotation.x = -1.62;
+        P.armL.rotation.z = .22; P.armR.rotation.z = -.22;
+        P.group.rotation.z = this.facing * .22;
+        P.head.rotation.x = -.10;
       }
     }
     /* ★ Blizzard：滚雪球前推 / 激光双手前伸 / 上升双臂上举 / 踩地屈膝；冻结时僵直微颤 */
