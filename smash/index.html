@@ -10978,6 +10978,20 @@ class Fighter {
     const R2 = this.vexRise; if (!R2) return;
     const cfg = R2.cfg || {};
     R2.t += dt; this.state = 'special'; this.animT += dt;
+    /* ★ 被带的人每帧跟着施法者走：抓到的瞬间记下「当时的相对偏移」，之后偏移量在 ~.25s 内
+       平滑收到 (0, .30) —— 人是被「拎上去」的，不是升到顶点才瞬移过去（用户报的那个 bug）。
+       上升阶段也必须跟，不能只在下降阶段钉位置。 */
+    for (const f of FIGHTERS) {
+      if (f.carriedBy !== this) continue;
+      if (f.__vexOffX === undefined) f.__vexOffX = f.pos.x - this.pos.x;
+      if (f.__vexOffY === undefined) f.__vexOffY = f.pos.y - this.pos.y;
+      const kk = Math.min(1, dt * 9);
+      f.__vexOffX += (0 - f.__vexOffX) * kk;
+      f.__vexOffY += (.30 - f.__vexOffY) * kk;
+      f.pos.x = this.pos.x + f.__vexOffX;
+      f.pos.y = this.pos.y + f.__vexOffY;
+      f.vel.set(0, 0, 0); f.para = .40;
+    }
     if (R2.phase === 'rise') {
       const k = Math.min(1, R2.t / (cfg.dur || .62));
       this.vel.y = Math.max(this.vel.y, (cfg.rise || 24) * (1 - k * .55));
@@ -10988,7 +11002,8 @@ class Fighter {
         if (this.team >= 0 && isTeammate(this, f)) continue;
         if (Math.abs(f.pos.x - this.pos.x) < 1.9 && Math.abs(f.pos.y - this.pos.y) < 2.2) {
           f.carriedBy = this; f.para = (cfg.dur || .62) + 1.0;
-          f.__vexOff = f.pos.x - this.pos.x;
+          f.__vexOffX = f.pos.x - this.pos.x;
+          f.__vexOffY = f.pos.y - this.pos.y;
           f.takeHit(this, { dmg:3.0, bb:0, bg:0, ang:90 }, this.facing, 1);
           f.hitstun = Math.max(f.hitstun, .22); f.vel.set(0, 0, 0);
           callout(f, 'SEIZED', cfg.color);
@@ -11001,12 +11016,6 @@ class Fighter {
     }
     /* ——— 阶段 2：快速下坠，带着的人一起砸 ——— */
     this.vel.y = Math.min(this.vel.y, -20);
-    for (const f of FIGHTERS) {
-      if (f.carriedBy !== this) continue;
-      f.pos.x = this.pos.x + (f.__vexOff || 0);
-      f.pos.y = this.pos.y + .30;
-      f.vel.set(0, 0, 0); f.para = .40;
-    }
     if (this.grounded) {                                        // 落地 → 冲击 + 被带的人向上反弹
       const R = cfg.radius || 4.0;
       for (const f of FIGHTERS) {
@@ -11015,7 +11024,7 @@ class Fighter {
         const carried = (f.carriedBy === this);
         const d = Math.hypot(f.pos.x - this.pos.x, (f.pos.y + .9) - (this.pos.y + .9));
         if (!carried && d > R) continue;
-        f.carriedBy = null; f.__vexOff = 0; f.para = 0;
+        f.carriedBy = null; f.__vexOffX = undefined; f.__vexOffY = undefined; f.para = 0;
         f.takeHit(this, { dmg: carried ? (cfg.carryDmg || 10) : (cfg.aoeDmg || 7),
                           bb: carried ? 12 : 9, bg: carried ? 44 : 32, ang:88 }, this.facing, 1);
         f.vel.y = Math.max(f.vel.y, carried ? 17 : 13);          // ★ 落地伤害后向上反弹
@@ -11032,7 +11041,7 @@ class Fighter {
       return;
     }
     if (R2.t > 3.4) {                                          // 超时兜底（掉出场外等）
-      for (const f of FIGHTERS) if (f.carriedBy === this) { f.carriedBy = null; f.para = 0; }
+      for (const f of FIGHTERS) if (f.carriedBy === this) { f.carriedBy = null; f.__vexOffX = undefined; f.__vexOffY = undefined; f.para = 0; }
       this.vexRise = null;
     }
   }
@@ -16122,6 +16131,8 @@ function resolveFighterOverlap() {
     if (a.sandT > 0 || b.sandT > 0) continue;
     /* ★ Fang 咬住的人也不参与推挤（否则被咬的人会把 Fang 顶回去，虎冲方向都跑偏） */
     if (a.bittenBy || b.bittenBy) continue;
+    /* ★ Vexor 上B / Angel 携带：带人的人和被带的人不参与推挤（否则每帧互顶，被带的人会抖/被顶偏） */
+    if (a.carriedBy === b || b.carriedBy === a) continue;
     const d = b.pos.x - a.pos.x, minD = (a.bodyR + b.bodyR) * .62;
     if (Math.abs(d) < minD && Math.abs(a.pos.y - b.pos.y) < 2.4) {
       const push = (minD - Math.abs(d)) * .5 * Math.sign(d || 1);
