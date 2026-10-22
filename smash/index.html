@@ -1080,6 +1080,23 @@ const CHARS = [
       d:{kind:'frostStomp',label:'Permafrost Quake',cd:4.0,dmg:10.0,bb:16,bg:52,ang:88,radius:6.2,frost:2,color:0x8fd4f2},
     } },
 
+  { id:'vexor', name:'Vexor', en:'VEXOR', tag:'Android',
+    body:0x565c72, body2:0x9b5cff, dark:0x2a2e3c, eye:0xc38bff,
+    shape:{ tail:null, scale:1.0, headR:.47 },
+    weight:104, walk:9.2, run:14.2, air:10.2, jump:26.0, jumps:2, fall:38, fastFall:58,
+    accel:46, airAccel:34, fric:27,
+    mul:{ dmg:1.04, kb:1.02, spd:.96 },
+    trait:'Plasma Rush · Flame Jet · Singularity',
+    skills:'Neutral B Plasma Bolt (a purple plasma round fired from the palm) · Side B Overclock Rush (dash; on contact a 5-hit combo: three punches, a burst of purple fire, then an uppercut that launches them) · Up B Flame Jet (rises on downward purple flame; anyone caught is carried to the top and slammed down, bouncing them back up) · Down B Gravity Slam (dives fast and lands with a shockwave that blasts nearby foes away) · FINAL SMASH Singularity (a black hole drags foes in for about 50%)',
+    special:{
+      n:{kind:'vexBolt',label:'Plasma Bolt',cd:1.5,dmg:6.5,bb:8,bg:24,color:0x9b5cff},
+      s:{kind:'vexRush',label:'Overclock Rush',cd:3.0,dashSpd:24,dur:.30,reach:2.2,gap:.13,color:0x9b5cff,
+         hits:[{dmg:2.0,bb:4,bg:10,ang:26},{dmg:2.2,bb:4,bg:10,ang:-18},{dmg:2.4,bb:5,bg:12,ang:30},
+               {dmg:3.6,bb:2,bg:6,ang:20,flame:true},{dmg:5.2,bb:9,bg:40,ang:86}]},
+      u:{kind:'vexRise',label:'Flame Jet',cd:4.2,rise:24,dur:.62,carryDmg:8,aoeDmg:5,radius:4.0,color:0x9b5cff},
+      d:{kind:'vexDive',label:'Gravity Slam',cd:4.0,dmg:9.0,bb:16,bg:46,ang:58,radius:4.2,color:0xb066ff},
+    } },
+
   { id:'singer', name:'Singer', en:'SINGER', tag:'Diva',
     body:0x39c5bb, body2:0xeafcff, dark:0x1c2b3a, eye:0x35e0d2,
     shape:{ tail:null, scale:1.0, headR:.50 },
@@ -2724,6 +2741,72 @@ const SFX = {
   cheer() { [523,659,784,1047].forEach((f,i) => this.tone(f, f, .22, 'triangle', .13, i*.11)); },
 };
 
+/* ================= ★ Vexor 专用火焰粒子 + 黑洞（球体模拟火焰，纯视觉） =================
+   为什么单独一套：FX.list 的 kind 由 FX.update 的 switch 分发，新 kind 要改那个大函数；
+   这里用一个自包含的小系统（VEX_FX + updateVexFx），挂一次 update 就够，且换局后靠寿命自然清空。 */
+const VEX_FX = [];
+const VEX_SPHERE = new THREE.SphereGeometry(1, 8, 6);
+function vexFlame(x, y, z, dir, n, spd, size, life, up) {
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(VEX_SPHERE, new THREE.MeshBasicMaterial({
+      color: Math.random() < .45 ? 0xe0b3ff : 0x9b5cff, transparent:true, opacity:.92,
+      blending: THREE.AdditiveBlending, depthWrite:false }));
+    const sc = size * (.55 + Math.random() * .95);
+    m.scale.setScalar(sc);
+    m.position.set(x + (Math.random() - .5) * .40, y + (Math.random() - .5) * .40, (z || 0) + (Math.random() - .5) * .30);
+    scene.add(m);
+    VEX_FX.push({ obj:m, kind:'flame', t:0, life: life * (.70 + Math.random() * .60) + .05, s0:sc,
+                  vx: dir ? dir * (spd * .55 + Math.random() * spd) : (Math.random() - .5) * spd * .95,
+                  vy: up ? up * (spd * .35 + Math.random() * spd * .70) : ((Math.random() - .5) * spd * .70 + (dir ? 0 : spd * .35)),
+                  vz: (Math.random() - .5) * spd * .40 });
+  }
+}
+function vexBlackHole(x, y, color, life) {
+  const g = new THREE.Group(); g.position.set(x, y, 0);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(.90, 20, 16),
+    new THREE.MeshBasicMaterial({ color:0x09030f, transparent:true, opacity:.94 }));
+  g.add(core);
+  const mkRing = (r, tube, c, op) => {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 6, 40),
+      new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:op,
+        blending:THREE.AdditiveBlending, depthWrite:false }));
+    g.add(m); return m;
+  };
+  const r1 = mkRing(1.15, .075, color, .88);
+  const r2 = mkRing(1.58, .052, 0xd9a6ff, .62);
+  const r3 = mkRing(.78, .040, 0xffffff, .55);
+  r1.rotation.x = 1.10; r2.rotation.x = -1.25; r2.rotation.y = .60; r3.rotation.y = 1.05;
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(1.80, 16, 12),
+    new THREE.MeshBasicMaterial({ color:color, transparent:true, opacity:.16,
+      blending:THREE.AdditiveBlending, depthWrite:false }));
+  g.add(halo);
+  scene.add(g);
+  VEX_FX.push({ obj:g, kind:'hole', t:0, life, r1, r2, r3, halo });
+}
+function updateVexFx(dt) {
+  for (let i = VEX_FX.length - 1; i >= 0; i--) {
+    const p = VEX_FX[i];
+    p.t += dt;
+    const k = Math.min(1, p.t / p.life);
+    if (p.kind === 'hole') {
+      p.r1.rotation.z += dt * 5.4; p.r2.rotation.z -= dt * 3.8; p.r3.rotation.z += dt * 7.2;
+      p.obj.scale.setScalar(.70 + k * 1.30);
+      const fade = k < .78 ? 1 : (1 - (k - .78) / .22);
+      p.r1.material.opacity = .88 * fade; p.r2.material.opacity = .62 * fade;
+      p.r3.material.opacity = .55 * fade; p.halo.material.opacity = .16 * fade;
+      if (p.t >= p.life) { scene.remove(p.obj); VEX_FX.splice(i, 1); }
+      continue;
+    }
+    p.obj.position.x += p.vx * dt;
+    p.obj.position.y += p.vy * dt;
+    p.obj.position.z += p.vz * dt;
+    p.vx *= 1 - 1.9 * dt;
+    p.vy = p.vy * (1 - 1.7 * dt) + 3.4 * dt;          // 火焰微微上飘
+    p.obj.scale.setScalar(Math.max(.001, p.s0 * (1 + k * .55) * (1 - k * k)));
+    p.obj.material.opacity = .92 * (1 - k);
+    if (p.t >= p.life) { scene.remove(p.obj); p.obj.material.dispose(); VEX_FX.splice(i, 1); }
+  }
+}
 /* ================= 输入 ================= */
 function newInput() { return { x:0, y:0, jumpHeld:false, jumpP:false, atkHeld:false, atkP:false, atkR:false, spHeld:false, spP:false, shHeld:false, downP:false, mash:0, fsHeld:false, fsP:false, dodgeP:false, dodgeHeld:false }; }
 const KEY = {};
@@ -3908,6 +3991,7 @@ const FSPECIALS = {
   archer:   { name:'Hunter Mark',   style:'archerFS',  color:0x8ce8a0, beats:1,  gap:.10, dmg:0,   bb:0,  bg:0,  w:1   },
   rocky:   { name:'Meteor Crash',   style:'slam',    color:0xa89b90, beats:3,  gap:.24, dmg:15.5, bb:32, bg:60,             w:8.6 },
   zephyr:  { name:'Tempest',        style:'tempest', color:0x9dfbe4, beats:10, gap:.10, dmg:2.8,  bb:6,  bg:16,             w:11  },
+  vexor:   { name:'Singularity',    style:'blackHole', color:0x9b5cff, beats:10, gap:.22, dmg:5.0, bb:2, bg:6, ang:74, w:4.2, dur:2.4 },
   singer:  { name:'Solo Stage', style:'stage', color:0x39c5bb, beats:1, gap:.1, dmg:0, bb:0, bg:0, w:0, dur:10.4 },
   blizzard:{ name:'Blizzard Front', style:'snowDay', color:0x9fe8ff, beats:5, gap:2.0, dmg:0, bb:0, bg:0, w:0, dur:10.6 },
   cobalt:  { name:'Annihilator Beam', style:'beamLock', color:0x8fd8ff, beats:10, gap:.5, dmg:5.0, bb:9, bg:26, ang:24, w:14, dur:5.2 },
@@ -4330,6 +4414,175 @@ function kitSinger(def) {
 
   return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null,
            hairL, hairR, sword, bladeMesh, skirtG };
+}
+
+/* ================= ★ Vexor：仿生人（机械臂 / 胸口核心 / 紫色火焰） =================
+   体型严格照 Teacher（同一套骨架坐标：躯干 1.74 / 臂 2.02 / 髋 0.86 / 头 2.62 / H=.47），
+   def.shape.scale = 1.0 → 身高与 Teacher 同档（≈3.1）。
+   契约部件齐全：group/torso/belly/head/armL/armR/legL/legR/tail；
+   head.children[0] 必须是头骨 Mesh（通用变色代码取它染色）；torso / belly 必须带材质。
+   额外部件：core（胸口核心）/ vexFlames（身体火焰）/ ventL,ventR（肩部散热口）。 */
+function kitVexor(def) {
+  const H = def.shape.headR, mats = kitMats(def), g = new THREE.Group();
+  const steel  = cmat(0x8b93a8, { roughness:.44, metalness:.18, flatShading:false });
+  const steelD = cmat(0x4e5568, { roughness:.50, metalness:.16, flatShading:false });
+  const steelL = cmat(0xc6cee0, { roughness:.26, metalness:.30, flatShading:false });
+  const suit   = cmat(0x474e63, { roughness:.60, flatShading:false });
+  const purple = cmat(0x9b5cff, { roughness:.30, metalness:.30, flatShading:false });
+  const purpleD= cmat(0x6a35b8, { roughness:.38, metalness:.30 });
+  const coreG  = glowMat(0xb066ff, 1.45, 0x2a0a4a);
+  const coreI  = glowMat(0xe6c6ff, 1.75, 0x3a0d5c);
+  const jetG   = glowMat(0xc38bff, 1.6, 0x3a0d5c);
+  const flameM = new THREE.MeshBasicMaterial({ color:0xa855f7, transparent:true, opacity:.46,
+                   blending:THREE.AdditiveBlending, depthWrite:false });
+  const flameM2= new THREE.MeshBasicMaterial({ color:0xe0b3ff, transparent:true, opacity:.34,
+                   blending:THREE.AdditiveBlending, depthWrite:false });
+
+  /* ---------- 躯干：内衬 + 胸甲 + 核心 + 腰部液压 ---------- */
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.40, .54, 8, 16), suit);
+  torso.position.y = 1.74; g.add(torso);
+  const chest = roundPlate(.86, .68, .30, .13, steel, { bevel:.05 });
+  chest.position.set(0, 1.86, .16); chest.rotation.x = -.04; g.add(chest);
+  const collar = roundPlate(.62, .22, .22, .09, steelL, { bevel:.035 });
+  collar.position.set(0, 2.10, .18); g.add(collar);
+  /* 胸口核心：外环 +  cage + 发光球 + 内芯 */
+  const coreRing = new THREE.Mesh(new THREE.TorusGeometry(.170, .040, 6, 20), steelD);
+  coreRing.position.set(0, 1.80, .395); g.add(coreRing);
+  const coreCage = new THREE.Mesh(new THREE.TorusGeometry(.212, .022, 5, 18), purpleD);
+  coreCage.position.set(0, 1.80, .372); coreCage.rotation.z = Math.PI / 4; g.add(coreCage);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(.126, 18, 14), coreG);
+  core.position.set(0, 1.80, .395); g.add(core);
+  const coreIn = new THREE.Mesh(new THREE.SphereGeometry(.064, 12, 10), coreI);
+  coreIn.position.set(0, 1.80, .445); g.add(coreIn);
+  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {          // 胸口散热格栅
+    const vent = new THREE.Mesh(new THREE.BoxGeometry(.11, .024, .03), steelD);
+    vent.position.set(s * .250, 1.96 - i * .085, .372); vent.rotation.z = s * .12; g.add(vent);
+  }
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(.62, .27, .45), steelD);
+  belly.position.y = 1.32; g.add(belly);
+  for (const s of [-1, 1]) {                                      // 腰侧液压杆
+    const piston = new THREE.Mesh(new THREE.CylinderGeometry(.046, .046, .26, 10), steelL);
+    piston.position.set(s * .305, 1.40, 0); piston.rotation.z = s * .12; g.add(piston);
+  }
+
+  /* ---------- 头：仿生颅 + 面罩发光带 + 下颌装甲 + 天线 ---------- */
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(.135, .155, .20, 12), steelD);
+  neck.position.set(0, 2.20, 0); g.add(neck);
+  const neckRing = new THREE.Mesh(new THREE.TorusGeometry(.145, .022, 5, 14), purple);
+  neckRing.position.set(0, 2.13, 0); neckRing.rotation.x = Math.PI / 2; g.add(neckRing);
+  const head = new THREE.Group(); head.position.y = 2.62; g.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(H, 18, 14), steel);
+  skull.scale.set(1, 1.04, .96); head.add(skull);                 // ★ head.children[0]
+  const crown = new THREE.Mesh(new THREE.BoxGeometry(H * .26, H * .10, H * 1.5), steelL);
+  crown.position.set(0, H * .96, -.02); head.add(crown);           // 头顶脊线
+  const recess = new THREE.Mesh(new THREE.BoxGeometry(H * 1.40, H * .34, .12), steelD);
+  recess.position.set(0, H * .06, H * .70); head.add(recess);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(H * 1.22, H * .20, .10), coreG);
+  visor.position.set(0, H * .06, H * .80); head.add(visor);
+  for (const s of [-1, 1]) {                                       // 面罩内的暗色镜头 + 光点
+    const lens = new THREE.Mesh(new THREE.BoxGeometry(H * .30, H * .15, .05), steelD);
+    lens.position.set(s * H * .30, H * .06, H * .855); head.add(lens);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(.030, 10, 8), coreI);
+    pup.position.set(s * H * .30, H * .06, H * .885); head.add(pup);
+  }
+  const jaw = roundPlate(H * .92, H * .34, H * .46, .09, steel, { bevel:.03 });
+  jaw.position.set(0, -H * .62, H * .43); jaw.rotation.x = .18; head.add(jaw);
+  const chin = new THREE.Mesh(new THREE.BoxGeometry(H * .42, H * .09, .07), steelL);
+  chin.position.set(0, -H * .78, H * .47); head.add(chin);
+  for (let i = 0; i < 3; i++) {                                   // 下颌散热格栅（机械口部）
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(H * .46, .022, .03), steelD);
+    bar.position.set(0, -H * .52 - i * .055, H * .60); head.add(bar);
+  }
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.CylinderGeometry(.075, .075, .06, 12), steelD);
+    ear.position.set(s * H * .97, H * .04, 0); ear.rotation.z = Math.PI / 2; head.add(ear);
+    const earG = new THREE.Mesh(new THREE.TorusGeometry(.050, .012, 5, 14), jetG);
+    earG.position.set(s * H * 1.02, H * .04, 0); earG.rotation.y = Math.PI / 2; head.add(earG);
+    const cheek = new THREE.Mesh(new THREE.BoxGeometry(.045, .16, .05), steelL);
+    cheek.position.set(s * H * .66, -H * .26, H * .40); cheek.rotation.z = s * .18; head.add(cheek);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(.018, .011, H * .52, 6), steelD);
+    ant.position.set(s * H * .52, H * .92, -.06); ant.rotation.z = s * .34; head.add(ant);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(.030, 8, 6), coreI);
+    tip.position.set(s * H * .68, H * 1.17, -.06); head.add(tip);
+  }
+
+  /* ---------- 机械臂：肩球 + 护肩 + 上臂环 + 小臂散热片 + 掌心喷口 + 拳 ---------- */
+  const mkArm = (s) => {
+    const arm = new THREE.Group(); arm.position.set(s * .62, 2.02, 0); g.add(arm);
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(.20, 12, 10), steelD);
+    shoulder.scale.set(1, .92, 1); arm.add(shoulder);
+    const pauldron = roundPlate(.34, .26, .30, .09, steel, { bevel:.04 });
+    pauldron.position.set(s * .05, .05, 0); pauldron.rotation.z = s * .18; arm.add(pauldron);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(.115, .100, .34, 12), steel);
+    upper.position.y = -.26; arm.add(upper);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.118, .020, 5, 14), purple);
+    ring.position.y = -.34; ring.rotation.x = Math.PI / 2; arm.add(ring);
+    const elbow = new THREE.Mesh(new THREE.SphereGeometry(.105, 10, 8), steelD);
+    elbow.position.y = -.46; arm.add(elbow);
+    const fore = new THREE.Mesh(new THREE.CylinderGeometry(.105, .128, .36, 12), steelL);
+    fore.position.y = -.66; arm.add(fore);
+    for (let i = 0; i < 3; i++) {                                 // 小臂散热片
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(.028, .17, .10), steelD);
+      fin.position.set(s * .118, -.56 - i * .10, 0); fin.rotation.z = s * .10; arm.add(fin);
+    }
+    const vent = new THREE.Mesh(new THREE.CylinderGeometry(.102, .086, .11, 12), steelD);
+    vent.position.y = -.86; arm.add(vent);
+    for (const k of [-1, 1]) {                                    // 掌心喷口（上B 的火焰从这里下去）
+      const noz = new THREE.Mesh(new THREE.CylinderGeometry(.034, .046, .07, 8), jetG);
+      noz.position.set(s * k * .046, -.915, .015); arm.add(noz);
+    }
+    const fist = new THREE.Mesh(new THREE.BoxGeometry(.26, .22, .26), steel);
+    fist.position.y = -.995; arm.add(fist);
+    for (let i = 0; i < 3; i++) {                                 // 指节
+      const kn = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 6), steelL);
+      kn.position.set(-.07 + i * .07, -1.08, .12); arm.add(kn);
+    }
+    const wrist = new THREE.Mesh(new THREE.TorusGeometry(.098, .016, 4, 12), purpleD);
+    wrist.position.y = -.905; wrist.rotation.x = Math.PI / 2; arm.add(wrist);
+    return arm;
+  };
+  const armL = mkArm(-1), armR = mkArm(1);
+
+  /* ---------- 腿：液压大腿 + 护膝 + 小腿推进器 + 重靴（鞋底落在 y=0） ---------- */
+  const mkLeg = (s) => {
+    const leg = new THREE.Group(); leg.position.set(s * .24, .86, 0); g.add(leg);
+    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(.150, .130, .36, 12), steel);
+    thigh.position.y = -.18; leg.add(thigh);
+    const hipPlate = new THREE.Mesh(new THREE.BoxGeometry(.10, .22, .16), purpleD);
+    hipPlate.position.set(s * .12, -.06, .02); leg.add(hipPlate);
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(.132, 10, 8), steelD);
+    knee.position.y = -.40; leg.add(knee);
+    const cap = roundPlate(.22, .20, .10, .06, purple, { bevel:.02 });
+    cap.position.set(0, -.40, .12); leg.add(cap);
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(.130, .112, .38, 12), steel);
+    shin.position.y = -.58; leg.add(shin);
+    const thr = new THREE.Mesh(new THREE.CylinderGeometry(.058, .078, .13, 8), jetG);
+    thr.position.set(0, -.66, -.15); thr.rotation.x = .22; leg.add(thr);
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(.30, .18, .48), steelD);
+    boot.position.set(0, -.76, .10); leg.add(boot);
+    const toe = new THREE.Mesh(new THREE.BoxGeometry(.26, .11, .16), steelL);
+    toe.position.set(0, -.78, .33); leg.add(toe);
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(.32, .06, .54), purpleD);
+    sole.position.set(0, -.83, .10); leg.add(sole);
+    return leg;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+
+  /* ---------- 身体火焰：双肩 + 后背（animStep 里做跳动/闪烁） ---------- */
+  const flames = [];
+  const mkFlame = (x, y, z, sc, mat) => {
+    const f = new THREE.Mesh(new THREE.ConeGeometry(.070 * sc, .22 * sc, 7), mat);
+    f.position.set(x, y, z); g.add(f); flames.push(f); return f;
+  };
+  const ventL = mkFlame(-.60, 2.19, -.02, 1.00, flameM);
+  const ventR = mkFlame(.60, 2.19, -.02, 1.00, flameM);
+  mkFlame(-.585, 2.30, -.02, .62, flameM2);
+  mkFlame(.585, 2.30, -.02, .62, flameM2);
+  mkFlame(0, 2.14, -.30, .85, flameM);
+  mkFlame(0, 2.26, -.30, .52, flameM2);
+
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null,
+           core, coreIn, vexFlames:flames, ventL, ventR };
 }
 
 function kitBlizzard(def) {
@@ -6508,7 +6761,7 @@ const KITS = { blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechani
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
-               gorilla:kitGorilla, hacker:kitHacker, blocky:kitBlocky, blizzard:kitBlizzard, singer:kitSinger };
+               gorilla:kitGorilla, hacker:kitHacker, blocky:kitBlocky, blizzard:kitBlizzard, singer:kitSinger, vexor:kitVexor };
 /* ================= ★ Pumpkin·大招 Pumpkin Curse：南瓜人（被诅咒的玩家外形） =================
    被诅咒的玩家本体整只隐藏、换成下面这只南瓜人；10 秒内由 pumpkinTick 自动追人挥镰，
    时间到 / 被打出场 / 换局 都会还原（endPumpkinCurse 把隐藏的子物件按原样恢复）。 */
@@ -8690,6 +8943,36 @@ class Fighter {
         if (k === 0) { SFX.special('wave'); shake = Math.max(shake, .45); }
         else SFX.tone(520, 380, .18, 'sine', .07);
         break; }
+      case 'blackHole': {                                // ★ Vexor·大招：黑洞把附近的人往中心吸，约 50%
+        if (this._bhX === undefined) this._bhX = px + d0 * 2.6;
+        const bhx = this._bhX, bhy = this.pos.y + 1.15;
+        const R = (SP.w || 4.2) * 2.0;
+        if (k === 0) {
+          vexBlackHole(bhx, bhy, SP.color, (SP.dur || 2.4) + .35);
+          callout(this, 'SINGULARITY', SP.color);
+          FX.flash(bhx, bhy, .6, 9, SP.color, .34);
+          FX.ring(bhx, bhy, .3, 10, SP.color, .40);
+          shake = Math.max(shake, .62); SFX.special('heavy');
+        }
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          const dx = bhx - f.pos.x, dy = bhy - (f.pos.y + .95);
+          const d = Math.hypot(dx, dy);
+          if (d > R) continue;
+          /* 逐帧只改位置、不给速度（加速度会 NaN 连锁 / 被摩擦吃掉） */
+          const pull = .18 * (1 - Math.min(1, d / R) * .45);
+          f.pos.x += dx * pull;
+          if (Math.abs(dy) > .30) f.pos.y += dy * pull * .85;
+          f.vel.x *= .35; f.vel.y *= .55;
+          f.takeHit(this, { dmg:SP.dmg, bb:SP.bb, bg:SP.bg, ang:SP.ang || 74 }, Math.sign(dx) || d0, 1);
+          f.hitstun = Math.max(f.hitstun, .16);
+          FX.suck(f.pos.x, f.pos.y + .90, bhx, bhy, SP.color, .18);
+          FX.ring(bhx, bhy, .18, 1.9, SP.color, .18);
+        }
+        SFX.tone(120 - k * 6, 58, .16, 'sine', .07);
+        break;
+      }
       case 'elemRain': {                                 // ★ Mage·大招：全场元素雷（含空中平台），元素逐发随机
         const el = elemAt(k + 5), ec = elemColor(el);
         let rx = 0, ry = 0;
@@ -9135,6 +9418,9 @@ class Fighter {
     /* Reaper·Death Mark：标记倒计时（逐帧递减 → 两端确定性一致） */
     if (this.mark) { this.mark.t -= dt; if (this.mark.t <= 0) this.mark = null; }
     /* ★ Cobalt 新招的逐帧驱动（全部走固定 dt → 联机确定性一致） */
+    if (this.vexRush) this.vexRushTick(dt, inp);
+    if (this.vexRise) this.vexRiseTick(dt, inp);
+    if (this.vexDive) this.vexDiveTick(dt, inp);
     if (this.burst) this.burstTick(dt);
     if (this.jet) this.jetTick(dt);
     if (this.noteT > 0) { this.noteT -= dt; if (this.noteT <= 0 && this.state === 'special') this.state = this.grounded ? 'idle' : 'fall'; }
@@ -10619,6 +10905,169 @@ class Fighter {
     if (V.n >= NH && V.hitT <= 0) { this.reapCombo = null; this.vel.x *= .30; }
     if (V.t > 3.0) { this.reapCombo = null; this.vel.x *= .30; }      // 兜底超时
   }
+  /* ================= ★ Vexor：五连击 / 喷火上升 + 携带砸地 / 重力下砸 ================= */
+  vexRushTick(dt, inp) {
+    const V = this.vexRush; if (!V) return;
+    const cfg = V.cfg || {};
+    V.t += dt; this.state = 'special'; this.animT += dt;
+    /* ——— 阶段 1：冲刺（没撞到人就只是位移） ——— */
+    if (!V.target) {
+      if (V.t <= (cfg.dur || .30)) this.vel.x = V.dir * (cfg.dashSpd || 24);
+      else this.vel.x *= .84;
+      if (V.t % .05 < dt) {
+        FX.trail(this.pos.x - V.dir * .6, this.pos.y + 1.0, .32, 0x9b5cff);
+        vexFlame(this.pos.x - V.dir * .5, this.pos.y + .85, 0, -V.dir, 2, 3.2, .10, .26);
+      }
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0 || f.grabbed) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (Math.abs(f.pos.x - this.pos.x) < (cfg.reach || 2.2) + f.bodyR * .6 &&
+            Math.abs(f.pos.y - this.pos.y) < 2.4) {
+          V.target = f; V.n = 0; V.hitT = .03;
+          callout(this, 'OVERCLOCK RUSH', cfg.color);
+          FX.ring(f.pos.x, f.pos.y + 1.0, .3, 2.6, cfg.color, .34);
+          FX.flash(f.pos.x, f.pos.y + 1.1, .5, 5.0, 0xb066ff, .26);
+          shake = Math.max(shake, .30); SFX.special('dash');
+          break;
+        }
+      }
+      if (!V.target && V.t > (cfg.dur || .30) + .35) { this.vexRush = null; this.vel.x *= .25; }
+      return;
+    }
+    /* ——— 阶段 2：五连击（前 3 拳 → 第 4 段喷紫火 → 第 5 段上勾拳） ——— */
+    const f = V.target;
+    if (!f || f.eliminated) { this.vexRush = null; this.vel.x *= .30; return; }
+    const tx = this.pos.x + V.dir * 2.05;                    // > 双方 bodyR 之和，别被推挤顶回去
+    f.pos.x += (tx - f.pos.x) * Math.min(1, dt * 20);
+    f.pos.y += (this.pos.y - f.pos.y) * Math.min(1, dt * 9);
+    f.vel.set(0, 0, 0);
+    this.vel.x *= .70;
+    V.hitT -= dt;
+    const NH = (cfg.hits || []).length;
+    if (V.hitT <= 0 && V.n < NH) {
+      const H = cfg.hits[V.n], last = (V.n === NH - 1), isFlame = H.flame === true;
+      V.hitT = cfg.gap || .13;
+      f.takeHit(this, { dmg:H.dmg, bb:H.bb, bg:H.bg, ang:H.ang, stun:.18 }, V.dir, 1);
+      f.hitstun = Math.max(f.hitstun, .22);
+      if (!last) { f.vel.set(0, 0, 0); }                     // 上勾拳那一下要放行击飞
+      if (isFlame) {
+        /* 第 4 段：大量紫色火球（球体模拟火焰，纯视觉） */
+        vexFlame(f.pos.x + V.dir * .35, f.pos.y + 1.15, 0, V.dir, 26, 9.5, .17, .55);
+        vexFlame(f.pos.x + V.dir * .35, f.pos.y + 1.15, 0, V.dir, 10, 5.0, .22, .40);
+        FX.flash(f.pos.x + V.dir * .25, f.pos.y + 1.15, .5, 6.5, 0xb066ff, .30);
+        FX.ring(f.pos.x, f.pos.y + 1.10, .3, 3.4, 0x9b5cff, .34);
+        SFX.special('wave'); shake = Math.max(shake, .42);
+      } else if (last) {
+        FX.slash(f.pos.x, f.pos.y + .85, .5, Math.PI / 2, 5.2, 0xc9a4ff, .20);
+        FX.ring(f.pos.x, f.pos.y + .30, .25, 3.6, 0x9b5cff, .40);
+        FX.spark(f.pos.x, f.pos.y + .95, .40, 14, 0xb066ff);
+        callout(f, 'LAUNCHED', cfg.color);
+        SFX.heavy(); shake = Math.max(shake, .55); camKick = Math.min(1, camKick + .30);
+      } else {
+        FX.slash(f.pos.x, f.pos.y + 1.05, .45, (V.n % 2 ? Math.PI : 0), 3.4, 0xb066ff, .16);
+        FX.spark(f.pos.x, f.pos.y + 1.00, .38, 9, 0x9b5cff);
+        SFX.hit(24, H.dmg);
+        shake = Math.max(shake, .26);
+      }
+      V.n++;
+    }
+    if (V.n >= NH && V.hitT <= 0) { this.vexRush = null; this.vel.x *= .30; }
+    if (V.t > 3.0) { this.vexRush = null; this.vel.x *= .30; }         // 兜底超时
+  }
+  vexRiseTick(dt, inp) {
+    const R2 = this.vexRise; if (!R2) return;
+    const cfg = R2.cfg || {};
+    R2.t += dt; this.state = 'special'; this.animT += dt;
+    if (R2.phase === 'rise') {
+      const k = Math.min(1, R2.t / (cfg.dur || .62));
+      this.vel.y = Math.max(this.vel.y, (cfg.rise || 24) * (1 - k * .55));
+      this.vel.x *= .90;
+      if (R2.t % .04 < dt) vexFlame(this.pos.x, this.pos.y - .10, 0, 0, 4, 3.2, .13, .34, -1);
+      for (const f of FIGHTERS) {                              // 路上碰到的人 → 一起带到顶点
+        if (f === this || f.eliminated || f.carriedBy || f.invuln > 0 || f.intangible > 0) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (Math.abs(f.pos.x - this.pos.x) < 1.9 && Math.abs(f.pos.y - this.pos.y) < 2.2) {
+          f.carriedBy = this; f.para = (cfg.dur || .62) + 1.0;
+          f.__vexOff = f.pos.x - this.pos.x;
+          f.takeHit(this, { dmg:3.0, bb:0, bg:0, ang:90 }, this.facing, 1);
+          f.hitstun = Math.max(f.hitstun, .22); f.vel.set(0, 0, 0);
+          callout(f, 'SEIZED', cfg.color);
+          SFX.special('dash'); shake = Math.max(shake, .25);
+          break;
+        }
+      }
+      if (R2.t >= (cfg.dur || .62)) { R2.phase = 'slam'; this.vel.y = -26; this.vel.x *= .30; }
+      return;
+    }
+    /* ——— 阶段 2：快速下坠，带着的人一起砸 ——— */
+    this.vel.y = Math.min(this.vel.y, -20);
+    for (const f of FIGHTERS) {
+      if (f.carriedBy !== this) continue;
+      f.pos.x = this.pos.x + (f.__vexOff || 0);
+      f.pos.y = this.pos.y + .30;
+      f.vel.set(0, 0, 0); f.para = .40;
+    }
+    if (this.grounded) {                                        // 落地 → 冲击 + 被带的人向上反弹
+      const R = cfg.radius || 4.0;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        const carried = (f.carriedBy === this);
+        const d = Math.hypot(f.pos.x - this.pos.x, (f.pos.y + .9) - (this.pos.y + .9));
+        if (!carried && d > R) continue;
+        f.carriedBy = null; f.__vexOff = 0; f.para = 0;
+        f.takeHit(this, { dmg: carried ? (cfg.carryDmg || 10) : (cfg.aoeDmg || 7),
+                          bb: carried ? 12 : 9, bg: carried ? 44 : 32, ang:88 }, this.facing, 1);
+        f.vel.y = Math.max(f.vel.y, carried ? 17 : 13);          // ★ 落地伤害后向上反弹
+        f.vel.x *= .25;
+        FX.ring(f.pos.x, f.pos.y + .40, .3, 3.2, 0x9b5cff, .40);
+        FX.spark(f.pos.x, f.pos.y + .30, .40, 12, 0xb066ff);
+      }
+      FX.crater(this.pos.x, Math.max(.05, this.pos.y), 3.2, 0x9b5cff);
+      FX.ring(this.pos.x, this.pos.y + .20, .3, 5.2, 0xb066ff, .45);
+      vexFlame(this.pos.x, this.pos.y + .20, 0, 0, 22, 8, .18, .50);
+      shake = Math.max(shake, .70); camKick = Math.min(1, camKick + .40);
+      SFX.heavy(); SFX.special('wave');
+      this.vexRise = null;
+      return;
+    }
+    if (R2.t > 3.4) {                                          // 超时兜底（掉出场外等）
+      for (const f of FIGHTERS) if (f.carriedBy === this) { f.carriedBy = null; f.para = 0; }
+      this.vexRise = null;
+    }
+  }
+  vexDiveTick(dt, inp) {
+    const D = this.vexDive; if (!D) return;
+    const cfg = D.cfg || {};
+    D.t += dt; this.state = 'special'; this.animT += dt;
+    if (D.phase === 'hop') {                                   // 地面起手先小跳一下再砸
+      if (D.t > .08) { D.phase = 'dive'; this.vel.y = D.air ? -30 : -24; this.vel.x *= .30; }
+      return;
+    }
+    this.vel.y = Math.min(this.vel.y, D.air ? -30 : -26);
+    if (D.t % .04 < dt) vexFlame(this.pos.x, this.pos.y + .35, 0, 0, 3, 2.6, .12, .30, 1);
+    if (this.grounded || D.t > 1.8) {                          // 落地 → 冲击波震飞周围
+      const R = cfg.radius || 4.2;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        const d = Math.hypot(f.pos.x - this.pos.x, (f.pos.y + .9) - (this.pos.y + .9));
+        if (d > R) continue;
+        f.takeHit(this, { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang || 58 },
+                  Math.sign(f.pos.x - this.pos.x) || 1, 1);
+        f.vel.y = Math.max(f.vel.y, 8);
+        FX.ring(f.pos.x, f.pos.y + .35, .3, 3.0, 0xb066ff, .36);
+      }
+      FX.crater(this.pos.x, Math.max(.05, this.pos.y), R * .85, 0xb066ff);
+      FX.ring(this.pos.x, this.pos.y + .18, .3, R * 2.3, 0xb066ff, .48);
+      FX.ring(this.pos.x, this.pos.y + .18, .25, R * 1.4, 0xffffff, .22);
+      FX.dust(this.pos.x, Math.max(.05, this.pos.y), 16, 0xc9a4ff);
+      vexFlame(this.pos.x, this.pos.y + .18, 0, 0, 20, 9, .18, .48);
+      shake = Math.max(shake, .78); camKick = Math.min(1, camKick + .45);
+      SFX.heavy(); SFX.special('wave');
+      this.vexDive = null;
+    }
+  }
   /* ================= ★ Alien：UFO / 坠毁 / 吸走 / 冲刺挥剑 / 激光 =================
      UFO：10 秒，跳跃键上升、松开缓降，左右可移动；J 发追踪弹、B 向下扫射；到点坠毁 → 落地冲击波（自己+周围）
      大招（UFO 外）：吸走最近的一名敌人 3 秒，回来 +60% */
@@ -11296,12 +11745,14 @@ class Fighter {
     if (this.eatHold || this.eaten || this.rush || this.hug || this.hugDash ||
         this.abducted || this.ufo || this.ufoCrash || this.saber || this.sandT > 0 || this.warp || this.bandage || this.duneRun ||
         this.tiger || this.tailS || this.devour || this.grab || this.angelGrab || this.angelFly || this.horn || this.tide || this.sharkBub ||
-        this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0 || this.burnLock > 0) {
+        this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0 || this.burnLock > 0 ||
+        this.vexRush || this.vexRise || this.vexDive) {
       this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
       inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false;
       inp.spP = false; inp.shHeld = false; inp.atkHeld = false; inp.spHeld = false; inp.fsP = false; inp.mash = 0;
       if (!this.hugDash && !this.rush && !this.ufo && !this.ufoCrash && !this.saber && !this.voltCombo && !this.tiger && !this.duneRun && !this.angelGrab && !this.horn && !this.tide &&
-          !this.reapCombo && !this.pumpkinForm && !this.hallowSweep && !this.hallowRise) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪 自己管速度
+          !this.reapCombo && !this.pumpkinForm && !this.hallowSweep && !this.hallowRise &&
+          !this.vexRush && !this.vexRise && !this.vexDive) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪 自己管速度
       return;
     }
     /* ★ Blub·雷弹：麻痹期间做不了任何动作（但**会吃击退** —— 和 Hacker 的锁定不同） */
@@ -11489,6 +11940,7 @@ class Fighter {
               this.sharkSpin || this.tide || this.sharkBub || this.tridentUp || this.duel ||
               this.counter || this.reflect || this.charging || this.pullin || this.warpCast ||
               this.reapCombo || this.hallowSweep || this.hallowRise ||
+              this.vexRush || this.vexRise || this.vexDive ||
               /* ★ 2026-10-22 修：以下「持续型技能」原来漏在这张互斥表外 → 技能还在跑的时候，
                  另一个技能照样能起手。最典型的就是用户报的 Blizzard：滚雪球 / 踩地途中按 B，
                  守卫 spBusy() 返回 false → 中立B 冰冻激光当场放出，还把位置钉死把雪球顶掉。 */
@@ -11689,6 +12141,33 @@ class Fighter {
       this.frostStomp = { cfg, t:.16 };
       this.state = 'special'; this.animT = 0;
       SFX.special('dash');
+    } else if (cfg.kind === 'vexRush') {                // ★ Vexor·左右B：冲刺撞人 → 五连击（拳拳拳 → 紫火 → 上勾拳）
+      this.vexRush = { cfg, t:0, dir, n:0, hitT:0, target:null };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+      FX.ring(this.pos.x + dir * .7, this.pos.y + 1.05, .3, 2.4, cfg.color, .32);
+      vexFlame(this.pos.x - dir * .4, this.pos.y + .9, 0, -dir, 8, 5, .14, .34);
+    } else if (cfg.kind === 'vexRise') {                // ★ Vexor·上B：向下喷火上升；碰到的人带到顶点再砸下
+      this.vexRise = { cfg, t:0, phase:'rise' };
+      this.vel.y = cfg.rise || 24; this.grounded = false;
+      this.state = 'special'; this.animT = 0;
+      SFX.special('recover');
+      FX.ring(this.pos.x, this.pos.y + .3, .3, 2.6, cfg.color, .40);
+      vexFlame(this.pos.x, this.pos.y - .1, 0, 0, 14, 4.5, .16, .40, -1);
+    } else if (cfg.kind === 'vexDive') {                // ★ Vexor·下B：空中快速下坠 → 落地冲击波
+      const wasAir = !this.grounded;
+      this.vexDive = { cfg, t:0, phase:'hop', air:wasAir };
+      if (!wasAir) { this.vel.y = 13; this.grounded = false; }
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+      vexFlame(this.pos.x, this.pos.y + .35, 0, 0, 10, 3.6, .14, .34, 1);
+    } else if (cfg.kind === 'vexBolt') {                // ★ Vexor·中立B：掌心等离子弹
+      spawnProjectile(this, this.pos.x + dir * .9, this.pos.y + 1.45, dir,
+        { kind:'proj', label:'Plasma Bolt', dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:20,
+          spd:26, size:.30, life:1.2, color:cfg.color, techBolt:true }, 1);
+      this.state = 'special'; this.animT = 0;
+      SFX.special('proj');
+      FX.flash(this.pos.x + dir * .9, this.pos.y + 1.45, .4, 3.2, cfg.color, .20);
     } else if (cfg.kind === 'burstShot') {              // ★ Cobalt·中立B：连发小炮弹（10 发 × 5%）
       this.burst = { cfg, t:0, left:cfg.shots || 10, gap:cfg.gap || .055 };
       this.state = 'special'; this.animT = 0;
@@ -13467,6 +13946,51 @@ class Fighter {
       } else if (this.volleyT > 0) {
         P.armR.rotation.x = -1.50; P.armL.rotation.x = -1.50;
         P.group.rotation.z = this.facing * .13;
+      }
+    }
+    /* ★ Vexor：核心脉冲 / 身体火焰跳动 / 四招姿势（三拳 → 喷火 → 上勾拳 / 喷气上升 / 举拳下砸） */
+    if (this.def.id === 'vexor') {
+      const VX = this.parts;
+      const busy = !!(this.vexRush || this.vexRise || this.vexDive);
+      if (VX.core) {
+        VX.core.material.emissiveIntensity = 1.25 + Math.sin(A.t * 6.2) * .35 + (busy ? .70 : 0);
+        VX.core.scale.setScalar(1 + Math.sin(A.t * 6.2) * .05 + (busy ? .10 : 0));
+      }
+      if (VX.vexFlames) for (let i = 0; i < VX.vexFlames.length; i++) {
+        const fl = VX.vexFlames[i];
+        fl.scale.set(.90 + Math.sin(A.t * 12 + i) * .16, 1 + Math.sin(A.t * 15 + i * 1.7) * .32, .90);
+        fl.material.opacity = .52 + Math.sin(A.t * 9 + i) * .22;
+      }
+      if (this.vexRush) {
+        const V = this.vexRush;
+        if (!V.target) {                                   // 冲刺：双臂后摆、身体前倾
+          P.armL.rotation.x = -1.05; P.armR.rotation.x = -1.05;
+          P.group.rotation.z = this.facing * -.20;
+        } else {
+          const st = Math.min(4, V.n);
+          if (st === 3) {                                  // 第 4 段：双手前推喷火
+            P.armL.rotation.x = -1.55; P.armR.rotation.x = -1.55;
+            P.armL.rotation.z = .34; P.armR.rotation.z = -.34;
+            P.head.rotation.x = -.14;
+          } else if (st === 4) {                            // 第 5 段：上勾拳
+            P.armR.rotation.x = -2.95; P.armL.rotation.x = .35;
+            P.head.rotation.x = -.20;
+            P.group.rotation.z = this.facing * .10;
+          } else {                                          // 第 1~3 段：左右交替直拳
+            P.armR.rotation.x = (st % 2 === 0) ? -1.95 : -1.15;
+            P.armL.rotation.x = (st % 2 === 0) ? -1.15 : -1.95;
+            P.group.rotation.z = this.facing * (st % 2 ? .09 : -.09);
+          }
+        }
+      } else if (this.vexRise) {                            // 喷气上升 / 下坠：双臂垂下去喷火
+        P.armL.rotation.x = .72; P.armR.rotation.x = .72;
+        P.armL.rotation.z = .30; P.armR.rotation.z = -.30;
+        P.group.rotation.z = this.facing * .05;
+      } else if (this.vexDive) {                            // 下砸：举拳过头
+        P.armL.rotation.x = -2.85; P.armR.rotation.x = -2.85;
+        P.armL.rotation.z = -.10; P.armR.rotation.z = .10;
+      } else if (this._spAnim > 0 && this._spAnim < .90 && this._spKey === 'n') {
+        P.armR.rotation.x = -1.75; P.armL.rotation.x = -.40;   // 中立B：抬手开枪
       }
     }
     /* ★ Blizzard：滚雪球前推 / 激光双手前伸 / 上升双臂上举 / 踩地屈膝；冻结时僵直微颤 */
@@ -15574,6 +16098,7 @@ function frame(now) {
   UI.flash.style.background = flashColor;
   UI.flash.style.opacity = flash * .7;
   FX.update(dt);
+  updateVexFx(dt);
   /* ★ 3D 大厅：菜单里用大厅场景替代战斗画面（同一个 renderer，不额外开 WebGL 上下文） */
   if (match.state === 'menu') {
     if (!document.body.classList.contains('inMenu')) document.body.classList.add('inMenu');
