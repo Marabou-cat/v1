@@ -1086,8 +1086,8 @@ const CHARS = [
     weight:104, walk:9.2, run:14.2, air:10.2, jump:26.0, jumps:2, fall:38, fastFall:58,
     accel:46, airAccel:34, fric:27,
     mul:{ dmg:1.04, kb:1.02, spd:.96 },
-    trait:'Plasma Rush · Flame Jet · Singularity',
-    skills:'Neutral B Plasma Bolt (a purple plasma round fired from the palm) · Side B Overclock Rush (dash; on contact a 5-hit combo: three punches, a burst of purple fire, then an uppercut that launches them) · Up B Flame Jet (rises on downward purple flame; anyone caught is carried to the top and slammed down, bouncing them back up) · Down B Gravity Slam (dives fast and lands with a shockwave that blasts nearby foes away) · FINAL SMASH Singularity (a black hole drags foes in for about 50%)',
+    trait:'Plasma Rush · Flame Jet · Singularity · Charge',
+    skills:'Neutral B Plasma Bolt (a purple plasma round fired from the palm) · Side B Overclock Rush (dash; on contact a 5-hit combo: three punches, a burst of purple fire, then an uppercut that launches them) · Up B Flame Jet (rises on downward purple flame; anyone caught is carried to the top and slammed down, bouncing them back up) · Down B Gravity Slam (dives fast and lands with a shockwave that blasts nearby foes away) · FINAL SMASH Singularity (a black hole drags foes in for about 50%) · PASSIVE Charge (every B special that connects gives +1 Charge \u2014 a multi-hit combo still counts once; each 15 Charge permanently adds +1 extra mid-air jump for the rest of the match, with no cap)',
     special:{
       n:{kind:'vexBolt',label:'Plasma Bolt',cd:1.5,dmg:6.5,bb:8,bg:24,color:0x9b5cff},
       s:{kind:'vexRush',label:'Overclock Rush',cd:3.0,dashSpd:24,dur:.30,reach:2.2,gap:.13,color:0x9b5cff,
@@ -8508,14 +8508,16 @@ class Fighter {
       const tok = attacker._vexSpTok || 0;
       if (attacker._vexChargedTok !== tok) {
         attacker._vexChargedTok = tok;
-        attacker.vexCharge = Math.min(15, (attacker.vexCharge || 0) + 1);
+        attacker.vexCharge = (attacker.vexCharge || 0) + 1;          // ★ 不封顶：Charge 可以无限叠
         FX.spark(attacker.pos.x, attacker.pos.y + 1.6, .35, 6, 0xb066ff);
-        if (attacker.vexCharge >= 15 && !attacker.vexJumpBonus) {
-          attacker.vexJumpBonus = 1;                      // 本场永久 +1 连跳（跳跃代码叠加这一位）
-          attacker.jumpsLeft = Math.max(attacker.jumpsLeft || 0, (attacker.s.jumps || 2) + 1);
-          callout(attacker, 'CHARGE MAX · +1 JUMP', 0xc9a4ff);
-          FX.ring(attacker.pos.x, attacker.pos.y + .3, .3, 4.2, 0xb066ff, .5);
-          FX.flash(attacker.pos.x, attacker.pos.y + 1.2, .5, 6, 0xc9a4ff, .3);
+        /* ★ 每满 15 点永久 +1 连跳，可无限叠加：bonus = floor(charge / 15) */
+        const want = Math.floor(attacker.vexCharge / 15);
+        if (want > (attacker.vexJumpBonus || 0)) {
+          attacker.vexJumpBonus = want;
+          attacker.jumpsLeft = Math.max(attacker.jumpsLeft || 0, (attacker.s.jumps || 2) + want);
+          callout(attacker, 'CHARGE ' + attacker.vexCharge + ' · +' + want + ' JUMP', 0xc9a4ff);
+          FX.ring(attacker.pos.x, attacker.pos.y + .3, .3, 4.2 + want * .4, 0xb066ff, .5);
+          FX.flash(attacker.pos.x, attacker.pos.y + 1.2, .5, 6 + want, 0xc9a4ff, .3);
           SFX.special('wave'); shake = Math.max(shake, .35);
         }
       }
@@ -15019,7 +15021,7 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
       const bb3 = (f.bobRef && !f.bobRef.destroyed) ? ('🤖 BOB ' + Math.round(_bmx - Math.min(_bmx, Math.max(-50, f.bobRef.dmg || 0))) + '%' + (f.bobRef.over > 0 ? '⚡' : '') + (f.bobRef.move ? ' ' + f.bobRef.move.kind.toUpperCase() : '')) : (f.bobRef && f.bobRef.destroyed ? '🔧 BOB DOWN' : '');  // ★ BOB 耐久 + 当前招式
       const sand2 = f.sandT > 0 ? ('🏜 SAND ' + f.sandT.toFixed(1) + 's') : '';          // ★ 被 Quicksand 沙缚
       const fr2 = f._fsSpdT > 0 ? ((f.fangLeech > 0 ? '🐯 FRENZY ' : '🐢 SLOWED ') + f._fsSpdT.toFixed(1) + 's') : '';  // ★ Fang 大招
-      const vx2 = (f.def.id === 'vexor') ? ('CHARGE ' + (f.vexCharge || 0) + '/15' + (f.vexJumpBonus ? ' · +1 JUMP' : '')) : '';  // ★ Vexor 充能
+      const vx2 = (f.def.id === 'vexor') ? ('CHARGE ' + (f.vexCharge || 0) + (f.vexJumpBonus ? ' · +' + f.vexJumpBonus + ' JUMP' : ' / 15')) : '';  // ★ Vexor 充能（每 15 点 +1 连跳，可无限叠）
       const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2, vx2].filter(Boolean).join(' ');
       if (p.statTxt !== txt2 || p.statWasOn !== !!txt2) {
         p.statTxt = txt2; p.statWasOn = !!txt2;
