@@ -1094,7 +1094,7 @@ const CHARS = [
          hits:[{dmg:2.0,bb:4,bg:10,ang:26},{dmg:2.2,bb:4,bg:10,ang:-18},{dmg:2.4,bb:5,bg:12,ang:30},
                {dmg:3.6,bb:2,bg:6,ang:20,flame:true},{dmg:5.2,bb:9,bg:40,ang:86}]},
       u:{kind:'vexRise',label:'Flame Jet',cd:4.2,rise:24,dur:.62,carryDmg:8,aoeDmg:5,radius:4.0,color:0x9b5cff},
-      d:{kind:'vexDive',label:'Gravity Slam',cd:4.0,dmg:9.0,bb:16,bg:46,ang:58,radius:4.2,color:0xb066ff},
+      d:{kind:'vexDive',label:'Gravity Slam',cd:4.0,dmg:9.0,bb:8,bg:26,ang:48,radius:4.2,color:0xb066ff},
     } },
 
   { id:'singer', name:'Singer', en:'SINGER', tag:'Diva',
@@ -8042,6 +8042,9 @@ class Fighter {
     this.team = (opts.team === undefined || opts.team === null) ? -1 : opts.team;   // ★ -1 = 自由混战；0=RED 1=BLUE
     this.hack = 0; this.flyT = 0; this._flyAir = 0; this._flyFx = 0; this.glitchT = 0;   // ★ Hacker：系统锁定 / 飞行 / 推招动作计时
     this.warpCast = null;                                                         // ★ Hacker：横B 结印（到点才传送）
+    /* ★ Vexor·Charge：B 技能命中累计；满 15 → 本场永久 +1 连跳（vexJumpBonus 由跳跃代码叠加，
+       不去改 this.s.jumps —— 那份会被 _baseS 还原路径覆盖） */
+    this.vexCharge = 0; this.vexJumpBonus = 0; this._vexBWin = 0; this._vexSpTok = 0; this._vexChargedTok = -1;
     this.s = { weight:def.weight, walk:def.walk, run:def.run, air:def.air, jump:def.jump, jumps:def.jumps,
       fall:def.fall, fastFall:def.fastFall, accel:def.accel, airAccel:def.airAccel, fric:def.fric, mul:def.mul };
     this.weight = def.weight;
@@ -8110,7 +8113,7 @@ class Fighter {
     this.elems = []; this.elemT = 0; this.floatT = 0; this._floatBy = null;
     if (this._iceShell) { scene.remove(this._iceShell); this._iceShell = null; }
     this.chargeFx.visible = false;
-    this.shield = 100; this.grounded = false; this.jumpsLeft = this.s.jumps; this.airDodged = false;
+    this.shield = 100; this.grounded = false; this.jumpsLeft = this.s.jumps + (this.vexJumpBonus || 0); this.airDodged = false;
     this.grabbed = null; this.grabbing = null; this.eliminated = false; this.respawnT = 0;
     this.stun = 0; this.counter = null; this.reflect = null; this.buff = null;
     this.jabCombo = 0; this.jabComboT = 0; this.armor = 0;
@@ -8497,6 +8500,26 @@ class Fighter {
   takeHit(attacker, mv, dirX, kbMul = 1, dmgMul = 1) {
     if (this.invuln > 0 || this.intangible > 0 || this.eliminated) return null;
     if (isTeammate(this, attacker)) return null;        // ★ 团队模式：队友之间不造成伤害（要开友伤就删这一行）
+    /* ★ Vexor·Charge：任意 B 技能命中 +1（同一次技能的多段命中只算 1 点）
+       判据：① 这是 Vexor 打的；② 命中落在「刚放完 B」的窗口内（含他放出的弹道）；
+            ③ mv 没有名字（技能/弹道都是匿名对象，J 连段是具名招式）→ 普攻不计。 */
+    if (attacker && attacker !== this && attacker.def && attacker.def.id === 'vexor' &&
+        (attacker._vexBWin || 0) > 0 && !(mv && mv.name)) {
+      const tok = attacker._vexSpTok || 0;
+      if (attacker._vexChargedTok !== tok) {
+        attacker._vexChargedTok = tok;
+        attacker.vexCharge = Math.min(15, (attacker.vexCharge || 0) + 1);
+        FX.spark(attacker.pos.x, attacker.pos.y + 1.6, .35, 6, 0xb066ff);
+        if (attacker.vexCharge >= 15 && !attacker.vexJumpBonus) {
+          attacker.vexJumpBonus = 1;                      // 本场永久 +1 连跳（跳跃代码叠加这一位）
+          attacker.jumpsLeft = Math.max(attacker.jumpsLeft || 0, (attacker.s.jumps || 2) + 1);
+          callout(attacker, 'CHARGE MAX · +1 JUMP', 0xc9a4ff);
+          FX.ring(attacker.pos.x, attacker.pos.y + .3, .3, 4.2, 0xb066ff, .5);
+          FX.flash(attacker.pos.x, attacker.pos.y + 1.2, .5, 6, 0xc9a4ff, .3);
+          SFX.special('wave'); shake = Math.max(shake, .35);
+        }
+      }
+    }
     /* ★ Mechanic：谁打了我，BOB 就去咬谁（8 秒记忆） */
     if (this.def && this.def.id === 'mechanic' && attacker && attacker !== this && attacker.pos) {
       this.mechAggro = { f: attacker, t: 8.0 };
@@ -8661,7 +8684,7 @@ class Fighter {
   respawn() {
     this.damage = 0; this.vel.set(0,0,0); this.pos.set(0, 21.5, 0);
     this.state = 'idle'; this.hitstun = 0; this.invuln = CFG.respawnInv; this.shield = 100;
-    this.jumpsLeft = this.s.jumps; this.airDodged = false; this.mesh.visible = true; this.shadow.visible = true;
+    this.jumpsLeft = this.s.jumps + (this.vexJumpBonus || 0); this.airDodged = false; this.mesh.visible = true; this.shadow.visible = true;
     this.grabbed = null; this.charging = null; this.move = null;
   }
   /* ---- 招式 ---- */
@@ -9418,6 +9441,7 @@ class Fighter {
     /* Reaper·Death Mark：标记倒计时（逐帧递减 → 两端确定性一致） */
     if (this.mark) { this.mark.t -= dt; if (this.mark.t <= 0) this.mark = null; }
     /* ★ Cobalt 新招的逐帧驱动（全部走固定 dt → 联机确定性一致） */
+    if (this._vexBWin > 0) this._vexBWin -= dt;
     if (this.vexRush) this.vexRushTick(dt, inp);
     if (this.vexRise) this.vexRiseTick(dt, inp);
     if (this.vexDive) this.vexDiveTick(dt, inp);
@@ -11064,7 +11088,7 @@ class Fighter {
         if (d > R) continue;
         f.takeHit(this, { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang || 58 },
                   Math.sign(f.pos.x - this.pos.x) || 1, 1);
-        f.vel.y = Math.max(f.vel.y, 8);
+        f.vel.y = Math.max(f.vel.y, 4);
         FX.ring(f.pos.x, f.pos.y + .35, .3, 3.0, 0xb066ff, .36);
       }
       FX.crater(this.pos.x, Math.max(.05, this.pos.y), R * .85, 0xb066ff);
@@ -11879,7 +11903,7 @@ class Fighter {
       if (this.grounded) {
         // 软平台下坠
         if (inp.y < -.5 && this.onSoft) { this.ignoreSoft = .28; this.grounded = false; this.pos.y -= .06; this.vel.y = -2; SFX.land(); return; }
-        this.vel.y = this.s.jump * (inp.y > .5 ? 1.14 : 1); this.grounded = false; this.jumpsLeft = this.s.jumps - 1;
+        this.vel.y = this.s.jump * (inp.y > .5 ? 1.14 : 1); this.grounded = false; this.jumpsLeft = this.s.jumps + (this.vexJumpBonus || 0) - 1;
         SFX.jump(); FX.dust(this.pos.x, this.pos.y, 4);
       } else if (this.jumpsLeft > 0 || this.flyT > 0) {
         this.jumpsLeft = Math.max(0, this.jumpsLeft - 1);
@@ -11967,7 +11991,8 @@ class Fighter {
     /* ★ 第五十三轮：**每个方向的技能各有独立冷却**（sp_n / sp_s / sp_u / sp_d）。
        以前只有一个 cooldown.special，用掉左右B 会把下B 一起锁住 → 打不出「左右B 接下B」的连段。 */
     this._spKey = key;
-    this._spAnim = .0001;                            // ★ 通用「技能动画计时」：animStep 里判断刚放的技能用（recover/rain 等不会把 state 设成 special）
+    this._spAnim = .0001;
+    if (this.def.id === 'vexor') { this._vexBWin = 1.4; this._vexSpTok = (this._vexSpTok || 0) + 1; }                            // ★ 通用「技能动画计时」：animStep 里判断刚放的技能用（recover/rain 等不会把 state 设成 special）
     this.cooldown['sp_' + key] = cfg.cd;
     const dir = (this.facing || 1);
     if (cfg.kind === 'breath') {                        // Dragon·持续喷火（长按，最多 hold 秒）
@@ -14994,7 +15019,8 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
       const bb3 = (f.bobRef && !f.bobRef.destroyed) ? ('🤖 BOB ' + Math.round(_bmx - Math.min(_bmx, Math.max(-50, f.bobRef.dmg || 0))) + '%' + (f.bobRef.over > 0 ? '⚡' : '') + (f.bobRef.move ? ' ' + f.bobRef.move.kind.toUpperCase() : '')) : (f.bobRef && f.bobRef.destroyed ? '🔧 BOB DOWN' : '');  // ★ BOB 耐久 + 当前招式
       const sand2 = f.sandT > 0 ? ('🏜 SAND ' + f.sandT.toFixed(1) + 's') : '';          // ★ 被 Quicksand 沙缚
       const fr2 = f._fsSpdT > 0 ? ((f.fangLeech > 0 ? '🐯 FRENZY ' : '🐢 SLOWED ') + f._fsSpdT.toFixed(1) + 's') : '';  // ★ Fang 大招
-      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2].filter(Boolean).join(' ');
+      const vx2 = (f.def.id === 'vexor') ? ('CHARGE ' + (f.vexCharge || 0) + '/15' + (f.vexJumpBonus ? ' · +1 JUMP' : '')) : '';  // ★ Vexor 充能
+      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2, vx2].filter(Boolean).join(' ');
       if (p.statTxt !== txt2 || p.statWasOn !== !!txt2) {
         p.statTxt = txt2; p.statWasOn = !!txt2;
         p.stat.textContent = txt2;
