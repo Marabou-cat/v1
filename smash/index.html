@@ -220,6 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
   #tAtk{right:22px;bottom:96px;background:rgba(255,180,60,.32)}
   #tSp{right:96px;bottom:22px;background:rgba(200,120,255,.3)}
   #tSh{right:96px;bottom:172px;background:rgba(120,255,190,.24)}
+  #tDodge{right:22px;bottom:172px;background:rgba(120,200,255,.30)}
   #rotate{position:fixed;inset:0;z-index:60;display:none;flex-direction:column;align-items:center;
     justify-content:center;gap:12px;background:rgba(6,9,20,.94);text-align:center;padding:24px}
   #rotate .ic{font-size:44px;animation:rot 1.6s ease-in-out infinite}
@@ -509,6 +510,14 @@ document.addEventListener('DOMContentLoaded', function () {
     background:rgba(9,12,28,.82);border:1.6px solid rgba(255,209,102,.45);color:#ffd166;border-radius:999px;
     padding:5px 12px;font-weight:900;font-size:13px;letter-spacing:.5px;backdrop-filter:blur(7px)}
   #trophyTag .ico{width:15px;height:15px;margin:0;stroke:#ffd166}
+  /* ★ 活动入口（右上角、Profile 左边）—— 最终位置由 JS 按 Profile 实际宽度贴合 */
+  #eventBtn{position:fixed;right:196px;top:10px;z-index:46;width:40px;height:40px;border-radius:12px;
+    border:1px solid rgba(255,255,255,.18);background:rgba(13,18,34,.74);color:#eaf2ff;
+    display:grid;place-items:center;cursor:pointer}
+  #eventBtn .ico{width:19px;height:19px;margin:0;stroke:#ffd166}
+  body:not(.inMenu) #eventBtn{display:none!important}
+  #eventBtn .dot{position:absolute;right:6px;top:6px;width:8px;height:8px;border-radius:50%;
+    background:#ff5a5a;box-shadow:0 0 0 2px rgba(13,18,34,.9);display:none}
   #trophyTag.bump{animation:tkbump .45s ease}
   @keyframes tkbump{0%{transform:scale(1)}35%{transform:scale(1.18)}100%{transform:scale(1)}}
   #cacheTag{top:48px}
@@ -660,6 +669,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3.8" y="9.2" width="16.4" height="4" rx="1.2"/><path d="M5.2 13.2v6.2a1.6 1.6 0 0 0 1.6 1.6h10.4a1.6 1.6 0 0 0 1.6-1.6v-6.2"/><path d="M12 9.2v11.8"/><path d="M12 9.2S10.6 4 8.2 4a2.1 2.1 0 0 0 0 5.2Z"/><path d="M12 9.2S13.4 4 15.8 4a2.1 2.1 0 0 1 0 5.2Z"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.2" y="10.2" width="15.6" height="10.2" rx="3"/><path d="M7.8 10.2V7.6a4.2 4.2 0 1 1 8.4 0v2.6"/><circle cx="12" cy="14.7" r="1.35" fill="currentColor" stroke="none"/><path d="M12 16.1v2"/></symbol>
     <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4v9.2"/><path d="M14.6 9.4a2.6 2.6 0 0 0-2.6-1.4c-1.4 0-2.4.8-2.4 2s1 1.8 2.4 2 2.6.7 2.6 2-1.1 2-2.6 2a2.8 2.8 0 0 1-2.7-1.5"/></symbol>
+    <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9"/><path d="M12 6.4 9.6 4M12 6.4 14.4 4M12 17.6 9.6 20M12 17.6 14.4 20M5.6 9.4 2.4 9.9M5.6 9.4 4.2 6.6M18.4 14.6l3.2-.5M18.4 14.6l1.4 2.8M5.6 14.6 2.4 14.1M5.6 14.6 4.2 17.4M18.4 9.4l3.2.5M18.4 9.4l1.4-2.8"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.4 6.4l11.2 11.2M17.6 6.4 6.4 17.6"/></symbol>
   </defs>
 </svg>
@@ -677,6 +687,12 @@ document.addEventListener('DOMContentLoaded', function () {
   <div id="qList"></div>
 </div>
 <div id="trophyTag" title="Trophies"><svg class="ico"><use href="#i-trophy"/></svg><b id="trophyNum">0</b></div>
+<!-- ★ 活动入口：点开是用 iframe「嵌入」活动页，不是跳转链接 -->
+<button id="eventBtn" title="Events"><svg class="ico"><use href="#i-gift"/></svg><i class="dot"></i></button>
+<div class="sheet hidden" id="sheetEvent"><div class="sheetBox wide" style="padding:0;overflow:hidden;background:#0b1220">
+  <div class="sheetHead" style="padding:10px 14px 8px"><span>EVENTS</span><button class="sheetClose" id="evClose">✕</button></div>
+  <iframe id="evFrame" title="Events" style="width:100%;height:min(74vh,640px);border:0;display:block;background:#0b1220"></iframe>
+</div></div>
 <!-- ★ 第 67 轮：右上角 Profile（昵称 / 头像）+ 开局阵容层 -->
 <button id="profBtn" title="Profile"><img id="profAva" alt=""><b id="profName">Guest</b></button>
 <!-- ★ 第 95 轮：设置独立按钮（齿轮） -->
@@ -815,8 +831,9 @@ document.addEventListener('DOMContentLoaded', function () {
   <div class="keys">
     <kbd>A</kbd><kbd>D</kbd> Move · <kbd>W</kbd> Up · <kbd>S</kbd> Down / fast-fall · <kbd>Space</kbd> Jump (again in air = double jump)<br>
     <kbd>B</kbd>/<kbd>K</kbd> Special — <b>every fighter has a completely different kit</b>: instant chain, charged melee, counter, reflect, grab, summon, blink, self-buff. Direction + Special switches moves (↑ recovery / ↓ down-B / side-B). Rocky &amp; Cobalt: <b>hold = charge</b><br>
-    <kbd>J</kbd> Attack (with a direction = up/down/ftilt; <b>hold = charged smash</b>)<br>
-    <kbd>L</kbd>/<kbd>Shift</kbd> Shield (direction while shielding = roll; in air = air dodge; <b>Shield + J = grab</b>) · <kbd>Esc</kbd> Pause<br>
+    <kbd>N</kbd> Attack (with a direction = up/down/ftilt; <b>hold = charged smash</b>)<br>
+    <kbd>V</kbd> <b>Dodge</b> — turn ghostly for 1s (no damage at all), 7s cooldown<br>
+    <kbd>L</kbd>/<kbd>Shift</kbd> Shield (direction while shielding = roll; in air = air dodge; <b>Shield + N = grab</b>) · <kbd>Esc</kbd> Pause<br>
     <span style="opacity:.7">Rules: the higher your damage %, the further you fly. Get knocked off stage and you lose a stock. Last fighter standing wins.</span>
     <!-- ★ 手动兜底：连本地设置一起清（昵称/玩家id/教程标记）再硬刷新 -->
     <div style="margin-top:7px"><button class="nbtn alt sm" id="btnCacheWipe" style="font-size:11px;padding:4px 12px"><svg class="ico"><use href="#i-refresh"/></svg>Clear cache &amp; reload</button></div>
@@ -836,6 +853,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <div class="tbtn" id="tAtk">Attack</div>
   <div class="tbtn" id="tSp">Special</div>
   <div class="tbtn" id="tSh">Shield</div>
+  <div class="tbtn" id="tDodge">Dodge</div>
   <div class="tbtn" id="tFs">★</div>
 </div>
 
@@ -972,10 +990,13 @@ const CHARS = [
     accel:54, airAccel:38, fric:26,
     mul:{ dmg:1.04, kb:1.02, spd:1.0 },
     special:{
-      n:{kind:'chargeProj',label:'Charge Cannon',cd:.6,dmg:6.0,bb:9,bg:26,spd:30,size:.62,color:0x8fd0ff,life:1.6,charge:.8,chargeMul:2.3},
-      s:{kind:'dash',label:'Magnet Slide',cd:1.0,dmg:8.0,bb:12,bg:44,spd:2.4,dur:.4,color:0x9fc4ff},
-      u:{kind:'recover',label:'Jetpack',cd:1.5,dmg:3.0,bb:6,bg:30,rise:30,dur:.72,color:0xbfe0ff},
-      d:{kind:'mine',label:'Landmine',cd:1.6,dmg:11.0,bb:15,bg:52,size:.7,color:0x7fd6ff,life:9} } },
+      /* ★ 第 120 轮：Cobalt 四招重做（⚠ 真正生效的是 CHAR_EXTRA.cobalt，这份同步保留，别只改一处） */
+      n:{kind:'burstShot',label:'Scatter Barrage',cd:2.6,shots:10,gap:.055,dmg:5.0,bb:3,bg:6,ang:24,
+         spd:34,size:.26,life:1.1,color:0x8fd0ff},
+      s:{kind:'pull',label:'Mag Lock',cd:1.7,dmg:8.5,range:13,color:0xa46bff,fx:'magnet'},   // ★ 磁力吸附（同 Turtle 的 Tide Grab，紫色电磁特效）
+      u:{kind:'jetBurst',label:'Jet Barrage',cd:2.0,rise:29,dur:.78,dmg:7.0,radius:1.8,count:4,gap:.15,
+         bb:10,bg:26,ang:72,color:0xbfe0ff},
+      d:{kind:'techBarrier',label:'Aegis Barrier',cd:8.0,dur:5.0,w:1.0,h:4.2,dist:1.9,color:0x6fd8ff} } },
 
   { id:'mage', name:'Mage', en:'MAGE', tag:'Mage',
     body:0x6b4fd6, body2:0xb9a6ff, dark:0x3b2a80, eye:0x2a2140,
@@ -1040,6 +1061,44 @@ const CHARS = [
     accel:40, airAccel:30, fric:32,
     mul:{ dmg:1.10, kb:1.05, spd:.90 },
     special:{} },
+
+  { id:'blizzard', name:'Blizzard', en:'BLIZZARD', tag:'Glacier',
+    body:0x6d7d8d, body2:0xcdefff, dark:0x2c3a4a, eye:0x9fe8ff,
+    shape:{ tail:null, scale:1.30, headR:.62 },
+    weight:132, walk:8.6, run:12.8, air:9.6, jump:25.0, jumps:2, fall:42, fastFall:60,
+    accel:42, airAccel:32, fric:31,
+    mul:{ dmg:1.05, kb:1.04, spd:.93 },
+    /* ★ 冰冻机制：每次命中叠 1 层 frost，满 5 层 → 冻结 2 秒（期间不能推动/击飞） */
+    skills:'PASSIVE Frostbite (every hit from Blizzard stacks 1 ICE; at 5 stacks the target is FROZEN for 2s — cannot be pushed or launched) · Neutral B Cryo Lance (short dash then a 3s ice laser: 10 ticks / 30% total, 1 stack each — anything caught in the beam is pinned and cannot escape; Blizzard himself stays rooted while firing) · Side B Avalanche Roll (charges forward rolling a snowball that grows as it goes; foes it touches get rolled INTO the ball, and when it ends the ball explodes for 15% and 5 stacks on everyone inside) · Up B Glacier Rise (multi-hit rise, 1 stack per hit) · Down B Permafrost Quake (stomps the ground, launching nearby foes upward for 10%, 2 stacks, only 4s cooldown) · FINAL SMASH Blizzard Front (turns the weather to snow for 10s: every 2s everyone except Blizzard gains 2 stacks)',
+    special:{
+      n:{kind:'frostBeam',label:'Cryo Lance',cd:5.0,dash:1.6,beamDur:3.0,seg:10,dmg:3.0,frost:1,range:14,color:0x7fd8ff},
+      s:{kind:'snowball',label:'Avalanche Roll',cd:3.2,dur:.72,spd:1.55,r0:.42,r1:1.60,dmg:15.0,frost:5,color:0xbfe8ff},   // dur 减半 → 冲刺距离减半
+      /* ★ 上B：机制与 Sparky·Thunder Cyclone 完全一致（recover + multi + lift + 自转），
+         每 0.13s 一段、伤害 ×.6、角度 88°、把人卷着一起上升；区别只是每一段额外挂 1 层冰冻 */
+      u:{kind:'recover',label:'Glacier Cyclone',cd:1.4,dmg:5.0,bb:10,bg:42,rise:27,dur:.80,
+         multi:true,lift:true,fx:'gale',anim:'spin',spinRate:26,color:0x9fe8ff},
+      d:{kind:'frostStomp',label:'Permafrost Quake',cd:4.0,dmg:10.0,bb:16,bg:52,ang:88,radius:6.2,frost:2,color:0x8fd4f2},
+    } },
+
+  { id:'singer', name:'Singer', en:'SINGER', tag:'Diva',
+    body:0x39c5bb, body2:0xeafcff, dark:0x1c2b3a, eye:0x35e0d2,
+    shape:{ tail:null, scale:1.0, headR:.50 },
+    weight:80, walk:11.4, run:17.6, air:12.2, jump:27.6, jumps:2, fall:32, fastFall:50,
+    accel:62, airAccel:46, fric:27,
+    mul:{ dmg:1.00, kb:1.00, spd:1.08 },
+    special:{
+      /* 中立B：音符弹幕 —— 每次在「1 个八分音符 / 2 个四分音符 / 4 个二分音符」里随机（确定性）抽一种 */
+      n:{kind:'noteShot',label:'Note Barrage',cd:1.5,color:0x39c5bb},
+      /* 左右B：蓝光剑三连击（前两下不同角度、第三下从下方挑飞） */
+      s:{kind:'bladeTrio',label:'Blade Trio',cd:2.2,dashSpd:22,dur:.36,reach:2.1,
+         hits:[{dmg:3.0,bb:6,bg:14,ang:34},{dmg:3.4,bb:7,bg:16,ang:-22},{dmg:4.6,bb:12,bg:40,ang:86}],
+         gap:.16,color:0x8fe8ff},
+      /* 上B：与 Sparky 同一套多段上升 */
+      u:{kind:'recover',label:'Rising Note',cd:1.4,dmg:4.8,bb:9,bg:38,rise:27,dur:.80,
+         multi:true,lift:true,fx:'gale',anim:'spin',spinRate:24,color:0x8ef7ea},
+      /* 下B：放音响，持续向四周放音波 */
+      d:{kind:'speaker',label:'Sound Wave',cd:9.0,life:5.0,rate:.55,dmg:3.2,radius:4.6,bb:9,bg:30,color:0x39c5bb},
+    } },
 
   { id:'teacher', name:'Teacher', en:'TEACHER', tag:'Discipline',
     body:0x35598f, body2:0xd9e2ee, dark:0x22374f, eye:0x2a2a33,
@@ -1175,28 +1234,29 @@ const CHAR_EXTRA = {
       u:{kind:'recover',label:'Cyclone',cd:1.3,dmg:4.4,bb:8,bg:38,rise:27,dur:.85,fx:'gale',anim:'spin',spinRate:17,color:0xbdfdee,multi:true},
       d:{kind:'reflect',label:'Wind Wall',cd:2.4,dur:1.10,color:0xc9fff2} } },
   cobalt: {
-    trait:'Charge Cannon · Magnet Pull · Drone',
-    skills:'Neutral B Charge Cannon (hold to charge up to 2.3x) · Side B Magnet Pull (ignores shields, reels foes in and slams) · Up B Jetpack (longest recovery) · Down B Drone (summons an auto-firing drone for 6s)',
+    trait:'Scatter Barrage · Rail Slide · Jet Barrage · Aegis Barrier',
+    skills:'Neutral B Scatter Barrage (fires 10 mini shells — 5% each, 50% total) · Side B Mag Lock (magnetic pull: yanks the nearest foe straight to your hands, purple EM field) · Up B Jet Barrage (rockets upward while dropping bombs that explode on the ground, on foes AND on floating platforms) · Down B Aegis Barrier (a tech barrier that blocks enemy movement and enemy projectiles — Cobalt himself walks and shoots straight through it) · FINAL SMASH Annihilator Beam (5 seconds of continuous beam, 10 hits, each hit locks the target for 0.5s — stay in the beam and you cannot escape)',
     shape:{ scale:1.05, headR:.62 },
     weight:100, walk:10.4, run:16.4, air:10.8, jump:27.2, jumps:2, fall:36, fastFall:55,
     accel:54, airAccel:38, fric:26, mul:{ dmg:1.02, kb:1.01, spd:1.00 },
     special:{
-      n:{kind:'chargeProj',label:'Charge Cannon',cd:.60,dmg:6.0,bb:9,bg:26,spd:30,size:.62,color:0x8fd0ff,life:1.6,charge:.8,chargeMul:2.3},
-      s:{kind:'pull',label:'Magnet Pull',cd:1.3,range:5.0,color:0x4f86e8},
-      u:{kind:'recover',label:'Jetpack',cd:1.5,dmg:4.2,bb:6,bg:30,rise:30,dur:.72,fx:'jet',anim:'jet',color:0xbfe0ff},
-      d:{kind:'summon',label:'Drone',cd:8.0,life:6.0,rate:1.1,color:0x7fd6ff,
-         shot:{kind:'proj',dmg:3.2,bb:6,bg:22,spd:34,size:.36,color:0x9fe8ff,life:1.4}} } },
+      n:{kind:'burstShot',label:'Scatter Barrage',cd:2.6,shots:10,gap:.055,dmg:5.0,bb:3,bg:6,ang:24,
+         spd:34,size:.26,life:1.1,color:0x8fd0ff},
+      s:{kind:'pull',label:'Mag Lock',cd:1.7,dmg:8.5,range:13,color:0xa46bff,fx:'magnet'},   // ★ 磁力吸附（同 Turtle 的 Tide Grab，紫色电磁特效）
+      u:{kind:'jetBurst',label:'Jet Barrage',cd:2.0,rise:29,dur:.78,dmg:7.0,radius:1.8,count:4,gap:.15,
+         bb:10,bg:26,ang:72,color:0xbfe0ff},
+      d:{kind:'techBarrier',label:'Aegis Barrier',cd:8.0,dur:5.0,w:1.0,h:4.2,dist:1.9,color:0x6fd8ff} } },
   mage: {
     trait:'Mage · Fireball · Frost · Meteor · Teleport',
-    skills:'Neutral B Fireball (hold to charge up to 2.1x, explodes on hit) · Side B Frost Nova (freezes nearby foes for 0.85s) · Up B Teleport (blink + rise) · Down B Meteor (locks the nearest foe, telegraphed slam)',
+    skills:'PASSIVE Elemental Reaction — a foe can hold at most TWO elements; the moment a second, different element lands they REACT: Thunder+Water = Electro (bonus damage + 0.5s paralysis) · Fire+Water = Vaporize (heavy bonus damage) · Thunder+Fire = Overload (bonus damage + explosion launch). Same element only refreshes the 3s timer, so the whole kit is about stacking two different elements. · Neutral B Elemental Surge (raises the staff and releases 5 shockwaves of RANDOM element — rooted in place while casting) · Side B Trinity Volley (kicks BACKWARD while firing three orbs: Thunder, Water, Fire) · Up B Seeking Element (rockets up and fires one homing elemental orb) · Down B Gravity Well (enemies nearby float in the air for 2s, then slam into the ground and are FLATTENED) · FINAL SMASH Elemental Tempest (elemental lightning rains all over the stage — including the floating platforms — with random elements)',
     shape:{ scale:.98, headR:.46 },
     weight:68, walk:10.8, run:16.8, air:11.4, jump:27.6, jumps:2, fall:30, fastFall:46,
     accel:58, airAccel:44, fric:28, mul:{ dmg:1.07, kb:1.00, spd:1.00 },
     special:{
-      n:{kind:'chargeProj',label:'Fireball',cd:.58,dmg:7.0,bb:10,bg:30,spd:26,size:.62,color:0xff7a3c,life:1.9,charge:.75,chargeMul:2.1,splash:2.9},
-      s:{kind:'wave',label:'Frost Nova',cd:1.6,dmg:6.5,bb:9,bg:42,radius:5.2,color:0xa8e8ff,stun:.85},
-      u:{kind:'teleport',label:'Teleport',cd:1.2,dmg:0,dist:6.5,rise:13,fx:'blink',anim:'vanish',color:0xb98cff},
-      d:{kind:'meteor',label:'Meteor',cd:2.6,dmg:15.0,bb:20,bg:66,radius:3.5,delay:.55,color:0xff8a4c} } },
+      n:{kind:'staffWaves',label:'Elemental Surge',cd:6.0,waves:5,gap:.42,dmg:3.2,radius:4.6,color:0xb98cff},
+      s:{kind:'elemBarrage',label:'Trinity Volley',cd:3.0,dmg:3.5,count:3,spd:26,size:.42,back:14,rise:6.5,color:0xb98cff},
+      u:{kind:'homingElem',label:'Seeking Element',cd:1.8,rise:26,dur:.55,dmg:5.5,spd:18,size:.40,turn:6.5,color:0xb98cff},
+      d:{kind:'floatSlam',label:'Gravity Well',cd:9.0,dmg:12.0,radius:5.0,float:2.0,color:0xb98cff} } },
   warrior: {
     trait:'Blade Rush · Whirlwind · Blade Oath',
     skills:'Neutral B Axe Throw (boomerang: hits going out AND coming back) · Side B Blade Rush (a long armored dash that ends in a huge sword slash) · Up B Whirlwind (spins upward in a multi-hit vortex, lifts foes with it) · Down B Blade Oath (6s: every normal attack becomes a crescent sword slash, damage +32%, speed +12%, super armor)',
@@ -1271,16 +1331,17 @@ const CHAR_EXTRA = {
          reach:3.3,height:2.8,hitAt:.16,dur:.58,color:0xd9a8ff} } },
   smiley: {
     trait:'Rolling Ram · Spin Cycle · Rolling Thunder',
-    skills:'Neutral B Rolling Ram (armored roll that ploughs through) · Side B Spin Cycle (spins in place, hits everyone around) · Up B Spring Roll (multi-hit rolling recovery) · Down B Rolling Thunder (a roll that tears along the ground in 4 hits)',
+    skills:'Neutral B Vortex Spin (spins in place and drags every nearby foe toward himself) · Side B Grind Roll (rolls for 5 seconds, damaging anyone he touches every 0.5s — 10 ticks, 50% total, no knockback) · Up B Spring Roll (multi-hit rolling recovery) · Down B Seeker Balls (fires 3 homing orbs, 15% total, no knockback)',
     shape:{ scale:1.0, headR:.62 },
     weight:86, walk:11.6, run:18.4, air:12.6, jump:28.0, jumps:2, fall:31, fastFall:48,
     accel:60, airAccel:46, fric:26, mul:{ dmg:1.05, kb:1.01, spd:1.10 },
     special:{
       /* ★ 第六十八轮加强：四招伤害 +25~35%，冷却略短（动画同时重做，见 animStep 的 smiley 块） */
-      n:{kind:'dash',label:'Rolling Ram',cd:.95,dmg:11.0,bb:13,bg:46,spd:3.0,dur:.38,armor:true,roll:true,color:0xffd23f},
-      s:{kind:'wave',label:'Spin Cycle',cd:1.15,dmg:9.4,bb:12,bg:44,radius:4.8,stun:.24,roll:true,color:0xffe66b},
+      /* ★ 重做：中立B 原地涡旋吸人 / 左右B 全程多段滚动（10 段 × 0.5s = 50%）/ 下B 三枚追踪弹（15% 无击退） */
+      n:{kind:'spinVortex',label:'Vortex Spin',cd:3.6,dur:1.8,tick:.30,dmg:2.0,bb:0,bg:0,radius:6.2,pull:9.5,color:0xffd23f},
+      s:{kind:'rollDamage',label:'Grind Roll',cd:6.0,dur:3.0,seg:.1,segs:30,dmg:1.667,spd:.85,color:0xffe66b},   // 3s / 30 段 × 0.1s / 合计 50%
       u:{kind:'recover',label:'Spring Roll',cd:1.35,dmg:7.2,bb:10,bg:42,rise:31,dur:.80,multi:true,roll:true,fx:'gale',anim:'roll',color:0xfff0a8},
-      d:{kind:'rain',label:'Rolling Thunder',cd:2.1,dmg:8.5,bb:10,bg:36,radius:1.6,count:5,gap:.09,delay:.34,spread:1.4,range:3.4,roll:true,color:0xffc93c} } },
+      d:{kind:'seekerVolley',label:'Seeker Balls',cd:2.4,dmg:5.0,count:3,spd:20,size:.38,life:2.6,turn:7.0,color:0xffc93c} } },
   turtle: {
     trait:'Torrent · Tide Grab · Whirl Shell',
     skills:'Neutral B Torrent (hose a heavy jet of water forward: repeated hits and a strong push, Tough Guy armor while spraying) · Side B Tide Grab (a water lasso that yanks the nearest foe in) · Up B Whirl Shell (spins in its shell to recover, multi-hit) · Down B Shell Quake (slams down, a water shockwave blows everyone away)',
@@ -2664,13 +2725,19 @@ const SFX = {
 };
 
 /* ================= 输入 ================= */
-function newInput() { return { x:0, y:0, jumpHeld:false, jumpP:false, atkHeld:false, atkP:false, atkR:false, spHeld:false, spP:false, shHeld:false, downP:false, mash:0, fsHeld:false, fsP:false }; }
+function newInput() { return { x:0, y:0, jumpHeld:false, jumpP:false, atkHeld:false, atkP:false, atkR:false, spHeld:false, spP:false, shHeld:false, downP:false, mash:0, fsHeld:false, fsP:false, dodgeP:false, dodgeHeld:false }; }
 const KEY = {};
 addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
   if (e.repeat) return;
   KEY[e.code] = true;
-  if (e.code === 'Escape') togglePause();
+  /* ★ 用户报「奖杯奖励和商店页面的退出键没用」：Esc 原来被 togglePause 独占，弹层永远关不掉。
+     改成「先关最上层弹层，没有弹层才暂停」——Esc 在菜单里就是退出键。 */
+  if (e.code === 'Escape') {
+    const closer = (typeof closeTopSheet === 'function') ? closeTopSheet : window.__closeTopSheet;
+    if (closer && closer()) { e.preventDefault(); return; }
+    togglePause();
+  }
 });
 addEventListener('keyup', e => { KEY[e.code] = false; });
 addEventListener('blur', () => { for (const k in KEY) KEY[k] = false; });
@@ -2680,13 +2747,16 @@ function readKeyboard(inp) {
   p.x = (KEY.KeyD || KEY.ArrowRight ? 1 : 0) - (KEY.KeyA || KEY.ArrowLeft ? 1 : 0);
   p.y = (KEY.KeyW || KEY.ArrowUp ? 1 : 0) - (KEY.KeyS || KEY.ArrowDown ? 1 : 0);
   const jump = !!(KEY.Space);
-  const atk = !!(KEY.KeyJ || KEY.KeyZ);
+  const atk = !!(KEY.KeyN || KEY.KeyZ);            // ★ 攻击键 J → N（Z 保留为别名）
   const sp = !!(KEY.KeyK || KEY.KeyX || KEY.KeyB);   // B＝任天堂式Special键
   const sh = !!(KEY.KeyL || KEY.ShiftLeft || KEY.ShiftRight || KEY.KeyC);
   p.jumpP = jump && !p.jumpHeld; p.jumpHeld = jump;
   p.atkP = atk && !p.atkHeld; p.atkR = !atk && p.atkHeld; p.atkHeld = atk;
   p.spP = sp && !p.spHeld; p.spHeld = sp;
   p.shHeld = sh;
+  /* ★ V = 躲闪（虚化 1 秒免伤 / 冷却 7 秒）：只取按下沿，和 atkP 同一套写法 */
+  const dodge = !!(KEY.KeyV);
+  p.dodgeP = dodge && !p.dodgeHeld; p.dodgeHeld = dodge;
   const fs = !!(KEY.KeyF || KEY.KeyG);        // 必杀技
   p.fsP = fs && !p.fsHeld; p.fsHeld = fs;
   p.downP = (p.y < -.5) && !p.downHeld; p.downHeld = p.y < -.5;
@@ -2731,6 +2801,7 @@ if (isTouch) {
   bind('tAtk',  () => { touchInput.atkP = true; touchInput.atkHeld = true; }, () => { touchInput.atkR = true; touchInput.atkHeld = false; });
   bind('tSp',   () => { touchInput.spP = true; touchInput.spHeld = true; }, () => { touchInput.spHeld = false; });
   bind('tSh',   () => { touchInput.shHeld = true; }, () => { touchInput.shHeld = false; });
+  bind('tDodge',() => { touchInput.dodgeP = true; }, () => {});
 }
 
 /* ================= 角色模型（图元拼的卡通木偶） ================= */
@@ -3713,44 +3784,58 @@ function kitPumpkin(def) {
 
 
 function kitSmiley(def) {
+  /* ★ 重做：**没有腿和脚**，整只就是一颗会弹的球。
+     两个关键点：
+     ① 滚动轴必须放在「球心」——原来 ballSpin 挂在脚底原点，一转就整个球插进地面（穿模）。
+     ② 压扁/拉长的锚点必须在「球底」（bodyG 挂在 g 原点 = 地面），否则 squash 时上下对称会陷进地板。
+     ③ 脸独立在 bodyG 外层的 face 组里、不跟着滚 → 永远盯着你（Verity 那种感觉）。 */
   const mats = kitMats(def), g = new THREE.Group();
-  const ink = cmat(0x1b1b24, {roughness:.45});
+  const ink  = cmat(0x090910, { roughness:.30 });
+  const inkD = cmat(0x15151f, { roughness:.48 });
   const R = 1.12;
-  const ballSpin = new THREE.Group(); g.add(ballSpin);          // 只有滚技时旋转 → 笑脸不会平时乱转
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 24, 18), cmat(def.body, {roughness:.5}));
-  ball.position.y = R; ballSpin.add(ball);
-  for (const p of [[-.46, .62], [.50, -.40], [.12, -.86]]) {     // 高光斑：滚动时看得出在转
-    const spot = new THREE.Mesh(new THREE.SphereGeometry(.22, 10, 8), cmat(def.body2, {roughness:.45}));
-    spot.position.set(p[0], R + p[1], .58); spot.scale.set(1, .84, .42); ballSpin.add(spot);
+  const bodyG = new THREE.Group(); g.add(bodyG);              // 弹跳 + 压扁（锚点=地面）
+  const ballSpin = new THREE.Group(); ballSpin.position.y = R; bodyG.add(ballSpin);   // 滚动（锚点=球心）
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 26, 20), cmat(def.body, { roughness:.66 }));
+  ballSpin.add(ball);
+  /* ---------- 脸（Verity 风：空洞黑眼窝 + 过宽的笑 + 裂纹；没有高光、腮红、眉毛） ---------- */
+  const face = new THREE.Group();
+  /* ---------- 脸 ----------
+     ⚠ 两个坑（上一版就踩了）：
+     ① 模型的「正前方」是 +Z（相机在 +Z 侧），把脸放到 +X 就长在侧面了 → 这里用 +Z 且不旋转。
+     ② 脸组的原点要放在「球面附近」(0, R, 1.02)，元素都朝 **+z 外侧** 排；
+        上一版把元素写成负 z，等于往球心里塞 → 全部陷进球体（穿模）。 */
+  const FZ = 1.02;                                        // 脸组原点（球半径 1.12，留 0.10 的厚度给元素）
+  /* ⚠ 朝向推导（这次算到底了）：
+     引擎按 facing 把这个 group 绕 Y 转 ±90°（facing=1 时实测 rotY = +1.57）。
+     rotY(+90°) 的映射是 (x,y,z) → (z, y, -x)，所以：
+        局部 +Z  → 世界 +X（= 角色朝向 / 面向右）
+        局部 -X  → 世界 +Z（= 朝镜头，看上去就是「脸长在侧面」）
+     结论：模型正面是 **局部 +Z**（跟 titan 等所有 kit 一致）→ 脸放 +Z 且不要自转。 */
+  face.position.set(0, 0, FZ); face.userData.fz = FZ; ballSpin.add(face);   // ★ 挂在滚动轴上（球心）→ 滚动时脸跟着转
+  /* ⚠ 关键：脸组的原点放在「球面内侧 0.1」处，球面在脸组坐标里大约就是 z≈0。
+     所以所有元素都排在 z≈0 附近（略微陷进去 = 看起来是凹的），**任何大幅正 z 都会悬空穿模**。
+     同时不要用扁球做"白脸盘"——扁球贴不上球面，边缘必然翘起来。 */
+  /* ★ 就一个正常微笑：两个眼窝 + 一条笑弧。
+     去掉了：眼影底（淡灰、穿模）、眼窝暗环（围绕的黑环）、眼下裂纹（像睫毛）、嘴角刃、冷光点。 */
+  for (const ex of [-.36, .36]) {
+    const socket = new THREE.Mesh(new THREE.SphereGeometry(.205, 14, 12), ink);
+    socket.position.set(ex, .28, -.07); socket.scale.set(1, 1.22, .82); face.add(socket);
   }
-  {                                                             // 脸只长在正面（+Z = 角色朝向），尺寸放大以便远处也能认出笑脸
-    const side = new THREE.Group();
-    side.position.set(0, R, R * .93);                          // 正面
-    ballSpin.add(side);
-    for (const ex of [-.34, .34]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(.175, 12, 10), ink);
-      eye.position.set(ex, .30, .12); eye.scale.set(1, 1.35, .55); side.add(eye);
-      const glint = new THREE.Mesh(new THREE.SphereGeometry(.05, 8, 6), cmat(0xffffff, {roughness:.2}));
-      glint.position.set(ex - .06, .38, .22); side.add(glint);
-    }
-    const browL = new THREE.Mesh(new THREE.BoxGeometry(.27, .06, .06), ink);
-    browL.position.set(-.34, .60, .12); browL.rotation.z = .26; side.add(browL);
-    const browR = browL.clone(); browR.position.x = .34; browR.rotation.z = -.26; side.add(browR);
-    const smile = new THREE.Mesh(new THREE.TorusGeometry(.52, .095, 6, 22, Math.PI * 1.02), ink);
-    smile.position.set(0, -.08, .12); smile.rotation.z = Math.PI * 1.01; side.add(smile);
-    for (const cx2 of [-.62, .62]) {                            // 腮红
-      const cheek = new THREE.Mesh(new THREE.SphereGeometry(.13, 10, 8), cmat(0xff9aa8, {roughness:.6}));
-      cheek.position.set(cx2, -.20, .16); cheek.scale.set(1, .8, .35); side.add(cheek);
-    }
-    g.userData.face = side;
-    g.userData.eyes = side.children.filter(o => o.geometry && o.geometry.type === 'SphereGeometry').slice(0, 2);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(.56, .072, 6, 26, Math.PI * .92), ink);
+  mouth.position.set(0, -.24, -.05); mouth.rotation.z = Math.PI * 1.05; face.add(mouth);
+  /* ★ 嘴角两个很小的酒窝：位置直接按 Torus 弧的端点算（rot 189°~351°、R .56、中心 y -.24）
+     → 端点 = (±.553, -.396)，两侧完全对称；z 收到 -.10 贴住球面，不翘出来。 */
+  for (const s2 of [-1, 1]) {
+    const dimple = new THREE.Mesh(new THREE.SphereGeometry(.050, 10, 8), ink);
+    dimple.position.set(s2 * .553, -.396, -.10); dimple.scale.set(1, .88, .66); face.add(dimple);
   }
-  const armL = kitArm(g,-1,mats,{x:R*.90,y:R*1.02,w:.17,len:.24,handGeo:new THREE.SphereGeometry(.17,8,6),handMat:mats.body});
-  const armR = kitArm(g, 1,mats,{x:R*.90,y:R*1.02,w:.17,len:.24,handGeo:new THREE.SphereGeometry(.17,8,6),handMat:mats.body});
-  const legL = kitLeg(g,-1,mats,{x:.40,y:.18,w:.22,len:.16,fw:.32,fh:.13,fd:.40});
-  const legR = kitLeg(g, 1,mats,{x:.40,y:.18,w:.22,len:.16,fw:.32,fh:.13,fd:.40});
+  /* 手臂保留（技能要用），腿脚一律不建 —— 只给空 group 占位，避免 animStep 读 null */
+  const armL = kitArm(ballSpin, -1, mats, { x:R * .92, y:R * .06, w:.17, len:.24, handGeo:new THREE.SphereGeometry(.17, 8, 6), handMat:mats.body });
+  const armR = kitArm(ballSpin, 1, mats, { x:R * .92, y:R * .06, w:.17, len:.24, handGeo:new THREE.SphereGeometry(.17, 8, 6), handMat:mats.body });
+  const legL = new THREE.Group(), legR = new THREE.Group();    // 空占位：没有腿
   g.userData.ballSpin = ballSpin; g.userData.ball = ball;
-  return { group:g, torso:ball, belly:ball, head:ball, armL, armR, legL, legR, tail:null, ballSpin, ball };
+  return { group:g, torso:ball, belly:ball, head:ball, armL, armR, legL, legR, tail:null,
+           ballSpin, ball, bodyG, face };
 }
 function kitTurtle(def) {
   const mats = kitMats(def), g = new THREE.Group();
@@ -3823,8 +3908,10 @@ const FSPECIALS = {
   archer:   { name:'Hunter Mark',   style:'archerFS',  color:0x8ce8a0, beats:1,  gap:.10, dmg:0,   bb:0,  bg:0,  w:1   },
   rocky:   { name:'Meteor Crash',   style:'slam',    color:0xa89b90, beats:3,  gap:.24, dmg:15.5, bb:32, bg:60,             w:8.6 },
   zephyr:  { name:'Tempest',        style:'tempest', color:0x9dfbe4, beats:10, gap:.10, dmg:2.8,  bb:6,  bg:16,             w:11  },
-  cobalt:  { name:'Orbital Strike', style:'orbital', color:0xbfe6ff, beats:6,  gap:.17, dmg:9.5,  bb:26, bg:54,             w:3.2 },
-  mage:    { name:'Meteor Storm',   style:'meteor',  color:0xb388ff, beats:8,  gap:.13, dmg:8.5,  bb:24, bg:50,             w:2.8 },
+  singer:  { name:'Solo Stage', style:'stage', color:0x39c5bb, beats:1, gap:.1, dmg:0, bb:0, bg:0, w:0, dur:10.4 },
+  blizzard:{ name:'Blizzard Front', style:'snowDay', color:0x9fe8ff, beats:5, gap:2.0, dmg:0, bb:0, bg:0, w:0, dur:10.6 },
+  cobalt:  { name:'Annihilator Beam', style:'beamLock', color:0x8fd8ff, beats:10, gap:.5, dmg:5.0, bb:9, bg:26, ang:24, w:14, dur:5.2 },
+  mage:    { name:'Elemental Tempest', style:'elemRain', color:0xb388ff, beats:8, gap:.16, dmg:6.0, bb:10, bg:30, w:2.4, dur:2.2 },
   warrior: { name:'Berserk Chain',  style:'blitz',   color:0xff7a55, beats:9,  gap:.09, dmg:5.2,  bb:12, bg:30,             w:2.6 },
   knight:  { name:'Aegis Judgment', style:'aegis',   color:0xcfe0ff, beats:4,  gap:.20, dmg:11,   bb:30, bg:60,             w:6.4 },
   pumpkin: { name:'Pumpkin Curse',  style:'pumpkinFS', color:0xff8a2a, beats:1, gap:.30, dmg:0, bb:0, bg:0,        w:3.4 },
@@ -3849,6 +3936,528 @@ const FSPECIALS = {
    契约：flailL/flailR = armL/armR（animStep 会整条绕肩旋转） */
 /* —— Titan（v3）：板甲巨兽。圆角装甲 + 能量核心 + 铁链铅球（刺长在球上）+ 液压腿
    契约：flailL/flailR = armL/armR（animStep 会整条绕肩旋转） */
+/* ================= ★ Blizzard：岩石雕像 + 冰晶（体型大、细节多） =================
+   设计：低面数 icosa 岩块做「被风化的石雕」，胸口/背部/拳头/头冠嵌半透明冰晶，
+   躯干上贴发光冰裂纹，外面再罩一层极淡的霜壳。所有几何体都是固定参数（无随机）→ 两端口径一致。 */
+/* ================= ★ Singer：初音未来风（双马尾 / 蓝绿长发 / 无袖白上衣 / 百褶裙 / 蓝光剑） ================= */
+/* ================= ★ Singer（v2）：初音未来风 =================
+   超长双马尾 / 银白无袖上衣 + 青绿领带 / 黑色百褶裙 + 青边 / 黑色过膝袜 + 青边 /
+   分离式黑袖套 / 耳机（发光耳罩 + 麦架）/ 左臂「01」/ 蓝光剑。
+   契约（不能改）：group/torso/belly/head/armL/armR/legL/legR/tail:null/
+                   hairL/hairR/sword/bladeMesh/skirtG
+   · head.children[0] 必须是头骨（通用变色代码取它染色）
+   · 脚底必须落在 y=0（旧版整体悬空 0.355，看着像飘着）
+   全部固定参数、无随机量；布料/皮肤/头发走平滑着色，裙褶/装甲件保持 flatShading。 */
+function kitSinger(def) {
+  const g = new THREE.Group();
+  /* ---------- 调色板：初音色 ---------- */
+  const hairM   = cmat(0x3ccdc2, { roughness:.46, flatShading:false });
+  const hairD   = cmat(0x2b9f98, { roughness:.54, flatShading:false });
+  const hairHi  = cmat(0x7cf0e2, { roughness:.38, flatShading:false });
+  const skinM   = cmat(0xffe9d8, { roughness:.74, flatShading:false });
+  const skinS   = cmat(0xf9d7c3, { roughness:.78, flatShading:false });
+  const topM    = cmat(0xeef2f6, { roughness:.62, flatShading:false });   // 上衣：银白
+  const topD    = cmat(0xcfdae3, { roughness:.66, flatShading:false });   // 领内衬 / 阴影
+  const clothB  = cmat(0x1b2431, { roughness:.56, flatShading:false });   // 袖套 / 袜（平滑）
+  const clothF  = cmat(0x1b2431, { roughness:.60 });                      // 裙（flat → 褶更利）
+  const clothD  = cmat(0x111823, { roughness:.62 });                      // 深黑件 / 靴
+  const trim    = cmat(0x35e0d2, { roughness:.40, flatShading:false });   // 青绿描边
+  const trimD   = cmat(0x22a99f, { roughness:.44 });
+  const metal   = cmat(0x8f9bab, { roughness:.38, metalness:.42 });
+  const eyeM    = cmat(0x35e0d2, { roughness:.24, flatShading:false });
+  const eyeD    = cmat(0x188b84, { roughness:.22, flatShading:false });
+  const ink     = cmat(0x0a171d, { roughness:.28 });
+  const whiteM  = cmat(0xf8feff, { roughness:.30, flatShading:false });
+  const glowC   = glowMat(0x7bf7ea, 1.35, 0x0d5a54);
+  const blade   = glowMat(0x9fe8ff, 1.85, 0x14567f);
+
+  /* ---------- 小工具 ---------- */
+  const ringH = (R, t, mat, y, x = 0, z = 0) => {          // 水平圆环（腰带/袜口/袖口）
+    const m = new THREE.Mesh(new THREE.TorusGeometry(R, t, 6, 22), mat);
+    m.position.set(x, y, z); m.rotation.x = Math.PI / 2; return m;
+  };
+  const disc = (r, mat, seg = 20) => new THREE.Mesh(new THREE.CircleGeometry(r, seg), mat);
+  /* 尖锥发片：尖端落在 pos，轴向指向 dir（锥底朝发根）→ 不再依赖欧拉角猜方向 */
+  const spike = (r, h, mat, pos, dir, flat = .58, seg = 7) => {
+    const geo = new THREE.ConeGeometry(r, h, seg);
+    geo.rotateX(Math.PI); geo.translate(0, h / 2, 0);      // 顶点落在原点，向 +Y 生长
+    const m = new THREE.Mesh(geo, mat);
+    m.position.copy(pos);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    m.scale.set(1, 1, flat);
+    return m;
+  };
+  /* 发丝：沿 CatmullRom 摆一串锥形圆柱 + 锥尖（比光圆锥像头发） */
+  const strand = (pts, r0, r1, mat, seg = 10, rad = 10, bulge = 0) => {
+    const grp = new THREE.Group();
+    const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], p[2])));
+    const rr = t => (r0 + (r1 - r0) * t) * (1 + bulge * Math.sin(Math.PI * t));
+    for (let i = 0; i < seg; i++) {
+      const a = curve.getPoint(i / seg), b = curve.getPoint((i + 1) / seg);
+      const dir = b.clone().sub(a), len = dir.length();
+      const cy = new THREE.Mesh(new THREE.CylinderGeometry(rr((i + 1) / seg), rr(i / seg), len, rad, 1), mat);
+      cy.position.copy(a.clone().add(b).multiplyScalar(.5));
+      cy.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+      grp.add(cy);
+    }
+    const end = curve.getPoint(1), pre = curve.getPoint(1 - .6 / seg);
+    const d2 = end.clone().sub(pre).normalize(), h = r1 * 3.6;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(r1 * 1.15, h, rad), mat);
+    tip.position.copy(end.clone().add(d2.clone().multiplyScalar(h * .34)));
+    tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d2);
+    grp.add(tip);
+    return grp;
+  };
+
+  /* ================= 躯干：旋转体（颈 → 胸 → 细腰 → 胯）+ 银白上衣 ================= */
+  const bodyPts = [
+    [.020, 2.232], [.070, 2.200], [.094, 2.156],          // 颈根 → 斜方肌
+    [.126, 2.094], [.164, 2.032], [.190, 1.958],          // 肩 → 胸上
+    [.204, 1.884], [.202, 1.798],                         // 胸线
+    [.186, 1.700], [.172, 1.598], [.168, 1.498],          // 腰（收）
+    [.178, 1.418], [.196, 1.336], [.188, 1.286]           // 胯
+  ].map(p => new THREE.Vector2(p[0], p[1]));
+  const torsoGeo = new THREE.LatheGeometry(bodyPts, 30);
+  torsoGeo.scale(1, 1, .82);                              // 前后压扁 → 不像圆柱
+  torsoGeo.computeVertexNormals();
+  const torso = new THREE.Mesh(torsoGeo, topM); g.add(torso);
+
+  /* 领口：领内衬 + 青边 */
+  const collarIn = new THREE.Mesh(new THREE.CylinderGeometry(.103, .109, .062, 20, 1, true), topD);
+  collarIn.position.set(0, 2.166, 0); g.add(collarIn);
+  g.add(ringH(.110, .019, trim, 2.190));
+  g.add(ringH(.094, .011, trimD, 2.132));
+
+  /* 领带：结 + 长带 + 尖角 + 暗纹（初音的青绿领带） */
+  const tieKnot = new THREE.Mesh(new THREE.BoxGeometry(.082, .070, .054), trimD);
+  tieKnot.position.set(0, 2.080, .152); tieKnot.rotation.x = -.14; g.add(tieKnot);
+  const tieMain = new THREE.Mesh(new THREE.BoxGeometry(.068, .210, .024), trim);
+  tieMain.position.set(0, 1.940, .168); tieMain.rotation.x = -.10; g.add(tieMain);
+  const tieTip = new THREE.Mesh(new THREE.ConeGeometry(.050, .096, 4), trim);
+  tieTip.position.set(0, 1.786, .178); tieTip.rotation.y = Math.PI / 4; tieTip.rotation.z = Math.PI; g.add(tieTip);
+  for (let i = 0; i < 2; i++) {
+    const ln = new THREE.Mesh(new THREE.BoxGeometry(.054, .014, .012), trimD);
+    ln.position.set(0, 1.986 - i * .076, .186); ln.rotation.x = -.10; g.add(ln);
+  }
+
+  /* 下摆青边 */
+  g.add(ringH(.176, .016, trim, 1.450));
+
+  /* 胯部内衬（契约 belly：通用变色代码会拿它当「腹部」网格） */
+  const belly = new THREE.Mesh(new THREE.CylinderGeometry(.180, .194, .20, 22), clothD);
+  belly.position.set(0, 1.350, 0); belly.scale.z = .9; g.add(belly);
+
+  /* ================= 百褶裙：14 褶旋转体 + 青边 + 腰带 ================= */
+  const skirtG = new THREE.Group(); skirtG.position.set(0, 1.442, 0); g.add(skirtG);
+  const skirtPts = [[.186, 0], [.228, -.082], [.296, -.224], [.354, -.340], [.372, -.404]]
+    .map(p => new THREE.Vector2(p[0], p[1]));
+  const skirt = latheWavy(skirtPts, 72, 18, .070, clothF);
+  skirt.scale.z = .90; skirtG.add(skirt);
+  const hemPts = [[.366, -.352], [.394, -.420]].map(p => new THREE.Vector2(p[0], p[1]));
+  const hemBand = latheWavy(hemPts, 72, 18, .070, trim);   // 同波形的裙边 → 跟着褶走
+  hemBand.scale.z = .90; skirtG.add(hemBand);
+  const belt = new THREE.Mesh(new THREE.CylinderGeometry(.188, .197, .080, 26), clothD);
+  belt.position.y = .030; belt.scale.z = .9; skirtG.add(belt);
+  const buckle = new THREE.Mesh(new THREE.BoxGeometry(.084, .062, .026), trim);
+  buckle.position.set(0, .030, .166); skirtG.add(buckle);
+  const buckleCore = disc(.020, glowC, 14);
+  buckleCore.position.set(0, .030, .180); skirtG.add(buckleCore);
+  for (const s of [-1, 1]) {
+    const st = new THREE.Mesh(new THREE.SphereGeometry(.014, 8, 6), metal);
+    st.position.set(s * .126, .030, .148); skirtG.add(st);
+  }
+
+  /* ================= 腿：过膝袜（青边）+ 短靴（鞋底落在 y=0） ================= */
+  const mkLeg = (s) => {
+    const leg = new THREE.Group(); leg.position.set(s * .118, 1.300, 0); g.add(leg);
+    const thighSkin = new THREE.Mesh(new THREE.CylinderGeometry(.091, .088, .150, 14), skinM);
+    thighSkin.position.y = -.076; leg.add(thighSkin);
+    leg.add(ringH(.090, .015, trim, -.150));               // 袜口青边
+    const thighStock = new THREE.Mesh(new THREE.CylinderGeometry(.088, .074, .325, 14), clothB);
+    thighStock.position.y = -.322; leg.add(thighStock);
+    const sockTrim = new THREE.Mesh(new THREE.TorusGeometry(.082, .009, 5, 16), trimD);
+    sockTrim.position.y = -.180; sockTrim.rotation.x = Math.PI / 2; leg.add(sockTrim);
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(.075, 12, 10), clothB);
+    knee.position.y = -.484; knee.scale.set(1, .92, 1); leg.add(knee);
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(.073, .056, .480, 14), clothB);
+    shin.position.y = -.720; leg.add(shin);
+    /* 靴：靴筒 + 青口 + 鞋面（圆角挤出）+ 鞋头 + 鞋底 + 鞋跟 + 搭扣 */
+    const bootShaft = new THREE.Mesh(new THREE.CylinderGeometry(.080, .073, .205, 14), clothD);
+    bootShaft.position.y = -1.058; leg.add(bootShaft);
+    leg.add(ringH(.081, .014, trim, -.958));
+    const vamp = roundPlate(.174, .122, .302, .046, clothD, { bevel:.022 });
+    vamp.position.set(0, -1.208, .058); leg.add(vamp);
+    const toe = new THREE.Mesh(new THREE.SphereGeometry(.065, 12, 10), clothD);
+    toe.position.set(0, -1.194, .190); toe.scale.set(1, .86, 1.05); leg.add(toe);
+    const sole = roundPlate(.188, .034, .324, .014, clothD, { bevel:.008 });
+    sole.position.set(0, -1.278, .052); leg.add(sole);
+    const soleTrim = roundPlate(.194, .013, .330, .006, trimD, { bevel:.004 });
+    soleTrim.position.set(0, -1.294, .052); leg.add(soleTrim);
+    const heel = new THREE.Mesh(new THREE.BoxGeometry(.102, .058, .076), clothD);
+    heel.position.set(0, -1.270, -.086); leg.add(heel);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(.178, .021, .022), trim);
+    strap.position.set(0, -1.146, .152); leg.add(strap);
+    for (const k of [-1, 1]) {                             // 内侧两颗靴扣
+      const bk = new THREE.Mesh(new THREE.BoxGeometry(.020, .026, .016), metal);
+      bk.position.set(k * .082, -1.150, .120); leg.add(bk);
+    }
+    return leg;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+
+  /* ================= 手臂：肤色上臂 + 分离式黑袖套 + 手 ================= */
+  const mkArm = (s) => {
+    const arm = new THREE.Group(); arm.position.set(s * .232, 1.995, 0); g.add(arm);
+    const shoulderBall = new THREE.Mesh(new THREE.SphereGeometry(.058, 12, 10), skinM);
+    shoulderBall.position.y = -.014; shoulderBall.scale.set(1, .94, 1); arm.add(shoulderBall);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(.060, .056, .200, 14), skinM);
+    upper.position.y = -.120; arm.add(upper);
+    /* 袖套：上口外翻（锥）+ 主筒 + 袖口 + 青边 + 外侧青条 */
+    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(.050, .044, .330, 12), skinS);
+    forearm.position.y = -.450; arm.add(forearm);          // 袖内前臂：别让袖套看着是空管
+    const cuffTop = new THREE.Mesh(new THREE.CylinderGeometry(.079, .070, .082, 14), clothB);
+    cuffTop.position.y = -.248; arm.add(cuffTop);
+    arm.add(ringH(.078, .012, trim, -.210));
+    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(.070, .061, .300, 14), clothB);
+    sleeve.position.y = -.446; arm.add(sleeve);
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(.011, .300, .011), trimD);
+    stripe.position.set(s * .066, -.446, 0); arm.add(stripe);
+    const cuffBot = new THREE.Mesh(new THREE.CylinderGeometry(.062, .074, .058, 14), clothB);
+    cuffBot.position.y = -.624; arm.add(cuffBot);
+    arm.add(ringH(.073, .012, trim, -.650));
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(.054, 12, 10), skinM);
+    hand.position.set(0, -.700, .014); hand.scale.set(1, .94, 1.20); arm.add(hand);
+    const thumb = new THREE.Mesh(new THREE.SphereGeometry(.024, 8, 6), skinM);
+    thumb.position.set(-s * .046, -.686, .038); arm.add(thumb);
+    if (s < 0) {                                            // 左臂外侧的「01」（初音标志）
+      const t01 = new THREE.Group();
+      t01.position.set(s * .060, -.098, .014); t01.rotation.y = -Math.PI / 2; arm.add(t01);
+      const zero = new THREE.Mesh(new THREE.TorusGeometry(.020, .0055, 5, 12), trimD);
+      zero.scale.set(.78, 1, 1); t01.add(zero);
+      const one = new THREE.Mesh(new THREE.BoxGeometry(.009, .042, .007), trimD);
+      one.position.x = .036; t01.add(one);
+    }
+    return arm;
+  };
+  const armL = mkArm(-1), armR = mkArm(1);
+
+  /* ================= 头：收下巴 / 压平面部的头骨 + 大眼 + 嘴 ================= */
+  const head = new THREE.Group(); head.position.set(0, 2.400, 0); head.scale.setScalar(.96); g.add(head);
+  const skullGeo = new THREE.SphereGeometry(.295, 32, 24);
+  {
+    const p = skullGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const t = Math.max(0, -y / .295);                    // 0 = 眼高，1 = 下巴
+      x *= 1 - .34 * t * t;                                // 下颌收窄（尖下巴）
+      if (z > 0) {
+        const k = Math.min(1, z / .16);                    // 平滑过渡，别在脸颊上留折痕
+        z *= 1 - .10 * k;
+      }
+      z *= 1 - .12 * t * t;
+      p.setXYZ(i, x, y, z);
+    }
+    skullGeo.computeVertexNormals();
+  }
+  const skull = new THREE.Mesh(skullGeo, skinM);
+  skull.scale.set(1.02, 1.10, .98); head.add(skull);       // ★ 必须是 head.children[0]
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(.071, .083, .175, 16), skinS);
+  neck.position.set(0, 2.126, -.006); g.add(neck);
+
+  /* —— 眼睛：眼窝衬底 → 眼白 → 虹膜（两层）→ 瞳孔 → 双高光 → 上眼线 —— */
+  const mkEye = (s) => {
+    const e = new THREE.Group();
+    e.position.set(s * .104, .000, .243); e.rotation.y = s * .26;
+    const socket = disc(.072, ink); socket.scale.set(1.02, 1.14, 1); e.add(socket);
+    const white = disc(.064, whiteM);
+    white.scale.set(.98, 1.06, 1); white.position.set(0, -.005, .004); e.add(white);
+    const iris = disc(.044, eyeM); iris.scale.set(1, 1.08, 1); iris.position.set(0, -.010, .008); e.add(iris);
+    const iris2 = disc(.032, eyeD); iris2.scale.set(1, 1.04, 1); iris2.position.set(0, -.012, .011); e.add(iris2);
+    const pupil = disc(.017, ink); pupil.scale.set(1, 1.20, 1); pupil.position.set(0, -.010, .014); e.add(pupil);
+    const hi = disc(.0135, cmat(0xffffff, { roughness:.10 }));
+    hi.position.set(-s * .015, .014, .017); e.add(hi);
+    const hi2 = disc(.0075, cmat(0xffffff, { roughness:.10 }));
+    hi2.position.set(s * .012, -.034, .017); e.add(hi2);
+    const lash = new THREE.Mesh(new THREE.BoxGeometry(.148, .017, .014), ink);
+    lash.position.set(0, .062, .012); lash.rotation.z = -s * .06; e.add(lash);
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(.100, .014, .012), hairD);
+    brow.position.set(s * .004, .126, .010); brow.rotation.z = -s * .10; e.add(brow);
+    return e;
+  };
+  head.add(mkEye(-1), mkEye(1));
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(.032, .008, 5, 14, Math.PI), ink);
+  mouth.position.set(0, -.132, .238); mouth.rotation.z = Math.PI; mouth.scale.set(1, .74, 1); head.add(mouth);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(.013, .028, 5), skinS);
+  nose.position.set(0, -.070, .246); nose.rotation.x = Math.PI / 2; head.add(nose);
+
+  /* ================= 头发 ================= */
+  /* 1) 发壳：球壳，正面按高度往回推 → 露出脸，天然形成发际线 */
+  const shellGeo = new THREE.SphereGeometry(.312, 34, 24, 0, Math.PI * 2, 0, Math.PI * .80);
+  {
+    const p = shellGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i), z = p.getZ(i);
+      const f = Math.max(0, Math.min(1, (.205 - y) / .130));   // 越往下越把正面推回头里
+      if (z > 0) p.setZ(i, z * (1 - .96 * f * f));
+    }
+    shellGeo.computeVertexNormals();
+  }
+  const shell = new THREE.Mesh(shellGeo, hairM);
+  shell.position.set(0, .020, -.010); shell.scale.set(1.02, 1.06, 1.02); head.add(shell);
+  const nape = new THREE.Mesh(new THREE.SphereGeometry(.245, 24, 16, 0, Math.PI * 2, 0, Math.PI * .62), hairD);
+  nape.position.set(0, -.075, -.108); nape.scale.set(1.02, 1.0, .86); head.add(nape);
+
+  /* 2) 刘海：沿发际线排 7 片扁锥（尖端朝下、微微前倾贴住额头）+ 2 根长鬓发 */
+  const facePt = (a, y, push) => {                 // 脸上某高度、某角度处的表面点
+    const ry = y / 1.10;
+    const rad = Math.sqrt(Math.max(.002, .087 - ry * ry));
+    const k = 1 + (push || 0);
+    return new THREE.Vector3(Math.sin(a) * rad * 1.02 * k, y, Math.cos(a) * rad * .90 * .98 * k);
+  };
+  const bangSpec = [                                // [角度, 长, 半径, 尖端高度]
+    [-1.02, .150, .036, -.040], [-.70, .120, .042, .055], [-.36, .112, .047, .088],
+    [ .00, .105, .050, .092],  [ .36, .112, .047, .088], [ .70, .120, .042, .055],
+    [ 1.02, .150, .036, -.040]
+  ];
+  for (const [a, h, r, tipY] of bangSpec) {
+    const root = facePt(a, .196, .045), tip = facePt(a * 1.02, tipY, .075);
+    head.add(spike(r, h, hairM, tip, root.clone().sub(tip), .60, 8));
+  }
+  /* 刘海内层：4 片更长、更暗的发片，从外层的缝隙里透出来 → 有厚度 */
+  const bangInner = [
+    [-.86, .150, .040, .008], [-.18, .140, .046, .020], [.18, .140, .046, .020], [.86, .150, .040, .008]
+  ];
+  for (const [a, h, r, tipY] of bangInner) {
+    const root = facePt(a, .188, .012), tip = facePt(a * 1.03, tipY, .050);
+    head.add(spike(r, h, hairD, tip, root.clone().sub(tip), .62, 7));
+  }
+  /* 鬓发：贴着两颊垂到下巴以下（初音的长鬓角） */
+  for (const s of [-1, 1]) {
+    head.add(strand([[s * .250, .150, .090], [s * .288, -.010, .126], [s * .272, -.235, .102]],
+                    .052, .010, hairM, 6, 8));
+    head.add(strand([[s * .240, .070, -.120], [s * .262, -.100, -.080], [s * .242, -.270, -.050]],
+                    .050, .010, hairD, 6, 8));
+  }
+  /* 3) 头顶高光发丝（3 根，贴着发壳往后） */
+  for (const [s, a] of [[-1, .30], [1, .30], [0, .02]]) {
+    head.add(strand([[s * .070, .300, .100], [s * .150, .245, -.020], [s * .190, .120, -.160]],
+                    .026, .008, hairHi, 5, 6));
+  }
+
+  /* 4) 双马尾：12 段曲线 + 中段鼓起 + 高光细股 + 发圈/蝴蝶结 */
+  const mkTail = (s) => {
+    const t = new THREE.Group();
+    t.position.set(s * .270, .112, -.050);
+    head.add(t);
+    const pts = [
+      [s * .012, .014, -.012], [s * .112, -.030, -.052], [s * .180, -.240, -.054],
+      [s * .178, -.600, -.048], [s * .152, -.900, -.040], [s * .166, -1.140, -.032],
+      [s * .212, -1.340, -.026], [s * .286, -1.470, -.020], [s * .348, -1.534, -.016]
+    ];
+    t.add(strand(pts, .095, .020, hairM, 12, 10, .15));
+    t.add(strand(pts.map(p => [p[0] * .93 + s * .022, p[1] + .012, p[2] + .046]),
+                 .026, .007, hairHi, 9, 6));
+    /* 发圈：双环 + 蝴蝶结（两片扁锥 + 两条飘带） */
+    const band1 = new THREE.Mesh(new THREE.TorusGeometry(.088, .020, 6, 18), trim);
+    band1.position.set(s * .032, -.004, -.022); band1.rotation.z = s * .28; band1.rotation.y = s * .82; t.add(band1);
+    const band2 = new THREE.Mesh(new THREE.TorusGeometry(.064, .013, 5, 14), trimD);
+    band2.position.set(s * .056, -.030, -.032); band2.rotation.z = s * .40; band2.rotation.y = s * .82; t.add(band2);
+    for (const k of [-1, 1]) {
+      const dir = new THREE.Vector3(s * .30 + k * .30, .82 + k * .16, .22).normalize();
+      const pos = new THREE.Vector3(s * .080, .044, -.030);
+      const bow = spike(.036, .112, trim, pos, dir, .40, 6);
+      t.add(bow);
+    }
+    const bead = new THREE.Mesh(new THREE.SphereGeometry(.028, 10, 8), glowC);
+    bead.position.set(s * .064, -.060, -.036); t.add(bead);
+    return t;
+  };
+  const hairL = mkTail(-1), hairR = mkTail(1);
+
+  /* ================= 耳机：头梁 + 发光耳罩 + 麦架 ================= */
+  const band = new THREE.Mesh(new THREE.TorusGeometry(.348, .017, 6, 30, Math.PI), clothD);
+  band.position.set(0, .006, -.010); head.add(band);
+  const bandHi = new THREE.Mesh(new THREE.TorusGeometry(.348, .006, 5, 30, Math.PI), trim);
+  bandHi.position.set(0, .006, .006); head.add(bandHi);
+  for (const s of [-1, 1]) {
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(.106, .106, .082, 18), clothD);
+    cup.position.set(s * .332, .004, .004); cup.rotation.z = Math.PI / 2; head.add(cup);
+    const pad = new THREE.Mesh(new THREE.TorusGeometry(.088, .019, 6, 18), clothB);
+    pad.position.set(s * .368, .004, .004); pad.rotation.y = Math.PI / 2; head.add(pad);
+    const glowDisc = disc(.056, glowC, 18);
+    glowDisc.position.set(s * .376, .004, .004); glowDisc.rotation.y = s * Math.PI / 2; head.add(glowDisc);
+    const glowRing = new THREE.Mesh(new THREE.TorusGeometry(.071, .009, 5, 18), trim);
+    glowRing.position.set(s * .374, .004, .004); glowRing.rotation.y = Math.PI / 2; head.add(glowRing);
+    const fork = new THREE.Mesh(new THREE.BoxGeometry(.024, .140, .020), metal);
+    fork.position.set(s * .318, .096, -.006); fork.rotation.z = -s * .14; head.add(fork);
+    for (let i = 0; i < 3; i++) {                          // 耳罩上的小螺钉
+      const sc = new THREE.Mesh(new THREE.CylinderGeometry(.008, .008, .010, 6), metal);
+      const a = i / 3 * Math.PI * 2 + .4;
+      sc.position.set(s * .378, .004 + Math.cos(a) * .093, .004 + Math.sin(a) * .093);
+      sc.rotation.z = Math.PI / 2; head.add(sc);
+    }
+  }
+  /* 麦架：从头左侧耳罩沿下颌弯到嘴前（走低，不横穿脸颊） */
+  head.add(strand([[-.330, -.030, .020], [-.300, -.110, .096], [-.212, -.166, .150], [-.120, -.150, .186]],
+                  .012, .008, clothD, 6, 6));
+  const micTip = new THREE.Mesh(new THREE.SphereGeometry(.018, 10, 8), trimD);
+  micTip.position.set(-.126, -.152, .196); micTip.scale.set(1, .9, 1.25); head.add(micTip);
+
+  /* ================= 蓝光剑（挂在右手，平时收着；bladeTrio 时可见） ================= */
+  const sword = new THREE.Group(); sword.position.set(0, -.700, .040);
+  const hilt = new THREE.Mesh(new THREE.CylinderGeometry(.031, .036, .215, 12), cmat(0x2c3a4b, { roughness:.38, metalness:.5 }));
+  hilt.rotation.x = Math.PI / 2; sword.add(hilt);
+  for (let i = 0; i < 3; i++) {
+    const grip = new THREE.Mesh(new THREE.TorusGeometry(.033, .007, 4, 12), trimD);
+    grip.position.z = -.070 + i * .058; grip.rotation.x = Math.PI / 2; sword.add(grip);
+  }
+  const pommel = new THREE.Mesh(new THREE.SphereGeometry(.035, 10, 8), metal);
+  pommel.position.z = -.120; sword.add(pommel);
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(.064, .017, 5, 18), glowC);
+  guard.position.z = .112; sword.add(guard);
+  const guardBar = new THREE.Mesh(new THREE.BoxGeometry(.152, .022, .028), metal);
+  guardBar.position.z = .112; sword.add(guardBar);
+  const bladeMesh = new THREE.Mesh(new THREE.BoxGeometry(.058, .030, 1.020), blade);
+  bladeMesh.position.z = .650; sword.add(bladeMesh);
+  const bladeEdge = new THREE.Mesh(new THREE.BoxGeometry(.070, .009, .980), cmat(0xffffff, { roughness:.15 }));
+  bladeEdge.position.set(0, .019, .640); sword.add(bladeEdge);
+  const bladeCore = new THREE.Mesh(new THREE.BoxGeometry(.020, .020, 1.000), cmat(0xffffff, { roughness:.10 }));
+  bladeCore.position.z = .650; sword.add(bladeCore);
+  const bladeTip = new THREE.Mesh(new THREE.ConeGeometry(.034, .180, 4), blade);
+  bladeTip.position.z = 1.245; bladeTip.rotation.x = Math.PI / 2; sword.add(bladeTip);
+  sword.visible = false;
+  armR.add(sword);
+
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null,
+           hairL, hairR, sword, bladeMesh, skirtG };
+}
+
+function kitBlizzard(def) {
+  const mats = kitMats(def), g = new THREE.Group();
+  const rock   = cmat(0x59677a, { roughness:.96, metalness:.06, flatShading:true });
+  const rockD  = cmat(0x39434f, { roughness:.98, metalness:.04, flatShading:true });
+  const rockL  = cmat(0x7b8b9d, { roughness:.92, metalness:.08, flatShading:true });
+  const ice    = new THREE.MeshStandardMaterial({ color:0xcdefff, roughness:.12, metalness:.05,
+                   transparent:true, opacity:.82, flatShading:true, emissive:0x1d5b7a, emissiveIntensity:.38 });
+  const iceD   = new THREE.MeshStandardMaterial({ color:0x8fd4f2, roughness:.18, metalness:.04,
+                   transparent:true, opacity:.65, flatShading:true, emissive:0x123c55, emissiveIntensity:.30 });
+  const iceGlow = glowMat(0x9fe8ff, 1.35, 0x14506e);
+  const crackM  = glowMat(0x6fd6ff, .95, 0x0d3d55);
+  /* 不规则岩块（确定性顶点扰动：同一 seed 两端完全一致） */
+  const rockMesh = (r, mat, seed, sx, sy, sz) => {
+    const geo = new THREE.IcosahedronGeometry(r, 0);
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const k = 1 + Math.sin(x * 7.1 + seed) * Math.cos(y * 5.3 - seed) * .17
+                  + Math.cos(z * 6.7 + seed * 2) * .11;
+      p.setXYZ(i, x * k * (sx || 1), y * k * (sy || 1), z * k * (sz || 1));
+    }
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, mat); m.castShadow = true; return m;
+  };
+
+  /* ---------- 躯干：主岩体 + 胸甲板 + 腹甲 + 胸口冰核 ---------- */
+  const torso = rockMesh(.64, rock, 1.7, 1.02, 1.14, .84);
+  torso.position.set(0, 2.24, 0); g.add(torso);
+  const chest = roundPlate(.94, .72, .18, .14, rockL, { bevel:.05 });
+  chest.position.set(0, 2.46, .34); chest.rotation.x = -.07; g.add(chest);
+  for (const s of [-1, 1]) for (const yy of [2.62, 2.30]) {          // 石钉
+    const stud = rockMesh(.055, rockD, 20 + s * 2 + yy, 1, 1, 1);
+    stud.position.set(s * .33, yy, .44); g.add(stud);
+  }
+  const coreCage = new THREE.Mesh(new THREE.TorusGeometry(.255, .034, 5, 6), rockD);
+  coreCage.position.set(0, 2.24, .46); g.add(coreCage);
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(.185, 0), iceGlow);
+  core.position.set(0, 2.24, .50); core.rotation.z = .35; g.add(core);
+  /* 胸口冰裂纹（4 条发光细条，从核心放射） */
+  for (let i = 0; i < 4; i++) {
+    const a = -.9 + i * .6;
+    const c = new THREE.Mesh(new THREE.BoxGeometry(.026, .30 + (i % 2) * .14, .022), crackM);
+    c.position.set(Math.sin(a) * .40, 2.24 + Math.cos(a) * .34, .47);
+    c.rotation.z = -a * .9; g.add(c);
+  }
+  const belly = roundPlate(.80, .30, .64, .11, rockD, { bevel:.04 });
+  belly.position.set(0, 1.66, .08); g.add(belly);
+  const pelvis = roundPlate(.86, .34, .68, .12, rock, { bevel:.04 });
+  pelvis.position.set(0, 1.34, 0); g.add(pelvis);
+
+  /* ---------- 头：岩颅 + 冰晶王冠 + 发光眼缝 ---------- */
+  const head = new THREE.Group(); head.position.set(0, 2.94, .02); g.add(head);
+  const skull = rockMesh(.375, rockL, 3.3, 1.0, .95, .94); head.add(skull);
+  const jaw = rockMesh(.30, rock, 4.1, 1.0, .55, .92); jaw.position.set(0, -.21, .10); head.add(jaw);
+  for (let i = 0; i < 5; i++) {                                       // 头冠冰刺
+    const a = (i - 2) * .36, h = .34 + (2 - Math.abs(i - 2)) * .19;
+    const sp = new THREE.Mesh(new THREE.ConeGeometry(.072, h, 5), ice);
+    sp.position.set(Math.sin(a) * .27, .40 + h * .30, Math.cos(a) * .07 - .04);
+    sp.rotation.z = -Math.sin(a) * .42; head.add(sp);
+  }
+  for (const s of [-1, 1]) {                                          // 眼缝
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(.135, .046, .03), iceGlow);
+    eye.position.set(s * .135, .04, .345); eye.rotation.z = s * .13; head.add(eye);
+  }
+  for (const s of [-1, 1]) {                                          // 颊侧碎冰
+    const f = new THREE.Mesh(new THREE.ConeGeometry(.055, .22, 4), iceD);
+    f.position.set(s * .31, -.12, .16); f.rotation.z = s * 1.25; head.add(f);
+  }
+
+  /* ---------- 肩：岩球 + 冰刺丛 ---------- */
+  for (const s of [-1, 1]) {
+    const sh = rockMesh(.31, rock, 2.1 + s, 1.0, .92, .96);
+    sh.position.set(s * .60, 2.58, 0); g.add(sh);
+    for (let i = 0; i < 4; i++) {
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(.058, .30 + i * .06, 5), iceD);
+      sp.position.set(s * (.56 + i * .05), 2.72 + i * .05, -.14 + i * .12);
+      sp.rotation.z = s * (.48 + i * .17); sp.rotation.x = -.34 + i * .20;
+      g.add(sp);
+    }
+  }
+
+  /* ---------- 手臂（绕肩旋转）：岩块 + 大拳 + 拳背冰刺 ---------- */
+  const mkArm = (s) => {
+    const arm = new THREE.Group(); arm.position.set(s * .62, 2.52, 0);
+    const up = rockMesh(.215, rockD, 40 + s, .94, 1.12, .94); up.position.set(0, -.26, 0); arm.add(up);
+    const fore = rockMesh(.245, rock, 42 + s, 1.02, 1.06, 1.0); fore.position.set(s * .04, -.74, .02); arm.add(fore);
+    const fist = rockMesh(.29, rockL, 44 + s, 1.06, .96, 1.02); fist.position.set(s * .06, -1.08, .07); arm.add(fist);
+    for (let i = 0; i < 3; i++) {
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(.052, .21, 5), ice);
+      sp.position.set(s * (.09 + i * .08), -1.02 + i * .07, .19); sp.rotation.x = -1.15; arm.add(sp);
+    }
+    g.add(arm); return arm;
+  };
+  const armL = mkArm(-1), armR = mkArm(1);
+
+  /* ---------- 腿（绕胯旋转）：粗石柱 + 冰霜脚 ---------- */
+  const mkLeg = (s) => {
+    const leg = new THREE.Group(); leg.position.set(s * .27, 1.16, 0);
+    const th = rockMesh(.245, rockD, 60 + s, .96, 1.12, .96); th.position.set(0, -.20, 0); leg.add(th);
+    const sn = rockMesh(.225, rock, 62 + s, .96, 1.10, .96); sn.position.set(0, -.60, .02); leg.add(sn);
+    const ft = rockMesh(.265, rockL, 64 + s, 1.16, .56, 1.26); ft.position.set(0, -.93, .07); leg.add(ft);
+    for (let i = 0; i < 3; i++) {                                     // 脚趾冰晶
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(.05, .17, 4), iceD);
+      sp.position.set((i - 1) * .13, -.98, .28); sp.rotation.x = 1.35; leg.add(sp);
+    }
+    g.add(leg); return leg;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+
+  /* ---------- 背部冰晶簇 ---------- */
+  for (let i = 0; i < 5; i++) {
+    const a = -.62 + i * .31;
+    const sp = new THREE.Mesh(new THREE.ConeGeometry(.078, .40 + (i % 3) * .13, 5), ice);
+    sp.position.set(Math.sin(a) * .36, 2.52 + (i % 2) * .12, -.42 - Math.cos(a) * .08);
+    sp.rotation.x = -.58; sp.rotation.z = Math.sin(a) * .42; g.add(sp);
+  }
+  /* ---------- 外层霜壳（极淡，读作「结霜」） ---------- */
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(.80, 1), new THREE.MeshStandardMaterial({
+    color:0xdff6ff, transparent:true, opacity:.085, roughness:.35, metalness:0,
+    flatShading:true, depthWrite:false, emissive:0x1a5a78, emissiveIntensity:.25 }));
+  shell.position.set(0, 2.20, 0); shell.scale.set(1.04, 1.18, .94); g.add(shell);
+
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null,
+           core, shell, jaw };
+}
+
 function kitTitan(def) {
   const mats = kitMats(def), g = new THREE.Group();
   const steel  = cmat(0x98a3b4, { roughness:.38, metalness:.55 });
@@ -5899,7 +6508,7 @@ const KITS = { blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechani
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
-               gorilla:kitGorilla, hacker:kitHacker, blocky:kitBlocky };
+               gorilla:kitGorilla, hacker:kitHacker, blocky:kitBlocky, blizzard:kitBlizzard, singer:kitSinger };
 /* ================= ★ Pumpkin·大招 Pumpkin Curse：南瓜人（被诅咒的玩家外形） =================
    被诅咒的玩家本体整只隐藏、换成下面这只南瓜人；10 秒内由 pumpkinTick 自动追人挥镰，
    时间到 / 被打出场 / 换局 都会还原（endPumpkinCurse 把隐藏的子物件按原样恢复）。 */
@@ -6047,15 +6656,16 @@ function buildMesh2(def) {
 
 /* ================= 天降打击（Mage·Meteor / Archer·Arrow Rain） ================= */
 const strikes = [];
-function spawnStrike(owner, x, cfg, delay, radius, color) {
+function spawnStrike(owner, x, cfg, delay, radius, color, atY) {
   const mark = new THREE.Mesh(new THREE.RingGeometry(radius*.34, radius*1.02, 22),
     new THREE.MeshBasicMaterial({ color, transparent:true, opacity:.5, depthWrite:false,
       side:THREE.DoubleSide, blending:THREE.AdditiveBlending }));
-  mark.rotation.x = -Math.PI/2; mark.position.set(x, .1, .22); scene.add(mark);
+  const Y = atY || 0;
+  mark.rotation.x = -Math.PI/2; mark.position.set(x, Y + .1, .22); scene.add(mark);
   const col = new THREE.Mesh(new THREE.CylinderGeometry(radius*.55, radius*.85, 16, 12, 1, true),
     new THREE.MeshBasicMaterial({ color, transparent:true, opacity:.13, depthWrite:false, side:THREE.DoubleSide }));
-  col.position.set(x, 8, .22); scene.add(col);
-  strikes.push({ owner, x, t:delay, total:delay, cfg, radius, color, mark, col });
+  col.position.set(x, Y + 8, .22); scene.add(col);
+  strikes.push({ owner, x, y:Y, t:delay, total:delay, cfg, radius, color, mark, col });
 }
 function updateStrikes(dt) {
   for (let i = strikes.length - 1; i >= 0; i--) {
@@ -6066,17 +6676,19 @@ function updateStrikes(dt) {
     s.col.material.opacity = .06 + (1 - k) * .24;
     if (s.t <= 0) {
       scene.remove(s.mark); scene.remove(s.col); strikes.splice(i, 1);
-      FX.burst(s.x, 1.2, 0, s.color, 18, 20);
-      FX.flash(s.x, 1.4, .5, 6.5, s.color, .35);
-      FX.crater(s.x, 0, s.radius, s.color);
-      FX.ring(s.x, .4, .2, s.radius * 2.6, s.color, .5);
+      FX.burst(s.x, (s.y || 0) + 1.2, 0, s.color, 18, 20);
+      FX.flash(s.x, (s.y || 0) + 1.4, .5, 6.5, s.color, .35);
+      FX.crater(s.x, s.y || 0, s.radius, s.color);
+      FX.ring(s.x, (s.y || 0) + .4, .2, s.radius * 2.6, s.color, .5);
       shake = Math.min(1.35, shake + .55); camKick = Math.min(1, camKick + .45); SFX.heavy();
       for (const f of FIGHTERS) {
         if (f === s.owner || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
-        const d = Math.hypot(f.pos.x - s.x, f.pos.y);
-        if (d < s.radius + 1.0)
+        const d = Math.hypot(f.pos.x - s.x, (f.pos.y - (s.y || 0)));
+        if (d < s.radius + 1.0) {
           f.takeHit(s.owner, { dmg:s.cfg.dmg, bb:s.cfg.bb, bg:s.cfg.bg, ang:s.cfg.ang ?? 74, stun:s.cfg.stun },
             Math.sign(f.pos.x - s.x) || 1, 1 - Math.min(.5, d / (s.radius * 3)));
+          if (s.cfg.elem) applyElement(f, s.cfg.elem, s.owner);   // ★ Mage 大招：元素雷落点也挂元素
+        }
       }
     }
   }
@@ -6519,6 +7131,50 @@ function applyAirFx(f, type, dur) {
   }
 }
 /* ================= 弹幕 ================= */
+/* ================= ★ Singer 的道具建模 ================= */
+/* 音符：八分（实心头 + 杆 + 旗）/ 四分（实心头 + 杆）/ 二分（空心头 + 杆） */
+function makeNoteMesh(kind, color) {
+  const g = new THREE.Group();
+  const m = glowMat(color || 0x39c5bb, 1.5, 0x0d5a54);
+  const r = .30;
+  const head = kind === 'half'
+    ? new THREE.Mesh(new THREE.TorusGeometry(r * .52, r * .20, 6, 14), m)
+    : new THREE.Mesh(new THREE.SphereGeometry(r * .60, 12, 10), m);
+  head.scale.set(1, .70, .55); head.rotation.z = -.30;
+  g.add(head);
+  const stem = new THREE.Mesh(new THREE.BoxGeometry(r * .15, r * 2.0, r * .15), m);
+  stem.position.set(r * .46, r * .92, 0); g.add(stem);
+  if (kind === 'eighth') {
+    const flag = new THREE.Mesh(new THREE.BoxGeometry(r * .13, r * .72, r * .13), m);
+    flag.position.set(r * .58, r * 1.66, 0); flag.rotation.z = -.72; g.add(flag);
+  }
+  return g;
+}
+/* 音响：箱体 + 两个喇叭 + 顶部发光条 + 提手 */
+function makeSpeakerMesh(color) {
+  const g = new THREE.Group();
+  const box = cmat(0x1e2836, { roughness:.55, metalness:.3 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.2, .62), box);
+  body.position.y = .62; g.add(body);
+  const face = new THREE.Mesh(new THREE.BoxGeometry(.86, 1.0, .06), cmat(0x2c3a4b, { roughness:.5 }));
+  face.position.set(0, .66, .34); g.add(face);
+  for (const yy of [.98, .38]) {
+    const cone = new THREE.Mesh(new THREE.CylinderGeometry(.20, .13, .10, 16), cmat(0x39485c, { roughness:.45 }));
+    cone.position.set(0, yy, .40); cone.rotation.x = Math.PI / 2; g.add(cone);
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(.085, .085, .02, 14), glowMat(color || 0x39c5bb, 1.4, 0x0d5a54));
+    core.position.set(0, yy, .46); core.rotation.x = Math.PI / 2; g.add(core);
+  }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(.78, .07, .05), glowMat(color || 0x39c5bb, 1.6, 0x0d5a54));
+  bar.position.set(0, 1.16, .34); g.add(bar);
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(.17, .035, 5, 12, Math.PI), cmat(0x39485c, { roughness:.5 }));
+  handle.position.set(0, 1.24, 0); g.add(handle);
+  return g;
+}
+const NOTE_MODES = [
+  { type:'eighth', count:1, spd:34, dmg:10.0, bb:9,  bg:28 },   // 1 个八分音符：最快、单体高伤
+  { type:'quarter', count:2, spd:24, dmg:5.5, bb:6,  bg:16 },   // 2 个四分音符：中速、中等
+  { type:'half',   count:4, spd:15, dmg:3.0, bb:4,  bg:10 },   // 4 个二分音符：慢、弹幕铺场
+];
 const projectiles = [];
 let projId = 0;
 function spawnProjectile(owner, x, y, dirX, cfg, chargeMul = 1, extra = {}) {
@@ -6529,7 +7185,9 @@ function spawnProjectile(owner, x, y, dirX, cfg, chargeMul = 1, extra = {}) {
   const isMine = cfg.kind === 'mine';
   const r = cfg.size * (isMine ? 1 : chargeMul);
   let geo, m;
-  if (cfg.techBolt) {                                    // ★ Alien·激光弹：发光核心 + 尾焰（追踪弹）
+  if (cfg.noteMesh) {                                    // ★ Singer·音符弹：按音符种类建模
+    m = makeNoteMesh(cfg.noteMesh, cfg.color);
+  } else if (cfg.techBolt) {                            // ★ Alien·激光弹：发光核心 + 尾焰（追踪弹）
     m = new THREE.Group();
     const gm = glowMat(cfg.color || 0x7dff6a, 1.9, 0x1f5f10);
     m.add(new THREE.Mesh(new THREE.SphereGeometry(r * 1.25, 10, 8), gm));
@@ -6685,10 +7343,266 @@ function spawnProjectile(owner, x, y, dirX, cfg, chargeMul = 1, extra = {}) {
     /* ★ 链式激光的「剩余改向次数」必须落在弹体上：以前只在 cfg 里写了 chainLeft，
        而 chainLaser() 读的是 p.chainLeft → 恒为 undefined → 永远不链（第四十八轮修）。 */
     chainLeft: (cfg.chainLeft !== undefined ? cfg.chainLeft : 0),
-    ox:x, back:false, pierce: !!cfg.pierce, hitSet: new Set(),
+    ox:x, back:false, pierce: !!cfg.pierce, hitSet: new Set(), dropBomb: !!cfg.dropBomb,
     spin: (cfg.spin !== undefined) ? cfg.spin : ((cfg.axe || cfg.ruler || cfg.orb || cfg.scythe || cfg.glyph) ? 24 : 8) };
   projectiles.push(pr);
   return pr;
+}
+
+/* ================= ★ Cobalt·科技屏障（挡移动 + 挡子弹，主人自己随便穿） =================
+   barriers 是纯模拟状态（固定顺序数组），渲染只是附属 → 联机两端判定一致。 */
+const barriers = [];
+function spawnBarrier(owner, cfg) {
+  const d = owner.facing || 1;
+  const x = owner.pos.x + d * (cfg.dist || 1.9);
+  const w = cfg.w || 1.0, h = cfg.h || 4.2;
+  const y0 = Math.max(0, owner.pos.y - .2), y1 = y0 + h;
+  const grp = new THREE.Group(); grp.position.set(x, (y0 + y1) / 2, 0);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ color:cfg.color, transparent:true, opacity:.16, side:THREE.DoubleSide, depthWrite:false }));
+  grp.add(face);
+  /* 六边形蜂窝格：上下两排交错的小六边形（固定角度，不做随机） */
+  const cellM = new THREE.MeshBasicMaterial({ color:0xdff4ff, transparent:true, opacity:.55, depthWrite:false });
+  for (let r = 0; r < 6; r++) for (let c2 = 0; c2 < 2; c2++) {
+    const hex = new THREE.Mesh(new THREE.CircleGeometry(.17, 6), cellM);
+    hex.position.set((c2 - .5) * .46 + (r % 2 ? .23 : 0), h / 2 - .35 - r * (h - .7) / 5.6, .01);
+    grp.add(hex);
+  }
+  /* 上下发射器 + 两侧光柱 */
+  for (const yy of [-h / 2, h / 2]) {
+    const node = new THREE.Mesh(new THREE.CylinderGeometry(.11, .13, .18, 8), cmat(0x9fb8c6, { metalness:.5, roughness:.35 }));
+    node.rotation.z = Math.PI / 2; node.position.set(0, yy, 0); grp.add(node);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(.085, 10, 8), glowMat(cfg.color, 1.3, 0x18475e));
+    cap.position.set(0, yy, 0); grp.add(cap);
+  }
+  for (const xx of [-w / 2, w / 2]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(.045, h, .045),
+      new THREE.MeshBasicMaterial({ color:cfg.color, transparent:true, opacity:.85, depthWrite:false }));
+    rail.position.set(xx, 0, 0); grp.add(rail);
+  }
+  scene.add(grp);
+  const b = { owner, x, y0, y1, w, h, t: cfg.dur || 5.0, cfg, mesh: grp, face, cellM };
+  barriers.push(b);
+  FX.beam(x, y0, x, y1, .22, cfg.color, .35);
+  FX.ring(x, y0 + .2, .3, 2.0, cfg.color, .35);
+  return b;
+}
+function updateBarriers(dt) {
+  for (let i = barriers.length - 1; i >= 0; i--) {
+    const b = barriers[i];
+    b.t -= dt;
+    const k = .12 + .10 * (Math.sin(b.t * 9) * .5 + .5);
+    if (b.face) b.face.material.opacity = k;
+    if (b.cellM) b.cellM.opacity = .30 + .34 * (Math.sin(b.t * 5 + 1) * .5 + .5);
+    if (b.mesh) b.mesh.position.z = Math.sin(b.t * 2.4) * .04;
+    if (b.t <= 0) {
+      FX.ring(b.x, (b.y0 + b.y1) / 2, .3, b.w * 3, b.cfg.color, .35);
+      scene.remove(b.mesh); barriers.splice(i, 1);
+    }
+  }
+}
+/* 屏障把「不是主人」的角色挡在一侧（横向推回 + 清掉朝屏障的速度） */
+function barrierPush(f) {
+  for (const b of barriers) {
+    if (b.owner === f) continue;
+    if (f.pos.y > b.y1 + .2 || f.pos.y + 2.6 < b.y0) continue;
+    const half = b.w / 2 + .32, d = f.pos.x - b.x;
+    if (Math.abs(d) < half) {
+      f.pos.x = b.x + (d >= 0 ? half : -half);
+      if ((d >= 0 && f.vel.x < 0) || (d < 0 && f.vel.x > 0)) f.vel.x = 0;
+    }
+  }
+}
+/* ================= ★ Mage·元素反应系统 =================
+   规则（用户要求）：每人身上最多挂「两种元素」，第 2 种一贴上就立刻反应，然后清空。
+   · 雷 + 水 = 感电：追加伤害 + 麻痹 0.5s
+   · 火 + 水 = 蒸发：追加较高伤害
+   · 雷 + 火 = 超载：追加伤害 + 爆炸击飞
+   平衡口径：单发技能伤害都压得比较低（3~6），反应追加 4~7，收益来自「凑元素」而不是单发。 */
+const ELEM = {
+  thunder: { key:'thunder', name:'THUNDER', color:0xffe14d, CN:'雷' },
+  water:   { key:'water',   name:'WATER',   color:0x5fc8ff, CN:'水' },
+  fire:    { key:'fire',    name:'FIRE',    color:0xff7a3c, CN:'火' },
+};
+const ELEM_ORDER = ['thunder', 'water', 'fire'];
+function elemColor(t) { return (ELEM[t] || ELEM.fire).color; }
+/* 确定性取元素：同一个计数永远得到同一元素（联机两端一致，不用 Math.random） */
+function elemAt(n) { return ELEM_ORDER[((n * 7 + 3) % 3 + 3) % 3]; }
+
+function applyElement(f, type, src) {
+  if (!f || f.eliminated || !ELEM[type]) return;
+  const c = elemColor(type);
+  if (!f.elems) f.elems = [];
+  if (!f.elems.length) {                                  // 第一个元素：挂上
+    f.elems = [type]; f.elemT = 3.0;
+    FX.ring(f.pos.x, f.pos.y + 1.2, .25, 2.0, c, .35);
+    FX.spark(f.pos.x, f.pos.y + 1.2, .35, 6, c);
+    try { callout(f, ELEM[type].CN, c); } catch (e) {}
+    return;
+  }
+  if (f.elems[0] === type) {                              // 同元素：只刷新时长
+    f.elemT = 3.0;
+    FX.spark(f.pos.x, f.pos.y + 1.2, .3, 4, c);
+    return;
+  }
+  /* ★ 两种不同元素 → 反应 */
+  const a = f.elems[0], b = type, pair = [a, b].sort().join('+');
+  f.elems = []; f.elemT = 0;
+  const atk = src || f;
+  if (pair === 'thunder+water') {                         // 感电：追加伤害 + 麻痹
+    f.takeHit(atk, { dmg:5.0, bb:3, bg:8, ang:40 }, 1, 1);
+    f.hitstun = Math.max(f.hitstun, .5); f.vel.set(0, 0, 0);
+    FX.beam(f.pos.x, f.pos.y + .3, f.pos.x, f.pos.y + 2.4, .22, 0x9fe8ff, .26);
+    FX.ring(f.pos.x, f.pos.y + 1.0, .3, 3.4, 0x9fe8ff, .45);
+    for (let i = 0; i < 5; i++) FX.spark(f.pos.x, f.pos.y + .8 + i * .28, .3, 3, 0xbdf0ff);
+    try { callout(f, 'ELECTRO', 0x9fe8ff); } catch (e) {}
+    SFX.hit(22, 5);
+  } else if (pair === 'fire+water') {                     // 蒸发：高追加伤害
+    f.takeHit(atk, { dmg:7.5, bb:8, bg:26, ang:62 }, 1, 1);
+    FX.burst(f.pos.x, f.pos.y + 1.1, 0, 0xdfe8ff, 18, 18);
+    FX.ring(f.pos.x, f.pos.y + 1.1, .3, 3.0, 0xdfe8ff, .45);
+    FX.flash(f.pos.x, f.pos.y + 1.1, .45, 6, 0xffffff, .3);
+    try { callout(f, 'VAPORIZE', 0xdfe8ff); } catch (e) {}
+    SFX.special('wave');
+  } else {                                                // 超载：爆炸击飞
+    f.takeHit(atk, { dmg:4.5, bb:22, bg:40, ang:68 }, 1, 1);
+    FX.burst(f.pos.x, f.pos.y + 1.0, 0, 0xffb347, 22, 20);
+    FX.ring(f.pos.x, f.pos.y + 1.0, .3, 4.4, 0xffa53c, .5);
+    FX.crater(f.pos.x, Math.max(0, f.pos.y), 2.0, 0xffa53c);
+    try { callout(f, 'OVERLOAD', 0xffb347); } catch (e) {}
+    SFX.heavy(); shake = Math.max(shake, .45);
+  }
+}
+
+/* ================= ★ Blizzard·冰冻层数与冻结点 =================
+   5 层 → 冻结 2 秒：位置钉死（推不动、打不飞），但伤害照常结算。
+   层数 3 秒不再叠加就衰减 1 层，避免流弹无限积累。 */
+/* ================= ★ Singer·个人舞台（白底黑台 + 蓝光 + 10 秒属性强化） ================= */
+function startSoloStage(f, SP) {
+  if (f.stage) endSoloStage(f);
+  const back = { bg: scene.background, fog: scene.fog };
+  const white = new THREE.Mesh(new THREE.PlaneGeometry(160, 100), new THREE.MeshBasicMaterial({ color:0xffffff }));
+  white.position.set(0, 14, -36); scene.add(white);
+  const darkM = new THREE.MeshBasicMaterial({ color:0x0b0b10 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(130, 28), darkM);
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, -.03, 0); scene.add(floor);
+  const caps = [];
+  for (const pl of plats) {                                  // 浮空平台也盖成黑色
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(pl.halfW * 2 + .1, .16, 3.4), darkM);
+    cap.position.set(pl.x, pl.y + .08, 0); scene.add(cap); caps.push(cap);
+  }
+  scene.background = new THREE.Color(0xffffff);
+  f.stage = { t: 10.0, back, white, floor, caps };
+  /* 速度 +50% / 伤害 +50%（引擎的 buff 系统本来就支持 spd + dmg） */
+  f.buff = { t: 10.0, spd: 1.5, dmg: 1.5, cfg: { spd:1.5, dmg:1.5 } };
+  /* 把最近的对手拉进舞台 */
+  let near = null, nd = 1e9;
+  for (const g2 of FIGHTERS) {
+    if (g2 === f || g2.eliminated) continue;
+    const d = Math.abs(g2.pos.x - f.pos.x);
+    if (d < nd) { nd = d; near = g2; }
+  }
+  if (near) {
+    near.pos.x = f.pos.x + (f.facing || 1) * 3.0;
+    near.pos.y = Math.max(0, f.pos.y);
+    near.vel.set(0, 0, 0); near.hitstun = Math.max(near.hitstun, .2);
+    FX.flash(near.pos.x, near.pos.y + 1.2, .5, 10, 0xffffff, .40);
+    FX.ring(near.pos.x, near.pos.y + 1.0, .3, 5.0, SP.color, .45);
+  }
+  FX.flash(f.pos.x, f.pos.y + 1.2, .6, 14, SP.color, .50);
+  FX.ring(f.pos.x, f.pos.y + .4, .4, 12, SP.color, .50);
+  try { callout(f, 'SOLO STAGE', 0x39c5bb); } catch (e) {}
+}
+function endSoloStage(f) {
+  const ST = f.stage; if (!ST) return;
+  try {
+    scene.background = ST.back.bg; scene.fog = ST.back.fog;
+    scene.remove(ST.white); scene.remove(ST.floor);
+    for (const c2 of ST.caps) scene.remove(c2);
+    FX.ring(f.pos.x, f.pos.y + .4, .4, 8, 0x39c5bb, .4);
+  } catch (e) {}
+  f.stage = null;
+}
+
+/* ================= ★ 下雪天气（纯渲染层：不参与模拟，不影响联机判定） ================= */
+const weather = { snow: 0, flakes: null };
+function snowTick(dt) {
+  if (weather.snow > 0) weather.snow = Math.max(0, weather.snow - dt);
+  if (!weather.flakes) {
+    const grp = new THREE.Group();
+    const fm = new THREE.MeshBasicMaterial({ color:0xeaf9ff, transparent:true, opacity:.85, depthWrite:false });
+    for (let i = 0; i < 46; i++) {
+      const fl = new THREE.Mesh(new THREE.CircleGeometry(.045 + (i % 3) * .016, 4), fm);
+      fl.position.set(-28 + (i * 7.3) % 56, .4 + (i * 3.7) % 13, -1.2 + (i % 4) * .35);
+      fl.userData.vy = 2.2 + (i % 5) * .55;
+      fl.userData.ph = i * 1.37;
+      grp.add(fl);
+    }
+    grp.visible = false; scene.add(grp); weather.flakes = grp;
+  }
+  const on = weather.snow > 0;
+  weather.flakes.visible = on;
+  if (!on) return;
+  weather.flakes.children.forEach((fl, i) => {
+    fl.position.y -= fl.userData.vy * dt;
+    fl.position.x += Math.sin((weather.snow * 1.6) + fl.userData.ph) * dt * 1.4;
+    fl.rotation.z += dt * .8;
+    if (fl.position.y < -.8) {
+      fl.position.y = 13 + (i % 4);
+      fl.position.x = -28 + ((fl.userData.ph * 13.7) % 56);
+    }
+  });
+}
+
+function iceShellFor(f) {
+  if (f._iceShell) return f._iceShell;
+  const m = new THREE.Mesh(new THREE.IcosahedronGeometry(1.0, 1), new THREE.MeshStandardMaterial({
+    color:0xcdefff, transparent:true, opacity:.44, roughness:.06, metalness:0,
+    flatShading:true, emissive:0x3f9ecb, emissiveIntensity:.55, depthWrite:false }));
+  m.scale.set(1.02, 1.34, .96); m.renderOrder = 3;
+  scene.add(m); f._iceShell = m; return m;
+}
+function applyFrost(f, n, src) {
+  if (!f || f.eliminated) return 0;
+  if (f.frozen > 0) {                                 // 冻结中继续叠层（解冻后由 update 连锁再冻），但不重复触发
+    if (f.frost < 5) f.frost = Math.min(5, f.frost + (n || 1));
+    FX.spark(f.pos.x, f.pos.y + 1.3, .3, 3, 0xd8f4ff); return f.frost;
+  }
+  f.frost = Math.min(5, (f.frost || 0) + (n || 1));
+  f.frostDecay = 0;
+  FX.ring(f.pos.x, f.pos.y + 1.2, .22, 1.3 + n * .18, 0x9fdcff, .26);
+  for (let i = 0; i < 3; i++) FX.spark(f.pos.x + (i - 1) * .3, f.pos.y + 1.2 + i * .2, .24, 2, 0xd8f4ff);
+  if (f.frost >= 5) {                                  // ★ 触发冻结
+    f.frost = 0; f.frozen = 1.5;
+    f.vel.set(0, 0, 0); f.hitstun = Math.max(f.hitstun, .12);
+    f._frozenX = f.pos.x; f._frozenY = f.pos.y;
+    iceShellFor(f);
+    FX.flash(f.pos.x, f.pos.y + 1.2, .5, 9, 0xd8f4ff, .48);
+    FX.ring(f.pos.x, f.pos.y + 1.1, .3, 4.6, 0x9fdcff, .5);
+    FX.burst(f.pos.x, f.pos.y + 1.2, 0, 0xeaf9ff, 18, 16);
+    SFX.special('wave');
+    try { callout(f, 'FROZEN', 0x9fe8ff); } catch (e) {}
+  } else {
+    try { callout(f, 'ICE ' + f.frost + '/5', 0x8fd4f2); } catch (e) {}
+  }
+  return f.frost;
+}
+
+/* 上B 炸弹落地爆炸：范围伤害（含空中平台高度） */
+function dropBombBurst(p, gy) {
+  const cfg = p.cfg, R = cfg.splash || 1.8;
+  FX.crater(p.x, gy, R, cfg.color);
+  FX.ring(p.x, gy + .2, .2, R * 2.6, cfg.color, .45);
+  FX.burst(p.x, gy + .4, 0, cfg.color, 16, 18);
+  FX.flash(p.x, gy + .5, .4, 6, 0xdff4ff, .25);
+  SFX.special('wave'); shake = Math.max(shake, .35);
+  for (const f of FIGHTERS) {
+    if (f === p.owner || f.eliminated) continue;
+    const d = Math.hypot(f.pos.x - p.x, (f.pos.y + 1.0) - gy);
+    if (d < R + f.bodyR * .6)
+      f.takeHit(p.owner, { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang || 72 },
+        Math.sign(f.pos.x - p.x) || 1, 1 - d / (R * 2.4));
+  }
 }
 
 /* ================= Warrior ================= */
@@ -6883,6 +7797,10 @@ class Fighter {
     this.facing = 1; this.grounded = false; this.jumpsLeft = def.jumps; this.airTime = 0;
     this.state = 'idle'; this.stateT = 0; this.move = null; this.moveT = 0; this.phase = 'startup';
     this.hitSet = new Set(); this.hitstun = 0; this.invuln = 0; this.intangible = 0;
+    this.dodgeT = 0; this.dodgeCd = 0;                 // ★ V 躲闪：虚化剩余 / 冷却剩余
+    this.frost = 0; this.frozen = 0;                   // ★ Blizzard：冰冻层数 / 冻结剩余秒
+    this.elems = []; this.elemT = 0;                   // ★ Mage：身上挂的元素（最多 1 个，第 2 个立即反应）
+    this.floatT = 0; this._floatY = 0; this._floatBy = null;   // ★ Mage 下B：被漂浮在天上
     this.charging = null; this.chargeT = 0; this.cooldown = {};
     this.shield = 100; this.shieldBroken = 0; this.rolling = 0; this.airDodged = false;
     this.para = 0; this.slowT = 0; this.noJumpT = 0;      // ★ Blub 空气弹的三种状态（雷/水/草）
@@ -6934,7 +7852,10 @@ class Fighter {
   reset(stocks) {
     this.pos.set(this.spawnX, 4, 0); this.vel.set(0,0,0); this.damage = 0;
     this.state = 'idle'; this.stateT = 0; this.move = null; this.hitSet.clear();
-    this.hitstun = 0; this.invuln = 0; this.intangible = 0; this.charging = null;
+    this.hitstun = 0; this.invuln = 0; this.intangible = 0; this.dodgeT = 0; this.dodgeCd = 0; this.charging = null;
+    this.frost = 0; this.frozen = 0; this._frozenX = undefined; this._frozenY = undefined;
+    this.elems = []; this.elemT = 0; this.floatT = 0; this._floatBy = null;
+    if (this._iceShell) { scene.remove(this._iceShell); this._iceShell = null; }
     this.chargeFx.visible = false;
     this.shield = 100; this.grounded = false; this.jumpsLeft = this.s.jumps; this.airDodged = false;
     this.grabbed = null; this.grabbing = null; this.eliminated = false; this.respawnT = 0;
@@ -6979,6 +7900,347 @@ class Fighter {
   get headY() { return this.pos.y + 1.6 * this.def.shape.scale; }
 
   /* ---- 伤害与击飞 ---- */
+  /* ★ Singer·左右B：冲刺 → 三连击（前两下不同角度、第三下从下方挑飞），武器是蓝光剑 */
+  bladeTrioTick(dt) {
+    const B = this.bladeTrio; if (!B) return;
+    const C = B.cfg, hits = C.hits || [];
+    B.t += dt;
+    if (B.t < (C.dur || .36)) this.vel.x = B.dir * this.s.run * .55;   // 冲刺段
+    else this.vel.x *= .82;
+    this.state = 'special';
+    B.gapT -= dt;
+    if (B.gapT <= 0 && B.hit < hits.length) {
+      B.gapT = C.gap || .16;
+      const H = hits[B.hit];
+      /* 每一下的挥剑角度（用于特效朝向） */
+      const swAng = B.hit === 0 ? -.55 : (B.hit === 1 ? .60 : Math.PI * .5);
+      const side = B.hit % 2 === 0 ? 1 : -1;
+      FX.slash(this.pos.x + B.dir * 1.3, this.headY - .5, .50, B.dir > 0 ? swAng : Math.PI - swAng, 3.2, C.color, .18);
+      FX.beam(this.pos.x + B.dir * .5, this.headY - .5, this.pos.x + B.dir * (C.reach || 2.1), this.headY - .5, .10, 0xdff8ff, .12);
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        const dx = (f.pos.x - this.pos.x) * B.dir;
+        if (dx < -.3 || dx > (C.reach || 2.1) + f.bodyR) continue;
+        if (Math.abs((f.pos.y + 1.1) - (this.pos.y + 1.1)) > 2.2) continue;
+        f.takeHit(this, { dmg:H.dmg, bb:H.bb, bg:H.bg, ang:H.ang }, B.dir, 1);
+        FX.spark(f.pos.x, f.pos.y + 1.1, .32, 5, 0xdff8ff);
+      }
+      SFX.hit(20, 4 + B.hit * 2);
+      shake = Math.max(shake, .18 + B.hit * .08);
+      B.hit++;
+      B.fired = true;
+    }
+    if (B.fired && B.hit >= hits.length && B.gapT <= -0.12) {
+      this.bladeTrio = null;
+      if (this.parts.sword) this.parts.sword.visible = false;
+      if (this.state === 'special') this.state = this.grounded ? 'idle' : 'fall';
+    }
+  }
+  /* ★ Singer·下B：音响持续向外放音波（有节奏地一圈圈推出去） */
+  speakerTick(dt) {
+    const S2 = this.speaker; if (!S2) return;
+    const C = S2.cfg;
+    S2.t -= dt; S2.pulse += dt;
+    S2.mesh.rotation.y = Math.sin(S2.pulse * 2.2) * .12;
+    S2.mesh.scale.setScalar(1 + Math.sin(S2.pulse * 9) * .02);
+    S2.tickT -= dt;
+    if (S2.tickT <= 0) {
+      S2.tickT = C.rate || .55;
+      const R = C.radius || 4.6;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        const dx = f.pos.x - S2.x, dy = (f.pos.y + 1.0) - 1.0;
+        const d = Math.hypot(dx, dy);
+        if (d < R) {
+          f.takeHit(this, { dmg:C.dmg, bb:C.bb || 9, bg:C.bg || 30, ang:52 }, Math.sign(dx) || 1, Math.max(.45, 1 - d / (R * 2)));
+        }
+      }
+      FX.ring(S2.x, .5, .3, R * 2.0, C.color, .40);
+      FX.ring(S2.x, .5, .2, R * 1.2, 0xdff8ff, .22);
+      FX.spark(S2.x, 1.2, .4, 6, C.color);
+      SFX.tone(320, 220, .12, 'sine', .06);
+      shake = Math.max(shake, .12);
+    }
+    if (S2.t <= 0) {
+      FX.burst(S2.x, .8, 0, C.color, 14, 16);
+      scene.remove(S2.mesh);
+      this.speaker = null;
+    }
+  }
+  /* ★ Smiley·中立B：原地高速旋转，把范围内的敌人持续往自己身上拽（贴脸才吃小伤害） */
+  spinVortexTick(dt) {
+    const V = this.spinVortex; if (!V) return;
+    const C = V.cfg, R = C.radius || 6.2;
+    V.t -= dt;
+    this.state = 'special';
+    this.pos.x = V.x; this.vel.x = 0;                   // 原地不移动（位置也钉住，别被吸进来的敌人顶走）
+    for (const f of FIGHTERS) {
+      if (f === this || f.eliminated) continue;
+      const dx = this.pos.x - f.pos.x, dy = (this.pos.y + 1.0) - (f.pos.y + 1.0);
+      const d = Math.hypot(dx, dy);
+      if (d > R || d < .35) continue;
+      const k = (C.pull || 9.5) * dt * (1 - (d / R) * .45);   // 越近吸力越强
+      f.pos.x += (dx / d) * k;
+      if (Math.abs(dy) > .5) f.pos.y += (dy / d) * k * .55;
+      f.vel.x *= .86;
+    }
+    V.tickT -= dt;
+    if (V.tickT <= 0) {                                 // 贴脸 → 小段伤害（无击退）
+      V.tickT = C.tick || .30;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        if (Math.hypot(f.pos.x - this.pos.x, f.pos.y - this.pos.y) < 1.9) {
+          f.takeHit(this, { dmg:C.dmg, bb:0, bg:0, ang:50 }, Math.sign(f.pos.x - this.pos.x) || 1, 1);
+          FX.spark(f.pos.x, f.pos.y + 1.2, .3, 4, C.color);
+        }
+      }
+      SFX.hit(12, 2);
+    }
+    /* ★ 特效降频：光环每 0.16s 一个（原来每帧一个）、吸入粒子 22% 概率（原来 80%）→ 帧率不再被粒子拖死 */
+    V.fxT = (V.fxT || 0) - dt;
+    if (V.fxT <= 0) {
+      V.fxT = .16;
+      FX.ring(this.pos.x, this.pos.y + .55, .28, R * 1.5, C.color, .14);
+    }
+    if (Math.random() < .22) {
+      const a = Math.random() * Math.PI * 2, rr = R * (.5 + Math.random() * .5);
+      FX.suck(this.pos.x + Math.cos(a) * rr, this.pos.y + 1.0 + Math.sin(a) * rr * .8,
+        this.pos.x, this.pos.y + 1.0, C.color, .20);
+    }
+    if (V.t <= 0) { this.spinVortex = null; if (this.state === 'special') this.state = this.grounded ? 'idle' : 'fall'; }
+  }
+  /* ★ Smiley·左右B：整段滚动，每 0.5s 结算一段接触伤害（10 段 × 5% = 50%，无击退） */
+  rollDamageTick(dt) {
+    const Rz = this.rollDamage; if (!Rz) return;
+    const C = Rz.cfg;
+    Rz.t -= dt;
+    this.state = 'special';
+    this.vel.x = Rz.dir * this.s.run * (C.spd || .85);   // 持续滚动（每帧重置，不吃摩擦）
+    /* 撞到场地边缘就换个方向继续滚，不然 5 秒会滚出宇宙 */
+    if (this.pos.x > STAGE.wallX - 1.2) Rz.dir = -1;
+    else if (this.pos.x < -STAGE.wallX + 1.2) Rz.dir = 1;
+    Rz.segT -= dt;
+    if (Rz.segT <= 0 && Rz.seg > 0) {
+      Rz.segT = C.seg || .5; Rz.seg--;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        if (Math.hypot(f.pos.x - this.pos.x, (f.pos.y + 1.0) - (this.pos.y + 1.0)) < 1.75) {
+          f.takeHit(this, { dmg:C.dmg, bb:0, bg:0, ang:44 }, Rz.dir, 1);   // 无击退
+          FX.spark(f.pos.x, f.pos.y + 1.1, .34, 5, C.color);
+          FX.ring(f.pos.x, f.pos.y + 1.0, .25, 1.8, C.color, .22);
+        }
+      }
+      SFX.hit(14, 3);
+    }
+    FX.trail(this.pos.x - Rz.dir * .5, this.pos.y + .5, .45, C.color);
+    if (Rz.t <= 0) { this.rollDamage = null; if (this.state === 'special') this.state = this.grounded ? 'idle' : 'fall'; }
+  }
+  /* ★ Mage·中立B：举杖 5 波元素冲击（施法期间完全不能动，波数用确定性伪随机取元素） */
+  staffWavesTick(dt) {
+    const W = this.staffWaves; if (!W) return;
+    this.pos.x = this._swX; this.pos.y = this._swY;        // 施法站桩
+    this.vel.set(0, 0, 0);
+    const bi = this.input;
+    if (bi) { bi.x = 0; bi.y = 0; bi.atkP = false; bi.spP = false; bi.spHeld = false; bi.jumpP = false; bi.fsP = false; bi.dodgeP = false; }
+    if (this.buf) { this.buf.atk = 0; this.buf.sp = 0; }
+    this.state = 'special';
+    W.t -= dt;
+    if (W.t > 0) return;
+    W.t = W.gap; W.left--;
+    const k = (W.cfg.waves || 5) - W.left, el = elemAt(k + 2), ec = elemColor(el);
+    for (const f of FIGHTERS) {
+      if (f === this || f.eliminated) continue;
+      const d = Math.hypot(f.pos.x - this.pos.x, (f.pos.y + 1.0) - this.pos.y);
+      if (d < (W.cfg.radius || 4.6)) {
+        f.takeHit(this, { dmg:W.cfg.dmg, bb:6, bg:18, ang:44 }, Math.sign(f.pos.x - this.pos.x) || 1, Math.max(.5, 1 - d / 11));
+        applyElement(f, el, this);
+      }
+    }
+    FX.ring(this.pos.x, this.pos.y + .5, .3, (W.cfg.radius || 4.6) * 2.1, ec, .5);
+    FX.ring(this.pos.x, this.pos.y + .5, .2, (W.cfg.radius || 4.6) * 1.3, 0xffffff, .28);
+    FX.burst(this.pos.x, this.headY - .3, 0, ec, 12, 14);
+    FX.beam(this.pos.x, this.pos.y + .4, this.pos.x, this.pos.y + 4.4, .18, ec, .22);
+    SFX.special('wave');
+    try { callout(this, ELEM[el].CN + ' WAVE', ec); } catch (e) {}
+    if (W.left <= 0) { this.staffWaves = null; if (this.state === 'special') this.state = this.grounded ? 'idle' : 'fall'; }
+  }
+  /* ★ Blizzard·中立B：滚雪球（人跟着球走，球越滚越大，撞到的人被卷进雪球） */
+  snowballTick(dt) {
+    const B = this.snowball; if (!B) return;
+    const C = B.cfg;
+    B.t += dt; B.spin += dt * 6;
+    const k = Math.min(1, B.t / B.dur);
+    B.r = (C.r0 || .42) + ((C.r1 || 1.6) - (C.r0 || .42)) * k;
+    B.x += B.dir * this.s.run * (C.spd || 1.55) * dt;
+    B.y = this.pos.y + .55;
+    this.pos.x = B.x;                                  // 人随球前进（球在前面开路）
+    this.state = 'special';
+    /* 卷人：撞到就吸进球里（位置跟随球心） */
+    for (const f of FIGHTERS) {
+      if (f === this || f.eliminated || B.caught.indexOf(f) >= 0) continue;
+      if (Math.hypot(f.pos.x - B.x, (f.pos.y + 1.1) - B.y) < B.r + f.bodyR * .85) {
+        B.caught.push(f); f.vel.set(0, 0, 0); f.hitstun = .35; f.state = 'hitstun';
+        applyFrost(f, 1);
+        FX.ring(f.pos.x, f.pos.y + 1.2, .3, 3.0, C.color, .4);
+        SFX.hit(16, 4);
+      }
+    }
+    for (const f of B.caught) {                        // 被卷进去的人跟着球转
+      const a = B.t * 7 + B.caught.indexOf(f) * 1.6;
+      f.pos.x = B.x + Math.cos(a) * B.r * .55;
+      f.pos.y = Math.max(.1, B.y - .3 + Math.sin(a) * B.r * .45);
+      f.vel.set(0, 0, 0); f.hitstun = Math.max(f.hitstun, .1);
+    }
+    if (Math.random() < .8) FX.trail(B.x - B.dir * B.r * .8, B.y + .1, B.r * .7, 0xeaf9ff);
+    if (Math.random() < .5) FX.spark(B.x + (Math.random() - .5) * B.r * 2, B.y + (Math.random() - .5) * B.r * 2, .3, 3, 0xffffff);
+    if (B.t >= B.dur) { this.snowballBurst(B); this.snowball = null; if (this.state === 'special') this.state = this.grounded ? 'idle' : 'fall'; }
+  }
+  snowballBurst(B) {
+    const C = B.cfg;
+    /* 爆炸：球里的 + 周围 3.2 内的都吃 15% + 5 层冰冻 */
+    for (const f of FIGHTERS) {
+      if (f === this || f.eliminated) continue;
+      const d = Math.hypot(f.pos.x - B.x, (f.pos.y + 1.1) - B.y);
+      if (d < B.r + 3.2) {
+        f.takeHit(this, { dmg:C.dmg, bb:14, bg:44, ang:74 }, Math.sign(f.pos.x - B.x) || 1, Math.max(.35, 1 - d / 12));
+        applyFrost(f, C.frost || 5);
+      }
+    }
+    FX.burst(B.x, B.y, 0, 0xeaf9ff, 34, 26);
+    FX.ring(B.x, B.y, .3, B.r * 4.2, C.color, .5);
+    FX.ring(B.x, B.y, .2, B.r * 2.4, 0xffffff, .34);
+    FX.crater(B.x, Math.max(0, B.y - .5), B.r * 1.6, C.color);
+    for (let i = 0; i < 10; i++) FX.spark(B.x + (i - 5) * .5, B.y + 1.0 + (i % 3) * .6, .4, 3, 0xdff6ff);
+    SFX.special('wave'); shake = Math.max(shake, .5); camKick = Math.min(1, camKick + .35);
+  }
+  /* ★ Blizzard·左右B：冰冻激光（持续 3 秒 / 10 段 / 每段 1 层，命中即锁住无法逃离） */
+  frostBeamTick(dt) {
+    const L = this.frostBeam; if (!L) return;
+    const C = L.cfg, dir = L.dir, R = C.range || 14;
+    L.t -= dt;
+    /* ★ 用户要求「使用光束时不可以动」：前 0.2s 的冲刺结束后，把位置完全钉住 */
+    if (L.dashT > 0) { L.dashT -= dt; }
+    else {
+      if (L.lockX === undefined) { L.lockX = this.pos.x; L.lockY = this.pos.y; }
+      this.pos.x = L.lockX; this.pos.y = L.lockY;
+      this.vel.set(0, 0, 0);
+    }
+    /* ★ 光束期间：朝向锁死（外观不能翻面）+ 其它一切输入被吃掉（技能/攻击/跳/闪避/大招） */
+    this.facing = L.dir;
+    const bi = this.input;
+    if (bi) {
+      bi.x = 0; bi.y = 0;
+      bi.atkP = false; bi.atkR = false; bi.atkHeld = false;
+      bi.spP = false; bi.spHeld = false;
+      bi.fsP = false; bi.fsHeld = false;
+      bi.dodgeP = false; bi.jumpP = false; bi.jumpHeld = false;
+    }
+    /* ⚠ 输入缓冲也要清：atkP 在 readInput 之后就已经被记进 buf，只清 inp 的话按 N 照样出攻击 */
+    if (this.buf) { this.buf.atk = 0; this.buf.sp = 0; }
+    L.x = this.pos.x; L.y = this.pos.y;
+    const hx = L.x, hy = L.y + 1.25;
+    /* 每帧都画光束（视觉持续），伤害按段结算 */
+    FX.beam(hx + dir * .4, hy, hx + dir * R, hy, .58, C.color, .16);
+    FX.beam(hx + dir * .4, hy, hx + dir * R, hy, .24, 0xeaf9ff, .13);
+    FX.beam(hx + dir * .4, hy + .5, hx + dir * R, hy + .5, .12, C.color, .10);
+    FX.beam(hx + dir * .4, hy - .5, hx + dir * R, hy - .5, .12, C.color, .10);
+    if (Math.random() < .7) FX.spark(hx + dir * (2 + Math.random() * R * .9), hy + (Math.random() - .5) * 1.4, .28, 3, 0xdff6ff);
+    L.segT -= dt;
+    if (L.segT <= 0 && L.seg < L.total) {
+      L.segT = (C.beamDur || 3.0) / (C.seg || 10);
+      L.seg++;
+      let any = false;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        const dx = (f.pos.x - hx) * dir;
+        if (dx < -.2 || dx > R) continue;
+        if (Math.abs((f.pos.y + 1.1) - hy) > 3.2) continue;
+        f.takeHit(this, { dmg:C.dmg, bb:2, bg:6, ang:18 }, dir, 1);
+        f.hitstun = Math.max(f.hitstun, .30);          // ★ 被激光罩住就动不了 → 逃不掉
+        f.vel.x *= .08; f.vel.y = Math.min(f.vel.y, .6);
+        applyFrost(f, C.frost || 1);
+        FX.slash(f.pos.x, f.pos.y + 1.2, .45, dir > 0 ? 0 : Math.PI, 2.2, 0xeaf9ff, .14);
+        any = true;
+      }
+      if (any) { SFX.hit(18, 3); shake = Math.max(shake, .2); }
+      FX.ring(hx + dir * .5, hy, .25, 2.2, 0xeaf9ff, .16);
+    }
+    if (L.t <= 0) { this.frostBeam = null; }
+  }
+  /* ★ Blizzard·上B：多段上升（每段范围判定 + 1 层冰冻） */
+  frostRiseTick(dt) {
+    const Rz = this.frostRise; if (!Rz) return;
+    const C = Rz.cfg, every = Rz.dur / Rz.beats;
+    Rz.t += dt;
+    this.state = 'special';
+    FX.trail(this.pos.x, this.pos.y + .2, .38, C.color);
+    if (Rz.done < Rz.beats && Rz.t >= (Rz.done + 1) * every) {
+      Rz.done++;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        if (Math.hypot(f.pos.x - this.pos.x, (f.pos.y + 1.1) - (this.pos.y + 1.0)) < 2.5) {
+          f.takeHit(this, { dmg:C.dmg, bb:C.bb, bg:C.bg, ang:C.angle || 78 }, Math.sign(f.pos.x - this.pos.x) || 1, 1);
+          applyFrost(f, C.frost || 1);
+        }
+      }
+      FX.ring(this.pos.x, this.pos.y + .9, .3, 2.8 + Rz.done * .12, C.color, .34);
+      FX.burst(this.pos.x, this.pos.y + .6, 0, C.color, 8, 10);
+      SFX.hit(14, 3);
+    }
+    if (Rz.done >= Rz.beats && Rz.t > Rz.dur + .1) this.frostRise = null;
+  }
+  /* ★ Cobalt·中立B：连发小炮弹（每发 5.0 → 10 发合计 50%） */
+  burstTick(dt) {
+    const B = this.burst; if (!B) return;
+    this.state = 'special';
+    B.t -= dt;
+    if (B.t > 0) return;
+    B.t = B.gap; B.left--;
+    const dir = this.facing || 1, n = (B.cfg.shots || 10) - B.left;
+    const jit = ((n % 3) - 1) * .045;                      // 只做「视觉」上下错位，弹道本身保持水平 → 10 发能全中 50%
+    const p = spawnProjectile(this, this.pos.x + dir * 1.0, this.headY - .45 + jit, dir, B.cfg);
+    if (p) p.vy = 0;                                       // 严格水平：贴脸 10 发 = 50%
+    FX.spark(this.pos.x + dir * 1.0, this.headY - .45 + jit, .28, 4, B.cfg.color);
+    SFX.tone(680 - n * 18, 380, .04, 'square', .05);
+    if (B.left <= 0) { this.burst = null; if (this.state === 'special') this.state = this.grounded ? 'idle' : 'fall'; }
+  }
+  /* ★ Cobalt·上B：一边上升一边往脚下丢炸弹（落地/撞人/砸平台都炸） */
+  jetTick(dt) {
+    const J = this.jet; if (!J) return;
+    J.t -= dt;
+    this.state = 'special';
+    /* 上升期间持续喷口特效 */
+    FX.trail(this.pos.x + (Math.sin(J.t * 40) * .12), this.pos.y + .25, .34, J.cfg.color);
+    if (J.t > 0) return;
+    J.t = J.cfg.gap || .15; J.left--;
+    const dir = this.facing || 1;
+    const bomb = { kind:'proj', label:'Jet Bomb', dmg:J.cfg.dmg, bb:J.cfg.bb, bg:J.cfg.bg, ang:J.cfg.ang || 72,
+      spd:0, size:.30, life:2.2, color:J.cfg.color, gravity:44, splash:J.cfg.radius || 1.8, dropBomb:true };
+    const p = spawnProjectile(this, this.pos.x + dir * .30, this.pos.y + .70, dir, bomb);
+    if (p) { p.vx = dir * .8; p.vy = -5.5; }
+    FX.spark(this.pos.x + dir * .3, this.pos.y + .6, .3, 5, J.cfg.color);
+    if (J.left <= 0) this.jet = null;
+  }
+  /* ★ 毒/虚化表现：把角色所有材质临时改成半透明（1 秒脉动），结束后逐项还原。
+     只碰渲染层（材质 opacity/transparent/depthWrite），不进模拟 → 不影响联机一致性。 */
+  ghostFx(on) {
+    const mesh = this.parts && this.parts.group;
+    if (!mesh) return;
+    if (on) {
+      if (this._ghost) return;
+      this._ghost = [];
+      mesh.traverse(o => {
+        if (!o.isMesh || !o.material) return;
+        const m = o.material;
+        if (this._ghost.some(g => g.m === m)) return;         // 同材质只记一次
+        this._ghost.push({ m, t: m.transparent, o: m.opacity, d: m.depthWrite });
+      });
+      for (const g of this._ghost) { g.m.transparent = true; g.m.opacity = .20; g.m.depthWrite = false; }
+    } else if (this._ghost) {
+      for (const g of this._ghost) { g.m.transparent = g.t; g.m.opacity = g.o; g.m.depthWrite = g.d; g.m.needsUpdate = true; }
+      this._ghost = null;
+    }
+  }
   takeHit(attacker, mv, dirX, kbMul = 1, dmgMul = 1) {
     if (this.invuln > 0 || this.intangible > 0 || this.eliminated) return null;
     if (isTeammate(this, attacker)) return null;        // ★ 团队模式：队友之间不造成伤害（要开友伤就删这一行）
@@ -7056,6 +8318,10 @@ class Fighter {
     if (this.ironT > 0) launch = 0;                    // ★ Blocky·Iron Bloom：6 秒内免疫击退（照吃伤害）
     if (this.flatT > 0) launch = 0;                    // ★ Pumpkin：被砸扁期间钉在地上（照吃伤害，不位移）
     if (this.burnLock > 0) launch = 0;                 // ★ Dragon：被火柱锁住期间不吃击退（照吃伤害）
+    /* ★ Pumpkin 大招南瓜人：照吃伤害，但**绝不被击退**（用户要求「不可以被击退或推下去」）。
+       和 sandT/ironT/flatT 同一套语义：伤害记账全部照走，只是 launch 归零。 */
+    if (this.pumpkinForm) launch = 0;
+    if (mv && mv.noKnock) launch = 0;                  // ★ 标记为「无击退」的招式（Smiley 下B 追踪弹）
     /* ★ Demon 角撞：全程不可打断（不吃击退、不进硬直） */
     if (this.horn) launch = 0;
     /* ★ Fang·蓄力跳：起手蓄能期间不会被打断（霸体：照吃伤害但不吃击退） */
@@ -7185,7 +8451,7 @@ class Fighter {
     try {
     const SP = FSPECIALS[this.def.id] || FSPECIALS.sparky || FS_DEFAULT;   // ★ 第 79 轮：三级兜底，永远不会读到 undefined
     this.fsSpec = SP; this.fsHits = SP.beats; this.fsGap = SP.gap || .1;
-    this.fsMeter = 0; this.fsUsed++; this.fsDone = 0; this.fsT = .10; this.fsActive = true; this.fsActiveT = 1.9;   // 计时器覆盖带延迟结算的招式（陨石/轨道炮）
+    this.fsMeter = 0; this.fsUsed++; this.fsDone = 0; this.fsT = .10; this.fsActive = true; this.fsActiveT = (SP.dur || 1.9);   // 计时器覆盖带延迟结算的招式（陨石/轨道炮）
     this.intangible = Math.max(this.intangible, .72); this.vel.set(0, 0, 0);
     banner(this.def.name.toUpperCase() + ' \u00b7 ' + SP.name.toUpperCase(), false);
     flash = Math.max(flash, .6); flashColor = '#' + new THREE.Color(SP.color).getHexString();
@@ -7404,7 +8670,70 @@ class Fighter {
         FX.ring(lx, py + .3, .25, 2.4, c, .25);
         this.fsHit(SP, lx, SP.w, 9, 1.0, 1.3);
         shake = Math.max(shake, .3); SFX.hit(26, 9); break; }
-      case 'orbital':                                    // Cobalt：轨道炮依次轰击
+      case 'stage': {                                    // ★ Singer·大招：白底黑台的个人舞台，10 秒强化
+        if (k === 0) { startSoloStage(this, SP); shake = Math.max(shake, .6); camKick = Math.min(1, camKick + .5); SFX.special('wave'); }
+        /* 蓝色聚光灯 + 舞台边光 */
+        FX.beam(px, py + .2, px, py + 9.5, .55, c, .16);
+        FX.beam(px, py + .2, px, py + 9.5, .20, 0xdff8ff, .12);
+        FX.ring(px, py + .35, .35, 9.5, c, .34);
+        if (k % 2 === 0) FX.spark(px + (Math.random() - .5) * 4, py + 1 + Math.random() * 5, .35, 3, c);
+        break; }
+      case 'snowDay': {                                  // ★ Blizzard·大招：全场下雪 10 秒，每 2 秒给所有对手 +2 层
+        weather.snow = Math.max(weather.snow, 10.2);
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated) continue;
+          applyFrost(f, 2);
+          FX.ring(f.pos.x, f.pos.y + 1.3, .3, 2.6, 0xd8f4ff, .3);
+        }
+        FX.flash(px, py + 9, .6, 16, 0xd8f4ff, .22);
+        FX.ring(px, py + .4, .4, 14, c, .35);
+        if (k === 0) { SFX.special('wave'); shake = Math.max(shake, .45); }
+        else SFX.tone(520, 380, .18, 'sine', .07);
+        break; }
+      case 'elemRain': {                                 // ★ Mage·大招：全场元素雷（含空中平台），元素逐发随机
+        const el = elemAt(k + 5), ec = elemColor(el);
+        let rx = 0, ry = 0;
+        /* 前三发锁最近对手（±2 的确定性偏移）→ 保证不会整场空放；后五发才真的「到处降」 */
+        let near = null, nd = 1e9;
+        for (const f of FIGHTERS) { if (f === this || f.eliminated) continue; const dd = Math.abs(f.pos.x - px); if (dd < nd) { nd = dd; near = f; } }
+        if (k < 3 && near) {
+          rx = near.pos.x + (((k * 7) % 5) - 2) * .95;
+          ry = Math.max(0, near.pos.y);
+        } else if (plats.length && (k % 2 === 0)) {      // 隔一发砸在浮空平台上
+          const pl = plats[(k * 5) % plats.length];
+          rx = pl.x + (pl.halfW - .5) * ((((k * 13) % 7) / 7) * 2 - 1);
+          ry = pl.y;
+        } else {
+          rx = cl(((((k * 7919) % 37) / 37) - .5) * (CFG.blast.x * 1.15));
+        }
+        spawnStrike(this, cl(rx), { dmg:SP.dmg, bb:SP.bb, bg:SP.bg, ang:74, elem:el }, .20, SP.w || 2.4, ec, ry);
+        FX.flash(rx, ry + 9, .4, 6, ec, .20);
+        SFX.special('proj');
+        break; }
+      case 'beamLock': {                                 // ★ Cobalt·歼灭光束：5s 持续激光 ×10 连击，每击硬直 .5s
+        const bx0 = px + d0 * .4, bx1 = px + d0 * (SP.w || 14);
+        const top = py + 4.2, bot = py - 1.0;
+        /* 主光束 + 白芯 + 枪口环 + 沿途能量节点 */
+        FX.beam(bx0, py + 1.25, bx1, py + 1.25, .62, c, .20);
+        FX.beam(bx0, py + 1.25, bx1, py + 1.25, .26, 0xeaf6ff, .16);
+        FX.ring(bx0, py + 1.25, .3, 2.4, c, .30);
+        for (let q = 0; q < 3; q++) FX.spark(px + d0 * (2.4 + q * 3.6), py + .7 + q * 1.15, .34, 3, c);
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated) continue;
+          const dx = (f.pos.x - px) * d0;                 // 沿面向方向投影：只打光束覆盖段
+          if (dx < -.4 || dx > (SP.w || 14)) continue;
+          const fy = f.pos.y + 1.2;
+          if (fy < bot || fy > top) continue;
+          f.takeHit(this, { dmg:SP.dmg, bb:SP.bb, bg:SP.bg, ang:SP.ang || 24, stun:0 }, d0, 1);
+          f.hitstun = Math.max(f.hitstun, .5);            // ★ 每击后 0.5s 不能动 → 连击锁
+          f.vel.x *= .10; f.vel.y = Math.min(f.vel.y, .8); // 别把人推出光束：一直在里面就逃不掉
+          f.state = 'hitstun'; f.grounded = f.vel.y <= 0 ? f.grounded : f.grounded;
+          FX.slash(f.pos.x, f.pos.y + 1.2, .5, d0 > 0 ? 0 : Math.PI, 2.6, 0xeaf6ff, .16);
+          FX.spark(f.pos.x, f.pos.y + 1.2, .35, 6, c);
+        }
+        shake = Math.max(shake, .42); camKick = Math.min(1, camKick + .12);
+        SFX.hit(22, SP.dmg); break; }
+      case 'orbital':                                    // Cobalt（旧版保留）：轨道炮依次轰击
         spawnStrike(this, cl(px + d0 * (2.2 + k * 2.6)), { dmg: SP.dmg, bb: SP.bb, bg: SP.bg, ang: 70 }, .30, SP.w, c);
         FX.flash(px, this.headY + 2.2, .4, 5, c, .25); SFX.special('proj'); break;
       case 'meteor': {                                   // Mage：陨石雨（确定性伪随机落点）
@@ -7522,6 +8851,78 @@ class Fighter {
     // 翻滚/空中闪避/反击/特定Special的免伤是【限时窗口】，必须逐frames递减！
     // 原来漏了这一行 → 只要翻滚过一次就永久免伤（表现为「打不到人机」「打一会就没伤害」）
     this.intangible = Math.max(0, this.intangible - dt);
+    /* ★ Mage·元素附着：3 秒不用就散掉 + 身上绕一圈元素粒子（纯表现） */
+    if (this.elems && this.elems.length) {
+      this.elemT -= dt;
+      if (this.elemT <= 0) { this.elems = []; }
+      else if (Math.random() < .16) {
+        const ec = ELEM[this.elems[0]].color, a = this.anim.t * 4;
+        FX.spark(this.pos.x + Math.cos(a) * .85, this.pos.y + 1.1 + Math.sin(a) * .55, .26, 2, ec);
+      }
+    }
+    /* ★ Mage·下B：漂浮 2 秒 → 砸进地面并压扁 */
+    if (this.floatT > 0) {
+      this.floatT -= dt;
+      this.pos.y = this._floatY; this.vel.set(0, 0, 0);
+      this.state = 'hitstun';
+      if (Math.random() < .3) FX.trail(this.pos.x + (Math.random() - .5) * 1.2, this.pos.y + .4, .3, 0xb98cff);
+      if (this.floatT <= 0) {
+        const by = this._floatBy || this;
+        this.pos.y = .02;                                     // 直接砸到地面
+        this.takeHit(by, { dmg:12.0, bb:16, bg:52, ang:80 }, 1, 1);   // 砸地伤害
+        this.flatT = .45; this.vel.set(0, 0, 0);              // 压扁（Pumpkin 同款 flat 语义）
+        this.hitstun = Math.max(this.hitstun, .5);
+        FX.crater(this.pos.x, .1, 2.2, 0xb98cff);
+        FX.ring(this.pos.x, .2, .3, 4.0, 0xd8c0ff, .5);
+        FX.dust(this.pos.x, .15, 12, 0xcbb6ff);
+        FX.flash(this.pos.x, .5, .4, 6, 0xe6d8ff, .25);
+        SFX.special('wave'); shake = Math.max(shake, .5);
+        this._floatBy = null;
+      }
+    }
+    /* ★ Blizzard·冻结：完全锁住位置（推不动/打不飞），2 秒后自动解冻 */
+    if (this.frost > 0 && this.frozen <= 0) {
+      /* 层数自然衰减：3 秒没被继续叠层就散掉 1 层（否则一发流弹能挂到天荒地老） */
+      this.frostDecay = (this.frostDecay || 0) + dt;
+      if (this.frostDecay >= 3.0) { this.frostDecay = 0; this.frost--; if (this.frost <= 0) this.frost = 0; }
+    } else this.frostDecay = 0;
+    if (this.frozen > 0) {
+      /* ★ 冻结：自己不能行动，但**可以被击飞/推动** —— 不清 vel、不锁位置，
+         只是把「玩家自己的输入」吃掉（frozen 是确定性状态，各端都会吃掉同一份输入）。 */
+      this.frozen = Math.max(0, this.frozen - dt);
+      /* 刚被击退的那 0.14s（flashT）速度保留 → 打得飞；其余时间强摩擦 → 自己走不动 */
+      if (!(this.flashT > 0)) this.vel.x *= Math.pow(.14, dt * 60);   // 无击退时几乎完全刹死（自己走不动）
+      const sh = iceShellFor(this);
+      if (sh) { sh.position.set(this.pos.x, this.pos.y + 1.28, 0); sh.rotation.y += dt * .55; }
+      if (Math.random() < .12) FX.spark(this.pos.x + (Math.random() - .5) * 1.5, this.pos.y + 1.3, .3, 3, 0xd8f4ff);
+      if (this.frozen <= 0 && this.frost >= 5) {    // ★ 解冻瞬间层数还是满的 → 连锁再冻（雪天压制）
+        this.frost = 0; this.frozen = 1.5;
+        FX.ring(this.pos.x, this.pos.y + 1.1, .3, 4.2, 0x9fdcff, .45); SFX.special('wave');
+      } else if (this.frozen <= 0) {                // 解冻：碎冰四散
+        this._frozenX = undefined; this._frozenY = undefined;
+        if (this._iceShell) { scene.remove(this._iceShell); this._iceShell = null; }
+        FX.burst(this.pos.x, this.pos.y + 1.2, 0, 0xd8f4ff, 22, 20);
+        FX.ring(this.pos.x, this.pos.y + 1.1, .3, 3.6, 0x9fdcff, .45);
+        SFX.special('wave');
+        this.hitstun = Math.max(this.hitstun, .12);
+      }
+    }
+    /* ★ V 躲闪：虚化 1 秒（intangible 期间 takeHit 直接 return null → 完全免伤），冷却 7 秒。
+       全部按固定 dt 递减、由输入位触发 → 联机各端确定性一致（不会一端无敌一端挨打）。 */
+    if (this.dodgeCd > 0) this.dodgeCd = Math.max(0, this.dodgeCd - dt);
+    if (this.dodgeT > 0) {
+      this.dodgeT = Math.max(0, this.dodgeT - dt);
+      if (this.dodgeT <= 0) this.ghostFx(false);
+    }
+    if (this.input && this.input.dodgeP && this.dodgeCd <= 0 && !this.eliminated && this.hitstun <= 0) {
+      this.dodgeT = 1.0; this.dodgeCd = 7.0;
+      this.intangible = Math.max(this.intangible, 1.0);
+      this.ghostFx(true);
+      FX.ring(this.pos.x, this.pos.y + 1.0, .30, 2.6, 0x9fe8ff, .40);
+      FX.spark(this.pos.x, this.pos.y + 1.10, .40, 12, 0x9fe8ff);
+      try { SFX.special('dash'); } catch (e) {}
+      try { callout(this, 'DODGE', 0x9fe8ff); } catch (e) {}
+    }
     this.flashT = Math.max(0, (this.flashT||0) - dt);
     if (this.regrab > 0) this.regrab -= dt;
     for (const k in this.cooldown) this.cooldown[k] = Math.max(0, this.cooldown[k] - dt);
@@ -7733,6 +9134,49 @@ class Fighter {
     }
     /* Reaper·Death Mark：标记倒计时（逐帧递减 → 两端确定性一致） */
     if (this.mark) { this.mark.t -= dt; if (this.mark.t <= 0) this.mark = null; }
+    /* ★ Cobalt 新招的逐帧驱动（全部走固定 dt → 联机确定性一致） */
+    if (this.burst) this.burstTick(dt);
+    if (this.jet) this.jetTick(dt);
+    if (this.noteT > 0) { this.noteT -= dt; if (this.noteT <= 0 && this.state === 'special') this.state = this.grounded ? 'idle' : 'fall'; }
+    if (this.bladeTrio) this.bladeTrioTick(dt);
+    if (this.speaker) this.speakerTick(dt);
+    if (this.stage) { this.stage.t -= dt; if (this.stage.t <= 0) endSoloStage(this); }
+    if (this.spinVortex) this.spinVortexTick(dt);
+    if (this.rollDamage) this.rollDamageTick(dt);
+    if (this.staffWaves) this.staffWavesTick(dt);
+    if (this.floatSlam) { this.floatSlam.t -= dt; if (this.floatSlam.t <= 0) { this.floatSlam = null; if (this.state === 'special') this.state = this.grounded ? 'idle' : 'fall'; } }
+    if (this.homingUp) { this.homingUp.t -= dt; if (this.homingUp.t <= 0) this.homingUp = null; }
+    if (this.volleyT > 0) this.volleyT -= dt;
+    if (this.snowball) this.snowballTick(dt);
+    if (this.frostBeam) this.frostBeamTick(dt);
+    if (this.frostRise) this.frostRiseTick(dt);
+    if (this.frostStomp) {
+      this.frostStomp.t -= dt;
+      if (this.frostStomp.t <= 0) {
+        const C = this.frostStomp.cfg; this.frostStomp = null;
+        const R = C.radius || 6.2;
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated) continue;
+          const d = Math.hypot(f.pos.x - this.pos.x, (f.pos.y + 1.0) - this.pos.y);
+          if (d < R) {
+            f.takeHit(this, { dmg:C.dmg, bb:C.bb, bg:C.bg, ang:C.ang || 88 },
+              Math.sign(f.pos.x - this.pos.x) || 1, Math.max(.45, 1 - d / (R * 2.2)));
+            applyFrost(f, C.frost || 2);
+          }
+        }
+        FX.crater(this.pos.x, Math.max(0, this.pos.y), R, C.color);
+        FX.ring(this.pos.x, this.pos.y + .2, .3, R * 2.4, C.color, .55);
+        FX.ring(this.pos.x, this.pos.y + .2, .2, R * 1.4, 0xeaf9ff, .34);
+        for (let i = 0; i < 12; i++) {
+          const a = i / 12 * Math.PI * 2;
+          FX.spark(this.pos.x + Math.cos(a) * R * .6, this.pos.y + .3 + Math.abs(Math.sin(a)) * 2.2, .4, 3, 0xdff6ff);
+        }
+        FX.flash(this.pos.x, this.pos.y + .8, .5, 8, 0xeaf9ff, .30);
+        SFX.special('wave'); shake = Math.max(shake, .65); camKick = Math.min(1, camKick + .4);
+        this.state = this.grounded ? 'idle' : 'fall';
+      }
+    }
+    if (barriers.length) barrierPush(this);
     /* ★ Gorilla·横B 跃击：在空中等落地 → 落地那一刻放冲击波（落地判定完全来自物理，两端一致）
        强化：全程霸体（打不断）；**下落越高，伤害/击退/范围越大**（上限 250% = 现在力度的 2.5 倍）。 */
     if (this.leap) {
@@ -7768,6 +9212,13 @@ class Fighter {
       this.vel.set(0, 0, 0); this.grounded = false; this.state = 'pullin'; this.stateT = 0;
       if (Math.random() < .5) FX.suck(this.pos.x + (Math.random()-.5)*2.4, this.pos.y + 1.2 + (Math.random()-.5)*2,
         this.pos.x, this.pos.y + 1.3, pu.cfg.color, .2);
+      /* ★ Cobalt·Mag Lock：被吸的整段都牵着紫色电弧 + 目标身上一层电磁环 */
+      if (pu.cfg && pu.cfg.fx === 'magnet') {
+        if (Math.random() < .55)
+          FX.beam(src.pos.x + src.facing * .5, src.pos.y + 1.35, this.pos.x, this.pos.y + 1.25, .09, 0xc9a6ff, .12);
+        FX.ring(this.pos.x, this.pos.y + 1.2, .24, 1.5, 0xb98bff, .16);
+        if (Math.random() < .35) FX.spark(this.pos.x + (Math.random() - .5) * 1.2, this.pos.y + 1.2, .26, 3, 0xd8bcff);
+      }
       /* Reaper·镰刀勾魂：被拽的这段要看得见「一条魂链」牵着（纯表现，每 .06s 一发） */
       if (pu.hook) {
         pu.fxT -= dt;
@@ -7837,7 +9288,7 @@ class Fighter {
     else this.actionSelect(dt, inp);
 
     this.specialHitboxes(dt);
-    this.integrate(dt, this.aegis ? 0 : inp.x);   // 神盾期间连空中漂移都不给（不然「不能移动」是假的）
+    this.integrate(dt, (this.aegis || this.frozen > 0) ? 0 : inp.x);   // 神盾/冰冻期间不给移动输入（但击退照常生效）
     this.animStep(dt, inp.x);
     this.checkBlast();
   }
@@ -8963,6 +10414,14 @@ class Fighter {
     PF.t -= dt;
     if (PF.cd > 0) PF.cd -= dt;
     if (PF.swing > 0) PF.swing -= dt;
+    /* ★ 南瓜人绝不离场：击退已被清零，但推挤/爆炸/传送仍可能把它带出台面 —— 每帧拉回台阶内。
+       必须放在下面的 hitstun 早退之前，否则被打进硬直的那几帧就没有保护。 */
+    {
+      const edgeX = (typeof STAGE !== 'undefined' && STAGE.wallX ? STAGE.wallX : 19) - .15;
+      if (this.pos.x > edgeX) { this.pos.x = edgeX; if (this.vel.x > 0) this.vel.x = 0; }
+      else if (this.pos.x < -edgeX) { this.pos.x = -edgeX; if (this.vel.x < 0) this.vel.x = 0; }
+      if (this.pos.y < -.25) { this.pos.y = -.25; if (this.vel.y < 0) this.vel.y = 0; }
+    }
     const M = this._pkMesh;
     if (M) {                                                   // 手臂挥砍 / 头顶摇晃（纯表现）
       const k = PF.swing > 0 ? 1 - PF.swing / .30 : 0;
@@ -9764,7 +11223,7 @@ class Fighter {
       if (a.t <= 0) { this[key] = null; if (this.state === 'special') this.state = this.grounded ? 'idle' : 'fall'; continue; }
       a.cd = (a.cd || 0) - dt;
       if (a.cd > 0) continue;
-      const cfg = a.cfg, R = 1.75 * this.def.shape.scale;
+      const cfg = a.cfg, R = (cfg.hitR || 1.75) * this.def.shape.scale;   // ★ 支持 cfg.hitR（Cobalt 左右B 大判定）
       a.cd = cfg.multi ? .13 : .04;   // 冲刺类要密一点，否则高速冲刺会“穿过”对手
       a.hitSet = a.hitSet || new Set();
       if (key === 'recoverAtk' && cfg.fx) {              // 上B：按 cfg.fx 模板出特效（节拍比判定慢，省开销）
@@ -9810,6 +11269,8 @@ class Fighter {
           f.takeHit(this, { dmg: cfg.dmg * (cfg.multi ? .6 : 1), bb: cfg.bb * .8, bg: cfg.bg * .8,
             ang: cfg.kind === 'recover' ? 88 : 16, stun: cfg.stun }, Math.sign(f.pos.x - this.pos.x) || this.facing, a.first ? 1 : .7);
           a.first = true;
+          /* ★ Blizzard·上B：每一段连击都挂 1 层冰冻（5 段 = 5 层 → 直接冻住） */
+          if (this.def.id === 'blizzard') applyFrost(f, 1);
           /* ★ 被卷住：跟着上升 + 往自己身上拽，保证后续每一段都咬得住 */
           if (cfg.lift && key === 'recoverAtk') {
             f.vel.y = Math.max(f.vel.y, Math.max(5, this.vel.y * .92));
@@ -10095,6 +11556,151 @@ class Fighter {
       // 简易：按住Special蓄力，松开发射
       this.charging = { special:true, cfg, key, holdKey:'sp' }; this.chargeT = 0; this.state = 'charge';
       this.chargeFx.visible = true; this.chargeFx.material.color.set(cfg.color); SFX.charge();
+    } else if (cfg.kind === 'noteShot') {               // ★ Singer·中立B：随机一种音符编队
+      const mode = NOTE_MODES[((FRAME / 7 | 0) + (this.noteSeed = (this.noteSeed || 0) + 1)) % 3];   // 帧+次数双源，保证三种模式真轮转
+      for (let i = 0; i < mode.count; i++) {
+        const oy = (i - (mode.count - 1) / 2) * .36;
+        spawnProjectile(this, this.pos.x + dir * .8, this.headY - .35 + oy, dir,
+          { kind:'proj', label:'Note', dmg:mode.dmg, bb:mode.bb, bg:mode.bg, ang:36,
+            spd:mode.spd, size:.34, life:1.7, color:cfg.color, noteMesh:mode.type, glow:true }, 1);
+        FX.spark(this.pos.x + dir * .8, this.headY - .35 + oy, .28, 4, cfg.color);
+      }
+      this.state = 'special'; this.animT = 0; this.noteT = .26;
+      SFX.special('proj');
+    } else if (cfg.kind === 'bladeTrio') {               // ★ Singer·左右B：蓝光剑三连击
+      this.bladeTrio = { cfg, t:0, dur:cfg.dur || .36, hit:0, gapT:0, dir, fired:false };
+      if (this.parts.sword) { this.parts.sword.visible = true; this.parts.sword.rotation.y = dir > 0 ? 0 : Math.PI; }
+      this.vel.x = dir * this.s.run * .55;
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+    } else if (cfg.kind === 'speaker') {                 // ★ Singer·下B：放音响，持续放音波
+      const sx = this.pos.x + dir * 1.0;
+      const mesh = makeSpeakerMesh(cfg.color);
+      mesh.position.set(sx, 0, 0); scene.add(mesh);
+      this.speaker = { cfg, t:cfg.life || 5.0, tickT:.1, x:sx, mesh, pulse:0 };
+      this.state = 'special'; this.animT = 0; this.noteT = .30;
+      FX.ring(sx, .3, .3, 2.6, cfg.color, .40);
+      SFX.special('wave');
+    } else if (cfg.kind === 'spinVortex') {             // ★ Smiley·中立B：原地高速旋转，把周围敌人往里吸
+      this.spinVortex = { cfg, t:cfg.dur || 1.8, tickT:0, x:this.pos.x };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('wave');
+      FX.ring(this.pos.x, this.pos.y + .6, .3, 3.0, cfg.color, .40);
+    } else if (cfg.kind === 'rollDamage') {             // ★ Smiley·左右B：全程滚动，每 0.5s 一段（10 段 = 50%）
+      this.rollDamage = { cfg, t:cfg.dur || 5.0, segT:0, seg:cfg.segs || 10, dir };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+      FX.ring(this.pos.x, this.pos.y + .5, .3, 2.4, cfg.color, .38);
+    } else if (cfg.kind === 'seekerVolley') {           // ★ Smiley·下B：3 枚追踪弹（共 15%，无击退）
+      for (let i = 0; i < (cfg.count || 3); i++) {
+        const a = (i - 1) * .34;
+        const pr = spawnProjectile(this, this.pos.x + (this.facing || 1) * .7, this.headY - .55 + Math.sin(a) * .5, this.facing || 1,
+          { kind:'proj', label:'Seeker Ball', dmg:cfg.dmg, bb:0, bg:0, ang:40, spd:cfg.spd || 20, noKnock:true,
+            size:cfg.size || .38, life:cfg.life || 2.6, color:cfg.color, glow:true,
+            homing:{ turn:cfg.turn || 7.0 } }, 1);
+        if (pr) pr.vy = Math.sin(a) * 3.0;
+      }
+      this.state = 'special'; this.animT = 0;
+      SFX.special('proj');
+      FX.ring(this.pos.x, this.headY - .5, .3, 2.0, cfg.color, .32);
+    } else if (cfg.kind === 'staffWaves') {             // ★ Mage·中立B：举杖 5 波元素冲击（施法期间不能动）
+      this.staffWaves = { cfg, t:0, left:cfg.waves || 5, gap:cfg.gap || .42 };
+      this._swX = this.pos.x; this._swY = this.pos.y;
+      this.state = 'special'; this.animT = 0;
+      SFX.special('wave');
+      FX.ring(this.pos.x, this.headY - .35, .3, 2.6, cfg.color, .40);
+      FX.flash(this.pos.x, this.headY, .4, 5, 0xd8c0ff, .25);
+    } else if (cfg.kind === 'elemBarrage') {            // ★ Mage·左右B：向**反方向**弹射 + 三颗元素球（雷/水/火）
+      const fd = dir;
+      this.vel.x = -fd * (cfg.back || 14); this.vel.y = cfg.rise || 6.5; this.grounded = false;
+      for (let i = 0; i < (cfg.count || 3); i++) {
+        const el = ELEM_ORDER[i % 3];
+        spawnProjectile(this, this.pos.x + fd * .9, this.headY - .45 + (i - 1) * .24, fd,
+          { kind:'proj', label:'Element Orb', dmg:cfg.dmg, bb:5, bg:14, ang:30, spd:cfg.spd || 26,
+            size:cfg.size || .42, life:1.8, color:elemColor(el), elem:el, glow:true }, 1);
+        FX.spark(this.pos.x + fd * .9, this.headY - .45 + (i - 1) * .24, .3, 4, elemColor(el));
+      }
+      this.volleyT = .26;
+      this.state = 'special'; this.animT = 0;
+      SFX.special('proj');
+      FX.ring(this.pos.x, this.headY - .5, .3, 2.4, cfg.color, .35);
+    } else if (cfg.kind === 'homingElem') {             // ★ Mage·上B：向上飞 + 一枚追踪元素弹
+      this.vel.y = cfg.rise || 26; this.grounded = false;
+      const el = elemAt(FRAME);
+      spawnProjectile(this, this.pos.x, this.headY, this.facing || 1,
+        { kind:'proj', label:'Seeking Orb', dmg:cfg.dmg, bb:8, bg:24, ang:36, spd:cfg.spd || 18,
+          size:cfg.size || .40, life:3.2, color:elemColor(el), elem:el, glow:true,
+          homing:{ turn:cfg.turn || 6.5 } }, 1);
+      this.homingUp = { t: cfg.dur || .55 };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('proj');
+      FX.ring(this.pos.x, this.headY - .3, .3, 2.4, elemColor(el), .4);
+    } else if (cfg.kind === 'floatSlam') {              // ★ Mage·下B：附近敌人漂浮 2 秒 → 砸地压扁
+      this.floatSlam = { t:.45 };
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        if (Math.hypot(f.pos.x - this.pos.x, (f.pos.y + 1.0) - this.pos.y) < (cfg.radius || 5.0)) {
+          f.floatT = cfg.float || 2.0;
+          f._floatY = Math.max(f.pos.y, this.pos.y) + 3.4;
+          f._floatBy = this;
+          f.vel.set(0, 0, 0); f.hitstun = .12;
+          FX.ring(f.pos.x, f.pos.y + .6, .3, 2.6, cfg.color, .42);
+          FX.beam(f.pos.x, f.pos.y + .2, f.pos.x, f._floatY + 1.0, .12, cfg.color, .30);
+        }
+      }
+      this.state = 'special'; this.animT = 0;
+      SFX.special('wave'); shake = Math.max(shake, .3);
+      FX.ring(this.pos.x, this.pos.y + .3, .3, (cfg.radius || 5) * 1.6, cfg.color, .45);
+    } else if (cfg.kind === 'snowball') {               // ★ Blizzard·中立B：滚雪球冲锋（越滚越大，撞到的人被卷进去）
+      this.snowball = { cfg, t:0, dur:cfg.dur || 1.45, x:this.pos.x, y:this.pos.y + .55,
+                        r:cfg.r0 || .42, dir, caught:[], spin:0 };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+      FX.ring(this.pos.x + dir * .6, this.pos.y + .5, .3, 2.0, cfg.color, .35);
+      FX.burst(this.pos.x + dir * .6, this.pos.y + .5, 0, cfg.color, 12, 14);
+    } else if (cfg.kind === 'frostBeam') {              // ★ Blizzard·左右B：短冲 + 3 秒冰冻激光（10 段，每段 1 层）
+      const dirB = dir;
+      this.vel.x = dirB * this.s.run * (cfg.dash || 1.6);
+      this.frostBeam = { cfg, t:cfg.beamDur || 3.0, segT:0, seg:0, total:cfg.seg || 10,
+                         dir:dirB, x:this.pos.x, y:this.pos.y, dashT:.20, lockX:undefined, lockY:undefined };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('proj');
+      FX.ring(this.pos.x + dirB * .8, this.pos.y + 1.2, .3, 2.6, cfg.color, .40);
+      FX.flash(this.pos.x + dirB * .9, this.pos.y + 1.2, .45, 5, 0xeaf9ff, .3);
+    } else if (cfg.kind === 'frostRise') {              // ★ Blizzard·上B：多段上升，每段 1 层
+      this.vel.y = cfg.rise; this.grounded = false;
+      this.frostRise = { cfg, t:0, dur:cfg.dur || .86, beats:cfg.beats || 5, done:0 };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+      FX.ring(this.pos.x, this.pos.y + .3, .3, 2.8, cfg.color, .42);
+      FX.burst(this.pos.x, this.pos.y + .4, 0, cfg.color, 14, 16);
+    } else if (cfg.kind === 'frostStomp') {             // ★ Blizzard·下B：踩地（短起手 → 向上击飞 + 范围）
+      this.frostStomp = { cfg, t:.16 };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+    } else if (cfg.kind === 'burstShot') {              // ★ Cobalt·中立B：连发小炮弹（10 发 × 5%）
+      this.burst = { cfg, t:0, left:cfg.shots || 10, gap:cfg.gap || .055 };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('proj'); FX.ring(this.pos.x + dir * .9, this.headY - .35, .25, 1.9, cfg.color, .3);
+    } else if (cfg.kind === 'railDash') {               // ★ Cobalt·左右B：电磁滑轨（长射程 + 大判定）
+      this.vel.x = dir * this.s.run * cfg.spd; this.vel.y = Math.max(this.vel.y, 1.4);
+      this.dashAtk = { cfg, t:cfg.dur, cd:.08, first:false, dir };
+      this.state = 'special'; this.animT = 0;
+      FX.ring(this.pos.x, this.headY - .4, .3, 2.4, cfg.color, .35);
+      FX.slash(this.pos.x + dir * 1.2, this.headY - .45, .45, dir > 0 ? 0 : Math.PI, 4.4, cfg.color, .20);
+      SFX.special('dash');
+    } else if (cfg.kind === 'jetBurst') {               // ★ Cobalt·上B：向上喷飞 + 向下撒炸弹
+      this.jet = { cfg, t:0, left:cfg.count || 4 };
+      this.vel.y = cfg.rise; this.grounded = false;
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+      FX.ring(this.pos.x, this.pos.y + .2, .3, 3.0, cfg.color, .45);
+      FX.burst(this.pos.x, this.pos.y + .6, 0, cfg.color, 14, 16);
+    } else if (cfg.kind === 'techBarrier') {            // ★ Cobalt·下B：科技屏障
+      spawnBarrier(this, cfg);
+      this.state = 'special'; this.animT = 0;
+      SFX.special('wave');
+      FX.ring(this.pos.x + dir * (cfg.dist || 1.9), this.headY - .2, .3, 2.4, cfg.color, .40);
     } else if (cfg.kind === 'dash') {
       this.vel.x = dir * this.s.run * cfg.spd; this.vel.y = Math.max(this.vel.y, 2.2);
       this.dashAtk = { cfg, t:cfg.dur, cd:.1, first:false, dir }; this.state = 'special';
@@ -10262,6 +11868,22 @@ class Fighter {
       FX.flash(this.pos.x + this.facing * 1.1, this.headY - .5, .5, 3.6, cfg.color, .3);
       FX.slash(this.pos.x + this.facing * 1.6, this.headY - .5, .45, 0, 2.6, cfg.color, .2);
       SFX.magnet();
+      /* ★ Cobalt·Mag Lock：三重电磁脉冲 + 放射磁力线 + 被吸来的铁屑（Turtle 的 Tide Grab 没有 fx:'magnet'，不受影响） */
+      if (cfg.fx === 'magnet') {
+        for (let i = 1; i <= 3; i++)
+          FX.ring(this.pos.x + this.facing * i * .85, this.headY - .55, .3, 2.0 + i * 1.15, i === 2 ? 0xe3ccff : cfg.color, .42 - i * .07);
+        FX.flash(this.pos.x + this.facing * 1.0, this.headY - .5, .6, 5, cfg.color, .34);
+        for (let i = 0; i < 5; i++) {
+          const ay = this.headY - .55 + (i - 2) * .44;
+          FX.beam(this.pos.x + this.facing * .45, ay, this.pos.x + this.facing * (cfg.range * .72), ay + (i - 2) * .14, .07, 0xc9a6ff, .13);
+        }
+        for (let i = 0; i < 9; i++) {
+          const rr = 1.1 + i * .52;
+          FX.suck(this.pos.x + this.facing * rr, this.headY - .5 + Math.sin(i * 2.1) * 1.25,
+            this.pos.x + this.facing * .4, this.headY - .5, 0xb98bff, .22);
+        }
+        camKick = Math.min(1, camKick + .16);
+      }
       if (got) {
         const PT = .40;
         this.pull = { f:got, cfg };
@@ -11819,6 +13441,65 @@ class Fighter {
         if (P.tailFin) P.tailFin.rotation.z = -tz * .55;
       }
     }
+    /* ★ Mage：举杖施法 / 漂浮术 / 追踪弹 / 三球齐射 */
+    if (this.def.id === 'mage') {
+      if (this.staffWaves) {
+        P.armR.rotation.x = -2.45; P.armL.rotation.x = -2.15;
+        P.group.rotation.z = Math.sin(A.t * 20) * .05;
+        FX.trail(this.pos.x, this.pos.y + 2.5, .34, 0xd8c0ff);
+      } else if (this.floatSlam) {
+        P.armR.rotation.x = -2.55; P.armL.rotation.x = -1.15;
+        P.group.rotation.z = this.facing * .10;
+      } else if (this.homingUp) {
+        P.armL.rotation.x = -2.05; P.armR.rotation.x = -2.05;
+        P.group.rotation.z = this.facing * .04;
+      } else if (this.volleyT > 0) {
+        P.armR.rotation.x = -1.50; P.armL.rotation.x = -1.50;
+        P.group.rotation.z = this.facing * .13;
+      }
+    }
+    /* ★ Blizzard：滚雪球前推 / 激光双手前伸 / 上升双臂上举 / 踩地屈膝；冻结时僵直微颤 */
+    if (this.def.id === 'blizzard') {
+      if (this.frostBeam) this.facing = this.frostBeam.dir;   // ★ 光束期间外观不翻面（双保险）
+      if (this.snowball || this.frostBeam) {
+        P.armL.rotation.x = -1.48; P.armR.rotation.x = -1.48;
+        P.group.rotation.z = this.facing * -.13;
+      } else if (this.frostRise) {
+        P.armL.rotation.x = -2.25; P.armR.rotation.x = -2.25;
+        P.group.rotation.z = this.facing * .05;
+      } else if (this.frostStomp) {
+        P.legL.rotation.x = .55; P.legR.rotation.x = .55;
+        P.group.rotation.z = 0;
+      }
+      if (this.frozen > 0) P.group.rotation.z = Math.sin(A.t * 42) * .022;
+    }
+    /* ★ Cobalt：新四招的姿态（连发后坐 / 滑轨前倾残影 / 喷射上升 / 光束双手前推） */
+    if (this.def.id === 'cobalt') {
+      if (this.pull) {                                    // 左右B：磁吸 → 右臂前伸张掌、身体后仰
+        P.armR.rotation.x = -1.52; P.armR.rotation.z = this.facing * -.55;
+        P.armL.rotation.x = .30; P.group.rotation.z = this.facing * .10;
+        FX.trail(this.pos.x + this.facing * 1.05, this.headY - .5, .32, 0xa46bff);
+      } else if (this.burst) {                            // 中立B：右臂机炮连发 → 逐发后坐
+        const k = (this.burst.left % 2);
+        P.armR.rotation.x = -1.28 + k * .22; P.armL.rotation.x = .18;
+        P.group.rotation.z = this.facing * -.05;
+        if (A.t % .055 < .02) FX.trail(this.pos.x + this.facing * 1.1, this.headY - .45, .26, 0x8fd0ff);
+      } else if (this.dashAtk && this.dashAtk.cfg && this.dashAtk.cfg.kind === 'railDash') {
+        P.armR.rotation.x = -.60; P.armL.rotation.x = .40;      // 滑轨：身体前倾、双臂收在体侧
+        P.legL.rotation.x = .55; P.legR.rotation.x = -.35;
+        P.group.rotation.z = this.facing * -.22;
+        FX.trail(this.pos.x - this.facing * .55, this.pos.y + .9, .40, 0x9fc4ff);   // 残影拖尾
+      } else if (this.jet) {                              // 上B：双臂下压、双腿并拢向上喷
+        P.armL.rotation.x = -1.95 + Math.sin(A.t * 28) * .10;
+        P.armR.rotation.x = -1.95 - Math.sin(A.t * 28) * .10;
+        P.legL.rotation.x = .30; P.legR.rotation.x = .30;
+        P.group.rotation.z = this.facing * .06;
+      } else if (this.fsActive) {                         // 大招：双手前推撑住光束
+        P.armL.rotation.x = -1.58; P.armR.rotation.x = -1.58;
+        P.group.rotation.z = this.facing * -.08;
+        FX.trail(this.pos.x + this.facing * .9, this.headY - .3, .34, 0x8fd8ff);
+      }
+    }
     /* ★ Demon：角撞低头前倾 / 三叉戟常驻在手 / 喷火张嘴 */
     if (this.def.id === 'demon') {
       if (this.horn) {                                     // 低头角撞
@@ -11878,42 +13559,54 @@ class Fighter {
         P.group.rotation.z = A.lean * this.facing;
       }
     }
-    /* ★ Smiley：四种滚技各自动作不同（以前全是一个转法）+ 平时呼吸弹跳 / 眨眼 */
+    /* ★ Smiley：没有腿 → 走路就是「弹着移动」；滚动轴在球心，压扁锚点在地面（都不穿模） */
     if (this.def.id === 'smiley' && P.ballSpin && P.ball) {
-      const SP = P.ballSpin, BALL = P.ball;
+      const SP = P.ballSpin, BODY = P.bodyG || SP, BALL = P.ball, FACE = P.face;
       const tt = A.t;                                     // ⚠ animStep 的 dt 有时是 0：必须用动画时钟 A.t 驱动
       const sp = (this._spAnim > 0 && this._spAnim < 1.2) ? (this._spKey || '') : '';
       let lift2 = 0, sy = 1, armY = 0;
+      const moving = (this.state === 'walk' || this.state === 'run');
       if (sp === 'n') {                                   // 滚撞：向前快速滚 + 小跳
-        SP.rotation.x = -this.facing * tt * 22; lift2 = Math.abs(Math.sin(tt * 22)) * .06;
-      } else if (sp === 's') {                            // 旋风：原地自转 + 张开双臂（自转在下面 SP.rotation.y 里叠加）
-        armY = 1; lift2 = Math.sin(tt * 26) * .03;
-      } else if (sp === 'u') {                            // 弹簧滚：更快 + 身体拉长
-        SP.rotation.x = -this.facing * tt * 26; sy = 1.07;
+        SP.rotation.x = -this.facing * tt * 22; lift2 = Math.abs(Math.sin(tt * 22)) * .07;
+      } else if (sp === 's') {                            // 旋风：原地自转 + 张开双臂
+        armY = 1; lift2 = Math.abs(Math.sin(tt * 26)) * .05;
+      } else if (sp === 'u') {                            // 弹簧滚：更快 + 拉长
+        SP.rotation.x = -this.facing * tt * 26; sy = 1.09; lift2 = Math.abs(Math.sin(tt * 20)) * .10;
       } else if (sp === 'd') {                            // 雷霆滚：最快 + 连续弹跳
-        SP.rotation.x = -this.facing * tt * 30; lift2 = Math.abs(Math.sin(tt * 24)) * .10;
+        SP.rotation.x = -this.facing * tt * 30; lift2 = Math.abs(Math.sin(tt * 24)) * .13;
       } else if (this.state === 'attack') {               // 平A：小幅前倾滚
         SP.rotation.x = -this.facing * tt * 10; sy = .94;
-      } else {                                            // 待机：呼吸弹跳，旋转慢慢回正
-        lift2 = Math.sin(tt * 2.6) * .05;
+      } else if (moving) {
+        /* ★ 没有腿 → 像球一样「落地-压缩-弹起」循环 */
+        const rate = this.state === 'run' ? 10.5 : 7.2;
+        const bf = tt * rate;
+        lift2 = Math.abs(Math.sin(bf)) * (this.state === 'run' ? .19 : .13);
+        sy = 1 + Math.cos(bf * 2) * .075;                 // 落地压扁 / 顶点拉长
+        SP.rotation.x = -this.facing * tt * (this.state === 'run' ? 12 : 7.5);
+      } else {                                            // 待机：轻轻弹 + 慢慢回正
+        lift2 = Math.abs(Math.sin(tt * 2.4)) * .06;
+        sy = 1 + Math.cos(tt * 4.8) * .035;
         SP.rotation.x *= .90;
       }
-      SP.rotation.y = -Math.PI / 2 + (sp === 's' ? tt * 22 : 0);   // ★ 抵消模型的 +90° 朝向，让笑脸始终朝着镜头；旋风时再叠自转
-      SP.position.y = lift2;
+      SP.rotation.y = (sp === 's' ? tt * 22 : 0);        // ★ 脸现在就在球体正前方，不再需要抵消 +90°
+      BODY.position.y = lift2;
       const iv = 1 / Math.sqrt(sy);
-      BALL.scale.set(iv, sy, iv);                          // 压扁/拉长但保持体积
+      if (BODY === SP) BALL.scale.set(iv, sy, iv);        // 兜底（没有 bodyG 的老结构）
+      else BODY.scale.set(iv, sy, iv);                    // ★ 锚点在地面：压扁不穿地
+      /* ★ 防穿模：滚动时把手收进身体、把脸往里收（脸转到最下方时刚好不超过球面） */
+      const rolling = !!sp || moving;
+      const armTarget = rolling ? .46 : 1;
+      const curS = P.armL.scale.x || 1;
+      const nxtS = curS + (armTarget - curS) * .35;
+      P.armL.scale.setScalar(nxtS); P.armR.scale.setScalar(nxtS);
+      if (FACE) {
+        const fz0 = FACE.userData.fz || 1.02;
+        const zTgt = rolling ? fz0 * .70 : fz0;      // 滚动：脸缩到球内 0.70（转到下方时不会插地）
+        FACE.position.z += (zTgt - FACE.position.z) * .30;
+      }
+      if (FACE) FACE.rotation.z = Math.sin(tt * 1.6) * .02;
       P.armL.rotation.z = armY ? armY * 1.35 : Math.sin(tt * 2.6) * .18;
       P.armR.rotation.z = armY ? -armY * 1.35 : -Math.sin(tt * 2.6) * .18;
-      /* 眨眼：每 2.8 秒闭一次（脸是 ballSpin 里唯一的 Group ✓ group.userData 在 wrapper 上拿不到） */
-      const face = (P.ballSpin.children || []).find(c => c.isGroup);
-      if (face) {
-        const blink = (tt % 2.8) < .12 ? .12 : 1;
-        let n2 = 0;
-        for (const e of face.children) {
-          if (n2 >= 2) break;
-          if (e.geometry && e.geometry.type === 'SphereGeometry') { e.scale.y = 1.35 * blink; n2++; }
-        }
-      }
     }
     /* ★ Fang：白虎 —— 尾巴常驻摆动 + 各招式姿态 */
     if (this.def.id === 'fang') {
@@ -12270,6 +13963,11 @@ class Fighter {
       }
     }
     P.group.position.set(this.pos.x, this.pos.y + A.bob + (this.def.shape.hover || 0) + (this._hopY || 0), 0);
+    /* ★ 虚化脉动：躲闪的 1 秒里透明度上下呼吸，看得见「现在打不到我」 */
+    if (this.dodgeT > 0 && this._ghost) {
+      const gk = .16 + .16 * (Math.sin(A.t * 30) * .5 + .5);
+      for (const g of this._ghost) g.m.opacity = gk;
+    }
     /* 侧视朝向：永远面向左右（不再正对镜头）。⚠ Warrior 旋风斩的整机自转必须并进这一行 ——
        animStep 前面的动画块里写 += 会被这一行整行覆盖（实测 yaw 恒为 1.57，转不起来）。 */
     P.group.rotation.y = this.facing * Math.PI / 2 + (this._upSpin || 0);
@@ -12928,7 +14626,7 @@ const ACC = (() => {
     try {
       if (a.id && sessionStorage.getItem('sbSrvSync') !== '1') {
         sessionStorage.setItem('sbSrvSync', '1');
-        fetch('sbgames/api.php', { method: 'POST', headers: { 'content-type': 'application/json' },
+        fetch('/exams_games/sbgames/api.php', { method: 'POST', headers: { 'content-type': 'application/json' },
                                    body: JSON.stringify({ a: 'profile', pid: a.id }) })
           .then(r => r.json())
           .then(j => {
@@ -13213,6 +14911,23 @@ function orderedChars() {
   return owned.concat(locked);
 }
 const REWARD_CHAR_IDS = REWARDS.filter(r => r.type === 'char').map(r => r.char);   // 奖杯专属角色（商店不卖）
+/* ★ 绑定邮箱专属角色：不在商店卖，绑定邮箱（任意邮箱验证通过）即解锁 */
+const EMAIL_CHAR_IDS = ['blizzard'];
+function unlockEmailChars(quiet) {
+  if (!ACC || !ACC.email) return false;
+  let got = false;
+  for (const id of EMAIL_CHAR_IDS) {
+    if (!ACC.owns(id)) { try { ACC.unlock(id); got = true; } catch (e) {} }
+  }
+  if (got) {
+    try { toast('Email bound \u2713 \u2014 Blizzard unlocked!'); } catch (e) {}
+    try { if (window.__rebuildChars) window.__rebuildChars(); } catch (e) {}
+    try { if (window.__rewardRender) window.__rewardRender(); } catch (e) {}
+    try { SFX.special('wave'); } catch (e) {}
+  } else if (!quiet) { /* 已拥有，不重复提示 */ }
+  return got;
+}
+window.__unlockEmailChars = unlockEmailChars;
 
 /* ★ 第 92 轮：每日任务 —— 三个任务、每天共 100 金币 */
 const DAILY = [
@@ -13236,7 +14951,10 @@ function buildPickList() {
       (owned ? '' : '<span class="lock"><svg class="ico"><use href="#i-lock"/></svg></span>');
     d.onclick = () => {
       /* 未解锁的角色不能选 —— 点一下就打开「奖杯奖励」页去解锁/购买 */
-      if (!ACC.owns(CHARS[i].id)) { if (typeof openRewards === 'function') openRewards(); else toast('Locked'); return; }
+      if (!ACC.owns(CHARS[i].id)) {
+        if (EMAIL_CHAR_IDS.indexOf(CHARS[i].id) >= 0) { toast('Bind an email in Settings to unlock ' + CHARS[i].name); return; }
+        if (typeof openRewards === 'function') openRewards(); else toast('Locked'); return;
+      }
       settings.playerChar = i; ACC.setChar(CHARS[i].id);
       [...pick.children].forEach(x => x.classList.remove('on')); d.classList.add('on'); showSkills(i);
       if (window.__syncCharGrid) window.__syncCharGrid();     // ★ 第 89 轮：弹层网格同步高亮
@@ -13882,6 +15600,8 @@ function physicsStep(s) {
   FRAME++;
   for (const f of FIGHTERS) f.update(s);
   updateProjectiles(s);
+  updateBarriers(s);
+  try { snowTick(s); } catch (e) {}
   updateBlocks(s);                                  // ★ Blocky 的方块：寿命/闪烁/自动消失
   updateDrones(s);
   updateStrikes(s);
@@ -14594,6 +16314,25 @@ function updateProjectiles(dt) {
         }
         SFX.special('wave'); scene.remove(p.mesh); projectiles.splice(i,1); continue;
       }
+    } else if (p.dropBomb) {
+      /* ★ Cobalt·上B 的炸弹：重力下坠，撞人 / 落地 / 砸到空中平台都立即引爆（范围伤害） */
+      p.vy -= p.cfg.gravity * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.mesh.position.set(p.x, p.y, 0);
+      p.mesh.rotation.z += dt * 8;
+      const touch = FIGHTERS.find(f => f !== p.owner && !f.eliminated && f.invuln <= 0 && f.intangible <= 0 &&
+        Math.hypot(f.pos.x - p.x, (f.pos.y + 1.35 * f.def.shape.scale) - p.y) < .55 + f.bodyR * .7);
+      /* ⚠ 必须判「这一帧是否穿过平台顶面」：plats 是头顶上方的浮空平台，
+         只写 p.y <= pl.y 的话（炸弹刚出生 y 就很低）会在出生点立刻判定命中 6.2 高的平台。 */
+      const prevY = p.y - p.vy * dt;
+      const plat = plats.find(pl => Math.abs(p.x - pl.x) <= pl.halfW + .1 && p.vy < 0 &&
+        p.y <= pl.y + .12 && prevY >= pl.y - .12);
+      if (touch || p.y <= .26 || plat) {
+        dropBombBurst(p, plat ? plat.y : p.y);
+        scene.remove(p.mesh); projectiles.splice(i, 1); continue;
+      }
+      if (p.t > p.cfg.life || Math.abs(p.x) > CFG.blast.x + 2) { scene.remove(p.mesh); projectiles.splice(i, 1); continue; }
+      continue;
     } else if (p.milk) {
       /* Baby·Milk Bottle：抛物线飞行（**中途碰到人立刻引爆**）→ 落地 → 引信闪烁 → 爆炸 → 留下奶滩 */
       if (!p.landed) {
@@ -14637,6 +16376,14 @@ function updateProjectiles(dt) {
       }
       if (p.cfg.bounce) p.vy -= 17 * dt;                 // Slayer·弹射火球：受重力（抛物线）
       p.x += p.vx * dt; p.y += p.vy * dt;
+      /* ★ Cobalt 科技屏障：挡掉所有「不是屏障主人」的子弹；主人自己的弹道直接穿过 */
+      if (barriers.length) {
+        const hb = barriers.find(b => b.owner !== p.owner && Math.abs(p.x - b.x) < b.w / 2 + .18 && p.y > b.y0 && p.y < b.y1);
+        if (hb) {
+          FX.spark(p.x, p.y, .32, 7, hb.cfg.color); FX.ring(p.x, p.y, .2, 1.3, hb.cfg.color, .22);
+          scene.remove(p.mesh); projectiles.splice(i, 1); continue;
+        }
+      }
       if (p.cfg.bounce && p.y <= .26 && p.vy < 0) {      // 撞地反弹（弹够 bounceMax 次才熄火）
         p.y = .26; p.vy = -p.vy * .74; p.bounceN = (p.bounceN || 0) + 1;
         FX.spark(p.x, p.y - .15, .35, 6, p.cfg.color); FX.ring(p.x, .28, .18, 1.3, p.cfg.color, .22);
@@ -14706,7 +16453,8 @@ function updateProjectiles(dt) {
           /* 击飞角度：弹幕配置可以用 `ang` 自己定（龙卷风=86 打上天）；没写就按老规则 */
           const pAng = (p.cfg.ang !== undefined) ? p.cfg.ang
                      : (p.cfg.kind === 'proj' && p.cfg.dmg > 8 ? 60 : 20);
-          const hitRes = f.takeHit(p.owner, { dmg:p.cfg.dmg*p.chargeMul, bb:p.cfg.bb*p.chargeMul, bg:p.cfg.bg, ang:pAng }, dir);
+          const hitRes = f.takeHit(p.owner, { dmg:p.cfg.dmg*p.chargeMul, bb:p.cfg.bb*p.chargeMul, bg:p.cfg.bg, ang:pAng, noKnock:p.cfg.noKnock }, dir);
+          if (p.cfg.elem && hitRes) applyElement(f, p.cfg.elem, p.owner);   // ★ Mage：元素弹命中附着
           /* ★ Hacker·乱码包：命中即「系统锁定」（3 秒不能动、也不吃击退）；队友不锁 */
           if (hitRes && p.cfg.hack && !f.eliminated && !isTeammate(p.owner, f)) applyHack(f, p.cfg.hack);
           /* ★ Blub·空气弹：命中按类型挂状态（雷=麻痹 / 水=减速 / 草=禁跳 / 正常=只有伤害击退） */
@@ -14790,6 +16538,7 @@ function playerInput(f) {
     if (touchInput.atkHeld) inp.atkHeld = true;
     if (touchInput.spP) { inp.spP = true; touchInput.spP = false; }
     if (touchInput.shHeld) inp.shHeld = true;
+    if (touchInput.dodgeP) { inp.dodgeP = true; touchInput.dodgeP = false; }
   }
   inp.mash = inp.atkP || inp.spP ? 1 : 0;
 }
@@ -14816,7 +16565,7 @@ Fighter.prototype.readInput = function() {
 const NET = {
   mode: 'off', active: false, started: false, spec: false,
   room: '', seat: -1, token: '', name: '',
-  apiBase: 'sbgames/api.php', ws: null,
+  apiBase: '/exams_games/sbgames/api.php', ws: null,
   seed: 0, rules: { count: 4, stocks: 3, time: 180, diff: 2 }, chars: null, humanSeats: null,
   delay: 3, serverFrame: 0,
   localQ: new Map(), remote: new Map(), sendQ: [], evs: [], replayBits: null,
@@ -14839,7 +16588,9 @@ const NET = {
   })(),
   /* ---- 一帧输入压成 16bit ----
      位图：0-1 x / 2-3 y / 4 jumpP / 5 atkP / 6 atkR / 7 spP / 8 downP /
-           9 shHeld / 10 atkHeld / 11 spHeld / 12 mash / 13 fsP / 14 fsHeld / 15 jumpHeld
+           9 shHeld / 10 atkHeld / 11 spHeld / 12 dodgeP / 13 fsP / 14 fsHeld / 15 jumpHeld
+     ★ 12 原来是 mash —— mash 是 atkP||spP 的派生值，改成 unpack 时重算，位宽仍是 16 位，
+       老客户端这一位恒 0（= 没按躲闪），新老互通不会崩。
      ⚠ 13-15 位是后来补的：原先只打包到 mash（12 位），导致「F 键大招」和「Zephyr 滑翔（按住跳）」
        这两个输入**根本没过网** → 联机时按 F 完全没反应（本地自己那边还会走形）。
        加位是向后兼容的：老客户端这三位恒为 0，新客户端读到就是「没按」，不会崩。
@@ -14856,7 +16607,7 @@ const NET = {
     if (i.shHeld) b |= 1 << 9;
     if (i.atkHeld) b |= 1 << 10;
     if (i.spHeld) b |= 1 << 11;
-    if (i.mash) b |= 1 << 12;
+    if (i.dodgeP) b |= 1 << 12;
     if (i.fsP) b |= 1 << 13;
     if (i.fsHeld) b |= 1 << 14;
     if (i.jumpHeld) b |= 1 << 15;
@@ -14869,7 +16620,7 @@ const NET = {
     o.jumpP = !!(b & 1 << 4); o.atkP = !!(b & 1 << 5); o.atkR = !!(b & 1 << 6);
     o.spP = !!(b & 1 << 7); o.downP = !!(b & 1 << 8);
     o.shHeld = !!(b & 1 << 9); o.atkHeld = !!(b & 1 << 10); o.spHeld = !!(b & 1 << 11);
-    o.mash = (b & 1 << 12) ? 1 : 0;
+    o.dodgeP = !!(b & 1 << 12); o.mash = (o.atkP || o.spP) ? 1 : 0;   // mash 由按键派生，不再占位
     o.fsP = !!(b & 1 << 13); o.fsHeld = !!(b & 1 << 14); o.jumpHeld = !!(b & 1 << 15);
     return o;
   },
@@ -15382,7 +17133,9 @@ const NET = {
   wsRemember(v) { try { localStorage.setItem('sb_net_ws', v === '1' ? '1' : ('0@' + Date.now())); } catch (e) {} },
   async connect(forceHttp) {
     const qp = new URLSearchParams(location.search);
-    this.apiBase = qp.get('net') || new URL('sbgames/api.php', location.href).href;
+    /* ⚠ 游戏搬到了 /smash/ 独立目录，sbgames/ 仍在 /exams_games/ 下 —— 必须给绝对路径，
+       否则相对路径会解析成 /smash/sbgames/api.php（404），创建房间/排行榜全部失效 */
+    this.apiBase = qp.get('net') || (location.origin + '/exams_games/sbgames/api.php');
     this.mode = 'http';                                  // 默认走 PHP 透传（零配置即可用）
     // ?ws=1 强制试 WebSocket；失败只记 10 分钟 TTL（到期自动重试，不再永久降级）
     const forceWs = qp.get('ws') === '1';
@@ -15401,6 +17154,8 @@ const NET = {
   },
   /* 只探测「能不能开」：成功保留 socket（等 bindWs 绑座位），失败写 TTL 并说明原因 */
   probeWs(url, timeoutMs) {
+    /* ⚠ 这个 /sbgames/ws 不是文件路径：DSM 的 nginx 用 `location ^~ /sbgames/ws` 把它反代到
+       127.0.0.1:9001 的 Node 守护进程。别改成 /exams_games/sbgames/ws（那是 404）。 */
     url = url || ((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/sbgames/ws');
     const to = Math.max(300, timeoutMs || 900);
     return new Promise(res => {
@@ -15791,7 +17546,7 @@ function ensureReplayBtn() {
   rs.appendChild(b);
   if (!document.getElementById('lnkRank')) {
     const a = document.createElement('a');
-    a.id = 'lnkRank'; a.href = 'sbgames/battle.php'; a.target = '_blank'; a.rel = 'noopener';
+    a.id = 'lnkRank'; a.href = '/exams_games/sbgames/battle.php'; a.target = '_blank'; a.rel = 'noopener';
     a.textContent = '🏆 Leaderboard';
     a.style.cssText = 'display:inline-block;margin:12px 6px 0;padding:10px 18px;border-radius:10px;' +
       'text-decoration:none;font:800 13px/1 inherit;color:#fff;background:linear-gradient(180deg,#5ec8ff,#2f7de0);box-shadow:0 3px 0 #1c4f96';
@@ -16148,8 +17903,10 @@ window.SB = {
         '</div>';
     }).join('');
     /* ★ 第 88 轮：奖杯奖励能拿到的角色不在商店卖（两套来源分开，避免重复付费） */
-    const shop = CHARS.filter(c => !ACC.owns(c.id) && REWARD_CHAR_IDS.indexOf(c.id) < 0);
+    /* ★ Blizzard 不在商店卖：绑定邮箱才给 */
+    const shop = CHARS.filter(c => !ACC.owns(c.id) && REWARD_CHAR_IDS.indexOf(c.id) < 0 && EMAIL_CHAR_IDS.indexOf(c.id) < 0);
     const trophyOnly = CHARS.filter(c => !ACC.owns(c.id) && REWARD_CHAR_IDS.indexOf(c.id) >= 0);
+    const emailOnly = CHARS.filter(c => !ACC.owns(c.id) && EMAIL_CHAR_IDS.indexOf(c.id) >= 0);
     $('rwShop').innerHTML = '<h4 style="font-size:12px;letter-spacing:1.2px;opacity:.8;margin:14px 0 8px">UNLOCK WITH COINS</h4>' +
       (shop.length ? shop.map(c => {
         const can = ACC.coins >= CHAR_PRICE;
@@ -16159,7 +17916,9 @@ window.SB = {
           (can ? 'BUY' : 'NEED ' + (CHAR_PRICE - ACC.coins)) + '</button></div>';
       }).join('') : '<div style="font-size:12px;opacity:.6">Nothing left to buy here.</div>') +
       (trophyOnly.length ? '<div style="font-size:11px;opacity:.55;margin-top:10px">Trophy-exclusive (not sold): ' +
-        trophyOnly.map(c => escHtml(c.name)).join(', ') + '</div>' : '');
+        trophyOnly.map(c => escHtml(c.name)).join(', ') + '</div>' : '') +
+      (emailOnly.length ? '<div style="font-size:11px;opacity:.75;margin-top:10px;color:#7ce8a4">Bind an email to unlock: ' +
+        emailOnly.map(c => escHtml(c.name)).join(', ') + '</div>' : '');
     [].forEach.call($('rwBody').querySelectorAll('[data-claim]'), b => { b.onclick = () => claim(+b.dataset.claim); });
     const wb = $('rwBody').querySelector('[data-welcome]');
     if (wb) wb.onclick = () => {
@@ -16198,6 +17957,53 @@ window.SB = {
     setTimeout(() => { try { toast('+1040 coins waiting — tap the trophy (top-left) to claim'); } catch (e) {} }, 1400);
   }
   refreshCharLocks();
+})();
+
+/* ================= ★ 活动页（iframe 嵌入 /smash/event/） =================
+   用户要求：从 index.html 进去后「embed」而不是当链接跳走。
+   同源 iframe + postMessage：活动页要状态就读 parent，点按钮回调 parent。 */
+(function initEventPanel() {
+  const $ = id => document.getElementById(id);
+  const btn = $('eventBtn'), sheet = $('sheetEvent'), frame = $('evFrame');
+  if (!btn || !sheet || !frame) return;
+  let loaded = false;
+  const openEv = () => {
+    if (!loaded) { try { frame.src = 'event/'; loaded = true; } catch (e) {} }
+    sheet.classList.remove('hidden');
+  };
+  btn.onclick = openEv;
+  /* ★ 贴在 Profile 左边（Profile 宽度随昵称变化 → 每帧用一次 rect 定位，便宜且不会重叠） */
+  const placeBtn = () => {
+    const pb = $('profBtn');
+    if (!pb) return;
+    const r = pb.getBoundingClientRect();
+    if (!r.width) return;
+    btn.style.left = (r.left - 50) + 'px';
+    btn.style.top = (r.top + (r.height - 40) / 2) + 'px';
+    btn.style.right = 'auto';
+  };
+  placeBtn();
+  setInterval(placeBtn, 600);
+  addEventListener('resize', placeBtn);
+  const pushState = () => {
+    try { frame.contentWindow.postMessage({ type:'sb-state', email: !!ACC.email, owns: ACC.owns('blizzard') }, '*'); } catch (e) {}
+  };
+  window.addEventListener('message', e => {
+    const d = e.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'sb-event-state') pushState();
+    else if (d.type === 'sb-event-bind') {          // 活动页要求绑定邮箱 → 先收起活动层，再打开设置
+      sheet.classList.add('hidden');
+      setTimeout(() => { try { $('setBtn').click(); } catch (err) {} }, 140);
+    } else if (d.type === 'sb-event-claim') {       // 领取奖励
+      try { window.__unlockEmailChars && window.__unlockEmailChars(); } catch (err) {}
+      setTimeout(pushState, 350);
+    }
+  });
+  /* 有「已绑邮箱未领取」的奖励 → 按钮上挂红点 */
+  const dot = btn.querySelector('.dot');
+  const refreshDot = () => { if (dot) dot.style.display = (ACC.email && !ACC.owns('blizzard')) ? 'block' : 'none'; };
+  refreshDot(); setInterval(refreshDot, 4000);
 })();
 
 /* ================= ★ 第 72 轮：好友 / 组队 / 在线匹配 ================= */
@@ -16485,8 +18291,33 @@ NET.applyRoom = function (room) {
   $('mmClose').onclick = () => { stop(true); $('mmBox').classList.add('hidden'); };
 })();
 
+/* ================= ★ 弹层统一退出（✕ / 点遮罩空白 / Esc） =================
+   覆盖所有 .sheet（含运行时 append 的 #sheetAccount），所以新增弹层不用再单独接退出键。 */
+function closeTopSheet() {
+  /* .sheet 之外，Profile / 好友面板也是整屏层 —— 一起纳入，Esc 在哪都能退 */
+  const sheets = [].slice.call(document.querySelectorAll('.sheet, #profSheet, #frPanel')).filter(s => !s.classList.contains('hidden'));
+  if (!sheets.length) return false;
+  sheets[sheets.length - 1].classList.add('hidden');
+  try { SFX.tone(420, 260, .06, 'sine', .04); } catch (e) {}
+  return true;
+}
+window.__closeTopSheet = closeTopSheet;
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (!t) return;
+  /* ① ✕：即使某个弹层忘了绑 onclick 也能关（capture 阶段先处理，原来的 handler 仍会跑） */
+  const cl = t.closest && t.closest('.sheetClose');
+  if (cl) { const s = cl.closest('.sheet'); if (s) { s.classList.add('hidden'); e.__sheetClosed = true; } return; }
+  /* ② 点遮罩空白处（不是点 sheetBox 里面） */
+  if (t.classList && t.classList.contains('sheet')) t.classList.add('hidden');
+}, true);
+
+/* ★ 启动补发：已经绑过邮箱的老账号直接补发 Blizzard（等档案从服务端同步回来再判） */
+setTimeout(() => { try { window.__unlockEmailChars && window.__unlockEmailChars(true); } catch (e) {} }, 1600);
+
 requestAnimationFrame(frame);
-SB.NET = NET; SB.REPLAY = REPLAY;              // 联机/回放挂到调试对象，便于控制台排查
+SB.NET = NET; SB.REPLAY = REPLAY; SB.barriers = barriers; SB.weather = weather; SB.strikes = strikes;
+SB.ACC = ACC; SB.CHARS = CHARS;   // 探针/调试：存档与角色表   // 探针：屏障数组（只读）              // 联机/回放挂到调试对象，便于控制台排查
 console.log('[SB] Super Brawl demo loaded', window.SB.version);
 
 /* ================= ★ 第 94 轮：账号设置（服务端存档 / 邮箱绑定 / 跨设备登录） ================= */
@@ -16562,7 +18393,11 @@ console.log('[SB] Super Brawl demo loaded', window.SB.version);
       const code = ($('accCode').value || '').trim();
       if (!code) return render('Enter the 6-digit code.');
       const r = await NET.verifyEmail(code);
-      if (r && r.ok) { ACC.setEmail(r.email); render('Email bound ✓ — you can log in from any device now.'); }
+      if (r && r.ok) {
+        ACC.setEmail(r.email);
+        render('Email bound ✓ — you can log in from any device now.');
+        try { window.__unlockEmailChars && window.__unlockEmailChars(); } catch (e) {}
+      }
       else render(errText(r));
     };
     $('accLogin').onclick = async () => {
