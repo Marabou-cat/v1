@@ -10939,7 +10939,11 @@ class Fighter {
     S.t += dt; this.state = 'special'; this.animT += dt;
     this.vel.x *= (1 - 1.6 * dt);                       // 后坐力衰减（飞出去后自然滑停）
     /* 火焰锥：每帧往前喷球体火焰 */
-    if (S.t % .03 < dt) vexFlame(this.pos.x + dir * .85, this.pos.y + 1.25, 0, dir, 5, 11, .15, .32);
+    const Rc = 2.35;
+    if (S.t % .03 < dt) {
+      vexFlame(S.cx + (Math.random() - .5) * 1.6, this.pos.y + 1.25 + (Math.random() - .5) * .5, 0, dir, 5, 8, .16, .34);
+      vexFlame(this.pos.x + dir * .85, this.pos.y + 1.25, 0, dir, 2, 10, .13, .26);
+    }
     S.tickT -= dt;
     if (S.tickT <= 0) {
       S.tickT = cfg.tick || .075;
@@ -10947,15 +10951,15 @@ class Fighter {
       for (const f of FIGHTERS) {
         if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
         if (this.team >= 0 && isTeammate(this, f)) continue;
-        const dx = (f.pos.x - this.pos.x) * dir;
-        if (dx < -.35 || dx > R) continue;
-        if (Math.abs((f.pos.y + 1.0) - (this.pos.y + 1.25)) > 1.9) continue;
+        const dx = (f.pos.x - S.cx) * dir;
+        if (dx < -Rc - .6 || dx > Rc) continue;                 // 判定跟着「火云」走，不跟着人
+        if (Math.abs((f.pos.y + 1.0) - (this.pos.y + 1.25)) > 2.0) continue;
         f.takeHit(this, { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang || 40 }, dir, 1);
         f.hitstun = Math.max(f.hitstun, .16);
         f.vel.x *= .55;
         FX.spark(f.pos.x, f.pos.y + 1.05, .34, 4, 0xc9a4ff);
       }
-      FX.ring(this.pos.x + dir * 1.1, this.pos.y + 1.25, .2, 1.8, cfg.color, .16);
+      FX.ring(S.cx, this.pos.y + 1.25, .2, 1.8, cfg.color, .16);
       SFX.tone(300, 170, .07, 'sawtooth', .06);
     }
     if (S.t >= (cfg.dur || .46)) this.vexSpray = null;
@@ -12226,7 +12230,7 @@ class Fighter {
       SFX.special('dash');
       vexFlame(this.pos.x, this.pos.y + .35, 0, 0, 10, 3.6, .14, .34, 1);
     } else if (cfg.kind === 'vexSpray') {               // ★ Vexor·中立B：向前喷紫火，自己向后弹射
-      this.vexSpray = { cfg, t:0, tickT:0, dir };
+      this.vexSpray = { cfg, t:0, tickT:0, dir, cx:this.pos.x + dir * 1.35 };   // cx = 火焰云中心（人后退，云留下）
       this.vel.x = -dir * (cfg.recoil || 17);            // 后坐力：人往后飞
       this.vel.y = Math.max(this.vel.y, 2.2);
       this.grounded = false;
