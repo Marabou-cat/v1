@@ -522,14 +522,31 @@ document.addEventListener('DOMContentLoaded', function () {
   @keyframes gemPulse{0%,100%{opacity:1}50%{opacity:.66}}
   .resTag small{font:700 9.5px/1 inherit;letter-spacing:.6px;opacity:.62}
   body:not(.inMenu) #resBar{display:none!important}
-  /* ★ 活动入口（右上角、Profile 左边）—— 最终位置由 JS 按 Profile 实际宽度贴合 */
-  #eventBtn{position:fixed;right:196px;top:10px;z-index:46;width:40px;height:40px;border-radius:12px;
-    border:1px solid rgba(255,255,255,.18);background:rgba(13,18,34,.74);color:#eaf2ff;
-    display:grid;place-items:center;cursor:pointer}
-  #eventBtn .ico{width:19px;height:19px;margin:0;stroke:#ffd166}
-  body:not(.inMenu) #eventBtn{display:none!important}
-  #eventBtn .dot{position:absolute;right:6px;top:6px;width:8px;height:8px;border-radius:50%;
+  /* ★ 活动入口（右上角、Profile 左边）：从 40×40 的图标改成**带字胶囊**，有奖可领时呼吸发光 + 红点
+     —— 用户原话「让活动按钮更容易发现」。位置仍由 JS 按 Profile 实际宽度贴合（不写死 right）。 */
+  #eventBtn{position:fixed;right:196px;top:10px;z-index:46;height:40px;padding:0 14px 0 11px;border-radius:999px;
+    border:1.6px solid rgba(255,209,102,.55);background:rgba(13,18,34,.80);color:#ffe9a8;
+    display:flex;align-items:center;gap:7px;cursor:pointer;font:900 11.5px/1 ui-monospace,Menlo,monospace;
+    letter-spacing:1.2px;backdrop-filter:blur(7px);transition:box-shadow .25s,border-color .2s,transform .1s}
+  #eventBtn:active{transform:scale(.96)}
+  #eventBtn .ico{width:18px;height:18px;margin:0;stroke:#ffd166}
+  #eventBtn .dot{position:absolute;right:5px;top:5px;width:9px;height:9px;border-radius:50%;
     background:#ff5a5a;box-shadow:0 0 0 2px rgba(13,18,34,.9);display:none}
+  #eventBtn.hot{border-color:rgba(255,226,140,.95);color:#fff3c4;
+    box-shadow:0 0 0 2px rgba(255,214,106,.18),0 0 20px rgba(255,196,64,.55);animation:evPulse 2.4s ease-in-out infinite}
+  @keyframes evPulse{0%,100%{box-shadow:0 0 0 2px rgba(255,214,106,.14),0 0 14px rgba(255,196,64,.40)}
+                     50%{box-shadow:0 0 0 2px rgba(255,214,106,.32),0 0 26px rgba(255,196,64,.75)}}
+  body:not(.inMenu) #eventBtn{display:none!important}
+  /* ★ 活动层全屏：iframe 铺满整个屏幕，✕ 浮在右上角（Esc / 点 ✕ 都能关）
+     ⚠ z-index 必须高过大厅的常驻浮层（资源条 70 / 抽卡 58 / 好友 45），否则它们会盖在活动页上面 */
+  #sheetEvent{z-index:90;align-items:stretch;justify-content:center;background:#060a12 !important;backdrop-filter:none !important}
+  #sheetEvent .evfull{position:relative;width:100vw;height:100vh;max-width:none;max-height:none;
+    border-radius:0;padding:0;overflow:hidden;background:#060a12}
+  #sheetEvent iframe{display:block;width:100%;height:100%;border:0;background:#060a12}
+  #evClose{position:absolute;right:14px;top:12px;z-index:6;width:38px;height:38px;border-radius:50%;
+    border:1.6px solid rgba(255,255,255,.28);background:rgba(8,12,22,.78);color:#fff;font:900 15px/1 inherit;
+    cursor:pointer;backdrop-filter:blur(6px)}
+  #evClose:active{transform:scale(.94)}
   #trophyTag.bump{animation:tkbump .45s ease}
   @keyframes tkbump{0%{transform:scale(1)}35%{transform:scale(1.18)}100%{transform:scale(1)}}
   #cacheTag{top:48px}
@@ -606,6 +623,10 @@ document.addEventListener('DOMContentLoaded', function () {
     background:rgba(7,10,22,.94);border:1.5px solid rgba(255,255,255,.2);border-radius:13px;padding:9px 12px;
     font-size:12px;line-height:1.6;display:none;box-shadow:0 12px 30px rgba(0,0,0,.5)}
   #skillPop.on{display:block}
+  /* ⚠ #skillPop / #pvTools 是 #startScreen 的直接子节点，会吃到 `#startScreen > *{animation:fadeUp both}` ——
+     动画的关键帧带 transform，会把我这里的 translate(-50%,-100%) 覆盖成 none/translateY(16px)（实测弹层从
+     「脚上方」掉到「脚下方」并且不居中）。这两个元件必须关掉那条入场动画。 */
+  #skillPop,#pvTools{animation:none!important}
   #skillPop b{color:#ffd166}
   #skillPop::-webkit-scrollbar{width:6px}
   #skillPop::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:3px}
@@ -722,10 +743,11 @@ document.addEventListener('DOMContentLoaded', function () {
   <button class="resTag gem" id="gemTag" title="Supreme Gems — summon" type="button"><svg class="ico"><use href="#i-gem"/></svg><b id="gemNum">0</b></button>
 </div>
 <!-- ★ 活动入口：点开是用 iframe「嵌入」活动页，不是跳转链接 -->
-<button id="eventBtn" title="Events"><svg class="ico"><use href="#i-gift"/></svg><i class="dot"></i></button>
-<div class="sheet hidden" id="sheetEvent"><div class="sheetBox wide" style="padding:0;overflow:hidden;background:#0b1220">
-  <div class="sheetHead" style="padding:10px 14px 8px"><span>EVENTS</span><button class="sheetClose" id="evClose">✕</button></div>
-  <iframe id="evFrame" title="Events" style="width:100%;height:min(74vh,640px);border:0;display:block;background:#0b1220"></iframe>
+<button id="eventBtn" title="Events — rewards to claim"><svg class="ico"><use href="#i-gift"/></svg><span>EVENTS</span><i class="dot"></i></button>
+<!-- ★ 活动层：全屏（iframe 铺满），右上角一个 ✕；活动列表在页面内部的右侧栏里 -->
+<div class="sheet hidden" id="sheetEvent"><div class="evfull">
+  <button class="sheetClose" id="evClose" title="Close events">✕</button>
+  <iframe id="evFrame" title="Events"></iframe>
 </div></div>
 <!-- ★ 第 67 轮：右上角 Profile（昵称 / 头像）+ 开局阵容层 -->
 <button id="profBtn" title="Profile"><img id="profAva" alt=""><b id="profName">Guest</b></button>
@@ -16424,6 +16446,10 @@ const ACC = (() => {
     skinOf(charId) { return (a.equipSkins && a.equipSkins[String(charId)]) || ''; },
     equipWeapon(charId, wId) { a.equipWeapon[String(charId)] = String(wId || ''); save(); return true; },
     weaponOf(charId) { return (a.equipWeapon && a.equipWeapon[String(charId)]) || ''; },
+    /* ★ 活动奖励领取记录（本机存档）。每个活动只发一次；和教程标记同性质，不随账号迁移。 */
+    get eventClaims() { return Object.assign({}, a.eventClaims || {}); },
+    hasEvent(id) { return !!(a.eventClaims && a.eventClaims[String(id)]); },
+    markEvent(id) { a.eventClaims = a.eventClaims || {}; a.eventClaims[String(id)] = true; save(); return true; },
     unlock(id) { id = String(id); if (a.owned.indexOf(id) < 0) a.owned.push(id); save(); return true; },
     get claimed() { return a.claimed.slice(); },
     markClaimed(i) { if (a.claimed.indexOf(i) < 0) a.claimed.push(i); save(); },
@@ -18408,7 +18434,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net85',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net86',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -20194,27 +20220,41 @@ window.SB = {
   const btn = $('eventBtn'), sheet = $('sheetEvent'), frame = $('evFrame');
   if (!btn || !sheet || !frame) return;
   let loaded = false;
+  /* 活动奖励表（与 event/index.html 的 EVENTS 对齐；这里只关心「有没有奖可领」） */
+  const claimable = () => {
+    const out = [];
+    if (!ACC.hasEvent('gemrush')) out.push('gemrush');
+    if (!ACC.hasEvent('penguin')) out.push('penguin');
+    if (ACC.email && !ACC.owns('blizzard')) out.push('blizzard');
+    return out;
+  };
+  const pushState = () => {
+    try {
+      frame.contentWindow.postMessage({ type:'sb-state',
+        email: !!ACC.email, owns: ACC.owns('blizzard'),
+        gems: ACC.gems, hasSkin: ACC.hasSkin('smiley_penguin'),
+        claims: ACC.eventClaims }, '*');
+    } catch (e) {}
+  };
   const openEv = () => {
     if (!loaded) { try { frame.src = 'event/'; loaded = true; } catch (e) {} }
     sheet.classList.remove('hidden');
+    pushState(); setTimeout(pushState, 300);          // iframe 首次加载会错过第一条消息
   };
   btn.onclick = openEv;
-  /* ★ 贴在 Profile 左边（Profile 宽度随昵称变化 → 每帧用一次 rect 定位，便宜且不会重叠） */
+  /* ★ 贴在 Profile 左边：用**按钮自己的宽度**算（改成胶囊后写死 50px 会叠在一起） */
   const placeBtn = () => {
     const pb = $('profBtn');
     if (!pb) return;
     const r = pb.getBoundingClientRect();
     if (!r.width) return;
-    btn.style.left = (r.left - 50) + 'px';
+    btn.style.left = (r.left - btn.offsetWidth - 10) + 'px';
     btn.style.top = (r.top + (r.height - 40) / 2) + 'px';
     btn.style.right = 'auto';
   };
   placeBtn();
   setInterval(placeBtn, 600);
   addEventListener('resize', placeBtn);
-  const pushState = () => {
-    try { frame.contentWindow.postMessage({ type:'sb-state', email: !!ACC.email, owns: ACC.owns('blizzard') }, '*'); } catch (e) {}
-  };
   window.addEventListener('message', e => {
     const d = e.data;
     if (!d || typeof d !== 'object') return;
@@ -20222,15 +20262,36 @@ window.SB = {
     else if (d.type === 'sb-event-bind') {          // 活动页要求绑定邮箱 → 先收起活动层，再打开设置
       sheet.classList.add('hidden');
       setTimeout(() => { try { $('setBtn').click(); } catch (err) {} }, 140);
-    } else if (d.type === 'sb-event-claim') {       // 领取奖励
-      try { window.__unlockEmailChars && window.__unlockEmailChars(); } catch (err) {}
-      setTimeout(pushState, 350);
+    } else if (d.type === 'sb-event-claim') {       // ★ 领取奖励（按活动 id 分发）
+      const id = d.id || 'blizzard';
+      if (id === 'gemrush') {
+        if (!ACC.hasEvent('gemrush')) {
+          ACC.markEvent('gemrush'); ACC.addGems(500);
+          toast('+500 gems · Summon Rush'); try { SFX.special('wave'); } catch (err) {}
+        }
+      } else if (id === 'penguin') {
+        if (!ACC.hasEvent('penguin')) {
+          ACC.markEvent('penguin'); ACC.addSkin('smiley_penguin');
+          toast('Penguin skin unlocked · equip it with the SKIN button'); try { SFX.special('wave'); } catch (err) {}
+        }
+      } else {
+        try { window.__unlockEmailChars && window.__unlockEmailChars(); } catch (err) {}
+      }
+      try { summonBtnPaint(); } catch (e2) {}          // 宝石数立刻更新（抽卡按钮 + 资源条）
+      try { paintSkinBtn(); } catch (e2) {}
+      try { window.__rebuildChars && window.__rebuildChars(); } catch (e2) {}
+      setTimeout(pushState, 320);
     }
   });
-  /* 有「已绑邮箱未领取」的奖励 → 按钮上挂红点 */
+  /* ★ 红点 + 呼吸发光：只要还有没领的奖励就一直亮（这就是「活动按钮更容易发现」的状态提示） */
   const dot = btn.querySelector('.dot');
-  const refreshDot = () => { if (dot) dot.style.display = (ACC.email && !ACC.owns('blizzard')) ? 'block' : 'none'; };
-  refreshDot(); setInterval(refreshDot, 4000);
+  const refreshHot = () => {
+    const n = claimable().length;
+    if (dot) dot.style.display = n ? 'block' : 'none';
+    btn.classList.toggle('hot', n > 0);
+    btn.title = n ? ('Events — ' + n + ' reward' + (n > 1 ? 's' : '') + ' to claim') : 'Events';
+  };
+  refreshHot(); setInterval(refreshHot, 3000);
 })();
 
 /* ================= ★ 第 72 轮：好友 / 组队 / 在线匹配 ================= */
