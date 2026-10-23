@@ -2233,16 +2233,16 @@ CHAR_EXTRA.mosquito = {
   accel:46, airAccel:40, fric:24, mul:{ dmg:1.0, kb:.95, spd:1.0 },
   special:{
     /* 中立B：尖刺 —— 命中 15% 伤害 + 自己回 5%（不是击退技，飞得慢、判定小） */
-    n:{ kind:'mosqSpike', label:'Blood Spike', cd:3.2, dmg:15, bb:7, bg:20, ang:20, spd:32, size:.24,
-        life:1.5, hitR:.5, heal:5, color:0xff4d4d },
+    n:{ kind:'mosqSpike', label:'Blood Spike', cd:2.6, dmg:15, bb:7, bg:20, ang:20, spd:38, size:.28,
+        life:1.5, hitR:.68, heal:5, color:0xff4d4d },
     /* 左右B：前冲撞人即停 → 5 连击（每段 5% × 5 = 25%）+ 吸血 15（每段 3） */
-    s:{ kind:'mosqDash', label:'Blood Rush', cd:6.0, dashSpd:27, dur:.62, hits:5, dmg:5, heal:15,
+    s:{ kind:'mosqDash', label:'Blood Rush', cd:5.0, dashSpd:31, dur:.72, hits:5, dmg:5, heal:15,
         bb:13, bg:32, ang:34, color:0xff4d4d },
     /* 上B：冲天 + 沿途抓人（4 段 × 4% = 16%，吸血 10） */
-    u:{ kind:'mosqRise', label:'Sky Drain', cd:5.0, rise:28, dur:.58, hits:4, dmg:4, heal:10,
+    u:{ kind:'mosqRise', label:'Sky Drain', cd:4.2, rise:32, dur:.58, hits:4, dmg:4, heal:10,
         bb:9, bg:26, ang:78, color:0xff7a7a },
     /* 下B：水盾 3 秒（免伤 + 挡下的伤害 50% 转治疗） */
-    d:{ kind:'mosqWater', label:'Water Veil', cd:7.0, dur:3.0, color:0x39a7ff },
+    d:{ kind:'mosqWater', label:'Water Veil', cd:6.0, dur:3.5, color:0x39a7ff },
   } };
 
 for (const c of CHARS) {
@@ -7505,7 +7505,8 @@ function kitShark(def) {
 
 
 FSPECIALS.sovereign = { name:'Cardboard Strike', style:'cbFreeze', color:0xffb347, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0, dur:2.6 };
-FSPECIALS.mosquito = { name:'Swarm Sight', style:'mosqEye', color:0xff4d4d, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0, dur:.6 };
+FSPECIALS.mosquito = { name:'Swarm Sight', style:'mosqEye', color:0xff4d4d, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0, dur:.6,
+  swarmT:12, swarmR:4.2, swarmDmg:2, swarmHeal:.6, swarmTick:.5, burstDmg:10, burstR:5.2, burstBb:10, burstBg:40, spdMul:1.7 };
 /* ================= ★ Cardboard：纸箱机器人（箱子 + 胶布 + 核心灯） =================
    全部用 BoxGeometry 拼：躯干/胸板/头/四肢都是箱子，胶布是薄薄的米色片（斜贴/横贴），
    胸口一颗青色核心（Side B 第 5 段激光从这里打、Up B 向下喷也在这里）。
@@ -9310,7 +9311,7 @@ class Fighter {
     this.fangLeech = 0; this._fsSpd = null; this._fsSpdT = 0;                                         // ★ Fang 大招：吸血 / 速度改造
     this.fsMeter = 0; this.fsUsed = 0; this.fsT = 0; this.fsHits = 0; this.fsDone = 0;
     this.counter = null; this.reflect = null; this.buff = null; this._bm = 1; this._baseS = null;
-    this.mosq = null; this.mosqWater = null; this.mosqSight = 0; this.spT = 0;   // ★ 蚊子
+    this.mosq = null; this.mosqWater = null; this.mosqSight = 0; this.mosqSwarm = null; this.spT = 0;   // ★ 蚊子
     this.buf = { atk:0, sp:0, jump:0 };      // 输入Buffer：招式中按下的键不会丢
     this.jabCombo = 0; this.jabComboT = 0;   // J Jab段数
     this.pull = null; this.pullFx = null; this.pullFxT = 0;   // 磁力牵引（施法方）
@@ -10031,10 +10032,23 @@ class Fighter {
     const SP = this.fsSpec || FSPECIALS.sparky, k = this.fsDone++, c = SP.color, d0 = this.facing || 1;
     const px = this.pos.x, py = this.pos.y, cl = (v) => THREE.MathUtils.clamp(v, -CFG.blast.x + 2, CFG.blast.x - 2);
     switch (SP.style) {
-      case 'mosqEye': {                                  // ★ 蚊子大招：10 秒移速 ×1.5 + 视野恢复
-        this.buff = { t:10, spd:1.5, dmg:1, cfg:{} };        // ⚠ update() 会读 buff.cfg.armor，cfg 不能省
-        this.mosqSight = 10;
-        callout(this, 'SWARM SIGHT · 10s', 0xff4d4d);
+      case 'mosqEye': {                                  // ★ 蚊子大招：虫群领域（12s 范围吸血 + 移速 + 真视野）
+        const SD = SP.swarmT || 12;
+        this.buff = { t:SD, spd:SP.spdMul || 1.7, dmg:1, cfg:{} };   // ⚠ update() 会读 buff.cfg.armor，cfg 不能省
+        this.mosqSight = SD;
+        this.mosqSwarm = { t:SD, next:0 };                           // 持续领域（mosqTick 里结算）
+        /* 起手冲击波：把围在身边的人直接震开（范围伤害，不再是「纯 buff 大招」） */
+        const BR = SP.burstR || 5.2;
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          if (Math.hypot(f.pos.x - this.pos.x, f.pos.y - this.pos.y) > BR) continue;
+          f.takeHit(this, { dmg:SP.burstDmg || 10, bb:SP.burstBb || 10, bg:SP.burstBg || 40, ang:62 },
+                    Math.sign(f.pos.x - this.pos.x) || this.facing || 1, 1);
+        }
+        FX.ring(this.pos.x, this.pos.y + .5, .32, BR * 1.05, 0xff4d4d, .55);
+        FX.crater(this.pos.x, Math.max(0, this.pos.y - .1), BR * .7, 0xff6a6a);
+        callout(this, 'SWARM SIGHT · ' + SD + 's', 0xff4d4d);
         FX.ring(this.pos.x, this.pos.y + 1.1, .32, 5.0, 0xff4d4d, .55);
         FX.flash(this.pos.x, this.pos.y + 1.1, .50, 9.0, 0xffd0d0, .34);
         FX.burst(this.pos.x, this.pos.y + 1.1, .2, 0xff4d4d, 24, 18);
@@ -12431,6 +12445,30 @@ class Fighter {
       }
     }
     if (this.mosqSight > 0) this.mosqSight = Math.max(0, this.mosqSight - dt);
+    /* ★ 大招·虫群领域：每 .5s 对周围一圈敌人造成小额伤害，并按每命中一个回血（范围吸血） */
+    if (this.mosqSwarm) {
+      const SW = this.mosqSwarm, FS = FSPECIALS.mosquito || {};
+      SW.t -= dt;
+      SW.next -= dt;
+      if (SW.next <= 0) {
+        SW.next = FS.swarmTick || .5;
+        const R = FS.swarmR || 4.2;
+        let hitN = 0;
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          if (Math.hypot(f.pos.x - this.pos.x, (f.pos.y + 1.0) - (this.pos.y + 1.0)) > R) continue;
+          f.takeHit(this, { dmg:FS.swarmDmg || 2, bb:0, bg:0, ang:30, stun:.10 }, Math.sign(f.pos.x - this.pos.x) || this.facing || 1, 0);
+          FX.spark(f.pos.x, f.pos.y + 1.0, .30, 4, 0xff4d4d);
+          hitN++;
+        }
+        if (hitN > 0) this.healPct((FS.swarmHeal || .6) * hitN, false);
+        FX.ring(this.pos.x, this.pos.y + .8, .34, R, 0xff4d4d, .34);   // 领域脉冲（看得出范围）
+        FX.ring(this.pos.x, this.pos.y + .8, .30, R * .55, 0xff8a8a, .26);
+        shake = Math.max(shake, .10);
+      }
+      if (SW.t <= 0 || this.eliminated) { this.mosqSwarm = null; callout(this, 'SWARM END', 0xff8a8a); }
+    }
     const S = this.mosq; if (!S) return;
     const cfg = S.cfg || {};
     S.t += dt;
@@ -12462,8 +12500,8 @@ class Fighter {
       for (const f of FIGHTERS) {
         if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
         if (this.team >= 0 && isTeammate(this, f)) continue;
-        if (Math.abs(f.pos.x - this.pos.x) > 1.5) continue;
-        if (f.pos.y > this.pos.y + 2.6 || f.pos.y < this.pos.y - 1.6) continue;
+        if (Math.abs(f.pos.x - this.pos.x) > 2.3) continue;                 // ★ 抓取范围放大（横 1.5→2.3）
+        if (f.pos.y > this.pos.y + 3.4 || f.pos.y < this.pos.y - 2.4) continue;   // ★ 纵 2.6/1.6 → 3.4/2.4
         this.mosq = { mode:'combo', t:0, dir:(f.pos.x >= this.pos.x ? 1 : -1), cfg, hits:0, next:.03, target:f };
         this.vel.set(0, 0, 0);
         f.hitstun = Math.max(f.hitstun || 0, .24);
@@ -15634,9 +15672,9 @@ class Fighter {
     /* ★ 蚊子：没有重力 —— 按住空格上浮、下+空格下降、松手原地悬停（永久悬浮；击退照常生效） */
     if (this.def.id === 'mosquito') {
       const up = !!this.input.jumpHeld, dn = up && this.input.y < -.5;
-      if (up && !dn) this.vel.y = Math.min(7.6, this.vel.y + 52 * dt);
-      else if (dn) this.vel.y = Math.max(-7.0, this.vel.y - 58 * dt);
-      else { this.vel.y -= this.vel.y * Math.min(1, dt * 9.0); if (Math.abs(this.vel.y) < .35) this.vel.y = 0; }   // 松手：快速收敛成悬停
+      if (up && !dn) this.vel.y = Math.min(9.5, this.vel.y + 62 * dt);
+      else if (dn) this.vel.y = Math.max(-9.5, this.vel.y - 68 * dt);
+      else { this.vel.y -= this.vel.y * Math.min(1, dt * 11.0); if (Math.abs(this.vel.y) < .35) this.vel.y = 0; }   // 松手：快速收敛成悬停
       if (this.grounded && this.vel.y > .2) this.grounded = false;
     } else {
       // 重力
@@ -15661,7 +15699,7 @@ class Fighter {
     this.pos.x += this.vel.x * dt;
     this.pos.y += this.vel.y * dt;
     /* ★ 蚊子：高度上限（能飞到浮空平台上方，但飞不出场） */
-    if (this.def.id === 'mosquito' && this.pos.y > 9.2) { this.pos.y = 9.2; if (this.vel.y > 0) this.vel.y = 0; }
+    if (this.def.id === 'mosquito' && this.pos.y > 11.0) { this.pos.y = 11.0; if (this.vel.y > 0) this.vel.y = 0; }
     // 场地碰撞（顶面单向 + 主板面侧向阻挡）
     this.grounded = false; this.onSoft = false;
     if (this.vel.y <= 0 && this.pos.y <= 0 && py >= -.05) {
@@ -20035,7 +20073,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net95',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net96',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
