@@ -2206,6 +2206,45 @@ CHAR_EXTRA.sovereign = Object.assign({}, CHAR_EXTRA.sparky, {
     /* 下B：长按扫射激光，由近到远、角度逐渐上扬 */
     d:{ kind:'cbSweep', label:'Sweep Laser', cd:4.0, hold:2.2, gap:.10, dmg:1.0, len0:4.5, len1:14.5, ang0:-8, ang1:30, hitW:1.9, color:0xff9a3c },
   } });
+
+/* ================= ★ 蚊子 Mosquito（2026-10-23 第 123 轮）=================
+   被动：**不能跳**（空格 = 缓慢上浮，下+空格 = 下降，松手悬停），永久悬浮但会被击退、有高度上限（integrate 里实现）；
+        视野全黑、只见周围（DOM 遮罩 mosqVeilTick）。
+   技能：中立B 尖刺（15% + 自愈 5%）/ 左右B 血液冲刺（撞人停 → 5 连击 25% + 吸血 15%）/
+        下B 水盾 3s（免伤 + 挡下的伤害 50% 转治疗）/ 上B 冲天吸血（上升 + 抓人连击吸血）/
+        大招 10s：移速 ×1.5 + 视野恢复。 */
+CHARS.push({ id:'mosquito', name:'Mosquito', en:'MOSQUITO', tag:'Blood',
+  body:0x6b5b4a, body2:0xc9b9a3, dark:0x2e2620, eye:0xff3b30,
+  shape:{ scale:1.0, headR:.46 },
+  weight:64, walk:9.2, run:14.2, air:12.5, jump:0, jumps:0, fall:26, fastFall:34,
+  accel:46, airAccel:40, fric:24, mul:{ dmg:1.0, kb:.95, spd:1.0 },
+  moves:{},
+  special:{} });
+CHAR_EXTRA.mosquito = {
+  trait:'Blood Drain · Hover · Black Sight',
+  skills:'PASSIVE Hover: no jumps — HOLD Space to drift slowly upward, Down+Space to sink, let go to hover in place (knockback still sends you flying, and there is a ceiling) · '
+    + 'Neutral B Blood Spike (fire a needle: 15% damage, heals you 5%) · '
+    + 'Side B Blood Rush (dash forward and stop on the first foe: 5-hit combo for 25% and 15% lifesteal) · '
+    + 'Down B Water Veil (3s: immune to damage, and 50% of the damage you would have taken is converted into healing) · '
+    + 'Up B Sky Drain (rocket upward and grab whoever is on the way: combo + lifesteal) · '
+    + 'Final Smash Swarm Sight (10s: fly 50% faster AND your black-sight lifts — you can see the whole stage).',
+  shape:{ scale:1.0, headR:.46 },
+  weight:64, walk:9.2, run:14.2, air:12.5, jump:0, jumps:0, fall:26, fastFall:34,
+  accel:46, airAccel:40, fric:24, mul:{ dmg:1.0, kb:.95, spd:1.0 },
+  special:{
+    /* 中立B：尖刺 —— 命中 15% 伤害 + 自己回 5%（不是击退技，飞得慢、判定小） */
+    n:{ kind:'mosqSpike', label:'Blood Spike', cd:3.2, dmg:15, bb:7, bg:20, ang:20, spd:32, size:.24,
+        life:1.5, hitR:.5, heal:5, color:0xff4d4d },
+    /* 左右B：前冲撞人即停 → 5 连击（每段 5% × 5 = 25%）+ 吸血 15（每段 3） */
+    s:{ kind:'mosqDash', label:'Blood Rush', cd:6.0, dashSpd:27, dur:.62, hits:5, dmg:5, heal:15,
+        bb:13, bg:32, ang:34, color:0xff4d4d },
+    /* 上B：冲天 + 沿途抓人（4 段 × 4% = 16%，吸血 10） */
+    u:{ kind:'mosqRise', label:'Sky Drain', cd:5.0, rise:28, dur:.58, hits:4, dmg:4, heal:10,
+        bb:9, bg:26, ang:78, color:0xff7a7a },
+    /* 下B：水盾 3 秒（免伤 + 挡下的伤害 50% 转治疗） */
+    d:{ kind:'mosqWater', label:'Water Veil', cd:7.0, dur:3.0, color:0x39a7ff },
+  } };
+
 for (const c of CHARS) {
   const x = CHAR_EXTRA[c.id];
   if (!x) continue;
@@ -7466,6 +7505,7 @@ function kitShark(def) {
 
 
 FSPECIALS.sovereign = { name:'Cardboard Strike', style:'cbFreeze', color:0xffb347, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0, dur:2.6 };
+FSPECIALS.mosquito = { name:'Swarm Sight', style:'mosqEye', color:0xff4d4d, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0, dur:.6 };
 /* ================= ★ Cardboard：纸箱机器人（箱子 + 胶布 + 核心灯） =================
    全部用 BoxGeometry 拼：躯干/胸板/头/四肢都是箱子，胶布是薄薄的米色片（斜贴/横贴），
    胸口一颗青色核心（Side B 第 5 段激光从这里打、Up B 向下喷也在这里）。
@@ -7768,7 +7808,79 @@ function kitCardboard(def) {
 }
 
 
-const KITS = { sovereign:kitCardboard, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
+/* ================= ★ 蚊子模型（细长腹 + 绒毛胸 + 大复眼 + 长喙 + 六足 + 双翅）=================
+   朝向约定：模型正面 = 局部 +Z（引擎按 facing 把整个 group 转 ±90°）。
+   腹部往 -Z 收细悬在后面；头/复眼/口器在 +Z；翅膀在胸背上方。 */
+function kitMosquito(def) {
+  const g = new THREE.Group();
+  const flip = new THREE.Group(); g.add(flip);
+  const bodyM = cmat(def.body, { roughness:.66 });
+  const bandM = cmat(0xe8dcc8, { roughness:.72 });            // 腹部白环
+  const darkM = cmat(def.dark, { roughness:.58 });
+  const eyeM  = glowMat(0xff3b30, 1.35, 0x4d0806);
+  const wingM = new THREE.MeshStandardMaterial({ color:0xdfeaff, transparent:true, opacity:.30,
+    roughness:.22, metalness:.08, side:THREE.DoubleSide, depthWrite:false });
+  const CYL = (rt, rb, h, mat, x, y, z, rx, rz) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 10), mat);
+    m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (rz) m.rotation.z = rz;
+    flip.add(m); return m;
+  };
+  /* ---- 腹部（-Z 方向收细）+ 三道白环 ---- */
+  const tail = CYL(.30, .09, 1.30, bodyM, 0, 1.22, -.80, Math.PI / 2);
+  for (let i = 0; i < 3; i++) {
+    const r = .245 - i * .062;
+    const b = CYL(r, r, .055, bandM, 0, 1.235 - i * .015, -.42 - i * .34, Math.PI / 2);
+    b.scale.setScalar(1);
+  }
+  const stinger = CYL(.02, .055, .22, darkM, 0, 1.15, -1.50, Math.PI / 2);
+  /* ---- 胸（绒毛球 + 背板）---- */
+  const torso = new THREE.Mesh(new THREE.SphereGeometry(.36, 18, 14), bodyM);
+  torso.position.set(0, 1.30, .02); torso.scale.set(1, .95, 1.12); flip.add(torso);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(.24, 16, 12), bandM);
+  belly.position.set(0, 1.34, .26); belly.scale.set(1, .80, .70); flip.add(belly);
+  /* ---- 头：小球 + 两只大复眼 + 长口器 + 两根触角 ---- */
+  const head = new THREE.Group(); head.position.set(0, 1.40, .48); flip.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(.22, 16, 12), bodyM);
+  skull.scale.set(1, .92, .95); head.add(skull);
+  for (const sgn of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.145, 16, 12), eyeM);
+    eye.position.set(sgn * .155, .045, .075); eye.scale.set(1, 1.12, .82); head.add(eye);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .30, 6), darkM);
+    ant.position.set(sgn * .11, .19, .10); ant.rotation.z = -sgn * .34; ant.rotation.x = -.55; head.add(ant);
+  }
+  const proboscis = new THREE.Mesh(new THREE.CylinderGeometry(.016, .038, .62, 8), darkM);
+  proboscis.position.set(0, -.05, .40); proboscis.rotation.x = Math.PI / 2 + .10; head.add(proboscis);
+  /* ---- 六足：前足 = armL/armR，中后足 = legL/legR（都是两段折线）---- */
+  const mkLeg = (sgn, y, z, spread, drop, mat) => {
+    const L = new THREE.Group(); L.position.set(sgn * .20, y, z); flip.add(L);
+    const up = new THREE.Mesh(new THREE.CylinderGeometry(.035, .028, .42, 7), mat);
+    up.position.set(sgn * .16, -.12, 0); up.rotation.z = sgn * 1.05; L.add(up);
+    const lo = new THREE.Mesh(new THREE.CylinderGeometry(.026, .016, drop, 7), mat);
+    lo.position.set(sgn * .34, -.38, z * .2); lo.rotation.z = sgn * .30; L.add(lo);
+    return L;
+  };
+  const armL = mkLeg(-1, 1.22, .18, .5, .55, darkM);
+  const armR = mkLeg( 1, 1.22, .18, .5, .55, darkM);
+  const legL = mkLeg(-1, 1.18, -.16, .5, .62, darkM);
+  const legR = mkLeg( 1, 1.18, -.16, .5, .62, darkM);
+  /* ---- 翅膀：两片半透明薄板，附着在胸背 ---- */
+  const mkWing = (sgn) => {
+    const w = new THREE.Group(); w.position.set(sgn * .16, 1.58, -.02); flip.add(w);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(.62, .015, .26), wingM);
+    blade.position.set(sgn * .34, .02, -.10); w.add(blade);
+    const vein = new THREE.Mesh(new THREE.BoxGeometry(.60, .008, .04), darkM);
+    vein.position.set(sgn * .34, .03, -.10); w.add(vein);
+    w.rotation.y = sgn * .28; w.rotation.z = sgn * .16;
+    return w;
+  };
+  const wingL = mkWing(-1), wingR = mkWing(1);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(.09, 10, 8), glowMat(0xff4d4d, 1.2, 0x4d0806));
+  core.position.set(0, 1.36, .34); flip.add(core);
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail, flip, core,
+           wingL, wingR, proboscis, stinger, tapes:[] };
+}
+
+const KITS = { sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
@@ -8535,7 +8647,14 @@ function spawnProjectile(owner, x, y, dirX, cfg, chargeMul = 1, extra = {}) {
   const isMine = cfg.kind === 'mine';
   const r = cfg.size * (isMine ? 1 : chargeMul);
   let geo, m;
-  if (cfg.noteMesh) {                                    // ★ Singer·音符弹：按音符种类建模
+  if (cfg.spike) {                                       // ★ 蚊子·尖刺：细长锥 + 红晕 + 尾部拖光
+    m = new THREE.Group();
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(r * .55, r * 3.4, 7), glowMat(cfg.color, 1.5, 0x4d0806));
+    spike.rotation.z = -Math.PI / 2; spike.position.x = r * 1.1; m.add(spike);
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(r * 1.15, 10, 8),
+      new THREE.MeshBasicMaterial({ color:cfg.color, transparent:true, opacity:.30, depthWrite:false }));
+    m.add(halo);
+  } else if (cfg.noteMesh) {                                    // ★ Singer·音符弹：按音符种类建模
     m = makeNoteMesh(cfg.noteMesh, cfg.color);
   } else if (cfg.techBolt) {                            // ★ Alien·激光弹：发光核心 + 尾焰（追踪弹）
     m = new THREE.Group();
@@ -9191,6 +9310,7 @@ class Fighter {
     this.fangLeech = 0; this._fsSpd = null; this._fsSpdT = 0;                                         // ★ Fang 大招：吸血 / 速度改造
     this.fsMeter = 0; this.fsUsed = 0; this.fsT = 0; this.fsHits = 0; this.fsDone = 0;
     this.counter = null; this.reflect = null; this.buff = null; this._bm = 1; this._baseS = null;
+    this.mosq = null; this.mosqWater = null; this.mosqSight = 0; this.spT = 0;   // ★ 蚊子
     this.buf = { atk:0, sp:0, jump:0 };      // 输入Buffer：招式中按下的键不会丢
     this.jabCombo = 0; this.jabComboT = 0;   // J Jab段数
     this.pull = null; this.pullFx = null; this.pullFxT = 0;   // 磁力牵引（施法方）
@@ -9601,6 +9721,17 @@ class Fighter {
   takeHit(attacker, mv, dirX, kbMul = 1, dmgMul = 1) {
     if (this.invuln > 0 || this.intangible > 0 || this.eliminated) return null;
     if (isTeammate(this, attacker)) return null;        // ★ 团队模式：队友之间不造成伤害（要开友伤就删这一行）
+    /* ★ 蚊子·水盾：3 秒内免疫伤害，并把「本该吃到的伤害」的 50% 转成治疗 */
+    if (this.mosqWater && this.mosqWater.t > 0 && attacker && attacker !== this && !this.eliminated) {
+      const am = (attacker.s && attacker.s.mul) ? attacker.s.mul.dmg : 1;
+      const back = Math.max(.5, ((mv && mv.dmg) || 0) * am * .5);
+      this.healPct(back, true);
+      callout(this, 'ABSORB +' + back.toFixed(1) + '%', 0x8fd8ff);
+      FX.ring(this.pos.x, this.pos.y + 1.0, .32, 2.4, 0x39a7ff, .34);
+      FX.flash(this.pos.x, this.pos.y + 1.0, .40, 3.4, 0x8fd8ff, .22);
+      SFX.shield();
+      return null;
+    }
     /* ★ Cardboard 中立B「胶布反击」：2 秒躲避窗口内本来会挨的这一下 → 不受伤，
        直接传送到攻击者面前打十连（30%）。这里必须 return null，否则伤害照吃。 */
     if (this.def && this.def.id === 'sovereign' && this.cbState && this.cbState.mode === 'counter' &&
@@ -9834,6 +9965,7 @@ class Fighter {
     this.grabbed = null; this.charging = null; this.move = null;
     try { this.cbRestoreHead(); this.cbLaserOff(); } catch (e) {}   // ★ Cardboard：头/激光不跨命
     this.cbState = null; this.cbBeam = null;
+    try { this.mosqReset(); } catch (e) {}                          // ★ 蚊子：状态机/水盾/视野不跨命
     this.shedUsed = false; this.shedAt = 0;                 // ★ Cardboard：每命一次「脱壳」
     try { this.cbShellOn(); } catch (e) {}                  // ★ 复活时把外壳装回去
   }
@@ -9899,6 +10031,21 @@ class Fighter {
     const SP = this.fsSpec || FSPECIALS.sparky, k = this.fsDone++, c = SP.color, d0 = this.facing || 1;
     const px = this.pos.x, py = this.pos.y, cl = (v) => THREE.MathUtils.clamp(v, -CFG.blast.x + 2, CFG.blast.x - 2);
     switch (SP.style) {
+      case 'mosqEye': {                                  // ★ 蚊子大招：10 秒移速 ×1.5 + 视野恢复
+        this.buff = { t:10, spd:1.5, dmg:1, cfg:{} };        // ⚠ update() 会读 buff.cfg.armor，cfg 不能省
+        this.mosqSight = 10;
+        callout(this, 'SWARM SIGHT · 10s', 0xff4d4d);
+        FX.ring(this.pos.x, this.pos.y + 1.1, .32, 5.0, 0xff4d4d, .55);
+        FX.flash(this.pos.x, this.pos.y + 1.1, .50, 9.0, 0xffd0d0, .34);
+        FX.burst(this.pos.x, this.pos.y + 1.1, .2, 0xff4d4d, 24, 18);
+        for (let i = 0; i < 10; i++) {
+          const a = i / 10 * Math.PI * 2;
+          FX.trail(this.pos.x + Math.cos(a) * 2.2, this.pos.y + 1.1 + Math.sin(a) * 1.1, .34, 0xff8a8a);
+        }
+        SFX.special('wave'); shake = Math.max(shake, .7);
+        this.fsDone = 1;
+        break;
+      }
       case 'cbFreeze': {                                 // ★ Cardboard·大招：全场冻结 → 点哪打哪的追踪火箭（50% 范围伤害）
         match.cbFreeze = { t: 2.6, owner: this, fired: false };
         callout(this, 'FREEZE!', SP.color);
@@ -10574,6 +10721,8 @@ class Fighter {
     if (this.hallowSweep) this.hallowSweepTick(dt);        // ★ Pumpkin 中立B 挥镰
     if (this.hallowRise) this.hallowRiseTick(dt);          // ★ Pumpkin 下B 挑镰
     if (this.pumpkinForm) this.pumpkinTick(dt);            // ★ Pumpkin 大招：南瓜人（自动追人）
+    if (this.def.id === 'mosquito') this.mosqTick(dt, inp);   // ★ 蚊子：技能状态机 + 水盾/视野计时
+    if (this.spT > 0) { this.spT -= dt; if (this.spT <= 0 && this.state === 'special' && !this.mosq) this.state = this.grounded ? 'idle' : 'fall'; }
     if (this.cbState) this.cbTick(dt, inp);                // ★ Cardboard：四个技能的状态机
     if (this.cbBeam) this.cbBeamTick(dt);                  // ★ Cardboard 上B：向下激光（挂在 recover 上）
     if (this.def.id === 'sovereign') this.cbCheckShed();   // ★ Cardboard 被动：脱壳
@@ -12262,6 +12411,113 @@ class Fighter {
     this.cbState = null;
     this.state = this.grounded ? 'idle' : 'fall';
   }
+  /* ================= ★ 蚊子 Mosquito 的技能状态机（2026-10-23）=================
+     mosq.mode: dash（前冲，撞到人即停）→ combo（5 连击 + 吸血）；rise（上飞抓人）→ combo。
+     连击段数/伤害/吸血全部按 cfg 走，改数值不用动逻辑。 */
+  mosqTick(dt, inp) {
+    /* 水盾计时（不分状态，永远走） */
+    if (this.mosqWater) {
+      const W = this.mosqWater;
+      W.t -= dt;
+      if (W.mesh) {
+        const at = this.anim ? this.anim.t : 0;
+        W.mesh.scale.setScalar(.92 + Math.sin(at * 6) * .06);
+        W.mesh.material.opacity = .26 + Math.abs(Math.sin(at * 4)) * .16;
+      }
+      if (W.t <= 0 || this.eliminated) {
+        if (W.mesh) { try { this.mesh.remove(W.mesh); } catch (e) {} }
+        this.mosqWater = null;
+        callout(this, 'VEIL END', 0x8fd8ff);
+      }
+    }
+    if (this.mosqSight > 0) this.mosqSight = Math.max(0, this.mosqSight - dt);
+    const S = this.mosq; if (!S) return;
+    const cfg = S.cfg || {};
+    S.t += dt;
+    /* ---------- 前冲：撞到第一个敌人就停 ---------- */
+    if (S.mode === 'dash') {
+      this.vel.x = S.dir * (cfg.dashSpd || 27);
+      this.vel.y *= .86;
+      for (const f of FIGHTERS) {
+        if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (Math.abs(f.pos.x - this.pos.x) > .95 + f.bodyR * .5) continue;
+        if (Math.abs(f.pos.y - this.pos.y) > 1.7) continue;
+        this.mosq = { mode:'combo', t:0, dir:S.dir, cfg, hits:0, next:.03, target:f };
+        this.vel.set(0, 0, 0);
+        f.hitstun = Math.max(f.hitstun || 0, .22);
+        FX.flash(f.pos.x, f.pos.y + 1.0, .42, 4.2, cfg.color, .22);
+        FX.ring(f.pos.x, f.pos.y + 1.0, .30, 2.2, cfg.color, .32);
+        SFX.hit(30, 6); shake = Math.max(shake, .4);
+        return;
+      }
+      if (S.t >= (cfg.dur || .62)) { this.mosq = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      return;
+    }
+    /* ---------- 上飞：沿途抓人 ---------- */
+    if (S.mode === 'rise') {
+      const p = Math.min(1, S.t / (cfg.dur || .58));
+      this.vel.y = (cfg.rise || 28) * Math.max(.16, 1 - p * .95);
+      this.vel.x *= .90;
+      for (const f of FIGHTERS) {
+        if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (Math.abs(f.pos.x - this.pos.x) > 1.5) continue;
+        if (f.pos.y > this.pos.y + 2.6 || f.pos.y < this.pos.y - 1.6) continue;
+        this.mosq = { mode:'combo', t:0, dir:(f.pos.x >= this.pos.x ? 1 : -1), cfg, hits:0, next:.03, target:f };
+        this.vel.set(0, 0, 0);
+        f.hitstun = Math.max(f.hitstun || 0, .24);
+        FX.flash(f.pos.x, f.pos.y + 1.0, .42, 4.4, cfg.color, .24);
+        SFX.hit(30, 6); shake = Math.max(shake, .42);
+        return;
+      }
+      if (p >= 1) { this.mosq = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      return;
+    }
+    /* ---------- 连击 + 吸血 ---------- */
+    if (S.mode === 'combo') {
+      const T = S.target;
+      if (!T || T.eliminated) { this.mosq = null; this.state = this.grounded ? 'idle' : 'fall'; return; }
+      const hits = cfg.hits || 5;
+      const tx = this.pos.x + S.dir * 1.05;
+      T.pos.x += (tx - T.pos.x) * Math.min(1, dt * 16);
+      T.pos.y += (this.pos.y - T.pos.y) * Math.min(1, dt * 16);
+      T.vel.set(0, 0, 0);
+      T.hitstun = Math.max(T.hitstun || 0, .20);
+      this.vel.set(0, 0, 0);
+      this.facing = S.dir;
+      if (S.t >= S.next && S.hits < hits) {
+        S.hits++; S.next = S.t + .095;
+        const last = S.hits >= hits;
+        T.takeHit(this, last ? { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang }
+                             : { dmg:cfg.dmg, bb:0, bg:0, ang:10, stun:.18 }, S.dir, last ? 1 : 0);
+        /* 每段吸血（总 heal 均摊到每一段） */
+        const h = (cfg.heal || 0) / hits;
+        if (h > 0) this.healPct(h, false);
+        const hx = T.pos.x - S.dir * .35, hy = T.pos.y + 1.0 + (S.hits % 2 ? .12 : -.10);
+        FX.spark(hx, hy, last ? .42 : .28, last ? 12 : 5, last ? 0xffffff : cfg.color);
+        FX.flash(hx, hy, .40, last ? 4.6 : 2.0, cfg.color, last ? .24 : .12);
+        if (h > 0) FX.trail(this.pos.x, this.pos.y + 1.2, .30, 0xff8a8a);
+        if (last) {
+          FX.burst(T.pos.x, T.pos.y + 1.0, .2, cfg.color, 18, 16);
+          shake = Math.min(1.1, shake + .45); camKick = Math.min(1, camKick + .35);
+          hitstop = Math.max(hitstop, .10); SFX.heavy();
+        } else SFX.hit(16 + S.hits * 2, cfg.dmg);
+      }
+      if (S.hits >= hits && S.t > S.next + .26) { this.mosq = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      return;
+    }
+  }
+  /* 蚊子专属收尾：被打飞/复活时清掉状态机与水盾（否则会留下悬浮的水球） */
+  mosqReset() {
+    this.mosq = null;
+    if (this.mosqWater) {
+      if (this.mosqWater.mesh) { try { this.mesh.remove(this.mosqWater.mesh); } catch (e) {} }
+      this.mosqWater = null;
+    }
+    this.mosqSight = 0;
+  }
+
   cbTick(dt, inp) {
     const S = this.cbState; if (!S) return;
     S.t += dt;
@@ -13754,7 +14010,7 @@ class Fighter {
     /* ★ Hacker·System Lock（被乱码包命中）：锁定期间做不了任何动作（盾/翻滚/跳/攻击/技能全封），
        但也不吃击退（见 takeHit）——所以对手只能干站 3 秒，等锁结束才可能被击飞。 */
     /* ★ Blub·吞咽：吃别人的时候自己也不能动；被别人吃掉的时候完全不能动（Tamer 冲锋期间同理） */
-    if (this.eatHold || this.eaten || this.rush || this.hug || this.hugDash ||
+    if (this.mosq || this.eatHold || this.eaten || this.rush || this.hug || this.hugDash ||
         this.abducted || this.ufo || this.ufoCrash || this.saber || this.sandT > 0 || this.warp || this.bandage || this.duneRun ||
         this.tiger || this.tailS || this.devour || this.grab || this.angelGrab || this.angelFly || this.horn || this.tide || this.sharkBub ||
         this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0 || this.burnLock > 0 ||
@@ -13766,7 +14022,7 @@ class Fighter {
       if (!this.hugDash && !this.rush && !this.ufo && !this.ufoCrash && !this.saber && !this.voltCombo && !this.tiger && !this.duneRun && !this.angelGrab && !this.horn && !this.tide &&
           !this.reapCombo && !this.pumpkinForm && !this.hallowSweep && !this.hallowRise &&
           !this.vexRush && !this.vexRise && !this.vexDive && !this.vexSpray &&
-          !this.trashRush && !this.trashClap) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪 自己管速度
+          !this.trashRush && !this.trashClap && !this.mosq) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪/蚊子冲刺 自己管速度
       return;
     }
     /* ★ Blub·雷弹：麻痹期间做不了任何动作（但**会吃击退** —— 和 Hacker 的锁定不同） */
@@ -13876,6 +14132,11 @@ class Fighter {
     // Jump跃（含Buffer）
     if (inp.jumpP || this.buf.jump > 0) {
       this.buf.jump = 0;
+      if (this.def.id === 'mosquito') {                      // ★ 蚊子不能跳：按空格只给一点上浮反馈
+        if (this.grounded) { this.grounded = false; this.vel.y = Math.max(this.vel.y, 2.2); }
+        FX.spark(this.pos.x, this.pos.y + .4, .26, 3, 0xff8a8a);
+        return;
+      }
       /* ★ Blub·草弹：4 秒内按跳无效（给一个看得见的「跳不了」反馈，别让玩家以为掉键了） */
       if (this.noJumpT > 0) {
         if (this.grounded) { FX.spark(this.pos.x, this.pos.y + .35, .34, 7, 0x8ef07a); SFX.shieldOff(); }
@@ -14003,6 +14264,47 @@ class Fighter {
       this.state = 'special'; this.animT = 0;
       callout(this, 'TAPE GUARD 2s', cfg.color);
       SFX.special('wave'); FX.ring(this.pos.x, this.pos.y + 1.0, .3, 2.2, cfg.color, .45);
+      return true;
+    }
+    /* ★ 蚊子（Mosquito）四个技能 */
+    if (cfg.kind === 'mosqSpike') {
+      const dir2 = this.facing || 1;
+      const p = spawnProjectile(this, this.pos.x + dir2 * .55, this.pos.y + 1.32, dir2, {
+        kind:'proj', dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang, spd:cfg.spd, size:cfg.size,
+        life:cfg.life, hitR:cfg.hitR, color:cfg.color, spike:true, mosqHeal:cfg.heal, spin:0 });
+      if (p) { p.vy = 1.2; }
+      this.throwT = .18;
+      FX.ring(this.pos.x + dir2 * .6, this.pos.y + 1.3, .28, 1.4, cfg.color, .26);
+      FX.spark(this.pos.x + dir2 * .6, this.pos.y + 1.3, .28, 5, cfg.color);
+      SFX.special('proj');
+      this.state = 'special'; this.animT = 0; this.spT = .22;      // 短收招（spT 在 update 里递减）
+      return true;
+    }
+    if (cfg.kind === 'mosqDash') {
+      this.mosq = { mode:'dash', t:0, dir, cfg, hits:0, next:0, target:null };
+      this.state = 'special'; this.animT = 0; this.vel.x = dir * cfg.dashSpd;
+      SFX.special('dash'); FX.ring(this.pos.x + dir * .5, this.pos.y + 1.2, .30, 1.8, cfg.color, .30);
+      return true;
+    }
+    if (cfg.kind === 'mosqRise') {
+      this.mosq = { mode:'rise', t:0, dir, cfg, hits:0, next:0, target:null };
+      this.state = 'special'; this.animT = 0; this.grounded = false;
+      this.vel.y = cfg.rise; this.vel.x *= .5;
+      SFX.special('recover'); FX.dust(this.pos.x, this.pos.y + .1, 8, 0xff8a8a);
+      return true;
+    }
+    if (cfg.kind === 'mosqWater') {
+      this.mosqWater = { t:cfg.dur || 3, mesh:null };
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(.95, 18, 14),
+        new THREE.MeshStandardMaterial({ color:cfg.color, transparent:true, opacity:.34,
+          roughness:.12, metalness:.15, side:THREE.DoubleSide, depthWrite:false }));
+      orb.position.set(0, 1.25, 0); this.mesh.add(orb);
+      this.mosqWater.mesh = orb;
+      callout(this, 'WATER VEIL 3s', cfg.color);
+      FX.ring(this.pos.x, this.pos.y + 1.1, .30, 2.6, cfg.color, .40);
+      FX.flash(this.pos.x, this.pos.y + 1.1, .40, 4.4, cfg.color, .26);
+      SFX.shield();
+      this.state = 'special'; this.animT = 0; this.spT = .28;
       return true;
     }
     if (cfg.kind === 'breath') {                        // Dragon·持续喷火（长按，最多 hold 秒）
@@ -15329,8 +15631,17 @@ class Fighter {
   integrate(dt, moveX) {
     const soft = this.ignoreSoft > 0;
     if (this.ignoreSoft > 0) this.ignoreSoft -= dt;
-    // 重力
-    this.vel.y -= CFG.G * dt;
+    /* ★ 蚊子：没有重力 —— 按住空格上浮、下+空格下降、松手原地悬停（永久悬浮；击退照常生效） */
+    if (this.def.id === 'mosquito') {
+      const up = !!this.input.jumpHeld, dn = up && this.input.y < -.5;
+      if (up && !dn) this.vel.y = Math.min(7.6, this.vel.y + 52 * dt);
+      else if (dn) this.vel.y = Math.max(-7.0, this.vel.y - 58 * dt);
+      else { this.vel.y -= this.vel.y * Math.min(1, dt * 9.0); if (Math.abs(this.vel.y) < .35) this.vel.y = 0; }   // 松手：快速收敛成悬停
+      if (this.grounded && this.vel.y > .2) this.grounded = false;
+    } else {
+      // 重力
+      this.vel.y -= CFG.G * dt;
+    }
     if (!this.grounded && this.vel.y < -6 && Math.abs(this.input.y) > .6 && !this.grabbed) this.vel.y -= (this.s.fastFall - this.s.fall) * 3.4 * dt;
     const maxFall = Math.abs(this.input.y) > .6 ? this.s.fastFall : this.s.fall;
     if (this.vel.y < -maxFall) this.vel.y = -maxFall;
@@ -15349,6 +15660,8 @@ class Fighter {
     const py = this.pos.y, px = this.pos.x, vyIn = this.vel.y;   // ★ vyIn：落地前的下落速度（碰撞会把 vel.y 清零）
     this.pos.x += this.vel.x * dt;
     this.pos.y += this.vel.y * dt;
+    /* ★ 蚊子：高度上限（能飞到浮空平台上方，但飞不出场） */
+    if (this.def.id === 'mosquito' && this.pos.y > 9.2) { this.pos.y = 9.2; if (this.vel.y > 0) this.vel.y = 0; }
     // 场地碰撞（顶面单向 + 主板面侧向阻挡）
     this.grounded = false; this.onSoft = false;
     if (this.vel.y <= 0 && this.pos.y <= 0 && py >= -.05) {
@@ -16041,6 +16354,27 @@ class Fighter {
         P.coreGlow.material.opacity = Math.min(.62, gw);
         P.coreGlow.scale.setScalar(.44 + Math.abs(Math.sin(A.t * 3.1)) * .08 + (S || this.cbBeam ? .08 : 0));
       }
+    }
+    /* ★ 蚊子：翅膀高速扇动（悬停感）+ 六足轻摆 + 出招姿态 */
+    if (this.def.id === 'mosquito') {
+      const fl = A.t * 52;
+      if (P.wingL) { P.wingL.rotation.z = .16 + Math.sin(fl) * .55; P.wingL.rotation.y = -.28 - Math.sin(fl) * .10; }
+      if (P.wingR) { P.wingR.rotation.z = -.16 - Math.sin(fl) * .55; P.wingR.rotation.y = .28 + Math.sin(fl) * .10; }
+      if (P.legL) P.legL.rotation.x = Math.sin(A.t * 3.1) * .12;
+      if (P.legR) P.legR.rotation.x = -Math.sin(A.t * 3.1) * .12;
+      if (P.armL) P.armL.rotation.x = -.10 + Math.sin(A.t * 2.4) * .10;
+      if (P.armR) P.armR.rotation.x = -.10 - Math.sin(A.t * 2.4) * .10;
+      if (P.tail) P.tail.rotation.z = Math.sin(A.t * 1.7) * .06;
+      let tilt = 0;
+      const S2 = this.mosq;
+      if (S2 && S2.mode === 'dash') tilt = this.facing * .34;
+      else if (S2 && S2.mode === 'rise') tilt = -this.facing * .18;
+      else if (S2 && S2.mode === 'combo') tilt = this.facing * .20;
+      else if (this.mosqWater) tilt = 0;
+      A.lean += (tilt - A.lean) * Math.min(1, dt * 16);
+      A.bob += (Math.sin(A.t * 2.2) * .05 - A.bob) * Math.min(1, dt * 6);
+      if (P.group) P.group.rotation.z = A.lean * this.facing;
+      if (this.mosqWater && P.core) P.core.scale.setScalar(1 + Math.abs(Math.sin(A.t * 5)) * .35);
     }
     /* ★ Tamer：蛇身蠕动 + 四个技能的专属姿态（这段跑在「A.* → 骨骼」之后，直接写关节） */
     if (this.def.id === 'tamer' && P.snakeSegs) {
@@ -18582,6 +18916,40 @@ window.LOBBY = LOBBY;                                // 便于排查（和 windo
 let last = performance.now(), acc = 0;
 let fps = 0, fpsFrames = 0, fpsT = last;
 const STEP = 1/120;
+/* ================= ★ 蚊子视野：全黑、只见周围（纯 DOM 遮罩，不进模拟）=================
+   做法：一层 fixed 覆盖，用 radial-gradient 在「自己屏幕位置」挖一个洞。
+   · 只在 match.state === 'play' 且本机操控的角色是 mosquito 时显示；
+   · 大招 mosqSight > 0 时淡出（"可以看到周围了"）；
+   · 洞的半径按相机距离换算成像素，缩放/拉远时观感一致。 */
+let _mosqVeil = null;
+function mosqVeilEl() {
+  if (_mosqVeil) return _mosqVeil;
+  const d = document.createElement('div');
+  d.id = 'mosqVeil';
+  d.style.cssText = 'position:fixed;inset:0;z-index:9;pointer-events:none;opacity:0;transition:opacity .3s;' +
+    'background:radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(0,0,0,0) 0px,' +
+    ' rgba(0,0,0,0) var(--r1,110px), rgba(0,0,0,.93) var(--r2,240px));';
+  document.body.appendChild(d); _mosqVeil = d; return d;
+}
+function mosqVeilHide() { if (_mosqVeil) _mosqVeil.style.opacity = '0'; }
+function mosqVeilTick() {
+  const el = mosqVeilEl();
+  if (match.state !== 'play') { el.style.opacity = '0'; return; }
+  const me = FIGHTERS.find(f => f && !f.isBot && !f.eliminated);
+  if (!me || me.def.id !== 'mosquito' || me.mosqSight > 0) { el.style.opacity = '0'; return; }
+  const v = new THREE.Vector3(me.pos.x, me.pos.y + 1.25, 0).project(camera);
+  const h = renderer.domElement.clientHeight || innerHeight;
+  const w = renderer.domElement.clientWidth || innerWidth;
+  const mx = (v.x * .5 + .5) * w, my = (-v.y * .5 + .5) * h;
+  /* 世界高度 → 像素：世界可视高度 = 2*dist*tan(fov/2) */
+  const worldH = 2 * Math.abs(camera.position.z - 0) * Math.tan((camera.fov || 45) * Math.PI / 360) || 20;
+  const r1 = Math.max(70, (3.1 / worldH) * h);
+  el.style.setProperty('--mx', mx.toFixed(0) + 'px');
+  el.style.setProperty('--my', my.toFixed(0) + 'px');
+  el.style.setProperty('--r1', r1.toFixed(0) + 'px');
+  el.style.setProperty('--r2', (r1 * 2.15).toFixed(0) + 'px');
+  el.style.opacity = '1';
+}
 function frame(now) {
   requestAnimationFrame(frame);
   let dt = (now - last) / 1000; last = now;
@@ -18643,6 +19011,7 @@ function frame(now) {
   if (match.state === 'menu') {
     if (!document.body.classList.contains('inMenu')) document.body.classList.add('inMenu');
     LOBBY.show(true); PV.frame(dt); LOBBY.frame(dt);
+    mosqVeilHide();
     renderer.render(LOBBY.scene, LOBBY.cam);
     return;
   }
@@ -18650,6 +19019,7 @@ function frame(now) {
   LOBBY.show(false);
   updateCamera(dt);
   updateHUD(dt);
+  mosqVeilTick();                     // ★ 蚊子视野遮罩（只看周围）
   renderer.render(scene, camera);
 }
 function resolveFighterOverlap() {
@@ -19566,6 +19936,12 @@ function updateProjectiles(dt) {
             FX.ring(f.pos.x, f.pos.y + 1.0, .35, 3.0, 0xfff7cc, .35);
             FX.burst(f.pos.x, f.pos.y + 1.0, 0, 0xfff7cc, 18, 12);
           }
+          /* ★ 蚊子·尖刺：命中即自愈 5% */
+          if (hitRes && p.cfg.mosqHeal && p.owner) {
+            p.owner.healPct(p.cfg.mosqHeal, true);
+            FX.ring(f.pos.x, f.pos.y + 1.0, .30, 1.8, 0xff4d4d, .28);
+            FX.spark(p.owner.pos.x, p.owner.pos.y + 1.2, .30, 6, 0xff8a8a);
+          }
           if (hitRes && p.cfg.para && !isTeammate(p.owner, f)) {
             f.para = Math.max(f.para || 0, p.cfg.para);
             callout(f, '⚡ PARALYZED ' + (p.cfg.para).toFixed(1) + 's', 0x8fd8ff);
@@ -19659,7 +20035,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net94',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net95',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
