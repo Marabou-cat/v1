@@ -185,6 +185,32 @@
   .step.done{opacity:.6}.step.done .n{background:#2ecc71;border-color:#2ecc71;color:#062}
 
   .cta{display:flex;gap:10px;align-items:center;margin-top:2px}
+  /* ---------- GEM QUESTS：每日/累计进度条 + 任务行 ---------- */
+  .caps{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .cap{padding:10px 12px;border-radius:13px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10)}
+  .cap b{display:flex;justify-content:space-between;gap:8px;font:900 10.5px/1 inherit;letter-spacing:1.2px;color:#dfe9f5}
+  .cap b i{font-style:normal;color:var(--a)}
+  .cap .track{height:7px;border-radius:4px;background:rgba(255,255,255,.10);margin-top:8px;overflow:hidden}
+  .cap .track u{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--a2),var(--a));transition:width .3s}
+  .cap small{display:block;margin-top:6px;font-size:9.5px;letter-spacing:.7px;color:#8fa6bd}
+  .qt{display:flex;flex-direction:column;gap:7px}
+  .qt h4{margin:6px 2px 0;font:900 9.5px/1 inherit;letter-spacing:2px;color:#8fa6bd}
+  .qrow{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:12px;
+    background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}
+  .qrow.ready{border-color:rgba(255,214,106,.55);background:linear-gradient(90deg,rgba(255,214,106,.13),rgba(255,214,106,.02))}
+  .qrow.done{opacity:.5}
+  .qrow .qi{width:32px;height:32px;flex:0 0 32px;border-radius:10px;display:grid;place-items:center;font-size:14px;
+    background:rgba(127,208,255,.14);border:1px solid rgba(127,208,255,.32);color:var(--a)}
+  .qrow .qm{flex:1;min-width:0}
+  .qrow .qm b{display:block;font:800 12.2px/1.3 inherit}
+  .qrow .qm .pg{display:flex;align-items:center;gap:7px;margin-top:5px}
+  .qrow .qm .pg span{font:800 9.5px/1 inherit;letter-spacing:.6px;color:#9fb3c9;white-space:nowrap}
+  .qrow .qm .track{flex:1;height:6px;border-radius:4px;background:rgba(255,255,255,.10);overflow:hidden}
+  .qrow .qm .track u{display:block;height:100%;background:linear-gradient(90deg,var(--a2),var(--a))}
+  .qrow .rew{font:900 11.5px/1 inherit;color:#ffe9a8;white-space:nowrap}
+  .qrow button{border:0;border-radius:9px;padding:8px 11px;font:900 10.5px/1 inherit;letter-spacing:.7px;cursor:pointer;
+    background:linear-gradient(180deg,#ffe066,#ff9f1c);color:#2a1400;white-space:nowrap}
+  .qrow button[disabled]{background:rgba(255,255,255,.10);color:#8fa6bd;cursor:default}
   .btn{flex:1;padding:14px 18px;border:0;border-radius:14px;font:900 13.5px/1 inherit;letter-spacing:1.3px;
     cursor:pointer;color:#06202e;background:linear-gradient(180deg,var(--a2),var(--a));
     box-shadow:0 10px 26px rgba(60,160,220,.3);transition:transform .08s,filter .15s}
@@ -258,11 +284,11 @@
 
   /* ================= 活动表（想加新活动只改这里 + COVERS） ================= */
   var EVENTS = [
-    { id:'gemrush', name:'SUMMON RUSH', sub:'GEM DROP · 1 SUMMON', theme:'gem', tag:'NEW',
-      reward:{ icon:'◆', title:'500 GEMS', note:'ONE CLAIM PER ACCOUNT' },
-      desc:'The summon gate is open. Grab <b>500 Supreme Gems</b> now — that is two pulls toward a SUPREME fighter, or a shot at the Penguin skin.',
-      steps:[ 'Claim your gems', 'Open SUMMON (bottom-right of the lobby) and spend them' ],
-      cta:'CLAIM 500 GEMS', claimId:'gemrush' },
+    { id:'gemquests', name:'GEM QUESTS', sub:'DAILY TASKS · UP TO 4,000', theme:'gem', tag:'NEW', tasks:true,
+      reward:{ icon:'◆', title:'UP TO 4,000 GEMS', note:'MAX 500 PER DAY' },
+      desc:'Do the tasks, take the gems. Six daily tasks are worth <b>500 gems a day</b>, and the milestone list keeps paying until you have collected <b>4,000 in total</b>.',
+      steps:[ 'Finish tasks in game — progress updates after every match', 'Claim here before the day rolls over (daily tasks reset at 00:00)' ],
+      cta:'CLAIM ALL READY' },
     { id:'penguin', name:'PENGUIN DROP', sub:'SKIN · SMILEY', theme:'peng', tag:'NEW',
       reward:{ icon:'◕', title:'PENGUIN SKIN', note:'FOR SMILEY · INSTANT' },
       desc:'A round little penguin waddles in. Claim the <b>Penguin skin</b> for Smiley — big glossy eyes, an oval beak, and a belly that fits the ball perfectly.',
@@ -296,18 +322,22 @@
     peng:{ a:'#8affd6', a2:'#d8fff2' }
   };
 
-  var st = { ready:false, email:false, owns:false, hasSkin:false, gems:0, claims:{} };
+  var st = { ready:false, email:false, owns:false, hasSkin:false, gems:0, claims:{}, quests:null };
   var cur = EVENTS[0].id;
   var stage = document.getElementById('stage');
   var listEl = document.getElementById('list');
   var hintEl = document.getElementById('hint');
 
   function evById(id){ for (var i=0;i<EVENTS.length;i++) if (EVENTS[i].id===id) return EVENTS[i]; return EVENTS[0]; }
+  function questRows(){ return (st.quests && st.quests.rows) || []; }
+  function anyReady(){ return questRows().some(function(r){ return r.ready; }); }
   function claimed(e){
+    if (e.tasks) { var rows = questRows(); return rows.length > 0 && rows.every(function(r){ return r.claimed; }); }
     if (e.claimId === 'blizzard') return !!st.owns;
     return !!(st.claims && st.claims[e.claimId]);
   }
   function ready(e){
+    if (e.tasks) return !!st.quests;
     if (e.claimId === 'blizzard') return !!st.email;
     return true;
   }
@@ -321,9 +351,15 @@
   }
 
   function renderRail(){
+    var cappedNow = !!st.quests && (st.quests.dayLeft <= 0 || st.quests.totalLeft <= 0);
     listEl.innerHTML = EVENTS.map(function(e){
       var on = (e.id === cur), done = claimed(e);
-      var reward = e.reward.title;
+      var reward = (e.tasks && st.quests)
+        ? ('◆ ' + (st.quests.total | 0) + ' / ' + (st.quests.totalCap | 0) + ' GEMS')
+        : e.reward.title;
+      var flag = done ? '<span class="flag done">DONE</span>'
+               : (e.tasks && anyReady() && !cappedNow) ? '<span class="flag new">CLAIM</span>'
+               : (e.tag === 'NEW' ? '<span class="flag new">NEW</span>' : '');
       return '<button class="ev' + (on ? ' on' : '') + '" data-id="' + e.id + '">'
         + '<span class="thumb"><span class="art ' + (e.theme === 'gem' ? 'gem' : e.theme === 'peng' ? 'peng' : 'ice') + '">'
         + (e.theme === 'gem' ? '<i class="gem gm1" style="width:30px;height:34px;left:10px;bottom:6px;position:absolute;clip-path:polygon(50% 0,100% 34%,50% 100%,0 34%);background:linear-gradient(160deg,#e6f7ff,#9fdcff 40%,#4aa6e8)"></i><i class="gem gm2" style="width:20px;height:24px;left:28px;bottom:2px;position:absolute;clip-path:polygon(50% 0,100% 34%,50% 100%,0 34%);background:linear-gradient(160deg,#ffe9b8,#ffd166)"></i>'
@@ -331,7 +367,7 @@
           : '<i style="position:absolute;inset:0;background:linear-gradient(160deg,#12314c,#0a1a2c)"></i><i style="position:absolute;left:16px;top:12px;width:22px;height:32px;border-radius:12px 12px 6px 6px;background:linear-gradient(165deg,#dff4ff,#8fc9e9 45%,#3d7ea6)"></i>')
         + '</span></span>'
         + '<span class="mi"><b>' + e.name + '</b><span>' + reward + '</span><u>' + e.sub + '</u></span>'
-        + (done ? '<span class="flag done">DONE</span>' : (e.tag === 'NEW' ? '<span class="flag new">NEW</span>' : ''))
+        + flag
         + '</button>';
     }).join('');
   }
@@ -339,6 +375,7 @@
   function renderStage(){
     var e = evById(cur);
     setTheme(e);
+    if (e.tasks) { renderQuests(e); return; }        // 宝石任务页有自己的一套版式
     var done = claimed(e), rd = ready(e);
     var rewardCls = done ? 'rw done' : 'rw';
     var steps = e.steps.map(function(s, i){
@@ -380,6 +417,71 @@
     };
   }
 
+  function coverFor(e){
+    return '<div class="cover">' + (COVERS[e.theme] || COVERS.ice)
+      + '<div class="kicker"><span class="pill hot">' + (e.tag === 'NEW' ? 'NEW EVENT' : e.tag) + '</span>'
+      + '<span class="pill">' + e.sub + '</span></div>'
+      + '<div class="bigReward"><b>' + e.reward.title + '</b><span>REWARD · ' + e.reward.note + '</span></div>'
+      + '</div>';
+  }
+
+  /* ★ 宝石任务页：今日进度 / 累计进度 + 每日任务 6 条 + 一次性里程碑 */
+  function claimTask(id){
+    post({ type:'sb-event-claim', id:'gemtask', task:id });
+    var s = document.getElementById('state'); if (s) s.textContent = 'Claiming…';
+    setTimeout(function(){ post({ type:'sb-event-state' }); }, 700);
+  }
+  function renderQuests(e){
+    var q = st.quests, rows = questRows();
+    var daily = rows.filter(function(r){ return !r.once; });
+    var once  = rows.filter(function(r){ return r.once; });
+    var capped = !!q && (q.dayLeft <= 0 || q.totalLeft <= 0);   // 今日/累计上限已满
+    function rowHtml(r){
+      var pct = r.goal ? Math.min(100, Math.round(r.prog / r.goal * 100)) : 0;
+      var cls = 'qrow' + (r.claimed ? ' done' : (r.ready && !capped ? ' ready' : ''));
+      var btn = r.claimed ? '<button disabled>✓ DONE</button>'
+              : (r.ready ? (capped ? '<button disabled>CAP</button>' : '<button data-q="' + r.id + '">CLAIM</button>')
+                         : '<button disabled>' + r.prog + '/' + r.goal + '</button>');
+      return '<div class="' + cls + '">'
+        + '<div class="qi">' + (r.once ? '★' : '◆') + '</div>'
+        + '<div class="qm"><b>' + r.label + '</b><div class="pg">'
+        + '<div class="track"><u style="width:' + pct + '%"></u></div><span>' + r.prog + ' / ' + r.goal + '</span></div></div>'
+        + '<div class="rew">+' + r.gems + ' ◆</div>' + btn + '</div>';
+    }
+    var dayPct = q ? Math.min(100, Math.round(q.dayGems / q.dayCap * 100)) : 0;
+    var totPct = q ? Math.min(100, Math.round(q.total / q.totalCap * 100)) : 0;
+    var readyCount = rows.filter(function(r){ return r.ready; }).length;
+    stage.innerHTML = coverFor(e)
+      + '<div class="body">'
+      + '<div class="title"><h1>' + e.name + '</h1><div class="sub">' + e.sub + '</div></div>'
+      + '<p class="desc">' + e.desc + '</p>'
+      + (q ? '<div class="caps">'
+            + '<div class="cap"><b>TODAY<i>' + q.dayGems + ' / ' + q.dayCap + '</i></b>'
+            + '<div class="track"><u style="width:' + dayPct + '%"></u></div>'
+            + '<small>RESETS AT 00:00 · ' + q.dayLeft + ' GEMS LEFT TODAY</small></div>'
+            + '<div class="cap"><b>TOTAL<i>' + q.total + ' / ' + q.totalCap + '</i></b>'
+            + '<div class="track"><u style="width:' + totPct + '%"></u></div>'
+            + '<small>' + q.totalLeft + ' GEMS STILL AVAILABLE</small></div>'
+            + '</div>' : '<div class="state">Connecting to your account…</div>')
+      + (daily.length ? '<div class="qt"><h4>DAILY TASKS · RESET EVERY DAY</h4>' + daily.map(rowHtml).join('') + '</div>' : '')
+      + (once.length ? '<div class="qt"><h4>MILESTONES · ONE TIME ONLY</h4>' + once.map(rowHtml).join('') + '</div>' : '')
+      + '<div class="cta"><button class="btn" id="claimAll"' + (readyCount && !capped ? '' : ' disabled') + '>'
+      + (capped ? 'CAP REACHED · COME BACK TOMORROW'
+                : (readyCount ? ('CLAIM ALL READY · ' + readyCount) : 'NOTHING READY YET'))
+      + '</button></div>'
+      + '<div class="state" id="state">Progress is tracked in game — play matches, win, knock out, summon, play online.</div>'
+      + '</div>';
+    var btns = stage.querySelectorAll('[data-q]');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].onclick = function(){ claimTask(this.getAttribute('data-q')); };
+    }
+    var all = document.getElementById('claimAll');
+    if (all) all.onclick = function(){
+      var ids = rows.filter(function(r){ return r.ready; }).map(function(r){ return r.id; });
+      ids.forEach(function(id, k){ setTimeout(function(){ claimTask(id); }, k * 300); });
+    };
+  }
+
   function renderAll(){ renderRail(); renderStage(); }
 
   listEl.addEventListener('click', function (ev) {
@@ -397,6 +499,7 @@
     st.hasSkin = !!d.hasSkin;
     st.gems = Number(d.gems) || 0;
     st.claims = d.claims || {};
+    if (d.quests) st.quests = d.quests;
     st.ready = true;
     renderAll();
   });

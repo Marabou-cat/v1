@@ -16268,6 +16268,16 @@ function awardTrophies(rank, wt) {
         if (f.kos) ACC.dailyAdd('ko', Math.max(0, f.kos | 0));
         if (window.__questRefresh) window.__questRefresh();
       } catch (e) {}
+      /* ★ GEM QUESTS 进度（同一局里一起记：场次 / 胜利 / KO / 总伤害 / 联机场次 / 联机胜场） */
+      try {
+        const _onl = !!(typeof NET !== 'undefined' && NET.active);
+        const _won = (pos === 1) || (match.teams && f.team === wt);
+        ACC.gemAdd('matches', 1);
+        if (_won) ACC.gemAdd('wins', 1);
+        if (f.kos) ACC.gemAdd('kos', Math.max(0, f.kos | 0));
+        if (f.maxDamage) ACC.gemAdd('damage', Math.round(f.maxDamage));
+        if (_onl) { ACC.gemAdd('online', 1); if (_won) ACC.gemAdd('onlineWins', 1); }
+      } catch (e) {}
       if (typeof NET !== 'undefined' && NET.room && NET.trophy) { try { NET.trophy(delta, token + ':' + seat); } catch (e) {} }
     }
   });
@@ -16464,6 +16474,38 @@ const ACC = (() => {
     dailyAdd(key, n) { const d = this.dailyEnsure(); d.prog[key] = (d.prog[key] | 0) + (n | 0); save(); return d.prog[key]; },
     dailyClaimed(i) { const d = this.dailyEnsure(); return d.claimed.indexOf(i) >= 0; },
     dailyClaim(i) { const d = this.dailyEnsure(); if (d.claimed.indexOf(i) < 0) d.claimed.push(i); save(); },
+    /* ★ GEM QUESTS（活动页里的宝石任务）：做任务领宝石，**每天上限 500、累计上限 4000**
+       数据结构：a.gemQ = { day, dayGems, prog:{key:n}, dayClaimed:{taskId:true} }   —— 跨天自动清零
+                 a.gemOnce = { taskId:true }                                        —— 一次性里程碑，永久
+       ⚠ 领取一律走 gemClaim()：它同时夹 dayCap/totalCap，页面就算传错数字也发不出超额宝石。 */
+    gemEnsure() {
+      const k = this.dayKey();
+      if (!a.gemQ || a.gemQ.day !== k) { a.gemQ = { day: k, dayGems: 0, prog: {}, dayClaimed: {} }; save(); }
+      if (!a.gemOnce) a.gemOnce = {};
+      return a.gemQ;
+    },
+    gemState() { const q = this.gemEnsure(); return { day: q.day, dayGems: q.dayGems | 0, total: q.total | 0,
+      prog: q.prog || {}, dayClaimed: q.dayClaimed || {} }; },
+    gemProg(key) { const q = this.gemEnsure(); return (q.prog[key] | 0); },
+    gemAdd(key, n) { const q = this.gemEnsure(); q.prog[key] = (q.prog[key] | 0) + (n | 0); save(); return q.prog[key]; },
+    gemOnceHas(id) { this.gemEnsure(); return !!a.gemOnce[String(id)]; },
+    gemAllowance(want) { const q = this.gemEnsure(); return Math.max(0, Math.min(want | 0, 500 - (q.dayGems | 0), 4000 - (q.total | 0))); },
+    gemClaim(id, want, once) {
+      const q = this.gemEnsure(); id = String(id);
+      /* ⚠ 先算「这次到底能发多少」：上限已满就直接返回 0，**不记账也不标记**
+         （否则玩家会在上限那天把任务点成已领取、奖励永久丢掉） */
+      const got = this.gemAllowance(want);
+      if (got <= 0) return 0;
+      if (once) { if (a.gemOnce[id]) return -1; a.gemOnce[id] = true; }
+      else { if (!q.dayClaimed) q.dayClaimed = {}; if (q.dayClaimed[id]) return -1; q.dayClaimed[id] = true; }
+      q.dayGems = (q.dayGems | 0) + got; q.total = (q.total | 0) + got;
+      this.addGems(got);
+      save();
+      return got;
+    },
+    /* 已装备的皮肤/武器数量（一次性任务「装备一个皮肤」用） */
+    equippedLooks() { return Object.keys(a.equipSkins || {}).filter(k => a.equipSkins[k]).length
+                           + Object.keys(a.equipWeapon || {}).filter(k => a.equipWeapon[k]).length; },
     /* ★ 第 93 轮：一次性 1040 金币补发（老号也能领，只领一次） */
     get needsWelcome() { return a.welcome !== true; },
     claimWelcome() {
@@ -16752,6 +16794,36 @@ const DAILY = [
   { key:'win',  label:'Win a match',           goal:1, coins:30 },
   { key:'ko',   label:'Knock out 5 opponents', goal:5, coins:40 },
 ];
+
+/* ★ GEM QUESTS（活动页 → SUMMON RUSH 改成「任务」形态）：
+   每日 6 条，奖励合计 80+120+100+60+100+40 = **500**（正好等于每日上限）；
+   外加 5 条一次性里程碑。**每天最多 500、累计最多 4000** —— 两个上限都在 ACC.gemClaim() 里夹紧，
+   页面传什么数字都发不出超额宝石。一日期变更时每日进度/领取记录自动清零（ACC.gemEnsure）。 */
+const GEM_TASKS = [
+  { id:'play',   key:'matches', goal:3,   gems:80,  label:'Play 3 matches' },
+  { id:'win',    key:'wins',    goal:2,   gems:120, label:'Win 2 matches' },
+  { id:'ko',     key:'kos',     goal:10,  gems:100, label:'Knock out 10 opponents' },
+  { id:'dmg',    key:'damage',  goal:300, gems:60,  label:'Deal 300% total damage' },
+  { id:'online', key:'online',  goal:1,   gems:100, label:'Play 1 online match' },
+  { id:'summon', key:'summons', goal:1,   gems:40,  label:'Summon once' },
+  { id:'o_skin', once:true, goal:1,  gems:50,  label:'Equip a skin',       live:() => ACC.equippedLooks() ? 1 : 0 },
+  { id:'o_owned',once:true, goal:10, gems:150, label:'Own 10 fighters',    live:() => ACC.owned.length },
+  { id:'o_tr20', once:true, goal:20, gems:200, label:'Reach 20 trophies',  live:() => ACC.trophies },
+  { id:'o_tr50', once:true, goal:50, gems:300, label:'Reach 50 trophies',  live:() => ACC.trophies },
+  { id:'o_onwin',once:true, key:'onlineWins', goal:1, gems:200, label:'Win an online match' },
+];
+function gemQuestState() {
+  const q = ACC.gemState();
+  const rows = GEM_TASKS.map(t => {
+    const done = t.once ? ACC.gemOnceHas(t.id) : !!(q.dayClaimed || {})[t.id];
+    const raw = t.live ? (t.live() | 0) : ACC.gemProg(t.key);
+    const prog = Math.max(0, Math.min(t.goal, raw));
+    return { id:t.id, label:t.label, gems:t.gems, goal:t.goal, prog, once:!!t.once,
+             claimed:done, ready:!done && prog >= t.goal };
+  });
+  return { dayGems:q.dayGems, dayCap:500, total:q.total, totalCap:4000,
+           dayLeft:Math.max(0, 500 - q.dayGems), totalLeft:Math.max(0, 4000 - q.total), rows };
+}
 
 /* 大厅左侧角色列：已解锁在前、未解锁在后（带金色锁标，点一下打开奖励页） */
 const pick = document.getElementById('charPick');
@@ -18434,7 +18506,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net86',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net87',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -19732,6 +19804,7 @@ function summonPoolLeft() {
 }
 function summonPull() {
   if (!ACC.spendGems(SUMMON_COST)) return { err:'gems' };
+  try { ACC.gemAdd('summons', 1); } catch (e) {}     // ★ GEM QUESTS：抽一次记一次
   const p = ACC.pity + 1, left = summonPoolLeft(), force = p >= SUMMON_PITY_MAX;
   const r = Math.random();
   let prize = null;
@@ -20223,7 +20296,7 @@ window.SB = {
   /* 活动奖励表（与 event/index.html 的 EVENTS 对齐；这里只关心「有没有奖可领」） */
   const claimable = () => {
     const out = [];
-    if (!ACC.hasEvent('gemrush')) out.push('gemrush');
+    try { const qs = gemQuestState(); if (qs.rows.some(r => r.ready) && qs.dayLeft > 0 && qs.totalLeft > 0) out.push('gemtask'); } catch (e) {}
     if (!ACC.hasEvent('penguin')) out.push('penguin');
     if (ACC.email && !ACC.owns('blizzard')) out.push('blizzard');
     return out;
@@ -20233,7 +20306,8 @@ window.SB = {
       frame.contentWindow.postMessage({ type:'sb-state',
         email: !!ACC.email, owns: ACC.owns('blizzard'),
         gems: ACC.gems, hasSkin: ACC.hasSkin('smiley_penguin'),
-        claims: ACC.eventClaims }, '*');
+        claims: ACC.eventClaims,
+        quests: gemQuestState() }, '*');
     } catch (e) {}
   };
   const openEv = () => {
@@ -20264,11 +20338,16 @@ window.SB = {
       setTimeout(() => { try { $('setBtn').click(); } catch (err) {} }, 140);
     } else if (d.type === 'sb-event-claim') {       // ★ 领取奖励（按活动 id 分发）
       const id = d.id || 'blizzard';
-      if (id === 'gemrush') {
-        if (!ACC.hasEvent('gemrush')) {
-          ACC.markEvent('gemrush'); ACC.addGems(500);
-          toast('+500 gems · Summon Rush'); try { SFX.special('wave'); } catch (err) {}
+      if (id === 'gemtask') {
+        const t = GEM_TASKS.find(x => x.id === String(d.task || ''));
+        if (t) {
+          const got = ACC.gemClaim(t.id, t.gems, !!t.once);
+          if (got > 0) { toast('+' + got + ' gems · ' + t.label); try { SFX.special('wave'); } catch (err) {} }
+          else if (got === 0) toast('Daily cap reached — max 500 gems per day');
         }
+        try { summonBtnPaint(); } catch (e2) {}
+        try { renderResBar(); } catch (e2) {}
+        try { refreshHot(); } catch (e2) {}
       } else if (id === 'penguin') {
         if (!ACC.hasEvent('penguin')) {
           ACC.markEvent('penguin'); ACC.addSkin('smiley_penguin');
