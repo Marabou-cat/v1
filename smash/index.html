@@ -16375,7 +16375,7 @@ const ACC = (() => {
   a.avatar = typeof a.avatar === 'string' ? a.avatar : '';
   a.trophies = Number.isFinite(a.trophies) ? (a.trophies | 0) : 0;    // ★ 第 86 轮：奖杯总数
   const _fresh = !Number.isFinite(a.coins);                            // ★ 第 93 轮：是不是全新存档
-  a.coins = _fresh ? 1040 : (a.coins | 0);                            // 新号直接给 1040（够买 4 个角色）
+  a.coins = _fresh ? 40000 : (a.coins | 0);                           // 新号直接给 40000（= 10000 × 4，够买 4 个角色）
   /* ★ 第 93 轮：一次性「开服补发」1040 金币
      新号默认已发（上面给了 1040）；老号（有 coins 字段但没有这个标记）→ 允许领一次。 */
   if (typeof a.email !== 'string') a.email = '';                       // ★ 第 94 轮：已绑定的邮箱
@@ -16793,7 +16793,7 @@ const PV = (() => {
    初始只有 6 个角色可玩，其余靠「奖杯奖励」获得，或者用金币买。
    数据全部存本地（sbAccount），跟昵称/头像/奖杯同一份存档。 */
 const CHAR_STARTER = ['blub', 'cobalt', 'angel', 'archer', 'warrior', 'fang'];
-const CHAR_PRICE = 260;                       // 金币单价
+const CHAR_PRICE = 10000;                     // 金币单价（★ 2026-10-23 从 260 提到 10000）
 const REWARDS = [                             // 奖杯达标奖励（顺序即展示顺序）
   { at: 5,   type: 'coins', amount: 100, label: 'Starter pack' },
   { at: 12,  type: 'char',  char: 'sparky',  label: 'Thunder Fox' },
@@ -16830,11 +16830,11 @@ function unlockEmailChars(quiet) {
 }
 window.__unlockEmailChars = unlockEmailChars;
 
-/* ★ 第 92 轮：每日任务 —— 三个任务、每天共 100 金币 */
+/* ★ 第 92 轮：每日任务 —— 三个任务、每天共 1000 金币（2026-10-23：30/30/40 → 300/300/400） */
 const DAILY = [
-  { key:'play', label:'Play 2 matches',        goal:2, coins:30 },
-  { key:'win',  label:'Win a match',           goal:1, coins:30 },
-  { key:'ko',   label:'Knock out 5 opponents', goal:5, coins:40 },
+  { key:'play', label:'Play 2 matches',        goal:2, coins:300 },
+  { key:'win',  label:'Win a match',           goal:1, coins:300 },
+  { key:'ko',   label:'Knock out 5 opponents', goal:5, coins:400 },
 ];
 
 /* ★ GEM QUESTS（活动页 → SUMMON RUSH 改成「任务」形态）：
@@ -18548,7 +18548,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net88',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net89',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
