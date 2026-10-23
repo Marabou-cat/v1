@@ -2475,7 +2475,8 @@ buildPlats();                                  // 现在 DECOS 已就绪，首�
    表现层（粒子/音效/镜头抖动/选人预览）Resume用 Math.random()，不影响模拟。 */
 let _rngS = 0;
 function seedSim(s) { _rngS = ((s >>> 0) || 0x9e3779b9) >>> 0; }
-function RND() {                                  // mulberry32
+function RND() {                                  // mulberry32（模拟专用随机流）
+  if (!_simStep) _rndLeak++;                      // ★ 模拟步外消耗随机数 = 联机分叉隐患（HUD 会告警）
   _rngS = (_rngS + 0x6D2B79F5) >>> 0;
   let t = _rngS;
   t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -2483,6 +2484,12 @@ function RND() {                                  // mulberry32
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 let FRAME = 0;                                     // 模拟frames号（联机同步基准，固定 60Hz）
+/* ★ 2026-10-23：模拟随机流（RND）**只允许在 physicsStep 里被消耗**。
+   任何在渲染循环 / 菜单 / 定时器里调用 RND() 的代码都会让两台机器在同一帧的 _rngS 不同
+   → simHash 对不上 → 服务端判定去同步 → 整局重开（用户报的「联机时不时重开」）。
+   _simStep 由 physicsStep 置位；_rndLeak 统计「模拟步之外消耗随机数」的次数，HUD 会显示出来。 */
+let _simStep = false;
+var _rndLeak = 0;
 seedSim((Math.random() * 4294967296) >>> 0);
 
 /* 状态指纹：联机去同步检测用（位置/Speed/伤害/命数/硬直 + 随机数状态） */
@@ -2493,11 +2500,17 @@ function simHash() {
     mix(f.pos.x); mix(f.pos.y); mix(f.vel.x); mix(f.vel.y);
     mix(f.damage); mix(f.stocks); mix(f.hitstun); mix(f.shield); mix(f.jumpsLeft);
     mix(f.eliminated ? 1 : 0); mix(f.state === 'grabbed' ? 1 : 0);
+    mix(f.trashHits || 0);                                   // ★ 垃圾桶吃到的垃圾数（影响出招段数）
   }
   mix(BLOCKS.length);                                // ★ Blocky 的方块也纳入指纹（方块位置/寿命/耐久漂移同样算不同步）
   for (const b of BLOCKS) { mix(b.x); mix(b.y); mix(b.life); mix(b.hp); }
   mix(_rngS >>> 0);
   for (const pd of puddles) { mix(pd.x); mix(pd.t); }        // 奶滩参与去同步检测（它会改伤害）
+  /* ★ 2026-10-23：场上垃圾也参与指纹 —— 它决定 Trashcan 的额外连击伤害，
+     以前不在指纹里，两端拾取不同只能靠「伤害数字」迟到暴露。 */
+  mix(trashSpawnT);
+  mix(TRASH.length);
+  for (const it of TRASH) { mix(it.x); mix(it.y); mix(it.t); mix(it.kind === 'banana' ? 1 : (it.kind === 'bag' ? 2 : 3)); }
   for (const pl of pillars) { mix(pl.x); mix(pl.t); mix(pl.phase === 'fire' ? 1 : 0); }   // 岩浆柱同理
   for (const vx of vortexes) { mix(vx.x); mix(vx.t); mix(vx.phase === 'open' ? 1 : 0); } // 黑洞同理（它会拖人）
   if (drones.length) for (const dr of drones) { mix(dr.x); mix(dr.y); mix(dr.t); mix(dr.turret ? 1 : 0); }
@@ -2827,6 +2840,15 @@ function spawnTrash() {
   }
   m.position.set(x, y, 0);
   TRASH.push({ kind, mesh:m, x, y, t:0 });
+}
+/* ★ 2026-10-23：每局开局把「场上垃圾」清成同一个状态。
+   以前垃圾是全局数组、跟着页面从菜单一路飘进对局 —— 两台机器页面开着的时间不同，
+   开局时场上垃圾的位置/数量就不同 → Trashcan 能捡到的东西不同 → 从第一帧起就可能算岔。 */
+function trashPickReset() {
+  for (const it of TRASH) { try { scene.remove(it.mesh); } catch (e) {} }
+  TRASH.length = 0;
+  trashSpawnT = 4.0;                       // 开局 4 秒后第一件（用种子 RND 抽位置，两端一致）
+  if (smogT > 0) { smogT = 0; try { if (prevFog) { scene.fog = prevFog; prevFog = null; } smogVeil(false); } catch (e) {} }
 }
 function updateTrash(dt) {
   trashSpawnT -= dt;
@@ -15383,9 +15405,15 @@ function setup(opts) {
     try { if (window.SB) SB.stageIdx = _si; } catch (e) {}     // 探针：当前用的地图索引（排查「选了图却没生效」）
   }
   FRAME = 0;
+  /* ★ 2026-10-23：命中定格必须清零。hitstop 是模拟状态（physicsStep 早退、FRAME 不推进），
+     一局在「刚打中」的瞬间结束/重开时，上一局剩下的 hitstop 会被带进新局 —— 而两台机器
+     那一刻的 hitstop 各不相同 → 新局开头被跳过的时间不同 → 从第 0 帧起就算岔 → 刚重开又判去同步。
+     这是「重开之后两台设备还是不同步」的第二个根因。 */
+  hitstop = 0; shake = 0; camKick = 0; flash = 0;
   if (opts && opts.seed !== undefined && opts.seed !== null) seedSim(opts.seed);
   for (const f of FIGHTERS) { scene.remove(f.mesh); scene.remove(f.shadow); }
   clearField();                                      // 弹幕/奶滩/岩浆柱/特效统一清理（setStage 也调它）
+  trashPickReset();                                  // ★ 联机确定性：场上垃圾每局归零，不能带着菜单里攒的进对局
   FIGHTERS = [];
   const n = opts.count;
   const teamsOn = !!opts.teams && n === 4;            // ★ 团队模式只在 4 人时生效
@@ -16628,7 +16656,7 @@ function frame(now) {
   UI.flash.style.opacity = flash * .7;
   FX.update(dt);
   updateVexFx(dt);
-  updateTrash(dt);
+  /* updateTrash 已移入 physicsStep（固定步）——绝不能用渲染帧的 dt 推进模拟状态 */
   /* ★ 3D 大厅：菜单里用大厅场景替代战斗画面（同一个 renderer，不额外开 WebGL 上下文） */
   if (match.state === 'menu') {
     if (!document.body.classList.contains('inMenu')) document.body.classList.add('inMenu');
@@ -16665,6 +16693,7 @@ function resolveFighterOverlap() {
 function physicsStep(s) {
   TUT.tick(s);   // 新手教程：跟着物理步判定（与主循环/调试探针同一入口）
   if (hitstop > 0) { hitstop -= s; return; }
+  _simStep = true;                                  // ★ 从这里开始才允许消耗模拟随机流（见 RND 注释）
   FRAME++;
   for (const f of FIGHTERS) f.update(s);
   updateProjectiles(s);
@@ -16674,6 +16703,11 @@ function physicsStep(s) {
   updateDrones(s);
   updateStrikes(s);
   updatePuddles(s);
+  updateTrash(s);                                    // ★ 2026-10-23 修「联机时不时重开」的根因之一：
+                                                     //   垃圾桶的垃圾生成/拾取以前挂在渲染循环里，用**真实 dt** 计时
+                                                     //   并调用 RND() → 两台机器消耗随机数的帧号不同 → _rngS 错开
+                                                     //   → simHash 对不上 → 服务端判定去同步 → restartRoom 整局重开。
+                                                     //   放进固定步后，生成/拾取都发生在同一帧，两端完全一致。
   updateFlame(s);
   updatePillars(s);
   updateVortexes(s);
@@ -16683,6 +16717,7 @@ function physicsStep(s) {
   updateHellRing(s);                                 // ★ Demon 的火圈
   resolveFighterOverlap();
   for (const f of FIGHTERS) f.clearPressed();
+  _simStep = false;                                 // ★ 模拟步结束：之后任何 RND() 都是「泄漏」，会被 HUD 抓出来
 }
 /* 奶瓶爆炸（两个入口共用：落地引信到点、飞行途中撞到人）→ 范围伤害 + 留下奶滩 */
 function milkBurst(p) {
@@ -17847,6 +17882,10 @@ const NET = {
         + `<br><span style="opacity:.5">${this.mode === 'ws' ? 'WebSocket' : ('Polling' + (this.wsWhy ? ' · ' + this.wsWhy : ''))} · Seat ${this.seat + 1} · ${this.status === 'in' ? 'Connected' : 'Connecting'}${this.spec ? ' · spectating' : ''}</span>${bg}`
       : `Network: <span style="opacity:.55">Offline (latency / buffer / speed appear here once you join)</span>`;
     el.innerHTML += ' · FPS <b class="' + ((window.__sbFps || 99) < 45 ? 'warn' : '') + '">' + (window.__sbFps || '—') + '</b>' + late + localAi;
+    /* ★ 2026-10-23：本局有多少次「在模拟步之外消耗了模拟随机数」——只要不是 0，
+       这一局迟早会和对面算岔（会被服务端判去同步并重开）。这是这类 bug 的体温计。 */
+    const _leak = (_rndLeak | 0) - (this._rndBase | 0);
+    if (this.started && this.active && _leak > 0) el.innerHTML += ' · <b class="bad">⚠ RND leak ' + _leak + '</b>';
         [].forEach.call(document.querySelectorAll('#netDiag'), (e) => { if (e !== el) e.innerHTML = el.innerHTML; });
     // In match HUD 也要能看到（大厅面板此时被隐藏）——追加进 #hud，随面板排列，不会遮挡
     const hud = document.getElementById('hud');
@@ -18020,7 +18059,10 @@ const NET = {
     if (this.rec && !this.replayBits) this.recFrame();
     if (FRAME % 30 === 0 && FRAME !== this.hashSent && !this.replayBits) {
       this.hashSent = FRAME;
-      this.send({ a:'hash', room:this.room, seat:this.seat, token:this.token, f:FRAME, h:simHash() });
+      /* ★ 2026-10-23：hash 必须带对局代次 —— 重开后上一局的在途 hash 会撞进新一局的帧号段
+         （帧号都从 0 数、而且都落在 30 的倍数上），服务端会把它当成本局的分歧，
+         于是「重开一次 → 立刻又判去同步 → 再重开」，这就是用户看到的连环重开。 */
+      this.send({ a:'hash', room:this.room, seat:this.seat, token:this.token, gen:this.myGen, f:FRAME, h:simHash() });
     }
   },
   recFrame() {
@@ -18179,7 +18221,10 @@ const NET = {
           if (hadLocalTakeover && this.started) { try { this.send({ a:'resync', room:this.room, seat:this.seat, token:this.token }); } catch (e) {} }
         }
       }
-      if (this.started && f && (!!f.aiSeat !== !!st.ai)) {
+      /* ★ 2026-10-23：服务端补位的电脑座位（st.bot）不需要「控制权切换」事件 ——
+         它本来就是 AI 在跑，推进去只会让 HUD 每局都报一次
+         「⚠ N seat switch(es) applied late — screens may differ」，是纯误报。 */
+      if (this.started && f && !st.bot && (!!f.aiSeat !== !!st.ai)) {
         /* ⚠ 生效帧必须用服务端给的**固定值** st.aiFrom。以前写 Math.max(FRAME + 2, room.evFrame)：
            room.evFrame = frameHigh+12 是「每次轮询都重新算」的活值，FRAME 又各端不同
            → 同一个「谁控制这个座位」的切换在各端落在不同帧 → Bot 在不同帧开始跑（构造时抽随机数）
@@ -18580,6 +18625,10 @@ const NET = {
     this.delay = 3; this.rttMin = 0; this.rttN = 0; this.adaptT = 0; this.starvedMark = 0;
     this.primed = false; this.inflight = 0; this.busyT = 0; this.ackLimit = 0;   // 第二局也要重置，否则头几frames没输入
     this.localAiAt = {}; this.resOk = {}; this.evLate = 0; this._ltSeat = -1;   // 第 58 轮：上一局的 AI 接管痕迹不能带进新局
+    /* ★ 2026-10-23：上一局的「谁离线了」也不能带进新局 —— 带着它，本端会把那个座位从
+       输入闸门里排除（喂全 0），而对面还在等他的真实输入 → 两端从第 0 帧就算岔。 */
+    this.offlineSeats = {};
+    this._rndBase = (_rndLeak | 0);                    // 随机数泄漏统计基准（HUD 显示「本局泄漏了几次」）
     this.startPump();
     recordStart();
     toast(this.spec ? 'Spectating · input disabled' : 'Online match start · seed ' + o.seed);
@@ -18930,6 +18979,8 @@ window.SB = {
   get blocks() { return BLOCKS; },                  // ★ Blocky 的方块（验证「可站/可挡弹/可打碎」必须能直接读）
   get frame() { return FRAME; },
   hash: () => simHash(),
+  get rndLeak() { return _rndLeak | 0; },          // 探针：模拟步之外消耗 RND 的累计次数
+  get simStep() { return !!_simStep; },            // 探针：当前是否在物理步内
   seed: (s) => seedSim(s),
   get drones() { return drones; },
   get bobs() { return BOBS; },                     // ★ Mechanic 的 BOB（验证招式/边缘保护/朝向必须能直接读）
