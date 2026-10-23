@@ -16282,6 +16282,8 @@ function awardTrophies(rank, wt) {
     }
   });
   renderTrophyTag(!!mine && mine.delta !== 0);
+  /* ★ 一局结束立刻把新档案推上服务端（金币/奖杯/每日任务/宝石任务都变了），另一台设备 20 秒内就能看到 */
+  try { if (typeof NET !== 'undefined' && NET.acct) { const q = NET.acct(); if (q && q.then) q.then(r => { if (r && r.ok && r.profile) ACC.importProfile(r.profile); }).catch(() => {}); } } catch (e) {}
   if (mine) toast('Trophies ' + (mine.delta >= 0 ? '+' : '') + mine.delta + '  (now ' + ACC.trophies + ')');
 }
 function renderTrophyTag(bump) {
@@ -16515,34 +16517,74 @@ const ACC = (() => {
     /* ★ 第 94 轮：服务端存档同步 / 跨设备登录 */
     get email() { return a.email || ''; },
     setEmail(e) { a.email = String(e || '').slice(0, 80); save(); },
+    get rev() { return a.rev | 0; },          // ★ 上次从服务端看到的同步版本号（acct 推送时带上）
     exportProfile() {
       const d = this.dailyEnsure();
+      const q = this.gemEnsure();
       return { coins: a.coins | 0, trophies: a.trophies | 0, owned: a.owned.slice(), claimed: a.claimed.slice(),
                gems: a.gems | 0, pity: a.pity | 0, supreme: (a.supreme || []).slice(),
                weapons: (a.weapons || []).slice(), skins: (a.skins || []).slice(),
                equipSkins: a.equipSkins || {}, equipWeapon: a.equipWeapon || {},
                welcome: a.welcome !== false, char: a.char || '', dailyDay: d.day || '',
                dailyProg: d.prog || {}, dailyClaimed: d.claimed || [],
+               /* ★ 2026-10-23：宝石任务 / 活动领取 / 同步版本号（跨设备） */
+               gemQ: { day: q.day || '', dayGems: q.dayGems | 0, total: q.total | 0,
+                       prog: q.prog || {}, dayClaimed: q.dayClaimed || {} },
+               gemOnce: Object.assign({}, a.gemOnce || {}),
+               eventClaims: Object.assign({}, a.eventClaims || {}),
+               rev: a.rev | 0,
                nick: a.nick || '', avatar: a.avatar || '' };     // ★ 第 97 轮：昵称/头像也要进存档
     },
-    importProfile(p) {
+    /* ★ 2026-10-23：导入服务端档案。
+       hard=false（开机/心跳同步）→ 合并：货币取大、集合取并集、任务进度取大（不会把本机刚赚的吞掉）；
+       hard=true （邮箱登录到另一个账号）→ 直接以服务端为准（否则会把访客号的金币混进别人的号）。 */
+    importProfile(p, hard) {
       if (!p || typeof p !== 'object') return false;
-      if (Number.isFinite(p.coins)) a.coins = Math.max(0, p.coins | 0);
-      if (Number.isFinite(p.gems)) a.gems = Math.max(0, p.gems | 0);
-      if (Number.isFinite(p.pity)) a.pity = Math.max(0, Math.min(50, p.pity | 0));
-      if (Array.isArray(p.supreme)) a.supreme = p.supreme.slice();
-      if (Array.isArray(p.weapons)) a.weapons = p.weapons.slice();
-      if (Array.isArray(p.skins)) a.skins = p.skins.slice();
-      if (p.equipSkins && typeof p.equipSkins === 'object') a.equipSkins = p.equipSkins;
-      if (p.equipWeapon && typeof p.equipWeapon === 'object') a.equipWeapon = p.equipWeapon;
-      if (Number.isFinite(p.trophies)) a.trophies = Math.max(0, p.trophies | 0);
-      if (Array.isArray(p.owned) && p.owned.length) a.owned = p.owned.slice();
-      if (Array.isArray(p.claimed)) a.claimed = p.claimed.slice();
-      if (typeof p.welcome === 'boolean') a.welcome = p.welcome;
+      const uni = (arr, cur) => Array.from(new Set([].concat(cur || [], arr || [])));
+      const dayNum = s => { const m = /^(\d+)-(\d+)-(\d+)$/.exec(String(s || ''));
+        return m ? (+m[1]) * 10000 + (+m[2]) * 100 + (+m[3]) : 0; };
+      const num = (cur, v) => hard ? (v | 0) : Math.max(cur | 0, v | 0);
+      if (Number.isFinite(p.coins)) a.coins = Math.max(0, num(a.coins, p.coins));
+      if (Number.isFinite(p.gems)) a.gems = Math.max(0, num(a.gems, p.gems));
+      if (Number.isFinite(p.pity)) a.pity = Math.max(0, Math.min(50, num(a.pity, p.pity)));
+      if (Number.isFinite(p.trophies)) a.trophies = Math.max(0, num(a.trophies, p.trophies));
+      if (Array.isArray(p.supreme)) a.supreme = hard ? p.supreme.slice() : uni(p.supreme, a.supreme);
+      if (Array.isArray(p.weapons)) a.weapons = hard ? p.weapons.slice() : uni(p.weapons, a.weapons);
+      if (Array.isArray(p.skins)) a.skins = hard ? p.skins.slice() : uni(p.skins, a.skins);
+      if (p.equipSkins && typeof p.equipSkins === 'object') a.equipSkins = Object.assign({}, a.equipSkins || {}, p.equipSkins);
+      if (p.equipWeapon && typeof p.equipWeapon === 'object') a.equipWeapon = Object.assign({}, a.equipWeapon || {}, p.equipWeapon);
+      if (Array.isArray(p.owned) && p.owned.length) a.owned = hard ? p.owned.slice() : uni(p.owned, a.owned);
+      if (Array.isArray(p.claimed)) a.claimed = hard ? p.claimed.slice() : uni(p.claimed, a.claimed);
+      if (typeof p.welcome === 'boolean') a.welcome = hard ? p.welcome : (a.welcome === true || p.welcome);
       if (typeof p.char === 'string' && p.char) a.char = p.char;
-      if (p.dailyDay && p.dailyProg) a.daily = { day: p.dailyDay, prog: p.dailyProg, claimed: p.dailyClaimed || [] };
+      if (p.gemOnce && typeof p.gemOnce === 'object') a.gemOnce = Object.assign({}, a.gemOnce || {}, p.gemOnce);
+      if (p.eventClaims && typeof p.eventClaims === 'object') a.eventClaims = Object.assign({}, a.eventClaims || {}, p.eventClaims);
+      /* 每日任务：按自然日比较，别用字符串比大小 */
+      if (p.dailyDay && p.dailyProg) {
+        const sd = dayNum(a.daily && a.daily.day), cd = dayNum(p.dailyDay);
+        if (hard || cd > sd) a.daily = { day: p.dailyDay, prog: p.dailyProg, claimed: p.dailyClaimed || [] };
+        else if (cd === sd && cd > 0) {
+          const d = this.dailyEnsure();
+          for (const k in p.dailyProg) d.prog[k] = Math.max(d.prog[k] | 0, p.dailyProg[k] | 0);
+          d.claimed = uni(p.dailyClaimed || [], d.claimed);
+        }
+      }
+      /* 宝石任务：日进度/累计取大 + 日领取并集（服务端已合并过一遍，这里再夹一次上限） */
+      if (p.gemQ && typeof p.gemQ === 'object') {
+        const q = this.gemEnsure();
+        const sd = dayNum(q.day), cd = dayNum(p.gemQ.day);
+        if (cd > sd) {
+          q.day = p.gemQ.day; q.dayGems = p.gemQ.dayGems | 0; q.prog = p.gemQ.prog || {}; q.dayClaimed = p.gemQ.dayClaimed || {};
+        } else if (cd === sd && cd > 0) {
+          q.dayGems = Math.max(q.dayGems | 0, p.gemQ.dayGems | 0);
+          for (const k in (p.gemQ.prog || {})) q.prog[k] = Math.max(q.prog[k] | 0, p.gemQ.prog[k] | 0);
+          Object.assign(q.dayClaimed = q.dayClaimed || {}, p.gemQ.dayClaimed || {});
+        }
+        q.total = Math.max(0, Math.min(4000, Math.max(q.total | 0, p.gemQ.total | 0)));
+        q.dayGems = Math.max(0, Math.min(500, q.dayGems | 0));
+      }
+      if (Number.isFinite(p.rev)) a.rev = p.rev | 0;          // 记下服务端版本号，下次推送带上
       if (typeof p.email === 'string') a.email = p.email;
-      /* ★ 第 97 轮：昵称 / 头像跟随账号 —— 之前在别的设备登录后，本地还留着旧昵称旧头像 */
       if (typeof p.nick === 'string' && p.nick) a.nick = p.nick.slice(0, 12);
       if (typeof p.avatar === 'string') a.avatar = p.avatar.slice(0, 60000);
       save();
@@ -18506,7 +18548,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net87',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net88',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -20384,7 +20426,7 @@ const ASK = (() => {
 })();
 Object.assign(NET, {
   /* ★ 第 94 轮：账号存档 + 邮箱绑定 / 跨设备登录 */
-  acct() { return this.send({ a:'acct', pid: ACC.id, nick: ACC.nick, code: this.room, profile: ACC.exportProfile() }, true); },
+  acct() { return this.send({ a:'acct', pid: ACC.id, nick: ACC.nick, code: this.room, rev: ACC.rev, profile: ACC.exportProfile() }, true); },
   bindEmail(email) { return this.send({ a:'bind', pid: ACC.id, email }, true); },
   verifyEmail(code) { return this.send({ a:'verify', pid: ACC.id, code }, true); },
   loginEmail(email, code) { return this.send({ a:'login', pid: ACC.id, email, ...(code ? { code } : {}) }, true); },
@@ -20513,9 +20555,34 @@ NET.onMsg = function (j) {
 };
 /* ★ 第 74 轮：在线心跳 —— 开机就上报，之后每 20s 一次（服务端 45s TTL 判离线）。
    之前只在建房/加入后上报，所以光在大厅的人永远显示 offline。 */
+/* ★ 2026-10-23：同步完成后刷新界面（金币/宝石/奖杯/任务/皮肤都可能在别处变过） */
+function refreshAfterSync() {
+  try { renderResBar(); } catch (e) {}
+  try { renderTrophyTag(false); } catch (e) {}
+  try { summonBtnPaint(); } catch (e) {}
+  try { paintSkinBtn(); } catch (e) {}
+  try { window.__questRefresh && window.__questRefresh(); } catch (e) {}
+  try { LOBBY.refresh && LOBBY.refresh(); } catch (e) {}
+  try { if (window.__rewardRender) window.__rewardRender(); } catch (e) {}
+}
 (function presence() {
-  const ping = () => { try { if (NET.acct) NET.acct(); } catch (e) {} };
+  const apply = (r) => {
+    if (!r || !r.ok || !r.profile) return;
+    const beforeOwned = ACC.owned.join(',');
+    try { ACC.importProfile(r.profile); } catch (e) {}
+    try { refreshAfterSync(); } catch (e) {}
+    /* 角色列表变了才重建格子（否则每 20 秒把玩家正在看的网格重建一遍） */
+    try { if (ACC.owned.join(',') !== beforeOwned && window.__rebuildChars) window.__rebuildChars(); } catch (e) {}
+  };
+  const ping = () => {
+    try {
+      if (!NET.acct) return;
+      const p = NET.acct();                    // 推送本机档案 + 拿回合并后的服务端档案
+      if (p && typeof p.then === 'function') p.then(apply).catch(() => {});
+    } catch (e) {}
+  };
   ping();
+  setTimeout(ping, 2500);                      // 首屏之后再拉一次，保证开机就是服务端档案
   setInterval(ping, 20000);
 })();
 const _netApplyRoom = NET.applyRoom.bind(NET);
@@ -20781,7 +20848,7 @@ console.log('[SB] Super Brawl demo loaded', window.SB.version);
       if (!email || !code) return render('Enter email + code.');
       const r = await NET.loginEmail(email, code);
       if (r && r.ok && r.pid) {
-        ACC.adoptId(r.pid); ACC.importProfile(Object.assign({}, r.profile, { email: r.profile && r.profile.email }));
+        ACC.adoptId(r.pid); ACC.importProfile(Object.assign({}, r.profile, { email: r.profile && r.profile.email }), true);
         render('Logged in ✓ restoring your account…');
         setTimeout(() => location.reload(), 700);
       } else render(errText(r));

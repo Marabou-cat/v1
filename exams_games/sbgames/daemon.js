@@ -315,6 +315,19 @@ function accOf(id) {
   if (typeof ACCTS[k].email !== 'string') ACCTS[k].email = '';
   if (typeof ACCTS[k].emailVerified !== 'boolean') ACCTS[k].emailVerified = false;
   if (typeof ACCTS[k].welcome !== 'boolean') ACCTS[k].welcome = false;
+  /* ★ 2026-10-23：跨设备同步新增字段（宝石 / 抽卡 / 皮肤武器 / 宝石任务 / 活动领取 / 同步版本号） */
+  if (typeof ACCTS[k].gems !== 'number') ACCTS[k].gems = 0;
+  if (typeof ACCTS[k].pity !== 'number') ACCTS[k].pity = 0;
+  if (!Array.isArray(ACCTS[k].supreme)) ACCTS[k].supreme = [];
+  if (!Array.isArray(ACCTS[k].weapons)) ACCTS[k].weapons = [];
+  if (!Array.isArray(ACCTS[k].skins)) ACCTS[k].skins = [];
+  if (!ACCTS[k].equipSkins || typeof ACCTS[k].equipSkins !== 'object') ACCTS[k].equipSkins = {};
+  if (!ACCTS[k].equipWeapon || typeof ACCTS[k].equipWeapon !== 'object') ACCTS[k].equipWeapon = {};
+  if (!ACCTS[k].gemQ || typeof ACCTS[k].gemQ !== 'object')
+    ACCTS[k].gemQ = { day: '', dayGems: 0, total: 0, prog: {}, dayClaimed: {} };
+  if (!ACCTS[k].gemOnce || typeof ACCTS[k].gemOnce !== 'object') ACCTS[k].gemOnce = {};
+  if (!ACCTS[k].eventClaims || typeof ACCTS[k].eventClaims !== 'object') ACCTS[k].eventClaims = {};
+  if (typeof ACCTS[k].rev !== 'number') ACCTS[k].rev = 0;
   return ACCTS[k];
 }
 const ONLINE = new Map();          // pid -> { ws, nick, code, at }
@@ -948,7 +961,70 @@ function handle(act, ctx) {
     dailyClaimed: a.dailyClaimed || [], char: a.char || '', nick: a.nick || '',
     avatar: a.avatar || '',                       // ★ 第 97 轮：头像也存服务端（跨设备一致）
     email: a.emailVerified ? a.email : '',
+    /* ★ 2026-10-23：跨设备同步（宝石/抽卡/皮肤武器/宝石任务/活动领取） */
+    gems: a.gems | 0, pity: a.pity | 0, supreme: a.supreme || [], weapons: a.weapons || [],
+    skins: a.skins || [], equipSkins: a.equipSkins || {}, equipWeapon: a.equipWeapon || {},
+    gemQ: a.gemQ || { day: '', dayGems: 0, total: 0, prog: {}, dayClaimed: {} },
+    gemOnce: a.gemOnce || {}, eventClaims: a.eventClaims || {}, rev: a.rev | 0,
   });
+  /* ================= ★ 跨设备同步：把客户端档案合并进服务端档案 =================
+     merge=false（正常情况：客户端 rev == 服务端 rev，只有一个设备在写）→ 货币/进度以客户端为准；
+     merge=true （客户端 rev 落后 = 别的设备写过）→ 货币取大、集合取并集、任务进度取大，
+     宁可多给一点也不吞玩家进度；两边都只有「加法」语义，所以不会把已花掉的钱变回来太多。 */
+  const _dayNum = (s) => { const m = /^(\d+)-(\d+)-(\d+)$/.exec(String(s || ''));
+    return m ? (+m[1]) * 10000 + (+m[2]) * 100 + (+m[3]) : 0; };
+  const _uni = (arr, cap) => Array.from(new Set((arr || []).filter(x => x !== null && x !== undefined))).slice(0, cap || 96);
+  function applyProfile(a, p, merge) {
+    if (!p || typeof p !== 'object') return;
+    const pick = (cur, v) => merge ? Math.max(cur | 0, v | 0) : (v | 0);
+    if (Number.isFinite(p.coins))    a.coins = Math.max(0, pick(a.coins, p.coins));
+    if (Number.isFinite(p.gems))     a.gems = Math.max(0, pick(a.gems, p.gems));
+    if (Number.isFinite(p.trophies)) a.trophies = Math.max(0, pick(a.trophies, p.trophies));
+    if (Number.isFinite(p.pity))     a.pity = Math.max(0, Math.min(50, pick(a.pity, p.pity)));
+    /* 集合类永远并集：解锁/皮肤/武器/至尊/奖励领取只会增加 */
+    if (Array.isArray(p.owned))    a.owned = _uni((a.owned || []).concat(p.owned.filter(x => typeof x === 'string')), 96);
+    if (Array.isArray(p.claimed))  a.claimed = _uni((a.claimed || []).concat(p.claimed.map(x => Number(x) | 0)), 96);
+    if (Array.isArray(p.supreme))  a.supreme = _uni((a.supreme || []).concat(p.supreme.filter(x => typeof x === 'string')), 96);
+    if (Array.isArray(p.weapons))  a.weapons = _uni((a.weapons || []).concat(p.weapons.filter(x => typeof x === 'string')), 128);
+    if (Array.isArray(p.skins))    a.skins = _uni((a.skins || []).concat(p.skins.filter(x => typeof x === 'string')), 128);
+    /* 装备表：以客户端为准（刚在这台设备上点的） */
+    if (p.equipSkins && typeof p.equipSkins === 'object') a.equipSkins = Object.assign({}, a.equipSkins || {}, p.equipSkins);
+    if (p.equipWeapon && typeof p.equipWeapon === 'object') a.equipWeapon = Object.assign({}, a.equipWeapon || {}, p.equipWeapon);
+    /* 一次性标记：并集 */
+    if (typeof p.welcome === 'boolean') a.welcome = a.welcome || p.welcome;
+    if (p.gemOnce && typeof p.gemOnce === 'object') a.gemOnce = Object.assign({}, a.gemOnce || {}, p.gemOnce);
+    if (p.eventClaims && typeof p.eventClaims === 'object') a.eventClaims = Object.assign({}, a.eventClaims || {}, p.eventClaims);
+    /* 每日任务：按自然日比较（不能拿字符串比：'2026-10-9' > '2026-10-23' 是错的） */
+    if (p.dailyDay && p.dailyProg) {
+      const sd = _dayNum(a.dailyDay), cd = _dayNum(p.dailyDay);
+      if (cd > sd) { a.dailyDay = String(p.dailyDay).slice(0, 20); a.dailyProg = p.dailyProg;
+                     a.dailyClaimed = Array.isArray(p.dailyClaimed) ? p.dailyClaimed.slice(0, 8) : []; }
+      else if (cd === sd && cd > 0) {
+        const pr = a.dailyProg || (a.dailyProg = {});
+        for (const k in p.dailyProg) pr[k] = Math.max(pr[k] | 0, p.dailyProg[k] | 0);
+        a.dailyClaimed = _uni((a.dailyClaimed || []).concat(p.dailyClaimed || []), 8);
+      }
+    }
+    /* 宝石任务：日进度/累计进度取大，日领取记录并集，两个上限服务端再夹一层 */
+    if (p.gemQ && typeof p.gemQ === 'object') {
+      if (!a.gemQ || typeof a.gemQ !== 'object') a.gemQ = { day: '', dayGems: 0, total: 0, prog: {}, dayClaimed: {} };
+      const g = a.gemQ;
+      const sd = _dayNum(g.day), cd = _dayNum(p.gemQ.day);
+      if (cd > sd) { g.day = String(p.gemQ.day).slice(0, 20); g.dayGems = p.gemQ.dayGems | 0;
+                     g.prog = p.gemQ.prog || {}; g.dayClaimed = p.gemQ.dayClaimed || {}; }
+      else if (cd === sd && cd > 0) {
+        const pr = g.prog || (g.prog = {});
+        for (const k in (p.gemQ.prog || {})) pr[k] = Math.max(pr[k] | 0, p.gemQ.prog[k] | 0);
+        g.dayClaimed = Object.assign({}, g.dayClaimed || {}, p.gemQ.dayClaimed || {});
+        g.dayGems = Math.max(g.dayGems | 0, p.gemQ.dayGems | 0);
+      }
+      g.total = Math.max(0, Math.min(4000, Math.max(g.total | 0, p.gemQ.total | 0)));
+      g.dayGems = Math.max(0, Math.min(500, g.dayGems | 0));
+    }
+    if (typeof p.char === 'string' && p.char) a.char = p.char.slice(0, 24);
+    if (typeof p.nick === 'string' && p.nick) a.nick = p.nick.slice(0, 12);
+    if (typeof p.avatar === 'string' && p.avatar) a.avatar = p.avatar.slice(0, 60000);
+  }
   const codeHash = (c) => require('crypto').createHash('sha256').update('sbcode:' + c).digest('hex').slice(0, 40);
   const genCode = () => String(require('crypto').randomInt(100000, 1000000));
   function sendCodeMail(to, code) {
@@ -1015,25 +1091,15 @@ function handle(act, ctx) {
     const rec = ONLINE.get(String(act.pid)) || {};
     if (ctx.ws) rec.ws = ctx.ws;
     rec.nick = a.nick; rec.code = act.code || ''; rec.at = now;
-    /* ★ 第 94 轮：客户端把本地存档推上来（金币/解锁/奖励/每日/角色），服务端保存 → 跨设备可恢复 */
-    if (act.profile && typeof act.profile === 'object') {
-      const p = act.profile;
-      if (Array.isArray(p.owned)) a.owned = p.owned.filter(x => typeof x === 'string').slice(0, 64);
-      if (Number.isFinite(p.coins)) a.coins = Math.max(0, p.coins | 0);
-      if (Number.isFinite(p.trophies)) a.trophies = Math.max(0, p.trophies | 0);
-      if (Array.isArray(p.claimed)) a.claimed = p.claimed.slice(0, 64);
-      if (Array.isArray(p.dailyClaimed)) a.dailyClaimed = p.dailyClaimed.slice(0, 8);
-      if (typeof p.dailyDay === 'string') a.dailyDay = p.dailyDay.slice(0, 20);
-      if (p.dailyProg && typeof p.dailyProg === 'object') a.dailyProg = p.dailyProg;
-      if (typeof p.welcome === 'boolean') a.welcome = p.welcome;
-      if (typeof p.char === 'string') a.char = p.char.slice(0, 24);
-      /* ★ 第 97 轮：昵称/头像也随存档上云（登录到别的设备后保持一致） */
-      if (typeof p.nick === 'string' && p.nick) a.nick = p.nick.slice(0, 12);
-      if (typeof p.avatar === 'string' && p.avatar) a.avatar = p.avatar.slice(0, 60000);
-    }
+    /* ★ 跨设备同步：客户端把整份档案推上来（含金币/宝石/每日任务/宝石任务/皮肤武器）
+       rev 相同 = 只有这台设备在写 → 以客户端为准；rev 落后 = 别的设备写过 → 保守合并。 */
+    const _cr = Number.isFinite(act.rev) ? (act.rev | 0) : 0;
+    const _merge = _cr < (a.rev | 0);
+    if (act.profile && typeof act.profile === 'object') applyProfile(a, act.profile, _merge);
+    a.rev = (a.rev | 0) + 1;
     ONLINE.set(String(act.pid), rec);
     accSave();
-    return { ok: true, me: String(act.pid), nick: a.nick, trophies: a.trophies | 0,
+    return { ok: true, me: String(act.pid), nick: a.nick, trophies: a.trophies | 0, merged: _merge,
              email: a.emailVerified ? a.email : '', profile: profileOf(a) };
   }
   if (act.a === 'friends') {
@@ -1044,22 +1110,9 @@ function handle(act, ctx) {
     const rec = ONLINE.get(String(act.pid)) || {};
     rec.nick = a.nick; rec.at = now; if (act.code) rec.code = act.code;
     if (ctx.ws) rec.ws = ctx.ws;
-    /* ★ 第 94 轮：客户端把本地存档推上来（金币/解锁/奖励/每日/角色），服务端保存 → 跨设备可恢复 */
-    if (act.profile && typeof act.profile === 'object') {
-      const p = act.profile;
-      if (Array.isArray(p.owned)) a.owned = p.owned.filter(x => typeof x === 'string').slice(0, 64);
-      if (Number.isFinite(p.coins)) a.coins = Math.max(0, p.coins | 0);
-      if (Number.isFinite(p.trophies)) a.trophies = Math.max(0, p.trophies | 0);
-      if (Array.isArray(p.claimed)) a.claimed = p.claimed.slice(0, 64);
-      if (Array.isArray(p.dailyClaimed)) a.dailyClaimed = p.dailyClaimed.slice(0, 8);
-      if (typeof p.dailyDay === 'string') a.dailyDay = p.dailyDay.slice(0, 20);
-      if (p.dailyProg && typeof p.dailyProg === 'object') a.dailyProg = p.dailyProg;
-      if (typeof p.welcome === 'boolean') a.welcome = p.welcome;
-      if (typeof p.char === 'string') a.char = p.char.slice(0, 24);
-      /* ★ 第 97 轮：昵称/头像也随存档上云（登录到别的设备后保持一致） */
-      if (typeof p.nick === 'string' && p.nick) a.nick = p.nick.slice(0, 12);
-      if (typeof p.avatar === 'string' && p.avatar) a.avatar = p.avatar.slice(0, 60000);
-    }
+    /* ★ 跨设备同步（好友轮询也会捎带整份档案）—— 与 acct 同一套 rev 合并规则 */
+    const _cr2 = Number.isFinite(act.rev) ? (act.rev | 0) : 0;
+    if (act.profile && typeof act.profile === 'object') applyProfile(a, act.profile, _cr2 < (a.rev | 0));
     ONLINE.set(String(act.pid), rec);
     accSave();
     return { ok: true, me: String(act.pid), nick: a.nick, list: friendListOf(act.pid), inv,
