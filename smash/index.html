@@ -7470,41 +7470,255 @@ FSPECIALS.sovereign = { name:'Cardboard Strike', style:'cbFreeze', color:0xffb34
    全部用 BoxGeometry 拼：躯干/胸板/头/四肢都是箱子，胶布是薄薄的米色片（斜贴/横贴），
    胸口一颗青色核心（Side B 第 5 段激光从这里打、Up B 向下喷也在这里）。
    内层 `flip` 组专门给上B「倒转 180°」用（不影响引擎写 mesh.rotation.y / animStep 写骨骼）。 */
+/* ================= ★ Cardboard 模型（2026-10-23 第 122 轮：细节 + TV Man 皮肤）=================
+   默认造型新增：核心「金属环 + 深色虹膜 + 玻璃罩 + 加色辉光」、瓦楞切口、运单标签、铆钉、膝部胶布、
+                 眉毛灯条 / 嘴格栅。
+   TV Man 皮肤：西装（外套/衬衫/领带/领巾袋/纽扣/裤/皮鞋）+ 复古电视机头（木质外壳 + CRT 屏 +
+                 旋钮 + 喇叭格栅 + 兔耳天线 + 底座）。屏幕表情由 `tvFaceTick` 按战斗状态重绘。
+   ⚠ 皮肤判定要**同时看 def.skin 和 ACC.skinOf**：战斗里的 def 带着 skin，但大厅缩略图/PV.bake
+     只传 CHARS 里的原始 def（没有 skin 字段）—— 只认 def.skin 的话缩略图永远是默认皮（企鹅那轮同样的坑）。 */
+function tvFacePaint(tv, expr, t) {
+  const c = tv.ctx, W = tv.w, H = tv.h;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.shadowBlur = 0; c.globalAlpha = 1;
+  c.fillStyle = '#0a1512'; c.fillRect(0, 0, W, H);
+  /* CRT 扫描线 + 缓慢下移的亮带（纯视觉，每 ~0.09s 重绘一次） */
+  c.fillStyle = 'rgba(120,255,200,.055)';
+  for (let y = 2; y < H; y += 4) c.fillRect(0, y, W, 2);
+  const by = (t * 52) % (H + 60) - 30;
+  const g1 = c.createLinearGradient(0, by, 0, by + 26);
+  g1.addColorStop(0, 'rgba(120,255,210,0)');
+  g1.addColorStop(.5, 'rgba(120,255,210,.13)');
+  g1.addColorStop(1, 'rgba(120,255,210,0)');
+  c.fillStyle = g1; c.fillRect(0, by, W, 26);
+  const cx = W * .5, ey = H * .42, ex = W * .255, er = W * .070;
+  if (expr === 'ko') {                                   // 被 KO：雪花 + NO SIGNAL
+    for (let i = 0; i < 300; i++) {
+      const v = 60 + ((i * 37 + ((t * 60) | 0) * 13) % 190);
+      c.fillStyle = 'rgba(' + v + ',' + (v + 30) + ',' + (v + 20) + ',' + (.08 + (i % 7) * .028) + ')';
+      c.fillRect((i * 53 + ((t * 140) | 0)) % W, (i * 29 + i * 7) % H, 2 + (i % 3) * 3, 2);
+    }
+    c.fillStyle = 'rgba(6,10,9,.62)'; c.fillRect(0, H * .33, W, H * .34);
+    c.fillStyle = '#e9fff5'; c.shadowColor = '#2bff9c'; c.shadowBlur = 9;
+    c.font = '900 ' + Math.round(H * .155) + 'px ui-monospace,monospace';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('NO SIGNAL', cx, H * .5);
+    c.shadowBlur = 0;
+    tv.tex.needsUpdate = true; return;
+  }
+  c.strokeStyle = '#b9ffe0'; c.fillStyle = '#b9ffe0';
+  c.lineWidth = 7; c.lineCap = 'round'; c.lineJoin = 'round';
+  c.shadowColor = '#2bff9c'; c.shadowBlur = 12;
+  const arc = (x, y, r, a0, a1, ccw) => { c.beginPath(); c.arc(x, y, r, a0, a1, !!ccw); c.stroke(); };
+  const line = (x1, y1, x2, y2) => { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); };
+  const dot = (x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.fill(); };
+  if (expr === 'blink') {
+    line(cx - ex - er, ey, cx - ex + er, ey);
+    line(cx + ex - er, ey, cx + ex + er, ey);
+    arc(cx, ey + H * .10, W * .105, .22, Math.PI - .22);
+  } else if (expr === 'happy') {                        // ^ ^ + 大笑
+    arc(cx - ex, ey + er * .55, er * 1.05, Math.PI * 1.14, Math.PI * 1.86);
+    arc(cx + ex, ey + er * .55, er * 1.05, Math.PI * 1.14, Math.PI * 1.86);
+    arc(cx, ey + H * .045, W * .155, .14, Math.PI - .14);
+  } else if (expr === 'run') {                          // > < 兴奋
+    line(cx - ex - er, ey - er, cx - ex + er * .6, ey); line(cx - ex + er * .6, ey, cx - ex - er, ey + er);
+    line(cx + ex + er, ey - er, cx + ex - er * .6, ey); line(cx + ex - er * .6, ey, cx + ex + er, ey + er);
+    arc(cx, ey + H * .10, W * .115, .20, Math.PI - .20);
+  } else if (expr === 'attack') {                       // 怒眉 + 张口
+    line(cx - ex - er, ey - er * 1.25, cx - ex + er, ey - er * .15);
+    line(cx + ex + er, ey - er * 1.25, cx + ex - er, ey - er * .15);
+    line(cx - ex - er * .8, ey + er * .18, cx - ex + er * .8, ey + er * .18);
+    line(cx + ex - er * .8, ey + er * .18, cx + ex + er * .8, ey + er * .18);
+    c.beginPath(); c.ellipse(cx, ey + H * .18, W * .085, H * .085, 0, 0, 6.2832); c.fill();
+  } else if (expr === 'hit') {                           // X 眼 + 波浪嘴（受击/被打飞）
+    for (const sx of [-1, 1]) {
+      const bx = cx + sx * ex;
+      line(bx - er, ey - er, bx + er, ey + er);
+      line(bx + er, ey - er, bx - er, ey + er);
+    }
+    c.beginPath();
+    for (let i = 0; i <= 6; i++) {
+      const x = cx - W * .13 + (W * .26) * (i / 6);
+      const y = ey + H * .16 + (i % 2 ? -H * .022 : H * .022);
+      i ? c.lineTo(x, y) : c.moveTo(x, y);
+    }
+    c.stroke();
+  } else {                                               // 待机：圆眼 + 微笑
+    dot(cx - ex, ey, er); dot(cx + ex, ey, er);
+    arc(cx, ey + H * .095, W * .115, .20, Math.PI - .20);
+  }
+  c.shadowBlur = 0;
+  tv.tex.needsUpdate = true;
+}
+/* 每帧/每次渲染调一次：按状态切表情（含自动眨眼），重绘节流到 ~11fps，避免每帧重画 canvas */
+function tvFaceTick(tv, dt, mode) {
+  if (!tv) return;
+  tv.t += dt; tv.blink -= dt; tv.redraw -= dt;
+  let ex = mode || 'idle';
+  if (ex !== 'ko' && ex !== 'hit') {
+    if (tv.blink <= 0) { tv.blink = 2.4 + Math.random() * 2.6; tv.blinkFor = .12; }
+    if (tv.blinkFor > 0) { tv.blinkFor -= dt; ex = 'blink'; }
+  }
+  if (ex !== tv.expr || tv.redraw <= 0) { tv.expr = ex; tv.redraw = .09; tvFacePaint(tv, ex, tv.t); }
+}
 function kitCardboard(def) {
+  /* ★ TV Man 皮肤：看 def.skin 也要看 ACC.skinOf（缩略图/PV.bake 传进来的 def 没有 skin 字段） */
+  const _skin = (def.skin || (typeof ACC !== 'undefined' && ACC.skinOf && ACC.skinOf(def.id)) || '');
+  const isTV = _skin === 'cardboard_tv';
   const g = new THREE.Group();
   const flip = new THREE.Group(); g.add(flip);                 // ← 上B 倒转用（默认 0）
-  const box  = () => cmat(def.body,  { roughness:.86 });
-  const box2 = () => cmat(def.body2, { roughness:.90 });
-  const tape = cmat(0xf2ead6, { roughness:.62 });              // 胶布
+  /* ---- 配色：默认纸箱 / TV 皮肤西装 ---- */
+  const CO = isTV
+    ? { main:0x252b3c, acc:0xf4f6ff, dark:0x12151d, suit2:0x1b2030, tie:0xb62d2d, shoe:0x0d1018,
+        wood:0x6b5442, cream:0xd9cdb8, metal:0xd8dee9, glove:0xe9e2d2, shed:0x14171f, shedAcc:0xa8a08f }
+    : { main:def.body, acc:def.body2, dark:def.dark, suit2:def.body2, tie:0xb62d2d, shoe:0x6b4a28,
+        wood:0xb98a52, cream:0xe8cfa4, metal:0xb8c2cc, glove:def.body2, shed:0x7d5c3a, shedAcc:0xa8895f };
+  const box  = () => cmat(CO.main,  { roughness: isTV ? .78 : .86 });
+  const box2 = () => cmat(CO.acc,   { roughness: isTV ? .70 : .90 });
+  const tape = cmat(0xf2ead6, { roughness:.62 });              // 胶布（TV 皮肤用来做衬衫/袋巾高光）
   const tapeD = cmat(0xd9cdb2, { roughness:.68 });
+  const metalM = () => cmat(CO.metal, { roughness:.22, metalness:.92, flatShading:false });
   const coreMat = new THREE.MeshBasicMaterial({ color:0x36e0ff });
   const B = (w, h, d, mat, x, y, z, parent) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     m.position.set(x, y, z); (parent || flip).add(m); return m;
   };
-  /* ---- 腿：三个箱子（大腿/小腿/脚） ---- */
+  const CYL = (rt, rb, h, mat, x, y, z, parent) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 14), mat);
+    m.position.set(x, y, z); (parent || flip).add(m); return m;
+  };
+  /* ---- 腿：默认=三段纸箱；TV=西裤 + 皮鞋（带一道白鞋底，剪影更清楚） ---- */
   const mkLeg = (s) => {
     const leg = new THREE.Group(); leg.position.set(s * .23, .74, 0); flip.add(leg);
-    B(.20, .30, .22, box(), 0, -.15, 0, leg);
-    B(.17, .28, .19, box2(), 0, -.43, .01, leg);
-    B(.28, .13, .40, box(), 0, -.60, .10, leg);               // 脚（纸箱鞋）
-    B(.30, .05, .12, tape, 0, -.55, .16, leg);                // 脚背胶布
+    if (isTV) {
+      B(.21, .36, .23, cmat(0x2b3346, { roughness:.82 }), 0, -.16, 0, leg);   // 西裤大腿（比外套亮一档，避免糊成一团）
+      B(.18, .30, .20, cmat(0x2b3346, { roughness:.82 }), 0, -.45, .01, leg); // 西裤小腿
+      B(.24, .11, .40, cmat(CO.shoe, { roughness:.42 }), 0, -.60, .09, leg);  // 皮鞋
+      B(.26, .035, .42, cmat(0xe9edf5, { roughness:.50 }), 0, -.657, .09, leg); // 白鞋底（亮一点才看得出是皮鞋）
+    } else {
+      B(.20, .30, .22, box(), 0, -.15, 0, leg);
+      B(.17, .28, .19, box2(), 0, -.43, .01, leg);
+      B(.28, .13, .40, box(), 0, -.60, .10, leg);               // 脚（纸箱鞋）
+      B(.30, .05, .12, tape, 0, -.55, .16, leg);                // 脚背胶布
+      B(.19, .05, .205, tape, 0, -.30, 0, leg);                 // ★ 膝部胶布（新增细节）
+    }
     return leg;
   };
   const legL = mkLeg(-1), legR = mkLeg(1);
-  /* ---- 躯干：大箱子 + 胸板 + 胶布 ---- */
-  const torso = B(.86, .94, .58, box(), 0, 1.06, 0);
-  const belly = B(.62, .50, .06, box2(), 0, 1.02, .30);       // 胸板（受击闪白/形态 tint 用它）
-  B(.10, .64, .02, tape, -.22, 1.10, .315).rotation.z = .30;   // 斜胶布 ①
-  B(.10, .64, .02, tape,  .24, 1.02, .315).rotation.z = -.26;  // 斜胶布 ②
-  B(.90, .09, .02, tapeD, 0, 1.49, .30);                       // 顶沿横胶布
-  B(.90, .09, .02, tapeD, 0, 1.30, -.30);                      // 背后横胶布
-  /* 胸口核心：外框 + 发光圆 */
-  B(.30, .30, .04, cmat(0x6b4a28, { roughness:.6 }), 0, 1.00, .325);
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(.10, .10, .06, 14), coreMat);
-  core.rotation.x = Math.PI / 2; core.position.set(0, 1.00, .35); flip.add(core);
-  /* ---- 头：箱子 + 两根天线 + 青色 LED 眼 ---- */
-  const head = new THREE.Group(); head.position.set(0, 1.92, 0); flip.add(head);
+  /* ---- 躯干 ---- */
+  const torso = B(.86, .94, .58, isTV ? cmat(CO.main, { roughness:.76 }) : box(), 0, 1.06, 0);
+  const belly = isTV
+    ? B(.26, .64, .06, cmat(CO.acc, { roughness:.62 }), 0, 1.13, .295)        // 西装里的衬衫
+    : B(.62, .50, .06, box2(), 0, 1.02, .30);                                 // 胸板（受击闪白/形态 tint 用它）
+  if (isTV) {
+    /* 领带（结 + 带）、两侧翻领、纽扣、袋巾 —— 一眼看出是西装 */
+    B(.10, .09, .05, cmat(CO.tie, { roughness:.60 }), 0, 1.335, .315);
+    B(.085, .42, .04, cmat(CO.tie, { roughness:.60 }), 0, 1.10, .318);
+    const lapL = B(.17, .54, .05, cmat(0x333b52, { roughness:.72 }), -.185, 1.20, .30); lapL.rotation.z = .20;
+    const lapR = B(.17, .54, .05, cmat(0x333b52, { roughness:.72 }),  .185, 1.20, .30); lapR.rotation.z = -.20;
+    /* 白衬衫领（两片小三角）——没有它整件西装会糊成一块黑 */
+    B(.13, .07, .03, cmat(0xf7f9ff, { roughness:.55 }), -.085, 1.415, .315).rotation.z = .32;
+    B(.13, .07, .03, cmat(0xf7f9ff, { roughness:.55 }),  .085, 1.415, .315).rotation.z = -.32;
+    for (const yy of [.94, .82]) CYL(.021, .021, .02, metalM(), 0, yy, .305).rotation.x = Math.PI / 2;
+    B(.11, .055, .02, cmat(0xf7f9ff, { roughness:.5 }), -.245, 1.245, .30).rotation.z = .12;   // 袋巾
+    B(.90, .06, .60, cmat(CO.suit2, { roughness:.8 }), 0, .60, 0);                            // 下摆
+    B(.88, .10, .60, cmat(0x11141c, { roughness:.55 }), 0, .665, 0);                            // 皮带
+    B(.10, .08, .05, cmat(0xd8b25a, { roughness:.35, metalness:.85 }), 0, .665, .305);          // 皮带扣
+  } else {
+    B(.10, .64, .02, tape, -.22, 1.10, .315).rotation.z = .30;   // 斜胶布 ①
+    B(.10, .64, .02, tape,  .24, 1.02, .315).rotation.z = -.26;  // 斜胶布 ②
+    B(.90, .09, .02, tapeD, 0, 1.49, .30);                       // 顶沿横胶布
+    B(.90, .09, .02, tapeD, 0, 1.30, -.30);                      // 背后横胶布
+    /* ★ 瓦楞切口：箱子顶沿一排小格（纸箱的「瓦楞」感全靠这一排） */
+    for (let i = 0; i < 5; i++) B(.052, .07, .60, cmat(0xd8c39a, { roughness:.94 }), -.34 + i * .17, 1.555, 0);
+    /* ★ 运单标签：白标签 + 红色条纹 + 两行灰字条 */
+    B(.25, .19, .015, cmat(0xf7f4ea, { roughness:.9 }), -.20, 1.24, .306);
+    B(.25, .045, .008, cmat(0xd23b32, { roughness:.8 }), -.20, 1.305, .315);
+    B(.16, .022, .006, cmat(0x6c6c6c, { roughness:.9 }), -.225, 1.215, .315);
+    B(.20, .018, .006, cmat(0x8a8a8a, { roughness:.9 }), -.235, 1.185, .315);
+    /* ★ 四角铆钉（金属高光，让纸箱不那么「纯方块」） */
+    for (const sx of [-1, 1]) for (const yy of [1.505, .625]) {
+      const b = CYL(.028, .028, .022, metalM(), sx * .395, yy, .295);
+      b.rotation.x = Math.PI / 2;
+    }
+  }
+  /* ---- 胸口核心：金属环 + 深色虹膜 + 发光盘 + 玻璃罩 + 加色辉光（默认皮；TV 皮肤换成领带上的徽章） ---- */
+  let core, coreGlow = null;
+  if (isTV) {
+    B(.13, .13, .03, metalM(), 0, 1.335, .335);                     // 领带徽章座
+    core = CYL(.042, .042, .028, coreMat, 0, 1.335, .352);
+    core.rotation.x = Math.PI / 2;
+    const lens = new THREE.Mesh(new THREE.SphereGeometry(.055, 14, 10),
+      new THREE.MeshStandardMaterial({ color:0xe8fbff, transparent:true, opacity:.30,
+        roughness:.05, metalness:.10, depthWrite:false }));
+    lens.scale.set(1, 1, .55); lens.position.set(0, 1.335, .358); flip.add(lens);
+  } else {
+    B(.30, .30, .04, cmat(0x6b4a28, { roughness:.6 }), 0, 1.00, .325);            // 外框
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.152, .026, 8, 20), metalM());
+    ring.position.set(0, 1.00, .348); flip.add(ring);
+    const iris = CYL(.118, .118, .035, cmat(0x0a2a33, { roughness:.35, metalness:.4 }), 0, 1.00, .345);
+    iris.rotation.x = Math.PI / 2;
+    core = CYL(.088, .088, .045, coreMat, 0, 1.00, .362);
+    core.rotation.x = Math.PI / 2;
+    const lens = new THREE.Mesh(new THREE.SphereGeometry(.108, 18, 12),
+      new THREE.MeshStandardMaterial({ color:0xdffbff, transparent:true, opacity:.26,
+        roughness:.04, metalness:.06, depthWrite:false }));
+    lens.scale.set(1, 1, .42); lens.position.set(0, 1.00, .372); flip.add(lens);   // ★ 玻璃罩（光泽）
+    coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map:getStarTex(), color:0x36e0ff,
+      transparent:true, opacity:.34, blending:THREE.AdditiveBlending, depthWrite:false }));
+    coreGlow.position.set(0, 1.00, .40); coreGlow.scale.setScalar(.50); flip.add(coreGlow);
+    /* 核心四周的能量辐条（四条细金属条） */
+    for (let i = 0; i < 4; i++) {
+      const a = Math.PI / 4 + i * Math.PI / 2;
+      const sp = B(.026, .07, .02, metalM(), Math.cos(a) * .185, 1.00 + Math.sin(a) * .185, .335);
+      sp.rotation.z = a - Math.PI / 2;
+    }
+  }
+  /* ---- 头 ---- */
+  let head, tvFace = null;
+  if (isTV) {
+    /* 复古电视机：木壳 + 奶白面板 + CRT 屏 + 旋钮 + 喇叭格栅 + 兔耳天线 + 底座 */
+    head = new THREE.Group(); head.position.set(0, 1.92, 0); flip.add(head);
+    B(.82, .64, .58, cmat(CO.wood, { roughness:.72 }), 0, 0, 0, head);                 // 木壳（head.children[0] = 头骨）
+    B(.78, .60, .05, cmat(CO.cream, { roughness:.80 }), 0, 0, .285, head);             // 前面板
+    B(.70, .53, .03, cmat(0x101a17, { roughness:.30, metalness:.25 }), 0, .01, .302, head);   // 屏幕凹槽（前表面 z=.317）
+    /* CRT 屏：CanvasTexture（表情由 tvFaceTick 重绘） */
+    const fcv = document.createElement('canvas'); fcv.width = 256; fcv.height = 192;
+    const ftex = new THREE.CanvasTexture(fcv);
+    ftex.colorSpace = THREE.SRGBColorSpace; ftex.minFilter = THREE.LinearFilter;
+    ftex.generateMipmaps = false; ftex.anisotropy = 1;
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(.64, .48),
+      new THREE.MeshBasicMaterial({ map:ftex, toneMapped:false }));
+    screen.position.set(0, .01, .322); head.add(screen);       // ⚠ 必须比凹槽前表面更靠前，否则整块屏被挡住（看不到脸）
+    tvFace = { canvas:fcv, ctx:fcv.getContext('2d'), tex:ftex, w:256, h:192,
+               expr:'', t:0, blink:1.6, blinkFor:0, redraw:0 };
+    tvFacePaint(tvFace, 'idle', 0);
+    /* 玻璃反光：斜向一道淡高光（加色混合，任何角度都有一点「玻璃感」） */
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(.60, .12),
+      new THREE.MeshBasicMaterial({ color:0xdffbff, transparent:true, opacity:.16,
+        blending:THREE.AdditiveBlending, depthWrite:false }));
+    glass.position.set(0, .17, .330); glass.rotation.z = -.30; head.add(glass);
+    /* 右侧：两个旋钮 + 喇叭格栅 */
+    for (const kd of [{ y:.15, r:.040 }, { y:.03, r:.030 }]) {
+      const kn = CYL(kd.r, kd.r, .045, metalM(), .325, kd.y, .318, head);
+      kn.rotation.x = Math.PI / 2;
+    }
+    for (let i = 0; i < 4; i++) B(.085, .012, .012, cmat(0x3a3a3a, { roughness:.7 }), .325, -.07 - i * .035, .305, head);
+    /* 底部铭牌 + 底座 */
+    B(.30, .045, .02, cmat(CO.cream, { roughness:.7 }), 0, -.275, .29, head);
+    B(.34, .05, .16, cmat(CO.wood, { roughness:.7 }), 0, -.345, 0, head);
+    B(.10, .06, .14, cmat(CO.dark, { roughness:.8 }), -.20, -.395, 0, head);
+    B(.10, .06, .14, cmat(CO.dark, { roughness:.8 }),  .20, -.395, 0, head);
+    /* 兔耳天线（两根斜向上 + 发光球尖） */
+    for (const sx of [-1, 1]) {
+      const ant = CYL(.011, .011, .40, metalM(), sx * .20, .50, -.03, head);
+      ant.rotation.z = -sx * .30;
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(.036, 12, 9), coreMat);
+      tip.position.set(sx * .20 + sx * .062, .685, -.03); head.add(tip);
+    }
+  }
+  /* ---- 默认纸箱头：箱子 + 两根天线 + 青色 LED 眼 + 眉毛灯条 + 嘴格栅 ---- */
+  head = new THREE.Group(); head.position.set(0, 1.92, 0); flip.add(head);
   B(.64, .56, .54, box(), 0, 0, 0, head);
   B(.66, .07, .56, tapeD, 0, .24, 0, head);                    // 头顶胶布
   B(.09, .34, .02, tape, -.20, -.02, .278, head).rotation.z = .22;
@@ -7513,19 +7727,31 @@ function kitCardboard(def) {
     eye.position.set(s * .145, .04, .278); head.add(eye);
     B(.17, .13, .02, cmat(0x6b4a28, { roughness:.6 }), s * .145, .04, .268, head);   // 眼框
     eye.renderOrder = 2;
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(.17, .022, .025), coreMat);    // ★ 眉毛灯条
+    brow.position.set(s * .145, .145, .276); brow.rotation.z = -s * .16; head.add(brow);
     const ant = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .30, 5), tapeD);
     ant.position.set(s * .22, .40, -.02); head.add(ant);
     const tip = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 6), coreMat);
     tip.position.set(s * .22, .56, -.02); head.add(tip);
   }
-  /* ---- 手臂：肩箱 + 上臂 + 前臂 + 手（Side B 会拉伸 armR.scale.y） ---- */
+  for (let i = 0; i < 3; i++) B(.20, .016, .02, cmat(0x6b4a28, { roughness:.7 }), 0, -.115 - i * .036, .278, head);  // ★ 嘴格栅
+  /* ---- 手臂：肩箱 + 上臂 + 前臂 + 手（TV 皮肤=西装袖 + 白袖口 + 米色手套） ---- */
   const mkArm = (s) => {
     const arm = new THREE.Group(); arm.position.set(s * .52, 1.34, 0); flip.add(arm);
-    B(.20, .20, .24, box2(), 0, 0, 0, arm);                    // 肩
-    B(.16, .36, .18, box(), 0, -.26, 0, arm);                  // 上臂
-    B(.15, .30, .17, box2(), 0, -.58, .02, arm);               // 前臂
-    B(.22, .20, .22, box(), 0, -.80, .03, arm);                // 手（方块拳头）
-    B(.17, .05, .19, tape, 0, -.44, .02, arm);                 // 关节胶布
+    if (isTV) {
+      B(.21, .21, .25, cmat(CO.main, { roughness:.76 }), 0, 0, 0, arm);          // 肩
+      B(.17, .36, .19, cmat(CO.main, { roughness:.76 }), 0, -.26, 0, arm);       // 袖
+      B(.16, .28, .18, cmat(CO.main, { roughness:.76 }), 0, -.57, .02, arm);
+      B(.17, .055, .19, cmat(CO.acc, { roughness:.55 }), 0, -.705, .02, arm);    // 白袖口
+      B(.20, .18, .20, cmat(CO.glove, { roughness:.66 }), 0, -.815, .03, arm);   // 手套
+    } else {
+      B(.20, .20, .24, box2(), 0, 0, 0, arm);                    // 肩
+      B(.16, .36, .18, box(), 0, -.26, 0, arm);                  // 上臂
+      B(.15, .30, .17, box2(), 0, -.58, .02, arm);               // 前臂
+      B(.22, .20, .22, box(), 0, -.80, .03, arm);                // 手（方块拳头）
+      B(.17, .05, .19, tape, 0, -.44, .02, arm);                 // 关节胶布
+      B(.185, .035, .20, tapeD, 0, -.72, .02, arm);              // ★ 手腕胶布
+    }
     return arm;
   };
   const armL = mkArm(-1), armR = mkArm(1);
@@ -7536,8 +7762,11 @@ function kitCardboard(def) {
         (o.material.color.getHex() === 0xf2ead6 || o.material.color.getHex() === 0xd9cdb2)) tapes.push(o);
   });
   g.userData.core = core;
-  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null, flip, core, tapes };
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null, flip, core, coreGlow,
+           tvFace, tapes,
+           baseTorso:CO.main, baseBelly:CO.acc, shedTorso:CO.shed, shedBelly:CO.shedAcc };
 }
+
 
 const KITS = { sovereign:kitCardboard, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
@@ -11756,16 +11985,16 @@ class Fighter {
   cbShellOff() {
     const P = this.parts; if (!P) return;
     if (P.tapes) for (const m of P.tapes) { try { m.visible = false; } catch (e) {} }
-    try { if (P.torso) { P.torso.material.color.setHex(0x7d5c3a); P.torso.material.roughness = .97; } } catch (e) {}
-    try { if (P.belly) { P.belly.material.color.setHex(0xa8895f); } } catch (e) {}
+    try { if (P.torso) { P.torso.material.color.setHex(P.shedTorso || 0x7d5c3a); P.torso.material.roughness = .97; } } catch (e) {}
+    try { if (P.belly) { P.belly.material.color.setHex(P.shedBelly || 0xa8895f); } } catch (e) {}
     try { if (P.head) for (const ch of P.head.children) if (ch.geometry && ch.geometry.type === 'BoxGeometry' && ch.material && ch.material.color) ch.material.color.offsetHSL(0, -.05, -.12); } catch (e) {}
     try { if (P.core) P.core.material.color.setHex(0xff6a2a); } catch (e) {}   // 核心外露发红
   }
   cbShellOn() {                                   // 复活/新一局：把外壳装回去
     const P = this.parts; if (!P) return;
     if (P.tapes) for (const m of P.tapes) { try { m.visible = true; } catch (e) {} }
-    try { if (P.torso) { P.torso.material.color.setHex(this.def.body || 0xb98a52); P.torso.material.roughness = .86; } } catch (e) {}
-    try { if (P.belly) { P.belly.material.color.setHex(this.def.body2 || 0xe8cfa4); } } catch (e) {}
+    try { if (P.torso) { P.torso.material.color.setHex(P.baseTorso || this.def.body || 0xb98a52); P.torso.material.roughness = .86; } } catch (e) {}
+    try { if (P.belly) { P.belly.material.color.setHex(P.baseBelly || this.def.body2 || 0xe8cfa4); } } catch (e) {}
     try { if (P.core) P.core.material.color.setHex(0x36e0ff); } catch (e) {}
   }
   /* ================= ★ Cardboard：脱壳 / 伸臂五连 / 扫射 / 反击十连 / 火箭上升 ================= */
@@ -15795,6 +16024,22 @@ class Fighter {
         P.legL.rotation.x = A.legL; P.legR.rotation.x = A.legR;
         P.group.rotation.z = A.lean * this.facing;
       }
+      /* ★ TV Man 皮肤：屏幕表情随战斗状态变（待机/跑动/出招/受击/出局） */
+      if (P.tvFace) {
+        const busy = !!(S || this.cbBeam || this.move);
+        const mode = (this.eliminated || this.damage >= 120) ? 'ko'
+          : (this.hitstun > 0 || this.flashT > 0) ? 'hit'
+          : (this.fsActive || busy) ? 'attack'
+          : (Math.abs(this.vel.x) > 1.4) ? 'run'
+          : (this.fsMeter >= 1) ? 'happy' : 'idle';
+        tvFaceTick(P.tvFace, dt, mode);
+      }
+      /* ★ 核心辉光呼吸（默认纸箱皮才有） */
+      if (P.coreGlow) {
+        const gw = .24 + (S || this.cbBeam ? .26 : 0) + Math.abs(Math.sin(A.t * 3.1)) * .10;
+        P.coreGlow.material.opacity = Math.min(.62, gw);
+        P.coreGlow.scale.setScalar(.44 + Math.abs(Math.sin(A.t * 3.1)) * .08 + (S || this.cbBeam ? .08 : 0));
+      }
     }
     /* ★ Tamer：蛇身蠕动 + 四个技能的专属姿态（这段跑在「A.* → 骨骼」之后，直接写关节） */
     if (this.def.id === 'tamer' && P.snakeSegs) {
@@ -18256,6 +18501,7 @@ const LOBBY = (() => {
       if (k.armL) k.armL.rotation.z = sw;
       if (k.armR) k.armR.rotation.z = -sw;
       if (k.head) k.head.rotation.z = sw * .28;
+      if (k.tvFace) tvFaceTick(k.tvFace, dt, 'idle');        // ★ TV Man：大厅里也会眨眼/跑扫描线
       if (k.cloak) k.cloak.rotation.x = -.06 + Math.sin(st.t * 1.2 + ph) * .05;      // Reaper 斗篷
       if (k.soulOrbs) k.soulOrbs.children.forEach((o, i) => {                        // Reaper 魂火绕身
         const a = st.t * 1.3 + i * 2.1; o.position.set(Math.sin(a) * .66, 1.05 + Math.sin(a * .8 + i) * .36, -.1);
@@ -19412,7 +19658,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net92',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net93',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -20702,7 +20948,8 @@ function showLineup(entries) {
    抽卡除了角色还能出武器和皮肤；皮肤在大厅「技能按钮旁边」的皮肤面板里选择装备。 */
 const SUMMON_COST = 200, SUMMON_PITY_MAX = 50;
 const SUMMON_WEAPONS = [{ id:'gold_baguette', char:'french', name:'Golden Baguette', for:'Frenchman' }];
-const SUMMON_SKINS   = [{ id:'smiley_penguin', char:'smiley', name:'Penguin', for:'Smiley' }];
+const SUMMON_SKINS   = [{ id:'smiley_penguin', char:'smiley', name:'Penguin', for:'Smiley' },
+                        { id:'cardboard_tv', char:'sovereign', name:'TV Man', for:'Cardboard' }];
 function summonPoolLeft() {
   return { sup: CHARS.filter(c => c.supreme && !ACC.owns(c.id)),
            weapons: SUMMON_WEAPONS.filter(w => !ACC.hasWeapon(w.id)),
