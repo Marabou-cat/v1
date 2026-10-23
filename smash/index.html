@@ -506,10 +506,22 @@ document.addEventListener('DOMContentLoaded', function () {
   #frBtn .ico{margin:0;width:22px;height:22px;stroke-width:2.1}
   .lbbtn .ico,.btn .ico,.mode .ico,.up .ico{vertical-align:-.18em}
   /* ---------- ★ 第 86 轮：左上角奖杯 ---------- */
-  #trophyTag{position:fixed;left:10px;top:10px;z-index:70;display:flex;align-items:center;gap:6px;
-    background:rgba(9,12,28,.82);border:1.6px solid rgba(255,209,102,.45);color:#ffd166;border-radius:999px;
-    padding:5px 12px;font-weight:900;font-size:13px;letter-spacing:.5px;backdrop-filter:blur(7px)}
-  #trophyTag .ico{width:15px;height:15px;margin:0;stroke:#ffd166}
+  /* ---------- ★ 统一资源条（左上角：金币 / 奖杯 / 宝石 —— 三个数字常驻可见，点哪个就进对应页面） ---------- */
+  #resBar{position:fixed;left:10px;top:10px;z-index:70;display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:calc(100vw - 20px)}
+  .resTag{position:relative;display:flex;align-items:center;gap:5px;background:rgba(9,12,28,.82);
+    border:1.6px solid rgba(255,255,255,.16);border-radius:999px;padding:5px 11px;
+    font-weight:900;font-size:13px;letter-spacing:.5px;color:#eaf2ff;cursor:pointer;font-family:inherit;
+    backdrop-filter:blur(7px);transition:transform .12s,border-color .2s,box-shadow .2s}
+  .resTag:active{transform:scale(.95)}
+  .resTag .ico{width:15px;height:15px;margin:0}
+  .resTag.gold,.resTag.trophy{border-color:rgba(255,209,102,.45);color:#ffd166}
+  .resTag.gold .ico,.resTag.trophy .ico{stroke:#ffd166}
+  .resTag.gem{border-color:rgba(140,231,255,.48);color:#9fe8ff}
+  .resTag.gem .ico{stroke:#9fe8ff}
+  .resTag.gem.ready{box-shadow:0 0 0 2px rgba(140,231,255,.20),0 0 16px rgba(140,231,255,.40);animation:gemPulse 2.4s ease-in-out infinite}
+  @keyframes gemPulse{0%,100%{opacity:1}50%{opacity:.66}}
+  .resTag small{font:700 9.5px/1 inherit;letter-spacing:.6px;opacity:.62}
+  body:not(.inMenu) #resBar{display:none!important}
   /* ★ 活动入口（右上角、Profile 左边）—— 最终位置由 JS 按 Profile 实际宽度贴合 */
   #eventBtn{position:fixed;right:196px;top:10px;z-index:46;width:40px;height:40px;border-radius:12px;
     border:1px solid rgba(255,255,255,.18);background:rgba(13,18,34,.74);color:#eaf2ff;
@@ -572,20 +584,21 @@ document.addEventListener('DOMContentLoaded', function () {
   /* ★ 第 71 轮：问号改成相对「角色中线」定位 —— 不再贴 previewWrap 的左边缘。
      手机竖屏时 previewWrap 是满宽的，贴 left:8px 会跑到屏幕最左边（看起来"很偏"）。
      现在固定离角色中线 110px（太窄时保底 8px），所有设备上都在角色脚的左下方。 */
-  #skillBtn{position:absolute;left:max(8px, calc(50% - 110px));bottom:10px;z-index:7;width:34px;height:34px;border-radius:50%;
-    border:2px solid rgba(255,255,255,.3);background:rgba(9,12,28,.82);color:#fff;font-size:17px;font-weight:900;
-    line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    backdrop-filter:blur(6px);transition:transform .12s,border-color .2s}
-  #skillBtn:active{transform:scale(.93)}
+  /* ★ 工具栏（技能 / 皮肤）：一行两个带字标签的胶囊，居中锚在角色下方 —— 不再是一个孤零零的「?」 */
+  #pvTools{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:40;display:flex;align-items:center;gap:8px}
+  #skillBtn,#skinBtn{position:relative;height:34px;padding:0 12px;border-radius:999px;display:flex;align-items:center;gap:5px;
+    font:900 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.9px;cursor:pointer;color:#fff;
+    background:rgba(9,12,28,.86);backdrop-filter:blur(6px);transition:transform .12s,border-color .2s,box-shadow .2s}
+  #skillBtn{border:2px solid rgba(255,255,255,.30)}
+  #skinBtn{border:2px solid rgba(255,214,106,.60);color:#ffe9a8}
+  #skillBtn .ico,#skinBtn .ico{width:14px;height:14px;margin:0}
+  #skillBtn:active,#skinBtn:active{transform:scale(.93)}
   #skillBtn.on{border-color:#8ce7ff;color:#8ce7ff;box-shadow:0 0 0 2px rgba(140,231,255,.25)}
-  /* ★ 皮肤/武器按钮：紧贴技能按钮右侧（同一行、同尺寸，带文字，不会看不见） */
-  #skinBtn{position:absolute;left:max(48px, calc(50% - 70px));bottom:10px;z-index:40;height:34px;padding:0 10px;
-    border-radius:17px;border:2px solid rgba(255,214,106,.55);background:rgba(9,12,28,.82);color:#ffe9a8;
-    font:900 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.8px;cursor:pointer;display:flex;align-items:center;
-    justify-content:center;backdrop-filter:blur(6px);transition:transform .12s,border-color .2s}
-  #skinBtn:active{transform:scale(.93)}
-  #skillBtn{z-index:40}                             /* 与皮肤键同层，别被预览画布盖住 */
   #skinBtn.on{border-color:#ffd166;box-shadow:0 0 0 2px rgba(255,209,102,.28)}
+  /* 有「已解锁但没穿」的皮肤时，SKIN 按钮挂一个金点（不然玩家永远不知道抽到的东西在哪换） */
+  #skinBtn .newdot{position:absolute;right:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:#ffd166;
+    box-shadow:0 0 0 2px rgba(9,12,28,.95);display:none}
+  #skinBtn.hasnew .newdot{display:block;animation:tkpulse 1.6s infinite}
   #skillPop{position:absolute;left:50%;transform:translateX(-50%);width:min(92%,340px);bottom:52px;z-index:6;max-height:56%;overflow:auto;
     background:rgba(7,10,22,.94);border:1.5px solid rgba(255,255,255,.2);border-radius:13px;padding:9px 12px;
     font-size:12px;line-height:1.6;display:none;box-shadow:0 12px 30px rgba(0,0,0,.5)}
@@ -656,7 +669,8 @@ document.addEventListener('DOMContentLoaded', function () {
   #askBox .no{background:rgba(255,255,255,.12);color:#fff}
   @media (max-width:720px){
     .previewWrap{max-width:none;height:clamp(238px,36vh,340px)}
-    #skillBtn{left:max(8px, calc(50% - 92px));bottom:6px;width:32px;height:32px;font-size:16px}   /* 手机竖屏更贴身一点 */
+    #pvTools{bottom:6px}
+    #skillBtn,#skinBtn{height:31px;padding:0 10px;font-size:10px;letter-spacing:.6px}
     #skillPop{bottom:44px}
   }
 </style>
@@ -679,6 +693,10 @@ document.addEventListener('DOMContentLoaded', function () {
     <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4v9.2"/><path d="M14.6 9.4a2.6 2.6 0 0 0-2.6-1.4c-1.4 0-2.4.8-2.4 2s1 1.8 2.4 2 2.6.7 2.6 2-1.1 2-2.6 2a2.8 2.8 0 0 1-2.7-1.5"/></symbol>
     <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9"/><path d="M12 6.4 9.6 4M12 6.4 14.4 4M12 17.6 9.6 20M12 17.6 14.4 20M5.6 9.4 2.4 9.9M5.6 9.4 4.2 6.6M18.4 14.6l3.2-.5M18.4 14.6l1.4 2.8M5.6 14.6 2.4 14.1M5.6 14.6 4.2 17.4M18.4 9.4l3.2.5M18.4 9.4l1.4-2.8"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.4 6.4l11.2 11.2M17.6 6.4 6.4 17.6"/></symbol>
+    <!-- ★ 资源条 / 工具栏用的三个图标（内联 sprite，零请求） -->
+    <symbol id="i-gem" viewBox="0 0 24 24"><path d="M12 3.2 4.4 9.4 12 20.8 19.6 9.4 12 3.2Z"/><path d="M4.4 9.4h15.2"/><path d="M9.2 9.4 12 20.8M14.8 9.4 12 20.8"/><path d="M12 3.2 9.2 9.4M12 3.2l2.8 6.2"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.7"/><path d="M9.5 9.4a2.6 2.6 0 1 1 3.6 2.4c-.8.4-1.1 1-1.1 1.8v.4"/><circle cx="12" cy="16.6" r=".95" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-shirt" viewBox="0 0 24 24"><path d="M8.6 4.4 4.2 6.9l1.9 3.7 2-.9v9.9h8V9.7l2 .9 1.9-3.7-4.4-2.5"/><path d="M8.6 4.4a3.5 3.5 0 0 0 6.8 0"/></symbol>
   </defs>
 </svg>
 <canvas id="cv"></canvas>
@@ -694,7 +712,12 @@ document.addEventListener('DOMContentLoaded', function () {
   <div class="qh"><svg class="ico"><use href="#i-gift"/></svg><span>DAILY</span><b id="qLeft">0/3</b></div>
   <div id="qList"></div>
 </div>
-<div id="trophyTag" title="Trophies"><svg class="ico"><use href="#i-trophy"/></svg><b id="trophyNum">0</b></div>
+<!-- ★ 资源条：金币（商店/奖励）· 奖杯（奖励）· 宝石（抽卡）—— 三个数字一直可见，点一下就进对应页面 -->
+<div id="resBar">
+  <button class="resTag gold" id="coinTag" title="Coins — fighters & shop" type="button"><svg class="ico"><use href="#i-coin"/></svg><b id="coinNum">0</b></button>
+  <button class="resTag trophy" id="trophyTag" title="Trophies — rewards" type="button"><svg class="ico"><use href="#i-trophy"/></svg><b id="trophyNum">0</b></button>
+  <button class="resTag gem" id="gemTag" title="Supreme Gems — summon" type="button"><svg class="ico"><use href="#i-gem"/></svg><b id="gemNum">0</b></button>
+</div>
 <!-- ★ 活动入口：点开是用 iframe「嵌入」活动页，不是跳转链接 -->
 <button id="eventBtn" title="Events"><svg class="ico"><use href="#i-gift"/></svg><i class="dot"></i></button>
 <div class="sheet hidden" id="sheetEvent"><div class="sheetBox wide" style="padding:0;overflow:hidden;background:#0b1220">
@@ -788,9 +811,11 @@ document.addEventListener('DOMContentLoaded', function () {
       <canvas id="preview3d"></canvas>
       <div class="pvInfo"><div class="pvName" id="pvName"></div><div class="pvTag" id="pvTag"></div></div>
       <div class="pvChips" id="pvChips" style="left:50px"></div>
-      <!-- ★ 第 68 轮：左下角问号 → 展开/收起技能介绍 -->
-      <button id="skillBtn" title="Skills / abilities" aria-label="Skills">?</button>
-      <button id="skinBtn" title="Skins &amp; weapons" aria-label="Skins">SKIN</button>
+      <!-- ★ 工具栏：技能说明 + 皮肤/武器 —— 居中锚在角色下方，**带文字标签**（光一个「?」没人知道那是什么） -->
+      <div id="pvTools">
+        <button id="skillBtn" title="Skills / abilities" aria-label="Skills" type="button"><svg class="ico"><use href="#i-help"/></svg><span class="lbl">SKILLS</span></button>
+        <button id="skinBtn" title="Skins &amp; weapons" aria-label="Skins" type="button"><svg class="ico"><use href="#i-shirt"/></svg><span id="skinLbl">SKIN</span><i class="newdot"></i></button>
+      </div>
       <div id="skillPop"></div>
     </div>
     <div class="side">
@@ -16190,6 +16215,21 @@ function renderTrophyTag(bump) {
   if (box && bump) { box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump'); }
 }
 try { renderTrophyTag(false); } catch (e) {}
+/* ★ 左上角资源条：金币 / 奖杯 / 宝石三个数字**常驻可见**。
+   原来只有一个奖杯数字，金币和宝石玩家根本看不到 —— 于是「商店」「抽卡」两个功能等于不存在。
+   任何一次 ACC.save() 都会回调这里，所以领奖 / 抽卡 / 买角色之后数字立刻变（不用刷新）。 */
+function renderResBar() {
+  const c = document.getElementById('coinNum'), g = document.getElementById('gemNum');
+  if (!c || !g) return;
+  c.textContent = ACC.coins;
+  g.textContent = ACC.gems;
+  const t = document.getElementById('trophyNum'); if (t) t.textContent = ACC.trophies;
+  const gt = document.getElementById('gemTag');
+  if (gt) gt.classList.toggle('ready', ACC.gems >= 200);     // 够抽一次（SUMMON_COST）就发光
+  try { summonBtnPaint(); } catch (e) {}
+  try { paintSkinBtn(); } catch (e) {}
+}
+window.__resSync = renderResBar;
 function endMatch() {
   if (match.state === 'over') return;
   match.state = 'over';
@@ -16306,6 +16346,7 @@ const ACC = (() => {
       localStorage.setItem('sbPid', a.id);              // 服务端建房限流也用这个 id
       localStorage.setItem('sb_nick', a.nick || '');
     } catch (e) {}
+    try { if (window.__resSync) window.__resSync(); } catch (e) {}   // ★ 金币/宝石/奖杯一变，左上角资源条立刻跟着变
   };
   save();
   return {
@@ -16564,8 +16605,12 @@ const PV = (() => {
     const dl2 = new THREE.DirectionalLight(0xa8c8ff, .7); dl2.position.set(4, 2, -5); bakeScene.add(dl2); }
   const bakeCam = new THREE.PerspectiveCamera(28, 1, .1, 80);
   const bakeCache = {};
+  /* ★ 缓存键必须带皮肤/武器：只按 def.id 缓存的话，换装后格子里的缩略图永远是旧样子 */
+  const bakeKey = def => def.id + '|' + (typeof ACC !== 'undefined' && ACC.skinOf ? ACC.skinOf(def.id) : '') + '|'
+                            + (typeof ACC !== 'undefined' && ACC.weaponOf ? ACC.weaponOf(def.id) : '');
   function bake(def, size = 168) {
-    if (bakeCache[def.id]) return bakeCache[def.id];
+    const _ck = bakeKey(def);
+    if (bakeCache[_ck]) return bakeCache[_ck];
     const m = buildMesh2(def), g = m.group;
     if (m.bubble) m.bubble.visible = false;                 // 战斗特效件不要进缩略图
     if (m.charge) m.charge.visible = false;
@@ -16584,7 +16629,7 @@ const PV = (() => {
     try { url = renderer.domElement.toDataURL('image/png'); } catch (e) { url = ''; }
     bakeScene.remove(g);
     renderer.setSize(dw, dh, false);
-    bakeCache[def.id] = url;
+    bakeCache[_ck] = url;
     return url;
   }
   return { show, frame, resize, bake };
@@ -16673,6 +16718,7 @@ function showSkills(i) {
      所有技能文案只在「问号弹层」里出现，点 ? 展开、再点收起。 */
   renderSkillPop(i);
   PV.show(i);
+  try { paintSkinBtn(); } catch (e) {}     // ★ 换角色时 SKIN 按钮的读数/金点要跟着换（否则显示上一个人的）
 }
 function renderSkillPop(i) {
   const c = CHARS[i], pop = document.getElementById('skillPop');
@@ -16688,7 +16734,8 @@ function renderSkillPop(i) {
   const sync = on => {
     pop.classList.toggle('on', on);
     btn.classList.toggle('on', on);
-    btn.textContent = on ? '×' : '?';
+    /* ⚠ 不能写 btn.textContent —— 那会把里面的 SVG 图标和「SKILLS」标签一起擦掉（本项目踩过的老坑） */
+    const l = btn.querySelector('.lbl'); if (l) l.textContent = on ? 'CLOSE' : 'SKILLS';
     btn.title = on ? 'Hide abilities' : 'Skills / abilities';
   };
   btn.onclick = e => { e.stopPropagation(); sync(!pop.classList.contains('on')); if (pop.classList.contains('on')) pop.scrollTop = 0; };
@@ -17067,6 +17114,9 @@ const LOBBY = (() => {
     }
     return PLAT_Y - (_bbAll.isEmpty() ? 0 : _bbAll.min.y);
   }
+  /* ★ 大厅模型的「外观签名」：皮肤 / 武器也算 —— 只比 id 的话，换完皮肤签名不变，
+     模型就一直停在旧样子（这就是「皮肤改变之后不会直接生效」的根因）。 */
+  const lookOf = id => { try { return (ACC.skinOf(id) || '') + '|' + (ACC.weaponOf(id) || ''); } catch (e) { return '|'; } };
   function mkChar(entry, slot, fresh) {
     const m = buildMesh2(entry.def);
     const g = m.group;
@@ -17086,7 +17136,8 @@ const LOBBY = (() => {
     const tag = document.createElement('div');
     tag.className = 'lbtag' + (entry.me ? ' me' : (entry.ai ? ' cpu' : ''));
     tagBox.appendChild(tag);
-    return { key:entry.key, def:entry.def, name:entry.name, group:g, shadow:sh, tag, baseY,
+    return { key:entry.key, def:entry.def, name:entry.name, look:lookOf(entry.def.id),
+             group:g, shadow:sh, tag, baseY,
              kit:m.parts || {}, ph:RND(0, 6.28), pop:fresh ? 1 : 0, me:!!entry.me, ai:!!entry.ai };
   }
   function seatList() {
@@ -17110,12 +17161,14 @@ const LOBBY = (() => {
   }
   function sync() {
     const list = seatList();
-    const sig = list.map(e => e.key + ':' + e.def.id + ':' + e.name + (e.ai ? 'A' : '')).join('|');
+    /* ★ 外观签名必须带上皮肤/武器：只比 id 的话「换了皮肤」签名不变 → 直接 return → 台上还是旧模型 */
+    const sig = list.map(e => e.key + ':' + e.def.id + ':' + lookOf(e.def.id) + ':' + e.name + (e.ai ? 'A' : '')).join('|');
     if (sig === st.sig) return;
     const old = st.chars; st.sig = sig;
     const kept = [];
     list.forEach((e, i) => {
-      const cur = old.find(c => c.key === e.key && c.def.id === e.def.id && c.name === e.name);
+      const lk = lookOf(e.def.id);
+      const cur = old.find(c => c.key === e.key && c.def.id === e.def.id && c.name === e.name && c.look === lk);
       if (cur) { cur.slot = i; kept.push(cur); place(cur, i); }
       else kept.push(mkChar(e, i, true));
     });
@@ -17212,7 +17265,10 @@ const LOBBY = (() => {
     st.distT = THREE.MathUtils.clamp(st.distT + Math.sign(e.deltaY) * .9, 9, 22);
   }, { passive:true });
   resize();
-  return { scene, cam, frame, resize, show };
+  return { scene, cam, frame, resize, show, refresh: sync,          // ★ refresh：换皮肤后立刻重建某个座位
+           /* 探针：大厅里每个座位的「角色 / 外观签名 / 部件数」——验证皮肤是否真的换了模型 */
+           probe: () => st.chars.map(c => ({ key:c.key, id:c.def.id, look:c.look, name:c.name,
+                                            meshes:(() => { let n = 0; c.group.traverse(o => { if (o.isMesh) n++; }); return n; })() })) };
 })();
 window.LOBBY = LOBBY;                                // 便于排查（和 window.TUT / SB 一个路子）
 
@@ -18297,7 +18353,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net83',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net84',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -19625,11 +19681,21 @@ function summonPull() {
   .cgrid.supreme::after { content:'SUPREME'; position:absolute; top:5px; left:0; right:0; text-align:center;
     font:900 8px/1 ui-monospace,monospace; letter-spacing:1.6px; color:#fff2c0; text-shadow:0 0 8px #ffb400; }
   @keyframes supGlo { 0%,100%{ box-shadow:0 0 0 1px rgba(255,214,106,.35), 0 0 18px rgba(255,196,64,.36), inset 0 0 22px rgba(150,64,255,.30);} 50%{ box-shadow:0 0 0 1px rgba(255,214,106,.6), 0 0 30px rgba(255,196,64,.62), inset 0 0 30px rgba(150,64,255,.48);} }
-  #summonBtn { position:fixed; right:16px; bottom:150px; z-index:58; display:flex; align-items:center; gap:6px;
-    padding:6px 12px; border-radius:999px; border:1px solid rgba(255,214,106,.55);
-    background:linear-gradient(135deg, rgba(58,38,96,.92), rgba(24,18,40,.92)); color:#ffe9a8;
-    font:800 12px/1 ui-monospace,Menlo,monospace; letter-spacing:.6px; cursor:pointer; box-shadow:0 0 16px rgba(150,64,255,.35); }
-  #summonBtn b { color:#fff; }
+  /* ★ 抽卡入口：和好友键同尺寸、同一列（右下角），带宝石图标 + 数量 + 文字标签；
+     宝石够一次抽卡时会自己亮起来（不然玩家永远不知道这个紫色小药丸是干什么的） */
+  #summonBtn { position:fixed; right:12px; bottom:66px; z-index:58; display:flex; align-items:center; gap:7px;
+    height:46px; padding:0 16px 0 13px; border-radius:23px; border:1.6px solid rgba(255,214,106,.55);
+    background:linear-gradient(135deg, rgba(58,38,96,.94), rgba(24,18,40,.94)); color:#ffe9a8;
+    font:900 12px/1 ui-monospace,Menlo,monospace; letter-spacing:1.1px; cursor:pointer;
+    box-shadow:0 0 16px rgba(150,64,255,.35); backdrop-filter:blur(8px);
+    transition:transform .12s, box-shadow .25s, border-color .25s; }
+  #summonBtn:active { transform:scale(.96); }
+  #summonBtn .ico { width:17px; height:17px; margin:0; stroke:#ffd166; }
+  #summonBtn b { color:#fff; font-size:13px; }
+  #summonBtn small { font:800 8.5px/1 inherit; letter-spacing:.5px; opacity:.6; }
+  #summonBtn.can { border-color:rgba(255,226,140,.95); box-shadow:0 0 0 2px rgba(255,214,106,.18), 0 0 22px rgba(255,196,64,.55); animation:supBtnPulse 2.6s ease-in-out infinite; }
+  @keyframes supBtnPulse { 0%,100%{ box-shadow:0 0 0 2px rgba(255,214,106,.14), 0 0 16px rgba(255,196,64,.40);} 50%{ box-shadow:0 0 0 2px rgba(255,214,106,.30), 0 0 26px rgba(255,196,64,.70);} }
+  body:not(.inMenu) #summonBtn { display:none!important; }   /* 抽卡只属于大厅 —— 对局中不许浮在血条上 */
   .sSheet { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
     background:rgba(4,6,14,.72); }
   .sSheet.hidden { display:none; }
@@ -19773,11 +19839,14 @@ function summonBtnPaint() {
   let b = document.getElementById('summonBtn');
   if (!b) {
     b = document.createElement('div'); b.id = 'summonBtn';
-    b.innerHTML = '<span style="opacity:.8">SUMMON</span><b id="summonGems">0</b>';
+    b.title = 'Summon — spend gems for fighters, skins & weapons';
+    /* ★ 图标 + 文字标签 + 宝石数：原来只有一个「SUMMON 600」，玩家读不出「600 是宝石」也不确定能不能点 */
+    b.innerHTML = '<svg class="ico"><use href="#i-gem"/></svg><span>SUMMON</span><b id="summonGems">0</b>';
     b.onclick = summonOpen;
     document.body.appendChild(b);
   }
   const g = document.getElementById('summonGems'); if (g) g.textContent = ACC.gems;
+  b.classList.toggle('can', ACC.gems >= SUMMON_COST);
 }
 /* —— 皮肤 / 武器面板（按钮在「技能」按钮旁边） —— */
 function skinOpen() {
@@ -19809,11 +19878,15 @@ function skinPaint() {
       + '<small>weapon · ' + (has ? (on ? 'EQUIPPED' : 'tap to equip') : 'locked · summon to unlock') + '</small></span><span>'
       + (has ? (on ? '✓' : 'EQUIP') : 'LOCKED') + '</span></div>');
   }
-  if (rows.length <= 1) rows.push('<div class="sxsub" style="padding:8px 2px">No skins or weapons for this fighter yet — SUMMON to collect.</div>');
+  if (rows.length <= 1) rows.push('<div class="sxsub" style="padding:8px 2px">No skins or weapons for this fighter yet — every look comes from SUMMON.</div>');
   el.innerHTML = '<div class="box"><button class="close">✕</button><h3>Skins &amp; Weapons</h3>'
-    + '<div class="sxsub">' + ((CHARS[settings.playerChar] || {}).name || '') + ' · pick a look</div>'
-    + rows.join('') + '</div>';
+    + '<div class="sxsub">' + ((CHARS[settings.playerChar] || {}).name || '') + ' · pick a look — it applies immediately</div>'
+    + rows.join('')
+    + '<button class="prim" id="skinSummon" style="background:linear-gradient(180deg,#b98cff,#7d4bd6);color:#fff">SUMMON FOR NEW LOOKS · ' + SUMMON_COST + ' GEMS (have ' + ACC.gems + ')</button>'
+    + '</div>';
   el.querySelector('.close').onclick = () => el.classList.add('hidden');
+  const sBtn = el.querySelector('#skinSummon');
+  if (sBtn) sBtn.onclick = () => { el.classList.add('hidden'); summonOpen(); };
   el.querySelectorAll('.row[data-skin]').forEach(r => r.onclick = () => {
     const sid = r.dataset.skin || '';
     if (sid && !ACC.hasSkin(sid)) { toast('Locked — summon to unlock this skin'); return; }
@@ -19829,13 +19902,44 @@ function skinPaint() {
     toast(ACC.weaponOf(cid) === wid ? 'Weapon equipped' : 'Weapon unequipped');
   });
 }
-/* 换皮肤/武器后：刷新大厅预览 + 角色格子缩略图（战斗模型在下一局开始时重建） */
+/* 换皮肤/武器后：**立刻**刷新大厅 3D 模型 + 预览 + 角色格子缩略图。
+   ★ 修「换了皮肤不生效」：原来只刷预览和格子，大厅那个 3D 角色要等 LOBBY 的签名变化才会重建，
+   而签名里没有皮肤 —— 于是装备完站在台上的人还是旧样子。现在三处一起刷（战斗模型在下一局开始时重建）。 */
 function refreshPlayerModel() {
+  paintSkinBtn();
   try { PV.show(settings.playerChar, true); } catch (e) {}
+  try { LOBBY.refresh && LOBBY.refresh(); } catch (e) {}
   try { window.__rebuildChars && window.__rebuildChars(); } catch (e) {}
 }
+/* SKIN 按钮的读数：已解锁几套 + 有没有「解锁了但没穿」的（挂金点提示） */
+function paintSkinBtn() {
+  const b = document.getElementById('skinBtn');
+  if (!b) return;
+  const cid = (CHARS[settings.playerChar] || {}).id;
+  if (!cid) return;
+  const own = SUMMON_SKINS.filter(s => s.char === cid && ACC.hasSkin(s.id)).length
+            + SUMMON_WEAPONS.filter(w => w.char === cid && ACC.hasWeapon(w.id)).length;
+  const lbl = document.getElementById('skinLbl');
+  if (lbl) lbl.textContent = own ? ('SKIN ·' + own) : 'SKIN';
+  b.classList.toggle('on', !!ACC.skinOf(cid) || !!ACC.weaponOf(cid));
+  const un = SUMMON_SKINS.some(s => s.char === cid && ACC.hasSkin(s.id) && ACC.skinOf(cid) !== s.id)
+          || SUMMON_WEAPONS.some(w => w.char === cid && ACC.hasWeapon(w.id) && ACC.weaponOf(cid) !== w.id);
+  b.classList.toggle('hasnew', un);
+}
+try { paintSkinBtn(); } catch (e) {}
 try { summonBtnPaint(); } catch (e) {}
 try { document.getElementById('skinBtn').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} skinOpen(); }; } catch (e) {}
+/* ★ 资源条点击：金币 → 奖励页并滚到「用金币解锁」区；奖杯 → 奖励页；宝石 → 抽卡。
+   三个数字各自就是一个入口，玩家不用先猜到「那个小奖杯图标能点」。 */
+try {
+  const cT = document.getElementById('coinTag'), gT = document.getElementById('gemTag');
+  if (cT) cT.onclick = () => {
+    try { window.openRewards && window.openRewards(); } catch (e) {}
+    setTimeout(() => { const s = document.getElementById('rwShop'); if (s) s.scrollIntoView({ block:'start', behavior:'smooth' }); }, 90);
+  };
+  if (gT) gT.onclick = () => { try { summonOpen(); } catch (e) {} };
+} catch (e) {}
+try { renderResBar(); } catch (e) {}
 
 /* ================= 调试/自动化探针接口 ================= */
 window.SB = {
@@ -19931,10 +20035,12 @@ window.SB = {
   const box = $('sheetRewards'); if (!box) return;
   const thumbCache = new Map();
   function thumbOf(id) {
-    if (thumbCache.has(id)) return thumbCache.get(id);
+    let _k = id;
+    try { _k = id + '|' + (ACC.skinOf(id) || ''); } catch (e) {}   // ★ 换皮肤后缩略图要跟着变
+    if (thumbCache.has(_k)) return thumbCache.get(_k);
     let url = '';
     try { const cdef = CHARS.find(c => c.id === id); if (cdef && PV.bake) url = PV.bake(cdef, 96); } catch (e) {}
-    thumbCache.set(id, url); return url;
+    thumbCache.set(_k, url); return url;
   }
   function refreshCharLocks() {
     /* ★ 第 88 轮：解锁会改变排序（已解锁提前），所以直接整表重建 */
@@ -20361,7 +20467,7 @@ NET.applyRoom = function (room) {
    覆盖所有 .sheet（含运行时 append 的 #sheetAccount），所以新增弹层不用再单独接退出键。 */
 function closeTopSheet() {
   /* .sheet 之外，Profile / 好友面板也是整屏层 —— 一起纳入，Esc 在哪都能退 */
-  const sheets = [].slice.call(document.querySelectorAll('.sheet, #profSheet, #frPanel')).filter(s => !s.classList.contains('hidden'));
+  const sheets = [].slice.call(document.querySelectorAll('.sheet, .sSheet, #profSheet, #frPanel')).filter(s => !s.classList.contains('hidden'));
   if (!sheets.length) return false;
   sheets[sheets.length - 1].classList.add('hidden');
   try { SFX.tone(420, 260, .06, 'sine', .04); } catch (e) {}
