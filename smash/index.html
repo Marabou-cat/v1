@@ -584,8 +584,10 @@ document.addEventListener('DOMContentLoaded', function () {
   /* ★ 第 71 轮：问号改成相对「角色中线」定位 —— 不再贴 previewWrap 的左边缘。
      手机竖屏时 previewWrap 是满宽的，贴 left:8px 会跑到屏幕最左边（看起来"很偏"）。
      现在固定离角色中线 110px（太窄时保底 8px），所有设备上都在角色脚的左下方。 */
-  /* ★ 工具栏（技能 / 皮肤）：一行两个带字标签的胶囊，居中锚在角色下方 —— 不再是一个孤零零的「?」 */
-  #pvTools{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:40;display:flex;align-items:center;gap:8px}
+  /* ★ 工具栏（技能 / 皮肤）：一行两个带字标签的胶囊。位置由「角色脚底的屏幕 Y」驱动
+     （LOBBY 每帧写 --feetY），所以永远贴在人物**下面**，不会压在球/脚上，竖屏也自动跟着走。 */
+  #pvTools{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--feetY, 64vh) + 16px);
+    z-index:46;display:flex;align-items:center;gap:8px}
   #skillBtn,#skinBtn{position:relative;height:34px;padding:0 12px;border-radius:999px;display:flex;align-items:center;gap:5px;
     font:900 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.9px;cursor:pointer;color:#fff;
     background:rgba(9,12,28,.86);backdrop-filter:blur(6px);transition:transform .12s,border-color .2s,box-shadow .2s}
@@ -599,7 +601,8 @@ document.addEventListener('DOMContentLoaded', function () {
   #skinBtn .newdot{position:absolute;right:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:#ffd166;
     box-shadow:0 0 0 2px rgba(9,12,28,.95);display:none}
   #skinBtn.hasnew .newdot{display:block;animation:tkpulse 1.6s infinite}
-  #skillPop{position:absolute;left:50%;transform:translateX(-50%);width:min(92%,340px);bottom:52px;z-index:6;max-height:56%;overflow:auto;
+  #skillPop{position:fixed;left:50%;top:calc(var(--feetY, 64vh) - 6px);transform:translate(-50%,-100%);
+    width:min(92%,340px);z-index:46;max-height:min(52vh,360px);overflow:auto;
     background:rgba(7,10,22,.94);border:1.5px solid rgba(255,255,255,.2);border-radius:13px;padding:9px 12px;
     font-size:12px;line-height:1.6;display:none;box-shadow:0 12px 30px rgba(0,0,0,.5)}
   #skillPop.on{display:block}
@@ -669,9 +672,9 @@ document.addEventListener('DOMContentLoaded', function () {
   #askBox .no{background:rgba(255,255,255,.12);color:#fff}
   @media (max-width:720px){
     .previewWrap{max-width:none;height:clamp(238px,36vh,340px)}
-    #pvTools{bottom:6px}
+    #pvTools{gap:7px}
     #skillBtn,#skinBtn{height:31px;padding:0 10px;font-size:10px;letter-spacing:.6px}
-    #skillPop{bottom:44px}
+    #skillPop{max-height:46vh}
   }
 </style>
 </head>
@@ -783,6 +786,13 @@ document.addEventListener('DOMContentLoaded', function () {
   </div>
   <!-- ★ Brawl Stars 式大厅：日常只留左下角两个按钮（开始 / 选择角色），其余收进弹层 -->
   <div id="lobbyNet"></div>
+  <!-- ★ 技能/皮肤工具条 + 技能弹层：由 LOBBY 每帧把「角色脚底的屏幕 Y」写进 --feetY，
+       所以它们永远贴在人物**下面**（不再压在球/脚上），换分辨率、竖屏都不会跑位。 -->
+  <div id="pvTools">
+    <button id="skillBtn" title="Skills / abilities" aria-label="Skills" type="button"><svg class="ico"><use href="#i-help"/></svg><span class="lbl">SKILLS</span></button>
+    <button id="skinBtn" title="Skins &amp; weapons" aria-label="Skins" type="button"><svg class="ico"><use href="#i-shirt"/></svg><span id="skinLbl">SKIN</span><i class="newdot"></i></button>
+  </div>
+  <div id="skillPop"></div>
   <div id="lobbyBar">
     <button class="lbbtn pick" id="btnPick"><svg class="ico"><use href="#i-users"/></svg>SELECT CHARACTER</button>
     <!-- ★ 第 77 轮：只留黄色 START；联机也收进 START 的「比赛设置」弹层里 -->
@@ -811,12 +821,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <canvas id="preview3d"></canvas>
       <div class="pvInfo"><div class="pvName" id="pvName"></div><div class="pvTag" id="pvTag"></div></div>
       <div class="pvChips" id="pvChips" style="left:50px"></div>
-      <!-- ★ 工具栏：技能说明 + 皮肤/武器 —— 居中锚在角色下方，**带文字标签**（光一个「?」没人知道那是什么） -->
-      <div id="pvTools">
-        <button id="skillBtn" title="Skills / abilities" aria-label="Skills" type="button"><svg class="ico"><use href="#i-help"/></svg><span class="lbl">SKILLS</span></button>
-        <button id="skinBtn" title="Skins &amp; weapons" aria-label="Skins" type="button"><svg class="ico"><use href="#i-shirt"/></svg><span id="skinLbl">SKIN</span><i class="newdot"></i></button>
-      </div>
-      <div id="skillPop"></div>
+      <!-- ★ 技能/皮肤工具条已移出这个框（见下方 #pvTools）：它按「角色脚底的屏幕 Y」摆放，永远在人物下面 -->
     </div>
     <div class="side">
       <div class="netPanel" id="netPanel">
@@ -4245,18 +4250,10 @@ function kitSmiley(def) {
   const ballSpin = new THREE.Group(); ballSpin.position.y = R; bodyG.add(ballSpin);   // 滚动（锚点=球心）
   const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 26, 20), cmat(def.body, { roughness:.66 }));
   ballSpin.add(ball);
-  /* ★ 皮肤：Penguin（Smiley）—— 抽卡获得。黑蓝球体 + 白肚/白脸 + 橙喙 + 两片鳍。 */
-  if (((def.skin || (typeof ACC !== 'undefined' && ACC.skinOf && ACC.skinOf(def.id)) || '')) === 'smiley_penguin') {
-    ball.material.color.setHex(0x1b2436); ball.material.roughness = .52;
-    const _belly = new THREE.Mesh(new THREE.SphereGeometry(R * .93, 22, 16), cmat(0xf6fbff, { roughness:.60 }));
-    _belly.scale.set(.90, 1.02, .58); _belly.position.set(0, .10, R * .50); ballSpin.add(_belly);
-    const _beak = new THREE.Mesh(new THREE.ConeGeometry(.19, .40, 8), cmat(0xffab3d, { roughness:.42 }));
-    _beak.rotation.x = Math.PI / 2; _beak.position.set(0, -.24, R * .97); ballSpin.add(_beak);
-    for (const _s of [-1, 1]) {
-      const _flip = new THREE.Mesh(new THREE.BoxGeometry(.09, .60, .28), cmat(0x243049, { roughness:.58 }));
-      _flip.position.set(_s * R * .93, -.05, -.02); _flip.rotation.z = _s * .24; ballSpin.add(_flip);
-    }
-  }
+  /* ★ 皮肤：Penguin（Smiley）—— Q 版圆形企鹅（抽卡获得）。
+     这一套会**替换掉**默认的「恐怖微笑脸」：黑蓝球体 + 大块白色正面（球面贴片）+ 橙椭圆喙 + 大圆眼带反光 + 两片鳍。
+     先只算一个布尔值，真正的几何等 face 组建好之后再挂（皮肤脸也要跟着 FACE 的 fz 收放逻辑走）。 */
+  const _isPenguin = ((def.skin || (typeof ACC !== 'undefined' && ACC.skinOf && ACC.skinOf(def.id)) || '')) === 'smiley_penguin';
   /* ---------- 脸（Verity 风：空洞黑眼窝 + 过宽的笑 + 裂纹；没有高光、腮红、眉毛） ---------- */
   const face = new THREE.Group();
   /* ---------- 脸 ----------
@@ -4272,6 +4269,46 @@ function kitSmiley(def) {
         局部 -X  → 世界 +Z（= 朝镜头，看上去就是「脸长在侧面」）
      结论：模型正面是 **局部 +Z**（跟 titan 等所有 kit 一致）→ 脸放 +Z 且不要自转。 */
   face.position.set(0, 0, FZ); face.userData.fz = FZ; ballSpin.add(face);   // ★ 挂在滚动轴上（球心）→ 滚动时脸跟着转
+  if (_isPenguin) {
+    /* ---------- ★ Q 版圆形企鹅（替换默认的恐怖微笑脸） ----------
+       ① 白色正面**不用扁球**（扁球贴不上球面、边缘必然翘出球外）：用「球面贴片」——
+          半径略大于球体的 SphereGeometry 帽，绕 X 转 90° 让极点朝 +Z、再多转 .26 略朝下
+          ⇒ 白块严格贴着球面，边缘永远不会翘起来，也不会陷进去。
+       ② 眼睛：黑色大圆（透镜状压扁贴面）+ 一大一小两处**白色反光**（MeshBasic 材质，
+          不受灯光/角度影响，任何角度都亮），位置左右镜像。
+       ③ 喙：**水平椭圆**（宽 > 高 > 深），上下两半深浅两色 ⇒ 中间自然出现一条嘴线。
+       ④ 眼睛与喙在同一条水平线（EY）上 —— 用户要求「眼睛与嘴平行」。
+       ⑤ 鳍：细长椭球压进球体两侧（不是悬空的板子）。 */
+    ball.material.color.setHex(0x1b2436); ball.material.roughness = .52;
+    const capGeo = new THREE.SphereGeometry(R * 1.004, 44, 30, 0, Math.PI * 2, 0, Math.PI * .33);
+    capGeo.rotateX(Math.PI / 2 + .26);
+    ballSpin.add(new THREE.Mesh(capGeo, cmat(0xf7fbff, { roughness:.58 })));
+    for (const s of [-1, 1]) {
+      const flip = new THREE.Mesh(new THREE.SphereGeometry(.30, 16, 12), cmat(0x243049, { roughness:.56 }));
+      flip.scale.set(.36, 1.85, .62);
+      flip.position.set(s * R * .90, -.16, -.04);
+      flip.rotation.z = s * .26; flip.rotation.x = .06;
+      ballSpin.add(flip);
+    }
+    /* 五官：face 组里局部 z≈0 就是球面（下面用球面方程反解，保证每件都贴面） */
+    const EY = .22, EX = .44;
+    const surfZ = (x, y) => Math.sqrt(Math.max(.04, (R * 1.004) * (R * 1.004) - x * x - y * y)) - FZ;
+    for (const s of [-1, 1]) {
+      const ex = s * EX, z0 = surfZ(ex, EY);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(.19, 20, 16), ink);
+      eye.scale.set(1, 1.06, .62); eye.position.set(ex, EY, z0 - .01); face.add(eye);
+      const glintMat = new THREE.MeshBasicMaterial({ color:0xffffff });
+      const g1 = new THREE.Mesh(new THREE.SphereGeometry(.058, 12, 10), glintMat);
+      g1.scale.set(1, 1, .50); g1.position.set(ex - s * .050, EY + .064, z0 + .095); face.add(g1);
+      const g2 = new THREE.Mesh(new THREE.SphereGeometry(.028, 10, 8), glintMat);
+      g2.scale.set(1, 1, .50); g2.position.set(ex + s * .056, EY - .058, z0 + .090); face.add(g2);
+    }
+    const beakZ = surfZ(0, EY);
+    const beakUp = new THREE.Mesh(new THREE.SphereGeometry(.17, 22, 16), cmat(0xffb43a, { roughness:.40 }));
+    beakUp.scale.set(1.26, .92, 1.08); beakUp.position.set(0, EY + .024, beakZ + .02); face.add(beakUp);
+    const beakLo = new THREE.Mesh(new THREE.SphereGeometry(.17, 22, 16), cmat(0xe8891f, { roughness:.44 }));
+    beakLo.scale.set(1.20, .60, 1.18); beakLo.position.set(0, EY - .060, beakZ + .028); face.add(beakLo);
+  } else {
   /* ⚠ 关键：脸组的原点放在「球面内侧 0.1」处，球面在脸组坐标里大约就是 z≈0。
      所以所有元素都排在 z≈0 附近（略微陷进去 = 看起来是凹的），**任何大幅正 z 都会悬空穿模**。
      同时不要用扁球做"白脸盘"——扁球贴不上球面，边缘必然翘起来。 */
@@ -4289,9 +4326,16 @@ function kitSmiley(def) {
     const dimple = new THREE.Mesh(new THREE.SphereGeometry(.050, 10, 8), ink);
     dimple.position.set(s2 * .553, -.396, -.10); dimple.scale.set(1, .88, .66); face.add(dimple);
   }
+  }   /* ← end of 默认「恐怖微笑脸」（企鹅皮肤走上面的分支） */
   /* 手臂保留（技能要用），腿脚一律不建 —— 只给空 group 占位，避免 animStep 读 null */
-  const armL = kitArm(ballSpin, -1, mats, { x:R * .92, y:R * .06, w:.17, len:.24, handGeo:new THREE.SphereGeometry(.17, 8, 6), handMat:mats.body });
-  const armR = kitArm(ballSpin, 1, mats, { x:R * .92, y:R * .06, w:.17, len:.24, handGeo:new THREE.SphereGeometry(.17, 8, 6), handMat:mats.body });
+  /* ★ 企鹅皮肤：手臂也必须是**深色鳍**（默认用 mats.body = 原来的黄色，会在白肚上露出两只黄手），
+     并且往里收一点、藏在翼片里，看上去只有两片鳍。 */
+  const _wingMat = _isPenguin ? cmat(0x243049, { roughness:.56 }) : null;
+  const _armOpt = { x: _isPenguin ? R * .78 : R * .92, y:R * .06, w:.17, len:.24,
+                    handGeo:new THREE.SphereGeometry(.17, 8, 6), handMat: _wingMat || mats.body };
+  if (_wingMat) _armOpt.armMat = _wingMat;
+  const armL = kitArm(ballSpin, -1, mats, _armOpt);
+  const armR = kitArm(ballSpin, 1, mats, _armOpt);
   const legL = new THREE.Group(), legR = new THREE.Group();    // 空占位：没有腿
   g.userData.ballSpin = ballSpin; g.userData.ball = ball;
   return { group:g, torso:ball, belly:ball, head:ball, armL, armR, legL, legR, tail:null,
@@ -17244,6 +17288,17 @@ const LOBBY = (() => {
         c.tag.textContent = (c.me ? '★ ' : '') + c.name + (c.ai ? ' · CPU' : '') + ' · ' + c.def.name;
       }
     }
+    /* ★ 把「自己脚底的屏幕 Y」写进 CSS 变量 --feetY：#pvTools / #skillPop 都读它，
+       所以技能/皮肤按钮永远在人物**下面**，任何分辨率、竖屏都自动跟着走（不靠猜 vh）。 */
+    const meC = st.chars.find(c => c.me) || st.chars[0];
+    if (meC) {
+      v3.set(meC.group.position.x, 0.02, meC.group.position.z).project(cam);
+      const py = (.5 - v3.y * .5) * innerHeight;
+      if (isFinite(py)) {
+        const y = Math.max(150, Math.min(innerHeight - 190, py));
+        document.documentElement.style.setProperty('--feetY', y.toFixed(0) + 'px');
+      }
+    }
   }
   function resize() { cam.aspect = Math.max(.4, innerWidth / Math.max(1, innerHeight)); cam.updateProjectionMatrix(); }
   function show(on) { const v = on ? '' : 'none'; if (tagBox.style.display !== v) tagBox.style.display = v; }
@@ -18353,7 +18408,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net84',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net85',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
