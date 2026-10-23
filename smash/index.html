@@ -2767,6 +2767,7 @@ const SFX = {
 const TRASH = [];
 let trashSpawnT = 4.0;
 let smogT = 0;
+let prevFog = null;                 // 毒雾前的 scene.fog（换图/地图自带雾都要还原）
 const TRASH_KIND = [{ id:'banana', w:55 }, { id:'bag', w:35 }, { id:'diamond', w:10 }];
 function trashPickKind() {
   const r = RND() * 100;
@@ -2839,7 +2840,7 @@ function updateTrash(dt) {
     if (took) { scene.remove(it.mesh); TRASH.splice(i, 1); continue; }
     if (it.t > 45) { scene.remove(it.mesh); TRASH.splice(i, 1); }
   }
-  if (smogT > 0) { smogT -= dt; if (smogT <= 0) { smogT = 0; scene.fog = null; } }
+  if (smogT > 0) { smogT -= dt; if (smogT <= 0) { smogT = 0; scene.fog = prevFog; prevFog = null; } }
 }
 const VEX_FX = [];
 const VEX_SPHERE = new THREE.SphereGeometry(1, 8, 6);
@@ -9200,7 +9201,7 @@ class Fighter {
         smogT = 10.2;
         /* 只有「本机操作的垃圾桶」视野不受影响；其余情况（对手视角/观战/观战 AI）全部起雾 */
         const localBin = FIGHTERS.some(f => f.def.id === 'trash' && !f.isBot && !f.ctrl);
-        if (!localBin) scene.fog = new THREE.Fog(0x1c3a12, 1.4, 9.0);
+        if (!localBin) { prevFog = scene.fog || null; scene.fog = new THREE.Fog(0x1c3a12, 1.4, 9.0); }
         callout(this, 'TOXIC SMOG', SP.color);
         FX.flash(px, py + 1.4, .6, 14, 0x6bf07a, .30);
         for (let i = 0; i < 8; i++) {
@@ -18820,7 +18821,7 @@ function showLineup(entries) {
 window.SB = {
   get trashItems() { return TRASH; },   // 探针：场上垃圾（Trashcan 被动）
   get smogT() { return smogT; },        // 探针：毒雾剩余秒数
-  get fogOn() { return !!scene.fog; },  // 探针：全图毒雾是否生效
+  get fogOn() { return !!(scene.fog && scene.fog.far <= 10.5); },  // 探针：全图毒雾是否生效
   get vexFx() { return VEX_FX.length; },// 探针：紫火/黑洞粒子数
   version: 'smash-demo-1',
   get cache() { return window.__SB_CB || null; },   // ★ 每次刷新的清缓存状态（探针可读：cleared/blocked/nonce）
