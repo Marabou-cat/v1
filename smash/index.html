@@ -18123,14 +18123,18 @@ const NET = {
        或 resync 广播漏收）→ 双方永远等不到对方的输入，画面彻底冻住。
        判据：本地 FRAME 明显跑在服务端帧号前面（>90 帧 ≈ 1.5s）且持续 —— 立刻采纳重开。
        用 _adoptT 做 2s 冷却，避免抖动时反复重开。 */
-    if (this.started && !this.replayBits && match.state === 'play' && FRAME > 120 &&
-        this.serverFrame < FRAME - 90 && this._beginArgs &&
-        performance.now() - (this._adoptT || 0) > 2000) {
-      this._adoptT = performance.now();
-      this._beginSig = null; this._beginAt = 0;          // 清指纹，允许同参数重开
-      toast('Server restarted · adopting (was frame ' + FRAME + ')');
-      try { this.beginMatch(this._beginArgs); } catch (e) {}
-      return;
+    if (this.started && !this.replayBits && match.state === 'play' && this._beginArgs) {
+      if (FRAME !== this._advF) { this._advF = FRAME; this._advT = performance.now(); }
+      const _stuck = performance.now() - (this._advT || performance.now());
+      /* 只在「帧号连续 2 秒不动」+「服务端帧号已大幅落后」时救援。上一版只看帧号差，
+         正常对局里本端本来就领先服务端若干帧，于是每 2 秒重开一次 —— 那就是你看到的循环。 */
+      if (_stuck > 2000 && this.serverFrame < FRAME - 90 &&
+          performance.now() - (this._adoptT || 0) > 8000 && (this._adoptN || 0) < 3) {
+        this._adoptT = performance.now(); this._adoptN = (this._adoptN || 0) + 1;
+        toast('Stuck at frame ' + FRAME + ' — re-adopting (' + this._adoptN + '/3)');
+        try { this.beginMatch(Object.assign({}, this._beginArgs, { __force: true })); } catch (e) {}
+        return;
+      }
     }
     if (j.ack !== undefined) this.ackLimit = j.ack;
     if (j.room) this.applyRoom(j.room);
@@ -18491,7 +18495,7 @@ const NET = {
   },
   joinRunning(j) {                                       // 重连进对局 / Spectate
     this.seed = j.seed || this.seed;
-    this.beginMatch({ seed: j.seed, rules: this.rules, chars: this.chars,
+    this.beginMatch({ gen: (j.room && j.room.gen) | 0, seed: j.seed, rules: this.rules, chars: this.chars,
                       humanSeats: this.humanSeats, startFrame: j.startFrame || 0 });
   },
   onGo(j) {
@@ -18503,7 +18507,7 @@ const NET = {
     this.humanSeats = (j.room && j.room.seats ? j.room.seats : []).map(x => x ? !x.bot : false);   // ★ 第 60 轮：同上，看 bot 不看 ai
     this.myGen = (j.room && j.room.gen) | 0;       // 标记「这一局我已在场」，避免 applyRoom 再进一次
     this.applyRoom(j.room);
-    this.beginMatch({ seed: j.seed, rules: this.rules, chars: this.chars,
+    this.beginMatch({ gen: (j.room && j.room.gen) | 0, seed: j.seed, rules: this.rules, chars: this.chars,
                       humanSeats: this.humanSeats, startFrame: j.startFrame || 0 });
     /* ★ 第 67 轮：开局阵容 —— 所有人昵称 + 头像（服务端在 go 里一次性带下来） */
     try {
@@ -18529,6 +18533,24 @@ const NET = {
        绝不能永久封锁同参数重开：整局 resync / 服务端 restart 用的就是同一个 seed + 同一个
        startFrame + 同一套规则，永久指纹会把「合法的重开」也挡掉 —— 本端停在 frame 932
        而服务端已经回到 0，两边互相等对方的输入 = 永久卡死（用户实测）。 */
+    /* ★★ 按「对局代次 gen」去重（这才是正确判据）：
+       轮询每秒回一次包，每次都带同一份 start —— 用时间窗去重（上一版）只是把重开频率从
+       「每 4 秒」变成「每秒」，所以你会看到「一直 online match started，然后就重开了」。
+       同一 gen = 同一次开局的重复投递 → 永远丢弃；gen 变了 = 真重开/再来一局/resync → 必须执行。 */
+    const _g = (o.gen === undefined) ? null : (o.gen | 0);
+    if (_g !== null && _g > 0 && !o.__force) {   // gen=0/缺省 = 服务端没给代次，退回 900ms 时间窗去重
+      if (this._okGen === _g) {
+        this._dupIgnored = (this._dupIgnored || 0) + 1;
+        if (this._dupT !== _g && FRAME > 20 && match.state === 'play') {
+          this._dupT = _g;
+          toast('Duplicate start ignored (gen ' + _g + ')');
+          console.warn('[net] duplicate beginMatch ignored, gen', _g);
+        }
+        return;
+      }
+      this._okGen = _g;
+      this._adoptN = 0;                       // 新一代 = 正常开局，救援计数归零
+    }
     const _nowB = performance.now();
     if (this._beginSig === _sig && (_nowB - (this._beginAt || 0)) < 900) {
       this._dupIgnored = (this._dupIgnored || 0) + 1;
