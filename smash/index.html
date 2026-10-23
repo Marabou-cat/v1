@@ -1097,6 +1097,23 @@ const CHARS = [
       d:{kind:'vexDive',label:'Gravity Slam',cd:4.0,dmg:9.0,bb:8,bg:26,ang:48,radius:4.2,color:0xb066ff},
     } },
 
+  { id:'trash', name:'Trashcan', en:'TRASHCAN', tag:'Scrapper',
+    body:0x77836a, body2:0x9fe86a, dark:0x2f3a2c, eye:0xb6ff5c,
+    shape:{ tail:null, scale:1.1, headR:.52 },
+    weight:118, walk:9.0, run:14.2, air:10.2, jump:26.2, jumps:2, fall:38, fastFall:58,
+    accel:46, airAccel:32, fric:26,
+    mul:{ dmg:1.08, kb:1.06, spd:.94 },
+    trait:'Trash Pickup · Toxic Cloud · Smog',
+    skills:'PASSIVE Trash Pickup (every 20s a piece of trash appears anywhere on the map, platforms included; each piece you pick up permanently adds +1 extra hit to Side B — banana 55% = normal hit, bag 35% = heavy hit (hits harder, longer animation), diamond 10% = poison punch with damage over time) · Neutral B Trash Clap (both hands slam forward; anyone hit is flattened on the X axis) · Side B Trash Rush (dash forward; on contact it stops and runs 3 + bonus hits: two light punches and a heavy for 12%) · Up B Garbage Rise (multi-hit rise) · Down B Toxic Cloud (green gas around you — anyone caught is paralysed and cannot escape) · FINAL SMASH Toxic Smog (the whole map is covered in poison fog for 10s — nobody can see far except the Trashcan)',
+    special:{
+      n:{kind:'trashClap',label:'Trash Clap',cd:1.6,dmg:7.5,bb:10,bg:28,ang:20,reach:2.7,hitAt:.13,dur:.42,flat:.85,color:0x9fe86a},
+      s:{kind:'trashRush',label:'Trash Rush',cd:2.8,dashSpd:23,dur:.30,reach:2.1,gap:.14,color:0x9fe86a,
+         hits:[{dmg:2.8,bb:3,bg:9,ang:26},{dmg:2.8,bb:3,bg:9,ang:-16},{dmg:5.5,bb:6,bg:16,ang:34}]},
+      u:{kind:'recover',label:'Garbage Rise',cd:1.5,dmg:4.4,bb:8,bg:36,rise:27,dur:.78,
+         multi:true,lift:true,fx:'gale',anim:'spin',spinRate:24,color:0x9fe86a},
+      d:{kind:'trashGas',label:'Toxic Cloud',cd:5.0,dur:1.8,tick:.22,dmg:1.7,radius:3.6,color:0x6bf07a},
+    } },
+
   { id:'singer', name:'Singer', en:'SINGER', tag:'Diva',
     body:0x39c5bb, body2:0xeafcff, dark:0x1c2b3a, eye:0x35e0d2,
     shape:{ tail:null, scale:1.0, headR:.50 },
@@ -2744,12 +2761,92 @@ const SFX = {
 /* ================= ★ Vexor 专用火焰粒子 + 黑洞（球体模拟火焰，纯视觉） =================
    为什么单独一套：FX.list 的 kind 由 FX.update 的 switch 分发，新 kind 要改那个大函数；
    这里用一个自包含的小系统（VEX_FX + updateVexFx），挂一次 update 就够，且换局后靠寿命自然清空。 */
+/* ================= ★ Trashcan 被动：地图上刷垃圾（香蕉皮 / 垃圾袋 / 钻石） =================
+   每 20 秒一件；刷点可以是地面，也可以浮空平台（用户要求）。只有 Trashcan 能捡。
+   捡到 → trashHits +1（本场永久）、类型进 trashQueue，左右B 按队列顺序把这些额外连击打出来。 */
+const TRASH = [];
+let trashSpawnT = 4.0;
+let smogT = 0;
+const TRASH_KIND = [{ id:'banana', w:55 }, { id:'bag', w:35 }, { id:'diamond', w:10 }];
+function trashPickKind() {
+  const r = RND() * 100;
+  let acc = 0;
+  for (const k of TRASH_KIND) { acc += k.w; if (r < acc) return k.id; }
+  return 'banana';
+}
+function trashMesh(kind) {
+  const g = new THREE.Group();
+  if (kind === 'banana') {
+    const m = cmat(0xe8d24a, { roughness:.55 });
+    for (let i = 0; i < 3; i++) {
+      const p = new THREE.Mesh(new THREE.TorusGeometry(.16, .045, 5, 10, Math.PI * 1.1), m);
+      p.rotation.set(1.2, i * 1.1, .3); p.position.y = .10 + i * .03; g.add(p);
+    }
+  } else if (kind === 'bag') {
+    const m = cmat(0x2b2f2a, { roughness:.82 });
+    const b = new THREE.Mesh(new THREE.IcosahedronGeometry(.26, 0), m);
+    b.scale.set(1, .85, 1); b.position.y = .26; g.add(b);
+    for (const s2 of [-1, 1]) {
+      const k = new THREE.Mesh(new THREE.ConeGeometry(.07, .18, 5), m);
+      k.position.set(s2 * .12, .46, 0); k.rotation.z = s2 * .45; g.add(k);
+    }
+  } else {
+    const d = new THREE.Mesh(new THREE.OctahedronGeometry(.22, 0), glowMat(0x6bf0ff, 1.5, 0x0d3a4a));
+    d.position.y = .30; g.add(d);
+    const r2 = new THREE.Mesh(new THREE.TorusGeometry(.30, .022, 5, 18), glowMat(0x9ff8ff, 1.1, 0x134a5a));
+    r2.position.y = .30; r2.rotation.x = 1.2; g.add(r2);
+  }
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.34, .46, 20),
+    new THREE.MeshBasicMaterial({ color:0x9fe86a, transparent:true, opacity:.35, depthWrite:false, side:THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = .04; g.add(ring);
+  scene.add(g);
+  return g;
+}
+function spawnTrash() {
+  const kind = trashPickKind();
+  const m = trashMesh(kind);
+  let x = (RND() * 2 - 1) * (STAGE.wallX - 2.5), y = 0;
+  if (plats.length && RND() < .35) {
+    const p = plats[(RND() * plats.length) | 0];
+    x = p.x + (RND() * 2 - 1) * Math.max(0, p.halfW - .6);
+    y = p.y + .10;
+  }
+  m.position.set(x, y, 0);
+  TRASH.push({ kind, mesh:m, x, y, t:0 });
+}
+function updateTrash(dt) {
+  trashSpawnT -= dt;
+  if (trashSpawnT <= 0) { trashSpawnT = 20; spawnTrash(); }
+  for (let i = TRASH.length - 1; i >= 0; i--) {
+    const it = TRASH[i];
+    it.t += dt;
+    it.mesh.position.y = it.y + Math.sin(it.t * 2.2) * .07;
+    it.mesh.rotation.y += dt * 1.6;
+    let took = false;
+    for (const f of FIGHTERS) {
+      if (f.def.id !== 'trash' || f.eliminated) continue;
+      if (Math.abs(f.pos.x - it.x) < 1.15 && Math.abs(f.pos.y - it.y) < 1.9) {
+        f.trashHits = (f.trashHits || 0) + 1;
+        (f.trashQueue = f.trashQueue || []).push(it.kind);
+        const nm = it.kind === 'diamond' ? 'DIAMOND · +1 POISON HIT' : (it.kind === 'bag' ? 'BAG · +1 HEAVY HIT' : 'PEEL · +1 HIT');
+        callout(f, nm, it.kind === 'diamond' ? 0x6bf0ff : 0x9fe86a);
+        FX.ring(it.x, it.y + .3, .3, 2.2, 0x9fe86a, .35);
+        FX.burst(it.x, it.y + .3, 0, 0x9fe86a, 12, 12);
+        SFX.special('wave');
+        took = true; break;
+      }
+    }
+    if (took) { scene.remove(it.mesh); TRASH.splice(i, 1); continue; }
+    if (it.t > 45) { scene.remove(it.mesh); TRASH.splice(i, 1); }
+  }
+  if (smogT > 0) { smogT -= dt; if (smogT <= 0) { smogT = 0; scene.fog = null; } }
+}
 const VEX_FX = [];
 const VEX_SPHERE = new THREE.SphereGeometry(1, 8, 6);
-function vexFlame(x, y, z, dir, n, spd, size, life, up) {
+function vexFlame(x, y, z, dir, n, spd, size, life, up, tint) {
   for (let i = 0; i < n; i++) {
     const m = new THREE.Mesh(VEX_SPHERE, new THREE.MeshBasicMaterial({
-      color: Math.random() < .45 ? 0xe0b3ff : 0x9b5cff, transparent:true, opacity:.92,
+      color: tint || (Math.random() < .45 ? 0xe0b3ff : 0x9b5cff), transparent:true, opacity:.92,
       blending: THREE.AdditiveBlending, depthWrite:false }));
     const sc = size * (.55 + Math.random() * .95);
     m.scale.setScalar(sc);
@@ -3992,6 +4089,7 @@ const FSPECIALS = {
   rocky:   { name:'Meteor Crash',   style:'slam',    color:0xa89b90, beats:3,  gap:.24, dmg:15.5, bb:32, bg:60,             w:8.6 },
   zephyr:  { name:'Tempest',        style:'tempest', color:0x9dfbe4, beats:10, gap:.10, dmg:2.8,  bb:6,  bg:16,             w:11  },
   vexor:   { name:'Singularity',    style:'blackHole', color:0x9b5cff, beats:10, gap:.22, dmg:5.0, bb:2, bg:6, ang:74, w:4.2, dur:2.4 },
+  trash:   { name:'Toxic Smog',      style:'trashFog', color:0x9fe86a, beats:1, gap:.1, dmg:0, bb:0, bg:0, w:0, dur:10.2 },
   singer:  { name:'Solo Stage', style:'stage', color:0x39c5bb, beats:1, gap:.1, dmg:0, bb:0, bg:0, w:0, dur:10.4 },
   blizzard:{ name:'Blizzard Front', style:'snowDay', color:0x9fe8ff, beats:5, gap:2.0, dmg:0, bb:0, bg:0, w:0, dur:10.6 },
   cobalt:  { name:'Annihilator Beam', style:'beamLock', color:0x8fd8ff, beats:10, gap:.5, dmg:5.0, bb:9, bg:26, ang:24, w:14, dur:5.2 },
@@ -4583,6 +4681,134 @@ function kitVexor(def) {
 
   return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null,
            core, coreIn, vexFlames:flames, ventL, ventR };
+}
+
+/* ================= ★ Trashcan：肌肉垃圾桶（桶身 + 灰色肌肉四肢 + 垃圾细节） =================
+   体型：scale 1.1，肩高 2.05 / 髋 .90 / 头顶 2.95 —— 比 Teacher 壮一圈的 Bruiser。
+   契约部件：group/torso(桶身 Mesh)/belly/head/armL/armR/legL/legR/tail；
+   额外部件：lid（桶盖）/ eyes（发光眼）/ bag（袋口垃圾）。
+   head.children[0] 必须是头骨 Mesh（通用变色代码取它染色）。 */
+function kitTrash(def) {
+  const mats = kitMats(def), g = new THREE.Group();
+  const binM   = cmat(0x77836a, { roughness:.52, metalness:.22, flatShading:false });   // 桶身
+  const binD   = cmat(0x4a5544, { roughness:.58, metalness:.18, flatShading:false });   // 桶身阴影 / 加强筋
+  const binL   = cmat(0xa2ae90, { roughness:.44, metalness:.26, flatShading:false });   // 亮边 / 桶盖
+  const rust   = cmat(0x8a6a3e, { roughness:.86, metalness:.04 });                      // 锈斑
+  const skin   = cmat(0xa8a8a8, { roughness:.62, flatShading:false });                  // 灰色肌肉
+  const skinD  = cmat(0x7d7d7d, { roughness:.66, flatShading:false });                  // 肌肉阴影 / 关节
+  const waste  = cmat(0x2b2f2a, { roughness:.80 });                                     // 桶里的垃圾袋
+  const banana = cmat(0xe8d24a, { roughness:.55 });
+  const glow   = glowMat(0x9fe86a, 1.35, 0x1d3a12);
+  const glowD  = glowMat(0xd4ff9a, 1.7, 0x2a4a16);
+
+  /* ---------- 桶身：上宽下窄 + 竖向加强筋 + 箍环 + 桶沿 + 锈斑 ---------- */
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(.44, .34, 1.02, 20, 1, false), binM);
+  torso.position.y = 1.42; g.add(torso);
+  for (let i = 0; i < 12; i++) {                       // 12 条竖向加强筋
+    const a = i / 12 * Math.PI * 2;
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(.055, 1.00, .045), i % 3 ? binD : binL);
+    rib.position.set(Math.sin(a) * .405, 1.42, Math.cos(a) * .405);
+    rib.rotation.y = a; g.add(rib);
+  }
+  for (const yy of [1.00, 1.42, 1.84]) {               // 三道箍环
+    const band = new THREE.Mesh(new THREE.TorusGeometry(.398 - (yy - 1.0) * .05, .034, 6, 26), binL);
+    band.position.y = yy; band.rotation.x = Math.PI / 2; g.add(band);
+  }
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(.445, .045, 8, 28), binL);
+  rim.position.y = 1.93; rim.rotation.x = Math.PI / 2; g.add(rim);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(.455, .43, .10, 22), binM);
+  lid.position.y = 1.99; g.add(lid);
+  const lidRing = new THREE.Mesh(new THREE.TorusGeometry(.40, .026, 6, 24), binD);
+  lidRing.position.y = 2.045; lidRing.rotation.x = Math.PI / 2; g.add(lidRing);
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(.115, .028, 6, 16, Math.PI), binL);
+  handle.position.y = 2.075; g.add(handle);
+  for (const [sx, sy, sz, r] of [[.30, 1.60, .30, .10], [-.34, 1.22, .22, .08], [.12, 1.80, -.36, .07]]) {
+    const d2 = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), rust);   // 锈斑 / 凹痕
+    d2.position.set(sx, sy, sz); d2.scale.set(1, .55, 1); g.add(d2);
+  }
+  /* 桶口露出来的垃圾袋（拎手 + 结） */
+  const bag = new THREE.Mesh(new THREE.SphereGeometry(.30, 12, 10), waste);
+  bag.position.set(.05, 1.90, -.02); bag.scale.set(1.15, .55, 1.05); g.add(bag);
+  for (const s of [-1, 1]) {
+    const knot = new THREE.Mesh(new THREE.ConeGeometry(.075, .22, 5), waste);
+    knot.position.set(s * .17, 2.00, -.05); knot.rotation.z = s * .5; g.add(knot);
+  }
+  const peel = new THREE.Mesh(new THREE.TorusGeometry(.14, .032, 5, 12, Math.PI * 1.35), banana);
+  peel.position.set(-.34, 1.97, .16); peel.rotation.set(1.1, .3, .2); g.add(peel);   // 桶沿挂的香蕉皮
+
+  /* ---------- 脸：两只发光眼 + 铁皮嘴（长在桶身上） ---------- */
+  const head = new THREE.Group(); head.position.set(0, 1.72, 0); g.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(.30, 16, 12), binM);
+  skull.scale.set(1.28, .95, .55); skull.position.set(0, 0, .30); head.add(skull);   // ★ children[0]
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.088, 12, 10), glow);
+    eye.position.set(s * .21, .06, .55); eye.scale.set(1, 1.15, .55); head.add(eye);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(.042, 10, 8), glowD);
+    pup.position.set(s * .21, .06, .60); head.add(pup);
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(.20, .045, .05), binD);
+    brow.position.set(s * .21, .19, .56); brow.rotation.z = -s * .22; head.add(brow);
+  }
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(.40, .10, .06), binD);
+  mouth.position.set(0, -.15, .56); head.add(mouth);
+  for (let i = 0; i < 4; i++) {                        // 铁皮牙
+    const th = new THREE.Mesh(new THREE.BoxGeometry(.055, .055, .04), binL);
+    th.position.set(-.135 + i * .09, -.13, .585); head.add(th);
+  }
+
+  /* ---------- 灰色肌肉四肢：肩球 + 二头肌 + 小臂 + 大拳 ---------- */
+  const mkArm = (s) => {
+    const arm = new THREE.Group(); arm.position.set(s * .52, 2.02, 0); g.add(arm);
+    const delt = new THREE.Mesh(new THREE.SphereGeometry(.185, 12, 10), skin);
+    delt.scale.set(1, .95, 1); arm.add(delt);
+    const bicep = new THREE.Mesh(new THREE.SphereGeometry(.155, 12, 10), skin);
+    bicep.position.set(s * .03, -.24, .02); bicep.scale.set(1.05, 1.25, 1); arm.add(bicep);
+    const tri = new THREE.Mesh(new THREE.SphereGeometry(.10, 10, 8), skinD);
+    tri.position.set(-s * .06, -.22, -.06); arm.add(tri);
+    const elbow = new THREE.Mesh(new THREE.SphereGeometry(.095, 10, 8), skinD);
+    elbow.position.y = -.45; arm.add(elbow);
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(.105, .26, 6, 12), skin);
+    fore.position.y = -.62; arm.add(fore);
+    const wrist = new THREE.Mesh(new THREE.TorusGeometry(.092, .020, 5, 12), binD);
+    wrist.position.y = -.78; wrist.rotation.x = Math.PI / 2; arm.add(wrist);
+    const fist = new THREE.Mesh(new THREE.SphereGeometry(.155, 12, 10), skin);
+    fist.position.set(0, -.88, .02); fist.scale.set(1.02, .92, 1.1); arm.add(fist);
+    for (let i = 0; i < 3; i++) {                      // 指节
+      const kn = new THREE.Mesh(new THREE.SphereGeometry(.052, 8, 6), skinD);
+      kn.position.set(-.075 + i * .075, -.97, .10); arm.add(kn);
+    }
+    return arm;
+  };
+  const armL = mkArm(-1), armR = mkArm(1);
+
+  /* ---------- 腿：粗大腿 + 护膝（桶铁皮）+ 小腿 + 大靴 ---------- */
+  const mkLeg = (s) => {
+    const leg = new THREE.Group(); leg.position.set(s * .24, .90, 0); g.add(leg);
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(.165, .22, 6, 12), skin);
+    thigh.position.y = -.20; leg.add(thigh);
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(.135, 10, 8), binD);
+    knee.position.y = -.42; knee.scale.set(1, .85, 1); leg.add(knee);
+    const plate = roundPlate(.24, .20, .10, .06, binL, { bevel:.02 });
+    plate.position.set(0, -.42, .12); leg.add(plate);
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(.115, .22, 6, 12), skin);
+    shin.position.y = -.62; leg.add(shin);
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(.30, .18, .46), binD);
+    boot.position.set(0, -.78, .08); leg.add(boot);
+    const toe = new THREE.Mesh(new THREE.BoxGeometry(.26, .11, .16), binL);
+    toe.position.set(0, -.80, .30); leg.add(toe);
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(.32, .05, .50), binM);
+    sole.position.set(0, -.865, .08); leg.add(sole);
+    return leg;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+
+  /* 腰胯：一小段桶底 + 灰色腰腹（肌肉） */
+  const belly = new THREE.Mesh(new THREE.CylinderGeometry(.335, .315, .22, 18), binD);
+  belly.position.y = .95; g.add(belly);
+  const abs = new THREE.Mesh(new THREE.SphereGeometry(.22, 12, 10), skinD);
+  abs.position.set(0, 1.00, .16); abs.scale.set(1.25, .65, .55); g.add(abs);
+
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null,
+           lid, eyes:[glow], bag };
 }
 
 function kitBlizzard(def) {
@@ -6761,7 +6987,7 @@ const KITS = { blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechani
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
-               gorilla:kitGorilla, hacker:kitHacker, blocky:kitBlocky, blizzard:kitBlizzard, singer:kitSinger, vexor:kitVexor };
+               gorilla:kitGorilla, hacker:kitHacker, blocky:kitBlocky, blizzard:kitBlizzard, singer:kitSinger, vexor:kitVexor, trash:kitTrash };
 /* ================= ★ Pumpkin·大招 Pumpkin Curse：南瓜人（被诅咒的玩家外形） =================
    被诅咒的玩家本体整只隐藏、换成下面这只南瓜人；10 秒内由 pumpkinTick 自动追人挥镰，
    时间到 / 被打出场 / 换局 都会还原（endPumpkinCurse 把隐藏的子物件按原样恢复）。 */
@@ -8045,6 +8271,8 @@ class Fighter {
     /* ★ Vexor·Charge：B 技能命中累计；满 15 → 本场永久 +1 连跳（vexJumpBonus 由跳跃代码叠加，
        不去改 this.s.jumps —— 那份会被 _baseS 还原路径覆盖） */
     this.vexCharge = 0; this.vexJumpBonus = 0; this._vexBWin = 0; this._vexSpTok = 0; this._vexChargedTok = -1; this.vexSpray = null;
+    this.trashHits = 0; this.trashQueue = []; this.trashClap = null; this.trashRush = null;
+    this.trashGas = null; this.flatXT = 0;
     this.s = { weight:def.weight, walk:def.walk, run:def.run, air:def.air, jump:def.jump, jumps:def.jumps,
       fall:def.fall, fastFall:def.fastFall, accel:def.accel, airAccel:def.airAccel, fric:def.fric, mul:def.mul };
     this.weight = def.weight;
@@ -8594,7 +8822,7 @@ class Fighter {
     /* ★ Quicksand·沙缚：被沙子裹住期间「打不动也推不走」——照吃伤害，击退清零（和 Hacker 锁定同一套语义） */
     if (this.sandT > 0) launch = 0;
     if (this.ironT > 0) launch = 0;                    // ★ Blocky·Iron Bloom：6 秒内免疫击退（照吃伤害）
-    if (this.flatT > 0) launch = 0;                    // ★ Pumpkin：被砸扁期间钉在地上（照吃伤害，不位移）
+    if (this.flatT > 0 || this.flatXT > 0) launch = 0;                    // ★ Pumpkin：被砸扁期间钉在地上（照吃伤害，不位移）
     if (this.burnLock > 0) launch = 0;                 // ★ Dragon：被火柱锁住期间不吃击退（照吃伤害）
     /* ★ Pumpkin 大招南瓜人：照吃伤害，但**绝不被击退**（用户要求「不可以被击退或推下去」）。
        和 sandT/ironT/flatT 同一套语义：伤害记账全部照走，只是 launch 归零。 */
@@ -8968,6 +9196,19 @@ class Fighter {
         if (k === 0) { SFX.special('wave'); shake = Math.max(shake, .45); }
         else SFX.tone(520, 380, .18, 'sine', .07);
         break; }
+      case 'trashFog': {                                 // ★ Trashcan·大招：毒雾遮蔽全图 10 秒
+        smogT = 10.2;
+        /* 只有「本机操作的垃圾桶」视野不受影响；其余情况（对手视角/观战/观战 AI）全部起雾 */
+        const localBin = FIGHTERS.some(f => f.def.id === 'trash' && !f.isBot && !f.ctrl);
+        if (!localBin) scene.fog = new THREE.Fog(0x1c3a12, 1.4, 9.0);
+        callout(this, 'TOXIC SMOG', SP.color);
+        FX.flash(px, py + 1.4, .6, 14, 0x6bf07a, .30);
+        for (let i = 0; i < 8; i++) {
+          vexFlame(px + (RND() - .5) * 9, py + .4 + RND() * 2.2, 0, 0, 3, 4.5, .45, 1.3, 1, 0x6bf07a);
+        }
+        SFX.special('wave'); shake = Math.max(shake, .40);
+        break;
+      }
       case 'blackHole': {                                // ★ Vexor·大招：黑洞把附近的人往中心吸，约 50%
         if (this._bhX === undefined) this._bhX = px + d0 * 2.6;
         const bhx = this._bhX, bhy = this.pos.y + 1.15;
@@ -9444,6 +9685,10 @@ class Fighter {
     if (this.mark) { this.mark.t -= dt; if (this.mark.t <= 0) this.mark = null; }
     /* ★ Cobalt 新招的逐帧驱动（全部走固定 dt → 联机确定性一致） */
     if (this._vexBWin > 0) this._vexBWin -= dt;
+    if (this.flatXT > 0) { this.flatXT -= dt; if (this.flatXT <= 0) this.flatXT = 0; }
+    if (this.trashClap) this.trashClapTick(dt, inp);
+    if (this.trashRush) this.trashRushTick(dt, inp);
+    if (this.trashGas) this.trashGasTick(dt, inp);
     if (this.vexSpray) this.vexSprayTick(dt, inp);
     if (this.vexRush) this.vexRushTick(dt, inp);
     if (this.vexRise) this.vexRiseTick(dt, inp);
@@ -10933,6 +11178,122 @@ class Fighter {
     if (V.t > 3.0) { this.reapCombo = null; this.vel.x *= .30; }      // 兜底超时
   }
   /* ================= ★ Vexor：五连击 / 喷火上升 + 携带砸地 / 重力下砸 ================= */
+  /* ================= ★ Trashcan：拍扁 / 冲刺连击 / 毒气 ================= */
+  trashClapTick(dt, inp) {
+    const C = this.trashClap; if (!C) return;
+    const cfg = C.cfg || {}, dir = C.dir;
+    C.t += dt; this.state = 'special'; this.animT += dt;
+    this.vel.x *= .80;
+    if (!C.fired && C.t >= (cfg.hitAt || .13)) {
+      C.fired = true;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        const dx = (f.pos.x - this.pos.x) * dir;
+        if (dx < -.2 || dx > (cfg.reach || 2.7)) continue;
+        if (Math.abs((f.pos.y + 1.0) - (this.pos.y + 1.35)) > 2.3) continue;
+        f.takeHit(this, { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang || 20 }, dir, 1);
+        f.flatXT = cfg.flat || .85;                    // ★ 沿 X 轴压扁（Pumpkin 是 Y 轴）
+        f.vel.set(0, 0, 0); f.hitstun = Math.max(f.hitstun, .30);
+        callout(f, 'FLATTENED', cfg.color);
+        FX.slash(f.pos.x, f.pos.y + 1.10, .5, Math.PI / 2, 4.6, 0xd4ff9a, .18);
+        FX.ring(f.pos.x, f.pos.y + 1.05, .3, 2.6, cfg.color, .35);
+        FX.spark(f.pos.x, f.pos.y + 1.10, .4, 10, 0x9fe86a);
+        SFX.heavy(); shake = Math.max(shake, .42);
+      }
+      FX.flash(this.pos.x + dir * 1.35, this.pos.y + 1.35, .5, 5.5, cfg.color, .25);
+      SFX.special('wave');
+    }
+    if (C.t >= (cfg.dur || .42)) this.trashClap = null;
+  }
+  trashRushTick(dt, inp) {
+    const V = this.trashRush; if (!V) return;
+    const cfg = V.cfg || {}, list = V.hits || [];
+    V.t += dt; this.state = 'special'; this.animT += dt;
+    if (!V.target) {
+      if (V.t <= (cfg.dur || .30)) this.vel.x = V.dir * (cfg.dashSpd || 23);
+      else this.vel.x *= .84;
+      if (V.t % .06 < dt) FX.trail(this.pos.x - V.dir * .55, this.pos.y + 1.0, .32, cfg.color);
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0 || f.grabbed) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (Math.abs(f.pos.x - this.pos.x) < (cfg.reach || 2.1) + f.bodyR * .6 &&
+            Math.abs(f.pos.y - this.pos.y) < 2.5) {
+          V.target = f; V.n = 0; V.hitT = .03;
+          callout(this, 'TRASH RUSH ×' + list.length, cfg.color);
+          FX.ring(f.pos.x, f.pos.y + 1.0, .3, 2.6, cfg.color, .34);
+          FX.flash(f.pos.x, f.pos.y + 1.1, .5, 5, 0x9fe86a, .26);
+          shake = Math.max(shake, .30); SFX.special('dash');
+          break;
+        }
+      }
+      if (!V.target && V.t > (cfg.dur || .30) + .35) { this.trashRush = null; this.vel.x *= .25; }
+      return;
+    }
+    const f = V.target;
+    if (!f || f.eliminated) { this.trashRush = null; this.vel.x *= .30; return; }
+    const tx = this.pos.x + V.dir * 2.05;
+    f.pos.x += (tx - f.pos.x) * Math.min(1, dt * 20);
+    f.pos.y += (this.pos.y - f.pos.y) * Math.min(1, dt * 9);
+    f.vel.set(0, 0, 0);
+    this.vel.x *= .70;
+    V.hitT -= dt;
+    if (V.hitT <= 0 && V.n < list.length) {
+      const H = list[V.n], last = (V.n === list.length - 1);
+      V.hitT = H.gap || cfg.gap || .14;
+      f.takeHit(this, { dmg:H.dmg, bb:H.bb, bg:H.bg, ang:H.ang, stun:.18 }, V.dir, 1);
+      f.hitstun = Math.max(f.hitstun, H.heavy ? .34 : .22);
+      if (!last) f.vel.set(0, 0, 0);
+      if (H.heavy) {                                   // 垃圾袋：重拳（动画更久、更重）
+        FX.slash(f.pos.x, f.pos.y + 1.05, .55, 0, 4.4, 0xd4ff9a, .22);
+        FX.ring(f.pos.x, f.pos.y + 1.0, .3, 3.0, 0x9fe86a, .34);
+        FX.spark(f.pos.x, f.pos.y + 1.05, .45, 14, 0x9fe86a);
+        SFX.heavy(); shake = Math.max(shake, .48); camKick = Math.min(1, camKick + .18);
+      } else if (H.poison) {                            // 钻石：毒气拳（持续伤害）
+        f.ignite(1.8);
+        if (f._burnFx) f._burnFx.children.forEach(c => {
+          if (c.material) { c.material.color.setHex(0x6bf07a); c.material.emissive.setHex(0x1f7a2a); }
+        });
+        callout(f, 'POISONED', 0x6bf07a);
+        FX.ring(f.pos.x, f.pos.y + 1.0, .3, 2.6, 0x6bf07a, .34);
+        FX.spark(f.pos.x, f.pos.y + 1.0, .4, 10, 0x6bf07a);
+        SFX.special('wave');
+      } else {
+        FX.slash(f.pos.x, f.pos.y + 1.05, .42, (V.n % 2 ? Math.PI : 0), 3.2, 0x9fe86a, .15);
+        FX.spark(f.pos.x, f.pos.y + 1.0, .35, 8, 0x9fe86a);
+        SFX.hit(24, H.dmg);
+      }
+      V.n++;
+    }
+    if (V.n >= list.length && V.hitT <= 0) { this.trashRush = null; this.vel.x *= .30; }
+    if (V.t > 6.0) { this.trashRush = null; this.vel.x *= .30; }        // 兜底超时
+  }
+  trashGasTick(dt, inp) {
+    const G = this.trashGas; if (!G) return;
+    const cfg = G.cfg || {}, R = cfg.radius || 3.6;
+    G.t += dt; this.state = 'special'; this.animT += dt;
+    this.vel.x *= .82;
+    if (G.t % .05 < dt) {
+      const a = RND() * 6.283, rr = RND() * R;
+      vexFlame(this.pos.x + Math.cos(a) * rr, this.pos.y + .30 + RND() * 1.5, Math.sin(a) * rr * .35,
+               0, 2, 1.8, .28, .85, 1, 0x6bf07a);
+    }
+    G.tickT -= dt;
+    if (G.tickT <= 0) {
+      G.tickT = cfg.tick || .22;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (Math.hypot(f.pos.x - this.pos.x, (f.pos.y + 1.0) - (this.pos.y + 1.0)) > R) continue;
+        f.takeHit(this, { dmg:cfg.dmg, bb:0, bg:0, ang:40 }, Math.sign(f.pos.x - this.pos.x) || 1, 1);
+        f.para = Math.max(f.para || 0, .42);            // ★ 持续麻痹：在气里跑不掉
+        f.hitstun = Math.max(f.hitstun, .16);
+        FX.spark(f.pos.x, f.pos.y + 1.0, .3, 3, 0x6bf07a);
+      }
+      FX.ring(this.pos.x, this.pos.y + .4, .2, R * 1.4, cfg.color, .18);
+    }
+    if (G.t >= (cfg.dur || 1.8)) this.trashGas = null;
+  }
   vexSprayTick(dt, inp) {
     const S = this.vexSpray; if (!S) return;
     const cfg = S.cfg || {}, dir = S.dir;
@@ -11813,13 +12174,15 @@ class Fighter {
         this.abducted || this.ufo || this.ufoCrash || this.saber || this.sandT > 0 || this.warp || this.bandage || this.duneRun ||
         this.tiger || this.tailS || this.devour || this.grab || this.angelGrab || this.angelFly || this.horn || this.tide || this.sharkBub ||
         this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0 || this.burnLock > 0 ||
-        this.vexRush || this.vexRise || this.vexDive || this.vexSpray) {
+        this.vexRush || this.vexRise || this.vexDive || this.vexSpray ||
+        this.trashClap || this.trashRush || this.trashGas) {
       this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
       inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false;
       inp.spP = false; inp.shHeld = false; inp.atkHeld = false; inp.spHeld = false; inp.fsP = false; inp.mash = 0;
       if (!this.hugDash && !this.rush && !this.ufo && !this.ufoCrash && !this.saber && !this.voltCombo && !this.tiger && !this.duneRun && !this.angelGrab && !this.horn && !this.tide &&
           !this.reapCombo && !this.pumpkinForm && !this.hallowSweep && !this.hallowRise &&
-          !this.vexRush && !this.vexRise && !this.vexDive && !this.vexSpray) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪 自己管速度
+          !this.vexRush && !this.vexRise && !this.vexDive && !this.vexSpray &&
+          !this.trashRush && !this.trashClap) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪 自己管速度
       return;
     }
     /* ★ Blub·雷弹：麻痹期间做不了任何动作（但**会吃击退** —— 和 Hacker 的锁定不同） */
@@ -12008,6 +12371,7 @@ class Fighter {
               this.counter || this.reflect || this.charging || this.pullin || this.warpCast ||
               this.reapCombo || this.hallowSweep || this.hallowRise ||
               this.vexRush || this.vexRise || this.vexDive || this.vexSpray ||
+              this.trashRush || this.trashGas || this.trashClap ||
               /* ★ 2026-10-22 修：以下「持续型技能」原来漏在这张互斥表外 → 技能还在跑的时候，
                  另一个技能照样能起手。最典型的就是用户报的 Blizzard：滚雪球 / 踩地途中按 B，
                  守卫 spBusy() 返回 false → 中立B 冰冻激光当场放出，还把位置钉死把雪球顶掉。 */
@@ -12229,6 +12593,31 @@ class Fighter {
       this.state = 'special'; this.animT = 0;
       SFX.special('dash');
       vexFlame(this.pos.x, this.pos.y + .35, 0, 0, 10, 3.6, .14, .34, 1);
+    } else if (cfg.kind === 'trashClap') {              // ★ Trashcan·中立B：双手前拍 → 把对手沿 X 轴压扁
+      this.trashClap = { cfg, t:0, dir, fired:false };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('heavy');
+      FX.ring(this.pos.x + dir * .9, this.pos.y + 1.30, .3, 2.2, cfg.color, .3);
+    } else if (cfg.kind === 'trashRush') {              // ★ Trashcan·左右B：冲刺 → 3 + 额外连击
+      const extra = Math.max(0, this.trashHits || 0);
+      const list = (cfg.hits || []).slice();
+      const q = this.trashQueue || [];
+      for (let i = 0; i < extra; i++) {
+        const ty = q.length ? q[i % q.length] : 'banana';
+        if (ty === 'bag') list.push({ dmg:6.0, bb:5, bg:14, ang:34, heavy:true, gap:.26 });
+        else if (ty === 'diamond') list.push({ dmg:3.2, bb:3, bg:10, ang:24, poison:true, gap:.17 });
+        else list.push({ dmg:2.6, bb:2, bg:7, ang:22, gap:.12 });
+      }
+      this.trashRush = { cfg, t:0, dir, n:0, hitT:0, target:null, hits:list };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+      FX.ring(this.pos.x + dir * .7, this.pos.y + 1.05, .3, 2.4, cfg.color, .32);
+    } else if (cfg.kind === 'trashGas') {               // ★ Trashcan·下B：身周毒气（绿球）→ 持续麻痹
+      this.trashGas = { cfg, t:0, tickT:0 };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('proj');
+      FX.ring(this.pos.x, this.pos.y + .3, .3, (cfg.radius || 3.6) * 1.1, cfg.color, .45);
+      for (let i = 0; i < 10; i++) vexFlame(this.pos.x + (RND() - .5) * 3, this.pos.y + RND() * 1.6, 0, 0, 2, 2.2, .30, .9, 1, 0x6bf07a);
     } else if (cfg.kind === 'vexSpray') {               // ★ Vexor·中立B：向前喷紫火，自己向后弹射
       this.vexSpray = { cfg, t:0, tickT:0, dir, cx:this.pos.x + dir * 1.35 };   // cx = 火焰云中心（人后退，云留下）
       this.vel.x = -dir * (cfg.recoil || 17);            // 后坐力：人往后飞
@@ -14019,6 +14408,33 @@ class Fighter {
         P.group.rotation.z = this.facing * .13;
       }
     }
+    /* ★ Trashcan：双眼发光 / 拍手 / 冲拳 / 毒气下蹲 */
+    if (this.def.id === 'trash') {
+      const VX2 = this.parts;
+      if (VX2.eyes) for (let i = 0; i < VX2.eyes.length; i++) {
+        const em = VX2.eyes[i].material;
+        if (em && em.emissiveIntensity !== undefined) em.emissiveIntensity = 1.20 + Math.sin(A.t * 5.4 + i) * .30;
+      }
+      if (this.trashClap) {                                  // 双手前拍
+        const k = Math.min(1, this.trashClap.t / .13);
+        P.armL.rotation.x = -1.45 - k * .55; P.armR.rotation.x = -1.45 - k * .55;
+        P.armL.rotation.z = .10; P.armR.rotation.z = -.10;
+        P.group.rotation.z = this.facing * .12;
+      } else if (this.trashRush) {
+        const V = this.trashRush;
+        if (!V.target) { P.armL.rotation.x = -.85; P.armR.rotation.x = -.85; P.group.rotation.z = this.facing * -.18; }
+        else {
+          const h = (V.hits && V.hits[V.n - 1]) || {};
+          if (h.heavy) { P.armR.rotation.x = -2.35; P.armL.rotation.x = -.55; P.group.rotation.z = this.facing * .16; }
+          else if (h.poison) { P.armR.rotation.x = -1.85; P.armL.rotation.x = -1.30; P.group.rotation.z = this.facing * .06; }
+          else { P.armR.rotation.x = (V.n % 2 === 0) ? -1.95 : -1.10; P.armL.rotation.x = (V.n % 2 === 0) ? -1.10 : -1.95; }
+        }
+      } else if (this.trashGas) {                             // 下蹲放气
+        P.armL.rotation.x = .55; P.armR.rotation.x = .55;
+        P.armL.rotation.z = .30; P.armR.rotation.z = -.30;
+        P.group.rotation.z = this.facing * -.06;
+      }
+    }
     /* ★ Vexor：核心脉冲 / 身体火焰跳动 / 四招姿势（三拳 → 喷火 → 上勾拳 / 喷气上升 / 举拳下砸） */
     if (this.def.id === 'vexor') {
       const VX = this.parts;
@@ -14639,6 +15055,9 @@ class Fighter {
     if (this.flatT > 0) {
       const fk = Math.min(1, (.95 - this.flatT) / .10);        // 0.10s 内压到位
       P.group.scale.set(bs*(1 + .55*fk), bs*(1 - .78*fk), bs*(1 + .55*fk));
+    } else if (this.flatXT > 0) {
+      const fk = Math.min(1, (this.flatXT - .55) / .10);       // ★ X 轴压扁（Trashcan·中立B）
+      P.group.scale.set(bs*(1 - .82*fk), bs*(1 + .45*fk), bs*(1 + .55*fk));
     }
     // 护盾泡
     this.bubble.visible = this.state === 'shield' || !!this.counter || !!this.reflect || this.guardT > 0;
@@ -15059,8 +15478,9 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
       const bb3 = (f.bobRef && !f.bobRef.destroyed) ? ('🤖 BOB ' + Math.round(_bmx - Math.min(_bmx, Math.max(-50, f.bobRef.dmg || 0))) + '%' + (f.bobRef.over > 0 ? '⚡' : '') + (f.bobRef.move ? ' ' + f.bobRef.move.kind.toUpperCase() : '')) : (f.bobRef && f.bobRef.destroyed ? '🔧 BOB DOWN' : '');  // ★ BOB 耐久 + 当前招式
       const sand2 = f.sandT > 0 ? ('🏜 SAND ' + f.sandT.toFixed(1) + 's') : '';          // ★ 被 Quicksand 沙缚
       const fr2 = f._fsSpdT > 0 ? ((f.fangLeech > 0 ? '🐯 FRENZY ' : '🐢 SLOWED ') + f._fsSpdT.toFixed(1) + 's') : '';  // ★ Fang 大招
+      const tc2 = (f.def.id === 'trash' && (f.trashHits || 0) > 0) ? ('TRASH +' + f.trashHits + ' HIT') : '';  // ★ Trashcan 拾取数
       const vx2 = (f.def.id === 'vexor') ? ('CHARGE ' + (f.vexCharge || 0) + (f.vexJumpBonus ? ' · +' + f.vexJumpBonus + ' JUMP' : ' / 15')) : '';  // ★ Vexor 充能（每 15 点 +1 连跳，可无限叠）
-      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2, vx2].filter(Boolean).join(' ');
+      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2, vx2, tc2].filter(Boolean).join(' ');
       if (p.statTxt !== txt2 || p.statWasOn !== !!txt2) {
         p.statTxt = txt2; p.statWasOn = !!txt2;
         p.stat.textContent = txt2;
@@ -16174,6 +16594,7 @@ function frame(now) {
   UI.flash.style.opacity = flash * .7;
   FX.update(dt);
   updateVexFx(dt);
+  updateTrash(dt);
   /* ★ 3D 大厅：菜单里用大厅场景替代战斗画面（同一个 renderer，不额外开 WebGL 上下文） */
   if (match.state === 'menu') {
     if (!document.body.classList.contains('inMenu')) document.body.classList.add('inMenu');
@@ -18397,6 +18818,10 @@ function showLineup(entries) {
 
 /* ================= 调试/自动化探针接口 ================= */
 window.SB = {
+  get trashItems() { return TRASH; },   // 探针：场上垃圾（Trashcan 被动）
+  get smogT() { return smogT; },        // 探针：毒雾剩余秒数
+  get fogOn() { return !!scene.fog; },  // 探针：全图毒雾是否生效
+  get vexFx() { return VEX_FX.length; },// 探针：紫火/黑洞粒子数
   version: 'smash-demo-1',
   get cache() { return window.__SB_CB || null; },   // ★ 每次刷新的清缓存状态（探针可读：cleared/blocked/nonce）
   CFG, STAGE, CHARS, match, NET,           // NET 也暴露：验证「输入打包/解包」这类联机协议必须能直接调
