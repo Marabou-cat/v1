@@ -578,6 +578,14 @@ document.addEventListener('DOMContentLoaded', function () {
     backdrop-filter:blur(6px);transition:transform .12s,border-color .2s}
   #skillBtn:active{transform:scale(.93)}
   #skillBtn.on{border-color:#8ce7ff;color:#8ce7ff;box-shadow:0 0 0 2px rgba(140,231,255,.25)}
+  /* ★ 皮肤/武器按钮：紧贴技能按钮右侧（同一行、同尺寸，带文字，不会看不见） */
+  #skinBtn{position:absolute;left:max(48px, calc(50% - 70px));bottom:10px;z-index:40;height:34px;padding:0 10px;
+    border-radius:17px;border:2px solid rgba(255,214,106,.55);background:rgba(9,12,28,.82);color:#ffe9a8;
+    font:900 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.8px;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;backdrop-filter:blur(6px);transition:transform .12s,border-color .2s}
+  #skinBtn:active{transform:scale(.93)}
+  #skillBtn{z-index:40}                             /* 与皮肤键同层，别被预览画布盖住 */
+  #skinBtn.on{border-color:#ffd166;box-shadow:0 0 0 2px rgba(255,209,102,.28)}
   #skillPop{position:absolute;left:50%;transform:translateX(-50%);width:min(92%,340px);bottom:52px;z-index:6;max-height:56%;overflow:auto;
     background:rgba(7,10,22,.94);border:1.5px solid rgba(255,255,255,.2);border-radius:13px;padding:9px 12px;
     font-size:12px;line-height:1.6;display:none;box-shadow:0 12px 30px rgba(0,0,0,.5)}
@@ -782,8 +790,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <div class="pvChips" id="pvChips" style="left:50px"></div>
       <!-- ★ 第 68 轮：左下角问号 → 展开/收起技能介绍 -->
       <button id="skillBtn" title="Skills / abilities" aria-label="Skills">?</button>
-      <button id="skinBtn" title="Skins &amp; weapons" aria-label="Skins"><svg class="ico"><use href="#i-star"/></svg></button>
-      <button id="skinBtn" title="Skins &amp; weapons" aria-label="Skins"><svg class="ico"><use href="#i-star"/></svg></button>
+      <button id="skinBtn" title="Skins &amp; weapons" aria-label="Skins">SKIN</button>
       <div id="skillPop"></div>
     </div>
     <div class="side">
@@ -4214,7 +4221,7 @@ function kitSmiley(def) {
   const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 26, 20), cmat(def.body, { roughness:.66 }));
   ballSpin.add(ball);
   /* ★ 皮肤：Penguin（Smiley）—— 抽卡获得。黑蓝球体 + 白肚/白脸 + 橙喙 + 两片鳍。 */
-  if (((typeof ACC !== 'undefined' && ACC.skinOf && ACC.skinOf(def.id)) || '') === 'smiley_penguin') {
+  if (((def.skin || (typeof ACC !== 'undefined' && ACC.skinOf && ACC.skinOf(def.id)) || '')) === 'smiley_penguin') {
     ball.material.color.setHex(0x1b2436); ball.material.roughness = .52;
     const _belly = new THREE.Mesh(new THREE.SphereGeometry(R * .93, 22, 16), cmat(0xf6fbff, { roughness:.60 }));
     _belly.scale.set(.90, 1.02, .58); _belly.position.set(0, .10, R * .50); ballSpin.add(_belly);
@@ -15930,7 +15937,9 @@ function setup(opts) {
       def = i === 0 ? CHARS[opts.playerChar] : CHARS[(opts.playerChar + i) % CHARS.length];
       human = i === 0;
     }
-    const f = new Fighter(variantDef(def, VARIANTS[_varOf[i]]), null, i,
+    let _vd = variantDef(def, VARIANTS[_varOf[i]]);
+    if (typeof ACC !== 'undefined' && ACC.skinOf) _vd = Object.assign({}, _vd, { skin: ACC.skinOf(def.id) });
+    const f = new Fighter(_vd, null, i,
                           { bot: !human, stocks: gemMode ? 999 : opts.stocks, team: teamOfSeat(i, teamsOn),
                             spawnX: spawns[i][0] * (n > 2 ? 1 : 1.6) });
     f.variant = _varOf[i];
@@ -16495,8 +16504,9 @@ const PV = (() => {
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
   }
-  function show(i) {
+  function show(i, force) {
     const def = CHARS[i];
+    if (force) curId = null;                        // ★ 换皮肤/武器后强制重建（否则同角色直接 return → 看起来「皮肤没生效」）
     if (!def || curId === def.id) return;
     curId = def.id;
     if (model) { holder.remove(model); model = null; parts = null; }
@@ -19646,6 +19656,80 @@ function summonPull() {
   `;
   document.head.appendChild(st);
 })();
+/* ================= ★ 抽卡动画 =================
+   0~1.0s 蓄力（转环收束）→ 1.0s 爆开（白闪 + 光环炸开）→ 1.35s 翻牌（稀有度配色卡）
+   点击任意处可直接跳过；4.2 秒自动关闭。 */
+(function summonFxStyle() {
+  const st = document.createElement('style');
+  st.textContent = `
+  #summonFx { position:fixed; inset:0; z-index:320; display:none; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 45%, rgba(30,16,60,.92), rgba(3,4,10,.97) 70%); overflow:hidden; }
+  #summonFx.on { display:flex; }
+  #summonFx .wrap { position:relative; width:min(420px,92vw); height:min(420px,92vw); display:flex; align-items:center; justify-content:center; }
+  #summonFx .ring { position:absolute; width:64%; height:64%; border-radius:50%;
+    border:3px solid rgba(var(--t),.85); box-shadow:0 0 30px rgba(var(--t),.55), inset 0 0 26px rgba(var(--t),.35);
+    animation:sfxSpin 2.4s linear infinite, sfxPull 1.05s cubic-bezier(.2,.7,.2,1) forwards; }
+  #summonFx .ring.r2 { width:44%; height:44%; border-width:2px; animation-direction:reverse, normal;
+    animation-duration:1.7s, 1.05s; opacity:.8; }
+  #summonFx .ring.r3 { width:86%; height:86%; border-width:1px; opacity:.45; animation-duration:3.4s, 1.05s; }
+  #summonFx .core { position:relative; font-size:54px; line-height:1; color:rgb(var(--t));
+    text-shadow:0 0 26px rgba(var(--t),.95), 0 0 60px rgba(var(--t),.55);
+    animation:sfxPulse .8s ease-in-out infinite; z-index:2; }
+  #summonFx .rays { position:absolute; width:150%; height:150%; border-radius:50%; opacity:0;
+    background:conic-gradient(from 0deg, transparent 0 6deg, rgba(var(--t),.30) 6deg 10deg, transparent 10deg 24deg);
+    animation:sfxRays 2.6s linear infinite; }
+  #summonFx .flash { position:absolute; width:10px; height:10px; border-radius:50%; background:#fff; opacity:0; }
+  #summonFx.burst .flash { animation:sfxFlash .45s ease-out forwards; }
+  #summonFx.burst .ring { animation:sfxBurst .6s cubic-bezier(.15,.8,.3,1) forwards; }
+  #summonFx.burst .core { animation:none; transform:scale(.2); opacity:0; transition:transform .3s, opacity .3s; }
+  #summonFx .card { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:6px; opacity:0; transform:scale(.86); transition:opacity .28s, transform .34s cubic-bezier(.2,.8,.2,1); text-align:center; }
+  #summonFx.reveal .card { opacity:1; transform:scale(1); }
+  #summonFx .card .rar { font:900 10px/1 ui-monospace,monospace; letter-spacing:2.4px; color:rgb(var(--t)); }
+  #summonFx .card .nm { font:900 26px/1.15 system-ui,sans-serif; color:#fff; text-shadow:0 0 22px rgba(var(--t),.85); padding:0 18px; }
+  #summonFx .card .hint { margin-top:10px; font:700 10px/1 ui-monospace,monospace; letter-spacing:1.6px; color:rgba(255,255,255,.45); }
+  #summonFx .card .glow { position:absolute; width:70%; height:70%; border-radius:50%;
+    background:radial-gradient(circle, rgba(var(--t),.35), transparent 65%); filter:blur(6px); }
+  @keyframes sfxSpin { to { transform:rotate(360deg); } }
+  @keyframes sfxPull { from { transform:scale(1.55) rotate(0deg); opacity:.15; } to { transform:scale(1) rotate(180deg); opacity:1; } }
+  @keyframes sfxPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.16); } }
+  @keyframes sfxRays { to { transform:rotate(-360deg); } }
+  @keyframes sfxBurst { to { transform:scale(2.6); opacity:0; } }
+  @keyframes sfxFlash { 0% { opacity:0; transform:scale(1); } 30% { opacity:.95; } 100% { opacity:0; transform:scale(120); } }
+  `;
+  document.head.appendChild(st);
+})();
+function summonAnimation(prize, done) {
+  let el = document.getElementById('summonFx');
+  if (!el) { el = document.createElement('div'); el.id = 'summonFx'; document.body.appendChild(el); }
+  const tone = prize.type === 'supreme' ? '255,214,106'
+             : prize.type === 'weapon'  ? '110,196,255'
+             : prize.type === 'skin'    ? '196,140,255' : '190,196,210';
+  el.style.setProperty('--t', tone);
+  el.className = 'on';
+  el.innerHTML = '<div class="wrap" style="--t:' + tone + '">'
+    + '<div class="rays"></div>'
+    + '<div class="ring r3"></div><div class="ring"></div><div class="ring r2"></div>'
+    + '<div class="core">✦</div><div class="flash"></div>'
+    + '<div class="card"><div class="glow"></div><div class="rar">' + prize.sub + '</div>'
+    + '<div class="nm">' + prize.name + '</div><div class="hint">TAP TO CONTINUE</div></div>'
+    + '</div>';
+  const t1 = setTimeout(() => { el.classList.add('burst'); try { SFX.special('wave'); } catch (e) {} }, 1000);
+  const t2 = setTimeout(() => {
+    el.classList.add('reveal');
+    try { SFX.special('heavy'); } catch (e) {}
+    try { done && done(); } catch (e) {}
+  }, 1320);
+  let closed = false;
+  const close = () => {
+    if (closed) return; closed = true;
+    clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+    el.className = ''; el.innerHTML = ''; el.onclick = null;
+  };
+  const t3 = setTimeout(close, 4400);
+  el.onclick = close;
+}
+
 /* —— 抽卡面板 —— */
 function summonOpen() {
   let el = document.getElementById('summonSheet');
@@ -19677,11 +19761,12 @@ function summonPaint(last) {
   if (b) b.onclick = () => {
     const r = summonPull();
     if (r.err === 'gems') { toast('Not enough Supreme Gems (' + ACC.gems + '/' + SUMMON_COST + ')'); return; }
-    try { SFX.special('heavy'); } catch (e) {}
-    summonPaint(r);
-    try { window.__rebuildChars && window.__rebuildChars(); } catch (e) {}
-    summonBtnPaint();
-    toast('SUMMON · ' + r.name + ' · ' + r.sub);
+    /* ★ 先掷骰（状态已落库），再放动画；揭晓那一刻刷新面板/角色格/宝石数 */
+    summonAnimation(r, () => {
+      summonPaint(r);
+      try { window.__rebuildChars && window.__rebuildChars(); } catch (e) {}
+      summonBtnPaint();
+    });
   };
 }
 function summonBtnPaint() {
