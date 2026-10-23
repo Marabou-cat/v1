@@ -18119,6 +18119,19 @@ const NET = {
     }
     if (j.win !== undefined) this.serverFrame = j.win;
     else if (j.f !== undefined) this.serverFrame = Math.max(this.serverFrame, j.f);
+    /* ★★ 卡死自救：服务端已经整局从 0 重开，而本端还停在旧帧号（例如被幂等守卫挡下、
+       或 resync 广播漏收）→ 双方永远等不到对方的输入，画面彻底冻住。
+       判据：本地 FRAME 明显跑在服务端帧号前面（>90 帧 ≈ 1.5s）且持续 —— 立刻采纳重开。
+       用 _adoptT 做 2s 冷却，避免抖动时反复重开。 */
+    if (this.started && !this.replayBits && match.state === 'play' && FRAME > 120 &&
+        this.serverFrame < FRAME - 90 && this._beginArgs &&
+        performance.now() - (this._adoptT || 0) > 2000) {
+      this._adoptT = performance.now();
+      this._beginSig = null; this._beginAt = 0;          // 清指纹，允许同参数重开
+      toast('Server restarted · adopting (was frame ' + FRAME + ')');
+      try { this.beginMatch(this._beginArgs); } catch (e) {}
+      return;
+    }
     if (j.ack !== undefined) this.ackLimit = j.ack;
     if (j.room) this.applyRoom(j.room);
     if (j.desync && !this.desync) { this.desync = j.desync; toast('⚠ Desync @frame ' + j.desync.f); }
@@ -18512,14 +18525,20 @@ const NET = {
        用「同一局的指纹」做幂等：seed + startFrame + 规则 + 角色表 全都一样 = 同一局，丢弃。 */
     const _sig = [o.seed, o.startFrame | 0, o.rules && o.rules.count, o.rules && o.rules.stocks,
                   o.rules && o.rules.time, (o.chars || []).join(','), (o.humanSeats || []).join(',')].join('|');
-    if (this._beginSig === _sig) {
+    /* ★ 只去重「同一瞬间到的重复投递」（WS 推 + 轮询回包 350ms 内各来一次）。
+       绝不能永久封锁同参数重开：整局 resync / 服务端 restart 用的就是同一个 seed + 同一个
+       startFrame + 同一套规则，永久指纹会把「合法的重开」也挡掉 —— 本端停在 frame 932
+       而服务端已经回到 0，两边互相等对方的输入 = 永久卡死（用户实测）。 */
+    const _nowB = performance.now();
+    if (this._beginSig === _sig && (_nowB - (this._beginAt || 0)) < 900) {
+      this._dupIgnored = (this._dupIgnored || 0) + 1;
       if (this.started && match.state === 'play' && FRAME > 20) {
         toast('Duplicate start ignored (frame ' + FRAME + ')');
         console.warn('[net] duplicate beginMatch ignored', _sig);
       }
       return;
     }
-    this._beginSig = _sig;
+    this._beginSig = _sig; this._beginAt = _nowB; this._beginArgs = o;
     /* 开新局（含联机「再来一局」）：收起结算页 + 把 Play Again 按钮复位 */
     const rs = document.getElementById('resultScreen'); if (rs) rs.classList.add('hidden');
     /* ★ 第 80/81 轮：开局把好友面板 / Profile 弹层收掉（对局中两者整体隐藏，见 CSS） */
