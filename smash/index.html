@@ -2045,6 +2045,51 @@ for (const c of CHARS) {
   if (J.jab5) c.moves.jab5 = Object.assign({ zh:'Jab 5', jab:true, sfx:'heavy' }, J.jab5);
   if (J.cd) c.punchCd = J.cd;
 }
+/* ================= ★ 第 35 位角色：法国人 Frenchman（法棍）=================
+   左右B 法棍冲锋：向前冲，路上碰到的人被**夹着带走**，到终点一起砸成扁片（Pumpkin 同款 flat）
+   下B 法棍砸地：把附近敌人砸成扁片，1.5 秒后自动向上弹起（flatT=1.5 走通用的「压扁→弹起」）
+   上B 与 Sparky 相同（Thunder Cyclone：多段上升旋风）
+   中立B 法棍横扫：一次 20% 伤害（按字面实现）
+   大招 Soul Link：与最近的敌人在 8 秒内链接 —— 对方受到的伤害 50% 变成自己的回复 */
+CHARS.push({ id:'french', name:'Frenchman', en:'FRENCHMAN', tag:'Baguette',
+  body:0x2f4fa8, body2:0xf2f5fa, dark:0x1f2440, eye:0x201a18,
+  shape:{ tail:null, scale:1.02, headR:.62, bodyR:.78 },
+  weight:88, walk:10.6, run:16.4, air:11.2, jump:26.6, jumps:2, fall:32, fastFall:48,
+  accel:58, airAccel:42, fric:30, mul:{ dmg:1.04, kb:1.0, spd:1.02 },
+  moves:{
+    jab:{  zh:'Baguette Jab',   startup:.044,active:.055,end:.085, dmg:1.8, bb:7, bg:16, ang:8,  hb:[1.55,1.10,1.05] },
+    jab2:{ zh:'Baguette Jab 2', startup:.042,active:.052,end:.082, dmg:1.9, bb:7, bg:16, ang:10, hb:[1.60,1.10,1.08] },
+    jab3:{ zh:'Crust Combo',    startup:.044,active:.052,end:.082, dmg:2.0, bb:8, bg:17, ang:12, hb:[1.66,1.12,1.12] },
+    jab4:{ zh:'Crust Combo 2',  startup:.042,active:.050,end:.080, dmg:2.0, bb:8, bg:17, ang:10, hb:[1.72,1.12,1.16] },
+    jab5:{ zh:'Baguette Bonanza',startup:.070,active:.062,end:.210, dmg:3.0, bb:11, bg:19, ang:30, hb:[1.92,1.18,1.30], sfx:'heavy' },
+  },
+  special:{} });
+CHAR_EXTRA.french = {
+  trait:'Baguette · Carry Dash · Soul Link',
+  skills:'J Baguette combo (5 hits) · Neutral B Baguette Sweep (one heavy 20% swing — slow, big knockback) · '
+    + 'Side B Baguette Carry (dash forward, CARRY every foe you run into and slam them all flat at the end — Pumpkin-style flatten) · '
+    + 'Up B Thunder Cyclone (same recovery as Sparky: a multi-hit rising spin) · '
+    + 'Down B Baguette Slam (slam the baguette down — nearby foes are flattened into pancakes and POP UP 1.5s later) · '
+    + 'Final Smash Soul Link (links the nearest foe for 8s: 50% of the damage they take is converted into healing for you)',
+  shape:{ tail:null, scale:1.02, headR:.62, bodyR:.78 },
+  weight:88, walk:10.6, run:16.4, air:11.2, jump:26.6, jumps:2, fall:32, fastFall:48,
+  accel:58, airAccel:42, fric:30, mul:{ dmg:1.04, kb:1.0, spd:1.02 },
+  special:{
+    /* 中立B：法棍横扫 —— 单段 20%（用户明确要求 20%），起手慢、击退大 */
+    n:{kind:'baguetteSwing', label:'Baguette Sweep', cd:1.3, dmg:20.0, bb:12, bg:36, ang:30,
+       reach:2.5, startup:.14, color:0xd8a35c},
+    /* 左右B：冲锋 → 夹人 → 终点砸扁 */
+    s:{kind:'baguetteDash', label:'Baguette Carry', cd:2.4, dashSpd:23, dur:.42, reach:2.0,
+       dmg:9.0, bb:8, bg:16, ang:20, flat:.95, maxCarry:3, color:0xd8a35c},
+    /* 上B：和 Sparky 一样 */
+    u:{kind:'recover', label:'Thunder Cyclone', cd:1.4, dmg:5.0, bb:10, bg:42, rise:27, dur:.80,
+       multi:true, lift:true, fx:'bolt', anim:'spin', spinRate:26, color:0xffe98a},
+    /* 下B：砸地 → 压扁 1.5 秒 → 自动向上弹起 */
+    d:{kind:'baguetteSlam', label:'Baguette Slam', cd:2.2, dmg:12.0, bb:10, bg:22, ang:86,
+       radius:2.9, flat:1.5, startup:.16, color:0xd8a35c},
+  },
+};
+
 for (const c of CHARS) {
   const x = CHAR_EXTRA[c.id];
   if (!x) continue;
@@ -4241,6 +4286,7 @@ function kitTurtle(def) {
    表现就是「按 F 放大招整局卡死」。（'storm' 的招式实现其实一直在，只是 key 丢了。） */
 const FS_DEFAULT = { name:'Final Smash', style:'storm', color:0xffe066, beats:6, gap:.10, dmg:7, bb:10, bg:24, w:1 };
 const FSPECIALS = {
+  french:  { name:'Soul Link',       style:'frenchFS', color:0xd8a35c, beats:1,  gap:.10, dmg:0, bb:0, bg:0, w:0, dur:8.0 },
   sparky:  { name:'Thunder Storm',  style:'storm',    color:0xffe066, beats:7,  gap:.10, dmg:8.0, bb:10, bg:24,             w:1   },
   blub:    { name:'Air Barrage',    style:'hail',   color:0xffb0d8, beats:9,  gap:.10, dmg:6.0,  bb:9,  bg:22,             w:1   },
   tamer:   { name:'Venom Rain',     style:'venomRain', color:0x8ef05a, beats:14, gap:.07, dmg:5.0, bb:8,  bg:22,             w:1   },
@@ -6625,6 +6671,101 @@ function kitQuicksand(def) {
 }
 
 /* ================= ★ Fang 的造型：白色老虎（白毛 + 黑条纹 + 琥珀眼 + 獠牙 + 长尾）================= */
+
+/* ================= ★ 法国人 Frenchman（法棍 + 贝雷帽 + 条纹衫）=================
+   契约（不能改）：group/torso/belly/head/armL/armR/legL/legR/tail:null，脚底落在 y=0，
+   head.children[0] 必须是头骨（通用染色代码取它）。右手挂一根法棍（baguette）。 */
+function kitFrench(def) {
+  const g = new THREE.Group();
+  const skin  = cmat(0xf3d3b3, { roughness:.72 });
+  const skinD = cmat(0xe0b892, { roughness:.76 });
+  const shirt = cmat(0x2f4fa8, { roughness:.62 });     // 海魂衫蓝
+  const shirtW= cmat(0xf2f5fa, { roughness:.60 });     // 白条
+  const pants = cmat(0x2a2f3c, { roughness:.68 });
+  const beret = cmat(0x1f2440, { roughness:.55 });
+  const bread = cmat(0xd8a35c, { roughness:.66 });      // 法棍
+  const breadD= cmat(0xb9803c, { roughness:.70 });
+  const ink   = cmat(0x201a18, { roughness:.45 });
+  const wine  = cmat(0x8e1b2e, { roughness:.40, metalness:.10 });
+
+  /* 躯干：海魂衫（蓝底 + 3 道白条） */
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(.33, .38, 1.05, 16), shirt);
+  torso.position.y = 1.28; g.add(torso);
+  for (let i = 0; i < 3; i++) {
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(.335 - i * .006, .338 - i * .006, .10, 16), shirtW);
+    st.position.y = 1.52 - i * .26; g.add(st);
+  }
+  const belly = new THREE.Mesh(new THREE.CylinderGeometry(.375, .40, .40, 16), shirt);
+  belly.position.y = .86; g.add(belly);
+
+  /* 头：球 + 鼻子 + 八字胡 + 贝雷帽 */
+  const head = new THREE.Group(); head.position.set(0, 2.00, 0); g.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(.30, 20, 16), skin);
+  skull.scale.set(1, 1.06, .96); head.add(skull);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(.085, 10, 8), skinD);
+  nose.position.set(0, -.02, .29); nose.scale.set(.9, .8, 1.2); head.add(nose);
+  const stache = new THREE.Mesh(new THREE.BoxGeometry(.30, .055, .10), ink);
+  stache.position.set(0, -.115, .275); head.add(stache);
+  for (const s of [-1, 1]) {
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(.045, .10, 6), ink);
+    tip.position.set(s * .17, -.135, .26); tip.rotation.z = s * 1.15; head.add(tip);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.040, 8, 8), ink);
+    eye.position.set(s * .115, .06, .265); head.add(eye);
+  }
+  const bBase = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, .10, 18), beret);
+  bBase.position.set(0, .27, -.01); bBase.rotation.z = .12; head.add(bBase);
+  const bTop = new THREE.Mesh(new THREE.SphereGeometry(.30, 16, 12, 0, Math.PI * 2, 0, Math.PI * .55), beret);
+  bTop.position.set(0, .29, -.01); bTop.scale.set(1.02, .55, 1.02); head.add(bTop);
+  const nub = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 6), beret);
+  nub.position.set(.02, .44, -.01); head.add(nub);
+
+  /* 腿：深色长裤 + 皮鞋 */
+  const mkLeg = (s) => {
+    const leg = new THREE.Group(); leg.position.set(s * .17, .70, 0); g.add(leg);
+    const th = new THREE.Mesh(new THREE.CylinderGeometry(.115, .105, .62, 12), pants);
+    th.position.y = -.31; leg.add(th);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(.20, .13, .34), ink);
+    shoe.position.set(0, -.68, .05); leg.add(shoe);
+    return leg;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+
+  /* 手臂：袖子（蓝/白条）+ 手；右手拿法棍 */
+  const mkArm = (s) => {
+    const arm = new THREE.Group(); arm.position.set(s * .40, 1.66, 0); g.add(arm);
+    const up = new THREE.Mesh(new THREE.CylinderGeometry(.098, .088, .40, 10), shirt);
+    up.position.y = -.20; arm.add(up);
+    const sl = new THREE.Mesh(new THREE.CylinderGeometry(.092, .082, .10, 10), shirtW);
+    sl.position.y = -.36; arm.add(sl);
+    const fore = new THREE.Mesh(new THREE.CylinderGeometry(.082, .074, .34, 10), skin);
+    fore.position.y = -.60; arm.add(fore);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(.095, 10, 8), skin);
+    hand.position.y = -.80; arm.add(hand);
+    return arm;
+  };
+  const armL = mkArm(-1), armR = mkArm(1);
+
+  /* 法棍：斜长圆柱 + 三道割口 + 两端收尖（挂在右手，跟着挥） */
+  const baguette = new THREE.Group();
+  baguette.position.set(.02, -.74, .10);
+  baguette.rotation.set(0, 0, -1.15);          // 斜举在身前，剪影上能一眼看出是法棍
+  armR.add(baguette);
+  const loaf = new THREE.Mesh(new THREE.CylinderGeometry(.105, .105, 1.55, 12), bread);
+  loaf.rotation.x = Math.PI / 2; baguette.add(loaf);
+  for (let i = 0; i < 3; i++) {
+    const cut = new THREE.Mesh(new THREE.BoxGeometry(.16, .035, .10), breadD);
+    cut.position.set(0, .10, -.35 + i * .35); cut.rotation.z = .5; baguette.add(cut);
+  }
+  for (const z of [-.78, .78]) {
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(.105, .16, 12), bread);
+    tip.position.z = z; tip.rotation.x = z > 0 ? Math.PI / 2 : -Math.PI / 2; baguette.add(tip);
+  }
+  const wineBottle = new THREE.Mesh(new THREE.CylinderGeometry(.055, .07, .34, 10), wine);
+  wineBottle.position.set(-.06, -1.02, .02); wineBottle.rotation.z = .2; armL.add(wineBottle);   // 另一只手拎酒瓶
+
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null, baguette };
+}
+
 function kitFang(def) {
   const mats = kitMats(def), g = new THREE.Group();
   const fur   = cmat(0xf4f6fa, { roughness:.95 });
@@ -7149,7 +7290,8 @@ function kitShark(def) {
 
 
 
-const KITS = { blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
+
+const KITS = { french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
@@ -9025,6 +9167,17 @@ class Fighter {
     if (this._aegisDome) { scene.remove(this._aegisDome); this._aegisDome = null; }                    // 神盾穹顶/金环也要收（否则永远挂在身上）
     if (this._aegisRim) { scene.remove(this._aegisRim); this._aegisRim = null; }
     this.chargeFx.visible = false;                     // 蓄力中被打断时把光球收掉（否则会永远挂在身上）
+    /* ★ 法国人·大招 Soul Link：被链接的目标吃到的伤害，50% 转成施法者的回复（减伤） */
+    if (typeof dmg === 'number' && dmg > 0 && this.drainTo && this.drainTo.leech && this.drainTo.leech.t > 0) {
+      const L = this.drainTo, heal = dmg * .5;
+      const before = L.damage;
+      L.damage = Math.max(0, L.damage - heal);
+      if (before - L.damage >= 1) {
+        FX.spark(L.pos.x, L.pos.y + 1.25, .30, 3, 0xd8a35c);
+        FX.ring(L.pos.x, L.pos.y + .9, .28, 1.6, 0xffe6b8, .22);
+        if (L._leechPop !== Math.floor(FRAME / 20)) { L._leechPop = Math.floor(FRAME / 20); callout(L, 'SOUL LINK −' + Math.round(before - L.damage), 0xd8a35c); }
+      }
+    }
     /* ★ Shark 大招空间：受到的伤害 ×2（补差额外那部分） */
     if (this.dmgMul > 1 && typeof dmg === 'number') {
       this.damage = Math.min(CFG.dmgCap, this.damage + dmg * (this.dmgMul - 1));
@@ -9067,6 +9220,11 @@ class Fighter {
       }
       this.gems = 0;
     }
+    if (this.baguetteDash) {                           // ★ 法国人：冲锋中被打出场 → 先放开夹着的人（否则他们会一直停在抬着的位置）
+      for (const f of (this.baguetteDash.carry || [])) if (f) { f.carriedBy = null; f.hitstun = Math.max(f.hitstun, .2); f.state = 'hitstun'; }
+      this.baguetteDash = null;
+    }
+    if (this.leech) { if (this.leech.target && this.leech.target.drainTo === this) this.leech.target.drainTo = null; this.leech = null; }
     if (this.pumpkinForm) endPumpkinCurse(this, true);   // ★ 被诅咒的人被打出场 → 立刻恢复本体
     this.flatT = 0;                                      // ★ 砸扁状态不跨命
     this.burnLock = 0;                                   // ★ 灼烧锁定不跨命
@@ -9177,6 +9335,28 @@ class Fighter {
         }
         FX.ring(this.pos.x, this.pos.y + 1.0, .3, 3.6, 0x8fd8ff, .4);
         SFX.special('proj');
+        break;
+      }
+      case 'frenchFS': {                                 // ★ 法国人·大招 Soul Link：链接最近的敌人，对方受伤 50% 转化为自己的回复
+        let best = null, bd = 1e9;
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          const dd = Math.abs(f.pos.x - this.pos.x) + Math.abs(f.pos.y - this.pos.y);
+          if (dd < bd) { bd = dd; best = f; }
+        }
+        if (best) {
+          if (best.drainTo && best.drainTo !== this && best.drainTo.leech) { best.drainTo.leech.t = 0; }   // 旧链接先断
+          this.leech = { t: (SP.dur || 8.0), target: best };
+          best.drainTo = this;
+          callout(best, 'SOUL LINK 8s', SP.color);
+          callout(this, 'SOUL LINK', SP.color);
+          FX.ring(best.pos.x, best.pos.y + 1.0, .3, 3.4, SP.color, .5);
+          FX.ring(this.pos.x, this.pos.y + 1.0, .3, 3.4, SP.color, .5);
+          FX.beam(this.pos.x, this.pos.y + 1.2, best.pos.x, best.pos.y + 1.2, .07, SP.color, .55);
+        }
+        shake = Math.min(1.2, shake + .26); SFX.special('heavy');
+        this.fsDone = 1;
         break;
       }
       case 'sharkFS': {                                  // ★ Shark·大招：把最近敌人拖进独立空间 15 秒
@@ -9878,6 +10058,21 @@ class Fighter {
     if (this.flatXT > 0) { this.flatXT -= dt; if (this.flatXT <= 0) this.flatXT = 0; }
     if (this.trashClap) this.trashClapTick(dt, inp);
     if (this.trashRush) this.trashRushTick(dt, inp);
+    if (this.baguetteSwing) this.baguetteSwingTick(dt);   // ★ 法国人：法棍横扫 / 冲锋夹人 / 砸地压扁
+    if (this.baguetteDash) this.baguetteDashTick(dt);
+    if (this.baguetteSlam) this.baguetteSlamTick(dt);
+    /* ★ 法国人·大招 Soul Link：8 秒链接计时 + 连线特效 */
+    if (this.leech) {
+      this.leech.t -= dt;
+      const tg = this.leech.target;
+      if (!tg || tg.eliminated || this.eliminated || this.leech.t <= 0) {
+        if (tg && tg.drainTo === this) tg.drainTo = null;
+        this.leech = null;
+      } else {
+        this._leechFx = (this._leechFx || 0) + dt;
+        if (this._leechFx > .16) { this._leechFx = 0; FX.beam(this.pos.x, this.pos.y + 1.2, tg.pos.x, tg.pos.y + 1.2, .05, 0xd8a35c, .12); }
+      }
+    }
     if (this.trashGas) this.trashGasTick(dt, inp);
     if (this.vexSpray) this.vexSprayTick(dt, inp);
     if (this.vexRush) this.vexRushTick(dt, inp);
@@ -11396,6 +11591,106 @@ class Fighter {
     }
     if (C.t >= (cfg.dur || .42)) this.trashClap = null;
   }
+  /* ★ 法国人·中立B：法棍横扫（起手 → 单段判定 20% → 收招） */
+  baguetteSwingTick(dt) {
+    const V = this.baguetteSwing; if (!V) return;
+    const cfg = V.cfg || {}; V.t += dt;
+    this.state = 'special'; this.animT += dt;
+    if (!V.hit && V.t >= (cfg.startup || .14)) {
+      V.hit = true;
+      const dir = V.dir || 1, R = cfg.reach || 2.5;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if ((f.pos.x - this.pos.x) * dir < -(f.bodyR || .6)) continue;                 // 背后不打
+        if (Math.abs(f.pos.x - this.pos.x) > R + f.bodyR * .6) continue;
+        if (Math.abs(f.pos.y - this.pos.y) > 2.5) continue;
+        f.takeHit(this, { dmg:(cfg.dmg || 20), bb:(cfg.bb || 12), bg:(cfg.bg || 36), ang:(cfg.ang || 30) }, dir, 1);
+        FX.slash(f.pos.x, f.pos.y + 1.1, .6, dir > 0 ? 0 : Math.PI, 4.2, cfg.color, .22);
+        FX.spark(f.pos.x, f.pos.y + 1.05, .4, 12, cfg.color);
+      }
+      SFX.heavy(); shake = Math.max(shake, .34); camKick = Math.min(1, camKick + .14);
+      FX.slash(this.pos.x + dir * 1.7, this.pos.y + 1.2, .7, dir > 0 ? 0 : Math.PI, 4.6, 0xffe6b8, .18);
+    }
+    if (V.t >= (cfg.startup || .14) + .30) this.baguetteSwing = null;
+  }
+  /* ★ 法国人·左右B：法棍冲锋 —— 沿途把人夹走，终点一起砸成扁片 */
+  baguetteDashTick(dt) {
+    const V = this.baguetteDash; if (!V) return;
+    const cfg = V.cfg || {}, dir = V.dir || 1;
+    V.t += dt; this.state = 'special'; this.animT += dt;
+    if (!V.slam) {
+      if (V.t <= (cfg.dur || .42)) this.vel.x = dir * (cfg.dashSpd || 23);
+      else { this.vel.x *= .80; V.slam = true; V.slamT = 0; }
+      if (V.t % .05 < dt) FX.trail(this.pos.x - dir * .55, this.pos.y + 1.0, .32, cfg.color);
+      for (const f of FIGHTERS) {                       // 沿途夹人（最多 maxCarry 个）
+        if (f === this || f.eliminated) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (V.carry.indexOf(f) >= 0 || V.carry.length >= (cfg.maxCarry || 3)) continue;
+        if (Math.abs(f.pos.x - this.pos.x) < (cfg.reach || 2.0) + f.bodyR * .5 &&
+            Math.abs(f.pos.y - this.pos.y) < 2.5) {
+          V.carry.push(f);
+          f.carriedBy = this;                        // 复用 Angel 携带的「不参与推挤」标记（否则每秒被推开 → 冲刺被人挡住）
+          callout(f, 'CARRIED', cfg.color);
+          FX.ring(f.pos.x, f.pos.y + 1.0, .3, 2.4, cfg.color, .3);
+          SFX.special('dash');
+        }
+      }
+      for (let i = 0; i < V.carry.length; i++) {         // 夹着的人跟着走（不借用 grabbed 标志 → 死也不会把人永冻）
+        const f = V.carry[i]; if (!f || f.eliminated) continue;
+        f.carriedBy = this;
+        f.pos.x += (this.pos.x + dir * (1.05 + i * .70) - f.pos.x) * Math.min(1, dt * 18);
+        f.pos.y += (this.pos.y - f.pos.y) * Math.min(1, dt * 12);
+        f.vel.set(0, 0, 0); f.state = 'hitstun';
+        f.hitstun = Math.max(f.hitstun, .10);
+      }
+      if (!V.slam) return;
+    }
+    /* —— 终点：一起砸成扁片（flat 语义：定身，时间到自动弹起）—— */
+    V.slamT = (V.slamT || 0) + dt;
+    this.vel.x *= .72;
+    if (V.slamT < .07) return;
+    const list = V.carry.slice();
+    for (const f of list) {
+      if (!f || f.eliminated) continue;
+      f.carriedBy = null;
+      f.takeHit(this, { dmg:(cfg.dmg || 9), bb:(cfg.bb || 8), bg:(cfg.bg || 16), ang:10 }, dir, 1);
+      f.flatT = Math.max(f.flatT || 0, cfg.flat || .95);
+      f.vel.set(0, 0, 0); f.hitstun = Math.max(f.hitstun, .5);
+      FX.crater(f.pos.x, .12, 1.5, cfg.color); FX.dust(f.pos.x, .15, 8, 0xe8c48a);
+    }
+    if (list.length) {
+      SFX.heavy(); shake = Math.max(shake, .52); FX.flash(this.pos.x, .6, .5, 8, 0xffe0a8, .3);
+      callout(this, 'FLATTENED ×' + list.length, cfg.color);
+    }
+    this.baguetteDash = null;
+  }
+  /* ★ 法国人·下B：法棍砸地 → 范围内压扁 flat 秒，之后由通用的 flatT 逻辑自动向上弹起 */
+  baguetteSlamTick(dt) {
+    const V = this.baguetteSlam; if (!V) return;
+    const cfg = V.cfg || {}; V.t += dt;
+    this.state = 'special'; this.animT += dt;
+    if (!V.hit && V.t >= (cfg.startup || .16)) {
+      V.hit = true;
+      const R = cfg.radius || 2.9;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (Math.abs(f.pos.x - this.pos.x) > R + f.bodyR * .5) continue;
+        if (Math.abs(f.pos.y - this.pos.y) > 2.8) continue;
+        f.takeHit(this, { dmg:(cfg.dmg || 12), bb:(cfg.bb || 10), bg:(cfg.bg || 22), ang:(cfg.ang || 86) },
+                  Math.sign(f.pos.x - this.pos.x) || 1, 1);
+        f.flatT = Math.max(f.flatT || 0, cfg.flat || 1.5);      // 1.5s 后自动弹起（通用的 flat 收尾）
+        f.vel.set(0, 0, 0);
+        FX.dust(f.pos.x, .15, 10, 0xe8c48a);
+      }
+      FX.crater(this.pos.x, .10, R * .95, cfg.color);
+      FX.ring(this.pos.x, .25, .3, R * 2.2, cfg.color, .45);
+      FX.flash(this.pos.x, .5, .5, 7, 0xffe6b8, .30);
+      SFX.heavy(); shake = Math.max(shake, .45);
+    }
+    if (V.t >= (cfg.startup || .16) + .24) this.baguetteSlam = null;
+  }
   trashRushTick(dt, inp) {
     const V = this.trashRush; if (!V) return;
     const cfg = V.cfg || {}, list = V.hits || [];
@@ -12562,6 +12857,7 @@ class Fighter {
               this.reapCombo || this.hallowSweep || this.hallowRise ||
               this.vexRush || this.vexRise || this.vexDive || this.vexSpray ||
               this.trashRush || this.trashGas || this.trashClap ||
+              this.baguetteDash || this.baguetteSlam || this.baguetteSwing ||   // ★ 法国人
               /* ★ 2026-10-22 修：以下「持续型技能」原来漏在这张互斥表外 → 技能还在跑的时候，
                  另一个技能照样能起手。最典型的就是用户报的 Blizzard：滚雪球 / 踩地途中按 B，
                  守卫 spBusy() 返回 false → 中立B 冰冻激光当场放出，还把位置钉死把雪球顶掉。 */
@@ -12804,6 +13100,22 @@ class Fighter {
       SFX.special('proj');
       FX.ring(this.pos.x, this.pos.y + .3, .3, (cfg.radius || 3.6) * 1.1, cfg.color, .45);
       for (let i = 0; i < 10; i++) vexFlame(this.pos.x + (RND() - .5) * 3, this.pos.y + RND() * 1.6, 0, 0, 2, 2.2, .30, .9, 1, 0x6bf07a);
+    } else if (cfg.kind === 'baguetteSwing') {          // ★ 法国人·中立B：法棍横扫（单段 20%）
+      const dir = this.facing || 1;
+      this.state = 'special'; this.animT = 0; this.attackT = 0;
+      this.baguetteSwing = { t:0, hit:false, cfg, dir };
+      SFX.special('wave');
+      FX.slash(this.pos.x + dir * 1.5, this.pos.y + 1.15, .55, dir > 0 ? 0 : Math.PI, 3.4, cfg.color, .20);
+    } else if (cfg.kind === 'baguetteDash') {           // ★ 法国人·左右B：法棍冲锋（沿途夹人 → 终点砸扁）
+      this.baguetteDash = { cfg, t:0, dir, carry:[], slam:false, slamT:0 };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('dash');
+      FX.ring(this.pos.x + dir * .6, this.pos.y + 1.05, .3, 2.4, cfg.color, .3);
+    } else if (cfg.kind === 'baguetteSlam') {           // ★ 法国人·下B：法棍砸地 → 压扁 1.5s → 弹起
+      this.baguetteSlam = { cfg, t:0, hit:false };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('proj');
+      FX.ring(this.pos.x, this.pos.y + .3, .3, 2.0, cfg.color, .3);
     } else if (cfg.kind === 'vexSpray') {               // ★ Vexor·中立B：向前喷紫火，自己向后弹射
       this.vexSpray = { cfg, t:0, tickT:0, dir, cx:this.pos.x + dir * 1.35 };   // cx = 火焰云中心（人后退，云留下）
       this.vel.x = -dir * (cfg.recoil || 17);            // 后坐力：人往后飞

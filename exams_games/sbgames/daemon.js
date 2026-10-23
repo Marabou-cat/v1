@@ -49,7 +49,7 @@ const ROOM_CODE_LEN = 5;
 /* 调试用人工延迟（毫秒）：SB_LAG_MS=120 可在本机复现 120ms 单程延迟，用于压测锁同步 */
 const LAG_MS = parseInt(process.env.SB_LAG_MS || '0', 10);
 /* 角色池：仅用于空位（AI）的确定性兜底 —— 必须与客户端 CHARS 顺序一致 */
-const CHAR_POOL = ['sparky','rocky','zephyr','cobalt','mage','warrior','archer','knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark'];
+const CHAR_POOL = ['sparky','rocky','zephyr','cobalt','mage','warrior','archer','knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'french'];
 
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 const RESULTS_FILE = path.join(DATA_DIR, 'results.jsonl');
@@ -331,7 +331,7 @@ function botName(room, seat) {
   }
   return BOT_NAMES[h % BOT_NAMES.length];
 }
-function rulesKey(r) { r = r || {}; return [r.count|0, r.stocks|0, r.time|0, r.diff|0, r.teams|0,
+function rulesKey(r) { r = r || {}; return [r.count|0, r.stocks|0, r.time|0, r.diff|0, r.teams|0, String(r.mode || ''),
   (typeof r.stage === 'number' ? r.stage : -1)].join('/'); }   // ★ 第 77 轮：地图不同 → 视为不同设置（匹配会问）
 function pushTo(pid, msg) {
   const o = ONLINE.get(String(pid || ''));
@@ -828,7 +828,7 @@ function handle(act, ctx) {
       hist[seat] = obj;
     }
     return { ok: true, gen: room.gen, seed: room.seed, count: room.rules.count, stocks: room.rules.stocks,
-             time: room.rules.time, diff: room.rules.diff, teams: room.rules.teams,
+             time: room.rules.time, diff: room.rules.diff, teams: room.rules.teams, mode: room.rules.mode || '',
              chars: room.seats.map(x => (x ? x.char : '')), upto: room.frameHigh | 0, hist };
   }
 
