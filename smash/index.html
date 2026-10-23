@@ -2184,7 +2184,7 @@ CHARS.push({ id:'sovereign', name:'Cardboard', en:'CARDBOARD', tag:'Supreme', su
 CHAR_EXTRA.sovereign = Object.assign({}, CHAR_EXTRA.sparky, {
   trait:'Cardboard Shell · Tape Grab · Sweep Laser',
   skills:'Neutral B Tape Counter (2s dodge: if something would hit you, teleport in front of the attacker and land a 10-hit combo for 30% — warping side to side between hits) · '
-    + 'Side B Head Cannon (fire your own head out as a ricocheting cannonball: it bounces forward like a fireball — connect and your body warps to it, then a 10-hit combo for 35% total, chained together by a continuous laser) · '
+    + 'Side B Head Cannon (fire your own head out as a ricocheting cannonball: it bounces forward like a fireball — connect and your body warps to it, then a 10-hit combo for 25% total, chained together by a continuous laser) · '
     + 'Up B Jet Rise (flip upside down, fire the core laser downward — the recoil carries you up and the beam damages below) · '
     + 'Down B Sweep Laser (HOLD: sweep the laser from right in front of you out to the far side, the angle climbing as it goes) · '
     + 'Final Smash Cardboard Strike (freeze the whole arena, click any spot to call a homing rocket: 50%, area damage) · '
@@ -2198,13 +2198,13 @@ CHAR_EXTRA.sovereign = Object.assign({}, CHAR_EXTRA.sparky, {
     /* 左右B：把自己的头发射出去（Slayer 弹射火球那套手感：重力 + 撞地反弹 + 水平速度不减）
        → 命中敌人就传送到头的位置 → 身体飞过去找头 → 10 连击（合计 35%），全程一道持续激光钉在身上。
        单段 3.4 × 10 = 34 → 乘本角色 mul.dmg 1.03 后实测 35.02%（规格要求 35%） */
-    s:{ kind:'cbHead', label:'Head Cannon', cd:8.0, hits:10, dmg:3.4, bb:13, bg:36, ang:38,
+    s:{ kind:'cbHead', label:'Head Cannon', cd:4.0, hits:10, dmg:2.43, bb:13, bg:36, ang:38,
         spd:29, vy:4.4, grav:38, bounce:.72, maxBounce:3, life:1.5, hitR:.64, color:0x36e0ff },
     /* 上B：机制**完全复用 Sparky 的 recover**（同一条上升曲线 + multi 多段判定 + 自转），
        额外挂一道向下激光（cbBeam）→ 就是你要的「跟 sparky 上B 一样，但多下面的激光伤害」 */
     u:{ kind:'recover', label:'Jet Rise', cd:1.5, dmg:5.0, bb:10, bg:42, rise:27.5, dur:.80, color:0x36e0ff, multi:true, laserDmg:1.2 },
     /* 下B：长按扫射激光，由近到远、角度逐渐上扬 */
-    d:{ kind:'cbSweep', label:'Sweep Laser', cd:5.5, hold:2.2, gap:.10, dmg:1.0, len0:2.4, len1:8.6, ang0:-8, ang1:34, color:0xff9a3c },
+    d:{ kind:'cbSweep', label:'Sweep Laser', cd:4.0, hold:2.2, gap:.10, dmg:1.0, len0:4.5, len1:14.5, ang0:-8, ang1:30, hitW:1.9, color:0xff9a3c },
   } });
 for (const c of CHARS) {
   const x = CHAR_EXTRA[c.id];
@@ -12359,7 +12359,8 @@ class Fighter {
         S.next = S.t + (cfg.gap || .10);
         S.i = (S.i || 0) + 1;
         const p = Math.min(1, S.i / 20);
-        const ang = ((cfg.ang0 || -8) + ((cfg.ang1 || 34) - (cfg.ang0 || -8)) * p) * Math.PI / 180;
+        const pAng = p * p;                                   // ★ 仰角用 p²：先贴地扫远，后半段才抬起来
+        const ang = ((cfg.ang0 || -8) + ((cfg.ang1 || 34) - (cfg.ang0 || -8)) * pAng) * Math.PI / 180;
         const len = (cfg.len0 || 2.4) + ((cfg.len1 || 8.6) - (cfg.len0 || 2.4)) * p;
         const ox = this.pos.x + dir * .35, oy = this.pos.y + 1.0;
         const ex = ox + Math.cos(ang) * len * dir, ey = oy + Math.sin(ang) * len;
@@ -12369,7 +12370,7 @@ class Fighter {
           const rx = (f.pos.x - ox) * dir, ry = (f.pos.y + .9 - oy);
           const along = rx * Math.cos(ang) + ry * Math.sin(ang);
           const perp = Math.abs(-rx * Math.sin(ang) + ry * Math.cos(ang));
-          if (along < 0 || along > len || perp > 1.05) continue;
+          if (along < 0 || along > len || perp > (cfg.hitW || 1.05)) continue;
           const lastTick = S.i >= 22;
           f.takeHit(this, lastTick ? { dmg:cfg.dmg, bb:8, bg:26, ang:20 } : { dmg:cfg.dmg, bb:0, bg:0, ang:8, stun:.10 },
             dir, lastTick ? 1 : 0);
@@ -19658,7 +19659,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net93',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net94',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
