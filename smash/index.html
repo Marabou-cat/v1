@@ -627,6 +627,16 @@ document.addEventListener('DOMContentLoaded', function () {
      动画的关键帧带 transform，会把我这里的 translate(-50%,-100%) 覆盖成 none/translateY(16px)（实测弹层从
      「脚上方」掉到「脚下方」并且不居中）。这两个元件必须关掉那条入场动画。 */
   #skillPop,#pvTools{animation:none!important}
+  /* ★ Cardboard 大招：全场冻结时的点选准星层 */
+  #cbAim{position:fixed;inset:0;z-index:36;display:none;cursor:crosshair;
+    background:radial-gradient(circle at 50% 45%,rgba(120,180,255,.05),rgba(6,10,20,.46))}
+  #cbAim.on{display:block}
+  #cbAim .cur{position:absolute;width:70px;height:70px;margin:-35px 0 0 -35px;pointer-events:none;
+    font:900 48px/70px ui-monospace,Menlo,monospace;color:#ffb347;text-align:center;
+    text-shadow:0 0 18px rgba(255,179,71,.95),0 0 40px rgba(255,120,20,.55)}
+  #cbAim .tip{position:absolute;left:0;right:0;top:11%;text-align:center;pointer-events:none;
+    font:900 12.5px/1 ui-monospace,Menlo,monospace;letter-spacing:2.6px;color:#ffe9a8;text-shadow:0 2px 12px #000}
+  #cbAim .tip b{color:#ffb347}
   #skillPop b{color:#ffd166}
   #skillPop::-webkit-scrollbar{width:6px}
   #skillPop::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:3px}
@@ -729,6 +739,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <div id="hud"></div>
 <div id="topBar"><div id="stockLeader"></div><div id="timer">3:00</div></div>
 <div id="banner"><span id="bannerText"></span></div>
+<div id="cbAim" aria-hidden="true"><div class="cur">◎</div><div class="tip">CARDBOARD STRIKE · <b>CLICK A TARGET</b></div></div>
 <div id="netToast"></div>
 <div id="cacheTag"></div>
 <!-- ★ 第 92 轮：左侧每日任务面板 -->
@@ -2152,28 +2163,46 @@ CHAR_EXTRA.french = {
 };
 
 
-/* ================= ★ 至尊角色：Sovereign（抽卡获得，coins 买不到）=================
-   v1 先用 Sparky 的招式组（粘性雷球 / 冲刺三连 / 雷旋回场 / 上踢）+ 金色配色，
-   保证「至尊分类 / 抽卡 / 保底 / 排序 / 炫酷边框」这套机制能真跑起来；
-   等你要做专属招式时，只改这个 CHAR_EXTRA 的 special 与 FSPECIALS 即可。 */
-CHARS.push({ id:'sovereign', name:'Sovereign', en:'SOVEREIGN', tag:'Supreme', supreme:true,
-  body:0xffd76a, body2:0xfff3c4, dark:0x7a5310, eye:0x2a1a00,
-  shape:{ scale:1.06, headR:.60 },
-  weight:80, walk:11.4, run:18.0, air:12.4, jump:27.6, jumps:2, fall:34, fastFall:52,
-  accel:68, airAccel:48, fric:30, mul:{ dmg:1.08, kb:0.95, spd:1.10 },
+/* ================= ★ 至尊角色：Cardboard（纸箱机器人，抽卡获得，coins 买不到）=================
+   2026-10-23：原来这只至尊位是 Sovereign（直接套 Sparky 的招式 + 金色），按用户要求**整只换成 Cardboard**：
+   纸箱搭出来的机器人（胶布细节）。id 仍保留 'sovereign' —— 守护进程 CHAR_POOL、抽卡池、已拥有存档都用这个 id，
+   改 id 会让已抽到的玩家掉角色、联机还会 bad_char，所以只换名字/建模/招式。
+   被动脱壳：第一次被打到「生命数 × 25%」时伤害清零（3 命 = 75%）。 */
+CHARS.push({ id:'sovereign', name:'Cardboard', en:'CARDBOARD', tag:'Supreme', supreme:true,
+  body:0xb98a52, body2:0xe8cfa4, dark:0x6b4a28, eye:0x36e0ff,
+  shape:{ scale:1.04, headR:.56 },
+  weight:96, walk:10.9, run:16.4, air:11.3, jump:26.8, jumps:2, fall:35, fastFall:52,
+  accel:58, airAccel:42, fric:27, mul:{ dmg:1.03, kb:1.0, spd:1.0 },
   moves:{
-    jab:{  zh:'Gilded Jab',   startup:.045,active:.060,end:.085, dmg:1.9,  bb:8,  bg:18, ang:8,  hb:[1.55,1.15,1.15] },
-    jab2:{ zh:'Gilded Jab 2', startup:.043,active:.056,end:.082, dmg:2.0,  bb:8,  bg:18, ang:10, hb:[1.60,1.15,1.18] },
-    jab3:{ zh:'Gilded Jab 3', startup:.045,active:.056,end:.082, dmg:2.1,  bb:9,  bg:19, ang:12, hb:[1.66,1.18,1.22] },
-    jab4:{ zh:'Gilded Jab 4', startup:.043,active:.054,end:.080, dmg:2.2,  bb:9,  bg:19, ang:10, hb:[1.72,1.18,1.26] },
-    jab5:{ zh:'Sovereign Smash', startup:.070,active:.064,end:.215, dmg:3.2, bb:12, bg:21, ang:30, hb:[1.94,1.20,1.32], sfx:'heavy' },
+    jab:{  zh:'Box Jab',    startup:.048,active:.060,end:.088, dmg:2.0,  bb:8,  bg:18, ang:8,  hb:[1.58,1.14,1.14] },
+    jab2:{ zh:'Tape Hook',  startup:.046,active:.058,end:.086, dmg:2.1,  bb:8,  bg:18, ang:10, hb:[1.62,1.14,1.18] },
+    jab3:{ zh:'Box Upper',  startup:.050,active:.060,end:.090, dmg:2.3,  bb:9,  bg:19, ang:14, hb:[1.68,1.16,1.22] },
+    jab4:{ zh:'Crate Swing',startup:.048,active:.058,end:.086, dmg:2.4,  bb:9,  bg:19, ang:12, hb:[1.74,1.16,1.26] },
+    jab5:{ zh:'Core Piston',startup:.072,active:.066,end:.235, dmg:3.6, bb:12, bg:20, ang:34, hb:[1.96,1.18,1.34], sfx:'heavy' },
   },
   special:{} });
 CHAR_EXTRA.sovereign = Object.assign({}, CHAR_EXTRA.sparky, {
-  trait:'Supreme · Gilded Thunder',
-  skills:'A Supreme-tier fighter (SUMMON only). Shares the Sparky kit for now: Neutral B Chain Bolt, Side B Volt Combo, '
-    + 'Up B Thunder Cyclone, Down B Volt Upper, Final Smash Thunder Storm.',
-});
+  trait:'Cardboard Shell · Tape Grab · Sweep Laser',
+  skills:'Neutral B Tape Counter (2s dodge: if something would hit you, teleport in front of the attacker and land a 10-hit combo for 30% — warping side to side between hits) · '
+    + 'Side B Crane Grab (shoot your arm out far, haul the foe in and hit a 5-hit combo: four punches, then a laser from the core that blasts them away) · '
+    + 'Up B Jet Rise (flip upside down, fire the core laser downward — the recoil carries you up and the beam damages below) · '
+    + 'Down B Sweep Laser (HOLD: sweep the laser from right in front of you out to the far side, the angle climbing as it goes) · '
+    + 'Final Smash Cardboard Strike (freeze the whole arena, click any spot to call a homing rocket: 50%, area damage) · '
+    + 'Passive Shell Shed: the first time your damage hits stocks×25%, it drops straight back to 0%.',
+  shape:{ scale:1.04, headR:.56 },
+  weight:96, walk:10.9, run:16.4, air:11.3, jump:26.8, jumps:2, fall:35, fastFall:52,
+  accel:58, airAccel:42, fric:27, mul:{ dmg:1.03, kb:1.0, spd:1.0 },
+  special:{
+    /* 中立B：2 秒躲避 → 被命中就传送到攻击者面前打十连（合计 30%） */
+    n:{ kind:'cbCounter', label:'Tape Counter', cd:7.5, dur:2.0, hits:10, dmg:3.0, bb:14, bg:40, ang:42, color:0x36e0ff },
+    /* 左右B：伸臂抓人 → 拽到面前 → 4 拳 + 核心激光 */
+    s:{ kind:'cbArm', label:'Crane Grab', cd:8.0, reach:7.2, hits:5, punchDmg:2.6, laserDmg:5.5, bb:16, bg:46, ang:34, color:0xffb347 },
+    /* 上B：机制**完全复用 Sparky 的 recover**（同一条上升曲线 + multi 多段判定 + 自转），
+       额外挂一道向下激光（cbBeam）→ 就是你要的「跟 sparky 上B 一样，但多下面的激光伤害」 */
+    u:{ kind:'recover', label:'Jet Rise', cd:1.5, dmg:5.0, bb:10, bg:42, rise:27.5, dur:.80, color:0x36e0ff, multi:true, laserDmg:1.2 },
+    /* 下B：长按扫射激光，由近到远、角度逐渐上扬 */
+    d:{ kind:'cbSweep', label:'Sweep Laser', cd:5.5, hold:2.2, gap:.10, dmg:1.0, len0:2.4, len1:8.6, ang0:-8, ang1:34, color:0xff9a3c },
+  } });
 for (const c of CHARS) {
   const x = CHAR_EXTRA[c.id];
   if (!x) continue;
@@ -7429,8 +7458,81 @@ function kitShark(def) {
 
 
 
-FSPECIALS.sovereign = Object.assign({}, FSPECIALS.sparky, { name:'Sovereign Storm' });
-const KITS = { sovereign:kitSparky, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
+FSPECIALS.sovereign = { name:'Cardboard Strike', style:'cbFreeze', color:0xffb347, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0, dur:2.6 };
+/* ================= ★ Cardboard：纸箱机器人（箱子 + 胶布 + 核心灯） =================
+   全部用 BoxGeometry 拼：躯干/胸板/头/四肢都是箱子，胶布是薄薄的米色片（斜贴/横贴），
+   胸口一颗青色核心（Side B 第 5 段激光从这里打、Up B 向下喷也在这里）。
+   内层 `flip` 组专门给上B「倒转 180°」用（不影响引擎写 mesh.rotation.y / animStep 写骨骼）。 */
+function kitCardboard(def) {
+  const g = new THREE.Group();
+  const flip = new THREE.Group(); g.add(flip);                 // ← 上B 倒转用（默认 0）
+  const box  = () => cmat(def.body,  { roughness:.86 });
+  const box2 = () => cmat(def.body2, { roughness:.90 });
+  const tape = cmat(0xf2ead6, { roughness:.62 });              // 胶布
+  const tapeD = cmat(0xd9cdb2, { roughness:.68 });
+  const coreMat = new THREE.MeshBasicMaterial({ color:0x36e0ff });
+  const B = (w, h, d, mat, x, y, z, parent) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z); (parent || flip).add(m); return m;
+  };
+  /* ---- 腿：三个箱子（大腿/小腿/脚） ---- */
+  const mkLeg = (s) => {
+    const leg = new THREE.Group(); leg.position.set(s * .23, .74, 0); flip.add(leg);
+    B(.20, .30, .22, box(), 0, -.15, 0, leg);
+    B(.17, .28, .19, box2(), 0, -.43, .01, leg);
+    B(.28, .13, .40, box(), 0, -.60, .10, leg);               // 脚（纸箱鞋）
+    B(.30, .05, .12, tape, 0, -.55, .16, leg);                // 脚背胶布
+    return leg;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+  /* ---- 躯干：大箱子 + 胸板 + 胶布 ---- */
+  const torso = B(.86, .94, .58, box(), 0, 1.06, 0);
+  const belly = B(.62, .50, .06, box2(), 0, 1.02, .30);       // 胸板（受击闪白/形态 tint 用它）
+  B(.10, .64, .02, tape, -.22, 1.10, .315).rotation.z = .30;   // 斜胶布 ①
+  B(.10, .64, .02, tape,  .24, 1.02, .315).rotation.z = -.26;  // 斜胶布 ②
+  B(.90, .09, .02, tapeD, 0, 1.49, .30);                       // 顶沿横胶布
+  B(.90, .09, .02, tapeD, 0, 1.30, -.30);                      // 背后横胶布
+  /* 胸口核心：外框 + 发光圆 */
+  B(.30, .30, .04, cmat(0x6b4a28, { roughness:.6 }), 0, 1.00, .325);
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(.10, .10, .06, 14), coreMat);
+  core.rotation.x = Math.PI / 2; core.position.set(0, 1.00, .35); flip.add(core);
+  /* ---- 头：箱子 + 两根天线 + 青色 LED 眼 ---- */
+  const head = new THREE.Group(); head.position.set(0, 1.92, 0); flip.add(head);
+  B(.64, .56, .54, box(), 0, 0, 0, head);
+  B(.66, .07, .56, tapeD, 0, .24, 0, head);                    // 头顶胶布
+  B(.09, .34, .02, tape, -.20, -.02, .278, head).rotation.z = .22;
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(.15, .10, .04), coreMat);
+    eye.position.set(s * .145, .04, .278); head.add(eye);
+    B(.17, .13, .02, cmat(0x6b4a28, { roughness:.6 }), s * .145, .04, .268, head);   // 眼框
+    eye.renderOrder = 2;
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .30, 5), tapeD);
+    ant.position.set(s * .22, .40, -.02); head.add(ant);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 6), coreMat);
+    tip.position.set(s * .22, .56, -.02); head.add(tip);
+  }
+  /* ---- 手臂：肩箱 + 上臂 + 前臂 + 手（Side B 会拉伸 armR.scale.y） ---- */
+  const mkArm = (s) => {
+    const arm = new THREE.Group(); arm.position.set(s * .52, 1.34, 0); flip.add(arm);
+    B(.20, .20, .24, box2(), 0, 0, 0, arm);                    // 肩
+    B(.16, .36, .18, box(), 0, -.26, 0, arm);                  // 上臂
+    B(.15, .30, .17, box2(), 0, -.58, .02, arm);               // 前臂
+    B(.22, .20, .22, box(), 0, -.80, .03, arm);                // 手（方块拳头）
+    B(.17, .05, .19, tape, 0, -.44, .02, arm);                 // 关节胶布
+    return arm;
+  };
+  const armL = mkArm(-1), armR = mkArm(1);
+  /* 把所有胶布收集起来：脱壳时整批隐藏（= 胶布掉了） */
+  const tapes = [];
+  flip.traverse(o => {
+    if (o.isMesh && o.material && o.material.color &&
+        (o.material.color.getHex() === 0xf2ead6 || o.material.color.getHex() === 0xd9cdb2)) tapes.push(o);
+  });
+  g.userData.core = core;
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null, flip, core, tapes };
+}
+
+const KITS = { sovereign:kitCardboard, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
@@ -7582,6 +7684,92 @@ function buildMesh2(def) {
 
 /* ================= 天降打击（Mage·Meteor / Archer·Arrow Rain） ================= */
 const strikes = [];
+/* ================= ★ Cardboard 大招：准星 UI + 屏幕点选 → 追踪火箭 ================= */
+let _cbAimTimer = null, _cbAimBound = null;
+function cbHideAim() {
+  const el = document.getElementById('cbAim');
+  if (el) el.classList.remove('on');
+  if (_cbAimBound) {
+    el && el.removeEventListener('pointermove', _cbAimBound.move);
+    el && el.removeEventListener('pointerdown', _cbAimBound.fire);
+    _cbAimBound = null;
+  }
+  clearTimeout(_cbAimTimer); _cbAimTimer = null;
+}
+function cbScreenToWorld(cx, cy) {
+  const v = new THREE.Vector3((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1, .5).unproject(camera);
+  const d = v.sub(camera.position).normalize();
+  const t = -camera.position.z / (Math.abs(d.z) < 1e-6 ? -1e-6 : d.z);
+  const p = camera.position.clone().add(d.multiplyScalar(t));
+  return { x: p.x, y: 0 };
+}
+function cbLaunchRocket(owner, pt) {
+  if (!owner || owner.eliminated) return;
+  if (match.cbFreeze) match.cbFreeze.fired = true;
+  /* 追踪：点附近 6 个单位里有敌人就锁到敌人身上（否则打地面点） */
+  let tgt = null, bd = 6;
+  for (const f of FIGHTERS) {
+    if (!f || f === owner || f.eliminated) continue;
+    if (owner.team >= 0 && isTeammate(owner, f)) continue;
+    const d = Math.hypot(f.pos.x - pt.x, f.pos.y - (pt.y || 0));
+    if (d < bd) { bd = d; tgt = f; }
+  }
+  const x = tgt ? tgt.pos.x : THREE.MathUtils.clamp(pt.x, -STAGE.wallX + .4, STAGE.wallX - .4);
+  const y = tgt ? Math.max(0, tgt.pos.y) : 0;
+  /* 火箭视觉：从天上砸下来的一道光柱 + 落点圈（spawnStrike 自带 50 伤害的范围判定） */
+  FX.beam(x, y + 16, x, y + .3, .55, 0xffb347, .55);
+  FX.beam(x, y + 16, x, y + .3, .18, 0xffffff, .45);
+  FX.ring(x, y + .12, .3, 3.4, 0xffb347, .55);
+  spawnStrike(owner, x, { dmg:50, bb:18, bg:60, ang:78 }, .55, 3.4, 0xffb347, y);
+  callout(owner, 'ROCKET!', 0xffb347);
+  SFX.special('heavy'); shake = Math.min(1.3, shake + .6);
+}
+function cbShowAim(owner) {
+  const el = document.getElementById('cbAim');
+  if (!el) return;
+  el.classList.add('on');
+  /* 联机时不用鼠标点（点击位置不在输入流里 → 会各端不同步）：直接锁最近的敌人 */
+  const online = (typeof NET !== 'undefined' && NET.active);
+  if (online) {
+    let best = null, bd = 1e9;
+    for (const f of FIGHTERS) {
+      if (!f || f === owner || f.eliminated) continue;
+      if (owner.team >= 0 && isTeammate(owner, f)) continue;
+      const d = Math.abs(f.pos.x - owner.pos.x) + Math.abs(f.pos.y - owner.pos.y);
+      if (d < bd) { bd = d; best = f; }
+    }
+    _cbAimTimer = setTimeout(() => {
+      cbHideAim();
+      cbLaunchRocket(owner, { x: best ? best.pos.x : owner.pos.x, y: best ? best.pos.y : 0 });
+    }, 700);
+    return;
+  }
+  const move = e => {
+    const cur = el.querySelector('.cur');
+    if (cur) { cur.style.left = e.clientX + 'px'; cur.style.top = e.clientY + 'px'; }
+  };
+  const fire = e => {
+    const p = cbScreenToWorld(e.clientX, e.clientY);
+    cbHideAim();
+    cbLaunchRocket(owner, p);
+  };
+  _cbAimBound = { move, fire };
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerdown', fire);
+  _cbAimTimer = setTimeout(() => {                       // 2.4 秒没点 → 自动打最近的敌人
+    if (!match.cbFreeze || match.cbFreeze.fired) return cbHideAim();
+    let best = null, bd = 1e9;
+    for (const f of FIGHTERS) {
+      if (!f || f === owner || f.eliminated) continue;
+      if (owner.team >= 0 && isTeammate(owner, f)) continue;
+      const d = Math.abs(f.pos.x - owner.pos.x);
+      if (d < bd) { bd = d; best = f; }
+    }
+    cbHideAim();
+    cbLaunchRocket(owner, { x: best ? best.pos.x : owner.pos.x + (owner.facing || 1) * 4, y: 0 });
+  }, 2400);
+}
+
 function spawnStrike(owner, x, cfg, delay, radius, color, atY) {
   const mark = new THREE.Mesh(new THREE.RingGeometry(radius*.34, radius*1.02, 22),
     new THREE.MeshBasicMaterial({ color, transparent:true, opacity:.5, depthWrite:false,
@@ -9177,6 +9365,14 @@ class Fighter {
   takeHit(attacker, mv, dirX, kbMul = 1, dmgMul = 1) {
     if (this.invuln > 0 || this.intangible > 0 || this.eliminated) return null;
     if (isTeammate(this, attacker)) return null;        // ★ 团队模式：队友之间不造成伤害（要开友伤就删这一行）
+    /* ★ Cardboard 中立B「胶布反击」：2 秒躲避窗口内本来会挨的这一下 → 不受伤，
+       直接传送到攻击者面前打十连（30%）。这里必须 return null，否则伤害照吃。 */
+    if (this.def && this.def.id === 'sovereign' && this.cbState && this.cbState.mode === 'counter' &&
+        attacker && attacker !== this && !attacker.eliminated) {
+      this.cbState = null;
+      this.cbCounterFire(attacker);
+      return null;
+    }
     /* ★ Vexor·Charge：任意 B 技能命中 +1（同一次技能的多段命中只算 1 点）
        判据：① 这是 Vexor 打的；② 命中落在「刚放完 B」的窗口内（含他放出的弹道）；
             ③ mv 没有名字（技能/弹道都是匿名对象，J 连段是具名招式）→ 普攻不计。 */
@@ -9395,6 +9591,8 @@ class Fighter {
     this.state = 'idle'; this.hitstun = 0; this.invuln = CFG.respawnInv; this.shield = 100;
     this.jumpsLeft = this.s.jumps + (this.vexJumpBonus || 0); this.airDodged = false; this.mesh.visible = true; this.shadow.visible = true;
     this.grabbed = null; this.charging = null; this.move = null;
+    this.shedUsed = false; this.shedAt = 0;                 // ★ Cardboard：每命一次「脱壳」
+    try { this.cbShellOn(); } catch (e) {}                  // ★ 复活时把外壳装回去
   }
   /* ---- 招式 ---- */
   getMove(name) {
@@ -9458,6 +9656,16 @@ class Fighter {
     const SP = this.fsSpec || FSPECIALS.sparky, k = this.fsDone++, c = SP.color, d0 = this.facing || 1;
     const px = this.pos.x, py = this.pos.y, cl = (v) => THREE.MathUtils.clamp(v, -CFG.blast.x + 2, CFG.blast.x - 2);
     switch (SP.style) {
+      case 'cbFreeze': {                                 // ★ Cardboard·大招：全场冻结 → 点哪打哪的追踪火箭（50% 范围伤害）
+        match.cbFreeze = { t: 2.6, owner: this, fired: false };
+        callout(this, 'FREEZE!', SP.color);
+        FX.flash(this.pos.x, this.pos.y + 1.2, .6, 26, 0xcfe8ff, .55);
+        FX.ring(this.pos.x, this.pos.y + .3, .3, 30, 0x9fd8ff, .8);
+        shake = Math.min(1.2, shake + .7); SFX.special('heavy');
+        try { cbShowAim(this); } catch (e) {}
+        this.fsDone = 1;
+        break;
+      }
       case 'mechFS': {                                   // ★ Mechanic·Overclock：修复/重启 BOB + 五连扇形激光
         const bb2 = this.bobRef;
         if (bb2) {
@@ -9895,6 +10103,12 @@ class Fighter {
     const S = this.s;
     if (this.eliminated) return;
     if (this.respawnT > 0) { this.respawnT -= dt; if (this.respawnT <= 0) this.respawn(); return; }
+    /* ★ Cardboard 大招：全场冻结（施法者自己照常行动；其余人原地定住，但仍可被打） */
+    if (typeof match !== 'undefined' && match.cbFreeze && match.cbFreeze.t > 0) {
+      if (this !== match.cbFreeze.owner) { this.vel.set(0, 0, 0); return; }
+      match.cbFreeze.t -= dt;
+      if (match.cbFreeze.t <= 0) { match.cbFreeze = null; try { cbHideAim(); } catch (e) {} }
+    }
     /* ★ 第 79 轮：整个大招逐帧逻辑包一层 try/catch。
        这些代码跑在 physicsStep → rAF 主循环里，任何一次抛错都会让 requestAnimationFrame 不再续帧
        → 整个游戏硬卡死（不是「角色卡住」，是画面/输入全停）。宁可这一招失效，也不能卡死。 */
@@ -10117,6 +10331,9 @@ class Fighter {
     if (this.hallowSweep) this.hallowSweepTick(dt);        // ★ Pumpkin 中立B 挥镰
     if (this.hallowRise) this.hallowRiseTick(dt);          // ★ Pumpkin 下B 挑镰
     if (this.pumpkinForm) this.pumpkinTick(dt);            // ★ Pumpkin 大招：南瓜人（自动追人）
+    if (this.cbState) this.cbTick(dt, inp);                // ★ Cardboard：四个技能的状态机
+    if (this.cbBeam) this.cbBeamTick(dt);                  // ★ Cardboard 上B：向下激光（挂在 recover 上）
+    if (this.def.id === 'sovereign') this.cbCheckShed();   // ★ Cardboard 被动：脱壳
     if (this.voltCombo) this.voltTick(dt, inp);            // ★ Sparky 冲刺连招（自己管速度/判定）
     if (this.upKick) this.upKickTick(dt);                  // ★ Sparky 下B 上踢
     /* ★ Tamer：中毒（肉块冲锋撞到后的持续伤害，每 .5 秒一跳） */
@@ -11491,6 +11708,250 @@ class Fighter {
      reapTick         左右B Reaping Rush：冲刺撞人 → 五连斩（收尾砸扁 + 定身） */
   /* ★ 南瓜人：自动追击最近的敌人并挥镰（伤害记在施法者头上，谁被诅咒谁替他打）
      —— 被诅咒的玩家这 10 秒完全交不出去操作（actionSelect 门禁），但照样会受伤/被打飞。 */
+  /* ★ Cardboard 上B：向上激光后坐力（复用 recover 的上升曲线）+ 向下激光逐帧伤害 */
+  cbBeamTick(dt) {
+    const B = this.cbBeam; if (!B) return;
+    const P = this.parts || {};
+    B.dur = B.dur || .8;
+    B.t -= dt;
+    if (P.flip) P.flip.rotation.z = Math.PI * Math.min(1, (B.dur - Math.max(0, B.t)) / .10);   // 0.1 秒内翻过去
+    if (B.t <= 0) {
+      if (P.flip) P.flip.rotation.z = 0;
+      this.cbBeam = null;
+      return;
+    }
+    B.next -= dt;
+    if (B.next > 0) return;
+    B.next = .12;
+    const bx = this.pos.x, by = this.pos.y + .15;
+    for (const f of FIGHTERS) {
+      if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+      if (this.team >= 0 && isTeammate(this, f)) continue;
+      if (f.pos.y > this.pos.y + .5) continue;                 // 只打下方
+      if (Math.abs(f.pos.x - this.pos.x) > 2.2) continue;
+      if (this.pos.y - f.pos.y > 4.6) continue;
+      f.takeHit(this, { dmg:B.dmg, bb:0, bg:0, ang:-80, stun:.12 }, this.facing || 1, 0);
+    }
+    FX.beam(bx, by, bx, by - 4.4, .13, B.color, .16);
+    FX.beam(bx, by, bx, by - 4.4, .05, 0xffffff, .12);
+    if (Math.random() < .45) FX.spark(bx, by - 2.2, .2, 3, B.color);
+  }
+  /* ★ Cardboard 被动：外壳真的「掉」——胶布全不见、纸箱变成破损的深色 */
+  cbShellOff() {
+    const P = this.parts; if (!P) return;
+    if (P.tapes) for (const m of P.tapes) { try { m.visible = false; } catch (e) {} }
+    try { if (P.torso) { P.torso.material.color.setHex(0x7d5c3a); P.torso.material.roughness = .97; } } catch (e) {}
+    try { if (P.belly) { P.belly.material.color.setHex(0xa8895f); } } catch (e) {}
+    try { if (P.head) for (const ch of P.head.children) if (ch.geometry && ch.geometry.type === 'BoxGeometry' && ch.material && ch.material.color) ch.material.color.offsetHSL(0, -.05, -.12); } catch (e) {}
+    try { if (P.core) P.core.material.color.setHex(0xff6a2a); } catch (e) {}   // 核心外露发红
+  }
+  cbShellOn() {                                   // 复活/新一局：把外壳装回去
+    const P = this.parts; if (!P) return;
+    if (P.tapes) for (const m of P.tapes) { try { m.visible = true; } catch (e) {} }
+    try { if (P.torso) { P.torso.material.color.setHex(this.def.body || 0xb98a52); P.torso.material.roughness = .86; } } catch (e) {}
+    try { if (P.belly) { P.belly.material.color.setHex(this.def.body2 || 0xe8cfa4); } } catch (e) {}
+    try { if (P.core) P.core.material.color.setHex(0x36e0ff); } catch (e) {}
+  }
+  /* ================= ★ Cardboard：脱壳 / 伸臂五连 / 扫射 / 反击十连 / 火箭上升 ================= */
+  /* 被动「脱壳」：第一次伤害达到 生命数×25% → 直接清零（每局一次） */
+  cbCheckShed() {
+    if (this.def.id !== 'sovereign' || this.shedUsed) return;
+    if (!this.shedAt) this.shedAt = Math.max(25, ((typeof match !== 'undefined' && match.stocks) || 3) * 25);
+    if (this.damage < this.shedAt) return;
+    this.shedUsed = true;
+    this.damage = 0; this.maxDamage = 0;
+    this.invuln = Math.max(this.invuln || 0, .9);
+    try { this.cbShellOff(); } catch (e) {}
+    callout(this, 'SHELL SHED!', 0xffe0a8);
+    FX.ring(this.pos.x, this.pos.y + 1.0, .35, 4.2, 0xe8cfa4, .55);
+    FX.burst(this.pos.x, this.pos.y + 1.1, .3, 0xb98a52, 26, 16);
+    FX.flash(this.pos.x, this.pos.y + 1.1, .5, 8, 0xffe0a8, .34);
+    FX.dust(this.pos.x, this.pos.y, 14, 0xe8cfa4);
+    for (let i = 0; i < 7; i++) {                       // 纸箱碎片乱飞
+      const a = (i / 7) * Math.PI * 2;
+      FX.beam(this.pos.x + Math.cos(a) * .3, this.pos.y + 1.2, this.pos.x + Math.cos(a) * 1.9,
+              this.pos.y + 1.9 + Math.sin(a) * .6, .10, 0xc9a06a, .35);
+    }
+    shake = Math.min(1.2, shake + .5); SFX.special('heavy');
+  }
+  cbCounterFire(atk) {
+    const cfg = this.def.special.n;
+    this.cbState = { mode:'counterBurst', t:0, hits:0, next:.02, target:atk, cfg };
+    this.hitstun = 0; this.state = 'special'; this.animT = 0;
+    callout(this, 'COUNTER!', cfg.color);
+    FX.flash(this.pos.x, this.pos.y + 1.1, .4, 6, cfg.color, .28);
+    SFX.special('proj');
+  }
+  cbTick(dt, inp) {
+    const S = this.cbState; if (!S) return;
+    S.t += dt;
+    const cfg = S.cfg || {}, dir = S.dir || this.facing || 1;
+    const P = this.parts || {};
+    /* ---------- ⓪ 中立B 躲避窗口：只是挂着等挨打（真正触发在 takeHit 里） ---------- */
+    if (S.mode === 'counter') {
+      if (P.core) P.core.material.color.setHex(S.t % .3 < .15 ? 0x9ff0ff : 0x36e0ff);
+      this.vel.x *= .86;
+      if (S.t >= (cfg.dur || 2)) {
+        if (P.core) P.core.material.color.setHex(0x36e0ff);
+        this.cbState = null; this.state = this.grounded ? 'idle' : 'fall';
+        callout(this, 'GUARD END', 0x9ff0ff);
+      }
+      return;
+    }
+    /* ---------- ① 左右B：伸臂抓人 → 拽回来 → 4 拳 + 核心激光 ---------- */
+    if (S.mode === 'arm') {
+      if (S.phase === 0) {                              // 伸臂（视觉拉长 + 判定在伸到顶那一帧）
+        const p = Math.min(1, S.t / .22);
+        if (P.armR) { P.armR.scale.y = 1 + p * 1.55; P.armR.rotation.x = -1.35 * p; }
+        if (P.core) P.core.material.color.setHex(0xffb347);
+        if (S.t >= .22) {
+          let best = null, bd = 1e9;
+          for (const f of FIGHTERS) {
+            if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+            if (this.team >= 0 && isTeammate(this, f)) continue;
+            const dx = (f.pos.x - this.pos.x) * dir;
+            if (dx < -.5 || dx > (cfg.reach || 7.2) + .7) continue;
+            if (Math.abs(f.pos.y - this.pos.y) > 2.5) continue;
+            if (dx < bd) { bd = dx; best = f; }
+          }
+          if (best) {
+            S.phase = 1; S.t = 0; S.target = best; S.hits = 0; S.next = .10;
+            FX.ring(best.pos.x, best.pos.y + .9, .3, 1.8, cfg.color, .38);
+            FX.beam(this.pos.x + dir * .5, this.pos.y + 1.1, best.pos.x, best.pos.y + .9, .07, cfg.color, .25);
+            SFX.special('mid');
+          } else { S.phase = 3; S.t = 0; }               // 空挥 → 收招
+        }
+      } else if (S.phase === 1) {                       // 拽到面前 + 五连
+        const T = S.target;
+        if (!T || T.eliminated) { S.phase = 3; S.t = 0; }
+        else {
+          const tx = this.pos.x + dir * 1.45, ty = this.pos.y + .05;
+          T.pos.x += (tx - T.pos.x) * Math.min(1, dt * 16);
+          T.pos.y += (ty - T.pos.y) * Math.min(1, dt * 16);
+          T.vel.set(0, 0, 0); T.hitstun = Math.max(T.hitstun || 0, .22);
+          if (S.t >= S.next && S.hits < (cfg.hits || 5)) {
+            S.hits++; S.next += .18;
+            const last = S.hits >= (cfg.hits || 5);
+            if (last) {                                  // 第 5 段：核心激光轰飞
+              T.takeHit(this, { dmg:cfg.laserDmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang }, dir, 1);
+              FX.beam(this.pos.x, this.pos.y + 1.0, T.pos.x, T.pos.y + .9, .16, cfg.color, .34);
+              FX.beam(this.pos.x, this.pos.y + 1.0, T.pos.x, T.pos.y + .9, .07, 0xffffff, .22);
+              FX.flash(T.pos.x, T.pos.y + .9, .4, 7, cfg.color, .3);
+              FX.burst(T.pos.x, T.pos.y + .9, .2, cfg.color, 20, 18);
+              shake = Math.min(1.2, shake + .45); camKick = Math.min(1, camKick + .35); SFX.heavy();
+              if (P.core) P.core.material.color.setHex(0xff6a2a);
+            } else {                                     // 前 4 段：普通拳（不击退，只硬直）
+              T.takeHit(this, { dmg:cfg.punchDmg, bb:0, bg:0, ang:12, stun:.30 }, dir, 0);
+              const hx = this.pos.x + dir * .95, hy = this.pos.y + 1.0 + (S.hits % 2) * .12;
+              FX.spark(hx, hy, .30, 6, 0xffe0a8);
+              FX.slash(hx, hy, 0, dir > 0 ? 0 : Math.PI, .5, 0xfff0c0, .16);
+              SFX.special('jab'); shake = Math.min(.8, shake + .12);
+              if (P.armR) { P.armR.rotation.x = -.55; P.armR.scale.y = 2.1; }
+            }
+            if (S.hits >= (cfg.hits || 5)) { T.grabbed = null; T.hitstun = Math.max(T.hitstun || 0, .55); S.phase = 3; S.t = 0; }
+          }
+        }
+      } else if (S.phase === 3) {                       // 收臂
+        const p = Math.min(1, S.t / .26);
+        if (P.armR) { P.armR.scale.y = 2.55 - 1.55 * p; P.armR.rotation.x = -.55 * (1 - p); }
+        if (p >= 1) {
+          if (P.armR) { P.armR.scale.y = 1; P.armR.rotation.x = 0; }
+          if (P.core) P.core.material.color.setHex(0x36e0ff);
+          this.cbState = null; this.state = this.grounded ? 'idle' : 'fall';
+        }
+      }
+      return;
+    }
+    /* ---------- ② 下B：长按扫射（由近到远、角度逐渐上扬） ---------- */
+    if (S.mode === 'sweep') {
+      /* 长按判定：第一帧记下「按住没按住」；按住 → 扫 cfg.hold 秒（松手提前结束）；
+         要是这条输入链读不到 spHeld（比如回放/打包副本），就退回固定 1.15 秒的扫射。 */
+      if (S.hold0 === undefined) S.hold0 = !!(inp && inp.spHeld) || !!(this.input && this.input.spHeld);
+      const heldNow = !!(inp && inp.spHeld) || !!(this.input && this.input.spHeld);
+      const holding = S.hold0 ? heldNow : true;
+      const maxT = S.hold0 ? (cfg.hold || 2.2) : 1.15;
+      if (S.t >= S.next && (holding || S.t < .2)) {
+        S.next = S.t + (cfg.gap || .10);
+        S.i = (S.i || 0) + 1;
+        const p = Math.min(1, S.i / 20);
+        const ang = ((cfg.ang0 || -8) + ((cfg.ang1 || 34) - (cfg.ang0 || -8)) * p) * Math.PI / 180;
+        const len = (cfg.len0 || 2.4) + ((cfg.len1 || 8.6) - (cfg.len0 || 2.4)) * p;
+        const ox = this.pos.x + dir * .35, oy = this.pos.y + 1.0;
+        const ex = ox + Math.cos(ang) * len * dir, ey = oy + Math.sin(ang) * len;
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          const rx = (f.pos.x - ox) * dir, ry = (f.pos.y + .9 - oy);
+          const along = rx * Math.cos(ang) + ry * Math.sin(ang);
+          const perp = Math.abs(-rx * Math.sin(ang) + ry * Math.cos(ang));
+          if (along < 0 || along > len || perp > 1.05) continue;
+          const lastTick = S.i >= 22;
+          f.takeHit(this, lastTick ? { dmg:cfg.dmg, bb:8, bg:26, ang:20 } : { dmg:cfg.dmg, bb:0, bg:0, ang:8, stun:.10 },
+            dir, lastTick ? 1 : 0);
+        }
+        FX.beam(ox, oy, ex, ey, .085, cfg.color, .16);
+        FX.beam(ox, oy, ex, ey, .035, 0xffffff, .12);
+        if (S.i % 3 === 0) { FX.spark(ex, ey, .22, 4, cfg.color); SFX.special('proj'); }
+      }
+      if (S.t >= maxT || (S.hold0 && !heldNow)) {
+        this.cbState = null; this.state = this.grounded ? 'idle' : 'fall';
+      }
+      return;
+    }
+    /* ---------- ③ 上B：身体倒转 + 向下激光后坐力上升 ---------- */
+    if (S.mode === 'rise') {
+      const p = Math.min(1, S.t / (cfg.dur || .66));
+      this.vel.y = (cfg.rise || 25) * Math.max(.18, 1 - p * .82);
+      this.vel.x *= .92;
+      if (P.flip) P.flip.rotation.z = Math.PI * Math.min(1, S.t / .12);     // 180° 翻过来
+      if (S.t >= S.next) {
+        S.next = S.t + .12;
+        const bx = this.pos.x, by = this.pos.y + .15;
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          if (f.pos.y > this.pos.y + .5) continue;                          // 只打下方
+          if (Math.abs(f.pos.x - this.pos.x) > 2.1) continue;
+          if (this.pos.y - f.pos.y > 4.4) continue;
+          f.takeHit(this, { dmg:cfg.dmg, bb:0, bg:0, ang:-80, stun:.12 }, dir, 0);
+        }
+        FX.beam(bx, by, bx, by - 4.2, .13, cfg.color, .16);
+        FX.beam(bx, by, bx, by - 4.2, .05, 0xffffff, .12);
+        FX.dust(bx, this.pos.y - .1, 3, 0x9fe8ff);
+      }
+      if (p >= 1) {
+        if (P.flip) P.flip.rotation.z = 0;
+        this.cbState = null; this.state = this.grounded ? 'idle' : 'fall';
+      }
+      return;
+    }
+    /* ---------- ④ 中立B 反击：每次换边传送 + 十连（合计 30%） ---------- */
+    if (S.mode === 'counterBurst') {
+      const T = S.target;
+      if (!T || T.eliminated) { this.cbState = null; this.state = this.grounded ? 'idle' : 'fall'; return; }
+      if (S.t >= S.next && S.hits < 10) {
+        S.hits++; S.next = S.t + .11;
+        const side = (S.hits % 2 === 0) ? 1 : -1;         // 每打一下就换到敌人另一边
+        const tx = T.pos.x + side * 1.45;
+        FX.ring(this.pos.x, this.pos.y + 1.0, .3, 1.2, cfg.color, .22);   // 出发残影
+        this.pos.x = tx; this.pos.y = Math.max(-.2, T.pos.y + .05);
+        this.facing = -side; this.vel.set(0, 0, 0);
+        FX.ring(this.pos.x, this.pos.y + 1.0, .3, 1.5, cfg.color, .3);    // 落点
+        T.hitstun = Math.max(T.hitstun || 0, .24);
+        const last = S.hits >= 10;
+        T.takeHit(this, last ? { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang }
+                             : { dmg:cfg.dmg, bb:0, bg:0, ang:10, stun:.18 }, -side, last ? 1 : 0);
+        FX.spark(this.pos.x - side * .6, this.pos.y + 1.05, .3, 5, last ? 0xffffff : cfg.color);
+        if (last) {
+          FX.flash(T.pos.x, T.pos.y + 1, .45, 8, cfg.color, .32);
+          FX.burst(T.pos.x, T.pos.y + .9, .2, cfg.color, 22, 18);
+          shake = Math.min(1.2, shake + .45); SFX.heavy();
+        } else SFX.special('jab');
+      }
+      if (S.hits >= 10 && S.t > S.next + .2) { this.cbState = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      return;
+    }
+  }
   pumpkinTick(dt) {
     const PF = this.pumpkinForm; if (!PF) return;
     PF.t -= dt;
@@ -12790,6 +13251,12 @@ class Fighter {
   clearPressed() { const i = this.input; i.jumpP = false; i.atkP = false; i.atkR = false; i.spP = false; i.downP = false; i.mash = 0; }
 
   actionSelect(dt, inp) {
+    /* ★ Cardboard 技能状态机期间锁住自走/普攻/技能键（重力与摩擦仍由 update 正常跑）；
+       注意**不能清 spHeld** —— 下B 的扫射靠按住不放继续打。 */
+    if (this.cbState) {
+      inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.spP = false; inp.dodgeP = false;
+      this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
+    }
     const S = this.s;
     /* ★ Hacker·System Lock（被乱码包命中）：锁定期间做不了任何动作（盾/翻滚/跳/攻击/技能全封），
        但也不吃击退（见 takeHit）——所以对手只能干站 3 秒，等锁结束才可能被击飞。 */
@@ -13018,6 +13485,31 @@ class Fighter {
     if (this.def.id === 'vexor') { this._vexBWin = 1.4; this._vexSpTok = (this._vexSpTok || 0) + 1; }                            // ★ 通用「技能动画计时」：animStep 里判断刚放的技能用（recover/rain 等不会把 state 设成 special）
     this.cooldown['sp_' + key] = cfg.cd;
     const dir = (this.facing || 1);
+    /* ★ Cardboard：四个技能各建一个状态机对象，逐帧在 cbTick 里跑（不走大 switch） */
+    if (cfg.kind === 'cbArm') {
+      this.cbState = { mode:'arm', phase:0, t:0, dir, cfg, target:null, hits:0, next:.1 };
+      this.state = 'special'; this.animT = 0; this.vel.x = 0;
+      SFX.special('dash'); FX.ring(this.pos.x + dir * .7, this.pos.y + 1.1, .28, 1.4, cfg.color, .3);
+      return true;
+    } else if (cfg.kind === 'cbSweep') {
+      this.cbState = { mode:'sweep', t:0, i:0, next:0, dir, cfg };
+      this.state = 'special'; this.animT = 0;
+      SFX.special('proj'); FX.ring(this.pos.x, this.pos.y + 1.0, .25, 1.5, cfg.color, .28);
+      return true;
+    } else if (cfg.kind === 'cbRise') {
+      this.cbState = { mode:'rise', t:0, next:0, dir, cfg };
+      this.state = 'special'; this.animT = 0; this.grounded = false;
+      this.vel.y = cfg.rise * .95; this.vel.x *= .4;
+      SFX.special('dash'); FX.ring(this.pos.x, this.pos.y + .4, .3, 2.0, cfg.color, .3);
+      FX.dust(this.pos.x, this.pos.y, 12, 0x9fe8ff);
+      return true;
+    } else if (cfg.kind === 'cbCounter') {
+      this.cbState = { mode:'counter', t:0, dir, cfg };
+      this.state = 'special'; this.animT = 0;
+      callout(this, 'TAPE GUARD 2s', cfg.color);
+      SFX.special('wave'); FX.ring(this.pos.x, this.pos.y + 1.0, .3, 2.2, cfg.color, .45);
+      return true;
+    }
     if (cfg.kind === 'breath') {                        // Dragon·持续喷火（长按，最多 hold 秒）
       this.breath = { cfg, t:0, tick:0, max:cfg.hold || 5.0 };
       this.state = 'special'; this.animT = 0;
@@ -13335,6 +13827,8 @@ class Fighter {
       this.vel.y = cfg.rise; this.vel.x = inp.x * this.s.air * .6;
       this.recoverAtk = { cfg, t:cfg.dur, fxT:0 }; this.airDodged = false; this.jumpsLeft = Math.max(this.jumpsLeft, 0);
       this.state = 'special'; SFX.special('recover');
+      /* ★ Cardboard：同一条上升曲线，额外挂向下激光（由 update 里的 cbBeam 逐帧打） */
+      if (this.def.id === 'sovereign') this.cbBeam = { t: cfg.dur, next: 0, dmg: cfg.laserDmg || 1.2, color: cfg.color };
       this._upOn = 0; this._upSpin = 0;                  // 自转累计清零（否则接着上一局的角继续转）
       FX.ring(this.pos.x, this.pos.y, 0, 2.0, cfg.color, .35);
       if (cfg.fx) upFxBurst(cfg, this);
@@ -18548,7 +19042,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net89',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net90',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
