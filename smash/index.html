@@ -2184,7 +2184,7 @@ CHARS.push({ id:'sovereign', name:'Cardboard', en:'CARDBOARD', tag:'Supreme', su
 CHAR_EXTRA.sovereign = Object.assign({}, CHAR_EXTRA.sparky, {
   trait:'Cardboard Shell · Tape Grab · Sweep Laser',
   skills:'Neutral B Tape Counter (2s dodge: if something would hit you, teleport in front of the attacker and land a 10-hit combo for 30% — warping side to side between hits) · '
-    + 'Side B Crane Grab (shoot your arm out far, haul the foe in and hit a 5-hit combo: four punches, then a laser from the core that blasts them away) · '
+    + 'Side B Head Cannon (fire your own head out as a ricocheting cannonball: it bounces forward like a fireball — connect and your body warps to it, then a 10-hit combo for 35% total, chained together by a continuous laser) · '
     + 'Up B Jet Rise (flip upside down, fire the core laser downward — the recoil carries you up and the beam damages below) · '
     + 'Down B Sweep Laser (HOLD: sweep the laser from right in front of you out to the far side, the angle climbing as it goes) · '
     + 'Final Smash Cardboard Strike (freeze the whole arena, click any spot to call a homing rocket: 50%, area damage) · '
@@ -2195,8 +2195,11 @@ CHAR_EXTRA.sovereign = Object.assign({}, CHAR_EXTRA.sparky, {
   special:{
     /* 中立B：2 秒躲避 → 被命中就传送到攻击者面前打十连（合计 30%） */
     n:{ kind:'cbCounter', label:'Tape Counter', cd:7.5, dur:2.0, hits:10, dmg:3.0, bb:14, bg:40, ang:42, color:0x36e0ff },
-    /* 左右B：伸臂抓人 → 拽到面前 → 4 拳 + 核心激光 */
-    s:{ kind:'cbArm', label:'Crane Grab', cd:8.0, reach:7.2, hits:5, punchDmg:2.6, laserDmg:5.5, bb:16, bg:46, ang:34, color:0xffb347 },
+    /* 左右B：把自己的头发射出去（Slayer 弹射火球那套手感：重力 + 撞地反弹 + 水平速度不减）
+       → 命中敌人就传送到头的位置 → 身体飞过去找头 → 10 连击（合计 35%），全程一道持续激光钉在身上。
+       单段 3.4 × 10 = 34 → 乘本角色 mul.dmg 1.03 后实测 35.02%（规格要求 35%） */
+    s:{ kind:'cbHead', label:'Head Cannon', cd:8.0, hits:10, dmg:3.4, bb:13, bg:36, ang:38,
+        spd:29, vy:4.4, grav:38, bounce:.72, maxBounce:3, life:1.5, hitR:.64, color:0x36e0ff },
     /* 上B：机制**完全复用 Sparky 的 recover**（同一条上升曲线 + multi 多段判定 + 自转），
        额外挂一道向下激光（cbBeam）→ 就是你要的「跟 sparky 上B 一样，但多下面的激光伤害」 */
     u:{ kind:'recover', label:'Jet Rise', cd:1.5, dmg:5.0, bb:10, bg:42, rise:27.5, dur:.80, color:0x36e0ff, multi:true, laserDmg:1.2 },
@@ -2448,6 +2451,10 @@ function clearField() {
     if (f._duelMesh) { scene.remove(f._duelMesh); f._duelMesh = null; }
     f.dmgMul = 1; f.noKO = 0;
     if (f.abducted) { f.abducted = false; f.mesh.visible = true; f.shadow.visible = true; }
+    if (f._cbHeadMesh) { scene.remove(f._cbHeadMesh); f._cbHeadMesh = null; }   // ★ Cardboard 飞出去的头
+    if (f._cbLz) { scene.remove(f._cbLz.g); f._cbLz = null; }                   // ★ Cardboard 持续激光
+    f.cbState = null;
+    if (f.parts && f.parts.head) f.parts.head.visible = true;
   }
   clearBobs();                                       // ★ Mechanic 的 BOB 一起清
   clearMire();                                       // ★ Quicksand 的流沙池一起清
@@ -9543,6 +9550,11 @@ class Fighter {
   }
   ko(reason) {
     if (this.eliminated) return;
+    /* ★ Cardboard：被打出场/被击倒时把飞出去的头和持续激光一起收回（否则会留在场上「飘头」） */
+    if (this.cbState || this._cbHeadMesh || this._cbLz) {
+      try { this.cbRestoreHead(); this.cbLaserOff(); } catch (e) {}
+      this.cbState = null;
+    }
     /* ★ 宝石争夺战：被击倒 → 身上的宝石全部交给击败者；自己掉出场则散落在原地等别人捡。 */
     if (gemModeOn() && (this.gems || 0) > 0) {
       const k = (reason === 'Self-Destruct') ? null : this.lastHitBy;
@@ -9591,6 +9603,8 @@ class Fighter {
     this.state = 'idle'; this.hitstun = 0; this.invuln = CFG.respawnInv; this.shield = 100;
     this.jumpsLeft = this.s.jumps + (this.vexJumpBonus || 0); this.airDodged = false; this.mesh.visible = true; this.shadow.visible = true;
     this.grabbed = null; this.charging = null; this.move = null;
+    try { this.cbRestoreHead(); this.cbLaserOff(); } catch (e) {}   // ★ Cardboard：头/激光不跨命
+    this.cbState = null; this.cbBeam = null;
     this.shedUsed = false; this.shedAt = 0;                 // ★ Cardboard：每命一次「脱壳」
     try { this.cbShellOn(); } catch (e) {}                  // ★ 复活时把外壳装回去
   }
@@ -11731,10 +11745,12 @@ class Fighter {
       if (Math.abs(f.pos.x - this.pos.x) > 2.2) continue;
       if (this.pos.y - f.pos.y > 4.6) continue;
       f.takeHit(this, { dmg:B.dmg, bb:0, bg:0, ang:-80, stun:.12 }, this.facing || 1, 0);
+      FX.flash(f.pos.x, f.pos.y + 1.2, .40, 3.0, 0xffffff, .14);    // ★ 命中白闪
+      shake = Math.max(shake, .16); SFX.hit(18, B.dmg);
     }
-    FX.beam(bx, by, bx, by - 4.4, .13, B.color, .16);
-    FX.beam(bx, by, bx, by - 4.4, .05, 0xffffff, .12);
-    if (Math.random() < .45) FX.spark(bx, by - 2.2, .2, 3, B.color);
+    this.cbLaserFx(bx, by, bx, by - 4.8, B.color, 1.55);            // ★ 三层粗激光（原来是两根细柱）
+    if (Math.random() < .5) FX.ring(bx, .36, .30, 2.2, B.color, .18);
+    if (Math.random() < .5) FX.spark(bx, by - 2.4, .26, 3, B.color);
   }
   /* ★ Cardboard 被动：外壳真的「掉」——胶布全不见、纸箱变成破损的深色 */
   cbShellOff() {
@@ -11782,6 +11798,241 @@ class Fighter {
     FX.flash(this.pos.x, this.pos.y + 1.1, .4, 6, cfg.color, .28);
     SFX.special('proj');
   }
+  /* ================= ★ Cardboard 左右B「Head Cannon」（2026-10-23）=================
+     用户要求：把自己的头发射出去、弹射向前（类似 Slayer 的弹射火球），击中敌人就传送到敌人位置
+     打出 10 连击、合计 35% 伤害；传送时有「身体飞过去找头」的动画；连击全程一道持续激光打在敌人身上。
+     实现要点：
+       · 头 = **克隆出来的独立网格**（原头 P.head.visible=false）；飞行/回位全部在 Fighter.update 里推进
+         ⇒ 判定路径里没有 Math.random，联机两端算出来的落点一致（Math.random 只在 FX 里）。
+       · 持续激光是**同一个网格每帧改位置/朝向**（不是每帧新建特效）⇒ 手机上几乎零成本，也不会卡。
+       · 四条退出路径都要清：cbHeadEnd() / ko() / respawn() / clearField()，否则头和激光会留在场上。 */
+  cbCoreIdle() {
+    const P = this.parts || {};
+    if (P.core) P.core.material.color.setHex(this.shedUsed ? 0xff6a2a : 0x36e0ff);
+  }
+  /* 一次性粗激光：三层（外层光晕 / 主体 / 白芯）+ 两端闪光 —— 比原来两根细柱「粗一倍、亮一档」 */
+  cbLaserFx(x1, y1, x2, y2, color, thick) {
+    const w = thick || 1;
+    FX.beam(x1, y1, x2, y2, .190 * w, color, .14);
+    FX.beam(x1, y1, x2, y2, .115 * w, color, .16);
+    FX.beam(x1, y1, x2, y2, .050 * w, 0xffffff, .12);
+    FX.flash(x2, y2, .40, 1.0 + 1.9 * w, color, .17);
+    FX.flash(x1, y1, .40, .6 + 1.0 * w, color, .12);
+  }
+  /* 持续激光：建一次，之后每帧只改位置/朝向（层数 = 光晕 / 主体 / 白芯 + 枪口球 + 命中星芒） */
+  cbLaserOn(color) {
+    if (this._cbLz) { if (this._cbLz.color === color) return; this.cbLaserOff(); }
+    const g = new THREE.Group();
+    const mk = (r, c, op, add) => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * .82, 1, 12, 1, true),
+        new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:op, depthWrite:false,
+          blending: add ? THREE.AdditiveBlending : THREE.NormalBlending, side:THREE.DoubleSide }));
+      g.add(m); return m;
+    };
+    const glow = mk(.460, color, .24, true);
+    const body = mk(.260, color, .92, false);
+    const core = mk(.090, 0xffffff, .96, false);
+    const cap  = new THREE.Mesh(new THREE.SphereGeometry(.26, 10, 8),
+      new THREE.MeshBasicMaterial({ color, transparent:true, opacity:.85, depthWrite:false }));
+    const hit  = new THREE.Sprite(new THREE.SpriteMaterial({ map:getStarTex(), color:0xffffff,
+      transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
+    hit.scale.setScalar(1.2);
+    g.add(cap, hit); scene.add(g);
+    this._cbLz = { g, glow, body, core, cap, hit, color };
+  }
+  cbLaserTo(x1, y1, x2, y2, color, t) {
+    this.cbLaserOn(color);
+    const L = this._cbLz; if (!L) return;
+    const dx = x2 - x1, dy = y2 - y1, len = Math.max(.001, Math.hypot(dx, dy));
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(dx / len, dy / len, 0));
+    const fl = .90 + .10 * Math.sin((t || 0) * 46);            // 抖动：看得出是「能量」不是一根棍子
+    for (const m of [L.glow, L.body, L.core]) {
+      m.position.set((x1 + x2) / 2, (y1 + y2) / 2, .44);
+      m.quaternion.copy(q); m.scale.set(fl, len, fl);
+    }
+    L.cap.position.set(x1, y1, .44);
+    L.cap.scale.setScalar(.85 + .22 * Math.sin((t || 0) * 30));
+    L.hit.position.set(x2, y2, .46);
+    L.hit.scale.setScalar(1.05 + .28 * Math.sin((t || 0) * 24));
+  }
+  cbLaserOff() {
+    if (!this._cbLz) return;
+    try { scene.remove(this._cbLz.g); } catch (e) {}
+    this._cbLz = null;
+  }
+  /* 把头装回身体（keepHidden=true 时只清克隆、不改可见性——用于「发射前先清残留」） */
+  cbRestoreHead(keepHidden) {
+    if (this._cbHeadMesh) { try { scene.remove(this._cbHeadMesh); } catch (e) {} this._cbHeadMesh = null; }
+    const P = this.parts || {};
+    if (!keepHidden && P.head) P.head.visible = true;
+  }
+  cbHeadLaunch(S) {
+    const P = this.parts || {}, C = S.cfg || {};
+    this.cbRestoreHead(true);
+    if (P.head) P.head.visible = false;                        // 头真的没了
+    let m = null;
+    try {
+      if (P.head) {
+        m = P.head.clone(true);
+        const ws = new THREE.Vector3(); P.head.getWorldScale(ws);
+        m.scale.copy(ws).multiplyScalar(1.28); m.visible = true;   // 跟原头一样大（含归一化缩放），飞行时再放大 28% 当「子弹」
+        m.rotation.set(0, S.dir * Math.PI / 2, 0);              // 朝向补回来（脸朝飞行方向）→ 再原地翻跟头
+        scene.add(m);
+      }
+    } catch (e) { m = null; }
+    this._cbHeadMesh = m;
+    S.hx = this.pos.x + S.dir * .72;
+    S.hy = this.pos.y + 1.55 * (this.def.shape.scale || 1);
+    S.vx = S.dir * (C.spd || 29);
+    S.vy = C.vy || 4.4;
+    if (m) m.position.set(S.hx, S.hy, .18);
+    if (P.core) P.core.material.color.setHex(C.color);
+    callout(this, 'HEAD CANNON!', C.color);
+    FX.ring(this.pos.x + S.dir * .6, this.pos.y + 1.45, .30, 2.1, C.color, .30);
+    FX.flash(this.pos.x + S.dir * .6, this.pos.y + 1.45, .40, 3.6, C.color, .22);
+    FX.burst(this.pos.x + S.dir * .5, this.pos.y + 1.45, .20, C.color, 12, 13);
+    shake = Math.max(shake, .30); camKick = Math.min(1, camKick + .20);
+  }
+  /* 头在空中：重力抛物线 + 撞地弹射（保留水平速度，和 Slayer 弹射火球同一手感） */
+  cbHeadShotTick(dt, S) {
+    const C = S.cfg || {};
+    S.vy -= (C.grav || 38) * dt;
+    S.hx += S.vx * dt; S.hy += S.vy * dt;
+    if (S.hy <= .42 && S.vy < 0) {                             // 撞地 → 弹起来
+      S.hy = .42; S.vy = Math.abs(S.vy) * (C.bounce || .72);
+      S.bounces = (S.bounces || 0) + 1;
+      FX.ring(S.hx, .46, .30, 1.5, C.color, .26);
+      FX.dust(S.hx, .10, 5, 0x9fe8ff);
+      FX.spark(S.hx, .55, .26, 4, C.color);
+      SFX.tone(320, 170, .07, 'square', .05);
+    }
+    const edge = (typeof STAGE !== 'undefined' && STAGE.wallX ? STAGE.wallX : 19) + 2.4;
+    if (Math.abs(S.hx) > edge) {                               // 撞边界 → 反向弹回（别把脑袋扔出场）
+      S.hx = Math.sign(S.hx) * edge; S.vx *= -1; S.bounces = (S.bounces || 0) + 1;
+      FX.spark(S.hx, S.hy, .30, 5, C.color);
+    }
+    const M = this._cbHeadMesh;
+    if (M) { M.position.set(S.hx, S.hy, .18); M.rotation.x += dt * 8.0; }   // 向前翻跟头
+    S.fx = (S.fx || 0) - dt;
+    if (S.fx <= 0) { S.fx = .035; FX.trail(S.hx, S.hy, .16, C.color); }
+    if (Math.abs(S.hx) > CFG.blast.x - 1.5 || S.hy < -3) { S.mode = 'headBack'; S.t = 0; return; }
+    for (const f of FIGHTERS) {                                // 命中：胸口判定
+      if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+      if (this.team >= 0 && isTeammate(this, f)) continue;
+      const fy = f.pos.y + 1.30 * (f.def.shape.scale || 1);
+      if (Math.hypot(f.pos.x - S.hx, fy - S.hy) < (C.hitR || .64) + f.bodyR * .7) { this.cbHeadConnect(S, f); return; }
+    }
+    if (S.t >= (C.life || 1.5) || (S.bounces || 0) > (C.maxBounce || 3)) { S.mode = 'headBack'; S.t = 0; }
+  }
+  cbHeadConnect(S, f) {
+    const C = S.cfg || {};
+    S.mode = 'seek'; S.t = 0; S.target = f;
+    S.px = this.pos.x; S.py = this.pos.y;
+    this.facing = (f.pos.x >= this.pos.x) ? 1 : -1;
+    this.vel.set(0, 0, 0); this.hitstun = 0; this.state = 'special';
+    f.hitstun = Math.max(f.hitstun || 0, .20);
+    callout(this, 'HEADLOCK!', C.color);
+    FX.flash(S.hx, S.hy, .45, 5.2, 0xffffff, .22);
+    FX.ring(S.hx, S.hy, .30, 2.6, C.color, .34);
+    FX.spark(S.hx, S.hy, .40, 12, C.color);
+    shake = Math.max(shake, .50); camKick = Math.min(1, camKick + .30); SFX.hit(34, 6);
+  }
+  /* 身体飞过去找头（0.18s 缓出）—— 需求里的「传送时有一个身体去找头的动画」 */
+  cbSeekTick(dt, S) {
+    const T = S.target, C = S.cfg || {};
+    if (!T || T.eliminated) { S.mode = 'headBack'; S.t = 0; return; }
+    const ty = T.pos.y + 1.30 * (T.def.shape.scale || 1);
+    S.hx += (T.pos.x - S.hx) * Math.min(1, dt * 22);           // 头「咬」在敌人胸口上
+    S.hy += (ty - S.hy) * Math.min(1, dt * 22);
+    const M = this._cbHeadMesh;
+    if (M) { M.position.set(S.hx, S.hy, .22); M.rotation.x += dt * 5.0; }
+    const p = Math.min(1, S.t / .18), k = 1 - Math.pow(1 - p, 3);
+    const tx = S.hx - this.facing * 1.70, tyy = T.pos.y;        // 落在头旁边：留出 1.7 的身位，激光才看得出来
+    this.pos.x = S.px + (tx - S.px) * k;
+    this.pos.y = S.py + (tyy - S.py) * k;
+    this.vel.set(0, 0, 0);
+    S.puffs = (S.puffs || 0) - dt;
+    if (S.puffs <= 0) {                                        // 残影：一眼看出「身体在飞」
+      S.puffs = .035;
+      FX.trail(this.pos.x + (Math.random() - .5) * .5, this.pos.y + 1.0 + Math.random() * .8, .34, C.color);
+      FX.ring(this.pos.x, this.pos.y + 1.0, .30, 1.4, C.color, .20);
+    }
+    if (p >= 1) {
+      S.mode = 'combo10'; S.t = 0; S.hits = 0; S.next = .04;
+      S.ax = T.pos.x; S.ay = T.pos.y; S.bx = this.pos.x; S.by = this.pos.y;
+      this.cbRestoreHead();                                     // 头装回去
+      FX.flash(this.pos.x, this.pos.y + 1.7, .40, 4.2, C.color, .20);
+      FX.ring(this.pos.x, this.pos.y + 1.7, .30, 1.8, C.color, .22);
+      callout(this, 'CARDBOARD RUSH!', C.color);
+      this.cbLaserOn(C.color);
+      SFX.special('dash');
+    }
+  }
+  /* 10 连击：每段 3.4（×1.03 = 3.502）→ 合计 35.02%；全程一道持续激光钉在敌人身上 */
+  cbComboTick(dt, S) {
+    const T = S.target, C = S.cfg || {};
+    if (!T || T.eliminated) { this.cbHeadEnd(); return; }
+    const hits = C.hits || 10, tsc = T.def.shape.scale || 1;
+    T.pos.x += (S.ax - T.pos.x) * Math.min(1, dt * 16);         // 钉住目标（不然击退会把后续几段推空）
+    T.pos.y += (S.ay - T.pos.y) * Math.min(1, dt * 16);
+    T.vel.set(0, 0, 0);
+    T.hitstun = Math.max(T.hitstun || 0, .22);
+    this.pos.x += (S.bx - this.pos.x) * Math.min(1, dt * 20);   // 钉住自己
+    this.pos.y += (S.by - this.pos.y) * Math.min(1, dt * 20);
+    this.vel.set(0, 0, 0);
+    this.facing = (T.pos.x >= this.pos.x) ? 1 : -1;
+    if (S.hits < hits)                                          // 持续激光（最后一击后立刻收，收得干脆）
+      this.cbLaserTo(this.pos.x + this.facing * .52, this.pos.y + 1.02,
+                     T.pos.x, T.pos.y + 1.06 * tsc, C.color, S.t);
+    if (S.t >= S.next && S.hits < hits) {
+      S.hits++; S.next = S.t + .105;
+      const last = S.hits >= hits;
+      T.takeHit(this, last ? { dmg:C.dmg, bb:C.bb, bg:C.bg, ang:C.ang }
+                           : { dmg:C.dmg, bb:0, bg:0, ang:10, stun:.20 }, this.facing, last ? 1 : 0);
+      const hx = T.pos.x - this.facing * .5;
+      const hy = T.pos.y + 1.04 * tsc + (S.hits % 2 ? .16 : -.12);
+      FX.spark(hx, hy, last ? .46 : .30, last ? 18 : 7, last ? 0xffffff : C.color);
+      FX.flash(hx, hy, .40, last ? 6.4 : 2.1, last ? 0xffffff : C.color, last ? .30 : .14);
+      FX.slash(this.pos.x + this.facing * .95, this.pos.y + 1.05, .45,
+               this.facing > 0 ? -.20 : Math.PI + .20, last ? 4.4 : 2.6, C.color, .14);
+      if (last) {                                               // 收尾：大爆点 + 顿帧 + 击飞
+        FX.burst(T.pos.x, T.pos.y + 1.0, .20, C.color, 22, 20);
+        FX.ring(T.pos.x, T.pos.y + 1.0, .30, 3.8, C.color, .42);
+        FX.flash(T.pos.x, T.pos.y + 1.0, .45, 9.2, 0xffffff, .34);
+        FX.beam(T.pos.x, T.pos.y + 3.4, T.pos.x, T.pos.y - .2, .34, C.color, .22);
+        shake = Math.min(1.2, shake + .55); camKick = Math.min(1, camKick + .55);
+        hitstop = Math.max(hitstop, .13); SFX.heavy();
+        this.cbLaserOff();
+        if (this.parts && this.parts.core) this.parts.core.material.color.setHex(0xff6a2a);
+      } else { shake = Math.min(.95, shake + .10); SFX.hit(14 + S.hits * 2, C.dmg); }
+    }
+    if (S.hits >= hits && S.t > S.next + .30) this.cbHeadEnd();
+  }
+  /* 落空：头飞回身体（不传送到敌人，也不进连击） */
+  cbHeadBackTick(dt, S) {
+    const C = S.cfg || {};
+    const tx = this.pos.x, ty = this.pos.y + 1.72 * (this.def.shape.scale || 1);
+    S.hx += (tx - S.hx) * Math.min(1, dt * 22);
+    S.hy += (ty - S.hy) * Math.min(1, dt * 22);
+    const M = this._cbHeadMesh;
+    if (M) { M.position.set(S.hx, S.hy, .18); M.rotation.x *= Math.pow(.02, dt); }
+    S.fx = (S.fx || 0) - dt;
+    if (S.fx <= 0) { S.fx = .04; FX.trail(S.hx, S.hy, .16, C.color); }
+    if (Math.hypot(S.hx - tx, S.hy - ty) < .30 || S.t > .40) {
+      FX.ring(tx, ty, .30, 1.6, C.color, .26);
+      FX.flash(tx, ty, .40, 2.6, C.color, .18);
+      this.cbHeadEnd();
+      callout(this, 'HEAD BACK', C.color);
+    }
+  }
+  cbHeadEnd() {
+    this.cbRestoreHead();
+    this.cbLaserOff();
+    this.cbCoreIdle();
+    this.cbState = null;
+    this.state = this.grounded ? 'idle' : 'fall';
+  }
   cbTick(dt, inp) {
     const S = this.cbState; if (!S) return;
     S.t += dt;
@@ -11798,7 +12049,12 @@ class Fighter {
       }
       return;
     }
-    /* ---------- ① 左右B：伸臂抓人 → 拽回来 → 4 拳 + 核心激光 ---------- */
+    /* ---------- ① 左右B：把自己的头发射出去 → 命中就传送 → 身体找头 → 10 连击 ---------- */
+    if (S.mode === 'headShot') { this.cbHeadShotTick(dt, S); return; }
+    if (S.mode === 'seek')     { this.cbSeekTick(dt, S); return; }
+    if (S.mode === 'combo10')  { this.cbComboTick(dt, S); return; }
+    if (S.mode === 'headBack') { this.cbHeadBackTick(dt, S); return; }
+    /* ---------- （旧·已停用）左右B 伸臂抓人：kind 已由 cbArm 改成 cbHead，代码留着以备复用 ---------- */
     if (S.mode === 'arm') {
       if (S.phase === 0) {                              // 伸臂（视觉拉长 + 判定在伸到顶那一帧）
         const p = Math.min(1, S.t / .22);
@@ -11888,10 +12144,14 @@ class Fighter {
           const lastTick = S.i >= 22;
           f.takeHit(this, lastTick ? { dmg:cfg.dmg, bb:8, bg:26, ang:20 } : { dmg:cfg.dmg, bb:0, bg:0, ang:8, stun:.10 },
             dir, lastTick ? 1 : 0);
+          /* ★ 命中反馈：白闪 + 火花 + 轻微震屏 —— 让「激光在烧」这件事看得见 */
+          FX.flash(f.pos.x, f.pos.y + 1.0, .40, 3.0 + p * 2.2, 0xffffff, .13);
+          FX.spark(f.pos.x, f.pos.y + 1.0, .28 + p * .18, 4, cfg.color);
+          shake = Math.max(shake, .14 + p * .16); SFX.hit(18, cfg.dmg);
         }
-        FX.beam(ox, oy, ex, ey, .085, cfg.color, .16);
-        FX.beam(ox, oy, ex, ey, .035, 0xffffff, .12);
-        if (S.i % 3 === 0) { FX.spark(ex, ey, .22, 4, cfg.color); SFX.special('proj'); }
+        this.cbLaserFx(ox, oy, ex, ey, cfg.color, 1.10 + p * .55);          // ★ 越扫越粗
+        if (S.i % 2 === 0) FX.ring(ex, ey, .34, 1.0 + p * 1.5, cfg.color, .18);
+        if (S.i % 3 === 0) { FX.spark(ex, ey, .28 + p * .2, 5, cfg.color); SFX.special('proj'); }
       }
       if (S.t >= maxT || (S.hold0 && !heldNow)) {
         this.cbState = null; this.state = this.grounded ? 'idle' : 'fall';
@@ -11941,7 +12201,10 @@ class Fighter {
         const last = S.hits >= 10;
         T.takeHit(this, last ? { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang }
                              : { dmg:cfg.dmg, bb:0, bg:0, ang:10, stun:.18 }, -side, last ? 1 : 0);
-        FX.spark(this.pos.x - side * .6, this.pos.y + 1.05, .3, 5, last ? 0xffffff : cfg.color);
+        /* ★ 每一下都补一道粗激光（原来只有一小簇火花，看着不够「重」） */
+        this.cbLaserFx(this.pos.x - side * .45, this.pos.y + 1.05, T.pos.x, T.pos.y + 1.02, cfg.color,
+                       last ? 1.9 : 1.15);
+        FX.spark(this.pos.x - side * .6, this.pos.y + 1.05, last ? .46 : .32, last ? 16 : 6, last ? 0xffffff : cfg.color);
         if (last) {
           FX.flash(T.pos.x, T.pos.y + 1, .45, 8, cfg.color, .32);
           FX.burst(T.pos.x, T.pos.y + .9, .2, cfg.color, 22, 18);
@@ -13452,7 +13715,7 @@ class Fighter {
   /* ★ 技能互斥：这些「持续型技能」还在跑的时候，不接受另一个技能的起手。
        瞬发技能（发射物/增益/传送）不在列表里 → 它们之间可以立刻接，不互相卡冷却。 */
   spBusy() {
-    return !!(this.skate || this.grapple || this.breath || this.aegis || this.march || this.recoil ||
+    return !!(this.cbState || this.skate || this.grapple || this.breath || this.aegis || this.march || this.recoil ||
               this.saber || this.tractor || this.ufo || this.ufoCrash ||
               this.hug || this.hugDash || this.rush || this.spray || this.volley || this.rise || this.meat ||
               this.inhale || this.eatHold || this.cry || this.voltCombo || this.leap ||
@@ -13486,10 +13749,12 @@ class Fighter {
     this.cooldown['sp_' + key] = cfg.cd;
     const dir = (this.facing || 1);
     /* ★ Cardboard：四个技能各建一个状态机对象，逐帧在 cbTick 里跑（不走大 switch） */
-    if (cfg.kind === 'cbArm') {
-      this.cbState = { mode:'arm', phase:0, t:0, dir, cfg, target:null, hits:0, next:.1 };
+    if (cfg.kind === 'cbHead') {
+      this.cbState = { mode:'headShot', t:0, dir, cfg, hx:0, hy:0, vx:0, vy:0, bounces:0,
+                       target:null, hits:0, next:0, fx:0, puffs:0 };
+      this.cbHeadLaunch(this.cbState);
       this.state = 'special'; this.animT = 0; this.vel.x = 0;
-      SFX.special('dash'); FX.ring(this.pos.x + dir * .7, this.pos.y + 1.1, .28, 1.4, cfg.color, .3);
+      SFX.special('dash'); SFX.hit(26, 5);
       return true;
     } else if (cfg.kind === 'cbSweep') {
       this.cbState = { mode:'sweep', t:0, i:0, next:0, dir, cfg };
@@ -15466,6 +15731,69 @@ class Fighter {
         }
       } else if (P.eyes && P.eyes[0] && P.eyes[0].scale.x !== 1) {
         for (const e of P.eyes) e.scale.setScalar(1);           // 强化结束：眼睛还原
+      }
+    }
+    /* ★ Cardboard：发射头 / 身体找头 / 十连 / 扫射 / 上B 的专属动作
+       （这一段跑在「A.* → 骨骼」之后，所以必须直接写关节，否则会被通用平滑拉回去一半） */
+    if (this.def.id === 'sovereign') {
+      let posing = false;
+      const S = this.cbState;
+      if (S && S.mode === 'headShot') {                    // 头射出去了：双手去捂空脖子 + 后仰
+        A.armR += ((-2.20 + Math.sin(A.t * 10) * .10) - A.armR) * Math.min(1, dt * 70);
+        A.armL += ((-2.05 - Math.sin(A.t * 10) * .10) - A.armL) * Math.min(1, dt * 70);
+        A.lean += (-this.facing * .26 - A.lean) * Math.min(1, dt * 50);
+        A.legL += (.18 - A.legL) * Math.min(1, dt * 40);
+        A.legR += (-.18 - A.legR) * Math.min(1, dt * 40);
+        posing = true;
+      } else if (S && S.mode === 'seek') {                  // 身体飞过去找头：双臂后摆、前扑
+        A.armR += (-.55 - A.armR) * Math.min(1, dt * 80);
+        A.armL += (-.35 - A.armL) * Math.min(1, dt * 80);
+        A.legL += (-.55 - A.legL) * Math.min(1, dt * 60);
+        A.legR += (.35 - A.legR) * Math.min(1, dt * 60);
+        A.lean += (this.facing * .42 - A.lean) * Math.min(1, dt * 60);
+        posing = true;
+      } else if (S && S.mode === 'combo10') {               // 十连：两拳交替 + 身体前压
+        const alt = (S.hits % 2) ? 1 : 0;
+        A.armR += ((alt ? -2.25 : -1.05) - A.armR) * Math.min(1, dt * 120);
+        A.armL += ((alt ? -1.05 : -2.25) - A.armL) * Math.min(1, dt * 120);
+        A.lean += (this.facing * .30 - A.lean) * Math.min(1, dt * 60);
+        A.legL += (.20 - A.legL) * Math.min(1, dt * 50);
+        A.legR += (-.20 - A.legR) * Math.min(1, dt * 50);
+        posing = true;
+      } else if (S && S.mode === 'headBack') {              // 头飞回来：举手去接
+        A.armR += (-2.35 - A.armR) * Math.min(1, dt * 70);
+        A.armL += (-2.20 - A.armL) * Math.min(1, dt * 70);
+        posing = true;
+      } else if (S && S.mode === 'counter') {               // 胶布护盾：双拳护胸、重心后坐
+        A.armR += (-1.35 - A.armR) * Math.min(1, dt * 40);
+        A.armL += (-1.35 - A.armL) * Math.min(1, dt * 40);
+        A.lean += (-this.facing * .12 - A.lean) * Math.min(1, dt * 30);
+        posing = true;
+      } else if (S && S.mode === 'counterBurst') {          // 反击十连：换边瞬移 + 交替出拳
+        const alt = (S.hits % 2) ? 1 : 0;
+        A.armR += ((alt ? -2.30 : -1.10) - A.armR) * Math.min(1, dt * 130);
+        A.armL += ((alt ? -1.10 : -2.30) - A.armL) * Math.min(1, dt * 130);
+        posing = true;
+      } else if (S && S.mode === 'sweep') {                 // 扫射：单臂平举、身体后仰
+        A.armR += (-1.45 - A.armR) * Math.min(1, dt * 60);
+        A.armL += (-.60 - A.armL) * Math.min(1, dt * 50);
+        A.lean += (-this.facing * .18 - A.lean) * Math.min(1, dt * 40);
+        posing = true;
+      } else if (this.cbBeam) {                             // 上B：倒转 + 双臂张开
+        A.armR += (-.30 - A.armR) * Math.min(1, dt * 50);
+        A.armL += (-2.70 - A.armL) * Math.min(1, dt * 50);
+        A.legL += (.30 - A.legL) * Math.min(1, dt * 40);
+        A.legR += (-.22 - A.legR) * Math.min(1, dt * 40);
+        posing = true;
+      }
+      if (P.core && P.core.material) {                      // 核心随状态呼吸（纯表现）
+        const busy = !!(S || this.cbBeam);
+        P.core.scale.setScalar(1 + (busy ? .16 + Math.sin(A.t * 26) * .06 : .05 + Math.sin(A.t * 2.4) * .03));
+      }
+      if (posing) {
+        P.armR.rotation.x = A.armR; P.armL.rotation.x = A.armL;
+        P.legL.rotation.x = A.legL; P.legR.rotation.x = A.legR;
+        P.group.rotation.z = A.lean * this.facing;
       }
     }
     /* ★ Tamer：蛇身蠕动 + 四个技能的专属姿态（这段跑在「A.* → 骨骼」之后，直接写关节） */
@@ -19084,7 +19412,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net91',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net92',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
