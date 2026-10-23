@@ -2768,6 +2768,19 @@ const TRASH = [];
 let trashSpawnT = 4.0;
 let smogT = 0;
 let prevFog = null;                 // 毒雾前的 scene.fog（换图/地图自带雾都要还原）
+/* ★ 毒雾面纱：纯 DOM 覆盖层。3D fog 会被「换图 / 主题复位 / backdrop」改掉（见 applyStage），
+   而大招必须百分之百看得见 —— 所以再加一层与场景无关的面纱。 */
+function smogVeil(on, heavy) {
+  let el = document.getElementById('smogVeil');
+  if (!on) { if (el) el.style.opacity = '0'; return; }
+  if (!el) {
+    el = document.createElement('div'); el.id = 'smogVeil';
+    el.style.cssText = 'position:fixed;inset:0;z-index:5;pointer-events:none;transition:opacity .5s;' +
+      'background:radial-gradient(circle at 50% 58%,rgba(90,170,70,.42) 0%,rgba(38,84,28,.84) 62%,rgba(12,30,10,.96) 100%);opacity:0';
+    document.body.appendChild(el);
+  }
+  el.style.opacity = heavy ? '0.92' : '0.30';
+}
 const TRASH_KIND = [{ id:'banana', w:55 }, { id:'bag', w:35 }, { id:'diamond', w:10 }];
 function trashPickKind() {
   const r = RND() * 100;
@@ -2851,7 +2864,7 @@ function updateTrash(dt) {
     if (took) { scene.remove(it.mesh); TRASH.splice(i, 1); continue; }
     if (it.t > 45) { scene.remove(it.mesh); TRASH.splice(i, 1); }
   }
-  if (smogT > 0) { smogT -= dt; if (smogT <= 0) { smogT = 0; scene.fog = prevFog; prevFog = null; } }
+  if (smogT > 0) { smogT -= dt; if (smogT <= 0) { smogT = 0; scene.fog = prevFog; prevFog = null; smogVeil(false); } }
 }
 const VEX_FX = [];
 const VEX_SPHERE = new THREE.SphereGeometry(1, 8, 6);
@@ -9213,8 +9226,16 @@ class Fighter {
       case 'trashFog': {                                 // ★ Trashcan·大招：毒雾遮蔽全图 10 秒
         smogT = 10.2;
         /* 只有「本机操作的垃圾桶」视野不受影响；其余情况（对手视角/观战/观战 AI）全部起雾 */
-        const localBin = FIGHTERS.some(f => f.def.id === 'trash' && !f.isBot && !f.ctrl);
-        if (!localBin) { prevFog = scene.fog || null; scene.fog = new THREE.Fog(0x1c3a12, 1.4, 9.0); }
+        /* ★ 修：原来用 !isBot && !ctrl 判「本地垃圾桶」——联机时对面的座位也是 isBot:false，
+           于是两端都判成「我是垃圾桶」→ 谁都不起雾（用户报的「大招没用、对手视野还很清晰」）。
+           必须用座位号比：本机座位上的那个 fighter 是不是垃圾桶。 */
+        const mine = (typeof NET !== 'undefined' && NET.active && NET.seat >= 0) ? NET.seat : 0;
+        const localBin = FIGHTERS.some(f => f.def.id === 'trash' &&
+          (f.netSeat === mine || ((f.netSeat === undefined || f.netSeat === null) && FIGHTERS.indexOf(f) === mine)));
+        prevFog = scene.fog || null;
+        /* 两端都起雾：垃圾桶自己是薄雾（能看见但明显被污染），其他人是浓雾 */
+        scene.fog = localBin ? new THREE.Fog(0x3c7a2e, 5.0, 26.0) : new THREE.Fog(0x1c3a12, 1.2, 8.0);
+        smogVeil(true, !localBin);
         callout(this, 'TOXIC SMOG', SP.color);
         FX.flash(px, py + 1.4, .6, 14, 0x6bf07a, .30);
         for (let i = 0; i < 8; i++) {
@@ -18128,13 +18149,17 @@ const NET = {
              旧代码要求「先见过一次 ai=true」才允许交还（resOk 保护），可服务端如果一直没判过 AI
              （例如客户端卡住但判活心跳还在供货），这条快照就会被永远忽略 → 本地 AI 永远操控这个座位
              （用户报的「AI 还在操控」）。宁可偶尔多一次「撤了又接管」，也不能永久卡在 AI。 */
+          /* ★★ 2026-10-23 修「开局莫名重开」的根因：
+             旧代码在这条分支里**无条件**发 a:'resync'。而服务端每次推送「这座位在线、不是 AI」的
+             状态快照都会走到这里 —— 也就是说整局下来每隔几秒就请求一次整局重开（服务端 4s 节流，
+             所以表现为「过一会儿又莫名重开一次，而且每次开局都可能来一发」）。
+             重开后各端收到的重复次数/时机不同 → 帧号、站位错开 = 「重开后两台设备不同步」。
+             正确条件：**只有本机真的本地抢管过这个座位**（localAiAt 有记录）才说明历史已经算岔，
+             才需要整局对齐。 */
+          const hadLocalTakeover = !!(this.localAiAt && this.localAiAt[i] !== undefined);
           delete this.localAiAt[i];
           if (this.resOk) delete this.resOk[i];
-          /* ★ 第 64 轮：本机曾经「本地抢管」过这个座位（说明这一段本机用的是自己的 AI 输入跑），
-             现在服务端说它一直在线上 → 本机历史已经和别人算岔了（用户报的「两边都显示对方下线、
-             之后位置不一致」）。请求整局 resync：服务端用同一个 seed 从第 0 帧重开，
-             所有人（包括本机）一起重新对齐。服务端有 4s 节流，不会连炸。 */
-          if (this.started) { try { this.send({ a:'resync', room:this.room, seat:this.seat, token:this.token }); } catch (e) {} }
+          if (hadLocalTakeover && this.started) { try { this.send({ a:'resync', room:this.room, seat:this.seat, token:this.token }); } catch (e) {} }
         }
       }
       if (this.started && f && (!!f.aiSeat !== !!st.ai)) {
@@ -18481,6 +18506,20 @@ const NET = {
     } catch (e) {}
   },
   beginMatch(o) {
+    /* ★ 修「开局莫名重开」：服务端同一次开局可能被投递两遍（WS 推 + HTTP 轮询回包各一次 /
+       Play Again 连点 / 重连补发），重复执行 setup() 会把已经开打的对局重置回第 0 帧。
+       两端收到重复的次数不一定相同 → 重开后帧号、站位、随机数流全错开，就是「重开后不同步」。
+       用「同一局的指纹」做幂等：seed + startFrame + 规则 + 角色表 全都一样 = 同一局，丢弃。 */
+    const _sig = [o.seed, o.startFrame | 0, o.rules && o.rules.count, o.rules && o.rules.stocks,
+                  o.rules && o.rules.time, (o.chars || []).join(','), (o.humanSeats || []).join(',')].join('|');
+    if (this._beginSig === _sig) {
+      if (this.started && match.state === 'play' && FRAME > 20) {
+        toast('Duplicate start ignored (frame ' + FRAME + ')');
+        console.warn('[net] duplicate beginMatch ignored', _sig);
+      }
+      return;
+    }
+    this._beginSig = _sig;
     /* 开新局（含联机「再来一局」）：收起结算页 + 把 Play Again 按钮复位 */
     const rs = document.getElementById('resultScreen'); if (rs) rs.classList.add('hidden');
     /* ★ 第 80/81 轮：开局把好友面板 / Profile 弹层收掉（对局中两者整体隐藏，见 CSS） */
