@@ -818,7 +818,8 @@ document.addEventListener('DOMContentLoaded', function () {
   </div>
   <div class="rows">
     <div class="card"><h4>Players (1 human + CPUs)</h4><div class="opts" id="optCount"></div></div>
-    <div class="card"><h4>Stocks</h4><div class="opts" id="optStocks"></div></div>
+    <div class="card" id="cardStocks"><h4>Stocks</h4><div class="opts" id="optStocks"></div></div>
+    <div class="card"><h4>Game Mode</h4><div class="opts" id="optMode"></div></div>
     <div class="card"><h4>Time Limit</h4><div class="opts" id="optTime"></div></div>
     <div class="card"><h4>CPU Level</h4><div class="opts" id="optDiff"></div></div>
     <div class="card" id="cardTeams"><h4>Teams (only at 4 players)</h4><div class="opts" id="optTeams"></div></div>
@@ -2501,6 +2502,7 @@ function simHash() {
     mix(f.damage); mix(f.stocks); mix(f.hitstun); mix(f.shield); mix(f.jumpsLeft);
     mix(f.eliminated ? 1 : 0); mix(f.state === 'grabbed' ? 1 : 0);
     mix(f.trashHits || 0);                                   // ★ 垃圾桶吃到的垃圾数（影响出招段数）
+    mix(f.gems || 0);                                        // ★ 宝石争夺战：身上宝石数（决定胜负）
   }
   mix(BLOCKS.length);                                // ★ Blocky 的方块也纳入指纹（方块位置/寿命/耐久漂移同样算不同步）
   for (const b of BLOCKS) { mix(b.x); mix(b.y); mix(b.life); mix(b.hp); }
@@ -2509,6 +2511,9 @@ function simHash() {
   /* ★ 2026-10-23：场上垃圾也参与指纹 —— 它决定 Trashcan 的额外连击伤害，
      以前不在指纹里，两端拾取不同只能靠「伤害数字」迟到暴露。 */
   mix(trashSpawnT);
+  /* ★ 宝石争夺战的状态也要进指纹：宝石位置/剩余生成时间/倒计时/每人身上的宝石数 */
+  mix(GEM.spawnT); mix(GEM.cdT); mix(GEM.cdTeam + 1); mix(GEM.list.length);
+  for (const g of GEM.list) { mix(g.x); mix(g.t); }
   mix(TRASH.length);
   for (const it of TRASH) { mix(it.x); mix(it.y); mix(it.t); mix(it.kind === 'banana' ? 1 : (it.kind === 'bag' ? 2 : 3)); }
   for (const pl of pillars) { mix(pl.x); mix(pl.t); mix(pl.phase === 'fire' ? 1 : 0); }   // 岩浆柱同理
@@ -2888,6 +2893,120 @@ function updateTrash(dt) {
   }
   if (smogT > 0) { smogT -= dt; if (smogT <= 0) { smogT = 0; scene.fog = prevFog; prevFog = null; smogVeil(false); } }
 }
+
+/* ================= ★ 宝石争夺战 (Gem Grab) =================
+   规则（用户定义）：地图中心的矿井每 10 秒产出一颗宝石，玩家可以收集；
+   被击倒时身上的宝石全部交给击败者（自己掉出场 = 散落在原地）；无限重生；
+   2v2 里某一队累计持有 10 颗宝石 → 进入 25 秒倒计时，倒计时走完仍持有 ≥10 颗 → 该队获胜。
+   ⚠ 铁律：所有状态都在固定步里推进（updateGems 由 physicsStep 调用，不用渲染帧 dt）、
+     且参与 simHash —— 否则就是「两端算岔 → 服务端判定去同步 → 整局重开」的老坑。 */
+const GEM = {
+  list: [],                       // 地上的宝石 { x, y, t, mesh }
+  spawnT: 4.0,                    // 距下一颗还有几秒（开局 4 秒先给一颗）
+  need: 10, cd: 25, cdT: 0, cdTeam: -1,
+  mineX: 0, mineY: 0, anim: 0, mine: null, core: null, ring: null, built: false,
+};
+const GEM_SPAWN_EVERY = 10;       // 每 10 秒一颗
+function gemModeOn() { return match.mode === 'gem'; }
+function gemTeamTotal(t) {
+  let n = 0;
+  for (const f of FIGHTERS) if (f.team === t && !f.eliminated) n += (f.gems || 0);
+  return n;
+}
+/* 矿井：中心圆台 + 光环 + 悬浮晶核（纯视觉，位置固定在 x=0） */
+function gemBuildMine() {
+  if (GEM.built) return;
+  GEM.built = true;
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(1.62, 1.86, .26, 30),
+    cmat(0x2a3350, { roughness:.72, metalness:.28 }));
+  base.position.y = .13; g.add(base);
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(1.56, .06, 8, 34), cmat(0x6b7ba8, { roughness:.4, metalness:.5 }));
+  lip.rotation.x = Math.PI / 2; lip.position.y = .27; g.add(lip);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.30, .055, 8, 40), glowMat(0x8be9ff, 1.15, 0x10374d));
+  ring.rotation.x = Math.PI / 2; ring.position.y = .34; g.add(ring);
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(.40, 0), glowMat(0xbdf3ff, 1.5, 0x1b6f8d));
+  core.position.y = 1.02; g.add(core);
+  for (let i = 0; i < 3; i++) {                       // 三个小晶柱，围着中心转
+    const c = new THREE.Mesh(new THREE.ConeGeometry(.10, .34, 5), glowMat(0x9dfbe4, 1.1, 0x146b60));
+    const a = i / 3 * Math.PI * 2;
+    c.position.set(Math.cos(a) * 1.02, .46, Math.sin(a) * .55);
+    g.add(c);
+  }
+  g.visible = gemModeOn();
+  scene.add(g);
+  GEM.mine = g; GEM.core = core; GEM.ring = ring;
+}
+function gemMesh() {
+  const m = new THREE.Mesh(new THREE.OctahedronGeometry(.30, 0), glowMat(0x9dfbe4, 1.45, 0x1d8a7a));
+  return m;
+}
+/* 生成一颗宝石（用种子 RND，两端必须抽到同一个位置） */
+function gemSpawnOne(xOverride) {
+  const gx = (xOverride === undefined) ? (GEM.mineX + (RND() * 2 - 1) * .78) : xOverride;
+  const m = gemMesh();
+  m.position.set(gx, .55, 0);
+  scene.add(m);
+  GEM.list.push({ x: gx, y: GEM.mineY, t: 0, mesh: m });
+  if (xOverride === undefined) { FX.ring(gx, GEM.mineY + .5, .3, 2.2, 0x9dfbe4, .4); FX.spark(gx, GEM.mineY + .6, .3, 3, 0x9dfbe4); }
+  return m;
+}
+function gemReset() {
+  for (const g of GEM.list) { try { scene.remove(g.mesh); } catch (e) {} }
+  GEM.list.length = 0;
+  GEM.spawnT = 4.0; GEM.cdT = 0; GEM.cdTeam = -1; GEM.anim = 0;
+  for (const f of FIGHTERS) f.gems = 0;
+  if (GEM.mine) GEM.mine.visible = gemModeOn();
+}
+function updateGems(dt) {
+  if (!gemModeOn()) { if (GEM.mine) GEM.mine.visible = false; return; }
+  if (!GEM.built) gemBuildMine();
+  if (GEM.mine) GEM.mine.visible = true;
+  GEM.anim += dt;
+  if (GEM.core) { GEM.core.rotation.y += dt * 1.7; GEM.core.position.y = 1.02 + Math.sin(GEM.anim * 2.1) * .10; }
+  if (GEM.ring) GEM.ring.rotation.z += dt * .55;
+  /* —— 每 10 秒产一颗 —— */
+  GEM.spawnT -= dt;
+  if (GEM.spawnT <= 0) { GEM.spawnT = GEM_SPAWN_EVERY; gemSpawnOne(); }
+  /* —— 拾取（贴身即捡，不需要按键） —— */
+  for (let i = GEM.list.length - 1; i >= 0; i--) {
+    const g = GEM.list[i]; g.t += dt;
+    if (g.mesh) { g.mesh.position.y = .55 + Math.sin(g.t * 3.1 + g.x) * .12; g.mesh.rotation.y += dt * 2.6; }
+    for (const f of FIGHTERS) {
+      if (f.eliminated || f.respawnT > 0) continue;
+      if (Math.abs(f.pos.x - g.x) < 1.25 && Math.abs(f.pos.y - g.y) < 1.9) {
+        f.gems = (f.gems || 0) + 1;
+        try { scene.remove(g.mesh); } catch (e) {}
+        GEM.list.splice(i, 1);
+        if (f === FIGHTERS[(typeof NET !== 'undefined' && NET.seat >= 0) ? NET.seat : 0]) callout(f, 'GEM ' + f.gems, 0x9dfbe4);
+        FX.ring(g.x, .55, .3, 1.9, 0x9dfbe4, .3);
+        break;
+      }
+    }
+  }
+  /* —— 10 颗 → 25 秒倒计时；掉到 10 以下立刻取消 —— */
+  if (!match.teams) return;
+  const a = gemTeamTotal(0), b = gemTeamTotal(1);
+  let lead = -1;
+  if (a >= GEM.need && a >= b) lead = 0;
+  if (b >= GEM.need && b >= a) lead = 1;
+  if (lead !== GEM.cdTeam) {
+    const prev = GEM.cdTeam;
+    GEM.cdTeam = lead; GEM.cdT = (lead >= 0) ? GEM.cd : 0;
+    if (lead >= 0) {
+      banner(TEAM_NAME[lead] + ' · ' + GEM.need + ' GEMS!');
+      toast(TEAM_NAME[lead] + ' holds ' + GEM.need + ' gems — survive ' + GEM.cd + 's to win!');
+      FX.flash(0, 2, .6, 14, TEAM_COLOR[lead], .28);
+    } else if (prev >= 0) {
+      toast(TEAM_NAME[prev] + ' lost the gem lead — countdown cancelled');
+    }
+  }
+  if (GEM.cdTeam >= 0) {
+    GEM.cdT -= dt;
+    if (GEM.cdT <= 0) { GEM.cdT = 0; match.gemWin = GEM.cdTeam; endMatch(); }
+  }
+}
+
 const VEX_FX = [];
 const VEX_SPHERE = new THREE.SphereGeometry(1, 8, 6);
 function vexFlame(x, y, z, dir, n, spd, size, life, up, tint) {
@@ -8936,6 +9055,18 @@ class Fighter {
   }
   ko(reason) {
     if (this.eliminated) return;
+    /* ★ 宝石争夺战：被击倒 → 身上的宝石全部交给击败者；自己掉出场则散落在原地等别人捡。 */
+    if (gemModeOn() && (this.gems || 0) > 0) {
+      const k = (reason === 'Self-Destruct') ? null : this.lastHitBy;
+      if (k && k !== this && !k.eliminated) {
+        k.gems = (k.gems || 0) + this.gems;
+        callout(k, 'GEM +' + this.gems, 0x9dfbe4);
+      } else {
+        const nm = this.gems;
+        for (let i = 0; i < nm; i++) gemSpawnOne(this.pos.x + (i - (nm - 1) / 2) * .85);
+      }
+      this.gems = 0;
+    }
     if (this.pumpkinForm) endPumpkinCurse(this, true);   // ★ 被诅咒的人被打出场 → 立刻恢复本体
     this.flatT = 0;                                      // ★ 砸扁状态不跨命
     this.burnLock = 0;                                   // ★ 灼烧锁定不跨命
@@ -8961,7 +9092,9 @@ class Fighter {
     }
   }
   respawn() {
-    this.damage = 0; this.vel.set(0,0,0); this.pos.set(0, 21.5, 0);
+    /* ★ 宝石争夺战：从自己队伍那侧的天上落回来（别在中央矿井上刷，否则一复活就挡住宝石） */
+    const sx = (gemModeOn() && this.team >= 0) ? (this.team === 0 ? -9 : 9) : 0;
+    this.damage = 0; this.vel.set(0,0,0); this.pos.set(sx, 21.5, 0);
     this.state = 'idle'; this.hitstun = 0; this.invuln = CFG.respawnInv; this.shield = 100;
     this.jumpsLeft = this.s.jumps + (this.vexJumpBonus || 0); this.airDodged = false; this.mesh.visible = true; this.shadow.visible = true;
     this.grabbed = null; this.charging = null; this.move = null;
@@ -15349,6 +15482,7 @@ class Bot {
 const match = {
   state:'menu', stocks:3, time:180, count:4, diff:2, playerChar:0,
   timer:0, countdown:0, elapsed:0, results:null, sudden:false, teams:0,
+  mode:'smash', gemWin:-1,                 // ★ 宝石争夺战：模式 + 靠倒计时赢的队伍
 };
 let hitstop = 0, shake = 0, shakeDir = 0, camKick = 0, flash = 0, flashColor = '#ffffff';
 
@@ -15368,6 +15502,7 @@ function teamTotals(t) {
 }
 function winningTeam() {                       // 命数多的队赢；同命数则累计伤害少的赢（和单人结算同口径）
   if (!match.teams) return -1;
+  if (match.mode === 'gem' && match.gemWin >= 0) return match.gemWin;   // ★ 宝石倒计时赢的那队
   let best = 0, bs = -1, bd = 1e9;
   for (const t of [0, 1]) {
     const x = teamTotals(t);
@@ -15415,8 +15550,12 @@ function setup(opts) {
   clearField();                                      // 弹幕/奶滩/岩浆柱/特效统一清理（setStage 也调它）
   trashPickReset();                                  // ★ 联机确定性：场上垃圾每局归零，不能带着菜单里攒的进对局
   FIGHTERS = [];
+  /* ★ 宝石争夺战：模式随规则下发（联机时来自房主）。固定 4 人 2v2、无限重生。 */
+  match.mode = (opts && opts.rules && opts.rules.mode === 'gem') ? 'gem' : 'smash';
+  if (match.mode === 'gem' && opts.count !== 4) match.mode = 'smash';   // 人数不对就退回普通乱斗（避免名单/分队错乱）
+  const gemMode = match.mode === 'gem';
   const n = opts.count;
-  const teamsOn = !!opts.teams && n === 4;            // ★ 团队模式只在 4 人时生效
+  const teamsOn = match.mode === 'gem' ? true : (!!opts.teams && n === 4);   // ★ 团队模式只在 4 人时生效；宝石模式恒为 2v2
   const spawns = [ [-6, 6], [6, -6], [-11, 11], [11, -11] ];
   /* ★ 第 84 轮：同一角色被多个座位选中 → 按座位序号分配 0/1/2/3 号配色（原色/Frost/Amber/Steel）。
      算法只用「座位顺序 + 角色表」，各端算出的结果必然一致 → 联机不会出现配色不同步。 */
@@ -15439,7 +15578,7 @@ function setup(opts) {
       human = i === 0;
     }
     const f = new Fighter(variantDef(def, VARIANTS[_varOf[i]]), null, i,
-                          { bot: !human, stocks: opts.stocks, team: teamOfSeat(i, teamsOn),
+                          { bot: !human, stocks: gemMode ? 999 : opts.stocks, team: teamOfSeat(i, teamsOn),
                             spawnX: spawns[i][0] * (n > 2 ? 1 : 1.6) });
     f.variant = _varOf[i];
     f.tag = teamsOn ? (TEAM_NAME[f.team] + (i + 1)) : (i === 0 ? 'P1' : (opts.chars ? ('P' + (i + 1)) : ('CPU' + i)));
@@ -15447,8 +15586,18 @@ function setup(opts) {
     FIGHTERS.push(f);
     if (!human) f.ctrl = new Bot(f, opts.diff);
   }
-  match.stocks = opts.stocks; match.time = Number.isFinite(opts.time) ? opts.time : 0; match.count = n; match.diff = opts.diff;   // ★ 第 98 轮：没传 time 时按无限处理
+  /* 宝石模式：命数条不显示（match.stocks=0 就不画那些小方块），角色身上 stocks=999 保证永远复活 */
+  match.stocks = gemMode ? 0 : opts.stocks; match.time = Number.isFinite(opts.time) ? opts.time : 0; match.count = n; match.diff = opts.diff;   // ★ 第 98 轮：没传 time 时按无限处理
   match.teams = teamsOn ? 1 : 0;                      // ★ 团队模式（结算/胜负/HUD 都读它）
+  match.gemWin = -1;                                  // ★ 谁靠「宝石倒计时」赢的（-1 = 还没定）
+  /* ★ 本局真正生效的规则快照（含 mode）：任何「同阵容再来一局」都可以直接复用它，
+     避免某条重开路径忘了带 rules 而把模式/地图丢掉（这就是「再来一局模式变了」的根源）。 */
+  match.rules = { count: n, stocks: gemMode ? 999 : opts.stocks, time: match.time, diff: opts.diff,
+                  teams: teamsOn ? 1 : 0, mode: match.mode === 'gem' ? 'gem' : '',
+                  stage: (opts.rules && typeof opts.rules.stage === 'number') ? opts.rules.stage : null };
+  if (GEM.built) GEM.mine.visible = gemMode;
+  gemReset();                                         // ★ 每局宝石状态归零（联机确定性：不带着上一局进新局）
+  if (gemMode) gemBuildMine();
   match.timer = Number.isFinite(opts.time) ? opts.time : 0; match.elapsed = 0; match.state = 'countdown'; match.countdown = 3.4;
   match.results = null; match.sudden = false;
   buildHUD();
@@ -15473,9 +15622,17 @@ function buildHUD() {
     d.innerHTML = `<div class="prow"><div class="pname">${f.team >= 0 ? '<i class="tm">' + TEAM_NAME[f.team] + '</i>' : ''}${f.def.name}<span class="tag">${f.tag}</span></div>
         <div class="pct c0">0%</div></div><div class="stocks"></div>
         <div class="stat"></div><div class="soul"></div><div class="pbar" style="width:100%"></div><div class="fsbar"><i></i></div>`;
+    /* ★ 宝石争夺战：每个角色旁边的「身上几颗宝石」读数（不看控制台也能知道谁带着宝石） */
+    let gemN = null;
+    if (match.mode === 'gem') {
+      gemN = document.createElement('div');
+      gemN.style.cssText = 'font:800 11px/1.3 ui-monospace,Menlo,Consolas,monospace;color:#9dfbe4;letter-spacing:.4px';
+      d.appendChild(gemN);
+    }
     UI.hud.appendChild(d);
     panels.push({ el:d, pct:d.querySelector('.pct'), stocks:d.querySelector('.stocks'), bar:d.querySelector('.pbar'),
-      fsbar:d.querySelector('.fsbar'), stat:d.querySelector('.stat'), statTxt:'', soul:d.querySelector('.soul'), soulTxt:'', last:-1, hitT:0 });
+      fsbar:d.querySelector('.fsbar'), stat:d.querySelector('.stat'), statTxt:'', soul:d.querySelector('.soul'), soulTxt:'',
+      gemN, last:-1, hitT:0 });
     const mk = document.createElement('div');
     mk.className = 'marker'; mk.textContent = '▼';
     mk.style.color = '#' + new THREE.Color(f.team >= 0 ? TEAM_COLOR[f.team] : f.def.body).getHexString();
@@ -15484,9 +15641,34 @@ function buildHUD() {
   });
 }
 function dmgClass(d) { return d < 50 ? 0 : d < 100 ? 1 : d < 150 ? 2 : 3; }
+/* ★ 宝石争夺战顶部读数：两队宝石数 + 10 颗倒计时（一眼能看出「谁快赢了 / 还剩几秒」） */
+function updateGemHud() {
+  const on = match.mode === 'gem';
+  let el = document.getElementById('gemHud');
+  if (!on) { if (el) el.style.display = 'none'; return; }
+  if (!el) {
+    el = document.createElement('div'); el.id = 'gemHud';
+    el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:60;display:flex;' +
+      'align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:rgba(6,10,22,.68);' +
+      'border:1px solid rgba(255,255,255,.14);font:800 13px/1.2 ui-monospace,Menlo,Consolas,monospace;color:#eef5ff;pointer-events:none;white-space:nowrap';
+    document.body.appendChild(el);
+  }
+  el.style.display = 'flex';
+  const a = gemTeamTotal(0), b = gemTeamTotal(1);
+  const dot = c => '<i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:' + c + ';margin-right:5px;vertical-align:-1px"></i>';
+  let s = dot('#ff5c5c') + 'RED <b>' + a + '</b> &nbsp;' + dot('#5ca8ff') + 'BLUE <b>' + b + '</b>' +
+          ' <span style="opacity:.45">/ ' + GEM.need + '</span>';
+  if (GEM.cdTeam >= 0) s += ' &nbsp;·&nbsp; <span style="color:' + (GEM.cdTeam === 0 ? '#ff9a9a' : '#9ccaff') + '">COUNTDOWN <b>' + Math.ceil(GEM.cdT) + 's</b></span>';
+  if (el.__sig !== s) { el.__sig = s; el.innerHTML = s; }
+}
 function updateHUD(dt) {
+  updateGemHud();
   FIGHTERS.forEach((f, i) => {
     const p = panels[i]; if (!p) return;
+    if (p.gemN) {
+      const txt = '◆ ' + (f.gems || 0) + (f.respawnT > 0 ? ' · respawn' : '');
+      if (p.gemN.textContent !== txt) p.gemN.textContent = txt;
+    }
     const d = Math.floor(f.damage);
     if (d !== p.last) {
       p.last = d; p.pct.textContent = d + '%';
@@ -15563,9 +15745,19 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
       } else mk.style.opacity = 0;
     } else mk.style.opacity = 0;
   });
-  const alive = FIGHTERS.filter(f => !f.eliminated);
-  const lead = alive.slice().sort((a,b) => b.stocks - a.stocks || a.damage - b.damage)[0];
-  UI.leader.textContent = lead ? `Leading: ${lead.def.name}（${lead.stocks}  stocks / ${Math.floor(lead.damage)}%）` : '';
+  /* ★ 宝石争夺战：顶部那行别再说「999 stocks」（无尽重生没有命数），改成两队宝石进度 + 倒计时 */
+  if (match.mode === 'gem') {
+    const ga = gemTeamTotal(0), gb = gemTeamTotal(1);
+    let s = 'Gems: RED ' + ga + ' · BLUE ' + gb + ' (need ' + GEM.need + ')';
+    if (GEM.cdTeam >= 0) s = TEAM_NAME[GEM.cdTeam] + ' ' + GEM.need + ' GEMS — survive ' + Math.ceil(GEM.cdT) + 's';
+    if (UI.leader.textContent !== s) UI.leader.textContent = s;
+    UI.leader.classList.toggle('gemcd', GEM.cdTeam >= 0);
+  } else {
+    UI.leader.classList.remove('gemcd');
+    const alive = FIGHTERS.filter(f => !f.eliminated);
+    const lead = alive.slice().sort((a,b) => b.stocks - a.stocks || a.damage - b.damage)[0];
+    UI.leader.textContent = lead ? `Leading: ${lead.def.name}（${lead.stocks}  stocks / ${Math.floor(lead.damage)}%）` : '';
+  }
   const unlimited = match.time === 0;                       // ★ 第 91 轮：0 = 无限时间
   if (unlimited) { UI.timer.textContent = '∞'; UI.timer.classList.remove('low'); }
   else {
@@ -15582,6 +15774,7 @@ function banner(text, big = true) {
   UI.banner.classList.add('show');
 }
 function checkMatchEnd() {
+  if (match.mode === 'gem') return;                  // ★ 宝石争夺战：无限重生，只有倒计时走完才算结束
   const alive = FIGHTERS.filter(f => !f.eliminated);
   if (match.teams) {                                  // ★ 团队：只剩一支队伍还有人 → 结束
     const ts = new Set(alive.map(f => f.team));
@@ -15649,7 +15842,7 @@ function endMatch() {
     || ((b.outSeq || 0) - (a.outSeq || 0))                     // ★ 出局越晚名次越好（按出局顺序）
     || (b.stocks - a.stocks) || (a.damage - b.damage) || (b.kos - a.kos));
   match.results = rank.map((f, i) => ({ name:f.def.name, tag:f.tag, team:f.team, stocks:f.eliminated ? 0 : f.stocks,
-    dmg:Math.floor(f.maxDamage), kos:f.kos, deaths:f.deaths, pos:i+1 }));
+    dmg:Math.floor(f.maxDamage), kos:f.kos, deaths:f.deaths, gems:(f.gems || 0), pos:i+1 }));
   try { awardTrophies(rank, wt); } catch (e) { console.warn('[trophy]', e); }   // ★ 第 86 轮：奖杯结算
   setTimeout(() => {
     const ra = teamTotals(0), rb = teamTotals(1);
@@ -15665,7 +15858,7 @@ function endMatch() {
     UI.resultList.innerHTML = teamRows + match.results.map(r =>
       `<div class="rk ${r.pos === 1 && !match.teams ? 'first' : ''}"><div class="pos">${r.pos === 1 && !match.teams ? '🏆' : r.pos}</div>
        <div class="nm">${r.team >= 0 ? '<i class="tm">' + TEAM_NAME[r.team] + '</i>' : ''}${r.name} <span style="opacity:.5;font-size:11px">${r.tag}</span></div>
-       <div class="sc">Peak ${r.dmg}% · KOs ${r.kos} · Falls ${r.deaths}</div></div>`).join('');
+       <div class="sc">Peak ${r.dmg}% · KOs ${r.kos} · Falls ${r.deaths}${match.mode === 'gem' ? ' · Gems ' + (r.gems || 0) : ''}</div></div>`).join('');
     UI.result.classList.remove('hidden');
   }, 1400);
 }
@@ -15684,8 +15877,10 @@ const optDefs = {
   optDiff: { key:'diff', values:[1,2,3], labels:['Easy','Normal','Expert'], def:2 },
   /* ★ 团队模式：只在 4 人时可选（2 人/3 人时整张卡隐藏并复位为自由混战） */
   optTeams: { key:'teams', values:[0,1], labels:['Free-for-All','2v2 · RED vs BLUE'], def:0 },
+  /* ★ 宝石争夺战：4 人 2v2 专用（选中后自动锁 4 人 + 2v2，Stocks 卡隐藏） */
+  optMode: { key:'mode', values:['smash','gem'], labels:['Smash','Gem Grab 2v2'], def:'smash' },
 };
-const settings = { count:4, stocks:3, time:0, diff:2, playerChar:0, teams:0 };   // ★ 第 98 轮：time 默认 0 = 无限（之前这里还是 180，导致 UI 默认选「3 min」并真的 3 分钟结束）
+const settings = { count:4, stocks:3, time:0, diff:2, playerChar:0, teams:0, mode:'smash' };   // ★ 第 98 轮：time 默认 0 = 无限（之前这里还是 180，导致 UI 默认选「3 min」并真的 3 分钟结束）
 /* ★★ 第 66 轮：玩家「账号」——本机持久身份，三样一起存：账号 id / 昵称 / 默认角色。
    以前只存昵称（sb_nick），角色每次刷新都掉回 0 号；现在进房、开局、刷新都会自动用回来。
    账号 id 复用服务端限流用的 sbPid（同一个浏览器 = 同一个账号），没有就生成。 */
@@ -15837,7 +16032,8 @@ for (const id in optDefs) {
     const cur = (settings[o.key] === undefined ? o.def : settings[o.key]);
     b.className = 'opt' + (v === cur ? ' on' : ''); b.textContent = o.labels[i];   // ★ 第 98 轮：高亮按当前设置，不再永远高亮 def
     b.onclick = () => { settings[o.key] = v; [...box.children].forEach(c => c.classList.remove('on')); b.classList.add('on');
-                        if (o.key === 'count') syncTeamsUI(); };
+                        if (o.key === 'count') syncTeamsUI();
+                        if (o.key === 'mode') syncModeUI(); };
     box.appendChild(b);
   });
 }
@@ -15853,6 +16049,20 @@ function syncTeamsUI() {
   }
 }
 syncTeamsUI();
+/* ★ 宝石争夺战是 4 人 2v2 专用模式：选中后锁死人数/队伍，并隐藏 Stocks（无限重生，命数无意义） */
+function syncModeUI() {
+  const gem = settings.mode === 'gem';
+  const cs = document.getElementById('cardStocks');
+  if (cs) cs.style.display = gem ? 'none' : '';
+  if (gem) {
+    settings.count = 4; settings.teams = 1;
+    const oc = document.getElementById('optCount'), ot = document.getElementById('optTeams');
+    if (oc) [...oc.children].forEach((c, i) => c.classList.toggle('on', optDefs.optCount.values[i] === 4));
+    if (ot) [...ot.children].forEach((c, i) => c.classList.toggle('on', optDefs.optTeams.values[i] === 1));
+  }
+  syncTeamsUI();
+}
+syncModeUI();
 /* ================= 选人界面：实时 3D 模型预览 ================= */
 const PV = (() => {
   const cv = document.getElementById('preview3d');
@@ -16157,7 +16367,13 @@ PV.resize();
   }, 800);
   window.LOBBY_UI = { buildGrid, syncGrid, closeAll };
 }
-document.getElementById('startBtn').onclick = () => { SFX.init(); SFX.go(1); UI.start.classList.add('hidden'); setup(settings); };
+/* ★ 离线开局：setup 只认 opts.rules，所以把界面设置整成一份 rules 传进去（含宝石模式） */
+function localRules() {
+  return { count: settings.count, stocks: settings.stocks, time: settings.time, diff: settings.diff,
+           teams: settings.count === 4 ? (settings.teams ? 1 : 0) : 0,
+           mode: settings.mode === 'gem' ? 'gem' : '' };
+}
+document.getElementById('startBtn').onclick = () => { SFX.init(); SFX.go(1); UI.start.classList.add('hidden'); setup(Object.assign({}, settings, { rules: localRules() })); };
 /* ★ 手动兜底清缓存：连本地存储（昵称 / 玩家 id / 教程标记）一起清，再带随机参数硬刷新 */
 document.getElementById('btnCacheWipe').onclick = () => {
   try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
@@ -16183,7 +16399,10 @@ document.getElementById('againBtn').onclick = async () => {
     toast('Waiting for everyone to press Play Again — or Back to leave');
     return;
   }
-  UI.result.classList.add('hidden'); setup(settings);  // 离线 / 人机对局：保持原来的行为
+  /* ★ 2026-10-23 修「再来一局模式会变」：以前这里是 setup(settings) —— settings 里没有 rules，
+     setup 只能按默认规则开局，宝石争夺战（rules.mode='gem'）就被悄悄换成普通乱斗了。
+     必须走和「Play vs CPU」同一条路，把 rules 一起传进去。 */
+  UI.result.classList.add('hidden'); setup(Object.assign({}, settings, { rules: localRules() }));
 };
 document.getElementById('backBtn').onclick = () => { UI.result.classList.add('hidden'); UI.start.classList.remove('hidden'); match.state = 'menu'; };
 
@@ -16242,7 +16461,8 @@ const TUT = {
     settings.count = 2; settings.stocks = 3; settings.time = 300; settings.diff = 0; settings.playerChar = 0;
     UI.start.classList.add('hidden'); UI.result.classList.add('hidden');
     if (typeof SFX !== 'undefined') { SFX.init(); SFX.go(1); }
-    setup(settings);
+    /* 教程固定普通乱斗（2P / 3 分钟），不吃大厅里选的模式 */
+    setup(Object.assign({}, settings, { rules: { count: 2, stocks: 3, time: 300, diff: 0, teams: 0, mode: '' } }));
     this.foe = FIGHTERS[1] || null;
     if (this.foe) { this.foe.ctrl = null; this.foe.stocks = 3; this.stocks0 = 3; }   // ctrl=null → 木桩不还手
     this.x0 = FIGHTERS[0] ? FIGHTERS[0].pos.x : 0;
@@ -16310,7 +16530,7 @@ const TUT = {
     UI.result.classList.add('hidden'); UI.start.classList.remove('hidden');
     const b = tutEl('startBtn');
     b.innerHTML = '<svg class="ico solid"><use href="#i-play"/></svg>Play vs CPU';   // ★ 第 82 轮：保留图标（原来写 textContent 会把 SVG 擦掉）
-    b.onclick = () => { SFX.init(); SFX.go(1); UI.start.classList.add('hidden'); setup(settings); };
+    b.onclick = () => { SFX.init(); SFX.go(1); UI.start.classList.add('hidden'); setup(Object.assign({}, settings, { rules: localRules() })); };
   }
 };
 tutEl('tutBtn').onclick = () => TUT.start();
@@ -16703,6 +16923,7 @@ function physicsStep(s) {
   updateDrones(s);
   updateStrikes(s);
   updatePuddles(s);
+  updateGems(s);                                     // ★ 宝石争夺战：矿井/宝石/倒计时（固定步 + 参与指纹）
   updateTrash(s);                                    // ★ 2026-10-23 修「联机时不时重开」的根因之一：
                                                      //   垃圾桶的垃圾生成/拾取以前挂在渲染循环里，用**真实 dt** 计时
                                                      //   并调用 RND() → 两台机器消耗随机数的帧号不同 → _rngS 错开
@@ -18411,6 +18632,7 @@ const NET = {
       avatar: ACC.avatar || '',                          // ★ 第 67 轮：头像随建/加入一起上报（房间广播里给开局阵容用）
       opts:{ rules: { count: settings.count, stocks: settings.stocks, time: settings.time, diff: settings.diff,
                       teams: settings.count === 4 ? (settings.teams ? 1 : 0) : 0,   // ★ 团队模式随规则一起下发给全房
+                      mode: settings.mode === 'gem' ? 'gem' : '',                  // ★ 宝石争夺战随规则下发（各端 setup 一致）
                       stage: (settings.stage === 'r' || settings.stage === undefined) ? null : settings.stage },   // ★ 第 77 轮：联机也能选地图（null = 随机/由种子定）
              pub: o.pub !== false,                     // 默认公共房
              pass: String(o.pass || '').slice(0, 12) } });
@@ -18481,7 +18703,8 @@ const NET = {
     }
     return this.send({ a:'start', room:this.room, seat:this.seat, token:this.token,
       chars, rules:{ count:settings.count, stocks:settings.stocks, time:settings.time, diff:settings.diff,
-                     teams: settings.count === 4 ? (settings.teams ? 1 : 0) : 0 } });
+                     teams: settings.count === 4 ? (settings.teams ? 1 : 0) : 0,
+                     mode: settings.mode === 'gem' ? 'gem' : '' } });
   },
   /* ★ 第 102 轮：掉线回来「快进重放」
      原理：引擎是确定性的（同 seed + 同输入 → 同结果，已实测）。所以不用状态快照：
@@ -18508,6 +18731,7 @@ const NET = {
       /* 重建同一局：种子/规则/角色都必须和服务端完全一致 */
       setup({ count: h.count, stocks: h.stocks, time: (h.time === undefined ? 0 : h.time), diff: h.diff,
               teams: h.teams ? 1 : 0, seed: h.seed, chars: h.chars,
+              rules: { mode: h.mode || '' },                       // ★ 宝石争夺战：重连重放也要用同一个模式
               humanSeats: (h.chars || []).map(() => true) });
       match.state = 'play'; match.countdown = 0;
       this.replayBits = {};
@@ -18980,6 +19204,9 @@ window.SB = {
   get frame() { return FRAME; },
   hash: () => simHash(),
   get rndLeak() { return _rndLeak | 0; },          // 探针：模拟步之外消耗 RND 的累计次数
+  get gems() { return GEM; },                      // ★ 探针：宝石争夺战状态（矿井/地上宝石/倒计时）
+  get settings() { return settings; },             // 探针：界面设置（排查「选了模式却没生效」）
+  get mode() { return match.mode; },
   get simStep() { return !!_simStep; },            // 探针：当前是否在物理步内
   seed: (s) => seedSim(s),
   get drones() { return drones; },
