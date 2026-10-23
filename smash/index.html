@@ -1104,7 +1104,7 @@ const CHARS = [
     accel:46, airAccel:32, fric:26,
     mul:{ dmg:1.08, kb:1.06, spd:.94 },
     trait:'Trash Pickup · Toxic Cloud · Smog',
-    skills:'PASSIVE Trash Pickup (every 20s a piece of trash appears anywhere on the map, platforms included; each piece you pick up permanently adds +1 extra hit to Side B — banana 55% = normal hit, bag 35% = heavy hit (hits harder, longer animation), diamond 10% = poison punch with damage over time) · Neutral B Trash Clap (both hands slam forward; anyone hit is flattened on the X axis) · Side B Trash Rush (dash forward; on contact it stops and runs 3 + bonus hits: two light punches and a heavy for 12%) · Up B Garbage Rise (multi-hit rise) · Down B Toxic Cloud (green gas around you — anyone caught is paralysed and cannot escape) · FINAL SMASH Toxic Smog (the whole map is covered in poison fog for 10s — nobody can see far except the Trashcan)',
+    skills:'PASSIVE Trash Pickup (every 20s a piece of trash appears anywhere on the map, platforms included; two pieces of the SAME trash are needed for each permanent +1 extra hit on Side B — banana 55% = normal hit, bag 35% = heavy hit (hits harder, longer animation), diamond 10% = poison punch with damage over time) · Neutral B Trash Clap (both hands slam forward; anyone hit is flattened on the X axis) · Side B Trash Rush (dash forward; on contact it stops and runs 3 + bonus hits: two light punches and a heavy for 12%) · Up B Garbage Rise (multi-hit rise) · Down B Toxic Cloud (green gas around you — anyone caught is paralysed and cannot escape) · FINAL SMASH Toxic Smog (the whole map is covered in poison fog for 10s — nobody can see far except the Trashcan)',
     special:{
       n:{kind:'trashClap',label:'Trash Clap',cd:1.6,dmg:7.5,bb:10,bg:28,ang:20,reach:2.7,hitAt:.13,dur:.42,flat:.85,color:0x9fe86a},
       s:{kind:'trashRush',label:'Trash Rush',cd:2.8,dashSpd:23,dur:.30,reach:2.1,gap:.14,color:0x9fe86a,
@@ -2827,10 +2827,21 @@ function updateTrash(dt) {
     for (const f of FIGHTERS) {
       if (f.def.id !== 'trash' || f.eliminated) continue;
       if (Math.abs(f.pos.x - it.x) < 1.15 && Math.abs(f.pos.y - it.y) < 1.9) {
-        f.trashHits = (f.trashHits || 0) + 1;
-        (f.trashQueue = f.trashQueue || []).push(it.kind);
-        const nm = it.kind === 'diamond' ? 'DIAMOND · +1 POISON HIT' : (it.kind === 'bag' ? 'BAG · +1 HEAVY HIT' : 'PEEL · +1 HIT');
-        callout(f, nm, it.kind === 'diamond' ? 0x6bf0ff : 0x9fe86a);
+        /* ★ 削弱：同一种垃圾要凑够 2 件才换 1 段连击（散件先挂起） */
+        f.trashCount = f.trashCount || { banana:0, bag:0, diamond:0 };
+        f.trashExtra = f.trashExtra || { banana:0, bag:0, diamond:0 };
+        const kc = (f.trashCount[it.kind] = (f.trashCount[it.kind] || 0) + 1);
+        const gain = Math.floor(kc / 2) - (f.trashExtra[it.kind] || 0);
+        if (gain > 0) {
+          f.trashExtra[it.kind] = (f.trashExtra[it.kind] || 0) + gain;
+          f.trashHits = (f.trashHits || 0) + gain;
+        }
+        const nm = it.kind === 'diamond'
+          ? (gain ? 'DIAMOND ×2 · +1 POISON HIT' : 'DIAMOND 1/2')
+          : it.kind === 'bag'
+            ? (gain ? 'BAG ×2 · +1 HEAVY HIT' : 'BAG 1/2')
+            : (gain ? 'PEEL ×2 · +1 HIT' : 'PEEL 1/2');
+        callout(f, nm, gain ? (it.kind === 'diamond' ? 0x6bf0ff : 0x9fe86a) : 0x8fa88a);
         FX.ring(it.x, it.y + .3, .3, 2.2, 0x9fe86a, .35);
         FX.burst(it.x, it.y + .3, 0, 0x9fe86a, 12, 12);
         SFX.special('wave');
@@ -8272,7 +8283,9 @@ class Fighter {
     /* ★ Vexor·Charge：B 技能命中累计；满 15 → 本场永久 +1 连跳（vexJumpBonus 由跳跃代码叠加，
        不去改 this.s.jumps —— 那份会被 _baseS 还原路径覆盖） */
     this.vexCharge = 0; this.vexJumpBonus = 0; this._vexBWin = 0; this._vexSpTok = 0; this._vexChargedTok = -1; this.vexSpray = null;
-    this.trashHits = 0; this.trashQueue = []; this.trashClap = null; this.trashRush = null;
+    this.trashCount = { banana:0, bag:0, diamond:0 };   // 各类垃圾捡了几个
+    this.trashExtra = { banana:0, bag:0, diamond:0 };   // 每 2 件同类 → +1 段对应连击
+    this.trashHits = 0; this.trashClap = null; this.trashRush = null;
     this.trashGas = null; this.flatXT = 0;
     this.s = { weight:def.weight, walk:def.walk, run:def.run, air:def.air, jump:def.jump, jumps:def.jumps,
       fall:def.fall, fastFall:def.fastFall, accel:def.accel, airAccel:def.airAccel, fric:def.fric, mul:def.mul };
@@ -12600,15 +12613,11 @@ class Fighter {
       SFX.special('heavy');
       FX.ring(this.pos.x + dir * .9, this.pos.y + 1.30, .3, 2.2, cfg.color, .3);
     } else if (cfg.kind === 'trashRush') {              // ★ Trashcan·左右B：冲刺 → 3 + 额外连击
-      const extra = Math.max(0, this.trashHits || 0);
+      const ex = this.trashExtra || {};
       const list = (cfg.hits || []).slice();
-      const q = this.trashQueue || [];
-      for (let i = 0; i < extra; i++) {
-        const ty = q.length ? q[i % q.length] : 'banana';
-        if (ty === 'bag') list.push({ dmg:6.0, bb:5, bg:14, ang:34, heavy:true, gap:.26 });
-        else if (ty === 'diamond') list.push({ dmg:3.2, bb:3, bg:10, ang:24, poison:true, gap:.17 });
-        else list.push({ dmg:2.6, bb:2, bg:7, ang:22, gap:.12 });
-      }
+      for (let i = 0; i < (ex.banana || 0); i++) list.push({ dmg:2.6, bb:2, bg:7, ang:22, gap:.12 });
+      for (let i = 0; i < (ex.bag || 0); i++) list.push({ dmg:6.0, bb:5, bg:14, ang:34, heavy:true, gap:.26 });
+      for (let i = 0; i < (ex.diamond || 0); i++) list.push({ dmg:3.2, bb:3, bg:10, ang:24, poison:true, gap:.17 });
       this.trashRush = { cfg, t:0, dir, n:0, hitT:0, target:null, hits:list };
       this.state = 'special'; this.animT = 0;
       SFX.special('dash');
@@ -15479,7 +15488,10 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
       const bb3 = (f.bobRef && !f.bobRef.destroyed) ? ('🤖 BOB ' + Math.round(_bmx - Math.min(_bmx, Math.max(-50, f.bobRef.dmg || 0))) + '%' + (f.bobRef.over > 0 ? '⚡' : '') + (f.bobRef.move ? ' ' + f.bobRef.move.kind.toUpperCase() : '')) : (f.bobRef && f.bobRef.destroyed ? '🔧 BOB DOWN' : '');  // ★ BOB 耐久 + 当前招式
       const sand2 = f.sandT > 0 ? ('🏜 SAND ' + f.sandT.toFixed(1) + 's') : '';          // ★ 被 Quicksand 沙缚
       const fr2 = f._fsSpdT > 0 ? ((f.fangLeech > 0 ? '🐯 FRENZY ' : '🐢 SLOWED ') + f._fsSpdT.toFixed(1) + 's') : '';  // ★ Fang 大招
-      const tc2 = (f.def.id === 'trash' && (f.trashHits || 0) > 0) ? ('TRASH +' + f.trashHits + ' HIT') : '';  // ★ Trashcan 拾取数
+      const tc2 = (f.def.id === 'trash') ? (() => {   // ★ Trashcan：已兑换段数 + 散件进度（同类凑 2 才 +1）
+        const c = f.trashCount || {}, pend = (c.banana % 2 ? 'P1 ' : '') + (c.bag % 2 ? 'B1 ' : '') + (c.diamond % 2 ? 'D1 ' : '');
+        return 'TRASH +' + (f.trashHits || 0) + ' HIT' + (pend ? ' · ' + pend.trim() : '');
+      })() : '';
       const vx2 = (f.def.id === 'vexor') ? ('CHARGE ' + (f.vexCharge || 0) + (f.vexJumpBonus ? ' · +' + f.vexJumpBonus + ' JUMP' : ' / 15')) : '';  // ★ Vexor 充能（每 15 点 +1 连跳，可无限叠）
       const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2, vx2, tc2].filter(Boolean).join(' ');
       if (p.statTxt !== txt2 || p.statWasOn !== !!txt2) {
