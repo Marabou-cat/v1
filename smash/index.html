@@ -1046,6 +1046,22 @@ const STAGES = [
             {x:16.5,y:2.6,w:11.0,kind:'cloud'}, {x:16.5,y:10.0,w:9.0,kind:'cloud'},
             {x:-16.0,y:6.2,w:10.5,kind:'cloud'}, {x:-16.0,y:13.0,w:9.0,kind:'cloud'},
             {x:0,y:18.4,w:9.0,kind:'cloud'} ] },
+  /* ——— 新地图：矿洞（2026-10-24）———
+     cave:true → 整套矿洞背景（洞壁/洞顶/钟乳石/木支架/矿灯/铁轨 + 矿车驶过），灯光压暗；
+     mines:{cells,...} → 主板面切成 N 块独立地板，每 every 秒随机塌 drop 块，hold 秒后升回来。
+     塌陷期间那一格脚下没有地板（stageFloorY 返回 null）→ 站上去会直接掉下去。 */
+  { id:'mines', name:'Mines', mainW:46, mainD:8.6, mainH:2.0, platD:5.6, platH:.85, wallX:23,
+    fog:0x17120e, cave:true, dark:true,
+    mines:{ cells:10, every:20, hold:20, warn:1.2, drop:3, first:12, cartSpeed:15 },
+    plats:[ {x:-14,y:5.6,w:8}, {x:14,y:5.6,w:8},
+            {x:0,y:11.2,w:9,kind:'island'},
+            {x:-16.5,y:16.2,w:6.5,kind:'island'}, {x:16.5,y:16.2,w:6.5,kind:'island'} ] },
+  { id:'minesXL', name:'Mines XL', mainW:84, mainD:9.6, mainH:2.2, platD:6.2, platH:.9, wallX:42,
+    fog:0x17120e, cave:true, dark:true,
+    mines:{ cells:10, every:20, hold:20, warn:1.2, drop:3, first:12, cartSpeed:19 },
+    plats:[ {x:-30,y:6.0,w:10}, {x:30,y:6.0,w:10}, {x:-10,y:7.4,w:9}, {x:10,y:7.4,w:9},
+            {x:0,y:13.2,w:12,kind:'island'},
+            {x:-33,y:17.0,w:7,kind:'island'}, {x:33,y:17.0,w:7,kind:'island'} ] },
   { id:'desertXL', name:'Desert XL', mainW:84, mainD:10.0, mainH:2.4, platD:6.4, platH:.9, wallX:42,
     fog:0xf0d6a4, sand:true,
     plats:[ {x:-32,y:6.0,w:10,kind:'island'}, {x:32,y:6.0,w:10,kind:'island'},
@@ -1057,10 +1073,50 @@ const STAGES = [
 let curStage = 0;
 const STAGE = Object.assign({}, STAGES[0]);       // 现有代码全部读 STAGE.* → 换图时整体同步即可
 
-/* ★ 某个 x 位置「脚下那层地板」的高度：没有地板（空隙 / 楼外）返回 null。
-   只有带 decks 的地图（Rooftop XL：两栋高低不同的楼）才有多层地板，其它地图恒为 y=0。
-   物理 / 出生点 / Bot 判地 / 贴墙抓取 都读这一个函数，避免各处各写一套。 */
+/* ================= 矿洞地板：10 块独立方块，随机塌陷 / 回升 =================
+   状态机（每块）：up（可站）→ warn（抖动预警，仍可站）→ down（脚下没地板）→ rise（升回，仍不可站）→ up
+   计时与随机的选择全部在 physicsStep 里推进（RND 模拟随机流），两端必然一致；
+   纯视觉（位移/抖动/尘burst）在渲染帧里做，用的是渲染 dt，不影响联机。 */
+const MINES = { t:0, nextAt:0, list:[], n:10, every:20, hold:20, warn:1.2, drop:3, rise:.7, evt:0 };
+function minesReset() {
+  MINES.t = 0; MINES.list = []; MINES.evt = 0;
+  const M = STAGE.mines || {};
+  MINES.n = M.cells || 10;
+  MINES.every = M.every || 20;
+  MINES.hold = M.hold || 20;
+  MINES.warn = M.warn === undefined ? 1.2 : M.warn;
+  MINES.drop = M.drop || 3;
+  MINES.rise = M.rise || .7;
+  MINES.nextAt = M.first === undefined ? 12 : M.first;
+}
+function minesCellAt(x) {
+  if (!STAGE.mines || !MINES.list.length) return null;
+  const W = STAGE.mainW;
+  if (x < -W / 2 || x > W / 2) return null;
+  let i = Math.floor((x + W / 2) / (W / MINES.n));
+  if (i < 0) i = 0; if (i >= MINES.n) i = MINES.n - 1;
+  return MINES.list[i] || null;
+}
+function minesFloorY(x) {
+  const c = minesCellAt(x);
+  if (!c) return null;
+  return (c.state === 'up' || c.state === 'warn') ? 0 : null;    // 塌了 / 正在升 = 站不住
+}
+/* 找一个脚下真有地板的位置（复活点用：矿洞方块随时会塌） */
+function safeGroundX(x) {
+  if (stageFloorY(x) !== null) return x;
+  const lim = Math.max(8, STAGE.mainW / 2);
+  for (let d = .5; d <= lim; d += .5) {
+    if (stageFloorY(x + d) !== null) return x + d;
+    if (stageFloorY(x - d) !== null) return x - d;
+  }
+  return 0;
+}
+/* ★ 某个 x 位置「脚下那层地板」的高度：没有地板（空隙 / 塌陷 / 楼外）返回 null。
+   Rooftop XL 用 decks（两栋高低不同的楼），Mines 用 10 块可塌陷地板，其它地图恒为 y=0。
+   物理 / 出生点 / 复活 / Bot 判地 / 贴墙抓取 / 影子 / 垃圾 都读这一个函数。 */
 function stageFloorY(x) {
+  if (STAGE.mines) return minesFloorY(x);
   if (STAGE.decks) {
     for (const d of STAGE.decks) if (x >= d[0] && x <= d[1]) return d[2];
     return null;
@@ -2345,6 +2401,8 @@ camera.position.set(0, 10, 30);
 const hemi = new THREE.HemisphereLight(0xcfe6ff, 0x3c4a3a, 1.05); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d0, 1.5); sun.position.set(-24, 40, 26); scene.add(sun);
 const fill = new THREE.DirectionalLight(0x88bbff, .45); fill.position.set(20, 14, -18); scene.add(fill);
+/* 换图时要按 STAGE.dark 压暗/复位，所以先记住出厂强度 */
+const LIGHT_BASE = { hemi: hemi.intensity, sun: sun.intensity, fill: fill.intensity };
 
 /* 天空 + 远景（全部程序化，零素材） */
 function buildSky() {
@@ -2421,7 +2479,7 @@ const platGroup = new THREE.Group(); stageGroup.add(platGroup);
 function buildPlats() {
   platGroup.clear(); plats.length = 0;
   const sand = !!STAGE.sand;
-  const topMat = sand ? sandTopMat : grassMat, bodyMat = sand ? sandRockMat : rockMat;
+  const topMat = sand ? sandTopMat : (STAGE.cave ? platMat : grassMat), bodyMat = sand ? sandRockMat : rockMat;
   const platBodyMat = sand ? sandRockMat : platMat;
   /* 主板面：表层 + 岩体 + 下方装饰 */
   const main = new THREE.Group();
@@ -2429,6 +2487,35 @@ const top = new THREE.Mesh(new THREE.BoxGeometry(STAGE.mainW, .7, STAGE.mainD), 
 top.position.y = -.35; main.add(top);
 const dirt = new THREE.Mesh(new THREE.BoxGeometry(STAGE.mainW - 1.4, STAGE.mainH, STAGE.mainD - 1.0), bodyMat);
 dirt.position.y = -.7 - STAGE.mainH/2; main.add(dirt);
+/* ★ 矿洞：主板面换成 N 块独立方块（各自能塌/能升），top/dirt 不再使用 */
+if (STAGE.mines) {
+  top.visible = false; dirt.visible = false;
+  minesReset();
+  const n = MINES.n, W = STAGE.mainW, cw = W / n, D = STAGE.mainD;
+  const stoneTex = texTiles('#5b5148', '#463d35', '#6d6152', 4);
+  const baseMat = new THREE.MeshStandardMaterial({ map:stoneTex, roughness:.97, flatShading:true,
+                                                   transparent:true, opacity:1 });
+  const seamMat = new THREE.MeshStandardMaterial({ color:0x241f19, roughness:1 });
+  const postMat = new THREE.MeshStandardMaterial({ map:texTiles('#6b4a2a', '#54371c', '#7d5a35', 3), roughness:.92, flatShading:true });
+  MINES.list = [];
+  for (let i = 0; i < n; i++) {
+    const cx = -W / 2 + cw * (i + .5);
+    const g = new THREE.Group();
+    const mats = [];
+    const mk = (geo, rx, ry, rz, x, y, z, mt) => {
+      const m = new THREE.Mesh(geo, mt); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0);
+      g.add(m); return m;
+    };
+    const mat = baseMat.clone(); mat.opacity = 1; mats.push(mat);     // 每块独立材质 → 能单独淡出
+    mk(new THREE.BoxGeometry(cw - .04, .62, D), 0, 0, 0, 0, -.31, 0, mat);                 // 地面块
+    mk(new THREE.BoxGeometry(cw - .5, STAGE.mainH, D - .8), 0, 0, 0, 0, -.62 - STAGE.mainH/2, 0, mat);  // 下方岩体
+    mk(new THREE.BoxGeometry(cw - .18, .16, .42), 0, 0, 0, 0, -.06, D / 2 - .26, postMat); // 前沿木挡板
+    if (i < n - 1) mk(new THREE.BoxGeometry(.07, .66, D), 0, 0, 0, cw / 2, -.31, 0, seamMat);  // 分块接缝
+    g.position.set(cx, 0, 0);
+    main.add(g);
+    MINES.list.push({ i, cx, x0:-W/2 + cw*i, x1:-W/2 + cw*(i+1), mesh:g, mats, state:'up', t:0, fx:0 });
+  }
+}
 /* ★ 楼顶地图：往下延伸的方形高楼 + 楼顶杂物（全部用基本几何体）
    Rooftop XL = 两栋高低不同的楼 + 中间一条 4.8 格宽、一直通到底的空隙。
    楼体按 STAGE.decks 拆成各自独立的箱体：缝里两侧是真正的墙面（看得见深度，走过去直接掉），
@@ -2545,7 +2632,7 @@ if (STAGE.roof) {
     }
   } catch (e) { console.warn('roof build', e); }
 }
-for (let i = 0; i < (STAGE.roof ? 0 : 16); i++) {            // 底下的悬空碎石：必须整块低于岩体底面（修穿模）
+for (let i = 0; i < ((STAGE.roof || STAGE.cave) ? 0 : 16); i++) {   // 底下的悬空碎石：必须整块低于岩体底面（修穿模）
   const s = .8 + Math.random()*1.9;
   const r = new THREE.Mesh(new THREE.BoxGeometry(s, s*.8, s), bodyMat);
   const topLimit = -.7 - STAGE.mainH - s*.42;        // 岩体底面之下再留出自身半高
@@ -2557,7 +2644,7 @@ for (let i = 0; i < (STAGE.roof ? 0 : 16); i++) {            // 底下的悬空�
 const platEdge = STAGE.plats.reduce((m, p) => Math.max(m, Math.abs(p.x) + p.w / 2), 0);
 const treeX = Math.max(platEdge + 2.1, STAGE.mainW / 2 - 1.9);
 const treeFit = Math.min(1, (STAGE.mainW / 2 - treeX) / 2.1);      // 树冠最大半径 2.1
-for (const sx of (!sand && treeFit > .45 ? [treeX, -treeX] : [])) {
+for (const sx of (!sand && !STAGE.cave && treeFit > .45 ? [treeX, -treeX] : [])) {
   const t = new THREE.Group();
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.42,.55,2.6,6), bodyMat);
   trunk.position.y = 1.3; t.add(trunk);
@@ -2611,7 +2698,7 @@ for (const p of STAGE.plats) {
   const cg = new THREE.SphereGeometry(1, 8, 6);
   const cm2 = new THREE.MeshStandardMaterial({ color: sand ? 0xfff3da : 0xffffff, roughness:1,
     flatShading:true, transparent:true, opacity:.88 });
-  const n = 4 + Math.round(STAGE.mainW / 24);
+  const n = (!STAGE.cave && !STAGE.roof) ? 4 + Math.round(STAGE.mainW / 24) : 0;
   for (let i = 0; i < n; i++) {
     const c = new THREE.Group();
     const k = 3 + (i % 3);
@@ -2690,6 +2777,14 @@ function setStage(si) {
   CFG.blast.top = Math.round(26 + STAGE.mainW * .11);
   CFG.blast.bottom = -18;
   if (scene.fog) scene.fog.color.setHex(STAGE.fog || 0x9fc6ff);   // 沙漠换成暖色雾（换图时必须复位）
+  /* ★ 暗图（矿洞）：把天空光/太阳压暗，靠洞里的矿灯（点光）提供局部暖光。
+     必须每次都按 STAGE.dark 复位，否则从矿洞换回草原会一直是黑的。 */
+  try {
+    const _dk = !!STAGE.dark;
+    hemi.intensity = LIGHT_BASE.hemi * (_dk ? .52 : 1);
+    sun.intensity  = LIGHT_BASE.sun  * (_dk ? .10 : 1);
+    fill.intensity = LIGHT_BASE.fill * (_dk ? .45 : 1);
+  } catch (e) {}
   clearField();                                       // 换图顺手清掉上一局残留的岩浆柱/奶滩/弹幕
   buildPlats();
 }
@@ -2919,9 +3014,155 @@ function decoRoof(G) {
   });
   if (pebs.length) G.add(_inst(new THREE.DodecahedronGeometry(1, 0), concM, pebs));
 }
+/* —— 矿洞装饰：洞壁 / 洞顶 / 钟乳石 / 木支架 / 矿灯 / 铁轨 / 矿脉 ——
+   背景是一间「洞窟」：后壁 + 洞顶 + 脚下岩层把天空全挡住（否则远景的雪山/云会从洞里露出来）。 */
+function decoMines(G) {
+  const W = STAGE.mainW, wallX = STAGE.wallX, D = STAGE.mainD;
+  const rock  = _dm(0x4b4238, .97), rockD = _dm(0x2f2a24, .98), rockL = _dm(0x5d5347, .95);
+  const wood  = _dm(0x6b4a2a, .92), woodD = _dm(0x4a3219, .94);
+  const steel = _dm(0x565660, .55, { metalness:.55 });
+  const lampM = new THREE.MeshStandardMaterial({ color:0xffd9a0, emissive:0xffb45a, emissiveIntensity:1.7, roughness:.5 });
+  const oreA  = new THREE.MeshStandardMaterial({ color:0x6be3ff, emissive:0x1fa8c8, emissiveIntensity:1.2, roughness:.6 });
+  const oreB  = new THREE.MeshStandardMaterial({ color:0xffc06a, emissive:0xd9721a, emissiveIntensity:1.1, roughness:.6 });
+  const wide = wallX * 4 + 90;
+  /* 后壁 / 洞顶 / 脚下岩层：把场景包起来 */
+  const back = new THREE.Mesh(new THREE.BoxGeometry(wide, 130, 6), rock);
+  back.position.set(0, 24, -27); G.add(back);
+  const ceil = new THREE.Mesh(new THREE.BoxGeometry(wide, 6, 52), rockD);
+  ceil.position.set(0, 31, -6); G.add(ceil);
+  const below = new THREE.Mesh(new THREE.BoxGeometry(wide, 76, 52), rockD);
+  below.position.set(0, -60, -8); G.add(below);
+  /* 洞壁上的凹凸岩块（远近两层，制造视差）+ 矿脉（发光小晶体） */
+  const bumps = [], oresA = [], oresB = [];
+  for (let i = 0; i < 46; i++) {
+    const zz = -25 + (i % 2) * 7;
+    bumps.push({ x:(Math.random() - .5) * wide, y:2 + Math.random() * 26, z:zz + Math.random() * 2,
+                 s:.9 + Math.random() * 2.6, rx:Math.random() * 3, ry:Math.random() * 3, rz:Math.random() * 3 });
+  }
+  for (let i = 0; i < 22; i++) {
+    const t2 = { x:(Math.random() - .5) * wide, y:1 + Math.random() * 20, z:-24.6, s:.16 + Math.random() * .22,
+                 rx:Math.random() * 3, ry:Math.random() * 3 };
+    (i % 2 ? oresA : oresB).push(t2);
+  }
+  G.add(_inst(new THREE.DodecahedronGeometry(1, 0), rockL, bumps));
+  G.add(_inst(new THREE.OctahedronGeometry(1, 0), oreA, oresA));
+  G.add(_inst(new THREE.OctahedronGeometry(1, 0), oreB, oresB));
+  /* 洞顶钟乳石 */
+  const stal = [];
+  for (let i = 0; i < 26; i++) {
+    const w2 = 1.1 + Math.random() * 2.4;
+    stal.push({ x:(Math.random() - .5) * (wallX * 2 + 26), y:28 - w2 * .7, z:-16 + Math.random() * 12,
+                s:w2, sy:.9 + Math.random() * 2.4, rx:Math.PI });
+  }
+  G.add(_inst(new THREE.ConeGeometry(1, 1, 6), rock, stal));
+  /* 木质坑道支架（两排柱子 + 横梁），在平台后方 */
+  for (let i = -3; i <= 3; i++) {
+    const x = i * (W / 7 + 1.2), z = -9.5;
+    if (Math.abs(x) > wallX + 6) continue;
+    for (const s2 of [-1, 1]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(.55, 12.5, .55), wood);
+      post.position.set(x + s2 * 2.5, 6.2, z); G.add(post);
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(6.2, .6, .7), woodD);
+    lintel.position.set(x, 12.2, z); G.add(lintel);
+  }
+  /* 后方的岩石台地 + 铁轨：矿车在台地上驶过（台地比平台高 1 格，才能看见整台矿车） */
+  const railZ = -4.95, railLen = (wallX + 22) * 2, railY = 1.0;   // 轨面正好在台地前沿 → 矿车不被台地挡住
+  const ledge = new THREE.Mesh(new THREE.BoxGeometry(railLen + 20, 9, 3.6), rock);
+  ledge.position.set(0, railY - 4.5, railZ); G.add(ledge);
+  /* 台地前沿加一条木包边：把「后方高出来的运矿轨」从暗背景里分出来 */
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(railLen + 20, .34, .5), wood);
+  cap.position.set(0, railY - .12, railZ + 1.75); G.add(cap);
+  for (const s2 of [-1, 1]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(railLen, .12, .14), steel);
+    rail.position.set(0, railY + .06, railZ + s2 * .62); G.add(rail);
+  }
+  const ties = [];
+  for (let i = 0; i < Math.round(railLen / 1.7); i++) {
+    ties.push({ x:-railLen / 2 + i * 1.7, y:railY - .02, z:railZ });
+  }
+  G.add(_inst(new THREE.BoxGeometry(.34, .14, 1.7), woodD, ties));
+  /* 矿灯：吊在洞顶的铁链 + 暖色灯罩（同时点一盏真光，让角色在暗洞里不糊成一片） */
+  for (let i = -2; i <= 2; i++) {
+    const lx = i * (W / 5.5 + 1.4);
+    if (Math.abs(lx) > wallX + 4) continue;
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(.035, .035, 9, 5), steel);
+    chain.position.set(lx, 24.5, -7.5); G.add(chain);
+    const shade = new THREE.Mesh(new THREE.ConeGeometry(.55, .6, 8), steel);
+    shade.position.set(lx, 19.8, -7.5); G.add(shade);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(.26, 10, 8), lampM);
+    bulb.position.set(lx, 19.4, -7.5); G.add(bulb);
+  }
+  const warm = new THREE.PointLight(0xffb469, 1.15, 46, 1.6);
+  warm.position.set(0, 8.5, 5.5); G.add(warm);
+  const warm2 = new THREE.PointLight(0xff9a4a, .55, 34, 1.7);
+  warm2.position.set(0, 3.0, -6); G.add(warm2);
+  /* 平台下方的支撑柱（看起来是站在坑道木架上） */
+  for (let i = -2; i <= 2; i++) {
+    const px2 = i * (W / 5 + 1.0);
+    if (Math.abs(px2) > wallX - 1) continue;
+    const pil = new THREE.Mesh(new THREE.BoxGeometry(.7, 6.5, .7), woodD);
+    pil.position.set(px2, -3.6, -1.8); G.add(pil);
+  }
+}
+
+/* ================= 矿洞：时不时驶过的矿车（纯视觉，z<0 在平台后方，不参与判定） ================= */
+let mineCart = null, mineCartWait = 5, mineCartDir = 1, mineCartX = 0, mineCartWheels = [];
+const CART_Y = 1.02, CART_Z = -4.95;   // 矿车在台地前沿的铁轨上（比平台高 1 格 → 整台看得见）
+let mineCartTicks = 0, mineCartErr = '';
+function mineCartBuild() {
+  const g = new THREE.Group();
+  const metal = new THREE.MeshStandardMaterial({ color:0x6a6259, roughness:.55, metalness:.62 });
+  const dark  = new THREE.MeshStandardMaterial({ color:0x2b2622, roughness:.85 });
+  const ore   = new THREE.MeshStandardMaterial({ color:0xd8a24a, emissive:0x8a4b12, emissiveIntensity:.7, roughness:.7, flatShading:true });
+  const lamp  = new THREE.MeshStandardMaterial({ color:0xffe6b0, emissive:0xffb45a, emissiveIntensity:1.8, roughness:.5 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.9, 1.15, 1.75), metal); body.position.y = .95; g.add(body);
+  const inner = new THREE.Mesh(new THREE.BoxGeometry(2.5, .5, 1.35), dark); inner.position.y = 1.45; g.add(inner);
+  for (let i = 0; i < 5; i++) {
+    const o2 = new THREE.Mesh(new THREE.IcosahedronGeometry(.26 + (i % 2) * .1, 0), ore);
+    o2.position.set(-.9 + i * .45, 1.55 + (i % 3) * .12, (i % 2 ? .3 : -.3)); g.add(o2);
+  }
+  for (const [wx, wz2] of [[-1, .82], [1, .82], [-1, -.82], [1, -.82]]) {
+    const w2 = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, .16, 10), dark);
+    w2.rotation.x = Math.PI / 2; w2.position.set(wx, .32, wz2); g.add(w2);
+    mineCartWheels.push(w2);
+  }
+  const l2 = new THREE.Mesh(new THREE.SphereGeometry(.16, 8, 6), lamp);
+  l2.position.set(1.55, 1.35, 0); g.add(l2);
+  g.visible = false;
+  g.scale.setScalar(1.18);
+  scene.add(g);
+  mineCart = g;
+}
+function mineCartTick(dt) {
+  mineCartTicks++;
+  if (!STAGE.cave) { if (mineCart) mineCart.visible = false; return; }
+  if (!mineCart) mineCartBuild();
+  const M = STAGE.mines || {};
+  const spd = M.cartSpeed || 15, span = STAGE.wallX + 24;
+  if (mineCartWait > 0) {
+    mineCartWait -= dt;
+    if (mineCartWait > 0) return;
+    mineCartDir = Math.random() < .5 ? 1 : -1;
+    mineCartX = -mineCartDir * span;
+    mineCart.visible = true;
+    mineCart.position.set(mineCartX, CART_Y, CART_Z);
+    mineCart.rotation.y = mineCartDir > 0 ? 0 : Math.PI;
+  }
+  mineCartX += mineCartDir * spd * dt;
+  mineCart.position.x = mineCartX;
+  mineCart.position.y = CART_Y + Math.sin(mineCartX * 1.7) * .035;   // 轨道颠簸
+  for (const w2 of mineCartWheels) w2.rotation.y += dt * spd * 2.6;
+  if (Math.abs(mineCartX) > span + 2) {
+    mineCart.visible = false;
+    mineCartWait = 5 + Math.random() * 8;
+  }
+}
+
 const DECO_BY_ID = { meadow:decoMeadow, meadowXL:decoMeadow, pillars:decoPillars, pillarsXL:decoPillars,
                      arena:decoSky, arenaXL:decoSky, desert:decoDesert, desertXL:decoDesert,
-                     rooftop:decoRoof, rooftopXL:decoRoof };
+                     rooftop:decoRoof, rooftopXL:decoRoof,
+                     mines:decoMines, minesXL:decoMines };
 buildPlats();                                  // 现在 DECOS 已就绪，首张地图带装饰
 
 /* ================= 确定性随机（联机锁定步的必要条件）=================
@@ -2964,6 +3205,11 @@ function simHash() {
   /* ★ 2026-10-23：场上垃圾也参与指纹 —— 它决定 Trashcan 的额外连击伤害，
      以前不在指纹里，两端拾取不同只能靠「伤害数字」迟到暴露。 */
   mix(trashSpawnT);
+  /* ★ 矿洞地板也要进指纹：塌陷计时 + 每块的状态（它会决定谁能站住 → 影响对局） */
+  if (STAGE.mines) {
+    mix(MINES.t); mix(MINES.nextAt); mix(MINES.evt);
+    for (const c of MINES.list) mix(c.state === 'up' ? 1 : c.state === 'warn' ? 2 : c.state === 'down' ? 3 : 4);
+  }
   /* ★ 宝石争夺战的状态也要进指纹：宝石位置/剩余生成时间/倒计时/每人身上的宝石数 */
   mix(GEM.spawnT); mix(GEM.cdT); mix(GEM.cdTeam + 1); mix(GEM.list.length);
   for (const g of GEM.list) { mix(g.x); mix(g.t); }
@@ -2973,6 +3219,56 @@ function simHash() {
   for (const vx of vortexes) { mix(vx.x); mix(vx.t); mix(vx.phase === 'open' ? 1 : 0); } // 黑洞同理（它会拖人）
   if (drones.length) for (const dr of drones) { mix(dr.x); mix(dr.y); mix(dr.t); mix(dr.turret ? 1 : 0); }
   return h >>> 0;
+}
+
+/* ---- 矿洞地板塌陷：模拟层（固定步，纯确定性） ---- */
+function minesTick(s) {
+  if (!STAGE.mines || !MINES.list.length) return;
+  MINES.t += s;
+  if (MINES.t >= MINES.nextAt) {
+    MINES.nextAt = MINES.t + MINES.every;
+    /* 只从「还站着」的方块里挑（用模拟随机流 RND → 两台机器必然抽到同样的 3 块） */
+    const up = MINES.list.filter(c => c.state === 'up');
+    for (let k = 0; k < MINES.drop && up.length; k++) {
+      const j = (RND() * up.length) | 0;
+      const c = up.splice(j, 1)[0];
+      c.state = 'warn'; c.t = 0;
+    }
+    MINES.evt++;
+    try { SFX.special('heavy'); } catch (e) {}
+    try { shake = Math.max(shake, .30); } catch (e) {}
+    try { banner('FLOOR COLLAPSE!'); } catch (e) {}
+  }
+  for (const c of MINES.list) {
+    c.t += s;
+    if (c.state === 'warn' && c.t >= MINES.warn) { c.state = 'down'; c.t = 0; c.fx = 1; }
+    else if (c.state === 'down' && c.t >= MINES.hold) { c.state = 'rise'; c.t = 0; }
+    else if (c.state === 'rise' && c.t >= MINES.rise) { c.state = 'up'; c.t = 0; }
+  }
+}
+/* ---- 矿洞地板：纯视觉（渲染帧，抖/落下/升回/尘） ---- */
+function minesVisualTick(dt) {
+  if (!STAGE.mines || !MINES.list.length) return;
+  for (const c of MINES.list) {
+    const g = c.mesh; if (!g) continue;
+    let y = 0, op = 1, tilt = 0;
+    if (c.state === 'warn') { y = Math.sin(c.t * 42) * .045; tilt = Math.sin(c.t * 30) * .012; }
+    else if (c.state === 'down') {
+      const p = Math.min(1, c.t / .55);
+      y = -9.2 * p * p; op = 1 - .82 * p;
+      if (c.fx) {                         // 第一次塌：碎屑 + 震屏
+        c.fx = 0;
+        try { FX.dust(c.cx, .1, 10); FX.ring(c.cx, .1, .3, 3.4, 0x6b5b45, .45); } catch (e) {}
+      }
+    } else if (c.state === 'rise') {
+      const p = Math.min(1, c.t / MINES.rise);
+      y = -9.2 * (1 - p) * (1 - p); op = .18 + .82 * p;
+      if (p > .96 && !c.fx) { c.fx = 1; try { FX.dust(c.cx, .1, 6); } catch (e) {} }
+    }
+    g.position.y = y;
+    g.rotation.z = tilt;
+    if (c.mats) for (const m of c.mats) m.opacity = op;
+  }
 }
 
 /* ================= 特效系统 ================= */
@@ -10601,7 +10897,8 @@ class Fighter {
     /* ★ 有空隙的图（Rooftop XL）：正中间就是两栋楼之间的缝，在 x=0 复活会一出生就掉下去
        → 改回自己出生那栋楼的正上方 */
     if (stageFloorY(sx) === null) {
-      sx = (typeof this.spawnX === 'number' && stageFloorY(this.spawnX) !== null) ? this.spawnX : (sx < 0 ? -9 : 9);
+      const own = (typeof this.spawnX === 'number' && stageFloorY(this.spawnX) !== null) ? this.spawnX : sx;
+      sx = safeGroundX(own);                       // 矿洞里地板随时塌 → 找最近一块还在的
     }
     const _fy = stageFloorY(sx), _sy = _fy === null ? 0 : _fy;
     this.damage = 0; this.vel.set(0,0,0); this.pos.set(sx, _sy + 21.5, 0);
@@ -16379,11 +16676,10 @@ class Fighter {
     // 场地碰撞（顶面单向 + 主板面侧向阻挡）
     this.grounded = false; this.onSoft = false;
     if (this.vel.y <= 0 && this.pos.y <= 0 && py >= -.05) {
-      // 主板面（★ Roof XL：两栋楼中间的空隙不承接，直接掉下去）
-      const _inGap = !!(STAGE.gaps && STAGE.gaps.some(g => this.pos.x > g[0] && this.pos.x < g[1]));
-      /* Roof XL：主板面只剩「左边那栋楼」，空隙右侧交给低 7 格的右楼平台 */
-      const _onLeft = STAGE.roofXL ? (this.pos.x < (STAGE.gaps ? STAGE.gaps[0][0] : 1e9)) : true;
-      if (Math.abs(this.pos.x) <= STAGE.wallX + .2 && _onLeft && !_inGap) {
+      /* 主板面：脚下这层地板真的存在（y=0）才接住
+         —— Roof XL 的空隙、Mines 塌掉的方块都靠 stageFloorY 返回 null 来表示「这里没地板」 */
+      const _sx = Math.max(-STAGE.wallX, Math.min(STAGE.wallX, this.pos.x));
+      if (stageFloorY(_sx) === 0) {
         this.pos.y = 0; this.vel.y = 0; this.grounded = true;
       }
     }
@@ -18055,7 +18351,7 @@ class Bot {
     /* ★ 楼下有空隙的地图（Rooftop XL）：脚下前方就是两栋楼之间的缝
        —— 对面不比这边高太多（跳得上去）就跳过去，高太多就掉头走开。
        ⚠ 探测距离要 ≥ 全速跑 0.2 秒的距离（~3.4 格），否则「站住」还没来得及减速就已经滑进缝里了。 */
-    if (STAGE.gaps && f.grounded && inp.x) {
+    if (f.grounded && inp.x) {
       const dir = Math.sign(inp.x), aheadX = f.pos.x + dir * 3.4;
       if (stageFloorY(aheadX) === null) {
         const hereY = stageFloorY(f.pos.x), farY = stageFloorY(aheadX + dir * 1.6);
@@ -19788,6 +20084,8 @@ function frame(now) {
   UI.flash.style.opacity = flash * .7;
   FX.update(dt);
   updateVexFx(dt);
+  try { minesVisualTick(dt); } catch (e) {}
+  try { mineCartTick(dt); } catch (e) { mineCartErr = String((e && e.message) || e); }
   /* updateTrash 已移入 physicsStep（固定步）——绝不能用渲染帧的 dt 推进模拟状态 */
   /* ★ 3D 大厅：菜单里用大厅场景替代战斗画面（同一个 renderer，不额外开 WebGL 上下文） */
   if (match.state === 'menu') {
@@ -19952,6 +20250,7 @@ function physicsStep(s) {
   updateStrikes(s);
   updatePuddles(s);
   updateGems(s);                                     // ★ 宝石争夺战：矿井/宝石/倒计时（固定步 + 参与指纹）
+  minesTick(s);                                      // ★ 矿洞：每 20 秒随机塌 3 块地板（固定步 + RND + 参与指纹）
   updateTrash(s);                                    // ★ 2026-10-23 修「联机时不时重开」的根因之一：
                                                      //   垃圾桶的垃圾生成/拾取以前挂在渲染循环里，用**真实 dt** 计时
                                                      //   并调用 RND() → 两台机器消耗随机数的帧号不同 → _rngS 错开
@@ -23108,7 +23407,19 @@ window.SB = {
   get stages() { return STAGES; },
   get plats() { return plats; },
   get stageIdx() { return curStage; },
-  floorAt: (x) => stageFloorY(x),                   // ★ 探针：该 x 位置脚下地板高度（空隙 = null）
+  floorAt: (x) => stageFloorY(x),                   // ★ 探针：该 x 位置脚下地板高度（空隙/塌陷 = null）
+  get mines() { return { t:+MINES.t.toFixed(2), nextAt:+MINES.nextAt.toFixed(2), evt:MINES.evt,
+                         cells:MINES.list.map(c => ({ i:c.i, s:c.state, cx:+c.cx.toFixed(1) })) }; },
+  minecart: () => (mineCart ? { on:!!mineCart.visible, x:+mineCartX.toFixed(1), wait:+mineCartWait.toFixed(2),
+                                dir:mineCartDir, ticks:mineCartTicks, err:mineCartErr } : { cart:null, ticks:mineCartTicks, err:mineCartErr }),
+  cartAt: (x) => {                                  // 探针：把矿车停到 x（截图/排查用）
+    if (!STAGE.cave) return null;
+    if (!mineCart) mineCartBuild();
+    mineCartX = x; mineCartWait = 1e9; mineCart.visible = true;
+    mineCart.position.set(x, CART_Y, CART_Z);
+    return { on:!!mineCart.visible, x:+mineCartX.toFixed(1) };
+  },
+  cartGo: () => { mineCartWait = 0; return true; },
   get fighters() { return FIGHTERS; },
   get projectiles() { return projectiles; },
   get puddles() { return puddles; },
