@@ -627,6 +627,17 @@ document.addEventListener('DOMContentLoaded', function () {
      动画的关键帧带 transform，会把我这里的 translate(-50%,-100%) 覆盖成 none/translateY(16px)（实测弹层从
      「脚上方」掉到「脚下方」并且不居中）。这两个元件必须关掉那条入场动画。 */
   #skillPop,#pvTools{animation:none!important}
+  /* ★ 武器按钮：和 SKIN 同一排、同一尺寸，但用青色区分（武器/皮肤现在是两个面板） */
+  #wepBtn{position:relative;height:34px;padding:0 12px;border-radius:999px;display:flex;align-items:center;gap:5px;
+    font:900 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.9px;cursor:pointer;color:#dff6ff;
+    background:rgba(9,12,28,.86);backdrop-filter:blur(6px);border:2px solid rgba(140,231,255,.55);
+    transition:transform .12s,border-color .2s,box-shadow .2s}
+  #wepBtn:active{transform:scale(.93)}
+  #wepBtn .ico{width:14px;height:14px;margin:0}
+  #wepBtn.on{border-color:#8ce7ff;box-shadow:0 0 0 2px rgba(140,231,255,.25)}
+  #wepBtn .newdot{position:absolute;right:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:#8ce7ff;
+    box-shadow:0 0 0 2px rgba(9,12,28,.95);display:none}
+  #wepBtn.hasnew .newdot{display:block;animation:tkpulse 1.6s infinite}
   /* ★ Cardboard 大招：全场冻结时的点选准星层 */
   #cbAim{position:fixed;inset:0;z-index:36;display:none;cursor:crosshair;
     background:radial-gradient(circle at 50% 45%,rgba(120,180,255,.05),rgba(6,10,20,.46))}
@@ -704,7 +715,7 @@ document.addEventListener('DOMContentLoaded', function () {
   @media (max-width:720px){
     .previewWrap{max-width:none;height:clamp(238px,36vh,340px)}
     #pvTools{gap:7px}
-    #skillBtn,#skinBtn{height:31px;padding:0 10px;font-size:10px;letter-spacing:.6px}
+    #skillBtn,#skinBtn,#wepBtn{height:31px;padding:0 10px;font-size:10px;letter-spacing:.6px}
     #skillPop{max-height:46vh}
   }
 </style>
@@ -823,7 +834,8 @@ document.addEventListener('DOMContentLoaded', function () {
        所以它们永远贴在人物**下面**（不再压在球/脚上），换分辨率、竖屏都不会跑位。 -->
   <div id="pvTools">
     <button id="skillBtn" title="Skills / abilities" aria-label="Skills" type="button"><svg class="ico"><use href="#i-help"/></svg><span class="lbl">SKILLS</span></button>
-    <button id="skinBtn" title="Skins &amp; weapons" aria-label="Skins" type="button"><svg class="ico"><use href="#i-shirt"/></svg><span id="skinLbl">SKIN</span><i class="newdot"></i></button>
+    <button id="skinBtn" title="Skins" aria-label="Skins" type="button"><svg class="ico"><use href="#i-shirt"/></svg><span id="skinLbl">SKIN</span><i class="newdot"></i></button>
+    <button id="wepBtn" title="Weapons" aria-label="Weapons" type="button"><svg class="ico"><use href="#i-gear"/></svg><span id="wepLbl">WEAPONS</span><i class="newdot"></i></button>
   </div>
   <div id="skillPop"></div>
   <div id="lobbyBar">
@@ -20087,7 +20099,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net98',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net99',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -21822,26 +21834,14 @@ function skinPaint() {
       + '<small>' + (has ? (on ? 'EQUIPPED' : 'tap to equip') : 'locked · summon to unlock') + '</small></span><span>'
       + (has ? (on ? '✓' : 'EQUIP') : 'LOCKED') + '</span></div>');
   }
-  const myType = charWType(cid);
-  const typeNote = '<div class="row" style="cursor:default"><span>Weapon type<small>only same-type weapons can be equipped</small></span>'
-                 + '<b style="color:#9fe8ff">' + WTYPE_NAME[myType] + ' · ' + WTYPE_ZH[myType] + '</b></div>';
-  rows.push(typeNote);
-  for (const w of SUMMON_WEAPONS) {
-    if (w.char !== cid) continue;
-    const has = ACC.hasWeapon(w.id), on = ACC.weaponOf(cid) === w.id;
-    const same = w.wt === myType;
-    const bonusTxt = [];
-    if (w.bonus && w.bonus.ls) bonusTxt.push('+' + w.bonus.ls + '% lifesteal');
-    if (w.bonus && w.bonus.dmg) bonusTxt.push('+' + w.bonus.dmg + '% damage');
-    if (w.bonus && w.bonus.kb) bonusTxt.push('+' + w.bonus.kb + '% knockback');
-    rows.push('<div class="row' + (on ? ' on' : '') + '" data-weapon="' + w.id + '" style="' + (same ? '' : 'opacity:.45') + '">'
-      + '<span>' + w.name + '<small>' + WTYPE_NAME[w.wt] + ' · ' + WTYPE_ZH[w.wt] + ' · '
-      + (has ? (on ? 'EQUIPPED' : (same ? 'tap to equip' : 'TYPE MISMATCH — cannot equip')) : 'locked · summon to unlock')
-      + (bonusTxt.length ? ' · ' + bonusTxt.join(' / ') : '') + '</small></span><span>'
-      + (has ? (on ? '✓' : (same ? 'EQUIP' : '✕')) : 'LOCKED') + '</span></div>');
-  }
+  /* ★ 武器已经拆到独立的 WEAPONS 面板：这里只留一个入口 */
+  const _wOwn = SUMMON_WEAPONS.filter(w => w.char === cid && ACC.hasWeapon(w.id)).length;
+  const _wOn = SUMMON_WEAPONS.find(w => w.char === cid && ACC.weaponOf(cid) === w.id);
+  rows.push('<div class="row" data-wepgate="1" style="cursor:pointer"><span>Weapons<small>'
+    + (_wOn ? ('equipped · ' + _wOn.name) : 'melee / bow / catalyst · separate panel')
+    + '</small></span><span style="color:#8ce7ff">' + _wOwn + ' owned · OPEN →</span></div>');
   if (rows.length <= 1) rows.push('<div class="sxsub" style="padding:8px 2px">No skins or weapons for this fighter yet — every look comes from SUMMON.</div>');
-  el.innerHTML = '<div class="box"><button class="close">✕</button><h3>Skins &amp; Weapons</h3>'
+  el.innerHTML = '<div class="box"><button class="close">✕</button><h3>Skins</h3>'
     + '<div class="sxsub">' + ((CHARS[settings.playerChar] || {}).name || '') + ' · pick a look — it applies immediately</div>'
     + rows.join('')
     + '<button class="prim" id="skinSummon" style="background:linear-gradient(180deg,#b98cff,#7d4bd6);color:#fff">SUMMON FOR NEW LOOKS · ' + SUMMON_COST + ' GEMS (have ' + ACC.gems + ')</button>'
@@ -21856,13 +21856,59 @@ function skinPaint() {
     skinPaint(); refreshPlayerModel();
     toast(sid ? 'Skin equipped' : 'Default look restored');
   });
+  el.querySelectorAll('.row[data-wepgate]').forEach(r => r.onclick = () => { el.classList.add('hidden'); weaponOpen(); });
+}
+/* —— 武器面板（独立于皮肤）—— */
+function weaponOpen() {
+  let el = document.getElementById('weaponSheet');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'weaponSheet'; el.className = 'sSheet hidden';
+    document.body.appendChild(el);
+    el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
+  }
+  el.classList.remove('hidden');
+  weaponPaint();
+}
+function weaponPaint() {
+  const el = document.getElementById('weaponSheet'); if (!el) return;
+  const cid = (CHARS[settings.playerChar] || {}).id;
+  const myType = charWType(cid);
+  const rows = [];
+  rows.push('<div class="row" style="cursor:default"><span>Weapon type<small>only same-type weapons can be equipped</small></span>'
+    + '<b style="color:#9fe8ff">' + WTYPE_NAME[myType] + ' · ' + WTYPE_ZH[myType] + '</b></div>');
+  /* 排序：已装备 → 已拥有 → 未拥有；同类型优先 */
+  const list = SUMMON_WEAPONS.filter(w => w.char === cid)
+    .map(w => ({ w, on: ACC.weaponOf(cid) === w.id, has: ACC.hasWeapon(w.id), same: w.wt === myType }))
+    .sort((a, b) => (b.on - a.on) || (b.has - a.has) || (b.same - a.same));
+  if (!list.length) rows.push('<div class="sxsub" style="padding:8px 2px">This fighter has no weapon yet — weapons are 70% of SUMMON pulls.</div>');
+  for (const it of list) {
+    const w = it.w, bt = [];
+    if (w.bonus && w.bonus.ls) bt.push('+' + w.bonus.ls + '% lifesteal');
+    if (w.bonus && w.bonus.dmg) bt.push('+' + w.bonus.dmg + '% damage');
+    if (w.bonus && w.bonus.kb) bt.push('+' + w.bonus.kb + '% knockback');
+    rows.push('<div class="row' + (it.on ? ' on' : '') + '" data-weapon="' + w.id + '" style="' + (it.same ? '' : 'opacity:.45') + '">'
+      + '<span>' + w.name + '<small>' + WTYPE_NAME[w.wt] + ' · ' + WTYPE_ZH[w.wt] + ' · '
+      + (it.has ? (it.on ? 'EQUIPPED' : (it.same ? 'tap to equip' : 'TYPE MISMATCH — cannot equip')) : 'locked · summon to unlock')
+      + (bt.length ? ' · ' + bt.join(' / ') : '') + '</small></span><span>'
+      + (it.has ? (it.on ? '✓' : (it.same ? 'EQUIP' : '✕')) : 'LOCKED') + '</span></div>');
+  }
+  el.innerHTML = '<div class="box"><button class="close">✕</button><h3>Weapons</h3>'
+    + '<div class="sxsub">' + ((CHARS[settings.playerChar] || {}).name || '') + ' · ' + WTYPE_ZH[myType]
+    + ' · a small passive bonus while equipped</div>'
+    + rows.join('')
+    + '<button class="prim" id="wepSummon" style="background:linear-gradient(180deg,#b98cff,#7d4bd6);color:#fff">SUMMON FOR WEAPONS · ' + SUMMON_COST + ' GEMS (have ' + ACC.gems + ')</button>'
+    + '<button class="prim" id="wepBack" style="background:rgba(255,255,255,.10);color:#fff">← SKINS</button>'
+    + '</div>';
+  el.querySelector('.close').onclick = () => el.classList.add('hidden');
+  const sb = el.querySelector('#wepSummon'); if (sb) sb.onclick = () => { el.classList.add('hidden'); summonOpen(); };
+  const bb = el.querySelector('#wepBack'); if (bb) bb.onclick = () => { el.classList.add('hidden'); skinOpen(); };
   el.querySelectorAll('.row[data-weapon]').forEach(r => r.onclick = () => {
     const wid = r.dataset.weapon;
     if (!ACC.hasWeapon(wid)) { toast('Locked — summon to unlock this weapon'); return; }
     const _w = SUMMON_WEAPONS.find(x => x.id === wid);
-    if (_w && _w.wt !== charWType(cid)) { toast(WTYPE_ZH[_w.wt] + ' weapon cannot be equipped by a ' + WTYPE_ZH[charWType(cid)] + ' fighter'); return; }
+    if (_w && _w.wt !== myType) { toast(WTYPE_ZH[_w.wt] + ' weapon cannot be equipped by a ' + WTYPE_ZH[myType] + ' fighter'); return; }
     ACC.equipWeapon(cid, ACC.weaponOf(cid) === wid ? '' : wid);
-    skinPaint(); refreshPlayerModel();
+    weaponPaint(); refreshPlayerModel();
     toast(ACC.weaponOf(cid) === wid ? 'Weapon equipped' : 'Weapon unequipped');
   });
 }
@@ -21881,18 +21927,32 @@ function paintSkinBtn() {
   if (!b) return;
   const cid = (CHARS[settings.playerChar] || {}).id;
   if (!cid) return;
-  const own = SUMMON_SKINS.filter(s => s.char === cid && ACC.hasSkin(s.id)).length
-            + SUMMON_WEAPONS.filter(w => w.char === cid && ACC.hasWeapon(w.id)).length;
+  const own = SUMMON_SKINS.filter(s => s.char === cid && ACC.hasSkin(s.id)).length;
   const lbl = document.getElementById('skinLbl');
   if (lbl) lbl.textContent = own ? ('SKIN ·' + own) : 'SKIN';
-  b.classList.toggle('on', !!ACC.skinOf(cid) || !!ACC.weaponOf(cid));
-  const un = SUMMON_SKINS.some(s => s.char === cid && ACC.hasSkin(s.id) && ACC.skinOf(cid) !== s.id)
-          || SUMMON_WEAPONS.some(w => w.char === cid && ACC.hasWeapon(w.id) && ACC.weaponOf(cid) !== w.id);
+  b.classList.toggle('on', !!ACC.skinOf(cid));
+  const un = SUMMON_SKINS.some(s => s.char === cid && ACC.hasSkin(s.id) && ACC.skinOf(cid) !== s.id);
+  b.classList.toggle('hasnew', un);
+  paintWepBtn();
+}
+/* WEAPONS 按钮的读数（和 SKIN 分开统计） */
+function paintWepBtn() {
+  const b = document.getElementById('wepBtn');
+  if (!b) return;
+  const cid = (CHARS[settings.playerChar] || {}).id;
+  if (!cid) return;
+  const own = SUMMON_WEAPONS.filter(w => w.char === cid && ACC.hasWeapon(w.id)).length;
+  const lbl = document.getElementById('wepLbl');
+  if (lbl) lbl.textContent = own ? ('WEAPONS ·' + own) : 'WEAPONS';
+  b.classList.toggle('on', !!ACC.weaponOf(cid));
+  const un = SUMMON_WEAPONS.some(w => w.char === cid && ACC.hasWeapon(w.id) && ACC.weaponOf(cid) !== w.id && w.wt === charWType(cid));
   b.classList.toggle('hasnew', un);
 }
 try { paintSkinBtn(); } catch (e) {}
 try { summonBtnPaint(); } catch (e) {}
 try { document.getElementById('skinBtn').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} skinOpen(); }; } catch (e) {}
+try { document.getElementById('wepBtn').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} weaponOpen(); }; } catch (e) {}
+try { paintWepBtn(); } catch (e) {}
 /* ★ 资源条点击：金币 → 奖励页并滚到「用金币解锁」区；奖杯 → 奖励页；宝石 → 抽卡。
    三个数字各自就是一个入口，玩家不用先猜到「那个小奖杯图标能点」。 */
 try {
