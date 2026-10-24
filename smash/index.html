@@ -1019,6 +1019,16 @@ const STAGES = [
     plats:[ {x:-19,y:5.8,w:9,kind:'island'}, {x:19,y:5.8,w:9,kind:'island'},
             {x:0,y:11.6,w:12,kind:'island'},
             {x:-9,y:16.2,w:6.5,kind:'cloud'}, {x:9,y:16.2,w:6.5,kind:'cloud'} ] },
+  /* ——— 新地图：楼顶（2026-10-24）———
+     roof:true  → buildStage 会画「向下延伸的方形高楼 + 楼顶杂物」；
+     浮空平台全部 kind:'cloud'（云朵）；wallCling → 可以在楼侧面抓住不掉下去；
+     plane → 每隔一段时间有一架飞机横穿、撞飞挡路的玩家。 */
+  { id:'rooftop', name:'Rooftop', mainW:34, mainD:7.6, mainH:2.0, platD:5.2, platH:.85, wallX:17,
+    fog:0xbfd9f2, roof:true, wallCling:true, plane:{ every:13.5, spd:30, y:8.6, dmg:11, kbx:26, kby:15 },
+    plats:[ {x:-10.6,y:5.9,w:9.2,kind:'cloud'}, {x:10.6,y:5.9,w:9.2,kind:'cloud'},
+            {x:0,y:11.4,w:11.5,kind:'cloud'},
+            {x:-15.8,y:15.8,w:6.6,kind:'cloud'}, {x:15.8,y:15.8,w:6.6,kind:'cloud'},
+            {x:0,y:20.2,w:7.4,kind:'cloud'} ] },
   { id:'desertXL', name:'Desert XL', mainW:84, mainD:10.0, mainH:2.4, platD:6.4, platH:.9, wallX:42,
     fog:0xf0d6a4, sand:true,
     plats:[ {x:-32,y:6.0,w:10,kind:'island'}, {x:32,y:6.0,w:10,kind:'island'},
@@ -2390,7 +2400,93 @@ const top = new THREE.Mesh(new THREE.BoxGeometry(STAGE.mainW, .7, STAGE.mainD), 
 top.position.y = -.35; main.add(top);
 const dirt = new THREE.Mesh(new THREE.BoxGeometry(STAGE.mainW - 1.4, STAGE.mainH, STAGE.mainD - 1.0), bodyMat);
 dirt.position.y = -.7 - STAGE.mainH/2; main.add(dirt);
-for (let i = 0; i < 16; i++) {            // 底下的悬空碎石：必须整块低于岩体底面（修穿模）
+/* ★ 楼顶地图：往下延伸的方形高楼 + 楼顶杂物（全部用基本几何体） */
+if (STAGE.roof) {
+  try {
+    const W = STAGE.mainW * .96, D = STAGE.mainD * .96;
+    const conc = new THREE.MeshStandardMaterial({ color:0x8d949e, roughness:.92 });
+    const concD = new THREE.MeshStandardMaterial({ color:0x6d747e, roughness:.95 });
+    const glass = new THREE.MeshStandardMaterial({ color:0x2a3a4a, emissive:0x213040, emissiveIntensity:.55, roughness:.35, metalness:.35 });
+    const steel = new THREE.MeshStandardMaterial({ color:0xa8b0ba, roughness:.55, metalness:.55 });
+    const dark = new THREE.MeshStandardMaterial({ color:0x3a4048, roughness:.75 });
+    const yellow = new THREE.MeshStandardMaterial({ color:0xf2c14e, roughness:.6, metalness:.25 });
+    /* 楼体：往下 54 格（比 KO 边界深，看起来像一座真实高楼） */
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(W, 54, D), conc);
+    shaft.position.y = -.7 - STAGE.mainH - 27; main.add(shaft);
+    /* 顶部一圈女儿墙 */
+    for (const [sx, sz, w, d] of [[0, D/2, W, .28], [0, -D/2, W, .28], [W/2, 0, .28, D], [-W/2, 0, .28, D]]) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(w, .62, d), concD);
+      p.position.set(sx, .31, sz); main.add(p);
+    }
+    /* 女儿墙黄色警示条 */
+    for (const [sx, sz, w, d] of [[0, D/2 - .02, W - .6, .10], [0, -D/2 + .02, W - .6, .10]]) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(w, .12, d), yellow);
+      p.position.set(sx, .60, sz); main.add(p);
+    }
+    /* 窗户：四面各 5 列 × 9 行（发光小方块，越往下越暗一点） */
+    for (let f = 0; f < 4; f++) {
+      const horiz = (f % 2 === 0), sign = (f < 2 ? 1 : -1);
+      for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 5; col++) {
+          const win = new THREE.Mesh(new THREE.BoxGeometry(horiz ? .92 : .10, .78, horiz ? .10 : .92), glass);
+          const span = (horiz ? W : D) * .74;
+          const off = (col - 2) * (span / 4.4);
+          const yy = -3.4 - row * 5.6;
+          if (horiz) win.position.set(off, yy, sign * (D / 2 + .03));
+          else win.position.set(sign * (W / 2 + .03), yy, off);
+          main.add(win);
+        }
+      }
+    }
+    /* 空调外机 ×2 */
+    for (const sx of [-1, 1]) {
+      const ac = new THREE.Group();
+      const box = new THREE.Mesh(new THREE.BoxGeometry(1.7, .95, 1.25), steel); box.position.y = .47; ac.add(box);
+      const grille = new THREE.Mesh(new THREE.TorusGeometry(.42, .07, 6, 14), dark);
+      grille.position.set(0, .5, .64); ac.add(grille);
+      const fan = new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .06, 12), dark);
+      fan.rotation.x = Math.PI / 2; fan.position.set(0, .5, .62); ac.add(fan);
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, 1.1, 6), dark);
+      pipe.position.set(.62, .2, -.5); ac.add(pipe);
+      ac.position.set(sx * (W / 2 - 2.6), 0, -D / 2 + 2.2); main.add(ac);
+    }
+    /* 天线塔 + 顶端红色航空灯 */
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(.07, .12, 5.4, 8), steel);
+    mast.position.set(-W / 2 + 1.8, 2.7, D / 2 - 1.6); main.add(mast);
+    for (let i = 0; i < 3; i++) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.2 - i * .3, .07, .07), steel);
+      arm.position.set(-W / 2 + 1.8, 1.6 + i * 1.5, D / 2 - 1.6); main.add(arm);
+    }
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8),
+      new THREE.MeshStandardMaterial({ color:0xff3b30, emissive:0xff2a1a, emissiveIntensity:1.6, roughness:.3 }));
+    lamp.position.set(-W / 2 + 1.8, 5.45, D / 2 - 1.6); main.add(lamp);
+    /* 水箱（圆罐 + 四条腿） */
+    const tank = new THREE.Group();
+    const body2 = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 1.7, 14), steel); body2.position.y = 1.55; tank.add(body2);
+    const lid = new THREE.Mesh(new THREE.ConeGeometry(1.2, .45, 14), concD); lid.position.y = 2.6; tank.add(lid);
+    for (let k = 0; k < 4; k++) {
+      const a2 = k / 4 * Math.PI * 2;
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, 1.5, 6), dark);
+      leg.position.set(Math.cos(a2) * .78, .72, Math.sin(a2) * .78); tank.add(leg);
+    }
+    tank.position.set(W / 2 - 3.0, 0, D / 2 - 3.0); main.add(tank);
+    /* 楼梯间门房 */
+    const hut = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.9, 2.2), concD);
+    hut.position.set(-W / 2 + 2.6, .95, -D / 2 + 2.0); main.add(hut);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, .08), dark);
+    door.position.set(-W / 2 + 2.6, .78, -D / 2 + 3.12); main.add(door);
+    /* 通风管 + 几根矮墩 */
+    for (let i = 0; i < 4; i++) {
+      const v = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .55, 8), steel);
+      v.position.set(-4 + i * 2.6, .28, D / 2 - 1.4); main.add(v);
+    }
+    for (let i = 0; i < 5; i++) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(.5 + (i % 2) * .3, .34, .5), concD);
+      b.position.set(-W / 2 + 1.4 + i * 3.1, .17, -1.2 + (i % 2) * 1.5); main.add(b);
+    }
+  } catch (e) { console.warn('roof build', e); }
+}
+for (let i = 0; i < (STAGE.roof ? 0 : 16); i++) {            // 底下的悬空碎石：必须整块低于岩体底面（修穿模）
   const s = .8 + Math.random()*1.9;
   const r = new THREE.Mesh(new THREE.BoxGeometry(s, s*.8, s), bodyMat);
   const topLimit = -.7 - STAGE.mainH - s*.42;        // 岩体底面之下再留出自身半高
@@ -16051,6 +16147,34 @@ class Fighter {
   integrate(dt, moveX) {
     const soft = this.ignoreSoft > 0;
     if (this.ignoreSoft > 0) this.ignoreSoft -= dt;
+    /* ★ 楼顶地图：抓在楼的侧面（按住朝向墙的方向就贴住、缓慢下滑，按跳墙跳离开）
+       —— 楼体从 y=0 往下延伸，所以「墙」是 x = ±mainW/2、y < 0 这一段。 */
+    if (STAGE.wallCling && !this.grounded && this.hitstun <= 0 && this.state !== 'hitstun') {
+      const halfWall = STAGE.mainW / 2;
+      const side = Math.sign(this.pos.x) || 1;
+      const nearWall = Math.abs(Math.abs(this.pos.x) - halfWall) < .75 && this.pos.y < .25 && this.pos.y > -44;
+      const pressIn = (this.input.x || 0) * side > .3;
+      if (nearWall && pressIn) {
+        this.clingT = (this.clingT || 0) + dt;
+        this.pos.x = side * (halfWall - .06);
+        this.vel.x = 0;
+        this.vel.y = Math.max(-1.5, this.vel.y);         // 缓慢下滑而不是直接掉
+        this.facing = -side;
+        this.clingFx = .18;
+        if (this.input.jumpP || this.buf.jump > 0) {     // 墙跳
+          this.buf.jump = 0; this.clingT = 0;
+          this.vel.y = 13.8; this.vel.x = -side * 11.0;
+          this.grounded = false;
+          try { SFX.jump && SFX.jump(); } catch (e) {}
+          try { FX.ring(this.pos.x, this.pos.y + .8, .9, 0xbfe6ff, .35); } catch (e) {}
+        }
+        this.vel.y -= CFG.G * dt * .06;                  // 只剩一点点重力
+        this.pos.y += this.vel.y * dt;
+        if (this.pos.y < -42) this.pos.y = -42;
+        return;
+      }
+      if (!nearWall && this.clingT > 0) this.clingT = 0;
+    }
     /* ★ 蚊子：没有重力 —— 按住空格上浮、下+空格下降、松手原地悬停（永久悬浮；击退照常生效） */
     if (this.def.id === 'mosquito') {
       const up = !!this.input.jumpHeld, dn = up && this.input.y < -.5;
@@ -19530,8 +19654,99 @@ function resolveFighterOverlap() {
   }
 }
 /* 单步物理（供调试探针复用，不渲染） */
+/* ================= ★ 楼顶地图的特殊事件：飞机横穿 =================
+   每 ~13.5 秒一架飞机从一侧飞过（高度 y≈8.6，z=-1.5 在角色身后一点），
+   撞到正在空中的玩家 → 直接击飞（伤害 + 横向/纵向初速 + 硬直）。
+   全部在 physicsStep（固定步长）里推进 → 联机锁步也一致（用 seeded RND 决定方向/时间抖动）。 */
+let roofPlane = null, roofPlaneNext = 0;
+function makePlane() {
+  const G = new THREE.Group();
+  const white = new THREE.MeshStandardMaterial({ color:0xf2f6fb, roughness:.45, metalness:.25 });
+  const blue = new THREE.MeshStandardMaterial({ color:0x3d7bd6, roughness:.5, metalness:.2 });
+  const dark = new THREE.MeshStandardMaterial({ color:0x2a3038, roughness:.7 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.55, .42, 6.2, 12), white);
+  body.rotation.z = Math.PI / 2; G.add(body);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(.55, 1.0, 12), white);
+  nose.rotation.z = -Math.PI / 2; nose.position.x = 3.5; G.add(nose);
+  const tailCone = new THREE.Mesh(new THREE.ConeGeometry(.42, 1.1, 10), white);
+  tailCone.rotation.z = Math.PI / 2; tailCone.position.x = -3.5; G.add(tailCone);
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(1.7, .16, 9.2), blue);
+  wing.position.set(.2, -.1, 0); G.add(wing);
+  const tailWing = new THREE.Mesh(new THREE.BoxGeometry(1.1, .12, 3.4), blue);
+  tailWing.position.set(-2.9, .1, 0); G.add(tailWing);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(.9, 1.5, .12), blue);
+  fin.position.set(-2.9, .85, 0); G.add(fin);
+  for (const sz of [-1, 1]) {                              // 两台发动机
+    const eng = new THREE.Mesh(new THREE.CylinderGeometry(.30, .30, 1.0, 10), dark);
+    eng.rotation.z = Math.PI / 2; eng.position.set(.3, -.42, sz * 2.4); G.add(eng);
+  }
+  for (let i = 0; i < 5; i++) {                            // 舷窗
+    const w = new THREE.Mesh(new THREE.SphereGeometry(.10, 6, 5),
+      new THREE.MeshStandardMaterial({ color:0x9fd8ff, emissive:0x66c8ff, emissiveIntensity:.9, roughness:.4 }));
+    w.position.set(-1.6 + i * 1.1, .18, .40); G.add(w);
+  }
+  const blink = new THREE.Mesh(new THREE.SphereGeometry(.16, 8, 6),
+    new THREE.MeshStandardMaterial({ color:0xff3b30, emissive:0xff2a1a, emissiveIntensity:1.8, roughness:.3 }));
+  blink.position.set(-3.4, .95, 0); G.add(blink);
+  G.userData.blink = blink;
+  G.visible = false;
+  scene.add(G);
+  return G;
+}
+function roofPlaneTick(dt) {
+  if (!STAGE.roof || !STAGE.plane) return;
+  const P2 = STAGE.plane;
+  if (match.state !== 'play') { if (roofPlane) roofPlane.visible = false; return; }
+  if (!roofPlane) roofPlane = makePlane();
+  if (!roofPlane.userData.on) {
+    roofPlaneNext -= dt;
+    if (roofPlaneNext <= 0) {
+      roofPlaneNext = P2.every + RND() * 4.0;
+      const dir = RND() < .5 ? 1 : -1;
+      roofPlane.userData.on = true;
+      roofPlane.userData.dir = dir;
+      roofPlane.userData.x = -dir * (STAGE.wallX + 16);
+      /* 每趟随机一个高度：低空(~6.4) 撞楼顶边缘/低云上的人，高空(~10.6) 撞中层云上的人 */
+      roofPlane.userData.y = (RND() < .5 ? 6.4 : 10.6) + (RND() - .5) * 1.2;
+      roofPlane.userData.hit = {};
+      roofPlane.position.set(roofPlane.userData.x, roofPlane.userData.y, -1.5);
+      roofPlane.rotation.y = dir > 0 ? 0 : Math.PI;
+      roofPlane.visible = true;
+      try { SFX.tone(120, 260, .9, 'sawtooth', .10); } catch (e) {}
+    }
+    return;
+  }
+  const U = roofPlane.userData;
+  U.x += U.dir * P2.spd * dt;
+  roofPlane.position.x = U.x;
+  roofPlane.position.y = U.y + Math.sin(U.x * .12) * .18;
+  if (U.blink) U.blink.visible = !U.blink.visible;
+  else if (roofPlane.userData.blink) roofPlane.userData.blink.visible = (Math.floor(U.x * .5) % 2) === 0;
+  /* 撞人：只撞「空中」的玩家（站在楼顶上是安全的），每个玩家每趟只撞一次 */
+  for (let fi = 0; fi < FIGHTERS.length; fi++) {
+    const f = FIGHTERS[fi];
+    if (!f || f.eliminated || U.hit[fi]) continue;
+    if (f.pos.y < .9) continue;                          // 站在楼顶 = 安全
+    if (Math.abs(f.pos.x - U.x) < 3.6 && Math.abs(f.pos.y - U.y) < 2.6) {
+      U.hit[fi] = 1;
+      const dir = U.dir;
+      f.damage = Math.min(CFG.dmgCap, f.damage + P2.dmg);
+      f.vel.x = dir * P2.kbx; f.vel.y = P2.kby;
+      f.hitstun = .55; f.flashT = .18; f.state = 'hitstun'; f.grounded = false;
+      f.pos.y = Math.max(f.pos.y, U.y - 1.0);
+      try { FX.spark(f.pos.x, f.pos.y + 1, 1.6, 22, 0xffe066); } catch (e) {}
+      try { FX.ring(f.pos.x, f.pos.y + 1, 2.2, 0xfff0a8, .5); } catch (e) {}
+      try { SFX.special('heavy'); } catch (e) {}
+      try { shake = Math.max(shake, 1.4); flash = Math.max(flash, .5); flashColor = 'radial-gradient(circle,#fff,#ffd166)'; } catch (e) {}
+      try { banner('PLANE HIT!'); } catch (e) {}
+    }
+  }
+  if (Math.abs(U.x) > STAGE.wallX + 20) { U.on = false; roofPlane.visible = false; }
+}
 function physicsStep(s) {
-  TUT.tick(s);   // 新手教程：跟着物理步判定（与主循环/调试探针同一入口）
+  TUT.tick(s);
+  try { roofPlaneTick(s); window.__roofDbg = { st: match.state, on: !!(roofPlane && roofPlane.userData.on), nx: +roofPlaneNext.toFixed(2), x: roofPlane ? +roofPlane.position.x.toFixed(1) : null }; }
+  catch (e) { window.__roofErr = String((e && e.message) || e); }   // 新手教程：跟着物理步判定（与主循环/调试探针同一入口）
   if (hitstop > 0) { hitstop -= s; return; }
   _simStep = true;                                  // ★ 从这里开始才允许消耗模拟随机流（见 RND 注释）
   FRAME++;
@@ -20523,7 +20738,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net120',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net123',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
