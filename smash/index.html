@@ -1030,13 +1030,19 @@ const STAGES = [
             {x:-15.8,y:15.8,w:6.6,kind:'cloud'}, {x:15.8,y:15.8,w:6.6,kind:'cloud'},
             {x:0,y:20.2,w:7.4,kind:'cloud'} ] },
   /* ——— 新地图：楼顶 XL（2026-10-24）———
-     两栋方形高楼，左边高（顶面 y=0，玩家出生层）、右边低 7 格（顶面 y=-7，是块实心平台）；
-     中间留一条 4.8 格宽的空隙（gaps）→ 走过去会直接掉下去、落到右边较低的楼顶或者掉出场外。 */
+     两栋楼：左楼顶面 y=0（出生层），右楼顶面 y=-7；中间一条 4.8 格宽、一直通到底的空隙。
+     decks = 每栋楼的可站范围 [x0, x1, 顶面 y]：画楼体 / 摆杂物 / 出生点 / Bot 判地 全都读它。
+     ★ 修（空隙看不见 + 穿模）：
+       · 原来楼体是一整块 55.7 宽的箱体 → 空隙底下是实心混凝土，看着像条浅槽却会掉下去；
+         现在每栋楼各自一个箱体，缝里两侧是真墙面，一眼能看出是「两栋楼之间的深渊」。
+       · 右楼顶面原来用一块 25 宽的空岛平台画（x 4…29），比楼体窄 1.6 格又叠在混凝土上
+         → 站在看得见的地板上会掉下去（穿模）+ z-fighting；现在 = 楼体尺寸，且不再画第二层地板。 */
   { id:'rooftopXL', name:'Rooftop XL', mainW:58, mainD:8.2, mainH:2.2, platD:5.6, platH:.9, wallX:29,
     fog:0xbfd9f2, roof:true, roofXL:true, wallCling:true,
-    gaps:[[-2.4, 2.4]],
+    gaps:[[-2.4, 2.4]], decks:[[-29,-2.4,0], [2.4,29,-7]],
+    spawnXs:[[-9.6,0],[9.6,-7],[-17.6,0],[17.6,-7]],
     plane:{ every:12.0, spd:34, y:9.2, dmg:12, kbx:28, kby:16 },
-    plats:[ {x:16.5,y:-7.02,w:25.0,kind:'island'},                       // 右楼顶面（低 7 格）
+    plats:[ {x:15.7,y:-7.0,w:26.6,kind:'deck'},                          // 右楼顶面（低 7 格）：只提供碰撞，地板由楼体自己画
             {x:16.5,y:2.6,w:11.0,kind:'cloud'}, {x:16.5,y:10.0,w:9.0,kind:'cloud'},
             {x:-16.0,y:6.2,w:10.5,kind:'cloud'}, {x:-16.0,y:13.0,w:9.0,kind:'cloud'},
             {x:0,y:18.4,w:9.0,kind:'cloud'} ] },
@@ -1050,6 +1056,18 @@ const STAGES = [
 ];
 let curStage = 0;
 const STAGE = Object.assign({}, STAGES[0]);       // 现有代码全部读 STAGE.* → 换图时整体同步即可
+
+/* ★ 某个 x 位置「脚下那层地板」的高度：没有地板（空隙 / 楼外）返回 null。
+   只有带 decks 的地图（Rooftop XL：两栋高低不同的楼）才有多层地板，其它地图恒为 y=0。
+   物理 / 出生点 / Bot 判地 / 贴墙抓取 都读这一个函数，避免各处各写一套。 */
+function stageFloorY(x) {
+  if (STAGE.decks) {
+    for (const d of STAGE.decks) if (x >= d[0] && x <= d[1]) return d[2];
+    return null;
+  }
+  if (STAGE.gaps && STAGE.gaps.some(g => x > g[0] && x < g[1])) return null;
+  return 0;
+}
 
 /* ================= 角色定义（原创吉祥物，卡通造型 = three.js 图元） ============ */
 const CHARS = [
@@ -2411,151 +2429,119 @@ const top = new THREE.Mesh(new THREE.BoxGeometry(STAGE.mainW, .7, STAGE.mainD), 
 top.position.y = -.35; main.add(top);
 const dirt = new THREE.Mesh(new THREE.BoxGeometry(STAGE.mainW - 1.4, STAGE.mainH, STAGE.mainD - 1.0), bodyMat);
 dirt.position.y = -.7 - STAGE.mainH/2; main.add(dirt);
-/* ★ 楼顶地图：往下延伸的方形高楼 + 楼顶杂物（全部用基本几何体） */
+/* ★ 楼顶地图：往下延伸的方形高楼 + 楼顶杂物（全部用基本几何体）
+   Rooftop XL = 两栋高低不同的楼 + 中间一条 4.8 格宽、一直通到底的空隙。
+   楼体按 STAGE.decks 拆成各自独立的箱体：缝里两侧是真正的墙面（看得见深度，走过去直接掉），
+   女儿墙 / 窗户 / 杂物都按「每栋楼自己的轮廓」画 —— 原来按整幅宽度画，空隙正中会横着一根栏杆。 */
 if (STAGE.roof) {
   try {
-    const W = STAGE.mainW * .96, D = STAGE.mainD * .96;
-    const conc = new THREE.MeshStandardMaterial({ color:0x8d949e, roughness:.92 });
-    const concD = new THREE.MeshStandardMaterial({ color:0x6d747e, roughness:.95 });
-    const glass = new THREE.MeshStandardMaterial({ color:0x2a3a4a, emissive:0x213040, emissiveIntensity:.55, roughness:.35, metalness:.35 });
-    const steel = new THREE.MeshStandardMaterial({ color:0xa8b0ba, roughness:.55, metalness:.55 });
-    const dark = new THREE.MeshStandardMaterial({ color:0x3a4048, roughness:.75 });
+    const conc   = new THREE.MeshStandardMaterial({ color:0x8d949e, roughness:.92 });
+    const concD  = new THREE.MeshStandardMaterial({ color:0x6d747e, roughness:.95 });
+    const concIn = new THREE.MeshStandardMaterial({ color:0x474d55, roughness:.96 });
+    const concTop = new THREE.MeshStandardMaterial({ map:texTiles('#a9b0b8','#9aa1a9','#c2c8cf', 8), roughness:.94, flatShading:true });
+    const concBody = new THREE.MeshStandardMaterial({ map:texTiles('#8b929a','#7d848c','#9aa1a9', 4), roughness:.96, flatShading:true });
+    const glass  = new THREE.MeshStandardMaterial({ color:0x2a3a4a, emissive:0x213040, emissiveIntensity:.55, roughness:.35, metalness:.35 });
+    const steel  = new THREE.MeshStandardMaterial({ color:0xa8b0ba, roughness:.55, metalness:.55 });
     const yellow = new THREE.MeshStandardMaterial({ color:0xf2c14e, roughness:.6, metalness:.25 });
-    /* ★ Roof XL：把默认主板面缩成「左楼」，右边另起一栋低 7 格的楼，中间留出空隙 */
-    if (STAGE.roofXL) {
-      try {
-        const gapL = (STAGE.gaps && STAGE.gaps[0]) ? STAGE.gaps[0][0] : -2.4;
-        const leftW = (gapL + STAGE.mainW / 2);          // 左楼实际宽度
-        const sx = leftW / STAGE.mainW;
-        top.scale.x = sx; top.position.x = -STAGE.mainW / 2 + leftW / 2;
-        dirt.scale.x = sx; dirt.position.x = -STAGE.mainW / 2 + leftW / 2;
-        /* 空隙内壁（深色，看起来是两楼之间的缝） */
-        const wallM = new THREE.MeshStandardMaterial({ color:0x5b626b, roughness:.95 });
-        const slot = new THREE.Mesh(new THREE.BoxGeometry(gapL * 2 + 1.0, 60, STAGE.mainD * .98), wallM);
-        slot.position.set(0, -.7 - 30, 0); main.add(slot);
-        const slotLip = new THREE.Mesh(new THREE.BoxGeometry(gapL * 2 + .9, .5, STAGE.mainD),
-          new THREE.MeshStandardMaterial({ color:0x3a4048, roughness:.9 }));
-        slotLip.position.set(0, -.95, 0); main.add(slotLip);
-      } catch (e) {}
+    const D = STAGE.mainD * .96;                        // 楼体进深（比顶板小一圈 → 顶板形成一圈檐口）
+    /* 楼顶就该是混凝土，不是草皮 + 泥土（草皮留给草原/沙漠图） */
+    top.material = concTop; dirt.material = concBody;
+    if (STAGE.roofXL) {                                 // 主板面那块 top/dirt 缩成「第一栋楼」
+      const dw0 = STAGE.decks[0][1] - STAGE.decks[0][0], cx0 = (STAGE.decks[0][0] + STAGE.decks[0][1]) / 2;
+      top.scale.x = dw0 / STAGE.mainW;  top.position.x = cx0;
+      dirt.scale.x = (dw0 - .6) / (STAGE.mainW - 1.4); dirt.position.x = cx0;
     }
-    /* 楼体：往下 54 格（比 KO 边界深，看起来像一座真实高楼） */
-    const shaft = new THREE.Mesh(new THREE.BoxGeometry(W, 54, D), conc);
-    shaft.position.y = -.7 - STAGE.mainH - 27; main.add(shaft);
-    /* ★ Roof XL 的右楼：顶面在 -7，比左楼低 7 格 */
-    if (STAGE.roofXL) {
-      try {
-        const gapR = (STAGE.gaps && STAGE.gaps[0]) ? STAGE.gaps[0][1] : 2.4;
-        const rW = STAGE.mainW / 2 - gapR, rD = STAGE.mainD * .96, rtY = -7;
-        const rTop = new THREE.Mesh(new THREE.BoxGeometry(rW, .7, STAGE.mainD), conc);
-        rTop.position.set(STAGE.mainW / 2 - rW / 2, rtY - .35, 0); main.add(rTop);
-        const rShaft = new THREE.Mesh(new THREE.BoxGeometry(rW, 54, rD), concD);
-        rShaft.position.set(STAGE.mainW / 2 - rW / 2, rtY - .7 - 27, 0); main.add(rShaft);
-        /* 右楼窗户（两面） */
-        for (const sign of [1, -1]) for (let row = 0; row < 8; row++) for (let col = 0; col < 4; col++) {
-          const win = new THREE.Mesh(new THREE.BoxGeometry(.9, .78, .10), glass);
-          win.position.set(STAGE.mainW / 2 - rW + 2.4 + col * (rW - 4.4) / 3.2, rtY - 4.6 - row * 5.6, sign * (rD / 2 + .03));
-          main.add(win);
+    /* 一栋楼 = [x0, x1, 顶面 y]；普通楼顶只有一栋整幅的，XL 是两栋（右楼低 7 格） */
+    const decks = STAGE.decks || [[-STAGE.mainW / 2, STAGE.mainW / 2, 0]];
+    decks.forEach((dk, di) => {
+      const x0 = dk[0], x1 = dk[1], topY = dk[2];
+      const dw = x1 - x0, cx = (x0 + x1) / 2;
+      /* ——— 楼体：往下 54 格（比 KO 边界深，看起来像一座真实高楼） */
+      const bw = Math.max(2, dw - .5);
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(bw, 54, D), di ? concD : conc);
+      shaft.position.set(cx, topY - .7 - 27, 0); main.add(shaft);
+      if (di > 0) {                                     // 第二栋及以后的顶板（第一栋用主板面那块）
+        const slab = new THREE.Mesh(new THREE.BoxGeometry(dw, .7, STAGE.mainD), conc);
+        slab.position.set(cx, topY - .35, 0); main.add(slab);
+      }
+      /* ——— 女儿墙：每栋楼自己一圈（★ 修穿帮：原来按整幅宽度画 → 空隙上方悬着一根栏杆） */
+      const rw = dw - .28, rd = STAGE.mainD - .28;
+      for (const [px, pz, w, d] of [[cx, rd/2, rw, .28], [cx, -rd/2, rw, .28],
+                                   [x0 + .14, 0, .28, rd], [x1 - .14, 0, .28, rd]]) {
+        const p = new THREE.Mesh(new THREE.BoxGeometry(w, .62, d), concD);
+        p.position.set(px, topY + .31, pz); main.add(p);
+      }
+      for (const sz of [rd/2 - .02, -rd/2 + .02]) {     // 女儿墙黄色警示条
+        const p = new THREE.Mesh(new THREE.BoxGeometry(rw - .5, .12, .10), yellow);
+        p.position.set(cx, topY + .60, sz); main.add(p);
+      }
+      /* ——— 外立面窗户：前后两面 + 最外侧立面 各 5 列 × 9 行（各合成 1 个 InstancedMesh） */
+      const wf = [], wz = [];
+      for (let row = 0; row < 9; row++) for (let col = 0; col < 5; col++) {
+        const yy = topY - 3.4 - row * 5.6, off = (col - 2) * (bw * .74 / 4.4);
+        wf.push({ x: cx + off, y: yy, z: D / 2 + .03 });
+        wf.push({ x: cx + off, y: yy, z: -(D / 2 + .03) });
+        wz.push({ y: yy, x: (col - 2) * (D * .74 / 4.4) });
+      }
+      main.add(_inst(new THREE.BoxGeometry(.92, .78, .10), glass, wf));
+      const ox = Math.abs(x0) > Math.abs(x1) ? x0 : x1, osx = Math.sign(ox) || 1;
+      main.add(_inst(new THREE.BoxGeometry(.10, .78, .92), glass,
+        wz.map(t => ({ x: ox + osx * .03, y: t.y, z: t.x }))));
+      /* ——— 楼顶杂物（水塔/空调/门房/天线…）统一由 decoRoof 按每栋楼的轮廓摆，见 DECO_BY_ID */
+    });
+    /* ★ 空隙：内壁贴深色板材 + 立面窗 + 贴墙排水管 → 缝在 3D 里读得出深度
+       ⚠ 每道缝壁的「顶」必须按它所属那栋楼的顶面算（右楼低 7 格，用同一个高度会让板材从右楼顶冒出来） */
+    if (STAGE.gaps) {
+      for (const g of STAGE.gaps) {
+        for (const [gx, sgn] of [[g[0], 1], [g[1], -1]]) {       // sgn 指向缝里
+          const dk2 = decks.find(d => Math.abs((sgn > 0 ? d[1] : d[0]) - gx) < .01);
+          const wallTop = (dk2 ? dk2[2] : 0) - .7, h = 51;       // 从本楼顶板底一直下到 -53 附近
+          const wall = new THREE.Mesh(new THREE.BoxGeometry(.14, h, D * .995), concIn);
+          wall.position.set(gx + sgn * .07, wallTop - h / 2, 0); main.add(wall);
+          const gw = [];
+          for (let row = 0; row < 6; row++) for (let col = 0; col < 2; col++)
+            gw.push({ x: gx + sgn * .17, y: wallTop - 2.4 - row * 7.2, z: (col - .5) * 2.6 });
+          main.add(_inst(new THREE.BoxGeometry(.06, .62, .78), glass, gw));
+          for (const zz of [-D / 2 + .55, D / 2 - .55]) {
+            const pipe = new THREE.Mesh(new THREE.CylinderGeometry(.10, .10, h, 6), steel);
+            pipe.position.set(gx + sgn * .20, wallTop - h / 2, zz); main.add(pipe);
+          }
         }
-        /* 右楼女儿墙 + 警示条 */
-        for (const [wx, wz, ww, wd] of [[STAGE.mainW / 2 - rW / 2, rD / 2, rW, .28], [STAGE.mainW / 2 - rW / 2, -rD / 2, rW, .28],
-                                        [STAGE.mainW / 2 - .14, 0, .28, rD], [STAGE.mainW / 2 - rW + .14, 0, .28, rD]]) {
-          const p = new THREE.Mesh(new THREE.BoxGeometry(ww, .58, wd), concD);
-          p.position.set(wx, rtY + .29, wz); main.add(p);
+        /* 缝的后壁：★ 关键 —— 缝是前后贯通的，正对镜头时什么都挡不住，只剩背景色（这就是「空隙看不见」的根因）。
+           在缝的后半段立一面深色墙（墙体本身在角色平面之后 z<0，不影响战斗/掉落），
+           缝立刻读成「一道往下走不完的暗缝」，墙上再横几根管线加强深度感。 */
+        {
+          const gw2 = g[1] - g[0] + .3, gcx = (g[0] + g[1]) / 2, h2 = 51;
+          const back = new THREE.Mesh(new THREE.BoxGeometry(gw2, h2, 2.8), concIn);
+          back.position.set(gcx, -.7 - h2 / 2, -D / 2 + 1.4); main.add(back);
+          for (let k = 0; k < 7; k++) {
+            const bar = new THREE.Mesh(new THREE.BoxGeometry(gw2 - .1, .13, .13), steel);
+            bar.position.set(gcx, -3.6 - k * 6.8, -D / 2 + 2.9); main.add(bar);
+          }
+          for (const xo of [-1.5, 1.5]) {
+            const vp = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, h2, 6), steel);
+            vp.position.set(gcx + xo, -.7 - h2 / 2, -D / 2 + 3.0); main.add(vp);
+          }
+          /* 缝里的检修爬梯：从缝口一路往下 —— 一眼就能看出「这是一道很深的竖井」 */
+          for (const xo of [-.34, .34]) {
+            const rail = new THREE.Mesh(new THREE.BoxGeometry(.09, 15.5, .09), steel);
+            rail.position.set(gcx + xo, -.7 - 7.75, -D / 2 + 3.0); main.add(rail);
+          }
+          for (let k = 0; k < 16; k++) {
+            const rung = new THREE.Mesh(new THREE.BoxGeometry(.78, .07, .07), steel);
+            rung.position.set(gcx, -1.4 - k * .95, -D / 2 + 3.0); main.add(rung);
+          }
+          /* 缝里的暗部补光：一块很淡的暖色自发光板（只是让「深」看得出来，不照亮角色） */
+          const glowP = new THREE.Mesh(new THREE.BoxGeometry(gw2 - .8, .18, .10),
+            new THREE.MeshStandardMaterial({ color:0x2a2118, emissive:0xffb46a, emissiveIntensity:.55, roughness:.8 }));
+          glowP.position.set(gcx, -9.4, -D / 2 + 3.05); main.add(glowP);
         }
-        const stripe = new THREE.Mesh(new THREE.BoxGeometry(rW - .8, .12, .10), yellow);
-        stripe.position.set(STAGE.mainW / 2 - rW / 2, rtY + .56, rD / 2 - .02); main.add(stripe);
-        /* 右楼天线 + 红灯 */
-        const rm = new THREE.Mesh(new THREE.CylinderGeometry(.07, .11, 4.2, 8), steel);
-        rm.position.set(STAGE.mainW / 2 - 2.2, rtY + 2.1, -rD / 2 + 1.4); main.add(rm);
-        const rl = new THREE.Mesh(new THREE.SphereGeometry(.16, 10, 8),
-          new THREE.MeshStandardMaterial({ color:0xff3b30, emissive:0xff2a1a, emissiveIntensity:1.6, roughness:.3 }));
-        rl.position.set(STAGE.mainW / 2 - 2.2, rtY + 4.3, -rD / 2 + 1.4); main.add(rl);
-        /* 右楼顶两台空调 + 通风管 */
-        for (const off of [-4.5, 1.5]) {
-          const ac = new THREE.Group();
-          const bx = new THREE.Mesh(new THREE.BoxGeometry(1.6, .9, 1.2), steel); bx.position.y = .45; ac.add(bx);
-          const gr = new THREE.Mesh(new THREE.TorusGeometry(.4, .07, 6, 14), dark); gr.position.set(0, .48, .61); ac.add(gr);
-          ac.position.set(STAGE.mainW / 2 - rW / 2 + off, rtY, .8); main.add(ac);
-        }
-        for (let i = 0; i < 3; i++) {
-          const v = new THREE.Mesh(new THREE.CylinderGeometry(.15, .15, .5, 8), steel);
-          v.position.set(STAGE.mainW / 2 - rW + 2.2 + i * 2.4, rtY + .25, -1.4); main.add(v);
-        }
-        /* 左楼靠空隙那一侧的女儿墙（防穿帮） */
-        const innerRail = new THREE.Mesh(new THREE.BoxGeometry(.3, .6, STAGE.mainD * .96), concD);
-        innerRail.position.set((STAGE.gaps ? STAGE.gaps[0][0] : -2.4) - .15, .3, 0); main.add(innerRail);
-      } catch (e) { console.warn('roofXL right', e); }
-    }
-    /* 顶部一圈女儿墙 */
-    for (const [sx, sz, w, d] of [[0, D/2, W, .28], [0, -D/2, W, .28], [W/2, 0, .28, D], [-W/2, 0, .28, D]]) {
-      const p = new THREE.Mesh(new THREE.BoxGeometry(w, .62, d), concD);
-      p.position.set(sx, .31, sz); main.add(p);
-    }
-    /* 女儿墙黄色警示条 */
-    for (const [sx, sz, w, d] of [[0, D/2 - .02, W - .6, .10], [0, -D/2 + .02, W - .6, .10]]) {
-      const p = new THREE.Mesh(new THREE.BoxGeometry(w, .12, d), yellow);
-      p.position.set(sx, .60, sz); main.add(p);
-    }
-    /* 窗户：四面各 5 列 × 9 行（发光小方块，越往下越暗一点） */
-    for (let f = 0; f < 4; f++) {
-      const horiz = (f % 2 === 0), sign = (f < 2 ? 1 : -1);
-      for (let row = 0; row < 9; row++) {
-        for (let col = 0; col < 5; col++) {
-          const win = new THREE.Mesh(new THREE.BoxGeometry(horiz ? .92 : .10, .78, horiz ? .10 : .92), glass);
-          const span = (horiz ? W : D) * .74;
-          const off = (col - 2) * (span / 4.4);
-          const yy = -3.4 - row * 5.6;
-          if (horiz) win.position.set(off, yy, sign * (D / 2 + .03));
-          else win.position.set(sign * (W / 2 + .03), yy, off);
-          main.add(win);
+        for (const [gx, sgn] of [[g[0], -1], [g[1], 1]]) {
+          const dk2 = decks.find(d => sgn < 0 ? Math.abs(d[1] - gx) < .01 : Math.abs(d[0] - gx) < .01);
+          const lip = new THREE.Mesh(new THREE.BoxGeometry(.6, .04, STAGE.mainD - .7), yellow);
+          lip.position.set(gx + sgn * .32, (dk2 ? dk2[2] : 0) + .02, 0); main.add(lip);
         }
       }
-    }
-    /* 空调外机 ×2 */
-    for (const sx of [-1, 1]) {
-      const ac = new THREE.Group();
-      const box = new THREE.Mesh(new THREE.BoxGeometry(1.7, .95, 1.25), steel); box.position.y = .47; ac.add(box);
-      const grille = new THREE.Mesh(new THREE.TorusGeometry(.42, .07, 6, 14), dark);
-      grille.position.set(0, .5, .64); ac.add(grille);
-      const fan = new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .06, 12), dark);
-      fan.rotation.x = Math.PI / 2; fan.position.set(0, .5, .62); ac.add(fan);
-      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, 1.1, 6), dark);
-      pipe.position.set(.62, .2, -.5); ac.add(pipe);
-      ac.position.set(sx * (W / 2 - 2.6), 0, -D / 2 + 2.2); main.add(ac);
-    }
-    /* 天线塔 + 顶端红色航空灯 */
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(.07, .12, 5.4, 8), steel);
-    mast.position.set(-W / 2 + 1.8, 2.7, D / 2 - 1.6); main.add(mast);
-    for (let i = 0; i < 3; i++) {
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.2 - i * .3, .07, .07), steel);
-      arm.position.set(-W / 2 + 1.8, 1.6 + i * 1.5, D / 2 - 1.6); main.add(arm);
-    }
-    const lamp = new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8),
-      new THREE.MeshStandardMaterial({ color:0xff3b30, emissive:0xff2a1a, emissiveIntensity:1.6, roughness:.3 }));
-    lamp.position.set(-W / 2 + 1.8, 5.45, D / 2 - 1.6); main.add(lamp);
-    /* 水箱（圆罐 + 四条腿） */
-    const tank = new THREE.Group();
-    const body2 = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 1.7, 14), steel); body2.position.y = 1.55; tank.add(body2);
-    const lid = new THREE.Mesh(new THREE.ConeGeometry(1.2, .45, 14), concD); lid.position.y = 2.6; tank.add(lid);
-    for (let k = 0; k < 4; k++) {
-      const a2 = k / 4 * Math.PI * 2;
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, 1.5, 6), dark);
-      leg.position.set(Math.cos(a2) * .78, .72, Math.sin(a2) * .78); tank.add(leg);
-    }
-    tank.position.set(W / 2 - 3.0, 0, D / 2 - 3.0); main.add(tank);
-    /* 楼梯间门房 */
-    const hut = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.9, 2.2), concD);
-    hut.position.set(-W / 2 + 2.6, .95, -D / 2 + 2.0); main.add(hut);
-    const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, .08), dark);
-    door.position.set(-W / 2 + 2.6, .78, -D / 2 + 3.12); main.add(door);
-    /* 通风管 + 几根矮墩 */
-    for (let i = 0; i < 4; i++) {
-      const v = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .55, 8), steel);
-      v.position.set(-4 + i * 2.6, .28, D / 2 - 1.4); main.add(v);
-    }
-    for (let i = 0; i < 5; i++) {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(.5 + (i % 2) * .3, .34, .5), concD);
-      b.position.set(-W / 2 + 1.4 + i * 3.1, .17, -1.2 + (i % 2) * 1.5); main.add(b);
     }
   } catch (e) { console.warn('roof build', e); }
 }
@@ -2589,7 +2575,10 @@ platGroup.add(main);
    默认 木台 / kind:'island' 厚岩空岛（带岛底倒锥）/ kind:'cloud' 云朵平台 */
 for (const p of STAGE.plats) {
   const g = new THREE.Group();
-  if (p.kind === 'cloud') {
+  if (p.kind === 'deck') {
+    /* ★ 楼顶面：地板由楼体自己画（buildPlats 的楼顶部分）→ 这里只提供碰撞，不再叠一层几何体
+       （原来用 kind:'island'：在混凝土顶板上又铺一块草岛，尺寸还差 1.6 格 = 穿模 + z-fighting） */
+  } else if (p.kind === 'cloud') {
     const cm = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:1, flatShading:true,
       transparent:true, opacity:.95, emissive:0xdfe8ff, emissiveIntensity:.12 });
     const flat = new THREE.Mesh(new THREE.BoxGeometry(p.w, .34, STAGE.platD*.86), cm);
@@ -2852,8 +2841,87 @@ function decoDesert(G) {
     p.position.set(px, 3.1*sc, -34); p.rotation.y = .79; G.add(p);
   }
 }
+/* —— 楼顶装饰：楼梯间门房 / 空调机组 / 水塔 / 通风管 / 天窗 / 天线塔 / 楼顶碎石 ——
+   ★ 原来楼顶图没注册装饰 → 走了草原那套（花丛/灌木/蘑菇按整幅宽度撒，会长在楼顶外沿、
+     甚至会飘在两栋楼中间的空隙上方）。现在每栋楼各摆一套，全部落在楼顶轮廓之内。 */
+function decoRoof(G) {
+  const D = STAGE.mainD;
+  const concM = _dm(0x8d949e, .92), concD = _dm(0x6d747e, .95), steel = _dm(0xa8b0ba, .55, { metalness:.55 }),
+        dark = _dm(0x3a4048, .75), yellowM = _dm(0xf2c14e, .6, { metalness:.25 });
+  const glassM = new THREE.MeshStandardMaterial({ color:0x2a3a4a, emissive:0x213040,
+    emissiveIntensity:.5, roughness:.35, metalness:.35 });
+  const redM = new THREE.MeshStandardMaterial({ color:0xff3b30, emissive:0xff2a1a, emissiveIntensity:1.6, roughness:.3 });
+  const decks = STAGE.decks || [[-STAGE.mainW / 2, STAGE.mainW / 2, 0]];
+  const pebs = [];
+  decks.forEach((dk, di) => {
+    const y = dk[2], dw = dk[1] - dk[0], cx = (dk[0] + dk[1]) / 2;
+    const m = di % 2 ? -1 : 1;                          // 第二栋楼左右镜像 → 两栋楼不像复制品
+    const P = (u) => cx + m * u * dw;                    // u = 相对楼宽的位置（±.36 以内，留出女儿墙）
+    const zBack = -D / 2 + 1.9, zFront = D / 2 - 2.1;
+    /* 楼梯间门房 */
+    const hut = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.9, 2.2), concD);
+    hut.position.set(P(-.28), y + .95, zBack - .3); G.add(hut);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, .08), dark);
+    door.position.set(P(-.28), y + .78, zBack + .82); G.add(door);
+    /* 空调机组 ×2 */
+    for (const u of [-.02, .10]) {
+      const ac = new THREE.Group();
+      const bx = new THREE.Mesh(new THREE.BoxGeometry(1.7, .95, 1.25), steel); bx.position.y = .47; ac.add(bx);
+      const gr = new THREE.Mesh(new THREE.TorusGeometry(.42, .07, 6, 14), dark); gr.position.set(0, .5, .64); ac.add(gr);
+      const fan = new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .06, 12), dark);
+      fan.rotation.x = Math.PI / 2; fan.position.set(0, .5, .62); ac.add(fan);
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, 1.1, 6), dark);
+      pipe.position.set(.62, .2, -.5); ac.add(pipe);
+      ac.position.set(P(u), y, zBack + .5); G.add(ac);
+    }
+    /* 水塔（圆罐 + 四条腿 + 锥顶） */
+    const tank = new THREE.Group();
+    const tb = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 1.7, 14), steel); tb.position.y = 1.55; tank.add(tb);
+    const tl = new THREE.Mesh(new THREE.ConeGeometry(1.2, .45, 14), concD); tl.position.y = 2.6; tank.add(tl);
+    for (let k = 0; k < 4; k++) {
+      const a = k / 4 * Math.PI * 2;
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, 1.5, 6), dark);
+      leg.position.set(Math.cos(a) * .78, .72, Math.sin(a) * .78); tank.add(leg);
+    }
+    tank.position.set(P(.24), y, zFront + .5); G.add(tank);
+    /* 天线塔 + 顶端红色航空灯 */
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(.07, .12, 5.4, 8), steel);
+    mast.position.set(P(.31), y + 2.7, zBack - .2); G.add(mast);
+    for (let i = 0; i < 3; i++) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.2 - i * .3, .07, .07), steel);
+      arm.position.set(P(.31), y + 1.6 + i * 1.5, zBack - .2); G.add(arm);
+    }
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8), redM);
+    lamp.position.set(P(.31), y + 5.45, zBack - .2); G.add(lamp);
+    /* 天窗（平铺在楼顶，不挡人） */
+    for (const u of [-.14, .04]) {
+      const fr = new THREE.Mesh(new THREE.BoxGeometry(2.2, .06, 1.5), concM);
+      fr.position.set(P(u), y + .03, zFront + .2); G.add(fr);
+      const sk = new THREE.Mesh(new THREE.BoxGeometry(2.0, .10, 1.3), glassM);
+      sk.position.set(P(u), y + .06, zFront + .2); G.add(sk);
+    }
+    /* 通风管 ×4（靠后檐） */
+    for (let i = 0; i < 4; i++) {
+      const v = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .55, 8), steel);
+      v.position.set(P(.14 + i * .05), y + .28, zBack - .9); G.add(v);
+    }
+    /* 楼顶碎石（中段一条，避开设备） */
+    for (let i = 0; i < 10; i++) {
+      const u = -.34 + i * .076, sc = .12 + Math.random() * .16;
+      pebs.push({ x: P(u), y: y + sc * .5, z: .3 + (i % 3) * .35, s: sc,
+                  rx: Math.random() * 3, ry: Math.random() * 3, rz: Math.random() * 3 });
+    }
+    /* 黄色警示锥（缝口 / 檐口各摆两个） */
+    for (const u of [-.20, -.13]) {
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(.20, .52, 8), yellowM);
+      cone.position.set(P(u), y + .26, zFront + .9); G.add(cone);
+    }
+  });
+  if (pebs.length) G.add(_inst(new THREE.DodecahedronGeometry(1, 0), concM, pebs));
+}
 const DECO_BY_ID = { meadow:decoMeadow, meadowXL:decoMeadow, pillars:decoPillars, pillarsXL:decoPillars,
-                     arena:decoSky, arenaXL:decoSky, desert:decoDesert, desertXL:decoDesert };
+                     arena:decoSky, arenaXL:decoSky, desert:decoDesert, desertXL:decoDesert,
+                     rooftop:decoRoof, rooftopXL:decoRoof };
 buildPlats();                                  // 现在 DECOS 已就绪，首张地图带装饰
 
 /* ================= 确定性随机（联机锁定步的必要条件）=================
@@ -3222,7 +3290,9 @@ function trashMesh(kind) {
 function spawnTrash() {
   const kind = trashPickKind();
   const m = trashMesh(kind);
-  let x = (RND() * 2 - 1) * (STAGE.wallX - 2.5), y = 0;
+  /* ★ 按脚下那层地板的高度刷（Rooftop XL：右楼顶 -7 / 缝里 null）；刷在缝上就挪到左楼顶 */
+  let x = (RND() * 2 - 1) * (STAGE.wallX - 2.5), y = stageFloorY(x);
+  if (y === null) { x = -STAGE.wallX * .55; y = stageFloorY(x) ?? 0; }
   if (plats.length && RND() < .35) {
     const p = plats[(RND() * plats.length) | 0];
     x = p.x + (RND() * 2 - 1) * Math.max(0, p.halfW - .6);
@@ -3319,6 +3389,7 @@ function gemBuildMine() {
     g.add(c);
   }
   g.visible = gemModeOn();
+  g.position.set(GEM.mineX, GEM.mineY, 0);          // ★ 有空隙的地图：矿井跟着那层楼顶的高度走
   scene.add(g);
   GEM.mine = g; GEM.core = core; GEM.ring = ring;
 }
@@ -3330,7 +3401,7 @@ function gemMesh() {
 function gemSpawnOne(xOverride) {
   const gx = (xOverride === undefined) ? (GEM.mineX + (RND() * 2 - 1) * .78) : xOverride;
   const m = gemMesh();
-  m.position.set(gx, .55, 0);
+  m.position.set(gx, GEM.mineY + .55, 0);
   scene.add(m);
   GEM.list.push({ x: gx, y: GEM.mineY, t: 0, mesh: m });
   if (xOverride === undefined) { FX.ring(gx, GEM.mineY + .5, .3, 2.2, 0x9dfbe4, .4); FX.spark(gx, GEM.mineY + .6, .3, 3, 0x9dfbe4); }
@@ -3341,6 +3412,10 @@ function gemReset() {
   GEM.list.length = 0;
   GEM.spawnT = 4.0; GEM.cdT = 0; GEM.cdTeam = -1; GEM.anim = 0;
   for (const f of FIGHTERS) f.gems = 0;
+  /* ★ 有空隙的地图（Rooftop XL）：矿井不能摆在缝上 → 挪到左楼顶中央，宝石也贴那层地板刷 */
+  const _gx = (STAGE.gaps && stageFloorY(0) === null) ? -STAGE.wallX * .55 : 0;
+  GEM.mineX = _gx; GEM.mineY = stageFloorY(_gx) ?? 0;
+  if (GEM.mine) GEM.mine.position.set(GEM.mineX, GEM.mineY, 0);
   if (GEM.mine) GEM.mine.visible = gemModeOn();
 }
 function updateGems(dt) {
@@ -9866,11 +9941,12 @@ class Fighter {
     this.ringFx = m.ringFx; this.auraRing = m.auraRing; this.sparkT2 = 0;
     scene.add(this.mesh); scene.add(this.shadow);
     this.spawnX = opts.spawnX;
+    this.spawnY = opts.spawnY || 0;                     // ★ 出生层高度（Rooftop XL 的右楼顶在 -7）
     this.reset(opts.stocks);
     this.anim = { armL:0, armR:0, legL:0, legR:0, lean:0, bob:0, t:0 };
   }
   reset(stocks) {
-    this.pos.set(this.spawnX, 4, 0); this.vel.set(0,0,0); this.damage = 0;
+    this.pos.set(this.spawnX, this.spawnY + 4, 0); this.vel.set(0,0,0); this.damage = 0;
     this.state = 'idle'; this.stateT = 0; this.move = null; this.hitSet.clear();
     this.hitstun = 0; this.invuln = 0; this.intangible = 0; this.dodgeT = 0; this.dodgeCd = 0; this.charging = null;
     this.frost = 0; this.frozen = 0; this._frozenX = undefined; this._frozenY = undefined;
@@ -10508,8 +10584,14 @@ class Fighter {
   }
   respawn() {
     /* ★ 宝石争夺战：从自己队伍那侧的天上落回来（别在中央矿井上刷，否则一复活就挡住宝石） */
-    const sx = (gemModeOn() && this.team >= 0) ? (this.team === 0 ? -9 : 9) : 0;
-    this.damage = 0; this.vel.set(0,0,0); this.pos.set(sx, 21.5, 0);
+    let sx = (gemModeOn() && this.team >= 0) ? (this.team === 0 ? -9 : 9) : 0;
+    /* ★ 有空隙的图（Rooftop XL）：正中间就是两栋楼之间的缝，在 x=0 复活会一出生就掉下去
+       → 改回自己出生那栋楼的正上方 */
+    if (stageFloorY(sx) === null) {
+      sx = (typeof this.spawnX === 'number' && stageFloorY(this.spawnX) !== null) ? this.spawnX : (sx < 0 ? -9 : 9);
+    }
+    const _fy = stageFloorY(sx), _sy = _fy === null ? 0 : _fy;
+    this.damage = 0; this.vel.set(0,0,0); this.pos.set(sx, _sy + 21.5, 0);
     this.state = 'idle'; this.hitstun = 0; this.invuln = CFG.respawnInv; this.shield = 100;
     this.jumpsLeft = this.s.jumps + (this.vexJumpBonus || 0); this.airDodged = false; this.mesh.visible = true; this.shadow.visible = true;
     this.grabbed = null; this.charging = null; this.move = null;
@@ -13337,7 +13419,7 @@ class Fighter {
     if (!near) {
       /* ★ 台边保护：南瓜人没有回场技 —— 前方脚下没地就绝不迈步（否则会自己走下单，白送一条命） */
       const aheadX = this.pos.x + this.facing * 1.1;
-      let hasGround = Math.abs(aheadX) <= STAGE.wallX + .2;
+      let hasGround = Math.abs(aheadX) <= STAGE.wallX + .2 && stageFloorY(aheadX) !== null;
       if (!hasGround) for (const p of plats) {
         if (Math.abs(aheadX - p.x) <= p.halfW + .2 && p.y <= this.pos.y + .8) { hasGround = true; break; }
       }
@@ -16225,7 +16307,9 @@ class Fighter {
     if (STAGE.wallCling && !this.grounded && this.hitstun <= 0 && this.state !== 'hitstun') {
       const halfWall = STAGE.mainW / 2;
       const side = Math.sign(this.pos.x) || 1;
-      const nearWall = Math.abs(Math.abs(this.pos.x) - halfWall) < .75 && this.pos.y < .25 && this.pos.y > -44;
+      /* ★ 楼顶 XL：右楼顶面低 7 格 → 那一侧的墙只从 -7 往下才算墙（否则会贴在半空中） */
+      const _wTop = (stageFloorY(side * halfWall) ?? 0) + .25;
+      const nearWall = Math.abs(Math.abs(this.pos.x) - halfWall) < .75 && this.pos.y < _wTop && this.pos.y > -44;
       const pressIn = (this.input.x || 0) * side > .3;
       if (nearWall && pressIn) {
         this.clingT = (this.clingT || 0) + dt;
@@ -17783,13 +17867,17 @@ class Fighter {
       }
     } else this._mkT = 0;
     // 阴影贴片
-    let gy = 0;
-    for (const p of plats) if (Math.abs(this.pos.x - p.x) <= p.halfW) gy = Math.max(gy, p.y);
-    const gap = this.pos.y - gy;
-    this.shadow.position.set(this.pos.x, gy + .04, 0);
+    /* ★ 按「脚下那层地板」算：Rooftop XL 的右楼顶在 -7，原来固定从 y=0 起 → 影子飘在半空；
+       另外原来把「站在头顶上方的平台」也算进来（Math.max 没判高低）→ 影子会跳到头顶的浮台上。 */
+    const _sfy = stageFloorY(this.pos.x);
+    let gy = (_sfy === null ? -Infinity : _sfy);
+    for (const p of plats) if (p.y <= this.pos.y + .05 && Math.abs(this.pos.x - p.x) <= p.halfW) gy = Math.max(gy, p.y);
+    const _hasFloor = isFinite(gy);
+    if (_hasFloor) this.shadow.position.set(this.pos.x, gy + .04, 0);
+    const gap = _hasFloor ? Math.max(0, this.pos.y - gy) : 99;   // 悬空（缝里 / 场外）→ 不画影子
     const sc = THREE.MathUtils.clamp(1 - gap*.045, .32, 1);
     this.shadow.scale.setScalar(sc);
-    this.shadow.material.opacity = .30 * sc;
+    this.shadow.material.opacity = _hasFloor ? .30 * sc : 0;
   }
 }
 
@@ -17848,7 +17936,9 @@ class Bot {
   think() {
     const f = this.f;
     this.timer = this.p.react[0] + RND() * (this.p.react[1] - this.p.react[0]);
-    if (!f.grounded && (f.pos.y < -1.5 || Math.abs(f.pos.x) > STAGE.wallX + 1.5)) { this.plan = 'recover'; return; }
+    /* ★ 别把「右楼那块低 7 格的楼顶」当成场外（-1.5 是相对脚下那层地板算的） */
+    const _fy = stageFloorY(f.pos.x);
+    if (!f.grounded && (_fy === null || f.pos.y < _fy - 1.5 || Math.abs(f.pos.x) > STAGE.wallX + 1.5)) { this.plan = 'recover'; return; }
     const enemies = FIGHTERS.filter(o => o !== f && !o.eliminated && !isTeammate(f, o));   // ★ 团队：只把敌人当目标
     if (!enemies.length) { this.plan = 'idle'; return; }
     let best = null, bd = 1e9;
@@ -17878,7 +17968,8 @@ class Bot {
     if (this.holdAtk) { inp.atkHeld = false; inp.atkR = true; this.holdAtk = false; }
     switch (plan) {
       case 'recover': {
-        const toX = Math.sign(-f.pos.x) || 1;
+        /* 掉进两栋楼之间的缝里 → 往右楼（更低那侧）挣扎，别往中间游 */
+        const toX = stageFloorY(f.pos.x) === null ? 1 : (Math.sign(-f.pos.x) || 1);
         inp.x = toX; inp.y = 0;
         if (f.vel.y < 0 && f.pos.y < 3.5 && f.jumpsLeft > 0) inp.jumpP = true;
         if (f.vel.y < 0 && f.pos.y < -2.5 && !(f.cooldown.sp_u > 0)) { inp.y = 1; inp.spP = true; }
@@ -17944,8 +18035,19 @@ class Bot {
         if (!t) break;
         inp.x = Math.sign(f.pos.x - t.pos.x);
         if (!f.grounded) inp.y = 1;
-        if (!(f.cooldown.sp_u > 0) && f.pos.y < -6) { inp.spP = true; inp.y = 1; }
+        if (!(f.cooldown.sp_u > 0) && f.pos.y < (stageFloorY(f.pos.x) ?? 0) - 6) { inp.spP = true; inp.y = 1; }
         break;
+      }
+    }
+    /* ★ 楼下有空隙的地图（Rooftop XL）：脚下前方就是两栋楼之间的缝
+       —— 对面不比这边高太多（跳得上去）就跳过去，高太多就掉头走开。
+       ⚠ 探测距离要 ≥ 全速跑 0.2 秒的距离（~3.4 格），否则「站住」还没来得及减速就已经滑进缝里了。 */
+    if (STAGE.gaps && f.grounded && inp.x) {
+      const dir = Math.sign(inp.x), aheadX = f.pos.x + dir * 3.4;
+      if (stageFloorY(aheadX) === null) {
+        const hereY = stageFloorY(f.pos.x), farY = stageFloorY(aheadX + dir * 1.6);
+        if (farY !== null && farY - (hereY ?? 0) <= 4.0) inp.jumpP = true;
+        else { inp.x = -dir; inp.y = 0; }
       }
     }
     /* ★ 蚊子（Mosquito）Bot：它没有跳跃 —— 必须**按住空格**才上浮、按住空格+下键才下降，
@@ -18089,9 +18191,11 @@ function setup(opts) {
     }
     let _vd = variantDef(def, VARIANTS[_varOf[i]]);
     if (typeof ACC !== 'undefined' && ACC.skinOf) _vd = Object.assign({}, _vd, { skin: ACC.skinOf(def.id) });
+    /* ★ 地图自带出生位（带 y，Rooftop XL 两栋楼高不同）优先；其它图沿用老的左右交替出生点 */
+    const _spw = (STAGE.spawnXs && STAGE.spawnXs[i]) || [spawns[i % spawns.length][0] * (n > 2 ? 1 : 1.6), 0];
     const f = new Fighter(_vd, null, i,
                           { bot: !human, stocks: gemMode ? 999 : opts.stocks, team: teamOfSeat(i, teamsOn),
-                            spawnX: spawns[i][0] * (n > 2 ? 1 : 1.6) });
+                            spawnX: _spw[0], spawnY: _spw[1] });
     f.variant = _varOf[i];
     f.tag = teamsOn ? (TEAM_NAME[f.team] + (i + 1)) : (i === 0 ? 'P1' : (opts.chars ? ('P' + (i + 1)) : ('CPU' + i)));
     f.netSeat = human ? i : -1;
@@ -22989,6 +23093,7 @@ window.SB = {
   get stages() { return STAGES; },
   get plats() { return plats; },
   get stageIdx() { return curStage; },
+  floorAt: (x) => stageFloorY(x),                   // ★ 探针：该 x 位置脚下地板高度（空隙 = null）
   get fighters() { return FIGHTERS; },
   get projectiles() { return projectiles; },
   get puddles() { return puddles; },
