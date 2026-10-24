@@ -8045,6 +8045,12 @@ const SKIN_LEGEND = {
   gen_cobalt: { name:'Sovereign of Gold', body:0xffd45e, body2:0xfff3c4, dark:0x8a6414,
                 acc:['crown', 'cape', 'scepter', 'aura'], glow:0xffd45e, legendary:true }
 };
+/* ★ 单角色专属皮肤（覆盖主题哈希）：Sparky = 恶魔（血红眼 + 恶魔角 + 恶魔尾） */
+const SKIN_OVERRIDE = {
+  gen_sparky: { name:'Crimson Imp', body:0x5e1a16, body2:0x2c0d0b, dark:0x140607,
+                acc:['demonHorns', 'demonTail'], glow:0xff2a1a,
+                eye:0xff2a1a, eyeGlow:0x5a0b06, brow:true }
+};
 function skinSpecFor(def) {
   /* ★ 大厅/缩略图传进来的 def 往往没有 skin 字段 → 必须回落到账号里装备的皮肤
      （这条规则以前在 kit 里踩过坑：「def.skin || ACC.skinOf(id)」，这里同样处理） */
@@ -8053,20 +8059,35 @@ function skinSpecFor(def) {
   if (!sk) return null;
   if (sk === 'smiley_penguin' || sk === 'cardboard_tv') return null;    // 专属建模皮肤交给 kit 自己
   if (SKIN_LEGEND[sk]) return SKIN_LEGEND[sk];
+  if (SKIN_OVERRIDE[sk]) return SKIN_OVERRIDE[sk];
   const m = /^gen_(.+)$/.exec(sk);
   if (!m) return null;
   const t = SKIN_THEMES[_skinHash(m[1]) % SKIN_THEMES.length];
   return { name:t[0], body:t[1], body2:t[2], dark:t[3], acc:t[4], glow:t[5] };
 }
 /* 生成一个挂件（返回 Group，用角色本体的包围盒定位，所以任何体型都放得上去） */
-function skinAcc(kind, P, sp) {
+function skinAcc(kind, P, sp, gRoot) {
   const out = new THREE.Group();
   const gold = new THREE.MeshStandardMaterial({ color:sp.glow, metalness:.82, roughness:.26,
     emissive:sp.glow, emissiveIntensity:.30 });
   const soft = new THREE.MeshStandardMaterial({ color:sp.body2, roughness:.52, metalness:.18 });
   const dark = new THREE.MeshStandardMaterial({ color:sp.dark, roughness:.70, metalness:.10 });
   const head = P.head, torso = P.torso || P.belly || P.body || null;
-  const boxOf = o => { if (!o) return null; try { o.updateWorldMatrix(true, true); return new THREE.Box3().setFromObject(o); } catch (e) { return null; } };
+  const boxOf = o => {
+    if (!o) return null;
+    try {
+      o.updateWorldMatrix(true, true);
+      const b = new THREE.Box3().setFromObject(o);
+      /* ★ 世界坐标 → 组局部坐标：大厅/预览会给 group 套 scale（1.5~3），
+         不减回来挂件就会被放大同样倍数、飘到天上去。 */
+      try {
+        const gs = new THREE.Vector3(1, 1, 1);
+        if (gRoot) { gRoot.updateWorldMatrix(true, false); gRoot.getWorldScale(gs); }
+        if (gs.x > .001) { b.min.divide(gs); b.max.divide(gs); }
+      } catch (e) {}
+      return b;
+    } catch (e) { return null; }
+  };
   const hb = boxOf(head), tb = boxOf(torso);
   const top = hb ? hb.max.y : 2.10, cx = hb ? (hb.max.x + hb.min.x) / 2 : 0, cz = hb ? (hb.max.z + hb.min.z) / 2 : 0;
   const hr = hb ? Math.max(.15, Math.max(hb.max.x - hb.min.x, hb.max.z - hb.min.z) * .5) : .42;
@@ -8126,6 +8147,57 @@ function skinAcc(kind, P, sp) {
     rod.rotation.z = .16; out.add(rod);
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(hr * .30, 0), gold);
     gem.position.set(bw * .85 - .12, (tb ? tb.min.y : .6) + bh * 1.12, .1); out.add(gem);
+  } else if (kind === 'demonHorns') {
+    /* 恶魔角：三段锥体，方向向量逐段后仰 + 外张，用四元数把锥体轴对齐（不会再飘到天上） */
+    const hornM = new THREE.MeshStandardMaterial({ color:0x6b0f0c, roughness:.42, metalness:.30,
+      emissive:0x2a0403, emissiveIntensity:.40 });
+    const tipM = new THREE.MeshStandardMaterial({ color:0xff3a22, emissive:0xff2a1a, emissiveIntensity:.85, roughness:.35 });
+    const UP = new THREE.Vector3(0, 1, 0);
+    for (const sx of [-1, 1]) {
+      let p = new THREE.Vector3(cx + sx * hr * .40, top + hr * .05, cz - hr * .08);
+      let r = hr * .19, len = hr * .42;
+      for (let k = 0; k < 3; k++) {
+        const tilt = .28 + k * .30;
+        const dir = new THREE.Vector3(sx * (.18 + k * .10), Math.cos(tilt), -Math.sin(tilt)).normalize();
+        const c = new THREE.Mesh(new THREE.ConeGeometry(r, len, 7), k === 2 ? tipM : hornM);
+        c.position.copy(p).addScaledVector(dir, len * .5);
+        c.quaternion.setFromUnitVectors(UP, dir);
+        out.add(c);
+        p.addScaledVector(dir, len * .90);
+        r *= .68; len *= .78;
+      }
+    }
+  } else if (kind === 'demonTail') {
+    /* 恶魔尾巴：六节锥体，方向从「后下方」逐渐扫到「后上方」，末端红箭头 */
+    const tm = new THREE.MeshStandardMaterial({ color:0x6b0f0c, roughness:.45, metalness:.28,
+      emissive:0x2a0403, emissiveIntensity:.35 });
+    const tm2 = new THREE.MeshStandardMaterial({ color:0xff3a22, emissive:0xff2a1a, emissiveIntensity:.75, roughness:.35 });
+    const y0 = tb ? (tb.min.y + bh * .45) : .8;
+    let p = new THREE.Vector3(0, y0, (tb ? tb.min.z : -.4) - .04);
+    let r = Math.max(.10, bw * .10);
+    const UP = new THREE.Vector3(0, 1, 0);
+    for (let k = 0; k < 6; k++) {
+      const a2 = -.30 + k * .40;                     // 从后下到后上
+      const dir = new THREE.Vector3(0, Math.sin(a2), -Math.cos(a2)).normalize();
+      const len = r * 2.5;
+      const seg = new THREE.Mesh(new THREE.ConeGeometry(r, len, 7), k >= 5 ? tm2 : tm);
+      seg.position.copy(p).addScaledVector(dir, len * .5);
+      seg.quaternion.setFromUnitVectors(UP, dir);
+      out.add(seg);
+      p.addScaledVector(dir, len * .88);
+      r *= .82;
+    }
+    const spade = new THREE.Mesh(new THREE.OctahedronGeometry(Math.max(.13, bw * .13), 0), tm2);
+    spade.position.copy(p); spade.scale.set(1, 1.4, .65); out.add(spade);
+  } else if (kind === 'brow') {
+    /* 生气的斜眉：细横条压在内眼角上方（眼睛不会被遮住） */
+    const bm = new THREE.MeshStandardMaterial({ color:0x1a0505, roughness:.55 });
+    for (const sx of [-1, 1]) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(hr * .46, hr * .11, hr * .10), bm);
+      b.position.set(cx + sx * hr * .34, top - hr * .70, cz + hr * .93);
+      b.rotation.z = sx * .52; b.rotation.y = -sx * .22;
+      out.add(b);
+    }
   } else if (kind === 'aura') {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(Math.max(1.05, bw * .95), .06, 5, 28),
       new THREE.MeshBasicMaterial({ color:sp.glow, transparent:true, opacity:.55,
@@ -8148,20 +8220,31 @@ function applySkinFx(k, def) {
   if (def.body !== undefined) map.set(def.body, sp.body);
   if (def.body2 !== undefined) map.set(def.body2, sp.body2);
   if (def.dark !== undefined) map.set(def.dark, sp.dark);
+  if (sp.eye !== undefined && def.eye !== undefined) map.set(def.eye, sp.eye);   // ★ 恶魔血红眼
   if (map.size) g.traverse(o => {
     if (!o.material) return;
     const arr = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of arr) {
       if (!m || !m.color || !m.color.getHex) continue;
       const h = m.color.getHex();
-      if (map.has(h)) { try { m.color.setHex(map.get(h)); } catch (e) {} }
+      if (map.has(h)) {
+        try {
+          m.color.setHex(map.get(h));
+          /* 眼睛材质一般带 emissive，一起换成血红色才不会「红面白芯」 */
+          if (sp.eye !== undefined && h === def.eye && m.emissive) {
+            m.emissive.setHex(sp.eyeGlow !== undefined ? sp.eyeGlow : sp.eye);
+            if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 1.15;
+          }
+        } catch (e) {}
+      }
     }
   });
   /* ② 挂件 */
   const P = Object.assign({}, g.userData || {}, k);
   for (const kind of (sp.acc || [])) {
-    try { const a = skinAcc(kind, P, sp); if (a) g.add(a); } catch (e) {}
+    try { const a = skinAcc(kind, P, sp, g); if (a) g.add(a); } catch (e) {}
   }
+  if (sp.brow) { try { const b = skinAcc('brow', P, sp, g); if (b) g.add(b); } catch (e) {} }
   if (sp.legendary) { try { g.userData.legendarySkin = 1; } catch (e) {} }
 }
 
@@ -20309,7 +20392,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net110',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net113',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
