@@ -17305,7 +17305,7 @@ class Bot {
     this.timer -= dt;
     if (this.timer <= 0) this.think();
     const t = this.target, plan = this.plan;
-    inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false; inp.spP = false; inp.shHeld = false;
+    inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false; inp.spP = false; inp.shHeld = false; inp.fsP = false;
     if (this.charge > 0) {
       this.charge -= dt;
       inp.atkHeld = true; // Resume蓄力
@@ -17385,6 +17385,32 @@ class Bot {
         break;
       }
     }
+    /* ★ 蚊子（Mosquito）Bot：它没有跳跃 —— 必须**按住空格**才上浮、按住空格+下键才下降，
+       所以这里直接改写 jumpHeld / y，让 AI 学会「悬停在对手胸口略高、靠边先回中」。 */
+    if (f.def.id === 'mosquito') {
+      const wantY = Math.max(1.4, Math.min(6.0, (t ? t.pos.y : 1.5) + .7));
+      const dy = wantY - f.pos.y;
+      inp.jumpHeld = false;
+      if (f.pos.y > 8.4) { inp.y = -1; inp.jumpHeld = false; }         // 别贴着天花板
+      else if (dy > .35) inp.jumpHeld = true;                          // 上浮
+      else if (dy < -.5) { inp.jumpHeld = true; inp.y = -1; }          // 下降（空格 + 下）
+      if (Math.abs(f.pos.x) > STAGE.wallX - 1.0) {                     // 台边：先回中（没重力容易越飘越远）
+        inp.x = Math.sign(-f.pos.x) || 1; inp.jumpHeld = true;
+      }
+      /* 会用它自己的招：贴身冲撞、中距离尖刺、血少/被围放水盾 */
+      if (t) {
+        const adx2 = Math.abs(t.pos.x - f.pos.x), ady2 = Math.abs(t.pos.y - f.pos.y);
+        if (!(f.cooldown.sp_s > 0) && adx2 > 2 && adx2 < 7 && ady2 < 1.8 && RND() < .07) {
+          inp.spP = true; inp.x = Math.sign(t.pos.x - f.pos.x) || 0; inp.y = 0; inp.jumpHeld = false;
+        } else if (!(f.cooldown.sp_n > 0) && adx2 >= 3.2 && adx2 < 9 && RND() < .05) {
+          inp.spP = true; inp.x = 0; inp.y = 0;
+        } else if (!(f.cooldown.sp_d > 0) && f.damage > 85 && adx2 < 4 && RND() < .12) {
+          inp.spP = true; inp.x = 0; inp.y = -1;
+        }
+      }
+    }
+    /* ★ 所有 Bot：必杀槽满了就把大招放了（先贴到 7.5 格内，别放空） */
+    if (f.fsMeter >= 1 && !f.fsActive && f.fsT <= 0 && (!t || Math.abs(t.pos.x - f.pos.x) < 7.5)) inp.fsP = true;
   }
 }
 
@@ -20122,7 +20148,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net103',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net104',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
