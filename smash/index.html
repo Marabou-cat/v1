@@ -20523,7 +20523,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net119',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net120',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -21875,13 +21875,21 @@ const SHARD_SHOP = [
 ];
 function shardShopBuy(id) {
   const it = SHARD_SHOP.find(x => x.id === id); if (!it) return { err:'bad' };
+  /* ★ 皮肤档只卖「史诗皮肤」（不含传奇），如果全都拥有了：不扣碎片、直接返回 allskins */
+  let skinPool = null;
+  if (id === 'skin') {
+    skinPool = SUMMON_SKINS.filter(x => !x.legendary && !ACC.hasSkin(x.id));
+    if (!skinPool.length) return { err:'allskins' };
+  }
   if (!ACC.spendShards(it.cost)) return { err:'shards' };
   if (id === 'coins') ACC.addCoins(1000);
   else if (id === 'gems') ACC.addGems(60);
   else {
-    const left = SUMMON_SKINS.filter(x => !ACC.hasSkin(x.id));
-    if (left.length) { const sk = left[Math.floor(Math.random() * left.length)]; ACC.addSkin(sk.id); }
-    else ACC.addShards(120);                      // 全有了 → 退一半碎片
+    const sk = skinPool[Math.floor(Math.random() * skinPool.length)];
+    ACC.addSkin(sk.id);
+    summonPaint && summonPaint();
+    summonBtnPaint && summonBtnPaint();
+    return { ok:true, skin:sk.id, name:sk.name };
   }
   summonPaint && summonPaint();
   summonBtnPaint && summonBtnPaint();
@@ -22401,11 +22409,23 @@ function summonPaint(last) {
     if (!got.length) { toast('Not enough Supreme Gems'); return; }
     summonAnimation(got, () => { summonPaint(got); try { window.__rebuildChars && window.__rebuildChars(); } catch (e) {} summonBtnPaint(); });
   };
+  /* ★ 史诗皮肤全拥有 → 商店那一行直接显示「Already own all skins」且不可点 */
+  try {
+    const sBtn2 = el.querySelector('[data-shop="skin"]');
+    const allOwned = !SUMMON_SKINS.some(x => !x.legendary && !ACC.hasSkin(x.id));
+    if (sBtn2 && allOwned) {
+      sBtn2.disabled = true;
+      sBtn2.classList.add('owned');
+      sBtn2.style.opacity = '.62';
+      sBtn2.innerHTML = '<span>Already own all skins</span><span style="font-size:10px;opacity:.8">ALL OWNED</span>';
+    }
+  } catch (e) {}
   el.querySelectorAll('[data-shop]').forEach(btn => {
     btn.onclick = () => {
       const res = shardShopBuy(btn.getAttribute('data-shop'));
       if (res.err === 'shards') { toast('Not enough Memory Shards'); return; }
-      toast('Redeemed!'); summonPaint();
+      if (res.err === 'allskins') { toast('You already own all epic skins — nothing was spent'); return; }
+      toast(res.name ? ('Redeemed · ' + res.name) : 'Redeemed!'); summonPaint();
     };
   });
 }
