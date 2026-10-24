@@ -17503,6 +17503,15 @@ function setup(opts) {
       cnt[id] = (cnt[id] || 0) + 1;
       _varOf[i] = (cnt[id] - 1) % VARIANTS.length;
     } }
+  /* ★ 人机角色随机（2026-10-24）：每个 CPU 座位从「洗过的角色池」里抽一个，
+     不重复、并尽量避开玩家自己选的角（池里已经把玩家角色去掉）。联机走 opts.chars（服务端下发），
+     不经过这里，所以不影响锁步一致性。 */
+  const _botPool = CHARS.map((c, k) => k).filter(k => k !== opts.playerChar);
+  for (let k = _botPool.length - 1; k > 0; k--) {
+    const j = (Math.random() * (k + 1)) | 0, t2 = _botPool[k];
+    _botPool[k] = _botPool[j]; _botPool[j] = t2;
+  }
+  let _botPick = 0;
   for (let i = 0; i < n; i++) {
     let def, human;
     if (opts.chars && opts.chars[i]) {          // 联机：Seat→角色由服务端统一下发，各端必须完全一致
@@ -17510,7 +17519,9 @@ function setup(opts) {
       def = CHARS[ci < 0 ? 0 : ci];
       human = !!(opts.humanSeats && opts.humanSeats[i]);
     } else {
-      def = i === 0 ? CHARS[opts.playerChar] : CHARS[(opts.playerChar + i) % CHARS.length];
+      def = i === 0 ? CHARS[opts.playerChar]
+                    : CHARS[_botPool.length ? _botPool[(_botPick++) % _botPool.length]
+                                            : ((opts.playerChar + i) % CHARS.length)];
       human = i === 0;
     }
     let _vd = variantDef(def, VARIANTS[_varOf[i]]);
@@ -20148,7 +20159,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net104',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net105',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
