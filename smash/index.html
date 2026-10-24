@@ -20392,7 +20392,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net113',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net114',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -22431,6 +22431,34 @@ try { summonBtnPaint(); } catch (e) {}
 try { document.getElementById('skinBtn').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} skinOpen(); }; } catch (e) {}
 try { document.getElementById('wepBtn').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} weaponOpen(); }; } catch (e) {}
 try { paintWepBtn(); } catch (e) {}
+/* ================= ★ 测试账号一键解锁（2026-10-24）=================
+   只在网址里带上正确的密钥才生效：  /smash/?grant=sb-test-unlock-2026
+   （可选 &more=1 连武器/至尊/货币一起给）。解锁后调用 NET.acct() 把存档推到服务器，
+   换设备登录同一账号也是全皮肤。普通玩家不知道密钥，等于没有这个入口。 */
+(function grantAllTest() {
+  try {
+    const KEY = 'sb-test-unlock-2026';
+    const m = /[?&]grant=([^&]+)/.exec(location.search);
+    if (!m || decodeURIComponent(m[1]) !== KEY) return;
+    const more = /[?&]more=1/.test(location.search);
+    let nSkin = 0, nWep = 0, nSup = 0;
+    try {
+      for (const sk of SUMMON_SKINS) if (!ACC.hasSkin(sk.id)) { try { ACC.addSkin(sk.id); nSkin++; } catch (e) {} }
+    } catch (e) {}
+    if (more) {
+      try { for (const w of SUMMON_WEAPONS) if (!ACC.hasWeapon(w.id)) { ACC.addWeapon(w.id); nWep++; } } catch (e) {}
+      try { for (const c of CHARS) if (c.supreme && !ACC.owns(c.id)) { ACC.addSupreme(c.id); nSup++; } } catch (e) {}
+      try { ACC.addGems(20000); ACC.addCoins(100000); ACC.addShards(2000); } catch (e) {}
+    }
+    try { paintSkinBtn(); } catch (e) {}
+    try { paintWepBtn(); } catch (e) {}
+    try { summonBtnPaint(); } catch (e) {}
+    const msg = 'TEST ACCOUNT · +' + nSkin + ' skins' + (more ? (' · +' + nWep + ' weapons · +' + nSup + ' supremes') : '') + ' · total ' + SUMMON_SKINS.length;
+    console.log('[grant]', msg);
+    try { toast(msg); } catch (e) {}
+    setTimeout(() => { try { if (window.NET && NET.acct) NET.acct(); } catch (e) {} }, 1200);
+  } catch (e) { console.warn('grant failed', e); }
+})();
 /* ★ 资源条点击：金币 → 奖励页并滚到「用金币解锁」区；奖杯 → 奖励页；宝石 → 抽卡。
    三个数字各自就是一个入口，玩家不用先猜到「那个小奖杯图标能点」。 */
 try {
