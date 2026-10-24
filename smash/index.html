@@ -4389,6 +4389,8 @@ function kitSmiley(def) {
        ④ 眼睛与喙在同一条水平线（EY）上 —— 用户要求「眼睛与嘴平行」。
        ⑤ 鳍：细长椭球压进球体两侧（不是悬空的板子）。 */
     ball.material.color.setHex(0x1b2436); ball.material.roughness = .52;
+    g.userData.baseTorso = 0x1b2436; g.userData.baseBelly = 0x15151f;   // ★ 皮肤底色（复活/形态恢复用）
+    g.userData.shedTorso = 0x101828; g.userData.shedBelly = 0x101828;
     const capGeo = new THREE.SphereGeometry(R * 1.004, 44, 30, 0, Math.PI * 2, 0, Math.PI * .33);
     capGeo.rotateX(Math.PI / 2 + .26);
     ballSpin.add(new THREE.Mesh(capGeo, cmat(0xf7fbff, { roughness:.58 })));
@@ -12165,6 +12167,7 @@ class Fighter {
   }
   /* ★ Cardboard 被动：外壳真的「掉」——胶布全不见、纸箱变成破损的深色 */
   cbShellOff() {
+    if (this.def.id !== 'sovereign') return;        // ★ 只有 Cardboard 有外壳；别刷别人的皮肤色
     const P = this.parts; if (!P) return;
     if (P.tapes) for (const m of P.tapes) { try { m.visible = false; } catch (e) {} }
     try { if (P.torso) { P.torso.material.color.setHex(P.shedTorso || 0x7d5c3a); P.torso.material.roughness = .97; } } catch (e) {}
@@ -12173,6 +12176,7 @@ class Fighter {
     try { if (P.core) P.core.material.color.setHex(0xff6a2a); } catch (e) {}   // 核心外露发红
   }
   cbShellOn() {                                   // 复活/新一局：把外壳装回去
+    if (this.def.id !== 'sovereign') return;        // ★ 复活时别动其他角色的皮肤色（企鹅变淡黄就是这个）
     const P = this.parts; if (!P) return;
     if (P.tapes) for (const m of P.tapes) { try { m.visible = true; } catch (e) {} }
     try { if (P.torso) { P.torso.material.color.setHex(P.baseTorso || this.def.body || 0xb98a52); P.torso.material.roughness = .86; } } catch (e) {}
@@ -20159,7 +20163,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net105',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net106',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
