@@ -3310,9 +3310,22 @@ function trashPickReset() {
   trashSpawnT = 4.0;                       // 开局 4 秒后第一件（用种子 RND 抽位置，两端一致）
   if (smogT > 0) { smogT = 0; try { if (prevFog) { scene.fog = prevFog; prevFog = null; } smogVeil(false); } catch (e) {} }
 }
+/* ★ 本场是否有垃圾桶（Trashcan）参战 —— 只有它能把垃圾捡成连击段，
+   没有它时刷出来的垃圾既没人能用、又会占着地面/浮台被当成可互动道具（用户报的 bug）。 */
+function trashHasOwner() {
+  for (const f of FIGHTERS) if (f.def && f.def.id === 'trash') return true;
+  return false;
+}
 function updateTrash(dt) {
-  trashSpawnT -= dt;
-  if (trashSpawnT <= 0) { trashSpawnT = 20; spawnTrash(); }
+  /* ★ 刷垃圾只在场上有 Trashcan 时进行；没有垃圾桶就把计时器停在「开局 4 秒」的状态，
+     一旦本场有垃圾桶（同一场名单固定，实际就是从一开始有/没有）按正常节奏刷。 */
+  if (trashHasOwner()) {
+    trashSpawnT -= dt;
+    if (trashSpawnT <= 0) { trashSpawnT = 20; spawnTrash(); }
+  } else if (TRASH.length) {                 // 极端情况：换局/换人后还留有垃圾 → 立刻清掉
+    for (const it of TRASH) { try { scene.remove(it.mesh); } catch (e) {} }
+    TRASH.length = 0; trashSpawnT = 4.0;
+  } else trashSpawnT = 4.0;
   for (let i = TRASH.length - 1; i >= 0; i--) {
     const it = TRASH[i];
     it.t += dt;
@@ -23084,6 +23097,8 @@ try { renderResBar(); } catch (e) {}
 /* ================= 调试/自动化探针接口 ================= */
 window.SB = {
   get trashItems() { return TRASH; },   // 探针：场上垃圾（Trashcan 被动）
+  get trashT() { return +trashSpawnT.toFixed(2); },   // 探针：距下一件垃圾还有几秒
+  trashOwner: () => trashHasOwner(),                  // 探针：本场是否有 Trashcan
   get smogT() { return smogT; },        // 探针：毒雾剩余秒数
   get fogOn() { return !!(scene.fog && scene.fog.far <= 10.5); },  // 探针：全图毒雾是否生效
   get vexFx() { return VEX_FX.length; },// 探针：紫火/黑洞粒子数
