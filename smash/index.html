@@ -19076,6 +19076,29 @@ function frame(now) {
     if (!document.body.classList.contains('inMenu')) document.body.classList.add('inMenu');
     LOBBY.show(true); PV.frame(dt); LOBBY.frame(dt);
     mosqVeilHide();
+    /* ★ Summon 打开时：渲染 3D 云海展示场景（同一个 renderer，不额外开 WebGL 上下文） */
+    let s3 = null;
+    try { s3 = document.getElementById('summonSheet'); } catch (e) {}
+    const _smOn = !!(s3 && !s3.classList.contains('hidden'));
+    if (_smOn !== document.body.classList.contains('summoning')) {
+      document.body.classList.toggle('summoning', _smOn);
+      /* Σ 3D 抽卡页要「只剩 canvas + 抽卡面板」：把所有带 id 的顶层节点临时藏起来 */
+      for (const ch of document.body.children) {
+        if (!ch.id || ch.tagName === 'SCRIPT' || ch.tagName === 'STYLE') continue;
+        if (ch.id === 'summonSheet' || ch.id === 'summonFx' || ch.tagName === 'CANVAS') continue;
+        if (/^toast/i.test(ch.id)) continue;
+        if (ch.dataset && ch.dataset.smHide === undefined) ch.dataset.smHide = ch.style.visibility || '';
+        ch.style.visibility = _smOn ? 'hidden' : (ch.dataset.smHide || '');
+      }
+    }
+    if (_smOn) {
+      try {
+        SUMMON3D.resize(renderer.domElement.clientWidth || innerWidth, renderer.domElement.clientHeight || innerHeight);
+        SUMMON3D.frame(dt);
+        renderer.render(SUMMON3D.scene, SUMMON3D.cam);
+        return;
+      } catch (e) { /* 建场景失败就退回大厅 3D */ }
+    }
     renderer.render(LOBBY.scene, LOBBY.cam);
     return;
   }
@@ -20099,7 +20122,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net99',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net102',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -21666,6 +21689,134 @@ function summonAnimation(prize, done) {
   el.onclick = close;
 }
 
+/* ================= ★ Summon 3D 展示场景（2026-10-24 第 124 轮）=================
+   用户要求：「背景变成一个 3d 类似 lobby 的背景，中间有个平台，后面是云朵（天堂般，站在云朵上），
+   平台上站着现在的至尊角色和其他皮肤，summon 键放在右下角类似原神」。
+   实现：和 LOBBY 同一套做法 —— **不另开 WebGLRenderer**，同一个 renderer 渲染第二个 scene/camera，
+   在 frame() 的菜单分支里，只要 #summonSheet 没关就优先渲染这个场景（DOM 面板浮在上面）。 */
+const SUMMON3D = (() => {
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(42, 1, .1, 400);
+  const root = new THREE.Group(); scene.add(root);
+  const clouds = [];
+  let built = false, models = [], sig = '', t = 0;
+  function cloudCluster(x, y, z, sc) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xe8f4ff,
+      emissiveIntensity:.42, roughness:.98, flatShading:false });
+    for (let k = 0; k < 6; k++) {
+      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(1.0 + (k % 2) * .45, 1), mat);
+      m.position.set((k - 2.5) * .92, (k % 2) * .32, (k % 3 ? .55 : -.45));
+      m.scale.set(1.06, .66, .96);
+      g.add(m);
+    }
+    g.position.set(x, y, z); g.scale.setScalar(sc);
+    root.add(g); clouds.push(g);
+    return g;
+  }
+  function build() {
+    built = true;
+    scene.background = new THREE.Color(0x9ed4ff);
+    scene.fog = new THREE.Fog(0xd6ecff, 24, 82);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xbcd6ff, 1.15));
+    const key = new THREE.DirectionalLight(0xfff0c8, 1.15); key.position.set(-7, 13, 9); scene.add(key);
+    const rim = new THREE.DirectionalLight(0xa9d8ff, .55); rim.position.set(6, 6, -9); scene.add(rim);
+    /* 中央平台（天堂感：奶白 + 金边） */
+    const plat = new THREE.Mesh(new THREE.CylinderGeometry(3.35, 3.65, .55, 44),
+      new THREE.MeshStandardMaterial({ color:0xe8f0ff, roughness:.52, metalness:.06 }));
+    plat.position.y = -.28; root.add(plat);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(3.36, 3.36, .06, 44),
+      new THREE.MeshStandardMaterial({ color:0xfdfefe, roughness:.35 }));
+    top.position.y = .02; root.add(top);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(3.40, .075, 8, 52),
+      new THREE.MeshBasicMaterial({ color:0xffe9a8 }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = .06; root.add(ring);
+    /* 云海：一圈 + 几朵近景 */
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2, r = 9.5 + (i % 4) * 2.6;
+      cloudCluster(Math.cos(a) * r, -2.6 + (i % 3) * .3, Math.sin(a) * r * .72 - 3.2, 1.0 + (i % 3) * .3);
+    }
+    for (let i = 0; i < 6; i++) cloudCluster(-13 + i * 5.4, -3.1, 6.5 + (i % 2) * 2.4, 1.7);
+    /* 浮空的小云（近景层次） */
+    for (let i = 0; i < 4; i++) {
+      const c = cloudCluster(-6 + i * 4, 3.4 + (i % 2) * 1.2, -3 + (i % 3) * 2, .55);
+      c.userData.float = .35 + i * .1;
+    }
+    cam.position.set(0, 2.35, 8.3); cam.lookAt(0, 1.30, 0);
+  }
+  /* 站台上的角色：至尊本体 + 他的皮肤 + 其余角色的皮肤（最多 4 个） */
+  function pickStands() {
+    const list = [];
+    const sup = CHARS.find(c => c.supreme) || CHARS[0];
+    if (sup) list.push({ id: sup.id, skin: '' });
+    for (const s2 of SUMMON_SKINS) {
+      if (list.length >= 4) break;
+      list.push({ id: s2.char, skin: s2.id });
+    }
+    if (list.length < 3) {
+      const extra = CHARS.filter(c => !list.some(x => x.id === c.id)).slice(0, 3 - list.length);
+      for (const c of extra) list.push({ id: c.id, skin: '' });
+    }
+    return list.slice(0, 4);
+  }
+  function buildStands(force) {
+    const list = pickStands();
+    const ns = list.map(x => x.id + ':' + x.skin).join('|');
+    if (!force && ns === sig) return;
+    sig = ns;
+    for (const m of models) { root.remove(m.group); if (m.shadow) root.remove(m.shadow); }
+    models = [];
+    const spots = [[-1.55, 0, .55], [1.5, 0, .35], [0, 0, -1.25], [2.35, 0, -1.6]];
+    list.forEach((x, i) => {
+      const base = CHARS.find(c => c.id === x.id); if (!base) return;
+      const vd = Object.assign({}, base, { skin: x.skin || '' });
+      let m = null;
+      try { m = buildMesh2(vd); } catch (e) { m = null; }
+      if (!m) return;
+      const g = m.group;
+      scene.remove(g);
+      if (m.bubble) m.bubble.visible = false;
+      if (m.charge) m.charge.visible = false;
+      if (m.auraRing) m.auraRing.visible = false;
+      if (m.ringFx) m.ringFx.visible = false;
+      if (m.shadow) { m.shadow.visible = false; }
+      const sp = spots[i % spots.length];
+      /* ★ 统一身高：各 kit 体型差很大（Smiley 是一整颗球），按包围盒缩到 2.35 再贴台面 */
+      try {
+        let bb = new THREE.Box3().setFromObject(g);
+        const hh = Math.max(.4, bb.max.y - bb.min.y);
+        g.scale.multiplyScalar(2.35 / hh);
+        g.updateMatrixWorld(true);
+        bb = new THREE.Box3().setFromObject(g);
+        g.position.set(sp[0], .03 - bb.min.y, sp[2]);
+      } catch (e) {
+        g.position.set(sp[0], .03, sp[2]);
+      }
+      g.rotation.y = Math.atan2(-sp[0], 6) * .6;
+      root.add(g);
+      models.push({ group: g, ph: i * 1.7, x: sp[0], z: sp[2] });
+    });
+  }
+  function frame(dt) {
+    if (!built) build();
+    t += dt;
+    buildStands(false);
+    for (const c of clouds) {
+      c.position.x += Math.sin(t * .16 + c.position.z) * dt * .22;
+      if (c.userData.float) c.position.y += Math.sin(t * .8 + c.position.x) * dt * .30;
+    }
+    for (const m of models) {
+      m.group.position.y = .03 + Math.sin(t * 1.5 + m.ph) * .045;
+      m.group.rotation.y += dt * .22;
+    }
+    root.rotation.y = Math.sin(t * .08) * .05;
+    cam.position.y = 2.55 + Math.sin(t * .5) * .06;
+    cam.lookAt(0, 1.25 + Math.sin(t * .4) * .03, 0);
+  }
+  function resize(w, h) { cam.aspect = Math.max(.4, w / Math.max(1, h)); cam.updateProjectionMatrix(); }
+  return { scene, cam, frame, resize, refresh: () => buildStands(true), get built() { return built; } };
+})();
+
 /* —— 抽卡面板 —— */
 function summonOpen() {
   let el = document.getElementById('summonSheet');
@@ -21858,6 +22009,41 @@ function skinPaint() {
   });
   el.querySelectorAll('.row[data-wepgate]').forEach(r => r.onclick = () => { el.classList.add('hidden'); weaponOpen(); });
 }
+
+/* ================= ★ Summon 3D 版布局：面板透明，3D 云海透出来；SUMMON 在右下角 ================= */
+(function summon3dStyle() {
+  const st = document.createElement('style');
+  st.textContent = `
+  /* 打开抽卡时把大厅 UI 藏掉（3D 场景由 renderer 画在 canvas 上，不受影响） */
+  body.summoning #startScreen { opacity:0 !important; pointer-events:none !important; }
+  body.summoning #resBar, body.summoning #eventBtn, body.summoning #summonBtn { opacity:0 !important; pointer-events:none !important; }
+  #summonSheet { background:transparent !important; }
+  #summonSheet .box.big { background:none !important; width:100vw !important; height:100vh !important;
+    padding:0 !important; display:block !important; pointer-events:none; overflow:hidden; }
+  #summonSheet .box.big > * { pointer-events:auto; }
+  #summonSheet .topbar { position:absolute; left:0; right:0; top:0; padding:12px 16px 26px;
+    background:linear-gradient(180deg, rgba(6,10,22,.82), rgba(6,10,22,0)); }
+  #summonSheet .topbar h3 { text-shadow:0 2px 10px rgba(0,0,0,.75); font-size:19px; }
+  #summonSheet .sxsub { position:absolute; left:16px; top:52px; max-width:min(560px,52vw);
+    text-shadow:0 1px 4px rgba(0,0,0,.85); font-size:11px; }
+  #summonSheet .cols { display:block !important; }
+  #summonSheet .colL { position:absolute; left:16px; top:92px; width:min(330px,44vw);
+    background:rgba(8,13,26,.58); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.14);
+    border-radius:15px; padding:12px 13px; box-shadow:0 14px 34px rgba(0,0,0,.35); }
+  #summonSheet .colR { position:absolute; right:16px; bottom:16px; width:min(300px,46vw);
+    background:rgba(8,13,26,.58); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.14);
+    border-radius:15px; padding:12px 13px; box-shadow:0 14px 34px rgba(0,0,0,.35); }
+  #summonSheet .prim { min-height:46px; font-size:13px !important; letter-spacing:.8px; }
+  #summonSheet .prim.ten { min-height:52px; font-size:14px !important; }
+  #summonSheet .shopBtn { background:rgba(123,224,192,.10); }
+  @media (max-width:720px) {
+    #summonSheet .colL { left:10px; right:10px; width:auto; top:auto; bottom:172px; max-height:34vh; overflow:auto; }
+    #summonSheet .colR { left:10px; right:10px; width:auto; bottom:10px; }
+    #summonSheet .sxsub { display:none; }
+  }
+  `;
+  document.head.appendChild(st);
+})();
 /* —— 武器面板（独立于皮肤）—— */
 function weaponOpen() {
   let el = document.getElementById('weaponSheet');
