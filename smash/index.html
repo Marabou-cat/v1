@@ -1025,6 +1025,7 @@ const STAGES = [
      plane → 每隔一段时间有一架飞机横穿、撞飞挡路的玩家。 */
   { id:'rooftop', name:'Rooftop', mainW:34, mainD:7.6, mainH:2.0, platD:5.2, platH:.85, wallX:17,
     fog:0xbfd9f2, roof:true, wallCling:true, plane:{ every:13.5, spd:30, y:8.6, dmg:11, kbx:26, kby:15 },
+    hint:'ROOFTOP · hold toward a wall to cling · watch out for the plane',
     plats:[ {x:-10.6,y:5.9,w:9.2,kind:'cloud'}, {x:10.6,y:5.9,w:9.2,kind:'cloud'},
             {x:0,y:11.4,w:11.5,kind:'cloud'},
             {x:-15.8,y:15.8,w:6.6,kind:'cloud'}, {x:15.8,y:15.8,w:6.6,kind:'cloud'},
@@ -1039,10 +1040,12 @@ const STAGES = [
          → 站在看得见的地板上会掉下去（穿模）+ z-fighting；现在 = 楼体尺寸，且不再画第二层地板。 */
   { id:'rooftopXL', name:'Rooftop XL', mainW:58, mainD:8.2, mainH:2.2, platD:5.6, platH:.9, wallX:29,
     fog:0xbfd9f2, roof:true, roofXL:true, wallCling:true,
+    hint:'ROOFTOP XL · the gap in the middle is a bottomless fall · cling to walls to recover',
     gaps:[[-2.4, 2.4]], decks:[[-29,-2.4,0], [2.4,29,-7]],
     spawnXs:[[-9.6,0],[9.6,-7],[-17.6,0],[17.6,-7]],
     plane:{ every:12.0, spd:34, y:9.2, dmg:12, kbx:28, kby:16 },
     plats:[ {x:15.7,y:-7.0,w:26.6,kind:'deck'},                          // 右楼顶面（低 7 格）：只提供碰撞，地板由楼体自己画
+            {x:6.5,y:-3.5,w:4.5,kind:'cloud'},                             // ★ 从右楼顶(-7)回高台的踏板（跳 3.5 格够得着）
             {x:16.5,y:2.6,w:11.0,kind:'cloud'}, {x:16.5,y:10.0,w:9.0,kind:'cloud'},
             {x:-16.0,y:6.2,w:10.5,kind:'cloud'}, {x:-16.0,y:13.0,w:9.0,kind:'cloud'},
             {x:0,y:18.4,w:9.0,kind:'cloud'} ] },
@@ -1053,12 +1056,14 @@ const STAGES = [
   { id:'mines', name:'Mines', mainW:46, mainD:8.6, mainH:2.0, platD:5.6, platH:.85, wallX:23,
     fog:0x17120e, cave:true, dark:true,
     mines:{ cells:10, every:20, hold:20, warn:1.2, drop:3, first:12, cartSpeed:15 },
+    hint:'MINES · 3 of the 10 floor blocks collapse every 20s and rise back after 20s',
     plats:[ {x:-14,y:5.6,w:8}, {x:14,y:5.6,w:8},
             {x:0,y:11.2,w:9,kind:'island'},
             {x:-16.5,y:16.2,w:6.5,kind:'island'}, {x:16.5,y:16.2,w:6.5,kind:'island'} ] },
   { id:'minesXL', name:'Mines XL', mainW:84, mainD:9.6, mainH:2.2, platD:6.2, platH:.9, wallX:42,
     fog:0x17120e, cave:true, dark:true,
     mines:{ cells:10, every:20, hold:20, warn:1.2, drop:3, first:12, cartSpeed:19 },
+    hint:'MINES XL · 3 of the 10 floor blocks collapse every 20s and rise back after 20s',
     plats:[ {x:-30,y:6.0,w:10}, {x:30,y:6.0,w:10}, {x:-10,y:7.4,w:9}, {x:10,y:7.4,w:9},
             {x:0,y:13.2,w:12,kind:'island'},
             {x:-33,y:17.0,w:7,kind:'island'}, {x:33,y:17.0,w:7,kind:'island'} ] },
@@ -2727,6 +2732,13 @@ let _blockGeo = null, _blockMat = null, _blockCap = null, _blockEdge = null;
    ⚠ 换图（setStage）与开局（setup）都必须调用：实体清理原来只写在 setup 里，
    而「打完一局回菜单换图」不经过 setup → 上一局的岩浆柱/奶滩会留在新地图上（实测残留）。 */
 function clearField() {
+  /* ★ 楼顶/楼顶XL 的飞机机关：状态必须每局归零。
+     不重置 → 上一局飞到一半的飞机带进新局，RND 抽取顺序也跟着错开：
+     同种子两次跑指纹实测 1675997081 vs 2514481843（联机会被判去同步 → 整局重开）。 */
+  try {
+    if (roofPlane) { roofPlane.visible = false; roofPlane.userData.on = false; roofPlane.userData.hit = {}; }
+    roofPlaneNext = 0;
+  } catch (e) {}
   for (const p of projectiles) scene.remove(p.mesh);
   projectiles.length = 0;
   clearBlocks();                                     // ★ Blocky 的方块也要跟着清（换图/回菜单不留残块）
@@ -2785,6 +2797,7 @@ function setStage(si) {
     sun.intensity  = LIGHT_BASE.sun  * (_dk ? .10 : 1);
     fill.intensity = LIGHT_BASE.fill * (_dk ? .45 : 1);
   } catch (e) {}
+  try { BGM.setStage(STAGE.id); } catch (e) {}
   clearField();                                       // 换图顺手清掉上一局残留的岩浆柱/奶滩/弹幕
   buildPlats();
 }
@@ -3146,6 +3159,7 @@ function mineCartTick(dt) {
     mineCartDir = Math.random() < .5 ? 1 : -1;
     mineCartX = -mineCartDir * span;
     mineCart.visible = true;
+    try { SFX.cart(); } catch (e) {}
     mineCart.position.set(mineCartX, CART_Y, CART_Z);
     mineCart.rotation.y = mineCartDir > 0 ? 0 : Math.PI;
   }
@@ -3210,6 +3224,11 @@ function simHash() {
     mix(MINES.t); mix(MINES.nextAt); mix(MINES.evt);
     for (const c of MINES.list) mix(c.state === 'up' ? 1 : c.state === 'warn' ? 2 : c.state === 'down' ? 3 : 4);
   }
+  /* ★ 飞机机关也进指纹：它会撞飞玩家、改伤害，但状态不在指纹里 → 去同步要迟到才暴露 */
+  if (STAGE.roof && STAGE.plane) {
+    mix(roofPlaneNext);
+    if (roofPlane) { mix(roofPlane.userData.on ? 1 : 0); mix(roofPlane.userData.x || 0); mix(roofPlane.userData.y || 0); }
+  }
   /* ★ 宝石争夺战的状态也要进指纹：宝石位置/剩余生成时间/倒计时/每人身上的宝石数 */
   mix(GEM.spawnT); mix(GEM.cdT); mix(GEM.cdTeam + 1); mix(GEM.list.length);
   for (const g of GEM.list) { mix(g.x); mix(g.t); }
@@ -3235,14 +3254,24 @@ function minesTick(s) {
       c.state = 'warn'; c.t = 0;
     }
     MINES.evt++;
-    try { SFX.special('heavy'); } catch (e) {}
+    try { SFX.collapse(); } catch (e) {}
     try { shake = Math.max(shake, .30); } catch (e) {}
     try { banner('FLOOR COLLAPSE!'); } catch (e) {}
   }
   for (const c of MINES.list) {
     c.t += s;
     if (c.state === 'warn' && c.t >= MINES.warn) { c.state = 'down'; c.t = 0; c.fx = 1; }
-    else if (c.state === 'down' && c.t >= MINES.hold) { c.state = 'rise'; c.t = 0; }
+    else if (c.state === 'down' && c.t >= MINES.hold) {
+      c.state = 'rise'; c.t = 0;
+      try { SFX.rise(); } catch (e) {}
+      /* ★ 回升时把还趴在坑里的角色顶出去：否则方块会从角色身上长出来（视觉穿模） */
+      for (const f of FIGHTERS) {
+        if (f.eliminated || f.pos.y > 1.2) continue;
+        if (Math.abs(f.pos.x - c.cx) > (c.x1 - c.x0) / 2 + .2) continue;
+        f.vel.y = Math.max(f.vel.y || 0, 12.5);
+        f.grounded = false;
+      }
+    }
     else if (c.state === 'rise' && c.t >= MINES.rise) { c.state = 'up'; c.t = 0; }
   }
 }
@@ -3270,6 +3299,177 @@ function minesVisualTick(dt) {
     if (c.mats) for (const m of c.mats) m.opacity = op;
   }
 }
+
+/* ================= ★ 联机分叉快照（判去同步时把「分叉前后」一起留档） =================
+   以前指纹不对就整局重开、信息全丢，只能靠同种子双跑人工复现。
+   现在每 15 帧存一份紧凑快照（位置/伤害/硬直/机关状态），服务端一判 desync 就把最近 12 份 dump 到
+   window.__desyncDump —— 抓一次就能看出是哪个字段先变、哪一端先变。 */
+const DESYNC_RING = [];
+function simSnapshot() {
+  const o = { f: FRAME, h: simHash(), fs: [], pl: null, mn: null };
+  for (const f of FIGHTERS) o.fs.push([+f.pos.x.toFixed(2), +f.pos.y.toFixed(2), +f.damage.toFixed(1),
+                                      f.stocks, +f.hitstun.toFixed(2), f.state]);
+  if (roofPlane) o.pl = [+(roofPlane.userData.x || 0).toFixed(2), roofPlane.userData.on ? 1 : 0];
+  if (STAGE.mines) o.mn = MINES.list.map(c => c.state[0]).join('');
+  return o;
+}
+function desyncNote(frame) {
+  try {
+    window.__desyncDump = { at: frame, ring: DESYNC_RING.slice(-12), now: simSnapshot() };
+    console.warn('[SB] desync @frame ' + frame, window.__desyncDump);
+  } catch (e) {}
+}
+
+/* ================= ★ 机关倒计时（顶部一条窄字：FLOOR 8s / PLANE 4s） =================
+   「诊断必须长在界面上」：塌陷和飞机都不该是「突然发生」，玩家要能提前规划走位。 */
+let mechHudEl = null, mechHudTxt = '';
+function mechHudTick() {
+  if (!mechHudEl) {
+    mechHudEl = document.createElement('div');
+    mechHudEl.id = 'mechHud';
+    mechHudEl.style.cssText = 'position:fixed;left:50%;top:44px;transform:translateX(-50%);z-index:6;'
+      + 'font:700 11px/1 system-ui,-apple-system,"PingFang SC",sans-serif;letter-spacing:1.8px;color:#d6ecff;'
+      + 'background:rgba(6,10,20,.58);border:1px solid rgba(140,231,255,.32);border-radius:9px;'
+      + 'padding:5px 11px 4px;pointer-events:none;display:none;text-transform:uppercase';
+    document.body.appendChild(mechHudEl);
+  }
+  let txt = '';
+  const live = match.state === 'play' || match.state === 'countdown';
+  if (live && STAGE.mines && MINES.list.length) {
+    const left = Math.max(0, (MINES.nextAt || 0) - MINES.t);
+    const down = MINES.list.filter(c => c.state === 'down' || c.state === 'warn').length;
+    txt = 'FLOOR ' + Math.ceil(left) + 's' + (down ? ' · ' + down + ' OPEN' : '');
+  } else if (live && STAGE.roof && STAGE.plane) {
+    txt = 'PLANE ' + Math.max(0, Math.ceil(roofPlaneNext)) + 's';
+  }
+  if (txt !== mechHudTxt) {
+    mechHudTxt = txt;
+    mechHudEl.textContent = txt;
+    mechHudEl.style.display = txt ? 'block' : 'none';
+  }
+}
+
+/* ================= ★ 背景音乐：每张图一条程序化循环（零素材，WebAudio 合成） =================
+   单文件 + 依赖全本地化，不能外挂 mp3，所以用振荡器按 16 分音符调度：
+   每张图只换「速度 / 音阶 / 波形 / 低通截止 / 鼓点密度」，听感立刻区分 —
+   草原=明亮大调五声、石柱=低沉小调锯齿、竞技场=快速五声方波、沙漠=异域音阶、
+   楼顶=通透正弦、矿洞=慢速布鲁斯小调 + 低沉贝斯。
+   只在「对局中」播放；按 M 静音（记 localStorage）；调度由渲染帧驱动，不额外开定时器。 */
+const BGM = {
+  on: true, active: false, stage: 'meadow', step: 0, next: 0, master: null, vol: .13, noiseBuf: null,
+  tracks: (() => {
+    const mk = (bpm, root, scale, wave, cut, bass, lead, hat, pad) => ({ bpm, root, scale, wave, cut, bass, lead, hat, pad });
+    const MAJ = [0,2,4,7,9], MIN = [0,2,3,7,10], PENT = [0,3,5,7,10], EXO = [0,1,4,5,8], BLU = [0,3,5,6,10];
+    return {
+      meadow:    mk(104, 60, MAJ,  'triangle', 2200, [0,-3,-5,-3], [0,2,4,3,2,1,3,2], .26, .10),
+      meadowXL:  mk(110, 60, MAJ,  'triangle', 2400, [0,-3,-5,-3], [0,2,4,3,2,1,3,2], .28, .10),
+      pillars:   mk( 92, 57, MIN,  'sawtooth', 1400, [0,-5,-7,-5], [0,2,1,4,3,1,2,0], .20, .12),
+      pillarsXL: mk( 96, 57, MIN,  'sawtooth', 1500, [0,-5,-7,-5], [0,2,1,4,3,1,2,0], .22, .12),
+      arena:     mk(120, 62, PENT, 'square',   1800, [0,-2,-5,-7], [0,3,4,2,3,1,4,3], .32, .08),
+      arenaXL:   mk(126, 62, PENT, 'square',   1900, [0,-2,-5,-7], [0,3,4,2,3,1,4,3], .34, .08),
+      desert:    mk( 96, 55, EXO,  'triangle', 1500, [0,-5,-3,-5], [0,2,1,3,2,4,1,0], .24, .10),
+      desertXL:  mk(100, 55, EXO,  'triangle', 1600, [0,-5,-3,-5], [0,2,1,3,2,4,1,0], .26, .10),
+      rooftop:   mk(112, 64, PENT, 'sine',     2600, [0, 3, 4, 3], [0,1,2,4,3,2,1,2], .24, .14),
+      rooftopXL: mk(118, 64, PENT, 'sine',     2800, [0, 3, 4, 3], [0,1,2,4,3,2,1,2], .26, .14),
+      mines:     mk( 78, 45, BLU,  'triangle', 850,  [0,-7,-5,-8], [0,2,1,3,1,2,0,1], .12, .18),
+      minesXL:   mk( 74, 45, BLU,  'triangle', 800,  [0,-7,-5,-8], [0,2,1,3,1,2,0,1], .10, .18)
+    };
+  })(),
+  init() {
+    try {
+      if (!SFX.ctx) return;
+      if (!this.master) {
+        this.master = SFX.ctx.createGain();
+        this.master.gain.value = 0;
+        this.master.connect(SFX.ctx.destination);
+      }
+      try { const v = localStorage.getItem('sb_bgm'); if (v === '0') this.on = false; } catch (e) {}
+    } catch (e) {}
+  },
+  setStage(id) { this.stage = this.tracks[id] ? id : 'meadow'; },
+  setActive(on) {
+    if (on === this.active) return;
+    this.active = on;
+    this.init();
+    if (!this.master) return;
+    try {
+      const t = SFX.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(t);
+      this.master.gain.setValueAtTime(this.master.gain.value, t);
+      this.master.gain.linearRampToValueAtTime(on && this.on ? this.vol : 0, t + (on ? .8 : .3));
+      this.next = t + .08;
+    } catch (e) {}
+  },
+  toggle() {
+    this.on = !this.on;
+    try { localStorage.setItem('sb_bgm', this.on ? '1' : '0'); } catch (e) {}
+    if (!this.on) { try { this.master.gain.value = 0; } catch (e) {} }
+    else { try { this.master.gain.value = this.vol; } catch (e) {} }
+    try { toast(this.on ? 'MUSIC ON' : 'MUSIC OFF'); } catch (e) {}
+    try { SFX.go(this.on ? 1 : 0); } catch (e) {}
+  },
+  midi(n) { return 440 * Math.pow(2, (n - 69) / 12); },
+  voice(t, f, dur, type, vol, cut, detune) {
+    const c = SFX.ctx, o = c.createOscillator(), g = c.createGain(), fl = c.createBiquadFilter();
+    o.type = type; o.frequency.value = f; if (detune) o.detune.value = detune;
+    fl.type = 'lowpass'; fl.frequency.value = cut; fl.Q.value = .6;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + .02);
+    g.gain.exponentialRampToValueAtTime(.0006, t + dur);
+    o.connect(fl); fl.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + dur + .04);
+  },
+  hat(t, vol) {
+    const c = SFX.ctx;
+    if (!this.noiseBuf) {
+      const n = Math.max(1, (c.sampleRate * .12) | 0), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      this.noiseBuf = b;
+    }
+    const src = c.createBufferSource(), g = c.createGain(), fl = c.createBiquadFilter();
+    src.buffer = this.noiseBuf; fl.type = 'highpass'; fl.frequency.value = 5200;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0005, t + .09);
+    src.connect(fl); fl.connect(g); g.connect(this.master);
+    src.start(t);
+  },
+  tick() {
+    if (!this.active || !this.on || !SFX.ctx || !this.master) return;
+    if (SFX.ctx.state !== 'running') return;
+    const T = this.tracks[this.stage] || this.tracks.meadow;
+    const stepDur = 60 / T.bpm / 4;                        // 16 分音符
+    const now = SFX.ctx.currentTime;
+    if (!this.next || this.next < now - .5) this.next = now + .08;
+    let guard = 0;
+    while (this.next < now + .25 && guard++ < 24) {
+      const t = this.next, st = this.step, s16 = st % 16;
+      /* 贝斯：每拍一下 */
+      if (s16 % 4 === 0) {
+        const bi = T.bass[((st / 4) | 0) % T.bass.length];
+        this.voice(t, this.midi(T.root - 12 + bi), stepDur * 3.4, T.wave, .18, T.cut);
+      }
+      /* 主旋律：每 8 分音符一个 */
+      if (s16 % 2 === 0) {
+        const li = T.lead[((st / 2) | 0) % T.lead.length];
+        const oct = Math.floor(li / T.scale.length);
+        this.voice(t, this.midi(T.root + 12 + T.scale[li % T.scale.length] + oct * 12), stepDur * 1.6, T.wave, .085, T.cut * 1.3);
+      }
+      /* 鼓：反拍踩镲 */
+      if (T.hat > 0 && s16 % 2 === 1) this.hat(t, T.hat * .5);
+      /* 铺底：每小节一个长音 */
+      if (s16 === 0) {
+        const bi = T.bass[(((st / 16) | 0) % T.bass.length)];
+        this.voice(t, this.midi(T.root - 12 + bi), stepDur * 14, 'sine', T.pad, T.cut * .7, 6);
+        this.voice(t, this.midi(T.root - 12 + bi + 7), stepDur * 14, 'sine', T.pad * .6, T.cut * .7, -6);
+      }
+      this.next += stepDur; this.step = (this.step + 1) % 4096;
+    }
+  }
+};
+try {
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'm' || e.key === 'M') { try { BGM.init(); BGM.toggle(); } catch (err) {} }
+  });
+} catch (e) {}
 
 /* ================= 特效系统 ================= */
 const FX = { list: [] };
@@ -3482,7 +3682,11 @@ FX.update = (dt) => {
 /* ================= 音效（WebAudio 合成，零素材） ================= */
 const SFX = {
   ctx:null, on:true,
-  init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ this.on=false; } } if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ this.on=false; } } if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); try { BGM.init(); } catch (e) {} },
+  /* ★ 矿洞机关音效（原来塌陷只是复用重击音，机关感全靠这三下） */
+  collapse() { this.tone(72, 30, .55, 'sine', .20); try { this.noise(.55, .17, 110); } catch (e) {} this.tone(130, 62, .32, 'triangle', .055, .07); },
+  rise() { this.tone(58, 116, .30, 'triangle', .10); try { this.noise(.18, .06, 480); } catch (e) {} },
+  cart() { try { this.noise(.45, .085, 240); } catch (e) {} this.tone(88, 52, .45, 'sine', .045); },
   tone(f0, f1, dur, type='square', vol=.16, delay=0) {
     if (!this.on || !this.ctx) return;
     const t = this.ctx.currentTime + delay, o = this.ctx.createOscillator(), g = this.ctx.createGain();
@@ -18244,7 +18448,10 @@ class Bot {
   constructor(fighter, level) {
     this.f = fighter; this.p = DIFF[level] || DIFF[2];
     this.timer = 0; this.plan = 'approach'; this.charge = 0; this.holdAtk = false;
-    this.jumpCd = 0; this.think();
+    /* ★ 首次决策留给第一个物理步：think() 会消耗模拟随机流 RND()，
+       在构造（_simStep 之外）里调用会污染 HUD 的「随机数泄漏」计数（实测 4 人局 +7），
+       而且联机中途 AI 接管时会真的抽错序列。 */
+    this.jumpCd = 0;
   }
   think() {
     const f = this.f;
@@ -18463,6 +18670,7 @@ function setup(opts) {
   for (const f of FIGHTERS) { scene.remove(f.mesh); scene.remove(f.shadow); }
   clearField();                                      // 弹幕/奶滩/岩浆柱/特效统一清理（setStage 也调它）
   trashPickReset();                                  // ★ 联机确定性：场上垃圾每局归零，不能带着菜单里攒的进对局
+  try { if (STAGE.hint) toast(STAGE.hint); } catch (e) {}   // ★ 新图第一次进就告诉玩家机关规则
   FIGHTERS = [];
   /* ★ 宝石争夺战：模式随规则下发（联机时来自房主）。固定 4 人 2v2、无限重生。 */
   match.mode = (opts && opts.rules && opts.rules.mode === 'gem') ? 'gem' : 'smash';
@@ -19580,11 +19788,25 @@ document.getElementById('backBtn').onclick = () => { UI.result.classList.add('hi
 {
   const box = document.getElementById('optStage');
   const draw = () => {
-    box.innerHTML = STAGES.map((st, i) =>
-      '<div class="opt' + (settings.stage === i ? ' on' : '') + '" data-si="' + i + '">' + st.name + '</div>').join('')
-      + '<div class="opt' + (settings.stage === 'r' ? ' on' : '') + '" data-si="r">Random</div>';
+    /* ★ 12 张图分组：一行文字按钮已经挤不下（手机上会折行看不清）→ 标准 / XL / 特殊机制 */
+    const GROUPS = [['STANDARD', ['meadow','pillars','arena','desert']],
+                    ['XL', ['meadowXL','pillarsXL','arenaXL','desertXL']],
+                    ['SPECIAL', ['rooftop','rooftopXL','mines','minesXL']]];
+    const optOf = (si) => '<div class="opt' + (settings.stage === si ? ' on' : '') + '" data-si="' + si + '">'
+                          + STAGES[si].name + '</div>';
+    let html = '';
+    for (const [label, ids] of GROUPS) {
+      const items = ids.map(id => STAGES.findIndex(st => st.id === id)).filter(i2 => i2 >= 0);
+      if (!items.length) continue;
+      html += '<div style="flex:1 0 100%;width:100%;margin:3px 0 1px;font:700 9px/1.5 system-ui,sans-serif;'
+            + 'letter-spacing:1.7px;opacity:.5;color:#bfe0ff">' + label + '</div>' + items.map(optOf).join('');
+    }
+    html += '<div class="opt' + (settings.stage === 'r' ? ' on' : '') + '" data-si="r">Random</div>';
+    box.innerHTML = html;
     [].forEach.call(box.children, el => {
       el.onclick = () => {
+        if (!el.dataset.si) return;                    // 分组标题不是按钮
+
         settings.stage = el.dataset.si === 'r' ? 'r' : +el.dataset.si;
         setStage(settings.stage === 'r' ? Math.floor(Math.random() * STAGES.length) : settings.stage);
         draw();
@@ -20090,6 +20312,11 @@ function frame(now) {
   updateVexFx(dt);
   try { minesVisualTick(dt); } catch (e) {}
   try { mineCartTick(dt); } catch (e) { mineCartErr = String((e && e.message) || e); }
+  try { mechHudTick(); } catch (e) {}
+  try {
+    BGM.setActive(match.state === 'play' || match.state === 'countdown' || match.state === 'over');
+    BGM.tick();
+  } catch (e) {}
   /* updateTrash 已移入 physicsStep（固定步）——绝不能用渲染帧的 dt 推进模拟状态 */
   /* ★ 3D 大厅：菜单里用大厅场景替代战斗画面（同一个 renderer，不额外开 WebGL 上下文） */
   if (match.state === 'menu') {
@@ -20240,11 +20467,15 @@ function roofPlaneTick(dt) {
 }
 function physicsStep(s) {
   TUT.tick(s);
-  try { roofPlaneTick(s); window.__roofDbg = { st: match.state, on: !!(roofPlane && roofPlane.userData.on), nx: +roofPlaneNext.toFixed(2), x: roofPlane ? +roofPlane.position.x.toFixed(1) : null }; }
-  catch (e) { window.__roofErr = String((e && e.message) || e); }   // 新手教程：跟着物理步判定（与主循环/调试探针同一入口）
   if (hitstop > 0) { hitstop -= s; return; }
   _simStep = true;                                  // ★ 从这里开始才允许消耗模拟随机流（见 RND 注释）
+  /* ★ 飞机机关必须放在 _simStep 之后：它内部调 RND()（下次出现时刻 / 高度抖动），
+     放在前面既算「模拟步外泄漏」，又会被上面的 hitstop 早退整段跳过 → 两端节奏分叉。 */
+  try { roofPlaneTick(s); window.__roofDbg = { st: match.state, on: !!(roofPlane && roofPlane.userData.on), nx: +roofPlaneNext.toFixed(2), x: roofPlane ? +roofPlane.position.x.toFixed(1) : null }; }
+  catch (e) { window.__roofErr = String((e && e.message) || e); }   // 新手教程：跟着物理步判定（与主循环/调试探针同一入口）
   FRAME++;
+  /* ★ 联机分叉排查：每 15 帧留一份场上快照，判去同步时能把「分叉前后」一起 dump 出来 */
+  if (FRAME % 15 === 0) { try { DESYNC_RING.push(simSnapshot()); if (DESYNC_RING.length > 12) DESYNC_RING.shift(); } catch (e) {} }
   for (const f of FIGHTERS) f.update(s);
   updateProjectiles(s);
   updateBarriers(s);
@@ -21738,7 +21969,7 @@ const NET = {
     }
     if (j.ack !== undefined) this.ackLimit = j.ack;
     if (j.room) this.applyRoom(j.room);
-    if (j.desync && !this.desync) { this.desync = j.desync; toast('⚠ Desync @frame ' + j.desync.f); }
+    if (j.desync && !this.desync) { this.desync = j.desync; desyncNote(j.desync.f); toast('⚠ Desync @frame ' + j.desync.f); }
     if (j.f !== undefined && j.out === undefined) { /* noop */ }
   },
   applyRoom(room) {
@@ -21924,7 +22155,7 @@ const NET = {
         b.textContent = 'Waiting for others (' + j.voted + '/' + j.need + ')…';
       return;
     }
-    if (j.a === 'desync') { if (!this.desync) { this.desync = { f: j.f }; toast('⚠ Desync @frame ' + j.f); } return; }
+    if (j.a === 'desync') { if (!this.desync) { this.desync = { f: j.f }; desyncNote(j.f); toast('⚠ Desync @frame ' + j.f); } return; }
     if (j.a === 'end') { if (this.roomState) { this.roomState.state = 'end'; renderRoom(this.roomState); } return; }
     this.ingest(j);
   },
@@ -23433,6 +23664,13 @@ window.SB = {
   get blocks() { return BLOCKS; },                  // ★ Blocky 的方块（验证「可站/可挡弹/可打碎」必须能直接读）
   get frame() { return FRAME; },
   hash: () => simHash(),
+  info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
+                 geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }),
+  get bgm() { return { on:BGM.on, active:BGM.active, stage:BGM.stage, step:BGM.step,
+                       ctx:!!SFX.ctx, ctxState:SFX.ctx ? SFX.ctx.state : 'none',
+                       gain:BGM.master ? +BGM.master.gain.value.toFixed(3) : -1 }; },
+  bgmToggle: () => { BGM.init(); BGM.toggle(); return SB.bgm; },
+  desyncDump: () => window.__desyncDump || null,
   get rndLeak() { return _rndLeak | 0; },          // 探针：模拟步之外消耗 RND 的累计次数
   get gems() { return GEM; },                      // ★ 探针：宝石争夺战状态（矿井/地上宝石/倒计时）
   summonPull, summonOpen, skinOpen,                // ★ 探针：至尊抽卡 / 皮肤面板
