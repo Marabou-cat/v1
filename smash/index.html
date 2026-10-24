@@ -8046,7 +8046,10 @@ const SKIN_LEGEND = {
                 acc:['crown', 'cape', 'scepter', 'aura'], glow:0xffd45e, legendary:true }
 };
 function skinSpecFor(def) {
-  const sk = (def && def.skin) || '';
+  /* ★ 大厅/缩略图传进来的 def 往往没有 skin 字段 → 必须回落到账号里装备的皮肤
+     （这条规则以前在 kit 里踩过坑：「def.skin || ACC.skinOf(id)」，这里同样处理） */
+  let sk = (def && def.skin) || '';
+  if (!sk) { try { if (typeof ACC !== 'undefined' && ACC.skinOf && def && def.id) sk = ACC.skinOf(def.id) || ''; } catch (e) {} }
   if (!sk) return null;
   if (sk === 'smiley_penguin' || sk === 'cardboard_tv') return null;    // 专属建模皮肤交给 kit 自己
   if (SKIN_LEGEND[sk]) return SKIN_LEGEND[sk];
@@ -20306,7 +20309,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net109',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net110',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
