@@ -20122,7 +20122,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net102',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net103',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -21748,14 +21748,16 @@ const SUMMON3D = (() => {
   function pickStands() {
     const list = [];
     const sup = CHARS.find(c => c.supreme) || CHARS[0];
-    if (sup) list.push({ id: sup.id, skin: '' });
+    /* ★ 至尊展台固定成「默认造型」：传 'none' 而不是 '' —— 空串会让 kit 回落到 ACC.skinOf()，
+       于是玩家给至尊换了皮肤（比如 TV Man），展台上的至尊会跟着变。'none' 不等于任何皮肤 id → 永远默认皮。 */
+    if (sup) list.push({ id: sup.id, skin: 'none' });
     for (const s2 of SUMMON_SKINS) {
       if (list.length >= 4) break;
       list.push({ id: s2.char, skin: s2.id });
     }
     if (list.length < 3) {
       const extra = CHARS.filter(c => !list.some(x => x.id === c.id)).slice(0, 3 - list.length);
-      for (const c of extra) list.push({ id: c.id, skin: '' });
+      for (const c of extra) list.push({ id: c.id, skin: 'none' });
     }
     return list.slice(0, 4);
   }
