@@ -8021,6 +8021,137 @@ function endPumpkinCurse(f, silent) {
   }
 }
 
+/* ================= ★ 武器建模库（2026-10-24）=================
+   22 把武器全部用基本几何体拼出来（零贴图）。做法：按「形状」（剑/匕首/锤/棍/弓/法球/枪…）
+   参数化，稀有度决定金属色 —— 传说=金、史诗=紫、普通=银蓝。 */
+const WEAPON_SHAPE = {
+  gold_baguette:'sword', star_blade:'sword', plasma_edge:'sword',
+  iron_sword:'sword', shadow_fang:'dagger', stinger:'dagger', dragon_fang:'dagger',
+  titan_hammer:'hammer', wood_bat:'bat', bamboo_staff:'staff', rusty_hook:'hook',
+  tape_roll:'roll', bone_scythe:'scythe', fang_charm:'charm', spark_plug:'plug',
+  frost_lance:'lance', hunting_bow:'bow', snake_fang:'bow',
+  storm_orb:'orb', pixel_gun:'gun', tin_can:'can', muzzle_brake:'gun'
+};
+function weaponModel(wid) {
+  const w = (typeof SUMMON_WEAPONS !== 'undefined' && SUMMON_WEAPONS.find(x => x.id === wid))
+        || { id:wid, wt:'melee', rar:'weapon', name:wid };
+  const shape = WEAPON_SHAPE[wid] || (w.wt === 'bow' ? 'bow' : w.wt === 'catalyst' ? 'orb' : 'sword');
+  const G = new THREE.Group();
+  const metalHex = w.rar === 'legW' ? 0xffd45e : w.rar === 'epicW' ? 0xc48cff : 0xb9c3d1;
+  const metal = new THREE.MeshStandardMaterial({ color:metalHex, metalness:.88, roughness:.26 });
+  const edge  = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:.95, roughness:.14 });
+  const wood  = new THREE.MeshStandardMaterial({ color:0x7a5230, roughness:.86 });
+  const dark  = new THREE.MeshStandardMaterial({ color:0x242a33, roughness:.62 });
+  const glow  = new THREE.MeshStandardMaterial({ color:0x9fe8ff, emissive:0x4fd6ff, emissiveIntensity:1.1, roughness:.35 });
+  const add = (geo, mat, x, y, z, rx, ry, rz) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x || 0, y || 0, z || 0);
+    if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; if (rz) m.rotation.z = rz;
+    G.add(m); return m;
+  };
+  if (shape === 'sword') {
+    add(new THREE.BoxGeometry(.16, 1.55, .05), metal, 0, 1.05, 0);
+    add(new THREE.ConeGeometry(.115, .32, 4), edge, 0, 1.95, 0, 0, Math.PI / 4);
+    add(new THREE.BoxGeometry(.52, .09, .11), dark, 0, .30, 0);
+    add(new THREE.CylinderGeometry(.055, .055, .42, 8), wood, 0, .06, 0);
+    add(new THREE.SphereGeometry(.075, 8, 6), metal, 0, -.17, 0);
+  } else if (shape === 'dagger') {
+    add(new THREE.ConeGeometry(.13, .95, 4), metal, 0, .70, 0);
+    add(new THREE.BoxGeometry(.32, .07, .09), dark, 0, .24, 0);
+    add(new THREE.CylinderGeometry(.05, .05, .34, 8), wood, 0, .05, 0);
+  } else if (shape === 'hammer') {
+    add(new THREE.CylinderGeometry(.06, .07, 1.45, 8), wood, 0, .72, 0);
+    add(new THREE.BoxGeometry(.78, .46, .46), metal, 0, 1.52, 0);
+    add(new THREE.BoxGeometry(.20, .30, .50), dark, 0, 1.52, 0);
+  } else if (shape === 'bat') {
+    add(new THREE.CylinderGeometry(.10, .045, 1.5, 10), wood, 0, .78, 0);
+    add(new THREE.SphereGeometry(.10, 10, 8), dark, 0, .04, 0);
+  } else if (shape === 'staff') {
+    add(new THREE.CylinderGeometry(.045, .055, 1.95, 8), wood, 0, .98, 0);
+    add(new THREE.TorusGeometry(.13, .028, 6, 14), metal, 0, 1.92, 0, Math.PI / 2);
+    add(new THREE.SphereGeometry(.17, 12, 10), glow, 0, 1.92, 0);
+  } else if (shape === 'hook') {
+    add(new THREE.CylinderGeometry(.05, .06, 1.35, 8), dark, 0, .70, 0);
+    add(new THREE.TorusGeometry(.26, .055, 6, 16, Math.PI * 1.15), metal, .12, 1.44, 0, 0, 0, -.4);
+  } else if (shape === 'roll') {
+    add(new THREE.TorusGeometry(.30, .13, 8, 20), metal, 0, .55, 0, Math.PI / 2);
+    add(new THREE.CylinderGeometry(.16, .16, .26, 14), dark, 0, .55, 0);
+    add(new THREE.BoxGeometry(.05, .26, .05), edge, .30, .55, -.14, 0, 0, .3);
+  } else if (shape === 'scythe') {
+    add(new THREE.CylinderGeometry(.045, .06, 2.0, 8), wood, 0, 1.0, 0);
+    add(new THREE.TorusGeometry(.44, .045, 5, 18, Math.PI * .95), edge, .16, 1.90, 0, 0, 0, -.25);
+    add(new THREE.ConeGeometry(.10, .34, 4), metal, 0, .04, 0);
+  } else if (shape === 'charm') {
+    add(new THREE.TorusGeometry(.26, .055, 6, 18), metal, 0, .95, 0);
+    add(new THREE.OctahedronGeometry(.19, 0), glow, 0, .95, 0);
+    add(new THREE.CylinderGeometry(.012, .012, .30, 5), dark, 0, 1.28, 0);
+  } else if (shape === 'plug') {
+    add(new THREE.BoxGeometry(.34, .42, .30), metal, 0, .80, 0);
+    add(new THREE.CylinderGeometry(.045, .045, .26, 6), edge, -.08, 1.10, 0);
+    add(new THREE.CylinderGeometry(.045, .045, .26, 6), edge, .08, 1.10, 0);
+    add(new THREE.CylinderGeometry(.03, .03, .8, 6), dark, 0, .38, 0);
+  } else if (shape === 'lance') {
+    add(new THREE.ConeGeometry(.12, 1.9, 6), metal, 0, 1.15, 0);
+    add(new THREE.CylinderGeometry(.07, .07, .55, 8), wood, 0, .22, 0);
+    add(new THREE.TorusGeometry(.10, .026, 5, 12), edge, 0, 1.02, 0, Math.PI / 2);
+    add(new THREE.TorusGeometry(.10, .026, 5, 12), edge, 0, 1.62, 0, Math.PI / 2);
+  } else if (shape === 'bow') {
+    add(new THREE.TorusGeometry(.72, .055, 6, 22, Math.PI * 1.25), wood, -.16, .95, 0, 0, 0, .55);
+    add(new THREE.CylinderGeometry(.010, .010, 1.38, 4), edge, .40, .95, 0);
+    add(new THREE.CylinderGeometry(.016, .016, .95, 5), dark, .10, .95, .02, 0, 0, Math.PI / 2);
+    add(new THREE.ConeGeometry(.05, .18, 4), metal, .62, .95, .02, 0, 0, -Math.PI / 2);
+  } else if (shape === 'orb') {
+    add(new THREE.SphereGeometry(.34, 16, 12), metal, 0, .90, 0);
+    add(new THREE.SphereGeometry(.24, 14, 10), glow, 0, .90, 0);
+    add(new THREE.TorusGeometry(.44, .030, 5, 18), edge, 0, .90, 0, Math.PI / 2.4);
+    add(new THREE.TorusGeometry(.44, .030, 5, 18), edge, 0, .90, 0, 0, 0, Math.PI / 2.4);
+  } else if (shape === 'gun') {
+    add(new THREE.BoxGeometry(.26, .30, .72), metal, 0, .86, 0);
+    add(new THREE.CylinderGeometry(.075, .075, .78, 10), edge, 0, .94, .70, Math.PI / 2);
+    add(new THREE.BoxGeometry(.16, .34, .20), dark, 0, .58, -.22, .28);
+    add(new THREE.BoxGeometry(.20, .16, .26), glow, 0, 1.02, -.14);
+  } else if (shape === 'can') {
+    add(new THREE.CylinderGeometry(.28, .28, .78, 14), metal, 0, .78, 0);
+    add(new THREE.TorusGeometry(.285, .035, 5, 16), dark, 0, .98, 0, Math.PI / 2);
+    add(new THREE.TorusGeometry(.285, .035, 5, 16), dark, 0, .60, 0, Math.PI / 2);
+    add(new THREE.CylinderGeometry(.30, .30, .05, 14), glow, 0, 1.18, 0);
+  } else {
+    add(new THREE.BoxGeometry(.20, 1.4, .06), metal, 0, .80, 0);
+  }
+  G.userData.isWeapon = 1;
+  G.userData.wid = wid;
+  return G;
+}
+/* 记忆碎片：三块发光晶体 */
+function shardModel() {
+  const G = new THREE.Group();
+  const m1 = new THREE.MeshStandardMaterial({ color:0x8ef0e0, emissive:0x2ad6c0, emissiveIntensity:1.2, roughness:.3, metalness:.4 });
+  const m2 = new THREE.MeshStandardMaterial({ color:0xd8fffa, emissive:0x7ce8d8, emissiveIntensity:1.0, roughness:.25 });
+  for (const [x, y, z, s, r] of [[0, .75, 0, .40, .4], [-.42, .48, .16, .24, -.3], [.40, .42, -.14, .20, .9]]) {
+    const o = new THREE.Mesh(new THREE.OctahedronGeometry(s, 0), x === 0 ? m2 : m1);
+    o.position.set(x, y, z); o.rotation.set(r, r * .7, r * .4); o.scale.set(1, 1.7, 1);
+    G.add(o);
+  }
+  G.userData.isWeapon = 1;
+  return G;
+}
+/* 把一个模型摆到展台中心：等高归一 + 贴台面 */
+function placeOnStage(obj, targetH, xOff) {
+  try {
+    obj.updateWorldMatrix(true, true);
+    let bb = new THREE.Box3().setFromObject(obj);
+    const hh = Math.max(.3, bb.max.y - bb.min.y);
+    obj.scale.multiplyScalar((targetH || 2.35) / hh);
+    obj.updateMatrixWorld(true);
+    bb = new THREE.Box3().setFromObject(obj);
+    const cx = (bb.max.x + bb.min.x) / 2, cz = (bb.max.z + bb.min.z) / 2;
+    obj.position.x += (xOff || 0) - cx;
+    obj.position.z += -.2 - cz;
+    obj.position.y += .04 - bb.min.y;
+  } catch (e) {}
+  return obj;
+}
+
 /* ================= ★ 通用皮肤系统（2026-10-24）=================
    一套皮肤 = 一个调色板（body/body2/dark）+ 一组小挂件（crown/cape/halo/hat/glasses/scarf/horns/wings/orb/scepter/aura）。
    挂件全部用基本几何体拼，零贴图、零外部资源；颜色按「角色原色 → 皮肤色」做映射替换，
@@ -20392,7 +20523,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net114',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net119',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -21966,12 +22097,15 @@ function summonAnimation(prize, done) {
   }, many ? 1250 : 1000);
   const t2 = setTimeout(() => {
     el.classList.add('reveal');
+    /* ★ 揭晓的同时把物品的 3D 模型摆到展台上（武器/皮肤/角色/碎片都有模型） */
+    try { SUMMON3D.prizeShow(best); } catch (e) {}
     try { best.tier === 'supreme' ? SFX.cheer() : SFX.special('heavy'); } catch (e) {}
     try { done && done(); } catch (e) {}
   }, many ? 1600 : 1320);
   let closed = false;
   const close = () => {
     if (closed) return; closed = true;
+    try { SUMMON3D.prizeClear(); } catch (e) {}
     clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
     el.className = ''; el.innerHTML = ''; el.onclick = null;
   };
@@ -22105,8 +22239,42 @@ const SUMMON3D = (() => {
     cam.position.y = 2.55 + Math.sin(t * .5) * .06;
     cam.lookAt(0, 1.25 + Math.sin(t * .4) * .03, 0);
   }
+  /* ★ 抽到东西时：把该物品的 3D 模型摆到展台上（站台角色暂时隐藏） */
+  let prizeObj = null;
+  function prizeClear() {
+    if (prizeObj) { try { root.remove(prizeObj); } catch (e) {} prizeObj = null; }
+    for (const m of models) m.group.visible = true;
+  }
+  function prizeShow(prize) {
+    try {
+      prizeClear();
+      if (!prize || prize.type === 'coins') return;
+      for (const m of models) m.group.visible = false;
+      let obj = null;
+      if (prize.type === 'weapon') obj = weaponModel(prize.id);
+      else if (prize.type === 'shards') obj = shardModel();
+      else {
+        const base = CHARS.find(c => c.id === prize.id) || CHARS.find(c => c.supreme);
+        if (base) {
+          const vd = Object.assign({}, base, { skin: prize.type === 'skin' ? prize.id : 'none' });
+          const m = buildMesh2(vd);
+          scene.remove(m.group);
+          if (m.bubble) m.bubble.visible = false;
+          if (m.charge) m.charge.visible = false;
+          if (m.ringFx) m.ringFx.visible = false;
+          if (m.auraRing) m.auraRing.visible = false;
+          if (m.shadow) m.shadow.visible = false;
+          obj = m.group;
+        }
+      }
+      if (!obj) return;
+      placeOnStage(obj, prize.type === 'weapon' || prize.type === 'shards' ? 2.1 : 2.35, 1.35);
+      root.add(obj); prizeObj = obj;
+    } catch (e) {}
+  }
   function resize(w, h) { cam.aspect = Math.max(.4, w / Math.max(1, h)); cam.updateProjectionMatrix(); }
-  return { scene, cam, frame, resize, refresh: () => buildStands(true), get built() { return built; } };
+  return { scene, cam, frame, resize, refresh: () => buildStands(true), prizeShow, prizeClear,
+           get built() { return built; } };
 })();
 
 /* —— 抽卡面板 —— */
@@ -22328,6 +22496,12 @@ function skinPaint() {
   #summonSheet .prim { min-height:46px; font-size:13px !important; letter-spacing:.8px; }
   #summonSheet .prim.ten { min-height:52px; font-size:14px !important; }
   #summonSheet .shopBtn { background:rgba(123,224,192,.10); }
+  /* ★ 揭晓时左边压暗放结果卡、右边留透明给 3D 模型（武器/皮肤/角色都摆在展台右侧） */
+  #summonFx .wrap { justify-content:flex-start !important; padding-left:5vw;
+    background:linear-gradient(90deg, rgba(4,6,14,.93) 0%, rgba(4,6,14,.86) 34%, rgba(4,6,14,.35) 62%, rgba(4,6,14,.06) 100%) !important; }
+  #summonFx .wrap.many { justify-content:center !important; padding-left:0; }
+  #summonFx .card { margin:0 !important; }
+  #summonFx .hint { left:auto; right:6vw; }
   @media (max-width:720px) {
     #summonSheet .colL { left:10px; right:10px; width:auto; top:auto; bottom:172px; max-height:34vh; overflow:auto; }
     #summonSheet .colR { left:10px; right:10px; width:auto; bottom:10px; }
@@ -22457,6 +22631,27 @@ try { paintWepBtn(); } catch (e) {}
     console.log('[grant]', msg);
     try { toast(msg); } catch (e) {}
     setTimeout(() => { try { if (window.NET && NET.acct) NET.acct(); } catch (e) {} }, 1200);
+/* ★ 揭晓层最终覆盖样式：必须在所有 FX 样式之后注入（同级 !important 后写者胜），
+   否则抽卡揭晓那块整屏暗罩会把展台上的 3D 模型挡住。 */
+(function revealStyleLate() {
+  try {
+    const st = document.createElement('style');
+    st.textContent = `
+      #summonFx { background: transparent !important; }
+      #summonFx .wrap { background: linear-gradient(90deg,
+          rgba(4,6,14,.94) 0%, rgba(4,6,14,.88) 32%, rgba(4,6,14,.30) 60%, rgba(4,6,14,.04) 100%) !important;
+        justify-content: flex-start !important; padding-left: 4vw !important; }
+      #summonFx .wrap.many { justify-content: center !important; padding-left: 0 !important;
+        background: rgba(4,6,14,.82) !important; }
+      #summonFx .card { margin: 0 !important; }
+      /* 揭晓层自带一层全屏暗罩(.vign)，会把展台上的 3D 模型一起吃掉 —— 换成左侧压暗 */
+      /* 揭晓层那层全屏暗罩：直接不显示（左暗渐变已经由 .wrap 提供） */
+      #summonFx .vign, #summonFx.on .vign, body #summonFx .vign { display: none !important; }
+      #summonFx .hint { left: auto !important; right: 6vw !important; }
+    `;
+    document.head.appendChild(st);
+  } catch (e) {}
+})();
   } catch (e) { console.warn('grant failed', e); }
 })();
 /* ★ 资源条点击：金币 → 奖励页并滚到「用金币解锁」区；奖杯 → 奖励页；宝石 → 抽卡。
