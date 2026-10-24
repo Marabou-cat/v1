@@ -9797,8 +9797,15 @@ class Fighter {
       ? (1 + .05 * (attacker.soulStacks || 0)) : 1;
     /* Reaper·Death Mark（亡魂标记）：被标记期间受伤更重、飞得更远（debuff 挂在受害者身上） */
     const mkm = (this.mark && this.mark.t > 0) ? this.mark : null;
-    const dmg = mv.dmg * (am ? am.dmg : 1) * dmgMul * ab * gcut * (mkm ? mkm.dmgMul : 1) * soulB;
+    /* ★ 武器小增益：伤害 +%（近战/弓箭/法器各自的武器给一点） */
+    const wb = (attacker && attacker.def && attacker !== this) ? weaponBonus(attacker.def.id) : null;
+    const dmg = mv.dmg * (am ? am.dmg : 1) * dmgMul * ab * gcut * (mkm ? mkm.dmgMul : 1) * soulB * (1 + (wb && wb.dmg ? wb.dmg : 0) / 100);
     this.damage = Math.min(CFG.dmgCap, this.damage + dmg);
+    /* ★ 武器吸血（例：5% = 打出 10% 伤害回 0.5%） */
+    if (wb && wb.ls && attacker && attacker !== this && dmg > 0 && !attacker.eliminated) {
+      const heal = dmg * wb.ls / 100;
+      if (heal > 0 && attacker.healPct) { try { attacker.healPct(heal, false); } catch (e) {} }
+    }
     if (attacker && attacker !== this && attacker.fsMeter !== undefined && !attacker.fsActive && this.guardT <= 0)
       attacker.fsMeter = Math.min(1, attacker.fsMeter + dmg * .013);   // 打伤害攒必杀技槽
     this.maxDamage = Math.max(this.maxDamage, this.damage);
@@ -9822,7 +9829,7 @@ class Fighter {
     // 击飞：基础 + 成长 × 当前伤害%，再按体重缩放（越重越难飞）
     const dScale = this.damage / 100;
     let launch = (mv.bb + mv.bg * dScale) * (100 / (this.weight + 60)) * (1 + mv.dmg * .012) * kbMul * (am ? am.kb : 1) * gkb
-      * (mkm ? mkm.kbMul : 1);
+      * (mkm ? mkm.kbMul : 1) * (1 + (wb && wb.kb ? wb.kb : 0) / 100);
     launch = Math.min(launch, 105);
     /* ★ Hacker·System Lock：被锁定期间「不可动弹但同时不可被击退」——照吃伤害，击飞清零。
        （所以锁定是「攒伤害」而不是「直接 KO」的手段：锁住时打不掉血条，锁结束才可能被击飞。） */
@@ -17978,7 +17985,7 @@ const ACC = (() => {
                        prog: q.prog || {}, dayClaimed: q.dayClaimed || {} },
                gemOnce: Object.assign({}, a.gemOnce || {}),
                eventClaims: Object.assign({}, a.eventClaims || {}),
-               rev: a.rev | 0,
+               rev: a.rev | 0, shards: a.shards | 0,
                nick: a.nick || '', avatar: a.avatar || '' };     // ★ 第 97 轮：昵称/头像也要进存档
     },
     /* ★ 2026-10-23：导入服务端档案。
@@ -17992,8 +17999,9 @@ const ACC = (() => {
       const num = (cur, v) => hard ? (v | 0) : Math.max(cur | 0, v | 0);
       if (Number.isFinite(p.coins)) a.coins = Math.max(0, num(a.coins, p.coins));
       if (Number.isFinite(p.gems)) a.gems = Math.max(0, num(a.gems, p.gems));
-      if (Number.isFinite(p.pity)) a.pity = Math.max(0, Math.min(50, num(a.pity, p.pity)));
+      if (Number.isFinite(p.pity)) a.pity = Math.max(0, Math.min(90, num(a.pity, p.pity)));
       if (Number.isFinite(p.trophies)) a.trophies = Math.max(0, num(a.trophies, p.trophies));
+      if (Number.isFinite(p.shards)) a.shards = Math.max(0, num(a.shards, p.shards));   // ★ 记忆碎片跨设备
       if (Array.isArray(p.supreme)) a.supreme = hard ? p.supreme.slice() : uni(p.supreme, a.supreme);
       if (Array.isArray(p.weapons)) a.weapons = hard ? p.weapons.slice() : uni(p.weapons, a.weapons);
       if (Array.isArray(p.skins)) a.skins = hard ? p.skins.slice() : uni(p.skins, a.skins);
@@ -20079,7 +20087,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net97',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net98',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -21377,27 +21385,50 @@ const GACHA = {
   shardMin: 20, shardMax: 40,
   dupShards: { weapon:15, epicW:40, legW:90, skin:120, supreme:200 }
 };
+/* ★ 武器三分类：近战 melee / 弓箭 bow / 法器 catalyst —— 角色只能装备同类型武器。
+   角色分类表（没列到的默认近战）；每把武器带一点小增益：ls = 吸血%、dmg = 伤害%、kb = 击退%。 */
+const CHAR_WTYPE = { archer:'bow', tamer:'bow',
+  mage:'catalyst', cobalt:'catalyst', hacker:'catalyst', mechanic:'catalyst',
+  slayer:'catalyst', dragon:'catalyst', blizzard:'catalyst' };
+const WTYPE_NAME = { melee:'MELEE', bow:'BOW', catalyst:'CATALYST' };
+const WTYPE_ZH   = { melee:'近战', bow:'弓箭', catalyst:'法器' };
+function charWType(id) { return CHAR_WTYPE[id] || 'melee'; }
 const SUMMON_WEAPONS = [
-  { id:'gold_baguette', char:'french',   name:'Golden Baguette', for:'Frenchman', rar:'legW' },
-  { id:'dragon_fang',   char:'dragon',   name:'Dragon Fang',     for:'Dragon',    rar:'legW' },
-  { id:'star_blade',    char:'angel',    name:'Star Blade',      for:'Angel',     rar:'legW' },
-  { id:'plasma_edge',   char:'cobalt',   name:'Plasma Edge',     for:'Cobalt',    rar:'epicW' },
-  { id:'storm_orb',     char:'mage',     name:'Storm Orb',       for:'Mage',      rar:'epicW' },
-  { id:'titan_hammer',  char:'titan',    name:'Titan Hammer',    for:'Titan',     rar:'epicW' },
-  { id:'shadow_fang',   char:'shadow',   name:'Shadow Fang',     for:'Shadow',    rar:'epicW' },
-  { id:'frost_lance',   char:'blizzard', name:'Frost Lance',     for:'Blizzard',  rar:'epicW' },
-  { id:'iron_sword',    char:'knight',   name:'Iron Sword',      for:'Knight',    rar:'weapon' },
-  { id:'wood_bat',      char:'blocky',   name:'Wooden Bat',      for:'Blocky',    rar:'weapon' },
-  { id:'bamboo_staff',  char:'teacher',  name:'Bamboo Staff',    for:'Teacher',   rar:'weapon' },
-  { id:'rusty_hook',    char:'shark',    name:'Rusty Hook',      for:'Shark',     rar:'weapon' },
-  { id:'tape_roll',     char:'sovereign',name:'Tape Roll',       for:'Cardboard', rar:'weapon' },
-  { id:'pixel_gun',     char:'hacker',   name:'Pixel Gun',       for:'Hacker',    rar:'weapon' },
-  { id:'bone_scythe',   char:'reaper',   name:'Bone Scythe',     for:'Reaper',    rar:'weapon' },
-  { id:'tin_can',       char:'mechanic', name:'Tin Can',         for:'Mechanic',  rar:'weapon' },
-  { id:'fang_charm',    char:'fang',     name:'Fang Charm',      for:'Fang',      rar:'weapon' },
-  { id:'spark_plug',    char:'sparky',   name:'Spark Plug',      for:'Sparky',    rar:'weapon' },
-  { id:'stinger',       char:'mosquito', name:'Blood Stinger',   for:'Mosquito',  rar:'weapon' }
+  /* 近战 */
+  { id:'gold_baguette', char:'french',   name:'Golden Baguette', for:'Frenchman', rar:'legW',  wt:'melee',    bonus:{ ls:5, dmg:4, kb:3 } },
+  { id:'star_blade',    char:'angel',    name:'Star Blade',      for:'Angel',     rar:'legW',  wt:'melee',    bonus:{ ls:5, dmg:4, kb:3 } },
+  { id:'titan_hammer',  char:'titan',    name:'Titan Hammer',    for:'Titan',     rar:'epicW', wt:'melee',    bonus:{ ls:5, dmg:2 } },
+  { id:'shadow_fang',   char:'shadow',   name:'Shadow Fang',     for:'Shadow',    rar:'epicW', wt:'melee',    bonus:{ ls:5, dmg:2 } },
+  { id:'iron_sword',    char:'knight',   name:'Iron Sword',      for:'Knight',    rar:'weapon', wt:'melee',    bonus:{ ls:3 } },
+  { id:'wood_bat',      char:'blocky',   name:'Wooden Bat',      for:'Blocky',    rar:'weapon', wt:'melee',    bonus:{ ls:3 } },
+  { id:'bamboo_staff',  char:'teacher',  name:'Bamboo Staff',    for:'Teacher',   rar:'weapon', wt:'melee',    bonus:{ ls:3 } },
+  { id:'rusty_hook',    char:'shark',    name:'Rusty Hook',      for:'Shark',     rar:'weapon', wt:'melee',    bonus:{ ls:3 } },
+  { id:'tape_roll',     char:'sovereign',name:'Tape Roll',       for:'Cardboard', rar:'weapon', wt:'melee',    bonus:{ ls:3 } },
+  { id:'bone_scythe',   char:'reaper',   name:'Bone Scythe',     for:'Reaper',    rar:'weapon', wt:'melee',    bonus:{ ls:3 } },
+  { id:'fang_charm',    char:'fang',     name:'Fang Charm',      for:'Fang',      rar:'weapon', wt:'melee',    bonus:{ ls:3 } },
+  { id:'spark_plug',    char:'sparky',   name:'Spark Plug',      for:'Sparky',    rar:'weapon', wt:'melee',    bonus:{ ls:3 } },
+  { id:'stinger',       char:'mosquito', name:'Blood Stinger',   for:'Mosquito',  rar:'weapon', wt:'melee',    bonus:{ ls:3 } },
+  /* 弓箭 */
+  { id:'dragon_fang',   char:'dragon',   name:'Dragon Fang',     for:'Dragon',    rar:'legW',  wt:'bow',      bonus:{ ls:5, dmg:4, kb:3 } },
+  { id:'frost_lance',   char:'blizzard', name:'Frost Lance',     for:'Blizzard',  rar:'epicW', wt:'bow',      bonus:{ ls:5, dmg:2 } },
+  { id:'hunting_bow',   char:'archer',   name:'Hunting Bow',     for:'Archer',    rar:'weapon', wt:'bow',      bonus:{ ls:3 } },
+  { id:'snake_fang',    char:'tamer',    name:'Snake Fang',      for:'Tamer',     rar:'weapon', wt:'bow',      bonus:{ ls:3 } },
+  /* 法器 */
+  { id:'plasma_edge',   char:'cobalt',   name:'Plasma Edge',     for:'Cobalt',    rar:'epicW', wt:'catalyst', bonus:{ ls:5, dmg:2 } },
+  { id:'storm_orb',     char:'mage',     name:'Storm Orb',       for:'Mage',      rar:'epicW', wt:'catalyst', bonus:{ ls:5, dmg:2 } },
+  { id:'pixel_gun',     char:'hacker',   name:'Pixel Gun',       for:'Hacker',    rar:'weapon', wt:'catalyst', bonus:{ ls:3 } },
+  { id:'tin_can',       char:'mechanic', name:'Tin Can',         for:'Mechanic',  rar:'weapon', wt:'catalyst', bonus:{ ls:3 } },
+  { id:'muzzle_brake',  char:'slayer',   name:'Muzzle Brake',    for:'Slayer',    rar:'weapon', wt:'catalyst', bonus:{ ls:3 } }
 ];
+/* 装备了武器 → 读它的小增益（没装备 / 不匹配返回 null）。只在命中时调用，不进逐帧热路径。 */
+function weaponBonus(charId) {
+  try {
+    const wid = ACC.weaponOf(charId); if (!wid) return null;
+    const w = SUMMON_WEAPONS.find(x => x.id === wid);
+    if (!w || w.wt !== charWType(charId)) return null;      // 类型不匹配 = 不生效
+    return w.bonus || null;
+  } catch (e) { return null; }
+}
 const RAR_NAME = { weapon:'WEAPON', epicW:'EPIC WEAPON', legW:'LEGENDARY WEAPON', skin:'EPIC SKIN', supreme:'SUPREME FIGHTER', shards:'MEMORY SHARDS' };
 const RAR_TONE = { weapon:'110,196,255', epicW:'196,140,255', legW:'255,196,74', skin:'196,140,255', supreme:'255,120,214', shards:'120,230,200' };
 /* 记忆碎片商店（可兑换金币 / 宝石 / 皮肤） */
@@ -21791,12 +21822,23 @@ function skinPaint() {
       + '<small>' + (has ? (on ? 'EQUIPPED' : 'tap to equip') : 'locked · summon to unlock') + '</small></span><span>'
       + (has ? (on ? '✓' : 'EQUIP') : 'LOCKED') + '</span></div>');
   }
+  const myType = charWType(cid);
+  const typeNote = '<div class="row" style="cursor:default"><span>Weapon type<small>only same-type weapons can be equipped</small></span>'
+                 + '<b style="color:#9fe8ff">' + WTYPE_NAME[myType] + ' · ' + WTYPE_ZH[myType] + '</b></div>';
+  rows.push(typeNote);
   for (const w of SUMMON_WEAPONS) {
     if (w.char !== cid) continue;
     const has = ACC.hasWeapon(w.id), on = ACC.weaponOf(cid) === w.id;
-    rows.push('<div class="row' + (on ? ' on' : '') + '" data-weapon="' + w.id + '"><span>' + w.name
-      + '<small>weapon · ' + (has ? (on ? 'EQUIPPED' : 'tap to equip') : 'locked · summon to unlock') + '</small></span><span>'
-      + (has ? (on ? '✓' : 'EQUIP') : 'LOCKED') + '</span></div>');
+    const same = w.wt === myType;
+    const bonusTxt = [];
+    if (w.bonus && w.bonus.ls) bonusTxt.push('+' + w.bonus.ls + '% lifesteal');
+    if (w.bonus && w.bonus.dmg) bonusTxt.push('+' + w.bonus.dmg + '% damage');
+    if (w.bonus && w.bonus.kb) bonusTxt.push('+' + w.bonus.kb + '% knockback');
+    rows.push('<div class="row' + (on ? ' on' : '') + '" data-weapon="' + w.id + '" style="' + (same ? '' : 'opacity:.45') + '">'
+      + '<span>' + w.name + '<small>' + WTYPE_NAME[w.wt] + ' · ' + WTYPE_ZH[w.wt] + ' · '
+      + (has ? (on ? 'EQUIPPED' : (same ? 'tap to equip' : 'TYPE MISMATCH — cannot equip')) : 'locked · summon to unlock')
+      + (bonusTxt.length ? ' · ' + bonusTxt.join(' / ') : '') + '</small></span><span>'
+      + (has ? (on ? '✓' : (same ? 'EQUIP' : '✕')) : 'LOCKED') + '</span></div>');
   }
   if (rows.length <= 1) rows.push('<div class="sxsub" style="padding:8px 2px">No skins or weapons for this fighter yet — every look comes from SUMMON.</div>');
   el.innerHTML = '<div class="box"><button class="close">✕</button><h3>Skins &amp; Weapons</h3>'
@@ -21817,6 +21859,8 @@ function skinPaint() {
   el.querySelectorAll('.row[data-weapon]').forEach(r => r.onclick = () => {
     const wid = r.dataset.weapon;
     if (!ACC.hasWeapon(wid)) { toast('Locked — summon to unlock this weapon'); return; }
+    const _w = SUMMON_WEAPONS.find(x => x.id === wid);
+    if (_w && _w.wt !== charWType(cid)) { toast(WTYPE_ZH[_w.wt] + ' weapon cannot be equipped by a ' + WTYPE_ZH[charWType(cid)] + ' fighter'); return; }
     ACC.equipWeapon(cid, ACC.weaponOf(cid) === wid ? '' : wid);
     skinPaint(); refreshPlayerModel();
     toast(ACC.weaponOf(cid) === wid ? 'Weapon equipped' : 'Weapon unequipped');

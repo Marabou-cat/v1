@@ -49,7 +49,7 @@ const ROOM_CODE_LEN = 5;
 /* 调试用人工延迟（毫秒）：SB_LAG_MS=120 可在本机复现 120ms 单程延迟，用于压测锁同步 */
 const LAG_MS = parseInt(process.env.SB_LAG_MS || '0', 10);
 /* 角色池：仅用于空位（AI）的确定性兜底 —— 必须与客户端 CHARS 顺序一致 */
-const CHAR_POOL = ['sparky','rocky','zephyr','cobalt','mage','warrior','archer','knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'french', 'sovereign'];
+const CHAR_POOL = ['sparky','rocky','zephyr','cobalt','mage','warrior','archer','knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'french', 'sovereign', 'mosquito'];
 
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 const RESULTS_FILE = path.join(DATA_DIR, 'results.jsonl');
@@ -962,7 +962,7 @@ function handle(act, ctx) {
     avatar: a.avatar || '',                       // ★ 第 97 轮：头像也存服务端（跨设备一致）
     email: a.emailVerified ? a.email : '',
     /* ★ 2026-10-23：跨设备同步（宝石/抽卡/皮肤武器/宝石任务/活动领取） */
-    gems: a.gems | 0, pity: a.pity | 0, supreme: a.supreme || [], weapons: a.weapons || [],
+    gems: a.gems | 0, shards: a.shards | 0, pity: a.pity | 0, supreme: a.supreme || [], weapons: a.weapons || [],
     skins: a.skins || [], equipSkins: a.equipSkins || {}, equipWeapon: a.equipWeapon || {},
     gemQ: a.gemQ || { day: '', dayGems: 0, total: 0, prog: {}, dayClaimed: {} },
     gemOnce: a.gemOnce || {}, eventClaims: a.eventClaims || {}, rev: a.rev | 0,
@@ -979,6 +979,7 @@ function handle(act, ctx) {
     const pick = (cur, v) => merge ? Math.max(cur | 0, v | 0) : (v | 0);
     if (Number.isFinite(p.coins))    a.coins = Math.max(0, pick(a.coins, p.coins));
     if (Number.isFinite(p.gems))     a.gems = Math.max(0, pick(a.gems, p.gems));
+    if (Number.isFinite(p.shards))   a.shards = Math.max(0, pick(a.shards, p.shards));   // 记忆碎片
     if (Number.isFinite(p.trophies)) a.trophies = Math.max(0, pick(a.trophies, p.trophies));
     if (Number.isFinite(p.pity))     a.pity = Math.max(0, Math.min(50, pick(a.pity, p.pity)));
     /* 集合类永远并集：解锁/皮肤/武器/至尊/奖励领取只会增加 */
