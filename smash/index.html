@@ -17890,6 +17890,12 @@ const ACC = (() => {
     addSupreme(id) { id = String(id); if (a.supreme.indexOf(id) < 0) a.supreme.push(id); if (a.owned.indexOf(id) < 0) a.owned.push(id); save(); return true; },
     get weapons() { return (a.weapons || []).slice(); },
     addWeapon(id) { id = String(id); if (a.weapons.indexOf(id) < 0) a.weapons.push(id); save(); return true; },
+    /* ★ 记忆碎片（GACHA 第八档奖励）+ 史诗保底计数 */
+    getShards() { return a.shards || 0; },
+    addShards(n) { a.shards = Math.max(0, (a.shards || 0) + Math.round(n || 0)); save(); return a.shards; },
+    spendShards(n) { n = Math.round(n || 0); if ((a.shards || 0) < n) return false; a.shards -= n; save(); return true; },
+    getPityEpic() { return a.pityEpic || 0; },
+    setPityEpic(n) { a.pityEpic = Math.max(0, n | 0); save(); },
     hasWeapon(id) { return (a.weapons || []).indexOf(String(id)) >= 0; },
     get skins() { return (a.skins || []).slice(); },
     addSkin(id) { id = String(id); if (a.skins.indexOf(id) < 0) a.skins.push(id); save(); return true; },
@@ -20073,7 +20079,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net96',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net97',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -21362,7 +21368,58 @@ function showLineup(entries) {
    规则（用户定义）：一抽 200 至尊宝石；50 抽保底必出至尊角色；
    抽卡除了角色还能出武器和皮肤；皮肤在大厅「技能按钮旁边」的皮肤面板里选择装备。 */
 const SUMMON_COST = 200, SUMMON_PITY_MAX = 50;
-const SUMMON_WEAPONS = [{ id:'gold_baguette', char:'french', name:'Golden Baguette', for:'Frenchman' }];
+/* ★ 原神式卡池：六档概率（合计 100）+ 三星/四星/五星稀有度 + 软硬保底 + 记忆碎片商店 */
+const GACHA = {
+  rate: { skin:5, weapon:70, epicW:10, legW:5, supreme:2, shards:8 },
+  hardPity: 90,        // 90 抽必出至尊
+  softPity: 74,        // 74 抽后至尊概率逐抽递增（原神手感）
+  epicPity: 10,        // 10 抽内必出「史诗及以上」
+  shardMin: 20, shardMax: 40,
+  dupShards: { weapon:15, epicW:40, legW:90, skin:120, supreme:200 }
+};
+const SUMMON_WEAPONS = [
+  { id:'gold_baguette', char:'french',   name:'Golden Baguette', for:'Frenchman', rar:'legW' },
+  { id:'dragon_fang',   char:'dragon',   name:'Dragon Fang',     for:'Dragon',    rar:'legW' },
+  { id:'star_blade',    char:'angel',    name:'Star Blade',      for:'Angel',     rar:'legW' },
+  { id:'plasma_edge',   char:'cobalt',   name:'Plasma Edge',     for:'Cobalt',    rar:'epicW' },
+  { id:'storm_orb',     char:'mage',     name:'Storm Orb',       for:'Mage',      rar:'epicW' },
+  { id:'titan_hammer',  char:'titan',    name:'Titan Hammer',    for:'Titan',     rar:'epicW' },
+  { id:'shadow_fang',   char:'shadow',   name:'Shadow Fang',     for:'Shadow',    rar:'epicW' },
+  { id:'frost_lance',   char:'blizzard', name:'Frost Lance',     for:'Blizzard',  rar:'epicW' },
+  { id:'iron_sword',    char:'knight',   name:'Iron Sword',      for:'Knight',    rar:'weapon' },
+  { id:'wood_bat',      char:'blocky',   name:'Wooden Bat',      for:'Blocky',    rar:'weapon' },
+  { id:'bamboo_staff',  char:'teacher',  name:'Bamboo Staff',    for:'Teacher',   rar:'weapon' },
+  { id:'rusty_hook',    char:'shark',    name:'Rusty Hook',      for:'Shark',     rar:'weapon' },
+  { id:'tape_roll',     char:'sovereign',name:'Tape Roll',       for:'Cardboard', rar:'weapon' },
+  { id:'pixel_gun',     char:'hacker',   name:'Pixel Gun',       for:'Hacker',    rar:'weapon' },
+  { id:'bone_scythe',   char:'reaper',   name:'Bone Scythe',     for:'Reaper',    rar:'weapon' },
+  { id:'tin_can',       char:'mechanic', name:'Tin Can',         for:'Mechanic',  rar:'weapon' },
+  { id:'fang_charm',    char:'fang',     name:'Fang Charm',      for:'Fang',      rar:'weapon' },
+  { id:'spark_plug',    char:'sparky',   name:'Spark Plug',      for:'Sparky',    rar:'weapon' },
+  { id:'stinger',       char:'mosquito', name:'Blood Stinger',   for:'Mosquito',  rar:'weapon' }
+];
+const RAR_NAME = { weapon:'WEAPON', epicW:'EPIC WEAPON', legW:'LEGENDARY WEAPON', skin:'EPIC SKIN', supreme:'SUPREME FIGHTER', shards:'MEMORY SHARDS' };
+const RAR_TONE = { weapon:'110,196,255', epicW:'196,140,255', legW:'255,196,74', skin:'196,140,255', supreme:'255,120,214', shards:'120,230,200' };
+/* 记忆碎片商店（可兑换金币 / 宝石 / 皮肤） */
+const SHARD_SHOP = [
+  { id:'coins',  cost:60,  name:'1,000 Coins',       sub:'COINS' },
+  { id:'gems',   cost:150, name:'60 Supreme Gems',   sub:'GEMS' },
+  { id:'skin',   cost:400, name:'Random Epic Skin',  sub:'SKIN' }
+];
+function shardShopBuy(id) {
+  const it = SHARD_SHOP.find(x => x.id === id); if (!it) return { err:'bad' };
+  if (!ACC.spendShards(it.cost)) return { err:'shards' };
+  if (id === 'coins') ACC.addCoins(1000);
+  else if (id === 'gems') ACC.addGems(60);
+  else {
+    const left = SUMMON_SKINS.filter(x => !ACC.hasSkin(x.id));
+    if (left.length) { const sk = left[Math.floor(Math.random() * left.length)]; ACC.addSkin(sk.id); }
+    else ACC.addShards(120);                      // 全有了 → 退一半碎片
+  }
+  summonPaint && summonPaint();
+  summonBtnPaint && summonBtnPaint();
+  return { ok:true };
+}
 const SUMMON_SKINS   = [{ id:'smiley_penguin', char:'smiley', name:'Penguin', for:'Smiley' },
                         { id:'cardboard_tv', char:'sovereign', name:'TV Man', for:'Cardboard' }];
 function summonPoolLeft() {
@@ -21370,24 +21427,55 @@ function summonPoolLeft() {
            weapons: SUMMON_WEAPONS.filter(w => !ACC.hasWeapon(w.id)),
            skins: SUMMON_SKINS.filter(s => !ACC.hasSkin(s.id)) };
 }
-function summonPull() {
-  if (!ACC.spendGems(SUMMON_COST)) return { err:'gems' };
-  try { ACC.gemAdd('summons', 1); } catch (e) {}     // ★ GEM QUESTS：抽一次记一次
-  const p = ACC.pity + 1, left = summonPoolLeft(), force = p >= SUMMON_PITY_MAX;
-  const r = Math.random();
+function summonPull(quiet) {
+  if (quiet !== true && !ACC.spendGems(SUMMON_COST)) return { err:'gems' };
+  if (quiet !== true) { try { ACC.gemAdd('summons', 1); } catch (e) {} }
+  const p = ACC.pity + 1, pe = ACC.getPityEpic() + 1;
+  const R = GACHA.rate;
+  const supLeft = CHARS.filter(c => c.supreme && !ACC.owns(c.id));
+  /* 保底：90 抽硬出至尊；74 抽后软保底（每抽 +6%）；10 抽内必出史诗及以上 */
+  const forceSup = p >= GACHA.hardPity;
+  const softSup = p > GACHA.softPity ? Math.min(60, (p - GACHA.softPity) * 6) : 0;
+  const forceEpic = pe >= GACHA.epicPity;
+  let roll = Math.random() * 100;
+  let tier = 'weapon';
+  if (forceSup) tier = 'supreme';
+  else if (roll < R.supreme + softSup) tier = 'supreme';
+  else if (roll < R.supreme + softSup + R.legW) tier = 'legW';
+  else if (roll < R.supreme + softSup + R.legW + R.epicW) tier = 'epicW';
+  else if (roll < R.supreme + softSup + R.legW + R.epicW + R.skin) tier = 'skin';
+  else if (roll < R.supreme + softSup + R.legW + R.epicW + R.skin + R.weapon) tier = 'weapon';
+  else tier = 'shards';
+  if (forceEpic && (tier === 'weapon' || tier === 'shards')) tier = Math.random() < .5 ? 'epicW' : 'skin';
   let prize = null;
-  if (left.sup.length && (force || r < .06)) {
-    const c = left.sup[Math.floor(Math.random() * left.sup.length)];
-    ACC.addSupreme(c.id); prize = { type:'supreme', id:c.id, name:c.name, sub:'SUPREME FIGHTER' };
-  } else if (left.weapons.length && !force && r < .30) {
-    const w = left.weapons[Math.floor(Math.random() * left.weapons.length)];
-    ACC.addWeapon(w.id); prize = { type:'weapon', id:w.id, name:w.name, sub:'WEAPON · ' + w.for };
-  } else if (left.skins.length && !force && r < .55) {
-    const s = left.skins[Math.floor(Math.random() * left.skins.length)];
-    ACC.addSkin(s.id); prize = { type:'skin', id:s.id, name:s.name, sub:'SKIN · ' + s.for };
+  const giveShards = (n, why) => {
+    ACC.addShards(n);
+    return { type:'shards', tier:'shards', amount:n, name:n + ' Memory Shards', sub:'MEMORY SHARDS' + (why ? ' · ' + why : '') };
+  };
+  if (tier === 'shards') {
+    const n = GACHA.shardMin + Math.floor(Math.random() * (GACHA.shardMax - GACHA.shardMin + 1));
+    prize = giveShards(n, '');
+  } else if (tier === 'supreme') {
+    if (supLeft.length) {
+      const c = supLeft[Math.floor(Math.random() * supLeft.length)];
+      ACC.addSupreme(c.id);
+      prize = { type:'supreme', tier:'supreme', id:c.id, name:c.name, sub:RAR_NAME.supreme };
+    } else prize = giveShards(GACHA.dupShards.supreme, 'ALL SUPREMES OWNED');
+  } else if (tier === 'skin') {
+    const left = SUMMON_SKINS.filter(x => !ACC.hasSkin(x.id));
+    if (left.length) {
+      const sk = left[Math.floor(Math.random() * left.length)];
+      ACC.addSkin(sk.id);
+      prize = { type:'skin', tier:'skin', id:sk.id, name:sk.name, sub:RAR_NAME.skin + ' · ' + sk.for };
+    } else prize = giveShards(GACHA.dupShards.skin, 'SKIN DUPLICATE');
+  } else {
+    const pool = SUMMON_WEAPONS.filter(w => w.rar === tier);
+    const w = pool[Math.floor(Math.random() * pool.length)] || SUMMON_WEAPONS[0];
+    if (ACC.hasWeapon(w.id)) prize = giveShards(GACHA.dupShards[tier] || 15, 'WEAPON DUPLICATE');
+    else { ACC.addWeapon(w.id); prize = { type:'weapon', tier:tier, id:w.id, name:w.name, sub:RAR_NAME[tier] + ' · ' + w.for }; }
   }
-  if (!prize) { ACC.addCoins(260); prize = { type:'coins', name:'260 coins', sub:'DUPLICATE → COINS' }; }
-  ACC.setPity(prize.type === 'supreme' ? 0 : p);
+  ACC.setPity(prize.tier === 'supreme' ? 0 : p);
+  ACC.setPityEpic((prize.tier === 'epicW' || prize.tier === 'legW' || prize.tier === 'skin' || prize.tier === 'supreme') ? 0 : pe);
   return prize;
 }
 /* —— 样式（抽卡面板 / 皮肤面板 / 至尊角色卡片） —— */
@@ -21488,33 +21576,50 @@ function summonPull() {
   document.head.appendChild(st);
 })();
 function summonAnimation(prize, done) {
+  const many = Array.isArray(prize);
+  const list = many ? prize : [prize];
+  const best = list.slice().sort((a, b) => {
+    const w = { shards:0, weapon:1, epicW:2, skin:2, legW:3, supreme:4 };
+    return (w[b.tier] || 0) - (w[a.tier] || 0);
+  })[0];
   let el = document.getElementById('summonFx');
   if (!el) { el = document.createElement('div'); el.id = 'summonFx'; document.body.appendChild(el); }
-  const tone = prize.type === 'supreme' ? '255,214,106'
-             : prize.type === 'weapon'  ? '110,196,255'
-             : prize.type === 'skin'    ? '196,140,255' : '190,196,210';
+  const tone = RAR_TONE[best.tier] || '190,196,210';
   el.style.setProperty('--t', tone);
   el.className = 'on';
-  el.innerHTML = '<div class="wrap" style="--t:' + tone + '">'
-    + '<div class="rays"></div>'
+  /* 星级：碎片/武器=3，史诗/皮肤=4，传说=4+，至尊=5 */
+  const stars = best.tier === 'supreme' ? 5 : (best.tier === 'legW' ? 4.5 : (best.tier === 'epicW' || best.tier === 'skin' ? 4 : 3));
+  const starHtml = '<div class="stars">' + '★'.repeat(Math.floor(stars)) + (stars % 1 ? '⯨' : '') + '</div>';
+  const cards = list.map((p, i) => {
+    const t = RAR_TONE[p.tier] || '190,196,210';
+    return '<div class="gcard" style="--t:' + t + ';animation-delay:' + (i * .09).toFixed(2) + 's">'
+      + '<i>' + (p.type === 'shards' ? '◈' : p.type === 'supreme' ? '✦' : p.type === 'skin' ? '❖' : '⚔') + '</i>'
+      + '<b>' + p.name + '</b><u>' + p.sub + '</u></div>';
+  }).join('');
+  el.innerHTML = '<div class="wrap' + (many ? ' many' : '') + '" style="--t:' + tone + '">'
+    + '<div class="rays"></div><div class="vign"></div>'
     + '<div class="ring r3"></div><div class="ring"></div><div class="ring r2"></div>'
     + '<div class="core">✦</div><div class="flash"></div>'
-    + '<div class="card"><div class="glow"></div><div class="rar">' + prize.sub + '</div>'
-    + '<div class="nm">' + prize.name + '</div><div class="hint">TAP TO CONTINUE</div></div>'
-    + '</div>';
-  const t1 = setTimeout(() => { el.classList.add('burst'); try { SFX.special('wave'); } catch (e) {} }, 1000);
+    + (many ? '<div class="grid">' + cards + '</div>' : '<div class="card"><div class="glow"></div>' + starHtml
+        + '<div class="rar">' + best.sub + '</div><div class="nm">' + best.name + '</div></div>')
+    + '<div class="hint">TAP TO CONTINUE</div></div>';
+  const t1 = setTimeout(() => {
+    el.classList.add('burst');
+    try { SFX.special('wave'); } catch (e) {}
+    try { SFX.tone(180, 620, .5, 'sine', .12); } catch (e) {}
+  }, many ? 1250 : 1000);
   const t2 = setTimeout(() => {
     el.classList.add('reveal');
-    try { SFX.special('heavy'); } catch (e) {}
+    try { best.tier === 'supreme' ? SFX.cheer() : SFX.special('heavy'); } catch (e) {}
     try { done && done(); } catch (e) {}
-  }, 1320);
+  }, many ? 1600 : 1320);
   let closed = false;
   const close = () => {
     if (closed) return; closed = true;
     clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
     el.className = ''; el.innerHTML = ''; el.onclick = null;
   };
-  const t3 = setTimeout(close, 4400);
+  const t3 = setTimeout(close, many ? 7000 : 4400);
   el.onclick = close;
 }
 
@@ -21529,33 +21634,126 @@ function summonOpen() {
   el.classList.remove('hidden');
   summonPaint();
 }
+
+/* ================= ★ Summon 卡池改版样式（全屏 + 稀有度着色 + 十连网格）================= */
+(function gachaStyle() {
+  const st = document.createElement('style');
+  st.textContent = `
+  #summonSheet .box.big { width:100vw !important; height:100vh !important; max-height:100vh !important;
+    border-radius:0 !important; padding:18px 18px 26px !important; display:flex; flex-direction:column; gap:10px;
+    background:linear-gradient(160deg,#141a2c 0%,#0c1018 55%,#161327 100%) !important; overflow:auto; }
+  #summonSheet .topbar { display:flex; align-items:center; gap:10px; }
+  #summonSheet .topbar h3 { flex:1; font:900 17px/1.2 system-ui,sans-serif; letter-spacing:1px; }
+  #summonSheet .cur { display:flex; gap:8px; font:800 12px/1 ui-monospace,monospace; }
+  #summonSheet .cur .cg, #summonSheet .cur .cs { display:flex; align-items:center; gap:5px; padding:5px 9px;
+    border-radius:11px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); }
+  #summonSheet .cur .cg { color:#ffd166; } #summonSheet .cur .cs { color:#7be0c0; }
+  #summonSheet .cur .ico { width:13px; height:13px; }
+  #summonSheet .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+  @media (max-width:720px) { #summonSheet .cols { grid-template-columns:1fr; } }
+  #summonSheet .stat { display:flex; justify-content:space-between; font-size:12px; opacity:.85; margin-bottom:4px; }
+  #summonSheet .stat b { color:#ffe9a8; }
+  #summonSheet .pity { height:7px; border-radius:4px; background:rgba(255,255,255,.10); overflow:hidden; }
+  #summonSheet .pity i { display:block; height:100%; background:linear-gradient(90deg,#ffd166,#ff9a3c); }
+  #summonSheet .pity.epic i { background:linear-gradient(90deg,#c48cff,#7d4bd6); }
+  #summonSheet .secT { margin:14px 0 7px; font:900 10.5px/1 ui-monospace,monospace; letter-spacing:1.6px; opacity:.55; }
+  #summonSheet .secT small { opacity:.8; color:#7be0c0; }
+  #summonSheet .rates { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; }
+  #summonSheet .rrow { display:flex; align-items:center; gap:7px; font-size:11.5px; }
+  #summonSheet .rrow i { width:7px; height:7px; border-radius:50%; }
+  #summonSheet .rrow span { flex:1; opacity:.8; }
+  #summonSheet .prim.ten { background:linear-gradient(135deg,#8b5cf6,#5b21b6) !important; color:#fff !important; }
+  #summonSheet .shop { display:flex; flex-direction:column; gap:7px; }
+  #summonSheet .shopBtn { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px;
+    border-radius:12px; border:1px solid rgba(123,224,192,.35); background:rgba(123,224,192,.08); color:#dffaf2;
+    font:800 12px/1 system-ui,sans-serif; cursor:pointer; }
+  #summonSheet .shopBtn u { font:900 11px/1 ui-monospace,monospace; color:#7be0c0; text-decoration:none; }
+  #summonSheet .shopBtn:disabled { opacity:.42; cursor:not-allowed; }
+  #summonSheet .pcards { display:flex; flex-wrap:wrap; gap:6px; }
+  #summonSheet .pcard { min-width:96px; padding:7px 9px; border-radius:10px; border:1px solid rgba(var(--t),.55);
+    background:rgba(var(--t),.12); }
+  #summonSheet .pcard b { display:block; font:800 11px/1.3 system-ui,sans-serif; }
+  #summonSheet .pcard u { display:block; font:700 8.5px/1.3 ui-monospace,monospace; color:rgba(var(--t),1); text-decoration:none; }
+  #summonFx .vign { position:absolute; inset:0; background:radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 30%, rgba(0,0,0,.75) 100%); }
+  #summonFx .stars { font:900 20px/1 ui-monospace,monospace; color:#fff; letter-spacing:2px; text-shadow:0 0 14px rgba(var(--t),1); }
+  #summonFx .hint { position:absolute; bottom:8%; left:0; right:0; text-align:center; font:800 10px/1 ui-monospace,monospace;
+    letter-spacing:2px; opacity:.6; }
+  #summonFx .grid { position:relative; z-index:3; display:grid; grid-template-columns:repeat(5,1fr); gap:8px;
+    width:min(760px,92vw); }
+  @media (max-width:640px) { #summonFx .grid { grid-template-columns:repeat(2,1fr); } }
+  #summonFx .gcard { padding:10px 8px; border-radius:12px; border:1.5px solid rgba(var(--t),.75);
+    background:linear-gradient(160deg, rgba(var(--t),.28), rgba(10,12,20,.92)); text-align:center;
+    opacity:0; transform:translateY(14px) scale(.9); animation:gIn .42s cubic-bezier(.2,1.5,.4,1) forwards; }
+  @keyframes gIn { to { opacity:1; transform:none; } }
+  #summonFx .gcard i { display:block; font-size:18px; color:rgb(var(--t)); font-style:normal; }
+  #summonFx .gcard b { display:block; font:800 10.5px/1.3 system-ui,sans-serif; margin-top:3px; color:#fff; }
+  #summonFx .gcard u { display:block; font:700 8px/1.3 ui-monospace,monospace; color:rgba(var(--t),1); text-decoration:none; }
+  `;
+  document.head.appendChild(st);
+})();
 function summonPaint(last) {
   const el = document.getElementById('summonSheet'); if (!el) return;
   const owned = CHARS.filter(c => c.supreme && ACC.owns(c.id)).length;
   const total = CHARS.filter(c => c.supreme).length;
-  const pity = ACC.pity, prog = Math.min(100, pity / SUMMON_PITY_MAX * 100);
-  el.innerHTML = '<div class="box"><button class="close">✕</button>'
-    + '<h3>SUMMON · Supreme Gems</h3>'
-    + '<div class="sxsub">200 gems per pull · 50-pull pity guarantees a SUPREME fighter · skins &amp; weapons also drop</div>'
-    + '<div class="row" style="cursor:default"><span>Gems</span><b style="color:#ffd166">' + ACC.gems + '</b></div>'
-    + '<div class="row" style="cursor:default"><span>Supreme fighters<small>' + owned + ' / ' + total + ' collected</small></span>'
-    + '<span style="text-align:right">Pity <b>' + pity + ' / ' + SUMMON_PITY_MAX + '</b>'
-    + '<div class="pity"><i style="width:' + prog + '%"></i></div></span></div>'
-    + (last ? '<div class="res"><small>' + last.sub + '</small><b>' + last.name + '</b></div>' : '')
-    + '<button class="prim"' + (ACC.gems < SUMMON_COST ? ' disabled' : '') + '>SUMMON ×1 · ' + SUMMON_COST + ' GEMS</button>'
-    + '</div>';
+  const pity = ACC.pity, prog = Math.min(100, pity / GACHA.hardPity * 100);
+  const ep = ACC.getPityEpic(), epProg = Math.min(100, ep / GACHA.epicPity * 100);
+  const shards = ACC.getShards();
+  const rateRows = [['supreme', 'Supreme Fighter'], ['legW', 'Legendary Weapon'], ['epicW', 'Epic Weapon'],
+                    ['skin', 'Epic Skin'], ['weapon', 'Weapon'], ['shards', 'Memory Shards']]
+    .map(([k, nm]) => '<div class="rrow"><i style="background:rgba(' + RAR_TONE[k] + ',1)"></i><span>' + nm
+      + '</span><b style="color:rgb(' + RAR_TONE[k] + ')">' + GACHA.rate[k] + '%</b></div>').join('');
+  const shopRows = SHARD_SHOP.map(it => '<button class="shopBtn" data-shop="' + it.id + '"' +
+      (shards < it.cost ? ' disabled' : '') + '><b>' + it.name + '</b><u>' + it.cost + ' ◈</u></button>').join('');
+  const cards = (Array.isArray(last) ? last : (last ? [last] : [])).map(p => {
+    const t = RAR_TONE[p.tier] || '190,196,210';
+    return '<div class="pcard" style="--t:' + t + '"><b>' + p.name + '</b><u>' + p.sub + '</u></div>';
+  }).join('');
+  el.innerHTML = '<div class="box big">'
+    + '<div class="topbar"><h3>SUMMON · Wish</h3><div class="cur">'
+      + '<span class="cg"><svg class="ico"><use href="#i-gem"/></svg>' + ACC.gems + '</span>'
+      + '<span class="cs">◈ ' + shards + '</span></div><button class="close">✕</button></div>'
+    + '<div class="sxsub">200 gems per pull · 10-pull 2,000 · 90-pull hard pity for a SUPREME fighter · every 10th pull drops EPIC or better</div>'
+    + '<div class="cols">'
+      + '<div class="colL">'
+        + '<div class="stat"><span>Supreme fighters <b>' + owned + ' / ' + total + '</b></span>'
+          + '<span>Pity <b>' + pity + ' / ' + GACHA.hardPity + '</b></span></div>'
+        + '<div class="pity"><i style="width:' + prog + '%"></i></div>'
+        + '<div class="stat" style="margin-top:8px"><span>Epic or better in <b>' + Math.max(0, GACHA.epicPity - ep) + '</b> pulls</span></div>'
+        + '<div class="pity epic"><i style="width:' + epProg + '%"></i></div>'
+        + '<div class="secT">DROP RATES</div><div class="rates">' + rateRows + '</div>'
+        + (cards ? '<div class="res"><div class="secT">LAST RESULT</div><div class="pcards">' + cards + '</div></div>' : '')
+      + '</div>'
+      + '<div class="colR">'
+        + '<div class="secT">SUMMON</div>'
+        + '<button class="prim"' + (ACC.gems < SUMMON_COST ? ' disabled' : '') + '>SUMMON ×1 · ' + SUMMON_COST + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
+        + '<button class="prim ten"' + (ACC.gems < SUMMON_COST * 10 ? ' disabled' : '') + '>SUMMON ×10 · ' + (SUMMON_COST * 10) + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
+        + '<div class="secT">MEMORY SHARD SHOP <small>◈ ' + shards + '</small></div>'
+        + '<div class="shop">' + shopRows + '</div>'
+        + '<div class="tip">◈ Memory Shards come from the 8% shard drop and from duplicate weapons/skins.</div>'
+      + '</div>'
+    + '</div></div>';
   el.querySelector('.close').onclick = () => el.classList.add('hidden');
-  const b = el.querySelector('button.prim');
+  const b = el.querySelector('button.prim:not(.ten)');
   if (b) b.onclick = () => {
     const r = summonPull();
     if (r.err === 'gems') { toast('Not enough Supreme Gems (' + ACC.gems + '/' + SUMMON_COST + ')'); return; }
-    /* ★ 先掷骰（状态已落库），再放动画；揭晓那一刻刷新面板/角色格/宝石数 */
-    summonAnimation(r, () => {
-      summonPaint(r);
-      try { window.__rebuildChars && window.__rebuildChars(); } catch (e) {}
-      summonBtnPaint();
-    });
+    summonAnimation(r, () => { summonPaint(r); try { window.__rebuildChars && window.__rebuildChars(); } catch (e) {} summonBtnPaint(); });
   };
+  const tb = el.querySelector('button.prim.ten');
+  if (tb) tb.onclick = () => {
+    if (ACC.gems < SUMMON_COST * 10) { toast('Not enough Supreme Gems for a 10-pull'); return; }
+    const got = [];
+    for (let i = 0; i < 10; i++) { const r = summonPull(); if (r.err) break; got.push(r); }
+    if (!got.length) { toast('Not enough Supreme Gems'); return; }
+    summonAnimation(got, () => { summonPaint(got); try { window.__rebuildChars && window.__rebuildChars(); } catch (e) {} summonBtnPaint(); });
+  };
+  el.querySelectorAll('[data-shop]').forEach(btn => {
+    btn.onclick = () => {
+      const res = shardShopBuy(btn.getAttribute('data-shop'));
+      if (res.err === 'shards') { toast('Not enough Memory Shards'); return; }
+      toast('Redeemed!'); summonPaint();
+    };
+  });
 }
 function summonBtnPaint() {
   let b = document.getElementById('summonBtn');
