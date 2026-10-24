@@ -8021,8 +8021,150 @@ function endPumpkinCurse(f, silent) {
   }
 }
 
+/* ================= ★ 通用皮肤系统（2026-10-24）=================
+   一套皮肤 = 一个调色板（body/body2/dark）+ 一组小挂件（crown/cape/halo/hat/glasses/scarf/horns/wings/orb/scepter/aura）。
+   挂件全部用基本几何体拼，零贴图、零外部资源；颜色按「角色原色 → 皮肤色」做映射替换，
+   所以任何 kit（不管长什么样）都能套 —— 这就是「每个角色都有皮肤」的可行做法。 */
+const SKIN_THEMES = [
+  ['Frost',     0xdfefff, 0x8fc6ff, 0x2a4c78, ['halo', 'scarf'],      0x9ad4ff],
+  ['Ember',     0xffd9b0, 0xff8a4a, 0x6a2a10, ['horns', 'cape'],      0xff7a2a],
+  ['Bloomborn', 0xd6ffd0, 0x74d06a, 0x1f5a24, ['wings', 'halo'],      0x7dff9a],
+  ['Duskward',  0x8e8ab8, 0x5f5a8e, 0x241f3a, ['cape', 'glasses'],    0xb08cff],
+  ['Sunken',    0xc9f0ff, 0x5fc8d8, 0x123a44, ['scarf', 'orb'],       0x5fe8ff],
+  ['Void',      0x3a2f52, 0x1d1630, 0x0a0714, ['halo', 'horns'],      0xa253ff],
+  ['Ivory',     0xfff6e8, 0xe8d5b8, 0x6a5a44, ['hat', 'glasses'],     0xffe9c0],
+  ['Crimson',   0x3a1d24, 0x24121a, 0x0e0709, ['cape', 'horns'],      0xff4a4a]
+];
+function _skinHash(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (h * 16777619) >>> 0; }
+  return h;
+}
+/* 传奇：Cobalt 的金色国王皮肤 */
+const SKIN_LEGEND = {
+  gen_cobalt: { name:'Sovereign of Gold', body:0xffd45e, body2:0xfff3c4, dark:0x8a6414,
+                acc:['crown', 'cape', 'scepter', 'aura'], glow:0xffd45e, legendary:true }
+};
+function skinSpecFor(def) {
+  const sk = (def && def.skin) || '';
+  if (!sk) return null;
+  if (sk === 'smiley_penguin' || sk === 'cardboard_tv') return null;    // 专属建模皮肤交给 kit 自己
+  if (SKIN_LEGEND[sk]) return SKIN_LEGEND[sk];
+  const m = /^gen_(.+)$/.exec(sk);
+  if (!m) return null;
+  const t = SKIN_THEMES[_skinHash(m[1]) % SKIN_THEMES.length];
+  return { name:t[0], body:t[1], body2:t[2], dark:t[3], acc:t[4], glow:t[5] };
+}
+/* 生成一个挂件（返回 Group，用角色本体的包围盒定位，所以任何体型都放得上去） */
+function skinAcc(kind, P, sp) {
+  const out = new THREE.Group();
+  const gold = new THREE.MeshStandardMaterial({ color:sp.glow, metalness:.82, roughness:.26,
+    emissive:sp.glow, emissiveIntensity:.30 });
+  const soft = new THREE.MeshStandardMaterial({ color:sp.body2, roughness:.52, metalness:.18 });
+  const dark = new THREE.MeshStandardMaterial({ color:sp.dark, roughness:.70, metalness:.10 });
+  const head = P.head, torso = P.torso || P.belly || P.body || null;
+  const boxOf = o => { if (!o) return null; try { o.updateWorldMatrix(true, true); return new THREE.Box3().setFromObject(o); } catch (e) { return null; } };
+  const hb = boxOf(head), tb = boxOf(torso);
+  const top = hb ? hb.max.y : 2.10, cx = hb ? (hb.max.x + hb.min.x) / 2 : 0, cz = hb ? (hb.max.z + hb.min.z) / 2 : 0;
+  const hr = hb ? Math.max(.15, Math.max(hb.max.x - hb.min.x, hb.max.z - hb.min.z) * .5) : .42;
+  const bw = tb ? Math.max(.5, tb.max.x - tb.min.x) : 1.2;
+  const bh = tb ? Math.max(.6, tb.max.y - tb.min.y) : 1.4;
+  if (kind === 'crown') {
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(hr * .96, hr * 1.04, hr * .40, 14, 1, true), gold);
+    band.position.set(cx, top + hr * .18, cz); out.add(band);
+    for (let i = 0; i < 5; i++) {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(hr * .19, hr * .60, 4), gold);
+      const a = i / 5 * Math.PI * 2;
+      c.position.set(cx + Math.cos(a) * hr * .74, top + hr * .62, cz + Math.sin(a) * hr * .74);
+      out.add(c);
+    }
+  } else if (kind === 'halo') {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(hr * .82, hr * .10, 6, 20), gold);
+    t.rotation.x = Math.PI / 2; t.position.set(cx, top + hr * 1.05, cz); out.add(t);
+  } else if (kind === 'horns') {
+    for (const sx of [-1, 1]) {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(hr * .16, hr * .85, 5), dark);
+      c.position.set(cx + sx * hr * .55, top + hr * .55, cz - hr * .1);
+      c.rotation.z = -sx * .42; out.add(c);
+    }
+  } else if (kind === 'hat') {
+    const top2 = new THREE.Mesh(new THREE.CylinderGeometry(hr * .72, hr * .78, hr * .85, 12), soft);
+    top2.position.set(cx, top + hr * .55, cz); out.add(top2);
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(hr * 1.30, hr * 1.30, hr * .12, 16), soft);
+    brim.position.set(cx, top + hr * .12, cz); out.add(brim);
+  } else if (kind === 'glasses') {
+    for (const sx of [-1, 1]) {
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(hr * .30, hr * .055, 5, 14), dark);
+      rim.position.set(cx + sx * hr * .38, top - hr * .95, cz + hr * .92); out.add(rim);
+    }
+    const br = new THREE.Mesh(new THREE.BoxGeometry(hr * .34, hr * .07, hr * .07), dark);
+    br.position.set(cx, top - hr * .95, cz + hr * .92); out.add(br);
+  } else if (kind === 'scarf') {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(hr * .95, hr * .17, 6, 16), soft);
+    t.rotation.x = Math.PI / 2; t.position.set(cx, top - hr * .55, cz); out.add(t);
+    const tail2 = new THREE.Mesh(new THREE.BoxGeometry(hr * .38, hr * .95, hr * .10), soft);
+    tail2.position.set(cx + hr * .55, top - hr * 1.15, cz - hr * .55); tail2.rotation.z = .22; out.add(tail2);
+  } else if (kind === 'cape') {
+    const cape = new THREE.Mesh(new THREE.BoxGeometry(bw * 1.35, bh * 1.15, .05), soft);
+    cape.position.set(0, (tb ? (tb.max.y + tb.min.y) / 2 : 1.1), (tb ? tb.min.z : -.4) - .10);
+    cape.rotation.x = -.06; out.add(cape);
+  } else if (kind === 'wings') {
+    for (const sx of [-1, 1]) {
+      const w = new THREE.Mesh(new THREE.BoxGeometry(bw * .95, bh * .75, .04), soft);
+      w.position.set(sx * bw * .72, (tb ? (tb.max.y + tb.min.y) / 2 + bh * .35 : 1.5), (tb ? tb.min.z : -.4) - .06);
+      w.rotation.z = sx * .28; w.rotation.y = sx * .30; out.add(w);
+    }
+  } else if (kind === 'orb') {
+    const o = new THREE.Mesh(new THREE.SphereGeometry(hr * .34, 12, 10), gold);
+    o.position.set(cx + hr * 1.35, top - hr * .9, cz + hr * .35); out.add(o);
+  } else if (kind === 'scepter') {
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(hr * .09, hr * .11, bh * 1.05, 8), gold);
+    rod.position.set(bw * .85, (tb ? tb.min.y : .6) + bh * .55, .1);
+    rod.rotation.z = .16; out.add(rod);
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(hr * .30, 0), gold);
+    gem.position.set(bw * .85 - .12, (tb ? tb.min.y : .6) + bh * 1.12, .1); out.add(gem);
+  } else if (kind === 'aura') {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(Math.max(1.05, bw * .95), .06, 5, 28),
+      new THREE.MeshBasicMaterial({ color:sp.glow, transparent:true, opacity:.55,
+        depthWrite:false, blending:THREE.AdditiveBlending }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = .07; out.add(ring);
+    const glow2 = new THREE.Mesh(new THREE.SphereGeometry(Math.max(.9, bw * .78), 14, 10),
+      new THREE.MeshBasicMaterial({ color:sp.glow, transparent:true, opacity:.09,
+        depthWrite:false, blending:THREE.AdditiveBlending }));
+    glow2.position.y = 1.0; out.add(glow2);
+  } else return null;
+  return out;
+}
+function applySkinFx(k, def) {
+  const sp = skinSpecFor(def); if (!sp || !k || !k.group) return;
+  const g = k.group;
+  if (g.userData.__skinFx) return;
+  g.userData.__skinFx = 1;
+  /* ① 调色：把「角色原色」的材质替换成皮肤色（按颜色值映射，任何 kit 都吃得下） */
+  const map = new Map();
+  if (def.body !== undefined) map.set(def.body, sp.body);
+  if (def.body2 !== undefined) map.set(def.body2, sp.body2);
+  if (def.dark !== undefined) map.set(def.dark, sp.dark);
+  if (map.size) g.traverse(o => {
+    if (!o.material) return;
+    const arr = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of arr) {
+      if (!m || !m.color || !m.color.getHex) continue;
+      const h = m.color.getHex();
+      if (map.has(h)) { try { m.color.setHex(map.get(h)); } catch (e) {} }
+    }
+  });
+  /* ② 挂件 */
+  const P = Object.assign({}, g.userData || {}, k);
+  for (const kind of (sp.acc || [])) {
+    try { const a = skinAcc(kind, P, sp); if (a) g.add(a); } catch (e) {}
+  }
+  if (sp.legendary) { try { g.userData.legendarySkin = 1; } catch (e) {} }
+}
+
 function buildMesh2(def) {
   const k = (KITS[def.id] || kitSparky)(def);
+  try { applySkinFx(k, def); } catch (e) {}
   const g = k.group;
   g.scale.setScalar(def.shape.scale);
   g.userData = Object.assign({ group:g }, k);   // 保留 kit 的全部键（含各自的额外引用，如南瓜头的鬼火/鬼眼/镰刀）
@@ -18213,6 +18355,7 @@ const PV = (() => {
     curId = def.id;
     if (model) { holder.remove(model); model = null; parts = null; }
     const kit = (KITS[def.id] || kitSparky)(def);
+    try { applySkinFx(kit, def); } catch (e) {}
     const g = kit.group;
     g.scale.setScalar(def.shape.scale);
     g.updateMatrixWorld(true);
@@ -20163,7 +20306,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net106',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net109',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -21529,6 +21672,22 @@ function shardShopBuy(id) {
 }
 const SUMMON_SKINS   = [{ id:'smiley_penguin', char:'smiley', name:'Penguin', for:'Smiley' },
                         { id:'cardboard_tv', char:'sovereign', name:'TV Man', for:'Cardboard' }];
+/* ★ 为每个角色注册一套主题皮肤（gen_<charId>）；已有专属建模皮肤的角色（sovereign/smiley）跳过。
+   Cobalt 那套是传奇「金色国王」（SKIN_LEGEND）。id 稳定，会存进账号。 */
+try {
+  const _skinTone = { Frost:'Frost', Ember:'Ember', Bloomborn:'Bloomborn', Duskward:'Duskward',
+                      Sunken:'Sunken', Void:'Void', Ivory:'Ivory', Crimson:'Crimson' };
+  for (const c of CHARS) {
+    if (SUMMON_SKINS.some(x => x.char === c.id)) continue;
+    const id = 'gen_' + c.id;
+    const sp = skinSpecFor(Object.assign({}, c, { skin: id }));
+    if (!sp) continue;
+    SUMMON_SKINS.push({ id, char: c.id, gen: true, legendary: !!sp.legendary,
+      name: c.id === 'cobalt' ? 'Sovereign of Gold' : (sp.name + ' ' + c.name),
+      for: c.name, rar: sp.legendary ? 'legendary' : 'skin' });
+  }
+} catch (e) {}
+
 function summonPoolLeft() {
   return { sup: CHARS.filter(c => c.supreme && !ACC.owns(c.id)),
            weapons: SUMMON_WEAPONS.filter(w => !ACC.hasWeapon(w.id)),
@@ -21571,9 +21730,13 @@ function summonPull(quiet) {
   } else if (tier === 'skin') {
     const left = SUMMON_SKINS.filter(x => !ACC.hasSkin(x.id));
     if (left.length) {
-      const sk = left[Math.floor(Math.random() * left.length)];
+      /* ★ 皮肤也分稀有度：传奇皮肤（Cobalt 国王金）在皮肤档里只占 12% 权重 */
+      const _lp = left.filter(x => x.legendary), _np = left.filter(x => !x.legendary);
+      const _pool = (_lp.length && Math.random() < .12) ? _lp : (_np.length ? _np : _lp);
+      const sk = _pool[Math.floor(Math.random() * _pool.length)];
       ACC.addSkin(sk.id);
-      prize = { type:'skin', tier:'skin', id:sk.id, name:sk.name, sub:RAR_NAME.skin + ' · ' + sk.for };
+      prize = { type:'skin', tier:'skin', id:sk.id, name:sk.name,
+        sub:(sk.legendary ? 'LEGENDARY SKIN' : RAR_NAME.skin) + ' · ' + sk.for };
     } else prize = giveShards(GACHA.dupShards.skin, 'SKIN DUPLICATE');
   } else {
     const pool = SUMMON_WEAPONS.filter(w => w.rar === tier);
