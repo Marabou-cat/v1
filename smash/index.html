@@ -16677,9 +16677,13 @@ class Fighter {
     this.grounded = false; this.onSoft = false;
     if (this.vel.y <= 0 && this.pos.y <= 0 && py >= -.05) {
       /* 主板面：脚下这层地板真的存在（y=0）才接住
-         —— Roof XL 的空隙、Mines 塌掉的方块都靠 stageFloorY 返回 null 来表示「这里没地板」 */
-      const _sx = Math.max(-STAGE.wallX, Math.min(STAGE.wallX, this.pos.x));
-      if (stageFloorY(_sx) === 0) {
+         —— Roof XL 的空隙、Mines 塌掉的方块都靠 stageFloorY 返回 null 来表示「这里没地板」。
+         ⚠ 越界不能再把 x 夹回 ±wallX 去查（那等于在平台外凭空铺了一层地板 → 走出平台还能一直走）。
+           只在「场边 0.25 格内」保留容差，超出就是场外 = 没有地板 = 掉下去。 */
+      const _ax = Math.abs(this.pos.x);
+      const _fx = _ax <= STAGE.wallX ? this.pos.x
+                : (_ax <= STAGE.wallX + .25 ? (this.pos.x > 0 ? STAGE.wallX : -STAGE.wallX) : null);
+      if (_fx !== null && stageFloorY(_fx) === 0) {
         this.pos.y = 0; this.vel.y = 0; this.grounded = true;
       }
     }
