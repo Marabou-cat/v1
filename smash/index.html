@@ -2365,7 +2365,7 @@ CHAR_EXTRA.mosquito = {
    负面特性：完全失明 —— 只看得见自己周围（比 Mosquito 的「黑视」更狠：连轮廓都没有，
    见 visionVeil）；下B 放感测体可以让他在感测体周围也看得见。 */
 CHARS.push({ id:'warden', name:'Warden', en:'WARDEN', tag:'Deep Dark',
-  body:0x1d4a52, body2:0x2f6d76, dark:0x0b2126, eye:0x3ff0e0,
+  body:0x1d5560, body2:0x2d7681, dark:0x0b1a1e, eye:0x3ff0e0,
   shape:{ scale:1.0, headR:.52 },
   weight:118, walk:7.4, run:10.6, air:9.6, jump:15.4, jumps:1, fall:26, fastFall:34,
   accel:34, airAccel:30, fric:26, mul:{ dmg:1.0, kb:1.18, spd:1.0 },
@@ -8631,87 +8631,141 @@ function kitCardboard(def) {
    朝向约定：模型正面 = 局部 +Z（引擎按 facing 把整个 group 转 ±90°）。
    腹部往 -Z 收细悬在后面；头/复眼/口器在 +Z；翅膀在胸背上方。 */
 /* ================= ★ 坚守者造型：方块感 1:1（大头 + 巨躯 + 长臂 + 短腿 + 发光胸腔核心） ================= */
+/* ================= ★ Minecraft 像素噪点贴图（换皮安全） =================
+   白底 + 深浅斑点的 16×16 Canvas 贴图，作为 map 乘到材质色上：
+   材质色仍然 = def.body/body2/dark（换皮只会改颜色，纹路保留）。 */
+const _mcNoiseTex = {};
+function mcNoise(seed) {
+  const k = 'n' + (seed | 0);
+  const CACHE = mcNoise._c || (mcNoise._c = {});
+  if (CACHE[k]) return CACHE[k];
+  const S = 16, cv = document.createElement('canvas');
+  cv.width = S; cv.height = S;
+  const cx = cv.getContext('2d');
+  let r = ((seed | 0) * 7919 + 104729) % 233280;
+  const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
+  cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, S, S);
+  for (let i = 0; i < 40; i++) {                       // 密度/对比都压低：远看是「暗底细斑」，不是迷彩
+    const x = (rnd() * S) | 0, y = (rnd() * S) | 0;
+    const w = 1 + ((rnd() * 2) | 0), h = 1 + ((rnd() * 2) | 0);
+    const d = rnd();
+    cx.fillStyle = d < .52 ? 'rgba(0,0,0,' + (.09 + rnd() * .11).toFixed(2) + ')'
+      : d < .86 ? 'rgba(255,255,255,' + (.13 + rnd() * .16).toFixed(2) + ')'
+      : 'rgba(90,215,208,' + (.12 + rnd() * .14).toFixed(2) + ')';
+    cx.fillRect(x, y, w, h);
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  CACHE[k] = t;
+  return t;
+}
+
+/* ================= ★ 坚守者 Warden（我的世界）=================
+   按原作渲染图标定的比例（总高 3.24、肩宽 ≈1.96、头宽 ≈躯干宽）：
+   巨肩长臂（手垂到膝下）、短粗无膝腿、大方头 + 看不见眼睛的黑脸,
+   横贯的大嘴（平时黑洞、音波时整条亮起）+ 头顶两侧分叉的青色耳枝
+   + 胸腹骨白肋纹与中央跳动的青色核心（Sculk 生物光）。脚底 y=0。 */
 function kitWarden(def) {
   const g = new THREE.Group();
-  const mBody = cmat(def.body, { roughness:.84, flatShading:true });
-  const mPlate = cmat(def.body2, { roughness:.80, flatShading:true });
-  const mDark = cmat(def.dark, { roughness:.88, flatShading:true });
-  const mGlow = glowMat(def.eye, 1.30, 0x0a4a44);
-  const B = (w, h, d, mat, x, y, z) => {
+  const TX = mcNoise(7);
+  const mBody  = cmat(def.body,  { roughness:.93, metalness:.03, map:TX });
+  const mBody2 = cmat(def.body2, { roughness:.90, metalness:.03, map:TX });
+  const mDark  = cmat(def.dark,  { roughness:.96, metalness:0,    map:TX });
+  const mFace  = cmat(0x05090b,  { roughness:.98, metalness:0 });                 // 面部：比 dark 还黑
+  const mBone  = new THREE.MeshStandardMaterial({ color:0x8f9779, roughness:.90, metalness:.02,
+                    emissive:0x113233, emissiveIntensity:.35, flatShading:true, map:TX });
+  const mGlow  = glowMat(0x1fd8c6, .85, 0x0c3a38);
+  const mEar   = new THREE.MeshStandardMaterial({ color:0x1fbcb2, roughness:.55, metalness:.04,
+                    emissive:0x12a096, emissiveIntensity:.90, flatShading:true });
+  const mEarTip= glowMat(0x63e8dc, .95, 0x14807a);
+  const BX = (p, w, h, d, mat, x, y, z) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    m.position.set(x, y, z); g.add(m); return m;
+    m.position.set(x, y, z); p.add(m); return m;
   };
-  /* ---- 腿：短粗、黑脚掌 ---- */
+  /* ---- 腿：短粗无膝 + 大脚掌（脚底落在 y=0）---- */
   const legL = new THREE.Group(), legR = new THREE.Group();
-  legL.position.set(-.34, 1.02, 0); legR.position.set(.34, 1.02, 0);
+  legL.position.set(-.28, 1.04, 0); legR.position.set(.28, 1.04, 0);
   g.add(legL); g.add(legR);
   for (const pair of [[legL, -1], [legR, 1]]) {
     const L = pair[0];
-    const th = new THREE.Mesh(new THREE.BoxGeometry(.44, .62, .48), mBody); th.position.y = -.30; L.add(th);
-    const ft = new THREE.Mesh(new THREE.BoxGeometry(.48, .22, .58), mDark); ft.position.set(0, -.68, .07); L.add(ft);
+    BX(L, .46, .72, .58, mBody, 0, -.36, 0);                 // 整条腿（原作就是一块，无膝盖）
+    BX(L, .52, .32, .74, mDark, 0, -.88, .06);               // 脚掌
+    BX(L, .18, .26, .03, mBone, 0, -.88, .44);               // 脚前脸的骨白竖纹
+    BX(L, .34, .04, .03, mBone, 0, -1.02, .44);              // 脚趾前缘
   }
-  /* ---- 躯干：巨大方块 + 胸甲 + 肋条 ---- */
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(1.42, 1.14, .84), mBody);
-  torso.position.y = 1.72; g.add(torso);
-  /* 外扩的肩甲（原版坚守者肩膀明显比胸廓宽一圈） */
+  /* ---- 躯干：胸廓比腰宽一圈的巨块 + 背甲 ---- */
+  const waist = BX(g, .92, .62, .72, mBody, 0, 1.26, 0);
+  const chest = BX(g, 1.20, .96, .88, mBody, 0, 1.98, 0);
+  BX(g, .96, .52, .24, mBody2, 0, 2.06, -.46);               // 背甲（驼背）
+  for (const sg of [-1, 1]) BX(g, .34, .32, .94, mBody2, sg * .60, 2.36, -.02);   // 肩头盖板（最宽的一层）
+  /* ---- 胸口：骨白肋纹（左右各 3 道，向中心斜下）+ 中央青色核心 ---- */
   for (const sg of [-1, 1]) {
-    const sh = new THREE.Mesh(new THREE.BoxGeometry(.34, .40, .78), mPlate);
-    sh.position.set(sg * .74, 2.16, 0); g.add(sh);
-  }
-  const belly = B(1.06, .68, .14, mPlate, 0, 1.86, .43);
-  B(.40, .26, .10, mDark, 0, 2.16, .45);
-  for (let i = 0; i < 3; i++) B(.98, .055, .10, mDark, 0, 1.60 - i * .17, .45);
-  /* ---- 发光胸腔核心 + 裂纹（灵魂能量）---- */
-  const core = B(.38, .42, .13, mGlow, 0, 1.92, .48);
-  B(.10, .10, .10, mGlow, -.30, 1.72, .45); B(.08, .16, .10, mGlow, .34, 2.00, .45);
-  /* ---- 肩部骨刺 + 苔藓块 ---- */
-  for (const sg of [-1, 1]) {
-    B(.32, .34, .64, mDark, sg * .68, 2.14, 0);
-    B(.16, .18, .16, mGlow, sg * .74, 2.34, .18);
-  }
-  /* ---- 头：大方块 + 无眼（盲）面甲 + 两片颚 + 触须 ---- */
-  const head = new THREE.Group(); head.position.set(0, 2.56, 0); head.scale.setScalar(1.14); g.add(head);
-  head.add(new THREE.Mesh(new THREE.BoxGeometry(1.14, .92, .96), mBody));
-  const face = new THREE.Mesh(new THREE.BoxGeometry(1.00, .40, .12), mDark);
-  face.position.set(0, -.12, .50); head.add(face);
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(.62, .09, .08), mGlow);   // 发光口缝（原版最标志性的一处）
-  mouth.position.set(0, -.20, .56); head.add(mouth);
-  const brow = new THREE.Mesh(new THREE.BoxGeometry(1.04, .14, .14), mPlate);
-  brow.position.set(0, .18, .49); head.add(brow);
-  for (const sg of [-1, 1]) {
-    /* 大颚 */
-    const jaw = new THREE.Mesh(new THREE.BoxGeometry(.22, .50, .34), mPlate);
-    jaw.position.set(sg * .44, -.40, .36); jaw.rotation.z = sg * .14; head.add(jaw);
-    /* 向外张开的耳鳍（原版头两侧那两片） */
-    const fin = new THREE.Mesh(new THREE.BoxGeometry(.14, .58, .46), mPlate);
-    fin.position.set(sg * .62, .10, -.06); fin.rotation.z = sg * .30; fin.rotation.x = -.16; head.add(fin);
-    /* 角 */
-    const horn = new THREE.Mesh(new THREE.BoxGeometry(.17, .38, .17), mDark);
-    horn.position.set(sg * .44, .56, .04); horn.rotation.z = sg * .26; head.add(horn);
-    /* 触须 */
-    for (const tz of [.30, .12]) {
-      const feel = new THREE.Mesh(new THREE.BoxGeometry(.09, .46, .09), mDark);
-      feel.position.set(sg * (.20 + tz * .10), -.52, tz); feel.rotation.x = .26; head.add(feel);
+    for (let i = 0; i < 3; i++) {
+      const bar = BX(g, .20, .085, .04, mBone, sg * (.26 + i * .09), 2.08 - i * .14, .442);
+      bar.rotation.z = sg * (.33 + i * .05);
     }
+    BX(g, .09, .24, .04, mBone, sg * .46, 1.60, .442).rotation.z = sg * .20;    // 腰侧竖纹
   }
-  /* ---- 长臂：垂到膝下，大拳头 ---- */
-  const mLimb = cmat(0x17414a, { roughness:.86, flatShading:true });   // 手臂比躯干暗一档，剪影才分得开
+  const core = new THREE.Group(); core.position.set(0, 1.96, .443); g.add(core);
+  for (let i = 0; i < 3; i++) {                              // 三枚十字叠成脊柱状的核心
+    const y = .16 - i * .16;
+    BX(core, .17, .06, .045, mGlow, 0, y, 0);
+    BX(core, .06, .17, .045, mGlow, 0, y, .004);
+  }
+  for (const d of [[-.12,.08],[.13,.03],[-.11,-.09],[.11,-.14],[0,.26],[-.02,-.23]])
+    BX(core, .05, .05, .045, mGlow, d[0], d[1], .004);
+  /* ---- 头：大方块 + 黑脸 + 横贯的大嘴 + 两侧分叉耳枝 ---- */
+  const head = new THREE.Group(); head.position.set(0, 2.26, 0); g.add(head);
+  BX(head, .94, .90, .96, mBody, 0, .33, .02);              // 头骨
+  BX(head, .84, .60, .10, mFace, 0, .16, .43);               // 一整块黑脸
+  const mouthGlow = new THREE.Mesh(new THREE.BoxGeometry(.62, .22, .07),
+    new THREE.MeshStandardMaterial({ color:0x02060a, emissive:def.eye, emissiveIntensity:0,
+      roughness:.95, metalness:0 }));
+  mouthGlow.position.set(0, .08, .475); head.add(mouthGlow); // 平时是黑洞，音波发射时整条亮起
+  BX(head, .66, .045, .05, mBody2, 0, .225, .48);            // 上唇一道细线（原作那条浅色边）
+  const ears = [];
+  for (const sg of [-1, 1]) {
+    const E = new THREE.Group(); E.position.set(sg * .38, .76, -.04);
+    head.add(E); ears.push(E);
+    const seg = (x, y, z, len, rz, rx, th, mat) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(th, len, th * .82), mat);
+      m.position.set(sg * x, y, z); m.rotation.z = sg * rz; m.rotation.x = rx;
+      E.add(m); return m;
+    };
+    seg(.07, .13, 0,    .38, -.55, 0,   .15, mEar);          // 主枝（向外上）
+    seg(.26, .30, .01,  .30, -.92, -.10, .11, mEar);
+    seg(.40, .40, .02,  .20, -1.15, -.16, .085, mEarTip);    // 尖端更亮
+    seg(.21, .26, .13,  .22, -1.05, .30, .08, mEar);         // 上分叉
+    seg(.30, .14, -.13, .20, -.30, -.30, .08, mEarTip);      // 下分叉
+  }
+  /* ---- 长臂：巨大肩板 + 前臂 + 三爪，垂到膝下 ---- */
   const armL = new THREE.Group(), armR = new THREE.Group();
-  armL.position.set(-1.00, 2.10, 0); armR.position.set(1.00, 2.10, 0);
+  armL.position.set(-.76, 2.40, 0); armR.position.set(.76, 2.40, 0);
   g.add(armL); g.add(armR);
-  for (const pair of [[armL, -1], [armR, 1]]) {
-    const A = pair[0];
-    const up = new THREE.Mesh(new THREE.CapsuleGeometry(.205, .74, 4, 8), mLimb);
-    up.position.y = -.40; A.add(up);
-    const wrist = new THREE.Mesh(new THREE.BoxGeometry(.30, .16, .30), mDark);
-    wrist.position.y = -.86; A.add(wrist);
-    const fist = new THREE.Mesh(new THREE.BoxGeometry(.46, .50, .46), mPlate);
-    fist.position.y = -1.14; A.add(fist);
-    const claw = new THREE.Mesh(new THREE.BoxGeometry(.38, .13, .40), mDark);
-    claw.position.y = -1.40; A.add(claw);
+  const elbL = new THREE.Group(), elbR = new THREE.Group();
+  for (const trio of [[armL, elbL, -1], [armR, elbR, 1]]) {
+    const A = trio[0], EL = trio[1], sg = trio[2];
+    BX(A, .58, .74, .92, mBody, 0, -.26, -.01);              // 肩 + 上臂整块（肩顶高过头底）
+    BX(A, .56, .30, .96, mBody2, 0, .13, 0);                 // 肩顶盖板
+    EL.position.set(0, -.68, 0); A.add(EL);
+    BX(EL, .54, .62, .84, mBody, 0, -.31, 0);                // 前臂
+    BX(EL, .58, .34, .86, mDark, 0, -.78, .02);              // 手
+    for (const cx of [-.17, 0, .17]) BX(EL, .12, .32, .15, mBone, cx, -1.04, .24);   // 三根骨白爪
+    BX(EL, .30, .10, .03, mBone, -.02, -.20, .425).rotation.z = sg * .45;            // 前臂骨白斜纹
+    BX(EL, .30, .10, .03, mBone,  .02, -.38, .425).rotation.z = sg * -.45;
   }
-  return { group:g, torso, belly, head, armL, armR, legL, legR, core, tail:null };
+  return { group:g, torso:chest, belly:waist, head, armL, armR, legL, legR,
+           elbL, elbR, core, mouthGlow, ears, tail:null };
 }
+
+
+
+
+
+
+
+
 
 function kitMosquito(def) {
   const g = new THREE.Group();
@@ -17881,48 +17935,129 @@ class Fighter {
         P.coreGlow.scale.setScalar(.44 + Math.abs(Math.sin(A.t * 3.1)) * .08 + (S || this.cbBeam ? .08 : 0));
       }
     }
-    /* ★ 坚守者：Minecraft 原版那种沉重摇摆步（长臂前后甩、身体左右压、头部上下顿） */
+    /* ★ 坚守者 Warden：原作那种「沉重 + 盲听」的节奏。
+       走 = 拖步（长臂整条前后甩、身体左右压、每一步砸起尘土）；
+       待机 = 盲听（头缓慢左右扫、偶尔嗅一下、耳枝抽动、核心呼吸）；
+       四个技能各有独立姿态（蓄力后仰张嘴 / 抓起连砸 / 上跳砸地 / 埋感测体单膝蹲）；
+       狂暴 = 抖身 + 张臂 + 耳枝炸开 + 嘴与核心一起亮。 */
     if (this.def.id === 'warden') {
       const wspd = Math.abs(this.vel.x);
-      const moving = (this.state === 'run' || this.state === 'walk') && wspd > .4;
-      const f = A.t * (2.1 + wspd * .40);
-      const amp = moving ? (.22 + Math.min(.30, wspd * .028)) : .05;
+      const moving = this.grounded && wspd > .35 &&
+        (this.state === 'run' || this.state === 'walk' || this.state === 'dash');
+      const f = A.t * (2.0 + wspd * .38);
       const sw = Math.sin(f), sw2 = Math.sin(f * 2);
-      if (P.legL) P.legL.rotation.x = sw * amp;
-      if (P.legR) P.legR.rotation.x = -sw * amp;
-      if (P.armL) { P.armL.rotation.x = -sw * amp * .85; P.armL.rotation.z = -.16 - Math.abs(sw) * .04; }
-      if (P.armR) { P.armR.rotation.x = sw * amp * .85; P.armR.rotation.z = .16 + Math.abs(sw) * .04; }
-      A.lean += ((moving ? this.facing * .10 : 0) - A.lean) * Math.min(1, dt * 8);
-      A.bob += ((moving ? Math.abs(sw2) * .09 : Math.sin(A.t * 1.6) * .03) - A.bob) * Math.min(1, dt * 10);
-      if (P.group) P.group.rotation.z = A.lean * this.facing;
-      if (P.head) P.head.position.y = 2.60 + Math.abs(sw2) * (moving ? .05 : .02);
-      if (P.core) P.core.scale.setScalar(.9 + Math.abs(Math.sin(A.t * 2.4)) * .22 +
-        ((this.wardenRush || this.wardenSonic || this.wardenRageT > 0) ? .22 : 0));
-      /* 普攻（铁傀儡式）：双手过顶 → 砸下 */
-      if (this.move) {
-        const up = this.phase === 'startup', ph = up ? 0 : (this.phase === 'active' ? 1 : .45);
-        if (P.armL) { P.armL.rotation.x = -1.15 - (up ? 1.35 : 0) + ph * 1.55; P.armL.rotation.z = -.30 + ph * .10; }
-        if (P.armR) { P.armR.rotation.x = -1.15 - (up ? 1.35 : 0) + ph * 1.55; P.armR.rotation.z = .30 - ph * .10; }
-        A.lean = this.facing * (up ? -.18 : .30);
-        if (P.group) P.group.rotation.z = A.lean * this.facing;
-      }
-      /* 技能姿态（_spAnim/_spKey 是引擎通用的「刚放了哪招」计时） */
-      if (this._spAnim < 1.1 && this._spKey) {
-        if (this._spKey === 'n' && this.wardenSonic) {
-          if (P.armL) P.armL.rotation.x = -1.25; if (P.armR) P.armR.rotation.x = -1.25;
-          if (P.head) P.head.position.y = 2.60 - Math.sin(A.t * 26) * .05;
-        } else if (this._spKey === 's' && this.wardenRush) {
-          if (P.armL) P.armL.rotation.x = -.55; if (P.armR) P.armR.rotation.x = -1.95;
-          A.lean = this.facing * .34; if (P.group) P.group.rotation.z = A.lean * this.facing;
-        } else if (this._spKey === 'u' && this.wardenLeap) {
-          if (P.armL) P.armL.rotation.x = -2.40; if (P.armR) P.armR.rotation.x = -2.40;
-          A.lean = -this.facing * .16;
-        } else if (this._spKey === 'd') {
-          if (P.armL) P.armL.rotation.x = -1.75; if (P.armR) P.armR.rotation.x = .40;
-          A.lean = this.facing * .20;
+      const S = this.wardenSonic, R = this.wardenRush, L = this.wardenLeap;
+      const spA = (this._spAnim > 0 && this._spAnim < .5) ? (this._spKey || '') : '';
+      let aL = 0, aR = 0, lL = 0, lR = 0, lean = 0, bob = 0, elb = -.05;
+      let hx = 0, hy = 0, spread = .10, tw = 0;
+
+      if (this.state === 'hitstun' || this.state === 'grabbed' || this.state === 'stun') {
+        aL = .95 + Math.sin(A.t * 26) * .18; aR = -1.05 - Math.sin(A.t * 26) * .18;
+        lL = .26; lR = -.22; lean = -this.facing * .34; hx = .40; elb = -.30; spread = .30;
+      } else if (L) {
+        if (L.phase === 'up') { aL = -2.55; aR = -2.55; lL = -.30; lR = .18; lean = -this.facing * .20; hx = -.26; elb = -.12; }
+        else if (!L.fired) { aL = -2.95; aR = -2.95; lL = .12; lR = .12; lean = -this.facing * .10; hx = -.10; elb = -.06; }
+        else { aL = -.40; aR = -.40; lL = .42; lR = .42; lean = this.facing * .34; bob = -.16; hx = .30; elb = -.25; }
+      } else if (R) {
+        if (R.mode === 'dash') {
+          aL = -.55; aR = -1.95; lean = this.facing * .38; elb = -.55; hx = .16; spread = .22;
+          lL = sw * .50; lR = -sw * .50;
+        } else {
+          const hp = (R.t % .19) / .19;                       // 每一砸一个循环：举 → 砸
+          const up = hp < .55 ? hp / .55 : 1 - (hp - .55) / .45;
+          aL = -2.25 * up - .25; aR = -2.25 * up - .25;
+          elb = -.18 - up * .38;
+          lean = this.facing * (.14 - up * .26);
+          bob = -up * .10; lL = .18; lR = -.18; hx = -.18 + up * .52;
         }
+      } else if (S) {
+        const ch = S.charge || 0;
+        aL = .28 + ch * .22; aR = .28 + ch * .22;             // 双臂向后收（0 = 自然下垂）
+        elb = -.30 - ch * .35;                                // 屈肘、拳心朝内
+        lean = this.facing * (.05 + ch * .12);
+        hx = -.20 - ch * .12;                                 // 抬头张嘴（原版幅度，别仰成躺下）
+        bob = Math.sin(A.t * (10 + ch * 16)) * .02 * (1 + ch * 2);
+        tw = ch; lL = .12; lR = -.12;
+      } else if (spA === 'n') {
+        aL = -1.20; aR = -1.20; elb = -.22; lean = this.facing * .22; hx = .34;    // 音波出手：双臂前推
+      } else if (spA === 'd') {
+        aR = -.38; aL = -.12; elb = -.30; lean = this.facing * .30; hx = .42;       // 埋感测体：单膝蹲、右手按地
+        lL = .40; lR = -.30; bob = -.10;
+      } else if (this.move) {
+        const up = this.phase === 'startup';
+        aL = up ? -2.30 : -.55; aR = up ? -2.30 : -.55;        // 双手过顶 → 砸到身前
+        elb = up ? -.55 : -.12;
+        lean = this.facing * (up ? -.14 : .30);
+        lL = up ? .10 : -.14; lR = up ? -.10 : .14;
+        bob = up ? .04 : -.06;
+        hx = up ? -.18 : .34;
+      } else if (!this.grounded) {
+        const rising = this.vel.y > 0;
+        aL = rising ? -1.55 : -.95; aR = rising ? -1.55 : -.95;
+        elb = rising ? -.45 : -.20;
+        lL = rising ? -.34 : .10; lR = rising ? .18 : -.10;
+        lean = -this.facing * .12; hx = rising ? -.12 : .16; spread = .22;
+      } else if (moving) {
+        aL = -sw * .58; aR = sw * .58;                         // 长臂整条前后甩
+        lL = sw * .42; lR = -sw * .42;
+        lean = this.facing * .09; bob = Math.abs(sw2) * .055 - .01;
+        elb = -.10 - Math.abs(sw) * .12;
+        hx = sw2 * .035; spread = .13;
+        const st = Math.floor(f / Math.PI);                    // 半步 = 一步：落地扬尘
+        if (this._wdStep === undefined) this._wdStep = st;
+        if (st !== this._wdStep) {
+          this._wdStep = st;
+          FX.dust(this.pos.x - this.facing * .10, this.pos.y + .05, 3, 0x8fa3a0);
+        }
+      } else {
+        const scan = Math.sin(A.t * .55);                      // 盲听：缓慢左右扫头
+        aL = Math.sin(A.t * 1.7) * .05; aR = -Math.sin(A.t * 1.7) * .05;
+        bob = Math.sin(A.t * 1.5) * .022;
+        hy = scan * .42;
+        hx = Math.sin(A.t * .9) * .05 + (Math.sin(A.t * .31) > .96 ? .12 : 0);   // 偶尔嗅一下
+        lean = scan * .03 * this.facing;
+        tw = Math.max(0, Math.sin(A.t * .7)) * .35;
       }
-      if (this.wardenRageT > 0 && P.core) P.core.scale.setScalar(1.15 + Math.abs(Math.sin(A.t * 9)) * .35);
+      if (this.wardenRageT > 0) {                              // 狂暴：抖身 / 张臂 / 耳炸 / 抬头
+        aL -= .30; aR -= .30; spread += .30;
+        hx -= .18; tw = 1;
+        bob += Math.sin(A.t * 34) * .018;
+        lean += Math.sin(A.t * 27) * .05;
+      }
+      const wk = 1 - Math.exp(-17 * dt);
+      A.armL += (aL - A.armL) * wk; A.armR += (aR - A.armR) * wk;
+      A.legL += (lL - A.legL) * wk; A.legR += (lR - A.legR) * wk;
+      A.lean += (lean - A.lean) * wk;
+      A.bob += (bob - A.bob) * wk;
+      P.armL.rotation.x = A.armL; P.armR.rotation.x = A.armR;
+      P.legL.rotation.x = A.legL; P.legR.rotation.x = A.legR;
+      P.armL.rotation.z = -spread; P.armR.rotation.z = spread;
+      if (P.group) P.group.rotation.z = A.lean * this.facing;
+      /* 肘：新加的关节，砸/抓/蓄力全靠它，否则只有肩在转（看起来像木偶） */
+      this._wdElb = (this._wdElb === undefined) ? elb : this._wdElb + (elb - this._wdElb) * wk;
+      if (P.elbL) { P.elbL.rotation.x = this._wdElb; P.elbR.rotation.x = this._wdElb; }
+      /* 头：交给 animStep 末尾统一写入（_wdHX/_wdHY 在下面被读取） */
+      this._wdHX = (this._wdHX === undefined) ? hx : this._wdHX + (hx - this._wdHX) * wk;
+      this._wdHY = (this._wdHY === undefined) ? hy : this._wdHY + (hy - this._wdHY) * wk;
+      if (P.head) P.head.position.y = 2.26 + A.bob * .22;
+      /* 耳枝：随节奏轻摆，蓄力/狂暴时张开 */
+      if (P.ears) for (let i = 0; i < P.ears.length; i++) {
+        const e = P.ears[i], sgn = i ? 1 : -1;
+        e.rotation.z = sgn * (tw * .22 + Math.sin(A.t * 2.3 + i) * .05);
+        e.rotation.x = Math.sin(A.t * 1.7 + i * 1.3) * .06 + tw * .10;
+      }
+      /* 嘴：平时是黑洞，蓄力/发射/狂暴时整条亮起（原作最标志性的一下） */
+      if (P.mouthGlow) {
+        const mg = S ? (S.charge || 0) : (spA === 'n' ? 1.7 : (this.wardenRageT > 0 ? .55 : 0));
+        const mm = P.mouthGlow.material;
+        mm.emissiveIntensity += (mg * 2.0 - mm.emissiveIntensity) * Math.min(1, dt * 14);
+        if (mg > .02) mm.color.setHex(0x2ff0dc); else mm.color.setHex(0x02060a);
+      }
+      /* 核心：呼吸 + 蓄力/狂暴时鼓起来（但别把整块胸点亮成白板） */
+      if (P.core) {
+        const hot = (S ? (S.charge || 0) * .42 : 0) + (this.wardenRageT > 0 ? .32 : 0) + (R ? .20 : 0);
+        P.core.scale.setScalar(1 + Math.sin(A.t * 2.4) * .10 + hot);
+      }
     }
     /* ★ 蚊子：翅膀高速扇动（悬停感）+ 六足轻摆 + 出招姿态 */
     if (this.def.id === 'mosquito') {
@@ -18604,8 +18739,16 @@ class Fighter {
     /* 侧视朝向：永远面向左右（不再正对镜头）。⚠ Warrior 旋风斩的整机自转必须并进这一行 ——
        animStep 前面的动画块里写 += 会被这一行整行覆盖（实测 yaw 恒为 1.57，转不起来）。 */
     P.group.rotation.y = this.facing * Math.PI / 2 + (this._upSpin || 0);
-    P.head.rotation.x = this.state === 'hitstun' ? .35 : (this.charging ? -.16 : 0);
-    P.head.rotation.z = Math.sin(A.t*2.2)*.04;
+    /* ★ 坚守者：头部的 x/y/z 由上面的 warden 块算好（盲听扫头 / 张嘴 / 受击后仰），
+       不能被这里的通用一行覆盖 —— 其它角色保持原样。 */
+    if (this.def.id === 'warden' && this._wdHX !== undefined) {
+      P.head.rotation.x = this._wdHX;
+      P.head.rotation.y = this._wdHY || 0;
+      P.head.rotation.z = Math.sin(A.t * .9) * .03;
+    } else {
+      P.head.rotation.x = this.state === 'hitstun' ? .35 : (this.charging ? -.16 : 0);
+      P.head.rotation.z = Math.sin(A.t*2.2)*.04;
+    }
     if (P.tail) P.tail.rotation.y = Math.sin(A.t*3.4)*.22;
     // —— Hallow Shift 变色形态：本体染成幽紫 + 光环 + 鬼火/鬼眼增亮 ——
     const fcfg = (this.buff && this.buff.cfg) || null;
