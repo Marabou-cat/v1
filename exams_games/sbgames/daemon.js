@@ -143,7 +143,8 @@ function roomPublic(room) {
            seats, seed: room.seed, startFrame: room.startFrame,
            spectators: room.specs.size, desync: room.desync, redirect: room.redirect || '',
            /* ★ 第 83 轮：房间是否正在匹配中（后加入的玩家靠这个显示人数/计时） */
-           queued: room.queued ? { mode: room.queued.mode, at: room.queued.at } : null };
+           queued: room.queued ? { mode: room.queued.mode, at: room.queued.at,
+                                   await: !!room.queued.await } : null };
 }
 
 /* 广播给房内所有实况连接（含观战），不发给 except */
@@ -557,6 +558,7 @@ function handle(act, ctx) {
     };
     room.seats[idx] = s;
     room.emptySince = 0;          // ★ 第 62 轮：有人进来了 → 取消「全员下线」倒计时
+    room.queued = null;           // ★ 有人进来了（多半是匹配对方） → 「等待对手加入」状态结束
     if (s.pid) { const o = ONLINE.get(s.pid) || {}; o.code = room.code; o.nick = s.name; if (ctx.ws) o.ws = ctx.ws; ONLINE.set(s.pid, o); }   // ★ 第 72 轮
     let catchUp = false;                              // ★ 第 102 轮：掉线回来要走「快进重放」
     if (reconnected) {                                // 断线回来了（token 命中座位）
@@ -621,6 +623,9 @@ function handle(act, ctx) {
   const room = rooms.get(String(act.room).toUpperCase());
   if (!room) return { ok: false, e: 'room_not_found' };
   room.updated = now;
+  /* ★ redirect 只该活 8 秒：配对后对方没接住（满房/已开局/断线）时，旧 redirect 会让客户端
+     每拿到一次快照就重复跳房，而每次跳房都会先把自己原来的房间 leave 掉 → 越跳越没房。 */
+  if (room.redirect && room.redirectAt && (now - room.redirectAt) > 8000) { room.redirect = ''; room.redirectAt = 0; }
   const seat = (act.seat !== undefined && act.seat !== null) ? act.seat : seatIndex(room, act.token);
   const s = (seat >= 0) ? room.seats[seat] : null;
 
@@ -1195,21 +1200,44 @@ function handle(act, ctx) {
        不同模式但**有空位**的房会放进 suggest，客户端问「要不要改加入那个模式」。 */
     const rm = rooms.get(String(act.code || '').toUpperCase());
     if (!rm) return { ok: false, e: 'no_room' };
-    if (act.op === 'leave') { QUEUE.delete(rm.code); rm.queued = null; return { ok: true, left: true }; }
+    /* ★ 只退出「我自己」这一份匹配；队里还有人想排就继续排。
+       以前按房间号直接删队列 → 任何一名队员点掉匹配面板就取消全队匹配，
+       其他人面板还在倒计时（用户报的「一个人看不到正在匹配」）。 */
+    /* ★ 我们已经被别人匹配上了（对方正往这边 join）：**不要再把自己塞回队列**。
+       否则被匹配方下一次 3 秒轮询就会把 queued.await 覆盖成普通排队状态，
+       还可能被第三支队重复匹配（用户报的「有人没进去/看不到匹配」的放大器）。 */
+    if (rm.queued && rm.queued.await && (now - (rm.queued.at || 0)) < 12000) {
+      return { ok: true, await: true, mode: rm.queued.mode,
+               joined: rm.seats.filter(x => x && !x.bot).length };
+    }
+    if (act.op === 'leave') {
+      rm.qout = rm.qout || new Set();
+      if (act.pid) rm.qout.add(String(act.pid));
+      const humans = rm.seats.filter(x => x && !x.bot && !x.left).map(x => String(x.pid || ''));
+      const still = humans.filter(p => !p || !rm.qout.has(p));
+      if (!still.length) { QUEUE.delete(rm.code); rm.queued = null; rm.qout = new Set(); }
+      return { ok: true, left: true, still: still.length };
+    }
     if (rm.state === 'play') return { ok: false, e: 'in_game' };
     const mode = String(act.mode || rm.mode || 'classic').slice(0, 12);
     rm.mode = mode;
     const key = rulesKey(rm.rules) + '|' + mode;
     const found = [], suggest = [];
     let cand = null, candSame = false;
+    /* ★ 我这队要占几个座位 + 对方还剩几个空位。
+       以前只看「规则相同」就配对，满房对满房也配 → 每个人 join 时都会先 leave 掉自己的房间，
+       到对方房间又被 room_full 拒 → 整队变成「无房、也看不到比赛」（用户报的 bug）。 */
+    const needSeats = rm.seats.filter(x => x && !x.bot).length || 1;
+    const freeSeatsOf = (r) => { let n = 0; for (let i = 0; i < r.rules.count; i++) if (!r.seats[i]) n++; return n; };
     for (const it of QUEUE.values()) {
       if (it.code === rm.code) continue;
       const r2 = rooms.get(it.code);
       if (!r2) { QUEUE.delete(it.code); continue; }
       if ((it.at || 0) < now - 120000) { QUEUE.delete(it.code); continue; }
-      for (const s3 of r2.seats) if (s3 && !s3.bot && found.length < 8) found.push(s3.name);
       const k2 = rulesKey(it.rules) + '|' + (it.mode || 'classic');
-      if (k2 === key) { if (!cand) { cand = it; candSame = true; } continue; }
+      const fits = freeSeatsOf(r2) >= needSeats && r2.state !== 'play';
+      if (fits) for (const s3 of r2.seats) if (s3 && !s3.bot && found.length < 8) found.push(s3.name);
+      if (k2 === key) { if (fits && !cand) { cand = it; candSame = true; } continue; }
       let free = 0; for (let i = 0; i < r2.rules.count; i++) if (!r2.seats[i]) free++;
       if (free > 0 && suggest.length < 3) suggest.push({
         code: it.code, mode: it.mode || 'classic', rules: it.rules, free,
@@ -1217,6 +1245,7 @@ function handle(act, ctx) {
     }
     for (const s4 of rm.seats) if (s4 && !s4.bot && found.length < 8) found.push(s4.name);
     if (!cand) {
+      if (rm.qout && act.pid) rm.qout.delete(String(act.pid));   // 我又点了匹配 → 撤销「退出」标记
       const prev = QUEUE.get(rm.code);
       const at = (prev && prev.at) || now;
       QUEUE.set(rm.code, { code: rm.code, rules: rm.rules, mode, pid: act.pid, at });
@@ -1228,11 +1257,17 @@ function handle(act, ctx) {
                                      nick: (ACCTS[String(cand.pid)] || {}).nick || '' }, found, suggest };
     }
     const target = rooms.get(cand.code);
-    QUEUE.delete(cand.code);
     if (!target) return { ok: true, queued: true, retry: true, found, suggest };
-    rm.queued = null; target.queued = null;        // ★ 第 83 轮：配对完成 → 两边都不再是「匹配中」
-    rm.redirect = target.code;
-    rm.updated = now;
+    QUEUE.delete(cand.code);
+    /* ★ 配对成功必须**两边都通知**：
+       · 发起方：redirect → 客户端 applyRoom 里跳房
+       · 被匹配方：queued 改成 await（面板显示「对手就要来了」）。
+         以前只广播给发起方、还把对方 queued 清空 → 那一方一点提示都没有，
+         而且它下一次 queue 轮询会把自己重新入队，可能又匹配到第三队（用户报的 bug）。 */
+    rm.queued = null; rm.redirect = target.code; rm.redirectAt = now; rm.updated = now;
+    target.queued = { mode, at: now, await: true };
+    target.updated = now; target.redirectAt = now;
+    broadcast(target, { a: 'match', code: rm.code, same: candSame, incoming: true });
     broadcast(rm, { a: 'match', code: target.code, same: candSame });
     log('[queue] match', rm.code, '→', target.code, mode, candSame ? '(same rules+mode)' : '(forced)');
     return { ok: true, match: target.code, same: candSame, found, suggest: [] };

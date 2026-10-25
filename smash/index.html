@@ -21725,6 +21725,20 @@ const NET = {
     }, 20);
   },
   stopPump() { if (this.pump) { clearInterval(this.pump); this.pump = null; } this.inflight = 0; },
+  /* ★ 大厅心跳（1s）：房间里的座位变化 / 对手开盘 / 匹配成功 / redirect / 被踢，全部只走 WS 广播；
+     而 **Polling 客户端**和「ws 掉过、或 socket 没绑上座位」的客户端在大厅阶段没有任何上行
+     → 一条推送都收不到，表现就是「看不到正在匹配」「队友已经开打了我还停在大厅」。
+     这里只在「在房间、未开局、ws 没绑上」时补一条轻量 sync（空 inbox，只取 roomPublic）。 */
+  startLobbyPump() {
+    if (this.lobbyPump) return;
+    this.lobbyPump = setInterval(() => {
+      if (!this.room || this.seat < 0 || this.started || this.active) return;
+      if (this.mode === 'ws' && this.wsBound) return;          // ws 已绑座位 → 推送实时，无需轮询
+      this.send({ a:'sync', room:this.room, seat:this.seat, token:this.token, gen:this.myGen, inbox: [] }, true)
+        .catch(() => {});
+    }, 1000);
+  },
+  stopLobbyPump() { if (this.lobbyPump) { clearInterval(this.lobbyPump); this.lobbyPump = null; } },
   localTakeoverMs: 600000,            /* ★ 第 101 轮：彻底取消「本机接管远端座位跑 AI」。
                                          掉线的人由服务端标记 idle 并喂「全 0 输入」= 站着不动，
                                          其他人完全不受影响，也不需要本机自救。 */
@@ -22178,6 +22192,7 @@ const NET = {
       /* ★ ws 绑定：走 HTTP 拿到的座位在服务端是「没有 socket」的，必须用 token 让 ws 那条连接认领座位，
          否则逐帧推送（a:'in'）永远到不了本端 —— 表现就是「显示 WebSocket，但对局一帧不动」。 */
       if (this.mode === 'ws' && !this.bindWs()) { this.mode = 'http'; this.wsWhy = 'bind failed'; this.wsRemember('0'); }
+      this.startLobbyPump();                             // ★ 大厅阶段也要能收到房间变化（见 startLobbyPump 注释）
       /* ★ 第 72 轮：登记在线状态（好友列表/邀请靠它）；acct 在文件末尾挂到 NET 上 */
       if (this.acct) { try { this.acct(); } catch (e) {} }
       return j;
@@ -22440,6 +22455,7 @@ const NET = {
   },
   reset() {
     this.stopPump();
+    try { this.stopLobbyPump(); } catch (e) {}
     this.active = false; this.started = false; this.spec = false; this.room = ''; this.seat = -1;
     this.myGen = 0;                                  // 离房/重进房间：代次归零，下次按新代次进场
     this.token = ''; this.roomState = null; this.mode = 'off'; this.ws = null; this.status = 'idle';
@@ -22542,6 +22558,8 @@ function renderRoom(room) {
   const stateTxt = room.state === 'lobby' ? 'Waiting' : room.state === 'play' ? 'In match' : 'Ended';
   st.innerHTML = `<b class="netCode">${room.code}</b>${room.locked ? ' <span class="rl lock">🔒 Private</span>' : ''} <span class="dim">${stateTxt} · ${NET.mode === 'ws' ? 'WebSocket' : 'Polling'}mode${room.rules && room.rules.teams ? ' · <b class="tm">2v2</b>' : ''}`
     + `${room.spectators ? ' · spectators' + room.spectators : ''}</span>`
+    + (room.queued ? `<div class="dim2">MATCHING ${Math.floor((Date.now() - (room.queued.at || Date.now())) / 1000)}s`
+        + (room.queued.await ? ' · opponents joining…' : ' · waiting for players') + '</div>' : '')
     + `<div class="dim2">${room.locked
         ? 'Private room — share the code + password with your friends' 
         : 'Share room code ' + room.code + ' — anyone on the same network or the internet can join'}</div>`;
@@ -24124,7 +24142,20 @@ NET.applyRoom = function (room) {
     if (room && room.redirect && room.redirect !== this.room && !this._redirecting) {
       this._redirecting = true;
       toast('Match found — joining ' + room.redirect);
-      this.join(room.redirect).finally(() => { this._redirecting = false; });
+      /* ★ 跳房失败必须兜底：join() 内部会先 leave 掉自己现在的房间，
+         所以「加入失败」= 原房间也没了。旧代码静默失败 → 玩家既不在房间、也不在比赛、
+         面板也早被关掉（用户报的「一个玩家没进去，也看不到比赛」）。
+         现在：观战身份进去看，或重新开一局匹配。 */
+      this.join(room.redirect, this.name, false).then(j => {
+        this._redirecting = false;
+        if (j && j.ok) return;
+        const why = (j && j.e) || 'net';
+        toast('Could not join (' + why + ') — re-joining matchmaking');
+        try {
+          if (why === 'game_in_progress') { this.join(room.redirect, this.name, true); }
+          else if (window.__mmRejoin) window.__mmRejoin();
+        } catch (e) {}
+      }).catch(() => { this._redirecting = false; try { window.__mmRejoin && window.__mmRejoin(); } catch (e) {} });
     }
   } catch (e) { this._redirecting = false; }
 };
@@ -24143,6 +24174,10 @@ NET.applyRoom = function (room) {
     autoT = null;
     if (!pollT) return;                                  // 已经不在匹配状态
     if (NET.seat !== 0) { toast('Waiting for the host to start with CPUs…'); return; }
+    /* ★ 有别人也在排队（found 里除我之外还有名字）→ 别抢跑：
+       30 秒一到就开局，会把正在 join 的对手判成 game_in_progress 挡在门外（用户报的 bug）。 */
+    const _others = Math.max(0, (lastFound || []).length - 1);
+    if (_others > 0) { toast('Players are queueing — waiting a bit longer'); autoT = setTimeout(autoStart, 10000); return; }
     stop(true);
     $('mmBox').classList.add('hidden');
     toast('30s — no other players, starting with CPUs');
@@ -24173,6 +24208,12 @@ NET.applyRoom = function (room) {
     lastFound = r.found || []; lastSug = r.suggest || [];
     if (r.match) { stop(false); $('mmBox').classList.add('hidden');
       toast('Match found — joining ' + r.match); return; }        // 真正的 join 由 room.redirect / match 推送完成
+    if (r.await) {
+      /* ★ 已经被别人匹配上了、对手正在 join 进来：面板留着给一句人话，别继续当「排队中」刷计时 */
+      const el2 = $('mmInfo'); if (el2) { el2.classList.remove('hidden');
+        el2.innerHTML = '<div class="tm">MATCH FOUND</div><div class="fnd">Opponents are joining this room…</div>'; }
+      return;
+    }
     if (r.queued) {
       paint();
       /* 别的模式有空位 → 问一次要不要改加入 */
@@ -24193,6 +24234,13 @@ NET.applyRoom = function (room) {
         (c.nick || 'Another player') + ' is waiting in a ' + label(c.mode) + ' room with other rules (' +
         (rr.count | 0) + 'P · ' + (rr.stocks | 0) + ' stocks). Join anyway?');
       if (yes) await step(true); else { stop(true); $('mmBox').classList.add('hidden'); }
+      return;
+    }
+    if (r.e === 'in_game') {
+      /* ★ 自己这间房已经开打了（多半是 30 秒兜底开局）：别把面板一关就完事 ——
+         大厅心跳会把这个客户端拉进对局，这里只提示并停止匹配轮询。 */
+      toast('Match already started — joining the match…');
+      stop(false); $('mmBox').classList.add('hidden');
       return;
     }
     if (r.e) { toast('Matchmaking: ' + r.e); stop(true); }
@@ -24235,7 +24283,21 @@ NET.applyRoom = function (room) {
     pollT = setInterval(() => step(false), 3000);
   };
   [].forEach.call(document.querySelectorAll('#mmBox .mode'), b => { b.onclick = () => start(b.dataset.mode); });
-  $('mmClose').onclick = () => { stop(true); $('mmBox').classList.add('hidden'); };
+  /* ★ 只是关掉我自己的面板：服务端按 pid 记「谁退出了匹配」，队里其他人继续排 */
+  $('mmClose').onclick = () => { stop(true); $('mmBox').classList.add('hidden'); toast('Matchmaking continues for your team'); };
+  /* ★ 被 redirect 跳房失败 / 房间丢了之后，把匹配面板重新拉起来（不要停在「什么都没有」的状态） */
+  window.__mmRejoin = async function () {
+    try {
+      if (!document.body.classList.contains('inMenu')) return;
+      if (!NET.room) { const j = await NET.create(ACC.nick || 'Player', { pub: true }); if (!j || !j.ok) return; }
+      stop(false); t0 = Date.now(); lastFound = []; lastSug = [];
+      $('mmBox').classList.remove('hidden'); paint();
+      if (!tickT) tickT = setInterval(paint, 1000);
+      await step(false);
+      if (!pollT) pollT = setInterval(() => step(false), 3000);
+      if (mode === 'cpu') { clearTimeout(autoT); autoT = setTimeout(autoStart, AUTO_CPU_MS); }
+    } catch (e) {}
+  };
 })();
 
 /* ================= ★ 弹层统一退出（✕ / 点遮罩空白 / Esc） =================
