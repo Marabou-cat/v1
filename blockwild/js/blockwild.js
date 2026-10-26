@@ -239,11 +239,63 @@ const dirty = new Set();
 function ckey(cx, cz) { return cx + ',' + cz; }
 function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.add(c); }
 
-function treeAt(wx, wz) {
-  if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.982) return null;
+// 树的形态参数（全部由坐标哈希决定 → 同一世界任何时候生成都一样，跨区块也不会变样）
+// 三种形态：阔叶橡树(圆冠) / 针叶高杉(锥形) / 细弱小树，冠幅半径、树高、冠心偏移各自随机
+function treeParams(wx, wz) {
+  if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.977) return null;
   const g = heightAt(wx, wz);
   if (g <= CFG.SEA + 1 || g >= 45) return null;
-  return { g, h: 4 + ((h2(wx * 5.3, wz * 7.9) * 3) | 0) };
+  const k = h2(wx * 7.13 + 3.7, wz * 5.71 - 9.1);
+  let kind, trunkH, r;
+  if (k < 0.52) {                                   // 阔叶：矮壮、圆而饱满
+    kind = 'oak';
+    trunkH = 3 + ((h2(wx * 3.1, wz * 4.7) * 4) | 0);  // 3..6
+    r = 2 + ((h2(wx * 9.3, wz * 1.7) * 2) | 0);       // 2..3
+  } else if (k < 0.83) {                            // 高杉：细高、锥形
+    kind = 'pine';
+    trunkH = 6 + ((h2(wx * 5.9, wz * 2.3) * 4) | 0);  // 6..9（细高）
+    r = 1 + ((h2(wx * 4.1, wz * 8.9) * 2) | 0);       // 1..2（窄冠）
+  } else {                                          // 细弱小树：矮、冠小
+    kind = 'bush';
+    trunkH = 2 + ((h2(wx * 6.7, wz * 3.3) * 3) | 0);  // 2..4
+    r = 1 + ((h2(wx * 2.9, wz * 7.7) * 2) | 0);       // 1..2
+  }
+  const ox = ((h2(wx * 11.3 + 5, wz * 6.1) * 3) | 0) - 1;   // 冠心横向偏移 -1..1
+  const oz = ((h2(wx * 5.7, wz * 12.7 + 2) * 3) | 0) - 1;
+  return { g, kind, trunkH, r, ox, oz };
+}
+
+// 把一棵树写进当前区块（越界的方块由 put 丢弃；padding 保证跨区块树冠完整）
+function putTree(put, lx, lz, wx, wz, t) {
+  const topY = t.g + t.trunkH;
+  for (let y = 1; y <= t.trunkH; y++) put(lx, t.g + y, lz, 6, false);
+  if (t.kind === 'pine') {
+    // 自下而上逐层收窄的锥形冠（树干下部露出来，顶部收成尖）
+    for (let dy = -3; dy <= 1; dy++) {
+      const rr = Math.max(0, Math.round(t.r * (1 - (dy + 3) / 5.2)));
+      for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) {
+        if (Math.abs(dx) + Math.abs(dz) > rr + 1) continue;
+        if (rr > 0 && Math.abs(dx) === rr && Math.abs(dz) === rr) continue;
+        if (rr === 0 && Math.abs(dx) + Math.abs(dz) > 1) continue;
+        put(lx + dx, topY + dy, lz + dz, 7, true);
+      }
+    }
+    put(lx, topY + 2, lz, 7, true);
+    put(lx, topY + 1, lz, 7, true);
+  } else {
+    const R = t.kind === 'bush' ? t.r * 0.85 : t.r;
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -t.r - 1; dx <= t.r + 1; dx++) for (let dz = -t.r - 1; dz <= t.r + 1; dz++) {
+        if (Math.abs(dx) > t.r + 1 || Math.abs(dz) > t.r + 1) continue;
+        const ddx = dx - t.ox, ddz = dz - t.oz;
+        const d = Math.sqrt(ddx * ddx + ddz * ddz * 0.9) + Math.abs(dy + 0.4) * 1.3;
+        const jit = (h2((wx + dx) * 3.7 + 11, (wz + dz) * 5.3 + dy * 7) - 0.5) * 1.6;
+        if (d + jit > R + 0.5) continue;
+        put(lx + dx, topY + dy, lz + dz, 7, true);
+      }
+    }
+    put(lx, topY + 2, lz, 7, true);
+  }
 }
 
 function genChunk(cx, cz) {
@@ -273,21 +325,12 @@ function genChunk(cx, cz) {
     }
     for (let y = Math.max(h + 1, 0); y <= SEA && y < WH; y++) b[idx(lx, y, lz)] = 5;  // 水
   }
-  // 树（含 3 格 padding，跨区块不会断枝）
-  for (let lx = -3; lx < CH + 3; lx++) for (let lz = -3; lz < CH + 3; lz++) {
+  // 树（含 5 格 padding：最大冠幅半径 3 + 冠心偏移 1 + 1，跨区块不会断枝）
+  const PAD = 5;
+  for (let lx = -PAD; lx < CH + PAD; lx++) for (let lz = -PAD; lz < CH + PAD; lz++) {
     const wx = ox + lx, wz = oz + lz;
-    const t = treeAt(wx, wz);
-    if (!t) continue;
-    const top = t.g + t.h;
-    for (let y = 1; y <= t.h; y++) put(lx, t.g + y, lz, 6, false);
-    for (let dy = -2; dy <= 1; dy++) {
-      const r = dy <= -1 ? 2 : 1;
-      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
-        if (r > 1 && Math.abs(dx) === r && Math.abs(dz) === r) continue;
-        put(lx + dx, top + dy, lz + dz, 7, true);
-      }
-    }
-    put(lx, top + 2, lz, 7, true);
+    const t = treeParams(wx, wz);
+    if (t) putTree(put, lx, lz, wx, wz, t);
   }
   return b;
 }
@@ -362,6 +405,11 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(74, innerWidth / innerHeight, 0.08, 420);
 camera.rotation.order = 'YXZ';
 scene.fog = new THREE.Fog(0x8fc9ff, 34, 92);
+// 方块本身是 MeshBasicMaterial（光照烘在顶点色里），但怪物用 Lambert → 主场景必须有灯，否则全黑
+const worldLight = new THREE.HemisphereLight(0xffffff, 0x4a5568, 1.0);
+const worldDir = new THREE.DirectionalLight(0xffffff, 0.5);
+worldDir.position.set(0.6, 1, 0.35);
+scene.add(worldLight, worldDir);
 
 makeAtlas();
 const solidMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, fog: true });
@@ -448,7 +496,7 @@ const player = {
   yaw: 0, pitch: 0, onGround: false,
   hp: 20, hunger: 20, alive: true,
   swing: 0, walkPhase: 0, fallFrom: null, inWater: false,
-  sel: 0, mining: 0, mineTarget: null,
+  sel: 0, mining: 0, mineTarget: null, atkCd: 0, hits: 0, kills: 0,
 };
 let inv = [];   // [{id,n}]
 const SLOTS = 27;
@@ -626,6 +674,8 @@ function updateSky() {
   scene.background = skyNow;
   scene.fog.color.copy(skyNow);
   const f2 = 0.4 + 0.6 * lightLevel;
+  worldLight.intensity = 0.45 + 0.55 * lightLevel;
+  worldDir.intensity = 0.22 + 0.45 * lightLevel;
   solidMat.color.setScalar(f2);
   waterMat.color.setScalar(f2 * 1.05);
   dl.intensity = 0.25 + 0.75 * lightLevel;
@@ -641,81 +691,124 @@ function clockText() {
 
 /* ============================================================ 怪物 */
 const mobs = [];
-const mobMatBody = new THREE.MeshLambertMaterial({ color: 0x2f5d5a });
-const mobMatHead = new THREE.MeshLambertMaterial({ color: 0x9fd8c8 });
-const mobMatEye = new THREE.MeshBasicMaterial({ color: 0xff4d4d });
+const MOB_MAXHP = 20;
+const MOB_NAME = '夜行怪';
+
+// 每只怪单独克隆材质，才能单独闪红；附带头顶血条（面向相机的 billboard）
 function makeGrunt() {
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2f5d5a });
+  const headMat = new THREE.MeshLambertMaterial({ color: 0x9fd8c8 });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff4d4d });
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.86, 0.44), mobMatBody);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.86, 0.44), bodyMat);
   body.position.y = 0.44;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.44), mobMatHead);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.44), headMat);
   head.position.y = 1.08;
-  const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.03), mobMatEye);
+  const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.03), eyeMat);
   e1.position.set(-0.11, 1.12, 0.23);
   const e2 = e1.clone(); e2.position.x = 0.11;
-  const arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), mobMatBody);
+  const arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), bodyMat);
   arm1.position.set(-0.39, 0.62, 0);
   const arm2 = arm1.clone(); arm2.position.x = 0.39;
-  g.add(body, head, e1, e2, arm1, arm2);
-  return g;
+  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.11), new THREE.MeshBasicMaterial({ color: 0x140c0c }));
+  const barFg = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.055), new THREE.MeshBasicMaterial({ color: 0x7fe06b }));
+  barFg.position.set(0, 0, 0.004);
+  const bar = new THREE.Group();
+  bar.position.y = 1.44;
+  bar.add(barBg, barFg);
+  g.add(body, head, e1, e2, arm1, arm2, bar);
+  return { g, bodyMat, headMat, arm1, arm2, bar, barFg };
 }
-function spawnMob() {
-  const ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 12;
-  const x = Math.floor(player.p.x + Math.cos(ang) * dist);
-  const z = Math.floor(player.p.z + Math.sin(ang) * dist);
+
+function spawnMob(offset) {
+  let x, z;
+  if (offset) { x = Math.floor(player.p.x + offset[0]); z = Math.floor(player.p.z + offset[1]); }
+  else {
+    const ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 12;
+    x = Math.floor(player.p.x + Math.cos(ang) * dist);
+    z = Math.floor(player.p.z + Math.sin(ang) * dist);
+  }
   const y = surfaceY(x, z);
-  if (getBlock(x, y + 1, z) !== 0) return null;
+  if (getBlock(x, y + 1, z) !== 0 || getBlock(x, y + 2, z) !== 0) return null;
+  const parts = makeGrunt();
   const m = {
     p: new THREE.Vector3(x + 0.5, y + 1.02, z + 0.5), v: new THREE.Vector3(),
-    hp: 20, onGround: false, atkCd: 0, obj: makeGrunt(), phase: Math.random() * 9, wander: 0, dir: new THREE.Vector2(),
+    hp: MOB_MAXHP, onGround: false, atkCd: 0, phase: Math.random() * 9,
+    wander: 0, dir: new THREE.Vector2(), flash: 0, aggro: 0,
+    obj: parts.g, parts,
   };
   m.obj.position.copy(m.p);
   scene.add(m.obj);
   mobs.push(m);
   return m;
 }
+
+function killMob(m) {
+  scene.remove(m.obj);
+  m.obj.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) { if (Array.isArray(o.material)) o.material.forEach(x => x.dispose()); else o.material.dispose(); }
+  });
+}
+
 function updateMobs(dt) {
   const night = isNight();
   for (let i = mobs.length - 1; i >= 0; i--) {
     const m = mobs[i];
     const dx = player.p.x - m.p.x, dz = player.p.z - m.p.z;
     const dist = Math.hypot(dx, dz);
-    if (dist > 64 || m.hp <= 0 || (!night && dist > 8)) {
-      scene.remove(m.obj);
-      m.obj.traverse(o => { if (o.geometry && o.geometry !== undefined) o.geometry.dispose?.(); });
+    const hostile = night || m.aggro > 0;
+    m.flash = Math.max(0, m.flash - dt);
+    m.aggro = Math.max(0, m.aggro - dt);
+    if (m.hp <= 0 || dist > 70 || (!hostile && dist > 30)) {
+      killMob(m);
       mobs.splice(i, 1);
       continue;
     }
     let mx = 0, mz = 0;
-    if (night && dist < 26 && player.alive) {
+    const chase = hostile && dist < 26 && player.alive;
+    if (chase) {
       mx = dx / (dist || 1); mz = dz / (dist || 1);
     } else {
       m.wander -= dt;
       if (m.wander <= 0) { m.wander = 1.5 + Math.random() * 2.5; const a = Math.random() * Math.PI * 2; m.dir.set(Math.cos(a), Math.sin(a)); }
       mx = m.dir.x * 0.4; mz = m.dir.y * 0.4;
     }
-    const spd = night && dist < 26 ? 2.9 : 1.3;
+    const spd = chase ? 2.9 : 1.2;
     m.v.x = mx * spd; m.v.z = mz * spd;
     m.v.y -= CFG.GRAV * dt;
     const before = m.p.x, beforeZ = m.p.z;
     moveBody(m, m.v.x * dt, m.v.y * dt, m.v.z * dt);
     if (m.onGround && (Math.abs(m.p.x - before) < 0.001 || Math.abs(m.p.z - beforeZ) < 0.001)) m.v.y = CFG.JUMP * 0.85;
-    if (m.p.y < -6) { m.hp = 0; }
-    // 面向玩家
-    const face = Math.atan2(dx, dz);
-    m.obj.rotation.y = face;
+    if (m.p.y < -6) m.hp = 0;
+    m.obj.rotation.y = Math.atan2(dx, dz);
     m.obj.position.copy(m.p);
     m.phase += dt * (2 + spd);
-    m.obj.children[4].rotation.x = Math.sin(m.phase * 3) * 0.5;
-    m.obj.children[5].rotation.x = -Math.sin(m.phase * 3) * 0.5;
-    // 攻击
+    m.parts.arm1.rotation.x = Math.sin(m.phase * 3) * 0.5;
+    m.parts.arm2.rotation.x = -Math.sin(m.phase * 3) * 0.5;
+    // 受击闪红
+    const em = m.flash > 0 ? 0xa03030 : 0x000000;
+    m.parts.bodyMat.emissive.setHex(em);
+    m.parts.headMat.emissive.setHex(em);
+    // 血条：面向相机、按血量收缩
+    m.parts.bar.visible = m.hp < MOB_MAXHP || dist < 14;
+    if (m.parts.bar.visible) {
+      m.parts.bar.lookAt(camera.position);
+      const f = Math.max(0.02, m.hp / MOB_MAXHP);
+      m.parts.barFg.scale.x = f;
+      m.parts.barFg.position.x = -(1 - f) * 0.36;
+      m.parts.barFg.material.color.setHex(f > 0.55 ? 0x7fe06b : f > 0.25 ? 0xf0c04a : 0xe0524b);
+    }
+    // 贴身攻击
     m.atkCd -= dt;
-    if (night && dist < 1.45 && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < 1.8) {
-      m.atkCd = 1.3;
+    if (hostile && dist < 1.5 && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < 1.8) {
+      m.atkCd = 1.6;
       damagePlayer(3);
     }
   }
-  if (isNight() && mobs.length < CFG.MAX_MOBS && Math.random() < dt * 0.9) spawnMob();
+  const cap = night ? CFG.MAX_MOBS : 2;
+  const rate = night ? 0.9 : 0.3;
+  if (mobs.length < cap && Math.random() < dt * rate) spawnMob();
 }
 
 /* ============================================================ 状态 / HUD */
@@ -997,25 +1090,43 @@ function eat() {
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
-function attack() {
+// 近战：沿视线找一个"锥形"内的怪（判定半径 1.05，射程比挖方块短 1.2 格）
+function attackTarget() {
   const dir = cameraDir(), eye = eyePos();
-  let best = null, bestT = 3.4;
+  let best = null, bestScore = -1e9;
   for (const m of mobs) {
-    const c = m.p.clone(); c.y += 0.25;
-    const to = c.clone().sub(eye);
+    if (m.hp <= 0) continue;
+    const to = m.p.clone();
+    to.y += 0.55;
+    to.sub(eye);
     const t = to.dot(dir);
-    if (t < 0 || t > bestT) continue;
-    const perp = to.clone().addScaledVector(dir, -t).length();
-    if (perp < 0.85) { best = m; bestT = t; }
+    if (t < 0.1 || t > CFG.REACH - 1.2) continue;
+    const perp = to.addScaledVector(dir, -t).length();
+    if (perp > 1.05) continue;
+    const score = 1 / (perp + 0.2) - t * 0.05;
+    if (score > bestScore) { bestScore = score; best = m; }
   }
-  if (!best) return false;
-  const dmg = (defOf(held() ? held().id : 0) || {}).dmg || 1;
-  best.hp -= dmg;
-  best.v.y = 4.2;
-  best.v.x += dir.x * 4; best.v.z += dir.z * 4;
-  sfx('hit');
+  return best;
+}
+function attack() {
+  if (player.atkCd > 0) return false;
+  const target = attackTarget();
+  if (!target) return false;
+  const kind = heldKind();
+  const dmg = kind === 'sword' ? ((defOf(held().id) || {}).dmg || 5)
+            : kind === 'pick' ? 3 : 1;
+  const dir = cameraDir();
+  target.hp -= dmg;
+  target.flash = 0.24;
+  target.aggro = 16;                 // 被打了就记仇：白天也会追你
+  target.v.y = 4.6;
+  target.v.x += dir.x * 5.5; target.v.z += dir.z * 5.5;
   player.swing = 1;
-  if (best.hp <= 0) toast('击倒了夜行怪', 1.4);
+  player.atkCd = 0.42;
+  player.hits = (player.hits || 0) + 1;
+  sfx('hit');
+  if (target.hp > 0) toast(`命中 ${MOB_NAME} −${dmg}（剩 ${Math.max(0, target.hp)}）`, 0.9);
+  else { toast(`击倒 ${MOB_NAME}`, 1.4); player.kills = (player.kills || 0) + 1; }
   return true;
 }
 
@@ -1025,6 +1136,7 @@ const STEP = 1 / 60;
 let saveTimer = 0;
 
 function updatePlayer(dt) {
+  player.atkCd = Math.max(0, player.atkCd - dt);
   if (!player.alive) { player.v.set(0, 0, 0); return; }
   let ix = 0, iz = 0;
   if (keys.has('KeyW') || keys.has('ArrowUp')) iz -= 1;
@@ -1092,8 +1204,10 @@ function update(dt) {
     targetOutline.position.set(t.x + 0.5, t.y + 0.5, t.z + 0.5);
   } else targetOutline.visible = false;
 
-  if (attackQueued) { attack(); attackQueued = false; }
-  if (mineHeld && t) doMine(dt, t);
+  const wantAttack = attackQueued || (mineHeld && mobs.length > 0);
+  if (wantAttack) attackQueued = false;
+  const hitMob = wantAttack ? attack() : false;
+  if (!hitMob && mineHeld && t) doMine(dt, t);
   else if (!mineHeld) { player.mining = 0; player.mineTarget = null; }
   if (placeQueued) {
     placeQueued = false;
@@ -1172,7 +1286,7 @@ function updateHUD(dt) {
   const s =
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
-    `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${mobs.length}</b>\n` +
+    `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${mobs.length}</b>  击倒 <b>${player.kills || 0}</b>\n` +
     `手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}`;
   if (s !== lastStatus) { hud.status.innerHTML = s; lastStatus = s; }
   renderHearts();
@@ -1334,8 +1448,37 @@ window.GAME = {
     place() { return placeBlock(); },
     craft: (idx) => craft(RECIPES[idx]),
     craftAll() { const out = []; RECIPES.forEach((r, i) => { if (craft(r)) out.push(i); }); return out; },
-    spawnMob: () => { const m = spawnMob(); return m ? [m.p.x, m.p.y, m.p.z] : null; },
-    killMobs() { for (const m of mobs) scene.remove(m.obj); mobs.length = 0; },
+    spawnMob: (dx, dz) => { const m = spawnMob(dx === undefined ? undefined : [dx, dz]); return m ? [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)] : null; },
+    attack: () => attack(),
+    aimAt: (i = 0) => {
+      const m = mobs[i]; if (!m) return null;
+      const eye = eyePos();
+      const c = m.p.clone(); c.y += 0.55;
+      const d = c.sub(eye).normalize();
+      player.yaw = Math.atan2(-d.x, -d.z);
+      player.pitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
+      return { yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) };
+    },
+    mobsInfo: () => mobs.map(m => ({
+      hp: m.hp, dist: +m.p.distanceTo(player.p).toFixed(2),
+      aggro: +m.aggro.toFixed(1), flash: +m.flash.toFixed(2),
+      barVisible: m.parts.bar.visible, barScale: +m.parts.barFg.scale.x.toFixed(2),
+    })),
+    treeSample(n = 400, x0 = 0, z0 = 0) {
+      const kinds = { oak: 0, pine: 0, bush: 0, none: 0 };
+      const heights = [], radii = [];
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < 40; j++) {
+          const t = treeParams(x0 + i * 7 + j * 13, z0 + j * 17 - i * 5);
+          if (t) { kinds[t.kind]++; heights.push(t.trunkH); radii.push(t.r); break; }
+          kinds.none++;
+        }
+      }
+      const uniqH = [...new Set(heights)].sort();
+      const uniqR = [...new Set(radii)].sort();
+      return { kinds, trunkHeights: uniqH, radii: uniqR, samples: heights.length };
+    },
+    killMobs() { for (const m of mobs) killMob(m); mobs.length = 0; },
     seek(x, z) { player.p.x = x + 0.5; player.p.z = z + 0.5; player.p.y = surfaceY(x, z) + 1.2; player.v.set(0, 0, 0); },
     scanColumn(x, z) { const out = []; for (let y = CFG.WH - 1; y >= 0; y--) { const id = getBlock(x, y, z); if (id) out.push([y, nameOf(id)]); } return out; },
     findBlock(id, r = 24) {
