@@ -556,6 +556,7 @@ function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.ad
 // 三种形态：阔叶橡树(圆冠) / 针叶高杉(锥形) / 细弱小树，冠幅半径、树高、冠心偏移各自随机
 function treeParams(wx, wz) {
   if (inVillage(wx, wz)) return null;                 // 村庄范围内不长树
+  if (inRavine(wx, wz)) return null;                  // 峡谷里也不长树
   if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.977) return null;
   const g = heightAt(wx, wz);
   if (g <= CFG.SEA + 1 || g >= 45) return null;
@@ -612,6 +613,63 @@ function putTree(put, lx, lz, wx, wz, t) {
   }
 }
 
+/* ============================================================ 峡谷 / 裂谷 */
+// 一条从地表撕开、直落十几到三十格的长裂谷：走路时能直接看见，谷底常见流水
+const RV_CELL = 192;
+const ravineCache = new Map();
+function ravineFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (ravineCache.has(key)) return ravineCache.get(key);
+  let out = null;
+  const roll = h2(cellX * 53.7 + 7.3, cellZ * 29.1 - 3.9);
+  if (roll > 0.42) {
+    const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 40503) ^ Math.imul(cellZ, 12289)) | 0);
+    let x = cellX * RV_CELL + 30 + Math.floor(rnd() * (RV_CELL - 60));
+    let z = cellZ * RV_CELL + 30 + Math.floor(rnd() * (RV_CELL - 60));
+    let ang = rnd() * Math.PI * 2;
+    const len = 60 + Math.floor(rnd() * 70);
+    const baseDepth = 20 + Math.floor(rnd() * 16);
+    const baseW = 1 + Math.floor(rnd() * 2);        // 半宽 1..2（3~5 格宽）
+    const water = rnd() < 0.55;
+    const points = [], cols = new Set();
+    let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+    for (let i = 0; i < len; i++) {
+      if (i % 6 === 0) ang += (rnd() - 0.5) * 0.7;
+      x += Math.round(Math.cos(ang));
+      z += Math.round(Math.sin(ang));
+      const h = heightAt(x, z);
+      if (h <= CFG.SEA + 2) continue;                 // 不往海里撕
+      const depth = baseDepth + Math.floor(rnd() * 10);
+      points.push({ x, z, top: h, bot: Math.max(4, h - depth), w: baseW + (rnd() < 0.2 ? 1 : 0) });
+      cols.add(x + ',' + z);
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    }
+    if (points.length > 20) {
+      const byChunk = new Map();
+      points.forEach((pt, i) => {
+        const k = (pt.x >> 4) + ',' + (pt.z >> 4);
+        let arr = byChunk.get(k);
+        if (!arr) byChunk.set(k, arr = []);
+        arr.push(i);
+      });
+      out = { cellX, cellZ, points, byChunk, cols, water, minX, maxX, minZ, maxZ, n: points.length };
+    }
+  }
+  ravineCache.set(key, out);
+  return out;
+}
+function inRavine(x, z) {
+  const cx = Math.floor(x / RV_CELL), cz = Math.floor(z / RV_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const r = ravineFor(cx + dx, cz + dz);
+    if (!r) continue;
+    if (x < r.minX - 5 || x > r.maxX + 5 || z < r.minZ - 5 || z > r.maxZ + 5) continue;
+    if (r.cols.has(x + ',' + z)) return true;
+  }
+  return false;
+}
+
 function genChunk(cx, cz) {
   const CH = CFG.CH, WH = CFG.WH, SEA = CFG.SEA;
   const b = new Uint8Array(CH * WH * CH);
@@ -665,6 +723,52 @@ function genChunk(cx, cz) {
         if (b[i] !== 0 && b[i] !== 5) b[i] = op.t;     // 矿脉只嵌在岩层里，不堵巷道
       } else if (b[i] !== 5) {
         b[i] = op.t;
+      }
+    }
+  }
+  // 峡谷（按点的索引取本块片段）
+  const rvCellX = Math.floor(ox / RV_CELL), rvCellZ = Math.floor(oz / RV_CELL);
+  for (let ddx = -1; ddx <= 1; ddx++) for (let ddz = -1; ddz <= 1; ddz++) {
+    const rv = ravineFor(rvCellX + ddx, rvCellZ + ddz);
+    if (!rv) continue;
+    const list = rv.byChunk.get(selfKey);
+    if (!list) continue;
+    for (const pi of list) {
+      const pt = rv.points[pi];
+      const span = pt.top - pt.bot;
+      // 水峡谷：从谷壁高处挂下一道瀑布（生成时就是完整水柱，走近后灌进谷底继续流）
+      if (rv.water && pi % 11 === 0 && span > 10) {
+        if (pt.x >= ox && pt.x < ox + CH && pt.z >= oz && pt.z < oz + CH) {
+          for (let yy = pt.top - 4; yy >= pt.bot + 1; yy--) {
+            if (yy > 0 && yy < WH) b[idx(pt.x - ox, yy, pt.z - oz)] = 5;
+          }
+        }
+      }
+      for (let dy = 0; dy <= span; dy++) {
+        const y = pt.top - dy;
+        if (y < 1 || y >= WH) continue;
+        const t = dy / Math.max(1, span);
+        const hw = Math.max(1, Math.round(pt.w * (1 - 0.25 * t)));   // 崖壁接近垂直，只微微收窄
+        for (let ax = -hw; ax <= hw; ax++) for (let az = -hw; az <= hw; az++) {
+          if (ax * ax + az * az > hw * hw + 0.9) continue;
+          const x = pt.x + ax, z = pt.z + az;
+          if (x < ox || x >= ox + CH || z < oz || z >= oz + CH) continue;
+          const i = idx(x - ox, y, z - oz);
+          const cur = b[i];
+          if (cur === 0 || cur === 5) continue;
+          const edge = ax * ax + az * az > (hw - 1) * (hw - 1);
+          if (edge && dy % 7 === 0 && h3(x * 3 + 1, y * 7, z * 5 - 2) > 0.68) continue;   // 偶尔留岩台
+          b[i] = 0;
+        }
+      }
+      // 谷底积水
+      if (rv.water && pi % 5 < 2) {          // 只在部分谷段积水，留出干路
+        for (let ax = -1; ax <= 1; ax++) for (let az = -1; az <= 1; az++) {
+          const x = pt.x + ax, z = pt.z + az;
+          if (x < ox || x >= ox + CH || z < oz || z >= oz + CH) continue;
+          const yy = pt.bot + 1;
+          if (yy > 0 && yy < WH && b[idx(x - ox, yy, z - oz)] === 0) b[idx(x - ox, yy, z - oz)] = 5;
+        }
       }
     }
   }
@@ -730,7 +834,96 @@ function setBlock(x, y, z, id, record = true) {
   if (lx === 15) markDirty(cx + 1, cz);
   if (lz === 0) markDirty(cx, cz - 1);
   if (lz === 15) markDirty(cx, cz + 1);
+  if (!waterBusy && typeof wakeWater === 'function') wakeWater(x, y, z);
 }
+/* ---------- 水流动 ---------- */
+// id 5 = 水。自然生成的水（海/湖/泉）算"水源"，不在表里；
+// 表里的是流出来的水，带 0..4 的流动等级（0 = 从上方落下来的）。
+const WATER_MAX_LVL = 4, WATER_CELL_CAP = 700;
+const waterFlow = new Map();          // "x,y,z" -> level
+const waterQueue = [];
+const waterQueued = new Set();
+let waterBusy = false;                // 流体自己改方块时不要再反向唤醒（否则队列无限自激）
+
+function enqueueWater(x, y, z) {
+  if (y < 0 || y >= CFG.WH) return;
+  const k = x + ',' + y + ',' + z;
+  if (waterQueued.has(k)) return;
+  const id = getBlock(x, y, z);
+  if (id !== 5 && id !== 0) return;
+  waterQueued.add(k);
+  waterQueue.push([x, y, z]);
+}
+function wakeWater(x, y, z) {
+  // 方块变了：把周围的水/空气都排进队列，让它们重新判断该流还是该退
+  enqueueWater(x, y, z);
+  enqueueWater(x + 1, y, z); enqueueWater(x - 1, y, z);
+  enqueueWater(x, y, z + 1); enqueueWater(x, y, z - 1);
+  enqueueWater(x, y + 1, z); enqueueWater(x, y - 1, z);
+}
+function setWater(x, y, z, lvl) {
+  waterBusy = true; setBlock(x, y, z, 5, true); waterBusy = false;
+  waterFlow.set(x + ',' + y + ',' + z, lvl);
+  enqueueWater(x, y, z);
+}
+function clearWater(x, y, z) {
+  waterBusy = true; setBlock(x, y, z, 0, true); waterBusy = false;
+  waterFlow.delete(x + ',' + y + ',' + z);
+  enqueueWater(x, y + 1, z);
+  enqueueWater(x + 1, y, z); enqueueWater(x - 1, y, z);
+  enqueueWater(x, y, z + 1); enqueueWater(x, y, z - 1);
+}
+const flowLvl = (x, y, z) => {
+  const v = waterFlow.get(x + ',' + y + ',' + z);
+  return v === undefined ? -1 : v;
+};
+// 每帧跑一小批（预算控制），水才会"一格一格流过去"
+function updateWater(budget = 40) {
+  let n = 0, changed = 0;
+  while (waterQueue.length && n < budget) {
+    const [x, y, z] = waterQueue.shift();
+    waterQueued.delete(x + ',' + y + ',' + z);
+    n++;
+    const id = getBlock(x, y, z);
+    const lvl = flowLvl(x, y, z);
+    if (id !== 5) {                       // 已经不是水了
+      if (lvl >= 0) waterFlow.delete(x + ',' + y + ',' + z);
+      enqueueWater(x, y + 1, z);
+      continue;
+    }
+    // 流动水是否还有来源撑腰（上方有水，或旁边有更低等级/水源）
+    if (lvl >= 0) {
+      let supported = getBlock(x, y + 1, z) === 5;
+      if (!supported) {
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (getBlock(x + dx, y, z + dz) !== 5) continue;
+          const nl = flowLvl(x + dx, y, z + dz);
+          if (nl < 0 || nl < lvl) { supported = true; break; }
+        }
+      }
+      if (!supported) { clearWater(x, y, z); changed++; continue; }
+    }
+    // 往下流：正下方的空气直接变成水
+    if (y > 0 && getBlock(x, y - 1, z) === 0) {
+      setWater(x, y - 1, z, 0);
+      changed++;
+      continue;                          // 有下落就不横向扩
+    }
+    // 横向铺开
+    const next = (lvl < 0 ? 1 : lvl + 1);
+    if (next > WATER_MAX_LVL) continue;
+    if (waterFlow.size > WATER_CELL_CAP) continue;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, nz = z + dz;
+      if (getBlock(nx, y, nz) === 0) {
+        setWater(nx, y, nz, next);
+        changed++;
+      }
+    }
+  }
+  return { processed: n, changed };
+}
+
 // 出生点：从 (8,8) 向外找一块高于海面的陆地，别让玩家出生就泡在水里
 function findSpawn() {
   for (let r = 0; r < 80; r++) {
@@ -1251,6 +1444,18 @@ function updateHandPose(dt, now) {
 }
 
 /* ============================================================ 音效 */
+let waterSeedT = 0.5;
+// 玩家附近有水就排队（新生成的水没有"变化事件"，需要主动唤醒）
+function seedWaterNear() {
+  const px = Math.floor(player.p.x), py = Math.floor(player.p.y), pz = Math.floor(player.p.z);
+  for (let dx = -10; dx <= 10; dx += 2) for (let dz = -10; dz <= 10; dz += 2) {
+    for (let y = Math.min(CFG.WH - 2, py + 8); y >= Math.max(1, py - 12); y--) {
+      const id = getBlock(px + dx, y, pz + dz);
+      if (id === 5) { if (getBlock(px + dx, y - 1, pz + dz) === 0) wakeWater(px + dx, y, pz + dz); break; }
+      if (id !== 0) break;
+    }
+  }
+}
 let AC = null, sfxBus = null, wetGain = null;
 let underground = false, echoTimer = 0.4, dripTimer = 3, caveMix = 0;
 // 回声总线：干声 + 一条带反馈的延迟（洞窟混响）
@@ -2400,7 +2605,7 @@ function breakBlock(t) {
 }
 function placeBlock() {
   const h = held();
-  if (!h || !BLOCKS[h.id] || h.id === 5) { toast('手里没有可放置的方块', 1.4); return false; }
+  if (!h || !BLOCKS[h.id]) { toast('手里没有可放置的方块', 1.4); return false; }
   const t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
   if (!t) return false;
   const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
@@ -2553,6 +2758,10 @@ function update(dt) {
   updatePlayer(dt);
   updateMobs(dt);
   updateDrops(dt);
+  // 水：每帧跑一点（限流），并每隔半秒把玩家附近的水"唤醒"一次（让瀑布/积水开始流动）
+  updateWater(48);
+  waterSeedT -= dt;
+  if (waterSeedT <= 0) { waterSeedT = 0.5; seedWaterNear(); }
 
   // 目标方块
   const t = player.alive ? raycastVoxel(eyePos(), cameraDir(), CFG.REACH) : null;
@@ -2929,6 +3138,40 @@ window.GAME = {
       return v;
     },
     chestAt: (x, y, z) => openChest(x, y, z),
+    ravines: (r = 2) => {
+      const pcx = Math.floor(player.p.x / RV_CELL), pcz = Math.floor(player.p.z / RV_CELL);
+      const out = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const rv = ravineFor(pcx + dx, pcz + dz);
+        if (rv) out.push({ x0: rv.minX, x1: rv.maxX, z0: rv.minZ, z1: rv.maxZ, pts: rv.n, water: rv.water,
+                           depth: Math.round(rv.points.reduce((a, p) => a + (p.top - p.bot), 0) / rv.n) });
+      }
+      return out;
+    },
+    gotoRavine: () => {
+      const pcx = Math.floor(player.p.x / RV_CELL), pcz = Math.floor(player.p.z / RV_CELL);
+      for (let rr = 0; rr <= 3; rr++) for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) {
+        const rv = ravineFor(pcx + dx, pcz + dz);
+        if (!rv) continue;
+        const pt = rv.points[Math.floor(rv.n / 2)];
+        player.p.set(pt.x + 4.5, pt.top + 2, pt.z + 0.5); player.v.set(0, 0, 0); camSmoothY = null;
+        const ccx = Math.floor(pt.x / CFG.CH), ccz = Math.floor(pt.z / CFG.CH);
+        for (let a = -1; a <= 1; a++) for (let bb = -1; bb <= 1; bb++) buildChunk(getChunk(ccx + a, ccz + bb));
+        return { x: pt.x, z: pt.z, top: pt.top, bot: pt.bot, w: pt.w, water: rv.water, span: pt.top - pt.bot };
+      }
+      return null;
+    },
+    water: (x, y, z, lvl) => { if (lvl === undefined) { setBlock(x, y, z, 5); } else setWater(x, y, z, lvl); wakeWater(x, y, z); },
+    waterInfo: () => ({ flowing: waterFlow.size, queued: waterQueue.length }),
+    waterCells: (r = 6) => {
+      const px = Math.floor(player.p.x), py = Math.floor(player.p.y), pz = Math.floor(player.p.z);
+      let n = 0, list = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) for (let y = py - r; y <= py + r; y++) {
+        if (getBlock(px + dx, y, pz + dz) === 5) { n++; if (list.length < 6) list.push([px + dx, y, pz + dz]); }
+      }
+      return { count: n, list };
+    },
+    stepWater: (n = 40) => { for (let i = 0; i < n; i++) updateWater(48); return waterFlow.size; },
     drops: () => drops.map(d => ({ id: d.id, name: nameOf(d.id), n: d.n, t: +d.t.toFixed(2), y: +d.p.y.toFixed(2), dist: +d.p.distanceTo(player.p).toFixed(2) })),
     dropCount: () => drops.length,
     spawnDrop: (id, n) => spawnDrop(id, n, player.p.x + 1.2, player.p.y + 1.2, player.p.z),
