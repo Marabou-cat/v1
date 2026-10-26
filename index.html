@@ -336,7 +336,7 @@ main{position:relative;z-index:2;max-width:1240px;margin:0 auto;padding:clamp(28
 }
 html[data-theme="light"] .gameCard .gameIcon{background:radial-gradient(120% 100% at 50% 0%,rgba(20,18,32,.06),transparent 62%)}
 .gameCard:hover .gameIcon{transform:scale(1.02)}
-.gameCard .gameIcon img{width:100%;height:100%;object-fit:cover;transition:transform .7s var(--ease)}
+.gameCard .gameIcon img{width:100%;height:100%;object-fit:contain!important;padding:4px;transition:transform .7s var(--ease)}
 .gameCard:hover .gameIcon img{transform:scale(1.07)}
 .gameCard .gameName{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -1853,7 +1853,7 @@ function redeemCode() {
 
 // --- RECOMMENDED ROTATION LOGIC ---
 const REC_GAMES = [
-    { f: "/exams_games/smash.html", name: "Super Brawl", icon: "/exams_games/icon_smash.svg?v=2" },
+    { f: "/exams_games/smash.html", name: "Super Brawl", icon: "/logos/smash-logo.png?v=1" },
     { f: "/exams_games/TheAviator/", name: "The Aviator", icon: "/exams_games/icon_aviator.svg?v=2" },
     { f: "/exams_games/MineWorld/", name: "MineWorld", icon: "/exams_games/icon_mineworld.svg?v=2" }
 ];
