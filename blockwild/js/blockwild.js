@@ -58,6 +58,111 @@ function heightAt(x, z) {
   return Math.floor(15 + cont * 30 + hill * 7);
 }
 
+
+/* ============================================================ 洞穴 / 矿洞 */
+// 洞穴两层：大空腔（cheese）+ 细长隧道（ridged 噪声的等值壳）
+function caveCarve(wx, y, wz, h) {
+  if (y < 2 || y > 52) return false;
+  const depth = h - y;
+  const cheese = n3(wx * 0.026, y * 0.05, wz * 0.026);
+  // 地表附近只有极少数地方被掏开 → 形成天然洞口（阈值已按实测分布标定）
+  if (cheese > (depth <= 2 ? 0.92 : 0.76)) return true;
+  if (depth <= 1) return false;
+  const ridge = n3(wx * 0.043 + 31.7, y * 0.019, wz * 0.043 + 11.3);
+  const r = 1 - Math.abs(ridge - 0.5) * 2;          // 0.5 附近 → 细长的隧道壳
+  return r > 0.99;
+}
+
+// ── 废弃矿洞：按 96×96 的格子确定性生成，跨区块用 byChunk 拼接 ──
+const MS_CELL = 96;
+const msCache = new Map();
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function mineshaftFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (msCache.has(key)) return msCache.get(key);
+  let out = null;
+  const roll = h2(cellX * 37.13 + 5.7, cellZ * 61.7 - 3.1);
+  if (roll > 0.42) {                                  // 约 58% 的格子有矿洞
+    const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 73856093) ^ Math.imul(cellZ, 19349663)) | 0);
+    const ox = cellX * MS_CELL + 18 + Math.floor(rnd() * (MS_CELL - 36));
+    const oz = cellZ * MS_CELL + 18 + Math.floor(rnd() * (MS_CELL - 36));
+    // 矿道必须离地表够远，否则会被洞穴掏成露天地沟
+    const surfHere = heightAt(ox, oz);
+    const baseY = Math.max(7, Math.min(11 + Math.floor(rnd() * 15), surfHere - 13));
+    const skip = surfHere <= CFG.SEA + 4 && rnd() < 0.5;
+    const alongX = rnd() < 0.5;
+    const d = alongX ? { x: 1, z: 0 } : { x: 0, z: 1 };
+    const pp = alongX ? { x: 0, z: 1 } : { x: 1, z: 0 };
+    const len = 22 + Math.floor(rnd() * 26);
+    const H = 3, W = 1;
+    const ops = [];
+    const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+    const put = (x, y, z, t) => ops.push({ x, y, z, t });
+
+    for (let i = 0; i < len; i++) {                   // 主巷道
+      const bx = ox + d.x * i, bz = oz + d.z * i;
+      for (let w = -W; w <= W; w++) {
+        const px = bx + pp.x * w, pz = bz + pp.z * w;
+        for (let y = baseY; y < baseY + H; y++) carve(px, y, pz);
+        put(px, baseY - 1, pz, 8);                    // 木板地板
+      }
+      if (i % 4 === 0) {                              // 每 4 格一副木支架
+        for (const w of [-W - 1, W + 1]) for (let y = baseY; y < baseY + H; y++) put(bx + pp.x * w, y, bz + pp.z * w, 6);
+        for (let w = -W - 1; w <= W + 1; w++) put(bx + pp.x * w, baseY + H, bz + pp.z * w, 8);
+      }
+    }
+    const branches = 1 + Math.floor(rnd() * 2);       // 侧向支巷
+    for (let b = 0; b < branches; b++) {
+      const at = 4 + Math.floor(rnd() * Math.max(1, len - 8));
+      const sgn = rnd() < 0.5 ? 1 : -1;
+      const blen = 8 + Math.floor(rnd() * 12);
+      for (let j = 1; j <= blen; j++) {
+        const bx = ox + d.x * at + pp.x * j * sgn;
+        const bz = oz + d.z * at + pp.z * j * sgn;
+        for (let w = -W; w <= W; w++) {
+          const px = bx + d.x * w, pz = bz + d.z * w;
+          for (let y = baseY; y < baseY + H; y++) carve(px, y, pz);
+          put(px, baseY - 1, pz, 8);
+        }
+      }
+    }
+    // 从巷道起点往回挖一条斜向上的楼梯，一直通到地表（可走进去）
+    let lvl = baseY, opened = false;
+    for (let k = 1; k <= 160; k++) {
+      const px = ox - d.x * k, pz = oz - d.z * k;
+      if (k % 3 === 0) lvl++;
+      for (let w = -1; w <= 1; w++) {
+        for (let y = lvl; y < lvl + H; y++) carve(px + pp.x * w, y, pz + pp.z * w);
+        put(px + pp.x * w, lvl - 1, pz + pp.z * w, 8);
+      }
+      const surf = heightAt(px, pz);
+      if (surf <= CFG.SEA + 2) break;                 // 别把洞开到海里
+      if (lvl >= surf - 1) {                          // 打通地表
+        for (let w = -1; w <= 1; w++) for (let y = surf - 1; y < lvl + H; y++) carve(px + pp.x * w, y, pz + pp.z * w);
+        opened = true;
+        break;
+      }
+    }
+    const byChunk = new Map();
+    if (!skip) for (const op of ops) {
+      const k2 = (op.x >> 4) + ',' + (op.z >> 4);
+      let arr = byChunk.get(k2);
+      if (!arr) byChunk.set(k2, arr = []);
+      arr.push(op);
+    }
+    out = { cellX, cellZ, ox, oz, baseY, len, ops: ops.length, byChunk, entrance: opened };
+  }
+  msCache.set(key, out);
+  return out;
+}
+
 /* ============================================================ 方块 / 图集 */
 // tiles: 4x4 atlas
 // 0 草顶 1 草侧 2 土 3 石 4 沙 5 木侧 6 木顶 7 叶 8 木板 9 圆石 10 水 11 台顶 12 台侧 13 煤矿
@@ -333,7 +438,7 @@ function genChunk(cx, cz) {
       else if (h >= 45) id = 3;
       else id = d === 0 ? 1 : (d <= 3 ? 2 : 3);
       if (id === 3 && h3(wx, y, wz) > 0.982) id = 13;                              // 煤矿
-      if (y > 2 && y < h - 2 && id !== 4 && n3(wx * 0.075, y * 0.11, wz * 0.075) > 0.668) id = 0;  // 洞穴
+      if (id !== 4 && caveCarve(wx, y, wz, h)) id = 0;                             // 洞穴（含天然洞口）
       if (id) b[idx(lx, y, lz)] = id;
     }
     for (let y = Math.max(h + 1, 0); y <= SEA && y < WH; y++) b[idx(lx, y, lz)] = 5;  // 水
@@ -344,6 +449,25 @@ function genChunk(cx, cz) {
     const wx = ox + lx, wz = oz + lz;
     const t = treeParams(wx, wz);
     if (t) putTree(put, lx, lz, wx, wz, t);
+  }
+  // 废弃矿洞：只取落在本区块内的片段
+  const selfKey = cx + ',' + cz;
+  const cellX = Math.floor(ox / MS_CELL), cellZ = Math.floor(oz / MS_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const ms = mineshaftFor(cellX + dx, cellZ + dz);
+    if (!ms) continue;
+    const arr = ms.byChunk.get(selfKey);
+    if (!arr) continue;
+    for (const op of arr) {
+      if (op.x < ox || op.x >= ox + CH || op.z < oz || op.z >= oz + CH) continue;
+      if (op.y < 0 || op.y >= WH) continue;
+      const i = (op.y * CH + (op.z - oz)) * CH + (op.x - ox);
+      if (op.t === 0) {
+        if (b[i] !== 0 && b[i] !== 5) b[i] = 0;        // 只挖固体，别把水挖穿
+      } else if (b[i] !== 5) {
+        b[i] = op.t;
+      }
+    }
   }
   return b;
 }
@@ -510,7 +634,7 @@ const player = {
   hp: 20, hunger: 20, alive: true,
   swing: 0, walkPhase: 0, fallFrom: null, inWater: false,
   sel: 0, mining: 0, mineTarget: null, atkCd: 0, hits: 0, kills: 0,
-  spawn: null,
+  spawn: null, stepUp: true,
 };
 let inv = [];   // [{id,n}]
 const SLOTS = 27;
@@ -548,11 +672,31 @@ function collides(px, py, pz) {
 function moveBody(ent, dx, dy, dz) {
   const old = ent.p.clone();
   const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)) / 0.22));
+  const wasGround = ent.onGround;
   ent.onGround = false;
+  const tryStep = (ax, az) => {                       // 走到 1 格高的台阶前自动抬腿
+    if (!ent.stepUp || !wasGround) return false;
+    const upY = ent.p.y + 1.02;
+    if (collides(ent.p.x + ax, upY, ent.p.z + az)) return false;
+    ent.p.y = upY; ent.p.x += ax; ent.p.z += az;
+    return true;
+  };
   for (let i = 0; i < steps; i++) {
     const sx = dx / steps, sy = dy / steps, sz = dz / steps;
-    if (sx) { ent.p.x += sx; if (collides(ent.p.x, ent.p.y, ent.p.z)) { ent.p.x -= sx; ent.v.x = 0; } }
-    if (sz) { ent.p.z += sz; if (collides(ent.p.x, ent.p.y, ent.p.z)) { ent.p.z -= sz; ent.v.z = 0; } }
+    if (sx) {
+      ent.p.x += sx;
+      if (collides(ent.p.x, ent.p.y, ent.p.z)) {
+        ent.p.x -= sx;
+        if (!tryStep(sx, 0)) ent.v.x = 0;
+      }
+    }
+    if (sz) {
+      ent.p.z += sz;
+      if (collides(ent.p.x, ent.p.y, ent.p.z)) {
+        ent.p.z -= sz;
+        if (!tryStep(0, sz)) ent.v.z = 0;
+      }
+    }
     if (sy) {
       ent.p.y += sy;
       if (collides(ent.p.x, ent.p.y, ent.p.z)) {
@@ -830,12 +974,48 @@ function updateHandPose(dt, now) {
 }
 
 /* ============================================================ 音效 */
-let AC = null;
-function sfx(kind) {
-  if (!AC) return;
+let AC = null, sfxBus = null, wetGain = null;
+let underground = false, echoTimer = 0.4, dripTimer = 3, caveMix = 0;
+// 回声总线：干声 + 一条带反馈的延迟（洞窟混响）
+function initAudioChain() {
+  if (!AC || sfxBus) return;
+  sfxBus = AC.createGain();
+  const dry = AC.createGain(); dry.gain.value = 1;
+  const wet = AC.createGain(); wet.gain.value = 0.05;
+  const delay = AC.createDelay(0.6); delay.delayTime.value = 0.17;
+  const fb = AC.createGain(); fb.gain.value = 0.34;
+  const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500;
+  sfxBus.connect(dry); dry.connect(AC.destination);
+  sfxBus.connect(delay); delay.connect(lp);
+  lp.connect(fb); fb.connect(delay);
+  lp.connect(wet); wet.connect(AC.destination);
+  wetGain = wet;
+}
+function isUnderground() {
+  const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+  const y0 = Math.floor(player.p.y + 1.8);
+  for (let y = y0; y <= Math.min(CFG.WH - 1, y0 + 24); y++) if (isSolid(getBlock(px, y, pz))) return true;
+  return false;
+}
+function playDrip() {
+  if (!AC || !sfxBus) return;
   const t = AC.currentTime;
   const o = AC.createOscillator(), g = AC.createGain();
-  o.connect(g); g.connect(AC.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(1400 + Math.random() * 900, t);
+  o.frequency.exponentialRampToValueAtTime(400, t + 0.14);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.05, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+  o.connect(g); g.connect(sfxBus);
+  o.start(t); o.stop(t + 0.34);
+}
+function sfx(kind) {
+  if (!AC) return;
+  if (!sfxBus) initAudioChain();
+  const t = AC.currentTime;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.connect(g); g.connect(sfxBus);
   if (kind === 'dig') { o.type = 'square'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.11); g.gain.setValueAtTime(0.10, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12); o.start(t); o.stop(t + 0.13); }
   else if (kind === 'place') { o.type = 'triangle'; o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(180, t + 0.08); g.gain.setValueAtTime(0.10, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.1); o.start(t); o.stop(t + 0.11); }
   else if (kind === 'hit') { o.type = 'sawtooth'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(90, t + 0.14); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15); o.start(t); o.stop(t + 0.16); }
@@ -848,6 +1028,7 @@ function sfx(kind) {
 let worldTime = CFG.DAY * 0.02;   // 从清晨开始
 let lightLevel = 1;
 const skyDay = new THREE.Color(0x8fc9ff), skyNight = new THREE.Color(0x0a1024), skySet = new THREE.Color(0xff9a5a);
+const caveCol = new THREE.Color(0x0a0f15);
 const skyNow = new THREE.Color();
 function updateSky() {
   const f = ((worldTime / CFG.DAY) % 1 + 1) % 1;
@@ -857,9 +1038,13 @@ function updateSky() {
   skyNow.copy(skyNight).lerp(skyDay, day);
   const sunset = clamp01(1 - Math.abs(sunAlt) / 0.32) * clamp01(day * 3 + 0.2);
   skyNow.lerp(skySet, sunset * 0.55);
+  // 在地下：把"天空"换成洞窟暗色（否则洞穴空腔会被画成一片蓝天，像露天地沟）
+  if (caveMix > 0.002) skyNow.lerp(caveCol, caveMix);
   scene.background = skyNow;
   scene.fog.color.copy(skyNow);
-  const f2 = 0.4 + 0.6 * lightLevel;
+  scene.fog.near = 34 - 20 * caveMix;
+  scene.fog.far = 92 - 40 * caveMix;
+  const f2 = (0.4 + 0.6 * lightLevel) * (underground ? 0.62 : 1);
   worldLight.intensity = 0.45 + 0.55 * lightLevel;
   worldDir.intensity = 0.22 + 0.45 * lightLevel;
   solidMat.color.setScalar(f2);
@@ -926,7 +1111,7 @@ function spawnMob(offset) {
     p: new THREE.Vector3(x + 0.5, y + 1.02, z + 0.5), v: new THREE.Vector3(),
     hp: MOB_MAXHP, onGround: false, atkCd: 0, phase: Math.random() * 9,
     wander: 0, dir: new THREE.Vector2(), flash: 0, aggro: 0,
-    dying: false, dieT: 0,
+    dying: false, dieT: 0, stepUp: true,
     obj: parts.g, parts,
   };
   m.obj.position.copy(m.p);
@@ -1433,7 +1618,7 @@ function attack() {
 }
 
 /* ============================================================ 更新循环 */
-let lastT = 0, acc = 0, fps = 60, frameCount = 0, fpsT = 0, startedAt = 0;
+let lastT = 0, acc = 0, fps = 60, frameCount = 0, fpsT = 0, startedAt = 0, camSmoothY = null;
 const STEP = 1 / 60;
 let saveTimer = 0;
 
@@ -1496,7 +1681,19 @@ function updatePlayer(dt) {
 
 function update(dt) {
   worldTime += dt;
+  echoTimer -= dt;
+  if (echoTimer <= 0) { echoTimer = 0.4; underground = isUnderground(); }
+  caveMix += ((underground ? 1 : 0) - caveMix) * Math.min(1, dt * 4);
   updateSky();
+  // 回声系统：地下 → 混响变强 + 偶尔滴水
+  if (wetGain) {
+    const want = underground ? 0.55 : 0.06;
+    wetGain.gain.value += (want - wetGain.gain.value) * Math.min(1, dt * 2.5);
+  }
+  if (underground && AC) {
+    dripTimer -= dt;
+    if (dripTimer <= 0) { dripTimer = 2.5 + Math.random() * 9; playDrip(); }
+  }
   updatePlayer(dt);
   updateMobs(dt);
 
@@ -1587,6 +1784,7 @@ function updateHUD(dt) {
   const dirName = dirs[Math.round(deg / 45) % 8];
   const mem = (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : '');
   const s =
+    `环境 <b>${underground ? '矿洞（回声）' : '地表'}</b>\n` +
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
@@ -1647,7 +1845,9 @@ function frame(now) {
   while (acc >= STEP && guard++ < 6) { acc -= STEP; update(STEP); }
   updateHUD(dt);
 
-  camera.position.set(player.p.x, player.p.y + CFG.EYE + Math.sin(player.walkPhase) * 0.018, player.p.z);
+  const idealEye = player.p.y + CFG.EYE + Math.sin(player.walkPhase) * 0.018;
+  camSmoothY = camSmoothY === null ? idealEye : camSmoothY + (idealEye - camSmoothY) * Math.min(1, dt * 15);
+  camera.position.set(player.p.x, camSmoothY, player.p.z);
   camera.rotation.set(player.pitch, player.yaw, 0);
   updateHandPose(dt, now);
 
@@ -1675,6 +1875,7 @@ function startGame(fresh) {
     worldTime = CFG.DAY * 0.03;
   }
   try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; }
+  if (AC) { sfxBus = null; initAudioChain(); }
   hud.start.classList.add('hide');
   refreshHeld(); renderHotbar(); renderHearts();
   started = true;
@@ -1727,7 +1928,7 @@ window.GAME = {
   blockAt: (x, y, z) => getBlock(x, y, z),
   setBlock: (x, y, z, id) => setBlock(x, y, z, id),
   nameAt: (x, y, z) => nameOf(getBlock(x, y, z)),
-  heightAt,
+  heightAt, n3, caveCarve,
   icons: { armR, armL, handScene, solidMat, waterMat, scene, camera, handCam, renderer, crackMesh, crackTex, heldGroup },
   debug: {
     start: (fresh = false) => startGame(fresh),
@@ -1775,6 +1976,61 @@ window.GAME = {
     }),
     swing: (type = 'attack', dur = 0.5) => startSwing(type, dur),
     pinMining: (v) => { MINE_PIN = v; },
+    noiseTest(n = 4000) {
+      const ch = [], rg = [];
+      let carve = 0, surf = 0;
+      for (let i = 0; i < n; i++) {
+        const x = (Math.random() * 400 - 200) | 0, z = (Math.random() * 400 - 200) | 0;
+        const h = heightAt(x, z);
+        const y = 3 + Math.floor(Math.random() * Math.max(1, h - 5));
+        ch.push(n3(x * 0.026, y * 0.05, z * 0.026));
+        rg.push(1 - Math.abs(n3(x * 0.043 + 31.7, y * 0.019, z * 0.043 + 11.3) - 0.5) * 2);
+        if (caveCarve(x, y, z, h)) carve++;
+        const ys = h; if (caveCarve(x, ys, z, ys)) surf++;
+      }
+      const q = (arr, p) => { const a = arr.slice().sort((m, n) => m - n); return +a[Math.floor(p * (a.length - 1))].toFixed(3); };
+      return { cheese: { q50: q(ch, .5), q90: q(ch, .9), q99: q(ch, .99), max: +Math.max(...ch).toFixed(3) },
+               ridge: { q90: q(rg, .9), q99: q(rg, .99), max: +Math.max(...rg).toFixed(3) },
+               carveFrac: +(carve / n).toFixed(3), surfaceHoleFrac: +(surf / n).toFixed(3) };
+    },
+    env: () => ({ underground, wet: wetGain ? +wetGain.gain.value.toFixed(3) : null, dripTimer: +dripTimer.toFixed(1) }),
+    mineshafts: (r = 2) => {
+      const pcx = Math.floor(player.p.x / MS_CELL), pcz = Math.floor(player.p.z / MS_CELL);
+      const out = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const ms = mineshaftFor(pcx + dx, pcz + dz);
+        if (ms) out.push({ ox: ms.ox, oz: ms.oz, baseY: ms.baseY, len: ms.len, ops: ms.ops, entrance: ms.entrance });
+      }
+      return out;
+    },
+    enterMineshaft() {
+      const pcx = Math.floor(player.p.x / MS_CELL), pcz = Math.floor(player.p.z / MS_CELL);
+      for (let r = 0; r <= 3; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const ms = mineshaftFor(pcx + dx, pcz + dz);
+        if (!ms) continue;
+        const x = ms.ox + 6, z = ms.oz, y = ms.baseY;
+        const cx = Math.floor(x / CFG.CH), cz = Math.floor(z / CFG.CH);
+        for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) buildChunk(getChunk(cx + a, cz + b));
+        player.p.set(x + 0.5, y, z + 0.5); player.v.set(0, 0, 0);
+        camSmoothY = null;
+        return { x: x + 0.5, y, z: z + 0.5, baseY: ms.baseY, len: ms.len, entrance: ms.entrance };
+      }
+      return null;
+    },
+    caveStats(n = 24) {
+      const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+      let air = 0, tot = 0, mouths = 0, cols = 0;
+      for (let x = px - n; x <= px + n; x += 2) for (let z = pz - n; z <= pz + n; z += 2) {
+        const h = heightAt(x, z); cols++;
+        if (h < CFG.WH - 2 && getBlock(x, h, z) === 0) mouths++;
+        for (let y = 3; y < h - 1; y++) { tot++; if (getBlock(x, y, z) === 0) air++; }
+      }
+      return { caveAirFrac: +(air / Math.max(1, tot)).toFixed(3), surfaceHoles: mouths, columns: cols };
+    },
+    chunkBuildMs() {
+      const c = getChunk(Math.floor(player.p.x / CFG.CH) + 3, Math.floor(player.p.z / CFG.CH));
+      const t0 = performance.now(); buildChunk(c); return +(performance.now() - t0).toFixed(1);
+    },
     mobsInfo: () => mobs.map(m => ({
       hp: m.hp, dying: m.dying, dieT: +m.dieT.toFixed(2), scale: +m.obj.scale.x.toFixed(3),
       tilt: +m.parts.core.rotation.x.toFixed(2), dist: +m.p.distanceTo(player.p).toFixed(2),
