@@ -154,6 +154,103 @@ function broadcast(room, msg, except) {
   for (const ws of room.specs) if (ws !== except && ws.readyState === 1) ws.send(s);
 }
 
+/* ==================================================== CHAT_STATE_V1 站内聊天
+   同一「模块」（smash / theaviator / mineworld…）里的所有人共用一个频道，
+   纯 WS 广播：客户端 send → 服务端广播 → 其他人下一帧就收到（实测 < 60ms）。
+   完全不依赖房间对象，所以大厅、对局中、观战都能聊。 */
+const CHANS = new Map();        // ch -> Set(ws)
+const CHAT_HIST = new Map();    // ch -> [msg]（保留最近 CHAT_MAX 条，进频道先发历史）
+const CHAT_RATE = new Map();    // pid -> lastAt（限流）
+const CHAT_MAX = 60;
+const CHAT_KEEP_CHANS = 60;
+let CHAT_SEQ = 0;
+
+function chanOf(ch) {
+  return String(ch || 'portal').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'portal';
+}
+
+function chatSet(ch) {
+  let set = CHANS.get(ch);
+  if (!set) { set = new Set(); CHANS.set(ch, set); }
+  return set;
+}
+
+/* 在线人数 = 还能写的 socket 数（顺手把断掉的剔掉） */
+function chatOnline(ch) {
+  const set = CHANS.get(ch);
+  if (!set) return 0;
+  let n = 0;
+  for (const ws of set) {
+    if (ws && ws.readyState === 1) n++;
+    else set.delete(ws);
+  }
+  return n;
+}
+
+function chatCast(ch, msg, except) {
+  const set = CHANS.get(ch);
+  if (!set) return 0;
+  const payload = JSON.stringify(msg);
+  let n = 0;
+  for (const ws of set) {
+    if (ws === except) continue;
+    if (!ws || ws.readyState !== 1) { set.delete(ws); continue; }
+    try { ws.send(payload); n++; } catch (e) { set.delete(ws); }
+  }
+  return n;
+}
+
+function chatAct(act, ctx, now) {
+  const ch = chanOf(act.ch);
+
+  /* 订阅：把这条 socket 挂进频道，并把最近的历史发回去（进房就能看到上下文） */
+  if (act.a === 'chatsub') {
+    if (ctx.ws) {
+      chatSet(ch).add(ctx.ws);
+      if (!ctx.chans) ctx.chans = new Set();
+      ctx.chans.add(ch);
+    }
+    const hist = (CHAT_HIST.get(ch) || []).slice(-40);
+    return { ok: true, ch, n: chatOnline(ch), hist, online: chatOnline(ch) };
+  }
+
+  /* HTTP 轮询兜底（WS 被墙/被代理阻断时用）：不注册 socket，只回增量 */
+  if (act.a === 'chatpoll') {
+    const since = parseInt(act.since, 10) || 0;
+    const hist = (CHAT_HIST.get(ch) || []).filter(m => m.t > since).slice(-40);
+    return { ok: true, ch, n: chatOnline(ch), online: chatOnline(ch), hist, t: CHAT_SEQ };
+  }
+
+  /* 发消息 */
+  const text = String(act.x || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240);
+  if (!text) return { ok: false, e: 'empty' };
+  const pid = String(act.pid || 'anon').slice(0, 48) || 'anon';
+  const lastAt = CHAT_RATE.get(pid) || 0;
+  if (now - lastAt < 320) return { ok: false, e: 'slow_down', wait: 320 - (now - lastAt) };
+  CHAT_RATE.set(pid, now);
+  if (CHAT_RATE.size > 2000) {
+    for (const [k, v] of CHAT_RATE) if (now - v > 120000) CHAT_RATE.delete(k);
+  }
+
+  const msg = {
+    a: 'chat', ch, t: ++CHAT_SEQ, ts: now, pid,
+    n: String(act.n || 'Player').slice(0, 16),
+    x: text,
+    cid: act.cid ? String(act.cid).slice(0, 24) : '',
+    cts: parseInt(act.cts, 10) || 0,      // 客户端发送时刻（原样回传，客户端据此算往返延迟）
+  };
+  let hist = CHAT_HIST.get(ch);
+  if (!hist) { hist = []; CHAT_HIST.set(ch, hist); }
+  hist.push(msg);
+  if (hist.length > CHAT_MAX) hist.shift();
+  if (CHAT_HIST.size > CHAT_KEEP_CHANS) {
+    const oldest = CHAT_HIST.keys().next().value;
+    if (oldest !== ch) { CHAT_HIST.delete(oldest); CHANS.delete(oldest); }
+  }
+  chatCast(ch, msg, ctx.ws);              // 广播给别人
+  return { ok: true, msg, online: chatOnline(ch), n: chatOnline(ch) };   // 回给发送者（含 cts）
+}
+
 /* 每个座位自己的输入窗口：从它需要的帧一直给到服务器最新帧。
    早期版本只给 [f-2, f+10] 的窄窗，一旦客户端落后于窗口就再也拿不到缺的那一帧 →
    永久卡死（实战踩到）。2 字节/帧，多给几十帧的流量可以忽略，正确性优先。 */
@@ -619,6 +716,8 @@ function handle(act, ctx) {
   if (act.a === 'acct' || act.a === 'friends' || act.a === 'fadd' || act.a === 'fdel' ||
       act.a === 'invite' || act.a === 'queue' || act.a === 'facc' || act.a === 'fdec' ||
       act.a === 'trophy' || act.a === 'bind' || act.a === 'verify' || act.a === 'login' || act.a === 'profile') return social(act, ctx, now);
+  /* ★ 站内聊天：自带 ch，不需要房间 —— 必须放在 no_room 检查之前 */
+  if (act.a === 'chat' || act.a === 'chatsub' || act.a === 'chatpoll') return chatAct(act, ctx, now);
   if (!act.room) return { ok: false, e: 'no_room' };
   const room = rooms.get(String(act.room).toUpperCase());
   if (!room) return { ok: false, e: 'room_not_found' };
@@ -1406,6 +1505,7 @@ server.on('upgrade', (req, socket) => {
     ws.readyState = 3;
     /* ★ 第 74 轮：这条 socket 断掉 → 立刻把它的在线记录清掉（否则会一直显示 online 直到 TTL） */
     for (const [k, v] of ONLINE) if (v && v.ws === ws) ONLINE.delete(k);
+    if (ctx.chans) for (const ch of ctx.chans) { const set = CHANS.get(ch); if (set) set.delete(ws); }
     if (ctx.room) {
       ctx.room.clients.delete(ws); ctx.room.specs.delete(ws);
       if (ctx.seat >= 0 && ctx.room.seats[ctx.seat]) {

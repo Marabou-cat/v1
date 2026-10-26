@@ -469,25 +469,59 @@ html[data-theme="light"] .overlay.modal{background:rgba(60,50,40,.34)}
 }
 .game-chat{
   position:absolute;top:calc(54px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));z-index:6;
-  width:236px;display:none;flex-direction:column;gap:6px;padding:12px;border-radius:16px;
-  background:rgba(12,12,16,.9);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  width:min(310px,calc(100vw - 24px));display:none;flex-direction:column;
+  border-radius:16px;overflow:hidden;
+  background:rgba(12,12,16,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border:1px solid rgba(255,255,255,.16);box-shadow:0 26px 54px -22px rgba(0,0,0,.95);
 }
 .game-chat.open{display:flex;animation:popIn .28s var(--spring) both}
 @keyframes popIn{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
-.gc-head{display:flex;align-items:center;justify-content:space-between;
-  font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.5)}
-.gc-head button{color:rgba(255,255,255,.55);font-size:12px;padding:2px 4px;border-radius:6px}
-.gc-head button:hover{color:#fff;background:rgba(255,255,255,.1)}
-.gc-link{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-radius:10px;
-  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#f6f4ef;
-  font-size:12.5px;font-weight:750;transition:background .2s,transform .25s var(--ease);
-}
-.gc-link:hover{background:rgba(255,255,255,.15);transform:translateY(-1px)}
-.gc-link span{opacity:.5}
-.gc-note{font-size:10.5px;line-height:1.5;color:rgba(255,255,255,.42);padding:2px 2px 0}
-@media (max-width:480px){.game-chat{width:200px}.hud-title{display:none}}
+.gc-head{display:flex;align-items:center;gap:8px;padding:9px 10px 9px 12px;
+  background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.08);
+  font-size:11px;font-weight:800;letter-spacing:.02em;color:rgba(255,255,255,.62)}
+.gc-who{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc-who b{color:#f6f4ef;font-weight:850}
+.gc-state{flex:0 0 auto;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;
+  padding:3px 7px;border-radius:100px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.5)}
+.gc-state[data-s="live"]{background:rgba(200,242,80,.16);color:#c8f250}
+.gc-state[data-s="connecting"]{background:rgba(255,176,32,.16);color:#ffb020}
+.gc-state[data-s="offline"]{background:rgba(255,107,74,.16);color:#ff6b4a}
+.gc-x{flex:0 0 auto;width:22px;height:22px;border-radius:6px;font-size:11px;font-weight:800;
+  color:rgba(255,255,255,.55);display:grid;place-items:center}
+.gc-x:hover{background:rgba(255,255,255,.12);color:#fff}
+.gc-log{display:flex;flex-direction:column;gap:7px;height:236px;overflow-y:auto;padding:10px 10px 12px;
+  scrollbar-width:thin;overscroll-behavior:contain}
+.gc-empty{margin:auto;padding:0 10px;text-align:center;font-size:11.5px;line-height:1.6;color:rgba(255,255,255,.32)}
+.gc-msg{max-width:88%;padding:7px 10px;border-radius:12px;font-size:12.5px;line-height:1.45;
+  background:rgba(255,255,255,.08);color:#f6f4ef;word-break:break-word;overflow-wrap:anywhere;
+  animation:msgIn .22s var(--ease) both}
+@keyframes msgIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.gc-msg b{display:block;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  color:rgba(255,255,255,.42);margin-bottom:2px}
+.gc-msg.me{align-self:flex-end;background:rgba(255,107,74,.9);color:#1a0a05}
+.gc-msg.me b{color:rgba(26,10,5,.55)}
+.gc-msg.sys{align-self:center;background:none;color:rgba(255,255,255,.34);font-size:10.5px;padding:2px}
+.gc-form{display:flex;gap:6px;padding:8px;border-top:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.25)}
+.gc-form input{flex:1 1 auto;min-width:0;height:34px;padding:0 11px;border-radius:9px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#f6f4ef;
+  font-size:12.5px;font-weight:600;outline:none;transition:border-color .2s,background .2s}
+.gc-form input::placeholder{color:rgba(255,255,255,.35)}
+.gc-form input:focus{border-color:rgba(255,107,74,.75);background:rgba(255,255,255,.12)}
+.gc-form button{flex:0 0 auto;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  background:#ff6b4a;color:#1a0a05;transition:transform .2s,filter .2s}
+.gc-form button:hover{filter:brightness(1.08)}
+.gc-form button:active{transform:scale(.94)}
+.gc-form button:disabled{filter:grayscale(.6) brightness(.8)}
+.gc-form button svg{width:16px;height:16px}
+.gc-foot{display:flex;align-items:center;justify-content:space-between;padding:0 11px 8px;
+  font-size:10px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.34);background:rgba(0,0,0,.25)}
+.gc-foot #gcPing.good{color:#c8f250}
+.gc-foot #gcPing.warn{color:#ffb020}
+.gc-foot #gcPing.bad{color:#ff6b4a}
+.hud-btn.has-new::after{content:"";position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;
+  background:#ff6b4a;box-shadow:0 0 8px #ff6b4a;animation:pulse 1.6s ease-in-out infinite}
+.hud-btn{position:relative}
+@media (max-width:480px){.game-chat{width:calc(100vw - 20px)}.hud-title{display:none}.gc-log{height:190px}}
 
 /* shop + inventory grids */
 .shop-container{
@@ -1030,10 +1064,22 @@ html[data-theme="light"] .more-sidebar{background:rgba(60,50,40,.36)}
   </div>
 
   <div class="game-chat" id="gameChat">
-    <div class="gc-head"><span>Chat</span><button onclick="toggleGameChat()" aria-label="Close chat">✕</button></div>
-    <button class="gc-link" onclick="navigateAuth('lobby/')">Chat lobbies <span>↗</span></button>
-    <button class="gc-link" onclick="window.open('studycord/','_blank')">Studycord <span>↗</span></button>
-    <p class="gc-note">In-module chat stays inside the game itself.</p>
+    <div class="gc-head">
+      <span class="gc-who">Chat · <b id="gcChan">this game</b></span>
+      <span class="gc-state" id="gcState">connecting</span>
+      <button class="gc-x" onclick="toggleGameChat()" aria-label="Close chat">✕</button>
+    </div>
+    <div class="gc-log" id="gcLog">
+      <p class="gc-empty" id="gcEmpty">Say hi to everyone playing this module. Messages appear instantly for all of them.</p>
+    </div>
+    <form class="gc-form" id="gcForm" onsubmit="return sendGameChat(event)">
+      <input id="gcInput" maxlength="240" placeholder="Message this game…" autocomplete="off"
+             enterkeyhint="send" spellcheck="false">
+      <button type="submit" id="gcSend" aria-label="Send message">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M12 5l7 7-7 7"/></svg>
+      </button>
+    </form>
+    <div class="gc-foot"><span id="gcOnline">0 online</span><span id="gcPing">— ms</span></div>
   </div>
 </div>
 
@@ -3257,12 +3303,214 @@ renderGrid();
     if (f) f(); else top.classList.remove('open');
   });
 
-  /* ---------- 7. in-game chat popover (Roblox-style left cluster) ---------- */
-  window.toggleGameChat = function () {
-    var p = document.getElementById('gameChat');
-    if (!p) return;
-    p.classList.toggle('open');
-  };
+  /* ---------- 7. in-game chat: one WS channel per module (no extra pages) ---------- */
+  var GameChat = (function () {
+    var WS = null, subCh = '', chan = '', retry = 0, retryTimer = null, seq = 0, joined = false;
+    var pending = '';   // 打字比握手快时先存着，订阅成功后自动发出去（不丢字）
+
+    function $(id) { return document.getElementById(id); }
+
+    function name() {
+      try { return (localStorage.getItem('schoolExamsSavedUser') || 'Guest').slice(0, 16) || 'Guest'; }
+      catch (e) { return 'Guest'; }
+    }
+    function pid() {
+      var k = 'schoolExamsChatId', v = null;
+      try { v = localStorage.getItem(k); } catch (e) {}
+      if (!v) {
+        v = 'c' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+        try { localStorage.setItem(k, v); } catch (e) {}
+      }
+      return v;
+    }
+    /* channel key = the module being played, so "everyone in this game" is literal */
+    function slug() {
+      var f = '';
+      try { f = (typeof activeGameFile !== 'undefined' && activeGameFile) ? String(activeGameFile) : ''; } catch (e) {}
+      var seg = f.split('?')[0].split('#')[0].replace(/\/+$/, '').split('/').pop() || 'portal';
+      return seg.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'portal';
+    }
+    function wsUrl() {
+      if (window.SB_CHAT_WS) return window.SB_CHAT_WS;
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/sbgames/ws';
+    }
+    function setState(s, txt) {
+      var el = $('gcState');
+      if (el) { el.dataset.s = s; el.textContent = txt; }
+    }
+    function ping(ms) {
+      var el = $('gcPing');
+      if (!el || !isFinite(ms)) return;
+      el.textContent = Math.max(0, Math.round(ms)) + ' ms';
+      el.className = ms < 200 ? 'good' : (ms < 500 ? 'warn' : 'bad');
+    }
+    function online(n) {
+      var el = $('gcOnline');
+      if (el && typeof n === 'number') el.textContent = n + (n === 1 ? ' player online' : ' online');
+    }
+    function note(txt) {
+      var box = $('gcLog');
+      if (!box) return;
+      var e = $('gcEmpty'); if (e) e.remove();
+      var d = document.createElement('div');
+      d.className = 'gc-msg sys';
+      d.textContent = txt;
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+    }
+    function markNew(on) {
+      var b = $('chatGameBtn');
+      if (b) b.classList.toggle('has-new', !!on);
+    }
+    function addMsg(m, mine) {
+      var box = $('gcLog');
+      if (!box) return;
+      var e = $('gcEmpty'); if (e) e.remove();
+      var d = document.createElement('div');
+      d.className = 'gc-msg' + (mine ? ' me' : '');
+      var b = document.createElement('b');
+      b.textContent = mine ? 'you' : (m.n || 'player');
+      var t = document.createElement('span');
+      t.textContent = m.x;
+      d.appendChild(b); d.appendChild(t);
+      box.appendChild(d);
+      while (box.children.length > 90) box.removeChild(box.firstChild);
+      box.scrollTop = box.scrollHeight;
+      if (!mine && !$('gameChat').classList.contains('open')) markNew(true);
+    }
+    function renderHist(hist) {
+      var box = $('gcLog');
+      if (!box) return;
+      box.innerHTML = '';
+      if (!hist || !hist.length) {
+        var p = document.createElement('p');
+        p.className = 'gc-empty'; p.id = 'gcEmpty';
+        p.textContent = 'Say hi to everyone playing this module. Messages appear instantly for all of them.';
+        box.appendChild(p);
+        return;
+      }
+      hist.slice(-60).forEach(function (m) { addMsg(m, m.pid === pid()); });
+    }
+
+    function connect() {
+      if (WS && (WS.readyState === 0 || WS.readyState === 1)) {
+        if (WS.readyState === 1 && subCh !== chan) { subCh = chan; WS.send(JSON.stringify({ a: 'chatsub', ch: chan, pid: pid(), n: name() })); }
+        return;
+      }
+      setState('connecting', 'connecting');
+      var w;
+      try { w = new WebSocket(wsUrl()); } catch (e) { setState('offline', 'offline'); schedule(); return; }
+      WS = w;
+      w.onopen = function () {
+        retry = 0; joined = false; subCh = chan;
+        w.send(JSON.stringify({ a: 'chatsub', ch: chan, pid: pid(), n: name() }));
+      };
+      w.onmessage = function (ev) {
+        var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (!m) return;
+        if (m.a === 'chat') {                       // 别人发的（服务端不回发给发送者）
+          if (m.ch === chan) addMsg(m, m.pid === pid());
+          return;
+        }
+        if (m.ok && m.hist) {                       // chatsub 的应答
+          joined = true; setState('live', 'live');
+          online(m.online !== undefined ? m.online : m.n);
+          renderHist(m.hist);
+          if (pending) { var p = pending; pending = ''; var pi = $('gcInput'); if (pi) pi.value = p; send(); }
+          return;
+        }
+        if (m.ok && m.msg) {                        // 自己发的那条（带 cts → 算往返）
+          if (m.msg.cts) ping(Date.now() - m.msg.cts);
+          online(m.online);
+          addMsg(m.msg, true);
+          return;
+        }
+        if (m.ok === false) {
+          if (m.e === 'slow_down') { note('Slow down a moment…'); }
+          else if (m.e === 'empty') { /* ignore */ }
+        }
+      };
+      w.onclose = function () { WS = null; joined = false; subCh = ''; setState('offline', 'offline'); schedule(); };
+      w.onerror = function () { setState('offline', 'offline'); };
+    }
+    function schedule() {
+      if (retryTimer) return;
+      retry = Math.min(retry + 1, 5);
+      retryTimer = setTimeout(function () {
+        retryTimer = null;
+        if (($('gameChat') && document.getElementById('gameOverlay').classList.contains('open'))) connect();
+      }, 1000 * Math.pow(1.8, retry));
+    }
+
+    function open() {
+      var p = $('gameChat');
+      if (!p || p.classList.contains('open')) return;
+      chan = slug();
+      var lab = $('gcChan');
+      if (lab) {
+        var t = $('activeTitle');
+        lab.textContent = (t && t.textContent.trim()) || chan;
+      }
+      p.classList.add('open');
+      markNew(false);
+      connect();
+      var inp = $('gcInput');
+      if (inp) setTimeout(function () { try { inp.focus(); } catch (e) {} }, 120);
+    }
+    function hide() {
+      var p = $('gameChat');
+      if (p) p.classList.remove('open');
+    }
+    function toggle() {
+      var p = $('gameChat');
+      if (!p) return;
+      if (p.classList.contains('open')) hide(); else open();
+    }
+    function stop() {
+      hide();
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+      if (WS) { try { WS.close(); } catch (e) {} WS = null; }
+      subCh = ''; joined = false;
+      setState('offline', 'offline');
+      renderHist([]);
+      online(0);
+      markNew(false);
+    }
+    function send(ev) {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      var inp = $('gcInput');
+      if (!inp) return false;
+      var text = String(inp.value || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+      if (!text) return false;
+      if (!WS || WS.readyState !== 1) { pending = text; note('Connecting — your message sends itself in a moment…'); connect(); return false; }
+      pending = '';
+      inp.value = '';
+      try {
+        WS.send(JSON.stringify({ a: 'chat', ch: chan, x: text, pid: pid(), n: name(), cid: 'm' + (++seq), cts: Date.now() }));
+      } catch (e) { note('Send failed — retrying…'); connect(); return false; }
+      var btn = $('gcSend');
+      if (btn) { btn.disabled = true; setTimeout(function () { btn.disabled = false; }, 350); }
+      try { inp.focus(); } catch (e) {}
+      return false;
+    }
+
+    /* 游戏一开就接上（这样关着面板也能收未读小红点），退出游戏就断开 */
+    var ov = document.getElementById('gameOverlay');
+    if (ov && window.MutationObserver) {
+      new MutationObserver(function () {
+        if (ov.classList.contains('open')) { chan = slug(); connect(); }
+        else stop();
+      }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+    } else {
+      setState('offline', 'offline');
+    }
+
+    return { toggle: toggle, send: send, open: open, stop: stop };
+  })();
+  window.toggleGameChat = GameChat.toggle;
+  window.sendGameChat = GameChat.send;
+
+  /* clicking anywhere else in the page closes the panel (clicks inside the game iframe don't reach us) */
   document.addEventListener('click', function (e) {
     var p = document.getElementById('gameChat');
     if (!p || !p.classList.contains('open')) return;
