@@ -242,7 +242,7 @@ function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.ad
 function treeAt(wx, wz) {
   if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.982) return null;
   const g = heightAt(wx, wz);
-  if (g <= CFG.SEA + 1 || g >= 40) return null;
+  if (g <= CFG.SEA + 1 || g >= 45) return null;
   return { g, h: 4 + ((h2(wx * 5.3, wz * 7.9) * 3) | 0) };
 }
 
@@ -265,7 +265,7 @@ function genChunk(cx, cz) {
       const d = h - y;
       let id;
       if (beach) id = d <= 3 ? 4 : 3;
-      else if (h >= 40) id = 3;
+      else if (h >= 45) id = 3;
       else id = d === 0 ? 1 : (d <= 3 ? 2 : 3);
       if (id === 3 && h3(wx, y, wz) > 0.982) id = 13;                              // 煤矿
       if (y > 2 && y < h - 2 && id !== 4 && n3(wx * 0.075, y * 0.11, wz * 0.075) > 0.668) id = 0;  // 洞穴
@@ -340,7 +340,7 @@ function findSpawn() {
     for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
       if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
       const x = 8 + dx, z = 8 + dz, h = heightAt(x, z);
-      if (h > CFG.SEA + 3 && h < 44) return { x: x + 0.5, y: h + 1.05, z: z + 0.5 };
+      if (h > CFG.SEA + 3 && h < 42) return { x: x + 0.5, y: h + 1.05, z: z + 0.5 };
     }
   }
   return { x: 8.5, y: 55, z: 8.5 };
@@ -545,20 +545,22 @@ function makeArm(side) {
   const g = new THREE.Group();
   const sleeveMat = new THREE.MeshLambertMaterial({ color: side > 0 ? SLEEVE : SLEEVE2 });
   const skinMat = new THREE.MeshLambertMaterial({ color: SKIN });
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.155, 0.155, 0.52), skinMat);
-  arm.position.z = -0.28;
-  const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.185, 0.185, 0.26), sleeveMat);
-  sleeve.position.z = -0.06;
-  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.17, 0.12), skinMat);
-  hand.position.z = -0.55;
-  g.add(arm, sleeve, hand);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.135, 0.135, 0.46), skinMat);
+  arm.position.z = -0.3;
+  const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.165, 0.165, 0.2), sleeveMat);
+  sleeve.position.z = -0.13;
+  const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.17, 0.045), new THREE.MeshLambertMaterial({ color: 0x244f5a }));
+  cuff.position.z = -0.235;
+  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.155, 0.155, 0.14), new THREE.MeshLambertMaterial({ color: 0xe0aa77 }));
+  hand.position.z = -0.56;
+  g.add(arm, sleeve, cuff, hand);
   return g;
 }
 const armR = makeArm(1), armL = makeArm(-1);
-armR.position.set(0.3, -0.33, -0.16);
-armR.rotation.set(-0.16, -0.26, 0.14);
-armL.position.set(-0.28, -0.37, -0.14);
-armL.rotation.set(-0.3, 0.34, -0.16);
+armR.position.set(0.3, -0.3, -0.26);
+armR.rotation.set(-0.2, -0.34, 0.12);
+armL.position.set(-0.3, -0.34, -0.24);
+armL.rotation.set(-0.26, 0.4, -0.12);
 handScene.add(armR, armL);
 
 // 手持方块（右手），按当前选中方块换材质
@@ -1106,10 +1108,10 @@ function update(dt) {
   const swingArc = Math.sin(Math.min(1, player.swing) * Math.PI);
   const bob = Math.sin(player.walkPhase) * 0.022;
   const breathe = Math.sin(performance.now() * 0.0013) * 0.006;
-  armR.rotation.set(-0.18 - swingArc * 0.85, -0.3 + swingArc * 0.35, 0.16 - swingArc * 0.18);
-  armR.position.set(0.34, -0.34 + bob + breathe, -0.18 - swingArc * 0.1);
-  armL.rotation.set(-0.3 - swingArc * 0.4, 0.42 - swingArc * 0.2, -0.2);
-  armL.position.set(-0.4, -0.4 - bob * 0.7 + breathe, -0.12);
+  armR.rotation.set(-0.2 - swingArc * 0.85, -0.34 + swingArc * 0.35, 0.12 - swingArc * 0.16);
+  armR.position.set(0.3, -0.3 + bob + breathe, -0.26 - swingArc * 0.1);
+  armL.rotation.set(-0.26 - swingArc * 0.4, 0.4 - swingArc * 0.2, -0.12);
+  armL.position.set(-0.3, -0.34 - bob * 0.7 + breathe, -0.24);
 
   // 区块流式加载
   streamChunks();
