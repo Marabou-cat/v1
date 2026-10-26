@@ -4,7 +4,8 @@ const RAW_GAMES = [
     "/smash/|Super Brawl|/logos/smash-logo.png?v=1",
     "/exams_games/TheAviator/|The Aviator|/exams_games/icon_aviator.svg?v=2",
     "/exams_games/MineWorld/|MineWorld|/exams_games/icon_mineworld.svg?v=2",
-    "/dungeon/|灰烬遗迹|/exams_games/icon_dungeon.svg?v=1"
+    "/dungeon/|灰烬遗迹|/exams_games/icon_dungeon.svg?v=1",
+    "/blockwild/|方块荒野|/exams_games/icon_blockwild.svg?v=1"
 ];
 
 // Convert the compact strings into the final object array needed by your portal

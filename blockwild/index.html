@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>方块荒野 BLOCKWILD</title>
+<style>
+  :root{
+    --ink:#e8eef7; --dim:#9db0c8; --gold:#f5c451; --panel:#111a28e6; --edge:#2c3d55;
+    --hp:#e2494b; --food:#d98b3f;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b1220;color:var(--ink);
+    font-family:"Courier New",ui-monospace,SFMono-Regular,Menlo,monospace;
+    user-select:none;-webkit-user-select:none;touch-action:none;overscroll-behavior:none}
+  canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
+  #hud{position:absolute;inset:0;pointer-events:none;z-index:5}
+  .px{image-rendering:pixelated}
+  /* ---------- crosshair ---------- */
+  #cross{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;opacity:.9}
+  #cross:before,#cross:after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1px #0006}
+  #cross:before{left:8px;top:0;width:2px;height:18px}
+  #cross:after{top:8px;left:0;height:2px;width:18px}
+  /* ---------- status line ---------- */
+  #status{position:absolute;left:8px;top:8px;font-size:11px;line-height:1.55;
+    background:#0a1120b8;border:1px solid #21324a;padding:5px 8px;border-radius:3px;color:#bcd2ea;white-space:pre}
+  #status b{color:var(--gold);font-weight:400}
+  /* ---------- bars ---------- */
+  #bars{position:absolute;left:10px;bottom:calc(64px + env(safe-area-inset-bottom))}
+  .row{display:flex;gap:3px;align-items:center;margin-top:4px}
+  .heart{width:15px;height:14px;background:#2a1a1c;position:relative;
+    clip-path:polygon(50% 100%,0 38%,0 14%,14% 0,36% 0,50% 16%,64% 0,86% 0,100% 14%,100% 38%)}
+  .heart i{position:absolute;inset:0;background:var(--hp);clip-path:inherit}
+  .food{width:15px;height:12px;background:#2a221a;position:relative;border-radius:50% 50% 45% 45%}
+  .food i{position:absolute;inset:0;background:var(--food);border-radius:inherit}
+  .lbl{font-size:10px;color:#93a8c2;width:30px}
+  /* ---------- hotbar ---------- */
+  #hotbar{position:absolute;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    display:flex;gap:3px;padding:3px;background:#0a1120c4;border:2px solid #26374d;border-radius:4px}
+  .slot{width:42px;height:42px;background:#1b2536;border:2px solid #33475e;position:relative;border-radius:3px}
+  .slot.sel{border-color:var(--gold);box-shadow:0 0 0 1px #f5c4515c inset}
+  .slot img{position:absolute;inset:4px;width:34px;height:34px;image-rendering:pixelated}
+  .slot .n{position:absolute;right:2px;bottom:0;font-size:11px;color:#fff;text-shadow:1px 1px 0 #000}
+  .slot .k{position:absolute;left:2px;top:0;font-size:9px;color:#7d93ad}
+  /* ---------- target + mining bar ---------- */
+  #tgt{position:absolute;left:50%;top:calc(50% + 22px);transform:translateX(-50%);font-size:11px;color:#dbe6f4;
+    text-shadow:0 1px 2px #000;opacity:.9}
+  #mine{position:absolute;left:50%;top:calc(50% + 38px);transform:translateX(-50%);width:90px;height:5px;
+    background:#0009;border:1px solid #ffffff38;display:none}
+  #mine i{display:block;height:100%;width:0;background:var(--gold)}
+  /* ---------- buttons ---------- */
+  .btn{pointer-events:auto;cursor:pointer;border:2px solid #3a5170;background:linear-gradient(#22314a,#16202f);
+    color:#e8eef7;font:inherit;font-size:12px;padding:7px 12px;border-radius:4px}
+  .btn:active{transform:translateY(1px)}
+  .btn.gold{border-color:#c79a35;background:linear-gradient(#e9c163,#c9992f);color:#221a05;font-weight:700}
+  #topbtns{position:absolute;right:8px;top:8px;display:flex;gap:6px;pointer-events:auto}
+  #topbtns .btn{padding:6px 9px;font-size:11px}
+  /* ---------- overlays ---------- */
+  .overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    background:#050a14d9;backdrop-filter:blur(3px);padding:14px}
+  .overlay.hide{display:none}
+  .card{width:min(720px,96vw);max-height:92vh;overflow:auto;background:var(--panel);border:2px solid var(--edge);
+    border-radius:8px;padding:18px 18px 20px;box-shadow:0 18px 60px #000a}
+  .card h1{margin:0 0 2px;font-size:26px;letter-spacing:3px;color:var(--gold)}
+  .card h1 small{display:block;font-size:10px;letter-spacing:5px;color:#8fa6c0;margin-top:3px}
+  .card p{font-size:12px;line-height:1.7;color:#b9cbe1;margin:10px 0}
+  .keys{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:11.5px;color:#a9bfd8;margin:12px 0 16px}
+  .keys b{color:#fff;font-weight:400}
+  .startrow{display:flex;gap:10px;flex-wrap:wrap}
+  /* ---------- inventory + crafting ---------- */
+  #panel{z-index:18}
+  #panel .card{width:min(780px,97vw)}
+  .pgrid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-bottom:14px}
+  .cell{aspect-ratio:1;background:#1b2536;border:2px solid #33475e;border-radius:3px;position:relative;cursor:pointer}
+  .cell img{position:absolute;inset:5px;width:calc(100% - 10px);image-rendering:pixelated}
+  .cell .n{position:absolute;right:2px;bottom:0;font-size:10px;text-shadow:1px 1px 0 #000}
+  .cell:hover{border-color:#6d8fb5}
+  .sec{font-size:11px;letter-spacing:2px;color:#8fa6c0;margin:2px 0 8px;border-bottom:1px solid #24344a;padding-bottom:5px}
+  .rec{display:flex;align-items:center;gap:10px;padding:6px;border:1px solid #24344a;border-radius:4px;margin-bottom:5px;
+    background:#0e1724;cursor:pointer}
+  .rec:hover{background:#16243a;border-color:#3d5878}
+  .rec.no{opacity:.42;cursor:not-allowed}
+  .rec img{width:30px;height:30px;image-rendering:pixelated}
+  .rec .t{flex:1;font-size:12px}
+  .rec .t i{display:block;font-style:normal;font-size:10px;color:#8fa6c0;margin-top:2px}
+  .rec .go{font-size:11px;color:var(--gold)}
+  /* ---------- touch ---------- */
+  #touch{position:absolute;inset:0;pointer-events:none;z-index:6;display:none}
+  body.touch #touch{display:block}
+  #stick{position:absolute;left:18px;bottom:calc(24px + env(safe-area-inset-bottom));width:118px;height:118px;
+    border-radius:50%;background:#ffffff14;border:2px solid #ffffff2e;pointer-events:auto}
+  #knob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;
+    background:#ffffff3a;border:2px solid #ffffff5c}
+  .tbtn{position:absolute;pointer-events:auto;border-radius:50%;background:#0f1a2bcc;border:2px solid #3a5170;
+    color:#dbe7f6;font:inherit;font-size:12px;display:flex;align-items:center;justify-content:center}
+  .tbtn:active{background:#25405f}
+  #tJump{right:20px;bottom:calc(150px + env(safe-area-inset-bottom));width:66px;height:66px}
+  #tMine{right:96px;bottom:calc(96px + env(safe-area-inset-bottom));width:74px;height:74px}
+  #tPlace{right:18px;bottom:calc(66px + env(safe-area-inset-bottom));width:66px;height:66px}
+  #tBag{right:20px;bottom:calc(238px + env(safe-area-inset-bottom));width:54px;height:54px;font-size:11px}
+  #hint{position:absolute;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    font-size:11px;color:#cfe0f2;background:#0a1120b8;border:1px solid #24344a;padding:5px 10px;border-radius:3px;
+    opacity:0;transition:opacity .25s;white-space:nowrap}
+  #flash{position:absolute;inset:0;background:#ff2b2b;opacity:0;transition:opacity .18s;pointer-events:none}
+  #rotate{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
+    background:#060b15f2;text-align:center;font-size:13px;line-height:1.9;color:#cfe0f2;padding:24px}
+  body.portrait #rotate{display:flex}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud">
+  <div id="cross"></div>
+  <div id="status"></div>
+  <div id="tgt"></div>
+  <div id="mine"><i></i></div>
+  <div id="bars">
+    <div class="row" id="hearts"></div>
+    <div class="row" id="foodrow"></div>
+  </div>
+  <div id="hotbar"></div>
+  <div id="hint"></div>
+  <div id="flash"></div>
+  <div id="topbtns">
+    <button class="btn" id="btnBag">背包 E</button>
+    <button class="btn" id="btnReset">新世界</button>
+  </div>
+  <div id="touch">
+    <div id="stick"><div id="knob"></div></div>
+    <button class="tbtn" id="tJump">跳</button>
+    <button class="tbtn" id="tMine">挖</button>
+    <button class="tbtn" id="tPlace">放</button>
+    <button class="tbtn" id="tBag">包</button>
+  </div>
+</div>
+
+<div class="overlay" id="start">
+  <div class="card">
+    <h1>方块荒野<small>BLOCKWILD · 像素生存</small></h1>
+    <p>你在一片无人踏过的方块大陆上醒来。砍树、挖石、合成工具，入夜前把自己武装起来。</p>
+    <div class="keys">
+      <b>W A S D</b><span>移动（Shift 疾跑）</span>
+      <b>鼠标</b><span>转视角（点击画面锁定鼠标）</span>
+      <b>空格</b><span>跳跃 / 上浮</span>
+      <b>左键（按住）</b><span>挖掉准星对准的方块 / 攻击野怪</span>
+      <b>右键</b><span>放下手里的方块 / 吃苹果</span>
+      <b>1 - 9 / 滚轮</b><span>切换快捷栏</span>
+      <b>E</b><span>背包与合成</span>
+    </div>
+    <div class="startrow">
+      <button class="btn gold" id="btnPlay">开始游戏</button>
+      <button class="btn" id="btnNew">换一个世界（新种子）</button>
+    </div>
+    <p style="margin-bottom:0;color:#7f93ab;font-size:11px">自动存档：修改的地块、背包与进度会存在本机浏览器里。</p>
+  </div>
+</div>
+
+<div class="overlay hide" id="panel">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="sec" style="border:0;margin:0">背包 <span id="invCount" style="color:#f5c451"></span></div>
+      <button class="btn" id="btnClose">关闭 E</button>
+    </div>
+    <div class="pgrid" id="invGrid"></div>
+    <div class="sec">合成（点一下制作）</div>
+    <div id="recList"></div>
+  </div>
+</div>
+
+<div class="overlay hide" id="death">
+  <div class="card" style="text-align:center">
+    <h1 style="color:#e2494b">你倒下了</h1>
+    <p id="deathMsg">荒野的夜晚并不温柔。</p>
+    <button class="btn gold" id="btnRespawn">回到出生点</button>
+  </div>
+</div>
+
+<div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
+
+<script type="module" src="./js/blockwild.js?v=1"></script>
+</body>
+</html>
