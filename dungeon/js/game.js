@@ -25,10 +25,10 @@ const ARMOR = {
 };
 
 const MDEF = {
-  slime: { hp: 46, dmg: 8, speed: 2.3, aggro: 13, range: 1.9, atkCd: 1.5, wind: 0.42, xp: 16, gold: 7, radius: 0.52, h: 0.9, name: '苔沼史莱姆' },
-  goblin: { hp: 82, dmg: 15, speed: 3.0, aggro: 16, range: 2.3, atkCd: 1.7, wind: 0.46, xp: 26, gold: 13, radius: 0.46, h: 1.3, name: '废墟哥布林' },
-  skeleton: { hp: 66, dmg: 11, speed: 2.5, aggro: 24, range: 15, keep: 9, atkCd: 2.3, wind: 0.5, xp: 30, gold: 16, radius: 0.44, h: 1.6, name: '骸骨射手', ranged: true },
-  boss: { hp: 520, dmg: 26, speed: 2.2, aggro: 26, range: 6.2, atkCd: 2.4, wind: 0.9, xp: 240, gold: 260, radius: 1.35, h: 3.4, name: '石像守卫' },
+  slime: { hp: 46, dmg: 8, speed: 2.3, aggro: 13, range: 1.9, atkCd: 1.5, wind: 0.42, xp: 16, gold: 7, radius: 0.52, h: 0.9, name: '腐化黏液' },
+  goblin: { hp: 82, dmg: 15, speed: 3.0, aggro: 16, range: 2.3, atkCd: 1.7, wind: 0.46, xp: 26, gold: 13, radius: 0.46, h: 1.3, name: '拾荒者' },
+  skeleton: { hp: 66, dmg: 11, speed: 2.5, aggro: 24, range: 15, keep: 9, atkCd: 2.3, wind: 0.5, xp: 30, gold: 16, radius: 0.44, h: 1.6, name: '骨弓手', ranged: true },
+  boss: { hp: 520, dmg: 26, speed: 2.2, aggro: 26, range: 6.2, atkCd: 2.4, wind: 0.9, xp: 240, gold: 260, radius: 1.35, h: 3.4, name: '废墟守望者' },
 };
 
 const SPAWNS = [
@@ -42,6 +42,11 @@ const SPAWNS = [
   { k: 'skeleton', x: -9, z: -8, map: 'dungeon' }, { k: 'skeleton', x: 9, z: -8, map: 'dungeon' },
   { k: 'goblin', x: -12, z: 5, map: 'dungeon' }, { k: 'goblin', x: 12, z: 5, map: 'dungeon' },
   { k: 'slime', x: -6, z: 15, map: 'dungeon' }, { k: 'slime', x: 6, z: 15, map: 'dungeon' },
+  // ↓ 锈港街区
+  { k: 'goblin', x: -6, z: 2, map: 'city' }, { k: 'goblin', x: 6.5, z: -4, map: 'city' },
+  { k: 'goblin', x: -18, z: 7, map: 'city' }, { k: 'goblin', x: 18.5, z: -2, map: 'city' },
+  { k: 'skeleton', x: -7, z: -18, map: 'city' }, { k: 'skeleton', x: 7, z: 16, map: 'city' },
+  { k: 'slime', x: -19, z: -9, map: 'city' }, { k: 'slime', x: 20, z: -19, map: 'city' },
 ];
 
 /* ============================== 世界几何 ============================== */
@@ -72,6 +77,9 @@ function hDungeon(x, z) {
   if (Math.abs(x) < 7.2 && z < -13 && z > -24.5) h = 0.78;   // boss 台座
   return h;
 }
+function hCity(x, z) {
+  return 0.42 + Math.sin(x * 0.05) * 0.02 + Math.cos(z * 0.045) * 0.02;
+}
 let HF = hOver;                       // 当前地图的高度函数
 let activeId = 'overworld';
 export function heightAt(x, z) { return HF(x, z); }
@@ -88,7 +96,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.16;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x9fb2c0, 70, 200);
+scene.fog = new THREE.Fog(0x9b8168, 42, 155);
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 500);
 camera.position.set(0, 6, 34);
@@ -100,9 +108,9 @@ let skyMesh;
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
     uniforms: {
-      top: { value: new THREE.Color('#203550') },
-      mid: { value: new THREE.Color('#7c93a8') },
-      bot: { value: new THREE.Color('#e0b283') },
+      top: { value: new THREE.Color('#23252c') },
+      mid: { value: new THREE.Color('#7a6753') },
+      bot: { value: new THREE.Color('#cf9057') },
     },
     vertexShader: 'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying float h;
@@ -131,9 +139,10 @@ scene.add(ambient);
 
 /* ============================== 静态世界 ============================== */
 const colliders = [];   // {x,z,r} 当前地图
-const mapGroups = { overworld: new THREE.Group(), dungeon: new THREE.Group() };
+const mapGroups = { overworld: new THREE.Group(), dungeon: new THREE.Group(), city: new THREE.Group() };
 mapGroups.dungeon.visible = false;
-scene.add(mapGroups.overworld, mapGroups.dungeon);
+mapGroups.city.visible = false;
+scene.add(mapGroups.overworld, mapGroups.dungeon, mapGroups.city);
 let WG = mapGroups.overworld;   // 当前正在往哪个 Group 里建
 
 function addCollider(x, z, r) { colliders.push({ x, z, r }); }
@@ -145,10 +154,10 @@ function buildTerrain() {
   const pos = geo.attributes.position;
   const cols = [];
   const c = new THREE.Color();
-  const grass = new THREE.Color('#5e8646');
-  const grass2 = new THREE.Color('#4a703c');
-  const rock = new THREE.Color('#7c7a6b');
-  const sand = new THREE.Color('#b8a077');
+  const grass = new THREE.Color('#6e6a46');
+  const grass2 = new THREE.Color('#555a3c');
+  const rock = new THREE.Color('#736c62');
+  const sand = new THREE.Color('#a8906d');
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i);
     const y = heightAt(x, z);
@@ -185,7 +194,7 @@ function buildTerrain() {
   }
   const tuft = new THREE.InstancedMesh(
     new THREE.ConeGeometry(0.042, 0.2, 4),
-    new THREE.MeshStandardMaterial({ color: 0x60874a, roughness: 1, flatShading: true }),
+    new THREE.MeshStandardMaterial({ color: 0x6b6c44, roughness: 1, flatShading: true }),
     mats.length
   );
   mats.forEach((m, i) => tuft.setMatrixAt(i, m));
@@ -197,13 +206,13 @@ function buildTerrain() {
 function buildWater() {
   const g = new THREE.Mesh(
     new THREE.CircleGeometry(POND.r * 0.99, 40),
-    new THREE.MeshStandardMaterial({ color: 0x2e6f86, roughness: 0.16, metalness: 0.35, transparent: true, opacity: 0.82, envMapIntensity: 1 })
+    new THREE.MeshStandardMaterial({ color: 0x3f5a38, roughness: 0.3, metalness: 0.2, transparent: true, opacity: 0.9 })
   );
   g.rotation.x = -Math.PI / 2;
   g.position.set(POND.x, POND.water, POND.z);
   g.receiveShadow = true;
   WG.add(g);
-  const rim = new THREE.Mesh(new THREE.RingGeometry(POND.r * 0.98, POND.r * 1.05, 40), new THREE.MeshBasicMaterial({ color: 0xcbb68c, transparent: true, opacity: 0.35 }));
+  const rim = new THREE.Mesh(new THREE.RingGeometry(POND.r * 0.98, POND.r * 1.05, 40), new THREE.MeshBasicMaterial({ color: 0x8a7a58, transparent: true, opacity: 0.3 }));
   rim.rotation.x = -Math.PI / 2;
   rim.position.set(POND.x, POND.water + 0.02, POND.z);
   WG.add(rim);
@@ -233,13 +242,15 @@ function buildTrees() {
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.13 * sc, 0.22 * sc, th, 7), trunkM);
     trunk.position.y = th / 2; trunk.castShadow = true; trunk.receiveShadow = true;
     g.add(trunk);
-    for (let i = 0; i < 3; i++) {
-      const rr = (1.35 - i * 0.34) * sc;
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(rr, 1.5 * sc, 8), i % 2 ? leafA : leafB);
-      cone.position.y = th * 0.72 + i * 0.78 * sc;
-      cone.rotation.y = Math.random() * 3;
-      cone.castShadow = true; cone.receiveShadow = true;
-      g.add(cone);
+    // 枯树：只有枝干，没有树冠（末日）
+    for (let i = 0; i < 4; i++) {
+      const bl = (0.9 + Math.random() * 0.9) * sc;
+      const br = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * sc, 0.085 * sc, bl, 5), trunkM);
+      const a = i * 1.6 + Math.random() * 0.6;
+      br.position.set(Math.cos(a) * 0.14, th * (0.62 + i * 0.1), Math.sin(a) * 0.14);
+      br.rotation.set(Math.cos(a) * 0.45, 0, -Math.sin(a) * 0.9 - 0.25);
+      br.castShadow = true;
+      g.add(br);
     }
     WG.add(g);
     addCollider(s.x, s.z, 0.55 * sc);
@@ -406,6 +417,306 @@ function buildMountains() {
 }
 
 
+
+/* ---------------- 末日道具：车 / 电线杆 / 路障 / 油桶 / 灰烬 ---------------- */
+const RUST = [0x8a5a3c, 0x6d5a4a, 0x7a6a55, 0x9a6b45];
+let ashPoints = null;
+
+function buildCar(x, z, rot, tone) {
+  const g = new THREE.Group();
+  const bodyM = new THREE.MeshStandardMaterial({ color: tone, roughness: 0.9, metalness: 0.25 });
+  const glassM = new THREE.MeshStandardMaterial({ color: 0x1d2326, roughness: 0.35, metalness: 0.5 });
+  const tyre = new THREE.MeshStandardMaterial({ color: 0x1b1b1c, roughness: 1 });
+  const y = heightAt(x, z);
+  g.position.set(x, y, z);
+  g.rotation.y = rot;
+  const shell = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.82, 1.72), bodyM);
+  shell.position.y = 0.72; shell.castShadow = true; shell.receiveShadow = true; g.add(shell);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.66, 1.58), glassM);
+  cabin.position.set(-0.15, 1.4, 0); cabin.castShadow = true; g.add(cabin);
+  for (const [wx, wz] of [[-1.2, -0.86], [1.2, -0.86], [-1.2, 0.86], [1.2, 0.86]]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.26, 10), tyre);
+    w.rotation.x = Math.PI / 2;
+    w.position.set(wx, 0.4, wz);
+    w.castShadow = true;
+    g.add(w);
+  }
+  WG.add(g);
+  addCollider(x, z, 1.5);
+}
+
+function buildPole(x, z) {
+  const y = heightAt(x, z);
+  const wood = new THREE.MeshStandardMaterial({ color: 0x4b3d2e, roughness: 1 });
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  g.rotation.z = (Math.random() - 0.5) * 0.12;
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 7.5, 6), wood);
+  pole.position.y = 3.75; pole.castShadow = true; g.add(pole);
+  for (const [cy, w] of [[6.6, 2.4], [5.7, 1.8]]) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(w, 0.14, 0.16), wood);
+    bar.position.y = cy; bar.castShadow = true; g.add(bar);
+  }
+  WG.add(g);
+  addCollider(x, z, 0.34);
+}
+
+function buildBarrier(x, z, rot) {
+  const y = heightAt(x, z);
+  const conc = new THREE.MeshStandardMaterial({ color: 0x8b8578, roughness: 1 });
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  g.rotation.y = rot;
+  const b = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.0, 0.62), conc);
+  b.position.y = 0.5; b.castShadow = true; b.receiveShadow = true; g.add(b);
+  for (let i = 0; i < 3; i++) {
+    const rebar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.7, 4), new THREE.MeshStandardMaterial({ color: 0x6a5a48, metalness: 0.6, roughness: 0.7 }));
+    rebar.position.set(-0.8 + i * 0.8, 1.1, 0);
+    rebar.rotation.z = (i - 1) * 0.3;
+    g.add(rebar);
+  }
+  WG.add(g);
+  addCollider(x, z, 1.2);
+}
+
+function buildBarrel(x, z, lit) {
+  const y = heightAt(x, z);
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.05, 10), new THREE.MeshStandardMaterial({ color: 0x7a4a2e, roughness: 0.95, metalness: 0.2 }));
+  drum.position.y = 0.52; drum.castShadow = true; drum.receiveShadow = true; g.add(drum);
+  if (lit) {
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.9, 6), new THREE.MeshBasicMaterial({ color: 0xff8a3a }));
+    fl.position.y = 1.45; g.add(fl);
+    const l = new THREE.PointLight(0xff7a30, 16, 14, 2);
+    l.position.set(0, 1.7, 0);
+    g.add(l);
+    FIRELIGHTS.push({ mesh: fl, light: l, base: 1 });
+  }
+  WG.add(g);
+  addCollider(x, z, 0.55);
+}
+
+function buildAsh() {
+  const N = 900;
+  const pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    pos[i * 3] = (Math.random() * 2 - 1) * 60;
+    pos[i * 3 + 1] = Math.random() * 22;
+    pos[i * 3 + 2] = (Math.random() * 2 - 1) * 60;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({ color: 0xd8c8ac, size: 0.09, transparent: true, opacity: 0.55, depthWrite: false, fog: true });
+  ashPoints = new THREE.Points(geo, mat);
+  ashPoints.frustumCulled = false;
+  scene.add(ashPoints);
+}
+
+const CITY_BLOCKS = [
+  [-17, -15, 13, 11, 9], [17, -15, 13, 11, 7],
+  [-17, 15, 13, 10, 6], [17, 15, 13, 10, 8],
+  [-27, 0, 7, 9, 5], [27, 0, 7, 9, 10],
+];
+
+/* ---------------- 第一座城市：锈港（独立地图） ---------------- */
+function buildCity() {
+  const g = WG;
+  const base = 0.42;
+  const asphalt = new THREE.MeshStandardMaterial({ color: 0x3c3b38, roughness: 0.98 });
+  const concrete = new THREE.MeshStandardMaterial({ color: 0x8b8578, roughness: 1 });
+  const concreteD = new THREE.MeshStandardMaterial({ color: 0x6b665c, roughness: 1 });
+  const darkWin = new THREE.MeshStandardMaterial({ color: 0x14181c, roughness: 0.5, metalness: 0.3 });
+  const paint = new THREE.MeshStandardMaterial({ color: 0xbdb187, roughness: 0.95 });
+
+  // 柏油地面
+  const ground = new THREE.Mesh(new THREE.BoxGeometry(62, 1.2, 62), asphalt);
+  ground.position.set(0, base - 0.6, 0);
+  ground.receiveShadow = true;
+  g.add(ground);
+  // 主街虚线 + 横街
+  for (let z = -26; z <= 26; z += 4.5) {
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.02, 2.4), paint);
+    dash.position.set(0, base + 0.012, z);
+    g.add(dash);
+  }
+  for (let x = -26; x <= 26; x += 4.5) {
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.02, 0.28), paint);
+    dash.position.set(x, base + 0.012, 0);
+    g.add(dash);
+  }
+  // 人行道沿（视觉，不挡路）
+  for (const sx of [-9.5, 9.5]) {
+    const curb = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 60), concreteD);
+    curb.position.set(sx, base + 0.1, 0);
+    curb.receiveShadow = true;
+    g.add(curb);
+  }
+
+  // 楼：外壳 + 窗带 + 露出的钢筋
+  for (const [bx, bz, bw, bd, bh] of CITY_BLOCKS) {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), concrete);
+    body.position.set(bx, base + bh / 2, bz);
+    body.castShadow = true; body.receiveShadow = true;
+    g.add(body);
+    // 窗带（朝向街道的两面）
+    const floors = Math.max(1, Math.floor(bh / 2.6));
+    for (let f = 0; f < floors; f++) {
+      const wy = base + 2.0 + f * 2.6;
+      const front = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.84, 1.05, 0.16), darkWin);
+      front.position.set(bx, wy, bz + Math.sign(-bz || 1) * (bd / 2 + 0.02));
+      g.add(front);
+      const side = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.05, bd * 0.8), darkWin);
+      side.position.set(bx + Math.sign(-bx || 1) * (bw / 2 + 0.02), wy, bz);
+      g.add(side);
+    }
+    // 断掉的楼角：几根钢筋
+    for (let i = 0; i < 4; i++) {
+      const rb = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.7 + Math.random() * 0.7, 4), new THREE.MeshStandardMaterial({ color: 0x6a5a48, metalness: 0.6, roughness: 0.7 }));
+      rb.position.set(bx - bw / 2 + 0.6 + i * 0.7, base + bh + 0.35, bz - bd / 2 + 0.4);
+      rb.rotation.z = (Math.random() - 0.5) * 0.5;
+      g.add(rb);
+    }
+    // 碰撞：沿四边布圆
+    const step = 2.2, r = 1.7;
+    for (let t = -bw / 2; t <= bw / 2; t += step) {
+      addCollider(bx + t, bz - bd / 2, r);
+      addCollider(bx + t, bz + bd / 2, r);
+    }
+    for (let t = -bd / 2; t <= bd / 2; t += step) {
+      addCollider(bx - bw / 2, bz + t, r);
+      addCollider(bx + bw / 2, bz + t, r);
+    }
+  }
+
+  // 废车 / 油桶 / 路障 / 路灯
+  buildCar(-4.5, 8, 0.06, RUST[0]);
+  buildCar(5.2, -6, Math.PI + 0.22, RUST[1]);
+  buildCar(-5.5, -20, -0.12, RUST[2]);
+  buildCar(20.5, 2, Math.PI / 2, RUST[3]);
+  buildBarrel(-11.5, 6.5, false);
+  buildBarrel(-12.4, 8.2, true);
+  buildBarrel(11.8, -11, false);
+  buildBarrier(0, 24.6, 0);
+  buildBarrier(-3.4, 24.6, 0.15);
+  for (const [px, pz] of [[-9.8, 5], [9.8, -14]]) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 5.4, 6), new THREE.MeshStandardMaterial({ color: 0x4a4a46, metalness: 0.5, roughness: 0.8 }));
+    pole.position.set(px, base + 2.7, pz);
+    pole.castShadow = true;
+    g.add(pole);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.12), new THREE.MeshStandardMaterial({ color: 0x4a4a46 }));
+    arm.position.set(px + 0.5, base + 5.2, pz);
+    g.add(arm);
+    addCollider(px, pz, 0.3);
+  }
+
+  // 安全区（幸存者营地）：沙袋 + 帐篷 + 篝火 + 箱
+  const szX = 15, szZ = 21;
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const bag = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.42, 0.62), new THREE.MeshStandardMaterial({ color: 0x7d6f4e, roughness: 1 }));
+    bag.position.set(szX + Math.cos(a) * 4.4, base + 0.21, szZ + Math.sin(a) * 4.4);
+    bag.rotation.y = -a;
+    bag.castShadow = true;
+    g.add(bag);
+  }
+  const tent = new THREE.Mesh(new THREE.ConeGeometry(1.9, 2.2, 4), new THREE.MeshStandardMaterial({ color: 0x6b5138, roughness: 0.95, flatShading: true }));
+  tent.position.set(szX + 2.6, base + 1.1, szZ + 2.2);
+  tent.rotation.y = 0.6; tent.castShadow = true; g.add(tent);
+  addCollider(szX + 2.6, szZ + 2.2, 1.6);
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.95, 7), new THREE.MeshBasicMaterial({ color: 0xffa04a }));
+  flame.position.set(szX, base + 0.75, szZ);
+  g.add(flame);
+  const flight = new THREE.PointLight(0xff9a45, 20, 16, 2);
+  flight.position.set(szX, base + 1.4, szZ);
+  g.add(flight);
+  FIRELIGHTS.push({ mesh: flame, light: flight, base: 1 });
+  addCollider(szX, szZ, 0.7);
+  const crate = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.9), new THREE.MeshStandardMaterial({ color: 0x7a5c37, roughness: 0.9 }));
+  crate.position.set(szX - 2.6, base + 0.4, szZ + 1.4);
+  crate.rotation.y = 0.35; crate.castShadow = true; g.add(crate);
+  addCollider(szX - 2.6, szZ + 1.4, 0.7);
+  // 安全区地面标记
+  const ring = new THREE.Mesh(new THREE.RingGeometry(4.0, 4.3, 32), new THREE.MeshBasicMaterial({ color: 0xe0a45c, transparent: true, opacity: 0.45 }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(szX, base + 0.02, szZ);
+  g.add(ring);
+
+  // 南门（回荒原的传送门）
+  for (const s of [-1, 1]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(1.4, 5.2, 1.6), concreteD);
+    post.position.set(3.6 * s, base + 2.6, 28.4);
+    post.castShadow = true;
+    g.add(post);
+    addCollider(3.6 * s, 28.4, 1.1);
+  }
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(9.4, 1.1, 1.7), concrete);
+  lintel.position.set(0, base + 5.6, 28.4);
+  lintel.castShadow = true;
+  g.add(lintel);
+  const gatePlane = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 5.0), new THREE.MeshBasicMaterial({ color: 0x120f0c }));
+  gatePlane.position.set(0, base + 2.6, 28.2);
+  gatePlane.rotation.y = Math.PI;
+  g.add(gatePlane);
+  const gateRing = new THREE.Mesh(new THREE.TorusGeometry(2.5, 0.14, 8, 30), new THREE.MeshBasicMaterial({ color: 0xffb066, transparent: true, opacity: 0.75 }));
+  gateRing.position.set(0, base + 2.6, 28.1);
+  gateRing.rotation.y = Math.PI;
+  g.add(gateRing);
+  G.cityRing = gateRing;
+
+  // 外围废墟矮墙
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2;
+    const bx = Math.cos(a) * 30, bz = Math.sin(a) * 30;
+    const h = 1.6 + Math.random() * 2.2;
+    const chunk = new THREE.Mesh(new THREE.BoxGeometry(3.4 + Math.random(), h, 1.4), concreteD);
+    chunk.position.set(bx, base + h / 2, bz);
+    chunk.rotation.y = -a;
+    chunk.castShadow = true; chunk.receiveShadow = true;
+    g.add(chunk);
+    addCollider(bx, bz, 1.7);
+  }
+
+  // 垃圾/碎石
+  for (let i = 0; i < 26; i++) {
+    const a = Math.random() * 6.28, r = 6 + Math.random() * 20;
+    const sc = 0.25 + Math.random() * 0.6;
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(sc, 0), new THREE.MeshStandardMaterial({ color: 0x6a6459, roughness: 1, flatShading: true }));
+    m.position.set(Math.cos(a) * r, base + sc * 0.3, Math.sin(a) * r);
+    m.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+    m.castShadow = true;
+    g.add(m);
+  }
+}
+
+/* 荒原上的公路哨卡：通往锈港 */
+function buildRoadGate(x, z) {
+  const y = heightAt(x, z);
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  const conc = new THREE.MeshStandardMaterial({ color: 0x8b8578, roughness: 1 });
+  for (const s of [-1, 1]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.9, 4.4, 1.0), conc);
+    post.position.set(0, 2.2, 3.2 * s);
+    post.castShadow = true; g.add(post);
+    addCollider(x, z + 3.2 * s, 0.7);
+  }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 7.4), conc);
+  beam.position.set(0, 4.6, 0);
+  beam.castShadow = true; g.add(beam);
+  // 路面色带 + 发光地标
+  for (let i = 0; i < 6; i++) {
+    const d = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.02, 0.3), new THREE.MeshStandardMaterial({ color: 0xbdb187, roughness: 0.95 }));
+    d.position.set(0, -0.02, -10 + i * 3.2);
+    g.add(d);
+  }
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.2, 26), new THREE.MeshBasicMaterial({ color: 0xffb066, transparent: true, opacity: 0.42 }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.03;
+  g.add(ring);
+  WG.add(g);
+}
+
 /* ---------------- 副本地图：废墟深处（独立场景，由传送门进入） ---------------- */
 function buildDungeon() {
   const g = WG;
@@ -546,11 +857,22 @@ FIRELIGHTS.length = 0;
 // ① 大世界
 WG = mapGroups.overworld; HF = hOver;
 buildTerrain(); buildWater(); buildTrees(); buildRocks(); buildRuins(); buildCamp(); buildMountains();
+// 末日道具
+buildCar(-15.5, 6, 0.4, RUST[0]);
+buildCar(18, -2.5, 2.1, RUST[1]);
+buildCar(9, -13, -0.8, RUST[3]);
+buildPole(-13, 20); buildPole(13, 3); buildPole(-21, -13);
+buildBarrel(-4.2, 27.6, true); buildBarrel(4.8, 24.4, false);
+buildBarrier(46, -9.5, 0.05); buildBarrier(46, 1.2, -0.08);
+buildRoadGate(46, -4);
 finishMap('overworld', {
   h: hOver, label: '灰烬原野',
   spawn: new THREE.Vector3(2.4, hOver(2.4, 30.6) + 0.05, 30.6), face: Math.PI,
   bound: 68, fog: { c: 0x9fb2c0, n: 70, f: 200 }, sun: 2.5, hemi: 1.02, amb: 0.12, sky: true,
-  portal: { x: 0, z: -56.5, r: 4.2, to: 'dungeon', text: '进入废墟深处' },
+  portals: [
+    { x: 0, z: -56.5, r: 4.2, to: 'dungeon', text: '下到废墟深处' },
+    { x: 46, z: -4, r: 4.6, to: 'city', text: '前往锈港' },
+  ],
 });
 // ② 副本（独立地图，只能通过传送门进出）
 WG = mapGroups.dungeon; HF = hDungeon;
@@ -559,8 +881,18 @@ finishMap('dungeon', {
   h: hDungeon, label: '废墟深处',
   spawn: new THREE.Vector3(0, hDungeon(0, 16) + 0.05, 16), face: Math.PI,
   bound: 20, fog: { c: 0x141c24, n: 10, f: 62 }, sun: 0.75, hemi: 0.52, amb: 0.26, sky: false,
-  portal: { x: 0, z: 24.6, r: 3.4, to: 'overworld', text: '返回地表' },
+  portals: [{ x: 0, z: 24.6, r: 3.6, to: 'overworld', text: '返回地表' }],
 });
+// ③ 第一座城市：锈港（独立地图）
+WG = mapGroups.city; HF = hCity;
+buildCity();
+finishMap('city', {
+  h: hCity, label: '锈港',
+  spawn: new THREE.Vector3(0, hCity(0, 22) + 0.05, 22), face: Math.PI,
+  bound: 27, fog: { c: 0x8f7b66, n: 26, f: 105 }, sun: 2.2, hemi: 0.95, amb: 0.16, sky: true,
+  portals: [{ x: 0, z: 28, r: 3.6, to: 'overworld', text: '返回灰烬荒原' }],
+});
+buildAsh();
 activeMap = MAPS.overworld; activeId = 'overworld'; HF = hOver; BOUND = 68;
 colliders.length = 0; colliders.push(...MAPS.overworld.solids);
 
@@ -828,7 +1160,7 @@ function killMonster(m) {
   if (m.boss) {
     G.bossDead = true;
     if (!G.axeUnlocked) { G.axeUnlocked = true; WEAPONS.axe.locked = false; }
-    banner('废墟已清除', '石像守卫倒下 · 获得裂石战斧 · 金币 +260');
+    banner('废墟已清除', '守望者倒下 · 获得裂石战斧 · 废料 +260');
     G.gold += 260;
     updateHUD();
     setTimeout(() => { if (G.mode === 'play') showToast('按背包键可装备「裂石战斧」'); }, 2200);
@@ -1410,6 +1742,20 @@ function stepWorldFx(dt) {
     G.dungeonRing.material.opacity = 0.55 + Math.sin(G.t * 2.0) * 0.18;
   }
   if (G.dungeonRune) { G.dungeonRune.rotation.z += dt * 0.22; }
+  if (G.cityRing) { G.cityRing.rotation.z += dt * 0.35; G.cityRing.material.opacity = 0.6 + Math.sin(G.t * 2.1) * 0.16; }
+  if (ashPoints && ashPoints.visible) {
+    const pa = ashPoints.geometry.attributes.position, arr = pa.array;
+    for (let i = 0; i < arr.length; i += 3) {
+      arr[i + 1] -= dt * (0.75 + (i % 11) * 0.05);
+      arr[i] += Math.sin(G.t * 0.6 + i) * dt * 0.22;
+      if (arr[i + 1] < hero.pos.y - 1.5) {
+        arr[i + 1] = hero.pos.y + 15 + Math.random() * 6;
+        arr[i] = hero.pos.x + (Math.random() * 2 - 1) * 42;
+        arr[i + 2] = hero.pos.z + (Math.random() * 2 - 1) * 42;
+      }
+    }
+    pa.needsUpdate = true;
+  }
   for (let i = G.fx.length - 1; i >= 0; i--) {
     const f = G.fx[i];
     f.t += dt;
@@ -1545,16 +1891,18 @@ const useBtn = document.getElementById('btnUse');
 const useLabel = document.getElementById('useLabel');
 const fadeEl = document.getElementById('fade');
 let nearPortal = null;
-let switching = false;
+let transitioning = false;   // 只在黑屏过渡期间为 true，用 try/finally 复位
+let switchAt = 0;
 
 function enterMap(id, silent) {
   const m = MAPS[id];
-  if (!m || switching) return;
-  switching = true;
+  if (!m) return;
+  if (performance.now() - switchAt < 180) return;   // 连点去抖，不用持久标志
+  switchAt = performance.now();
   activeMap = m; activeId = id; HF = m.h; BOUND = m.bound;
-  mapGroups.overworld.visible = id === 'overworld';
-  mapGroups.dungeon.visible = id === 'dungeon';
+  for (const k of Object.keys(mapGroups)) mapGroups[k].visible = (k === id);
   if (skyMesh) skyMesh.visible = m.sky;
+  if (ashPoints) ashPoints.visible = (id !== 'dungeon');
   colliders.length = 0;
   for (const c of m.solids) colliders.push(c);
   G.monsters = ALL_MONSTERS.filter(x => x.mapId === id);
@@ -1585,14 +1933,16 @@ function enterMap(id, silent) {
   useBtn.classList.add('hidden');
   if (!silent) banner(m.label, id === 'dungeon' ? '深入废墟 · 石像守卫在等你' : '回到灰烬原野');
   updateHUD();
-  setTimeout(() => { switching = false; }, 140);
 }
 
 function updatePortalPrompt() {
   let p = null;
-  if (G.mode === 'play' && !switching && activeMap && activeMap.portal) {
-    const q = activeMap.portal;
-    if (Math.hypot(hero.pos.x - q.x, hero.pos.z - q.z) < q.r) p = q;
+  if (G.mode === 'play' && activeMap && activeMap.portals) {
+    let bd = 1e9;
+    for (const q of activeMap.portals) {
+      const d = Math.hypot(hero.pos.x - q.x, hero.pos.z - q.z);
+      if (d < q.r && d < bd) { bd = d; p = q; }
+    }
   }
   if (p !== nearPortal) {
     nearPortal = p;
@@ -1602,12 +1952,17 @@ function updatePortalPrompt() {
 }
 
 function usePortal() {
-  if (G.mode !== 'play' || switching) return;
+  if (G.mode !== 'play' || transitioning) return;
   updatePortalPrompt();
   if (!nearPortal) return;
   const to = nearPortal.to;
+  transitioning = true;
   fadeEl.style.opacity = '1';
-  setTimeout(() => { enterMap(to); fadeEl.style.opacity = '0'; }, 360);
+  setTimeout(() => {
+    try { enterMap(to); }
+    catch (err) { console.error('enterMap failed', err); }
+    finally { transitioning = false; fadeEl.style.opacity = '0'; }
+  }, 340);
 }
 
 /* ============================== HUD ============================== */
@@ -1637,7 +1992,8 @@ function updateHUD() {
     elQuest.classList.remove('hidden');
     if (G.bossDead) { elQuestName.textContent = '废墟已清除'; elQuestSub.textContent = '守卫倒下 · 铁门后的深处仍待探索'; }
     else if (activeId === 'dungeon') { elQuestName.textContent = '击败石像守卫'; elQuestSub.textContent = G.bossAggro ? '它苏醒了 · 翻滚躲开砸地' : '沿符文圈向前'; }
-    else { elQuestName.textContent = '进入废墟副本'; elQuestSub.textContent = '沿营火北面的石阶走进拱门'; }
+    else if (activeId === 'city') { elQuestName.textContent = '锈港 · 幸存者据点'; elQuestSub.textContent = '东南角的安全区能喘口气'; }
+    else { elQuestName.textContent = '探索灰烬荒原'; elQuestSub.textContent = '东面哨卡通往锈港 · 北面拱门下到废墟'; }
   } else elQuest.classList.add('hidden');
   updatePortalPrompt();
 }
@@ -1647,55 +2003,35 @@ const mini = $('mini'), mctx = mini.getContext('2d');
 
 function drawMini() {
   const W = mini.width, H = mini.height, cx = W / 2, cy = H / 2;
-  if (activeId === 'dungeon') {
-    const s2 = (W * 0.44) / 24;
-    mctx.clearRect(0, 0, W, H);
-    mctx.fillStyle = '#101418'; mctx.fillRect(0, 0, W, H);
-    mctx.save();
-    mctx.beginPath(); mctx.arc(cx, cy, W * 0.47, 0, 7); mctx.clip();
-    mctx.fillStyle = '#2a2a26';
-    mctx.fillRect(cx - 22 * s2, cy - 27 * s2, 44 * s2, 54 * s2);
-    mctx.strokeStyle = '#6e6a60'; mctx.lineWidth = 3;
-    mctx.strokeRect(cx - 22 * s2, cy - 27 * s2, 44 * s2, 54 * s2);
-    mctx.beginPath(); mctx.arc(cx, cy - 18.5 * s2, 7.4 * s2, 0, 7);
-    mctx.fillStyle = '#3a3630'; mctx.fill();
-    mctx.beginPath(); mctx.arc(cx, cy + 24.6 * s2, 4.5, 0, 7);
-    mctx.fillStyle = '#6fd0ff'; mctx.fill();
-    for (const mo of G.monsters) {
-      if (mo.dead) continue;
-      mctx.beginPath();
-      mctx.arc(cx + mo.pos.x * s2, cy + mo.pos.z * s2, mo.kind === 'boss' ? 6 : 3.2, 0, 7);
-      mctx.fillStyle = mo.kind === 'boss' ? '#ff7a45' : (mo.aggro ? '#ff5b5b' : '#c98f5a');
-      mctx.fill();
-    }
-    const px2 = cx + hero.pos.x * s2, py2 = cy + hero.pos.z * s2;
-    const va = Math.atan2(Math.cos(G.cam.yaw), Math.sin(G.cam.yaw));
-    mctx.save(); mctx.translate(px2, py2); mctx.rotate(va);
-    mctx.beginPath(); mctx.moveTo(0, 0); mctx.arc(0, 0, 22, -0.55, 0.55); mctx.closePath();
-    mctx.fillStyle = 'rgba(120,220,255,.18)'; mctx.fill();
-    mctx.restore();
-    mctx.beginPath(); mctx.arc(px2, py2, 4.6, 0, 7); mctx.fillStyle = '#8ce07a'; mctx.fill();
-    mctx.lineWidth = 1.5; mctx.strokeStyle = '#0b1016'; mctx.stroke();
-    mctx.beginPath(); mctx.arc(cx, cy, W * 0.47, 0, 7);
-    mctx.strokeStyle = 'rgba(231,194,125,.35)'; mctx.lineWidth = 2; mctx.stroke();
-    mctx.restore();
-    return;
-  }
-  const sc = (W * 0.44) / BOUND;
+  const sc = activeId === 'dungeon' ? (W * 0.44) / 24 : activeId === 'city' ? (W * 0.44) / 27 : (W * 0.44) / BOUND;
   mctx.clearRect(0, 0, W, H);
   mctx.save();
   mctx.beginPath(); mctx.arc(cx, cy, W * 0.47, 0, 7); mctx.clip();
-  mctx.fillStyle = '#121a12'; mctx.fillRect(0, 0, W, H);
-  // 水
-  mctx.beginPath();
-  mctx.arc(cx + POND.x * sc, cy + POND.z * sc, POND.r * sc, 0, 7);
-  mctx.fillStyle = '#26566b'; mctx.fill();
-  // 废墟
-  mctx.fillStyle = '#4a4a42';
-  mctx.fillRect(cx - 16.5 * sc, cy - 59 * sc, 33 * sc, 26 * sc);
-  mctx.fillStyle = '#5c5c52';
-  mctx.fillRect(cx - 2.1 * sc, cy - 59 * sc, 4.2 * sc, 2.5 * sc);
-  // 怪
+  if (activeId === 'dungeon') {
+    mctx.fillStyle = '#101418'; mctx.fillRect(0, 0, W, H);
+    mctx.fillStyle = '#2a2a26';
+    mctx.fillRect(cx - 22 * sc, cy - 27 * sc, 44 * sc, 54 * sc);
+    mctx.strokeStyle = '#6e6a60'; mctx.lineWidth = 3;
+    mctx.strokeRect(cx - 22 * sc, cy - 27 * sc, 44 * sc, 54 * sc);
+    mctx.beginPath(); mctx.arc(cx, cy - 18.5 * sc, 7.4 * sc, 0, 7); mctx.fillStyle = '#3a3630'; mctx.fill();
+    mctx.beginPath(); mctx.arc(cx, cy + 24.6 * sc, 4.5, 0, 7); mctx.fillStyle = '#ffb066'; mctx.fill();
+  } else if (activeId === 'city') {
+    mctx.fillStyle = '#0d1115'; mctx.fillRect(0, 0, W, H);
+    mctx.fillStyle = '#2c2c29'; mctx.fillRect(cx - 31 * sc, cy - 31 * sc, 62 * sc, 62 * sc);
+    mctx.fillStyle = '#4a4741';
+    for (const b of CITY_BLOCKS) mctx.fillRect(cx + b[0] * sc - b[2] * sc / 2, cy + b[1] * sc - b[3] * sc / 2, b[2] * sc, b[3] * sc);
+    mctx.beginPath(); mctx.arc(cx + 15 * sc, cy + 21 * sc, 4.4 * sc, 0, 7); mctx.fillStyle = 'rgba(224,164,92,.45)'; mctx.fill();
+    mctx.beginPath(); mctx.arc(cx, cy + 28 * sc, 4.5, 0, 7); mctx.fillStyle = '#ffb066'; mctx.fill();
+  } else {
+    mctx.fillStyle = '#141a12'; mctx.fillRect(0, 0, W, H);
+    mctx.beginPath(); mctx.arc(cx + POND.x * sc, cy + POND.z * sc, POND.r * sc, 0, 7);
+    mctx.fillStyle = '#3f5a38'; mctx.fill();
+    mctx.fillStyle = '#4a4a42';
+    mctx.fillRect(cx - 16.5 * sc, cy - 59 * sc, 33 * sc, 26 * sc);
+    mctx.fillStyle = '#5c5c52';
+    mctx.fillRect(cx - 2.1 * sc, cy - 59 * sc, 4.2 * sc, 2.5 * sc);
+    mctx.beginPath(); mctx.arc(cx + 46 * sc, cy - 4 * sc, 4, 0, 7); mctx.fillStyle = '#ffb066'; mctx.fill();
+  }
   for (const m of G.monsters) {
     if (m.dead) continue;
     mctx.beginPath();
@@ -1704,7 +2040,6 @@ function drawMini() {
     mctx.fill();
     if (m.kind === 'boss') { mctx.strokeStyle = '#ffd6a0'; mctx.lineWidth = 2; mctx.stroke(); }
   }
-  // 玩家 + 视野扇形
   const px = cx + hero.pos.x * sc, py = cy + hero.pos.z * sc;
   const viewAng = Math.atan2(Math.cos(G.cam.yaw), Math.sin(G.cam.yaw));
   mctx.save();
@@ -1714,7 +2049,8 @@ function drawMini() {
   mctx.restore();
   mctx.beginPath(); mctx.arc(px, py, 4.6, 0, 7); mctx.fillStyle = '#8ce07a'; mctx.fill();
   mctx.lineWidth = 1.5; mctx.strokeStyle = '#0b1016'; mctx.stroke();
-  mctx.beginPath(); mctx.arc(cx, cy, W * 0.47, 0, 7); mctx.strokeStyle = 'rgba(231,194,125,.35)'; mctx.lineWidth = 2; mctx.stroke();
+  mctx.beginPath(); mctx.arc(cx, cy, W * 0.47, 0, 7);
+  mctx.strokeStyle = 'rgba(224,160,92,.38)'; mctx.lineWidth = 2; mctx.stroke();
   mctx.restore();
 }
 
@@ -1854,7 +2190,7 @@ function renderPanel() {
       <div class="secTitle">体魄强化</div>
       <div class="card" id="btnUpgrade" style="justify-content:center;text-align:center">
         <div><div class="cn" style="justify-content:center">锻炼体魄 · 生命上限 +15</div>
-        <div class="cs">消耗 60 金币 · 当前金币 ${G.gold}</div></div>
+        <div class="cs">消耗 60 废料 · 当前废料 ${G.gold}</div></div>
       </div>`;
     body.querySelectorAll('[data-w]').forEach(el => {
       el.onclick = () => {
@@ -1869,7 +2205,7 @@ function renderPanel() {
     const up = body.querySelector('#btnUpgrade');
     if (up) up.onclick = () => {
       if (G.hpBoost >= 150) { showToast('体魄已达上限'); return; }
-      if (G.gold < 60) { showToast('金币不足（需要 60）'); return; }
+      if (G.gold < 60) { showToast('废料不足（需要 60）'); return; }
       G.gold -= 60; G.hpBoost += 15; hero.hp = Math.min(maxHp(), hero.hp + 15);
       showToast('生命上限 +15'); renderPanel();
     };
@@ -2166,6 +2502,106 @@ async function selfTest() {
   return 'done';
 }
 
+
+
+async function cityTest() {
+  const out = { viewport: [innerWidth, innerHeight] };
+  const errs = [];
+  window.onerror = (m) => { errs.push(String(m)); };
+  startGame();
+  out.before = { map: activeId, solids: colliders.length, monsters: G.monsters.length };
+  // 从荒原哨卡进锈港
+  const wp = MAPS.overworld.portals.find(q => q.to === 'city');
+  hero.pos.set(wp.x, heightAt(wp.x, wp.z + 3), wp.z + 3);
+  updateHUD();
+  out.wpPrompt = nearPortal ? nearPortal.to : null;
+  enterMap('city', true);
+  await new Promise(r => setTimeout(r, 200));
+  out.city = { map: activeId, solids: colliders.length, monsters: G.monsters.length, bound: BOUND, sky: skyMesh.visible, fog: +scene.fog.near.toFixed(0), pos: [+hero.pos.x.toFixed(1), +hero.pos.z.toFixed(1)], quest: document.getElementById('questName').textContent };
+  hero.pos.set(0, heightAt(0, 10), 10); hero.yaw = Math.PI; G.cam.yaw = Math.PI;
+  simulate(1 / 60);
+  updateCamera(1.2); updateCamera(1.2); renderer.render(scene, camera);
+  await DG.shot('t_city');
+  // 安全区
+  hero.pos.set(12, heightAt(12, 18), 18); hero.yaw = -Math.PI / 2; G.cam.yaw = -Math.PI / 2;
+  simulate(1 / 60);
+  updateCamera(1.2); updateCamera(1.2); renderer.render(scene, camera);
+  await DG.shot('t_city_safe');
+  // 走路撞楼：从街心朝东走 6 秒，应该被楼挡住
+  hero.pos.set(0, heightAt(0, 0), 0); hero.yaw = Math.PI / 2;
+  input.stickActive = true; input.ix = 1; input.iz = 0;
+  G.cam.yaw = Math.PI;
+  for (let i = 0; i < 60 * 6; i++) simulate(1 / 60);
+  input.ix = 0; input.stickActive = false;
+  out.wall = { pos: [+hero.pos.x.toFixed(1), +hero.pos.z.toFixed(1)], blocked: hero.pos.x < 16 };
+  // 出口回荒原
+  const cp = MAPS.city.portals[0];
+  hero.pos.set(cp.x, heightAt(cp.x, cp.z - 2), cp.z - 2);
+  updateHUD();
+  out.cpPrompt = nearPortal ? nearPortal.to : null;
+  enterMap('overworld', true);
+  await new Promise(r => setTimeout(r, 200));
+  out.back = { map: activeId, solids: colliders.length, monsters: G.monsters.length, sky: skyMesh.visible };
+  out.errs = errs;
+  window.__cityReport = JSON.stringify(out);
+  await post('city', out);
+  return out;
+}
+
+async function portalTest() {
+  const out = {};
+  const errs = [];
+  window.onerror = (m) => { errs.push(String(m)); };
+  startGame();
+  updateHUD();
+  out.hiddenFar = document.getElementById('btnUse').classList.contains('hidden');
+  const p = MAPS.overworld.portal;
+  // 真的走过去（不是传送），检验路上有没有被挡住/够不到
+  hero.pos.set(p.x, heightAt(p.x, p.z + 26), p.z + 26);
+  hero.yaw = Math.PI; G.cam.yaw = Math.PI;
+  input.stickActive = true; input.ix = 0; input.iz = 1;
+  let reached = false, tReach = 0;
+  for (let i = 0; i < 60 * 30; i++) {
+    simulate(1 / 60);
+    if (Math.hypot(hero.pos.x - p.x, hero.pos.z - p.z) < p.r) { reached = true; tReach = +(i / 60).toFixed(1); break; }
+  }
+  input.iz = 0; input.stickActive = false;
+  out.walk = { reached, tReach, dist: +Math.hypot(hero.pos.x - p.x, hero.pos.z - p.z).toFixed(2), pos: [+hero.pos.x.toFixed(1), +hero.pos.z.toFixed(1)] };
+  updateHUD();
+  out.prompt = nearPortal ? nearPortal.to : null;
+  const btn = document.getElementById('btnUse');
+  out.btnVisible = !btn.classList.contains('hidden');
+  out.label = document.getElementById('useLabel').textContent;
+  const rc = btn.getBoundingClientRect();
+  out.btnRect = { x: Math.round(rc.x), y: Math.round(rc.y), w: Math.round(rc.width), h: Math.round(rc.height) };
+  const hitEl = document.elementFromPoint(rc.x + rc.width / 2, rc.y + rc.height / 2);
+  out.btnHit = hitEl ? (hitEl.id || hitEl.tagName) : null;
+  btn.click();
+  await new Promise(r => setTimeout(r, 2200));
+  out.afterClick = { map: activeId, transitioning, fade: getComputedStyle(document.getElementById('fade')).opacity };
+  if (activeId === 'dungeon') {
+    const q = MAPS.dungeon.portal;
+    hero.pos.set(q.x, hDungeon(q.x, q.z - 2.4), q.z - 2.4);
+    updateHUD();
+    out.dbgDungeon = DG.dbg();
+    out.dPrompt = nearPortal ? nearPortal.to : null;
+    btn.click();
+    await new Promise(r => setTimeout(r, 2200));
+    out.afterBack = { map: activeId };
+  }
+  if (activeId === 'overworld') {
+    hero.pos.set(p.x, heightAt(p.x, p.z + 1.5), p.z + 1.5);
+    updateHUD();
+    out.eKeyBefore = activeId;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' }));
+    await new Promise(r => setTimeout(r, 2200));
+    out.eKeyAfter = activeId;
+  }
+  out.errs = errs;
+  window.__portalReport = JSON.stringify(out);
+  return out;
+}
+
 async function mapTest() {
   const out = { viewport: [innerWidth, innerHeight] };
   startGame();
@@ -2249,7 +2685,11 @@ async function bossTest() {
 }
 window.__selfTest = selfTest;
 window.__bossTest = bossTest;
-if (location.search.indexOf('test=map') >= 0) {
+if (location.search.indexOf('test=city') >= 0) {
+  setTimeout(() => { cityTest().catch(e => { window.__cityReport = JSON.stringify({ err: e.message, stack: (e.stack || '').slice(0, 300) }); }); }, 500);
+} else if (location.search.indexOf('test=portal') >= 0) {
+  setTimeout(() => { portalTest().catch(e => { window.__portalReport = JSON.stringify({ err: e.message, stack: (e.stack || '').slice(0, 300) }); }); }, 500);
+} else if (location.search.indexOf('test=map') >= 0) {
   setTimeout(() => { mapTest().catch(e => post('99_error', { err: e.message, stack: (e.stack || '').slice(0, 300) })); }, 500);
 } else if (location.search.indexOf('test=boss') >= 0) {
   setTimeout(() => { bossTest().catch(e => post('99_error', { err: e.message, stack: (e.stack || '').slice(0, 300) })); }, 500);
@@ -2331,4 +2771,5 @@ window.DG = {
   closePanel,
   setCam(yaw, pitch, dist) { if (yaw != null) G.cam.yaw = yaw; if (pitch != null) G.cam.pitch = pitch; if (dist != null) G.cam.dist = dist; },
   setMode(m) { G.mode = m; },
+  dbg() { updateHUD(); return { switching: transitioning, near: nearPortal ? nearPortal.to : null, mode: G.mode, map: activeId, btn: !useBtn.classList.contains('hidden') }; },
 };
