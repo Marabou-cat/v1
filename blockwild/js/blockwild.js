@@ -874,28 +874,38 @@ function equipArmor(itemId) {
   renderHotbar(); renderInventoryPanel(); saveSoon();
   return true;
 }
-let inv = [];   // [{id,n}]
+// 背包是 27 个固定格子（空格为 null），这样物品可以在格子里随意换位置
 const SLOTS = 27;
+let inv = new Array(SLOTS).fill(null);
+const STACK_MAX = 64;
 
 function addItem(id, n = 1) {
   if (!isItem(id)) return false;
-  for (const s of inv) if (s.id === id && s.n < 64) { const add = Math.min(64 - s.n, n); s.n += add; n -= add; if (!n) return true; }
-  while (n > 0 && inv.length < SLOTS) { const add = Math.min(64, n); inv.push({ id, n: add }); n -= add; }
+  for (let i = 0; i < SLOTS && n > 0; i++) {
+    const s = inv[i];
+    if (s && s.id === id && s.n < STACK_MAX) { const add = Math.min(STACK_MAX - s.n, n); s.n += add; n -= add; }
+  }
+  for (let i = 0; i < SLOTS && n > 0; i++) {
+    if (!inv[i]) { const add = Math.min(STACK_MAX, n); inv[i] = { id, n: add }; n -= add; }
+  }
+  if (n > 0) toast('背包满了，东西掉在脚下', 1.5);
   return n === 0;
 }
-function countOf(id) { let n = 0; for (const s of inv) if (s.id === id) n += s.n; return n; }
+function countOf(id) { let n = 0; for (const s of inv) if (s && s.id === id) n += s.n; return n; }
 function takeItem(id, n) {
-  for (let i = 0; i < inv.length && n > 0; i++) {
-    if (inv[i].id !== id) continue;
-    const take = Math.min(inv[i].n, n);
-    inv[i].n -= take; n -= take;
-    if (inv[i].n <= 0) inv.splice(i--, 1);
+  for (let i = 0; i < SLOTS && n > 0; i++) {
+    const s = inv[i];
+    if (!s || s.id !== id) continue;
+    const take = Math.min(s.n, n);
+    s.n -= take; n -= take;
+    if (s.n <= 0) inv[i] = null;
   }
   return n === 0;
 }
 const held = () => inv[player.sel] || null;
 const heldKind = () => { const h = held(); return h ? (defOf(h.id) || {}).kind : null; };
-const hasPick = () => inv.some(s => (defOf(s.id) || {}).kind === 'pick');
+const hasPick = () => inv.some(s => s && (defOf(s.id) || {}).kind === 'pick');
+const invUsed = () => inv.filter(Boolean).length;
 
 function collides(px, py, pz) {
   const hw = CFG.HW, h = CFG.PH;
@@ -1338,7 +1348,7 @@ function clockText() {
 /* ============================================================ 村庄 */
 const VS_CELL = 160;
 const villageCache = new Map();
-const openedChests = new Set();
+
 
 function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
   const woodP = 8, log = 6, cobble = 9;
@@ -1488,25 +1498,94 @@ function nearestVillage(maxDist = 140) {
   return best;
 }
 
-// 箱子：按坐标哈希给一份固定战利品，开过就空了
+// 箱子：真正的容器（27 格），第一次打开时按坐标哈希生成战利品，之后内容持久化
 const CHEST_TABLE = [[105, 1, 3], [107, 1, 3], [8, 3, 6], [104, 2, 5], [13, 2, 5], [106, 1, 2], [9, 2, 4], [17, 1, 3]];
-function openChest(x, y, z) {
+const CHEST_SLOTS = 27;
+const chestInv = new Map();          // "x,y,z" -> 27 格内容
+function chestSlots(x, y, z) {
   const k = x + ',' + y + ',' + z;
-  if (openedChests.has(k)) { toast('这个箱子已经空了', 1.4); return false; }
-  openedChests.add(k);
-  const rnd = mulberry32((Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791) ^ SEED) | 0);
-  const picks = 2 + Math.floor(rnd() * 3);
-  const got = [];
-  for (let i = 0; i < picks; i++) {
-    const [id, a, b] = CHEST_TABLE[Math.floor(rnd() * CHEST_TABLE.length)];
-    const n = a + Math.floor(rnd() * (b - a + 1));
-    addItem(id, n);
-    got.push(`${nameOf(id)}×${n}`);
+  let slots = chestInv.get(k);
+  if (!slots) {
+    slots = new Array(CHEST_SLOTS).fill(null);
+    const rnd = mulberry32((Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791) ^ SEED) | 0);
+    const picks = 2 + Math.floor(rnd() * 4);
+    for (let i = 0; i < picks; i++) {
+      const [id, a, b] = CHEST_TABLE[Math.floor(rnd() * CHEST_TABLE.length)];
+      const n = a + Math.floor(rnd() * (b - a + 1));
+      let idx = Math.floor(rnd() * CHEST_SLOTS), guard = 0;
+      while (slots[idx] && guard++ < CHEST_SLOTS) idx = (idx + 1) % CHEST_SLOTS;
+      slots[idx] = { id, n };
+    }
+    chestInv.set(k, slots);
   }
-  toast(`打开箱子：${got.join('、')}`, 2.8);
+  return slots;
+}
+let openChestPos = null, cursor = null;          // cursor = 手上正在搬运的那一堆
+function openChest(x, y, z) {
+  if (panelOpen) openPanel(false);           // 两个界面不要叠在一起
+  openChestPos = { x, y, z };
+  chestSlots(x, y, z);
+  $('chestPanel').classList.remove('hide');
+  renderChest();
   sfx('craft');
-  renderHotbar(); saveSoon();
   return true;
+}
+function closeChest() {
+  if (cursor) {                                    // 关界面时手上的东西塞回背包/箱子
+    if (!addItem(cursor.id, cursor.n)) { toast('背包满了，物品掉在脚下', 1.6); spawnDrop(cursor.id, cursor.n, player.p.x, player.p.y + 1, player.p.z); }
+    cursor = null;
+  }
+  openChestPos = null;
+  $('chestPanel').classList.add('hide');
+  renderHotbar(); refreshHeld(); saveSoon();
+}
+function afterSlotChange() {
+  renderHotbar(); refreshHeld();
+  if (openChestPos) renderChest();
+  if (panelOpen) renderInventoryPanel();
+  saveSoon();
+}
+// 点一下拿起，再点一下放下 / 合并 / 交换 —— 背包和箱子共用这套逻辑
+function slotClick(arr, i) {
+  const cur = arr[i];
+  if (!cursor) {
+    if (cur) { cursor = cur; arr[i] = null; }
+    else return;
+  } else if (!cur) {
+    arr[i] = cursor; cursor = null;
+  } else if (cur.id === cursor.id) {
+    const total = cur.n + cursor.n;
+    if (total <= STACK_MAX) { cur.n = total; cursor = null; }
+    else { cur.n = STACK_MAX; cursor = { id: cursor.id, n: total - STACK_MAX }; }
+  } else {
+    arr[i] = cursor; cursor = cur;
+  }
+  afterSlotChange();
+}
+function renderGrid(el, arr, handler) {
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 0; i < arr.length; i++) {
+    const s = arr[i];
+    const d = document.createElement('div');
+    d.className = 'cell';
+    if (s) {
+      d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>`;
+      d.title = nameOf(s.id);
+    }
+    d.onclick = () => handler(i);
+    el.appendChild(d);
+  }
+}
+function cursorText() { return cursor ? `手上：${nameOf(cursor.id)} ×${cursor.n}` : '手上：空（点物品拿起，再点另一格放下/交换）'; }
+function renderChest() {
+  if (!openChestPos) return;
+  const cs = chestSlots(openChestPos.x, openChestPos.y, openChestPos.z);
+  renderGrid($('chestGrid'), cs, i => slotClick(cs, i));
+  renderGrid($('chestInvGrid'), inv, i => slotClick(inv, i));
+  const t = cursorText();
+  if ($('chestHint')) $('chestHint').textContent = t;
+  if ($('cursorInfo')) $('cursorInfo').textContent = t;
 }
 
 /* ============================================================ 生物 */
@@ -1960,14 +2039,29 @@ function renderArmorRow() {
     d.title = id ? `${ITEMS[id].name}（点击脱下）` : `空 ${ARMOR_SLOT_NAME[s]}`;
     if (id) {
       d.innerHTML = `<img src="${iconURL(id)}" alt="" style="position:absolute;inset:5px;width:calc(100% - 10px);image-rendering:pixelated">`;
-      d.onclick = () => {
-        addItem(id, 1); player.armor[s] = null;
-        toast(`脱下 ${ITEMS[id].name}`, 1.2);
-        renderArmorRow(); renderHotbar(); renderInventoryPanel(); saveSoon();
-      };
     } else {
       d.innerHTML = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#5d738d">${ARMOR_SLOT_NAME[s]}</span>`;
     }
+    // 手上有东西 → 穿到这个槽；手空 → 把这个槽脱下来拿在手上
+    d.onclick = () => {
+      if (cursor) {
+        const df = ITEMS[cursor.id];
+        if (df && df.kind === 'armor' && df.slot === s) {
+          const old = player.armor[s];
+          player.armor[s] = cursor.id;
+          cursor.n -= 1;
+          if (cursor.n <= 0) cursor = null;
+          if (old) addItem(old, 1);
+          toast(`穿上 ${ITEMS[player.armor[s]].name}（护甲 ${armorPoints()}）`, 1.4);
+          afterSlotChange();
+        } else toast(`这个槽只能放${ARMOR_SLOT_NAME[s]}`, 1.4);
+      } else if (id) {
+        player.armor[s] = null;
+        cursor = { id, n: 1 };
+        toast(`脱下 ${nameOf(id)}`, 1.1);
+        afterSlotChange();
+      }
+    };
     row.appendChild(d);
   }
   const v = $('armorVal');
@@ -1975,24 +2069,9 @@ function renderArmorRow() {
 }
 function renderInventoryPanel() {
   renderArmorRow();
-  hud.invGrid.innerHTML = '';
-  for (let i = 0; i < SLOTS; i++) {
-    const s = inv[i];
-    const d = document.createElement('div');
-    d.className = 'cell';
-    if (s) {
-      d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>`;
-      d.title = nameOf(s.id);
-      d.onclick = () => {
-        const df = defOf(s.id) || {};
-        if (df.kind === 'armor') { equipArmor(s.id); return; }
-        if (i < 9) { player.sel = i; refreshHeld(); renderHotbar(); }
-        toast(`选中 ${nameOf(s.id)}`, 1.2);
-      };
-    }
-    hud.invGrid.appendChild(d);
-  }
-  hud.invCount.textContent = `${inv.length}/${SLOTS}`;
+  renderGrid(hud.invGrid, inv, i => slotClick(inv, i));
+  if ($('cursorInfo')) $('cursorInfo').textContent = cursorText();
+  hud.invCount.textContent = `${invUsed()}/${SLOTS}`;
   hud.recList.innerHTML = '';
   const hasTable = nearCraftingTable();
   for (const r of RECIPES) {
@@ -2097,6 +2176,7 @@ function renderFurnace() {
 function openFurnace() { renderFurnace(); $('furnace').classList.remove('hide'); }
 function closeFurnace() { $('furnace').classList.add('hide'); }
 function openPanel(open) {
+  if (open && openChestPos) closeChest();
   panelOpen = open;
   hud.panel.classList.toggle('hide', !open);
   if (open) {
@@ -2124,7 +2204,11 @@ addEventListener('keydown', e => {
     const n = +k.slice(5);
     if (n >= 1 && n <= 9) { player.sel = n - 1; refreshHeld(); renderHotbar(); }
   }
-  if (k === 'Escape' && panelOpen) openPanel(false);
+  if (k === 'Escape') {
+    if (openChestPos) { closeChest(); e.preventDefault(); return; }
+    if (!$('furnace').classList.contains('hide')) { closeFurnace(); e.preventDefault(); return; }
+    if (panelOpen) { openPanel(false); e.preventDefault(); return; }
+  }
 });
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('wheel', e => {
@@ -2299,9 +2383,15 @@ function breakBlock(t) {
   setBlock(t.x, t.y, t.z, 0);
   sfx('dig');
   const dropAt = (id, n) => spawnDrop(id, n, t.x + 0.5, t.y + 0.6, t.z + 0.5);
+  if (def.chest) {                                   // 箱子里的东西一并掉出来
+    const slots = chestInv.get(t.x + ',' + t.y + ',' + t.z);
+    if (slots) for (const s of slots) if (s) spawnDrop(s.id, s.n, t.x + 0.5, t.y + 0.7, t.z + 0.5);
+    chestInv.delete(t.x + ',' + t.y + ',' + t.z);
+    if (openChestPos && openChestPos.x === t.x && openChestPos.y === t.y && openChestPos.z === t.z) closeChest();
+  }
   if (def.leaf) { if (Math.random() < 0.12) dropAt(105, 1); }
   else if (def.drop) {
-    const stonePick = inv.some(s => s.id === 101 || s.id === 120);
+    const stonePick = inv.some(s => s && (s.id === 101 || s.id === 120));
     if (def.stonePick && !stonePick) toast('铁矿需要石镐或更好才能采集', 1.8);
     else if (def.pick && heldKind() !== 'pick') toast('石头需要镐才能采集', 1.8);
     else dropAt(def.drop, 1);
@@ -2569,7 +2659,7 @@ function save() {
     const data = {
       seed: SEED, time: worldTime,
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
-      inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(openedChests),
+      inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
     };
     localStorage.setItem(CFG.SAVE_KEY, JSON.stringify(data));
   } catch (e) { /* 配额满就跳过 */ }
@@ -2584,10 +2674,14 @@ function loadSave() {
     if (!d || !d.seed) return false;
     SEED = d.seed;
     worldTime = d.time || 0;
-    inv = (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0);
+    inv = new Array(SLOTS).fill(null);
+    (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0).forEach((s, i) => { if (i < SLOTS) inv[i] = { id: s.id, n: s.n }; });
     player.spawn = d.spawn || null;
     if (d.armor) for (const s of ARMOR_SLOTS) player.armor[s] = ITEMS[d.armor[s]] ? d.armor[s] : null;
-    for (const c of (d.chests || [])) openedChests.add(c);
+    if (Array.isArray(d.chests)) for (const entry of d.chests) {
+      if (!Array.isArray(entry) || !Array.isArray(entry[1])) continue;   // 兼容旧存档
+      chestInv.set(entry[0], entry[1].map(s => (s && isItem(s.id) && s.n > 0) ? { id: s.id, n: s.n } : null));
+    }
     for (const [k, v] of (d.edits || [])) edits.set(k, v);
     if (d.player) {
       player.p.set(d.player.x, d.player.y, d.player.z);
@@ -2669,6 +2763,7 @@ $('btnReset').onclick = () => { if (confirm('清空存档并生成一个新世�
 $('btnBag').onclick = () => openPanel(!panelOpen);
 $('btnClose').onclick = () => openPanel(false);
 $('btnFurnaceClose').onclick = () => closeFurnace();
+$('btnChestClose').onclick = () => closeChest();
 $('btnRespawn').onclick = () => respawn();
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
@@ -2709,7 +2804,7 @@ window.GAME = {
     look(yaw, pitch) { player.yaw = yaw; player.pitch = pitch; },
     tp(x, y, z) { player.p.set(x, y, z); player.v.set(0, 0, 0); },
     give(id, n = 1) { addItem(id, n); renderHotbar(); refreshHeld(); },
-    clearInv() { inv = []; renderHotbar(); refreshHeld(); },
+    clearInv() { inv = new Array(SLOTS).fill(null); renderHotbar(); refreshHeld(); },
     select(i) { player.sel = i; refreshHeld(); renderHotbar(); },
     setTime(t) { worldTime = t; updateSky(); },
     setHp(v) { player.hp = v; },
@@ -2857,7 +2952,14 @@ window.GAME = {
     },
     furnaceOpen: () => !$('furnace').classList.contains('hide'),
     openFurnace: () => openFurnace(),
-    openedChestCount: () => openedChests.size,
+    openedChestCount: () => chestInv.size,
+    chestContents: () => openChestPos ? chestSlots(openChestPos.x, openChestPos.y, openChestPos.z).map(s => s ? s.id + ':' + s.n : null) : null,
+    cursor: () => cursor,
+    clickChestSlot: (i) => { if (!openChestPos) return null; slotClick(chestSlots(openChestPos.x, openChestPos.y, openChestPos.z), i); return cursor; },
+    clickInvSlot: (i) => { slotClick(inv, i); return cursor; },
+    clickArmorSlot: (s) => { const el = $('armorGrid').children[ARMOR_SLOTS.indexOf(s)]; if (el) el.click(); return cursor; },
+    closeChest: () => closeChest(),
+    chestOpen: () => !!openChestPos,
     findBlockAny: (id, r = 40) => {
       const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
       for (let d = 0; d < r; d++) for (let dx = -d; dx <= d; dx++) for (let dz = -d; dz <= d; dz++) {

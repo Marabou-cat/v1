@@ -166,8 +166,20 @@
     <div class="pgrid" id="invGrid"></div>
     <div class="sec">盔甲 <span id="armorVal" style="color:#f5c451"></span></div>
     <div class="pgrid" id="armorGrid" style="grid-template-columns:repeat(4,1fr);max-width:210px;margin-bottom:14px"></div>
-    <div class="sec">合成（点击制作 · 铁制工具/盔甲需站在工作台旁）</div>
+    <div class="sec">合成（点击制作 · 铁制工具/盔甲需站在工作台旁）<span id="cursorInfo" style="color:#8ea3ba;font-size:11px;float:right;font-weight:400"></span></div>
     <div id="recList"></div>
+  </div>
+</div>
+
+<div class="overlay hide" id="chestPanel">
+  <div class="card" style="max-width:660px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="sec" style="border:0;margin:0">箱子 <span id="chestHint" style="color:#8ea3ba;font-size:11px"></span></div>
+      <button class="btn" id="btnChestClose">关闭 Esc</button>
+    </div>
+    <div class="pgrid" id="chestGrid"></div>
+    <div class="sec">背包（点一下拿起，再点另一格放下 / 同种合并 / 不同种交换）</div>
+    <div class="pgrid" id="chestInvGrid"></div>
   </div>
 </div>
 
@@ -192,6 +204,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=24"></script>
+<script type="module" src="./js/blockwild.js?v=25"></script>
 </body>
 </html>
