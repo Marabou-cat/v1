@@ -264,10 +264,11 @@ const BLOCKS = {
   10: { name: '工作台', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10 },
   13: { name: '煤矿石', top: 13, side: 13, bottom: 13, hard: 2.2, drop: 13, pick: true },
   14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true },
-  15: { name: '铁矿石', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 106, pick: true, stonePick: true },
+  15: { name: '铁矿石', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 15, pick: true, stonePick: true },
   16: { name: '农田', top: 17, side: 2, bottom: 2, hard: 0.5, drop: 2 },
   17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
+  19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick' },
@@ -283,6 +284,8 @@ const ITEMS = {
   113: { name: '铁靴', kind: 'armor', slot: 'feet', ap: 2 },
   107: { name: '小麦', kind: 'mat' },
   108: { name: '生猪排', kind: 'food', food: 3 },
+  109: { name: '熟猪排', kind: 'food', food: 6 },
+  124: { name: '面包', kind: 'food', food: 5 },
   120: { name: '铁镐', kind: 'pick', fast: 1.7 },
   121: { name: '铁剑', kind: 'sword', dmg: 9 },
 };
@@ -424,6 +427,18 @@ function makeAtlas() {
     for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#6f4a20'); px(c, r, 15, y, '#6f4a20'); }
     for (let x = 1; x < 15; x++) for (let y = 1; y < 15; y++) if ((x + y) % 5 === 0) px(c, r, x, y, '#8f6130');
   });
+  // 21 熔炉侧面 / 22 熔炉顶
+  T(21, '#6d6d6d', 0.1, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#4a4a4a'); px(c, r, x, 15, '#4a4a4a'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#4a4a4a'); px(c, r, 15, y, '#4a4a4a'); }
+    for (let x = 3; x < 13; x++) for (let y = 8; y < 14; y++) px(c, r, x, y, y > 10 ? '#3a2a20' : '#1a1512');
+    for (let x = 4; x < 12; x++) for (let y = 12; y < 14; y++) px(c, r, x, y, '#c85a24');
+  });
+  T(22, '#787878', 0.1, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#4a4a4a'); px(c, r, x, 15, '#4a4a4a'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#4a4a4a'); px(c, r, 15, y, '#4a4a4a'); }
+    for (let x = 5; x < 11; x++) for (let y = 5; y < 11; y++) if ((x - 8) ** 2 + (y - 8) ** 2 < 7) px(c, r, x, y, '#2b2b2b');
+  });
   // 13 煤矿
   T(13, '#8d8d8d', 0.13, (c, r) => {
     for (let i = 0; i < 7; i++) {
@@ -462,6 +477,31 @@ function iconURL(id) {
     g.fillStyle = '#ef5f5f'; g.beginPath(); g.arc(12, 16, 3.4, 0, 7); g.fill();
     g.strokeStyle = '#6a4a2a'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(16, 11); g.lineTo(17, 5); g.stroke();
     g.fillStyle = '#4c9a3a'; g.beginPath(); g.ellipse(21, 6, 5, 2.6, -0.4, 0, 7); g.fill();
+  } else if (id === 107) { // 小麦
+    g.lineCap = 'round'; g.lineWidth = 2.2;
+    for (const [dx, rot] of [[-5, -0.3], [0, 0], [5, 0.3]]) {
+      g.strokeStyle = '#6f9a3a';
+      g.beginPath(); g.moveTo(16 + dx, 27); g.lineTo(16 + dx + rot * 9, 9); g.stroke();
+      g.fillStyle = '#d9b24a';
+      g.fillRect(13 + dx + rot * 7, 5, 5, 8);
+      g.fillStyle = '#b8912f';
+      g.fillRect(13 + dx + rot * 7, 5, 5, 2);
+    }
+  } else if (id === 108 || id === 109) { // 生猪排 / 熟猪排
+    g.fillStyle = id === 108 ? '#e08a8a' : '#a9622f';
+    g.beginPath(); g.ellipse(15, 17, 9, 6.5, -0.2, 0, 7); g.fill();
+    g.fillStyle = id === 108 ? '#f2b3b3' : '#c98a4a';
+    g.beginPath(); g.ellipse(15, 16, 5.5, 3.5, -0.2, 0, 7); g.fill();
+    g.fillStyle = '#efe6d2';
+    g.fillRect(23, 15, 5, 3.5);
+    g.beginPath(); g.arc(28, 15.5, 2.4, 0, 7); g.fill();
+  } else if (id === 124) { // 面包
+    g.fillStyle = '#c98a3f';
+    g.beginPath(); g.ellipse(16, 16, 10, 6.5, 0, 0, 7); g.fill();
+    g.fillStyle = '#8c5a25';
+    g.beginPath(); g.ellipse(16, 13, 9.5, 3.4, 0, 0, 7); g.fill();
+    g.strokeStyle = '#e9c089'; g.lineWidth = 1.6;
+    for (const x of [11, 16, 21]) { g.beginPath(); g.moveTo(x, 11); g.lineTo(x + 1, 17); g.stroke(); }
   } else if (ITEMS[id] && ITEMS[id].kind === 'pick') { // 镐
     const metal = id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
     g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
@@ -515,6 +555,7 @@ function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.ad
 // 树的形态参数（全部由坐标哈希决定 → 同一世界任何时候生成都一样，跨区块也不会变样）
 // 三种形态：阔叶橡树(圆冠) / 针叶高杉(锥形) / 细弱小树，冠幅半径、树高、冠心偏移各自随机
 function treeParams(wx, wz) {
+  if (inVillage(wx, wz)) return null;                 // 村庄范围内不长树
   if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.977) return null;
   const g = heightAt(wx, wz);
   if (g <= CFG.SEA + 1 || g >= 45) return null;
@@ -989,8 +1030,9 @@ function makeToolModel(id) {
   const woodDark = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
   const stoneM = new THREE.MeshLambertMaterial({ color: 0xa9a9a9 });
   const stoneD = new THREE.MeshLambertMaterial({ color: 0x8b8b8b });
-  if (id === 100 || id === 101) {              // 镐
-    const head = id === 101 ? stoneM : wood;
+  const ironM = new THREE.MeshLambertMaterial({ color: 0xd9dee5 });
+  if (id === 100 || id === 101 || id === 120) {  // 镐
+    const head = id === 101 ? stoneM : id === 120 ? ironM : wood;
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.52, 0.042), woodDark);
     handle.position.y = -0.1;
     const bar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.085, 0.075), head);
@@ -1002,8 +1044,8 @@ function makeToolModel(id) {
     tipR.position.set(0.19, 0.13, 0);
     tipR.rotation.z = 0.42;
     g.add(handle, bar, tipL, tipR);
-  } else if (id === 102 || id === 103) {       // 剑
-    const bladeMat = id === 103 ? stoneD : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
+  } else if (id === 102 || id === 103 || id === 121) {       // 剑
+    const bladeMat = id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.44, 0.018), bladeMat);
     blade.position.y = 0.3;
     const tip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.018), bladeMat);
@@ -1019,6 +1061,34 @@ function makeToolModel(id) {
     const s = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.44, 0.032), wood);
     s.position.y = 0.12;
     g.add(s);
+  } else if (id === 106) {                     // 铁锭
+    const a = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.07, 0.1), ironM);
+    a.position.y = 0.1;
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.055, 0.088), new THREE.MeshLambertMaterial({ color: 0xeff4f9 }));
+    b2.position.y = 0.15;
+    g.add(a, b2);
+  } else if (id === 107) {                     // 小麦
+    for (let i = 0; i < 3; i++) {
+      const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.34, 0.022), new THREE.MeshLambertMaterial({ color: 0x6f9a3a }));
+      stalk.position.set((i - 1) * 0.055, 0.16, 0);
+      stalk.rotation.z = (i - 1) * 0.2;
+      const ear = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 0.05), new THREE.MeshLambertMaterial({ color: 0xd9b24a }));
+      ear.position.set((i - 1) * 0.055, 0.33, 0);
+      g.add(stalk, ear);
+    }
+  } else if (id === 108 || id === 109) {        // 猪排
+    const raw = id === 108;
+    const meat = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.15), new THREE.MeshLambertMaterial({ color: raw ? 0xe08a8a : 0xa9622f }));
+    meat.position.y = 0.1;
+    const bone = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.055), new THREE.MeshLambertMaterial({ color: 0xefe6d2 }));
+    bone.position.set(0.12, 0.1, 0);
+    g.add(meat, bone);
+  } else if (id === 124) {                     // 面包
+    const loaf = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.11, 0.14), new THREE.MeshLambertMaterial({ color: 0xc98a3f }));
+    loaf.position.y = 0.12;
+    const crust = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.035, 0.15), new THREE.MeshLambertMaterial({ color: 0x8c5a25 }));
+    crust.position.y = 0.175;
+    g.add(loaf, crust);
   } else if (id === 105) {                     // 苹果
     const a = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.11, 0.115), new THREE.MeshLambertMaterial({ color: 0xd33b3b }));
     a.position.y = 0.1;
@@ -1381,11 +1451,29 @@ function villageFor(cellX, cellZ) {
         if (!arr) byChunk.set(k2, arr = []);
         arr.push(op);
       }
-      out = { cellX, cellZ, cx, cz, gy, houses, ops: ops.length, byChunk };
+      let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+      for (const op of ops) {
+        if (op.x < minX) minX = op.x;
+        if (op.x > maxX) maxX = op.x;
+        if (op.z < minZ) minZ = op.z;
+        if (op.z > maxZ) maxZ = op.z;
+      }
+      out = { cellX, cellZ, cx, cz, gy, houses, ops: ops.length, byChunk, minX, maxX, minZ, maxZ };
     }
   }
   villageCache.set(key, out);
   return out;
+}
+
+// 这个坐标是否落在村庄范围内（含 3 格余量，防止树冠压到房子上）
+function inVillage(wx, wz) {
+  const cellX = Math.floor(wx / VS_CELL), cellZ = Math.floor(wz / VS_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const v = villageFor(cellX + dx, cellZ + dz);
+    if (!v) continue;
+    if (wx >= v.minX - 3 && wx <= v.maxX + 3 && wz >= v.minZ - 3 && wz <= v.maxZ + 3) return true;
+  }
+  return false;
 }
 
 function nearestVillage(maxDist = 140) {
@@ -1603,11 +1691,10 @@ function startMobDeath(m) {
   m.parts.bodyMat.emissive.setHex(0x000000);
   m.parts.headMat.emissive.setHex(0x000000);
   const def = MOB_DEFS[m.kind];
-  if (def && def.drop) {                            // 猪掉生猪排，直接进背包
+  if (def && def.drop) {                            // 猪掉生猪排（掉落物实体）
     const n = 1 + Math.floor(Math.random() * 2);
-    addItem(def.drop, n);
+    spawnDrop(def.drop, n, m.p.x, m.p.y + 0.45, m.p.z);
     toast(`${def.name}掉落了 ${nameOf(def.drop)} ×${n}`, 1.8);
-    renderHotbar();
   }
   sfx('hurt');
 }
@@ -1718,6 +1805,73 @@ function updateMobs(dt) {
     const ang = Math.random() * Math.PI * 2, r = 3 + Math.random() * 8;
     const x = Math.floor(v.cx + Math.cos(ang) * r), z = Math.floor(v.cz + Math.sin(ang) * r);
     spawnMobAt('villager', x, surfaceY(x, z) + 1, z, { home: { x: v.cx, z: v.cz } });
+  }
+}
+
+/* ============================================================ 掉落物 */
+const drops = [];
+const DROP_MAX = 90;
+const dropTexCache = new Map();
+function dropTexture(id) {
+  if (dropTexCache.has(id)) return dropTexCache.get(id);
+  const tex = new THREE.TextureLoader().load(iconURL(id));
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  dropTexCache.set(id, tex);
+  return tex;
+}
+function spawnDrop(id, n, x, y, z, opts = {}) {
+  if (!isItem(id) || n <= 0) return null;
+  if (drops.length >= DROP_MAX) { addItem(id, n); return null; }   // 太挤就直接进包
+  const mat = new THREE.MeshBasicMaterial({ map: dropTexture(id), transparent: true });
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), mat);
+  const d = {
+    id, n, t: 0, spin: Math.random() * 6,
+    p: new THREE.Vector3(x, y, z),
+    v: new THREE.Vector3((Math.random() - 0.5) * 1.4, opts.pop || 2.4, (Math.random() - 0.5) * 1.4),
+    obj: mesh,
+  };
+  mesh.position.copy(d.p);
+  scene.add(mesh);
+  drops.push(d);
+  return d;
+}
+function updateDrops(dt) {
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i];
+    d.t += dt;
+    const dx = player.p.x - d.p.x, dy = (player.p.y + 0.7) - d.p.y, dz = player.p.z - d.p.z;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (d.t > 0.3 && dist < 2.0) {                       // 靠近后吸附过来
+      const k = Math.min(1, dt * 9);
+      d.p.x += dx * k; d.p.y += dy * k; d.p.z += dz * k;
+      d.v.set(0, 0, 0);
+    } else {
+      d.v.y -= 17 * dt;
+      d.p.x += d.v.x * dt; d.p.y += d.v.y * dt; d.p.z += d.v.z * dt;
+      const below = getBlock(Math.floor(d.p.x), Math.floor(d.p.y - 0.17), Math.floor(d.p.z));
+      if (d.v.y < 0 && isSolid(below)) {                  // 落地弹一下
+        d.p.y = Math.floor(d.p.y - 0.17) + 1.17;
+        d.v.y *= -0.3;
+        d.v.x *= 0.55; d.v.z *= 0.55;
+        if (Math.abs(d.v.y) < 0.7) d.v.y = 0;
+      }
+    }
+    d.spin += dt * 2.4;
+    d.obj.position.set(d.p.x, d.p.y + Math.sin(d.t * 3.2) * 0.05, d.p.z);
+    d.obj.rotation.y = d.spin;
+    d.obj.rotation.x = Math.sin(d.spin * 0.7) * 0.15;
+    if (d.t > 0.3 && dist < 0.95) {                       // 拾取
+      addItem(d.id, d.n);
+      if (d.n > 1) toast(`拾取 ${nameOf(d.id)} ×${d.n}`, 1.1);
+      sfx('dig');
+      renderHotbar();
+      scene.remove(d.obj);
+      d.obj.geometry.dispose(); d.obj.material.dispose();
+      drops.splice(i, 1);
+      continue;
+    }
+    if (d.t > 180) { scene.remove(d.obj); drops.splice(i, 1); }
   }
 }
 
@@ -1860,6 +2014,8 @@ const RECIPES = [
   { out: 8, n: 4, need: { 6: 1 } },
   { out: 104, n: 4, need: { 8: 2 } },
   { out: 10, n: 1, need: { 8: 4 } },
+  { out: 124, n: 1, need: { 107: 3 } },
+  { out: 19, n: 1, need: { 9: 8 }, tier: 1 },
   { out: 100, n: 1, need: { 8: 3, 104: 2 }, tier: 1 },
   { out: 101, n: 1, need: { 9: 3, 104: 2 }, tier: 1 },
   { out: 102, n: 1, need: { 8: 2, 104: 1 }, tier: 1 },
@@ -1872,6 +2028,28 @@ const RECIPES = [
   { out: 113, n: 1, need: { 106: 4 }, tier: 1 },
   { out: 14, n: 1, need: { 8: 4, 104: 3 }, tier: 1 },
 ];
+// 熔炉：1 份燃料 + 1 份原料 → 1 份产物（燃料：木板 or 炼好的煤块）
+const SMELT = [
+  { in: 15, out: 106, n: 1, name: '铁矿石 → 铁锭' },
+  { in: 108, out: 109, n: 1, name: '生猪排 → 熟猪排' },
+  { in: 4, out: 124, n: 0, name: '' },              // 占位（沙子暂无用途）
+];
+const FUELS = [8, 13];
+function fuelCount() { return FUELS.reduce((a, id) => a + countOf(id), 0); }
+function smelt(r) {
+  if (!r || !r.n) return false;
+  if (countOf(r.in) < 1) { toast(`没有 ${nameOf(r.in)}`, 1.4); return false; }
+  if (fuelCount() < 1) { toast('没有燃料（木板或煤）', 1.6); return false; }
+  const fuelId = FUELS.find(id => countOf(id) > 0);
+  takeItem(r.in, 1);
+  takeItem(fuelId, 1);
+  spawnDrop(r.out, r.n, player.p.x, player.p.y + 0.9, player.p.z);
+  toast(`熔炼出 ${nameOf(r.out)}`, 1.5);
+  sfx('craft');
+  renderHotbar(); renderFurnace(); saveSoon();
+  return true;
+}
+
 // 附近 9×6×9 内是否有已放置的工作台（0.4 秒缓存）
 let tableCache = { t: -1, v: false };
 function nearCraftingTable() {
@@ -1896,6 +2074,28 @@ function craft(r) {
   return true;
 }
 let panelOpen = false;
+function renderFurnace() {
+  const list = $('smeltList');
+  if (!list) return;
+  const fuel = fuelCount();
+  const fi = $('fuelInfo');
+  if (fi) fi.textContent = `${fuel} 份`;
+  list.innerHTML = '';
+  for (const r of SMELT) {
+    if (!r.n) continue;
+    const have = countOf(r.in);
+    const can = have > 0 && fuel > 0;
+    const d = document.createElement('div');
+    d.className = 'rec' + (can ? '' : ' no');
+    d.innerHTML = `<img src="${iconURL(r.out)}" alt=""><div class="t">${nameOf(r.out)} ×${r.n}`
+      + `<i>${nameOf(r.in)} ×1 + 燃料 ×1（已有原料 ${have}）</i></div>`
+      + `<div class="go">${can ? '熔炼 →' : have ? '缺燃料' : '缺原料'}</div>`;
+    d.onclick = () => { if (can) smelt(r); };
+    list.appendChild(d);
+  }
+}
+function openFurnace() { renderFurnace(); $('furnace').classList.remove('hide'); }
+function closeFurnace() { $('furnace').classList.add('hide'); }
 function openPanel(open) {
   panelOpen = open;
   hud.panel.classList.toggle('hide', !open);
@@ -2098,12 +2298,13 @@ function breakBlock(t) {
   if (!def) return;
   setBlock(t.x, t.y, t.z, 0);
   sfx('dig');
-  if (def.leaf) { if (Math.random() < 0.12) { addItem(105, 1); toast('捡到苹果 ×1', 1.6); } }
+  const dropAt = (id, n) => spawnDrop(id, n, t.x + 0.5, t.y + 0.6, t.z + 0.5);
+  if (def.leaf) { if (Math.random() < 0.12) dropAt(105, 1); }
   else if (def.drop) {
     const stonePick = inv.some(s => s.id === 101 || s.id === 120);
     if (def.stonePick && !stonePick) toast('铁矿需要石镐或更好才能采集', 1.8);
     else if (def.pick && heldKind() !== 'pick') toast('石头需要镐才能采集', 1.8);
-    else addItem(def.drop, 1);
+    else dropAt(def.drop, 1);
   }
   renderHotbar(); refreshHeld(); saveSoon();
 }
@@ -2131,7 +2332,7 @@ function eat() {
   if (player.hunger >= 20) { toast('现在不饿', 1.2); return false; }
   player.hunger = Math.min(20, player.hunger + (defOf(h.id).food || 4));
   takeItem(h.id, 1);
-  sfx('eat'); toast('吃掉了苹果', 1.2);
+  sfx('eat'); toast(`吃掉了 ${nameOf(h.id)}`, 1.2);
   startSwing('place', 0.3);
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
@@ -2261,6 +2462,7 @@ function update(dt) {
   }
   updatePlayer(dt);
   updateMobs(dt);
+  updateDrops(dt);
 
   // 目标方块
   const t = player.alive ? raycastVoxel(eyePos(), cameraDir(), CFG.REACH) : null;
@@ -2285,6 +2487,7 @@ function update(dt) {
     placeQueued = false;
     const h = held();
     if (t && t.id === 18) { openChest(t.x, t.y, t.z); startSwing('place', 0.2); }
+    else if (t && t.id === 19) { openFurnace(); startSwing('place', 0.2); }
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
     else if (h && (defOf(h.id) || {}).kind === 'food') eat();
@@ -2465,6 +2668,7 @@ $('btnNew').onclick = () => startGame(true);
 $('btnReset').onclick = () => { if (confirm('清空存档并生成一个新世界？')) newWorld(); };
 $('btnBag').onclick = () => openPanel(!panelOpen);
 $('btnClose').onclick = () => openPanel(false);
+$('btnFurnaceClose').onclick = () => closeFurnace();
 $('btnRespawn').onclick = () => respawn();
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
@@ -2630,6 +2834,29 @@ window.GAME = {
       return v;
     },
     chestAt: (x, y, z) => openChest(x, y, z),
+    drops: () => drops.map(d => ({ id: d.id, name: nameOf(d.id), n: d.n, t: +d.t.toFixed(2), y: +d.p.y.toFixed(2), dist: +d.p.distanceTo(player.p).toFixed(2) })),
+    dropCount: () => drops.length,
+    spawnDrop: (id, n) => spawnDrop(id, n, player.p.x + 1.2, player.p.y + 1.2, player.p.z),
+    stepDrops: (n = 1) => { for (let i = 0; i < n; i++) updateDrops(1 / 60); },
+    smeltIdx: (i) => smelt(SMELT[i]),
+    fuel: () => fuelCount(),
+    inVillage: (x, z) => inVillage(x, z),
+    leavesInVillages: (r = 1) => {
+      const pcx = Math.floor(player.p.x / VS_CELL), pcz = Math.floor(player.p.z / VS_CELL);
+      let total = 0, perVillage = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const v = villageFor(pcx + dx, pcz + dz);
+        if (!v) continue;
+        let n = 0;
+        for (let x = v.minX; x <= v.maxX; x++) for (let z = v.minZ; z <= v.maxZ; z++)
+          for (let y = v.gy - 2; y < v.gy + 14; y++) if (getBlock(x, y, z) === 7) n++;
+        perVillage.push({ cx: v.cx, cz: v.cz, leaves: n });
+        total += n;
+      }
+      return { total, perVillage };
+    },
+    furnaceOpen: () => !$('furnace').classList.contains('hide'),
+    openFurnace: () => openFurnace(),
     openedChestCount: () => openedChests.size,
     findBlockAny: (id, r = 40) => {
       const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
