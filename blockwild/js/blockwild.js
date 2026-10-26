@@ -607,16 +607,15 @@ function makeArm(side) {
 const armR = makeArm(1), armL = makeArm(-1);
 armR.position.set(0.3, -0.3, -0.26);
 armR.rotation.set(-0.2, -0.34, 0.12);
-armL.position.set(-0.3, -0.34, -0.24);
+armL.position.set(-0.28, -0.26, -0.25);
 armL.rotation.set(-0.26, 0.4, -0.12);
 handScene.add(armR, armL);
 
-// 手持方块（右手），按当前选中方块换材质
+// ── 手持物：方块立方体 / 工具模型（镐、剑、木棍、苹果）都握在右手里 ──
 const heldGroup = new THREE.Group();
 heldGroup.position.set(0.01, -0.02, -0.54);
-heldGroup.rotation.set(0.2, 0.6, 0.1);
 armR.add(heldGroup);
-let heldMesh = null, heldFor = -1;
+let heldMesh = null, heldFor = -2, heldKindNow = null;
 const faceTexCache = new Map();
 function blockFaceMat(tile) {
   if (faceTexCache.has(tile)) return faceTexCache.get(tile);
@@ -628,19 +627,192 @@ function blockFaceMat(tile) {
   faceTexCache.set(tile, m);
   return m;
 }
+// 工具模型：原点在握把处，沿 +Y 伸出；母材质在 handScene 里是有灯的
+function makeToolModel(id) {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshLambertMaterial({ color: 0xb08348 });
+  const woodDark = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
+  const stoneM = new THREE.MeshLambertMaterial({ color: 0xa9a9a9 });
+  const stoneD = new THREE.MeshLambertMaterial({ color: 0x8b8b8b });
+  if (id === 100 || id === 101) {              // 镐
+    const head = id === 101 ? stoneM : wood;
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.52, 0.042), woodDark);
+    handle.position.y = -0.1;
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.085, 0.075), head);
+    bar.position.y = 0.17;
+    const tipL = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.075, 0.07), head);
+    tipL.position.set(-0.19, 0.13, 0);
+    tipL.rotation.z = -0.42;
+    const tipR = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.075, 0.07), head);
+    tipR.position.set(0.19, 0.13, 0);
+    tipR.rotation.z = 0.42;
+    g.add(handle, bar, tipL, tipR);
+  } else if (id === 102 || id === 103) {       // 剑
+    const bladeMat = id === 103 ? stoneD : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.44, 0.018), bladeMat);
+    blade.position.y = 0.3;
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.018), bladeMat);
+    tip.position.y = 0.55;
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.032, 0.05), woodDark);
+    guard.position.y = 0.07;
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.16, 0.044), wood);
+    grip.position.y = -0.02;
+    const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.045, 0.055), woodDark);
+    pommel.position.y = -0.11;
+    g.add(blade, tip, guard, grip, pommel);
+  } else if (id === 104) {                     // 木棍
+    const s = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.44, 0.032), wood);
+    s.position.y = 0.12;
+    g.add(s);
+  } else if (id === 105) {                     // 苹果
+    const a = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.11, 0.115), new THREE.MeshLambertMaterial({ color: 0xd33b3b }));
+    a.position.y = 0.1;
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.022, 0.045), new THREE.MeshLambertMaterial({ color: 0x4c9a3a }));
+    leaf.position.set(0.035, 0.17, 0);
+    const stem = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.05, 0.014), woodDark);
+    stem.position.set(0, 0.16, 0);
+    g.add(a, leaf, stem);
+  }
+  return g;
+}
+// 握持姿势：方块是斜着摆在掌心，工具是斜举（镐头/剑尖朝前上）
+const HOLD_POSE = {
+  block: { rx: 0.2, ry: 0.6, rz: 0.1, py: 0, pz: 0, s: 1 },
+  pick: { rx: -0.6, ry: 0.55, rz: -0.1, py: 0.06, pz: -0.12, s: 0.95 },
+  sword: { rx: -0.5, ry: 0.45, rz: -0.15, py: 0.07, pz: -0.12, s: 0.92 },
+  mat: { rx: -0.45, ry: 0.45, rz: -0.25, py: 0.06, pz: -0.1, s: 0.95 },
+  food: { rx: 0.1, ry: 0.45, rz: 0.18, py: 0.06, pz: -0.1, s: 1.0 },
+};
 function refreshHeld() {
   const h = held();
-  const id = h && BLOCKS[h.id] ? h.id : -1;
+  const id = h ? h.id : -1;
   if (id === heldFor) return;
   heldFor = id;
-  if (heldMesh) { heldGroup.remove(heldMesh); heldMesh.geometry.dispose(); heldMesh = null; }
-  if (id < 0) return;
-  const d = BLOCKS[id];
-  const mats = [d.side, d.side, d.top, d.bottom ?? d.top, d.side, d.side].map(blockFaceMat);
-  const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-  heldMesh = new THREE.Mesh(geo, mats);
-  heldMesh.rotation.set(0.1, 0.5, 0);
+  if (heldMesh) {
+    heldGroup.remove(heldMesh);
+    heldMesh.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    heldMesh = null;
+  }
+  const b = id > 0 ? BLOCKS[id] : null;
+  const it = id > 0 ? ITEMS[id] : null;
+  let kind = null;
+  if (b) {
+    kind = 'block';
+    const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
+    heldMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
+  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'mat' || it.kind === 'food')) {
+    kind = it.kind;
+    heldMesh = makeToolModel(id);
+  }
+  heldKindNow = kind;
+  if (!heldMesh) { heldGroup.visible = false; return; }
+  const pose = HOLD_POSE[kind] || HOLD_POSE.block;
+  heldGroup.position.set(0.01, pose.py, -0.54 + pose.pz);
+  heldGroup.rotation.set(pose.rx, pose.ry, pose.rz);
+  heldGroup.scale.setScalar(pose.s || 1);
   heldGroup.add(heldMesh);
+  heldGroup.visible = true;
+}
+
+/* ── 手部动画：抬腕 → 加速下砸 → 缓慢回收，带视角拖尾/走路摆动/切枪/落地缓冲 ── */
+const easeOutCubic = t => 1 - Math.pow(1 - clamp01(t), 3);
+const easeInQuad = t => { const x = clamp01(t); return x * x; };
+// p: 0..1 的循环进度；windEnd 抬到位、hitEnd 砸到位 → 返回 -1(抬起) .. +1(砸下)
+function swingCurve(p, windEnd, hitEnd) {
+  if (p < windEnd) return -easeOutCubic(p / windEnd);
+  if (p < hitEnd) return -1 + 2 * easeInQuad((p - windEnd) / (hitEnd - windEnd));
+  return 1 - easeOutCubic((p - hitEnd) / (1 - hitEnd));
+}
+const anim = {
+  swing: 0, swingDur: 0.5, swingType: 'attack', swingA: 0,
+  equip: 0, equipDur: 0.32,
+  mineW: 0, mineT: 0,
+  swayX: 0, swayY: 0, lastYaw: 0, lastPitch: 0,
+  land: 0, lastSel: -1, lastGround: true,
+};
+const BASE_POSE = { x: 0.27, y: -0.22, z: -0.27, rx: -0.2, ry: -0.34, rz: 0.12 };
+function startSwing(type = 'attack', dur = 0.5) {
+  anim.swingType = type;
+  anim.swingDur = dur;
+  anim.swing = dur;
+}
+function updateHandPose(dt, now) {
+  // 切换物品 → 从下方抬上来的装备动画
+  if (anim.lastSel !== player.sel) {
+    if (anim.lastSel >= 0) anim.equip = anim.equipDur;
+    anim.lastSel = player.sel;
+  }
+  // 视角拖尾：手比镜头慢半拍（Action & Stuff 的核心手感）
+  const dyaw = player.yaw - anim.lastYaw, dpitch = player.pitch - anim.lastPitch;
+  anim.lastYaw = player.yaw; anim.lastPitch = player.pitch;
+  const smoothK = Math.min(1, dt * 11);
+  const wantX = clamp(-dyaw * 2.6, -0.15, 0.15);
+  const wantY = clamp(dpitch * 2.6, -0.15, 0.15);
+  anim.swayX += (wantX - anim.swayX) * smoothK;
+  anim.swayY += (wantY - anim.swayY) * smoothK;
+  if (Math.abs(dyaw) < 1e-6) anim.swayX *= 1 - Math.min(1, dt * 2.5);
+  if (Math.abs(dpitch) < 1e-6) anim.swayY *= 1 - Math.min(1, dt * 2.5);
+
+  let px = BASE_POSE.x + anim.swayX;
+  let py = BASE_POSE.y + anim.swayY;
+  let pz = BASE_POSE.z;
+  let rx = BASE_POSE.rx, ry = BASE_POSE.ry + anim.swayX * 0.4, rz = BASE_POSE.rz;
+
+  // 呼吸 + 走路摆动（速度越大摆得越明显）
+  const t = now / 1000;
+  const spd = Math.hypot(player.v.x, player.v.z);
+  const walkAmt = clamp01(spd / CFG.WALK);
+  py += Math.sin(t * 1.5) * 0.0045 + Math.sin(player.walkPhase * 2) * 0.014 * walkAmt;
+  px += Math.cos(player.walkPhase) * 0.008 * walkAmt;
+  rz += Math.sin(player.walkPhase) * 0.022 * walkAmt;
+
+  // 挖掘：0.5 秒一轮的缓慢抬砸（旧版是 0.18 秒猛抖，眼睛会花）
+  const mining = mineHeld && player.alive && !!player.mineTarget;
+  anim.mineW += ((mining ? 1 : 0) - anim.mineW) * Math.min(1, dt * 9);
+  if (mining) anim.mineT += dt; else anim.mineT = 0;
+  let aTotal = 0;
+  if (anim.mineW > 0.01) {
+    const p = (anim.mineT % 0.5) / 0.5;
+    const a = swingCurve(p, 0.52, 0.70);
+    aTotal += a * anim.mineW;
+  }
+  // 单次挥击（攻击 / 放置）
+  if (anim.swing > 0) {
+    anim.swing = Math.max(0, anim.swing - dt);
+    const p = 1 - anim.swing / anim.swingDur;
+    const a = anim.swingType === 'attack' ? swingCurve(p, 0.3, 0.52)
+            : Math.sin(clamp01(p) * Math.PI);      // 放置 = 轻轻一推
+    anim.swingA = a;
+    aTotal += a * (anim.swingType === 'attack' ? 1 : 0.55);
+  } else anim.swingA = 0;
+
+  rx += aTotal * 0.62;
+  pz += -0.05 * Math.max(0, aTotal);
+  rz += aTotal * 0.1;
+
+  // 装备动画
+  if (anim.equip > 0) {
+    anim.equip = Math.max(0, anim.equip - dt);
+    const dip = 1 - easeOutCubic(1 - anim.equip / anim.equipDur);
+    py -= 0.34 * dip;
+    rz += 0.3 * dip;
+    rx += 0.22 * dip;
+  }
+  // 落地缓冲
+  anim.land = Math.max(0, anim.land - dt * 3.2);
+  py -= anim.land * 0.035;
+
+  armR.position.set(px, py, pz);
+  armR.rotation.set(rx, ry, rz);
+  armL.position.set(-0.28 - anim.swayX * 0.5, -0.26 + anim.swayY * 0.6 - anim.land * 0.03, -0.25);
+  armL.rotation.set(-0.26 + aTotal * 0.12, 0.4, -0.12);
+
+  // 手里的东西也跟着挥
+  if (heldMesh) {
+    const pose = HOLD_POSE[heldKindNow] || HOLD_POSE.block;
+    heldGroup.rotation.set(pose.rx + aTotal * 0.3, pose.ry - aTotal * 0.1, pose.rz + aTotal * 0.18);
+    heldGroup.position.set(0.01, pose.py - Math.max(0, aTotal) * 0.02, -0.54 + pose.pz - Math.max(0, aTotal) * 0.05);
+  }
 }
 
 /* ============================================================ 音效 */
@@ -954,7 +1126,7 @@ addEventListener('wheel', e => {
 renderer.domElement.addEventListener('mousedown', e => {
   if (!started || panelOpen || !player.alive) return;
   if (document.pointerLockElement !== renderer.domElement) { lockPointer(); return; }
-  if (e.button === 0) { mineHeld = true; attackQueued = true; }
+  if (e.button === 0) { mineHeld = true; attackQueued = true; if (heldKind() === 'sword') startSwing('attack', 0.5); }
   if (e.button === 2) placeQueued = true;
 });
 addEventListener('mouseup', e => { if (e.button === 0) mineHeld = false; });
@@ -1043,7 +1215,6 @@ function doMine(dt, target) {
   if (def.pick) speed *= pickOk ? 1 : 0.28;
   player.mining += dt * speed;
   player.mineTarget = target;
-  player.swing = Math.max(player.swing, 0.55);
   if (player.mining >= 1) {
     player.mining = 0;
     breakBlock(target);
@@ -1076,7 +1247,7 @@ function placeBlock() {
   setBlock(x, y, z, h.id);
   takeItem(h.id, 1);
   sfx('place');
-  player.swing = 0.8;
+  startSwing('place', 0.26);
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
@@ -1087,6 +1258,7 @@ function eat() {
   player.hunger = Math.min(20, player.hunger + (defOf(h.id).food || 4));
   takeItem(h.id, 1);
   sfx('eat'); toast('吃掉了苹果', 1.2);
+  startSwing('place', 0.3);
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
@@ -1121,7 +1293,7 @@ function attack() {
   target.aggro = 16;                 // 被打了就记仇：白天也会追你
   target.v.y = 4.6;
   target.v.x += dir.x * 5.5; target.v.z += dir.z * 5.5;
-  player.swing = 1;
+  startSwing('attack', 0.5);
   player.atkCd = 0.42;
   player.hits = (player.hits || 0) + 1;
   sfx('hit');
@@ -1172,6 +1344,7 @@ function updatePlayer(dt) {
   if (player.onGround) {
     if (wasFall !== null) {
       const fall = wasFall - player.p.y;
+      if (fall > 1.2) anim.land = Math.min(1, fall / 6);
       if (fall > 4.2 && !player.inWater) damagePlayer(Math.min(12, Math.round((fall - 4.2) * 1.7)));
     }
     player.fallFrom = null;
@@ -1215,17 +1388,8 @@ function update(dt) {
     if (h && (defOf(h.id) || {}).kind === 'food') eat(); else placeBlock();
   }
 
-  // 手部动画
-  const miningPulse = mineHeld && t ? 1 : 0;
-  if (miningPulse) player.swing = (player.swing + dt * 5.5) % 1;
-  else player.swing = Math.max(0, player.swing - dt * 3.2);
-  const swingArc = Math.sin(Math.min(1, player.swing) * Math.PI);
-  const bob = Math.sin(player.walkPhase) * 0.022;
-  const breathe = Math.sin(performance.now() * 0.0013) * 0.006;
-  armR.rotation.set(-0.2 - swingArc * 0.85, -0.34 + swingArc * 0.35, 0.12 - swingArc * 0.16);
-  armR.position.set(0.3, -0.3 + bob + breathe, -0.26 - swingArc * 0.1);
-  armL.rotation.set(-0.26 - swingArc * 0.4, 0.4 - swingArc * 0.2, -0.12);
-  armL.position.set(-0.3, -0.34 - bob * 0.7 + breathe, -0.24);
+  // 手部姿势在 frame() 里按真实帧时长算（固定步长里算会让动画在高刷屏上发顿）
+  player.swing = 0;
 
   // 区块流式加载
   streamChunks();
@@ -1345,7 +1509,7 @@ function frame(now) {
 
   camera.position.set(player.p.x, player.p.y + CFG.EYE + Math.sin(player.walkPhase) * 0.018, player.p.z);
   camera.rotation.set(player.pitch, player.yaw, 0);
-  heldGroup.visible = !!heldMesh;
+  updateHandPose(dt, now);
 
   renderer.clear();
   renderer.render(scene, camera);
@@ -1403,7 +1567,7 @@ addEventListener('beforeunload', () => { if (started) save(); });
 
 /* ============================================================ 调试探针 */
 window.GAME = {
-  CFG, BLOCKS, ITEMS, RECIPES, player, chunks, edits, mobs, inv: () => inv,
+  CFG, BLOCKS, ITEMS, RECIPES, player, chunks, edits, mobs, anim, inv: () => inv,
   get started() { return started; },
   get fps() { return fps; },
   get time() { return worldTime; },
@@ -1459,6 +1623,14 @@ window.GAME = {
       player.pitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
       return { yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) };
     },
+    handPose: () => ({
+      arm: armR.position.toArray().map(v => +v.toFixed(4)).concat(armR.rotation.toArray().slice(0, 3).map(v => +(+v).toFixed(4))),
+      item: heldGroup.position.toArray().map(v => +v.toFixed(4)).concat(heldGroup.rotation.toArray().slice(0, 3).map(v => +(+v).toFixed(4))),
+      kind: heldKindNow, visible: heldGroup.visible, heldId: heldFor,
+      swing: +anim.swing.toFixed(3), mineW: +anim.mineW.toFixed(3), mineT: +anim.mineT.toFixed(3),
+      equip: +anim.equip.toFixed(3), sway: [+anim.swayX.toFixed(4), +anim.swayY.toFixed(4)],
+    }),
+    swing: (type = 'attack', dur = 0.5) => startSwing(type, dur),
     mobsInfo: () => mobs.map(m => ({
       hp: m.hp, dist: +m.p.distanceTo(player.p).toFixed(2),
       aggro: +m.aggro.toFixed(1), flash: +m.flash.toFixed(2),
