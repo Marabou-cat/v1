@@ -49,6 +49,26 @@ const SPAWNS = [
   { k: 'slime', x: -19, z: -9, map: 'city' }, { k: 'slime', x: 20, z: -19, map: 'city' },
 ];
 
+/* ============================== 存档 ============================== */
+const SAVE_KEY = 'ashfall_ruins_save_v1';
+function loadSave() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (s && s.ver === 1) return s;
+  } catch (e) {}
+  return null;
+}
+function writeSave() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      ver: 1, appearance: G.appearance, gear: G.gear,
+      level: G.level, xp: G.xp, xpNeed: G.xpNeed, gold: G.gold,
+      hpBoost: G.hpBoost, axeUnlocked: G.axeUnlocked, seenIntro: true,
+    }));
+    G.dirty = false; G.savedAt = G.t;
+  } catch (e) {}
+}
+
 /* ============================== 世界几何 ============================== */
 let BOUND = 68;
 const POND = { x: -26, z: 26, r: 11.5, water: -1.35 };
@@ -401,6 +421,18 @@ function buildCamp() {
   flag.position.set(-4.95, y + 2.75, 24);
   g.add(flag);
   addCollider(-5.6, 24, 0.3);
+}
+
+function buildNpc() {
+  const m = buildHumanoid({
+    height: 1.84, skin: '#c9926a', shirt: '#4a4034', pants: '#332c25', bootColor: '#2e2620',
+    hairStyle: 2, hairColor: '#3b2b1f', armor: 'leather', weapon: 'spear', eyes: '#2a2f35',
+  });
+  m.group.position.set(0.6, heightAt(0.6, 25.2), 25.2);
+  m.group.rotation.y = 0.32;
+  WG.add(m.group);
+  addCollider(0.6, 25.2, 0.5);
+  G.npc = m;
 }
 
 function buildMountains() {
@@ -855,6 +887,18 @@ const G = {
   portalRing: null,
 };
 window.__DG_G = G;
+const savedData = loadSave();
+const firstRun = !(savedData && savedData.seenIntro);
+if (savedData) {
+  Object.assign(G.appearance, savedData.appearance || {});
+  Object.assign(G.gear, savedData.gear || {});
+  G.level = savedData.level || 1;
+  G.xp = savedData.xp || 0;
+  G.xpNeed = savedData.xpNeed || 45;
+  G.gold = savedData.gold || 0;
+  G.hpBoost = savedData.hpBoost || 0;
+  if (savedData.axeUnlocked) { G.axeUnlocked = true; WEAPONS.axe.locked = false; }
+}
 
 const MAPS = {};
 let activeMap = null;
@@ -874,6 +918,7 @@ buildCar(9, -13, -0.8, RUST[3]);
 buildPole(-13, 20); buildPole(13, 3); buildPole(-21, -13);
 buildBarrel(-4.2, 27.6, true); buildBarrel(4.8, 24.4, false);
 buildBarrier(46, -9.5, 0.05); buildBarrier(46, 1.2, -0.08);
+buildNpc();
 buildRoadGate(46, -4);
 finishMap('overworld', {
   h: hOver, label: '灰烬原野',
@@ -914,6 +959,8 @@ const hero = {
   atk: null, roll: 0, rollDir: new THREE.Vector3(), invuln: 0, hurtT: 0,
   walkPhase: 0, moveAmt: 0, dead: false, atkT: 0, combo: 0, stepT: 0,
 };
+hero.level = G.level;
+hero.hp = 120 + (hero.level - 1) * 12 + G.hpBoost;
 G.hero = hero;
 
 function maxHp() { return 120 + (hero.level - 1) * 12 + G.hpBoost; }
@@ -943,6 +990,7 @@ function makeHeroModel() {
 
 let heroModel = makeHeroModel();
 function rebuildHero() {
+  G.dirty = true;
   if (heroModel) { scene.remove(heroModel.group); disposeGroup(heroModel.group); }
   heroModel = makeHeroModel();
   heroModel.group.visible = !hero.dead;
@@ -1154,6 +1202,7 @@ function hurtMonster(m, dmg, kb, fromPos, crit) {
 }
 
 function killMonster(m) {
+  G.dirty = true;
   m.dead = true;
   m.deadT = 0;
   m.hp = 0;
@@ -1180,6 +1229,7 @@ function killMonster(m) {
 }
 
 function addXp(v) {
+  G.dirty = true;
   G.xp += v;
   while (G.xp >= G.xpNeed) {
     G.xp -= G.xpNeed;
@@ -1638,7 +1688,7 @@ function stepOrbs(dt) {
       o.pos.z += (dz / d) * 14 * dt;
       o.pos.y += dy * Math.min(1, dt * 8);
       if (d < 0.8) {
-        G.gold += o.value;
+        G.gold += o.value; G.dirty = true;
         floatText(hero.pos.x, hero.pos.y + 1.6, hero.pos.z, '+' + o.value, 'gain');
         scene.remove(o.mesh); o.mesh.geometry.dispose(); o.mesh.material.dispose();
         G.orbs.splice(i, 1);
@@ -1735,6 +1785,7 @@ function stepWorldFx(dt) {
     G.dungeonRing.material.opacity = 0.55 + Math.sin(G.t * 2.0) * 0.18;
   }
   if (G.dungeonRune) { G.dungeonRune.rotation.z += dt * 0.22; }
+  if (G.npc) { G.npc.body.position.y = Math.sin(G.t * 1.5) * 0.012; G.npc.head.rotation.y = Math.sin(G.t * 0.4) * 0.12; }
   if (G.cityRing) { G.cityRing.rotation.z += dt * 0.35; G.cityRing.material.opacity = 0.6 + Math.sin(G.t * 2.1) * 0.16; }
   if (ashPoints && ashPoints.visible) {
     const pa = ashPoints.geometry.attributes.position, arr = pa.array;
@@ -1810,6 +1861,15 @@ function unstickCam(des, tx, ty, tz) {
 const CAM_H = 12.5, CAM_BACK = 8.0;   // 固定俯视机位：约 56° 俯角，能看清人也能看清街道
 
 function updateCamera(dt) {
+  if (G.mode === 'cutscene') {
+    const b = CUT[cs ? cs.beat : CUT.length - 1] || CUT[0];
+    const k = 1 - Math.exp(-dt * 2.3);
+    if (b.cam) { camPos.lerp(new THREE.Vector3(b.cam[0], b.cam[1], b.cam[2]), k); camLook.lerp(new THREE.Vector3(b.look[0], b.look[1], b.look[2]), k); }
+    camera.position.copy(camPos);
+    camera.lookAt(camLook);
+    if (Math.abs(camera.fov - 50) > 0.1) { camera.fov = 50; camera.updateProjectionMatrix(); }
+    return;
+  }
   const tx = hero.pos.x, tz = hero.pos.z;
   const orbit = (G.mode === 'creation' || G.mode === 'gear');   // 建角色/换装时才绕着看模型
   let des, lookY;
@@ -1863,7 +1923,8 @@ function simulate(dt) {
       stepArrows(dt);
       if (G.deadT <= 0) respawnHero();
     } else {
-      // creation / gear：只做呼吸
+      // creation / gear / cutscene：只做呼吸
+      if (G.mode === 'cutscene') stepCutscene(dt);
       hero.moveAmt = 0;
       if (heroModel) {
         heroModel.group.position.set(hero.pos.x, hero.pos.y, hero.pos.z);
@@ -1883,6 +1944,92 @@ function simulate(dt) {
   }
 }
 
+
+
+/* ============================== 开场剧情 / 任务追踪 ============================== */
+const CUT = [
+  { dur: 2.0, black: true, spk: '', text: '' },
+  { dur: 4.2, cam: [2.4, 13.5, 44], look: [1.2, 1.2, 27], spk: '灰烬遗迹', text: '三天前，城市在你身后烧了整整一夜。' },
+  { dur: 4.4, cam: [1.4, 2.4, 29.6], look: [0, 1.2, 26], flash: 1, spk: '', text: '你只记得警报、火光，还有把你从瓦砾里拖出去的那只手。' },
+  { dur: 3.8, cam: [3.9, 2.7, 33.4], look: [2.4, 1.35, 30.6], spk: '', text: '醒来时，身上只剩这把卷了刃的剑。' },
+  { dur: 4.4, cam: [3.0, 2.5, 29.2], look: [0.6, 1.35, 25.2], spk: '陌生人', text: '别乱动。你昏了两天，能站起来就算命大。' },
+  { dur: 5.2, cam: [6.4, 3.0, 28.8], look: [1.5, 1.25, 27.4], spk: '陌生人', text: '最近的幸存者据点在东边 —— 锈港。天亮之前必须赶到。' },
+  { dur: 3.6, cam: [2.4, 12.5, 38.8], look: [2.4, 1.0, 30.6], spk: '任务', text: '跟着路标走。屏幕上会显示方向和距离。' },
+];
+let cs = null;
+
+function startCutscene() {
+  cs = { beat: -1, t: 0 };
+  G.mode = 'cutscene';
+  document.getElementById('csWrap').classList.remove('hidden');
+  document.getElementById('csSkip').classList.remove('hidden');
+  document.getElementById('btnUse').classList.add('hidden');
+  document.getElementById('tracker').classList.add('hidden');
+  hero.atk = null; hero.roll = 0; hero.moveAmt = 0; hero.yaw = Math.PI;
+  input.ix = 0; input.iz = 0; input.stickActive = false;
+  camPos.set(hero.pos.x, hero.pos.y + 9, hero.pos.z + 16);
+  camLook.set(hero.pos.x, hero.pos.y + 1.2, hero.pos.z);
+  nextBeat();
+}
+
+function nextBeat() {
+  if (!cs) return;
+  cs.beat++; cs.t = 0;
+  if (cs.beat >= CUT.length) { endCutscene(); return; }
+  const b = CUT[cs.beat];
+  document.getElementById('csWrap').classList.toggle('black', !!b.black);
+  document.getElementById('csFlash').style.opacity = b.flash ? '1' : '0';
+  const spk = document.getElementById('csSpk'), body = document.getElementById('csBody');
+  spk.textContent = b.spk || '';
+  body.textContent = b.text || '';
+  for (const el of [spk, body]) { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; }
+}
+
+function endCutscene() {
+  if (!cs) return;
+  cs = null;
+  G.mode = 'play';
+  document.getElementById('csWrap').classList.add('hidden');
+  document.getElementById('csSkip').classList.add('hidden');
+  document.getElementById('csFlash').style.opacity = '0';
+  banner('灰烬荒原', '前往锈港 · 跟着上方的方向标');
+  writeSave();
+  updateHUD();
+}
+
+function stepCutscene(dt) {
+  if (!cs) return;
+  cs.t += dt;
+  const b = CUT[cs.beat] || CUT[CUT.length - 1];
+  if (cs.t >= b.dur) nextBeat();
+}
+
+/* ---- 任务：跟随幸存者去基地（自动距离 + 方向） ---- */
+const QUEST = { name: '前往幸存者基地 · 锈港', target: { x: 46, z: -4 }, map: 'overworld', arrived: false, radius: 5.0 };
+
+function arriveQuest() {
+  if (QUEST.arrived) return;
+  QUEST.arrived = true;
+  document.getElementById('tracker').classList.add('hidden');
+  banner('抵达锈港', '任务完成 · 城内更危险，先去安全区');
+  G.dirty = true;
+}
+
+function updateTracker() {
+  const el = document.getElementById('tracker');
+  if (!el) return;
+  if ((G.mode !== 'play' && G.mode !== 'dead') || QUEST.arrived) { el.classList.add('hidden'); return; }
+  if (!document.getElementById('bossBar').classList.contains('hidden')) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  document.getElementById('trName').textContent = QUEST.name;
+  const distEl = document.getElementById('trDist'), arrow = document.getElementById('trArrow');
+  if (activeId !== QUEST.map) { distEl.textContent = '在另一区域'; arrow.style.transform = 'rotate(0deg)'; return; }
+  const dx = QUEST.target.x - hero.pos.x, dz = QUEST.target.z - hero.pos.z;
+  const d = Math.hypot(dx, dz);
+  distEl.textContent = Math.round(d) + ' m';
+  arrow.style.transform = 'rotate(' + Math.atan2(dx, -dz) * 180 / Math.PI + 'deg)';
+  if (d < QUEST.radius) arriveQuest();
+}
 
 /* ============================== 地图切换 / 传送门 ============================== */
 const useBtn = document.getElementById('btnUse');
@@ -1928,7 +2075,8 @@ function enterMap(id, silent) {
   updateCamera(1.2); updateCamera(1.2);
   nearPortal = null;
   useBtn.classList.add('hidden');
-  if (!silent) banner(m.label, id === 'dungeon' ? '深入废墟 · 石像守卫在等你' : '回到灰烬原野');
+  if (id === 'city' && typeof QUEST !== 'undefined' && !QUEST.arrived) arriveQuest();
+  if (!silent) banner(m.label, id === 'dungeon' ? '深入废墟 · 守望者在等你' : (id === 'city' ? '锈港 · 幸存者据点' : '回到灰烬原野'));
   updateHUD();
 }
 
@@ -1993,6 +2141,8 @@ function updateHUD() {
     else { elQuestName.textContent = '探索灰烬荒原'; elQuestSub.textContent = '东面哨卡通往锈港 · 北面拱门下到废墟'; }
   } else elQuest.classList.add('hidden');
   updatePortalPrompt();
+  updateTracker();
+  if (G.dirty && G.t - (G.savedAt || 0) > 2.5) writeSave();
 }
 
 let fpsT = 0, fpsN = 0, fpsVal = 60, diagT = 0, miniT = 0;
@@ -2203,7 +2353,7 @@ function renderPanel() {
     if (up) up.onclick = () => {
       if (G.hpBoost >= 150) { showToast('体魄已达上限'); return; }
       if (G.gold < 60) { showToast('废料不足（需要 60）'); return; }
-      G.gold -= 60; G.hpBoost += 15; hero.hp = Math.min(maxHp(), hero.hp + 15);
+      G.gold -= 60; G.hpBoost += 15; hero.hp = Math.min(maxHp(), hero.hp + 15); G.dirty = true;
       showToast('生命上限 +15'); renderPanel();
     };
   } else {
@@ -2270,6 +2420,7 @@ function toggleGear() {
 $('btnGear').onclick = () => toggleGear();
 $('btnPanelClose').onclick = closePanel;
 $('btnResume').onclick = closePanel;
+$('btnWipe').onclick = () => { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.reload(); };
 $('panelWrap').addEventListener('click', e => { if (e.target.id === 'panelWrap') closePanel(); });
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => { panelTab = t.getAttribute('data-tab'); openPanel(panelTab); });
 $('btnHelp').onclick = () => showToast(innerWidth < 760 ? '左摇杆移动 · 攻击键连砍 · 翻滚闪避 · 靠近传送门点按钮' : 'WASD 移动 · J/按住攻击 · Shift 翻滚 · E 交互 · Tab 装备');
@@ -2286,20 +2437,22 @@ $('btnUse').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPro
   rollEl.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); doRoll(); });
 }
 
-function startGame() {
-  G.mode = 'play';
+function startGame(forceSkipIntro) {
   $('createWrap').classList.add('hidden');
-  G.cam.yaw = Math.PI;
-  G.cam.pitch = 0.30;
-  G.cam.dist = 7;
-  G.t = 0;
   hero.hp = maxHp();
   hero.stam = 100;
-  banner('灰烬遗迹', '向北 · 穿过石阶');
-  setTimeout(() => { if (G.mode === 'play') showToast('营火旁是安全的 · 冒烟的废墟在北面'); }, 1800);
+  if (!forceSkipIntro && firstRun) {
+    startCutscene();
+  } else {
+    G.mode = 'play';
+    banner('灰烬荒原', '前往锈港 · 跟着上方的方向标');
+    setTimeout(() => { if (G.mode === 'play') showToast('营火旁是安全的 · 东面哨卡通往锈港'); }, 1800);
+  }
   updateHUD();
 }
-$('btnStart').onclick = startGame;
+$('btnStart').onclick = () => startGame(false);
+$('csSkip').onclick = () => endCutscene();
+document.getElementById('csWrap').addEventListener('pointerdown', () => { if (cs) endCutscene(); });
 
 /* ============================== 循环 ============================== */
 const perf = { frames: 0, sim: 0, render: 0, lastSim: 0, lastRender: 0 };
@@ -2503,6 +2656,44 @@ async function selfTest() {
 
 
 
+
+async function storyTest() {
+  const out = { firstRunAtBoot: firstRun, modeAtBoot: G.mode };
+  document.getElementById('createWrap').classList.add('hidden');
+  startGame(false);
+  out.afterStart = { mode: G.mode, beat: cs ? cs.beat : -1, csVisible: !document.getElementById('csWrap').classList.contains('hidden'), npc: !!G.npc };
+  await new Promise(r => setTimeout(r, 2600));
+  out.beat2 = { beat: cs ? cs.beat : -1, text: document.getElementById('csBody').textContent };
+  updateCamera(1.2); updateCamera(1.2); renderer.render(scene, camera);
+  await DG.shot('t_cs1');
+  while (cs && cs.beat < 4) nextBeat();
+  await new Promise(r => setTimeout(r, 1400));
+  out.beat5 = { beat: cs ? cs.beat : -1, spk: document.getElementById('csSpk').textContent, text: document.getElementById('csBody').textContent };
+  updateCamera(1.2); updateCamera(1.2); renderer.render(scene, camera);
+  await DG.shot('t_cs2');
+  const beatsSeen = cs ? cs.beat : -1;
+  endCutscene();
+  out.afterEnd = { mode: G.mode, beatsSeen, saved: !!localStorage.getItem(SAVE_KEY), saveSize: (localStorage.getItem(SAVE_KEY) || '').length };
+  // 追踪：远 / 近 / 到达
+  DG.tp(0, 30); updateHUD();
+  out.track1 = { shown: !document.getElementById('tracker').classList.contains('hidden'), dist: document.getElementById('trDist').textContent, rot: document.getElementById('trArrow').style.transform };
+  DG.tp(40, 6); updateHUD();
+  out.track2 = { dist: document.getElementById('trDist').textContent, rot: document.getElementById('trArrow').style.transform };
+  hero.pos.set(45, heightAt(45, -4), -4); updateHUD();
+  out.track3 = { arrived: QUEST.arrived, shown: !document.getElementById('tracker').classList.contains('hidden') };
+  hero.pos.set(30, heightAt(30, 10), 10); updateHUD();
+  updateCamera(1.2); updateCamera(1.2); renderer.render(scene, camera);
+  await DG.shot('t_track');
+  // 存档往返：改装备 → 存 → 读
+  G.gear.armor = 'iron'; G.gear.weapon = 'greatsword'; rebuildHero(); writeSave();
+  const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
+  out.saveCheck = { armor: raw.gear.armor, weapon: raw.gear.weapon, level: raw.level, seenIntro: raw.seenIntro, appearance: raw.appearance.skin };
+  out.errs = [];
+  window.__storyReport = JSON.stringify(out);
+  await post('story', out);
+  return out;
+}
+
 async function cityTest() {
   const out = { viewport: [innerWidth, innerHeight] };
   const errs = [];
@@ -2684,7 +2875,9 @@ async function bossTest() {
 }
 window.__selfTest = selfTest;
 window.__bossTest = bossTest;
-if (location.search.indexOf('test=city') >= 0) {
+if (location.search.indexOf('test=story') >= 0) {
+  setTimeout(() => { storyTest().catch(e => { window.__storyReport = JSON.stringify({ err: e.message, stack: (e.stack || '').slice(0, 300) }); }); }, 400);
+} else if (location.search.indexOf('test=city') >= 0) {
   setTimeout(() => { cityTest().catch(e => { window.__cityReport = JSON.stringify({ err: e.message, stack: (e.stack || '').slice(0, 300) }); }); }, 500);
 } else if (location.search.indexOf('test=portal') >= 0) {
   setTimeout(() => { portalTest().catch(e => { window.__portalReport = JSON.stringify({ err: e.message, stack: (e.stack || '').slice(0, 300) }); }); }, 500);
@@ -2765,7 +2958,7 @@ window.DG = {
   },
   giveGold(n) { G.gold += n; return G.gold; },
   unlockAxe() { G.axeUnlocked = true; WEAPONS.axe.locked = false; },
-  start() { startGame(); return this.probe(); },
+  start() { startGame(true); return this.probe(); },
   openGear() { openPanel('gear'); },
   closePanel,
   setCam(yaw, pitch, dist) { if (yaw != null) G.cam.yaw = yaw; if (pitch != null) G.cam.pitch = pitch; if (dist != null) G.cam.dist = dist; },
