@@ -1,8 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
-  <rect width="240" height="240" fill="#001d3d"/>
-  <circle cx="120" cy="120" r="86" fill="none" stroke="#003566" stroke-width="6"/>
-  <path d="M60 62 L118 120 L60 178" fill="none" stroke="#90e0ef" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M180 62 L122 120 L180 178" fill="none" stroke="#ffd166" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M120 46 l14 30 30 14 -30 14 -14 30 -14 -30 -30 -14 30 -14z" fill="#ff7b54"/>
-  <circle cx="120" cy="120" r="16" fill="#fff8f0"/>
+  <defs>
+    <radialGradient id="bg" cx="30%" cy="18%" r="90%">
+      <stop offset="0" stop-color="#2a1b1a"/>
+      <stop offset="55%" stop-color="#141420"/>
+      <stop offset="100%" stop-color="#0d0d12"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="46%" r="46%">
+      <stop offset="0" stop-color="#ff6b4a" stop-opacity=".38"/>
+      <stop offset="100%" stop-color="#ff6b4a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="240" height="240" fill="url(#bg)"/>
+  <circle cx="120" cy="112" r="86" fill="url(#glow)"/>
+  <circle cx="120" cy="120" r="86" fill="none" stroke="#ffffff" stroke-opacity=".10" stroke-width="6"/>
+  <path d="M60 62 L118 120 L60 178" fill="none" stroke="#ff6b4a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M180 62 L122 120 L180 178" fill="none" stroke="#c8f250" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M120 46 l14 30 30 14 -30 14 -14 30 -14 -30 -30 -14 30 -14z" fill="#ffb020"/>
+  <circle cx="120" cy="120" r="16" fill="#f6f4ef"/>
 </svg>

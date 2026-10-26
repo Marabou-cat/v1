@@ -1,12 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
-  <rect width="240" height="240" fill="#001d3d"/>
-  <path d="M28 152 q46 -26 92 -26 t92 26" fill="none" stroke="#003566" stroke-width="8" opacity=".9"/>
-  <path d="M40 116 q40 -30 84 -30" fill="none" stroke="#48cae4" stroke-width="6" stroke-dasharray="10 12" stroke-linecap="round"/>
+  <defs>
+    <radialGradient id="bg" cx="28%" cy="16%" r="92%">
+      <stop offset="0" stop-color="#1d1a2a"/>
+      <stop offset="58%" stop-color="#131320"/>
+      <stop offset="100%" stop-color="#0c0c11"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="60%" cy="44%" r="50%">
+      <stop offset="0" stop-color="#a98bff" stop-opacity=".34"/>
+      <stop offset="100%" stop-color="#a98bff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="240" height="240" fill="url(#bg)"/>
+  <circle cx="130" cy="106" r="88" fill="url(#glow)"/>
+  <path d="M28 152 q46 -26 92 -26 t92 26" fill="none" stroke="#ffffff" stroke-opacity=".10" stroke-width="8" opacity=".9"/>
+  <path d="M40 116 q40 -30 84 -30" fill="none" stroke="#c8f250" stroke-width="6" stroke-dasharray="10 12" stroke-linecap="round" stroke-opacity=".85"/>
   <g transform="translate(118 104) rotate(-14)">
-    <path d="M-64 6 L52 6 L78 0 L52 -6 L-64 -6 Z" fill="#90e0ef"/>
-    <path d="M-6 -4 L-34 -46 L-12 -46 L18 -6 Z" fill="#caf0f8"/>
-    <path d="M-6 4 L-34 46 L-12 46 L18 6 Z" fill="#caf0f8"/>
-    <path d="M-70 -20 L-52 0 L-70 20 Z" fill="#48cae4"/>
-    <circle cx="34" cy="0" r="7" fill="#ffd166"/>
+    <path d="M-64 6 L52 6 L78 0 L52 -6 L-64 -6 Z" fill="#f6f4ef"/>
+    <path d="M-6 -4 L-34 -46 L-12 -46 L18 -6 Z" fill="#ff9a63"/>
+    <path d="M-6 4 L-34 46 L-12 46 L18 6 Z" fill="#ff9a63"/>
+    <path d="M-70 -20 L-52 0 L-70 20 Z" fill="#ff6b4a"/>
+    <circle cx="34" cy="0" r="7" fill="#c8f250"/>
   </g>
 </svg>

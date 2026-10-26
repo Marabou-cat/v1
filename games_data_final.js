@@ -1,9 +1,9 @@
 // games_data.js  —— Game list for the site portal (only the three self-made games)
 // format: path|display name|icon path (absolute paths start with / and openGame uses them directly)
 const RAW_GAMES = [
-    "/exams_games/smash.html|Super Brawl|/exams_games/icon_smash.svg",
-    "/exams_games/TheAviator/|The Aviator|/exams_games/icon_aviator.svg",
-    "/exams_games/MineWorld/|MineWorld|/exams_games/icon_mineworld.svg"
+    "/smash/|Super Brawl|/exams_games/icon_smash.svg?v=2",
+    "/exams_games/TheAviator/|The Aviator|/exams_games/icon_aviator.svg?v=2",
+    "/exams_games/MineWorld/|MineWorld|/exams_games/icon_mineworld.svg?v=2"
 ];
 
 // Convert the compact strings into the final object array needed by your portal
