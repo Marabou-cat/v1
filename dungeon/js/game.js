@@ -664,6 +664,16 @@ function buildCity() {
   g.add(gateRing);
   G.cityRing = gateRing;
 
+  // 油污/积尘斑块，破掉单色沥青
+  for (let i = 0; i < 10; i++) {
+    const px = (Math.random() * 2 - 1) * 24, pz = (Math.random() * 2 - 1) * 24;
+    const rr = 1.6 + Math.random() * 3.2;
+    const patch2 = new THREE.Mesh(new THREE.CircleGeometry(rr, 12), new THREE.MeshStandardMaterial({ color: i % 3 ? 0x2e2d2a : 0x46433c, roughness: 1, transparent: true, opacity: 0.75 }));
+    patch2.rotation.x = -Math.PI / 2;
+    patch2.position.set(px, base + 0.008, pz);
+    g.add(patch2);
+  }
+
   // 外围废墟矮墙
   for (let i = 0; i < 26; i++) {
     const a = (i / 26) * Math.PI * 2;
@@ -889,7 +899,7 @@ buildCity();
 finishMap('city', {
   h: hCity, label: '锈港',
   spawn: new THREE.Vector3(0, hCity(0, 22) + 0.05, 22), face: Math.PI,
-  bound: 27, fog: { c: 0x8f7b66, n: 26, f: 105 }, sun: 2.2, hemi: 0.95, amb: 0.16, sky: true,
+  bound: 27, fog: { c: 0x8f7b66, n: 26, f: 105 }, sun: 2.45, hemi: 1.0, amb: 0.22, sky: true,
   portals: [{ x: 0, z: 28, r: 3.6, to: 'overworld', text: '返回灰烬荒原' }],
 });
 buildAsh();
@@ -1092,7 +1102,7 @@ function doAttack() {
   const W = WEAPONS[G.gear.weapon];
   if (hero.stam < W.cost) { flashStam(); return; }
   if (hero.atk) return;
-  const tgt = nearestTarget(5.0, 1.15);
+  const tgt = nearestTarget(5.6, 1.9);
   if (tgt) hero.yaw = Math.atan2(tgt.pos.x - hero.pos.x, tgt.pos.z - hero.pos.z);
   hero.stam -= W.cost;
   hero.stamDelay = 0.55;
@@ -1245,10 +1255,8 @@ const stick = { id: null, cx: 0, cy: 0 };
 function moveDir() {
   const ix = input.ix, iz = input.iz;
   if (Math.abs(ix) < 0.02 && Math.abs(iz) < 0.02) return new THREE.Vector3();
-  const yaw = G.cam.yaw;
-  const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
-  const right = new THREE.Vector3(-Math.cos(yaw), 0, Math.sin(yaw));
-  return fwd.multiplyScalar(iz).addScaledVector(right, ix).normalize().multiplyScalar(Math.min(1, Math.hypot(ix, iz)));
+  // 固定俯视：屏幕上方 = 北(-Z)，右 = 东(+X)
+  return new THREE.Vector3(ix, 0, -iz).normalize().multiplyScalar(Math.min(1, Math.hypot(ix, iz)));
 }
 
 function updateKeyMove() {
@@ -1304,39 +1312,22 @@ function stickEnd() {
   stickEl.style.left = ''; stickEl.style.top = ''; stickEl.style.bottom = '';
 }
 
-let look = null;
 addEventListener('pointerdown', e => {
   if (e.target.closest('button,.card,.chip,.sw,.tab,.closeBtn,.primary,.ghost,#panelWrap,#createWrap,#stick')) return;
   if (G.mode !== 'play') return;
-  if (e.clientX < innerWidth * 0.44 && e.clientY > innerHeight * 0.32) {
-    stickStart(e);
-  } else {
-    look = { id: e.pointerId, x: e.clientX, y: e.clientY };
-  }
+  if (e.clientX < innerWidth * 0.54 && e.clientY > innerHeight * 0.3) stickStart(e);
 }, { passive: true });
 
 addEventListener('pointermove', e => {
-  if (stick.id === e.pointerId) { stickMove(e); return; }
-  if (look && look.id === e.pointerId) {
-    const dx = e.clientX - look.x, dy = e.clientY - look.y;
-    look.x = e.clientX; look.y = e.clientY;
-    G.cam.yaw += dx * 0.0062;
-    G.cam.pitch = Math.max(-0.08, Math.min(0.95, G.cam.pitch + dy * 0.0042));
-  }
+  if (stick.id === e.pointerId) stickMove(e);
 }, { passive: true });
 
 addEventListener('pointerup', e => {
   if (stick.id === e.pointerId) stickEnd();
-  if (look && look.id === e.pointerId) look = null;
 });
 addEventListener('pointercancel', e => {
   if (stick.id === e.pointerId) stickEnd();
-  if (look && look.id === e.pointerId) look = null;
 });
-addEventListener('wheel', e => {
-  if (G.mode !== 'play') return;
-  G.cam.dist = Math.max(4.2, Math.min(11, G.cam.dist + Math.sign(e.deltaY) * 0.6));
-}, { passive: true });
 
 /* ============================== 物理 / 模拟 ============================== */
 function resolveColliders(p, radius) {
@@ -1354,7 +1345,9 @@ function resolveColliders(p, radius) {
   if (r > BOUND) { p.x = (p.x / r) * BOUND; p.z = (p.z / r) * BOUND; }
 }
 
+let atkHeld = false;
 function stepHero(dt) {
+  if (atkHeld && !hero.atk && !hero.dead && hero.stam >= WEAPONS[G.gear.weapon].cost) doAttack();
   hero.invuln = Math.max(0, hero.invuln - dt);
   hero.hurtT = Math.max(0, hero.hurtT - dt);
   hero.roll = Math.max(0, hero.roll - dt);
@@ -1814,27 +1807,32 @@ function unstickCam(des, tx, ty, tz) {
   }
 }
 
+const CAM_H = 12.5, CAM_BACK = 8.0;   // 固定俯视机位：约 56° 俯角，能看清人也能看清街道
+
 function updateCamera(dt) {
-  const c = G.cam;
-  let dist = c.dist, pitch = c.pitch, targetY = 1.35, yaw = c.yaw;
-  if (G.mode === 'creation') {
-    yaw += G.t * 0.22;
-    dist = 5.2; pitch = 0.45; targetY = -0.55;
-  } else if (G.mode === 'gear') {
-    yaw += G.t * 0.14;
-    dist = 4.9; pitch = 0.42; targetY = -0.50;
-  } else if (G.mode === 'dead') {
-    dist = 5.6; pitch = 0.35;
+  const tx = hero.pos.x, tz = hero.pos.z;
+  const orbit = (G.mode === 'creation' || G.mode === 'gear');   // 建角色/换装时才绕着看模型
+  let des, lookY;
+  if (orbit) {
+    const yaw = G.t * (G.mode === 'creation' ? 0.22 : 0.14);
+    const dist = G.mode === 'creation' ? 5.2 : 4.9;
+    const pitch = 0.45, drop = 0.55;
+    des = new THREE.Vector3(
+      tx - Math.sin(yaw) * dist * Math.cos(pitch),
+      hero.pos.y - drop + Math.sin(pitch) * dist,
+      tz - Math.cos(yaw) * dist * Math.cos(pitch)
+    );
+    lookY = hero.pos.y - drop;
+    unstickCam(des, tx, lookY, tz);
+  } else {
+    des = new THREE.Vector3(tx, hero.pos.y + CAM_H, tz + CAM_BACK);
+    const gh = heightAt(des.x, des.z);
+    if (des.y < gh + 2.5) des.y = gh + 2.5;
+    lookY = hero.pos.y + 0.6;
   }
-  const tx = hero.pos.x, ty = hero.pos.y + targetY, tz = hero.pos.z;
-  const vx = Math.sin(yaw), vz = Math.cos(yaw);
-  const des = new THREE.Vector3(tx - vx * dist * Math.cos(pitch), ty + Math.sin(pitch) * dist, tz - vz * dist * Math.cos(pitch));
-  if (G.mode === 'play' || G.mode === 'dead') clampCamSegment(tx, ty, tz, des);
-  else unstickCam(des, tx, ty, tz);
-  const k = 1 - Math.exp(-dt * (G.mode === 'creation' || G.mode === 'gear' ? 6 : 9));
+  const k = 1 - Math.exp(-dt * (orbit ? 6 : 7));
   camPos.lerp(des, k);
-  const lookDes = new THREE.Vector3(tx, ty, tz);
-  camLook.lerp(lookDes, 1 - Math.exp(-dt * 12));
+  camLook.lerp(new THREE.Vector3(tx, lookY, tz), 1 - Math.exp(-dt * 9));
   camera.position.copy(camPos);
   if (G.shake > 0.001) {
     camera.position.x += (Math.random() - 0.5) * G.shake;
@@ -1842,7 +1840,7 @@ function updateCamera(dt) {
     G.shake *= Math.pow(0.02, dt);
   }
   camera.lookAt(camLook);
-  const fov = innerWidth < innerHeight ? 66 : 58;
+  const fov = innerWidth < innerHeight ? 46 : 42;
   if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
 }
 camLook.set(hero.pos.x, hero.pos.y + 1.3, hero.pos.z);
@@ -1926,8 +1924,7 @@ function enterMap(id, silent) {
   scene.fog.near = m.fog.n; scene.fog.far = m.fog.f;
   sun.intensity = m.sun; hemi.intensity = m.hemi;
   if (typeof ambient !== 'undefined' && ambient) ambient.intensity = m.amb;
-  G.cam.yaw = hero.yaw;
-  camPos.set(m.spawn.x + Math.sin(G.cam.yaw + Math.PI) * 6.4, m.spawn.y + 3.2, m.spawn.z + Math.cos(G.cam.yaw + Math.PI) * 6.4);
+  camPos.set(m.spawn.x, m.spawn.y + CAM_H, m.spawn.z + CAM_BACK);
   updateCamera(1.2); updateCamera(1.2);
   nearPortal = null;
   useBtn.classList.add('hidden');
@@ -2041,7 +2038,7 @@ function drawMini() {
     if (m.kind === 'boss') { mctx.strokeStyle = '#ffd6a0'; mctx.lineWidth = 2; mctx.stroke(); }
   }
   const px = cx + hero.pos.x * sc, py = cy + hero.pos.z * sc;
-  const viewAng = Math.atan2(Math.cos(G.cam.yaw), Math.sin(G.cam.yaw));
+  const viewAng = Math.atan2(Math.cos(hero.yaw), Math.sin(hero.yaw));
   mctx.save();
   mctx.translate(px, py); mctx.rotate(viewAng);
   mctx.beginPath(); mctx.moveTo(0, 0); mctx.arc(0, 0, 26, -0.55, 0.55); mctx.closePath();
@@ -2275,16 +2272,18 @@ $('btnPanelClose').onclick = closePanel;
 $('btnResume').onclick = closePanel;
 $('panelWrap').addEventListener('click', e => { if (e.target.id === 'panelWrap') closePanel(); });
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => { panelTab = t.getAttribute('data-tab'); openPanel(panelTab); });
-$('btnHelp').onclick = () => showToast(innerWidth < 760 ? '左摇杆移动 · 右半屏拖拽转视角' : 'WASD 移动 · 拖拽转视角 · J 攻击 · Shift 翻滚 · Tab 装备');
-$('btnAtk').onclick = () => doAttack();
+$('btnHelp').onclick = () => showToast(innerWidth < 760 ? '左摇杆移动 · 攻击键连砍 · 翻滚闪避 · 靠近传送门点按钮' : 'WASD 移动 · J/按住攻击 · Shift 翻滚 · E 交互 · Tab 装备');
 $('btnRoll').onclick = () => doRoll();
 $('btnUse').onclick = () => usePortal();
 $('btnUse').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); usePortal(); });
 
 // 按钮触摸响应更快
-for (const [id, fn] of [['btnAtk', doAttack], ['btnRoll', doRoll]]) {
-  const el = $(id);
-  el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); });
+{
+  const atkEl = $('btnAtk');
+  atkEl.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); atkHeld = true; doAttack(); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) atkEl.addEventListener(ev, () => { atkHeld = false; });
+  const rollEl = $('btnRoll');
+  rollEl.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); doRoll(); });
 }
 
 function startGame() {
