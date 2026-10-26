@@ -84,6 +84,61 @@ function mulberry32(a) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
+// 矿洞构件：巷道 / 房间 / 通地表的楼梯 / 矿脉
+function msPush(ops, x, y, z, t) { ops.push({ x, y, z, t }); }
+function msGallery(ops, x0, y0, z0, dx, dz, len, spacing, W = 1, H = 3) {
+  const px = -dz, pz = dx;
+  for (let i = 0; i < len; i++) {
+    const bx = x0 + dx * i, bz = z0 + dz * i;
+    for (let w = -W; w <= W; w++) {
+      const x = bx + px * w, z = bz + pz * w;
+      for (let y = y0; y < y0 + H; y++) msPush(ops, x, y, z, 0);
+      msPush(ops, x, y0 - 1, z, 8);
+    }
+    if (i % spacing === 0) {
+      for (const w of [-W - 1, W + 1]) for (let y = y0; y < y0 + H; y++) msPush(ops, bx + px * w, y, bz + pz * w, 6);
+      for (let w = -W - 1; w <= W + 1; w++) msPush(ops, bx + px * w, y0 + H, bz + pz * w, 8);
+    }
+  }
+}
+function msRoom(ops, cx, y0, cz, rw, rd, h) {
+  for (let dx = -rw; dx <= rw; dx++) for (let dz = -rd; dz <= rd; dz++) {
+    for (let y = y0; y < y0 + h; y++) msPush(ops, cx + dx, y, cz + dz, 0);
+    msPush(ops, cx + dx, y0 - 1, cz + dz, 8);
+  }
+  for (const [sx, sz] of [[-rw, -rd], [rw, -rd], [-rw, rd], [rw, rd]]) {
+    for (let y = y0; y < y0 + h; y++) msPush(ops, cx + sx, y, cz + sz, 6);
+    msPush(ops, cx + sx, y0 + h, cz + sz, 8);
+  }
+  // 房间中央偶尔来个矿堆
+}
+function msOreBlob(ops, cx, y0, cz, kind, rnd) {
+  const w = 1 + Math.floor(rnd() * 2), h = 1 + Math.floor(rnd() * 2);
+  for (let dx = -w; dx <= w; dx++) for (let dz = -w; dz <= w; dz++) for (let dy = 0; dy <= h; dy++) {
+    if (rnd() < 0.35) continue;
+    msPush(ops, cx + dx, y0 + dy, cz + dz, kind);
+  }
+}
+function msStairs(ops, x0, y0, z0, dx, dz, maxLen = 170) {
+  let lvl = y0;
+  for (let k = 1; k <= maxLen; k++) {
+    const x = x0 - dx * k, z = z0 - dz * k;
+    if (k % 3 === 0) lvl++;
+    for (let w = -1; w <= 1; w++) {
+      const xx = x - dz * w, zz = z + dx * w;
+      for (let y = lvl; y < lvl + 3; y++) msPush(ops, xx, y, zz, 0);
+      msPush(ops, xx, lvl - 1, zz, 8);
+    }
+    const surf = heightAt(x, z);
+    if (surf <= CFG.SEA + 2) return false;
+    if (lvl >= surf - 1) {
+      for (let w = -1; w <= 1; w++) for (let y = surf - 1; y < lvl + 3; y++) msPush(ops, x - dz * w, y, z + dx * w, 0);
+      return true;
+    }
+  }
+  return false;
+}
+
 function mineshaftFor(cellX, cellZ) {
   const key = cellX + ',' + cellZ;
   if (msCache.has(key)) return msCache.get(key);
@@ -93,62 +148,66 @@ function mineshaftFor(cellX, cellZ) {
     const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 73856093) ^ Math.imul(cellZ, 19349663)) | 0);
     const ox = cellX * MS_CELL + 18 + Math.floor(rnd() * (MS_CELL - 36));
     const oz = cellZ * MS_CELL + 18 + Math.floor(rnd() * (MS_CELL - 36));
-    // 矿道必须离地表够远，否则会被洞穴掏成露天地沟
     const surfHere = heightAt(ox, oz);
     const baseY = Math.max(7, Math.min(11 + Math.floor(rnd() * 15), surfHere - 13));
     const skip = surfHere <= CFG.SEA + 4 && rnd() < 0.5;
-    const alongX = rnd() < 0.5;
-    const d = alongX ? { x: 1, z: 0 } : { x: 0, z: 1 };
-    const pp = alongX ? { x: 0, z: 1 } : { x: 1, z: 0 };
-    const len = 22 + Math.floor(rnd() * 26);
-    const H = 3, W = 1;
     const ops = [];
-    const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
-    const put = (x, y, z, t) => ops.push({ x, y, z, t });
+    const spacing = 3 + Math.floor(rnd() * 3);        // 支架间距也随机
+    const shapeRoll = rnd();
+    let entrance = false, kindName = 'gallery', corridors = 0;
+    const dirX = rnd() < 0.5 ? 1 : -1;
+    const dirZ = rnd() < 0.5 ? 1 : -1;
 
-    for (let i = 0; i < len; i++) {                   // 主巷道
-      const bx = ox + d.x * i, bz = oz + d.z * i;
-      for (let w = -W; w <= W; w++) {
-        const px = bx + pp.x * w, pz = bz + pp.z * w;
-        for (let y = baseY; y < baseY + H; y++) carve(px, y, pz);
-        put(px, baseY - 1, pz, 8);                    // 木板地板
+    if (shapeRoll < 0.3) {                            // ① 长廊 + 支巷
+      kindName = 'gallery';
+      const len = 20 + Math.floor(rnd() * 28);
+      msGallery(ops, ox, baseY, oz, dirX, 0, len, spacing);
+      corridors++;
+      const side = 1 + Math.floor(rnd() * 2);
+      for (let i = 0; i < side; i++) {
+        const at = 4 + Math.floor(rnd() * Math.max(1, len - 8));
+        const sgn = rnd() < 0.5 ? 1 : -1;
+        msGallery(ops, ox + dirX * at, baseY, oz, 0, sgn, 8 + Math.floor(rnd() * 12), spacing);
+        corridors++;
       }
-      if (i % 4 === 0) {                              // 每 4 格一副木支架
-        for (const w of [-W - 1, W + 1]) for (let y = baseY; y < baseY + H; y++) put(bx + pp.x * w, y, bz + pp.z * w, 6);
-        for (let w = -W - 1; w <= W + 1; w++) put(bx + pp.x * w, baseY + H, bz + pp.z * w, 8);
+      entrance = msStairs(ops, ox, baseY, oz, dirX, 0);
+    } else if (shapeRoll < 0.55) {                    // ② L 形拐弯
+      kindName = 'L';
+      const l1 = 14 + Math.floor(rnd() * 16), l2 = 12 + Math.floor(rnd() * 16);
+      msGallery(ops, ox, baseY, oz, dirX, 0, l1, spacing);
+      msGallery(ops, ox + dirX * (l1 - 1), baseY, oz, 0, dirZ, l2, spacing);
+      corridors += 2;
+      msRoom(ops, ox + dirX * (l1 - 1), baseY, oz + dirZ * (l2 - 1), 2, 2, 4);  // 拐角小厅
+      entrance = msStairs(ops, ox, baseY, oz, dirX, 0);
+    } else if (shapeRoll < 0.75) {                     // ③ 十字矿口（中央大厅 + 四向）
+      kindName = 'cross';
+      msRoom(ops, ox, baseY, oz, 3, 3, 5);
+      const l = 10 + Math.floor(rnd() * 10);
+      msGallery(ops, ox + 4, baseY, oz, 1, 0, l, spacing, 1, 4);
+      msGallery(ops, ox - 4, baseY, oz, -1, 0, l, spacing, 1, 4);
+      msGallery(ops, ox, baseY, oz + 4, 0, 1, l, spacing, 1, 4);
+      msGallery(ops, ox, baseY, oz - 4, 0, -1, l, spacing, 1, 4);
+      corridors += 4;
+      entrance = msStairs(ops, ox + 4, baseY, oz, 1, 0);
+    } else {                                          // ④ 房间群（矿工营地）
+      kindName = 'rooms';
+      const n = 2 + Math.floor(rnd() * 2);
+      let cx = ox, cz = oz;
+      for (let i = 0; i < n; i++) {
+        const rw = 2 + Math.floor(rnd() * 3), rd = 2 + Math.floor(rnd() * 3);
+        msRoom(ops, cx, baseY, cz, rw, rd, 4 + Math.floor(rnd() * 2));
+        const dxs = rnd() < 0.5 ? 1 : -1, dzs = rnd() < 0.5 ? 1 : -1;
+        msGallery(ops, cx + dxs * (rw + 1), baseY, cz, dxs, 0, 6 + Math.floor(rnd() * 6), spacing);
+        cx += dxs * (rw * 2 + 6); cz += dzs * 2;
       }
+      corridors += n;
+      entrance = msStairs(ops, cx, baseY, cz, 1, 0);
     }
-    const branches = 1 + Math.floor(rnd() * 2);       // 侧向支巷
-    for (let b = 0; b < branches; b++) {
-      const at = 4 + Math.floor(rnd() * Math.max(1, len - 8));
-      const sgn = rnd() < 0.5 ? 1 : -1;
-      const blen = 8 + Math.floor(rnd() * 12);
-      for (let j = 1; j <= blen; j++) {
-        const bx = ox + d.x * at + pp.x * j * sgn;
-        const bz = oz + d.z * at + pp.z * j * sgn;
-        for (let w = -W; w <= W; w++) {
-          const px = bx + d.x * w, pz = bz + d.z * w;
-          for (let y = baseY; y < baseY + H; y++) carve(px, y, pz);
-          put(px, baseY - 1, pz, 8);
-        }
-      }
-    }
-    // 从巷道起点往回挖一条斜向上的楼梯，一直通到地表（可走进去）
-    let lvl = baseY, opened = false;
-    for (let k = 1; k <= 160; k++) {
-      const px = ox - d.x * k, pz = oz - d.z * k;
-      if (k % 3 === 0) lvl++;
-      for (let w = -1; w <= 1; w++) {
-        for (let y = lvl; y < lvl + H; y++) carve(px + pp.x * w, y, pz + pp.z * w);
-        put(px + pp.x * w, lvl - 1, pz + pp.z * w, 8);
-      }
-      const surf = heightAt(px, pz);
-      if (surf <= CFG.SEA + 2) break;                 // 别把洞开到海里
-      if (lvl >= surf - 1) {                          // 打通地表
-        for (let w = -1; w <= 1; w++) for (let y = surf - 1; y < lvl + H; y++) carve(px + pp.x * w, y, pz + pp.z * w);
-        opened = true;
-        break;
-      }
+    // 随机矿脉：走廊两侧塞煤/铁
+    const ores = 2 + Math.floor(rnd() * 4);
+    for (let i = 0; i < ores; i++) {
+      const px2 = ox + Math.floor(rnd() * 40 - 20), pz2 = oz + Math.floor(rnd() * 40 - 20);
+      msOreBlob(ops, px2, baseY + Math.floor(rnd() * 2), pz2, rnd() < 0.65 ? 13 : 15, rnd);
     }
     const byChunk = new Map();
     if (!skip) for (const op of ops) {
@@ -157,7 +216,7 @@ function mineshaftFor(cellX, cellZ) {
       if (!arr) byChunk.set(k2, arr = []);
       arr.push(op);
     }
-    out = { cellX, cellZ, ox, oz, baseY, len, ops: ops.length, byChunk, entrance: opened };
+    out = { cellX, cellZ, ox, oz, baseY, kind: kindName, corridors, ops: ops.length, byChunk, entrance };
   }
   msCache.set(key, out);
   return out;
@@ -179,6 +238,7 @@ const BLOCKS = {
   10: { name: '工作台', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10 },
   13: { name: '煤矿石', top: 13, side: 13, bottom: 13, hard: 2.2, drop: 13, pick: true },
   14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true },
+  15: { name: '铁矿石', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 106, pick: true, stonePick: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick' },
@@ -187,15 +247,23 @@ const ITEMS = {
   103: { name: '石剑', kind: 'sword', dmg: 7 },
   104: { name: '木棍', kind: 'mat' },
   105: { name: '苹果', kind: 'food', food: 4 },
+  106: { name: '铁锭', kind: 'mat' },
+  110: { name: '铁头盔', kind: 'armor', slot: 'head', ap: 2 },
+  111: { name: '铁胸甲', kind: 'armor', slot: 'chest', ap: 6 },
+  112: { name: '铁护腿', kind: 'armor', slot: 'legs', ap: 5 },
+  113: { name: '铁靴', kind: 'armor', slot: 'feet', ap: 2 },
+  120: { name: '铁镐', kind: 'pick', fast: 1.7 },
+  121: { name: '铁剑', kind: 'sword', dmg: 9 },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
 const nameOf = id => (defOf(id) || { name: '?' }).name;
 
 let atlasCanvas = null, atlasTex = null;
+const ATLAS_COLS = 4, ATLAS_ROWS = 8;
 function makeAtlas() {
-  const S = 16, N = 4, cv = document.createElement('canvas');
-  cv.width = cv.height = S * N;
+  const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
+  cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
   const g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
   const px = (col, row, x, y, c) => { g.fillStyle = c; g.fillRect(col * S + x, row * S + y, 1, 1); };
@@ -291,6 +359,16 @@ function makeAtlas() {
     for (let y = 4; y < 9; y++) for (let x = 0; x < S; x++) px(c, r, x, y, y === 4 ? '#d4d0c7' : '#b8423f');
     for (let x = 0; x < S; x++) { px(c, r, x, 9, '#6b4a26'); px(c, r, x, 3, '#6b4a26'); }
   });
+  // 16 铁矿石：石头 + 橙褐色矿斑
+  T(16, '#8d8d8d', 0.13, (c, r) => {
+    for (let i = 0; i < 8; i++) {
+      const bx = 2 + Math.floor(Math.random() * 12), by = 2 + Math.floor(Math.random() * 12);
+      for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) {
+        if (x === 2 && y === 2) continue;
+        px(c, r, Math.min(15, bx + x), Math.min(15, by + y), shade(Math.random() < 0.5 ? '#d99a63' : '#b97a45', 1));
+      }
+    }
+  });
   // 13 煤矿
   T(13, '#8d8d8d', 0.13, (c, r) => {
     for (let i = 0; i < 7; i++) {
@@ -318,7 +396,7 @@ function iconURL(id) {
   const b = BLOCKS[id];
   if (b) {
     const t = b.side ?? b.top;
-    g.drawImage(atlasCanvas, (t % 4) * 16, ((t / 4) | 0) * 16, 16, 16, 0, 0, S, S);
+    g.drawImage(atlasCanvas, (t % ATLAS_COLS) * 16, ((t / ATLAS_COLS) | 0) * 16, 16, 16, 0, 0, S, S);
   } else if (id === 104) { // 木棍
     g.strokeStyle = '#b98a4e'; g.lineWidth = 5; g.lineCap = 'round';
     g.beginPath(); g.moveTo(7, 26); g.lineTo(24, 6); g.stroke();
@@ -330,17 +408,39 @@ function iconURL(id) {
     g.strokeStyle = '#6a4a2a'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(16, 11); g.lineTo(17, 5); g.stroke();
     g.fillStyle = '#4c9a3a'; g.beginPath(); g.ellipse(21, 6, 5, 2.6, -0.4, 0, 7); g.fill();
   } else if (ITEMS[id] && ITEMS[id].kind === 'pick') { // 镐
-    const stone = id === 101;
+    const metal = id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
     g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
     g.beginPath(); g.moveTo(9, 27); g.lineTo(21, 12); g.stroke();
-    g.strokeStyle = stone ? '#9a9a9a' : '#c8a06a'; g.lineWidth = 5;
+    g.strokeStyle = metal; g.lineWidth = 5;
     g.beginPath(); g.moveTo(9, 9); g.quadraticCurveTo(20, 5, 27, 13); g.stroke();
   } else if (ITEMS[id] && ITEMS[id].kind === 'sword') { // 剑
-    const stone = id === 103;
-    g.strokeStyle = stone ? '#b9b9b9' : '#c8a06a'; g.lineWidth = 5; g.lineCap = 'round';
+    const metal = id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
+    g.strokeStyle = metal; g.lineWidth = 5; g.lineCap = 'round';
     g.beginPath(); g.moveTo(10, 25); g.lineTo(24, 7); g.stroke();
     g.strokeStyle = '#8d6534'; g.lineWidth = 4;
     g.beginPath(); g.moveTo(7, 21); g.lineTo(14, 28); g.stroke();
+  } else if (id === 106) { // 铁锭
+    g.fillStyle = '#c9d0d8'; g.beginPath();
+    g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
+    g.fillStyle = '#e8eef4'; g.beginPath();
+    g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
+  } else if (ITEMS[id] && ITEMS[id].kind === 'armor') { // 铁盔甲
+    const steel = '#d3dae2', dark = '#8c98a6';
+    g.fillStyle = steel; g.strokeStyle = dark; g.lineWidth = 2;
+    if (ITEMS[id].slot === 'head') {                 // 头盔
+      g.beginPath(); g.arc(16, 17, 9, Math.PI, 0); g.lineTo(25, 21); g.lineTo(7, 21); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#2a3340'; g.fillRect(11, 16, 10, 4);
+    } else if (ITEMS[id].slot === 'chest') {         // 胸甲
+      g.beginPath(); g.moveTo(10, 8); g.lineTo(22, 8); g.lineTo(25, 13); g.lineTo(22, 25);
+      g.lineTo(10, 25); g.lineTo(7, 13); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = dark; g.fillRect(15, 10, 2, 13);
+    } else if (ITEMS[id].slot === 'legs') {          // 护腿
+      g.beginPath(); g.moveTo(9, 7); g.lineTo(23, 7); g.lineTo(23, 25); g.lineTo(18, 25); g.lineTo(16, 14);
+      g.lineTo(14, 25); g.lineTo(9, 25); g.closePath(); g.fill(); g.stroke();
+    } else {                                          // 靴子
+      g.beginPath(); g.moveTo(7, 12); g.lineTo(13, 12); g.lineTo(13, 22); g.lineTo(9, 22); g.closePath(); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(17, 12); g.lineTo(23, 12); g.lineTo(23, 22); g.lineTo(19, 22); g.closePath(); g.fill(); g.stroke();
+    }
   } else {
     g.fillStyle = '#7b8ea6'; g.fillRect(4, 4, 24, 24);
   }
@@ -438,6 +538,7 @@ function genChunk(cx, cz) {
       else if (h >= 45) id = 3;
       else id = d === 0 ? 1 : (d <= 3 ? 2 : 3);
       if (id === 3 && h3(wx, y, wz) > 0.982) id = 13;                              // 煤矿
+      else if (id === 3 && y < 34 && h3(wx + 77, y * 3, wz - 31) > 0.992) id = 15; // 铁矿（更深更少）
       if (id !== 4 && caveCarve(wx, y, wz, h)) id = 0;                             // 洞穴（含天然洞口）
       if (id) b[idx(lx, y, lz)] = id;
     }
@@ -464,6 +565,8 @@ function genChunk(cx, cz) {
       const i = (op.y * CH + (op.z - oz)) * CH + (op.x - ox);
       if (op.t === 0) {
         if (b[i] !== 0 && b[i] !== 5) b[i] = 0;        // 只挖固体，别把水挖穿
+      } else if (op.t === 13 || op.t === 15) {
+        if (b[i] !== 0 && b[i] !== 5) b[i] = op.t;     // 矿脉只嵌在岩层里，不堵巷道
       } else if (b[i] !== 5) {
         b[i] = op.t;
       }
@@ -589,8 +692,9 @@ function buildChunk(chunk) {
       if (water) { if (nb !== 0) continue; }
       else if (nb !== 0 && nb !== 5) continue;
       const t = faceTile(def, fi);
-      const u0 = (t % 4) * 0.25 + 0.0015, v0 = 1 - (((t / 4) | 0) + 1) * 0.25 + 0.0015;
-      const iu = 0.25 - 0.003, iv = 0.25 - 0.003;
+      const u0 = (t % ATLAS_COLS) / ATLAS_COLS + 0.0015;
+      const v0 = 1 - (((t / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.0015;
+      const iu = 1 / ATLAS_COLS - 0.003, iv = 1 / ATLAS_ROWS - 0.003;
       const jit = 0.95 + h3(wx * 3 + fi, y * 7, wz * 5) * 0.1;
       const s = f.sh * jit;
       const base = water ? vw : vc;
@@ -635,7 +739,27 @@ const player = {
   swing: 0, walkPhase: 0, fallFrom: null, inWater: false,
   sel: 0, mining: 0, mineTarget: null, atkCd: 0, hits: 0, kills: 0,
   spawn: null, stepUp: true,
+  armor: { head: null, chest: null, legs: null, feet: null },
 };
+const ARMOR_SLOTS = ['head', 'chest', 'legs', 'feet'];
+const ARMOR_SLOT_NAME = { head: '头盔', chest: '胸甲', legs: '护腿', feet: '靴子' };
+function armorPoints() {
+  let ap = 0;
+  for (const s of ARMOR_SLOTS) { const a = player.armor[s]; if (a && ITEMS[a]) ap += ITEMS[a].ap || 0; }
+  return ap;
+}
+function equipArmor(itemId) {
+  const def = ITEMS[itemId];
+  if (!def || def.kind !== 'armor') return false;
+  const prev = player.armor[def.slot];
+  player.armor[def.slot] = itemId;
+  takeItem(itemId, 1);
+  if (prev) addItem(prev, 1);
+  sfx('craft');
+  toast(`装备 ${def.name}（护甲 ${armorPoints()}）`, 1.5);
+  renderHotbar(); renderInventoryPanel(); saveSoon();
+  return true;
+}
 let inv = [];   // [{id,n}]
 const SLOTS = 27;
 
@@ -779,8 +903,8 @@ function blockFaceMat(tile) {
   if (faceTexCache.has(tile)) return faceTexCache.get(tile);
   const tx = atlasTex.clone();
   tx.needsUpdate = true;
-  tx.repeat.set(0.25, 0.25);
-  tx.offset.set((tile % 4) * 0.25, 1 - (((tile / 4) | 0) + 1) * 0.25);
+  tx.repeat.set(1 / ATLAS_COLS, 1 / ATLAS_ROWS);
+  tx.offset.set((tile % ATLAS_COLS) / ATLAS_COLS, 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS);
   const m = new THREE.MeshLambertMaterial({ map: tx });
   faceTexCache.set(tile, m);
   return m;
@@ -991,11 +1115,18 @@ function initAudioChain() {
   lp.connect(wet); wet.connect(AC.destination);
   wetGain = wet;
 }
+// 头顶一直到世界顶有没有实体方块 —— 有就是地下（原来是只扫 24 格，大洞窟会漏判成"地表"）
+function isSkyLit(x, y, z) {
+  for (let yy = y; yy < CFG.WH; yy++) if (isSolid(getBlock(x, yy, z))) return false;
+  return true;
+}
 function isUnderground() {
-  const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
-  const y0 = Math.floor(player.p.y + 1.8);
-  for (let y = y0; y <= Math.min(CFG.WH - 1, y0 + 24); y++) if (isSolid(getBlock(px, y, pz))) return true;
-  return false;
+  return !isSkyLit(Math.floor(player.p.x), Math.floor(player.p.y + 1.8), Math.floor(player.p.z));
+}
+// 该位置是否够暗（能被刷怪）：有顶 → 暗；露天 → 只有夜里暗
+function isDarkAt(x, y, z) {
+  if (!isSkyLit(x, y, z)) return true;
+  return lightLevel < 0.35;
 }
 function playDrip() {
   if (!AC || !sfxBus) return;
@@ -1096,19 +1227,43 @@ function makeGrunt() {
   return { g, core, bodyMat, headMat, arm1, arm2, bar, barFg };
 }
 
-function spawnMob(offset) {
-  let x, z;
-  if (offset) { x = Math.floor(player.p.x + offset[0]); z = Math.floor(player.p.z + offset[1]); }
-  else {
-    const ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 12;
-    x = Math.floor(player.p.x + Math.cos(ang) * dist);
-    z = Math.floor(player.p.z + Math.sin(ang) * dist);
+// 找一个"黑暗的空腔"：地下（玩家上下 8 格范围内）或夜里露天地面
+function findSpawnSpot() {
+  const okSpot = (x, y, z) =>
+    getBlock(x, y, z) === 0 && getBlock(x, y + 1, z) === 0 &&     // 脚下/头部要空
+    isSolid(getBlock(x, y - 1, z)) &&                            // 要有地板
+    isDarkAt(x, y, z);                                          // 必须够暗
+  for (let t = 0; t < 14; t++) {
+    const ang = Math.random() * Math.PI * 2, dist = 8 + Math.random() * 14;
+    const x = Math.floor(player.p.x + Math.cos(ang) * dist);
+    const z = Math.floor(player.p.z + Math.sin(ang) * dist);
+    if (Math.random() < 0.75) {
+      // 地下：从玩家上方往下扫，找第一个能站的暗空腔（矿道/洞穴地面）
+      const yTop = Math.min(CFG.WH - 3, Math.floor(player.p.y) + 5);
+      const yBot = Math.max(3, Math.floor(player.p.y) - 10);
+      for (let y = yTop; y >= yBot; y--) if (okSpot(x, y, z)) return { x, y, z };
+    } else {
+      const y = surfaceY(x, z) + 1;
+      if (okSpot(x, y, z)) return { x, y, z };
+    }
   }
-  const y = surfaceY(x, z);
-  if (getBlock(x, y + 1, z) !== 0 || getBlock(x, y + 2, z) !== 0) return null;
+  return null;
+}
+function spawnMob(offset) {
+  let x, y, z;
+  if (offset) {
+    x = Math.floor(player.p.x + offset[0]);
+    z = Math.floor(player.p.z + offset[1]);
+    y = surfaceY(x, z) + 1;
+  } else {
+    const spot = findSpawnSpot();
+    if (!spot) return null;
+    x = spot.x; y = spot.y; z = spot.z;
+  }
+  if (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0) return null;
   const parts = makeGrunt();
   const m = {
-    p: new THREE.Vector3(x + 0.5, y + 1.02, z + 0.5), v: new THREE.Vector3(),
+    p: new THREE.Vector3(x + 0.5, y + 0.02, z + 0.5), v: new THREE.Vector3(),
     hp: MOB_MAXHP, onGround: false, atkCd: 0, phase: Math.random() * 9,
     wander: 0, dir: new THREE.Vector2(), flash: 0, aggro: 0,
     dying: false, dieT: 0, stepUp: true,
@@ -1210,6 +1365,17 @@ function updateMobs(dt) {
       m.parts.barFg.position.x = -(1 - f) * 0.36;
       m.parts.barFg.material.color.setHex(f > 0.55 ? 0x7fe06b : f > 0.25 ? 0xf0c04a : 0xe0524b);
     }
+    // 太阳下暴晒（露天 + 白天）会持续掉血
+    m.sunTick = (m.sunTick || 0) - dt;
+    if (m.sunTick <= 0) {
+      m.sunTick = 0.5;
+      m.sunlit = isSkyLit(Math.floor(m.p.x), Math.floor(m.p.y + 1.2), Math.floor(m.p.z)) && lightLevel > 0.7;
+    }
+    if (m.sunlit) {
+      m.hp -= dt * 2.2;
+      m.parts.bodyMat.emissive.setHex(0x552211);
+      if (m.hp <= 0) { startMobDeath(m); continue; }
+    }
     // 贴身攻击
     m.atkCd -= dt;
     if (hostile && dist < 1.5 && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < 1.8) {
@@ -1217,8 +1383,8 @@ function updateMobs(dt) {
       damagePlayer(3);
     }
   }
-  const cap = night ? CFG.MAX_MOBS : 2;
-  const rate = night ? 0.9 : 0.3;
+  const cap = night ? CFG.MAX_MOBS + 2 : CFG.MAX_MOBS;
+  const rate = 0.85;
   if (aliveMobs() < cap && Math.random() < dt * rate) spawnMob();
 }
 
@@ -1235,7 +1401,10 @@ function toast(msg, secs = 2.4) { hud.hint.textContent = msg; hud.hint.style.opa
 
 function damagePlayer(n) {
   if (!player.alive) return;
-  player.hp = Math.max(0, player.hp - n);
+  const ap = armorPoints();
+  const mul = 1 - Math.min(0.8, ap * 0.04);          // 每点护甲 4% 减伤，上限 80%
+  const dmg = Math.max(0.5, n * mul);
+  player.hp = Math.max(0, player.hp - dmg);
   hud.flash.style.opacity = '0.35';
   setTimeout(() => { hud.flash.style.opacity = '0'; }, 130);
   sfx('hurt');
@@ -1292,7 +1461,33 @@ function renderHearts() {
   for (let i = 0; i < 10; i++) html2 += `<div class="food">${i < food ? '<i></i>' : ''}</div>`;
   hud.food.innerHTML = html2;
 }
+function renderArmorRow() {
+  const row = $('armorGrid');
+  if (!row) return;
+  row.innerHTML = '';
+  for (const s of ARMOR_SLOTS) {
+    const id = player.armor[s];
+    const d = document.createElement('div');
+    d.className = 'cell' + (id ? '' : ' empty');
+    d.style.cssText = 'position:relative;border:2px solid #33475e;background:#1b2536;border-radius:3px;aspect-ratio:1';
+    d.title = id ? `${ITEMS[id].name}（点击脱下）` : `空 ${ARMOR_SLOT_NAME[s]}`;
+    if (id) {
+      d.innerHTML = `<img src="${iconURL(id)}" alt="" style="position:absolute;inset:5px;width:calc(100% - 10px);image-rendering:pixelated">`;
+      d.onclick = () => {
+        addItem(id, 1); player.armor[s] = null;
+        toast(`脱下 ${ITEMS[id].name}`, 1.2);
+        renderArmorRow(); renderHotbar(); renderInventoryPanel(); saveSoon();
+      };
+    } else {
+      d.innerHTML = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#5d738d">${ARMOR_SLOT_NAME[s]}</span>`;
+    }
+    row.appendChild(d);
+  }
+  const v = $('armorVal');
+  if (v) v.textContent = `护甲 ${armorPoints()}`;
+}
 function renderInventoryPanel() {
+  renderArmorRow();
   hud.invGrid.innerHTML = '';
   for (let i = 0; i < SLOTS; i++) {
     const s = inv[i];
@@ -1301,33 +1496,64 @@ function renderInventoryPanel() {
     if (s) {
       d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>`;
       d.title = nameOf(s.id);
-      d.onclick = () => { if (i < 9) { player.sel = i; refreshHeld(); renderHotbar(); } toast(`选中 ${nameOf(s.id)}`, 1.2); };
+      d.onclick = () => {
+        const df = defOf(s.id) || {};
+        if (df.kind === 'armor') { equipArmor(s.id); return; }
+        if (i < 9) { player.sel = i; refreshHeld(); renderHotbar(); }
+        toast(`选中 ${nameOf(s.id)}`, 1.2);
+      };
     }
     hud.invGrid.appendChild(d);
   }
   hud.invCount.textContent = `${inv.length}/${SLOTS}`;
   hud.recList.innerHTML = '';
+  const hasTable = nearCraftingTable();
   for (const r of RECIPES) {
-    const ok = Object.entries(r.need).every(([id, n]) => countOf(+id) >= n);
+    const matsOk = Object.entries(r.need).every(([id, n]) => countOf(+id) >= n);
+    const tableOk = r.tier !== 1 || hasTable;
+    const ok = matsOk && tableOk;
     const d = document.createElement('div');
     d.className = 'rec' + (ok ? '' : ' no');
     const need = Object.entries(r.need).map(([id, n]) => `${nameOf(+id)}×${n}`).join(' + ');
-    d.innerHTML = `<img src="${iconURL(r.out)}" alt=""><div class="t">${nameOf(r.out)} ×${r.n}<i>${need}</i></div><div class="go">${ok ? '制作 →' : '缺材料'}</div>`;
-    d.onclick = () => { if (!ok) return; craft(r); };
+    const badge = r.tier === 1 ? (hasTable ? '<i style="color:#7fe06b">工作台 ✓</i>' : '<i style="color:#e0a24a">需工作台</i>') : '';
+    d.innerHTML = `<img src="${iconURL(r.out)}" alt=""><div class="t">${nameOf(r.out)} ×${r.n}<i>${need}</i>${badge}</div>`
+      + `<div class="go">${ok ? '制作 →' : tableOk ? '缺材料' : '需工作台'}</div>`;
+    d.onclick = () => { if (!ok) { if (!tableOk) toast('需要站在工作台旁边', 1.5); return; } craft(r); };
     hud.recList.appendChild(d);
   }
 }
+// tier 1 = 必须站在已放置的工作台旁边才能做（"大工具"）
 const RECIPES = [
   { out: 8, n: 4, need: { 6: 1 } },
   { out: 104, n: 4, need: { 8: 2 } },
   { out: 10, n: 1, need: { 8: 4 } },
-  { out: 100, n: 1, need: { 8: 3, 104: 2 } },
-  { out: 101, n: 1, need: { 9: 3, 104: 2 } },
-  { out: 102, n: 1, need: { 8: 2, 104: 1 } },
-  { out: 103, n: 1, need: { 9: 2, 104: 1 } },
-  { out: 14, n: 1, need: { 8: 4, 104: 3 } },
+  { out: 100, n: 1, need: { 8: 3, 104: 2 }, tier: 1 },
+  { out: 101, n: 1, need: { 9: 3, 104: 2 }, tier: 1 },
+  { out: 102, n: 1, need: { 8: 2, 104: 1 }, tier: 1 },
+  { out: 103, n: 1, need: { 9: 2, 104: 1 }, tier: 1 },
+  { out: 120, n: 1, need: { 106: 3, 104: 2 }, tier: 1 },
+  { out: 121, n: 1, need: { 106: 2, 104: 1 }, tier: 1 },
+  { out: 110, n: 1, need: { 106: 5 }, tier: 1 },
+  { out: 111, n: 1, need: { 106: 8 }, tier: 1 },
+  { out: 112, n: 1, need: { 106: 7 }, tier: 1 },
+  { out: 113, n: 1, need: { 106: 4 }, tier: 1 },
+  { out: 14, n: 1, need: { 8: 4, 104: 3 }, tier: 1 },
 ];
+// 附近 9×6×9 内是否有已放置的工作台（0.4 秒缓存）
+let tableCache = { t: -1, v: false };
+function nearCraftingTable() {
+  const now = performance.now();
+  if (now - tableCache.t < 400) return tableCache.v;
+  const px = Math.floor(player.p.x), py = Math.floor(player.p.y), pz = Math.floor(player.p.z);
+  let has = false;
+  for (let dx = -4; dx <= 4 && !has; dx++) for (let dz = -4; dz <= 4 && !has; dz++) {
+    for (let dy = -2; dy <= 3; dy++) if (getBlock(px + dx, py + dy, pz + dz) === 10) { has = true; break; }
+  }
+  tableCache = { t: now, v: has };
+  return has;
+}
 function craft(r) {
+  if (r.tier === 1 && !nearCraftingTable()) { toast('需要站在工作台旁边才能做这个', 1.6); return false; }
   for (const [id, n] of Object.entries(r.need)) if (countOf(+id) < n) return false;
   for (const [id, n] of Object.entries(r.need)) takeItem(+id, n);
   addItem(r.out, r.n);
@@ -1523,6 +1749,8 @@ function doMine(dt, target) {
   const pickOk = heldKind() === 'pick';
   let speed = 1 / Math.max(0.12, def.hard);
   if (def.pick) speed *= pickOk ? 1 : 0.28;
+  const heldDef = held() ? ITEMS[held().id] : null;
+  if (pickOk && heldDef && heldDef.fast) speed *= heldDef.fast;   // 铁镐更快
   player.mining += dt * speed;
   player.mineTarget = target;
   if (player.mining >= 1) {
@@ -1539,7 +1767,9 @@ function breakBlock(t) {
   sfx('dig');
   if (def.leaf) { if (Math.random() < 0.12) { addItem(105, 1); toast('捡到苹果 ×1', 1.6); } }
   else if (def.drop) {
-    if (def.pick && heldKind() !== 'pick') toast('石头需要镐才能采集', 1.8);
+    const stonePick = inv.some(s => s.id === 101 || s.id === 120);
+    if (def.stonePick && !stonePick) toast('铁矿需要石镐或更好才能采集', 1.8);
+    else if (def.pick && heldKind() !== 'pick') toast('石头需要镐才能采集', 1.8);
     else addItem(def.drop, 1);
   }
   renderHotbar(); refreshHeld(); saveSoon();
@@ -1719,7 +1949,8 @@ function update(dt) {
   if (placeQueued) {
     placeQueued = false;
     const h = held();
-    if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
+    if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
+    else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
     else if (h && (defOf(h.id) || {}).kind === 'food') eat();
     else placeBlock();
   }
@@ -1788,7 +2019,7 @@ function updateHUD(dt) {
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
-    `手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
+    `手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
   if (s !== lastStatus) { hud.status.innerHTML = s; lastStatus = s; }
   renderHearts();
 }
@@ -1799,7 +2030,7 @@ function save() {
     const data = {
       seed: SEED, time: worldTime,
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
-      inv, edits: Array.from(edits.entries()), spawn: player.spawn,
+      inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor,
     };
     localStorage.setItem(CFG.SAVE_KEY, JSON.stringify(data));
   } catch (e) { /* 配额满就跳过 */ }
@@ -1816,6 +2047,7 @@ function loadSave() {
     worldTime = d.time || 0;
     inv = (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0);
     player.spawn = d.spawn || null;
+    if (d.armor) for (const s of ARMOR_SLOTS) player.armor[s] = ITEMS[d.armor[s]] ? d.armor[s] : null;
     for (const [k, v] of (d.edits || [])) edits.set(k, v);
     if (d.player) {
       player.p.set(d.player.x, d.player.y, d.player.z);
@@ -1941,6 +2173,11 @@ window.GAME = {
     setTime(t) { worldTime = t; updateSky(); },
     setHp(v) { player.hp = v; },
     hurt: (n = 1) => damagePlayer(n),
+    armor: () => ({ ...player.armor, ap: armorPoints() }),
+    equip: (id) => { addItem(id, 1); return equipArmor(id); },
+    nearTable: () => nearCraftingTable(),
+    craftIdx: (i) => craft(RECIPES[i]),
+    recipes: () => RECIPES.map((r, i) => ({ i, out: r.out, name: nameOf(r.out), tier: r.tier || 0, need: Object.keys(r.need).map(Number) })),
     respawn: () => respawn(),
     setHunger(v) { player.hunger = v; },
     mine(on) { mineHeld = !!on; },
@@ -1999,7 +2236,7 @@ window.GAME = {
       const out = [];
       for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
         const ms = mineshaftFor(pcx + dx, pcz + dz);
-        if (ms) out.push({ ox: ms.ox, oz: ms.oz, baseY: ms.baseY, len: ms.len, ops: ms.ops, entrance: ms.entrance });
+        if (ms) out.push({ ox: ms.ox, oz: ms.oz, baseY: ms.baseY, kind: ms.kind, corridors: ms.corridors, ops: ms.ops, entrance: ms.entrance });
       }
       return out;
     },
@@ -2008,12 +2245,17 @@ window.GAME = {
       for (let r = 0; r <= 3; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
         const ms = mineshaftFor(pcx + dx, pcz + dz);
         if (!ms) continue;
-        const x = ms.ox + 6, z = ms.oz, y = ms.baseY;
+        // 从结构里挑一个真正被挖空的点站进去（方向随机，不能假设 ox+6 一定在巷道里）
+        const airs = [];
+        for (const arr of ms.byChunk.values()) for (const o of arr) if (o.t === 0 && o.y === ms.baseY + 1) airs.push(o);
+        if (!airs.length) continue;
+        const pick = airs[Math.floor(airs.length / 2)];
+        const x = pick.x, z = pick.z, y = ms.baseY + 1;
         const cx = Math.floor(x / CFG.CH), cz = Math.floor(z / CFG.CH);
         for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) buildChunk(getChunk(cx + a, cz + b));
         player.p.set(x + 0.5, y, z + 0.5); player.v.set(0, 0, 0);
         camSmoothY = null;
-        return { x: x + 0.5, y, z: z + 0.5, baseY: ms.baseY, len: ms.len, entrance: ms.entrance };
+        return { x: x + 0.5, y, z: z + 0.5, baseY: ms.baseY, kind: ms.kind, corridors: ms.corridors, entrance: ms.entrance };
       }
       return null;
     },
