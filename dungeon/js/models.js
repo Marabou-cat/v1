@@ -249,7 +249,7 @@ export function buildHumanoid(cfg) {
   if (C.weapon) {
     const w = buildWeapon(C.weapon);
     w.position.set(0, -0.03, 0.015);
-    w.rotation.set(-0.62, 0, 0.06);
+    w.rotation.set(0.72, 0.10, -0.18);
     rig.mount.add(w);
     rig.weaponModel = w;
   }

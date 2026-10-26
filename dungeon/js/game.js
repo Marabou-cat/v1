@@ -37,11 +37,15 @@ const SPAWNS = [
   { k: 'goblin', x: 17, z: 3 }, { k: 'goblin', x: 25, z: -8 }, { k: 'goblin', x: -9, z: -7 },
   { k: 'goblin', x: 6, z: -19 }, { k: 'goblin', x: -24, z: -20 },
   { k: 'skeleton', x: -7, z: -27 }, { k: 'skeleton', x: 9, z: -31 }, { k: 'skeleton', x: 1, z: -23 },
-  { k: 'boss', x: 0, z: -49 },
+  // ↓ 副本「废墟深处」独立地图里的怪
+  { k: 'boss', x: 0, z: -18.5, map: 'dungeon' },
+  { k: 'skeleton', x: -9, z: -8, map: 'dungeon' }, { k: 'skeleton', x: 9, z: -8, map: 'dungeon' },
+  { k: 'goblin', x: -12, z: 5, map: 'dungeon' }, { k: 'goblin', x: 12, z: 5, map: 'dungeon' },
+  { k: 'slime', x: -6, z: 15, map: 'dungeon' }, { k: 'slime', x: 6, z: 15, map: 'dungeon' },
 ];
 
 /* ============================== 世界几何 ============================== */
-const BOUND = 68;
+let BOUND = 68;
 const POND = { x: -26, z: 26, r: 11.5, water: -1.35 };
 const FLAT = [
   { x0: -17, x1: 17, z0: -60, z1: -33, level: 0.55, m: 7 }, // 废墟庭院
@@ -49,7 +53,7 @@ const FLAT = [
 ];
 const smooth = t => t * t * (3 - 2 * t);
 
-export function heightAt(x, z) {
+function hOver(x, z) {
   let h = Math.sin(x * 0.055) * 0.62 + Math.cos(z * 0.048) * 0.55 + Math.sin(x * 0.031 + z * 0.042) * 0.80;
   h += Math.sin(x * 0.013 - z * 0.017) * 1.15;
   for (const f of FLAT) {
@@ -62,7 +66,16 @@ export function heightAt(x, z) {
   if (pd < POND.r * 2.2) h -= 3.1 * Math.exp(-(pd * pd) / (POND.r * POND.r * 0.85));
   return h;
 }
-const inWater = (x, z) => Math.hypot(x - POND.x, z - POND.z) < POND.r * 0.98 && heightAt(x, z) < POND.water - 0.1;
+// 副本是独立地图：自己的地面高度、碰撞、雾、灯光、出生点
+function hDungeon(x, z) {
+  let h = 0.35 + Math.sin(x * 0.09) * 0.015 + Math.cos(z * 0.08) * 0.015;
+  if (Math.abs(x) < 7.2 && z < -13 && z > -24.5) h = 0.78;   // boss 台座
+  return h;
+}
+let HF = hOver;                       // 当前地图的高度函数
+let activeId = 'overworld';
+export function heightAt(x, z) { return HF(x, z); }
+const inWater = (x, z) => activeId === 'overworld' && Math.hypot(x - POND.x, z - POND.z) < POND.r * 0.98 && heightAt(x, z) < POND.water - 0.1;
 
 /* ============================== 基础三件套 ============================== */
 const canvas = document.getElementById('c');
@@ -81,6 +94,7 @@ const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 50
 camera.position.set(0, 6, 34);
 
 /* 天空渐变 */
+let skyMesh;
 {
   const skyGeo = new THREE.SphereGeometry(320, 24, 16);
   const skyMat = new THREE.ShaderMaterial({
@@ -97,7 +111,8 @@ camera.position.set(0, 6, 34);
         c = mix(c, top, smoothstep(0.38,1.0,t));
         gl_FragColor = vec4(c,1.0); }`,
   });
-  scene.add(new THREE.Mesh(skyGeo, skyMat));
+  skyMesh = new THREE.Mesh(skyGeo, skyMat);
+  scene.add(skyMesh);
 }
 
 const hemi = new THREE.HemisphereLight(0xbcd6ee, 0x6b5b43, 1.02);
@@ -111,12 +126,15 @@ sun.shadow.camera.top = 42; sun.shadow.camera.bottom = -42;
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 140;
 sun.shadow.bias = -0.0016;
 scene.add(sun);
-scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+const ambient = new THREE.AmbientLight(0xffffff, 0.12);
+scene.add(ambient);
 
 /* ============================== 静态世界 ============================== */
-const colliders = [];   // {x,z,r}
-const worldGroup = new THREE.Group();
-scene.add(worldGroup);
+const colliders = [];   // {x,z,r} 当前地图
+const mapGroups = { overworld: new THREE.Group(), dungeon: new THREE.Group() };
+mapGroups.dungeon.visible = false;
+scene.add(mapGroups.overworld, mapGroups.dungeon);
+let WG = mapGroups.overworld;   // 当前正在往哪个 Group 里建
 
 function addCollider(x, z, r) { colliders.push({ x, z, r }); }
 
@@ -147,7 +165,7 @@ function buildTerrain() {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
   const mesh = new THREE.Mesh(geo, m);
   mesh.receiveShadow = true;
-  worldGroup.add(mesh);
+  WG.add(mesh);
 
   // 草簇：先把矩阵全算好，再用精确 count 建 InstancedMesh
   //（曾用「预分配 760 但只填 k 个」，未初始化实例矩阵让 GPU 画出满屏黑色垃圾三角形）
@@ -173,7 +191,7 @@ function buildTerrain() {
   mats.forEach((m, i) => tuft.setMatrixAt(i, m));
   tuft.instanceMatrix.needsUpdate = true;
   tuft.frustumCulled = false;
-  worldGroup.add(tuft);
+  WG.add(tuft);
 }
 
 function buildWater() {
@@ -184,11 +202,11 @@ function buildWater() {
   g.rotation.x = -Math.PI / 2;
   g.position.set(POND.x, POND.water, POND.z);
   g.receiveShadow = true;
-  worldGroup.add(g);
+  WG.add(g);
   const rim = new THREE.Mesh(new THREE.RingGeometry(POND.r * 0.98, POND.r * 1.05, 40), new THREE.MeshBasicMaterial({ color: 0xcbb68c, transparent: true, opacity: 0.35 }));
   rim.rotation.x = -Math.PI / 2;
   rim.position.set(POND.x, POND.water + 0.02, POND.z);
-  worldGroup.add(rim);
+  WG.add(rim);
 }
 
 function buildTrees() {
@@ -223,7 +241,7 @@ function buildTrees() {
       cone.castShadow = true; cone.receiveShadow = true;
       g.add(cone);
     }
-    worldGroup.add(g);
+    WG.add(g);
     addCollider(s.x, s.z, 0.55 * sc);
   }
 }
@@ -240,7 +258,7 @@ function buildRocks() {
     m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
     m.scale.y = 0.75 + Math.random() * 0.4;
     m.castShadow = true; m.receiveShadow = true;
-    worldGroup.add(m);
+    WG.add(m);
     if (sc > 0.85) addCollider(x, z, sc * 0.8);
   }
 }
@@ -252,7 +270,7 @@ const torchMat = new THREE.MeshBasicMaterial({ color: 0xffb45c });
 function buildRuins() {
   const L = 0.55;
   const g = new THREE.Group();
-  worldGroup.add(g);
+  WG.add(g);
   // 地面石台
   const floor = new THREE.Mesh(new THREE.BoxGeometry(33, 0.7, 26), stoneM());
   floor.position.set(0, L - 0.35, -46.5);
@@ -325,7 +343,7 @@ const FIRELIGHTS = [];
 function buildCamp() {
   const y = heightAt(0, 26);
   const g = new THREE.Group();
-  worldGroup.add(g);
+  WG.add(g);
   // 石圈 + 篝火
   for (let i = 0; i < 9; i++) {
     const a = (i / 9) * Math.PI * 2;
@@ -383,7 +401,123 @@ function buildMountains() {
     const c = new THREE.Mesh(new THREE.ConeGeometry(h * 1.55, h, 6), m);
     c.position.set(Math.cos(a) * r, h * 0.30, Math.sin(a) * r);
     c.rotation.y = Math.random() * 3;
-    worldGroup.add(c);
+    WG.add(c);
+  }
+}
+
+
+/* ---------------- 副本地图：废墟深处（独立场景，由传送门进入） ---------------- */
+function buildDungeon() {
+  const g = WG;
+  const L = 0.35;
+  const wallM = new THREE.MeshStandardMaterial({ color: 0x6f6c63, roughness: 0.97 });
+  const wallD = new THREE.MeshStandardMaterial({ color: 0x54524c, roughness: 0.98 });
+  const floorM = new THREE.MeshStandardMaterial({ color: 0x78746a, roughness: 0.95 });
+  const tileM = new THREE.MeshStandardMaterial({ color: 0x655f56, roughness: 1 });
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(44, 1.4, 54), floorM);
+  floor.position.set(0, L - 0.7, 0);
+  floor.receiveShadow = true;
+  g.add(floor);
+  for (let i = -5; i <= 5; i++) {
+    const a = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.02, 53), tileM);
+    a.position.set(i * 4, L + 0.012, 0);
+    g.add(a);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(43, 0.02, 0.08), tileM);
+    b.position.set(0, L + 0.012, i * 5);
+    g.add(b);
+  }
+
+  const wall = (x, z, w, d) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 7.2, d), wallM);
+    m.position.set(x, L + 3.6, z);
+    m.castShadow = true; m.receiveShadow = true;
+    g.add(m);
+    const len = Math.max(w, d);
+    for (let t = -len / 2; t <= len / 2 + 0.01; t += 1.55) {
+      addCollider(w > d ? x + t : x, w > d ? z : z + t, 1.32);
+    }
+  };
+  wall(-22.3, 0, 1.8, 54);
+  wall(22.3, 0, 1.8, 54);
+  wall(0, -27.3, 45, 1.8);
+  wall(0, 27.3, 45, 1.8);
+
+  // 立柱
+  for (const [px, pz] of [[-15, -12], [15, -12], [-15, 12], [15, 12]]) {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.35, 7.2, 10), wallD);
+    c.position.set(px, L + 3.6, pz);
+    c.castShadow = true; c.receiveShadow = true;
+    g.add(c);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.4, 2.9), wallM);
+    cap.position.set(px, L + 7.3, pz);
+    g.add(cap);
+    addCollider(px, pz, 1.55);
+  }
+
+  // boss 台座 + 符文圈
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(7.4, 7.7, 0.5, 26), wallD);
+  dais.position.set(0, L + 0.25, -18.5);
+  dais.receiveShadow = true;
+  g.add(dais);
+  const rune = new THREE.Mesh(new THREE.TorusGeometry(5.4, 0.1, 8, 44), new THREE.MeshBasicMaterial({ color: 0x6fd0ff, transparent: true, opacity: 0.5 }));
+  rune.rotation.x = -Math.PI / 2;
+  rune.position.set(0, L + 0.53, -18.5);
+  g.add(rune);
+  G.dungeonRune = rune;
+
+  // 墙上火把（带 2 盏实光就够了，手机上点光很贵）
+  const torchSpots = [[-21.2, -12], [21.2, -12], [-21.2, 12], [21.2, 12]];
+  torchSpots.forEach(([tx, tz], i) => {
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.2, 0.5, 7), wallD);
+    br.position.set(tx, L + 2.7, tz);
+    g.add(br);
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.78, 6), torchMat);
+    fl.position.set(tx, L + 3.3, tz);
+    g.add(fl);
+    let light = null;
+    if (i % 2 === 0) {
+      light = new THREE.PointLight(0xff9b45, 16, 20, 2);
+      light.position.set(tx * 0.94, L + 3.4, tz);
+      g.add(light);
+    }
+    FIRELIGHTS.push({ mesh: fl, light: light || { intensity: 0, id: i }, base: 1 });
+  });
+
+  // 出口传送门（回到大世界）
+  for (const s of [-1, 1]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(1.1, 4.8, 1.4), wallD);
+    post.position.set(3.2 * s, L + 2.4, 25.6);
+    post.castShadow = true;
+    g.add(post);
+    addCollider(3.2 * s, 25.6, 0.85);
+  }
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(8, 1.2, 1.5), wallM);
+  lintel.position.set(0, L + 5.1, 25.6);
+  lintel.castShadow = true;
+  g.add(lintel);
+  const exitPlane = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 4.8), new THREE.MeshBasicMaterial({ color: 0x0a1018 }));
+  exitPlane.position.set(0, L + 2.5, 25.5);
+  exitPlane.rotation.y = Math.PI;
+  g.add(exitPlane);
+  const exitRing = new THREE.Mesh(new THREE.TorusGeometry(2.25, 0.13, 8, 30), new THREE.MeshBasicMaterial({ color: 0x76d6ff, transparent: true, opacity: 0.7 }));
+  exitRing.position.set(0, L + 2.5, 25.4);
+  exitRing.rotation.y = Math.PI;
+  g.add(exitRing);
+  G.dungeonRing = exitRing;
+  const exitLight = new THREE.PointLight(0x74cdff, 22, 26, 2);
+  exitLight.position.set(0, L + 2.6, 23.6);
+  g.add(exitLight);
+
+  // 碎石 / 骸骨堆装饰
+  for (let i = 0; i < 12; i++) {
+    const a = Math.random() * 6.28, r = 4 + Math.random() * 16;
+    const sc = 0.3 + Math.random() * 0.7;
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(sc, 0), new THREE.MeshStandardMaterial({ color: 0x5d5a52, roughness: 1, flatShading: true }));
+    m.position.set(Math.cos(a) * r, L + sc * 0.35, Math.sin(a) * r);
+    m.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+    m.castShadow = true; m.receiveShadow = true;
+    g.add(m);
   }
 }
 
@@ -401,11 +535,37 @@ const G = {
 };
 window.__DG_G = G;
 
+const MAPS = {};
+let activeMap = null;
+function finishMap(id, cfg) {
+  MAPS[id] = Object.assign({ id, solids: colliders.slice() }, cfg);
+  colliders.length = 0;
+  return MAPS[id];
+}
 FIRELIGHTS.length = 0;
+// ① 大世界
+WG = mapGroups.overworld; HF = hOver;
 buildTerrain(); buildWater(); buildTrees(); buildRocks(); buildRuins(); buildCamp(); buildMountains();
+finishMap('overworld', {
+  h: hOver, label: '灰烬原野',
+  spawn: new THREE.Vector3(2.4, hOver(2.4, 30.6) + 0.05, 30.6), face: Math.PI,
+  bound: 68, fog: { c: 0x9fb2c0, n: 70, f: 200 }, sun: 2.5, hemi: 1.02, amb: 0.12, sky: true,
+  portal: { x: 0, z: -56.5, r: 4.2, to: 'dungeon', text: '进入废墟深处' },
+});
+// ② 副本（独立地图，只能通过传送门进出）
+WG = mapGroups.dungeon; HF = hDungeon;
+buildDungeon();
+finishMap('dungeon', {
+  h: hDungeon, label: '废墟深处',
+  spawn: new THREE.Vector3(0, hDungeon(0, 16) + 0.05, 16), face: Math.PI,
+  bound: 20, fog: { c: 0x141c24, n: 10, f: 62 }, sun: 0.75, hemi: 0.52, amb: 0.26, sky: false,
+  portal: { x: 0, z: 24.6, r: 3.4, to: 'overworld', text: '返回地表' },
+});
+activeMap = MAPS.overworld; activeId = 'overworld'; HF = hOver; BOUND = 68;
+colliders.length = 0; colliders.push(...MAPS.overworld.solids);
 
 /* ============================== 英雄 ============================== */
-const heroStart = new THREE.Vector3(2.4, heightAt(2.4, 30.6) + 0.1, 30.6);
+const heroStart = MAPS.overworld.spawn.clone();
 const hero = {
   pos: heroStart.clone(), yaw: Math.PI, vel: new THREE.Vector3(),
   hp: 120, stam: 100, level: 1, xp: 0,
@@ -493,15 +653,17 @@ function makeHealthBar(m) {
 
 function spawnMonster(sp) {
   const def = MDEF[sp.k];
+  const mapId = sp.map || 'overworld';
+  const hf = MAPS[mapId].h;
   const model = buildMonsterModel(sp.k);
-  const pos = new THREE.Vector3(sp.x, heightAt(sp.x, sp.z), sp.z);
+  const pos = new THREE.Vector3(sp.x, hf(sp.x, sp.z), sp.z);
   model.group.position.copy(pos);
-  scene.add(model.group);
+  mapGroups[mapId].add(model.group);
   const hb = makeHealthBar();
   hb.bg.position.y = (model.rig.barY || 1.2) * (def.h / 1.78);
   model.group.add(hb.bg);
   const m = {
-    boss: sp.k === 'boss',
+    boss: sp.k === 'boss', mapId,
     kind: sp.k, def, model, group: model.group, rig: model.rig,
     pos, home: new THREE.Vector3(sp.x, 0, sp.z), yaw: Math.random() * 6.28,
     hp: def.hp, maxHp: def.hp, atk: null, atkCd: 1 + Math.random(), hitT: 0,
@@ -510,10 +672,12 @@ function spawnMonster(sp) {
     wander: new THREE.Vector3(), combo: Math.random() < 0.5, hb, barY: (model.rig.barY || 1.2),
     chargeT: 0, chargeDir: new THREE.Vector3(), cHit: false, slamT: 0,
   };
-  G.monsters.push(m);
+  ALL_MONSTERS.push(m);
   return m;
 }
+const ALL_MONSTERS = [];
 for (const sp of SPAWNS) spawnMonster(sp);
+G.monsters = ALL_MONSTERS.filter(m => m.mapId === activeId);
 
 /* ============================== 特效 / 文字 ============================== */
 const dmgLayer = document.getElementById('dmgLayer');
@@ -712,7 +876,7 @@ function respawnHero() {
   hero.dead = false;
   hero.hp = maxHp();
   hero.stam = 100;
-  hero.pos.copy(heroStart);
+  hero.pos.copy(activeMap.spawn);
   hero.pos.y = heightAt(hero.pos.x, hero.pos.z);
   hero.invuln = 2.0;
   heroModel.group.visible = true;
@@ -773,6 +937,7 @@ addEventListener('keydown', e => {
   keys.add(e.code);
   if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { doRoll(); e.preventDefault(); }
   if (e.code === 'KeyJ' || e.code === 'KeyK') { doAttack(); e.preventDefault(); }
+  if (e.code === 'KeyE') { usePortal(); e.preventDefault(); }
   if (e.code === 'Tab') { e.preventDefault(); toggleGear(); }
   if (e.code === 'Escape') closePanel();
   if (e.code === 'Enter' && G.mode === 'creation') startGame();
@@ -1173,7 +1338,7 @@ function heroAnim(dt) {
   const sw = Math.sin(hero.walkPhase);
   if (hero.moveAmt > 0.02 && hero.roll <= 0) hero.walkPhase += dt * (6.2 + hero.moveAmt * 3.4);
 
-  let armRX = 0, armRZ = -0.14, armLX = 0, armLZ = 0.14, torsoY = 0;
+  let armRX = -0.16, armRZ = -0.24, armLX = 0, armLZ = 0.18, torsoY = 0;
   if (hero.roll > 0) {
     const p = 1 - hero.roll / P.rollTime;
     body.rotation.x = -p * Math.PI * 2;
@@ -1200,7 +1365,7 @@ function heroAnim(dt) {
     rig.head.rotation.y = torsoY * -0.35;
     body.position.y = Math.abs(Math.sin(p * Math.PI)) * 0.05;
   } else {
-    armRX = sw * 0.55 * hero.moveAmt;
+    armRX = -0.16 + sw * 0.55 * hero.moveAmt;
     armLX = -sw * 0.62 * hero.moveAmt;
     rig.torso.rotation.y = 0;
     rig.head.rotation.y = 0;
@@ -1216,6 +1381,9 @@ function heroAnim(dt) {
   rig.armL.rotation.x += (armLX - rig.armL.rotation.x) * Math.min(1, dt * 20);
   rig.armL.rotation.z = armLZ;
   rig.armR.rotation.y = 0;
+  const elR = hero.atk ? -0.62 : -0.34, elL = hero.atk ? -0.18 : -0.12;
+  if (rig.elbowR) rig.elbowR.rotation.x += (elR - rig.elbowR.rotation.x) * Math.min(1, dt * 18);
+  if (rig.elbowL) rig.elbowL.rotation.x += (elL - rig.elbowL.rotation.x) * Math.min(1, dt * 18);
   if (!hero.atk) { rig.legL.rotation.x = sw * 0.68 * hero.moveAmt; rig.legR.rotation.x = -sw * 0.68 * hero.moveAmt; }
 
   if (hero.dead) {
@@ -1237,6 +1405,11 @@ function stepWorldFx(dt) {
     G.portalRing.rotation.z += dt * 0.4;
     G.portalRing.material.opacity = 0.55 + Math.sin(G.t * 2.2) * 0.18;
   }
+  if (G.dungeonRing) {
+    G.dungeonRing.rotation.z -= dt * 0.4;
+    G.dungeonRing.material.opacity = 0.55 + Math.sin(G.t * 2.0) * 0.18;
+  }
+  if (G.dungeonRune) { G.dungeonRune.rotation.z += dt * 0.22; }
   for (let i = G.fx.length - 1; i >= 0; i--) {
     const f = G.fx[i];
     f.t += dt;
@@ -1366,6 +1539,77 @@ function simulate(dt) {
   }
 }
 
+
+/* ============================== 地图切换 / 传送门 ============================== */
+const useBtn = document.getElementById('btnUse');
+const useLabel = document.getElementById('useLabel');
+const fadeEl = document.getElementById('fade');
+let nearPortal = null;
+let switching = false;
+
+function enterMap(id, silent) {
+  const m = MAPS[id];
+  if (!m || switching) return;
+  switching = true;
+  activeMap = m; activeId = id; HF = m.h; BOUND = m.bound;
+  mapGroups.overworld.visible = id === 'overworld';
+  mapGroups.dungeon.visible = id === 'dungeon';
+  if (skyMesh) skyMesh.visible = m.sky;
+  colliders.length = 0;
+  for (const c of m.solids) colliders.push(c);
+  G.monsters = ALL_MONSTERS.filter(x => x.mapId === id);
+  for (const a of G.arrows) { scene.remove(a.mesh); disposeGroup(a.mesh); }
+  G.arrows.length = 0;
+  for (const o of G.orbs) { scene.remove(o.mesh); }
+  G.orbs.length = 0;
+  for (const f of G.fx) { scene.remove(f.mesh); disposeGroup(f.mesh); }
+  G.fx.length = 0;
+  for (const t of G.texts) t.el.remove();
+  G.texts.length = 0;
+  hero.pos.set(m.spawn.x, m.h(m.spawn.x, m.spawn.z) + 0.05, m.spawn.z);
+  hero.yaw = m.face; hero.atk = null; hero.roll = 0; hero.invuln = 0.8;
+  hero.vel.set(0, 0, 0); hero.moveAmt = 0;
+  if (heroModel) {
+    heroModel.group.position.copy(hero.pos);
+    heroModel.group.rotation.y = hero.yaw;
+    heroModel.group.visible = !hero.dead;
+  }
+  scene.fog.color.setHex(m.fog.c);
+  scene.fog.near = m.fog.n; scene.fog.far = m.fog.f;
+  sun.intensity = m.sun; hemi.intensity = m.hemi;
+  if (typeof ambient !== 'undefined' && ambient) ambient.intensity = m.amb;
+  G.cam.yaw = hero.yaw;
+  camPos.set(m.spawn.x + Math.sin(G.cam.yaw + Math.PI) * 6.4, m.spawn.y + 3.2, m.spawn.z + Math.cos(G.cam.yaw + Math.PI) * 6.4);
+  updateCamera(1.2); updateCamera(1.2);
+  nearPortal = null;
+  useBtn.classList.add('hidden');
+  if (!silent) banner(m.label, id === 'dungeon' ? '深入废墟 · 石像守卫在等你' : '回到灰烬原野');
+  updateHUD();
+  setTimeout(() => { switching = false; }, 140);
+}
+
+function updatePortalPrompt() {
+  let p = null;
+  if (G.mode === 'play' && !switching && activeMap && activeMap.portal) {
+    const q = activeMap.portal;
+    if (Math.hypot(hero.pos.x - q.x, hero.pos.z - q.z) < q.r) p = q;
+  }
+  if (p !== nearPortal) {
+    nearPortal = p;
+    if (p) { useLabel.textContent = p.text; useBtn.classList.remove('hidden'); }
+    else useBtn.classList.add('hidden');
+  }
+}
+
+function usePortal() {
+  if (G.mode !== 'play' || switching) return;
+  updatePortalPrompt();
+  if (!nearPortal) return;
+  const to = nearPortal.to;
+  fadeEl.style.opacity = '1';
+  setTimeout(() => { enterMap(to); fadeEl.style.opacity = '0'; }, 360);
+}
+
 /* ============================== HUD ============================== */
 const $ = id => document.getElementById(id);
 const elHpFill = $('hpFill'), elHpTxt = $('hpTxt'), elStFill = $('stFill'),
@@ -1383,18 +1627,19 @@ function updateHUD() {
   elGold.textContent = G.gold;
   elLvl.textContent = G.level;
   elLvlBadge.textContent = G.level;
-  const boss = G.monsters.find(m => m.kind === 'boss');
-  if (boss && !boss.dead && G.bossAggro && G.mode !== 'creation') {
+  const boss = ALL_MONSTERS.find(m => m.kind === 'boss');
+  if (boss && !boss.dead && G.bossAggro && activeId === 'dungeon') {
     elBossBar.classList.remove('hidden');
     elBossFill.style.transform = `scaleX(${Math.max(0, boss.hp / boss.maxHp)})`;
     elBossTxt.textContent = Math.ceil(boss.hp) + ' / ' + boss.maxHp;
   } else elBossBar.classList.add('hidden');
   if (G.mode === 'play' || G.mode === 'dead') {
     elQuest.classList.remove('hidden');
-    if (G.bossDead) { elQuestName.textContent = '废墟已清除'; elQuestSub.textContent = '守卫倒下，传送门仍在低鸣'; }
-    else if (G.bossAggro) { elQuestName.textContent = '击败石像守卫'; elQuestSub.textContent = '它苏醒了 · 翻滚可以躲开重击'; }
-    else { elQuestName.textContent = '前往废墟 · 击败守卫'; elQuestSub.textContent = '沿营火北面的石阶前进'; }
+    if (G.bossDead) { elQuestName.textContent = '废墟已清除'; elQuestSub.textContent = '守卫倒下 · 铁门后的深处仍待探索'; }
+    else if (activeId === 'dungeon') { elQuestName.textContent = '击败石像守卫'; elQuestSub.textContent = G.bossAggro ? '它苏醒了 · 翻滚躲开砸地' : '沿符文圈向前'; }
+    else { elQuestName.textContent = '进入废墟副本'; elQuestSub.textContent = '沿营火北面的石阶走进拱门'; }
   } else elQuest.classList.add('hidden');
+  updatePortalPrompt();
 }
 
 let fpsT = 0, fpsN = 0, fpsVal = 60, diagT = 0, miniT = 0;
@@ -1402,6 +1647,40 @@ const mini = $('mini'), mctx = mini.getContext('2d');
 
 function drawMini() {
   const W = mini.width, H = mini.height, cx = W / 2, cy = H / 2;
+  if (activeId === 'dungeon') {
+    const s2 = (W * 0.44) / 24;
+    mctx.clearRect(0, 0, W, H);
+    mctx.fillStyle = '#101418'; mctx.fillRect(0, 0, W, H);
+    mctx.save();
+    mctx.beginPath(); mctx.arc(cx, cy, W * 0.47, 0, 7); mctx.clip();
+    mctx.fillStyle = '#2a2a26';
+    mctx.fillRect(cx - 22 * s2, cy - 27 * s2, 44 * s2, 54 * s2);
+    mctx.strokeStyle = '#6e6a60'; mctx.lineWidth = 3;
+    mctx.strokeRect(cx - 22 * s2, cy - 27 * s2, 44 * s2, 54 * s2);
+    mctx.beginPath(); mctx.arc(cx, cy - 18.5 * s2, 7.4 * s2, 0, 7);
+    mctx.fillStyle = '#3a3630'; mctx.fill();
+    mctx.beginPath(); mctx.arc(cx, cy + 24.6 * s2, 4.5, 0, 7);
+    mctx.fillStyle = '#6fd0ff'; mctx.fill();
+    for (const mo of G.monsters) {
+      if (mo.dead) continue;
+      mctx.beginPath();
+      mctx.arc(cx + mo.pos.x * s2, cy + mo.pos.z * s2, mo.kind === 'boss' ? 6 : 3.2, 0, 7);
+      mctx.fillStyle = mo.kind === 'boss' ? '#ff7a45' : (mo.aggro ? '#ff5b5b' : '#c98f5a');
+      mctx.fill();
+    }
+    const px2 = cx + hero.pos.x * s2, py2 = cy + hero.pos.z * s2;
+    const va = Math.atan2(Math.cos(G.cam.yaw), Math.sin(G.cam.yaw));
+    mctx.save(); mctx.translate(px2, py2); mctx.rotate(va);
+    mctx.beginPath(); mctx.moveTo(0, 0); mctx.arc(0, 0, 22, -0.55, 0.55); mctx.closePath();
+    mctx.fillStyle = 'rgba(120,220,255,.18)'; mctx.fill();
+    mctx.restore();
+    mctx.beginPath(); mctx.arc(px2, py2, 4.6, 0, 7); mctx.fillStyle = '#8ce07a'; mctx.fill();
+    mctx.lineWidth = 1.5; mctx.strokeStyle = '#0b1016'; mctx.stroke();
+    mctx.beginPath(); mctx.arc(cx, cy, W * 0.47, 0, 7);
+    mctx.strokeStyle = 'rgba(231,194,125,.35)'; mctx.lineWidth = 2; mctx.stroke();
+    mctx.restore();
+    return;
+  }
   const sc = (W * 0.44) / BOUND;
   mctx.clearRect(0, 0, W, H);
   mctx.save();
@@ -1663,6 +1942,8 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => { panelTab = t.
 $('btnHelp').onclick = () => showToast(innerWidth < 760 ? '左摇杆移动 · 右半屏拖拽转视角' : 'WASD 移动 · 拖拽转视角 · J 攻击 · Shift 翻滚 · Tab 装备');
 $('btnAtk').onclick = () => doAttack();
 $('btnRoll').onclick = () => doRoll();
+$('btnUse').onclick = () => usePortal();
+$('btnUse').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); usePortal(); });
 
 // 按钮触摸响应更快
 for (const [id, fn] of [['btnAtk', doAttack], ['btnRoll', doRoll]]) {
@@ -1839,7 +2120,9 @@ async function selfTest() {
   out.goblin.goldAfterOrbs = G.gold;
   await post('03_goblin', out);
 
-  // 4) boss 战
+  // 4) 进副本打 boss
+  enterMap('dungeon', true);
+  out.dungeonEnter = { map: activeId, monsters: G.monsters.length, solids: colliders.length, sky: skyMesh ? skyMesh.visible : null, fog: +scene.fog.near.toFixed(0) };
   const boss = G.monsters.find(m => m.kind === 'boss');
   const b0 = boss.hp;
   let swings = 0;
@@ -1873,8 +2156,8 @@ async function selfTest() {
   out.death = { diedMode, afterMode: G.mode, hp: +hero.hp.toFixed(0), pos: [+hero.pos.x.toFixed(1), +hero.pos.z.toFixed(1)], respawnAt: [heroStart.x, +heroStart.z.toFixed(1)] };
   await post('06_death', out);
 
-  // 7) 传送门附近的战斗视角
-  hero.pos.set(0, heightAt(0, -38), -38);
+  // 7) 副本内视角
+  hero.pos.set(0, heightAt(0, -8), -8);
   G.cam.yaw = Math.PI; G.cam.pitch = 0.30;
   updateCamera(1.2); updateCamera(1.2); renderer.render(scene, camera);
   await DG.shot('t_ruins');
@@ -1882,6 +2165,56 @@ async function selfTest() {
   await post('07_ruins', out);
   return 'done';
 }
+
+async function mapTest() {
+  const out = { viewport: [innerWidth, innerHeight] };
+  startGame();
+  out.overworld = DG.probe();
+  const p1 = MAPS.overworld.portal;
+  hero.pos.set(p1.x, heightAt(p1.x, p1.z + 2.5), p1.z + 2.5);
+  updatePortalPrompt();
+  out.prompt1 = nearPortal ? nearPortal.to : null;
+  out.btnUseVisible = !document.getElementById('btnUse').classList.contains('hidden');
+  enterMap('dungeon', true);
+  await new Promise(r => setTimeout(r, 260));
+  out.dungeon = DG.probe();
+  out.dungeonQuest = document.getElementById('questName').textContent;
+  out.spawnDist = +Math.hypot(hero.pos.x - MAPS.dungeon.spawn.x, hero.pos.z - MAPS.dungeon.spawn.z).toFixed(2);
+  out.overworldHidden = !mapGroups.overworld.visible;
+  out.bounds = { overworld: MAPS.overworld.bound, dungeon: MAPS.dungeon.bound, active: BOUND };
+  out.solids = { overworld: MAPS.overworld.solids.length, dungeon: MAPS.dungeon.solids.length, active: colliders.length };
+  hero.pos.set(0, heightAt(0, 6), 6); hero.yaw = Math.PI; G.cam.yaw = Math.PI;
+  simulate(1 / 60);
+  updateCamera(1.2); updateCamera(1.2); renderer.render(scene, camera);
+  await DG.shot('t_dungeon');
+  const p2 = MAPS.dungeon.portal;
+  hero.pos.set(p2.x, heightAt(p2.x, p2.z - 2), p2.z - 2);
+  updatePortalPrompt();
+  out.prompt2 = nearPortal ? nearPortal.to : null;
+  enterMap('overworld', true);
+  await new Promise(r => setTimeout(r, 260));
+  out.back = DG.probe();
+  out.backPrompt = (() => { updatePortalPrompt(); return nearPortal ? nearPortal.to : null; })();
+  enterMap('dungeon', true);
+  await new Promise(r => setTimeout(r, 200));
+  const boss = ALL_MONSTERS.find(m => m.kind === 'boss');
+  let swings = 0;
+  for (let i = 0; i < 70 && !boss.dead; i++) {
+    hero.hp = maxHp(); hero.stam = 100; hero.atk = null; hero.roll = 0;
+    hero.pos.set(boss.pos.x, heightAt(boss.pos.x, boss.pos.z + 2.6), boss.pos.z + 2.6);
+    hero.yaw = Math.atan2(boss.pos.x - hero.pos.x, boss.pos.z - hero.pos.z);
+    doAttack(); swings++;
+    for (let k = 0; k < 34; k++) simulate(1 / 60);
+  }
+  out.boss = { swings, dead: boss.dead, bossDead: G.bossDead, axe: !WEAPONS.axe.locked, quest: document.getElementById('questName').textContent, banner: document.getElementById('banner').innerText.replace(/\n/g, ' | ') };
+  hero.pos.set(0, heightAt(0, -10), -10); hero.yaw = Math.PI; G.cam.yaw = Math.PI;
+  simulate(1 / 60);
+  updateCamera(1.2); updateCamera(1.2); renderer.render(scene, camera);
+  await DG.shot('t_dungeon_boss');
+  await post('map', out);
+  return out;
+}
+
 async function bossTest() {
   const out = { viewport: [innerWidth, innerHeight] };
   startGame();
@@ -1916,7 +2249,9 @@ async function bossTest() {
 }
 window.__selfTest = selfTest;
 window.__bossTest = bossTest;
-if (location.search.indexOf('test=boss') >= 0) {
+if (location.search.indexOf('test=map') >= 0) {
+  setTimeout(() => { mapTest().catch(e => post('99_error', { err: e.message, stack: (e.stack || '').slice(0, 300) })); }, 500);
+} else if (location.search.indexOf('test=boss') >= 0) {
   setTimeout(() => { bossTest().catch(e => post('99_error', { err: e.message, stack: (e.stack || '').slice(0, 300) })); }, 500);
 } else if (location.search.indexOf('test=black') >= 0) {
   setTimeout(() => { blackScan().then(r => post('00_black', { viewport: [innerWidth, innerHeight], ...r })).catch(e => post('99_error', { err: e.message, stack: (e.stack || '').slice(0, 300) })); }, 400);
@@ -1953,7 +2288,7 @@ window.DG = {
     renderer.render(scene, camera); return this.probe();
   },
   probe() {
-    const boss = G.monsters.find(m => m.kind === 'boss');
+    const boss = ALL_MONSTERS.find(m => m.kind === 'boss');
     return {
       build: BUILD, mode: G.mode, t: +G.t.toFixed(2),
       hp: +hero.hp.toFixed(1), maxHp: maxHp(), stam: +hero.stam.toFixed(1),
@@ -1965,6 +2300,9 @@ window.DG = {
       camera: [+camera.position.x.toFixed(1), +camera.position.y.toFixed(1), +camera.position.z.toFixed(1)],
       meshes: (() => { let c = 0; scene.traverse(o => { if (o.isMesh) c++; }); return c; })(),
       atk: !!hero.atk, roll: +hero.roll.toFixed(2),
+      map: activeId, solids: colliders.length, sky: skyMesh ? skyMesh.visible : null,
+      fogNear: +scene.fog.near.toFixed(0), sunInt: +sun.intensity.toFixed(2),
+      nearPortal: nearPortal ? nearPortal.to : null,
       perf: { frames: perf.frames, sim: +(perf.sim / Math.max(1, perf.frames)).toFixed(2), render: +(perf.render / Math.max(1, perf.frames)).toFixed(2), lastSim: +perf.lastSim.toFixed(2), lastRender: +perf.lastRender.toFixed(2) },
     };
   },

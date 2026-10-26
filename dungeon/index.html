@@ -95,6 +95,15 @@ svg.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.9;strok
 .act.small{width:64px;height:64px;background:radial-gradient(circle at 34% 26%,#74c7e8,#2c6f96 62%,#123346)}
 .act:active{transform:translateY(4px);box-shadow:0 3px 0 rgba(0,0,0,.42),inset 0 2px 6px rgba(0,0,0,.2)}
 .act.cd{filter:grayscale(.65) brightness(.72)}
+#btnUse{position:absolute;right:18px;bottom:calc(148px + var(--safe-b));pointer-events:auto;z-index:14;
+  padding:11px 18px;border-radius:14px;font-size:13px;font-weight:800;letter-spacing:.08em;color:#241705;
+  background:linear-gradient(180deg,#f4dda6,#d5a658 60%,#a87a34);border:2px solid rgba(255,235,190,.55);
+  box-shadow:0 6px 0 rgba(0,0,0,.42),0 10px 24px rgba(0,0,0,.5),inset 0 2px 6px rgba(255,255,255,.5);
+  display:flex;align-items:center;gap:8px;animation:useIn .18s ease-out}
+#btnUse:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.42)}
+#btnUse .kbd{font-size:10px;font-weight:900;background:rgba(36,23,5,.22);border-radius:5px;padding:1px 5px;letter-spacing:0}
+@keyframes useIn{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+#fade{position:absolute;inset:0;background:#05070a;opacity:0;transition:opacity .3s ease;pointer-events:none;z-index:38}
 
 /* ---------- generic panel ---------- */
 #panelWrap{position:absolute;inset:0;z-index:30;display:flex;align-items:flex-end;justify-content:center;
@@ -260,6 +269,9 @@ svg.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.9;strok
       </div>
     </div>
   </div>
+
+  <button id="btnUse" class="hidden"><span class="kbd">E</span><span id="useLabel">进入</span></button>
+  <div id="fade"></div>
 
   <!-- 装备面板 -->
   <div id="panelWrap" class="hidden">
