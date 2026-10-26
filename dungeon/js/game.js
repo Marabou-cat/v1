@@ -1785,7 +1785,7 @@ function stepWorldFx(dt) {
     G.dungeonRing.material.opacity = 0.55 + Math.sin(G.t * 2.0) * 0.18;
   }
   if (G.dungeonRune) { G.dungeonRune.rotation.z += dt * 0.22; }
-  if (G.npc) { G.npc.body.position.y = Math.sin(G.t * 1.5) * 0.012; G.npc.head.rotation.y = Math.sin(G.t * 0.4) * 0.12; }
+  if (G.npc && G.npc.rig) { G.npc.body.position.y = Math.sin(G.t * 1.5) * 0.012; if (G.npc.rig.head) G.npc.rig.head.rotation.y = Math.sin(G.t * 0.4) * 0.12; }
   if (G.cityRing) { G.cityRing.rotation.z += dt * 0.35; G.cityRing.material.opacity = 0.6 + Math.sin(G.t * 2.1) * 0.16; }
   if (ashPoints && ashPoints.visible) {
     const pa = ashPoints.geometry.attributes.position, arr = pa.array;
@@ -2209,7 +2209,13 @@ function hudTick(dt) {
     diagT = 0;
     const alive = G.monsters.filter(m => !m.dead).length;
     const near = G.monsters.filter(m => !m.dead).reduce((a, m) => Math.min(a, Math.hypot(m.pos.x - hero.pos.x, m.pos.z - hero.pos.z)), 999);
-    elDiag.textContent = `v:${BUILD} · ${fpsVal}fps · 怪 ${alive}/${G.monsters.length} · 最近 ${near > 900 ? '—' : near.toFixed(1) + 'm'} · HP ${Math.ceil(hero.hp)} · ${hero.pos.x.toFixed(0)},${hero.pos.z.toFixed(0)}`;
+    if (G.loopErr) {
+      elDiag.textContent = `v:${BUILD} · ⚠ 逻辑异常: ${G.loopErr}`;
+      elDiag.style.color = '#ff8a6a';
+    } else {
+      elDiag.style.color = '';
+      elDiag.textContent = `v:${BUILD} · ${fpsVal}fps · 怪 ${alive}/${G.monsters.length} · 最近 ${near > 900 ? '—' : near.toFixed(1) + 'm'} · HP ${Math.ceil(hero.hp)} · ${hero.pos.x.toFixed(0)},${hero.pos.z.toFixed(0)}`;
+    }
   }
   miniT += dt;
   if (miniT > 0.1) { miniT = 0; drawMini(); }
@@ -2465,7 +2471,14 @@ function loop(now) {
   acc += dt;
   let n = 0;
   const t0 = performance.now();
-  while (acc >= 1 / 60 && n < 4) { simulate(1 / 60); acc -= 1 / 60; n++; }
+  try {
+    while (acc >= 1 / 60 && n < 4) { simulate(1 / 60); acc -= 1 / 60; n++; }
+    G.loopErr = null;
+  } catch (e) {
+    G.loopErr = (e && e.message) || String(e);
+    if (!G.loopErrLogged) { console.error('[loop]', e); G.loopErrLogged = 1; }
+    acc = 0;
+  }
   if (n >= 4) acc = 0;
   updateCamera(dt);
   hudTick(dt);
@@ -2932,6 +2945,7 @@ window.DG = {
       camera: [+camera.position.x.toFixed(1), +camera.position.y.toFixed(1), +camera.position.z.toFixed(1)],
       meshes: (() => { let c = 0; scene.traverse(o => { if (o.isMesh) c++; }); return c; })(),
       atk: !!hero.atk, roll: +hero.roll.toFixed(2),
+      loopErr: G.loopErr || null,
       map: activeId, solids: colliders.length, sky: skyMesh ? skyMesh.visible : null,
       fogNear: +scene.fog.near.toFixed(0), sunInt: +sun.intensity.toFixed(2),
       nearPortal: nearPortal ? nearPortal.to : null,
