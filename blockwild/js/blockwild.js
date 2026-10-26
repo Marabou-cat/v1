@@ -73,6 +73,7 @@ const BLOCKS = {
   9: { name: '圆石', top: 9, side: 9, bottom: 9, hard: 1.9, drop: 9, pick: true },
   10: { name: '工作台', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10 },
   13: { name: '煤矿石', top: 13, side: 13, bottom: 13, hard: 2.2, drop: 13, pick: true },
+  14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick' },
@@ -172,6 +173,18 @@ function makeAtlas() {
   T(12, '#a97c45', 0.07, (c, r) => {
     for (let i = 0; i < 16; i++) { px(c, r, i, 2, '#6f4d24'); px(c, r, i, 13, '#6f4d24'); }
     for (let x = 3; x < 13; x++) for (let y = 6; y < 10; y++) px(c, r, x, y, shade('#7a5528', 1));
+  });
+  // 14 床顶：木框 + 红被 + 白枕
+  T(14, '#b8423f', 0.05, (c, r) => {
+    for (let x = 0; x < S; x++) { px(c, r, x, 0, '#6f4d24'); px(c, r, x, 1, '#7d5a2c'); px(c, r, x, 15, '#6f4d24'); }
+    for (let y = 0; y < S; y++) { px(c, r, 0, y, '#7d5a2c'); px(c, r, 15, y, '#7d5a2c'); }
+    for (let y = 3; y < 7; y++) for (let x = 3; x < 13; x++) px(c, r, x, y, y === 3 || y === 6 ? '#d9d5cc' : '#efeae0');
+    for (let y = 8; y < 14; y++) for (let x = 3; x < 13; x++) if ((x + y) % 4 === 0) px(c, r, x, y, '#a33633');
+  });
+  // 15 床侧：木框 + 红被沿
+  T(15, '#8d6534', 0.07, (c, r) => {
+    for (let y = 4; y < 9; y++) for (let x = 0; x < S; x++) px(c, r, x, y, y === 4 ? '#d4d0c7' : '#b8423f');
+    for (let x = 0; x < S; x++) { px(c, r, x, 9, '#6b4a26'); px(c, r, x, 3, '#6b4a26'); }
   });
   // 13 煤矿
   T(13, '#8d8d8d', 0.13, (c, r) => {
@@ -497,6 +510,7 @@ const player = {
   hp: 20, hunger: 20, alive: true,
   swing: 0, walkPhase: 0, fallFrom: null, inWater: false,
   sel: 0, mining: 0, mineTarget: null, atkCd: 0, hits: 0, kills: 0,
+  spawn: null,
 };
 let inv = [];   // [{id,n}]
 const SLOTS = 27;
@@ -593,13 +607,13 @@ function makeArm(side) {
   const g = new THREE.Group();
   const sleeveMat = new THREE.MeshLambertMaterial({ color: side > 0 ? SLEEVE : SLEEVE2 });
   const skinMat = new THREE.MeshLambertMaterial({ color: SKIN });
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.135, 0.135, 0.46), skinMat);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.46), skinMat);
   arm.position.z = -0.3;
-  const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.165, 0.165, 0.2), sleeveMat);
-  sleeve.position.z = -0.13;
-  const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.17, 0.045), new THREE.MeshLambertMaterial({ color: 0x244f5a }));
-  cuff.position.z = -0.235;
-  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.155, 0.155, 0.14), new THREE.MeshLambertMaterial({ color: 0xe0aa77 }));
+  const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.148, 0.148, 0.17), sleeveMat);
+  sleeve.position.z = -0.11;
+  const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.155, 0.155, 0.04), new THREE.MeshLambertMaterial({ color: 0x244f5a }));
+  cuff.position.z = -0.215;
+  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.145, 0.145, 0.13), new THREE.MeshLambertMaterial({ color: 0xe0aa77 }));
   hand.position.z = -0.56;
   g.add(arm, sleeve, cuff, hand);
   return g;
@@ -678,7 +692,7 @@ function makeToolModel(id) {
 // 握持姿势：方块是斜着摆在掌心，工具是斜举（镐头/剑尖朝前上）
 const HOLD_POSE = {
   block: { rx: 0.2, ry: 0.6, rz: 0.1, py: 0, pz: 0, s: 1 },
-  pick: { rx: -0.6, ry: 0.55, rz: -0.1, py: 0.06, pz: -0.12, s: 0.95 },
+  pick: { rx: -0.32, ry: 0.95, rz: 0.36, py: 0.07, pz: -0.12, s: 0.95 },
   sword: { rx: -0.5, ry: 0.45, rz: -0.15, py: 0.07, pz: -0.12, s: 0.92 },
   mat: { rx: -0.45, ry: 0.45, rz: -0.25, py: 0.06, pz: -0.1, s: 0.95 },
   food: { rx: 0.1, ry: 0.45, rz: 0.18, py: 0.06, pz: -0.1, s: 1.0 },
@@ -862,6 +876,7 @@ function clockText() {
 }
 
 /* ============================================================ 怪物 */
+let MINE_PIN = null;
 const mobs = [];
 const MOB_MAXHP = 20;
 const MOB_NAME = '夜行怪';
@@ -872,24 +887,28 @@ function makeGrunt() {
   const headMat = new THREE.MeshLambertMaterial({ color: 0x9fd8c8 });
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff4d4d });
   const g = new THREE.Group();
+  // core 是"身体中心"，绕它倒地方便（直接绕脚底转会插进地里）
+  const core = new THREE.Group();
+  core.position.y = 0.62;
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.86, 0.44), bodyMat);
-  body.position.y = 0.44;
+  body.position.y = -0.18;
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.44), headMat);
-  head.position.y = 1.08;
+  head.position.y = 0.46;
   const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.03), eyeMat);
-  e1.position.set(-0.11, 1.12, 0.23);
+  e1.position.set(-0.11, 0.5, 0.23);
   const e2 = e1.clone(); e2.position.x = 0.11;
   const arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), bodyMat);
-  arm1.position.set(-0.39, 0.62, 0);
+  arm1.position.set(-0.39, 0.0, 0);
   const arm2 = arm1.clone(); arm2.position.x = 0.39;
+  core.add(body, head, e1, e2, arm1, arm2);
   const barBg = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.11), new THREE.MeshBasicMaterial({ color: 0x140c0c }));
   const barFg = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.055), new THREE.MeshBasicMaterial({ color: 0x7fe06b }));
   barFg.position.set(0, 0, 0.004);
   const bar = new THREE.Group();
   bar.position.y = 1.44;
   bar.add(barBg, barFg);
-  g.add(body, head, e1, e2, arm1, arm2, bar);
-  return { g, bodyMat, headMat, arm1, arm2, bar, barFg };
+  g.add(core, bar);
+  return { g, core, bodyMat, headMat, arm1, arm2, bar, barFg };
 }
 
 function spawnMob(offset) {
@@ -907,6 +926,7 @@ function spawnMob(offset) {
     p: new THREE.Vector3(x + 0.5, y + 1.02, z + 0.5), v: new THREE.Vector3(),
     hp: MOB_MAXHP, onGround: false, atkCd: 0, phase: Math.random() * 9,
     wander: 0, dir: new THREE.Vector2(), flash: 0, aggro: 0,
+    dying: false, dieT: 0,
     obj: parts.g, parts,
   };
   m.obj.position.copy(m.p);
@@ -915,6 +935,20 @@ function spawnMob(offset) {
   return m;
 }
 
+const aliveMobs = () => mobs.filter(m => !m.dying).length;
+// 死亡：先瘫软倒地（0.55s），躺 5 秒，然后缩小消失（1.1s）
+const MOB_DEATH_HOLD = 5, MOB_DEATH_FADE = 1.1;
+function startMobDeath(m) {
+  m.dying = true;
+  m.dieT = 0;
+  m.hp = 0;
+  m.aggro = 0;
+  m.v.set(0, 0, 0);
+  m.parts.bar.visible = false;
+  m.parts.bodyMat.emissive.setHex(0x000000);
+  m.parts.headMat.emissive.setHex(0x000000);
+  sfx('hurt');
+}
 function killMob(m) {
   scene.remove(m.obj);
   m.obj.traverse(o => {
@@ -929,10 +963,30 @@ function updateMobs(dt) {
     const m = mobs[i];
     const dx = player.p.x - m.p.x, dz = player.p.z - m.p.z;
     const dist = Math.hypot(dx, dz);
+    // —— 死亡流程：瘫软倒地 → 躺 5 秒 → 缩小消失 ——
+    if (m.dying) {
+      m.dieT += dt;
+      const fall = easeOutCubic(clamp01(m.dieT / 0.55));
+      m.parts.core.rotation.x = -1.42 * fall;
+      m.parts.core.rotation.z = 0.32 * fall;
+      m.parts.core.position.y = 0.62 - 0.28 * fall;
+      m.parts.arm1.rotation.x = -0.5 * fall;
+      m.parts.arm2.rotation.x = 0.35 * fall;
+      m.parts.bar.visible = false;
+      if (m.dieT > MOB_DEATH_HOLD) {
+        const k = clamp01((m.dieT - MOB_DEATH_HOLD) / MOB_DEATH_FADE);
+        const s = 1 - k;
+        m.obj.scale.setScalar(Math.max(0.001, s));
+        m.obj.position.y = m.p.y - 0.3 * k;
+        if (s <= 0.03 || dist > 40) { killMob(m); mobs.splice(i, 1); }
+      }
+      continue;
+    }
     const hostile = night || m.aggro > 0;
     m.flash = Math.max(0, m.flash - dt);
     m.aggro = Math.max(0, m.aggro - dt);
-    if (m.hp <= 0 || dist > 70 || (!hostile && dist > 30)) {
+    if (m.hp <= 0) { startMobDeath(m); continue; }
+    if (dist > 70 || (!hostile && dist > 30)) {
       killMob(m);
       mobs.splice(i, 1);
       continue;
@@ -980,7 +1034,7 @@ function updateMobs(dt) {
   }
   const cap = night ? CFG.MAX_MOBS : 2;
   const rate = night ? 0.9 : 0.3;
-  if (mobs.length < cap && Math.random() < dt * rate) spawnMob();
+  if (aliveMobs() < cap && Math.random() < dt * rate) spawnMob();
 }
 
 /* ============================================================ 状态 / HUD */
@@ -1008,9 +1062,20 @@ function die() {
   hud.deathMsg.textContent = `你在 ${clockText()} 倒下了。背包还在，世界也还在。`;
   if (document.pointerLockElement) document.exitPointerLock();
 }
+function setSpawnAt(x, y, z) {
+  player.spawn = { x: x + 0.5, y: y + 1.05, z: z + 0.5, bed: true };
+  toast('重生点已设为这张床', 2.2);
+  saveSoon();
+}
 function respawn() {
-  const sx = 8, sz = 8;
-  player.p.set(sx + 0.5, surfaceY(sx, sz) + 1.2, sz + 0.5);
+  const sp = player.spawn;
+  if (sp) {
+    player.p.set(sp.x, sp.y, sp.z);
+    buildChunk(getChunk(Math.floor(sp.x / CFG.CH), Math.floor(sp.z / CFG.CH)));
+  } else {
+    const sx = 8, sz = 8;
+    player.p.set(sx + 0.5, surfaceY(sx, sz) + 1.2, sz + 0.5);
+  }
   player.v.set(0, 0, 0);
   player.hp = 20; player.hunger = 18; player.alive = true;
   player.fallFrom = null;
@@ -1075,6 +1140,7 @@ const RECIPES = [
   { out: 101, n: 1, need: { 9: 3, 104: 2 } },
   { out: 102, n: 1, need: { 8: 2, 104: 1 } },
   { out: 103, n: 1, need: { 9: 2, 104: 1 } },
+  { out: 14, n: 1, need: { 8: 4, 104: 3 } },
 ];
 function craft(r) {
   for (const [id, n] of Object.entries(r.need)) if (countOf(+id) < n) return false;
@@ -1192,6 +1258,62 @@ bindHold($('tJump'), () => { jumpQueued = true; });
 $('tBag').addEventListener('click', () => openPanel(!panelOpen));
 
 /* ============================================================ 交互 */
+/* ── 挖掘裂缝：10 级裂纹贴图，贴在准星命中的方块表面 ── */
+function makeCrackTexture() {
+  const S = 16, N = 4;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S * N;
+  const g = cv.getContext('2d');
+  for (let stage = 0; stage < 10; stage++) {
+    const ox = (stage % N) * S, oy = ((stage / N) | 0) * S;
+    g.save();
+    g.beginPath(); g.rect(ox, oy, S, S); g.clip();
+    g.strokeStyle = 'rgba(0,0,0,0.8)';
+    g.lineWidth = 1.2;
+    let seed = 7919 + stage * 131;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const cracks = 1 + Math.round(stage * 0.65);     // 进度越高裂纹越多
+    for (let i = 0; i < cracks; i++) {
+      let x = 2 + rnd() * 12, y = 2 + rnd() * 12;
+      let ang = rnd() * Math.PI * 2;
+      g.beginPath(); g.moveTo(ox + x, oy + y);
+      const segs = 3 + Math.floor(rnd() * 6);
+      for (let k = 0; k < segs; k++) {
+        ang += (rnd() - 0.5) * 1.2;
+        x = clamp(x + Math.cos(ang) * 1.7, 0.5, S - 0.5);
+        y = clamp(y + Math.sin(ang) * 1.7, 0.5, S - 0.5);
+        g.lineTo(ox + x, oy + y);
+      }
+      g.stroke();
+      if (stage > 4 && i % 2 === 0) {                // 后期加分支
+        g.beginPath();
+        g.moveTo(ox + x, oy + y);
+        g.lineTo(ox + clamp(x + (rnd() - 0.5) * 6, 0.5, S - 0.5), oy + clamp(y + (rnd() - 0.5) * 6, 0.5, S - 0.5));
+        g.stroke();
+      }
+    }
+    g.restore();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.repeat.set(1 / N, 1 / N);
+  tex.offset.set(0, 1 - 1 / N);
+  return tex;
+}
+const crackTex = makeCrackTexture();
+const crackMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(1.008, 1.008, 1.008),
+  new THREE.MeshBasicMaterial({
+    map: crackTex, transparent: true, opacity: 0.95, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, fog: true,
+  })
+);
+crackMesh.visible = false;
+crackMesh.renderOrder = 3;
+scene.add(crackMesh);
+
 const targetOutline = new THREE.LineSegments(
   new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
   new THREE.LineBasicMaterial({ color: 0x0b0b0b, transparent: true, opacity: 0.7 })
@@ -1210,6 +1332,9 @@ function doMine(dt, target) {
   if (!target) { player.mining = 0; return; }
   const def = BLOCKS[target.id];
   if (!def) { player.mining = 0; return; }
+  const key = target.x + ',' + target.y + ',' + target.z;
+  if (player.mineKey !== key) { player.mineKey = key; player.mining = 0; }
+  if (MINE_PIN !== null) player.mining = MINE_PIN;
   const pickOk = heldKind() === 'pick';
   let speed = 1 / Math.max(0.12, def.hard);
   if (def.pick) speed *= pickOk ? 1 : 0.28;
@@ -1248,6 +1373,7 @@ function placeBlock() {
   takeItem(h.id, 1);
   sfx('place');
   startSwing('place', 0.26);
+  if (h.id === 14) setSpawnAt(x, y, z);
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
@@ -1267,7 +1393,7 @@ function attackTarget() {
   const dir = cameraDir(), eye = eyePos();
   let best = null, bestScore = -1e9;
   for (const m of mobs) {
-    if (m.hp <= 0) continue;
+    if (m.hp <= 0 || m.dying) continue;
     const to = m.p.clone();
     to.y += 0.55;
     to.sub(eye);
@@ -1298,7 +1424,11 @@ function attack() {
   player.hits = (player.hits || 0) + 1;
   sfx('hit');
   if (target.hp > 0) toast(`命中 ${MOB_NAME} −${dmg}（剩 ${Math.max(0, target.hp)}）`, 0.9);
-  else { toast(`击倒 ${MOB_NAME}`, 1.4); player.kills = (player.kills || 0) + 1; }
+  else {
+    player.kills = (player.kills || 0) + 1;
+    toast(`击倒 ${MOB_NAME}`, 1.4);
+    startMobDeath(target);          // 立即进入倒地动画（updateMobs 里也会兜底触发）
+  }
   return true;
 }
 
@@ -1376,6 +1506,13 @@ function update(dt) {
     targetOutline.visible = true;
     targetOutline.position.set(t.x + 0.5, t.y + 0.5, t.z + 0.5);
   } else targetOutline.visible = false;
+  // 裂缝：随挖掘进度（0..1）换成 10 级贴图
+  if (t && player.mining > 0.015) {
+    const stage = Math.min(9, Math.floor(player.mining * 10));
+    crackTex.offset.set((stage % 4) / 4, 1 - (((stage / 4) | 0) + 1) / 4);
+    crackMesh.position.set(t.x + 0.5, t.y + 0.5, t.z + 0.5);
+    crackMesh.visible = true;
+  } else crackMesh.visible = false;
 
   const wantAttack = attackQueued || (mineHeld && mobs.length > 0);
   if (wantAttack) attackQueued = false;
@@ -1385,7 +1522,9 @@ function update(dt) {
   if (placeQueued) {
     placeQueued = false;
     const h = held();
-    if (h && (defOf(h.id) || {}).kind === 'food') eat(); else placeBlock();
+    if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
+    else if (h && (defOf(h.id) || {}).kind === 'food') eat();
+    else placeBlock();
   }
 
   // 手部姿势在 frame() 里按真实帧时长算（固定步长里算会让动画在高刷屏上发顿）
@@ -1450,8 +1589,8 @@ function updateHUD(dt) {
   const s =
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
-    `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${mobs.length}</b>  击倒 <b>${player.kills || 0}</b>\n` +
-    `手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}`;
+    `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
+    `手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
   if (s !== lastStatus) { hud.status.innerHTML = s; lastStatus = s; }
   renderHearts();
 }
@@ -1462,7 +1601,7 @@ function save() {
     const data = {
       seed: SEED, time: worldTime,
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
-      inv, edits: Array.from(edits.entries()),
+      inv, edits: Array.from(edits.entries()), spawn: player.spawn,
     };
     localStorage.setItem(CFG.SAVE_KEY, JSON.stringify(data));
   } catch (e) { /* 配额满就跳过 */ }
@@ -1478,6 +1617,7 @@ function loadSave() {
     SEED = d.seed;
     worldTime = d.time || 0;
     inv = (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0);
+    player.spawn = d.spawn || null;
     for (const [k, v] of (d.edits || [])) edits.set(k, v);
     if (d.player) {
       player.p.set(d.player.x, d.player.y, d.player.z);
@@ -1526,6 +1666,7 @@ function startGame(fresh) {
     SEED = (Math.random() * 1e6) | 0;
     const sp = findSpawn();
     player.p.set(sp.x, sp.y, sp.z);
+    player.spawn = { x: sp.x, y: sp.y, z: sp.z, bed: false };
     player.hp = 20; player.hunger = 20;
     inv = [];
     addItem(10, 1);      // 送一个工作台
@@ -1587,7 +1728,7 @@ window.GAME = {
   setBlock: (x, y, z, id) => setBlock(x, y, z, id),
   nameAt: (x, y, z) => nameOf(getBlock(x, y, z)),
   heightAt,
-  icons: { armR, armL, handScene, solidMat, waterMat, scene, camera, handCam, renderer },
+  icons: { armR, armL, handScene, solidMat, waterMat, scene, camera, handCam, renderer, crackMesh, crackTex, heldGroup },
   debug: {
     start: (fresh = false) => startGame(fresh),
     steps(n = 60) { for (let i = 0; i < n; i++) { update(STEP); } },
@@ -1598,6 +1739,8 @@ window.GAME = {
     select(i) { player.sel = i; refreshHeld(); renderHotbar(); },
     setTime(t) { worldTime = t; updateSky(); },
     setHp(v) { player.hp = v; },
+    hurt: (n = 1) => damagePlayer(n),
+    respawn: () => respawn(),
     setHunger(v) { player.hunger = v; },
     mine(on) { mineHeld = !!on; },
     mineOnce() { const t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH); if (t) breakBlock(t); return !!t; },
@@ -1631,8 +1774,10 @@ window.GAME = {
       equip: +anim.equip.toFixed(3), sway: [+anim.swayX.toFixed(4), +anim.swayY.toFixed(4)],
     }),
     swing: (type = 'attack', dur = 0.5) => startSwing(type, dur),
+    pinMining: (v) => { MINE_PIN = v; },
     mobsInfo: () => mobs.map(m => ({
-      hp: m.hp, dist: +m.p.distanceTo(player.p).toFixed(2),
+      hp: m.hp, dying: m.dying, dieT: +m.dieT.toFixed(2), scale: +m.obj.scale.x.toFixed(3),
+      tilt: +m.parts.core.rotation.x.toFixed(2), dist: +m.p.distanceTo(player.p).toFixed(2),
       aggro: +m.aggro.toFixed(1), flash: +m.flash.toFixed(2),
       barVisible: m.parts.bar.visible, barScale: +m.parts.barFg.scale.x.toFixed(2),
     })),
