@@ -139,6 +139,32 @@ function msStairs(ops, x0, y0, z0, dx, dz, maxLen = 170) {
   return false;
 }
 
+// 先试四个方向的斜坡楼梯；都不通就挖一口"折返台阶竖井"，保证矿洞能从地面进去
+function openToSurface(ops, x0, y0, z0, dx, dz) {
+  for (const [ax, az] of [[dx, dz], [-dx, -dz], [dz, -dx], [-dz, dx]]) {
+    if (msStairs(ops, x0, y0, z0, ax, az)) return true;
+  }
+  // 竖井：2×2，每 3 格折返一次台阶，一直挖到地表
+  let lvl = y0, cx = x0, cz = z0;
+  for (let k = 1; k <= 120; k++) {
+    const turn = Math.floor((k - 1) / 6) % 2 === 0 ? 1 : 0;
+    if (turn) cz += (Math.floor((k - 1) / 12) % 2 === 0 ? 1 : -1);
+    else cx += (Math.floor((k - 1) / 12) % 2 === 0 ? 1 : -1);
+    if (k % 3 === 0) lvl++;
+    for (let ax = 0; ax <= 1; ax++) for (let az = 0; az <= 1; az++) {
+      for (let y = lvl; y < lvl + 3; y++) msPush(ops, cx + ax, y, cz + az, 0);
+      msPush(ops, cx + ax, lvl - 1, cz + az, 8);
+    }
+    const surf = heightAt(cx, cz);
+    if (surf <= CFG.SEA + 2) return false;
+    if (lvl >= surf - 1) {
+      for (let ax = 0; ax <= 1; ax++) for (let az = 0; az <= 1; az++)
+        for (let y = surf - 1; y < lvl + 3; y++) msPush(ops, cx + ax, y, cz + az, 0);
+      return true;
+    }
+  }
+  return false;
+}
 function mineshaftFor(cellX, cellZ) {
   const key = cellX + ',' + cellZ;
   if (msCache.has(key)) return msCache.get(key);
@@ -170,7 +196,7 @@ function mineshaftFor(cellX, cellZ) {
         msGallery(ops, ox + dirX * at, baseY, oz, 0, sgn, 8 + Math.floor(rnd() * 12), spacing);
         corridors++;
       }
-      entrance = msStairs(ops, ox, baseY, oz, dirX, 0);
+      entrance = openToSurface(ops, ox, baseY, oz, dirX, 0);
     } else if (shapeRoll < 0.55) {                    // ② L 形拐弯
       kindName = 'L';
       const l1 = 14 + Math.floor(rnd() * 16), l2 = 12 + Math.floor(rnd() * 16);
@@ -178,7 +204,7 @@ function mineshaftFor(cellX, cellZ) {
       msGallery(ops, ox + dirX * (l1 - 1), baseY, oz, 0, dirZ, l2, spacing);
       corridors += 2;
       msRoom(ops, ox + dirX * (l1 - 1), baseY, oz + dirZ * (l2 - 1), 2, 2, 4);  // 拐角小厅
-      entrance = msStairs(ops, ox, baseY, oz, dirX, 0);
+      entrance = openToSurface(ops, ox, baseY, oz, dirX, 0);
     } else if (shapeRoll < 0.75) {                     // ③ 十字矿口（中央大厅 + 四向）
       kindName = 'cross';
       msRoom(ops, ox, baseY, oz, 3, 3, 5);
@@ -188,7 +214,7 @@ function mineshaftFor(cellX, cellZ) {
       msGallery(ops, ox, baseY, oz + 4, 0, 1, l, spacing, 1, 4);
       msGallery(ops, ox, baseY, oz - 4, 0, -1, l, spacing, 1, 4);
       corridors += 4;
-      entrance = msStairs(ops, ox + 4, baseY, oz, 1, 0);
+      entrance = openToSurface(ops, ox + 4, baseY, oz, 1, 0);
     } else {                                          // ④ 房间群（矿工营地）
       kindName = 'rooms';
       const n = 2 + Math.floor(rnd() * 2);
@@ -201,7 +227,7 @@ function mineshaftFor(cellX, cellZ) {
         cx += dxs * (rw * 2 + 6); cz += dzs * 2;
       }
       corridors += n;
-      entrance = msStairs(ops, cx, baseY, cz, 1, 0);
+      entrance = openToSurface(ops, cx, baseY, cz, 1, 0);
     }
     // 随机矿脉：走廊两侧塞煤/铁
     const ores = 2 + Math.floor(rnd() * 4);
@@ -239,6 +265,9 @@ const BLOCKS = {
   13: { name: '煤矿石', top: 13, side: 13, bottom: 13, hard: 2.2, drop: 13, pick: true },
   14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true },
   15: { name: '铁矿石', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 106, pick: true, stonePick: true },
+  16: { name: '农田', top: 17, side: 2, bottom: 2, hard: 0.5, drop: 2 },
+  17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true },
+  18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick' },
@@ -252,6 +281,8 @@ const ITEMS = {
   111: { name: '铁胸甲', kind: 'armor', slot: 'chest', ap: 6 },
   112: { name: '铁护腿', kind: 'armor', slot: 'legs', ap: 5 },
   113: { name: '铁靴', kind: 'armor', slot: 'feet', ap: 2 },
+  107: { name: '小麦', kind: 'mat' },
+  108: { name: '生猪排', kind: 'food', food: 3 },
   120: { name: '铁镐', kind: 'pick', fast: 1.7 },
   121: { name: '铁剑', kind: 'sword', dmg: 9 },
 };
@@ -368,6 +399,30 @@ function makeAtlas() {
         px(c, r, Math.min(15, bx + x), Math.min(15, by + y), shade(Math.random() < 0.5 ? '#d99a63' : '#b97a45', 1));
       }
     }
+  });
+  // 17 农田：深色翻耕土 + 沟垄
+  T(17, '#6a4426', 0.1, (c, r) => {
+    for (let y = 3; y < 15; y += 3) for (let x = 1; x < 15; x++) px(c, r, x, y, shade('#4e3018', 1));
+    for (let x = 2; x < 15; x += 5) for (let y = 1; y < 15; y++) px(c, r, x, y, shade('#5b3a1e', 1));
+  });
+  // 18 小麦：绿色秆 + 金黄穗
+  T(18, '#3b6b28', 0.14, (c, r) => {
+    for (let x = 2; x < 16; x += 4) {
+      for (let y = 0; y < 16; y++) px(c, r, x, y, shade('#4f8a33', 1 + (Math.random() * 0.3 - 0.15)));
+      for (let y = 1; y < 6; y++) { px(c, r, x, y, '#d9b24a'); px(c, r, Math.min(15, x + 1), y, '#c39a36'); }
+    }
+  });
+  // 19 箱子侧 / 20 箱子顶
+  T(19, '#9a6b33', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#6f4a20'); px(c, r, x, 15, '#6f4a20'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#6f4a20'); px(c, r, 15, y, '#6f4a20'); }
+    for (let x = 6; x < 10; x++) for (let y = 6; y < 10; y++) px(c, r, x, y, '#cfd6de');
+    for (let x = 7; x < 9; x++) for (let y = 7; y < 9; y++) px(c, r, x, y, '#8b939c');
+  });
+  T(20, '#a5723a', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#6f4a20'); px(c, r, x, 15, '#6f4a20'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#6f4a20'); px(c, r, 15, y, '#6f4a20'); }
+    for (let x = 1; x < 15; x++) for (let y = 1; y < 15; y++) if ((x + y) % 5 === 0) px(c, r, x, y, '#8f6130');
   });
   // 13 煤矿
   T(13, '#8d8d8d', 0.13, (c, r) => {
@@ -567,6 +622,24 @@ function genChunk(cx, cz) {
         if (b[i] !== 0 && b[i] !== 5) b[i] = 0;        // 只挖固体，别把水挖穿
       } else if (op.t === 13 || op.t === 15) {
         if (b[i] !== 0 && b[i] !== 5) b[i] = op.t;     // 矿脉只嵌在岩层里，不堵巷道
+      } else if (b[i] !== 5) {
+        b[i] = op.t;
+      }
+    }
+  }
+  // 村庄（同样按 byChunk 取本块片段）
+  const vCellX = Math.floor(ox / VS_CELL), vCellZ = Math.floor(oz / VS_CELL);
+  for (let ddx = -1; ddx <= 1; ddx++) for (let ddz = -1; ddz <= 1; ddz++) {
+    const v = villageFor(vCellX + ddx, vCellZ + ddz);
+    if (!v) continue;
+    const arr = v.byChunk.get(selfKey);
+    if (!arr) continue;
+    for (const op of arr) {
+      if (op.x < ox || op.x >= ox + CH || op.z < oz || op.z >= oz + CH) continue;
+      if (op.y < 0 || op.y >= WH) continue;
+      const i = (op.y * CH + (op.z - oz)) * CH + (op.x - ox);
+      if (op.t === 0) {
+        if (b[i] !== 0 && b[i] !== 5) b[i] = 0;
       } else if (b[i] !== 5) {
         b[i] = op.t;
       }
@@ -1120,8 +1193,9 @@ function isSkyLit(x, y, z) {
   for (let yy = y; yy < CFG.WH; yy++) if (isSolid(getBlock(x, yy, z))) return false;
   return true;
 }
-function isUnderground() {
-  return !isSkyLit(Math.floor(player.p.x), Math.floor(player.p.y + 1.8), Math.floor(player.p.z));
+// 氛围判定：玩家比地表低多少格（>2.5 才算地下）。不扫头顶方块，站在树叶下面不会被误判成矿洞
+function depthBelowSurface() {
+  return heightAt(Math.floor(player.p.x), Math.floor(player.p.z)) - player.p.y;
 }
 // 该位置是否够暗（能被刷怪）：有顶 → 暗；露天 → 只有夜里暗
 function isDarkAt(x, y, z) {
@@ -1191,54 +1265,286 @@ function clockText() {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
-/* ============================================================ 怪物 */
+/* ============================================================ 村庄 */
+const VS_CELL = 160;
+const villageCache = new Map();
+const openedChests = new Set();
+
+function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
+  const woodP = 8, log = 6, cobble = 9;
+  // 先量出这块地的起伏：以最高点为室内地面，往下填、往上清 → 房子不会埋在山坡里
+  let mn = 99, mx = -99;
+  for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) {
+    const hh = heightAt(hx + dx, hz + dz);
+    if (hh < mn) mn = hh;
+    if (hh > mx) mx = hh;
+  }
+  const gy = mx;
+  for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) {
+    for (let y = Math.max(1, mn - 1); y < gy; y++) put(hx + dx, y, hz + dz, cobble);   // 地基填到地面
+    for (let y = gy + 1; y <= gy + h + 3; y++) carve(hx + dx, y, hz + dz);              // 清出空间（含屋顶上方）
+  }
+  for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) put(hx + dx, gy, hz + dz, woodP);  // 地板
+  for (let y = gy + 1; y <= gy + h; y++) {
+    for (let dx = -w; dx <= w; dx++) { put(hx + dx, y, hz - d, woodP); put(hx + dx, y, hz + d, woodP); }
+    for (let dz = -d; dz <= d; dz++) { put(hx - w, y, hz + dz, woodP); put(hx + w, y, hz + dz, woodP); }
+  }
+  for (const [sx, sz] of [[-w, -d], [w, -d], [-w, d], [w, d]])
+    for (let y = gy + 1; y <= gy + h; y++) put(hx + sx, y, hz + sz, log);
+  // 门：朝向村中心那一面开 2 高缺口
+  if (Math.abs(cx - hx) > Math.abs(cz - hz)) {
+    const sx = cx > hx ? 1 : -1;
+    for (let y = gy + 1; y <= gy + 2; y++) carve(hx + sx * w, y, hz);
+  } else {
+    const sz = cz > hz ? 1 : -1;
+    for (let y = gy + 1; y <= gy + 2; y++) carve(hx, y, hz + sz * d);
+  }
+  if (rnd() < 0.8) { carve(hx - w, gy + 2, hz + d - 1); carve(hx + w, gy + 2, hz - d + 1); }   // 窗
+  for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) put(hx + dx, gy + h + 1, hz + dz, woodP);  // 屋顶
+  put(hx, gy + h + 2, hz, log);
+  const bx = hx + (rnd() < 0.5 ? -w + 1 : w - 1), bz = hz + (rnd() < 0.5 ? -d + 1 : d - 1);
+  put(bx, gy + 1, bz, 18);                                                                    // 屋内箱子
+  if (rnd() < 0.5) put(bx + (bx > hx ? -1 : 1), gy + 1, bz, 14);                              // 有时放张床
+}
+
+function buildFarm(put, carve, fx, fz, r, rnd) {
+  // 农田也先量坡度，以最高点做田面，别让小麦挂在斜坡上
+  let mn = 99, mx = -99;
+  for (let dx = -r - 1; dx <= r + 1; dx++) for (let dz = -r - 1; dz <= r + 1; dz++) {
+    const hh = heightAt(fx + dx, fz + dz);
+    if (hh < mn) mn = hh;
+    if (hh > mx) mx = hh;
+  }
+  const gy = mx;
+  for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+    const x = fx + dx, z = fz + dz;
+    for (let y = Math.max(1, mn - 1); y < gy; y++) put(x, y, z, 9);
+    put(x, gy, z, 16);            // 农田
+    put(x, gy + 1, z, 17);        // 小麦
+    carve(x, gy + 2, z);
+  }
+  for (let dx = -r - 1; dx <= r + 1; dx++) for (let dz = -r - 1; dz <= r + 1; dz++) {
+    if (Math.abs(dx) !== r + 1 && Math.abs(dz) !== r + 1) continue;
+    if (dz === r + 1 && dx === 0) continue;                 // 留个进出口
+    put(fx + dx, gy, fz + dz, 8);
+    put(fx + dx, gy + 1, fz + dz, 8);
+  }
+}
+
+function villageFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (villageCache.has(key)) return villageCache.get(key);
+  let out = null;
+  const roll = h2(cellX * 91.7 + 13.3, cellZ * 57.1 - 21.9);
+  if (roll > 0.3) {                                        // 70% 的格子有村庄
+    const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 83492791) ^ Math.imul(cellZ, 427131)) | 0);
+    const cx = cellX * VS_CELL + 44 + Math.floor(rnd() * (VS_CELL - 88));
+    const cz = cellZ * VS_CELL + 44 + Math.floor(rnd() * (VS_CELL - 88));
+    const gy = heightAt(cx, cz);
+    if (gy > CFG.SEA + 3 && gy < 42) {                     // 不在水下、不在山顶
+      const ops = [];
+      const put = (x, y, z, t) => ops.push({ x, y, z, t });
+      const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      const houses = 3 + Math.floor(rnd() * 3);
+      for (let i = 0; i < houses; i++) {
+        const ang0 = (i / houses) * Math.PI * 2 + rnd() * 0.6;
+        const w = 2 + Math.floor(rnd() * 2), d = 2 + Math.floor(rnd() * 2);
+        // 在给定方位附近试 4 个点，挑最平的一块地盖房
+        let best = null, bestVar = 99;
+        for (let k = 0; k < 4; k++) {
+          const ang = ang0 + (k ? (rnd() - 0.5) * 0.5 : 0);
+          const rad = 9 + Math.floor(rnd() * 10);
+          const hx = cx + Math.round(Math.cos(ang) * rad);
+          const hz = cz + Math.round(Math.sin(ang) * rad);
+          let mn = 99, mx = -99;
+          for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) {
+            const hh = heightAt(hx + dx, hz + dz);
+            if (hh < mn) mn = hh;
+            if (hh > mx) mx = hh;
+          }
+          if (mx - mn < bestVar) { bestVar = mx - mn; best = { hx, hz }; }
+        }
+        if (best) buildHouse(put, carve, best.hx, best.hz, w, d, 3 + Math.floor(rnd() * 2), cx, cz, rnd);
+      }
+      const farms = 1 + Math.floor(rnd() * 2);
+      for (let i = 0; i < farms; i++) {
+        const ang = rnd() * Math.PI * 2, rad = 4 + rnd() * 10;
+        buildFarm(put, carve, Math.round(cx + Math.cos(ang) * rad), Math.round(cz + Math.sin(ang) * rad), 2 + Math.floor(rnd() * 2), rnd);
+      }
+      // 村中心：圆石台 + 箱子
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) put(cx + dx, gy, cz + dz, 9);
+      put(cx, gy + 1, cz, 18);
+      const byChunk = new Map();
+      for (const op of ops) {
+        const k2 = (op.x >> 4) + ',' + (op.z >> 4);
+        let arr = byChunk.get(k2);
+        if (!arr) byChunk.set(k2, arr = []);
+        arr.push(op);
+      }
+      out = { cellX, cellZ, cx, cz, gy, houses, ops: ops.length, byChunk };
+    }
+  }
+  villageCache.set(key, out);
+  return out;
+}
+
+function nearestVillage(maxDist = 140) {
+  const pcx = Math.floor(player.p.x / VS_CELL), pcz = Math.floor(player.p.z / VS_CELL);
+  let best = null, bestD = maxDist * maxDist;
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const v = villageFor(pcx + dx, pcz + dz);
+    if (!v) continue;
+    const d = (v.cx - player.p.x) ** 2 + (v.cz - player.p.z) ** 2;
+    if (d < bestD) { bestD = d; best = v; }
+  }
+  return best;
+}
+
+// 箱子：按坐标哈希给一份固定战利品，开过就空了
+const CHEST_TABLE = [[105, 1, 3], [107, 1, 3], [8, 3, 6], [104, 2, 5], [13, 2, 5], [106, 1, 2], [9, 2, 4], [17, 1, 3]];
+function openChest(x, y, z) {
+  const k = x + ',' + y + ',' + z;
+  if (openedChests.has(k)) { toast('这个箱子已经空了', 1.4); return false; }
+  openedChests.add(k);
+  const rnd = mulberry32((Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791) ^ SEED) | 0);
+  const picks = 2 + Math.floor(rnd() * 3);
+  const got = [];
+  for (let i = 0; i < picks; i++) {
+    const [id, a, b] = CHEST_TABLE[Math.floor(rnd() * CHEST_TABLE.length)];
+    const n = a + Math.floor(rnd() * (b - a + 1));
+    addItem(id, n);
+    got.push(`${nameOf(id)}×${n}`);
+  }
+  toast(`打开箱子：${got.join('、')}`, 2.8);
+  sfx('craft');
+  renderHotbar(); saveSoon();
+  return true;
+}
+
+/* ============================================================ 生物 */
 let MINE_PIN = null;
 const mobs = [];
-const MOB_MAXHP = 20;
-const MOB_NAME = '夜行怪';
+const MOB_DEATH_HOLD = 5, MOB_DEATH_FADE = 1.1;
+const MOB_DEFS = {
+  grunt:    { name: '夜行怪', hp: 20, chase: 2.9, wander: 1.2, hostile: true,  barY: 1.44, drop: null },
+  pig:      { name: '猪',     hp: 10, chase: 2.4, wander: 1.0, hostile: false, barY: 1.0,  drop: 108 },
+  villager: { name: '村民',   hp: 20, chase: 1.9, wander: 0.9, hostile: false, barY: 1.85, drop: null },
+};
+const aliveMobs = () => mobs.filter(m => !m.dying).length;
+const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
 
-// 每只怪单独克隆材质，才能单独闪红；附带头顶血条（面向相机的 billboard）
-function makeGrunt() {
-  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2f5d5a });
-  const headMat = new THREE.MeshLambertMaterial({ color: 0x9fd8c8 });
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff4d4d });
+// 每种生物一个模型；core 组代表"身体中心"，倒地时绕它旋转才不会插进地里
+function makeMobModel(kind) {
   const g = new THREE.Group();
-  // core 是"身体中心"，绕它倒地方便（直接绕脚底转会插进地里）
   const core = new THREE.Group();
-  core.position.y = 0.62;
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.86, 0.44), bodyMat);
-  body.position.y = -0.18;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.44), headMat);
-  head.position.y = 0.46;
-  const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.03), eyeMat);
-  e1.position.set(-0.11, 0.5, 0.23);
-  const e2 = e1.clone(); e2.position.x = 0.11;
-  const arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), bodyMat);
-  arm1.position.set(-0.39, 0.0, 0);
-  const arm2 = arm1.clone(); arm2.position.x = 0.39;
-  core.add(body, head, e1, e2, arm1, arm2);
-  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.11), new THREE.MeshBasicMaterial({ color: 0x140c0c }));
-  const barFg = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.055), new THREE.MeshBasicMaterial({ color: 0x7fe06b }));
-  barFg.position.set(0, 0, 0.004);
-  const bar = new THREE.Group();
-  bar.position.y = 1.44;
-  bar.add(barBg, barFg);
-  g.add(core, bar);
+  let bodyMat, headMat, arm1, arm2, barY = 1.44;
+  const addBar = () => {
+    const barBg = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.11), new THREE.MeshBasicMaterial({ color: 0x140c0c }));
+    const barFg = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.055), new THREE.MeshBasicMaterial({ color: 0x7fe06b }));
+    barFg.position.set(0, 0, 0.004);
+    const bar = new THREE.Group();
+    bar.position.y = barY;
+    bar.add(barBg, barFg);
+    g.add(bar);
+    return { bar, barFg };
+  };
+  if (kind === 'pig') {
+    bodyMat = new THREE.MeshLambertMaterial({ color: 0xefa0a0 });
+    headMat = new THREE.MeshLambertMaterial({ color: 0xf7b4b4 });
+    const snoutMat = new THREE.MeshLambertMaterial({ color: 0xd98c8c });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x201010 });
+    core.position.y = 0.46;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.5, 0.98), bodyMat);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.46, 0.42), headMat);
+    head.position.set(0, 0.06, 0.62);
+    const snout = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.1), snoutMat);
+    snout.position.set(0, 0.0, 0.86);
+    const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.03), eyeMat);
+    e1.position.set(-0.14, 0.14, 0.84);
+    const e2 = e1.clone(); e2.position.x = 0.14;
+    const legs = [];
+    for (const sx of [-0.22, 0.22]) for (const sz of [-0.3, 0.3]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.34, 0.15), bodyMat);
+      leg.position.set(sx, -0.36, sz);
+      core.add(leg);
+      legs.push(leg);
+    }
+    core.add(body, head, snout, e1, e2);
+    arm1 = legs[0]; arm2 = legs[1];
+    barY = 1.0;
+  } else if (kind === 'villager') {
+    bodyMat = new THREE.MeshLambertMaterial({ color: 0x6b5334 });
+    headMat = new THREE.MeshLambertMaterial({ color: 0xc9a37b });
+    const accent = new THREE.MeshLambertMaterial({ color: 0x4a3822 });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x24180f });
+    core.position.y = 0.82;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.92, 0.32), bodyMat);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.44, 0.4), headMat);
+    head.position.set(0, 0.66, 0);
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.16), headMat);
+    nose.position.set(0, 0.6, 0.24);
+    const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.07, 0.03), eyeMat);
+    e1.position.set(-0.11, 0.72, 0.21);
+    const e2 = e1.clone(); e2.position.x = 0.11;
+    const robe = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.34, 0.34), accent);
+    robe.position.set(0, -0.34, 0);
+    arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.6, 0.14), bodyMat);
+    arm1.position.set(-0.31, 0.16, 0);
+    arm2 = arm1.clone(); arm2.position.x = 0.31;
+    core.add(body, head, nose, e1, e2, robe, arm1, arm2);
+    barY = 1.85;
+  } else {
+    bodyMat = new THREE.MeshLambertMaterial({ color: 0x2f5d5a });
+    headMat = new THREE.MeshLambertMaterial({ color: 0x9fd8c8 });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff4d4d });
+    core.position.y = 0.62;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.86, 0.44), bodyMat);
+    body.position.y = -0.18;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.44), headMat);
+    head.position.y = 0.46;
+    const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.03), eyeMat);
+    e1.position.set(-0.11, 0.5, 0.23);
+    const e2 = e1.clone(); e2.position.x = 0.11;
+    arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), bodyMat);
+    arm1.position.set(-0.39, 0.0, 0);
+    arm2 = arm1.clone(); arm2.position.x = 0.39;
+    core.add(body, head, e1, e2, arm1, arm2);
+    barY = 1.44;
+  }
+  g.add(core);
+  const { bar, barFg } = addBar();
   return { g, core, bodyMat, headMat, arm1, arm2, bar, barFg };
 }
 
-// 找一个"黑暗的空腔"：地下（玩家上下 8 格范围内）或夜里露天地面
-function findSpawnSpot() {
+function spawnMobAt(kind, x, y, z, opts = {}) {
+  const def = MOB_DEFS[kind];
+  if (!def) return null;
+  if (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0) return null;
+  const parts = makeMobModel(kind);
+  const m = {
+    kind, p: new THREE.Vector3(x + 0.5, y + 0.02, z + 0.5), v: new THREE.Vector3(),
+    hp: def.hp, maxHp: def.hp, onGround: false, atkCd: 0, phase: Math.random() * 9,
+    wander: 0, dir: new THREE.Vector2(), flash: 0, aggro: 0,
+    dying: false, dieT: 0, stepUp: true, flee: 0,
+    home: opts.home || null,
+    obj: parts.g, parts,
+  };
+  m.obj.position.copy(m.p);
+  scene.add(m.obj);
+  mobs.push(m);
+  return m;
+}
+
+// ── 刷怪点 ──
+function findSpawnSpot() {                        // 夜行怪：只找黑暗空腔
   const okSpot = (x, y, z) =>
-    getBlock(x, y, z) === 0 && getBlock(x, y + 1, z) === 0 &&     // 脚下/头部要空
-    isSolid(getBlock(x, y - 1, z)) &&                            // 要有地板
-    isDarkAt(x, y, z);                                          // 必须够暗
+    getBlock(x, y, z) === 0 && getBlock(x, y + 1, z) === 0 &&
+    isSolid(getBlock(x, y - 1, z)) && isDarkAt(x, y, z);
   for (let t = 0; t < 14; t++) {
     const ang = Math.random() * Math.PI * 2, dist = 8 + Math.random() * 14;
     const x = Math.floor(player.p.x + Math.cos(ang) * dist);
     const z = Math.floor(player.p.z + Math.sin(ang) * dist);
     if (Math.random() < 0.75) {
-      // 地下：从玩家上方往下扫，找第一个能站的暗空腔（矿道/洞穴地面）
       const yTop = Math.min(CFG.WH - 3, Math.floor(player.p.y) + 5);
       const yBot = Math.max(3, Math.floor(player.p.y) - 10);
       for (let y = yTop; y >= yBot; y--) if (okSpot(x, y, z)) return { x, y, z };
@@ -1249,36 +1555,45 @@ function findSpawnSpot() {
   }
   return null;
 }
-function spawnMob(offset) {
-  let x, y, z;
-  if (offset) {
-    x = Math.floor(player.p.x + offset[0]);
-    z = Math.floor(player.p.z + offset[1]);
-    y = surfaceY(x, z) + 1;
-  } else {
-    const spot = findSpawnSpot();
-    if (!spot) return null;
-    x = spot.x; y = spot.y; z = spot.z;
+function findGrassSpot() {                        // 猪：露天的草地上
+  for (let t = 0; t < 12; t++) {
+    const ang = Math.random() * Math.PI * 2, dist = 10 + Math.random() * 20;
+    const x = Math.floor(player.p.x + Math.cos(ang) * dist);
+    const z = Math.floor(player.p.z + Math.sin(ang) * dist);
+    const y = surfaceY(x, z) + 1;
+    if (getBlock(x, y - 1, z) !== 1) continue;     // 脚下是草地
+    if (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0) continue;
+    return { x, y, z };
   }
-  if (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0) return null;
-  const parts = makeGrunt();
-  const m = {
-    p: new THREE.Vector3(x + 0.5, y + 0.02, z + 0.5), v: new THREE.Vector3(),
-    hp: MOB_MAXHP, onGround: false, atkCd: 0, phase: Math.random() * 9,
-    wander: 0, dir: new THREE.Vector2(), flash: 0, aggro: 0,
-    dying: false, dieT: 0, stepUp: true,
-    obj: parts.g, parts,
-  };
-  m.obj.position.copy(m.p);
-  scene.add(m.obj);
-  mobs.push(m);
-  return m;
+  return null;
+}
+function spawnMob(kind = 'grunt', offset) {
+  if (kind === 'grunt' && !offset) {
+    const s = findSpawnSpot();
+    return s ? spawnMobAt('grunt', s.x, s.y, s.z) : null;
+  }
+  if (kind === 'pig' && !offset) {
+    const s = findGrassSpot();
+    return s ? spawnMobAt('pig', s.x, s.y, s.z) : null;
+  }
+  if (offset) {
+    const x = Math.floor(player.p.x + offset[0]);
+    const z = Math.floor(player.p.z + offset[1]);
+    return spawnMobAt(kind, x, surfaceY(x, z) + 1, z);
+  }
+  return null;
 }
 
-const aliveMobs = () => mobs.filter(m => !m.dying).length;
-// 死亡：先瘫软倒地（0.55s），躺 5 秒，然后缩小消失（1.1s）
-const MOB_DEATH_HOLD = 5, MOB_DEATH_FADE = 1.1;
+// ── 死亡 / 移除 ──
+function killMob(m) {
+  scene.remove(m.obj);
+  m.obj.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) { if (Array.isArray(o.material)) o.material.forEach(x => x.dispose()); else o.material.dispose(); }
+  });
+}
 function startMobDeath(m) {
+  if (m.dying) return;
   m.dying = true;
   m.dieT = 0;
   m.hp = 0;
@@ -1287,14 +1602,14 @@ function startMobDeath(m) {
   m.parts.bar.visible = false;
   m.parts.bodyMat.emissive.setHex(0x000000);
   m.parts.headMat.emissive.setHex(0x000000);
+  const def = MOB_DEFS[m.kind];
+  if (def && def.drop) {                            // 猪掉生猪排，直接进背包
+    const n = 1 + Math.floor(Math.random() * 2);
+    addItem(def.drop, n);
+    toast(`${def.name}掉落了 ${nameOf(def.drop)} ×${n}`, 1.8);
+    renderHotbar();
+  }
   sfx('hurt');
-}
-function killMob(m) {
-  scene.remove(m.obj);
-  m.obj.traverse(o => {
-    if (o.geometry) o.geometry.dispose();
-    if (o.material) { if (Array.isArray(o.material)) o.material.forEach(x => x.dispose()); else o.material.dispose(); }
-  });
 }
 
 function updateMobs(dt) {
@@ -1309,39 +1624,48 @@ function updateMobs(dt) {
       const fall = easeOutCubic(clamp01(m.dieT / 0.55));
       m.parts.core.rotation.x = -1.42 * fall;
       m.parts.core.rotation.z = 0.32 * fall;
-      m.parts.core.position.y = 0.62 - 0.28 * fall;
+      m.parts.core.position.y = (m.kind === 'pig' ? 0.46 : m.kind === 'villager' ? 0.82 : 0.62) - 0.28 * fall;
       m.parts.arm1.rotation.x = -0.5 * fall;
       m.parts.arm2.rotation.x = 0.35 * fall;
       m.parts.bar.visible = false;
       if (m.dieT > MOB_DEATH_HOLD) {
         const k = clamp01((m.dieT - MOB_DEATH_HOLD) / MOB_DEATH_FADE);
-        const s = 1 - k;
-        m.obj.scale.setScalar(Math.max(0.001, s));
+        const sc = 1 - k;
+        m.obj.scale.setScalar(Math.max(0.001, sc));
         m.obj.position.y = m.p.y - 0.3 * k;
-        if (s <= 0.03 || dist > 40) { killMob(m); mobs.splice(i, 1); }
+        if (sc <= 0.03 || dist > 40) { killMob(m); mobs.splice(i, 1); }
       }
       continue;
     }
-    const hostile = night || m.aggro > 0;
+    const def = MOB_DEFS[m.kind];
+    const hostileNow = def.hostile && (night || m.aggro > 0);
     m.flash = Math.max(0, m.flash - dt);
     m.aggro = Math.max(0, m.aggro - dt);
+    m.flee = Math.max(0, m.flee - dt);
     if (m.hp <= 0) { startMobDeath(m); continue; }
-    if (dist > 70 || (!hostile && dist > 30)) {
-      killMob(m);
-      mobs.splice(i, 1);
-      continue;
-    }
-    let mx = 0, mz = 0;
-    const chase = hostile && dist < 26 && player.alive;
-    if (chase) {
-      mx = dx / (dist || 1); mz = dz / (dist || 1);
+    if (dist > 72) { killMob(m); mobs.splice(i, 1); continue; }
+    if (!def.hostile && !night && dist > 44) { killMob(m); mobs.splice(i, 1); continue; }
+
+    let mx = 0, mz = 0, speed = def.wander;
+    if (m.kind === 'grunt' && hostileNow && dist < 26 && player.alive) {
+      mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase;
+    } else if (m.flee > 0) {                         // 被打之后逃跑
+      mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase;
     } else {
       m.wander -= dt;
-      if (m.wander <= 0) { m.wander = 1.5 + Math.random() * 2.5; const a = Math.random() * Math.PI * 2; m.dir.set(Math.cos(a), Math.sin(a)); }
-      mx = m.dir.x * 0.4; mz = m.dir.y * 0.4;
+      if (m.wander <= 0) {
+        m.wander = 1.5 + Math.random() * 2.5;
+        const a = Math.random() * Math.PI * 2;
+        m.dir.set(Math.cos(a), Math.sin(a));
+      }
+      mx = m.dir.x * 0.45; mz = m.dir.y * 0.45;
+      if (m.home) {                                  // 村民别走太远
+        const hx = m.home.x - m.p.x, hz = m.home.z - m.p.z;
+        const hd = Math.hypot(hx, hz);
+        if (hd > 14) { mx = hx / hd; mz = hz / hd; speed = def.wander; }
+      }
     }
-    const spd = chase ? 2.9 : 1.2;
-    m.v.x = mx * spd; m.v.z = mz * spd;
+    m.v.x = mx * speed; m.v.z = mz * speed;
     m.v.y -= CFG.GRAV * dt;
     const before = m.p.x, beforeZ = m.p.z;
     moveBody(m, m.v.x * dt, m.v.y * dt, m.v.z * dt);
@@ -1349,43 +1673,52 @@ function updateMobs(dt) {
     if (m.p.y < -6) m.hp = 0;
     m.obj.rotation.y = Math.atan2(dx, dz);
     m.obj.position.copy(m.p);
-    m.phase += dt * (2 + spd);
-    m.parts.arm1.rotation.x = Math.sin(m.phase * 3) * 0.5;
-    m.parts.arm2.rotation.x = -Math.sin(m.phase * 3) * 0.5;
+    m.phase += dt * (2 + speed);
+    if (m.parts.arm1) m.parts.arm1.rotation.x = Math.sin(m.phase * 3) * (m.kind === 'pig' ? 0.5 : 0.45);
+    if (m.parts.arm2) m.parts.arm2.rotation.x = -Math.sin(m.phase * 3) * (m.kind === 'pig' ? 0.5 : 0.45);
     // 受击闪红
     const em = m.flash > 0 ? 0xa03030 : 0x000000;
     m.parts.bodyMat.emissive.setHex(em);
     m.parts.headMat.emissive.setHex(em);
-    // 血条：面向相机、按血量收缩
-    m.parts.bar.visible = m.hp < MOB_MAXHP || dist < 14;
+    // 血条
+    m.parts.bar.visible = m.hp < m.maxHp || dist < 14;
     if (m.parts.bar.visible) {
       m.parts.bar.lookAt(camera.position);
-      const f = Math.max(0.02, m.hp / MOB_MAXHP);
+      const f = Math.max(0.02, m.hp / m.maxHp);
       m.parts.barFg.scale.x = f;
       m.parts.barFg.position.x = -(1 - f) * 0.36;
       m.parts.barFg.material.color.setHex(f > 0.55 ? 0x7fe06b : f > 0.25 ? 0xf0c04a : 0xe0524b);
     }
-    // 太阳下暴晒（露天 + 白天）会持续掉血
-    m.sunTick = (m.sunTick || 0) - dt;
-    if (m.sunTick <= 0) {
-      m.sunTick = 0.5;
-      m.sunlit = isSkyLit(Math.floor(m.p.x), Math.floor(m.p.y + 1.2), Math.floor(m.p.z)) && lightLevel > 0.7;
+    // 夜行怪怕太阳
+    if (m.kind === 'grunt') {
+      m.sunTick = (m.sunTick || 0) - dt;
+      if (m.sunTick <= 0) {
+        m.sunTick = 0.5;
+        m.sunlit = isSkyLit(Math.floor(m.p.x), Math.floor(m.p.y + 1.2), Math.floor(m.p.z)) && lightLevel > 0.7;
+      }
+      if (m.sunlit) {
+        m.hp -= dt * 2.2;
+        m.parts.bodyMat.emissive.setHex(0x552211);
+        if (m.hp <= 0) { startMobDeath(m); continue; }
+      }
     }
-    if (m.sunlit) {
-      m.hp -= dt * 2.2;
-      m.parts.bodyMat.emissive.setHex(0x552211);
-      if (m.hp <= 0) { startMobDeath(m); continue; }
-    }
-    // 贴身攻击
+    // 贴身攻击（只有夜行怪会打人）
     m.atkCd -= dt;
-    if (hostile && dist < 1.5 && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < 1.8) {
+    if (m.kind === 'grunt' && hostileNow && dist < 1.5 && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < 1.8) {
       m.atkCd = 1.6;
       damagePlayer(3);
     }
   }
-  const cap = night ? CFG.MAX_MOBS + 2 : CFG.MAX_MOBS;
-  const rate = 0.85;
-  if (aliveMobs() < cap && Math.random() < dt * rate) spawnMob();
+  // 刷怪：夜行怪只在黑暗处，猪在草地，村民在村庄
+  const capGrunt = night ? CFG.MAX_MOBS + 2 : CFG.MAX_MOBS;
+  if (countKind('grunt') < capGrunt && Math.random() < dt * 0.85) spawnMob('grunt');
+  if (countKind('pig') < 4 && Math.random() < dt * 0.12) spawnMob('pig');
+  const v = (typeof nearestVillage === 'function') ? nearestVillage() : null;
+  if (v && countKind('villager') < 3 && Math.random() < dt * 0.4) {
+    const ang = Math.random() * Math.PI * 2, r = 3 + Math.random() * 8;
+    const x = Math.floor(v.cx + Math.cos(ang) * r), z = Math.floor(v.cz + Math.sin(ang) * r);
+    spawnMobAt('villager', x, surfaceY(x, z) + 1, z, { home: { x: v.cx, z: v.cz } });
+  }
 }
 
 /* ============================================================ 状态 / HUD */
@@ -1838,10 +2171,12 @@ function attack() {
   player.atkCd = 0.42;
   player.hits = (player.hits || 0) + 1;
   sfx('hit');
-  if (target.hp > 0) toast(`命中 ${MOB_NAME} −${dmg}（剩 ${Math.max(0, target.hp)}）`, 0.9);
+  if (!MOB_DEFS[target.kind].hostile) target.flee = 6;      // 猪/村民被打就跑
+  const tname = MOB_DEFS[target.kind].name;
+  if (target.hp > 0) toast(`命中 ${tname} −${dmg}（剩 ${Math.max(0, target.hp)}）`, 0.9);
   else {
     player.kills = (player.kills || 0) + 1;
-    toast(`击倒 ${MOB_NAME}`, 1.4);
+    toast(`击倒 ${tname}`, 1.4);
     startMobDeath(target);          // 立即进入倒地动画（updateMobs 里也会兜底触发）
   }
   return true;
@@ -1912,7 +2247,7 @@ function updatePlayer(dt) {
 function update(dt) {
   worldTime += dt;
   echoTimer -= dt;
-  if (echoTimer <= 0) { echoTimer = 0.4; underground = isUnderground(); }
+  if (echoTimer <= 0) { echoTimer = 0.4; underground = depthBelowSurface() > 2.5; }
   caveMix += ((underground ? 1 : 0) - caveMix) * Math.min(1, dt * 4);
   updateSky();
   // 回声系统：地下 → 混响变强 + 偶尔滴水
@@ -1949,7 +2284,8 @@ function update(dt) {
   if (placeQueued) {
     placeQueued = false;
     const h = held();
-    if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
+    if (t && t.id === 18) { openChest(t.x, t.y, t.z); startSwing('place', 0.2); }
+    else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
     else if (h && (defOf(h.id) || {}).kind === 'food') eat();
     else placeBlock();
@@ -2015,7 +2351,7 @@ function updateHUD(dt) {
   const dirName = dirs[Math.round(deg / 45) % 8];
   const mem = (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : '');
   const s =
-    `环境 <b>${underground ? '矿洞（回声）' : '地表'}</b>\n` +
+    `环境 <b>${underground ? `地下 ${Math.round(depthBelowSurface())} 格` : '地表'}</b>\n` +
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
@@ -2030,7 +2366,7 @@ function save() {
     const data = {
       seed: SEED, time: worldTime,
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
-      inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor,
+      inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(openedChests),
     };
     localStorage.setItem(CFG.SAVE_KEY, JSON.stringify(data));
   } catch (e) { /* 配额满就跳过 */ }
@@ -2048,6 +2384,7 @@ function loadSave() {
     inv = (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0);
     player.spawn = d.spawn || null;
     if (d.armor) for (const s of ARMOR_SLOTS) player.armor[s] = ITEMS[d.armor[s]] ? d.armor[s] : null;
+    for (const c of (d.chests || [])) openedChests.add(c);
     for (const [k, v] of (d.edits || [])) edits.set(k, v);
     if (d.player) {
       player.p.set(d.player.x, d.player.y, d.player.z);
@@ -2273,8 +2610,37 @@ window.GAME = {
       const c = getChunk(Math.floor(player.p.x / CFG.CH) + 3, Math.floor(player.p.z / CFG.CH));
       const t0 = performance.now(); buildChunk(c); return +(performance.now() - t0).toFixed(1);
     },
+    mobKinds: () => { const o = {}; for (const m of mobs) if (!m.dying) o[m.kind] = (o[m.kind] || 0) + 1; return o; },
+    spawnAt: (kind, dx, dz) => { const x = Math.floor(player.p.x + dx), z = Math.floor(player.p.z + dz); const m = spawnMobAt(kind, x, surfaceY(x, z) + 1, z); return m ? [kind, +m.p.x.toFixed(1), +m.p.y.toFixed(1)] : null; },
+    villages: (r = 2) => {
+      const pcx = Math.floor(player.p.x / VS_CELL), pcz = Math.floor(player.p.z / VS_CELL);
+      const out = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const v = villageFor(pcx + dx, pcz + dz);
+        if (v) out.push({ cx: v.cx, cz: v.cz, gy: v.gy, houses: v.houses, ops: v.ops });
+      }
+      return out;
+    },
+    gotoVillage: () => {
+      const v = nearestVillage(400);
+      if (!v) return null;
+      player.p.set(v.cx + 0.5, v.gy + 2, v.cz + 0.5);
+      player.v.set(0, 0, 0);
+      camSmoothY = null;
+      return v;
+    },
+    chestAt: (x, y, z) => openChest(x, y, z),
+    openedChestCount: () => openedChests.size,
+    findBlockAny: (id, r = 40) => {
+      const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+      for (let d = 0; d < r; d++) for (let dx = -d; dx <= d; dx++) for (let dz = -d; dz <= d; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== d) continue;
+        for (let y = CFG.WH - 1; y > 0; y--) if (getBlock(px + dx, y, pz + dz) === id) return [px + dx, y, pz + dz];
+      }
+      return null;
+    },
     mobsInfo: () => mobs.map(m => ({
-      hp: m.hp, dying: m.dying, dieT: +m.dieT.toFixed(2), scale: +m.obj.scale.x.toFixed(3),
+      kind: m.kind, hp: m.hp, dying: m.dying, dieT: +m.dieT.toFixed(2), scale: +m.obj.scale.x.toFixed(3),
       tilt: +m.parts.core.rotation.x.toFixed(2), dist: +m.p.distanceTo(player.p).toFixed(2),
       aggro: +m.aggro.toFixed(1), flash: +m.flash.toFixed(2),
       barVisible: m.parts.bar.visible, barScale: +m.parts.barFg.scale.x.toFixed(2),
