@@ -3789,6 +3789,38 @@ function startMobDeath(m) {
   sfx('hurt');
 }
 
+/* ── 村民睡觉：天黑了找个床躺下 ── */
+function findBedNear(pos, r) {
+  const cx = Math.floor(pos.x), cy = Math.floor(pos.y), cz = Math.floor(pos.z);
+  for (let dy = -4; dy <= 2; dy++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+    const bx = cx + dx, by = cy + dy, bz = cz + dz;
+    if (getBlock(bx, by, bz) !== 14) continue;
+    if (getMeta(bx, by, bz) >= 5) continue;                 // 只认脚格
+    return { x: bx, y: by, z: bz };
+  }
+  return null;
+}
+function startSleep(m) {
+  if (!m.bed) return;
+  m.sleeping = true;
+  m.v.set(0, 0, 0);
+  m.p.set(m.bed.x + 0.5, m.bed.y + 0.55, m.bed.z + 0.5);
+  if (m.parts.core) {                                       // 躺下
+    m.parts.core.rotation.x = -1.45;
+    m.parts.core.position.y = m.parts.coreY - 0.12;
+  }
+  if (m.parts.arm1) m.parts.arm1.rotation.x = -0.4;
+  if (m.parts.arm2) m.parts.arm2.rotation.x = -0.4;
+  if (m.mark) m.mark.visible = false;
+}
+function wakeUp(m) {
+  m.sleeping = false;
+  if (m.parts.core) { m.parts.core.rotation.x = 0; m.parts.core.position.y = m.parts.coreY; }
+  if (m.parts.arm1) m.parts.arm1.rotation.x = 0;
+  if (m.parts.arm2) m.parts.arm2.rotation.x = 0;
+  if (m.mark) m.mark.visible = true;
+}
+
 function updateMobs(dt) {
   const night = isNight();
   for (let i = mobs.length - 1; i >= 0; i--) {
@@ -3824,6 +3856,21 @@ function updateMobs(dt) {
     if (!def.hostile && !night && dist > 44) { killMob(m); mobs.splice(i, 1); continue; }
 
     let mx = 0, mz = 0, speed = def.wander;
+    // 村民：天黑了自动去附近的床睡觉，天亮自己起来
+    if (m.kind === 'villager') {
+      if (night && !m.sleeping) {
+        m.bedScan = (m.bedScan || 0) - dt;
+        if (m.bedScan <= 0) { m.bedScan = 4; if (!m.bed) m.bed = findBedNear(m.p, 14); }
+        if (m.bed) {
+          const bdx = m.bed.x + 0.5 - m.p.x, bdz = m.bed.z + 0.5 - m.p.z;
+          const bd = Math.hypot(bdx, bdz);
+          if (bd < 3.2 && Math.abs(m.bed.y - m.p.y) < 2.6) startSleep(m);   // 走到床边（含爬台阶卡住的情况）就躺下
+          else if (bd > 0.5) { mx = bdx / bd; mz = bdz / bd; speed = Math.max(def.wander, 2.4); m.bedTgt = true; }
+        }
+      } else if (!night && m.sleeping) wakeUp(m);
+      if (!m.bed && !m.sleeping) m.bedTgt = false;
+      if (m.sleeping) { mx = 0; mz = 0; speed = 0; m.v.x = 0; m.v.z = 0; }
+    }
     if (def.ranged && hostileNow && player.alive) {      // 骷髅：保持距离并射箭
       if (dist > 15) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase; }
       else if (dist < 6) { mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase * 0.85; }
@@ -3850,20 +3897,20 @@ function updateMobs(dt) {
         if (hd > 14) { mx = hx / hd; mz = hz / hd; speed = def.wander; }
       }
     }
-    if (m.recruit && m.recruit.hired && m.recruit.follow && player.alive) {
+    if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.recruit.follow && player.alive) {
       if (dist > 24) { m.p.set(player.p.x + 1.6, player.p.y + 0.1, player.p.z + 1.6); m.v.set(0, 0, 0); }
       else if (dist > 2.9) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase + 0.7; }
       else { mx = 0; mz = 0; speed = 0; }
     }
     // 村民任务：拿剑 → 自动打玩家周围的怪
-    if (m.recruit && m.recruit.hired && m.give && ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' && player.alive) {
+    if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.give && ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' && player.alive) {
       m.scanCd = (m.scanCd || 0) - dt;
       if (m.scanCd <= 0) { m.scanCd = 0.4; m.tgt = nearestHostileFrom(m, 16, 18); }
       const tg = (m.tgt && !m.tgt.dying && m.tgt.hp > 0) ? m.tgt : null;
       if (tg) {
         const td = Math.hypot(tg.p.x - m.p.x, tg.p.z - m.p.z);
         if (td > 1.7) { mx = (tg.p.x - m.p.x) / td; mz = (tg.p.z - m.p.z) / td; speed = 3.6; }
-        else {
+        else if (sightClear(m.p, tg.p)) {                 // 隔墙不挥空
           mx = 0; mz = 0; speed = 0;
           m.vAtk = (m.vAtk || 0) - dt;
           if (m.vAtk <= 0) { m.vAtk = 1.1; villagerAttack(m, tg); }
@@ -3934,14 +3981,14 @@ function updateMobs(dt) {
     const reach = def.boss ? 2.4 : 1.5;
     if (tgtMob) {                                                   // 目标已改成村民：打村民
       const dv = Math.hypot(tgtMob.p.x - m.p.x, tgtMob.p.z - m.p.z);
-      if (def.hostile && hostileNow && dv < reach && m.atkCd <= 0) {
+      if (def.hostile && hostileNow && dv < reach && m.atkCd <= 0 && sightClear(m.p, tgtMob.p)) {
         m.atkCd = def.atkCd || 1.6;
         tgtMob.hp -= (def.dmg || 3) * 0.8;
         tgtMob.flash = 0.24;
         if (tgtMob.hp <= 0) startMobDeath(tgtMob);
         sfx('hurt');
       }
-    } else if (def.hostile && hostileNow && dist < reach && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.boss ? 3.2 : 2.0)) {
+    } else if (def.hostile && hostileNow && dist < reach && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.boss ? 3.2 : 2.0) && sightClear(m.p, player.p)) {
       m.atkCd = def.atkCd || 1.6;
       hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
       sfx('hurt');
@@ -4955,6 +5002,7 @@ function attackTarget() {
     if (t < 0.1 || t > CFG.REACH - 1.2) continue;
     const perp = to.addScaledVector(dir, -t).length();
     if (perp > 1.05) continue;
+    if (!sightClear(player.p, m.p)) continue;              // 隔着墙打不到
     const score = 1 / (perp + 0.2) - t * 0.05;
     if (score > bestScore) { bestScore = score; best = m; }
   }
@@ -5980,6 +6028,11 @@ window.GAME = {
     })),
     restoreSquad: (l) => restoreSquad(l),
     squadSave: () => squadData(),
+    sleep: () => GAME.mobs.filter(m => m.kind === 'villager').map(m => ({
+      sleeping: !!m.sleeping, bed: m.bed ? [m.bed.x, m.bed.y, m.bed.z] : null,
+      pos: [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)], rotX: +m.parts.core.rotation.x.toFixed(2) })),
+    setNight: (v) => { worldTime = CFG.DAY * (v ? 0.62 : 0.25); updateSky(); return isNight(); },
+    sight: (kind) => { const t = mobs.find(m => m.kind === kind); return t ? sightClear(player.p, t.p) : null; },
     limbs: () => { const m = GAME.mobs.find(x => x.recruit); return m ? { limbs: m.parts.limbs.length, arms: [!!m.parts.arm1, !!m.parts.arm2] } : null; },
     squad: () => squadList().map(m => ({ name: MOB_DEFS[m.kind].name, follow: m.recruit.follow,
       equip: m.equip, armorMeshes: m.armorMeshes ? m.armorMeshes.length : 0,
