@@ -296,6 +296,13 @@ const ITEMS = {
   133: { name: '钻石胸甲', kind: 'armor', slot: 'chest', ap: 8 },
   134: { name: '钻石护腿', kind: 'armor', slot: 'legs', ap: 6 },
   135: { name: '钻石靴', kind: 'armor', slot: 'feet', ap: 3 },
+  140: { name: '生牛肉', kind: 'food', food: 5 },
+  141: { name: '熟牛肉', kind: 'food', food: 9 },
+  142: { name: '羊毛', kind: 'mat' },
+  143: { name: '鸡肉', kind: 'food', food: 3 },
+  144: { name: '熟鸡肉', kind: 'food', food: 7 },
+  148: { name: '骨头', kind: 'mat' },
+  149: { name: '骨剑', kind: 'sword', dmg: 6 },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -502,8 +509,26 @@ function iconURL(id) {
       g.fillStyle = '#b8912f';
       g.fillRect(13 + dx + rot * 7, 5, 5, 2);
     }
-  } else if (id === 108 || id === 109) { // 生猪排 / 熟猪排
-    g.fillStyle = id === 108 ? '#e08a8a' : '#a9622f';
+  } else if (id === 142) { // 羊毛
+    g.fillStyle = '#f2efe6'; g.fillRect(5, 8, 22, 17);
+    g.fillStyle = '#e2ddcf';
+    for (const [x, y] of [[8, 11], [15, 9], [21, 13], [10, 17], [17, 19], [23, 21], [7, 22]]) g.fillRect(x, y, 4, 3);
+  } else if (id === 148) { // 骨头
+    g.strokeStyle = '#efe9d8'; g.lineWidth = 6; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(10, 22); g.lineTo(22, 10); g.stroke();
+    g.fillStyle = '#efe9d8';
+    for (const [x, y] of [[8, 23], [12, 26], [20, 6], [24, 9]]) { g.beginPath(); g.arc(x, y, 3.4, 0, 7); g.fill(); }
+  } else if (id === 108 || id === 109 || id === 140 || id === 141 || id === 143 || id === 144) { // 肉类
+    const cooked = id === 109 || id === 141 || id === 144;
+    const bird = id === 143 || id === 144;
+    const beef = id === 140 || id === 141;
+    g.fillStyle = cooked ? (bird ? '#c98a4a' : '#a9622f') : (bird ? '#f0d6b8' : '#e08a8a');
+    g.beginPath();
+    if (bird) g.ellipse(16, 17, 8, 6.5, 0.3, 0, 7); else g.ellipse(15, 17, 9, 6.5, -0.2, 0, 7);
+    g.fill();
+    g.fillStyle = cooked ? (bird ? '#e0b070' : '#c98a4a') : (bird ? '#f8e6d0' : '#f2b3b3');
+    g.beginPath(); g.ellipse(15, 16, 5.5, 3.5, -0.2, 0, 7); g.fill();
+    if (beef || !bird) { g.fillStyle = '#efe6d2'; g.fillRect(23, 15, 5, 3.5); g.beginPath(); g.arc(28, 15.5, 2.4, 0, 7); g.fill(); }
     g.beginPath(); g.ellipse(15, 17, 9, 6.5, -0.2, 0, 7); g.fill();
     g.fillStyle = id === 108 ? '#f2b3b3' : '#c98a4a';
     g.beginPath(); g.ellipse(15, 16, 5.5, 3.5, -0.2, 0, 7); g.fill();
@@ -531,7 +556,7 @@ function iconURL(id) {
     g.strokeStyle = metal; g.lineWidth = 5;
     g.beginPath(); g.moveTo(9, 9); g.quadraticCurveTo(20, 5, 27, 13); g.stroke();
   } else if (ITEMS[id] && ITEMS[id].kind === 'sword') { // 剑
-    const metal = id === 131 ? '#5fe6d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
+    const metal = id === 131 ? '#5fe6d8' : id === 149 ? '#efe9d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
     g.strokeStyle = metal; g.lineWidth = 5; g.lineCap = 'round';
     g.beginPath(); g.moveTo(10, 25); g.lineTo(24, 7); g.stroke();
     g.strokeStyle = '#8d6534'; g.lineWidth = 4;
@@ -1319,8 +1344,8 @@ function makeToolModel(id) {
     tipR.position.set(0.19, 0.13, 0);
     tipR.rotation.z = 0.42;
     g.add(handle, bar, tipL, tipR);
-  } else if (id === 102 || id === 103 || id === 121 || id === 131) {       // 剑
-    const bladeMat = id === 131 ? diaM : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
+  } else if (id === 102 || id === 103 || id === 121 || id === 131 || id === 149) {       // 剑
+    const bladeMat = id === 131 ? diaM : id === 149 ? new THREE.MeshLambertMaterial({ color: 0xefe9d8 }) : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.44, 0.018), bladeMat);
     blade.position.y = 0.3;
     const tip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.018), bladeMat);
@@ -1896,9 +1921,14 @@ let MINE_PIN = null;
 const mobs = [];
 const MOB_DEATH_HOLD = 5, MOB_DEATH_FADE = 1.1;
 const MOB_DEFS = {
-  grunt:    { name: '夜行怪', hp: 20, chase: 2.9, wander: 1.2, hostile: true,  barY: 1.44, drop: null },
+  grunt:    { name: '夜行怪', hp: 20, chase: 2.9, wander: 1.2, hostile: true,  barY: 1.44, drop: null, dmg: 3, atkCd: 1.6, sunBurn: true },
   pig:      { name: '猪',     hp: 10, chase: 2.4, wander: 1.0, hostile: false, barY: 1.0,  drop: 108 },
   villager: { name: '村民',   hp: 20, chase: 1.9, wander: 0.9, hostile: false, barY: 1.85, drop: null },
+  cow:      { name: '牛',     hp: 24, chase: 2.3, wander: 0.85, hostile: false, barY: 1.45, drop: 140, dropN: [1, 2] },
+  sheep:    { name: '羊',     hp: 18, chase: 2.5, wander: 0.95, hostile: false, barY: 1.15, drop: 142, dropN: [1, 2] },
+  chicken:  { name: '鸡',     hp: 8,  chase: 2.8, wander: 0.8,  hostile: false, barY: 0.75, drop: 143, dropN: [1, 1] },
+  spider:   { name: '蜘蛛',   hp: 22, chase: 4.0, wander: 1.4,  hostile: true,  barY: 0.9,  drop: null, dmg: 2.5, atkCd: 1.25 },
+  skeleton: { name: '骷髅射手', hp: 20, chase: 2.4, wander: 1.0, hostile: true,  barY: 1.6,  drop: 148, dropN: [1, 2], dmg: 3, atkCd: 1.5, ranged: true, sunBurn: true },
 };
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
@@ -2000,6 +2030,80 @@ function mobGeos(kind) {
       { geo: armGeo, x: -5, y: 18, z: 0, arm: true }, { geo: armGeo, x: 5, y: 18, z: 0, arm: true },
       { geo: legGeo, x: -2, y: 7, z: 0, arm: false }, { geo: legGeo, x: 2, y: 7, z: 0, arm: false },
     ];
+  } else if (kind === 'cow') {
+    coreY = 0.62; barY = 1.45;
+    const HIDE = 0x3a2b24, PATCH = 0xe8e2d6, HORN = 0xd8cbb0, SNOUT = 0xc9a29a;
+    box(body, -6, 8, -10, 12, 10, 20, HIDE, 0.10);        // 躯干
+    box(body, -6, 12, -6, 12, 5, 6, PATCH, 0.07);         // 白色花斑
+    box(body, -6, 9, 3, 12, 4, 4, PATCH, 0.07);
+    box(body, 2, 13, -9, 4, 4, 4, PATCH, 0.07);
+    box(head, -4, 10, 10, 8, 8, 8, HIDE, 0.09);           // 头
+    box(head, -3, 8, 17, 6, 4, 2, SNOUT, 0.06);           // 口鼻
+    px(head, -1, 9, 18, 0x8a6a63); px(head, 1, 9, 18, 0x8a6a63);
+    px(head, -4, 14, 14, 0x120c0a); px(head, 3, 14, 14, 0x120c0a);
+    box(head, -5, 17, 11, 2, 2, 2, HORN, 0.04);           // 角
+    box(head, 3, 17, 11, 2, 2, 2, HORN, 0.04);
+    box(head, -6, 13, 12, 1, 3, 2, HIDE, 0.05);           // 耳朵
+    box(head, 5, 13, 12, 1, 3, 2, HIDE, 0.05);
+    const cowLeg = (() => { const m = new Map(); box(m, -1, -8, -1, 2, 8, 2, 0x33251f, 0.10); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: cowLeg, x: -4, y: 8, z: 6, arm: true }, { geo: cowLeg, x: 4, y: 8, z: 6, arm: true },
+      { geo: cowLeg, x: -4, y: 8, z: -6, arm: false }, { geo: cowLeg, x: 4, y: 8, z: -6, arm: false },
+    ];
+  } else if (kind === 'sheep') {
+    coreY = 0.55; barY = 1.15;
+    const WOOL = 0xf2efe6, FACE = 0xd6c6b0, HOOF = 0x2b2622;
+    box(body, -6, 5, -8, 12, 10, 16, WOOL, 0.18);         // 蓬松羊毛
+    box(head, -3, 7, 8, 6, 7, 6, FACE, 0.08);             // 脸
+    box(head, -4, 12, 7, 8, 3, 5, WOOL, 0.14);            // 头顶羊毛
+    px(head, -2, 11, 13, 0x1a1512); px(head, 1, 11, 13, 0x1a1512);
+    px(head, -1, 9, 13, 0xc9a89a);
+    const sheepLeg = (() => { const m = new Map(); box(m, -1, -5, -1, 2, 5, 2, HOOF, 0.10); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: sheepLeg, x: -4, y: 5, z: 5, arm: true }, { geo: sheepLeg, x: 4, y: 5, z: 5, arm: true },
+      { geo: sheepLeg, x: -4, y: 5, z: -5, arm: false }, { geo: sheepLeg, x: 4, y: 5, z: -5, arm: false },
+    ];
+  } else if (kind === 'chicken') {
+    coreY = 0.30; barY = 0.72;
+    const FEATHER = 0xf4f2ea, BEAK = 0xe0a33c, COMB = 0xd8402f;
+    box(body, -3, 4, -4, 6, 6, 8, FEATHER, 0.10);         // 身体
+    box(body, -4, 6, -2, 1, 3, 6, 0xe6e2d6, 0.08);        // 翅膀
+    box(body, 3, 6, -2, 1, 3, 6, 0xe6e2d6, 0.08);
+    box(head, -2, 9, 4, 5, 5, 5, FEATHER, 0.08);          // 头
+    px(head, -2, 11, 8, BEAK); px(head, -1, 11, 8, BEAK); // 喙
+    box(head, -1, 14, 5, 3, 1, 2, COMB, 0.05);            // 鸡冠
+    px(head, 2, 12, 8, 0x241a12); px(head, -2, 12, 8, 0x241a12);
+    const birdLeg = (() => { const m = new Map(); box(m, 0, -4, 0, 1, 4, 1, BEAK, 0.05); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: birdLeg, x: -1, y: 4, z: 0, arm: true }, { geo: birdLeg, x: 2, y: 4, z: 0, arm: false },
+    ];
+  } else if (kind === 'spider') {
+    coreY = 0.42; barY = 0.92;
+    const CH = 0x2a2430, CH2 = 0x1c1822, EYE = 0xd23c3c;
+    box(body, -4, 4, -6, 8, 6, 12, CH, 0.12);             // 头胸
+    box(body, -6, 5, -8, 12, 5, 6, CH2, 0.10);            // 后腹
+    box(head, -3, 5, 6, 6, 5, 5, CH, 0.10);               // 头
+    px(head, -2, 8, 10, EYE); px(head, -1, 8, 10, EYE); px(head, 1, 8, 10, EYE); px(head, 2, 8, 10, EYE);
+    const spLeg = (() => { const m = new Map(); box(m, 0, -1, 0, 7, 1, 1, CH2, 0.08); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: spLeg, x: -4, y: 8, z: 4, arm: true }, { geo: spLeg, x: 4, y: 8, z: 4, arm: true },
+      { geo: spLeg, x: -4, y: 8, z: 0, arm: false }, { geo: spLeg, x: 4, y: 8, z: 0, arm: false },
+    ];
+  } else if (kind === 'skeleton') {
+    coreY = 0.66; barY: 0; barY = 1.55;
+    const BONE = 0xe8e4d6, BONE2 = 0xc9c4b2, SOCKET = 0x1e1a16;
+    box(body, -3, 8, -1, 6, 8, 3, BONE, 0.10);            // 胸腔
+    box(body, -2, 11, 2, 4, 1, 1, BONE2, 0.05);           // 肋骨阴影
+    box(head, -3, 16, -3, 7, 7, 7, BONE, 0.09);           // 头骨
+    px(head, -2, 20, 4, SOCKET); px(head, -1, 20, 4, SOCKET);
+    px(head, 2, 20, 4, SOCKET); px(head, 3, 20, 4, SOCKET);
+    box(head, -1, 17, 4, 3, 1, 1, BONE2, 0.04);           // 牙
+    const skArm = (() => { const m = new Map(); box(m, -1, -8, -1, 2, 8, 2, BONE, 0.09); return voxGeometry(m); })();
+    const skLeg = (() => { const m = new Map(); box(m, -1, -8, -1, 2, 8, 2, BONE2, 0.09); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: skArm, x: -4, y: 16, z: 0, arm: true }, { geo: skArm, x: 4, y: 16, z: 0, arm: true },
+      { geo: skLeg, x: -2, y: 8, z: 0, arm: false }, { geo: skLeg, x: 2, y: 8, z: 0, arm: false },
+    ];
   } else {                                                // grunt 夜行怪
     coreY = 0.62; barY = 1.44;
     const BODY = 0x2f5d5a, BODY2 = 0x264a48, HEAD = 0x9fd8c8, EYE = 0xff4d4d, TEETH = 0xe8f4ef;
@@ -2050,7 +2154,7 @@ function makeMobModel(kind) {
   bar.add(barBg, barFg);
   g.add(bar);
   const arms = limbs.filter((m, i) => G.limbs[i].arm);
-  return { g, core, bodyMat, headMat, arm1: arms[0] || null, arm2: arms[1] || null, bar, barFg, limbs };
+  return { g, core, coreY: G.coreY, bodyMat, headMat, arm1: arms[0] || null, arm2: arms[1] || null, bar, barFg, limbs };
 }
 
 function spawnMobAt(kind, x, y, z, opts = {}) {
@@ -2105,13 +2209,10 @@ function findGrassSpot() {                        // 猪：露天的草地上
   return null;
 }
 function spawnMob(kind = 'grunt', offset) {
-  if (kind === 'grunt' && !offset) {
-    const s = findSpawnSpot();
-    return s ? spawnMobAt('grunt', s.x, s.y, s.z) : null;
-  }
-  if (kind === 'pig' && !offset) {
-    const s = findGrassSpot();
-    return s ? spawnMobAt('pig', s.x, s.y, s.z) : null;
+  const mdef = MOB_DEFS[kind];
+  if (!offset && mdef) {
+    const s = mdef.hostile ? findSpawnSpot() : findGrassSpot();
+    return s ? spawnMobAt(kind, s.x, s.y, s.z) : null;
   }
   if (offset) {
     const x = Math.floor(player.p.x + offset[0]);
@@ -2119,6 +2220,46 @@ function spawnMob(kind = 'grunt', offset) {
     return spawnMobAt(kind, x, surfaceY(x, z) + 1, z);
   }
   return null;
+}
+
+// ── 骷髅的箭 ──
+const arrows = [];
+function sightClear(from, to) {                       // 两点之间有没有固体方块挡着
+  const a = new THREE.Vector3(from.x, from.y + 1.2, from.z);
+  const b = new THREE.Vector3(to.x, to.y + 1.1, to.z);
+  const d = b.clone().sub(a);
+  const len = d.length();
+  d.divideScalar(len || 1);
+  for (let t = 0.6; t < len; t += 0.45) {
+    const x = Math.floor(a.x + d.x * t), y = Math.floor(a.y + d.y * t), z = Math.floor(a.z + d.z * t);
+    if (isSolid(getBlock(x, y, z))) return false;
+  }
+  return true;
+}
+function shootArrow(m) {
+  const from = new THREE.Vector3(m.p.x, m.p.y + 1.15, m.p.z);
+  const to = new THREE.Vector3(player.p.x, player.p.y + 1.05, player.p.z);
+  const dir = to.clone().sub(from).normalize();
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.44), new THREE.MeshBasicMaterial({ color: 0xe8e4d6 }));
+  mesh.position.copy(from);
+  mesh.lookAt(to);
+  scene.add(mesh);
+  arrows.push({ p: from.clone(), v: dir.multiplyScalar(21), t: 0, obj: mesh });
+  sfx('place');
+}
+function updateArrows(dt) {
+  for (let i = arrows.length - 1; i >= 0; i--) {
+    const a = arrows[i];
+    a.t += dt;
+    a.v.y -= 6.5 * dt;
+    a.p.addScaledVector(a.v, dt);
+    a.obj.position.copy(a.p);
+    let gone = a.t > 5;
+    const dx = a.p.x - player.p.x, dy = a.p.y - (player.p.y + 0.9), dz = a.p.z - player.p.z;
+    if (!gone && dx * dx + dy * dy + dz * dz < 0.45) { if (player.alive) damagePlayer(4); gone = true; }
+    if (!gone && isSolid(getBlock(Math.floor(a.p.x), Math.floor(a.p.y), Math.floor(a.p.z)))) gone = true;
+    if (gone) { scene.remove(a.obj); a.obj.geometry.dispose(); a.obj.material.dispose(); arrows.splice(i, 1); }
+  }
 }
 
 // ── 死亡 / 移除 ──
@@ -2140,8 +2281,9 @@ function startMobDeath(m) {
   m.parts.bodyMat.emissive.setHex(0x000000);
   m.parts.headMat.emissive.setHex(0x000000);
   const def = MOB_DEFS[m.kind];
-  if (def && def.drop) {                            // 猪掉生猪排（掉落物实体）
-    const n = 1 + Math.floor(Math.random() * 2);
+  if (def && def.drop) {                            // 掉落物实体
+    const [lo, hi] = def.dropN || [1, 2];
+    const n = lo + Math.floor(Math.random() * (hi - lo + 1));
     spawnDrop(def.drop, n, m.p.x, m.p.y + 0.45, m.p.z);
     toast(`${def.name}掉落了 ${nameOf(def.drop)} ×${n}`, 1.8);
   }
@@ -2160,9 +2302,9 @@ function updateMobs(dt) {
       const fall = easeOutCubic(clamp01(m.dieT / 0.55));
       m.parts.core.rotation.x = -1.42 * fall;
       m.parts.core.rotation.z = 0.32 * fall;
-      m.parts.core.position.y = (m.kind === 'pig' ? 0.46 : m.kind === 'villager' ? 0.82 : 0.62) - 0.28 * fall;
-      m.parts.arm1.rotation.x = -0.5 * fall;
-      m.parts.arm2.rotation.x = 0.35 * fall;
+      m.parts.core.position.y = m.parts.coreY - 0.28 * fall;
+      if (m.parts.arm1) m.parts.arm1.rotation.x = -0.5 * fall;   // 鸡只有两条腿，arm2 可能为空
+      if (m.parts.arm2) m.parts.arm2.rotation.x = 0.35 * fall;
       m.parts.bar.visible = false;
       if (m.dieT > MOB_DEATH_HOLD) {
         const k = clamp01((m.dieT - MOB_DEATH_HOLD) / MOB_DEATH_FADE);
@@ -2183,7 +2325,12 @@ function updateMobs(dt) {
     if (!def.hostile && !night && dist > 44) { killMob(m); mobs.splice(i, 1); continue; }
 
     let mx = 0, mz = 0, speed = def.wander;
-    if (m.kind === 'grunt' && hostileNow && dist < 26 && player.alive) {
+    if (def.ranged && hostileNow && player.alive) {      // 骷髅：保持距离并射箭
+      if (dist > 15) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase; }
+      else if (dist < 6) { mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase * 0.85; }
+      m.shootCd = (m.shootCd || 0) - dt;
+      if (m.shootCd <= 0 && dist < 20 && sightClear(m.p, player.p)) { m.shootCd = 1.7; shootArrow(m); }
+    } else if (def.hostile && hostileNow && dist < 26 && player.alive) {
       mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase;
     } else if (m.flee > 0) {                         // 被打之后逃跑
       mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase;
@@ -2225,8 +2372,8 @@ function updateMobs(dt) {
       m.parts.barFg.position.x = -(1 - f) * 0.36;
       m.parts.barFg.material.color.setHex(f > 0.55 ? 0x7fe06b : f > 0.25 ? 0xf0c04a : 0xe0524b);
     }
-    // 夜行怪怕太阳
-    if (m.kind === 'grunt') {
+    // 怕太阳的生物
+    if (def.sunBurn) {
       m.sunTick = (m.sunTick || 0) - dt;
       if (m.sunTick <= 0) {
         m.sunTick = 0.5;
@@ -2238,17 +2385,23 @@ function updateMobs(dt) {
         if (m.hp <= 0) { startMobDeath(m); continue; }
       }
     }
-    // 贴身攻击（只有夜行怪会打人）
+    // 贴身攻击（所有敌对生物；骷髅是远程，只有贴脸才用近战）
     m.atkCd -= dt;
-    if (m.kind === 'grunt' && hostileNow && dist < 1.5 && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < 1.8) {
-      m.atkCd = 1.6;
-      damagePlayer(3);
+    if (def.hostile && hostileNow && dist < 1.5 && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < 1.8) {
+      m.atkCd = def.atkCd || 1.6;
+      damagePlayer(def.dmg || 3);
     }
   }
-  // 刷怪：夜行怪只在黑暗处，猪在草地，村民在村庄
+  updateArrows(dt);
+  // 刷怪：敌对生物只在黑暗处，和平生物在草地，村民在村庄
   const capGrunt = night ? CFG.MAX_MOBS + 2 : CFG.MAX_MOBS;
   if (countKind('grunt') < capGrunt && Math.random() < dt * 0.85) spawnMob('grunt');
   if (countKind('pig') < 4 && Math.random() < dt * 0.12) spawnMob('pig');
+  if (countKind('cow') < 3 && Math.random() < dt * 0.10) spawnMob('cow');
+  if (countKind('sheep') < 3 && Math.random() < dt * 0.10) spawnMob('sheep');
+  if (countKind('chicken') < 4 && Math.random() < dt * 0.13) spawnMob('chicken');
+  if (countKind('spider') < 4 && Math.random() < dt * 0.55) spawnMob('spider');
+  if (countKind('skeleton') < 3 && Math.random() < dt * 0.30) spawnMob('skeleton');
   const v = (typeof nearestVillage === 'function') ? nearestVillage() : null;
   if (v && countKind('villager') < 3 && Math.random() < dt * 0.4) {
     const ang = Math.random() * Math.PI * 2, r = 3 + Math.random() * 8;
@@ -2493,7 +2646,8 @@ const RECIPES = [
   { out: 111, n: 1, need: { 106: 8 }, tier: 1 },
   { out: 112, n: 1, need: { 106: 7 }, tier: 1 },
   { out: 113, n: 1, need: { 106: 4 }, tier: 1 },
-  { out: 14, n: 1, need: { 8: 4, 104: 3 }, tier: 1 },
+  { out: 14, n: 1, need: { 8: 2, 104: 3, 142: 2 }, tier: 1 },
+  { out: 149, n: 1, need: { 148: 2, 104: 1 }, tier: 1 },
   { out: 130, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
   { out: 131, n: 1, need: { 125: 2, 104: 1 }, tier: 1 },
   { out: 132, n: 1, need: { 125: 5 }, tier: 1 },
@@ -2505,6 +2659,8 @@ const RECIPES = [
 const SMELT = [
   { in: 15, out: 106, n: 1, name: '铁矿石 → 铁锭' },
   { in: 108, out: 109, n: 1, name: '生猪排 → 熟猪排' },
+  { in: 140, out: 141, n: 1, name: '生牛肉 → 熟牛肉' },
+  { in: 143, out: 144, n: 1, name: '鸡肉 → 熟鸡肉' },
   { in: 4, out: 124, n: 0, name: '' },              // 占位（沙子暂无用途）
 ];
 const FUELS = [8, 13];
