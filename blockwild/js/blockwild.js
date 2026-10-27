@@ -2256,7 +2256,7 @@ function updateArrows(dt) {
     a.obj.position.copy(a.p);
     let gone = a.t > 5;
     const dx = a.p.x - player.p.x, dy = a.p.y - (player.p.y + 0.9), dz = a.p.z - player.p.z;
-    if (!gone && dx * dx + dy * dy + dz * dz < 0.45) { if (player.alive) damagePlayer(4); gone = true; }
+    if (!gone && dx * dx + dy * dy + dz * dz < 0.45) { hurtPlayerFrom(a.p.x - a.v.x * 0.05, a.p.z - a.v.z * 0.05, 4, 4.6); gone = true; }
     if (!gone && isSolid(getBlock(Math.floor(a.p.x), Math.floor(a.p.y), Math.floor(a.p.z)))) gone = true;
     if (gone) { scene.remove(a.obj); a.obj.geometry.dispose(); a.obj.material.dispose(); arrows.splice(i, 1); }
   }
@@ -2348,13 +2348,26 @@ function updateMobs(dt) {
         if (hd > 14) { mx = hx / hd; mz = hz / hd; speed = def.wander; }
       }
     }
-    m.v.x = mx * speed; m.v.z = mz * speed;
+    if (m.knockT > 0) {                       // 被击退：保住冲量，AI 这段时间不接管
+      m.knockT -= dt;
+      const damp = Math.pow(0.03, dt);
+      m.v.x *= damp; m.v.z *= damp;
+    } else {
+      m.v.x = mx * speed; m.v.z = mz * speed;
+    }
     m.v.y -= CFG.GRAV * dt;
     const before = m.p.x, beforeZ = m.p.z;
     moveBody(m, m.v.x * dt, m.v.y * dt, m.v.z * dt);
     if (m.onGround && (Math.abs(m.p.x - before) < 0.001 || Math.abs(m.p.z - beforeZ) < 0.001)) m.v.y = CFG.JUMP * 0.85;
     if (m.p.y < -6) m.hp = 0;
-    m.obj.rotation.y = Math.atan2(dx, dz);
+    // 朝向 = 实际移动方向。原来无条件朝玩家，走路时看起来是横着/倒着走
+    const vlen = Math.hypot(m.v.x, m.v.z);
+    const faceY = vlen > 0.3 ? Math.atan2(m.v.x, m.v.z)
+                : (dist < 22 ? Math.atan2(dx, dz) : m.obj.rotation.y);   // 站住时才转过来看你
+    let dYaw = faceY - m.obj.rotation.y;
+    while (dYaw > Math.PI) dYaw -= Math.PI * 2;
+    while (dYaw < -Math.PI) dYaw += Math.PI * 2;
+    m.obj.rotation.y += clamp(dYaw, -dt * 11, dt * 11);                  // 平滑转身
     m.obj.position.copy(m.p);
     m.phase += dt * (2 + speed);
     if (m.parts.arm1) m.parts.arm1.rotation.x = Math.sin(m.phase * 3) * (m.kind === 'pig' ? 0.5 : 0.45);
@@ -2389,7 +2402,8 @@ function updateMobs(dt) {
     m.atkCd -= dt;
     if (def.hostile && hostileNow && dist < 1.5 && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < 1.8) {
       m.atkCd = def.atkCd || 1.6;
-      damagePlayer(def.dmg || 3);
+      hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
+      sfx('hurt');
     }
   }
   updateArrows(dt);
@@ -3044,8 +3058,12 @@ function attack() {
   target.hp -= dmg;
   target.flash = 0.24;
   target.aggro = 16;                 // 被打了就记仇：白天也会追你
-  target.v.y = 4.6;
-  target.v.x += dir.x * 5.5; target.v.z += dir.z * 5.5;
+  const kx = target.p.x - player.p.x, kz = target.p.z - player.p.z;
+  const kd = Math.hypot(kx, kz) || 1;
+  target.v.x = (kx / kd) * 7.4;              // 沿"玩家 → 怪"方向推开
+  target.v.z = (kz / kd) * 7.4;
+  target.v.y = 5.2;
+  target.knockT = 0.34;                      // 这段时间 AI 不覆盖速度，击退才看得出来
   startSwing('attack', 0.5);
   player.atkCd = 0.42;
   player.hits = (player.hits || 0) + 1;
@@ -3066,6 +3084,17 @@ let lastT = 0, acc = 0, fps = 60, frameCount = 0, fpsT = 0, startedAt = 0, camSm
 const STEP = 1 / 60;
 let saveTimer = 0;
 
+// 玩家被从 (sx,sz) 方向打中：扣血 + 水平击退 + 轻微上抛
+function hurtPlayerFrom(sx, sz, dmg, power = 5.4) {
+  if (!player.alive) return;
+  damagePlayer(dmg);
+  const dx = player.p.x - sx, dz = player.p.z - sz;
+  const d = Math.hypot(dx, dz) || 1;
+  player.v.x = (dx / d) * power;
+  player.v.z = (dz / d) * power;
+  player.v.y = Math.max(player.v.y, 4.2);
+  player.knockT = 0.3;
+}
 function updatePlayer(dt) {
   player.atkCd = Math.max(0, player.atkCd - dt);
   if (!player.alive) { player.v.set(0, 0, 0); return; }
@@ -3082,8 +3111,14 @@ function updatePlayer(dt) {
   const wz = -ix * sink + iz * cosk;
   const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
   const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : 1);
-  player.v.x = wx * speed;
-  player.v.z = wz * speed;
+  if (player.knockT > 0) {                    // 被击退：这几帧不接受方向键，靠冲量滑出去
+    player.knockT -= dt;
+    const damp = Math.pow(0.03, dt);
+    player.v.x *= damp; player.v.z *= damp;
+  } else {
+    player.v.x = wx * speed;
+    player.v.z = wz * speed;
+  }
 
   const feetBlock = getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 0.2), Math.floor(player.p.z));
   player.inWater = feetBlock === 5;
