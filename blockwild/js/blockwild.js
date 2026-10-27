@@ -272,10 +272,10 @@ const BLOCKS = {
   20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
 };
 const ITEMS = {
-  100: { name: '木镐', kind: 'pick' },
-  101: { name: '石镐', kind: 'pick' },
-  102: { name: '木剑', kind: 'sword', dmg: 5 },
-  103: { name: '石剑', kind: 'sword', dmg: 7 },
+  100: { name: '木镐', kind: 'pick', fast: 1.35, dur: 60 },
+  101: { name: '石镐', kind: 'pick', fast: 1.9, dur: 132 },
+  102: { name: '木剑', kind: 'sword', dmg: 5, dur: 60 },
+  103: { name: '石剑', kind: 'sword', dmg: 7, dur: 132 },
   104: { name: '木棍', kind: 'mat' },
   105: { name: '苹果', kind: 'food', food: 4 },
   106: { name: '铁锭', kind: 'mat' },
@@ -287,11 +287,11 @@ const ITEMS = {
   108: { name: '生猪排', kind: 'food', food: 3 },
   109: { name: '熟猪排', kind: 'food', food: 6 },
   124: { name: '面包', kind: 'food', food: 5 },
-  120: { name: '铁镐', kind: 'pick', fast: 1.7 },
-  121: { name: '铁剑', kind: 'sword', dmg: 9 },
+  120: { name: '铁镐', kind: 'pick', fast: 2.6, dur: 251 },
+  121: { name: '铁剑', kind: 'sword', dmg: 9, dur: 251 },
   125: { name: '钻石', kind: 'mat' },
-  130: { name: '钻石镐', kind: 'pick', fast: 2.4 },
-  131: { name: '钻石剑', kind: 'sword', dmg: 13 },
+  130: { name: '钻石镐', kind: 'pick', fast: 3.4, dur: 1561 },
+  131: { name: '钻石剑', kind: 'sword', dmg: 13, dur: 1561 },
   132: { name: '钻石头盔', kind: 'armor', slot: 'head', ap: 3 },
   133: { name: '钻石胸甲', kind: 'armor', slot: 'chest', ap: 8 },
   134: { name: '钻石护腿', kind: 'armor', slot: 'legs', ap: 6 },
@@ -302,7 +302,9 @@ const ITEMS = {
   143: { name: '鸡肉', kind: 'food', food: 3 },
   144: { name: '熟鸡肉', kind: 'food', food: 7 },
   148: { name: '骨头', kind: 'mat' },
-  149: { name: '骨剑', kind: 'sword', dmg: 6 },
+  149: { name: '骨剑', kind: 'sword', dmg: 6, dur: 120 },
+  151: { name: '空桶', kind: 'bucket' },
+  152: { name: '水桶', kind: 'bucket', water: true },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -375,9 +377,28 @@ function makeAtlas() {
     for (let i = 0; i < 12; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, shade('#4f9439', 1));
   });
   // 8 木板
-  T(8, '#b98a4e', 0.08, (c, r) => {
-    for (let y = 0; y < S; y += 5) for (let x = 0; x < S; x++) px(c, r, x, y, shade('#8d6534', 1));
-    for (let y = 0; y < S; y++) { px(c, r, 5, y, shade('#8d6534', 0.96)); px(c, r, 11, y, shade('#8d6534', 0.96)); }
+  T(8, '#b98a4e', 0.05, (c, r) => {
+    // 4 条横向木板：板缝（深褐色） + 逐行色差
+    for (let y = 0; y < S; y++) {
+      const plank = (y / 4) | 0, inPlank = y % 4;
+      const base = 0.93 + ((plank * 5 + inPlank) % 4) * 0.035;   // 每块板亮度略有差别
+      for (let x = 0; x < S; x++) px(c, r, x, y, shade('#b98a4e', base));
+      if (inPlank === 0) for (let x = 0; x < S; x++) px(c, r, x, y, '#7d5729');          // 板缝
+      else if (inPlank === 3) for (let x = 0; x < S; x++) px(c, r, x, y, shade('#8d6534', 1)); // 板底阴影
+    }
+    // 木纹：短横向条纹（3~6 像素），只出现在板内部
+    for (let y = 0; y < S; y++) {
+      if (y % 4 === 0) continue;
+      for (let x = 0; x < S; x++) {
+        const k = (x * 7 + y * 23) % 13;
+        if (k === 0) px(c, r, x, y, shade('#9c703c', 1));
+        if (k === 1 && x > 0) px(c, r, x, y, shade('#a87a44', 1));
+      }
+    }
+    // 错缝的板头接缝（竖向短线，位置错开才像铺板）
+    for (const [bx, by] of [[3, 4], [10, 8], [6, 12]]) {
+      for (let y = by + 1; y < Math.min(S, by + 4); y++) px(c, r, bx, y, shade('#6f4a20', 1));
+    }
   });
   // 9 圆石
   T(9, '#878787', 0.1, (c, r) => {
@@ -509,6 +530,13 @@ function iconURL(id) {
       g.fillStyle = '#b8912f';
       g.fillRect(13 + dx + rot * 7, 5, 5, 2);
     }
+  } else if (id === 151 || id === 152) { // 桶 / 水桶
+    g.fillStyle = '#c9d0d8';
+    g.beginPath(); g.moveTo(7, 9); g.lineTo(25, 9); g.lineTo(22, 26); g.lineTo(10, 26); g.closePath(); g.fill();
+    g.fillStyle = id === 152 ? '#3f9fe0' : '#7c8794';
+    g.beginPath(); g.moveTo(9, 12); g.lineTo(23, 12); g.lineTo(20.6, 24); g.lineTo(11.4, 24); g.closePath(); g.fill();
+    if (id === 152) { g.fillStyle = '#8fd4ff'; g.fillRect(11, 13, 10, 3); }
+    g.strokeStyle = '#8b939c'; g.lineWidth = 2; g.beginPath(); g.moveTo(7, 9); g.lineTo(25, 9); g.stroke();
   } else if (id === 142) { // 羊毛
     g.fillStyle = '#f2efe6'; g.fillRect(5, 8, 22, 17);
     g.fillStyle = '#e2ddcf';
@@ -1163,8 +1191,34 @@ const SLOTS = 27;
 let inv = new Array(SLOTS).fill(null);
 const STACK_MAX = 64;
 
+// 工具类物品单独占格、每把一份剩余耐久（d），用坏时整把消失
+function useTool(n = 1) {
+  if (isCreative()) return;                       // 创造模式不掉耐久
+  const s = inv[player.sel];
+  if (!s) return;
+  const def = ITEMS[s.id];
+  if (!def || !def.dur) return;
+  if (s.d === undefined) s.d = def.dur;
+  s.d -= n;
+  if (s.d <= 0) {
+    inv[player.sel] = null;
+    toast(`${def.name}用坏了`, 2.0);
+    sfx('hurt');
+    refreshHeld();
+  }
+  renderHotbar();
+  if (panelOpen) renderInventoryPanel();
+  saveSoon();
+}
 function addItem(id, n = 1) {
   if (!isItem(id)) return false;
+  const idef = defOf(id) || {};
+  if (idef.dur) {                                  // 工具/剑：一把一格，带耐久
+    let left = n;
+    for (let i = 0; i < SLOTS && left > 0; i++) if (!inv[i]) { inv[i] = { id, n: 1, d: idef.dur }; left--; }
+    if (left > 0) toast('背包满了，东西掉在脚下', 1.5);
+    return left < n;
+  }
   for (let i = 0; i < SLOTS && n > 0; i++) {
     const s = inv[i];
     if (s && s.id === id && s.n < STACK_MAX) { const add = Math.min(STACK_MAX - s.n, n); s.n += add; n -= add; }
@@ -2549,8 +2603,18 @@ function renderHotbar() {
     const s = inv[i];
     const d = document.createElement('div');
     d.className = 'slot' + (i === player.sel ? ' sel' : '');
+    let durBar = '';
+    if (s) {
+      const idef = ITEMS[s.id];
+      if (idef && idef.dur) {
+        const left = s.d === undefined ? idef.dur : s.d;
+        const f = Math.max(0, Math.min(1, left / idef.dur));
+        const col = f > 0.5 ? '#7fe06b' : f > 0.25 ? '#f0c04a' : '#e0524b';
+        durBar = `<i class="dur"><b style="width:${(f * 100).toFixed(0)}%;background:${col}"></b></i>`;
+      }
+    }
     d.innerHTML = `<span class="k">${i + 1}</span>` +
-      (s ? `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>` : '');
+      (s ? `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>` + durBar : '');
     d.onclick = () => { player.sel = i; refreshHeld(); renderHotbar(); };
     row.appendChild(d);
   }
@@ -2662,6 +2726,7 @@ const RECIPES = [
   { out: 113, n: 1, need: { 106: 4 }, tier: 1 },
   { out: 14, n: 1, need: { 8: 2, 104: 3, 142: 2 }, tier: 1 },
   { out: 149, n: 1, need: { 148: 2, 104: 1 }, tier: 1 },
+  { out: 151, n: 1, need: { 106: 3 }, tier: 1 },
   { out: 130, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
   { out: 131, n: 1, need: { 125: 2, 104: 1 }, tier: 1 },
   { out: 132, n: 1, need: { 125: 5 }, tier: 1 },
@@ -2943,12 +3008,16 @@ function doMine(dt, target) {
   let speed = 1 / Math.max(0.12, def.hard);
   if (def.pick) speed *= pickOk ? 1 : 0.28;
   const heldDef = held() ? ITEMS[held().id] : null;
-  if (pickOk && heldDef && heldDef.fast) speed *= heldDef.fast;   // 铁镐更快
+  if (heldDef && heldDef.fast) {
+    // 镐对石头/矿石吃满加成；对土、木、沙子这类也有一半加成（手感统一）
+    speed *= def.pick ? heldDef.fast : 1 + (heldDef.fast - 1) * 0.5;
+  }
   player.mining += dt * speed;
   player.mineTarget = target;
   if (player.mining >= 1) {
     player.mining = 0;
     breakBlock(target);
+    useTool(1);                                    // 挖掉一块扣 1 点耐久
     return true;
   }
   return false;
@@ -3018,6 +3087,49 @@ function placeBlock() {
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
+// 沿视线找水（射线默认会跳过水，这里单独走一条）
+function rayWater(maxD) {
+  const eye = eyePos(), dir = cameraDir();
+  for (let t = 0.25; t < maxD; t += 0.12) {
+    const x = Math.floor(eye.x + dir.x * t), y = Math.floor(eye.y + dir.y * t), z = Math.floor(eye.z + dir.z * t);
+    const id = getBlock(x, y, z);
+    if (id === 5) return { x, y, z };
+    if (isSolid(id)) return null;
+  }
+  return null;
+}
+function replaceHeld(newId) {
+  const s = inv[player.sel];
+  if (!s) return false;
+  inv[player.sel] = { id: newId, n: 1 };
+  refreshHeld(); renderHotbar(); saveSoon();
+  return true;
+}
+// 水桶：full=true 倒水（需要准星对着方块），false 装水（准星对着水）
+function useBucket(full, t) {
+  if (full) {
+    if (!t) return false;
+    const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
+    if (y < 1 || y >= CFG.WH) return false;
+    if (getBlock(x, y, z) !== 0) { toast('这里放不下水', 1.3); return false; }
+    setBlock(x, y, z, 5);
+    wakeWater(x, y, z);
+    replaceHeld(151);
+    startSwing('place', 0.26); sfx('place');
+    toast('倒出一桶水', 1.2);
+    return true;
+  }
+  const src = rayWater(CFG.REACH) || (getBlock(Math.floor(player.p.x), Math.floor(player.p.y), Math.floor(player.p.z)) === 5
+    ? { x: Math.floor(player.p.x), y: Math.floor(player.p.y), z: Math.floor(player.p.z) } : null);
+  if (!src) { toast('要对着水才能装', 1.3); return false; }
+  setBlock(src.x, src.y, src.z, 0);
+  waterFlow.delete(src.x + ',' + src.y + ',' + src.z);
+  wakeWater(src.x, src.y, src.z);
+  replaceHeld(152);
+  startSwing('place', 0.26); sfx('place');
+  toast('装满一桶水', 1.2);
+  return true;
+}
 function eat() {
   const h = held();
   if (!h || (defOf(h.id) || {}).kind !== 'food') return false;
@@ -3065,6 +3177,7 @@ function attack() {
   target.v.y = 5.2;
   target.knockT = 0.34;                      // 这段时间 AI 不覆盖速度，击退才看得出来
   startSwing('attack', 0.5);
+  useTool(1);                                      // 挥砍扣 1 点耐久
   player.atkCd = 0.42;
   player.hits = (player.hits || 0) + 1;
   sfx('hit');
@@ -3214,6 +3327,8 @@ function update(dt) {
     else if (t && t.id === 19) { openFurnace(); startSwing('place', 0.2); }
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
+    else if (h && h.id === 152) useBucket(true, t);
+    else if (h && h.id === 151) useBucket(false, t);
     else if (h && (defOf(h.id) || {}).kind === 'food') eat();
     else placeBlock();
   }
@@ -3388,7 +3503,7 @@ function loadSave(id) {
     SEED = d.seed;
     worldTime = d.time || 0;
     inv = new Array(SLOTS).fill(null);
-    (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0).forEach((s, i) => { if (i < SLOTS) inv[i] = { id: s.id, n: s.n }; });
+    (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0).forEach((s, i) => { if (i < SLOTS) inv[i] = { id: s.id, n: s.n, d: s.d }; });
     player.spawn = d.spawn || null;
     if (d.armor) for (const s of ARMOR_SLOTS) player.armor[s] = ITEMS[d.armor[s]] ? d.armor[s] : null;
     if (Array.isArray(d.chests)) for (const entry of d.chests) {
@@ -3747,6 +3862,12 @@ window.GAME = {
     },
     water: (x, y, z, lvl) => { if (lvl === undefined) { setBlock(x, y, z, 5); } else setWater(x, y, z, lvl); wakeWater(x, y, z); },
     waterInfo: () => ({ flowing: waterFlow.size, queued: waterQueue.length }),
+    useHeld: () => {                            // 等价于右键（探针用，绕开 pointer lock）
+      const h = held(), t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
+      if (h && h.id === 152) return useBucket(true, t);
+      if (h && h.id === 151) return useBucket(false, t);
+      return null;
+    },
     waterLevel: (x, y, z) => flowLvl(x, y, z),
     waterTop: (x, y, z) => waterTopH(x, y, z),
     scrub: () => { scrubWaterNear(9); return true; },
