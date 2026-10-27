@@ -332,7 +332,10 @@ const defOf = id => BLOCKS[id] || ITEMS[id];
 const nameOf = id => (defOf(id) || { name: '?' }).name;
 
 let atlasCanvas = null, atlasTex = null;
-const ATLAS_COLS = 4, ATLAS_ROWS = 8;
+// 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
+// ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
+// 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
+const ATLAS_COLS = 4, ATLAS_ROWS = 10;
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -1038,6 +1041,7 @@ function genChunk(cx, cz) {
         if (b[i] !== 0 && b[i] !== 5) b[i] = 0;
       } else if (b[i] !== 5) {
         b[i] = op.t;
+        if (op.m) setMeta(op.x, op.y, op.z, op.m, true);   // 楼梯朝向随结构一起落地
       }
     }
   }
@@ -1053,7 +1057,7 @@ function genChunk(cx, cz) {
       if (op.y < 0 || op.y >= WH) continue;
       const i = (op.y * CH + (op.z - oz)) * CH + (op.x - ox);
       if (op.t === 0) { if (b[i] !== 5) b[i] = 0; }
-      else b[i] = op.t;
+      else { b[i] = op.t; if (op.m) setMeta(op.x, op.y, op.z, op.m, true); }   // 楼梯朝向随结构一起落地
     }
   }
   applyExtraStructs(b, ox, oz, selfKey);
@@ -1343,8 +1347,9 @@ function faceTile(def, fi, meta = 0) {
   return def.side ?? def.top;
 }
 
-// 楼梯：一个方块拆成「底半格 + 高侧上半格」两个盒子（12 个面，不做邻接剔除）
-function emitStair(wx, y, wz, def, meta, P, U, C, I, base) {
+// ⚠ 顶点必须写「区块内局部坐标」：buildChunk 给网格整体设置了 m.position=(ox,0,oz)，
+// 这里若写世界坐标就会被重复偏移一次（楼梯飞到 2×区块原点之外，房顶楼梯全部消失）。
+function emitStair(lx, y, lz, def, meta, P, U, C, I, base) {
   const tile = def.top;
   const u0 = (tile % ATLAS_COLS) / ATLAS_COLS + 0.0015;
   const v0 = 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.0015;
@@ -1363,7 +1368,7 @@ function emitStair(wx, y, wz, def, meta, P, U, C, I, base) {
       const F = FACES[fi], sh = F.sh, s = sh;
       for (let k = 0; k < 4; k++) {
         const V = F.v[k];
-        P.push(wx + (V[0] ? x1 : x0), y + (V[1] ? y1 : y0), wz + (V[2] ? z1 : z0));
+        P.push(lx + (V[0] ? x1 : x0), y + (V[1] ? y1 : y0), lz + (V[2] ? z1 : z0));
         U.push(u0 + CORNERS[k][0] * iu, v0 + CORNERS[k][1] * iv);
         C.push(s, s, s);
       }
@@ -1372,7 +1377,7 @@ function emitStair(wx, y, wz, def, meta, P, U, C, I, base) {
     }
     first = false;
   }
-  return v - base;                          // 实际压入的顶点数（跳过 2 个面 = 40）
+  return v - base;                          // 实际压入的顶点数（跳过顶盒底面 = 11 面 / 44 顶点）
 }
 
 function buildChunk(chunk) {
@@ -1389,7 +1394,7 @@ function buildChunk(chunk) {
     if (!def) continue;
     const wx = ox + x, wz = oz + z;
     const meta = (blockMeta.size || genMeta.size) ? getMeta(wx, y, wz) : 0;
-    if (def.stair) { vc += emitStair(wx, y, wz, def, meta, P, U, C, I, vc); continue; }
+    if (def.stair) { vc += emitStair(x, y, z, def, meta, P, U, C, I, vc); continue; }
     const water = id === 5;
     const glass = id === 22;
     const solidTop = def.half || 1;                       // 床这类半格方块
@@ -2350,7 +2355,8 @@ function hauntedFor(cellX, cellZ) {
     if (gy > CFG.SEA + 4 && gy < 38) {
       const y0 = gy + 1;
       const ops = [];
-      const put = (x, y, z, t) => ops.push({ x, y, z, t });
+      // m = 方块朝向（楼梯等非立方体用）：屋顶坡口会带 3/4，必须一起存下来
+      const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
       const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
       // 地基：把低处填到 y0-1
       for (let dx = -W; dx <= W; dx++) for (let dz = -D; dz <= D; dz++) {
@@ -2492,7 +2498,8 @@ function villageFor(cellX, cellZ) {
     const gy = heightAt(cx, cz);
     if (gy > CFG.SEA + 3 && gy < 42) {                     // 不在水下、不在山顶
       const ops = [];
-      const put = (x, y, z, t) => ops.push({ x, y, z, t });
+      // m = 方块朝向（楼梯等非立方体用）：屋顶坡口会带 3/4，必须一起存下来
+      const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
       const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
       const houses = 3 + Math.floor(rnd() * 3);
       for (let i = 0; i < houses; i++) {
