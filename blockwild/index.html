@@ -125,7 +125,7 @@
   <div id="flash"></div>
   <div id="topbtns">
     <button class="btn" id="btnBag">背包 E</button>
-    <button class="btn" id="btnReset">新世界</button>
+    <button class="btn" id="btnReset">世界</button>
   </div>
   <div id="touch">
     <div id="stick"><div id="knob"></div></div>
@@ -139,21 +139,45 @@
 <div class="overlay" id="start">
   <div class="card">
     <h1>方块荒野<small>BLOCKWILD · 像素生存</small></h1>
-    <p>你在一片无人踏过的方块大陆上醒来。砍树、挖石、合成工具，入夜前把自己武装起来。</p>
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div class="sec" style="border:0;margin:0">我的世界 <span id="worldCount" style="color:#f5c451"></span></div>
+      <span style="color:#7f93ab;font-size:11px">每个世界独立存档</span>
+    </div>
+    <div id="worldList"></div>
+    <div class="startrow">
+      <button class="btn gold" id="btnNewWorld">＋ 创建新世界</button>
+    </div>
     <div class="keys">
       <b>W A S D</b><span>移动（Shift 疾跑）</span>
       <b>鼠标</b><span>转视角（点击画面锁定鼠标）</span>
-      <b>空格</b><span>跳跃 / 上浮</span>
-      <b>左键（按住）</b><span>挖掉准星对准的方块 / 攻击野怪</span>
-      <b>右键</b><span>放下手里的方块 / 吃苹果</span>
+      <b>空格</b><span>跳跃（创造模式里连按两次切换飞行）</span>
+      <b>左键（按住）</b><span>挖方块 / 攻击野怪</span>
+      <b>右键</b><span>放下方块 / 吃食物 / 开箱子、熔炉、工作台</span>
       <b>1 - 9 / 滚轮</b><span>切换快捷栏</span>
       <b>E</b><span>背包与合成</span>
     </div>
-    <div class="startrow">
-      <button class="btn gold" id="btnPlay">开始游戏</button>
-      <button class="btn" id="btnNew">换一个世界（新种子）</button>
+  </div>
+</div>
+
+<div class="overlay hide" id="createPanel">
+  <div class="card" style="max-width:470px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="sec" style="border:0;margin:0">创建世界</div>
+      <button class="btn" id="btnCancelCreate">取消</button>
     </div>
-    <p style="margin-bottom:0;color:#7f93ab;font-size:11px">自动存档：修改的地块、背包与进度会存在本机浏览器里。</p>
+    <label style="display:block;color:#9fb3c8;font-size:12px;margin:6px 0 4px">世界名称</label>
+    <input id="wName" maxlength="16" style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:6px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:13px">
+    <label style="display:block;color:#9fb3c8;font-size:12px;margin:14px 0 4px">游戏模式</label>
+    <div style="display:flex;gap:8px">
+      <button class="btn" id="modeSurvival" style="flex:1">生存</button>
+      <button class="btn" id="modeCreative" style="flex:1">创造</button>
+    </div>
+    <p id="modeDesc" style="color:#8ea3ba;font-size:11px;margin:8px 0 0"></p>
+    <label style="display:block;color:#9fb3c8;font-size:12px;margin:14px 0 4px">种子（可留空 = 随机）</label>
+    <input id="wSeed" maxlength="24" placeholder="例如 12345 或 hello" style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:6px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:13px">
+    <div class="startrow">
+      <button class="btn gold" id="btnCreate">创建并进入</button>
+    </div>
   </div>
 </div>
 
@@ -166,6 +190,10 @@
     <div class="pgrid" id="invGrid"></div>
     <div class="sec">盔甲 <span id="armorVal" style="color:#f5c451"></span></div>
     <div class="pgrid" id="armorGrid" style="grid-template-columns:repeat(4,1fr);max-width:210px;margin-bottom:14px"></div>
+    <div id="creativeSec" class="hide">
+      <div class="sec">创造物品栏（点一下拿一组，无限取用）</div>
+      <div class="pgrid" id="creativeGrid"></div>
+    </div>
     <div class="sec">合成（点击制作 · 铁制工具/盔甲需站在工作台旁）<span id="cursorInfo" style="color:#8ea3ba;font-size:11px;float:right;font-weight:400"></span></div>
     <div id="recList"></div>
   </div>
@@ -204,6 +232,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=30"></script>
+<script type="module" src="./js/blockwild.js?v=32"></script>
 </body>
 </html>

@@ -1042,7 +1042,7 @@ function buildChunk(chunk) {
 const player = {
   p: new THREE.Vector3(8, 40, 8), v: new THREE.Vector3(),
   yaw: 0, pitch: 0, onGround: false,
-  hp: 20, hunger: 20, alive: true,
+  hp: 20, hunger: 20, alive: true, fly: false,
   swing: 0, walkPhase: 0, fallFrom: null, inWater: false,
   sel: 0, mining: 0, mineTarget: null, atkCd: 0, hits: 0, kills: 0,
   spawn: null, stepUp: true,
@@ -2172,6 +2172,7 @@ function toast(msg, secs = 2.4) { hud.hint.textContent = msg; hud.hint.style.opa
 
 function damagePlayer(n) {
   if (!player.alive) return;
+  if (isCreative()) return;                      // 创造模式无敌
   const ap = armorPoints();
   const mul = 1 - Math.min(0.8, ap * 0.04);          // 每点护甲 4% 减伤，上限 80%
   const dmg = Math.max(0.5, n * mul);
@@ -2272,8 +2273,25 @@ function renderArmorRow() {
   const v = $('armorVal');
   if (v) v.textContent = `护甲 ${armorPoints()}`;
 }
+function renderCreativeGrid() {
+  const box = $('creativeGrid'), sec = $('creativeSec');
+  if (!box || !sec) return;
+  if (!isCreative()) { sec.classList.add('hide'); return; }
+  sec.classList.remove('hide');
+  box.innerHTML = '';
+  const ids = [...Object.keys(BLOCKS).map(Number), ...Object.keys(ITEMS).map(Number)].filter(id => isItem(id));
+  for (const id of ids) {
+    const d = document.createElement('div');
+    d.className = 'cell';
+    d.innerHTML = `<img src="${iconURL(id)}" alt="">`;
+    d.title = nameOf(id) + '（点一下拿一组）';
+    d.onclick = () => { addItem(id, 64); renderHotbar(); renderInventoryPanel(); saveSoon(); };
+    box.appendChild(d);
+  }
+}
 function renderInventoryPanel() {
   renderArmorRow();
+  renderCreativeGrid();
   renderGrid(hud.invGrid, inv, i => slotClick(inv, i));
   if ($('cursorInfo')) $('cursorInfo').textContent = cursorText();
   hud.invCount.textContent = `${invUsed()}/${SLOTS}`;
@@ -2357,7 +2375,7 @@ function craft(r) {
   renderHotbar(); refreshHeld(); renderInventoryPanel(); saveSoon();
   return true;
 }
-let panelOpen = false;
+let panelOpen = false, lastSpaceT = 0, createMode = 'survival', jumpTouchT = 0;
 function renderFurnace() {
   const list = $('smeltList');
   if (!list) return;
@@ -2403,7 +2421,18 @@ function lockPointer() {
 addEventListener('keydown', e => {
   const k = e.code;
   keys.add(k);
-  if (k === 'Space') { jumpQueued = true; e.preventDefault(); }
+  if (k === 'Space') {
+    jumpQueued = true; e.preventDefault();
+    if (isCreative() && started) {                     // 创造模式连按两次空格 = 飞行开关
+      const now = performance.now();
+      if (now - (lastSpaceT || 0) < 320) {
+        player.fly = !player.fly;
+        player.v.y = 0;
+        toast(player.fly ? '飞行：开（空格上升 / Shift 下降）' : '飞行：关', 1.8);
+        lastSpaceT = 0;
+      } else lastSpaceT = now;
+    }
+  }
   if (k === 'KeyE') { if (started) openPanel(!panelOpen); e.preventDefault(); }
   if (k.startsWith('Digit')) {
     const n = +k.slice(5);
@@ -2487,7 +2516,7 @@ function bindHold(el, down, up) {
 }
 bindHold($('tMine'), () => { if (!panelOpen && player.alive) { mineHeld = true; attackQueued = true; } }, () => { mineHeld = false; });
 bindHold($('tPlace'), () => { if (!panelOpen && player.alive) placeQueued = true; });
-bindHold($('tJump'), () => { jumpQueued = true; });
+bindHold($('tJump'), () => { jumpQueued = true; jumpTouchT = performance.now(); });
 $('tBag').addEventListener('click', () => openPanel(!panelOpen));
 
 /* ============================================================ 交互 */
@@ -2568,6 +2597,7 @@ function doMine(dt, target) {
   const key = target.x + ',' + target.y + ',' + target.z;
   if (player.mineKey !== key) { player.mineKey = key; player.mining = 0; }
   if (MINE_PIN !== null) player.mining = MINE_PIN;
+  if (isCreative()) { player.mining = 1; player.mineTarget = target; breakBlock(target); return true; }   // 创造：秒破
   const pickOk = heldKind() === 'pick';
   let speed = 1 / Math.max(0.12, def.hard);
   if (def.pick) speed *= pickOk ? 1 : 0.28;
@@ -2614,7 +2644,7 @@ function placeBlock() {
   if (cur !== 0 && cur !== 5) return false;
   if (blockBoxBlocks(x, y, z)) { toast('这里放不下（会卡住自己）', 1.4); return false; }
   setBlock(x, y, z, h.id);
-  takeItem(h.id, 1);
+  if (!isCreative()) takeItem(h.id, 1);          // 创造模式无限方块
   sfx('place');
   startSwing('place', 0.26);
   if (h.id === 14) setSpawnAt(x, y, z);
@@ -2704,7 +2734,13 @@ function updatePlayer(dt) {
 
   const feetBlock = getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 0.2), Math.floor(player.p.z));
   player.inWater = feetBlock === 5;
-  if (player.inWater) {
+  if (player.fly) {                              // 创造模式飞行：空格上升、Shift 下降
+    const up = (keys.has('Space') || keys.has('KeyZ') || performance.now() - jumpTouchT < 120) ? 1 : 0;
+    const down = (keys.has('ShiftLeft') || keys.has('ShiftRight')) ? 1 : 0;
+    player.v.y = (up - down) * 7.2;
+    jumpQueued = false;
+    player.fallFrom = null;
+  } else if (player.inWater) {
     player.v.y = Math.max(player.v.y - CFG.GRAV * 0.28 * dt, -3.2);
     if (jumpQueued) player.v.y = 3.4;
   } else {
@@ -2731,8 +2767,9 @@ function updatePlayer(dt) {
   const moving = len > 0.05 && player.onGround;
   player.walkPhase += dt * (moving ? (sprint ? 11 : 8) : 0);
 
-  // 饥饿 / 回血
-  player.hunger = Math.max(0, player.hunger - dt * (moving ? 0.055 : 0.02));
+  // 饥饿 / 回血（创造模式不饿）
+  if (isCreative()) player.hunger = 20;
+  else player.hunger = Math.max(0, player.hunger - dt * (moving ? 0.055 : 0.02));
   if (player.hunger <= 0) { player.hp = Math.max(0, player.hp - dt * 0.6); if (player.hp <= 0) die(); }
   else if (player.hunger > 16 && player.hp < 20) player.hp = Math.min(20, player.hp + dt * 0.45);
 
@@ -2857,27 +2894,98 @@ function updateHUD(dt) {
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
-    `手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
+    `模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
   if (s !== lastStatus) { hud.status.innerHTML = s; lastStatus = s; }
   renderHearts();
 }
 
-/* ============================================================ 存档 */
+/* ============================================================ 多世界存档 */
+const INDEX_KEY = 'blockwild_index_v1';
+const worldKey = id => 'blockwild_world_' + id;
+let worlds = [];                 // [{id,name,mode,seed,updated}]
+let currentId = null;
+let MODE = 'survival';           // 'survival' | 'creative'
+const isCreative = () => MODE === 'creative';
+
+function hashString(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function saveIndex() {
+  try { localStorage.setItem(INDEX_KEY, JSON.stringify({ lastId: currentId, worlds })); } catch (e) {}
+}
+function loadIndex() {
+  worlds = []; currentId = null;
+  try {
+    const raw = localStorage.getItem(INDEX_KEY);
+    if (raw) { const d = JSON.parse(raw); worlds = Array.isArray(d.worlds) ? d.worlds : []; currentId = d.lastId || null; }
+  } catch (e) { worlds = []; }
+  // 老版本单存档 → 自动迁移成一个世界
+  if (!worlds.length) {
+    const old = localStorage.getItem(CFG.SAVE_KEY);
+    if (old) {
+      try {
+        const d = JSON.parse(old);
+        if (d && d.seed) {
+          const id = 'w' + Date.now().toString(36);
+          localStorage.setItem(worldKey(id), old);
+          worlds.push({ id, name: '我的旧世界', mode: 'survival', seed: d.seed, updated: Date.now(), seedText: String(d.seed) });
+          currentId = id;
+          localStorage.removeItem(CFG.SAVE_KEY);
+          saveIndex();
+        }
+      } catch (e) {}
+    }
+  }
+  if (!worlds.find(w => w.id === currentId)) currentId = worlds[0] ? worlds[0].id : null;
+}
+function worldMeta(id) { return worlds.find(w => w.id === id) || null; }
+function createWorld(opts = {}) {
+  const id = 'w' + Date.now().toString(36) + Math.floor(Math.random() * 999);
+  const seedText = (opts.seedText || '').trim();
+  let seed;
+  if (seedText) seed = /^[+-]?[0-9]+$/.test(seedText) ? (parseInt(seedText, 10) | 0) : (hashString(seedText) | 0);
+  else seed = (Math.random() * 1e6) | 0;
+  const w = {
+    id, name: (opts.name || '').trim() || `世界 ${worlds.length + 1}`,
+    mode: opts.mode === 'creative' ? 'creative' : 'survival',
+    seed, seedText, updated: Date.now(),
+  };
+  worlds.push(w); currentId = id; saveIndex();
+  return w;
+}
+function deleteWorld(id) {
+  const wasCurrent = id === currentId;
+  worlds = worlds.filter(w => w.id !== id);
+  try { localStorage.removeItem(worldKey(id)); } catch (e) {}
+  if (wasCurrent) {
+    currentId = null;                 // 正在玩的世界被删了：停止自动存档，回世界列表
+    saveIndex();
+    if (started) { location.reload(); return; }
+  }
+  if (!currentId) currentId = worlds[0] ? worlds[0].id : null;
+  saveIndex();
+}
+
 function save() {
+  if (!currentId || !started) return;
   try {
     const data = {
-      seed: SEED, time: worldTime,
+      seed: SEED, mode: MODE, time: worldTime,
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
       inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
     };
-    localStorage.setItem(CFG.SAVE_KEY, JSON.stringify(data));
+    localStorage.setItem(worldKey(currentId), JSON.stringify(data));
+    const meta = worldMeta(currentId);
+    if (meta) { meta.updated = Date.now(); saveIndex(); }
   } catch (e) { /* 配额满就跳过 */ }
 }
 let saveSoonT = 0;
 function saveSoon() { clearTimeout(saveSoonT); saveSoonT = setTimeout(save, 600); }
-function loadSave() {
+function loadSave(id) {
   try {
-    const raw = localStorage.getItem(CFG.SAVE_KEY);
+    const raw = localStorage.getItem(worldKey(id));
     if (!raw) return false;
     const d = JSON.parse(raw);
     if (!d || !d.seed) return false;
@@ -2899,10 +3007,6 @@ function loadSave() {
     }
     return true;
   } catch (e) { return false; }
-}
-function newWorld() {
-  localStorage.removeItem(CFG.SAVE_KEY);
-  location.reload();
 }
 
 /* ============================================================ 帧循环 */
@@ -2932,23 +3036,71 @@ function frame(now) {
   renderer.render(handScene, handCam);
 }
 
+/* ============================================================ 世界列表 UI */
+function fmtTime(ts) {
+  const d = new Date(ts || Date.now()), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function renderWorldList() {
+  const box = $('worldList');
+  if (!box) return;
+  if ($('worldCount')) $('worldCount').textContent = `${worlds.length} 个`;
+  box.innerHTML = '';
+  if (!worlds.length) {
+    box.innerHTML = '<p style="color:#8ea3ba;font-size:12px;margin:8px 0">还没有世界，点下面「创建新世界」开始。</p>';
+    return;
+  }
+  const sorted = worlds.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  for (const w of sorted) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin:6px 0;background:#16202e;border:2px solid #27384a;border-radius:8px';
+    const info = document.createElement('div');
+    info.innerHTML = `<b style="color:#e8f0f8;font-size:13px">${w.name}</b>`
+      + `<div style="color:#8ea3ba;font-size:11px;margin-top:3px">${w.mode === 'creative' ? '创造' : '生存'}`
+      + ` · 种子 ${w.seedText || w.seed} · ${fmtTime(w.updated)}</div>`;
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+    const play = document.createElement('button');
+    play.className = 'btn gold'; play.textContent = '进入';
+    play.onclick = () => { currentId = w.id; saveIndex(); startGame(w); };
+    const del = document.createElement('button');
+    del.className = 'btn'; del.textContent = '删除';
+    del.onclick = () => {
+      if (!confirm(`删除世界「${w.name}」？存档不可恢复。`)) return;
+      deleteWorld(w.id); renderWorldList();
+    };
+    btns.appendChild(play); btns.appendChild(del);
+    row.appendChild(info); row.appendChild(btns);
+    box.appendChild(row);
+  }
+}
+function setCreateMode(m) {
+  createMode = m === 'creative' ? 'creative' : 'survival';
+  $('modeSurvival').style.outline = createMode === 'survival' ? '2px solid #f5c451' : 'none';
+  $('modeCreative').style.outline = createMode === 'creative' ? '2px solid #f5c451' : 'none';
+  $('modeDesc').textContent = createMode === 'creative'
+    ? '创造：不会受伤、不会饿、秒破方块、方块无限，连按两次空格可以飞行。'
+    : '生存：会被怪打、会饿、要合成装备，挖到的资源要靠近才能捡起。';
+}
+
 /* ============================================================ 启动 */
-function startGame(fresh) {
+function startGame(world) {
   if (started) return;
-  if (fresh) { localStorage.removeItem(CFG.SAVE_KEY); edits.clear(); }
-  const loaded = !fresh && loadSave();
+  currentId = world.id;
+  MODE = world.mode === 'creative' ? 'creative' : 'survival';
+  SEED = world.seed | 0;
+  const loaded = loadSave(world.id);          // 有存档就接着玩，没有就用这个世界自己的种子生成
   if (!loaded) {
-    SEED = (Math.random() * 1e6) | 0;
     const sp = findSpawn();
     player.p.set(sp.x, sp.y, sp.z);
     player.spawn = { x: sp.x, y: sp.y, z: sp.z, bed: false };
     player.hp = 20; player.hunger = 20;
-    inv = [];
-    addItem(10, 1);      // 送一个工作台
-    addItem(105, 2);     // 两个苹果
-    addItem(8, 8);       // 几块木板
+    inv = new Array(SLOTS).fill(null);
+    if (isCreative()) { addItem(9, 64); addItem(8, 64); addItem(6, 32); addItem(10, 1); addItem(104, 64); }
+    else { addItem(10, 1); addItem(105, 2); addItem(8, 8); }
     worldTime = CFG.DAY * 0.03;
   }
+  player.fly = isCreative();
   try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; }
   if (AC) { sfxBus = null; initAudioChain(); }
   hud.start.classList.add('hide');
@@ -2961,14 +3113,28 @@ function startGame(fresh) {
   // 若出生在水里/悬空，抬到地表
   const sy2 = surfaceY(Math.floor(player.p.x), Math.floor(player.p.z));
   if (player.p.y < sy2 + 1) player.p.y = sy2 + 1.05;
-  toast('按 E 打开背包与合成 · 左键挖、右键放', 4);
+  toast(`「${world.name}」· ${isCreative() ? '创造模式' : '生存模式'} · 按 E 打开背包`, 4.5);
   lockPointer();
   window.__BW_STARTED = true;
 }
 
-$('btnPlay').onclick = () => startGame(false);
-$('btnNew').onclick = () => startGame(true);
-$('btnReset').onclick = () => { if (confirm('清空存档并生成一个新世界？')) newWorld(); };
+$('btnNewWorld').onclick = () => {
+  $('wName').value = `世界 ${worlds.length + 1}`;
+  $('wSeed').value = '';
+  setCreateMode('survival');
+  $('createPanel').classList.remove('hide');
+};
+$('btnCancelCreate').onclick = () => $('createPanel').classList.add('hide');
+$('modeSurvival').onclick = () => setCreateMode('survival');
+$('modeCreative').onclick = () => setCreateMode('creative');
+$('btnCreate').onclick = () => {
+  const w = createWorld({ name: $('wName').value, mode: createMode, seedText: $('wSeed').value });
+  $('createPanel').classList.add('hide');
+  startGame(w);
+};
+$('btnReset').onclick = () => { save(); location.reload(); };   // 回世界列表
+loadIndex();
+renderWorldList();
 $('btnBag').onclick = () => openPanel(!panelOpen);
 $('btnClose').onclick = () => openPanel(false);
 $('btnFurnaceClose').onclick = () => closeFurnace();
@@ -3008,7 +3174,26 @@ window.GAME = {
   heightAt, n3, caveCarve,
   icons: { armR, armL, handScene, solidMat, waterMat, scene, camera, handCam, renderer, crackMesh, crackTex, heldGroup },
   debug: {
-    start: (fresh = false) => startGame(fresh),
+    start(fresh = false) {
+      if (!started) {
+        let w = fresh ? null : worldMeta(currentId);
+        if (!w) w = createWorld({ name: fresh ? '调试世界' : (worldMeta(currentId) ? worldMeta(currentId).name : '调试世界'), mode: 'survival' });
+        startGame(w);
+      }
+      return started;
+    },
+    startCreative() {
+      if (!started) startGame(createWorld({ name: '调试·创造', mode: 'creative' }));
+      return started;
+    },
+    worlds: () => worlds.map(w => ({ id: w.id, name: w.name, mode: w.mode, seed: w.seed, seedText: w.seedText, updated: w.updated })),
+    createWorld: (opts) => createWorld(opts),
+    deleteWorld: (id) => deleteWorld(id),
+    startWorld: (id) => { const w = worldMeta(id); if (!w) return false; startGame(w); return true; },
+    currentWorld: () => ({ id: currentId, mode: MODE, seed: SEED, name: worldMeta(currentId) ? worldMeta(currentId).name : null }),
+    fly: (on) => { player.fly = on === undefined ? !player.fly : !!on; return player.fly; },
+    mode: () => MODE,
+    storage: () => Object.keys(localStorage),
     steps(n = 60) { for (let i = 0; i < n; i++) { update(STEP); } },
     look(yaw, pitch) { player.yaw = yaw; player.pitch = pitch; },
     tp(x, y, z) { player.p.set(x, y, z); player.v.set(0, 0, 0); },
