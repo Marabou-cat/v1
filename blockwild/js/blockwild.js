@@ -269,6 +269,7 @@ const BLOCKS = {
   17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
+  20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick' },
@@ -288,6 +289,13 @@ const ITEMS = {
   124: { name: '面包', kind: 'food', food: 5 },
   120: { name: '铁镐', kind: 'pick', fast: 1.7 },
   121: { name: '铁剑', kind: 'sword', dmg: 9 },
+  125: { name: '钻石', kind: 'mat' },
+  130: { name: '钻石镐', kind: 'pick', fast: 2.4 },
+  131: { name: '钻石剑', kind: 'sword', dmg: 13 },
+  132: { name: '钻石头盔', kind: 'armor', slot: 'head', ap: 3 },
+  133: { name: '钻石胸甲', kind: 'armor', slot: 'chest', ap: 8 },
+  134: { name: '钻石护腿', kind: 'armor', slot: 'legs', ap: 6 },
+  135: { name: '钻石靴', kind: 'armor', slot: 'feet', ap: 3 },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -318,6 +326,13 @@ function makeAtlas() {
   // ⚠ 瓦片序号 → 4x4 图集的 (col,row)。之前直接把序号当列号用，>=4 的全画到画布外，
   // 于是沙子/木头/树叶/木板/圆石/水/工作台/煤矿一律变成纯黑方块。
   const T = (n, base, vari, extra) => noiseTile(n % N, (n / N) | 0, base, vari, extra);
+  T(23, '#8f8f8f', 0.09, (c, r) => {                 // 钻石矿：石底 + 青白色晶体颗粒
+    const pts = [[2, 3], [5, 2], [11, 2], [13, 5], [7, 7], [9, 10], [3, 11], [12, 12], [5, 14], [14, 8], [10, 5]];
+    for (const [x, y] of pts) {
+      px(c, r, x, y, '#7ff0e2'); px(c, r, x + 1, y, '#2fc4b8');
+      px(c, r, x, y + 1, '#c8fdf6'); px(c, r, x + 1, y + 1, '#49d8cb');
+    }
+  });
   // 0 草顶
   T(0, '#6fae47', 0.13, (c, r) => {
     for (let i = 0; i < 16; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, shade('#7fc456', 1));
@@ -502,14 +517,21 @@ function iconURL(id) {
     g.beginPath(); g.ellipse(16, 13, 9.5, 3.4, 0, 0, 7); g.fill();
     g.strokeStyle = '#e9c089'; g.lineWidth = 1.6;
     for (const x of [11, 16, 21]) { g.beginPath(); g.moveTo(x, 11); g.lineTo(x + 1, 17); g.stroke(); }
+  } else if (id === 125) { // 钻石
+    g.fillStyle = '#3fd6c8';
+    g.beginPath(); g.moveTo(16, 4); g.lineTo(27, 13); g.lineTo(16, 28); g.lineTo(5, 13); g.closePath(); g.fill();
+    g.fillStyle = '#a9fbf2';
+    g.beginPath(); g.moveTo(16, 7); g.lineTo(23, 13); g.lineTo(16, 24); g.lineTo(9, 13); g.closePath(); g.fill();
+    g.fillStyle = '#effffd';
+    g.beginPath(); g.moveTo(16, 7); g.lineTo(23, 13); g.lineTo(16, 13); g.closePath(); g.fill();
   } else if (ITEMS[id] && ITEMS[id].kind === 'pick') { // 镐
-    const metal = id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
+    const metal = id === 130 ? '#5fe6d8' : id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
     g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
     g.beginPath(); g.moveTo(9, 27); g.lineTo(21, 12); g.stroke();
     g.strokeStyle = metal; g.lineWidth = 5;
     g.beginPath(); g.moveTo(9, 9); g.quadraticCurveTo(20, 5, 27, 13); g.stroke();
   } else if (ITEMS[id] && ITEMS[id].kind === 'sword') { // 剑
-    const metal = id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
+    const metal = id === 131 ? '#5fe6d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
     g.strokeStyle = metal; g.lineWidth = 5; g.lineCap = 'round';
     g.beginPath(); g.moveTo(10, 25); g.lineTo(24, 7); g.stroke();
     g.strokeStyle = '#8d6534'; g.lineWidth = 4;
@@ -519,8 +541,9 @@ function iconURL(id) {
     g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
     g.fillStyle = '#e8eef4'; g.beginPath();
     g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
-  } else if (ITEMS[id] && ITEMS[id].kind === 'armor') { // 铁盔甲
-    const steel = '#d3dae2', dark = '#8c98a6';
+  } else if (ITEMS[id] && ITEMS[id].kind === 'armor') { // 盔甲
+    const dia = id >= 132;
+    const steel = dia ? '#5fe6d8' : '#d3dae2', dark = dia ? '#2fa89c' : '#8c98a6';
     g.fillStyle = steel; g.strokeStyle = dark; g.lineWidth = 2;
     if (ITEMS[id].slot === 'head') {                 // 头盔
       g.beginPath(); g.arc(16, 17, 9, Math.PI, 0); g.lineTo(25, 21); g.lineTo(7, 21); g.closePath(); g.fill(); g.stroke();
@@ -693,6 +716,7 @@ function genChunk(cx, cz) {
       else id = d === 0 ? 1 : (d <= 3 ? 2 : 3);
       if (id === 3 && h3(wx, y, wz) > 0.982) id = 13;                              // 煤矿
       else if (id === 3 && y < 34 && h3(wx + 77, y * 3, wz - 31) > 0.992) id = 15; // 铁矿（更深更少）
+      else if (id === 3 && y < 20 && h3(wx - 53, y * 7, wz + 61) > 0.9955) id = 20; // 钻石（y<20，比铁稀有 2 倍）
       if (id !== 4 && caveCarve(wx, y, wz, h)) id = 0;                             // 洞穴（含天然洞口）
       if (id) b[idx(lx, y, lz)] = id;
     }
@@ -1281,8 +1305,9 @@ function makeToolModel(id) {
   const stoneM = new THREE.MeshLambertMaterial({ color: 0xa9a9a9 });
   const stoneD = new THREE.MeshLambertMaterial({ color: 0x8b8b8b });
   const ironM = new THREE.MeshLambertMaterial({ color: 0xd9dee5 });
-  if (id === 100 || id === 101 || id === 120) {  // 镐
-    const head = id === 101 ? stoneM : id === 120 ? ironM : wood;
+  const diaM = new THREE.MeshLambertMaterial({ color: 0x5fe6d8 });
+  if (id === 100 || id === 101 || id === 120 || id === 130) {  // 镐
+    const head = id === 130 ? diaM : id === 101 ? stoneM : id === 120 ? ironM : wood;
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.52, 0.042), woodDark);
     handle.position.y = -0.1;
     const bar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.085, 0.075), head);
@@ -1294,8 +1319,8 @@ function makeToolModel(id) {
     tipR.position.set(0.19, 0.13, 0);
     tipR.rotation.z = 0.42;
     g.add(handle, bar, tipL, tipR);
-  } else if (id === 102 || id === 103 || id === 121) {       // 剑
-    const bladeMat = id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
+  } else if (id === 102 || id === 103 || id === 121 || id === 131) {       // 剑
+    const bladeMat = id === 131 ? diaM : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.44, 0.018), bladeMat);
     blade.position.y = 0.3;
     const tip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.018), bladeMat);
@@ -1311,6 +1336,12 @@ function makeToolModel(id) {
     const s = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.44, 0.032), wood);
     s.position.y = 0.12;
     g.add(s);
+  } else if (id === 125) {                     // 钻石
+    const a = new THREE.Mesh(new THREE.OctahedronGeometry(0.13), diaM);
+    a.position.y = 0.14; a.scale.y = 1.25;
+    const b2 = new THREE.Mesh(new THREE.OctahedronGeometry(0.07), new THREE.MeshLambertMaterial({ color: 0xa9fbf2 }));
+    b2.position.set(0.03, 0.2, 0.02);
+    g.add(a, b2);
   } else if (id === 106) {                     // 铁锭
     const a = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.07, 0.1), ironM);
     a.position.y = 0.1;
@@ -2463,6 +2494,12 @@ const RECIPES = [
   { out: 112, n: 1, need: { 106: 7 }, tier: 1 },
   { out: 113, n: 1, need: { 106: 4 }, tier: 1 },
   { out: 14, n: 1, need: { 8: 4, 104: 3 }, tier: 1 },
+  { out: 130, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
+  { out: 131, n: 1, need: { 125: 2, 104: 1 }, tier: 1 },
+  { out: 132, n: 1, need: { 125: 5 }, tier: 1 },
+  { out: 133, n: 1, need: { 125: 8 }, tier: 1 },
+  { out: 134, n: 1, need: { 125: 7 }, tier: 1 },
+  { out: 135, n: 1, need: { 125: 4 }, tier: 1 },
 ];
 // 熔炉：1 份燃料 + 1 份原料 → 1 份产物（燃料：木板 or 炼好的煤块）
 const SMELT = [
@@ -2765,8 +2802,10 @@ function breakBlock(t) {
   }
   if (def.leaf) { if (Math.random() < 0.12) dropAt(105, 1); }
   else if (def.drop) {
-    const stonePick = inv.some(s => s && (s.id === 101 || s.id === 120));
-    if (def.stonePick && !stonePick) toast('铁矿需要石镐或更好才能采集', 1.8);
+    const ironPick = inv.some(s => s && (s.id === 120 || s.id === 130));
+    const stonePick = inv.some(s => s && (s.id === 101 || s.id === 120 || s.id === 130));
+    if (def.ironPick && !ironPick) toast('钻石矿要用铁镐（或钻石镐）才能挖', 2.0);
+    else if (def.stonePick && !stonePick) toast('铁矿需要石镐或更好才能采集', 1.8);
     else if (def.pick && heldKind() !== 'pick') toast('石头需要镐才能采集', 1.8);
     else dropAt(def.drop, 1);
   }
