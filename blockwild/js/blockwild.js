@@ -314,6 +314,8 @@ const ITEMS = {
   142: { name: '羊毛', kind: 'mat' },
   143: { name: '鸡肉', kind: 'food', food: 3 },
   144: { name: '熟鸡肉', kind: 'food', food: 7 },
+  145: { name: '生羊肉', kind: 'food', food: 4 },
+  146: { name: '熟羊肉', kind: 'food', food: 8 },
   148: { name: '骨头', kind: 'mat' },
   149: { name: '骨剑', kind: 'sword', dmg: 6, dur: 120 },
   151: { name: '空桶', kind: 'bucket' },
@@ -705,6 +707,18 @@ function iconURL(id) {
     g.beginPath(); g.moveTo(10, 22); g.lineTo(22, 10); g.stroke();
     g.fillStyle = '#efe9d8';
     for (const [x, y] of [[8, 23], [12, 26], [20, 6], [24, 9]]) { g.beginPath(); g.arc(x, y, 3.4, 0, 7); g.fill(); }
+  } else if (id === 145 || id === 146) { // 羊肉（生 / 熟）：肉块 + 骨头
+    const cooked = id === 146;
+    g.fillStyle = cooked ? '#a9622f' : '#e0837f';
+    g.beginPath(); g.ellipse(15, 18, 9.5, 6.6, -0.15, 0, 7); g.fill();
+    g.fillStyle = cooked ? '#c98a4a' : '#f0a3a0';
+    g.beginPath(); g.ellipse(14, 16.4, 5.6, 3.4, -0.15, 0, 7); g.fill();
+    g.fillStyle = cooked ? '#e6cba0' : '#efe6d2';
+    g.fillRect(21, 12.6, 6, 3.2);
+    g.beginPath(); g.arc(27.6, 12.2, 2.6, 0, 7); g.fill();
+    g.beginPath(); g.arc(27.6, 16.2, 2.6, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.32)';
+    g.beginPath(); g.ellipse(12, 14.6, 2.6, 1.4, -0.3, 0, 7); g.fill();
   } else if (id === 108 || id === 109 || id === 140 || id === 141 || id === 143 || id === 144) { // 肉类
     const cooked = id === 109 || id === 141 || id === 144;
     const bird = id === 143 || id === 144;
@@ -938,6 +952,38 @@ function oreVeins(cx, cz) {
   return out;
 }
 
+// ── 特殊岩层：花岗岩（深）/ 石灰岩（中）成团自然生成。
+// 直接写进区块数组（不建中间对象数组，否则每区块几千次分配、生成卡顿）；
+// 团块中心用「邻区块种子」算 → 跨区块连续，不会在边界切出方形接缝。
+function applyStoneBlobs(b, idx, cx, cz) {
+  const putStone = (lx, y, lz, t) => {
+    if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 1 || y >= CFG.WH - 1) return;
+    const i = idx(lx, y, lz);
+    if (b[i] === 3) b[i] = t;                       // 只替换还是石头的地方（土层/空气/矿脉都不动）
+  };
+  const blobType = (t, count, rMin, rMax, yMin, yMax) => {
+    for (let nx = -1; nx <= 1; nx++) for (let nz = -1; nz <= 1; nz++) {
+      const sx = cx + nx, sz = cz + nz;
+      const rnd = mulberry32((Math.imul(sx, 19349663) ^ Math.imul(sz, 83492791) ^ Math.imul(SEED, 73856093) ^ Math.imul(t, 2654435761)) | 0);
+      for (let i = 0; i < count; i++) {
+        const bx = sx * 16 + Math.floor(rnd() * 16), bz = sz * 16 + Math.floor(rnd() * 16);
+        const by = yMin + Math.floor(rnd() * Math.max(1, yMax - yMin));
+        const rx = rMin + rnd() * (rMax - rMin), rz = rMin + rnd() * (rMax - rMin);
+        const ry = rx * (0.45 + rnd() * 0.45);
+        const x0 = Math.max(cx * 16, Math.floor(bx - rx)), x1 = Math.min(cx * 16 + 15, Math.ceil(bx + rx));
+        const z0 = Math.max(cz * 16, Math.floor(bz - rz)), z1 = Math.min(cz * 16 + 15, Math.ceil(bz + rz));
+        const y0 = Math.max(1, Math.floor(by - ry)), y1 = Math.min(CFG.WH - 2, Math.ceil(by + ry));
+        for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) {
+          const dx = (x - bx) / rx, dy = (y - by) / ry, dz = (z - bz) / rz;
+          if (dx * dx + dy * dy + dz * dz <= 1) putStone(x - cx * 16, y, z - cz * 16, t);
+        }
+      }
+    }
+  };
+  blobType(26, 3, 2.8, 5.0, 3, 24);      // 花岗岩：偏深
+  blobType(27, 4, 3.0, 5.2, 14, 36);     // 石灰岩：中层（浅的一半会落在空气/土层里，所以条数给多些）
+}
+
 function genChunk(cx, cz) {
   const CH = CFG.CH, WH = CFG.WH, SEA = CFG.SEA;
   const b = new Uint8Array(CH * WH * CH);
@@ -969,6 +1015,8 @@ function genChunk(cx, cz) {
     const i = idx(v.x, v.y, v.z);
     if (b[i] === 3) b[i] = v.t;
   }
+  // 特殊岩层（花岗岩/石灰岩）：同样只替换还是石头的地方，矿脉优先保留
+  applyStoneBlobs(b, idx, cx, cz);
   // 树（含 5 格 padding：最大冠幅半径 3 + 冠心偏移 1 + 1，跨区块不会断枝）
   const PAD = 5;
   for (let lx = -PAD; lx < CH + PAD; lx++) for (let lz = -PAD; lz < CH + PAD; lz++) {
@@ -2748,7 +2796,7 @@ const MOB_DEFS = {
   pig:      { name: '猪',     hp: 10, chase: 2.4, wander: 1.0, hostile: false, barY: 1.0,  drop: 108 },
   villager: { name: '村民',   hp: 20, chase: 1.9, wander: 0.9, hostile: false, barY: 1.85, drop: null },
   cow:      { name: '牛',     hp: 24, chase: 2.3, wander: 0.85, hostile: false, barY: 1.45, drop: 140, dropN: [1, 2] },
-  sheep:    { name: '羊',     hp: 18, chase: 2.5, wander: 0.95, hostile: false, barY: 1.15, drop: 142, dropN: [1, 2] },
+  sheep:    { name: '羊',     hp: 18, chase: 2.5, wander: 0.95, hostile: false, barY: 1.15, drop: 145, dropN: [1, 2], extra: [{ id: 142, n: [1, 2] }] },
   chicken:  { name: '鸡',     hp: 8,  chase: 2.8, wander: 0.8,  hostile: false, barY: 0.75, drop: 143, dropN: [1, 1] },
   spider:   { name: '蜘蛛',   hp: 22, chase: 4.0, wander: 1.4,  hostile: true,  barY: 0.9,  drop: null, dmg: 2.5, atkCd: 1.25 },
   skeleton: { name: '骷髅射手', hp: 20, chase: 2.4, wander: 1.0, hostile: true,  barY: 1.6,  drop: 148, dropN: [1, 2], dmg: 3, atkCd: 1.5, ranged: true, sunBurn: true },
@@ -3189,6 +3237,12 @@ function startMobDeath(m) {
     const n = lo + Math.floor(Math.random() * (hi - lo + 1));
     spawnDrop(def.drop, n, m.p.x, m.p.y + 0.45, m.p.z);
     toast(`${def.name}掉落了 ${nameOf(def.drop)} ×${n}`, 1.8);
+    for (const ex of def.extra || []) {             // 附加掉落（羊：羊毛 + 羊肉）
+      const [l2, h2] = ex.n || [1, 1];
+      const n2 = l2 + Math.floor(Math.random() * (h2 - l2 + 1));
+      spawnDrop(ex.id, n2, m.p.x, m.p.y + 0.35, m.p.z);
+      toast(`还有 ${nameOf(ex.id)} ×${n2}`, 1.8);
+    }
   }
   sfx('hurt');
 }
@@ -3626,6 +3680,7 @@ const SMELT = [
   { in: 108, out: 109, n: 1, name: '生猪排 → 熟猪排' },
   { in: 140, out: 141, n: 1, name: '生牛肉 → 熟牛肉' },
   { in: 143, out: 144, n: 1, name: '鸡肉 → 熟鸡肉' },
+  { in: 145, out: 146, n: 1, name: '生羊肉 → 熟羊肉' },
   { in: 4, out: 124, n: 0, name: '' },              // 占位（沙子暂无用途）
 ];
 const FUELS = [8, 13];
@@ -4836,7 +4891,7 @@ addEventListener('beforeunload', () => { if (started) save(); });
 
 /* ============================================================ 调试探针 */
 window.GAME = {
-  CFG, BLOCKS, ITEMS, RECIPES, player, chunks, edits, mobs, anim, inv: () => inv,
+  CFG, BLOCKS, ITEMS, RECIPES, MOB_DEFS, SMELT, player, chunks, edits, mobs, anim, inv: () => inv,
   get started() { return started; },
   get fps() { return fps; },
   get time() { return worldTime; },
