@@ -1482,6 +1482,40 @@ const FACES = [
   { n: [0, 0, -1], v: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], sh: 0.7 },
 ];
 const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
+
+/* ── 视觉光影：顶点 AO（方块凹角/贴地处变暗）+ 火把照亮（烘焙进顶点色） ── */
+function vertexAO(wx, y, wz, f, V) {
+  const n = f.n, axes = [];
+  for (let a = 0; a < 3; a++) if (n[a] === 0) axes.push(a);
+  if (axes.length < 2) return 1;
+  const dirs = [V[axes[0]] === 1 ? 1 : -1, V[axes[1]] === 1 ? 1 : -1];
+  const bx = wx + n[0], by = y + n[1], bz = wz + n[2];
+  const occ = (o1, o2) => {
+    const q = [bx, by, bz];
+    if (o1) q[axes[0]] += dirs[0];
+    if (o2) q[axes[1]] += dirs[1];
+    const id = getBlock(q[0], q[1], q[2]);
+    if (!id) return 0;
+    const d = BLOCKS[id];
+    if (d && (d.cross || d.plant)) return 0;         // 草/花/火把不挡光
+    return 1;
+  };
+  const s1 = occ(1, 0), s2 = occ(0, 1), c = occ(1, 1);
+  if (s1 && s2) return 0.5;                          // 凹角最暗
+  return 1 - 0.16 * (s1 + s2 + c);
+}
+function torchLightAt(wx, y, wz) {                   // 附近火把的亮度（0..~1.1）
+  if (!torchCells.size) return 0;
+  let best = 0;
+  for (const t of torchCells.values()) {
+    const dx = t.x - wx, dy = t.y - y, dz = t.z - wz;
+    const d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 > 81) continue;
+    const k = 1 - Math.sqrt(d2) / 9;
+    if (k > best) best = k;
+  }
+  return best * best * 1.15;
+}
 // 方块朝向（meta）：0=默认；原木 1=X轴 2=Z轴；楼梯 1..4=台阶高的那一侧朝向(+X,-X,+Z,-Z)
 const blockMeta = new Map();       // 玩家放置的（要存档）
 const genMeta = new Map();         // 结构生成时带的（不存档，重新生成时再算）
@@ -1773,7 +1807,9 @@ function buildChunk(chunk) {
         const dc = water ? C2 : glass ? C3 : C;
         dst.push(x + V[0], y + vy, z + V[2]);
         du.push(u0 + CORNERS[k][0] * iu, v0 + CORNERS[k][1] * iv);
-        dc.push(s, s, s);
+        const sv = water || glass ? s
+          : Math.min(1.32, s * (def.leaf ? 1 : vertexAO(wx, y, wz, f, V)) * (1 + torchLightAt(wx + V[0], y + V[1], wz + V[2])));
+        dc.push(sv, sv, sv);
       }
       const di = water ? I2 : glass ? I3 : I;
       di.push(base, base + 1, base + 2, base, base + 2, base + 3);
@@ -2386,7 +2422,18 @@ for (let i = 0; i < 6; i++) {
 }
 function registerTorch(x, y, z) { torchCells.set(x + ',' + y + ',' + z, { x, y, z }); }
 function unregisterTorch(x, y, z) { torchCells.delete(x + ',' + y + ',' + z); }
+let torchSig = -1;
+function refreshTorchArea() {
+  const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+  for (const t of torchCells.values()) {
+    if (Math.abs(t.x - px) > 40 || Math.abs(t.z - pz) > 40) continue;
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      markDirty(Math.floor(t.x / CFG.CH) + dx, Math.floor(t.z / CFG.CH) + dz);
+    }
+  }
+}
 function updateTorchLights() {
+  if (torchCells.size !== torchSig) { torchSig = torchCells.size; refreshTorchArea(); }
   if (!torchCells.size) { for (const l of torchLights) l.visible = false; return; }
   const px = player.p.x, py = player.p.y, pz = player.p.z;
   const near = [];
