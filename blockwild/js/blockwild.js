@@ -1155,6 +1155,23 @@ function updateWater(budget = 40) {
 }
 
 // 出生点：从 (8,8) 向外找一块高于海面的陆地，别让玩家出生就泡在水里
+// 出生点若在鬼屋 3 格范围内，就挪到那栋鬼屋的门口（"一出生就能看到鬼屋"）
+function spawnNearHouse(sp) {
+  const cx = Math.floor(sp.x / HS_CELL), cz = Math.floor(sp.z / HS_CELL);
+  let best = null;
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const hs = hauntedFor(cx + dx, cz + dz);
+    if (!hs) continue;
+    const d = Math.hypot(sp.x - hs.cx, sp.z - hs.cz);
+    if (!best || d < best.d) best = { d, hs };
+  }
+  if (!best || best.d > 130) return sp;          // 只有鬼屋本来就在 130 格内才搬（不是每个种子都搬）
+  const hs = best.hs;
+  const x = hs.cx + 0.5, z = hs.cz + hs.D + 13.5;         // 正门前 13 格：一眼能看到整栋楼
+  const g = heightAt(Math.floor(x), Math.floor(z));
+  if (Math.abs(g - hs.y0) > 10) return sp;                 // 地形太离谱就放弃，别把人丢进裂谷
+  return { x, y: Math.max(g, hs.y0) + 1, z, yaw: Math.atan2(-(hs.cx - x), -(hs.cz - z)) };
+}
 function findSpawn() {
   for (let r = 0; r < 80; r++) {
     for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
@@ -4246,8 +4263,9 @@ function startGame(world) {
   SEED = world.seed | 0;
   const loaded = loadSave(world.id);          // 有存档就接着玩，没有就用这个世界自己的种子生成
   if (!loaded) {
-    const sp = findSpawn();
+    const sp = spawnNearHouse(findSpawn());
     player.p.set(sp.x, sp.y, sp.z);
+    if (sp.yaw !== undefined) { player.yaw = sp.yaw; player.pitch = -0.06; }
     player.spawn = { x: sp.x, y: sp.y, z: sp.z, bed: false };
     player.hp = 20; player.hunger = 20;
     inv = new Array(SLOTS).fill(null);
@@ -4517,6 +4535,21 @@ window.GAME = {
       return v;
     },
     chestAt: (x, y, z) => openChest(x, y, z),
+    seedHouse: (seed) => {              // 扫种子：出生点 → 最近鬼屋
+      SEED = seed | 0;
+      hsCache.clear(); villageCache.clear(); veinCache.clear();
+      if (typeof ravineCache !== 'undefined' && ravineCache.clear) ravineCache.clear();
+      const sp = findSpawn();
+      const cx = Math.floor(sp.x / HS_CELL), cz = Math.floor(sp.z / HS_CELL);
+      let best = null;
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+        const hs = hauntedFor(cx + dx, cz + dz);
+        if (!hs) continue;
+        const d = Math.round(Math.hypot(sp.x - hs.cx, sp.z - hs.cz));
+        if (!best || d < best.d) best = { d, hx: hs.cx, hz: hs.cz, y0: hs.y0, floors: hs.floors };
+      }
+      return { seed: SEED, spawn: sp, house: best };
+    },
     haunted: (r = 2) => {
       const pcx = Math.floor(player.p.x / HS_CELL), pcz = Math.floor(player.p.z / HS_CELL);
       const out = [];
