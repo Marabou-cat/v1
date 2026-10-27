@@ -1432,7 +1432,7 @@ const worldLight = new THREE.HemisphereLight(0xffffff, 0x4a5568, 1.0);
 const worldDir = new THREE.DirectionalLight(0xffffff, 0.5);
 worldDir.position.set(0.6, 1, 0.35);
 worldDir.castShadow = true;
-worldDir.shadow.mapSize.set(2048, 2048);
+worldDir.shadow.mapSize.set(1024, 1024);
 worldDir.shadow.camera.near = 1;
 worldDir.shadow.camera.far = 160;
 worldDir.shadow.camera.left = -48; worldDir.shadow.camera.right = 48;
@@ -2214,7 +2214,27 @@ function refreshHeld() {
   const b = id > 0 ? BLOCKS[id] : null;
   const it = id > 0 ? ITEMS[id] : null;
   let kind = null;
-  if (b) {
+  if (b && b.cross) {                          // 火把/草丛/花：手里也是十字面片，跟地上一致
+    kind = 'mat';
+    const tile = b.top;
+    const u0 = (tile % ATLAS_COLS) / ATLAS_COLS, v0 = 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS;
+    const iu = 1 / ATLAS_COLS, iv = 1 / ATLAS_ROWS;
+    const g = new THREE.Group();
+    for (const ry of [0, Math.PI / 2]) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(
+        [-0.2, -0.22, 0, 0.2, -0.22, 0, 0.2, 0.22, 0, -0.2, 0.22, 0], 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(
+        [u0, v0, u0 + iu, v0, u0 + iu, v0 + iv, u0, v0 + iv], 2));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 3));
+      geo.setIndex([0, 1, 2, 0, 2, 3]);
+      geo.computeVertexNormals();
+      const q = new THREE.Mesh(geo, plantMat);
+      q.rotation.y = ry;
+      g.add(q);
+    }
+    heldMesh = g;
+  } else if (b) {
     kind = 'block';
     const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
     heldMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
@@ -2433,26 +2453,35 @@ const torchCells = new Map();               // 'x,y,z' → {x,y,z}
 const torchLights = [];
 for (let i = 0; i < 6; i++) {
   const pl = new THREE.PointLight(0xffb45a, 0, 15, 1.1);
-  pl.castShadow = i < 2;                                  // 只让最近 2 支火把投影，控制开销
+  pl.castShadow = false;                                  // 点光源阴影 = 6 次全场景重绘，手机上太贵：只保留太阳阴影
   if (pl.castShadow) { pl.shadow.mapSize.set(512, 512); pl.shadow.bias = -0.004; pl.shadow.camera.far = 16; }
   pl.visible = false;
   scene.add(pl);
   torchLights.push(pl);
 }
-function registerTorch(x, y, z) { torchCells.set(x + ',' + y + ',' + z, { x, y, z }); }
-function unregisterTorch(x, y, z) { torchCells.delete(x + ',' + y + ',' + z); }
-let torchSig = -1;
-function refreshTorchArea() {
-  const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
-  for (const t of torchCells.values()) {
-    if (Math.abs(t.x - px) > 40 || Math.abs(t.z - pz) > 40) continue;
-    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
-      markDirty(Math.floor(t.x / CFG.CH) + dx, Math.floor(t.z / CFG.CH) + dz);
-    }
-  }
+function registerTorch(x, y, z) {
+  const k = x + ',' + y + ',' + z;
+  if (torchCells.has(k)) return;                 // 重建时重复登记不算变动（否则会无限重建）
+  torchCells.set(k, { x, y, z });
+  torchLastKey = x + ',' + z;
+}
+function unregisterTorch(x, y, z) {
+  const k = x + ',' + y + ',' + z;
+  if (!torchCells.has(k)) return;
+  torchCells.delete(k);
+  torchLastKey = x + ',' + z;
+}
+let torchSig = -1, torchLastKey = null;
+function refreshTorchArea() {                    // 只重建「变动的那一支火把」周围的区块（原来是全场火把 → 一次放火把重建上百区块 = 卡 1 秒）
+  if (!torchLastKey) return;
+  const [tx, tz] = torchLastKey.split(',').map(Number);
+  const cx = Math.floor(tx / CFG.CH), cz = Math.floor(tz / CFG.CH);
+  markDirty(cx, cz);
+  markDirty(cx + 1, cz); markDirty(cx - 1, cz);
+  markDirty(cx, cz + 1); markDirty(cx, cz - 1);
 }
 function updateTorchLights() {
-  if (torchCells.size !== torchSig) { torchSig = torchCells.size; refreshTorchArea(); }
+  torchSig = torchCells.size;                    // 只记录，不重建区块（实时光照不用重烘焙）
   if (!torchCells.size) { for (const l of torchLights) l.visible = false; return; }
   const px = player.p.x, py = player.p.y, pz = player.p.z;
   const near = [];
