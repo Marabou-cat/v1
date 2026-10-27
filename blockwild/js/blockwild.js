@@ -66,11 +66,11 @@ function caveCarve(wx, y, wz, h) {
   const depth = h - y;
   const cheese = n3(wx * 0.026, y * 0.05, wz * 0.026);
   // 地表附近只有极少数地方被掏开 → 形成天然洞口（阈值已按实测分布标定）
-  if (cheese > (depth <= 2 ? 0.92 : 0.76)) return true;
+  if (cheese > (depth <= 2 ? 0.845 : 0.665)) return true;
   if (depth <= 1) return false;
   const ridge = n3(wx * 0.043 + 31.7, y * 0.019, wz * 0.043 + 11.3);
   const r = 1 - Math.abs(ridge - 0.5) * 2;          // 0.5 附近 → 细长的隧道壳
-  return r > 0.99;
+  return r > 0.972;
 }
 
 // ── 废弃矿洞：按 96×96 的格子确定性生成，跨区块用 byChunk 拼接 ──
@@ -615,14 +615,14 @@ function putTree(put, lx, lz, wx, wz, t) {
 
 /* ============================================================ 峡谷 / 裂谷 */
 // 一条从地表撕开、直落十几到三十格的长裂谷：走路时能直接看见，谷底常见流水
-const RV_CELL = 192;
+const RV_CELL = 150;
 const ravineCache = new Map();
 function ravineFor(cellX, cellZ) {
   const key = cellX + ',' + cellZ;
   if (ravineCache.has(key)) return ravineCache.get(key);
   let out = null;
   const roll = h2(cellX * 53.7 + 7.3, cellZ * 29.1 - 3.9);
-  if (roll > 0.42) {
+  if (roll > 0.16) {
     const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 40503) ^ Math.imul(cellZ, 12289)) | 0);
     let x = cellX * RV_CELL + 30 + Math.floor(rnd() * (RV_CELL - 60));
     let z = cellZ * RV_CELL + 30 + Math.floor(rnd() * (RV_CELL - 60));
@@ -1805,87 +1805,154 @@ const MOB_DEFS = {
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
 
-// 每种生物一个模型；core 组代表"身体中心"，倒地时绕它旋转才不会插进地里
+/* ── 像素生物 ────────────────────────────────────────────────────────────────
+   整只怪由 1/16 方块大小的「像素」小立方体拼成：每格一个颜色、内部面剔除，
+   表面因此是硬边像素块（和世界方块同一网格感），而不是平滑的塑料盒子。
+   几何按种类缓存后所有个体共用，出生/死亡不重新拼装。 */
+const MOB_PX = 1 / 16;
+const mobGeoCache = new Map();
+
+function pixHash(x, y, z, k) {
+  let n = Math.imul(x + 37, 374761393) ^ Math.imul(y + 11, 668265263) ^ Math.imul(z + k * 97, 1013904223);
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+}
+function tintHex(hex, f) {
+  const r = Math.min(255, Math.max(0, Math.round(((hex >> 16) & 255) * f)));
+  const g = Math.min(255, Math.max(0, Math.round(((hex >> 8) & 255) * f)));
+  const b = Math.min(255, Math.max(0, Math.round((hex & 255) * f)));
+  return (r << 16) | (g << 8) | b;
+}
+// "x,y,z"→颜色 的像素表 → 只含外壳面的 BufferGeometry（相邻像素之间的面不生成）
+function voxGeometry(vox) {
+  const FACES = [
+    { n: [1, 0, 0], v: [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]] },
+    { n: [-1, 0, 0], v: [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]] },
+    { n: [0, 1, 0], v: [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]] },
+    { n: [0, -1, 0], v: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]] },
+    { n: [0, 0, 1], v: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]] },
+    { n: [0, 0, -1], v: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]] },
+  ];
+  const pos = [], col = [], c = new THREE.Color();
+  for (const [k, hex] of vox) {
+    const [x, y, z] = k.split(',').map(Number);
+    c.setHex(hex);
+    for (const f of FACES) {
+      if (vox.has((x + f.n[0]) + ',' + (y + f.n[1]) + ',' + (z + f.n[2]))) continue;
+      for (const i of [0, 1, 2, 0, 2, 3]) {
+        const o = f.v[i];
+        pos.push((x + o[0]) * MOB_PX, (y + o[1]) * MOB_PX, (z + o[2]) * MOB_PX);
+        col.push(c.r, c.g, c.b);
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  geo.userData.shared = true;
+  return geo;
+}
+
+// 每种生物的像素模型（脚在 y=0、单位=像素；jitter 给表面加轻微色差 → 像素颗粒感）
+function mobGeos(kind) {
+  if (mobGeoCache.has(kind)) return mobGeoCache.get(kind);
+  const body = new Map(), head = new Map();
+  const K = (x, y, z) => x + ',' + y + ',' + z;
+  const box = (map, x0, y0, z0, w, h, d, hex, jitter = 0.12) => {
+    for (let x = x0; x < x0 + w; x++) for (let y = y0; y < y0 + h; y++) for (let z = z0; z < z0 + d; z++)
+      map.set(K(x, y, z), tintHex(hex, 1 + (pixHash(x, y, z, map === head ? 7 : 3) - 0.5) * jitter));
+  };
+  const px = (map, x, y, z, hex) => map.set(K(x, y, z), hex);
+  let coreY = 0.62, barY = 1.44, limbSpecs = [];
+
+  if (kind === 'pig') {
+    coreY = 0.46; barY = 1.0;
+    const PINK = 0xefa0a0, PINK2 = 0xf7b4b4, SNOUT = 0xd98c8c, EYE = 0x1d1010;
+    box(body, -5, 4, -8, 10, 8, 16, PINK, 0.10);          // 躯干
+    box(body, -5, 4, -8, 10, 2, 16, 0xd98c8c, 0.07);      // 肚皮暗一档
+    box(body, -3, 11, -8, 6, 1, 15, 0xf7bcbc, 0.05);      // 背脊亮条
+    box(body, -1, 11, -9, 2, 2, 1, SNOUT, 0.05);          // 尾巴
+    box(head, -4, 5, 8, 8, 8, 8, PINK2, 0.10);            // 头
+    box(head, -2, 7, 16, 4, 3, 1, SNOUT, 0.05);           // 猪鼻
+    px(head, -1, 8, 16, 0xb87373); px(head, 0, 8, 16, 0xb87373);   // 鼻孔
+    px(head, -3, 10, 15, EYE); px(head, -3, 11, 15, EYE);
+    px(head, 2, 10, 15, EYE); px(head, 3, 11, 15, EYE);
+    box(head, -4, 13, 9, 2, 1, 2, 0xd98f8f, 0.05);        // 耳朵
+    box(head, 2, 13, 9, 2, 1, 2, 0xd98f8f, 0.05);
+    const legGeo = (() => { const m = new Map(); box(m, -1, -4, -1, 2, 4, 3, 0xd88888, 0.12); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: legGeo, x: -3, y: 4, z: 6, arm: true }, { geo: legGeo, x: 3, y: 4, z: 6, arm: true },
+      { geo: legGeo, x: -3, y: 4, z: -6, arm: false }, { geo: legGeo, x: 3, y: 4, z: -6, arm: false },
+    ];
+  } else if (kind === 'villager') {
+    coreY = 0.82; barY = 1.85;
+    const ROBE = 0x6b5334, ROBE2 = 0x54402a, SKIN = 0xc9a37b, HAIR = 0x3b2a18, EYE = 0x24180f;
+    box(body, -4, 7, -3, 8, 12, 6, ROBE, 0.10);           // 长袍
+    box(body, -4, 7, -3, 8, 2, 6, ROBE2, 0.07);           // 下摆
+    box(body, -4, 15, -3, 8, 1, 6, ROBE2, 0.05);          // 腰带
+    box(head, -4, 19, -3, 8, 8, 6, SKIN, 0.09);           // 头
+    box(head, -4, 25, -3, 8, 2, 6, HAIR, 0.07);           // 头发/帽檐
+    px(head, -3, 23, 2, EYE); px(head, -2, 23, 2, EYE);
+    px(head, 2, 23, 2, EYE); px(head, 3, 23, 2, EYE);
+    box(head, -1, 20, 3, 2, 3, 2, 0xb98f68, 0.04);        // 大鼻子
+    const armGeo = (() => { const m = new Map(); box(m, -1, -9, -1, 3, 9, 3, ROBE, 0.10); px(m, -1, -1, 1, SKIN); px(m, 0, -1, 1, SKIN); px(m, 1, -1, 1, SKIN); return voxGeometry(m); })();
+    const legGeo = (() => { const m = new Map(); box(m, -1, -7, -1, 3, 7, 3, 0x3d2f1d, 0.10); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: armGeo, x: -5, y: 18, z: 0, arm: true }, { geo: armGeo, x: 5, y: 18, z: 0, arm: true },
+      { geo: legGeo, x: -2, y: 7, z: 0, arm: false }, { geo: legGeo, x: 2, y: 7, z: 0, arm: false },
+    ];
+  } else {                                                // grunt 夜行怪
+    coreY = 0.62; barY = 1.44;
+    const BODY = 0x2f5d5a, BODY2 = 0x264a48, HEAD = 0x9fd8c8, EYE = 0xff4d4d, TEETH = 0xe8f4ef;
+    box(body, -4, 7, -2, 8, 9, 4, BODY, 0.13);            // 躯干
+    box(body, -3, 9, 1, 6, 5, 1, BODY2, 0.09);            // 胸口暗块
+    box(body, -4, 7, -2, 8, 1, 4, 0x1f3d3c, 0.05);        // 腰带
+    box(head, -4, 16, -4, 8, 8, 8, HEAD, 0.09);           // 头
+    box(head, -4, 22, -4, 8, 2, 8, 0x82c3b2, 0.07);       // 头顶暗一档
+    px(head, -3, 19, 3, EYE); px(head, -2, 19, 3, EYE);
+    px(head, 2, 19, 3, EYE); px(head, 3, 19, 3, EYE);
+    box(head, -2, 17, 3, 4, 1, 1, TEETH, 0.03);           // 牙
+    const armGeo = (() => { const m = new Map(); box(m, -1, -9, -1, 3, 9, 3, BODY, 0.13); box(m, -1, -9, -1, 3, 2, 3, BODY2, 0.07); return voxGeometry(m); })();
+    const legGeo = (() => { const m = new Map(); box(m, -1, -7, -1, 3, 7, 3, BODY2, 0.12); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: armGeo, x: -5, y: 16, z: 0, arm: true }, { geo: armGeo, x: 5, y: 16, z: 0, arm: true },
+      { geo: legGeo, x: -2, y: 7, z: 0, arm: false }, { geo: legGeo, x: 2, y: 7, z: 0, arm: false },
+    ];
+  }
+
+  const geo = { body: voxGeometry(body), head: voxGeometry(head), coreY, barY, limbs: limbSpecs };
+  mobGeoCache.set(kind, geo);
+  return geo;
+}
+
+// 每种生物一个模型实例（几何共享）；core 代表"身体中心"，倒地时绕它旋转才不会插进地里
 function makeMobModel(kind) {
+  const G = mobGeos(kind);
   const g = new THREE.Group();
   const core = new THREE.Group();
-  let bodyMat, headMat, arm1, arm2, barY = 1.44;
-  const addBar = () => {
-    const barBg = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.11), new THREE.MeshBasicMaterial({ color: 0x140c0c }));
-    const barFg = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.055), new THREE.MeshBasicMaterial({ color: 0x7fe06b }));
-    barFg.position.set(0, 0, 0.004);
-    const bar = new THREE.Group();
-    bar.position.y = barY;
-    bar.add(barBg, barFg);
-    g.add(bar);
-    return { bar, barFg };
-  };
-  if (kind === 'pig') {
-    bodyMat = new THREE.MeshLambertMaterial({ color: 0xefa0a0 });
-    headMat = new THREE.MeshLambertMaterial({ color: 0xf7b4b4 });
-    const snoutMat = new THREE.MeshLambertMaterial({ color: 0xd98c8c });
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x201010 });
-    core.position.y = 0.46;
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.5, 0.98), bodyMat);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.46, 0.42), headMat);
-    head.position.set(0, 0.06, 0.62);
-    const snout = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.1), snoutMat);
-    snout.position.set(0, 0.0, 0.86);
-    const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.03), eyeMat);
-    e1.position.set(-0.14, 0.14, 0.84);
-    const e2 = e1.clone(); e2.position.x = 0.14;
-    const legs = [];
-    for (const sx of [-0.22, 0.22]) for (const sz of [-0.3, 0.3]) {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.34, 0.15), bodyMat);
-      leg.position.set(sx, -0.36, sz);
-      core.add(leg);
-      legs.push(leg);
-    }
-    core.add(body, head, snout, e1, e2);
-    arm1 = legs[0]; arm2 = legs[1];
-    barY = 1.0;
-  } else if (kind === 'villager') {
-    bodyMat = new THREE.MeshLambertMaterial({ color: 0x6b5334 });
-    headMat = new THREE.MeshLambertMaterial({ color: 0xc9a37b });
-    const accent = new THREE.MeshLambertMaterial({ color: 0x4a3822 });
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x24180f });
-    core.position.y = 0.82;
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.92, 0.32), bodyMat);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.44, 0.4), headMat);
-    head.position.set(0, 0.66, 0);
-    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.16), headMat);
-    nose.position.set(0, 0.6, 0.24);
-    const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.07, 0.03), eyeMat);
-    e1.position.set(-0.11, 0.72, 0.21);
-    const e2 = e1.clone(); e2.position.x = 0.11;
-    const robe = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.34, 0.34), accent);
-    robe.position.set(0, -0.34, 0);
-    arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.6, 0.14), bodyMat);
-    arm1.position.set(-0.31, 0.16, 0);
-    arm2 = arm1.clone(); arm2.position.x = 0.31;
-    core.add(body, head, nose, e1, e2, robe, arm1, arm2);
-    barY = 1.85;
-  } else {
-    bodyMat = new THREE.MeshLambertMaterial({ color: 0x2f5d5a });
-    headMat = new THREE.MeshLambertMaterial({ color: 0x9fd8c8 });
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff4d4d });
-    core.position.y = 0.62;
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.86, 0.44), bodyMat);
-    body.position.y = -0.18;
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.44), headMat);
-    head.position.y = 0.46;
-    const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.03), eyeMat);
-    e1.position.set(-0.11, 0.5, 0.23);
-    const e2 = e1.clone(); e2.position.x = 0.11;
-    arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), bodyMat);
-    arm1.position.set(-0.39, 0.0, 0);
-    arm2 = arm1.clone(); arm2.position.x = 0.39;
-    core.add(body, head, e1, e2, arm1, arm2);
-    barY = 1.44;
+  core.position.y = G.coreY;
+  const bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const headMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const bodyMesh = new THREE.Mesh(G.body, bodyMat); bodyMesh.position.y = -G.coreY;
+  const headMesh = new THREE.Mesh(G.head, headMat); headMesh.position.y = -G.coreY;
+  core.add(bodyMesh, headMesh);
+  const limbs = [];
+  for (const L of G.limbs) {
+    const mesh = new THREE.Mesh(L.geo, bodyMat);
+    mesh.position.set(L.x * MOB_PX, L.y * MOB_PX - G.coreY, L.z * MOB_PX);
+    core.add(mesh); limbs.push(mesh);
   }
   g.add(core);
-  const { bar, barFg } = addBar();
-  return { g, core, bodyMat, headMat, arm1, arm2, bar, barFg };
+  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.11), new THREE.MeshBasicMaterial({ color: 0x140c0c }));
+  const barFg = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.055), new THREE.MeshBasicMaterial({ color: 0x7fe06b }));
+  barFg.position.set(0, 0, 0.004);
+  const bar = new THREE.Group();
+  bar.position.y = G.barY;
+  bar.add(barBg, barFg);
+  g.add(bar);
+  const arms = limbs.filter((m, i) => G.limbs[i].arm);
+  return { g, core, bodyMat, headMat, arm1: arms[0] || null, arm2: arms[1] || null, bar, barFg, limbs };
 }
 
 function spawnMobAt(kind, x, y, z, opts = {}) {
@@ -1960,7 +2027,7 @@ function spawnMob(kind = 'grunt', offset) {
 function killMob(m) {
   scene.remove(m.obj);
   m.obj.traverse(o => {
-    if (o.geometry) o.geometry.dispose();
+    if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
     if (o.material) { if (Array.isArray(o.material)) o.material.forEach(x => x.dispose()); else o.material.dispose(); }
   });
 }
