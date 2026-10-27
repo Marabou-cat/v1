@@ -3330,28 +3330,56 @@ function refreshVillagerMark(m) {
   m.obj.add(sp);
   m.mark = sp;
 }
-function showVillagerGift(m) {                  // 手里拿的东西：头顶旁边挂一个小图标
-  if (m.gift) { m.obj.remove(m.gift); m.gift.geometry.dispose(); m.gift.material.dispose(); m.gift = null; }
+function showVillagerGift(m) {                  // 手里的道具：挂在右手上（可见）
+  if (m.gift) { if (m.gift.parent) m.gift.parent.remove(m.gift); m.gift.geometry.dispose(); m.gift.material.dispose(); m.gift = null; }
   if (!m.give) return;
+  const hand = m.parts.arm1 || m.parts.core;      // 右手，没有就退回躯干
   const def = BLOCKS[m.give.id];
   let mesh;
-  if (def) {
+  if (def) {                                      // 方块：小立方体 + 该方块的贴图
     const tile = def.top, t2 = atlasTex.clone();
     t2.needsUpdate = true;
     t2.repeat.set(1 / ATLAS_COLS, 1 / ATLAS_ROWS);
     t2.offset.set((tile % ATLAS_COLS) / ATLAS_COLS, 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS);
-    mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), new THREE.MeshBasicMaterial({ map: t2 }));
-  } else {                                        // 非方块道具：直接用物品图标（iconURL 画的那张）
-    const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1 });
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.17, 0.17), new THREE.MeshLambertMaterial({ map: t2 }));
+  } else {                                        // 道具（剑/镐/锄）：用物品图标做双面片
+    const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
     const tex = new THREE.TextureLoader().load(iconURL(m.give.id));
     tex.magFilter = THREE.NearestFilter;
     mat.map = tex;
-    mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), mat);
+    mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), mat);
   }
-  mesh.position.set(0.3, MOB_DEFS[m.kind].barY + 0.62, 0);
-  mesh.renderOrder = 6;
-  m.obj.add(mesh);
+  mesh.position.set(0.02, -0.3, -0.08);           // 手臂末端＝手的位置
+  mesh.rotation.set(0, 0, -0.35);
+  mesh.renderOrder = 5;
+  hand.add(mesh);
   m.gift = mesh;
+}
+function nearestHostileFrom(v, range, nearPlayer) {   // 找玩家周围、村民附近的敌对怪
+  let best = null, bd = range;
+  for (const t of mobs) {
+    if (t === v || t.dying || t.hp <= 0) continue;
+    const d = MOB_DEFS[t.kind];
+    if (!d || !d.hostile) continue;
+    const dd = Math.hypot(t.p.x - v.p.x, t.p.z - v.p.z);
+    if (dd >= bd) continue;
+    if (nearPlayer && Math.hypot(t.p.x - player.p.x, t.p.z - player.p.z) > nearPlayer) continue;
+    bd = dd; best = t;
+  }
+  return best;
+}
+function villagerAttack(v, t) {                   // 村民用剑砍怪：怪会改目标来打他
+  const sw = ITEMS[v.give.id] || {};
+  const dmg = Math.max(2, Math.round((sw.dmg || 4) * 0.55));
+  t.hp -= dmg;
+  t.flash = 0.24;
+  t.aggro = 22;
+  t.target = v;                                   // ★ 被村民打 → 怪物换成打村民
+  const kx = t.p.x - v.p.x, kz = t.p.z - v.p.z, kd = Math.hypot(kx, kz) || 1;
+  t.v.x = (kx / kd) * 6.0; t.v.z = (kz / kd) * 6.0; t.v.y = 3.0; t.knockT = 0.3;
+  if (v.parts.arm1) v.parts.arm1.rotation.x = -1.15;               // 挥砍动作
+  sfx('hit');
+  if (t.hp <= 0) startMobDeath(t);
 }
 /* ── 小队：最多 3 人；村民可穿盔甲（可见）、位置与装备写进存档 ── */
 const MAX_SQUAD = 3;
@@ -3385,20 +3413,19 @@ function refreshVillagerArmor(m) {               // 给村民模型套 4 件盔�
   add('chest', 0.46, 0.99);                      // 胸甲：躯干外壳
   // 护腿 / 靴子要穿在「腿」上（村民的腿是独立部件，不是躯干盒子的一部分）
   const armSet = new Set([m.parts.arm1, m.parts.arm2].filter(Boolean));
-  const legs = (m.parts.limbs || []).filter(o => !armSet.has(o));   // 只给腿穿，别套到手臂上
+  const legs = (m.parts.limbs || []).filter(o => !armSet.has(o));
   for (const L of legs) {
+    L.geometry.computeBoundingBox();
+    const lb = L.geometry.boundingBox.clone().translate(L.position);
+    const h = lb.max.y - lb.min.y;
     if (m.equip.legs) {
-      L.geometry.computeBoundingBox();
-      const lb = L.geometry.boundingBox.clone().translate(L.position);
-      const h = lb.max.y - lb.min.y, w = (lb.max.x - lb.min.x) + 0.04, d = (lb.max.z - lb.min.z) + 0.04;
+      const w = (lb.max.x - lb.min.x) + 0.04, d = (lb.max.z - lb.min.z) + 0.04;
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.55, d), new THREE.MeshLambertMaterial({ color: armorTierColor(m.equip.legs) }));
       mesh.position.set((lb.min.x + lb.max.x) / 2, lb.max.y - h * 0.275, (lb.min.z + lb.max.z) / 2);
       core.add(mesh); meshes.push(mesh);
     }
     if (m.equip.feet) {
-      L.geometry.computeBoundingBox();
-      const lb = L.geometry.boundingBox.clone().translate(L.position);
-      const h = lb.max.y - lb.min.y, w = (lb.max.x - lb.min.x) + 0.05, d = (lb.max.z - lb.min.z) + 0.05;
+      const w = (lb.max.x - lb.min.x) + 0.05, d = (lb.max.z - lb.min.z) + 0.05;
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.34, d), new THREE.MeshLambertMaterial({ color: armorTierColor(m.equip.feet) }));
       mesh.position.set((lb.min.x + lb.max.x) / 2, lb.min.y + h * 0.17, (lb.min.z + lb.max.z) / 2);
       core.add(mesh); meshes.push(mesh);
@@ -3417,40 +3444,31 @@ function ensureVillagerPanel() {
     + 'z-index:70;color:#e8eef5;font-size:13px;display:none;box-shadow:0 14px 44px rgba(0,0,0,.6);font-family:inherit';
   vPanelEl.addEventListener('click', (e) => {
     const t = e.target.closest('[data-act]');
-    if (t) {
-      const act = t.dataset.act;
-      if (act === 'close') closeVillagerPanel();
-      else if (act === 'follow' && vPanelMob) {
-        vPanelMob.recruit.follow = !vPanelMob.recruit.follow;
-        toast(vPanelMob.recruit.follow ? '村民：跟着你' : '村民：原地待命', 1.4);
-        renderVillagerPanel(vPanelMob); saveSoon();
-      } else if (act && act.startsWith('gear') && vPanelMob) {
-        equipVillager(vPanelMob, act.slice(4));
-      }
-    }
+    if (!t) return;
+    const act = t.dataset.act;
+    if (act === 'close') closeVillagerPanel();
+    else if (act === 'follow' && vPanelMob) {
+      vPanelMob.recruit.follow = !vPanelMob.recruit.follow;
+      toast(vPanelMob.recruit.follow ? '村民：跟着你' : '村民：原地待命', 1.4);
+      renderVillagerPanel(vPanelMob); saveSoon();
+    } else if (act.startsWith('gear') && vPanelMob) equipVillager(vPanelMob, act.slice(4));
   });
   document.body.appendChild(vPanelEl);
   return vPanelEl;
 }
 function closeVillagerPanel() { if (vPanelEl) vPanelEl.style.display = 'none'; vPanelMob = null; }
-function openVillagerPanel(m) {
-  ensureVillagerPanel();
-  vPanelMob = m;
-  renderVillagerPanel(m);
-  vPanelEl.style.display = 'block';
-}
+function openVillagerPanel(m) { ensureVillagerPanel(); vPanelMob = m; renderVillagerPanel(m); vPanelEl.style.display = 'block'; }
 function renderVillagerPanel(m) {
   const el = ensureVillagerPanel();
-  const r = m.recruit;
-  const nm = MOB_DEFS[m.kind].name;
+  const r = m.recruit, nm = MOB_DEFS[m.kind].name;
   const gearRow = ARMOR_SLOTS.map(sl => {
     const id = m.equip && m.equip[sl];
-    const label = id ? (ITEMS[id].name) : '空';
-    const col = id ? '#5fe0dc' : '#8b97a6';
     return `<button data-act="gear${sl}" style="flex:1;min-width:0;margin:2px;padding:7px 3px;border-radius:7px;border:1px solid #43546b;`
-      + `background:${id ? '#213a3a' : '#1a212b'};color:${col};font-size:11px;cursor:pointer;line-height:1.25">`
-      + `<div style="color:#9fb0c2;font-size:10px">${ARMOR_SLOT_NAME[sl]}</div>${label}</button>`;
+      + `background:${id ? '#213a3a' : '#1a212b'};color:${id ? '#5fe0dc' : '#8b97a6'};font-size:11px;cursor:pointer;line-height:1.25">`
+      + `<div style="color:#9fb0c2;font-size:10px">${ARMOR_SLOT_NAME[sl]}</div>${id ? ITEMS[id].name : '空'}</button>`;
   }).join('');
+  const duty = m.give ? (ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' ? `⚔ 战斗中（拿着 ${ITEMS[m.give.id].name}）`
+    : `手持 ${ITEMS[m.give.id].name}`) : '空手';
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <b style="font-size:15px">${nm}${r.hired ? ' · 小队成员' : ''}</b>
@@ -3458,7 +3476,8 @@ function renderVillagerPanel(m) {
     </div>
     ${r.hired ? `
       <div style="color:#9fb0c2;margin-bottom:6px">装备（点一下穿上 / 再点脱下，穿在身上看得见）</div>
-      <div style="display:flex;margin-bottom:10px">${gearRow}</div>
+      <div style="display:flex;margin-bottom:8px">${gearRow}</div>
+      <div style="color:#9fb0c2;margin-bottom:8px">${duty}</div>
       <button data-act="follow" style="width:100%;padding:9px;border-radius:8px;border:1px solid ${r.follow ? '#3f7a4a' : '#43546b'};`
         + `background:${r.follow ? '#1e3a26' : '#1a212b'};color:${r.follow ? '#9ff0a8' : '#cfdae6'};cursor:pointer;font-size:13px">`
         + `${r.follow ? '正在跟随（点一下让他待命）' : '原地待命（点一下让他跟随）'}</button>
@@ -3471,15 +3490,12 @@ function renderVillagerPanel(m) {
       <div style="color:#9fb0c2">进度 ${r.want.got}/${r.want.need} —— 拿着他想要的东西右键他就能交付</div>
     `}`;
 }
-function equipVillager(m, slot) {                // 面板里点装备格
+function equipVillager(m, slot) {
   if (!m.equip) m.equip = newEquip();
   if (!ARMOR_SLOTS.includes(slot)) return false;
   const cur = m.equip[slot];
-  if (cur) {                                      // 脱下 → 还回背包
-    m.equip[slot] = null;
-    addItem(cur, 1);
-    toast(`脱下 ${ITEMS[cur].name}`, 1.2);
-  } else {
+  if (cur) { m.equip[slot] = null; addItem(cur, 1); toast(`脱下 ${ITEMS[cur].name}`, 1.2); }
+  else {
     const idx = inv.findIndex(s => s && ITEMS[s.id] && ITEMS[s.id].kind === 'armor' && ITEMS[s.id].slot === slot);
     if (idx < 0) { toast(`背包里没有${ARMOR_SLOT_NAME[slot]}`, 1.4); return false; }
     const id = inv[idx].id;
@@ -3491,14 +3507,14 @@ function equipVillager(m, slot) {                // 面板里点装备格
   renderVillagerPanel(m); renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
-function squadData() {                           // 存档用：位置/装备/跟随/需求
+function squadData() {
   return squadList().map(m => ({
     x: +m.p.x.toFixed(2), y: +m.p.y.toFixed(2), z: +m.p.z.toFixed(2),
     want: m.recruit.want, follow: !!m.recruit.follow, equip: m.equip || newEquip(),
     give: m.give || null, hp: m.hp,
   }));
 }
-function restoreSquad(list) {                    // 读档：重建村民
+function restoreSquad(list) {
   if (!Array.isArray(list) || !list.length) return 0;
   let n = 0;
   for (const sd of list) {
@@ -3813,8 +3829,11 @@ function updateMobs(dt) {
       else if (dist < 6) { mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase * 0.85; }
       m.shootCd = (m.shootCd || 0) - dt;
       if (m.shootCd <= 0 && dist < 20 && sightClear(m.p, player.p)) { m.shootCd = 1.7; shootArrow(m); }
-    } else if (def.hostile && hostileNow && dist < 26 && player.alive) {
-      mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase;
+    } else if (def.hostile && hostileNow) {
+      const tgm = (m.target && m.target.hp > 0 && !m.target.dying && !m.target.recruit?.dying) ? m.target : null;
+      const tx = tgm ? tgm.p.x : player.p.x, tz = tgm ? tgm.p.z : player.p.z;
+      const tdx = tx - m.p.x, tdz = tz - m.p.z, td2 = Math.hypot(tdx, tdz);
+      if (td2 < 26 && (tgm || player.alive)) { mx = tdx / (td2 || 1); mz = tdz / (td2 || 1); speed = def.chase; }
     } else if (m.flee > 0) {                         // 被打之后逃跑
       mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase;
     } else {
@@ -3835,6 +3854,21 @@ function updateMobs(dt) {
       if (dist > 24) { m.p.set(player.p.x + 1.6, player.p.y + 0.1, player.p.z + 1.6); m.v.set(0, 0, 0); }
       else if (dist > 2.9) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase + 0.7; }
       else { mx = 0; mz = 0; speed = 0; }
+    }
+    // 村民任务：拿剑 → 自动打玩家周围的怪
+    if (m.recruit && m.recruit.hired && m.give && ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' && player.alive) {
+      m.scanCd = (m.scanCd || 0) - dt;
+      if (m.scanCd <= 0) { m.scanCd = 0.4; m.tgt = nearestHostileFrom(m, 16, 18); }
+      const tg = (m.tgt && !m.tgt.dying && m.tgt.hp > 0) ? m.tgt : null;
+      if (tg) {
+        const td = Math.hypot(tg.p.x - m.p.x, tg.p.z - m.p.z);
+        if (td > 1.7) { mx = (tg.p.x - m.p.x) / td; mz = (tg.p.z - m.p.z) / td; speed = 3.6; }
+        else {
+          mx = 0; mz = 0; speed = 0;
+          m.vAtk = (m.vAtk || 0) - dt;
+          if (m.vAtk <= 0) { m.vAtk = 1.1; villagerAttack(m, tg); }
+        }
+      }
     }
     if (m.knockT > 0) {                       // 被击退：保住冲量，AI 这段时间不接管
       m.knockT -= dt;
@@ -3896,7 +3930,18 @@ function updateMobs(dt) {
     }
     // 贴身攻击（所有敌对生物；骷髅是远程，只有贴脸才用近战）
     m.atkCd -= dt;
-    if (def.hostile && hostileNow && dist < (def.boss ? 2.4 : 1.5) && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.boss ? 3.2 : 2.0)) {
+    const tgtMob = (m.target && m.target.hp > 0 && !m.target.dying) ? m.target : null;
+    const reach = def.boss ? 2.4 : 1.5;
+    if (tgtMob) {                                                   // 目标已改成村民：打村民
+      const dv = Math.hypot(tgtMob.p.x - m.p.x, tgtMob.p.z - m.p.z);
+      if (def.hostile && hostileNow && dv < reach && m.atkCd <= 0) {
+        m.atkCd = def.atkCd || 1.6;
+        tgtMob.hp -= (def.dmg || 3) * 0.8;
+        tgtMob.flash = 0.24;
+        if (tgtMob.hp <= 0) startMobDeath(tgtMob);
+        sfx('hurt');
+      }
+    } else if (def.hostile && hostileNow && dist < reach && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.boss ? 3.2 : 2.0)) {
       m.atkCd = def.atkCd || 1.6;
       hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
       sfx('hurt');
