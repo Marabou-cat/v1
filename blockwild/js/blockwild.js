@@ -2826,7 +2826,17 @@ function lockPointer() {
 }
 addEventListener('keydown', e => {
   const k = e.code;
+  if (captureAction) {                             // 正在改键：吃掉这次按键
+    e.preventDefault();
+    if (k !== 'Escape') { keymap[captureAction] = k; saveCfg(); toast(`已绑定 ${prettyKey(k)}`, 1.4); }
+    captureAction = null; renderKeyRows();
+    return;
+  }
   keys.add(k);
+  if (started && !panelOpen && player.alive) {
+    if (k === keymap.mine) { mineHeld = true; attackQueued = true; }
+    if (k === keymap.place) placeQueued = true;
+  }
   if (k === 'Space') {
     jumpQueued = true; e.preventDefault();
     if (isCreative() && started) {                     // 创造模式连按两次空格 = 飞行开关
@@ -2839,12 +2849,13 @@ addEventListener('keydown', e => {
       } else lastSpaceT = now;
     }
   }
-  if (k === 'KeyE') { if (started) openPanel(!panelOpen); e.preventDefault(); }
+  if (k === keymap.bag) { if (started) openPanel(!panelOpen); e.preventDefault(); }
   if (k.startsWith('Digit')) {
     const n = +k.slice(5);
     if (n >= 1 && n <= 9) { player.sel = n - 1; refreshHeld(); renderHotbar(); }
   }
   if (k === 'Escape') {
+    if (!$('settings').classList.contains('hide')) { openSettings(false); e.preventDefault(); return; }
     if (openChestPos) { closeChest(); e.preventDefault(); return; }
     if (!$('furnace').classList.contains('hide')) { closeFurnace(); e.preventDefault(); return; }
     if (panelOpen) { openPanel(false); e.preventDefault(); return; }
@@ -2859,23 +2870,31 @@ addEventListener('wheel', e => {
 
 renderer.domElement.addEventListener('mousedown', e => {
   if (!started || panelOpen || !player.alive) return;
-  if (document.pointerLockElement !== renderer.domElement) { lockPointer(); return; }
+  if (document.pointerLockElement !== renderer.domElement) {
+    if (userCfg.touchUI && e.button === 0) { dragLook = true; return; }   // 无指针锁：鼠标拖拽转视角
+    lockPointer(); return;
+  }
   if (e.button === 0) { mineHeld = true; attackQueued = true; if (heldKind() === 'sword') startSwing('attack', 0.5); }
   if (e.button === 2) placeQueued = true;
 });
-addEventListener('mouseup', e => { if (e.button === 0) mineHeld = false; });
+addEventListener('keyup', e => { if (e.code === keymap.mine) mineHeld = false; });
+addEventListener('mouseup', e => { if (e.button === 0) { mineHeld = false; dragLook = false; } });
 addEventListener('contextmenu', e => e.preventDefault());
+let dragLook = false;
 addEventListener('mousemove', e => {
   if (!started || panelOpen) return;
+  const sens = userCfg.sens;
   if (document.pointerLockElement === renderer.domElement) {
-    player.yaw -= e.movementX * 0.0023;
-    player.pitch = clamp(player.pitch - e.movementY * 0.0023, -1.53, 1.53);
+    player.yaw -= e.movementX * 0.0023 * sens;
+    player.pitch = clamp(player.pitch - e.movementY * 0.0023 * sens, -1.53, 1.53);
+  } else if (dragLook) {                                   // 虚拟按键模式：按住左键拖动看四周
+    player.yaw -= e.movementX * 0.0035 * sens;
+    player.pitch = clamp(player.pitch - e.movementY * 0.0035 * sens, -1.53, 1.53);
   }
 });
 
 /* ---------- 触屏 ---------- */
-const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
-if (isTouch) document.body.classList.add('touch');
+const isTouchDevice = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
 const stick = $('stick'), knob = $('knob');
 let stickId = null, lookId = null, lookLast = null, pinchDist = 0;
 stick.addEventListener('touchstart', e => {
@@ -2895,8 +2914,8 @@ addEventListener('touchmove', e => {
       joy.x = dx / max; joy.y = dy / max;
     } else if (t.identifier === lookId) {
       if (lookLast) {
-        player.yaw -= (t.clientX - lookLast.x) * 0.0052;
-        player.pitch = clamp(player.pitch - (t.clientY - lookLast.y) * 0.0052, -1.53, 1.53);
+        player.yaw -= (t.clientX - lookLast.x) * 0.0052 * userCfg.sens;
+        player.pitch = clamp(player.pitch - (t.clientY - lookLast.y) * 0.0052 * userCfg.sens, -1.53, 1.53);
       }
       lookLast = { x: t.clientX, y: t.clientY };
     }
@@ -3211,18 +3230,25 @@ function hurtPlayerFrom(sx, sz, dmg, power = 5.4) {
 function updatePlayer(dt) {
   player.atkCd = Math.max(0, player.atkCd - dt);
   if (!player.alive) { player.v.set(0, 0, 0); return; }
+  // 键盘转视角（没有鼠标就靠这个）
+  const lookSpd = 1.9 * userCfg.sens;
+  if (keyDown('lookLeft')) player.yaw += lookSpd * dt;
+  if (keyDown('lookRight')) player.yaw -= lookSpd * dt;
+  if (keyDown('lookUp')) player.pitch = clamp(player.pitch + lookSpd * dt, -1.53, 1.53);
+  if (keyDown('lookDown')) player.pitch = clamp(player.pitch - lookSpd * dt, -1.53, 1.53);
+
   let ix = 0, iz = 0;
-  if (keys.has('KeyW') || keys.has('ArrowUp')) iz -= 1;
-  if (keys.has('KeyS') || keys.has('ArrowDown')) iz += 1;
-  if (keys.has('KeyA') || keys.has('ArrowLeft')) ix -= 1;
-  if (keys.has('KeyD') || keys.has('ArrowRight')) ix += 1;
+  if (keyDown('fwd')) iz -= 1;
+  if (keyDown('back')) iz += 1;
+  if (keyDown('left')) ix -= 1;
+  if (keyDown('right')) ix += 1;
   if (joy.active) { ix += joy.x; iz += joy.y; }
   const len = Math.hypot(ix, iz);
   if (len > 1) { ix /= len; iz /= len; }
   const sink = Math.sin(player.yaw), cosk = Math.cos(player.yaw);
   const wx = ix * cosk + iz * sink;
   const wz = -ix * sink + iz * cosk;
-  const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  const sprint = keyDown('sprint') || (keymap.sprint === 'ShiftLeft' ? keys.has('ShiftRight') : false);
   const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : 1);
   if (player.knockT > 0) {                    // 被击退：这几帧不接受方向键，靠冲量滑出去
     player.knockT -= dt;
@@ -3236,7 +3262,7 @@ function updatePlayer(dt) {
   const feetBlock = getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 0.2), Math.floor(player.p.z));
   player.inWater = feetBlock === 5;
   if (player.fly) {                              // 创造模式飞行：空格上升、Shift 下降
-    const up = (keys.has('Space') || keys.has('KeyZ') || performance.now() - jumpTouchT < 120) ? 1 : 0;
+    const up = (keyDown('jump') || keys.has('KeyZ') || performance.now() - jumpTouchT < 120) ? 1 : 0;
     const down = (keys.has('ShiftLeft') || keys.has('ShiftRight')) ? 1 : 0;
     player.v.y = (up - down) * 7.2;
     jumpQueued = false;
@@ -3400,6 +3426,85 @@ function updateHUD(dt) {
     `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
   if (s !== lastStatus) { hud.status.innerHTML = s; lastStatus = s; }
   renderHearts();
+}
+
+/* ============================================================ 设置 / 改键 */
+const CFG_KEY = 'blockwild_cfg_v1';
+const DEFAULT_KEYS = {
+  fwd: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD',
+  jump: 'Space', sprint: 'ShiftLeft',
+  mine: 'KeyF', place: 'KeyG', bag: 'KeyE',
+  lookUp: 'ArrowUp', lookDown: 'ArrowDown', lookLeft: 'ArrowLeft', lookRight: 'ArrowRight',
+};
+const KEY_LABEL = {
+  fwd: '前进', back: '后退', left: '左移', right: '右移', jump: '跳跃', sprint: '疾跑',
+  mine: '挖 / 攻击（按住）', place: '放置 / 使用', bag: '背包',
+  lookUp: '视角上', lookDown: '视角下', lookLeft: '视角左', lookRight: '视角右',
+};
+const DEFAULT_CFG = { sens: 1, touchUI: false };
+let userCfg = { ...DEFAULT_CFG };
+let keymap = { ...DEFAULT_KEYS };
+let captureAction = null;
+
+function loadCfg() {
+  try {
+    const raw = localStorage.getItem(CFG_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (!d || typeof d !== 'object') return;
+    if (typeof d.sens === 'number') userCfg.sens = clamp(d.sens, 0.3, 2.5);
+    if (typeof d.touchUI === 'boolean') userCfg.touchUI = d.touchUI;
+    if (d.keys) for (const k of Object.keys(DEFAULT_KEYS)) if (typeof d.keys[k] === 'string' && d.keys[k]) keymap[k] = d.keys[k];
+  } catch (e) {}
+}
+function saveCfg() {
+  try { localStorage.setItem(CFG_KEY, JSON.stringify({ ...userCfg, keys: keymap })); } catch (e) {}
+}
+const keyDown = act => keys.has(keymap[act]);
+function prettyKey(code) {
+  if (!code) return '—';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  const m = {
+    Space: '空格', ShiftLeft: '左Shift', ShiftRight: '右Shift', ControlLeft: '左Ctrl', ControlRight: '右Ctrl',
+    AltLeft: '左Alt', AltRight: '右Alt', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
+    Enter: '回车', Tab: 'Tab', Backquote: '`', Minus: '-', Equal: '=', Comma: ',', Period: '.', Slash: '/',
+  };
+  return m[code] || code;
+}
+function applyTouchUI() {
+  document.body.classList.toggle('touch', userCfg.touchUI || isTouchDevice);
+}
+function renderKeyRows() {
+  const box = $('keyRows');
+  if (!box) return;
+  box.innerHTML = '';
+  for (const act of Object.keys(DEFAULT_KEYS)) {
+    const row = document.createElement('div');
+    row.className = 'setrow';
+    const name = document.createElement('span');
+    name.textContent = KEY_LABEL[act] || act;
+    const btn = document.createElement('button');
+    btn.className = 'btn keybtn';
+    btn.textContent = captureAction === act ? '按一个键…' : prettyKey(keymap[act]);
+    if (captureAction === act) btn.style.outline = '2px solid #f5c451';
+    btn.onclick = () => { captureAction = act; renderKeyRows(); };
+    row.appendChild(name); row.appendChild(btn);
+    box.appendChild(row);
+  }
+}
+function openSettings(open) {
+  captureAction = null;
+  const el = $('settings');
+  if (!el) return;
+  el.classList.toggle('hide', !open);
+  if (open) {
+    renderKeyRows();
+    $('setSens').value = String(userCfg.sens);
+    $('setSensVal').textContent = userCfg.sens.toFixed(1) + '×';
+    $('setTouchUI').textContent = userCfg.touchUI ? '开' : '关';
+    if (document.pointerLockElement) document.exitPointerLock();
+  } else if (started) lockPointer();
 }
 
 /* ============================================================ 多世界存档 */
@@ -3644,6 +3749,27 @@ $('btnCreate').onclick = () => {
   startGame(w);
 };
 $('btnReset').onclick = () => { save(); location.reload(); };   // 回世界列表
+loadCfg();
+applyTouchUI();
+$('btnSettings').onclick = () => openSettings(true);
+$('btnSettings2').onclick = () => openSettings(true);
+$('btnCloseSettings').onclick = () => openSettings(false);
+$('setSens').oninput = () => {
+  userCfg.sens = +$('setSens').value;
+  $('setSensVal').textContent = userCfg.sens.toFixed(1) + '×';
+  saveCfg();
+};
+$('setTouchUI').onclick = () => {
+  userCfg.touchUI = !userCfg.touchUI;
+  $('setTouchUI').textContent = userCfg.touchUI ? '开' : '关';
+  applyTouchUI(); saveCfg();
+  toast(userCfg.touchUI ? '虚拟按键：开（鼠标按住拖动可转视角）' : '虚拟按键：关', 2);
+};
+$('btnResetKeys').onclick = () => {
+  keymap = { ...DEFAULT_KEYS };
+  saveCfg(); renderKeyRows();
+  toast('键位已恢复默认', 1.6);
+};
 loadIndex();
 renderWorldList();
 $('btnBag').onclick = () => openPanel(!panelOpen);
@@ -3862,6 +3988,10 @@ window.GAME = {
     },
     water: (x, y, z, lvl) => { if (lvl === undefined) { setBlock(x, y, z, 5); } else setWater(x, y, z, lvl); wakeWater(x, y, z); },
     waterInfo: () => ({ flowing: waterFlow.size, queued: waterQueue.length }),
+    cfg: () => ({ sens: userCfg.sens, touchUI: userCfg.touchUI, keys: { ...keymap } }),
+    setKey: (act, code) => { if (!DEFAULT_KEYS[act]) return false; keymap[act] = code; saveCfg(); renderKeyRows(); return true; },
+    press: (code) => { keys.add(code); return true; },
+    release: (code) => { keys.delete(code); if (code === keymap.mine) mineHeld = false; },
     useHeld: () => {                            // 等价于右键（探针用，绕开 pointer lock）
       const h = held(), t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
       if (h && h.id === 152) return useBucket(true, t);

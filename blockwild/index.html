@@ -45,6 +45,14 @@
   .slot .k{position:absolute;left:2px;top:0;font-size:9px;color:#7d93ad}
   .slot .dur{position:absolute;left:3px;right:3px;bottom:1px;height:3px;background:#000a;border-radius:1px;overflow:hidden}
   .slot .dur b{display:block;height:100%}
+  /* ---------- settings ---------- */
+  .setrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:7px 0;font-size:12px;color:#b9cbe1}
+  .setrow input[type=range]{flex:1;max-width:180px}
+  .keybtn{min-width:96px;text-align:center}
+  #settings .card{padding:14px 16px 16px}
+  #settings .setrow{margin:3px 0;font-size:11.5px}
+  #settings .keybtn{min-width:78px;padding:4px 8px;font-size:11.5px}
+  .setsec{font-size:11px;letter-spacing:2px;color:#8fa6c0;margin:14px 0 6px;border-bottom:1px solid #24344a;padding-bottom:5px}
   /* ---------- target + mining bar ---------- */
   #tgt{position:absolute;left:50%;top:calc(50% + 22px);transform:translateX(-50%);font-size:11px;color:#dbe6f4;
     text-shadow:0 1px 2px #000;opacity:.9}
@@ -127,6 +135,7 @@
   <div id="flash"></div>
   <div id="topbtns">
     <button class="btn" id="btnBag">背包 E</button>
+    <button class="btn" id="btnSettings2">设置</button>
     <button class="btn" id="btnReset">世界</button>
   </div>
   <div id="touch">
@@ -148,11 +157,14 @@
     <div id="worldList"></div>
     <div class="startrow">
       <button class="btn gold" id="btnNewWorld">＋ 创建新世界</button>
+      <button class="btn" id="btnSettings">设置 / 改键</button>
     </div>
     <div class="keys">
       <b>W A S D</b><span>移动（Shift 疾跑）</span>
       <b>鼠标</b><span>转视角（点击画面锁定鼠标）</span>
       <b>空格</b><span>跳跃（创造模式里连按两次切换飞行）</span>
+      <b>方向键</b><span>转视角（没有鼠标就靠它，可在「设置」里改）</span>
+      <b>F / G</b><span>挖方块(按住) / 放方块（键位可改）</span>
       <b>左键（按住）</b><span>挖方块 / 攻击野怪</span>
       <b>右键</b><span>放下方块 / 吃食物 / 开箱子、熔炉、工作台</span>
       <b>1 - 9 / 滚轮</b><span>切换快捷栏</span>
@@ -179,6 +191,24 @@
     <input id="wSeed" maxlength="24" placeholder="例如 12345 或 hello" style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:6px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:13px">
     <div class="startrow">
       <button class="btn gold" id="btnCreate">创建并进入</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hide" id="settings">
+  <div class="card" style="max-width:540px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="sec" style="border:0;margin:0">设置 · 控制</div>
+      <button class="btn" id="btnCloseSettings">关闭</button>
+    </div>
+    <p style="color:#8ea3ba;font-size:11.5px;margin:0 0 4px">没有鼠标也能玩：<b style="color:#f5c451">WASD 移动 + 方向键看四周 + F 按住挖 + G 放</b>。点右边的按键框再按任意键即可改键。</p>
+    <div class="setsec">键位</div>
+    <div id="keyRows"></div>
+    <div class="setsec">操作</div>
+    <div class="setrow"><span>视角灵敏度</span><input type="range" id="setSens" min="0.3" max="2.5" step="0.1"><b id="setSensVal" style="color:#f5c451;min-width:38px;text-align:right">1.0×</b></div>
+    <div class="setrow"><span>屏幕虚拟按键（鼠标拖拽也能转视角）</span><button class="btn" id="setTouchUI" style="min-width:60px">关</button></div>
+    <div class="startrow" style="margin-top:14px">
+      <button class="btn" id="btnResetKeys">恢复默认键位</button>
     </div>
   </div>
 </div>
@@ -234,6 +264,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=44"></script>
+<script type="module" src="./js/blockwild.js?v=46"></script>
 </body>
 </html>
