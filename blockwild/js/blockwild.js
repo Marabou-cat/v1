@@ -3287,6 +3287,122 @@ function makeMobModel(kind) {
   return { g, core, coreY: G.coreY, bodyMat, headMat, arm1: arms[0] || null, arm2: arms[1] || null, bar, barFg, limbs };
 }
 
+/* ── 村民招募：不能交易，只能「满足需求 → 招入队」；招募后可指挥跟随、可给道具 ── */
+const RECRUIT_WANTS = [
+  { id: 107, n: 3 },   // 小麦
+  { id: 8, n: 6 },     // 木板
+  { id: 9, n: 8 },     // 圆石
+  { id: 105, n: 2 },   // 苹果
+  { id: 124, n: 2 },   // 面包
+  { id: 13, n: 4 },    // 煤矿石
+  { id: 106, n: 2 },   // 铁锭
+  { id: 142, n: 2 },   // 羊毛
+  { id: 145, n: 2 },   // 生羊肉
+  { id: 21, n: 6 },    // 石砖
+];
+function rollDemand() {
+  const w = RECRUIT_WANTS[Math.floor(Math.random() * RECRUIT_WANTS.length)];
+  return { id: w.id, need: w.n + Math.floor(Math.random() * 2), got: 0 };
+}
+function markTex(kind) {                        // 头顶标记：! = 待招募，★ = 已招募
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 32;
+  const g = cv.getContext('2d');
+  g.font = 'bold 26px sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = kind === 'hired' ? '#8ef06a' : '#ffd84a';
+  g.strokeStyle = 'rgba(0,0,0,.65)'; g.lineWidth = 4;
+  const ch = kind === 'hired' ? '★' : '!';
+  g.strokeText(ch, 16, 17); g.fillText(ch, 16, 17);
+  const t = new THREE.CanvasTexture(cv);
+  t.magFilter = THREE.NearestFilter;
+  return t;
+}
+const MARK_TEX = {};
+function refreshVillagerMark(m) {
+  if (m.mark) { m.obj.remove(m.mark); m.mark.material.map.dispose(); m.mark.material.dispose(); m.mark.geometry.dispose(); m.mark = null; }
+  const key = m.recruit.hired ? 'hired' : 'ask';
+  if (!MARK_TEX[key]) MARK_TEX[key] = markTex(key);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: MARK_TEX[key], transparent: true, depthTest: false }));
+  sp.scale.set(0.34, 0.34, 1);
+  sp.position.set(0, MOB_DEFS[m.kind].barY + 0.62, 0);
+  sp.renderOrder = 6;
+  m.obj.add(sp);
+  m.mark = sp;
+}
+function showVillagerGift(m) {                  // 手里拿的东西：头顶旁边挂一个小图标
+  if (m.gift) { m.obj.remove(m.gift); m.gift.geometry.dispose(); m.gift.material.dispose(); m.gift = null; }
+  if (!m.give) return;
+  const def = BLOCKS[m.give.id];
+  let mesh;
+  if (def) {
+    const tile = def.top, t2 = atlasTex.clone();
+    t2.needsUpdate = true;
+    t2.repeat.set(1 / ATLAS_COLS, 1 / ATLAS_ROWS);
+    t2.offset.set((tile % ATLAS_COLS) / ATLAS_COLS, 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS);
+    mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), new THREE.MeshBasicMaterial({ map: t2 }));
+  } else {                                        // 非方块道具：直接用物品图标（iconURL 画的那张）
+    const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1 });
+    const tex = new THREE.TextureLoader().load(iconURL(m.give.id));
+    tex.magFilter = THREE.NearestFilter;
+    mat.map = tex;
+    mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), mat);
+  }
+  mesh.position.set(0.3, MOB_DEFS[m.kind].barY + 0.62, 0);
+  mesh.renderOrder = 6;
+  m.obj.add(mesh);
+  m.gift = mesh;
+}
+function mobAtCrosshair(range = 4.2) {          // 准星指向的怪/村民
+  const eye = eyePos(), dir = cameraDir();
+  let best = null, bestT = 1e9;
+  for (const m of mobs) {
+    if (m.dying) continue;
+    const c = m.p.clone(); c.y += 0.8;
+    const d = c.sub(eye);
+    const t = d.dot(dir);
+    if (t < 0.4 || t > range) continue;
+    const perp = d.clone().sub(dir.clone().multiplyScalar(t)).length();
+    if (perp < 1.05 && t < bestT) { best = m; bestT = t; }
+  }
+  return best;
+}
+function recruitInteract(m) {                    // 右键村民：交物资 / 招募 / 给道具 / 指挥
+  const r = m.recruit;
+  const h = held();
+  if (!r.hired) {
+    if (!h) { toast(`他想要 ${nameOf(r.want.id)} ×${r.want.need}（还差 ${r.want.need - r.want.got}）`, 2.0); return true; }
+    if (h.id !== r.want.id) { toast(`他不收 ${nameOf(h.id)}，想要 ${nameOf(r.want.id)} ×${r.want.need}`, 2.0); return true; }
+    const give = Math.min(h.n, r.want.need - r.want.got);
+    takeItem(h.id, give);
+    r.want.got += give;
+    if (r.want.got >= r.want.need) {
+      r.hired = true; r.follow = true;
+      refreshVillagerMark(m);
+      toast(`${MOB_DEFS[m.kind].name}入队了！空手右键可以让他跟随 / 待命`, 3.0);
+      sfx('craft');
+    } else {
+      toast(`交给他 ${nameOf(h.id)} ×${give}（${r.want.got}/${r.want.need}）`, 1.6);
+      sfx('place');
+    }
+    renderHotbar(); refreshHeld(); saveSoon();
+    return true;
+  }
+  if (h) {                                       // 已入队：给道具
+    takeItem(h.id, 1);
+    m.give = { id: h.id, n: 1 };
+    showVillagerGift(m);
+    const bonus = ITEMS[h.id] && ITEMS[h.id].kind === 'food' ? '（他会自己吃掉补血）' : '（拿在手里跟着你）';
+    toast(`给了 ${MOB_DEFS[m.kind].name} ${nameOf(h.id)} ${bonus}`, 2.2);
+    if (ITEMS[h.id] && ITEMS[h.id].kind === 'food') { m.hp = Math.min(m.maxHp, m.hp + 8); m.give = null; showVillagerGift(m); }
+    renderHotbar(); refreshHeld(); saveSoon();
+    return true;
+  }
+  r.follow = !r.follow;                          // 空手右键：跟随 / 待命
+  toast(r.follow ? `${MOB_DEFS[m.kind].name}：跟着你` : `${MOB_DEFS[m.kind].name}：原地待命`, 1.6);
+  return true;
+}
+
 function spawnMobAt(kind, x, y, z, opts = {}) {
   const def = MOB_DEFS[kind];
   if (!def) return null;
@@ -3300,9 +3416,11 @@ function spawnMobAt(kind, x, y, z, opts = {}) {
     home: opts.home || null,
     obj: parts.g, parts,
   };
+  if (kind === 'villager') { m.recruit = { want: rollDemand(), hired: false, follow: false }; }
   m.obj.position.copy(m.p);
   scene.add(m.obj);
   mobs.push(m);
+  if (m.recruit) refreshVillagerMark(m);
   return m;
 }
 
@@ -3542,6 +3660,11 @@ function updateMobs(dt) {
         const hd = Math.hypot(hx, hz);
         if (hd > 14) { mx = hx / hd; mz = hz / hd; speed = def.wander; }
       }
+    }
+    if (m.recruit && m.recruit.hired && m.recruit.follow && player.alive) {
+      if (dist > 24) { m.p.set(player.p.x + 1.6, player.p.y + 0.1, player.p.z + 1.6); m.v.set(0, 0, 0); }
+      else if (dist > 2.9) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase + 0.7; }
+      else { mx = 0; mz = 0; speed = 0; }
     }
     if (m.knockT > 0) {                       // 被击退：保住冲量，AI 这段时间不接管
       m.knockT -= dt;
@@ -4279,6 +4402,8 @@ function toggleDoor(x, y, z) {
   return true;
 }
 function placeBlock() {
+  const vm = mobAtCrosshair();                                   // 对着村民右键 = 招募 / 给道具 / 指挥
+  if (vm && vm.recruit) return recruitInteract(vm);
   const h0 = held();
   if (h0 && ITEMS[h0.id] && ITEMS[h0.id].kind === 'food') return false;   // 食物走长按吃，不放置
   const t0 = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
@@ -5599,6 +5724,14 @@ window.GAME = {
       }
       return { dir, open, x: [+mnx.toFixed(3), +mxx.toFixed(3)], z: [+mnz.toFixed(3), +mxz.toFixed(3)] };
     },
+    villagers: () => mobs.filter(m => m.recruit).map(m => ({
+      hp: m.hp, hired: m.recruit.hired, follow: m.recruit.follow,
+      want: { name: nameOf(m.recruit.want.id), need: m.recruit.want.need, got: m.recruit.want.got },
+      give: m.give ? nameOf(m.give.id) : null, hasMark: !!m.mark, hasGift: !!m.gift,
+      pos: [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)],
+    })),
+    spawnVillager: () => { const p = spawnMobAt('villager', Math.floor(player.p.x) + 2, Math.floor(player.p.y) + 1, Math.floor(player.p.z));
+      return p ? { ok: true, want: nameOf(p.recruit.want.id), need: p.recruit.want.need } : { ok: false }; },
     plants: () => { let n36 = 0, n37 = 0, meshes = 0, verts = 0;
       for (const ch of chunks.values()) {
         meshes += ch.plant ? 1 : 0;
