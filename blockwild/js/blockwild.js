@@ -1358,8 +1358,8 @@ function emitStair(wx, y, wz, def, meta, P, U, C, I, base) {
   let v = base, first = true;
   for (const [x0, y0, z0, x1, y1, z1] of boxes) {
     for (let fi = 0; fi < 6; fi++) {
-      if (first && fi === 2) continue;                       // 底盒顶面（被上面盖住）
-      if (!first && fi === 3) continue;                      // 顶盒底面（重合，剔掉防 z-fighting）
+      // 底盒的顶面必须画：顶盒只盖住一半，另一半就是台阶面（不画就会看到破洞/像块悬空板）
+      if (!first && fi === 3) continue;                      // 顶盒底面被底盒顶面盖住，剔掉防 z-fighting
       const F = FACES[fi], sh = F.sh, s = sh;
       for (let k = 0; k < 4; k++) {
         const V = F.v[k];
