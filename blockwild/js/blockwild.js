@@ -263,7 +263,7 @@ const BLOCKS = {
   9: { name: '圆石', top: 9, side: 9, bottom: 9, hard: 1.9, drop: 9, pick: true },
   10: { name: '工作台', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10 },
   13: { name: '煤矿石', top: 13, side: 13, bottom: 13, hard: 2.2, drop: 13, pick: true },
-  14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true, half: 0.5 },
+  14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true, half: 0.45 },
   15: { name: '铁矿石', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 15, pick: true, stonePick: true },
   16: { name: '农田', top: 17, side: 2, bottom: 2, hard: 0.5, drop: 2 },
   17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true, plant: true, mature: true },
@@ -440,6 +440,23 @@ function makeAtlas() {
       if (y % 4 === 0) px(c, r, x, y, '#a8946a');
       else if ((x * 7 + y * 5) % 17 === 0) px(c, r, x, y, '#c4b285');
     }
+  });
+  // 38 枕头布：奶白 + 淡淡褶皱
+  T(38, '#efeae0', 0.025, (c, r) => {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const k = (x * 5 + y * 3) % 19;
+      if (k === 0) px(c, r, x, y, '#ded6c6');
+      if (k === 1 && x > 0) px(c, r, x - 1, y, '#e7e0d3');
+    }
+    for (let x = 0; x < S; x++) { px(c, r, x, 0, '#cfc7b6'); px(c, r, x, 15, '#d8d0bf'); }
+  });
+  // 39 被子：红底织纹（枕头是独立几何，这张瓦片不再画白枕带）
+  T(39, '#b8423f', 0.05, (c, r) => {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      if ((x * 3 + y * 5) % 17 === 0) px(c, r, x, y, '#a33633');
+      if (y % 8 === 3) px(c, r, x, y, '#a83a37');
+    }
+    for (let x = 0; x < S; x++) { px(c, r, x, 0, '#8e2c2a'); px(c, r, x, 15, '#8e2c2a'); }
   });
   // 24 石砖：整齐的砖块 + 灰浆缝
   T(24, '#8a8a8a', 0.07, (c, r) => {
@@ -1380,6 +1397,60 @@ function emitStair(lx, y, lz, def, meta, P, U, C, I, base) {
   return v - base;                          // 实际压入的顶点数（跳过顶盒底面 = 11 面 / 44 顶点）
 }
 
+// ── 通用盒子：自定义形状（床/家具）用。只画 5 面（底面永远贴在下面一层，画了只会 z-fighting）
+// 坐标全是「区块内局部坐标 + 格内偏移 0..1」，别写世界坐标（见 emitStair 上面那条注释）
+function emitBox(P, U, C, I, base, lx, y, lz, x0, x1, y0, y1, z0, z1, tile) {
+  const u0 = (tile % ATLAS_COLS) / ATLAS_COLS + 0.0015;
+  const v0 = 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.0015;
+  const iu = 1 / ATLAS_COLS - 0.003, iv = 1 / ATLAS_ROWS - 0.003;
+  let v = base;
+  for (let fi = 0; fi < 6; fi++) {
+    if (fi === 3) continue;                                // 底面不画
+    const F = FACES[fi], s = F.sh;
+    for (let k = 0; k < 4; k++) {
+      const V = F.v[k];
+      P.push(lx + (V[0] ? x1 : x0), y + (V[1] ? y1 : y0), lz + (V[2] ? z1 : z0));
+      U.push(u0 + CORNERS[k][0] * iu, v0 + CORNERS[k][1] * iv);
+      C.push(s, s, s);
+    }
+    I.push(v, v + 1, v + 2, v, v + 2, v + 3);
+    v += 4;
+  }
+  return v - base;
+}
+
+// ── 床：木床架 + 床垫 + 3D 枕头（两格）。meta：脚格 1..4 = 指向床头的方向；
+//    头格 5..8 = 同上 +4（只有头格画枕头，所以一对床只有一只枕头）。
+//    meta=0（旧存档）按邻居推断，保证老床也能出一只枕头。
+const BED_T_FRAME = 8, BED_T_MAT = 39, BED_T_PILLOW = 38;
+function bedFacing(wx, y, wz, meta) {
+  if (meta) return { dir: meta > 4 ? meta - 4 : meta, head: meta > 4 };
+  const isBed = (dx, dz) => getBlock(wx + dx, y, wz + dz) === 14;
+  if (isBed(-1, 0)) return { dir: 1, head: true };          // 同伴在 -X ⇒ 自己在 +X 端 = 头
+  if (isBed(1, 0)) return { dir: 2, head: false };          // 同伴在 +X ⇒ 自己是脚
+  if (isBed(0, -1)) return { dir: 3, head: true };
+  if (isBed(0, 1)) return { dir: 4, head: false };
+  return { dir: 3, head: true };                            // 单格孤床：当床头，至少有个枕头
+}
+function emitBed(lx, y, lz, wx, wz, meta, P, U, C, I, base) {
+  const { dir, head } = bedFacing(wx, y, wz, meta);
+  const alongX = dir === 1 || dir === 2;                    // 床轴 = X 轴
+  const flip = dir === 2 || dir === 4;                      // 沿轴坐标 0 = 脚那侧，需要取反
+  const mapA = t => flip ? 1 - t : t;
+  let n = 0;
+  const box = (a0, a1, w0, w1, y0, y1, tile) => {           // a=沿床轴, w=横向
+    const p0 = mapA(a0), p1 = mapA(a1);
+    const lo = Math.min(p0, p1), hi = Math.max(p0, p1);
+    n += alongX
+      ? emitBox(P, U, C, I, base + n, lx, y, lz, lo, hi, y0, y1, w0, w1, tile)
+      : emitBox(P, U, C, I, base + n, lx, y, lz, w0, w1, y0, y1, lo, hi, tile);
+  };
+  box(0.04, 0.96, 0.04, 0.96, 0.00, 0.16, BED_T_FRAME);     // 木床架
+  box(0.02, 0.98, 0.06, 0.94, 0.16, 0.45, BED_T_MAT);       // 床垫/被子
+  if (head) box(0.70, 0.96, 0.14, 0.86, 0.45, 0.58, BED_T_PILLOW);   // 枕头（床头远端）
+  return n;
+}
+
 function buildChunk(chunk) {
   const CH = CFG.CH, WH = CFG.WH;
   const ox = chunk.cx * CH, oz = chunk.cz * CH;
@@ -1395,6 +1466,7 @@ function buildChunk(chunk) {
     const wx = ox + x, wz = oz + z;
     const meta = (blockMeta.size || genMeta.size) ? getMeta(wx, y, wz) : 0;
     if (def.stair) { vc += emitStair(x, y, z, def, meta, P, U, C, I, vc); continue; }
+    if (def.bed) { vc += emitBed(x, y, z, wx, wz, meta, P, U, C, I, vc); continue; }
     const water = id === 5;
     const glass = id === 22;
     const solidTop = def.half || 1;                       // 床这类半格方块
@@ -1404,7 +1476,10 @@ function buildChunk(chunk) {
       const nb = getBlock(wx + f.n[0], y + f.n[1], wz + f.n[2]);
       if (water) { if (nb !== 0) continue; }
       else if (glass) { if (nb === 22 || nb === 5) continue; }          // 玻璃之间不画内面
-      else if (nb !== 0 && nb !== 5 && nb !== 22) continue;             // 固体朝着玻璃也要画
+      // ⚠ 半格方块（床）不是满格：它只占下半格，若照旧把邻面剔掉，
+      // 邻居方块朝向床的那一面就整面消失 → 从床上看过去能直接穿进方块里（"床周围方块穿透"）。
+      // 半格邻居一律照画（半格自己的侧面会被这一条同源规则挡住，不会 z-fighting）。
+      else if (nb !== 0 && nb !== 5 && nb !== 22 && !(BLOCKS[nb] && BLOCKS[nb].half)) continue;
       const t = faceTile(def, fi, meta);
       const u0 = (t % ATLAS_COLS) / ATLAS_COLS + 0.0015;
       const v0 = 1 - (((t / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.0015;
@@ -2457,7 +2532,7 @@ function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
   put(hx, gy + h + 2 + d, hz, log);
   const bx = hx + (rnd() < 0.5 ? -w + 1 : w - 1), bz = hz + (rnd() < 0.5 ? -d + 1 : d - 1);
   put(bx, gy + 1, bz, 18);                                                                    // 屋内箱子
-  if (rnd() < 0.5) put(bx + (bx > hx ? -1 : 1), gy + 1, bz, 14);                              // 有时放张床
+  if (rnd() < 0.5) put(bx + (bx > hx ? -1 : 1), gy + 1, bz, 14, 7);                          // 有时放张床（7 = 床头，带枕头）
 }
 
 function buildFarm(put, carve, fx, fz, r, rnd) {
@@ -3909,8 +3984,9 @@ function placeBlock() {
       toast('床下面要有地面', 1.7); return false;
     }
     if (blockBoxBlocks(hx, y, hz)) { toast('这里放不下（会卡住自己）', 1.4); return false; }
-    setBlock(x, y, z, 14);
-    setBlock(hx, y, hz, 14);
+    const bdir = bx > 0 ? 1 : bx < 0 ? 2 : bz > 0 ? 3 : 4;    // 脚 → 头 的方向
+    setBlock(x, y, z, 14); setMeta(x, y, z, bdir);            // 脚格（无枕头）
+    setBlock(hx, y, hz, 14); setMeta(hx, y, hz, bdir + 4);    // 头格（枕头在远端）
     if (!isCreative()) takeItem(14, 1);
     setSpawnAt(x, y, z);
     sfx('place'); startSwing('place', 0.26);
