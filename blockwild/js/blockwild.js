@@ -263,7 +263,7 @@ const BLOCKS = {
   9: { name: '圆石', top: 9, side: 9, bottom: 9, hard: 1.9, drop: 9, pick: true },
   10: { name: '工作台', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10 },
   13: { name: '煤矿石', top: 13, side: 13, bottom: 13, hard: 2.2, drop: 13, pick: true },
-  14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true },
+  14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true, half: 0.5 },
   15: { name: '铁矿石', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 15, pick: true, stonePick: true },
   16: { name: '农田', top: 17, side: 2, bottom: 2, hard: 0.5, drop: 2 },
   17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true },
@@ -790,6 +790,13 @@ function genChunk(cx, cz) {
       }
     }
   }
+  // 悬空水清理：洞穴/裂谷/矿洞会把水下面的岩层掏空，水块就会浮在空中。
+  // 从下往上扫，下面已经是空气（或刚被清掉）的水一起去掉；玩家靠近后模拟会从旁边补成瀑布。
+  for (let y = 1; y < WH; y++) for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
+    const i = (y * CH + z) * CH + x;
+    if (b[i] !== 5) continue;
+    if (b[((y - 1) * CH + z) * CH + x] === 0) b[i] = 0;
+  }
   return b;
 }
 
@@ -965,6 +972,34 @@ const waterMat = new THREE.MeshBasicMaterial({
   depthWrite: false, side: THREE.DoubleSide, fog: true,
 });
 
+// 水面高度：水源/从上方落下的水 = 整格；横向流出的水按等级往下压，越远越薄
+const waterTopH = (x, y, z) => {
+  const lvl = flowLvl(x, y, z);
+  if (lvl <= 0) return 1.0;
+  return Math.max(0.42, 1 - 0.145 * lvl);          // 1..4 → 0.855 / 0.71 / 0.565 / 0.42
+};
+// 四个角点各自取周围最低水面 → 水面自然变成斜的（流到落差处会向下倾斜成瀑布口）
+function waterCornerHeights(x, y, z) {
+  const own = waterTopH(x, y, z);
+  const surf = (nx, nz) => {
+    const id = getBlock(nx, y, nz);
+    if (id === 5) return waterTopH(nx, y, nz);
+    if (id === 0) return getBlock(nx, y - 1, nz) === 0 ? 0.16 : own;   // 悬边 → 斜下去；靠着陆地 → 平
+    return own;                                                        // 被方块挡住 → 平
+  };
+  const out = [[own, own], [own, own]];
+  for (let ci = 0; ci <= 1; ci++) for (let cj = 0; cj <= 1; cj++) {
+    let m = own;
+    for (let dx = ci - 1; dx <= ci; dx++) for (let dz = cj - 1; dz <= cj; dz++) {
+      if (dx === 0 && dz === 0) continue;
+      const hh = surf(x + dx, z + dz);
+      if (hh < m) m = hh;
+    }
+    out[ci][cj] = Math.max(0.14, m);
+  }
+  return out;
+}
+
 const FACES = [
   { n: [1, 0, 0], v: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], sh: 0.82 },
   { n: [-1, 0, 0], v: [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], sh: 0.82 },
@@ -993,6 +1028,8 @@ function buildChunk(chunk) {
     if (!def) continue;
     const wx = ox + x, wz = oz + z;
     const water = id === 5;
+    const solidTop = def.half || 1;                       // 床这类半格方块
+    let wch = null;                                       // 水面角点高度缓存
     for (let fi = 0; fi < 6; fi++) {
       const f = FACES[fi];
       const nb = getBlock(wx + f.n[0], y + f.n[1], wz + f.n[2]);
@@ -1007,7 +1044,12 @@ function buildChunk(chunk) {
       const base = water ? vw : vc;
       for (let k = 0; k < 4; k++) {
         const V = f.v[k];
-        (water ? P2 : P).push(x + V[0], y + V[1], z + V[2]);
+        let vy = V[1] * solidTop;
+        if (water && V[1] === 1) {                        // 水面顶点按角点高度 → 斜坡
+          if (!wch) wch = waterCornerHeights(wx, y, wz);
+          vy = wch[V[0]][V[2]];
+        }
+        (water ? P2 : P).push(x + V[0], y + vy, z + V[2]);
         (water ? U2 : U).push(u0 + CORNERS[k][0] * iu, v0 + CORNERS[k][1] * iv);
         (water ? C2 : C).push(s, s, s);
       }
@@ -1105,8 +1147,13 @@ function collides(px, py, pz) {
   const x0 = Math.floor(px - hw), x1 = Math.floor(px + hw);
   const y0 = Math.floor(py + 0.001), y1 = Math.floor(py + h - 0.001);
   const z0 = Math.floor(pz - hw), z1 = Math.floor(pz + hw);
-  for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++)
-    if (isSolid(getBlock(x, y, z))) return true;
+  for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+    const id = getBlock(x, y, z);
+    if (!isSolid(id)) continue;
+    const half = (BLOCKS[id] || {}).half;
+    if (half && py >= y + half - 0.03) continue;              // 半格方块（床）：站在上面不算卡住
+    return true;
+  }
   return false;
 }
 // 逐轴移动 + 碰撞（分小步，避免高速穿墙）
@@ -1453,6 +1500,26 @@ function seedWaterNear() {
       const id = getBlock(px + dx, y, pz + dz);
       if (id === 5) { if (getBlock(px + dx, y - 1, pz + dz) === 0) wakeWater(px + dx, y, pz + dz); break; }
       if (id !== 0) break;
+    }
+  }
+  scrubWaterNear();
+}
+// 兜底：附近"下面悬空"的静态水 → 变下落水（如果是水柱）或直接清掉（孤立水块）
+function scrubWaterNear(r = 7) {
+  const px = Math.floor(player.p.x), py = Math.floor(player.p.y), pz = Math.floor(player.p.z);
+  for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+    for (let y = Math.max(1, py - 6); y <= Math.min(CFG.WH - 2, py + 9); y++) {
+      const x = px + dx, z = pz + dz;
+      if (getBlock(x, y, z) !== 5) continue;
+      if (flowLvl(x, y, z) >= 0) continue;                    // 流动水交给模拟
+      const below = getBlock(x, y - 1, z);
+      const above = getBlock(x, y + 1, z) === 5;
+      let nb = false;                                        // 四周有没有水
+      for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (getBlock(x + ax, y, z + az) === 5) { nb = true; break; }
+      if (above) { if (below === 0) setWater(x, y, z, 0); continue; }        // 水柱中间：脚下悬空就变下落水
+      if (below !== 0 && below !== 5) continue;              // 站在固体上 → 正常水源
+      if (!nb) { clearWater(x, y, z); continue; }            // 顶上＋四周没有水＋脚下不是地面 ⇒ 浮空水，清掉
+      if (below !== 5) setWater(x, y, z, 0);                 // 连着横向水源但脚下悬空 → 交给模拟
     }
   }
 }
@@ -2683,6 +2750,11 @@ function breakBlock(t) {
   const def = BLOCKS[t.id];
   if (!def) return;
   setBlock(t.x, t.y, t.z, 0);
+  if (def.bed) {                                       // 床是两格：拆一半就把另一半也拆掉
+    for (const [bx, bz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (getBlock(t.x + bx, t.y, t.z + bz) === 14) { setBlock(t.x + bx, t.y, t.z + bz, 0); break; }
+    }
+  }
   sfx('dig');
   const dropAt = (id, n) => spawnDrop(id, n, t.x + 0.5, t.y + 0.6, t.z + 0.5);
   if (def.chest) {                                   // 箱子里的东西一并掉出来
@@ -2710,6 +2782,25 @@ function placeBlock() {
   const cur = getBlock(x, y, z);
   if (cur !== 0 && cur !== 5) return false;
   if (blockBoxBlocks(x, y, z)) { toast('这里放不下（会卡住自己）', 1.4); return false; }
+  if (h.id === 14) {                                   // 床：脚 + 头两格，沿玩家朝向摆
+    const dir = cameraDir();
+    const bx = Math.abs(dir.x) >= Math.abs(dir.z) ? Math.sign(dir.x) : 0;
+    const bz = bx === 0 ? Math.sign(dir.z) : 0;
+    const hx = x + bx, hz = z + bz;
+    const headId = getBlock(hx, y, hz);
+    if (headId !== 0 && headId !== 5) { toast('床要两格空间（前面被挡住了）', 1.9); return false; }
+    if (y === 0 || !isSolid(getBlock(x, y - 1, z)) || !isSolid(getBlock(hx, y - 1, hz))) {
+      toast('床下面要有地面', 1.7); return false;
+    }
+    if (blockBoxBlocks(hx, y, hz)) { toast('这里放不下（会卡住自己）', 1.4); return false; }
+    setBlock(x, y, z, 14);
+    setBlock(hx, y, hz, 14);
+    if (!isCreative()) takeItem(14, 1);
+    setSpawnAt(x, y, z);
+    sfx('place'); startSwing('place', 0.26);
+    renderHotbar(); refreshHeld(); saveSoon();
+    return true;
+  }
   setBlock(x, y, z, h.id);
   if (!isCreative()) takeItem(h.id, 1);          // 创造模式无限方块
   sfx('place');
@@ -3426,6 +3517,9 @@ window.GAME = {
     },
     water: (x, y, z, lvl) => { if (lvl === undefined) { setBlock(x, y, z, 5); } else setWater(x, y, z, lvl); wakeWater(x, y, z); },
     waterInfo: () => ({ flowing: waterFlow.size, queued: waterQueue.length }),
+    waterLevel: (x, y, z) => flowLvl(x, y, z),
+    waterTop: (x, y, z) => waterTopH(x, y, z),
+    scrub: () => { scrubWaterNear(9); return true; },
     waterCells: (r = 6) => {
       const px = Math.floor(player.p.x), py = Math.floor(player.p.y), pz = Math.floor(player.p.z);
       let n = 0, list = [];
