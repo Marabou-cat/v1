@@ -1418,6 +1418,9 @@ const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'h
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.autoClear = false;
+renderer.shadowMap.enabled = true;                      // 真正的实时阴影（方向光 + 火把点光源）
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = true;
 app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -1428,11 +1431,22 @@ scene.fog = new THREE.Fog(0x8fc9ff, 34, 92);
 const worldLight = new THREE.HemisphereLight(0xffffff, 0x4a5568, 1.0);
 const worldDir = new THREE.DirectionalLight(0xffffff, 0.5);
 worldDir.position.set(0.6, 1, 0.35);
+worldDir.castShadow = true;
+worldDir.shadow.mapSize.set(2048, 2048);
+worldDir.shadow.camera.near = 1;
+worldDir.shadow.camera.far = 160;
+worldDir.shadow.camera.left = -48; worldDir.shadow.camera.right = 48;
+worldDir.shadow.camera.top = 48; worldDir.shadow.camera.bottom = -48;
+worldDir.shadow.bias = -0.0006;
+worldDir.shadow.normalBias = 0.06;
+scene.add(worldDir.target);                             // 方向光的朝向目标必须在场景里才会更新
+const worldAmb = new THREE.AmbientLight(0xffffff, 0.30);   // 兜底环境光（UE 里的 skylight 味道）
+scene.add(worldAmb);
 scene.add(worldLight, worldDir);
 
 makeAtlas();
-const solidMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, fog: true,
-  alphaTest: 0.5 });   // 保持原来的昼夜观感；alphaTest 用来抠出镂空树叶
+const solidMat = new THREE.MeshLambertMaterial({ map: atlasTex, vertexColors: true, fog: true,
+  alphaTest: 0.5 });   // 受光材质：接受太阳/火把的光照与阴影；alphaTest 抠镂空树叶
 // 植物（草丛/花）：透明贴图 + alphaTest 抠形，双面可见
 const plantMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, transparent: true,
   alphaTest: 0.45, side: THREE.DoubleSide, fog: true, depthWrite: true });
@@ -1808,7 +1822,7 @@ function buildChunk(chunk) {
         dst.push(x + V[0], y + vy, z + V[2]);
         du.push(u0 + CORNERS[k][0] * iu, v0 + CORNERS[k][1] * iv);
         const sv = water || glass ? s
-          : Math.min(1.32, s * (def.leaf ? 1 : vertexAO(wx, y, wz, f, V)) * (1 + torchLightAt(wx + V[0], y + V[1], wz + V[2])));
+          : Math.min(1.1, s * (0.78 + 0.22 * (def.leaf ? 1 : vertexAO(wx, y, wz, f, V))));   // 只留轻 AO，明暗交给实时光照
         dc.push(sv, sv, sv);
       }
       const di = water ? I2 : glass ? I3 : I;
@@ -1823,8 +1837,11 @@ function buildChunk(chunk) {
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(U_, 2));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(C_, 3));
     geo.setIndex(I_);
+    geo.computeVertexNormals();          // 受光材质必须有法线，否则整片全黑
     geo.computeBoundingSphere();
     const m = new THREE.Mesh(geo, mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
     m.position.set(ox, 0, oz);
     m.frustumCulled = true;
     return m;
@@ -2415,7 +2432,9 @@ function isDarkAt(x, y, z) {
 const torchCells = new Map();               // 'x,y,z' → {x,y,z}
 const torchLights = [];
 for (let i = 0; i < 6; i++) {
-  const pl = new THREE.PointLight(0xffb45a, 0, 13, 1.3);
+  const pl = new THREE.PointLight(0xffb45a, 0, 15, 1.1);
+  pl.castShadow = i < 2;                                  // 只让最近 2 支火把投影，控制开销
+  if (pl.castShadow) { pl.shadow.mapSize.set(512, 512); pl.shadow.bias = -0.004; pl.shadow.camera.far = 16; }
   pl.visible = false;
   scene.add(pl);
   torchLights.push(pl);
@@ -2447,7 +2466,7 @@ function updateTorchLights() {
     const l = torchLights[i], e = near[i];
     if (!e) { l.visible = false; continue; }
     l.position.set(e.t.x + 0.5, e.t.y + 0.62, e.t.z + 0.5);
-    l.intensity = 2.6 + Math.sin(worldTime * 6 + e.t.x) * 0.2;   // 轻微跳动
+    l.intensity = 3.4 + Math.sin(worldTime * 6 + e.t.x) * 0.25;   // 轻微跳动
     l.visible = true;
   }
 }
@@ -2507,8 +2526,15 @@ function updateSky() {
   scene.fog.near = 34 - 20 * caveMix;
   scene.fog.far = 92 - 40 * caveMix;
   const f2 = (0.4 + 0.6 * lightLevel) * (underground ? 0.62 : 1);
-  worldLight.intensity = 0.30 + 0.75 * lightLevel;      // 受光材质：夜里留一点基础亮度，不至于全黑
-  worldDir.intensity = 0.12 + 0.40 * lightLevel;
+  worldLight.intensity = 0.55 + 0.45 * lightLevel;      // 半球光：夜里也有基础亮度
+  worldAmb.intensity = 0.26 + 0.10 * lightLevel;        // 环境光兜底
+  worldDir.intensity = 0.12 + 0.95 * lightLevel;        // 太阳：白天强投影，夜里几乎没有
+  worldDir.visible = lightLevel > 0.25;                 // 夜里关掉太阳阴影（省钱且更真实）
+  const sa = ((worldTime / CFG.DAY) % 1) * Math.PI * 2; // 太阳绕一圈 → 影子会转
+  worldDir.position.set(player.p.x + Math.cos(sa) * 60, player.p.y + 70, player.p.z + Math.sin(sa) * 60);
+  worldDir.target.position.set(player.p.x, player.p.y, player.p.z);
+  worldDir.target.updateMatrixWorld();
+  worldDir.shadow.camera.updateProjectionMatrix();
   solidMat.color.setScalar(f2);
   waterMat.color.setScalar(f2 * 1.05);
   dl.intensity = 0.25 + 0.75 * lightLevel;
