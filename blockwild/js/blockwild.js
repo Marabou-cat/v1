@@ -636,6 +636,8 @@ function treeParams(wx, wz) {
   if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.977) return null;
   const g = heightAt(wx, wz);
   if (g <= CFG.SEA + 1 || g >= 45) return null;
+  // 洞穴把地表这一列掏空了 → 别种（否则树干落在空气里，树悬在半空）
+  if (caveCarve(wx, g, wz, g) || caveCarve(wx, g - 1, wz, g - 1)) return null;
   const k = h2(wx * 7.13 + 3.7, wz * 5.71 - 9.1);
   let kind, trunkH, r;
   if (k < 0.52) {                                   // 阔叶：矮壮、圆而饱满
@@ -746,6 +748,35 @@ function inRavine(x, z) {
   return false;
 }
 
+// ── 矿脉：按区块确定性生成，每条矿脉是 3~8 个连在一起的矿石 ──
+const veinCache = new Map();
+function oreVeins(cx, cz) {
+  const key = cx + ',' + cz;
+  if (veinCache.has(key)) return veinCache.get(key);
+  const rnd = mulberry32((Math.imul(cx, 73856093) ^ Math.imul(cz, 19349663) ^ Math.imul(SEED, 83492791)) | 0);
+  const out = [];
+  const vein = (count, tile, size, yMin, yMax, chance = 1) => {
+    for (let i = 0; i < count; i++) {
+      if (chance < 1 && rnd() > chance) continue;
+      let x = 1 + Math.floor(rnd() * 14), z = 1 + Math.floor(rnd() * 14);
+      let y = yMin + Math.floor(rnd() * Math.max(1, yMax - yMin));
+      const len = 3 + Math.floor(rnd() * size);
+      for (let k = 0; k < len; k++) {
+        out.push({ x, y, z, t: tile });
+        const d = rnd();
+        if (d < 0.3) x = Math.min(15, Math.max(0, x + (rnd() < 0.5 ? 1 : -1)));
+        else if (d < 0.62) z = Math.min(15, Math.max(0, z + (rnd() < 0.5 ? 1 : -1)));
+        else y = Math.min(CFG.WH - 4, Math.max(2, y + (rnd() < 0.5 ? 1 : -1)));
+      }
+    }
+  };
+  vein(48, 13, 5, 6, 44);        // 煤：总量和以前持平，但变成 48 条成簇矿脉
+  vein(10, 15, 4, 4, 32);        // 铁：比以前稀有 ~1.6 倍
+  vein(1, 20, 3, 3, 10, 0.07);   // 钻石：只有 7% 的区块有一条，且只在 y<10
+  veinCache.set(key, out);
+  return out;
+}
+
 function genChunk(cx, cz) {
   const CH = CFG.CH, WH = CFG.WH, SEA = CFG.SEA;
   const b = new Uint8Array(CH * WH * CH);
@@ -767,13 +798,15 @@ function genChunk(cx, cz) {
       if (beach) id = d <= 3 ? 4 : 3;
       else if (h >= 45) id = 3;
       else id = d === 0 ? 1 : (d <= 3 ? 2 : 3);
-      if (id === 3 && h3(wx, y, wz) > 0.982) id = 13;                              // 煤矿
-      else if (id === 3 && y < 34 && h3(wx + 77, y * 3, wz - 31) > 0.992) id = 15; // 铁矿（更深更少）
-      else if (id === 3 && y < 20 && h3(wx - 53, y * 7, wz + 61) > 0.9955) id = 20; // 钻石（y<20，比铁稀有 2 倍）
       if (id !== 4 && caveCarve(wx, y, wz, h)) id = 0;                             // 洞穴（含天然洞口）
       if (id) b[idx(lx, y, lz)] = id;
     }
     for (let y = Math.max(h + 1, 0); y <= SEA && y < WH; y++) b[idx(lx, y, lz)] = 5;  // 水
+  }
+  // 矿脉：成簇埋进石头里（只在还是石头的地方替换，不动土/沙/水）
+  for (const v of oreVeins(cx, cz)) {
+    const i = idx(v.x, v.y, v.z);
+    if (b[i] === 3) b[i] = v.t;
   }
   // 树（含 5 格 padding：最大冠幅半径 3 + 冠心偏移 1 + 1，跨区块不会断枝）
   const PAD = 5;
@@ -3809,6 +3842,21 @@ window.GAME = {
   setBlock: (x, y, z, id) => setBlock(x, y, z, id),
   nameAt: (x, y, z) => nameOf(getBlock(x, y, z)),
   heightAt, n3, caveCarve,
+    oreVeins,
+    oreStats() {                                     // 统计已加载区块里的矿石分布
+      const cnt = { 13: 0, 15: 0, 20: 0 }, ys = { 13: [99, 0], 15: [99, 0], 20: [99, 0] };
+      for (const ch of chunks.values()) {
+        const b = ch.blocks, CH = CFG.CH, WH = CFG.WH;
+        for (let y = 0; y < WH; y++) for (let i = 0; i < CH * CH; i++) {
+          const id = b[(y * CH * CH) + i];
+          if (id !== 13 && id !== 15 && id !== 20) continue;
+          cnt[id]++;
+          if (y < ys[id][0]) ys[id][0] = y;
+          if (y > ys[id][1]) ys[id][1] = y;
+        }
+      }
+      return { chunks: chunks.size, counts: cnt, yRange: ys };
+    },
   icons: { armR, armL, handScene, solidMat, waterMat, scene, camera, handCam, renderer, crackMesh, crackTex, heldGroup },
   debug: {
     start(fresh = false) {
