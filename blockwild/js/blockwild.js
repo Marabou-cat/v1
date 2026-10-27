@@ -2452,7 +2452,7 @@ function isDarkAt(x, y, z) {
 const torchCells = new Map();               // 'x,y,z' → {x,y,z}
 const torchLights = [];
 for (let i = 0; i < 6; i++) {
-  const pl = new THREE.PointLight(0xffb45a, 0, 15, 1.1);
+  const pl = new THREE.PointLight(0xffb45a, 0, 22, 0.85);
   pl.castShadow = false;                                  // 点光源阴影 = 6 次全场景重绘，手机上太贵：只保留太阳阴影
   if (pl.castShadow) { pl.shadow.mapSize.set(512, 512); pl.shadow.bias = -0.004; pl.shadow.camera.far = 16; }
   pl.visible = false;
@@ -2495,7 +2495,7 @@ function updateTorchLights() {
     const l = torchLights[i], e = near[i];
     if (!e) { l.visible = false; continue; }
     l.position.set(e.t.x + 0.5, e.t.y + 0.62, e.t.z + 0.5);
-    l.intensity = 3.4 + Math.sin(worldTime * 6 + e.t.x) * 0.25;   // 轻微跳动
+    l.intensity = 11.0 + Math.sin(worldTime * 6 + e.t.x) * 1.2;   // 大幅加强（原来 3.4）
     l.visible = true;
   }
 }
@@ -4018,7 +4018,7 @@ function updateMobs(dt) {
       continue;
     }
     const def = MOB_DEFS[m.kind];
-    const hostileNow = def.hostile && (night || m.aggro > 0);
+    const hostileNow = def.hostile && !isCreative() && (night || m.aggro > 0);   // 创造模式：怪物不敌对
     m.flash = Math.max(0, m.flash - dt);
     m.aggro = Math.max(0, m.aggro - dt);
     m.flee = Math.max(0, m.flee - dt);
@@ -4154,6 +4154,7 @@ function updateMobs(dt) {
       }
     }
     // 贴身攻击（所有敌对生物；骷髅是远程，只有贴脸才用近战）
+    if (isCreative() && m.target === player) m.target = null;
     m.atkCd -= dt;
     const tgtMob = (m.target && m.target.hp > 0 && !m.target.dying) ? m.target : null;
     const reach = def.boss ? 2.4 : 1.5;
