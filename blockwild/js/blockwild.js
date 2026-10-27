@@ -3979,6 +3979,118 @@ function startMobDeath(m) {
   sfx('hurt');
 }
 
+/* ── 创作者结构建造：选区 → 导出 → 上传服务器 → 再放回世界 ── */
+const STRUCT_API = '/blockwild/api/structure.php';
+const STRUCT_TOKEN = 'bw-creator-2026-v1';
+const structSel = { a: null, b: null };
+let structPanel = null, structMsg = '';
+
+function ensureStructPanel() {
+  if (structPanel) return structPanel;
+  structPanel = document.createElement('div');
+  structPanel.id = 'structPanel';
+  structPanel.style.cssText = 'position:fixed;left:12px;top:150px;z-index:34;max-width:300px;padding:9px 11px;'
+    + 'border:1px solid #3a4a5e;border-radius:9px;background:rgba(14,18,26,.86);color:#cfe0f0;'
+    + 'font-size:12px;line-height:1.55;display:none;pointer-events:none;font-family:inherit';
+  document.body.appendChild(structPanel);
+  return structPanel;
+}
+function structHud() {
+  const el = ensureStructPanel();
+  const a = structSel.a, b = structSel.b;
+  let sel = '未选区（对着方块按 V 选角点1，再按 B 选角点2）';
+  if (a && b) {
+    const w = Math.abs(b.x - a.x) + 1, h = Math.abs(b.y - a.y) + 1, d = Math.abs(b.z - a.z) + 1;
+    sel = `选区 ${w}×${h}×${d} = ${w * h * d} 格`;
+  } else if (a) sel = `角点1 (${a.x},${a.y},${a.z})，再按 B 选对角`;
+  el.innerHTML = `<b style="color:#8fe3ff">创作者结构</b><br>${sel}<br>`
+    + `<span style="color:#8b97a6">V 角点1 · B 角点2 · P 导出并上传 · L 服务器结构列表</span>`
+    + (structMsg ? `<br><span style="color:#9be36a">${structMsg}</span>` : '');
+  el.style.display = 'block';
+}
+function setStructCorner(which) {
+  if (!started) return;
+  const t = raycastVoxel(eyePos(), cameraDir(), 48);
+  const p = t ? { x: t.x, y: t.y, z: t.z } : { x: Math.floor(player.p.x), y: Math.floor(player.p.y), z: Math.floor(player.p.z) };
+  structSel[which] = p;
+  structMsg = `${which === 'a' ? '角点1' : '角点2'} (${p.x},${p.y},${p.z})`;
+  sfx('place'); structHud(); saveSoon();
+}
+function exportStructure() {
+  const a = structSel.a, b = structSel.b;
+  if (!a || !b) return null;
+  const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
+  const y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+  const z0 = Math.min(a.z, b.z), z1 = Math.max(a.z, b.z);
+  const blocks = [];
+  let capped = false;
+  for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+    const id = getBlock(x, y, z);
+    if (!id) continue;
+    if (blocks.length >= 60000) { capped = true; break; }
+    const m = getMeta(x, y, z);
+    blocks.push(m ? [x - x0, y - y0, z - z0, id, m] : [x - x0, y - y0, z - z0, id]);
+    if (capped) break;
+  }
+  return { size: [x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1], blocks, capped };
+}
+async function uploadStructure(name) {
+  const data = exportStructure();
+  if (!data) { toast('先按 V / B 选两个角点', 1.8); return false; }
+  structMsg = `上传中… ${data.blocks.length} 方块`;
+  structHud();
+  try {
+    const r = await fetch(STRUCT_API, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: STRUCT_TOKEN, name: name || ('struct_' + Date.now().toString(36)), data }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.err || ('http ' + r.status));
+    structMsg = `上传成功：${j.file}（${j.blocks} 方块 / ${j.bytes} 字节）`;
+    toast(`结构已上传：${j.file}`, 3);
+    sfx('craft');
+    return j;
+  } catch (err) {
+    structMsg = `上传失败：${err.message || err}`;
+    toast('上传失败：' + (err.message || err), 3);
+    return false;
+  } finally { structHud(); }
+}
+async function listStructures() {
+  structMsg = '读取服务器结构列表…'; structHud();
+  try {
+    const r = await fetch(STRUCT_API, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.err || ('http ' + r.status));
+    window.__structList = j.files || [];
+    structMsg = `服务器上 ${j.count} 个结构：` + (j.files || []).slice(0, 3).map(f => f.file).join('、');
+    toast(`服务器上有 ${j.count} 个结构（控制台看 window.__structList）`, 3);
+    console.log('[structures]', j.files);
+    return window.__structList;
+  } catch (err) {
+    structMsg = '列表读取失败：' + (err.message || err); toast(structMsg, 3);
+    return [];
+  } finally { structHud(); }
+}
+async function placeStructureAt(file, ox, oy, oz) {     // 从服务器拉一个结构直接放到世界里
+  try {
+    const r = await fetch(STRUCT_API + '?get=' + encodeURIComponent(file), { cache: 'no-store' });
+    const j = await r.json();
+    const blocks = (j && j.blocks) || [];
+    let n = 0;
+    for (const b of blocks) {
+      const [x, y, z, id, m] = b;
+      setBlock(ox + x, oy + y, oz + z, id);
+      if (m) setMeta(ox + x, oy + y, oz + z, m);
+      n++;
+    }
+    toast(`已放置结构 ${file}（${n} 方块）`, 2.4);
+    structMsg = `已放置 ${file}：${n} 方块`;
+    structHud(); saveSoon();
+    return n;
+  } catch (err) { toast('放置结构失败：' + (err.message || err), 3); return 0; }
+}
+
 /* ── 村民睡觉：天黑了找个床躺下 ── */
 function findBedNear(pos, r) {
   const cx = Math.floor(pos.x), cy = Math.floor(pos.y), cz = Math.floor(pos.z);
@@ -4636,6 +4748,10 @@ addEventListener('keydown', e => {
   if (started && !panelOpen && player.alive) {
     if (k === keymap.mine) { mineHeld = true; attackQueued = true; }
     if (k === keymap.place) placeQueued = true;
+    if (k === 'KeyV') setStructCorner('a');                       // 创作者：选角点1
+    if (k === 'KeyB') setStructCorner('b');                       // 创作者：选角点2
+    if (k === 'KeyP') uploadStructure();                          // 创作者：导出并上传
+    if (k === 'KeyL') listStructures();                           // 创作者：服务器结构列表
   }
   if (k === 'Space') {
     jumpQueued = true; e.preventDefault();
@@ -6236,6 +6352,8 @@ window.GAME = {
     })),
     restoreSquad: (l) => restoreSquad(l),
     squadSave: () => squadData(),
+    struct: { sel: structSel, export: exportStructure, upload: uploadStructure, list: listStructures, place: placeStructureAt,
+      setCorner: setStructCorner, hud: structHud },
     sleep: () => GAME.mobs.filter(m => m.kind === 'villager').map(m => ({
       sleeping: !!m.sleeping, bed: m.bed ? [m.bed.x, m.bed.y, m.bed.z] : null,
       pos: [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)], rotX: +m.parts.core.rotation.x.toFixed(2) })),
