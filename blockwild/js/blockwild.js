@@ -3330,27 +3330,31 @@ function refreshVillagerMark(m) {
   m.obj.add(sp);
   m.mark = sp;
 }
-function showVillagerGift(m) {                  // 手里的道具：挂在右手上（可见）
-  if (m.gift) { if (m.gift.parent) m.gift.parent.remove(m.gift); m.gift.geometry.dispose(); m.gift.material.dispose(); m.gift = null; }
+function showVillagerGift(m) {                  // 手里的道具：和玩家手持用同一套模型、同样大小
+  if (m.gift) {
+    if (m.gift.parent) m.gift.parent.remove(m.gift);
+    m.gift.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    m.gift = null;
+  }
   if (!m.give) return;
-  const hand = m.parts.arm1 || m.parts.core;      // 右手，没有就退回躯干
-  const def = BLOCKS[m.give.id];
-  let mesh;
-  if (def) {                                      // 方块：小立方体 + 该方块的贴图
-    const tile = def.top, t2 = atlasTex.clone();
-    t2.needsUpdate = true;
-    t2.repeat.set(1 / ATLAS_COLS, 1 / ATLAS_ROWS);
-    t2.offset.set((tile % ATLAS_COLS) / ATLAS_COLS, 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS);
-    mesh = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.17, 0.17), new THREE.MeshLambertMaterial({ map: t2 }));
-  } else {                                        // 道具（剑/镐/锄）：用物品图标做双面片
+  const hand = m.parts.arm1 || m.parts.core;
+  const b = BLOCKS[m.give.id], it = ITEMS[m.give.id];
+  let mesh = null;
+  if (b) {                                      // 方块：和玩家完全一样的 0.2 立方体 + 六面贴图
+    const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
+    mesh.rotation.set(0.2, 0.6, 0.1);
+  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'mat' || it.kind === 'food')) {
+    mesh = makeToolModel(m.give.id);            // 剑/镐/材料：玩家手里那个 3D 模型
+    mesh.rotation.set(-0.5, 0.45, -0.15);
+  } else {
     const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
     const tex = new THREE.TextureLoader().load(iconURL(m.give.id));
     tex.magFilter = THREE.NearestFilter;
     mat.map = tex;
     mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), mat);
   }
-  mesh.position.set(0.02, -0.3, -0.08);           // 手臂末端＝手的位置
-  mesh.rotation.set(0, 0, -0.35);
+  mesh.position.set(0.03, -0.26, -0.06);        // 手的位置
   mesh.renderOrder = 5;
   hand.add(mesh);
   m.gift = mesh;
@@ -3898,8 +3902,7 @@ function updateMobs(dt) {
       }
     }
     if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.recruit.follow && player.alive) {
-      if (dist > 24) { m.p.set(player.p.x + 1.6, player.p.y + 0.1, player.p.z + 1.6); m.v.set(0, 0, 0); }
-      else if (dist > 2.9) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase + 0.7; }
+      if (dist > 2.9) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase + 0.7; }
       else { mx = 0; mz = 0; speed = 0; }
     }
     // 村民任务：拿剑 → 自动打玩家周围的怪
@@ -3915,6 +3918,14 @@ function updateMobs(dt) {
           m.vAtk = (m.vAtk || 0) - dt;
           if (m.vAtk <= 0) { m.vAtk = 1.1; villagerAttack(m, tg); }
         }
+      }
+    }
+    // 离玩家太远：直接传送到身边（跟随 12 格、待命 40 格）
+    if (m.recruit && m.recruit.hired && player.alive && !m.sleeping) {
+      const far = m.recruit.follow ? 12 : 40;
+      if (dist > far) {
+        m.p.set(player.p.x + (Math.random() - 0.5) * 1.2, player.p.y + 0.35, player.p.z + 1.6);
+        m.v.set(0, 0, 0);
       }
     }
     if (m.knockT > 0) {                       // 被击退：保住冲量，AI 这段时间不接管
