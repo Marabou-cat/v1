@@ -284,6 +284,7 @@ const BLOCKS = {
   35: { name: '木门', top: 40, side: 40, bottom: 40, hard: 0.6, drop: 35, door: true },
   36: { name: '草丛', top: 42, side: 42, bottom: 42, hard: 0.05, drop: 0, plant: true, cross: true },
   37: { name: '红花', top: 43, side: 43, bottom: 43, hard: 0.05, drop: 37, plant: true, cross: true },
+  39: { name: '铜矿石', top: 45, side: 45, bottom: 45, hard: 2.4, drop: 39, pick: true },
   38: { name: '火把', top: 44, side: 44, bottom: 44, hard: 0.05, drop: 38, plant: true, cross: true, crossH: 0.92, torch: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
@@ -336,6 +337,7 @@ const ITEMS = {
   159: { name: '石锄', kind: 'hoe', dur: 132 },
   160: { name: '铁锄', kind: 'hoe', dur: 251 },
   161: { name: '骨粉', kind: 'bonemeal' },
+  162: { name: '铜锭', kind: 'mat' },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -522,6 +524,13 @@ function makeAtlas() {
     for (let y = 3; y < 7; y++) for (let x = 6; x <= 9; x++) px(c, r, x, y, y < 5 ? '#ffcf4a' : '#ff8a2b');
     px(c, r, 7, 2, '#ffe066'); px(c, r, 8, 2, '#fff0a8'); px(c, r, 7, 4, '#fff6d0'); px(c, r, 8, 5, '#ffffff');
   }
+  // 45 铜矿石：石头底 + 橙绿色铜斑
+  T(45, '#8f8f8f', 0.08, (c, r) => {
+    for (let i = 0; i < 5; i++) {
+      const bx = 2 + ((i * 5) % 11), by = 2 + ((i * 7) % 11);
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [2, 1], [1, 2]]) px(c, r, Math.min(15, bx + dx), Math.min(15, by + dy), (dx + dy) % 2 ? '#3fae8a' : '#d08a3c');
+    }
+  });
   // 24 石砖：整齐的砖块 + 灰浆缝
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -1032,6 +1041,7 @@ function oreVeins(cx, cz) {
   // 钻石：设计目标 = 铁的 1/10。铁 10 条/区块 × 平均 4.5 块 = 45 块/区块；
   // 钻石 1 条/区块 × 平均 4 块 = 4 块/区块（只在 y<10）。深层洞穴少、留存率高，
   // 所以名义给 11:1，实测（200 区块）落在 9.5~10:1。
+  vein(6, 39, 3, 16, 42);        // 铜：6 条/区块，中浅层（参数顺序：数量, 方块id, 大小, yMin, yMax）
   vein(1, 20, 3, 3, 10, 0.85);   // 钻石：85% 的区块有一条（y<10）；实测块数 ≈ 铁的 1/10（9~10:1）
   veinCache.set(key, out);
   return out;
@@ -3290,6 +3300,21 @@ function renderGrid(el, arr, handler) {
     el.appendChild(d);
   }
 }
+let cursorEl = null;
+function updateCursorEl(e) {                    // 手上拿的东西跟着鼠标走，看得清在和哪一格交换
+  if (!cursor) { if (cursorEl) cursorEl.style.display = 'none'; return; }
+  if (!cursorEl) {
+    cursorEl = document.createElement('img');
+    cursorEl.style.cssText = 'position:fixed;z-index:99;pointer-events:none;width:40px;height:40px;'
+      + 'image-rendering:pixelated;transform:translate(-50%,-50%);filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))';
+    document.body.appendChild(cursorEl);
+  }
+  cursorEl.src = iconURL(cursor.id);
+  cursorEl.style.display = 'block';
+  if (e && e.clientX !== undefined) { cursorEl.style.left = e.clientX + 'px'; cursorEl.style.top = e.clientY + 'px'; }
+  else if (!cursorEl.style.left) { cursorEl.style.left = (innerWidth / 2) + 'px'; cursorEl.style.top = (innerHeight / 2) + 'px'; }
+}
+addEventListener('mousemove', (e) => { if (cursorEl && cursor) updateCursorEl(e); });
 function cursorText() { return cursor ? `手上：${nameOf(cursor.id)} ×${cursor.n}` : '手上：空（点物品拿起，再点另一格放下/交换）'; }
 function renderChest() {
   if (!openChestPos) return;
@@ -4701,6 +4726,7 @@ function renderInventoryPanel() {
   renderCreativeGrid();
   renderGrid(hud.invGrid, inv, i => slotClick(inv, i));
   if ($('cursorInfo')) $('cursorInfo').textContent = cursorText();
+  updateCursorEl();
   hud.invCount.textContent = `${invUsed()}/${SLOTS}`;
   hud.recList.innerHTML = '';
   const hasTable = nearCraftingTable();
@@ -4756,6 +4782,7 @@ const RECIPES = [
 ];
 // 熔炉：1 份燃料 + 1 份原料 → 1 份产物（燃料：木板 or 炼好的煤块）
 const SMELT = [
+  { in: 39, out: 162, n: 1, name: '铜矿石 → 铜锭' },
   { in: 15, out: 106, n: 1, name: '铁矿石 → 铁锭' },
   { in: 108, out: 109, n: 1, name: '生猪排 → 熟猪排' },
   { in: 140, out: 141, n: 1, name: '生牛肉 → 熟牛肉' },
@@ -4763,20 +4790,47 @@ const SMELT = [
   { in: 145, out: 146, n: 1, name: '生羊肉 → 熟羊肉' },
   { in: 4, out: 124, n: 0, name: '' },              // 占位（沙子暂无用途）
 ];
-const FUELS = [8, 13];
-function fuelCount() { return FUELS.reduce((a, id) => a + countOf(id), 0); }
+const FUEL_DEFS = [
+  { id: 8,  name: '木板', units: 1 },
+  { id: 6,  name: '原木', units: 2 },
+  { id: 13, name: '煤炭', units: 4 },
+];
+let furnaceFuel = 13, furnaceJob = null;           // 选中的燃料 / 当前烧制作业
+const SMELT_DUR = 3.0;                             // 每个物品要烧 3 秒
+function fuelCount(id) { return countOf(id); }
+function fuelReady() { return FUEL_DEFS.find(f => f.id === furnaceFuel && countOf(f.id) > 0) || null; }
 function smelt(r) {
   if (!r || !r.n) return false;
+  if (furnaceJob) { toast('熔炉正在烧，等它烧完', 1.4); return false; }
   if (countOf(r.in) < 1) { toast(`没有 ${nameOf(r.in)}`, 1.4); return false; }
-  if (fuelCount() < 1) { toast('没有燃料（木板或煤）', 1.6); return false; }
-  const fuelId = FUELS.find(id => countOf(id) > 0);
+  const f = fuelReady();
+  if (!f) {
+    const any = FUEL_DEFS.find(x => countOf(x.id) > 0);
+    if (any) { furnaceFuel = any.id; renderFurnace(); toast(`已自动选择燃料：${any.name}`, 1.4); return false; }
+    toast('没有燃料（木板 / 原木 / 煤炭）', 1.6); return false;
+  }
+  takeItem(f.id, 1);
   takeItem(r.in, 1);
-  takeItem(fuelId, 1);
-  spawnDrop(r.out, r.n, player.p.x, player.p.y + 0.9, player.p.z);
-  toast(`熔炼出 ${nameOf(r.out)}`, 1.5);
-  sfx('craft');
+  furnaceJob = { r, t: 0, left: f.units, fuel: f.id, fuelName: f.name };
+  toast(`点火：${f.name} 可烧 ${f.units} 个（每个 ${SMELT_DUR} 秒）`, 2);
+  sfx('place');
   renderHotbar(); renderFurnace(); saveSoon();
   return true;
+}
+function updateFurnaceJob(dt) {
+  const j = furnaceJob;
+  if (!j) return;
+  j.t += dt;
+  if (j.t < SMELT_DUR) { if ($('furnace') && !$('furnace').classList.contains('hide')) renderFurnace(); return; }
+  j.t = 0;
+  addItem(j.r.out, j.r.n);
+  toast(`熔炼出 ${nameOf(j.r.out)}（剩 ${j.left - 1} 次）`, 1.3);
+  sfx('craft');
+  j.left--;
+  if (j.left > 0 && countOf(j.r.in) > 0) takeItem(j.r.in, 1);
+  else furnaceJob = null;
+  renderHotbar(); if ($('furnace') && !$('furnace').classList.contains('hide')) renderFurnace();
+  refreshHeld(); saveSoon();
 }
 
 // 附近 9×6×9 内是否有已放置的工作台（0.4 秒缓存）
@@ -4806,25 +4860,55 @@ let panelOpen = false, lastSpaceT = 0, createMode = 'survival', jumpTouchT = 0;
 function renderFurnace() {
   const list = $('smeltList');
   if (!list) return;
-  const fuel = fuelCount();
+  const cur = FUEL_DEFS.find(f => f.id === furnaceFuel) || FUEL_DEFS[0];
   const fi = $('fuelInfo');
-  if (fi) fi.textContent = `${fuel} 份`;
+  if (fi) {
+    fi.innerHTML = '';
+    const lab = document.createElement('span');
+    lab.style.cssText = 'font-size:11px;color:#9fb0c2;margin-right:6px';
+    lab.textContent = '燃料：';
+    fi.appendChild(lab);
+    for (const f of FUEL_DEFS) {
+      const b = document.createElement('button');
+      const have = countOf(f.id);
+      b.textContent = `${f.name}(${have})`;
+      b.style.cssText = `margin:0 4px;padding:3px 7px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;`
+        + `border:1px solid ${f.id === cur.id ? '#5a8fd8' : '#33415a'};`
+        + `background:${f.id === cur.id ? '#1b2a3d' : '#161d27'};color:${have ? '#cfe0f0' : '#6b7889'}`;
+      b.onclick = () => { furnaceFuel = f.id; renderFurnace(); };
+      fi.appendChild(b);
+    }
+  }
+  const jobEl = $('fuelInfo');
+  if (jobEl && furnaceJob) {
+    const pct = Math.round(Math.min(1, furnaceJob.t / SMELT_DUR) * 100);
+    const p = document.createElement('div');
+    p.style.cssText = 'margin-top:6px;font-size:11px;color:#ffd84a';
+    p.textContent = `正在烧制 ${nameOf(furnaceJob.r.out)} … ${pct}%（剩 ${furnaceJob.left} 次）`;
+    jobEl.appendChild(p);
+  }
   list.innerHTML = '';
   for (const r of SMELT) {
     if (!r.n) continue;
     const have = countOf(r.in);
-    const can = have > 0 && fuel > 0;
+    const can = have > 0 && !!fuelReady();
     const d = document.createElement('div');
     d.className = 'rec' + (can ? '' : ' no');
     d.innerHTML = `<img src="${iconURL(r.out)}" alt=""><div class="t">${nameOf(r.out)} ×${r.n}`
       + `<i>${nameOf(r.in)} ×1 + 燃料 ×1（已有原料 ${have}）</i></div>`
       + `<div class="go">${can ? '熔炼 →' : have ? '缺燃料' : '缺原料'}</div>`;
-    d.onclick = () => { if (can) smelt(r); };
+    d.onclick = () => { if (can && !furnaceJob) smelt(r); };
     list.appendChild(d);
   }
 }
-function openFurnace() { renderFurnace(); $('furnace').classList.remove('hide'); }
-function closeFurnace() { $('furnace').classList.add('hide'); }
+function openFurnace() {
+  if (document.pointerLockElement) document.exitPointerLock();     // 否则鼠标被锁住，面板点不动
+  renderFurnace(); $('furnace').classList.remove('hide');
+}
+function closeFurnace() {
+  $('furnace').classList.add('hide');
+  if (started && !panelOpen && renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
+}
 function openPanel(open) {
   if (open && openChestPos) closeChest();
   panelOpen = open;
@@ -5940,6 +6024,7 @@ function frame(now) {
   while (acc >= STEP && guard++ < 6) { acc -= STEP; update(STEP); }
   updateHUD(dt);
   updateDoorAnims(dt);
+  updateFurnaceJob(dt);
   torchT -= dt;
   if (torchT <= 0) { torchT = 0.2; updateTorchLights(); }
   doorSyncT -= dt;
