@@ -12,7 +12,10 @@ const CFG = {
 };
 
 /* ============================================================ 噪声 */
-let SEED = (Math.random() * 1e6) | 0;
+let SEED = (() => {                          // 支持 ?seed=12345 直接用指定种子开新世界
+  const m = location.search.match(/[?&]seed=(-?\d+)/);
+  return m ? (parseInt(m[1], 10) | 0) : ((Math.random() * 1e6) | 0);
+})();
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const clamp01 = v => clamp(v, 0, 1);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -6295,7 +6298,7 @@ window.GAME = {
     chestAt: (x, y, z) => openChest(x, y, z),
     seedHouse: (seed) => {              // 扫种子：出生点 → 最近鬼屋
       SEED = seed | 0;
-      hsCache.clear(); villageCache.clear(); veinCache.clear();
+      hsCache.clear(); villageCache.clear(); veinCache.clear(); myCabinCache.clear(); myCabinBusy.clear();
       if (typeof ravineCache !== 'undefined' && ravineCache.clear) ravineCache.clear();
       const sp = findSpawn();
       const cx = Math.floor(sp.x / HS_CELL), cz = Math.floor(sp.z / HS_CELL);
