@@ -278,7 +278,9 @@ const BLOCKS = {
   31: { name: '白桦木板', top: 37, side: 37, bottom: 37, hard: 1.2, drop: 31 },
   33: { name: '石砖楼梯', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 33, pick: true, stair: true },
   34: { name: '木板楼梯', top: 8, side: 8, bottom: 8, hard: 1.2, drop: 34, stair: true },
-  35: { name: '木门', top: 8, side: 8, bottom: 8, hard: 0.6, drop: 35, door: true },
+  35: { name: '木门', top: 40, side: 40, bottom: 40, hard: 0.6, drop: 35, door: true },
+  36: { name: '草丛', top: 42, side: 42, bottom: 42, hard: 0.05, drop: 0, plant: true, cross: true },
+  37: { name: '红花', top: 43, side: 43, bottom: 43, hard: 0.05, drop: 37, plant: true, cross: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
   20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
@@ -480,6 +482,29 @@ function makeAtlas() {
     for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) px(c, r, x, y, shade('#cdd3da', 0.96 + ((x + y) % 3) * 0.03));
     for (let x = 2; x < 14; x++) { px(c, r, x, 2, '#8b939c'); px(c, r, x, 13, '#8b939c'); }
   });
+  // 42 草丛：透明底 + 几根草叶（十字面片用，靠 alphaTest 抠形）
+  {
+    const c = 42 % ATLAS_COLS, r = (42 / ATLAS_COLS) | 0;
+    for (let i = 0; i < 6; i++) {
+      const bx = Math.min(13, 2 + i * 2), hgt = 5 + ((i * 7) % 8);
+      for (let k = 0; k < hgt; k++) {
+        const y = 15 - k, x = Math.min(15, bx + (k > hgt * 0.6 && (i % 2) ? 1 : 0));
+        px(c, r, x, y, k > hgt - 3 ? '#6db544' : (i % 2 ? '#3f7a2a' : '#4f8a33'));
+      }
+    }
+  }
+  // 43 红花：茎 + 叶 + 花瓣
+  {
+    const c = 43 % ATLAS_COLS, r = (43 / ATLAS_COLS) | 0;
+    for (let y = 6; y < 16; y++) px(c, r, 8, y, '#3f7a2a');
+    px(c, r, 7, 11, '#4f8a33'); px(c, r, 6, 10, '#4f8a33');
+    px(c, r, 9, 12, '#4f8a33'); px(c, r, 10, 11, '#4f8a33');
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      px(c, r, 8 + dx, 5 + dy, '#d8443f');
+      px(c, r, 8 + dx * 2, 5 + dy * 2, '#b8322e');
+    }
+    px(c, r, 8, 5, '#ffe066');
+  }
   // 24 石砖：整齐的砖块 + 灰浆缝
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -1046,6 +1071,16 @@ function genChunk(cx, cz) {
   }
   // 特殊岩层（花岗岩/石灰岩）：同样只替换还是石头的地方，矿脉优先保留
   applyStoneBlobs(b, idx, cx, cz);
+  // 地表植被：草丛 / 红花（十字面片，不挡路，只长在草地上）
+  for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+    const wx = ox + lx, wz = oz + lz, h = heightAt(wx, wz);
+    if (h + 1 >= WH) continue;
+    if (b[idx(lx, h, lz)] !== 1) continue;                 // 脚下是草地
+    if (b[idx(lx, h + 1, lz)] !== 0) continue;             // 上方空着
+    const r = h3(wx * 7 + 11, 3, wz * 13 + 5);
+    if (r > 0.975) b[idx(lx, h + 1, lz)] = 37;             // 2.5% 红花
+    else if (r > 0.86) b[idx(lx, h + 1, lz)] = 36;         // 11.5% 草丛
+  }
   // 树（含 5 格 padding：最大冠幅半径 3 + 冠心偏移 1 + 1，跨区块不会断枝）
   const PAD = 5;
   for (let lx = -PAD; lx < CH + PAD; lx++) for (let lz = -PAD; lz < CH + PAD; lz++) {
@@ -1371,6 +1406,9 @@ scene.add(worldLight, worldDir);
 
 makeAtlas();
 const solidMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, fog: true });
+// 植物（草丛/花）：透明贴图 + alphaTest 抠形，双面可见
+const plantMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, transparent: true,
+  alphaTest: 0.45, side: THREE.DoubleSide, fog: true, depthWrite: true });
 const glassMat = new THREE.MeshBasicMaterial({
   map: atlasTex, vertexColors: true, transparent: true, opacity: 0.42,
   depthWrite: false, side: THREE.DoubleSide, fog: true,
@@ -1566,30 +1604,48 @@ function emitDoor(lx, y, lz, def, meta, P, U, C, I, base) {
   return n;
 }
 
-/* ── 门的运行时对象：门不进区块网格，改成每扇一个 Group，绕铰链缓动旋转（丝滑开关） ── */
-const DOOR_HINGE = [null, [0, 0.02], [1, 0.98], [0.02, 0], [0.98, 1]];   // dir → 铰链 (x,z)
-const DOOR_OPEN_A = -Math.PI / 2;                                          // 开门角度（4 种朝向统一）
+// ── 十字面片植物（草丛/花）：两片正交薄面 + 透明贴图 → 不是方块，玩家可以直接走过去
+function emitCross(lx, y, lz, def, P, U, C, I, base) {
+  const tile = def.top;
+  const u0 = (tile % ATLAS_COLS) / ATLAS_COLS + 0.002;
+  const v0 = 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.002;
+  const iu = 1 / ATLAS_COLS - 0.004, iv = 1 / ATLAS_ROWS - 0.004;
+  const A = 0.14, B = 0.86, H = 0.95;                  // 面片在格内的范围与高度
+  const quad = (ax, az, bx, bz) => {                   // 一个竖面片（左下→右下→右上→左上）
+    const pts = [[ax, 0, az], [bx, 0, bz], [bx, H, bz], [ax, H, az]];
+    const uv = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    const v = base + (quad.n || 0);
+    for (let k = 0; k < 4; k++) {
+      P.push(lx + pts[k][0], y + pts[k][1], lz + pts[k][2]);
+      U.push(u0 + uv[k][0] * iu, v0 + uv[k][1] * iv);
+      C.push(0.94, 0.94, 0.94);
+    }
+    I.push(v, v + 1, v + 2, v, v + 2, v + 3);
+    quad.n = (quad.n || 0) + 4;
+  };
+  quad(A, A, B, B);
+  quad(A, B, B, A);
+  return 8;
+}
+
+/* ── 门的运行时对象：门不进区块网格，改成每扇一个 Group，绕铰链缓动旋转（丝滑开关） ──
+   ⚠ 开门必须让门板「转进本格内」：门板长 0.84 + 厚 0.14 < 1.0，铰链放在门板内角，
+   旋转后门板刚好贴着门洞侧壁 —— 旧版铰链在外角，开门时门板会探出格子 0.16 米插进旁边方块（穿模）。 */
+const DOOR_DEF = [null,
+  { x0: 0.11, x1: 0.89, z0: 0.04, z1: 0.16, hx: 0.11, hz: 0.16, a: -Math.PI / 2 },   // 贴 -Z
+  { x0: 0.11, x1: 0.89, z0: 0.84, z1: 0.96, hx: 0.89, hz: 0.84, a: -Math.PI / 2 },   // 贴 +Z
+  { x0: 0.04, x1: 0.16, z0: 0.11, z1: 0.89, hx: 0.16, hz: 0.11, a: Math.PI / 2 },    // 贴 -X
+  { x0: 0.84, x1: 0.96, z0: 0.11, z1: 0.89, hx: 0.84, hz: 0.89, a: Math.PI / 2 },    // 贴 +X
+];
 const doorGeoCache = new Map();
-const doorObjs = new Map();            // 'x,y,z'（下格）→ { group, dir, angle, target }
+const doorObjs = new Map();            // 'x,y,z'（下格）→ { group, dir, p, targetP, a }
 function doorGeometry(dir) {
   if (doorGeoCache.has(dir)) return doorGeoCache.get(dir);
+  const d = DOOR_DEF[dir];
   const P = [], U = [], C = [], I = [];
-  const T = 0.16, E = 0.03;
-  let x0, x1, z0, z1;
-  if (dir === 1) { x0 = E; x1 = 1 - E; z0 = 0.02; z1 = 0.02 + T; }
-  else if (dir === 2) { x0 = E; x1 = 1 - E; z0 = 1 - 0.02 - T; z1 = 1 - 0.02; }
-  else if (dir === 3) { z0 = E; z1 = 1 - E; x0 = 0.02; x1 = 0.02 + T; }
-  else { z0 = E; z1 = 1 - E; x0 = 1 - 0.02 - T; x1 = 1 - 0.02; }
-  const [hx, hz] = DOOR_HINGE[dir];
   let n = 0;
-  n += emitBox(P, U, C, I, n, 0, 0, 0, x0 - hx, x1 - hx, 0, 0.98, z0 - hz, z1 - hz, 40);          // 下半
-  n += emitBox(P, U, C, I, n, 0, 0, 0, x0 - hx, x1 - hx, 1.04, 1.95, z0 - hz, z1 - hz, 40);       // 上半
-  let kx0, kx1, kz0, kz1;                                          // 把手：自由端、朝室内
-  if (dir === 1) { kx0 = 0.74; kx1 = 0.82; kz0 = 0.18; kz1 = 0.24; }
-  else if (dir === 2) { kx0 = 0.18; kx1 = 0.26; kz0 = 0.76; kz1 = 0.82; }
-  else if (dir === 3) { kz0 = 0.74; kz1 = 0.82; kx0 = 0.18; kx1 = 0.24; }
-  else { kz0 = 0.18; kz1 = 0.26; kx0 = 0.74; kx1 = 0.82; }
-  emitBox(P, U, C, I, n, 0, 0, 0, kx0 - hx, kx1 - hx, 0.46, 0.60, kz0 - hz, kz1 - hz, 41);
+  n += emitBox(P, U, C, I, n, 0, 0, 0, d.x0 - d.hx, d.x1 - d.hx, 0, 0.98, d.z0 - d.hz, d.z1 - d.hz, 40);        // 下半
+  n += emitBox(P, U, C, I, n, 0, 0, 0, d.x0 - d.hx, d.x1 - d.hx, 1.04, 1.95, d.z0 - d.hz, d.z1 - d.hz, 40);     // 上半
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
@@ -1603,15 +1659,15 @@ function doorGeometry(dir) {
 function ensureDoorObj(d) {
   const key = d.x + ',' + d.y + ',' + d.z;
   const openNow = !!(getMeta(d.x, d.y, d.z) & 4);
+  const dd = DOOR_DEF[d.dir] || DOOR_DEF[1];
   let o = doorObjs.get(key);
   if (!o) {
-    const [hx, hz] = DOOR_HINGE[d.dir];
     const g = new THREE.Group();
     g.add(new THREE.Mesh(doorGeometry(d.dir), solidMat));
-    g.position.set(d.x + hx, d.y, d.z + hz);
-    g.rotation.y = openNow ? DOOR_OPEN_A : 0;
+    g.position.set(d.x + dd.hx, d.y, d.z + dd.hz);
+    g.rotation.y = openNow ? dd.a : 0;
     scene.add(g);
-    o = { group: g, dir: d.dir, p: openNow ? 1 : 0, targetP: openNow ? 1 : 0 };
+    o = { group: g, dir: d.dir, p: openNow ? 1 : 0, targetP: openNow ? 1 : 0, a: dd.a };
     doorObjs.set(key, o);
   }
   o.targetP = openNow ? 1 : 0;
@@ -1631,7 +1687,7 @@ function updateDoorAnims(dt) {
   for (const o of doorObjs.values()) {
     if (o.p === o.targetP) continue;
     o.p = o.p < o.targetP ? Math.min(o.targetP, o.p + step) : Math.max(o.targetP, o.p - step);
-    o.group.rotation.y = DOOR_OPEN_A * easeOutCubic(o.p);          // 先快后慢 = 丝滑
+    o.group.rotation.y = o.a * easeOutCubic(o.p);                  // 先快后慢 = 丝滑
   }
 }
 let doorSyncT = 0;
@@ -1643,7 +1699,8 @@ function buildChunk(chunk) {
   const P = [], U = [], C = [], I = [];
   const P2 = [], U2 = [], C2 = [], I2 = [];
   const P3 = [], U3 = [], C3 = [], I3 = [];
-  let vc = 0, vw = 0, vg = 0;
+  const P4 = [], U4 = [], C4 = [], I4 = [];              // 植物（十字面片，透明材质）
+  let vc = 0, vw = 0, vg = 0, vp = 0;
   for (let y = 0; y < WH; y++) for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
     const id = chunk.blocks[(y * CH + z) * CH + x];
     if (!id) continue;
@@ -1653,6 +1710,7 @@ function buildChunk(chunk) {
     const meta = (blockMeta.size || genMeta.size) ? getMeta(wx, y, wz) : 0;
     if (def.stair) { vc += emitStair(x, y, z, def, meta, P, U, C, I, vc); continue; }
     if (def.bed) { vc += emitBed(x, y, z, wx, wz, meta, P, U, C, I, vc); continue; }
+    if (def.cross) { vp += emitCross(x, y, z, def, P4, U4, C4, I4, vp); continue; }
     if (def.door) {                                      // 门：独立 Mesh（可平滑旋转），只记下位置
       if (!(meta & 8)) doorCells.push({ x: wx, y, z: wz, dir: (meta & 3) + 1 });
       continue;
@@ -1668,7 +1726,7 @@ function buildChunk(chunk) {
       else if (glass) { if (nb === 22 || nb === 5) continue; }          // 玻璃之间不画内面
       // ⚠ 半格方块（床）和门都不是满格：照旧把邻面剔掉，邻居朝向它们的那一面会整面消失
       // → 从床上/门缝看过去能直接穿进方块里。非满格邻居一律照画。
-      else if (nb !== 0 && nb !== 5 && nb !== 22 && !(BLOCKS[nb] && (BLOCKS[nb].half || BLOCKS[nb].door))) continue;
+      else if (nb !== 0 && nb !== 5 && nb !== 22 && !(BLOCKS[nb] && (BLOCKS[nb].half || BLOCKS[nb].door || BLOCKS[nb].cross))) continue;
       const t = faceTile(def, fi, meta);
       const u0 = (t % ATLAS_COLS) / ATLAS_COLS + 0.0015;
       const v0 = 1 - (((t / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.0015;
@@ -1710,14 +1768,17 @@ function buildChunk(chunk) {
   };
   const nm = mk(P, U, C, I, solidMat);
   const ng = mk(P3, U3, C3, I3, glassMat);
+  const np = mk(P4, U4, C4, I4, plantMat);
   const nw = mk(P2, U2, C2, I2, waterMat);
   if (chunk.mesh) { scene.remove(chunk.mesh); chunk.mesh.geometry.dispose(); }
   if (chunk.glass) { scene.remove(chunk.glass); chunk.glass.geometry.dispose(); }
   if (chunk.water) { scene.remove(chunk.water); chunk.water.geometry.dispose(); }
-  chunk.mesh = nm; chunk.glass = ng; chunk.water = nw;
+  if (chunk.plant) { scene.remove(chunk.plant); chunk.plant.geometry.dispose(); }
+  chunk.mesh = nm; chunk.glass = ng; chunk.water = nw; chunk.plant = np;
   if (nm) scene.add(nm);
   if (ng) { ng.renderOrder = 1; scene.add(ng); }
   if (nw) { nw.renderOrder = 2; scene.add(nw); }
+  if (np) { np.renderOrder = 3; scene.add(np); }
   chunk.ready = true;
   chunk.doors = doorCells;
 }
@@ -4696,6 +4757,7 @@ function streamChunks() {
       if (c.mesh) { scene.remove(c.mesh); c.mesh.geometry.dispose(); }
       if (c.glass) { scene.remove(c.glass); c.glass.geometry.dispose(); }   // 玻璃网格也要释放
       if (c.water) { scene.remove(c.water); c.water.geometry.dispose(); }
+      if (c.plant) { scene.remove(c.plant); c.plant.geometry.dispose(); }
       dirty.delete(c);
       chunks.delete(k);
     }
@@ -5482,6 +5544,26 @@ window.GAME = {
     },
     furnaceOpen: () => !$('furnace').classList.contains('hide'),
     doors: () => [...doorObjs.entries()].map(([k, o]) => ({ k, dir: o.dir, p: +o.p.toFixed(3), targetP: o.targetP, rotY: +o.group.rotation.y.toFixed(3) })),
+    doorBox: (dir, open) => {          // 关/开门时门板在世界格内的包围盒（必须落在 0..1，否则穿模邻居）
+      const geo = doorGeometry(dir), d = DOOR_DEF[dir];
+      const pos = geo.attributes.position.array, a = open ? d.a : 0;
+      const cos = Math.cos(a), sin = Math.sin(a);
+      let mnx = 9, mxx = -9, mnz = 9, mxz = -9;
+      for (let i = 0; i < pos.length; i += 3) {
+        const X = pos[i] * cos + pos[i + 2] * sin, Z = -pos[i] * sin + pos[i + 2] * cos;
+        mnx = Math.min(mnx, X + d.hx); mxx = Math.max(mxx, X + d.hx);
+        mnz = Math.min(mnz, Z + d.hz); mxz = Math.max(mxz, Z + d.hz);
+      }
+      return { dir, open, x: [+mnx.toFixed(3), +mxx.toFixed(3)], z: [+mnz.toFixed(3), +mxz.toFixed(3)] };
+    },
+    plants: () => { let n36 = 0, n37 = 0, meshes = 0, verts = 0;
+      for (const ch of chunks.values()) {
+        meshes += ch.plant ? 1 : 0;
+        if (ch.plant) verts += ch.plant.geometry.attributes.position.count;
+        const b = ch.blocks;
+        for (let i = 0; i < b.length; i++) { if (b[i] === 36) n36++; else if (b[i] === 37) n37++; }
+      }
+      return { grass: n36, flowers: n37, plantMeshes: meshes, plantVerts: verts }; },
     eat: () => ({ on: eatState.on, t: +eatState.t.toFixed(2), bites: eatState.bites, id: eatState.id, hunger: +player.hunger.toFixed(1) }),
     openFurnace: () => openFurnace(),
     openedChestCount: () => chestInv.size,
