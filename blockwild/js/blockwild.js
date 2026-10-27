@@ -1566,9 +1566,80 @@ function emitDoor(lx, y, lz, def, meta, P, U, C, I, base) {
   return n;
 }
 
+/* ── 门的运行时对象：门不进区块网格，改成每扇一个 Group，绕铰链缓动旋转（丝滑开关） ── */
+const DOOR_HINGE = [null, [0, 0.02], [1, 0.98], [0.02, 0], [0.98, 1]];   // dir → 铰链 (x,z)
+const DOOR_OPEN_A = -Math.PI / 2;                                          // 开门角度（4 种朝向统一）
+const doorGeoCache = new Map();
+const doorObjs = new Map();            // 'x,y,z'（下格）→ { group, dir, angle, target }
+function doorGeometry(dir) {
+  if (doorGeoCache.has(dir)) return doorGeoCache.get(dir);
+  const P = [], U = [], C = [], I = [];
+  const T = 0.16, E = 0.03;
+  let x0, x1, z0, z1;
+  if (dir === 1) { x0 = E; x1 = 1 - E; z0 = 0.02; z1 = 0.02 + T; }
+  else if (dir === 2) { x0 = E; x1 = 1 - E; z0 = 1 - 0.02 - T; z1 = 1 - 0.02; }
+  else if (dir === 3) { z0 = E; z1 = 1 - E; x0 = 0.02; x1 = 0.02 + T; }
+  else { z0 = E; z1 = 1 - E; x0 = 1 - 0.02 - T; x1 = 1 - 0.02; }
+  const [hx, hz] = DOOR_HINGE[dir];
+  let n = 0;
+  n += emitBox(P, U, C, I, n, 0, 0, 0, x0 - hx, x1 - hx, 0, 0.98, z0 - hz, z1 - hz, 40);          // 下半
+  n += emitBox(P, U, C, I, n, 0, 0, 0, x0 - hx, x1 - hx, 1.04, 1.95, z0 - hz, z1 - hz, 40);       // 上半
+  let kx0, kx1, kz0, kz1;                                          // 把手：自由端、朝室内
+  if (dir === 1) { kx0 = 0.74; kx1 = 0.82; kz0 = 0.18; kz1 = 0.24; }
+  else if (dir === 2) { kx0 = 0.18; kx1 = 0.26; kz0 = 0.76; kz1 = 0.82; }
+  else if (dir === 3) { kz0 = 0.74; kz1 = 0.82; kx0 = 0.18; kx1 = 0.24; }
+  else { kz0 = 0.18; kz1 = 0.26; kx0 = 0.74; kx1 = 0.82; }
+  emitBox(P, U, C, I, n, 0, 0, 0, kx0 - hx, kx1 - hx, 0.46, 0.60, kz0 - hz, kz1 - hz, 41);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  geo.setIndex(I);
+  geo.computeBoundingSphere();
+  geo.userData.shared = true;
+  doorGeoCache.set(dir, geo);
+  return geo;
+}
+function ensureDoorObj(d) {
+  const key = d.x + ',' + d.y + ',' + d.z;
+  const openNow = !!(getMeta(d.x, d.y, d.z) & 4);
+  let o = doorObjs.get(key);
+  if (!o) {
+    const [hx, hz] = DOOR_HINGE[d.dir];
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(doorGeometry(d.dir), solidMat));
+    g.position.set(d.x + hx, d.y, d.z + hz);
+    g.rotation.y = openNow ? DOOR_OPEN_A : 0;
+    scene.add(g);
+    o = { group: g, dir: d.dir, p: openNow ? 1 : 0, targetP: openNow ? 1 : 0 };
+    doorObjs.set(key, o);
+  }
+  o.targetP = openNow ? 1 : 0;
+  return o;
+}
+function syncDoors() {
+  const live = new Set();
+  for (const ch of chunks.values()) {
+    const ds = ch.doors;
+    if (!ds || !ds.length) continue;
+    for (const d of ds) { live.add(d.x + ',' + d.y + ',' + d.z); ensureDoorObj(d); }
+  }
+  for (const [k, o] of doorObjs) if (!live.has(k)) { scene.remove(o.group); doorObjs.delete(k); }
+}
+function updateDoorAnims(dt) {
+  const step = dt / 0.28;                                          // 固定 0.28 秒转完，跟帧率无关
+  for (const o of doorObjs.values()) {
+    if (o.p === o.targetP) continue;
+    o.p = o.p < o.targetP ? Math.min(o.targetP, o.p + step) : Math.max(o.targetP, o.p - step);
+    o.group.rotation.y = DOOR_OPEN_A * easeOutCubic(o.p);          // 先快后慢 = 丝滑
+  }
+}
+let doorSyncT = 0;
+
 function buildChunk(chunk) {
   const CH = CFG.CH, WH = CFG.WH;
   const ox = chunk.cx * CH, oz = chunk.cz * CH;
+  const doorCells = [];                                  // 门不进烘焙网格：用独立对象做开关动画
   const P = [], U = [], C = [], I = [];
   const P2 = [], U2 = [], C2 = [], I2 = [];
   const P3 = [], U3 = [], C3 = [], I3 = [];
@@ -1582,7 +1653,10 @@ function buildChunk(chunk) {
     const meta = (blockMeta.size || genMeta.size) ? getMeta(wx, y, wz) : 0;
     if (def.stair) { vc += emitStair(x, y, z, def, meta, P, U, C, I, vc); continue; }
     if (def.bed) { vc += emitBed(x, y, z, wx, wz, meta, P, U, C, I, vc); continue; }
-    if (def.door) { vc += emitDoor(x, y, z, def, meta, P, U, C, I, vc); continue; }
+    if (def.door) {                                      // 门：独立 Mesh（可平滑旋转），只记下位置
+      if (!(meta & 8)) doorCells.push({ x: wx, y, z: wz, dir: (meta & 3) + 1 });
+      continue;
+    }
     const water = id === 5;
     const glass = id === 22;
     const solidTop = def.half || 1;                       // 床这类半格方块
@@ -1645,6 +1719,7 @@ function buildChunk(chunk) {
   if (ng) { ng.renderOrder = 1; scene.add(ng); }
   if (nw) { nw.renderOrder = 2; scene.add(nw); }
   chunk.ready = true;
+  chunk.doors = doorCells;
 }
 
 /* ============================================================ 玩家 */
@@ -2116,6 +2191,19 @@ function updateHandPose(dt, now) {
   anim.land = Math.max(0, anim.land - dt * 3.2);
   py -= anim.land * 0.035;
 
+  // 吃东西：手抬到嘴边 + 每口一下的咀嚼（Action & Stuff 手感）
+  anim.biteK = Math.max(0, (anim.biteK || 0) - dt * 3.2);
+  if (eatState.on) {
+    const k = clamp01(eatState.t / 0.22);                  // 抬手进度
+    const ch = anim.biteK;                                 // 0..1 每口冲击
+    const nib = Math.sin(now / 52) * 0.007 * k;            // 细微啃咬抖动
+    px = BASE_POSE.x - 0.10 * k + anim.swayX * 0.5;
+    py = BASE_POSE.y + 0.06 * k - 0.035 * ch + nib;        // 抬到嘴边（手保持在画面右下，别糊屏）
+    pz = BASE_POSE.z - 0.02 * k;
+    rx = BASE_POSE.rx + 0.15 * k + 0.12 * ch;
+    ry = BASE_POSE.ry + anim.swayX * 0.25;
+    rz = BASE_POSE.rz - 0.12 * k + 0.04 * ch;
+  }
   armR.position.set(px, py, pz);
   armR.rotation.set(rx, ry, rz);
   armL.position.set(-0.28 - anim.swayX * 0.5, -0.26 + anim.swayY * 0.6 - anim.land * 0.03, -0.25);
@@ -2126,6 +2214,11 @@ function updateHandPose(dt, now) {
     const pose = HOLD_POSE[heldKindNow] || HOLD_POSE.block;
     heldGroup.rotation.set(pose.rx + aTotal * 0.3, pose.ry - aTotal * 0.1, pose.rz + aTotal * 0.18);
     heldGroup.position.set(0.01, pose.py - Math.max(0, aTotal) * 0.02, -0.54 + pose.pz - Math.max(0, aTotal) * 0.05);
+    if (eatState.on) {                                     // 吃东西：把食物端到嘴边（抬手时略微上抬 + 每口前送）
+      const ch2 = anim.biteK;
+      heldGroup.position.set(0.02, 0.05 - 0.03 * ch2, -0.34 - 0.04 * ch2);
+      heldGroup.rotation.set(-0.2, 0.3, 0.1);
+    }
   }
 }
 
@@ -3890,10 +3983,10 @@ renderer.domElement.addEventListener('mousedown', e => {
     lockPointer(); return;
   }
   if (e.button === 0) { mineHeld = true; attackQueued = true; if (heldKind() === 'sword') startSwing('attack', 0.5); }
-  if (e.button === 2) placeQueued = true;
+  if (e.button === 2) { placeQueued = true; placeHeld = true; }
 });
 addEventListener('keyup', e => { if (e.code === keymap.mine) mineHeld = false; });
-addEventListener('mouseup', e => { if (e.button === 0) { mineHeld = false; dragLook = false; } });
+addEventListener('mouseup', e => { if (e.button === 0) { mineHeld = false; dragLook = false; } if (e.button === 2) placeHeld = false; });
 addEventListener('contextmenu', e => e.preventDefault());
 let dragLook = false;
 addEventListener('mousemove', e => {
@@ -4106,11 +4199,16 @@ function toggleDoor(x, y, z) {
   const ny = by + 1, hasTop = getBlock(x, ny, z) === 35;
   setBlock(x, by, z, 35); setMeta(x, by, z, dirBits | (openNow ? 0 : 4));
   if (hasTop) { setBlock(x, ny, z, 35); setMeta(x, ny, z, dirBits | (openNow ? 0 : 4) | 8); }
+  const o = doorObjs.get(x + ',' + by + ',' + z);            // 立刻开始缓动旋转
+  if (o) o.targetP = openNow ? 0 : 1;
+  doorSyncT = 0.6;
   sfx(openNow ? 'dig' : 'place');
   toast(openNow ? '门关上了' : '门打开了', 1.0);
   return true;
 }
 function placeBlock() {
+  const h0 = held();
+  if (h0 && ITEMS[h0.id] && ITEMS[h0.id].kind === 'food') return false;   // 食物走长按吃，不放置
   const t0 = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
   if (t0 && BLOCKS[t0.id] && BLOCKS[t0.id].door) return toggleDoor(t0.x, t0.y, t0.z);   // 对着门按右键 = 开/关
   const h = held();
@@ -4316,16 +4414,60 @@ function useBucket(full, t) {
   toast('装满一桶水', 1.2);
   return true;
 }
-function eat() {
+/* ── 吃东西：必须长按（右键 / G），三口吃完；每口有咀嚼动画和进度条（Action & Stuff 手感） ── */
+const EAT_BITES = [0.45, 0.95, 1.45], EAT_DUR = 1.85;
+const eatState = { on: false, t: 0, bites: 0, id: 0 };
+let placeHeld = false;
+let eatBarEl = null, eatFillEl = null;
+function eatHud(show, pct) {
+  if (!eatBarEl) {
+    eatBarEl = document.createElement('div');
+    eatBarEl.id = 'eatBar';
+    eatBarEl.style.cssText = 'position:fixed;left:50%;bottom:108px;transform:translateX(-50%);width:190px;height:12px;'
+      + 'border-radius:7px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);overflow:hidden;display:none;z-index:32';
+    eatFillEl = document.createElement('div');
+    eatFillEl.style.cssText = 'height:100%;width:0%;background:linear-gradient(90deg,#9be36a,#4caf50)';
+    eatBarEl.appendChild(eatFillEl);
+    document.body.appendChild(eatBarEl);
+  }
+  eatBarEl.style.display = show ? 'block' : 'none';
+  if (show) eatFillEl.style.width = Math.round(clamp01(pct) * 100) + '%';
+}
+function eatStop(commit) {
+  if (!eatState.on) { eatHud(false, 0); return; }
   const h = held();
-  if (!h || (defOf(h.id) || {}).kind !== 'food') return false;
-  if (player.hunger >= 20) { toast('现在不饿', 1.2); return false; }
-  player.hunger = Math.min(20, player.hunger + (defOf(h.id).food || 4));
+  eatState.on = false;
+  eatHud(false, 0);
+  if (!commit || !h || !ITEMS[h.id] || ITEMS[h.id].kind !== 'food') return;
+  const food = ITEMS[h.id].food || 4;
+  player.hunger = Math.min(20, player.hunger + food);
   takeItem(h.id, 1);
-  sfx('eat'); toast(`吃掉了 ${nameOf(h.id)}`, 1.2);
-  startSwing('place', 0.3);
+  toast(`吃掉 ${nameOf(h.id)}（饱食 +${food}）`, 1.3);
+  sfx('eat');
   renderHotbar(); refreshHeld(); saveSoon();
-  return true;
+}
+function updateEat(dt) {
+  const h = held();
+  const isFood = !!(h && ITEMS[h.id] && ITEMS[h.id].kind === 'food');
+  const canEat = started && player.alive && !panelOpen && isFood && player.hunger < 20;
+  const holding = !!(keys.has(keymap.place) || placeHeld);
+  if (canEat && holding) {
+    if (!eatState.on || eatState.id !== h.id) { eatState.on = true; eatState.t = 0; eatState.bites = 0; eatState.id = h.id; }
+    eatState.t += dt;
+    while (eatState.bites < EAT_BITES.length && eatState.t >= EAT_BITES[eatState.bites]) {
+      eatState.bites++;
+      anim.biteK = 1;                                  // 这一口的咀嚼冲击（updateHandPose 里衰减）
+      sfx('dig');
+    }
+    eatHud(true, eatState.t / EAT_DUR);
+    if (eatState.t >= EAT_DUR) eatStop(true);
+  } else if (eatState.on) {
+    eatStop(false);                                    // 松开 = 取消，不消耗物品
+  }
+  if (isFood && player.hunger >= 20 && holding && !eatState.on) {
+    // 不饿时给个提示（每秒最多一次）
+    if (!updateEat._t || performance.now() - updateEat._t > 1200) { updateEat._t = performance.now(); toast('现在不饿', 1.0); }
+  }
 }
 // 近战：沿视线找一个"锥形"内的怪（判定半径 1.05，射程比挖方块短 1.2 格）
 function attackTarget() {
@@ -4474,6 +4616,7 @@ function updatePlayer(dt) {
 
 function update(dt) {
   worldTime += dt;
+  updateEat(dt);
   echoTimer -= dt;
   if (echoTimer <= 0) { echoTimer = 0.4; underground = depthBelowSurface() > 2.5; }
   caveMix += ((underground ? 1 : 0) - caveMix) * Math.min(1, dt * 4);
@@ -4529,8 +4672,7 @@ function update(dt) {
     else if (h && t && BLOCKS[t.id] && BLOCKS[t.id].compost && ITEMS[h.id] && ITEMS[h.id].kind === 'food') useCompost(t);
     else if (h && h.id === 152) useBucket(true, t);
     else if (h && h.id === 151) useBucket(false, t);
-    else if (h && (defOf(h.id) || {}).kind === 'food') eat();
-    else placeBlock();
+    else placeBlock();                                  // 食物不在这里吃：长按（右键/G）由 updateEat 处理
   }
 
   // 手部姿势在 frame() 里按真实帧时长算（固定步长里算会让动画在高刷屏上发顿）
@@ -4841,6 +4983,9 @@ function frame(now) {
   let guard = 0;
   while (acc >= STEP && guard++ < 6) { acc -= STEP; update(STEP); }
   updateHUD(dt);
+  updateDoorAnims(dt);
+  doorSyncT -= dt;
+  if (doorSyncT <= 0) { doorSyncT = 0.25; syncDoors(); }
 
   const idealEye = player.p.y + CFG.EYE + Math.sin(player.walkPhase) * 0.018;
   camSmoothY = camSmoothY === null ? idealEye : camSmoothY + (idealEye - camSmoothY) * Math.min(1, dt * 15);
@@ -5336,6 +5481,8 @@ window.GAME = {
       return { total, perVillage };
     },
     furnaceOpen: () => !$('furnace').classList.contains('hide'),
+    doors: () => [...doorObjs.entries()].map(([k, o]) => ({ k, dir: o.dir, p: +o.p.toFixed(3), targetP: o.targetP, rotY: +o.group.rotation.y.toFixed(3) })),
+    eat: () => ({ on: eatState.on, t: +eatState.t.toFixed(2), bites: eatState.bites, id: eatState.id, hunger: +player.hunger.toFixed(1) }),
     openFurnace: () => openFurnace(),
     openedChestCount: () => chestInv.size,
     chestContents: () => openChestPos ? chestSlots(openChestPos.x, openChestPos.y, openChestPos.z).map(s => s ? s.id + ':' + s.n : null) : null,
