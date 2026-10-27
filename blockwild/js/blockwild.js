@@ -3353,6 +3353,172 @@ function showVillagerGift(m) {                  // 手里拿的东西：头顶�
   m.obj.add(mesh);
   m.gift = mesh;
 }
+/* ── 小队：最多 3 人；村民可穿盔甲（可见）、位置与装备写进存档 ── */
+const MAX_SQUAD = 3;
+const ARMOR_COLOR = { 110: 0xcfd6de, 111: 0xcfd6de, 112: 0xcfd6de, 113: 0xcfd6de,
+  132: 0x5fe0dc, 133: 0x5fe0dc, 134: 0x5fe0dc, 135: 0x5fe0dc };
+function squadList() { return mobs.filter(m => m.recruit && m.recruit.hired); }
+function newEquip() { return { head: null, chest: null, legs: null, feet: null }; }
+function armorTierColor(id) { return ARMOR_COLOR[id] || (id >= 132 ? 0x5fe0dc : 0xcfd6de); }
+
+function refreshVillagerArmor(m) {               // 给村民模型套 4 件盔甲（头/胸/腿/靴）
+  if (!m.parts) return;
+  const core = m.parts.core;
+  if (m.armorMeshes) { for (const a of m.armorMeshes) core.remove(a); m.armorMeshes = null; }
+  if (!m.equip) return;
+  const bodyMesh = core.children[0], headMesh = core.children[1];
+  if (!bodyMesh || !headMesh) return;
+  const boxOf = (mesh) => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone().translate(mesh.position); };
+  const hb = boxOf(headMesh), bb2 = boxOf(bodyMesh);
+  const meshes = [];
+  const add = (slot, y0, y1, grow = 0.022, src = bb2) => {
+    const id = m.equip[slot];
+    if (!id) return;
+    const w = (src.max.x - src.min.x) + grow * 2, d = (src.max.z - src.min.z) + grow * 2;
+    const yTop = src.min.y + (src.max.y - src.min.y) * y1, yBot = src.min.y + (src.max.y - src.min.y) * y0;
+    const mat = new THREE.MeshLambertMaterial({ color: armorTierColor(id) });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, Math.max(0.03, yTop - yBot), d), mat);
+    mesh.position.set((src.min.x + src.max.x) / 2, (yTop + yBot) / 2, (src.min.z + src.max.z) / 2);
+    core.add(mesh); meshes.push(mesh);
+  };
+  add('head', 0.42, 0.99, 0.028, hb);            // 头盔：罩住上半个头，露出脸
+  add('chest', 0.46, 0.99);                      // 胸甲：躯干外壳
+  // 护腿 / 靴子要穿在「腿」上（村民的腿是独立部件，不是躯干盒子的一部分）
+  const armSet = new Set([m.parts.arm1, m.parts.arm2].filter(Boolean));
+  const legs = (m.parts.limbs || []).filter(o => !armSet.has(o));   // 只给腿穿，别套到手臂上
+  for (const L of legs) {
+    if (m.equip.legs) {
+      L.geometry.computeBoundingBox();
+      const lb = L.geometry.boundingBox.clone().translate(L.position);
+      const h = lb.max.y - lb.min.y, w = (lb.max.x - lb.min.x) + 0.04, d = (lb.max.z - lb.min.z) + 0.04;
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.55, d), new THREE.MeshLambertMaterial({ color: armorTierColor(m.equip.legs) }));
+      mesh.position.set((lb.min.x + lb.max.x) / 2, lb.max.y - h * 0.275, (lb.min.z + lb.max.z) / 2);
+      core.add(mesh); meshes.push(mesh);
+    }
+    if (m.equip.feet) {
+      L.geometry.computeBoundingBox();
+      const lb = L.geometry.boundingBox.clone().translate(L.position);
+      const h = lb.max.y - lb.min.y, w = (lb.max.x - lb.min.x) + 0.05, d = (lb.max.z - lb.min.z) + 0.05;
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.34, d), new THREE.MeshLambertMaterial({ color: armorTierColor(m.equip.feet) }));
+      mesh.position.set((lb.min.x + lb.max.x) / 2, lb.min.y + h * 0.17, (lb.min.z + lb.max.z) / 2);
+      core.add(mesh); meshes.push(mesh);
+    }
+  }
+  m.armorMeshes = meshes.length ? meshes : null;
+}
+
+let vPanelEl = null, vPanelMob = null;
+function ensureVillagerPanel() {
+  if (vPanelEl) return vPanelEl;
+  vPanelEl = document.createElement('div');
+  vPanelEl.id = 'vpanel';
+  vPanelEl.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(330px,92vw);'
+    + 'background:rgba(16,20,28,.97);border:2px solid #43546b;border-radius:12px;padding:14px 14px 10px;'
+    + 'z-index:70;color:#e8eef5;font-size:13px;display:none;box-shadow:0 14px 44px rgba(0,0,0,.6);font-family:inherit';
+  vPanelEl.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-act]');
+    if (t) {
+      const act = t.dataset.act;
+      if (act === 'close') closeVillagerPanel();
+      else if (act === 'follow' && vPanelMob) {
+        vPanelMob.recruit.follow = !vPanelMob.recruit.follow;
+        toast(vPanelMob.recruit.follow ? '村民：跟着你' : '村民：原地待命', 1.4);
+        renderVillagerPanel(vPanelMob); saveSoon();
+      } else if (act && act.startsWith('gear') && vPanelMob) {
+        equipVillager(vPanelMob, act.slice(4));
+      }
+    }
+  });
+  document.body.appendChild(vPanelEl);
+  return vPanelEl;
+}
+function closeVillagerPanel() { if (vPanelEl) vPanelEl.style.display = 'none'; vPanelMob = null; }
+function openVillagerPanel(m) {
+  ensureVillagerPanel();
+  vPanelMob = m;
+  renderVillagerPanel(m);
+  vPanelEl.style.display = 'block';
+}
+function renderVillagerPanel(m) {
+  const el = ensureVillagerPanel();
+  const r = m.recruit;
+  const nm = MOB_DEFS[m.kind].name;
+  const gearRow = ARMOR_SLOTS.map(sl => {
+    const id = m.equip && m.equip[sl];
+    const label = id ? (ITEMS[id].name) : '空';
+    const col = id ? '#5fe0dc' : '#8b97a6';
+    return `<button data-act="gear${sl}" style="flex:1;min-width:0;margin:2px;padding:7px 3px;border-radius:7px;border:1px solid #43546b;`
+      + `background:${id ? '#213a3a' : '#1a212b'};color:${col};font-size:11px;cursor:pointer;line-height:1.25">`
+      + `<div style="color:#9fb0c2;font-size:10px">${ARMOR_SLOT_NAME[sl]}</div>${label}</button>`;
+  }).join('');
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <b style="font-size:15px">${nm}${r.hired ? ' · 小队成员' : ''}</b>
+      <button data-act="close" style="background:#2a3441;border:1px solid #43546b;color:#cfdae6;border-radius:6px;padding:3px 9px;cursor:pointer">✕</button>
+    </div>
+    ${r.hired ? `
+      <div style="color:#9fb0c2;margin-bottom:6px">装备（点一下穿上 / 再点脱下，穿在身上看得见）</div>
+      <div style="display:flex;margin-bottom:10px">${gearRow}</div>
+      <button data-act="follow" style="width:100%;padding:9px;border-radius:8px;border:1px solid ${r.follow ? '#3f7a4a' : '#43546b'};`
+        + `background:${r.follow ? '#1e3a26' : '#1a212b'};color:${r.follow ? '#9ff0a8' : '#cfdae6'};cursor:pointer;font-size:13px">`
+        + `${r.follow ? '正在跟随（点一下让他待命）' : '原地待命（点一下让他跟随）'}</button>
+      <div style="color:#7f8c9b;font-size:11px;margin-top:8px">护甲 ${ARMOR_SLOTS.reduce((a, sl) => a + ((m.equip && m.equip[sl] && ITEMS[m.equip[sl]].ap) || 0), 0)} · 生命 ${Math.round(m.hp)}/${m.maxHp}</div>
+    ` : `
+      <div style="color:#ffd84a;margin-bottom:8px">想要：${nameOf(r.want.id)} ×${r.want.need}</div>
+      <div style="height:9px;border-radius:5px;background:#1a212b;overflow:hidden;margin-bottom:8px">
+        <div style="height:100%;width:${Math.round(r.want.got / r.want.need * 100)}%;background:linear-gradient(90deg,#ffd84a,#e0a020)"></div>
+      </div>
+      <div style="color:#9fb0c2">进度 ${r.want.got}/${r.want.need} —— 拿着他想要的东西右键他就能交付</div>
+    `}`;
+}
+function equipVillager(m, slot) {                // 面板里点装备格
+  if (!m.equip) m.equip = newEquip();
+  if (!ARMOR_SLOTS.includes(slot)) return false;
+  const cur = m.equip[slot];
+  if (cur) {                                      // 脱下 → 还回背包
+    m.equip[slot] = null;
+    addItem(cur, 1);
+    toast(`脱下 ${ITEMS[cur].name}`, 1.2);
+  } else {
+    const idx = inv.findIndex(s => s && ITEMS[s.id] && ITEMS[s.id].kind === 'armor' && ITEMS[s.id].slot === slot);
+    if (idx < 0) { toast(`背包里没有${ARMOR_SLOT_NAME[slot]}`, 1.4); return false; }
+    const id = inv[idx].id;
+    takeItem(id, 1);
+    m.equip[slot] = id;
+    toast(`给村民穿上 ${ITEMS[id].name}（护甲 +${ITEMS[id].ap}）`, 1.6);
+  }
+  refreshVillagerArmor(m);
+  renderVillagerPanel(m); renderHotbar(); refreshHeld(); saveSoon();
+  return true;
+}
+function squadData() {                           // 存档用：位置/装备/跟随/需求
+  return squadList().map(m => ({
+    x: +m.p.x.toFixed(2), y: +m.p.y.toFixed(2), z: +m.p.z.toFixed(2),
+    want: m.recruit.want, follow: !!m.recruit.follow, equip: m.equip || newEquip(),
+    give: m.give || null, hp: m.hp,
+  }));
+}
+function restoreSquad(list) {                    // 读档：重建村民
+  if (!Array.isArray(list) || !list.length) return 0;
+  let n = 0;
+  for (const sd of list) {
+    if (!sd) continue;
+    const m = spawnMobAt('villager', Math.round(sd.x), Math.round(sd.y), Math.round(sd.z), { force: true });
+    if (!m) continue;
+    m.p.set(sd.x, sd.y, sd.z);
+    m.recruit.want = sd.want || m.recruit.want;
+    m.recruit.hired = true;
+    m.recruit.follow = !!sd.follow;
+    m.equip = Object.assign(newEquip(), sd.equip || {});
+    if (sd.give) { m.give = sd.give; showVillagerGift(m); }
+    if (sd.hp) m.hp = Math.min(m.maxHp, sd.hp);
+    refreshVillagerMark(m);
+    refreshVillagerArmor(m);
+    n++;
+  }
+  return n;
+}
+
 function mobAtCrosshair(range = 4.2) {          // 准星指向的怪/村民
   const eye = eyePos(), dir = cameraDir();
   let best = null, bestT = 1e9;
@@ -3377,7 +3543,12 @@ function recruitInteract(m) {                    // 右键村民：交物资 / �
     takeItem(h.id, give);
     r.want.got += give;
     if (r.want.got >= r.want.need) {
+      if (squadList().length >= MAX_SQUAD) {
+        toast(`小队已满（最多 ${MAX_SQUAD} 人），先从背包里解散一个`, 2.4);
+        return true;
+      }
       r.hired = true; r.follow = true;
+      if (!m.equip) m.equip = newEquip();
       refreshVillagerMark(m);
       toast(`${MOB_DEFS[m.kind].name}入队了！空手右键可以让他跟随 / 待命`, 3.0);
       sfx('craft');
@@ -3398,15 +3569,14 @@ function recruitInteract(m) {                    // 右键村民：交物资 / �
     renderHotbar(); refreshHeld(); saveSoon();
     return true;
   }
-  r.follow = !r.follow;                          // 空手右键：跟随 / 待命
-  toast(r.follow ? `${MOB_DEFS[m.kind].name}：跟着你` : `${MOB_DEFS[m.kind].name}：原地待命`, 1.6);
+  openVillagerPanel(m);                          // 空手右键：打开村民面板（装备 / 跟随）
   return true;
 }
 
 function spawnMobAt(kind, x, y, z, opts = {}) {
   const def = MOB_DEFS[kind];
   if (!def) return null;
-  if (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0) return null;
+  if (!opts.force && (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0)) return null;
   const parts = makeMobModel(kind);
   const m = {
     kind, p: new THREE.Vector3(x + 0.5, y + 0.02, z + 0.5), v: new THREE.Vector3(),
@@ -3978,7 +4148,37 @@ function renderCreativeGrid() {
     box.appendChild(d);
   }
 }
+function renderSquadStrip() {                    // 背包里的「小队」区域（最多 3 人）
+  if (!hud.invGrid) return;
+  let el = document.getElementById('invSquad');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'invSquad';
+    el.style.cssText = 'margin:8px 0 4px;padding:8px;border:1px solid #3a4757;border-radius:8px;background:rgba(255,255,255,.03)';
+    hud.invGrid.parentNode.insertBefore(el, hud.invGrid);
+  }
+  const list = squadList();
+  const cell = (m, i) => {
+    if (!m) return `<div style="flex:1;margin:0 3px;padding:8px 4px;border:1px dashed #39465a;border-radius:7px;color:#66748a;text-align:center;font-size:11px">空位</div>`;
+    const gearN = m.equip ? ARMOR_SLOTS.filter(k => m.equip[k]).length : 0;
+    return `<div data-sq="${i}" style="flex:1;margin:0 3px;padding:7px 4px;border:1px solid ${m.recruit.follow ? '#3f7a4a' : '#43546b'};`
+      + `border-radius:7px;background:${m.recruit.follow ? '#16281c' : '#1a212b'};text-align:center;font-size:11px;cursor:pointer">`
+      + `<div style="font-size:15px">🧑‍🌾</div>${m.recruit.follow ? '跟随中' : '待命'}<br>`
+      + `<span style="color:#9fb0c2">护甲 ${gearN}/4</span></div>`;
+  };
+  el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">`
+    + `<b style="font-size:12px;color:#cfdae6">小队 ${list.length}/${MAX_SQUAD}</b>`
+    + `<span style="font-size:10px;color:#7f8c9b">点一下查看 / 换装</span></div>`
+    + `<div style="display:flex">${[0, 1, 2].map(i => cell(list[i], i)).join('')}</div>`;
+  el.onclick = (e) => {
+    const t = e.target.closest('[data-sq]');
+    if (!t) return;
+    const m = squadList()[+t.dataset.sq];
+    if (m) openVillagerPanel(m);
+  };
+}
 function renderInventoryPanel() {
+  renderSquadStrip();
   renderArmorRow();
   renderCreativeGrid();
   renderGrid(hud.invGrid, inv, i => slotClick(inv, i));
@@ -5152,6 +5352,7 @@ function save() {
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
       inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
       compost: Array.from(compostProg.entries()), meta: Array.from(blockMeta.entries()),
+      squad: squadData(),
     };
     localStorage.setItem(worldKey(currentId), JSON.stringify(data));
     saveErr = null;
@@ -5184,6 +5385,8 @@ function loadSave(id) {
     }
     for (const [k, v] of (d.edits || [])) edits.set(k, v);
     reindexEdits();
+    for (const m0 of mobs.slice()) { m0.dying = true; m0.dieT = MOB_DEATH_HOLD + 1; }
+    restoreSquad(d.squad);
     blockMeta.clear();
     if (Array.isArray(d.meta)) for (const e of d.meta) if (Array.isArray(e)) blockMeta.set(e[0], e[1]);
     if (d.player) {
@@ -5730,6 +5933,15 @@ window.GAME = {
       give: m.give ? nameOf(m.give.id) : null, hasMark: !!m.mark, hasGift: !!m.gift,
       pos: [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)],
     })),
+    restoreSquad: (l) => restoreSquad(l),
+    squadSave: () => squadData(),
+    limbs: () => { const m = GAME.mobs.find(x => x.recruit); return m ? { limbs: m.parts.limbs.length, arms: [!!m.parts.arm1, !!m.parts.arm2] } : null; },
+    squad: () => squadList().map(m => ({ name: MOB_DEFS[m.kind].name, follow: m.recruit.follow,
+      equip: m.equip, armorMeshes: m.armorMeshes ? m.armorMeshes.length : 0,
+      pos: [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)] })),
+    openPanel: () => { const l = squadList(); if (!l.length) return false; openVillagerPanel(l[0]); return document.getElementById('vpanel').style.display === 'block'; },
+    panelText: () => (document.getElementById('vpanel') || {}).innerText || null,
+    gear: (slot) => { const l = squadList(); if (!l.length) return false; return equipVillager(l[0], slot); },
     spawnVillager: () => { const p = spawnMobAt('villager', Math.floor(player.p.x) + 2, Math.floor(player.p.y) + 1, Math.floor(player.p.z));
       return p ? { ok: true, want: nameOf(p.recruit.want.id), need: p.recruit.want.need } : { ok: false }; },
     plants: () => { let n36 = 0, n37 = 0, meshes = 0, verts = 0;
