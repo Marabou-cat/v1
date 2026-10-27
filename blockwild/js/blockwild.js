@@ -258,7 +258,7 @@ const BLOCKS = {
   4: { name: '沙子', top: 4, side: 4, bottom: 4, hard: 0.45, drop: 4 },
   5: { name: '水', water: true, hard: 0, top: 10, side: 10, bottom: 10 },
   6: { name: '原木', top: 6, side: 5, bottom: 6, hard: 0.8, drop: 6 },
-  7: { name: '树叶', top: 7, side: 7, bottom: 7, hard: 0.22, drop: 0, leaf: true },
+  7: { name: '树叶', top: 7, side: 7, bottom: 7, hard: 0.22, drop: 0, leaf: true, hollow: true },
   8: { name: '木板', top: 8, side: 8, bottom: 8, hard: 0.65, drop: 8 },
   9: { name: '圆石', top: 9, side: 9, bottom: 9, hard: 1.9, drop: 9, pick: true },
   10: { name: '工作台', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10 },
@@ -281,6 +281,7 @@ const BLOCKS = {
   35: { name: '木门', top: 40, side: 40, bottom: 40, hard: 0.6, drop: 35, door: true },
   36: { name: '草丛', top: 42, side: 42, bottom: 42, hard: 0.05, drop: 0, plant: true, cross: true },
   37: { name: '红花', top: 43, side: 43, bottom: 43, hard: 0.05, drop: 37, plant: true, cross: true },
+  38: { name: '火把', top: 44, side: 44, bottom: 44, hard: 0.05, drop: 38, plant: true, cross: true, crossH: 0.92, torch: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
   20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
@@ -341,7 +342,7 @@ let atlasCanvas = null, atlasTex = null;
 // 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
 // ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
 // 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
-const ATLAS_COLS = 4, ATLAS_ROWS = 11;
+const ATLAS_COLS = 4, ATLAS_ROWS = 12;
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -510,6 +511,14 @@ function makeAtlas() {
     }
     px(c, r, 8, 5, '#ffe066');
   }
+  // 44 火把：木杆 + 火焰（透明底，放在植物网格里用不受光材质 → 白天黑夜都亮）
+  {
+    const c = 44 % ATLAS_COLS, r = (44 / ATLAS_COLS) | 0;
+    for (let y = 7; y < 16; y++) for (let x = 7; x <= 8; x++) px(c, r, x, y, x === 7 ? '#7a5330' : '#8d6039');
+    px(c, r, 7, 8, '#5f3f24'); px(c, r, 8, 11, '#5f3f24');
+    for (let y = 3; y < 7; y++) for (let x = 6; x <= 9; x++) px(c, r, x, y, y < 5 ? '#ffcf4a' : '#ff8a2b');
+    px(c, r, 7, 2, '#ffe066'); px(c, r, 8, 2, '#fff0a8'); px(c, r, 7, 4, '#fff6d0'); px(c, r, 8, 5, '#ffffff');
+  }
   // 24 石砖：整齐的砖块 + 灰浆缝
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -562,11 +571,17 @@ function makeAtlas() {
       if (Math.abs(d % 3 - 1.5) < 0.55) px(c, r, x, y, shade('#6a4826', 1));
     }
   });
-  // 7 树叶
-  T(7, '#3d7a2e', 0.2, (c, r) => {
-    for (let i = 0; i < 40; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, shade('#2c5b21', 1));
-    for (let i = 0; i < 12; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, shade('#4f9439', 1));
-  });
+  // 7 树叶：镂空（四角与随机小洞透明）→ 方块看起来是空心的、能透光
+  {
+    const c = 7 % ATLAS_COLS, r = (7 / ATLAS_COLS) | 0;
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const corner = (x < 2 && y < 2) || (x > 13 && y < 2) || (x < 2 && y > 13) || (x > 13 && y > 13);
+      const hole = ((x * 7 + y * 11) % 9 === 0) || ((x * 5 + y * 3) % 14 === 0);
+      if (corner || hole) continue;                                  // 透明像素 → alphaTest 抠掉
+      const d = Math.hypot(x - 7.5, y - 7.5);
+      px(c, r, x, y, shade(d < 4 ? '#57a13f' : '#3d7a2e', 0.9 + ((x + y) % 3) * 0.06));
+    }
+  }
   // 8 木板
   T(8, '#b98a4e', 0.05, (c, r) => {
     // 4 条横向木板：板缝（深褐色） + 逐行色差
@@ -1416,7 +1431,8 @@ worldDir.position.set(0.6, 1, 0.35);
 scene.add(worldLight, worldDir);
 
 makeAtlas();
-const solidMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, fog: true });
+const solidMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, fog: true,
+  alphaTest: 0.5 });   // 保持原来的昼夜观感；alphaTest 用来抠出镂空树叶
 // 植物（草丛/花）：透明贴图 + alphaTest 抠形，双面可见
 const plantMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, transparent: true,
   alphaTest: 0.45, side: THREE.DoubleSide, fog: true, depthWrite: true });
@@ -1701,7 +1717,7 @@ function updateDoorAnims(dt) {
     o.group.rotation.y = o.a * easeOutCubic(o.p);                  // 先快后慢 = 丝滑
   }
 }
-let doorSyncT = 0;
+let doorSyncT = 0, torchT = 0;
 
 function buildChunk(chunk) {
   const CH = CFG.CH, WH = CFG.WH;
@@ -1721,7 +1737,7 @@ function buildChunk(chunk) {
     const meta = (blockMeta.size || genMeta.size) ? getMeta(wx, y, wz) : 0;
     if (def.stair) { vc += emitStair(x, y, z, def, meta, P, U, C, I, vc); continue; }
     if (def.bed) { vc += emitBed(x, y, z, wx, wz, meta, P, U, C, I, vc); continue; }
-    if (def.cross) { vp += emitCross(x, y, z, def, P4, U4, C4, I4, vp); continue; }
+    if (def.cross) { vp += emitCross(x, y, z, def, P4, U4, C4, I4, vp); if (def.torch) registerTorch(wx, y, wz); continue; }
     if (def.door) {                                      // 门：独立 Mesh（可平滑旋转），只记下位置
       if (!(meta & 8)) doorCells.push({ x: wx, y, z: wz, dir: (meta & 3) + 1 });
       continue;
@@ -2355,8 +2371,46 @@ function depthBelowSurface() {
 }
 // 该位置是否够暗（能被刷怪）：有顶 → 暗；露天 → 只有夜里暗
 function isDarkAt(x, y, z) {
+  if (torchNear(x, y, z, 8)) return false;      // 火把照亮的地方不会刷怪
   if (!isSkyLit(x, y, z)) return true;
   return lightLevel < 0.35;
+}
+/* ── 火把光照：只在玩家附近点亮 6 个点光源（性能友好），并且照亮周围方块/生物 ── */
+const torchCells = new Map();               // 'x,y,z' → {x,y,z}
+const torchLights = [];
+for (let i = 0; i < 6; i++) {
+  const pl = new THREE.PointLight(0xffb45a, 0, 13, 1.3);
+  pl.visible = false;
+  scene.add(pl);
+  torchLights.push(pl);
+}
+function registerTorch(x, y, z) { torchCells.set(x + ',' + y + ',' + z, { x, y, z }); }
+function unregisterTorch(x, y, z) { torchCells.delete(x + ',' + y + ',' + z); }
+function updateTorchLights() {
+  if (!torchCells.size) { for (const l of torchLights) l.visible = false; return; }
+  const px = player.p.x, py = player.p.y, pz = player.p.z;
+  const near = [];
+  for (const t of torchCells.values()) {
+    const d = (t.x - px) * (t.x - px) + (t.y - py) * (t.y - py) + (t.z - pz) * (t.z - pz);
+    if (d > 26 * 26) continue;
+    near.push({ t, d });
+  }
+  near.sort((a, b) => a.d - b.d);
+  for (let i = 0; i < torchLights.length; i++) {
+    const l = torchLights[i], e = near[i];
+    if (!e) { l.visible = false; continue; }
+    l.position.set(e.t.x + 0.5, e.t.y + 0.62, e.t.z + 0.5);
+    l.intensity = 2.6 + Math.sin(worldTime * 6 + e.t.x) * 0.2;   // 轻微跳动
+    l.visible = true;
+  }
+}
+function torchNear(x, y, z, r) {            // 附近有没有火把（用来阻止刷怪）
+  const r2 = r * r;
+  for (const t of torchCells.values()) {
+    const dx = t.x - x, dy = t.y - y, dz = t.z - z;
+    if (dx * dx + dy * dy + dz * dz <= r2) return true;
+  }
+  return false;
 }
 function playDrip() {
   if (!AC || !sfxBus) return;
@@ -2406,8 +2460,8 @@ function updateSky() {
   scene.fog.near = 34 - 20 * caveMix;
   scene.fog.far = 92 - 40 * caveMix;
   const f2 = (0.4 + 0.6 * lightLevel) * (underground ? 0.62 : 1);
-  worldLight.intensity = 0.45 + 0.55 * lightLevel;
-  worldDir.intensity = 0.22 + 0.45 * lightLevel;
+  worldLight.intensity = 0.30 + 0.75 * lightLevel;      // 受光材质：夜里留一点基础亮度，不至于全黑
+  worldDir.intensity = 0.12 + 0.40 * lightLevel;
   solidMat.color.setScalar(f2);
   waterMat.color.setScalar(f2 * 1.05);
   dl.intensity = 0.25 + 0.75 * lightLevel;
@@ -2694,6 +2748,11 @@ function inExtraStruct(wx, wz) {
 /* ============================================================ 村庄 */
 // ── 废弃鬼屋：288 格一栋，三层大房子（石砖墙 + 玻璃窗 + 木板楼板 + 木柱）──
 const HS_CELL = 288, HS_FLOORS = 3, HS_FH = 4;
+function hsTorches(put, hx, gy, hz, w, d) {     // 鬼屋每层四角点火把，看得出是「有人待过的废墟」
+  for (const [dx, dz] of [[-w + 1, -d + 1], [w - 1, -d + 1], [-w + 1, d - 1], [w - 1, d - 1]]) {
+    put(hx + dx, gy + 2, hz + dz, 38);
+  }
+}
 const hsCache = new Map();
 const bossSpawned = new Set();
 function hauntedFor(cellX, cellZ) {
@@ -2722,6 +2781,10 @@ function hauntedFor(cellX, cellZ) {
         const fy = y0 + f * HS_FH;
         // 楼板（木板）
         for (let dx = -W; dx <= W; dx++) for (let dz = -D; dz <= D; dz++) put(cx + dx, fy, cz + dz, 8);
+        // 每层四角挂火把（鬼屋里也有照明，进去看得见）
+        for (const [sx, sz] of [[-W + 1, -D + 1], [W - 1, -D + 1], [-W + 1, D - 1], [W - 1, D - 1]]) {
+          put(cx + sx, fy + 2, cz + sz, 38);
+        }
         // 楼梯井：楼板开 3×3 洞（在西南角）
         for (let dx = 0; dx < 3; dx++) for (let dz = 0; dz < 3; dz++) carve(cx - W + 1 + dx, fy, cz - D + 1 + dz);
         // 墙体：石砖，第 2 层高开玻璃窗
@@ -2741,7 +2804,8 @@ function hauntedFor(cellX, cellZ) {
         // 楼梯：从楼梯井往西每格升 1（游戏能自动上 1 格台阶）
         for (let i = 1; i <= 3; i++) put(cx - W + 1 + i - 1, fy + i, cz - D + 1, 8);
         // 一层南墙：中间装一扇木门，两侧各留一格门洞
-        if (f === 0) for (let h = 1; h <= 2; h++) {
+        if (f === 0) { put(cx - D + 1, fy + 2, cz - D + 1, 38); put(cx + D - 1, fy + 2, cz + D - 1, 38); }
+      if (f === 0) for (let h = 1; h <= 2; h++) {
           carve(cx - 1, fy + h, cz + D); carve(cx + 1, fy + h, cz + D);
           put(cx, fy + h, cz + D, 35, 1 | (h === 2 ? 8 : 0));   // dir2：门板贴 +Z 外墙
         }
@@ -2819,6 +2883,7 @@ function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
   const bx = hx + (rnd() < 0.5 ? -w + 1 : w - 1), bz = hz + (rnd() < 0.5 ? -d + 1 : d - 1);
   put(bx, gy + 1, bz, 18);                                                                    // 屋内箱子
   if (rnd() < 0.5) put(bx + (bx > hx ? -1 : 1), gy + 1, bz, 14, 7);                          // 有时放张床（7 = 床头，带枕头）
+  put(hx + w - 1, gy + 2, hz + d - 1, 38);                                                    // 屋内角落火把
 }
 
 function buildFarm(put, carve, fx, fz, r, rnd) {
@@ -4710,7 +4775,8 @@ function placeBlock() {
   const h0 = held();
   if (h0 && ITEMS[h0.id] && ITEMS[h0.id].kind === 'food') return false;   // 食物走长按吃，不放置
   const t0 = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
-  if (t0 && BLOCKS[t0.id] && BLOCKS[t0.id].door) return toggleDoor(t0.x, t0.y, t0.z);   // 对着门按右键 = 开/关
+  if (t0 && BLOCKS[t0.id] && BLOCKS[t0.id].door) return toggleDoor(t0.x, t0.y, t0.z);
+  if (t0 && BLOCKS[t0.id] && BLOCKS[t0.id].torch) { unregisterTorch(t0.x, t0.y, t0.z); }   // 对着门按右键 = 开/关
   const h = held();
   if (!h || !BLOCKS[h.id]) { toast('手里没有可放置的方块', 1.4); return false; }
   const t = t0;
@@ -5520,6 +5586,8 @@ function frame(now) {
   while (acc >= STEP && guard++ < 6) { acc -= STEP; update(STEP); }
   updateHUD(dt);
   updateDoorAnims(dt);
+  torchT -= dt;
+  if (torchT <= 0) { torchT = 0.2; updateTorchLights(); }
   doorSyncT -= dt;
   if (doorSyncT <= 0) { doorSyncT = 0.25; syncDoors(); }
 
