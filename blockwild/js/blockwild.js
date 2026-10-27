@@ -2894,7 +2894,7 @@ function updateHUD(dt) {
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
-    `模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
+    `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
   if (s !== lastStatus) { hud.status.innerHTML = s; lastStatus = s; }
   renderHearts();
 }
@@ -2911,6 +2911,9 @@ function hashString(s) {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
+}
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function saveIndex() {
   try { localStorage.setItem(INDEX_KEY, JSON.stringify({ lastId: currentId, worlds })); } catch (e) {}
@@ -2968,6 +2971,7 @@ function deleteWorld(id) {
   saveIndex();
 }
 
+let saveSoonT = 0, saveErr = null, saveWarned = false;
 function save() {
   if (!currentId || !started) return;
   try {
@@ -2977,11 +2981,15 @@ function save() {
       inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
     };
     localStorage.setItem(worldKey(currentId), JSON.stringify(data));
+    saveErr = null;
     const meta = worldMeta(currentId);
     if (meta) { meta.updated = Date.now(); saveIndex(); }
-  } catch (e) { /* 配额满就跳过 */ }
+  } catch (e) {
+    // 配额满/隐私模式：存档静默失败会让人以为进度还在，必须让玩家看见
+    saveErr = String((e && e.message) || e);
+    if (!saveWarned) { saveWarned = true; toast('存档写入失败（浏览器空间已满）：先去世界列表删掉不用的世界', 7); }
+  }
 }
-let saveSoonT = 0;
 function saveSoon() { clearTimeout(saveSoonT); saveSoonT = setTimeout(save, 600); }
 function loadSave(id) {
   try {
@@ -3055,9 +3063,9 @@ function renderWorldList() {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin:6px 0;background:#16202e;border:2px solid #27384a;border-radius:8px';
     const info = document.createElement('div');
-    info.innerHTML = `<b style="color:#e8f0f8;font-size:13px">${w.name}</b>`
+    info.innerHTML = `<b style="color:#e8f0f8;font-size:13px">${escHtml(w.name)}</b>`
       + `<div style="color:#8ea3ba;font-size:11px;margin-top:3px">${w.mode === 'creative' ? '创造' : '生存'}`
-      + ` · 种子 ${w.seedText || w.seed} · ${fmtTime(w.updated)}</div>`;
+      + ` · 种子 ${escHtml(w.seedText || w.seed)} · ${fmtTime(w.updated)}</div>`;
     const btns = document.createElement('div');
     btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
     const play = document.createElement('button');
@@ -3193,6 +3201,9 @@ window.GAME = {
     currentWorld: () => ({ id: currentId, mode: MODE, seed: SEED, name: worldMeta(currentId) ? worldMeta(currentId).name : null }),
     fly: (on) => { player.fly = on === undefined ? !player.fly : !!on; return player.fly; },
     mode: () => MODE,
+    save: () => { save(); return { err: saveErr, size: (localStorage.getItem(worldKey(currentId)) || '').length }; },
+    saveError: () => ({ err: saveErr, warned: saveWarned }),
+    esc: (s) => escHtml(s),
     storage: () => Object.keys(localStorage),
     steps(n = 60) { for (let i = 0; i < n; i++) { update(STEP); } },
     look(yaw, pitch) { player.yaw = yaw; player.pitch = pitch; },
