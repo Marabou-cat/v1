@@ -1007,15 +1007,10 @@ function getChunk(cx, cz) {
   let c = chunks.get(k);
   if (!c) {
     const blocks = genChunk(cx, cz);
-    c = { cx, cz, blocks, mesh: null, water: null, ready: false };
-    // 应用存档里对该区块的改动
-    for (const [k2, id] of edits) {
-      const p = k2.split(',');
-      const x = +p[0], y = +p[1], z = +p[2];
-      if ((x >> 4) === cx && (z >> 4) === cz && y >= 0 && y < CFG.WH) {
-        blocks[(y * CFG.CH + (z & 15)) * CFG.CH + (x & 15)] = id;
-      }
-    }
+    c = { cx, cz, blocks, mesh: null, glass: null, water: null, ready: false };
+    // 应用存档里对该区块的改动（走按区块的索引，避免每次生成都全表扫描 + split）
+    const bucket = editsByChunk.get(cx + ',' + cz);
+    if (bucket) for (const [li, id] of bucket) blocks[li] = id;
     chunks.set(k, c);
   }
   return c;
@@ -1028,14 +1023,32 @@ function getBlock(x, y, z) {
 }
 const isSolid = id => id !== 0 && id !== 5 && !(BLOCKS[id] && BLOCKS[id].plant);   // 作物可穿过
 
+// 存档改动按区块分桶：key "cx,cz" → Map(区块内线性下标 → 方块 id)
+const editsByChunk = new Map();
+function indexEdit(x, y, z, id) {
+  const ck = (x >> 4) + ',' + (z >> 4);
+  let m = editsByChunk.get(ck);
+  if (!m) editsByChunk.set(ck, m = new Map());
+  const li = (y * CFG.CH + (z & 15)) * CFG.CH + (x & 15);
+  if (id === 0) m.delete(li); else m.set(li, id);
+}
+function reindexEdits() {
+  editsByChunk.clear();
+  for (const [k, id] of edits) {
+    const p = k.split(',');
+    indexEdit(+p[0], +p[1], +p[2], id);
+  }
+}
+
 function setBlock(x, y, z, id, record = true) {
   if (y < 0 || y >= CFG.WH) return;
   const cx = x >> 4, cz = z >> 4;
   const c = getChunk(cx, cz);
   c.blocks[(y * CFG.CH + (z & 15)) * CFG.CH + (x & 15)] = id;
   if (record) {
-    if (edits.size > 40000) edits.clear();
+    if (edits.size > 40000) { edits.clear(); editsByChunk.clear(); }
     edits.set(x + ',' + y + ',' + z, id);
+    indexEdit(x, y, z, id);
   }
   dirty.add(c);
   const lx = x & 15, lz = z & 15;
@@ -1051,6 +1064,7 @@ function setBlock(x, y, z, id, record = true) {
 const WATER_MAX_LVL = 4, WATER_CELL_CAP = 700;
 const waterFlow = new Map();          // "x,y,z" -> level
 const waterQueue = [];
+let waterHead = 0;                       // 队列读指针（不用 shift，避免 O(n²)）
 const waterQueued = new Set();
 let waterBusy = false;                // 流体自己改方块时不要再反向唤醒（否则队列无限自激）
 
@@ -1061,7 +1075,11 @@ function enqueueWater(x, y, z) {
   const id = getBlock(x, y, z);
   if (id !== 5 && id !== 0) return;
   waterQueued.add(k);
-  waterQueue.push([x, y, z]);
+  waterQueue.push([x, y, z, k]);
+  if (waterHead > 4096 && waterHead * 2 > waterQueue.length) {   // 定期压实：数组别无限长
+    waterQueue.splice(0, waterHead);
+    waterHead = 0;
+  }
 }
 function wakeWater(x, y, z) {
   // 方块变了：把周围的水/空气都排进队列，让它们重新判断该流还是该退
@@ -1089,10 +1107,13 @@ const flowLvl = (x, y, z) => {
 // 每帧跑一小批（预算控制），水才会"一格一格流过去"
 function updateWater(budget = 40) {
   let n = 0, changed = 0;
-  while (waterQueue.length && n < budget) {
-    const [x, y, z] = waterQueue.shift();
-    waterQueued.delete(x + ',' + y + ',' + z);
+  const t0 = performance.now();
+  while (waterHead < waterQueue.length && n < budget) {
+    const e = waterQueue[waterHead++];
+    const x = e[0], y = e[1], z = e[2];
+    waterQueued.delete(e[3]);
     n++;
+    if ((n & 15) === 0 && performance.now() - t0 > 5) break;   // 时间预算：每帧最多 5ms，别把整帧吃掉
     const id = getBlock(x, y, z);
     const lvl = flowLvl(x, y, z);
     if (id !== 5) {                       // 已经不是水了
@@ -3864,33 +3885,52 @@ function update(dt) {
 
 function streamChunks() {
   const pcx = Math.floor(player.p.x / CFG.CH), pcz = Math.floor(player.p.z / CFG.CH);
-  // 建立缺失区块的地形（限流）
-  let built = 0;
-  for (let r = 0; r <= CFG.LOAD_R && built < 2; r++) {
-    for (let dx = -r; dx <= r && built < 2; dx++) for (let dz = -r; dz <= r && built < 2; dz++) {
-      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-      const c = getChunk(pcx + dx, pcz + dz);
-      if (!c.ready) { buildChunk(c); built++; }
-    }
-  }
-  // 重建脏区块
-  let rebuilt = 0;
-  for (const c of dirty) {
-    if (rebuilt >= 3) break;
-    const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
-    if (d > CFG.LOAD_R + 1) { dirty.delete(c); continue; }
-    buildChunk(c); dirty.delete(c); rebuilt++;
-  }
-  // 卸载远处
+  // ① 先卸载远处：这一步每帧必须做，不能因为"建区块超预算"被跳过，
+  //    否则一路走一路攒，chunks/heap 无限增长 → 越玩越卡（实测能攒到 3000+ 个区块）
   for (const [k, c] of chunks) {
     const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
     if (d > CFG.UNLOAD_R) {
       if (c.mesh) { scene.remove(c.mesh); c.mesh.geometry.dispose(); }
+      if (c.glass) { scene.remove(c.glass); c.glass.geometry.dispose(); }   // 玻璃网格也要释放
       if (c.water) { scene.remove(c.water); c.water.geometry.dispose(); }
       dirty.delete(c);
       chunks.delete(k);
     }
   }
+  // ② 建新区块 / 重建脏块：只花 budgetMs 毫秒，超了就留给下一帧
+  const tStart = performance.now();
+  const budgetMs = perfBudget;
+  let built = 0;
+  for (let r = 0; r <= CFG.LOAD_R && built < 4; r++) {
+    for (let dx = -r; dx <= r && built < 4; dx++) for (let dz = -r; dz <= r && built < 4; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      const c = getChunk(pcx + dx, pcz + dz);
+      if (!c.ready) {
+        buildChunk(c); built++;
+        if (performance.now() - tStart > budgetMs) return;      // 卸载已完成，这里可以提前返回
+      }
+    }
+  }
+  // 重建脏区块
+  let rebuilt = 0;
+  for (const c of dirty) {
+    if (rebuilt >= 3 || performance.now() - tStart > budgetMs) break;
+    const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
+    if (d > CFG.LOAD_R + 1) { dirty.delete(c); continue; }
+    buildChunk(c); dirty.delete(c); rebuilt++;
+  }
+}
+
+/* ============================================================ 帧率自适应预算 */
+let perfBudget = 7;
+let lastFrameAt = 0;                // 上一帧时间戳
+let perfSlow = 0, perfFast = 0;
+let frameMsAvg = 16.7;
+function noteFrameMs(ms) {
+  frameMsAvg += (ms - frameMsAvg) * 0.08;
+  if (frameMsAvg > 26) { perfSlow++; perfFast = 0; } else if (frameMsAvg < 19) { perfFast++; perfSlow = 0; }
+  if (perfSlow >= 30 && perfBudget > 2.5) { perfBudget = Math.max(2.5, perfBudget - 1.5); perfSlow = 0; }
+  else if (perfFast >= 120 && perfBudget < 9) { perfBudget = Math.min(9, perfBudget + 1); perfFast = 0; }
 }
 
 /* ============================================================ HUD 刷新（降频） */
@@ -4111,6 +4151,7 @@ function loadSave(id) {
       chestInv.set(entry[0], entry[1].map(s => (s && isItem(s.id) && s.n > 0) ? { id: s.id, n: s.n } : null));
     }
     for (const [k, v] of (d.edits || [])) edits.set(k, v);
+    reindexEdits();
     if (d.player) {
       player.p.set(d.player.x, d.player.y, d.player.z);
       player.yaw = d.player.yaw || 0; player.pitch = d.player.pitch || 0;
@@ -4122,6 +4163,9 @@ function loadSave(id) {
 
 /* ============================================================ 帧循环 */
 function frame(now) {
+  const __ft = lastFrameAt ? (now - lastFrameAt) : 16.7;
+  lastFrameAt = now;
+  noteFrameMs(__ft);
   requestAnimationFrame(frame);
   if (!started) return;
   let dt = (now - lastT) / 1000;
@@ -4519,7 +4563,16 @@ window.GAME = {
       return null;
     },
     water: (x, y, z, lvl) => { if (lvl === undefined) { setBlock(x, y, z, 5); } else setWater(x, y, z, lvl); wakeWater(x, y, z); },
-    waterInfo: () => ({ flowing: waterFlow.size, queued: waterQueue.length }),
+    perf: () => ({
+      frameMs: +frameMsAvg.toFixed(1), budgetMs: +perfBudget.toFixed(1),
+      chunks: chunks.size, edits: edits.size,
+      waterQueued: waterQueue.length - waterHead, flowing: waterFlow.size,
+      mobs: mobs.length, drops: drops.length, arrows: arrows.length,
+      geoms: renderer.info.memory.geometries, textures: renderer.info.memory.textures,
+      calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
+      heapMB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null,
+    }),
+    waterInfo: () => ({ flowing: waterFlow.size, queued: waterQueue.length - waterHead }),
     cfg: () => ({ sens: userCfg.sens, touchUI: userCfg.touchUI, keys: { ...keymap } }),
     setKey: (act, code) => { if (!DEFAULT_KEYS[act]) return false; keymap[act] = code; saveCfg(); renderKeyRows(); return true; },
     press: (code) => { keys.add(code); return true; },
