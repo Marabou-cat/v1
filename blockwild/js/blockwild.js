@@ -266,7 +266,10 @@ const BLOCKS = {
   14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true, half: 0.5 },
   15: { name: '铁矿石', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 15, pick: true, stonePick: true },
   16: { name: '农田', top: 17, side: 2, bottom: 2, hard: 0.5, drop: 2 },
-  17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true },
+  17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true, plant: true, mature: true },
+  23: { name: '小麦幼苗', top: 26, side: 26, bottom: 26, hard: 0.1, drop: 156, plant: true, stage: 0 },
+  24: { name: '小麦苗', top: 27, side: 27, bottom: 27, hard: 0.1, drop: 156, plant: true, stage: 1 },
+  25: { name: '堆肥箱', top: 28, side: 29, bottom: 8, hard: 0.9, drop: 25, compost: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
   20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
@@ -310,6 +313,11 @@ const ITEMS = {
   153: { name: '弓', kind: 'bow', dmg: 7, dur: 240 },
   154: { name: '箭', kind: 'ammo' },
   155: { name: '幽灵精华', kind: 'mat' },
+  156: { name: '小麦种子', kind: 'seed' },
+  157: { name: '肥料', kind: 'fertilizer' },
+  158: { name: '木锄', kind: 'hoe', dur: 60 },
+  159: { name: '石锄', kind: 'hoe', dur: 132 },
+  160: { name: '铁锄', kind: 'hoe', dur: 251 },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -340,6 +348,33 @@ function makeAtlas() {
   // ⚠ 瓦片序号 → 4x4 图集的 (col,row)。之前直接把序号当列号用，>=4 的全画到画布外，
   // 于是沙子/木头/树叶/木板/圆石/水/工作台/煤矿一律变成纯黑方块。
   const T = (n, base, vari, extra) => noiseTile(n % N, (n / N) | 0, base, vari, extra);
+  // 26 幼苗：土堆上两片小芽
+  T(26, '#6b4426', 0.08, (c, r) => {
+    for (let y = 10; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#5d3a20', 1));
+    for (let y = 8; y < 12; y++) { px(c, r, 7, y, '#4f8a33'); px(c, r, 8, y, '#5fa03c'); }
+    px(c, r, 6, 9, '#5fa03c'); px(c, r, 5, 8, '#5fa03c'); px(c, r, 9, 10, '#5fa03c'); px(c, r, 10, 9, '#5fa03c');
+  });
+  // 27 小麦苗：更高的绿秆 + 小穗
+  T(27, '#6b4426', 0.08, (c, r) => {
+    for (let y = 11; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#5d3a20', 1));
+    for (const x of [4, 8, 12]) {
+      for (let y = 4; y < 12; y++) { px(c, r, x, y, '#4f8a33'); px(c, r, x + 1, y, '#5fa03c'); }
+      for (let y = 2; y < 6; y++) { px(c, r, x, y, '#cfae4d'); px(c, r, x + 1, y, '#b8933c'); }
+    }
+  });
+  // 28/29 堆肥箱（顶 / 侧）
+  T(28, '#6f4a20', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#4f3416'); px(c, r, x, 15, '#4f3416'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#4f3416'); px(c, r, 15, y, '#4f3416'); }
+    for (let y = 3; y < 13; y++) for (let x = 3; x < 13; x++) px(c, r, x, y, y % 3 === 0 ? '#4a3115' : '#3d5a2a');
+    for (const [x, y] of [[5, 5], [9, 7], [6, 10], [10, 11]]) px(c, r, x, y, '#6b8f3d');
+  });
+  T(29, '#8a5f2c', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#4f3416'); px(c, r, x, 15, '#4f3416'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#4f3416'); px(c, r, 15, y, '#4f3416'); }
+    for (let y = 4; y < 12; y++) { px(c, r, 1, y, '#6d4a20'); px(c, r, 14, y, '#6d4a20'); }
+    for (let x = 2; x < 14; x++) px(c, r, x, 7, '#5c3f1b');
+  });
   // 24 石砖：整齐的砖块 + 灰浆缝
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -551,6 +586,26 @@ function iconURL(id) {
       g.fillStyle = '#b8912f';
       g.fillRect(13 + dx + rot * 7, 5, 5, 2);
     }
+  } else if (id === 156) { // 小麦种子
+    g.fillStyle = '#d9b24a';
+    for (const [x, y] of [[10, 12], [16, 10], [21, 14], [13, 18], [19, 20]]) {
+      g.beginPath(); g.ellipse(x, y, 3, 2, 0.5, 0, 7); g.fill();
+    }
+    g.fillStyle = '#b8912f';
+    for (const [x, y] of [[11, 13], [17, 11], [22, 15]]) { g.beginPath(); g.ellipse(x, y, 1.6, 1, 0.5, 0, 7); g.fill(); }
+  } else if (id === 157) { // 肥料
+    g.fillStyle = '#c9d0d8';
+    g.beginPath(); g.moveTo(9, 8); g.lineTo(23, 8); g.lineTo(25, 26); g.lineTo(7, 26); g.closePath(); g.fill();
+    g.fillStyle = '#5f8f3d';
+    g.beginPath(); g.moveTo(10, 11); g.lineTo(22, 11); g.lineTo(23.4, 24); g.lineTo(8.6, 24); g.closePath(); g.fill();
+    g.fillStyle = '#8fc45c'; g.fillRect(12, 14, 8, 3);
+  } else if (ITEMS[id] && ITEMS[id].kind === 'hoe') { // 锄头
+    const metal = id === 159 ? '#9a9a9a' : id === 160 ? '#d9dee5' : '#c8a06a';
+    g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(11, 27); g.lineTo(20, 9); g.stroke();
+    g.strokeStyle = metal; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(15, 7); g.lineTo(26, 9); g.stroke();
+    g.beginPath(); g.moveTo(15, 7); g.lineTo(15, 12); g.stroke();
   } else if (id === 151 || id === 152) { // 桶 / 水桶
     g.fillStyle = '#c9d0d8';
     g.beginPath(); g.moveTo(7, 9); g.lineTo(25, 9); g.lineTo(22, 26); g.lineTo(10, 26); g.closePath(); g.fill();
@@ -971,7 +1026,7 @@ function getBlock(x, y, z) {
   const c = getChunk(x >> 4, z >> 4);
   return c.blocks[(y * CFG.CH + (z & 15)) * CFG.CH + (x & 15)];
 }
-const isSolid = id => id !== 0 && id !== 5;
+const isSolid = id => id !== 0 && id !== 5 && !(BLOCKS[id] && BLOCKS[id].plant);   // 作物可穿过
 
 function setBlock(x, y, z, id, record = true) {
   if (y < 0 || y >= CFG.WH) return;
@@ -1499,6 +1554,14 @@ function makeToolModel(id) {
     const s = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.44, 0.032), wood);
     s.position.y = 0.12;
     g.add(s);
+  } else if (id === 158 || id === 159 || id === 160) {   // 锄头
+    const headMat = id === 159 ? stoneM : id === 160 ? ironM : wood;
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, 0.04), woodDark);
+    handle.position.y = -0.08;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.07, 0.07), headMat);
+    blade.position.set(0.1, 0.19, 0);
+    blade.rotation.z = -0.12;
+    g.add(handle, blade);
   } else if (id === 153) {                     // 弓
     const limb = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
     const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.42, 0.045), limb);
@@ -1980,9 +2043,11 @@ function buildFarm(put, carve, fx, fz, r, rnd) {
     const x = fx + dx, z = fz + dz;
     for (let y = Math.max(1, mn - 1); y < gy; y++) put(x, y, z, 9);
     put(x, gy, z, 16);            // 农田
-    put(x, gy + 1, z, 17);        // 小麦
+    const st = ((x * 7 + z * 13) % 10 + 10) % 10;
+    put(x, gy + 1, z, st < 4 ? 17 : st < 7 ? 24 : 23);   // 成熟 / 半熟 / 幼苗混着长
     carve(x, gy + 2, z);
   }
+  put(fx - r, gy + 1, fz - r, 25);                        // 田角放一个堆肥箱
   for (let dx = -r - 1; dx <= r + 1; dx++) for (let dz = -r - 1; dz <= r + 1; dz++) {
     if (Math.abs(dx) !== r + 1 && Math.abs(dz) !== r + 1) continue;
     if (dz === r + 1 && dx === 0) continue;                 // 留个进出口
@@ -3036,6 +3101,10 @@ const RECIPES = [
   { out: 151, n: 1, need: { 106: 3 }, tier: 1 },
   { out: 153, n: 1, need: { 104: 3, 142: 1 }, tier: 1 },
   { out: 154, n: 4, need: { 104: 1, 148: 1 }, tier: 1 },
+  { out: 158, n: 1, need: { 8: 2, 104: 2 }, tier: 1 },
+  { out: 159, n: 1, need: { 9: 2, 104: 2 }, tier: 1 },
+  { out: 160, n: 1, need: { 106: 2, 104: 2 }, tier: 1 },
+  { out: 25, n: 1, need: { 8: 4, 104: 2 }, tier: 1 },
   { out: 130, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
   { out: 131, n: 1, need: { 125: 2, 104: 1 }, tier: 1 },
   { out: 132, n: 1, need: { 125: 5 }, tier: 1 },
@@ -3367,6 +3436,14 @@ function breakBlock(t) {
     chestInv.delete(t.x + ',' + t.y + ',' + t.z);
     if (openChestPos && openChestPos.x === t.x && openChestPos.y === t.y && openChestPos.z === t.z) closeChest();
   }
+  if (def.mature) {                                // 成熟小麦：掉 1~3 小麦 + 1~2 种子
+    dropAt(107, 1 + Math.floor(Math.random() * 3));
+    dropAt(156, 1 + Math.floor(Math.random() * 2));
+  } else if (def.plant) {                          // 幼苗/苗：只退回 1 颗种子
+    dropAt(156, 1);
+  } else if (t.id === 1 && Math.random() < 0.12) { // 割草有概率捡到种子
+    dropAt(156, 1);
+  }
   if (def.leaf) { if (Math.random() < 0.12) dropAt(105, 1); }
   else if (def.drop) {
     const ironPick = inv.some(s => s && (s.id === 120 || s.id === 130));
@@ -3415,6 +3492,89 @@ function placeBlock() {
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
+// ── 种植系统 ──────────────────────────────────────────────────────────────
+const compostProg = new Map();                 // 堆肥箱 "x,y,z" → 已放入的食物数（0..3）
+
+function useHoe(t) {                           // 锄地：草地/泥土 → 农田
+  if (!t) return false;
+  const above = getBlock(t.x, t.y + 1, t.z);
+  if ((t.id === 1 || t.id === 2) && (above === 0)) {
+    setBlock(t.x, t.y, t.z, 16);
+    useTool(1); startSwing('dig', 0.34); sfx('dig'); saveSoon();
+    toast('锄成农田了（拿小麦种子右键播种）', 1.8);
+    return true;
+  }
+  toast('只能锄草地或泥土', 1.3);
+  return false;
+}
+function plantSeed(t) {                        // 农田上播种
+  if (!t) return false;
+  const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
+  if (getBlock(x, y, z) !== 0) return false;
+  if (getBlock(x, y - 1, z) !== 16) { toast('要先锄地（农田）才能种', 1.5); return false; }
+  if (countOf(156) < 1) { toast('没有小麦种子', 1.3); return false; }
+  takeItem(156, 1);
+  setBlock(x, y, z, 23);
+  startSwing('place', 0.3); sfx('place'); saveSoon();
+  return true;
+}
+function useFertilizer(t) {                    // 肥料：催熟一阶段
+  if (!t) return false;
+  const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
+  const id = getBlock(x, y, z);
+  if (id !== 23 && id !== 24) {
+    if (t.id === 23 || t.id === 24) return useFertilizerAt(t.x, t.y, t.z);
+    toast('肥料要对着小麦幼苗用', 1.4);
+    return false;
+  }
+  return useFertilizerAt(x, y, z);
+}
+function useFertilizerAt(x, y, z) {
+  const id = getBlock(x, y, z);
+  if (id !== 23 && id !== 24) return false;
+  if (countOf(157) < 1) { toast('没有肥料（堆肥箱里放 4 份食物换 1 份）', 1.6); return false; }
+  takeItem(157, 1);
+  setBlock(x, y, z, id === 23 ? 24 : 17);
+  sfx('place'); saveSoon();
+  toast(id === 23 ? '施了一次肥：长高了一节' : '施了一次肥：小麦成熟了', 1.5);
+  return true;
+}
+function useCompost(t) {                       // 堆肥箱：放食物换肥料
+  const key = t.x + ',' + t.y + ',' + t.z;
+  const food = held();
+  if (!food || (ITEMS[food.id] || {}).kind !== 'food') { toast('手里要拿着食物才能堆肥', 1.4); return false; }
+  takeItem(food.id, 1);
+  const p = (compostProg.get(key) || 0) + 1;
+  if (p >= 4) {
+    compostProg.set(key, 0);
+    addItem(157, 1);
+    toast('堆肥完成 → 肥料 ×1', 2.2);
+  } else {
+    compostProg.set(key, p);
+    toast(`堆肥 ${p}/4（再放 ${4 - p} 份食物）`, 1.5);
+  }
+  sfx('place'); renderHotbar(); refreshHeld(); saveSoon();
+  return true;
+}
+// 作物生长：每 2 秒在玩家周围推一次，幼苗 → 苗 → 成熟
+let cropT = 2;
+function growCrops(dt) {
+  cropT -= dt;
+  if (cropT > 0) return;
+  cropT = 2;
+  const px = Math.floor(player.p.x), py = Math.floor(player.p.y), pz = Math.floor(player.p.z);
+  for (let dx = -12; dx <= 12; dx++) for (let dz = -12; dz <= 12; dz++) {
+    for (let dy = -2; dy <= 2; dy++) {
+      const x = px + dx, y = py + dy, z = pz + dz;
+      const id = getBlock(x, y, z);
+      if (id !== 23 && id !== 24) continue;
+      if (getBlock(x, y - 1, z) !== 16) continue;          // 不在农田上就不长
+      if (Math.random() > 0.34) continue;
+      setBlock(x, y, z, id === 23 ? 24 : 17);
+    }
+  }
+}
+
 // 玩家射箭：消耗 1 支箭，朝准星方向（带一点重力下坠）
 function firePlayerArrow() {
   if (player.bowCd > 0) return false;
@@ -3652,6 +3812,7 @@ function update(dt) {
   updateWater(48);
   waterSeedT -= dt;
   if (waterSeedT <= 0) { waterSeedT = 0.5; seedWaterNear(); }
+  growCrops(dt);
 
   // 目标方块
   const t = player.alive ? raycastVoxel(eyePos(), cameraDir(), CFG.REACH) : null;
@@ -3680,6 +3841,10 @@ function update(dt) {
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
     else if (h && h.id === 153) firePlayerArrow();
+    else if (h && ITEMS[h.id] && ITEMS[h.id].kind === 'hoe') useHoe(t);
+    else if (h && h.id === 156) plantSeed(t);
+    else if (h && h.id === 157) useFertilizer(t);
+    else if (h && t && BLOCKS[t.id] && BLOCKS[t.id].compost && ITEMS[h.id] && ITEMS[h.id].kind === 'food') useCompost(t);
     else if (h && h.id === 152) useBucket(true, t);
     else if (h && h.id === 151) useBucket(false, t);
     else if (h && (defOf(h.id) || {}).kind === 'food') eat();
@@ -3914,6 +4079,7 @@ function save() {
       seed: SEED, mode: MODE, time: worldTime,
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
       inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
+      compost: Array.from(compostProg.entries()),
     };
     localStorage.setItem(worldKey(currentId), JSON.stringify(data));
     saveErr = null;
@@ -3938,6 +4104,8 @@ function loadSave(id) {
     (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0).forEach((s, i) => { if (i < SLOTS) inv[i] = { id: s.id, n: s.n, d: s.d }; });
     player.spawn = d.spawn || null;
     if (d.armor) for (const s of ARMOR_SLOTS) player.armor[s] = ITEMS[d.armor[s]] ? d.armor[s] : null;
+    compostProg.clear();
+    if (Array.isArray(d.compost)) for (const e of d.compost) if (Array.isArray(e)) compostProg.set(e[0], e[1] | 0);
     if (Array.isArray(d.chests)) for (const entry of d.chests) {
       if (!Array.isArray(entry) || !Array.isArray(entry[1])) continue;   // 兼容旧存档
       chestInv.set(entry[0], entry[1].map(s => (s && isItem(s.id) && s.n > 0) ? { id: s.id, n: s.n } : null));
@@ -4359,6 +4527,10 @@ window.GAME = {
     useHeld: () => {                            // 等价于右键（探针用，绕开 pointer lock）
       const h = held(), t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
       if (h && h.id === 153) return firePlayerArrow();
+      if (h && ITEMS[h.id] && ITEMS[h.id].kind === 'hoe') return useHoe(t);
+      if (h && h.id === 156) return plantSeed(t);
+      if (h && h.id === 157) return useFertilizer(t);
+      if (h && t && BLOCKS[t.id] && BLOCKS[t.id].compost) return useCompost(t);
       if (h && h.id === 152) return useBucket(true, t);
       if (h && h.id === 151) return useBucket(false, t);
       return null;
