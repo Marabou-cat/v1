@@ -3363,9 +3363,11 @@ function mobGeos(kind) {
     box(head, -3, 5, 6, 6, 5, 5, CH, 0.10);               // 头
     px(head, -2, 8, 10, EYE); px(head, -1, 8, 10, EYE); px(head, 1, 8, 10, EYE); px(head, 2, 8, 10, EYE);
     const spLeg = (() => { const m = new Map(); box(m, 0, -1, 0, 7, 1, 1, CH2, 0.08); return voxGeometry(m); })();
-    limbSpecs = [
-      { geo: spLeg, x: -4, y: 8, z: 4, arm: true }, { geo: spLeg, x: 4, y: 8, z: 4, arm: true },
-      { geo: spLeg, x: -4, y: 8, z: 0, arm: false }, { geo: spLeg, x: 4, y: 8, z: 0, arm: false },
+    limbSpecs = [                                        // 8 条腿（原来只写了 4 条 → 蜘蛛「少腿」）
+      { geo: spLeg, x: -4, y: 8, z: 5, arm: true }, { geo: spLeg, x: 4, y: 8, z: 5, arm: true },
+      { geo: spLeg, x: -4, y: 8, z: 2, arm: false }, { geo: spLeg, x: 4, y: 8, z: 2, arm: false },
+      { geo: spLeg, x: -4, y: 8, z: -1, arm: false }, { geo: spLeg, x: 4, y: 8, z: -1, arm: false },
+      { geo: spLeg, x: -4, y: 8, z: -4, arm: false }, { geo: spLeg, x: 4, y: 8, z: -4, arm: false },
     ];
   } else if (kind === 'skeleton') {
     coreY = 0.66; barY: 0; barY = 1.55;
@@ -3774,6 +3776,23 @@ function spawnMobAt(kind, x, y, z, opts = {}) {
     obj: parts.g, parts,
   };
   if (kind === 'villager') { m.recruit = { want: rollDemand(), hired: false, follow: false }; }
+  if (kind === 'skeleton' && parts.arm1) {          // 骷髅右手拿一把弓
+    const bow = new THREE.Group();
+    const wood = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
+    const str = new THREE.MeshLambertMaterial({ color: 0xe8e4d6 });
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.05), wood);
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.26, 0.045), wood);
+    upper.position.set(0, 0.2, 0.06); upper.rotation.x = -0.5;
+    const lower = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.26, 0.045), wood);
+    lower.position.set(0, -0.2, 0.06); lower.rotation.x = 0.5;
+    const string = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.62, 0.012), str);
+    string.position.set(0, 0, -0.045);
+    bow.add(grip, upper, lower, string);
+    bow.position.set(0, -0.28, -0.02);
+    bow.rotation.z = 0.15;
+    parts.arm1.add(bow);
+    m.bow = bow;
+  }
   m.obj.position.copy(m.p);
   scene.add(m.obj);
   mobs.push(m);
@@ -4019,6 +4038,13 @@ function updateMobs(dt) {
     }
     const def = MOB_DEFS[m.kind];
     const hostileNow = def.hostile && !isCreative() && (night || m.aggro > 0);   // 创造模式：怪物不敌对
+    // 骷髅：举弓瞄准 → 射完收弓（拉弓动画）
+    if (m.kind === 'skeleton' && m.parts.arm1) {
+      const aiming = def.ranged && hostileNow && dist < 20;
+      const want = aiming ? (m.shootCd > 1.15 ? -1.45 : -1.15) : -0.2;
+      m.parts.arm1.rotation.x += (want - m.parts.arm1.rotation.x) * Math.min(1, dt * 9);
+      if (m.bow) m.bow.rotation.x = aiming ? -0.25 : 0;
+    }
     m.flash = Math.max(0, m.flash - dt);
     m.aggro = Math.max(0, m.aggro - dt);
     m.flee = Math.max(0, m.flee - dt);
@@ -4176,12 +4202,12 @@ function updateMobs(dt) {
   updateArrows(dt);
   // 刷怪：敌对生物只在黑暗处，和平生物在草地，村民在村庄
   const capGrunt = night ? CFG.MAX_MOBS + 2 : CFG.MAX_MOBS;
-  if (countKind('grunt') < capGrunt && Math.random() < dt * 0.85) spawnMob('grunt');
+  if (countKind('grunt') < capGrunt && Math.random() < dt * 0.28) spawnMob('grunt');   // 0.85 → 0.28（约 1/3）
   if (countKind('pig') < 4 && Math.random() < dt * 0.12) spawnMob('pig');
   if (countKind('cow') < 3 && Math.random() < dt * 0.10) spawnMob('cow');
   if (countKind('sheep') < 3 && Math.random() < dt * 0.10) spawnMob('sheep');
   if (countKind('chicken') < 4 && Math.random() < dt * 0.13) spawnMob('chicken');
-  if (countKind('spider') < 4 && Math.random() < dt * 0.55) spawnMob('spider');
+  if (countKind('spider') < 3 && Math.random() < dt * 0.18) spawnMob('spider');   // 0.55 → 0.18，上限 4 → 3
   if (countKind('skeleton') < 3 && Math.random() < dt * 0.30) spawnMob('skeleton');
   // 废弃鬼屋：进屋就刷幽灵，每栋只唤醒一只幽灵王
   const hcx = Math.floor(player.p.x / HS_CELL), hcz = Math.floor(player.p.z / HS_CELL);
