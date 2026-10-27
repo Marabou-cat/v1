@@ -270,6 +270,14 @@ const BLOCKS = {
   23: { name: '小麦幼苗', top: 26, side: 26, bottom: 26, hard: 0.1, drop: 156, plant: true, stage: 0 },
   24: { name: '小麦苗', top: 27, side: 27, bottom: 27, hard: 0.1, drop: 156, plant: true, stage: 1 },
   25: { name: '堆肥箱', top: 28, side: 29, bottom: 8, hard: 0.9, drop: 25, compost: true },
+  26: { name: '花岗岩', top: 30, side: 30, bottom: 30, hard: 2.6, drop: 26, pick: true },
+  27: { name: '石灰岩', top: 31, side: 31, bottom: 31, hard: 1.9, drop: 27, pick: true },
+  28: { name: '云杉原木', top: 33, side: 32, bottom: 33, hard: 1.5, drop: 28, log: true },
+  29: { name: '云杉木板', top: 34, side: 34, bottom: 34, hard: 1.2, drop: 29 },
+  30: { name: '白桦原木', top: 36, side: 35, bottom: 36, hard: 1.5, drop: 30, log: true },
+  31: { name: '白桦木板', top: 37, side: 37, bottom: 37, hard: 1.2, drop: 31 },
+  33: { name: '石砖楼梯', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 33, pick: true, stair: true },
+  34: { name: '木板楼梯', top: 8, side: 8, bottom: 8, hard: 1.2, drop: 34, stair: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
   20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
@@ -374,6 +382,61 @@ function makeAtlas() {
     for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#4f3416'); px(c, r, 15, y, '#4f3416'); }
     for (let y = 4; y < 12; y++) { px(c, r, 1, y, '#6d4a20'); px(c, r, 14, y, '#6d4a20'); }
     for (let x = 2; x < 14; x++) px(c, r, x, 7, '#5c3f1b');
+  });
+  // 30 花岗岩：粉红底 + 黑白斑点
+  T(30, '#b98a86', 0.1, (c, r) => {
+    for (let i = 0; i < 34; i++) {
+      const x = (i * 37) % 16, y = (i * 53) % 16;
+      px(c, r, x, y, i % 3 === 0 ? '#e3cfcb' : i % 3 === 1 ? '#7d5a58' : '#a3766f');
+    }
+  });
+  // 31 石灰岩：米白 + 细密横纹
+  T(31, '#e3ddc9', 0.05, (c, r) => {
+    for (let y = 0; y < 16; y += 3) for (let x = 0; x < 16; x++) px(c, r, x, y, '#cfc7ae');
+    for (const [x, y] of [[3, 6], [9, 11], [12, 4], [6, 13]]) px(c, r, x, y, '#c2b99f');
+  });
+  // 32 云杉树皮（深褐竖纹）
+  T(32, '#4a3524', 0.09, (c, r) => {
+    for (let x = 0; x < 16; x += 3) for (let y = 0; y < 16; y++) px(c, r, x, y, '#33251a');
+    for (let y = 0; y < 16; y += 5) for (let x = 0; x < 16; x++) px(c, r, x, y, '#59402c');
+  });
+  // 33 云杉年轮
+  T(33, '#8a6a44', 0.05, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+      if (d > 6.5) px(c, r, x, y, '#3f2d1e');
+      else if (Math.round(d) % 2 === 0) px(c, r, x, y, '#6f5232');
+    }
+  });
+  // 34 云杉木板（更深的横板）
+  T(34, '#6f4a28', 0.06, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (y % 4 === 0) px(c, r, x, y, '#3f2a15');
+      else if ((x * 5 + y * 3) % 13 === 0) px(c, r, x, y, '#5b3c1f');
+    }
+  });
+  // 35 白桦树皮（白底黑斑）
+  T(35, '#e8e4da', 0.04, (c, r) => {
+    for (let i = 0; i < 16; i++) {
+      const x = (i * 29) % 16, y = (i * 41) % 16;
+      px(c, r, x, y, '#2b2924'); px(c, r, (x + 1) % 16, y, '#2b2924');
+      if (i % 4 === 0) px(c, r, x, (y + 1) % 16, '#4a463d');
+    }
+  });
+  // 36 白桦年轮
+  T(36, '#d8c9a4', 0.04, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+      if (d > 6.5) px(c, r, x, y, '#8a7a56');
+      else if (Math.round(d) % 2 === 0) px(c, r, x, y, '#bfae86');
+    }
+  });
+  // 37 白桦木板（浅色横板）
+  T(37, '#d8c9a0', 0.05, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (y % 4 === 0) px(c, r, x, y, '#a8946a');
+      else if ((x * 7 + y * 5) % 17 === 0) px(c, r, x, y, '#c4b285');
+    }
   });
   // 24 石砖：整齐的砖块 + 灰浆缝
   T(24, '#8a8a8a', 0.07, (c, r) => {
@@ -709,6 +772,7 @@ function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.ad
 function treeParams(wx, wz) {
   if (inVillage(wx, wz)) return null;                 // 村庄范围内不长树
   if (inHaunted(wx, wz)) return null;                 // 鬼屋范围内不长树
+  if (inExtraStruct(wx, wz)) return null;             // 其它结构范围内也不长树
   if (inRavine(wx, wz)) return null;                  // 峡谷里也不长树
   if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.977) return null;
   const g = heightAt(wx, wz);
@@ -992,6 +1056,7 @@ function genChunk(cx, cz) {
       else b[i] = op.t;
     }
   }
+  applyExtraStructs(b, ox, oz, selfKey);
   // 悬空水清理：洞穴/裂谷/矿洞会把水下面的岩层掏空，水块就会浮在空中。
   // 从下往上扫，下面已经是空气（或刚被清掉）的水一起去掉；玩家靠近后模拟会从旁边补成瀑布。
   for (let y = 1; y < WH; y++) for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
@@ -1041,6 +1106,7 @@ function reindexEdits() {
 }
 
 function setBlock(x, y, z, id, record = true) {
+  if (id === 0) { const mk = metaKey(x, y, z); blockMeta.delete(mk); genMeta.delete(mk); }
   if (y < 0 || y >= CFG.WH) return;
   const cx = x >> 4, cz = z >> 4;
   const c = getChunk(cx, cz);
@@ -1253,10 +1319,60 @@ const FACES = [
   { n: [0, 0, -1], v: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], sh: 0.7 },
 ];
 const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
-function faceTile(def, fi) {
+// 方块朝向（meta）：0=默认；原木 1=X轴 2=Z轴；楼梯 1..4=台阶高的那一侧朝向(+X,-X,+Z,-Z)
+const blockMeta = new Map();       // 玩家放置的（要存档）
+const genMeta = new Map();         // 结构生成时带的（不存档，重新生成时再算）
+const metaKey = (x, y, z) => ((x + 32768) * 65536 + (z + 32768)) * 256 + y;
+function getMeta(x, y, z) {
+  const k = metaKey(x, y, z);
+  return blockMeta.get(k) || genMeta.get(k) || 0;
+}
+function setMeta(x, y, z, m, gen = false) {
+  const k = metaKey(x, y, z);
+  if (!m) { blockMeta.delete(k); genMeta.delete(k); return; }
+  if (gen) genMeta.set(k, m); else blockMeta.set(k, m);
+}
+function faceTile(def, fi, meta = 0) {
+  if (def.log && meta) {                 // 横放的原木：两端露年轮
+    if (meta === 1 && (fi === 0 || fi === 1)) return def.top;
+    if (meta === 2 && (fi === 4 || fi === 5)) return def.top;
+    return def.side ?? def.top;
+  }
   if (fi === 2) return def.top;
   if (fi === 3) return def.bottom ?? def.top;
   return def.side ?? def.top;
+}
+
+// 楼梯：一个方块拆成「底半格 + 高侧上半格」两个盒子（12 个面，不做邻接剔除）
+function emitStair(wx, y, wz, def, meta, P, U, C, I, base) {
+  const tile = def.top;
+  const u0 = (tile % ATLAS_COLS) / ATLAS_COLS + 0.0015;
+  const v0 = 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.0015;
+  const iu = 1 / ATLAS_COLS - 0.003, iv = 1 / ATLAS_ROWS - 0.003;
+  // 高侧：1=+X 2=-X 3=+Z 4=-Z
+  const hi = meta || 3;
+  let bx0 = 0, bx1 = 1, bz0 = 0, bz1 = 1;
+  if (hi === 1) bx1 = 0.5; else if (hi === 2) bx0 = 0.5;
+  else if (hi === 3) bz1 = 0.5; else if (hi === 4) bz0 = 0.5;
+  const boxes = [[0, 0, 0, 1, 0.5, 1], [bx0, 0.5, bz0, bx1, 1, bz1]];
+  let v = base, first = true;
+  for (const [x0, y0, z0, x1, y1, z1] of boxes) {
+    for (let fi = 0; fi < 6; fi++) {
+      if (first && fi === 2) continue;                       // 底盒顶面（被上面盖住）
+      if (!first && fi === 3) continue;                      // 顶盒底面（重合，剔掉防 z-fighting）
+      const F = FACES[fi], sh = F.sh, s = sh;
+      for (let k = 0; k < 4; k++) {
+        const V = F.v[k];
+        P.push(wx + (V[0] ? x1 : x0), y + (V[1] ? y1 : y0), wz + (V[2] ? z1 : z0));
+        U.push(u0 + CORNERS[k][0] * iu, v0 + CORNERS[k][1] * iv);
+        C.push(s, s, s);
+      }
+      I.push(v, v + 1, v + 2, v, v + 2, v + 3);
+      v += 4;
+    }
+    first = false;
+  }
+  return v - base;                          // 实际压入的顶点数（跳过 2 个面 = 40）
 }
 
 function buildChunk(chunk) {
@@ -1272,6 +1388,8 @@ function buildChunk(chunk) {
     const def = BLOCKS[id];
     if (!def) continue;
     const wx = ox + x, wz = oz + z;
+    const meta = (blockMeta.size || genMeta.size) ? getMeta(wx, y, wz) : 0;
+    if (def.stair) { vc += emitStair(wx, y, wz, def, meta, P, U, C, I, vc); continue; }
     const water = id === 5;
     const glass = id === 22;
     const solidTop = def.half || 1;                       // 床这类半格方块
@@ -1282,7 +1400,7 @@ function buildChunk(chunk) {
       if (water) { if (nb !== 0) continue; }
       else if (glass) { if (nb === 22 || nb === 5) continue; }          // 玻璃之间不画内面
       else if (nb !== 0 && nb !== 5 && nb !== 22) continue;             // 固体朝着玻璃也要画
-      const t = faceTile(def, fi);
+      const t = faceTile(def, fi, meta);
       const u0 = (t % ATLAS_COLS) / ATLAS_COLS + 0.0015;
       const v0 = 1 - (((t / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.0015;
       const iu = 1 / ATLAS_COLS - 0.003, iv = 1 / ATLAS_ROWS - 0.003;
@@ -1942,6 +2060,276 @@ function clockText() {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+/* ============================================================ 新结构（塔/井/石阵/营地/木屋） */
+// 两坡屋顶：沿 Z 方向起脊，中间实、两侧收；stairTile 给了就在坡口加楼梯
+function buildGableRoof(put, cx, cz, y, W, D, tile, stairTile) {
+  for (let k = 0; k <= D; k++) {
+    const half = D - k, yy = y + k;
+    for (let dx = -W; dx <= W; dx++) {
+      put(cx + dx, yy, cz - half, tile);
+      put(cx + dx, yy, cz + half, tile);
+      if (Math.abs(dx) === W) {                                    // 两端山墙填实
+        for (let dz = -half + 1; dz <= half - 1; dz++) put(cx + dx, yy, cz + dz, tile);
+      }
+      if (stairTile && k < D) {                                    // 坡口压楼梯（台阶朝下）
+        put(cx + dx, yy, cz - half - 1, stairTile, 4);
+        put(cx + dx, yy, cz + half + 1, stairTile, 3);
+      }
+    }
+  }
+  for (let dx = -W; dx <= W; dx++) put(cx + dx, y + D, cz, tile);   // 屋脊
+}
+
+// 结构间距：任意两栋结构中心至少隔 34 格（避免叠在一起）
+const STRUCT_MIN_GAP = 34;
+const structGuard = new Set();
+const STRUCT_TYPES = [];                   // 由文件末尾注册
+let structDepth = 0;
+function structNear(x, z, skip) {
+  // 深度限制：嵌套超过 2 层就只看缓存，不再触发生成（否则 A→B→C→A 会爆栈）
+  structDepth++;
+  try {
+    const peekOnly = structDepth > 2;
+    for (const t of STRUCT_TYPES) {
+      if (t.name === skip) continue;
+      const cx = Math.floor(x / t.cell), cz = Math.floor(z / t.cell);
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+        const o = peekOnly ? (t.cache ? t.cache.get((cx + dx) + ',' + (cz + dz)) : null) : t.get(cx + dx, cz + dz);
+        if (!o) continue;
+        if (Math.max(Math.abs(o.cx - x), Math.abs(o.cz - z)) < STRUCT_MIN_GAP) return t.name;
+      }
+    }
+    return null;
+  } finally { structDepth--; }
+}
+function guarded(name, key, fn) {
+  const g = name + key;
+  if (structGuard.has(g)) return null;
+  structGuard.add(g);
+  try { return fn(); } finally { structGuard.delete(g); }
+}
+function packOps(ops) {
+  const byChunk = new Map();
+  for (const op of ops) {
+    const k = (op.x >> 4) + ',' + (op.z >> 4);
+    let arr = byChunk.get(k);
+    if (!arr) byChunk.set(k, arr = []);
+    arr.push(op);
+  }
+  return byChunk;
+}
+
+// 石塔
+const TW_CELL = 256, towerCache = new Map();
+function towerFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (towerCache.has(key)) return towerCache.get(key);
+  return guarded('tower', key, () => {
+    let out = null;
+    const roll = h2(cellX * 53.7 + 7.7, cellZ * 39.1 - 4.3);
+    if (roll > 0.42) {
+      const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2246822519) ^ Math.imul(cellZ, 3266489917)) | 0);
+      const cx = cellX * TW_CELL + 60 + Math.floor(rnd() * (TW_CELL - 120));
+      const cz = cellZ * TW_CELL + 60 + Math.floor(rnd() * (TW_CELL - 120));
+      const ops = [], put = (x, y, z, t, m) => ops.push({ x, y, z, t, m }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      let gy = 0;
+      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) gy = Math.max(gy, heightAt(cx + dx, cz + dz));
+      if (gy > CFG.SEA + 3 && gy < 40 && !structNear(cx, cz, 'tower')) {
+        const H = 12 + Math.floor(rnd() * 8);
+        for (let y = 1; y <= H; y++) for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+          const edge = Math.abs(dx) === 2 || Math.abs(dz) === 2;
+          const win = y % 4 === 2 && (dx === 0 || dz === 0);
+          if (edge) put(cx + dx, gy + y, cz + dz, win ? 22 : 21);
+          else carve(cx + dx, gy + y, cz + dz);
+        }
+        for (let y = 1; y <= H; y++) {                               // 内圈螺旋石阶
+          const a = Math.floor(y / 2) % 4;
+          const d = [[0, -1], [1, 0], [0, 1], [-1, 0]][a];
+          put(cx + d[0], gy + y, cz + d[1], 33, 0);
+        }
+        for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) put(cx + dx, gy + H + 1, cz + dz, 21);
+        for (let dx = -3; dx <= 3; dx += 2) for (let dz = -3; dz <= 3; dz += 2) put(cx + dx, gy + H + 2, cz + dz, 21);
+        put(cx, gy + 1, cz, 18);
+        out = { name: 'tower', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '石塔' };
+      }
+    }
+    towerCache.set(key, out);
+    return out;
+  });
+}
+
+// 水井
+const WL_CELL = 192, wellCache = new Map();
+function wellFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (wellCache.has(key)) return wellCache.get(key);
+  return guarded('well', key, () => {
+    let out = null;
+    const roll = h2(cellX * 21.3 - 5.1, cellZ * 61.9 + 9.7);
+    if (roll > 0.5) {
+      const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 668265263) ^ Math.imul(cellZ, 374761393)) | 0);
+      const cx = cellX * WL_CELL + 40 + Math.floor(rnd() * (WL_CELL - 80));
+      const cz = cellZ * WL_CELL + 40 + Math.floor(rnd() * (WL_CELL - 80));
+      const gy = heightAt(cx, cz);
+      const ops = [], put = (x, y, z, t, m) => ops.push({ x, y, z, t, m }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      if (gy > CFG.SEA + 2 && gy < 44 && !structNear(cx, cz, 'well')) {
+        for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+          const edge = Math.abs(dx) === 1 || Math.abs(dz) === 1;
+          put(cx + dx, gy, cz + dz, edge ? 9 : 5);
+          carve(cx + dx, gy + 1, cz + dz);
+        }
+        for (const p of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) for (let y = 1; y <= 3; y++) put(cx + p[0], gy + y, cz + p[1], 28);
+        for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, gy + 4, cz + dz, 34);
+        out = { name: 'well', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '水井' };
+      }
+    }
+    wellCache.set(key, out);
+    return out;
+  });
+}
+
+// 石阵
+const SC_CELL = 320, circleCache = new Map();
+function circleFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (circleCache.has(key)) return circleCache.get(key);
+  return guarded('circle', key, () => {
+    let out = null;
+    const roll = h2(cellX * 83.1 + 2.9, cellZ * 29.7 - 6.5);
+    if (roll > 0.55) {
+      const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 1103515245) ^ Math.imul(cellZ, 12345)) | 0);
+      const cx = cellX * SC_CELL + 70 + Math.floor(rnd() * (SC_CELL - 140));
+      const cz = cellZ * SC_CELL + 70 + Math.floor(rnd() * (SC_CELL - 140));
+      const ops = [], put = (x, y, z, t, m) => ops.push({ x, y, z, t, m });
+      let gy = 0, ok = true;
+      for (let dx = -9; dx <= 9; dx += 3) for (let dz = -9; dz <= 9; dz += 3) {
+        const h = heightAt(cx + dx, cz + dz);
+        if (gy === 0) gy = h;
+        if (Math.abs(h - gy) > 3) ok = false;
+        gy = Math.max(gy, h);
+      }
+      if (ok && gy > CFG.SEA + 2 && gy < 44 && !structNear(cx, cz, 'circle')) {
+        const rr = 6 + Math.floor(rnd() * 3), n = 8 + Math.floor(rnd() * 4);
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          const sx = Math.round(Math.cos(a) * rr), sz = Math.round(Math.sin(a) * rr);
+          const hh = 2 + ((i * 7) % 3);
+          const tile = i % 3 === 0 ? 30 : 26;                        // 花岗岩 / 立石
+          for (let y = 1; y <= hh; y++) put(cx + sx, gy + y, cz + sz, tile);
+        }
+        put(cx, gy + 1, cz, 33);                                     // 中央祭台（石砖楼梯）
+        out = { name: 'circle', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '石阵' };
+      }
+    }
+    circleCache.set(key, out);
+    return out;
+  });
+}
+
+// 废墟营地
+const CP_CELL = 224, campCache = new Map();
+function campFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (campCache.has(key)) return campCache.get(key);
+  return guarded('camp', key, () => {
+    let out = null;
+    const roll = h2(cellX * 43.3 - 8.1, cellZ * 67.7 + 3.3);
+    if (roll > 0.55) {
+      const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 971) ^ Math.imul(cellZ, 78233)) | 0);
+      const cx = cellX * CP_CELL + 50 + Math.floor(rnd() * (CP_CELL - 100));
+      const cz = cellZ * CP_CELL + 50 + Math.floor(rnd() * (CP_CELL - 100));
+      const gy = heightAt(cx, cz);
+      const ops = [], put = (x, y, z, t, m) => ops.push({ x, y, z, t, m }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      if (gy > CFG.SEA + 2 && gy < 44 && !structNear(cx, cz, 'camp')) {
+        for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) {
+          if (Math.abs(dx) !== 4 && Math.abs(dz) !== 4) continue;
+          if (((dx * 7 + dz * 13 + cellX * 3) % 5 + 5) % 5 === 0) continue;   // 塌口
+          const hh = 1 + Math.abs((dx * 3 + dz * 5) % 2);
+          for (let y = 1; y <= hh; y++) put(cx + dx, gy + y, cz + dz, 21);
+        }
+        for (let dz = -2; dz <= 2; dz++) { put(cx - 2, gy + 1, cz + dz, 29); put(cx + 2, gy + 1, cz + dz, 29); }
+        put(cx - 1, gy + 2, cz, 29); put(cx + 1, gy + 2, cz, 29); put(cx, gy + 3, cz, 29);
+        for (const p of [[0, 1], [1, 0], [0, -1], [-1, 0]]) put(cx + p[0], gy + 1, cz + p[1], 9);
+        put(cx, gy + 1, cz + 3, 18);
+        out = { name: 'camp', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '废墟营地' };
+      }
+    }
+    campCache.set(key, out);
+    return out;
+  });
+}
+
+// 白桦木屋（带坡屋顶）
+const CB_CELL = 200, cabinCache = new Map();
+function cabinFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (cabinCache.has(key)) return cabinCache.get(key);
+  return guarded('cabin', key, () => {
+    let out = null;
+    const roll = h2(cellX * 33.9 + 11.7, cellZ * 91.3 - 2.7);
+    if (roll > 0.45) {
+      const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 374761393) ^ Math.imul(cellZ, 668265263)) | 0);
+      const cx = cellX * CB_CELL + 50 + Math.floor(rnd() * (CB_CELL - 100));
+      const cz = cellZ * CB_CELL + 50 + Math.floor(rnd() * (CB_CELL - 100));
+      const ops = [], put = (x, y, z, t, m) => ops.push({ x, y, z, t, m }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      const w = 3, d = 2, h = 3;
+      let gy = 0;
+      for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) gy = Math.max(gy, heightAt(cx + dx, cz + dz));
+      if (gy > CFG.SEA + 2 && gy < 42 && !structNear(cx, cz, 'cabin')) {
+        for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) {
+          put(cx + dx, gy, cz + dz, 31);                             // 白桦木地板
+          for (let y = 1; y <= h; y++) {
+            const edge = Math.abs(dx) === w || Math.abs(dz) === d;
+            if (edge) put(cx + dx, gy + y, cz + dz, 29);
+            else carve(cx + dx, gy + y, cz + dz);
+          }
+        }
+        for (let y = 1; y <= 2; y++) carve(cx, gy + y, cz + d);
+        put(cx - w, gy + 2, cz, 22);
+        put(cx + w, gy + 2, cz, 22);
+        buildGableRoof(put, cx, cz, gy + h + 1, w + 1, d + 1, 31, 34);
+        put(cx + 1, gy + 1, cz - 1, 18);
+        out = { name: 'cabin', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '白桦木屋' };
+      }
+    }
+    cabinCache.set(key, out);
+    return out;
+  });
+}
+
+function applyExtraStructs(b, ox, oz, selfKey) {
+  for (const t of STRUCT_TYPES) {
+    if (t.cell === VS_CELL || t.cell === HS_CELL) continue;          // 村庄/鬼屋走原来的路径
+    const sx = Math.floor(ox / t.cell), sz = Math.floor(oz / t.cell);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const st = t.get(sx + dx, sz + dz);
+      if (!st) continue;
+      const arr = st.byChunk.get(selfKey);
+      if (!arr) continue;
+      for (const op of arr) {
+        if (op.x < ox || op.x >= ox + CFG.CH || op.z < oz || op.z >= oz + CFG.CH) continue;
+        if (op.y < 1 || op.y >= CFG.WH) continue;
+        const i = (op.y * CFG.CH + (op.z - oz)) * CFG.CH + (op.x - ox);
+        if (op.t === 0) { if (b[i] !== 5) b[i] = 0; }
+        else b[i] = op.t;
+        if (op.m) setMeta(op.x, op.y, op.z, op.m, true);
+      }
+    }
+  }
+}
+// 新结构范围内不长树
+function inExtraStruct(wx, wz) {
+  for (const t of STRUCT_TYPES) {
+    if (t.cell === VS_CELL || t.cell === HS_CELL) continue;
+    const cx = Math.floor(wx / t.cell), cz = Math.floor(wz / t.cell);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const o = t.get(cx + dx, cz + dz);
+      if (o && Math.abs(wx - o.cx) <= 9 && Math.abs(wz - o.cz) <= 9) return true;
+    }
+  }
+  return false;
+}
+
 /* ============================================================ 村庄 */
 // ── 废弃鬼屋：288 格一栋，三层大房子（石砖墙 + 玻璃窗 + 木板楼板 + 木柱）──
 const HS_CELL = 288, HS_FLOORS = 3, HS_FH = 4;
@@ -1993,11 +2381,9 @@ function hauntedFor(cellX, cellZ) {
         // 一层南墙开门（2 格高）
         if (f === 0) for (let h = 1; h <= 2; h++) for (let dz = -1; dz <= 1; dz++) carve(cx + dz, fy + h, cz + D);
       }
-      // 屋顶
+      // 屋顶：改成两坡石砖屋顶 + 楼梯屋檐（原来是一块平板）
       const topY = y0 + HS_FLOORS * HS_FH;
-      for (let dx = -W - 1; dx <= W + 1; dx++) for (let dz = -D - 1; dz <= D + 1; dz++) put(cx + dx, topY, cz + dz, 21);
-      for (let dx = -W - 1; dx <= W + 1; dx++) { put(cx + dx, topY + 1, cz - D - 1, 21); put(cx + dx, topY + 1, cz + D + 1, 21); }
-      for (let dz = -D - 1; dz <= D + 1; dz++) { put(cx - W - 1, topY + 1, cz + dz, 21); put(cx + W + 1, topY + 1, cz + dz, 21); }
+      buildGableRoof(put, cx, cz, topY, W + 1, D + 1, 21, 33);
       // 家具：每层两个箱子（战利品按坐标生成）
       put(cx - 2, y0 + 1, cz + 2, 18);
       put(cx + 3, y0 + 1, cz - 3, 18);
@@ -2061,8 +2447,8 @@ function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
     for (let y = gy + 1; y <= gy + 2; y++) carve(hx, y, hz + sz * d);
   }
   if (rnd() < 0.8) { carve(hx - w, gy + 2, hz + d - 1); carve(hx + w, gy + 2, hz - d + 1); }   // 窗
-  for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) put(hx + dx, gy + h + 1, hz + dz, woodP);  // 屋顶
-  put(hx, gy + h + 2, hz, log);
+  buildGableRoof(put, hx, hz, gy + h + 1, w + 1, d + 1, woodP, 34);   // 两坡屋顶（原来是一块平顶）
+  put(hx, gy + h + 2 + d, hz, log);
   const bx = hx + (rnd() < 0.5 ? -w + 1 : w - 1), bz = hz + (rnd() < 0.5 ? -d + 1 : d - 1);
   put(bx, gy + 1, bz, 18);                                                                    // 屋内箱子
   if (rnd() < 0.5) put(bx + (bx > hx ? -1 : 1), gy + 1, bz, 14);                              // 有时放张床
@@ -3143,6 +3529,8 @@ const RECIPES = [
   { out: 159, n: 1, need: { 9: 2, 104: 2 }, tier: 1 },
   { out: 160, n: 1, need: { 106: 2, 104: 2 }, tier: 1 },
   { out: 25, n: 1, need: { 8: 4, 104: 2 }, tier: 1 },
+  { out: 33, n: 4, need: { 21: 6 }, tier: 1 },
+  { out: 34, n: 4, need: { 8: 6 }, tier: 1 },
   { out: 130, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
   { out: 131, n: 1, need: { 125: 2, 104: 1 }, tier: 1 },
   { out: 132, n: 1, need: { 125: 5 }, tier: 1 },
@@ -3522,7 +3910,15 @@ function placeBlock() {
     renderHotbar(); refreshHeld(); saveSoon();
     return true;
   }
+  const bdef = BLOCKS[h.id];
+  let meta = 0;
+  if (bdef.log) meta = (t.ny !== 0) ? 0 : (t.nx !== 0 ? 1 : 2);        // 按命中面定轴向
+  else if (bdef.stair) {                                               // 高侧朝玩家看的方向
+    const dir = cameraDir();
+    meta = Math.abs(dir.x) >= Math.abs(dir.z) ? (dir.x > 0 ? 1 : 2) : (dir.z > 0 ? 3 : 4);
+  }
   setBlock(x, y, z, h.id);
+  if (meta) setMeta(x, y, z, meta);
   if (!isCreative()) takeItem(h.id, 1);          // 创造模式无限方块
   sfx('place');
   startSwing('place', 0.26);
@@ -4136,7 +4532,7 @@ function save() {
       seed: SEED, mode: MODE, time: worldTime,
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
       inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
-      compost: Array.from(compostProg.entries()),
+      compost: Array.from(compostProg.entries()), meta: Array.from(blockMeta.entries()),
     };
     localStorage.setItem(worldKey(currentId), JSON.stringify(data));
     saveErr = null;
@@ -4169,6 +4565,8 @@ function loadSave(id) {
     }
     for (const [k, v] of (d.edits || [])) edits.set(k, v);
     reindexEdits();
+    blockMeta.clear();
+    if (Array.isArray(d.meta)) for (const e of d.meta) if (Array.isArray(e)) blockMeta.set(e[0], e[1]);
     if (d.player) {
       player.p.set(d.player.x, d.player.y, d.player.z);
       player.yaw = d.player.yaw || 0; player.pitch = d.player.pitch || 0;
@@ -4327,6 +4725,15 @@ $('btnResetKeys').onclick = () => {
   saveCfg(); renderKeyRows();
   toast('键位已恢复默认', 1.6);
 };
+STRUCT_TYPES.push(
+  { name: 'village', cell: VS_CELL, get: villageFor, cache: villageCache },
+  { name: 'haunted', cell: HS_CELL, get: hauntedFor, cache: hsCache },
+  { name: 'tower', cell: TW_CELL, get: towerFor, cache: towerCache },
+  { name: 'well', cell: WL_CELL, get: wellFor, cache: wellCache },
+  { name: 'circle', cell: SC_CELL, get: circleFor, cache: circleCache },
+  { name: 'camp', cell: CP_CELL, get: campFor, cache: campCache },
+  { name: 'cabin', cell: CB_CELL, get: cabinFor, cache: cabinCache },
+);
 loadIndex();
 renderWorldList();
 $('btnBag').onclick = () => openPanel(!panelOpen);
@@ -4549,6 +4956,32 @@ window.GAME = {
         if (!best || d < best.d) best = { d, hx: hs.cx, hz: hs.cz, y0: hs.y0, floors: hs.floors };
       }
       return { seed: SEED, spawn: sp, house: best };
+    },
+    structs: (r = 3) => {
+      const px = player.p.x, pz = player.p.z, out = [];
+      for (const t of STRUCT_TYPES) {
+        const cx = Math.floor(px / t.cell), cz = Math.floor(pz / t.cell);
+        for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+          const o = t.get(cx + dx, cz + dz);
+          if (o) out.push({ type: t.name, label: o.label || t.name, cx: o.cx, cz: o.cz, gy: o.gy, ops: o.ops, dist: Math.round(Math.hypot(o.cx - px, o.cz - pz)) });
+        }
+      }
+      return out.sort((a, b) => a.dist - b.dist);
+    },
+    gotoStruct: (type) => {
+      const t = STRUCT_TYPES.find(x => x.name === type);
+      if (!t) return null;
+      const cx = Math.floor(player.p.x / t.cell), cz = Math.floor(player.p.z / t.cell);
+      for (let r = 0; r <= 4; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const o = t.get(cx + dx, cz + dz);
+        if (!o) continue;
+        player.p.set(o.cx + 0.5, (o.gy || 40) + 2, o.cz + 12.5);
+        player.v.set(0, 0, 0);
+        const ccx = Math.floor(o.cx / CFG.CH), ccz = Math.floor(o.cz / CFG.CH);
+        for (let a = -2; a <= 2; a++) for (let bb = -2; bb <= 2; bb++) buildChunk(getChunk(ccx + a, ccz + bb));
+        return { type: t.name, cx: o.cx, cz: o.cz, gy: o.gy, ops: o.ops };
+      }
+      return null;
     },
     haunted: (r = 2) => {
       const pcx = Math.floor(player.p.x / HS_CELL), pcz = Math.floor(player.p.z / HS_CELL);
