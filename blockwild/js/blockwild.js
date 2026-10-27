@@ -278,6 +278,7 @@ const BLOCKS = {
   31: { name: '白桦木板', top: 37, side: 37, bottom: 37, hard: 1.2, drop: 31 },
   33: { name: '石砖楼梯', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 33, pick: true, stair: true },
   34: { name: '木板楼梯', top: 8, side: 8, bottom: 8, hard: 1.2, drop: 34, stair: true },
+  35: { name: '木门', top: 8, side: 8, bottom: 8, hard: 0.6, drop: 35, door: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
   20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
@@ -337,7 +338,7 @@ let atlasCanvas = null, atlasTex = null;
 // 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
 // ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
 // 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
-const ATLAS_COLS = 4, ATLAS_ROWS = 10;
+const ATLAS_COLS = 4, ATLAS_ROWS = 11;
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -459,6 +460,25 @@ function makeAtlas() {
       if (y % 8 === 3) px(c, r, x, y, '#a83a37');
     }
     for (let x = 0; x < S; x++) { px(c, r, x, 0, '#8e2c2a'); px(c, r, x, 15, '#8e2c2a'); }
+  });
+  // 40 门板：竖纹木板 + 深色门框 + 中间横档
+  T(40, '#a87a44', 0.04, (c, r) => {
+    for (let x = 0; x < S; x++) {
+      const edge = x === 0 || x === 15;
+      for (let y = 0; y < S; y++) {
+        if (edge) { px(c, r, x, y, '#6a4a20'); continue; }
+        if (x === 4 || x === 11) { px(c, r, x, y, '#7d5729'); continue; }      // 两扇门的立缝
+        if (y === 0 || y === 15) { px(c, r, x, y, '#7d5729'); continue; }      // 上下横档
+        if (y === 7 || y === 8) { px(c, r, x, y, '#8d6534'); continue; }       // 中间横档
+        const k = (x * 7 + y * 11) % 9;
+        px(c, r, x, y, shade(k === 0 ? '#9c703c' : '#a87a44', 1));
+      }
+    }
+  });
+  // 41 铁件：门把手 / 合页
+  T(41, '#c2c8d0', 0.05, (c, r) => {
+    for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) px(c, r, x, y, shade('#cdd3da', 0.96 + ((x + y) % 3) * 0.03));
+    for (let x = 2; x < 14; x++) { px(c, r, x, 2, '#8b939c'); px(c, r, x, 13, '#8b939c'); }
   });
   // 24 石砖：整齐的砖块 + 灰浆缝
   T(24, '#8a8a8a', 0.07, (c, r) => {
@@ -707,6 +727,12 @@ function iconURL(id) {
     g.beginPath(); g.moveTo(10, 22); g.lineTo(22, 10); g.stroke();
     g.fillStyle = '#efe9d8';
     for (const [x, y] of [[8, 23], [12, 26], [20, 6], [24, 9]]) { g.beginPath(); g.arc(x, y, 3.4, 0, 7); g.fill(); }
+  } else if (id === 35) { // 木门
+    g.fillStyle = '#a87a44'; g.fillRect(8, 4, 16, 25);
+    g.fillStyle = '#8d6534'; g.fillRect(8, 4, 16, 3);
+    g.fillStyle = '#7d5729'; g.fillRect(8, 4, 2, 25); g.fillRect(22, 4, 2, 25);
+    g.fillStyle = '#b98a4e'; g.fillRect(11, 9, 10, 8); g.fillRect(11, 19, 10, 8);
+    g.fillStyle = '#6a4a20'; g.beginPath(); g.arc(20.5, 18.5, 1.9, 0, 7); g.fill();
   } else if (id === 145 || id === 146) { // 羊肉（生 / 熟）：肉块 + 骨头
     const cooked = id === 146;
     g.fillStyle = cooked ? '#a9622f' : '#e0837f';
@@ -1499,6 +1525,44 @@ function emitBed(lx, y, lz, wx, wz, meta, P, U, C, I, base) {
   return n;
 }
 
+// ── 门：薄门板 + 门把手，占两格（下格 meta 与上格同值 + bit3 标「上半」）。
+// meta 位：bit0-1 = dir-1（1=贴 -Z 面 2=贴 +Z 3=贴 -X 4=贴 +X），bit2 = 开，bit3 = 上半。
+function doorState(meta) {
+  return { dir: (meta & 3) + 1, open: !!(meta & 4), top: !!(meta & 8) };
+}
+function emitDoor(lx, y, lz, def, meta, P, U, C, I, base) {
+  const { dir, open, top } = doorState(meta);
+  const T = 0.16, E = 0.03;                       // 门板厚度 / 两侧门框边距
+  let x0, x1, z0, z1;
+  if (!open) {                                    // 关门：门板铺满门洞，厚度贴墙那一侧
+    if (dir === 1) { x0 = E; x1 = 1 - E; z0 = 0.02; z1 = 0.02 + T; }
+    else if (dir === 2) { x0 = E; x1 = 1 - E; z0 = 1 - 0.02 - T; z1 = 1 - 0.02; }
+    else if (dir === 3) { z0 = E; z1 = 1 - E; x0 = 0.02; x1 = 0.02 + T; }
+    else { z0 = E; z1 = 1 - E; x0 = 1 - 0.02 - T; x1 = 1 - 0.02; }
+  } else {                                        // 开门：绕铰链转 90°，门板贴门轴那一端
+    if (dir === 1 || dir === 2) { const xs = dir === 1 ? 0.02 : 1 - 0.02 - T; x0 = xs; x1 = xs + T; z0 = E; z1 = 1 - E; }
+    else { const zs = dir === 3 ? 0.02 : 1 - 0.02 - T; z0 = zs; z1 = zs + T; x0 = E; x1 = 1 - E; }
+  }
+  const y0 = top ? 0.04 : 0, y1 = top ? 0.95 : 0.98;  // 上下半格之间留缝，看得出是两截门
+  let n = emitBox(P, U, C, I, base, lx, y, lz, x0, x1, y0, y1, z0, z1, 40);
+  if (!top) {                                      // 门把手：自由端、朝室内那一面
+    let kx0, kx1, kz0, kz1;
+    if (!open) {
+      if (dir === 1) { kx0 = 0.72; kx1 = 0.80; kz0 = 0.18; kz1 = 0.24; }
+      else if (dir === 2) { kx0 = 0.20; kx1 = 0.28; kz0 = 0.76; kz1 = 0.82; }
+      else if (dir === 3) { kz0 = 0.72; kz1 = 0.80; kx0 = 0.18; kx1 = 0.24; }
+      else { kz0 = 0.20; kz1 = 0.28; kx0 = 0.76; kx1 = 0.82; }
+    } else {
+      if (dir === 1) { kz0 = 0.72; kz1 = 0.80; kx0 = 0.18; kx1 = 0.24; }
+      else if (dir === 2) { kz0 = 0.72; kz1 = 0.80; kx0 = 0.76; kx1 = 0.82; }
+      else if (dir === 3) { kx0 = 0.72; kx1 = 0.80; kz0 = 0.18; kz1 = 0.24; }
+      else { kx0 = 0.72; kx1 = 0.80; kz0 = 0.76; kz1 = 0.82; }
+    }
+    n += emitBox(P, U, C, I, base + n, lx, y, lz, kx0, kx1, 0.46, 0.60, kz0, kz1, 41);
+  }
+  return n;
+}
+
 function buildChunk(chunk) {
   const CH = CFG.CH, WH = CFG.WH;
   const ox = chunk.cx * CH, oz = chunk.cz * CH;
@@ -1515,6 +1579,7 @@ function buildChunk(chunk) {
     const meta = (blockMeta.size || genMeta.size) ? getMeta(wx, y, wz) : 0;
     if (def.stair) { vc += emitStair(x, y, z, def, meta, P, U, C, I, vc); continue; }
     if (def.bed) { vc += emitBed(x, y, z, wx, wz, meta, P, U, C, I, vc); continue; }
+    if (def.door) { vc += emitDoor(x, y, z, def, meta, P, U, C, I, vc); continue; }
     const water = id === 5;
     const glass = id === 22;
     const solidTop = def.half || 1;                       // 床这类半格方块
@@ -1524,10 +1589,9 @@ function buildChunk(chunk) {
       const nb = getBlock(wx + f.n[0], y + f.n[1], wz + f.n[2]);
       if (water) { if (nb !== 0) continue; }
       else if (glass) { if (nb === 22 || nb === 5) continue; }          // 玻璃之间不画内面
-      // ⚠ 半格方块（床）不是满格：它只占下半格，若照旧把邻面剔掉，
-      // 邻居方块朝向床的那一面就整面消失 → 从床上看过去能直接穿进方块里（"床周围方块穿透"）。
-      // 半格邻居一律照画（半格自己的侧面会被这一条同源规则挡住，不会 z-fighting）。
-      else if (nb !== 0 && nb !== 5 && nb !== 22 && !(BLOCKS[nb] && BLOCKS[nb].half)) continue;
+      // ⚠ 半格方块（床）和门都不是满格：照旧把邻面剔掉，邻居朝向它们的那一面会整面消失
+      // → 从床上/门缝看过去能直接穿进方块里。非满格邻居一律照画。
+      else if (nb !== 0 && nb !== 5 && nb !== 22 && !(BLOCKS[nb] && (BLOCKS[nb].half || BLOCKS[nb].door))) continue;
       const t = faceTile(def, fi, meta);
       const u0 = (t % ATLAS_COLS) / ATLAS_COLS + 0.0015;
       const v0 = 1 - (((t / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.0015;
@@ -1678,6 +1742,7 @@ function collides(px, py, pz) {
     if (!isSolid(id)) continue;
     const half = (BLOCKS[id] || {}).half;
     if (half && py >= y + half - 0.03) continue;              // 半格方块（床）：站在上面不算卡住
+    if (BLOCKS[id] && BLOCKS[id].door && (getMeta(x, y, z) & 4)) continue;   // 开着的门可以直接穿过
     return true;
   }
   return false;
@@ -2507,8 +2572,11 @@ function hauntedFor(cellX, cellZ) {
         }
         // 楼梯：从楼梯井往西每格升 1（游戏能自动上 1 格台阶）
         for (let i = 1; i <= 3; i++) put(cx - W + 1 + i - 1, fy + i, cz - D + 1, 8);
-        // 一层南墙开门（2 格高）
-        if (f === 0) for (let h = 1; h <= 2; h++) for (let dz = -1; dz <= 1; dz++) carve(cx + dz, fy + h, cz + D);
+        // 一层南墙：中间装一扇木门，两侧各留一格门洞
+        if (f === 0) for (let h = 1; h <= 2; h++) {
+          carve(cx - 1, fy + h, cz + D); carve(cx + 1, fy + h, cz + D);
+          put(cx, fy + h, cz + D, 35, 1 | (h === 2 ? 8 : 0));   // dir2：门板贴 +Z 外墙
+        }
       }
       // 屋顶：改成两坡石砖屋顶 + 楼梯屋檐（原来是一块平板）
       const topY = y0 + HS_FLOORS * HS_FH;
@@ -2567,13 +2635,15 @@ function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
   }
   for (const [sx, sz] of [[-w, -d], [w, -d], [-w, d], [w, d]])
     for (let y = gy + 1; y <= gy + h; y++) put(hx + sx, y, hz + sz, log);
-  // 门：朝向村中心那一面开 2 高缺口
+  // 门：朝向村中心那一面装一扇木门（门板贴外墙，拆/开门两格一起）
   if (Math.abs(cx - hx) > Math.abs(cz - hz)) {
     const sx = cx > hx ? 1 : -1;
-    for (let y = gy + 1; y <= gy + 2; y++) carve(hx + sx * w, y, hz);
+    const db = (sx > 0 ? 4 : 3) - 1;                       // dir 3 = 贴 -X，4 = 贴 +X
+    for (let y = gy + 1; y <= gy + 2; y++) put(hx + sx * w, y, hz, 35, db | (y === gy + 2 ? 8 : 0));
   } else {
     const sz = cz > hz ? 1 : -1;
-    for (let y = gy + 1; y <= gy + 2; y++) carve(hx, y, hz + sz * d);
+    const db = (sz > 0 ? 2 : 1) - 1;
+    for (let y = gy + 1; y <= gy + 2; y++) put(hx, y, hz + sz * d, 35, db | (y === gy + 2 ? 8 : 0));
   }
   if (rnd() < 0.8) { carve(hx - w, gy + 2, hz + d - 1); carve(hx + w, gy + 2, hz - d + 1); }   // 窗
   buildGableRoof(put, hx, hz, gy + h + 1, w + 1, d + 1, woodP, 34);   // 两坡屋顶（原来是一块平顶）
@@ -3667,6 +3737,7 @@ const RECIPES = [
   { out: 25, n: 1, need: { 8: 4, 104: 2 }, tier: 1 },
   { out: 33, n: 4, need: { 21: 6 }, tier: 1 },
   { out: 34, n: 4, need: { 8: 6 }, tier: 1 },
+  { out: 35, n: 3, need: { 8: 6 }, tier: 1 },
   { out: 130, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
   { out: 131, n: 1, need: { 125: 2, 104: 1 }, tier: 1 },
   { out: 132, n: 1, need: { 125: 5 }, tier: 1 },
@@ -3985,6 +4056,10 @@ function doMine(dt, target) {
 function breakBlock(t) {
   const def = BLOCKS[t.id];
   if (!def) return;
+  if (def.door) {                                      // 门是两格：拆一格带走另一格
+    const oy = (getMeta(t.x, t.y, t.z) & 8) ? t.y - 1 : t.y + 1;
+    if (getBlock(t.x, oy, t.z) === 35) setBlock(t.x, oy, t.z, 0);
+  }
   setBlock(t.x, t.y, t.z, 0);
   if (def.bed) {                                       // 床是两格：拆一半就把另一半也拆掉
     for (const [bx, bz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -4018,16 +4093,48 @@ function breakBlock(t) {
   }
   renderHotbar(); refreshHeld(); saveSoon();
 }
+// 开/关门：上下两格一起翻 bit2（open）。返回是否真的操作了一扇门。
+function toggleDoor(x, y, z) {
+  let by = y;
+  if (getMeta(x, y, z) & 8) by = y - 1;                        // 点的是上半格 → 找下格
+  const bm = getMeta(x, by, z);
+  if (!(getBlock(x, by, z) === 35)) return false;
+  const dirBits = bm & 3, openNow = bm & 4;
+  const ny = by + 1, hasTop = getBlock(x, ny, z) === 35;
+  setBlock(x, by, z, 35); setMeta(x, by, z, dirBits | (openNow ? 0 : 4));
+  if (hasTop) { setBlock(x, ny, z, 35); setMeta(x, ny, z, dirBits | (openNow ? 0 : 4) | 8); }
+  sfx(openNow ? 'dig' : 'place');
+  toast(openNow ? '门关上了' : '门打开了', 1.0);
+  return true;
+}
 function placeBlock() {
+  const t0 = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
+  if (t0 && BLOCKS[t0.id] && BLOCKS[t0.id].door) return toggleDoor(t0.x, t0.y, t0.z);   // 对着门按右键 = 开/关
   const h = held();
   if (!h || !BLOCKS[h.id]) { toast('手里没有可放置的方块', 1.4); return false; }
-  const t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
+  const t = t0;
   if (!t) return false;
   const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
   if (y < 0 || y >= CFG.WH) return false;
   const cur = getBlock(x, y, z);
   if (cur !== 0 && cur !== 5) return false;
   if (blockBoxBlocks(x, y, z)) { toast('这里放不下（会卡住自己）', 1.4); return false; }
+  if (h.id === 35) {                                   // 门：上下两格，朝向玩家
+    const yy = y + 1;
+    if (yy >= CFG.WH) return false;
+    const up = getBlock(x, yy, z);
+    if (up !== 0 && up !== 5) { toast('门要两格高（上面被挡住了）', 1.9); return false; }
+    if (y === 0 || !isSolid(getBlock(x, y - 1, z))) { toast('门下面要有地面', 1.6); return false; }
+    if (blockBoxBlocks(x, yy, z)) { toast('这里放不下（会卡住自己）', 1.4); return false; }
+    const d = cameraDir();
+    const dir = Math.abs(d.x) >= Math.abs(d.z) ? (d.x > 0 ? 4 : 3) : (d.z > 0 ? 2 : 1);
+    setBlock(x, y, z, 35); setMeta(x, y, z, dir - 1);                       // 下半（关）
+    setBlock(x, yy, z, 35); setMeta(x, yy, z, (dir - 1) | 8);               // 上半
+    if (!isCreative()) takeItem(35, 1);
+    sfx('place'); startSwing('place', 0.26);
+    renderHotbar(); refreshHeld(); saveSoon();
+    return true;
+  }
   if (h.id === 14) {                                   // 床：脚 + 头两格，沿玩家朝向摆
     const dir = cameraDir();
     const bx = Math.abs(dir.x) >= Math.abs(dir.z) ? Math.sign(dir.x) : 0;
