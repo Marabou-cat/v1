@@ -882,6 +882,8 @@ function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.ad
 // 三种形态：阔叶橡树(圆冠) / 针叶高杉(锥形) / 细弱小树，冠幅半径、树高、冠心偏移各自随机
 function treeParams(wx, wz) {
   if (inVillage(wx, wz)) return null;                 // 村庄范围内不长树
+  if (inMyCabin(wx, wz)) return null;                 // 小屋范围内不长树
+  if (inPlain(wx, wz) && h2(wx * 1.73 + 3.1, wz * 2.37 - 5.9) > 0.10) return null;   // 平原：树非常少
   if (inHaunted(wx, wz)) return null;                 // 鬼屋范围内不长树
   if (inExtraStruct(wx, wz)) return null;             // 其它结构范围内也不长树
   if (inRavine(wx, wz)) return null;                  // 峡谷里也不长树
@@ -2814,7 +2816,105 @@ function cabinFor(cellX, cellZ) {
   });
 }
 
+
+/* ============================================================ 平原 + 玩家小屋（survivalbase1） */
+function inPlain(wx, wz) {                       // 平原：大块低频噪声区域 → 草地为主、树很少
+  const n = h2(Math.floor(wx / 88) * 3.71 + 11.3, Math.floor(wz / 88) * 5.37 - 7.9);
+  return n > 0.42;
+}
+const CABIN_BLOCKS = "0,0,0,33;1,0,0,33;2,0,0,33;3,0,0,33;4,0,0,33;5,0,0,33;6,0,0,33;7,0,0,33;8,0,0,33;9,0,0,33;0,0,1,33;1,0,1,21;2,0,1,21;3,0,1,21;4,0,1,21;5,0,1,21;6,0,1,21;7,0,1,21;8,0,1,21;9,0,1,33;0,0,2,33;1,0,2,21;2,0,2,8;3,0,2,8;4,0,2,8;5,0,2,8;6,0,2,8;7,0,2,8;8,0,2,21;9,0,2,33;0,0,3,33;1,0,3,21;2,0,3,8;3,0,3,8;4,0,3,8;5,0,3,8;6,0,3,8;7,0,3,8;8,0,3,21;9,0,3,33;0,0,4,33;1,0,4,21;2,0,4,8;3,0,4,8;4,0,4,8;5,0,4,8;6,0,4,8;7,0,4,8;8,0,4,21;9,0,4,33;0,0,5,33;1,0,5,21;2,0,5,8;3,0,5,8;4,0,5,8;5,0,5,8;6,0,5,8;7,0,5,8;8,0,5,21;9,0,5,33;0,0,6,33;1,0,6,21;2,0,6,8;3,0,6,8;4,0,6,8;5,0,6,8;6,0,6,8;7,0,6,8;8,0,6,21;9,0,6,33;0,0,7,33;1,0,7,21;2,0,7,8;3,0,7,8;4,0,7,8;5,0,7,8;6,0,7,8;7,0,7,8;8,0,7,21;9,0,7,33;0,0,8,33;1,0,8,21;2,0,8,21;3,0,8,21;4,0,8,21;5,0,8,21;6,0,8,21;7,0,8,21;8,0,8,6;9,0,8,33;0,0,9,33;1,0,9,33;2,0,9,33;3,0,9,33;4,0,9,33;5,0,9,33;6,0,9,33;7,0,9,33;8,0,9,33;9,0,9,33;1,1,1,6;2,1,1,8;3,1,1,8;4,1,1,8;5,1,1,8;6,1,1,8;7,1,1,8;8,1,1,6;1,1,2,8;6,1,2,14;8,1,2,8;1,1,3,8;6,1,3,14;8,1,3,8;1,1,6,8;7,1,6,19;8,1,6,8;1,1,7,8;7,1,7,18;8,1,7,8;1,1,8,6;2,1,8,8;3,1,8,8;4,1,8,8;5,1,8,8;6,1,8,8;7,1,8,8;8,1,8,6;1,2,0,38;8,2,0,38;0,2,1,38;1,2,1,6;2,2,1,8;3,2,1,8;4,2,1,22;5,2,1,22;6,2,1,8;7,2,1,8;8,2,1,6;9,2,1,38;1,2,2,8;2,2,2,38;6,2,2,38;8,2,2,8;1,2,3,8;8,2,3,8;1,2,6,8;8,2,6,8;1,2,7,8;2,2,7,38;7,2,7,38;8,2,7,8;0,2,8,38;1,2,8,6;2,2,8,8;3,2,8,8;4,2,8,22;5,2,8,22;6,2,8,8;7,2,8,8;8,2,8,6;9,2,8,38;1,2,9,38;8,2,9,38;1,3,1,6;2,3,1,8;3,3,1,8;4,3,1,8;5,3,1,8;6,3,1,8;7,3,1,8;8,3,1,6;1,3,2,8;8,3,2,8;1,3,3,8;8,3,3,8;1,3,4,8;8,3,4,8;1,3,5,8;8,3,5,8;1,3,6,8;8,3,6,8;1,3,7,8;8,3,7,8;1,3,8,6;2,3,8,8;3,3,8,8;4,3,8,8;5,3,8,8;6,3,8,8;7,3,8,8;8,3,8,6;0,4,0,21;1,4,0,21;2,4,0,21;3,4,0,21;4,4,0,21;5,4,0,21;6,4,0,21;7,4,0,21;8,4,0,21;9,4,0,21;1,4,1,6;2,4,1,8;3,4,1,8;4,4,1,8;5,4,1,8;6,4,1,8;7,4,1,8;8,4,1,6;1,4,2,21;8,4,2,21;1,4,3,21;8,4,3,21;1,4,4,21;8,4,4,21;1,4,5,21;8,4,5,21;1,4,6,21;8,4,6,21;1,4,7,21;8,4,7,21;1,4,8,6;2,4,8,8;3,4,8,8;4,4,8,8;5,4,8,8;6,4,8,8;7,4,8,8;8,4,8,6;0,4,9,21;1,4,9,21;2,4,9,21;3,4,9,21;4,4,9,21;5,4,9,21;6,4,9,21;7,4,9,21;8,4,9,21;9,4,9,21;0,5,1,21;1,5,1,21;2,5,1,21;3,5,1,21;4,5,1,21;5,5,1,21;6,5,1,21;7,5,1,21;8,5,1,21;9,5,1,21;1,5,2,8;8,5,2,8;1,5,3,8;8,5,3,8;1,5,4,8;8,5,4,8;1,5,5,8;8,5,5,8;1,5,6,8;8,5,6,8;1,5,7,8;8,5,7,8;0,5,8,21;1,5,8,21;2,5,8,21;3,5,8,21;4,5,8,21;5,5,8,21;6,5,8,21;7,5,8,21;8,5,8,21;9,5,8,21;0,6,2,21;1,6,2,21;2,6,2,21;3,6,2,21;4,6,2,21;5,6,2,21;6,6,2,21;7,6,2,21;8,6,2,21;9,6,2,21;1,6,3,8;8,6,3,8;1,6,4,8;8,6,4,8;1,6,5,8;8,6,5,8;1,6,6,8;8,6,6,8;0,6,7,21;1,6,7,21;2,6,7,21;3,6,7,21;4,6,7,21;5,6,7,21;6,6,7,21;7,6,7,21;8,6,7,21;9,6,7,21;0,7,3,21;1,7,3,21;2,7,3,21;3,7,3,21;4,7,3,21;5,7,3,21;6,7,3,21;7,7,3,21;8,7,3,21;9,7,3,21;1,7,4,8;8,7,4,8;1,7,5,8;8,7,5,8;0,7,6,21;1,7,6,21;2,7,6,21;3,7,6,21;4,7,6,21;5,7,6,21;6,7,6,21;7,7,6,21;8,7,6,21;9,7,6,21;0,8,4,21;1,8,4,21;2,8,4,21;3,8,4,21;4,8,4,21;5,8,4,21;6,8,4,21;7,8,4,21;8,8,4,21;9,8,4,21;0,8,5,21;1,8,5,21;2,8,5,21;3,8,5,21;4,8,5,21;5,8,5,21;6,8,5,21;7,8,5,21;8,8,5,21;9,8,5,21";
+let CABIN_DATA = null;
+function cabinData() {
+  if (!CABIN_DATA) CABIN_DATA = CABIN_BLOCKS.split(';').map(t => t.split(',').map(Number));
+  return CABIN_DATA;
+}
+const CABIN_CELL = 240, myCabinCache = new Map();
+function myCabinFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (myCabinCache.has(key)) return myCabinCache.get(key);
+  let out = null;
+  const roll = h2(cellX * 63.7 + 7.1, cellZ * 41.3 - 3.3);
+  if (roll > 0.34) {
+    const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
+    const cx = cellX * CABIN_CELL + 40 + Math.floor(rnd() * (CABIN_CELL - 80));
+    const cz = cellZ * CABIN_CELL + 40 + Math.floor(rnd() * (CABIN_CELL - 80));
+    const plain = inPlain(cx, cz);
+    const ops = [];
+    const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
+    const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+    const data = cabinData();
+    const W = 10, H = 9, D = 10;
+    const fixMeta = (baseY) => {
+      for (const [x, y, z, id] of data) {
+        if (id === 35) {
+          const above = data.some(q => q[0] === x && q[1] === y + 1 && q[2] === z && q[3] === 35);
+          put(cx + x, baseY + y, cz + z, 35, above ? (1 | 8) : 1);
+        } else if (id === 14) {
+          put(cx + x, baseY + y, cz + z, 14, 1);
+        }
+      }
+    };
+    if (plain) {                                              // 平原：贴地盖
+      let mn = 999, mx = -999;
+      for (let dx = -1; dx <= W; dx += 3) for (let dz = -1; dz <= D; dz += 3) {
+        const hh = heightAt(cx + dx, cz + dz);
+        if (hh < mn) mn = hh;
+        if (hh > mx) mx = hh;
+      }
+      if (mx - mn <= 4 && mn > CFG.SEA + 2 && mn < 46) {
+        const gy = mx;
+        for (const [x, y, z, id] of data) put(cx + x, gy + y, cz + z, id);
+        fixMeta(gy);
+        for (let k = 0; k < 4; k++) put(cx + 5, gy, cz - 1 - k, 9);
+        out = { cx, cz, gy, where: 'plain', byChunk: packOps(ops), ops: ops.length };
+      }
+    } else if (roll > 0.62) {                                 // 地下：嵌在岩层里的矿洞小屋
+      const gy = 24 + Math.floor(rnd() * 14);
+      let solidCnt = 0;
+      for (let dx = -2; dx <= W + 2; dx += 2) for (let dz = -2; dz <= D + 2; dz += 2) {
+        if (isSolid(getBlock(cx + dx, gy + 1, cz + dz))) solidCnt++;
+      }
+      if (solidCnt > 28) {
+        for (let dx = -2; dx <= W + 1; dx++) for (let dz = -2; dz <= D + 1; dz++) for (let dy = 0; dy <= H + 1; dy++) carve(cx + dx, gy + dy, cz + dz);
+        for (const [x, y, z, id] of data) put(cx + x, gy + y, cz + z, id);
+        fixMeta(gy);
+        out = { cx, cz, gy, where: 'cave', byChunk: packOps(ops), ops: ops.length };
+      }
+    }
+  }
+  myCabinCache.set(key, out);
+  return out;
+}
+function applyMyCabin(b, ox, oz, selfKey) {
+  const C = CABIN_CELL;
+  const sx = Math.floor(ox / C), sz = Math.floor(oz / C);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const st = myCabinFor(sx + dx, sz + dz);
+    if (!st) continue;
+    const arr = st.byChunk.get(selfKey);
+    if (!arr) continue;
+    for (const op of arr) {
+      if (op.x < ox || op.x >= ox + CFG.CH || op.z < oz || op.z >= oz + CFG.CH) continue;
+      if (op.y < 1 || op.y >= CFG.WH) continue;
+      const i = (op.y * CFG.CH + (op.z - oz)) * CFG.CH + (op.x - ox);
+      if (op.t === 0) { if (b[i] !== 5) b[i] = 0; }
+      else b[i] = op.t;
+      if (op.m) setMeta(op.x, op.y, op.z, op.m, true);
+    }
+  }
+}
+function inMyCabin(wx, wz) {
+  const C = CABIN_CELL;
+  const cx = Math.floor(wx / C), cz = Math.floor(wz / C);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const o = myCabinFor(cx + dx, cz + dz);
+    if (o && Math.abs(wx - o.cx) <= 8 && Math.abs(wz - o.cz) <= 8) return true;
+  }
+  return false;
+}
+
 function applyExtraStructs(b, ox, oz, selfKey) {
+  applyMyCabin(b, ox, oz, selfKey);                                  // 玩家上传的小屋（平原 / 矿洞）
   for (const t of STRUCT_TYPES) {
     if (t.cell === VS_CELL || t.cell === HS_CELL) continue;          // 村庄/鬼屋走原来的路径
     const sx = Math.floor(ox / t.cell), sz = Math.floor(oz / t.cell);
