@@ -270,6 +270,8 @@ const BLOCKS = {
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
   20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
+  21: { name: '石砖', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 21, pick: true },
+  22: { name: '玻璃', top: 25, side: 25, bottom: 25, hard: 0.4, drop: 22, glass: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick', fast: 1.35, dur: 60 },
@@ -305,6 +307,9 @@ const ITEMS = {
   149: { name: '骨剑', kind: 'sword', dmg: 6, dur: 120 },
   151: { name: '空桶', kind: 'bucket' },
   152: { name: '水桶', kind: 'bucket', water: true },
+  153: { name: '弓', kind: 'bow', dmg: 7, dur: 240 },
+  154: { name: '箭', kind: 'ammo' },
+  155: { name: '幽灵精华', kind: 'mat' },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -335,6 +340,22 @@ function makeAtlas() {
   // ⚠ 瓦片序号 → 4x4 图集的 (col,row)。之前直接把序号当列号用，>=4 的全画到画布外，
   // 于是沙子/木头/树叶/木板/圆石/水/工作台/煤矿一律变成纯黑方块。
   const T = (n, base, vari, extra) => noiseTile(n % N, (n / N) | 0, base, vari, extra);
+  // 24 石砖：整齐的砖块 + 灰浆缝
+  T(24, '#8a8a8a', 0.07, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const row = (y / 4) | 0, off = (row % 2) * 4;
+      const seamY = y % 4 === 0, seamX = (x + off) % 8 === 0;
+      if (seamY || seamX) px(c, r, x, y, '#5f5f5f');
+      else px(c, r, x, y, shade('#9a9a9a', 0.94 + ((x * 3 + y * 5) % 5) * 0.03));
+    }
+  });
+  // 25 玻璃：浅蓝通透 + 白色反光条 + 深色边框
+  T(25, '#cfe9f2', 0.02, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#8fb6c4'); px(c, r, x, 15, '#8fb6c4'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#8fb6c4'); px(c, r, 15, y, '#8fb6c4'); }
+    for (let i = 0; i < 14; i++) { px(c, r, 2 + i, 2 + i, '#f4fdff'); if (i < 9) px(c, r, 3 + i, 2 + i, '#e2f6ff'); }
+    for (let i = 0; i < 8; i++) px(c, r, 9 + i, 4 + i, '#f4fdff');
+  });
   T(23, '#8f8f8f', 0.09, (c, r) => {                 // 钻石矿：石底 + 青白色晶体颗粒
     const pts = [[2, 3], [5, 2], [11, 2], [13, 5], [7, 7], [9, 10], [3, 11], [12, 12], [5, 14], [14, 8], [10, 5]];
     for (const [x, y] of pts) {
@@ -632,6 +653,7 @@ function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.ad
 // 三种形态：阔叶橡树(圆冠) / 针叶高杉(锥形) / 细弱小树，冠幅半径、树高、冠心偏移各自随机
 function treeParams(wx, wz) {
   if (inVillage(wx, wz)) return null;                 // 村庄范围内不长树
+  if (inHaunted(wx, wz)) return null;                 // 鬼屋范围内不长树
   if (inRavine(wx, wz)) return null;                  // 峡谷里也不长树
   if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.977) return null;
   const g = heightAt(wx, wz);
@@ -900,6 +922,21 @@ function genChunk(cx, cz) {
       }
     }
   }
+  // 废弃鬼屋（同样按 byChunk 取本块片段）
+  const hCellX = Math.floor(ox / HS_CELL), hCellZ = Math.floor(oz / HS_CELL);
+  for (let ddx = -1; ddx <= 1; ddx++) for (let ddz = -1; ddz <= 1; ddz++) {
+    const hs = hauntedFor(hCellX + ddx, hCellZ + ddz);
+    if (!hs) continue;
+    const arrH = hs.byChunk.get(selfKey);
+    if (!arrH) continue;
+    for (const op of arrH) {
+      if (op.x < ox || op.x >= ox + CH || op.z < oz || op.z >= oz + CH) continue;
+      if (op.y < 0 || op.y >= WH) continue;
+      const i = (op.y * CH + (op.z - oz)) * CH + (op.x - ox);
+      if (op.t === 0) { if (b[i] !== 5) b[i] = 0; }
+      else b[i] = op.t;
+    }
+  }
   // 悬空水清理：洞穴/裂谷/矿洞会把水下面的岩层掏空，水块就会浮在空中。
   // 从下往上扫，下面已经是空气（或刚被清掉）的水一起去掉；玩家靠近后模拟会从旁边补成瀑布。
   for (let y = 1; y < WH; y++) for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
@@ -1077,6 +1114,10 @@ scene.add(worldLight, worldDir);
 
 makeAtlas();
 const solidMat = new THREE.MeshBasicMaterial({ map: atlasTex, vertexColors: true, fog: true });
+const glassMat = new THREE.MeshBasicMaterial({
+  map: atlasTex, vertexColors: true, transparent: true, opacity: 0.42,
+  depthWrite: false, side: THREE.DoubleSide, fog: true,
+});
 const waterMat = new THREE.MeshBasicMaterial({
   map: atlasTex, vertexColors: true, transparent: true, opacity: 0.74,
   depthWrite: false, side: THREE.DoubleSide, fog: true,
@@ -1130,7 +1171,8 @@ function buildChunk(chunk) {
   const ox = chunk.cx * CH, oz = chunk.cz * CH;
   const P = [], U = [], C = [], I = [];
   const P2 = [], U2 = [], C2 = [], I2 = [];
-  let vc = 0, vw = 0;
+  const P3 = [], U3 = [], C3 = [], I3 = [];
+  let vc = 0, vw = 0, vg = 0;
   for (let y = 0; y < WH; y++) for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
     const id = chunk.blocks[(y * CH + z) * CH + x];
     if (!id) continue;
@@ -1138,20 +1180,22 @@ function buildChunk(chunk) {
     if (!def) continue;
     const wx = ox + x, wz = oz + z;
     const water = id === 5;
+    const glass = id === 22;
     const solidTop = def.half || 1;                       // 床这类半格方块
     let wch = null;                                       // 水面角点高度缓存
     for (let fi = 0; fi < 6; fi++) {
       const f = FACES[fi];
       const nb = getBlock(wx + f.n[0], y + f.n[1], wz + f.n[2]);
       if (water) { if (nb !== 0) continue; }
-      else if (nb !== 0 && nb !== 5) continue;
+      else if (glass) { if (nb === 22 || nb === 5) continue; }          // 玻璃之间不画内面
+      else if (nb !== 0 && nb !== 5 && nb !== 22) continue;             // 固体朝着玻璃也要画
       const t = faceTile(def, fi);
       const u0 = (t % ATLAS_COLS) / ATLAS_COLS + 0.0015;
       const v0 = 1 - (((t / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.0015;
       const iu = 1 / ATLAS_COLS - 0.003, iv = 1 / ATLAS_ROWS - 0.003;
       const jit = 0.95 + h3(wx * 3 + fi, y * 7, wz * 5) * 0.1;
       const s = f.sh * jit;
-      const base = water ? vw : vc;
+      const base = water ? vw : glass ? vg : vc;
       for (let k = 0; k < 4; k++) {
         const V = f.v[k];
         let vy = V[1] * solidTop;
@@ -1159,12 +1203,16 @@ function buildChunk(chunk) {
           if (!wch) wch = waterCornerHeights(wx, y, wz);
           vy = wch[V[0]][V[2]];
         }
-        (water ? P2 : P).push(x + V[0], y + vy, z + V[2]);
-        (water ? U2 : U).push(u0 + CORNERS[k][0] * iu, v0 + CORNERS[k][1] * iv);
-        (water ? C2 : C).push(s, s, s);
+        const dst = water ? P2 : glass ? P3 : P;
+        const du = water ? U2 : glass ? U3 : U;
+        const dc = water ? C2 : glass ? C3 : C;
+        dst.push(x + V[0], y + vy, z + V[2]);
+        du.push(u0 + CORNERS[k][0] * iu, v0 + CORNERS[k][1] * iv);
+        dc.push(s, s, s);
       }
-      (water ? I2 : I).push(base, base + 1, base + 2, base, base + 2, base + 3);
-      if (water) vw += 4; else vc += 4;
+      const di = water ? I2 : glass ? I3 : I;
+      di.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      if (water) vw += 4; else if (glass) vg += 4; else vc += 4;
     }
   }
   const mk = (P_, U_, C_, I_, mat) => {
@@ -1181,11 +1229,14 @@ function buildChunk(chunk) {
     return m;
   };
   const nm = mk(P, U, C, I, solidMat);
+  const ng = mk(P3, U3, C3, I3, glassMat);
   const nw = mk(P2, U2, C2, I2, waterMat);
   if (chunk.mesh) { scene.remove(chunk.mesh); chunk.mesh.geometry.dispose(); }
+  if (chunk.glass) { scene.remove(chunk.glass); chunk.glass.geometry.dispose(); }
   if (chunk.water) { scene.remove(chunk.water); chunk.water.geometry.dispose(); }
-  chunk.mesh = nm; chunk.water = nw;
+  chunk.mesh = nm; chunk.glass = ng; chunk.water = nw;
   if (nm) scene.add(nm);
+  if (ng) { ng.renderOrder = 1; scene.add(ng); }
   if (nw) { nw.renderOrder = 2; scene.add(nw); }
   chunk.ready = true;
 }
@@ -1448,6 +1499,23 @@ function makeToolModel(id) {
     const s = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.44, 0.032), wood);
     s.position.y = 0.12;
     g.add(s);
+  } else if (id === 153) {                     // 弓
+    const limb = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
+    const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.42, 0.045), limb);
+    s1.position.set(0, 0.1, 0.06); s1.rotation.x = 0.32;
+    const s2 = s1.clone(); s2.position.set(0, 0.1, -0.06); s2.rotation.x = -0.32;
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.07), new THREE.MeshLambertMaterial({ color: 0x6f4a20 }));
+    const string = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.5, 0.012), new THREE.MeshLambertMaterial({ color: 0xf2efe6 }));
+    string.position.z = 0.0; string.position.y = 0.1;
+    g.add(s1, s2, grip, string);
+  } else if (id === 154) {                     // 箭
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.5, 0.028), new THREE.MeshLambertMaterial({ color: 0x8a6134 }));
+    shaft.position.y = 0.16;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.1, 4), new THREE.MeshLambertMaterial({ color: 0xc9d0d8 }));
+    tip.position.y = 0.43; tip.rotation.x = Math.PI;
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.012), new THREE.MeshLambertMaterial({ color: 0xf2efe6 }));
+    fin.position.y = -0.04;
+    g.add(shaft, tip, fin);
   } else if (id === 125) {                     // 钻石
     const a = new THREE.Mesh(new THREE.OctahedronGeometry(0.13), diaM);
     a.position.y = 0.14; a.scale.y = 1.25;
@@ -1495,6 +1563,7 @@ function makeToolModel(id) {
 }
 // 握持姿势：方块是斜着摆在掌心，工具是斜举（镐头/剑尖朝前上）
 const HOLD_POSE = {
+  bow: { rx: -1.2, ry: 0.15, rz: -0.1, py: 0.02, pz: 0.06 },
   block: { rx: 0.2, ry: 0.6, rz: 0.1, py: 0, pz: 0, s: 1 },
   pick: { rx: -0.32, ry: 0.95, rz: 0.36, py: 0.07, pz: -0.12, s: 0.95 },
   sword: { rx: -0.5, ry: 0.45, rz: -0.15, py: 0.07, pz: -0.12, s: 0.92 },
@@ -1598,15 +1667,27 @@ function updateHandPose(dt, now) {
   if (anim.swing > 0) {
     anim.swing = Math.max(0, anim.swing - dt);
     const p = 1 - anim.swing / anim.swingDur;
-    const a = anim.swingType === 'attack' ? swingCurve(p, 0.3, 0.52)
-            : Math.sin(clamp01(p) * Math.PI);      // 放置 = 轻轻一推
-    anim.swingA = a;
-    aTotal += a * (anim.swingType === 'attack' ? 1 : 0.55);
-  } else anim.swingA = 0;
+    if (anim.swingType === 'bow') {
+      anim.bowK = p < 0.55 ? p / 0.55 : Math.max(0, 1 - (p - 0.55) / 0.18);
+      anim.swingA = 0;
+    } else {
+      anim.bowK = 0;
+      const a = anim.swingType === 'attack' ? swingCurve(p, 0.3, 0.52)
+              : Math.sin(clamp01(p) * Math.PI);    // 放置 = 轻轻一推
+      anim.swingA = a;
+      aTotal += a * (anim.swingType === 'attack' ? 1 : 0.55);
+    }
+  } else { anim.swingA = 0; anim.bowK = 0; }
 
   rx += aTotal * 0.62;
   pz += -0.05 * Math.max(0, aTotal);
   rz += aTotal * 0.1;
+  // 弓：前 55% 往后拉弦，之后啪地弹回去
+  if (anim.bowK > 0) {
+    const k = anim.bowK;
+    px -= 0.02 * k; py -= 0.035 * k; pz += 0.11 * k;
+    rx -= 0.5 * k; rz -= 0.14 * k;
+  }
 
   // 装备动画
   if (anim.equip > 0) {
@@ -1761,6 +1842,90 @@ function clockText() {
 }
 
 /* ============================================================ 村庄 */
+// ── 废弃鬼屋：288 格一栋，三层大房子（石砖墙 + 玻璃窗 + 木板楼板 + 木柱）──
+const HS_CELL = 288, HS_FLOORS = 3, HS_FH = 4;
+const hsCache = new Map();
+const bossSpawned = new Set();
+function hauntedFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (hsCache.has(key)) return hsCache.get(key);
+  let out = null;
+  const roll = h2(cellX * 71.3 + 3.1, cellZ * 47.7 - 8.9);
+  if (roll > 0.45) {
+    const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
+    const cx = cellX * HS_CELL + 80 + Math.floor(rnd() * (HS_CELL - 160));
+    const cz = cellZ * HS_CELL + 80 + Math.floor(rnd() * (HS_CELL - 160));
+    const W = 8, D = 6;                       // 半宽 / 半深（17×13 的外墙）
+    let gy = 0;
+    for (let dx = -W - 1; dx <= W + 1; dx++) for (let dz = -D - 1; dz <= D + 1; dz++) gy = Math.max(gy, heightAt(cx + dx, cz + dz));
+    if (gy > CFG.SEA + 4 && gy < 38) {
+      const y0 = gy + 1;
+      const ops = [];
+      const put = (x, y, z, t) => ops.push({ x, y, z, t });
+      const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      // 地基：把低处填到 y0-1
+      for (let dx = -W; dx <= W; dx++) for (let dz = -D; dz <= D; dz++) {
+        for (let y = heightAt(cx + dx, cz + dz) + 1; y < y0; y++) put(cx + dx, y, cz + dz, 21);
+      }
+      for (let f = 0; f < HS_FLOORS; f++) {
+        const fy = y0 + f * HS_FH;
+        // 楼板（木板）
+        for (let dx = -W; dx <= W; dx++) for (let dz = -D; dz <= D; dz++) put(cx + dx, fy, cz + dz, 8);
+        // 楼梯井：楼板开 3×3 洞（在西南角）
+        for (let dx = 0; dx < 3; dx++) for (let dz = 0; dz < 3; dz++) carve(cx - W + 1 + dx, fy, cz - D + 1 + dz);
+        // 墙体：石砖，第 2 层高开玻璃窗
+        for (let h = 1; h < HS_FH; h++) {
+          const y = fy + h;
+          for (let dx = -W; dx <= W; dx++) for (let dz = -D; dz <= D; dz++) {
+            const edge = Math.abs(dx) === W || Math.abs(dz) === D;
+            if (!edge) { carve(cx + dx, y, cz + dz); continue; }   // 内部空气
+            const win = h === 2 && (dx + dz) % 5 === 0;
+            put(cx + dx, y, cz + dz, win ? 22 : 21);
+          }
+        }
+        // 四角木柱
+        for (const [sx, sz] of [[-W, -D], [W, -D], [-W, D], [W, D]]) {
+          for (let h = 1; h < HS_FH; h++) put(cx + sx, fy + h, cz + sz, 6);
+        }
+        // 楼梯：从楼梯井往西每格升 1（游戏能自动上 1 格台阶）
+        for (let i = 1; i <= 3; i++) put(cx - W + 1 + i - 1, fy + i, cz - D + 1, 8);
+        // 一层南墙开门（2 格高）
+        if (f === 0) for (let h = 1; h <= 2; h++) for (let dz = -1; dz <= 1; dz++) carve(cx + dz, fy + h, cz + D);
+      }
+      // 屋顶
+      const topY = y0 + HS_FLOORS * HS_FH;
+      for (let dx = -W - 1; dx <= W + 1; dx++) for (let dz = -D - 1; dz <= D + 1; dz++) put(cx + dx, topY, cz + dz, 21);
+      for (let dx = -W - 1; dx <= W + 1; dx++) { put(cx + dx, topY + 1, cz - D - 1, 21); put(cx + dx, topY + 1, cz + D + 1, 21); }
+      for (let dz = -D - 1; dz <= D + 1; dz++) { put(cx - W - 1, topY + 1, cz + dz, 21); put(cx + W + 1, topY + 1, cz + dz, 21); }
+      // 家具：每层两个箱子（战利品按坐标生成）
+      put(cx - 2, y0 + 1, cz + 2, 18);
+      put(cx + 3, y0 + 1, cz - 3, 18);
+      put(cx + 2, y0 + HS_FH + 1, cz + 3, 18);
+      put(cx - 3, y0 + 2 * HS_FH + 1, cz - 2, 18);
+      const byChunk = new Map();
+      for (const op of ops) {
+        const k = (op.x >> 4) + ',' + (op.z >> 4);
+        let arr = byChunk.get(k);
+        if (!arr) byChunk.set(k, arr = []);
+        arr.push(op);
+      }
+      out = { cellX, cellZ, cx, cz, y0, W, D, floors: HS_FLOORS, fh: HS_FH, byChunk, ops: ops.length,
+              bossAt: { x: cx, y: y0 + (HS_FLOORS - 1) * HS_FH + 1, z: cz } };
+    }
+  }
+  hsCache.set(key, out);
+  return out;
+}
+function inHaunted(wx, wz) {
+  const cx = Math.floor(wx / HS_CELL), cz = Math.floor(wz / HS_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const hs = hauntedFor(cx + dx, cz + dz);
+    if (!hs) continue;
+    if (Math.abs(wx - hs.cx) <= hs.W + 2 && Math.abs(wz - hs.cz) <= hs.D + 2) return true;
+  }
+  return false;
+}
+
 const VS_CELL = 160;
 const villageCache = new Map();
 
@@ -2016,6 +2181,8 @@ const MOB_DEFS = {
   chicken:  { name: '鸡',     hp: 8,  chase: 2.8, wander: 0.8,  hostile: false, barY: 0.75, drop: 143, dropN: [1, 1] },
   spider:   { name: '蜘蛛',   hp: 22, chase: 4.0, wander: 1.4,  hostile: true,  barY: 0.9,  drop: null, dmg: 2.5, atkCd: 1.25 },
   skeleton: { name: '骷髅射手', hp: 20, chase: 2.4, wander: 1.0, hostile: true,  barY: 1.6,  drop: 148, dropN: [1, 2], dmg: 3, atkCd: 1.5, ranged: true, sunBurn: true },
+  ghost:    { name: '幽灵',   hp: 18, chase: 2.2, wander: 0.9, hostile: true,  barY: 1.7,  drop: 155, dropN: [1, 1], dmg: 2.5, atkCd: 1.4, float: true, ghostly: true },
+  ghostBoss:{ name: '幽灵王', hp: 140, chase: 2.9, wander: 1.2, hostile: true, barY: 3.1,  drop: 155, dropN: [3, 5], dmg: 6, atkCd: 1.15, float: true, ghostly: true, boss: true },
 };
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
@@ -2191,6 +2358,23 @@ function mobGeos(kind) {
       { geo: skArm, x: -4, y: 16, z: 0, arm: true }, { geo: skArm, x: 4, y: 16, z: 0, arm: true },
       { geo: skLeg, x: -2, y: 8, z: 0, arm: false }, { geo: skLeg, x: 2, y: 8, z: 0, arm: false },
     ];
+  } else if (kind === 'ghost' || kind === 'ghostBoss') {
+    const boss = kind === 'ghostBoss';
+    const S2 = boss ? 2 : 1;                                 // Boss 整体放大一倍
+    coreY = 0.75 * S2; barY = boss ? 3.05 : 1.62;
+    const SHEET = boss ? 0xd8c8f0 : 0xe6eef7, DARK = boss ? 0x8f6fc0 : 0xa8bccc, EYE = boss ? 0xff5a8a : 0x2a2b3a;
+    box(body, -3 * S2, 6 * S2, -2 * S2, 7 * S2, 10 * S2, 3 * S2, SHEET, 0.14);   // 主体
+    box(body, -4 * S2, 8 * S2, -1 * S2, 9 * S2, 4 * S2, 2 * S2, SHEET, 0.12);    // 伸出的手臂
+    // 下摆做成一缕一缕的（幽灵感）
+    for (let i = -3; i <= 3; i += 2) {
+      const len = 2 + ((i * 7 + 5) % 3);
+      box(body, i * S2, (6 - len) * S2, -2 * S2, 1 * S2, len * S2, 2 * S2, DARK, 0.12);
+    }
+    box(head, -3 * S2, 14 * S2, -2 * S2, 7 * S2, 6 * S2, 3 * S2, SHEET, 0.10);   // 头
+    px(head, -2 * S2, 17 * S2, 1 * S2, EYE); px(head, -1 * S2, 17 * S2, 1 * S2, EYE);
+    px(head, 1 * S2, 17 * S2, 1 * S2, EYE); px(head, 2 * S2, 17 * S2, 1 * S2, EYE);
+    box(head, -1 * S2, 15 * S2, 1 * S2, 3 * S2, 1 * S2, 1 * S2, 0x3a3550, 0.06);  // 嘴
+    limbSpecs = [];
   } else {                                                // grunt 夜行怪
     coreY = 0.62; barY = 1.44;
     const BODY = 0x2f5d5a, BODY2 = 0x264a48, HEAD = 0x9fd8c8, EYE = 0xff4d4d, TEETH = 0xe8f4ef;
@@ -2221,8 +2405,10 @@ function makeMobModel(kind) {
   const g = new THREE.Group();
   const core = new THREE.Group();
   core.position.y = G.coreY;
-  const bodyMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const headMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const ghostly = !!(MOB_DEFS[kind] && MOB_DEFS[kind].ghostly);
+  const matOpts = { vertexColors: true, transparent: ghostly, opacity: ghostly ? 0.72 : 1 };
+  const bodyMat = new THREE.MeshLambertMaterial(matOpts);
+  const headMat = new THREE.MeshLambertMaterial(matOpts);
   const bodyMesh = new THREE.Mesh(G.body, bodyMat); bodyMesh.position.y = -G.coreY;
   const headMesh = new THREE.Mesh(G.head, headMat); headMesh.position.y = -G.coreY;
   core.add(bodyMesh, headMesh);
@@ -2323,15 +2509,46 @@ function sightClear(from, to) {                       // 两点之间有没有�
   }
   return true;
 }
-function shootArrow(m) {
+// 箭的独立模型：木杆 + 铁箭头 + 两片白色尾羽
+let arrowGeoCache = null;
+function makeArrowModel() {
+  if (!arrowGeoCache) {
+    const shaftG = new THREE.BoxGeometry(0.032, 0.032, 0.6);
+    const headG = new THREE.ConeGeometry(0.05, 0.13, 4);
+    const finG = new THREE.BoxGeometry(0.12, 0.014, 0.14);
+    arrowGeoCache = { shaftG, headG, finG };
+  }
+  const wood = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
+  const iron = new THREE.MeshLambertMaterial({ color: 0xc9d0d8 });
+  const feather = new THREE.MeshLambertMaterial({ color: 0xf2efe6 });
+  const g = new THREE.Group();
+  const shaft = new THREE.Mesh(arrowGeoCache.shaftG, wood);
+  const head = new THREE.Mesh(arrowGeoCache.headG, iron);
+  head.rotation.x = Math.PI / 2; head.position.z = 0.34;
+  const f1 = new THREE.Mesh(arrowGeoCache.finG, feather);
+  f1.position.z = -0.26; f1.rotation.y = 0.35;
+  const f2 = new THREE.Mesh(arrowGeoCache.finG, feather);
+  f2.position.z = -0.26; f2.rotation.y = -0.35;
+  g.add(shaft, head, f1, f2);
+  g.userData.shared = true;
+  return g;
+}
+function spawnArrow(from, to, opts = {}) {
+  const dir = to.clone().sub(from).normalize();
+  const obj = makeArrowModel();
+  obj.position.copy(from);
+  obj.lookAt(to);
+  scene.add(obj);
+  arrows.push({
+    p: from.clone(), v: dir.multiplyScalar(opts.speed || 24), t: 0, obj,
+    dmg: opts.dmg || 4, fromPlayer: !!opts.fromPlayer,
+  });
+  return true;
+}
+function shootArrow(m) {                       // 骷髅射箭
   const from = new THREE.Vector3(m.p.x, m.p.y + 1.15, m.p.z);
   const to = new THREE.Vector3(player.p.x, player.p.y + 1.05, player.p.z);
-  const dir = to.clone().sub(from).normalize();
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.44), new THREE.MeshBasicMaterial({ color: 0xe8e4d6 }));
-  mesh.position.copy(from);
-  mesh.lookAt(to);
-  scene.add(mesh);
-  arrows.push({ p: from.clone(), v: dir.multiplyScalar(21), t: 0, obj: mesh });
+  spawnArrow(from, to, { dmg: 4, speed: 22 });
   sfx('place');
 }
 function updateArrows(dt) {
@@ -2339,13 +2556,41 @@ function updateArrows(dt) {
     const a = arrows[i];
     a.t += dt;
     a.v.y -= 6.5 * dt;
-    a.p.addScaledVector(a.v, dt);
-    a.obj.position.copy(a.p);
     let gone = a.t > 5;
-    const dx = a.p.x - player.p.x, dy = a.p.y - (player.p.y + 0.9), dz = a.p.z - player.p.z;
-    if (!gone && dx * dx + dy * dy + dz * dz < 0.45) { hurtPlayerFrom(a.p.x - a.v.x * 0.05, a.p.z - a.v.z * 0.05, 4, 4.6); gone = true; }
-    if (!gone && isSolid(getBlock(Math.floor(a.p.x), Math.floor(a.p.y), Math.floor(a.p.z)))) gone = true;
-    if (gone) { scene.remove(a.obj); a.obj.geometry.dispose(); a.obj.material.dispose(); arrows.splice(i, 1); }
+    // 分 3 小步推进并逐小步判定：箭速 34 m/s 时一帧走 0.57 格，不分步会直接穿过去
+    const SUB = 3;
+    for (let k = 0; k < SUB && !gone; k++) {
+      a.p.addScaledVector(a.v, dt / SUB);
+      if (a.fromPlayer) {                              // 玩家的箭打怪
+        for (const m of mobs) {
+          if (m.hp <= 0 || m.dying) continue;
+          const dx = a.p.x - m.p.x, dy = a.p.y - (m.p.y + 0.6), dz = a.p.z - m.p.z;
+          if (dx * dx + dy * dy + dz * dz > 0.55) continue;
+          m.hp -= a.dmg; m.flash = 0.24; m.aggro = 18;
+          const kd = Math.hypot(a.v.x, a.v.z) || 1;
+          m.v.x = (a.v.x / kd) * 4.2; m.v.z = (a.v.z / kd) * 4.2; m.v.y = Math.max(m.v.y, 2.6);
+          m.knockT = 0.22;
+          sfx('hit');
+          toast(`命中 ${MOB_DEFS[m.kind].name} −${a.dmg}`, 0.9);
+          if (m.hp <= 0) {
+            startMobDeath(m);
+            player.kills = (player.kills || 0) + 1;
+            toast(`射倒 ${MOB_DEFS[m.kind].name}`, 1.4);
+          }
+          gone = true;
+          break;
+        }
+      } else {                                          // 敌人的箭打玩家
+        const dx = a.p.x - player.p.x, dy = a.p.y - (player.p.y + 0.9), dz = a.p.z - player.p.z;
+        if (dx * dx + dy * dy + dz * dz < 0.45) { hurtPlayerFrom(a.p.x - a.v.x * 0.05, a.p.z - a.v.z * 0.05, a.dmg, 4.6); gone = true; }
+      }
+      if (!gone) {
+        const bb = getBlock(Math.floor(a.p.x), Math.floor(a.p.y), Math.floor(a.p.z));
+        if (bb !== 0 && bb !== 5 && bb !== 22) gone = true;
+      }
+    }
+    a.obj.position.copy(a.p);
+    if (gone) { scene.remove(a.obj); arrows.splice(i, 1); }   // 几何共享，不 dispose
   }
 }
 
@@ -2442,10 +2687,18 @@ function updateMobs(dt) {
     } else {
       m.v.x = mx * speed; m.v.z = mz * speed;
     }
-    m.v.y -= CFG.GRAV * dt;
     const before = m.p.x, beforeZ = m.p.z;
-    moveBody(m, m.v.x * dt, m.v.y * dt, m.v.z * dt);
-    if (m.onGround && (Math.abs(m.p.x - before) < 0.001 || Math.abs(m.p.z - beforeZ) < 0.001)) m.v.y = CFG.JUMP * 0.85;
+    if (def.float) {                            // 幽灵：飘着走、穿墙、不落地下坠
+      m.floatY = m.floatY === undefined ? m.p.y + 1.1 : m.floatY;
+      m.v.y = 0;
+      m.p.x += m.v.x * dt; m.p.z += m.v.z * dt;
+      const hover = m.floatY + Math.sin(m.phase * 1.4) * 0.18;
+      m.p.y += (hover - m.p.y) * Math.min(1, dt * 3.2);
+    } else {
+      m.v.y -= CFG.GRAV * dt;
+      moveBody(m, m.v.x * dt, m.v.y * dt, m.v.z * dt);
+    }
+    if (!def.float && m.onGround && (Math.abs(m.p.x - before) < 0.001 || Math.abs(m.p.z - beforeZ) < 0.001)) m.v.y = CFG.JUMP * 0.85;
     if (m.p.y < -6) m.hp = 0;
     // 朝向 = 实际移动方向。原来无条件朝玩家，走路时看起来是横着/倒着走
     const vlen = Math.hypot(m.v.x, m.v.z);
@@ -2487,7 +2740,7 @@ function updateMobs(dt) {
     }
     // 贴身攻击（所有敌对生物；骷髅是远程，只有贴脸才用近战）
     m.atkCd -= dt;
-    if (def.hostile && hostileNow && dist < 1.5 && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < 1.8) {
+    if (def.hostile && hostileNow && dist < (def.boss ? 2.4 : 1.5) && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.boss ? 3.2 : 2.0)) {
       m.atkCd = def.atkCd || 1.6;
       hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
       sfx('hurt');
@@ -2503,6 +2756,27 @@ function updateMobs(dt) {
   if (countKind('chicken') < 4 && Math.random() < dt * 0.13) spawnMob('chicken');
   if (countKind('spider') < 4 && Math.random() < dt * 0.55) spawnMob('spider');
   if (countKind('skeleton') < 3 && Math.random() < dt * 0.30) spawnMob('skeleton');
+  // 废弃鬼屋：进屋就刷幽灵，每栋只唤醒一只幽灵王
+  const hcx = Math.floor(player.p.x / HS_CELL), hcz = Math.floor(player.p.z / HS_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const hs = hauntedFor(hcx + dx, hcz + dz);
+    if (!hs) continue;
+    if (Math.abs(player.p.x - hs.cx) > hs.W + 3 || Math.abs(player.p.z - hs.cz) > hs.D + 3) continue;
+    if (player.p.y < hs.y0 - 3 || player.p.y > hs.y0 + hs.floors * hs.fh + 6) continue;
+    const key = hs.cellX + ',' + hs.cellZ;
+    if (countKind('ghost') < 4 && Math.random() < dt * 0.9) {
+      const gx = hs.cx + Math.round((Math.random() * 2 - 1) * (hs.W - 1));
+      const gz = hs.cz + Math.round((Math.random() * 2 - 1) * (hs.D - 1));
+      const gy2 = hs.y0 + Math.floor(Math.random() * hs.floors) * hs.fh + 1;
+      spawnMobAt('ghost', gx, gy2, gz);
+    }
+    if (!bossSpawned.has(key) && countKind('ghostBoss') === 0 && Math.random() < dt * 0.8) {
+      bossSpawned.add(key);
+      spawnMobAt('ghostBoss', hs.bossAt.x, hs.bossAt.y, hs.bossAt.z);
+      toast('幽灵王醒了 —— 它守在这栋鬼屋的最上层', 3.2);
+      sfx('hurt');
+    }
+  }
   const v = (typeof nearestVillage === 'function') ? nearestVillage() : null;
   if (v && countKind('villager') < 3 && Math.random() < dt * 0.4) {
     const ang = Math.random() * Math.PI * 2, r = 3 + Math.random() * 8;
@@ -2760,6 +3034,8 @@ const RECIPES = [
   { out: 14, n: 1, need: { 8: 2, 104: 3, 142: 2 }, tier: 1 },
   { out: 149, n: 1, need: { 148: 2, 104: 1 }, tier: 1 },
   { out: 151, n: 1, need: { 106: 3 }, tier: 1 },
+  { out: 153, n: 1, need: { 104: 3, 142: 1 }, tier: 1 },
+  { out: 154, n: 4, need: { 104: 1, 148: 1 }, tier: 1 },
   { out: 130, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
   { out: 131, n: 1, need: { 125: 2, 104: 1 }, tier: 1 },
   { out: 132, n: 1, need: { 125: 5 }, tier: 1 },
@@ -3139,6 +3415,22 @@ function placeBlock() {
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
+// 玩家射箭：消耗 1 支箭，朝准星方向（带一点重力下坠）
+function firePlayerArrow() {
+  if (player.bowCd > 0) return false;
+  if (countOf(154) < 1) { toast('没有箭了（木棍 + 骨头 合成）', 1.6); return false; }
+  takeItem(154, 1);
+  const eye = eyePos(), dir = cameraDir();
+  const from = new THREE.Vector3(eye.x + dir.x * 0.35, eye.y - 0.12 + dir.y * 0.35, eye.z + dir.z * 0.35);
+  const to = from.clone().addScaledVector(dir, 12);
+  const bowDef = ITEMS[held() && held().id] || {};
+  spawnArrow(from, to, { dmg: bowDef.dmg || 7, speed: 34, fromPlayer: true });
+  startSwing('bow', 0.42);
+  sfx('place');
+  player.bowCd = 0.45;
+  useTool(1);
+  return true;
+}
 // 沿视线找水（射线默认会跳过水，这里单独走一条）
 function rayWater(maxD) {
   const eye = eyePos(), dir = cameraDir();
@@ -3262,6 +3554,7 @@ function hurtPlayerFrom(sx, sz, dmg, power = 5.4) {
 }
 function updatePlayer(dt) {
   player.atkCd = Math.max(0, player.atkCd - dt);
+  if (player.bowCd > 0) player.bowCd = Math.max(0, player.bowCd - dt);
   if (!player.alive) { player.v.set(0, 0, 0); return; }
   // 键盘转视角（没有鼠标就靠这个）
   const lookSpd = 1.9 * userCfg.sens;
@@ -3386,6 +3679,7 @@ function update(dt) {
     else if (t && t.id === 19) { openFurnace(); startSwing('place', 0.2); }
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
+    else if (h && h.id === 153) firePlayerArrow();
     else if (h && h.id === 152) useBucket(true, t);
     else if (h && h.id === 151) useBucket(false, t);
     else if (h && (defOf(h.id) || {}).kind === 'food') eat();
@@ -4011,6 +4305,28 @@ window.GAME = {
       return v;
     },
     chestAt: (x, y, z) => openChest(x, y, z),
+    haunted: (r = 2) => {
+      const pcx = Math.floor(player.p.x / HS_CELL), pcz = Math.floor(player.p.z / HS_CELL);
+      const out = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const hs = hauntedFor(pcx + dx, pcz + dz);
+        if (hs) out.push({ cx: hs.cx, cz: hs.cz, y0: hs.y0, floors: hs.floors, ops: hs.ops });
+      }
+      return out;
+    },
+    gotoHaunted: () => {
+      const pcx = Math.floor(player.p.x / HS_CELL), pcz = Math.floor(player.p.z / HS_CELL);
+      for (let rr = 0; rr <= 3; rr++) for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) {
+        const hs = hauntedFor(pcx + dx, pcz + dz);
+        if (!hs) continue;
+        player.p.set(hs.cx + 0.5, hs.y0 + 2, hs.cz + hs.D + 6.5);
+        player.v.set(0, 0, 0); camSmoothY = null;
+        const ccx = Math.floor(hs.cx / CFG.CH), ccz = Math.floor(hs.cz / CFG.CH);
+        for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) buildChunk(getChunk(ccx + a, ccz + b));
+        return { cx: hs.cx, cz: hs.cz, y0: hs.y0, floors: hs.floors };
+      }
+      return null;
+    },
     ravines: (r = 2) => {
       const pcx = Math.floor(player.p.x / RV_CELL), pcz = Math.floor(player.p.z / RV_CELL);
       const out = [];
@@ -4042,6 +4358,7 @@ window.GAME = {
     release: (code) => { keys.delete(code); if (code === keymap.mine) mineHeld = false; },
     useHeld: () => {                            // 等价于右键（探针用，绕开 pointer lock）
       const h = held(), t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
+      if (h && h.id === 153) return firePlayerArrow();
       if (h && h.id === 152) return useBucket(true, t);
       if (h && h.id === 151) return useBucket(false, t);
       return null;
