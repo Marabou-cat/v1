@@ -266,9 +266,9 @@ const BLOCKS = {
   14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true, half: 0.45 },
   15: { name: '铁矿石', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 15, pick: true, stonePick: true },
   16: { name: '农田', top: 17, side: 2, bottom: 2, hard: 0.5, drop: 2 },
-  17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true, plant: true, mature: true },
-  23: { name: '小麦幼苗', top: 26, side: 26, bottom: 26, hard: 0.1, drop: 156, plant: true, stage: 0 },
-  24: { name: '小麦苗', top: 27, side: 27, bottom: 27, hard: 0.1, drop: 156, plant: true, stage: 1 },
+  17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true, plant: true, mature: true, cross: true, crossH: 0.95 },
+  23: { name: '小麦幼苗', top: 26, side: 26, bottom: 26, hard: 0.1, drop: 156, plant: true, stage: 0, cross: true, crossH: 0.38 },
+  24: { name: '小麦苗', top: 27, side: 27, bottom: 27, hard: 0.1, drop: 156, plant: true, stage: 1, cross: true, crossH: 0.66 },
   25: { name: '堆肥箱', top: 28, side: 29, bottom: 8, hard: 0.9, drop: 25, compost: true },
   26: { name: '花岗岩', top: 30, side: 30, bottom: 30, hard: 2.6, drop: 26, pick: true },
   27: { name: '石灰岩', top: 31, side: 31, bottom: 31, hard: 1.9, drop: 27, pick: true },
@@ -331,6 +331,7 @@ const ITEMS = {
   158: { name: '木锄', kind: 'hoe', dur: 60 },
   159: { name: '石锄', kind: 'hoe', dur: 132 },
   160: { name: '铁锄', kind: 'hoe', dur: 251 },
+  161: { name: '骨粉', kind: 'bonemeal' },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -365,19 +366,23 @@ function makeAtlas() {
   // 于是沙子/木头/树叶/木板/圆石/水/工作台/煤矿一律变成纯黑方块。
   const T = (n, base, vari, extra) => noiseTile(n % N, (n / N) | 0, base, vari, extra);
   // 26 幼苗：土堆上两片小芽
-  T(26, '#6b4426', 0.08, (c, r) => {
-    for (let y = 10; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#5d3a20', 1));
-    for (let y = 8; y < 12; y++) { px(c, r, 7, y, '#4f8a33'); px(c, r, 8, y, '#5fa03c'); }
-    px(c, r, 6, 9, '#5fa03c'); px(c, r, 5, 8, '#5fa03c'); px(c, r, 9, 10, '#5fa03c'); px(c, r, 10, 9, '#5fa03c');
-  });
-  // 27 小麦苗：更高的绿秆 + 小穗
-  T(27, '#6b4426', 0.08, (c, r) => {
-    for (let y = 11; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#5d3a20', 1));
-    for (const x of [4, 8, 12]) {
-      for (let y = 4; y < 12; y++) { px(c, r, x, y, '#4f8a33'); px(c, r, x + 1, y, '#5fa03c'); }
-      for (let y = 2; y < 6; y++) { px(c, r, x, y, '#cfae4d'); px(c, r, x + 1, y, '#b8933c'); }
+  // 26 小麦幼苗（透明底，矮）：三片小叶
+  {
+    const c = 26 % ATLAS_COLS, r = (26 / ATLAS_COLS) | 0;
+    for (const [bx, h] of [[5, 5], [8, 6], [11, 4]]) {
+      for (let k = 0; k < h; k++) px(c, r, bx, 15 - k, k > h - 2 ? '#6db544' : (bx === 8 ? '#4f8a33' : '#3f7a2a'));
+      px(c, r, bx + (bx === 11 ? -1 : 1), 15 - (h >> 1), '#5fa03c');
     }
-  });
+  }
+  // 27 小麦苗：更高的绿秆 + 小穗
+  // 27 小麦苗（透明底，中等高）：绿秆 + 叶
+  {
+    const c = 27 % ATLAS_COLS, r = (27 / ATLAS_COLS) | 0;
+    for (const x of [4, 8, 12]) {
+      for (let y = 4; y < 16; y++) { px(c, r, x, y, '#4f8a33'); px(c, r, x + 1, y, '#5fa03c'); }
+      px(c, r, x - 1, 9, '#6db544'); px(c, r, x + 2, 11, '#6db544');
+    }
+  }
   // 28/29 堆肥箱（顶 / 侧）
   T(28, '#6f4a20', 0.06, (c, r) => {
     for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#4f3416'); px(c, r, x, 15, '#4f3416'); }
@@ -758,6 +763,12 @@ function iconURL(id) {
     g.fillStyle = '#7d5729'; g.fillRect(8, 4, 2, 25); g.fillRect(22, 4, 2, 25);
     g.fillStyle = '#b98a4e'; g.fillRect(11, 9, 10, 8); g.fillRect(11, 19, 10, 8);
     g.fillStyle = '#6a4a20'; g.beginPath(); g.arc(20.5, 18.5, 1.9, 0, 7); g.fill();
+  } else if (id === 161) { // 骨粉：一小堆白粉
+    g.fillStyle = '#ded8c6'; g.beginPath(); g.ellipse(16, 22, 9, 4.6, 0, 0, 7); g.fill();
+    g.fillStyle = '#efeade'; g.beginPath(); g.ellipse(15, 19, 6.5, 4.2, 0, 0, 7); g.fill();
+    g.fillStyle = '#fbf8f0'; g.beginPath(); g.ellipse(14, 17, 4, 2.6, 0, 0, 7); g.fill();
+    g.fillStyle = '#b9b2a0';
+    for (const [x, y] of [[10, 21], [17, 22], [21, 20], [13, 24], [19, 24]]) g.fillRect(x, y, 2, 2);
   } else if (id === 145 || id === 146) { // 羊肉（生 / 熟）：肉块 + 骨头
     const cooked = id === 146;
     g.fillStyle = cooked ? '#a9622f' : '#e0837f';
@@ -1610,7 +1621,7 @@ function emitCross(lx, y, lz, def, P, U, C, I, base) {
   const u0 = (tile % ATLAS_COLS) / ATLAS_COLS + 0.002;
   const v0 = 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS + 0.002;
   const iu = 1 / ATLAS_COLS - 0.004, iv = 1 / ATLAS_ROWS - 0.004;
-  const A = 0.14, B = 0.86, H = 0.95;                  // 面片在格内的范围与高度
+  const A = 0.14, B = 0.86, H = def.crossH || 0.95;    // 面片在格内的范围与高度（小麦按生长阶段变高）
   const quad = (ax, az, bx, bz) => {                   // 一个竖面片（左下→右下→右上→左上）
     const pts = [[ax, 0, az], [bx, 0, bz], [bx, H, bz], [ax, H, az]];
     const uv = [[0, 0], [1, 0], [1, 1], [0, 1]];
@@ -4359,6 +4370,36 @@ function plantSeed(t) {                        // 农田上播种
   startSwing('place', 0.3); sfx('place'); saveSoon();
   return true;
 }
+function useBoneMeal(t) {                      // 骨粉：催熟小麦 / 撒在草地上长出草丛和花
+  const h = held();
+  if (!h || h.id !== 161) return false;
+  if (!t) return false;
+  const id = getBlock(t.x, t.y, t.z);
+  if (id === 23 || id === 24) {                    // 对着小麦幼苗/苗 → 直接成熟
+    setBlock(t.x, t.y, t.z, 17);
+    takeItem(161, 1);
+    sfx('craft'); toast('骨粉催熟了小麦', 1.3);
+    renderHotbar(); refreshHeld(); saveSoon();
+    return true;
+  }
+  if (id === 17) { toast('这株小麦已经熟了', 1.2); return false; }
+  const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
+  if (getBlock(x, y, z) === 0 && getBlock(x, y - 1, z) === 1) {   // 草地上撒粉 → 草丛/花
+    let n = 0;
+    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+      const bx = x + dx, bz = z + dz;
+      if (getBlock(bx, y, bz) !== 0 || getBlock(bx, y - 1, bz) !== 1) continue;
+      if (Math.random() < 0.6) { setBlock(bx, y, bz, Math.random() < 0.22 ? 37 : 36); n++; }
+    }
+    if (!n) { toast('这里催不出草（要对着草地）', 1.4); return false; }
+    takeItem(161, 1);
+    sfx('craft'); toast(`骨粉撒出一片草丛（${n} 处）`, 1.6);
+    renderHotbar(); refreshHeld(); saveSoon();
+    return true;
+  }
+  toast('骨粉只能催小麦、或撒在草地上', 1.5);
+  return false;
+}
 function useFertilizer(t) {                    // 肥料：催熟一阶段
   if (!t) return false;
   const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
@@ -4389,7 +4430,8 @@ function useCompost(t) {                       // 堆肥箱：放食物换肥料
   if (p >= 4) {
     compostProg.set(key, 0);
     addItem(157, 1);
-    toast('堆肥完成 → 肥料 ×1', 2.2);
+    addItem(161, 1);                                  // 骨粉只能从堆肥箱出
+    toast('堆肥完成 → 肥料 ×1 + 骨粉 ×1', 2.2);
   } else {
     compostProg.set(key, p);
     toast(`堆肥 ${p}/4（再放 ${4 - p} 份食物）`, 1.5);
@@ -5501,6 +5543,7 @@ window.GAME = {
     useHeld: () => {                            // 等价于右键（探针用，绕开 pointer lock）
       const h = held(), t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
       if (h && h.id === 153) return firePlayerArrow();
+      if (h && h.id === 161) return useBoneMeal(t);
       if (h && ITEMS[h.id] && ITEMS[h.id].kind === 'hoe') return useHoe(t);
       if (h && h.id === 156) return plantSeed(t);
       if (h && h.id === 157) return useFertilizer(t);
