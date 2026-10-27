@@ -2829,18 +2829,22 @@ function cabinData() {
   return CABIN_DATA;
 }
 const CABIN_CELL = 240, myCabinCache = new Map(), myCabinBusy = new Set();
+const CABIN_STATS = { cells: 0, roll: 0, plain: 0, flat: 0, cave: 0, ok: 0, okPlain: 0, okCave: 0 };
 function myCabinFor(cellX, cellZ) {
   const key = cellX + ',' + cellZ;
   if (myCabinCache.has(key)) return myCabinCache.get(key);
   if (myCabinBusy.has(key)) return null;                 // 防递归（内部触发区块生成时直接放弃）
   myCabinBusy.add(key);
+  CABIN_STATS.cells++;
   let out = null;
   const roll = h2(cellX * 63.7 + 7.1, cellZ * 41.3 - 3.3);
   if (roll > 0.34) {
+    CABIN_STATS.roll++;
     const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
     const cx = cellX * CABIN_CELL + 40 + Math.floor(rnd() * (CABIN_CELL - 80));
     const cz = cellZ * CABIN_CELL + 40 + Math.floor(rnd() * (CABIN_CELL - 80));
     const plain = inPlain(cx, cz);
+    if (plain) CABIN_STATS.plain++;
     const ops = [];
     const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
     const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
@@ -2863,22 +2867,26 @@ function myCabinFor(cellX, cellZ) {
         if (hh < mn) mn = hh;
         if (hh > mx) mx = hh;
       }
-      if (mx - mn <= 6 && mn > CFG.SEA + 2 && mn < 46) {
+      if (mx - mn <= 6 && mn > CFG.SEA + 2 && mn < 46) CABIN_STATS.flat++;
+      if (mx - mn <= 8 && mn > CFG.SEA + 1 && mn < 58) {
         const gy = mx;
         for (const [x, y, z, id] of data) put(cx + x, gy + y, cz + z, id);
         fixMeta(gy);
         for (let k = 0; k < 4; k++) put(cx + 5, gy, cz - 1 - k, 9);
         out = { cx, cz, gy, where: 'plain', byChunk: packOps(ops), ops: ops.length };
+        CABIN_STATS.ok++; CABIN_STATS.okPlain++;
       }
-    } else if (roll > 0.62) {                                 // 地下：嵌在岩层里的矿洞小屋
-      const gy = 24 + Math.floor(rnd() * 14);
+    } else if (roll > 0.55) {
+      CABIN_STATS.cave++;                                 // 地下：嵌在岩层里的矿洞小屋
+      const gy = 14 + Math.floor(rnd() * 12);            // 14~25 层：埋得够深，屋顶上方仍有岩层
       const surf = heightAt(cx, cz);
-      if (gy + H + 3 < surf) {                               // 屋顶上方还有 3 格岩层 → 完全埋在地下
+      if (gy + H + 2 < surf - 4) {                           // 屋顶上方还有岩层 → 完全埋在地下
 
         for (let dx = -2; dx <= W + 1; dx++) for (let dz = -2; dz <= D + 1; dz++) for (let dy = 0; dy <= H + 1; dy++) carve(cx + dx, gy + dy, cz + dz);
         for (const [x, y, z, id] of data) put(cx + x, gy + y, cz + z, id);
         fixMeta(gy);
         out = { cx, cz, gy, where: 'cave', byChunk: packOps(ops), ops: ops.length };
+        CABIN_STATS.ok++; CABIN_STATS.okCave++;
       }
     }
   }
@@ -6453,6 +6461,8 @@ window.GAME = {
     })),
     restoreSquad: (l) => restoreSquad(l),
     squadSave: () => squadData(),
+    cabinStats: () => Object.assign({}, CABIN_STATS),
+    cabinAt: (wx, wz) => { const o = myCabinFor(Math.floor(wx / CABIN_CELL), Math.floor(wz / CABIN_CELL)); return o ? { cx: o.cx, cz: o.cz, gy: o.gy, where: o.where, ops: o.ops } : null; },
     struct: { sel: structSel, export: exportStructure, upload: uploadStructure, list: listStructures, place: placeStructureAt,
       setCorner: setStructCorner, hud: structHud },
     sleep: () => GAME.mobs.filter(m => m.kind === 'villager').map(m => ({
