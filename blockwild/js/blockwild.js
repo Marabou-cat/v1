@@ -2709,7 +2709,7 @@ function buildGableRoof(put, cx, cz, y, W, D, tile, stairTile) {
 }
 
 // 结构间距：任意两栋结构中心至少隔 34 格（避免叠在一起）
-const STRUCT_MIN_GAP = 34;
+const STRUCT_MIN_GAP = 48;                 // 结构之间的最小间隔（原来 34，太密：同一个视野里能看见好几座）
 const structGuard = new Set();
 const STRUCT_TYPES = [];                   // 由文件末尾注册
 let structDepth = 0;
@@ -2736,6 +2736,28 @@ function guarded(name, key, fn) {
   structGuard.add(g);
   try { return fn(); } finally { structGuard.delete(g); }
 }
+/* ── 结构「落地」：自然生成的结构用「footprint 里最高的地形」当 gy，
+   斜坡下坡那侧就会悬空（实测小屋地板离草皮空 1 格、塔/井/石阵同理）。
+   这里把「地面那一层」（y <= gy+1）每个方块下面、直到地形高度之间的空隙用基础块填实。
+   ⚠ 只填到地形，不往洞里填；遇到结构自己的方块就停（说明这列本来就接着）。
+   ⚠ 必须在结构自己的 put 之后调用（只往 ops 末尾追加，不会覆盖结构本身的方块）。 */
+function supportBase(ops, gy, blockId = 9, yMax = null) {
+  const top = yMax === null ? gy + 1 : yMax;
+  const has = new Set();
+  for (const op of ops) if (op.t) has.add(op.x + ',' + op.y + ',' + op.z);
+  const add = [];
+  for (const op of ops) {
+    if (!op.t || op.t === 5 || op.y > top) continue;
+    const ground = heightAt(op.x, op.z);
+    for (let y = op.y - 1; y > ground && y > 0; y--) {
+      const key = op.x + ',' + y + ',' + op.z;
+      if (has.has(key)) break;
+      add.push({ x: op.x, y, z: op.z, t: blockId });
+    }
+  }
+  for (const a of add) ops.push(a);
+  return add.length;
+}
 function packOps(ops) {
   const byChunk = new Map();
   for (const op of ops) {
@@ -2755,7 +2777,7 @@ function towerFor(cellX, cellZ) {
   return guarded('tower', key, () => {
     let out = null;
     const roll = h2(cellX * 53.7 + 7.7, cellZ * 39.1 - 4.3);
-    if (roll > 0.42) {
+    if (roll > 0.62) {                      // 石塔：58% → 38% 的格子
       const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2246822519) ^ Math.imul(cellZ, 3266489917)) | 0);
       const cx = cellX * TW_CELL + 60 + Math.floor(rnd() * (TW_CELL - 120));
       const cz = cellZ * TW_CELL + 60 + Math.floor(rnd() * (TW_CELL - 120));
@@ -2778,6 +2800,7 @@ function towerFor(cellX, cellZ) {
         for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) put(cx + dx, gy + H + 1, cz + dz, 21);
         for (let dx = -3; dx <= 3; dx += 2) for (let dz = -3; dz <= 3; dz += 2) put(cx + dx, gy + H + 2, cz + dz, 21);
         put(cx, gy + 1, cz, 18);
+        supportBase(ops, gy, 9);                              // 落地：斜坡下坡侧补地基
         out = { name: 'tower', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '石塔' };
       }
     }
@@ -2794,7 +2817,7 @@ function wellFor(cellX, cellZ) {
   return guarded('well', key, () => {
     let out = null;
     const roll = h2(cellX * 21.3 - 5.1, cellZ * 61.9 + 9.7);
-    if (roll > 0.5) {
+    if (roll > 0.68) {                      // 水井：50% → 32%
       const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 668265263) ^ Math.imul(cellZ, 374761393)) | 0);
       const cx = cellX * WL_CELL + 40 + Math.floor(rnd() * (WL_CELL - 80));
       const cz = cellZ * WL_CELL + 40 + Math.floor(rnd() * (WL_CELL - 80));
@@ -2808,6 +2831,7 @@ function wellFor(cellX, cellZ) {
         }
         for (const p of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) for (let y = 1; y <= 3; y++) put(cx + p[0], gy + y, cz + p[1], 28);
         for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, gy + 4, cz + dz, 34);
+        supportBase(ops, gy, 9);
         out = { name: 'well', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '水井' };
       }
     }
@@ -2824,7 +2848,7 @@ function circleFor(cellX, cellZ) {
   return guarded('circle', key, () => {
     let out = null;
     const roll = h2(cellX * 83.1 + 2.9, cellZ * 29.7 - 6.5);
-    if (roll > 0.55) {
+    if (roll > 0.72) {                      // 石阵：45% → 28%
       const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 1103515245) ^ Math.imul(cellZ, 12345)) | 0);
       const cx = cellX * SC_CELL + 70 + Math.floor(rnd() * (SC_CELL - 140));
       const cz = cellZ * SC_CELL + 70 + Math.floor(rnd() * (SC_CELL - 140));
@@ -2846,6 +2870,7 @@ function circleFor(cellX, cellZ) {
           for (let y = 1; y <= hh; y++) put(cx + sx, gy + y, cz + sz, tile);
         }
         put(cx, gy + 1, cz, 33);                                     // 中央祭台（石砖楼梯）
+        supportBase(ops, gy, 9, gy + 2);                      // 石阵的石块立在地面上
         out = { name: 'circle', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '石阵' };
       }
     }
@@ -2862,7 +2887,7 @@ function campFor(cellX, cellZ) {
   return guarded('camp', key, () => {
     let out = null;
     const roll = h2(cellX * 43.3 - 8.1, cellZ * 67.7 + 3.3);
-    if (roll > 0.55) {
+    if (roll > 0.7) {                       // 营地：45% → 30%
       const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 971) ^ Math.imul(cellZ, 78233)) | 0);
       const cx = cellX * CP_CELL + 50 + Math.floor(rnd() * (CP_CELL - 100));
       const cz = cellZ * CP_CELL + 50 + Math.floor(rnd() * (CP_CELL - 100));
@@ -2879,6 +2904,7 @@ function campFor(cellX, cellZ) {
         put(cx - 1, gy + 2, cz, 29); put(cx + 1, gy + 2, cz, 29); put(cx, gy + 3, cz, 29);
         for (const p of [[0, 1], [1, 0], [0, -1], [-1, 0]]) put(cx + p[0], gy + 1, cz + p[1], 9);
         put(cx, gy + 1, cz + 3, 18);
+        supportBase(ops, gy, 9);                              // 营地：外墙/篝石也要落地
         out = { name: 'camp', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '废墟营地' };
       }
     }
@@ -2895,7 +2921,7 @@ function cabinFor(cellX, cellZ) {
   return guarded('cabin', key, () => {
     let out = null;
     const roll = h2(cellX * 33.9 + 11.7, cellZ * 91.3 - 2.7);
-    if (roll > 0.45) {
+    if (roll > 0.65) {                      // 白桦木屋：55% → 35%
       const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 374761393) ^ Math.imul(cellZ, 668265263)) | 0);
       const cx = cellX * CB_CELL + 50 + Math.floor(rnd() * (CB_CELL - 100));
       const cz = cellZ * CB_CELL + 50 + Math.floor(rnd() * (CB_CELL - 100));
@@ -2917,6 +2943,7 @@ function cabinFor(cellX, cellZ) {
         put(cx + w, gy + 2, cz, 22);
         buildGableRoof(put, cx, cz, gy + h + 1, w + 1, d + 1, 31, 34);
         put(cx + 1, gy + 1, cz - 1, 18);
+        supportBase(ops, gy, 9, gy);                          // 白桦木屋地板就在 gy 这一层
         out = { name: 'cabin', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '白桦木屋' };
       }
     }
@@ -2947,7 +2974,7 @@ function myCabinFor(cellX, cellZ) {
   CABIN_STATS.cells++;
   let out = null;
   const roll = h2(cellX * 63.7 + 7.1, cellZ * 41.3 - 3.3);
-  if (roll > 0.34) {
+  if (roll > 0.6) {                             // 玩家小屋：66% → 40%
     CABIN_STATS.roll++;
     const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
     const cx = cellX * CABIN_CELL + 40 + Math.floor(rnd() * (CABIN_CELL - 80));
@@ -2972,6 +2999,7 @@ function myCabinFor(cellX, cellZ) {
       if (mx - mn <= 8 && mn > CFG.SEA + 1 && mn < 58) {
         const gy = mx;
         for (const [x, y, z, id, mt] of data) put(cx + x, gy + y, cz + z, id, mt || 0);
+        supportBase(ops, gy, 9, gy);                          // 玩家小屋（平原）：地板在 gy，下面补实
         out = { cx, cz, gy, where: 'plain', byChunk: packOps(ops), ops: ops.length };
         CABIN_STATS.ok++; CABIN_STATS.okPlain++;
       }
@@ -3069,7 +3097,7 @@ function hauntedFor(cellX, cellZ) {
   if (hsCache.has(key)) return hsCache.get(key);
   let out = null;
   const roll = h2(cellX * 71.3 + 3.1, cellZ * 47.7 - 8.9);
-  if (roll > 0.45) {
+  if (roll > 0.6) {                             // 鬼屋：55% → 40%
     const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
     const cx = cellX * HS_CELL + 80 + Math.floor(rnd() * (HS_CELL - 160));
     const cz = cellZ * HS_CELL + 80 + Math.floor(rnd() * (HS_CELL - 160));
@@ -3233,7 +3261,7 @@ function villageFor(cellX, cellZ) {
   if (villageCache.has(key)) return villageCache.get(key);
   let out = null;
   const roll = h2(cellX * 91.7 + 13.3, cellZ * 57.1 - 21.9);
-  if (roll > 0.3) {                                        // 70% 的格子有村庄
+  if (roll > 0.5) {                                        // 村庄：70% → 50% 的格子
     const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 83492791) ^ Math.imul(cellZ, 427131)) | 0);
     const cx = cellX * VS_CELL + 44 + Math.floor(rnd() * (VS_CELL - 88));
     const cz = cellZ * VS_CELL + 44 + Math.floor(rnd() * (VS_CELL - 88));
@@ -5121,7 +5149,10 @@ addEventListener('keydown', e => {
   }
   if (k === 'Space') {
     jumpQueued = true; e.preventDefault();
-    if (isCreative() && started) {                     // 创造模式连按两次空格 = 飞行开关
+    // ⚠ 必须过滤系统按键重复（e.repeat）：按住空格时浏览器每 ~30ms 再发一次 keydown，
+    // 这些重复会不断落进「320ms 内按了两次」的窗口 ⇒ 飞行被反复开关（用户看到的就是
+    // 「刚起飞就一直被取消」）。只认真正的第二次按下。
+    if (!e.repeat && isCreative() && started) {        // 创造模式连按两次空格 = 飞行开关
       const now = performance.now();
       if (now - (lastSpaceT || 0) < 320) {
         player.fly = !player.fly;
@@ -6731,6 +6762,29 @@ window.GAME = {
     squadSave: () => squadData(),
     cabinStats: () => Object.assign({}, CABIN_STATS),
     cabinAt: (wx, wz) => { const o = myCabinFor(Math.floor(wx / CABIN_CELL), Math.floor(wz / CABIN_CELL)); return o ? { cx: o.cx, cz: o.cz, gy: o.gy, where: o.where, ops: o.ops } : null; },
+    cabinFloat: (wx, wz) => {                    // 小屋地基悬空检测：gy 层有方块、正下方却是空气的格子数
+      const o = myCabinFor(Math.floor(wx / CABIN_CELL), Math.floor(wz / CABIN_CELL));
+      if (!o) return null;
+      let cells = 0, gap = 0;
+      for (let x = o.cx - 2; x <= o.cx + 11; x++) for (let z = o.cz - 2; z <= o.cz + 11; z++) {
+        if (getBlock(x, o.gy, z) === 0) continue;
+        cells++;
+        if (getBlock(x, o.gy - 1, z) === 0) gap++;
+      }
+      return { cx: o.cx, cz: o.cz, gy: o.gy, where: o.where, floorCells: cells, gapUnder: gap };
+    },
+    structDensity: (cells = 10) => {             // 各结构在 (2n+1)² 个格子里出现的比例（频率体检）
+      const out = {};
+      for (const t of STRUCT_TYPES) {
+        let found = 0, tot = 0;
+        for (let cx = -cells; cx <= cells; cx++) for (let cz = -cells; cz <= cells; cz++) {
+          tot++;
+          if (t.get(cx, cz)) found++;
+        }
+        out[t.name] = { cell: t.cell, found, tot, pct: +(100 * found / tot).toFixed(1) };
+      }
+      return out;
+    },
     struct: { sel: structSel, export: exportStructure, upload: uploadStructure, list: listStructures, place: placeStructureAt,
       setCorner: setStructCorner, hud: structHud },
     sleep: () => GAME.mobs.filter(m => m.kind === 'villager').map(m => ({
