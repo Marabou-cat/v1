@@ -955,13 +955,13 @@ function iconURL(id) {
     g.fillStyle = '#effffd';
     g.beginPath(); g.moveTo(16, 7); g.lineTo(23, 13); g.lineTo(16, 13); g.closePath(); g.fill();
   } else if (ITEMS[id] && ITEMS[id].kind === 'pick') { // 镐
-    const metal = id === 184 ? '#6b5f52' : id === 130 ? '#5fe6d8' : id === 163 ? '#d98b4a' : id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
+    const metal = id === 184 ? '#7d6890' : id === 130 ? '#5fe6d8' : id === 163 ? '#d98b4a' : id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
     g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
     g.beginPath(); g.moveTo(9, 27); g.lineTo(21, 12); g.stroke();
     g.strokeStyle = metal; g.lineWidth = 5;
     g.beginPath(); g.moveTo(9, 9); g.quadraticCurveTo(20, 5, 27, 13); g.stroke();
   } else if (ITEMS[id] && ITEMS[id].kind === 'sword') { // 剑
-    const metal = id === 179 ? '#6b5f52' : id === 131 ? '#5fe6d8' : id === 164 ? '#d98b4a' : id === 149 ? '#efe9d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
+    const metal = id === 179 ? '#7d6890' : id === 131 ? '#5fe6d8' : id === 164 ? '#d98b4a' : id === 149 ? '#efe9d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
     g.strokeStyle = metal; g.lineWidth = 5; g.lineCap = 'round';
     g.beginPath(); g.moveTo(10, 25); g.lineTo(24, 7); g.stroke();
     g.strokeStyle = '#8d6534'; g.lineWidth = 4;
@@ -1014,8 +1014,8 @@ function iconURL(id) {
     const wood = id >= 171 && id <= 174;            // 木护甲：木色（最弱的一套）
     const cop = id >= 166 && id <= 169;             // 铜护甲：铜橙色
     const dia = id >= 132 && !cop && !wood && !nether;
-    const steel = dia ? '#5fe6d8' : nether ? '#6b5f52' : cop ? '#d98b4a' : wood ? '#c0955a' : '#d3dae2',
-          dark = dia ? '#2fa89c' : nether ? '#2f2a26' : cop ? '#8a5525' : wood ? '#7a5527' : '#8c98a6';
+    const steel = dia ? '#5fe6d8' : nether ? '#7d6890' : cop ? '#d98b4a' : wood ? '#c0955a' : '#d3dae2',
+          dark = dia ? '#2fa89c' : nether ? '#3a2f45' : cop ? '#8a5525' : wood ? '#7a5527' : '#8c98a6';
     g.fillStyle = steel; g.strokeStyle = dark; g.lineWidth = 2;
     if (ITEMS[id].slot === 'head') {                 // 头盔
       g.beginPath(); g.arc(16, 17, 9, Math.PI, 0); g.lineTo(25, 21); g.lineTo(7, 21); g.closePath(); g.fill(); g.stroke();
@@ -2368,7 +2368,7 @@ function makeToolModel(id) {
   const stoneD = new THREE.MeshLambertMaterial({ color: 0x8b8b8b });
   const ironM = new THREE.MeshLambertMaterial({ color: 0xd9dee5 });
   const copM = new THREE.MeshLambertMaterial({ color: 0xd98b4a });    // 铜：石与铁之间的中间档
-  const netherM = new THREE.MeshLambertMaterial({ color: 0x6b5f52 });  // 冥界钢：比钻石更强的一档
+  const netherM = new THREE.MeshLambertMaterial({ color: 0x7d6890 });  // 冥界钢：暗紫灰，比钻石更强的一档
   const diaM = new THREE.MeshLambertMaterial({ color: 0x5fe6d8 });
   if (id === 100 || id === 101 || id === 120 || id === 130 || id === 163 || id === 184) {  // 镐
     const head = id === 184 ? netherM : id === 130 ? diaM : id === 163 ? copM : id === 101 ? stoneM : id === 120 ? ironM : wood;
