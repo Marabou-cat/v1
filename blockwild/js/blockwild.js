@@ -296,7 +296,7 @@ const BLOCKS = {
   42: { name: '传送门', top: 48, side: 48, bottom: 48, hard: 0, drop: 0, cross: true, plant: true, portal: true, unbreakable: true, crossH: 0.99 },
   45: { name: '传送门核心', top: 47, side: 47, bottom: 47, hard: 9, drop: 0, core: true, unbreakable: true },
   43: { name: '冥界岩', top: 49, side: 49, bottom: 49, hard: 1.6, drop: 43, pick: true },
-  44: { name: '岩浆', top: 50, side: 50, bottom: 50, hard: 0, drop: 0, lava: true },
+  44: { name: '岩浆', top: 50, side: 50, bottom: 50, hard: 0, drop: 0, lava: true, liquid: true },
   46: { name: '冥界碳矿', top: 51, side: 51, bottom: 51, hard: 2.8, drop: 177, pick: true, stonePick: true },
   47: { name: '液压机', top: 52, side: 52, bottom: 52, hard: 2.4, drop: 47, pick: true, press: true },
   48: { name: '灵魂沙', top: 53, side: 53, bottom: 53, hard: 0.6, drop: 48 },
@@ -1253,7 +1253,8 @@ function genNetherChunk(cx, cz) {
       if (!netherSolid(wx, y, wz)) continue;
       const i = idx(lx, y, lz);
       b[i] = 43;                                                            // 冥界岩
-      if (y > NETHER_LAVA_Y && y <= 52 && h3(wx * 3, y * 7 + 1, wz * 3) > 0.9945) b[i] = 46;  // 冥界碳矿（稀有：约 0.55% 的岩体）
+      // 冥界碳：2×2×2 一簇、极稀（约和钻石同级，~4 块/区块），挖到时会连续出几块
+      if (y > NETHER_LAVA_Y && y <= 52 && h3(Math.floor(wx / 2), Math.floor(y / 2) + 7, Math.floor(wz / 2)) > 0.9985) b[i] = 46;
     }
     // 灵魂沙滩：任何「露天顶面」的冥界岩（低处更容易，形成 MC 那种灵魂沙谷）
     for (let y = NETHER_LAVA_Y + 1; y <= NETHER_LAVA_Y + 14; y++) {
@@ -1516,7 +1517,7 @@ function getBlock(x, y, z) {
   const c = getChunk(x >> 4, z >> 4);
   return c.blocks[(y * CFG.CH + (z & 15)) * CFG.CH + (x & 15)];
 }
-const isSolid = id => id !== 0 && id !== 5 && !(BLOCKS[id] && BLOCKS[id].plant);   // 作物可穿过
+const isSolid = id => id !== 0 && id !== 5 && !(BLOCKS[id] && (BLOCKS[id].plant || BLOCKS[id].liquid));   // 作物/液体可穿过
 
 // 存档改动按区块分桶：key "cx,cz" → Map(区块内线性下标 → 方块 id)
 const editsByChunk = new Map();
@@ -1553,6 +1554,28 @@ function setBlock(x, y, z, id, record = true) {
   if (lz === 0) markDirty(cx, cz - 1);
   if (lz === 15) markDirty(cx, cz + 1);
   if (!waterBusy && typeof wakeWater === 'function') wakeWater(x, y, z);
+}
+/* ---------- 岩浆流动 ----------
+   岩浆是液体（liquid:true，不挡路），被挖开后会往低处/旁边慢慢铺。
+   为了不拖帧：每 0.6 秒只处理玩家附近 11×11×6 的范围，每拍最多填 10 格。 */
+let lavaT2 = 0, burnT = 0;
+function setBurnFx(on) {
+  const el = $('burnFx');
+  if (el) el.classList.toggle('on', !!on);
+}
+function updateLava(dt) {
+  lavaT2 -= dt;
+  if (lavaT2 > 0) return;
+  lavaT2 = 0.6;
+  const px = Math.floor(player.p.x), py = Math.floor(player.p.y), pz = Math.floor(player.p.z);
+  const fill = [];
+  for (let dx = -5; dx <= 5; dx++) for (let dz = -5; dz <= 5; dz++) for (let dy = -3; dy <= 4; dy++) {
+    const x = px + dx, y = py + dy, z = pz + dz;
+    if (getBlock(x, y, z) !== 44) continue;
+    if (y > 1 && getBlock(x, y - 1, z) === 0) { fill.push([x, y - 1, z]); continue; }
+    for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (getBlock(x + ax, y, z + az) === 0) fill.push([x + ax, y, z + az]);
+  }
+  for (let i = 0; i < Math.min(fill.length, 10); i++) setBlock(fill[i][0], fill[i][1], fill[i][2], 44);
 }
 /* ---------- 水流动 ---------- */
 // id 5 = 水。自然生成的水（海/湖/泉）算"水源"，不在表里；
@@ -2144,7 +2167,7 @@ const player = {
   p: new THREE.Vector3(8, 40, 8), v: new THREE.Vector3(),
   yaw: 0, pitch: 0, onGround: false,
   hp: 20, hunger: 20, alive: true, fly: false,
-  swing: 0, walkPhase: 0, fallFrom: null, inWater: false,
+  swing: 0, walkPhase: 0, fallFrom: null, inWater: false, inLava: false, burn: 0,
   sel: 0, mining: 0, mineTarget: null, atkCd: 0, hits: 0, kills: 0,
   spawn: null, stepUp: true,
   armor: { head: null, chest: null, legs: null, feet: null },
@@ -6279,7 +6302,7 @@ function updatePlayer(dt) {
   const wx = ix * cosk + iz * sink;
   const wz = -ix * sink + iz * cosk;
   const sprint = keyDown('sprint') || (keymap.sprint === 'ShiftLeft' ? keys.has('ShiftRight') : false);
-  const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : 1);
+  const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : player.inLava ? 0.4 : 1);
   if (player.knockT > 0) {                    // 被击退：这几帧不接受方向键，靠冲量滑出去
     player.knockT -= dt;
     const damp = Math.pow(0.03, dt);
@@ -6291,29 +6314,42 @@ function updatePlayer(dt) {
 
   const feetBlock = getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 0.2), Math.floor(player.p.z));
   player.inWater = feetBlock === 5;
+  player.inLava = feetBlock === 44;                 // 岩浆是液体：会沉下去，要游出来
   if (player.fly) {                              // 创造模式飞行：空格上升、Shift 下降
     const up = (keyDown('jump') || keys.has('KeyZ') || performance.now() - jumpTouchT < 120) ? 1 : 0;
     const down = (keys.has('ShiftLeft') || keys.has('ShiftRight')) ? 1 : 0;
     player.v.y = (up - down) * 7.2;
     jumpQueued = false;
     player.fallFrom = null;
-  } else if (player.inWater) {
-    player.v.y = Math.max(player.v.y - CFG.GRAV * 0.28 * dt, -3.2);
-    if (jumpQueued) player.v.y = 3.4;
+  } else if (player.inWater || player.inLava) {
+    const buoy = player.inLava ? 0.12 : 0.28;       // 岩浆更稠：沉得慢，游得动
+    player.v.y = Math.max(player.v.y - CFG.GRAV * buoy * dt, player.inLava ? -1.2 : -3.2);
+    if (jumpQueued) player.v.y = player.inLava ? 3.0 : 3.4;
   } else {
     player.v.y = Math.max(player.v.y - CFG.GRAV * dt, -56);
     if (jumpQueued && player.onGround) { player.v.y = CFG.JUMP; player.onGround = false; }
   }
   jumpQueued = false;
 
-  // 岩浆：站在上面/里面会被烫（每 0.8 秒 2 点）
-  lavaT -= dt;
-  if (lavaT <= 0) {
-    const fx = Math.floor(player.p.x), fy = Math.floor(player.p.y), fz = Math.floor(player.p.z);
-    if (getBlock(fx, fy, fz) === 44 || getBlock(fx, fy - 1, fz) === 44 || getBlock(fx, fy + 1, fz) === 44) {
-      lavaT = 0.8; damagePlayer(2); toast('岩浆烫伤！', 1.0);
+  // ── 岩浆（液体）：泡在里面持续灼烧，并点燃玩家
+  if (player.inLava) {
+    lavaT -= dt;
+    if (lavaT <= 0) { lavaT = 0.8; damagePlayer(3); toast('岩浆灼烧！快按空格游出来', 1.2); }
+    player.burn = Math.max(player.burn || 0, 5);
+    setBurnFx(true);
+  } else if (lavaT < 0.15) lavaT = 0.15;
+  // ── 着火：每秒 1 点，跳进水里立刻熄
+  if (player.burn > 0) {
+    player.burn -= dt;
+    if (player.inWater) {
+      player.burn = 0; setBurnFx(false); toast('滋——火灭了', 1.2);
+    } else {
+      burnT -= dt;
+      if (burnT <= 0) { burnT = 1.0; damagePlayer(1); }
+      if (player.burn <= 0) setBurnFx(false);
     }
   }
+  updateLava(dt);
   // 走进点亮的传送门 = 穿越（2 秒冷却，避免来回抖）
   portalCd -= dt;
   if (portalCd <= 0) {
@@ -6325,7 +6361,7 @@ function updatePlayer(dt) {
   }
 
   // 摔落伤害
-  if (!player.onGround && !player.inWater) { if (player.fallFrom === null) player.fallFrom = player.p.y; }
+  if (!player.onGround && !player.inWater && !player.inLava) { if (player.fallFrom === null) player.fallFrom = player.p.y; }
   const wasFall = player.fallFrom;
   moveBody(player, player.v.x * dt, player.v.y * dt, player.v.z * dt);
   if (player.onGround) {
@@ -6336,7 +6372,7 @@ function updatePlayer(dt) {
     }
     player.fallFrom = null;
   }
-  if (player.inWater) player.fallFrom = null;
+  if (player.inWater || player.inLava) player.fallFrom = null;
 
   // 走路手部摆动
   const moving = len > 0.05 && player.onGround;

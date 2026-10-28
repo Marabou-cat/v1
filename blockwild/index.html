@@ -70,6 +70,14 @@
   .overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
     background:#050a14d9;backdrop-filter:blur(3px);padding:14px}
   .overlay.hide{display:none}
+  /* 着火特效：屏幕四周的火焰呼吸 + 轻微上浮 */
+  #burnFx{position:fixed;inset:0;z-index:18;pointer-events:none;opacity:0;transition:opacity .25s;
+    box-shadow:inset 0 0 90px 18px rgba(255,96,16,.55), inset 0 0 160px 60px rgba(255,40,0,.32);}
+  #burnFx.on{opacity:1;animation:burnPulse .55s ease-in-out infinite alternate}
+  @keyframes burnPulse{
+    0%{box-shadow:inset 0 0 70px 12px rgba(255,120,20,.45), inset 0 0 150px 50px rgba(255,40,0,.26)}
+    100%{box-shadow:inset 0 0 110px 26px rgba(255,190,60,.62), inset 0 0 190px 80px rgba(255,60,0,.40)}
+  }
   .card{width:min(720px,96vw);max-height:92vh;overflow:auto;background:var(--panel);border:2px solid var(--edge);
     border-radius:8px;padding:18px 18px 20px;box-shadow:0 18px 60px #000a}
   .card h1{margin:0 0 2px;font-size:26px;letter-spacing:3px;color:var(--gold)}
@@ -284,6 +292,8 @@
   </div>
 </div>
 
+<div id="burnFx"></div>
+
 <div class="overlay hide" id="death">
   <div class="card" style="text-align:center">
     <h1 style="color:#e2494b">你倒下了</h1>
@@ -294,6 +304,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=104"></script>
+<script type="module" src="./js/blockwild.js?v=105"></script>
 </body>
 </html>
