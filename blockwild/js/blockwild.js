@@ -16,6 +16,11 @@ let SEED = (() => {                          // 支持 ?seed=12345 直接用指�
   const m = location.search.match(/[?&]seed=(-?\d+)/);
   return m ? (parseInt(m[1], 10) | 0) : ((Math.random() * 1e6) | 0);
 })();
+/* ── 维度：'overworld' | 'nether'（冥界）。冥界放在 +1,000,000 的世界坐标里，
+   区块/存档天然分开（不会和主世界撞），切换时只换 DIM + 清空区块缓存。 */
+let DIM = 'overworld';
+const NETHER_OFF = 1000000;
+let portalCd = 0, lavaT = 0;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const clamp01 = v => clamp(v, 0, 1);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -286,6 +291,12 @@ const BLOCKS = {
   37: { name: '红花', top: 43, side: 43, bottom: 43, hard: 0.05, drop: 37, plant: true, cross: true },
   39: { name: '铜矿石', top: 45, side: 45, bottom: 45, hard: 2.4, drop: 39, pick: true },
   40: { name: '木头加工器', top: 46, side: 46, bottom: 8, hard: 1.1, drop: 40, processor: true },
+  // ── 传送门（结构）+ 冥界方块 ──
+  41: { name: '传送门框', top: 47, side: 47, bottom: 47, hard: 9, drop: 0, frame: true, unbreakable: true },
+  42: { name: '传送门', top: 48, side: 48, bottom: 48, hard: 0, drop: 0, cross: true, plant: true, portal: true, unbreakable: true, crossH: 0.99 },
+  45: { name: '传送门核心', top: 47, side: 47, bottom: 47, hard: 9, drop: 0, core: true, unbreakable: true },
+  43: { name: '冥界岩', top: 49, side: 49, bottom: 49, hard: 1.6, drop: 43, pick: true },
+  44: { name: '岩浆', top: 50, side: 50, bottom: 50, hard: 0, drop: 0, lava: true },
   38: { name: '火把', top: 44, side: 44, bottom: 44, hard: 0.05, drop: 38, plant: true, cross: true, crossH: 0.92, torch: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
@@ -351,6 +362,8 @@ const ITEMS = {
   172: { name: '木胸甲', kind: 'armor', slot: 'chest', ap: 3 },
   173: { name: '木护腿', kind: 'armor', slot: 'legs', ap: 2 },
   174: { name: '木靴', kind: 'armor', slot: 'feet', ap: 1 },
+  175: { name: '传送块', kind: 'mat' },
+  176: { name: '冥火碎片', kind: 'mat' },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -360,7 +373,7 @@ let atlasCanvas = null, atlasTex = null;
 // 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
 // ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
 // 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
-const ATLAS_COLS = 4, ATLAS_ROWS = 12;
+const ATLAS_COLS = 4, ATLAS_ROWS = 13;   // 12 → 13：传送门框 47 / 传送门 48 / 冥界岩 49 / 岩浆 50
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -559,6 +572,37 @@ function makeAtlas() {
     }
     for (let y = 5; y < 11; y++) for (let x = 5; x < 11; x++) px(c, r, x, y, (x + y) % 3 ? '#b9c1cb' : '#98a1ab');
     px(c, r, 7, 7, '#59616b'); px(c, r, 8, 8, '#59616b');
+  });
+  // 47 传送门框：深色金属板 + 青色电路（高科技）
+  T(47, '#2b3240', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#5b6a80'); px(c, r, x, 15, '#12161d'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#465062'); px(c, r, 15, y, '#12161d'); }
+    for (const y of [4, 11]) for (let x = 3; x < 13; x++) px(c, r, x, y, '#181d26');
+    for (let x = 3; x < 13; x += 3) { px(c, r, x, 5, '#39e0d0'); px(c, r, x, 6, '#39e0d0'); px(c, r, x, 9, '#2aa89c'); px(c, r, x, 10, '#2aa89c'); }
+    for (const [x, y] of [[7, 7], [8, 7], [7, 8], [8, 8]]) px(c, r, x, y, '#7ff3e8');
+  });
+  // 48 传送门：紫色能量面（四周留透明边 —— 十字面片靠 alphaTest 裁出来）
+  {
+    const c = 48 % ATLAS_COLS, r = (48 / ATLAS_COLS) | 0;
+    for (let y = 1; y < 15; y++) for (let x = 1; x < 15; x++) {
+      const k = ((x * 13 + y * 7) % 11) / 11;
+      px(c, r, x, y, k > 0.62 ? '#c58bff' : k > 0.3 ? '#8b3fd8' : '#54208f');
+    }
+    for (const [x, y] of [[4, 4], [11, 5], [6, 11], [12, 12], [8, 7], [3, 9]]) px(c, r, x, y, '#f2d9ff');
+  }
+  // 49 冥界岩：暗红岩石 + 血色纹
+  T(49, '#6b2b2b', 0.12, (c, r) => {
+    for (let i = 0; i < 26; i++) {
+      const x = (i * 5 + 3) % 16, y = (i * 11 + 1) % 16;
+      px(c, r, x, y, i % 3 === 0 ? '#8d3a34' : '#4b1a1a');
+    }
+  });
+  // 50 岩浆：发光橙红
+  T(50, '#e0641a', 0.10, (c, r) => {
+    for (let i = 0; i < 30; i++) {
+      const x = (i * 7 + 2) % 16, y = (i * 13 + 5) % 16;
+      px(c, r, x, y, i % 2 ? '#ffd24a' : '#ff8a2b');
+    }
   });
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -884,6 +928,18 @@ function iconURL(id) {
     g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
     g.fillStyle = '#e8eef4'; g.beginPath();
     g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
+  } else if (id === 175) { // 传送块：紫色能量方块
+    g.fillStyle = '#3a1a5c'; g.fillRect(7, 7, 18, 18);
+    g.fillStyle = '#8b3fd8'; g.fillRect(9, 9, 14, 14);
+    g.fillStyle = '#c58bff'; g.fillRect(11, 11, 10, 10);
+    g.fillStyle = '#f2d9ff'; g.fillRect(14, 14, 4, 4);
+    g.strokeStyle = '#39e0d0'; g.lineWidth = 1.5; g.strokeRect(6.5, 6.5, 19, 19);
+  } else if (id === 176) { // 冥火碎片：橙色尖晶
+    g.fillStyle = '#ff7a18';
+    g.beginPath(); g.moveTo(16, 4); g.lineTo(24, 17); g.lineTo(16, 28); g.lineTo(8, 17); g.closePath(); g.fill();
+    g.fillStyle = '#ffd24a';
+    g.beginPath(); g.moveTo(16, 8); g.lineTo(20, 17); g.lineTo(16, 24); g.lineTo(12, 17); g.closePath(); g.fill();
+    g.fillStyle = '#fff2c0'; g.fillRect(15, 12, 3, 6);
   } else if (id === 170) { // 木片：几片薄木屑
     for (const [x, y, w, a] of [[5, 19, 13, -0.16], [9, 13, 13, 0.2], [6, 8, 11, -0.06]]) {
       g.save(); g.translate(x, y); g.rotate(a);
@@ -1125,7 +1181,51 @@ function applyStoneBlobs(b, idx, cx, cz) {
   blobType(27, 4, 3.0, 5.2, 14, 36);     // 石灰岩：中层（浅的一半会落在空气/土层里，所以条数给多些）
 }
 
+/* ── 冥界地形：岩浆海底 + 冥界岩穹顶 + 钟乳石。没有水、没有树、没有矿脉。
+   区块 (0,0) 额外挖一条出生走廊并预置「回程传送门」（已激活，玩家一进去就能回）。 */
+function genNetherChunk(cx, cz) {
+  const CH = CFG.CH, WH = CFG.WH;
+  const b = new Uint8Array(CH * WH * CH);
+  const idx = (x, y, z) => (y * CH + z) * CH + x;
+  const ox = cx * CH, oz = cz * CH;
+  for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+    const wx = ox + lx, wz = oz + lz;
+    const n = h2(Math.floor(wx / 26) * 3.1 + 5.5, Math.floor(wz / 26) * 4.7 - 2.2);
+    const floor = 30 + Math.round(n * 7);                        // 岩浆面 30~37
+    const ceil = floor + 16 + Math.round(h2(wx * 0.7, wz * 0.7) * 6);
+    for (let y = 1; y < WH; y++) {
+      const i = idx(lx, y, lz);
+      if (y <= floor - 1) b[i] = 43;                             // 冥界岩地面
+      else if (y === floor) b[i] = floor <= 32 ? 44 : 43;         // 低洼处是岩浆湖，高处是能站的岩地
+      else if (y >= ceil) b[i] = 43;                              // 穹顶
+    }
+    if (h2(wx * 1.7 + 3, wz * 2.3 - 1) > 0.86) {                  // 下垂钟乳石
+      const len = 2 + Math.round(h2(wx, wz) * 5);
+      for (let k = 0; k < len; k++) {
+        const y = ceil - k;
+        if (y > floor + 2) b[idx(lx, y, lz)] = 43;
+      }
+    }
+  }
+  if (ox === NETHER_OFF && oz === NETHER_OFF) {                     // 出生走廊 + 回程门（冥界原点那块区块）
+    for (let lx = 0; lx < 16; lx++) for (let lz = 0; lz < 16; lz++) {
+      for (let y = 34; y <= 41; y++) {
+        const i = idx(lx, y, lz);
+        if (b[i] === 43 || b[i] === 44) b[i] = 0;
+      }
+      if (b[idx(lx, 33, lz)] === 0) b[idx(lx, 33, lz)] = 43;      // 铺地板
+    }
+    for (let dx = -2; dx <= 2; dx++) for (let dy = 0; dy <= 5; dy++) {   // 门框 5×6（贴着 z=8）
+      const edge = Math.abs(dx) === 2 || dy === 0 || dy === 5;
+      b[idx(8 + dx, 34 + dy, 8)] = edge ? 41 : 0;
+    }
+    b[idx(8, 35, 8)] = 45;                                        // 核心
+    for (let dx = -1; dx <= 1; dx++) for (let dy = 2; dy <= 4; dy++) b[idx(8 + dx, 34 + dy, 8)] = 42;   // 已激活
+  }
+  return b;
+}
 function genChunk(cx, cz) {
+  if (DIM === 'nether') return genNetherChunk(cx, cz);            // 冥界走另一套地形
   const CH = CFG.CH, WH = CFG.WH, SEA = CFG.SEA;
   const b = new Uint8Array(CH * WH * CH);
   const idx = (x, y, z) => (y * CH + z) * CH + x;
@@ -2263,6 +2363,19 @@ function makeToolModel(id) {
     const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.055, 0.088), new THREE.MeshLambertMaterial({ color: 0xeaa96a }));
     b2.position.y = 0.15;
     g.add(a, b2);
+  } else if (id === 175) {                     // 传送块：发光紫色立方
+    const cube = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2),
+      new THREE.MeshLambertMaterial({ color: 0x8b3fd8, emissive: 0x5a1f9c, emissiveIntensity: 0.9 }));
+    cube.position.y = 0.12; cube.rotation.y = 0.5;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.012, 6, 16),
+      new THREE.MeshBasicMaterial({ color: 0x7ff3e8 }));
+    ring.position.y = 0.12; ring.rotation.x = Math.PI / 2;
+    g.add(cube, ring);
+  } else if (id === 176) {                     // 冥火碎片
+    const shard = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.26, 4),
+      new THREE.MeshLambertMaterial({ color: 0xff7a18, emissive: 0xff5a08, emissiveIntensity: 0.7 }));
+    shard.position.y = 0.16; shard.rotation.y = 0.7;
+    g.add(shard);
   } else if (id === 170) {                     // 木片：三片薄木屑叠着
     const chipMat = new THREE.MeshLambertMaterial({ color: 0xc0955a });
     for (const [x, y, z, a] of [[0, 0.05, 0, 0.18], [-0.05, 0.11, 0.05, -0.35], [0.06, 0.16, -0.04, 0.5]]) {
@@ -2651,7 +2764,21 @@ let worldTime = CFG.DAY * 0.02;   // 从清晨开始
 let lightLevel = 1;
 const skyDay = new THREE.Color(0x8fc9ff), skyNight = new THREE.Color(0x0a1024), skySet = new THREE.Color(0xff9a5a);
 const skyNow = new THREE.Color();
+function updateNetherSky() {
+  lightLevel = 0.55;                                  // 冥界没有昼夜，固定昏暗
+  skyNow.setHex(0x2a0a10);
+  scene.background = skyNow;
+  scene.fog.color.copy(skyNow);
+  scene.fog.near = 10; scene.fog.far = 46;
+  worldLight.intensity = 0.55; worldAmb.intensity = 0.32; worldDir.intensity = 0.10;
+  worldDir.visible = false;                           // 冥界没有太阳，别算阴影
+  solidMat.color.setScalar(0.92);
+  waterMat.color.setScalar(1);
+  dl.intensity = 0.72;
+  return 0.55;
+}
 function updateSky() {
+  if (DIM === 'nether') return updateNetherSky();
   const f = ((worldTime / CFG.DAY) % 1 + 1) % 1;
   const sunAlt = Math.sin(f * Math.PI * 2); // f=0 黎明, .25 正午, .5 黄昏, .75 午夜
   const day = smooth(-0.12, 0.3, sunAlt);
@@ -2911,6 +3038,45 @@ function campFor(cellX, cellZ) {
       }
     }
     campCache.set(key, out);
+    return out;
+  });
+}
+
+/* ── 传送门（空）：高科技方块砌的拱门，无法破坏。中间的核心格插入「传送块」即可点亮，
+   点亮的传送门再点一次 / 走进去 = 前往冥界。 */
+const PT_CELL = 320, portalCache = new Map();
+function portalFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (portalCache.has(key)) return portalCache.get(key);
+  return guarded('portal', key, () => {
+    let out = null;
+    const roll = h2(cellX * 61.7 + 3.3, cellZ * 44.1 - 9.1);
+    if (roll > 0.5) {
+      const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 1274126177) ^ Math.imul(cellZ, 2246822519)) | 0);
+      const cx = cellX * PT_CELL + 70 + Math.floor(rnd() * (PT_CELL - 140));
+      const cz = cellZ * PT_CELL + 70 + Math.floor(rnd() * (PT_CELL - 140));
+      const ops = [], put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      let mn = 999, mx = -999;
+      for (let dx = -4; dx <= 4; dx++) for (let dz = -3; dz <= 3; dz++) {
+        const hh = heightAt(cx + dx, cz + dz);
+        if (hh < mn) mn = hh;
+        if (hh > mx) mx = hh;
+      }
+      if (mx - mn <= 4 && mn > CFG.SEA + 2 && mx < 46 && !structNear(cx, cz, 'portal')) {
+        const gy = mx;
+        for (let dx = -3; dx <= 3; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, gy, cz + dz, 21);   // 高科技底座
+        for (let dx = -2; dx <= 2; dx++) for (let dy = 1; dy <= 6; dy++) {                                  // 5×6 门框
+          const edge = Math.abs(dx) === 2 || dy === 1 || dy === 6;
+          if (edge) put(cx + dx, gy + dy, cz, 41);
+          else carve(cx + dx, gy + dy, cz);
+        }
+        put(cx, gy + 2, cz, 45);                                                                            // 空核心
+        for (let dy = 7; dy <= 9; dy++) for (let dx = -3; dx <= 3; dx++) carve(cx + dx, gy + dy, cz);        // 门前清空
+        supportBase(ops, gy, 21, gy);
+        out = { name: 'portal', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '传送门' };
+      }
+    }
+    portalCache.set(key, out);
     return out;
   });
 }
@@ -3469,6 +3635,9 @@ const MOB_DEFS = {
   skeleton: { name: '骷髅射手', hp: 20, chase: 2.4, wander: 1.0, hostile: true,  barY: 1.6,  drop: 148, dropN: [1, 2], dmg: 3, atkCd: 1.5, ranged: true, sunBurn: true },
   ghost:    { name: '幽灵',   hp: 18, chase: 2.2, wander: 0.9, hostile: true,  barY: 1.7,  drop: 155, dropN: [1, 1], dmg: 2.5, atkCd: 1.4, float: true, ghostly: true },
   ghostBoss:{ name: '幽灵王', hp: 140, chase: 2.9, wander: 1.2, hostile: true, barY: 3.1,  drop: 155, dropN: [3, 5], dmg: 6, atkCd: 1.15, float: true, ghostly: true, boss: true },
+  // ── 冥界专属 ──
+  blaze:      { name: '火焰魔', hp: 16, chase: 3.2, wander: 1.1, hostile: true, barY: 1.62, drop: 176, dropN: [1, 3], dmg: 3, atkCd: 1.4, ranged: true, float: true, dim: 'nether' },
+  netherBeast:{ name: '冥骨兽', hp: 30, chase: 3.6, wander: 1.2, hostile: true, barY: 1.35, drop: 176, dropN: [1, 2], extra: [{ id: 148, n: [1, 2] }], dmg: 5, atkCd: 1.2, dim: 'nether' },
 };
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
@@ -3630,6 +3799,33 @@ function mobGeos(kind) {
       { geo: spLeg, x: -4, y: 8, z: 2, arm: false }, { geo: spLeg, x: 4, y: 8, z: 2, arm: false },
       { geo: spLeg, x: -4, y: 8, z: -1, arm: false }, { geo: spLeg, x: 4, y: 8, z: -1, arm: false },
       { geo: spLeg, x: -4, y: 8, z: -4, arm: false }, { geo: spLeg, x: 4, y: 8, z: -4, arm: false },
+    ];
+  } else if (kind === 'blaze') {
+    coreY = 0.78; barY = 1.66;
+    const FIRE = 0xffb43c, FIRE2 = 0xff7a18, DARK = 0x8a3a10, EYE = 0xfff2b0;
+    box(body, -3, 6, -3, 6, 8, 6, DARK, 0.12);                 // 燃烧的核心
+    box(body, -4, 9, -2, 8, 2, 4, FIRE2, 0.10);                // 肩部火焰
+    box(head, -3, 14, -3, 7, 7, 7, FIRE, 0.12);                // 头
+    px(head, -2, 18, 4, EYE); px(head, 2, 18, 4, EYE);
+    px(head, -2, 17, 4, EYE); px(head, 2, 17, 4, EYE);
+    box(head, -1, 14, 4, 3, 2, 1, DARK, 0.04);                 // 口
+    const flame = (() => { const m = new Map(); box(m, 0, -6, 0, 2, 6, 2, FIRE2, 0.15); box(m, 0, 0, 0, 3, 2, 3, FIRE, 0.10); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: flame, x: -5, y: 12, z: 0, arm: true }, { geo: flame, x: 5, y: 12, z: 0, arm: true },
+      { geo: flame, x: -2, y: 6, z: 0, arm: false }, { geo: flame, x: 2, y: 6, z: 0, arm: false },
+    ];
+  } else if (kind === 'netherBeast') {
+    coreY = 0.62; barY = 1.35;
+    const HIDE = 0x5d2222, HIDE2 = 0x3d1515, HORN = 0xd9cdb5, EYE = 0xff5a2b;
+    box(body, -4, 6, -7, 8, 7, 14, HIDE, 0.10);                // 躯干
+    box(body, -3, 11, -6, 6, 2, 10, HIDE2, 0.08);              // 背脊
+    box(head, -3, 8, 8, 7, 6, 7, HIDE2, 0.10);                 // 头
+    px(head, -2, 12, 14, EYE); px(head, 2, 12, 14, EYE);
+    box(head, -4, 13, 9, 2, 3, 2, HORN, 0.06); box(head, 3, 13, 9, 2, 3, 2, HORN, 0.06);   // 角
+    const beastLeg = (() => { const m = new Map(); box(m, -1, -6, -1, 2, 6, 2, HIDE2, 0.08); return voxGeometry(m); })();
+    limbSpecs = [
+      { geo: beastLeg, x: -3, y: 6, z: 5, arm: true }, { geo: beastLeg, x: 3, y: 6, z: 5, arm: true },
+      { geo: beastLeg, x: -3, y: 6, z: -5, arm: false }, { geo: beastLeg, x: 3, y: 6, z: -5, arm: false },
     ];
   } else if (kind === 'skeleton') {
     coreY = 0.66; barY: 0; barY = 1.55;
@@ -4024,6 +4220,18 @@ function recruitInteract(m) {                    // 右键村民：交物资 / �
   return true;
 }
 
+// 冥界找落脚点：在玩家附近 ±14 格内，从玩家头顶往下扫一层能站的地面
+function findNetherSpot() {
+  for (let i = 0; i < 24; i++) {
+    const x = Math.floor(player.p.x + (Math.random() * 2 - 1) * 14);
+    const z = Math.floor(player.p.z + (Math.random() * 2 - 1) * 14);
+    for (let y = Math.floor(player.p.y) + 6; y > 10; y--) {
+      const id = getBlock(x, y, z);
+      if (id !== 0 && id !== 44 && getBlock(x, y + 1, z) === 0 && getBlock(x, y + 2, z) === 0) return { x, y: y + 1, z };
+    }
+  }
+  return null;
+}
 function spawnMobAt(kind, x, y, z, opts = {}) {
   const def = MOB_DEFS[kind];
   if (!def) return null;
@@ -4575,14 +4783,22 @@ function updateMobs(dt) {
   }
   updateArrows(dt);
   // 刷怪：敌对生物只在黑暗处，和平生物在草地，村民在村庄
+  if (DIM === 'nether') {
+    // 冥界：只刷冥界生物（findNetherSpot 在玩家附近找落脚点，别用主世界的 surfaceY）
+    if (countKind('blaze') < 3 && Math.random() < dt * 0.30) { const s2 = findNetherSpot(); if (s2) spawnMobAt('blaze', s2.x, s2.y, s2.z); }
+    if (countKind('netherBeast') < 2 && Math.random() < dt * 0.22) { const s3 = findNetherSpot(); if (s3) spawnMobAt('netherBeast', s3.x, s3.y, s3.z); }
+  }
   const capGrunt = night ? CFG.MAX_MOBS + 2 : CFG.MAX_MOBS;
-  if (countKind('grunt') < capGrunt && Math.random() < dt * 0.28) spawnMob('grunt');   // 0.85 → 0.28（约 1/3）
-  if (countKind('pig') < 4 && Math.random() < dt * 0.12) spawnMob('pig');
-  if (countKind('cow') < 3 && Math.random() < dt * 0.10) spawnMob('cow');
-  if (countKind('sheep') < 3 && Math.random() < dt * 0.10) spawnMob('sheep');
-  if (countKind('chicken') < 4 && Math.random() < dt * 0.13) spawnMob('chicken');
-  if (countKind('spider') < 3 && Math.random() < dt * 0.18) spawnMob('spider');   // 0.55 → 0.18，上限 4 → 3
-  if (countKind('skeleton') < 3 && Math.random() < dt * 0.30) spawnMob('skeleton');
+  if (DIM !== 'nether') {
+    if (countKind('grunt') < capGrunt && Math.random() < dt * 0.28) spawnMob('grunt');   // 0.85 → 0.28（约 1/3）
+    if (countKind('pig') < 4 && Math.random() < dt * 0.12) spawnMob('pig');
+    if (countKind('cow') < 3 && Math.random() < dt * 0.10) spawnMob('cow');
+    if (countKind('sheep') < 3 && Math.random() < dt * 0.10) spawnMob('sheep');
+    if (countKind('chicken') < 4 && Math.random() < dt * 0.13) spawnMob('chicken');
+    if (countKind('spider') < 3 && Math.random() < dt * 0.18) spawnMob('spider');   // 0.55 → 0.18，上限 4 → 3
+    if (countKind('skeleton') < 3 && Math.random() < dt * 0.30) spawnMob('skeleton');
+  }
+  if (DIM === 'nether') return;                     // 冥界不刷鬼屋幽灵
   // 废弃鬼屋：进屋就刷幽灵，每栋只唤醒一只幽灵王
   const hcx = Math.floor(player.p.x / HS_CELL), hcz = Math.floor(player.p.z / HS_CELL);
   for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
@@ -4897,6 +5113,8 @@ const RECIPES = [
   { out: 172, n: 1, need: { 170: 10 }, tier: 1 },             // 木胸甲
   { out: 173, n: 1, need: { 170: 8 }, tier: 1 },              // 木护腿
   { out: 174, n: 1, need: { 170: 4 }, tier: 1 },              // 木靴
+  // ── 传送块：幽灵王掉的幽灵精华 → 开启传送门（再进冥界）
+  { out: 175, n: 1, need: { 155: 4, 106: 2, 22: 1 }, tier: 1 },
   { out: 120, n: 1, need: { 106: 3, 104: 2 }, tier: 1 },
   { out: 121, n: 1, need: { 106: 2, 104: 1 }, tier: 1 },
   { out: 110, n: 1, need: { 106: 5 }, tier: 1 },
@@ -5104,6 +5322,83 @@ function closeProcessor() {
   processorOpen = false;
   $('processor').classList.add('hide');
   syncPointerLock();
+}
+
+/* ── 传送门：核心插「传送块」→ 点亮 → 再点/走进去 = 穿越维度 ───────────────── */
+function findPortalCore(x, y, z) {
+  for (let dy = 0; dy <= 4; dy++) if (getBlock(x, y + dy, z) === 45) return { x, y: y + dy, z };
+  for (let dy = 1; dy <= 4; dy++) if (getBlock(x, y - dy, z) === 45) return { x, y: y - dy, z };
+  return null;
+}
+function portalCells(core) {                       // 核心上方 3×3 = 传送门面
+  const out = [];
+  for (let dx = -1; dx <= 1; dx++) for (let dy = 1; dy <= 3; dy++) out.push({ x: core.x + dx, y: core.y + dy, z: core.z });
+  return out;
+}
+function isPortalActive(core) {
+  return portalCells(core).some(c => getBlock(c.x, c.y, c.z) === 42);
+}
+function openPortalAt(core) {
+  let n = 0;
+  for (const c of portalCells(core)) { setBlock(c.x, c.y, c.z, 42); n++; }
+  sfx('craft');
+  return n;
+}
+function usePortal(x, y, z) {
+  const core = findPortalCore(x, y, z);
+  if (!core) { toast('这里不是传送门（只有核心能插传送块）', 1.8); return false; }
+  if (!isPortalActive(core)) {
+    const h = held();
+    if (!h || h.id !== 175) { toast('手里要拿着「传送块」，对着传送门核心右键', 2.4); return false; }
+    if (!isCreative()) takeItem(175, 1);
+    const n = openPortalAt(core);
+    toast(`传送块嵌进核心，${n} 格裂隙亮了起来 —— 再点一次或直接走进去`, 3.0);
+    renderHotbar(); refreshHeld(); saveSoon();
+    return true;
+  }
+  return travelDimension();
+}
+function disposeAllChunks() {                      // 换维度：所有区块网格拆掉重来
+  for (const c of chunks.values()) {
+    if (c.mesh) { scene.remove(c.mesh); c.mesh.geometry.dispose(); }
+    if (c.glass) { scene.remove(c.glass); c.glass.geometry.dispose(); }
+    if (c.water) { scene.remove(c.water); c.water.geometry.dispose(); }
+    if (c.plant) { scene.remove(c.plant); c.plant.geometry.dispose(); }
+  }
+  chunks.clear(); dirty.clear();
+  for (const m of mobs) if (m.obj) scene.remove(m.obj);
+  mobs.length = 0;
+}
+function buildAround(x, z, r = 2) {
+  const cx = Math.floor(x / CFG.CH), cz = Math.floor(z / CFG.CH);
+  for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) buildChunk(getChunk(cx + dx, cz + dz));
+}
+function travelDimension() {
+  if (!started || !player.alive) return false;
+  if (DIM === 'nether') {                          // ← 回主世界
+    DIM = 'overworld';
+    disposeAllChunks();
+    const o = player.overPos || { x: 8.5, y: 46, z: 8.5 };
+    let px2 = o.x, pz2 = o.z;
+    for (let i = 0; i < 5 && getBlock(Math.floor(px2), Math.floor(o.y), Math.floor(pz2)) === 42; i++) pz2 += 1;   // 别站回门里
+    player.p.set(px2, o.y + 0.1, pz2);
+    player.v.set(0, 0, 0); player.fallFrom = null;
+    buildAround(px2, pz2);
+    updateSky();
+    toast('你回到了主世界', 2.2);
+  } else {                                         // ← 去冥界
+    player.overPos = { x: player.p.x, y: player.p.y, z: player.p.z };
+    DIM = 'nether';
+    disposeAllChunks();
+    player.p.set(NETHER_OFF + 8.5, 34.05, NETHER_OFF + 11.5);
+    player.v.set(0, 0, 0); player.fallFrom = null;
+    buildAround(player.p.x, player.p.z);
+    updateSky();
+    toast('进入冥界：脚下是岩浆，小心火焰魔', 2.8);
+  }
+  portalCd = 2.0;
+  renderHotbar(); refreshHeld(); saveSoon();
+  return true;
 }
 
 /* ============================================================ 输入 */
@@ -5360,6 +5655,7 @@ function doMine(dt, target) {
 function breakBlock(t) {
   const def = BLOCKS[t.id];
   if (!def) return;
+  if (def.unbreakable) { player.mining = 0; toast(`${def.name}纹丝不动（无法破坏）`, 1.4); return; }
   if (def.door) {                                      // 门是两格：拆一格带走另一格
     const oy = (getMeta(t.x, t.y, t.z) & 8) ? t.y - 1 : t.y + 1;
     if (getBlock(t.x, oy, t.z) === 35) setBlock(t.x, oy, t.z, 0);
@@ -5829,6 +6125,23 @@ function updatePlayer(dt) {
   }
   jumpQueued = false;
 
+  // 岩浆：站在上面/里面会被烫（每 0.8 秒 2 点）
+  lavaT -= dt;
+  if (lavaT <= 0) {
+    const fx = Math.floor(player.p.x), fy = Math.floor(player.p.y), fz = Math.floor(player.p.z);
+    if (getBlock(fx, fy, fz) === 44 || getBlock(fx, fy - 1, fz) === 44 || getBlock(fx, fy + 1, fz) === 44) {
+      lavaT = 0.8; damagePlayer(2); toast('岩浆烫伤！', 1.0);
+    }
+  }
+  // 走进点亮的传送门 = 穿越（2 秒冷却，避免来回抖）
+  portalCd -= dt;
+  if (portalCd <= 0) {
+    if (getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 0.8), Math.floor(player.p.z)) === 42) {
+      portalCd = 2.0;
+      travelDimension();
+    }
+  }
+
   // 摔落伤害
   if (!player.onGround && !player.inWater) { if (player.fallFrom === null) player.fallFrom = player.p.y; }
   const wasFall = player.fallFrom;
@@ -5907,6 +6220,7 @@ function update(dt) {
     if (t && t.id === 18) { openChest(t.x, t.y, t.z); startSwing('place', 0.2); }
     else if (t && t.id === 19) { openFurnace(); startSwing('place', 0.2); }
     else if (t && t.id === 40) { openProcessor(); startSwing('place', 0.2); }     // 木头加工器
+    else if (t && (t.id === 45 || t.id === 42)) { usePortal(t.x, t.y, t.z); startSwing('place', 0.2); }   // 传送门
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
     else if (h && h.id === 153) firePlayerArrow();
@@ -6003,7 +6317,7 @@ function updateHUD(dt) {
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
-    `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
+    `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}${DIM === 'nether' ? ' · <b style="color:#e05a5a">冥界</b>' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
   if (s !== lastStatus) { hud.status.innerHTML = s; lastStatus = s; }
   renderHearts();
 }
@@ -6303,7 +6617,12 @@ function startGame(world) {
   currentId = world.id;
   MODE = world.mode === 'creative' ? 'creative' : 'survival';
   SEED = world.seed | 0;
+  DIM = 'overworld';                          // 每次进世界一律从主世界开始
   const loaded = loadSave(world.id);          // 有存档就接着玩，没有就用这个世界自己的种子生成
+  if (loaded && player.p.x > NETHER_OFF * 0.5) {   // 上次是在冥界存的档：人物坐标在主世界没有意义
+    const sp0 = spawnNearHouse(findSpawn());
+    player.p.set(sp0.x, sp0.y, sp0.z);
+  }
   if (!loaded) {
     const sp = spawnNearHouse(findSpawn());
     player.p.set(sp.x, sp.y, sp.z);
@@ -6377,6 +6696,7 @@ STRUCT_TYPES.push(
   { name: 'circle', cell: SC_CELL, get: circleFor, cache: circleCache },
   { name: 'camp', cell: CP_CELL, get: campFor, cache: campCache },
   { name: 'cabin', cell: CB_CELL, get: cabinFor, cache: cabinCache },
+  { name: 'portal', cell: PT_CELL, get: portalFor, cache: portalCache },
 );
 loadIndex();
 renderWorldList();
@@ -6819,6 +7139,30 @@ window.GAME = {
     chipCount: () => countOf(170),
     logCount: () => countOf(6),
     processN: (n) => chipBatch(n),
+    dim: () => DIM,
+    travel: () => travelDimension(),
+    usePortal: (x, y, z) => usePortal(x, y, z),
+    portalAt: (wx, wz) => { const o = portalFor(Math.floor(wx / PT_CELL), Math.floor(wz / PT_CELL)); return o ? { cx: o.cx, cz: o.cz, gy: o.gy } : null; },
+    portalNear: (cells = 6) => {                     // 找离玩家最近的传送门（无头测试/自检用）
+      const pcx = Math.floor(player.p.x / PT_CELL), pcz = Math.floor(player.p.z / PT_CELL);
+      let best = null;
+      for (let dx = -cells; dx <= cells; dx++) for (let dz = -cells; dz <= cells; dz++) {
+        const o = portalFor(pcx + dx, pcz + dz);
+        if (!o) continue;
+        const d = Math.hypot(o.cx - player.p.x, o.cz - player.p.z);
+        if (!best || d < best.d) best = { cx: o.cx, cz: o.cz, gy: o.gy, d: Math.round(d) };
+      }
+      return best;
+    },
+    portalActive: (x, y, z) => { const c = findPortalCore(x, y, z); return c ? isPortalActive(c) : null; },
+    netherMobs: () => GAME.mobs.filter(m => MOB_DEFS[m.kind] && MOB_DEFS[m.kind].dim === 'nether').map(m => m.kind),
+    spawnKind: (kind, dx = 3, dz = 0) => {           // 指定种类刷一只（自检/截图用）
+      const x = Math.floor(player.p.x + dx), z = Math.floor(player.p.z + dz);
+      let y = Math.floor(player.p.y);
+      for (let k = 0; k < 8; k++) { const id = getBlock(x, y - 1, z); if (id !== 0 && id !== 44) break; y--; }
+      const m = spawnMobAt(kind, x, y, z, { force: true });
+      return m ? { kind: m.kind, p: [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)], hp: m.hp } : null;
+    },
     openedChestCount: () => chestInv.size,
     chestContents: () => openChestPos ? chestSlots(openChestPos.x, openChestPos.y, openChestPos.z).map(s => s ? s.id + ':' + s.n : null) : null,
     cursor: () => cursor,
