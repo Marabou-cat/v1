@@ -33,6 +33,8 @@ function newWorld(code) {
     genVer: GEN_VER,
     time: 300 * 0.03,
     edits: new Map(),             // "x,y,z" -> block id
+    seq: 0,                       // 单调递增的编辑序号（断线重连靠它补发）
+    log: [],                      // 最近 2000 条编辑，用于 since 补发
     players: new Map(),           // id -> {id, name, x, y, z, yaw, pitch, at, ws, editT, editN}
     dirty: false,
     wasDirtyAt: 0,
@@ -135,7 +137,10 @@ function applyEdit(w, p, msg) {
   if (b === 0) w.edits.delete(key); else w.edits.set(key, b);
   w.dirty = true;
   stats.edits++;
-  broadcast(w, { t: 'e', x, y, z, b, from: p.id }, p.id);
+  w.seq++;
+  w.log.push({ q: w.seq, x, y, z, b });
+  if (w.log.length > 2000) w.log.shift();
+  broadcast(w, { t: 'e', q: w.seq, x, y, z, b, from: p.id }, p.id);
   return { ok: true };
 }
 
@@ -153,7 +158,7 @@ function join(req, res) {
     id, name, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, at: Date.now(), ws: null, editT: 0, editN: 0,
   });
   json(res, {
-    ok: true, id, isHost, code, seed: w.seed, genVer: w.genVer, time: w.time,
+    ok: true, id, isHost, code, seed: w.seed, genVer: w.genVer, time: w.time, seq: w.seq,
     edits: Array.from(w.edits.entries()), players: playersPublic(w),
   });
   console.log(`[bw] join ${code} ${id}/${name} host=${isHost} players=${w.players.size} edits=${w.edits.size}`);
@@ -187,6 +192,17 @@ const server = http.createServer((req, res) => {
             code: w.code, seed: w.seed, edits: w.edits.size, players: w.players.size, host: hostId(w),
           })),
         });
+      }
+      if (a.a === 'since') {                     // 断线补发：给我 after 之后的所有编辑
+        const w = loadWorld(String(a.code || 'W1'));
+        const after = Number(a.after) || 0;
+        const first = w.log.length ? w.log[0].q : w.seq + 1;
+        if (after + 1 < first) {                 // 日志已经被裁掉 → 只能整表重发
+          return json(res, { ok: true, resync: true, seq: w.seq,
+                             edits: Array.from(w.edits.entries()) });
+        }
+        return json(res, { ok: true, resync: false, seq: w.seq,
+                           edits: w.log.filter(e => e.q > after).map(e => [e.x, e.y, e.z, e.b]) });
       }
       if (a.a === 'leave') {                     // 测试/掉线清理用（正常玩家由 ws close 处理）
         const w = worlds.get(String(a.code || 'W1'));
@@ -240,10 +256,27 @@ server.on('upgrade', (req, socket) => {
 function onMsg(socket, m) {
   if (m.t === 'hello') {                       // 绑定 socket 到玩家
     const w = worlds.get(String(m.code || 'W1'));
-    const p = w && w.players.get(String(m.id));
-    if (!p) { try { socket.write(frame(JSON.stringify({ t: 'err', e: 'no_seat' }))); } catch (e) {} return; }
+    let p = w && w.players.get(String(m.id));
+    if (!p) {
+      // ★ 断线重连：socket 断开时座位已经被 dropSocket 删掉了，这里必须**重建座位**，
+      //   否则重连的客户端「连着但没座位」——收不到快照、也不再是主机，表现就是「回来之后卡住/看不到人」。
+      if (!w || w.players.size >= MAX_PLAYERS) {
+        try { socket.write(frame(JSON.stringify({ t: 'err', e: 'no_seat' }))); } catch (e) {}
+        return;
+      }
+      p = { id: String(m.id), name: String(m.name || 'Player').slice(0, 14), x: 0, y: 0, z: 0,
+            yaw: 0, pitch: 0, at: Date.now(), ws: null, editT: 0, editN: 0 };
+      w.players.set(p.id, p);
+      console.log(`[bw] rejoin ${w.code} ${p.id} players=${w.players.size}`);
+    }
     socket.__w = w; socket.__p = p; p.ws = socket; p.at = Date.now();
-    socket.write(frame(JSON.stringify({ t: 'ok', id: p.id, host: hostId(w) === p.id, edits: w.edits.size })));
+    const since = Number(m.since) || 0;
+    const first = w.log.length ? w.log[0].q : w.seq + 1;
+    const resync = since + 1 < first;
+    const missed = resync ? Array.from(w.edits.entries()) : w.log.filter(e => e.q > since).map(e => [e.x, e.y, e.z, e.b]);
+    socket.write(frame(JSON.stringify({
+      t: 'ok', id: p.id, host: hostId(w) === p.id, seq: w.seq, resync, missed, code: w.code,
+    })));
     return;
   }
   const w = socket.__w, p = socket.__p;
@@ -256,6 +289,8 @@ function onMsg(socket, m) {
     const r = applyEdit(w, p, m);
     if (!r.ok) { try { socket.write(frame(JSON.stringify({ t: 'rej', seq: m.seq, e: r.e, x: m.x, y: m.y, z: m.z }))); } catch (e) {} }
     else { try { socket.write(frame(JSON.stringify({ t: 'ack', seq: m.seq }))); } catch (e) {} }
+  } else if (m.t === 'm') {                   // 主机广播的怪快照：只转发，服务端不模拟
+    broadcast(w, { t: 'm', u: m.u, from: p.id }, p.id);
   } else if (m.t === 'time') {
     w.time = +m.time || w.time;
   }

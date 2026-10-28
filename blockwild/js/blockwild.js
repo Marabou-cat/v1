@@ -7672,7 +7672,8 @@ window.GAME = {
   const net = {
     active: true, applying: false, isHost: false, id: pid, code: world, nick,
     ws: null, connected: false, rtt: 0, snapHz: 0, snaps: 0, hzT: 0,
-    pending: new Map(), seq: 0, sendT: 0, hudT: 0, pingT: 0,
+    pending: new Map(), seq: 0, serverSeq: 0, mobSeq: 0, mobT: 0, sendT: 0, hudT: 0, pingT: 0,
+    ghosts: new Map(), devOk: false,
     remotes: new Map(), lastSnap: 0, err: '', editOut: 0, rejCount: 0, netBytes: 0,
   };
   NET = net;
@@ -7736,6 +7737,31 @@ window.GAME = {
     net.remotes.delete(id);
   }
 
+  /* ---------- 非主机端的「幽灵怪」：只按主机快照摆模型，不跑 AI、不参与战斗 ---------- */
+  function syncGhosts(list) {
+    const alive = new Set();
+    for (const e of list) {
+      const [id, kind, x, y, z, rot] = e;
+      alive.add(id);
+      let g = net.ghosts.get(id);
+      if (!g) {
+        const parts = (typeof makeMobModel === 'function') ? makeMobModel(kind) : null;
+        if (!parts) continue;
+        parts.g.position.set(x, y, z);
+        scene.add(parts.g);
+        g = { obj: parts.g, tx: x, ty: y, tz: z, rot };
+        net.ghosts.set(id, g);
+      }
+      g.tx = x; g.ty = y; g.tz = z; g.rot = rot;
+    }
+    for (const [id, g] of Array.from(net.ghosts)) {
+      if (alive.has(id)) continue;
+      scene.remove(g.obj);
+      g.obj.traverse(o => { if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose(); });
+      net.ghosts.delete(id);
+    }
+  }
+
   /* ---------- 应用服务端方块 ---------- */
   function applyServerBlock(x, y, z, b) {
     net.applying = true;
@@ -7748,7 +7774,7 @@ window.GAME = {
   net.onLocalEdit = (x, y, z, id, prevId) => {
     if (!net.ws || net.ws.readyState !== 1) return;
     const seq = ++net.seq;
-    net.pending.set(seq, { x, y, z, prev: prevId });
+    net.pending.set(seq, { x, y, z, prev: prevId, id });
     if (net.pending.size > 400) { const k = net.pending.keys().next().value; net.pending.delete(k); }
     try {
       net.ws.send(JSON.stringify({ t: 'e', seq, x, y, z, b: id }));
@@ -7763,14 +7789,28 @@ window.GAME = {
     net.ws = ws;
     ws.onopen = () => {
       net.connected = true; net.err = '';
-      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id }));
+      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq }));
     };
     ws.onclose = () => { net.connected = false; setTimeout(() => { if (net.active) connect(); }, 1500); };
     ws.onerror = () => { net.err = 'ws_error'; };
     ws.onmessage = ev => {
       net.netBytes += ev.data.length;
       let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-      if (m.t === 'ok') { net.isHost = !!m.host; net.err = ''; }
+      if (m.t === 'ok') {
+        net.isHost = !!m.host; net.err = '';
+        // 断线期间漏掉的编辑：补上（resync=true 时服务端给的是整表）
+        for (const e of (m.missed || [])) applyServerBlock(e[0], e[1], e[2], e[3]);
+        if (typeof m.seq === 'number') net.serverSeq = m.seq;
+        // 断线时还在 pending 的编辑重新推一遍（否则这几刀永久丢失）
+        const again = Array.from(net.pending.values());
+        net.pending.clear();
+        for (const p0 of again) {
+          const seq2 = ++net.seq;
+          net.pending.set(seq2, p0);
+          try { net.ws.send(JSON.stringify({ t: 'e', seq: seq2, x: p0.x, y: p0.y, z: p0.z, b: p0.id })); } catch (e) {}
+        }
+        if (again.length) toast(`重连：补发 ${again.length} 个未确认的改动`, 2.2);
+      }
       else if (m.t === 'p') {
         net.snaps++; net.lastSnap = performance.now();
         for (const p of (m.u || [])) {
@@ -7781,9 +7821,20 @@ window.GAME = {
         const alive = new Set((m.u || []).map(x => x.i));
         for (const id of Array.from(net.remotes.keys())) if (!alive.has(id)) dropRemote(id);
         if (typeof m.time === 'number') worldTime = m.time;
+        const wasHost = net.isHost;
         net.isHost = (m.host === net.id);
+        // ★ 主机迁移：原主机掉线后本端接管，必须清掉手里的「幽灵怪」——
+        //   否则它们会和本端新模拟的真怪叠在一起（实测迁移后 B 端同时有 5 个幽灵 + 自己的真怪）。
+        if (net.isHost && !wasHost && net.ghosts.size) {
+          for (const [, g] of Array.from(net.ghosts)) { scene.remove(g.obj); }
+          net.ghosts.clear();
+          toast('你接管了世界主机：怪物改由你模拟', 3);
+        }
       } else if (m.t === 'e') {
+        if (typeof m.q === 'number') net.serverSeq = m.q;
         applyServerBlock(m.x, m.y, m.z, m.b);
+      } else if (m.t === 'm') {
+        syncGhosts(m.u || []);
       } else if (m.t === 'ack') {
         net.pending.delete(m.seq);
       } else if (m.t === 'rej') {
@@ -7794,6 +7845,10 @@ window.GAME = {
         toast('服务端拒绝了这次改动：' + (m.e || ''), 1.6);
       } else if (m.t === 'left') {
         dropRemote(m.i);
+      } else if (m.t === 'err') {
+        if (m.e === 'no_seat') { net.err = 'no_seat'; fetch(API + '/api', { method: 'POST', headers: { 'content-type': 'text/plain' },
+          body: JSON.stringify({ a: 'join', code: net.code, pid: net.id, name: net.nick }) })
+          .then(r => r.json()).then(d2 => { if (d2.ok) { net.err = ''; connect(); } }).catch(() => {}); }
       }
     };
   }
@@ -7812,7 +7867,7 @@ window.GAME = {
     hud.innerHTML = `<b style="color:${net.connected ? '#7ef0a0' : '#ff7a7a'}">${net.connected ? '●' : '○'}</b> `
       + `联机 ${net.code}${net.isHost ? ' · 主机' : ''} · <b>${net.rtt.toFixed(0)}ms</b> · 快照 ${net.snapHz.toFixed(0)}Hz · `
       + `待确认 <b style="color:${net.pending.size ? '#ffcf6b' : '#7ef0a0'}">${net.pending.size}</b> · `
-      + `远端 ${net.remotes.size} · 上行编辑 ${net.editOut} · 被拒 ${net.rejCount}`
+      + `远端 ${net.remotes.size}${net.isHost ? '' : ' · 幽灵怪 ' + net.ghosts.size} · 序号 ${net.serverSeq} · 上行编辑 ${net.editOut} · 被拒 ${net.rejCount}`
       + (net.err ? ` · <span style="color:#ff9a6b">${net.err}</span>` : '');
   }
 
@@ -7824,6 +7879,31 @@ window.GAME = {
       try {
         net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2) }));
       } catch (e) {}
+    }
+    // 主机每 0.15s 广播一次怪（服务端只转发，不模拟）
+    if (net.isHost && net.ws && net.ws.readyState === 1) {
+      net.mobT += dt;
+      if (net.mobT >= 0.15) {
+        net.mobT = 0;
+        const u = [];
+        for (const m of (typeof mobs !== 'undefined' ? mobs : [])) {
+          if (m.dying || m.hp <= 0 || !m.obj) continue;
+          m.nid = m.nid || (net.mobSeq = (net.mobSeq || 0) + 1);
+          u.push([m.nid, m.kind, +m.p.x.toFixed(2), +m.p.y.toFixed(2), +m.p.z.toFixed(2), +m.obj.rotation.y.toFixed(2)]);
+          if (u.length >= 24) break;
+        }
+        try { net.ws.send(JSON.stringify({ t: 'm', u })); } catch (e) {}
+      }
+    }
+    const kG = Math.min(1, dt * 10);
+    for (const g of net.ghosts.values()) {
+      g.obj.position.x += (g.tx - g.obj.position.x) * kG;
+      g.obj.position.y += (g.ty - g.obj.position.y) * kG;
+      g.obj.position.z += (g.tz - g.obj.position.z) * kG;
+      let dg = g.rot - g.obj.rotation.y;
+      while (dg > Math.PI) dg -= Math.PI * 2;
+      while (dg < -Math.PI) dg += Math.PI * 2;
+      g.obj.rotation.y += dg * kG;
     }
     const k = Math.min(1, dt * 12);
     for (const r of net.remotes.values()) {
@@ -7880,6 +7960,21 @@ window.GAME = {
   }).catch(e => { net.active = false; toast('联机服务器连不上：' + e.message, 6); });
 
   window.NET = net;
+
+  // ★ 联机时关掉 GAME.debug：give/tp/setBlock/travel 都能被控制台随手调用，等于开挂按钮。
+  //   注意这是「防手滑/防随手作弊」，真正的门槛在服务端（方块编辑校验）。?dev=1 只给我自己验收用。
+  net.devOk = q.has('dev');
+  if (!net.devOk && window.GAME && window.GAME.debug) {
+    const stubbed = new Set(['give', 'tp', 'setBlock', 'travel', 'start', 'startCreative', 'startWorld',
+      'createWorld', 'clearInv', 'equip', 'fly', 'setHp', 'steps', 'killMobs', 'spawnKind', 'spawnAt',
+      'usePortal', 'openPress', 'pressN', 'processN', 'setTime', 'furnaceTick', 'chipBatch']);
+    const kept = {};
+    for (const k of Object.keys(window.GAME.debug)) {
+      kept[k] = stubbed.has(k) ? (() => 'disabled_in_multiplayer') : window.GAME.debug[k];
+    }
+    window.GAME.debug = kept;
+    console.warn('[bw] 联机模式：调试接口已关闭（加 ?dev=1 可解开，仅用于验收）');
+  }
 })();
 
 requestAnimationFrame(frame);
