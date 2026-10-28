@@ -1222,6 +1222,24 @@ function genNetherChunk(cx, cz) {
     b[idx(8, 35, 8)] = 45;                                        // 核心
     for (let dx = -1; dx <= 1; dx++) for (let dy = 2; dy <= 4; dy++) b[idx(8 + dx, 34 + dy, 8)] = 42;   // 已激活
   }
+  // 冥界也会自然生成传送门（已激活）；按区块 key 把结构 ops 写进来
+  {
+    const selfKey = (ox >> 4) + ',' + (oz >> 4);
+    const pcx0 = Math.floor(ox / PT_CELL), pcz0 = Math.floor(oz / PT_CELL);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const st = portalFor(pcx0 + dx, pcz0 + dz);
+      if (!st || !st.active) continue;
+      const arr = st.byChunk.get(selfKey);
+      if (!arr) continue;
+      for (const op of arr) {
+        if (op.x < ox || op.x >= ox + CH || op.z < oz || op.z >= oz + CH) continue;
+        if (op.y < 1 || op.y >= WH) continue;
+        const i = idx(op.x - ox, op.y, op.z - oz);
+        if (op.t === 0) { if (b[i] !== 44) b[i] = 0; }
+        else b[i] = op.t;
+      }
+    }
+  }
   return b;
 }
 function genChunk(cx, cz) {
@@ -3042,13 +3060,24 @@ function campFor(cellX, cellZ) {
   });
 }
 
-/* ── 传送门（空）：高科技方块砌的拱门，无法破坏。中间的核心格插入「传送块」即可点亮，
-   点亮的传送门再点一次 / 走进去 = 前往冥界。 */
+/* ── 传送门：高科技方块砌的拱门，无法破坏。中间的核心格插入「传送块」即可点亮，
+   点亮的传送门再点一次 / 走进去 = 换维度。
+   ⚠ 主世界生成的是「空门」（要插传送块）；冥界自然生成的是「已激活」的门，
+   从冥界任何一座门走进去都会回到「你过来的那座主世界门」（player.fromPortal）。 */
 const PT_CELL = 320, portalCache = new Map();
+function netherFloorAt(wx, wz) {
+  const n = h2(Math.floor(wx / 26) * 3.1 + 5.5, Math.floor(wz / 26) * 4.7 - 2.2);
+  return 30 + Math.round(n * 7);
+}
+function netherCeilAt(wx, wz) {
+  const n = h2(Math.floor(wx / 26) * 3.1 + 5.5, Math.floor(wz / 26) * 4.7 - 2.2);
+  const floor = 30 + Math.round(n * 7);
+  return floor + 16 + Math.round(h2(wx * 0.7, wz * 0.7) * 6);
+}
 function portalFor(cellX, cellZ) {
-  const key = cellX + ',' + cellZ;
+  const key = DIM + ':' + cellX + ',' + cellZ;          // ⚠ 必须带维度：同一格子两个维度各有一座
   if (portalCache.has(key)) return portalCache.get(key);
-  return guarded('portal', key, () => {
+  return guarded('portal-' + DIM, key, () => {
     let out = null;
     const roll = h2(cellX * 61.7 + 3.3, cellZ * 44.1 - 9.1);
     if (roll > 0.5) {
@@ -3056,13 +3085,26 @@ function portalFor(cellX, cellZ) {
       const cx = cellX * PT_CELL + 70 + Math.floor(rnd() * (PT_CELL - 140));
       const cz = cellZ * PT_CELL + 70 + Math.floor(rnd() * (PT_CELL - 140));
       const ops = [], put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      const nether = DIM === 'nether';
       let mn = 999, mx = -999;
-      for (let dx = -4; dx <= 4; dx++) for (let dz = -3; dz <= 3; dz++) {
-        const hh = heightAt(cx + dx, cz + dz);
-        if (hh < mn) mn = hh;
-        if (hh > mx) mx = hh;
+      if (nether) {
+        for (let dx = -4; dx <= 4; dx++) for (let dz = -3; dz <= 3; dz++) {
+          const hh = netherFloorAt(cx + dx, cz + dz);
+          if (hh < mn) mn = hh;
+          if (hh > mx) mx = hh;
+        }
+      } else {
+        for (let dx = -4; dx <= 4; dx++) for (let dz = -3; dz <= 3; dz++) {
+          const hh = heightAt(cx + dx, cz + dz);
+          if (hh < mn) mn = hh;
+          if (hh > mx) mx = hh;
+        }
       }
-      if (mx - mn <= 4 && mn > CFG.SEA + 2 && mx < 46 && !structNear(cx, cz, 'portal')) {
+      // 冥界：地面必须是岩地（不是岩浆湖）、上方 8 格要有空间；冥界没有别的结构，跳过 structNear
+      const okHere = nether
+        ? (mx - mn <= 3 && mn > 32 && netherCeilAt(cx, cz) - mx >= 8)
+        : (mx - mn <= 4 && mn > CFG.SEA + 2 && mx < 46 && !structNear(cx, cz, 'portal'));
+      if (okHere) {
         const gy = mx;
         for (let dx = -3; dx <= 3; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, gy, cz + dz, 21);   // 高科技底座
         for (let dx = -2; dx <= 2; dx++) for (let dy = 1; dy <= 6; dy++) {                                  // 5×6 门框
@@ -3070,10 +3112,13 @@ function portalFor(cellX, cellZ) {
           if (edge) put(cx + dx, gy + dy, cz, 41);
           else carve(cx + dx, gy + dy, cz);
         }
-        put(cx, gy + 2, cz, 45);                                                                            // 空核心
+        put(cx, gy + 2, cz, 45);                                                                            // 核心
         for (let dy = 7; dy <= 9; dy++) for (let dx = -3; dx <= 3; dx++) carve(cx + dx, gy + dy, cz);        // 门前清空
-        supportBase(ops, gy, 21, gy);
-        out = { name: 'portal', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '传送门' };
+        if (nether) {                                                                                       // 冥界的门是「已激活」的
+          for (let dx = -1; dx <= 1; dx++) for (let dy = 3; dy <= 5; dy++) put(cx + dx, gy + dy, cz, 42);
+        }
+        supportBase(ops, gy, nether ? 43 : 21, gy);
+        out = { name: 'portal', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '传送门', active: nether };
       }
     }
     portalCache.set(key, out);
@@ -5356,7 +5401,7 @@ function usePortal(x, y, z) {
     renderHotbar(); refreshHeld(); saveSoon();
     return true;
   }
-  return travelDimension();
+  return travelDimension(core);
 }
 function disposeAllChunks() {                      // 换维度：所有区块网格拆掉重来
   for (const c of chunks.values()) {
@@ -5373,12 +5418,13 @@ function buildAround(x, z, r = 2) {
   const cx = Math.floor(x / CFG.CH), cz = Math.floor(z / CFG.CH);
   for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) buildChunk(getChunk(cx + dx, cz + dz));
 }
-function travelDimension() {
+function travelDimension(fromCore) {
   if (!started || !player.alive) return false;
   if (DIM === 'nether') {                          // ← 回主世界
     DIM = 'overworld';
     disposeAllChunks();
-    const o = player.overPos || { x: 8.5, y: 46, z: 8.5 };
+    const fp = player.fromPortal;
+    const o = player.overPos || (fp ? { x: fp.x + 0.5, y: fp.y + 1.2, z: fp.z - 2.5 } : { x: 8.5, y: 46, z: 8.5 });
     let px2 = o.x, pz2 = o.z;
     for (let i = 0; i < 5 && getBlock(Math.floor(px2), Math.floor(o.y), Math.floor(pz2)) === 42; i++) pz2 += 1;   // 别站回门里
     player.p.set(px2, o.y + 0.1, pz2);
@@ -5388,6 +5434,8 @@ function travelDimension() {
     toast('你回到了主世界', 2.2);
   } else {                                         // ← 去冥界
     player.overPos = { x: player.p.x, y: player.p.y, z: player.p.z };
+    // 记下出发的那座门：冥界里任何一座门走进去都送回这里（用户要求「带你回到你过来的门」）
+    if (fromCore) player.fromPortal = { x: fromCore.x, y: fromCore.y, z: fromCore.z };
     DIM = 'nether';
     disposeAllChunks();
     player.p.set(NETHER_OFF + 8.5, 34.05, NETHER_OFF + 11.5);
@@ -6138,7 +6186,8 @@ function updatePlayer(dt) {
   if (portalCd <= 0) {
     if (getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 0.8), Math.floor(player.p.z)) === 42) {
       portalCd = 2.0;
-      travelDimension();
+      const c2 = findPortalCore(Math.floor(player.p.x), Math.floor(player.p.y), Math.floor(player.p.z));
+      travelDimension(c2);
     }
   }
 
@@ -7140,6 +7189,12 @@ window.GAME = {
     logCount: () => countOf(6),
     processN: (n) => chipBatch(n),
     dim: () => DIM,
+    fromPortal: () => player.fromPortal ? { ...player.fromPortal } : null,
+    portalActiveAny: (wx, wz) => {                    // 当前维度里找这座门的核心并读激活状态
+      const o = portalFor(Math.floor(wx / PT_CELL), Math.floor(wz / PT_CELL));
+      if (!o) return null;
+      return isPortalActive({ x: o.cx, y: o.gy + 2, z: o.cz });
+    },
     travel: () => travelDimension(),
     usePortal: (x, y, z) => usePortal(x, y, z),
     portalAt: (wx, wz) => { const o = portalFor(Math.floor(wx / PT_CELL), Math.floor(wz / PT_CELL)); return o ? { cx: o.cx, cz: o.cz, gy: o.gy } : null; },
