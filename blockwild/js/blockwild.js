@@ -285,6 +285,7 @@ const BLOCKS = {
   36: { name: '草丛', top: 42, side: 42, bottom: 42, hard: 0.05, drop: 0, plant: true, cross: true },
   37: { name: '红花', top: 43, side: 43, bottom: 43, hard: 0.05, drop: 37, plant: true, cross: true },
   39: { name: '铜矿石', top: 45, side: 45, bottom: 45, hard: 2.4, drop: 39, pick: true },
+  40: { name: '木头加工器', top: 46, side: 46, bottom: 8, hard: 1.1, drop: 40, processor: true },
   38: { name: '火把', top: 44, side: 44, bottom: 44, hard: 0.05, drop: 38, plant: true, cross: true, crossH: 0.92, torch: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
@@ -345,6 +346,11 @@ const ITEMS = {
   167: { name: '铜胸甲', kind: 'armor', slot: 'chest', ap: 5 },
   168: { name: '铜护腿', kind: 'armor', slot: 'legs', ap: 3 },
   169: { name: '铜靴', kind: 'armor', slot: 'feet', ap: 2 },
+  170: { name: '木片', kind: 'mat' },
+  171: { name: '木头盔', kind: 'armor', slot: 'head', ap: 1 },
+  172: { name: '木胸甲', kind: 'armor', slot: 'chest', ap: 3 },
+  173: { name: '木护腿', kind: 'armor', slot: 'legs', ap: 2 },
+  174: { name: '木靴', kind: 'armor', slot: 'feet', ap: 1 },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -538,7 +544,22 @@ function makeAtlas() {
       for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [2, 1], [1, 2]]) px(c, r, Math.min(15, bx + dx), Math.min(15, by + dy), (dx + dy) % 2 ? '#3fae8a' : '#d08a3c');
     }
   });
-  // 24 石砖：整齐的砖块 + 灰浆缝
+  // 46 木头加工器：木框 + 中间一圈锯片（右边按右键把原木削成木片）
+  T(46, '#9a6b34', 0.05, (c, r) => {
+    for (let x = 2; x < 15; x += 4) for (let y = 2; y < 14; y++) if ((y * 3 + x) % 7 < 5) px(c, r, x, y, '#7d5527');
+    for (let x = 0; x < 16; x++) {
+      px(c, r, x, 0, '#5e3f1c'); px(c, r, x, 1, '#6f4a20');
+      px(c, r, x, 15, '#5e3f1c'); px(c, r, x, 14, '#6f4a20');
+    }
+    const cx2 = 7.5, cy2 = 7.5;
+    for (let a = 0; a < 28; a++) {                       // 锯齿
+      const ang = a / 28 * Math.PI * 2, rr = a % 2 ? 6.3 : 5.1;
+      const x = Math.round(cx2 + Math.cos(ang) * rr), y = Math.round(cy2 + Math.sin(ang) * rr);
+      if (x >= 0 && x < 16 && y >= 0 && y < 16) px(c, r, x, y, '#cfd6de');
+    }
+    for (let y = 5; y < 11; y++) for (let x = 5; x < 11; x++) px(c, r, x, y, (x + y) % 3 ? '#b9c1cb' : '#98a1ab');
+    px(c, r, 7, 7, '#59616b'); px(c, r, 8, 8, '#59616b');
+  });
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
       const row = (y / 4) | 0, off = (row % 2) * 4;
@@ -863,6 +884,13 @@ function iconURL(id) {
     g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
     g.fillStyle = '#e8eef4'; g.beginPath();
     g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
+  } else if (id === 170) { // 木片：几片薄木屑
+    for (const [x, y, w, a] of [[5, 19, 13, -0.16], [9, 13, 13, 0.2], [6, 8, 11, -0.06]]) {
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.fillStyle = '#c0955a'; g.fillRect(0, 0, w, 4);
+      g.fillStyle = '#8a6134'; g.fillRect(0, 3, w, 1.2);
+      g.restore();
+    }
   } else if (id === 162) { // 铜锭
     g.fillStyle = '#b8702f'; g.beginPath();
     g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
@@ -870,9 +898,11 @@ function iconURL(id) {
     g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
     g.fillStyle = '#eaa96a'; g.fillRect(13, 15, 6, 2);
   } else if (ITEMS[id] && ITEMS[id].kind === 'armor') { // 盔甲
-    const cop = id >= 166;                          // 铜护甲 166~169：铜橙色（别落进 >=132 的钻石分支）
-    const dia = id >= 132 && !cop;
-    const steel = dia ? '#5fe6d8' : cop ? '#d98b4a' : '#d3dae2', dark = dia ? '#2fa89c' : cop ? '#8a5525' : '#8c98a6';
+    const wood = id >= 171;                         // 木护甲 171~174：木色（最弱的一套）
+    const cop = id >= 166 && id <= 169;             // 铜护甲 166~169：铜橙色（别落进 >=132 的钻石分支）
+    const dia = id >= 132 && !cop && !wood;
+    const steel = dia ? '#5fe6d8' : cop ? '#d98b4a' : wood ? '#c0955a' : '#d3dae2',
+          dark = dia ? '#2fa89c' : cop ? '#8a5525' : wood ? '#7a5527' : '#8c98a6';
     g.fillStyle = steel; g.strokeStyle = dark; g.lineWidth = 2;
     if (ITEMS[id].slot === 'head') {                 // 头盔
       g.beginPath(); g.arc(16, 17, 9, Math.PI, 0); g.lineTo(25, 21); g.lineTo(7, 21); g.closePath(); g.fill(); g.stroke();
@@ -2233,6 +2263,13 @@ function makeToolModel(id) {
     const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.055, 0.088), new THREE.MeshLambertMaterial({ color: 0xeaa96a }));
     b2.position.y = 0.15;
     g.add(a, b2);
+  } else if (id === 170) {                     // 木片：三片薄木屑叠着
+    const chipMat = new THREE.MeshLambertMaterial({ color: 0xc0955a });
+    for (const [x, y, z, a] of [[0, 0.05, 0, 0.18], [-0.05, 0.11, 0.05, -0.35], [0.06, 0.16, -0.04, 0.5]]) {
+      const chip = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.022, 0.07), chipMat);
+      chip.position.set(x, y, z); chip.rotation.z = a; chip.rotation.y = a * 1.4;
+      g.add(chip);
+    }
   } else if (id === 107) {                     // 小麦
     for (let i = 0; i < 3; i++) {
       const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.34, 0.022), new THREE.MeshLambertMaterial({ color: 0x6f9a3a }));
@@ -4824,6 +4861,12 @@ const RECIPES = [
   { out: 167, n: 1, need: { 162: 6 }, tier: 1 },
   { out: 168, n: 1, need: { 162: 5 }, tier: 1 },
   { out: 169, n: 1, need: { 162: 3 }, tier: 1 },
+  // ── 木器：原木 →（木头加工器）→ 木片 → 木盔甲。最弱的一套护甲，开局就能凑齐（合计 7 点 vs 铜 12 / 铁 15）
+  { out: 40, n: 1, need: { 6: 2, 8: 4, 9: 4 }, tier: 1 },     // 木头加工器：原木 2 + 木板 4 + 圆石 4
+  { out: 171, n: 1, need: { 170: 6 }, tier: 1 },              // 木头盔
+  { out: 172, n: 1, need: { 170: 10 }, tier: 1 },             // 木胸甲
+  { out: 173, n: 1, need: { 170: 8 }, tier: 1 },              // 木护腿
+  { out: 174, n: 1, need: { 170: 4 }, tier: 1 },              // 木靴
   { out: 120, n: 1, need: { 106: 3, 104: 2 }, tier: 1 },
   { out: 121, n: 1, need: { 106: 2, 104: 1 }, tier: 1 },
   { out: 110, n: 1, need: { 106: 5 }, tier: 1 },
@@ -4986,9 +5029,50 @@ function closeFurnace() {
 function openPanel(open) {
   if (open && openChestPos) closeChest();
   if (open && furnaceOpen) closeFurnace();
+  if (open && processorOpen) closeProcessor();
   panelOpen = open;
   hud.panel.classList.toggle('hide', !open);
   if (open) renderInventoryPanel();
+  syncPointerLock();
+}
+
+/* ── 木头加工器：把原木削成木片（木盔甲的材料）。不吃燃料、无耗时 —— 点一次削一次。
+   面板和熔炉/箱子同一套规矩：打开就放开鼠标（syncPointerLock），Esc / 关闭键收回。 */
+let processorOpen = false;
+const CHIPS_PER_LOG = 4;                            // 1 原木 → 4 木片
+function chipBatch(n) {
+  const have = countOf(6);                          // 原木
+  const want = n === Infinity ? have : Math.max(1, n | 0);
+  const k = Math.min(want, have);
+  if (!k) { toast('没有原木：先在背包里准备原木', 1.6); renderProcessor(); return 0; }
+  takeItem(6, k);
+  addItem(170, k * CHIPS_PER_LOG);
+  sfx('craft');
+  renderHotbar(); refreshHeld(); renderProcessor(); saveSoon();
+  toast(`削木片：${k} 原木 → ${k * CHIPS_PER_LOG} 片（现有 ${countOf(170)} 片）`, 1.8);
+  return k * CHIPS_PER_LOG;
+}
+function renderProcessor() {
+  const el = $('procInfo');
+  if (!el) return;
+  el.innerHTML = `原木 <b style="color:#f5c451">${countOf(6)}</b> 个 · 木片 <b style="color:#f5c451">${countOf(170)}</b> 片`
+    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">木盔甲：头盔 6 / 胸甲 10 / 护腿 8 / 靴 4 片（要在工作台旁边合成）</div>`;
+  const one = $('procOne'), all = $('procAll');
+  if (one) one.disabled = countOf(6) < 1;
+  if (all) all.disabled = countOf(6) < 1;
+}
+function openProcessor() {
+  if (panelOpen) openPanel(false);
+  if (openChestPos) closeChest();
+  if (furnaceOpen) closeFurnace();
+  processorOpen = true;
+  renderProcessor();
+  $('processor').classList.remove('hide');
+  syncPointerLock();
+}
+function closeProcessor() {
+  processorOpen = false;
+  $('processor').classList.add('hide');
   syncPointerLock();
 }
 
@@ -5009,7 +5093,7 @@ function lockPointer() {
    判据只放在这一个函数里，新加界面只要调 syncPointerLock() 就自动生效。 */
 let furnaceOpen = false;
 function uiOpen() {
-  return panelOpen || !!openChestPos || furnaceOpen || !$('furnace').classList.contains('hide');
+  return panelOpen || !!openChestPos || furnaceOpen || processorOpen || !$('furnace').classList.contains('hide');
 }
 function syncPointerLock() {
   if (!started) return;
@@ -5056,6 +5140,7 @@ addEventListener('keydown', e => {
     if (!$('settings').classList.contains('hide')) { openSettings(false); e.preventDefault(); return; }
     if (openChestPos) { closeChest(); e.preventDefault(); return; }
     if (!$('furnace').classList.contains('hide')) { closeFurnace(); e.preventDefault(); return; }
+    if (processorOpen) { closeProcessor(); e.preventDefault(); return; }
     if (panelOpen) { openPanel(false); e.preventDefault(); return; }
   }
 });
@@ -5788,6 +5873,7 @@ function update(dt) {
     const h = held();
     if (t && t.id === 18) { openChest(t.x, t.y, t.z); startSwing('place', 0.2); }
     else if (t && t.id === 19) { openFurnace(); startSwing('place', 0.2); }
+    else if (t && t.id === 40) { openProcessor(); startSwing('place', 0.2); }     // 木头加工器
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
     else if (h && h.id === 153) firePlayerArrow();
@@ -6264,6 +6350,9 @@ renderWorldList();
 $('btnBag').onclick = () => openPanel(!panelOpen);
 $('btnClose').onclick = () => openPanel(false);
 $('btnFurnaceClose').onclick = () => closeFurnace();
+$('btnProcessorClose').onclick = () => closeProcessor();
+$('procOne').onclick = () => chipBatch(1);
+$('procAll').onclick = () => chipBatch(Infinity);
 $('btnChestClose').onclick = () => closeChest();
 $('btnRespawn').onclick = () => respawn();
 addEventListener('resize', () => {
@@ -6668,6 +6757,12 @@ window.GAME = {
       return { grass: n36, flowers: n37, plantMeshes: meshes, plantVerts: verts }; },
     eat: () => ({ on: eatState.on, t: +eatState.t.toFixed(2), bites: eatState.bites, id: eatState.id, hunger: +player.hunger.toFixed(1) }),
     openFurnace: () => openFurnace(),
+    openProcessor: () => openProcessor(),
+    closeProcessor: () => closeProcessor(),
+    processorOpen: () => processorOpen,
+    chipCount: () => countOf(170),
+    logCount: () => countOf(6),
+    processN: (n) => chipBatch(n),
     openedChestCount: () => chestInv.size,
     chestContents: () => openChestPos ? chestSlots(openChestPos.x, openChestPos.y, openChestPos.z).map(s => s ? s.id + ':' + s.n : null) : null,
     cursor: () => cursor,
