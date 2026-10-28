@@ -3,6 +3,7 @@
 import * as THREE from '../vendor/three.module.js';
 
 /* ============================================================ CFG */
+var NET = null;                          // 联机层（P0）：默认 null = 单机，行为完全不变
 const CFG = {
   CH: 16, WH: 192, SEA: 98,          // WH 64→192、SEA 26→98：配合下面的 SURF_OFF，主世界深度从 ~40 格变成 ~112 格
   LOAD_R: 5, UNLOAD_R: 8,
@@ -1566,6 +1567,8 @@ function reindexEdits() {
 function setBlock(x, y, z, id, record = true) {
   if (id === 0) { const mk = metaKey(x, y, z); blockMeta.delete(mk); genMeta.delete(mk); }
   if (y < 0 || y >= CFG.WH) return;
+  const netHook = NET && NET.active && record && !NET.applying;    // 联机：本地先改，再推服务端
+  const prevId = netHook ? getBlock(x, y, z) : 0;
   const cx = x >> 4, cz = z >> 4;
   const c = getChunk(cx, cz);
   c.blocks[(y * CFG.CH + (z & 15)) * CFG.CH + (x & 15)] = id;
@@ -1581,6 +1584,7 @@ function setBlock(x, y, z, id, record = true) {
   if (lz === 0) markDirty(cx, cz - 1);
   if (lz === 15) markDirty(cx, cz + 1);
   if (!waterBusy && typeof wakeWater === 'function') wakeWater(x, y, z);
+  if (netHook) NET.onLocalEdit(x, y, z, id, prevId);
 }
 /* ---------- 岩浆流动 ----------
    岩浆是液体（liquid:true，不挡路），被挖开后会往低处/旁边慢慢铺。
@@ -6489,7 +6493,7 @@ function updatePlayer(dt) {
       if (player.burn <= 0) setBurnFx(false);
     }
   }
-  updateLava(dt);
+  if (!NET || !NET.active || NET.isHost) updateLava(dt);   // 岩浆同理：只有主机跑
   // 走进点亮的传送门 = 穿越（2 秒冷却，避免来回抖）
   portalCd -= dt;
   if (portalCd <= 0) {
@@ -6545,11 +6549,12 @@ function update(dt) {
     if (dripTimer <= 0) { dripTimer = 2.5 + Math.random() * 9; playDrip(); }
   }
   updatePlayer(dt);
-  updateMobs(dt);
+  if (!NET || !NET.active || NET.isHost) updateMobs(dt);   // P0：怪物由主机模拟，暂不广播
   updateDrops(dt);
   // 水：每帧跑一点（限流），并每隔半秒把玩家附近的水"唤醒"一次（让瀑布/积水开始流动）
-  updateWater(48);
+  if (!NET || !NET.active || NET.isHost) updateWater(48);   // 液体只在主机/单机里模拟
   updateFlames(dt);
+  if (NET && NET.active) NET.tick(dt);            // 位置上传 / 远端插值 / HUD
   waterSeedT -= dt;
   if (waterSeedT <= 0) { waterSeedT = 0.5; seedWaterNear(); }
   growCrops(dt);
@@ -6836,6 +6841,7 @@ function deleteWorld(id) {
 let saveSoonT = 0, saveErr = null, saveWarned = false;
 function save() {
   if (!currentId || !started) return;
+  if (NET && NET.active) return;                  // 联机世界由服务端存，别本地覆盖
   try {
     const data = {
       seed: SEED, mode: MODE, time: worldTime, dim: DIM, overPos: player.overPos || null,
@@ -7643,4 +7649,237 @@ window.GAME = {
     newWorld: () => newWorld(),
   },
 };
+
+/* ============================================================ 联机层（P0 spike）
+ * 开启方式（不加参数 = 单机，行为与之前完全一致）：
+ *   /blockwild/?net=http://192.168.50.3:9103&world=W1&nick=KA
+ * 世界模型：服务端只存 seed + 方块改动，客户端用同一个 seed 自己生成地形，
+ *           所以进服同步是「几十 KB 的编辑表」而不是「8MB 的区块」。
+ * 权威划分：位置=客户端（服务端只做距离/速率校验），方块=服务端（拒绝就回滚），
+ *           液体/怪物=主机客户端（别的客户端不模拟，避免编辑流互相打架）。
+ */
+(function bootNet() {
+  const q = new URLSearchParams(location.search);
+  // ?net=http://host:port 指定守护进程；或 ?mp=1 走「同一台机器:9203」的默认守护进程
+  let base = q.get('net');
+  if (!base && q.has('mp')) base = 'http://' + location.hostname + ':9203';
+  if (!base) return;                                   // 没带 ?net= / ?mp → 纯单机
+  const world = (q.get('world') || 'W1').replace(/[^\w-]/g, '').slice(0, 12);
+  const nick = (q.get('nick') || ('P' + Math.random().toString(36).slice(2, 5))).slice(0, 14);
+  const pid = (q.get('pid') || (world + '-' + nick)).slice(0, 24);
+  const API = base.replace(/\/+$/, '');
+  const WSURL = API.replace(/^http/, 'ws') + '/';
+  const net = {
+    active: true, applying: false, isHost: false, id: pid, code: world, nick,
+    ws: null, connected: false, rtt: 0, snapHz: 0, snaps: 0, hzT: 0,
+    pending: new Map(), seq: 0, sendT: 0, hudT: 0, pingT: 0,
+    remotes: new Map(), lastSnap: 0, err: '', editOut: 0, rejCount: 0, netBytes: 0,
+  };
+  NET = net;
+
+  /* ---------- 远端玩家形象 ---------- */
+  function nameTag(text) {
+    const cv = document.createElement('canvas');
+    cv.width = 256; cv.height = 64;
+    const g = cv.getContext('2d');
+    g.font = 'bold 34px system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(8,16,26,.72)';
+    g.fillRect(0, 12, 256, 40);
+    g.fillStyle = '#dff0ff';
+    g.fillText(text.slice(0, 12), 128, 33);
+    const tex = new THREE.CanvasTexture(cv);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    sp.scale.set(1.7, 0.42, 1);
+    sp.position.y = 2.15;
+    return sp;
+  }
+  function avatar(id, name) {
+    // 固定调色板（避开草绿/天空蓝，否则人在草地上几乎看不见）
+    const PAL = [0xd9534f, 0x9b59b6, 0xf0ad4e, 0xe67e22, 0x1abc9c, 0xff6fa8, 0xc0392b, 0x8e6bff];
+    let hsh = 0;
+    for (let i = 0; i < id.length; i++) hsh = (hsh * 31 + id.charCodeAt(i)) | 0;
+    const base = PAL[Math.abs(hsh) % PAL.length];
+    const col = new THREE.Color(base);
+    const dark = col.clone().multiplyScalar(0.62);
+    const g = new THREE.Group();
+    const mk = (w, hh, d, c, x, y, z) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), new THREE.MeshLambertMaterial({ color: c }));
+      m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
+    };
+    mk(0.52, 0.72, 0.3, col, 0, 1.06, 0);
+    mk(0.42, 0.42, 0.42, dark, 0, 1.62, 0);
+    mk(0.18, 0.68, 0.2, dark, -0.35, 1.08, 0);
+    mk(0.18, 0.68, 0.2, dark, 0.35, 1.08, 0);
+    mk(0.2, 0.7, 0.22, dark, -0.13, 0.36, 0);
+    mk(0.2, 0.7, 0.22, dark, 0.13, 0.36, 0);
+    g.add(nameTag(name));
+    g.userData = { tx: 0, ty: 0, tz: 0, yaw: 0 };
+    scene.add(g);
+    return g;
+  }
+  function ensureRemote(p) {
+    let r = net.remotes.get(p.i);
+    if (!r) {
+      r = { obj: avatar(p.i, p.n) };
+      r.obj.position.set(p.x, p.y, p.z);
+      r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
+      net.remotes.set(p.i, r);
+    }
+    return r;
+  }
+  function dropRemote(id) {
+    const r = net.remotes.get(id);
+    if (!r) return;
+    scene.remove(r.obj);
+    r.obj.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    net.remotes.delete(id);
+  }
+
+  /* ---------- 应用服务端方块 ---------- */
+  function applyServerBlock(x, y, z, b) {
+    net.applying = true;
+    try { setBlock(x, y, z, b, false); } finally { net.applying = false; }
+    edits.set(x + ',' + y + ',' + z, b);        // 内存编辑表：区块卸载再加载不会退回天然地形
+    indexEdit(x, y, z, b);                       // 不写 localStorage —— 服务端才是权威
+  }
+
+  /* ---------- 本地编辑上行（乐观 + 失败回滚） ---------- */
+  net.onLocalEdit = (x, y, z, id, prevId) => {
+    if (!net.ws || net.ws.readyState !== 1) return;
+    const seq = ++net.seq;
+    net.pending.set(seq, { x, y, z, prev: prevId });
+    if (net.pending.size > 400) { const k = net.pending.keys().next().value; net.pending.delete(k); }
+    try {
+      net.ws.send(JSON.stringify({ t: 'e', seq, x, y, z, b: id }));
+      net.editOut++;
+    } catch (e) { /* 断线由重连处理 */ }
+  };
+
+  /* ---------- 网络 ---------- */
+  function connect() {
+    let ws;
+    try { ws = new WebSocket(WSURL); } catch (e) { net.err = 'ws_bad_url'; return; }
+    net.ws = ws;
+    ws.onopen = () => {
+      net.connected = true; net.err = '';
+      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id }));
+    };
+    ws.onclose = () => { net.connected = false; setTimeout(() => { if (net.active) connect(); }, 1500); };
+    ws.onerror = () => { net.err = 'ws_error'; };
+    ws.onmessage = ev => {
+      net.netBytes += ev.data.length;
+      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.t === 'ok') { net.isHost = !!m.host; net.err = ''; }
+      else if (m.t === 'p') {
+        net.snaps++; net.lastSnap = performance.now();
+        for (const p of (m.u || [])) {
+          if (p.i === net.id) continue;
+          const r = ensureRemote(p);
+          r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
+        }
+        const alive = new Set((m.u || []).map(x => x.i));
+        for (const id of Array.from(net.remotes.keys())) if (!alive.has(id)) dropRemote(id);
+        if (typeof m.time === 'number') worldTime = m.time;
+        net.isHost = (m.host === net.id);
+      } else if (m.t === 'e') {
+        applyServerBlock(m.x, m.y, m.z, m.b);
+      } else if (m.t === 'ack') {
+        net.pending.delete(m.seq);
+      } else if (m.t === 'rej') {
+        const p0 = net.pending.get(m.seq);
+        net.pending.delete(m.seq);
+        net.rejCount++;
+        if (p0) applyServerBlock(p0.x, p0.y, p0.z, p0.prev);
+        toast('服务端拒绝了这次改动：' + (m.e || ''), 1.6);
+      } else if (m.t === 'left') {
+        dropRemote(m.i);
+      }
+    };
+  }
+
+  /* ---------- HUD：数字长在界面上 ---------- */
+  let hud = null;
+  function drawHud() {
+    if (!hud) {
+      hud = document.createElement('div');
+      hud.id = 'netHud';
+      hud.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(-50%);z-index:30;'
+        + 'font:12px/1.5 ui-monospace,monospace;color:#cfe8ff;background:rgba(8,18,30,.72);'
+        + 'border:1px solid rgba(120,200,255,.28);border-radius:8px;padding:4px 10px;pointer-events:none;white-space:nowrap';
+      document.body.appendChild(hud);
+    }
+    hud.innerHTML = `<b style="color:${net.connected ? '#7ef0a0' : '#ff7a7a'}">${net.connected ? '●' : '○'}</b> `
+      + `联机 ${net.code}${net.isHost ? ' · 主机' : ''} · <b>${net.rtt.toFixed(0)}ms</b> · 快照 ${net.snapHz.toFixed(0)}Hz · `
+      + `待确认 <b style="color:${net.pending.size ? '#ffcf6b' : '#7ef0a0'}">${net.pending.size}</b> · `
+      + `远端 ${net.remotes.size} · 上行编辑 ${net.editOut} · 被拒 ${net.rejCount}`
+      + (net.err ? ` · <span style="color:#ff9a6b">${net.err}</span>` : '');
+  }
+
+  /* ---------- 每帧 ---------- */
+  net.tick = (dt) => {
+    net.sendT += dt;
+    if (net.sendT >= 0.1 && net.ws && net.ws.readyState === 1) {
+      net.sendT = 0;
+      try {
+        net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2) }));
+      } catch (e) {}
+    }
+    const k = Math.min(1, dt * 12);
+    for (const r of net.remotes.values()) {
+      const u = r.obj.userData;
+      r.obj.position.x += (u.tx - r.obj.position.x) * k;
+      r.obj.position.y += (u.ty - r.obj.position.y) * k;
+      r.obj.position.z += (u.tz - r.obj.position.z) * k;
+      let dy = u.yaw - r.obj.rotation.y;
+      while (dy > Math.PI) dy -= Math.PI * 2;
+      while (dy < -Math.PI) dy += Math.PI * 2;
+      r.obj.rotation.y += dy * k;
+    }
+    net.hudT += dt;
+    if (net.hudT >= 0.5) {
+      net.hudT = 0;
+      const now = performance.now();
+      const el = Math.max(0.5, (now - (net.hzT || now - 500)) / 1000);
+      net.snapHz = Math.min(30, net.snaps / el);      // 夹上限：被节流的后台页会算出 40+ 的假频率
+      net.snaps = 0; net.hzT = now;
+      drawHud();
+    }
+    net.pingT += dt;
+    if (net.pingT >= 2) {
+      net.pingT = 0;
+      // ★ RTT 必须取 Resource Timing 的 duration：用 performance.now() 前后差测到的是
+      //   「事件循环 + 渲染帧」，实测会把 3ms 的本地往返量成 2399ms（这个坑我在大乱斗里踩过一次）。
+      const tag = Date.now();
+      fetch(API + '/api?t=' + tag, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ a: 'ping' }) })
+        .then(r => r.text()).then(() => {
+          const es = performance.getEntriesByType('resource').filter(e => e.name.indexOf('/api?t=') >= 0);
+          const e = es[es.length - 1];
+          net.rtt = e ? e.duration : 0;
+        }).catch(() => { net.rtt = -1; });
+    }
+  };
+
+  /* ---------- 进服：先 join 拿 seed，再用同一个 seed 开世界 ---------- */
+  fetch(API + '/api', {
+    method: 'POST', headers: { 'content-type': 'text/plain' },
+    body: JSON.stringify({ a: 'join', code: net.code, pid: net.id, name: net.nick }),
+  }).then(r => r.json()).then(d => {
+    if (!d.ok) { net.active = false; toast('联机进服失败：' + (d.e || '?'), 5); return; }
+    net.isHost = !!d.isHost;
+    const w = { id: 'mp_' + net.code, name: '联机 ' + net.code, seed: d.seed | 0, mode: 'survival' };
+    startGame(w);
+    for (const [k, id] of (d.edits || [])) {
+      const a = k.split(',').map(Number);
+      edits.set(k, id); indexEdit(a[0], a[1], a[2], id);
+    }
+    for (const pl of (d.players || [])) if (pl.i !== net.id) ensureRemote(pl);
+    if (typeof d.time === 'number') worldTime = d.time;
+    connect();
+    toast(`联机「${net.code}」· ${net.isHost ? '你是主机' : '已加入'} · 玩家 ${(d.players || []).length}`, 4);   // join 返回的列表已包含自己
+  }).catch(e => { net.active = false; toast('联机服务器连不上：' + e.message, 6); });
+
+  window.NET = net;
+})();
+
 requestAnimationFrame(frame);
