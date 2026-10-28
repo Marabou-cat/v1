@@ -7673,17 +7673,24 @@ window.GAME = {
   const q = new URLSearchParams(location.search);
   // ?net=http://host:port 指定守护进程；或 ?mp=1 走「同一台机器:9203」的默认守护进程
   let base = q.get('net');
-  if (!base && q.has('mp')) base = 'http://' + location.hostname + ':9203';
+  if (!base && q.has('mp')) {
+    // https 页面无法直连 ws://host:9203（混合内容 + 端口未暴露），走同源 PHP 桥 → 轮询模式
+    base = (location.protocol === 'https:')
+      ? (location.pathname.replace(/[^/]*$/, '') + 'bwmp.php')
+      : ('http://' + location.hostname + ':9203');
+  }
   if (!base) return;                                   // 没带 ?net= / ?mp → 纯单机
   const world = (q.get('world') || 'W1').replace(/[^\w-]/g, '').slice(0, 12);
   let nick = (q.get('nick') || localStorage.getItem('bw_nick') || ('P' + Math.random().toString(36).slice(2, 5))).slice(0, 14);
   if (nick) { try { localStorage.setItem('bw_nick', nick); } catch (e) {} }
   const pid = (q.get('pid') || (world + '-' + nick)).slice(0, 24);
   const API = base.replace(/\/+$/, '');
+  const IS_BRIDGE = /\.php(\?|$)/.test(API);          // 同源 PHP 桥 → 只能轮询
+  const EP = IS_BRIDGE ? API : (API + '/api');   // 所有 HTTP 动作的实际地址（桥模式就是 bwmp.php 本身）
   const WSURL = API.replace(/^http/, 'ws') + '/';
   const net = {
     active: true, applying: false, isHost: false, id: pid, code: world, nick,
-    ws: null, connected: false, rtt: 0, snapHz: 0, snaps: 0, hzT: 0,
+    ws: null, connected: false, rtt: 0, snapHz: 0, snaps: 0, hzT: 0, mode: IS_BRIDGE ? 'poll' : 'ws', pollT: 0, syncs: 0,
     pending: new Map(), seq: 0, serverSeq: 0, mobSeq: 0, mobT: 0, sendT: 0, hudT: 0, pingT: 0,
     ghosts: new Map(), devOk: false,
     remotes: new Map(), lastSnap: 0, err: '', editOut: 0, rejCount: 0, netBytes: 0,
@@ -7755,7 +7762,7 @@ window.GAME = {
   net.pullRegion = () => {
     const x = Math.floor(player.p.x), z = Math.floor(player.p.z);
     net.lastPull = { x, z };
-    fetch(API + '/api', { method: 'POST', headers: { 'content-type': 'text/plain' },
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
       body: JSON.stringify({ a: 'region', code: net.code, x, z, r: 112 }) })
       .then(r => r.json()).then(d => {
         if (!d.ok || !d.edits) return;
@@ -7826,30 +7833,18 @@ window.GAME = {
 
   /* ---------- 本地编辑上行（乐观 + 失败回滚） ---------- */
   net.onLocalEdit = (x, y, z, id, prevId) => {
-    if (!net.ws || net.ws.readyState !== 1) return;
+    const wsOk = !!(net.ws && net.ws.readyState === 1);
+    if (!wsOk && !IS_BRIDGE) return;                  // 桥模式没有 ws，靠 sync 轮询把 pending 带上去
     const seq = ++net.seq;
     net.pending.set(seq, { x, y, z, prev: prevId, id });
     if (net.pending.size > 400) { const k = net.pending.keys().next().value; net.pending.delete(k); }
-    try {
-      net.ws.send(JSON.stringify({ t: 'e', seq, x, y, z, b: id }));
-      net.editOut++;
-    } catch (e) { /* 断线由重连处理 */ }
+    net.editOut++;
+    if (wsOk) { try { net.ws.send(JSON.stringify({ t: 'e', seq, x, y, z, b: id })); } catch (e) {} }
   };
 
   /* ---------- 网络 ---------- */
   function connect() {
-    let ws;
-    try { ws = new WebSocket(WSURL); } catch (e) { net.err = 'ws_bad_url'; return; }
-    net.ws = ws;
-    ws.onopen = () => {
-      net.connected = true; net.err = '';
-      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq }));
-    };
-    ws.onclose = () => { net.connected = false; setTimeout(() => { if (net.active) connect(); }, 1500); };
-    ws.onerror = () => { net.err = 'ws_error'; };
-    ws.onmessage = ev => {
-      net.netBytes += ev.data.length;
-      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    net.onMsg = (m) => {
       if (m.t === 'ok') {
         net.isHost = !!m.host; net.err = '';
         // 断线期间漏掉的编辑：补上（resync=true 时服务端给的是整表）
@@ -7912,10 +7907,26 @@ window.GAME = {
       } else if (m.t === 'left') {
         dropRemote(m.i);
       } else if (m.t === 'err') {
-        if (m.e === 'no_seat') { net.err = 'no_seat'; fetch(API + '/api', { method: 'POST', headers: { 'content-type': 'text/plain' },
+        if (m.e === 'no_seat') { net.err = 'no_seat'; fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
           body: JSON.stringify({ a: 'join', code: net.code, pid: net.id, name: net.nick }) })
-          .then(r => r.json()).then(d2 => { if (d2.ok) { net.err = ''; connect(); } }).catch(() => {}); }
+          .then(r => r.json()).then(d2 => { if (d2.ok) { net.err = ''; reconnect(); } }).catch(() => {}); }
       }
+    };
+    if (IS_BRIDGE) { net.connected = true; net.err = ''; return; }   // 桥模式：靠 sync 轮询，不开 ws
+    let ws;
+    try { ws = new WebSocket(WSURL); } catch (e) { net.err = 'ws_bad_url'; return; }
+    net.ws = ws;
+    ws.onopen = () => {
+      net.connected = true; net.err = '';
+      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq }));
+    };
+    ws.onclose = () => { net.connected = false; setTimeout(() => { if (net.active) connect(); }, 1500); };
+    net.reconnect = () => { try { ws.close(); } catch (e) {} };
+    ws.onerror = () => { net.err = 'ws_error'; };
+    ws.onmessage = ev => {
+      net.netBytes += ev.data.length;
+      let mm; try { mm = JSON.parse(ev.data); } catch (e) { return; }
+      net.onMsg(mm);
     };
   }
 
@@ -7933,19 +7944,43 @@ window.GAME = {
     hud.innerHTML = `<b style="color:${net.connected ? '#7ef0a0' : '#ff7a7a'}">${net.connected ? '●' : '○'}</b> `
       + `联机 ${net.code}${net.isHost ? ' · 主机' : ''} · <b>${net.rtt.toFixed(0)}ms</b> · 快照 ${net.snapHz.toFixed(0)}Hz · `
       + `待确认 <b style="color:${net.pending.size ? '#ffcf6b' : '#7ef0a0'}">${net.pending.size}</b> · `
-      + `远端 ${net.remotes.size}${net.isHost ? '' : ' · 幽灵怪 ' + net.ghosts.size} · 序号 ${net.serverSeq} · 上行编辑 ${net.editOut} · 被拒 ${net.rejCount}`
+      + `${net.mode === 'poll' ? ' · 轮询' : ' · WS'} 远端 ${net.remotes.size}${net.isHost ? '' : ' · 幽灵怪 ' + net.ghosts.size} · 序号 ${net.serverSeq} · 上行编辑 ${net.editOut} · 被拒 ${net.rejCount}`
       + (net.err ? ` · <span style="color:#ff9a6b">${net.err}</span>` : '');
   }
 
   /* ---------- 每帧 ---------- */
   net.tick = (dt) => {
     net.sendT += dt;
-    if (net.sendT >= 0.1 && net.ws && net.ws.readyState === 1) {
+    if (!IS_BRIDGE && net.sendT >= 0.1 && net.ws && net.ws.readyState === 1) {
       net.sendT = 0;
       try {
         net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2) }));
       } catch (e) {}
     }
+    // ── 公网轮询模式：一个请求同时上传位置/编辑、取回消息（~8Hz）
+    if (IS_BRIDGE) {
+      net.pollT += dt;
+      if (net.pollT >= 0.125) {
+        net.pollT = 0;
+        const pend = Array.from(net.pending.entries()).slice(0, 20).map(([seq, p0]) => ({ seq, x: p0.x, y: p0.y, z: p0.z, b: p0.id }));
+        fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({
+          a: 'sync', code: net.code, pid: net.id, name: net.nick,
+          x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2),
+          w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), edits: pend,
+        }) }).then(r => r.json()).then(d => {
+          if (!d.ok) { net.err = d.e || 'sync'; net.connected = false; return; }
+          net.connected = true; net.err = ''; net.syncs++;
+          if (typeof d.seq === 'number') net.serverSeq = d.seq;
+          net.isHost = (d.host === net.id);
+          for (const s of (d.ack || [])) {
+            if (s > 0) net.pending.delete(s);
+            else { const p1 = net.pending.get(-s); net.pending.delete(-s); net.rejCount++; if (p1) applyServerBlock(p1.x, p1.y, p1.z, p1.prev); }
+          }
+          for (const m of (d.out || [])) net.onMsg(m);
+        }).catch(() => { net.connected = false; net.err = 'net'; });
+      }
+    }
+
     // 主机每 0.15s 广播一次怪（服务端只转发，不模拟）
     if (net.isHost && net.ws && net.ws.readyState === 1) {
       net.mobT += dt;
@@ -8002,7 +8037,7 @@ window.GAME = {
       // ★ RTT 必须取 Resource Timing 的 duration：用 performance.now() 前后差测到的是
       //   「事件循环 + 渲染帧」，实测会把 3ms 的本地往返量成 2399ms（这个坑我在大乱斗里踩过一次）。
       const tag = Date.now();
-      fetch(API + '/api?t=' + tag, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ a: 'ping' }) })
+      fetch(EP + '?t=' + tag, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ a: 'ping' }) })
         .then(r => r.text()).then(() => {
           const es = performance.getEntriesByType('resource').filter(e => e.name.indexOf('/api?t=') >= 0);
           const e = es[es.length - 1];
@@ -8012,7 +8047,7 @@ window.GAME = {
   };
 
   /* ---------- 进服：先 join 拿 seed，再用同一个 seed 开世界 ---------- */
-  fetch(API + '/api', {
+  fetch(EP, {
     method: 'POST', headers: { 'content-type': 'text/plain' },
     body: JSON.stringify({ a: 'join', code: net.code, pid: net.id, name: net.nick, x: 0, z: 0, r: 128 }),
   }).then(r => r.json()).then(d => {
@@ -8023,6 +8058,20 @@ window.GAME = {
     for (const [k, id] of (d.edits || [])) {
       const a = k.split(',').map(Number);
       edits.set(k, id); indexEdit(a[0], a[1], a[2], id);
+    }
+    // ★ 进服包里带的改动必须作用到「已经生成的区块」上：startGame 已经把出生点周围 5×5 区块建好了，
+    //   只写 edits/indexEdit 只影响**之后**生成的区块 —— 结果是「别人挖过的洞，你进服时看不到」。
+    //   做法：清掉区块缓存（genChunk 会重新生成并自动套用 editsByChunk），再标记重建。
+    if ((d.edits || []).length) {
+      for (const [k2, cc] of Array.from(chunks)) {
+        if (cc.mesh) scene.remove(cc.mesh);
+        if (cc.glass) scene.remove(cc.glass);
+        if (cc.water) scene.remove(cc.water);
+        if (cc.plant) scene.remove(cc.plant);
+        chunks.delete(k2);
+      }
+      const c0x = Math.floor(player.p.x / CFG.CH), c0z = Math.floor(player.p.z / CFG.CH);
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) dirty.add(getChunk(c0x + dx, c0z + dz));
     }
     for (const pl of (d.players || [])) if (pl.i !== net.id) ensureRemote(pl);
     if (typeof d.time === 'number') worldTime = d.time;
@@ -8036,7 +8085,7 @@ window.GAME = {
 
   const btnFR = document.getElementById('btnFriends');
   /* ---------------- 好友 / 申请加入 ---------------- */
-  const apiCall = (obj) => fetch(API + '/api', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(obj) }).then(r => r.json());
+  const apiCall = (obj) => fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(obj) }).then(r => r.json());
   let frPanel = null, frOpen = false, frReq = [], frForceOpen = false;
 
   function ensureFriendsUI() {
@@ -8196,18 +8245,19 @@ window.GAME = {
       const el = panel.querySelector('#mpNick'), hint = panel.querySelector('#mpHint');
       const nick2 = (el.value || '').trim() || ('P' + Math.random().toString(36).slice(2, 5));
       try { localStorage.setItem('bw_nick', nick2); } catch (e) {}
-      const base = 'http://' + location.hostname + ':9203';
+      const base = (location.protocol === 'https:')
+        ? (location.pathname.replace(/[^/]*$/, '') + 'bwmp.php')
+        : ('http://' + location.hostname + ':9203');
       hint.style.color = '#8ea3ba'; hint.textContent = '正在探测 ' + base + ' …';
-      fetch(base + '/api', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ a: 'ping' }) })
+      fetch(/[.]php/.test(base) ? base : (base + '/api'), { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ a: 'ping' }) })
         .then(r => r.json()).then(d => {
           if (!d.ok) throw new Error('probe');
           hint.style.color = '#7ef0a0'; hint.textContent = '服务器在线，正在进入…';
           setTimeout(() => { location.href = location.pathname + '?mp=1&nick=' + encodeURIComponent(nick2); }, 400);
         }).catch(() => {
           hint.style.color = '#ff9a6b';
-          hint.innerHTML = '连不上 <b>' + base + '</b><br>联机服务现在只监听局域网：'
-            + '<b>http://192.168.50.3:5802/blockwild/?mp=1</b><br>'
-            + '<span style="color:#7a8b9c">想在公网域名上用，需要给 Apache 加一条反代到 127.0.0.1:9203。</span>';
+          hint.innerHTML = '连不上 <b>' + base + '</b><br>检查一下 NAS 上的联机守护进程（127.0.0.1:9203）是否在跑。<br>'
+            + '<span style="color:#7a8b9c">局域网直连：http://192.168.50.3:5802/blockwild/?mp=1</span>';
         });
     };
   }

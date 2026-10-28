@@ -142,8 +142,15 @@ function parse(buf) {
 function broadcast(w, msg, exceptId) {
   const f = frame(JSON.stringify(msg));
   for (const p of w.players.values()) {
-    if (!p.ws || p.id === exceptId) continue;
-    try { p.ws.write(f); stats.outBytes += f.length; stats.msgsOut++; } catch (e) { /* 掉线等 close 处理 */ }
+    if (p.id === exceptId) continue;
+    if (p.ws) {
+      try { p.ws.write(f); stats.outBytes += f.length; stats.msgsOut++; } catch (e) { /* 掉线等 close 处理 */ }
+    } else {
+      // 轮询模式的玩家（公网 PHP 桥）：先排队，等它下次 sync 时一起取走
+      p.out = p.out || [];
+      p.out.push(msg);
+      if (p.out.length > 200) p.out.shift();
+    }
   }
 }
 function playersPublic(w) {
@@ -233,6 +240,32 @@ const server = http.createServer((req, res) => {
           worlds: Array.from(worlds.values()).map(w => ({
             code: w.code, seed: w.seed, edits: w.edits.size, players: w.players.size, host: hostId(w),
           })),
+        });
+      }
+      if (a.a === 'sync') {                     // ★ 公网轮询：一个请求完成 位置上行/编辑上行/消息下行
+        const w = loadWorld(String(a.code || 'W1'));
+        const pid = String(a.pid || '').slice(0, 24);
+        let p = w.players.get(pid);
+        if (!p) {
+          if (w.players.size >= MAX_PLAYERS) return json(res, { ok: false, e: 'full' });
+          p = { id: pid, name: String(a.name || 'Player').slice(0, 14), x: 0, y: 0, z: 0,
+                yaw: 0, pitch: 0, at: Date.now(), ws: null, editT: 0, editN: 0, out: [] };
+          w.players.set(pid, p);
+        }
+        p.at = Date.now();
+        if (typeof a.x === 'number') {
+          p.x = +a.x || 0; p.y = +a.y || 0; p.z = +a.z || 0;
+          p.yaw = +a.w || 0; p.pitch = +a.q || 0;
+        }
+        const ack = [];
+        for (const ed of (a.edits || []).slice(0, 40)) {
+          const r = applyEdit(w, p, ed);
+          if (r.ok) ack.push(ed.seq); else ack.push(-ed.seq);      // 负数 = 被拒，客户端要回滚
+        }
+        const out = (p.out || []).splice(0, 80);
+        return json(res, {
+          ok: true, id: p.id, host: hostId(w) === p.id, seq: w.seq, ack, out,
+          players: playersPublic(w), time: w.time,
         });
       }
       if (a.a === 'acct' || a.a === 'friends') {
