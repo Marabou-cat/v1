@@ -67,6 +67,38 @@ function loadWorld(code) {
   } catch (e) { console.error('[bw] 读盘失败', code, e.message); return newWorld(code); }
 }
 
+/* ---------------- 账号 / 好友 / 在线状态 ----------------
+ * 只做「这台机器上的局域网熟人社交」：昵称即身份，没有密码（同学之间够用，别当公网账号系统）。
+ * 数据落 BW_DATA/accounts.json —— 必须在 docroot 之外，否则等于公开可下载。 */
+const ACC_PATH = path.join(DATA, 'accounts.json');
+let ACCOUNTS = {};
+try { ACCOUNTS = JSON.parse(fs.readFileSync(ACC_PATH, 'utf8')) || {}; } catch (e) { ACCOUNTS = {}; }
+function saveAccounts() { try { fs.writeFileSync(ACC_PATH, JSON.stringify(ACCOUNTS)); } catch (e) { console.error('[bw] 账号存盘失败', e.message); } }
+function accOf(pid, nick, world) {
+  const id = String(pid || '').slice(0, 24);
+  if (!id) return null;
+  let a = ACCOUNTS[id];
+  if (!a) a = ACCOUNTS[id] = { pid: id, nick: String(nick || id).slice(0, 14), friends: [], req: [], inv: [], at: 0, world: null };
+  if (nick) a.nick = String(nick).slice(0, 14);
+  a.at = Date.now();
+  if (world !== undefined) a.world = String(world || '').slice(0, 12);
+  return a;
+}
+const accOnline = a => !!a && Date.now() - (a.at || 0) < 45000;
+function accByNick(nick) {
+  const n = String(nick || '').trim().toLowerCase();
+  if (!n) return null;
+  return Object.values(ACCOUNTS).find(a => (a.nick || '').toLowerCase() === n) || null;
+}
+const accPublic = a => ({ pid: a.pid, nick: a.nick, online: accOnline(a), world: accOnline(a) ? a.world : null });
+function pushTo(pid, msg) {                       // 定向推送（只对当前绑定了 socket 的账号）
+  for (const w of worlds.values()) {
+    const p = w.players.get(pid);
+    if (p && p.ws) { try { p.ws.write(frame(JSON.stringify(msg))); return true; } catch (e) {} }
+  }
+  return false;
+}
+
 /* ---------------- 极简 RFC6455 ---------------- */
 const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 function acceptKey(k) { return crypto.createHash('sha1').update(k + GUID).digest('base64'); }
@@ -202,6 +234,62 @@ const server = http.createServer((req, res) => {
             code: w.code, seed: w.seed, edits: w.edits.size, players: w.players.size, host: hostId(w),
           })),
         });
+      }
+      if (a.a === 'acct' || a.a === 'friends') {
+        const me = accOf(a.pid, a.nick, a.code);
+        if (!me) return json(res, { ok: false, e: 'no_pid' });
+        const out = {
+          ok: true, me: accPublic(me),
+          friends: (me.friends || []).map(id => ACCOUNTS[id]).filter(Boolean).map(accPublic),
+          req: a.a === 'acct' ? (me.req || []) : (me.req || []),
+        };
+        if (a.a === 'friends') me.req = [];        // friends 是"取走即清"，acct 只是心跳顺带看一眼
+        saveAccounts();
+        return json(res, out);
+      }
+      if (a.a === 'fadd') {                        // 按昵称加好友（互相加）
+        const me = accOf(a.pid, a.nick, a.code);
+        if (!me) return json(res, { ok: false, e: 'no_pid' });
+        const t = accByNick(a.target);
+        if (!t) return json(res, { ok: false, e: 'no_user' });
+        if (t.pid === me.pid) return json(res, { ok: false, e: 'self' });
+        if (!me.friends.includes(t.pid)) me.friends.push(t.pid);
+        if (!t.friends.includes(me.pid)) t.friends.push(me.pid);
+        saveAccounts();
+        pushTo(t.pid, { t: 'f', nick: me.nick });
+        return json(res, { ok: true, friend: accPublic(t) });
+      }
+      if (a.a === 'jreq') {                        // 申请加入好友的世界
+        const me = accOf(a.pid, a.nick, a.code);
+        if (!me) return json(res, { ok: false, e: 'no_pid' });
+        const t = ACCOUNTS[String(a.to || '')];
+        if (!t) return json(res, { ok: false, e: 'no_user' });
+        if (!(me.friends || []).includes(t.pid)) return json(res, { ok: false, e: 'not_friend' });
+        if (!accOnline(t)) return json(res, { ok: false, e: 'offline' });
+        const r = { from: me.pid, nick: me.nick, code: t.world, at: Date.now() };
+        t.req = (t.req || []).filter(x => x.from !== me.pid);
+        t.req.push(r);
+        if (t.req.length > 8) t.req.shift();
+        saveAccounts();
+        pushTo(t.pid, { t: 'req', req: r });
+        return json(res, { ok: true, sent: true });
+      }
+      if (a.a === 'jres') {                        // 好友回应申请：同意 → 通知他来我的世界
+        const me = accOf(a.pid, a.nick, a.code);
+        if (!me) return json(res, { ok: false, e: 'no_pid' });
+        const who = ACCOUNTS[String(a.from || '')];
+        if (!who) return json(res, { ok: false, e: 'no_user' });
+        me.req = (me.req || []).filter(x => x.from !== who.pid);
+        if (a.ok) {
+          who.inv = (who.inv || []).filter(x => x.code !== me.world);
+          who.inv.push({ code: me.world, nick: me.nick, at: Date.now() });
+          if (who.inv.length > 8) who.inv.shift();
+          pushTo(who.pid, { t: 'acc', code: me.world, nick: me.nick });
+        } else {
+          pushTo(who.pid, { t: 'deny', nick: me.nick });
+        }
+        saveAccounts();
+        return json(res, { ok: true, accepted: !!a.ok });
       }
       if (a.a === 'region') {                    // 依序补发某片区域的改动（客户端走远了就来拉一次）
         const w = loadWorld(String(a.code || 'W1'));

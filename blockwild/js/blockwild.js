@@ -7906,6 +7906,8 @@ window.GAME = {
         net.rejCount++;
         if (p0) applyServerBlock(p0.x, p0.y, p0.z, p0.prev);
         toast('服务端拒绝了这次改动：' + (m.e || ''), 1.6);
+      } else if (m.t === 'req' || m.t === 'acc' || m.t === 'deny' || m.t === 'f') {
+        net.onSocial(m);
       } else if (m.t === 'left') {
         dropRemote(m.i);
       } else if (m.t === 'err') {
@@ -8026,6 +8028,111 @@ window.GAME = {
     connect();
     toast(`联机「${net.code}」· ${net.isHost ? '你是主机' : '已加入'} · 玩家 ${(d.players || []).length}`, 4);   // join 返回的列表已包含自己
   }).catch(e => { net.active = false; toast('联机服务器连不上：' + e.message, 6); });
+
+  /* ---------------- 好友 / 申请加入 ---------------- */
+  const apiCall = (obj) => fetch(API + '/api', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(obj) }).then(r => r.json());
+  let frPanel = null, frOpen = false, frReq = [], frForceOpen = false;
+
+  function ensureFriendsUI() {
+    if (frPanel) return;
+    const btn = document.getElementById('btnFriends');
+    if (btn) {
+      btn.style.display = '';
+      btn.onclick = () => { frOpen = !frOpen; frPanel.style.display = frOpen ? 'block' : 'none'; if (frOpen) net.friendsPull(); };
+    }
+    frPanel = document.createElement('div');
+    frPanel.id = 'friendPanel';
+    frPanel.style.cssText = 'position:fixed;right:10px;top:44px;z-index:40;display:none;width:300px;max-height:70vh;overflow:auto;'
+      + 'font:12px/1.6 ui-monospace,monospace;color:#d8ecff;background:rgba(9,20,32,.94);'
+      + 'border:1px solid rgba(120,200,255,.35);border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.45)';
+    frPanel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      + '<b style="color:#8fe3ff">好友</b><span id="frWho" style="color:#8ea3ba"></span></div>'
+      + '<div style="display:flex;gap:6px;margin-bottom:8px">'
+      + '<input id="frName" maxlength="14" placeholder="好友昵称" style="flex:1;min-width:0;background:#0e1a28;color:#d8ecff;border:1px solid #2a4a66;border-radius:6px;padding:4px 6px;font:12px ui-monospace,monospace">'
+      + '<button class="btn" id="frAdd" style="padding:3px 8px">加好友</button></div>'
+      + '<div id="frMsg" style="color:#ffcf6b;font-size:11px;min-height:14px;margin-bottom:6px"></div>'
+      + '<div id="frReq"></div><div id="frList" style="color:#8ea3ba">加载中…</div>';
+    document.body.appendChild(frPanel);
+    frPanel.querySelector('#frAdd').onclick = () => {
+      const el = frPanel.querySelector('#frName');
+      const target = (el.value || '').trim();
+      if (!target) return;
+      apiCall({ a: 'fadd', pid: net.id, nick: net.nick, code: net.code, target }).then(d => {
+        frMsg(d.ok ? `已加好友：${d.friend.nick}${d.friend.online ? '（在线）' : '（离线）'}` : '加好友失败：' + d.e);
+        if (d.ok) { el.value = ''; net.friendsPull(); }
+      }).catch(() => frMsg('网络错误'));
+    };
+    frPanel.addEventListener('click', ev => {
+      const b = ev.target.closest('button[data-act]');
+      if (!b) return;
+      const act = b.dataset.act;
+      if (act === 'join') {
+        apiCall({ a: 'jreq', pid: net.id, nick: net.nick, code: net.code, to: b.dataset.pid }).then(d => {
+          frMsg(d.ok ? '已发送申请，等对方同意…' : ({ offline: '对方不在线', not_friend: '还不是好友' }[d.e] || '申请失败：' + d.e));
+        }).catch(() => frMsg('网络错误'));
+      } else if (act === 'acc' || act === 'deny') {
+        apiCall({ a: 'jres', pid: net.id, nick: net.nick, code: net.code, from: b.dataset.from, ok: act === 'acc' }).then(d => {
+          if (d.ok) { frMsg(act === 'acc' ? '已同意，对方正在加入…' : '已拒绝'); frReq = frReq.filter(x => x.from !== b.dataset.from); renderReq(); }
+        }).catch(() => frMsg('网络错误'));
+      } else if (act === 'open') {
+        frOpen = true; frPanel.style.display = 'block';
+      }
+    });
+  }
+  function frMsg(t) { const el = frPanel && frPanel.querySelector('#frMsg'); if (el) el.textContent = t; }
+  function renderReq() {
+    const el = frPanel && frPanel.querySelector('#frReq');
+    if (!el) return;
+    el.innerHTML = frReq.length
+      ? '<div style="color:#ffcf6b;margin-bottom:4px">加入申请</div>' + frReq.map(r =>
+          `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
+             <span>${r.nick} 想加入</span>
+             <span><button class="btn" data-act="acc" data-from="${r.from}" style="padding:2px 7px">同意</button>
+             <button class="btn" data-act="deny" data-from="${r.from}" style="padding:2px 7px">拒绝</button></span>
+           </div>`).join('')
+      : '';
+  }
+  function renderFriends(d) {
+    ensureFriendsUI();
+    const who = frPanel.querySelector('#frWho');
+    if (who) who.textContent = `${net.nick} · ${net.code}`;
+    if (Array.isArray(d.req) && d.req.length) {
+      frReq = d.req;
+      renderReq();
+      if (!frOpen) { frOpen = true; frPanel.style.display = 'block'; }      // 有申请就自动弹出来
+    } else { renderReq(); }
+    const list = frPanel.querySelector('#frList');
+    if (!list) return;
+    const fs2 = d.friends || [];
+    list.innerHTML = fs2.length ? fs2.map(f =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 0;border-top:1px solid rgba(120,200,255,.12)">
+         <span><b style="color:${f.online ? '#7ef0a0' : '#7a8b9c'}">${f.online ? '●' : '○'}</b> ${f.nick}
+         <span style="color:#7a8b9c">${f.online ? (f.world ? '· ' + f.world : '· 在线') : '· 离线'}</span></span>
+         ${f.online && f.world && f.world !== net.code
+            ? `<button class="btn" data-act="join" data-pid="${f.pid}" style="padding:2px 7px">申请加入</button>` : ''}
+       </div>`).join('') : '<span style="color:#7a8b9c">还没有好友，上面输入对方的昵称加一个</span>';
+  }
+  net.friendsPull = () => apiCall({ a: 'friends', pid: net.id, nick: net.nick, code: net.code })
+    .then(d => { if (d.ok) renderFriends(d); }).catch(() => {});
+  net.heartbeat = () => apiCall({ a: 'acct', pid: net.id, nick: net.nick, code: net.code })
+    .then(d => { if (d.ok) renderFriends(d); }).catch(() => {});
+
+  // ws 推送：好友申请 / 对方同意 / 被拒绝 / 好友列表变了
+  net.onSocial = (m) => {
+    if (m.t === 'req') { frReq = [m.req]; ensureFriendsUI(); renderFriends({ friends: [], req: [m.req] }); toast(`${m.req.nick} 申请加入你的世界`, 4); }
+    else if (m.t === 'acc') {
+      toast(`${m.nick} 同意了你加入「${m.code}」，正在进入…`, 3);
+      const dev = q.has('dev') ? '&dev=1' : '';
+      setTimeout(() => { location.href = location.pathname + '?mp=1&world=' + encodeURIComponent(m.code) + '&nick=' + encodeURIComponent(net.nick) + dev; }, 900);
+    }
+    else if (m.t === 'deny') toast(`${m.nick} 拒绝了你的加入申请`, 3);
+    else if (m.t === 'f') { ensureFriendsUI(); net.friendsPull(); toast(`${m.nick} 把你加为好友`, 3); }
+  };
+
+  ensureFriendsUI();
+  net.heartbeat();
+  setInterval(() => { net.heartbeat(); }, 20000);              // 在线状态心跳
+  setInterval(() => { if (frOpen) net.friendsPull(); }, 4000);  // 面板开着时刷列表
 
   window.NET = net;
 
