@@ -297,6 +297,10 @@ const BLOCKS = {
   45: { name: '传送门核心', top: 47, side: 47, bottom: 47, hard: 9, drop: 0, core: true, unbreakable: true },
   43: { name: '冥界岩', top: 49, side: 49, bottom: 49, hard: 1.6, drop: 43, pick: true },
   44: { name: '岩浆', top: 50, side: 50, bottom: 50, hard: 0, drop: 0, lava: true },
+  46: { name: '冥界碳矿', top: 51, side: 51, bottom: 51, hard: 2.8, drop: 177, pick: true, stonePick: true },
+  47: { name: '液压机', top: 52, side: 52, bottom: 52, hard: 2.4, drop: 47, pick: true, press: true },
+  48: { name: '灵魂沙', top: 53, side: 53, bottom: 53, hard: 0.6, drop: 48 },
+  49: { name: '玄武岩', top: 54, side: 54, bottom: 54, hard: 2.2, drop: 49, pick: true },
   38: { name: '火把', top: 44, side: 44, bottom: 44, hard: 0.05, drop: 38, plant: true, cross: true, crossH: 0.92, torch: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
@@ -364,6 +368,8 @@ const ITEMS = {
   174: { name: '木靴', kind: 'armor', slot: 'feet', ap: 1 },
   175: { name: '传送块', kind: 'mat' },
   176: { name: '冥火碎片', kind: 'mat' },
+  177: { name: '冥界碳', kind: 'mat' },
+  178: { name: '钢锭', kind: 'mat' },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -373,7 +379,7 @@ let atlasCanvas = null, atlasTex = null;
 // 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
 // ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
 // 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
-const ATLAS_COLS = 4, ATLAS_ROWS = 13;   // 12 → 13：传送门框 47 / 传送门 48 / 冥界岩 49 / 岩浆 50
+const ATLAS_COLS = 4, ATLAS_ROWS = 14;   // 47 门框 48 传送门 49 冥界岩 50 岩浆 51 冥界碳 52 液压机 53 灵魂沙 54 玄武岩
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -603,6 +609,36 @@ function makeAtlas() {
       const x = (i * 7 + 2) % 16, y = (i * 13 + 5) % 16;
       px(c, r, x, y, i % 2 ? '#ffd24a' : '#ff8a2b');
     }
+  });
+  // 51 冥界碳矿：暗红岩底 + 会反光的黑碳晶
+  T(51, '#4b1a1a', 0.10, (c, r) => {
+    for (let i = 0; i < 7; i++) {
+      const bx = 2 + ((i * 5) % 11), by = 2 + ((i * 7) % 11);
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        px(c, r, Math.min(15, bx + dx), Math.min(15, by + dy), (dx + dy) % 2 ? '#170e10' : '#7a1f2a');
+      }
+      px(c, r, Math.min(15, bx + 1), Math.min(15, by), '#d8405a');
+    }
+  });
+  // 52 液压机：钢制机壳 + 上下压板 + 中间活塞 + 警示灯
+  T(52, '#59616b', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#8c98a6'); px(c, r, x, 15, '#2b323b'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#79838f'); px(c, r, 15, y, '#2b323b'); }
+    for (let x = 3; x < 13; x++) { px(c, r, x, 4, '#b8c2cc'); px(c, r, x, 5, '#8d98a4'); px(c, r, x, 11, '#8d98a4'); px(c, r, x, 12, '#2b323b'); }
+    for (let y = 6; y < 11; y++) { px(c, r, 7, y, '#39404a'); px(c, r, 8, y, '#39404a'); }
+    px(c, r, 4, 8, '#e0a24a'); px(c, r, 11, 8, '#e0a24a');
+  });
+  // 53 灵魂沙：土黄底 + 一张张悲鸣的脸
+  T(53, '#6b5335', 0.10, (c, r) => {
+    for (const [x, y] of [[3, 5], [10, 8], [6, 11]]) {
+      px(c, r, x, y, '#2b2016'); px(c, r, x + 1, y, '#2b2016');
+      px(c, r, x - 1, y + 1, '#2b2016'); px(c, r, x, y + 1, '#2b2016'); px(c, r, x + 1, y + 1, '#2b2016'); px(c, r, x + 2, y + 1, '#2b2016');
+    }
+  });
+  // 54 玄武岩：深灰柱状节理
+  T(54, '#3b4045', 0.07, (c, r) => {
+    for (let x = 0; x < 16; x += 5) for (let y = 0; y < 16; y++) px(c, r, x, y, '#282c31');
+    for (let i = 0; i < 12; i++) px(c, r, (i * 7) % 16, (i * 11) % 16, '#4a5057');
   });
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -928,6 +964,19 @@ function iconURL(id) {
     g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
     g.fillStyle = '#e8eef4'; g.beginPath();
     g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
+  } else if (id === 177) { // 冥界碳：黑红晶体
+    g.fillStyle = '#170e10';
+    g.beginPath(); g.moveTo(16, 3); g.lineTo(26, 15); g.lineTo(16, 29); g.lineTo(6, 15); g.closePath(); g.fill();
+    g.fillStyle = '#7a1f2a';
+    g.beginPath(); g.moveTo(16, 7); g.lineTo(22, 15); g.lineTo(16, 25); g.lineTo(10, 15); g.closePath(); g.fill();
+    g.fillStyle = '#d8405a'; g.fillRect(15, 11, 3, 7);
+    g.fillStyle = '#ff9ab0'; g.fillRect(16, 12, 1, 4);
+  } else if (id === 178) { // 钢锭
+    g.fillStyle = '#5b6874';
+    g.beginPath(); g.moveTo(7, 21); g.lineTo(25, 21); g.lineTo(22, 11); g.lineTo(10, 11); g.closePath(); g.fill();
+    g.fillStyle = '#95a3b0';
+    g.beginPath(); g.moveTo(9, 19); g.lineTo(23, 19); g.lineTo(21, 13); g.lineTo(11, 13); g.closePath(); g.fill();
+    g.fillStyle = '#dfe7ee'; g.fillRect(12, 14, 8, 2);
   } else if (id === 175) { // 传送块：紫色能量方块
     g.fillStyle = '#3a1a5c'; g.fillRect(7, 7, 18, 18);
     g.fillStyle = '#8b3fd8'; g.fillRect(9, 9, 14, 14);
@@ -1188,23 +1237,27 @@ function genNetherChunk(cx, cz) {
   const b = new Uint8Array(CH * WH * CH);
   const idx = (x, y, z) => (y * CH + z) * CH + x;
   const ox = cx * CH, oz = cz * CH;
+  const pillar = h3;                                             // 玄武岩柱用稀疏哈希
   for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
     const wx = ox + lx, wz = oz + lz;
-    const n = h2(Math.floor(wx / 26) * 3.1 + 5.5, Math.floor(wz / 26) * 4.7 - 2.2);
-    const floor = 30 + Math.round(n * 7);                        // 岩浆面 30~37
-    const ceil = floor + 16 + Math.round(h2(wx * 0.7, wz * 0.7) * 6);
-    for (let y = 1; y < WH; y++) {
+    for (let y = 1; y < NETHER_LAVA_Y; y++) b[idx(lx, y, lz)] = 44;         // 岩浆海（MC 风：海底全是岩浆）
+    for (let y = NETHER_LAVA_Y; y < WH; y++) {
+      if (!netherSolid(wx, y, wz)) continue;
       const i = idx(lx, y, lz);
-      if (y <= floor - 1) b[i] = 43;                             // 冥界岩地面
-      else if (y === floor) b[i] = floor <= 32 ? 44 : 43;         // 低洼处是岩浆湖，高处是能站的岩地
-      else if (y >= ceil) b[i] = 43;                              // 穹顶
+      b[i] = 43;                                                            // 冥界岩
+      if (y > NETHER_LAVA_Y && y <= 52 && h3(wx * 3, y * 7 + 1, wz * 3) > 0.972) b[i] = 46;   // 冥界碳矿
     }
-    if (h2(wx * 1.7 + 3, wz * 2.3 - 1) > 0.86) {                  // 下垂钟乳石
-      const len = 2 + Math.round(h2(wx, wz) * 5);
-      for (let k = 0; k < len; k++) {
-        const y = ceil - k;
-        if (y > floor + 2) b[idx(lx, y, lz)] = 43;
-      }
+    // 灵魂沙滩：任何「露天顶面」的冥界岩（低处更容易，形成 MC 那种灵魂沙谷）
+    for (let y = NETHER_LAVA_Y + 1; y <= NETHER_LAVA_Y + 14; y++) {
+      const i = idx(lx, y, lz);
+      if (b[i] !== 43 || b[idx(lx, y + 1, lz)] !== 0) continue;
+      // 按 7×7 的「区块」整片铺（MC 的灵魂沙谷就是一整片，不是零星几点）
+      if (h2(Math.floor(wx / 7) * 3.7 + 2.2, Math.floor(wz / 7) * 5.1 - 4.4) > 0.84) b[i] = 48;
+    }
+    // 玄武岩柱：2×2 一簇，从岩浆面直通穹顶
+    if (pillar(Math.floor(wx / 2), 77, Math.floor(wz / 2)) > 0.988) {
+      const top = netherCeilAt(wx, wz);
+      for (let y = NETHER_LAVA_Y; y < top; y++) { const i = idx(lx, y, lz); if (!b[i]) b[i] = 49; }
     }
   }
   if (ox === NETHER_OFF && oz === NETHER_OFF) {                     // 出生走廊 + 回程门（冥界原点那块区块）
@@ -2381,6 +2434,19 @@ function makeToolModel(id) {
     const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.055, 0.088), new THREE.MeshLambertMaterial({ color: 0xeaa96a }));
     b2.position.y = 0.15;
     g.add(a, b2);
+  } else if (id === 177) {                     // 冥界碳：黑红晶体
+    const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.13),
+      new THREE.MeshLambertMaterial({ color: 0x1a1012, emissive: 0x7a1f2a, emissiveIntensity: 0.6 }));
+    cr.position.y = 0.14; cr.scale.y = 1.35; cr.rotation.y = 0.6;
+    g.add(cr);
+  } else if (id === 178) {                     // 钢锭
+    const steelM = new THREE.MeshLambertMaterial({ color: 0x95a3b0 });
+    const a1 = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.07, 0.11), steelM);
+    a1.position.y = 0.1;
+    const sh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 0.06),
+      new THREE.MeshLambertMaterial({ color: 0xdfe7ee }));
+    sh.position.y = 0.145;
+    g.add(a1, sh);
   } else if (id === 175) {                     // 传送块：发光紫色立方
     const cube = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2),
       new THREE.MeshLambertMaterial({ color: 0x8b3fd8, emissive: 0x5a1f9c, emissiveIntensity: 0.9 }));
@@ -3065,14 +3131,20 @@ function campFor(cellX, cellZ) {
    ⚠ 主世界生成的是「空门」（要插传送块）；冥界自然生成的是「已激活」的门，
    从冥界任何一座门走进去都会回到「你过来的那座主世界门」（player.fromPortal）。 */
 const PT_CELL = 320, portalCache = new Map();
-function netherFloorAt(wx, wz) {
-  const n = h2(Math.floor(wx / 26) * 3.1 + 5.5, Math.floor(wz / 26) * 4.7 - 2.2);
-  return 30 + Math.round(n * 7);
+const NETHER_LAVA_Y = 32;                     // 岩浆海平面
+function netherCeilAt(wx, wz) {               // 顶部岩壳的底面高度（60~64 起伏）
+  return 60 + Math.round(h2(Math.floor(wx / 40), Math.floor(wz / 40)) * 4);
 }
-function netherCeilAt(wx, wz) {
-  const n = h2(Math.floor(wx / 26) * 3.1 + 5.5, Math.floor(wz / 26) * 4.7 - 2.2);
-  const floor = 30 + Math.round(n * 7);
-  return floor + 16 + Math.round(h2(wx * 0.7, wz * 0.7) * 6);
+// 冥界「这一格是不是岩体」——地形生成和探针共用同一套公式，两边必须一致
+function netherSolid(wx, y, wz) {
+  if (y < NETHER_LAVA_Y) return false;                       // 下面全是岩浆海
+  if (y >= netherCeilAt(wx, wz)) return true;                 // 顶部岩壳
+  const d = y - NETHER_LAVA_Y;
+  return n3(wx * 0.055, y * 0.085, wz * 0.055) + (d < 5 ? 0.16 : 0) > 0.5;
+}
+function netherRockTop(wx, wz) {              // 这一列最高的岩体（没有岩就是岩浆面）
+  for (let y = 58; y > NETHER_LAVA_Y; y--) if (netherSolid(wx, y, wz)) return y;
+  return NETHER_LAVA_Y;
 }
 function portalFor(cellX, cellZ) {
   const key = DIM + ':' + cellX + ',' + cellZ;          // ⚠ 必须带维度：同一格子两个维度各有一座
@@ -3088,8 +3160,8 @@ function portalFor(cellX, cellZ) {
       const nether = DIM === 'nether';
       let mn = 999, mx = -999;
       if (nether) {
-        for (let dx = -4; dx <= 4; dx++) for (let dz = -3; dz <= 3; dz++) {
-          const hh = netherFloorAt(cx + dx, cz + dz);
+        for (let dx = -4; dx <= 4; dx += 2) for (let dz = -3; dz <= 3; dz += 3) {
+          const hh = netherRockTop(cx + dx, cz + dz);
           if (hh < mn) mn = hh;
           if (hh > mx) mx = hh;
         }
@@ -3101,8 +3173,10 @@ function portalFor(cellX, cellZ) {
         }
       }
       // 冥界：地面必须是岩地（不是岩浆湖）、上方 8 格要有空间；冥界没有别的结构，跳过 structNear
+      let netherOpen = true;
+      if (nether) for (let dy = 1; dy <= 8; dy++) if (netherSolid(cx, mx + dy, cz)) { netherOpen = false; break; }
       const okHere = nether
-        ? (mx - mn <= 3 && mn > 32 && netherCeilAt(cx, cz) - mx >= 8)
+        ? (mx - mn <= 3 && mn > NETHER_LAVA_Y + 2 && netherOpen)
         : (mx - mn <= 4 && mn > CFG.SEA + 2 && mx < 46 && !structNear(cx, cz, 'portal'));
       if (okHere) {
         const gy = mx;
@@ -5160,6 +5234,8 @@ const RECIPES = [
   { out: 174, n: 1, need: { 170: 4 }, tier: 1 },              // 木靴
   // ── 传送块：幽灵王掉的幽灵精华 → 开启传送门（再进冥界）
   { out: 175, n: 1, need: { 155: 4, 106: 2, 22: 1 }, tier: 1 },
+  // 液压机：钻石 + 铁（把 冥界碳 + 铁 压成 钢）
+  { out: 47, n: 1, need: { 125: 3, 106: 6 }, tier: 1 },
   { out: 120, n: 1, need: { 106: 3, 104: 2 }, tier: 1 },
   { out: 121, n: 1, need: { 106: 2, 104: 1 }, tier: 1 },
   { out: 110, n: 1, need: { 106: 5 }, tier: 1 },
@@ -5323,6 +5399,7 @@ function openPanel(open) {
   if (open && openChestPos) closeChest();
   if (open && furnaceOpen) closeFurnace();
   if (open && processorOpen) closeProcessor();
+  if (open && pressOpen) closePress();
   panelOpen = open;
   hud.panel.classList.toggle('hide', !open);
   if (open) renderInventoryPanel();
@@ -5366,6 +5443,45 @@ function openProcessor() {
 function closeProcessor() {
   processorOpen = false;
   $('processor').classList.add('hide');
+  syncPointerLock();
+}
+
+/* ── 液压机：冥界碳 ×1 + 铁锭 ×2 → 钢锭 ×1（活塞压一下就出钢，不吃燃料） ── */
+let pressOpen = false;
+function pressCan() { return Math.min(countOf(177), Math.floor(countOf(106) / 2)); }
+function pressBatch(n) {
+  const can = pressCan();
+  if (!can) { toast('材料不够：需要 冥界碳 ×1 + 铁锭 ×2', 1.8); renderPress(); return 0; }
+  const k = Math.min(n === Infinity ? can : Math.max(1, n | 0), can);
+  takeItem(177, k); takeItem(106, k * 2); addItem(178, k);
+  sfx('craft');
+  renderHotbar(); refreshHeld(); renderPress(); saveSoon();
+  toast(`液压机压下：${k} 份 → 钢锭 ×${k}（现有 ${countOf(178)}）`, 1.8);
+  return k;
+}
+function renderPress() {
+  const el = $('pressInfo');
+  if (!el) return;
+  const can = pressCan();
+  el.innerHTML = `冥界碳 <b style="color:#f5c451">${countOf(177)}</b> · 铁锭 <b style="color:#f5c451">${countOf(106)}</b> · 钢锭 <b style="color:#f5c451">${countOf(178)}</b>`
+    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">可压制 ${can} 次（每次 冥界碳 1 + 铁锭 2 → 钢锭 1）</div>`;
+  const one = $('pressOne'), all = $('pressAll');
+  if (one) one.disabled = can < 1;
+  if (all) all.disabled = can < 1;
+}
+function openPress() {
+  if (panelOpen) openPanel(false);
+  if (openChestPos) closeChest();
+  if (furnaceOpen) closeFurnace();
+  if (processorOpen) closeProcessor();
+  pressOpen = true;
+  renderPress();
+  $('press').classList.remove('hide');
+  syncPointerLock();
+}
+function closePress() {
+  pressOpen = false;
+  $('press').classList.add('hide');
   syncPointerLock();
 }
 
@@ -5466,7 +5582,7 @@ function lockPointer() {
    判据只放在这一个函数里，新加界面只要调 syncPointerLock() 就自动生效。 */
 let furnaceOpen = false;
 function uiOpen() {
-  return panelOpen || !!openChestPos || furnaceOpen || processorOpen || !$('furnace').classList.contains('hide');
+  return panelOpen || !!openChestPos || furnaceOpen || processorOpen || pressOpen || !$('furnace').classList.contains('hide');
 }
 function syncPointerLock() {
   if (!started) return;
@@ -5517,6 +5633,7 @@ addEventListener('keydown', e => {
     if (openChestPos) { closeChest(); e.preventDefault(); return; }
     if (!$('furnace').classList.contains('hide')) { closeFurnace(); e.preventDefault(); return; }
     if (processorOpen) { closeProcessor(); e.preventDefault(); return; }
+    if (pressOpen) { closePress(); e.preventDefault(); return; }
     if (panelOpen) { openPanel(false); e.preventDefault(); return; }
   }
 });
@@ -6269,6 +6386,7 @@ function update(dt) {
     if (t && t.id === 18) { openChest(t.x, t.y, t.z); startSwing('place', 0.2); }
     else if (t && t.id === 19) { openFurnace(); startSwing('place', 0.2); }
     else if (t && t.id === 40) { openProcessor(); startSwing('place', 0.2); }     // 木头加工器
+    else if (t && t.id === 47) { openPress(); startSwing('place', 0.2); }          // 液压机
     else if (t && (t.id === 45 || t.id === 42)) { usePortal(t.x, t.y, t.z); startSwing('place', 0.2); }   // 传送门
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
@@ -6755,6 +6873,9 @@ $('btnFurnaceClose').onclick = () => closeFurnace();
 $('btnProcessorClose').onclick = () => closeProcessor();
 $('procOne').onclick = () => chipBatch(1);
 $('procAll').onclick = () => chipBatch(Infinity);
+$('btnPressClose').onclick = () => closePress();
+$('pressOne').onclick = () => pressBatch(1);
+$('pressAll').onclick = () => pressBatch(Infinity);
 $('btnChestClose').onclick = () => closeChest();
 $('btnRespawn').onclick = () => respawn();
 addEventListener('resize', () => {
@@ -7188,6 +7309,20 @@ window.GAME = {
     chipCount: () => countOf(170),
     logCount: () => countOf(6),
     processN: (n) => chipBatch(n),
+    openPress: () => openPress(),
+    closePress: () => closePress(),
+    pressOpen: () => pressOpen,
+    pressInfo: () => ({ carbon: countOf(177), iron: countOf(106), steel: countOf(178), can: pressCan() }),
+    pressN: (n) => pressBatch(n),
+    netherOre: () => {                            // 冥界矿脉体检：数一下已加载区块里的冥界碳
+      let c = 0, chunksN = 0;
+      for (const ch of chunks.values()) {
+        chunksN++;
+        const bl = ch.blocks, CH = CFG.CH, WH = CFG.WH;
+        for (let y = NETHER_LAVA_Y; y < WH; y++) for (let i = 0; i < CH * CH; i++) if (bl[(y * CH * CH) + i] === 46) c++;
+      }
+      return { chunks: chunksN, carbon: c, perChunk: chunksN ? +(c / chunksN).toFixed(1) : 0 };
+    },
     dim: () => DIM,
     fromPortal: () => player.fromPortal ? { ...player.fromPortal } : null,
     portalActiveAny: (wx, wz) => {                    // 当前维度里找这座门的核心并读激活状态
