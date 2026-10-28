@@ -2613,7 +2613,6 @@ function sfx(kind) {
 let worldTime = CFG.DAY * 0.02;   // 从清晨开始
 let lightLevel = 1;
 const skyDay = new THREE.Color(0x8fc9ff), skyNight = new THREE.Color(0x0a1024), skySet = new THREE.Color(0xff9a5a);
-const caveCol = new THREE.Color(0x0a0f15);
 const skyNow = new THREE.Color();
 function updateSky() {
   const f = ((worldTime / CFG.DAY) % 1 + 1) % 1;
@@ -2623,13 +2622,13 @@ function updateSky() {
   skyNow.copy(skyNight).lerp(skyDay, day);
   const sunset = clamp01(1 - Math.abs(sunAlt) / 0.32) * clamp01(day * 3 + 0.2);
   skyNow.lerp(skySet, sunset * 0.55);
-  // 在地下：把"天空"换成洞窟暗色（否则洞穴空腔会被画成一片蓝天，像露天地沟）
-  if (caveMix > 0.002) skyNow.lerp(caveCol, caveMix);
+  // ⚠ 已按用户要求【去掉「进洞穴天空变黑」这个特性】：地下不再改天空颜色、不再收窄雾、也不再整体压暗。
+  //    白天进洞就是正常天光（caveMix 仍照旧更新，留给音效回响等其它用途）。
   scene.background = skyNow;
   scene.fog.color.copy(skyNow);
-  scene.fog.near = 34 - 20 * caveMix;
-  scene.fog.far = 92 - 40 * caveMix;
-  const f2 = (0.4 + 0.6 * lightLevel) * (underground ? 0.62 : 1);
+  scene.fog.near = 34;
+  scene.fog.far = 92;
+  const f2 = 0.4 + 0.6 * lightLevel;
   worldLight.intensity = 0.55 + 0.45 * lightLevel;      // 半球光：夜里也有基础亮度
   worldAmb.intensity = 0.26 + 0.10 * lightLevel;        // 环境光兜底
   worldDir.intensity = 0.12 + 0.95 * lightLevel;        // 太阳：白天强投影，夜里几乎没有
@@ -4860,13 +4859,15 @@ const SMELT = [
   { in: 145, out: 146, n: 1, name: '生羊肉 → 熟羊肉' },
   { in: 4, out: 124, n: 0, name: '' },              // 占位（沙子暂无用途）
 ];
+// 燃料：units = 一块能烧几个物品，time = 每个物品要烧多少秒（燃料越好 → 越快 + 越多）
 const FUEL_DEFS = [
-  { id: 8,  name: '木板', units: 1 },
-  { id: 6,  name: '原木', units: 2 },
-  { id: 13, name: '煤炭', units: 4 },
+  { id: 8,  name: '木板', units: 1, time: 4.0 },   // 弱燃料：烧得最慢
+  { id: 6,  name: '原木', units: 2, time: 3.0 },   // 中等
+  { id: 13, name: '煤炭', units: 4, time: 2.0 },   // 好燃料：又快又能多烧几个
 ];
 let furnaceFuel = 13, furnaceJob = null;           // 选中的燃料 / 当前烧制作业
-const SMELT_DUR = 3.0;                             // 每个物品要烧 3 秒
+const SMELT_DUR = 3.0;                             // 兜底：燃料没写 time 时才用这个
+const jobDur = j => (j && Number.isFinite(j.dur) ? j.dur : SMELT_DUR);
 function fuelCount(id) { return countOf(id); }
 function fuelReady() { return FUEL_DEFS.find(f => f.id === furnaceFuel && countOf(f.id) > 0) || null; }
 function smelt(r) {
@@ -4881,8 +4882,8 @@ function smelt(r) {
   }
   takeItem(f.id, 1);
   takeItem(r.in, 1);
-  furnaceJob = { r, t: 0, left: f.units, fuel: f.id, fuelName: f.name };
-  toast(`点火：${f.name} 可烧 ${f.units} 个（每个 ${SMELT_DUR} 秒）`, 2);
+  furnaceJob = { r, t: 0, left: f.units, fuel: f.id, fuelName: f.name, dur: f.time };
+  toast(`点火：${f.name} → 每个 ${f.time.toFixed(1)} 秒，可烧 ${f.units} 个`, 2.2);
   sfx('place');
   renderHotbar(); renderFurnace(); saveSoon();
   return true;
@@ -4891,7 +4892,7 @@ function updateFurnaceJob(dt) {
   const j = furnaceJob;
   if (!j) return;
   j.t += dt;
-  if (j.t < SMELT_DUR) { if ($('furnace') && !$('furnace').classList.contains('hide')) renderFurnace(); return; }
+  if (j.t < jobDur(j)) { if ($('furnace') && !$('furnace').classList.contains('hide')) renderFurnace(); return; }
   j.t = 0;
   addItem(j.r.out, j.r.n);
   toast(`熔炼出 ${nameOf(j.r.out)}（剩 ${j.left - 1} 次）`, 1.3);
@@ -4933,15 +4934,12 @@ function renderFurnace() {
   const cur = FUEL_DEFS.find(f => f.id === furnaceFuel) || FUEL_DEFS[0];
   const fi = $('fuelInfo');
   if (fi) {
-    fi.innerHTML = '';
-    const lab = document.createElement('span');
-    lab.style.cssText = 'font-size:11px;color:#9fb0c2;margin-right:6px';
-    lab.textContent = '燃料：';
-    fi.appendChild(lab);
+    fi.innerHTML = '';                    // ⚠ 外层 <p> 已经有「燃料：」字样，这里别再写一遍（会变成「燃料：燃料：」）
     for (const f of FUEL_DEFS) {
       const b = document.createElement('button');
       const have = countOf(f.id);
-      b.textContent = `${f.name}(${have})`;
+      b.textContent = `${f.name}(${have}) ${f.time.toFixed(1)}s`;
+      b.title = `一块可烧 ${f.units} 个 · 每个 ${f.time.toFixed(1)} 秒`;
       b.style.cssText = `margin:0 4px;padding:3px 7px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;`
         + `border:1px solid ${f.id === cur.id ? '#5a8fd8' : '#33415a'};`
         + `background:${f.id === cur.id ? '#1b2a3d' : '#161d27'};color:${have ? '#cfe0f0' : '#6b7889'}`;
@@ -4951,10 +4949,12 @@ function renderFurnace() {
   }
   const jobEl = $('fuelInfo');
   if (jobEl && furnaceJob) {
-    const pct = Math.round(Math.min(1, furnaceJob.t / SMELT_DUR) * 100);
+    const dur = jobDur(furnaceJob);
+    const pct = Math.round(Math.min(1, furnaceJob.t / dur) * 100);
     const p = document.createElement('div');
     p.style.cssText = 'margin-top:6px;font-size:11px;color:#ffd84a';
-    p.textContent = `正在烧制 ${nameOf(furnaceJob.r.out)} … ${pct}%（剩 ${furnaceJob.left} 次）`;
+    p.textContent = `正在烧制 ${nameOf(furnaceJob.r.out)} … ${pct}%`
+      + `（${Math.max(0, dur - furnaceJob.t).toFixed(1)}s · 燃料 ${furnaceJob.fuelName} ${dur.toFixed(1)}s/个 · 剩 ${furnaceJob.left} 次）`;
     jobEl.appendChild(p);
   }
   list.innerHTML = '';
@@ -4965,7 +4965,7 @@ function renderFurnace() {
     const d = document.createElement('div');
     d.className = 'rec' + (can ? '' : ' no');
     d.innerHTML = `<img src="${iconURL(r.out)}" alt=""><div class="t">${nameOf(r.out)} ×${r.n}`
-      + `<i>${nameOf(r.in)} ×1 + 燃料 ×1（已有原料 ${have}）</i></div>`
+      + `<i>${nameOf(r.in)} ×1 + ${cur.name} ×1（${cur.time.toFixed(1)}s/个 · 已有原料 ${have}）</i></div>`
       + `<div class="go">${can ? '熔炼 →' : have ? '缺燃料' : '缺原料'}</div>`;
     d.onclick = () => { if (can && !furnaceJob) smelt(r); };
     list.appendChild(d);
@@ -6614,6 +6614,11 @@ window.GAME = {
       return { total, perVillage };
     },
     furnaceOpen: () => !$('furnace').classList.contains('hide'),
+    furnaceJob: () => furnaceJob ? { out: nameOf(furnaceJob.r.out), t: +furnaceJob.t.toFixed(2), dur: jobDur(furnaceJob), left: furnaceJob.left, fuel: furnaceJob.fuelName } : null,
+    furnaceTick: (dt) => { updateFurnaceJob(dt); return furnaceJob ? { out: nameOf(furnaceJob.r.out), t: +furnaceJob.t.toFixed(2), dur: jobDur(furnaceJob), left: furnaceJob.left, fuel: furnaceJob.fuelName } : null; },
+    fuelDefs: () => FUEL_DEFS.map(f => ({ ...f })),
+    fuelNow: () => furnaceFuel,
+    setFuel: (id) => { furnaceFuel = id; renderFurnace(); return furnaceFuel; },
     doors: () => [...doorObjs.entries()].map(([k, o]) => ({ k, dir: o.dir, p: +o.p.toFixed(3), targetP: o.targetP, rotY: +o.group.rotation.y.toFixed(3) })),
     doorBox: (dir, open) => {          // 关/开门时门板在世界格内的包围盒（必须落在 0..1，否则穿模邻居）
       const geo = doorGeometry(dir), d = DOOR_DEF[dir];
