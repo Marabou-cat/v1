@@ -6377,7 +6377,18 @@ function attackTarget() {
 function attack() {
   if (player.atkCd > 0) return false;
   const target = attackTarget();
-  if (!target) return false;
+  if (!target) {
+    // 联机非主机：幽灵怪不在 mobs 里，单独判定后上报给主机扣血
+    if (NET && NET.active && !NET.isHost && NET.hitGhost) {
+      const k0 = heldKind();
+      const d0 = k0 === 'sword' ? ((defOf(held().id) || {}).dmg || 5) : k0 === 'pick' ? 3 : 1;
+      if (NET.hitGhost(d0)) {
+        startSwing('attack', 0.5); useTool(1); player.atkCd = 0.42; sfx('hit');
+        player.hits = (player.hits || 0) + 1;
+      }
+    }
+    return false;
+  }
   const kind = heldKind();
   const dmg = kind === 'sword' ? ((defOf(held().id) || {}).dmg || 5)
             : kind === 'pick' ? 3 : 1;
@@ -7737,11 +7748,53 @@ window.GAME = {
     net.remotes.delete(id);
   }
 
+  /* ---------- 兴趣管理：走远了分块补改动（进服只发 ±128 格） ---------- */
+  net.lastPull = { x: 1e9, z: 1e9 };
+  net.pullT = 0;
+  net.pullRegion = () => {
+    const x = Math.floor(player.p.x), z = Math.floor(player.p.z);
+    net.lastPull = { x, z };
+    fetch(API + '/api', { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'region', code: net.code, x, z, r: 112 }) })
+      .then(r => r.json()).then(d => {
+        if (!d.ok || !d.edits) return;
+        let n = 0;
+        for (const [k, id] of d.edits) {
+          if (edits.has(k) && edits.get(k) === id) continue;      // 已经有了就跳过
+          const a = k.split(',').map(Number);
+          applyServerBlock(a[0], a[1], a[2], id);
+          n++;
+        }
+        if (n > 120) toast(`补齐了附近 ${n} 处改动`, 2);
+      }).catch(() => {});
+  };
+
+  /* ---------- 非主机打幽灵怪：本地判定 + 上报给主机扣血 ---------- */
+  net.hitGhost = (dmg) => {
+    if (net.isHost || !net.ws || net.ws.readyState !== 1) return false;
+    const dir = cameraDir(), eye = eyePos();
+    let best = null, bestT = 1e9;
+    for (const [id, g] of net.ghosts) {
+      const dx = g.obj.position.x - eye.x, dy = (g.obj.position.y + 0.9) - eye.y, dz = g.obj.position.z - eye.z;
+      const t = dx * dir.x + dy * dir.y + dz * dir.z;
+      if (t < 0.1 || t > CFG.REACH - 1.2) continue;
+      const px = dx - dir.x * t, py = dy - dir.y * t, pz = dz - dir.z * t;
+      if (px * px + py * py + pz * pz > 1.1) continue;
+      if (t < bestT) { bestT = t; best = id; }
+    }
+    if (!best) return false;
+    try { net.ws.send(JSON.stringify({ t: 'hit', i: best, d: dmg })); } catch (e) { return false; }
+    const g = net.ghosts.get(best);
+    if (g) g.hitAt = performance.now();          // 打中反馈（本地闪一下）
+    return true;
+  };
+
   /* ---------- 非主机端的「幽灵怪」：只按主机快照摆模型，不跑 AI、不参与战斗 ---------- */
   function syncGhosts(list) {
     const alive = new Set();
     for (const e of list) {
-      const [id, kind, x, y, z, rot] = e;
+      const [id, kind, x, y, z, rot, hp] = e;
+      if (typeof hp === 'number' && hp <= 0) continue;
       alive.add(id);
       let g = net.ghosts.get(id);
       if (!g) {
@@ -7833,6 +7886,16 @@ window.GAME = {
       } else if (m.t === 'e') {
         if (typeof m.q === 'number') net.serverSeq = m.q;
         applyServerBlock(m.x, m.y, m.z, m.b);
+      } else if (m.t === 'hit') {
+        if (net.isHost) {                          // 只有主机的怪是真的
+          for (const mo of (typeof mobs !== 'undefined' ? mobs : [])) {
+            if (mo.nid === m.i && !mo.dying) {
+              mo.hp -= (m.d || 1); mo.flash = 0.2; mo.aggro = 16;
+              if (mo.hp <= 0) startMobDeath(mo);
+              break;
+            }
+          }
+        }
       } else if (m.t === 'm') {
         syncGhosts(m.u || []);
       } else if (m.t === 'ack') {
@@ -7889,7 +7952,7 @@ window.GAME = {
         for (const m of (typeof mobs !== 'undefined' ? mobs : [])) {
           if (m.dying || m.hp <= 0 || !m.obj) continue;
           m.nid = m.nid || (net.mobSeq = (net.mobSeq || 0) + 1);
-          u.push([m.nid, m.kind, +m.p.x.toFixed(2), +m.p.y.toFixed(2), +m.p.z.toFixed(2), +m.obj.rotation.y.toFixed(2)]);
+          u.push([m.nid, m.kind, +m.p.x.toFixed(2), +m.p.y.toFixed(2), +m.p.z.toFixed(2), +m.obj.rotation.y.toFixed(2), Math.round(m.hp)]);
           if (u.length >= 24) break;
         }
         try { net.ws.send(JSON.stringify({ t: 'm', u })); } catch (e) {}
@@ -7915,6 +7978,11 @@ window.GAME = {
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
       r.obj.rotation.y += dy * k;
+    }
+    net.pullT += dt;
+    if (net.pullT >= 2) {
+      net.pullT = 0;
+      if (Math.hypot(player.p.x - net.lastPull.x, player.p.z - net.lastPull.z) > 48) net.pullRegion();
     }
     net.hudT += dt;
     if (net.hudT >= 0.5) {
@@ -7943,7 +8011,7 @@ window.GAME = {
   /* ---------- 进服：先 join 拿 seed，再用同一个 seed 开世界 ---------- */
   fetch(API + '/api', {
     method: 'POST', headers: { 'content-type': 'text/plain' },
-    body: JSON.stringify({ a: 'join', code: net.code, pid: net.id, name: net.nick }),
+    body: JSON.stringify({ a: 'join', code: net.code, pid: net.id, name: net.nick, x: 0, z: 0, r: 128 }),
   }).then(r => r.json()).then(d => {
     if (!d.ok) { net.active = false; toast('联机进服失败：' + (d.e || '?'), 5); return; }
     net.isHost = !!d.isHost;

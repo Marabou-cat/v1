@@ -134,7 +134,9 @@ function applyEdit(w, p, msg) {
   const d = Math.hypot(x + 0.5 - p.x, y + 0.5 - p.y, z + 0.5 - p.z);
   if (d > 8) { stats.rejects++; return { ok: false, e: 'far' }; }
   const key = x + ',' + y + ',' + z;
-  if (b === 0) w.edits.delete(key); else w.edits.set(key, b);
+  // ★ 挖空（b=0）也必须落表：以前这里 delete，等于「挖掉的方块类型不记录」，
+  //   重进世界时天然地形会把洞填回去（和单机版 indexEdit 那个 bug 同源）。
+  w.edits.set(key, b);
   w.dirty = true;
   stats.edits++;
   w.seq++;
@@ -157,9 +159,17 @@ function join(req, res) {
   w.players.set(id, {
     id, name, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, at: Date.now(), ws: null, editT: 0, editN: 0,
   });
+  // ★ 兴趣管理：进服只发玩家附近的改动（默认 ±128 格），不是整张表。
+  //   世界再大，进服包也是「几十 KB」量级；走远以后客户端用 region 分块补。
+  const jx = Number(req.x) || 0, jz = Number(req.z) || 0, jr = Math.min(512, Number(req.r) || 128);
+  const near = [];
+  for (const [k, id] of w.edits) {
+    const p = k.split(',');
+    if (Math.abs(+p[0] - jx) <= jr && Math.abs(+p[2] - jz) <= jr) near.push([k, id]);
+  }
   json(res, {
     ok: true, id, isHost, code, seed: w.seed, genVer: w.genVer, time: w.time, seq: w.seq,
-    edits: Array.from(w.edits.entries()), players: playersPublic(w),
+    edits: near, totalEdits: w.edits.size, players: playersPublic(w),
   });
   console.log(`[bw] join ${code} ${id}/${name} host=${isHost} players=${w.players.size} edits=${w.edits.size}`);
 }
@@ -192,6 +202,16 @@ const server = http.createServer((req, res) => {
             code: w.code, seed: w.seed, edits: w.edits.size, players: w.players.size, host: hostId(w),
           })),
         });
+      }
+      if (a.a === 'region') {                    // 依序补发某片区域的改动（客户端走远了就来拉一次）
+        const w = loadWorld(String(a.code || 'W1'));
+        const x = Number(a.x) || 0, z = Number(a.z) || 0, r = Math.min(256, Number(a.r) || 112);
+        const out = [];
+        for (const [k, id] of w.edits) {
+          const p = k.split(',');
+          if (Math.abs(+p[0] - x) <= r && Math.abs(+p[2] - z) <= r) out.push([k, id]);
+        }
+        return json(res, { ok: true, n: out.length, edits: out });
       }
       if (a.a === 'since') {                     // 断线补发：给我 after 之后的所有编辑
         const w = loadWorld(String(a.code || 'W1'));
@@ -289,6 +309,8 @@ function onMsg(socket, m) {
     const r = applyEdit(w, p, m);
     if (!r.ok) { try { socket.write(frame(JSON.stringify({ t: 'rej', seq: m.seq, e: r.e, x: m.x, y: m.y, z: m.z }))); } catch (e) {} }
     else { try { socket.write(frame(JSON.stringify({ t: 'ack', seq: m.seq }))); } catch (e) {} }
+  } else if (m.t === 'hit') {                 // 非主机打的怪：转发给所有人，只有当前主机会真的扣血
+    broadcast(w, { t: 'hit', i: m.i, d: Math.min(30, Number(m.d) || 0), from: p.id }, p.id);
   } else if (m.t === 'm') {                   // 主机广播的怪快照：只转发，服务端不模拟
     broadcast(w, { t: 'm', u: m.u, from: p.id }, p.id);
   } else if (m.t === 'time') {
