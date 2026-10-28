@@ -1550,7 +1550,10 @@ function indexEdit(x, y, z, id) {
   let m = editsByChunk.get(ck);
   if (!m) editsByChunk.set(ck, m = new Map());
   const li = (y * CFG.CH + (z & 15)) * CFG.CH + (x & 15);
-  if (id === 0) m.delete(li); else m.set(li, id);
+  // ★ 挖空（id 0）也必须留在索引里。以前这里是 `if (id === 0) m.delete(li)`，
+  //   于是「挖出来的洞」读档后被天然地形重新填满 —— 人物卡在石头里被抬到地表，
+  //   这就是「在地底矿洞退出、回来到了地表」的老 bug 真正的根因。
+  m.set(li, id);
 }
 function reindexEdits() {
   editsByChunk.clear();
@@ -5716,7 +5719,7 @@ function travelDimension(fromCore) {
     DIM = 'overworld';
     disposeAllChunks();
     const fp = player.fromPortal;
-    const o = player.overPos || (fp ? { x: fp.x + 0.5, y: fp.y + 1.2, z: fp.z - 2.5 } : { x: 8.5, y: 46, z: 8.5 });
+    const o = player.overPos || (fp ? { x: fp.x + 0.5, y: fp.y + 1.2, z: fp.z - 2.5 } : { x: 8.5, y: SURF_OFF + 40, z: 8.5 });
     let px2 = o.x, pz2 = o.z;
     for (let i = 0; i < 5 && getBlock(Math.floor(px2), Math.floor(o.y), Math.floor(pz2)) === 42; i++) pz2 += 1;   // 别站回门里
     player.p.set(px2, o.y + 0.1, pz2);
@@ -6835,7 +6838,7 @@ function save() {
   if (!currentId || !started) return;
   try {
     const data = {
-      seed: SEED, mode: MODE, time: worldTime,
+      seed: SEED, mode: MODE, time: worldTime, dim: DIM, overPos: player.overPos || null,
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
       inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
       compost: Array.from(compostProg.entries()), meta: Array.from(blockMeta.entries()),
@@ -6852,6 +6855,7 @@ function save() {
   }
 }
 function saveSoon() { clearTimeout(saveSoonT); saveSoonT = setTimeout(save, 600); }
+let loadErr = null;
 function loadSave(id) {
   try {
     const raw = localStorage.getItem(worldKey(id));
@@ -6876,13 +6880,16 @@ function loadSave(id) {
     restoreSquad(d.squad);
     blockMeta.clear();
     if (Array.isArray(d.meta)) for (const e of d.meta) if (Array.isArray(e)) blockMeta.set(e[0], e[1]);
+    DIM = d.dim === 'nether' ? 'nether' : 'overworld';     // 存档在哪一层，回来就还在哪一层
+    player.overPos = d.overPos || null;
     if (d.player) {
       player.p.set(d.player.x, d.player.y, d.player.z);
       player.yaw = d.player.yaw || 0; player.pitch = d.player.pitch || 0;
       player.hp = d.player.hp ?? 20; player.hunger = d.player.hunger ?? 20;
     }
+    loadErr = null;
     return true;
-  } catch (e) { return false; }
+  } catch (e) { loadErr = String((e && e.stack) || e); console.error('[blockwild] 读档失败', e); return false; }
 }
 
 /* ============================================================ 帧循环 */
@@ -6976,13 +6983,25 @@ function startGame(world) {
   SEED = world.seed | 0;
   DIM = 'overworld';                          // 每次进世界一律从主世界开始
   const loaded = loadSave(world.id);          // 有存档就接着玩，没有就用这个世界自己的种子生成
-  if (loaded && player.p.y < SURF_OFF * 0.75) {   // 地形整体抬高后，老档的人物会埋在石头里 → 送回地表
-    const sy3 = surfaceY(Math.floor(player.p.x), Math.floor(player.p.z));
-    if (sy3 > player.p.y + 2) player.p.y = sy3 + 1.2;
-  }
-  if (loaded && player.p.x > NETHER_OFF * 0.5) {   // 上次是在冥界存的档：人物坐标在主世界没有意义
-    const sp0 = spawnNearHouse(findSpawn());
-    player.p.set(sp0.x, sp0.y, sp0.z);
+  if (loaded) {
+    // ★ 老 bug 的根因：以前这里无条件 `if (player.p.y < surfaceY+1) player.p.y = surfaceY+1`，
+    //   于是「在矿洞/地底退出，回来就站在地表」。现在只在**被方块埋住**时就近往上挪几格。
+    const bx = Math.floor(player.p.x), bz = Math.floor(player.p.z);
+    const buried = (y) => isSolid(getBlock(bx, y, bz)) || isSolid(getBlock(bx, y + 1, bz));
+    let by = Math.floor(player.p.y);
+    if (buried(by)) {
+      for (let i = 0; i < 24 && buried(by); i++) by++;
+      if (buried(by)) by = Math.max(surfaceY(bx, bz), CFG.SEA) + 1;   // 挪不出去（真被埋死）才回地表，别落进海里
+      player.p.y = by + 0.05;
+    }
+    if (DIM !== 'nether' && player.p.x > NETHER_OFF * 0.5) {   // 存档说在主世界、坐标却在冥界：兜底送回出生点
+      DIM = 'overworld';
+      const sp0 = spawnNearHouse(findSpawn());
+      player.p.set(sp0.x, sp0.y, sp0.z);
+    }
+    if (DIM === 'nether' && player.p.x < NETHER_OFF * 0.5) {   // 存档说在冥界、坐标却在主世界：兜底回主世界
+      DIM = 'overworld';
+    }
   }
   if (!loaded) {
     const sp = spawnNearHouse(findSpawn());
@@ -7005,9 +7024,11 @@ function startGame(world) {
   // 先把出生点周围铺开，避免掉进虚空
   const pcx = Math.floor(player.p.x / CFG.CH), pcz = Math.floor(player.p.z / CFG.CH);
   for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) buildChunk(getChunk(pcx + dx, pcz + dz));
-  // 若出生在水里/悬空，抬到地表
-  const sy2 = surfaceY(Math.floor(player.p.x), Math.floor(player.p.z));
-  if (player.p.y < sy2 + 1) player.p.y = sy2 + 1.05;
+  // 只有新世界才做「出生点在水里/悬空就抬到地表」；读档来的位置必须原样保留
+  if (!loaded) {
+    const sy2 = surfaceY(Math.floor(player.p.x), Math.floor(player.p.z));
+    if (player.p.y < sy2 + 1) player.p.y = sy2 + 1.05;
+  }
   toast(`「${world.name}」· ${isCreative() ? '创造模式' : '生存模式'} · 按 E 打开背包`, 4.5);
   lockPointer();
   window.__BW_STARTED = true;
@@ -7518,6 +7539,8 @@ window.GAME = {
       return { chunks: chunksN, carbon: c, perChunk: chunksN ? +(c / chunksN).toFixed(1) : 0 };
     },
     dim: () => DIM,
+    loadErr: () => loadErr,
+    savedInfo: () => { try { const d = JSON.parse(localStorage.getItem(worldKey(currentId)) || 'null'); return d ? { y: d.player && d.player.y, dim: d.dim, edits: (d.edits || []).length } : null; } catch (e) { return String(e); } },
     burnState: () => ({ playerBurn: +(player.burn || 0).toFixed(2),
                         burnFx: ($('burnFx') || {}).className || '',
                         playerFlames: playerFlames.filter(s => s.visible).length,
