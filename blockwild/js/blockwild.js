@@ -8138,6 +8138,8 @@ window.GAME = {
 
   window.NET = net;
   if (btnFR) btnFR.style.display = '';
+  const mpBtn = document.getElementById('btnMP');
+  if (mpBtn) mpBtn.style.display = 'none';      // 已经在联机里，开始界面不需要第二个入口
 
 /* ---------------- 好友入口（单机模式下也要看得见） ----------------
  * 之前「好友」按钮只在 ?mp=1 时由联机层显示，直接用 www.schoolexams.net/blockwild/ 打开是看不到的。
@@ -8181,7 +8183,10 @@ window.GAME = {
         });
     };
   }
-  btn.onclick = () => { if (!panel) build(); open = !open; panel.style.display = open ? 'block' : 'none'; };
+  const toggle = () => { if (!panel) build(); open = !open; panel.style.display = open ? 'block' : 'none'; };
+  btn.onclick = toggle;                                    // 游戏内右上角「好友」
+  const startBtn = document.getElementById('btnMP');       // 开始界面「🌐 联机」
+  if (startBtn) startBtn.onclick = toggle;
 })();
 
 
