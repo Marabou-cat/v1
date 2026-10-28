@@ -338,6 +338,13 @@ const ITEMS = {
   160: { name: '铁锄', kind: 'hoe', dur: 251 },
   161: { name: '骨粉', kind: 'bonemeal' },
   162: { name: '铜锭', kind: 'mat' },
+  163: { name: '铜镐', kind: 'pick', fast: 2.2, dur: 190 },
+  164: { name: '铜剑', kind: 'sword', dmg: 8, dur: 190 },
+  165: { name: '铜锄', kind: 'hoe', dur: 190 },
+  166: { name: '铜头盔', kind: 'armor', slot: 'head', ap: 2 },
+  167: { name: '铜胸甲', kind: 'armor', slot: 'chest', ap: 5 },
+  168: { name: '铜护腿', kind: 'armor', slot: 'legs', ap: 3 },
+  169: { name: '铜靴', kind: 'armor', slot: 'feet', ap: 2 },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -762,7 +769,7 @@ function iconURL(id) {
     g.beginPath(); g.moveTo(10, 11); g.lineTo(22, 11); g.lineTo(23.4, 24); g.lineTo(8.6, 24); g.closePath(); g.fill();
     g.fillStyle = '#8fc45c'; g.fillRect(12, 14, 8, 3);
   } else if (ITEMS[id] && ITEMS[id].kind === 'hoe') { // 锄头
-    const metal = id === 159 ? '#9a9a9a' : id === 160 ? '#d9dee5' : '#c8a06a';
+    const metal = id === 159 ? '#9a9a9a' : id === 165 ? '#d98b4a' : id === 160 ? '#d9dee5' : '#c8a06a';
     g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
     g.beginPath(); g.moveTo(11, 27); g.lineTo(20, 9); g.stroke();
     g.strokeStyle = metal; g.lineWidth = 5;
@@ -840,13 +847,13 @@ function iconURL(id) {
     g.fillStyle = '#effffd';
     g.beginPath(); g.moveTo(16, 7); g.lineTo(23, 13); g.lineTo(16, 13); g.closePath(); g.fill();
   } else if (ITEMS[id] && ITEMS[id].kind === 'pick') { // 镐
-    const metal = id === 130 ? '#5fe6d8' : id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
+    const metal = id === 130 ? '#5fe6d8' : id === 163 ? '#d98b4a' : id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
     g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
     g.beginPath(); g.moveTo(9, 27); g.lineTo(21, 12); g.stroke();
     g.strokeStyle = metal; g.lineWidth = 5;
     g.beginPath(); g.moveTo(9, 9); g.quadraticCurveTo(20, 5, 27, 13); g.stroke();
   } else if (ITEMS[id] && ITEMS[id].kind === 'sword') { // 剑
-    const metal = id === 131 ? '#5fe6d8' : id === 149 ? '#efe9d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
+    const metal = id === 131 ? '#5fe6d8' : id === 164 ? '#d98b4a' : id === 149 ? '#efe9d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
     g.strokeStyle = metal; g.lineWidth = 5; g.lineCap = 'round';
     g.beginPath(); g.moveTo(10, 25); g.lineTo(24, 7); g.stroke();
     g.strokeStyle = '#8d6534'; g.lineWidth = 4;
@@ -856,9 +863,16 @@ function iconURL(id) {
     g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
     g.fillStyle = '#e8eef4'; g.beginPath();
     g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
+  } else if (id === 162) { // 铜锭
+    g.fillStyle = '#b8702f'; g.beginPath();
+    g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
+    g.fillStyle = '#d98b4a'; g.beginPath();
+    g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
+    g.fillStyle = '#eaa96a'; g.fillRect(13, 15, 6, 2);
   } else if (ITEMS[id] && ITEMS[id].kind === 'armor') { // 盔甲
-    const dia = id >= 132;
-    const steel = dia ? '#5fe6d8' : '#d3dae2', dark = dia ? '#2fa89c' : '#8c98a6';
+    const cop = id >= 166;                          // 铜护甲 166~169：铜橙色（别落进 >=132 的钻石分支）
+    const dia = id >= 132 && !cop;
+    const steel = dia ? '#5fe6d8' : cop ? '#d98b4a' : '#d3dae2', dark = dia ? '#2fa89c' : cop ? '#8a5525' : '#8c98a6';
     g.fillStyle = steel; g.strokeStyle = dark; g.lineWidth = 2;
     if (ITEMS[id].slot === 'head') {                 // 头盔
       g.beginPath(); g.arc(16, 17, 9, Math.PI, 0); g.lineTo(25, 21); g.lineTo(7, 21); g.closePath(); g.fill(); g.stroke();
@@ -1041,7 +1055,9 @@ function oreVeins(cx, cz) {
   // 钻石：设计目标 = 铁的 1/10。铁 10 条/区块 × 平均 4.5 块 = 45 块/区块；
   // 钻石 1 条/区块 × 平均 4 块 = 4 块/区块（只在 y<10）。深层洞穴少、留存率高，
   // 所以名义给 11:1，实测（200 区块）落在 9.5~10:1。
-  vein(6, 39, 3, 16, 42);        // 铜：6 条/区块，中浅层（参数顺序：数量, 方块id, 大小, yMin, yMax）
+  // 铜：石→铜→铁的中间档，出现频率要和铁接近（约 6:5），否则新人根本凑不齐第一把铜镐。
+  // 实测（169 区块）：vein(6,39,3,16,42) 只有铁的 41%（1748 vs 4247 块）→ 提到 10 条、size 4、y12~44。
+  vein(10, 39, 4, 12, 44);       // 铜：10 条/区块，中浅层（参数顺序：数量, 方块id, 大小, yMin, yMax）
   vein(1, 20, 3, 3, 10, 0.85);   // 钻石：85% 的区块有一条（y<10）；实测块数 ≈ 铁的 1/10（9~10:1）
   veinCache.set(key, out);
   return out;
@@ -1237,6 +1253,37 @@ function genChunk(cx, cz) {
     const i = (y * CH + z) * CH + x;
     if (b[i] !== 5) continue;
     if (b[((y - 1) * CH + z) * CH + x] === 0) b[i] = 0;
+  }
+  /* ── 半张床修复：床是「脚格 + 头格」两格方块。结构生成时只写了一格，或者另一半被相邻结构/自己的
+     挖空（carve）清掉，玩家就会看到「床只有半个」。这里在区块数据定稿前把缺的那格补回来。
+     ⚠ 只碰本区块内的空格，绝不调用 getBlock/getChunk —— 生成期跨区块取方块会 getChunk↔getBlock
+     互相递归 ⇒ RangeError: Maximum call stack size exceeded（而且只在走到那片区域时才崩）。 */
+  {
+    const metaOf = (lx, yy, lz) => getMeta(ox + lx, yy, oz + lz);
+    const solidBelow = v => v !== 0 && v !== 5 && v !== 22 && !(BLOCKS[v] && BLOCKS[v].cross);
+    const OFF = [[1, 0], [-1, 0], [0, 1], [0, -1]];           // dir1=+X dir2=-X dir3=+Z dir4=-Z（脚→头）
+    for (let y = 1; y < WH - 1; y++) for (let lz = 0; lz < CH; lz++) for (let lx = 0; lx < CH; lx++) {
+      if (b[(y * CH + lz) * CH + lx] !== 14) continue;
+      const m = metaOf(lx, y, lz);
+      const head = m > 4, dir0 = head ? m - 4 : m;
+      let d = dir0;
+      if (!d) {                                              // meta 0（旧存档）：按同伴推断朝向
+        d = 3;
+        for (let k = 0; k < 4; k++) {
+          const ax = lx + OFF[k][0], az = lz + OFF[k][1];
+          if (ax < 0 || ax >= CH || az < 0 || az >= CH) continue;
+          if (b[(y * CH + az) * CH + ax] === 14) { d = k + 1; break; }
+        }
+      }
+      const sgn = head ? -1 : 1;                              // 头格 → 脚在反方向；脚格 → 头在 dir 方向
+      const tx = lx + OFF[d - 1][0] * sgn, tz = lz + OFF[d - 1][1] * sgn;
+      if (tx < 0 || tx >= CH || tz < 0 || tz >= CH) continue;  // 跨区块的交给对面那个区块去修
+      const ti = (y * CH + tz) * CH + tx;
+      if (b[ti] !== 0) continue;                               // 那里有东西 / 本来就是床：不动
+      if (!solidBelow(b[((y - 1) * CH + tz) * CH + tx])) continue;
+      b[ti] = 14;
+      setMeta(ox + tx, y, oz + tz, head ? d : d + 4, true);
+    }
   }
   return b;
 }
@@ -1741,6 +1788,9 @@ function doorGeometry(dir) {
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
   geo.setIndex(I);
+  // ⚠ 门是独立 Mesh（不跟着区块一起烘焙），用的是受光的 MeshLambertMaterial：
+  // 没有 normal 属性时 NdotL 恒为 0 ⇒ 整扇门渲染成纯黑方块。法线必须在 setIndex 之后算。
+  geo.computeVertexNormals();
   geo.computeBoundingSphere();
   geo.userData.shared = true;
   doorGeoCache.set(dir, geo);
@@ -1753,7 +1803,9 @@ function ensureDoorObj(d) {
   let o = doorObjs.get(key);
   if (!o) {
     const g = new THREE.Group();
-    g.add(new THREE.Mesh(doorGeometry(d.dir), solidMat));
+    const dm = new THREE.Mesh(doorGeometry(d.dir), solidMat);
+    dm.castShadow = true; dm.receiveShadow = true;         // 和区块网格一致：门也挡光/吃光
+    g.add(dm);
     g.position.set(d.x + dd.hx, d.y, d.z + dd.hz);
     g.rotation.y = openNow ? dd.a : 0;
     scene.add(g);
@@ -2106,9 +2158,10 @@ function makeToolModel(id) {
   const stoneM = new THREE.MeshLambertMaterial({ color: 0xa9a9a9 });
   const stoneD = new THREE.MeshLambertMaterial({ color: 0x8b8b8b });
   const ironM = new THREE.MeshLambertMaterial({ color: 0xd9dee5 });
+  const copM = new THREE.MeshLambertMaterial({ color: 0xd98b4a });    // 铜：石与铁之间的中间档
   const diaM = new THREE.MeshLambertMaterial({ color: 0x5fe6d8 });
-  if (id === 100 || id === 101 || id === 120 || id === 130) {  // 镐
-    const head = id === 130 ? diaM : id === 101 ? stoneM : id === 120 ? ironM : wood;
+  if (id === 100 || id === 101 || id === 120 || id === 130 || id === 163) {  // 镐
+    const head = id === 130 ? diaM : id === 163 ? copM : id === 101 ? stoneM : id === 120 ? ironM : wood;
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.52, 0.042), woodDark);
     handle.position.y = -0.1;
     const bar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.085, 0.075), head);
@@ -2120,8 +2173,8 @@ function makeToolModel(id) {
     tipR.position.set(0.19, 0.13, 0);
     tipR.rotation.z = 0.42;
     g.add(handle, bar, tipL, tipR);
-  } else if (id === 102 || id === 103 || id === 121 || id === 131 || id === 149) {       // 剑
-    const bladeMat = id === 131 ? diaM : id === 149 ? new THREE.MeshLambertMaterial({ color: 0xefe9d8 }) : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
+  } else if (id === 102 || id === 103 || id === 121 || id === 131 || id === 149 || id === 164) {       // 剑
+    const bladeMat = id === 131 ? diaM : id === 164 ? copM : id === 149 ? new THREE.MeshLambertMaterial({ color: 0xefe9d8 }) : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.44, 0.018), bladeMat);
     blade.position.y = 0.3;
     const tip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.018), bladeMat);
@@ -2137,8 +2190,8 @@ function makeToolModel(id) {
     const s = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.44, 0.032), wood);
     s.position.y = 0.12;
     g.add(s);
-  } else if (id === 158 || id === 159 || id === 160) {   // 锄头
-    const headMat = id === 159 ? stoneM : id === 160 ? ironM : wood;
+  } else if (id === 158 || id === 159 || id === 160 || id === 165) {   // 锄头
+    const headMat = id === 159 ? stoneM : id === 165 ? copM : id === 160 ? ironM : wood;
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, 0.04), woodDark);
     handle.position.y = -0.08;
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.07, 0.07), headMat);
@@ -2172,6 +2225,12 @@ function makeToolModel(id) {
     const a = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.07, 0.1), ironM);
     a.position.y = 0.1;
     const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.055, 0.088), new THREE.MeshLambertMaterial({ color: 0xeff4f9 }));
+    b2.position.y = 0.15;
+    g.add(a, b2);
+  } else if (id === 162) {                     // 铜锭（橙铜色，和铁锭同造型免得手里是空的）
+    const a = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.07, 0.1), copM);
+    a.position.y = 0.1;
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.055, 0.088), new THREE.MeshLambertMaterial({ color: 0xeaa96a }));
     b2.position.y = 0.15;
     g.add(a, b2);
   } else if (id === 107) {                     // 小麦
@@ -2214,6 +2273,7 @@ const HOLD_POSE = {
   pick: { rx: -0.32, ry: 0.95, rz: 0.36, py: 0.07, pz: -0.12, s: 0.95 },
   sword: { rx: -0.5, ry: 0.45, rz: -0.15, py: 0.07, pz: -0.12, s: 0.92 },
   mat: { rx: -0.45, ry: 0.45, rz: -0.25, py: 0.06, pz: -0.1, s: 0.95 },
+  hoe: { rx: -0.3, ry: 0.9, rz: 0.3, py: 0.07, pz: -0.12, s: 0.95 },
   food: { rx: 0.1, ry: 0.45, rz: 0.18, py: 0.06, pz: -0.1, s: 1.0 },
 };
 function refreshHeld() {
@@ -2253,7 +2313,7 @@ function refreshHeld() {
     kind = 'block';
     const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
     heldMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
-  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'mat' || it.kind === 'food')) {
+  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'hoe' || it.kind === 'mat' || it.kind === 'food')) {
     kind = it.kind;
     heldMesh = makeToolModel(id);
   }
@@ -2863,16 +2923,8 @@ function myCabinFor(cellX, cellZ) {
     const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
     const data = cabinData();
     const W = 10, H = 9, D = 10;
-    const fixMeta = (baseY) => {
-      for (const [x, y, z, id] of data) {
-        if (id === 35) {
-          const above = data.some(q => q[0] === x && q[1] === y + 1 && q[2] === z && q[3] === 35);
-          put(cx + x, baseY + y, cz + z, 35, above ? (1 | 8) : 1);
-        } else if (id === 14) {
-          put(cx + x, baseY + y, cz + z, 14, 1);
-        }
-      }
-    };
+    // ⚠ 这里原来有个从未被调用的 fixMeta()：它会把每张床的 meta 一律写成 1（= 六亲不认的脚格），
+    // 反而把 CABIN_BLOCKS 里正确的「脚格 3 / 头格 7」抹掉。床的两格 meta 由数据自带，别再二次修正。
     if (plain) {                                              // 平原：贴地盖
       let mn = 999, mx = -999;
       for (let dx = -1; dx <= W; dx += 3) for (let dz = -1; dz <= D; dz += 3) {
@@ -3103,7 +3155,14 @@ function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
   put(hx, gy + h + 2 + d, hz, log);
   const bx = hx + (rnd() < 0.5 ? -w + 1 : w - 1), bz = hz + (rnd() < 0.5 ? -d + 1 : d - 1);
   put(bx, gy + 1, bz, 18);                                                                    // 屋内箱子
-  if (rnd() < 0.5) put(bx + (bx > hx ? -1 : 1), gy + 1, bz, 14, 7);                          // 有时放张床（7 = 床头，带枕头）
+  if (rnd() < 0.5) {                                       // 有时放张床：脚 + 头【两格必须成对】
+    // ⚠ 以前只 put 一个 meta=7 的头格 ⇒ 床只有半个（没有脚格，躺不下/看着像断的）。
+    // 床轴沿 Z：脚格在头格 -Z 侧（dir 3 = 脚→头朝 +Z），两格都留在室内。
+    const mbx = bx > hx ? bx - 1 : bx + 1;
+    const hbz = Math.max(hz - d + 2, Math.min(hz + d - 1, bz));
+    put(mbx, gy + 1, hbz - 1, 14, 3);                      // 脚格（无枕头）
+    put(mbx, gy + 1, hbz, 14, 7);                          // 头格（枕头）
+  }
   put(hx + w - 1, gy + 2, hz + d - 1, 38);                                                    // 屋内角落火把
 }
 
@@ -3246,10 +3305,12 @@ function chestSlots(x, y, z) {
 let openChestPos = null, cursor = null;          // cursor = 手上正在搬运的那一堆
 function openChest(x, y, z) {
   if (panelOpen) openPanel(false);           // 两个界面不要叠在一起
+  if (furnaceOpen) closeFurnace();
   openChestPos = { x, y, z };
   chestSlots(x, y, z);
   $('chestPanel').classList.remove('hide');
   renderChest();
+  syncPointerLock();                         // 放开光标：箱子里搬运物品要能随便移鼠标
   sfx('craft');
   return true;
 }
@@ -3261,6 +3322,7 @@ function closeChest() {
   openChestPos = null;
   $('chestPanel').classList.add('hide');
   renderHotbar(); refreshHeld(); saveSoon();
+  syncPointerLock();                         // 箱子关掉 → 重新锁定回第一人称
 }
 function afterSlotChange() {
   renderHotbar(); refreshHeld();
@@ -4755,6 +4817,14 @@ const RECIPES = [
   { out: 101, n: 1, need: { 9: 3, 104: 2 }, tier: 1 },
   { out: 102, n: 1, need: { 8: 2, 104: 1 }, tier: 1 },
   { out: 103, n: 1, need: { 9: 2, 104: 1 }, tier: 1 },
+  // ── 铜器：石 → 铜 → 铁的中间档（铜镐够格挖铁矿，钻石矿仍要铁镐）──
+  { out: 163, n: 1, need: { 162: 3, 104: 2 }, tier: 1 },
+  { out: 164, n: 1, need: { 162: 2, 104: 1 }, tier: 1 },
+  { out: 165, n: 1, need: { 162: 2, 104: 2 }, tier: 1 },
+  { out: 166, n: 1, need: { 162: 4 }, tier: 1 },
+  { out: 167, n: 1, need: { 162: 6 }, tier: 1 },
+  { out: 168, n: 1, need: { 162: 5 }, tier: 1 },
+  { out: 169, n: 1, need: { 162: 3 }, tier: 1 },
   { out: 120, n: 1, need: { 106: 3, 104: 2 }, tier: 1 },
   { out: 121, n: 1, need: { 106: 2, 104: 1 }, tier: 1 },
   { out: 110, n: 1, need: { 106: 5 }, tier: 1 },
@@ -4902,21 +4972,24 @@ function renderFurnace() {
   }
 }
 function openFurnace() {
-  if (document.pointerLockElement) document.exitPointerLock();     // 否则鼠标被锁住，面板点不动
+  if (panelOpen) openPanel(false);
+  if (openChestPos) closeChest();
+  furnaceOpen = true;
   renderFurnace(); $('furnace').classList.remove('hide');
+  syncPointerLock();                                                // 放开光标，熔炉列表才点得动
 }
 function closeFurnace() {
+  furnaceOpen = false;
   $('furnace').classList.add('hide');
-  if (started && !panelOpen && renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
+  syncPointerLock();
 }
 function openPanel(open) {
   if (open && openChestPos) closeChest();
+  if (open && furnaceOpen) closeFurnace();
   panelOpen = open;
   hud.panel.classList.toggle('hide', !open);
-  if (open) {
-    renderInventoryPanel();
-    if (document.pointerLockElement) document.exitPointerLock();
-  } else if (started) lockPointer();
+  if (open) renderInventoryPanel();
+  syncPointerLock();
 }
 
 /* ============================================================ 输入 */
@@ -4929,6 +5002,22 @@ function lockPointer() {
   const el = renderer.domElement;
   if (el.requestPointerLock) { try { const r = el.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
 }
+/* ── 有自己界面的方块（熔炉 / 箱子 / 背包）打开时，鼠标必须像在背包里一样自由 ──
+   指针锁会把光标钉住，面板就点不动。所以统一走这里：
+   ① 任何界面打开 → exitPointerLock（光标出现，可以随便移）
+   ② 界面全部关掉 → 重新锁定回第一人称视角
+   判据只放在这一个函数里，新加界面只要调 syncPointerLock() 就自动生效。 */
+let furnaceOpen = false;
+function uiOpen() {
+  return panelOpen || !!openChestPos || furnaceOpen || !$('furnace').classList.contains('hide');
+}
+function syncPointerLock() {
+  if (!started) return;
+  if (uiOpen()) {
+    if (document.pointerLockElement) document.exitPointerLock();
+    dragLook = false; mineHeld = false; placeHeld = false;
+  } else lockPointer();
+}
 addEventListener('keydown', e => {
   const k = e.code;
   if (captureAction) {                             // 正在改键：吃掉这次按键
@@ -4938,7 +5027,7 @@ addEventListener('keydown', e => {
     return;
   }
   keys.add(k);
-  if (started && !panelOpen && player.alive) {
+  if (started && !uiOpen() && player.alive) {
     if (k === keymap.mine) { mineHeld = true; attackQueued = true; }
     if (k === keymap.place) placeQueued = true;
     if (k === 'KeyV') setStructCorner('a');                       // 创作者：选角点1
@@ -4972,13 +5061,13 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('wheel', e => {
-  if (!started || panelOpen) return;
+  if (!started || uiOpen()) return;
   player.sel = (player.sel + (e.deltaY > 0 ? 1 : -1) + 9) % 9;
   refreshHeld(); renderHotbar();
 }, { passive: true });
 
 renderer.domElement.addEventListener('mousedown', e => {
-  if (!started || panelOpen || !player.alive) return;
+  if (!started || uiOpen() || !player.alive) return;
   if (document.pointerLockElement !== renderer.domElement) {
     if (userCfg.touchUI && e.button === 0) { dragLook = true; return; }   // 无指针锁：鼠标拖拽转视角
     lockPointer(); return;
@@ -4991,7 +5080,7 @@ addEventListener('mouseup', e => { if (e.button === 0) { mineHeld = false; dragL
 addEventListener('contextmenu', e => e.preventDefault());
 let dragLook = false;
 addEventListener('mousemove', e => {
-  if (!started || panelOpen) return;
+  if (!started || uiOpen()) return;
   const sens = userCfg.sens;
   if (document.pointerLockElement === renderer.domElement) {
     player.yaw -= e.movementX * 0.0023 * sens;
@@ -5048,8 +5137,8 @@ function bindHold(el, down, up) {
   el.addEventListener('mousedown', e => { down(); e.preventDefault(); });
   el.addEventListener('mouseup', () => up && up());
 }
-bindHold($('tMine'), () => { if (!panelOpen && player.alive) { mineHeld = true; attackQueued = true; } }, () => { mineHeld = false; });
-bindHold($('tPlace'), () => { if (!panelOpen && player.alive) placeQueued = true; });
+bindHold($('tMine'), () => { if (!uiOpen() && player.alive) { mineHeld = true; attackQueued = true; } }, () => { mineHeld = false; });
+bindHold($('tPlace'), () => { if (!uiOpen() && player.alive) placeQueued = true; });
 bindHold($('tJump'), () => { jumpQueued = true; jumpTouchT = performance.now(); });
 $('tBag').addEventListener('click', () => openPanel(!panelOpen));
 
@@ -5182,7 +5271,7 @@ function breakBlock(t) {
   if (def.leaf) { if (Math.random() < 0.12) dropAt(105, 1); }
   else if (def.drop) {
     const ironPick = inv.some(s => s && (s.id === 120 || s.id === 130));
-    const stonePick = inv.some(s => s && (s.id === 101 || s.id === 120 || s.id === 130));
+    const stonePick = inv.some(s => s && (s.id === 101 || s.id === 120 || s.id === 130 || s.id === 163));
     if (def.ironPick && !ironPick) toast('钻石矿要用铁镐（或钻石镐）才能挖', 2.0);
     else if (def.stonePick && !stonePick) toast('铁矿需要石镐或更好才能采集', 1.8);
     else if (def.pick && heldKind() !== 'pick') toast('石头需要镐才能采集', 1.8);
@@ -5484,7 +5573,7 @@ function eatStop(commit) {
 function updateEat(dt) {
   const h = held();
   const isFood = !!(h && ITEMS[h.id] && ITEMS[h.id].kind === 'food');
-  const canEat = started && player.alive && !panelOpen && isFood && player.hunger < 20;
+  const canEat = started && player.alive && !uiOpen() && isFood && player.hunger < 20;
   const holding = !!(keys.has(keymap.place) || placeHeld);
   if (canEat && holding) {
     if (!eatState.on || eatState.id !== h.id) { eatState.on = true; eatState.t = 0; eatState.bites = 0; eatState.id = h.id; }
@@ -6211,12 +6300,12 @@ window.GAME = {
   heightAt, n3, caveCarve,
     oreVeins,
     oreStats() {                                     // 统计已加载区块里的矿石分布
-      const cnt = { 13: 0, 15: 0, 20: 0 }, ys = { 13: [99, 0], 15: [99, 0], 20: [99, 0] };
+      const cnt = { 13: 0, 15: 0, 39: 0, 20: 0 }, ys = { 13: [99, 0], 15: [99, 0], 39: [99, 0], 20: [99, 0] };
       for (const ch of chunks.values()) {
         const b = ch.blocks, CH = CFG.CH, WH = CFG.WH;
         for (let y = 0; y < WH; y++) for (let i = 0; i < CH * CH; i++) {
           const id = b[(y * CH * CH) + i];
-          if (id !== 13 && id !== 15 && id !== 20) continue;
+          if (id !== 13 && id !== 15 && id !== 39 && id !== 20) continue;
           cnt[id]++;
           if (y < ys[id][0]) ys[id][0] = y;
           if (y > ys[id][1]) ys[id][1] = y;
