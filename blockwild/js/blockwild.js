@@ -8016,7 +8016,7 @@ window.GAME = {
     method: 'POST', headers: { 'content-type': 'text/plain' },
     body: JSON.stringify({ a: 'join', code: net.code, pid: net.id, name: net.nick, x: 0, z: 0, r: 128 }),
   }).then(r => r.json()).then(d => {
-    if (!d.ok) { net.active = false; toast('联机进服失败：' + (d.e || '?'), 5); return; }
+    if (!d.ok) { net.active = false; toast('联机进服失败：' + (d.e || '?'), 5); if (window.__bwWireEntry) window.__bwWireEntry(); return; }
     net.isHost = !!d.isHost;
     const w = { id: 'mp_' + net.code, name: '联机 ' + net.code, seed: d.seed | 0, mode: 'survival' };
     startGame(w);
@@ -8028,7 +8028,11 @@ window.GAME = {
     if (typeof d.time === 'number') worldTime = d.time;
     connect();
     toast(`联机「${net.code}」· ${net.isHost ? '你是主机' : '已加入'} · 玩家 ${(d.players || []).length}`, 4);   // join 返回的列表已包含自己
-  }).catch(e => { net.active = false; toast('联机服务器连不上：' + e.message, 6); });
+  }).catch(e => {
+    net.active = false;
+    toast('联机服务器连不上：' + e.message, 6);
+    if (window.__bwWireEntry) window.__bwWireEntry();       // 连不上 → 退回单机入口，别让按钮点了没反应
+  });
 
   const btnFR = document.getElementById('btnFriends');
   /* ---------------- 好友 / 申请加入 ---------------- */
@@ -8138,8 +8142,16 @@ window.GAME = {
 
   window.NET = net;
   if (btnFR) btnFR.style.display = '';
+  // ★ 这里以前是 `mpBtn.style.display = 'none'`，但它在 IIFE 里同步执行 —— 只要 URL 带 ?mp=1
+  //   （哪怕联机服务器根本连不上、人还停在开始界面），这个按钮就会「闪一下就消失」。
+  //   改成：不隐藏，只在联机失败时让它变成「退回单机」的出口。
   const mpBtn = document.getElementById('btnMP');
-  if (mpBtn) mpBtn.style.display = 'none';      // 已经在联机里，开始界面不需要第二个入口
+  if (mpBtn) {
+    mpBtn.onclick = () => {
+      if (net.active) { toast('已经在联机里了', 2); return; }
+      location.href = location.pathname;          // 联机没连上 → 退回单机（去掉 ?mp）
+    };
+  }
 
 
 
@@ -8165,8 +8177,6 @@ window.GAME = {
 (function wireFriendsEntry() {
   const btn = document.getElementById('btnFriends');
   if (!btn) return;
-  if (NET && NET.active) return;                     // 联机模式由 bootNet 接管
-  btn.style.display = '';
   let panel = null, open = false;
   const defNick = (() => { try { return localStorage.getItem('bw_nick') || ''; } catch (e) { return ''; } })();
   function build() {
@@ -8202,9 +8212,15 @@ window.GAME = {
     };
   }
   const toggle = () => { if (!panel) build(); open = !open; panel.style.display = open ? 'block' : 'none'; };
-  btn.onclick = toggle;                                    // 游戏内右上角「好友」
-  const startBtn = document.getElementById('btnMP');       // 开始界面「🌐 联机」
-  if (startBtn) startBtn.onclick = toggle;
+  const init = () => {                                     // 单机（或联机失败）时把入口接上
+    btn.style.display = '';
+    btn.onclick = toggle;                                  // 游戏内右上角「好友」
+    const startBtn = document.getElementById('btnMP');     // 开始界面「🌐 联机」
+    if (startBtn) startBtn.onclick = toggle;
+  };
+  window.__bwWireEntry = init;
+  if (NET && NET.active) return;                            // 联机正常：顶部好友面板由 bootNet 接管
+  init();
 })();
 
 requestAnimationFrame(frame);
