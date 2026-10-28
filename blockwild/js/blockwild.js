@@ -369,7 +369,14 @@ const ITEMS = {
   175: { name: '传送块', kind: 'mat' },
   176: { name: '冥火碎片', kind: 'mat' },
   177: { name: '冥界碳', kind: 'mat' },
-  178: { name: '钢锭', kind: 'mat' },
+  178: { name: '冥界钢', kind: 'mat' },
+  // ── 冥界钢装备：比钻石强一档（MC 下界合金的定位） ──
+  179: { name: '冥界钢剑', kind: 'sword', dmg: 16, dur: 2031 },
+  180: { name: '冥界钢头盔', kind: 'armor', slot: 'head', ap: 4 },
+  181: { name: '冥界钢胸甲', kind: 'armor', slot: 'chest', ap: 9 },
+  182: { name: '冥界钢护腿', kind: 'armor', slot: 'legs', ap: 7 },
+  183: { name: '冥界钢靴', kind: 'armor', slot: 'feet', ap: 4 },
+  184: { name: '冥界钢镐', kind: 'pick', fast: 4.2, dur: 2031 },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -948,13 +955,13 @@ function iconURL(id) {
     g.fillStyle = '#effffd';
     g.beginPath(); g.moveTo(16, 7); g.lineTo(23, 13); g.lineTo(16, 13); g.closePath(); g.fill();
   } else if (ITEMS[id] && ITEMS[id].kind === 'pick') { // 镐
-    const metal = id === 130 ? '#5fe6d8' : id === 163 ? '#d98b4a' : id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
+    const metal = id === 184 ? '#6b5f52' : id === 130 ? '#5fe6d8' : id === 163 ? '#d98b4a' : id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
     g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
     g.beginPath(); g.moveTo(9, 27); g.lineTo(21, 12); g.stroke();
     g.strokeStyle = metal; g.lineWidth = 5;
     g.beginPath(); g.moveTo(9, 9); g.quadraticCurveTo(20, 5, 27, 13); g.stroke();
   } else if (ITEMS[id] && ITEMS[id].kind === 'sword') { // 剑
-    const metal = id === 131 ? '#5fe6d8' : id === 164 ? '#d98b4a' : id === 149 ? '#efe9d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
+    const metal = id === 179 ? '#6b5f52' : id === 131 ? '#5fe6d8' : id === 164 ? '#d98b4a' : id === 149 ? '#efe9d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
     g.strokeStyle = metal; g.lineWidth = 5; g.lineCap = 'round';
     g.beginPath(); g.moveTo(10, 25); g.lineTo(24, 7); g.stroke();
     g.strokeStyle = '#8d6534'; g.lineWidth = 4;
@@ -1003,11 +1010,12 @@ function iconURL(id) {
     g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
     g.fillStyle = '#eaa96a'; g.fillRect(13, 15, 6, 2);
   } else if (ITEMS[id] && ITEMS[id].kind === 'armor') { // 盔甲
-    const wood = id >= 171;                         // 木护甲 171~174：木色（最弱的一套）
-    const cop = id >= 166 && id <= 169;             // 铜护甲 166~169：铜橙色（别落进 >=132 的钻石分支）
-    const dia = id >= 132 && !cop && !wood;
-    const steel = dia ? '#5fe6d8' : cop ? '#d98b4a' : wood ? '#c0955a' : '#d3dae2',
-          dark = dia ? '#2fa89c' : cop ? '#8a5525' : wood ? '#7a5527' : '#8c98a6';
+    const nether = id >= 180 && id <= 183;          // 冥界钢护甲 180~183：黑铁色
+    const wood = id >= 171 && id <= 174;            // 木护甲：木色（最弱的一套）
+    const cop = id >= 166 && id <= 169;             // 铜护甲：铜橙色
+    const dia = id >= 132 && !cop && !wood && !nether;
+    const steel = dia ? '#5fe6d8' : nether ? '#6b5f52' : cop ? '#d98b4a' : wood ? '#c0955a' : '#d3dae2',
+          dark = dia ? '#2fa89c' : nether ? '#2f2a26' : cop ? '#8a5525' : wood ? '#7a5527' : '#8c98a6';
     g.fillStyle = steel; g.strokeStyle = dark; g.lineWidth = 2;
     if (ITEMS[id].slot === 'head') {                 // 头盔
       g.beginPath(); g.arc(16, 17, 9, Math.PI, 0); g.lineTo(25, 21); g.lineTo(7, 21); g.closePath(); g.fill(); g.stroke();
@@ -1245,7 +1253,7 @@ function genNetherChunk(cx, cz) {
       if (!netherSolid(wx, y, wz)) continue;
       const i = idx(lx, y, lz);
       b[i] = 43;                                                            // 冥界岩
-      if (y > NETHER_LAVA_Y && y <= 52 && h3(wx * 3, y * 7 + 1, wz * 3) > 0.972) b[i] = 46;   // 冥界碳矿
+      if (y > NETHER_LAVA_Y && y <= 52 && h3(wx * 3, y * 7 + 1, wz * 3) > 0.9945) b[i] = 46;  // 冥界碳矿（稀有：约 0.55% 的岩体）
     }
     // 灵魂沙滩：任何「露天顶面」的冥界岩（低处更容易，形成 MC 那种灵魂沙谷）
     for (let y = NETHER_LAVA_Y + 1; y <= NETHER_LAVA_Y + 14; y++) {
@@ -2360,9 +2368,10 @@ function makeToolModel(id) {
   const stoneD = new THREE.MeshLambertMaterial({ color: 0x8b8b8b });
   const ironM = new THREE.MeshLambertMaterial({ color: 0xd9dee5 });
   const copM = new THREE.MeshLambertMaterial({ color: 0xd98b4a });    // 铜：石与铁之间的中间档
+  const netherM = new THREE.MeshLambertMaterial({ color: 0x6b5f52 });  // 冥界钢：比钻石更强的一档
   const diaM = new THREE.MeshLambertMaterial({ color: 0x5fe6d8 });
-  if (id === 100 || id === 101 || id === 120 || id === 130 || id === 163) {  // 镐
-    const head = id === 130 ? diaM : id === 163 ? copM : id === 101 ? stoneM : id === 120 ? ironM : wood;
+  if (id === 100 || id === 101 || id === 120 || id === 130 || id === 163 || id === 184) {  // 镐
+    const head = id === 184 ? netherM : id === 130 ? diaM : id === 163 ? copM : id === 101 ? stoneM : id === 120 ? ironM : wood;
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.52, 0.042), woodDark);
     handle.position.y = -0.1;
     const bar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.085, 0.075), head);
@@ -2374,8 +2383,8 @@ function makeToolModel(id) {
     tipR.position.set(0.19, 0.13, 0);
     tipR.rotation.z = 0.42;
     g.add(handle, bar, tipL, tipR);
-  } else if (id === 102 || id === 103 || id === 121 || id === 131 || id === 149 || id === 164) {       // 剑
-    const bladeMat = id === 131 ? diaM : id === 164 ? copM : id === 149 ? new THREE.MeshLambertMaterial({ color: 0xefe9d8 }) : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
+  } else if (id === 102 || id === 103 || id === 121 || id === 131 || id === 149 || id === 164 || id === 179) {       // 剑
+    const bladeMat = id === 179 ? netherM : id === 131 ? diaM : id === 164 ? copM : id === 149 ? new THREE.MeshLambertMaterial({ color: 0xefe9d8 }) : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.44, 0.018), bladeMat);
     blade.position.y = 0.3;
     const tip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.018), bladeMat);
@@ -5236,6 +5245,13 @@ const RECIPES = [
   { out: 175, n: 1, need: { 155: 4, 106: 2, 22: 1 }, tier: 1 },
   // 液压机：钻石 + 铁（把 冥界碳 + 铁 压成 钢）
   { out: 47, n: 1, need: { 125: 3, 106: 6 }, tier: 1 },
+  // 冥界钢装备（材料来自液压机：冥界碳 + 铁 → 冥界钢）
+  { out: 179, n: 1, need: { 178: 2, 104: 1 }, tier: 1 },      // 冥界钢剑：16 伤害（钻石 13）
+  { out: 184, n: 1, need: { 178: 3, 104: 2 }, tier: 1 },      // 冥界钢镐：速度 4.2（钻石 3.4）
+  { out: 180, n: 1, need: { 178: 5 }, tier: 1 },              // 冥界钢头盔
+  { out: 181, n: 1, need: { 178: 8 }, tier: 1 },              // 冥界钢胸甲
+  { out: 182, n: 1, need: { 178: 7 }, tier: 1 },              // 冥界钢护腿
+  { out: 183, n: 1, need: { 178: 4 }, tier: 1 },              // 冥界钢靴
   { out: 120, n: 1, need: { 106: 3, 104: 2 }, tier: 1 },
   { out: 121, n: 1, need: { 106: 2, 104: 1 }, tier: 1 },
   { out: 110, n: 1, need: { 106: 5 }, tier: 1 },
@@ -5456,15 +5472,15 @@ function pressBatch(n) {
   takeItem(177, k); takeItem(106, k * 2); addItem(178, k);
   sfx('craft');
   renderHotbar(); refreshHeld(); renderPress(); saveSoon();
-  toast(`液压机压下：${k} 份 → 钢锭 ×${k}（现有 ${countOf(178)}）`, 1.8);
+  toast(`液压机压下：${k} 份 → 冥界钢 ×${k}（现有 ${countOf(178)}）`, 1.8);
   return k;
 }
 function renderPress() {
   const el = $('pressInfo');
   if (!el) return;
   const can = pressCan();
-  el.innerHTML = `冥界碳 <b style="color:#f5c451">${countOf(177)}</b> · 铁锭 <b style="color:#f5c451">${countOf(106)}</b> · 钢锭 <b style="color:#f5c451">${countOf(178)}</b>`
-    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">可压制 ${can} 次（每次 冥界碳 1 + 铁锭 2 → 钢锭 1）</div>`;
+  el.innerHTML = `冥界碳 <b style="color:#f5c451">${countOf(177)}</b> · 铁锭 <b style="color:#f5c451">${countOf(106)}</b> · 冥界钢 <b style="color:#f5c451">${countOf(178)}</b>`
+    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">可压制 ${can} 次（每次 冥界碳 1 + 铁锭 2 → 冥界钢 1）</div>`;
   const one = $('pressOne'), all = $('pressAll');
   if (one) one.disabled = can < 1;
   if (all) all.disabled = can < 1;
