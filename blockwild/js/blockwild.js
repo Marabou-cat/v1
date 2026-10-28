@@ -4571,7 +4571,10 @@ function killMob(m) {
   scene.remove(m.obj);
   m.obj.traverse(o => {
     if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
-    if (o.material) { if (Array.isArray(o.material)) o.material.forEach(x => x.dispose()); else o.material.dispose(); }
+    if (o.material) {
+      const arr = Array.isArray(o.material) ? o.material : [o.material];
+      for (const mt of arr) if (!mt.userData || !mt.userData.shared) mt.dispose();   // 火焰贴片的材质是共享的
+    }
   });
 }
 function startMobDeath(m) {
@@ -4744,6 +4747,103 @@ function wakeUp(m) {
   if (m.mark) m.mark.visible = true;
 }
 
+/* ── 火焰特效贴片：会冒火的怪（日光灼烧 / 泡岩浆）身上挂 3 片 billboard 火焰，
+   玩家自己身上着火时在画面下缘也糊几片。纹理只做一次，材质共享（别在 killMob 里被 dispose）。 */
+let FLAME_TEX = null, FLAME_MAT = null;
+function flameTexture() {
+  if (FLAME_TEX) return FLAME_TEX;
+  const S = 32, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  const grad = g.createRadialGradient(S / 2, S * 0.66, 1, S / 2, S * 0.66, S * 0.5);
+  grad.addColorStop(0, 'rgba(255,255,225,0.95)');
+  grad.addColorStop(0.26, 'rgba(255,216,90,0.88)');
+  grad.addColorStop(0.58, 'rgba(255,124,24,0.55)');
+  grad.addColorStop(1, 'rgba(190,36,0,0)');
+  g.fillStyle = grad;
+  g.beginPath();                                       // 上尖下圆的火苗
+  g.moveTo(S / 2, 2);
+  g.bezierCurveTo(S * 0.94, S * 0.44, S * 0.86, S * 0.96, S / 2, S - 1);
+  g.bezierCurveTo(S * 0.14, S * 0.96, S * 0.06, S * 0.44, S / 2, 2);
+  g.closePath(); g.fill();
+  g.globalCompositeOperation = 'lighter';               // 中间再来一道亮芯
+  const core = g.createRadialGradient(S / 2, S * 0.72, 0.5, S / 2, S * 0.72, S * 0.22);
+  core.addColorStop(0, 'rgba(255,255,255,0.9)');
+  core.addColorStop(1, 'rgba(255,220,120,0)');
+  g.fillStyle = core;
+  g.fillRect(0, 0, S, S);
+  FLAME_TEX = new THREE.CanvasTexture(cv);
+  return FLAME_TEX;
+}
+function flameMaterial(ownOpacity) {
+  if (!FLAME_MAT) {
+    FLAME_MAT = new THREE.SpriteMaterial({
+      map: flameTexture(), transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    FLAME_MAT.userData.shared = true;                   // killMob 不许 dispose 它
+    FLAME_MAT.userData.flame = true;
+  }
+  return ownOpacity ? FLAME_MAT.clone() : FLAME_MAT;
+}
+function ensureMobFlames(m) {
+  if (m.fx) return m.fx;
+  const list = [];
+  for (let i = 0; i < 3; i++) {                         // 脚 / 腰 / 头
+    const sp = new THREE.Sprite(flameMaterial(false));
+    sp.position.set((Math.random() - 0.5) * 0.55, 0.4 + i * 0.42, (Math.random() - 0.5) * 0.45);
+    sp.userData.base = 0.42 + Math.random() * 0.22;
+    sp.userData.phase = Math.random() * 6.283;
+    sp.userData.y0 = sp.position.y;
+    sp.scale.setScalar(sp.userData.base);
+    m.obj.add(sp);
+    list.push(sp);
+  }
+  m.fx = list;
+  return list;
+}
+// 玩家自己身上的火：贴在画面下缘（handScene 是单独一个场景，用 handCam 渲染）
+const playerFlames = [];
+function ensurePlayerFlames() {
+  if (playerFlames.length) return playerFlames;
+  for (const [x, y, z, s] of [[-0.62, -0.52, -1.0, 0.55], [0.62, -0.5, -1.0, 0.5],
+                              [-0.28, -0.66, -1.15, 0.42], [0.3, -0.68, -1.12, 0.4]]) {
+    const sp = new THREE.Sprite(flameMaterial(true));
+    sp.position.set(x, y, z);
+    sp.userData.base = s;
+    sp.userData.phase = Math.random() * 6.283;
+    sp.scale.setScalar(s);
+    sp.visible = false;
+    handScene.add(sp);
+    playerFlames.push(sp);
+  }
+  return playerFlames;
+}
+function updateFlames(dt) {
+  const t = worldTime * 3 + performance.now() * 0.001;
+  for (const m of mobs) {
+    const list = m.fx;
+    if (!(m.burn > 0)) { if (list) for (const sp of list) sp.visible = false; continue; }
+    const l = list || ensureMobFlames(m);
+    for (const sp of l) {
+      sp.visible = true;
+      sp.scale.setScalar(sp.userData.base * (0.72 + 0.3 * Math.abs(Math.sin(t * 9 + sp.userData.phase))));
+      sp.position.y = sp.userData.y0 + 0.07 * Math.sin(t * 6 + sp.userData.phase);
+    }
+  }
+  if (player.burn > 0) {
+    const l = ensurePlayerFlames();
+    for (let i = 0; i < l.length; i++) {
+      const sp = l[i];
+      sp.visible = true;
+      const f = 0.7 + 0.42 * Math.abs(Math.sin(t * 8 + sp.userData.phase));
+      sp.scale.setScalar(sp.userData.base * f);
+      sp.position.y += Math.sin(t * 5 + i) * 0.0008;
+    }
+  } else if (playerFlames.length) {
+    for (const sp of playerFlames) sp.visible = false;
+  }
+}
 function updateMobs(dt) {
   const night = isNight();
   for (let i = mobs.length - 1; i >= 0; i--) {
@@ -4909,8 +5009,21 @@ function updateMobs(dt) {
       if (m.sunlit) {
         m.hp -= dt * 2.2;
         m.parts.bodyMat.emissive.setHex(0x552211);
+        m.burn = Math.max(m.burn || 0, 0.9);            // 冒火（贴片由 updateFlames 画）
         if (m.hp <= 0) { startMobDeath(m); continue; }
+      } else if (m.parts.bodyMat.emissive.getHex() === 0x552211) {
+        m.parts.bodyMat.emissive.setHex(0x000000);      // 进阴影里就灭火（原来这里忘了收）
       }
+    }
+    // 泡在岩浆里的怪：持续燃烧 + 掉血
+    if (getBlock(Math.floor(m.p.x), Math.floor(m.p.y + 0.3), Math.floor(m.p.z)) === 44) {
+      m.burn = Math.max(m.burn || 0, 2.0);
+      m.hp -= dt * 4;
+      if (m.hp <= 0) { startMobDeath(m); continue; }
+    }
+    if (m.burn > 0) {
+      m.burn -= dt;
+      m.parts.bodyMat.emissive.setHex(0x7a2200);        // 着火时身上带橙光
     }
     // 贴身攻击（所有敌对生物；骷髅是远程，只有贴脸才用近战）
     if (isCreative() && m.target === player) m.target = null;
@@ -6409,6 +6522,7 @@ function update(dt) {
   updateDrops(dt);
   // 水：每帧跑一点（限流），并每隔半秒把玩家附近的水"唤醒"一次（让瀑布/积水开始流动）
   updateWater(48);
+  updateFlames(dt);
   waterSeedT -= dt;
   if (waterSeedT <= 0) { waterSeedT = 0.5; seedWaterNear(); }
   growCrops(dt);
@@ -7376,6 +7490,15 @@ window.GAME = {
       return { chunks: chunksN, carbon: c, perChunk: chunksN ? +(c / chunksN).toFixed(1) : 0 };
     },
     dim: () => DIM,
+    burnState: () => ({ playerBurn: +(player.burn || 0).toFixed(2),
+                        burnFx: ($('burnFx') || {}).className || '',
+                        playerFlames: playerFlames.filter(s => s.visible).length,
+                        mobs: mobs.filter(m => m.burn > 0).map(m => ({
+                          kind: m.kind, burn: +m.burn.toFixed(2),
+                          sprites: (m.fx || []).filter(s => s.visible).length,
+                          emissive: m.parts.bodyMat.emissive.getHex().toString(16),
+                        })) }),
+    setMobBurn: (i, sec = 3) => { const m = mobs[i]; if (!m) return null; m.burn = sec; return m.kind; },
     fromPortal: () => player.fromPortal ? { ...player.fromPortal } : null,
     portalActiveAny: (wx, wz) => {                    // 当前维度里找这座门的核心并读激活状态
       const o = portalFor(Math.floor(wx / PT_CELL), Math.floor(wz / PT_CELL));
