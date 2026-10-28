@@ -7676,7 +7676,8 @@ window.GAME = {
   if (!base && q.has('mp')) base = 'http://' + location.hostname + ':9203';
   if (!base) return;                                   // 没带 ?net= / ?mp → 纯单机
   const world = (q.get('world') || 'W1').replace(/[^\w-]/g, '').slice(0, 12);
-  const nick = (q.get('nick') || ('P' + Math.random().toString(36).slice(2, 5))).slice(0, 14);
+  let nick = (q.get('nick') || localStorage.getItem('bw_nick') || ('P' + Math.random().toString(36).slice(2, 5))).slice(0, 14);
+  if (nick) { try { localStorage.setItem('bw_nick', nick); } catch (e) {} }
   const pid = (q.get('pid') || (world + '-' + nick)).slice(0, 24);
   const API = base.replace(/\/+$/, '');
   const WSURL = API.replace(/^http/, 'ws') + '/';
@@ -8029,6 +8030,7 @@ window.GAME = {
     toast(`联机「${net.code}」· ${net.isHost ? '你是主机' : '已加入'} · 玩家 ${(d.players || []).length}`, 4);   // join 返回的列表已包含自己
   }).catch(e => { net.active = false; toast('联机服务器连不上：' + e.message, 6); });
 
+  const btnFR = document.getElementById('btnFriends');
   /* ---------------- 好友 / 申请加入 ---------------- */
   const apiCall = (obj) => fetch(API + '/api', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(obj) }).then(r => r.json());
   let frPanel = null, frOpen = false, frReq = [], frForceOpen = false;
@@ -8135,6 +8137,53 @@ window.GAME = {
   setInterval(() => { if (frOpen) net.friendsPull(); }, 4000);  // 面板开着时刷列表
 
   window.NET = net;
+  if (btnFR) btnFR.style.display = '';
+
+/* ---------------- 好友入口（单机模式下也要看得见） ----------------
+ * 之前「好友」按钮只在 ?mp=1 时由联机层显示，直接用 www.schoolexams.net/blockwild/ 打开是看不到的。
+ * 现在单机模式也显示这个按钮，点开就是"好友 / 联机"入口：填昵称 → 探测服务器 → 进联机。 */
+(function wireFriendsEntry() {
+  const btn = document.getElementById('btnFriends');
+  if (!btn) return;
+  if (NET && NET.active) return;                     // 联机模式由 bootNet 接管
+  btn.style.display = '';
+  let panel = null, open = false;
+  const defNick = (() => { try { return localStorage.getItem('bw_nick') || ''; } catch (e) { return ''; } })();
+  function build() {
+    panel = document.createElement('div');
+    panel.id = 'mpEntry';
+    panel.style.cssText = 'position:fixed;right:10px;top:44px;z-index:40;width:300px;'
+      + 'font:12px/1.6 ui-monospace,monospace;color:#d8ecff;background:rgba(9,20,32,.94);'
+      + 'border:1px solid rgba(120,200,255,.35);border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.45)';
+    panel.innerHTML = '<b style="color:#8fe3ff">好友 / 联机</b>'
+      + '<div style="color:#8ea3ba;margin:6px 0 8px">当前是单机模式。联机要进同一个「世界代码」，进去了才有好友和申请加入。</div>'
+      + '<div style="display:flex;gap:6px"><input id="mpNick" maxlength="14" placeholder="你的昵称" value="' + defNick + '" '
+      + 'style="flex:1;min-width:0;background:#0e1a28;color:#d8ecff;border:1px solid #2a4a66;border-radius:6px;padding:4px 6px;font:12px ui-monospace,monospace">'
+      + '<button class="btn" id="mpGo" style="padding:3px 8px">进入联机</button></div>'
+      + '<div id="mpHint" style="font-size:11px;color:#7a8b9c;margin-top:6px">会先探测联机服务器能不能连上</div>';
+    document.body.appendChild(panel);
+    panel.querySelector('#mpGo').onclick = () => {
+      const el = panel.querySelector('#mpNick'), hint = panel.querySelector('#mpHint');
+      const nick2 = (el.value || '').trim() || ('P' + Math.random().toString(36).slice(2, 5));
+      try { localStorage.setItem('bw_nick', nick2); } catch (e) {}
+      const base = 'http://' + location.hostname + ':9203';
+      hint.style.color = '#8ea3ba'; hint.textContent = '正在探测 ' + base + ' …';
+      fetch(base + '/api', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ a: 'ping' }) })
+        .then(r => r.json()).then(d => {
+          if (!d.ok) throw new Error('probe');
+          hint.style.color = '#7ef0a0'; hint.textContent = '服务器在线，正在进入…';
+          setTimeout(() => { location.href = location.pathname + '?mp=1&nick=' + encodeURIComponent(nick2); }, 400);
+        }).catch(() => {
+          hint.style.color = '#ff9a6b';
+          hint.innerHTML = '连不上 <b>' + base + '</b><br>联机服务现在只监听局域网：'
+            + '<b>http://192.168.50.3:5802/blockwild/?mp=1</b><br>'
+            + '<span style="color:#7a8b9c">想在公网域名上用，需要给 Apache 加一条反代到 127.0.0.1:9203。</span>';
+        });
+    };
+  }
+  btn.onclick = () => { if (!panel) build(); open = !open; panel.style.display = open ? 'block' : 'none'; };
+})();
+
 
   // ★ 联机时关掉 GAME.debug：give/tp/setBlock/travel 都能被控制台随手调用，等于开挂按钮。
   //   注意这是「防手滑/防随手作弊」，真正的门槛在服务端（方块编辑校验）。?dev=1 只给我自己验收用。
