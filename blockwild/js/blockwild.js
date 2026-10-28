@@ -8141,6 +8141,24 @@ window.GAME = {
   const mpBtn = document.getElementById('btnMP');
   if (mpBtn) mpBtn.style.display = 'none';      // 已经在联机里，开始界面不需要第二个入口
 
+
+
+  // ★ 联机时关掉 GAME.debug：give/tp/setBlock/travel 都能被控制台随手调用，等于开挂按钮。
+  //   注意这是「防手滑/防随手作弊」，真正的门槛在服务端（方块编辑校验）。?dev=1 只给我自己验收用。
+  net.devOk = q.has('dev');
+  if (!net.devOk && window.GAME && window.GAME.debug) {
+    const stubbed = new Set(['give', 'tp', 'setBlock', 'travel', 'start', 'startCreative', 'startWorld',
+      'createWorld', 'clearInv', 'equip', 'fly', 'setHp', 'steps', 'killMobs', 'spawnKind', 'spawnAt',
+      'usePortal', 'openPress', 'pressN', 'processN', 'setTime', 'furnaceTick', 'chipBatch']);
+    const kept = {};
+    for (const k of Object.keys(window.GAME.debug)) {
+      kept[k] = stubbed.has(k) ? (() => 'disabled_in_multiplayer') : window.GAME.debug[k];
+    }
+    window.GAME.debug = kept;
+    console.warn('[bw] 联机模式：调试接口已关闭（加 ?dev=1 可解开，仅用于验收）');
+  }
+})();
+
 /* ---------------- 好友入口（单机模式下也要看得见） ----------------
  * 之前「好友」按钮只在 ?mp=1 时由联机层显示，直接用 www.schoolexams.net/blockwild/ 打开是看不到的。
  * 现在单机模式也显示这个按钮，点开就是"好友 / 联机"入口：填昵称 → 探测服务器 → 进联机。 */
@@ -8187,23 +8205,6 @@ window.GAME = {
   btn.onclick = toggle;                                    // 游戏内右上角「好友」
   const startBtn = document.getElementById('btnMP');       // 开始界面「🌐 联机」
   if (startBtn) startBtn.onclick = toggle;
-})();
-
-
-  // ★ 联机时关掉 GAME.debug：give/tp/setBlock/travel 都能被控制台随手调用，等于开挂按钮。
-  //   注意这是「防手滑/防随手作弊」，真正的门槛在服务端（方块编辑校验）。?dev=1 只给我自己验收用。
-  net.devOk = q.has('dev');
-  if (!net.devOk && window.GAME && window.GAME.debug) {
-    const stubbed = new Set(['give', 'tp', 'setBlock', 'travel', 'start', 'startCreative', 'startWorld',
-      'createWorld', 'clearInv', 'equip', 'fly', 'setHp', 'steps', 'killMobs', 'spawnKind', 'spawnAt',
-      'usePortal', 'openPress', 'pressN', 'processN', 'setTime', 'furnaceTick', 'chipBatch']);
-    const kept = {};
-    for (const k of Object.keys(window.GAME.debug)) {
-      kept[k] = stubbed.has(k) ? (() => 'disabled_in_multiplayer') : window.GAME.debug[k];
-    }
-    window.GAME.debug = kept;
-    console.warn('[bw] 联机模式：调试接口已关闭（加 ?dev=1 可解开，仅用于验收）');
-  }
 })();
 
 requestAnimationFrame(frame);
