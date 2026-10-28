@@ -2748,7 +2748,9 @@ function supportBase(ops, gy, blockId = 9, yMax = null) {
   const add = [];
   for (const op of ops) {
     if (!op.t || op.t === 5 || op.y > top) continue;
-    const ground = heightAt(op.x, op.z);
+    // heightAt 是「地表高度」，但地表下面可能正好有条洞穴把这一列掏空了（小屋压洞上照样悬空）。
+    // 所以往下多补 8 格：空地/洞穴会被填实，已经实心的地形被覆盖成圆石也无所谓（都在地下看不见）。
+    const ground = heightAt(op.x, op.z) - 8;
     for (let y = op.y - 1; y > ground && y > 0; y--) {
       const key = op.x + ',' + y + ',' + op.z;
       if (has.has(key)) break;
