@@ -4,7 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 
 /* ============================================================ CFG */
 const CFG = {
-  CH: 16, WH: 64, SEA: 26,
+  CH: 16, WH: 192, SEA: 98,          // WH 64→192、SEA 26→98：配合下面的 SURF_OFF，主世界深度从 ~40 格变成 ~112 格
   LOAD_R: 5, UNLOAD_R: 8,
   GRAV: 27, JUMP: 8.5, WALK: 4.7, SPRINT: 6.9,
   REACH: 6, DAY: 300, MAX_MOBS: 6, SAVE_KEY: 'blockwild_save_v1',
@@ -59,11 +59,14 @@ function n3(x, y, z) {
   const c11 = lerp(h3(xi, yi + 1, zi + 1), h3(xi + 1, yi + 1, zi + 1), u);
   return lerp(lerp(c00, c10, v), lerp(c01, c11, v), w);
 }
+const SURF_OFF = 72;                  // 地表整体抬高：脚下到基岩的深度从 ~40 格 → ~112 格
+const DEEP_Y = SURF_OFF - 14;         // 这层以下换成深板岩（底部的深板岩层，钻石只在这里）
+const MOUNT_Y = SURF_OFF + 45;        // 高出这个高度就是裸岩山峰
 function heightAt(x, z) {
   // fbm 会把方差压得很小，先以 0.5 为中心放大对比度，才能得到真正起伏的地形
   const cont = clamp01(0.5 + (fbm2(x * 0.011, z * 0.011, 4) - 0.5) * 2.8);
   const hill = clamp01(0.5 + (fbm2(x * 0.047 + 13.7, z * 0.047 - 7.1, 3) - 0.5) * 2.4);
-  return Math.floor(15 + cont * 30 + hill * 7);
+  return SURF_OFF + Math.floor(15 + cont * 30 + hill * 7);
 }
 
 
@@ -301,6 +304,8 @@ const BLOCKS = {
   47: { name: '液压机', top: 52, side: 52, bottom: 52, hard: 2.4, drop: 47, pick: true, press: true },
   48: { name: '灵魂沙', top: 53, side: 53, bottom: 53, hard: 0.6, drop: 48 },
   49: { name: '玄武岩', top: 54, side: 54, bottom: 54, hard: 2.2, drop: 49, pick: true },
+  50: { name: '深板岩', top: 55, side: 55, bottom: 55, hard: 3.0, drop: 50, pick: true },
+  51: { name: '基岩', top: 56, side: 56, bottom: 56, hard: 999, drop: 0, unbreakable: true },
   38: { name: '火把', top: 44, side: 44, bottom: 44, hard: 0.05, drop: 38, plant: true, cross: true, crossH: 0.92, torch: true },
   18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
   19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
@@ -386,7 +391,7 @@ let atlasCanvas = null, atlasTex = null;
 // 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
 // ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
 // 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
-const ATLAS_COLS = 4, ATLAS_ROWS = 14;   // 47 门框 48 传送门 49 冥界岩 50 岩浆 51 冥界碳 52 液压机 53 灵魂沙 54 玄武岩
+const ATLAS_COLS = 4, ATLAS_ROWS = 15;   // …54 玄武岩 55 深板岩 56 基岩
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -646,6 +651,21 @@ function makeAtlas() {
   T(54, '#3b4045', 0.07, (c, r) => {
     for (let x = 0; x < 16; x += 5) for (let y = 0; y < 16; y++) px(c, r, x, y, '#282c31');
     for (let i = 0; i < 12; i++) px(c, r, (i * 7) % 16, (i * 11) % 16, '#4a5057');
+  });
+  // 55 深板岩：暗灰蓝 + 细斜纹
+  T(55, '#3d4048', 0.09, (c, r) => {
+    for (let i = 0; i < 22; i++) {
+      const x = (i * 5 + 1) % 16, y = (i * 9 + 3) % 16;
+      px(c, r, x, y, i % 3 ? '#2c2f35' : '#4c515b');
+      if (x < 15) px(c, r, x + 1, y, '#34383f');
+    }
+  });
+  // 56 基岩：深黑 + 杂乱方块
+  T(56, '#2a2a2e', 0.16, (c, r) => {
+    for (let i = 0; i < 30; i++) {
+      const x = (i * 7 + 3) % 16, y = (i * 11 + 5) % 16;
+      px(c, r, x, y, i % 2 ? '#141416' : '#55555c');
+    }
   });
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -1193,15 +1213,15 @@ function oreVeins(cx, cz) {
       }
     }
   };
-  vein(48, 13, 5, 6, 44);        // 煤：总量和以前持平，但变成 48 条成簇矿脉
-  vein(10, 15, 4, 4, 32);        // 铁：比以前稀有 ~1.6 倍
+  vein(48, 13, 5, 60, 150);      // 煤：中上层（地表抬到 87~124 之后，60~150 是"地下主开采带"）
+  vein(10, 15, 4, 30, 120);      // 铁：中层
   // 钻石：设计目标 = 铁的 1/10。铁 10 条/区块 × 平均 4.5 块 = 45 块/区块；
   // 钻石 1 条/区块 × 平均 4 块 = 4 块/区块（只在 y<10）。深层洞穴少、留存率高，
   // 所以名义给 11:1，实测（200 区块）落在 9.5~10:1。
   // 铜：石→铜→铁的中间档，出现频率要和铁接近（约 6:5），否则新人根本凑不齐第一把铜镐。
   // 实测（169 区块）：vein(6,39,3,16,42) 只有铁的 41%（1748 vs 4247 块）→ 提到 10 条、size 4、y12~44。
-  vein(10, 39, 4, 12, 44);       // 铜：10 条/区块，中浅层（参数顺序：数量, 方块id, 大小, yMin, yMax）
-  vein(1, 20, 3, 3, 10, 0.85);   // 钻石：85% 的区块有一条（y<10）；实测块数 ≈ 铁的 1/10（9~10:1）
+  vein(10, 39, 4, 45, 130);      // 铜：10 条/区块，中浅层
+  vein(1, 20, 3, 6, 54, 0.85);   // 钻石：只在深板岩层（y 6~54 < DEEP_Y=58）→ 必须挖到深板岩才见得到
   veinCache.set(key, out);
   return out;
 }
@@ -1234,8 +1254,8 @@ function applyStoneBlobs(b, idx, cx, cz) {
       }
     }
   };
-  blobType(26, 3, 2.8, 5.0, 3, 24);      // 花岗岩：偏深
-  blobType(27, 4, 3.0, 5.2, 14, 36);     // 石灰岩：中层（浅的一半会落在空气/土层里，所以条数给多些）
+  blobType(26, 3, 2.8, 5.0, 12, 46);     // 花岗岩：偏深（跟着整体抬高到深板岩层附近）
+  blobType(27, 4, 3.0, 5.2, 52, 86);     // 石灰岩：中层
 }
 
 /* ── 冥界地形：岩浆海底 + 冥界岩穹顶 + 钟乳石。没有水、没有树、没有矿脉。
@@ -1248,7 +1268,8 @@ function genNetherChunk(cx, cz) {
   const pillar = h3;                                             // 玄武岩柱用稀疏哈希
   for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
     const wx = ox + lx, wz = oz + lz;
-    for (let y = 1; y < NETHER_LAVA_Y; y++) b[idx(lx, y, lz)] = 44;         // 岩浆海（MC 风：海底全是岩浆）
+    b[idx(lx, 0, lz)] = 51; b[idx(lx, 1, lz)] = 51;                          // 冥界底部基岩
+    for (let y = 2; y < NETHER_LAVA_Y; y++) b[idx(lx, y, lz)] = 44;            // 岩浆海（MC 风：海底全是岩浆）
     for (let y = NETHER_LAVA_Y; y < WH; y++) {
       if (!netherSolid(wx, y, wz)) continue;
       const i = idx(lx, y, lz);
@@ -1263,6 +1284,7 @@ function genNetherChunk(cx, cz) {
       // 按 7×7 的「区块」整片铺（MC 的灵魂沙谷就是一整片，不是零星几点）
       if (h2(Math.floor(wx / 7) * 3.7 + 2.2, Math.floor(wz / 7) * 5.1 - 4.4) > 0.84) b[i] = 48;
     }
+    for (let y = 62; y <= 64; y++) b[idx(lx, y, lz)] = 51;                     // 冥界顶部基岩（三层，写在岩体之后才盖得住）
     // 玄武岩柱：2×2 一簇，从岩浆面直通穹顶
     if (pillar(Math.floor(wx / 2), 77, Math.floor(wz / 2)) > 0.988) {
       const top = netherCeilAt(wx, wz);
@@ -1323,10 +1345,12 @@ function genChunk(cx, cz) {
     for (let y = 0; y <= Math.min(h, WH - 2); y++) {
       const d = h - y;
       let id;
-      if (beach) id = d <= 3 ? 4 : 3;
-      else if (h >= 45) id = 3;
-      else id = d === 0 ? 1 : (d <= 3 ? 2 : 3);
-      if (id !== 4 && caveCarve(wx, y, wz, h)) id = 0;                             // 洞穴（含天然洞口）
+      const deep = y < DEEP_Y;                                                     // 深处换成深板岩
+      if (y <= 1) id = 51;                                                         // 基岩底（挖不动）
+      else if (beach) id = d <= 3 ? 4 : (deep ? 50 : 3);
+      else if (h >= MOUNT_Y) id = deep ? 50 : 3;
+      else id = d === 0 ? 1 : (d <= 3 ? 2 : (deep ? 50 : 3));
+      if (id !== 4 && id !== 51 && caveCarve(wx, y, wz, h)) id = 0;                 // 洞穴（含天然洞口）
       if (id) b[idx(lx, y, lz)] = id;
     }
     for (let y = Math.max(h + 1, 0); y <= SEA && y < WH; y++) b[idx(lx, y, lz)] = 5;  // 水
@@ -1334,7 +1358,7 @@ function genChunk(cx, cz) {
   // 矿脉：成簇埋进石头里（只在还是石头的地方替换，不动土/沙/水）
   for (const v of oreVeins(cx, cz)) {
     const i = idx(v.x, v.y, v.z);
-    if (b[i] === 3) b[i] = v.t;
+    if (b[i] === 3 || b[i] === 50) b[i] = v.t;            // 石头和深板岩里都能长矿
   }
   // 特殊岩层（花岗岩/石灰岩）：同样只替换还是石头的地方，矿脉优先保留
   applyStoneBlobs(b, idx, cx, cz);
@@ -1696,10 +1720,10 @@ function findSpawn() {
     for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
       if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
       const x = 8 + dx, z = 8 + dz, h = heightAt(x, z);
-      if (h > CFG.SEA + 3 && h < 42) return { x: x + 0.5, y: h + 1.05, z: z + 0.5 };
+      if (h > CFG.SEA + 3 && h < SURF_OFF + 42) return { x: x + 0.5, y: h + 1.05, z: z + 0.5 };   // 阈值跟着地表抬高
     }
   }
-  return { x: 8.5, y: 55, z: 8.5 };
+  return { x: 8.5, y: SURF_OFF + 40, z: 8.5 };
 }
 function surfaceY(x, z) {
   for (let y = CFG.WH - 2; y > 0; y--) { const id = getBlock(x, y, z); if (isSolid(id)) return y; }
@@ -3029,7 +3053,7 @@ function towerFor(cellX, cellZ) {
       const ops = [], put = (x, y, z, t, m) => ops.push({ x, y, z, t, m }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
       let gy = 0;
       for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) gy = Math.max(gy, heightAt(cx + dx, cz + dz));
-      if (gy > CFG.SEA + 3 && gy < 40 && !structNear(cx, cz, 'tower')) {
+      if (gy > CFG.SEA + 3 && gy < SURF_OFF + 40 && !structNear(cx, cz, 'tower')) {
         const H = 12 + Math.floor(rnd() * 8);
         for (let y = 1; y <= H; y++) for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
           const edge = Math.abs(dx) === 2 || Math.abs(dz) === 2;
@@ -3068,7 +3092,7 @@ function wellFor(cellX, cellZ) {
       const cz = cellZ * WL_CELL + 40 + Math.floor(rnd() * (WL_CELL - 80));
       const gy = heightAt(cx, cz);
       const ops = [], put = (x, y, z, t, m) => ops.push({ x, y, z, t, m }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
-      if (gy > CFG.SEA + 2 && gy < 44 && !structNear(cx, cz, 'well')) {
+      if (gy > CFG.SEA + 2 && gy < SURF_OFF + 44 && !structNear(cx, cz, 'well')) {
         for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
           const edge = Math.abs(dx) === 1 || Math.abs(dz) === 1;
           put(cx + dx, gy, cz + dz, edge ? 9 : 5);
@@ -3105,7 +3129,7 @@ function circleFor(cellX, cellZ) {
         if (Math.abs(h - gy) > 3) ok = false;
         gy = Math.max(gy, h);
       }
-      if (ok && gy > CFG.SEA + 2 && gy < 44 && !structNear(cx, cz, 'circle')) {
+      if (ok && gy > CFG.SEA + 2 && gy < SURF_OFF + 44 && !structNear(cx, cz, 'circle')) {
         const rr = 6 + Math.floor(rnd() * 3), n = 8 + Math.floor(rnd() * 4);
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2;
@@ -3138,7 +3162,7 @@ function campFor(cellX, cellZ) {
       const cz = cellZ * CP_CELL + 50 + Math.floor(rnd() * (CP_CELL - 100));
       const gy = heightAt(cx, cz);
       const ops = [], put = (x, y, z, t, m) => ops.push({ x, y, z, t, m }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
-      if (gy > CFG.SEA + 2 && gy < 44 && !structNear(cx, cz, 'camp')) {
+      if (gy > CFG.SEA + 2 && gy < SURF_OFF + 44 && !structNear(cx, cz, 'camp')) {
         for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) {
           if (Math.abs(dx) !== 4 && Math.abs(dz) !== 4) continue;
           if (((dx * 7 + dz * 13 + cellX * 3) % 5 + 5) % 5 === 0) continue;   // 塌口
@@ -3209,7 +3233,7 @@ function portalFor(cellX, cellZ) {
       if (nether) for (let dy = 1; dy <= 8; dy++) if (netherSolid(cx, mx + dy, cz)) { netherOpen = false; break; }
       const okHere = nether
         ? (mx - mn <= 3 && mn > NETHER_LAVA_Y + 2 && netherOpen)
-        : (mx - mn <= 4 && mn > CFG.SEA + 2 && mx < 46 && !structNear(cx, cz, 'portal'));
+        : (mx - mn <= 4 && mn > CFG.SEA + 2 && mx < SURF_OFF + 46 && !structNear(cx, cz, 'portal'));
       if (okHere) {
         const gy = mx;
         for (let dx = -3; dx <= 3; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, gy, cz + dz, 21);   // 高科技底座
@@ -3248,7 +3272,7 @@ function cabinFor(cellX, cellZ) {
       const w = 3, d = 2, h = 3;
       let gy = 0;
       for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) gy = Math.max(gy, heightAt(cx + dx, cz + dz));
-      if (gy > CFG.SEA + 2 && gy < 42 && !structNear(cx, cz, 'cabin')) {
+      if (gy > CFG.SEA + 2 && gy < SURF_OFF + 42 && !structNear(cx, cz, 'cabin')) {
         for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) {
           put(cx + dx, gy, cz + dz, 31);                             // 白桦木地板
           for (let y = 1; y <= h; y++) {
@@ -3314,8 +3338,8 @@ function myCabinFor(cellX, cellZ) {
         if (hh < mn) mn = hh;
         if (hh > mx) mx = hh;
       }
-      if (mx - mn <= 6 && mn > CFG.SEA + 2 && mn < 46) CABIN_STATS.flat++;
-      if (mx - mn <= 8 && mn > CFG.SEA + 1 && mn < 58) {
+      if (mx - mn <= 6 && mn > CFG.SEA + 2 && mn < SURF_OFF + 46) CABIN_STATS.flat++;
+      if (mx - mn <= 8 && mn > CFG.SEA + 1 && mn < SURF_OFF + 58) {
         const gy = mx;
         for (const [x, y, z, id, mt] of data) put(cx + x, gy + y, cz + z, id, mt || 0);
         supportBase(ops, gy, 9, gy);                          // 玩家小屋（平原）：地板在 gy，下面补实
@@ -3423,7 +3447,7 @@ function hauntedFor(cellX, cellZ) {
     const W = 8, D = 6;                       // 半宽 / 半深（17×13 的外墙）
     let gy = 0;
     for (let dx = -W - 1; dx <= W + 1; dx++) for (let dz = -D - 1; dz <= D + 1; dz++) gy = Math.max(gy, heightAt(cx + dx, cz + dz));
-    if (gy > CFG.SEA + 4 && gy < 38) {
+    if (gy > CFG.SEA + 4 && gy < SURF_OFF + 38) {
       const y0 = gy + 1;
       const ops = [];
       // m = 方块朝向（楼梯等非立方体用）：屋顶坡口会带 3/4，必须一起存下来
@@ -3585,7 +3609,7 @@ function villageFor(cellX, cellZ) {
     const cx = cellX * VS_CELL + 44 + Math.floor(rnd() * (VS_CELL - 88));
     const cz = cellZ * VS_CELL + 44 + Math.floor(rnd() * (VS_CELL - 88));
     const gy = heightAt(cx, cz);
-    if (gy > CFG.SEA + 3 && gy < 42) {                     // 不在水下、不在山顶
+    if (gy > CFG.SEA + 3 && gy < SURF_OFF + 42) {          // 不在水下、不在山顶
       const ops = [];
       // m = 方块朝向（楼梯等非立方体用）：屋顶坡口会带 3/4，必须一起存下来
       const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
@@ -6952,6 +6976,10 @@ function startGame(world) {
   SEED = world.seed | 0;
   DIM = 'overworld';                          // 每次进世界一律从主世界开始
   const loaded = loadSave(world.id);          // 有存档就接着玩，没有就用这个世界自己的种子生成
+  if (loaded && player.p.y < SURF_OFF * 0.75) {   // 地形整体抬高后，老档的人物会埋在石头里 → 送回地表
+    const sy3 = surfaceY(Math.floor(player.p.x), Math.floor(player.p.z));
+    if (sy3 > player.p.y + 2) player.p.y = sy3 + 1.2;
+  }
   if (loaded && player.p.x > NETHER_OFF * 0.5) {   // 上次是在冥界存的档：人物坐标在主世界没有意义
     const sp0 = spawnNearHouse(findSpawn());
     player.p.set(sp0.x, sp0.y, sp0.z);
