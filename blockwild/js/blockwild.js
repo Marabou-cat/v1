@@ -5499,19 +5499,46 @@ function dropTexture(id) {
   dropTexCache.set(id, tex);
   return tex;
 }
+/* ── 掉落物模型 ──────────────────────────────────────────────────────────
+   方块 → 0.38 立方体（六面都是方块贴图，正确）；
+   物品（工具/食物/材料/炮）→ 0.36×0.36×0.055 的**薄板**：图标只在正反两面，
+   四个窄边是全透明材质 ⇒ 看起来就是「一张有厚度的 2D」，转过侧面能看到薄薄一条，
+   而不是原来那样把 2D 图标糊在立方体的 6 个面上。几何/材质按 id 缓存共享。 */
+const DROP_EDGE_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+const dropFaceMatCache = new Map();
+let ITEM_DROP_GEO = null;
+function dropFaceMat(id) {
+  let m = dropFaceMatCache.get(id);
+  if (!m) { m = new THREE.MeshBasicMaterial({ map: dropTexture(id), alphaTest: 0.5 }); dropFaceMatCache.set(id, m); }
+  return m;
+}
+function itemDropMesh(id) {
+  if (!ITEM_DROP_GEO) ITEM_DROP_GEO = new THREE.BoxGeometry(0.36, 0.36, 0.055);
+  const e = DROP_EDGE_MAT, f = dropFaceMat(id);
+  const mesh = new THREE.Mesh(ITEM_DROP_GEO, [e, e, e, e, f, f]);   // +z / -z 才是图标
+  mesh.userData.sharedGeo = true;                                   // 共享资源：捡起时不要 dispose
+  return mesh;
+}
+// 薄板类掉落物：只绕 Y 面向相机（±18° 轻摆 + 微倾），保证任何时刻都看得到图标；
+// 方块掉落物仍然照常自旋。
+function orientDropCard(obj, x, z, t) {
+  obj.rotation.y = Math.atan2(camera.position.x - x, camera.position.z - z) + Math.sin(t * 1.6) * 0.32;
+  obj.rotation.x = -0.18;
+}
 function spawnDrop(id, n, x, y, z, opts = {}) {
   if (!isItem(id) || n <= 0) return null;
   // ★ 联机客人：掉落物的物理模拟归主机。以前客人也在本地 spawn 一份，但 updateDrops 被禁了，
   //   于是那份掉落物**悬空不动、也永远捡不起来**。现在改成只上报，由主机 spawn 真掉落物再广播回来。
   if (NET && NET.active && !NET.isHost && !opts.fromHost) return NET.remoteDrop(id, n, x, y, z);
   if (drops.length >= DROP_MAX) { addItem(id, n); return null; }   // 太挤就直接进包
-  const mat = new THREE.MeshBasicMaterial({ map: dropTexture(id), transparent: true });
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), mat);
+  const mesh = BLOCKS[id]
+    ? new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), new THREE.MeshBasicMaterial({ map: dropTexture(id) }))
+    : itemDropMesh(id);
   const d = {
     id, n, t: 0, c: opts.c, spin: Math.random() * 6, nid: opts.nid || (++dropSeq),
     p: new THREE.Vector3(x, y, z),
     v: new THREE.Vector3((Math.random() - 0.5) * 1.4, opts.pop || 2.4, (Math.random() - 0.5) * 1.4),
-    obj: mesh,
+    obj: mesh, thin: !BLOCKS[id],
   };
   mesh.position.copy(d.p);
   scene.add(mesh);
@@ -5541,8 +5568,11 @@ function updateDrops(dt) {
     }
     d.spin += dt * 2.4;
     d.obj.position.set(d.p.x, d.p.y + Math.sin(d.t * 3.2) * 0.05, d.p.z);
-    d.obj.rotation.y = d.spin;
-    d.obj.rotation.x = Math.sin(d.spin * 0.7) * 0.15;
+    if (d.thin) orientDropCard(d.obj, d.p.x, d.p.z, d.t);
+    else {
+      d.obj.rotation.y = d.spin;
+      d.obj.rotation.x = Math.sin(d.spin * 0.7) * 0.15;
+    }
     if (d.t > 0.3 && dist < 0.95) {                       // 拾取
       if (ITEMS[d.id] && ITEMS[d.id].kind === 'gun' && d.c !== undefined) {
         // 能量炮：捡回来要保留电量（不然丢一次就是免费充满）
@@ -5554,7 +5584,11 @@ function updateDrops(dt) {
       sfx('dig');
       renderHotbar();
       scene.remove(d.obj);
-      d.obj.geometry.dispose(); d.obj.material.dispose();
+      if (!d.obj.userData.sharedGeo) {
+        d.obj.geometry.dispose();
+        if (Array.isArray(d.obj.material)) d.obj.material.forEach(mm => mm && mm.dispose && mm.dispose());
+        else if (d.obj.material && d.obj.material.dispose) d.obj.material.dispose();
+      }
       drops.splice(i, 1);
       continue;
     }
@@ -8602,11 +8636,13 @@ window.GAME = {
   };
   net.dropSeqLocal = 0;
   net.addDropGhost = (nid, id, n, x, y, z) => {
-    const mat = new THREE.MeshBasicMaterial({ map: dropTexture(id), transparent: true });
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), mat);
+    // 客人本地的「预演掉落物」必须和主机的真实掉落物同款（物品=薄板、方块=立方体）
+    const mesh = BLOCKS[id]
+      ? new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), new THREE.MeshBasicMaterial({ map: dropTexture(id) }))
+      : itemDropMesh(id);
     mesh.position.set(x, y, z);
     scene.add(mesh);
-    const g = { obj: mesh, id, n, p: new THREE.Vector3(x, y, z), t: 0, synced: false, vy: 0 };
+    const g = { obj: mesh, id, n, p: new THREE.Vector3(x, y, z), t: 0, synced: false, vy: 0, thin: !BLOCKS[id] };
     net.dropGhosts.set(nid, g);
     return g;
   };
@@ -8631,8 +8667,10 @@ window.GAME = {
       if (alive.has(nid)) continue;
       if (g.t < 2 || !g.synced) continue;       // 刚上报、主机还没回的快照：别立刻删掉（否则自己挖的东西闪一下就没）
       scene.remove(g.obj);
-      if (g.obj.geometry) g.obj.geometry.dispose();
-      if (g.obj.material) g.obj.material.dispose();
+      if (!g.obj.userData.sharedGeo) {              // 薄板用共享几何/材质，不能释放
+        if (g.obj.geometry) g.obj.geometry.dispose();
+        if (g.obj.material && g.obj.material.dispose) g.obj.material.dispose();
+      }
       net.dropGhosts.delete(nid);
     }
     net.checkDropPick();                        // 收到快照就顺手判一次（不依赖 rAF，手机切后台也捡得到）
@@ -8672,7 +8710,8 @@ window.GAME = {
       g.obj.position.x += (g.p.x - g.obj.position.x) * k;
       g.obj.position.y += (g.p.y + Math.sin(g.t * 3.2) * 0.05 - g.obj.position.y) * k;
       g.obj.position.z += (g.p.z - g.obj.position.z) * k;
-      g.obj.rotation.y += dt * 2.4;
+      if (g.thin) orientDropCard(g.obj, g.p.x, g.p.z, g.t);
+      else g.obj.rotation.y += dt * 2.4;
     }
     net.checkDropPick();
   };
