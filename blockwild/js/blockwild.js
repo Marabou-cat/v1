@@ -9611,39 +9611,101 @@ function loadLook() {
 loadLook();
 
 let lookRenderer = null, lookScene = null, lookCam = null, lookAv = null, lookRAF = 0, lookTorches = [];
-function buildAvatarMesh(skin, cloth, hair, hs) {
-  const g = new THREE.Group();
-  const M = c => new THREE.MeshLambertMaterial({ color: c });
-  const clothDark = new THREE.Color(cloth).multiplyScalar(0.72).getHex();
-  const skinDark = new THREE.Color(skin).multiplyScalar(0.9).getHex();
-  const box = (w, h, d, c, x, y, z) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c));
-    m.position.set(x, y, z); g.add(m); return m;
+/* ── 像素（体素）玩家形象 ─────────────────────────────────────────────
+   和游戏里的怪物用同一套建模法：16 像素 = 1 方块，逐像素上色后只生成外壳面片
+   （voxGeometry），所以头发、眼睛、嘴都是一格一格的「像素」，不再是 3D 方块拼的。
+   头 8×8×8、身 8×12×4、手臂/腿 4×12×4；脚底 y=0，头顶 32 像素 = 1.78 格。 */
+const voxAvatarCache = new Map();
+const voxAvatarMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+
+function voxAvatarGeos(key, skin, cloth, hair, hs) {
+  if (voxAvatarCache.has(key)) return voxAvatarCache.get(key);
+  const mk = () => new Map();
+  const px = (m, x, y, z, c) => m.set(x + ',' + y + ',' + z, c);
+  const fill = (m, x0, y0, z0, w, h, d, c, jit) => {
+    for (let x = x0; x < x0 + w; x++) for (let y = y0; y < y0 + h; y++) for (let z = z0; z < z0 + d; z++)
+      px(m, x, y, z, tintHex(c, 1 + (pixHash(x, y, z, 5) - 0.5) * (jit === undefined ? 0.1 : jit)));
   };
-  box(0.52, 0.72, 0.3, cloth, 0, 1.06, 0);                 // 上身 = 衣服颜色
-  box(0.42, 0.42, 0.42, skin, 0, 1.62, 0);                 // 头 = 肤色
-  box(0.26, 0.09, 0.02, 0x2b1a12, 0, 1.60, -0.212);        // 嘴（压低，别和眼睛黏在一起）
-  box(0.10, 0.028, 0.02, 0xf2f2f2, -0.085, 1.705, -0.219);   // 细长眼
-  box(0.10, 0.028, 0.02, 0xf2f2f2, 0.085, 1.705, -0.219);
-  const HAIR = (typeof hair === 'number') ? hair : 0x33251a;   // 头发：发色 + 发型可选
-  if (HAIR) {
-    box(0.46, 0.12, 0.46, HAIR, 0, 1.855, 0);              // 顶盖
-    box(0.42, 0.07, 0.07, HAIR, 0, 1.795, -0.204);         // 刘海
-    if (hs === 1) {                                        // 长发：披到肩下的后片 + 加长鬓角
-      box(0.46, 0.54, 0.10, HAIR, 0, 1.54, 0.21);
-      box(0.08, 0.42, 0.44, HAIR, -0.215, 1.56, 0);
-      box(0.08, 0.42, 0.44, HAIR, 0.215, 1.56, 0);
-    } else {                                               // 短发
-      box(0.46, 0.30, 0.09, HAIR, 0, 1.63, 0.20);
-      box(0.07, 0.24, 0.44, HAIR, -0.215, 1.65, 0);
-      box(0.07, 0.24, 0.44, HAIR, 0.215, 1.65, 0);
-    }
+  const dk = (c, f) => tintHex(c, f);
+  const HAIR = hair || 0x33251a;
+  const long = hs === 1;
+
+  /* 头：局部 y 0..7，脸在 z=-4 那一层（模型正面 = -Z） */
+  const head = mk();
+  fill(head, -4, 0, -4, 8, 8, 8, skin, 0.07);
+  for (const ex of [-3, 1]) {                                  // 细长眼：2×1 白，中间留 2 格鼻梁（远看是两条细线）
+    for (let dx = 0; dx < 2; dx++) px(head, ex + dx, 4, -4, 0xf2f2f2);
   }
-  box(0.18, 0.68, 0.2, skinDark, -0.35, 1.06, 0);          // 手臂 = 肤色
-  box(0.18, 0.68, 0.2, skinDark, 0.35, 1.06, 0);
-  box(0.2, 0.7, 0.22, clothDark, -0.13, 0.35, 0);          // 裤腿 = 衣服色（压暗）
-  box(0.2, 0.7, 0.22, clothDark, 0.13, 0.35, 0);
-  return g;
+  for (const ex of [-3, 1]) px(head, ex, 3, -4, dk(skin, 0.78));   // 眼尾一格暗影：显得有点凶
+
+  for (let dx = 0; dx < 3; dx++) px(head, -1 + dx, 1, -4, 0x2b1a12);      // 嘴
+  fill(head, -4, 7, -4, 8, 1, 8, HAIR, 0.05);                  // 头顶
+  fill(head, -4, 5, -4, 8, 2, 1, HAIR, 0.05);                  // 刘海（压住额头两格）
+  for (let y = 5; y <= 7; y++) for (let z = -4; z <= 3; z++) { px(head, -4, y, z, HAIR); px(head, 3, y, z, HAIR); }
+  fill(head, -4, 4, 3, 8, 4, 1, HAIR, 0.05);                   // 后脑
+  if (long) {                                                  // 长发：两侧整条垂下来 + 后颈铺满
+    for (let y = 0; y <= 7; y++) for (let z = -3; z <= 3; z++) { px(head, -4, y, z, HAIR); px(head, 3, y, z, HAIR); }
+    fill(head, -4, 0, 3, 8, 8, 1, HAIR, 0.05);
+  }
+
+  /* 身体：局部 y 0..11（摆到场上时抬到 12 像素） */
+  const body = mk();
+  fill(body, -4, 0, -2, 8, 12, 4, cloth, 0.09);
+  fill(body, -4, 11, -2, 8, 1, 4, dk(cloth, 0.85), 0.06);       // 肩线
+  fill(body, -4, 0, -2, 8, 1, 4, dk(cloth, 0.78), 0.06);        // 下摆
+  for (let y = 2; y <= 9; y++) for (let z = -1; z <= 0; z++) px(body, 0, y, z, dk(cloth, 0.9));   // 中间衣缝
+  if (long) fill(body, -4, 3, 1, 8, 9, 1, HAIR, 0.05);          // 长发盖住后背
+
+  /* 手臂：上臂 4×6×4（短袖 3 像素 + 肤色），前臂 4×6×4 */
+  const arm = mk(), fore = mk();
+  fill(arm, -2, -6, -2, 4, 6, 4, skin, 0.08);
+  fill(arm, -2, -3, -2, 4, 3, 4, cloth, 0.09);                  // 短袖
+  fill(fore, -2, -6, -2, 4, 6, 4, skin, 0.08);
+  fill(fore, -2, -6, -2, 4, 1, 4, dk(skin, 0.86), 0.05);        // 手背一格深色
+
+  /* 腿：4×12×4（裤子 + 鞋） */
+  const leg = mk();
+  const pants = dk(cloth, 0.72);
+  fill(leg, -2, -12, -2, 4, 12, 4, pants, 0.08);
+  fill(leg, -2, -12, -2, 4, 1, 4, dk(pants, 0.8), 0.05);        // 鞋
+
+  const G = {
+    body: voxGeometry(body), head: voxGeometry(head), arm: voxGeometry(arm),
+    fore: voxGeometry(fore), leg: voxGeometry(leg),
+  };
+  voxAvatarCache.set(key, G);
+  return G;
+}
+
+function buildVoxAvatar(o) {
+  const skin = o.skin, cloth = o.cloth, hair = o.hair, hs = (o.hs | 0);
+  const G = voxAvatarGeos([skin, cloth, hair, hs].join('|'), skin, cloth, hair, hs);
+  const g = new THREE.Group();
+  const U = MOB_PX;
+  const torso = new THREE.Mesh(G.body, voxAvatarMat); torso.position.y = 12 * U; torso.castShadow = true; g.add(torso);
+  const headPivot = new THREE.Group(); headPivot.position.y = 24 * U;
+  const headMesh = new THREE.Mesh(G.head, voxAvatarMat); headMesh.castShadow = true; headPivot.add(headMesh);
+  const face = new THREE.Object3D(); face.position.set(0, 4 * U, -4 * U); headPivot.add(face);
+  g.add(headPivot);
+  const mkArm = (sx) => {
+    const pv = new THREE.Group(); pv.position.set(sx * 6 * U, 24 * U, 0);
+    const armMesh = new THREE.Mesh(G.arm, voxAvatarMat); armMesh.castShadow = true; pv.add(armMesh);
+    const f = new THREE.Group(); f.position.y = -6 * U;
+    f.add(new THREE.Mesh(G.fore, voxAvatarMat));
+    pv.add(f); g.add(pv);
+    return { pv, f };
+  };
+  const aL = mkArm(-1), aR = mkArm(1);
+  const mkLeg = (sx) => {
+    const pv = new THREE.Group(); pv.position.set(sx * 3 * U, 12 * U, 0);
+    const legMesh = new THREE.Mesh(G.leg, voxAvatarMat); legMesh.castShadow = true; pv.add(legMesh); g.add(pv); return pv;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+  return { g, torso, head: headPivot, face, armL: aL.pv, armR: aR.pv, foreR: aR.f, legL, legR };
+}
+
+function buildAvatarMesh(skin, cloth, hair, hs) {
+  return buildVoxAvatar({ skin, cloth, hair, hs }).g;           // 外观面板预览用同一套像素模型
 }
 /* 外观预览的矿洞背景：石壁/地面/碎石 + 两支会闪的火把（只在预览里用，很便宜） */
 function buildCaveBackdrop(S) {
@@ -10629,72 +10691,21 @@ window.GAME = {
     // 远端形象的头/手方向（用 GAME.debug.remoteAxes() 实测出来的基准，模型正面 = -Z）：
     //   脸在 -Z；armR.rotation.x 正 = 手往前甩；head.rotation.x 正 = 抬头（下巴抬高、头顶往后）。
     // 如果哪天看着反了，只需要把 HEAD_PITCH_SIGN 改成 -1（定义在 bootNet 作用域里）。
-    // 固定调色板（避开草绿/天空蓝，否则人在草地上几乎看不见）
+    // 固定调色板（避开草绿/天空蓝，否则人在草地上几乎看不见）：没设置外观的老玩家按 id 哈希取色
     const PAL = [0xd9534f, 0x9b59b6, 0xf0ad4e, 0xe67e22, 0x1abc9c, 0xff6fa8, 0xc0392b, 0x8e6bff];
     let hsh = 0;
     for (let i = 0; i < id.length; i++) hsh = (hsh * 31 + id.charCodeAt(i)) | 0;
     const base = PAL[Math.abs(hsh) % PAL.length];
     const lk = look || {};
-    const clothCol = (typeof lk.cl === 'number') ? new THREE.Color(lk.cl) : new THREE.Color(base);   // 衣服颜色
-    const skinCol = (typeof lk.sk === 'number') ? new THREE.Color(lk.sk) : new THREE.Color(0xd8b48a); // 肤色
-    const col = clothCol;
-    const dark = skinCol.clone().multiplyScalar(0.92);
-    const limbCol = dark.clone();
-    const g = new THREE.Group();
-    const box = (w, hh, d, c) => new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), new THREE.MeshLambertMaterial({ color: c }));
-    const root = (w, hh, d, c, x, y, z) => {
-      const m = box(w, hh, d, c);
-      m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
-    };
-    const torso = root(0.52, 0.72, 0.3, col, 0, 1.06, 0);
-    const head = root(0.42, 0.42, 0.42, dark, 0, 1.62, 0);
-    // 脸：确认「模型正面」到底朝哪边 —— 顺带让人一眼能看出别人面朝哪（以前纯对称，看不出前后）
-    const face = box(0.26, 0.09, 0.02, 0x2b1a12);     // 嘴：压低一点，给细长眼留出空间
-    face.position.set(0, -0.02, -0.215);
-    head.add(face);
-    // 眼睛：细长的两条（比原来更窄更高，眼距略收）—— 看起来更「凶」也更像像素游戏的眼睛
-    const eyeL = box(0.10, 0.028, 0.02, 0xf2f2f2); eyeL.position.set(-0.085, 0.085, -0.222); head.add(eyeL);
-    const eyeR = box(0.10, 0.028, 0.02, 0xf2f2f2); eyeR.position.set(0.085, 0.085, -0.222); head.add(eyeR);
-    // 头发：发色 + 发型都由玩家选（挂在 head 上，转头时跟着转）
-    const HAIR = (typeof lk.hr === 'number' && lk.hr > 0) ? lk.hr : 0x33251a;
-    const hs = lk.hs | 0;
-    if (HAIR) {
-      const hT = box(0.46, 0.12, 0.46, HAIR); hT.position.set(0, 0.235, 0); head.add(hT);          // 顶盖
-      const hB = box(0.42, 0.07, 0.07, HAIR); hB.position.set(0, 0.175, -0.204); head.add(hB);     // 刘海
-      if (hs === 1) {                                                                            // 长发
-        const hBack = box(0.46, 0.54, 0.10, HAIR); hBack.position.set(0, -0.08, 0.21); head.add(hBack);
-        const hL = box(0.08, 0.42, 0.44, HAIR); hL.position.set(-0.215, -0.06, 0); head.add(hL);
-        const hR = box(0.08, 0.42, 0.44, HAIR); hR.position.set(0.215, -0.06, 0); head.add(hR);
-      } else {                                                                                    // 短发
-        const hBack = box(0.46, 0.30, 0.09, HAIR); hBack.position.set(0, 0.01, 0.20); head.add(hBack);
-        const hL = box(0.07, 0.24, 0.44, HAIR); hL.position.set(-0.215, 0.03, 0); head.add(hL);
-        const hR = box(0.07, 0.24, 0.44, HAIR); hR.position.set(0.215, 0.03, 0); head.add(hR);
-      }
-    }
-    // ★ 四肢挂在一个「关节」Group 上（肩 / 髋），绕关节转才是摆臂甩腿；
-    //   以前直接把方块摆在这里转的是方块自己的中心，看起来像风车。
-    const joint = (x, y, w, hh, d, c) => {
-      const piv = new THREE.Group();
-      piv.position.set(x, y, 0);
-      const m = box(w, hh, d, c);
-      m.position.set(0, -hh / 2, 0);                 // 从关节往下长
-      m.castShadow = true; m.receiveShadow = true;
-      piv.add(m);
-      g.add(piv);
-      return piv;
-    };
-    const legCol = clothCol.clone().multiplyScalar(0.72);        // 裤腿 = 衣服色压暗
-    const armL = joint(-0.35, 1.40, 0.18, 0.68, 0.2, limbCol);
-    const armR = joint(0.35, 1.40, 0.18, 0.68, 0.2, limbCol);
-    const legL = joint(-0.13, 0.70, 0.2, 0.7, 0.22, legCol);
-    const legR = joint(0.13, 0.70, 0.2, 0.7, 0.22, legCol);
-    // 右手前臂再分一节，挖掘/挥砍时只甩前臂（A&S 那种"手腕"感）
-    const foreR = new THREE.Group();
-    foreR.position.set(0, -0.42, 0);
-    const foreMesh = box(0.17, 0.30, 0.19, dark);
-    foreMesh.position.set(0, -0.15, 0);
-    foreR.add(foreMesh);
-    armR.add(foreR);
+    // 像素（体素）人形：和游戏里的怪物同一套建模，头发/眼睛/嘴都是像素格
+    const A = buildVoxAvatar({
+      skin: (typeof lk.sk === 'number') ? lk.sk : 0xd8b48a,
+      cloth: (typeof lk.cl === 'number') ? lk.cl : base,
+      hair: (typeof lk.hr === 'number' && lk.hr > 0) ? lk.hr : 0x33251a,
+      hs: lk.hs | 0,
+    });
+    const g = A.g, torso = A.torso, head = A.head, face = A.face;
+    const armL = A.armL, armR = A.armR, legL = A.legL, legR = A.legR, foreR = A.foreR;
     g.add(nameTag(name));
     g.userData = {
       tx: 0, ty: 0, tz: 0, yaw: 0,
