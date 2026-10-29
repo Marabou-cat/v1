@@ -6285,7 +6285,7 @@ function lockPointer() {
    判据只放在这一个函数里，新加界面只要调 syncPointerLock() 就自动生效。 */
 let furnaceOpen = false;
 function uiOpen() {
-  return panelOpen || !!openChestPos || furnaceOpen || chargerOpen || processorOpen || pressOpen || !$('furnace').classList.contains('hide');
+  return panelOpen || !!openChestPos || furnaceOpen || chargerOpen || processorOpen || pressOpen || MM_BIG.open || !$('furnace').classList.contains('hide');
 }
 function syncPointerLock() {
   if (!started) return;
@@ -6327,12 +6327,13 @@ addEventListener('keydown', e => {
     }
   }
   if (k === keymap.bag) { if (started) openPanel(!panelOpen); e.preventDefault(); }
-  if (k === 'KeyM' && started) { mmCycleZoom(); e.preventDefault(); }   // 小地图缩放
+  if (k === 'KeyM' && started) { mmToggleBig(); e.preventDefault(); }    // 全屏地图（小地图缩放走 +/− 按钮）
   if (k.startsWith('Digit')) {
     const n = +k.slice(5);
     if (n >= 1 && n <= 9) { player.sel = n - 1; refreshHeld(); renderHotbar(); }
   }
   if (k === 'Escape') {
+    if (MM_BIG.open) { mmCloseBig(); e.preventDefault(); return; }
     if (!$('settings').classList.contains('hide')) { openSettings(false); e.preventDefault(); return; }
     if (openChestPos) { closeChest(); e.preventDefault(); return; }
     if (!$('furnace').classList.contains('hide')) { closeFurnace(); e.preventDefault(); return; }
@@ -7591,7 +7592,254 @@ function mmInit() {
   const zin = $('mmIn'), zout = $('mmOut');
   if (zin) zin.onclick = (e) => { e.preventDefault(); e.stopPropagation(); mmZoom(1); mmZoomToast(); };
   if (zout) zout.onclick = (e) => { e.preventDefault(); e.stopPropagation(); mmZoom(-1); mmZoomToast(); };
+  // 点小地图 = 开全屏地图（手机上最顺手的入口）
+  MM.cv.style.pointerEvents = 'auto'; MM.cv.style.cursor = 'pointer';
+  MM.cv.title = '点击打开全屏地图（M）';
+  MM.cv.onclick = () => { if (!uiOpen()) mmOpenBig(); };
   MM.dirty = true;
+}
+
+/* ── 全屏地图：拖动平移 / 4 级缩放 / 点击放置标记 / 标记列表可改名删除 ──────
+   标记存在 MM.marks 里（type:'custom'），跟着世界存档走；结构标记同表但 type 不同。 */
+const MM_BIGZOOM = [20, 40, 80, 160];        // 横跨多少格（每格 4 方块 → 80/160/320/640 方块）
+const MM_BIG = { open: false, zoom: 1, x: 0, z: 0, drag: null, hover: null };
+let mmBigCtx = null;
+
+function mmBigPpc(cv) { return Math.min(cv.width, cv.height) / MM_BIGZOOM[MM_BIG.zoom]; }
+function mmBigResize() {
+  const cv = $('mapCv');
+  if (!cv) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(200, cv.clientWidth | 0), h = Math.max(160, cv.clientHeight | 0);
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  mmBigCtx = cv.getContext('2d');
+  mmBigCtx.imageSmoothingEnabled = false;
+}
+function mmBigScreenToWorld(clientX, clientY) {
+  const cv = $('mapCv'), r = cv.getBoundingClientRect();
+  const px = (clientX - r.left) * (cv.width / r.width), py = (clientY - r.top) * (cv.height / r.height);
+  const ppc = mmBigPpc(cv);
+  return {
+    x: Math.round(MM_BIG.x + (px - cv.width / 2) / ppc * MM_CELL),
+    z: Math.round(MM_BIG.z + (py - cv.height / 2) / ppc * MM_CELL),
+  };
+}
+function mmMarkCount() { return Array.from(MM.marks.values()).filter(m => m.type === 'custom').length; }
+function mmAddMark(x, z, label) {
+  const key = 'custom:' + x + ',' + z;
+  if (MM.marks.has(key)) { toast('这里已经有标记了', 1.2); return false; }
+  const label2 = label || ('标记 ' + (mmMarkCount() + 1));
+  MM.marks.set(key, { type: 'custom', label: label2, x, z });
+  MM.dirty = true;
+  mmBigDraw(); renderMarkList();
+  toast(`已标记「${label2}」（${x}, ${z}）`, 2.0);
+  saveSoon();
+  return true;
+}
+function mmDelMark(key) {
+  const m = MM.marks.get(key);
+  if (!m) return false;
+  MM.marks.delete(key);
+  MM.dirty = true; mmBigDraw(); renderMarkList();
+  toast(`已删除标记「${m.label}」`, 1.4);
+  saveSoon();
+  return true;
+}
+function mmRenameMark(key) {
+  const m = MM.marks.get(key);
+  if (!m) return false;
+  const nm = prompt('标记名称', m.label);
+  if (nm === null) return false;
+  const t = String(nm).trim().slice(0, 12);
+  if (!t) return false;
+  m.label = t; MM.dirty = true; mmBigDraw(); renderMarkList(); saveSoon();
+  return true;
+}
+function renderMarkList() {
+  const box = $('mapMarks');
+  if (!box) return;
+  const list = Array.from(MM.marks.entries()).map(([k, m]) => ({ k, ...m, d: Math.hypot(m.x - player.p.x, m.z - player.p.z) }))
+    .sort((a, b) => (a.type === 'custom' ? 0 : 1) - (b.type === 'custom' ? 0 : 1) || a.d - b.d);
+  if ($('mapMarkCount')) $('mapMarkCount').textContent = `${mmMarkCount()} 个自定义 · ${list.length} 个标记`;
+  box.innerHTML = '';
+  if (!list.length) {
+    box.innerHTML = '<div style="color:#7f93ab;font-size:11px;padding:6px">还没有标记：在地图上点一下就能放一个</div>';
+    return;
+  }
+  for (const m of list) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 5px;margin-bottom:3px;border:1px solid #24344a;'
+      + 'border-radius:4px;background:#0e1724;font-size:11px;cursor:pointer';
+    row.innerHTML = `<span style="width:8px;height:8px;border-radius:2px;background:${m.type === 'custom' ? '#ffd84a' : (MM_MARK_COLOR[m.type] || '#f5c451')}"></span>`
+      + `<b style="font-weight:400;color:#dbe8f6;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.label)}</b>`
+      + `<span style="color:#8fa6c0">${Math.round(m.d)}格</span>`
+      + `<span data-ren="${m.k}" title="改名" style="color:#7fd6ff;padding:0 2px">改</span>`
+      + `<span data-del="${m.k}" title="删除" style="color:#e0524b;padding:0 2px">✕</span>`;
+    row.onclick = (e) => {
+      const del = e.target.closest('[data-del]'), ren = e.target.closest('[data-ren]');
+      if (del) { e.stopPropagation(); mmDelMark(del.dataset.del); return; }
+      if (ren) { e.stopPropagation(); mmRenameMark(ren.dataset.ren); return; }
+      MM_BIG.x = m.x; MM_BIG.z = m.z; mmBigDraw();
+    };
+    box.appendChild(row);
+  }
+}
+function mmBigDraw() {
+  if (!MM_BIG.open) return;
+  const cv = $('mapCv');
+  if (!cv) return;
+  if (!mmBigCtx) mmBigResize();
+  const ctx = mmBigCtx, W = cv.width, H = cv.height;
+  const ppc = mmBigPpc(cv);
+  const gx = MM_BIG.x / MM_CELL, gz = MM_BIG.z / MM_CELL;
+  ctx.fillStyle = '#0f1620'; ctx.fillRect(0, 0, W, H);
+  // 已探索格
+  for (const [k, t] of MM.cells) {
+    const i = k.indexOf(',');
+    const cxx = +k.slice(0, i), czz = +k.slice(i + 1);
+    const sx = W / 2 + (cxx - gx) * ppc, sz = H / 2 + (czz - gz) * ppc;
+    if (sx < -ppc || sz < -ppc || sx > W || sz > H) continue;
+    ctx.fillStyle = MM_TERRAIN[t] || MM_TERRAIN[0];
+    ctx.fillRect(sx | 0, sz | 0, Math.ceil(ppc) + 1, Math.ceil(ppc) + 1);
+  }
+  // 64 方块的网格 + 坐标
+  if (ppc * 16 >= 14) {
+    ctx.strokeStyle = 'rgba(255,255,255,.09)'; ctx.lineWidth = 1;
+    const step = 16;                                       // 16 格 = 64 方块
+    const c0 = Math.floor(gx - (W / 2) / ppc / step) * step, c1 = Math.ceil(gx + (W / 2) / ppc / step) * step;
+    const d0 = Math.floor(gz - (H / 2) / ppc / step) * step, d1 = Math.ceil(gz + (H / 2) / ppc / step) * step;
+    ctx.font = `${Math.round(9 * (W / cv.clientWidth || 1))}px sans-serif`;
+    ctx.fillStyle = 'rgba(200,220,240,.5)'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (let c = c0; c <= c1; c += step) {
+      const sx = W / 2 + (c - gx) * ppc;
+      ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
+      if ((c / step) % 2 === 0) ctx.fillText(String(c * MM_CELL), sx + 2, 2);
+    }
+    for (let d = d0; d <= d1; d += step) {
+      const sz = H / 2 + (d - gz) * ppc;
+      ctx.beginPath(); ctx.moveTo(0, sz); ctx.lineTo(W, sz); ctx.stroke();
+      if ((d / step) % 2 === 0) ctx.fillText(String(d * MM_CELL), 3, sz + 2);
+    }
+  }
+  // 标记（结构 + 自定义）
+  for (const m of MM.marks.values()) {
+    const sx = W / 2 + (m.x / MM_CELL - gx) * ppc, sz = H / 2 + (m.z / MM_CELL - gz) * ppc;
+    if (sx < -20 || sz < -20 || sx > W + 20 || sz > H + 20) continue;
+    const R = Math.max(4, Math.min(8, ppc * 0.55));
+    ctx.beginPath();
+    if (m.type === 'custom') {
+      ctx.moveTo(sx, sz - R * 1.6); ctx.lineTo(sx + R, sz - R * 0.4); ctx.lineTo(sx + R * 0.5, sz + R * 1.2);
+      ctx.lineTo(sx - R * 0.5, sz + R * 1.2); ctx.lineTo(sx - R, sz - R * 0.4); ctx.closePath();
+    } else {
+      ctx.moveTo(sx, sz - R); ctx.lineTo(sx + R, sz); ctx.lineTo(sx, sz + R); ctx.lineTo(sx - R, sz); ctx.closePath();
+    }
+    ctx.fillStyle = m.type === 'custom' ? '#ffd84a' : (MM_MARK_COLOR[m.type] || '#f5c451');
+    ctx.fill();
+    ctx.strokeStyle = '#0b1017'; ctx.lineWidth = 1.5; ctx.stroke();
+    const fs = Math.max(10, Math.min(14, ppc * 0.7)) * (W / (cv.clientWidth || W));
+    ctx.font = `${Math.round(fs)}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#0b1017'; ctx.fillText(m.label, sx + 1, sz + R * 1.4 + 1);
+    ctx.fillStyle = '#eaf3ff'; ctx.fillText(m.label, sx, sz + R * 1.4);
+  }
+  // 出生点
+  if (player.spawn) {
+    const sx = W / 2 + (player.spawn.x / MM_CELL - gx) * ppc, sz = H / 2 + (player.spawn.z / MM_CELL - gz) * ppc;
+    if (sx > -10 && sz > -10 && sx < W + 10 && sz < H + 10) {
+      ctx.strokeStyle = '#7fe06b'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sx - 5, sz); ctx.lineTo(sx + 5, sz); ctx.moveTo(sx, sz - 5); ctx.lineTo(sx, sz + 5); ctx.stroke();
+    }
+  }
+  // 玩家箭头
+  {
+    const sx = W / 2 + (player.p.x / MM_CELL - gx) * ppc, sz = H / 2 + (player.p.z / MM_CELL - gz) * ppc;
+    const dx = -Math.sin(player.yaw), dz = -Math.cos(player.yaw), L = 9, Wd = 6;
+    ctx.beginPath();
+    ctx.moveTo(sx + dx * L, sz + dz * L);
+    ctx.lineTo(sx - dx * Wd - dz * Wd, sz - dz * Wd + dx * Wd);
+    ctx.lineTo(sx - dx * Wd + dz * Wd, sz - dz * Wd - dx * Wd);
+    ctx.closePath();
+    ctx.fillStyle = '#ffd84a'; ctx.fill(); ctx.strokeStyle = '#241a05'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  // 比例尺 + 坐标读数
+  const dpr = W / (cv.clientWidth || W);
+  const barBlocks = 64, barPx = (barBlocks / MM_CELL) * ppc;
+  ctx.fillStyle = 'rgba(10,17,32,.75)'; ctx.fillRect(10, H - 30 * dpr, barPx + 16 * dpr, 22 * dpr);
+  ctx.strokeStyle = '#cfe0f2'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(14 * dpr, H - 16 * dpr); ctx.lineTo(14 * dpr + barPx, H - 16 * dpr); ctx.stroke();
+  ctx.font = `${Math.round(10 * dpr)}px sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillStyle = '#cfe0f2'; ctx.fillText(`${barBlocks} 格`, 14 * dpr, H - 18 * dpr);
+  ctx.textAlign = 'right';
+  const hv = MM_BIG.hover;
+  ctx.fillText(hv ? `x ${hv.x}  z ${hv.z}` : `中心 x ${Math.round(MM_BIG.x)}  z ${Math.round(MM_BIG.z)}`, W - 10 * dpr, H - 10 * dpr);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(`视野 ${MM_BIGZOOM[MM_BIG.zoom] * MM_CELL} 格 · 已探索 ${MM.cells.size} 格`, 10 * dpr, 8 * dpr);
+}
+function mmBigZoom(d) {
+  MM_BIG.zoom = Math.max(0, Math.min(MM_BIGZOOM.length - 1, MM_BIG.zoom + d));
+  mmBigDraw();
+}
+function mmOpenBig(atX, atZ) {
+  const wrap = $('mapFull');
+  if (!wrap) return;
+  MM_BIG.open = true;
+  MM_BIG.x = atX === undefined ? player.p.x : atX;
+  MM_BIG.z = atZ === undefined ? player.p.z : atZ;
+  wrap.classList.remove('hide');
+  mmBigResize();
+  renderMarkList();
+  mmBigDraw();
+  syncPointerLock();
+}
+function mmCloseBig() {
+  MM_BIG.open = false;
+  const w = $('mapFull');
+  if (w) w.classList.add('hide');
+  syncPointerLock();
+}
+function mmToggleBig() { MM_BIG.open ? mmCloseBig() : mmOpenBig(); }
+function mmBigInit() {
+  const cv = $('mapCv');
+  if (!cv) return;
+  // 拖动平移 / 点击放标记（位移 <6px 才算点击）
+  let drag = null;
+  cv.addEventListener('pointerdown', (e) => {
+    drag = { x: e.clientX, y: e.clientY, ox: MM_BIG.x, oz: MM_BIG.z, moved: 0 };
+    cv.setPointerCapture && cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (drag) {
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      drag.moved = Math.max(drag.moved, Math.abs(dx) + Math.abs(dy));
+      const ppc = mmBigPpc(cv), r = cv.getBoundingClientRect();
+      const k = cv.width / r.width;
+      MM_BIG.x = drag.ox - (dx * k) / ppc * MM_CELL;
+      MM_BIG.z = drag.oz - (dy * k) / ppc * MM_CELL;
+      MM_BIG.hover = mmBigScreenToWorld(e.clientX, e.clientY);
+      mmBigDraw();
+    } else {
+      MM_BIG.hover = mmBigScreenToWorld(e.clientX, e.clientY);
+      mmBigDraw();
+    }
+  });
+  cv.addEventListener('pointerup', (e) => {
+    if (drag && drag.moved < 6) {
+      const p2 = mmBigScreenToWorld(e.clientX, e.clientY);
+      mmAddMark(p2.x, p2.z);
+    }
+    drag = null;
+  });
+  cv.addEventListener('pointerleave', () => { MM_BIG.hover = null; if (!drag) mmBigDraw(); });
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); mmBigZoom(e.deltaY > 0 ? -1 : 1); }, { passive: false });
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  on('mapZoomIn', () => mmBigZoom(1));
+  on('mapZoomOut', () => mmBigZoom(-1));
+  on('mapCenter', () => { MM_BIG.x = player.p.x; MM_BIG.z = player.p.z; mmBigDraw(); });
+  on('mapAddCenter', () => mmAddMark(Math.round(MM_BIG.x), Math.round(MM_BIG.z)));
+  on('mapClose', () => mmCloseBig());
+  const wrap = $('mapFull');
+  if (wrap) wrap.addEventListener('click', (e) => { if (e.target === wrap) mmCloseBig(); });
+  addEventListener('resize', () => { if (MM_BIG.open) { mmBigResize(); mmBigDraw(); } });
 }
 
 let saveSoonT = 0, saveErr = null, saveWarned = false;
@@ -7864,6 +8112,7 @@ STRUCT_TYPES.push(
 loadIndex();
 renderWorldList();
 mmInit();
+mmBigInit();
 $('btnBag').onclick = () => openPanel(!panelOpen);
 $('btnClose').onclick = () => openPanel(false);
 $('btnFurnaceClose').onclick = () => closeFurnace();
@@ -8268,6 +8517,14 @@ window.GAME = {
     mapReveal: () => { mmReveal(); mmDraw(); return { cells: MM.cells.size }; },
     mapScan: () => { mmScanStructs(); mmDraw(); return { marks: MM.marks.size, list: Array.from(MM.marks.values()) }; },
     mapClear: () => { MM.cells.clear(); MM.marks.clear(); mmDraw(); return true; },
+    mapOpenBig: (x, z) => { mmOpenBig(x, z); return { open: MM_BIG.open, zoom: MM_BIG.zoom, acrossBlocks: MM_BIGZOOM[MM_BIG.zoom] * MM_CELL, marks: MM.marks.size }; },
+    mapCloseBig: () => { mmCloseBig(); return MM_BIG.open; },
+    mapAddMark: (x, z, label) => { const ok = mmAddMark(x === undefined ? Math.round(MM_BIG.x) : x, z === undefined ? Math.round(MM_BIG.z) : z, label); return { ok, marks: Array.from(MM.marks.values()) }; },
+    mapDelMark: (x, z) => mmDelMark('custom:' + x + ',' + z),
+    mapBig: () => ({ open: MM_BIG.open, zoom: MM_BIG.zoom, acrossBlocks: MM_BIGZOOM[MM_BIG.zoom] * MM_CELL, cx: Math.round(MM_BIG.x), cz: Math.round(MM_BIG.z),
+                     rows: $('mapMarks') ? $('mapMarks').children.length : -1, canvas: $('mapCv') ? [$('mapCv').width, $('mapCv').height] : null }),
+    mapPan: (dx, dz) => { MM_BIG.x += dx || 0; MM_BIG.z += dz || 0; mmBigDraw(); return { cx: Math.round(MM_BIG.x), cz: Math.round(MM_BIG.z) }; },
+    mapBigZoom: (d) => { mmBigZoom(d || 0); return { zoom: MM_BIG.zoom, acrossBlocks: MM_BIGZOOM[MM_BIG.zoom] * MM_CELL }; },
     dropCount: () => drops.length,
     spawnDrop: (id, n) => spawnDrop(id, n, player.p.x + 1.2, player.p.y + 1.2, player.p.z),
     stepDrops: (n = 1) => { for (let i = 0; i < n; i++) updateDrops(1 / 60); },

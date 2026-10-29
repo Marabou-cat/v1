@@ -117,6 +117,19 @@
   #tMine{right:96px;bottom:calc(96px + env(safe-area-inset-bottom));width:74px;height:74px}
   #tPlace{right:18px;bottom:calc(66px + env(safe-area-inset-bottom));width:66px;height:66px}
   #tBag{right:20px;bottom:calc(238px + env(safe-area-inset-bottom));width:54px;height:54px;font-size:11px}
+  /* ---------- fullscreen map ---------- */
+  #mapFull .card{background:var(--panel)}
+  #mapBody{display:flex;gap:10px;margin-top:8px;min-height:0}
+  /* ⚠ 全局有 canvas{position:absolute;inset:0} 规则，这里必须显式盖回来，否则画布会铺满整屏 */
+  #mapCv{position:relative;inset:auto;flex:1 1 0;min-width:0;width:auto;height:min(68vh,600px);
+    background:#0f1620;border:1px solid #33475e;border-radius:6px;touch-action:none;cursor:crosshair;display:block}
+  #mapSide{width:230px;flex:0 0 230px;max-height:min(68vh,600px);overflow:auto}
+  #mapMarks{font-size:11px}
+  @media (max-width:820px){
+    #mapBody{flex-direction:column}
+    #mapCv{height:min(52vh,420px);width:100%;flex:none}
+    #mapSide{width:100%;flex:none;max-height:110px}
+  }
   /* ---------- minimap ---------- */
   #mmWrap{position:absolute;right:8px;top:46px;width:132px;pointer-events:none;z-index:8}
   #mm{display:block;width:132px;height:132px;border-radius:6px;background:#141c26;box-shadow:0 4px 14px #0007}
@@ -193,7 +206,7 @@
       <b>左键（按住）</b><span>挖方块 / 攻击野怪</span>
       <b>右键</b><span>放下方块 / 吃食物 / 开箱子、熔炉、工作台、充电器</span>
       <b>能量炮</b><span>铜→电路板+电线，再配一种金属（铜/铁/钻石/冥界钢）→ 右键发射；没电就放进充电器，加 1 个铀充满</span>
-      <b>M</b><span>小地图缩放（4 级视野）；走到结构 40 格内会自动永久标记</span>
+      <b>M</b><span>全屏地图：拖动平移、滚轮/± 缩放、点一下放标记（标记可改名/删除，永久保存）；走到结构 40 格内会自动标记</span>
       <b>1 - 9 / 滚轮</b><span>切换快捷栏</span>
       <b>E</b><span>背包与合成</span>
     </div>
@@ -281,6 +294,28 @@
   </div>
 </div>
 
+<div class="overlay hide" id="mapFull">
+  <div class="card" style="max-width:1180px;width:97vw">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="sec" style="border:0;margin:0">地图 <span id="mapHint" style="color:#8ea3ba;font-size:11px">拖动平移 · 滚轮/± 缩放 · 点一下放标记</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn" id="mapZoomIn">＋ 放大</button>
+        <button class="btn" id="mapZoomOut">－ 缩小</button>
+        <button class="btn" id="mapCenter">回到我</button>
+        <button class="btn gold" id="mapAddCenter">在中心放标记</button>
+        <button class="btn" id="mapClose">关闭 Esc</button>
+      </div>
+    </div>
+    <div id="mapBody">
+      <canvas id="mapCv"></canvas>
+      <div id="mapSide">
+        <div class="sec">标记 <span id="mapMarkCount" style="color:#8ea3ba"></span></div>
+        <div id="mapMarks"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hide" id="charger">
   <div class="card" style="max-width:560px">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -334,6 +369,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=152"></script>
+<script type="module" src="./js/blockwild.js?v=153"></script>
 </body>
 </html>
