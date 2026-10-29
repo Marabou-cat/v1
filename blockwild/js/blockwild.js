@@ -4490,50 +4490,322 @@ function buildFarm(put, carve, fx, fz, r, rnd) {
   }
 }
 
+/* ── 村庄建筑（8 种）────────────────────────────────────────────────
+   每种房子都先量地（villageGround：以最高点为地面，往下用圆石填、往上清空），
+   门一律朝向村中心。8 种：平房 buildHouse / 二层住宅 / 铁匠铺 / 图书馆 /
+   谷仓 / 面包房 / 瞭望塔 / 水井。材料只用 木、原木、圆石、石砖、云杉、玻璃、楼梯。 */
+function villageGround(put, carve, hx, hz, w, d, clearH) {
+  // 取地块高度的「中位数」当地面：一半往下填、一半往上清 —— 房子不会坐在高高的石头台子上
+  const hs = [];
+  for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) hs.push(heightAt(hx + dx, hz + dz));
+  hs.sort((a, b) => a - b);
+  const mn = hs[0], mx = hs[hs.length - 1];
+  const gy = hs[hs.length >> 1];
+  for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) {
+    for (let y = Math.max(1, mn - 1); y < gy; y++) put(hx + dx, y, hz + dz, 9);      // 地基填平
+    for (let y = gy + 1; y <= gy + clearH; y++) carve(hx + dx, y, hz + dz);          // 清出空间
+  }
+  return gy;
+}
+function villageScore(hx, hz, w, d) {           // 这块地有多平（越小越好）
+  let mn = 99, mx = -99;
+  for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) {
+    const hh = heightAt(hx + dx, hz + dz);
+    if (hh < mn) mn = hh;
+    if (hh > mx) mx = hh;
+  }
+  return mx - mn;
+}
+function villageFloor(put, hx, hz, gy, w, d, mat) {
+  for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) put(hx + dx, gy, hz + dz, mat);
+}
+function villageDoor(put, hx, hz, gy, w, d, cx, cz) {
+  if (Math.abs(cx - hx) > Math.abs(cz - hz)) {
+    const sx = cx > hx ? 1 : -1, m = (sx > 0 ? 4 : 3) - 1;
+    for (let y = gy + 1; y <= gy + 2; y++) put(hx + sx * w, y, hz, 35, m | (y === gy + 2 ? 8 : 0));
+    return { axis: 'x', s: sx };
+  }
+  const sz = cz > hz ? 1 : -1, m = (sz > 0 ? 2 : 1) - 1;
+  for (let y = gy + 1; y <= gy + 2; y++) put(hx, y, hz + sz * d, 35, m | (y === gy + 2 ? 8 : 0));
+  return { axis: 'z', s: sz };
+}
+function villageWalls(put, hx, hz, y0, y1, w, d, mat) {
+  for (let y = y0; y <= y1; y++) {
+    for (let dx = -w; dx <= w; dx++) { put(hx + dx, y, hz - d, mat); put(hx + dx, y, hz + d, mat); }
+    for (let dz = -d; dz <= d; dz++) { put(hx - w, y, hz + dz, mat); put(hx + w, y, hz + dz, mat); }
+  }
+}
+function villagePosts(put, hx, hz, y0, y1, w, d, mat) {
+  for (const [sx, sz] of [[-w, -d], [w, -d], [-w, d], [w, d]])
+    for (let y = y0; y <= y1; y++) put(hx + sx, y, hz + sz, mat);
+}
+
+/* ① 二层住宅：两层 + 内部楼梯 + 两层玻璃窗 + 两坡屋顶 */
+function buildTwoStory(put, carve, hx, hz, w, d, cx, cz, rnd) {
+  const woodP = 8, log = 6, glass = 22, stair = 34;
+  const gy = villageGround(put, carve, hx, hz, w, d, 16);
+  villageFloor(put, hx, hz, gy, w, d, woodP);
+  villageWalls(put, hx, hz, gy + 1, gy + 3, w, d, woodP);          // 一层
+  villagePosts(put, hx, hz, gy + 1, gy + 3, w, d, log);
+  for (const zz of [-d, d]) for (const dx of [-1, 1]) put(hx + dx, gy + 2, hz + zz, glass);
+  for (const xx of [-w, w]) for (const dz of [-1, 1]) put(hx + xx, gy + 2, hz + dz, glass);
+  villageDoor(put, hx, hz, gy, w, d, cx, cz);
+  for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) put(hx + dx, gy + 4, hz + dz, woodP);  // 楼板
+  for (let k = 0; k < 4; k++) {                                    // 靠里角的楼梯：一层 → 二层
+    put(hx + w - 1, gy + 1 + k, hz + d - 1 - k, stair, 0);
+    carve(hx + w - 1, gy + 4, hz + d - 1 - k);
+    carve(hx + w - 1, gy + 5 + k, hz + d - 1 - k);
+  }
+  villageWalls(put, hx, hz, gy + 5, gy + 7, w, d, woodP);          // 二层
+  villagePosts(put, hx, hz, gy + 5, gy + 7, w, d, log);
+  for (const zz of [-d, d]) for (const dx of [-1, 1]) put(hx + dx, gy + 6, hz + zz, glass);
+  for (const xx of [-w, w]) for (const dz of [-1, 1]) put(hx + xx, gy + 6, hz + dz, glass);
+  put(hx + w - 2, gy + 5, hz + d - 2, 38);                         // 二楼火把
+  put(hx - w + 1, gy + 1, hz - d + 1, 18);                         // 一楼箱子
+  put(hx - w + 1, gy + 1, hz + d - 1, 10);                         // 工作台
+  buildGableRoof(put, hx, hz, gy + 8, w + 1, d + 1, woodP, stair); // 屋顶
+  put(hx, gy + 9 + d, hz, log);
+}
+
+/* ② 铁匠铺：石头基座 + 正面敞开（两根原木立柱）+ 熔炉/铁砧/箱子 */
+function buildBlacksmith(put, carve, hx, hz, w, d, cx, cz, rnd) {
+  const cobble = 9, log = 6, stairStone = 33, stoneB = 21;
+  const gy = villageGround(put, carve, hx, hz, w, d, 10);
+  villageFloor(put, hx, hz, gy, w, d, stoneB);
+  // 三面墙（朝向村中心的那面敞开）
+  const openX = Math.abs(cx - hx) > Math.abs(cz - hz);
+  const sx = cx > hx ? 1 : -1, sz = cz > hz ? 1 : -1;
+  for (let y = gy + 1; y <= gy + 3; y++) {
+    if (openX) { for (let dz = -d; dz <= d; dz++) put(hx - sx * w, y, hz + dz, cobble); }         // 背面
+    else { for (let dx = -w; dx <= w; dx++) put(hx + dx, y, hz - sz * d, cobble); }
+    if (openX) { for (let dx = -w; dx <= w; dx++) { put(hx + dx, y, hz - d, cobble); put(hx + dx, y, hz + d, cobble); } }
+    else { for (let dz = -d; dz <= d; dz++) { put(hx - w, y, hz + dz, cobble); put(hx + w, y, hz + dz, cobble); } }
+  }
+  // 敞开面的两根柱子
+  for (let y = gy + 1; y <= gy + 3; y++) {
+    if (openX) { put(hx + sx * w, y, hz - d, log); put(hx + sx * w, y, hz + d, log); }
+    else { put(hx - w, y, hz + sz * d, log); put(hx + w, y, hz + sz * d, log); }
+  }
+  buildGableRoof(put, hx, hz, gy + 4, w + 1, d + 1, stoneB, stairStone);
+  // 炉子 + 铁砧 + 箱子 + 工作台（贴后墙一字排开）
+  const bx = openX ? hx - sx * (w - 1) : hx, bz = openX ? hz : hz - sz * (d - 1);
+  if (openX) { put(hx - sx * (w - 1), gy + 1, hz + 2, 19); put(hx - sx * (w - 1), gy + 1, hz - 2, 18); put(hx - sx * (w - 1), gy + 1, hz, 47); }
+  else { put(hx + 2, gy + 1, hz - sz * (d - 1), 19); put(hx - 2, gy + 1, hz - sz * (d - 1), 18); put(hx, gy + 1, hz - sz * (d - 1), 47); }
+  put(hx + (openX ? -sx * 1 : 1), gy + 1, hz + (openX ? 1 : -sz * 1), 10);
+  put(hx + (openX ? sx * w - sx : -w + 1), gy + 3, hz + (openX ? -d + 1 : sz * d - sz), 38);   // 火把
+  // 烟囱
+  for (let y = gy + 4; y <= gy + 7; y++) put(hx - (openX ? sx * w : 1), y, hz - (openX ? 1 : sz * d), cobble);
+}
+
+/* ③ 图书馆：云杉木 + 大玻璃窗 + 一排箱子当书架 + 中间长桌 */
+function buildLibrary(put, carve, hx, hz, w, d, cx, cz, rnd) {
+  const spruceP = 29, spruceLog = 28, glass = 22, stair = 34;
+  const gy = villageGround(put, carve, hx, hz, w, d, 12);
+  villageFloor(put, hx, hz, gy, w, d, spruceP);
+  villageWalls(put, hx, hz, gy + 1, gy + 4, w, d, spruceP);
+  villagePosts(put, hx, hz, gy + 1, gy + 4, w, d, spruceLog);
+  for (const zz of [-d, d]) for (let dx = -w + 1; dx <= w - 1; dx++) if (((dx + w) % 2) === 0) put(hx + dx, gy + 2, hz + zz, glass);
+  for (const xx of [-w, w]) for (let dz = -d + 1; dz <= d - 1; dz++) if (((dz + d) % 2) === 0) put(hx + xx, gy + 2, hz + dz, glass);
+  villageDoor(put, hx, hz, gy, w, d, cx, cz);
+  for (let dz = -d + 1; dz <= d - 1; dz++) { put(hx - w + 1, gy + 1, hz + dz, 18); put(hx - w + 1, gy + 2, hz + dz, 18); }  // 书架
+  for (let dz = -d + 1; dz <= d - 1; dz++) { put(hx + w - 1, gy + 1, hz + dz, 18); put(hx + w - 1, gy + 2, hz + dz, 18); }
+  for (let dx = -1; dx <= 1; dx++) put(hx + dx, gy + 1, hz, stair, 0);      // 长桌
+  put(hx, gy + 2, hz, 38);                                                   // 桌上火把
+  buildGableRoof(put, hx, hz, gy + 5, w + 1, d + 1, spruceP, stair);
+  put(hx, gy + 6 + d, hz, spruceLog);
+}
+
+/* ④ 谷仓：大跨木屋 + 敞开大门 + 干草堆 */
+function buildBarn(put, carve, hx, hz, w, d, cx, cz, rnd) {
+  const woodP = 8, log = 6, stair = 34;
+  const gy = villageGround(put, carve, hx, hz, w, d, 12);
+  villageFloor(put, hx, hz, gy, w, d, woodP);
+  villageWalls(put, hx, hz, gy + 1, gy + 4, w, d, woodP);
+  villagePosts(put, hx, hz, gy + 1, gy + 4, w, d, log);
+  // 大门：朝向村中心的一整面挖成 3 宽 3 高
+  const openX = Math.abs(cx - hx) > Math.abs(cz - hz);
+  const sx = cx > hx ? 1 : -1, sz = cz > hz ? 1 : -1;
+  for (let dy = -1; dy <= 1; dy++) for (let y = gy + 1; y <= gy + 3; y++) {
+    if (openX) carve(hx + sx * w, y, hz + dy); else carve(hx + dy, y, hz + sz * d);
+  }
+  for (let y = gy + 4; y <= gy + 5; y++) {                                   // 门框横梁
+    if (openX) for (let dy = -1; dy <= 1; dy++) put(hx + sx * w, y, hz + dy, log);
+    else for (let dy = -1; dy <= 1; dy++) put(hx + dy, y, hz + sz * d, log);
+  }
+  const hx0 = openX ? hx - sx * (w - 1) : hx, hz0 = openX ? hz : hz - sz * (d - 1);
+  for (let k = 0; k < 3; k++) {                                              // 干草堆（小麦块）
+    put(hx0 + (openX ? 0 : k - 1), gy + 1, hz0 + (openX ? k - 1 : 0), 17);
+    put(hx0 + (openX ? 0 : k - 1), gy + 2, hz0 + (openX ? k - 1 : 0), 17);
+  }
+  put(hx + (openX ? -sx * 1 : 1), gy + 1, hz + (openX ? 1 : -sz * 1), 25);   // 堆肥箱
+  put(hx + (openX ? sx * (w - 1) : -w + 1), gy + 3, hz + (openX ? -d + 1 : sz * (d - 1)), 38);
+  buildGableRoof(put, hx, hz, gy + 5, w + 1, d + 1, woodP, stair);
+  put(hx, gy + 6 + d, hz, log);
+}
+
+/* ⑤ 面包房：石砖基座 + 熔炉 + 烟囱 + 小门面 */
+function buildBakery(put, carve, hx, hz, w, d, cx, cz, rnd) {
+  const woodP = 8, stoneB = 21, stair = 34, cobble = 9;
+  const gy = villageGround(put, carve, hx, hz, w, d, 10);
+  villageFloor(put, hx, hz, gy, w, d, stoneB);
+  villageWalls(put, hx, hz, gy + 1, gy + 3, w, d, woodP);
+  villagePosts(put, hx, hz, gy + 1, gy + 3, w, d, cobble);
+  villageDoor(put, hx, hz, gy, w, d, cx, cz);
+  for (const zz of [-d, d]) put(hx + 1, gy + 2, hz + zz, 22);
+  put(hx - w + 1, gy + 1, hz - d + 1, 19); put(hx - w + 1, gy + 1, hz + d - 1, 19);   // 两个炉子
+  put(hx - w + 1, gy + 1, hz, 10);                                                     // 工作台
+  put(hx + w - 1, gy + 1, hz + d - 1, 18);                                             // 箱子
+  put(hx, gy + 3, hz - d + 1, 38);
+  for (let y = gy + 4; y <= gy + 7; y++) put(hx - w + 1, y, hz - d + 1, cobble);        // 烟囱
+  buildGableRoof(put, hx, hz, gy + 4, w + 1, d + 1, woodP, stair);
+}
+
+/* ⑥ 瞭望塔：圆石塔 3 层 + 顶部平台 + 玻璃窗 */
+function buildTower(put, carve, hx, hz, w, d, cx, cz, rnd) {
+  const cobble = 9, stoneB = 21, stairStone = 33, log = 6;
+  const gy = villageGround(put, carve, hx, hz, w, d, 16);
+  villageFloor(put, hx, hz, gy, w, d, stoneB);
+  villageWalls(put, hx, hz, gy + 1, gy + 10, w, d, cobble);
+  villageDoor(put, hx, hz, gy, w, d, cx, cz);
+  for (let k = 0; k < 3; k++) {                                     // 三层玻璃窗
+    const y = gy + 2 + k * 3;
+    put(hx, y, hz - d, 22); put(hx, y, hz + d, 22); put(hx - w, y, hz, 22); put(hx + w, y, hz, 22);
+  }
+  // 内部盘旋楼梯（沿墙角上升，能一层层跳上去）
+  for (let k = 0; k < 9; k++) {
+    const cx2 = hx + (k % 2 ? 1 : -1) * (w - 1), cz2 = hz + (k % 4 < 2 ? -1 : 1) * (d - 1);
+    put(cx2, gy + 2 + k, cz2, stairStone, k % 4);
+  }
+  for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) put(hx + dx, gy + 11, hz + dz, stoneB);  // 平台
+  villagePosts(put, hx, hz, gy + 12, gy + 14, w, d, log);
+  for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) put(hx + dx, gy + 15, hz + dz, stoneB);                 // 顶
+  put(hx + w, gy + 13, hz + d, 38); put(hx - w, gy + 13, hz - d, 38);
+  put(hx, gy + 12, hz, 18);
+}
+
+/* ⑦ 水井：圆石井圈 + 水 + 四柱小顶（村中心） */
+function buildWell(put, carve, hx, hz, cx, cz, rnd) {
+  const cobble = 9, log = 6, stair = 34;
+  const gy = villageGround(put, carve, hx, hz, 2, 2, 8);
+  for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+    const edge = Math.abs(dx) === 2 || Math.abs(dz) === 2;
+    put(hx + dx, gy, hz + dz, cobble);
+    if (edge) put(hx + dx, gy + 1, hz + dz, cobble);
+  }
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) put(hx + dx, gy, hz + dz, 5);   // 井水
+  villagePosts(put, hx, hz, gy + 1, gy + 3, 2, 2, log);
+  for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {
+    if (Math.abs(dx) + Math.abs(dz) > 4) continue;
+    put(hx + dx, gy + 4, hz + dz, 8);
+  }
+  for (let dx = -2; dx <= 2; dx++) put(hx + dx, gy + 5, hz, 8);
+  put(hx, gy + 6, hz, log);
+  put(hx + 2, gy + 3, hz + 2, 38);
+}
+
+/* ⑧ 小广场：4 盏火把 + 板凳 + 花坛（当村中心空地） */
+function buildPlaza(put, carve, hx, hz, cx, cz, rnd) {
+  const gy = villageGround(put, carve, hx, hz, 3, 3, 6);
+  for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {
+    if (Math.abs(dx) + Math.abs(dz) > 5) continue;
+    put(hx + dx, gy, hz + dz, rnd() < 0.35 ? 62 : 9);            // 石板 + 苔石
+  }
+  for (const [sx, sz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) {
+    put(hx + sx, gy + 1, hz + sz, 6); put(hx + sx, gy + 2, hz + sz, 38);
+  }
+  put(hx + 2, gy + 1, hz, 34); put(hx - 2, gy + 1, hz, 34);      // 石凳
+  put(hx, gy + 1, hz + 2, 37); put(hx, gy + 1, hz - 2, 37);      // 花坛
+}
+
+/* 建筑表：名字 / 尺寸(w,d) / 生成函数 / 权重 */
+const VILLAGE_KINDS = [
+  { id: 'house',     name: '平房',     w: 3, d: 3, build: null },
+  { id: 'twoStory',  name: '二层住宅', w: 3, d: 3, build: buildTwoStory },
+  { id: 'blacksmith',name: '铁匠铺',   w: 3, d: 3, build: buildBlacksmith },
+  { id: 'library',   name: '图书馆',   w: 4, d: 3, build: buildLibrary },
+  { id: 'barn',      name: '谷仓',     w: 4, d: 3, build: buildBarn },
+  { id: 'bakery',    name: '面包房',   w: 3, d: 3, build: buildBakery },
+  { id: 'tower',     name: '瞭望塔',   w: 2, d: 2, build: buildTower },
+];
+const VILLAGE_SPECIALS = ['blacksmith', 'library', 'barn', 'bakery', 'tower', 'twoStory'];
+
 function villageFor(cellX, cellZ) {
   const key = cellX + ',' + cellZ;
   if (villageCache.has(key)) return villageCache.get(key);
   let out = null;
   const roll = h2(cellX * 91.7 + 13.3, cellZ * 57.1 - 21.9);
-  if (roll > 0.5) {                                        // 村庄：70% → 50% 的格子
+  if (roll > 0.5) {
     const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 83492791) ^ Math.imul(cellZ, 427131)) | 0);
     const cx = cellX * VS_CELL + 44 + Math.floor(rnd() * (VS_CELL - 88));
     const cz = cellZ * VS_CELL + 44 + Math.floor(rnd() * (VS_CELL - 88));
     const gy = heightAt(cx, cz);
-    if (gy > CFG.SEA + 3 && gy < SURF_OFF + 42) {          // 不在水下、不在山顶
+    if (gy > CFG.SEA + 3 && gy < SURF_OFF + 42) {
       const ops = [];
-      // m = 方块朝向（楼梯等非立方体用）：屋顶坡口会带 3/4，必须一起存下来
       const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
       const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
-      const houses = 3 + Math.floor(rnd() * 3);
-      for (let i = 0; i < houses; i++) {
-        const ang0 = (i / houses) * Math.PI * 2 + rnd() * 0.6;
-        const w = 2 + Math.floor(rnd() * 2), d = 2 + Math.floor(rnd() * 2);
-        // 在给定方位附近试 4 个点，挑最平的一块地盖房
-        let best = null, bestVar = 99;
-        for (let k = 0; k < 4; k++) {
-          const ang = ang0 + (k ? (rnd() - 0.5) * 0.5 : 0);
-          const rad = 9 + Math.floor(rnd() * 10);
-          const hx = cx + Math.round(Math.cos(ang) * rad);
-          const hz = cz + Math.round(Math.sin(ang) * rad);
-          let mn = 99, mx = -99;
-          for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) {
-            const hh = heightAt(hx + dx, hz + dz);
-            if (hh < mn) mn = hh;
-            if (hh > mx) mx = hh;
+      // 村中心：水井 + 小广场
+      buildWell(put, carve, cx, cz, cx, cz, rnd);
+      const centerWell = true;
+      // 4~10 栋房子：先定种类（至少 2 种特殊建筑），再围着中心摆，互不重叠
+      const want = 4 + Math.floor(rnd() * 7);                     // 4..10
+      const kinds = [];
+      const pool = VILLAGE_SPECIALS.slice();
+      for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+      const nSpec = Math.min(pool.length, 2 + Math.floor(rnd() * 2));   // 2~3 种特殊建筑
+      for (let i = 0; i < nSpec && kinds.length < want; i++) kinds.push(pool[i]);
+      while (kinds.length < want) kinds.push(rnd() < 0.45 ? 'twoStory' : 'house');
+      for (let i = kinds.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = kinds[i]; kinds[i] = kinds[j]; kinds[j] = t; }
+      const placed = [{ x: cx, z: cz, r: 5 }];                    // 中心井占位
+      const builds = [];
+      for (const kid of kinds) {
+        const K = VILLAGE_KINDS.find(k => k.id === kid) || VILLAGE_KINDS[0];
+        let best = null, bestScore = 99;
+        for (let k = 0; k < 14; k++) {
+          const ang = rnd() * Math.PI * 2;
+          const rad = 8 + rnd() * 16;
+          const hx = Math.round(cx + Math.cos(ang) * rad), hz = Math.round(cz + Math.sin(ang) * rad);
+          const r = Math.max(K.w, K.d) + 2;
+          let ok = true;
+          for (const q of placed) {
+            const gap = r + q.r + 2;
+            if ((hx - q.x) ** 2 + (hz - q.z) ** 2 < gap * gap) { ok = false; break; }
           }
-          if (mx - mn < bestVar) { bestVar = mx - mn; best = { hx, hz }; }
+          if (!ok) continue;
+          const sc = villageScore(hx, hz, K.w, K.d);
+          if (sc < bestScore) { bestScore = sc; best = { hx, hz, r }; }
+          if (sc <= 2) break;                                    // 够平就直接用
         }
-        if (best) buildHouse(put, carve, best.hx, best.hz, w, d, 3 + Math.floor(rnd() * 2), cx, cz, rnd);
+        if (!best) continue;
+        if (K.build) K.build(put, carve, best.hx, best.hz, K.w, K.d, cx, cz, rnd);
+        else buildHouse(put, carve, best.hx, best.hz, K.w - 1, K.d - 1, 3 + Math.floor(rnd() * 2), cx, cz, rnd);
+        placed.push({ x: best.hx, z: best.hz, r: best.r });
+        builds.push({ id: K.id, name: K.name, x: best.hx, z: best.hz });
       }
+      // 农田 1~2 块（避开房子）
       const farms = 1 + Math.floor(rnd() * 2);
       for (let i = 0; i < farms; i++) {
-        const ang = rnd() * Math.PI * 2, rad = 4 + rnd() * 10;
-        buildFarm(put, carve, Math.round(cx + Math.cos(ang) * rad), Math.round(cz + Math.sin(ang) * rad), 2 + Math.floor(rnd() * 2), rnd);
+        for (let k = 0; k < 8; k++) {
+          const ang = rnd() * Math.PI * 2, rad = 10 + rnd() * 14;
+          const fx = Math.round(cx + Math.cos(ang) * rad), fz = Math.round(cz + Math.sin(ang) * rad);
+          let ok = true;
+          for (const q of placed) if ((fx - q.x) ** 2 + (fz - q.z) ** 2 < (q.r + 5) ** 2) { ok = false; break; }
+          if (!ok) continue;
+          buildFarm(put, carve, fx, fz, 2 + Math.floor(rnd() * 2), rnd);
+          placed.push({ x: fx, z: fz, r: 4 });
+          break;
+        }
       }
-      // 村中心：圆石台 + 箱子
-      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) put(cx + dx, gy, cz + dz, 9);
-      put(cx, gy + 1, cz, 18);
+      // 小广场（有空位就放一个）
+      for (let k = 0; k < 6; k++) {
+        const ang = rnd() * Math.PI * 2, rad = 7 + rnd() * 10;
+        const px2 = Math.round(cx + Math.cos(ang) * rad), pz2 = Math.round(cz + Math.sin(ang) * rad);
+        let ok = true;
+        for (const q of placed) if ((px2 - q.x) ** 2 + (pz2 - q.z) ** 2 < (q.r + 5) ** 2) { ok = false; break; }
+        if (!ok) continue;
+        buildPlaza(put, carve, px2, pz2, cx, cz, rnd);
+        placed.push({ x: px2, z: pz2, r: 4 });
+        break;
+      }
       const byChunk = new Map();
       for (const op of ops) {
         const k2 = (op.x >> 4) + ',' + (op.z >> 4);
@@ -4548,7 +4820,8 @@ function villageFor(cellX, cellZ) {
         if (op.z < minZ) minZ = op.z;
         if (op.z > maxZ) maxZ = op.z;
       }
-      out = { cellX, cellZ, cx, cz, gy, houses, ops: ops.length, byChunk, minX, maxX, minZ, maxZ };
+      out = { cellX, cellZ, cx, cz, gy, houses: builds.length, builds, centerWell,
+        ops: ops.length, byChunk, minX, maxX, minZ, maxZ };
     }
   }
   villageCache.set(key, out);
@@ -10085,7 +10358,8 @@ window.GAME = {
       const out = [];
       for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
         const v = villageFor(pcx + dx, pcz + dz);
-        if (v) out.push({ cx: v.cx, cz: v.cz, gy: v.gy, houses: v.houses, ops: v.ops });
+        if (v) out.push({ cx: v.cx, cz: v.cz, gy: v.gy, houses: v.houses, ops: v.ops,
+          kinds: (v.builds || []).map(b => b.name), at: (v.builds || []).map(b => [b.name, b.x, b.z]) });
       }
       return out;
     },
