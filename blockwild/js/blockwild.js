@@ -6762,6 +6762,9 @@ addEventListener('keydown', e => {
     captureAction = null; renderKeyRows();
     return;
   }
+  if (k === 'F3') {                                // 性能探针开关（不用改 URL；HUD 多一行数字）
+    e.preventDefault(); toggleProbe(); return;
+  }
   keys.add(k);
   if (started && !uiOpen() && player.alive) {
     if (k === keymap.mine) { mineHeld = true; attackQueued = true; }
@@ -7763,8 +7766,8 @@ function updateHUD(dt) {
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
     `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}${DIM === 'nether' ? ' · <b style="color:#e05a5a">冥界</b>' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
-  // ?dev=1 额外一行：性能探针的「只涨不落」指标（正常玩家看不到）
-  const s2 = DEV
+  // 性能探针：?dev=1 或 设置里打开（也可按 F3 切换）——正常玩家默认看不到
+  const s2 = (DEV || userCfg.probe)
     ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
@@ -7784,7 +7787,7 @@ const KEY_LABEL = {
   mine: '挖 / 攻击（按住）', place: '放置 / 使用', bag: '背包',
   lookUp: '视角上', lookDown: '视角下', lookLeft: '视角左', lookRight: '视角右',
 };
-const DEFAULT_CFG = { sens: 1, touchUI: false };
+const DEFAULT_CFG = { sens: 1, touchUI: false, probe: false };
 let userCfg = { ...DEFAULT_CFG };
 let keymap = { ...DEFAULT_KEYS };
 let captureAction = null;
@@ -7797,6 +7800,7 @@ function loadCfg() {
     if (!d || typeof d !== 'object') return;
     if (typeof d.sens === 'number') userCfg.sens = clamp(d.sens, 0.3, 2.5);
     if (typeof d.touchUI === 'boolean') userCfg.touchUI = d.touchUI;
+    if (typeof d.probe === 'boolean') userCfg.probe = d.probe;
     if (d.keys) for (const k of Object.keys(DEFAULT_KEYS)) if (typeof d.keys[k] === 'string' && d.keys[k]) keymap[k] = d.keys[k];
   } catch (e) {}
 }
@@ -7846,6 +7850,7 @@ function openSettings(open) {
     $('setSens').value = String(userCfg.sens);
     $('setSensVal').textContent = userCfg.sens.toFixed(1) + '×';
     $('setTouchUI').textContent = userCfg.touchUI ? '开' : '关';
+    $('setProbe').textContent = userCfg.probe ? '开' : '关';
     if (document.pointerLockElement) document.exitPointerLock();
   } else if (started) lockPointer();
 }
@@ -8638,6 +8643,13 @@ $('setTouchUI').onclick = () => {
   applyTouchUI(); saveCfg();
   toast(userCfg.touchUI ? '虚拟按键：开（鼠标按住拖动可转视角）' : '虚拟按键：关', 2);
 };
+$('setProbe').onclick = () => toggleProbe();
+function toggleProbe() {                           // 性能探针开关（设置面板按钮 / F3 共用）
+  userCfg.probe = !userCfg.probe;
+  const b = $('setProbe'); if (b) b.textContent = userCfg.probe ? '开' : '关';
+  saveCfg(); lastStatus = '';                       // 立刻重画 HUD 那一行
+  toast(userCfg.probe ? '性能探针：开（HUD 多一行 火把/结构/缓存/场景 数字）' : '性能探针：关', 2);
+}
 $('btnResetKeys').onclick = () => {
   keymap = { ...DEFAULT_KEYS };
   saveCfg(); renderKeyRows();
