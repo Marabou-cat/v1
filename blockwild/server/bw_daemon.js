@@ -17,7 +17,7 @@ const path = require('path');
 const PORT = Number(process.env.BW_PORT || 9103);
 const DATA = process.env.BW_DATA || path.join(__dirname, 'data');
 const GEN_VER = Number(process.env.BW_GEN || 3);
-const SNAP_HZ = 10;                 // 位置广播频率
+const SNAP_HZ = 12;                 // 位置广播频率（10→12：局域网 WS 更跟手）
 const MAX_PLAYERS = 8;
 const EDIT_PER_SEC = 25;            // 单玩家编辑速率上限（挖矿正常 5~8 次/秒）
 const UNBREAKABLE = new Set([51, 41, 42, 45]);   // 基岩 / 传送门框 / 传送门 / 核心
@@ -33,6 +33,9 @@ function newWorld(code) {
     genVer: GEN_VER,
     time: 300 * 0.03,
     edits: new Map(),             // "x,y,z" -> block id
+    chests: new Map(),            // "x,y,z" -> 27 格箱子内容（两人共用）
+    inv: {},                      // pid -> {inv, armor, hp, hunger}（客人的东西存服务端）
+    pos: {},                      // pid -> {x,y,z,w,q} 每个人上次在房间里的位置（进来接着站这儿）
     seq: 0,                       // 单调递增的编辑序号（断线重连靠它补发）
     log: [],                      // 最近 2000 条编辑，用于 since 补发
     players: new Map(),           // id -> {id, name, x, y, z, yaw, pitch, at, ws, editT, editN}
@@ -46,7 +49,19 @@ function newWorld(code) {
 function worldPath(code) { return path.join(DATA, code.replace(/[^\w-]/g, '_') + '.json'); }
 function saveWorld(w) {
   try {
-    const d = { seed: w.seed, genVer: w.genVer, time: w.time, edits: Array.from(w.edits.entries()) };
+    // ★ 落盘前把「当前坐在房间里的人」的坐标收进 pos：这样重启/重进之后每个人都还在原地
+    for (const p of w.players.values()) {
+      w.pos[p.id] = { x: +(+p.x).toFixed(2), y: +(+p.y).toFixed(2), z: +(+p.z).toFixed(2),
+                      w: +(+p.yaw).toFixed(3), q: +(+p.pitch).toFixed(3) };
+    }
+    const d = {
+      seed: w.seed, genVer: w.genVer, time: w.time,
+      edits: Array.from(w.edits.entries()),
+      chests: Array.from((w.chests || new Map()).entries()),     // 箱子内容：两人共用一张表
+      inv: w.inv || {},                                          // 客人背包（房主背包在他自己本地存档里）
+      pos: w.pos || {},                                          // 每个人的位置
+      owner: w.owner || null,                                    // 房主 pid（守护进程重启后不能把房主身份弄丢）
+    };
     fs.writeFileSync(worldPath(w.code), JSON.stringify(d));
     w.dirty = false;
     w.wasDirtyAt = Date.now();
@@ -63,6 +78,15 @@ function loadWorld(code) {
     w.genVer = d.genVer || GEN_VER;
     w.time = d.time || 0;
     w.edits = new Map((d.edits || []).map(e => [e[0], e[1]]));
+    w.chests = new Map(d.chests || []);
+    w.inv = d.inv || {};
+    w.pos = d.pos || {};
+    w.owner = d.owner || null;
+    w.dirty = false;
+    // ★ 必须放回缓存表：以前这里 return 一个「游离」的世界对象 —— 它不在 worlds 里，
+    //   于是 10Hz 位置广播循环和 5s 落盘循环**都看不到这个房间**，玩家之间永远收不到
+    //   {t:'p'} 快照（表现就是「联机里看不到其他玩家」，而新建的世界却正常）。
+    worlds.set(code, w);
     return w;
   } catch (e) { console.error('[bw] 读盘失败', code, e.message); return newWorld(code); }
 }
@@ -148,7 +172,19 @@ function broadcast(w, msg, exceptId) {
     } else {
       // 轮询模式的玩家（公网 PHP 桥）：先排队，等它下次 sync 时一起取走
       p.out = p.out || [];
-      p.out.push(msg);
+      if (msg.t === 'p') {
+        // ★ 位置快照只留「上一条 + 最新一条」：轮询客户端下一次 sync 拿到的就是当前位置，
+        //   而不是排队等着播的 100ms 前的历史帧 —— 这一条能直接砍掉一截延迟。
+        let lastIdx = -1, prevIdx = -1;
+        for (let i = p.out.length - 1; i >= 0; i--) {
+          if (p.out[i].t !== 'p') continue;
+          if (lastIdx < 0) lastIdx = i; else { prevIdx = i; break; }
+        }
+        if (prevIdx >= 0) p.out.splice(prevIdx, 1);      // 更早的那条扔掉
+        p.out.push(msg);
+      } else {
+        p.out.push(msg);
+      }
       if (p.out.length > 200) p.out.shift();
     }
   }
@@ -157,9 +193,15 @@ function playersPublic(w) {
   return Array.from(w.players.values()).map(p => ({
     i: p.id, n: p.name, x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2),
     w: +p.yaw.toFixed(2), q: +p.pitch.toFixed(2),
+    sk: p.sk | 0, cl: p.cl | 0,                   // 外观：肤色 / 衣服颜色（0 = 没设置过）
+    f: p.f || 0,                                 // 状态位：1=挖掘 2=疾跑 4=腾空（远端形象靠它做动画）
   }));
 }
-function hostId(w) { const first = w.players.values().next(); return first.done ? null : first.value.id; }
+function hostId(w) {
+  // 房主 = 开房的人（w.owner）；他重进房间时不能变成客人
+  if (w.owner && w.players.has(w.owner)) return w.owner;
+  const first = w.players.values().next(); return first.done ? null : first.value.id;
+}
 
 function applyEdit(w, p, msg) {
   const now = Date.now();
@@ -192,11 +234,21 @@ function join(req, res) {
     return json(res, { ok: false, e: 'gen_mismatch', genVer: w.genVer, serverGen: GEN_VER });
   }
   if (w.players.size >= MAX_PLAYERS) return json(res, { ok: false, e: 'full' });
-  const id = String(req.pid || ('p' + Math.random().toString(36).slice(2, 8))).slice(0, 24);
+  let id = String(req.pid || ('p' + Math.random().toString(36).slice(2, 8))).slice(0, 24);
+  // ★ 同名占位：两台机器用同一个昵称时，以前两条连接抢同一个座位（服务端只认 pid），
+  //   结果两端都把自己筛掉 → 「联机里看不到其他玩家」。现在给后来者加后缀，并把新 id 返回给客户端。
+  const ex = w.players.get(id);
+  if (ex && ex.ws) id = (id + '#' + Math.random().toString(36).slice(2, 4)).slice(0, 24);
   const name = String(req.name || 'Player').slice(0, 14);
-  const isHost = w.players.size === 0;
+  const isHost = w.owner ? (w.owner === id) : (w.players.size === 0);
+  // ★ 上次在房间里的位置：座位一建好就坐在那儿（别人看到的快照也从老位置开始，不会从 0,0 闪一下）
+  const keep = w.pos[id] || null;
   w.players.set(id, {
-    id, name, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, at: Date.now(), ws: null, editT: 0, editN: 0,
+    id, name,
+    x: keep ? +keep.x || 0 : 0, y: keep ? +keep.y || 0 : 0, z: keep ? +keep.z || 0 : 0,
+    yaw: keep ? +keep.w || 0 : 0, pitch: keep ? +keep.q || 0 : 0,
+    sk: Number(req.sk) || 0, cl: Number(req.cl) || 0,      // 外观（肤色/衣服）
+    at: Date.now(), ws: null, editT: 0, editN: 0,
   });
   // ★ 兴趣管理：进服只发玩家附近的改动（默认 ±128 格），不是整张表。
   //   世界再大，进服包也是「几十 KB」量级；走远以后客户端用 region 分块补。
@@ -209,8 +261,40 @@ function join(req, res) {
   json(res, {
     ok: true, id, isHost, code, seed: w.seed, genVer: w.genVer, time: w.time, seq: w.seq,
     edits: near, totalEdits: w.edits.size, players: playersPublic(w),
+    pos: keep,                                   // 你上次在房间里的位置（客户端进房后站回这里）
   });
   console.log(`[bw] join ${code} ${id}/${name} host=${isHost} players=${w.players.size} edits=${w.edits.size}`);
+}
+
+/* ---------------- 开房：把自己的单机世界搬成联机房间 ----------------
+ * 「先进入自己的世界，再邀请好友」：客户端把 seed + 已有方块改动传上来，房间就用这个世界。
+ * 同一个房间码反复开房是**幂等**的（只补差异），所以关掉房间明天再开还是同一片地形。
+ * edits 分批上传（chunk:true 只合并不占座），第一批带 seed。 */
+function hostWorld(req, res) {
+  const code = String(req.code || '').slice(0, 12);
+  if (!code) return json(res, { ok: false, e: 'no_code' });
+  const w = loadWorld(code);
+  const want = Number(req.seed);
+  if (Number.isFinite(want) && want) {
+    if (w.seed !== (want | 0)) {
+      // 房间码撞了别人不同的种子：有内容就拒绝（客户端会换新码），空的就直接采用
+      if (w.edits.size > 0 || w.players.size > 0) return json(res, { ok: false, e: 'seed_mismatch', seed: w.seed, edits: w.edits.size });
+      w.seed = want | 0; w.dirty = true;
+    }
+  }
+  w.genVer = GEN_VER;
+  let n = 0;
+  for (const e of (req.edits || []).slice(0, 1500)) {
+    if (!Array.isArray(e) || e.length < 2) continue;
+    const k = String(e[0]);
+    if (!/^-?\d+,-?\d+,-?\d+$/.test(k)) continue;
+    const v = e[1] | 0;
+    if (w.edits.get(k) !== v) { w.edits.set(k, v); n++; }
+  }
+  if (n) w.dirty = true;
+  if (req.chunk) return json(res, { ok: true, code, seed: w.seed, added: n, total: w.edits.size });
+  w.owner = String(req.pid || '').slice(0, 24);        // 开房的人 = 房主（重进房间也不丢）
+  return join(Object.assign({}, req, { code }), res);
 }
 
 function json(res, obj) {
@@ -234,6 +318,59 @@ const server = http.createServer((req, res) => {
       try { a = JSON.parse(body || '{}'); } catch (e) { return json(res, { ok: false, e: 'bad_json' }); }
       if (a.a === 'ping') return json(res, { ok: true, t: Date.now() });
       if (a.a === 'join') return join(a, res);
+      if (a.a === 'host') return hostWorld(a, res);
+      /* ---- 箱子：两个人开同一个箱子必须看到同一批东西 ---- */
+      if (a.a === 'chest') {
+        const w = loadWorld(String(a.code || 'W1'));
+        const k = String(a.k || '').slice(0, 40);
+        if (!k) return json(res, { ok: false, e: 'no_key' });
+        if (Array.isArray(a.slots)) {                        // 写入（放/取之后整表覆盖，幂等）
+          w.chests.set(k, a.slots.slice(0, 27).map(s => (s && s.id && s.n > 0) ? { id: s.id | 0, n: s.n | 0 } : null));
+          w.dirty = true;
+          broadcast(w, { t: 'ch', k, slots: w.chests.get(k), from: String(a.pid || '') }, String(a.pid || ''));
+          return json(res, { ok: true });
+        }
+        return json(res, { ok: true, slots: w.chests.get(k) || null });
+      }
+      /* ---- 客人背包：按 pid 存服务端，进房/换设备都能拿回来 ---- */
+      if (a.a === 'inv') {
+        const w = loadWorld(String(a.code || 'W1'));
+        const pid = String(a.pid || '').slice(0, 24);
+        if (!pid) return json(res, { ok: false, e: 'no_pid' });
+        if (a.set) {
+          w.inv[pid] = { inv: a.set.inv || [], armor: a.set.armor || {}, hp: +a.set.hp || 20, hunger: +a.set.hunger || 20 };
+          w.dirty = true;
+          return json(res, { ok: true });
+        }
+        return json(res, { ok: true, data: w.inv[pid] || null });
+      }
+      if (a.a === 'hit') {                       // 轮询模式的「打幽灵怪」（没有 ws 的客户端走这条）
+        const w = loadWorld(String(a.code || 'W1'));
+        broadcast(w, { t: 'hit', i: a.i | 0, d: Math.min(30, Number(a.d) || 0), from: String(a.pid || '') }, String(a.pid || ''));
+        return json(res, { ok: true });
+      }
+      if (a.a === 'drop') {                      // 客人挖出来的掉落物 → 转给主机去模拟
+        const w = loadWorld(String(a.code || 'W1'));
+        broadcast(w, { t: 'drop', u: a.u }, String(a.pid || ''));
+        return json(res, { ok: true });
+      }
+      if (a.a === 'act') {                       // 轮询模式的「一次性动作」（挥砍/放置）
+        const w = loadWorld(String(a.code || 'W1'));
+        broadcast(w, { t: 'act', i: String(a.pid || ''), a: String(a.act || '').slice(0, 8) }, String(a.pid || ''));
+        return json(res, { ok: true });
+      }
+      if (a.a === 'drops') {                     // 轮询模式下主机广播掉落物（没有 ws 的房主走这条）
+        const w = loadWorld(String(a.code || 'W1'));
+        broadcast(w, { t: 'd', u: a.u || [], from: String(a.pid || '') }, String(a.pid || ''));
+        return json(res, { ok: true });
+      }
+      if (a.a === 'pick') {                      // 轮询模式的「捡走」上报（没有 ws 的客户端走这条）
+        const w = loadWorld(String(a.code || 'W1'));
+        // ★ 掉落物编号可能是字符串（客人挖的用 "g<pid>:<n>"），不能 |0 —— 转成 0 主机就删不掉那个掉落物了
+        if (process.env.BW_DEBUG) console.log('[bw] pick', a.code, a.pid, JSON.stringify(a.i));
+        broadcast(w, { t: 'pick', i: a.i, from: String(a.pid || '') }, String(a.pid || ''));
+        return json(res, { ok: true });
+      }
       if (a.a === 'stats') {
         return json(res, {
           ok: true, ...stats, uptime: Math.round((Date.now() - stats.started) / 1000),
@@ -249,19 +386,28 @@ const server = http.createServer((req, res) => {
         if (!p) {
           if (w.players.size >= MAX_PLAYERS) return json(res, { ok: false, e: 'full' });
           p = { id: pid, name: String(a.name || 'Player').slice(0, 14), x: 0, y: 0, z: 0,
-                yaw: 0, pitch: 0, at: Date.now(), ws: null, editT: 0, editN: 0, out: [] };
+                yaw: 0, pitch: 0, sk: Number(a.sk) || 0, cl: Number(a.cl) || 0,
+                at: Date.now(), ws: null, editT: 0, editN: 0, out: [] };
           w.players.set(pid, p);
         }
         p.at = Date.now();
+        if (typeof a.sk === 'number') { p.sk = a.sk | 0; p.cl = a.cl | 0; }   // 外观随同步更新
         if (typeof a.x === 'number') {
           p.x = +a.x || 0; p.y = +a.y || 0; p.z = +a.z || 0;
           p.yaw = +a.w || 0; p.pitch = +a.q || 0;
+          p.f = a.f | 0;
+          // 每 10 秒把世界标脏一次：这样即使浏览器被直接杀掉，位置也能在 5s 落盘里存下来
+          if (Date.now() - (p.posMark || 0) > 10000) { p.posMark = Date.now(); w.dirty = true; }
         }
         const ack = [];
         for (const ed of (a.edits || []).slice(0, 40)) {
           const r = applyEdit(w, p, ed);
           if (r.ok) ack.push(ed.seq); else ack.push(-ed.seq);      // 负数 = 被拒，客户端要回滚
         }
+        // ★ 公网轮询模式下没有 ws：主机把「怪 / 掉落物」快照顺手挂在 sync 请求上，
+        //   服务端在这里转发。以前这些只走 ws，于是轮询模式里别人家的怪和掉落物永远不同步。
+        if (Array.isArray(a.mobs) && a.mobs.length) broadcast(w, { t: 'm', u: a.mobs }, pid);
+        if (Array.isArray(a.drops)) broadcast(w, { t: 'd', u: a.drops }, pid);
         const out = (p.out || []).splice(0, 80);
         return json(res, {
           ok: true, id: p.id, host: hostId(w) === p.id, seq: w.seq, ack, out,
@@ -275,6 +421,7 @@ const server = http.createServer((req, res) => {
           ok: true, me: accPublic(me),
           friends: (me.friends || []).map(id => ACCOUNTS[id]).filter(Boolean).map(accPublic),
           req: a.a === 'acct' ? (me.req || []) : (me.req || []),
+          inv: me.inv || [],                         // 别人邀请我进的房间（好友面板里显示「加入」）
         };
         if (a.a === 'friends') me.req = [];        // friends 是"取走即清"，acct 只是心跳顺带看一眼
         saveAccounts();
@@ -323,6 +470,22 @@ const server = http.createServer((req, res) => {
         }
         saveAccounts();
         return json(res, { ok: true, accepted: !!a.ok });
+      }
+      if (a.a === 'invite') {                     // 房主邀请好友进自己的房间（方向：我拉你，不用你申请）
+        const me = accOf(a.pid, a.nick, a.code);
+        if (!me) return json(res, { ok: false, e: 'no_pid' });
+        const t = ACCOUNTS[String(a.to || '')];
+        if (!t) return json(res, { ok: false, e: 'no_user' });
+        if (!(me.friends || []).includes(t.pid)) return json(res, { ok: false, e: 'not_friend' });
+        const code = String(a.code || me.world || '').slice(0, 12);
+        if (!code) return json(res, { ok: false, e: 'no_room' });
+        const r = { code, nick: me.nick, at: Date.now() };
+        t.inv = (t.inv || []).filter(x => x.code !== code);
+        t.inv.push(r);
+        if (t.inv.length > 8) t.inv.shift();
+        saveAccounts();
+        const pushed = pushTo(t.pid, { t: 'inv', code, nick: me.nick });
+        return json(res, { ok: true, sent: true, pushed });
       }
       if (a.a === 'region') {                    // 依序补发某片区域的改动（客户端走远了就来拉一次）
         const w = loadWorld(String(a.code || 'W1'));
@@ -399,14 +562,15 @@ function onMsg(socket, m) {
     const w = worlds.get(String(m.code || 'W1'));
     let p = w && w.players.get(String(m.id));
     if (!p) {
-      // ★ 断线重连：socket 断开时座位已经被 dropSocket 删掉了，这里必须**重建座位**，
+      // ★ 断线重连���socket 断开时座位已经被 dropSocket 删掉了，这里必须**重建座位**，
       //   否则重连的客户端「连着但没座位」——收不到快照、也不再是主机，表现就是「回来之后卡住/看不到人」。
       if (!w || w.players.size >= MAX_PLAYERS) {
         try { socket.write(frame(JSON.stringify({ t: 'err', e: 'no_seat' }))); } catch (e) {}
         return;
       }
       p = { id: String(m.id), name: String(m.name || 'Player').slice(0, 14), x: 0, y: 0, z: 0,
-            yaw: 0, pitch: 0, at: Date.now(), ws: null, editT: 0, editN: 0 };
+            yaw: 0, pitch: 0, sk: Number(m.sk) || 0, cl: Number(m.cl) || 0,
+            at: Date.now(), ws: null, editT: 0, editN: 0 };
       w.players.set(p.id, p);
       console.log(`[bw] rejoin ${w.code} ${p.id} players=${w.players.size}`);
     }
@@ -426,6 +590,11 @@ function onMsg(socket, m) {
   if (m.t === 'p') {                          // 位置（客户端权威）
     p.x = +m.x || 0; p.y = +m.y || 0; p.z = +m.z || 0;
     p.yaw = +m.w || 0; p.pitch = +m.q || 0;
+    p.f = m.f | 0;                            // 挖掘/疾跑/腾空 状态位 → 广播给其他人做动作
+    if (typeof m.sk === 'number') { p.sk = m.sk | 0; p.cl = m.cl | 0; }   // 外观随位置包更新（改色立刻可见）
+    if (Date.now() - (p.posMark || 0) > 10000) { p.posMark = Date.now(); w.dirty = true; }
+  } else if (m.t === 'act') {                 // 一次性动作（挥砍/放置）：转发给同房间其他人
+    broadcast(w, { t: 'act', i: p.id, a: String(m.act || '').slice(0, 8) }, p.id);
   } else if (m.t === 'e') {                   // 方块编辑（服务端权威）
     const r = applyEdit(w, p, m);
     if (!r.ok) { try { socket.write(frame(JSON.stringify({ t: 'rej', seq: m.seq, e: r.e, x: m.x, y: m.y, z: m.z }))); } catch (e) {} }
@@ -434,6 +603,10 @@ function onMsg(socket, m) {
     broadcast(w, { t: 'hit', i: m.i, d: Math.min(30, Number(m.d) || 0), from: p.id }, p.id);
   } else if (m.t === 'm') {                   // 主机广播的怪快照：只转发，服务端不模拟
     broadcast(w, { t: 'm', u: m.u, from: p.id }, p.id);
+  } else if (m.t === 'd') {                   // 主机广播的掉落物快照：只转发
+    broadcast(w, { t: 'd', u: m.u, from: p.id }, p.id);
+  } else if (m.t === 'pick') {                // 「我捡走了这个掉落物」→ 主机删掉它，其他人也跟着消失
+    broadcast(w, { t: 'pick', i: m.i, from: p.id }, p.id);
   } else if (m.t === 'time') {
     w.time = +m.time || w.time;
   }
@@ -443,6 +616,9 @@ function dropSocket(socket) {
   const w = socket.__w, p = socket.__p;
   if (!w || !p) return;
   if (w.players.get(p.id) === p) {
+    w.pos[p.id] = { x: +(+p.x).toFixed(2), y: +(+p.y).toFixed(2), z: +(+p.z).toFixed(2),
+                    w: +(+p.yaw).toFixed(3), q: +(+p.pitch).toFixed(3) };   // 断线前的位置要留住
+    w.dirty = true;
     w.players.delete(p.id);
     console.log(`[bw] leave ${w.code} ${p.id} players=${w.players.size}`);
     broadcast(w, { t: 'left', i: p.id });
@@ -457,7 +633,14 @@ setInterval(() => {
     if (!w.players.size) continue;
     const msg = { t: 'p', u: playersPublic(w), time: +w.time.toFixed(1), host: hostId(w) };
     broadcast(w, msg);
-    for (const p of w.players.values()) if (!p.ws && Date.now() - p.at > 20000) w.players.delete(p.id);   // 未绑定 socket 的僵尸座位
+    // 未绑定 socket 的僵尸座位：清掉之前先把位置留下（轮询模式玩家每 90ms 会刷新 at，不会误删）
+    for (const p of Array.from(w.players.values())) {
+      if (p.ws || Date.now() - p.at <= 20000) continue;
+      w.pos[p.id] = { x: +(+p.x).toFixed(2), y: +(+p.y).toFixed(2), z: +(+p.z).toFixed(2),
+                      w: +(+p.yaw).toFixed(3), q: +(+p.pitch).toFixed(3) };
+      w.dirty = true;
+      w.players.delete(p.id);
+    }
   }
 }, 1000 / SNAP_HZ);
 

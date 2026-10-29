@@ -9578,6 +9578,130 @@ buildLogo();
 buildMenuScene();
 $('btnWorlds').onclick = () => { renderWorldList(); $('worldsPanel').classList.remove('hide'); };
 $('btnCloseWorlds').onclick = () => $('worldsPanel').classList.add('hide');
+
+/* ============================================================ 外观 / 昵称（联机形象） */
+const LOOK_KEY = 'bw_look_v1';
+const SKIN_COLORS = [0xf3cba6, 0xe3ab7c, 0xc98f5c, 0xa06c42, 0x7c4f2d, 0x5b3a20, 0xd8b48a, 0x9fd3a6];
+const CLOTH_COLORS = [0xd9534f, 0x4a7fd9, 0x1abc9c, 0xf0ad4e, 0x9b59b6, 0x394655, 0xe67e22, 0xf2f2f2];
+const LOOK = { name: '', skin: SKIN_COLORS[0], cloth: CLOTH_COLORS[0] };
+function randPlayerName() { return 'player' + (10000 + Math.floor(Math.random() * 90000)); }
+function saveLook() {
+  try {
+    localStorage.setItem(LOOK_KEY, JSON.stringify(LOOK));
+    if (LOOK.name) localStorage.setItem('bw_nick', LOOK.name);    // 联机层读的是这个 key
+  } catch (e) {}
+  if (typeof NET !== 'undefined' && NET && NET.nick !== undefined && LOOK.name) NET.nick = LOOK.name;
+}
+function loadLook() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(LOOK_KEY) || 'null'); } catch (e) {}
+  if (d && typeof d === 'object') {
+    if (typeof d.name === 'string' && d.name.trim()) LOOK.name = d.name.trim().slice(0, 14);
+    if (typeof d.skin === 'number') LOOK.skin = d.skin;
+    if (typeof d.cloth === 'number') LOOK.cloth = d.cloth;
+  }
+  if (!LOOK.name) LOOK.name = randPlayerName();                   // 没设过昵称 → player + 5 位随机数
+  saveLook();
+  return LOOK;
+}
+loadLook();
+
+let lookRenderer = null, lookScene = null, lookCam = null, lookAv = null, lookRAF = 0;
+function buildAvatarMesh(skin, cloth) {
+  const g = new THREE.Group();
+  const M = c => new THREE.MeshLambertMaterial({ color: c });
+  const clothDark = new THREE.Color(cloth).multiplyScalar(0.72).getHex();
+  const skinDark = new THREE.Color(skin).multiplyScalar(0.9).getHex();
+  const box = (w, h, d, c, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c));
+    m.position.set(x, y, z); g.add(m); return m;
+  };
+  box(0.52, 0.72, 0.3, cloth, 0, 1.06, 0);                 // 上身 = 衣服颜色
+  box(0.42, 0.42, 0.42, skin, 0, 1.62, 0);                 // 头 = 肤色
+  box(0.28, 0.12, 0.02, 0x2b1a12, 0, 1.65, -0.212);        // 嘴
+  box(0.07, 0.06, 0.02, 0xf2f2f2, -0.09, 1.71, -0.219);
+  box(0.07, 0.06, 0.02, 0xf2f2f2, 0.09, 1.71, -0.219);
+  box(0.18, 0.68, 0.2, skinDark, -0.35, 1.06, 0);          // 手臂 = 肤色
+  box(0.18, 0.68, 0.2, skinDark, 0.35, 1.06, 0);
+  box(0.2, 0.7, 0.22, clothDark, -0.13, 0.35, 0);          // 裤腿 = 衣服色（压暗）
+  box(0.2, 0.7, 0.22, clothDark, 0.13, 0.35, 0);
+  return g;
+}
+function buildLookPreview() {
+  const cv = $('lookCv');
+  if (!cv || lookRenderer) return;
+  lookRenderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+  lookRenderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  lookRenderer.setSize(cv.width, cv.height, false);
+  lookScene = new THREE.Scene();
+  lookCam = new THREE.PerspectiveCamera(32, cv.width / cv.height, 0.1, 30);
+  lookCam.position.set(1.0, 1.62, 3.35);
+  lookCam.lookAt(0, 1.02, 0);
+  lookScene.add(new THREE.HemisphereLight(0xffffff, 0x2a3346, 1.15));
+  const dl = new THREE.DirectionalLight(0xffe7c4, 0.95);
+  dl.position.set(1.6, 3, 2.4);
+  lookScene.add(dl);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.58, 24),
+    new THREE.MeshBasicMaterial({ color: 0x050b14, transparent: true, opacity: 0.6 }));
+  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.002;
+  lookScene.add(disc);
+  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth);
+  lookAv.rotation.y = 0.45;
+  lookScene.add(lookAv);
+  const loop = () => {
+    if ($('lookPanel').classList.contains('hide')) { lookRAF = 0; return; }
+    lookAv.rotation.y += 0.011;
+    lookRenderer.render(lookScene, lookCam);
+    lookRAF = requestAnimationFrame(loop);
+  };
+  lookRAF = requestAnimationFrame(loop);
+}
+function refreshLookAv() {
+  if (!lookScene || !lookAv) return;
+  lookScene.remove(lookAv);
+  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth);
+  lookAv.rotation.y = 0.45;
+  lookScene.add(lookAv);
+}
+function renderLookSwatches() {
+  const mk = (row, list, key) => {
+    if (!row) return;
+    row.innerHTML = '';
+    for (const c of list) {
+      const b = document.createElement('button');
+      b.className = 'sw' + (LOOK[key] === c ? ' on' : '');
+      b.style.background = '#' + c.toString(16).padStart(6, '0');
+      b.title = '#' + c.toString(16).padStart(6, '0');
+      b.onclick = () => { LOOK[key] = c; saveLook(); renderLookSwatches(); refreshLookAv(); };
+      row.appendChild(b);
+    }
+  };
+  mk($('lookSkin'), SKIN_COLORS, 'skin');
+  mk($('lookCloth'), CLOTH_COLORS, 'cloth');
+}
+function openLook() {
+  loadLook();
+  $('lookPanel').classList.remove('hide');
+  $('lookName').value = LOOK.name;
+  $('lookAutoName').textContent = LOOK.name;
+  $('lookNamePreview').textContent = LOOK.name;
+  renderLookSwatches();
+  buildLookPreview();
+}
+$('btnLook').onclick = () => openLook();
+$('btnCloseLook').onclick = () => $('lookPanel').classList.add('hide');
+$('lookName').addEventListener('input', () => {
+  LOOK.name = $('lookName').value.trim().slice(0, 14);
+  $('lookNamePreview').textContent = LOOK.name || '（空 = 自动生成）';
+  saveLook();
+});
+$('lookName').addEventListener('blur', () => {
+  if (!LOOK.name) LOOK.name = randPlayerName();          // 清空就自动补 player+5位
+  $('lookName').value = LOOK.name;
+  $('lookAutoName').textContent = LOOK.name;
+  $('lookNamePreview').textContent = LOOK.name;
+  saveLook();
+});
 $('btnBag').onclick = () => openPanel(!panelOpen);
 $('btnClose').onclick = () => openPanel(false);
 $('btnFurnaceClose').onclick = () => closeFurnace();
@@ -10374,7 +10498,7 @@ window.GAME = {
       : ('http://' + host + ':9203');
   }
   if (!base) return;                                   // 没带 ?net= / ?mp → 纯单机
-  let nick = (q.get('nick') || localStorage.getItem('bw_nick') || ('P' + Math.random().toString(36).slice(2, 5))).slice(0, 14);
+  let nick = (q.get('nick') || loadLook().name || localStorage.getItem('bw_nick') || ('P' + Math.random().toString(36).slice(2, 5))).slice(0, 14);
   if (nick) { try { localStorage.setItem('bw_nick', nick); } catch (e) {} }
   // ★ 世界代码：URL 指定 > 上次自己选过的 > 按昵称算出来的「我的世界」。
   //   以前默认写死 'W1'：所有人点「进入联机」都被塞进同一个公共 W1 世界（别人的存档）。
@@ -10439,7 +10563,7 @@ window.GAME = {
     sp.position.y = 2.15;
     return sp;
   }
-  function avatar(id, name) {
+  function avatar(id, name, look) {
     // 远端形象的头/手方向（用 GAME.debug.remoteAxes() 实测出来的基准，模型正面 = -Z）：
     //   脸在 -Z；armR.rotation.x 正 = 手往前甩；head.rotation.x 正 = 抬头（下巴抬高、头顶往后）。
     // 如果哪天看着反了，只需要把 HEAD_PITCH_SIGN 改成 -1（定义在 bootNet 作用域里）。
@@ -10448,9 +10572,12 @@ window.GAME = {
     let hsh = 0;
     for (let i = 0; i < id.length; i++) hsh = (hsh * 31 + id.charCodeAt(i)) | 0;
     const base = PAL[Math.abs(hsh) % PAL.length];
-    const col = new THREE.Color(base);
-    const dark = col.clone().multiplyScalar(0.62);
-    const limbCol = dark.clone().multiplyScalar(0.95);
+    const lk = look || {};
+    const clothCol = (typeof lk.cl === 'number') ? new THREE.Color(lk.cl) : new THREE.Color(base);   // 衣服颜色
+    const skinCol = (typeof lk.sk === 'number') ? new THREE.Color(lk.sk) : new THREE.Color(0xd8b48a); // 肤色
+    const col = clothCol;
+    const dark = skinCol.clone().multiplyScalar(0.92);
+    const limbCol = dark.clone();
     const g = new THREE.Group();
     const box = (w, hh, d, c) => new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), new THREE.MeshLambertMaterial({ color: c }));
     const root = (w, hh, d, c, x, y, z) => {
@@ -10477,10 +10604,11 @@ window.GAME = {
       g.add(piv);
       return piv;
     };
+    const legCol = clothCol.clone().multiplyScalar(0.72);        // 裤腿 = 衣服色压暗
     const armL = joint(-0.35, 1.40, 0.18, 0.68, 0.2, limbCol);
     const armR = joint(0.35, 1.40, 0.18, 0.68, 0.2, limbCol);
-    const legL = joint(-0.13, 0.70, 0.2, 0.7, 0.22, limbCol);
-    const legR = joint(0.13, 0.70, 0.2, 0.7, 0.22, limbCol);
+    const legL = joint(-0.13, 0.70, 0.2, 0.7, 0.22, legCol);
+    const legR = joint(0.13, 0.70, 0.2, 0.7, 0.22, legCol);
     // 右手前臂再分一节，挖掘/挥砍时只甩前臂（A&S 那种"手腕"感）
     const foreR = new THREE.Group();
     foreR.position.set(0, -0.42, 0);
@@ -10501,7 +10629,7 @@ window.GAME = {
   function ensureRemote(p) {
     let r = net.remotes.get(p.i);
     if (!r) {
-      r = { obj: avatar(p.i, p.n), name: p.n || p.i };
+      r = { obj: avatar(p.i, p.n, { sk: p.sk, cl: p.cl }), name: p.n || p.i };
       r.obj.position.set(p.x, p.y, p.z);
       r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
       net.remotes.set(p.i, r);
@@ -10903,7 +11031,7 @@ window.GAME = {
     net.ws = ws;
     ws.onopen = () => {
       net.connected = true; net.err = '';
-      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq }));
+      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq, sk: LOOK.skin, cl: LOOK.cloth }));
     };
     ws.onclose = () => { net.connected = false; setTimeout(() => { if (net.active) connect(); }, 1500); };
     net.reconnect = () => { try { ws.close(); } catch (e) {} };
@@ -10978,7 +11106,7 @@ window.GAME = {
     if (!IS_BRIDGE && net.sendT >= 0.1 && net.ws && net.ws.readyState === 1) {
       net.sendT = 0;
       try {
-        net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), f: net.myFlags() }));
+        net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), f: net.myFlags(), sk: LOOK.skin, cl: LOOK.cloth }));
       } catch (e) {}
     }
     // ── 公网轮询模式：一个请求同时上传位置/编辑、取回消息（~8Hz）
@@ -11004,7 +11132,7 @@ window.GAME = {
         const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         const toT = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (e) {} }, 2000);
         fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, signal: ctl ? ctl.signal : undefined, body: JSON.stringify(Object.assign({
-          a: 'sync', code: net.code, pid: net.id, name: net.nick,
+          a: 'sync', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth,
           x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2),
           w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), edits: pend, f: net.myFlags(),
         }, net.isHost ? { mobs: net.mobCache || [], drops: net.dropCache || [] } : {})) }).then(r => r.json()).then(d => {
@@ -11198,8 +11326,8 @@ window.GAME = {
   fetch(EP, {
     method: 'POST', headers: { 'content-type': 'text/plain' },
     body: JSON.stringify(isHostMode
-      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, seed: hostSeed, x: 0, z: 0, r: 128 }
-      : { a: 'join', code: net.code, pid: net.id, name: net.nick, x: 0, z: 0, r: 128 }),
+      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, seed: hostSeed, x: 0, z: 0, r: 128 }
+      : { a: 'join', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, x: 0, z: 0, r: 128 }),
   }).then(r => r.json()).then(d => {
     // 进服后把 URL 洗干净：否则「世界」按钮 reload / 刷新 / iOS 恢复标签页都会再自动 join 一次
     const cleanUrl = () => { try { history.replaceState(null, '', location.pathname); } catch (e) {} };
