@@ -329,6 +329,12 @@ const BLOCKS = {
   // ── 远古废墟：末地传送门式的框架 + 四个激活器（都要四枚宝珠，宝珠暂时无法获取）──
   60: { name: '远古框架', top: 67, side: 68, bottom: 67, hard: 9, drop: 0, frame: true, unbreakable: true, ancient: true },
   61: { name: '激活器', top: 69, side: 70, bottom: 71, hard: 9, drop: 0, unbreakable: true, activator: true },
+  // ── 宝珠守护地（角斗场）：新建筑方块 + 宝珠台 ──
+  62: { name: '苔石砖', top: 72, side: 73, bottom: 72, hard: 2.1, drop: 62, pick: true },
+  63: { name: '雕纹石砖', top: 74, side: 75, bottom: 74, hard: 2.1, drop: 63, pick: true },
+  64: { name: '竞技场立柱', top: 76, side: 77, bottom: 76, hard: 2.1, drop: 64, pick: true },
+  65: { name: '宝珠台', top: 78, side: 79, bottom: 72, hard: 9, drop: 0, unbreakable: true, orbAltar: true },
+  66: { name: '空宝珠台', top: 79, side: 79, bottom: 72, hard: 9, drop: 0, unbreakable: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick', fast: 1.35, dur: 60 },
@@ -411,6 +417,8 @@ const ITEMS = {
   192: { name: '鳄鱼皮', kind: 'mat' },
   193: { name: '噩梦之心', kind: 'mat' },
   194: { name: '噩梦之刃', kind: 'sword', dmg: 26, dur: 2600 },
+  // ── 宝珠（远古框架的四把钥匙，目前只有绿色能拿到）──
+  195: { name: '绿色宝珠', kind: 'mat' },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -758,6 +766,64 @@ function makeAtlas() {
   T(71, '#33333c', 0.09, (c, r) => {
     for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#4c4c57'); px(c, r, x, 15, '#191920'); }
     for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#454550'); px(c, r, 15, y, '#191920'); }
+  });
+  // 72 苔石砖：石砖缝里长着青苔
+  T(72, '#8a8a8a', 0.07, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const row = (y / 4) | 0, off = (row % 2) * 4;
+      if (y % 4 === 0 || (x + off) % 8 === 0) px(c, r, x, y, '#5f5f5f');
+    }
+    for (const [x, y, w] of [[2, 3, 5], [9, 7, 5], [4, 11, 4], [11, 14, 3], [1, 8, 3]]) {
+      for (let i = 0; i < w; i++) px(c, r, Math.min(15, x + i), y, i % 2 ? '#4d7a3a' : '#5f9540');
+    }
+  });
+  // 73 苔石砖侧：竖直苔痕
+  T(73, '#868686', 0.07, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const row = (y / 4) | 0, off = (row % 2) * 4;
+      if (y % 4 === 0 || (x + off) % 8 === 0) px(c, r, x, y, '#5b5b5b');
+    }
+    for (const [x, y0, h] of [[6, 6, 9], [10, 2, 6], [3, 9, 6]]) {
+      for (let i = 0; i < h; i++) px(c, r, x, Math.min(15, y0 + i), i % 3 ? '#4d7a3a' : '#6ba348');
+    }
+  });
+  // 74 雕纹石砖顶：凹刻的符文环（青绿发光）
+  T(74, '#7d7d7d', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#5a5a5a'); px(c, r, x, 15, '#4a4a4a'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#5a5a5a'); px(c, r, 15, y, '#4a4a4a'); }
+    for (let i = 3; i <= 12; i++) { px(c, r, i, 5, '#3f7a58'); px(c, r, i, 10, '#3f7a58'); px(c, r, 5, i, '#3f7a58'); px(c, r, 10, i, '#3f7a58'); }
+    for (const [x, y] of [[7, 7], [8, 7], [7, 8], [8, 8]]) px(c, r, x, y, '#8fe8b4');
+  });
+  // 75 雕纹石砖侧：竖向凹槽 + 一道符文线
+  T(75, '#7d7d7d', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#5a5a5a'); px(c, r, x, 15, '#464646'); }
+    for (const x of [3, 7, 11]) for (let y = 2; y < 15; y++) px(c, r, x, y, '#4f4f4f');
+    for (let x = 2; x < 14; x++) px(c, r, x, 8, x % 3 ? '#3f7a58' : '#8fe8b4');
+  });
+  // 76 竞技场立柱顶：同心方框
+  T(76, '#8d8d8d', 0.05, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#636363'); px(c, r, x, 15, '#4d4d4d'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#636363'); px(c, r, 15, y, '#4d4d4d'); }
+    for (let i = 4; i <= 11; i++) { px(c, r, i, 4, '#5a5a5a'); px(c, r, i, 11, '#5a5a5a'); px(c, r, 4, i, '#5a5a5a'); px(c, r, 11, i, '#5a5a5a'); }
+  });
+  // 77 竞技场立柱侧：竖向凹槽 + 中段铜环
+  T(77, '#8d8d8d', 0.05, (c, r) => {
+    for (const x of [2, 5, 8, 11, 14]) for (let y = 0; y < 16; y++) px(c, r, x, y, '#6e6e6e');
+    for (let x = 0; x < 16; x++) { px(c, r, x, 6, '#a8823f'); px(c, r, x, 7, '#7d5f2c'); }
+  });
+  // 78 宝珠台顶：石座中央一颗绿色宝珠（发光）
+  T(78, '#5c5c66', 0.07, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#7d7d88'); px(c, r, x, 15, '#2f2f36'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#72727d'); px(c, r, 15, y, '#2f2f36'); }
+    for (let x = 5; x < 11; x++) for (let y = 5; y < 11; y++) px(c, r, x, y, '#1d3f2a');
+    for (let x = 6; x < 10; x++) for (let y = 6; y < 10; y++) px(c, r, x, y, (x + y) % 3 ? '#3ee07a' : '#c9ffd9');
+    for (const [x, y] of [[7, 7], [8, 7], [7, 8], [8, 8]]) px(c, r, x, y, '#eafff2');
+  });
+  // 79 宝珠台侧：石座 + 绿色能量缝
+  T(79, '#5c5c66', 0.07, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#7d7d88'); px(c, r, x, 15, '#2f2f36'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#72727d'); px(c, r, 15, y, '#2f2f36'); }
+    for (let y = 3; y < 13; y++) { px(c, r, 7, y, '#1d3f2a'); px(c, r, 8, y, y % 4 ? '#2f9c5e' : '#7ff0ac'); }
   });
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -3795,7 +3861,7 @@ function ruinsFor(cellX, cellZ) {
         for (let i = 0; i < 9; i++) for (let j = 0; j < 4; j++) {
           put(cx - 17 + i, gy + 2 + Math.floor(i / 4), cz + 14 + j, 50);   // 一块塌下来的石板
         }
-        out = { name: 'ruins', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '远古废墟' };
+        out = { name: 'ruins', cx, cz, gy, r: 27, byChunk: packOps(ops), ops: ops.length, label: '远古废墟' };
       }
     }
     ruinsCache.set(key, out);
@@ -3822,6 +3888,163 @@ function gotoNearestRuins() {
   player.v.set(0, 0, 0);
   toast(`远古废墟：(${o.cx}, ${o.cz}) 平台高 ${o.gy + 1}`, 3.2);
   return true;
+}
+
+/* ── 宝珠守护地：圆形角斗场（外墙半径 36，比远古废墟还大）。
+   中央石台上是「宝珠台」(65)：右键开启试炼 = 5 波守护者 + 1 个小 boss。
+   中途跑出场地 / 倒下 → 试炼中止、怪物散去、宝珠台重新锁上（可再右键重开）。
+   这里用苔石砖(62)、雕纹石砖(63)、竞技场立柱(64) 三种新方块，别让角斗场只有一种石头。 */
+const ARENA_CELL = 320, arenaCache = new Map();
+const ARENA_R_SAND = 24;        // 中央沙场半径
+const ARENA_R_RING = 33;        // 三层看台外缘
+const ARENA_R_WALL = 36;        // 外墙
+function arenaFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (arenaCache.has(key)) return arenaCache.get(key);
+  return guarded('arena', key, () => {
+    let out = null;
+    const roll = h2(cellX * 39.7 - 5.1, cellZ * 61.3 + 8.4);
+    if (roll > 0.5) {
+      const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2246822519) ^ Math.imul(cellZ, 3266489917)) | 0);
+      const R = ARENA_R_WALL;
+      const cx = cellX * ARENA_CELL + 70 + R + Math.floor(rnd() * (ARENA_CELL - 140 - 2 * R));
+      const cz = cellZ * ARENA_CELL + 70 + R + Math.floor(rnd() * (ARENA_CELL - 140 - 2 * R));
+      let mn = 999, mx = -999;
+      for (let dx = -R; dx <= R; dx += 5) for (let dz = -R; dz <= R; dz += 5) {
+        const h = heightAt(cx + dx, cz + dz);
+        if (h < mn) mn = h;
+        if (h > mx) mx = h;
+      }
+      const gy = mx;
+      const near = structNear(cx, cz, 'arena');
+      if (mx - mn <= 18 && gy > CFG.SEA + 3 && gy < SURF_OFF + 60 && !near) {
+        const ops = [];
+        const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
+        const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+        // ① 填平场地（树由 inExtraStruct 用 o.r 半径挡掉，不用逐格掏空 → op 数省一半）
+        for (let dx = -R - 1; dx <= R + 1; dx++) for (let dz = -R - 1; dz <= R + 1; dz++) {
+          if (dx * dx + dz * dz > (R + 1) * (R + 1)) continue;
+          const x = cx + dx, z = cz + dz, h = heightAt(x, z);
+          for (let y = h + 1; y <= gy + 1; y++) put(x, y, z, 9);
+          for (let y = gy + 1; y <= h + 3; y++) if (h > gy) carve(x, y, z);   // 比地面高的小土包削掉
+        }
+        // ② 沙场地面：苔石砖为主 + 同心圆雕纹纹样
+        for (let dx = -ARENA_R_SAND; dx <= ARENA_R_SAND; dx++) for (let dz = -ARENA_R_SAND; dz <= ARENA_R_SAND; dz++) {
+          const d2 = dx * dx + dz * dz;
+          if (d2 > ARENA_R_SAND * ARENA_R_SAND) continue;
+          const ring = Math.round(Math.sqrt(d2)), q = rnd();
+          put(cx + dx, gy + 1, cz + dz, ring % 8 === 0 ? 63 : (q < 0.6 ? 62 : 21));
+        }
+        // ③ 三层看台（每层 3 格宽，逐层 +2 高）
+        const tiers = [[25, 27, gy + 3], [28, 30, gy + 5], [31, 33, gy + 7]];
+        for (const [r0, r1, top] of tiers) {
+          for (let dx = -r1; dx <= r1; dx++) for (let dz = -r1; dz <= r1; dz++) {
+            const d2 = dx * dx + dz * dz;
+            if (d2 < r0 * r0 || d2 > r1 * r1) continue;
+            for (let y = gy + 1; y < top; y++) put(cx + dx, y, cz + dz, 21);        // 台阶立面
+            put(cx + dx, top, cz + dz, ((r1 - Math.round(Math.sqrt(d2))) === 0) ? 63 : 62);   // 座位面
+          }
+        }
+        // ④ 外墙（4 个门洞）+ 12 根立柱 + 4 支火把
+        for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) {
+          const d2 = dx * dx + dz * dz;
+          if (d2 < (ARENA_R_RING + 1) * (ARENA_R_RING + 1) || d2 > R * R) continue;
+          const a = Math.atan2(dz, dx);
+          const gate = Math.abs(((a / Math.PI * 180) % 90 + 90) % 90) < 5 || Math.abs(((a / Math.PI * 180) % 90 + 90) % 90) > 85;
+          if (gate && d2 > 32 * 32) continue;                                        // 四向门洞
+          for (let y = gy + 1; y <= gy + 11; y++) {
+            const band = (y - gy) % 4 === 0;                                          // 每隔 4 格一条雕纹带
+            put(cx + dx, y, cz + dz, band ? 63 : 21);
+          }
+        }
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          const px2 = Math.round(Math.cos(a) * (ARENA_R_RING + 2)), pz2 = Math.round(Math.sin(a) * (ARENA_R_RING + 2));
+          for (let bx = 0; bx < 2; bx++) for (let bz = 0; bz < 2; bz++) {
+            for (let y = gy + 7; y <= gy + 12; y++) put(cx + px2 + bx, y, cz + pz2 + bz, 64);   // 立柱顺着墙长上去
+          }
+        }
+        for (const [ax, az] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+          put(cx + ax * (ARENA_R_RING + 2), gy + 13, cz + az * (ARENA_R_RING + 2), 38);   // 四向火把
+        }
+        // ⑤ 中央石台 + 宝珠台
+        for (let dx = -6; dx <= 6; dx++) for (let dz = -6; dz <= 6; dz++) {
+          const d2 = dx * dx + dz * dz;
+          if (d2 > 36) continue;
+          put(cx + dx, gy + 2, cz + dz, d2 > 20 ? 63 : 21);
+        }
+        put(cx, gy + 3, cz, 65);                                                      // 宝珠台（锁着的绿色宝珠）
+        out = { name: 'arena', cx, cz, gy, r: ARENA_R_SAND, byChunk: packOps(ops), ops: ops.length, label: '宝珠守护地' };
+      }
+    }
+    arenaCache.set(key, out);
+    return out;
+  });
+}
+/* ── 宝珠试炼：5 波守护者 + 1 个小 boss ───────────────────────────────── */
+const GREEN_ORB = 195;
+const TRIAL_WAVES = [
+  ['grunt', 'grunt', 'grunt', 'grunt'],
+  ['spider', 'spider', 'spider', 'grunt', 'grunt'],
+  ['skeleton', 'skeleton', 'skeleton'],
+  ['grunt', 'spider', 'grunt', 'spider', 'grunt'],
+  ['trialBoss', 'skeleton', 'skeleton'],
+];
+const ARENA = { active: false, wave: 0, cool: 0, cx: 0, cy: 0, cz: 0, lost: 0, won: 0, altar: null };
+const arenaMobs = () => mobs.filter(m => m.trial && !m.dying);
+function clearTrialMobs() {
+  for (let i = mobs.length - 1; i >= 0; i--) {
+    const m = mobs[i];
+    if (!m.trial) continue;
+    killMob(m); mobs.splice(i, 1);
+  }
+}
+function trialStart(altar) {
+  if (ARENA.active) { toast(`试炼进行中：第 ${ARENA.wave}/5 波，别半途跑掉`, 2.4); return false; }
+  const a = arenaFor(Math.floor(altar.x / ARENA_CELL), Math.floor(altar.z / ARENA_CELL));
+  if (!a) { toast('这里不是宝珠守护地', 2.2); return false; }
+  ARENA.active = true; ARENA.wave = 0; ARENA.cool = 1.2;
+  ARENA.cx = a.cx; ARENA.cz = a.cz; ARENA.cy = a.gy + 2; ARENA.altar = { x: altar.x, y: altar.y, z: altar.z };
+  ARENA.r = a.r || ARENA_R_SAND;                       // ⚠ 必须带上半径，否则「跑出场地」判定会拿 0 去比
+  toast('试炼开始：5 波守护者，最后一波是首领 —— 跑出场地就算失败', 3.6);
+  return true;
+}
+function trialSpawnWave() {
+  const kinds = TRIAL_WAVES[ARENA.wave - 1] || [];
+  for (let i = 0; i < kinds.length; i++) {
+    const ang = (i / kinds.length) * Math.PI * 2 + Math.random() * 0.8;
+    const rr = 11 + Math.random() * 9;
+    const sx = Math.round(ARENA.cx + Math.cos(ang) * rr), sz = Math.round(ARENA.cz + Math.sin(ang) * rr);
+    const m = spawnMobAt(kinds[i], sx, ARENA.cy, sz, { force: true });
+    if (m) { m.trial = true; m.aggro = 999; }
+  }
+}
+function trialFail(reason) {
+  ARENA.active = false; ARENA.lost++;
+  const w = ARENA.wave; ARENA.wave = 0;
+  clearTrialMobs();
+  toast(`${reason} —— 试炼中止（打到第 ${w} 波），宝珠台重新锁上，右键可以重开`, 4);
+}
+function trialWin() {
+  ARENA.active = false; ARENA.won++;
+  ARENA.wave = 0;
+  clearTrialMobs();
+  const a = ARENA.altar;
+  if (a) { setBlock(a.x, a.y, a.z, 66); markDirty(a.x >> 4, a.z >> 4); }   // 台子空了 = 已取走
+  addItem(GREEN_ORB, 1); renderHotbar(); refreshHeld(); saveSoon();
+  toast('试炼通过！获得「绿色宝珠」（1/4）', 4);
+}
+function updateArena(dt) {
+  if (!ARENA.active) return;
+  const d = Math.hypot(player.p.x - ARENA.cx, player.p.z - ARENA.cz);
+  if (!player.alive) { trialFail('你倒下了'); return; }
+  if (d > ARENA.r + 10 || player.p.y < ARENA.cy - 14) { trialFail('你跑出了守护地'); return; }
+  if (arenaMobs().length > 0) { ARENA.cool = 2.5; return; }          // 场上还有怪：清完再等 2.5 秒
+  if (ARENA.cool > 0) { ARENA.cool -= dt; return; }
+  if (ARENA.wave >= TRIAL_WAVES.length) { trialWin(); return; }
+  ARENA.wave++;
+  trialSpawnWave();
+  toast(ARENA.wave === TRIAL_WAVES.length ? '第 5/5 波：守护者首领' : `第 ${ARENA.wave}/5 波`, 2.2);
 }
 
 /* ── 传送门：高科技方块砌的拱门，无法破坏。中间的核心格插入「传送块」即可点亮，
@@ -4061,7 +4284,9 @@ function inExtraStruct(wx, wz) {
     const cx = Math.floor(wx / t.cell), cz = Math.floor(wz / t.cell);
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
       const o = t.get(cx + dx, cz + dz);
-      if (o && Math.abs(wx - o.cx) <= 9 && Math.abs(wz - o.cz) <= 9) return true;
+      if (!o) continue;
+      const rad = o.r || 9;                          // 大结构（废墟/角斗场）自带半径：整片都不长树
+      if (Math.abs(wx - o.cx) <= rad && Math.abs(wz - o.cz) <= rad) return true;
     }
   }
   return false;
@@ -4493,6 +4718,8 @@ const MOB_DEFS = {
   netherBeast:{ name: '冥骨兽', hp: 30, chase: 3.6, wander: 1.2, hostile: true, barY: 1.35, drop: 176, dropN: [1, 2], extra: [{ id: 148, n: [1, 2] }], dmg: 5, atkCd: 1.2, dim: 'nether' },
   croc:       { name: '噩梦鳄鱼', hp: 48, chase: 3.5, wander: 1.0, hostile: true, barY: 1.15, drop: 192, dropN: [1, 3], dmg: 6, atkCd: 1.1, dim: 'nether' },
   crocKing:   { name: '鳄鱼王', hp: 320, chase: 3.1, wander: 0.8, hostile: true, barY: 2.15, drop: 193, dropN: [1, 2], extra: [{ id: 177, n: [8, 14] }, { id: 125, n: [2, 5] }], dmg: 15, atkCd: 1.5, boss: true, dim: 'nether' },
+  // ── 宝珠试炼的小 boss（第一个守护地：招式简单，只会近身冲撞）──
+  trialBoss:  { name: '守护者首领', hp: 100, chase: 3.2, wander: 0.9, hostile: true, barY: 2.5, drop: 148, dropN: [2, 4], dmg: 7, atkCd: 1.3, boss: true },
 };
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
@@ -6035,8 +6262,8 @@ function updateMobs(dt) {
       m.parts.barFg.position.x = -(1 - f) * 0.36;
       m.parts.barFg.material.color.setHex(f > 0.55 ? 0x7fe06b : f > 0.25 ? 0xf0c04a : 0xe0524b);
     }
-    // 怕太阳的生物
-    if (def.sunBurn) {
+    // 怕太阳的生物（试炼里召唤的守护者不吃日晒，否则白天试炼会被太阳替玩家打完）
+    if (def.sunBurn && !m.trial) {
       m.sunTick = (m.sunTick || 0) - dt;
       if (m.sunTick <= 0) {
         m.sunTick = 0.5;
@@ -6995,6 +7222,7 @@ addEventListener('keydown', e => {
     e.preventDefault(); toggleProbe(); return;
   }
   if (k === 'F4' && profOn()) { e.preventDefault(); gotoNearestRuins(); return; }   // 探针开着：传送到最近的远古废墟
+  if (k === 'F5' && profOn()) { e.preventDefault(); window.GAME.debug.gotoArena(); return; }   // 探针开着：传送到最近的宝珠守护地
   keys.add(k);
   if (started && !uiOpen() && player.alive) {
     if (k === keymap.mine) { mineHeld = true; attackQueued = true; }
@@ -7839,6 +8067,7 @@ function update(dt) {
   waterSeedT -= dt;
   if (waterSeedT <= 0) { waterSeedT = 0.5; seedWaterNear(); }
   growCrops(dt);
+  updateArena(dt);                                // 宝珠试炼的波次推进 / 失败判定
   lap('uFlames');
 
   // 目标方块
@@ -7869,6 +8098,8 @@ function update(dt) {
     else if (t && t.id === 47) { openPress(); startSwing('place', 0.2); }          // 液压机
     else if (t && t.id === 53) { openCharger(); startSwing('place', 0.2); }        // 充电器
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].activator) { useActivator(t); }   // 远古废墟：激活器（要宝珠）
+    else if (t && BLOCKS[t.id] && BLOCKS[t.id].orbAltar) { trialStart(t); startSwing('place', 0.22); }   // 宝珠守护地：右键开试炼
+    else if (t && t.id === 66) { toast('宝珠已经被取走了（这座守护地已通关）', 2.4); }
     else if (t && (t.id === 45 || t.id === 42)) { usePortal(t.x, t.y, t.z); startSwing('place', 0.2); }   // 传送门
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
@@ -8024,17 +8255,20 @@ function updateHUD(dt) {
   const deg = ((-player.yaw * 180 / Math.PI) % 360 + 360) % 360;
   const dirName = dirs[Math.round(deg / 45) % 8];
   const mem = (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : '');
+  const trialLine = ARENA.active
+    ? `\n<b style="color:#3ee07a">试炼</b> 第 <b>${ARENA.wave}/${TRIAL_WAVES.length}</b> 波 · 场上 <b>${arenaMobs().length}</b> · 离中心 <b>${Math.round(Math.hypot(player.p.x - ARENA.cx, player.p.z - ARENA.cz))}</b>`
+    : '';
   const s =
     `环境 <b>${underground ? `地下 ${Math.round(depthBelowSurface())} 格` : '地表'}</b>\n` +
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
-    `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}${DIM === 'nether' ? ' · <b style="color:#e05a5a">冥界</b>' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
+    `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}${DIM === 'nether' ? ' · <b style="color:#e05a5a">冥界</b>' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>` + trialLine;
   // 性能探针：?dev=1 或 设置里打开（也可按 F3 切换）——正常玩家默认看不到
   const pt = profText(), pf = profFrame();
   const s2 = (DEV || userCfg.probe)
     ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
-      + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 去最近的远古废墟</span>`
+      + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 远古废墟 · F5 宝珠守护地</span>`
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
   renderHearts();
@@ -8208,8 +8442,8 @@ const MM_TERRAIN = ['#5d9440', '#c9b174', '#71757c', '#2d5f8f', '#376b2c', '#3c4
   '#6b4a35',   // 10 灵魂沙
   '#4a2a5a',   // 11 冥界矿
   '#14202c'];  // 12 空洞
-const MM_LABEL = { village: '村庄', haunted: '鬼屋', tower: '哨塔', well: '水井', circle: '石阵', camp: '废墟营地', cabin: '白桦木屋', portal: '传送门', swamp: '熔岩沼泽' };
-const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', cabin: '#d8b48a', portal: '#8b3fd8', swamp: '#ff7a3c' };
+const MM_LABEL = { village: '村庄', haunted: '鬼屋', tower: '哨塔', well: '水井', circle: '石阵', camp: '废墟营地', cabin: '白桦木屋', portal: '传送门', swamp: '熔岩沼泽', ruins: '远古废墟', arena: '宝珠守护地' };
+const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', cabin: '#d8b48a', portal: '#8b3fd8', swamp: '#ff7a3c', ruins: '#a97bff', arena: '#3ee07a' };
 const MM = {
   cells: new Map(), marks: new Map(), zoom: 1, px2: 2,
   cv: null, ctx: null, info: null, wrap: null,
@@ -8946,6 +9180,7 @@ STRUCT_TYPES.push(
   { name: 'cabin', cell: CB_CELL, get: cabinFor, cache: cabinCache },
   { name: 'portal', cell: PT_CELL, get: portalFor, cache: portalCache },
   { name: 'ruins', cell: AR_CELL, get: ruinsFor, cache: ruinsCache },      // 远古废墟（末地式框架 + 四激活器）
+  { name: 'arena', cell: ARENA_CELL, get: arenaFor, cache: arenaCache },   // 宝珠守护地（角斗场 + 试炼）
 );
 loadIndex();
 renderWorldList();
@@ -9249,6 +9484,45 @@ window.GAME = {
       return out.sort((a, b) => a.dist - b.dist);
     },
     ruinsDbg: () => arDbg,
+    /* 宝珠守护地探针 */
+    arena: (r = 2) => {
+      const pcx = Math.floor(player.p.x / ARENA_CELL), pcz = Math.floor(player.p.z / ARENA_CELL);
+      const out = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const o = arenaFor(pcx + dx, pcz + dz);
+        if (!o) continue;
+        out.push({ cx: o.cx, cz: o.cz, gy: o.gy, ops: o.ops, dist: Math.round(Math.hypot(o.cx - player.p.x, o.cz - player.p.z)),
+          altar: getBlock(o.cx, o.gy + 3, o.cz), floor: getBlock(o.cx + 3, o.gy + 1, o.cz) });
+      }
+      return out.sort((a, b) => a.dist - b.dist);
+    },
+    arenaState: () => ({ active: ARENA.active, wave: ARENA.wave, cool: +ARENA.cool.toFixed(1), mobs: arenaMobs().map(m => m.kind), lost: ARENA.lost, won: ARENA.won, r: ARENA.r, center: [ARENA.cx, ARENA.cy, ARENA.cz] }),
+    gotoArena: () => {
+      const pcx = Math.floor(player.p.x / ARENA_CELL), pcz = Math.floor(player.p.z / ARENA_CELL);
+      let best = null;
+      for (let r = 0; r <= 6; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        const o = arenaFor(pcx + dx, pcz + dz);
+        if (!o) continue;
+        const d = Math.hypot(o.cx - player.p.x, o.cz - player.p.z);
+        if (!best || d < best.d) best = { o, d };
+      }
+      if (!best) return null;
+      const o = best.o, ccx = Math.floor(o.cx / CFG.CH), ccz = Math.floor(o.cz / CFG.CH);
+      for (let a = -3; a <= 3; a++) for (let b = -3; b <= 3; b++) buildChunk(getChunk(ccx + a, ccz + b));
+      player.p.set(o.cx + 0.5, o.gy + 3, o.cz + 9.5);
+      player.v.set(0, 0, 0);
+      toast(`宝珠守护地：(${o.cx}, ${o.cz}) 中央宝珠台 y=${o.gy + 3}`, 3.2);
+      return { cx: o.cx, cz: o.cz, gy: o.gy, ops: o.ops };
+    },
+    trialStart: () => {
+      const pcx = Math.floor(player.p.x / ARENA_CELL), pcz = Math.floor(player.p.z / ARENA_CELL);
+      for (let r = 0; r <= 2; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const o = arenaFor(pcx + dx, pcz + dz);
+        if (o && Math.abs(o.cx - player.p.x) < 40 && Math.abs(o.cz - player.p.z) < 40) return trialStart({ x: o.cx, y: o.gy + 3, z: o.cz });
+      }
+      return false;
+    },
     /* 远古废墟探针：列出附近废墟，并给出发电机/激活器的世界坐标（验收用） */
     ruins: (r = 2) => {
       const pcx = Math.floor(player.p.x / AR_CELL), pcz = Math.floor(player.p.z / AR_CELL);
