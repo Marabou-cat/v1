@@ -1078,6 +1078,16 @@ function iconURL(id) {
   if (b) {
     const t = b.side ?? b.top;
     g.drawImage(atlasCanvas, (t % ATLAS_COLS) * 16, ((t / ATLAS_COLS) | 0) * 16, 16, 16, 0, 0, S, S);
+  } else if (id === 195) { // 绿色宝珠：发光的绿球（点亮远古框架的钥匙）
+    const grd = g.createRadialGradient(13, 12, 1.5, 16, 16, 14);
+    grd.addColorStop(0, '#f2fff7');
+    grd.addColorStop(0.32, '#7bffae');
+    grd.addColorStop(0.66, '#2fbd63');
+    grd.addColorStop(1, '#0d3d21');
+    g.fillStyle = grd; g.beginPath(); g.arc(16, 16, 13, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(10,52,28,0.9)'; g.lineWidth = 1.6; g.beginPath(); g.arc(16, 16, 13, 0, 7); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.ellipse(12, 11, 3.6, 2.4, -0.5, 0, 7); g.fill();
+    g.fillStyle = 'rgba(150,255,190,0.5)'; g.beginPath(); g.arc(20.5, 21, 2.4, 0, 7); g.fill();
   } else if (id === 104) { // 木棍
     g.strokeStyle = '#b98a4e'; g.lineWidth = 5; g.lineCap = 'round';
     g.beginPath(); g.moveTo(7, 26); g.lineTo(24, 6); g.stroke();
@@ -2928,6 +2938,20 @@ function makeToolModel(id) {
       ring.rotation.x = Math.PI / 2;
       g.add(ring);
     }
+  } else if (id === 195) {                    // 绿色宝珠：发光内芯 + 两层能量环
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 12),
+      new THREE.MeshLambertMaterial({ color: 0x3ee07a, emissive: 0x1f8f4b, emissiveIntensity: 1.0 }));
+    orb.position.y = 0.15;
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.148, 14, 10),
+      new THREE.MeshBasicMaterial({ color: 0x9dffc4, transparent: true, opacity: 0.22 }));
+    shell.position.y = 0.15;
+    const r1 = new THREE.Mesh(new THREE.TorusGeometry(0.158, 0.008, 6, 20),
+      new THREE.MeshBasicMaterial({ color: 0xd6ffe6 }));
+    r1.position.y = 0.15; r1.rotation.x = 1.1;
+    const r2 = new THREE.Mesh(new THREE.TorusGeometry(0.156, 0.006, 6, 20),
+      new THREE.MeshBasicMaterial({ color: 0x8fffb8 }));
+    r2.position.y = 0.15; r2.rotation.x = -0.55; r2.rotation.z = 0.9;
+    g.add(orb, shell, r1, r2);
   } else if (id === 187) {                     // 铀：荧光绿晶体
     const u = new THREE.Mesh(new THREE.OctahedronGeometry(0.13),
       new THREE.MeshLambertMaterial({ color: 0x6fdc3a, emissive: 0x2f8f18, emissiveIntensity: 0.9 }));
@@ -4718,8 +4742,8 @@ const MOB_DEFS = {
   netherBeast:{ name: '冥骨兽', hp: 30, chase: 3.6, wander: 1.2, hostile: true, barY: 1.35, drop: 176, dropN: [1, 2], extra: [{ id: 148, n: [1, 2] }], dmg: 5, atkCd: 1.2, dim: 'nether' },
   croc:       { name: '噩梦鳄鱼', hp: 48, chase: 3.5, wander: 1.0, hostile: true, barY: 1.15, drop: 192, dropN: [1, 3], dmg: 6, atkCd: 1.1, dim: 'nether' },
   crocKing:   { name: '鳄鱼王', hp: 320, chase: 3.1, wander: 0.8, hostile: true, barY: 2.15, drop: 193, dropN: [1, 2], extra: [{ id: 177, n: [8, 14] }, { id: 125, n: [2, 5] }], dmg: 15, atkCd: 1.5, boss: true, dim: 'nether' },
-  // ── 宝珠试炼的小 boss（第一个守护地：招式简单，只会近身冲撞）──
-  trialBoss:  { name: '守护者首领', hp: 100, chase: 3.2, wander: 0.9, hostile: true, barY: 2.5, drop: 148, dropN: [2, 4], dmg: 7, atkCd: 1.3, boss: true },
+  // ── 宝珠试炼的小 boss：变异守护者（特殊建模：2.8 格高、宽肩巨臂，见 makeMutantBossModel）──
+  trialBoss:  { name: '变异守护者', hp: 100, chase: 3.2, wander: 0.9, hostile: true, barY: 3.05, drop: 148, dropN: [2, 4], dmg: 7, atkCd: 1.3, boss: true },
 };
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
@@ -5067,7 +5091,94 @@ function mobGeos(kind) {
 }
 
 // 每种生物一个模型实例（几何共享）；core 代表"身体中心"，倒地时绕它旋转才不会插进地里
+/* ── 变异守护者（Mutate Zombie 风味）：约 2.8 格高、驼背、宽肩巨臂。
+   不用像素拼装那套（MOB_PX），直接盒体建模：躯干 + 胸肌 + 肩球 + 长臂大拳 + 断裤腿。
+   返回结构和 makeMobModel 一致（animateMob/死亡/flash 都按这些字段驱动）。 */
+function makeMutantBossModel() {
+  const coreY = 1.5;                                  // 躯干中心（死亡动画按它往下瘫）
+  const g = new THREE.Group(), core = new THREE.Group();
+  core.position.y = coreY;
+  const bodyMat = new THREE.MeshLambertMaterial({ color: 0x7d9a63, emissive: 0x000000 });   // 病态绿皮
+  const headMat = new THREE.MeshLambertMaterial({ color: 0x86a56b, emissive: 0x000000 });
+  const muscleMat = new THREE.MeshLambertMaterial({ color: 0x8f3b3b });                      // 露出的肌肉
+  const clothMat = new THREE.MeshLambertMaterial({ color: 0x38445a });                       // 破布
+  const darkMat = new THREE.MeshLambertMaterial({ color: 0x5a7048 });                        // 暗部皮肤
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff4a5e });
+  const A = y => y - coreY;                                                                    // 绝对高度 → core 局部
+  const box = (w, h, d, mat, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    return m;
+  };
+  // 骨盆 / 躯干 / 胸廓（驼背：胸往前倾一点）
+  core.add(box(0.92, 0.34, 0.58, darkMat, 0, A(1.25), 0));
+  core.add(box(1.1, 0.62, 0.86, bodyMat, 0, A(1.72), 0));
+  const chest = new THREE.Group();
+  chest.position.set(0, A(2.0), 0);
+  chest.rotation.x = 0.13;
+  chest.add(box(1.3, 0.48, 0.7, bodyMat, 0, 0, 0));
+  for (const [x, y, w] of [[-0.3, 0.02, 0.34], [0.06, 0.06, 0.4], [0.36, 0.0, 0.3]]) {        // 胸肌/腹肌条
+    chest.add(box(w, 0.11, 0.06, muscleMat, x, y, 0.36));
+  }
+  chest.add(box(0.66, 0.2, 0.72, clothMat, 0.12, 0.3, -0.02));                                 // 肩上的破布
+  for (const [x, y, w] of [[-0.28, 0.02, 0.28], [0.1, 0.04, 0.32], [-0.1, -0.2, 0.24]]) {     // 背上的肌肉条（从后面看也有细节）
+    chest.add(box(w, 0.1, 0.06, muscleMat, x, y, -0.36));
+  }
+  core.add(chest);
+  for (const sx of [-1, 1]) {                                                                  // 肩球
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 10), bodyMat);
+    cap.position.set(sx * 0.64, A(2.02), 0);
+    core.add(cap);
+  }
+  // 长臂 + 大拳（枢轴在肩，animateMob 摆 rotation.x）
+  const mkArm = (sx) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.68, A(1.99), 0);
+    pivot.add(box(0.34, 0.62, 0.34, bodyMat, 0, -0.33, 0));
+    pivot.add(box(0.4, 0.6, 0.4, bodyMat, 0, -0.93, 0.02));
+    pivot.add(box(0.3, 0.12, 0.32, muscleMat, 0, -0.66, 0.02));                                // 二头肌鼓包
+    pivot.add(box(0.46, 0.42, 0.46, darkMat, 0, -1.32, 0.04));                                 // 拳头
+    core.add(pivot);
+    return pivot;
+  };
+  const arm1 = mkArm(-1), arm2 = mkArm(1);
+  // 腿（枢轴在胯，摆 rotation.x）
+  const mkLeg = (sx) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.27, A(1.22), 0);
+    pivot.add(box(0.33, 0.54, 0.36, clothMat, 0, -0.28, 0));                                   // 断裤腿
+    pivot.add(box(0.29, 0.5, 0.31, bodyMat, 0, -0.8, 0.01));
+    pivot.add(box(0.35, 0.16, 0.48, darkMat, 0, -1.14, 0.07));                                 // 脚
+    core.add(pivot);
+    return pivot;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+  // 头（脖子支点会盯着玩家）
+  const headPivot = new THREE.Group();
+  headPivot.position.set(0, A(2.22), 0);
+  headPivot.add(box(0.58, 0.6, 0.56, headMat, 0, 0.3, -0.03));
+  headPivot.add(box(0.5, 0.15, 0.46, darkMat, 0, -0.02, 0.05));                                // 下颚
+  headPivot.add(box(0.56, 0.08, 0.1, darkMat, 0, 0.44, 0.25));                                 // 眉骨
+  for (const ex of [-0.15, 0.15]) headPivot.add(box(0.1, 0.07, 0.04, eyeMat, ex, 0.34, 0.29));
+  headPivot.add(box(0.1, 0.12, 0.06, muscleMat, 0.06, 0.16, 0.3));                             // 脸上缺一块皮
+  core.add(headPivot);
+  const torn = box(0.3, 0.34, 0.05, clothMat, -0.42, A(1.5), 0.3); torn.rotation.z = 0.2;      // 腰侧破布
+  core.add(torn);
+  g.add(core);
+  // 血条（比普通怪宽一截）
+  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.13), new THREE.MeshBasicMaterial({ color: 0x120a0a }));
+  const barFg = new THREE.Mesh(new THREE.PlaneGeometry(1.42, 0.07), new THREE.MeshBasicMaterial({ color: 0x7fe06b }));
+  barFg.position.set(0, 0, 0.004);
+  const bar = new THREE.Group();
+  bar.position.y = 3.02;
+  bar.add(barBg, barFg);
+  g.add(bar);
+  return { g, core, coreY, bodyMat, headMat, arm1, arm2, bar, barFg,
+    limbs: [arm1, arm2, legL, legR], legs: [legL, legR], headPivot, topPx: 0 };
+}
+
 function makeMobModel(kind) {
+  if (kind === 'trialBoss') return makeMutantBossModel();      // 守护者首领：特殊建模（变异僵尸）
   const G = mobGeos(kind);
   const g = new THREE.Group();
   const core = new THREE.Group();
