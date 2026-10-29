@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
-<title>方块荒野 BLOCKWILD</title>
+<title>荒石遗境 RUINWILD</title>
 <style>
   :root{
     --ink:#e8eef7; --dim:#9db0c8; --gold:#f5c451; --panel:#111a28e6; --edge:#2c3d55;
@@ -16,6 +16,7 @@
     user-select:none;-webkit-user-select:none;touch-action:none;overscroll-behavior:none}
   canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   #hud{position:absolute;inset:0;pointer-events:none;z-index:5}
+  body:not(.play) #hud{display:none}                 /* 主菜单上不显示游戏 HUD */
   .px{image-rendering:pixelated}
   /* ---------- crosshair ---------- */
   #cross{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;opacity:.9}
@@ -86,6 +87,22 @@
   .keys{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:11.5px;color:#a9bfd8;margin:12px 0 16px}
   .keys b{color:#fff;font-weight:400}
   .startrow{display:flex;gap:10px;flex-wrap:wrap}
+  /* ---------- 主菜单（模仿 MC：logo 在上、下面两个大按钮） ---------- */
+  #start{background:none;backdrop-filter:none;padding:0;flex-direction:column;justify-content:flex-start;align-items:center}
+  #start:before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(130% 90% at 50% 40%, #0a142400 0%, #050a14a8 58%, #01040ae0 100%)}
+  #menuRoot{position:relative;z-index:2;width:min(900px,94vw);display:flex;flex-direction:column;align-items:center;
+    padding-top:max(16px,5vh)}
+  #menuLogo{width:min(780px,90vw);height:auto;filter:drop-shadow(0 12px 26px #000d);user-select:none;-webkit-user-drag:none}
+  #menuBtns{display:flex;flex-direction:column;gap:13px;margin-top:min(26px,4.5vh);width:min(370px,82vw)}
+  .mbtn{position:relative;padding:15px 10px;font-family:inherit;font-size:17px;letter-spacing:7px;color:#f2e7d0;
+    background:linear-gradient(#5d626a,#3b3f47 55%,#2a2e34);border:2px solid #121820;border-radius:4px;
+    box-shadow:inset 0 2px 0 #8e949c,inset 0 -3px 0 #1a1f27,0 4px 0 #0c1015,0 9px 20px #000a;
+    cursor:pointer;text-shadow:0 2px 0 #0009;transition:filter .12s,transform .07s}
+  .mbtn:hover{filter:brightness(1.2)}
+  .mbtn:active{transform:translateY(2px);box-shadow:inset 0 2px 0 #8e949c,inset 0 -2px 0 #1a1f27,0 2px 0 #0c1015}
+  #menuFoot{position:relative;z-index:2;margin-top:20px;padding-bottom:14px;font-size:11px;color:#8ea3ba;
+    letter-spacing:2px;text-align:center;text-shadow:0 1px 3px #000}
   /* ---------- inventory + crafting ---------- */
   #panel{z-index:18}
   #panel .card{width:min(780px,97vw)}
@@ -186,17 +203,26 @@
 </div>
 
 <div class="overlay" id="start">
+  <div id="menuRoot">
+    <img id="menuLogo" alt="荒石遗境 RUINWILD" draggable="false">
+    <div id="menuBtns">
+      <button class="mbtn" id="btnWorlds">世 界</button>
+      <button class="mbtn" id="btnSettings">设 置</button>
+    </div>
+  </div>
+  <div id="menuFoot">荒石遗境 RUINWILD · 像素生存 · W A S D 移动 / 鼠标转视角</div>
+</div>
+
+<div class="overlay hide" id="worldsPanel">
   <div class="card">
-    <h1>方块荒野<small>BLOCKWILD · 像素生存</small></h1>
     <div style="display:flex;justify-content:space-between;align-items:baseline">
-      <div class="sec" style="border:0;margin:0">我的世界 <span id="worldCount" style="color:#f5c451"></span></div>
-      <span style="color:#7f93ab;font-size:11px">每个世界独立存档</span>
+      <div class="sec" style="border:0;margin:0">世界 <span id="worldCount" style="color:#f5c451"></span></div>
+      <button class="btn" id="btnCloseWorlds">返回</button>
     </div>
     <div id="worldList"></div>
-    <div class="startrow">
+    <div class="startrow" style="margin-top:10px">
       <button class="btn gold" id="btnNewWorld">＋ 创建新世界</button>
       <button class="btn" id="btnMP">🌐 联机</button>
-      <button class="btn" id="btnSettings">设置 / 改键</button>
     </div>
     <div class="keys">
       <b>W A S D</b><span>移动（Shift 疾跑）</span>
@@ -389,6 +415,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=167"></script>
+<script type="module" src="./js/blockwild.js?v=172"></script>
 </body>
 </html>

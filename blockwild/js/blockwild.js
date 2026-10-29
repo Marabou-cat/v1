@@ -9084,7 +9084,19 @@ function frame(now) {
   lastFrameAt = now;
   noteFrameMs(__ft);
   requestAnimationFrame(frame);
-  if (!started) return;
+  if (!started) {                                  // 主菜单：镜头绕着远古废墟慢转
+    const mdt = Math.min(0.05, __ft / 1000);
+    menuT += mdt;
+    if (menuScene && menuCam) {
+      const a = menuT * 0.07;
+      menuCam.position.set(Math.sin(a) * 26, 10.5 + Math.sin(menuT * 0.25) * 0.5, Math.cos(a) * 26);
+      menuCam.lookAt(0, 2.6, 0);
+      renderer.setClearColor(0x070d15, 1);
+      renderer.clear();
+      renderer.render(menuScene, menuCam);
+    }
+    return;
+  }
   let dt = (now - lastT) / 1000;
   lastT = now;
   if (!isFinite(dt) || dt < 0) dt = 0;
@@ -9226,6 +9238,9 @@ function startGame(world) {
   try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; }
   if (AC) { sfxBus = null; initAudioChain(); }
   hud.start.classList.add('hide');
+  $('worldsPanel').classList.add('hide');
+  document.body.classList.add('play');            // 主菜单不显示 HUD，进世界才显示
+  renderer.setClearColor(0x000000, 1);            // 从「主菜单背景」切回游戏，清屏色还原
   refreshHeld(); renderHotbar(); renderHearts();
   started = true;
   lastT = performance.now(); startedAt = performance.now();
@@ -9415,6 +9430,154 @@ loadIndex();
 renderWorldList();
 mmInit();
 mmBigInit();
+
+/* ============================================================ 主菜单：logo + 远古遗迹背景 */
+function buildLogo() {
+  const img = $('menuLogo');
+  if (!img || !atlasCanvas) return;
+  const W = 1200, H = 460;
+  const TITLE = '荒石遗境';
+  const FONT = '900 198px "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  // ① 方块材质：把图集里的石砖/苔石砖/深板岩拼成一块风化石头贴图
+  const tex = document.createElement('canvas'); tex.width = 256; tex.height = 256;
+  const tg = tex.getContext('2d'); tg.imageSmoothingEnabled = false;
+  const mats = [21, 62, 21, 50];
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    const def = BLOCKS[mats[(i * 3 + j * 5) % mats.length]];
+    const t = (def.top ?? def.side);
+    tg.drawImage(atlasCanvas, (t % ATLAS_COLS) * 16, ((t / ATLAS_COLS) | 0) * 16, 16, 16, i * 64, j * 64, 64, 64);
+  }
+  const pat = g.createPattern(tex, 'repeat');
+  g.save();
+  g.font = FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
+  // ② 挤出：一层层深棕往右下堆出厚度
+  for (let i = 13; i >= 1; i--) {
+    g.fillStyle = `rgb(${30 + i * 2},${20 + i},${12 + i})`;
+    g.fillText(TITLE, W / 2 + i * 0.55, 196 + i * 1.7);
+  }
+  // ③ 字面：直接用石头贴图当填充色
+  g.fillStyle = pat || '#8a8a8a';
+  g.fillText(TITLE, W / 2, 196);
+  // ④ 暖金渐变 + 顶部高光（source-atop = 只作用在字上）
+  g.globalCompositeOperation = 'source-atop';
+  const grd = g.createLinearGradient(0, 92, 0, 300);
+  grd.addColorStop(0, 'rgba(255,226,150,0.62)');
+  grd.addColorStop(0.45, 'rgba(238,186,104,0.30)');
+  grd.addColorStop(1, 'rgba(96,52,20,0.42)');
+  g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  const hi = g.createLinearGradient(0, 96, 0, 150);
+  hi.addColorStop(0, 'rgba(255,255,235,0.55)');
+  hi.addColorStop(1, 'rgba(255,255,235,0)');
+  g.fillStyle = hi; g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'source-over';
+  // ⑤ 深棕描边
+  g.lineJoin = 'round'; g.lineWidth = 7; g.strokeStyle = '#160f08'; g.strokeText(TITLE, W / 2, 196);
+  // ⑥ 英文副标题
+  g.font = '700 60px "Courier New",ui-monospace,monospace';
+  g.lineWidth = 8; g.strokeStyle = '#0c0704'; g.strokeText('R U I N W I L D', W / 2, 352);
+  g.fillStyle = '#ead4a4'; g.fillText('R U I N W I L D', W / 2, 352);
+  g.restore();
+  img.src = cv.toDataURL('image/png');
+}
+
+let menuScene = null, menuCam = null, menuT = 0;
+/* 主菜单背景：用游戏自己的方块材质搭一座「远古废墟」（不跑世界生成，省 CPU） */
+function buildMenuScene() {
+  const S = new THREE.Scene();
+  S.background = new THREE.Color(0x070d15);
+  S.fog = new THREE.Fog(0x081019, 26, 96);
+  menuScene = S;
+  menuCam = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 260);
+  const hemi = new THREE.HemisphereLight(0xa8c8ff, 0x241d14, 1.15);
+  const dir = new THREE.DirectionalLight(0xffdca8, 1.25);
+  dir.position.set(-18, 24, 15);
+  S.add(hemi, dir, new THREE.AmbientLight(0xffffff, 0.24));
+  const sunset = new THREE.PointLight(0xffb060, 7, 52, 2);        // 远处一团暖光当落日
+  sunset.position.set(-2, 10, -14);
+  S.add(sunset);
+  const rnd = mulberry32(9137);
+  const stoneTiles = [BLOCKS[21].top, BLOCKS[62].top, BLOCKS[21].top, BLOCKS[50].top];   // ⚠ 这里是「图集瓦片号」，不是方块 id
+  const pick = () => stoneTiles[(rnd() * stoneTiles.length) | 0];
+  const put = (w, h, d, x, y, z, tTop, tSide, ry) => {
+    const side = blockFaceMat(tSide ?? tTop), top = blockFaceMat(tTop);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, top, top, side, side]);
+    m.position.set(x, y, z);
+    if (ry) m.rotation.y = ry;
+    S.add(m);
+    return m;
+  };
+  // ① 地面：一整块暗石地板打底（不然碎石会像浮在空中），上面再撒碎石板
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(140, 140),
+    new THREE.MeshLambertMaterial({ color: 0x33383f }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5;
+  S.add(ground);
+  for (let gx = -16; gx <= 16; gx += 2) for (let gz = -16; gz <= 16; gz += 2) {
+    if (gx * gx + gz * gz > 16 * 16) continue;
+    put(2, 0.5, 2, gx + 1, -0.25, gz + 1, pick(), pick(), 0);       // 铺满的石板广场（2×2 一铺，省面数）
+  }
+  // ①b 外圈矮残墙（把广场框住，看起来像被围起来的遗迹）
+  for (let i = 0; i < 72; i++) {
+    const a = (i / 72) * Math.PI * 2;
+    if (rnd() < 0.3) continue;                                        // 缺口
+    const rr = 17 + rnd() * 1.5;
+    const hh = 1 + ((rnd() * 3) | 0);
+    for (let k = 0; k < hh; k++) put(1.6, 1, 1.6, Math.cos(a) * rr, 0.5 + k, Math.sin(a) * rr, pick(), pick(), a);
+  }
+  // ② 侧后方的高台 + 5×5 远古框架环 + 中央紫色传送光（放在左后方，别被按钮挡住）
+  const FX = -11, FZ = -6;
+  for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) {
+    if (Math.abs(x) > 3 && Math.abs(z) > 3) continue;
+    put(1, 1.2, 1, FX + x, 0.1, FZ + z, 21);
+    put(1, 1.2, 1, FX + x, 1.3, FZ + z, pick());                  // 两级台阶高台
+  }
+  for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) {
+    const ex = Math.abs(x) === 2, ez = Math.abs(z) === 2;
+    if (!ex && !ez) continue;
+    if (ex && ez) continue;
+    put(1, 1, 1, FX + x, 2.4, FZ + z, 67, 68, 0);                  // 远古框架（游戏里那个方块）
+  }
+  const portal = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 2.9),
+    new THREE.MeshBasicMaterial({ color: 0x7a56ff, transparent: true, opacity: 0.5 }));
+  portal.rotation.x = -Math.PI / 2; portal.position.set(FX, 1.92, FZ);
+  S.add(portal);
+  // ②b 两座塌了一半的拱门（右侧 + 正后方，撑起天际线剪影）
+  const archAt = (ax, az, ry, hh) => {
+    for (let k = 0; k < hh; k++) {
+      put(1.2, 1, 1.2, ax - 2.4, 0.5 + k, az, pick(), pick(), ry);
+      if (k < hh - 2) put(1.2, 1, 1.2, ax + 2.4, 0.5 + k, az, pick(), pick(), ry);
+    }
+    for (let x = -2; x <= 2; x++) put(1.2, 1, 1.2, ax + x * 1.2, 0.5 + hh - 1, az, pick(), pick(), ry);
+  };
+  archAt(11, -2, 0, 7);
+  archAt(1, -14, 0.2, 5);
+  // ③ 8 根残柱（越高越歪，柱顶断掉）
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + 0.2;
+    const px = Math.cos(a) * 11, pz = Math.sin(a) * 11;
+    const h = 3 + ((rnd() * 6) | 0);
+    for (let k = 0; k < h; k++) {
+      put(1.6, 1, 1.6, px + k * 0.13 * Math.cos(a), 0.5 + k, pz + k * 0.13 * Math.sin(a), pick(), pick(), 0);
+    }
+    if (rnd() < 0.55) put(1.5, 0.6, 1.5, px + Math.cos(a) * 3.2, 0.3, pz + Math.sin(a) * 3.2, pick(), pick(), rnd() * 3);
+  }
+  // ④ 散落碎块
+  for (let i = 0; i < 34; i++) {
+    const a = rnd() * Math.PI * 2, r = 4 + rnd() * 11;
+    put(0.8 + rnd() * 0.5, 0.7, 0.8 + rnd() * 0.5, Math.cos(a) * r, 0.15, Math.sin(a) * r, pick(), pick(), rnd() * 3);
+  }
+  // ⑤ 四个角上的火把光（只发光，不建模，夜色里点睛）
+  for (const [x, z] of [[7, 7], [-7, 7], [7, -7], [-7, -7]]) {
+    const l = new THREE.PointLight(0xffa84a, 8, 20, 2);
+    l.position.set(x, 3.2, z);
+    S.add(l);
+  }
+}
+buildLogo();
+buildMenuScene();
+$('btnWorlds').onclick = () => { renderWorldList(); $('worldsPanel').classList.remove('hide'); };
+$('btnCloseWorlds').onclick = () => $('worldsPanel').classList.add('hide');
 $('btnBag').onclick = () => openPanel(!panelOpen);
 $('btnClose').onclick = () => openPanel(false);
 $('btnFurnaceClose').onclick = () => closeFurnace();
@@ -9431,6 +9594,7 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   handCam.aspect = innerWidth / innerHeight; handCam.updateProjectionMatrix();
+  if (menuCam) { menuCam.aspect = innerWidth / innerHeight; menuCam.updateProjectionMatrix(); }
   document.body.classList.toggle('portrait', innerHeight > innerWidth * 1.05);
 });
 document.body.classList.toggle('portrait', innerHeight > innerWidth * 1.05);
