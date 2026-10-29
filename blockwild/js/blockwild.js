@@ -3998,7 +3998,7 @@ let MINE_PIN = null;
 const mobs = [];
 const MOB_DEATH_HOLD = 5, MOB_DEATH_FADE = 1.1;
 const MOB_DEFS = {
-  grunt:    { name: '夜行怪', hp: 20, chase: 2.9, wander: 1.2, hostile: true,  barY: 1.44, drop: null, dmg: 3, atkCd: 1.6, sunBurn: true },
+  grunt:    { name: '夜行怪', hp: 20, chase: 2.9, wander: 1.2, hostile: true,  barY: 1.44, drop: null, dmg: 3, atkCd: 1.6, sunBurn: true, armPose: -1.35 },
   pig:      { name: '猪',     hp: 10, chase: 2.4, wander: 1.0, hostile: false, barY: 1.0,  drop: 108 },
   villager: { name: '村民',   hp: 20, chase: 1.9, wander: 0.9, hostile: false, barY: 1.85, drop: null },
   cow:      { name: '牛',     hp: 24, chase: 2.3, wander: 0.85, hostile: false, barY: 1.45, drop: 140, dropN: [1, 2] },
@@ -4082,7 +4082,7 @@ function mobGeos(kind) {
   };
   const px = (map, x, y, z, hex) => map.set(K(x, y, z), hex);
   const dk = (hex, f = 0.8) => tintHex(hex, f);
-  let coreY = 1.0, barY = 2.0, limbSpecs = [];
+  let coreY = 1.0, barY = 2.0, limbSpecs = [], headPiv = 24;   // headPiv：脖子像素高度（头绕它转）
   // 肢体：支点在 y=0（上端），向下垂 h 像素 —— 和 MC 的手臂/腿一样绕肩/胯旋转
   const limbGeo = (w, h, d, hex, jit, paint) => {
     const m = new Map();
@@ -4134,7 +4134,7 @@ function mobGeos(kind) {
       { geo: leg, x: -3, y: 6, z: 6, arm: true }, { geo: leg, x: 3, y: 6, z: 6, arm: true },
       { geo: leg, x: -3, y: 6, z: -6, arm: false }, { geo: leg, x: 3, y: 6, z: -6, arm: false },
     ];
-    coreY = 9 * MOB_PX; barY = 17.5 * MOB_PX;
+    coreY = 9 * MOB_PX; barY = 17.5 * MOB_PX; headPiv = 6;
   } else if (kind === 'villager') {
     // 村民：和人形同一套 32px 骨架（身高 = 玩家）
     const ROBE = 0x7d6440, ROBE2 = 0x5c4630, SKIN = 0xd8b58c, HAIR = 0x2e2116;
@@ -4183,7 +4183,7 @@ function mobGeos(kind) {
       { geo: leg, x: -3, y: 12, z: 6, arm: true }, { geo: leg, x: 3, y: 12, z: 6, arm: true },
       { geo: leg, x: -3, y: 12, z: -6, arm: false }, { geo: leg, x: 3, y: 12, z: -6, arm: false },
     ];
-    coreY = 17 * MOB_PX; barY = 24 * MOB_PX;
+    coreY = 17 * MOB_PX; barY = 24 * MOB_PX; headPiv = 13;
   } else if (kind === 'sheep') {
     const WOOL = 0xf2efe6, FACE = 0xd6c6b0, HOOF = 0x2b2622;
     box(body, -6, 12, -8, 12, 9, 16, WOOL, 0.24);                // 蓬松羊毛（强抖动 = 毛粒感）
@@ -4198,7 +4198,7 @@ function mobGeos(kind) {
       { geo: leg, x: -3, y: 12, z: 5, arm: true }, { geo: leg, x: 3, y: 12, z: 5, arm: true },
       { geo: leg, x: -3, y: 12, z: -5, arm: false }, { geo: leg, x: 3, y: 12, z: -5, arm: false },
     ];
-    coreY = 16 * MOB_PX; barY = 23 * MOB_PX;
+    coreY = 16 * MOB_PX; barY = 23 * MOB_PX; headPiv = 13;
   } else if (kind === 'chicken') {
     const FEATHER = 0xf4f2ea, BEAK = 0xe0a33c, COMB = 0xd8402f;
     box(body, -3, 4, -4, 6, 6, 8, FEATHER, 0.14);
@@ -4207,14 +4207,14 @@ function mobGeos(kind) {
     box(head, -2, 10, 3, 5, 5, 5, FEATHER, 0.10);
     box(head, -1, 10, 8, 3, 1, 1, BEAK, 0.04);                   // 喙
     box(head, -1, 15, 4, 3, 1, 2, COMB, 0.05);                   // 鸡冠
-    eyes2(head, 8, 13, [-2, 1], 0x241a12, 0x6a3a1a);
+    eyes2(head, 7, 13, [-2, 1], 0x241a12, 0x6a3a1a);
     px(head, 0, 9, 7, COMB);                                     // 肉垂
     const leg = limbGeo(1, 4, 1, BEAK, 0.05,
       (m, set, x0) => { set(x0, -4, 0, 0xd08a2c); });
     limbSpecs = [
       { geo: leg, x: -1, y: 4, z: 0, arm: true }, { geo: leg, x: 2, y: 4, z: 0, arm: false },
     ];
-    coreY = 7 * MOB_PX; barY = 16 * MOB_PX;
+    coreY = 7 * MOB_PX; barY = 16 * MOB_PX; headPiv = 10;
   } else if (kind === 'spider') {
     const CH = 0x2a2430, CH2 = 0x1c1822, EYE = 0xd23c3c;
     box(body, -4, 6, -7, 8, 7, 14, CH, 0.14);                    // 头胸（y 6..12）
@@ -4232,7 +4232,7 @@ function mobGeos(kind) {
       { geo: leg, x: -4, y: 12, z: -1, arm: false }, { geo: leg, x: 4, y: 12, z: -1, arm: false },
       { geo: leg, x: -4, y: 12, z: -4, arm: false }, { geo: leg, x: 4, y: 12, z: -4, arm: false },
     ];
-    coreY = 9 * MOB_PX; barY = 13.5 * MOB_PX;
+    coreY = 9 * MOB_PX; barY = 13.5 * MOB_PX; headPiv = 6;
   } else if (kind === 'blaze') {
     const FIRE = 0xffb43c, FIRE2 = 0xff7a18, DARK = 0x8a3a10;
     box(body, -3, 8, -3, 6, 10, 6, DARK, 0.14);                  // 燃烧的核心
@@ -4247,7 +4247,7 @@ function mobGeos(kind) {
       { geo: limb, x: -5, y: 17, z: 0, arm: true }, { geo: limb, x: 5, y: 17, z: 0, arm: true },
       { geo: limb, x: -2, y: 8, z: 0, arm: false }, { geo: limb, x: 2, y: 8, z: 0, arm: false },
     ];
-    coreY = 15 * MOB_PX; barY = 27 * MOB_PX;
+    coreY = 15 * MOB_PX; barY = 27 * MOB_PX; headPiv = 18;
   } else if (kind === 'netherBeast') {
     const HIDE = 0x5d2222, HIDE2 = 0x3d1515, HORN = 0xd9cdb5, EYE = 0xff5a2b;
     box(body, -4, 8, -8, 8, 9, 16, HIDE, 0.12);
@@ -4263,7 +4263,7 @@ function mobGeos(kind) {
       { geo: leg, x: -2, y: 8, z: 6, arm: true }, { geo: leg, x: 2, y: 8, z: 6, arm: true },
       { geo: leg, x: -2, y: 8, z: -6, arm: false }, { geo: leg, x: 2, y: 8, z: -6, arm: false },
     ];
-    coreY = 12 * MOB_PX; barY = 24 * MOB_PX;
+    coreY = 12 * MOB_PX; barY = 24 * MOB_PX; headPiv = 10;
   } else if (kind === 'skeleton') {
     // 骷髅：与人形同骨架，但肢体只有 2px 宽（MC 骷髅的细骨头）
     const BONE = 0xe8e4d6, BONE2 = 0xc9c4b2, SOCK = 0x14100d;
@@ -4302,7 +4302,7 @@ function mobGeos(kind) {
       for (let dy = 0; dy < 2 * S2; dy++) for (let dx = 0; dx < 2 * S2; dx++) px(head, x + dx, 22 * S2 - dy, 2 * S2 - 1, EYE);
     }
     for (let x = -1 * S2; x < 2 * S2; x++) px(head, x, 20 * S2, 2 * S2 - 1, 0x3a3550);
-    coreY = 13 * S2 * MOB_PX; barY = 26 * S2 * MOB_PX;
+    coreY = 13 * S2 * MOB_PX; barY = 26 * S2 * MOB_PX; headPiv = 18 * S2;
   } else {
     // 夜行怪 grunt：人形骨架 + 破布兜帽 + 红眼尖牙
     const SKIN = 0x9fd8c8, CLOTH = 0x2f5d5a, CLOTH2 = 0x26494a;
@@ -4313,7 +4313,7 @@ function mobGeos(kind) {
       box(head, -4, 24, -4, 1, 8, 8, CLOTH, 0.08);
       box(head, 3, 24, -4, 1, 8, 8, CLOTH, 0.08);
       for (let x = -4; x < 4; x++) px(head, x, 29, 3, CLOTH2);    // 帽檐阴影
-      eyes2(head, 27, 28, [-3, 2], 0x3a0d0d, 0xff4d4d);           // 红眼
+      eyes2(head, 3, 28, [-3, 2], 0x3a0d0d, 0xff4d4d);            // 红眼（z=3 = 脸面那一层）
       for (let x = -2; x <= 1; x++) px(head, x, 25, 3, 0x201414); // 嘴
       px(head, -1, 25, 3, 0xe8f4ef); px(head, 1, 25, 3, 0xe8f4ef);
       for (let y = 26; y <= 28; y++) { px(head, 0, y, 3, dk(SKIN, 0.88)); px(head, -1, y, 3, dk(SKIN, 0.88)); }  // 鼻梁阴影
@@ -4330,7 +4330,7 @@ function mobGeos(kind) {
 
   const topPx = kind === 'ghost' || kind === 'ghostBoss' ? (kind === 'ghostBoss' ? 50 : 25) : 0;
   if (MOB_DEFS[kind]) MOB_DEFS[kind].barY = barY;      // 头顶血条 / 村民标记跟着新体型走
-  const geo = { body: voxGeometry(body), head: voxGeometry(head), coreY, barY, limbs: limbSpecs, topPx };
+  const geo = { body: voxGeometry(body), head: voxGeometry(head), coreY, barY, limbs: limbSpecs, topPx, headPiv };
   mobGeoCache.set(kind, geo);
   return geo;
 }
@@ -4346,8 +4346,13 @@ function makeMobModel(kind) {
   const bodyMat = new THREE.MeshLambertMaterial(matOpts);
   const headMat = new THREE.MeshLambertMaterial(matOpts);
   const bodyMesh = new THREE.Mesh(G.body, bodyMat); bodyMesh.position.y = -G.coreY;
-  const headMesh = new THREE.Mesh(G.head, headMat); headMesh.position.y = -G.coreY;
-  core.add(bodyMesh, headMesh);
+  // 头挂在一个「脖子支点」上（Action & Stuff / MC 那样，头会自己转过来盯着你）
+  const headPivot = new THREE.Group();
+  headPivot.position.y = G.headPiv * MOB_PX - G.coreY;
+  const headMesh = new THREE.Mesh(G.head, headMat);
+  headMesh.position.y = -G.headPiv * MOB_PX;
+  headPivot.add(headMesh);
+  core.add(bodyMesh, headPivot);
   const limbs = [];
   for (const L of G.limbs) {
     const mesh = new THREE.Mesh(L.geo, bodyMat);
@@ -4365,7 +4370,61 @@ function makeMobModel(kind) {
   bar.add(barBg, barFg);
   g.add(bar);
   const arms = limbs.filter((m, i) => G.limbs[i].arm);
-  return { g, core, coreY: G.coreY, bodyMat, headMat, arm1: arms[0] || null, arm2: arms[1] || null, bar, barFg, limbs };
+  const legs = limbs.filter((m, i) => !G.limbs[i].arm);      // 人形=两条腿，四条腿的动物=后腿
+  return { g, core, coreY: G.coreY, bodyMat, headMat, arm1: arms[0] || null, arm2: arms[1] || null,
+           bar, barFg, limbs, legs, headPivot, topPx: G.topPx };
+}
+
+
+/* ── 走动动画（参考 Action & Stuff）───────────────────────────────────────
+   ① 步频跟「实际速度」而不是帧率：站着 2.2 rad/s，全速 9.6 rad/s
+   ② 交叉步：左臂配右腿（四条腿的动物走对角步：前左 + 后右）
+   ③ 躯干随步子上下起伏、顺步侧倾、起步前倾；停住时有极轻的呼吸
+   ④ 落地 squash（压扁再弹回）；受击后仰；攻击向前一扑（lunge）
+   ⑤ 头绕脖子支点盯玩家（水平 ±49°、俯仰 ±24°）——僵尸手常抬（armPose）
+   死亡动画不走这里（dying 分支在调用前就 continue 了）。 */
+function animateMob(m, dt, dx, dz, dist) {
+  const P = m.parts, def = MOB_DEFS[m.kind] || {};
+  const a = m.anim || (m.anim = { walk: Math.random() * 6, k: 0, idle: 0, land: 0 });
+  const spd = Math.hypot(m.v.x, m.v.z);
+  const want = Math.min(1, spd / Math.max(0.8, (def.chase || 2) * 0.62));
+  a.k += (want - a.k) * Math.min(1, dt * 9);
+  a.idle += dt;
+  a.walk += dt * (2.2 + 7.4 * a.k);
+  const s = Math.sin(a.walk), amp = 0.9 * a.k;
+  const armBase = def.armPose || 0;
+  // ① 交叉摆动
+  if (P.arm1) P.arm1.rotation.x = armBase + s * amp * 0.55;
+  if (P.arm2) P.arm2.rotation.x = armBase - s * amp * 0.55;
+  const legs = P.legs || [];
+  for (let i = 0; i < legs.length; i++) legs[i].rotation.x = (i % 2 ? 1 : -1) * s * amp;
+  // ② 落地 squash
+  if (m.onGround) { if ((m.airT || 0) > 0.14) a.land = 1; m.airT = 0; }
+  else m.airT = (m.airT || 0) + dt;
+  a.land = Math.max(0, a.land - dt * 5.0);
+  const sq = def.float ? 0 : a.land * a.land;
+  // ③ 躯干：起伏 / 侧倾 / 前倾 / 受击后仰 / 出击前扑
+  m.lunge = Math.max(0, (m.lunge || 0) - dt * 4.2);
+  const lu = Math.min(1, m.lunge / 0.3);
+  const flinch = Math.min(1, (m.flash || 0) / 0.24);
+  const bob = Math.abs(s) * 0.04 * a.k + Math.sin(a.idle * 1.6) * 0.008 * (1 - a.k);
+  P.core.position.y = P.coreY + bob - 0.10 * sq;
+  P.core.position.z = 0.16 * lu;
+  P.core.rotation.z = s * 0.03 * a.k;
+  P.core.rotation.x = 0.10 * a.k - 0.26 * flinch;
+  P.core.scale.set(1 + 0.10 * sq, 1 - 0.16 * sq, 1 + 0.10 * sq);
+  // ④ 头盯人（绕脖子转，身体不动）
+  if (P.headPivot) {
+    let dy = Math.atan2(dx, dz) - m.obj.rotation.y;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    const hy = clamp(dy, -0.85, 0.85) * (1 - a.k * 0.45);
+    const py = clamp(-Math.atan2((player.p.y + 1.0) - (m.p.y + 1.15), Math.max(0.7, dist)), -0.42, 0.42);
+    m.headYaw = (m.headYaw || 0) + (hy - (m.headYaw || 0)) * Math.min(1, dt * 9);
+    m.headPitch = (m.headPitch || 0) + (py - (m.headPitch || 0)) * Math.min(1, dt * 7);
+    P.headPivot.rotation.y = m.headYaw;
+    P.headPivot.rotation.x = m.headPitch;
+  }
 }
 
 /* ── 村民招募：不能交易，只能「满足需求 → 招入队」；招募后可指挥跟随、可给道具 ── */
@@ -5206,6 +5265,7 @@ function updateMobs(dt) {
     }
     const def = MOB_DEFS[m.kind];
     const hostileNow = def.hostile && !isCreative() && (night || m.aggro > 0);   // 创造模式：怪物不敌对
+    animateMob(m, dt, dx, dz, dist);                                            // 摆臂/迈腿/呼吸/盯人
     // 骷髅：举弓瞄准 → 射完收弓（拉弓动画）
     if (m.kind === 'skeleton' && m.parts.arm1) {
       const aiming = def.ranged && hostileNow && dist < 20;
@@ -5319,8 +5379,7 @@ function updateMobs(dt) {
     m.obj.rotation.y += clamp(dYaw, -dt * 11, dt * 11);                  // 平滑转身
     m.obj.position.copy(m.p);
     m.phase += dt * (2 + speed);
-    if (m.parts.arm1) m.parts.arm1.rotation.x = Math.sin(m.phase * 3) * (m.kind === 'pig' ? 0.5 : 0.45);
-    if (m.parts.arm2) m.parts.arm2.rotation.x = -Math.sin(m.phase * 3) * (m.kind === 'pig' ? 0.5 : 0.45);
+    // 摆臂 / 迈腿 / 身体起伏统一交给 animateMob（在 AI 之前调用，骷髅瞄准可以再覆盖手臂）
     // 受击闪红
     const em = m.flash > 0 ? 0xa03030 : 0x000000;
     m.parts.bodyMat.emissive.setHex(em);
@@ -5368,14 +5427,14 @@ function updateMobs(dt) {
     if (tgtMob) {                                                   // 目标已改成村民：打村民
       const dv = Math.hypot(tgtMob.p.x - m.p.x, tgtMob.p.z - m.p.z);
       if (def.hostile && hostileNow && dv < reach && m.atkCd <= 0 && sightClear(m.p, tgtMob.p)) {
-        m.atkCd = def.atkCd || 1.6;
+        m.atkCd = def.atkCd || 1.6; m.lunge = 0.3;
         tgtMob.hp -= (def.dmg || 3) * 0.8;
         tgtMob.flash = 0.24;
         if (tgtMob.hp <= 0) startMobDeath(tgtMob);
         sfx('hurt');
       }
     } else if (def.hostile && hostileNow && dist < reach && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.boss ? 3.2 : 2.0) && sightClear(m.p, player.p)) {
-      m.atkCd = def.atkCd || 1.6;
+      m.atkCd = def.atkCd || 1.6; m.lunge = 0.3;
       hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
       sfx('hurt');
     }
