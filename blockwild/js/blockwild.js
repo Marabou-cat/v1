@@ -9858,7 +9858,7 @@ const SKIN_COLORS = [0xf3cba6, 0xe3ab7c, 0xc98f5c, 0xa06c42, 0x7c4f2d, 0x5b3a20,
 const CLOTH_COLORS = [0xd9534f, 0x4a7fd9, 0x1abc9c, 0xf0ad4e, 0x9b59b6, 0x394655, 0xe67e22, 0xf2f2f2];
 const HAIR_COLORS = [0x221a14, 0x33251a, 0x6b4a2a, 0xc9a227, 0xb9bcc2, 0x8f3f2a];
 const HAIR_STYLES = ['短发', '长发'];
-const LOOK = { name: '', skin: SKIN_COLORS[0], cloth: CLOTH_COLORS[0], hair: HAIR_COLORS[1], hs: 0 };
+const LOOK = { name: '', skin: SKIN_COLORS[0], cloth: CLOTH_COLORS[0], hair: HAIR_COLORS[1], hs: 0, skinSrc: 'gen' };
 function randPlayerName() { return 'player' + (10000 + Math.floor(Math.random() * 90000)); }
 function saveLook() {
   try {
@@ -9876,109 +9876,187 @@ function loadLook() {
     if (typeof d.cloth === 'number') LOOK.cloth = d.cloth;
     if (typeof d.hair === 'number') LOOK.hair = d.hair;
     if (d.hs === 0 || d.hs === 1) LOOK.hs = d.hs;
+    if (typeof d.skinSrc === 'string') LOOK.skinSrc = d.skinSrc;
   }
   if (!LOOK.name) LOOK.name = randPlayerName();                   // 没设过昵称 → player + 5 位随机数
   saveLook();
   return LOOK;
 }
 loadLook();
+loadSavedSkin();          // 有存档的自定义皮肤就载入（64×64）
 
 let lookRenderer = null, lookScene = null, lookCam = null, lookAv = null, lookRAF = 0, lookTorches = [];
-/* ── 像素（体素）玩家形象 ─────────────────────────────────────────────
-   和游戏里的怪物用同一套建模法：16 像素 = 1 方块，逐像素上色后只生成外壳面片
-   （voxGeometry），所以头发、眼睛、嘴都是一格一格的「像素」，不再是 3D 方块拼的。
-   头 8×8×8、身 8×12×4、手臂/腿 4×12×4；脚底 y=0，头顶 32 像素 = 1.78 格。 */
-const voxAvatarCache = new Map();
-const voxAvatarMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+/* ── MC 标准 64×64 皮肤 ───────────────────────────────────────────────
+   玩家形象改成「贴图」模型：几何体照 MC 的 8×8×8 / 8×12×4 / 4×12×4 比例建，
+   每个面的 UV 都按 MC 官方皮肤的坐标布局取图（64×64，1 像素 = 1/16 方块）。
+   皮肤可以①由肤色/衣服/发色程序化生成，②上传玩家自己的 64×64 PNG。 */
+const SKIN_SIZE = 64;
+const SKIN_PX = MOB_PX;
+// 每个部位每个面在 64×64 皮肤图里的矩形：[u, v, w, h]（v 从上往下）
+const SKIN_UV = {
+  head: { w: 8, h: 8, d: 8, top: [8, 0, 8, 8], bottom: [16, 0, 8, 8], right: [0, 8, 8, 8], front: [8, 8, 8, 8], left: [16, 8, 8, 8], back: [24, 8, 8, 8] },
+  body: { w: 8, h: 12, d: 4, top: [20, 16, 8, 4], bottom: [28, 16, 8, 4], right: [16, 20, 4, 12], front: [20, 20, 8, 12], left: [28, 20, 4, 12], back: [32, 20, 8, 12] },
+  armR: { w: 4, h: 12, d: 4, top: [44, 16, 4, 4], bottom: [48, 16, 4, 4], right: [40, 20, 4, 12], front: [44, 20, 4, 12], left: [48, 20, 4, 12], back: [52, 20, 4, 12] },
+  armL: { w: 4, h: 12, d: 4, top: [36, 48, 4, 4], bottom: [40, 48, 4, 4], right: [32, 52, 4, 12], front: [36, 52, 4, 12], left: [40, 52, 4, 12], back: [44, 52, 4, 12] },
+  legR: { w: 4, h: 12, d: 4, top: [4, 16, 4, 4], bottom: [8, 16, 4, 4], right: [0, 20, 4, 12], front: [4, 20, 4, 12], left: [8, 20, 4, 12], back: [12, 20, 4, 12] },
+  legL: { w: 4, h: 12, d: 4, top: [20, 48, 4, 4], bottom: [24, 48, 4, 4], right: [16, 52, 4, 12], front: [20, 52, 4, 12], left: [24, 52, 4, 12], back: [28, 52, 4, 12] },
+};
 
-function voxAvatarGeos(key, skin, cloth, hair, hs) {
-  if (voxAvatarCache.has(key)) return voxAvatarCache.get(key);
-  const mk = () => new Map();
-  const px = (m, x, y, z, c) => m.set(x + ',' + y + ',' + z, c);
-  const fill = (m, x0, y0, z0, w, h, d, c, jit) => {
-    for (let x = x0; x < x0 + w; x++) for (let y = y0; y < y0 + h; y++) for (let z = z0; z < z0 + d; z++)
-      px(m, x, y, z, tintHex(c, 1 + (pixHash(x, y, z, 5) - 0.5) * (jit === undefined ? 0.1 : jit)));
-  };
-  const dk = (c, f) => tintHex(c, f);
-  const HAIR = hair || 0x33251a;
-  const long = hs === 1;
+/* 每个部位 = 一个 BoxGeometry + 6 个材质（每面贴皮肤图里的一块矩形）
+   这条路和方块贴图完全一样（blockFaceMat 同款：clone 纹理 + offset/repeat），
+   在这个渲染器里百分百能画出来。 */
+/* ── 皮肤图（64×64）：① 按配色程序化画 ② 直接读 PNG ───────────────── */
+const SKIN_PNG_KEY = 'bw_skin_png_v1';
+let skinCustom = null;          // 玩家上传的图片（HTMLImageElement）
+const skinTexCache = new Map(); // 皮肤源 → THREE.Texture
+const skinKeyCache = new Map(); // 皮肤源 → 短哈希（联机用）
 
-  /* 头：局部 y 0..7，脸在 z=-4 那一层（模型正面 = -Z） */
-  const head = mk();
-  fill(head, -4, 0, -4, 8, 8, 8, skin, 0.07);
-  for (const ex of [-3, 1]) {                                  // 细长眼：2×1 白，中间留 2 格鼻梁（远看是两条细线）
-    for (let dx = 0; dx < 2; dx++) px(head, ex + dx, 4, -4, 0xf2f2f2);
+const hex2 = c => '#' + (c >>> 0).toString(16).padStart(6, '0');
+const shadeHex = (c, f) => tintHex(c, f);
+
+/* 程序化画一张 64×64 的标准皮肤：头 8×8、身 8×12、四肢 4×12 */
+function genSkinCanvas(skin, cloth, hair, hs) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const fill = (x, y, w, h, c) => { g.fillStyle = hex2(c); g.fillRect(x, y, w, h); };
+  const H = hair || 0x33251a, long = hs === 1;
+  const u = SKIN_UV;
+  for (const key of ['top', 'bottom', 'right', 'front', 'left', 'back']) {
+    const [x, y, w, h] = u.head[key];
+    fill(x, y, w, h, skin);
   }
-  for (const ex of [-3, 1]) px(head, ex, 3, -4, dk(skin, 0.78));   // 眼尾一格暗影：显得有点凶
-
-  for (let dx = 0; dx < 3; dx++) px(head, -1 + dx, 1, -4, 0x2b1a12);      // 嘴
-  fill(head, -4, 7, -4, 8, 1, 8, HAIR, 0.05);                  // 头顶
-  fill(head, -4, 5, -4, 8, 2, 1, HAIR, 0.05);                  // 刘海（压住额头两格）
-  for (let y = 5; y <= 7; y++) for (let z = -4; z <= 3; z++) { px(head, -4, y, z, HAIR); px(head, 3, y, z, HAIR); }
-  fill(head, -4, 4, 3, 8, 4, 1, HAIR, 0.05);                   // 后脑
-  if (long) {                                                  // 长发：两侧整条垂下来 + 后颈铺满
-    for (let y = 0; y <= 7; y++) for (let z = -3; z <= 3; z++) { px(head, -4, y, z, HAIR); px(head, 3, y, z, HAIR); }
-    fill(head, -4, 0, 3, 8, 8, 1, HAIR, 0.05);
-  }
-
-  /* 身体：局部 y 0..11（摆到场上时抬到 12 像素） */
-  const body = mk();
-  fill(body, -4, 0, -2, 8, 12, 4, cloth, 0.09);
-  fill(body, -4, 11, -2, 8, 1, 4, dk(cloth, 0.85), 0.06);       // 肩线
-  fill(body, -4, 0, -2, 8, 1, 4, dk(cloth, 0.78), 0.06);        // 下摆
-  for (let y = 2; y <= 9; y++) for (let z = -1; z <= 0; z++) px(body, 0, y, z, dk(cloth, 0.9));   // 中间衣缝
-  if (long) fill(body, -4, 3, 1, 8, 9, 1, HAIR, 0.05);          // 长发盖住后背
-
-  /* 手臂：上臂 4×6×4（短袖 3 像素 + 肤色），前臂 4×6×4 */
-  const arm = mk(), fore = mk();
-  fill(arm, -2, -6, -2, 4, 6, 4, skin, 0.08);
-  fill(arm, -2, -3, -2, 4, 3, 4, cloth, 0.09);                  // 短袖
-  fill(fore, -2, -6, -2, 4, 6, 4, skin, 0.08);
-  fill(fore, -2, -6, -2, 4, 1, 4, dk(skin, 0.86), 0.05);        // 手背一格深色
-
-  /* 腿：4×12×4（裤子 + 鞋） */
-  const leg = mk();
-  const pants = dk(cloth, 0.72);
-  fill(leg, -2, -12, -2, 4, 12, 4, pants, 0.08);
-  fill(leg, -2, -12, -2, 4, 1, 4, dk(pants, 0.8), 0.05);        // 鞋
-
-  const G = {
-    body: voxGeometry(body), head: voxGeometry(head), arm: voxGeometry(arm),
-    fore: voxGeometry(fore), leg: voxGeometry(leg),
+  const hairFace = (key, rows) => {
+    const [x, y, w, h] = u.head[key];
+    fill(x, y, w, Math.min(h, rows), H);
   };
-  voxAvatarCache.set(key, G);
-  return G;
+  hairFace('top', 8);
+  hairFace('right', long ? 8 : 3); hairFace('left', long ? 8 : 3);
+  hairFace('back', long ? 8 : 5);
+  hairFace('front', 2);
+  const [fx, fy] = [u.head.front[0], u.head.front[1]];
+  fill(fx + 1, fy + 4, 2, 1, 0xf2f2f2); fill(fx + 5, fy + 4, 2, 1, 0xf2f2f2);   // 细长眼：2×1
+  fill(fx + 1, fy + 6, 3, 1, 0x2b1a12);                                           // 嘴：3×1
+  for (const key of ['top', 'bottom', 'right', 'front', 'left', 'back']) {
+    const [x, y, w, h] = u.body[key];
+    fill(x, y, w, h, cloth);
+    if (key !== 'top' && key !== 'bottom') { fill(x, y, w, 1, shadeHex(cloth, 0.82)); fill(x, y + h - 1, w, 1, shadeHex(cloth, 0.7)); }
+    if (long && key === 'back') fill(x, y, w, Math.floor(h / 2), H);
+  }
+  for (const key of ['armR', 'armL']) {
+    for (const f of ['top', 'bottom', 'right', 'front', 'left', 'back']) {
+      const [x, y, w, h] = u[key][f];
+      fill(x, y, w, h, skin);
+      if (f === 'top') fill(x, y, w, h, cloth);
+      else if (f !== 'bottom') { fill(x, y, w, 4, cloth); fill(x, y + h - 1, w, 1, shadeHex(skin, 0.86)); }
+    }
+  }
+  const pants = shadeHex(cloth, 0.72);
+  for (const key of ['legR', 'legL']) {
+    for (const f of ['top', 'bottom', 'right', 'front', 'left', 'back']) {
+      const [x, y, w, h] = u[key][f];
+      fill(x, y, w, h, pants);
+      if (f === 'top') fill(x, y, w, h, shadeHex(cloth, 0.6));
+      else if (f !== 'bottom') fill(x, y + h - 1, w, 1, shadeHex(pants, 0.78));
+    }
+  }
+  return cv;
 }
 
-function buildVoxAvatar(o) {
-  const skin = o.skin, cloth = o.cloth, hair = o.hair, hs = (o.hs | 0);
-  const G = voxAvatarGeos([skin, cloth, hair, hs].join('|'), skin, cloth, hair, hs);
+/* 皮肤源 → 纹理（缓存） */
+function skinTexture(src) {
+  if (src === 'gen') src = 'gen:' + LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs;
+  if (skinTexCache.has(src)) return skinTexCache.get(src);
+  if (skinTexCache.size > 80) skinTexCache.clear();
+  let tex;
+  if (src === 'custom' && skinCustom) {
+    tex = new THREE.Texture(skinCustom);
+    tex.needsUpdate = true;
+  } else if (typeof src === 'string' && src.indexOf('data:image') === 0) {
+    const img = new Image();
+    img.src = src;
+    tex = new THREE.Texture(img);
+    tex.needsUpdate = true;
+  } else {
+    let s = LOOK.skin, c = LOOK.cloth, hh = LOOK.hair, hhs = LOOK.hs;
+    if (typeof src === 'string' && src.indexOf('gen:') === 0) {
+      const a = src.split(':');
+      s = +a[1] || s; c = +a[2] || c; hh = +a[3] || hh; hhs = +(a[4] || 0);
+    }
+    tex = new THREE.CanvasTexture(genSkinCanvas(s, c, hh, hhs));
+  }
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  skinTexCache.set(src, tex);
+  return tex;
+}
+function skinHash(src) {
+  if (src !== 'custom' && !(typeof src === 'string' && src.indexOf('data:image') === 0))
+    return 'gen:' + LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs;
+  const s = (src === 'custom' && skinCustom) ? (skinCustom.src || 'custom') : String(src);
+  let hh = 2166136261;
+  for (let i = 0; i < s.length; i++) { hh ^= s.charCodeAt(i); hh = Math.imul(hh, 16777619); }
+  return 'png:' + ((hh >>> 0).toString(36)) + ':' + s.length;
+}
+
+function buildSkinAvatar(opts) {
+  const src = (opts && opts.skinSrc) ? opts.skinSrc : 'gen';
+  const U = SKIN_PX;
+  const key = (src === 'gen') ? ('gen:' + LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs) : src;
+  const base = skinTexture(key);
+  const faceMat = (uvName, f) => {
+    const [x, y, w, h] = SKIN_UV[uvName][f];
+    const t = base.clone();
+    t.needsUpdate = true;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    t.offset.set(x / SKIN_SIZE, 1 - (y + h) / SKIN_SIZE);
+    t.repeat.set(w / SKIN_SIZE, h / SKIN_SIZE);
+    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+    return new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide });
+  };
+  /* 一个部位 = 6 张单面贴图（和方块同一个渲染路径，稳） */
+  const part = (uvName, pw, ph, pd) => {
+    const grp = new THREE.Group();
+    const W = pw * U, H = ph * U, D = pd * U;
+    const mkPlane = (w, h, px2, py2, pz2, rx, ry, f) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), faceMat(uvName, f));
+      m.position.set(px2, py2, pz2); m.rotation.set(rx, ry, 0); m.castShadow = true;
+      grp.add(m); return m;
+    };
+    mkPlane(W, H, 0, 0, -D / 2, 0, Math.PI, 'front');      // -Z 正面（模型朝 -Z）
+    mkPlane(W, H, 0, 0, D / 2, 0, 0, 'back');              // +Z 背面
+    mkPlane(D, H, -W / 2, 0, 0, 0, -Math.PI / 2, 'left');  // -X
+    mkPlane(D, H, W / 2, 0, 0, 0, Math.PI / 2, 'right');   // +X
+    mkPlane(W, D, 0, H / 2, 0, -Math.PI / 2, 0, 'top');    // +Y
+    mkPlane(W, D, 0, -H / 2, 0, Math.PI / 2, 0, 'bottom'); // -Y
+    return grp;
+  };
   const g = new THREE.Group();
-  const U = MOB_PX;
-  const torso = new THREE.Mesh(G.body, voxAvatarMat); torso.position.y = 12 * U; torso.castShadow = true; g.add(torso);
-  const headPivot = new THREE.Group(); headPivot.position.y = 24 * U;
-  const headMesh = new THREE.Mesh(G.head, voxAvatarMat); headMesh.castShadow = true; headPivot.add(headMesh);
-  const face = new THREE.Object3D(); face.position.set(0, 4 * U, -4 * U); headPivot.add(face);
-  g.add(headPivot);
+  const torso = part('body', 8, 12, 4); torso.position.y = 18 * U; g.add(torso);
+  const headPivot = new THREE.Group(); headPivot.position.y = 24 * U; g.add(headPivot);
+  const headMesh = part('head', 8, 8, 8); headMesh.position.y = 4 * U; headPivot.add(headMesh);
+  const face = new THREE.Object3D(); face.position.set(0, 4 * U, -4.2 * U); headPivot.add(face);
   const mkArm = (sx) => {
     const pv = new THREE.Group(); pv.position.set(sx * 6 * U, 24 * U, 0);
-    const armMesh = new THREE.Mesh(G.arm, voxAvatarMat); armMesh.castShadow = true; pv.add(armMesh);
-    const f = new THREE.Group(); f.position.y = -6 * U;
-    f.add(new THREE.Mesh(G.fore, voxAvatarMat));
-    pv.add(f); g.add(pv);
-    return { pv, f };
+    const m = part('armR', 4, 12, 4); m.position.y = -6 * U; pv.add(m);
+    g.add(pv); return pv;
   };
-  const aL = mkArm(-1), aR = mkArm(1);
+  const armR = mkArm(1), armL = mkArm(-1);
   const mkLeg = (sx) => {
-    const pv = new THREE.Group(); pv.position.set(sx * 3 * U, 12 * U, 0);
-    const legMesh = new THREE.Mesh(G.leg, voxAvatarMat); legMesh.castShadow = true; pv.add(legMesh); g.add(pv); return pv;
+    const pv = new THREE.Group(); pv.position.set(sx * 2 * U, 12 * U, 0);
+    const m = part('legR', 4, 12, 4); m.position.y = -6 * U; pv.add(m);
+    g.add(pv); return pv;
   };
-  const legL = mkLeg(-1), legR = mkLeg(1);
-  return { g, torso, head: headPivot, face, armL: aL.pv, armR: aR.pv, foreR: aR.f, legL, legR };
+  const legR = mkLeg(1), legL = mkLeg(-1);
+  return { g, torso, head: headPivot, face, armL, armR, foreR: armR, legL, legR };
 }
 
-function buildAvatarMesh(skin, cloth, hair, hs) {
-  return buildVoxAvatar({ skin, cloth, hair, hs }).g;           // 外观面板预览用同一套像素模型
+/* 外观面板预览用的入口（保持旧签名） */
+function buildAvatarMesh(skin, cloth, hair, hs, skinSrc) {
+  return buildSkinAvatar({ skinSrc: skinSrc || LOOK.skinSrc }).g;
 }
 /* 外观预览的矿洞背景：石壁/地面/碎石 + 两支会闪的火把（只在预览里用，很便宜） */
 function buildCaveBackdrop(S) {
@@ -10033,17 +10111,19 @@ function buildLookPreview() {
   lookScene.add(dl);
   const cave = buildCaveBackdrop(lookScene);          // 矿洞背景（含两支火把）
   lookTorches = cave.torches;
-  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth, LOOK.hair, LOOK.hs);
+  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth, LOOK.hair, LOOK.hs, LOOK.skinSrc);
   lookAv.rotation.y = Math.PI;                       // 模型正面朝 -Z，转 180° 才正对镜头
   lookScene.add(lookAv);
   const t0 = performance.now();
   const loop = () => {
     if ($('lookPanel').classList.contains('hide')) { lookRAF = 0; return; }
     // 小幅左右摇摆（±28°）而不是整圈转：始终能看到脸
-    const tt = (performance.now() - t0) / 1000;
-    lookAv.rotation.y = Math.PI + Math.sin(tt / 1.1) * 0.5;
-    for (const l of lookTorches) l.intensity = 4.8 + Math.sin(tt * 7.3 + (l.userData.ph || 0)) * 0.9;   // 火把闪动
-    lookRenderer.render(lookScene, lookCam);
+    try {
+      const tt = (performance.now() - t0) / 1000;
+      lookAv.rotation.y = Math.PI + Math.sin(tt / 1.1) * 0.5;
+      for (const l of lookTorches) l.intensity = 4.8 + Math.sin(tt * 7.3 + (l.userData.ph || 0)) * 0.9;   // 火把闪动
+      lookRenderer.render(lookScene, lookCam);
+    } catch (e) { console.error('[look] loop', e); lookRAF = 0; return; }
     lookRAF = requestAnimationFrame(loop);
   };
   lookRAF = requestAnimationFrame(loop);
@@ -10051,7 +10131,7 @@ function buildLookPreview() {
 function refreshLookAv() {
   if (!lookScene || !lookAv) return;
   lookScene.remove(lookAv);
-  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth, LOOK.hair, LOOK.hs);
+  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth, LOOK.hair, LOOK.hs, LOOK.skinSrc);
   lookAv.rotation.y = Math.PI;
   lookScene.add(lookAv);
 }
@@ -10064,7 +10144,11 @@ function renderLookSwatches() {
       b.className = 'sw' + (LOOK[key] === c ? ' on' : '');
       b.style.background = '#' + c.toString(16).padStart(6, '0');
       b.title = '#' + c.toString(16).padStart(6, '0');
-      b.onclick = () => { LOOK[key] = c; saveLook(); renderLookSwatches(); refreshLookAv(); };
+      b.onclick = () => {
+        LOOK[key] = c;
+        if (LOOK.skinSrc === 'custom') { LOOK.skinSrc = 'gen'; try { localStorage.removeItem(SKIN_PNG_KEY); } catch (e) {} }
+        saveLook(); renderLookSwatches(); refreshLookAv(); drawSkinThumb();
+      };
       row.appendChild(b);
     }
   };
@@ -10076,6 +10160,50 @@ function renderLookSwatches() {
     b.onclick = () => { LOOK.hs = b.dataset.hs | 0; saveLook(); renderLookSwatches(); refreshLookAv(); };
   }
 }
+/* 皮肤缩略图（64×64 皮肤图本身） */
+function drawSkinThumb() {
+  const cv = $('skinThumb'); if (!cv) return;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, 64, 64);
+  if (LOOK.skinSrc === 'custom' && skinCustom) g.drawImage(skinCustom, 0, 0);
+  else g.drawImage(genSkinCanvas(LOOK.skin, LOOK.cloth, LOOK.hair, LOOK.hs), 0, 0);
+}
+function setSkinFromFile(file) {
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      if (img.width !== 64 || img.height !== 64) {          // 只收 MC 标准 64×64
+        toast(`皮肤必须是 64×64 的 PNG（你选的是 ${img.width}×${img.height}）`, 4);
+        return;
+      }
+      skinCustom = img;
+      LOOK.skinSrc = 'custom';
+      skinTexCache.delete('custom');
+      try { localStorage.setItem(SKIN_PNG_KEY, String(fr.result)); } catch (e) {}
+      saveLook();
+      refreshLookAv();
+      drawSkinThumb();
+      toast('皮肤已应用（64×64）', 2);
+    };
+    img.onerror = () => toast('这张 PNG 读不出来，换一张试试', 3);
+    img.src = String(fr.result);
+  };
+  fr.readAsDataURL(file);
+}
+function loadSavedSkin() {
+  let d = null;
+  try { d = localStorage.getItem(SKIN_PNG_KEY); } catch (e) {}
+  if (!d) return;
+  const img = new Image();
+  img.onload = () => {
+    skinCustom = img;
+    if (LOOK.skinSrc === 'custom') { skinTexCache.delete('custom'); refreshLookAv(); drawSkinThumb(); }
+  };
+  img.src = d;
+}
 function openLook() {
   loadLook();
   $('lookPanel').classList.remove('hide');
@@ -10083,9 +10211,18 @@ function openLook() {
   $('lookAutoName').textContent = LOOK.name;
   $('lookNamePreview').textContent = LOOK.name;
   renderLookSwatches();
+  drawSkinThumb();
   buildLookPreview();
 }
 $('btnLook').onclick = () => openLook();
+$('btnSkinUp').onclick = () => $('skinFile').click();
+$('skinFile').onchange = (e) => { const f = e.target.files && e.target.files[0]; setSkinFromFile(f); e.target.value = ''; };
+$('btnSkinReset').onclick = () => {
+  LOOK.skinSrc = 'gen';
+  try { localStorage.removeItem(SKIN_PNG_KEY); } catch (e) {}
+  saveLook(); refreshLookAv(); drawSkinThumb();
+  toast('已切回按配色生成的皮肤', 2);
+};
 $('btnCloseLook').onclick = () => $('lookPanel').classList.add('hide');
 $('lookName').addEventListener('input', () => {
   LOOK.name = $('lookName').value.trim().slice(0, 14);
@@ -10362,6 +10499,55 @@ window.GAME = {
           kinds: (v.builds || []).map(b => b.name), at: (v.builds || []).map(b => [b.name, b.x, b.z]) });
       }
       return out;
+    },
+    skin: (dataUrl) => {                       // 验收用：把一张 64×64 的 data URL 皮肤套上去
+      return new Promise((res) => {
+        const img = new Image();
+        img.onload = () => {
+          if (img.width !== 64 || img.height !== 64) { res({ ok: false, w: img.width, h: img.height }); return; }
+          skinCustom = img; LOOK.skinSrc = 'custom'; skinTexCache.delete('custom');
+          try { localStorage.setItem(SKIN_PNG_KEY, String(dataUrl)); } catch (e) {}
+          saveLook(); refreshLookAv(); drawSkinThumb();
+          res({ ok: true, w: 64, h: 64 });
+        };
+        img.onerror = () => res({ ok: false, err: 'decode' });
+        img.src = dataUrl;
+      });
+    },
+    skinInfo: () => ({ src: LOOK.skinSrc, hasPng: !!skinCustom, key: skinHash(LOOK.skinSrc) }),
+    aimAt: (x, y, z) => {                     // 把镜头对准某个世界坐标（自动求 yaw/pitch）
+      const eyeY = player.p.y + CFG.EYE;
+      const dx = x - player.p.x, dy = y - eyeY, dz = z - player.p.z;
+      const horiz = Math.hypot(dx, dz) || 0.001;
+      const wantYaw = Math.atan2(-dx, -dz);
+      const wantPitch = Math.atan2(dy, horiz);
+      player.yaw = wantYaw; player.pitch = wantPitch;
+      const v = new THREE.Vector3(); v.set(0, 0, -1).applyEuler(new THREE.Euler(wantPitch, wantYaw, 0, 'YXZ'));
+      return { yaw: +wantYaw.toFixed(2), pitch: +wantPitch.toFixed(2), fwd: [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)], dist: +horiz.toFixed(1) };
+    },
+    spawnAvatar: () => {                       // 验收：在玩家前方 4 格放一个皮肤人形（主场景）
+      const A = buildSkinAvatar({ skinSrc: LOOK.skinSrc });
+      const fy = Math.floor(player.p.y);
+      const dx = -Math.sin(player.yaw) * 4, dz = -Math.cos(player.yaw) * 4;
+      A.g.position.set(player.p.x + dx, fy + 1, player.p.z + dz);
+      A.g.rotation.y = player.yaw;
+      scene.add(A.g);
+      return { at: [+A.g.position.x.toFixed(1), A.g.position.y, +A.g.position.z.toFixed(1)], kids: A.g.children.length, meshes: (() => { let n = 0; A.g.traverse(o => { if (o.isMesh) n++; }); return n; })() };
+    },
+    avatarProbe: () => {
+      try {
+        const A = buildSkinAvatar({ skinSrc: LOOK.skinSrc });
+        let meshes = 0, mats = 0, mapOk = 0;
+        A.g.traverse(o => {
+          if (o.isMesh) {
+            meshes++;
+            const ms = Array.isArray(o.material) ? o.material : [o.material];
+            mats += ms.length;
+            ms.forEach(m => { if (m.map && m.map.image && m.map.image.width === 64) mapOk++; });
+          }
+        });
+        return { kids: A.g.children.length, meshes, mats, mapOk };
+      } catch (e) { return { err: String((e && e.stack) || e) }; }
     },
     gotoVillage: () => {
       const v = nearestVillage(400);
@@ -10971,13 +11157,10 @@ window.GAME = {
     for (let i = 0; i < id.length; i++) hsh = (hsh * 31 + id.charCodeAt(i)) | 0;
     const base = PAL[Math.abs(hsh) % PAL.length];
     const lk = look || {};
-    // 像素（体素）人形：和游戏里的怪物同一套建模，头发/眼睛/嘴都是像素格
-    const A = buildVoxAvatar({
-      skin: (typeof lk.sk === 'number') ? lk.sk : 0xd8b48a,
-      cloth: (typeof lk.cl === 'number') ? lk.cl : base,
-      hair: (typeof lk.hr === 'number' && lk.hr > 0) ? lk.hr : 0x33251a,
-      hs: lk.hs | 0,
-    });
+    // 皮肤源：对方上传的 PNG > 按配色生成的皮肤
+    const rskin = lk.skd || lk.skinSrc || ('gen:' + ((typeof lk.sk === 'number') ? lk.sk : 0xd8b48a) + ':'
+      + ((typeof lk.cl === 'number') ? lk.cl : base) + ':' + ((typeof lk.hr === 'number' && lk.hr > 0) ? lk.hr : 0x33251a) + ':' + (lk.hs | 0));
+    const A = buildSkinAvatar({ skinSrc: rskin });
     const g = A.g, torso = A.torso, head = A.head, face = A.face;
     const armL = A.armL, armR = A.armR, legL = A.legL, legR = A.legR, foreR = A.foreR;
     g.add(nameTag(name));
@@ -10993,7 +11176,7 @@ window.GAME = {
   function ensureRemote(p) {
     let r = net.remotes.get(p.i);
     if (!r) {
-      r = { obj: avatar(p.i, p.n, { sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs }), name: p.n || p.i };
+      r = { obj: avatar(p.i, p.n, { sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs, skd: p.skd, skn: p.skn }), name: p.n || p.i };
       r.obj.position.set(p.x, p.y, p.z);
       r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
       net.remotes.set(p.i, r);

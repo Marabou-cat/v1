@@ -110,6 +110,7 @@
   .sw.on{border-color:#f5c451;box-shadow:0 0 0 2px #f5c45166,inset 0 2px 0 #ffffff22}
   /* 外观预览画布：全局 canvas 规则是「铺满全屏」，这里必须改回普通元素 */
   #lookCv{position:static;inset:auto;width:200px;height:250px;image-rendering:auto}
+  #skinThumb{position:static;inset:auto}
   .strow{display:flex;gap:8px}
   .stbtn{padding:7px 16px;border-radius:6px;border:2px solid #33475e;background:#1b2735;color:#cfe0f0;
     font-family:inherit;font-size:12px;cursor:pointer;letter-spacing:2px}
@@ -327,6 +328,16 @@
         <label style="display:block;font-size:12px;color:#9fb3c8;margin:0 0 4px">昵称（联机时显示给你和队友，最多 14 字）</label>
         <input id="lookName" maxlength="14" autocomplete="off" spellcheck="false" placeholder="player12345"
           style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:7px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:13px;font-family:inherit">
+        <div class="setsec">皮肤（MC 标准 64×64 PNG）</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
+          <canvas id="skinThumb" width="64" height="64"
+            style="width:64px;height:64px;image-rendering:pixelated;border:2px solid #33475e;border-radius:4px;background:#0d1622"></canvas>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button class="stbtn" id="btnSkinUp">上传 64×64 PNG</button>
+            <button class="stbtn" id="btnSkinReset">用下面的配色生成</button>
+          </div>
+          <input type="file" id="skinFile" accept="image/png" style="display:none">
+        </div>
         <div class="setsec">肤色</div>
         <div id="lookSkin" class="swrow"></div>
         <div class="setsec">衣服颜色</div>
@@ -463,6 +474,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=187"></script>
+<script type="module" src="./js/blockwild.js?v=210"></script>
 </body>
 </html>
