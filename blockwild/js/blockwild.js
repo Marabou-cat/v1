@@ -21,6 +21,9 @@ let SEED = (() => {                          // 支持 ?seed=12345 直接用指�
    区块/存档天然分开（不会和主世界撞），切换时只换 DIM + 清空区块缓存。 */
 let DIM = 'overworld';
 const NETHER_OFF = 1000000;
+/* ?dev=1：HUD 多显示一行性能探针（火把/生成meta/门/缓存/场景对象数）。
+   这些数字用来判断「越玩越卡」是哪个表只涨不落 —— 别让普通玩家看到。 */
+const DEV = /[?&]dev\b/.test(location.search);
 let portalCd = 0, lavaT = 0;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const clamp01 = v => clamp(v, 0, 1);
@@ -7760,7 +7763,11 @@ function updateHUD(dt) {
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
     `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}${DIM === 'nether' ? ' · <b style="color:#e05a5a">冥界</b>' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
-  if (s !== lastStatus) { hud.status.innerHTML = s; lastStatus = s; }
+  // ?dev=1 额外一行：性能探针的「只涨不落」指标（正常玩家看不到）
+  const s2 = DEV
+    ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
+    : s;
+  if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
   renderHearts();
 }
 
