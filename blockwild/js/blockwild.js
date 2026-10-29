@@ -326,6 +326,9 @@ const BLOCKS = {
   57: { name: '灰烬叶', top: 64, side: 64, bottom: 64, hard: 0.2, drop: 0, leaf: true, hollow: true },
   58: { name: '缠魂藤', top: 65, side: 65, bottom: 65, hard: 0.1, drop: 0, cross: true, plant: true, crossH: 0.9, vine: true },
   59: { name: '沼泽泥', top: 66, side: 66, bottom: 66, hard: 0.8, drop: 59 },
+  // ── 远古废墟：末地传送门式的框架 + 四个激活器（都要四枚宝珠，宝珠暂时无法获取）──
+  60: { name: '远古框架', top: 67, side: 68, bottom: 67, hard: 9, drop: 0, frame: true, unbreakable: true, ancient: true },
+  61: { name: '激活器', top: 69, side: 70, bottom: 71, hard: 9, drop: 0, unbreakable: true, activator: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick', fast: 1.35, dur: 60 },
@@ -721,6 +724,40 @@ function makeAtlas() {
     for (let x = 3; x < 13; x++) for (let y = 4; y < 12; y++) px(c, r, x, y, '#101820');
     for (let x = 4; x < 12; x++) for (let y = 5; y < 11; y++) px(c, r, x, y, (x + y) % 3 ? '#2ad0c0' : '#9dfff2');
     for (let x = 4; x < 12; x++) px(c, r, x, 12, '#b8702f');
+  });
+  // 67 远古框架顶：黑曜石般的深紫岩 + 一圈会发光的符文环
+  T(67, '#241a33', 0.14, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#151021'); px(c, r, x, 15, '#0d0a14'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#1a1428'); px(c, r, 15, y, '#0d0a14'); }
+    for (let i = 3; i <= 12; i++) { px(c, r, i, 4, '#8f6bff'); px(c, r, i, 11, '#8f6bff'); px(c, r, 4, i, '#8f6bff'); px(c, r, 11, i, '#8f6bff'); }
+    for (const [x, y] of [[7, 7], [8, 7], [7, 8], [8, 8]]) px(c, r, x, y, '#c9b6ff');
+  });
+  // 68 远古框架侧：深紫岩 + 细缝里透出的紫光
+  T(68, '#241a33', 0.12, (c, r) => {
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#151021'); px(c, r, 15, y, '#0b0810'); }
+    for (let y = 2; y < 15; y++) { px(c, r, 7, y, '#3a2a5c'); px(c, r, 8, y, y % 4 ? '#5a3f96' : '#a97bff'); }
+    for (const y of [3, 8, 13]) for (let x = 3; x < 7; x++) px(c, r, x, y, '#3f2f63');
+  });
+  // 69 激活器顶：石座中央一个凹槽（等待宝珠）
+  T(69, '#3a3a44', 0.08, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#5b5b68'); px(c, r, x, 15, '#1e1e24'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#52525e'); px(c, r, 15, y, '#1e1e24'); }
+    for (let x = 4; x < 12; x++) for (let y = 4; y < 12; y++) px(c, r, x, y, '#15151b');
+    for (let x = 5; x < 11; x++) { px(c, r, x, 5, '#1f3b44'); px(c, r, x, 10, '#1f3b44'); }
+    for (let y = 5; y < 11; y++) { px(c, r, 5, y, '#1f3b44'); px(c, r, 10, y, '#1f3b44'); }
+    for (const [x, y] of [[7, 7], [8, 7], [7, 8], [8, 8]]) px(c, r, x, y, '#2f5f6b');
+  });
+  // 70 激活器侧：石座 + 竖直的能量导管
+  T(70, '#3a3a44', 0.08, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#5b5b68'); px(c, r, x, 15, '#1e1e24'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#52525e'); px(c, r, 15, y, '#1e1e24'); }
+    for (let y = 2; y < 15; y++) { px(c, r, 7, y, '#2b4a52'); px(c, r, 8, y, y % 5 ? '#3f6f7a' : '#7fd8e6'); }
+    for (const y of [4, 11]) { px(c, r, 4, y, '#5b5b68'); px(c, r, 11, y, '#5b5b68'); }
+  });
+  // 71 激活器底：素面石座
+  T(71, '#33333c', 0.09, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#4c4c57'); px(c, r, x, 15, '#191920'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#454550'); px(c, r, 15, y, '#191920'); }
   });
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -3235,17 +3272,43 @@ for (let i = 0; i < 6; i++) {
   scene.add(pl);
   torchLights.push(pl);
 }
+/* 火把按「区块」分桶：区块卸载时整桶删掉。
+   修的就是「越玩越卡」：原来只在放置/加载时登记、卸载从不清，
+   走一路这个表只涨不落 → 每 0.2 秒全场扫一遍 + 排序，且越走越慢。 */
+const torchByChunk = new Map();             // 'cx,cz' → Set('x,y,z')
+const torchChunkKey = (x, z) => Math.floor(x / CFG.CH) + ',' + Math.floor(z / CFG.CH);
 function registerTorch(x, y, z) {
   const k = x + ',' + y + ',' + z;
   if (torchCells.has(k)) return;                 // 重建时重复登记不算变动（否则会无限重建）
   torchCells.set(k, { x, y, z });
+  const bk = torchChunkKey(x, z);
+  let s = torchByChunk.get(bk);
+  if (!s) torchByChunk.set(bk, s = new Set());
+  s.add(k);
   torchLastKey = x + ',' + z;
 }
 function unregisterTorch(x, y, z) {
   const k = x + ',' + y + ',' + z;
   if (!torchCells.has(k)) return;
   torchCells.delete(k);
+  const s = torchByChunk.get(torchChunkKey(x, z));
+  if (s) { s.delete(k); if (!s.size) torchByChunk.delete(torchChunkKey(x, z)); }
   torchLastKey = x + ',' + z;
+}
+function unregisterTorchChunk(cx, cz) {          // 区块卸货：这一桶火把一次性清掉
+  const bk = cx + ',' + cz, s = torchByChunk.get(bk);
+  if (!s) return;
+  for (const k of s) torchCells.delete(k);
+  torchByChunk.delete(bk);
+}
+function forEachTorchNear(x, z, r, fn) {         // 只遍历半径 r 内的火把（不再全场扫）
+  const R = Math.max(1, Math.ceil(r / CFG.CH));
+  const cx = Math.floor(x / CFG.CH), cz = Math.floor(z / CFG.CH);
+  for (let ax = -R; ax <= R; ax++) for (let az = -R; az <= R; az++) {
+    const s = torchByChunk.get((cx + ax) + ',' + (cz + az));
+    if (!s) continue;
+    for (const k of s) { const t = torchCells.get(k); if (t) fn(t); }
+  }
 }
 let torchSig = -1, torchLastKey = null;
 function refreshTorchArea() {                    // 只重建「变动的那一支火把」周围的区块（原来是全场火把 → 一次放火把重建上百区块 = 卡 1 秒）
@@ -3261,11 +3324,11 @@ function updateTorchLights() {
   if (!torchCells.size) { for (const l of torchLights) l.visible = false; return; }
   const px = player.p.x, py = player.p.y, pz = player.p.z;
   const near = [];
-  for (const t of torchCells.values()) {
+  forEachTorchNear(px, pz, 26, (t) => {          // 只看附近区块桶里的火把（原来扫全场）
     const d = (t.x - px) * (t.x - px) + (t.y - py) * (t.y - py) + (t.z - pz) * (t.z - pz);
-    if (d > 26 * 26) continue;
+    if (d > 26 * 26) return;
     near.push({ t, d });
-  }
+  });
   near.sort((a, b) => a.d - b.d);
   for (let i = 0; i < torchLights.length; i++) {
     const l = torchLights[i], e = near[i];
@@ -3304,13 +3367,15 @@ function updateHeldTorchLight(dt) {
   heldTorchLight.intensity = 8.5 + Math.sin(performance.now() * 0.0062) * 0.9;
   heldTorchLight.visible = true;
 }
-function torchNear(x, y, z, r) {            // 附近有没有火把（用来阻止刷怪）
+function torchNear(x, y, z, r) {            // 附近有没有火把（用来阻止刷怪）——只扫附近桶
   const r2 = r * r;
-  for (const t of torchCells.values()) {
+  let found = false;
+  forEachTorchNear(x, z, r, (t) => {
+    if (found) return;
     const dx = t.x - x, dy = t.y - y, dz = t.z - z;
-    if (dx * dx + dy * dy + dz * dz <= r2) return true;
-  }
-  return false;
+    if (dx * dx + dy * dy + dz * dz <= r2) found = true;
+  });
+  return found;
 }
 function playDrip() {
   if (!AC || !sfxBus) return;
@@ -3620,6 +3685,143 @@ function campFor(cellX, cellZ) {
     campCache.set(key, out);
     return out;
   });
+}
+
+/* ── 远古废墟：地表巨型残骸（半径 30 格 = 60×60）。
+   中央是「末地传送门式」的远古框架环（60，无法破坏），框架中心 3×3 留空；
+   四个方向各一座激活器（61，同样挖不动），每座缺一枚不同的宝珠。
+   ⚠ 宝珠系统还没做（暂时无法获取），所以现在点激活器只给提示，不消耗任何东西。 */
+const AR_CELL = 320, ruinsCache = new Map();
+let arDbg = {};                                       // 上一次生成尝试的参数（探针用）
+const AR_ORBS = ['日耀宝珠', '月蚀宝珠', '炽焰宝珠', '深渊宝珠'];   // 顺序 = 激活器 meta 1..4
+function ruinsFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (ruinsCache.has(key)) return ruinsCache.get(key);
+  return guarded('ruins', key, () => {
+    let out = null;
+    const roll = h2(cellX * 57.3 + 11.7, cellZ * 71.9 - 4.2);
+    arDbg = { cellX, cellZ, roll, passed: roll > 0.42 };
+    if (roll > 0.42) {                                  // 一半多一点格子有一座（1 座 / 约 20 万格²）
+      const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
+      const R = 26;                                     // 废墟半径（52×52 格，比现有任何结构都大）
+      const cx = cellX * AR_CELL + 60 + R + Math.floor(rnd() * (AR_CELL - 120 - 2 * R));
+      const cz = cellZ * AR_CELL + 60 + R + Math.floor(rnd() * (AR_CELL - 120 - 2 * R));
+      let mn = 999, mx = -999;
+      for (let dx = -R; dx <= R; dx += 6) for (let dz = -R; dz <= R; dz += 6) {
+        const h = heightAt(cx + dx, cz + dz);
+        if (h < mn) mn = h;
+        if (h > mx) mx = h;
+      }
+      const gy = mx;                                    // 以场地最高点当地面（大平台压在坡上会很假）
+      const near = structNear(cx, cz, 'ruins');
+      arDbg = { ...arDbg, cx, cz, mn, mx, gy, near };
+      // 废墟半径 26 格，允许场地有 14 格起伏（更陡就是悬崖了，平台边缘会悬空，直接跳过）
+      if (mx - mn <= 14 && gy > CFG.SEA + 3 && gy < SURF_OFF + 60 && !near) {
+        const ops = [];
+        const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
+        const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+        const inR = (dx, dz, r) => dx * dx + dz * dz <= r * r;
+        // ①+② 一列一次算完：先掏空上方，再填平到 gy+1 铺石板，外圈残缺
+        //    （掏空高度：内区 +10 保证框架/激活器周围干净，外区 +3 只清草花矮树 → op 数从 6 万降到 2 万）
+        for (let dx = -R - 1; dx <= R + 1; dx++) for (let dz = -R - 1; dz <= R + 1; dz++) {
+          const d2 = dx * dx + dz * dz;
+          if (d2 > (R + 1) * (R + 1)) continue;
+          const x = cx + dx, z = cz + dz, h = heightAt(x, z);          // ← 每列只算一次地形高度
+          const top = gy + (d2 <= 16 * 16 ? 10 : 3);
+          for (let y = Math.max(h + 1, gy + 1); y <= top; y++) carve(x, y, z);
+          if (d2 > R * R) continue;                                     // 圆外只清场、不铺地
+          const q = rnd();
+          if (d2 > (R - 3) * (R - 3) && q < 0.4) continue;              // 外圈塌掉的缺口
+          for (let y = h + 1; y <= gy; y++) put(x, y, z, 9);            // 把坑填到平台高度
+          put(x, gy + 1, z, q < 0.55 ? 21 : (q < 0.8 ? 9 : 50));
+        }
+        // ③ 外墙残环：2~6 格高，42% 是缺口，断口参差
+        for (let i = 0; i < 160; i++) {
+          if (rnd() < 0.42) continue;
+          const a = (i / 160) * Math.PI * 2;
+          const wx2 = Math.round(Math.cos(a) * (R - 1)), wz2 = Math.round(Math.sin(a) * (R - 1));
+          const h = 2 + Math.floor(rnd() * 5);
+          for (let k = 1; k <= h; k++) {
+            if (k === h && rnd() < 0.35) continue;
+            const q = rnd();
+            put(cx + wx2, gy + 1 + k, cz + wz2, q < 0.6 ? 21 : (q < 0.85 ? 9 : 50));
+          }
+          if (rnd() < 0.25) {                            // 塌在墙脚下的石块
+            const d = 1 + Math.floor(rnd() * 2);
+            put(cx + wx2 + Math.round(Math.cos(a) * d), gy + 2, cz + wz2 + Math.round(Math.sin(a) * d), 9);
+          }
+        }
+        // ④ 巨柱：7~15 格高、越高越歪，柱顶是断的
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + 0.31;
+          const px2 = Math.round(Math.cos(a) * 22), pz2 = Math.round(Math.sin(a) * 22);
+          const H = 7 + Math.floor(rnd() * 9), thick = rnd() < 0.5 ? 2 : 1;
+          const tx = Math.sign(Math.round(Math.cos(a))), tz = Math.sign(Math.round(Math.sin(a)));
+          for (let k = 0; k < H; k++) {
+            const ox2 = Math.round(k / 5) * tx, oz2 = Math.round(k / 5) * tz;
+            for (let bx = 0; bx < thick; bx++) for (let bz = 0; bz < thick; bz++) {
+              put(cx + px2 + bx + ox2, gy + 2 + k, cz + pz2 + bz + oz2, k === H - 1 && rnd() < 0.5 ? 9 : 50);
+            }
+          }
+        }
+        // ⑤ 中央方台（13×13）+ 一圈台阶
+        for (let dx = -6; dx <= 6; dx++) for (let dz = -6; dz <= 6; dz++) {
+          put(cx + dx, gy + 2, cz + dz, 21);
+          if (Math.max(Math.abs(dx), Math.abs(dz)) === 7) put(cx + dx, gy + 1, cz + dz, 21);
+        }
+        // ⑥ 远古框架：5×5 的环（12 格，去掉四角），中心 3×3 留空 = 传送区域
+        for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+          const edgeX = Math.abs(dx) === 2, edgeZ = Math.abs(dz) === 2;
+          if (!edgeX && !edgeZ) continue;
+          if (edgeX && edgeZ) continue;                   // 四角不封（和末地传送门一样）
+          put(cx + dx, gy + 3, cz + dz, 60);
+        }
+        // ⑦ 四座激活器：正东/南/西/北各一座，meta 1..4 指认自己缺哪一枚宝珠
+        const PED = [[9, 0, 1], [0, 9, 2], [-9, 0, 3], [0, -9, 4]];
+        for (const [dx, dz, orb] of PED) {
+          put(cx + dx, gy + 3, cz + dz, 21);              // 石座
+          put(cx + dx, gy + 4, cz + dz, 61, orb);         // 激活器（挖不动）
+          for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            put(cx + dx + ax, gy + 1, cz + dz + az, 21);  // 四周铺一圈加固石
+          }
+        }
+        // ⑧ 碎块堆 + 倒下的石板（让「残骸」不只是个圆盘）
+        for (let i = 0; i < 70; i++) {
+          const a = rnd() * Math.PI * 2, rr = 8 + rnd() * (R - 10);
+          const bx = Math.round(Math.cos(a) * rr), bz = Math.round(Math.sin(a) * rr);
+          put(cx + bx, gy + 2, cz + bz, rnd() < 0.6 ? 9 : (rnd() < 0.6 ? 21 : 50));
+          if (rnd() < 0.35) put(cx + bx + 1, gy + 2, cz + bz, 9);
+        }
+        for (let i = 0; i < 9; i++) for (let j = 0; j < 4; j++) {
+          put(cx - 17 + i, gy + 2 + Math.floor(i / 4), cz + 14 + j, 50);   // 一块塌下来的石板
+        }
+        out = { name: 'ruins', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '远古废墟' };
+      }
+    }
+    ruinsCache.set(key, out);
+    return out;
+  });
+}
+/* 验收快捷键 F4（只在探针开着时生效）：传送到最近的远古废墟 ——
+   废墟太大、按 448 格一个 cell 撒，走过去要很久，所以留一个能点到/按到的入口。 */
+function gotoNearestRuins() {
+  const pcx = Math.floor(player.p.x / AR_CELL), pcz = Math.floor(player.p.z / AR_CELL);
+  let best = null;
+  for (let r = 0; r <= 6; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+    if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+    const o = ruinsFor(pcx + dx, pcz + dz);
+    if (!o) continue;
+    const d = Math.hypot(o.cx - player.p.x, o.cz - player.p.z);
+    if (!best || d < best.d) best = { o, d };
+  }
+  if (!best) { toast('附近 6 个 grid（×448 格）内没有远古废墟', 2.6); return false; }
+  const o = best.o;
+  const ccx = Math.floor(o.cx / CFG.CH), ccz = Math.floor(o.cz / CFG.CH);
+  for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) buildChunk(getChunk(ccx + a, ccz + b));
+  player.p.set(o.cx + 0.5, o.gy + 3, o.cz + 18.5);
+  player.v.set(0, 0, 0);
+  toast(`远古废墟：(${o.cx}, ${o.cz}) 平台高 ${o.gy + 1}`, 3.2);
+  return true;
 }
 
 /* ── 传送门：高科技方块砌的拱门，无法破坏。中间的核心格插入「传送块」即可点亮，
@@ -6662,6 +6864,33 @@ function openPortalAt(core) {
   sfx('craft');
   return n;
 }
+/* ── 远古废墟的激活器：四座各缺一枚不同的宝珠。
+   宝珠系统还没做（暂时无法获取），所以这里只做「认位置 + 说清楚缺什么」，不消耗任何东西；
+   宝珠做出来以后，只要在下面 ORB_BY_META 里接上物品 id 就能直接启用。 */
+const ACTIVATOR_ORB_ID = { 1: 0, 2: 0, 3: 0, 4: 0 };        // meta → 宝珠物品 id（0 = 还没实装）
+function activatorOrbName(m) {
+  return AR_ORBS[(m | 0) - 1] || AR_ORBS[0];
+}
+function useActivator(t) {
+  const m = getMeta(t.x, t.y, t.z) || 1;
+  const orb = ACTIVATOR_ORB_ID[m] || 0;
+  const h = held();
+  if (!orb) {
+    toast(`激活器：这里缺「${activatorOrbName(m)}」（这枚宝珠暂时还无法获得）`, 3.0);
+    startSwing('place', 0.2);
+    return false;
+  }
+  if (!h || h.id !== orb) { toast(`要用「${activatorOrbName(m)}」点亮这座激活器`, 2.6); return false; }
+  if (!isCreative()) takeItem(orb, 1);
+  setMeta(t.x, t.y, t.z, m | 8, true);                        // 第 4 位 = 已点亮
+  markDirty(t.x >> 4, t.z >> 4);
+  toast(`「${activatorOrbName(m)}」嵌进激活器（${activatorLitCount()}/4）`, 2.8);
+  renderHotbar(); refreshHeld(); saveSoon();
+  return true;
+}
+function activatorLitCount() {                                // 探针/HUD 用：附近已点亮的激活器个数
+  return 0;                                                   // 宝珠系统上线后改成真实统计
+}
 function usePortal(x, y, z) {
   const core = findPortalCore(x, y, z);
   if (!core) { toast('这里不是传送门（只有核心能插传送块）', 1.8); return false; }
@@ -6765,6 +6994,7 @@ addEventListener('keydown', e => {
   if (k === 'F3') {                                // 性能探针开关（不用改 URL；HUD 多一行数字）
     e.preventDefault(); toggleProbe(); return;
   }
+  if (k === 'F4' && profOn()) { e.preventDefault(); gotoNearestRuins(); return; }   // 探针开着：传送到最近的远古废墟
   keys.add(k);
   if (started && !uiOpen() && player.alive) {
     if (k === keymap.mine) { mineHeld = true; attackQueued = true; }
@@ -7573,12 +7803,17 @@ function updatePlayer(dt) {
 }
 
 function update(dt) {
+  const P = profOn() ? PROF : null;
+  if (P) P.steps++;
+  let u0 = P ? performance.now() : 0;
+  const lap = (k) => { if (!P) return; const t1 = performance.now(); P[k] += t1 - u0; u0 = t1; };
   worldTime += dt;
   updateEat(dt);
   echoTimer -= dt;
   if (echoTimer <= 0) { echoTimer = 0.4; underground = depthBelowSurface() > 2.5; }
   caveMix += ((underground ? 1 : 0) - caveMix) * Math.min(1, dt * 4);
   updateSky();
+  lap('uEat');
   // 回声系统：地下 → 混响变强 + 偶尔滴水
   if (wetGain) {
     const want = underground ? 0.55 : 0.06;
@@ -7589,17 +7824,22 @@ function update(dt) {
     if (dripTimer <= 0) { dripTimer = 2.5 + Math.random() * 9; playDrip(); }
   }
   updatePlayer(dt);
+  lap('uPlayer');
   if (!NET || !NET.active || NET.isHost) updateMobs(dt);   // P0：怪物由主机模拟，暂不广播
+  lap('uMobs');
   // 掉落物：主机/单机模拟；客人只画幽灵、捡的时候上报给主机删掉
   // （以前两端各跑一份，于是「别人捡走的东西，你这边还躺在地上」，还能再捡一次）
   if (!NET || !NET.active || NET.isHost) updateDrops(dt); else NET.updateDropGhosts(dt);
+  lap('uDrops');
   // 水：每帧跑一点（限流），并每隔半秒把玩家附近的水"唤醒"一次（让瀑布/积水开始流动）
   if (!NET || !NET.active || NET.isHost) updateWater(48);   // 液体只在主机/单机里模拟
+  lap('uWater');
   updateFlames(dt);
   if (NET && NET.active) NET.tick(dt);            // 位置上传 / 远端插值 / HUD
   waterSeedT -= dt;
   if (waterSeedT <= 0) { waterSeedT = 0.5; seedWaterNear(); }
   growCrops(dt);
+  lap('uFlames');
 
   // 目标方块
   const t = player.alive ? raycastVoxel(eyePos(), cameraDir(), CFG.REACH) : null;
@@ -7628,6 +7868,7 @@ function update(dt) {
     else if (t && t.id === 40) { openProcessor(); startSwing('place', 0.2); }     // 木头加工器
     else if (t && t.id === 47) { openPress(); startSwing('place', 0.2); }          // 液压机
     else if (t && t.id === 53) { openCharger(); startSwing('place', 0.2); }        // 充电器
+    else if (t && BLOCKS[t.id] && BLOCKS[t.id].activator) { useActivator(t); }   // 远古废墟：激活器（要宝珠）
     else if (t && (t.id === 45 || t.id === 42)) { usePortal(t.x, t.y, t.z); startSwing('place', 0.2); }   // 传送门
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
@@ -7646,14 +7887,18 @@ function update(dt) {
   player.swing = 0;
 
   // 区块流式加载
+  lap('uPlace');
   streamChunks();
+  lap('uStream');
 
   mmTick(dt);                                     // 小地图：揭开 / 标记 / 重绘（固定步长里跑，探针也可复现）
+  lap('uMap');
 
   updateVines(dt);
   // 存档
   saveTimer += dt;
   if (saveTimer > 8) { saveTimer = 0; save(); }
+  lap('uTail');
 }
 
 function streamChunks() {
@@ -7732,6 +7977,25 @@ function streamChunks() {
 }
 
 /* ============================================================ 帧率自适应预算 */
+/* ── 子系统计时：专门回答「越玩越卡是哪一个步骤在变慢」。
+   只有探针开着（?dev=1 或 设置里开）才计时，正常玩家零开销。 ── */
+const PROF = { update: 0, hud: 0, torch: 0, doors: 0, doorsSync: 0, render: 0, save: 0, mm: 0, frames: 0, from: 0,
+  uEat: 0, uPlayer: 0, uMobs: 0, uDrops: 0, uWater: 0, uFlames: 0, uPlace: 0, uStream: 0, uMap: 0, uTail: 0, steps: 0 };
+PROF.from = performance.now();
+const profOn = () => DEV || userCfg.probe;
+function profReset() { for (const k in PROF) PROF[k] = 0; PROF.frames = 0; PROF.steps = 0; PROF.from = performance.now(); }
+const PROF_KEYS = ['uEat', 'uPlayer', 'uMobs', 'uDrops', 'uWater', 'uFlames', 'uPlace', 'uStream', 'uMap', 'uTail'];
+function profText() {                              // 每个固定步的平均毫秒（谁在变慢就看这几项）
+  const n = Math.max(1, PROF.steps);
+  const r = {};
+  for (const k of PROF_KEYS) r[k] = PROF[k] / n;
+  return r;
+}
+function profFrame() {                             // HUD 用：每帧平均毫秒（帧级步骤）
+  const n = Math.max(1, PROF.frames);
+  return { update: PROF.update / n, hud: PROF.hud / n, torch: PROF.torch / n, doorsSync: PROF.doorsSync / n,
+    render: PROF.render / n, save: PROF.save / n, mm: PROF.mm / n };
+}
 let perfBudget = 7;
 let lastFrameAt = 0;                // 上一帧时间戳
 let perfSlow = 0, perfFast = 0;
@@ -7767,8 +8031,10 @@ function updateHUD(dt) {
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
     `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}${DIM === 'nether' ? ' · <b style="color:#e05a5a">冥界</b>' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>`;
   // 性能探针：?dev=1 或 设置里打开（也可按 F3 切换）——正常玩家默认看不到
+  const pt = profText(), pf = profFrame();
   const s2 = (DEV || userCfg.probe)
     ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
+      + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 去最近的远古废墟</span>`
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
   renderHearts();
@@ -8035,7 +8301,11 @@ function mmZoomToast() {
 }
 function mmCycleZoom() { MM.zoom = (MM.zoom + 1) % MM_ZOOM.length; mmZoomToast(); }
 const MM_DIR8 = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
-function mmDraw() {
+function mmDraw() {                                // 探针开着时给小地图像素化计时
+  if (!profOn()) return mmDrawInner();
+  const t = performance.now(); mmDrawInner(); PROF.mm += performance.now() - t;
+}
+function mmDrawInner() {
   const ctx = MM.ctx;
   if (!ctx) return;
   const S = MM.cv.width, across = MM_ZOOM[MM.zoom], ppc = S / across, half = across / 2;
@@ -8391,7 +8661,11 @@ function mmBigInit() {
 }
 
 let saveSoonT = 0, saveErr = null, saveWarned = false;
-function save() {
+function save() {                                  // 探针开着时给存档计时（每 8 秒一次，存档越大越慢）
+  if (!profOn()) return saveInner();
+  const t = performance.now(); saveInner(); PROF.save += performance.now() - t;
+}
+function saveInner() {
   if (!currentId || !started) return;
   // 联机里：客人不写本地存档（服务端才是权威）；房主的房间就是他自己的世界，照常存
   if (NET && NET.active && !NET.lid) return;
@@ -8467,16 +8741,22 @@ function frame(now) {
   frameCount++; fpsT += dt;
   if (fpsT >= 0.5) { fps = frameCount / fpsT; frameCount = 0; fpsT = 0; }
   let guard = 0;
+  const __p = profOn();
+  let __t = __p ? performance.now() : 0;
   while (acc >= STEP && guard++ < 6) { acc -= STEP; update(STEP); }
+  if (__p) { PROF.frames++; const t1 = performance.now(); PROF.update += t1 - __t; __t = t1; }
   updateHUD(dt);
+  if (__p) { const t1 = performance.now(); PROF.hud += t1 - __t; __t = t1; }
   updateDoorAnims(dt);
   updateFurnaceJob(dt);
   updateChargerJob(dt);
   torchT -= dt;
   if (torchT <= 0) { torchT = 0.2; updateTorchLights(); }
+  if (__p) { const t1 = performance.now(); PROF.torch += t1 - __t; __t = t1; }
   updateHeldTorchLight(dt);
   doorSyncT -= dt;
   if (doorSyncT <= 0) { doorSyncT = 0.25; syncDoors(); }
+  if (__p) { const t1 = performance.now(); PROF.doorsSync += t1 - __t; __t = t1; }
 
   // ── 相机：疾跑 FOV 微推 + 侧移轻微翻滚 + 受伤抖动（幅度必须小，不然晕）
   const spdC = Math.hypot(player.v.x, player.v.z);
@@ -8501,6 +8781,7 @@ function frame(now) {
   renderer.render(scene, camera);
   renderer.clearDepth();
   renderer.render(handScene, handCam);
+  if (__p) PROF.render += performance.now() - __t;
 }
 
 /* ============================================================ 世界列表 UI */
@@ -8664,6 +8945,7 @@ STRUCT_TYPES.push(
   { name: 'camp', cell: CP_CELL, get: campFor, cache: campCache },
   { name: 'cabin', cell: CB_CELL, get: cabinFor, cache: cabinCache },
   { name: 'portal', cell: PT_CELL, get: portalFor, cache: portalCache },
+  { name: 'ruins', cell: AR_CELL, get: ruinsFor, cache: ruinsCache },      // 远古废墟（末地式框架 + 四激活器）
 );
 loadIndex();
 renderWorldList();
@@ -8966,6 +9248,29 @@ window.GAME = {
       }
       return out.sort((a, b) => a.dist - b.dist);
     },
+    ruinsDbg: () => arDbg,
+    /* 远古废墟探针：列出附近废墟，并给出发电机/激活器的世界坐标（验收用） */
+    ruins: (r = 2) => {
+      const pcx = Math.floor(player.p.x / AR_CELL), pcz = Math.floor(player.p.z / AR_CELL);
+      const out = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const o = ruinsFor(pcx + dx, pcz + dz);
+        if (!o) continue;
+        out.push({
+          cx: o.cx, cz: o.cz, gy: o.gy, ops: o.ops, dist: Math.round(Math.hypot(o.cx - player.p.x, o.cz - player.p.z)),
+          frameY: o.gy + 3, activators: [[9, 0, 1], [0, 9, 2], [-9, 0, 3], [0, -9, 4]]
+            .map(([ax, az, m]) => ({ x: o.cx + ax, y: o.gy + 4, z: o.cz + az, orb: AR_ORBS[m - 1], block: getBlock(o.cx + ax, o.gy + 4, o.cz + az) })),
+          frame: [getBlock(o.cx - 2, o.gy + 3, o.cz), getBlock(o.cx + 2, o.gy + 3, o.cz), getBlock(o.cx, o.gy + 3, o.cz - 2)],
+        });
+      }
+      return out.sort((a, b) => a.dist - b.dist);
+    },
+    /* 激活器测试钩子：直接触发一次「对着激活器右键」（不加这个就没法验收，因为要 raycast） */
+    activator: (x, y, z) => {
+      const t = { x, y, z, id: getBlock(x, y, z) };
+      if (!BLOCKS[t.id] || !BLOCKS[t.id].activator) return { ok: false, block: t.id, name: nameOf(t.id) };
+      return { ok: useActivator(t), block: t.id, meta: getMeta(x, y, z) };
+    },
     gotoStruct: (type) => {
       const t = STRUCT_TYPES.find(x => x.name === type);
       if (!t) return null;
@@ -9057,6 +9362,8 @@ window.GAME = {
       calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
       heapMB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null,
     }),
+    prof: () => ({ frames: PROF.frames, steps: PROF.steps, secs: +((performance.now() - PROF.from) / 1000).toFixed(1), ...profFrame(), ...profText() }),
+    profReset: () => { profReset(); return true; },
     waterInfo: () => ({ flowing: waterFlow.size, queued: waterQueue.length - waterHead }),
     cfg: () => ({ sens: userCfg.sens, touchUI: userCfg.touchUI, keys: { ...keymap } }),
     setKey: (act, code) => { if (!DEFAULT_KEYS[act]) return false; keymap[act] = code; saveCfg(); renderKeyRows(); return true; },
