@@ -9606,7 +9606,7 @@ function loadLook() {
 }
 loadLook();
 
-let lookRenderer = null, lookScene = null, lookCam = null, lookAv = null, lookRAF = 0;
+let lookRenderer = null, lookScene = null, lookCam = null, lookAv = null, lookRAF = 0, lookTorches = [];
 function buildAvatarMesh(skin, cloth) {
   const g = new THREE.Group();
   const M = c => new THREE.MeshLambertMaterial({ color: c });
@@ -9621,12 +9621,55 @@ function buildAvatarMesh(skin, cloth) {
   box(0.26, 0.09, 0.02, 0x2b1a12, 0, 1.60, -0.212);        // 嘴（压低，别和眼睛黏在一起）
   box(0.10, 0.028, 0.02, 0xf2f2f2, -0.085, 1.705, -0.219);   // 细长眼
   box(0.10, 0.028, 0.02, 0xf2f2f2, 0.085, 1.705, -0.219);
+  const HAIR = 0x33251a;                                   // 头发（和联机形象同一套尺寸）
+  box(0.46, 0.12, 0.46, HAIR, 0, 1.855, 0);                // 顶盖
+  box(0.46, 0.30, 0.09, HAIR, 0, 1.63, 0.20);              // 后脑
+  box(0.07, 0.24, 0.44, HAIR, -0.215, 1.65, 0);
+  box(0.07, 0.24, 0.44, HAIR, 0.215, 1.65, 0);
+  box(0.42, 0.07, 0.07, HAIR, 0, 1.795, -0.204);           // 刘海
   box(0.18, 0.68, 0.2, skinDark, -0.35, 1.06, 0);          // 手臂 = 肤色
   box(0.18, 0.68, 0.2, skinDark, 0.35, 1.06, 0);
   box(0.2, 0.7, 0.22, clothDark, -0.13, 0.35, 0);          // 裤腿 = 衣服色（压暗）
   box(0.2, 0.7, 0.22, clothDark, 0.13, 0.35, 0);
   return g;
 }
+/* 外观预览的矿洞背景：石壁/地面/碎石 + 两支会闪的火把（只在预览里用，很便宜） */
+function buildCaveBackdrop(S) {
+  const rnd = mulberry32(4242);
+  const darkMat = blockFaceMat(BLOCKS[50].top);        // 深板岩
+  const rockMat = blockFaceMat(BLOCKS[9].top);         // 圆石
+  const woodMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2a });
+  const flameMat = new THREE.MeshBasicMaterial({ color: 0xffb43a });
+  const put = (w, h, d, x, y, z, mat) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z); S.add(m); return m;
+  };
+  put(7, 0.6, 7, 0, -0.3, 0, darkMat);                 // 地面
+  put(7, 4.2, 0.7, 0, 1.9, -2.6, darkMat);             // 后墙
+  put(0.7, 4.2, 5.4, -2.9, 1.9, -0.4, rockMat);        // 左壁
+  put(0.7, 4.2, 5.4, 2.9, 1.9, -0.4, rockMat);         // 右壁
+  put(7, 0.7, 5.4, 0, 3.6, -0.4, darkMat);             // 洞顶
+  for (let i = 0; i < 12; i++) {                       // 地上的碎石/石笋
+    const x = (rnd() - 0.5) * 4.6, z = -2.3 + rnd() * 1.6, hh = 0.25 + rnd() * 1.05;
+    put(0.35 + rnd() * 0.55, hh, 0.35 + rnd() * 0.55, x, hh / 2, z, rnd() < 0.5 ? darkMat : rockMat);
+  }
+  const torches = [];
+  for (const [tx, tz, ph] of [[-1.8, -2.15, 0], [1.9, -1.95, 1.7]]) {   // 两支火把
+    put(0.07, 0.55, 0.07, tx, 0.28, tz, woodMat);
+    put(0.13, 0.17, 0.13, tx, 0.63, tz, flameMat);
+    const l = new THREE.PointLight(0xffa240, 5.2, 7.5, 2);
+    l.position.set(tx, 0.74, tz);
+    l.userData.ph = ph;
+    S.add(l);
+    torches.push(l);
+  }
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.62, 24),   // 人物脚下的暗影
+    new THREE.MeshBasicMaterial({ color: 0x05070c, transparent: true, opacity: 0.55 }));
+  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.012;
+  S.add(disc);
+  return { torches };
+}
+
 function buildLookPreview() {
   const cv = $('lookCv');
   if (!cv || lookRenderer) return;
@@ -9641,10 +9684,8 @@ function buildLookPreview() {
   const dl = new THREE.DirectionalLight(0xffe7c4, 0.95);
   dl.position.set(1.6, 3, 2.4);
   lookScene.add(dl);
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.58, 24),
-    new THREE.MeshBasicMaterial({ color: 0x050b14, transparent: true, opacity: 0.6 }));
-  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.002;
-  lookScene.add(disc);
+  const cave = buildCaveBackdrop(lookScene);          // 矿洞背景（含两支火把）
+  lookTorches = cave.torches;
   lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth);
   lookAv.rotation.y = Math.PI;                       // 模型正面朝 -Z，转 180° 才正对镜头
   lookScene.add(lookAv);
@@ -9652,7 +9693,9 @@ function buildLookPreview() {
   const loop = () => {
     if ($('lookPanel').classList.contains('hide')) { lookRAF = 0; return; }
     // 小幅左右摇摆（±28°）而不是整圈转：始终能看到脸
-    lookAv.rotation.y = Math.PI + Math.sin((performance.now() - t0) / 1100) * 0.5;
+    const tt = (performance.now() - t0) / 1000;
+    lookAv.rotation.y = Math.PI + Math.sin(tt / 1.1) * 0.5;
+    for (const l of lookTorches) l.intensity = 4.8 + Math.sin(tt * 7.3 + (l.userData.ph || 0)) * 0.9;   // 火把闪动
     lookRenderer.render(lookScene, lookCam);
     lookRAF = requestAnimationFrame(loop);
   };
@@ -10595,6 +10638,13 @@ window.GAME = {
     // 眼睛：细长的两条（比原来更窄更高，眼距略收）—— 看起来更「凶」也更像像素游戏的眼睛
     const eyeL = box(0.10, 0.028, 0.02, 0xf2f2f2); eyeL.position.set(-0.085, 0.085, -0.222); head.add(eyeL);
     const eyeR = box(0.10, 0.028, 0.02, 0xf2f2f2); eyeR.position.set(0.085, 0.085, -0.222); head.add(eyeR);
+    // 头发：顶盖 + 后脑 + 两侧 + 额前刘海（都挂在 head 上，转头时跟着转）
+    const HAIR = 0x33251a;
+    const hairTop = box(0.46, 0.12, 0.46, HAIR); hairTop.position.set(0, 0.235, 0); head.add(hairTop);
+    const hairBack = box(0.46, 0.30, 0.09, HAIR); hairBack.position.set(0, 0.01, 0.20); head.add(hairBack);
+    const hairL = box(0.07, 0.24, 0.44, HAIR); hairL.position.set(-0.215, 0.03, 0); head.add(hairL);
+    const hairR = box(0.07, 0.24, 0.44, HAIR); hairR.position.set(0.215, 0.03, 0); head.add(hairR);
+    const bangs = box(0.42, 0.07, 0.07, HAIR); bangs.position.set(0, 0.175, -0.204); head.add(bangs);
     // ★ 四肢挂在一个「关节」Group 上（肩 / 髋），绕关节转才是摆臂甩腿；
     //   以前直接把方块摆在这里转的是方块自己的中心，看起来像风车。
     const joint = (x, y, w, hh, d, c) => {
