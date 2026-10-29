@@ -316,6 +316,13 @@ const BLOCKS = {
   // ── 电路 / 能量：铀矿 →（充电器）→ 能量炮 ──
   52: { name: '铀矿石', top: 57, side: 57, bottom: 57, hard: 4.0, drop: 187, pick: true, stonePick: true, ironPick: true },
   53: { name: '充电器', top: 58, side: 59, bottom: 21, hard: 1.8, drop: 53, charger: true },
+  // ── 熔岩沼泽：冥界树 + 缠魂藤 + 沼泽泥 ──
+  54: { name: '冥血木', top: 61, side: 60, bottom: 61, hard: 1.8, drop: 54, pick: true },
+  55: { name: '冥血叶', top: 62, side: 62, bottom: 62, hard: 0.2, drop: 0, leaf: true, hollow: true },
+  56: { name: '灰烬木', top: 61, side: 63, bottom: 61, hard: 1.8, drop: 56, pick: true },
+  57: { name: '灰烬叶', top: 64, side: 64, bottom: 64, hard: 0.2, drop: 0, leaf: true, hollow: true },
+  58: { name: '缠魂藤', top: 65, side: 65, bottom: 65, hard: 0.1, drop: 0, cross: true, plant: true, crossH: 0.9, vine: true },
+  59: { name: '沼泽泥', top: 66, side: 66, bottom: 66, hard: 0.8, drop: 59 },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick', fast: 1.35, dur: 60 },
@@ -394,6 +401,10 @@ const ITEMS = {
   189: { name: '铁能量炮',   kind: 'gun', dmg: 12, cap: 10, cd: 0.45, speed: 54, boltColor: 0xbfe4ff },
   190: { name: '钻石能量炮', kind: 'gun', dmg: 17, cap: 12, cd: 0.40, speed: 60, boltColor: 0x7dffe8 },
   191: { name: '冥界钢能量炮', kind: 'gun', dmg: 22, cap: 14, cd: 0.35, speed: 66, boltColor: 0xc08cff },
+  // ── 熔岩沼泽掉落 ──
+  192: { name: '鳄鱼皮', kind: 'mat' },
+  193: { name: '噩梦之心', kind: 'mat' },
+  194: { name: '噩梦之刃', kind: 'sword', dmg: 26, dur: 2600 },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -403,7 +414,7 @@ let atlasCanvas = null, atlasTex = null;
 // 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
 // ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
 // 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
-const ATLAS_COLS = 4, ATLAS_ROWS = 16;   // …56 基岩 57 铀矿 58~60 充电器（4 列 × 16 行 = 64 格）
+const ATLAS_COLS = 4, ATLAS_ROWS = 20;   // …56 基岩 57 铀矿 58~59 充电器 60~66 熔岩沼泽（4 列 × 20 行 = 80 格）
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -883,6 +894,63 @@ function makeAtlas() {
       for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) px(c, r, bx + x, by + y, shade('#20242a', 1));
     }
   });
+  // ── 60/61 冥血木（侧 / 年轮）──────────────────────────────────────
+  T(60, '#5e1e22', 0.10, (c, r) => {
+    for (let x = 3; x < 16; x += 5) for (let y = 0; y < 16; y++) px(c, r, x, y, '#43141a');
+    for (let y = 0; y < 16; y += 4) for (let x = 0; x < 16; x++) if (Math.random() < 0.5) px(c, r, x, y, '#77262c');
+    for (let i = 0; i < 6; i++) { const x = (Math.random() * 14) | 0, y = (Math.random() * 14) | 0; px(c, r, x, y, '#a83b3f'); }
+  });
+  T(61, '#7d3438', 0.08, (c, r) => {
+    for (let i = 0; i < 4; i++) for (let rr = 1; rr <= 6; rr += 2) {
+      for (let a = 0; a < 6.28; a += 0.5) {
+        const x = 8 + Math.round(Math.cos(a + i) * rr), y = 8 + Math.round(Math.sin(a + i) * rr);
+        if (x >= 0 && x < 16 && y >= 0 && y < 16) px(c, r, x, y, rr > 4 ? '#5b2226' : '#9c4448');
+      }
+    }
+  });
+  // ── 62 冥血叶 / 64 灰烬叶（带透明孔的树冠）──────────────────────────
+  {
+    const c = 62 % ATLAS_COLS, r = (62 / ATLAS_COLS) | 0;
+    g.clearRect(c * 16, r * 16, 16, 16);
+    for (let i = 0; i < 150; i++) {
+      const x = (Math.random() * 16) | 0, y = (Math.random() * 16) | 0;
+      px(c, r, x, y, Math.random() < 0.35 ? '#8e2f33' : (Math.random() < 0.5 ? '#6d2227' : '#4a161b'));
+    }
+  }
+  {
+    const c = 64 % ATLAS_COLS, r = (64 / ATLAS_COLS) | 0;
+    g.clearRect(c * 16, r * 16, 16, 16);
+    for (let i = 0; i < 150; i++) {
+      const x = (Math.random() * 16) | 0, y = (Math.random() * 16) | 0;
+      px(c, r, x, y, Math.random() < 0.3 ? '#8b8f80' : (Math.random() < 0.5 ? '#5d6157' : '#3a3d36'));
+    }
+  }
+  // ── 63 灰烬木（侧）────────────────────────────────────────────────
+  T(63, '#4c4a42', 0.12, (c, r) => {
+    for (let x = 2; x < 16; x += 4) for (let y = 0; y < 16; y++) px(c, r, x, y, '#33322c');
+    for (let i = 0; i < 10; i++) { const x = (Math.random() * 15) | 0, y = (Math.random() * 15) | 0; px(c, r, x, y, '#6f6c5e'); }
+  });
+  // ── 65 缠魂藤（透明底 + 血丝）────────────────────────────────────
+  {
+    const c = 65 % ATLAS_COLS, r = (65 / ATLAS_COLS) | 0;
+    g.clearRect(c * 16, r * 16, 16, 16);
+    for (const sxx of [4, 8, 12]) {
+      for (let y = 0; y < 16; y++) {
+        const x = sxx + Math.round(Math.sin(y * 0.9 + sxx) * 1.4);
+        px(c, r, x, y, y % 5 === 0 ? '#c2434a' : '#6b1f27');
+        if (y % 4 === 0) { px(c, r, x - 1, y, '#8a2b33'); px(c, r, x + 1, y, '#8a2b33'); }
+      }
+    }
+    for (let i = 0; i < 8; i++) px(c, r, 2 + ((Math.random() * 12) | 0), 4 + ((Math.random() * 10) | 0), '#e05a62');
+  }
+  // ── 66 沼泽泥 ────────────────────────────────────────────────────
+  T(66, '#3d1a1c', 0.16, (c, r) => {
+    for (let i = 0; i < 14; i++) {
+      const x = (Math.random() * 14) | 0, y = (Math.random() * 14) | 0;
+      px(c, r, x, y, '#60302f'); px(c, r, x + 1, y, '#4d2526');
+    }
+    for (let x = 0; x < 16; x += 3) for (let y = 0; y < 16; y++) if (Math.random() < 0.25) px(c, r, x, y, '#2a1012');
+  });
   atlasCanvas = cv;
   atlasTex = new THREE.CanvasTexture(cv);
   atlasTex.magFilter = THREE.NearestFilter;
@@ -1333,6 +1401,33 @@ function applyStoneBlobs(b, idx, cx, cz) {
   blobType(27, 4, 3.0, 5.2, 52, 86);     // 石灰岩：中层
 }
 
+/* ────────────────────────────────────────────────────────────────
+   熔岩沼泽（冥界新结构）：112×112 一格的网格，每格按哈希决定有没有。
+   中央是岩浆湖，外圈沼泽泥 + 冥血木/灰烬木 + 垂下来的缠魂藤；矿极富（冥界碳 + 钻石）。
+   全部由世界坐标哈希决定，所以任何区块单独生成结果都一致（跨区块不会错位）。 */
+const LS_CELL = 112, LS_R = 34;
+const lsCache = new Map();
+function lavaSwamp(rx, rz) {
+  const key = rx + ',' + rz;
+  if (lsCache.has(key)) return lsCache.get(key);
+  let sw = null;
+  if (h3(rx * 13 + 5, 977, rz * 17 - 3) > 0.62) {
+    const cx = rx * LS_CELL + 56 + Math.round((h3(rx * 7 + 1, 13, rz * 7 + 9) - 0.5) * 44);
+    const cz = rz * LS_CELL + 56 + Math.round((h3(rx * 3 + 2, 29, rz * 3 + 4) - 0.5) * 44);
+    const trees = [];
+    for (let i = 0; i < 30 && trees.length < 15; i++) {
+      const a = h3(rx * 31 + i, 41, rz * 31 + i * 7) * 6.28318;
+      const rr = 15 + h3(rx * 17 + i * 3, 53, rz * 11 + i) * (LS_R - 12);
+      const x = Math.round(cx + Math.cos(a) * rr), z = Math.round(cz + Math.sin(a) * rr);
+      if (Math.hypot(x - cx, z - cz) < 13) continue;
+      if (trees.some(t => Math.hypot(t.x - x, t.z - z) < 6)) continue;
+      trees.push({ x, z, h: 7 + Math.round(h3(x, 3, z) * 6), k: h3(x, 9, z) > 0.55 ? 1 : 0 });
+    }
+    sw = { rx, rz, x: cx, z: cz, trees };
+  }
+  lsCache.set(key, sw);
+  return sw;
+}
 /* ── 冥界地形：岩浆海底 + 冥界岩穹顶 + 钟乳石。没有水、没有树、没有矿脉。
    区块 (0,0) 额外挖一条出生走廊并预置「回程传送门」（已激活，玩家一进去就能回）。 */
 function genNetherChunk(cx, cz) {
@@ -1380,6 +1475,70 @@ function genNetherChunk(cx, cz) {
     }
     b[idx(8, 35, 8)] = 45;                                        // 核心
     for (let dx = -1; dx <= 1; dx++) for (let dy = 2; dy <= 4; dy++) b[idx(8 + dx, 34 + dy, 8)] = 42;   // 已激活
+  }
+  // ── 熔岩沼泽地形：岩浆湖 + 沼泽泥 + 冥界树 + 缠魂藤 + 富矿 ──
+  {
+    const put = (lx, y, lz, id, onlyAir) => {
+      if (lx < 0 || lx >= CH || lz < 0 || lz >= CH || y < 1 || y >= WH) return;
+      const i = idx(lx, y, lz);
+      if (onlyAir && b[i] !== 0) return;
+      b[i] = id;
+    };
+    const r0x = Math.floor(ox / LS_CELL), r0z = Math.floor(oz / LS_CELL);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const sw = lavaSwamp(r0x + dx, r0z + dz);
+      if (!sw) continue;
+      if (sw.x + LS_R + 10 < ox || sw.x - LS_R - 10 >= ox + CH) continue;
+      if (sw.z + LS_R + 10 < oz || sw.z - LS_R - 10 >= oz + CH) continue;
+      // ① 地形：中间凹成岩浆湖，四周沼泽泥台地，上方挖空
+      for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+        const wx = ox + lx, wz = oz + lz;
+        const d = Math.hypot(wx - sw.x, wz - sw.z);
+        if (d > LS_R) continue;
+        const t = d / LS_R;
+        const floorY = NETHER_LAVA_Y + 3 + Math.round(t * t * t * 5);
+        for (let y = NETHER_LAVA_Y + 2; y <= floorY; y++) put(lx, y, lz, y === floorY ? 59 : 43);
+        for (let y = floorY + 1; y <= Math.min(WH - 2, floorY + 12); y++) put(lx, y, lz, 0);
+        if (d < 12) for (let y = floorY; y > floorY - 3; y--) put(lx, y, lz, 44);       // 岩浆湖
+        for (let y = NETHER_LAVA_Y + 1; y < floorY - 1; y++) {                            // 富矿
+          const hv = h3(Math.floor(wx / 2), y, Math.floor(wz / 2));
+          if (hv > 0.993) put(lx, y, lz, 46);
+          else if (hv > 0.986) put(lx, y, lz, 20);
+        }
+      }
+      // ② 冥界树 + 垂藤
+      for (const tr of sw.trees) {
+        const lx0 = tr.x - ox, lz0 = tr.z - oz;
+        if (lx0 < -4 || lx0 > CH + 4 || lz0 < -4 || lz0 > CH + 4) continue;
+        const d0 = Math.hypot(tr.x - sw.x, tr.z - sw.z), t0 = Math.min(1, d0 / LS_R);
+        const base = NETHER_LAVA_Y + 3 + Math.round(t0 * t0 * t0 * 5) + 1;
+        const logId = tr.k ? 56 : 54, leafId = tr.k ? 57 : 55;
+        for (let y = base; y <= base + tr.h; y++) put(lx0, y, lz0, logId);
+        for (let dy = tr.h - 3; dy <= tr.h + 1; dy++) {
+          const rad = dy >= tr.h ? 1 : 2;
+          for (let ax = -rad; ax <= rad; ax++) for (let az = -rad; az <= rad; az++) {
+            if (ax * ax + az * az > rad * rad + 1) continue;
+            put(lx0 + ax, base + dy, lz0 + az, leafId, true);
+          }
+        }
+        for (let v = 0; v < 3; v++) {                                                    // 垂下来的缠魂藤
+          const ax = Math.round((h3(tr.x + v, 7, tr.z) - 0.5) * 4);
+          const az = Math.round((h3(tr.x, 11, tr.z + v) - 0.5) * 4);
+          const len = 2 + Math.round(h3(tr.x + v * 3, 5, tr.z + v) * 4);
+          for (let y = base + tr.h - 2; y > base + tr.h - 3 - len; y--) put(lx0 + ax, y, lz0 + az, 58, true);
+        }
+      }
+      // ③ 地面缠魂藤（走进去会被缠住）
+      for (let i = 0; i < 46; i++) {
+        const a = h3(sw.rx + 3, i * 3 + 1, sw.rz + 5) * 6.28318;
+        const rr = 11 + h3(sw.rx + 1, i, sw.rz + 2) * (LS_R - 9);
+        const lx = Math.round(sw.x + Math.cos(a) * rr) - ox, lz = Math.round(sw.z + Math.sin(a) * rr) - oz;
+        if (lx < 0 || lx >= CH || lz < 0 || lz >= CH) continue;
+        for (let y = NETHER_LAVA_Y + 14; y > NETHER_LAVA_Y; y--) {
+          if (b[idx(lx, y - 1, lz)] === 59 && b[idx(lx, y, lz)] === 0) { put(lx, y, lz, 58); break; }
+        }
+      }
+    }
   }
   // 冥界也会自然生成传送门（已激活）；按区块 key 把结构 ops 写进来
   {
@@ -4040,6 +4199,8 @@ const MOB_DEFS = {
   // ── 冥界专属 ──
   blaze:      { name: '火焰魔', hp: 16, chase: 3.2, wander: 1.1, hostile: true, barY: 1.62, drop: 176, dropN: [1, 3], dmg: 3, atkCd: 1.4, ranged: true, float: true, dim: 'nether' },
   netherBeast:{ name: '冥骨兽', hp: 30, chase: 3.6, wander: 1.2, hostile: true, barY: 1.35, drop: 176, dropN: [1, 2], extra: [{ id: 148, n: [1, 2] }], dmg: 5, atkCd: 1.2, dim: 'nether' },
+  croc:       { name: '噩梦鳄鱼', hp: 48, chase: 3.5, wander: 1.0, hostile: true, barY: 1.15, drop: 192, dropN: [1, 3], dmg: 6, atkCd: 1.1, dim: 'nether' },
+  crocKing:   { name: '鳄鱼王', hp: 320, chase: 3.1, wander: 0.8, hostile: true, barY: 2.15, drop: 193, dropN: [1, 2], extra: [{ id: 177, n: [8, 14] }, { id: 125, n: [2, 5] }], dmg: 15, atkCd: 1.5, boss: true, dim: 'nether' },
 };
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
@@ -4144,7 +4305,29 @@ function mobGeos(kind) {
     }
   };
 
-  if (kind === 'pig') {
+  if (kind === 'croc' || kind === 'crocKing') {
+    // 噩梦鳄鱼：低矮长身 + 长吻 + 粗尾 + 四条短腿（鳄鱼王整体 ×1.75）
+    const K = kind === 'crocKing' ? 1.75 : 1;
+    const GREEN = 0x2f4226, DARK = 0x1a2617, BELLY = 0x8d8a5c, CLAW = 0xd9d2ae, EYE = 0xffd23a;
+    const B = (par, x, y, z, w, h, d, c, n) => box(par, x * K, y * K, z * K, w * K, h * K, d * K, c, n);
+    B(body, -6, 4, -13, 12, 7, 26, GREEN, 0.1);              // 躯干
+    B(body, -6, 4, -13, 12, 2, 26, BELLY, 0.07);             // 肚皮
+    for (let z = -11; z <= 11; z += 3) B(body, -1, 11, z, 2, 2, 2, DARK, 0.05);   // 背甲棘
+    B(body, -5, 5, -22, 10, 5, 9, GREEN, 0.08);              // 尾根
+    B(body, -3, 5, -28, 6, 4, 7, GREEN, 0.08);               // 尾梢
+    for (let z = -20; z >= -28; z -= 3) B(body, -1, 9, z, 2, 2, 2, DARK, 0.05);
+    B(head, -5, 4, 12, 10, 6, 8, GREEN, 0.09);               // 头
+    B(head, -4, 3, 19, 8, 3, 7, GREEN, 0.07);                // 长吻
+    B(head, -4, 2, 19, 8, 1, 7, BELLY, 0.03);               // 下颚
+    for (let x = -3; x <= 3; x += 2) B(head, x, 3, 25, 1, 1, 1, CLAW, 0);          // 牙
+    for (const ex of [-4, 2]) { B(head, ex, 9, 14, 2, 1, 2, EYE, 0.02); }          // 黄眼
+    const leg = limbGeo(4 * K, 4 * K, 4 * K, dk(GREEN, 0.8), 0.1, (m, set, x0) => set(x0, -4 * K, 2 * K, CLAW));
+    limbSpecs = [
+      { geo: leg, x: -4 * K, y: 4 * K, z: 7 * K, arm: true }, { geo: leg, x: 4 * K, y: 4 * K, z: 7 * K, arm: true },
+      { geo: leg, x: -4 * K, y: 4 * K, z: -8 * K, arm: false }, { geo: leg, x: 4 * K, y: 4 * K, z: -8 * K, arm: false },
+    ];
+    coreY = 8 * MOB_PX * K; barY = 15.5 * MOB_PX * K; headPiv = 4 * K;
+  } else if (kind === 'pig') {
     // MC 猪：腿 6 高 + 躯干 8 高 = 16px（1.78×16/32 = 0.89 格，和 MC 的 0.9 命中率一致）
     const PINK = 0xefa0a0, SNOUT = 0xd98c8c, HOOF = 0x6b4a4a;
     box(body, -5, 6, -8, 10, 8, 16, PINK, 0.14);                 // 躯干
@@ -4788,6 +4971,32 @@ function recruitInteract(m) {                    // 右键村民：交物资 / �
 }
 
 // 冥界找落脚点：在玩家附近 ±14 格内，从玩家头顶往下扫一层能站的地面
+/* ── 缠魂藤：玩家身边 1 格内有 58 号方块就被缠住（移速 32%），并且召来鳄鱼王 ── */
+let crocBossCd = 0;
+function vineNearPlayer() {
+  const px = Math.floor(player.p.x), py = Math.floor(player.p.y), pz = Math.floor(player.p.z);
+  for (let dy = 0; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    if (getBlock(px + dx, py + dy, pz + dz) === 58) return true;
+  }
+  return false;
+}
+function updateVines(dt) {
+  crocBossCd = Math.max(0, crocBossCd - dt);
+  if (DIM !== 'nether' || !player.alive) { player.tangle = 0; return; }
+  const hit = vineNearPlayer();
+  if (hit) {
+    if (!(player.tangle > 0)) { toast('缠魂藤缠住了你！移速下降', 1.6); sfx('hit'); }
+    player.tangle = 1.0;
+    if (crocBossCd <= 0 && !mobs.some(m => m.kind === 'crocKing' && !m.dying)) {
+      const spot = findNetherSpot();
+      if (spot) {
+        const k = spawnMobAt('crocKing', spot.x, spot.y, spot.z);
+        if (k) { crocBossCd = 90; toast('沼泽深处传来低吼……鳄鱼王出现了', 3.2); sfx('hurt'); }
+      }
+    }
+  }
+  player.tangle = Math.max(0, (player.tangle || 0) - dt);
+}
 function findNetherSpot() {
   for (let i = 0; i < 24; i++) {
     const x = Math.floor(player.p.x + (Math.random() * 2 - 1) * 14);
@@ -5586,6 +5795,7 @@ function updateMobs(dt) {
     // 冥界：只刷冥界生物（findNetherSpot 在玩家附近找落脚点，别用主世界的 surfaceY）
     if (countKind('blaze') < 3 && Math.random() < dt * 0.30) { const s2 = findNetherSpot(); if (s2) spawnMobAt('blaze', s2.x, s2.y, s2.z); }
     if (countKind('netherBeast') < 2 && Math.random() < dt * 0.22) { const s3 = findNetherSpot(); if (s3) spawnMobAt('netherBeast', s3.x, s3.y, s3.z); }
+    if (countKind('croc') < 3 && Math.random() < dt * 0.22) { const s4 = findNetherSpot(); if (s4) spawnMobAt('croc', s4.x, s4.y, s4.z); }
   }
   const capGrunt = night ? CFG.MAX_MOBS + 2 : CFG.MAX_MOBS;
   if (DIM !== 'nether') {
@@ -5956,6 +6166,7 @@ const RECIPES = [
   { out: 167, n: 1, need: { 162: 6 }, tier: 1 },
   { out: 168, n: 1, need: { 162: 5 }, tier: 1 },
   { out: 169, n: 1, need: { 162: 3 }, tier: 1 },
+  { out: 194, n: 1, need: { 193: 1, 179: 1 }, tier: 3 },   // 噩梦之心 + 冥界钢剑 → 噩梦之刃
   // ── 电路系统：铜 → 电线 / 电路板 → 充电器 + 四档能量炮 ──
   { out: 186, n: 4, need: { 162: 1 } },                        // 电线 ×4 ← 铜锭 1（不用工作台，开局就能绕线）
   { out: 185, n: 1, need: { 162: 3, 8: 1 }, tier: 1 },         // 电路板 ← 铜锭 3 + 木板 1
@@ -7164,7 +7375,7 @@ function updatePlayer(dt) {
   const wx = ix * cosk + iz * sink;
   const wz = -ix * sink + iz * cosk;
   const sprint = keyDown('sprint') || (keymap.sprint === 'ShiftLeft' ? keys.has('ShiftRight') : false);
-  const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : player.inLava ? 0.4 : 1);
+  const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : player.inLava ? 0.4 : 1) * (player.tangle > 0 ? 0.32 : 1);
   if (player.knockT > 0) {                    // 被击退：这几帧不接受方向键，靠冲量滑出去
     player.knockT -= dt;
     const damp = Math.pow(0.03, dt);
@@ -7328,6 +7539,7 @@ function update(dt) {
 
   mmTick(dt);                                     // 小地图：揭开 / 标记 / 重绘（固定步长里跑，探针也可复现）
 
+  updateVines(dt);
   // 存档
   saveTimer += dt;
   if (saveTimer > 8) { saveTimer = 0; save(); }
@@ -7570,15 +7782,38 @@ function deleteWorld(id) {
    ④ 存档：世界存档里带 map:{c:[[gx,gz,type]…], m:[…]}，换设备/重开都在                          */
 const MM_CELL = 4, MM_MAX_CELLS = 40000;
 const MM_ZOOM = [15, 26, 42, 66];                 // 每个级别「屏幕宽 = 多少格」
-const MM_TERRAIN = ['#5d9440', '#c9b174', '#71757c', '#2d5f8f', '#376b2c', '#3c4048', '#8a4a2a'];
-const MM_LABEL = { village: '村庄', haunted: '鬼屋', tower: '哨塔', well: '水井', circle: '石阵', camp: '废墟营地', cabin: '白桦木屋', portal: '传送门' };
-const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', cabin: '#d8b48a', portal: '#8b3fd8' };
+const MM_TERRAIN = ['#5d9440', '#c9b174', '#71757c', '#2d5f8f', '#376b2c', '#3c4048', '#8a4a2a',
+  '#c8501a',   // 7 岩浆
+  '#9a2f38',   // 8 缠魂藤
+  '#4a1f22',   // 9 沼泽泥
+  '#6b4a35',   // 10 灵魂沙
+  '#4a2a5a',   // 11 冥界矿
+  '#14202c'];  // 12 空洞
+const MM_LABEL = { village: '村庄', haunted: '鬼屋', tower: '哨塔', well: '水井', circle: '石阵', camp: '废墟营地', cabin: '白桦木屋', portal: '传送门', swamp: '熔岩沼泽' };
+const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', cabin: '#d8b48a', portal: '#8b3fd8', swamp: '#ff7a3c' };
 const MM = {
   cells: new Map(), marks: new Map(), zoom: 1, px2: 2,
   cv: null, ctx: null, info: null, wrap: null,
   revealT: 0, scanT: 0, drawT: 0, dirty: true, hidden: false,
 };
+function mmOff() { return DIM === 'nether' ? NETHER_OFF : 0; }   // 冥界坐标另算：显示时减掉 100 万
 function mmTerrainType(x, z) {
+  if (DIM === 'nether') {                                   // 冥界：从顶往下找第一个实心块
+    for (let y = 62; y > NETHER_LAVA_Y - 4; y--) {
+      const id = getBlock(x, y, z);
+      if (!id) continue;
+      if (id === 54 || id === 56) return 6;                 // 冥界树
+      if (id === 55 || id === 57) return 4;                 // 树冠
+      if (id === 58) return 8;                              // 缠魂藤
+      if (id === 59) return 9;                              // 沼泽泥
+      if (id === 44) return 7;                              // 岩浆
+      if (id === 46) return 11;                             // 冥界碳矿
+      if (id === 20) return 11;                             // 钻石矿
+      if (id === 48) return 10;                             // 灵魂沙
+      return 5;                                             // 冥界岩 / 玄武岩 / 基岩
+    }
+    return 12;
+  }
   const hh = heightAt(x, z);
   if (hh < CFG.SEA) return 3;                               // 海平面以下 = 水
   if (getBlock(x, hh + 1, z) === 7) return 4;               // 树冠 → 深绿
@@ -7608,6 +7843,19 @@ function mmReveal() {
 }
 function mmScanStructs() {
   const px = player.p.x, pz = player.p.z;
+  if (DIM === 'nether') {                                   // 冥界：只标「熔岩沼泽」（别的结构都在主世界）
+    const cx = Math.floor(px / LS_CELL), cz = Math.floor(pz / LS_CELL);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const s = lavaSwamp(cx + dx, cz + dz);
+      if (!s || Math.hypot(s.x - px, s.z - pz) > 58) continue;
+      const key = 'swamp:' + s.x + ',' + s.z;
+      if (MM.marks.has(key)) continue;
+      MM.marks.set(key, { type: 'swamp', label: '熔岩沼泽', x: s.x, z: s.z, gy: NETHER_LAVA_Y });
+      MM.dirty = true;
+      toast(`小地图标记：熔岩沼泽（${s.x - NETHER_OFF}, ${s.z - NETHER_OFF}）`, 2.6);
+    }
+    return;
+  }
   for (const t of STRUCT_TYPES) {
     const cx = Math.floor(px / t.cell), cz = Math.floor(pz / t.cell);
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
@@ -7686,7 +7934,12 @@ function mmDraw() {
       if (!best || d < best.d) best = { mk, d };
     }
     let line;
-    if (DIM !== 'overworld') line = '冥界：不绘制地表地图';
+    if (DIM === 'nether') {
+      const tag = '冥界 · ';
+      line = best
+        ? `${tag}${best.mk.label} ${Math.round(best.d)}格\n已探索 ${MM.cells.size} 格 · 视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格`
+        : `${tag}未发现沼泽\n已探索 ${MM.cells.size} 格 · 视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格`;
+    }
     else if (!best) line = `未发现结构\n已探索 ${MM.cells.size} 格 · 视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格`;
     else {
       let ang = Math.atan2(best.mk.x - player.p.x, -(best.mk.z - player.p.z));
@@ -7699,7 +7952,7 @@ function mmDraw() {
 }
 function mmTick(dt) {
   if (!MM.cv) return;
-  const on = started && DIM === 'overworld';
+  const on = started;                                       // 冥界也画地图（数据按世界坐标分开存，天然不串）
   if (MM.wrap && MM._on !== on) { MM._on = on; MM.wrap.style.display = on ? 'block' : 'none'; }
   if (!on) return;
   MM.revealT -= dt; MM.scanT -= dt; MM.drawT -= dt;
@@ -7831,6 +8084,7 @@ function mmBigDraw() {
   if (!cv) return;
   if (!mmBigCtx) mmBigResize();
   const ctx = mmBigCtx, W = cv.width, H = cv.height;
+  const off = mmOff();                                      // 冥界：显示坐标减去 100 万
   const ppc = mmBigPpc(cv);
   const gx = MM_BIG.x / MM_CELL, gz = MM_BIG.z / MM_CELL;
   ctx.fillStyle = '#0f1620'; ctx.fillRect(0, 0, W, H);
@@ -7854,12 +8108,12 @@ function mmBigDraw() {
     for (let c = c0; c <= c1; c += step) {
       const sx = W / 2 + (c - gx) * ppc;
       ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
-      if ((c / step) % 2 === 0) ctx.fillText(String(c * MM_CELL), sx + 2, 2);
+      if ((c / step) % 2 === 0) ctx.fillText(String(c * MM_CELL - off), sx + 2, 2);
     }
     for (let d = d0; d <= d1; d += step) {
       const sz = H / 2 + (d - gz) * ppc;
       ctx.beginPath(); ctx.moveTo(0, sz); ctx.lineTo(W, sz); ctx.stroke();
-      if ((d / step) % 2 === 0) ctx.fillText(String(d * MM_CELL), 3, sz + 2);
+      if ((d / step) % 2 === 0) ctx.fillText(String(d * MM_CELL - off), 3, sz + 2);
     }
   }
   // 标记（结构 + 自定义）
@@ -7912,9 +8166,9 @@ function mmBigDraw() {
   ctx.fillStyle = '#cfe0f2'; ctx.fillText(`${barBlocks} 格`, 14 * dpr, H - 18 * dpr);
   ctx.textAlign = 'right';
   const hv = MM_BIG.hover;
-  ctx.fillText(hv ? `x ${hv.x}  z ${hv.z}` : `中心 x ${Math.round(MM_BIG.x)}  z ${Math.round(MM_BIG.z)}`, W - 10 * dpr, H - 10 * dpr);
+  ctx.fillText(hv ? `x ${hv.x - off}  z ${hv.z - off}` : `中心 x ${Math.round(MM_BIG.x) - off}  z ${Math.round(MM_BIG.z) - off}`, W - 10 * dpr, H - 10 * dpr);
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText(`视野 ${MM_BIGZOOM[MM_BIG.zoom] * MM_CELL} 格 · 已探索 ${MM.cells.size} 格`, 10 * dpr, 8 * dpr);
+  ctx.fillText(`${DIM === 'nether' ? '冥界 · ' : ''}视野 ${MM_BIGZOOM[MM_BIG.zoom] * MM_CELL} 格 · 已探索 ${MM.cells.size} 格`, 10 * dpr, 8 * dpr);
 }
 function mmBigZoom(d) {
   MM_BIG.zoom = Math.max(0, Math.min(MM_BIGZOOM.length - 1, MM_BIG.zoom + d));
@@ -8679,6 +8933,7 @@ window.GAME = {
     mapDelMark: (x, z) => mmDelMark('custom:' + x + ',' + z),
     mapBig: () => ({ open: MM_BIG.open, zoom: MM_BIG.zoom, acrossBlocks: MM_BIGZOOM[MM_BIG.zoom] * MM_CELL, cx: Math.round(MM_BIG.x), cz: Math.round(MM_BIG.z),
                      rows: $('mapMarks') ? $('mapMarks').children.length : -1, canvas: $('mapCv') ? [$('mapCv').width, $('mapCv').height] : null }),
+    mapDim: () => ({ dim: DIM, off: mmOff(), cells: MM.cells.size, marks: MM.marks.size, coords: [+(player.p.x - mmOff()).toFixed(0), +(player.p.z - mmOff()).toFixed(0)] }),
     mapPan: (dx, dz) => { MM_BIG.x += dx || 0; MM_BIG.z += dz || 0; mmBigDraw(); return { cx: Math.round(MM_BIG.x), cz: Math.round(MM_BIG.z) }; },
     mapBigZoom: (d) => { mmBigZoom(d || 0); return { zoom: MM_BIG.zoom, acrossBlocks: MM_BIGZOOM[MM_BIG.zoom] * MM_CELL }; },
     dropCount: () => drops.length,
@@ -8815,6 +9070,17 @@ window.GAME = {
       return { chunks: chunksN, carbon: c, perChunk: chunksN ? +(c / chunksN).toFixed(1) : 0 };
     },
     dim: () => DIM,
+    goNether: () => travelDimension(null),
+    spawnHere: (kind, dx, dz) => spawnMobAt(kind, Math.round(player.p.x + (dx || 0)), Math.round(player.p.y), Math.round(player.p.z + (dz || 0))),
+    mobBox: (kind) => { const m = mobs.find(x => x.kind === kind); if (!m) return null; let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+      m.obj.updateMatrixWorld(true);
+      m.obj.traverse(o => { if (!o.isMesh || !o.geometry) return; const g = o.geometry; if (!g.boundingBox) g.computeBoundingBox();
+        const b = g.boundingBox; for (const cx of [b.min.x, b.max.x]) for (const cy of [b.min.y, b.max.y]) for (const cz of [b.min.z, b.max.z]) {
+          const v = new THREE.Vector3(cx, cy, cz).applyMatrix4(o.matrixWorld);
+          mn = [Math.min(mn[0], v.x), Math.min(mn[1], v.y), Math.min(mn[2], v.z)];
+          mx = [Math.max(mx[0], v.x), Math.max(mx[1], v.y), Math.max(mx[2], v.z)]; } });
+      return { size: [+(mx[0] - mn[0]).toFixed(2), +(mx[1] - mn[1]).toFixed(2), +(mx[2] - mn[2]).toFixed(2)], feetGap: +(mn[1] - m.p.y).toFixed(2) }; },
+    goOver: () => (DIM === 'nether' ? travelDimension(null) : false),
     loadErr: () => loadErr,
     savedInfo: () => { try { const d = JSON.parse(localStorage.getItem(worldKey(currentId)) || 'null'); return d ? { y: d.player && d.player.y, dim: d.dim, edits: (d.edits || []).length } : null; } catch (e) { return String(e); } },
     burnState: () => ({ playerBurn: +(player.burn || 0).toFixed(2),
@@ -8848,6 +9114,9 @@ window.GAME = {
     },
     portalActive: (x, y, z) => { const c = findPortalCore(x, y, z); return c ? isPortalActive(c) : null; },
     netherMobs: () => GAME.mobs.filter(m => MOB_DEFS[m.kind] && MOB_DEFS[m.kind].dim === 'nether').map(m => m.kind),
+    swamps: (r) => { const out = []; const cx = Math.floor(player.p.x / LS_CELL), cz = Math.floor(player.p.z / LS_CELL); for (let dx = -(r || 1); dx <= (r || 1); dx++) for (let dz = -(r || 1); dz <= (r || 1); dz++) { const s = lavaSwamp(cx + dx, cz + dz); if (s) out.push({ x: s.x, z: s.z, trees: s.trees.length, dist: Math.round(Math.hypot(s.x - player.p.x, s.z - player.p.z)) }); } return out; },
+    tangle: () => ({ t: +(player.tangle || 0).toFixed(2), near: vineNearPlayer(), bossCd: Math.round(crocBossCd), kings: GAME.mobs.filter(m => m.kind === 'crocKing').length }),
+    nearSwamp: () => { const cx = Math.floor(player.p.x / LS_CELL), cz = Math.floor(player.p.z / LS_CELL); for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) { const s = lavaSwamp(cx + dx, cz + dz); if (s && Math.hypot(s.x - player.p.x, s.z - player.p.z) < 60) return s; } return null; },
     spawnKind: (kind, dx = 3, dz = 0) => {           // 指定种类刷一只（自检/截图用）
       const x = Math.floor(player.p.x + dx), z = Math.floor(player.p.z + dz);
       let y = Math.floor(player.p.y);
