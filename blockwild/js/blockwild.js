@@ -2352,7 +2352,10 @@ function updateDoorAnims(dt) {
 }
 let doorSyncT = 0, torchT = 0;
 
-function buildChunk(chunk) {
+/* ── 分片网格化 ────────────────────────────────────────────────────
+   一块 = 16×16×96，整块网格化要 5~6ms，一帧吃掉这么多就会掉帧。
+   拆成「开始 / 每次推进若干层 / 收尾三步」，streamChunks 每帧只推进到预算用完为止。 */
+function startChunkMesh(chunk) {
   const CH = CFG.CH, WH = CFG.WH;
   const ox = chunk.cx * CH, oz = chunk.cz * CH;
   // 邻居还没加载时，边界面会被当成实心（省掉 8 次连锁生成）。记下来，等邻居齐了再重建一次。
@@ -2362,13 +2365,22 @@ function buildChunk(chunk) {
     if (!chunks.has((chunk.cx + ax) + ',' + (chunk.cz + az))) { missingNb = true; break; }
   }
   chunk.stale = missingNb;
-  const doorCells = [];                                  // 门不进烘焙网格：用独立对象做开关动画
-  const P = [], U = [], C = [], I = [];
-  const P2 = [], U2 = [], C2 = [], I2 = [];
-  const P3 = [], U3 = [], C3 = [], I3 = [];
-  const P4 = [], U4 = [], C4 = [], I4 = [];              // 植物（十字面片，透明材质）
-  let vc = 0, vw = 0, vg = 0, vp = 0;
-  for (let y = 0; y < WH; y++) for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
+  chunk.ready = false;
+  chunk.job = {
+    y: 0, ox, oz, doorCells: [], torches: [],
+    P: [], U: [], C: [], I: [], P2: [], U2: [], C2: [], I2: [],
+    P3: [], U3: [], C3: [], I3: [], P4: [], U4: [], C4: [], I4: [],   // P4 = 植物十字面片
+    vc: 0, vw: 0, vg: 0, vp: 0,
+  };
+}
+function stepChunkMesh(chunk, yTo) {                    // 推进到第 yTo 层（不含），返回当前层
+  const j = chunk.job;
+  if (!j) return CFG.WH;
+  const CH = CFG.CH, WH = CFG.WH, ox = j.ox, oz = j.oz;
+  const { P, U, C, I, P2, U2, C2, I2, P3, U3, C3, I3, P4, U4, C4, I4 } = j;
+  let vc = j.vc, vw = j.vw, vg = j.vg, vp = j.vp;
+  const yEnd = Math.min(WH, Math.max(j.y + 1, yTo | 0));
+  for (let y = j.y; y < yEnd; y++) for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
     const id = chunk.blocks[(y * CH + z) * CH + x];
     if (!id) continue;
     const def = BLOCKS[id];
@@ -2377,9 +2389,9 @@ function buildChunk(chunk) {
     const meta = (blockMeta.size || genMeta.size) ? getMeta(wx, y, wz) : 0;
     if (def.stair) { vc += emitStair(x, y, z, def, meta, P, U, C, I, vc); continue; }
     if (def.bed) { vc += emitBed(x, y, z, wx, wz, meta, P, U, C, I, vc); continue; }
-    if (def.cross) { vp += emitCross(x, y, z, def, P4, U4, C4, I4, vp); if (def.torch) registerTorch(wx, y, wz); continue; }
+    if (def.cross) { vp += emitCross(x, y, z, def, P4, U4, C4, I4, vp); if (def.torch) j.torches.push(wx + ',' + y + ',' + wz); continue; }
     if (def.door) {                                      // 门：独立 Mesh（可平滑旋转），只记下位置
-      if (!(meta & 8)) doorCells.push({ x: wx, y, z: wz, dir: (meta & 3) + 1 });
+      if (!(meta & 8)) j.doorCells.push({ x: wx, y, z: wz, dir: (meta & 3) + 1 });
       continue;
     }
     const water = id === 5;
@@ -2422,6 +2434,14 @@ function buildChunk(chunk) {
       if (water) vw += 4; else if (glass) vg += 4; else vc += 4;
     }
   }
+  j.y = yEnd; j.vc = vc; j.vw = vw; j.vg = vg; j.vp = vp;
+  return j.y;
+}
+function finishChunkMesh(chunk) {
+  const j = chunk.job;
+  if (!j || j.y < CFG.WH) return false;
+  const ox = j.ox, oz = j.oz;
+  const { P, U, C, I, P2, U2, C2, I2, P3, U3, C3, I3, P4, U4, C4, I4, doorCells } = j;
   const mk = (P_, U_, C_, I_, mat) => {
     if (!P_.length) return null;
     const geo = new THREE.BufferGeometry();
@@ -2453,6 +2473,14 @@ function buildChunk(chunk) {
   if (np) { np.renderOrder = 3; scene.add(np); }
   chunk.ready = true;
   chunk.doors = doorCells;
+  for (const t of j.torches) { const q = t.split(','); registerTorch(+q[0], +q[1], +q[2]); }
+  chunk.job = null;
+  return true;
+}
+function buildChunk(chunk) {                           // 同步整块（换维度 / 脏块重建 / 调试用）
+  startChunkMesh(chunk);
+  stepChunkMesh(chunk, CFG.WH);
+  finishChunkMesh(chunk);
 }
 
 /* ============================================================ 玩家 */
@@ -7657,17 +7685,30 @@ function streamChunks() {
     }
   }
 
-  // ③ 建新区块：预算前置，超了就跳出（不 return，否则 ④ 永远跑不到）
+  // ③ 建新区块：分片推进（每帧只吃一部分），预算前置
   let built = 0, over = false;
-  for (let r = 0; r <= CFG.LOAD_R && built < 3 && !over; r++) {
-    for (let dx = -r; dx <= r && built < 3 && !over; dx++) for (let dz = -r; dz <= r; dz++) {
+  for (let r = 0; r <= CFG.LOAD_R && !over; r++) {
+    for (let dx = -r; dx <= r && !over; dx++) for (let dz = -r; dz <= r; dz++) {
       if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-      if (built > 0 && performance.now() - tStart > budgetMs * 0.7) { over = true; break; }
-      const c = getChunk(pcx + dx, pcz + dz);
-      if (!c.ready) {
-        buildChunk(c); built++;
-        if (performance.now() - tStart > budgetMs) { over = true; break; }
-      }
+      if (performance.now() - tStart > budgetMs * 0.6) { over = true; break; }   // ★ 每格先看预算
+      const ck = ckey(pcx + dx, pcz + dz), had = chunks.has(ck);
+      const c = had ? chunks.get(ck) : getChunk(pcx + dx, pcz + dz);
+      // ⚠ 刚生成的区块要立刻看预算：一个 genChunk 就要 ~7ms，
+      //   否则「已 ready 就 continue」会让这一帧连生成十几个区块（实测一帧 97ms）
+      if (!had && performance.now() - tStart > budgetMs * 0.7) { over = true; break; }
+      if (c.ready) continue;
+      if (!c.job) startChunkMesh(c);
+      stepChunkMesh(c, c.job.y + 12);                 // 一次推进 12 层（≈0.7ms）
+      if (c.job && c.job.y >= CFG.WH) { finishChunkMesh(c); built++; }
+      if (performance.now() - tStart > budgetMs * 0.8) { over = true; break; }
+    }
+  }
+  // ③b 地形预生成：把外圈（LOAD_R+1）的地形先算好，别等玩家走到跟前才吃 7ms
+  if (!over && performance.now() - tStart < budgetMs * 0.75) {
+    const r = CFG.LOAD_R + 1;
+    for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      if (!chunks.has(ckey(pcx + dx, pcz + dz))) { getChunk(pcx + dx, pcz + dz); dx = r + 1; break; }
     }
   }
 
@@ -7678,7 +7719,9 @@ function streamChunks() {
     if (rebuilt > 0 && performance.now() - tStart > budgetMs) break;
     const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
     if (d > CFG.LOAD_R + 1) { dirty.delete(c); continue; }
-    buildChunk(c); dirty.delete(c); rebuilt++;
+    if (!c.job) startChunkMesh(c);
+    stepChunkMesh(c, c.job.y + (rebuilt === 0 ? CFG.WH : 24));   // 第一块整块做完，其余分片
+    if (c.job && c.job.y >= CFG.WH) { finishChunkMesh(c); dirty.delete(c); rebuilt++; }
   }
 }
 
@@ -8976,6 +9019,10 @@ window.GAME = {
       }
       return t;
     },
+    dirtySize: () => dirty.size,
+    chunkOf: (x, z) => { const c = chunks.get((x >> 4) + ',' + (z >> 4)); return c ? { ready: c.ready, job: !!c.job, jobY: c.job ? c.job.y : null, verts: c.mesh ? c.mesh.geometry.attributes.position.count : 0, inDirty: dirty.has(c) } : null; },
+    streamOnce: () => { const t = performance.now(); streamChunks(); return +(performance.now() - t).toFixed(2); },
+    meshState: () => ({ jobs: [...chunks.values()].filter(c => c.job).length, ready: [...chunks.values()].filter(c => c.ready).length, chunks: chunks.size }),
     perf: () => ({
       frameMs: +frameMsAvg.toFixed(1), budgetMs: +perfBudget.toFixed(1),
       stale: [...chunks.values()].filter(c => c.stale).length,
