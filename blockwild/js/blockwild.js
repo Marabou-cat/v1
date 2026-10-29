@@ -9583,7 +9583,9 @@ $('btnCloseWorlds').onclick = () => $('worldsPanel').classList.add('hide');
 const LOOK_KEY = 'bw_look_v1';
 const SKIN_COLORS = [0xf3cba6, 0xe3ab7c, 0xc98f5c, 0xa06c42, 0x7c4f2d, 0x5b3a20, 0xd8b48a, 0x9fd3a6];
 const CLOTH_COLORS = [0xd9534f, 0x4a7fd9, 0x1abc9c, 0xf0ad4e, 0x9b59b6, 0x394655, 0xe67e22, 0xf2f2f2];
-const LOOK = { name: '', skin: SKIN_COLORS[0], cloth: CLOTH_COLORS[0] };
+const HAIR_COLORS = [0x221a14, 0x33251a, 0x6b4a2a, 0xc9a227, 0xb9bcc2, 0x8f3f2a];
+const HAIR_STYLES = ['短发', '长发'];
+const LOOK = { name: '', skin: SKIN_COLORS[0], cloth: CLOTH_COLORS[0], hair: HAIR_COLORS[1], hs: 0 };
 function randPlayerName() { return 'player' + (10000 + Math.floor(Math.random() * 90000)); }
 function saveLook() {
   try {
@@ -9599,6 +9601,8 @@ function loadLook() {
     if (typeof d.name === 'string' && d.name.trim()) LOOK.name = d.name.trim().slice(0, 14);
     if (typeof d.skin === 'number') LOOK.skin = d.skin;
     if (typeof d.cloth === 'number') LOOK.cloth = d.cloth;
+    if (typeof d.hair === 'number') LOOK.hair = d.hair;
+    if (d.hs === 0 || d.hs === 1) LOOK.hs = d.hs;
   }
   if (!LOOK.name) LOOK.name = randPlayerName();                   // 没设过昵称 → player + 5 位随机数
   saveLook();
@@ -9607,7 +9611,7 @@ function loadLook() {
 loadLook();
 
 let lookRenderer = null, lookScene = null, lookCam = null, lookAv = null, lookRAF = 0, lookTorches = [];
-function buildAvatarMesh(skin, cloth) {
+function buildAvatarMesh(skin, cloth, hair, hs) {
   const g = new THREE.Group();
   const M = c => new THREE.MeshLambertMaterial({ color: c });
   const clothDark = new THREE.Color(cloth).multiplyScalar(0.72).getHex();
@@ -9621,12 +9625,20 @@ function buildAvatarMesh(skin, cloth) {
   box(0.26, 0.09, 0.02, 0x2b1a12, 0, 1.60, -0.212);        // 嘴（压低，别和眼睛黏在一起）
   box(0.10, 0.028, 0.02, 0xf2f2f2, -0.085, 1.705, -0.219);   // 细长眼
   box(0.10, 0.028, 0.02, 0xf2f2f2, 0.085, 1.705, -0.219);
-  const HAIR = 0x33251a;                                   // 头发（和联机形象同一套尺寸）
-  box(0.46, 0.12, 0.46, HAIR, 0, 1.855, 0);                // 顶盖
-  box(0.46, 0.30, 0.09, HAIR, 0, 1.63, 0.20);              // 后脑
-  box(0.07, 0.24, 0.44, HAIR, -0.215, 1.65, 0);
-  box(0.07, 0.24, 0.44, HAIR, 0.215, 1.65, 0);
-  box(0.42, 0.07, 0.07, HAIR, 0, 1.795, -0.204);           // 刘海
+  const HAIR = (typeof hair === 'number') ? hair : 0x33251a;   // 头发：发色 + 发型可选
+  if (HAIR) {
+    box(0.46, 0.12, 0.46, HAIR, 0, 1.855, 0);              // 顶盖
+    box(0.42, 0.07, 0.07, HAIR, 0, 1.795, -0.204);         // 刘海
+    if (hs === 1) {                                        // 长发：披到肩下的后片 + 加长鬓角
+      box(0.46, 0.54, 0.10, HAIR, 0, 1.54, 0.21);
+      box(0.08, 0.42, 0.44, HAIR, -0.215, 1.56, 0);
+      box(0.08, 0.42, 0.44, HAIR, 0.215, 1.56, 0);
+    } else {                                               // 短发
+      box(0.46, 0.30, 0.09, HAIR, 0, 1.63, 0.20);
+      box(0.07, 0.24, 0.44, HAIR, -0.215, 1.65, 0);
+      box(0.07, 0.24, 0.44, HAIR, 0.215, 1.65, 0);
+    }
+  }
   box(0.18, 0.68, 0.2, skinDark, -0.35, 1.06, 0);          // 手臂 = 肤色
   box(0.18, 0.68, 0.2, skinDark, 0.35, 1.06, 0);
   box(0.2, 0.7, 0.22, clothDark, -0.13, 0.35, 0);          // 裤腿 = 衣服色（压暗）
@@ -9686,7 +9698,7 @@ function buildLookPreview() {
   lookScene.add(dl);
   const cave = buildCaveBackdrop(lookScene);          // 矿洞背景（含两支火把）
   lookTorches = cave.torches;
-  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth);
+  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth, LOOK.hair, LOOK.hs);
   lookAv.rotation.y = Math.PI;                       // 模型正面朝 -Z，转 180° 才正对镜头
   lookScene.add(lookAv);
   const t0 = performance.now();
@@ -9704,7 +9716,7 @@ function buildLookPreview() {
 function refreshLookAv() {
   if (!lookScene || !lookAv) return;
   lookScene.remove(lookAv);
-  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth);
+  lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth, LOOK.hair, LOOK.hs);
   lookAv.rotation.y = Math.PI;
   lookScene.add(lookAv);
 }
@@ -9723,6 +9735,11 @@ function renderLookSwatches() {
   };
   mk($('lookSkin'), SKIN_COLORS, 'skin');
   mk($('lookCloth'), CLOTH_COLORS, 'cloth');
+  mk($('lookHair'), HAIR_COLORS, 'hair');
+  for (const b of document.querySelectorAll('#lookStyle .stbtn')) {     // 发型：短发 / 长发
+    b.classList.toggle('on', (b.dataset.hs | 0) === LOOK.hs);
+    b.onclick = () => { LOOK.hs = b.dataset.hs | 0; saveLook(); renderLookSwatches(); refreshLookAv(); };
+  }
 }
 function openLook() {
   loadLook();
@@ -10638,13 +10655,22 @@ window.GAME = {
     // 眼睛：细长的两条（比原来更窄更高，眼距略收）—— 看起来更「凶」也更像像素游戏的眼睛
     const eyeL = box(0.10, 0.028, 0.02, 0xf2f2f2); eyeL.position.set(-0.085, 0.085, -0.222); head.add(eyeL);
     const eyeR = box(0.10, 0.028, 0.02, 0xf2f2f2); eyeR.position.set(0.085, 0.085, -0.222); head.add(eyeR);
-    // 头发：顶盖 + 后脑 + 两侧 + 额前刘海（都挂在 head 上，转头时跟着转）
-    const HAIR = 0x33251a;
-    const hairTop = box(0.46, 0.12, 0.46, HAIR); hairTop.position.set(0, 0.235, 0); head.add(hairTop);
-    const hairBack = box(0.46, 0.30, 0.09, HAIR); hairBack.position.set(0, 0.01, 0.20); head.add(hairBack);
-    const hairL = box(0.07, 0.24, 0.44, HAIR); hairL.position.set(-0.215, 0.03, 0); head.add(hairL);
-    const hairR = box(0.07, 0.24, 0.44, HAIR); hairR.position.set(0.215, 0.03, 0); head.add(hairR);
-    const bangs = box(0.42, 0.07, 0.07, HAIR); bangs.position.set(0, 0.175, -0.204); head.add(bangs);
+    // 头发：发色 + 发型都由玩家选（挂在 head 上，转头时跟着转）
+    const HAIR = (typeof lk.hr === 'number' && lk.hr > 0) ? lk.hr : 0x33251a;
+    const hs = lk.hs | 0;
+    if (HAIR) {
+      const hT = box(0.46, 0.12, 0.46, HAIR); hT.position.set(0, 0.235, 0); head.add(hT);          // 顶盖
+      const hB = box(0.42, 0.07, 0.07, HAIR); hB.position.set(0, 0.175, -0.204); head.add(hB);     // 刘海
+      if (hs === 1) {                                                                            // 长发
+        const hBack = box(0.46, 0.54, 0.10, HAIR); hBack.position.set(0, -0.08, 0.21); head.add(hBack);
+        const hL = box(0.08, 0.42, 0.44, HAIR); hL.position.set(-0.215, -0.06, 0); head.add(hL);
+        const hR = box(0.08, 0.42, 0.44, HAIR); hR.position.set(0.215, -0.06, 0); head.add(hR);
+      } else {                                                                                    // 短发
+        const hBack = box(0.46, 0.30, 0.09, HAIR); hBack.position.set(0, 0.01, 0.20); head.add(hBack);
+        const hL = box(0.07, 0.24, 0.44, HAIR); hL.position.set(-0.215, 0.03, 0); head.add(hL);
+        const hR = box(0.07, 0.24, 0.44, HAIR); hR.position.set(0.215, 0.03, 0); head.add(hR);
+      }
+    }
     // ★ 四肢挂在一个「关节」Group 上（肩 / 髋），绕关节转才是摆臂甩腿；
     //   以前直接把方块摆在这里转的是方块自己的中心，看起来像风车。
     const joint = (x, y, w, hh, d, c) => {
@@ -10682,7 +10708,7 @@ window.GAME = {
   function ensureRemote(p) {
     let r = net.remotes.get(p.i);
     if (!r) {
-      r = { obj: avatar(p.i, p.n, { sk: p.sk, cl: p.cl }), name: p.n || p.i };
+      r = { obj: avatar(p.i, p.n, { sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs }), name: p.n || p.i };
       r.obj.position.set(p.x, p.y, p.z);
       r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
       net.remotes.set(p.i, r);
@@ -11084,7 +11110,7 @@ window.GAME = {
     net.ws = ws;
     ws.onopen = () => {
       net.connected = true; net.err = '';
-      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq, sk: LOOK.skin, cl: LOOK.cloth }));
+      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs }));
     };
     ws.onclose = () => { net.connected = false; setTimeout(() => { if (net.active) connect(); }, 1500); };
     net.reconnect = () => { try { ws.close(); } catch (e) {} };
@@ -11159,7 +11185,7 @@ window.GAME = {
     if (!IS_BRIDGE && net.sendT >= 0.1 && net.ws && net.ws.readyState === 1) {
       net.sendT = 0;
       try {
-        net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), f: net.myFlags(), sk: LOOK.skin, cl: LOOK.cloth }));
+        net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), f: net.myFlags(), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs }));
       } catch (e) {}
     }
     // ── 公网轮询模式：一个请求同时上传位置/编辑、取回消息（~8Hz）
@@ -11185,7 +11211,7 @@ window.GAME = {
         const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         const toT = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (e) {} }, 2000);
         fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, signal: ctl ? ctl.signal : undefined, body: JSON.stringify(Object.assign({
-          a: 'sync', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth,
+          a: 'sync', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs,
           x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2),
           w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), edits: pend, f: net.myFlags(),
         }, net.isHost ? { mobs: net.mobCache || [], drops: net.dropCache || [] } : {})) }).then(r => r.json()).then(d => {
@@ -11379,8 +11405,8 @@ window.GAME = {
   fetch(EP, {
     method: 'POST', headers: { 'content-type': 'text/plain' },
     body: JSON.stringify(isHostMode
-      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, seed: hostSeed, x: 0, z: 0, r: 128 }
-      : { a: 'join', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, x: 0, z: 0, r: 128 }),
+      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, seed: hostSeed, x: 0, z: 0, r: 128 }
+      : { a: 'join', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, x: 0, z: 0, r: 128 }),
   }).then(r => r.json()).then(d => {
     // 进服后把 URL 洗干净：否则「世界」按钮 reload / 刷新 / iOS 恢复标签页都会再自动 join 一次
     const cleanUrl = () => { try { history.replaceState(null, '', location.pathname); } catch (e) {} };

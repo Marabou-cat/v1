@@ -110,6 +110,10 @@
   .sw.on{border-color:#f5c451;box-shadow:0 0 0 2px #f5c45166,inset 0 2px 0 #ffffff22}
   /* 外观预览画布：全局 canvas 规则是「铺满全屏」，这里必须改回普通元素 */
   #lookCv{position:static;inset:auto;width:200px;height:250px;image-rendering:auto}
+  .strow{display:flex;gap:8px}
+  .stbtn{padding:7px 16px;border-radius:6px;border:2px solid #33475e;background:#1b2735;color:#cfe0f0;
+    font-family:inherit;font-size:12px;cursor:pointer;letter-spacing:2px}
+  .stbtn.on{border-color:#f5c451;background:#2a3546;color:#f7e2b0;box-shadow:0 0 0 2px #f5c45166}
   /* ---------- inventory + crafting ---------- */
   #panel{z-index:18}
   #panel .card{width:min(780px,97vw)}
@@ -327,6 +331,13 @@
         <div id="lookSkin" class="swrow"></div>
         <div class="setsec">衣服颜色</div>
         <div id="lookCloth" class="swrow"></div>
+        <div class="setsec">发色</div>
+        <div id="lookHair" class="swrow"></div>
+        <div class="setsec">发型</div>
+        <div id="lookStyle" class="strow">
+          <button class="stbtn" data-hs="0">短发</button>
+          <button class="stbtn" data-hs="1">长发</button>
+        </div>
         <p style="color:#8ea3ba;font-size:11px;margin:12px 0 0;line-height:1.7">
           没设昵称的玩家自动叫 <b style="color:#f5c451" id="lookAutoName">player12345</b>。<br>
           改完立刻生效，进行中的联机房间会在下一次同步时带出新外观。
@@ -452,6 +463,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=180"></script>
+<script type="module" src="./js/blockwild.js?v=181"></script>
 </body>
 </html>

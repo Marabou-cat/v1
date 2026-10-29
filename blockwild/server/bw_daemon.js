@@ -193,7 +193,7 @@ function playersPublic(w) {
   return Array.from(w.players.values()).map(p => ({
     i: p.id, n: p.name, x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2),
     w: +p.yaw.toFixed(2), q: +p.pitch.toFixed(2),
-    sk: p.sk | 0, cl: p.cl | 0,                   // 外观：肤色 / 衣服颜色（0 = 没设置过）
+    sk: p.sk | 0, cl: p.cl | 0, hr: p.hr | 0, hs: p.hs | 0,   // 外观：肤色/衣服/发色/发型（0 = 没设置过）
     f: p.f || 0,                                 // 状态位：1=挖掘 2=疾跑 4=腾空（远端形象靠它做动画）
   }));
 }
@@ -247,7 +247,7 @@ function join(req, res) {
     id, name,
     x: keep ? +keep.x || 0 : 0, y: keep ? +keep.y || 0 : 0, z: keep ? +keep.z || 0 : 0,
     yaw: keep ? +keep.w || 0 : 0, pitch: keep ? +keep.q || 0 : 0,
-    sk: Number(req.sk) || 0, cl: Number(req.cl) || 0,      // 外观（肤色/衣服）
+    sk: Number(req.sk) || 0, cl: Number(req.cl) || 0, hr: Number(req.hr) || 0, hs: Number(req.hs) || 0,  // 外观
     at: Date.now(), ws: null, editT: 0, editN: 0,
   });
   // ★ 兴趣管理：进服只发玩家附近的改动（默认 ±128 格），不是整张表。
@@ -386,12 +386,12 @@ const server = http.createServer((req, res) => {
         if (!p) {
           if (w.players.size >= MAX_PLAYERS) return json(res, { ok: false, e: 'full' });
           p = { id: pid, name: String(a.name || 'Player').slice(0, 14), x: 0, y: 0, z: 0,
-                yaw: 0, pitch: 0, sk: Number(a.sk) || 0, cl: Number(a.cl) || 0,
+                yaw: 0, pitch: 0, sk: Number(a.sk) || 0, cl: Number(a.cl) || 0, hr: Number(a.hr) || 0, hs: Number(a.hs) || 0,
                 at: Date.now(), ws: null, editT: 0, editN: 0, out: [] };
           w.players.set(pid, p);
         }
         p.at = Date.now();
-        if (typeof a.sk === 'number') { p.sk = a.sk | 0; p.cl = a.cl | 0; }   // 外观随同步更新
+        if (typeof a.sk === 'number') { p.sk = a.sk | 0; p.cl = a.cl | 0; p.hr = a.hr | 0; p.hs = a.hs | 0; }   // 外观随同步更新
         if (typeof a.x === 'number') {
           p.x = +a.x || 0; p.y = +a.y || 0; p.z = +a.z || 0;
           p.yaw = +a.w || 0; p.pitch = +a.q || 0;
@@ -569,7 +569,7 @@ function onMsg(socket, m) {
         return;
       }
       p = { id: String(m.id), name: String(m.name || 'Player').slice(0, 14), x: 0, y: 0, z: 0,
-            yaw: 0, pitch: 0, sk: Number(m.sk) || 0, cl: Number(m.cl) || 0,
+            yaw: 0, pitch: 0, sk: Number(m.sk) || 0, cl: Number(m.cl) || 0, hr: Number(m.hr) || 0, hs: Number(m.hs) || 0,
             at: Date.now(), ws: null, editT: 0, editN: 0 };
       w.players.set(p.id, p);
       console.log(`[bw] rejoin ${w.code} ${p.id} players=${w.players.size}`);
@@ -591,7 +591,7 @@ function onMsg(socket, m) {
     p.x = +m.x || 0; p.y = +m.y || 0; p.z = +m.z || 0;
     p.yaw = +m.w || 0; p.pitch = +m.q || 0;
     p.f = m.f | 0;                            // 挖掘/疾跑/腾空 状态位 → 广播给其他人做动作
-    if (typeof m.sk === 'number') { p.sk = m.sk | 0; p.cl = m.cl | 0; }   // 外观随位置包更新（改色立刻可见）
+    if (typeof m.sk === 'number') { p.sk = m.sk | 0; p.cl = m.cl | 0; p.hr = m.hr | 0; p.hs = m.hs | 0; }   // 外观随位置包更新
     if (Date.now() - (p.posMark || 0) > 10000) { p.posMark = Date.now(); w.dirty = true; }
   } else if (m.t === 'act') {                 // 一次性动作（挥砍/放置）：转发给同房间其他人
     broadcast(w, { t: 'act', i: p.id, a: String(m.act || '').slice(0, 8) }, p.id);
