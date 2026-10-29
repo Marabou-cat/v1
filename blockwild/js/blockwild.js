@@ -4123,8 +4123,15 @@ function afterSlotChange() {
   saveSoon();
 }
 // 点一下拿起，再点一下放下 / 合并 / 交换 —— 背包和箱子共用这套逻辑
-function slotClick(arr, i) {
+function slotClick(arr, i, ev) {
   const cur = arr[i];
+  // 创造模式：Shift + 点格子 = 直接删掉这一格（不用先拿到手上再丢）
+  if (isCreative() && ev && ev.shiftKey && cur) {
+    arr[i] = null;
+    toast(`已删除 ${nameOf(cur.id)} ×${cur.n}`, 1.2);
+    afterSlotChange();
+    return;
+  }
   if (!cursor) {
     if (cur) { cursor = cur; arr[i] = null; }
     else return;
@@ -4151,7 +4158,7 @@ function renderGrid(el, arr, handler) {
       d.title = nameOf(s.id) + (ITEMS[s.id] && ITEMS[s.id].kind === 'gun'
         ? `（电量 ${s.c === undefined ? (ITEMS[s.id].cap || 8) : s.c}/${ITEMS[s.id].cap || 8}）` : '');
     }
-    d.onclick = () => handler(i);
+    d.onclick = (ev) => handler(i, ev);
     el.appendChild(d);
   }
 }
@@ -4170,7 +4177,31 @@ function updateCursorEl(e) {                    // 手上拿的东西跟着鼠�
   else if (!cursorEl.style.left) { cursorEl.style.left = (innerWidth / 2) + 'px'; cursorEl.style.top = (innerHeight / 2) + 'px'; }
 }
 addEventListener('mousemove', (e) => { if (cursorEl && cursor) updateCursorEl(e); });
-function cursorText() { return cursor ? `手上：${nameOf(cursor.id)} ×${cursor.n}` : '手上：空（点物品拿起，再点另一格放下/交换）'; }
+function cursorText() {
+  if (!cursor) return '手上：空（点物品拿起，再点另一格放下/交换）';
+  return `手上：${nameOf(cursor.id)} ×${cursor.n}（点面板外 = 丢到地上${isCreative() ? '，Shift+点格子 = 直接删除' : ''}）`;
+}
+function dropCursorToWorld() {                     // 鼠标上的东西 → 变成掉落物，朝面向方向扔出去
+  if (!cursor) return false;
+  const id = cursor.id, n = cursor.n;
+  cursor = null;
+  const d = cameraDir();
+  const len = Math.hypot(d.x, d.z) || 1;
+  const ux = d.x / len, uz = d.z / len;
+  // 扔到 3 格外，免得被自己的吸附范围（2 格）立刻捡回来
+  spawnDrop(id, n, player.p.x + ux * 1.2, player.p.y + 1.25, player.p.z + uz * 1.2,
+    { pop: 2.0, vx: ux * 3.4, vz: uz * 3.4 });
+  toast(`已丢出 ${nameOf(id)} ×${n}`, 1.4);
+  renderInventoryPanel(); renderHotbar(); refreshHeld(); saveSoon();
+  return true;
+}
+// 点「卡片」以外的地方（遮罩、空白）→ 手上的东西直接丢出去
+document.addEventListener('pointerdown', (e) => {
+  if (!cursor) return;
+  const t = e.target;
+  if (!t || t === cursorEl || (t.closest && t.closest('.card'))) return;   // 卡片内的格子/按钮照常交互
+  dropCursorToWorld();
+}, true);
 function renderChest() {
   if (!openChestPos) return;
   const cs = chestSlots(openChestPos.x, openChestPos.y, openChestPos.z);
@@ -5888,7 +5919,8 @@ function spawnDrop(id, n, x, y, z, opts = {}) {
   const d = {
     id, n, t: 0, c: opts.c, spin: Math.random() * 6, nid: opts.nid || (++dropSeq),
     p: new THREE.Vector3(x, y, z),
-    v: new THREE.Vector3((Math.random() - 0.5) * 1.4, opts.pop || 2.4, (Math.random() - 0.5) * 1.4),
+    v: new THREE.Vector3(opts.vx !== undefined ? opts.vx : (Math.random() - 0.5) * 1.4, opts.pop || 2.4,
+                        opts.vz !== undefined ? opts.vz : (Math.random() - 0.5) * 1.4),
     obj: mesh, thin: !BLOCKS[id],
   };
   mesh.position.copy(d.p);
@@ -6089,8 +6121,18 @@ function renderCreativeGrid() {
     const d = document.createElement('div');
     d.className = 'cell';
     d.innerHTML = `<img src="${iconURL(id)}" alt="">`;
-    d.title = nameOf(id) + '（点一下拿一组）';
-    d.onclick = () => { addItem(id, 64); renderHotbar(); renderInventoryPanel(); saveSoon(); };
+    d.title = nameOf(id) + '（点一下拿在手上）';
+    d.onclick = () => {
+      const it2 = ITEMS[id];
+      const stack = (it2 && (it2.dur || it2.kind === 'gun' || it2.kind === 'armor')) ? 1 : 64;   // 武器/工具/护甲只拿 1 件
+      if (cursor) {                                   // 手上已有东西 → 直接丢弃，不塞进背包
+        toast(`已丢弃 ${nameOf(cursor.id)} ×${cursor.n}`, 1.2);
+        cursor = null;
+      }
+      cursor = { id, n: stack };
+      renderInventoryPanel();
+      renderHotbar();
+    };
     box.appendChild(d);
   }
 }
@@ -6448,6 +6490,7 @@ function closeCharger() {
   syncPointerLock();
 }
 function openPanel(open) {
+  if (!open && cursor) dropCursorToWorld();          // 关背包时手上还有东西 → 丢到地上，别卡在虚空光标里
   if (open && openChestPos) closeChest();
   if (open && furnaceOpen) closeFurnace();
   if (open && chargerOpen) closeCharger();
@@ -8933,6 +8976,13 @@ window.GAME = {
     mapDelMark: (x, z) => mmDelMark('custom:' + x + ',' + z),
     mapBig: () => ({ open: MM_BIG.open, zoom: MM_BIG.zoom, acrossBlocks: MM_BIGZOOM[MM_BIG.zoom] * MM_CELL, cx: Math.round(MM_BIG.x), cz: Math.round(MM_BIG.z),
                      rows: $('mapMarks') ? $('mapMarks').children.length : -1, canvas: $('mapCv') ? [$('mapCv').width, $('mapCv').height] : null }),
+    openBag: () => { openPanel(true); return $('creativeGrid').children.length; },
+    cur: () => (cursor ? { id: cursor.id, name: nameOf(cursor.id), n: cursor.n } : null),
+    pickCreative: (id) => { const sec = $('creativeGrid'); if (!sec) return null; const cells = sec.children; const ids = [...Object.keys(BLOCKS).map(Number), ...Object.keys(ITEMS).map(Number)].filter(i => isItem(i)); const k = ids.indexOf(+id); if (k < 0) return null; cells[k].click(); return { cursor: cursor ? { id: cursor.id, n: cursor.n } : null }; },
+    invCount: () => inv.filter(Boolean).length,
+    dropCursor: () => dropCursorToWorld(),
+    slotShift: (i) => { slotClick(inv, i, { shiftKey: true }); return { slot: inv[i], used: inv.filter(Boolean).length }; },
+    dropsInfo: () => drops.map(d => ({ id: d.id, n: d.n, p: [+d.p.x.toFixed(1), +d.p.y.toFixed(1), +d.p.z.toFixed(1)], dist: +Math.hypot(d.p.x - player.p.x, d.p.z - player.p.z).toFixed(1) })),
     mapDim: () => ({ dim: DIM, off: mmOff(), cells: MM.cells.size, marks: MM.marks.size, coords: [+(player.p.x - mmOff()).toFixed(0), +(player.p.z - mmOff()).toFixed(0)] }),
     mapPan: (dx, dz) => { MM_BIG.x += dx || 0; MM_BIG.z += dz || 0; mmBigDraw(); return { cx: Math.round(MM_BIG.x), cz: Math.round(MM_BIG.z) }; },
     mapBigZoom: (d) => { mmBigZoom(d || 0); return { zoom: MM_BIG.zoom, acrossBlocks: MM_BIGZOOM[MM_BIG.zoom] * MM_CELL }; },
