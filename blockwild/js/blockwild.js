@@ -9902,6 +9902,40 @@ const SKIN_UV = {
   legL: { w: 4, h: 12, d: 4, top: [20, 48, 4, 4], bottom: [24, 48, 4, 4], right: [16, 52, 4, 12], front: [20, 52, 4, 12], left: [24, 52, 4, 12], back: [28, 52, 4, 12] },
 };
 
+/* MC 64×64 第二层 UV（帽子 / 外套 / 袖子 / 裤腿） */
+const SKIN_UV2 = {
+  head: { top: [40, 0, 8, 8], bottom: [48, 0, 8, 8], right: [32, 8, 8, 8], front: [40, 8, 8, 8], left: [48, 8, 8, 8], back: [56, 8, 8, 8] },
+  body: { top: [20, 32, 8, 4], bottom: [28, 32, 8, 4], right: [16, 36, 4, 12], front: [20, 36, 8, 12], left: [28, 36, 4, 12], back: [32, 36, 8, 12] },
+  armR: { top: [44, 32, 4, 4], bottom: [48, 32, 4, 4], right: [40, 36, 4, 12], front: [44, 36, 4, 12], left: [48, 36, 4, 12], back: [52, 36, 4, 12] },
+  armL: { top: [52, 48, 4, 4], bottom: [56, 48, 4, 4], right: [48, 52, 4, 12], front: [52, 52, 4, 12], left: [56, 52, 4, 12], back: [60, 52, 4, 12] },
+  legR: { top: [4, 32, 4, 4], bottom: [8, 32, 4, 4], right: [0, 36, 4, 12], front: [4, 36, 4, 12], left: [8, 36, 4, 12], back: [12, 36, 4, 12] },
+  legL: { top: [4, 48, 4, 4], bottom: [8, 48, 4, 4], right: [0, 52, 4, 12], front: [4, 52, 4, 12], left: [8, 52, 4, 12], back: [12, 52, 4, 12] },
+};
+const skinOverlayCache = new Map();
+/* 这张皮肤的外层有没有内容？（程序化皮肤没有 → 直接跳过 36 个面，省性能） */
+function skinHasOverlay(src) {
+  if (skinOverlayCache.has(src)) return skinOverlayCache.get(src);
+  let has = false;
+  try {
+    const tex = skinTexture(src);
+    const img = tex && tex.image;
+    if (!img || img.width !== 64) return false;          // 还没解码：先按没有外层处理，但**不缓存**
+    if (img && img.width) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+      const g = cv.getContext('2d');
+      g.drawImage(img, 0, 0, 64, 64);
+      const rects = [[32, 0, 32, 16], [16, 32, 24, 16], [40, 32, 16, 16], [48, 48, 16, 16], [0, 32, 16, 32]];
+      for (const [x, y, w, h] of rects) {
+        const d = g.getImageData(x, y, w, h).data;
+        for (let i = 3; i < d.length; i += 4) { if (d[i] > 8) { has = true; break; } }
+        if (has) break;
+      }
+    }
+  } catch (e) { has = false; }
+  skinOverlayCache.set(src, has);
+  return has;
+}
+
 /* 每个部位 = 一个 BoxGeometry + 6 个材质（每面贴皮肤图里的一块矩形）
    这条路和方块贴图完全一样（blockFaceMat 同款：clone 纹理 + offset/repeat），
    在这个渲染器里百分百能画出来。 */
@@ -9964,6 +9998,17 @@ function genSkinCanvas(skin, cloth, hair, hs) {
   return cv;
 }
 
+const skinImgCache = new Map();      // dataURL → 已解码的 Image
+function preloadSkin(dataUrl) {
+  if (skinImgCache.has(dataUrl)) return Promise.resolve(skinImgCache.get(dataUrl));
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => { skinImgCache.set(dataUrl, img); res(img); };
+    img.onerror = () => rej(new Error('skin decode'));
+    img.src = dataUrl;
+  });
+}
+
 /* 皮肤源 → 纹理（缓存） */
 function skinTexture(src) {
   if (src === 'gen') src = 'gen:' + LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs;
@@ -9974,8 +10019,8 @@ function skinTexture(src) {
     tex = new THREE.Texture(skinCustom);
     tex.needsUpdate = true;
   } else if (typeof src === 'string' && src.indexOf('data:image') === 0) {
-    const img = new Image();
-    img.src = src;
+    let img = skinImgCache.get(src);
+    if (!img) { img = new Image(); img.src = src; }
     tex = new THREE.Texture(img);
     tex.needsUpdate = true;
   } else {
@@ -9993,6 +10038,7 @@ function skinTexture(src) {
   skinTexCache.set(src, tex);
   return tex;
 }
+function skinPngData() { try { return localStorage.getItem(SKIN_PNG_KEY) || ''; } catch (e) { return ''; } }
 function skinHash(src) {
   if (src !== 'custom' && !(typeof src === 'string' && src.indexOf('data:image') === 0))
     return 'gen:' + LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs;
@@ -10007,31 +10053,40 @@ function buildSkinAvatar(opts) {
   const U = SKIN_PX;
   const key = (src === 'gen') ? ('gen:' + LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs) : src;
   const base = skinTexture(key);
-  const faceMat = (uvName, f) => {
-    const [x, y, w, h] = SKIN_UV[uvName][f];
+  const withOverlay = skinHasOverlay(key);
+  const faceMat = (table, uvName, f, overlay) => {
+    const [x, y, w, h] = table[uvName][f];
     const t = base.clone();
     t.needsUpdate = true;
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
     t.offset.set(x / SKIN_SIZE, 1 - (y + h) / SKIN_SIZE);
     t.repeat.set(w / SKIN_SIZE, h / SKIN_SIZE);
     t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
-    return new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide });
+    const m = new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide, transparent: true });
+    if (overlay) { m.alphaTest = 0.05; m.depthWrite = false; }   // 外层：半透明像素也画
+    else { m.alphaTest = 0.5; }                                  // 基础层：透明像素直接丢掉（不会变黑块）
+    return m;
   };
-  /* 一个部位 = 6 张单面贴图（和方块同一个渲染路径，稳） */
+  /* 一个部位 = 6 张单面贴图（和方块同一条渲染路径）；PNG 有外层就再叠 6 张 */
   const part = (uvName, pw, ph, pd) => {
     const grp = new THREE.Group();
-    const W = pw * U, H = ph * U, D = pd * U;
-    const mkPlane = (w, h, px2, py2, pz2, rx, ry, f) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), faceMat(uvName, f));
-      m.position.set(px2, py2, pz2); m.rotation.set(rx, ry, 0); m.castShadow = true;
-      grp.add(m); return m;
+    const build = (table, grow, overlay) => {
+      const W = pw * U + grow * 2, H = ph * U + grow * 2, D = pd * U + grow * 2;
+      const mkPlane = (w, h, px2, py2, pz2, rx, ry, f) => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), faceMat(table, uvName, f, overlay));
+        m.position.set(px2, py2, pz2); m.rotation.set(rx, ry, 0);
+        if (!overlay) m.castShadow = true;
+        grp.add(m);
+      };
+      mkPlane(W, H, 0, 0, -D / 2, 0, Math.PI, 'front');
+      mkPlane(W, H, 0, 0, D / 2, 0, 0, 'back');
+      mkPlane(D, H, -W / 2, 0, 0, 0, -Math.PI / 2, 'left');
+      mkPlane(D, H, W / 2, 0, 0, 0, Math.PI / 2, 'right');
+      mkPlane(W, D, 0, H / 2, 0, -Math.PI / 2, 0, 'top');
+      mkPlane(W, D, 0, -H / 2, 0, Math.PI / 2, 0, 'bottom');
     };
-    mkPlane(W, H, 0, 0, -D / 2, 0, Math.PI, 'front');      // -Z 正面（模型朝 -Z）
-    mkPlane(W, H, 0, 0, D / 2, 0, 0, 'back');              // +Z 背面
-    mkPlane(D, H, -W / 2, 0, 0, 0, -Math.PI / 2, 'left');  // -X
-    mkPlane(D, H, W / 2, 0, 0, 0, Math.PI / 2, 'right');   // +X
-    mkPlane(W, D, 0, H / 2, 0, -Math.PI / 2, 0, 'top');    // +Y
-    mkPlane(W, D, 0, -H / 2, 0, Math.PI / 2, 0, 'bottom'); // -Y
+    build(SKIN_UV, 0, false);
+    if (withOverlay) build(SKIN_UV2, U * 0.5, true);            // 外层往外撑半像素
     return grp;
   };
   const g = new THREE.Group();
@@ -10039,18 +10094,18 @@ function buildSkinAvatar(opts) {
   const headPivot = new THREE.Group(); headPivot.position.y = 24 * U; g.add(headPivot);
   const headMesh = part('head', 8, 8, 8); headMesh.position.y = 4 * U; headPivot.add(headMesh);
   const face = new THREE.Object3D(); face.position.set(0, 4 * U, -4.2 * U); headPivot.add(face);
-  const mkArm = (sx) => {
+  const mkArm = (sx, uvName) => {
     const pv = new THREE.Group(); pv.position.set(sx * 6 * U, 24 * U, 0);
-    const m = part('armR', 4, 12, 4); m.position.y = -6 * U; pv.add(m);
+    const m = part(uvName, 4, 12, 4); m.position.y = -6 * U; pv.add(m);
     g.add(pv); return pv;
   };
-  const armR = mkArm(1), armL = mkArm(-1);
-  const mkLeg = (sx) => {
+  const armR = mkArm(1, 'armR'), armL = mkArm(-1, 'armL');
+  const mkLeg = (sx, uvName) => {
     const pv = new THREE.Group(); pv.position.set(sx * 2 * U, 12 * U, 0);
-    const m = part('legR', 4, 12, 4); m.position.y = -6 * U; pv.add(m);
+    const m = part(uvName, 4, 12, 4); m.position.y = -6 * U; pv.add(m);
     g.add(pv); return pv;
   };
-  const legR = mkLeg(1), legL = mkLeg(-1);
+  const legR = mkLeg(1, 'legR'), legL = mkLeg(-1, 'legL');
   return { g, torso, head: headPivot, face, armL, armR, foreR: armR, legL, legR };
 }
 
@@ -11173,10 +11228,47 @@ window.GAME = {
     scene.add(g);
     return g;
   }
+  /* 皮肤：PNG 皮肤按哈希缓存，没见过就向服务端要一次（快照里只带哈希，不撑包） */
+  const netSkins = new Map();      // png key → dataURL
+  const netSkinAsk = new Set();
+  function remoteSkinSrcOf(p) {
+    const k = String(p.skn || '');
+    if (k.indexOf('png:') === 0) return netSkins.get(k) || null;
+    if (k.indexOf('gen:') === 0) return k;
+    return 'gen:' + (p.sk | 0) + ':' + (p.cl | 0) + ':' + (p.hr | 0) + ':' + (p.hs | 0);
+  }
+  function rebuildRemoteSkin(id, r) {
+    const ud = r.obj.userData || {};
+    const pp = { i: id, n: r.name, x: r.obj.position.x, y: r.obj.position.y, z: r.obj.position.z, w: ud.yaw || 0,
+      sk: r.sk, cl: r.cl, hr: r.hr, hs: r.hs, skn: r.skn };
+    try { scene.remove(r.obj); } catch (e) {}
+    net.remotes.delete(id);
+    try { ensureRemote(pp); } catch (e) {}
+  }
+  function askSkin(p) {
+    const k = String(p.skn || '');
+    if (k.indexOf('png:') !== 0 || netSkins.has(k) || netSkinAsk.has(k)) return;
+    netSkinAsk.add(k);
+    try {
+      apiCall({ a: 'getskin', hash: k }).then((d) => {
+        netSkinAsk.delete(k);
+        if (d && d.ok && d.skd) {
+          preloadSkin(d.skd).then(() => {
+            skinTexCache.delete(k); skinOverlayCache.delete(k);
+            netSkins.set(k, d.skd);
+            for (const [id, r] of Array.from(net.remotes)) if (r.skn === k) rebuildRemoteSkin(id, r);
+          }).catch(() => {});
+        }
+      }).catch(() => netSkinAsk.delete(k));
+    } catch (e) { netSkinAsk.delete(k); }
+  }
   function ensureRemote(p) {
     let r = net.remotes.get(p.i);
     if (!r) {
-      r = { obj: avatar(p.i, p.n, { sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs, skd: p.skd, skn: p.skn }), name: p.n || p.i };
+      const skSrc = remoteSkinSrcOf(p);
+      r = { obj: avatar(p.i, p.n, { sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs, skd: skSrc }), name: p.n || p.i,
+            sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs, skn: p.skn };
+      if (skSrc === null) askSkin(p);
       r.obj.position.set(p.x, p.y, p.z);
       r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
       net.remotes.set(p.i, r);
@@ -11578,7 +11670,7 @@ window.GAME = {
     net.ws = ws;
     ws.onopen = () => {
       net.connected = true; net.err = '';
-      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs }));
+      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : '') }));
     };
     ws.onclose = () => { net.connected = false; setTimeout(() => { if (net.active) connect(); }, 1500); };
     net.reconnect = () => { try { ws.close(); } catch (e) {} };
@@ -11679,7 +11771,7 @@ window.GAME = {
         const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         const toT = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (e) {} }, 2000);
         fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, signal: ctl ? ctl.signal : undefined, body: JSON.stringify(Object.assign({
-          a: 'sync', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs,
+          a: 'sync', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc),
           x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2),
           w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), edits: pend, f: net.myFlags(),
         }, net.isHost ? { mobs: net.mobCache || [], drops: net.dropCache || [] } : {})) }).then(r => r.json()).then(d => {
@@ -11873,8 +11965,8 @@ window.GAME = {
   fetch(EP, {
     method: 'POST', headers: { 'content-type': 'text/plain' },
     body: JSON.stringify(isHostMode
-      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, seed: hostSeed, x: 0, z: 0, r: 128 }
-      : { a: 'join', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, x: 0, z: 0, r: 128 }),
+      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : ''), seed: hostSeed, x: 0, z: 0, r: 128 }
+      : { a: 'join', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : ''), x: 0, z: 0, r: 128 }),
   }).then(r => r.json()).then(d => {
     // 进服后把 URL 洗干净：否则「世界」按钮 reload / 刷新 / iOS 恢复标签页都会再自动 join 一次
     const cleanUrl = () => { try { history.replaceState(null, '', location.pathname); } catch (e) {} };

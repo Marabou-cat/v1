@@ -189,11 +189,41 @@ function broadcast(w, msg, exceptId) {
     }
   }
 }
+/* ---------------- 皮肤仓库：png 皮肤按哈希存，快照里只带哈希 ----------------
+ * 客户端 join/hello 时带一次 skd（dataURL），这里入库存盘；别人在快照里看到
+ * 不认识的 skn 就发 {a:'getskin', hash} 取一次，之后本地缓存。 */
+const SKINS = new Map();
+const SKINS_FILE = path.join(DATA, 'skins.json');
+try {
+  if (fs.existsSync(SKINS_FILE)) {
+    const o = JSON.parse(fs.readFileSync(SKINS_FILE, 'utf8'));
+    for (const k of Object.keys(o)) SKINS.set(k, o[k]);
+    console.log(`[bw] skins loaded ${SKINS.size}`);
+  }
+} catch (e) { console.log('[bw] skins load fail', e.message); }
+let skinSaveT = 0;
+function saveSkins() {
+  clearTimeout(skinSaveT);
+  skinSaveT = setTimeout(() => {
+    try {
+      const o = {};
+      for (const [k, v] of SKINS) o[k] = v;
+      fs.writeFileSync(SKINS_FILE, JSON.stringify(o));
+    } catch (e) {}
+  }, 800);
+}
+function takeSkin(req) {                       // 收一张皮肤（哈希相同就是同一张，幂等）
+  const k = String(req.skn || ''), d = String(req.skd || '');
+  if (k.indexOf('png:') !== 0 || d.indexOf('data:image') !== 0 || d.length > 400000) return;
+  if (!SKINS.has(k)) { SKINS.set(k, d); saveSkins(); console.log(`[bw] skin+ ${k} ${d.length}b`); }
+}
+
 function playersPublic(w) {
   return Array.from(w.players.values()).map(p => ({
     i: p.id, n: p.name, x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2),
     w: +p.yaw.toFixed(2), q: +p.pitch.toFixed(2),
     sk: p.sk | 0, cl: p.cl | 0, hr: p.hr | 0, hs: p.hs | 0,   // 外观：肤色/衣服/发色/发型（0 = 没设置过）
+    skn: p.skn || '',                                          // 皮肤 key（png:xxx 时需要再取一次数据）
     f: p.f || 0,                                 // 状态位：1=挖掘 2=疾跑 4=腾空（远端形象靠它做动画）
   }));
 }
@@ -247,7 +277,8 @@ function join(req, res) {
     id, name,
     x: keep ? +keep.x || 0 : 0, y: keep ? +keep.y || 0 : 0, z: keep ? +keep.z || 0 : 0,
     yaw: keep ? +keep.w || 0 : 0, pitch: keep ? +keep.q || 0 : 0,
-    sk: Number(req.sk) || 0, cl: Number(req.cl) || 0, hr: Number(req.hr) || 0, hs: Number(req.hs) || 0,  // 外观
+    sk: Number(req.sk) || 0, cl: Number(req.cl) || 0, hr: Number(req.hr) || 0, hs: Number(req.hs) || 0,
+    skn: String(req.skn || '').slice(0, 40),  // 外观 + 皮肤 key
     at: Date.now(), ws: null, editT: 0, editN: 0,
   });
   // ★ 兴趣管理：进服只发玩家附近的改动（默认 ±128 格），不是整张表。
@@ -317,7 +348,11 @@ const server = http.createServer((req, res) => {
       let a = {};
       try { a = JSON.parse(body || '{}'); } catch (e) { return json(res, { ok: false, e: 'bad_json' }); }
       if (a.a === 'ping') return json(res, { ok: true, t: Date.now() });
-      if (a.a === 'join') return join(a, res);
+      if (a.a === 'getskin') {                   // 取一张 png 皮肤（按哈希，客户端取到就缓存）
+        const k = String(a.hash || '');
+        return json(res, { ok: true, skd: SKINS.get(k) || '' });
+      }
+      if (a.a === 'join') { takeSkin(a); return join(a, res); }
       if (a.a === 'host') return hostWorld(a, res);
       /* ---- 箱子：两个人开同一个箱子必须看到同一批东西 ---- */
       if (a.a === 'chest') {
@@ -392,6 +427,7 @@ const server = http.createServer((req, res) => {
         }
         p.at = Date.now();
         if (typeof a.sk === 'number') { p.sk = a.sk | 0; p.cl = a.cl | 0; p.hr = a.hr | 0; p.hs = a.hs | 0; }   // 外观随同步更新
+        if (a.skn) { p.skn = String(a.skn).slice(0, 40); takeSkin(a); }
         if (typeof a.x === 'number') {
           p.x = +a.x || 0; p.y = +a.y || 0; p.z = +a.z || 0;
           p.yaw = +a.w || 0; p.pitch = +a.q || 0;
@@ -559,6 +595,7 @@ server.on('upgrade', (req, socket) => {
 
 function onMsg(socket, m) {
   if (m.t === 'hello') {                       // 绑定 socket 到玩家
+    takeSkin(m);
     const w = worlds.get(String(m.code || 'W1'));
     let p = w && w.players.get(String(m.id));
     if (!p) {
