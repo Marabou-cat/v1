@@ -7212,6 +7212,13 @@ function syncPointerLock() {
 }
 addEventListener('keydown', e => {
   const k = e.code;
+  if (cmdOpen) {                                   // 指令框开着：键盘交给输入框，Esc 关掉
+    if (k === 'Escape') { e.preventDefault(); closeCmd(); }
+    return;
+  }
+  if ((k === 'KeyT' || k === 'Slash') && started && player.alive && !uiOpen()) {   // T / 打开指令
+    e.preventDefault(); openCmd(k === 'Slash' ? '/' : ''); return;
+  }
   if (captureAction) {                             // 正在改键：吃掉这次按键
     e.preventDefault();
     if (k !== 'Escape') { keymap[captureAction] = k; saveCfg(); toast(`已绑定 ${prettyKey(k)}`, 1.4); }
@@ -8268,7 +8275,7 @@ function updateHUD(dt) {
   const pt = profText(), pf = profFrame();
   const s2 = (DEV || userCfg.probe)
     ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
-      + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 远古废墟 · F5 宝珠守护地</span>`
+      + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 远古废墟 · F5 宝珠守护地 · T 指令</span>`
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
   renderHearts();
@@ -9170,6 +9177,117 @@ $('btnResetKeys').onclick = () => {
   saveCfg(); renderKeyRows();
   toast('键位已恢复默认', 1.6);
 };
+/* ============================================================ 指令（仅创造模式）
+   /tp <x> <y> <z>  传到坐标
+   /tp <玩家名>     传到联机房间里的队友
+   /help            列表
+   入口：右上角「指令 T」按钮，或游戏内按 T（按 / 时光标直接落在输入框里）。 */
+let cmdOpen = false;
+function cmdSay(msg, bad) {
+  toast(msg, bad ? 3 : 2.4);
+  const box = $('cmdLog');
+  if (!box) return;
+  const line = document.createElement('div');
+  line.style.color = bad ? '#ff9b9b' : '#b9cbe1';
+  line.textContent = msg;
+  box.appendChild(line);
+  while (box.childElementCount > 40) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+function cmdPlayerList() {
+  const box = $('cmdPlayers');
+  if (!box) return;
+  const rs = (NET && NET.remotes) ? Array.from(NET.remotes.values()) : [];
+  if (!rs.length) {
+    box.innerHTML = '<span style="color:#6f8aa6">房间里没有其他玩家 —— 联机时点队友名字可以直接传过去</span>';
+    return;
+  }
+  box.innerHTML = '房间里：' + rs.map(r => `<button class="btn" data-tp="${escHtml(r.name)}" style="padding:2px 8px;margin:2px 4px 0 0">${escHtml(r.name)}</button>`).join('')
+    + '<div style="color:#6f8aa6;margin-top:4px">点名字 = 传送到他身边</div>';
+  for (const b of box.querySelectorAll('button[data-tp]')) b.onclick = () => runCmd('/tp ' + b.dataset.tp);
+}
+function openCmd(prefill) {
+  if (!started) { toast('先进世界再用指令', 1.8); return; }
+  cmdOpen = true;
+  const el = $('cmdBox');
+  if (!el) return;
+  el.classList.remove('hide');
+  $('cmdLog').innerHTML = '';
+  $('cmdInput').value = prefill || '';
+  if (document.pointerLockElement) document.exitPointerLock();
+  mineHeld = false; placeHeld = false; dragLook = false;
+  cmdPlayerList();
+  setTimeout(() => { try { $('cmdInput').focus(); } catch (e) {} }, 30);
+}
+function closeCmd() {
+  cmdOpen = false;
+  const el = $('cmdBox');
+  if (el) el.classList.add('hide');
+  if (started) lockPointer();
+}
+function cmdFreeSpot(x, y, z) {                    // 目标点埋在方块里就往上找一格能站的地方
+  let yy = Math.max(2, Math.min(CFG.WH - 4, Math.round(y)));
+  for (let i = 0; i < 48; i++) {
+    if (!isSolid(getBlock(x, yy, z)) && !isSolid(getBlock(x, yy + 1, z))) return yy;
+    yy++;
+  }
+  return Math.min(CFG.WH - 3, yy);
+}
+function cmdTpRaw(x, y, z, label) {
+  if (!isCreative()) { cmdSay('传送只在创造模式可用（这个世界是生存模式）', true); return false; }
+  const bx = Math.floor(x), bz = Math.floor(z);
+  const yy = cmdFreeSpot(bx, y, bz);
+  player.p.set(bx + 0.5, yy, bz + 0.5);
+  player.v.set(0, 0, 0); player.fallFrom = null; camSmoothY = null; player.mineTarget = null;
+  player.mining = 0;
+  cmdSay(`已传送到${label}：${bx} ${yy} ${bz}`);
+  saveSoon();
+  return true;
+}
+function runCmd(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return false;
+  const a = (s.startsWith('/') ? s.slice(1) : s).split(/\s+/);
+  const cmd = (a[0] || '').toLowerCase();
+  if (cmd === 'help' || cmd === '?') {
+    cmdSay('可用指令：/tp <x> <y> <z> 传到坐标 · /tp <玩家名> 传到队友 · /help');
+    return true;
+  }
+  if (cmd === 'tp') {
+    if (a.length === 4) {
+      const x = Number(a[1]), y = Number(a[2]), z = Number(a[3]);
+      if (![x, y, z].every(v => Number.isFinite(v))) { cmdSay('坐标得是数字，例如：/tp 100 80 -200', true); return false; }
+      return cmdTpRaw(x, y, z, '坐标点');
+    }
+    const name = a.slice(1).join(' ').trim();
+    if (!name) { cmdSay('用法：/tp <x> <y> <z>，或者 /tp <玩家名>', true); return false; }
+    const rs = (NET && NET.remotes) ? Array.from(NET.remotes.values()) : [];
+    const low = name.toLowerCase();
+    const hit = rs.find(r => String(r.name).toLowerCase() === low) || rs.find(r => String(r.name).toLowerCase().includes(low));
+    if (!hit) {
+      cmdSay(rs.length ? `找不到玩家「${name}」（房间里：${rs.map(r => r.name).join('、')}）` : `找不到玩家「${name}」（现在没有其他玩家，联机房间里才有队友）`, true);
+      return false;
+    }
+    const p = hit.obj.position;
+    return cmdTpRaw(p.x, p.y + 0.2, p.z, `「${hit.name}」身边`);
+  }
+  cmdSay(`未知指令「${cmd}」—— 输入 /help 看列表`, true);
+  return false;
+}
+$('btnCmd').onclick = () => openCmd('');
+$('btnCloseCmd').onclick = () => closeCmd();
+$('cmdInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const v = $('cmdInput').value;
+    $('cmdInput').value = '';
+    runCmd(v);
+    e.preventDefault(); e.stopPropagation();
+  } else if (e.key === 'Escape') {
+    closeCmd(); e.preventDefault(); e.stopPropagation();
+  } else {
+    e.stopPropagation();
+  }
+});
 STRUCT_TYPES.push(
   { name: 'village', cell: VS_CELL, get: villageFor, cache: villageCache },
   { name: 'haunted', cell: HS_CELL, get: hauntedFor, cache: hsCache },

@@ -171,6 +171,7 @@
   <div id="flash"></div>
   <div id="topbtns">
     <button class="btn" id="btnFriends" style="display:none">联机</button>
+    <button class="btn" id="btnCmd" title="指令（T）">指令 T</button>
     <button class="btn" id="btnBag">背包 E</button>
     <button class="btn" id="btnSettings2">设置</button>
     <button class="btn" id="btnReset">世界</button>
@@ -251,6 +252,24 @@
     <div class="startrow" style="margin-top:14px">
       <button class="btn" id="btnResetKeys">恢复默认键位</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay hide" id="cmdBox">
+  <div class="card" style="max-width:520px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="sec" style="border:0;margin:0">指令 · 传送（仅创造模式）</div>
+      <button class="btn" id="btnCloseCmd">关闭 Esc</button>
+    </div>
+    <p style="color:#8ea3ba;font-size:11.5px;margin:6px 0 8px">
+      <b style="color:#f5c451">/tp &lt;x&gt; &lt;y&gt; &lt;z&gt;</b> 传到坐标 ·
+      <b style="color:#f5c451">/tp &lt;玩家名&gt;</b> 传到队友 ·
+      <b style="color:#f5c451">/help</b> 看列表
+    </p>
+    <input id="cmdInput" maxlength="120" placeholder="/tp 100 80 -200" autocomplete="off" spellcheck="false"
+      style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:14px;font-family:ui-monospace,SFMono-Regular,monospace">
+    <div id="cmdLog" style="margin-top:10px;max-height:170px;overflow:auto;font-size:12px;color:#b9cbe1;line-height:1.75"></div>
+    <div id="cmdPlayers" style="margin-top:8px;font-size:12px;color:#8ea3ba;line-height:1.9"></div>
   </div>
 </div>
 
@@ -370,6 +389,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=165"></script>
+<script type="module" src="./js/blockwild.js?v=166"></script>
 </body>
 </html>
