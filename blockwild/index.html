@@ -142,7 +142,7 @@
   <div id="hint"></div>
   <div id="flash"></div>
   <div id="topbtns">
-    <button class="btn" id="btnFriends" style="display:none">好友</button>
+    <button class="btn" id="btnFriends" style="display:none">联机</button>
     <button class="btn" id="btnBag">背包 E</button>
     <button class="btn" id="btnSettings2">设置</button>
     <button class="btn" id="btnReset">世界</button>
@@ -176,7 +176,8 @@
       <b>方向键</b><span>转视角（没有鼠标就靠它，可在「设置」里改）</span>
       <b>F / G</b><span>挖方块(按住) / 放方块（键位可改）</span>
       <b>左键（按住）</b><span>挖方块 / 攻击野怪</span>
-      <b>右键</b><span>放下方块 / 吃食物 / 开箱子、熔炉、工作台</span>
+      <b>右键</b><span>放下方块 / 吃食物 / 开箱子、熔炉、工作台、充电器</span>
+      <b>能量炮</b><span>铜→电路板+电线，再配一种金属（铜/铁/钻石/冥界钢）→ 右键发射；没电就放进充电器，加 1 个铀充满</span>
       <b>1 - 9 / 滚轮</b><span>切换快捷栏</span>
       <b>E</b><span>背包与合成</span>
     </div>
@@ -264,6 +265,17 @@
   </div>
 </div>
 
+<div class="overlay hide" id="charger">
+  <div class="card" style="max-width:560px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="sec" style="border:0;margin:0">充电器</div>
+      <button class="btn" id="btnChargerClose">关闭 Esc</button>
+    </div>
+    <p style="color:#8ea3ba;font-size:12px;margin:0 0 8px">燃料：<span id="chgInfo" style="color:#8dff5a"></span></p>
+    <div id="chgList"></div>
+  </div>
+</div>
+
 <div class="overlay hide" id="processor">
   <div class="card" style="max-width:460px">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -306,6 +318,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=127"></script>
+<script type="module" src="./js/blockwild.js?v=149"></script>
 </body>
 </html>

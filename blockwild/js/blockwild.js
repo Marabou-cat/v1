@@ -313,6 +313,9 @@ const BLOCKS = {
   20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
   21: { name: '石砖', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 21, pick: true },
   22: { name: '玻璃', top: 25, side: 25, bottom: 25, hard: 0.4, drop: 22, glass: true },
+  // ── 电路 / 能量：铀矿 →（充电器）→ 能量炮 ──
+  52: { name: '铀矿石', top: 57, side: 57, bottom: 57, hard: 4.0, drop: 187, pick: true, stonePick: true, ironPick: true },
+  53: { name: '充电器', top: 58, side: 59, bottom: 21, hard: 1.8, drop: 53, charger: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick', fast: 1.35, dur: 60 },
@@ -383,6 +386,14 @@ const ITEMS = {
   182: { name: '冥界钢护腿', kind: 'armor', slot: 'legs', ap: 7 },
   183: { name: '冥界钢靴', kind: 'armor', slot: 'feet', ap: 4 },
   184: { name: '冥界钢镐', kind: 'pick', fast: 4.2, dur: 2031 },
+  // ── 电路系统：铜 → 电路板 / 电线 → 能量炮（4 档金属，dmg/cap/cd/speed 逐档递增）──
+  185: { name: '电路板', kind: 'mat' },
+  186: { name: '电线', kind: 'mat' },
+  187: { name: '铀', kind: 'mat' },
+  188: { name: '铜能量炮',   kind: 'gun', dmg: 8,  cap: 8,  cd: 0.50, speed: 48, boltColor: 0xffb066 },
+  189: { name: '铁能量炮',   kind: 'gun', dmg: 12, cap: 10, cd: 0.45, speed: 54, boltColor: 0xbfe4ff },
+  190: { name: '钻石能量炮', kind: 'gun', dmg: 17, cap: 12, cd: 0.40, speed: 60, boltColor: 0x7dffe8 },
+  191: { name: '冥界钢能量炮', kind: 'gun', dmg: 22, cap: 14, cd: 0.35, speed: 66, boltColor: 0xc08cff },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -392,7 +403,7 @@ let atlasCanvas = null, atlasTex = null;
 // 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
 // ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
 // 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
-const ATLAS_COLS = 4, ATLAS_ROWS = 15;   // …54 玄武岩 55 深板岩 56 基岩
+const ATLAS_COLS = 4, ATLAS_ROWS = 16;   // …56 基岩 57 铀矿 58~60 充电器（4 列 × 16 行 = 64 格）
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -667,6 +678,35 @@ function makeAtlas() {
       const x = (i * 7 + 3) % 16, y = (i * 11 + 5) % 16;
       px(c, r, x, y, i % 2 ? '#141416' : '#55555c');
     }
+  });
+  // 57 铀矿石：深板岩底 + 荧光绿晶粒（只在深板岩层生成）
+  T(57, '#3d4048', 0.09, (c, r) => {
+    for (const [x, y] of [[3, 4], [8, 3], [12, 7], [5, 9], [10, 11], [2, 12], [13, 13], [7, 6]]) {
+      px(c, r, x, y, '#8dff5a'); px(c, r, x + 1, y, '#4fbf2a');
+      px(c, r, x, y + 1, '#d9ff9a'); px(c, r, x + 1, y + 1, '#6fdc3a');
+    }
+  });
+  // 58 充电器顶：金属外壳 + 中央铜线圈 + 青色能量核
+  T(58, '#4a525c', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#7c8794'); px(c, r, x, 15, '#262c33'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#6b7581'); px(c, r, 15, y, '#262c33'); }
+    for (let x = 5; x < 11; x++) for (let y = 5; y < 11; y++) px(c, r, x, y, '#b8702f');
+    for (let x = 6; x < 10; x++) for (let y = 6; y < 10; y++) px(c, r, x, y, '#4de0d0');
+  });
+  // 59 充电器侧：外壳 + 散热格栅
+  T(59, '#4a525c', 0.06, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#7c8794'); px(c, r, x, 15, '#262c33'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#6b7581'); px(c, r, 15, y, '#262c33'); }
+    for (let y = 3; y < 14; y += 3) for (let x = 3; x < 13; x++) px(c, r, x, y, '#2b323b');
+    for (let x = 3; x < 13; x++) px(c, r, x, 2, '#8c98a6');
+  });
+  // 60 充电器正面：能量槽（青蓝发光）
+  T(60, '#4a525c', 0.05, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#7c8794'); px(c, r, x, 15, '#262c33'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#6b7581'); px(c, r, 15, y, '#262c33'); }
+    for (let x = 3; x < 13; x++) for (let y = 4; y < 12; y++) px(c, r, x, y, '#101820');
+    for (let x = 4; x < 12; x++) for (let y = 5; y < 11; y++) px(c, r, x, y, (x + y) % 3 ? '#2ad0c0' : '#9dfff2');
+    for (let x = 4; x < 12; x++) px(c, r, x, 12, '#b8702f');
   });
   T(24, '#8a8a8a', 0.07, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -1030,6 +1070,37 @@ function iconURL(id) {
     g.fillStyle = '#d98b4a'; g.beginPath();
     g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
     g.fillStyle = '#eaa96a'; g.fillRect(13, 15, 6, 2);
+  } else if (id === 185) { // 电路板：绿板 + 铜走线 + 金焊盘
+    g.fillStyle = '#1f6b46'; g.fillRect(5, 6, 22, 20);
+    g.fillStyle = '#2e9a63'; g.fillRect(6, 7, 20, 18);
+    g.strokeStyle = '#d98b4a'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(9, 11); g.lineTo(16, 11); g.lineTo(16, 17); g.lineTo(23, 17); g.stroke();
+    g.beginPath(); g.moveTo(9, 21); g.lineTo(14, 21); g.lineTo(14, 15); g.stroke();
+    g.fillStyle = '#f5c451';
+    for (const [x, y] of [[8, 10], [22, 16], [8, 20], [13, 14]]) g.fillRect(x, y, 3, 3);
+    g.fillStyle = '#0f3a28';
+    for (const [x, y] of [[10, 24], [18, 24]]) g.fillRect(x, y, 3, 2);
+  } else if (id === 186) { // 电线：铜色线圈
+    g.strokeStyle = '#b8702f'; g.lineWidth = 3;
+    for (let i = 0; i < 4; i++) { g.beginPath(); g.ellipse(16, 7 + i * 6, 8, 3.2, 0, 0, 7); g.stroke(); }
+    g.strokeStyle = '#eaa96a'; g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(8, 6); g.lineTo(8, 26); g.stroke();
+    g.beginPath(); g.moveTo(24, 6); g.lineTo(24, 26); g.stroke();
+  } else if (id === 187) { // 铀：荧光绿晶体
+    g.fillStyle = '#2f4a22';
+    g.beginPath(); g.moveTo(16, 4); g.lineTo(26, 14); g.lineTo(16, 29); g.lineTo(6, 14); g.closePath(); g.fill();
+    g.fillStyle = '#6fdc3a';
+    g.beginPath(); g.moveTo(16, 7); g.lineTo(22, 14); g.lineTo(16, 25); g.lineTo(10, 14); g.closePath(); g.fill();
+    g.fillStyle = '#d9ff9a'; g.fillRect(15, 11, 3, 8);
+    g.fillStyle = '#8dff5a'; g.fillRect(12, 13, 1, 5); g.fillRect(20, 13, 1, 5);
+  } else if (ITEMS[id] && ITEMS[id].kind === 'gun') { // 能量炮：机匣 + 炮管 + 发光炮口
+    const metal = id === 191 ? '#7d6890' : id === 190 ? '#5fe6d8' : id === 189 ? '#d9dee5' : '#d98b4a';
+    const glow = id === 191 ? '#c08cff' : id === 190 ? '#7dffe8' : id === 189 ? '#bfe4ff' : '#ffb066';
+    g.fillStyle = '#2b323b'; g.fillRect(5, 12, 18, 7);
+    g.fillStyle = metal; g.fillRect(9, 9, 9, 4); g.fillRect(21, 13, 7, 3);
+    g.fillStyle = '#1b2028'; g.fillRect(11, 19, 5, 8);
+    g.fillStyle = metal; g.fillRect(12, 20, 3, 6);
+    g.fillStyle = glow; g.fillRect(27, 12, 2, 5); g.fillRect(6, 15, 3, 2);
   } else if (ITEMS[id] && ITEMS[id].kind === 'armor') { // 盔甲
     const nether = id >= 180 && id <= 183;          // 冥界钢护甲 180~183：黑铁色
     const wood = id >= 171 && id <= 174;            // 木护甲：木色（最弱的一套）
@@ -1199,14 +1270,14 @@ function oreVeins(cx, cz) {
   if (veinCache.has(key)) return veinCache.get(key);
   const rnd = mulberry32((Math.imul(cx, 73856093) ^ Math.imul(cz, 19349663) ^ Math.imul(SEED, 83492791)) | 0);
   const out = [];
-  const vein = (count, tile, size, yMin, yMax, chance = 1) => {
+  const vein = (count, tile, size, yMin, yMax, chance = 1, deepOnly = false) => {
     for (let i = 0; i < count; i++) {
       if (chance < 1 && rnd() > chance) continue;
       let x = 1 + Math.floor(rnd() * 14), z = 1 + Math.floor(rnd() * 14);
       let y = yMin + Math.floor(rnd() * Math.max(1, yMax - yMin));
       const len = 3 + Math.floor(rnd() * size);
       for (let k = 0; k < len; k++) {
-        out.push({ x, y, z, t: tile });
+        out.push({ x, y, z, t: tile, deep: deepOnly });
         const d = rnd();
         if (d < 0.3) x = Math.min(15, Math.max(0, x + (rnd() < 0.5 ? 1 : -1)));
         else if (d < 0.62) z = Math.min(15, Math.max(0, z + (rnd() < 0.5 ? 1 : -1)));
@@ -1223,6 +1294,9 @@ function oreVeins(cx, cz) {
   // 实测（169 区块）：vein(6,39,3,16,42) 只有铁的 41%（1748 vs 4247 块）→ 提到 10 条、size 4、y12~44。
   vein(10, 39, 4, 45, 130);      // 铜：10 条/区块，中浅层
   vein(1, 20, 3, 6, 54, 0.85);   // 钻石：只在深板岩层（y 6~54 < DEEP_Y=58）→ 必须挖到深板岩才见得到
+  // 铀：条数/规模照抄铁（10 条 × size4 = 与铁 10 条 × size4 同档），但 deep=true ⇒
+  // 只替换深板岩(50)，石头层(3)里绝不出现 ⇒ 只能挖到深板岩层才见得到。
+  vein(10, 52, 4, 8, 56, 1, true);
   veinCache.set(key, out);
   return out;
 }
@@ -1359,7 +1433,8 @@ function genChunk(cx, cz) {
   // 矿脉：成簇埋进石头里（只在还是石头的地方替换，不动土/沙/水）
   for (const v of oreVeins(cx, cz)) {
     const i = idx(v.x, v.y, v.z);
-    if (b[i] === 3 || b[i] === 50) b[i] = v.t;            // 石头和深板岩里都能长矿
+    if (v.deep) { if (b[i] === 50) b[i] = v.t; }          // 铀：只替换深板岩
+    else if (b[i] === 3 || b[i] === 50) b[i] = v.t;       // 石头和深板岩里都能长矿
   }
   // 特殊岩层（花岗岩/石灰岩）：同样只替换还是石头的地方，矿脉优先保留
   applyStoneBlobs(b, idx, cx, cz);
@@ -2249,9 +2324,12 @@ function useTool(n = 1) {
 function addItem(id, n = 1) {
   if (!isItem(id)) return false;
   const idef = defOf(id) || {};
-  if (idef.dur) {                                  // 工具/剑：一把一格，带耐久
+  if (idef.dur || idef.kind === 'gun') {           // 工具/剑/能量炮：一把一格（炮还带电量 c）
     let left = n;
-    for (let i = 0; i < SLOTS && left > 0; i++) if (!inv[i]) { inv[i] = { id, n: 1, d: idef.dur }; left--; }
+    for (let i = 0; i < SLOTS && left > 0; i++) if (!inv[i]) {
+      inv[i] = idef.kind === 'gun' ? { id, n: 1, c: idef.cap || 8 } : { id, n: 1, d: idef.dur };
+      left--;
+    }
     if (left > 0) toast('背包满了，东西掉在脚下', 1.5);
     return left < n;
   }
@@ -2510,6 +2588,49 @@ function makeToolModel(id) {
       new THREE.MeshLambertMaterial({ color: 0xdfe7ee }));
     sh.position.y = 0.145;
     g.add(a1, sh);
+  } else if (id === 185) {                     // 电路板
+    const board = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.018, 0.2),
+      new THREE.MeshLambertMaterial({ color: 0x2e9a63 }));
+    board.position.y = 0.08;
+    const trace = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.01, 0.03),
+      new THREE.MeshLambertMaterial({ color: 0xd98b4a }));
+    trace.position.set(0, 0.094, 0.03);
+    const chip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.03, 0.06),
+      new THREE.MeshLambertMaterial({ color: 0x101820 }));
+    chip.position.set(-0.03, 0.1, -0.03);
+    g.add(board, trace, chip);
+  } else if (id === 186) {                     // 电线：一圈铜色线圈
+    const cop = new THREE.MeshLambertMaterial({ color: 0xb8702f });
+    for (let i = 0; i < 3; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.028, 6, 14), cop);
+      ring.position.y = 0.06 + i * 0.09;
+      ring.rotation.x = Math.PI / 2;
+      g.add(ring);
+    }
+  } else if (id === 187) {                     // 铀：荧光绿晶体
+    const u = new THREE.Mesh(new THREE.OctahedronGeometry(0.13),
+      new THREE.MeshLambertMaterial({ color: 0x6fdc3a, emissive: 0x2f8f18, emissiveIntensity: 0.9 }));
+    u.position.y = 0.15; u.scale.y = 1.3; u.rotation.y = 0.5;
+    g.add(u);
+  } else if (ITEMS[id] && ITEMS[id].kind === 'gun') {   // 能量炮：机匣 + 炮管 + 线圈 + 发光炮口
+    const metal = id === 191 ? 0x7d6890 : id === 190 ? 0x5fe6d8 : id === 189 ? 0xd9dee5 : 0xd98b4a;
+    const glow = id === 191 ? 0xc08cff : id === 190 ? 0x7dffe8 : id === 189 ? 0xbfe4ff : 0xffb066;
+    const bodyM = new THREE.MeshLambertMaterial({ color: 0x2b323b });
+    const metalM = new THREE.MeshLambertMaterial({ color: metal });
+    const glowM = new THREE.MeshBasicMaterial({ color: glow });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.12, 0.44), bodyM);
+    body.position.set(0, 0.01, -0.05);
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.3), metalM);
+    barrel.position.set(0, 0.03, -0.33);
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.014, 6, 14), metalM);
+    coil.position.set(0, 0.03, -0.18);
+    const muzzle = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.012, 6, 12), glowM);
+    muzzle.position.set(0, 0.03, -0.46);
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.07), bodyM);
+    grip.position.set(0, -0.12, 0.04); grip.rotation.x = 0.22;
+    const cell = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.045), glowM);
+    cell.position.set(0, 0.09, 0.04);
+    g.add(body, barrel, coil, muzzle, grip, cell);
   } else if (id === 175) {                     // 传送块：发光紫色立方
     const cube = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2),
       new THREE.MeshLambertMaterial({ color: 0x8b3fd8, emissive: 0x5a1f9c, emissiveIntensity: 0.9 }));
@@ -2572,8 +2693,10 @@ const HOLD_POSE = {
   mat: { rx: -0.45, ry: 0.45, rz: -0.25, py: 0.06, pz: -0.1, s: 0.95 },
   hoe: { rx: -0.3, ry: 0.9, rz: 0.3, py: 0.07, pz: -0.12, s: 0.95 },
   food: { rx: 0.1, ry: 0.45, rz: 0.18, py: 0.06, pz: -0.1, s: 1.0 },
+  gun: { rx: -0.06, ry: 0.12, rz: 0.02, py: 0.02, pz: -0.02, s: 1.0 },
 };
 function refreshHeld() {
+  refreshGunHud();                     // 手上的能量炮电量读数（不是炮就自己隐藏）
   const h = held();
   const id = h ? h.id : -1;
   if (id === heldFor) return;
@@ -2610,7 +2733,7 @@ function refreshHeld() {
     kind = 'block';
     const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
     heldMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
-  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'hoe' || it.kind === 'mat' || it.kind === 'food')) {
+  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'hoe' || it.kind === 'mat' || it.kind === 'food' || it.kind === 'gun')) {
     kind = it.kind;
     heldMesh = makeToolModel(id);
   }
@@ -2639,12 +2762,19 @@ const anim = {
   mineW: 0, mineT: 0,
   swayX: 0, swayY: 0, lastYaw: 0, lastPitch: 0,
   land: 0, lastSel: -1, lastGround: true,
+  // ── Action & Stuff 风格：二阶弹簧滞后 + 各种状态权重 + 连击方向
+  lagX: 0, lagY: 0, lagVX: 0, lagVY: 0,
+  sprintK: 0, airK: 0, hurtK: 0, waterK: 0,
+  swingN: 0, biteK: 0, bowK: 0,
 };
 const BASE_POSE = { x: 0.27, y: -0.22, z: -0.27, rx: -0.2, ry: -0.34, rz: 0.12 };
 function startSwing(type = 'attack', dur = 0.5) {
   anim.swingType = type;
   anim.swingDur = dur;
   anim.swing = dur;
+  if (type === 'attack' || type === 'dig') anim.swingN++;    // 连击交替方向（左一下右一下，像 A&S）
+  // 联机：把这一下动作广播出去，别人的画面里我也要挥起来
+  if (typeof NET !== 'undefined' && NET && NET.active && NET.castAct) { try { NET.castAct(type); } catch (e) {} }
 }
 function updateHandPose(dt, now) {
   // 切换物品 → 从下方抬上来的装备动画
@@ -2655,38 +2785,67 @@ function updateHandPose(dt, now) {
   // 视角拖尾：手比镜头慢半拍（Action & Stuff 的核心手感）
   const dyaw = player.yaw - anim.lastYaw, dpitch = player.pitch - anim.lastPitch;
   anim.lastYaw = player.yaw; anim.lastPitch = player.pitch;
-  const smoothK = Math.min(1, dt * 11);
-  const wantX = clamp(-dyaw * 2.6, -0.15, 0.15);
-  const wantY = clamp(dpitch * 2.6, -0.15, 0.15);
-  anim.swayX += (wantX - anim.swayX) * smoothK;
-  anim.swayY += (wantY - anim.swayY) * smoothK;
-  if (Math.abs(dyaw) < 1e-6) anim.swayX *= 1 - Math.min(1, dt * 2.5);
-  if (Math.abs(dpitch) < 1e-6) anim.swayY *= 1 - Math.min(1, dt * 2.5);
+  // ── 视角拖尾改成二阶弹簧（不是一阶 lerp）：镜头甩过去手会「跟一下再回弹」，这是 A&S 的核心手感
+  const wantX = clamp(-dyaw * 2.4, -0.13, 0.13);
+  const wantY = clamp(dpitch * 2.4, -0.13, 0.13);
+  const K = 62, D = 13;                                  // 刚度/阻尼（dt 已 clamp 到 0.1，稳定）
+  anim.lagVX += ((wantX - anim.lagX) * K - anim.lagVX * D) * dt;
+  anim.lagVY += ((wantY - anim.lagY) * K - anim.lagVY * D) * dt;
+  anim.lagX += anim.lagVX * dt;
+  anim.lagY += anim.lagVY * dt;
+  anim.swayX = anim.lagX; anim.swayY = anim.lagY;        // 后面的代码继续用 swayX/swayY
+
+  // ── 状态权重（帧率无关的指数平滑，60fps/30fps 手感一致）
+  const easeK = (rate) => 1 - Math.exp(-rate * dt);
+  const spd0 = Math.hypot(player.v.x, player.v.z);
+  const sprintT = clamp01((spd0 - CFG.WALK * 0.92) / Math.max(0.1, CFG.SPRINT - CFG.WALK * 0.92));
+  anim.sprintK += ((player.onGround ? sprintT : sprintT * 0.7) - anim.sprintK) * easeK(7);
+  anim.airK += ((player.onGround || player.inWater || player.inLava ? 0 : 1) - anim.airK) * easeK(9);
+  anim.waterK += ((player.inWater || player.inLava ? 1 : 0) - anim.waterK) * easeK(5);
+  anim.hurtK = Math.max(0, anim.hurtK - dt * 3.4);
+  const fallSpd = clamp01(Math.max(0, -player.v.y) / 14);   // 下落越快手抬得越高
+  const riseSpd = clamp01(Math.max(0, player.v.y) / 9);     // 起跳瞬间手往下压
 
   let px = BASE_POSE.x + anim.swayX;
   let py = BASE_POSE.y + anim.swayY;
   let pz = BASE_POSE.z;
   let rx = BASE_POSE.rx, ry = BASE_POSE.ry + anim.swayX * 0.4, rz = BASE_POSE.rz;
 
-  // 呼吸 + 走路摆动（速度越大摆得越明显）
+  // 呼吸 + 走路摆动（疾跑幅度更大、节奏更快；水里幅度减半）
   const t = now / 1000;
-  const spd = Math.hypot(player.v.x, player.v.z);
-  const walkAmt = clamp01(spd / CFG.WALK);
-  py += Math.sin(t * 1.5) * 0.0045 + Math.sin(player.walkPhase * 2) * 0.014 * walkAmt;
-  px += Math.cos(player.walkPhase) * 0.008 * walkAmt;
-  rz += Math.sin(player.walkPhase) * 0.022 * walkAmt;
+  const walkAmt = clamp01(spd0 / CFG.WALK) * (1 - anim.waterK * 0.55);
+  const bobAmp = 0.013 + 0.011 * anim.sprintK;
+  py += Math.sin(t * 1.5) * 0.0045
+      + Math.sin(player.walkPhase * 2) * bobAmp * walkAmt
+      + Math.sin(t * 2.2) * 0.004 * anim.waterK;              // 水里慢半拍的浮动
+  px += Math.cos(player.walkPhase) * (0.008 + 0.006 * anim.sprintK) * walkAmt;
+  rz += Math.sin(player.walkPhase) * (0.022 + 0.018 * anim.sprintK) * walkAmt;
+  rx += Math.cos(player.walkPhase * 2) * 0.010 * walkAmt;
 
-  // 挖掘：0.5 秒一轮的缓慢抬砸（旧版是 0.18 秒猛抖，眼睛会花）
+  // 疾跑：手往后方收 + 外翻（A&S 的冲刺姿态），顺带压低一点
+  px -= 0.018 * anim.sprintK; py -= 0.022 * anim.sprintK; pz += 0.030 * anim.sprintK;
+  rz -= 0.070 * anim.sprintK; ry += 0.090 * anim.sprintK; rx += 0.050 * anim.sprintK;
+  // 腾空：起跳往下压、下落往上飘（下落越快抬得越高），落地再接一下缓冲
+  px += 0.012 * anim.airK;
+  py += (0.030 * fallSpd - 0.045 * riseSpd) * anim.airK;
+  rz += 0.020 * anim.airK;
+  // 受伤：手被震得往后缩一下
+  pz += 0.055 * anim.hurtK; px -= 0.020 * anim.hurtK;
+  rx -= 0.200 * anim.hurtK; rz += 0.160 * anim.hurtK;
+
+  // 挖掘：0.5 秒一轮的缓慢抬砸，并且**每轮换一侧斜着凿**（A&S 的挖掘会左右交替，不像机器）
   const mining = mineHeld && player.alive && !!player.mineTarget;
   anim.mineW += ((mining ? 1 : 0) - anim.mineW) * Math.min(1, dt * 9);
   if (mining) anim.mineT += dt; else anim.mineT = 0;
-  let aTotal = 0;
+  let aTotal = 0, mSide = 1;
   if (anim.mineW > 0.01) {
-    const p = (anim.mineT % 0.5) / 0.5;
+    const cyc = anim.mineT / 0.5;
+    const p = cyc % 1;
     const a = swingCurve(p, 0.52, 0.70);
+    mSide = (Math.floor(cyc) % 2) ? -1 : 1;
     aTotal += a * anim.mineW;
   }
-  // 单次挥击（攻击 / 放置）
+  // 单次挥击（攻击 / 放置 / 用工具）
   if (anim.swing > 0) {
     anim.swing = Math.max(0, anim.swing - dt);
     const p = 1 - anim.swing / anim.swingDur;
@@ -2695,16 +2854,31 @@ function updateHandPose(dt, now) {
       anim.swingA = 0;
     } else {
       anim.bowK = 0;
-      const a = anim.swingType === 'attack' ? swingCurve(p, 0.3, 0.52)
-              : Math.sin(clamp01(p) * Math.PI);    // 放置 = 轻轻一推
+      const a = anim.swingType === 'place' ? Math.sin(clamp01(p) * Math.PI)   // 放置 = 轻轻一推
+              : anim.swingType === 'dig'   ? swingCurve(p, 0.42, 0.66)        // 用工具凿
+              : swingCurve(p, 0.3, 0.52);                                     // 攻击 = 蓄力再砸
       anim.swingA = a;
-      aTotal += a * (anim.swingType === 'attack' ? 1 : 0.55);
+      aTotal += a * (anim.swingType === 'place' ? 0.55 : 1);
     }
   } else { anim.swingA = 0; anim.bowK = 0; }
 
-  rx += aTotal * 0.62;
-  pz += -0.05 * Math.max(0, aTotal);
-  rz += aTotal * 0.1;
+  // 每种手持物的挥击手感不同：剑=斜劈、镐=斜下凿、锄/材料=小幅度、空手/方块=直推
+  const PROF = {
+    sword: { rx: 0.80, ry: 0.26, rz: 0.36, push: 0.075 },
+    pick:  { rx: 0.64, ry: 0.16, rz: 0.20, push: 0.055 },
+    hoe:   { rx: 0.56, ry: 0.18, rz: 0.24, push: 0.050 },
+    mat:   { rx: 0.42, ry: 0.10, rz: 0.16, push: 0.040 },
+    block: { rx: 0.34, ry: 0.08, rz: 0.10, push: 0.060 },
+    food:  { rx: 0.30, ry: 0.08, rz: 0.10, push: 0.040 },
+    bow:   { rx: 0.30, ry: 0.08, rz: 0.10, push: 0.040 },
+  };
+  const prof = PROF[heldKindNow] || PROF.block;
+  const side = anim.swing > 0 ? ((anim.swingN % 2) ? -1 : 1) : mSide;
+  rx += aTotal * prof.rx;
+  ry += aTotal * prof.ry * side;
+  rz += aTotal * prof.rz * side;
+  px += 0.020 * Math.max(0, aTotal) * side;
+  pz += -prof.push * Math.max(0, aTotal);
   // 弓：前 55% 往后拉弦，之后啪地弹回去
   if (anim.bowK > 0) {
     const k = anim.bowK;
@@ -2712,17 +2886,17 @@ function updateHandPose(dt, now) {
     rx -= 0.5 * k; rz -= 0.14 * k;
   }
 
-  // 装备动画
+  // 装备动画：从下方甩上来（钟形曲线 + 一点旋转，像把东西"拎"出来）
   if (anim.equip > 0) {
     anim.equip = Math.max(0, anim.equip - dt);
-    const dip = 1 - easeOutCubic(1 - anim.equip / anim.equipDur);
-    py -= 0.34 * dip;
-    rz += 0.3 * dip;
-    rx += 0.22 * dip;
+    const dip = Math.sin(clamp01(anim.equip / anim.equipDur) * Math.PI);
+    py -= 0.30 * dip; rz += 0.26 * dip; rx += 0.26 * dip; ry -= 0.10 * dip;
   }
-  // 落地缓冲
+  // 落地缓冲：按冲击强度缩放（anim.land = 1 表示从 6 格高摔下来）
   anim.land = Math.max(0, anim.land - dt * 3.2);
-  py -= anim.land * 0.035;
+  py -= anim.land * 0.055;
+  rx += anim.land * 0.10;
+  rz += anim.land * 0.04;
 
   // 吃东西：手抬到嘴边 + 每口一下的咀嚼（Action & Stuff 手感）
   anim.biteK = Math.max(0, (anim.biteK || 0) - dt * 3.2);
@@ -2739,13 +2913,25 @@ function updateHandPose(dt, now) {
   }
   armR.position.set(px, py, pz);
   armR.rotation.set(rx, ry, rz);
-  armL.position.set(-0.28 - anim.swayX * 0.5, -0.26 + anim.swayY * 0.6 - anim.land * 0.03, -0.25);
-  armL.rotation.set(-0.26 + aTotal * 0.12, 0.4, -0.12);
+  // 左手：比右手更"慢"、并且反向摆（走路时两手交替），A&S 里两只手都有存在感
+  armL.position.set(
+    -0.28 - anim.swayX * 0.62 - Math.cos(player.walkPhase) * 0.010 * walkAmt,
+    -0.26 + anim.swayY * 0.72 - anim.land * 0.050
+        + Math.sin(player.walkPhase * 2) * 0.010 * walkAmt - 0.020 * anim.sprintK,
+    -0.25 + 0.020 * anim.sprintK
+  );
+  armL.rotation.set(
+    -0.26 + anim.swayY * 0.25 - aTotal * 0.10 + anim.airK * 0.10,
+    0.40 + anim.swayX * 0.30,
+    -0.12 - Math.sin(player.walkPhase) * 0.030 * walkAmt + 0.030 * anim.sprintK
+  );
 
-  // 手里的东西也跟着挥
+  // 手里的东西也跟着挥（幅度按手持物类型走）
   if (heldMesh) {
     const pose = HOLD_POSE[heldKindNow] || HOLD_POSE.block;
-    heldGroup.rotation.set(pose.rx + aTotal * 0.3, pose.ry - aTotal * 0.1, pose.rz + aTotal * 0.18);
+    heldGroup.rotation.set(pose.rx + aTotal * prof.rx * 0.45,
+                           pose.ry - aTotal * prof.ry * 0.60 * side,
+                           pose.rz + aTotal * prof.rz * 0.70 * side);
     heldGroup.position.set(0.01, pose.py - Math.max(0, aTotal) * 0.02, -0.54 + pose.pz - Math.max(0, aTotal) * 0.05);
     if (eatState.on) {                                     // 吃东西：把食物端到嘴边（抬手时略微上抬 + 每口前送）
       const ch2 = anim.biteK;
@@ -3720,8 +3906,10 @@ let openChestPos = null, cursor = null;          // cursor = 手上正在搬运�
 function openChest(x, y, z) {
   if (panelOpen) openPanel(false);           // 两个界面不要叠在一起
   if (furnaceOpen) closeFurnace();
+  if (chargerOpen) closeCharger();
   openChestPos = { x, y, z };
   chestSlots(x, y, z);
+  if (NET && NET.active) NET.pullChest(x, y, z);      // 联机：箱子里存的是服务端那一份（两人共用）
   $('chestPanel').classList.remove('hide');
   renderChest();
   syncPointerLock();                         // 放开光标：箱子里搬运物品要能随便移鼠标
@@ -3730,18 +3918,20 @@ function openChest(x, y, z) {
 }
 function closeChest() {
   if (cursor) {                                    // 关界面时手上的东西塞回背包/箱子
-    if (!addItem(cursor.id, cursor.n)) { toast('背包满了，物品掉在脚下', 1.6); spawnDrop(cursor.id, cursor.n, player.p.x, player.p.y + 1, player.p.z); }
+    if (!addItem(cursor.id, cursor.n)) { toast('背包满了，物品掉在脚下', 1.6); spawnDrop(cursor.id, cursor.n, player.p.x, player.p.y + 1, player.p.z, { c: cursor.c }); }
     cursor = null;
   }
   openChestPos = null;
   $('chestPanel').classList.add('hide');
   renderHotbar(); refreshHeld(); saveSoon();
+  if (NET && NET.active) NET.pushInv();          // 关箱子顺手把背包存一次
   syncPointerLock();                         // 箱子关掉 → 重新锁定回第一人称
 }
 function afterSlotChange() {
   renderHotbar(); refreshHeld();
   if (openChestPos) renderChest();
   if (panelOpen) renderInventoryPanel();
+  if (NET && NET.active && openChestPos) NET.pushChest();   // 箱子一改就写回服务端（两人共用同一份）
   saveSoon();
 }
 // 点一下拿起，再点一下放下 / 合并 / 交换 —— 背包和箱子共用这套逻辑
@@ -3752,7 +3942,7 @@ function slotClick(arr, i) {
     else return;
   } else if (!cur) {
     arr[i] = cursor; cursor = null;
-  } else if (cur.id === cursor.id) {
+  } else if (cur.id === cursor.id && !(ITEMS[cur.id] && (ITEMS[cur.id].dur || ITEMS[cur.id].kind === 'gun'))) {
     const total = cur.n + cursor.n;
     if (total <= STACK_MAX) { cur.n = total; cursor = null; }
     else { cur.n = STACK_MAX; cursor = { id: cursor.id, n: total - STACK_MAX }; }
@@ -3769,8 +3959,9 @@ function renderGrid(el, arr, handler) {
     const d = document.createElement('div');
     d.className = 'cell';
     if (s) {
-      d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>`;
-      d.title = nameOf(s.id);
+      d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>` + slotBarHTML(s);
+      d.title = nameOf(s.id) + (ITEMS[s.id] && ITEMS[s.id].kind === 'gun'
+        ? `（电量 ${s.c === undefined ? (ITEMS[s.id].cap || 8) : s.c}/${ITEMS[s.id].cap || 8}）` : '');
     }
     d.onclick = () => handler(i);
     el.appendChild(d);
@@ -3828,7 +4019,9 @@ const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
    整只怪由 1/16 方块大小的「像素」小立方体拼成：每格一个颜色、内部面剔除，
    表面因此是硬边像素块（和世界方块同一网格感），而不是平滑的塑料盒子。
    几何按种类缓存后所有个体共用，出生/死亡不重新拼装。 */
-const MOB_PX = 1 / 16;
+// MC 模型网格是「16 像素 = 1 方块」，但玩家模型整体再缩 0.9375 才等于 1.8 格身高。
+// 这里直接按我们的玩家身高归一化：32 像素高的人形 = CFG.PH ⇒ 头身比/腿长/肩宽与玩家一致。
+const MOB_PX = (1 / 16) * (CFG.PH / 2);
 const mobGeoCache = new Map();
 
 function pixHash(x, y, z, k) {
@@ -3873,7 +4066,12 @@ function voxGeometry(vox) {
   return geo;
 }
 
-// 每种生物的像素模型（脚在 y=0、单位=像素；jitter 给表面加轻微色差 → 像素颗粒感）
+/* ── 像素生物（MC 比例 + 像素皮肤）────────────────────────────────────────
+   所有模型都按 MC 的像素网格建模：16 像素 = 1 方块（MOB_PX 再按玩家身高归一化）。
+   人形 = 头 8³ + 躯干 8×12×4 + 手臂 4×12×4 + 腿 4×12×4 = 32px 高 ⇒ 1.78 格，
+   和玩家一样高、头占 1/4、腿占 3/8、肩宽 16px；动物按 MC 的真实尺寸比例。
+   表面是 1/16 方块的实心像素立方（内部面剔除），眼睛/嘴/衣褶/斑纹都直接画在
+   表面像素上 —— 材质本身就是硬边像素块，放大看是一个个 6cm 的小方块。 */
 function mobGeos(kind) {
   if (mobGeoCache.has(kind)) return mobGeoCache.get(kind);
   const body = new Map(), head = new Map();
@@ -3883,184 +4081,256 @@ function mobGeos(kind) {
       map.set(K(x, y, z), tintHex(hex, 1 + (pixHash(x, y, z, map === head ? 7 : 3) - 0.5) * jitter));
   };
   const px = (map, x, y, z, hex) => map.set(K(x, y, z), hex);
-  let coreY = 0.62, barY = 1.44, limbSpecs = [];
+  const dk = (hex, f = 0.8) => tintHex(hex, f);
+  let coreY = 1.0, barY = 2.0, limbSpecs = [];
+  // 肢体：支点在 y=0（上端），向下垂 h 像素 —— 和 MC 的手臂/腿一样绕肩/胯旋转
+  const limbGeo = (w, h, d, hex, jit, paint) => {
+    const m = new Map();
+    const x0 = -Math.ceil(w / 2);
+    box(m, x0, -h, -Math.ceil(d / 2), w, h, d, hex, jit);
+    if (paint) paint(m, (x, y, z, c) => m.set(K(x, y, z), c), x0);
+    return voxGeometry(m);
+  };
+  // 人形骨架（像素坐标，脚 y=0）：头 24..31、躯干 12..23、腿 0..11
+  const humanoid = (pal, facePaint, armPaint, legPaint, bodyPaint) => {
+    box(body, -4, 12, -2, 8, 12, 4, pal.body, 0.14);
+    box(body, -4, 12, -2, 8, 2, 4, pal.dark, 0.09);          // 下摆
+    box(body, -4, 21, -2, 8, 1, 4, pal.dark, 0.09);          // 肩线
+    if (bodyPaint) bodyPaint();
+    box(head, -4, 24, -4, 8, 8, 8, pal.skin, 0.10);
+    if (facePaint) facePaint();
+    limbSpecs = [
+      { geo: limbGeo(4, 12, 4, pal.body, 0.14, armPaint), x: -6, y: 24, z: 0, arm: true },
+      { geo: limbGeo(4, 12, 4, pal.body, 0.14, armPaint), x: 6, y: 24, z: 0, arm: true },
+      { geo: limbGeo(4, 12, 4, pal.leg, 0.12, legPaint), x: -2, y: 12, z: 0, arm: false },
+      { geo: limbGeo(4, 12, 4, pal.leg, 0.12, legPaint), x: 2, y: 12, z: 0, arm: false },
+    ];
+    coreY = 18 * MOB_PX; barY = 34.5 * MOB_PX;
+  };
+  // 眼睛：MC 式硬边像素（2×2 眼窝 + 1px 亮瞳孔），z 为脸面那一层
+  const eyes2 = (map, z, yTop, xs, outer, pupil) => {
+    for (const x of xs) {
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) px(map, x + dx, yTop - dy, z, outer);
+      px(map, x + 1, yTop - 1, z, pupil);
+    }
+  };
 
   if (kind === 'pig') {
-    coreY = 0.46; barY = 1.0;
-    const PINK = 0xefa0a0, PINK2 = 0xf7b4b4, SNOUT = 0xd98c8c, EYE = 0x1d1010;
-    box(body, -5, 4, -8, 10, 8, 16, PINK, 0.10);          // 躯干
-    box(body, -5, 4, -8, 10, 2, 16, 0xd98c8c, 0.07);      // 肚皮暗一档
-    box(body, -3, 11, -8, 6, 1, 15, 0xf7bcbc, 0.05);      // 背脊亮条
-    box(body, -1, 11, -9, 2, 2, 1, SNOUT, 0.05);          // 尾巴
-    box(head, -4, 5, 8, 8, 8, 8, PINK2, 0.10);            // 头
-    box(head, -2, 7, 16, 4, 3, 1, SNOUT, 0.05);           // 猪鼻
-    px(head, -1, 8, 16, 0xb87373); px(head, 0, 8, 16, 0xb87373);   // 鼻孔
-    px(head, -3, 10, 15, EYE); px(head, -3, 11, 15, EYE);
-    px(head, 2, 10, 15, EYE); px(head, 3, 11, 15, EYE);
-    box(head, -4, 13, 9, 2, 1, 2, 0xd98f8f, 0.05);        // 耳朵
-    box(head, 2, 13, 9, 2, 1, 2, 0xd98f8f, 0.05);
-    const legGeo = (() => { const m = new Map(); box(m, -1, -4, -1, 2, 4, 3, 0xd88888, 0.12); return voxGeometry(m); })();
+    // MC 猪：腿 6 高 + 躯干 8 高 = 16px（1.78×16/32 = 0.89 格，和 MC 的 0.9 命中率一致）
+    const PINK = 0xefa0a0, SNOUT = 0xd98c8c, HOOF = 0x6b4a4a;
+    box(body, -5, 6, -8, 10, 8, 16, PINK, 0.14);                 // 躯干
+    box(body, -5, 6, -8, 10, 2, 16, dk(PINK, 0.9), 0.09);        // 肚皮
+    for (let z = -7; z < 7; z += 4) px(body, -5, 13, z, dk(PINK, 1.08));   // 背脊亮条
+    box(body, -1, 13, -9, 2, 2, 1, SNOUT, 0.06);                 // 尾巴
+    box(head, -4, 6, 8, 8, 8, 8, PINK, 0.12);                    // 头
+    box(head, -2, 8, 15, 4, 3, 1, SNOUT, 0.06);                  // 猪鼻
+    px(head, -1, 9, 15, 0xb87373); px(head, 0, 9, 15, 0xb87373); // 鼻孔
+    eyes2(head, 15, 12, [-3, 2], 0x1d1010, 0x4a2c2c);
+    box(head, -4, 13, 9, 2, 1, 2, dk(PINK, 0.88), 0.05);         // 耳朵
+    box(head, 2, 13, 9, 2, 1, 2, dk(PINK, 0.88), 0.05);
+    const leg = limbGeo(3, 6, 3, dk(PINK, 0.85), 0.12,
+      (m, set, x0) => set(x0, -6, 1, HOOF));
     limbSpecs = [
-      { geo: legGeo, x: -3, y: 4, z: 6, arm: true }, { geo: legGeo, x: 3, y: 4, z: 6, arm: true },
-      { geo: legGeo, x: -3, y: 4, z: -6, arm: false }, { geo: legGeo, x: 3, y: 4, z: -6, arm: false },
+      { geo: leg, x: -3, y: 6, z: 6, arm: true }, { geo: leg, x: 3, y: 6, z: 6, arm: true },
+      { geo: leg, x: -3, y: 6, z: -6, arm: false }, { geo: leg, x: 3, y: 6, z: -6, arm: false },
     ];
+    coreY = 9 * MOB_PX; barY = 17.5 * MOB_PX;
   } else if (kind === 'villager') {
-    coreY = 0.82; barY = 1.85;
-    const ROBE = 0x6b5334, ROBE2 = 0x54402a, SKIN = 0xc9a37b, HAIR = 0x3b2a18, EYE = 0x24180f;
-    box(body, -4, 7, -3, 8, 12, 6, ROBE, 0.10);           // 长袍
-    box(body, -4, 7, -3, 8, 2, 6, ROBE2, 0.07);           // 下摆
-    box(body, -4, 15, -3, 8, 1, 6, ROBE2, 0.05);          // 腰带
-    box(head, -4, 19, -3, 8, 8, 6, SKIN, 0.09);           // 头
-    box(head, -4, 25, -3, 8, 2, 6, HAIR, 0.07);           // 头发/帽檐
-    px(head, -3, 23, 2, EYE); px(head, -2, 23, 2, EYE);
-    px(head, 2, 23, 2, EYE); px(head, 3, 23, 2, EYE);
-    box(head, -1, 20, 3, 2, 3, 2, 0xb98f68, 0.04);        // 大鼻子
-    const armGeo = (() => { const m = new Map(); box(m, -1, -9, -1, 3, 9, 3, ROBE, 0.10); px(m, -1, -1, 1, SKIN); px(m, 0, -1, 1, SKIN); px(m, 1, -1, 1, SKIN); return voxGeometry(m); })();
-    const legGeo = (() => { const m = new Map(); box(m, -1, -7, -1, 3, 7, 3, 0x3d2f1d, 0.10); return voxGeometry(m); })();
-    limbSpecs = [
-      { geo: armGeo, x: -5, y: 18, z: 0, arm: true }, { geo: armGeo, x: 5, y: 18, z: 0, arm: true },
-      { geo: legGeo, x: -2, y: 7, z: 0, arm: false }, { geo: legGeo, x: 2, y: 7, z: 0, arm: false },
-    ];
+    // 村民：和人形同一套 32px 骨架（身高 = 玩家）
+    const ROBE = 0x7d6440, ROBE2 = 0x5c4630, SKIN = 0xd8b58c, HAIR = 0x2e2116;
+    humanoid({ body: ROBE, skin: SKIN, dark: ROBE2, leg: 0x3d2f1d }, () => {
+      // 头发 + 帽檐（顶部 2 层 + 后脑 + 两侧，留出正面 8×6 的脸）
+      box(head, -4, 30, -4, 8, 2, 8, HAIR, 0.08);
+      box(head, -4, 24, -4, 8, 8, 2, HAIR, 0.08);
+      box(head, -4, 24, -4, 1, 8, 8, HAIR, 0.08);
+      box(head, 3, 24, -4, 1, 8, 8, HAIR, 0.08);
+      // 连心眉 + 眼睛（1×2 竖眼）+ 大鼻子 + 一字嘴
+      for (let x = -3; x <= 2; x++) px(head, x, 29, 3, 0x2a1d12);
+      for (const ex of [-3, 1]) {                                // 2×2 眼白 + 1px 瞳孔
+        px(head, ex, 28, 3, 0xf4f4ee); px(head, ex + 1, 28, 3, 0xf4f4ee);
+        px(head, ex, 27, 3, 0xf4f4ee); px(head, ex + 1, 27, 3, 0x24180f);
+      }
+      box(head, -1, 26, 3, 2, 2, 1, 0xb98f68, 0.03);             // 高鼻子（突出在脸上）
+      for (let x = -2; x <= 1; x++) px(head, x, 24, 3, 0x7a5a40); // 嘴
+      // 长袍：交叉领口 + 腰带 + 衣褶
+      for (let y = 20; y <= 23; y++) { px(body, -4 + (23 - y), y, 1, ROBE2); px(body, 3 - (23 - y), y, 1, ROBE2); }
+      box(body, -4, 14, 1, 8, 1, 1, 0x2f2417, 0.04);             // 腰带
+      for (let y = 15; y <= 20; y += 3) { px(body, -2, y, 1, dk(ROBE, 0.86)); px(body, 1, y, 1, dk(ROBE, 0.86)); }
+    }, (m, set, x0) => {
+      for (let y = -3; y <= -1; y++) for (let x = x0; x < x0 + 4; x++) set(x, y, 1, SKIN);   // 袖口露手
+    }, (m, set, x0) => {
+      for (let x = x0; x < x0 + 4; x++) { set(x, -12, 1, 0x241a10); set(x, -12, -2, 0x241a10); }  // 鞋
+    });
   } else if (kind === 'cow') {
-    coreY = 0.62; barY = 1.45;
+    // MC 牛：腿 12 + 躯干 10 = 22px ≈ 1.22 格（MC 牛 1.4，这里按玩家比例收一点）
     const HIDE = 0x3a2b24, PATCH = 0xe8e2d6, HORN = 0xd8cbb0, SNOUT = 0xc9a29a;
-    box(body, -6, 8, -10, 12, 10, 20, HIDE, 0.10);        // 躯干
-    box(body, -6, 12, -6, 12, 5, 6, PATCH, 0.07);         // 白色花斑
-    box(body, -6, 9, 3, 12, 4, 4, PATCH, 0.07);
-    box(body, 2, 13, -9, 4, 4, 4, PATCH, 0.07);
-    box(head, -4, 10, 10, 8, 8, 8, HIDE, 0.09);           // 头
-    box(head, -3, 8, 17, 6, 4, 2, SNOUT, 0.06);           // 口鼻
-    px(head, -1, 9, 18, 0x8a6a63); px(head, 1, 9, 18, 0x8a6a63);
-    px(head, -4, 14, 14, 0x120c0a); px(head, 3, 14, 14, 0x120c0a);
-    box(head, -5, 17, 11, 2, 2, 2, HORN, 0.04);           // 角
-    box(head, 3, 17, 11, 2, 2, 2, HORN, 0.04);
-    box(head, -6, 13, 12, 1, 3, 2, HIDE, 0.05);           // 耳朵
-    box(head, 5, 13, 12, 1, 3, 2, HIDE, 0.05);
-    const cowLeg = (() => { const m = new Map(); box(m, -1, -8, -1, 2, 8, 2, 0x33251f, 0.10); return voxGeometry(m); })();
+    box(body, -6, 12, -10, 12, 10, 20, HIDE, 0.12);
+    box(body, -6, 15, -6, 12, 5, 7, PATCH, 0.08);                // 白花斑（硬边块，不是渐变）
+    box(body, -6, 13, 3, 5, 4, 5, PATCH, 0.08);
+    box(body, 1, 18, -9, 5, 3, 5, PATCH, 0.08);
+    for (let z = -9; z < 10; z += 3) px(body, 6, 19, z, dk(HIDE, 0.86));
+    box(head, -4, 13, 10, 8, 8, 8, HIDE, 0.10);                  // 头
+    box(head, -3, 11, 17, 6, 4, 2, SNOUT, 0.06);                 // 口鼻
+    px(head, -1, 12, 18, 0x8a6a63); px(head, 1, 12, 18, 0x8a6a63);
+    eyes2(head, 17, 18, [-4, 3], 0x120c0a, 0x3a2a24);
+    box(head, -5, 20, 11, 2, 2, 2, HORN, 0.04);                  // 角
+    box(head, 3, 20, 11, 2, 2, 2, HORN, 0.04);
+    box(head, -6, 16, 12, 1, 3, 2, dk(HIDE, 0.9), 0.05);         // 耳朵
+    box(head, 5, 16, 12, 1, 3, 2, dk(HIDE, 0.9), 0.05);
+    const leg = limbGeo(4, 12, 4, dk(HIDE, 0.9), 0.10,
+      (m, set, x0) => { for (let x = x0; x < x0 + 4; x++) { set(x, -12, 1, 0x1f1714); set(x, -12, -2, 0x1f1714); } });
     limbSpecs = [
-      { geo: cowLeg, x: -4, y: 8, z: 6, arm: true }, { geo: cowLeg, x: 4, y: 8, z: 6, arm: true },
-      { geo: cowLeg, x: -4, y: 8, z: -6, arm: false }, { geo: cowLeg, x: 4, y: 8, z: -6, arm: false },
+      { geo: leg, x: -3, y: 12, z: 6, arm: true }, { geo: leg, x: 3, y: 12, z: 6, arm: true },
+      { geo: leg, x: -3, y: 12, z: -6, arm: false }, { geo: leg, x: 3, y: 12, z: -6, arm: false },
     ];
+    coreY = 17 * MOB_PX; barY = 24 * MOB_PX;
   } else if (kind === 'sheep') {
-    coreY = 0.55; barY = 1.15;
     const WOOL = 0xf2efe6, FACE = 0xd6c6b0, HOOF = 0x2b2622;
-    box(body, -6, 5, -8, 12, 10, 16, WOOL, 0.18);         // 蓬松羊毛
-    box(head, -3, 7, 8, 6, 7, 6, FACE, 0.08);             // 脸
-    box(head, -4, 12, 7, 8, 3, 5, WOOL, 0.14);            // 头顶羊毛
-    px(head, -2, 11, 13, 0x1a1512); px(head, 1, 11, 13, 0x1a1512);
-    px(head, -1, 9, 13, 0xc9a89a);
-    const sheepLeg = (() => { const m = new Map(); box(m, -1, -5, -1, 2, 5, 2, HOOF, 0.10); return voxGeometry(m); })();
+    box(body, -6, 12, -8, 12, 9, 16, WOOL, 0.24);                // 蓬松羊毛（强抖动 = 毛粒感）
+    box(body, -6, 20, -8, 12, 2, 16, WOOL, 0.24);                // 背毛
+    box(head, -3, 13, 8, 6, 7, 6, FACE, 0.09);
+    box(head, -4, 18, 7, 8, 3, 6, WOOL, 0.22);                   // 头顶羊毛
+    eyes2(head, 13, 17, [-3, 1], 0x1a1512, 0x4a3a34);
+    px(head, -1, 15, 13, 0xc9a89a); px(head, 0, 15, 13, 0xc9a89a);
+    const leg = limbGeo(3, 12, 3, dk(WOOL, 0.72), 0.14,
+      (m, set, x0) => { for (let x = x0; x < x0 + 3; x++) { set(x, -12, 1, HOOF); set(x, -12, -2, HOOF); } });
     limbSpecs = [
-      { geo: sheepLeg, x: -4, y: 5, z: 5, arm: true }, { geo: sheepLeg, x: 4, y: 5, z: 5, arm: true },
-      { geo: sheepLeg, x: -4, y: 5, z: -5, arm: false }, { geo: sheepLeg, x: 4, y: 5, z: -5, arm: false },
+      { geo: leg, x: -3, y: 12, z: 5, arm: true }, { geo: leg, x: 3, y: 12, z: 5, arm: true },
+      { geo: leg, x: -3, y: 12, z: -5, arm: false }, { geo: leg, x: 3, y: 12, z: -5, arm: false },
     ];
+    coreY = 16 * MOB_PX; barY = 23 * MOB_PX;
   } else if (kind === 'chicken') {
-    coreY = 0.30; barY = 0.72;
     const FEATHER = 0xf4f2ea, BEAK = 0xe0a33c, COMB = 0xd8402f;
-    box(body, -3, 4, -4, 6, 6, 8, FEATHER, 0.10);         // 身体
-    box(body, -4, 6, -2, 1, 3, 6, 0xe6e2d6, 0.08);        // 翅膀
-    box(body, 3, 6, -2, 1, 3, 6, 0xe6e2d6, 0.08);
-    box(head, -2, 9, 4, 5, 5, 5, FEATHER, 0.08);          // 头
-    px(head, -2, 11, 8, BEAK); px(head, -1, 11, 8, BEAK); // 喙
-    box(head, -1, 14, 5, 3, 1, 2, COMB, 0.05);            // 鸡冠
-    px(head, 2, 12, 8, 0x241a12); px(head, -2, 12, 8, 0x241a12);
-    const birdLeg = (() => { const m = new Map(); box(m, 0, -4, 0, 1, 4, 1, BEAK, 0.05); return voxGeometry(m); })();
+    box(body, -3, 4, -4, 6, 6, 8, FEATHER, 0.14);
+    box(body, -4, 6, -2, 1, 3, 6, dk(FEATHER, 0.88), 0.12);      // 翅膀
+    box(body, 3, 6, -2, 1, 3, 6, dk(FEATHER, 0.88), 0.12);
+    box(head, -2, 10, 3, 5, 5, 5, FEATHER, 0.10);
+    box(head, -1, 10, 8, 3, 1, 1, BEAK, 0.04);                   // 喙
+    box(head, -1, 15, 4, 3, 1, 2, COMB, 0.05);                   // 鸡冠
+    eyes2(head, 8, 13, [-2, 1], 0x241a12, 0x6a3a1a);
+    px(head, 0, 9, 7, COMB);                                     // 肉垂
+    const leg = limbGeo(1, 4, 1, BEAK, 0.05,
+      (m, set, x0) => { set(x0, -4, 0, 0xd08a2c); });
     limbSpecs = [
-      { geo: birdLeg, x: -1, y: 4, z: 0, arm: true }, { geo: birdLeg, x: 2, y: 4, z: 0, arm: false },
+      { geo: leg, x: -1, y: 4, z: 0, arm: true }, { geo: leg, x: 2, y: 4, z: 0, arm: false },
     ];
+    coreY = 7 * MOB_PX; barY = 16 * MOB_PX;
   } else if (kind === 'spider') {
-    coreY = 0.42; barY = 0.92;
     const CH = 0x2a2430, CH2 = 0x1c1822, EYE = 0xd23c3c;
-    box(body, -4, 4, -6, 8, 6, 12, CH, 0.12);             // 头胸
-    box(body, -6, 5, -8, 12, 5, 6, CH2, 0.10);            // 后腹
-    box(head, -3, 5, 6, 6, 5, 5, CH, 0.10);               // 头
-    px(head, -2, 8, 10, EYE); px(head, -1, 8, 10, EYE); px(head, 1, 8, 10, EYE); px(head, 2, 8, 10, EYE);
-    const spLeg = (() => { const m = new Map(); box(m, 0, -1, 0, 7, 1, 1, CH2, 0.08); return voxGeometry(m); })();
-    limbSpecs = [                                        // 8 条腿（原来只写了 4 条 → 蜘蛛「少腿」）
-      { geo: spLeg, x: -4, y: 8, z: 5, arm: true }, { geo: spLeg, x: 4, y: 8, z: 5, arm: true },
-      { geo: spLeg, x: -4, y: 8, z: 2, arm: false }, { geo: spLeg, x: 4, y: 8, z: 2, arm: false },
-      { geo: spLeg, x: -4, y: 8, z: -1, arm: false }, { geo: spLeg, x: 4, y: 8, z: -1, arm: false },
-      { geo: spLeg, x: -4, y: 8, z: -4, arm: false }, { geo: spLeg, x: 4, y: 8, z: -4, arm: false },
+    box(body, -4, 6, -7, 8, 7, 14, CH, 0.14);                    // 头胸（y 6..12）
+    box(body, -6, 7, -9, 12, 5, 6, CH2, 0.12);                   // 后腹
+    for (let z = -8; z < -3; z += 2) px(body, -6, 11, z, 0x3a3040);   // 腹部条纹
+    box(head, -3, 6, 7, 6, 5, 5, CH, 0.10);                      // y 6..10
+    // 四只眼（两对）：2×1 红眼 + 1px 亮芯
+    for (const x of [-3, -1, 1, 2]) { px(head, x, 9, 11, EYE); px(head, x, 8, 11, 0x7a1d1d); }
+    px(head, -2, 9, 11, 0xffb0b0); px(head, 2, 9, 11, 0xffb0b0);
+    // 八条腿从身体下沿垂直落到地面（长 12px，落地不会悬空）
+    const leg = limbGeo(1, 12, 1, CH2, 0.08);
+    limbSpecs = [
+      { geo: leg, x: -4, y: 12, z: 5, arm: true }, { geo: leg, x: 4, y: 12, z: 5, arm: true },
+      { geo: leg, x: -4, y: 12, z: 2, arm: false }, { geo: leg, x: 4, y: 12, z: 2, arm: false },
+      { geo: leg, x: -4, y: 12, z: -1, arm: false }, { geo: leg, x: 4, y: 12, z: -1, arm: false },
+      { geo: leg, x: -4, y: 12, z: -4, arm: false }, { geo: leg, x: 4, y: 12, z: -4, arm: false },
     ];
+    coreY = 9 * MOB_PX; barY = 13.5 * MOB_PX;
   } else if (kind === 'blaze') {
-    coreY = 0.78; barY = 1.66;
-    const FIRE = 0xffb43c, FIRE2 = 0xff7a18, DARK = 0x8a3a10, EYE = 0xfff2b0;
-    box(body, -3, 6, -3, 6, 8, 6, DARK, 0.12);                 // 燃烧的核心
-    box(body, -4, 9, -2, 8, 2, 4, FIRE2, 0.10);                // 肩部火焰
-    box(head, -3, 14, -3, 7, 7, 7, FIRE, 0.12);                // 头
-    px(head, -2, 18, 4, EYE); px(head, 2, 18, 4, EYE);
-    px(head, -2, 17, 4, EYE); px(head, 2, 17, 4, EYE);
-    box(head, -1, 14, 4, 3, 2, 1, DARK, 0.04);                 // 口
-    const flame = (() => { const m = new Map(); box(m, 0, -6, 0, 2, 6, 2, FIRE2, 0.15); box(m, 0, 0, 0, 3, 2, 3, FIRE, 0.10); return voxGeometry(m); })();
+    const FIRE = 0xffb43c, FIRE2 = 0xff7a18, DARK = 0x8a3a10;
+    box(body, -3, 8, -3, 6, 10, 6, DARK, 0.14);                  // 燃烧的核心
+    for (let y = 9; y < 17; y += 2) for (let x = -3; x < 3; x += 2) px(body, x, y, 2, FIRE2);
+    box(body, -4, 11, -2, 8, 2, 4, FIRE2, 0.12);                 // 肩部火焰
+    box(head, -3, 18, -3, 7, 7, 7, FIRE, 0.14);                  // 头
+    eyes2(head, 3, 23, [-2, 2], 0x241608, 0xfff2b0);
+    box(head, -1, 20, 3, 3, 1, 1, DARK, 0.05);                   // 口
+    const limb = limbGeo(2, 7, 2, FIRE2, 0.16,
+      (m, set, x0) => { set(x0, -7, 1, 0xfff2b0); });
     limbSpecs = [
-      { geo: flame, x: -5, y: 12, z: 0, arm: true }, { geo: flame, x: 5, y: 12, z: 0, arm: true },
-      { geo: flame, x: -2, y: 6, z: 0, arm: false }, { geo: flame, x: 2, y: 6, z: 0, arm: false },
+      { geo: limb, x: -5, y: 17, z: 0, arm: true }, { geo: limb, x: 5, y: 17, z: 0, arm: true },
+      { geo: limb, x: -2, y: 8, z: 0, arm: false }, { geo: limb, x: 2, y: 8, z: 0, arm: false },
     ];
+    coreY = 15 * MOB_PX; barY = 27 * MOB_PX;
   } else if (kind === 'netherBeast') {
-    coreY = 0.62; barY = 1.35;
     const HIDE = 0x5d2222, HIDE2 = 0x3d1515, HORN = 0xd9cdb5, EYE = 0xff5a2b;
-    box(body, -4, 6, -7, 8, 7, 14, HIDE, 0.10);                // 躯干
-    box(body, -3, 11, -6, 6, 2, 10, HIDE2, 0.08);              // 背脊
-    box(head, -3, 8, 8, 7, 6, 7, HIDE2, 0.10);                 // 头
-    px(head, -2, 12, 14, EYE); px(head, 2, 12, 14, EYE);
-    box(head, -4, 13, 9, 2, 3, 2, HORN, 0.06); box(head, 3, 13, 9, 2, 3, 2, HORN, 0.06);   // 角
-    const beastLeg = (() => { const m = new Map(); box(m, -1, -6, -1, 2, 6, 2, HIDE2, 0.08); return voxGeometry(m); })();
+    box(body, -4, 8, -8, 8, 9, 16, HIDE, 0.12);
+    box(body, -3, 15, -7, 6, 2, 12, HIDE2, 0.09);                // 背脊
+    for (let z = -7; z < 7; z += 3) px(body, -3, 17, z, HORN);    // 背刺
+    box(head, -3, 10, 9, 7, 7, 8, HIDE2, 0.11);
+    eyes2(head, 16, 15, [-2, 2], EYE, 0xffe0b0);
+    box(head, -4, 16, 10, 2, 4, 2, HORN, 0.06);                  // 角
+    box(head, 3, 16, 10, 2, 4, 2, HORN, 0.06);
+    const leg = limbGeo(2, 8, 2, HIDE2, 0.10,
+      (m, set, x0) => { set(x0, -8, 1, 0x140b0b); });
     limbSpecs = [
-      { geo: beastLeg, x: -3, y: 6, z: 5, arm: true }, { geo: beastLeg, x: 3, y: 6, z: 5, arm: true },
-      { geo: beastLeg, x: -3, y: 6, z: -5, arm: false }, { geo: beastLeg, x: 3, y: 6, z: -5, arm: false },
+      { geo: leg, x: -2, y: 8, z: 6, arm: true }, { geo: leg, x: 2, y: 8, z: 6, arm: true },
+      { geo: leg, x: -2, y: 8, z: -6, arm: false }, { geo: leg, x: 2, y: 8, z: -6, arm: false },
     ];
+    coreY = 12 * MOB_PX; barY = 24 * MOB_PX;
   } else if (kind === 'skeleton') {
-    coreY = 0.66; barY: 0; barY = 1.55;
-    const BONE = 0xe8e4d6, BONE2 = 0xc9c4b2, SOCKET = 0x1e1a16;
-    box(body, -3, 8, -1, 6, 8, 3, BONE, 0.10);            // 胸腔
-    box(body, -2, 11, 2, 4, 1, 1, BONE2, 0.05);           // 肋骨阴影
-    box(head, -3, 16, -3, 7, 7, 7, BONE, 0.09);           // 头骨
-    px(head, -2, 20, 4, SOCKET); px(head, -1, 20, 4, SOCKET);
-    px(head, 2, 20, 4, SOCKET); px(head, 3, 20, 4, SOCKET);
-    box(head, -1, 17, 4, 3, 1, 1, BONE2, 0.04);           // 牙
-    const skArm = (() => { const m = new Map(); box(m, -1, -8, -1, 2, 8, 2, BONE, 0.09); return voxGeometry(m); })();
-    const skLeg = (() => { const m = new Map(); box(m, -1, -8, -1, 2, 8, 2, BONE2, 0.09); return voxGeometry(m); })();
+    // 骷髅：与人形同骨架，但肢体只有 2px 宽（MC 骷髅的细骨头）
+    const BONE = 0xe8e4d6, BONE2 = 0xc9c4b2, SOCK = 0x14100d;
+    humanoid({ body: BONE, skin: BONE, dark: BONE2, leg: BONE2 }, () => {
+      box(head, -4, 24, -4, 8, 8, 8, BONE, 0.08);
+      eyes2(head, 3, 28, [-3, 2], SOCK, SOCK);
+      px(head, -1, 26, 3, SOCK); px(head, 0, 26, 3, SOCK);        // 鼻孔
+      for (let x = -3; x <= 2; x++) px(head, x, 25, 3, x % 2 ? BONE2 : 0x2b2620);   // 牙缝
+      box(head, -4, 24, -4, 8, 1, 8, BONE2, 0.06);                // 下颌阴影
+    }, (m, set, x0) => {}, (m, set, x0) => {});
+    // 肋骨：正面横向暗缝（每 2px 一条）+ 脊柱
+    for (let y = 13; y <= 21; y += 2) for (let x = -4; x < 4; x++) px(body, x, y, 1, 0x241f1a);
+    for (let y = 13; y <= 21; y++) { px(body, -1, y, 1, BONE2); px(body, 0, y, 1, BONE2); }
+    // 覆写四肢：细骨头（2×12×2）
+    const armGeo = limbGeo(2, 12, 2, BONE, 0.08,
+      (m, set, x0) => { for (let x = x0; x < x0 + 2; x++) set(x, -6, 1, BONE2); });
+    const legGeo = limbGeo(2, 12, 2, BONE2, 0.08,
+      (m, set, x0) => { for (let x = x0; x < x0 + 2; x++) set(x, -12, 1, BONE); });
     limbSpecs = [
-      { geo: skArm, x: -4, y: 16, z: 0, arm: true }, { geo: skArm, x: 4, y: 16, z: 0, arm: true },
-      { geo: skLeg, x: -2, y: 8, z: 0, arm: false }, { geo: skLeg, x: 2, y: 8, z: 0, arm: false },
+      { geo: armGeo, x: -6, y: 24, z: 0, arm: true }, { geo: armGeo, x: 6, y: 24, z: 0, arm: true },
+      { geo: legGeo, x: -2, y: 12, z: 0, arm: false }, { geo: legGeo, x: 2, y: 12, z: 0, arm: false },
     ];
   } else if (kind === 'ghost' || kind === 'ghostBoss') {
     const boss = kind === 'ghostBoss';
-    const S2 = boss ? 2 : 1;                                 // Boss 整体放大一倍
-    coreY = 0.75 * S2; barY = boss ? 3.05 : 1.62;
+    const S2 = boss ? 2 : 1;                                     // Boss 整体 2 倍（人形的 2 倍高）
     const SHEET = boss ? 0xd8c8f0 : 0xe6eef7, DARK = boss ? 0x8f6fc0 : 0xa8bccc, EYE = boss ? 0xff5a8a : 0x2a2b3a;
-    box(body, -3 * S2, 6 * S2, -2 * S2, 7 * S2, 10 * S2, 3 * S2, SHEET, 0.14);   // 主体
-    box(body, -4 * S2, 8 * S2, -1 * S2, 9 * S2, 4 * S2, 2 * S2, SHEET, 0.12);    // 伸出的手臂
-    // 下摆做成一缕一缕的（幽灵感）
-    for (let i = -3; i <= 3; i += 2) {
+    box(body, -4 * S2, 8 * S2, -2 * S2, 8 * S2, 10 * S2, 4 * S2, SHEET, 0.16);
+    box(body, -5 * S2, 10 * S2, -1 * S2, 10 * S2, 3 * S2, 2 * S2, SHEET, 0.14);   // 伸出的手臂
+    for (let i = -3; i <= 3; i += 2) {                            // 下摆一缕一缕
       const len = 2 + ((i * 7 + 5) % 3);
-      box(body, i * S2, (6 - len) * S2, -2 * S2, 1 * S2, len * S2, 2 * S2, DARK, 0.12);
+      box(body, i * S2, (8 - len) * S2, -2 * S2, 1 * S2, len * S2, 4 * S2, DARK, 0.14);
     }
-    box(head, -3 * S2, 14 * S2, -2 * S2, 7 * S2, 6 * S2, 3 * S2, SHEET, 0.10);   // 头
-    px(head, -2 * S2, 17 * S2, 1 * S2, EYE); px(head, -1 * S2, 17 * S2, 1 * S2, EYE);
-    px(head, 1 * S2, 17 * S2, 1 * S2, EYE); px(head, 2 * S2, 17 * S2, 1 * S2, EYE);
-    box(head, -1 * S2, 15 * S2, 1 * S2, 3 * S2, 1 * S2, 1 * S2, 0x3a3550, 0.06);  // 嘴
-    limbSpecs = [];
-  } else {                                                // grunt 夜行怪
-    coreY = 0.62; barY = 1.44;
-    const BODY = 0x2f5d5a, BODY2 = 0x264a48, HEAD = 0x9fd8c8, EYE = 0xff4d4d, TEETH = 0xe8f4ef;
-    box(body, -4, 7, -2, 8, 9, 4, BODY, 0.13);            // 躯干
-    box(body, -3, 9, 1, 6, 5, 1, BODY2, 0.09);            // 胸口暗块
-    box(body, -4, 7, -2, 8, 1, 4, 0x1f3d3c, 0.05);        // 腰带
-    box(head, -4, 16, -4, 8, 8, 8, HEAD, 0.09);           // 头
-    box(head, -4, 22, -4, 8, 2, 8, 0x82c3b2, 0.07);       // 头顶暗一档
-    px(head, -3, 19, 3, EYE); px(head, -2, 19, 3, EYE);
-    px(head, 2, 19, 3, EYE); px(head, 3, 19, 3, EYE);
-    box(head, -2, 17, 3, 4, 1, 1, TEETH, 0.03);           // 牙
-    const armGeo = (() => { const m = new Map(); box(m, -1, -9, -1, 3, 9, 3, BODY, 0.13); box(m, -1, -9, -1, 3, 2, 3, BODY2, 0.07); return voxGeometry(m); })();
-    const legGeo = (() => { const m = new Map(); box(m, -1, -7, -1, 3, 7, 3, BODY2, 0.12); return voxGeometry(m); })();
-    limbSpecs = [
-      { geo: armGeo, x: -5, y: 16, z: 0, arm: true }, { geo: armGeo, x: 5, y: 16, z: 0, arm: true },
-      { geo: legGeo, x: -2, y: 7, z: 0, arm: false }, { geo: legGeo, x: 2, y: 7, z: 0, arm: false },
-    ];
+    for (let y = 9 * S2; y < 17 * S2; y += 3 * S2) px(body, -4 * S2, y, 2 * S2 - 1, DARK);
+    box(head, -4 * S2, 18 * S2, -3 * S2, 8 * S2, 7 * S2, 5 * S2, SHEET, 0.12);
+    for (const x of [-2 * S2, 2 * S2]) {                          // 空洞的眼窝
+      for (let dy = 0; dy < 2 * S2; dy++) for (let dx = 0; dx < 2 * S2; dx++) px(head, x + dx, 22 * S2 - dy, 2 * S2 - 1, EYE);
+    }
+    for (let x = -1 * S2; x < 2 * S2; x++) px(head, x, 20 * S2, 2 * S2 - 1, 0x3a3550);
+    coreY = 13 * S2 * MOB_PX; barY = 26 * S2 * MOB_PX;
+  } else {
+    // 夜行怪 grunt：人形骨架 + 破布兜帽 + 红眼尖牙
+    const SKIN = 0x9fd8c8, CLOTH = 0x2f5d5a, CLOTH2 = 0x26494a;
+    humanoid({ body: CLOTH, skin: SKIN, dark: CLOTH2, leg: 0x223f3e }, () => {
+      // 兜帽：顶 2 层 + 后脑 + 左右鬓角
+      box(head, -4, 30, -4, 8, 2, 8, CLOTH, 0.08);
+      box(head, -4, 24, -4, 8, 8, 2, CLOTH, 0.08);
+      box(head, -4, 24, -4, 1, 8, 8, CLOTH, 0.08);
+      box(head, 3, 24, -4, 1, 8, 8, CLOTH, 0.08);
+      for (let x = -4; x < 4; x++) px(head, x, 29, 3, CLOTH2);    // 帽檐阴影
+      eyes2(head, 27, 28, [-3, 2], 0x3a0d0d, 0xff4d4d);           // 红眼
+      for (let x = -2; x <= 1; x++) px(head, x, 25, 3, 0x201414); // 嘴
+      px(head, -1, 25, 3, 0xe8f4ef); px(head, 1, 25, 3, 0xe8f4ef);
+      for (let y = 26; y <= 28; y++) { px(head, 0, y, 3, dk(SKIN, 0.88)); px(head, -1, y, 3, dk(SKIN, 0.88)); }  // 鼻梁阴影
+    }, (m, set, x0) => {
+      for (let y = -2; y <= -1; y++) for (let x = x0; x < x0 + 4; x++) set(x, y, 1, dk(CLOTH, 1.25));            // 袖口
+    }, (m, set, x0) => {
+      for (let x = x0; x < x0 + 4; x++) { set(x, -12, 1, 0x1a2e2e); set(x, -12, -2, 0x1a2e2e); }               // 靴子
+    }, () => {
+      box(body, -3, 15, 1, 6, 4, 1, CLOTH2, 0.06);                // 胸甲
+      for (let y = 15; y <= 18; y++) { px(body, -3, y, 1, 0x1f3d3c); px(body, 2, y, 1, 0x1f3d3c); }
+      px(body, -2, 17, 1, 0xdfe9e4); px(body, 1, 17, 1, 0xdfe9e4); // 铆钉
+    });
   }
 
-  const geo = { body: voxGeometry(body), head: voxGeometry(head), coreY, barY, limbs: limbSpecs };
+  const topPx = kind === 'ghost' || kind === 'ghostBoss' ? (kind === 'ghostBoss' ? 50 : 25) : 0;
+  if (MOB_DEFS[kind]) MOB_DEFS[kind].barY = barY;      // 头顶血条 / 村民标记跟着新体型走
+  const geo = { body: voxGeometry(body), head: voxGeometry(head), coreY, barY, limbs: limbSpecs, topPx };
   mobGeoCache.set(kind, geo);
   return geo;
 }
@@ -4082,6 +4352,8 @@ function makeMobModel(kind) {
   for (const L of G.limbs) {
     const mesh = new THREE.Mesh(L.geo, bodyMat);
     mesh.position.set(L.x * MOB_PX, L.y * MOB_PX - G.coreY, L.z * MOB_PX);
+    if (L.rz) mesh.rotation.z = L.rz;          // 蜘蛛腿外撇等静态姿态
+    if (L.rx) mesh.rotation.x = L.rx;
     core.add(mesh); limbs.push(mesh);
   }
   g.add(core);
@@ -4548,6 +4820,38 @@ function spawnArrow(from, to, opts = {}) {
   });
   return true;
 }
+// 能量弹：发光球 + 光环，几乎不下坠（炮比弓贵在「要充能」）
+const boltMatCache = new Map();
+let boltGeoCache = null;
+function makeBoltModel(color) {
+  if (!boltGeoCache) {
+    boltGeoCache = { core: new THREE.SphereGeometry(0.12, 10, 8), ring: new THREE.TorusGeometry(0.19, 0.016, 6, 14) };
+  }
+  let m = boltMatCache.get(color);
+  if (!m) {
+    m = {
+      core: new THREE.MeshBasicMaterial({ color }),
+      ring: new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.75 }),
+    };
+    boltMatCache.set(color, m);
+  }
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(boltGeoCache.core, m.core), new THREE.Mesh(boltGeoCache.ring, m.ring));
+  g.userData.shared = true;
+  return g;
+}
+function spawnBolt(from, to, opts = {}) {
+  const dir = to.clone().sub(from).normalize();
+  const obj = makeBoltModel(opts.color || 0xffb066);
+  obj.position.copy(from);
+  obj.lookAt(to);
+  scene.add(obj);
+  arrows.push({
+    p: from.clone(), v: dir.multiplyScalar(opts.speed || 52), t: 0, obj,
+    dmg: opts.dmg || 8, fromPlayer: true, bolt: true, grav: 0.35, maxT: 2.6,
+  });
+  return true;
+}
 function shootArrow(m) {                       // 骷髅射箭
   const from = new THREE.Vector3(m.p.x, m.p.y + 1.15, m.p.z);
   const to = new THREE.Vector3(player.p.x, player.p.y + 1.05, player.p.z);
@@ -4558,8 +4862,8 @@ function updateArrows(dt) {
   for (let i = arrows.length - 1; i >= 0; i--) {
     const a = arrows[i];
     a.t += dt;
-    a.v.y -= 6.5 * dt;
-    let gone = a.t > 5;
+    a.v.y -= (a.grav === undefined ? 6.5 : a.grav) * dt;   // 能量弹几乎不下坠（grav 0.35）
+    let gone = a.t > (a.maxT || 5);
     // 分 3 小步推进并逐小步判定：箭速 34 m/s 时一帧走 0.57 格，不分步会直接穿过去
     const SUB = 3;
     for (let k = 0; k < SUB && !gone; k++) {
@@ -5126,6 +5430,7 @@ function updateMobs(dt) {
 /* ============================================================ 掉落物 */
 const drops = [];
 const DROP_MAX = 90;
+let dropSeq = 0;                     // 掉落物编号：联机里主机广播它，客人靠它认「同一个掉落物」
 const dropTexCache = new Map();
 function dropTexture(id) {
   if (dropTexCache.has(id)) return dropTexCache.get(id);
@@ -5137,11 +5442,14 @@ function dropTexture(id) {
 }
 function spawnDrop(id, n, x, y, z, opts = {}) {
   if (!isItem(id) || n <= 0) return null;
+  // ★ 联机客人：掉落物的物理模拟归主机。以前客人也在本地 spawn 一份，但 updateDrops 被禁了，
+  //   于是那份掉落物**悬空不动、也永远捡不起来**。现在改成只上报，由主机 spawn 真掉落物再广播回来。
+  if (NET && NET.active && !NET.isHost && !opts.fromHost) return NET.remoteDrop(id, n, x, y, z);
   if (drops.length >= DROP_MAX) { addItem(id, n); return null; }   // 太挤就直接进包
   const mat = new THREE.MeshBasicMaterial({ map: dropTexture(id), transparent: true });
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), mat);
   const d = {
-    id, n, t: 0, spin: Math.random() * 6,
+    id, n, t: 0, c: opts.c, spin: Math.random() * 6, nid: opts.nid || (++dropSeq),
     p: new THREE.Vector3(x, y, z),
     v: new THREE.Vector3((Math.random() - 0.5) * 1.4, opts.pop || 2.4, (Math.random() - 0.5) * 1.4),
     obj: mesh,
@@ -5177,7 +5485,12 @@ function updateDrops(dt) {
     d.obj.rotation.y = d.spin;
     d.obj.rotation.x = Math.sin(d.spin * 0.7) * 0.15;
     if (d.t > 0.3 && dist < 0.95) {                       // 拾取
-      addItem(d.id, d.n);
+      if (ITEMS[d.id] && ITEMS[d.id].kind === 'gun' && d.c !== undefined) {
+        // 能量炮：捡回来要保留电量（不然丢一次就是免费充满）
+        const gslot = inv.findIndex(s => !s);
+        if (gslot >= 0) inv[gslot] = { id: d.id, n: 1, c: Math.max(0, Math.min(gunCap(d.id), d.c | 0)) };
+        else addItem(d.id, d.n);
+      } else addItem(d.id, d.n);
       if (d.n > 1) toast(`拾取 ${nameOf(d.id)} ×${d.n}`, 1.1);
       sfx('dig');
       renderHotbar();
@@ -5241,6 +5554,22 @@ function respawn() {
 }
 
 /* ---------- 快捷栏 / 背包 ---------- */
+// 格子里的状态条：工具/剑=耐久（绿→黄→红），能量炮=电量（青蓝→黄→红）
+function slotBarHTML(s) {
+  const idef = s && ITEMS[s.id];
+  if (!idef) return '';
+  if (idef.kind === 'gun') {
+    const cap = idef.cap || 8, c = s.c === undefined ? cap : Math.max(0, Math.min(cap, s.c));
+    const f = c / cap;
+    const col = f > 0.5 ? '#4de0d0' : f > 0.2 ? '#f0c04a' : '#e0524b';
+    return `<i class="dur"><b style="width:${(f * 100).toFixed(0)}%;background:${col}"></b></i>`;
+  }
+  if (!idef.dur) return '';
+  const left = s.d === undefined ? idef.dur : s.d;
+  const f = Math.max(0, Math.min(1, left / idef.dur));
+  const col = f > 0.5 ? '#7fe06b' : f > 0.25 ? '#f0c04a' : '#e0524b';
+  return `<i class="dur"><b style="width:${(f * 100).toFixed(0)}%;background:${col}"></b></i>`;
+}
 function renderHotbar() {
   const row = hud.hotbar;
   row.innerHTML = '';
@@ -5248,16 +5577,7 @@ function renderHotbar() {
     const s = inv[i];
     const d = document.createElement('div');
     d.className = 'slot' + (i === player.sel ? ' sel' : '');
-    let durBar = '';
-    if (s) {
-      const idef = ITEMS[s.id];
-      if (idef && idef.dur) {
-        const left = s.d === undefined ? idef.dur : s.d;
-        const f = Math.max(0, Math.min(1, left / idef.dur));
-        const col = f > 0.5 ? '#7fe06b' : f > 0.25 ? '#f0c04a' : '#e0524b';
-        durBar = `<i class="dur"><b style="width:${(f * 100).toFixed(0)}%;background:${col}"></b></i>`;
-      }
-    }
+    const durBar = slotBarHTML(s);
     d.innerHTML = `<span class="k">${i + 1}</span>` +
       (s ? `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>` + durBar : '');
     d.onclick = () => { player.sel = i; refreshHeld(); renderHotbar(); };
@@ -5402,6 +5722,14 @@ const RECIPES = [
   { out: 167, n: 1, need: { 162: 6 }, tier: 1 },
   { out: 168, n: 1, need: { 162: 5 }, tier: 1 },
   { out: 169, n: 1, need: { 162: 3 }, tier: 1 },
+  // ── 电路系统：铜 → 电线 / 电路板 → 充电器 + 四档能量炮 ──
+  { out: 186, n: 4, need: { 162: 1 } },                        // 电线 ×4 ← 铜锭 1（不用工作台，开局就能绕线）
+  { out: 185, n: 1, need: { 162: 3, 8: 1 }, tier: 1 },         // 电路板 ← 铜锭 3 + 木板 1
+  { out: 53,  n: 1, need: { 9: 6, 162: 4, 186: 2 }, tier: 1 }, // 充电器 ← 圆石 6 + 铜锭 4 + 电线 2
+  { out: 188, n: 1, need: { 185: 1, 186: 3, 162: 4 }, tier: 1 },   // 铜能量炮   dmg 8  电量 8
+  { out: 189, n: 1, need: { 185: 1, 186: 3, 106: 4 }, tier: 1 },   // 铁能量炮   dmg 12 电量 10
+  { out: 190, n: 1, need: { 185: 1, 186: 4, 125: 3 }, tier: 1 },   // 钻石能量炮 dmg 17 电量 12
+  { out: 191, n: 1, need: { 185: 1, 186: 4, 178: 2 }, tier: 1 },   // 冥界钢能量炮 dmg 22 电量 14
   // ── 木器：原木 →（木头加工器）→ 木片 → 木盔甲。最弱的一套护甲，开局就能凑齐（合计 7 点 vs 铜 12 / 铁 15）
   { out: 40, n: 1, need: { 6: 2, 8: 4, 9: 4 }, tier: 1 },     // 木头加工器：原木 2 + 木板 4 + 圆石 4
   { out: 171, n: 1, need: { 170: 6 }, tier: 1 },              // 木头盔
@@ -5569,6 +5897,7 @@ function renderFurnace() {
 function openFurnace() {
   if (panelOpen) openPanel(false);
   if (openChestPos) closeChest();
+  if (chargerOpen) closeCharger();
   furnaceOpen = true;
   renderFurnace(); $('furnace').classList.remove('hide');
   syncPointerLock();                                                // 放开光标，熔炉列表才点得动
@@ -5578,9 +5907,105 @@ function closeFurnace() {
   $('furnace').classList.add('hide');
   syncPointerLock();
 }
+/* ── 充电器：放进一把能量炮 + 1 个铀 → 5 秒充满。
+   电量存在背包格子上的 c（和工具耐久 d 同族），所以每把炮的电量独立。
+   作业挂全局（和熔炉一样），面板关掉也继续充；炮被挪走就中断并退回铀。 */
+let chargerOpen = false, chargerJob = null;
+const GUN_IDS = [188, 189, 190, 191];
+const CHARGE_DUR = 5.0;
+const gunCap = id => (ITEMS[id] && ITEMS[id].cap) || 8;
+const gunCharge = s => (s && s.c === undefined ? gunCap(s.id) : Math.max(0, s.c | 0));
+function chargerTargets() {
+  const out = [];
+  for (let i = 0; i < SLOTS; i++) { const s = inv[i]; if (s && GUN_IDS.includes(s.id)) out.push({ i, s }); }
+  return out;
+}
+function startCharge(slot) {
+  if (chargerJob) { toast('充电器正在工作，等它充完', 1.4); return false; }
+  const s = inv[slot];
+  if (!s || !GUN_IDS.includes(s.id)) { toast('背包里没有这把能量炮了', 1.6); return false; }
+  const cap = gunCap(s.id);
+  if (gunCharge(s) >= cap) { toast(`${nameOf(s.id)} 已经是满电（${cap}/${cap}）`, 1.6); return false; }
+  if (countOf(187) < 1) { toast('没有铀：铀矿只在深板岩层，挖到不用烧，直接当充电燃料', 2.6); return false; }
+  takeItem(187, 1);
+  chargerJob = { slot, id: s.id, t: 0, dur: CHARGE_DUR };
+  toast(`装入 1 个铀：正在给 ${nameOf(s.id)} 充能（${gunCharge(s)}/${cap}）`, 2.0);
+  sfx('place');
+  renderHotbar(); renderCharger(); saveSoon();
+  return true;
+}
+function updateChargerJob(dt) {
+  const j = chargerJob;
+  if (!j) return;
+  const s = inv[j.slot];
+  if (!s || s.id !== j.id) {                       // 炮被挪走/换格：中断并退回铀（不做无声吞料）
+    chargerJob = null;
+    addItem(187, 1);
+    toast('充电中断：能量炮被移走了，铀已退回', 2.4);
+    if (chargerOpen) renderCharger();
+    renderHotbar(); saveSoon();
+    return;
+  }
+  j.t += dt;
+  if (j.t < j.dur) { if (chargerOpen) renderCharger(); return; }
+  s.c = gunCap(s.id);
+  chargerJob = null;
+  toast(`充能完成：${nameOf(s.id)} 电量 ${s.c}/${gunCap(s.id)}`, 2.0);
+  sfx('craft');
+  renderHotbar(); if (chargerOpen) renderCharger(); refreshGunHud(); saveSoon();
+}
+function renderCharger() {
+  const info = $('chgInfo');
+  if (!info) return;
+  info.innerHTML = `铀 <b style="color:#8dff5a">${countOf(187)}</b> 个`
+    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">1 个铀 = ${CHARGE_DUR.toFixed(0)} 秒充满 1 把能量炮（铀直接当燃料，不用烧成锭）</div>`;
+  const list = $('chgList');
+  if (!list) return;
+  list.innerHTML = '';
+  const tg = chargerTargets();
+  if (!tg.length) {
+    const d = document.createElement('div');
+    d.className = 'rec no';
+    d.innerHTML = '<div class="t">背包里没有能量炮<i>电路板 + 电线 + 一种金属（铜 / 铁 / 钻石 / 冥界钢）→ 工作台做炮</i></div>';
+    list.appendChild(d);
+    return;
+  }
+  for (const { i, s } of tg) {
+    const cap = gunCap(s.id), c = gunCharge(s);
+    const full = c >= cap;
+    const busy = !!chargerJob;
+    const can = !full && !busy && countOf(187) > 0;
+    const d = document.createElement('div');
+    d.className = 'rec' + (can ? '' : ' no');
+    const busyHere = chargerJob && chargerJob.slot === i;
+    const prog = busyHere ? ` · 充能中 ${Math.round(Math.min(1, chargerJob.t / chargerJob.dur) * 100)}%` : '';
+    d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><div class="t">${nameOf(s.id)}`
+      + `<i>电量 ${c}/${cap}${full ? '（满）' : ''}${prog} · 背包第 ${i + 1} 格</i></div>`
+      + `<div class="go">${full ? '已满' : can ? '用铀充电 →' : (!countOf(187) ? '缺铀' : busy ? '等待中' : '充电')}</div>`;
+    d.onclick = () => { if (can) startCharge(i); };
+    list.appendChild(d);
+  }
+}
+function openCharger() {
+  if (panelOpen) openPanel(false);
+  if (openChestPos) closeChest();
+  if (furnaceOpen) closeFurnace();
+  if (processorOpen) closeProcessor();
+  if (pressOpen) closePress();
+  chargerOpen = true;
+  renderCharger();
+  $('charger').classList.remove('hide');
+  syncPointerLock();
+}
+function closeCharger() {
+  chargerOpen = false;
+  $('charger').classList.add('hide');
+  syncPointerLock();
+}
 function openPanel(open) {
   if (open && openChestPos) closeChest();
   if (open && furnaceOpen) closeFurnace();
+  if (open && chargerOpen) closeCharger();
   if (open && processorOpen) closeProcessor();
   if (open && pressOpen) closePress();
   panelOpen = open;
@@ -5618,6 +6043,7 @@ function openProcessor() {
   if (panelOpen) openPanel(false);
   if (openChestPos) closeChest();
   if (furnaceOpen) closeFurnace();
+  if (chargerOpen) closeCharger();
   processorOpen = true;
   renderProcessor();
   $('processor').classList.remove('hide');
@@ -5657,6 +6083,7 @@ function openPress() {
   if (openChestPos) closeChest();
   if (furnaceOpen) closeFurnace();
   if (processorOpen) closeProcessor();
+  if (chargerOpen) closeCharger();
   pressOpen = true;
   renderPress();
   $('press').classList.remove('hide');
@@ -5765,7 +6192,7 @@ function lockPointer() {
    判据只放在这一个函数里，新加界面只要调 syncPointerLock() 就自动生效。 */
 let furnaceOpen = false;
 function uiOpen() {
-  return panelOpen || !!openChestPos || furnaceOpen || processorOpen || pressOpen || !$('furnace').classList.contains('hide');
+  return panelOpen || !!openChestPos || furnaceOpen || chargerOpen || processorOpen || pressOpen || !$('furnace').classList.contains('hide');
 }
 function syncPointerLock() {
   if (!started) return;
@@ -5815,6 +6242,7 @@ addEventListener('keydown', e => {
     if (!$('settings').classList.contains('hide')) { openSettings(false); e.preventDefault(); return; }
     if (openChestPos) { closeChest(); e.preventDefault(); return; }
     if (!$('furnace').classList.contains('hide')) { closeFurnace(); e.preventDefault(); return; }
+    if (chargerOpen) { closeCharger(); e.preventDefault(); return; }
     if (processorOpen) { closeProcessor(); e.preventDefault(); return; }
     if (pressOpen) { closePress(); e.preventDefault(); return; }
     if (panelOpen) { openPanel(false); e.preventDefault(); return; }
@@ -6018,7 +6446,7 @@ function breakBlock(t) {
   const dropAt = (id, n) => spawnDrop(id, n, t.x + 0.5, t.y + 0.6, t.z + 0.5);
   if (def.chest) {                                   // 箱子里的东西一并掉出来
     const slots = chestInv.get(t.x + ',' + t.y + ',' + t.z);
-    if (slots) for (const s of slots) if (s) spawnDrop(s.id, s.n, t.x + 0.5, t.y + 0.7, t.z + 0.5);
+    if (slots) for (const s of slots) if (s) spawnDrop(s.id, s.n, t.x + 0.5, t.y + 0.7, t.z + 0.5, { c: s.c });
     chestInv.delete(t.x + ',' + t.y + ',' + t.z);
     if (openChestPos && openChestPos.x === t.x && openChestPos.y === t.y && openChestPos.z === t.z) closeChest();
   }
@@ -6032,9 +6460,9 @@ function breakBlock(t) {
   }
   if (def.leaf) { if (Math.random() < 0.12) dropAt(105, 1); }
   else if (def.drop) {
-    const ironPick = inv.some(s => s && (s.id === 120 || s.id === 130));
-    const stonePick = inv.some(s => s && (s.id === 101 || s.id === 120 || s.id === 130 || s.id === 163));
-    if (def.ironPick && !ironPick) toast('钻石矿要用铁镐（或钻石镐）才能挖', 2.0);
+    const ironPick = inv.some(s => s && (s.id === 120 || s.id === 130 || s.id === 184));
+    const stonePick = inv.some(s => s && (s.id === 101 || s.id === 120 || s.id === 130 || s.id === 163 || s.id === 184));
+    if (def.ironPick && !ironPick) toast(`${def.name}要用铁镐或更好才能挖`, 2.0);
     else if (def.stonePick && !stonePick) toast('铁矿需要石镐或更好才能采集', 1.8);
     else if (def.pick && heldKind() !== 'pick') toast('石头需要镐才能采集', 1.8);
     else dropAt(def.drop, 1);
@@ -6257,6 +6685,46 @@ function firePlayerArrow() {
   useTool(1);
   return true;
 }
+/* ── 能量炮：右键发射，每发消耗 1 格电量；打空就必须去充电器用铀充能 ── */
+let gunHudEl = null, lastGunHud = '';
+function refreshGunHud() {
+  if (!gunHudEl) {
+    gunHudEl = document.createElement('div');
+    gunHudEl.id = 'gunHud';
+    gunHudEl.style.cssText = 'position:fixed;left:50%;bottom:calc(66px + env(safe-area-inset-bottom));'
+      + 'transform:translateX(-50%);z-index:31;display:none;font-size:11px;color:#dff8ff;'
+      + 'background:rgba(6,16,26,.62);border:1px solid #2b4a5c;border-radius:4px;padding:3px 9px;white-space:nowrap';
+    document.body.appendChild(gunHudEl);
+  }
+  const h = held();
+  const def = h && ITEMS[h.id];
+  if (!def || def.kind !== 'gun') { gunHudEl.style.display = 'none'; lastGunHud = ''; return; }
+  const cap = gunCap(h.id), c = gunCharge(h);
+  const txt = `${def.name} · 电量 ${c}/${cap}` + (c <= 0 ? ' · 没电了：放进充电器 + 铀' : '');
+  if (txt !== lastGunHud) { gunHudEl.textContent = txt; lastGunHud = txt; }
+  gunHudEl.style.display = 'block';
+  gunHudEl.style.color = c <= 0 ? '#ff9a8a' : c <= cap * 0.25 ? '#ffd84a' : '#dff8ff';
+}
+function fireEnergyBolt() {
+  if (player.gunCd > 0) return false;
+  const h = held();
+  const def = h && ITEMS[h.id];
+  if (!def || def.kind !== 'gun') return false;
+  const cap = gunCap(h.id);
+  const c = gunCharge(h);
+  if (c <= 0) { toast('能量耗尽：把炮放进充电器，加 1 个铀就能充满', 2.4); sfx('hurt'); return false; }
+  if (!isCreative()) h.c = c - 1;
+  const eye = eyePos(), dir = cameraDir();
+  const from = new THREE.Vector3(eye.x + dir.x * 0.55, eye.y - 0.08 + dir.y * 0.55, eye.z + dir.z * 0.55);
+  const to = from.clone().addScaledVector(dir, 14);
+  spawnBolt(from, to, { dmg: def.dmg || 8, speed: def.speed || 52, color: def.boltColor || 0xffb066 });
+  startSwing('attack', 0.24);
+  sfx('place');
+  player.gunCd = def.cd || 0.45;
+  renderHotbar(); refreshGunHud(); saveSoon();
+  if (gunCharge(h) === 0) toast('电量耗尽：放进充电器用铀充能', 2.2);
+  return true;
+}
 // 沿视线找水（射线默认会跳过水，这里单独走一条）
 function rayWater(maxD) {
   const eye = eyePos(), dir = cameraDir();
@@ -6420,6 +6888,7 @@ function attack() {
 
 /* ============================================================ 更新循环 */
 let lastT = 0, acc = 0, fps = 60, frameCount = 0, fpsT = 0, startedAt = 0, camSmoothY = null;
+let camBaseFov = 0, camLastFov = 0, camRoll = 0;
 const STEP = 1 / 60;
 let saveTimer = 0;
 
@@ -6427,6 +6896,7 @@ let saveTimer = 0;
 function hurtPlayerFrom(sx, sz, dmg, power = 5.4) {
   if (!player.alive) return;
   damagePlayer(dmg);
+  anim.hurtK = Math.min(1.4, (anim.hurtK || 0) + 0.9);   // 手抽一下 + 镜头抖一下（Action & Stuff 的受击反馈）
   const dx = player.p.x - sx, dz = player.p.z - sz;
   const d = Math.hypot(dx, dz) || 1;
   player.v.x = (dx / d) * power;
@@ -6437,6 +6907,7 @@ function hurtPlayerFrom(sx, sz, dmg, power = 5.4) {
 function updatePlayer(dt) {
   player.atkCd = Math.max(0, player.atkCd - dt);
   if (player.bowCd > 0) player.bowCd = Math.max(0, player.bowCd - dt);
+  if (player.gunCd > 0) player.gunCd = Math.max(0, player.gunCd - dt);
   if (!player.alive) { player.v.set(0, 0, 0); return; }
   // 键盘转视角（没有鼠标就靠这个）
   const lookSpd = 1.9 * userCfg.sens;
@@ -6561,7 +7032,9 @@ function update(dt) {
   }
   updatePlayer(dt);
   if (!NET || !NET.active || NET.isHost) updateMobs(dt);   // P0：怪物由主机模拟，暂不广播
-  updateDrops(dt);
+  // 掉落物：主机/单机模拟；客人只画幽灵、捡的时候上报给主机删掉
+  // （以前两端各跑一份，于是「别人捡走的东西，你这边还躺在地上」，还能再捡一次）
+  if (!NET || !NET.active || NET.isHost) updateDrops(dt); else NET.updateDropGhosts(dt);
   // 水：每帧跑一点（限流），并每隔半秒把玩家附近的水"唤醒"一次（让瀑布/积水开始流动）
   if (!NET || !NET.active || NET.isHost) updateWater(48);   // 液体只在主机/单机里模拟
   updateFlames(dt);
@@ -6596,10 +7069,12 @@ function update(dt) {
     else if (t && t.id === 19) { openFurnace(); startSwing('place', 0.2); }
     else if (t && t.id === 40) { openProcessor(); startSwing('place', 0.2); }     // 木头加工器
     else if (t && t.id === 47) { openPress(); startSwing('place', 0.2); }          // 液压机
+    else if (t && t.id === 53) { openCharger(); startSwing('place', 0.2); }        // 充电器
     else if (t && (t.id === 45 || t.id === 42)) { usePortal(t.x, t.y, t.z); startSwing('place', 0.2); }   // 传送门
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
     else if (h && h.id === 153) firePlayerArrow();
+    else if (h && ITEMS[h.id] && ITEMS[h.id].kind === 'gun') fireEnergyBolt();
     else if (h && ITEMS[h.id] && ITEMS[h.id].kind === 'hoe') useHoe(t);
     else if (h && h.id === 156) plantSeed(t);
     else if (h && h.id === 157) useFertilizer(t);
@@ -6852,7 +7327,8 @@ function deleteWorld(id) {
 let saveSoonT = 0, saveErr = null, saveWarned = false;
 function save() {
   if (!currentId || !started) return;
-  if (NET && NET.active) return;                  // 联机世界由服务端存，别本地覆盖
+  // 联机里：客人不写本地存档（服务端才是权威）；房主的房间就是他自己的世界，照常存
+  if (NET && NET.active && !NET.lid) return;
   try {
     const data = {
       seed: SEED, mode: MODE, time: worldTime, dim: DIM, overPos: player.overPos || null,
@@ -6882,14 +7358,14 @@ function loadSave(id) {
     SEED = d.seed;
     worldTime = d.time || 0;
     inv = new Array(SLOTS).fill(null);
-    (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0).forEach((s, i) => { if (i < SLOTS) inv[i] = { id: s.id, n: s.n, d: s.d }; });
+    (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0).forEach((s, i) => { if (i < SLOTS) inv[i] = { id: s.id, n: s.n, d: s.d, c: s.c }; });
     player.spawn = d.spawn || null;
     if (d.armor) for (const s of ARMOR_SLOTS) player.armor[s] = ITEMS[d.armor[s]] ? d.armor[s] : null;
     compostProg.clear();
     if (Array.isArray(d.compost)) for (const e of d.compost) if (Array.isArray(e)) compostProg.set(e[0], e[1] | 0);
     if (Array.isArray(d.chests)) for (const entry of d.chests) {
       if (!Array.isArray(entry) || !Array.isArray(entry[1])) continue;   // 兼容旧存档
-      chestInv.set(entry[0], entry[1].map(s => (s && isItem(s.id) && s.n > 0) ? { id: s.id, n: s.n } : null));
+      chestInv.set(entry[0], entry[1].map(s => (s && isItem(s.id) && s.n > 0) ? { id: s.id, n: s.n, c: s.c } : null));
     }
     for (const [k, v] of (d.edits || [])) edits.set(k, v);
     reindexEdits();
@@ -6928,15 +7404,29 @@ function frame(now) {
   updateHUD(dt);
   updateDoorAnims(dt);
   updateFurnaceJob(dt);
+  updateChargerJob(dt);
   torchT -= dt;
   if (torchT <= 0) { torchT = 0.2; updateTorchLights(); }
   doorSyncT -= dt;
   if (doorSyncT <= 0) { doorSyncT = 0.25; syncDoors(); }
 
+  // ── 相机：疾跑 FOV 微推 + 侧移轻微翻滚 + 受伤抖动（幅度必须小，不然晕）
+  const spdC = Math.hypot(player.v.x, player.v.z);
+  const sprintC = clamp01((spdC - CFG.WALK * 0.92) / Math.max(0.1, CFG.SPRINT - CFG.WALK * 0.92));
+  if (!camBaseFov) camBaseFov = camera.fov;
+  camera.fov += (camBaseFov * (1 + 0.055 * sprintC) - camera.fov) * Math.min(1, dt * 6);
+  if (Math.abs(camera.fov - camLastFov) > 0.02) { camera.updateProjectionMatrix(); camLastFov = camera.fov; }
+
   const idealEye = player.p.y + CFG.EYE + Math.sin(player.walkPhase) * 0.018;
   camSmoothY = camSmoothY === null ? idealEye : camSmoothY + (idealEye - camSmoothY) * Math.min(1, dt * 15);
   camera.position.set(player.p.x, camSmoothY, player.p.z);
-  camera.rotation.set(player.pitch, player.yaw, 0);
+  // 侧移翻滚：用镜头坐标系的左右速度，跑起来才有"重心"感
+  const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+  const strafe = player.v.x * (-fz) + player.v.z * fx;
+  camRoll += (clamp(-strafe * 0.010, -0.028, 0.028) - camRoll) * Math.min(1, dt * 8);
+  const shake = anim.hurtK * 0.012;
+  const sxA = shake ? Math.sin(now / 17) * shake : 0;
+  camera.rotation.set(player.pitch + sxA, player.yaw + sxA * 0.6, camRoll);
   updateHandPose(dt, now);
 
   renderer.clear();
@@ -7065,7 +7555,10 @@ $('btnCreate').onclick = () => {
   $('createPanel').classList.add('hide');
   startGame(w);
 };
-$('btnReset').onclick = () => { save(); location.reload(); };   // 回世界列表
+$('btnReset').onclick = () => {                    // 回世界列表（联机里 = 退出联机）
+  if (NET && NET.active && NET.leave) { NET.leave(); return; }
+  save(); location.reload();
+};
 loadCfg();
 applyTouchUI();
 $('btnSettings').onclick = () => openSettings(true);
@@ -7102,6 +7595,7 @@ renderWorldList();
 $('btnBag').onclick = () => openPanel(!panelOpen);
 $('btnClose').onclick = () => openPanel(false);
 $('btnFurnaceClose').onclick = () => closeFurnace();
+$('btnChargerClose').onclick = () => closeCharger();
 $('btnProcessorClose').onclick = () => closeProcessor();
 $('procOne').onclick = () => chipBatch(1);
 $('procAll').onclick = () => chipBatch(Infinity);
@@ -7144,12 +7638,12 @@ window.GAME = {
   heightAt, n3, caveCarve,
     oreVeins,
     oreStats() {                                     // 统计已加载区块里的矿石分布
-      const cnt = { 13: 0, 15: 0, 39: 0, 20: 0 }, ys = { 13: [99, 0], 15: [99, 0], 39: [99, 0], 20: [99, 0] };
+      const cnt = { 13: 0, 15: 0, 39: 0, 20: 0, 52: 0 }, ys = { 13: [99, 0], 15: [99, 0], 39: [99, 0], 20: [99, 0], 52: [99, 0] };
       for (const ch of chunks.values()) {
         const b = ch.blocks, CH = CFG.CH, WH = CFG.WH;
         for (let y = 0; y < WH; y++) for (let i = 0; i < CH * CH; i++) {
           const id = b[(y * CH * CH) + i];
-          if (id !== 13 && id !== 15 && id !== 39 && id !== 20) continue;
+          if (id !== 13 && id !== 15 && id !== 39 && id !== 20 && id !== 52) continue;
           cnt[id]++;
           if (y < ys[id][0]) ys[id][0] = y;
           if (y > ys[id][1]) ys[id][1] = y;
@@ -7228,6 +7722,64 @@ window.GAME = {
       kind: heldKindNow, visible: heldGroup.visible, heldId: heldFor,
       swing: +anim.swing.toFixed(3), mineW: +anim.mineW.toFixed(3), mineT: +anim.mineT.toFixed(3),
       equip: +anim.equip.toFixed(3), sway: [+anim.swayX.toFixed(4), +anim.swayY.toFixed(4)],
+      // 动画调参用的探针：这些数字直接说明「哪段动作在生效、多强」
+      sprintK: +anim.sprintK.toFixed(3), airK: +anim.airK.toFixed(3), waterK: +anim.waterK.toFixed(3),
+      hurtK: +anim.hurtK.toFixed(3), swingN: anim.swingN, fov: +camera.fov.toFixed(2),
+      camRoll: +camRoll.toFixed(4),
+    }),
+    // 朝向/动作方向探针：脸朝哪、手往哪甩、头抬还是低（怀疑符号反了时先看这些数）
+    remoteFacing: () => Array.from(NET ? (NET.remotes || new Map()) : new Map()).map(([id, r]) => {
+      const u = r.obj.userData || {};
+      const nose = new THREE.Vector3();
+      if (u.face) u.face.getWorldPosition(nose); else nose.copy(r.obj.position);
+      const nd = nose.clone().sub(r.obj.position).normalize();
+      const hand = new THREE.Vector3();
+      if (u.foreR) u.foreR.getWorldPosition(hand);
+      const hd = hand.clone().sub(r.obj.position).normalize();
+      const up = new THREE.Vector3(0, 0, -1).applyQuaternion(r.obj.quaternion);
+      return {
+        name: r.name || id, rotY: +r.obj.rotation.y.toFixed(2),
+        fwd: [+up.x.toFixed(2), +up.z.toFixed(2)],
+        nose: [+nd.x.toFixed(2), +nd.y.toFixed(2), +nd.z.toFixed(2)],
+        hand: [+hd.x.toFixed(2), +hd.y.toFixed(2), +hd.z.toFixed(2)],
+        headX: +(u.head ? u.head.rotation.x : 0).toFixed(2),
+        pitch: +(u.pitch || 0).toFixed(2), swing: +(u.swing || 0).toFixed(2),
+      };
+    }),
+    // 直接量「符号对不对」：脸在旋转后朝上还是朝下、手在 armR 正/负角时朝前还是朝后
+    remoteAxes: () => {
+      const arr = Array.from(NET ? (NET.remotes || new Map()) : new Map());
+      if (!arr.length) return null;
+      const [, rr] = arr[0];
+      const u = rr.obj.userData;
+      const rel = (o) => { o.updateWorldMatrix(true, true); return new THREE.Vector3().setFromMatrixPosition(o.matrixWorld).sub(rr.obj.position); };
+      u.head.rotation.x = 0; u.head.updateWorldMatrix(true, true);
+      const faceRel = rel(u.face).sub(rel(u.head)).normalize();
+      u.head.rotation.x = 0.4; u.head.updateWorldMatrix(true, true);
+      const faceUp = rel(u.face).sub(rel(u.head)).normalize().y;
+      u.head.rotation.x = 0;
+      const handAt = (ax) => { u.armR.rotation.x = ax; u.foreR.updateWorldMatrix(true, true); return rel(u.foreR).normalize(); };
+      const hb = handAt(0), hp = handAt(0.8), hn = handAt(-0.8);
+      u.armR.rotation.x = 0; u.foreR.updateWorldMatrix(true, true);
+      return {
+        faceDirAt0: [+faceRel.x.toFixed(2), +faceRel.y.toFixed(2), +faceRel.z.toFixed(2)],
+        faceUpAtRotX_pos: +faceUp.toFixed(3),
+        handZ_armX0: +hb.z.toFixed(2), handZ_armX_pos: +hp.z.toFixed(2), handZ_armX_neg: +hn.z.toFixed(2),
+      };
+    },
+    remoteAnim: () => Array.from(NET ? (NET.remotes || new Map()) : new Map()).map(([id, r]) => {
+      const u = r.obj.userData || {};
+      return {
+        id, buf: (u.buf || []).length, spd: +(u.spd || 0).toFixed(2),
+        gap: Math.round(u.gap || 0), lag: Math.round(u.lag || 0),
+        since: Math.round(performance.now() - (u.lastSnapT || 0)),
+        walk: +(u.walk || 0).toFixed(2), sprintK: +(u.sprintK || 0).toFixed(2),
+        airK: +(u.airK || 0).toFixed(2), mineK: +(u.mineK || 0).toFixed(2), landK: +(u.landK || 0).toFixed(2),
+        armR: +(u.armR ? u.armR.rotation.x : 0).toFixed(3), armL: +(u.armL ? u.armL.rotation.x : 0).toFixed(3),
+        foreR: +(u.foreR ? u.foreR.rotation.x : 0).toFixed(3), legL: +(u.legL ? u.legL.rotation.x : 0).toFixed(3),
+        pos: [+r.obj.position.x.toFixed(2), +r.obj.position.y.toFixed(2), +r.obj.position.z.toFixed(2)],
+        roll: +r.obj.rotation.z.toFixed(3),
+      };
     }),
     swing: (type = 'attack', dur = 0.5) => startSwing(type, dur),
     pinMining: (v) => { MINE_PIN = v; },
@@ -7463,6 +8015,21 @@ window.GAME = {
     fuelDefs: () => FUEL_DEFS.map(f => ({ ...f })),
     fuelNow: () => furnaceFuel,
     setFuel: (id) => { furnaceFuel = id; renderFurnace(); return furnaceFuel; },
+    // ── 电路系统探针（本地 UI 验收用；联机模式下会被 stub 掉）──
+    gun: () => {
+      const h = held();
+      if (!h || !ITEMS[h.id] || ITEMS[h.id].kind !== 'gun') return null;
+      return { slot: player.sel, id: h.id, name: nameOf(h.id), charge: gunCharge(h), cap: gunCap(h.id), hud: gunHudEl ? gunHudEl.textContent : null, hudShown: !!(gunHudEl && gunHudEl.style.display === 'block') };
+    },
+    setCharge: (v) => { const h = held(); if (!h || !ITEMS[h.id] || ITEMS[h.id].kind !== 'gun') return null; h.c = Math.max(0, Math.min(gunCap(h.id), v | 0)); renderHotbar(); refreshGunHud(); return gunCharge(h); },
+    fireGun: () => fireEnergyBolt(),
+    bolts: () => arrows.filter(a => a.bolt).map(a => ({ dmg: a.dmg, p: [+a.p.x.toFixed(2), +a.p.y.toFixed(2), +a.p.z.toFixed(2)], t: +a.t.toFixed(2) })),
+    chargerOpen: () => !$('charger').classList.contains('hide'),
+    chargerJobs: () => (chargerJob ? [{ slot: chargerJob.slot, name: nameOf(chargerJob.id), t: +chargerJob.t.toFixed(2), dur: chargerJob.dur }] : []),
+    chargerTargets: () => chargerTargets().map(x => ({ slot: x.i, name: nameOf(x.s.id), charge: gunCharge(x.s), cap: gunCap(x.s.id) })),
+    chargeStart: (slot) => startCharge(slot === undefined ? chargerTargets()[0] && chargerTargets()[0].i : slot),
+    chargerTick: (dt) => { updateChargerJob(dt); return chargerJob ? { t: +chargerJob.t.toFixed(2), dur: chargerJob.dur } : null; },
+    chargerHtml: () => ({ hasPanel: !!$('charger'), rows: $('chgList') ? $('chgList').children.length : -1, info: $('chgInfo') ? $('chgInfo').textContent : null }),
     doors: () => [...doorObjs.entries()].map(([k, o]) => ({ k, dir: o.dir, p: +o.p.toFixed(3), targetP: o.targetP, rotY: +o.group.rotation.y.toFixed(3) })),
     doorBox: (dir, open) => {          // 关/开门时门板在世界格内的包围盒（必须落在 0..1，否则穿模邻居）
       const geo = doorGeometry(dir), d = DOOR_DEF[dir];
@@ -7671,19 +8238,39 @@ window.GAME = {
  */
 (function bootNet() {
   const q = new URLSearchParams(location.search);
-  // ?net=http://host:port 指定守护进程；或 ?mp=1 走「同一台机器:9203」的默认守护进程
+  // ?net=http://host:port 显式指定守护进程；?mp=1 走默认路径（局域网直连 :9203 / 公网同源 PHP 桥）
   let base = q.get('net');
+  const host = location.hostname;
+  const LAN = /^(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host);
   if (!base && q.has('mp')) {
-    // https 页面无法直连 ws://host:9203（混合内容 + 端口未暴露），走同源 PHP 桥 → 轮询模式
-    base = (location.protocol === 'https:')
+    // https 页面无法直连 ws://host:9203（混合内容 + 端口未暴露）
+    // http 的公网域名同样连不到 :9203（端口没映射到外网）——以前这里只按 https 判断，
+    // 于是「http 打开、点联机」永远 Failed to fetch。现在只有局域网 IP / localhost 才直连 WS。
+    base = (location.protocol === 'https:' || !LAN)
       ? (location.pathname.replace(/[^/]*$/, '') + 'bwmp.php')
-      : ('http://' + location.hostname + ':9203');
+      : ('http://' + host + ':9203');
   }
   if (!base) return;                                   // 没带 ?net= / ?mp → 纯单机
-  const world = (q.get('world') || 'W1').replace(/[^\w-]/g, '').slice(0, 12);
   let nick = (q.get('nick') || localStorage.getItem('bw_nick') || ('P' + Math.random().toString(36).slice(2, 5))).slice(0, 14);
   if (nick) { try { localStorage.setItem('bw_nick', nick); } catch (e) {} }
-  const pid = (q.get('pid') || (world + '-' + nick)).slice(0, 24);
+  // ★ 世界代码：URL 指定 > 上次自己选过的 > 按昵称算出来的「我的世界」。
+  //   以前默认写死 'W1'：所有人点「进入联机」都被塞进同一个公共 W1 世界（别人的存档）。
+  const myWorld = () => 'W' + (Math.abs(hashString('bw:' + nick)) % 1679616).toString(36).toUpperCase().padStart(4, '0');
+  let savedWorld = ''; try { savedWorld = localStorage.getItem('bw_world') || ''; } catch (e) {}
+  let world = String(q.get('world') || savedWorld || myWorld()).replace(/[^\w-]/g, '').slice(0, 12) || myWorld();
+  // ★ 身份（pid）跟昵称走，不跟世界走：以前 pid = 世界码-昵称，换个世界就成了另一个账号，
+  //   好友关系/申请全部失效（"明明是好友却提示还不是好友"）。
+  const pid = (q.get('pid') || ('u-' + nick)).slice(0, 24);
+  // ★ 「刚进去就被拉到联机世界」的根因就在这里：只要 URL 上带着 ?mp=1（一次联机后地址栏就一直带着，
+  //   刷新 / 点「世界」/ iOS 恢复标签页都会再进一次），bootNet 就无条件 join。
+  //   现在只有明确意图（?net= 调试入口，或客户端自己跳转时带的 go=1）才自动进服；
+  //   裸链接（手输/书签/分享）一律不自动进，退回单机开始界面并打开联机面板预填这个世界码。
+  const wantGo = q.has('net') || q.get('go') === '1';
+  if (!wantGo) {
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    window.__bwPrefillMP = { code: world, nick, why: 'link' };
+    return;
+  }
   const API = base.replace(/\/+$/, '');
   const IS_BRIDGE = /\.php(\?|$)/.test(API);          // 同源 PHP 桥 → 只能轮询
   const EP = IS_BRIDGE ? API : (API + '/api');   // 所有 HTTP 动作的实际地址（桥模式就是 bwmp.php 本身）
@@ -7696,6 +8283,21 @@ window.GAME = {
     remotes: new Map(), lastSnap: 0, err: '', editOut: 0, rejCount: 0, netBytes: 0,
   };
   NET = net;
+
+  /* ---------- 退出联机（必须有个出口）
+   * 以前进了联机就没有任何按钮能出来：「世界」按钮 reload 回来又自动 join（URL 粘着 ?mp），
+   * 只能自己在地址栏删参数。现在「世界」按钮和好友面板里都能退出。 */
+  net.leave = (ask) => {
+    if (ask !== false && !confirm(ask || `退出联机「${net.code}」，回到世界列表？`)) return false;
+    net.active = false; net.connected = false;
+    try { if (net.ws) net.ws.close(); } catch (e) {}
+    // 房主的房间就是他自己的存档：退出前先存一次，别把联机里盖的东西弄丢
+    if (net.lid) { try { save(); } catch (e) {} }
+    else { try { net.beaconInv(); } catch (e) {} }      // 客人：最后一次把背包存回服务端（beacon 不会被 reload 掐掉）
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    location.reload();
+    return true;
+  };
 
   /* ---------- 远端玩家形象 ---------- */
   function nameTag(text) {
@@ -7715,6 +8317,9 @@ window.GAME = {
     return sp;
   }
   function avatar(id, name) {
+    // 远端形象的头/手方向（用 GAME.debug.remoteAxes() 实测出来的基准，模型正面 = -Z）：
+    //   脸在 -Z；armR.rotation.x 正 = 手往前甩；head.rotation.x 正 = 抬头（下巴抬高、头顶往后）。
+    // 如果哪天看着反了，只需要把 HEAD_PITCH_SIGN 改成 -1（定义在 bootNet 作用域里）。
     // 固定调色板（避开草绿/天空蓝，否则人在草地上几乎看不见）
     const PAL = [0xd9534f, 0x9b59b6, 0xf0ad4e, 0xe67e22, 0x1abc9c, 0xff6fa8, 0xc0392b, 0x8e6bff];
     let hsh = 0;
@@ -7722,29 +8327,62 @@ window.GAME = {
     const base = PAL[Math.abs(hsh) % PAL.length];
     const col = new THREE.Color(base);
     const dark = col.clone().multiplyScalar(0.62);
+    const limbCol = dark.clone().multiplyScalar(0.95);
     const g = new THREE.Group();
-    const mk = (w, hh, d, c, x, y, z) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), new THREE.MeshLambertMaterial({ color: c }));
+    const box = (w, hh, d, c) => new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), new THREE.MeshLambertMaterial({ color: c }));
+    const root = (w, hh, d, c, x, y, z) => {
+      const m = box(w, hh, d, c);
       m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
     };
-    mk(0.52, 0.72, 0.3, col, 0, 1.06, 0);
-    mk(0.42, 0.42, 0.42, dark, 0, 1.62, 0);
-    mk(0.18, 0.68, 0.2, dark, -0.35, 1.08, 0);
-    mk(0.18, 0.68, 0.2, dark, 0.35, 1.08, 0);
-    mk(0.2, 0.7, 0.22, dark, -0.13, 0.36, 0);
-    mk(0.2, 0.7, 0.22, dark, 0.13, 0.36, 0);
+    const torso = root(0.52, 0.72, 0.3, col, 0, 1.06, 0);
+    const head = root(0.42, 0.42, 0.42, dark, 0, 1.62, 0);
+    // 脸：确认「模型正面」到底朝哪边 —— 顺带让人一眼能看出别人面朝哪（以前纯对称，看不出前后）
+    const face = box(0.28, 0.12, 0.02, 0x2b1a12);
+    face.position.set(0, 0.03, -0.215);
+    head.add(face);
+    const eyeL = box(0.07, 0.06, 0.02, 0xf2f2f2); eyeL.position.set(-0.09, 0.09, -0.222); head.add(eyeL);
+    const eyeR = box(0.07, 0.06, 0.02, 0xf2f2f2); eyeR.position.set(0.09, 0.09, -0.222); head.add(eyeR);
+    // ★ 四肢挂在一个「关节」Group 上（肩 / 髋），绕关节转才是摆臂甩腿；
+    //   以前直接把方块摆在这里转的是方块自己的中心，看起来像风车。
+    const joint = (x, y, w, hh, d, c) => {
+      const piv = new THREE.Group();
+      piv.position.set(x, y, 0);
+      const m = box(w, hh, d, c);
+      m.position.set(0, -hh / 2, 0);                 // 从关节往下长
+      m.castShadow = true; m.receiveShadow = true;
+      piv.add(m);
+      g.add(piv);
+      return piv;
+    };
+    const armL = joint(-0.35, 1.40, 0.18, 0.68, 0.2, limbCol);
+    const armR = joint(0.35, 1.40, 0.18, 0.68, 0.2, limbCol);
+    const legL = joint(-0.13, 0.70, 0.2, 0.7, 0.22, limbCol);
+    const legR = joint(0.13, 0.70, 0.2, 0.7, 0.22, limbCol);
+    // 右手前臂再分一节，挖掘/挥砍时只甩前臂（A&S 那种"手腕"感）
+    const foreR = new THREE.Group();
+    foreR.position.set(0, -0.42, 0);
+    const foreMesh = box(0.17, 0.30, 0.19, dark);
+    foreMesh.position.set(0, -0.15, 0);
+    foreR.add(foreMesh);
+    armR.add(foreR);
     g.add(nameTag(name));
-    g.userData = { tx: 0, ty: 0, tz: 0, yaw: 0 };
+    g.userData = {
+      tx: 0, ty: 0, tz: 0, yaw: 0,
+      walk: 0, spd: 0, swing: 0, swingType: '', airK: 0, sprintK: 0, mineK: 0, landK: 0,
+      buf: [], airPrev: 0,              // 快照缓冲（渲染延迟插值用）+ 上一帧腾空位（判落地）
+      armL, armR, legL, legR, foreR, torso, head, face, flags: 0, phase: Math.random() * 6.28,
+    };
     scene.add(g);
     return g;
   }
   function ensureRemote(p) {
     let r = net.remotes.get(p.i);
     if (!r) {
-      r = { obj: avatar(p.i, p.n) };
+      r = { obj: avatar(p.i, p.n), name: p.n || p.i };
       r.obj.position.set(p.x, p.y, p.z);
       r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
       net.remotes.set(p.i, r);
+      toast(`${r.name} 进入了房间`, 2.5);            // 有人进来必须看得见（这是"联机到底通没通"最直接的反馈）
     }
     return r;
   }
@@ -7779,7 +8417,8 @@ window.GAME = {
 
   /* ---------- 非主机打幽灵怪：本地判定 + 上报给主机扣血 ---------- */
   net.hitGhost = (dmg) => {
-    if (net.isHost || !net.ws || net.ws.readyState !== 1) return false;
+    if (net.isHost) return false;                     // 主机打的是真怪，不走这条路
+    // 以前这里要求 ws 开着：公网轮询模式下客人永远打不动怪。现在统一走 net.send（ws / HTTP 双通道）。
     const dir = cameraDir(), eye = eyePos();
     let best = null, bestT = 1e9;
     for (const [id, g] of net.ghosts) {
@@ -7791,7 +8430,7 @@ window.GAME = {
       if (t < bestT) { bestT = t; best = id; }
     }
     if (!best) return false;
-    try { net.ws.send(JSON.stringify({ t: 'hit', i: best, d: dmg })); } catch (e) { return false; }
+    net.send('hit', { i: best, d: dmg });
     const g = net.ghosts.get(best);
     if (g) g.hitAt = performance.now();          // 打中反馈（本地闪一下）
     return true;
@@ -7822,6 +8461,175 @@ window.GAME = {
       net.ghosts.delete(id);
     }
   }
+
+  /* ---------- 箱子：服务端是唯一权威（两人开同一个箱子看到同一批东西） ---------- */
+  net.pullChest = (x, y, z) => {
+    const k = x + ',' + y + ',' + z;
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'chest', code: net.code, pid: net.id, k }) })
+      .then(r => r.json()).then(d => {
+        if (!d.ok || !Array.isArray(d.slots)) return;
+        chestInv.set(k, d.slots);
+        if (openChestPos && (openChestPos.x + ',' + openChestPos.y + ',' + openChestPos.z) === k) renderChest();
+      }).catch(() => {});
+  };
+  net.pushChest = () => {
+    if (!openChestPos) return;
+    const k = openChestPos.x + ',' + openChestPos.y + ',' + openChestPos.z;
+    const slots = chestInv.get(k);
+    if (!slots) return;
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'chest', code: net.code, pid: net.id, k, slots }) }).catch(() => {});
+  };
+
+  /* ---------- 客人背包：存服务端，退出/换设备都拿得回来（房主用自己的本地存档） ---------- */
+  net.pullInv = () => {
+    if (net.lid) return;
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'inv', code: net.code, pid: net.id }) })
+      .then(r => r.json()).then(d => {
+        const s = d && d.data;
+        if (!d.ok || !s) return;
+        inv = new Array(SLOTS).fill(null);
+        (s.inv || []).filter(x => x && isItem(x.id) && x.n > 0).forEach((x, i) => { if (i < SLOTS) inv[i] = { id: x.id, n: x.n, d: x.d }; });
+        if (s.armor) for (const k of ARMOR_SLOTS) if (ITEMS[s.armor[k]]) player.armor[k] = s.armor[k];
+        if (s.hp) player.hp = Math.min(20, s.hp | 0);
+        if (s.hunger) player.hunger = Math.min(20, s.hunger | 0);
+        renderHotbar(); refreshHeld(); renderHearts();
+        toast('取回你上次在这个房间的背包（' + (s.inv || []).filter(Boolean).length + ' 格）', 3.5);
+      }).catch(() => {});
+  };
+  net.pushInv = () => {
+    if (net.lid || !net.active) return;
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'inv', code: net.code, pid: net.id,
+        set: { inv, armor: player.armor, hp: player.hp, hunger: player.hunger } }) }).catch(() => {});
+  };
+  // 关标签页/切后台时 fetch 会被浏览器掐掉，用 sendBeacon 兜底（不然最后 5 秒的收获白拿）
+  net.beaconInv = () => {
+    if (net.lid || !net.active) return false;
+    try {
+      const body = JSON.stringify({ a: 'inv', code: net.code, pid: net.id,
+        set: { inv, armor: player.armor, hp: player.hp, hunger: player.hunger } });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(EP, new Blob([body], { type: 'text/plain' }));
+        return true;
+      }
+    } catch (e) {}
+    try { net.pushInv(); } catch (e) {}
+    return false;
+  };
+  try { window.addEventListener('pagehide', () => net.beaconInv()); } catch (e) {}
+
+  /* ---------- 掉落物：主机广播快照，客人只画幽灵；谁捡走就上报 ---------- */
+  net.dropGhosts = new Map();
+  net.picked = new Set();                        // 已经捡走的掉落物 nid（防过期快照重建 → 重复捡）
+  /* 上行消息统一出口：有 ws 走 ws，轮询模式走同名 HTTP action（服务端两个通道都认） */
+  net.send = (kind, obj) => {
+    if (net.ws && net.ws.readyState === 1) {
+      try { net.ws.send(JSON.stringify(Object.assign({ t: kind }, obj))); return; } catch (e) {}
+    }
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify(Object.assign({ a: kind, code: net.code, pid: net.id }, obj)) }).catch(() => {});
+  };
+  net.sendPick = (nid) => net.send('pick', { i: nid });
+  net.castAct = (type) => net.send('act', { act: type });
+  // 状态位：1=挖掘 2=疾跑 4=腾空 —— 远端形象靠它播动作（1 个字节，跟位置一起发）
+  net.myFlags = () => {
+    const spd = Math.hypot(player.v.x, player.v.z);
+    return (mineHeld && player.mineTarget && player.alive ? 1 : 0)
+         | (spd > CFG.WALK * 0.95 ? 2 : 0)
+         | (!player.onGround && !player.inWater && !player.inLava ? 4 : 0);
+  };
+  net.dropSeqLocal = 0;
+  net.addDropGhost = (nid, id, n, x, y, z) => {
+    const mat = new THREE.MeshBasicMaterial({ map: dropTexture(id), transparent: true });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), mat);
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+    const g = { obj: mesh, id, n, p: new THREE.Vector3(x, y, z), t: 0, synced: false, vy: 0 };
+    net.dropGhosts.set(nid, g);
+    return g;
+  };
+  // 客人挖出方块 → 不本地模拟，只上报给主机（主机 spawn 真掉落物，再广播回来接管这个幽灵）
+  net.remoteDrop = (id, n, x, y, z) => {
+    const nid = 'g' + net.id + ':' + (++net.dropSeqLocal);
+    net.addDropGhost(nid, id, n, x, y + 0.2, z);
+    net.send('drop', { u: [nid, id, n, +x.toFixed(2), +y.toFixed(2), +z.toFixed(2)] });
+    return null;
+  };
+  net.syncDropGhosts = (list) => {
+    const alive = new Set();
+    for (const e of list) {
+      const [nid, id, n, x, y, z] = e;
+      if (!isItem(id)) continue;
+      if (net.picked.has(String(nid))) continue;        // 已经捡走的：别被过期快照重建出来
+      alive.add(nid);
+      let g = net.dropGhosts.get(nid) || net.addDropGhost(nid, id, n, x, y, z);
+      g.id = id; g.n = n; g.p.set(x, y, z); g.synced = true;
+    }
+    for (const [nid, g] of Array.from(net.dropGhosts)) {
+      if (alive.has(nid)) continue;
+      if (g.t < 2 || !g.synced) continue;       // 刚上报、主机还没回的快照：别立刻删掉（否则自己挖的东西闪一下就没）
+      scene.remove(g.obj);
+      if (g.obj.geometry) g.obj.geometry.dispose();
+      if (g.obj.material) g.obj.material.dispose();
+      net.dropGhosts.delete(nid);
+    }
+    net.checkDropPick();                        // 收到快照就顺手判一次（不依赖 rAF，手机切后台也捡得到）
+  };
+  /* 拾取判定单独拎出来：既在每帧跑，也在收到主机快照时跑一次。
+   * 只跑在 rAF 里的话，后台/被节流的页面（手机切出去、iframe）就永远捡不到东西。 */
+  net.checkDropPick = () => {
+    for (const [nid, g] of Array.from(net.dropGhosts)) {
+      if (g.t < 0.3) continue;
+      if (net.picked.has(String(nid))) { scene.remove(g.obj); net.dropGhosts.delete(nid); continue; }
+      const dx = player.p.x - g.p.x, dz = player.p.z - g.p.z;
+      // 客人看到的掉落物坐标是主机 8Hz 同步 + 插值来的，别用主机的贴脸判定（0.95），用水平 1.8m
+      if (dx * dx + dz * dz > 3.24) continue;
+      addItem(g.id, g.n);
+      renderHotbar(); sfx('dig');
+      if (g.n > 1) toast(`拾取 ${nameOf(g.id)} ×${g.n}`, 1.1);
+      scene.remove(g.obj);
+      net.dropGhosts.delete(nid);
+      // 记下来：主机快照可能比 pick 广播早到一帧，会把这个幽灵重新建出来 —— 不记就会「捡两次」
+      net.picked.add(String(nid));
+      if (net.picked.size > 400) net.picked.clear();
+      net.sendPick(nid);
+      if (!net.lid) net.pushInv();
+    }
+  };
+  net.updateDropGhosts = (dt) => {
+    const k = Math.min(1, dt * 12);
+    for (const [nid, g] of Array.from(net.dropGhosts)) {
+      g.t += dt;
+      if (!g.synced) {                          // 还没拿到主机的坐标：本地先自由落体，别悬在半空
+        g.vy -= 17 * dt;
+        g.p.y += g.vy * dt;
+        const below = getBlock(Math.floor(g.p.x), Math.floor(g.p.y - 0.17), Math.floor(g.p.z));
+        if (g.vy < 0 && isSolid(below)) { g.p.y = Math.floor(g.p.y - 0.17) + 1.17; g.vy = 0; }
+      }
+      // 主机 8Hz 的快照直接 set 会一卡一卡，这里插值
+      g.obj.position.x += (g.p.x - g.obj.position.x) * k;
+      g.obj.position.y += (g.p.y + Math.sin(g.t * 3.2) * 0.05 - g.obj.position.y) * k;
+      g.obj.position.z += (g.p.z - g.obj.position.z) * k;
+      g.obj.rotation.y += dt * 2.4;
+    }
+    net.checkDropPick();
+  };
+  net.dropList = () => {
+    const u = [];
+    for (const d of drops) {
+      u.push([d.nid, d.id, d.n, +d.p.x.toFixed(2), +d.p.y.toFixed(2), +d.p.z.toFixed(2)]);
+      if (u.length >= 30) break;
+    }
+    return u;
+  };
+  net.pushDrops = () => {                       // WS 模式直接发；轮询模式走 sync 附带（见 net.tick）
+    const u = net.dropList();
+    net.dropCache = u;
+    if (net.ws && net.ws.readyState === 1) { try { net.ws.send(JSON.stringify({ t: 'd', u })); } catch (e) {} }
+  };
 
   /* ---------- 应用服务端方块 ---------- */
   function applyServerBlock(x, y, z, b) {
@@ -7865,10 +8673,28 @@ window.GAME = {
         for (const p of (m.u || [])) {
           if (p.i === net.id) continue;
           const r = ensureRemote(p);
-          r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
+          const u = r.obj.userData;
+          u.flags = p.f | 0; u.pitch = +p.q || 0;      // 挖掘/疾跑/腾空 状态位 + 俯仰
+          // ★ 快照进缓冲，不直接当目标位置：渲染时往回退一段（按实测间隔自适应）在两帧之间插值，
+          //   这样 8~12Hz 的网络数据也能变成 60fps 连续运动（A&S 那种顺滑的关键）
+          const tNow = performance.now();
+          const lastSnap = u.buf[u.buf.length - 1];
+          if (lastSnap) {
+            const gap = tNow - lastSnap.t;
+            if (gap > 10 && gap < 600) u.gap = u.gap ? u.gap * 0.75 + gap * 0.25 : gap;   // 快照间隔 EMA
+          }
+          u.lastSnapT = tNow;
+          u.buf.push({ t: tNow, x: p.x, y: p.y, z: p.z, yaw: p.w, pitch: +p.q || 0, f: p.f | 0 });
+          if (u.buf.length > 10) u.buf.shift();
         }
         const alive = new Set((m.u || []).map(x => x.i));
-        for (const id of Array.from(net.remotes.keys())) if (!alive.has(id)) dropRemote(id);
+        for (const id of Array.from(net.remotes.keys())) {
+          if (alive.has(id)) continue;
+          const nm = (net.remotes.get(id) || {}).name || id;
+          dropRemote(id);
+          toast(`${nm} 离开了房间`, 2.5);
+        }
+        if (frOpen) renderLobby();
         if (typeof m.time === 'number') worldTime = m.time;
         const wasHost = net.isHost;
         net.isHost = (m.host === net.id);
@@ -7877,6 +8703,9 @@ window.GAME = {
         if (net.isHost && !wasHost && net.ghosts.size) {
           for (const [, g] of Array.from(net.ghosts)) { scene.remove(g.obj); }
           net.ghosts.clear();
+          // 掉落物幽灵同样要清：否则接管瞬间「旧幽灵 + 新真掉落物」叠在一起（和怪是同一族 bug）
+          for (const [, g] of Array.from(net.dropGhosts)) { scene.remove(g.obj); }
+          net.dropGhosts.clear();
           toast('你接管了世界主机：怪物改由你模拟', 3);
         }
       } else if (m.t === 'e') {
@@ -7894,6 +8723,34 @@ window.GAME = {
         }
       } else if (m.t === 'm') {
         syncGhosts(m.u || []);
+      } else if (m.t === 'ch') {                  // 别人改了这个箱子：同表覆盖
+        if (m.k) {
+          chestInv.set(m.k, m.slots);
+          const openK = openChestPos ? (openChestPos.x + ',' + openChestPos.y + ',' + openChestPos.z) : '';
+          if (openK === m.k) { renderChest(); toast('箱子内容已同步', 1.4); }
+        }
+      } else if (m.t === 'd') {
+        net.syncDropGhosts(m.u || []);
+      } else if (m.t === 'drop') {                // 客人挖出的掉落物：主机这里生成真的（沿用他上报的 nid）
+        const [nid, id, n, x, y, z] = m.u || [];
+        if (net.isHost && nid && isItem(id) && n > 0 && !drops.some(d => d.nid === nid)) {
+          spawnDrop(id, n, x, y + 0.2, z, { nid, fromHost: true });
+        }
+      } else if (m.t === 'pick') {
+        const g = net.dropGhosts.get(m.i);
+        if (g) { scene.remove(g.obj); net.dropGhosts.delete(m.i); }
+        if (net.isHost) {                         // 主机手里那个掉落物真的删掉
+          // 用字符串比较：客人上报的 nid 是 "g<pid>:<n>"，主机自己的是数字，类型不一致会漏删
+          const di = drops.findIndex(x => String(x.nid) === String(m.i));
+          if (di >= 0) { scene.remove(drops[di].obj); drops.splice(di, 1); }
+          if (net.devOk) console.log('[bw] pick', m.i, 'di=', di, 'left=', drops.length);
+        } else if (net.devOk) console.log('[bw] pick(guest)', m.i, 'ghost=', !!g);
+      } else if (m.t === 'act') {                 // 别人的挥砍/放置：远端形象播一下
+        const r = net.remotes.get(m.i);
+        if (r && r.obj.userData) {
+          r.obj.userData.swing = 0.4;
+          r.obj.userData.swingType = m.a || 'attack';
+        }
       } else if (m.t === 'ack') {
         net.pending.delete(m.seq);
       } else if (m.t === 'rej') {
@@ -7902,7 +8759,7 @@ window.GAME = {
         net.rejCount++;
         if (p0) applyServerBlock(p0.x, p0.y, p0.z, p0.prev);
         toast('服务端拒绝了这次改动：' + (m.e || ''), 1.6);
-      } else if (m.t === 'req' || m.t === 'acc' || m.t === 'deny' || m.t === 'f') {
+      } else if (m.t === 'req' || m.t === 'acc' || m.t === 'deny' || m.t === 'f' || m.t === 'inv') {
         net.onSocial(m);
       } else if (m.t === 'left') {
         dropRemote(m.i);
@@ -7941,33 +8798,88 @@ window.GAME = {
         + 'border:1px solid rgba(120,200,255,.28);border-radius:8px;padding:4px 10px;pointer-events:none;white-space:nowrap';
       document.body.appendChild(hud);
     }
+    // 远端渲染滞后（实测）：快照间隔 × 1.12，说明这一局"别人动起来有多跟手"
+    let lagMax = 0;
+    for (const r of net.remotes.values()) lagMax = Math.max(lagMax, r.obj.userData.lag || 0);
     hud.innerHTML = `<b style="color:${net.connected ? '#7ef0a0' : '#ff7a7a'}">${net.connected ? '●' : '○'}</b> `
       + `联机 ${net.code}${net.isHost ? ' · 主机' : ''} · <b>${net.rtt.toFixed(0)}ms</b> · 快照 ${net.snapHz.toFixed(0)}Hz · `
       + `待确认 <b style="color:${net.pending.size ? '#ffcf6b' : '#7ef0a0'}">${net.pending.size}</b> · `
-      + `${net.mode === 'poll' ? ' · 轮询' : ' · WS'} 远端 ${net.remotes.size}${net.isHost ? '' : ' · 幽灵怪 ' + net.ghosts.size} · 序号 ${net.serverSeq} · 上行编辑 ${net.editOut} · 被拒 ${net.rejCount}`
+      + `${net.mode === 'poll' ? ' · 轮询 ' + Math.round((net.pollEvery || 0.09) * 1000) + 'ms' : ' · WS'} 远端 ${net.remotes.size}${net.isHost ? '' : ' · 幽灵怪 ' + net.ghosts.size}`
+      + ` · 滞后 ${Math.round(lagMax)}ms · 序号 ${net.serverSeq} · 上行编辑 ${net.editOut} · 被拒 ${net.rejCount}`
       + (net.err ? ` · <span style="color:#ff9a6b">${net.err}</span>` : '');
   }
 
   /* ---------- 每帧 ---------- */
+  /* 远端渲染延迟插值：把 8~10Hz 的快照缓冲起来，渲染时间往回退 130ms 在两帧之间取插值。
+   * 这一条是「丝滑」的最大来源 —— 位置/朝向变成连续函数，网络抖动不会传到画面上。 */
+  const REM_LAG = 130;
+  const HEAD_PITCH_SIGN = 1;   // 远端抬头/低头方向：实测（模型正面 -Z）正号 = 抬头；看着反了就改成 -1
+  net.sampleRemote = (u, nowMs) => {
+    const b = u.buf;
+    if (!b || !b.length) return null;
+    if (b.length === 1) {
+      const q0 = b[0];
+      return { x: q0.x, y: q0.y, z: q0.z, yaw: q0.yaw, pitch: q0.pitch, f: q0.f, spd: 0 };
+    }
+    // 渲染滞后按「实测快照间隔」自适应：间隔大（网络慢）就多等一点保证有插值帧，间隔小就少等，直接降延迟
+    const lag = u.lag = Math.min(190, Math.max(70, (u.gap || 110) * 1.12));
+    const tgt = nowMs - lag;
+    let i = b.length - 1;
+    while (i > 0 && b[i].t > tgt) i--;
+    const a = b[i], c = b[Math.min(b.length - 1, i + 1)];
+    const span = Math.max(1, c.t - a.t);
+    let f = (tgt - a.t) / span;
+    if (!isFinite(f)) f = 1;
+    // 丢包时最多外推 30%；如果渲染时刻已经超出最后一条快照太多（>220ms），冻结在最后一条，
+    // 否则外推久了会"冲出去再被拉回来"，就是玩家说的「像传送」。
+    const hole = tgt - c.t;
+    f = hole > 220 ? 1 : Math.max(0, Math.min(1.3, f));
+    let dyw = c.yaw - a.yaw;
+    while (dyw > Math.PI) dyw -= Math.PI * 2;
+    while (dyw < -Math.PI) dyw += Math.PI * 2;
+    return {
+      x: a.x + (c.x - a.x) * f, y: a.y + (c.y - a.y) * f, z: a.z + (c.z - a.z) * f,
+      yaw: a.yaw + dyw * f, pitch: a.pitch + (c.pitch - a.pitch) * f, f: a.f,
+      spd: Math.hypot(c.x - a.x, c.z - a.z) / (span / 1000),
+    };
+  };
+
   net.tick = (dt) => {
+    const nowMs = performance.now();
     net.sendT += dt;
     if (!IS_BRIDGE && net.sendT >= 0.1 && net.ws && net.ws.readyState === 1) {
       net.sendT = 0;
       try {
-        net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2) }));
+        net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), f: net.myFlags() }));
       } catch (e) {}
     }
     // ── 公网轮询模式：一个请求同时上传位置/编辑、取回消息（~8Hz）
     if (IS_BRIDGE) {
       net.pollT += dt;
-      if (net.pollT >= 0.125) {
+      if (net.inFlight && performance.now() - (net.inFlightAt || 0) > 800) net.inFlight = false;   // 兜底：卡死的请求别把整条链路堵住
+      if (net.pollT >= (net.pollEvery || 0.09) && !net.inFlight) {   // 节拍自适应：桥慢就别堆请求，桥快就压到 60ms 降延迟
         net.pollT = 0;
-        const pend = Array.from(net.pending.entries()).slice(0, 20).map(([seq, p0]) => ({ seq, x: p0.x, y: p0.y, z: p0.z, b: p0.id }));
-        fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({
+        net.inFlight = true; net.inFlightAt = performance.now();
+        const reqT0 = net.inFlightAt;
+        // ★ 只发「还没发过 / 超过 1.5s 没被 ack」的编辑。以前每个 tick 把全部 pending 原样重发一遍，
+        //   8Hz × 在飞的编辑数 很容易顶到服务端 25 次/秒的上限（applyEdit 按**调用次数**计数）→ 被拒 → 客户端回滚，
+        //   表现就是公网模式下「挖掉/放下的方块自己弹回来」。
+        const nowMs = Date.now();
+        const pend = [];
+        for (const [seq, p0] of net.pending) {
+          if (p0.nextAt && nowMs < p0.nextAt) continue;
+          p0.nextAt = nowMs + 1500;
+          pend.push({ seq, x: p0.x, y: p0.y, z: p0.z, b: p0.id });
+          if (pend.length >= 20) break;
+        }
+        // 桥请求必须有超时：偶尔一次 PHP 卡 2 秒会把整条链路堵住（表现就是"位置停一下再瞬移"）
+        const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        const toT = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (e) {} }, 2000);
+        fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, signal: ctl ? ctl.signal : undefined, body: JSON.stringify(Object.assign({
           a: 'sync', code: net.code, pid: net.id, name: net.nick,
           x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2),
-          w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), edits: pend,
-        }) }).then(r => r.json()).then(d => {
+          w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), edits: pend, f: net.myFlags(),
+        }, net.isHost ? { mobs: net.mobCache || [], drops: net.dropCache || [] } : {})) }).then(r => r.json()).then(d => {
           if (!d.ok) { net.err = d.e || 'sync'; net.connected = false; return; }
           net.connected = true; net.err = ''; net.syncs++;
           if (typeof d.seq === 'number') net.serverSeq = d.seq;
@@ -7977,12 +8889,28 @@ window.GAME = {
             else { const p1 = net.pending.get(-s); net.pending.delete(-s); net.rejCount++; if (p1) applyServerBlock(p1.x, p1.y, p1.z, p1.prev); }
           }
           for (const m of (d.out || [])) net.onMsg(m);
-        }).catch(() => { net.connected = false; net.err = 'net'; });
+        }).catch((e2) => {
+          if (!(e2 && e2.name === 'AbortError')) { net.connected = false; net.err = 'net'; }
+        }).finally(() => {
+          clearTimeout(toT);
+          net.inFlight = false;
+          // ★ 别用 performance.now() 前后差算 RTT：无头页面里那测到的是「事件循环 + 渲染帧」，
+          //   实测 10ms 的请求会被量成 1800ms。取 Resource Timing 的 duration 才是真实耗时。
+          try {
+            const es = performance.getEntriesByType('resource').filter(en => en.name.indexOf(EP) >= 0 && en.name.indexOf('?t=') < 0);
+            const last = es[es.length - 1];
+            if (last && last.duration > 0) {
+              net.pollRtt = net.pollRtt ? net.pollRtt * 0.7 + last.duration * 0.3 : last.duration;
+              // 节拍 = RTT 的 0.9 倍，夹在 60~200ms：桥快就多问几次（降延迟），桥慢就少问（不加剧拥塞）
+              net.pollEvery = Math.min(0.2, Math.max(0.06, (net.pollRtt * 0.9) / 1000));
+            }
+          } catch (e3) {}
+        });
       }
     }
 
-    // 主机每 0.15s 广播一次怪（服务端只转发，不模拟）
-    if (net.isHost && net.ws && net.ws.readyState === 1) {
+    // 主机每 0.15s 生成一次怪快照（WS 直接发；轮询模式挂在 sync 请求上，见下方 poll 分支）
+    if (net.isHost) {
       net.mobT += dt;
       if (net.mobT >= 0.15) {
         net.mobT = 0;
@@ -7993,7 +8921,8 @@ window.GAME = {
           u.push([m.nid, m.kind, +m.p.x.toFixed(2), +m.p.y.toFixed(2), +m.p.z.toFixed(2), +m.obj.rotation.y.toFixed(2), Math.round(m.hp)]);
           if (u.length >= 24) break;
         }
-        try { net.ws.send(JSON.stringify({ t: 'm', u })); } catch (e) {}
+        net.mobCache = u;
+        if (net.ws && net.ws.readyState === 1) { try { net.ws.send(JSON.stringify({ t: 'm', u })); } catch (e) {} }
       }
     }
     const kG = Math.min(1, dt * 10);
@@ -8006,17 +8935,80 @@ window.GAME = {
       while (dg < -Math.PI) dg += Math.PI * 2;
       g.obj.rotation.y += dg * kG;
     }
-    const k = Math.min(1, dt * 12);
     for (const r of net.remotes.values()) {
       const u = r.obj.userData;
-      r.obj.position.x += (u.tx - r.obj.position.x) * k;
-      r.obj.position.y += (u.ty - r.obj.position.y) * k;
-      r.obj.position.z += (u.tz - r.obj.position.z) * k;
-      let dy = u.yaw - r.obj.rotation.y;
+      const s = net.sampleRemote(u, nowMs);
+      if (!s) continue;
+      // 位置直接用缓冲插值结果（它本身已经连续，再 lerp 只是白加延迟）
+      r.obj.position.set(s.x, s.y, s.z);
+      let dy = s.yaw - r.obj.rotation.y;
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
-      r.obj.rotation.y += dy * k;
+      r.obj.rotation.y += dy * Math.min(1, dt * 22);
+      const yawRate = dy / Math.max(dt, 1e-3);
+
+      /* ── 远端玩家的动作（别人能看到的动画）
+       * 只有位置/朝向是网络同步的，四肢的动作全部由「位移速度 + 状态位 + 一次性能量」本地推算：
+       *   走路/疾跑 → 摆臂甩腿 + 身体起伏；挖掘位 → 前臂连续凿；挥砍事件 → 整条胳膊抡一下；
+       *   腾空位 → 收腿抬臂。这样只多 1 个字节的状态位，不用为每个动作都发消息。 */
+      // 速度用「两帧快照」算，而不是逐帧位置差 —— 网络抖一下不会让腿抽
+      u.spd += (s.spd - u.spd) * Math.min(1, dt * 12);
+      const walkAmt = clamp01(u.spd / CFG.WALK);
+      u.sprintK += (clamp01((u.spd - CFG.WALK * 0.9) / Math.max(0.1, CFG.SPRINT - CFG.WALK * 0.9)) - u.sprintK) * Math.min(1, dt * 6);
+      const airNow = (s.f & 4) ? 1 : 0;
+      if (u.airPrev === 1 && airNow === 0) u.landK = 1;      // 「腾空→着地」→ 落地缓冲
+      u.airPrev = airNow;
+      u.airK += (airNow - u.airK) * Math.min(1, dt * 9);
+      u.mineK += (((s.f & 1) ? 1 : 0) - u.mineK) * Math.min(1, dt * 12);
+      u.landK = Math.max(0, u.landK - dt * 3.4);
+      u.walk += dt * (6 + 9 * u.sprintK) * (walkAmt > 0.04 ? 1 : 0);
+      const stride = Math.sin(u.walk);
+      const airK = u.airK, landK = u.landK;
+
+      /* 所有动作先「叠加成目标角度」，再用阻尼追上去。
+       * 直接赋值的话，动作切换/丢包那一帧肢体就会硬跳；阻尼追随让每根骨头都是有质量的。 */
+      const legLT = stride * 0.62 * walkAmt * (1 - airK * 0.7) - airK * 0.35 + landK * 0.25;
+      const legRT = -stride * 0.62 * walkAmt * (1 - airK * 0.7) + airK * 0.20 + landK * 0.25;
+      const armSwing = stride * (0.50 + 0.35 * u.sprintK) * walkAmt;
+      const armLT = -armSwing - airK * 0.45 - landK * 0.20;
+      let armRT = armSwing - airK * 0.30 - landK * 0.25;
+      let foreRT = 0;
+      if (u.swing > 0) {
+        u.swing = Math.max(0, u.swing - dt);
+        const a = Math.sin(clamp01(1 - u.swing / 0.4) * Math.PI);
+        // ★ 符号：armR.rotation.x 为正是「手往前甩」（模型正面是 -Z，实测 hand.z 从 0 → -0.25）。
+        //   以前这里写成负号，等于整条胳膊往背后抡 —— 玩家看到的就是"动作全反了"。
+        armRT += a * (u.swingType === 'place' ? 0.55 : 1.25);
+        foreRT += a * (u.swingType === 'place' ? 0.30 : 0.75);
+      }
+      if (u.mineK > 0.02) {
+        const a = Math.sin((((nowMs / 1000) * 2.2) % 1) * Math.PI);
+        armRT += a * 0.95 * u.mineK;
+        foreRT += a * 0.85 * u.mineK;
+      }
+      if (walkAmt < 0.04 && u.mineK < 0.02 && u.swing <= 0) armRT += Math.sin(nowMs / 900 + u.phase) * 0.03;
+      // 阻尼频率：前臂最快、腿最慢 —— 看起来有质量差
+      const dampA = 1 - Math.exp(-30 * dt), dampF = 1 - Math.exp(-36 * dt), dampL = 1 - Math.exp(-24 * dt);
+      u.armL.rotation.x += (armLT - u.armL.rotation.x) * dampA;
+      u.armR.rotation.x += (armRT - u.armR.rotation.x) * dampA;
+      u.foreR.rotation.x += (foreRT - u.foreR.rotation.x) * dampF;
+      u.legL.rotation.x += (legLT - u.legL.rotation.x) * dampL;
+      u.legR.rotation.x += (legRT - u.legR.rotation.x) * dampL;
+      // 转身惯性：快速左右转身时身体轻微侧倾（A&S 里很明显的一个细节）
+      const rollT = clamp(-yawRate * 0.05, -0.07, 0.07);
+      r.obj.rotation.z += (rollT - r.obj.rotation.z) * Math.min(1, dt * 10);
+      // 身体：疾跑前倾 + 走路起伏 + 落地屈膝压身 + 头随俯仰点头
+      u.torso.rotation.x = u.sprintK * 0.12 + landK * 0.10;
+      const bobY = Math.abs(stride) * 0.02 * walkAmt - landK * 0.05;
+      u.torso.position.y = 1.06 + bobY;
+      u.head.position.y = 1.62 + bobY * 0.8;
+      u.head.rotation.x = HEAD_PITCH_SIGN * clamp((u.pitch || 0) * 0.45, -0.55, 0.55);
     }
+    // 主机每 0.2s 广播掉落物；客人每 5s 把背包存回服务端
+    net.dropT = (net.dropT || 0) + dt;
+    if (net.dropT >= 0.2) { net.dropT = 0; if (net.isHost) net.pushDrops(); }
+    net.invT = (net.invT || 0) + dt;
+    if (net.invT >= 5) { net.invT = 0; if (!net.lid && net.active) net.pushInv(); }
     net.pullT += dt;
     if (net.pullT >= 2) {
       net.pullT = 0;
@@ -8039,21 +9031,64 @@ window.GAME = {
       const tag = Date.now();
       fetch(EP + '?t=' + tag, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ a: 'ping' }) })
         .then(r => r.text()).then(() => {
-          const es = performance.getEntriesByType('resource').filter(e => e.name.indexOf('/api?t=') >= 0);
+          // 桥模式下 URL 是 bwmp.php?t=…，所以按 ?t= 数字匹配（以前只匹配 /api?t= → 桥模式永远显示 0ms）
+          const es = performance.getEntriesByType('resource').filter(e => /[?&]t=\d+/.test(e.name));
           const e = es[es.length - 1];
           net.rtt = e ? e.duration : 0;
         }).catch(() => { net.rtt = -1; });
     }
   };
 
-  /* ---------- 进服：先 join 拿 seed，再用同一个 seed 开世界 ---------- */
+  /* ---------- 进服 ----------
+   * 客人：join 拿 seed → 用同一个 seed 生成同一片地形。
+   * 房主：host 把「我现在这个单机世界」的 seed + 已有改动上传成房间，然后 startGame(自己的世界) ——
+   *       开房后地形/背包/建筑原样还在，接着玩；房间码跟世界绑死，明天再开还是同一个房间。 */
+  const isHostMode = q.get('host') === '1' && !!q.get('lid');
+  net.lid = isHostMode ? String(q.get('lid')) : '';
+  const hostMeta = net.lid ? worldMeta(net.lid) : null;
+  const hostSeed = hostMeta ? (hostMeta.seed | 0) : 0;
+
+  // 开房后把这个世界的已有改动分批同步进房间（服务端幂等合并，重复开房不会翻倍）
+  function uploadMyWorld() {
+    const pairs = Array.from(edits.entries());
+    let i = 0, added = 0;
+    const CH = 800;
+    const step = () => {
+      if (i >= pairs.length) {
+        if (pairs.length) toast(`房间已载入你世界里的 ${pairs.length} 处改动`, 3.5);
+        return;
+      }
+      const chunk = pairs.slice(i, i + CH); i += CH;
+      fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+        body: JSON.stringify({ a: 'host', code: net.code, pid: net.id, name: net.nick, chunk: true, edits: chunk }) })
+        .then(r => r.json()).then(d => { if (d && d.ok) added += d.added || 0; setTimeout(step, 30); })
+        .catch(() => setTimeout(step, 500));
+    };
+    if (pairs.length) step();
+  }
+
   fetch(EP, {
     method: 'POST', headers: { 'content-type': 'text/plain' },
-    body: JSON.stringify({ a: 'join', code: net.code, pid: net.id, name: net.nick, x: 0, z: 0, r: 128 }),
+    body: JSON.stringify(isHostMode
+      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, seed: hostSeed, x: 0, z: 0, r: 128 }
+      : { a: 'join', code: net.code, pid: net.id, name: net.nick, x: 0, z: 0, r: 128 }),
   }).then(r => r.json()).then(d => {
-    if (!d.ok) { net.active = false; toast('联机进服失败：' + (d.e || '?'), 5); if (window.__bwWireEntry) window.__bwWireEntry(); return; }
+    // 进服后把 URL 洗干净：否则「世界」按钮 reload / 刷新 / iOS 恢复标签页都会再自动 join 一次
+    const cleanUrl = () => { try { history.replaceState(null, '', location.pathname); } catch (e) {} };
+    if (!d.ok) {
+      net.active = false; cleanUrl();
+      toast(d.e === 'seed_mismatch' ? '这个房间码已经被别的存档占了，换个世界再开房' : ('联机进服失败：' + (d.e || '?')), 6);
+      if (window.__bwWireEntry) window.__bwWireEntry();
+      return;
+    }
+    cleanUrl();
+    if (d.id && d.id !== net.id) { net.id = d.id; toast('昵称被占用了，你在房间里叫 ' + d.id, 4); }
+    if (!isHostMode) { try { localStorage.setItem('bw_world', net.code); } catch (e) {} }
     net.isHost = !!d.isHost;
-    const w = { id: 'mp_' + net.code, name: '联机 ' + net.code, seed: d.seed | 0, mode: 'survival' };
+    // 房主：开「我自己那个世界」的存档（seed 相同 → 地形/背包/建筑原样带进房间）
+    const w = (isHostMode && hostMeta)
+      ? hostMeta
+      : { id: 'mp_' + net.code, name: '联机房间 ' + net.code, seed: d.seed | 0, mode: 'survival' };
     startGame(w);
     for (const [k, id] of (d.edits || [])) {
       const a = k.split(',').map(Number);
@@ -8074,11 +9109,39 @@ window.GAME = {
       for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) dirty.add(getChunk(c0x + dx, c0z + dz));
     }
     for (const pl of (d.players || [])) if (pl.i !== net.id) ensureRemote(pl);
+    // ★ 客人进房：优先回到「你上次在这个房间里的位置/朝向」；
+    //   只有第一次进房（服务端没有你的记录）才落到房主旁边，免得两人叠在出生点互相看不见。
+    if (!isHostMode) {
+      if (d.pos && typeof d.pos.x === 'number') {
+        player.p.set(d.pos.x, d.pos.y, d.pos.z);
+        if (typeof d.pos.w === 'number') player.yaw = d.pos.w;
+        if (typeof d.pos.q === 'number') player.pitch = d.pos.q;
+        // 万一这个位置后来被别人盖了方块埋住：就近往上找一个能站的地方
+        const bx = Math.floor(player.p.x), bz = Math.floor(player.p.z);
+        const solid = (y) => isSolid(getBlock(bx, y, bz)) || isSolid(getBlock(bx, y + 1, bz));
+        let by = Math.floor(player.p.y);
+        if (solid(by)) {
+          for (let i = 0; i < 24 && solid(by); i++) by++;
+          player.p.y = by + 0.05;
+        }
+        toast('回到你上次在房间里的位置', 2.5);
+      } else {
+        const others = (d.players || []).filter(p => p.i !== net.id);
+        if (others.length) {
+          const o = others[0];
+          player.p.set(o.x + 1.8, o.y + 0.1, o.z + 1.8);
+          toast('已站在 ' + (o.n || '房主') + ' 旁边', 3);
+        }
+      }
+    }
     if (typeof d.time === 'number') worldTime = d.time;
     connect();
-    toast(`联机「${net.code}」· ${net.isHost ? '你是主机' : '已加入'} · 玩家 ${(d.players || []).length}`, 4);   // join 返回的列表已包含自己
+    if (isHostMode) uploadMyWorld();
+    else setTimeout(() => net.pullInv(), 400);        // 客人：把上次在这个房间的背包取回来
+    toast(`联机「${net.code}」· ${net.isHost ? '你是房主' : '已加入'} · 玩家 ${(d.players || []).length}`, 4);   // join 返回的列表已包含自己
   }).catch(e => {
     net.active = false;
+    try { history.replaceState(null, '', location.pathname); } catch (e2) {}
     toast('联机服务器连不上：' + e.message, 6);
     if (window.__bwWireEntry) window.__bwWireEntry();       // 连不上 → 退回单机入口，别让按钮点了没反应
   });
@@ -8086,7 +9149,9 @@ window.GAME = {
   const btnFR = document.getElementById('btnFriends');
   /* ---------------- 好友 / 申请加入 ---------------- */
   const apiCall = (obj) => fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(obj) }).then(r => r.json());
-  let frPanel = null, frOpen = false, frReq = [], frForceOpen = false;
+  let frPanel = null, frOpen = false, frReq = [], frForceOpen = false, frInv = [];
+  const frSeen = new Set();                       // 已提示过的申请：acct 心跳每 20s 重复回同一批 req，不能每次都弹面板
+  const PCB = 'background:#0e1a28;color:#d8ecff;border:1px solid #2a4a66;border-radius:6px;padding:4px 6px;font:12px ui-monospace,monospace';
 
   function ensureFriendsUI() {
     if (frPanel) return;
@@ -8101,9 +9166,16 @@ window.GAME = {
       + 'font:12px/1.6 ui-monospace,monospace;color:#d8ecff;background:rgba(9,20,32,.94);'
       + 'border:1px solid rgba(120,200,255,.35);border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.45)';
     frPanel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-      + '<b style="color:#8fe3ff">好友</b><span id="frWho" style="color:#8ea3ba"></span></div>'
+      + '<b style="color:#8fe3ff">联机</b><span id="frWho" style="color:#8ea3ba"></span></div>'
+      + '<div id="lbState" style="background:rgba(120,200,255,.08);border-radius:8px;padding:6px 8px;margin-bottom:8px;line-height:1.5"></div>'
+      + '<div id="lbInv" style="margin-bottom:6px"></div>'
+      + '<div id="lbPlayers" style="margin-bottom:8px"></div>'
+      + '<div id="lbActions" style="display:flex;gap:6px;margin-bottom:6px"></div>'
       + '<div style="display:flex;gap:6px;margin-bottom:8px">'
-      + '<input id="frName" maxlength="14" placeholder="好友昵称" style="flex:1;min-width:0;background:#0e1a28;color:#d8ecff;border:1px solid #2a4a66;border-radius:6px;padding:4px 6px;font:12px ui-monospace,monospace">'
+      + '<input id="lbCode" maxlength="12" placeholder="房间码（好友发你的）" style="flex:1;min-width:0;' + PCB + '">'
+      + '<button class="btn" data-act="joinCode" style="padding:3px 8px">加入</button></div>'
+      + '<div style="display:flex;gap:6px;margin-bottom:8px">'
+      + '<input id="frName" maxlength="14" placeholder="好友昵称" style="flex:1;min-width:0;' + PCB + '">'
       + '<button class="btn" id="frAdd" style="padding:3px 8px">加好友</button></div>'
       + '<div id="frMsg" style="color:#ffcf6b;font-size:11px;min-height:14px;margin-bottom:6px"></div>'
       + '<div id="frReq"></div><div id="frList" style="color:#8ea3ba">加载中…</div>';
@@ -8131,10 +9203,122 @@ window.GAME = {
         }).catch(() => frMsg('网络错误'));
       } else if (act === 'open') {
         frOpen = true; frPanel.style.display = 'block';
+      } else if (act === 'leave') {
+        net.leave();
+      } else if (act === 'host') {
+        hostRoom();
+      } else if (act === 'copy') {
+        copyInvite();
+      } else if (act === 'joinCode') {
+        const el = frPanel.querySelector('#lbCode');
+        joinByCode(el && el.value);
+      } else if (act === 'joinInv') {
+        joinByCode(b.dataset.code);
+      } else if (act === 'tp') {
+        net.tpTo(b.dataset.id);
+        renderLobby();
+      } else if (act === 'invite') {
+        apiCall({ a: 'invite', pid: net.id, nick: net.nick, code: net.code, to: b.dataset.pid })
+          .then(d => frMsg(d.ok ? (d.pushed ? '邀请已发出，对方会看到「加入」按钮' : '邀请已发出（对方没在游戏里，下次上线能看到）')
+                               : ({ not_friend: '还不是好友', no_room: '先开房再邀请' }[d.e] || ('邀请失败：' + d.e))))
+          .catch(() => frMsg('网络错误'));
       }
     });
   }
   function frMsg(t) { const el = frPanel && frPanel.querySelector('#frMsg'); if (el) el.textContent = t; }
+
+  /* ---------------- 联机面板：状态 / 玩家（名字+距离+传送）/ 开房·邀请·加入 ----------------
+   * 用户要的流程：先在自己的世界里玩 → 点「开房」把这个世界变成房间 → 把房间码/邀请发给好友。
+   * 房间码跟世界 id 绑死（存在世界 meta 里），所以同一个世界反复开房永远是同一个房间。 */
+  const roomCodeOf = (w) => {
+    if (!w) return '';
+    if (!w.mpCode) {
+      w.mpCode = 'R' + (Math.abs(hashString('room:' + w.id)) % 1679616).toString(36).toUpperCase().padStart(4, '0');
+      const m = worldMeta(w.id);
+      if (m) { m.mpCode = w.mpCode; saveIndex(); }
+    }
+    return w.mpCode;
+  };
+  function hostRoom() {
+    if (net.active) return frMsg('已经在联机房间里了');
+    if (!started) return frMsg('先回世界列表进一个世界，再开房');
+    const w = worldMeta(currentId);
+    if (!w) return frMsg('找不到当前世界的存档');
+    const code = roomCodeOf(w);
+    try { localStorage.setItem('bw_nick', net.nick); } catch (e) {}
+    frMsg('正在开房 ' + code + ' …（把这个世界的方块上传到房间）');
+    location.href = location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(w.id)
+      + '&world=' + encodeURIComponent(code) + '&nick=' + encodeURIComponent(net.nick);
+  }
+  function joinByCode(code) {
+    const c = String(code || '').trim().replace(/[^\w-]/g, '').toUpperCase();
+    if (!c) return frMsg('先填房间码');
+    if (net.active && c === net.code) return frMsg('你已经在这个房间里了');
+    frMsg('正在进入房间 ' + c + ' …');
+    setTimeout(() => {
+      location.href = location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(c) + '&nick=' + encodeURIComponent(net.nick);
+    }, 300);
+  }
+  function copyInvite() {
+    if (!net.active) return frMsg('先开房才有邀请链接');
+    const link = location.origin + location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(net.code);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link);
+      else { const ta = document.createElement('textarea'); ta.value = link; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+      frMsg('已复制邀请链接（房间 ' + net.code + '）：' + link);
+    } catch (e) { frMsg('复制失败，手动发这句：房间码 ' + net.code + ' · ' + link); }
+  }
+  net.tpTo = (id) => {
+    const r = net.remotes.get(id);
+    if (!r) return false;
+    const o = r.obj.position;
+    player.p.set(o.x + 1.4, o.y + 0.6, o.z + 1.4);
+    toast('已传送到 ' + (r.name || id) + ' 身边', 2);
+    return true;
+  };
+  function renderLobby() {
+    if (!frPanel) return;
+    const st = frPanel.querySelector('#lbState'), ac = frPanel.querySelector('#lbActions');
+    if (net.active) {
+      if (st) st.innerHTML = '<div>联机中 · 房间 <b style="color:#8fe3ff;font-size:15px;letter-spacing:2px">' + escHtml(net.code) + '</b>'
+        + (net.isHost ? ' <span style="color:#7ef0a0">房主</span>' : '') + '</div>'
+        + '<div style="color:#8ea3ba">玩家 ' + (net.remotes.size + 1) + ' · ' + (net.connected ? '已连接' : '连接中断') + ' · ' + (net.rtt | 0) + 'ms'
+        + (net.lid ? ' · 房间=你自己的世界，进度照常保存' : '') + '</div>';
+      if (ac) ac.innerHTML = '<button class="btn" data-act="copy" style="flex:1;padding:4px 8px">复制邀请链接</button>'
+        + '<button class="btn" data-act="leave" style="padding:4px 8px;color:#ffb0b0;border-color:#5a2b2b">退出联机</button>';
+    } else {
+      const w = currentId ? worldMeta(currentId) : null;
+      if (st) st.innerHTML = '<div>当前：单机' + (w ? ' · 世界「' + escHtml(w.name) + '」' : ' · 世界列表') + '</div>'
+        + '<div style="color:#8ea3ba">' + (started
+          ? '点下面「开房」把这个世界变成联机房间，然后把房间码或邀请发给好友'
+          : '先回世界列表进一个世界，再开房邀请好友') + '</div>';
+      if (ac) ac.innerHTML = started
+        ? '<button class="btn gold" data-act="host" style="flex:1;padding:4px 8px">开房：一起玩「' + escHtml((w && w.name) || '这个世界') + '」</button>'
+        : '<span style="color:#7a8b9c;font-size:11px">进世界后才能开房 / 或者用下面的房间码加入好友</span>';
+    }
+    const iv = frPanel.querySelector('#lbInv');
+    if (iv) iv.innerHTML = frInv.length ? frInv.map(v =>
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;color:#ffcf6b">'
+      + '<span>' + escHtml(v.nick) + ' 邀请你进房间 <b>' + escHtml(v.code) + '</b></span>'
+      + '<button class="btn" data-act="joinInv" data-code="' + escHtml(v.code) + '" style="padding:2px 7px">加入</button></div>').join('') : '';
+    const pl = frPanel.querySelector('#lbPlayers');
+    if (pl) {
+      if (!net.active) pl.innerHTML = '';
+      else {
+        const rows = ['<div style="color:#7ef0a0;padding:2px 0">● ' + escHtml(net.nick) + ' · 你' + (net.isHost ? '（房主）' : '') + '</div>'];
+        for (const [id, r] of net.remotes) {
+          const o = r.obj.position;
+          const d = Math.hypot(o.x - player.p.x, o.z - player.p.z) | 0;
+          rows.push('<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:2px 0;border-top:1px solid rgba(120,200,255,.12)">'
+            + '<span>● ' + escHtml(r.name || id) + ' · <b style="color:#8fe3ff">' + d + 'm</b></span>'
+            + '<button class="btn" data-act="tp" data-id="' + escHtml(id) + '" style="padding:2px 7px">传送过去</button></div>');
+        }
+        pl.innerHTML = rows.join('');
+      }
+    }
+    const who = frPanel.querySelector('#frWho');
+    if (who) who.textContent = net.active ? (net.nick + ' · ' + net.code) : (net.nick || '');
+  }
   function renderReq() {
     const el = frPanel && frPanel.querySelector('#frReq');
     if (!el) return;
@@ -8149,22 +9333,28 @@ window.GAME = {
   }
   function renderFriends(d) {
     ensureFriendsUI();
-    const who = frPanel.querySelector('#frWho');
-    if (who) who.textContent = `${net.nick} · ${net.code}`;
+    if (Array.isArray(d.inv)) frInv = d.inv;
+    renderLobby();
     if (Array.isArray(d.req) && d.req.length) {
       frReq = d.req;
       renderReq();
-      if (!frOpen) { frOpen = true; frPanel.style.display = 'block'; }      // 有申请就自动弹出来
+      const fresh = d.req.some(r => !frSeen.has(r.from + '@' + r.at));
+      for (const r of d.req) frSeen.add(r.from + '@' + r.at);
+      if (fresh || frForceOpen) {                 // 只在「来了新申请」时自动弹出（以前心跳也会重弹）
+        frForceOpen = false;
+        if (!frOpen) { frOpen = true; frPanel.style.display = 'block'; }
+      }
     } else { renderReq(); }
     const list = frPanel.querySelector('#frList');
     if (!list) return;
     const fs2 = d.friends || [];
     list.innerHTML = fs2.length ? fs2.map(f =>
       `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 0;border-top:1px solid rgba(120,200,255,.12)">
-         <span><b style="color:${f.online ? '#7ef0a0' : '#7a8b9c'}">${f.online ? '●' : '○'}</b> ${f.nick}
-         <span style="color:#7a8b9c">${f.online ? (f.world ? '· ' + f.world : '· 在线') : '· 离线'}</span></span>
-         ${f.online && f.world && f.world !== net.code
-            ? `<button class="btn" data-act="join" data-pid="${f.pid}" style="padding:2px 7px">申请加入</button>` : ''}
+         <span><b style="color:${f.online ? '#7ef0a0' : '#7a8b9c'}">${f.online ? '●' : '○'}</b> ${escHtml(f.nick)}
+         <span style="color:#7a8b9c">${f.online ? (f.world ? '· 房间 ' + escHtml(f.world) : '· 在线') : '· 离线'}</span></span>
+         ${net.active
+            ? `<button class="btn" data-act="invite" data-pid="${escHtml(f.pid)}" style="padding:2px 7px">邀请</button>`
+            : (f.online && f.world ? `<button class="btn" data-act="join" data-pid="${escHtml(f.pid)}" style="padding:2px 7px">申请加入</button>` : '')}
        </div>`).join('') : '<span style="color:#7a8b9c">还没有好友，上面输入对方的昵称加一个</span>';
   }
   net.friendsPull = () => apiCall({ a: 'friends', pid: net.id, nick: net.nick, code: net.code })
@@ -8174,13 +9364,25 @@ window.GAME = {
 
   // ws 推送：好友申请 / 对方同意 / 被拒绝 / 好友列表变了
   net.onSocial = (m) => {
-    if (m.t === 'req') { frReq = [m.req]; ensureFriendsUI(); renderFriends({ friends: [], req: [m.req] }); toast(`${m.req.nick} 申请加入你的世界`, 4); }
+    if (m.t === 'req') {
+      frSeen.add(m.req.from + '@' + m.req.at);
+      frReq = [m.req]; ensureFriendsUI(); renderReq(); frForceOpen = true;
+      net.friendsPull();                       // 拉一次完整列表（以前这里拿 friends:[] 渲染，好友列表会被清空成"还没有好友"）
+      toast(`${m.req.nick} 申请加入你的世界`, 4);
+    }
     else if (m.t === 'acc') {
+      if (m.code === net.code) { toast(`${m.nick} 同意了你加入「${m.code}」——你已经在这个世界里了`, 3); return; }
       toast(`${m.nick} 同意了你加入「${m.code}」，正在进入…`, 3);
       const dev = q.has('dev') ? '&dev=1' : '';
-      setTimeout(() => { location.href = location.pathname + '?mp=1&world=' + encodeURIComponent(m.code) + '&nick=' + encodeURIComponent(net.nick) + dev; }, 900);
+      setTimeout(() => { location.href = location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(m.code) + '&nick=' + encodeURIComponent(net.nick) + dev; }, 900);
     }
     else if (m.t === 'deny') toast(`${m.nick} 拒绝了你的加入申请`, 3);
+    else if (m.t === 'inv') {                       // 房主邀请：面板自动弹出来，点「加入」就进他的房间
+      frInv = frInv.filter(x => x.code !== m.code).concat([{ code: m.code, nick: m.nick, at: Date.now() }]);
+      ensureFriendsUI(); renderLobby();
+      if (!frOpen) { frOpen = true; frPanel.style.display = 'block'; }
+      toast(`${m.nick} 邀请你进房间 ${m.code}（点「加入」）`, 6);
+    }
     else if (m.t === 'f') { ensureFriendsUI(); net.friendsPull(); toast(`${m.nick} 把你加为好友`, 3); }
   };
 
@@ -8188,6 +9390,7 @@ window.GAME = {
   net.heartbeat();
   setInterval(() => { net.heartbeat(); }, 20000);              // 在线状态心跳
   setInterval(() => { if (frOpen) net.friendsPull(); }, 4000);  // 面板开着时刷列表
+  setInterval(() => { if (frOpen && net.active) renderLobby(); }, 1000);   // 距离每秒刷新
 
   window.NET = net;
   if (btnFR) btnFR.style.display = '';
@@ -8210,7 +9413,8 @@ window.GAME = {
   if (!net.devOk && window.GAME && window.GAME.debug) {
     const stubbed = new Set(['give', 'tp', 'setBlock', 'travel', 'start', 'startCreative', 'startWorld',
       'createWorld', 'clearInv', 'equip', 'fly', 'setHp', 'steps', 'killMobs', 'spawnKind', 'spawnAt',
-      'usePortal', 'openPress', 'pressN', 'processN', 'setTime', 'furnaceTick', 'chipBatch']);
+      'usePortal', 'openPress', 'pressN', 'processN', 'setTime', 'furnaceTick', 'chipBatch',
+      'chargeStart', 'chargerTick', 'setCharge']);
     const kept = {};
     for (const k of Object.keys(window.GAME.debug)) {
       kept[k] = stubbed.has(k) ? (() => 'disabled_in_multiplayer') : window.GAME.debug[k];
@@ -8228,35 +9432,68 @@ window.GAME = {
   if (!btn) return;
   let panel = null, open = false;
   const defNick = (() => { try { return localStorage.getItem('bw_nick') || ''; } catch (e) { return ''; } })();
+  const defWorld = (() => { try { return localStorage.getItem('bw_world') || ''; } catch (e) { return ''; } })();
+  const inpCss = 'background:#0e1a28;color:#d8ecff;border:1px solid #2a4a66;border-radius:6px;padding:4px 6px;font:12px ui-monospace,monospace';
+  const pickBase = () => {
+    const LAN = /^(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);
+    return (location.protocol === 'https:' || !LAN)
+      ? (location.pathname.replace(/[^/]*$/, '') + 'bwmp.php')
+      : ('http://' + location.hostname + ':9203');
+  };
   function build() {
+    const pre = window.__bwPrefillMP || null;
     panel = document.createElement('div');
     panel.id = 'mpEntry';
     panel.style.cssText = 'position:fixed;right:10px;top:44px;z-index:40;width:300px;'
       + 'font:12px/1.6 ui-monospace,monospace;color:#d8ecff;background:rgba(9,20,32,.94);'
       + 'border:1px solid rgba(120,200,255,.35);border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.45)';
-    panel.innerHTML = '<b style="color:#8fe3ff">好友 / 联机</b>'
-      + '<div style="color:#8ea3ba;margin:6px 0 8px">当前是单机模式。联机要进同一个「世界代码」，进去了才有好友和申请加入。</div>'
-      + '<div style="display:flex;gap:6px"><input id="mpNick" maxlength="14" placeholder="你的昵称" value="' + defNick + '" '
-      + 'style="flex:1;min-width:0;background:#0e1a28;color:#d8ecff;border:1px solid #2a4a66;border-radius:6px;padding:4px 6px;font:12px ui-monospace,monospace">'
-      + '<button class="btn" id="mpGo" style="padding:3px 8px">进入联机</button></div>'
-      + '<div id="mpHint" style="font-size:11px;color:#7a8b9c;margin-top:6px">会先探测联机服务器能不能连上</div>';
+    const curW = currentId ? worldMeta(currentId) : null;
+    panel.innerHTML = '<b style="color:#8fe3ff">联机</b>'
+      + (started && curW
+          ? '<div style="margin:6px 0 8px"><button class="btn gold" id="mpHost" style="width:100%;padding:5px 8px">开房：一起玩「' + escHtml(curW.name) + '」</button>'
+            + '<div style="color:#8ea3ba;font-size:11px;margin-top:4px">把当前这个世界变成联机房间，好友能看到同一片地形和你的建筑</div></div>'
+          : '<div style="color:#8ea3ba;margin:6px 0 8px">先回世界列表进一个世界，就能开房邀好友；也可以直接填房间码加入别人。</div>')
+      + '<div style="display:flex;gap:6px;margin-bottom:6px"><input id="mpCode" maxlength="12" placeholder="房间码（空 = 我的世界）" value="'
+      + escHtml(pre ? pre.code : defWorld) + '" style="flex:1;min-width:0;' + inpCss + '"></div>'
+      + '<div style="display:flex;gap:6px"><input id="mpNick" maxlength="14" placeholder="你的昵称" value="'
+      + escHtml(pre ? pre.nick : defNick) + '" style="flex:1;min-width:0;' + inpCss + '">'
+      + '<button class="btn" id="mpGo" style="padding:3px 8px">加入房间</button></div>'
+      + '<div id="mpHint" style="font-size:11px;color:#7a8b9c;margin-top:6px">'
+      + (pre ? '这个链接要加入「' + escHtml(pre.code) + '」——点「加入房间」确认'
+             : '开房后把房间码发给好友；好友填码点「加入房间」') + '</div>';
     document.body.appendChild(panel);
+    const hostBtn = panel.querySelector('#mpHost');
+    if (hostBtn) hostBtn.onclick = () => {
+      const w = worldMeta(currentId);
+      if (!w) return;
+      if (!w.mpCode) {
+        w.mpCode = 'R' + (Math.abs(hashString('room:' + w.id)) % 1679616).toString(36).toUpperCase().padStart(4, '0');
+        const m = worldMeta(w.id); if (m) { m.mpCode = w.mpCode; saveIndex(); }
+      }
+      const nick2 = (panel.querySelector('#mpNick').value || '').trim() || defNick || ('P' + Math.random().toString(36).slice(2, 5));
+      try { localStorage.setItem('bw_nick', nick2); } catch (e) {}
+      location.href = location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(w.id)
+        + '&world=' + encodeURIComponent(w.mpCode) + '&nick=' + encodeURIComponent(nick2);
+    };
     panel.querySelector('#mpGo').onclick = () => {
       const el = panel.querySelector('#mpNick'), hint = panel.querySelector('#mpHint');
       const nick2 = (el.value || '').trim() || ('P' + Math.random().toString(36).slice(2, 5));
-      try { localStorage.setItem('bw_nick', nick2); } catch (e) {}
-      const base = (location.protocol === 'https:')
-        ? (location.pathname.replace(/[^/]*$/, '') + 'bwmp.php')
-        : ('http://' + location.hostname + ':9203');
+      const code = (panel.querySelector('#mpCode').value || '').trim().replace(/[^\w-]/g, '').toUpperCase().slice(0, 12);
+      try {
+        localStorage.setItem('bw_nick', nick2);
+        if (code) localStorage.setItem('bw_world', code); else localStorage.removeItem('bw_world');
+      } catch (e) {}
+      const base = pickBase();
       hint.style.color = '#8ea3ba'; hint.textContent = '正在探测 ' + base + ' …';
       fetch(/[.]php/.test(base) ? base : (base + '/api'), { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ a: 'ping' }) })
         .then(r => r.json()).then(d => {
           if (!d.ok) throw new Error('probe');
-          hint.style.color = '#7ef0a0'; hint.textContent = '服务器在线，正在进入…';
-          setTimeout(() => { location.href = location.pathname + '?mp=1&nick=' + encodeURIComponent(nick2); }, 400);
+          hint.style.color = '#7ef0a0'; hint.textContent = '服务器在线，正在进入' + (code ? '「' + code + '」' : '你的世界') + '…';
+          // go=1：这是玩家亲手点的「进入联机」，bootNet 才允许自动进服
+          setTimeout(() => { location.href = location.pathname + '?mp=1&go=1&nick=' + encodeURIComponent(nick2) + (code ? '&world=' + encodeURIComponent(code) : ''); }, 400);
         }).catch(() => {
           hint.style.color = '#ff9a6b';
-          hint.innerHTML = '连不上 <b>' + base + '</b><br>检查一下 NAS 上的联机守护进程（127.0.0.1:9203）是否在跑。<br>'
+          hint.innerHTML = '连不上 <b>' + escHtml(base) + '</b><br>检查一下 NAS 上的联机守护进程（127.0.0.1:9203）是否在跑。<br>'
             + '<span style="color:#7a8b9c">局域网直连：http://192.168.50.3:5802/blockwild/?mp=1</span>';
         });
     };
@@ -8267,6 +9504,8 @@ window.GAME = {
     btn.onclick = toggle;                                  // 游戏内右上角「好友」
     const startBtn = document.getElementById('btnMP');     // 开始界面「🌐 联机」
     if (startBtn) startBtn.onclick = toggle;
+    // ★ 裸链接带世界码（?mp=1 但没有 go=1）：不自动进服，只把面板打开、预填世界码让人确认
+    if (window.__bwPrefillMP && !open) { toggle(); }
   };
   window.__bwWireEntry = init;
   if (NET && NET.active) return;                            // 联机正常：顶部好友面板由 bootNet 接管
