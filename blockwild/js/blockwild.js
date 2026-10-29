@@ -3057,6 +3057,35 @@ function updateTorchLights() {
     l.visible = true;
   }
 }
+/* ── 手持火把发光 ──────────────────────────────────────────────────
+   玩家或村民手里拿着火把（方块 38）时，一个共享点光源跟着「离镜头最近的那个火把」走。
+   只加 1 盏灯：点位光每多一盏都会让所有材质重编一次着色器，手机上吃不消。 */
+const heldTorchLight = new THREE.PointLight(0xffb45a, 0, 17, 0.9);
+heldTorchLight.visible = false;
+scene.add(heldTorchLight);
+let heldTorchT = 0;
+function updateHeldTorchLight(dt) {
+  heldTorchT -= dt;
+  if (heldTorchT > 0) return;
+  heldTorchT = 0.2;
+  const cand = [];
+  const h = held();
+  if (h && h.id === 38) cand.push({ x: player.p.x, y: player.p.y + 1.15, z: player.p.z });
+  for (const m of mobs) {
+    if (m.dying || !m.give || m.give.id !== 38) continue;
+    cand.push({ x: m.p.x, y: m.p.y + 1.3, z: m.p.z });
+  }
+  let best = null, bd = 40 * 40;
+  const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+  for (const c of cand) {
+    const d2 = (c.x - cx) ** 2 + (c.y - cy) ** 2 + (c.z - cz) ** 2;
+    if (d2 < bd) { bd = d2; best = c; }
+  }
+  if (!best) { heldTorchLight.visible = false; return; }
+  heldTorchLight.position.set(best.x, best.y, best.z);
+  heldTorchLight.intensity = 8.5 + Math.sin(performance.now() * 0.0062) * 0.9;
+  heldTorchLight.visible = true;
+}
 function torchNear(x, y, z, r) {            // 附近有没有火把（用来阻止刷怪）
   const r2 = r * r;
   for (const t of torchCells.values()) {
@@ -4470,6 +4499,24 @@ function refreshVillagerMark(m) {
   m.obj.add(sp);
   m.mark = sp;
 }
+function makeHandCross(tile, size) {
+  const u0 = (tile % ATLAS_COLS) / ATLAS_COLS, v0 = 1 - (((tile / ATLAS_COLS) | 0) + 1) / ATLAS_ROWS;
+  const iu = 1 / ATLAS_COLS, iv = 1 / ATLAS_ROWS;
+  const g = new THREE.Group();
+  const half = size / 2;
+  for (const ry of [0, Math.PI / 2]) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute([-half, -half, 0, half, -half, 0, half, half, 0, -half, half, 0], 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute([u0, v0, u0 + iu, v0, u0 + iu, v0 + iv, u0, v0 + iv], 2));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 3));
+    geo.setIndex([0, 1, 2, 0, 2, 3]);
+    geo.computeVertexNormals();
+    const q = new THREE.Mesh(geo, plantMat);
+    q.rotation.y = ry;
+    g.add(q);
+  }
+  return g;
+}
 function showVillagerGift(m) {                  // 手里的道具：和玩家手持用同一套模型、同样大小
   if (m.gift) {
     if (m.gift.parent) m.gift.parent.remove(m.gift);
@@ -4480,21 +4527,28 @@ function showVillagerGift(m) {                  // 手里的道具：和玩家�
   const hand = m.parts.arm1 || m.parts.core;
   const b = BLOCKS[m.give.id], it = ITEMS[m.give.id];
   let mesh = null;
-  if (b) {                                      // 方块：和玩家完全一样的 0.2 立方体 + 六面贴图
+  // 手臂从肩膀垂到 y=-12px（≈-0.67），所以「手」在 y≈-0.60；以前挂在 -0.26（肘部）显得道具浮在半空
+  const HAND_Y = -12 * MOB_PX * 0.92;
+  if (b && b.cross) {                           // 火把/花草：和玩家手里一样用十字面片（不是六面糊图案的立方体）
+    mesh = makeHandCross(b.top, 0.44);
+    mesh.rotation.set(0, 0.35, 0);
+  } else if (b) {                               // 方块：0.2 立方体缩到 0.55（村民手比玩家手小）
     const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
     mesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
+    mesh.scale.setScalar(0.55);
     mesh.rotation.set(0.2, 0.6, 0.1);
-  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'mat' || it.kind === 'food')) {
-    mesh = makeToolModel(m.give.id);            // 剑/镐/材料：玩家手里那个 3D 模型
-    mesh.rotation.set(-0.5, 0.45, -0.15);
+  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'mat' || it.kind === 'food' || it.kind === 'hoe' || it.kind === 'gun')) {
+    mesh = makeToolModel(m.give.id);            // 剑/镐/材料：玩家手里那个 3D 模型，缩到 0.62
+    mesh.scale.setScalar(0.62);
+    mesh.rotation.set(-0.28, 0.42, -0.06);      // 贴着掌心、刀尖朝前下（原来 -0.5/0.45/-0.15 像横着插在肘上）
   } else {
     const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
     const tex = new THREE.TextureLoader().load(iconURL(m.give.id));
     tex.magFilter = THREE.NearestFilter;
     mat.map = tex;
-    mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), mat);
+    mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.26), mat);
   }
-  mesh.position.set(0.03, -0.26, -0.06);        // 手的位置
+  mesh.position.set(0.015, HAND_Y, 0.02);
   mesh.renderOrder = 5;
   hand.add(mesh);
   m.gift = mesh;
@@ -5109,6 +5163,37 @@ async function placeStructureAt(file, ox, oy, oz) {     // 从服务器拉一个
   } catch (err) { toast('放置结构失败：' + (err.message || err), 3); return 0; }
 }
 
+/* ── 村民导航小工具 ────────────────────────────────────────────────
+   ① steerTo：直线被挡就 ±30°/±60°/±90° 扇扫，找一个能走的方向（贴墙绕行，不再一头撞墙）
+   ② findDoorNear：在床周围找「下半格的门」（村民要开门才能进屋） */
+function steerTo(ent, tx, tz) {
+  const dx = tx - ent.p.x, dz = tz - ent.p.z;
+  const d = Math.hypot(dx, dz) || 1;
+  let ax = dx / d, az = dz / d;
+  const probe = (x, z) => sightClear({ x: ent.p.x, y: ent.p.y, z: ent.p.z }, { x: ent.p.x + x * 1.7, y: ent.p.y, z: ent.p.z + z * 1.7 });
+  if (!probe(ax, az)) {
+    for (const a of [0.55, -0.55, 1.05, -1.05, 1.55, -1.55]) {
+      const ca = Math.cos(a), sa = Math.sin(a);
+      const nx = ax * ca - az * sa, nz = ax * sa + az * ca;
+      if (probe(nx, nz)) { ax = nx; az = nz; break; }
+    }
+  }
+  return { x: ax, z: az };
+}
+function findDoorNear(pos, r) {
+  const cx = Math.floor(pos.x), cy = Math.floor(pos.y), cz = Math.floor(pos.z);
+  let best = null, bd = 1e9;
+  for (let dy = -3; dy <= 3; dy++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+    const x = cx + dx, y = cy + dy, z = cz + dz;
+    if (getBlock(x, y, z) !== 35) continue;
+    if (getMeta(x, y, z) & 8) continue;                    // 只认门的下半格
+    if (getBlock(x, y - 1, z) === 35) continue;            // 上面那半格也不认（toggleDoor 只从下半格开始翻）
+    const d2 = dx * dx + dy * dy * 4 + dz * dz;            // 高度差加权（宁可走平路）
+    if (d2 < bd) { bd = d2; best = { x, y, z }; }
+  }
+  return best;
+}
+
 /* ── 村民睡觉：天黑了找个床躺下 ── */
 function findBedNear(pos, r) {
   const cx = Math.floor(pos.x), cy = Math.floor(pos.y), cz = Math.floor(pos.z);
@@ -5281,20 +5366,61 @@ function updateMobs(dt) {
     if (!def.hostile && !night && dist > 44) { killMob(m); mobs.splice(i, 1); continue; }
 
     let mx = 0, mz = 0, speed = def.wander;
-    // 村民：天黑了自动去附近的床睡觉，天亮自己起来
+    // ── 村民：状态机（idle / to-bed / to-door / sleep / follow）+ 绕障 + 开门进屋 ──
     if (m.kind === 'villager') {
+      const ai = m.ai || (m.ai = { state: 'idle', door: null, doorT: 0, stuckT: 0, lx: m.p.x, lz: m.p.z });
       if (night && !m.sleeping) {
-        m.bedScan = (m.bedScan || 0) - dt;
-        if (m.bedScan <= 0) { m.bedScan = 4; if (!m.bed) m.bed = findBedNear(m.p, 14); }
+        if (m.bedScan === undefined) m.bedScan = Math.random() * 3;      // 错开扫描，别所有村民同一帧扫全场
+        m.bedScan -= dt;
+        if (m.bedScan <= 0) {
+          m.bedScan = 6;
+          if (!m.bed) m.bed = findBedNear(m.p, 12);
+          if (m.bed) ai.door = findDoorNear(m.bed, 6);                   // 床在屋里 → 记下最近的门
+        }
         if (m.bed) {
           const bdx = m.bed.x + 0.5 - m.p.x, bdz = m.bed.z + 0.5 - m.p.z;
           const bd = Math.hypot(bdx, bdz);
-          if (bd < 3.2 && Math.abs(m.bed.y - m.p.y) < 2.6) startSleep(m);   // 走到床边（含爬台阶卡住的情况）就躺下
-          else if (bd > 0.5) { mx = bdx / bd; mz = bdz / bd; speed = Math.max(def.wander, 2.4); m.bedTgt = true; }
+          const seeBed = sightClear({ x: m.p.x, y: m.p.y, z: m.p.z }, { x: m.bed.x + 0.5, y: m.bed.y, z: m.bed.z + 0.5 });
+          ai.state = (ai.door && !seeBed) ? 'to-door' : 'to-bed';
+          if (bd < 2.3 && Math.abs(m.bed.y - m.p.y) < 2.6 && (seeBed || !ai.door)) {
+            startSleep(m); ai.state = 'sleep';
+          } else {
+            let tx2 = m.bed.x + 0.5, tz2 = m.bed.z + 0.5;
+            if (ai.state === 'to-door') { tx2 = ai.door.x + 0.5; tz2 = ai.door.z + 0.5; }
+            const st = steerTo(m, tx2, tz2);
+            mx = st.x; mz = st.z; speed = Math.max(def.wander, 2.4); m.bedTgt = true;
+            if (ai.state === 'to-door' && ai.door) {
+              // 1 格宽的门 + 0.6 宽的身体：先横向对准门洞中线，再直着穿过去（否则永远卡在门框边）
+              const dcx = ai.door.x + 0.5, dcz = ai.door.z + 0.5;
+              if (Math.abs(m.p.x - dcx) > 0.12) { mx = Math.sign(dcx - m.p.x); mz = 0; }
+              else { mx = 0; mz = Math.sign(dcz - m.p.z) || -1; }
+            }
+            // 走到门口就把门推开（门开着才能穿过去；collides 会跳过 meta&4 的门）
+            if (ai.door) {
+              const dd = Math.hypot(ai.door.x + 0.5 - m.p.x, ai.door.z + 0.5 - m.p.z);
+              ai.doorT = (ai.doorT || 0) - dt;
+              if (dd < 2.4 && ai.doorT <= 0 && !(getMeta(ai.door.x, ai.door.y, ai.door.z) & 4)) {
+                ai.doorT = 1.8;
+                toggleDoor(ai.door.x, ai.door.y, ai.door.z);
+              }
+            }
+          }
+        } else {
+          ai.state = 'idle';
         }
-      } else if (!night && m.sleeping) wakeUp(m);
-      if (!m.bed && !m.sleeping) m.bedTgt = false;
-      if (m.sleeping) { mx = 0; mz = 0; speed = 0; m.v.x = 0; m.v.z = 0; }
+      } else if (!night && m.sleeping) { wakeUp(m); ai.state = 'idle'; }
+      if (!m.bed && !m.sleeping) { m.bedTgt = false; if (ai.state !== 'idle') ai.state = 'idle'; }
+      if (m.sleeping) { mx = 0; mz = 0; speed = 0; m.v.x = 0; m.v.z = 0; ai.state = 'sleep'; }
+      // 卡住检测：每 1 秒看一次位移（每帧位移只有 0.04 格，用帧位移判断会一直误判「卡住」）
+      if (m.bedTgt && !m.sleeping) {
+        ai.watchT = (ai.watchT || 0) + dt;
+        if (ai.watchT >= 1.0) {
+          const moved = Math.hypot(m.p.x - ai.lx, m.p.z - ai.lz);
+          ai.stuckT = moved < 0.25 ? (ai.stuckT || 0) + ai.watchT : 0;
+          ai.watchT = 0; ai.lx = m.p.x; ai.lz = m.p.z;
+        }
+        if (ai.stuckT > 8) { m.bed = null; ai.door = null; m.bedTgt = false; ai.stuckT = 0; m.bedScan = 4; ai.state = 'idle'; }
+      } else { ai.stuckT = 0; ai.watchT = 0; ai.lx = m.p.x; ai.lz = m.p.z; }
     }
     if (def.ranged && hostileNow && player.alive) {      // 骷髅：保持距离并射箭
       if (dist > 15) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase; }
@@ -5308,6 +5434,9 @@ function updateMobs(dt) {
       if (td2 < 26 && (tgm || player.alive)) { mx = tdx / (td2 || 1); mz = tdz / (td2 || 1); speed = def.chase; }
     } else if (m.flee > 0) {                         // 被打之后逃跑
       mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase;
+    } else if (m.kind === 'villager' && m.bedTgt) {
+      // 村民正在「去门口 / 去床边」：方向已由上面的状态机算好，**绝不能**被闲逛分支覆盖
+      //（旧代码就是在这里被覆盖成随机闲逛，所以村民从来走不到床前）
     } else {
       m.wander -= dt;
       if (m.wander <= 0) {
@@ -5315,7 +5444,11 @@ function updateMobs(dt) {
         const a = Math.random() * Math.PI * 2;
         m.dir.set(Math.cos(a), Math.sin(a));
       }
-      mx = m.dir.x * 0.45; mz = m.dir.y * 0.45;
+      let wx = m.dir.x, wz = m.dir.y;
+      const fbx = Math.floor(m.p.x + wx * 1.5), fbz = Math.floor(m.p.z + wz * 1.5), fby = Math.floor(m.p.y);
+      const fb = getBlock(fbx, fby, fbz);
+      if (fb === 5 || fb === 44 || (fb === 0 && getBlock(fbx, fby - 1, fbz) === 5)) { m.wander = 0; wx = -wx; wz = -wz; }
+      mx = wx * 0.45; mz = wz * 0.45;
       if (m.home) {                                  // 村民别走太远
         const hx = m.home.x - m.p.x, hz = m.home.z - m.p.z;
         const hd = Math.hypot(hx, hz);
@@ -5367,7 +5500,15 @@ function updateMobs(dt) {
       m.v.y -= CFG.GRAV * dt;
       moveBody(m, m.v.x * dt, m.v.y * dt, m.v.z * dt);
     }
-    if (!def.float && m.onGround && (Math.abs(m.p.x - before) < 0.001 || Math.abs(m.p.z - beforeZ) < 0.001)) m.v.y = CFG.JUMP * 0.85;
+    // 只在「想走却两轴都没走动」且连续卡住 0.3 秒时才跳一下。
+    // 旧写法是「任一轴没变化就跳」→ 站着不动（mx=mz=0）和沿正南正北直线走（x 不变）都会每帧起跳，
+    // 玩家看到的就是「生物有时候莫名其妙地跳」。
+    const wantMove = Math.hypot(mx, mz) > 0.05;
+    const stalled = Math.abs(m.p.x - before) < 0.001 && Math.abs(m.p.z - beforeZ) < 0.001;
+    if (!def.float && m.onGround && wantMove && stalled) {
+      m.stuckT = (m.stuckT || 0) + dt;
+      if (m.stuckT > 0.3) { m.v.y = CFG.JUMP * 0.85; m.stuckT = 0; m.jumps = (m.jumps || 0) + 1; }
+    } else m.stuckT = 0;
     if (m.p.y < -6) m.hp = 0;
     // 朝向 = 实际移动方向。原来无条件朝玩家，走路时看起来是横着/倒着走
     const vlen = Math.hypot(m.v.x, m.v.z);
@@ -7926,6 +8067,7 @@ function frame(now) {
   updateChargerJob(dt);
   torchT -= dt;
   if (torchT <= 0) { torchT = 0.2; updateTorchLights(); }
+  updateHeldTorchLight(dt);
   doorSyncT -= dt;
   if (doorSyncT <= 0) { doorSyncT = 0.25; syncDoors(); }
 
@@ -8517,6 +8659,20 @@ window.GAME = {
     mapReveal: () => { mmReveal(); mmDraw(); return { cells: MM.cells.size }; },
     mapScan: () => { mmScanStructs(); mmDraw(); return { marks: MM.marks.size, list: Array.from(MM.marks.values()) }; },
     mapClear: () => { MM.cells.clear(); MM.marks.clear(); mmDraw(); return true; },
+    villagerAI: () => mobs.filter(m => m.kind === 'villager').map(m => ({
+      pos: [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)],
+      state: m.ai ? m.ai.state : null, sleeping: !!m.sleeping,
+      bed: m.bed ? [m.bed.x, m.bed.y, m.bed.z] : null,
+      door: m.ai && m.ai.door ? [m.ai.door.x, m.ai.door.y, m.ai.door.z] : null,
+      doorOpen: m.ai && m.ai.door ? !!((getMeta(m.ai.door.x, m.ai.door.y, m.ai.door.z)) & 4) : null,
+      give: m.give ? nameOf(m.give.id) : null, jumps: m.jumps || 0,
+      stuckT: m.ai ? +(m.ai.stuckT || 0).toFixed(1) : 0,
+      giftScale: m.gift ? +m.gift.scale.x.toFixed(2) : null,
+      giftY: m.gift ? +m.gift.position.y.toFixed(2) : null,
+    })),
+    mobJumps: () => mobs.map(m => ({ kind: m.kind, jumps: m.jumps || 0, vy: +m.v.y.toFixed(2), onGround: !!m.onGround })),
+    heldTorch: () => ({ on: heldTorchLight.visible, pos: heldTorchLight.position.toArray().map(v => +v.toFixed(1)), intensity: +heldTorchLight.intensity.toFixed(1) }),
+    giveVillager: (id) => { const v = mobs.find(m => m.kind === 'villager'); if (!v) return null; v.give = { id, n: 1 }; showVillagerGift(v); return { id, giftY: +v.gift.position.y.toFixed(2), scale: +v.gift.scale.x.toFixed(2), meshes: v.gift.children.length }; },
     mapOpenBig: (x, z) => { mmOpenBig(x, z); return { open: MM_BIG.open, zoom: MM_BIG.zoom, acrossBlocks: MM_BIGZOOM[MM_BIG.zoom] * MM_CELL, marks: MM.marks.size }; },
     mapCloseBig: () => { mmCloseBig(); return MM_BIG.open; },
     mapAddMark: (x, z, label) => { const ok = mmAddMark(x === undefined ? Math.round(MM_BIG.x) : x, z === undefined ? Math.round(MM_BIG.z) : z, label); return { ok, marks: Array.from(MM.marks.values()) }; },
