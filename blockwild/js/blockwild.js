@@ -1770,10 +1770,31 @@ function getChunk(cx, cz) {
   }
   return c;
 }
+/* 区块查询缓存：网格化时同一区块会被查上十万次，原来是每次都拼 "cx,cz" 字符串 + Map.get。
+   只缓存「上一次查到的区块」（比 cx/cz 两个数字，不用算 key），命中率 >95%。 */
+let _pkC = null;
+function invalidateChunkCache() { _pkC = null; }
+function chunkAt(cx, cz) {
+  if (_pkC && _pkC.cx === cx && _pkC.cz === cz) return _pkC;
+  const c = chunks.get(cx + ',' + cz);
+  if (c) _pkC = c;
+  return c;
+}
 function getBlock(x, y, z) {
   if (y < 0) return 3;
   if (y >= CFG.WH) return 0;
-  const c = getChunk(x >> 4, z >> 4);
+  const c = chunkAt(x >> 4, z >> 4) || getChunk(x >> 4, z >> 4);
+  return c.blocks[(y * CFG.CH + (z & 15)) * CFG.CH + (x & 15)];
+}
+/* peekBlock：只读已加载的区块，**绝不触发生成**。
+   返回 255 表示「这一格所在的区块还没加载」——网格化时代码会把它当实心（那一面不画），
+   等邻居区块补上后由 streamChunks 把这块重建一次。
+   （旧代码用 getBlock 查邻居 → 建一块会连锁生成周围 8 块地形，走路/换维度时卡成幻灯片） */
+function peekBlock(x, y, z) {
+  if (y < 0) return 3;
+  if (y >= CFG.WH) return 0;
+  const c = chunkAt(x >> 4, z >> 4);
+  if (!c) return 255;
   return c.blocks[(y * CFG.CH + (z & 15)) * CFG.CH + (x & 15)];
 }
 const isSolid = id => id !== 0 && id !== 5 && !(BLOCKS[id] && (BLOCKS[id].plant || BLOCKS[id].liquid));   // 作物/液体可穿过
@@ -2067,7 +2088,7 @@ function vertexAO(wx, y, wz, f, V) {
     const q = [bx, by, bz];
     if (o1) q[axes[0]] += dirs[0];
     if (o2) q[axes[1]] += dirs[1];
-    const id = getBlock(q[0], q[1], q[2]);
+    const id = peekBlock(q[0], q[1], q[2]);
     if (!id) return 0;
     const d = BLOCKS[id];
     if (d && (d.cross || d.plant)) return 0;         // 草/花/火把不挡光
@@ -2174,7 +2195,7 @@ function emitBox(P, U, C, I, base, lx, y, lz, x0, x1, y0, y1, z0, z1, tile) {
 const BED_T_FRAME = 8, BED_T_MAT = 39, BED_T_PILLOW = 38;
 function bedFacing(wx, y, wz, meta) {
   if (meta) return { dir: meta > 4 ? meta - 4 : meta, head: meta > 4 };
-  const isBed = (dx, dz) => getBlock(wx + dx, y, wz + dz) === 14;
+  const isBed = (dx, dz) => peekBlock(wx + dx, y, wz + dz) === 14;
   if (isBed(-1, 0)) return { dir: 1, head: true };          // 同伴在 -X ⇒ 自己在 +X 端 = 头
   if (isBed(1, 0)) return { dir: 2, head: false };          // 同伴在 +X ⇒ 自己是脚
   if (isBed(0, -1)) return { dir: 3, head: true };
@@ -2334,6 +2355,13 @@ let doorSyncT = 0, torchT = 0;
 function buildChunk(chunk) {
   const CH = CFG.CH, WH = CFG.WH;
   const ox = chunk.cx * CH, oz = chunk.cz * CH;
+  // 邻居还没加载时，边界面会被当成实心（省掉 8 次连锁生成）。记下来，等邻居齐了再重建一次。
+  let missingNb = false;
+  for (let ax = -1; ax <= 1 && !missingNb; ax++) for (let az = -1; az <= 1; az++) {
+    if (!ax && !az) continue;
+    if (!chunks.has((chunk.cx + ax) + ',' + (chunk.cz + az))) { missingNb = true; break; }
+  }
+  chunk.stale = missingNb;
   const doorCells = [];                                  // 门不进烘焙网格：用独立对象做开关动画
   const P = [], U = [], C = [], I = [];
   const P2 = [], U2 = [], C2 = [], I2 = [];
@@ -2360,7 +2388,7 @@ function buildChunk(chunk) {
     let wch = null;                                       // 水面角点高度缓存
     for (let fi = 0; fi < 6; fi++) {
       const f = FACES[fi];
-      const nb = getBlock(wx + f.n[0], y + f.n[1], wz + f.n[2]);
+      const nb = peekBlock(wx + f.n[0], y + f.n[1], wz + f.n[2]);
       if (water) { if (nb !== 0) continue; }
       else if (glass) { if (nb === 22 || nb === 5) continue; }          // 玻璃之间不画内面
       // ⚠ 半格方块（床）和门都不是满格：照旧把邻面剔掉，邻居朝向它们的那一面会整面消失
@@ -6625,8 +6653,14 @@ function disposeAllChunks() {                      // 换维度：所有区块�
     if (c.plant) { scene.remove(c.plant); c.plant.geometry.dispose(); }
   }
   chunks.clear(); dirty.clear();
+  invalidateChunkCache();                          // 缓存里那个区块对象已经没了
   for (const m of mobs) if (m.obj) scene.remove(m.obj);
   mobs.length = 0;
+  // 另一维度的掉落物/箭留在场上没人会捡，但每帧还在跑物理 → 换维度时一起清掉（存档里的不受影响）
+  for (const d of drops) if (d.obj) scene.remove(d.obj);
+  drops.length = 0;
+  for (const a of arrows) if (a.obj) scene.remove(a.obj);
+  arrows.length = 0;
 }
 function buildAround(x, z, r = 2) {
   const cx = Math.floor(x / CFG.CH), cz = Math.floor(z / CFG.CH);
@@ -6643,7 +6677,7 @@ function travelDimension(fromCore) {
     for (let i = 0; i < 5 && getBlock(Math.floor(px2), Math.floor(o.y), Math.floor(pz2)) === 42; i++) pz2 += 1;   // 别站回门里
     player.p.set(px2, o.y + 0.1, pz2);
     player.v.set(0, 0, 0); player.fallFrom = null;
-    buildAround(px2, pz2);
+    buildAround(px2, pz2, 1);            // 只同步建 3×3，剩下的交给 streamChunks（否则一次冻 0.5~1 秒）
     updateSky();
     toast('你回到了主世界', 2.2);
   } else {                                         // ← 去冥界
@@ -6654,7 +6688,7 @@ function travelDimension(fromCore) {
     disposeAllChunks();
     player.p.set(NETHER_OFF + 8.5, 34.05, NETHER_OFF + 11.5);
     player.v.set(0, 0, 0); player.fallFrom = null;
-    buildAround(player.p.x, player.p.z);
+    buildAround(player.p.x, player.p.z, 1);
     updateSky();
     toast('进入冥界：脚下是岩浆，小心火焰魔', 2.8);
   }
@@ -7603,24 +7637,45 @@ function streamChunks() {
       chunks.delete(k);
     }
   }
-  // ② 建新区块 / 重建脏块：只花 budgetMs 毫秒，超了就留给下一帧
   const tStart = performance.now();
   const budgetMs = perfBudget;
-  let built = 0;
-  for (let r = 0; r <= CFG.LOAD_R && built < 4; r++) {
-    for (let dx = -r; dx <= r && built < 4; dx++) for (let dz = -r; dz <= r && built < 4; dz++) {
+
+  // ② 邻居补齐后重建：只往 dirty 里塞（很便宜），真正的重建排到 ④
+  //   ⚠ 必须放在建新区块之前：建新区块一旦超预算就跳出，原来放在后面永远轮不到执行
+  let fixed = 0;
+  for (let r = 1; r <= CFG.LOAD_R + 1 && fixed < 2; r++) {
+    for (let dx = -r; dx <= r && fixed < 2; dx++) for (let dz = -r; dz <= r && fixed < 2; dz++) {
       if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      const c = chunks.get(ckey(pcx + dx, pcz + dz));
+      if (!c || !c.ready || !c.stale) continue;
+      let ok = true;
+      for (let ax = -1; ax <= 1 && ok; ax++) for (let az = -1; az <= 1; az++) {
+        if (!ax && !az) continue;
+        if (!chunks.has((c.cx + ax) + ',' + (c.cz + az))) { ok = false; break; }
+      }
+      if (ok) { c.stale = false; dirty.add(c); fixed++; }
+    }
+  }
+
+  // ③ 建新区块：预算前置，超了就跳出（不 return，否则 ④ 永远跑不到）
+  let built = 0, over = false;
+  for (let r = 0; r <= CFG.LOAD_R && built < 3 && !over; r++) {
+    for (let dx = -r; dx <= r && built < 3 && !over; dx++) for (let dz = -r; dz <= r; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      if (built > 0 && performance.now() - tStart > budgetMs * 0.7) { over = true; break; }
       const c = getChunk(pcx + dx, pcz + dz);
       if (!c.ready) {
         buildChunk(c); built++;
-        if (performance.now() - tStart > budgetMs) return;      // 卸载已完成，这里可以提前返回
+        if (performance.now() - tStart > budgetMs) { over = true; break; }
       }
     }
   }
-  // 重建脏区块
+
+  // ④ 重建脏区块：至少给 1 块的机会，否则一边走一边攒脏块越积越多
   let rebuilt = 0;
   for (const c of dirty) {
-    if (rebuilt >= 3 || performance.now() - tStart > budgetMs) break;
+    if (rebuilt >= 2) break;
+    if (rebuilt > 0 && performance.now() - tStart > budgetMs) break;
     const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
     if (d > CFG.LOAD_R + 1) { dirty.delete(c); continue; }
     buildChunk(c); dirty.delete(c); rebuilt++;
@@ -8910,8 +8965,21 @@ window.GAME = {
       return null;
     },
     water: (x, y, z, lvl) => { if (lvl === undefined) { setBlock(x, y, z, 5); } else setWater(x, y, z, lvl); wakeWater(x, y, z); },
+    benchChunk: (n, ddx, ddz) => {
+      const pcx = Math.floor(player.p.x / CFG.CH) + (ddx || 8), pcz = Math.floor(player.p.z / CFG.CH) + (ddz || 0);
+      const t = [];
+      for (let i = 0; i < (n || 5); i++) {
+        const c = getChunk(pcx + i, pcz);
+        const t0 = performance.now();
+        buildChunk(c);
+        t.push(+(performance.now() - t0).toFixed(1));
+      }
+      return t;
+    },
     perf: () => ({
       frameMs: +frameMsAvg.toFixed(1), budgetMs: +perfBudget.toFixed(1),
+      stale: [...chunks.values()].filter(c => c.stale).length,
+      ready: [...chunks.values()].filter(c => c.ready).length,
       chunks: chunks.size, edits: edits.size,
       waterQueued: waterQueue.length - waterHead, flowing: waterFlow.size,
       mobs: mobs.length, drops: drops.length, arrows: arrows.length,
