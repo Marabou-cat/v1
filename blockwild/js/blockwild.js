@@ -9618,9 +9618,9 @@ function buildAvatarMesh(skin, cloth) {
   };
   box(0.52, 0.72, 0.3, cloth, 0, 1.06, 0);                 // 上身 = 衣服颜色
   box(0.42, 0.42, 0.42, skin, 0, 1.62, 0);                 // 头 = 肤色
-  box(0.28, 0.12, 0.02, 0x2b1a12, 0, 1.65, -0.212);        // 嘴
-  box(0.07, 0.06, 0.02, 0xf2f2f2, -0.09, 1.71, -0.219);
-  box(0.07, 0.06, 0.02, 0xf2f2f2, 0.09, 1.71, -0.219);
+  box(0.26, 0.09, 0.02, 0x2b1a12, 0, 1.60, -0.212);        // 嘴（压低，别和眼睛黏在一起）
+  box(0.10, 0.028, 0.02, 0xf2f2f2, -0.085, 1.705, -0.219);   // 细长眼
+  box(0.10, 0.028, 0.02, 0xf2f2f2, 0.085, 1.705, -0.219);
   box(0.18, 0.68, 0.2, skinDark, -0.35, 1.06, 0);          // 手臂 = 肤色
   box(0.18, 0.68, 0.2, skinDark, 0.35, 1.06, 0);
   box(0.2, 0.7, 0.22, clothDark, -0.13, 0.35, 0);          // 裤腿 = 衣服色（压暗）
@@ -9646,11 +9646,13 @@ function buildLookPreview() {
   disc.rotation.x = -Math.PI / 2; disc.position.y = 0.002;
   lookScene.add(disc);
   lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth);
-  lookAv.rotation.y = 0.45;
+  lookAv.rotation.y = Math.PI;                       // 模型正面朝 -Z，转 180° 才正对镜头
   lookScene.add(lookAv);
+  const t0 = performance.now();
   const loop = () => {
     if ($('lookPanel').classList.contains('hide')) { lookRAF = 0; return; }
-    lookAv.rotation.y += 0.011;
+    // 小幅左右摇摆（±28°）而不是整圈转：始终能看到脸
+    lookAv.rotation.y = Math.PI + Math.sin((performance.now() - t0) / 1100) * 0.5;
     lookRenderer.render(lookScene, lookCam);
     lookRAF = requestAnimationFrame(loop);
   };
@@ -9660,7 +9662,7 @@ function refreshLookAv() {
   if (!lookScene || !lookAv) return;
   lookScene.remove(lookAv);
   lookAv = buildAvatarMesh(LOOK.skin, LOOK.cloth);
-  lookAv.rotation.y = 0.45;
+  lookAv.rotation.y = Math.PI;
   lookScene.add(lookAv);
 }
 function renderLookSwatches() {
@@ -10587,11 +10589,12 @@ window.GAME = {
     const torso = root(0.52, 0.72, 0.3, col, 0, 1.06, 0);
     const head = root(0.42, 0.42, 0.42, dark, 0, 1.62, 0);
     // 脸：确认「模型正面」到底朝哪边 —— 顺带让人一眼能看出别人面朝哪（以前纯对称，看不出前后）
-    const face = box(0.28, 0.12, 0.02, 0x2b1a12);
-    face.position.set(0, 0.03, -0.215);
+    const face = box(0.26, 0.09, 0.02, 0x2b1a12);     // 嘴：压低一点，给细长眼留出空间
+    face.position.set(0, -0.02, -0.215);
     head.add(face);
-    const eyeL = box(0.07, 0.06, 0.02, 0xf2f2f2); eyeL.position.set(-0.09, 0.09, -0.222); head.add(eyeL);
-    const eyeR = box(0.07, 0.06, 0.02, 0xf2f2f2); eyeR.position.set(0.09, 0.09, -0.222); head.add(eyeR);
+    // 眼睛：细长的两条（比原来更窄更高，眼距略收）—— 看起来更「凶」也更像像素游戏的眼睛
+    const eyeL = box(0.10, 0.028, 0.02, 0xf2f2f2); eyeL.position.set(-0.085, 0.085, -0.222); head.add(eyeL);
+    const eyeR = box(0.10, 0.028, 0.02, 0xf2f2f2); eyeR.position.set(0.085, 0.085, -0.222); head.add(eyeR);
     // ★ 四肢挂在一个「关节」Group 上（肩 / 髋），绕关节转才是摆臂甩腿；
     //   以前直接把方块摆在这里转的是方块自己的中心，看起来像风车。
     const joint = (x, y, w, hh, d, c) => {
