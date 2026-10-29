@@ -117,6 +117,15 @@
   #tMine{right:96px;bottom:calc(96px + env(safe-area-inset-bottom));width:74px;height:74px}
   #tPlace{right:18px;bottom:calc(66px + env(safe-area-inset-bottom));width:66px;height:66px}
   #tBag{right:20px;bottom:calc(238px + env(safe-area-inset-bottom));width:54px;height:54px;font-size:11px}
+  /* ---------- minimap ---------- */
+  #mmWrap{position:absolute;right:8px;top:46px;width:132px;pointer-events:none;z-index:8}
+  #mm{display:block;width:132px;height:132px;border-radius:6px;background:#141c26;box-shadow:0 4px 14px #0007}
+  #mmIn,#mmOut{position:absolute;right:2px;width:20px;height:20px;pointer-events:auto;cursor:pointer;padding:0;
+    border:1px solid #3a5170;background:#16202fdd;color:#cfe0f2;font:13px/1 monospace;border-radius:4px}
+  #mmIn{top:2px} #mmOut{top:26px}
+  #mmInfo{margin-top:3px;font-size:10px;line-height:1.35;color:#b8cadf;background:#0a1120b8;
+    border:1px solid #24344a;border-radius:3px;padding:2px 4px;text-align:center;white-space:pre-line}
+  @media (max-width:720px){ #mmWrap{width:104px;top:42px} #mm{width:104px;height:104px} #mmInfo{font-size:9px} }
   #hint{position:absolute;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%);
     font-size:11px;color:#cfe0f2;background:#0a1120b8;border:1px solid #24344a;padding:5px 10px;border-radius:3px;
     opacity:0;transition:opacity .25s;white-space:nowrap}
@@ -140,6 +149,12 @@
   </div>
   <div id="hotbar"></div>
   <div id="hint"></div>
+  <div id="mmWrap">
+    <canvas id="mm"></canvas>
+    <button id="mmIn" title="放大">+</button>
+    <button id="mmOut" title="缩小">−</button>
+    <div id="mmInfo">小地图</div>
+  </div>
   <div id="flash"></div>
   <div id="topbtns">
     <button class="btn" id="btnFriends" style="display:none">联机</button>
@@ -178,6 +193,7 @@
       <b>左键（按住）</b><span>挖方块 / 攻击野怪</span>
       <b>右键</b><span>放下方块 / 吃食物 / 开箱子、熔炉、工作台、充电器</span>
       <b>能量炮</b><span>铜→电路板+电线，再配一种金属（铜/铁/钻石/冥界钢）→ 右键发射；没电就放进充电器，加 1 个铀充满</span>
+      <b>M</b><span>小地图缩放（4 级视野）；走到结构 40 格内会自动永久标记</span>
       <b>1 - 9 / 滚轮</b><span>切换快捷栏</span>
       <b>E</b><span>背包与合成</span>
     </div>
@@ -318,6 +334,6 @@
 
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
-<script type="module" src="./js/blockwild.js?v=151"></script>
+<script type="module" src="./js/blockwild.js?v=152"></script>
 </body>
 </html>

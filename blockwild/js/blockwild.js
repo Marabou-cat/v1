@@ -6327,6 +6327,7 @@ addEventListener('keydown', e => {
     }
   }
   if (k === keymap.bag) { if (started) openPanel(!panelOpen); e.preventDefault(); }
+  if (k === 'KeyM' && started) { mmCycleZoom(); e.preventDefault(); }   // 小地图缩放
   if (k.startsWith('Digit')) {
     const n = +k.slice(5);
     if (n >= 1 && n <= 9) { player.sel = n - 1; refreshHeld(); renderHotbar(); }
@@ -7183,6 +7184,8 @@ function update(dt) {
   // 区块流式加载
   streamChunks();
 
+  mmTick(dt);                                     // 小地图：揭开 / 标记 / 重绘（固定步长里跑，探针也可复现）
+
   // 存档
   saveTimer += dt;
   if (saveTimer > 8) { saveTimer = 0; save(); }
@@ -7417,6 +7420,180 @@ function deleteWorld(id) {
   saveIndex();
 }
 
+
+/* ============================================================ 小地图 ────────
+   ① 探索式：走到哪揭开哪（1 格 = 4×4 方块），只揭**已加载**的区块，绝不为了画图去生成区块
+   ② 缩放：4 级视野（60 / 104 / 168 / 264 格），M 键循环，右上角 +/− 按钮（手机用）
+   ③ 结构：走到 40 格内 → 永久记进存档，地图上是彩色菱形 + 名字，下面一行常驻显示最近的结构
+   ④ 存档：世界存档里带 map:{c:[[gx,gz,type]…], m:[…]}，换设备/重开都在                          */
+const MM_CELL = 4, MM_MAX_CELLS = 40000;
+const MM_ZOOM = [15, 26, 42, 66];                 // 每个级别「屏幕宽 = 多少格」
+const MM_TERRAIN = ['#5d9440', '#c9b174', '#71757c', '#2d5f8f', '#376b2c', '#3c4048', '#8a4a2a'];
+const MM_LABEL = { village: '村庄', haunted: '鬼屋', tower: '哨塔', well: '水井', circle: '石阵', camp: '废墟营地', cabin: '白桦木屋', portal: '传送门' };
+const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', cabin: '#d8b48a', portal: '#8b3fd8' };
+const MM = {
+  cells: new Map(), marks: new Map(), zoom: 1, px2: 2,
+  cv: null, ctx: null, info: null, wrap: null,
+  revealT: 0, scanT: 0, drawT: 0, dirty: true, hidden: false,
+};
+function mmTerrainType(x, z) {
+  const hh = heightAt(x, z);
+  if (hh < CFG.SEA) return 3;                               // 海平面以下 = 水
+  if (getBlock(x, hh + 1, z) === 7) return 4;               // 树冠 → 深绿
+  const id = getBlock(x, hh, z);
+  if (id === 5) return 3;
+  if (id === 4) return 1;
+  if (id === 7) return 4;
+  if (id === 50) return 5;
+  if (id === 43) return 6;
+  if (id === 3 || id === 9 || id === 21 || id === 33) return 2;
+  if (id === 1 || id === 16 || id === 25) return 0;
+  return 0;
+}
+function mmReveal() {
+  const cx = Math.floor(player.p.x / MM_CELL), cz = Math.floor(player.p.z / MM_CELL);
+  const R = 8;                                              // 半径 8 格 = 32 方块
+  for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) {
+    if (dx * dx + dz * dz > R * R) continue;
+    if (MM.cells.size >= MM_MAX_CELLS) return;
+    const gx = cx + dx, gz = cz + dz, k = gx + ',' + gz;
+    if (MM.cells.has(k)) continue;
+    const wx = gx * MM_CELL + 2, wz = gz * MM_CELL + 2;
+    const ch = chunks.get(ckey(Math.floor(wx / CFG.CH), Math.floor(wz / CFG.CH)));
+    if (!ch || !ch.ready) continue;                         // 没建好的区块不采样（免得为了地图卡顿）
+    MM.cells.set(k, mmTerrainType(wx, wz));
+  }
+}
+function mmScanStructs() {
+  const px = player.p.x, pz = player.p.z;
+  for (const t of STRUCT_TYPES) {
+    const cx = Math.floor(px / t.cell), cz = Math.floor(pz / t.cell);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      let o = null;
+      try { o = t.get(cx + dx, cz + dz); } catch (e) { continue; }
+      if (!o || !o.cx) continue;
+      if (Math.hypot(o.cx - px, o.cz - pz) > 40) continue;   // 走到 40 格内才记
+      const key = t.name + ':' + o.cx + ',' + o.cz;
+      if (MM.marks.has(key)) continue;
+      const label = MM_LABEL[t.name] || t.name;
+      MM.marks.set(key, { type: t.name, label, x: o.cx, z: o.cz, gy: o.gy || 0 });
+      MM.dirty = true;
+      toast(`小地图标记：${label}（${o.cx}, ${o.cz}）`, 2.4);
+    }
+  }
+}
+function mmZoom(d) {
+  MM.zoom = Math.max(0, Math.min(MM_ZOOM.length - 1, MM.zoom + d));
+  MM.dirty = true;
+}
+function mmZoomToast() {
+  mmZoom(0);
+  toast(`小地图：视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格（${MM.zoom + 1}/${MM_ZOOM.length} 级）`, 1.4);
+}
+function mmCycleZoom() { MM.zoom = (MM.zoom + 1) % MM_ZOOM.length; mmZoomToast(); }
+const MM_DIR8 = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+function mmDraw() {
+  const ctx = MM.ctx;
+  if (!ctx) return;
+  const S = MM.cv.width, across = MM_ZOOM[MM.zoom], ppc = S / across, half = across / 2;
+  const gx = player.p.x / MM_CELL, gz = player.p.z / MM_CELL;
+  ctx.fillStyle = '#141c26'; ctx.fillRect(0, 0, S, S);
+  for (const [k, t] of MM.cells) {
+    const i = k.indexOf(',');
+    const cxx = +k.slice(0, i), czz = +k.slice(i + 1);
+    const sx = (cxx - gx + half) * ppc, sz = (czz - gz + half) * ppc;
+    if (sx < -ppc || sz < -ppc || sx > S || sz > S) continue;
+    ctx.fillStyle = MM_TERRAIN[t] || MM_TERRAIN[0];
+    ctx.fillRect(sx | 0, sz | 0, Math.ceil(ppc) + 1, Math.ceil(ppc) + 1);
+  }
+  // 结构标记：菱形 + 名字（放大到 ppc≥5 才写字，免得糊成一团）
+  for (const mk of MM.marks.values()) {
+    const sx = (mk.x / MM_CELL - gx + half) * ppc, sz = (mk.z / MM_CELL - gz + half) * ppc;
+    if (sx < -8 || sz < -8 || sx > S + 8 || sz > S + 8) continue;
+    const r = 3.2 * MM.px2;
+    ctx.beginPath(); ctx.moveTo(sx, sz - r); ctx.lineTo(sx + r, sz); ctx.lineTo(sx, sz + r); ctx.lineTo(sx - r, sz); ctx.closePath();
+    ctx.fillStyle = MM_MARK_COLOR[mk.type] || '#f5c451'; ctx.fill();
+    ctx.strokeStyle = '#0b1017'; ctx.lineWidth = 1.5 * MM.px2; ctx.stroke();
+    if (ppc >= 5) {
+      ctx.font = `${Math.round(7.5 * MM.px2)}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillStyle = '#0b1017'; ctx.fillText(mk.label, sx + 1, sz + r + 1);
+      ctx.fillStyle = '#eaf3ff'; ctx.fillText(mk.label, sx, sz + r);
+    }
+  }
+  // 玩家箭头（朝向 = 相机水平朝向）
+  const dx = -Math.sin(player.yaw), dz = -Math.cos(player.yaw);
+  const ax = S / 2, az = S / 2, L = 4.6 * MM.px2, W = 3.2 * MM.px2;
+  ctx.beginPath();
+  ctx.moveTo(ax + dx * L, az + dz * L);
+  ctx.lineTo(ax - dx * W - dz * W, az - dz * W + dx * W);
+  ctx.lineTo(ax - dx * W + dz * W, az - dz * W - dx * W);
+  ctx.closePath();
+  ctx.fillStyle = '#ffd84a'; ctx.fill();
+  ctx.strokeStyle = '#241a05'; ctx.lineWidth = 1.2 * MM.px2; ctx.stroke();
+  // 指北 + 边框
+  ctx.font = `${Math.round(8 * MM.px2)}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#cfe0f2'; ctx.fillText('北', S / 2, 2);
+  ctx.strokeStyle = '#33475e'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, S - 2, S - 2);
+  // 状态行：最近的结构 / 探索格数
+  if (MM.info) {
+    let best = null;
+    for (const mk of MM.marks.values()) {
+      const d = Math.hypot(mk.x - player.p.x, mk.z - player.p.z);
+      if (!best || d < best.d) best = { mk, d };
+    }
+    let line;
+    if (DIM !== 'overworld') line = '冥界：不绘制地表地图';
+    else if (!best) line = `未发现结构\n已探索 ${MM.cells.size} 格 · 视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格`;
+    else {
+      let ang = Math.atan2(best.mk.x - player.p.x, -(best.mk.z - player.p.z));
+      if (ang < 0) ang += Math.PI * 2;
+      const dir = MM_DIR8[Math.round(ang / (Math.PI / 4)) % 8];
+      line = `${best.mk.label} ${Math.round(best.d)}格 ${dir}\n已探索 ${MM.cells.size} 格 · 视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格`;
+    }
+    MM.info.textContent = line;
+  }
+}
+function mmTick(dt) {
+  if (!MM.cv) return;
+  const on = started && DIM === 'overworld';
+  if (MM.wrap && MM._on !== on) { MM._on = on; MM.wrap.style.display = on ? 'block' : 'none'; }
+  if (!on) return;
+  MM.revealT -= dt; MM.scanT -= dt; MM.drawT -= dt;
+  if (MM.revealT <= 0) { MM.revealT = 0.35; mmReveal(); MM.dirty = true; }
+  if (MM.scanT <= 0) { MM.scanT = 0.8; mmScanStructs(); }
+  if (MM.drawT <= 0 || MM.dirty) { MM.drawT = 0.2; MM.dirty = false; mmDraw(); }
+}
+function mmSerialize() {
+  return { c: Array.from(MM.cells.entries()), m: Array.from(MM.marks.values()) };
+}
+function mmRestore(d) {
+  MM.cells.clear(); MM.marks.clear();
+  if (d && Array.isArray(d.c)) for (const e of d.c) {
+    if (!Array.isArray(e) || MM.cells.size >= MM_MAX_CELLS) continue;
+    MM.cells.set(String(e[0]), e[1] | 0);
+  }
+  if (d && Array.isArray(d.m)) for (const o of d.m) {
+    if (!o || !o.type) continue;
+    MM.marks.set(o.type + ':' + o.x + ',' + o.z, { type: o.type, label: o.label || MM_LABEL[o.type] || o.type, x: o.x | 0, z: o.z | 0, gy: o.gy | 0 });
+  }
+  MM.dirty = true;
+}
+function mmInit() {
+  MM.wrap = $('mmWrap');
+  MM.cv = $('mm');
+  if (!MM.cv) return;
+  MM.cv.width = 132 * MM.px2; MM.cv.height = 132 * MM.px2;
+  MM.ctx = MM.cv.getContext('2d');
+  MM.ctx.imageSmoothingEnabled = false;
+  MM.info = $('mmInfo');
+  const zin = $('mmIn'), zout = $('mmOut');
+  if (zin) zin.onclick = (e) => { e.preventDefault(); e.stopPropagation(); mmZoom(1); mmZoomToast(); };
+  if (zout) zout.onclick = (e) => { e.preventDefault(); e.stopPropagation(); mmZoom(-1); mmZoomToast(); };
+  MM.dirty = true;
+}
+
 let saveSoonT = 0, saveErr = null, saveWarned = false;
 function save() {
   if (!currentId || !started) return;
@@ -7428,7 +7605,7 @@ function save() {
       player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
       inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
       compost: Array.from(compostProg.entries()), meta: Array.from(blockMeta.entries()),
-      squad: squadData(),
+      squad: squadData(), map: mmSerialize(),          // 小地图探索/结构标记
     };
     localStorage.setItem(worldKey(currentId), JSON.stringify(data));
     saveErr = null;
@@ -7466,6 +7643,7 @@ function loadSave(id) {
     restoreSquad(d.squad);
     blockMeta.clear();
     if (Array.isArray(d.meta)) for (const e of d.meta) if (Array.isArray(e)) blockMeta.set(e[0], e[1]);
+    mmRestore(d.map);
     DIM = d.dim === 'nether' ? 'nether' : 'overworld';     // 存档在哪一层，回来就还在哪一层
     player.overPos = d.overPos || null;
     if (d.player) {
@@ -7685,6 +7863,7 @@ STRUCT_TYPES.push(
 );
 loadIndex();
 renderWorldList();
+mmInit();
 $('btnBag').onclick = () => openPanel(!panelOpen);
 $('btnClose').onclick = () => openPanel(false);
 $('btnFurnaceClose').onclick = () => closeFurnace();
@@ -8082,6 +8261,13 @@ window.GAME = {
     },
     stepWater: (n = 40) => { for (let i = 0; i < n; i++) updateWater(48); return waterFlow.size; },
     drops: () => drops.map(d => ({ id: d.id, name: nameOf(d.id), n: d.n, t: +d.t.toFixed(2), y: +d.p.y.toFixed(2), dist: +d.p.distanceTo(player.p).toFixed(2) })),
+    map: () => ({ cells: MM.cells.size, marks: MM.marks.size, zoom: MM.zoom, acrossCells: MM_ZOOM[MM.zoom], acrossBlocks: MM_ZOOM[MM.zoom] * MM_CELL,
+                  info: MM.info ? MM.info.textContent : null, visible: MM.wrap ? MM.wrap.style.display !== 'none' : null,
+                  markList: Array.from(MM.marks.values()) }),
+    mapZoom: (d) => { mmZoom(d || 0); mmDraw(); return { zoom: MM.zoom, acrossBlocks: MM_ZOOM[MM.zoom] * MM_CELL }; },
+    mapReveal: () => { mmReveal(); mmDraw(); return { cells: MM.cells.size }; },
+    mapScan: () => { mmScanStructs(); mmDraw(); return { marks: MM.marks.size, list: Array.from(MM.marks.values()) }; },
+    mapClear: () => { MM.cells.clear(); MM.marks.clear(); mmDraw(); return true; },
     dropCount: () => drops.length,
     spawnDrop: (id, n) => spawnDrop(id, n, player.p.x + 1.2, player.p.y + 1.2, player.p.z),
     stepDrops: (n = 1) => { for (let i = 0; i < n; i++) updateDrops(1 / 60); },
