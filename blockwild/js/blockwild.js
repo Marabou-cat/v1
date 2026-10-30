@@ -3385,6 +3385,16 @@ function unregisterTorch(x, y, z) {
   if (s) { s.delete(k); if (!s.size) torchByChunk.delete(torchChunkKey(x, z)); }
   torchLastKey = x + ',' + z;
 }
+/* 区块卸载：把落在这一块里的「生成期 meta」删掉（genMeta 以前只涨不落 → 越玩越卡） */
+function dropChunkGenMeta(cx, cz) {
+  if (!genMeta.size) return;
+  const x0 = cx * CFG.CH, x1 = x0 + CFG.CH, z0 = cz * CFG.CH, z1 = z0 + CFG.CH;
+  for (const k of genMeta.keys()) {
+    const p = k.split(',');
+    const x = +p[0], z = +p[2];
+    if (x >= x0 && x < x1 && z >= z0 && z < z1) genMeta.delete(k);
+  }
+}
 function unregisterTorchChunk(cx, cz) {          // 区块卸货：这一桶火把一次性清掉
   const bk = cx + ',' + cz, s = torchByChunk.get(bk);
   if (!s) return;
@@ -8508,10 +8518,7 @@ function update(dt) {
   // 手部姿势在 frame() 里按真实帧时长算（固定步长里算会让动画在高刷屏上发顿）
   player.swing = 0;
 
-  // 区块流式加载
   lap('uPlace');
-  streamChunks();
-  lap('uStream');
 
   mmTick(dt);                                     // 小地图：揭开 / 标记 / 重绘（固定步长里跑，探针也可复现）
   lap('uMap');
@@ -8535,6 +8542,8 @@ function streamChunks() {
       if (c.water) { scene.remove(c.water); c.water.geometry.dispose(); }
       if (c.plant) { scene.remove(c.plant); c.plant.geometry.dispose(); }
       dirty.delete(c);
+      unregisterTorchChunk(c.cx, c.cz);        // ★ 火把桶不再只涨不落
+      dropChunkGenMeta(c.cx, c.cz);            // ★ 结构 meta（门朝向/楼梯坡口）随区块一起释放
       chunks.delete(k);
     }
   }
@@ -8602,7 +8611,7 @@ function streamChunks() {
 /* ── 子系统计时：专门回答「越玩越卡是哪一个步骤在变慢」。
    只有探针开着（?dev=1 或 设置里开）才计时，正常玩家零开销。 ── */
 const PROF = { update: 0, hud: 0, torch: 0, doors: 0, doorsSync: 0, render: 0, save: 0, mm: 0, frames: 0, from: 0,
-  uEat: 0, uPlayer: 0, uMobs: 0, uDrops: 0, uWater: 0, uFlames: 0, uPlace: 0, uStream: 0, uMap: 0, uTail: 0, steps: 0 };
+  uEat: 0, uPlayer: 0, uMobs: 0, uDrops: 0, uWater: 0, uFlames: 0, uPlace: 0, uStream: 0, uMap: 0, uTail: 0, steps: 0, stream: 0 };
 PROF.from = performance.now();
 const profOn = () => DEV || userCfg.probe;
 function profReset() { for (const k in PROF) PROF[k] = 0; PROF.frames = 0; PROF.steps = 0; PROF.from = performance.now(); }
@@ -8613,10 +8622,21 @@ function profText() {                              // 每个固定步的平均�
   for (const k of PROF_KEYS) r[k] = PROF[k] / n;
   return r;
 }
+/* 结构/地形缓存上限：这些都是「坐标 → 纯函数结果」，清掉只是下次重算，
+   不清的话一路走一路攒（实测地形缓存 821 → 1286 只涨不落）。 */
+let capCacheT = 0;
+function capStructCaches(dt) {
+  capCacheT += dt;
+  if (capCacheT < 6) return;
+  capCacheT = 0;
+  const caps = [[msCache, 90], [ravineCache, 60], [veinCache, 200], [lsCache, 90],
+    [hsCache, 40], [villageCache, 80], [ruinsCache, 80], [arenaCache, 80]];
+  for (const [m, cap] of caps) if (m && m.size > cap) m.clear();
+}
 function profFrame() {                             // HUD 用：每帧平均毫秒（帧级步骤）
   const n = Math.max(1, PROF.frames);
   return { update: PROF.update / n, hud: PROF.hud / n, torch: PROF.torch / n, doorsSync: PROF.doorsSync / n,
-    render: PROF.render / n, save: PROF.save / n, mm: PROF.mm / n };
+    render: PROF.render / n, save: PROF.save / n, mm: PROF.mm / n, stream: PROF.stream / n };
 }
 let perfBudget = 7;
 let lastFrameAt = 0;                // 上一帧时间戳
@@ -8659,7 +8679,7 @@ function updateHUD(dt) {
   const pt = profText(), pf = profFrame();
   const s2 = (DEV || userCfg.probe)
     ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
-      + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 远古废墟 · F5 宝珠守护地 · T 指令</span>`
+      + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 流 <b>${pf.stream.toFixed(1)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 远古废墟 · F5 宝珠守护地 · T 指令</span>`
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
   renderHearts();
@@ -9382,6 +9402,10 @@ function frame(now) {
   let __t = __p ? performance.now() : 0;
   while (acc >= STEP && guard++ < 6) { acc -= STEP; update(STEP); }
   if (__p) { PROF.frames++; const t1 = performance.now(); PROF.update += t1 - __t; __t = t1; }
+  // ★ 区块流式加载：每帧一次（以前放在固定步里，低帧率时一帧要跑 6 遍 → 越卡越卡）
+  const __s0 = __p ? performance.now() : 0;
+  if (started) { streamChunks(); capStructCaches(dt); }
+  if (__p) { const t1 = performance.now(); PROF.stream += t1 - __s0; __t = t1; }
   updateHUD(dt);
   if (__p) { const t1 = performance.now(); PROF.hud += t1 - __t; __t = t1; }
   updateDoorAnims(dt);
