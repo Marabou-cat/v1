@@ -1392,22 +1392,27 @@ const SPECIES = {
 };
 
 // 树的形态参数（全部由坐标哈希决定 → 同一世界任何时候生成都一样，跨区块也不会变样）
+/* ⚠ 顺序很重要：每个区块要对 26×26 列调一次这个函数，heightAt/caveCarve 每次都是多倍频噪声，
+   先算它们会让「走进森林」变成几秒一卡。所以先用最便宜的哈希把 ~95% 的列筛掉，再算贵的。 */
 function treeParams(wx, wz) {
+  const F = forestAt(wx, wz);
+  // ① 最便宜的一票否决：密度门（森林内密、森林外稀）
+  const gate = F ? (F.kind === 'acacia' ? 0.013 : (F.kind === 'dark_oak' ? 0.042 : 0.040)) : 0.022;
+  if (h2(wx * 3.77 + 13.1, wz * 2.91 - 7.7) > gate) return null;
+  // ② 结构/村庄/峡谷排除
   if (inVillage(wx, wz)) return null;                 // 村庄范围内不长树
   if (inMyCabin(wx, wz)) return null;                 // 小屋范围内不长树
   if (inHaunted(wx, wz)) return null;                 // 鬼屋范围内不长树
   if (inExtraStruct(wx, wz)) return null;             // 其它结构范围内也不长树
   if (inRavine(wx, wz)) return null;                  // 峡谷里也不长树
+  if (!F && inPlain(wx, wz) && h2(wx * 1.73 + 3.1, wz * 2.37 - 5.9) > 0.10) return null;   // 平原：树非常少
+  // ③ 到这里只剩 ~2~5% 的列，再算地形
   const g = heightAt(wx, wz);
   if (g <= CFG.SEA + 3 || g >= MOUNT_Y - 4) return null;   // ⚠ 别用魔法数字：地表整体抬高过（SURF_OFF=72），"45 以上不长树"等于全图不长树
   // 洞穴把地表这一列掏空了 → 别种（否则树干落在空气里，树悬在半空）
   if (caveCarve(wx, g, wz, g) || caveCarve(wx, g - 1, wz, g - 1)) return null;
-  const F = forestAt(wx, wz);
   let sp = null, trunkH = 4, r = 2;
   if (F) {
-    // 森林内：按树种密度铺开（深色橡木/白桦林密、金合欢稀）
-    const p = F.kind === 'acacia' ? 0.014 : (F.kind === 'dark_oak' ? 0.052 : 0.050);
-    if (h2(wx * 3.77 + 13.1, wz * 2.91 - 7.7) > p) return null;
     const q = h2(wx * 9.1 + 4.3, wz * 6.7 - 2.9);
     const q2 = h2(wx * 2.3 - 8.1, wz * 4.9 + 3.3);
     if (F.kind === 'oak_birch') {
@@ -2208,6 +2213,21 @@ function surfaceY(x, z) {
 /* ============================================================ 渲染 */
 const app = document.getElementById('app');
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+/* GPU 上下文丢失（手机被大场景压垮、切后台、驱动重置）会让画面冻在最后一帧。
+ * 这里拦下来：丢失时记一笔并暂停重建，恢复后把已加载区块全部标脏重建 + 提示玩家。 */
+let glLost = false;
+renderer.domElement.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  glLost = true;
+  try { toast('显卡上下文丢失，正在恢复…', 3); } catch (err) {}
+}, false);
+renderer.domElement.addEventListener('webglcontextrestored', () => {
+  glLost = false;
+  try {
+    for (const c of chunks.values()) { c.ready = false; c.stale = true; if (c.job) c.job = null; dirty.add(c); }
+    toast('显示已恢复', 2.5);
+  } catch (err) {}
+}, false);
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.autoClear = false;
@@ -8753,7 +8773,13 @@ function capStructCaches(dt) {
   capCacheT = 0;
   const caps = [[msCache, 90], [ravineCache, 60], [veinCache, 200], [lsCache, 90],
     [hsCache, 40], [villageCache, 80], [ruinsCache, 80], [arenaCache, 80], [forestCache, 60]];
-  for (const [m, cap] of caps) if (m && m.size > cap) m.clear();
+  // ⚠ 不能整表 clear：清空后下一帧会把附近所有结构全部重算一遍（矿山/峡谷是几十毫秒级），
+  //    走路时就表现为「隔几秒卡一下」。改成按插入顺序逐条淘汰，每次最多 8 条。
+  for (const [m, cap] of caps) {
+    if (!m || m.size <= cap * 1.25) continue;
+    let n = 0;
+    for (const k of m.keys()) { m.delete(k); if (++n >= 8) break; }
+  }
 }
 function profFrame() {                             // HUD 用：每帧平均毫秒（帧级步骤）
   const n = Math.max(1, PROF.frames);
@@ -8979,6 +9005,7 @@ const MM_LABEL = { village: '村庄', haunted: '鬼屋', tower: '哨塔', well: 
 const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', cabin: '#d8b48a', portal: '#8b3fd8', swamp: '#ff7a3c', ruins: '#a97bff', arena: '#3ee07a' };
 const MM = {
   cells: new Map(), marks: new Map(), zoom: 1, px2: 2,
+  list: [],                        // [x, z, type] 扁平数组：重绘时直接读数字，不再解析字符串（小地图越大越明显）
   cv: null, ctx: null, info: null, wrap: null,
   revealT: 0, scanT: 0, drawT: 0, dirty: true, hidden: false,
 };
@@ -9024,7 +9051,9 @@ function mmReveal() {
     const wx = gx * MM_CELL + 2, wz = gz * MM_CELL + 2;
     const ch = chunks.get(ckey(Math.floor(wx / CFG.CH), Math.floor(wz / CFG.CH)));
     if (!ch || !ch.ready) continue;                         // 没建好的区块不采样（免得为了地图卡顿）
-    MM.cells.set(k, mmTerrainType(wx, wz));
+    const tt = mmTerrainType(wx, wz);
+    MM.cells.set(k, tt);
+    if (MM.list.length < MM_MAX_CELLS * 3) MM.list.push(gx, gz, tt);
   }
 }
 function mmScanStructs() {
@@ -9078,13 +9107,13 @@ function mmDrawInner() {
   const S = MM.cv.width, across = MM_ZOOM[MM.zoom], ppc = S / across, half = across / 2;
   const gx = player.p.x / MM_CELL, gz = player.p.z / MM_CELL;
   ctx.fillStyle = '#141c26'; ctx.fillRect(0, 0, S, S);
-  for (const [k, t] of MM.cells) {
-    const i = k.indexOf(',');
-    const cxx = +k.slice(0, i), czz = +k.slice(i + 1);
-    const sx = (cxx - gx + half) * ppc, sz = (czz - gz + half) * ppc;
-    if (sx < -ppc || sz < -ppc || sx > S || sz > S) continue;
-    ctx.fillStyle = MM_TERRAIN[t] || MM_TERRAIN[0];
-    ctx.fillRect(sx | 0, sz | 0, Math.ceil(ppc) + 1, Math.ceil(ppc) + 1);
+  const MMARR = MM.list, step = Math.ceil(ppc) + 1;
+  const x0 = gx - half - 1, x1 = gx + half + 1, z0 = gz - half - 1, z1 = gz + half + 1;
+  for (let i = 0; i < MMARR.length; i += 3) {
+    const cxx = MMARR[i], czz = MMARR[i + 1];
+    if (cxx < x0 || cxx > x1 || czz < z0 || czz > z1) continue;   // 先用数字剔掉视野外的格子
+    ctx.fillStyle = MM_TERRAIN[MMARR[i + 2]] || MM_TERRAIN[0];
+    ctx.fillRect((( cxx - gx + half) * ppc) | 0, ((czz - gz + half) * ppc) | 0, step, step);
   }
   // 结构标记：菱形 + 名字（放大到 ppc≥5 才写字，免得糊成一团）
   for (const mk of MM.marks.values()) {
@@ -9150,12 +9179,35 @@ function mmTick(dt) {
   if (MM.scanT <= 0) { MM.scanT = 0.8; mmScanStructs(); }
   if (MM.drawT <= 0 || MM.dirty) { MM.drawT = 0.2; MM.dirty = false; mmDraw(); }
 }
+/* 小地图存档：格子最多 4 万，原来每次存档都 Array.from(entries()) 再 JSON.stringify，
+   走一会儿就变成几十万字符的字符串 → 每 8 秒一次长任务，手机上直接「屏幕冻结」。
+   现在改成紧凑字符串（x,z:t|x,z:t…）并缓存 40 秒，避免每次存档都重建。 */
+let mmBlob = '', mmBlobT = -1e9;
+function mmCellsBlob() {
+  const t = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  if (t - mmBlobT < 40000) return mmBlob;
+  const parts = [];
+  for (const [k, v] of MM.cells) parts.push(k + ':' + v);
+  mmBlob = parts.join('|');
+  mmBlobT = t;
+  return mmBlob;
+}
 function mmSerialize() {
-  return { c: Array.from(MM.cells.entries()), m: Array.from(MM.marks.values()) };
+  return { s: mmCellsBlob(), m: Array.from(MM.marks.values()) };
 }
 function mmRestore(d) {
   MM.cells.clear(); MM.marks.clear();
-  if (d && Array.isArray(d.c)) for (const e of d.c) {
+  if (d && typeof d.s === 'string' && d.s) {              // 新格式：紧凑字符串
+    for (const item of d.s.split('|')) {
+      if (MM.cells.size >= MM_MAX_CELLS) break;
+      const i = item.lastIndexOf(':');
+      if (i <= 0) continue;
+      const key = item.slice(0, i), tt = +item.slice(i + 1) | 0;
+      const cpos = key.indexOf(',');
+      MM.cells.set(key, tt);
+      MM.list.push(+key.slice(0, cpos), +key.slice(cpos + 1), tt);
+    }
+  } else if (d && Array.isArray(d.c)) for (const e of d.c) {   // 兼容旧存档
     if (!Array.isArray(e) || MM.cells.size >= MM_MAX_CELLS) continue;
     MM.cells.set(String(e[0]), e[1] | 0);
   }
