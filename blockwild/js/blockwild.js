@@ -334,6 +334,9 @@ const BLOCKS = {
   63: { name: '雕纹石砖', top: 74, side: 75, bottom: 74, hard: 2.1, drop: 63, pick: true },
   64: { name: '竞技场立柱', top: 76, side: 77, bottom: 76, hard: 2.1, drop: 64, pick: true },
   65: { name: '宝珠台', top: 78, side: 79, bottom: 72, hard: 9, drop: 0, unbreakable: true, orbAltar: true },
+  67: { name: '白桦树叶', top: 77, side: 77, bottom: 77, hard: 0.22, drop: 0, leaf: true, hollow: true },
+  68: { name: '云杉树叶', top: 78, side: 78, bottom: 78, hard: 0.22, drop: 0, leaf: true, hollow: true },
+  69: { name: '金合欢树叶', top: 79, side: 79, bottom: 79, hard: 0.22, drop: 0, leaf: true, hollow: true },
   66: { name: '空宝珠台', top: 79, side: 79, bottom: 72, hard: 9, drop: 0, unbreakable: true },
 };
 const ITEMS = {
@@ -887,6 +890,20 @@ function makeAtlas() {
       px(c, r, x, y, shade(d < 4 ? '#57a13f' : '#3d7a2e', 0.9 + ((x + y) % 3) * 0.06));
     }
   }
+  // 77 白桦树叶（浅黄绿）/ 78 云杉树叶（深蓝绿）/ 79 金合欢树叶（橄榄绿）
+  const leafTile = (n, inner, outer) => {
+    const c = n % ATLAS_COLS, r = (n / ATLAS_COLS) | 0;
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const corner = (x < 2 && y < 2) || (x > 13 && y < 2) || (x < 2 && y > 13) || (x > 13 && y > 13);
+      const hole = ((x * 7 + y * 11) % 11 === 0) || ((x * 5 + y * 3) % 17 === 0);
+      if (corner || hole) continue;
+      const d = Math.hypot(x - 7.5, y - 7.5);
+      px(c, r, x, y, shade(d < 4 ? inner : outer, 0.9 + ((x + y) % 3) * 0.06));
+    }
+  };
+  leafTile(77, '#8fc35c', '#6ea63f');     // 白桦：亮黄绿
+  leafTile(78, '#3f6b52', '#2c513c');     // 云杉：冷深绿
+  leafTile(79, '#93a94a', '#75883a');     // 金合欢：橄榄绿
   // 8 木板
   T(8, '#b98a4e', 0.05, (c, r) => {
     // 4 条横向木板：板缝（深褐色） + 逐行色差
@@ -1323,70 +1340,150 @@ const dirty = new Set();
 function ckey(cx, cz) { return cx + ',' + cz; }
 function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.add(c); }
 
+/* ============================================================ 森林 / 树
+ * 5 种森林（低频格子决定，跨区块稳定）：
+ *   ① 橡木白桦林   ② 冻土云杉林   ③ 冻土松林   ④ 深色橡木林（MC）   ⑤ 金合欢稀树草原（MC）
+ * 树冠全部改成「实心圆盘叠层」，不再用随机抖动打洞 —— 之前随机抖动会让小树只剩几片叶子，
+ * 看起来又秃又散。
+ */
+const FOREST_CELL = 256;
+const FOREST_KINDS = ['oak_birch', 'snow_spruce', 'snow_pine', 'dark_oak', 'acacia'];
+const FOREST_NAME = { oak_birch: '橡木白桦林', snow_spruce: '冻土云杉林', snow_pine: '冻土松林', dark_oak: '深色橡木林', acacia: '金合欢稀树草原' };
+const forestCache = new Map();
+function forestFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (forestCache.has(key)) return forestCache.get(key);
+  let out = null;
+  if (h2(cellX * 31.7 + 11.3, cellZ * 17.9 - 5.1) > 0.30) {          // 70% 的格子有森林
+    const q = h2(cellX * 7.3 - 2.1, cellZ * 12.1 + 8.7);
+    const r = 72 + Math.floor(h2(cellX * 3.1, cellZ * 9.7) * 76);      // 半径 72..148
+    const x = Math.floor(cellX * FOREST_CELL + h2(cellX + 0.5, cellZ * 2.3) * (FOREST_CELL - 40)) + 20;
+    const z = Math.floor(cellX * FOREST_CELL + h2(cellX * 5.5, cellZ + 0.5) * (FOREST_CELL - 40)) + 20;
+    // 种类按「这片地在多高」来定：高处=冻土针叶林，低平=金合欢稀树草原，中间=温带阔叶林
+    const ch = heightAt(x, z);
+    let kind;
+    if (ch > CFG.SEA + 24) kind = q < 0.5 ? 'snow_spruce' : 'snow_pine';      // 冻土（两种）
+    else if (ch < CFG.SEA + 7) kind = q < 0.75 ? 'acacia' : 'oak_birch';     // 低平干燥
+    else kind = q < 0.58 ? 'oak_birch' : 'dark_oak';                         // 温带
+    out = { kind, name: FOREST_NAME[kind], x, z, r, cellX, cellZ };
+  }
+  forestCache.set(key, out);
+  return out;
+}
+function forestAt(wx, wz) {
+  const cx = Math.floor(wx / FOREST_CELL), cz = Math.floor(wz / FOREST_CELL);
+  let best = null, bestD = 1e9;
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const f = forestFor(cx + dx, cz + dz);
+    if (!f) continue;
+    const d = Math.hypot(wx - f.x, wz - f.z);
+    if (d <= f.r && d < bestD) { best = f; bestD = d; }
+  }
+  return best;
+}
+const SPECIES = {
+  oak:    { log: 6,  leaf: 7,  shape: 'ball' },
+  birch:  { log: 30, leaf: 67, shape: 'ball' },
+  spruce: { log: 28, leaf: 68, shape: 'cone' },
+  pine:   { log: 28, leaf: 68, shape: 'tiers' },
+  dark:   { log: 6,  leaf: 7,  shape: 'wide' },
+  acacia: { log: 6,  leaf: 69, shape: 'flat' },
+  bush:   { log: 6,  leaf: 7,  shape: 'ball' },
+};
+
 // 树的形态参数（全部由坐标哈希决定 → 同一世界任何时候生成都一样，跨区块也不会变样）
-// 三种形态：阔叶橡树(圆冠) / 针叶高杉(锥形) / 细弱小树，冠幅半径、树高、冠心偏移各自随机
 function treeParams(wx, wz) {
   if (inVillage(wx, wz)) return null;                 // 村庄范围内不长树
   if (inMyCabin(wx, wz)) return null;                 // 小屋范围内不长树
-  if (inPlain(wx, wz) && h2(wx * 1.73 + 3.1, wz * 2.37 - 5.9) > 0.10) return null;   // 平原：树非常少
   if (inHaunted(wx, wz)) return null;                 // 鬼屋范围内不长树
   if (inExtraStruct(wx, wz)) return null;             // 其它结构范围内也不长树
   if (inRavine(wx, wz)) return null;                  // 峡谷里也不长树
-  if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.977) return null;
   const g = heightAt(wx, wz);
-  if (g <= CFG.SEA + 1 || g >= 45) return null;
+  if (g <= CFG.SEA + 3 || g >= MOUNT_Y - 4) return null;   // ⚠ 别用魔法数字：地表整体抬高过（SURF_OFF=72），"45 以上不长树"等于全图不长树
   // 洞穴把地表这一列掏空了 → 别种（否则树干落在空气里，树悬在半空）
   if (caveCarve(wx, g, wz, g) || caveCarve(wx, g - 1, wz, g - 1)) return null;
-  const k = h2(wx * 7.13 + 3.7, wz * 5.71 - 9.1);
-  let kind, trunkH, r;
-  if (k < 0.52) {                                   // 阔叶：矮壮、圆而饱满
-    kind = 'oak';
-    trunkH = 3 + ((h2(wx * 3.1, wz * 4.7) * 4) | 0);  // 3..6
-    r = 2 + ((h2(wx * 9.3, wz * 1.7) * 2) | 0);       // 2..3
-  } else if (k < 0.83) {                            // 高杉：细高、锥形
-    kind = 'pine';
-    trunkH = 6 + ((h2(wx * 5.9, wz * 2.3) * 4) | 0);  // 6..9（细高）
-    r = 1 + ((h2(wx * 4.1, wz * 8.9) * 2) | 0);       // 1..2（窄冠）
-  } else {                                          // 细弱小树：矮、冠小
-    kind = 'bush';
-    trunkH = 2 + ((h2(wx * 6.7, wz * 3.3) * 3) | 0);  // 2..4
-    r = 1 + ((h2(wx * 2.9, wz * 7.7) * 2) | 0);       // 1..2
+  const F = forestAt(wx, wz);
+  let sp = null, trunkH = 4, r = 2;
+  if (F) {
+    // 森林内：按树种密度铺开（深色橡木/白桦林密、金合欢稀）
+    const p = F.kind === 'acacia' ? 0.014 : (F.kind === 'dark_oak' ? 0.052 : 0.050);
+    if (h2(wx * 3.77 + 13.1, wz * 2.91 - 7.7) > p) return null;
+    const q = h2(wx * 9.1 + 4.3, wz * 6.7 - 2.9);
+    const q2 = h2(wx * 2.3 - 8.1, wz * 4.9 + 3.3);
+    if (F.kind === 'oak_birch') {
+      sp = q < 0.55 ? 'oak' : 'birch';
+      trunkH = (sp === 'birch' ? 5 : 4) + ((q2 * 3) | 0);
+      r = sp === 'birch' ? 2 : 2 + ((q2 * 2) | 0);
+    } else if (F.kind === 'snow_spruce') {
+      sp = 'spruce'; trunkH = 7 + ((q2 * 4) | 0); r = 2 + ((q2 * 2) | 0);
+    } else if (F.kind === 'snow_pine') {
+      sp = 'pine'; trunkH = 9 + ((q2 * 4) | 0); r = 2;
+    } else if (F.kind === 'dark_oak') {
+      if ((wx & 1) || (wz & 1)) return null;          // 2×2 树干只在偶数角长
+      sp = 'dark'; trunkH = 5 + ((q2 * 3) | 0); r = 4 + ((q2 * 2) | 0);
+    } else {
+      sp = 'acacia'; trunkH = 4 + ((q2 * 3) | 0); r = 3 + ((q2 * 2) | 0);
+    }
+  } else {
+    if (inPlain(wx, wz) && h2(wx * 1.73 + 3.1, wz * 2.37 - 5.9) > 0.10) return null;   // 平原：树非常少
+    if (h2(wx * 2.17 + 91, wz * 3.31 - 17) < 0.978) return null;                       // 野外零散树
+    const k = h2(wx * 7.13 + 3.7, wz * 5.71 - 9.1);
+    if (k < 0.60) { sp = 'oak'; trunkH = 3 + ((h2(wx * 3.1, wz * 4.7) * 4) | 0); r = 2 + ((h2(wx * 9.3, wz * 1.7) * 2) | 0); }
+    else if (k < 0.88) { sp = 'pine'; trunkH = 6 + ((h2(wx * 5.9, wz * 2.3) * 4) | 0); r = 1 + ((h2(wx * 4.1, wz * 8.9) * 2) | 0); }
+    else { sp = 'bush'; trunkH = 2 + ((h2(wx * 6.7, wz * 3.3) * 3) | 0); r = 1 + ((h2(wx * 2.9, wz * 7.7) * 2) | 0); }
   }
+  const S = SPECIES[sp];
   const ox = ((h2(wx * 11.3 + 5, wz * 6.1) * 3) | 0) - 1;   // 冠心横向偏移 -1..1
   const oz = ((h2(wx * 5.7, wz * 12.7 + 2) * 3) | 0) - 1;
-  return { g, kind, trunkH, r, ox, oz };
+  return { g, sp, kind: sp, shape: S.shape, log: S.log, leaf: S.leaf, trunkH, r, ox, oz, forest: F ? F.kind : null };
 }
 
 // 把一棵树写进当前区块（越界的方块由 put 丢弃；padding 保证跨区块树冠完整）
 function putTree(put, lx, lz, wx, wz, t) {
-  const topY = t.g + t.trunkH;
-  for (let y = 1; y <= t.trunkH; y++) put(lx, t.g + y, lz, 6, false);
-  if (t.kind === 'pine') {
-    // 自下而上逐层收窄的锥形冠（树干下部露出来，顶部收成尖）
-    for (let dy = -3; dy <= 1; dy++) {
-      const rr = Math.max(0, Math.round(t.r * (1 - (dy + 3) / 5.2)));
-      for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) {
-        if (Math.abs(dx) + Math.abs(dz) > rr + 1) continue;
-        if (rr > 0 && Math.abs(dx) === rr && Math.abs(dz) === rr) continue;
-        if (rr === 0 && Math.abs(dx) + Math.abs(dz) > 1) continue;
-        put(lx + dx, topY + dy, lz + dz, 7, true);
-      }
+  const g = t.g, H = t.trunkH, topY = g + H, log = t.log, leaf = t.leaf;
+  // 实心圆盘（叶子只写进空气：不砍树干、不吃地形）
+  const disc = (cx, cz, y, rr) => {
+    if (rr <= 0) { put(lx + cx, y, lz + cz, leaf, true); return; }
+    const lim = rr * rr + rr * 0.8;
+    for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) {
+      if (dx * dx + dz * dz > lim) continue;
+      put(lx + cx + dx, y, lz + cz + dz, leaf, true);
     }
-    put(lx, topY + 2, lz, 7, true);
-    put(lx, topY + 1, lz, 7, true);
-  } else {
-    const R = t.kind === 'bush' ? t.r * 0.85 : t.r;
-    for (let dy = -2; dy <= 2; dy++) {
-      for (let dx = -t.r - 1; dx <= t.r + 1; dx++) for (let dz = -t.r - 1; dz <= t.r + 1; dz++) {
-        if (Math.abs(dx) > t.r + 1 || Math.abs(dz) > t.r + 1) continue;
-        const ddx = dx - t.ox, ddz = dz - t.oz;
-        const d = Math.sqrt(ddx * ddx + ddz * ddz * 0.9) + Math.abs(dy + 0.4) * 1.3;
-        const jit = (h2((wx + dx) * 3.7 + 11, (wz + dz) * 5.3 + dy * 7) - 0.5) * 1.6;
-        if (d + jit > R + 0.5) continue;
-        put(lx + dx, topY + dy, lz + dz, 7, true);
-      }
+  };
+  if (t.shape === 'wide') {                                  // 深色橡木：2×2 干 + 宽厚冠
+    for (let y = 1; y <= H; y++) {
+      put(lx, g + y, lz, log, false); put(lx + 1, g + y, lz, log, false);
+      put(lx, g + y, lz + 1, log, false); put(lx + 1, g + y, lz + 1, log, false);
     }
-    put(lx, topY + 2, lz, 7, true);
+    disc(0, 0, topY - 2, Math.max(1, t.r - 1));
+    disc(0, 0, topY - 1, t.r);
+    disc(0, 0, topY, t.r);
+    disc(0, 0, topY + 1, Math.max(1, t.r - 1));
+    disc(0, 0, topY + 2, 1);
+    return;
+  }
+  for (let y = 1; y <= H; y++) put(lx, g + y, lz, log, false);
+  if (t.shape === 'cone' || t.shape === 'tiers') {           // 云杉/松：自下而上收窄的实心锥
+    const layers = Math.max(3, H - 1);
+    for (let i = 0; i < layers; i++) {
+      const rr = Math.round(t.r * (1 - i / (layers - 0.35)));
+      disc(0, 0, g + 2 + i, Math.max(0, rr));
+    }
+    disc(0, 0, topY + 1, 0);
+    if (t.shape === 'tiers') disc(0, 0, topY + 2, 0);
+  } else if (t.shape === 'flat') {                           // 金合欢：斜枝 + 平顶伞冠
+    const dir = t.ox >= 0 ? 1 : -1;
+    let bx = 0;
+    for (let i = 1; i <= 2; i++) { bx += dir; put(lx + bx, g + H + i - 1, lz, log, false); }
+    disc(bx, 0, g + H + 2, t.r);
+    disc(bx, 0, g + H + 3, Math.max(1, t.r - 1));
+    disc(bx, 0, g + H + 4, 0);
+  } else {                                                   // 橡木 / 白桦 / 灌木：实心圆冠
+    if (t.r >= 2) disc(0, 0, topY - 2, t.r - 1);
+    disc(0, 0, topY - 1, t.r);
+    disc(0, 0, topY, t.r);
+    disc(0, 0, topY + 1, Math.max(1, t.r - 1));
+    disc(0, 0, topY + 2, 0);
   }
 }
 
@@ -8655,7 +8752,7 @@ function capStructCaches(dt) {
   if (capCacheT < 6) return;
   capCacheT = 0;
   const caps = [[msCache, 90], [ravineCache, 60], [veinCache, 200], [lsCache, 90],
-    [hsCache, 40], [villageCache, 80], [ruinsCache, 80], [arenaCache, 80]];
+    [hsCache, 40], [villageCache, 80], [ruinsCache, 80], [arenaCache, 80], [forestCache, 60]];
   for (const [m, cap] of caps) if (m && m.size > cap) m.clear();
 }
 function profFrame() {                             // HUD 用：每帧平均毫秒（帧级步骤）
@@ -8695,7 +8792,7 @@ function updateHUD(dt) {
     ? `\n<b style="color:#3ee07a">试炼</b> 第 <b>${ARENA.wave}/${TRIAL_WAVES.length}</b> 波 · 场上 <b>${arenaMobs().length}</b> · 离中心 <b>${Math.round(Math.hypot(player.p.x - ARENA.cx, player.p.z - ARENA.cz))}</b>`
     : '';
   const s =
-    `环境 <b>${underground ? `地下 ${Math.round(depthBelowSurface())} 格` : '地表'}</b>\n` +
+    `环境 <b>${underground ? `地下 ${Math.round(depthBelowSurface())} 格` : '地表'}${forestAt(Math.floor(player.p.x), Math.floor(player.p.z)) ? ' · ' + forestAt(Math.floor(player.p.x), Math.floor(player.p.z)).name : ''}</b>\n` +
     `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
     `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
     `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
@@ -10673,6 +10770,80 @@ window.GAME = {
         });
         return { kids: A.g.children.length, meshes, mats, mapOk };
       } catch (e) { return { err: String((e && e.stack) || e) }; }
+    },
+    forests: (r = 2) => {                       // 附近有哪些森林（名字/半径/距离）
+      const out = [];
+      const cx = Math.floor(player.p.x / FOREST_CELL), cz = Math.floor(player.p.z / FOREST_CELL);
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const f = forestFor(cx + dx, cz + dz);
+        if (f) out.push({ name: f.name, kind: f.kind, x: f.x, z: f.z, r: f.r, dist: Math.round(Math.hypot(f.x - player.p.x, f.z - player.p.z)) });
+      }
+      return out.sort((a, b) => a.dist - b.dist);
+    },
+    gotoForest: (kind) => {                     // 传送到指定种类的森林中心附近
+      const cx = Math.floor(player.p.x / FOREST_CELL), cz = Math.floor(player.p.z / FOREST_CELL);
+      for (let r = 0; r <= 6; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const f = forestFor(cx + dx, cz + dz);
+        if (!f || (kind && f.kind !== kind)) continue;
+        let px2 = f.x + 6, pz2 = f.z + 6;
+        if (heightAt(px2, pz2) <= CFG.SEA + 2) {          // 别把玩家扔到海里：往圈内找一块陆地
+          let found = false;
+          for (let rr = 0; rr < f.r && !found; rr += 8) {
+            for (let a = 0; a < 12 && !found; a++) {
+              const tx = Math.round(f.x + Math.cos(a * 0.52) * rr), tz = Math.round(f.z + Math.sin(a * 0.52) * rr);
+              if (heightAt(tx, tz) > CFG.SEA + 3) { px2 = tx; pz2 = tz; found = true; }
+            }
+          }
+        }
+        player.p.set(px2 + 0.5, heightAt(px2, pz2) + 10, pz2 + 0.5);
+        player.v.set(0, 0, 0);
+        camSmoothY = null;
+        return { name: f.name, kind: f.kind, at: [px2, pz2], r: f.r, y: heightAt(px2, pz2) + 16 };
+      }
+      return null;
+    },
+    treeStats: (n = 300) => {                   // 抽样看树冠：叶子数 min/avg/max + 树种分布
+      const kinds = {}, leaves = [];
+      const x0 = Math.floor(player.p.x), z0 = Math.floor(player.p.z);
+      for (let i = 0; i < n; i++) {
+        const wx = x0 + ((i * 37) % 200) - 100, wz = z0 + ((i * 71) % 200) - 100;
+        const t = treeParams(wx, wz);
+        if (!t) continue;
+        kinds[t.kind] = (kinds[t.kind] || 0) + 1;
+        // 数一下这棵树的叶子块数（同一套几何，不含其它方块）
+        let cnt = 0;
+        const save = [];
+        const counter = (lx2, y, lz2) => { cnt++; };
+        putTree((lx2, y, lz2, id, air) => { if (id === t.leaf) cnt++; }, 0, 0, wx, wz, t);
+        leaves.push(cnt);
+      }
+      leaves.sort((a, b) => a - b);
+      return { trees: leaves.length, kinds, min: leaves[0] || 0, p10: leaves[Math.floor(leaves.length * 0.1)] || 0,
+        avg: Math.round(leaves.reduce((a, b) => a + b, 0) / Math.max(1, leaves.length)), max: leaves[leaves.length - 1] || 0 };
+    },
+    terrainStats: (n = 400) => {                // 地形高度分布（用来校准树的生成高度上限）
+      const hs = [];
+      const x0 = Math.floor(player.p.x), z0 = Math.floor(player.p.z);
+      for (let i = 0; i < n; i++) {
+        const wx = x0 + ((i * 37) % 400) - 200, wz = z0 + ((i * 71) % 400) - 200;
+        hs.push(heightAt(wx, wz));
+      }
+      hs.sort((a, b) => a - b);
+      return { min: hs[0], p10: hs[(hs.length * 0.1) | 0], med: hs[(hs.length * 0.5) | 0],
+        p90: hs[(hs.length * 0.9) | 0], max: hs[hs.length - 1], SEA: CFG.SEA, WH: CFG.WH };
+    },
+    treeDebug: (wx, wz) => {                     // 单点：为什么这里没有树
+      const F = forestAt(wx, wz);
+      const g = heightAt(wx, wz);
+      const steps = {
+        village: inVillage(wx, wz), cabin: inMyCabin(wx, wz), haunted: inHaunted(wx, wz),
+        extra: inExtraStruct(wx, wz), ravine: inRavine(wx, wz),
+        g, tooLow: g <= CFG.SEA + 1, tooHigh: g >= MOUNT_Y - 4,
+        cave: caveCarve(wx, g, wz, g), forest: F ? F.kind : null,
+        gate: h2(wx * 3.77 + 13.1, wz * 2.91 - 7.7),
+      };
+      steps.params = treeParams(wx, wz);
+      return steps;
     },
     gotoVillage: () => {
       const v = nearestVillage(400);
