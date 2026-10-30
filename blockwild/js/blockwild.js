@@ -2788,14 +2788,16 @@ handScene.add(dl);
    ⚠ 这里只建空 group：真正的面要等皮肤模块（SKIN_UV / skinTexture）初始化完再 fill，
      否则在这里调用会撞 TDZ，整个脚本起不来。 */
 const ARM_T = 0.16, ARM_L = 0.50;          // 截面 0.16×0.16（方），长 0.50
-function skinPlane(w, h, rect, swap) {
+function skinPlane(w, h, rect, swap, flipV) {
   const geo = new THREE.PlaneGeometry(w, h);
   const [x, y, rw, rh] = rect;
   const u0 = x / 64, u1 = (x + rw) / 64, v1 = 1 - y / 64, v0 = 1 - (y + rh) / 64;
   const ord = [[0, 1], [1, 1], [0, 0], [1, 0]];        // PlaneGeometry 的 uv 顶点顺序
   const uv = [];
   for (const [s, t] of ord) {
-    const uu = swap ? t : s, vv = swap ? s : t;
+    const uu = swap ? t : s;
+    let vv = swap ? s : t;
+    if (flipV) vv = 1 - vv;          // 翻转「袖子 ↔ 手」的方向（皮肤里上=肩、下=手）
     uv.push(u0 + (u1 - u0) * uu, v0 + (v1 - v0) * vv);
   }
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
@@ -2817,10 +2819,10 @@ function fillArm(g, side) {
     m.position.set(x, y, z); m.rotation.set(rx, ry, 0);
     g.add(m);
   };
-  add(skinPlane(L, T, R.front, true), 0, h, -L / 2, -Math.PI / 2, 0);    // 上面（第一人称最常看到）
-  add(skinPlane(L, T, R.back, true), 0, -h, -L / 2, Math.PI / 2, 0);     // 下面
-  add(skinPlane(L, T, R.right, true), h, 0, -L / 2, 0, Math.PI / 2);     // 右面
-  add(skinPlane(L, T, R.left, true), -h, 0, -L / 2, 0, -Math.PI / 2);    // 左面
+  add(skinPlane(T, L, R.front, false, true), 0, h, -L / 2, -Math.PI / 2, 0);   // 上面：长边沿臂长，袖子在近端
+  add(skinPlane(T, L, R.back, false, true), 0, -h, -L / 2, Math.PI / 2, 0);    // 下面
+  add(skinPlane(L, T, R.right, true, true), h, 0, -L / 2, 0, Math.PI / 2);     // 右面
+  add(skinPlane(L, T, R.left, true, false), -h, 0, -L / 2, 0, -Math.PI / 2);   // 左面
   add(skinPlane(T, T, R.top, false), 0, 0, -L, 0, Math.PI);              // 手尖（4×4，不拉伸）
   add(skinPlane(T, T, R.bottom, false), 0, 0, 0, 0, 0);                  // 靠镜头那一端
 }
