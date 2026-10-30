@@ -3155,7 +3155,16 @@ armR.position.set(0.31, -0.27, -0.22); armR.rotation.set(-0.2, -0.34, 0.12);
 armL.position.set(-0.29, -0.24, -0.22); armL.rotation.set(-0.26, 0.4, -0.12);
 handScene.add(armR, armL);
 function fillArm(g, side) {
-  while (g.children.length) { const c = g.children.pop(); if (c.geometry) c.geometry.dispose(); }
+  /* ★ 真根因（「手中物品 3D 模型看不到」）：手里物品的 heldGroup 是 armR 的子节点，
+     这里用 while/pop 无条件清空 children，会把 heldGroup 一起摘掉 —— 而且是直接 pop
+     数组、不走 remove()，所以 heldGroup.parent 仍然指向 armR（探针看起来一切正常），
+     但已经不在 children 里 ⇒ 渲染器遍历不到，手里永远只有手臂、没有物品。
+     rebuildArms() 在启动时就会跑一次（按皮肤上色），所以这个 bug 是必现的。 */
+  for (const c of Array.from(g.children)) {
+    if (c === heldGroup) continue;                 // 手里的物品不能跟着手臂一起被清掉
+    g.remove(c);
+    if (c.geometry) c.geometry.dispose();
+  }
   const key = (LOOK.skinSrc === 'custom') ? 'custom'
     : ('gen:' + LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs);
   const mat = new THREE.MeshLambertMaterial({ map: skinTexture(key), side: THREE.DoubleSide });
@@ -3218,8 +3227,9 @@ function makeToolModel(id) {
     tipR.position.set(0.19, 0.13, 0);
     tipR.rotation.z = 0.42;
     g.add(handle, bar, tipL, tipR);
-  } else if (id === 102 || id === 103 || id === 121 || id === 131 || id === 149 || id === 164 || id === 179) {       // 剑
-    const bladeMat = id === 179 ? netherM : id === 131 ? diaM : id === 164 ? copM : id === 149 ? new THREE.MeshLambertMaterial({ color: 0xefe9d8 }) : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
+  } else if (id === 102 || id === 103 || id === 121 || id === 131 || id === 149 || id === 164 || id === 179 || id === 194) {       // 剑
+    const nightM = new THREE.MeshLambertMaterial({ color: 0x5a1030 }); nightM.emissive = new THREE.Color(0x2a0010);   // 噩梦之刃：暗红刀身 + 微自发光
+    const bladeMat = id === 194 ? nightM : id === 179 ? netherM : id === 131 ? diaM : id === 164 ? copM : id === 149 ? new THREE.MeshLambertMaterial({ color: 0xefe9d8 }) : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.44, 0.018), bladeMat);
     blade.position.y = 0.3;
     const tip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.018), bladeMat);
@@ -3231,6 +3241,27 @@ function makeToolModel(id) {
     const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.045, 0.055), woodDark);
     pommel.position.y = -0.11;
     g.add(blade, tip, guard, grip, pommel);
+  } else if (id === 151 || id === 152) {       // 桶：铁皮小桶（装水时桶口露出蓝色水面）
+    const metal = new THREE.MeshLambertMaterial({ color: 0xb8bec8 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.19, 0.17), metal);
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(0.195, 0.03, 0.195), new THREE.MeshLambertMaterial({ color: 0x8d949e }));
+    rim.position.y = 0.095;
+    g.add(body, rim);
+    if (id === 152) {
+      const water = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.03, 0.15), new THREE.MeshLambertMaterial({ color: 0x3f7fd6 }));
+      water.position.y = 0.1; g.add(water);
+    }
+  } else if (id === 153) {                     // 弓：三段弓臂 + 弓弦
+    const woodB = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
+    const strM = new THREE.MeshLambertMaterial({ color: 0xe8e4d6 });
+    for (const [y, rz] of [[0.18, 0.36], [0, 0], [-0.18, -0.36]]) {
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.21, 0.035), woodB);
+      seg.position.set(-0.03 + Math.abs(y) * 0.14, y, 0); seg.rotation.z = rz;
+      g.add(seg);
+    }
+    const str = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.46, 0.012), strM);
+    str.position.set(0.03, 0, 0);
+    g.add(str);
   } else if (id === 104) {                     // 木棍
     const s = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.44, 0.032), wood);
     s.position.y = 0.12;
@@ -3403,7 +3434,7 @@ function makeToolModel(id) {
 }
 // 握持姿势：方块是斜着摆在掌心，工具是斜举（镐头/剑尖朝前上）
 const HOLD_POSE = {
-  bow: { rx: -1.2, ry: 0.15, rz: -0.1, py: 0.02, pz: 0.06 },
+  bow: { rx: -0.28, ry: 0.55, rz: -0.35, py: 0.05, pz: -0.06, s: 0.95 },   // 以前 rx=-1.2 几乎横着指向屏幕外，只看得到一条边
   block: { rx: 0.2, ry: 0.6, rz: 0.1, py: 0, pz: 0, s: 1 },
   pick: { rx: -0.32, ry: 0.95, rz: 0.36, py: 0.07, pz: -0.12, s: 0.95 },
   sword: { rx: -0.5, ry: 0.45, rz: -0.15, py: 0.07, pz: -0.12, s: 0.92 },
@@ -3450,11 +3481,16 @@ function refreshHeld() {
     kind = 'block';
     const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
     heldMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
-  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'hoe' || it.kind === 'mat' || it.kind === 'food' || it.kind === 'gun')) {
+  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'hoe' || it.kind === 'mat' || it.kind === 'food' || it.kind === 'gun' || it.kind === 'bucket' || it.kind === 'bow')) {
     kind = it.kind;
     heldMesh = makeToolModel(id);
   }
   heldKindNow = kind;
+  // 防御：万一 armR 被重建/换皮，物品组必须重新挂回正在渲染的那只手臂上
+  if (heldGroup.parent !== armR) {
+    if (heldGroup.parent) heldGroup.parent.remove(heldGroup);
+    armR.add(heldGroup);
+  }
   if (!heldMesh) { heldGroup.visible = false; return; }
   const pose = HOLD_POSE[kind] || HOLD_POSE.block;
   heldGroup.position.set(0.01, pose.py, -0.62 + pose.pz);
