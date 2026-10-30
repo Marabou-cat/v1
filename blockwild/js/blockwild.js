@@ -338,6 +338,15 @@ const BLOCKS = {
   68: { name: '云杉树叶', top: 78, side: 78, bottom: 78, hard: 0.22, drop: 0, leaf: true, hollow: true },
   69: { name: '金合欢树叶', top: 79, side: 79, bottom: 79, hard: 0.22, drop: 0, leaf: true, hollow: true },
   66: { name: '空宝珠台', top: 79, side: 79, bottom: 72, hard: 9, drop: 0, unbreakable: true },
+  // ── 深渊迷宫：建筑 / 装饰方块（迷宫本体、装饰、光源、祭坛）──
+  70: { name: '深渊砖', top: 80, side: 80, bottom: 80, hard: 2.3, drop: 70, pick: true, stonePick: true },
+  71: { name: '深渊裂纹砖', top: 81, side: 81, bottom: 81, hard: 2.1, drop: 71, pick: true, stonePick: true },
+  72: { name: '深渊雕纹砖', top: 82, side: 82, bottom: 82, hard: 2.5, drop: 72, pick: true, stonePick: true },
+  73: { name: '深渊柱', top: 83, side: 83, bottom: 83, hard: 2.5, drop: 73, pick: true, stonePick: true },
+  74: { name: '深渊灯', top: 84, side: 84, bottom: 84, hard: 1.2, drop: 74, lamp: true },
+  75: { name: '深渊火盆', top: 85, side: 85, bottom: 85, hard: 1.4, drop: 75, lamp: true },
+  76: { name: '深渊铁栏', top: 86, side: 86, bottom: 86, hard: 2.0, drop: 76, pick: true },
+  77: { name: '深渊祭坛', top: 87, side: 88, bottom: 80, hard: 9, drop: 0, unbreakable: true, abyssAltar: true },
 };
 const ITEMS = {
   100: { name: '木镐', kind: 'pick', fast: 1.35, dur: 60 },
@@ -422,6 +431,7 @@ const ITEMS = {
   194: { name: '噩梦之刃', kind: 'sword', dmg: 26, dur: 2600 },
   // ── 宝珠（远古框架的四把钥匙，目前只有绿色能拿到）──
   195: { name: '绿色宝珠', kind: 'mat' },
+  198: { name: '深渊宝珠', kind: 'mat' },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -431,7 +441,7 @@ let atlasCanvas = null, atlasTex = null;
 // 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
 // ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
 // 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
-const ATLAS_COLS = 4, ATLAS_ROWS = 20;   // …56 基岩 57 铀矿 58~59 充电器 60~66 熔岩沼泽（4 列 × 20 行 = 80 格）
+const ATLAS_COLS = 4, ATLAS_ROWS = 24;   // 4 列 × 24 行 = 96 格（80~88 = 深渊迷宫的建筑/装饰方块）
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -925,6 +935,89 @@ function makeAtlas() {
   leafTile(77, '#87bb54', '#5f8f36', '#a3d36a', false);   // 白桦：亮黄绿
   leafTile(78, '#357a45', '#1d4b2b', '#57a35c', true);    // 云杉：真针叶绿（以前 #3f6b52 太灰，像石头）
   leafTile(79, '#8fa945', '#647a2c', '#b0c765', false);   // 金合欢：橄榄绿
+  /* ══ 深渊迷宫的建筑 / 装饰方块（瓦片 80~88）══════════════════════════
+     统一配色：冷紫灰岩 + 暖紫符文光。地下一眼就能看出「这是人工砌的地牢」，
+     和自然的深板岩/洞穴分开。 */
+  const AB = '#4a4458', AB_D = '#2e2a3c', AB_L = '#6a6484', AB_RUNE = '#8f6cf0';
+  // 80 深渊砖：错缝方砖
+  T(80, AB, 0.06, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const row = (y / 8) | 0, off = row ? 8 : 0;
+      if (y % 8 === 0 || (x + off) % 8 === 0) px(c, r, x, y, shade(AB_D, 1.0));
+      else if (y % 8 === 7 || (x + off) % 8 === 7) px(c, r, x, y, shade(AB, 0.78));
+    }
+  });
+  // 81 深渊裂纹砖：砖缝 + 一条裂缝
+  T(81, AB, 0.07, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const row = (y / 8) | 0, off = row ? 8 : 0;
+      if (y % 8 === 0 || (x + off) % 8 === 0) px(c, r, x, y, shade(AB_D, 1.0));
+    }
+    let x = 4;
+    for (let y = 1; y < 15; y++) { px(c, r, ((x % 16) + 16) % 16, y, shade(AB_D, 0.8)); if (Math.random() < 0.45) x += Math.random() < 0.5 ? 1 : -1; }
+  });
+  // 82 深渊雕纹砖：边框 + 中央菱形符文
+  T(82, AB, 0.05, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (x === 0 || y === 0 || x === 15 || y === 15) px(c, r, x, y, shade(AB_D, 1.0));
+    }
+    for (let d = -5; d <= 5; d++) {
+      px(c, r, 8 + d, 8 + d, AB_RUNE); px(c, r, 8 + d, 8 - d, AB_RUNE);
+    }
+    px(c, r, 8, 8, '#d9c8ff'); px(c, r, 8, 7, '#c9b4ff'); px(c, r, 8, 9, '#c9b4ff');
+  });
+  // 83 深渊柱：竖向凸棱
+  T(83, AB_L, 0.05, (c, r) => {
+    for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
+      if (x % 4 === 0) px(c, r, x, y, shade(AB_D, 1.0));
+      else if (x % 4 === 1) px(c, r, x, y, shade(AB_L, 1.12));
+    }
+  });
+  // 84 深渊灯：发光的紫符文核心
+  T(84, AB_D, 0.04, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const d = Math.hypot(x - 7.5, y - 7.5);
+      if (d < 3.2) px(c, r, x, y, '#e2d3ff');
+      else if (d < 5.4) px(c, r, x, y, d < 4.4 ? AB_RUNE : '#6a4bb8');
+      else if (x === 0 || y === 0 || x === 15 || y === 15) px(c, r, x, y, shade(AB_D, 0.9));
+    }
+  });
+  // 85 深渊火盆：石盆 + 一团橙火
+  T(85, AB_D, 0.05, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, shade(AB_L, 1.05)); px(c, r, x, 1, shade(AB_D, 1.1)); }
+    for (let y = 2; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const d = Math.hypot(x - 7.5, y - 9.5);
+      if (y > 8 && d < 6.5) px(c, r, x, y, y % 2 ? '#ffb03c' : '#ff7a18');
+      else if (y > 5 && y <= 8 && d < 3.2) px(c, r, x, y, y % 2 ? '#ffd77a' : '#ff9a2e');
+      else if (y <= 5 && Math.abs(x - 7.5) < 1.6) px(c, r, x, y, '#ffcf6a');
+      else if (x === 0 || x === 15 || y === 15) px(c, r, x, y, shade(AB_L, 0.9));
+    }
+  });
+  // 86 深渊铁栏：竖栏 + 两道横梁（不透明，靠深色缝当镂空感）
+  T(86, AB_D, 0.04, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (x % 5 === 1 || x % 5 === 2) px(c, r, x, y, shade('#8a84a0', 1));
+      else if (y === 3 || y === 12) px(c, r, x, y, shade('#6a6484', 1));
+      else px(c, r, x, y, '#1b1826');
+    }
+  });
+  // 87 深渊祭坛顶：符文圆盘 + 中央凹槽（放宝珠）
+  T(87, AB, 0.05, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const d = Math.hypot(x - 7.5, y - 7.5);
+      if (d < 2.4) px(c, r, x, y, '#1a1626');
+      else if (d < 3.2) px(c, r, x, y, '#e2d3ff');
+      else if (d > 6.4 && d < 7.2) px(c, r, x, y, AB_RUNE);
+      else if (d > 4.6 && d < 5.1) px(c, r, x, y, '#6a4bb8');
+    }
+  });
+  // 88 深渊祭坛侧：石身 + 竖向符文缝
+  T(88, AB, 0.05, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (x === 7 || x === 8) px(c, r, x, y, y % 5 === 0 ? '#d9c8ff' : AB_RUNE);
+      else if (x === 0 || x === 15) px(c, r, x, y, shade(AB_D, 1));
+    }
+  });
   // 8 木板
   T(8, '#b98a4e', 0.05, (c, r) => {
     // 4 条横向木板：板缝（深褐色） + 逐行色差
@@ -1951,6 +2044,8 @@ function genChunk(cx, cz) {
       }
     }
   }
+  // 深渊迷宫（10% 的村庄正下方）：和村庄一样按 byChunk 取本块片段
+  applyAbyss(b, ox, oz, selfKey);
   // 废弃鬼屋（同样按 byChunk 取本块片段）
   const hCellX = Math.floor(ox / HS_CELL), hCellZ = Math.floor(oz / HS_CELL);
   for (let ddx = -1; ddx <= 1; ddx++) for (let ddz = -1; ddz <= 1; ddz++) {
@@ -2757,6 +2852,7 @@ function stepChunkMesh(chunk, yTo) {                    // 推进到第 yTo 层�
     if (def.stair) { vc += emitStair(x, y, z, def, meta, P, U, C, I, vc); continue; }
     if (def.bed) { vc += emitBed(x, y, z, wx, wz, meta, P, U, C, I, vc); continue; }
     if (def.cross) { vp += emitCross(x, y, z, def, P4, U4, C4, I4, vp); if (def.torch) j.torches.push(wx + ',' + y + ',' + wz); continue; }
+    if (def.lamp) j.torches.push(wx + ',' + y + ',' + wz);       // ★ 整块光源（深渊灯/火盆）：和火把共用点光源池
     if (def.door) {                                      // 门：独立 Mesh（可平滑旋转），只记下位置
       if (!(meta & 8)) j.doorCells.push({ x: wx, y, z: wz, dir: (meta & 3) + 1 });
       continue;
@@ -4300,8 +4396,204 @@ function arenaFor(cellX, cellZ) {
     return out;
   });
 }
+/* ══ 深渊迷宫（Abyss Labyrinth）═════════════════════════════════════════
+   10% 的村庄正下方有一座（MC 要塞那种「藏在村子底下」的发现感）。
+   · 归属「村庄 cell」：abyssFor(vcx,vcz) 用同一个 cell 坐标就是同一座迷宫，
+     不注册进 STRUCT_TYPES —— 否则生成村庄时 structNear 反过来查到自己会递归。
+   · 房间撒在 5×5 的格子上：每个格子由哈希决定「有没有房间 / 多大 / 多高」，
+     所以每座迷宫的布局都不一样，但同一个 cell 永远长一样（存档/联机一致）。
+   · 走廊只连「东西 / 南北相邻」的房间 → 迷宫必定连通，不会出现进不去的房间。
+   · 中央格固定是最大的祭坛大厅（19×19、高 10），里面有深渊祭坛（方块 77）。
+   · 入口：村庄广场东侧一口 5×5 竖井 + 绕中柱的螺旋台阶，1 格 1 降走到迷宫地面。 */
+const ABYSS_CELL = 160;                 // 与 VS_CELL 相同（=村庄同一格）
+const ABYSS_Y = 24;                     // 迷宫地面标高（深板岩层，y < DEEP_Y=58）
+const ABYSS_GRID = 5, ABYSS_STEP = 15;  // 5×5 房间格 / 格距 15
+const ABYSS_HALL = 19, ABYSS_HALL_H = 10;
+const abyssCache = new Map();
+function abyssFor(vcx, vcz) {
+  const key = vcx + ',' + vcz;
+  if (abyssCache.has(key)) return abyssCache.get(key);
+  return guarded('abyss', key, () => {
+    let out = null;
+    const v = villageFor(vcx, vcz);
+    if (v) {
+      const roll = h2(vcx * 91.7 + 3.3, vcz * 47.1 - 8.9);
+      if (roll <= 0.10) {                                  // ★ 10% 的村庄底下才有
+        const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(vcx, 2654435761) ^ Math.imul(vcz, 40503)) | 0);
+        const cx = v.cx, cz = v.cz, y0 = ABYSS_Y;
+        const ops = [];
+        const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
+        const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+        /* ① 房间表：5×5 格，中央必是最大厅 */
+        const rooms = [];
+        for (let gx = 0; gx < ABYSS_GRID; gx++) for (let gz = 0; gz < ABYSS_GRID; gz++) {
+          const hall = (gx === 2 && gz === 2);
+          if (!hall && h3(vcx * 13 + gx * 7, gz * 11 + 3, 11) > 0.62) continue;   // 38% 的格子留空
+          const w = hall ? ABYSS_HALL : 7 + ((h3(vcx + gx * 3, gz * 5 + 1, 7) * 5) | 0);
+          const d = hall ? ABYSS_HALL : 7 + ((h3(vcx + gx * 5, gz * 3 + 2, 9) * 5) | 0);
+          const hh = hall ? ABYSS_HALL_H : 5 + ((h3(vcx + gx * 7, gz * 11 + 4, 13) * 3) | 0);
+          rooms.push({ gx, gz, hall, x: cx + (gx - 2) * ABYSS_STEP, z: cz + (gz - 2) * ABYSS_STEP, w, d, hh });
+        }
+        /* ② 每间房：地板 / 墙 / 天花 / 角柱 / 吊灯 / 铁栏 */
+        for (const rm of rooms) {
+          const x0 = rm.x - (rm.w >> 1), x1 = x0 + rm.w - 1;
+          const z0 = rm.z - (rm.d >> 1), z1 = z0 + rm.d - 1;
+          for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
+            const edge = x === x0 || x === x1 || z === z0 || z === z1;
+            const q = h3(x * 3 + 1, 7, z * 5 + 2);
+            put(x, y0, z, q < 0.16 ? 71 : (q < 0.26 ? 72 : 70));                 // 地板
+            put(x, y0 + rm.hh, z, q < 0.2 ? 71 : 70);                            // 天花
+            if (!edge) { for (let y = y0 + 1; y < y0 + rm.hh; y++) carve(x, y, z); continue; }
+            for (let y = y0 + 1; y < y0 + rm.hh; y++) {
+              const band = (y - y0) % 4 === 0;                                   // 每 4 格一条雕纹带
+              put(x, y, z, band ? 72 : (h3(x * 7 + y, y, z * 11) < 0.22 ? 71 : 70));
+            }
+          }
+          for (const [ax, az] of [[x0, z0], [x0, z1], [x1, z0], [x1, z1]]) {
+            for (let y = y0 + 1; y < y0 + rm.hh; y++) put(ax, y, az, 73);        // 四角深渊柱
+          }
+          put(rm.x, y0 + rm.hh - 1, rm.z, 74);                                   // 天花板吊灯（光源）
+          if (!rm.hall) {
+            for (let x = x0 + 3; x <= x1 - 3; x += 5) {                           // 铁栏分格
+              put(x, y0 + 1, z0 + 1, 76); put(x, y0 + 2, z0 + 1, 76);
+            }
+          }
+        }
+        /* ③ 走廊：只连东西/南北相邻的房间（3 宽 × 3 高，顶灯每 4 格一盏） */
+        const at = (gx, gz) => rooms.find(r => r.gx === gx && r.gz === gz);
+        const corridor = (ax, az, bx, bz, horiz) => {
+          if (horiz) {
+            const xs = ax + (ax <= bx ? 1 : -1);
+            for (let x = xs, n = 0; n < Math.abs(bx - ax) + 1; x += (ax <= bx ? 1 : -1), n++) {
+              for (let dz = -1; dz <= 1; dz++) {
+                put(x, y0, az + dz, 70); put(x, y0 + 4, az + dz, 70);
+                for (let y = y0 + 1; y < y0 + 4; y++) carve(x, y, az + dz);
+              }
+              if ((x & 3) === 0) put(x, y0 + 4, az, 74);
+            }
+          } else {
+            const zs = az + (az <= bz ? 1 : -1);
+            for (let z = zs, n = 0; n < Math.abs(bz - az) + 1; z += (az <= bz ? 1 : -1), n++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                put(ax + dx, y0, z, 70); put(ax + dx, y0 + 4, z, 70);
+                for (let y = y0 + 1; y < y0 + 4; y++) carve(ax + dx, y, z);
+              }
+              if ((z & 3) === 0) put(ax, y0 + 4, z, 74);
+            }
+          }
+        };
+        for (const rm of rooms) {
+          const e = at(rm.gx + 1, rm.gz);
+          if (e) corridor(rm.x + (rm.w >> 1), rm.z, e.x - (e.w >> 1), e.z, true);
+          const so = at(rm.gx, rm.gz + 1);
+          if (so) corridor(rm.x, rm.z + (rm.d >> 1), so.x, so.z - (so.d >> 1), false);
+        }
+        /* ④ 大厅：符文地面环 + 四角火盆 + 中央祭坛 */
+        for (let dx = -(ABYSS_HALL >> 1); dx <= (ABYSS_HALL >> 1); dx++) for (let dz = -(ABYSS_HALL >> 1); dz <= (ABYSS_HALL >> 1); dz++) {
+          const d = Math.hypot(dx, dz);
+          if (d > 9.4) continue;
+          put(cx + dx, y0, cz + dz, (Math.round(d) % 3 === 0) ? 72 : 70);
+        }
+        for (const [ax, az] of [[-8, -8], [8, -8], [-8, 8], [8, 8]]) put(cx + ax, y0 + 1, cz + az, 75);
+        for (const [ax, az] of [[-4, -4], [4, -4], [-4, 4], [4, 4]]) {
+          for (let y = y0 + 1; y <= y0 + 3; y++) put(cx + ax, y, cz + az, 73);
+        }
+        put(cx, y0 + 1, cz, 77);                                                  // ★ 深渊祭坛（试炼入口）
+        put(cx, y0 + 2, cz - 2, 74); put(cx, y0 + 2, cz + 2, 74);
+        put(cx - 2, y0 + 2, cz, 74); put(cx + 2, y0 + 2, cz, 74);
+        /* ⑤ 入口：村庄东侧 5×5 竖井 + 绕中柱的螺旋台阶 → 一条短隧道进大厅
+           ⚠ 台阶必须「从井底往上」铺：底部第一级固定在西侧 ring[12]，正好接上隧道口，
+             玩家沿螺旋往上/往下都是 1 格 1 级（跳跃能过 1 格，CFG.JUMP 实测跳高 1.34）。 */
+        // 井位：迷宫外围一圈里挑一块「干地」（别挖在海/湖里，否则井口灌水）
+        let ex = cx + 40, ez = cz, surf = heightAt(ex, ez);
+        for (const [ox, oz] of [[40, 0], [0, 40], [-40, 0], [0, -40], [40, 40], [-40, -40], [40, -40], [-40, 40]]) {
+          const hx = heightAt(cx + ox, cz + oz);
+          if (hx > CFG.SEA + 2) { ex = cx + ox; ez = cz + oz; surf = hx; break; }
+        }
+        const R2 = 2;
+        // 塔身：填到地面前一层（顶层要留出井口，否则人在上面进不去）
+        for (let dx = -R2; dx <= R2; dx++) for (let dz = -R2; dz <= R2; dz++) {
+          const core = Math.abs(dx) <= 1 && Math.abs(dz) <= 1;
+          for (let y = y0; y <= (core ? surf + 1 : surf - 1); y++) {
+            put(ex + dx, y, ez + dz, (dx === 0 && dz === 0) ? 73 : 70);
+          }
+        }
+        const ring = [];
+        for (let i = -R2; i <= R2; i++) ring.push([i, -R2]);
+        for (let i = -R2 + 1; i <= R2; i++) ring.push([R2, i]);
+        for (let i = R2 - 1; i >= -R2; i--) ring.push([i, R2]);
+        for (let i = R2 - 1; i >= -R2 + 1; i--) ring.push([-R2, i]);
+        // 井底：整层 5×5 平台 + 3 格净空（隧道口就接在这里，保证和最低一级齐平）
+        for (let dx = -R2; dx <= R2; dx++) for (let dz = -R2; dz <= R2; dz++) {
+          put(ex + dx, y0, ez + dz, 70);
+          for (let y = y0 + 1; y <= y0 + 3; y++) carve(ex + dx, y, ez + dz);
+        }
+        const steps = Math.max(8, surf - (y0 + 4));
+        const START = 14;                          // ring[14] = (-2, 0) 西侧：从隧道口这边起步
+        for (let i = 0; i <= steps; i++) {
+          const [rx, rz] = ring[(START + i) % ring.length];
+          const y = y0 + 4 + i;                    // ★ 从井底平台往上铺，1 格 1 级
+          put(ex + rx, y, ez + rz, 70);            // 台阶面
+          carve(ex + rx, y + 1, ez + rz);          // 站脚
+          carve(ex + rx, y + 2, ez + rz);          // 头顶
+        }
+        // 井口：7×7 外框（别挡住 5×5 井口），并把上方空气挖通
+        for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {
+          if (Math.abs(dx) <= R2 && Math.abs(dz) <= R2) {
+            for (let y = surf + 1; y <= surf + 3; y++) carve(ex + dx, y, ez + dz);
+          } else if (Math.abs(dx) === 3 || Math.abs(dz) === 3) {
+            put(ex + dx, surf, ez + dz, 72);
+          }
+        }
+        // 竖井 → 大厅：3 宽 3 高短隧道（从大厅东墙打穿，一路到井底西侧那一级）
+        for (let x = cx + (ABYSS_HALL >> 1); x <= ex - R2; x++) {
+          for (let dz = -1; dz <= 1; dz++) {
+            put(x, y0, ez + dz, 70); put(x, y0 + 4, ez + dz, 70);
+            for (let y = y0 + 1; y < y0 + 4; y++) carve(x, y, ez + dz);
+          }
+          if ((x & 3) === 0) put(x, y0 + 4, ez, 74);
+        }
+        out = { name: 'abyss', cx, cz, y0, r: ABYSS_HALL >> 1, rooms: rooms.length,
+          hall: { x: cx, y: y0 + 1, z: cz }, shaft: { x: ex, y: surf, z: ez },
+          byChunk: packOps(ops), ops: ops.length, label: '深渊迷宫' };
+      }
+    }
+    abyssCache.set(key, out);
+    return out;
+  });
+}
+/* 把深渊迷宫写进当前区块（和村庄一样按 byChunk 取片段；生成期绝不 getBlock） */
+function applyAbyss(b, ox, oz, selfKey) {
+  const sx = Math.floor(ox / ABYSS_CELL), sz = Math.floor(oz / ABYSS_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const st = abyssFor(sx + dx, sz + dz);
+    if (!st) continue;
+    const arr = st.byChunk.get(selfKey);
+    if (!arr) continue;
+    for (const op of arr) {
+      if (op.x < ox || op.x >= ox + CFG.CH || op.z < oz || op.z >= oz + CFG.CH) continue;
+      if (op.y < 1 || op.y >= CFG.WH) continue;
+      const i = (op.y * CFG.CH + (op.z - oz)) * CFG.CH + (op.x - ox);
+      if (op.t === 0) { if (b[i] !== 5) b[i] = 0; }
+      else b[i] = op.t;
+      if (op.m) setMeta(op.x, op.y, op.z, op.m, true);
+    }
+  }
+}
+/* 某个坐标属于哪座深渊迷宫（祭坛右键时用来找大厅中心） */
+function abyssAt(x, z) {
+  const cx = Math.floor(x / ABYSS_CELL), cz = Math.floor(z / ABYSS_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const a = abyssFor(cx + dx, cz + dz);
+    if (!a) continue;
+    if (Math.abs(x - a.hall.x) <= a.r + 3 && Math.abs(z - a.hall.z) <= a.r + 3) return a;
+  }
+  return null;
+}
+
 /* ── 宝珠试炼：5 波守护者 + 1 个小 boss ───────────────────────────────── */
 const GREEN_ORB = 195;
+const ABYSS_ORB = 198;                 // 深渊试炼的奖励（第 3 枚宝珠）
 const TRIAL_WAVES = [
   ['grunt', 'grunt', 'grunt', 'grunt'],
   ['spider', 'spider', 'spider', 'grunt', 'grunt'],
@@ -4309,7 +4601,15 @@ const TRIAL_WAVES = [
   ['grunt', 'spider', 'grunt', 'spider', 'grunt'],
   ['trialBoss', 'skeleton', 'skeleton'],
 ];
-const ARENA = { active: false, wave: 0, cool: 0, cx: 0, cy: 0, cz: 0, lost: 0, won: 0, altar: null };
+/* 深渊试炼：5 波，最后一波是「烈焰巨像」（巨型烈焰人，扇形火球） */
+const ABYSS_WAVES = [
+  ['grunt', 'grunt', 'grunt', 'grunt', 'grunt'],
+  ['spider', 'spider', 'spider', 'spider'],
+  ['skeleton', 'skeleton', 'skeleton'],
+  ['grunt', 'spider', 'skeleton', 'grunt', 'spider'],
+  ['blazeTitan', 'skeleton', 'skeleton'],
+];
+const ARENA = { active: false, type: 'green', waves: TRIAL_WAVES, wave: 0, cool: 0, cx: 0, cy: 0, cz: 0, lost: 0, won: 0, altar: null };
 const arenaMobs = () => mobs.filter(m => m.trial && !m.dying);
 function clearTrialMobs() {
   for (let i = mobs.length - 1; i >= 0; i--) {
@@ -4319,20 +4619,36 @@ function clearTrialMobs() {
   }
 }
 function trialStart(altar) {
-  if (ARENA.active) { toast(`试炼进行中：第 ${ARENA.wave}/5 波，别半途跑掉`, 2.4); return false; }
-  const a = arenaFor(Math.floor(altar.x / ARENA_CELL), Math.floor(altar.z / ARENA_CELL));
-  if (!a) { toast('这里不是宝珠守护地', 2.2); return false; }
+  const isAbyss = getBlock(altar.x, altar.y, altar.z) === 77;
+  if (ARENA.active) { toast(`试炼进行中：第 ${ARENA.wave}/${ARENA.waves.length} 波，别半途跑掉`, 2.4); return false; }
+  let cx, cz, cy, r, waves, label;
+  if (isAbyss) {
+    const ab = abyssAt(altar.x, altar.z);
+    if (!ab) { toast('这里不是深渊祭坛', 2.2); return false; }
+    cx = ab.hall.x; cz = ab.hall.z; cy = ab.hall.y; r = ab.r; waves = ABYSS_WAVES; label = '深渊试炼';
+  } else {
+    const a = arenaFor(Math.floor(altar.x / ARENA_CELL), Math.floor(altar.z / ARENA_CELL));
+    if (!a) { toast('这里不是宝珠守护地', 2.2); return false; }
+    cx = a.cx; cz = a.cz; cy = a.gy + 2; r = a.r || ARENA_R_SAND; waves = TRIAL_WAVES; label = '试炼';
+  }
+  ARENA.type = isAbyss ? 'abyss' : 'green';
+  ARENA.waves = waves;
   ARENA.active = true; ARENA.wave = 0; ARENA.cool = 1.2;
-  ARENA.cx = a.cx; ARENA.cz = a.cz; ARENA.cy = a.gy + 2; ARENA.altar = { x: altar.x, y: altar.y, z: altar.z };
-  ARENA.r = a.r || ARENA_R_SAND;                       // ⚠ 必须带上半径，否则「跑出场地」判定会拿 0 去比
-  toast('试炼开始：5 波守护者，最后一波是首领 —— 跑出场地就算失败', 3.6);
+  ARENA.cx = cx; ARENA.cz = cz; ARENA.cy = cy;
+  ARENA.r = r;                                         // ⚠ 半径必须带，否则「跑出场地」判定拿 0 去比
+  // 深渊大厅只有 19×19，走廊就在墙外：判定给 r+6（不是 r+10），否则追着 boss 出门一步就判失败
+  ARENA.failR = isAbyss ? r + 6 : r + 10;
+  ARENA.altar = { x: altar.x, y: altar.y, z: altar.z };
+  toast(`${label}开始：${waves.length} 波守护者，最后一波是首领 —— 跑出场地就算失败`, 3.6);
   return true;
 }
 function trialSpawnWave() {
-  const kinds = TRIAL_WAVES[ARENA.wave - 1] || [];
+  const kinds = (ARENA.waves || TRIAL_WAVES)[ARENA.wave - 1] || [];
   for (let i = 0; i < kinds.length; i++) {
     const ang = (i / kinds.length) * Math.PI * 2 + Math.random() * 0.8;
-    const rr = 11 + Math.random() * 9;
+    // ★ 出生半径必须落在场地里：深渊大厅半径只有 9 格，用固定的 11~20 会直接刷在岩层里
+    //   —— 怪被石头埋住 → sightClear 全 false → 烈焰巨像一发火球都打不出来，玩家也打不到它
+    const rr = Math.max(3, ARENA.r * 0.5) + Math.random() * Math.max(2, ARENA.r * 0.42);
     const sx = Math.round(ARENA.cx + Math.cos(ang) * rr), sz = Math.round(ARENA.cz + Math.sin(ang) * rr);
     const m = spawnMobAt(kinds[i], sx, ARENA.cy, sz, { force: true });
     if (m) { m.trial = true; m.aggro = 999; }
@@ -4349,21 +4665,28 @@ function trialWin() {
   ARENA.wave = 0;
   clearTrialMobs();
   const a = ARENA.altar;
+  const abyss = ARENA.type === 'abyss';
   if (a) { setBlock(a.x, a.y, a.z, 66); markDirty(a.x >> 4, a.z >> 4); }   // 台子空了 = 已取走
-  addItem(GREEN_ORB, 1); renderHotbar(); refreshHeld(); saveSoon();
-  toast('试炼通过！获得「绿色宝珠」（1/4）', 4);
+  addItem(abyss ? ABYSS_ORB : GREEN_ORB, 1); renderHotbar(); refreshHeld(); saveSoon();
+  if (abyss) {
+    addItem(178, 2); addItem(176, 6);                                     // 深渊试炼额外给冥界钢 + 冥火碎片
+    toast('深渊试炼通过！获得「深渊宝珠」+ 冥界钢 ×2 + 冥火碎片 ×6', 4.5);
+  } else {
+    toast('试炼通过！获得「绿色宝珠」（1/4）', 4);
+  }
 }
 function updateArena(dt) {
   if (!ARENA.active) return;
   const d = Math.hypot(player.p.x - ARENA.cx, player.p.z - ARENA.cz);
   if (!player.alive) { trialFail('你倒下了'); return; }
-  if (d > ARENA.r + 10 || player.p.y < ARENA.cy - 14) { trialFail('你跑出了守护地'); return; }
+  if (d > (ARENA.failR || ARENA.r + 10) || player.p.y < ARENA.cy - 14) { trialFail('你跑出了守护地'); return; }
   if (arenaMobs().length > 0) { ARENA.cool = 2.5; return; }          // 场上还有怪：清完再等 2.5 秒
   if (ARENA.cool > 0) { ARENA.cool -= dt; return; }
-  if (ARENA.wave >= TRIAL_WAVES.length) { trialWin(); return; }
+  if (ARENA.wave >= (ARENA.waves || TRIAL_WAVES).length) { trialWin(); return; }
   ARENA.wave++;
   trialSpawnWave();
-  toast(ARENA.wave === TRIAL_WAVES.length ? '第 5/5 波：守护者首领' : `第 ${ARENA.wave}/5 波`, 2.2);
+  toast(ARENA.wave === (ARENA.waves || TRIAL_WAVES).length
+    ? `第 ${ARENA.wave}/${(ARENA.waves || TRIAL_WAVES).length} 波：首领登场！` : `第 ${ARENA.wave}/${(ARENA.waves || TRIAL_WAVES).length} 波`, 2.4);
 }
 
 /* ── 传送门：高科技方块砌的拱门，无法破坏。中间的核心格插入「传送块」即可点亮，
@@ -5307,6 +5630,10 @@ const MOB_DEFS = {
   ghostBoss:{ name: '幽灵王', hp: 140, chase: 2.9, wander: 1.2, hostile: true, barY: 3.1,  drop: 155, dropN: [3, 5], dmg: 6, atkCd: 1.15, float: true, ghostly: true, boss: true },
   // ── 冥界专属 ──
   blaze:      { name: '火焰魔', hp: 16, chase: 3.2, wander: 1.1, hostile: true, barY: 1.62, drop: 176, dropN: [1, 3], dmg: 3, atkCd: 1.4, ranged: true, float: true, dim: 'nether' },
+  // 深渊试炼的最终 boss：巨型烈焰人（MC 烈焰人的放大版，扇形三连火球）
+  blazeTitan: { name: '烈焰巨像', hp: 250, chase: 2.4, wander: 0.7, hostile: true, barY: 5.3, drop: 176, dropN: [8, 12],
+                extra: [{ id: 178, n: [2, 4] }, { id: 125, n: [2, 4] }],
+                dmg: 15, atkCd: 1.5, ranged: true, float: true, boss: true, fireball: true, fbDmg: 5 },
   netherBeast:{ name: '冥骨兽', hp: 30, chase: 3.6, wander: 1.2, hostile: true, barY: 1.35, drop: 176, dropN: [1, 2], extra: [{ id: 148, n: [1, 2] }], dmg: 5, atkCd: 1.2, dim: 'nether' },
   croc:       { name: '噩梦鳄鱼', hp: 48, chase: 3.5, wander: 1.0, hostile: true, barY: 1.15, drop: 192, dropN: [1, 3], dmg: 6, atkCd: 1.1, dim: 'nether' },
   crocKing:   { name: '鳄鱼王', hp: 320, chase: 3.1, wander: 0.8, hostile: true, barY: 2.15, drop: 193, dropN: [1, 2], extra: [{ id: 177, n: [8, 14] }, { id: 125, n: [2, 5] }], dmg: 15, atkCd: 1.5, boss: true, dim: 'nether' },
@@ -5571,6 +5898,28 @@ function mobGeos(kind) {
       { geo: limb, x: -2, y: 8, z: 0, arm: false }, { geo: limb, x: 2, y: 8, z: 0, arm: false },
     ];
     coreY = 15 * MOB_PX; barY = 27 * MOB_PX; headPiv = 18;
+  } else if (kind === 'blazeTitan') {
+    /* 巨型烈焰人：同款「燃烧核心 + 12 根火焰棒」，整体放大到 ~4 格高。
+       体型靠包围盒（barY 5.3 格）和玩家视角一起体现，所以箱子直接按倍数放大。 */
+    const FIRE = 0xffc24a, FIRE2 = 0xff7a18, DARK = 0x6d2c0c, CORE = 0xfff2b0;
+    box(body, -7, 6, -7, 14, 22, 14, DARK, 0.14);                 // 燃烧的巨型核心
+    for (let y = 7; y < 28; y += 3) for (let x = -7; x < 7; x += 3) {
+      for (let z = -7; z < 7; z += 3) px(body, x, y, z, FIRE2);
+    }
+    box(body, -9, 12, -5, 18, 5, 10, FIRE2, 0.12);                // 肩部火环
+    box(body, -5, 12, -9, 10, 5, 18, FIRE2, 0.12);
+    box(head, -7, 30, -7, 15, 15, 15, FIRE, 0.14);                // 巨颅
+    box(head, -4, 34, 7, 3, 3, 2, CORE, 0.02);                    // 双眼
+    box(head, 2, 34, 7, 3, 3, 2, CORE, 0.02);
+    box(head, -2, 32, 7, 4, 2, 2, DARK, 0.05);                    // 口
+    box(head, -9, 36, -2, 2, 8, 4, FIRE2, 0.10);                  // 头顶火角
+    box(head, 7, 36, -2, 2, 8, 4, FIRE2, 0.10);
+    const limb = limbGeo(3, 16, 3, FIRE2, 0.16, (m, set, x0) => { set(x0, -15, 1, CORE); });
+    limbSpecs = [
+      { geo: limb, x: -11, y: 26, z: 0, arm: true }, { geo: limb, x: 11, y: 26, z: 0, arm: true },
+      { geo: limb, x: -5, y: 10, z: 0, arm: false }, { geo: limb, x: 5, y: 10, z: 0, arm: false },
+    ];
+    coreY = 24 * MOB_PX; barY = 54 * MOB_PX; headPiv = 30;
   } else if (kind === 'netherBeast') {
     const HIDE = 0x5d2222, HIDE2 = 0x3d1515, HORN = 0xd9cdb5, EYE = 0xff5a2b;
     box(body, -4, 8, -8, 8, 9, 16, HIDE, 0.12);
@@ -6368,7 +6717,8 @@ function spawnBolt(from, to, opts = {}) {
   scene.add(obj);
   arrows.push({
     p: from.clone(), v: dir.multiplyScalar(opts.speed || 52), t: 0, obj,
-    dmg: opts.dmg || 8, fromPlayer: true, bolt: true, grav: 0.35, maxT: 2.6,
+    dmg: opts.dmg || 8, fromPlayer: !opts.hostile, bolt: true,
+    grav: opts.grav === undefined ? 0.35 : opts.grav, maxT: opts.maxT || 2.6,
   });
   return true;
 }
@@ -6376,6 +6726,19 @@ function shootArrow(m) {                       // 骷髅射箭
   const from = new THREE.Vector3(m.p.x, m.p.y + 1.15, m.p.z);
   const to = new THREE.Vector3(player.p.x, player.p.y + 1.05, player.p.z);
   spawnArrow(from, to, { dmg: 4, speed: 22 });
+  sfx('place');
+}
+/* 烈焰巨像：扇形三连火球（复用能量弹的发光球模型，但没有「fromPlayer」——会打玩家） */
+const _fbUp = new THREE.Vector3(0, 1, 0);
+function shootFireball(m) {
+  const from = new THREE.Vector3(m.p.x, m.p.y + 2.2, m.p.z);
+  const base = new THREE.Vector3(player.p.x, player.p.y + 1.0, player.p.z).sub(from);
+  for (const spread of [-0.18, 0, 0.18]) {
+    const dir = base.clone().applyAxisAngle(_fbUp, spread).add(from);
+    // 单发 5 点：3 发全中 15（满血 20 + 护甲能扛住一轮）—— 原来 9 点一发、一轮 27 点，
+    // 实测满血玩家一轮就倒，等于没有操作空间
+    spawnBolt(from, dir, { dmg: (MOB_DEFS[m.kind] && MOB_DEFS[m.kind].fbDmg) || 5, speed: 20, color: 0xff6a1e, hostile: true, grav: 0.9 });
+  }
   sfx('place');
 }
 function updateArrows(dt) {
@@ -6830,10 +7193,17 @@ function updateMobs(dt) {
       } else { ai.stuckT = 0; ai.watchT = 0; ai.lx = m.p.x; ai.lz = m.p.z; }
     }
     if (def.ranged && hostileNow && player.alive) {      // 骷髅：保持距离并射箭
-      if (dist > 15) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase; }
-      else if (dist < 6) { mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase * 0.85; }
+      // ⚠ boss 不能按「正常远程怪」那样退到 6 格外：玩家只有近战（reach≈4.2），
+      //   实测它会一直风筝在 6.8 格、永远打不到 → boss 只在 3.4 格内才后撤
+      const keep = def.boss ? 3.4 : 6;
+      const approachR = def.boss ? 3.6 : 15;      // boss 主动压到近战距离（否则停在 5+ 格，玩家 reach 4.2 打不到）
+      if (dist > approachR) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase; }
+      else if (dist < keep) { mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase * 0.85; }
       m.shootCd = (m.shootCd || 0) - dt;
-      if (m.shootCd <= 0 && dist < 20 && sightClear(m.p, player.p)) { m.shootCd = 1.7; shootArrow(m); }
+      if (m.shootCd <= 0 && dist < (def.fireball ? 26 : 20) && sightClear(m.p, player.p)) {
+        if (def.fireball) { m.shootCd = 2.2; shootFireball(m); }     // 烈焰巨像：火球
+        else { m.shootCd = 1.7; shootArrow(m); }
+      }
     } else if (def.hostile && hostileNow) {
       const tgm = (m.target && m.target.hp > 0 && !m.target.dying && !m.target.recruit?.dying) ? m.target : null;
       const tx = tgm ? tgm.p.x : player.p.x, tz = tgm ? tgm.p.z : player.p.z;
@@ -8784,7 +9154,7 @@ function update(dt) {
     else if (t && t.id === 47) { openPress(); startSwing('place', 0.2); }          // 液压机
     else if (t && t.id === 53) { openCharger(); startSwing('place', 0.2); }        // 充电器
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].activator) { useActivator(t); }   // 远古废墟：激活器（要宝珠）
-    else if (t && BLOCKS[t.id] && BLOCKS[t.id].orbAltar) { trialStart(t); startSwing('place', 0.22); }   // 宝珠守护地：右键开试炼
+    else if (t && BLOCKS[t.id] && (BLOCKS[t.id].orbAltar || BLOCKS[t.id].abyssAltar)) { trialStart(t); startSwing('place', 0.22); }   // 宝珠守护地 / 深渊祭坛：右键开试炼
     else if (t && t.id === 66) { toast('宝珠已经被取走了（这座守护地已通关）', 2.4); }
     else if (t && (t.id === 45 || t.id === 42)) { usePortal(t.x, t.y, t.z); startSwing('place', 0.2); }   // 传送门
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
@@ -8916,7 +9286,7 @@ function capStructCaches(dt) {
   if (capCacheT < 6) return;
   capCacheT = 0;
   const caps = [[msCache, 90], [ravineCache, 60], [veinCache, 200], [lsCache, 90],
-    [hsCache, 40], [villageCache, 80], [ruinsCache, 80], [arenaCache, 80], [forestCache, 60]];
+    [hsCache, 40], [villageCache, 80], [ruinsCache, 80], [arenaCache, 80], [abyssCache, 40], [forestCache, 60]];
   // ⚠ 不能整表 clear：清空后下一帧会把附近所有结构全部重算一遍（矿山/峡谷是几十毫秒级），
   //    走路时就表现为「隔几秒卡一下」。改成按插入顺序逐条淘汰，每次最多 8 条。
   for (const [m, cap] of caps) {
@@ -8959,7 +9329,7 @@ function updateHUD(dt) {
   const dirName = dirs[Math.round(deg / 45) % 8];
   const mem = (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : '');
   const trialLine = ARENA.active
-    ? `\n<b style="color:#3ee07a">试炼</b> 第 <b>${ARENA.wave}/${TRIAL_WAVES.length}</b> 波 · 场上 <b>${arenaMobs().length}</b> · 离中心 <b>${Math.round(Math.hypot(player.p.x - ARENA.cx, player.p.z - ARENA.cz))}</b>`
+    ? `\n<b style="color:#3ee07a">${ARENA.type === 'abyss' ? '深渊试炼' : '试炼'}</b> 第 <b>${ARENA.wave}/${(ARENA.waves || TRIAL_WAVES).length}</b> 波 · 场上 <b>${arenaMobs().length}</b> · 离中心 <b>${Math.round(Math.hypot(player.p.x - ARENA.cx, player.p.z - ARENA.cz))}</b>`
     : '';
   const s =
     `环境 <b>${underground ? `地下 ${Math.round(depthBelowSurface())} 格` : '地表'}${forestAt(Math.floor(player.p.x), Math.floor(player.p.z)) ? ' · ' + forestAt(Math.floor(player.p.x), Math.floor(player.p.z)).name : ''}</b>\n` +
@@ -10992,6 +11362,30 @@ window.GAME = {
         return { kids: A.g.children.length, meshes, mats, mapOk };
       } catch (e) { return { err: String((e && e.stack) || e) }; }
     },
+    abyss: (r = 3) => {                         // 附近的深渊迷宫（每座 10% 挂在村庄下面）
+      const cx = Math.floor(player.p.x / ABYSS_CELL), cz = Math.floor(player.p.z / ABYSS_CELL);
+      const out = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const a = abyssFor(cx + dx, cz + dz);
+        if (!a) continue;
+        out.push({ x: a.cx, z: a.cz, y0: a.y0, rooms: a.rooms, ops: a.ops,
+          hall: a.hall, shaft: a.shaft, dist: Math.round(Math.hypot(a.cx - player.p.x, a.cz - player.p.z)) });
+      }
+      out.sort((p, q) => p.dist - q.dist);
+      return out.slice(0, 6);
+    },
+    gotoAbyss(mode) {                           // 'hall' 祭坛大厅 / 'shaft' 地表井口
+      const list = this.abyss(6);
+      const a = list[0];
+      if (!a) { toast('附近 3 个村庄格内没有深渊迷宫', 2.6); return null; }
+      const cx = Math.floor(a.x / CFG.CH), cz = Math.floor(a.z / CFG.CH);
+      for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) buildChunk(getChunk(cx + i, cz + j));
+      if (mode === 'shaft') player.p.set(a.shaft.x + 0.5, a.shaft.y + 1.2, a.shaft.z + 0.5);
+      else player.p.set(a.hall.x + 0.5, a.hall.y + 1.2, a.hall.z + 5.5);
+      player.v.set(0, 0, 0);
+      camSmoothY = null;
+      return a;
+    },
     forests: (r = 2) => {                       // 附近有哪些森林（名字/半径/距离）
       const out = [];
       const cx = Math.floor(player.p.x / FOREST_CELL), cz = Math.floor(player.p.z / FOREST_CELL);
@@ -11133,7 +11527,8 @@ window.GAME = {
       toast(`宝珠守护地：(${o.cx}, ${o.cz}) 中央宝珠台 y=${o.gy + 3}`, 3.2);
       return { cx: o.cx, cz: o.cz, gy: o.gy, ops: o.ops };
     },
-    trialStart: () => {
+    trialStart: (altar) => {                    // 传 {x,y,z} = 直接在该祭坛开试炼（深渊/宝珠台都能用）
+      if (altar) return trialStart(altar);
       const pcx = Math.floor(player.p.x / ARENA_CELL), pcz = Math.floor(player.p.z / ARENA_CELL);
       for (let r = 0; r <= 2; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
         const o = arenaFor(pcx + dx, pcz + dz);
