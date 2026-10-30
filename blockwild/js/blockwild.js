@@ -879,31 +879,52 @@ function makeAtlas() {
       if (Math.abs(d % 3 - 1.5) < 0.55) px(c, r, x, y, shade('#6a4826', 1));
     }
   });
-  // 7 树叶：镂空（四角与随机小洞透明）→ 方块看起来是空心的、能透光
-  {
-    const c = 7 % ATLAS_COLS, r = (7 / ATLAS_COLS) | 0;
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const corner = (x < 2 && y < 2) || (x > 13 && y < 2) || (x < 2 && y > 13) || (x > 13 && y > 13);
-      const hole = ((x * 7 + y * 11) % 9 === 0) || ((x * 5 + y * 3) % 14 === 0);
-      if (corner || hole) continue;                                  // 透明像素 → alphaTest 抠掉
-      const d = Math.hypot(x - 7.5, y - 7.5);
-      px(c, r, x, y, shade(d < 4 ? '#57a13f' : '#3d7a2e', 0.9 + ((x + y) % 3) * 0.06));
-    }
-  }
-  // 77 白桦树叶（浅黄绿）/ 78 云杉树叶（深蓝绿）/ 79 金合欢树叶（橄榄绿）
-  const leafTile = (n, inner, outer) => {
+  /* 叶簇纹理（树叶 7 / 白桦 77 / 云杉 78 / 金合欢 79 共用）
+     ★ 以前是「规则镂空」：(x*7+y*11)%9 / %14 挖出一整片透明像素。两个后果：
+        ① 在墙面和树冠上拼出规则的菱形网格，很假；
+        ② 树叶是实心方块，两个树叶之间那面是剔除掉的，光穿过这层洞以后直接
+           穿出整个树冠 → **能看见树叶背后的方块**（用户报的「树叶透视」）。
+     现在块内**一个透明像素都不留**，改用 4×4 叶簇 + 簇缝压暗 + 三档明暗做出叶团感；
+     轮廓靠方块本身，靠 alphaTest 抠洞的做法彻底去掉。 */
+  const leafTile = (n, base, dark, light, needle) => {
     const c = n % ATLAS_COLS, r = (n / ATLAS_COLS) | 0;
+    // ① 底色：压暗的叶绿 + 细噪点（叶丛之间的缝隙）
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const corner = (x < 2 && y < 2) || (x > 13 && y < 2) || (x < 2 && y > 13) || (x > 13 && y > 13);
-      const hole = ((x * 7 + y * 11) % 11 === 0) || ((x * 5 + y * 3) % 17 === 0);
-      if (corner || hole) continue;
-      const d = Math.hypot(x - 7.5, y - 7.5);
-      px(c, r, x, y, shade(d < 4 ? inner : outer, 0.9 + ((x + y) % 3) * 0.06));
+      px(c, r, x, y, shade(dark, 0.92 + h3(x * 7 + n, y * 13, 5) * 0.18));
+    }
+    if (needle) {
+      // ② 针叶：一堆 1px 宽的竖向短针（长短/明暗都不同）——云杉/松的招牌质感
+      for (let i = 0; i < 46; i++) {
+        const x0 = Math.floor(h3(n * 19 + i, 3, 21) * 16);
+        const y0 = Math.floor(h3(n * 23 + i, 7, 13) * 16);
+        const len = 2 + Math.floor(h3(n * 29 + i, 11, 9) * 3);
+        const col = h3(n * 31 + i, 5, 3) > 0.42 ? light : base;
+        for (let j = 0; j < len; j++) {
+          const y = (y0 + j) % 16;
+          px(c, r, x0, y, shade(col, 0.94 + (j === 0 ? 0.12 : 0)));
+        }
+      }
+    } else {
+      // ② 阔叶：叠 20 片斜向小叶子，每片自身有亮面/暗面 → 一团一团的叶丛
+      for (let i = 0; i < 20; i++) {
+        const lx = Math.floor(h3(n * 17 + i, 3, 9) * 16);
+        const ly = Math.floor(h3(n * 41 + i, 11, 2) * 16);
+        const rad = 1.4 + h3(n * 29 + i, 5, 7) * 1.7;
+        const tilt = h3(n * 37 + i, 13, 1) > 0.5 ? 1 : -1;
+        const col = h3(n * 43 + i, 2, 8) > 0.5 ? light : base;
+        for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+          const d = Math.hypot(dx - dy * 0.5 * tilt, dy * 1.15);   // 斜椭圆 = 叶片
+          if (d > rad) continue;
+          const x = ((lx + dx) % 16 + 16) % 16, y = ((ly + dy) % 16 + 16) % 16;
+          px(c, r, x, y, shade(col, d < rad * 0.55 ? 1.08 : 0.9));   // 叶心亮、叶缘暗
+        }
+      }
     }
   };
-  leafTile(77, '#8fc35c', '#6ea63f');     // 白桦：亮黄绿
-  leafTile(78, '#3f6b52', '#2c513c');     // 云杉：冷深绿
-  leafTile(79, '#93a94a', '#75883a');     // 金合欢：橄榄绿
+  leafTile(7,  '#4d9b3b', '#2f6127', '#69b84c', false);   // 橡木
+  leafTile(77, '#87bb54', '#5f8f36', '#a3d36a', false);   // 白桦：亮黄绿
+  leafTile(78, '#357a45', '#1d4b2b', '#57a35c', true);    // 云杉：真针叶绿（以前 #3f6b52 太灰，像石头）
+  leafTile(79, '#8fa945', '#647a2c', '#b0c765', false);   // 金合欢：橄榄绿
   // 8 木板
   T(8, '#b98a4e', 0.05, (c, r) => {
     // 4 条横向木板：板缝（深褐色） + 逐行色差
@@ -1408,7 +1429,12 @@ function treeParams(wx, wz) {
   if (!F && inPlain(wx, wz) && h2(wx * 1.73 + 3.1, wz * 2.37 - 5.9) > 0.10) return null;   // 平原：树非常少
   // ③ 到这里只剩 ~2~5% 的列，再算地形
   const g = heightAt(wx, wz);
-  if (g <= CFG.SEA + 3 || g >= MOUNT_Y - 4) return null;   // ⚠ 别用魔法数字：地表整体抬高过（SURF_OFF=72），"45 以上不长树"等于全图不长树
+  /* ⚠ 树线要按树种分开算：森林种类是按「中心高度 > SEA+24」判成冻土针叶林的，
+     可树线写的是 MOUNT_Y-4 —— 两者差 9 格，于是「冻土云杉林/冻土松林」的中心
+     永远在树线以上，一棵树都不长（走进去只有裸岩）。针叶树本来就长在高处，
+     给它放宽到 MOUNT_Y+10（地表最高也就 ~124）。 */
+  const conifer = !!F && (F.kind === 'snow_spruce' || F.kind === 'snow_pine');
+  if (g <= CFG.SEA + 3 || g >= (conifer ? MOUNT_Y + 10 : MOUNT_Y - 4)) return null;
   // 洞穴把地表这一列掏空了 → 别种（否则树干落在空气里，树悬在半空）
   if (caveCarve(wx, g, wz, g) || caveCarve(wx, g - 1, wz, g - 1)) return null;
   let sp = null, trunkH = 4, r = 2;
@@ -1468,11 +1494,16 @@ function putTree(put, lx, lz, wx, wz, t) {
     return;
   }
   for (let y = 1; y <= H; y++) put(lx, g + y, lz, log, false);
-  if (t.shape === 'cone' || t.shape === 'tiers') {           // 云杉/松：自下而上收窄的实心锥
-    const layers = Math.max(3, H - 1);
+  if (t.shape === 'cone' || t.shape === 'tiers') {           // 云杉/松：分层「裙摆」锥
+    // ★ 以前每一层都是实心圆盘、半径连续收窄 → 侧看就是一坨光滑的实心锥，配上偏灰的
+    //   叶色整棵树像块石头。现在隔层加一圈更大的裙边（radius+1），层与层之间有明显
+    //   台阶，轮廓是「一层一层的针叶」，这也是 MC 云杉的读法。
+    const layers = Math.max(5, H + 2);
     for (let i = 0; i < layers; i++) {
-      const rr = Math.round(t.r * (1 - i / (layers - 0.35)));
-      disc(0, 0, g + 2 + i, Math.max(0, rr));
+      const k = i / (layers - 1);
+      const rr = Math.round(t.r * (1 - k * 0.95));
+      const skirt = (i % 2 === 1) ? 1 : 0;                    // 隔层裙边
+      disc(0, 0, g + 2 + i, Math.max(0, Math.min(t.r + 1, rr + skirt)));
     }
     disc(0, 0, topY + 1, 0);
     if (t.shape === 'tiers') disc(0, 0, topY + 2, 0);
