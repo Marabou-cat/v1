@@ -9907,7 +9907,6 @@ function loadLook() {
   return LOOK;
 }
 loadLook();
-loadSavedSkin();          // 有存档的自定义皮肤就载入（64×64）
 
 let lookRenderer = null, lookScene = null, lookCam = null, lookAv = null, lookRAF = 0, lookTorches = [];
 /* ── MC 标准 64×64 皮肤 ───────────────────────────────────────────────
@@ -9937,26 +9936,35 @@ const SKIN_UV2 = {
 };
 const skinOverlayCache = new Map();
 /* 这张皮肤的外层有没有内容？（程序化皮肤没有 → 直接跳过 36 个面，省性能） */
+/* 缓存键要带「是哪张图」，否则换了皮肤还会用上一次的结论（这就是二层有时不出来的根因） */
+function skinOverlayKey(src) {
+  if (src === 'custom') return 'custom|' + (skinCustom ? (skinCustom.naturalWidth || skinCustom.width) + 'x' + (skinCustom.src || '').length + '|' + String(skinCustom.src || '').slice(-40) : 'none');
+  return String(src);
+}
 function skinHasOverlay(src) {
-  if (skinOverlayCache.has(src)) return skinOverlayCache.get(src);
+  const ok = skinOverlayKey(src);
+  if (skinOverlayCache.has(ok)) return skinOverlayCache.get(ok);
+  if (src === 'custom' && !skinCustom) return false;     // 图还没到：先按没有二层处理，不缓存
   let has = false;
   try {
     const tex = skinTexture(src);
     const img = tex && tex.image;
-    if (!img || img.width !== 64) return false;          // 还没解码：先按没有外层处理，但**不缓存**
-    if (img && img.width) {
-      const cv = document.createElement('canvas'); cv.width = cv.height = 64;
-      const g = cv.getContext('2d');
-      g.drawImage(img, 0, 0, 64, 64);
-      const rects = [[32, 0, 32, 16], [16, 32, 24, 16], [40, 32, 16, 16], [48, 48, 16, 16], [0, 32, 16, 32]];
-      for (const [x, y, w, h] of rects) {
+    if (!img || (img.width !== 64 && img.naturalWidth !== 64)) return false;   // 还没解码 → 不缓存
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const g = cv.getContext('2d');
+    g.drawImage(img, 0, 0, 64, 64);
+    for (const part of Object.keys(SKIN_UV2)) {            // 外层 36 个矩形逐个扫
+      for (const f of Object.keys(SKIN_UV2[part])) {
+        const [x, y, w, h] = SKIN_UV2[part][f];
+        if (x + w > 64 || y + h > 64) continue;
         const d = g.getImageData(x, y, w, h).data;
         for (let i = 3; i < d.length; i += 4) { if (d[i] > 8) { has = true; break; } }
         if (has) break;
       }
+      if (has) break;
     }
   } catch (e) { has = false; }
-  skinOverlayCache.set(src, has);
+  skinOverlayCache.set(ok, has);
   return has;
 }
 
@@ -10247,6 +10255,14 @@ function drawSkinThumb() {
   g.clearRect(0, 0, 64, 64);
   if (LOOK.skinSrc === 'custom' && skinCustom) g.drawImage(skinCustom, 0, 0);
   else g.drawImage(genSkinCanvas(LOOK.skin, LOOK.cloth, LOOK.hair, LOOK.hs), 0, 0);
+  const lb = $('skinLayers');                                    // 界面上直接显示二层有没有被认出来
+  if (lb) {
+    if (!skinCustom && LOOK.skinSrc === 'custom') lb.innerHTML = '二层：<b style="color:#f5c451">读取中…</b>';
+    else {
+      const has = skinHasOverlay(LOOK.skinSrc === 'custom' ? 'custom' : 'gen');
+      lb.innerHTML = has ? '二层：<b style="color:#5fd18b">有</b>（帽子/外套/袖子/裤子）' : '二层：<b style="color:#8ea3ba">无</b>（这张图没有外层像素）';
+    }
+  }
 }
 function setSkinFromFile(file) {
   if (!file) return;
@@ -10260,7 +10276,7 @@ function setSkinFromFile(file) {
       }
       skinCustom = img;
       LOOK.skinSrc = 'custom';
-      skinTexCache.delete('custom');
+      skinTexCache.delete('custom'); skinOverlayCache.clear();
       try { localStorage.setItem(SKIN_PNG_KEY, String(fr.result)); } catch (e) {}
       saveLook();
       refreshLookAv();
@@ -10277,12 +10293,16 @@ function loadSavedSkin() {
   try { d = localStorage.getItem(SKIN_PNG_KEY); } catch (e) {}
   if (!d) return;
   const img = new Image();
+  img.onerror = () => { LOOK.skinSrc = 'gen'; saveLook(); refreshLookAv(); drawSkinThumb(); };
   img.onload = () => {
     skinCustom = img;
-    if (LOOK.skinSrc === 'custom') { skinTexCache.delete('custom'); refreshLookAv(); drawSkinThumb(); }
+    if (LOOK.skinSrc === 'custom') { skinTexCache.delete('custom'); skinOverlayCache.clear(); refreshLookAv(); drawSkinThumb(); }
   };
   img.src = d;
 }
+// ⚠ 必须在 SKIN_PNG_KEY / skinCustom 这些定义之后调用：放到 loadLook() 那一行会因为 TDZ 抛错、
+//    被内部的 try 吞掉，表现为「刷新后自定义皮肤丢了 / 二层识别不出来」。
+loadSavedSkin();
 function openLook() {
   loadLook();
   $('lookPanel').classList.remove('hide');
@@ -10584,7 +10604,7 @@ window.GAME = {
         const img = new Image();
         img.onload = () => {
           if (img.width !== 64 || img.height !== 64) { res({ ok: false, w: img.width, h: img.height }); return; }
-          skinCustom = img; LOOK.skinSrc = 'custom'; skinTexCache.delete('custom');
+          skinCustom = img; LOOK.skinSrc = 'custom'; skinTexCache.delete('custom'); skinOverlayCache.clear();
           try { localStorage.setItem(SKIN_PNG_KEY, String(dataUrl)); } catch (e) {}
           saveLook(); refreshLookAv(); drawSkinThumb();
           res({ ok: true, w: 64, h: 64 });
