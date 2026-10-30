@@ -1790,9 +1790,11 @@ function genChunk(cx, cz) {
     if (onlyAir && b[i] !== 0) return;
     b[i] = id;
   };
+  const HC = new Int16Array(CH * CH);              // 每列高度缓存：下面植被段不再重算一次 heightAt
   for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
     const wx = ox + lx, wz = oz + lz;
     const h = heightAt(wx, wz);
+    HC[lz * CH + lx] = h;
     const beach = h <= SEA + 1;
     for (let y = 0; y <= Math.min(h, WH - 2); y++) {
       const d = h - y;
@@ -1817,7 +1819,7 @@ function genChunk(cx, cz) {
   applyStoneBlobs(b, idx, cx, cz);
   // 地表植被：草丛 / 红花（十字面片，不挡路，只长在草地上）
   for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
-    const wx = ox + lx, wz = oz + lz, h = heightAt(wx, wz);
+    const wx = ox + lx, wz = oz + lz, h = HC[lz * CH + lx];
     if (h + 1 >= WH) continue;
     if (b[idx(lx, h, lz)] !== 1) continue;                 // 脚下是草地
     if (b[idx(lx, h + 1, lz)] !== 0) continue;             // 上方空着
@@ -2212,20 +2214,121 @@ function surfaceY(x, z) {
 
 /* ============================================================ 渲染 */
 const app = document.getElementById('app');
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
-/* GPU 上下文丢失（手机被大场景压垮、切后台、驱动重置）会让画面冻在最后一帧。
- * 这里拦下来：丢失时记一笔并暂停重建，恢复后把已加载区块全部标脏重建 + 提示玩家。 */
-let glLost = false;
+/* preserveDrawingBuffer 会让浏览器额外保留一整屏像素（iPhone 3x 屏 ≈ 5MB 显存 + 每次 present 多一次拷贝），
+ * 只有页面内 toDataURL 截图探针需要它 → 默认关掉，带 ?shot=1 / ?dev=1 才开。 */
+const SHOTBUF = /[?&](shot|dev)=1/.test(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: SHOTBUF });
+/* ============================================================ 冻结看门狗
+ * 「有时候画面完全卡死、而且永远不回来」的收口（加了森林之后帧变重、更容易触发）：
+ *   ① 显卡上下文丢失（手机被大场景压垮 / 切后台 / 驱动重置）→ 暂停渲染+建区块+模拟，
+ *      常驻遮罩倒计时，12 秒没恢复就存档重载。以前只弹一个 3 秒就消失的 toast，
+ *      画面永远停在最后一帧 = 用户说的「完全卡死并且不会结束」。
+ *   ② 主线程活着但画面 >2.5 秒没更新 → 遮罩 + 「重载 / 继续等待」按钮。
+ *   ③ 帧循环抛异常 → 不再「每帧同一处炸、屏幕定格」，显示错误首行 + 重载按钮。
+ *   ④ 玩家坐标变 NaN → 回到最后一次有效位置（NaN 会让镜头永久画不出东西）。
+ */
+const FREEZE = { glLost: 0, stall: 0, err: 0, lastErr: '' };
+let glLost = false, glLostAt = 0, glRecovering = 0;
+let lastRenderAt = 0, lastGoodPos = null, goodPosT = 0, fzShown = '';
+let fzWrap = null, fzTitle = null, fzBody = null, fzBtn = null, fzWait = null;
+
+function freezeInit() {
+  if (fzWrap || !document.body) return;
+  fzWrap = document.createElement('div');
+  fzWrap.id = 'freezeMask';
+  fzWrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;'
+    + 'background:rgba(6,10,18,.88);font:13px/1.65 system-ui,-apple-system,"PingFang SC",sans-serif;color:#e8f0f8';
+  const box = document.createElement('div');
+  box.style.cssText = 'width:min(92vw,420px);padding:18px 20px;border:2px solid #f5c451;border-radius:10px;background:#111a26;box-sizing:border-box';
+  fzTitle = document.createElement('div');
+  fzTitle.style.cssText = 'font-size:15px;font-weight:700;color:#f5c451;margin-bottom:6px';
+  fzBody = document.createElement('div');
+  fzBody.style.cssText = 'color:#b9cbe1;white-space:pre-wrap;word-break:break-word;margin-bottom:12px';
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+  const mkBtn = (txt, bg) => {
+    const b = document.createElement('button');
+    b.textContent = txt;
+    b.style.cssText = 'flex:1 1 auto;min-width:120px;padding:9px 14px;border:0;border-radius:6px;'
+      + 'background:' + bg + ';color:#10161f;font:700 13px system-ui,sans-serif;cursor:pointer';
+    return b;
+  };
+  fzBtn = mkBtn('立即重新加载', '#f5c451');
+  fzBtn.onclick = () => { try { save(); } catch (e) {} location.reload(); };
+  fzWait = mkBtn('继续等待', '#5d7186');
+  fzWait.onclick = () => { if (fzWrap) fzWrap.style.display = 'none'; };
+  row.append(fzBtn, fzWait);
+  box.append(fzTitle, fzBody, row);
+  fzWrap.append(box);
+  document.body.append(fzWrap);
+  setInterval(freezeTick, 500);
+}
+function freezeShow(kind, title, body, canWait) {
+  freezeInit();
+  if (!fzWrap) return;
+  fzShown = kind;
+  fzTitle.textContent = title;
+  fzBody.textContent = body;
+  fzWait.style.display = canWait ? '' : 'none';
+  fzWrap.style.display = 'flex';
+}
+function freezeDismiss() {
+  fzShown = '';
+  if (fzWrap) fzWrap.style.display = 'none';
+}
+function freezeTick() {                       // 每 0.5s：丢上下文 / 停帧 两种「画面不动」都从这里报出来
+  if (!fzWrap) return;
+  if (glLost) {
+    const sec = (performance.now() - glLostAt) / 1000;
+    const left = Math.max(0, Math.ceil(12 - sec));
+    freezeShow('gl', '显卡上下文丢失',
+      '画面已经停了 ' + sec.toFixed(0) + ' 秒，正在等显卡自己恢复…\n'
+      + (sec < 3 ? '通常 1~2 秒就会好。' : left + ' 秒后自动存档并重新加载（进度不会丢）。'), false);
+    if (sec > 12) { try { save(); } catch (e) {} location.reload(); }
+    return;
+  }
+  if (!started) { if (fzShown === 'stall' || fzShown === 'err') freezeDismiss(); return; }
+  const idle = performance.now() - lastRenderAt;
+  if (lastRenderAt && idle > 2500 && !document.hidden) {
+    if (fzShown !== 'stall') FREEZE.stall++;
+    freezeShow('stall', '画面已停止 ' + (idle / 1000).toFixed(0) + ' 秒',
+      '游戏循环还在跑，但没有再渲染新的一帧（通常是某个同步计算卡住了，或者显卡驱动被重置）。\n'
+      + '可以先点「继续等待」看它会不会自己回来；一直不动就重新加载（会自动存档）。', true);
+  } else if (fzShown === 'stall') freezeDismiss();
+}
+function frameHealth(now) {                   // 每帧：NaN 坐标自愈
+  if (now - goodPosT < 500) return;
+  goodPosT = now;
+  const p = player.p;
+  if (isFinite(p.x) && isFinite(p.y) && isFinite(p.z)) { lastGoodPos = { x: p.x, y: p.y, z: p.z }; return; }
+  if (lastGoodPos) {
+    p.set(lastGoodPos.x, lastGoodPos.y, lastGoodPos.z);
+    player.v.set(0, 0, 0);
+    FREEZE.err++;
+    try { toast('坐标异常已自动复位（冻结保护）', 3); } catch (e) {}
+  }
+}
+function frameCrashed(e) {
+  FREEZE.err++;
+  FREEZE.lastErr = String((e && (e.stack || e.message)) || e).split('\n')[0].slice(0, 200);
+  if (FREEZE.err === 1 || FREEZE.err % 120 === 0) {
+    console.error('[blockwild] 帧循环异常', e);
+    freezeShow('err', '游戏循环出错（第 ' + FREEZE.err + ' 次）',
+      FREEZE.lastErr + '\n\n画面会停在最后一帧。重新加载不会丢存档。', false);
+  }
+}
 renderer.domElement.addEventListener('webglcontextlost', (e) => {
   e.preventDefault();
-  glLost = true;
-  try { toast('显卡上下文丢失，正在恢复…', 3); } catch (err) {}
+  glLost = true; glLostAt = performance.now(); FREEZE.glLost++;
+  freezeShow('gl', '显卡上下文丢失', '画面已经停了 0 秒，正在等显卡自己恢复…', false);
 }, false);
 renderer.domElement.addEventListener('webglcontextrestored', () => {
   glLost = false;
+  freezeDismiss();
+  glRecovering = 300;                         // 之后 300 帧只做分片重建，避免恢复瞬间一次性整块重算
   try {
     for (const c of chunks.values()) { c.ready = false; c.stale = true; if (c.job) c.job = null; dirty.add(c); }
-    toast('显示已恢复', 2.5);
+    toast('显示已恢复（区块正在后台重建）', 2.5);
   } catch (err) {}
 }, false);
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
@@ -2675,7 +2778,7 @@ function finishChunkMesh(chunk) {
   if (!j || j.y < CFG.WH) return false;
   const ox = j.ox, oz = j.oz;
   const { P, U, C, I, P2, U2, C2, I2, P3, U3, C3, I3, P4, U4, C4, I4, doorCells } = j;
-  const mk = (P_, U_, C_, I_, mat) => {
+  const mk = (P_, U_, C_, I_, mat, cast) => {
     if (!P_.length) return null;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(P_, 3));
@@ -2685,16 +2788,16 @@ function finishChunkMesh(chunk) {
     geo.computeVertexNormals();          // 受光材质必须有法线，否则整片全黑
     geo.computeBoundingSphere();
     const m = new THREE.Mesh(geo, mat);
-    m.castShadow = true;
+    m.castShadow = !!cast;                  // 只有实心方块网格投影：植物/水面/玻璃进阴影 pass 纯属浪费
     m.receiveShadow = true;
     m.position.set(ox, 0, oz);
     m.frustumCulled = true;
     return m;
   };
-  const nm = mk(P, U, C, I, solidMat);
-  const ng = mk(P3, U3, C3, I3, glassMat);
-  const np = mk(P4, U4, C4, I4, plantMat);
-  const nw = mk(P2, U2, C2, I2, waterMat);
+  const nm = mk(P, U, C, I, solidMat, true);
+  const ng = mk(P3, U3, C3, I3, glassMat, false);
+  const np = mk(P4, U4, C4, I4, plantMat, false);
+  const nw = mk(P2, U2, C2, I2, waterMat, false);
   if (chunk.mesh) { scene.remove(chunk.mesh); chunk.mesh.geometry.dispose(); }
   if (chunk.glass) { scene.remove(chunk.glass); chunk.glass.geometry.dispose(); }
   if (chunk.water) { scene.remove(chunk.water); chunk.water.geometry.dispose(); }
@@ -3532,8 +3635,17 @@ function dropChunkGenMeta(cx, cz) {
   if (!genMeta.size) return;
   const x0 = cx * CFG.CH, x1 = x0 + CFG.CH, z0 = cz * CFG.CH, z1 = z0 + CFG.CH;
   for (const k of genMeta.keys()) {
-    const p = k.split(',');
-    const x = +p[0], z = +p[2];
+    // ★ 根因（「完全卡死并且不会结束」）：metaKey 返回的是**数值键**
+    //   ((x+32768)*65536 + (z+32768))*256 + y，这里却当成 "x,y,z" 字符串去 split →
+    //   只要 genMeta 里有一条（村子/小屋的楼梯、门的朝向），卸载任何区块都抛
+    //   TypeError: k.split is not a function。异常发生在 renderer.render 之前，
+    //   而 rAF 已经在 frame() 开头申请过 → 之后每帧都在同一处炸、画面永久定格在
+    //   最后一帧，看起来就是「完全卡死、永不结束」。
+    if (typeof k !== 'number') { genMeta.delete(k); continue; }   // 旧格式/脏键：直接丢掉，别再炸
+    const y = ((k % 256) + 256) % 256;
+    const xz = (k - y) / 256;
+    const z = ((xz % 65536) - 32768) | 0;
+    const x = (((xz - (z + 32768)) / 65536) - 32768) | 0;
     if (x >= x0 && x < x1 && z >= z0 && z < z1) genMeta.delete(k);
   }
 }
@@ -8691,6 +8803,7 @@ function streamChunks() {
   }
   const tStart = performance.now();
   const budgetMs = perfBudget;
+  if (glRecovering > 0) glRecovering--;
 
   // ② 邻居补齐后重建：只往 dirty 里塞（很便宜），真正的重建排到 ④
   //   ⚠ 必须放在建新区块之前：建新区块一旦超预算就跳出，原来放在后面永远轮不到执行
@@ -8744,7 +8857,7 @@ function streamChunks() {
     const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
     if (d > CFG.LOAD_R + 1) { dirty.delete(c); continue; }
     if (!c.job) startChunkMesh(c);
-    stepChunkMesh(c, c.job.y + (rebuilt === 0 ? CFG.WH : 24));   // 第一块整块做完，其余分片
+    stepChunkMesh(c, c.job.y + (rebuilt === 0 && !glRecovering ? CFG.WH : 24));   // 恢复期一律 24 层分片
     if (c.job && c.job.y >= CFG.WH) { finishChunkMesh(c); dirty.delete(c); rebuilt++; }
   }
 }
@@ -8827,6 +8940,7 @@ function updateHUD(dt) {
   const pt = profText(), pf = profFrame();
   const s2 = (DEV || userCfg.probe)
     ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
+      + `\n<b style="color:#f5c451">冻结</b> 上下文 <b>${FREEZE.glLost}</b> 停帧 <b>${FREEZE.stall}</b> 异常 <b>${FREEZE.err}</b> 画面 <b>${lastRenderAt ? ((performance.now() - lastRenderAt) / 1000).toFixed(1) + 's前' : '—'}</b>`
       + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 流 <b>${pf.stream.toFixed(1)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 远古废墟 · F5 宝珠守护地 · T 指令</span>`
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
@@ -9546,11 +9660,19 @@ function loadSave(id) {
 }
 
 /* ============================================================ 帧循环 */
+/* 所有逻辑都在 frameBody 里，外层 frame 只保证「不管里面炸什么，循环都不会死」。
+   以前只要有一帧在 render 之前抛错（某块数据 undefined 之类），之后每一帧都在同一处炸，
+   画面就永久定在最后一帧 —— 这是「完全卡死并且不会结束」的第二条路径。 */
 function frame(now) {
+  try { frameBody(now); } catch (e) { frameCrashed(e); }
+}
+function frameBody(now) {
   const __ft = lastFrameAt ? (now - lastFrameAt) : 16.7;
   lastFrameAt = now;
   noteFrameMs(__ft);
   requestAnimationFrame(frame);
+  frameHealth(now);                                // ★ NaN 坐标自愈（NaN 镜头 = 永久画不出东西）
+  if (glLost) return;                              // ★ 显卡上下文丢失：不渲染 / 不建区块 / 不推进模拟
   if (!started) {                                  // 主菜单：镜头绕着远古废墟慢转
     const mdt = Math.min(0.05, __ft / 1000);
     menuT += mdt;
@@ -9616,6 +9738,7 @@ function frame(now) {
   renderer.render(scene, camera);
   renderer.clearDepth();
   renderer.render(handScene, handCam);
+  lastRenderAt = now;                              // ★ 停帧看门狗时间戳：只有真的画完一帧才更新
   if (__p) PROF.render += performance.now() - __t;
 }
 
@@ -9717,7 +9840,9 @@ function startGame(world) {
   lastT = performance.now(); startedAt = performance.now();
   // 先把出生点周围铺开，避免掉进虚空
   const pcx = Math.floor(player.p.x / CFG.CH), pcz = Math.floor(player.p.z / CFG.CH);
-  for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) buildChunk(getChunk(pcx + dx, pcz + dz));
+  // ★ 以前同步建 5×5 = 25 块（实测阻塞 506ms，进世界第一屏就冻一下）
+  //   现在只同步建脚下 3×3（保证不悬空），其余交给 streamChunks 按预算分帧铺开
+  buildChunk(getChunk(pcx, pcz));                  // 只同步建脚下这一块，其余交给流式加载
   // 只有新世界才做「出生点在水里/悬空就抬到地表」；读档来的位置必须原样保留
   if (!loaded) {
     const sy2 = surfaceY(Math.floor(player.p.x), Math.floor(player.p.z));
@@ -10590,6 +10715,19 @@ window.GAME = {
     startWorld: (id) => { const w = worldMeta(id); if (!w) return false; startGame(w); return true; },
     currentWorld: () => ({ id: currentId, mode: MODE, seed: SEED, name: worldMeta(currentId) ? worldMeta(currentId).name : null }),
     fly: (on) => { player.fly = on === undefined ? !player.fly : !!on; return player.fly; },
+    freeze: () => ({ ...FREEZE, glLost, sinceLossMs: glLost ? Math.round(performance.now() - glLostAt) : 0,
+      sinceRenderMs: lastRenderAt ? Math.round(performance.now() - lastRenderAt) : null,
+      mask: fzWrap ? fzWrap.style.display : null, shown: fzShown, recovering: glRecovering, shotbuf: SHOTBUF }),
+    glTest: (mode) => {                       // 冻结自检：'lose' 丢显卡上下文 / 'restore' 恢复
+      try {
+        // ⚠ 上下文已经丢了以后 getExtension 会返回 null（规范如此），扩展句柄必须提前缓存
+        if (!window.__bwLoseExt) window.__bwLoseExt = renderer.getContext().getExtension('WEBGL_lose_context');
+        const ext = window.__bwLoseExt;
+        if (!ext) return 'no_ext';
+        if (mode === 'restore') { ext.restoreContext(); return 'restore_called'; }
+        ext.loseContext(); return 'lose_called';
+      } catch (e) { return String(e); }
+    },
     mode: () => MODE,
     save: () => { save(); return { err: saveErr, size: (localStorage.getItem(worldKey(currentId)) || '').length }; },
     saveError: () => ({ err: saveErr, warned: saveWarned }),
@@ -12700,4 +12838,5 @@ window.GAME = {
   init();
 })();
 
+freezeInit();                                     // 冻结遮罩先就位（丢上下文时立刻能显示）
 requestAnimationFrame(frame);
