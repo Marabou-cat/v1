@@ -2783,32 +2783,55 @@ const dl = new THREE.DirectionalLight(0xffffff, 0.75);
 dl.position.set(0.4, 1, 0.8);
 handScene.add(dl);
 
-const SKIN = 0xd99f6c, SLEEVE = 0x3f7f8c, SLEEVE2 = 0x2f6672;
-function makeArm(side) {
-  const g = new THREE.Group();
-  const sleeveMat = new THREE.MeshLambertMaterial({ color: side > 0 ? SLEEVE : SLEEVE2 });
-  const skinMat = new THREE.MeshLambertMaterial({ color: SKIN });
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.46), skinMat);
-  arm.position.z = -0.3;
-  const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.148, 0.148, 0.17), sleeveMat);
-  sleeve.position.z = -0.11;
-  const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.155, 0.155, 0.04), new THREE.MeshLambertMaterial({ color: 0x244f5a }));
-  cuff.position.z = -0.215;
-  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.145, 0.145, 0.13), new THREE.MeshLambertMaterial({ color: 0xe0aa77 }));
-  hand.position.z = -0.56;
-  g.add(arm, sleeve, cuff, hand);
-  return g;
+/* ── 第一人称的手：MC 同款「方形」手臂，贴图直接取玩家皮肤的手臂 UV ──
+   皮肤里手臂是 4×12 的一块（上几行袖子、下几行手），贴到方截面盒子上，颜色/花纹跟着皮肤走。
+   ⚠ 这里只建空 group：真正的面要等皮肤模块（SKIN_UV / skinTexture）初始化完再 fill，
+     否则在这里调用会撞 TDZ，整个脚本起不来。 */
+const ARM_T = 0.16, ARM_L = 0.50;          // 截面 0.16×0.16（方），长 0.50
+function skinPlane(w, h, rect, swap) {
+  const geo = new THREE.PlaneGeometry(w, h);
+  const [x, y, rw, rh] = rect;
+  const u0 = x / 64, u1 = (x + rw) / 64, v1 = 1 - y / 64, v0 = 1 - (y + rh) / 64;
+  const ord = [[0, 1], [1, 1], [0, 0], [1, 0]];        // PlaneGeometry 的 uv 顶点顺序
+  const uv = [];
+  for (const [s, t] of ord) {
+    const uu = swap ? t : s, vv = swap ? s : t;
+    uv.push(u0 + (u1 - u0) * uu, v0 + (v1 - v0) * vv);
+  }
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  return geo;
 }
-const armR = makeArm(1), armL = makeArm(-1);
-armR.position.set(0.3, -0.3, -0.26);
-armR.rotation.set(-0.2, -0.34, 0.12);
-armL.position.set(-0.28, -0.26, -0.25);
-armL.rotation.set(-0.26, 0.4, -0.12);
+let armR = new THREE.Group(), armL = new THREE.Group();
+armR.position.set(0.31, -0.27, -0.22); armR.rotation.set(-0.2, -0.34, 0.12);
+armL.position.set(-0.29, -0.24, -0.22); armL.rotation.set(-0.26, 0.4, -0.12);
 handScene.add(armR, armL);
+function fillArm(g, side) {
+  while (g.children.length) { const c = g.children.pop(); if (c.geometry) c.geometry.dispose(); }
+  const key = (LOOK.skinSrc === 'custom') ? 'custom'
+    : ('gen:' + LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs);
+  const mat = new THREE.MeshLambertMaterial({ map: skinTexture(key), side: THREE.DoubleSide });
+  const R = SKIN_UV[side > 0 ? 'armR' : 'armL'];
+  const T = ARM_T, L = ARM_L, h = T / 2;
+  const add = (geo, x, y, z, rx, ry) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z); m.rotation.set(rx, ry, 0);
+    g.add(m);
+  };
+  add(skinPlane(L, T, R.front, true), 0, h, -L / 2, -Math.PI / 2, 0);    // 上面（第一人称最常看到）
+  add(skinPlane(L, T, R.back, true), 0, -h, -L / 2, Math.PI / 2, 0);     // 下面
+  add(skinPlane(L, T, R.right, true), h, 0, -L / 2, 0, Math.PI / 2);     // 右面
+  add(skinPlane(L, T, R.left, true), -h, 0, -L / 2, 0, -Math.PI / 2);    // 左面
+  add(skinPlane(T, T, R.top, false), 0, 0, -L, 0, Math.PI);              // 手尖（4×4，不拉伸）
+  add(skinPlane(T, T, R.bottom, false), 0, 0, 0, 0, 0);                  // 靠镜头那一端
+}
+function rebuildArms() {                     // 换皮肤后重建两只手
+  if (!armR || !armL || typeof SKIN_UV === 'undefined') return;
+  fillArm(armR, 1); fillArm(armL, -1);
+}
 
 // ── 手持物：方块立方体 / 工具模型（镐、剑、木棍、苹果）都握在右手里 ──
 const heldGroup = new THREE.Group();
-heldGroup.position.set(0.01, -0.02, -0.54);
+heldGroup.position.set(0.01, -0.02, -0.62);
 armR.add(heldGroup);
 let heldMesh = null, heldFor = -2, heldKindNow = null;
 const faceTexCache = new Map();
@@ -3085,7 +3108,7 @@ function refreshHeld() {
   heldKindNow = kind;
   if (!heldMesh) { heldGroup.visible = false; return; }
   const pose = HOLD_POSE[kind] || HOLD_POSE.block;
-  heldGroup.position.set(0.01, pose.py, -0.54 + pose.pz);
+  heldGroup.position.set(0.01, pose.py, -0.62 + pose.pz);
   heldGroup.rotation.set(pose.rx, pose.ry, pose.rz);
   heldGroup.scale.setScalar(pose.s || 1);
   heldGroup.add(heldMesh);
@@ -3112,7 +3135,7 @@ const anim = {
   sprintK: 0, airK: 0, hurtK: 0, waterK: 0,
   swingN: 0, biteK: 0, bowK: 0,
 };
-const BASE_POSE = { x: 0.27, y: -0.22, z: -0.27, rx: -0.2, ry: -0.34, rz: 0.12 };
+const BASE_POSE = { x: 0.28, y: -0.26, z: -0.18, rx: -0.20, ry: -0.26, rz: 0.10 };
 function startSwing(type = 'attack', dur = 0.5) {
   anim.swingType = type;
   anim.swingDur = dur;
@@ -3260,13 +3283,13 @@ function updateHandPose(dt, now) {
   armR.rotation.set(rx, ry, rz);
   // 左手：比右手更"慢"、并且反向摆（走路时两手交替），A&S 里两只手都有存在感
   armL.position.set(
-    -0.28 - anim.swayX * 0.62 - Math.cos(player.walkPhase) * 0.010 * walkAmt,
-    -0.26 + anim.swayY * 0.72 - anim.land * 0.050
+    -0.27 - anim.swayX * 0.62 - Math.cos(player.walkPhase) * 0.010 * walkAmt,
+    -0.24 + anim.swayY * 0.72 - anim.land * 0.050
         + Math.sin(player.walkPhase * 2) * 0.010 * walkAmt - 0.020 * anim.sprintK,
-    -0.25 + 0.020 * anim.sprintK
+    -0.18 + 0.020 * anim.sprintK
   );
   armL.rotation.set(
-    -0.26 + anim.swayY * 0.25 - aTotal * 0.10 + anim.airK * 0.10,
+    -0.20 + anim.swayY * 0.25 - aTotal * 0.10 + anim.airK * 0.10,
     0.40 + anim.swayX * 0.30,
     -0.12 - Math.sin(player.walkPhase) * 0.030 * walkAmt + 0.030 * anim.sprintK
   );
@@ -3277,7 +3300,7 @@ function updateHandPose(dt, now) {
     heldGroup.rotation.set(pose.rx + aTotal * prof.rx * 0.45,
                            pose.ry - aTotal * prof.ry * 0.60 * side,
                            pose.rz + aTotal * prof.rz * 0.70 * side);
-    heldGroup.position.set(0.01, pose.py - Math.max(0, aTotal) * 0.02, -0.54 + pose.pz - Math.max(0, aTotal) * 0.05);
+    heldGroup.position.set(0.01, pose.py - Math.max(0, aTotal) * 0.02, -0.62 + pose.pz - Math.max(0, aTotal) * 0.05);
     if (eatState.on) {                                     // 吃东西：把食物端到嘴边（抬手时略微上抬 + 每口前送）
       const ch2 = anim.biteK;
       heldGroup.position.set(0.02, 0.05 - 0.03 * ch2, -0.34 - 0.04 * ch2);
@@ -10234,7 +10257,7 @@ function renderLookSwatches() {
       b.onclick = () => {
         LOOK[key] = c;
         if (LOOK.skinSrc === 'custom') { LOOK.skinSrc = 'gen'; try { localStorage.removeItem(SKIN_PNG_KEY); } catch (e) {} }
-        saveLook(); renderLookSwatches(); refreshLookAv(); drawSkinThumb();
+        saveLook(); renderLookSwatches(); refreshLookAv(); drawSkinThumb(); rebuildArms();
       };
       row.appendChild(b);
     }
@@ -10296,13 +10319,14 @@ function loadSavedSkin() {
   img.onerror = () => { LOOK.skinSrc = 'gen'; saveLook(); refreshLookAv(); drawSkinThumb(); };
   img.onload = () => {
     skinCustom = img;
-    if (LOOK.skinSrc === 'custom') { skinTexCache.delete('custom'); skinOverlayCache.clear(); refreshLookAv(); drawSkinThumb(); }
+    if (LOOK.skinSrc === 'custom') { skinTexCache.delete('custom'); skinOverlayCache.clear(); refreshLookAv(); drawSkinThumb(); rebuildArms(); }
   };
   img.src = d;
 }
 // ⚠ 必须在 SKIN_PNG_KEY / skinCustom 这些定义之后调用：放到 loadLook() 那一行会因为 TDZ 抛错、
 //    被内部的 try 吞掉，表现为「刷新后自定义皮肤丢了 / 二层识别不出来」。
 loadSavedSkin();
+rebuildArms();            // 手也要按皮肤上色（在皮肤模块初始化之后）
 function openLook() {
   loadLook();
   $('lookPanel').classList.remove('hide');
@@ -10319,7 +10343,7 @@ $('skinFile').onchange = (e) => { const f = e.target.files && e.target.files[0];
 $('btnSkinReset').onclick = () => {
   LOOK.skinSrc = 'gen';
   try { localStorage.removeItem(SKIN_PNG_KEY); } catch (e) {}
-  saveLook(); refreshLookAv(); drawSkinThumb();
+  saveLook(); refreshLookAv(); drawSkinThumb(); rebuildArms();
   toast('已切回按配色生成的皮肤', 2);
 };
 $('btnCloseLook').onclick = () => $('lookPanel').classList.add('hide');
@@ -10606,7 +10630,7 @@ window.GAME = {
           if (img.width !== 64 || img.height !== 64) { res({ ok: false, w: img.width, h: img.height }); return; }
           skinCustom = img; LOOK.skinSrc = 'custom'; skinTexCache.delete('custom'); skinOverlayCache.clear();
           try { localStorage.setItem(SKIN_PNG_KEY, String(dataUrl)); } catch (e) {}
-          saveLook(); refreshLookAv(); drawSkinThumb();
+          saveLook(); refreshLookAv(); drawSkinThumb(); rebuildArms();
           res({ ok: true, w: 64, h: 64 });
         };
         img.onerror = () => res({ ok: false, err: 'decode' });
