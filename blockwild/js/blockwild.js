@@ -430,7 +430,7 @@ const ITEMS = {
   193: { name: '噩梦之心', kind: 'mat' },
   194: { name: '噩梦之刃', kind: 'sword', dmg: 26, dur: 2600 },
   // ── 宝珠（远古框架的四把钥匙，目前只有绿色能拿到）──
-  195: { name: '绿色宝珠', kind: 'mat' },
+  195: { name: '日耀宝珠', kind: 'mat' },        // 原来的「绿色宝珠」→ 日耀宝珠（远古废墟 1 号激活器的钥匙）
   198: { name: '深渊宝珠', kind: 'mat' },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
@@ -1209,16 +1209,23 @@ function iconURL(id) {
   if (b) {
     const t = b.side ?? b.top;
     g.drawImage(atlasCanvas, (t % ATLAS_COLS) * 16, ((t / ATLAS_COLS) | 0) * 16, 16, 16, 0, 0, S, S);
-  } else if (id === 195) { // 绿色宝珠：发光的绿球（点亮远古框架的钥匙）
-    const grd = g.createRadialGradient(13, 12, 1.5, 16, 16, 14);
-    grd.addColorStop(0, '#f2fff7');
-    grd.addColorStop(0.32, '#7bffae');
-    grd.addColorStop(0.66, '#2fbd63');
-    grd.addColorStop(1, '#0d3d21');
+  } else if (id === 195) { // 日耀宝珠：白热内芯 + 金橙外壳 + 一圈光芒
+    g.save(); g.translate(16, 16);
+    g.strokeStyle = 'rgba(255,214,110,0.55)'; g.lineWidth = 1.4;      // 光芒
+    for (let i = 0; i < 8; i++) {
+      g.rotate(Math.PI / 4);
+      g.beginPath(); g.moveTo(0, -11); g.lineTo(0, -15.5); g.stroke();
+    }
+    g.restore();
+    const grd = g.createRadialGradient(13, 12, 1.5, 16, 16, 13);
+    grd.addColorStop(0, '#fffdf2');
+    grd.addColorStop(0.30, '#ffe98a');
+    grd.addColorStop(0.64, '#f5b73c');
+    grd.addColorStop(1, '#7a4a08');
     g.fillStyle = grd; g.beginPath(); g.arc(16, 16, 13, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(10,52,28,0.9)'; g.lineWidth = 1.6; g.beginPath(); g.arc(16, 16, 13, 0, 7); g.stroke();
-    g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.ellipse(12, 11, 3.6, 2.4, -0.5, 0, 7); g.fill();
-    g.fillStyle = 'rgba(150,255,190,0.5)'; g.beginPath(); g.arc(20.5, 21, 2.4, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(96,58,6,0.9)'; g.lineWidth = 1.6; g.beginPath(); g.arc(16, 16, 13, 0, 7); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.95)'; g.beginPath(); g.ellipse(12, 11, 3.4, 2.3, -0.5, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,236,160,0.6)'; g.beginPath(); g.arc(20.5, 21, 2.3, 0, 7); g.fill();
   } else if (id === 104) { // 木棍
     g.strokeStyle = '#b98a4e'; g.lineWidth = 5; g.lineCap = 'round';
     g.beginPath(); g.moveTo(7, 26); g.lineTo(24, 6); g.stroke();
@@ -3417,18 +3424,18 @@ function makeToolModel(id) {
       ring.rotation.x = Math.PI / 2;
       g.add(ring);
     }
-  } else if (id === 195) {                    // 绿色宝珠：发光内芯 + 两层能量环
+  } else if (id === 195) {                    // 日耀宝珠：白热内芯 + 金色外壳 + 两层日冕环
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 12),
-      new THREE.MeshLambertMaterial({ color: 0x3ee07a, emissive: 0x1f8f4b, emissiveIntensity: 1.0 }));
+      new THREE.MeshLambertMaterial({ color: 0xffd75e, emissive: 0xb07808, emissiveIntensity: 1.0 }));
     orb.position.y = 0.15;
-    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.148, 14, 10),
-      new THREE.MeshBasicMaterial({ color: 0x9dffc4, transparent: true, opacity: 0.22 }));
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 10),
+      new THREE.MeshBasicMaterial({ color: 0xfff0b8, transparent: true, opacity: 0.26 }));
     shell.position.y = 0.15;
     const r1 = new THREE.Mesh(new THREE.TorusGeometry(0.158, 0.008, 6, 20),
-      new THREE.MeshBasicMaterial({ color: 0xd6ffe6 }));
+      new THREE.MeshBasicMaterial({ color: 0xfff3cf }));
     r1.position.y = 0.15; r1.rotation.x = 1.1;
     const r2 = new THREE.Mesh(new THREE.TorusGeometry(0.156, 0.006, 6, 20),
-      new THREE.MeshBasicMaterial({ color: 0x8fffb8 }));
+      new THREE.MeshBasicMaterial({ color: 0xffc247 }));
     r2.position.y = 0.15; r2.rotation.x = -0.55; r2.rotation.z = 0.9;
     g.add(orb, shell, r1, r2);
   } else if (id === 187) {                     // 铀：荧光绿晶体
@@ -4858,7 +4865,7 @@ function abyssAt(x, z) {
 }
 
 /* ── 宝珠试炼：5 波守护者 + 1 个小 boss ───────────────────────────────── */
-const GREEN_ORB = 195;
+const SUN_ORB = 195;                   // 日耀宝珠（原「绿色宝珠」）：远古废墟 1 号激活器的钥匙
 const ABYSS_ORB = 198;                 // 深渊试炼的奖励（第 3 枚宝珠）
 const TRIAL_WAVES = [
   ['grunt', 'grunt', 'grunt', 'grunt'],
@@ -4933,12 +4940,12 @@ function trialWin() {
   const a = ARENA.altar;
   const abyss = ARENA.type === 'abyss';
   if (a) { setBlock(a.x, a.y, a.z, 66); markDirty(a.x >> 4, a.z >> 4); }   // 台子空了 = 已取走
-  addItem(abyss ? ABYSS_ORB : GREEN_ORB, 1); renderHotbar(); refreshHeld(); saveSoon();
+  addItem(abyss ? ABYSS_ORB : SUN_ORB, 1); renderHotbar(); refreshHeld(); saveSoon();
   if (abyss) {
     addItem(178, 2); addItem(176, 6);                                     // 深渊试炼额外给冥界钢 + 冥火碎片
     toast('深渊试炼通过！获得「深渊宝珠」+ 冥界钢 ×2 + 冥火碎片 ×6', 4.5);
   } else {
-    toast('试炼通过！获得「绿色宝珠」（1/4）', 4);
+    toast('试炼通过！获得「日耀宝珠」（1/4）—— 把它嵌进远古废墟的金色激活器', 4.2);
   }
 }
 function updateArena(dt) {
@@ -8409,29 +8416,69 @@ function openPortalAt(core) {
 /* ── 远古废墟的激活器：四座各缺一枚不同的宝珠。
    宝珠系统还没做（暂时无法获取），所以这里只做「认位置 + 说清楚缺什么」，不消耗任何东西；
    宝珠做出来以后，只要在下面 ORB_BY_META 里接上物品 id 就能直接启用。 */
-const ACTIVATOR_ORB_ID = { 1: 0, 2: 0, 3: 0, 4: 0 };        // meta → 宝珠物品 id（0 = 还没实装）
+const ACTIVATOR_ORB_ID = { 1: 195, 2: 0, 3: 0, 4: 0 };      // meta → 宝珠物品 id（0 = 还没实装）
+const ORB_SOURCE_HINT = {                                    // 没拿到宝珠时，界面上直接说去哪拿
+  1: '日耀宝珠：去「宝珠守护地」打 5 波试炼（通过必掉）',
+  2: '月蚀宝珠：还没上线',
+  3: '炽焰宝珠：还没上线',
+  4: '深渊宝珠：深渊迷宫大殿的祭坛试炼（通过必掉）',
+};
 function activatorOrbName(m) {
   return AR_ORBS[(m | 0) - 1] || AR_ORBS[0];
 }
 function useActivator(t) {
-  const m = getMeta(t.x, t.y, t.z) || 1;
+  const raw = getMeta(t.x, t.y, t.z) || 1;
+  const m = raw & 7;
+  const lit = (raw & 8) !== 0;
   const orb = ACTIVATOR_ORB_ID[m] || 0;
   const h = held();
-  if (!orb) {
-    toast(`激活器：这里缺「${activatorOrbName(m)}」（这枚宝珠暂时还无法获得）`, 3.0);
+  if (lit) {                                                   // 已经嵌过了
+    const n = activatorLitCount(t);
+    toast(`这座「${activatorOrbName(m)}」激活器已经点亮（${n}/4）` + (n >= 4 ? ' —— 远古框架已就绪' : ''), 2.6);
     startSwing('place', 0.2);
     return false;
   }
-  if (!h || h.id !== orb) { toast(`要用「${activatorOrbName(m)}」点亮这座激活器`, 2.6); return false; }
+  if (!orb) {
+    toast(`激活器：这里缺「${activatorOrbName(m)}」—— ${ORB_SOURCE_HINT[m] || '暂时无法获得'}`, 3.4);
+    startSwing('place', 0.2);
+    return false;
+  }
+  if (!h || h.id !== orb) {
+    toast(`这座激活器要「${activatorOrbName(m)}」—— ${ORB_SOURCE_HINT[m] || ''}`, 3.2);
+    startSwing('place', 0.2);
+    return false;
+  }
   if (!isCreative()) takeItem(orb, 1);
   setMeta(t.x, t.y, t.z, m | 8, true);                        // 第 4 位 = 已点亮
+  litOrbCache.at = 0;                                         // 探针缓存立刻失效
   markDirty(t.x >> 4, t.z >> 4);
-  toast(`「${activatorOrbName(m)}」嵌进激活器（${activatorLitCount()}/4）`, 2.8);
+  toast(`「${activatorOrbName(m)}」嵌进激活器（${activatorLitCount(t)}/4）`, 2.8);
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
-function activatorLitCount() {                                // 探针/HUD 用：附近已点亮的激活器个数
-  return 0;                                                   // 宝珠系统上线后改成真实统计
+let litOrbCache = { n: 0, at: 0 };
+function activatorLitCountProbe() {                             // 探针用：2 秒缓存，避免每帧跑 ruinsFor
+  const now = performance.now();
+  if (now - litOrbCache.at > 2000) litOrbCache = { n: activatorLitCount(), at: now };
+  return litOrbCache.n;
+}
+function activatorLitCount(near) {                            // 附近废墟里已点亮的激活器个数（真的数方块，不再恒为 0）
+  const c = near && near.x !== undefined ? near : { x: player.p.x, y: player.p.y, z: player.p.z };
+  const pcx = Math.floor(c.x / AR_CELL), pcz = Math.floor(c.z / AR_CELL);
+  let best = null, bd = Infinity;
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {   // 只查周围 9 个废墟格
+    const o = ruinsFor(pcx + dx, pcz + dz);
+    if (!o) continue;
+    const d = Math.hypot(o.cx - c.x, o.cz - c.z);
+    if (d < bd) { bd = d; best = o; }
+  }
+  if (!best || bd > 40) return 0;
+  let n = 0;
+  for (const [ax, az] of [[9, 0], [0, 9], [-9, 0], [0, -9]]) {          // 激活器的 4 个固定位置
+    const bx = best.cx + ax, by = best.gy + 4, bz = best.cz + az;
+    if (getBlock(bx, by, bz) === 61 && (getMeta(bx, by, bz) & 8) !== 0) n++;
+  }
+  return n;
 }
 function usePortal(x, y, z) {
   const core = findPortalCore(x, y, z);
@@ -9652,6 +9699,7 @@ function updateHUD(dt) {
     ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
       + `\n<b style="color:#f5c451">冻结</b> 上下文 <b>${FREEZE.glLost}</b> 停帧 <b>${FREEZE.stall}</b> 异常 <b>${FREEZE.err}</b> 画面 <b>${lastRenderAt ? ((performance.now() - lastRenderAt) / 1000).toFixed(1) + 's前' : '—'}</b>`
       + (FREEZE.lastErr ? `\n<b style="color:#ff7a7a">上次报错</b> <b>${FREEZE.lastErr.slice(0, 120)}</b>` : '')
+      + (() => { const n = activatorLitCountProbe(); return n > 0 ? `\n<b style="color:#ffd75e">宝珠</b> <b>${n}/4</b> 已嵌入远古框架` : ''; })()
       + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 流 <b>${pf.stream.toFixed(1)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 远古废墟 · F5 宝珠守护地 · T 指令</span>`
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
