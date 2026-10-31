@@ -5912,6 +5912,12 @@ const MOB_DEFS = {
   crocKing:   { name: '鳄鱼王', hp: 320, chase: 3.1, wander: 0.8, hostile: true, barY: 2.15, drop: 193, dropN: [1, 2], extra: [{ id: 177, n: [8, 14] }, { id: 125, n: [2, 5] }], dmg: 15, atkCd: 1.5, boss: true, dim: 'nether' },
   // ── 宝珠试炼的小 boss：变异守护者（特殊建模：2.8 格高、宽肩巨臂，见 makeMutantBossModel）──
   trialBoss:  { name: '变异守护者', hp: 100, chase: 3.2, wander: 0.9, hostile: true, barY: 3.05, drop: 148, dropN: [2, 4], dmg: 7, atkCd: 1.3, boss: true },
+  /* ── 远古巨像：石头材质、猩猩式走路、能搬起附近方块扔玩家；不攻击它就一直沉睡。
+        体型约 3×3×3 格（高 ~3.4、宽 ~2.9 含手臂），稀有度按末影人（夜里偶尔一只，全场最多 1）。── */
+  ancientColossus: { name: '远古巨像', hp: 260, chase: 1.8, wander: 0.45, hostile: true, barY: 4.45,
+                     dmg: 11, atkCd: 1.9, reach: 3.3, vReach: 4.2,
+                     colossus: true, dormant: true, drop: 9, dropN: [8, 14],
+                     extra: [{ id: 125, n: [1, 2] }] },
 };
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
@@ -6367,8 +6373,91 @@ function makeMutantBossModel() {
     limbs: [arm1, arm2, legL, legR], legs: [legL, legR], headPivot, topPx: 0 };
 }
 
+function makeColossusModel() {
+  /* 远古巨像：花岗岩拼的猩猩形巨人（高 ~3.3 格、肩宽 ~2.9 格，占地约 3×3 格）。
+     比例参考大猩猩：腿短而粗、躯干宽厚前倾、肩部两块大方石、手臂极长（拳几乎垂到地面）、
+     头小并缩在双肩之间。胸/额头嵌远古符文（醒来会亮），肩背长苔藓。 */
+  const coreY = 1.72;
+  const g = new THREE.Group(), core = new THREE.Group();
+  core.position.y = coreY;
+  const rockM  = blockFaceMat(3);                                      // 真的用「石头」方块贴图
+  const rockD  = blockFaceMat(9);                                      // 圆石：暗部/缝隙
+  const rockL  = new THREE.MeshLambertMaterial({ color: 0xa8acb2 });   // 高光棱
+  const mossM  = new THREE.MeshLambertMaterial({ color: 0x4d7a3a });   // 苔藓
+  const eyesMat = new THREE.MeshBasicMaterial({ color: 0x3a2a10 });    // 沉睡时是暗的
+  const runeM  = new THREE.MeshBasicMaterial({ color: 0x54e0d0 });     // 远古符文（发光）
+  const A = y => y - coreY;
+  const box = (w, h, d, mat, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    return m;
+  };
+  // 腿：短粗石墩（骨盆下方露出来），大脚掌
+  const mkLeg = (sx) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.62, A(1.30), 0);
+    pivot.add(box(0.66, 0.86, 0.7, rockD, 0, -0.42, 0));            // 大腿
+    pivot.add(box(0.58, 0.34, 0.62, rockM, 0, -0.92, 0.02));        // 小腿
+    pivot.add(box(0.72, 0.26, 0.96, rockD, 0, -1.12, 0.14));        // 脚掌
+    core.add(pivot);
+    return pivot;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+  // 骨盆（窄一点，让腿看得出来）+ 宽厚前倾的躯干
+  core.add(box(1.5, 0.42, 1.02, rockD, 0, A(1.36), 0));
+  const chest = new THREE.Group();
+  chest.position.set(0, A(1.98), 0.02);
+  chest.rotation.x = 0.22;
+  chest.add(box(1.9, 1.12, 1.24, rockM, 0, 0, 0));                 // 胸腹
+  chest.add(box(1.72, 0.24, 1.3, rockL, 0, 0.5, 0));               // 斜方肌亮棱
+  chest.add(box(1.3, 0.16, 0.1, rockD, 0, -0.3, 0.62));            // 腹肌分界
+  for (let i = 0; i < 3; i++) chest.add(box(0.5, 0.08, 0.06, runeM, -0.48 + i * 0.48, 0.14, 0.63));  // 符文
+  chest.add(box(0.66, 0.46, 0.1, mossM, -0.5, 0.36, -0.64));       // 背上苔藓
+  chest.add(box(0.38, 0.3, 0.1, mossM, 0.58, -0.14, -0.64));
+  core.add(chest);
+  // 肩：两块独立大方石（比躯干更外、更突出 = 猩猩的肩）
+  for (const sx of [-1, 1]) {
+    core.add(box(0.86, 0.8, 0.88, rockM, sx * 1.12, A(2.36), 0));
+    core.add(box(0.9, 0.12, 0.92, rockL, sx * 1.12, A(2.72), 0));
+  }
+  // 长臂：枢轴在肩，上臂/前臂之间留暗缝，拳头是最大的一块（指关节行走）
+  const mkArm = (sx) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 1.34, A(2.32), 0.02);
+    pivot.add(box(0.56, 0.98, 0.56, rockM, 0, -0.52, 0));          // 上臂
+    pivot.add(box(0.6, 0.1, 0.6, rockD, 0, -1.04, 0));             // 肘缝
+    pivot.add(box(0.52, 0.92, 0.52, rockD, 0, -1.52, 0.02));       // 前臂
+    pivot.add(box(0.76, 0.62, 0.74, rockM, 0, -2.14, 0.05));       // 拳
+    pivot.add(box(0.8, 0.14, 0.78, rockD, 0, -2.48, 0.07));        // 指节
+    core.add(pivot);
+    return pivot;
+  };
+  const arm1 = mkArm(-1), arm2 = mkArm(1);
+  // 头：小、前伸、缩在双肩之间
+  const headPivot = new THREE.Group();
+  headPivot.position.set(0, A(2.78), 0.12);
+  headPivot.add(box(0.86, 0.74, 0.8, rockM, 0, 0.26, 0));
+  headPivot.add(box(0.94, 0.16, 0.88, rockD, 0, 0.58, 0.02));      // 额顶
+  headPivot.add(box(0.8, 0.13, 0.1, rockD, 0, 0.36, 0.42));        // 眉骨
+  headPivot.add(box(0.44, 0.14, 0.1, rockD, 0, 0.02, 0.4));        // 下颚
+  for (const ex of [-0.18, 0.18]) headPivot.add(box(0.16, 0.1, 0.06, eyesMat, ex, 0.24, 0.43));
+  headPivot.add(box(0.22, 0.22, 0.08, runeM, 0, 0.46, 0.42));      // 额心符文
+  core.add(headPivot);
+  g.add(core);
+  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.15), new THREE.MeshBasicMaterial({ color: 0x100c0a }));
+  const barFg = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.085), new THREE.MeshBasicMaterial({ color: 0x7fe06b }));
+  barFg.position.set(0, 0, 0.004);
+  const bar = new THREE.Group();
+  bar.position.y = 4.35;
+  bar.add(barBg, barFg);
+  g.add(bar);
+  return { g, core, coreY, bodyMat: rockM, headMat: rockM, arm1, arm2, bar, barFg,
+    limbs: [arm1, arm2, legL, legR], legs: [legL, legR], headPivot, topPx: 0, eyesMat, runeMat: runeM };
+}
+
 function makeMobModel(kind) {
   if (kind === 'trialBoss') return makeMutantBossModel();      // 守护者首领：特殊建模（变异僵尸）
+  if (kind === 'ancientColossus') return makeColossusModel();  // 远古巨像：石猩猩（3 格见方）
   const G = mobGeos(kind);
   const g = new THREE.Group();
   const core = new THREE.Group();
@@ -6456,6 +6545,25 @@ function animateMob(m, dt, dx, dz, dist) {
     m.headPitch = (m.headPitch || 0) + (py - (m.headPitch || 0)) * Math.min(1, dt * 7);
     P.headPivot.rotation.y = m.headYaw;
     P.headPivot.rotation.x = m.headPitch;
+  }
+  // ⑤ 远古巨像：猩猩式 —— 前肢撑着大幅前后甩、身体左右摇、驼背；沉睡时前肢垂地、脑袋埋着
+  if (def.colossus) {
+    if (P.arm1) { P.arm1.rotation.x = -0.16 + s * amp * 0.95; P.arm1.rotation.z = 0.13; }
+    if (P.arm2) { P.arm2.rotation.x = -0.16 - s * amp * 0.95; P.arm2.rotation.z = -0.13; }
+    P.core.rotation.z = s * 0.075 * a.k;
+    P.core.rotation.x = 0.18 * a.k + Math.sin(a.idle * 0.9) * 0.02 * (1 - a.k) - 0.20 * flinch;
+    if (m.throwAnim > 0) {                                  // 抬臂投掷
+      m.throwAnim = Math.max(0, m.throwAnim - dt);
+      const tu = Math.sin((1 - m.throwAnim / 0.45) * Math.PI);
+      if (P.arm1) P.arm1.rotation.x = -0.16 - 1.5 * tu;
+      if (P.arm2) P.arm2.rotation.x = -0.16 - 1.2 * tu;
+    }
+    if (m.dormant) {
+      if (P.arm1) P.arm1.rotation.x = -0.52 + Math.sin(a.idle * 0.7) * 0.03;
+      if (P.arm2) P.arm2.rotation.x = -0.52 - Math.sin(a.idle * 0.7) * 0.03;
+      P.core.rotation.x = 0.40 + Math.sin(a.idle * 0.7) * 0.015;
+      if (P.headPivot) P.headPivot.rotation.x = 0.5;
+    }
   }
 }
 
@@ -6859,6 +6967,7 @@ function spawnMobAt(kind, x, y, z, opts = {}) {
     parts.arm1.add(bow);
     m.bow = bow;
   }
+  if (def.colossus) { m.dormant = !!def.dormant; m.throwCd = 5 + Math.random() * 5; }
   m.obj.position.copy(m.p);
   scene.add(m.obj);
   mobs.push(m);
@@ -6984,7 +7093,7 @@ function makeBoltModel(color) {
 }
 function spawnBolt(from, to, opts = {}) {
   const dir = to.clone().sub(from).normalize();
-  const obj = makeBoltModel(opts.color || 0xffb066);
+  const obj = opts.mesh || makeBoltModel(opts.color || 0xffb066);   // 巨像扔的是方块，不是光球
   obj.position.copy(from);
   obj.lookAt(to);
   scene.add(obj);
@@ -7013,6 +7122,44 @@ function shootFireball(m) {
     spawnBolt(from, dir, { dmg: (MOB_DEFS[m.kind] && MOB_DEFS[m.kind].fbDmg) || 5, speed: 20, color: 0xff6a1e, hostile: true, grav: 0.9 });
   }
   sfx('place');
+}
+/* 远古巨像搬起身边一块方块砸玩家：先把那块真方块挖走（算「搬起来」），
+   再用一个飞行的方块模型扔过去；落地/命中就碎掉（不会在世界里乱长方块）。 */
+const ROCK_TINT = { 1: 0x8d9096, 2: 0x7a5f3a, 3: 0x5f8f4a, 4: 0x7a5a3a, 6: 0x6b5a3a, 7: 0x8a8a8a,
+                    8: 0x7b7b7b, 12: 0xd8c89a, 13: 0x9a9a92, 19: 0x8a8f96, 46: 0x7d6b52 };
+function makeRockMesh(id) {
+  const col = ROCK_TINT[id] || 0x8d9096;
+  const mat = new THREE.MeshLambertMaterial({ color: col });
+  const rock = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), mat);
+  rock.rotation.set(Math.random() * 0.6, Math.random() * 0.6, Math.random() * 0.6);
+  const grp = new THREE.Group();
+  grp.add(rock);
+  return grp;
+}
+function colossusThrow(m) {
+  // 找一个可以搬的方块：半径 3.4，排除空气/水/岩浆/不可破坏/液体
+  let best = null, bd = Infinity;
+  const R = 3;
+  for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) for (let dy = -1; dy <= 2; dy++) {
+    const bx = Math.floor(m.p.x) + dx, by = Math.floor(m.p.y) + dy, bz = Math.floor(m.p.z) + dz;
+    const id = getBlock(bx, by, bz);
+    const d = BLOCKS[id];
+    if (!d || id === 0 || d.unbreakable || d.liquid || d.fluid) continue;
+    const dd = Math.hypot(bx + 0.5 - m.p.x, by + 0.5 - m.p.y, bz + 0.5 - m.p.z);
+    if (dd < 1.3 || dd > 3.4) continue;
+    if (dd < bd) { bd = dd; best = { x: bx, y: by, z: bz, id }; }
+  }
+  if (!best) return false;
+  setBlock(best.x, best.y, best.z, 0);                    // 真的搬走一块
+  m.carryId = best.id;
+  const from = new THREE.Vector3(m.p.x, m.p.y + 2.9, m.p.z);
+  const to = new THREE.Vector3(player.p.x, player.p.y + 1.0, player.p.z);
+  spawnBolt(from, to, {
+    dmg: 8, speed: 16, grav: 1.1, hostile: true, mesh: makeRockMesh(best.id), maxT: 4,
+  });
+  m.throwAnim = 0.45;                                     // 抬臂动作
+  sfx('place');
+  return true;
 }
 function updateArrows(dt) {
   for (let i = arrows.length - 1; i >= 0; i--) {
@@ -7408,6 +7555,27 @@ function updateMobs(dt) {
     if (dist > 72) { killMob(m); mobs.splice(i, 1); continue; }
     if (!def.hostile && !night && dist > 44) { killMob(m); mobs.splice(i, 1); continue; }
 
+    /* 远古巨像：不挨打就一直沉睡（不动、不打）。掉血或被激怒立刻苏醒，眼睛点亮。 */
+    if (def.colossus) {
+      if (m.dormant && (m.hp < m.maxHp || m.aggro > 0)) {
+        m.dormant = false; m.aggro = 45; m.throwCd = 2.5;
+        if (m.parts.eyesMat) m.parts.eyesMat.color.setHex(0xffb43a);
+        toast('远古巨像苏醒了！', 2.2);
+        sfx('hurt');
+      }
+      if (!m.dormant) {
+        m.throwCd = (m.throwCd || 0) - dt;
+        const canSee = sightClear(m.p, player.p);
+        if (m.throwCd <= 0 && player.alive && canSee && dist >= 4.5 && dist < 22) {
+          m.throwCd = 8 + Math.random() * 6;              // 频率低：8~14 秒才扔一次
+          colossusThrow(m);
+        }
+        /* throwCd <= 0 且太近 ⇒ 暂时保持这个状态：下面的移动分支会先退到 4.5 格外再说。
+           实测不这么改，它一苏醒就贴身（5.9→0.8 只要 1.5 秒），永远没机会扔。 */
+        m.wantThrow = (m.throwCd <= 0 && dist < 4.5 && canSee && player.alive);
+      }
+    }
+    const asleep = !!(def.colossus && m.dormant);
     let mx = 0, mz = 0, speed = def.wander;
     // ── 村民：状态机（idle / to-bed / to-door / sleep / follow）+ 绕障 + 开门进屋 ──
     if (m.kind === 'villager') {
@@ -7532,6 +7700,10 @@ function updateMobs(dt) {
         m.v.set(0, 0, 0);
       }
     }
+    if (asleep) { mx = 0; mz = 0; speed = 0; }        // 沉睡：原地不动
+    if (!asleep && def.colossus && m.wantThrow && dist > 2.4 && dist < 6) {
+      mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase * 0.95;   // 先退开再扔
+    }
     if (m.knockT > 0) {                       // 被击退：保住冲量，AI 这段时间不接管
       m.knockT -= dt;
       const damp = Math.pow(0.03, dt);
@@ -7614,7 +7786,7 @@ function updateMobs(dt) {
     if (isCreative() && m.target === player) m.target = null;
     m.atkCd -= dt;
     const tgtMob = (m.target && m.target.hp > 0 && !m.target.dying) ? m.target : null;
-    const reach = def.boss ? 2.4 : 1.5;
+    const reach = def.reach || (def.boss ? 2.4 : 1.5);        // 巨像体型大：够到 3.3 格
     if (tgtMob) {                                                   // 目标已改成村民：打村民
       const dv = Math.hypot(tgtMob.p.x - m.p.x, tgtMob.p.z - m.p.z);
       if (def.hostile && hostileNow && dv < reach && m.atkCd <= 0 && sightClear(m.p, tgtMob.p)) {
@@ -7624,7 +7796,7 @@ function updateMobs(dt) {
         if (tgtMob.hp <= 0) startMobDeath(tgtMob);
         sfx('hurt');
       }
-    } else if (def.hostile && hostileNow && dist < reach && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.boss ? 3.2 : 2.0) && sightClear(m.p, player.p)) {
+    } else if (def.hostile && hostileNow && !m.dormant && dist < reach && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.vReach || (def.boss ? 3.2 : 2.0)) && sightClear(m.p, player.p)) {
       m.atkCd = def.atkCd || 1.6; m.lunge = 0.3;
       hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
       sfx('hurt');
@@ -7647,6 +7819,8 @@ function updateMobs(dt) {
     if (countKind('chicken') < 4 && Math.random() < dt * 0.13) spawnMob('chicken');
     if (countKind('spider') < 3 && Math.random() < dt * 0.18) spawnMob('spider');   // 0.55 → 0.18，上限 4 → 3
     if (countKind('skeleton') < 3 && Math.random() < dt * 0.30) spawnMob('skeleton');
+    // 远古巨像：末影人级稀有 —— 一场最多 1 只，平均 ~70 秒才刷一次（只在夜里/暗处）
+    if (countKind('ancientColossus') < 1 && Math.random() < dt * 0.014) spawnMob('ancientColossus');
   }
   if (DIM === 'nether') return;                     // 冥界不刷鬼屋幽灵
   // 废弃鬼屋：进屋就刷幽灵，每栋只唤醒一只幽灵王
