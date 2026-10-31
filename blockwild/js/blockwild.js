@@ -8504,6 +8504,7 @@ const keys = new Set();
 let mineHeld = false, placeQueued = false, attackQueued = false, jumpQueued = false;
 let sprintTouch = false;                    // 触屏「跑」按钮按住 = 疾跑（手机上原本没有任何奔跑入口）
 let sprintLatch = false, lastFwdT = 0, lastFwdGap = -1;   // 电脑：320ms 内连点两次 W 并按住 = 疾跑（MC 同款）
+let creativeArmed = false, creativeHintShown = false;     // 创造模式：一次按下只破一格（按住不会连挖）
 const joy = { x: 0, y: 0, active: false };
 let started = false;
 
@@ -8549,7 +8550,7 @@ addEventListener('keydown', e => {
   if (k === 'F5' && profOn()) { e.preventDefault(); window.GAME.debug.gotoArena(); return; }   // 探针开着：传送到最近的宝珠守护地
   keys.add(k);
   if (started && !uiOpen() && player.alive) {
-    if (k === keymap.mine) { mineHeld = true; attackQueued = true; }
+    if (k === keymap.mine) { mineHeld = true; attackQueued = true; creativeArmed = true; }
     if (k === keymap.place) placeQueued = true;
     // 双击 W 疾跑（MC 同款）：必须过滤系统按键重复，只认真正的第二次按下
     if (!e.repeat && k === keymap.fwd) {
@@ -8608,11 +8609,11 @@ renderer.domElement.addEventListener('mousedown', e => {
     if (userCfg.touchUI && e.button === 0) { dragLook = true; return; }   // 无指针锁：鼠标拖拽转视角
     lockPointer(); return;
   }
-  if (e.button === 0) { mineHeld = true; attackQueued = true; if (heldKind() === 'sword') startSwing('attack', 0.5); }
+  if (e.button === 0) { mineHeld = true; attackQueued = true; creativeArmed = true; if (heldKind() === 'sword') startSwing('attack', 0.5); }
   if (e.button === 2) { placeQueued = true; placeHeld = true; }
 });
-addEventListener('keyup', e => { if (e.code === keymap.mine) mineHeld = false; if (e.code === keymap.fwd) sprintLatch = false; });
-addEventListener('mouseup', e => { if (e.button === 0) { mineHeld = false; dragLook = false; } if (e.button === 2) placeHeld = false; });
+addEventListener('keyup', e => { if (e.code === keymap.mine) { mineHeld = false; creativeArmed = false; } if (e.code === keymap.fwd) sprintLatch = false; });
+addEventListener('mouseup', e => { if (e.button === 0) { mineHeld = false; dragLook = false; creativeArmed = false; } if (e.button === 2) placeHeld = false; });
 addEventListener('contextmenu', e => e.preventDefault());
 let dragLook = false;
 addEventListener('mousemove', e => {
@@ -8673,7 +8674,7 @@ function bindHold(el, down, up) {
   el.addEventListener('mousedown', e => { down(); e.preventDefault(); });
   el.addEventListener('mouseup', () => up && up());
 }
-bindHold($('tMine'), () => { if (!uiOpen() && player.alive) { mineHeld = true; attackQueued = true; } }, () => { mineHeld = false; });
+bindHold($('tMine'), () => { if (!uiOpen() && player.alive) { mineHeld = true; attackQueued = true; creativeArmed = true; } }, () => { mineHeld = false; creativeArmed = false; });
 bindHold($('tPlace'), () => { if (!uiOpen() && player.alive) placeQueued = true; });
 bindHold($('tJump'), () => { jumpQueued = true; jumpTouchT = performance.now(); });
 if ($('tSprint')) bindHold($('tSprint'), () => { sprintTouch = true; }, () => { sprintTouch = false; });   // 触屏：按住「跑」= 疾跑
@@ -8757,7 +8758,16 @@ function doMine(dt, target) {
   const key = target.x + ',' + target.y + ',' + target.z;
   if (player.mineKey !== key) { player.mineKey = key; player.mining = 0; }
   if (MINE_PIN !== null) player.mining = MINE_PIN;
-  if (isCreative()) { player.mining = 1; player.mineTarget = target; breakBlock(target); return true; }   // 创造：秒破
+  if (isCreative()) {
+    /* ★ 创造模式秒破的老问题：按住左键时每一帧都会破掉准星当前指的那一格 ——
+       破完变空气，下一帧准星就指到它后面那一格，于是「按住不动」也能一路挖穿，
+       扫一眼就把一片方块挖没了。现在改成：一次按下只破一格，要破下一格得重新按。 */
+    if (!creativeArmed) { player.mining = 0; player.mineTarget = target; return false; }
+    creativeArmed = false;
+    player.mining = 1; player.mineTarget = target; breakBlock(target);
+    if (!creativeHintShown) { creativeHintShown = true; toast('创造模式：按一下挖一格（按住不会连挖）', 2.4); }
+    return true;
+  }
   const pickOk = heldKind() === 'pick';
   let speed = 1 / Math.max(0.12, def.hard);
   if (def.pick) speed *= pickOk ? 1 : 0.28;
@@ -11451,14 +11461,14 @@ window.GAME = {
     respawn: () => respawn(),
     setHunger(v) { player.hunger = v; },
     sprintState: () => ({ latch: sprintLatch, touch: sprintTouch, fwdHeld: keyDown('fwd'), shift: keyDown('sprint'), gap: lastFwdGap, ui: uiOpen(), alive: player.alive }),
-    mine(on) { mineHeld = !!on; },
+    mine(on) { mineHeld = !!on; if (on) creativeArmed = true; },        // 探针模拟一次按下（创造模式也要上膛）
     mineOnce() { const t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH); if (t) breakBlock(t); return !!t; },
     mineTo() {
       const t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
       if (!t) return null;
       player.mining = 0;
       let broke = false, i = 0;
-      while (!broke && i++ < 900) broke = doMine(STEP, t);
+      while (!broke && i++ < 900) { creativeArmed = true; broke = doMine(STEP, t); }
       return { x: t.x, y: t.y, z: t.z, id: t.id, broke };
     },
     place() { return placeBlock(); },
