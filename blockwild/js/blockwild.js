@@ -8474,6 +8474,7 @@ function travelDimension(fromCore) {
 const keys = new Set();
 let mineHeld = false, placeQueued = false, attackQueued = false, jumpQueued = false;
 let sprintTouch = false;                    // 触屏「跑」按钮按住 = 疾跑（手机上原本没有任何奔跑入口）
+let sprintLatch = false, lastFwdT = 0, lastFwdGap = -1;   // 电脑：320ms 内连点两次 W 并按住 = 疾跑（MC 同款）
 const joy = { x: 0, y: 0, active: false };
 let started = false;
 
@@ -8494,7 +8495,7 @@ function syncPointerLock() {
   if (!started) return;
   if (uiOpen()) {
     if (document.pointerLockElement) document.exitPointerLock();
-    dragLook = false; mineHeld = false; placeHeld = false; sprintTouch = false;   // 开界面/失焦时别把「跑」按死
+    dragLook = false; mineHeld = false; placeHeld = false; sprintTouch = false; sprintLatch = false;   // 开界面/失焦时别把「跑」按死
   } else lockPointer();
 }
 addEventListener('keydown', e => {
@@ -8521,6 +8522,13 @@ addEventListener('keydown', e => {
   if (started && !uiOpen() && player.alive) {
     if (k === keymap.mine) { mineHeld = true; attackQueued = true; }
     if (k === keymap.place) placeQueued = true;
+    // 双击 W 疾跑（MC 同款）：必须过滤系统按键重复，只认真正的第二次按下
+    if (!e.repeat && k === keymap.fwd) {
+      const now = performance.now();
+      lastFwdGap = Math.round(now - (lastFwdT || 0));      // 诊断用：两次 W 之间隔了多少 ms
+      if (lastFwdGap < 350 && !sprintLatch) { sprintLatch = true; toast('疾跑', 0.7); }   // 350ms 窗口（MC 约 300ms，留一点手感余量）
+      lastFwdT = now;
+    }
     if (k === 'KeyV') setStructCorner('a');                       // 创作者：选角点1
     if (k === 'KeyB') setStructCorner('b');                       // 创作者：选角点2
     if (k === 'KeyP') uploadStructure();                          // 创作者：导出并上传
@@ -8574,7 +8582,7 @@ renderer.domElement.addEventListener('mousedown', e => {
   if (e.button === 0) { mineHeld = true; attackQueued = true; if (heldKind() === 'sword') startSwing('attack', 0.5); }
   if (e.button === 2) { placeQueued = true; placeHeld = true; }
 });
-addEventListener('keyup', e => { if (e.code === keymap.mine) mineHeld = false; });
+addEventListener('keyup', e => { if (e.code === keymap.mine) mineHeld = false; if (e.code === keymap.fwd) sprintLatch = false; });
 addEventListener('mouseup', e => { if (e.button === 0) { mineHeld = false; dragLook = false; } if (e.button === 2) placeHeld = false; });
 addEventListener('contextmenu', e => e.preventDefault());
 let dragLook = false;
@@ -9256,7 +9264,7 @@ function updatePlayer(dt) {
   const sink = Math.sin(player.yaw), cosk = Math.cos(player.yaw);
   const wx = ix * cosk + iz * sink;
   const wz = -ix * sink + iz * cosk;
-  const sprint = keyDown('sprint') || sprintTouch || (keymap.sprint === 'ShiftLeft' ? keys.has('ShiftRight') : false);
+  const sprint = keyDown('sprint') || sprintLatch || sprintTouch || (keymap.sprint === 'ShiftLeft' ? keys.has('ShiftRight') : false);
   const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : player.inLava ? 0.4 : 1) * (player.tangle > 0 ? 0.32 : 1);
   if (player.knockT > 0) {                    // 被击退：这几帧不接受方向键，靠冲量滑出去
     player.knockT -= dt;
@@ -11412,6 +11420,7 @@ window.GAME = {
     recipes: () => RECIPES.map((r, i) => ({ i, out: r.out, name: nameOf(r.out), tier: r.tier || 0, need: Object.keys(r.need).map(Number) })),
     respawn: () => respawn(),
     setHunger(v) { player.hunger = v; },
+    sprintState: () => ({ latch: sprintLatch, touch: sprintTouch, fwdHeld: keyDown('fwd'), shift: keyDown('sprint'), gap: lastFwdGap, ui: uiOpen(), alive: player.alive }),
     mine(on) { mineHeld = !!on; },
     mineOnce() { const t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH); if (t) breakBlock(t); return !!t; },
     mineTo() {
