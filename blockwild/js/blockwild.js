@@ -2404,6 +2404,11 @@ function freezeDismiss() {
 }
 function freezeTick() {                       // 每 0.5s：丢上下文 / 停帧 两种「画面不动」都从这里报出来
   if (!fzWrap) return;
+  // 连续 30 秒没异常 ⇒ 之前的崩溃已经过去，把「自动重载次数」清零
+  if (started && FREEZE.err === 0 && !FREEZE.reloadCleared && performance.now() > 30000) {
+    FREEZE.reloadCleared = true;
+    try { sessionStorage.removeItem('bwCrashReload'); } catch (e) {}
+  }
   if (glLost) {
     const sec = (performance.now() - glLostAt) / 1000;
     const left = Math.max(0, Math.ceil(12 - sec));
@@ -2437,10 +2442,34 @@ function frameHealth(now) {                   // 每帧：NaN 坐标自愈
 function frameCrashed(e) {
   FREEZE.err++;
   FREEZE.lastErr = String((e && (e.stack || e.message)) || e).split('\n')[0].slice(0, 200);
-  if (FREEZE.err === 1 || FREEZE.err % 120 === 0) {
-    console.error('[blockwild] 帧循环异常', e);
+  if (FREEZE.err === 1) FREEZE.errT0 = performance.now();
+  if (FREEZE.err === 1 || FREEZE.err % 60 === 0) console.error('[blockwild] 帧循环异常', e);
+  const now = performance.now();
+  // 「每帧都在同一处抛错」= 这一帧永远过不去 = 玩家嘴里的「crash」。
+  // 以前只能自己按 F5（还会以为存档没了）。现在：连抛 3 次就自动存档 + 重载，
+  // 用 sessionStorage 计重载次数，防止「一进世界就崩」变成无限刷新。
+  const stuck = FREEZE.err >= 3 && now - (FREEZE.errT0 || now) < 4000;
+  if (!stuck) {
     freezeShow('err', '游戏循环出错（第 ' + FREEZE.err + ' 次）',
-      FREEZE.lastErr + '\n\n画面会停在最后一帧。重新加载不会丢存档。', false);
+      FREEZE.lastErr + '\n\n如果画面停在最后一帧不动了，会自动存档并重新加载。', false);
+    return;
+  }
+  let reloads = 0;
+  try { reloads = parseInt(sessionStorage.getItem('bwCrashReload') || '0', 10) || 0; } catch (err) {}
+  if (reloads >= 3) {
+    freezeShow('err', '游戏循环出错（已自动重载 ' + reloads + ' 次仍未好）',
+      FREEZE.lastErr + '\n\n别急着重载：按 F12 打开控制台，把红色报错发给我；\n'
+      + '或者先在世界列表里换一个世界试试（存档都在，不会丢）。', false);
+    return;
+  }
+  if (!FREEZE.reloadTimer) {
+    freezeShow('err', '游戏循环出错，2 秒后自动恢复…',
+      FREEZE.lastErr + '\n\n会自动存档并重新加载，进度不会丢。', false);
+    FREEZE.reloadTimer = setTimeout(() => {
+      try { save(); } catch (err) {}
+      try { sessionStorage.setItem('bwCrashReload', String(reloads + 1)); } catch (err) {}
+      location.reload();
+    }, 2000);
   }
 }
 renderer.domElement.addEventListener('webglcontextlost', (e) => {
@@ -9612,6 +9641,7 @@ function updateHUD(dt) {
   const s2 = (DEV || userCfg.probe)
     ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
       + `\n<b style="color:#f5c451">冻结</b> 上下文 <b>${FREEZE.glLost}</b> 停帧 <b>${FREEZE.stall}</b> 异常 <b>${FREEZE.err}</b> 画面 <b>${lastRenderAt ? ((performance.now() - lastRenderAt) / 1000).toFixed(1) + 's前' : '—'}</b>`
+      + (FREEZE.lastErr ? `\n<b style="color:#ff7a7a">上次报错</b> <b>${FREEZE.lastErr.slice(0, 120)}</b>` : '')
       + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 流 <b>${pf.stream.toFixed(1)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 远古废墟 · F5 宝珠守护地 · T 指令</span>`
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
