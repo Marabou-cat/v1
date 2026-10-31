@@ -146,6 +146,8 @@
   #tMine{right:96px;bottom:calc(96px + env(safe-area-inset-bottom));width:74px;height:74px}
   #tPlace{right:18px;bottom:calc(66px + env(safe-area-inset-bottom));width:66px;height:66px}
   #tBag{right:20px;bottom:calc(238px + env(safe-area-inset-bottom));width:54px;height:54px;font-size:11px}
+  #tSprint{right:104px;bottom:calc(238px + env(safe-area-inset-bottom));width:62px;height:62px;font-size:13px}
+  #tSprint.on{background:#f5c451;color:#10161f;border-color:#f5c451}
   /* ---------- fullscreen map ---------- */
   #mapFull .card{background:var(--panel)}
   #mapBody{display:flex;gap:10px;margin-top:8px;min-height:0}
@@ -211,6 +213,7 @@
     <button class="tbtn" id="tMine">挖</button>
     <button class="tbtn" id="tPlace">放</button>
     <button class="tbtn" id="tBag">包</button>
+    <button class="tbtn" id="tSprint">跑</button>
   </div>
 </div>
 
@@ -476,6 +479,6 @@
 <div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
 
 <script>window.__loadErr=[];window.addEventListener('error',function(e){window.__loadErr.push((e.message||'?')+' @'+(e.filename||'')+':'+e.lineno+':'+e.colno);},true);</script>
-<script type="module" src="./js/blockwild.js?v=243"></script>
+<script type="module" src="./js/blockwild.js?v=244"></script>
 </body>
 </html>

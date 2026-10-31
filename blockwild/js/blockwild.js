@@ -8473,6 +8473,7 @@ function travelDimension(fromCore) {
 /* ============================================================ 输入 */
 const keys = new Set();
 let mineHeld = false, placeQueued = false, attackQueued = false, jumpQueued = false;
+let sprintTouch = false;                    // 触屏「跑」按钮按住 = 疾跑（手机上原本没有任何奔跑入口）
 const joy = { x: 0, y: 0, active: false };
 let started = false;
 
@@ -8493,7 +8494,7 @@ function syncPointerLock() {
   if (!started) return;
   if (uiOpen()) {
     if (document.pointerLockElement) document.exitPointerLock();
-    dragLook = false; mineHeld = false; placeHeld = false;
+    dragLook = false; mineHeld = false; placeHeld = false; sprintTouch = false;   // 开界面/失焦时别把「跑」按死
   } else lockPointer();
 }
 addEventListener('keydown', e => {
@@ -8638,6 +8639,7 @@ function bindHold(el, down, up) {
 bindHold($('tMine'), () => { if (!uiOpen() && player.alive) { mineHeld = true; attackQueued = true; } }, () => { mineHeld = false; });
 bindHold($('tPlace'), () => { if (!uiOpen() && player.alive) placeQueued = true; });
 bindHold($('tJump'), () => { jumpQueued = true; jumpTouchT = performance.now(); });
+if ($('tSprint')) bindHold($('tSprint'), () => { sprintTouch = true; }, () => { sprintTouch = false; });   // 触屏：按住「跑」= 疾跑
 $('tBag').addEventListener('click', () => openPanel(!panelOpen));
 
 /* ============================================================ 交互 */
@@ -9151,6 +9153,24 @@ function attackTarget() {
   }
   return best;
 }
+/* 「有没有怪挡在准星和目标方块之间」——挖之前先问一次，避免攻击时顺手把怪背后的方块挖掉。
+   判据：怪的中心（boss 取更高）到「眼 → 方块中心」射线的垂距 < 0.95 格，且比方块更近。 */
+function mobInMiningPath(t) {
+  const eye = eyePos(), dir = cameraDir();
+  const bc = new THREE.Vector3(t.x + 0.5, t.y + 0.5, t.z + 0.5).sub(eye);
+  const blkLen = bc.length();
+  for (const m of mobs) {
+    if (m.hp <= 0 || m.dying) continue;
+    const def = MOB_DEFS[m.kind] || {};
+    const c = m.p.clone(); c.y += def.boss ? 1.6 : 0.7;
+    const rel = c.sub(eye);
+    const along = rel.dot(dir);
+    if (along <= 0.2 || along > blkLen + 0.5) continue;
+    const perp = rel.addScaledVector(dir, -along).length();
+    if (perp < 0.95) return m;
+  }
+  return null;
+}
 function attack() {
   if (player.atkCd > 0) return false;
   const target = attackTarget();
@@ -9236,7 +9256,7 @@ function updatePlayer(dt) {
   const sink = Math.sin(player.yaw), cosk = Math.cos(player.yaw);
   const wx = ix * cosk + iz * sink;
   const wz = -ix * sink + iz * cosk;
-  const sprint = keyDown('sprint') || (keymap.sprint === 'ShiftLeft' ? keys.has('ShiftRight') : false);
+  const sprint = keyDown('sprint') || sprintTouch || (keymap.sprint === 'ShiftLeft' ? keys.has('ShiftRight') : false);
   const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : player.inLava ? 0.4 : 1) * (player.tangle > 0 ? 0.32 : 1);
   if (player.knockT > 0) {                    // 被击退：这几帧不接受方向键，靠冲量滑出去
     player.knockT -= dt;
@@ -9315,7 +9335,8 @@ function updatePlayer(dt) {
 
   // 饥饿 / 回血（创造模式不饿）
   if (isCreative()) player.hunger = 20;
-  else player.hunger = Math.max(0, player.hunger - dt * (moving ? 0.055 : 0.02));
+  // 饥饿：站着 0.03 / 走路 0.10（原来 0.055）/ 疾跑 0.22 —— 满饥饿值连续走 200 秒、疾跑 90 秒见底
+  else player.hunger = Math.max(0, player.hunger - dt * (sprint && moving ? 0.22 : moving ? 0.10 : 0.03));
   if (player.hunger <= 0) { player.hp = Math.max(0, player.hp - dt * 0.6); if (player.hp <= 0) die(); }
   else if (player.hunger > 16 && player.hp < 20) player.hp = Math.min(20, player.hp + dt * 0.45);
 
@@ -9380,8 +9401,12 @@ function update(dt) {
   const wantAttack = attackQueued || (mineHeld && mobs.length > 0);
   if (wantAttack) attackQueued = false;
   const hitMob = wantAttack ? attack() : false;
-  if (!hitMob && mineHeld && t) doMine(dt, t);
-  else if (!mineHeld) { player.mining = 0; player.mineTarget = null; }
+  // ★ 怪的判定只有 4.8 格 / 准星 1.05 的细锥，怪稍微偏一点就「没打中」，
+  //   于是 doMine 会继续挖它背后那块方块（玩家只是想打怪）。
+  //   这里再加一道：只要有怪挡在「眼 → 目标方块」这条线上，就不挖、也不累积挖掘进度。
+  const mobBlocking = (!hitMob && mineHeld && t) ? mobInMiningPath(t) : null;
+  if (!hitMob && !mobBlocking && mineHeld && t) doMine(dt, t);
+  else if (!mineHeld || hitMob || mobBlocking) { player.mining = 0; player.mineTarget = null; }
   if (placeQueued) {
     placeQueued = false;
     const h = held();
