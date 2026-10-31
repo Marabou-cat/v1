@@ -3215,32 +3215,67 @@ function makeToolModel(id) {
   const netherM = new THREE.MeshLambertMaterial({ color: 0x7d6890 });  // 冥界钢：暗紫灰，比钻石更强的一档
   const diaM = new THREE.MeshLambertMaterial({ color: 0x5fe6d8 });
   if (id === 100 || id === 101 || id === 120 || id === 130 || id === 163 || id === 184) {  // 镐
+    /* 重做：以前是「一根横条 + 两块斜块」，看着像把锤子。现在：
+       木柄（下段缠两道绳）→ 颈箍把镐头和柄包住 → 镐头中间一段平直、两侧各两节
+       逐节收窄并加大下弯角度，尖端再补一个小块 → 侧看是真正的「弧形镐」。 */
     const head = id === 184 ? netherM : id === 130 ? diaM : id === 163 ? copM : id === 101 ? stoneM : id === 120 ? ironM : wood;
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.52, 0.042), woodDark);
-    handle.position.y = -0.1;
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.085, 0.075), head);
-    bar.position.y = 0.17;
-    const tipL = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.075, 0.07), head);
-    tipL.position.set(-0.19, 0.13, 0);
-    tipL.rotation.z = -0.42;
-    const tipR = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.075, 0.07), head);
-    tipR.position.set(0.19, 0.13, 0);
-    tipR.rotation.z = 0.42;
-    g.add(handle, bar, tipL, tipR);
+    const wrapM = new THREE.MeshLambertMaterial({ color: 0x5b3d22 });
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.5, 0.036), woodDark);
+    shaft.position.y = -0.06;
+    g.add(shaft);
+    for (const yy of [-0.2, -0.14]) {
+      const ring = new THREE.Mesh(new THREE.BoxGeometry(0.047, 0.022, 0.047), wrapM);
+      ring.position.y = yy; g.add(ring);
+    }
+    const collar = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.062, 0.072), head);
+    collar.position.y = 0.185;
+    const mid = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.075, 0.075), head);
+    mid.position.y = 0.222;
+    g.add(collar, mid);
+    for (const sd of [-1, 1]) {
+      const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.062, 0.068), head);
+      s1.position.set(sd * 0.105, 0.208, 0); s1.rotation.z = sd * 0.42;
+      const s2 = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.046, 0.056), head);
+      s2.position.set(sd * 0.185, 0.155, 0); s2.rotation.z = sd * 0.95;
+      const tip = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.03, 0.042), head);
+      tip.position.set(sd * 0.226, 0.104, 0); tip.rotation.z = sd * 1.35;
+      g.add(s1, s2, tip);
+    }
   } else if (id === 102 || id === 103 || id === 121 || id === 131 || id === 149 || id === 164 || id === 179 || id === 194) {       // 剑
-    const nightM = new THREE.MeshLambertMaterial({ color: 0x5a1030 }); nightM.emissive = new THREE.Color(0x2a0010);   // 噩梦之刃：暗红刀身 + 微自发光
-    const bladeMat = id === 194 ? nightM : id === 179 ? netherM : id === 131 ? diaM : id === 164 ? copM : id === 149 ? new THREE.MeshLambertMaterial({ color: 0xefe9d8 }) : id === 103 ? stoneD : id === 121 ? ironM : new THREE.MeshLambertMaterial({ color: 0xd9c49b });
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.44, 0.018), bladeMat);
-    blade.position.y = 0.3;
-    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.018), bladeMat);
-    tip.position.y = 0.55;
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.032, 0.05), woodDark);
-    guard.position.y = 0.07;
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.16, 0.044), wood);
+    /* 重做：以前是一整块 0.058×0.44 的平板剑 + 小尖，像素感很弱。
+       现在剑身分 4 段逐段收窄（0.062 → 0.05 → 0.036 → 0.02）形成锥形刃，
+       中间压一条血槽；护手横向一条、两端各一块上翘小翼；握把分 3 圈缠绳 + 柄首。 */
+    const bladeC = id === 194 ? 0x7a1838 : id === 179 ? 0x7d6890 : id === 131 ? 0x5fe6d8
+                 : id === 164 ? 0xd98b4a : id === 149 ? 0xefe9d8 : id === 103 ? 0x9aa0a8
+                 : id === 121 ? 0xd9dee5 : 0xd9c49b;
+    const glowC = id === 194 ? 0x3a0014 : id === 131 ? 0x114a44 : 0x000000;
+    const BL = new THREE.MeshLambertMaterial({ color: bladeC, emissive: glowC });
+    const BL2 = new THREE.MeshLambertMaterial({ color: 0x2b3038 });          // 血槽
+    const GR = new THREE.MeshLambertMaterial({ color: id >= 110 && id !== 149 ? 0x9aa0a8 : 0x8a6134 });   // 护手（金属档用灰）
+    const WR = new THREE.MeshLambertMaterial({ color: 0x4a3218 });           // 缠绳
+    const seg = (w, h, yy) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.022), BL); b.position.y = yy; return b; };
+    g.add(seg(0.062, 0.2, 0.19), seg(0.05, 0.16, 0.36), seg(0.036, 0.1, 0.48), seg(0.02, 0.05, 0.555));
+    const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.3, 0.006), BL2);
+    fuller.position.set(0, 0.29, 0.013);
+    g.add(fuller);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.028, 0.05), GR);
+    guard.position.y = 0.082;
+    g.add(guard);
+    for (const sd of [-1, 1]) {
+      const curl = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.026, 0.044), GR);
+      curl.position.set(sd * 0.1, 0.096, 0); curl.rotation.z = sd * 0.5;
+      g.add(curl);
+    }
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.17, 0.042), woodDark);
     grip.position.y = -0.02;
-    const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.045, 0.055), woodDark);
-    pommel.position.y = -0.11;
-    g.add(blade, tip, guard, grip, pommel);
+    g.add(grip);
+    for (const yy of [0.02, -0.02, -0.06]) {
+      const wrap = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.018, 0.048), WR);
+      wrap.position.y = yy; g.add(wrap);
+    }
+    const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.045, 0.058), GR);
+    pommel.position.y = -0.125;
+    g.add(pommel);
   } else if (id === 151 || id === 152) {       // 桶：铁皮小桶（装水时桶口露出蓝色水面）
     const metal = new THREE.MeshLambertMaterial({ color: 0xb8bec8 });
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.19, 0.17), metal);
@@ -3429,6 +3464,152 @@ function makeToolModel(id) {
     const stem = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.05, 0.014), woodDark);
     stem.position.set(0, 0.16, 0);
     g.add(a, leaf, stem);
+  } else if (ITEMS[id] && ITEMS[id].kind === 'armor') {
+    /* 盔甲：手持也是一件「护具实物」，按部位做出可辨认的轮廓；材质分 5 档（木/铜/铁/钻石/冥界钢） */
+    const tierC = id >= 180 ? 0x7d6890 : id >= 171 ? 0xa9784a : id >= 166 ? 0xd98b4a : id >= 132 ? 0x5fe6d8 : 0xc9d2dc;
+    const tierD = id >= 180 ? 0x3a2f45 : id >= 171 ? 0x7d5527 : id >= 166 ? 0x8a5525 : id >= 132 ? 0x2fa89c : 0x8c98a6;
+    const M = new THREE.MeshLambertMaterial({ color: tierC }), D = new THREE.MeshLambertMaterial({ color: tierD });
+    const slot = ITEMS[id].slot;
+    if (slot === 'head') {                                  // 头盔：盔体 + 顶脊 + 面罩口
+      const dome = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.1, 0.17), M); dome.position.y = 0.12;
+      const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.055, 0.18), D); ridge.position.y = 0.19;
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.05, 0.02), D); visor.position.set(0, 0.115, 0.088);
+      g.add(dome, ridge, visor);
+    } else if (slot === 'chest') {                          // 胸甲：胸板 + 腰带 + 两个肩翼
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.062), M); plate.position.y = 0.13;
+      const belt = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.032, 0.068), D); belt.position.y = 0.035;
+      g.add(plate, belt);
+      for (const sd of [-1, 1]) {
+        const sh = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.075), D);
+        sh.position.set(sd * 0.1, 0.215, 0);
+        g.add(sh);
+      }
+    } else if (slot === 'legs') {                           // 护腿：两条腿板 + 膝甲
+      for (const sd of [-1, 1]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.22, 0.07), M);
+        leg.position.set(sd * 0.046, 0.12, 0);
+        const knee = new THREE.Mesh(new THREE.BoxGeometry(0.078, 0.03, 0.078), D);
+        knee.position.set(sd * 0.046, 0.17, 0);
+        g.add(leg, knee);
+      }
+    } else {                                                // 靴子：靴筒 + 前脚掌
+      for (const sd of [-1, 1]) {
+        const boot = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.09, 0.13), M);
+        boot.position.set(sd * 0.05, 0.085, 0.005);
+        const toe = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.036, 0.05), D);
+        toe.position.set(sd * 0.05, 0.048, 0.078);
+        g.add(boot, toe);
+      }
+    }
+  } else if (ITEMS[id] && ITEMS[id].kind === 'food') {
+    /* 肉：一块厚肉排（生/熟两套配色），鸡肉多一根骨头 */
+    const PAIR = { 140: [0xc2453f, 0xe8a8a2], 141: [0x8a5330, 0xb0824a], 143: [0xe3b4a6, 0xf3d6cc],
+                   144: [0xc08a3a, 0xe6bf72], 145: [0xb03a34, 0xd98a84], 146: [0x8a5330, 0xb0824a] };
+    const [meat, fat] = PAIR[id] || [0xc2453f, 0xe8a8a2];
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.062, 0.13), new THREE.MeshLambertMaterial({ color: meat }));
+    slab.position.y = 0.1;
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(0.175, 0.022, 0.135), new THREE.MeshLambertMaterial({ color: fat }));
+    rim.position.y = 0.065;
+    g.add(slab, rim);
+    if (id === 143 || id === 144) {                          // 鸡腿：一根骨头
+      const bone = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.1, 0.028), new THREE.MeshLambertMaterial({ color: 0xeee7d6 }));
+      bone.position.set(0.1, 0.13, 0); bone.rotation.z = -0.6;
+      g.add(bone);
+    }
+  } else if (id === 142) {                     // 羊毛：一团蓬松的方块
+    const wool = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.14, 0.17), new THREE.MeshLambertMaterial({ color: 0xf2f2ee }));
+    wool.position.y = 0.1;
+    const tuft = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.12), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+    tuft.position.y = 0.185;
+    g.add(wool, tuft);
+  } else if (id === 148) {                     // 骨头：棒 + 两端骨节
+    const bm = new THREE.MeshLambertMaterial({ color: 0xeee7d6 });
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.3, 0.032), bm);
+    shaft.position.y = 0.14;
+    g.add(shaft);
+    for (const [yy, rr] of [[0.3, 0.3], [0.0, -0.3]]) {
+      for (const sd of [-1, 1]) {
+        const knob = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), bm);
+        knob.position.set(sd * 0.032, yy, 0); knob.rotation.z = rr;
+        g.add(knob);
+      }
+    }
+  } else if (id === 155) {                     // 幽灵精华：漂浮的青色魂核 + 两层淡环
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.085, 14, 10),
+      new THREE.MeshLambertMaterial({ color: 0x9be8ff, emissive: 0x3f9fc0, emissiveIntensity: 1 }));
+    core.position.y = 0.15;
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8),
+      new THREE.MeshBasicMaterial({ color: 0xd6f6ff, transparent: true, opacity: 0.22 }));
+    halo.position.y = 0.15;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.006, 6, 18),
+      new THREE.MeshBasicMaterial({ color: 0xcdf2ff, transparent: true, opacity: 0.85 }));
+    ring.position.y = 0.15; ring.rotation.x = 1.2;
+    g.add(core, halo, ring);
+  } else if (id === 192) {                     // 鳄鱼皮：带脊棱的厚皮
+    const hide = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.028, 0.16), new THREE.MeshLambertMaterial({ color: 0x3d5a34 }));
+    hide.position.y = 0.09;
+    g.add(hide);
+    for (const zz of [-0.05, 0, 0.05]) {
+      const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.022, 0.018), new THREE.MeshLambertMaterial({ color: 0x24371f }));
+      ridge.position.set(0, 0.108, zz);
+      g.add(ridge);
+    }
+  } else if (id === 193) {                     // 噩梦之心：暗红心脏 + 发光的血管
+    const heartM = new THREE.MeshLambertMaterial({ color: 0x6d1020, emissive: 0x330010, emissiveIntensity: 1 });
+    const l = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), heartM);
+    l.position.set(-0.035, 0.16, 0); l.scale.set(1, 1.15, 1);
+    const r = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), heartM);
+    r.position.set(0.035, 0.16, 0); r.scale.set(1, 1.15, 1);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.09, 0.075), heartM);
+    tip.position.set(0, 0.075, 0); tip.rotation.z = 0.78;
+    const vein = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.11, 0.012),
+      new THREE.MeshBasicMaterial({ color: 0xff5a6e }));
+    vein.position.set(0.01, 0.2, 0.05); vein.rotation.z = 0.3;
+    g.add(l, r, tip, vein);
+  } else if (id === 198) {                     // 深渊宝珠：紫色内芯 + 两层能量环（和绿宝珠同一套语言）
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 12),
+      new THREE.MeshLambertMaterial({ color: 0x8f6cf0, emissive: 0x4a1f9c, emissiveIntensity: 1 }));
+    orb.position.y = 0.15;
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.148, 14, 10),
+      new THREE.MeshBasicMaterial({ color: 0xd9c8ff, transparent: true, opacity: 0.22 }));
+    shell.position.y = 0.15;
+    const r1 = new THREE.Mesh(new THREE.TorusGeometry(0.158, 0.008, 6, 20),
+      new THREE.MeshBasicMaterial({ color: 0xe6dcff }));
+    r1.position.y = 0.15; r1.rotation.x = 1.1;
+    const r2 = new THREE.Mesh(new THREE.TorusGeometry(0.156, 0.006, 6, 20),
+      new THREE.MeshBasicMaterial({ color: 0xb79cff }));
+    r2.position.y = 0.15; r2.rotation.x = -0.55; r2.rotation.z = 0.9;
+    g.add(orb, shell, r1, r2);
+  } else if (id === 154) {                     // 箭：木杆 + 铁镞 + 两片羽
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.42, 0.022), new THREE.MeshLambertMaterial({ color: 0x8a6134 }));
+    shaft.position.y = 0.16;
+    const headM = new THREE.MeshLambertMaterial({ color: 0xc9d2dc });
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.07, 0.012), headM);
+    head.position.y = 0.385;
+    const f1 = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.09, 0.055), new THREE.MeshLambertMaterial({ color: 0xe8e4d6 }));
+    f1.position.set(0, 0.0, 0.028); f1.rotation.x = 0.1;
+    const f2 = f1.clone(); f2.position.z = -0.028; f2.rotation.x = -0.1;
+    g.add(shaft, head, f1, f2);
+  } else if (id === 156) {                     // 小麦种子：一个小布袋 + 三粒种子
+    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.14, 0.11), new THREE.MeshLambertMaterial({ color: 0xb9975f }));
+    bag.position.y = 0.1;
+    g.add(bag);
+    for (const dx of [-0.03, 0, 0.03]) {
+      const seed = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.03, 0.016), new THREE.MeshLambertMaterial({ color: 0x8fae4a }));
+      seed.position.set(dx, 0.185, 0.01);
+      g.add(seed);
+    }
+  } else if (id === 157 || id === 161) {       // 肥料（棕袋）/ 骨粉（白袋）
+    const bw = id === 161 ? 0xe8e2d2 : 0x8a6a3a;
+    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.15, 0.12), new THREE.MeshLambertMaterial({ color: bw }));
+    bag.position.y = 0.1;
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.145, 0.03, 0.125),
+      new THREE.MeshLambertMaterial({ color: id === 161 ? 0xc9c2ae : 0x6a4f28 }));
+    band.position.y = 0.15;
+    const dust = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.09),
+      new THREE.MeshLambertMaterial({ color: id === 161 ? 0xffffff : 0x5b4322 }));
+    dust.position.y = 0.18;
+    g.add(bag, band, dust);
   }
   return g;
 }
@@ -3442,6 +3623,11 @@ const HOLD_POSE = {
   hoe: { rx: -0.3, ry: 0.9, rz: 0.3, py: 0.07, pz: -0.12, s: 0.95 },
   food: { rx: 0.1, ry: 0.45, rz: 0.18, py: 0.06, pz: -0.1, s: 1.0 },
   gun: { rx: -0.06, ry: 0.12, rz: 0.02, py: 0.02, pz: -0.02, s: 1.0 },
+  armor: { rx: -0.18, ry: 0.5, rz: 0.12, py: 0.06, pz: -0.08, s: 1.0 },
+  ammo: { rx: -0.12, ry: 0.85, rz: 0.3, py: 0.05, pz: -0.06, s: 1.0 },
+  seed: { rx: 0.0, ry: 0.4, rz: 0.1, py: 0.04, pz: -0.04, s: 1.1 },
+  fertilizer: { rx: 0.0, ry: 0.4, rz: 0.1, py: 0.04, pz: -0.04, s: 1.05 },
+  bonemeal: { rx: 0.0, ry: 0.4, rz: 0.1, py: 0.04, pz: -0.04, s: 1.05 },
 };
 function refreshHeld() {
   refreshGunHud();                     // 手上的能量炮电量读数（不是炮就自己隐藏）
@@ -3481,7 +3667,10 @@ function refreshHeld() {
     kind = 'block';
     const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
     heldMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
-  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'hoe' || it.kind === 'mat' || it.kind === 'food' || it.kind === 'gun' || it.kind === 'bucket' || it.kind === 'bow')) {
+  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'hoe' || it.kind === 'mat'
+                    || it.kind === 'food' || it.kind === 'gun' || it.kind === 'bucket' || it.kind === 'bow'
+                    || it.kind === 'armor' || it.kind === 'ammo' || it.kind === 'seed'
+                    || it.kind === 'fertilizer' || it.kind === 'bonemeal')) {
     kind = it.kind;
     heldMesh = makeToolModel(id);
   }
