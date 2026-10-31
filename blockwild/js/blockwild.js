@@ -3245,36 +3245,48 @@ function makeToolModel(id) {
     /* 重做：以前是一整块 0.058×0.44 的平板剑 + 小尖，像素感很弱。
        现在剑身分 4 段逐段收窄（0.062 → 0.05 → 0.036 → 0.02）形成锥形刃，
        中间压一条血槽；护手横向一条、两端各一块上翘小翼；握把分 3 圈缠绳 + 柄首。 */
+    /* 剑的解剖（这一次按「剑」而不是「刀」的比例重排）：
+       · 手抓的位置 = 模型原点 y=0（heldGroup 就挂在拳心），所以握把必须**跨过 y=0**：
+         握把中心 0、长 0.20（-0.10…+0.10）→ 拳心正好握住握把中段，柄首在拳下露出来。
+       · 护手在 0.115，刃从 0.13 起、到 0.77 收尖：刃长 0.64，刃根宽 0.05 → 长宽比 ~13:1（剑）；
+         上一版刃长只有 0.5、宽 0.062（8:1），加上姿势前缩，看起来就像一把短刀。
+       · 厚度从 0.018 逐段收到 0.012，侧看是真的「扁刃」。 */
     const bladeC = id === 194 ? 0x7a1838 : id === 179 ? 0x7d6890 : id === 131 ? 0x5fe6d8
                  : id === 164 ? 0xd98b4a : id === 149 ? 0xefe9d8 : id === 103 ? 0x9aa0a8
                  : id === 121 ? 0xd9dee5 : 0xd9c49b;
     const glowC = id === 194 ? 0x3a0014 : id === 131 ? 0x114a44 : 0x000000;
     const BL = new THREE.MeshLambertMaterial({ color: bladeC, emissive: glowC });
     const BL2 = new THREE.MeshLambertMaterial({ color: 0x2b3038 });          // 血槽
-    const GR = new THREE.MeshLambertMaterial({ color: id >= 110 && id !== 149 ? 0x9aa0a8 : 0x8a6134 });   // 护手（金属档用灰）
+    const GR = new THREE.MeshLambertMaterial({ color: id >= 110 && id !== 149 ? 0x9aa0a8 : 0x8a6134 });
     const WR = new THREE.MeshLambertMaterial({ color: 0x4a3218 });           // 缠绳
-    const seg = (w, h, yy) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.022), BL); b.position.y = yy; return b; };
-    g.add(seg(0.062, 0.2, 0.19), seg(0.05, 0.16, 0.36), seg(0.036, 0.1, 0.48), seg(0.02, 0.05, 0.555));
-    const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.3, 0.006), BL2);
-    fuller.position.set(0, 0.29, 0.013);
+    const seg = (w, h, th, yy) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, th), BL); b.position.y = yy; return b; };
+    g.add(seg(0.056, 0.24, 0.019, 0.25),     // 刃根
+          seg(0.047, 0.20, 0.017, 0.47),     // 刃中
+          seg(0.035, 0.14, 0.015, 0.64),     // 刃上
+          seg(0.022, 0.06, 0.013, 0.74));    // 刃尖（刃长 0.64、根宽 0.056 ≈ 11:1，MC 剑是 6:1、上一版短刀 8:1）
+    const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.46, 0.005), BL2);
+    fuller.position.set(0, 0.43, 0.010);
     g.add(fuller);
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.028, 0.05), GR);
-    guard.position.y = 0.082;
+    const ricasso = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.03, 0.026), GR);   // 护手与刃之间的短颈
+    ricasso.position.y = 0.132;
+    g.add(ricasso);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.150, 0.024, 0.040), GR);
+    guard.position.y = 0.112;
     g.add(guard);
-    for (const sd of [-1, 1]) {
-      const curl = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.026, 0.044), GR);
-      curl.position.set(sd * 0.1, 0.096, 0); curl.rotation.z = sd * 0.5;
+    for (const sd of [-1, 1]) {                       // 护手两端上翘的小翼
+      const curl = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.022, 0.034), GR);
+      curl.position.set(sd * 0.086, 0.124, 0); curl.rotation.z = sd * 0.55;
       g.add(curl);
     }
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.17, 0.042), woodDark);
-    grip.position.y = -0.02;
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.040, 0.20, 0.040), woodDark);
+    grip.position.y = 0;                              // ★ 握把跨过原点：拳心正好在握把中段
     g.add(grip);
-    for (const yy of [0.02, -0.02, -0.06]) {
-      const wrap = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.018, 0.048), WR);
+    for (const yy of [0.055, 0.0, -0.055]) {          // 三道缠绳
+      const wrap = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.016, 0.046), WR);
       wrap.position.y = yy; g.add(wrap);
     }
-    const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.045, 0.058), GR);
-    pommel.position.y = -0.125;
+    const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.054, 0.042, 0.054), GR);
+    pommel.position.y = -0.118;                       // 柄首：在拳下露出来
     g.add(pommel);
   } else if (id === 151 || id === 152) {       // 桶：铁皮小桶（装水时桶口露出蓝色水面）
     const metal = new THREE.MeshLambertMaterial({ color: 0xb8bec8 });
@@ -3617,10 +3629,10 @@ function makeToolModel(id) {
 const HOLD_POSE = {
   bow: { rx: -0.28, ry: 0.55, rz: -0.35, py: 0.05, pz: -0.06, s: 0.95 },   // 以前 rx=-1.2 几乎横着指向屏幕外，只看得到一条边
   block: { rx: 0.2, ry: 0.6, rz: 0.1, py: 0, pz: 0, s: 1 },
-  pick: { rx: -0.32, ry: 0.95, rz: 0.36, py: 0.07, pz: -0.12, s: 0.95 },
-  sword: { rx: -0.5, ry: 0.45, rz: -0.15, py: 0.07, pz: -0.12, s: 0.92 },
+  pick: { rx: -0.32, ry: 0.95, rz: 0.36, py: 0.01, pz: 0.12, s: 0.95 },   // 挂点=手尖：手握在木柄上，不是飘在手前
+  sword: { rx: -0.34, ry: 0.32, rz: -0.18, py: 0.0, pz: 0.12, s: 0.88 },   // pz=0.12 → 挂点落在手尖(armR z=-0.50)，拳心正好握在握把中段
   mat: { rx: -0.45, ry: 0.45, rz: -0.25, py: 0.06, pz: -0.1, s: 0.95 },
-  hoe: { rx: -0.3, ry: 0.9, rz: 0.3, py: 0.07, pz: -0.12, s: 0.95 },
+  hoe: { rx: -0.3, ry: 0.9, rz: 0.3, py: 0.01, pz: 0.12, s: 0.95 },
   food: { rx: 0.1, ry: 0.45, rz: 0.18, py: 0.06, pz: -0.1, s: 1.0 },
   gun: { rx: -0.06, ry: 0.12, rz: 0.02, py: 0.02, pz: -0.02, s: 1.0 },
   armor: { rx: -0.18, ry: 0.5, rz: 0.12, py: 0.06, pz: -0.08, s: 1.0 },
