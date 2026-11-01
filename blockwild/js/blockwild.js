@@ -11243,7 +11243,7 @@ function buildLogo() {
   const img = $('menuLogo');
   if (!img || !atlasCanvas) return;
   const W = 1200, H = 460;
-  const TITLE = 'Wastestone Remnant';
+  const TITLE = 'ORBOUND';
   const FONT = '900 198px "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d');
@@ -11283,8 +11283,8 @@ function buildLogo() {
   g.lineJoin = 'round'; g.lineWidth = 7; g.strokeStyle = '#160f08'; g.strokeText(TITLE, W / 2, 196);
   // ⑥ 英文副标题
   g.font = '700 60px "Courier New",ui-monospace,monospace';
-  g.lineWidth = 8; g.strokeStyle = '#0c0704'; g.strokeText('R U I N W I L D', W / 2, 352);
-  g.fillStyle = '#ead4a4'; g.fillText('R U I N W I L D', W / 2, 352);
+  g.lineWidth = 8; g.strokeStyle = '#0c0704'; g.strokeText('P I X E L   S U R V I V A L', W / 2, 352);
+  g.fillStyle = '#ead4a4'; g.fillText('P I X E L   S U R V I V A L', W / 2, 352);
   g.restore();
   img.src = cv.toDataURL('image/png');
 }
