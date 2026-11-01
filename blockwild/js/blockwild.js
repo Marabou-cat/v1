@@ -10577,12 +10577,17 @@ function saveInner() {
 }
 function saveSoon() { clearTimeout(saveSoonT); saveSoonT = setTimeout(save, 600); }
 let loadErr = null;
-function loadSave(id) {
+function loadSave(id, expectSeed) {
   try {
     const raw = localStorage.getItem(worldKey(id));
     if (!raw) return false;
     const d = JSON.parse(raw);
     if (!d || !d.seed) return false;
+    /* ★ 联机房间：服务端/房主的种子才是权威。
+       以前这里无条件用存档里的 seed 覆盖 —— 房间码被重建（房间文件删了/换房主）后种子变了，
+       本机却还留着上一次的存档 → 你进的是新房间、地形却是旧种子生成的
+       （表现就是「有时候种子/地形不一样」，而且只有这台机器不一样）。 */
+    if (expectSeed && (d.seed | 0) !== (expectSeed | 0)) return false;
     SEED = d.seed;
     worldTime = d.time || 0;
     inv = new Array(SLOTS).fill(null);
@@ -10751,7 +10756,8 @@ function startGame(world) {
   MODE = world.mode === 'creative' ? 'creative' : 'survival';
   SEED = world.seed | 0;
   DIM = 'overworld';                          // 每次进世界一律从主世界开始
-  const loaded = loadSave(world.id);          // 有存档就接着玩，没有就用这个世界自己的种子生成
+  // 联机房间（world.seedLock）里种子以服务端为准：存档种子对不上就不加载它，直接用房间种子重新生成
+  const loaded = loadSave(world.id, world.seedLock ? (world.seed | 0) : 0);
   if (loaded) {
     // ★ 老 bug 的根因：以前这里无条件 `if (player.p.y < surfaceY+1) player.p.y = surfaceY+1`，
     //   于是「在矿洞/地底退出，回来就站在地表」。现在只在**被方块埋住**时就近往上挪几格。
@@ -14036,6 +14042,18 @@ function mpEnterAccountWorld(code) {
     const w = (isHostMode && hostMeta)
       ? hostMeta
       : { id: 'mp_' + net.code, name: '联机房间 ' + net.code, seed: d.seed | 0, mode: 'survival' };
+    /* ★ 房间种子以服务端为准（seedLock）：
+       - 客人：本地可能还留着这个房间码上一次的存档（旧种子）。直接删掉，别让旧地形顶掉新房间。
+       - 房主：自己的世界种子就是房间种子；万一 meta 被改过，也以这次上传的为准。 */
+    w.seedLock = true;
+    try {
+      const raw0 = localStorage.getItem(worldKey(w.id));
+      const old0 = raw0 ? JSON.parse(raw0) : null;
+      if (old0 && old0.seed && (old0.seed | 0) !== (d.seed | 0)) {
+        localStorage.removeItem(worldKey(w.id));
+        toast('房间种子变了，本机的旧存档已作废（重新按房间种子生成地形）', 4);
+      }
+    } catch (e) {}
     startGame(w);
     for (const [k, id] of (d.edits || [])) {
       const a = k.split(',').map(Number);
