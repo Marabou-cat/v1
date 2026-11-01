@@ -680,8 +680,12 @@ const server = http.createServer((req, res) => {
           friends: (me.friends || []).map(id => ACCOUNTS[id]).filter(Boolean).map(accPublic),
           req: a.a === 'acct' ? (me.req || []) : (me.req || []),
           inv: me.inv || [],                         // 别人邀请我进的房间（好友面板里显示「加入」）
+          /* ★ 被拒绝的通知（取走即清）：以前拒绝只走 ws 推送，客人正在轮询/没连 ws 时
+             永远收不到 → 界面上那句「等待同意」一直挂着，看着像卡死。 */
+          den: me.den || [],
           worlds: accWorlds(me),
         };
+        if (me.den && me.den.length) { me.den = []; }
         if (a.a === 'friends') me.req = [];        // friends 是"取走即清"，acct 只是心跳顺带看一眼
         saveAccounts();
         return json(res, out);
@@ -717,6 +721,16 @@ const server = http.createServer((req, res) => {
         if (!prev) pushTo(t.pid, { t: 'req', req: r });          // 只有「新申请」才推送（重复的不再打扰）
         return json(res, { ok: true, sent: true });
       }
+      if (a.a === 'jcancel') {                    // 申请人自己撤回申请（界面上点「等待同意…（取消）」）
+        const meC = accFor(a);
+        if (!meC) return json(res, { ok: false, e: 'no_pid' });
+        const tC = ACCOUNTS[String(a.to || '')];
+        if (tC) {
+          tC.req = (tC.req || []).filter(x => x.from !== meC.pid);
+          saveAccounts();
+        }
+        return json(res, { ok: true });
+      }
       if (a.a === 'jres') {                        // 好友回应申请：同意 → 给申请人发通行证 + 通知他自动进房
         const me = accFor(a);
         if (!me) return json(res, { ok: false, e: 'no_pid' });
@@ -733,6 +747,12 @@ const server = http.createServer((req, res) => {
           saveAccounts();
           pushTo(who.pid, { t: 'acc', code: codeJ, nick: me.nick });
         } else {
+          /* ★ 拒绝也要落到账号里（取走即清）：只发 ws 推送的话，走轮询的客人永远收不到，
+             界面上「等待同意」会一直挂着 —— 用户以为卡死了。 */
+          who.den = (who.den || []).filter(x => x.from !== me.pid);
+          who.den.push({ from: me.pid, nick: me.nick, at: Date.now() });
+          if (who.den.length > 8) who.den.shift();
+          saveAccounts();
           pushTo(who.pid, { t: 'deny', nick: me.nick });
         }
         saveAccounts();

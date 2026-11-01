@@ -12840,6 +12840,14 @@ const MPUI = {
     if (Array.isArray(d.inv)) this.inv = d.inv;
     if (Array.isArray(d.req) && d.req.length) this.req = d.req;
     if (Array.isArray(d.worlds)) ACCT.worlds = d.worlds;
+    /* ★ 被拒绝：服务端会带一条 den（取走即清）。收到就把「等待同意」撤掉——
+       以前只靠 ws 推 deny，走轮询/没连上的时候这条永远收不到，界面就卡在等待上。 */
+    if (Array.isArray(d.den) && d.den.length) {
+      const w = this.waiting;
+      const hit = d.den.find(x => w && x.from === w.pid) || d.den[0];
+      if (hit && (!w || hit.from === w.pid)) { this.setWait(null); this.render(); }
+      if (hit) toast((hit.nick || '对方') + ' 拒绝了你的加入申请', 4);
+    }
   },
   pullRooms() {
     /* 延迟别用 performance.now() 前后差：无头/卡顿的页面里量到的是「事件循环 + 渲染帧」，
@@ -12892,7 +12900,12 @@ const MPUI = {
       }).catch(() => { this.setWait(null); this.render(); this.msg2('网络错误'); });
       return;
     }
-    if (k === 'waitcancel') { this.setWait(null); this.render(); return this.msg2('已取消等待'); }
+    if (k === 'waitcancel') {
+      const w = this.waiting;
+      this.setWait(null); this.render();
+      if (w && w.pid) acctApi({ a: 'jcancel', tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, to: w.pid }).catch(() => {});
+      return this.msg2('已取消等待' + (w && w.nick ? '（' + w.nick + ' 那边的申请也撤掉了）' : ''));
+    }
     if (k === 'jres') {
       const ok = btn.dataset.ok === '1', from = btn.dataset.from;
       if (!ok) return this.soc({ a: 'jres', from, ok: false }, '已拒绝');
@@ -13058,7 +13071,7 @@ const MPUI = {
         ? '<button class="btn" data-mp="invite" data-pid="' + escHtml(f.pid) + '" style="padding:2px 7px">邀请进房</button>'
         : '<span style="color:#7a8b9c;font-size:11px">房主才能拉人</span>';
       else if (!f.online) btn = '<span style="color:#7a8b9c;font-size:11px">离线</span>';
-      else if (wait && wait.pid === f.pid) btn = '<button class="btn" disabled style="padding:2px 7px;opacity:.6">等待同意…</button>';
+      else if (wait && wait.pid === f.pid) btn = '<button class="btn" data-mp="waitcancel" style="padding:2px 7px">等待同意…（点此取消）</button>';
       else btn = '<button class="btn gold" data-mp="jreq" data-pid="' + escHtml(f.pid) + '" data-nick="' + escHtml(f.nick) + '" style="padding:2px 7px">申请加入</button>';
       return '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 0;border-top:1px solid rgba(120,200,255,.12)">'
         + '<span><b style="color:' + (f.online ? '#7ef0a0' : '#7a8b9c') + '">' + (f.online ? '●' : '○') + '</b> ' + escHtml(f.nick)
@@ -13185,7 +13198,7 @@ function mpJoinRoom(code, tries) {
     if (d.mine) { mpEnterAccountWorld(c); return; }            // 自己的房间：以房主身份进去
     if (d.pass && d.exists) { MPUI.msg2('已获得同意，正在进入 ' + c + ' …'); mpGoRoom(c); return; }
     if (d.pass && !d.exists) {                                 // 已同意，房主还在开房（他要上传世界）
-      if (n >= 20) { MPUI.msg2('等太久了：房间一直没开起来，让对方重新点一次「同意」'); return; }
+      if (n >= 20) { MPUI.setWait(null); MPUI.render(); MPUI.msg2('等太久了：房间一直没开起来，让对方重新点一次「同意」'); return; }
       MPUI.msg2('对方已同意，正在等他开好房间…（' + n + '/20）');
       return setTimeout(() => mpJoinRoom(c, n + 1), 1500);
     }
@@ -13198,7 +13211,7 @@ function mpJoinRoom(code, tries) {
         else MPUI.msg2({ not_friend: '你们还不是好友：先在下面的好友列表里加他', offline: '房主不在线' }[r && r.e] || '申请失败：' + (r && r.e));
       });
     }
-    if (n >= 20) { MPUI.msg2('等太久了：' + ((host && host.nick) || '房主') + ' 还没同意'); return; }
+    if (n >= 20) { MPUI.setWait(null); MPUI.render(); MPUI.msg2('等太久了：' + ((host && host.nick) || '房主') + ' 还没同意（可以再申请一次）'); return; }
     MPUI.msg2('已申请加入 ' + ((host && host.nick) || '对方') + ' 的世界，等他点「同意」…（' + n + '/20）');
     setTimeout(() => mpJoinRoom(c, n + 1), 1500);
   }).catch(() => MPUI.msg2('服务器连不上'));
@@ -13248,6 +13261,12 @@ function mpSocialTick() {
       mpSocialBusy = false;
       if (!d || !d.ok) return;
       MPUI.setFriends(d);
+      /* 等待超时：对方没看到 / 下线了 → 2 分钟后自动撤回，别让「等待同意」永久挂着 */
+      const w0 = MPUI.waiting;
+      if (w0 && Date.now() - (w0.at || 0) > 120000) {
+        MPUI.setWait(null); MPUI.render();
+        toast('等 ' + (w0.nick || '对方') + ' 同意超过 2 分钟，已自动撤回（可以再申请一次）', 5);
+      }
       const reqs = d.req || [];
       MPUI._reqN = reqs.length;
       const btn = document.getElementById('btnFriendsHud');
@@ -14670,7 +14689,10 @@ function mpEnterAccountWorld(code) {
       // ★ 不再直接跳：房间可能还在房主那边开着，先问 canjoin（有通行证 + 房间存在）再进
       setTimeout(() => mpJoinRoom(m.code, 1), 400);
     }
-    else if (m.t === 'deny') toast(`${m.nick} 拒绝了你的加入申请`, 3);
+    else if (m.t === 'deny') {
+      toast(`${m.nick} 拒绝了你的加入申请`, 3);
+      if (MPUI.waiting) { MPUI.setWait(null); MPUI.render(); }     // 撤掉「等待同意」，不然一直挂着
+    }
     else if (m.t === 'inv') {                       // 房主邀请：面板自动弹出来，点「加入」就进他的房间
       frInv = frInv.filter(x => x.code !== m.code).concat([{ code: m.code, nick: m.nick, at: Date.now() }]);
       ensureFriendsUI(); renderLobby();
