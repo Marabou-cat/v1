@@ -153,6 +153,49 @@ function pushTo(pid, msg) {                       // 定向推送（只对当前
   return false;
 }
 
+/* ---------------- 通行证：谁被房主「同意」过，谁才能进这个房间 ----------------
+ * 「不用专门开房、好友申请必须同意才能加入」的落点：
+ *   · 房主点「同意」→ 服务端给申请人记一张 pass（房间码 + 是谁批的）
+ *   · 进房时 join 只认 pass：没有 pass 的人拿着一串房间码也进不去
+ *   · pass 记在**申请人自己的账号**里 → 存盘在 accounts.json，重启/换设备都还在
+ *   · from = 批准你的人（房主 pid）：房间还没开起来时，有 pass 也知道「该等服务端那边的房主」，
+ *     而不是让客人自己抢成房主（那会导致怪没人模拟、地形种子也不对）。
+ */
+const PASS_TTL = 7 * 24 * 3600 * 1000;
+function grantPass(guest, code, hostPid) {
+  if (!guest || !code) return;
+  guest.pass = (guest.pass || []).filter(x => x && x.code !== code);
+  guest.pass.unshift({ code, from: String(hostPid || ''), at: Date.now() });
+  if (guest.pass.length > 16) guest.pass.length = 16;
+  saveAccounts();
+}
+function passOf(acc, code) {
+  const c = String(code || '');
+  const p = ((acc && acc.pass) || []).find(x => x && x.code === c);
+  if (!p) return null;
+  if (Date.now() - (p.at || 0) > PASS_TTL) return null;
+  return p;
+}
+/* 进房前的「能不能进」检查：客户端等对方同意时轮询它 */
+function canEnter(acc, code) {
+  const c = String(code || '');
+  const existed = worlds.has(c) || fs.existsSync(worldPath(c));
+  const w = existed ? loadWorld(c) : null;
+  const hostAcc = (w && w.owner) ? ACCOUNTS[w.owner] : null;
+  const p = passOf(acc, c);
+  return {
+    ok: true,
+    code: c,
+    pass: !!p,
+    from: p ? p.from : '',
+    exists: !!(w && w.owner),                       // 房间真的存在（有房主 = 有种子）
+    mine: !!(w && w.owner && acc && w.owner === acc.pid),
+    live: w ? w.players.size : 0,
+    host: hostAcc ? { pid: hostAcc.pid, nick: hostAcc.nick, online: accOnline(hostAcc) } : null,
+    seed: w ? (w.seed | 0) : 0,
+  };
+}
+
 /* ---------------- 极简 RFC6455 ---------------- */
 const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 function acceptKey(k) { return crypto.createHash('sha1').update(k + GUID).digest('base64'); }
@@ -292,12 +335,43 @@ function join(req, res) {
   // ★ 联机必须登录：没有账号就只能单机（换设备世界会丢、也进不了别人的房间）
   const acc = accByTok(req.tok);
   if (!acc) return json(res, { ok: false, e: 'need_login' });
+  let id = String(acc.pid || req.pid || ('p' + Math.random().toString(36).slice(2, 8))).slice(0, 24);   // 身份只认账号，不信客户端自称
+  /* ★ 好友申请必须被房主同意才能进：
+     - 房间有房主、房主不是我、我又没有 pass → 拒绝（顺手给房主排一条加入申请，客户端就能直接弹「同意」）
+     - 房间根本不存在/没房主 → 也拒绝：以前「进一个不存在的房间码」= 直接变成房主，
+       这是「客人抢成房主 → 怪没人模拟 / 地形种子不对」的根源。房间只能由房主（host）创建。 */
+  const hasRoom = worlds.has(code) || fs.existsSync(worldPath(code));
+  if (hasRoom) {
+    const w0 = loadWorld(code);
+    if (!w0.owner) return json(res, { ok: false, e: 'no_room' });   // 老版本遗留的「没房主」房间：只能由房主重新开
+    if (w0.owner && w0.owner !== id) {
+      const p = passOf(acc, code);
+      if (!p) {
+        const ho = ACCOUNTS[w0.owner];
+        let queued = false;
+        if (ho && accOnline(ho) && (ho.friends || []).includes(acc.pid)) {
+          const r = { from: acc.pid, nick: acc.nick, code: (ho.world || ho.pworld || code), at: Date.now() };
+          ho.req = (ho.req || []).filter(x => x.from !== acc.pid);
+          ho.req.push(r);
+          if (ho.req.length > 8) ho.req.shift();
+          saveAccounts();
+          pushTo(ho.pid, { t: 'req', req: r });
+          queued = true;
+        }
+        return json(res, { ok: false, e: 'need_approve', queued,
+                           host: ho ? { pid: ho.pid, nick: ho.nick, online: accOnline(ho) } : null });
+      }
+    }
+  } else {
+    const p = passOf(acc, code);
+    // 有 pass 说明房主刚点过同意、房间还在起来 → 让客人等，别自己开一个空房
+    return json(res, { ok: false, e: 'no_room', pass: !!p });
+  }
   const w = loadWorld(code);
   if (w.genVer !== GEN_VER) {
     return json(res, { ok: false, e: 'gen_mismatch', genVer: w.genVer, serverGen: GEN_VER });
   }
   if (w.players.size >= MAX_PLAYERS) return json(res, { ok: false, e: 'full' });
-  let id = String(acc.pid || req.pid || ('p' + Math.random().toString(36).slice(2, 8))).slice(0, 24);   // 身份只认账号，不信客户端自称
   // ★ 同名占位：两台机器用同一个昵称时，以前两条连接抢同一个座位（服务端只认 pid），
   //   结果两端都把自己筛掉 → 「联机里看不到其他玩家」。现在给后来者加后缀，并把新 id 返回给客户端。
   const ex = w.players.get(id);
@@ -316,15 +390,25 @@ function join(req, res) {
   });
   // ★ 兴趣管理：进服只发玩家附近的改动（默认 ±128 格），不是整张表。
   //   世界再大，进服包也是「几十 KB」量级；走远以后客户端用 region 分块补。
+  /* ★ 房主进自己的房间时拿**整张**改动表（不是出生点附近 ±128）：像 MC 一样，
+     客人在联机里挖的/放的方块，房主下次单机进这个世界必须原样看到 ——
+     哪怕那些改动在他上次离开之后才发生、位置在半个地图外。
+     客人仍然只拿身边 ±128（payload 要小），走远了用 region 补。 */
+  const wantFull = !!(req.full && w.owner === id);
   const jx = Number(req.x) || 0, jz = Number(req.z) || 0, jr = Math.min(512, Number(req.r) || 128);
   const near = [];
-  for (const [k, id] of w.edits) {
-    const p = k.split(',');
-    if (Math.abs(+p[0] - jx) <= jr && Math.abs(+p[2] - jz) <= jr) near.push([k, id]);
+  if (wantFull) {
+    let n = 0;
+    for (const [k, b] of w.edits) { near.push([k, b]); if (++n >= 60000) break; }
+  } else {
+    for (const [k, id2] of w.edits) {
+      const p = k.split(',');
+      if (Math.abs(+p[0] - jx) <= jr && Math.abs(+p[2] - jz) <= jr) near.push([k, id2]);
+    }
   }
   json(res, {
     ok: true, id, isHost, code, seed: w.seed, genVer: w.genVer, time: w.time, seq: w.seq,
-    edits: near, totalEdits: w.edits.size, players: playersPublic(w),
+    edits: near, totalEdits: w.edits.size, full: wantFull, players: playersPublic(w),
     pos: keep,                                   // 你上次在房间里的位置（客户端进房后站回这里）
   });
   console.log(`[bw] join ${code} ${id}/${name} host=${isHost} players=${w.players.size} edits=${w.edits.size}`);
@@ -469,6 +553,13 @@ const server = http.createServer((req, res) => {
         const pid = String(a.pid || '').slice(0, 24);
         let p = w.players.get(pid);
         if (!p) {
+          /* ★ 轮询模式也不能绕过「必须被同意」：以前这里直接给陌生人建座位，
+             等于拿着 pid 连续调 sync 就能进别人房间（join 的通行证形同虚设）。 */
+          const accS = accByTok(a.tok);
+          if (!accS) return json(res, { ok: false, e: 'need_login' });
+          if (w.owner && w.owner !== accS.pid && !passOf(accS, w.code)) {
+            return json(res, { ok: false, e: 'need_approve' });
+          }
           if (w.players.size >= MAX_PLAYERS) return json(res, { ok: false, e: 'full' });
           p = { id: pid, name: String(a.name || 'Player').slice(0, 14), x: 0, y: 0, z: 0,
                 yaw: 0, pitch: 0, sk: Number(a.sk) || 0, cl: Number(a.cl) || 0, hr: Number(a.hr) || 0, hs: Number(a.hs) || 0,
@@ -607,7 +698,7 @@ const server = http.createServer((req, res) => {
         pushTo(t.pid, { t: 'req', req: r });
         return json(res, { ok: true, sent: true });
       }
-      if (a.a === 'jres') {                        // 好友回应申请：同意 → 通知他来我的世界
+      if (a.a === 'jres') {                        // 好友回应申请：同意 → 给申请人发通行证 + 通知他自动进房
         const me = accFor(a);
         if (!me) return json(res, { ok: false, e: 'no_pid' });
         const who = ACCOUNTS[String(a.from || '')];
@@ -615,9 +706,12 @@ const server = http.createServer((req, res) => {
         me.req = (me.req || []).filter(x => x.from !== who.pid);
         if (a.ok) {
           const codeJ = String(a.code || me.world || me.pworld || '').slice(0, 12);
+          if (!codeJ) return json(res, { ok: false, e: 'no_world' });   // 房主连世界都还没进 → 客户端会先把世界开出来再点同意
+          grantPass(who, codeJ, me.pid);             // ★ 同意 = 通行证（进房校验只认它）
           who.inv = (who.inv || []).filter(x => x.code !== codeJ);
-          who.inv.push({ code: codeJ, nick: me.nick, at: Date.now() });
+          who.inv.push({ code: codeJ, nick: me.nick, at: Date.now(), j: 1 });   // j:1 = 已同意，客户端自动进
           if (who.inv.length > 8) who.inv.shift();
+          saveAccounts();
           pushTo(who.pid, { t: 'acc', code: codeJ, nick: me.nick });
         } else {
           pushTo(who.pid, { t: 'deny', nick: me.nick });
@@ -633,6 +727,7 @@ const server = http.createServer((req, res) => {
         if (!(me.friends || []).includes(t.pid)) return json(res, { ok: false, e: 'not_friend' });
         const code = String(a.code || me.world || me.pworld || '').slice(0, 12);
         if (!code) return json(res, { ok: false, e: 'no_room' });
+        grantPass(t, code, me.pid);                 // 房主主动拉人 = 也算同意，直接给通行证
         const r = { code, nick: me.nick, at: Date.now() };
         t.inv = (t.inv || []).filter(x => x.code !== code);
         t.inv.push(r);
@@ -640,6 +735,23 @@ const server = http.createServer((req, res) => {
         saveAccounts();
         const pushed = pushTo(t.pid, { t: 'inv', code, nick: me.nick });
         return json(res, { ok: true, sent: true, pushed });
+      }
+      if (a.a === 'canjoin') {                    // 「我能进这个房间了吗」—— 等对方同意时轮询它（只读，不占座）
+        const acc = accByTok(a.tok);
+        if (!acc) return json(res, { ok: false, e: 'need_login' });
+        return json(res, canEnter(acc, String(a.code || '').slice(0, 12)));
+      }
+      if (a.a === 'edits') {                      // 只读：房间的全部改动（房主单机进世界时补同步用）
+        if (!accByTok(a.tok)) return json(res, { ok: false, e: 'need_login' });
+        const codeE = String(a.code || '').slice(0, 12);
+        if (!codeE) return json(res, { ok: false, e: 'no_code' });
+        if (!(worlds.has(codeE) || fs.existsSync(worldPath(codeE)))) return json(res, { ok: true, code: codeE, total: 0, edits: [] });
+        const wE = loadWorld(codeE);
+        const outE = [];
+        let nE = 0;
+        for (const [kE, bE] of wE.edits) { outE.push([kE, bE]); if (++nE >= 60000) break; }
+        return json(res, { ok: true, code: codeE, seed: wE.seed | 0, owner: wE.owner || null,
+                           total: wE.edits.size, edits: outE });
       }
       if (a.a === 'region') {                    // 依序补发某片区域的改动（客户端走远了就来拉一次）
         const w = loadWorld(String(a.code || 'W1'));

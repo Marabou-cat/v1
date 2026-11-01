@@ -10811,6 +10811,10 @@ function startGame(world) {
   }
   toast(`「${world.name}」· ${isCreative() ? '创造模式' : '生存模式'} · 按 E 打开背包`, 4.5);
   lockPointer();
+  /* ★ 单机进世界时，如果这个世界在云端也有房间：把好友在联机里改过、本机还没见过的方块补下来。
+     规则：**本机已有的格子以本机为准**（不覆盖你离线时的改动），只补本机没有的格子 ——
+     这样「客人在联机里挖的/放的，房主单机进来也看得到」，又不会吃掉房主自己的进度。 */
+  try { mpPullWorldEdits(world); } catch (e) {}
   window.__BW_STARTED = true;
 }
 
@@ -12640,8 +12644,14 @@ if (ACCT.on) {                                    // 带着令牌回来 → 静�
 }
 
 const MPUI = {
-  root: null, tab: 'list', rooms: [], friends: [], req: [], inv: [], msg: '', busy: false, ready: false,
+  root: null, tab: 'friend', rooms: [], friends: [], req: [], inv: [], msg: '', busy: false, ready: false,
   _seenReq: new Set(), _acctMode: null, _reqN: 0,
+  /* ★ 我发出去的加入申请（本地记住，刷新页面也还在 —— 好友可能在十几秒后才点同意） */
+  waiting: (() => { try { return JSON.parse(sessionStorage.getItem('bw_joinwait_v1') || 'null'); } catch (e) { return null; } })(),
+  setWait(w) {
+    this.waiting = w && w.pid ? w : null;
+    try { w && w.pid ? sessionStorage.setItem('bw_joinwait_v1', JSON.stringify(w)) : sessionStorage.removeItem('bw_joinwait_v1'); } catch (e) {}
+  },
   ensure() {
     if (this.root) return this.root;
     const d = document.createElement('div');
@@ -12655,10 +12665,10 @@ const MPUI = {
       +   '<button class="btn" id="mpClose">返回</button></div>'
       + '</div>'
       + '<div id="mpAcctBox" style="background:rgba(120,200,255,.07);border:1px solid rgba(120,200,255,.22);border-radius:9px;padding:8px 10px;margin-bottom:10px"></div>'
-      + '<div style="display:flex;gap:6px;margin-bottom:10px">'
-      +   '<button class="btn" data-mp="tab:list">服务器列表</button>'
-      +   '<button class="btn" data-mp="tab:direct">直接连接</button>'
+      + '<div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">'
       +   '<button class="btn" data-mp="tab:friend">好友</button>'
+      +   '<button class="btn" data-mp="tab:mine">我的世界</button>'
+      +   '<span id="mpWait" style="font-size:12px;color:#ffcf6b"></span>'
       +   '<span style="flex:1"></span><span id="mpPing" style="font-size:11px;color:#7a8b9c;align-self:center"></span>'
       + '</div>'
       + '<div id="mpBody" style="min-height:230px"></div>'
@@ -12677,12 +12687,15 @@ const MPUI = {
   },
   show(tab) {
     this.ensure();
-    if (tab) this.tab = tab;
+    /* 老入口（世界列表里的「联机」、?mp=1 链接、旧的服务器列表/直连页签）一律汇到「好友」页：
+       联机现在只有一条路 —— 加好友 → 申请加入 → 好友同意 → 房间自动开好。 */
+    const t = (tab === 'list' || tab === 'direct') ? 'friend' : tab;
+    if (t) this.tab = t;
     this.root.classList.remove('hide');
     this.root.style.display = '';
     this.render();
-    if (this.tab === 'list') this.pullRooms();
     if (this.tab === 'friend') this.pullFriends();
+    else this.pullRooms();
     if (window.__bwMPSync) window.__bwMPSync(true);
   },
   hide() {
@@ -12725,28 +12738,53 @@ const MPUI = {
   },
   act(k, v, btn) {
     const NET = window.NET;
-    if (k === 'tab') { this.tab = v; this.render(); if (v === 'list') this.pullRooms(); if (v === 'friend') this.pullFriends(); return; }
+    if (k === 'tab') { this.tab = (v === 'list' || v === 'direct') ? 'friend' : v; this.render(); if (this.tab === 'friend') this.pullFriends(); return; }
     if (k === 'login' || k === 'reg') return this.doAuth(k);
     if (k === 'logout') { acctLogout(); this.render(); return this.msg2('已退出账号（现在是单机模式）'); }
-    if (k === 'refresh') return this.pullRooms();
+    if (k === 'refresh') return this.pullFriends();
     if (k === 'reload') return this.pullFriends();
     if (k === 'join') return mpJoinRoom(btn.dataset.code);
     if (k === 'joinAcc') return mpEnterAccountWorld(btn.dataset.code);
     if (k === 'direct') return this.doDirect();
-    if (k === 'host') { if (window.__bwMP && window.__bwMP.host) return window.__bwMP.host(); return this.msg2('先进一个世界再开房'); }
-    if (k === 'copy') { if (window.__bwMP && window.__bwMP.copy) return window.__bwMP.copy(); return this.msg2('先开房才有邀请链接'); }
+    if (k === 'copy') { if (window.__bwMP && window.__bwMP.copy) return window.__bwMP.copy(); return this.msg2('先进房间才有邀请链接'); }
     if (k === 'leave') { if (window.__bwMP && window.__bwMP.leave) return window.__bwMP.leave(); return this.msg2('现在不在房间里'); }
     if (k === 'tp') { if (window.__bwMP && window.__bwMP.tp) window.__bwMP.tp(btn.dataset.id); return; }
     if (k === 'fadd') return this.doAddFriend();
-    if (k === 'jreq') return this.soc({ a: 'jreq', to: btn.dataset.pid }, '已发送申请，等对方同意…');
-    if (k === 'jres') {
-      const ok = btn.dataset.ok === '1';
-      // ★ 同意 = 直接把当前世界开成房间（不用再手动点「开房」）；对方那边房间一出现就自动进
-      this.soc({ a: 'jres', from: btn.dataset.from, ok, code: mpCurrentCode() }, ok ? '已同意，正在为你开房…' : '已拒绝');
-      if (ok) setTimeout(() => mpAutoHost(), 250);
+    /* ★ 申请加入：唯一进别人的世界的入口。等好友点「同意」，他那边会自动开房，我这边自动进。 */
+    if (k === 'jreq') {
+      const pid = btn.dataset.pid, nick = btn.dataset.nick || '';
+      this.setWait({ pid, nick, at: Date.now() });
+      this.render();
+      acctApi({ a: 'jreq', tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, to: pid }).then(d => {
+        if (d && d.ok) return this.msg2('已向 ' + (nick || '好友') + ' 发出加入申请，他点「同意」后你会自动进入');
+        this.setWait(null); this.render();
+        this.msg2({ offline: '对方不在线（等他在游戏里再申请）', not_friend: '还不是好友', need_login: '请先登录' }[d && d.e] || ('申请失败：' + (d && d.e)));
+      }).catch(() => { this.setWait(null); this.render(); this.msg2('网络错误'); });
       return;
     }
-    if (k === 'invite') return this.soc({ a: 'invite', to: btn.dataset.pid, code: NET ? NET.code : '' }, '邀请已发出');
+    if (k === 'waitcancel') { this.setWait(null); this.render(); return this.msg2('已取消等待'); }
+    if (k === 'jres') {
+      const ok = btn.dataset.ok === '1', from = btn.dataset.from;
+      if (!ok) return this.soc({ a: 'jres', from, ok: false }, '已拒绝');
+      /* ★ 同意 = 自动开房：先把「要开成房间的世界码」告诉服务端（= 给申请人发通行证），
+         再把自己切进联机房主模式。对方那边收到推送/轮询到通行证就自动进来，全程不用点「开房」。 */
+      const NET0 = window.NET;
+      if (NET0 && NET0.active && !NET0.isHost) return this.msg2('你现在在别人的房间里：先「退出联机」再同意');
+      const code = mpCurrentCode() || mpHostTargetCode();
+      acctApi({ a: 'jres', tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, from, ok: true, code }).then(d => {
+        if (!d || !d.ok) {
+          return this.msg2({ no_world: '先进入一个世界再同意（点「我的世界」→ 进入）', need_login: '请先登录' }[d && d.e] || ('操作失败：' + (d && d.e)));
+        }
+        this.msg2('已同意，正在把这个世界开成房间 ' + code + ' …');
+        setTimeout(() => mpAutoHost(code), 200);
+      }).catch(() => this.msg2('网络错误'));
+      return;
+    }
+    if (k === 'invite') {
+      const code = (NET && NET.active) ? NET.code : '';
+      if (!code) return this.msg2('先进入房间才能拉人');
+      return this.soc({ a: 'invite', to: btn.dataset.pid, code }, '邀请已发出，对方会自动进来');
+    }
   },
   doAuth(kind) {
     const q = id => (this.root.querySelector('#' + id).value || '').trim();
@@ -12776,16 +12814,10 @@ const MPUI = {
     }).catch(() => this.msg2('网络错误'));
   },
   doDirect() {
-    const addr = (this.root.querySelector('#mpAddr').value || '').trim();
-    const code = (this.root.querySelector('#mpCode2').value || '').trim();
-    if (/^[a-z]+:\/\//i.test(addr)) {
-      // 完整地址：直连（http://ip:port 或带 bwmp.php 的站点路径）
-      const u = new URL(location.pathname + '?net=' + encodeURIComponent(addr) + '&go=1&world='
-        + encodeURIComponent(code || 'W1') + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name));
-      location.href = u.pathname + u.search;
-      return;
-    }
-    mpJoinRoom(code || addr);
+    const el = this.root.querySelector('#mpCode2');
+    const code = (el ? el.value : '').trim();
+    if (!code) return this.msg2('先填房间码');
+    mpJoinRoom(code);
   },
   render() {
     if (!this.root) return;
@@ -12829,96 +12861,96 @@ const MPUI = {
     }
     const body = this.root.querySelector('#mpBody');
     if (!body) return;
+    const waitEl = this.root.querySelector('#mpWait');
+    if (waitEl) waitEl.textContent = this.waiting ? ('等 ' + (this.waiting.nick || '好友') + ' 同意…') : '';
     if (!on) {
       body.innerHTML = '<div style="color:#9fb3c8;line-height:1.7">登录后这里会出现：<br>'
-        + '· <b>服务器列表</b>：现在有谁在玩、几个人的房间，点一下就进<br>'
-        + '· <b>直接连接</b>：填房间码或服务器地址（IP:端口）<br>'
-        + '· <b>好友</b>：加好友、看谁在线、邀请进你的世界<br>'
+        + '· <b>好友</b>：加好友、看谁在线，点<b>申请加入</b> → 对方点<b>同意</b>，房间会自动开好，你自动进去<br>'
+        + '· <b>我的世界</b>：世界里玩到一半，好友也能申请进来（不用记房间码、不用先开房）<br>'
         + '<span style="color:#7a8b9c">（不登录只能单机：世界存在本机，换设备就没了）</span></div>';
       return;
     }
-    if (this.tab === 'list') body.innerHTML = this.htmlList(NET);
-    else if (this.tab === 'direct') body.innerHTML = this.htmlDirect(NET);
+    if (this.tab === 'mine') body.innerHTML = this.htmlMine(NET);
     else body.innerHTML = this.htmlFriend(NET);
     for (const id in keep) {                          // 把刚输入的内容放回新 DOM
       const el = this.root.querySelector('#' + id);
       if (el && !el.value) el.value = keep[id];
     }
   },
-  htmlList(NET) {
-    const rows = this.rooms.map(r =>
-      '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-top:1px solid rgba(120,200,255,.14)">'
-      + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
-      + '<b style="color:#dff0ff">' + escHtml(r.name) + '</b> <span style="color:#7a8b9c">' + escHtml(r.code) + '</span></span>'
-      + '<span style="width:90px;color:#9fb3c8;font-size:11px;overflow:hidden;white-space:nowrap">' + (r.host ? escHtml(r.host) : '—') + '</span>'
-      + '<span style="width:52px;color:' + (r.players >= r.max ? '#ff9a9a' : '#7ef0a0') + '">' + r.players + '/' + r.max + '</span>'
-      + '<button class="btn" data-mp="join" data-code="' + escHtml(r.code) + '" style="padding:2px 9px">加入</button></div>').join('');
+  /* 「我的世界」页签：账号里的世界直接进去玩。这里**没有开房按钮** ——
+     房间是好友被同意加入时自动开的，玩家不需要知道房间码。 */
+  htmlMine(NET) {
+    const inRoom = !!(NET && NET.active);
     const mine = (ACCT.worlds || []).map(w =>
       '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-top:1px solid rgba(120,200,255,.14)">'
       + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
-      + '<b style="color:#f5c451">' + escHtml(w.name || w.code) + '</b> <span style="color:#7a8b9c">' + escHtml(w.code) + '</span></span>'
-      + '<span style="width:90px;color:#9fb3c8;font-size:11px">' + (w.players ? w.players + ' 人在线' : '存档在云端') + '</span>'
+      + '<b style="color:#f5c451">' + escHtml(w.name || w.code) + '</b></span>'
+      + '<span style="width:92px;color:#9fb3c8;font-size:11px">' + (w.players ? w.players + ' 人在线' : '存档在云端') + '</span>'
       + '<button class="btn" data-mp="joinAcc" data-code="' + escHtml(w.code) + '" style="padding:2px 9px">'
-      +   (w.players ? '加入' : '进入') + '</button></div>').join('');
-    const inRoom = NET && NET.active;
-    // ★ 一键加入：优先好友的房间，其次人最多的房间 —— 「先进去玩」不该需要先学会看列表
-    const fOn = (this.friends || []).filter(f => f.online && f.world);
-    const quick = fOn.length ? fOn[0].world : (this.rooms[0] && this.rooms[0].code);
-    const quickWho = fOn.length ? fOn[0].nick : (this.rooms[0] && this.rooms[0].name);
-    return '<div style="margin-bottom:8px">'
-      + (quick
-          ? '<button class="btn gold" data-mp="join" data-code="' + escHtml(quick) + '" style="width:100%;padding:8px;font-size:14px">'
-            + '快速加入：' + escHtml(quickWho || quick) + '</button>'
-          : '<button class="btn" style="width:100%;padding:8px;opacity:.55;cursor:default">快速加入（现在没人在玩）</button>')
-      + '</div>'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
-      + '<span style="color:#9fb3c8;font-size:12px">在线房间（' + this.rooms.length + '）</span>'
-      + '<span><button class="btn" data-mp="refresh" style="padding:2px 9px">刷新</button>'
-      + (inRoom ? ' <button class="btn" data-mp="leave" style="padding:2px 9px;color:#ffb0b0;border-color:#5a2b2b">退出联机</button>' : '')
-      + '</span></div>'
-      + (rows || '<div style="color:#7a8b9c;padding:10px 4px">现在没有人在玩。自己开一个：点下面的「开房」。</div>')
-      + '<div style="margin-top:12px;color:#9fb3c8;font-size:12px;margin-bottom:2px">我的世界（保存在账号，换设备也在）</div>'
-      + (mine || '<div style="color:#7a8b9c;padding:6px 4px">还没有。开一次房就会自动存到账号里。</div>')
-      + '<div style="margin-top:10px"><button class="btn gold" data-mp="host">开房：把当前世界变成房间</button></div>';
-  },
-  htmlDirect(NET) {
-    return '<div style="color:#9fb3c8;font-size:12px;line-height:1.7;margin-bottom:8px">'
-      + '按<b>房间码</b>加入只需填房间码；连别人自建的服务器就填地址（<code>192.168.1.5:9203</code> 或完整的 <code>http://…</code>）。</div>'
-      + '<div style="display:flex;gap:6px;margin-bottom:8px"><input id="mpCode2" placeholder="房间码，例如 R7K2Q" maxlength="12" style="flex:1;' + PCB2 + '">'
-      + '<button class="btn gold" data-mp="direct" style="padding:4px 10px">连接</button></div>'
-      + '<div style="display:flex;gap:6px"><input id="mpAddr" placeholder="服务器地址（可留空，只连房间码）" style="flex:1;' + PCB2 + '"></div>'
-      + '<div style="margin-top:12px;color:#7a8b9c;font-size:11px;line-height:1.6">'
-      + '直接连接用的是<b>你自己的账号</b>，进去以后和服务器列表里点「加入」完全一样。</div>'
-      + (NET && NET.active ? '<div style="margin-top:10px"><button class="btn" data-mp="copy">复制邀请链接</button> '
-        + '<button class="btn" data-mp="leave" style="color:#ffb0b0;border-color:#5a2b2b">退出联机</button></div>' : '');
+      +   (w.players ? '继续（联机中）' : '进入') + '</button></div>').join('');
+    return '<div style="color:#9fb3c8;font-size:12px;line-height:1.65;margin-bottom:8px">'
+      + '账号里的世界，<b style="color:#8fe3ff">点「进入」直接玩</b>。玩的时候好友在「好友」页申请加入，'
+      + '你点<b>同意</b>，这个世界会自动变成房间、他自动进来 —— 不用记房间码，也没有「开房」这一步。</div>'
+      + (mine || '<div style="color:#7a8b9c;padding:6px 4px">还没有世界。先回开始界面自己开一个世界玩一会儿，就会自动存到账号里。</div>')
+      + (inRoom ? '<div style="margin-top:12px;color:#7ef0a0;font-size:12px">● 现在在房间里 <b>' + escHtml(NET.code) + '</b>'
+        + ' <button class="btn" data-mp="leave" style="padding:2px 9px;color:#ffb0b0;border-color:#5a2b2b">退出联机</button></div>' : '');
   },
   htmlFriend(NET) {
     const q = PCB2;
+    const inRoom = !!(NET && NET.active);
+    const isHost = !!(NET && NET.isHost);
+    const nlive = inRoom ? (1 + ((NET.remotes && NET.remotes.size) || 0)) : 0;
+    const wait = this.waiting;
+    const status = inRoom
+      ? '<div style="background:rgba(126,240,160,.08);border:1px solid rgba(126,240,160,.3);border-radius:9px;padding:7px 9px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:8px">'
+        + '<span>● 你在房间里 <b style="color:#8fe3ff">' + escHtml(NET.code) + '</b> · ' + nlive + ' 人'
+        + (isHost ? ' · <b style="color:#f5c451">你是房主</b>（好友申请进来自动开好）' : '') + '</span>'
+        + '<button class="btn" data-mp="leave" style="padding:3px 9px;color:#ffb0b0;border-color:#5a2b2b">退出联机</button></div>'
+      : '<div style="background:rgba(120,200,255,.07);border:1px solid rgba(120,200,255,.22);border-radius:9px;padding:7px 9px;margin-bottom:9px;font-size:12px;color:#9fb3c8">'
+        + '不在房间里。点好友右边的<b style="color:#8fe3ff">「申请加入」</b>，对方点同意后房间会自动开好，你这边自动进去。</div>';
     const reqRows = (this.req || []).map(r =>
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">'
       + '<span>' + escHtml(r.nick) + ' 想加入你的世界</span>'
-      + '<span><button class="btn" data-mp="jres" data-from="' + escHtml(r.from) + '" data-ok="1" style="padding:2px 7px">同意</button>'
+      + '<span><button class="btn gold" data-mp="jres" data-from="' + escHtml(r.from) + '" data-ok="1" style="padding:2px 7px">同意</button>'
       + '<button class="btn" data-mp="jres" data-from="' + escHtml(r.from) + '" data-ok="0" style="padding:2px 7px">拒绝</button></span></div>').join('');
+    const waitRow = wait
+      ? '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;color:#ffcf6b">'
+      + '<span>已向 <b>' + escHtml(wait.nick || '好友') + '</b> 申请加入，等他点「同意」…（他会自动把房间开好）</span>'
+      + '<button class="btn" data-mp="waitcancel" style="padding:2px 7px">取消</button></div>'
+      : '';
     const invRows = (this.inv || []).map(v =>
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;color:#ffcf6b">'
-      + '<span>' + escHtml(v.nick) + ' 邀请你进 <b>' + escHtml(v.code) + '</b></span>'
-      + '<button class="btn" data-mp="join" data-code="' + escHtml(v.code) + '" style="padding:2px 7px">加入</button></div>').join('');
-    const fs = (this.friends || []).map(f =>
-      '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 0;border-top:1px solid rgba(120,200,255,.12)">'
-      + '<span><b style="color:' + (f.online ? '#7ef0a0' : '#7a8b9c') + '">' + (f.online ? '●' : '○') + '</b> ' + escHtml(f.nick)
-      + '<span style="color:#7a8b9c;font-size:11px">' + (f.online ? (f.world ? ' · 房间 ' + escHtml(f.world) : ' · 在线') : ' · 离线') + '</span></span>'
-      + (NET && NET.active
-          ? '<button class="btn" data-mp="invite" data-pid="' + escHtml(f.pid) + '" style="padding:2px 7px">邀请进房</button>'
-          : (f.online && f.world ? '<button class="btn" data-mp="join" data-code="' + escHtml(f.world) + '" style="padding:2px 7px">加入他的房间</button>' : ''))
-      + '</div>').join('');
-    return '<div style="display:flex;gap:6px;margin-bottom:8px">'
+      + '<span>' + escHtml(v.nick) + ' 邀请你进他的世界</span>'
+      + '<button class="btn gold" data-mp="join" data-code="' + escHtml(v.code) + '" style="padding:2px 7px">加入</button></div>').join('');
+    const fs = (this.friends || []).map(f => {
+      let btn;
+      if (inRoom) btn = isHost
+        ? '<button class="btn" data-mp="invite" data-pid="' + escHtml(f.pid) + '" style="padding:2px 7px">邀请进房</button>'
+        : '<span style="color:#7a8b9c;font-size:11px">房主才能拉人</span>';
+      else if (!f.online) btn = '<span style="color:#7a8b9c;font-size:11px">离线</span>';
+      else if (wait && wait.pid === f.pid) btn = '<button class="btn" disabled style="padding:2px 7px;opacity:.6">等待同意…</button>';
+      else btn = '<button class="btn gold" data-mp="jreq" data-pid="' + escHtml(f.pid) + '" data-nick="' + escHtml(f.nick) + '" style="padding:2px 7px">申请加入</button>';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 0;border-top:1px solid rgba(120,200,255,.12)">'
+        + '<span><b style="color:' + (f.online ? '#7ef0a0' : '#7a8b9c') + '">' + (f.online ? '●' : '○') + '</b> ' + escHtml(f.nick)
+        + '<span style="color:#7a8b9c;font-size:11px">' + (f.online ? (f.world ? ' · 在玩 ' + escHtml(f.world) : ' · 在线') : ' · 离线') + '</span></span>'
+        + btn + '</div>';
+    }).join('');
+    return status
+      + (reqRows ? '<div style="color:#ffcf6b;margin-bottom:3px">加入申请（点同意 → 自动开房并让他进来）</div>' + reqRows : '')
+      + waitRow
+      + (invRows ? '<div style="color:#ffcf6b;margin:6px 0 3px">房间邀请</div>' + invRows : '')
+      + '<div style="display:flex;gap:6px;margin:8px 0">'
       + '<input id="mpFriend" placeholder="好友的游戏昵称" maxlength="14" style="flex:1;' + q + '">'
       + '<button class="btn" data-mp="fadd" style="padding:4px 10px">加好友</button>'
       + '<button class="btn" data-mp="reload" style="padding:4px 8px">刷新</button></div>'
-      + (reqRows ? '<div style="color:#ffcf6b;margin-bottom:3px">加入申请</div>' + reqRows : '')
-      + (invRows ? '<div style="color:#ffcf6b;margin:6px 0 3px">房间邀请</div>' + invRows : '')
       + '<div style="color:#9fb3c8;font-size:12px;margin-top:6px">好友（' + (this.friends || []).length + '）</div>'
-      + (fs || '<div style="color:#7a8b9c;padding:6px 0">还没有好友，上面填对方昵称加一个</div>');
+      + (fs || '<div style="color:#7a8b9c;padding:6px 0">还没有好友，上面填对方昵称加一个</div>')
+      + '<details style="margin-top:12px"><summary style="color:#7a8b9c;font-size:11px;cursor:pointer">高级：按房间码加入 / 邀请链接</summary>'
+      + '<div style="display:flex;gap:6px;margin-top:6px"><input id="mpCode2" placeholder="房间码" maxlength="12" style="flex:1;' + q + '">'
+      + '<button class="btn" data-mp="direct" style="padding:4px 10px">申请加入</button></div>'
+      + '<div style="color:#7a8b9c;font-size:11px;line-height:1.6;margin-top:4px">房间码也要房主同意才能进（会自动给对方发一条申请）。</div>'
+      + (inRoom ? '<div style="margin-top:6px"><button class="btn" data-mp="copy">复制邀请链接</button></div>' : '')
+      + '</details>';
   },
 };
 const PCB2 = 'background:#0e1a28;color:#d8ecff;border:1px solid #2a4a66;border-radius:6px;padding:4px 6px;font:12px ui-monospace,monospace';
@@ -12951,26 +12983,78 @@ function mpSaveWorld(meta) {
   } }).then(d => { if (d && d.ok) { ACCT.worlds = d.worlds || ACCT.worlds; acctSave(); } }).catch(() => {});
 }
 
-/* 加入别人开的房间（房间码）*/
+/* 单机进世界时，把「云端房间里好友改过」的方块补到本机（只补本机没有的格子 → 不吃掉自己的离线改动）*/
+function mpPullWorldEdits(world) {
+  if (!ACCT.on || !world || !world.id || String(world.id).indexOf('mp_') === 0) return;
+  if (window.NET && NET.active) return;                 // 联机里由 join/region 负责
+  const code = mpRoomCodeOf(world);
+  if (!code) return;
+  acctApi({ a: 'edits', code }).then(d => {
+    if (!d || !d.ok || !started || currentId !== world.id) return;
+    if (!(d.edits || []).length) return;
+    let add = 0;
+    for (const e of d.edits) {
+      const k = String(e[0]);
+      if (!/^-?\d+,-?\d+,-?\d+$/.test(k)) continue;
+      if (edits.has(k)) continue;                       // 本机已有这格 → 本机为准
+      const p = k.split(',').map(Number);
+      edits.set(k, e[1] | 0); indexEdit(p[0], p[1], p[2], e[1] | 0);
+      add++;
+    }
+    if (!add) return;
+    for (const [k2, cc] of Array.from(chunks)) {        // 已生成的区块要重建才看得见
+      if (cc.mesh) scene.remove(cc.mesh);
+      if (cc.glass) scene.remove(cc.glass);
+      if (cc.water) scene.remove(cc.water);
+      if (cc.plant) scene.remove(cc.plant);
+      chunks.delete(k2);
+    }
+    const c0x = Math.floor(player.p.x / CFG.CH), c0z = Math.floor(player.p.z / CFG.CH);
+    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) dirty.add(getChunk(c0x + dx, c0z + dz));
+    toast('已同步云端房间里好友改过的 ' + add + ' 处方块', 5);
+    saveSoon();
+  }).catch(() => {});
+}
+
+/* 加入别人的世界。
+ * 联机现在只有一条路：**房主同意过**才进得去（服务端 join 只认这张通行证），
+ * 所以这里没有「先进房间列表挑一个」的玩法：
+ *   · 已经被同意、房间也开好了 → 直接跳进去
+ *   · 还没同意 → 自动给对方发一条加入申请，然后每 1.5 秒问一次「能进了吗」
+ *   · 对方点「同意」的瞬间，他那边自动开房，我这边下一次轮询就自动继续进（全程不用再点）
+ */
+function mpGoRoom(code) {
+  MPUI.setWait(null);
+  location.href = location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(code)
+    + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name);
+}
 function mpJoinRoom(code, tries) {
-  if (!ACCT.on) { MPUI.show('list'); return MPUI.msg2('先登录才能联机'); }
+  if (!ACCT.on) { MPUI.show('friend'); return MPUI.msg2('先登录才能联机'); }
   const c = String(code || '').trim().replace(/[^\w-]/g, '').toUpperCase();
   if (!c) return MPUI.msg2('先填房间码');
-  MPUI.msg2('正在进入房间 ' + c + ' …');
-  // ★ 房主刚点「同意」时房间还没起来：先等它出现在房间列表里（最多 ~15 秒），
-  //   否则客人先进去会变成房主（房主进来反倒不是房主，怪物没人模拟）。
-  acctApi({ a: 'rooms' }).then(d => {
-    const r = ((d && d.rooms) || []).find(x => String(x.code).toUpperCase() === c);
-    if (!r && (tries | 0) < 10) {
-      MPUI.msg2('房间还没开起来，等房主…（' + (tries | 0) + '/10）');
-      return setTimeout(() => mpJoinRoom(c, (tries | 0) + 1), 1500);
+  const n = tries | 0;
+  acctApi({ a: 'canjoin', tok: ACCT.tok, code: c }).then(d => {
+    if (!d || !d.ok) { MPUI.msg2((d && d.e === 'need_login') ? '先登录才能联机' : '服务器连不上'); return; }
+    if (d.mine) { mpEnterAccountWorld(c); return; }            // 自己的房间：以房主身份进去
+    if (d.pass && d.exists) { MPUI.msg2('已获得同意，正在进入 ' + c + ' …'); mpGoRoom(c); return; }
+    if (d.pass && !d.exists) {                                 // 已同意，房主还在开房（他要上传世界）
+      if (n >= 20) { MPUI.msg2('等太久了：房间一直没开起来，让对方重新点一次「同意」'); return; }
+      MPUI.msg2('对方已同意，正在等他开好房间…（' + n + '/20）');
+      return setTimeout(() => mpJoinRoom(c, n + 1), 1500);
     }
-    location.href = location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(c)
-      + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name);
-  }).catch(() => {
-    location.href = location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(c)
-      + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name);
-  });
+    const host = d.host;                                       // 没人同意过我
+    if (n === 0) {
+      if (!host) { MPUI.msg2('这个房间还没开：让房主先进入他的世界'); return; }
+      if (!host.online) { MPUI.msg2('房主 ' + (host.nick || '') + ' 不在线，等他在游戏里再申请'); return; }
+      acctApi({ a: 'jreq', tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, to: host.pid }).then(r => {
+        if (r && r.ok) { MPUI.setWait({ pid: host.pid, nick: host.nick, at: Date.now() }); MPUI.show('friend'); MPUI.render(); }
+        else MPUI.msg2({ not_friend: '你们还不是好友：先在下面的好友列表里加他', offline: '房主不在线' }[r && r.e] || '申请失败：' + (r && r.e));
+      });
+    }
+    if (n >= 20) { MPUI.msg2('等太久了：' + ((host && host.nick) || '房主') + ' 还没同意'); return; }
+    MPUI.msg2('已申请加入 ' + ((host && host.nick) || '对方') + ' 的世界，等他点「同意」…（' + n + '/20）');
+    setTimeout(() => mpJoinRoom(c, n + 1), 1500);
+  }).catch(() => MPUI.msg2('服务器连不上'));
 }
 
 /* 当前正在玩的世界 → 房间码（没进世界就是空）*/
@@ -12978,25 +13062,36 @@ function mpCurrentCode() {
   const m = currentId ? worldMeta(currentId) : null;
   return m ? mpRoomCodeOf(m) : '';
 }
-/* 自动开房：把「当前这个世界」变成房间（房主点了同意之后走这里，不用再点按钮）*/
-function mpAutoHost() {
-  if (!ACCT.on) return MPUI.msg2('开房要先登录账号');
+/* 「同意好友加入」时要开哪个世界：正在玩的 → 最近玩过的 → 一个都没有就新建。
+   ★ 这一步就是「房间自动创建」—— 房主不需要先开一个房间、也不需要有房间码。 */
+function mpHostTarget() {
+  let m = (started && currentId) ? worldMeta(currentId) : null;
+  if (!m && currentId) m = worldMeta(currentId);
+  if (!m) m = worlds[0] || null;
+  if (!m) m = createWorld({ name: '我的世界', mode: 'survival', seed: (Math.random() * 1e6) | 0 });
+  return m;
+}
+function mpHostTargetCode() { const m = mpHostTarget(); return m ? mpRoomCodeOf(m) : ''; }
+/* 自动开房：房主点了「同意」之后走这里（不用再点「开房」按钮）*/
+function mpAutoHost(code) {
+  if (!ACCT.on) return MPUI.msg2('联机要先登录账号');
   if (window.NET && NET.active) return;                    // 已经在房间里了
-  if (!started || !currentId) return MPUI.msg2('先回世界列表进一个世界才能开房');
-  const m = worldMeta(currentId);
-  if (!m) return;
-  const code = mpRoomCodeOf(m);
+  const m = mpHostTarget();
+  if (!m) return MPUI.msg2('找不到要开的存档');
+  const c = code || mpRoomCodeOf(m);
   try { save(); } catch (e) {}                            // 跳转前存一次，别丢这几秒的进度
-  MPUI.msg2('正在为你开房 ' + code + ' …');
+  MPUI.msg2('正在把「' + (m.name || '我的世界') + '」开成房间 ' + c + ' …');
   setTimeout(() => {
     location.href = location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(m.id)
-      + '&world=' + encodeURIComponent(code) + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name);
+      + '&world=' + encodeURIComponent(c) + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name);
   }, 200);
 }
 
 /* 单机也在线的「社交心跳」：每 5 秒把「我在哪个世界」报给服务端，
- * 顺便收好友申请/加入申请。以前只有进了联机房间才跟服务端说话 → 单机时好友看不到你在玩什么。 */
+ * 顺便收好友申请/加入申请，以及**「对方同意了我」的通知 → 自动进房间**。
+ * 以前只有进了联机房间才跟服务端说话 → 单机时好友看不到你在玩什么。 */
 let mpSocialBusy = false;
+const mpAutoJoinSeen = new Set();      // 同一张通行证只自动进一次（轮询每 5s 会重复回同一批 inv）
 function mpSocialTick() {
   if (!ACCT.on || (window.NET && NET.active) || mpSocialBusy) return;   // 联机里由 bootNet 自己的心跳负责
   mpSocialBusy = true;
@@ -13010,10 +13105,19 @@ function mpSocialTick() {
       MPUI._reqN = reqs.length;
       const btn = document.getElementById('btnFriendsHud');
       if (btn) btn.textContent = reqs.length ? ('好友(' + reqs.length + ')') : '好友';
+      /* ★ 我申请加入的好友点了「同意」→ 这边自动进，不用再点「加入」 */
+      const okInv = (d.inv || []).find(v => v && v.j === 1 && !mpAutoJoinSeen.has(v.code + ':' + (v.at || 0)));
+      if (okInv) {
+        mpAutoJoinSeen.add(okInv.code + ':' + (okInv.at || 0));
+        MPUI.setWait(null);
+        toast((okInv.nick || '好友') + ' 同意了，正在进入他的世界…', 4);
+        setTimeout(() => { if (!(window.NET && NET.active)) mpJoinRoom(okInv.code, 1); }, 150);
+        return;
+      }
       const fresh = reqs.filter(r => !MPUI._seenReq.has(r.from + '@' + r.at));
       for (const r of reqs) MPUI._seenReq.add(r.from + '@' + r.at);
       if (fresh.length) {
-        toast(fresh[0].nick + ' 想加入你的世界 —— 打开「好友」点同意，会自动开房', 6);
+        toast(fresh[0].nick + ' 想加入你的世界 —— 点「同意」，房间会自动开好', 6);
         MPUI.show('friend');
       } else if (MPUI.ready && MPUI.root && !MPUI.root.classList.contains('hide')) {
         MPUI.render();
@@ -13773,7 +13877,7 @@ function mpEnterAccountWorld(code) {
         const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         const toT = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (e) {} }, 2000);
         fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, signal: ctl ? ctl.signal : undefined, body: JSON.stringify(Object.assign({
-          a: 'sync', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs,
+          a: 'sync', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs,
           /* ★ 皮肤变了（换了 PNG / 新颜色）必须把 skd 一起传上去，否则服务端只有新哈希没有数据，
              别人 getskin 拿到空 → 只能画一张"按颜色生成的假皮肤"（这就是"联机皮肤不对"）。
              只在上报哈希变化时带一次，别每 100ms 塞 30KB。 */
@@ -13995,6 +14099,14 @@ function mpEnterAccountWorld(code) {
   const hostMeta = net.lid ? worldMeta(net.lid) : null;
   const hostSeed = hostMeta ? (hostMeta.seed | 0) : 0;
   net.wname = (hostMeta && hostMeta.name) || '';
+  /* 房主进房时把自己存档里的坐标带上（服务端 full 同步走不通时还能回退到附近 ±128） */
+  let hostPos = { x: 0, z: 0 };
+  if (hostMeta) {
+    try {
+      const dd = JSON.parse(localStorage.getItem(worldKey(hostMeta.id)) || 'null');
+      if (dd && dd.player) hostPos = { x: Math.round(dd.player.x) | 0, z: Math.round(dd.player.z) | 0 };
+    } catch (e) {}
+  }
 
   // 开房后把这个世界的已有改动分批同步进房间（服务端幂等合并，重复开房不会翻倍）
   function uploadMyWorld() {
@@ -14018,7 +14130,7 @@ function mpEnterAccountWorld(code) {
   fetch(EP, {
     method: 'POST', headers: { 'content-type': 'text/plain' },
     body: JSON.stringify(isHostMode
-      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), wname: net.wname || '', kind: MODE, lid: net.lid || '', sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : ''), seed: hostSeed, x: 0, z: 0, r: 128 }
+      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), wname: net.wname || '', kind: MODE, lid: net.lid || '', sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : ''), seed: hostSeed, x: hostPos.x, z: hostPos.z, r: 128, full: 1 }
       : { a: 'join', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : ''), x: 0, z: 0, r: 128 }),
   }).then(r => r.json()).then(d => {
     // 进服后把 URL 洗干净：否则「世界」按钮 reload / 刷新 / iOS 恢复标签页都会再自动 join 一次
@@ -14072,6 +14184,8 @@ function mpEnterAccountWorld(code) {
       }
       const c0x = Math.floor(player.p.x / CFG.CH), c0z = Math.floor(player.p.z / CFG.CH);
       for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) dirty.add(getChunk(c0x + dx, c0z + dz));
+      /* 界面上看得见：房主进房时把「房间里全部改动」同步回来了多少（客人只报附近的） */
+      if (isHostMode) toast('已同步房间里 ' + (d.edits || []).length + ' 处改动（含好友联机时挖的/放的）', 4);
     }
     for (const pl of (d.players || [])) if (pl.i !== net.id) ensureRemote(pl);
     // ★ 客人进房：优先回到「你上次在这个房间里的位置/朝向」；
@@ -14343,15 +14457,16 @@ function mpEnterAccountWorld(code) {
   net.onSocial = (m) => {
     if (m.t === 'req') {
       frSeen.add(m.req.from + '@' + m.req.at);
-      frReq = [m.req]; ensureFriendsUI(); renderReq(); frForceOpen = true;
-      net.friendsPull();                       // 拉一次完整列表（以前这里拿 friends:[] 渲染，好友列表会被清空成"还没有好友"）
-      toast(`${m.req.nick} 申请加入你的世界`, 4);
+      frReq = [m.req]; frForceOpen = true;
+      MPUI.show('friend');                     // 新面板里就有「同意/拒绝」，同意后自动开房
+      MPUI.pullFriends();
+      toast(`${m.req.nick} 想加入你的世界 —— 点「同意」，房间会自动开好`, 5);
     }
     else if (m.t === 'acc') {
       if (m.code === net.code) { toast(`${m.nick} 同意了你加入「${m.code}」——你已经在这个世界里了`, 3); return; }
       toast(`${m.nick} 同意了你加入「${m.code}」，正在进入…`, 3);
-      const dev = q.has('dev') ? '&dev=1' : '';
-      setTimeout(() => { location.href = location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(m.code) + '&nick=' + encodeURIComponent(net.nick) + dev; }, 900);
+      // ★ 不再直接跳：房间可能还在房主那边开着，先问 canjoin（有通行证 + 房间存在）再进
+      setTimeout(() => mpJoinRoom(m.code, 1), 400);
     }
     else if (m.t === 'deny') toast(`${m.nick} 拒绝了你的加入申请`, 3);
     else if (m.t === 'inv') {                       // 房主邀请：面板自动弹出来，点「加入」就进他的房间
