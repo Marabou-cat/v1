@@ -55,6 +55,7 @@ function saveWorld(w) {
                       w: +(+p.yaw).toFixed(3), q: +(+p.pitch).toFixed(3) };
     }
     const d = {
+      name: w.name || '', kind: w.kind || 'survival', updated: w.updated || 0,
       seed: w.seed, genVer: w.genVer, time: w.time,
       edits: Array.from(w.edits.entries()),
       chests: Array.from((w.chests || new Map()).entries()),     // 箱子内容：两人共用一张表
@@ -74,6 +75,9 @@ function loadWorld(code) {
   try {
     const d = JSON.parse(fs.readFileSync(p, 'utf8'));
     const w = newWorld(code);
+    w.name = d.name || '';
+    w.kind = d.kind || 'survival';
+    w.updated = d.updated || 0;
     w.seed = d.seed | 0;
     w.genVer = d.genVer || GEN_VER;
     w.time = d.time || 0;
@@ -114,7 +118,33 @@ function accByNick(nick) {
   if (!n) return null;
   return Object.values(ACCOUNTS).find(a => (a.nick || '').toLowerCase() === n) || null;
 }
-const accPublic = a => ({ pid: a.pid, nick: a.nick, online: accOnline(a), world: accOnline(a) ? a.world : null });
+const accPublic = a => ({ pid: a.pid, nick: a.nick, online: accOnline(a), world: accOnline(a) ? (a.world || a.pworld || null) : null, user: a.user || null });
+
+/* ---------------- 正式账号：用户名 + 密码（好友/联机/跨设备世界都要它）----------------
+ * 游客（没账号）照样能单机玩，但 join 会返回 need_login —— 见下面的 join。
+ * 密码 scrypt(salt) 存 hex，令牌 tok 存在账号里（换设备登录会沿用同一个 pid → 好友/世界都不丢）。
+ */
+const normUser = u => String(u || '').trim().toLowerCase();
+const hashPass = (pass, salt) => crypto.scryptSync(String(pass), String(salt), 32).toString('hex');
+const pidForUser = u => 'u-' + crypto.createHash('sha1').update('bw:' + normUser(u)).digest('hex').slice(0, 10);
+function accByUser(u) {
+  const k = normUser(u);
+  if (!k) return null;
+  return Object.values(ACCOUNTS).find(a => (a.user || '').toLowerCase() === k) || null;
+}
+function accByTok(t) {
+  const key = String(t || '');
+  if (!key || key.length < 8) return null;
+  return Object.values(ACCOUNTS).find(a => a.tok && a.tok === key) || null;
+}
+const newTok = () => crypto.randomBytes(16).toString('hex');
+function accWorlds(a) {
+  return (a && Array.isArray(a.worlds) ? a.worlds : []).map(w => ({
+    code: w.code, id: w.id || w.code, name: w.name || w.code, seed: w.seed | 0,
+    mode: w.mode || 'survival', at: w.at || 0,
+    players: (worlds.get(w.code) || { players: new Map() }).players.size,
+  }));
+}
 function pushTo(pid, msg) {                       // 定向推送（只对当前绑定了 socket 的账号）
   for (const w of worlds.values()) {
     const p = w.players.get(pid);
@@ -259,12 +289,15 @@ function applyEdit(w, p, msg) {
 
 function join(req, res) {
   const code = String(req.code || 'W1').slice(0, 12);
+  // ★ 联机必须登录：没有账号就只能单机（换设备世界会丢、也进不了别人的房间）
+  const acc = accByTok(req.tok);
+  if (!acc) return json(res, { ok: false, e: 'need_login' });
   const w = loadWorld(code);
   if (w.genVer !== GEN_VER) {
     return json(res, { ok: false, e: 'gen_mismatch', genVer: w.genVer, serverGen: GEN_VER });
   }
   if (w.players.size >= MAX_PLAYERS) return json(res, { ok: false, e: 'full' });
-  let id = String(req.pid || ('p' + Math.random().toString(36).slice(2, 8))).slice(0, 24);
+  let id = String(acc.pid || req.pid || ('p' + Math.random().toString(36).slice(2, 8))).slice(0, 24);   // 身份只认账号，不信客户端自称
   // ★ 同名占位：两台机器用同一个昵称时，以前两条连接抢同一个座位（服务端只认 pid），
   //   结果两端都把自己筛掉 → 「联机里看不到其他玩家」。现在给后来者加后缀，并把新 id 返回给客户端。
   const ex = w.players.get(id);
@@ -324,7 +357,24 @@ function hostWorld(req, res) {
   }
   if (n) w.dirty = true;
   if (req.chunk) return json(res, { ok: true, code, seed: w.seed, added: n, total: w.edits.size });
-  w.owner = String(req.pid || '').slice(0, 24);        // 开房的人 = 房主（重进房间也不丢）
+  const accH = accByTok(req.tok);                      // ★ 房主身份必须用「账号 pid」：join 里 id 已经改成账号 pid，
+  w.owner = String((accH && accH.pid) || req.pid || '').slice(0, 24);   //   这里再用客户端自称的 pid，房主会认不出自己 → 他自己不是房主（怪物/液体没人模拟）
+  /* 房间列表要显示的东西：世界名 / 模式。顺便把这个房间挂到账号下面 ——
+     「世界保存在账号」就是这条：换设备登录后能在这里看到并一键进来（seed+改动都在服务端）。 */
+  if (req.wname) w.name = String(req.wname).slice(0, 20);
+  if (req.kind) w.kind = String(req.kind).slice(0, 10);
+  w.updated = Date.now();
+  w.dirty = true;
+  const acc = accByTok(req.tok);
+  if (acc) {
+    acc.worlds = (acc.worlds || []).filter(x => x.code !== code);
+    acc.worlds.unshift({ code, id: String(req.lid || code).slice(0, 40), name: w.name || code,
+                         seed: w.seed | 0, mode: w.kind || 'survival', at: Date.now() });
+    if (acc.worlds.length > 20) acc.worlds.length = 20;
+    acc.world = code;
+    acc.at = Date.now();
+    saveAccounts();
+  }
   return join(Object.assign({}, req, { code }), res);
 }
 
@@ -450,21 +500,88 @@ const server = http.createServer((req, res) => {
           players: playersPublic(w), time: w.time,
         });
       }
+  /* 账号解析：带令牌就认账号（身份稳定），否则退回游客 —— 必须定义在所有用到它的分支之前 */
+  const accFor = a => (a && a.tok && accByTok(a.tok)) || accOf(a.pid, a.nick, a.code);
+      /* ---- 账号：注册 / 登录（用户名+密码）。没有账号也能单机，但联机要登录 ---- */
+      if (a.a === 'reg' || a.a === 'login') {
+        const u = normUser(a.user), p = String(a.pass || '');
+        if (!/^[a-z0-9_]{3,16}$/.test(u)) return json(res, { ok: false, e: 'bad_user' });
+        if (p.length < 4 || p.length > 40) return json(res, { ok: false, e: 'bad_pass' });
+        let me = accByUser(u);
+        if (a.a === 'reg') {
+          if (me) return json(res, { ok: false, e: 'taken' });
+          const salt = crypto.randomBytes(8).toString('hex');
+          const pid = pidForUser(u);
+          me = ACCOUNTS[pid] || { pid, friends: [], req: [], inv: [], worlds: [], at: 0 };
+          Object.assign(me, { user: u, salt, hash: hashPass(p, salt), tok: newTok(), at: 0 });
+          me.nick = String(a.nick || me.nick || u).slice(0, 14);
+          ACCOUNTS[pid] = me;
+          console.log('[bw] reg', u, pid);
+        } else {
+          if (!me || !me.hash) return json(res, { ok: false, e: 'no_user' });
+          if (hashPass(p, me.salt) !== me.hash) return json(res, { ok: false, e: 'bad_pass' });
+          me.tok = me.tok || newTok();
+        }
+        me.at = Date.now();
+        saveAccounts();
+        return json(res, { ok: true, pid: me.pid, nick: me.nick, tok: me.tok, user: me.user,
+          worlds: accWorlds(me),
+          friends: (me.friends || []).map(id => ACCOUNTS[id]).filter(Boolean).map(accPublic) });
+      }
+      if (a.a === 'whoami') {                      // 带着 tok 回来验证 + 顺便刷新账号世界
+        const me = accByTok(a.tok);
+        if (!me) return json(res, { ok: false, e: 'bad_tok' });
+        me.at = Date.now();
+        saveAccounts();
+        return json(res, { ok: true, pid: me.pid, nick: me.nick, user: me.user || null, worlds: accWorlds(me) });
+      }
+      if (a.a === 'rooms') {                       // MC 式「服务器列表」：现在有人在的房间
+        const out = [];
+        for (const w of worlds.values()) {
+          if (!w.players || w.players.size === 0) continue;
+          const hp = w.owner ? w.players.get(w.owner) : null;
+          out.push({ code: w.code, name: w.name || w.code, host: hp ? hp.name : '', hostPid: w.owner || null,
+                     players: w.players.size, max: MAX_PLAYERS, mode: w.kind || 'survival', seed: w.seed | 0 });
+        }
+        out.sort((x, y) => (y.players - x.players) || String(x.name).localeCompare(String(y.name)));
+        return json(res, { ok: true, rooms: out.slice(0, 40), t: Date.now() });
+      }
+      if (a.a === 'wsave' || a.a === 'wdel') {     // 世界挂到账号下面（换设备登录就能看见/进去）
+        const me = accByTok(a.tok);
+        if (!me) return json(res, { ok: false, e: 'need_login' });
+        const code = String((a.world && a.world.code) || a.code || '').slice(0, 12);
+        if (!code) return json(res, { ok: false, e: 'no_code' });
+        me.worlds = (me.worlds || []).filter(x => x.code !== code);
+        if (a.a === 'wsave') {
+          const w = a.world || {};
+          me.worlds.unshift({ code, id: String(w.id || code).slice(0, 40), name: String(w.name || code).slice(0, 20),
+                              seed: w.seed | 0, mode: String(w.mode || 'survival').slice(0, 10), at: Date.now() });
+          if (me.worlds.length > 20) me.worlds.length = 20;
+        }
+        me.at = Date.now();
+        saveAccounts();
+        return json(res, { ok: true, worlds: accWorlds(me) });
+      }
       if (a.a === 'acct' || a.a === 'friends') {
-        const me = accOf(a.pid, a.nick, a.code);
+        const me = accFor(a);
         if (!me) return json(res, { ok: false, e: 'no_pid' });
+        me.at = Date.now();
+        // ★ 单机玩的时候也告诉服务端「我在哪个世界」：好友才能看到并申请加入，
+        //   同意后客户端自动开房（不用手动点开房）。联机里 pworld 就是房间码本身。
+        if (typeof a.pworld === 'string') { me.pworld = String(a.pworld).slice(0, 12); me.world = me.pworld; }
         const out = {
           ok: true, me: accPublic(me),
           friends: (me.friends || []).map(id => ACCOUNTS[id]).filter(Boolean).map(accPublic),
           req: a.a === 'acct' ? (me.req || []) : (me.req || []),
           inv: me.inv || [],                         // 别人邀请我进的房间（好友面板里显示「加入」）
+          worlds: accWorlds(me),
         };
         if (a.a === 'friends') me.req = [];        // friends 是"取走即清"，acct 只是心跳顺带看一眼
         saveAccounts();
         return json(res, out);
       }
-      if (a.a === 'fadd') {                        // 按昵称加好友（互相加）
-        const me = accOf(a.pid, a.nick, a.code);
+  if (a.a === 'fadd') {                        // 按昵称加好友（互相加）
+        const me = accFor(a);
         if (!me) return json(res, { ok: false, e: 'no_pid' });
         const t = accByNick(a.target);
         if (!t) return json(res, { ok: false, e: 'no_user' });
@@ -476,13 +593,13 @@ const server = http.createServer((req, res) => {
         return json(res, { ok: true, friend: accPublic(t) });
       }
       if (a.a === 'jreq') {                        // 申请加入好友的世界
-        const me = accOf(a.pid, a.nick, a.code);
+        const me = accFor(a);
         if (!me) return json(res, { ok: false, e: 'no_pid' });
         const t = ACCOUNTS[String(a.to || '')];
         if (!t) return json(res, { ok: false, e: 'no_user' });
         if (!(me.friends || []).includes(t.pid)) return json(res, { ok: false, e: 'not_friend' });
         if (!accOnline(t)) return json(res, { ok: false, e: 'offline' });
-        const r = { from: me.pid, nick: me.nick, code: t.world, at: Date.now() };
+        const r = { from: me.pid, nick: me.nick, code: (t.world || t.pworld || ''), at: Date.now() };
         t.req = (t.req || []).filter(x => x.from !== me.pid);
         t.req.push(r);
         if (t.req.length > 8) t.req.shift();
@@ -491,16 +608,17 @@ const server = http.createServer((req, res) => {
         return json(res, { ok: true, sent: true });
       }
       if (a.a === 'jres') {                        // 好友回应申请：同意 → 通知他来我的世界
-        const me = accOf(a.pid, a.nick, a.code);
+        const me = accFor(a);
         if (!me) return json(res, { ok: false, e: 'no_pid' });
         const who = ACCOUNTS[String(a.from || '')];
         if (!who) return json(res, { ok: false, e: 'no_user' });
         me.req = (me.req || []).filter(x => x.from !== who.pid);
         if (a.ok) {
-          who.inv = (who.inv || []).filter(x => x.code !== me.world);
-          who.inv.push({ code: me.world, nick: me.nick, at: Date.now() });
+          const codeJ = String(a.code || me.world || me.pworld || '').slice(0, 12);
+          who.inv = (who.inv || []).filter(x => x.code !== codeJ);
+          who.inv.push({ code: codeJ, nick: me.nick, at: Date.now() });
           if (who.inv.length > 8) who.inv.shift();
-          pushTo(who.pid, { t: 'acc', code: me.world, nick: me.nick });
+          pushTo(who.pid, { t: 'acc', code: codeJ, nick: me.nick });
         } else {
           pushTo(who.pid, { t: 'deny', nick: me.nick });
         }
@@ -508,12 +626,12 @@ const server = http.createServer((req, res) => {
         return json(res, { ok: true, accepted: !!a.ok });
       }
       if (a.a === 'invite') {                     // 房主邀请好友进自己的房间（方向：我拉你，不用你申请）
-        const me = accOf(a.pid, a.nick, a.code);
+        const me = accFor(a);
         if (!me) return json(res, { ok: false, e: 'no_pid' });
         const t = ACCOUNTS[String(a.to || '')];
         if (!t) return json(res, { ok: false, e: 'no_user' });
         if (!(me.friends || []).includes(t.pid)) return json(res, { ok: false, e: 'not_friend' });
-        const code = String(a.code || me.world || '').slice(0, 12);
+        const code = String(a.code || me.world || me.pworld || '').slice(0, 12);
         if (!code) return json(res, { ok: false, e: 'no_room' });
         const r = { code, nick: me.nick, at: Date.now() };
         t.inv = (t.inv || []).filter(x => x.code !== code);
