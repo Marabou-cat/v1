@@ -6567,6 +6567,23 @@ function animateMob(m, dt, dx, dz, dist) {
   }
 }
 
+/* 血条统一更新：满血且离得远就藏；朝向镜头；按血量比例左对齐缩短；低血变色。
+   ★ 补间量的宽度用 barFg 自己的几何宽（0.72 / 1.42 / 1.8 三种都不一样），
+     以前写死 0.36 —— 首领那条 1.42 宽的血条缩短时会往右偏，看着像"血条歪了"。
+   房主循环和联机客人（幽灵怪）都走这一个函数，两边不会再长得不一样。 */
+function updateMobBar(P, hp, maxHp, dist) {
+  if (!P || !P.bar) return;
+  const vis = hp < maxHp || dist < 14;
+  P.bar.visible = vis;
+  if (!vis) return;
+  P.bar.lookAt(camera.position);
+  const f = Math.max(0.02, Math.min(1, hp / Math.max(1, maxHp)));
+  const halfW = (P.barW || (P.barW = (P.barFg.geometry.parameters && P.barFg.geometry.parameters.width) || 0.72)) / 2;
+  P.barFg.scale.x = f;
+  P.barFg.position.x = -(1 - f) * halfW;
+  P.barFg.material.color.setHex(f > 0.55 ? 0x7fe06b : f > 0.25 ? 0xf0c04a : 0xe0524b);
+}
+
 /* ── 村民招募：不能交易，只能「满足需求 → 招入队」；招募后可指挥跟随、可给道具 ── */
 const RECRUIT_WANTS = [
   { id: 107, n: 3 },   // 小麦
@@ -7748,14 +7765,7 @@ function updateMobs(dt) {
     m.parts.bodyMat.emissive.setHex(em);
     m.parts.headMat.emissive.setHex(em);
     // 血条
-    m.parts.bar.visible = m.hp < m.maxHp || dist < 14;
-    if (m.parts.bar.visible) {
-      m.parts.bar.lookAt(camera.position);
-      const f = Math.max(0.02, m.hp / m.maxHp);
-      m.parts.barFg.scale.x = f;
-      m.parts.barFg.position.x = -(1 - f) * 0.36;
-      m.parts.barFg.material.color.setHex(f > 0.55 ? 0x7fe06b : f > 0.25 ? 0xf0c04a : 0xe0524b);
-    }
+    updateMobBar(m.parts, m.hp, m.maxHp, dist);
     // 怕太阳的生物（试炼里召唤的守护者不吃日晒，否则白天试炼会被太阳替玩家打完）
     if (def.sunBurn && !m.trial) {
       m.sunTick = (m.sunTick || 0) - dt;
@@ -11772,6 +11782,43 @@ window.GAME = {
         roll: +r.obj.rotation.z.toFixed(3),
       };
     }),
+    // 远端人形「骨架对齐」探针：头底 / 躯干顶 / 肩点应该是同一个高度（差值 0.000）。
+    // 头悬空、肩不齐这类 bug 不用截图猜 —— 直接看这三个数字。
+    remoteModel: () => Array.from(NET ? (NET.remotes || new Map()) : new Map()).map(([id, r]) => {
+      const u = r.obj.userData || {};
+      const U = MOB_PX, px = v => +(v / U).toFixed(2);        // 顺便换算成模型像素（1 px = 1/32 身高）
+      const torsoTop = (u.torso ? u.torso.position.y : 0) + 6 * U;
+      const headBottom = u.head ? u.head.position.y : 0;      // 头的 pivot 就在头底（颈部）
+      const armTop = u.armR ? u.armR.position.y : 0;          // 胳膊 pivot 就在肩上
+      return {
+        name: r.name || id,
+        torsoTop: +torsoTop.toFixed(4), headBottom: +headBottom.toFixed(4), armTop: +armTop.toFixed(4),
+        gapHeadPx: px(headBottom - torsoTop), gapArmPx: px(armTop - torsoTop),
+        base: u.base ? { torso: +u.base.torso.toFixed(4), head: +u.base.head.toFixed(4) } : null,
+      };
+    }),
+    // 客人端「幽灵怪」探针：动作/受伤/血条这三样以前客人全看不到，用数字一眼判定。
+    //   legX 在变 = 腿在迈；flash>0 = 正在红闪；barFill = 血条填充比例；barFaces≈1 = 血条正对镜头。
+    ghostMobs: () => Array.from(NET ? (NET.ghosts || new Map()) : new Map()).map(([id, g]) => {
+      const P = g.parts || {}, bar = P.bar;
+      let faceDot = null;
+      if (bar && bar.matrixWorld) {
+        const e = bar.matrixWorld.elements;                 // 血条局部 +Z 的世界方向 = 第 3 列
+        const cx = camera.position.x - e[12], cy = camera.position.y - e[13], cz = camera.position.z - e[14];
+        const cl = Math.hypot(cx, cy, cz) || 1;
+        faceDot = +(((e[8] * cx + e[9] * cy + e[10] * cz) / cl)).toFixed(3);
+      }
+      return {
+        id, kind: g.kind, hp: g.hp, maxHp: g.maxHp, spd: +(g.spd || 0).toFixed(2),
+        flash: +(g.flash || 0).toFixed(2),
+        legX: +(P.legs && P.legs[0] ? P.legs[0].rotation.x : 0).toFixed(3),
+        armX: +(P.arm1 ? P.arm1.rotation.x : 0).toFixed(3),
+        headYaw: +(g.headYaw || 0).toFixed(2),
+        barVisible: bar ? bar.visible : null,
+        barFill: P.barFg ? +P.barFg.scale.x.toFixed(2) : null,
+        barFacesCam: faceDot,
+      };
+    }),
     swing: (type = 'attack', dur = 0.5) => startSwing(type, dur),
     pinMining: (v) => { MINE_PIN = v; },
     noiseTest(n = 4000) {
@@ -12576,7 +12623,7 @@ window.GAME = {
   };
 
   /* ---------- 远端玩家形象 ---------- */
-  function nameTag(text) {
+  function nameTag(text, y) {
     const cv = document.createElement('canvas');
     cv.width = 256; cv.height = 64;
     const g = cv.getContext('2d');
@@ -12589,7 +12636,9 @@ window.GAME = {
     const tex = new THREE.CanvasTexture(cv);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
     sp.scale.set(1.7, 0.42, 1);
-    sp.position.y = 2.15;
+    // ★ 默认高度跟着模型头顶走（32 px = 1.78 格），别再写死 —— 写死的 2.15 是旧盒体模型的高度，
+    //   换成贴图模型后头顶只有 1.78，名字就飘在头顶 0.37 格的半空里。
+    sp.position.y = (typeof y === 'number') ? y : (32 * MOB_PX + 0.17);
     return sp;
   }
   function avatar(id, name, look) {
@@ -12613,6 +12662,10 @@ window.GAME = {
       tx: 0, ty: 0, tz: 0, yaw: 0,
       walk: 0, spd: 0, swing: 0, swingType: '', airK: 0, sprintK: 0, mineK: 0, landK: 0,
       buf: [], airPrev: 0,              // 快照缓冲（渲染延迟插值用）+ 上一帧腾空位（判落地）
+      /* ★ 骨骼基准高度：模型自带的正确定位（躯干中心 18 px / 颈根 24 px / 肩 24 px）。
+       *   动画只能在这个基准上「加偏移」，不能改成写死的格数 —— 旧盒体模型的 1.06 / 1.62
+       *   套到 32 px 贴图模型上 = 头底比躯干顶高 4 px（头悬空）、肩线比躯干顶低 1 px（肩不平）。 */
+      base: { torso: torso.position.y, head: head.position.y, armL: armL.position.y, armR: armR.position.y },
       armL, armR, legL, legR, foreR, torso, head, face, flags: 0, phase: Math.random() * 6.28,
     };
     scene.add(g);
@@ -12716,11 +12769,16 @@ window.GAME = {
     return true;
   };
 
-  /* ---------- 非主机端的「幽灵怪」：只按主机快照摆模型，不跑 AI、不参与战斗 ---------- */
+  /* ---------- 非主机端的「幽灵怪」：只按主机快照摆模型，不跑 AI、不参与战斗 ----------
+   * ★ 以前这里只保存 obj + 目标位置：客人看到的动物是「滑行的木头人」——
+   *   腿不迈、头不转、挨打不闪红、血条永远满格而且只朝一个固定方向（侧看变成一条线）。
+   *   现在把 makeMobModel 的 parts 留下来，并让幽灵怪本身长得像宿主循环里的 m：
+   *   animateMob() 只要 m.parts / m.kind / m.obj / m.p / m.v / m.onGround / m.flash，
+   *   所以**同一个动画函数**在两边跑，动作不会再走样。 */
   function syncGhosts(list) {
     const alive = new Set();
     for (const e of list) {
-      const [id, kind, x, y, z, rot, hp] = e;
+      const [id, kind, x, y, z, rot, hp, spd] = e;
       if (typeof hp === 'number' && hp <= 0) continue;
       alive.add(id);
       let g = net.ghosts.get(id);
@@ -12729,9 +12787,24 @@ window.GAME = {
         if (!parts) continue;
         parts.g.position.set(x, y, z);
         scene.add(parts.g);
-        g = { obj: parts.g, tx: x, ty: y, tz: z, rot };
+        g = {
+          obj: parts.g, parts, kind,
+          p: parts.g.position,                       // 和 obj.position 是同一个 Vector3：动画里读 m.p 直接对
+          v: { x: 0, y: 0, z: 0 }, onGround: true,
+          anim: { walk: Math.random() * 6, k: 0, idle: 0, land: 0 },
+          flash: 0, lunge: 0, headYaw: 0, headPitch: 0,
+          hp: (typeof hp === 'number' ? hp : null),
+          maxHp: (MOB_DEFS[kind] && MOB_DEFS[kind].hp) || 20,
+          spd: 0, tx: x, ty: y, tz: z, rot,
+        };
         net.ghosts.set(id, g);
       }
+      // 血量下降 = 挨了一下（主人打、别的客人打、太阳烧、岩浆都算）→ 本地播 0.24s 红闪
+      if (typeof hp === 'number') {
+        if (g.hp !== null && hp < g.hp) g.flash = 0.24;
+        g.hp = hp;
+      }
+      g.spd = (typeof spd === 'number' && spd > 0) ? spd : 0;
       g.tx = x; g.ty = y; g.tz = z; g.rot = rot;
     }
     for (const [id, g] of Array.from(net.ghosts)) {
@@ -13203,7 +13276,9 @@ window.GAME = {
         for (const m of (typeof mobs !== 'undefined' ? mobs : [])) {
           if (m.dying || m.hp <= 0 || !m.obj) continue;
           m.nid = m.nid || (net.mobSeq = (net.mobSeq || 0) + 1);
-          u.push([m.nid, m.kind, +m.p.x.toFixed(2), +m.p.y.toFixed(2), +m.p.z.toFixed(2), +m.obj.rotation.y.toFixed(2), Math.round(m.hp)]);
+          // 末位两个字段是给客人的动作/受伤依据：spd 决定迈腿频率，hp 掉一格就是挨了一下
+          u.push([m.nid, m.kind, +m.p.x.toFixed(2), +m.p.y.toFixed(2), +m.p.z.toFixed(2),
+                  +m.obj.rotation.y.toFixed(2), Math.round(m.hp), +Math.hypot(m.v.x, m.v.z).toFixed(2)]);
           if (u.length >= 24) break;
         }
         net.mobCache = u;
@@ -13219,6 +13294,21 @@ window.GAME = {
       while (dg > Math.PI) dg -= Math.PI * 2;
       while (dg < -Math.PI) dg += Math.PI * 2;
       g.obj.rotation.y += dg * kG;
+      /* ★ 客人端补上「动作 / 受伤 / 血条」三件事（以前全缺，只有平移+转身）：
+       *   ① 迈腿摆臂 + 身体起伏 + 头盯人 → 直接复用 animateMob（和房主同一份动画代码）
+       *   ② 挨打闪红 → hp 掉了就在本地播 0.24s 红色自发光
+       *   ③ 血条 → 朝向镜头 + 按血量缩短变色（updateMobBar 和房主共用） */
+      const P = g.parts;
+      if (!P) continue;
+      const dx = camera.position.x - g.obj.position.x, dz = camera.position.z - g.obj.position.z;
+      const dist = Math.hypot(dx, dz);
+      g.v.z = g.spd || 0;                       // animateMob 只看水平速度的模长
+      g.flash = Math.max(0, (g.flash || 0) - dt);
+      try { animateMob(g, dt, dx, dz, dist); } catch (e) {}
+      const em = g.flash > 0 ? 0xa03030 : 0x000000;
+      if (P.bodyMat && P.bodyMat.emissive) P.bodyMat.emissive.setHex(em);
+      if (P.headMat && P.headMat.emissive) P.headMat.emissive.setHex(em);
+      updateMobBar(P, (typeof g.hp === 'number' ? g.hp : g.maxHp), g.maxHp, dist);
     }
     for (const r of net.remotes.values()) {
       const u = r.obj.userData;
@@ -13283,10 +13373,18 @@ window.GAME = {
       const rollT = clamp(-yawRate * 0.05, -0.07, 0.07);
       r.obj.rotation.z += (rollT - r.obj.rotation.z) * Math.min(1, dt * 10);
       // 身体：疾跑前倾 + 走路起伏 + 落地屈膝压身 + 头随俯仰点头
+      // ★ 基准高度一律取模型自带值（u.base），不再写死 1.06 / 1.62：
+      //   base.torso = 18 px（躯干中心，躯干顶 = 24 px = 颈部）
+      //   base.head  = 24 px（颈根，正好贴住躯干顶）
+      //   base.arm*  = 24 px（肩点，和躯干顶同高）
+      //   这三者原本就是对齐的；旧代码把它们顶到 1.06 / 1.62，才出现「头悬空 4 px、肩线低 1 px」。
       u.torso.rotation.x = u.sprintK * 0.12 + landK * 0.10;
       const bobY = Math.abs(stride) * 0.02 * walkAmt - landK * 0.05;
-      u.torso.position.y = 1.06 + bobY;
-      u.head.position.y = 1.62 + bobY * 0.8;
+      const bY = u.base || (u.base = { torso: 18 * MOB_PX, head: 24 * MOB_PX, armL: 24 * MOB_PX, armR: 24 * MOB_PX });
+      u.torso.position.y = bY.torso + bobY;
+      u.head.position.y = bY.head + bobY * 0.8;
+      u.armL.position.y = bY.armL + bobY;          // 肩随躯干一起起伏，肩线始终贴着躯干顶
+      u.armR.position.y = bY.armR + bobY;
       u.head.rotation.x = HEAD_PITCH_SIGN * clamp((u.pitch || 0) * 0.45, -0.55, 0.55);
     }
     // 主机每 0.2s 广播掉落物；客人每 5s 把背包存回服务端
