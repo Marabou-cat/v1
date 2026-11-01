@@ -749,6 +749,14 @@ const server = http.createServer((req, res) => {
         const pushed = pushTo(t.pid, { t: 'inv', code, nick: me.nick });
         return json(res, { ok: true, sent: true, pushed });
       }
+      if (a.a === 'ivdone') {                     // 这张「已同意」用掉了 → 从账号里删掉，别再自动进（否则每次开页面都会自动进一次）
+        const accI = accByTok(a.tok);
+        if (accI) {
+          accI.inv = (accI.inv || []).filter(x => x && x.code !== String(a.code || '').slice(0, 12));
+          saveAccounts();
+        }
+        return json(res, { ok: true });
+      }
       if (a.a === 'canjoin') {                    // 「我能进这个房间了吗」—— 等对方同意时轮询它（只读，不占座）
         const acc = accByTok(a.tok);
         if (!acc) return json(res, { ok: false, e: 'need_login' });

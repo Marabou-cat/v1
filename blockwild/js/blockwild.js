@@ -12743,6 +12743,13 @@ const acctTok = () => ACCT.tok;
 
 /* ?join=房间码：别人发的「一键加入」链接。已登录就直接进；没登录先记住，登录成功后自动继续。 */
 let PENDING_JOIN = (new URLSearchParams(location.search).get('join') || '').replace(/[^\w-]/g, '').toUpperCase().slice(0, 12);
+/* 一次性：把 ?join= 从地址栏摘掉（值已经存进变量），刷新/恢复标签页不会重复发申请或重复进房 */
+if (PENDING_JOIN) {
+  try {
+    const u = new URL(location.href); u.searchParams.delete('join');
+    history.replaceState(null, '', u.pathname + (u.search || ''));
+  } catch (e) {}
+}
 acctLoad();
 if (ACCT.on) {                                    // 带着令牌回来 → 静默校验一次，顺便刷新账号世界
   setTimeout(() => {
@@ -13135,8 +13142,25 @@ function mpPullWorldEdits(world) {
  */
 function mpGoRoom(code) {
   MPUI.setWait(null);
-  location.href = location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(code)
-    + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name);
+  /* 进房前把「已同意」这张一次性通知用掉：不然刷新/重开网站时它还在账号里，
+     又会被自动消费一次 → 用户看到「打开网站就自动进房间」。
+     用 sendBeacon（页面马上要跳走，普通 fetch 会被取消）。 */
+  try {
+    const body = JSON.stringify({ a: 'ivdone', tok: ACCT.tok, code });
+    if (navigator.sendBeacon) navigator.sendBeacon(acctEP(), new Blob([body], { type: 'text/plain' }));
+    else acctApi({ a: 'ivdone', tok: ACCT.tok, code }).catch(() => {});
+  } catch (e) {}
+  mpNavTo(location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(code)
+    + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name));
+}
+/* 跳去联机前打一个「本标签页刚点过加入」的一次性令牌。
+   ★ 只靠 URL 里的 go=1 判断「要不要自动进服」有两个坑：
+     ① 地址栏留着 go=1（联机失败/被切后台时 replaceState 没跑到）→ 刷新、浏览器恢复标签页又自动进一次；
+     ② 有人把带 go=1 的地址存成书签/收藏 → 每次打开都当「刚点了加入」。
+   令牌存在 sessionStorage（只在本标签页、只生效一次），书签和老地址都不会带。 */
+function mpNavTo(href) {
+  try { sessionStorage.setItem('bw_go', '1'); } catch (e) {}
+  location.href = href;
 }
 function mpJoinRoom(code, tries) {
   if (!ACCT.on) { MPUI.show('friend'); return MPUI.msg2('先登录才能联机'); }
@@ -13192,8 +13216,8 @@ function mpAutoHost(code) {
   try { save(); } catch (e) {}                            // 跳转前存一次，别丢这几秒的进度
   MPUI.msg2('正在把「' + (m.name || '我的世界') + '」开成房间 ' + c + ' …');
   setTimeout(() => {
-    location.href = location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(m.id)
-      + '&world=' + encodeURIComponent(c) + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name);
+    mpNavTo(location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(m.id)
+      + '&world=' + encodeURIComponent(c) + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name));
   }, 200);
 }
 
@@ -13215,8 +13239,12 @@ function mpSocialTick() {
       MPUI._reqN = reqs.length;
       const btn = document.getElementById('btnFriendsHud');
       if (btn) btn.textContent = reqs.length ? ('好友(' + reqs.length + ')') : '好友';
-      /* ★ 我申请加入的好友点了「同意」→ 这边自动进，不用再点「加入」 */
-      const okInv = (d.inv || []).find(v => v && v.j === 1 && !mpAutoJoinSeen.has(v.code + ':' + (v.at || 0)));
+      /* ★ 我申请加入的好友点了「同意」→ 这边自动进，不用再点「加入」。
+         两个前提，缺一个就会变成「每次打开网站都自动进这个房间」：
+         · 只认 3 分钟内的同意（旧通知不该再拉人）
+         · 进房成功后立刻让服务端把这张「已同意」用掉（ivdone），否则刷新/重开页面又会自动进一次 */
+      const okInv = (d.inv || []).find(v => v && v.j === 1 && (Date.now() - (v.at || 0)) < 180000
+        && !mpAutoJoinSeen.has(v.code + ':' + (v.at || 0)));
       if (okInv) {
         mpAutoJoinSeen.add(okInv.code + ':' + (okInv.at || 0));
         MPUI.setWait(null);
@@ -13253,8 +13281,8 @@ function mpEnterAccountWorld(code) {
   } else if (!m.mpCode) { m.mpCode = code; saveIndex(); }
   MPUI.msg2('正在打开「' + (m.name || code) + '」…');
   setTimeout(() => {
-    location.href = location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(m.id)
-      + '&world=' + encodeURIComponent(code) + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name);
+    mpNavTo(location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(m.id)
+      + '&world=' + encodeURIComponent(code) + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name));
   }, 200);
 }
 
@@ -13295,10 +13323,24 @@ function mpEnterAccountWorld(code) {
   //   刷新 / 点「世界」/ iOS 恢复标签页都会再进一次），bootNet 就无条件 join。
   //   现在只有明确意图（?net= 调试入口，或客户端自己跳转时带的 go=1）才自动进服；
   //   裸链接（手输/书签/分享）一律不自动进，退回单机开始界面并打开联机面板预填这个世界码。
-  const wantGo = q.has('net') || q.get('go') === '1';
+  /* ★ 「打开网站就自动进房间、刷新也没用」的两个根因都在这里，一次解决：
+     ① 地址栏里的 ?mp=1&go=1&world=XXX 以前只在 join **成功之后**才被 replaceState 洗掉；
+        这次联机失败/卡住/页面被切后台 → 脏 URL 留在地址栏，刷新、浏览器恢复标签页都会再自动进一次；
+     ② 带 go=1 的地址被存成书签/收藏 → 每次打开都当「刚点了加入」。
+     现在：一进页面先把地址栏洗干净（不管后面成不成功），并且 go=1 必须配一个
+     「本标签页刚点过加入」的一次性令牌（mpNavTo 打的）。 */
+  let goTok = '';
+  try { goTok = sessionStorage.getItem('bw_go') || ''; } catch (e) {}
+  try { sessionStorage.removeItem('bw_go'); } catch (e) {}      // 一次性：用完就丢
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  /* ?net= 是调试入口：只有**明确写了 world=（或带一次性令牌的 go=1）**才自动进服；
+     光有 ?net= 只打开面板挑，不再「进去再说」—— 那个默认世界码是按昵称算的，
+     常常正好撞上某个人开着的房间，看起来就是「莫名其妙自己进了别人的房」。 */
+  const wantGo = q.has('net')
+    ? (q.has('world') || q.get('go') === '1' || goTok === '1')
+    : (q.get('go') === '1' && goTok === '1');
   if (!wantGo) {
-    try { history.replaceState(null, '', location.pathname); } catch (e) {}
-    window.__bwPrefillMP = { code: world, nick, why: 'link' };
+    window.__bwPrefillMP = { code: world, nick, why: q.get('go') === '1' ? 'stale' : 'link' };
     return;
   }
   const API = base.replace(/\/+$/, '');
@@ -14682,7 +14724,12 @@ function mpEnterAccountWorld(code) {
     const mm = document.getElementById('btnMPMenu');         // 开始界面「多人游戏」
     if (mm) mm.onclick = () => MPUI.show('list');
     // 裸链接带着世界码（?mp=1 但没有 go=1）：不自动进服，只把面板打开让人确认
-    if (window.__bwPrefillMP) setTimeout(() => MPUI.show('list'), 350);
+    if (window.__bwPrefillMP) setTimeout(() => {
+      MPUI.show('friend');
+      if (window.__bwPrefillMP.why === 'stale') {
+        MPUI.msg2('上次那次「加入」已经结束了（不会再自动进房）：想进谁的世界，在好友里点「申请加入」');
+      }
+    }, 350);
   };
   window.__bwWireEntry = bind;
   bind();
