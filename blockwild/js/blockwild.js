@@ -2702,20 +2702,23 @@ function bedFacing(wx, y, wz, meta) {
 }
 function emitBed(lx, y, lz, wx, wz, meta, P, U, C, I, base) {
   const { dir, head } = bedFacing(wx, y, wz, meta);
-  const alongX = dir === 1 || dir === 2;                    // 床轴 = X 轴
-  const flip = dir === 2 || dir === 4;                      // 沿轴坐标 0 = 脚那侧，需要取反
-  const mapA = t => flip ? 1 - t : t;
+  const alongX = dir === 1 || dir === 2;
+  const nb = (dx, dz) => peekBlock(wx + dx, y, wz + dz) === 14;
+  /* ★ 拼接边不内缩：两张床格挨着的那个方向要一直画到格子边界（0 / 1），
+     否则每格各缩 0.04 → 两格之间出现 0.08 的缝，看起来像两张小床拼的。
+     外侧（没有同伴的那边）仍然留 0.04 的床沿。 */
+  const ex0 = nb(-1, 0) ? 0 : 0.04, ex1 = nb(1, 0) ? 0 : 0.04;
+  const ez0 = nb(0, -1) ? 0 : 0.04, ez1 = nb(0, 1) ? 0 : 0.04;
   let n = 0;
-  const box = (a0, a1, w0, w1, y0, y1, tile) => {           // a=沿床轴, w=横向
-    const p0 = mapA(a0), p1 = mapA(a1);
-    const lo = Math.min(p0, p1), hi = Math.max(p0, p1);
-    n += alongX
-      ? emitBox(P, U, C, I, base + n, lx, y, lz, lo, hi, y0, y1, w0, w1, tile)
-      : emitBox(P, U, C, I, base + n, lx, y, lz, w0, w1, y0, y1, lo, hi, tile);
+  const bx = (x0, x1, z0, z1, y0, y1, tile) => {
+    n += emitBox(P, U, C, I, base + n, lx, y, lz, x0, x1, y0, y1, z0, z1, tile);
   };
-  box(0.04, 0.96, 0.04, 0.96, 0.00, 0.16, BED_T_FRAME);     // 木床架
-  box(0.02, 0.98, 0.06, 0.94, 0.16, 0.45, BED_T_MAT);       // 床垫/被子
-  if (head) box(0.70, 0.96, 0.14, 0.86, 0.45, 0.58, BED_T_PILLOW);   // 枕头（床头远端）
+  bx(ex0, 1 - ex1, ez0, 1 - ez1, 0.00, 0.16, BED_T_FRAME);                       // 木床架
+  bx(ex0 ? 0.02 : 0, ex1 ? 0.98 : 1, ez0 ? 0.02 : 0, ez1 ? 0.98 : 1, 0.16, 0.45, BED_T_MAT);  // 床垫/被子
+  if (head) {                                                                    // 枕头：放在远离同伴的那一端
+    if (alongX) bx(ex0 ? 0.70 : 0.04, ex1 ? 0.96 : 0.30, 0.14, 0.86, 0.45, 0.58, BED_T_PILLOW);
+    else bx(0.14, 0.86, ez0 ? 0.70 : 0.04, ez1 ? 0.96 : 0.30, 0.45, 0.58, BED_T_PILLOW);
+  }
   return n;
 }
 
@@ -2797,8 +2800,8 @@ function doorGeometry(dir) {
   const d = DOOR_DEF[dir];
   const P = [], U = [], C = [], I = [];
   let n = 0;
-  n += emitBox(P, U, C, I, n, 0, 0, 0, d.x0 - d.hx, d.x1 - d.hx, 0, 0.98, d.z0 - d.hz, d.z1 - d.hz, 40);        // 下半
-  n += emitBox(P, U, C, I, n, 0, 0, 0, d.x0 - d.hx, d.x1 - d.hx, 1.04, 1.95, d.z0 - d.hz, d.z1 - d.hz, 40);     // 上半
+  n += emitBox(P, U, C, I, n, 0, 0, 0, d.x0 - d.hx, d.x1 - d.hx, 0, 1.0, d.z0 - d.hz, d.z1 - d.hz, 40);        // 下半：画到 1.0
+  n += emitBox(P, U, C, I, n, 0, 0, 0, d.x0 - d.hx, d.x1 - d.hx, 1.0, 2.0, d.z0 - d.hz, d.z1 - d.hz, 40);      // 上半：从 1.0 起（★ 无缝，原先是 0.98 / 1.04 留了 6cm 缝）
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
@@ -3711,6 +3714,30 @@ function refreshHeld() {
       g.add(q);
     }
     heldMesh = g;
+  } else if (b && (b.door || b.bed)) {
+    /* ★ 门/床拿在手里也要是「放下的样子」：门 = 薄门板 + 把手，床 = 床架 + 床垫 + 枕头。
+       以前走通用方块分支 → 手里就是一块 0.2 的立方体，和放下后的形状完全对不上。 */
+    kind = 'block';
+    const HP = [], HU = [], HC = [], HI = [];
+    let hn = 0;
+    const hbox = (x0, x1, y0, y1, z0, z1, tile) => { hn += emitBox(HP, HU, HC, HI, hn, 0, 0, 0, x0, x1, y0, y1, z0, z1, tile); };
+    if (b.door) {
+      hbox(0.08, 0.92, 0.02, 0.98, 0.41, 0.57, 40);          // 门板（薄，竖着）
+      hbox(0.78, 0.86, 0.46, 0.60, 0.34, 0.41, 41);          // 门把手
+    } else {
+      hbox(0.04, 0.96, 0.00, 0.16, 0.04, 0.96, BED_T_FRAME);    // 床架
+      hbox(0.02, 0.98, 0.16, 0.45, 0.02, 0.98, BED_T_MAT);      // 床垫/被子
+      hbox(0.70, 0.96, 0.45, 0.58, 0.14, 0.86, BED_T_PILLOW);   // 枕头
+    }
+    const hg = new THREE.BufferGeometry();
+    hg.setAttribute('position', new THREE.Float32BufferAttribute(HP, 3));
+    hg.setAttribute('uv', new THREE.Float32BufferAttribute(HU, 2));
+    hg.setAttribute('color', new THREE.Float32BufferAttribute(HC, 3));
+    hg.setIndex(HI);
+    hg.computeVertexNormals();
+    hg.scale(0.2, 0.2, 0.2);                                  // 和方块同一尺寸量级
+    hg.translate(-0.1, -0.1, -0.1);
+    heldMesh = new THREE.Mesh(hg, solidMat);
   } else if (b) {
     kind = 'block';
     const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
