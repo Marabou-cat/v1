@@ -6733,6 +6733,54 @@ const MAX_SQUAD = 3;
 const ARMOR_COLOR = { 110: 0xcfd6de, 111: 0xcfd6de, 112: 0xcfd6de, 113: 0xcfd6de,
   132: 0x5fe0dc, 133: 0x5fe0dc, 134: 0x5fe0dc, 135: 0x5fe0dc };
 function squadList() { return mobs.filter(m => m.recruit && m.recruit.hired); }
+
+/* 招募来的村民跟谁走：房主自己招的跟 player；**客人招的跟那个客人**
+   （以前一律跟玩家自己 → 客人招的村民永远围着房主转，等于「招了但没用」） */
+function ownerPos(m) {
+  const pid = m.ownerPid;
+  if (pid && NET && NET.active && pid !== NET.id) {
+    const r = NET.remotes.get(pid);
+    return r ? { x: r.obj.position.x, y: r.obj.position.y, z: r.obj.position.z } : null;   // 主人掉线 → 原地等
+  }
+  return player.alive ? { x: player.p.x, y: player.p.y, z: player.p.z } : null;
+}
+
+/* 客人对村民的操作，由房主（真身所在端）结算。
+   以前客人右键只改自己内存里的那份幽灵对象 → 下一帧快照就抹掉，所以「怎么都招募不了」。 */
+function applyVact(m) {
+  if (!m || !isHostRunning()) return false;
+  const mo = mobs.find(x => x.nid === m.i && x.recruit && !x.dying);
+  if (!mo) return false;
+  const r = mo.recruit;
+  const act = String(m.act || '');
+  const id = Number(m.id) | 0, n = Math.max(1, Math.min(64, Number(m.n) | 0));
+  if (!r.hired) {
+    if (act !== 'give' || id !== r.want.id) return false;         // 只收他点名要的那一样
+    const give = Math.min(n, Math.max(0, r.want.need - r.want.got));
+    if (give <= 0) return false;
+    r.want.got += give;
+    if (r.want.got >= r.want.need) {
+      if (squadList().length < MAX_SQUAD) {
+        r.hired = true; r.follow = true;
+        mo.ownerPid = String(m.from || '');                          // 谁招的就跟谁
+        if (!mo.equip) mo.equip = newEquip();
+        refreshVillagerMark(mo);
+      }
+    }
+    saveSoon();
+    return true;
+  }
+  if (act === 'follow') { r.follow = true; saveSoon(); return true; }
+  if (act === 'stay') { r.follow = false; saveSoon(); return true; }
+  if (act === 'item' && isItem(id)) {
+    mo.give = { id, n };
+    if (ITEMS[id] && ITEMS[id].kind === 'food') { mo.hp = Math.min(mo.maxHp, mo.hp + 8); mo.give = null; }
+    saveSoon();
+    return true;
+  }
+  return false;
+}
+function isHostRunning() { return !!(window.NET && NET.active && NET.isHost); }
 function newEquip() { return { head: null, chest: null, legs: null, feet: null }; }
 function armorTierColor(id) { return ARMOR_COLOR[id] || (id >= 132 ? 0x5fe0dc : 0xcfd6de); }
 
@@ -6882,23 +6930,65 @@ function restoreSquad(list) {
   return n;
 }
 
-function mobAtCrosshair(range = 4.2) {          // 准星指向的怪/村民
+/* 准星指向的怪/村民。★ 联机里客人自己一只怪都没有（怪全在房主的 mobs 里），
+   客人看到的是 net.ghosts 里的「幽灵怪」——以前这里只扫 mobs，于是客人右键村民**永远没反应**
+   （招募不了），对着怪也点不到。两个表都要扫。 */
+function mobAtCrosshair(range = 4.2) {
   const eye = eyePos(), dir = cameraDir();
   let best = null, bestT = 1e9;
-  for (const m of mobs) {
-    if (m.dying) continue;
-    const c = m.p.clone(); c.y += 0.8;
-    const d = c.sub(eye);
-    const t = d.dot(dir);
-    if (t < 0.4 || t > range) continue;
-    const perp = d.clone().sub(dir.clone().multiplyScalar(t)).length();
-    if (perp < 1.05 && t < bestT) { best = m; bestT = t; }
+  const consider = (m, px, py, pz) => {
+    if (m.dying) return;
+    const dx = px - eye.x, dy = (py + 0.8) - eye.y, dz = pz - eye.z;
+    const t = dx * dir.x + dy * dir.y + dz * dir.z;
+    if (t < 0.4 || t > range) return;
+    const qx = dx - dir.x * t, qy = dy - dir.y * t, qz = dz - dir.z * t;
+    if (qx * qx + qy * qy + qz * qz < 1.15 && t < bestT) { best = m; bestT = t; }
+  };
+  for (const m of mobs) consider(m, m.p.x, m.p.y, m.p.z);
+  if (NET && NET.active && !NET.isHost && NET.ghosts) {
+    for (const g of NET.ghosts.values()) {
+      // 幽灵怪：位置用「主机快照的目标位置」，和 hitGhost 的判定口径一致（别追着插值后的位置点）
+      consider(g, (typeof g.tx === 'number' ? g.tx : g.obj.position.x),
+                  (typeof g.ty === 'number' ? g.ty : g.obj.position.y),
+                  (typeof g.tz === 'number' ? g.tz : g.obj.position.z));
+    }
   }
   return best;
 }
 function recruitInteract(m) {                    // 右键村民：交物资 / 招募 / 给道具 / 指挥
   const r = m.recruit;
   const h = held();
+  /* ★ 客人：村民的真身在房主那边（房主模拟 AI、耐久消耗、入队名单），
+     这里只做「本机可见的动作 + 发一条指令给房主」。以前直接改本地对象 →
+     改动只活在这台机器的内存里，下一帧快照就把它抹掉，所以客人「怎么都招募不了」。 */
+  if (m.remote) {
+    const NET0 = window.NET;
+    if (!NET0 || !NET0.vact) return true;
+    if (!r.hired) {
+      if (!h) { toast(`他想要 ${nameOf(r.want.id)} ×${r.want.need}（还差 ${Math.max(0, r.want.need - r.want.got)}）`, 2.0); return true; }
+      if (h.id !== r.want.id) { toast(`他不收 ${nameOf(h.id)}，想要 ${nameOf(r.want.id)} ×${r.want.need}`, 2.0); return true; }
+      const give = Math.min(h.n, Math.max(0, r.want.need - r.want.got));
+      if (give <= 0) return true;
+      takeItem(h.id, give);
+      r.want.got += give;                        // 乐观显示，下一帧快照会覆盖成房主的真值
+      NET0.vact(m.nid, 'give', { id: h.id, n: give });
+      renderHotbar(); refreshHeld();
+      toast(r.want.got >= r.want.need ? '物资交齐了，等他答应入队…' : `交给他 ${nameOf(h.id)} ×${give}（${r.want.got}/${r.want.need}）`, 1.8);
+      sfx('place');
+      return true;
+    }
+    if (h) {                                     // 已入队 + 手上有东西 → 给他
+      takeItem(h.id, 1);
+      NET0.vact(m.nid, 'item', { id: h.id, n: 1 });
+      renderHotbar(); refreshHeld();
+      toast(`给了 ${MOB_DEFS[m.kind].name} ${nameOf(h.id)}（房主那边已接收）`, 2.0);
+      return true;
+    }
+    r.follow = !r.follow;                        // 空手 → 跟随 / 待命
+    NET0.vact(m.nid, r.follow ? 'follow' : 'stay');
+    toast(r.follow ? '村民：跟着你' : '村民：原地待命', 1.4);
+    return true;
+  }
   if (!r.hired) {
     if (!h) { toast(`他想要 ${nameOf(r.want.id)} ×${r.want.need}（还差 ${r.want.need - r.want.got}）`, 2.0); return true; }
     if (h.id !== r.want.id) { toast(`他不收 ${nameOf(h.id)}，想要 ${nameOf(r.want.id)} ×${r.want.need}`, 2.0); return true; }
@@ -7700,12 +7790,15 @@ function updateMobs(dt) {
         if (hd > 14) { mx = hx / hd; mz = hz / hd; speed = def.wander; }
       }
     }
-    if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.recruit.follow && player.alive) {
-      if (dist > 2.9) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase + 0.7; }
+    /* 招募跟随：主人可能是房主自己，也可能是某个客人（own = 主人的位置） */
+    const own = (m.recruit && m.recruit.hired) ? ownerPos(m) : null;
+    if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.recruit.follow && own) {
+      const odx = own.x - m.p.x, odz = own.z - m.p.z, od = Math.hypot(odx, odz);
+      if (od > 2.9) { mx = odx / (od || 1); mz = odz / (od || 1); speed = def.chase + 0.7; }
       else { mx = 0; mz = 0; speed = 0; }
     }
-    // 村民任务：拿剑 → 自动打玩家周围的怪
-    if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.give && ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' && player.alive) {
+    // 村民任务：拿剑 → 自动打主人周围的怪
+    if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.give && ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' && (own || player.alive)) {
       m.scanCd = (m.scanCd || 0) - dt;
       if (m.scanCd <= 0) { m.scanCd = 0.4; m.tgt = nearestHostileFrom(m, 16, 18); }
       const tg = (m.tgt && !m.tgt.dying && m.tgt.hp > 0) ? m.tgt : null;
@@ -7719,12 +7812,16 @@ function updateMobs(dt) {
         }
       }
     }
-    // 离玩家太远：直接传送到身边（跟随 12 格、待命 40 格）
-    if (m.recruit && m.recruit.hired && player.alive && !m.sleeping) {
-      const far = m.recruit.follow ? 12 : 40;
-      if (dist > far) {
-        m.p.set(player.p.x + (Math.random() - 0.5) * 1.2, player.p.y + 0.35, player.p.z + 1.6);
-        m.v.set(0, 0, 0);
+    // 离主人太远：直接传送到他身边（跟随 12 格、待命 40 格）
+    if (m.recruit && m.recruit.hired && !m.sleeping) {
+      const own2 = own || ownerPos(m);
+      if (own2) {
+        const od = Math.hypot(own2.x - m.p.x, own2.z - m.p.z);
+        const far = m.recruit.follow ? 12 : 40;
+        if (od > far) {
+          m.p.set(own2.x + (Math.random() - 0.5) * 1.2, own2.y + 0.35, own2.z + 1.6);
+          m.v.set(0, 0, 0);
+        }
       }
     }
     if (asleep) { mx = 0; mz = 0; speed = 0; }        // 沉睡：原地不动
@@ -9447,15 +9544,24 @@ function mobInMiningPath(t) {
   const eye = eyePos(), dir = cameraDir();
   const bc = new THREE.Vector3(t.x + 0.5, t.y + 0.5, t.z + 0.5).sub(eye);
   const blkLen = bc.length();
-  for (const m of mobs) {
-    if (m.hp <= 0 || m.dying) continue;
+  const check = (m, px, py, pz) => {
+    if (m.hp <= 0 || m.dying) return false;
     const def = MOB_DEFS[m.kind] || {};
-    const c = m.p.clone(); c.y += def.boss ? 1.6 : 0.7;
-    const rel = c.sub(eye);
-    const along = rel.dot(dir);
-    if (along <= 0.2 || along > blkLen + 0.5) continue;
-    const perp = rel.addScaledVector(dir, -along).length();
-    if (perp < 0.95) return m;
+    const cx = px - eye.x, cy = (py + (def.boss ? 1.6 : 0.7)) - eye.y, cz = pz - eye.z;
+    const along = cx * dir.x + cy * dir.y + cz * dir.z;
+    if (along <= 0.2 || along > blkLen + 0.5) return false;
+    const qx = cx - dir.x * along, qy = cy - dir.y * along, qz = cz - dir.z * along;
+    return (qx * qx + qy * qy + qz * qz) < 0.9025;      // 0.95²
+  };
+  for (const m of mobs) if (check(m, m.p.x, m.p.y, m.p.z)) return m;
+  /* ★ 客人这边 mobs 是空的：不发这一遍，客人想打挡在方块前的怪时，
+     会一边挥空一边把怪背后的方块挖掉（手上没反馈，看着像「攻击没反应」）。 */
+  if (NET && NET.active && !NET.isHost && NET.ghosts) {
+    for (const g of NET.ghosts.values()) {
+      if (check(g, (typeof g.tx === 'number' ? g.tx : g.obj.position.x),
+                   (typeof g.ty === 'number' ? g.ty : g.obj.position.y),
+                   (typeof g.tz === 'number' ? g.tz : g.obj.position.z))) return g;
+    }
   }
   return null;
 }
@@ -9466,7 +9572,8 @@ function attack() {
     // 联机非主机：幽灵怪不在 mobs 里，单独判定后上报给主机扣血
     if (NET && NET.active && !NET.isHost && NET.hitGhost) {
       const k0 = heldKind();
-      const d0 = k0 === 'sword' ? ((defOf(held().id) || {}).dmg || 5) : k0 === 'pick' ? 3 : 1;
+      const hh = held();                                   // 空手时 held() 是 null：以前直接 held().id 会抛错，整次挥砍白给
+      const d0 = k0 === 'sword' ? (((hh ? defOf(hh.id) : null) || {}).dmg || 5) : k0 === 'pick' ? 3 : 1;
       const hit0 = NET.hitGhost(d0);
       startSwing('attack', 0.5); player.atkCd = 0.42;      // 不管中没中都要挥：没反馈最像"卡了"
       if (hit0) { useTool(1); sfx('hit'); player.hits = (player.hits || 0) + 1; }
@@ -9685,7 +9792,10 @@ function update(dt) {
     crackMesh.visible = true;
   } else crackMesh.visible = false;
 
-  const wantAttack = attackQueued || (mineHeld && mobs.length > 0);
+  const wantAttack = attackQueued || (mineHeld && (mobs.length > 0
+    /* ★ 客人这边 mobs 是空的，怪都在 net.ghosts 里：以前这个条件直接看不成立 →
+       按住攻击键只挥第一下，之后一直「没反应」（点一下有、按住没有，所以看起来时好时坏）。 */
+    || (NET && NET.active && !NET.isHost && NET.ghosts && NET.ghosts.size > 0)));
   if (wantAttack) attackQueued = false;
   const hitMob = wantAttack ? attack() : false;
   // ★ 怪的判定只有 4.8 格 / 准星 1.05 的细锥，怪稍微偏一点就「没打中」，
@@ -13367,26 +13477,39 @@ function mpEnterAccountWorld(code) {
     if (net.isHost) return false;                     // 主机打的是真怪，不走这条路
     const dir = cameraDir(), eye = eyePos();
     let best = null, bestT = 1e9;
+    /* 命中判定对「两个位置」都试一遍：
+       · 主机快照的目标位置（tx/ty/tz）—— 这是怪真身现在的位置
+       · 本机插值后的可见位置（obj.position）—— 玩家眼睛瞄准的是这个
+       以前只用其中一个：怪朝你冲/背你跑时两者能差一格多，于是「明明砍到了却没反应」。 */
+    const tryHit = (g, px, py, pz) => {
+      const dx = px - eye.x, dz = pz - eye.z;
+      /* 竖直方向按「胶囊」算：脚 +0.35 ~ 头 +1.55 这一段都算打中，
+         矮的（鸡/蜘蛛）和高低差一点的不再擦身而过。 */
+      for (const yOff of [0.55, 0.95, 1.35]) {
+        const dy = (py + yOff) - eye.y;
+        const t = dx * dir.x + dy * dir.y + dz * dir.z;
+        if (t < 0.1 || t > CFG.REACH) continue;
+        const qx = dx - dir.x * t, qy = dy - dir.y * t, qz = dz - dir.z * t;
+        if (qx * qx + qy * qy + qz * qz > 2.2) continue;      // 半径 ~1.48
+        if (t < bestT) { bestT = t; best = g; }
+        return true;
+      }
+      return false;
+    };
     for (const [id, g] of net.ghosts) {
-      /* ★ 用主机快照里的目标位置（tx/ty/tz），不要用插值后的 obj.position：
-         客人的怪比主机晚 ~190ms，拿插值位置算命中 = 追着「它刚才在哪」砍，
-         快速移动的动物就会「明明砍到了却没反应」。位置差用更大的容差补回来。 */
-      const gx = (typeof g.tx === 'number') ? g.tx : g.obj.position.x;
-      const gy = (typeof g.ty === 'number') ? g.ty : g.obj.position.y;
-      const gz = (typeof g.tz === 'number') ? g.tz : g.obj.position.z;
-      const dx = gx - eye.x, dy = (gy + 0.9) - eye.y, dz = gz - eye.z;
-      const t = dx * dir.x + dy * dir.y + dz * dir.z;
-      if (t < 0.1 || t > CFG.REACH) continue;               // 以前是 REACH-1.2，等于白扣掉 1.2 格
-      const px = dx - dir.x * t, py = dy - dir.y * t, pz = dz - dir.z * t;
-      if (px * px + py * py + pz * pz > 1.9) continue;      // 半径 ~1.38（原来 1.05）
-      if (t < bestT) { bestT = t; best = id; }
+      if (g.dying) continue;                                // 已经倒地的别再打（白耗耐久）
+      g.nid = id;
+      const lx = g.obj.position.x, ly = g.obj.position.y, lz = g.obj.position.z;
+      if (tryHit(g, (typeof g.tx === 'number' ? g.tx : lx), (typeof g.ty === 'number' ? g.ty : ly),
+                    (typeof g.tz === 'number' ? g.tz : lz))) continue;
+      tryHit(g, lx, ly, lz);
     }
     if (!best) return false;
-    const g = net.ghosts.get(best);
-    const gp = g ? g.obj.position : eye;
+    const g = best;
+    const gp = g.obj.position;
     const kx = gp.x - eye.x, kz = gp.z - eye.z;             // 击退方向：我 → 怪
-    net.send('hit', { i: best, d: dmg, kx, kz });
-    if (g) { g.hitAt = performance.now(); g.flash = 0.24; }  // 本地立刻闪红，不等 150ms 后的快照
+    net.send('hit', { i: best.nid, d: dmg, kx, kz });
+    g.hitAt = performance.now(); g.flash = 0.24;             // 本地立刻闪红，不等 150ms 后的快照
     return true;
   };
 
@@ -13400,6 +13523,7 @@ function mpEnterAccountWorld(code) {
     const alive = new Set();
     for (const e of list) {
       const [id, kind, x, y, z, rot, hp, spd, dk, an] = e;
+      const rc = e[10];                                     // 村民招募状态（只有村民带）
       const dead = (typeof dk === 'number' && dk > 0);
       if (typeof hp === 'number' && hp <= 0 && !dead) continue;   // 真没了又没带死亡进度 → 直接丢掉
       alive.add(id);
@@ -13411,6 +13535,7 @@ function mpEnterAccountWorld(code) {
         scene.add(parts.g);
         g = {
           obj: parts.g, parts, kind,
+          nid: id, remote: true, recruit: null,          // nid：客人右键/打怪时用来告诉房主「是哪一只」
           p: parts.g.position,                       // 和 obj.position 是同一个 Vector3：动画里读 m.p 直接对
           v: { x: 0, y: 0, z: 0 }, onGround: true,
           anim: { walk: Math.random() * 6, k: 0, idle: 0, land: 0 },
@@ -13439,6 +13564,16 @@ function mpEnterAccountWorld(code) {
       else if (an2 !== g.atkN) { g.atkN = an2; g.lunge = 0.3; g.throwAnim = 0.45; }
       g.spd = (typeof spd === 'number' && spd > 0) ? spd : 0;
       g.tx = x; g.ty = y; g.tz = z; g.rot = rot;
+      /* ★ 村民的招募状态（房主那边是真身）：客人靠这一份镜像画头顶 ! / ★、
+         判断「他想要什么 / 还差多少 / 是不是已经在跟着你」。没有它客人右键只能干瞪眼。 */
+      if (Array.isArray(rc)) {
+        const wasHired = g.recruit ? g.recruit.hired : null;
+        g.recruit = { hired: !!rc[0], follow: !!rc[1], want: { id: rc[2] | 0, need: rc[3] | 0, got: rc[4] | 0 } };
+        if (wasHired !== g.recruit.hired || g.markKey !== (g.recruit.hired ? 'hired' : 'ask')) {
+          g.markKey = g.recruit.hired ? 'hired' : 'ask';
+          try { refreshVillagerMark(g); } catch (e) {}
+        }
+      }
     }
     for (const [id, g] of Array.from(net.ghosts)) {
       if (alive.has(id)) continue;
@@ -13516,10 +13651,12 @@ function mpEnterAccountWorld(code) {
       try { net.ws.send(JSON.stringify(Object.assign({ t: kind }, obj))); return; } catch (e) {}
     }
     fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
-      body: JSON.stringify(Object.assign({ a: kind, code: net.code, pid: net.id }, obj)) }).catch(() => {});
+      body: JSON.stringify(Object.assign({ a: kind, code: net.code, pid: net.id, tok: acctTok() }, obj)) }).catch(() => {});
   };
   net.sendPick = (nid) => net.send('pick', { i: nid });
   net.castAct = (type) => net.send('act', { act: type });
+  /* 客人对村民的操作（交物资 / 给道具 / 跟随待命）→ 房主那边结算 */
+  net.vact = (i, act, extra) => net.send('vact', Object.assign({ i, act }, extra || {}));
   // 状态位：1=挖掘 2=疾跑 4=腾空 —— 远端形象靠它播动作（1 个字节，跟位置一起发）
   net.myFlags = () => {
     const spd = Math.hypot(player.v.x, player.v.z);
@@ -13702,6 +13839,8 @@ function mpEnterAccountWorld(code) {
       } else if (m.t === 'e') {
         if (typeof m.q === 'number') net.serverSeq = m.q;
         applyServerBlock(m.x, m.y, m.z, m.b);
+      } else if (m.t === 'vact') {                // 客人操作村民 → 只有房主结算（真身在这边）
+        if (net.isHost) applyVact(m);
       } else if (m.t === 'hit') {
         if (net.isHost) {                          // 只有主机的怪是真的
           for (const mo of (typeof mobs !== 'undefined' ? mobs : [])) {
@@ -13933,13 +14072,17 @@ function mpEnterAccountWorld(code) {
         for (const m of (typeof mobs !== 'undefined' ? mobs : [])) {
           if (m.hp <= 0 && !m.dying) continue;
           if (!m.obj) continue;
-          m.nid = m.nid || (net.mobSeq = (net.mobSeq || 0) + 1);
+          m.nid = m.nid || (net.mobSeq = (net.mobSeq || ((Math.floor(Math.random() * 90000) + 1000) * 10)) + 1);
           // 字段含义：nid, kind, x, y, z, 朝向, hp, 水平速度,
           //           dk = 死亡进度秒数（0=活着的；有值=正在倒地/躺尸，客人照着播同一套死亡姿势）,
-          //           an = 攻击计数器（每次挥击/投掷 +1，客人看到变了就播一次前扑/抬臂）
-          u.push([m.nid, m.kind, +m.p.x.toFixed(2), +m.p.y.toFixed(2), +m.p.z.toFixed(2),
-                  +m.obj.rotation.y.toFixed(2), Math.round(m.hp), +Math.hypot(m.v.x, m.v.z).toFixed(2),
-                  m.dying ? +Math.min(99, m.dieT).toFixed(2) : 0, m.atkN | 0]);
+          //           an = 攻击计数器（每次挥击/投掷 +1，客人看到变了就播一次前扑/抬臂）,
+          //           rc = 村民招募状态 [已入队, 跟随中, 需求物品 id, 需要数量, 已交数量]（只有村民才有）
+          const row = [m.nid, m.kind, +m.p.x.toFixed(2), +m.p.y.toFixed(2), +m.p.z.toFixed(2),
+                       +m.obj.rotation.y.toFixed(2), Math.round(m.hp), +Math.hypot(m.v.x, m.v.z).toFixed(2),
+                       m.dying ? +Math.min(99, m.dieT).toFixed(2) : 0, m.atkN | 0];
+          if (m.recruit) row.push([m.recruit.hired ? 1 : 0, m.recruit.follow ? 1 : 0,
+                                   m.recruit.want.id | 0, m.recruit.want.need | 0, m.recruit.want.got | 0]);
+          u.push(row);
           if (u.length >= 24) break;
         }
         net.mobCache = u;

@@ -513,9 +513,22 @@ const server = http.createServer((req, res) => {
         }
         return json(res, { ok: true, data: w.inv[pid] || null });
       }
+      if (a.a === 'vact') {                       // 轮询模式：客人操作村民，转发给房主结算
+        const codeV = String(a.code || '').slice(0, 12);
+        const wV = loadWorld(codeV);
+        const accV = accByTok(a.tok);
+        if (wV.owner && accV && accV.pid !== wV.owner && !passOf(accV, codeV)) {
+          return json(res, { ok: false, e: 'need_approve' });
+        }
+        broadcast(wV, { t: 'vact', i: a.i, act: String(a.act || '').slice(0, 8),
+                        id: Number(a.id) || 0, n: Number(a.n) || 0, from: String(a.pid || '') },
+                  String(a.pid || ''));
+        return json(res, { ok: true });
+      }
       if (a.a === 'hit') {                       // 轮询模式的「打幽灵怪」（没有 ws 的客户端走这条）
         const w = loadWorld(String(a.code || 'W1'));
-        broadcast(w, { t: 'hit', i: a.i | 0, d: Math.min(30, Number(a.d) || 0), from: String(a.pid || '') }, String(a.pid || ''));
+        broadcast(w, { t: 'hit', i: a.i | 0, d: Math.min(30, Number(a.d) || 0),
+                       kx: Number(a.kx) || 0, kz: Number(a.kz) || 0, from: String(a.pid || '') }, String(a.pid || ''));
         return json(res, { ok: true });
       }
       if (a.a === 'drop') {                      // 客人挖出来的掉落物 → 转给主机去模拟
@@ -872,6 +885,9 @@ function onMsg(socket, m) {
   } else if (m.t === 'hit') {                 // 非主机打的怪：转发给所有人，只有当前主机会真的扣血
     broadcast(w, { t: 'hit', i: m.i, d: Math.min(30, Number(m.d) || 0),
                    kx: Number(m.kx) || 0, kz: Number(m.kz) || 0, from: p.id }, p.id);   // kx/kz：击退方向（客人 → 怪）
+  } else if (m.t === 'vact') {               // 客人操作村民（交物资/给道具/跟随待命）：只有房主结算
+    broadcast(w, { t: 'vact', i: m.i, act: String(m.act || '').slice(0, 8),
+                   id: Number(m.id) || 0, n: Number(m.n) || 0, from: p.id }, p.id);
   } else if (m.t === 'm') {                   // 主机广播的怪快照：只转发，服务端不模拟
     broadcast(w, { t: 'm', u: m.u, from: p.id }, p.id);
   } else if (m.t === 'd') {                   // 主机广播的掉落物快照：只转发
