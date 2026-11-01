@@ -748,6 +748,9 @@ function onMsg(socket, m) {
     p.f = m.f | 0;                            // 挖掘/疾跑/腾空 状态位 → 广播给其他人做动作
     if (typeof m.sk === 'number') { p.sk = m.sk | 0; p.cl = m.cl | 0; p.hr = m.hr | 0; p.hs = m.hs | 0; }   // 外观随位置包更新
     if (Date.now() - (p.posMark || 0) > 10000) { p.posMark = Date.now(); w.dirty = true; }
+  } else if (m.t === 'look') {                 // 换外观/换皮肤（中途改的也立刻生效）
+    if (typeof m.sk === 'number') { p.sk = m.sk | 0; p.cl = m.cl | 0; p.hr = m.hr | 0; p.hs = m.hs | 0; }
+    if (m.skn) { p.skn = String(m.skn).slice(0, 40); takeSkin(m); }   // 带 skd 就顺手存图
   } else if (m.t === 'act') {                 // 一次性动作（挥砍/放置）：转发给同房间其他人
     broadcast(w, { t: 'act', i: p.id, a: String(m.act || '').slice(0, 8) }, p.id);
   } else if (m.t === 'e') {                   // 方块编辑（服务端权威）

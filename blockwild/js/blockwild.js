@@ -13091,6 +13091,7 @@ function mpEnterAccountWorld(code) {
     pending: new Map(), seq: 0, serverSeq: 0, mobSeq: 0, mobT: 0, sendT: 0, hudT: 0, pingT: 0,
     ghosts: new Map(), devOk: false,
     remotes: new Map(), lastSnap: 0, err: '', editOut: 0, rejCount: 0, netBytes: 0,
+    skinSent: '',                                             // 上次成功上报的皮肤哈希（变了才重传 PNG 数据）
     lid: q.get('lid') || '',                                  // 房主：自己哪个本地世界开的房
     wname: '',                                                // 世界显示名（房间列表用）
   };
@@ -13196,6 +13197,20 @@ function mpEnterAccountWorld(code) {
   }
   function ensureRemote(p) {
     let r = net.remotes.get(p.i);
+    if (r) {
+      /* ★ 对方中途换了外观（肤色/衣服/发色/发型）或换了 PNG 皮肤 → 当场重建模型。
+         以前只在「第一次见到这个人」时建一次模型，之后快照里带来的新外观被完全忽略，
+         表现就是「他改了皮肤，我这边一直还是旧的」。 */
+      const sknNew = String(p.skn || '');
+      if (sknNew !== String(r.skn || '') || (p.sk | 0) !== (r.sk | 0) || (p.cl | 0) !== (r.cl | 0)
+          || (p.hr | 0) !== (r.hr | 0) || (p.hs | 0) !== (r.hs | 0)) {
+        rebuildRemoteSkin(p.i, { name: p.n || r.name, sk: p.sk | 0, cl: p.cl | 0, hr: p.hr | 0, hs: p.hs | 0,
+                                 skn: sknNew, obj: r.obj });
+        r = net.remotes.get(p.i);
+      }
+      if (r && p.n && p.n !== r.name) r.name = p.n;
+      if (r) return r;
+    }
     if (!r) {
       const skSrc = remoteSkinSrcOf(p);
       r = { obj: avatar(p.i, p.n, { sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs, skd: skSrc }), name: p.n || p.i,
@@ -13752,12 +13767,18 @@ function mpEnterAccountWorld(code) {
         const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         const toT = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (e) {} }, 2000);
         fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, signal: ctl ? ctl.signal : undefined, body: JSON.stringify(Object.assign({
-          a: 'sync', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc),
+          a: 'sync', code: net.code, pid: net.id, name: net.nick, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs,
+          /* ★ 皮肤变了（换了 PNG / 新颜色）必须把 skd 一起传上去，否则服务端只有新哈希没有数据，
+             别人 getskin 拿到空 → 只能画一张"按颜色生成的假皮肤"（这就是"联机皮肤不对"）。
+             只在上报哈希变化时带一次，别每 100ms 塞 30KB。 */
+          skn: (net._skh = skinHash(LOOK.skinSrc)),
+          ...(net._skh !== net.skinSent ? { skd: (LOOK.skinSrc === 'custom' ? skinPngData() : '') } : {}),
           x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2),
           w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), edits: pend, f: net.myFlags(),
         }, net.isHost ? { mobs: net.mobCache || [], drops: net.dropCache || [] } : {})) }).then(r => r.json()).then(d => {
           if (!d.ok) { net.err = d.e || 'sync'; net.connected = false; return; }
           net.connected = true; net.err = ''; net.syncs++;
+          if (net._skh) net.skinSent = net._skh;      // 皮肤数据已随这次同步送达服务端（下次变了才重传）
           if (typeof d.seq === 'number') net.serverSeq = d.seq;
           net.isHost = (d.host === net.id);
           for (const s of (d.ack || [])) {
@@ -13786,6 +13807,14 @@ function mpEnterAccountWorld(code) {
     }
 
     // 主机每 0.15s 生成一次怪快照（WS 直接发；轮询模式挂在 sync 请求上，见下方 poll 分支）
+    // 外观/皮肤变了就推一次（换肤色、换发型、上传新 PNG 都算）
+    net.lookT = (net.lookT || 0) + dt;
+    if (net.lookT > 0.5) {
+      net.lookT = 0;
+      const sig = LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs + ':' + skinHash(LOOK.skinSrc);
+      if (sig !== (net.lookSig || '')) net.pushLook();
+    }
+
     if (net.isHost) {
       net.mobT += dt;
       if (net.mobT >= 0.15) {
@@ -14273,6 +14302,20 @@ function mpEnterAccountWorld(code) {
             : (f.online && f.world ? `<button class="btn" data-act="join" data-pid="${escHtml(f.pid)}" style="padding:2px 7px">申请加入</button>` : '')}
        </div>`).join('') : '<span style="color:#7a8b9c">还没有好友，上面输入对方的昵称加一个</span>';
   }
+  /* 把当前外观（含 PNG 皮肤数据）推给服务端/其它人。
+     ★ WS 模式（局域网）根本没有 HTTP sync，皮肤以前只在 join 时上传一次 →
+       中途换皮肤别人永远看不到（"联机皮肤没更新"就是这么来的）。 */
+  net.pushLook = () => {
+    const skh = skinHash(LOOK.skinSrc);
+    const msg = { t: 'look', sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skh,
+                  skd: (LOOK.skinSrc === 'custom') ? skinPngData() : '' };
+    if (net.ws && net.ws.readyState === 1) {
+      try { net.ws.send(JSON.stringify(msg)); net.skinSent = skh; } catch (e) {}
+    } else {
+      net.skinSent = '';                 // 轮询模式：清掉标记，让下一次 sync 顺带把 skd 带上
+    }
+    net.lookSig = LOOK.skin + ':' + LOOK.cloth + ':' + LOOK.hair + ':' + LOOK.hs + ':' + skh;
+  };
   net.friendsPull = () => apiCall({ a: 'acct', tok: acctTok(), pid: net.id, nick: net.nick, code: net.code, pworld: net.code })
     .then(d => { if (d.ok) renderFriends(d); }).catch(() => {});
   net.heartbeat = () => apiCall({ a: 'acct', tok: acctTok(), pid: net.id, nick: net.nick, code: net.code, pworld: net.code })
