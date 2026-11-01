@@ -755,7 +755,8 @@ function onMsg(socket, m) {
     if (!r.ok) { try { socket.write(frame(JSON.stringify({ t: 'rej', seq: m.seq, e: r.e, x: m.x, y: m.y, z: m.z }))); } catch (e) {} }
     else { try { socket.write(frame(JSON.stringify({ t: 'ack', seq: m.seq }))); } catch (e) {} }
   } else if (m.t === 'hit') {                 // 非主机打的怪：转发给所有人，只有当前主机会真的扣血
-    broadcast(w, { t: 'hit', i: m.i, d: Math.min(30, Number(m.d) || 0), from: p.id }, p.id);
+    broadcast(w, { t: 'hit', i: m.i, d: Math.min(30, Number(m.d) || 0),
+                   kx: Number(m.kx) || 0, kz: Number(m.kz) || 0, from: p.id }, p.id);   // kx/kz：击退方向（客人 → 怪）
   } else if (m.t === 'm') {                   // 主机广播的怪快照：只转发，服务端不模拟
     broadcast(w, { t: 'm', u: m.u, from: p.id }, p.id);
   } else if (m.t === 'd') {                   // 主机广播的掉落物快照：只转发

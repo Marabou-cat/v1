@@ -9467,10 +9467,9 @@ function attack() {
     if (NET && NET.active && !NET.isHost && NET.hitGhost) {
       const k0 = heldKind();
       const d0 = k0 === 'sword' ? ((defOf(held().id) || {}).dmg || 5) : k0 === 'pick' ? 3 : 1;
-      if (NET.hitGhost(d0)) {
-        startSwing('attack', 0.5); useTool(1); player.atkCd = 0.42; sfx('hit');
-        player.hits = (player.hits || 0) + 1;
-      }
+      const hit0 = NET.hitGhost(d0);
+      startSwing('attack', 0.5); player.atkCd = 0.42;      // 不管中没中都要挥：没反馈最像"卡了"
+      if (hit0) { useTool(1); sfx('hit'); player.hits = (player.hits || 0) + 1; }
     }
     return false;
   }
@@ -12612,6 +12611,7 @@ function acctApply(d) {
   ACCT.on = !!ACCT.tok;
   if (ACCT.nick) { LOOK.name = ACCT.nick; saveLook(); }     // 联机昵称跟账号走，好友才能按昵称找到你
   acctSave();
+  if (PENDING_JOIN) { const c = PENDING_JOIN; PENDING_JOIN = ''; setTimeout(() => mpJoinRoom(c), 400); }
   return true;
 }
 function acctLogout() {
@@ -12620,6 +12620,9 @@ function acctLogout() {
   if (window.NET && window.NET.leave) { try { window.NET.leave(false); } catch (e) {} }
 }
 const acctTok = () => ACCT.tok;
+
+/* ?join=房间码：别人发的「一键加入」链接。已登录就直接进；没登录先记住，登录成功后自动继续。 */
+let PENDING_JOIN = (new URLSearchParams(location.search).get('join') || '').replace(/[^\w-]/g, '').toUpperCase().slice(0, 12);
 acctLoad();
 if (ACCT.on) {                                    // 带着令牌回来 → 静默校验一次，顺便刷新账号世界
   setTimeout(() => {
@@ -12780,6 +12783,13 @@ const MPUI = {
   },
   render() {
     if (!this.root) return;
+    /* ★ 轮询（5s）也会 render，而 render 会重建 #mpBody —— 用户正在输入的好友昵称/房间码
+       就被擦掉了（"输一半字就没了"）。重建前先记下所有输入框的值，重建后补回去。 */
+    const keep = {};
+    for (const id of ['mpFriend', 'mpCode2', 'mpAddr', 'mpUser', 'mpPass', 'mpNick']) {
+      const el = this.root.querySelector('#' + id);
+      if (el) keep[id] = el.value;
+    }
     const NET = window.NET;
     const on = ACCT.on;
     const acctLine = this.root.querySelector('#mpAcctLine');
@@ -12824,6 +12834,10 @@ const MPUI = {
     if (this.tab === 'list') body.innerHTML = this.htmlList(NET);
     else if (this.tab === 'direct') body.innerHTML = this.htmlDirect(NET);
     else body.innerHTML = this.htmlFriend(NET);
+    for (const id in keep) {                          // 把刚输入的内容放回新 DOM
+      const el = this.root.querySelector('#' + id);
+      if (el && !el.value) el.value = keep[id];
+    }
   },
   htmlList(NET) {
     const rows = this.rooms.map(r =>
@@ -12841,7 +12855,17 @@ const MPUI = {
       + '<button class="btn" data-mp="joinAcc" data-code="' + escHtml(w.code) + '" style="padding:2px 9px">'
       +   (w.players ? '加入' : '进入') + '</button></div>').join('');
     const inRoom = NET && NET.active;
-    return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    // ★ 一键加入：优先好友的房间，其次人最多的房间 —— 「先进去玩」不该需要先学会看列表
+    const fOn = (this.friends || []).filter(f => f.online && f.world);
+    const quick = fOn.length ? fOn[0].world : (this.rooms[0] && this.rooms[0].code);
+    const quickWho = fOn.length ? fOn[0].nick : (this.rooms[0] && this.rooms[0].name);
+    return '<div style="margin-bottom:8px">'
+      + (quick
+          ? '<button class="btn gold" data-mp="join" data-code="' + escHtml(quick) + '" style="width:100%;padding:8px;font-size:14px">'
+            + '快速加入：' + escHtml(quickWho || quick) + '</button>'
+          : '<button class="btn" style="width:100%;padding:8px;opacity:.55;cursor:default">快速加入（现在没人在玩）</button>')
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
       + '<span style="color:#9fb3c8;font-size:12px">在线房间（' + this.rooms.length + '）</span>'
       + '<span><button class="btn" data-mp="refresh" style="padding:2px 9px">刷新</button>'
       + (inRoom ? ' <button class="btn" data-mp="leave" style="padding:2px 9px;color:#ffb0b0;border-color:#5a2b2b">退出联机</button>' : '')
@@ -12992,6 +13016,12 @@ function mpSocialTick() {
 }
 setInterval(mpSocialTick, 5000);
 setTimeout(mpSocialTick, 1200);
+/* 一键加入链接：已登录 → 直接进；没登录 → 打开面板让他登录（登录成功后 acctApply 会接着进） */
+setTimeout(() => {
+  if (!PENDING_JOIN) return;
+  if (ACCT.on) { const c = PENDING_JOIN; PENDING_JOIN = ''; mpJoinRoom(c); }
+  else { MPUI.show('list'); MPUI.msg2('登录后自动加入房间 ' + PENDING_JOIN); }
+}, 900);
 /* 进入账号里的世界：本地有同 seed 的世界就直接开，没有就用云端 seed 造一个，然后以房主身份开房（改动从服务端拉）*/
 function mpEnterAccountWorld(code) {
   if (!ACCT.on) return MPUI.show('list');
@@ -13210,21 +13240,28 @@ function mpEnterAccountWorld(code) {
   /* ---------- 非主机打幽灵怪：本地判定 + 上报给主机扣血 ---------- */
   net.hitGhost = (dmg) => {
     if (net.isHost) return false;                     // 主机打的是真怪，不走这条路
-    // 以前这里要求 ws 开着：公网轮询模式下客人永远打不动怪。现在统一走 net.send（ws / HTTP 双通道）。
     const dir = cameraDir(), eye = eyePos();
     let best = null, bestT = 1e9;
     for (const [id, g] of net.ghosts) {
-      const dx = g.obj.position.x - eye.x, dy = (g.obj.position.y + 0.9) - eye.y, dz = g.obj.position.z - eye.z;
+      /* ★ 用主机快照里的目标位置（tx/ty/tz），不要用插值后的 obj.position：
+         客人的怪比主机晚 ~190ms，拿插值位置算命中 = 追着「它刚才在哪」砍，
+         快速移动的动物就会「明明砍到了却没反应」。位置差用更大的容差补回来。 */
+      const gx = (typeof g.tx === 'number') ? g.tx : g.obj.position.x;
+      const gy = (typeof g.ty === 'number') ? g.ty : g.obj.position.y;
+      const gz = (typeof g.tz === 'number') ? g.tz : g.obj.position.z;
+      const dx = gx - eye.x, dy = (gy + 0.9) - eye.y, dz = gz - eye.z;
       const t = dx * dir.x + dy * dir.y + dz * dir.z;
-      if (t < 0.1 || t > CFG.REACH - 1.2) continue;
+      if (t < 0.1 || t > CFG.REACH) continue;               // 以前是 REACH-1.2，等于白扣掉 1.2 格
       const px = dx - dir.x * t, py = dy - dir.y * t, pz = dz - dir.z * t;
-      if (px * px + py * py + pz * pz > 1.1) continue;
+      if (px * px + py * py + pz * pz > 1.9) continue;      // 半径 ~1.38（原来 1.05）
       if (t < bestT) { bestT = t; best = id; }
     }
     if (!best) return false;
-    net.send('hit', { i: best, d: dmg });
     const g = net.ghosts.get(best);
-    if (g) g.hitAt = performance.now();          // 打中反馈（本地闪一下）
+    const gp = g ? g.obj.position : eye;
+    const kx = gp.x - eye.x, kz = gp.z - eye.z;             // 击退方向：我 → 怪
+    net.send('hit', { i: best, d: dmg, kx, kz });
+    if (g) { g.hitAt = performance.now(); g.flash = 0.24; }  // 本地立刻闪红，不等 150ms 后的快照
     return true;
   };
 
@@ -13544,7 +13581,17 @@ function mpEnterAccountWorld(code) {
         if (net.isHost) {                          // 只有主机的怪是真的
           for (const mo of (typeof mobs !== 'undefined' ? mobs : [])) {
             if (mo.nid === m.i && !mo.dying) {
-              mo.hp -= (m.d || 1); mo.flash = 0.2; mo.aggro = 16;
+              mo.hp -= (m.d || 1); mo.flash = 0.24; mo.aggro = 16;
+              /* ★ 客人打怪也要有击退：以前这里只扣血，主机的本地挥砍却推 7.4 格/秒，
+                 客人看到的动物就"打不动"。方向用客人报来的 kx/kz（我 → 怪）。 */
+              const kxk = Number(m.kx), kzk = Number(m.kz);
+              const kd = Math.hypot(kxk || 0, kzk || 0);
+              if (kd > 0.01) {
+                mo.v.x = (kxk / kd) * 7.4; mo.v.z = (kzk / kd) * 7.4; mo.v.y = 5.2; mo.knockT = 0.34;
+              } else {                                       // 老客户端没带方向：按「房主 → 怪」推
+                const ax = mo.p.x - player.p.x, az = mo.p.z - player.p.z, ad = Math.hypot(ax, az) || 1;
+                mo.v.x = (ax / ad) * 7.4; mo.v.z = (az / ad) * 7.4; mo.v.y = 5.2; mo.knockT = 0.34;
+              }
               if (mo.hp <= 0) startMobDeath(mo);
               break;
             }
