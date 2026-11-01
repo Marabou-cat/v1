@@ -267,171 +267,171 @@ function mineshaftFor(cellX, cellZ) {
 // tiles: 4x4 atlas
 // 0 草顶 1 草侧 2 土 3 石 4 沙 5 木侧 6 木顶 7 叶 8 木板 9 圆石 10 水 11 台顶 12 台侧 13 煤矿
 const BLOCKS = {
-  1: { name: '草地', top: 0, side: 1, bottom: 2, hard: 0.55, drop: 2 },
-  2: { name: '泥土', top: 2, side: 2, bottom: 2, hard: 0.5, drop: 2 },
-  3: { name: '石头', top: 3, side: 3, bottom: 3, hard: 1.7, drop: 9, pick: true },
-  4: { name: '沙子', top: 4, side: 4, bottom: 4, hard: 0.45, drop: 4 },
-  5: { name: '水', water: true, hard: 0, top: 10, side: 10, bottom: 10 },
-  6: { name: '原木', top: 6, side: 5, bottom: 6, hard: 0.8, drop: 6 },
-  7: { name: '树叶', top: 7, side: 7, bottom: 7, hard: 0.22, drop: 0, leaf: true, hollow: true },
-  8: { name: '木板', top: 8, side: 8, bottom: 8, hard: 0.65, drop: 8 },
-  9: { name: '圆石', top: 9, side: 9, bottom: 9, hard: 1.9, drop: 9, pick: true },
-  10: { name: '工作台', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10 },
-  13: { name: '煤矿石', top: 13, side: 13, bottom: 13, hard: 2.2, drop: 13, pick: true },
-  14: { name: '床', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true, half: 0.45 },
-  15: { name: '铁矿石', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 15, pick: true, stonePick: true },
-  16: { name: '农田', top: 17, side: 2, bottom: 2, hard: 0.5, drop: 2 },
-  17: { name: '小麦', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true, plant: true, mature: true, cross: true, crossH: 0.95 },
-  23: { name: '小麦幼苗', top: 26, side: 26, bottom: 26, hard: 0.1, drop: 156, plant: true, stage: 0, cross: true, crossH: 0.38 },
-  24: { name: '小麦苗', top: 27, side: 27, bottom: 27, hard: 0.1, drop: 156, plant: true, stage: 1, cross: true, crossH: 0.66 },
-  25: { name: '堆肥箱', top: 28, side: 29, bottom: 8, hard: 0.9, drop: 25, compost: true },
-  26: { name: '花岗岩', top: 30, side: 30, bottom: 30, hard: 2.6, drop: 26, pick: true },
-  27: { name: '石灰岩', top: 31, side: 31, bottom: 31, hard: 1.9, drop: 27, pick: true },
-  28: { name: '云杉原木', top: 33, side: 32, bottom: 33, hard: 1.5, drop: 28, log: true },
-  29: { name: '云杉木板', top: 34, side: 34, bottom: 34, hard: 1.2, drop: 29 },
-  30: { name: '白桦原木', top: 36, side: 35, bottom: 36, hard: 1.5, drop: 30, log: true },
-  31: { name: '白桦木板', top: 37, side: 37, bottom: 37, hard: 1.2, drop: 31 },
-  33: { name: '石砖楼梯', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 33, pick: true, stair: true },
-  34: { name: '木板楼梯', top: 8, side: 8, bottom: 8, hard: 1.2, drop: 34, stair: true },
-  35: { name: '木门', top: 40, side: 40, bottom: 40, hard: 0.6, drop: 35, door: true },
-  36: { name: '草丛', top: 42, side: 42, bottom: 42, hard: 0.05, drop: 0, plant: true, cross: true },
-  37: { name: '红花', top: 43, side: 43, bottom: 43, hard: 0.05, drop: 37, plant: true, cross: true },
-  39: { name: '铜矿石', top: 45, side: 45, bottom: 45, hard: 2.4, drop: 39, pick: true },
-  40: { name: '木头加工器', top: 46, side: 46, bottom: 8, hard: 1.1, drop: 40, processor: true },
+  1: { name: 'Grass Block', top: 0, side: 1, bottom: 2, hard: 0.55, drop: 2 },
+  2: { name: 'Dirt', top: 2, side: 2, bottom: 2, hard: 0.5, drop: 2 },
+  3: { name: 'Stone', top: 3, side: 3, bottom: 3, hard: 1.7, drop: 9, pick: true },
+  4: { name: 'Sand', top: 4, side: 4, bottom: 4, hard: 0.45, drop: 4 },
+  5: { name: 'Water', water: true, hard: 0, top: 10, side: 10, bottom: 10 },
+  6: { name: 'Log', top: 6, side: 5, bottom: 6, hard: 0.8, drop: 6 },
+  7: { name: 'Leaves', top: 7, side: 7, bottom: 7, hard: 0.22, drop: 0, leaf: true, hollow: true },
+  8: { name: 'Planks', top: 8, side: 8, bottom: 8, hard: 0.65, drop: 8 },
+  9: { name: 'Cobblestone', top: 9, side: 9, bottom: 9, hard: 1.9, drop: 9, pick: true },
+  10: { name: 'Crafting Table', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10 },
+  13: { name: 'Coal Ore', top: 13, side: 13, bottom: 13, hard: 2.2, drop: 13, pick: true },
+  14: { name: 'Bed', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true, half: 0.45 },
+  15: { name: 'Iron Ore', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 15, pick: true, stonePick: true },
+  16: { name: 'Farmland', top: 17, side: 2, bottom: 2, hard: 0.5, drop: 2 },
+  17: { name: 'Wheat', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true, plant: true, mature: true, cross: true, crossH: 0.95 },
+  23: { name: 'Wheat Seedling', top: 26, side: 26, bottom: 26, hard: 0.1, drop: 156, plant: true, stage: 0, cross: true, crossH: 0.38 },
+  24: { name: 'Wheat Sprout', top: 27, side: 27, bottom: 27, hard: 0.1, drop: 156, plant: true, stage: 1, cross: true, crossH: 0.66 },
+  25: { name: 'Compost Bin', top: 28, side: 29, bottom: 8, hard: 0.9, drop: 25, compost: true },
+  26: { name: 'Granite', top: 30, side: 30, bottom: 30, hard: 2.6, drop: 26, pick: true },
+  27: { name: 'Limestone', top: 31, side: 31, bottom: 31, hard: 1.9, drop: 27, pick: true },
+  28: { name: 'Spruce Log', top: 33, side: 32, bottom: 33, hard: 1.5, drop: 28, log: true },
+  29: { name: 'Spruce Planks', top: 34, side: 34, bottom: 34, hard: 1.2, drop: 29 },
+  30: { name: 'Birch Log', top: 36, side: 35, bottom: 36, hard: 1.5, drop: 30, log: true },
+  31: { name: 'Birch Planks', top: 37, side: 37, bottom: 37, hard: 1.2, drop: 31 },
+  33: { name: 'Stone Brick Stairs', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 33, pick: true, stair: true },
+  34: { name: 'Wooden Stairs', top: 8, side: 8, bottom: 8, hard: 1.2, drop: 34, stair: true },
+  35: { name: 'Wooden Door', top: 40, side: 40, bottom: 40, hard: 0.6, drop: 35, door: true },
+  36: { name: 'Grass', top: 42, side: 42, bottom: 42, hard: 0.05, drop: 0, plant: true, cross: true },
+  37: { name: 'Red Flower', top: 43, side: 43, bottom: 43, hard: 0.05, drop: 37, plant: true, cross: true },
+  39: { name: 'Copper Ore', top: 45, side: 45, bottom: 45, hard: 2.4, drop: 39, pick: true },
+  40: { name: 'Wood Processor', top: 46, side: 46, bottom: 8, hard: 1.1, drop: 40, processor: true },
   // ── 传送门（结构）+ 冥界方块 ──
-  41: { name: '传送门框', top: 47, side: 47, bottom: 47, hard: 9, drop: 0, frame: true, unbreakable: true },
-  42: { name: '传送门', top: 48, side: 48, bottom: 48, hard: 0, drop: 0, cross: true, plant: true, portal: true, unbreakable: true, crossH: 0.99 },
-  45: { name: '传送门核心', top: 47, side: 47, bottom: 47, hard: 9, drop: 0, core: true, unbreakable: true },
-  43: { name: '冥界岩', top: 49, side: 49, bottom: 49, hard: 1.6, drop: 43, pick: true },
-  44: { name: '岩浆', top: 50, side: 50, bottom: 50, hard: 0, drop: 0, lava: true, liquid: true },
-  46: { name: '冥界碳矿', top: 51, side: 51, bottom: 51, hard: 2.8, drop: 177, pick: true, stonePick: true },
-  47: { name: '液压机', top: 52, side: 52, bottom: 52, hard: 2.4, drop: 47, pick: true, press: true },
-  48: { name: '灵魂沙', top: 53, side: 53, bottom: 53, hard: 0.6, drop: 48 },
-  49: { name: '玄武岩', top: 54, side: 54, bottom: 54, hard: 2.2, drop: 49, pick: true },
-  50: { name: '深板岩', top: 55, side: 55, bottom: 55, hard: 3.0, drop: 50, pick: true },
-  51: { name: '基岩', top: 56, side: 56, bottom: 56, hard: 999, drop: 0, unbreakable: true },
-  38: { name: '火把', top: 44, side: 44, bottom: 44, hard: 0.05, drop: 38, plant: true, cross: true, crossH: 0.92, torch: true },
-  18: { name: '箱子', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
-  19: { name: '熔炉', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
-  20: { name: '钻石矿石', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
-  21: { name: '石砖', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 21, pick: true },
-  22: { name: '玻璃', top: 25, side: 25, bottom: 25, hard: 0.4, drop: 22, glass: true },
+  41: { name: 'Portal Frame', top: 47, side: 47, bottom: 47, hard: 9, drop: 0, frame: true, unbreakable: true },
+  42: { name: 'Portal', top: 48, side: 48, bottom: 48, hard: 0, drop: 0, cross: true, plant: true, portal: true, unbreakable: true, crossH: 0.99 },
+  45: { name: 'Portal Core', top: 47, side: 47, bottom: 47, hard: 9, drop: 0, core: true, unbreakable: true },
+  43: { name: 'Nether Rock', top: 49, side: 49, bottom: 49, hard: 1.6, drop: 43, pick: true },
+  44: { name: 'Lava', top: 50, side: 50, bottom: 50, hard: 0, drop: 0, lava: true, liquid: true },
+  46: { name: 'Nether Carbon Ore', top: 51, side: 51, bottom: 51, hard: 2.8, drop: 177, pick: true, stonePick: true },
+  47: { name: 'Hydraulic Press', top: 52, side: 52, bottom: 52, hard: 2.4, drop: 47, pick: true, press: true },
+  48: { name: 'Soul Sand', top: 53, side: 53, bottom: 53, hard: 0.6, drop: 48 },
+  49: { name: 'Basalt', top: 54, side: 54, bottom: 54, hard: 2.2, drop: 49, pick: true },
+  50: { name: 'Deepslate', top: 55, side: 55, bottom: 55, hard: 3.0, drop: 50, pick: true },
+  51: { name: 'Bedrock', top: 56, side: 56, bottom: 56, hard: 999, drop: 0, unbreakable: true },
+  38: { name: 'Torch', top: 44, side: 44, bottom: 44, hard: 0.05, drop: 38, plant: true, cross: true, crossH: 0.92, torch: true },
+  18: { name: 'Chest', top: 20, side: 19, bottom: 19, hard: 0.9, drop: 18, chest: true },
+  19: { name: 'Furnace', top: 22, side: 21, bottom: 21, hard: 1.3, drop: 19, furnace: true },
+  20: { name: 'Diamond Ore', top: 23, side: 23, bottom: 23, hard: 3.6, drop: 125, pick: true, stonePick: true, ironPick: true },
+  21: { name: 'Stone Bricks', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 21, pick: true },
+  22: { name: 'Glass', top: 25, side: 25, bottom: 25, hard: 0.4, drop: 22, glass: true },
   // ── 电路 / 能量：铀矿 →（充电器）→ 能量炮 ──
-  52: { name: '铀矿石', top: 57, side: 57, bottom: 57, hard: 4.0, drop: 187, pick: true, stonePick: true, ironPick: true },
-  53: { name: '充电器', top: 58, side: 59, bottom: 21, hard: 1.8, drop: 53, charger: true },
+  52: { name: 'Uranium Ore', top: 57, side: 57, bottom: 57, hard: 4.0, drop: 187, pick: true, stonePick: true, ironPick: true },
+  53: { name: 'Charger', top: 58, side: 59, bottom: 21, hard: 1.8, drop: 53, charger: true },
   // ── 熔岩沼泽：冥界树 + 缠魂藤 + 沼泽泥 ──
-  54: { name: '冥血木', top: 61, side: 60, bottom: 61, hard: 1.8, drop: 54, pick: true },
-  55: { name: '冥血叶', top: 62, side: 62, bottom: 62, hard: 0.2, drop: 0, leaf: true, hollow: true },
-  56: { name: '灰烬木', top: 61, side: 63, bottom: 61, hard: 1.8, drop: 56, pick: true },
-  57: { name: '灰烬叶', top: 64, side: 64, bottom: 64, hard: 0.2, drop: 0, leaf: true, hollow: true },
-  58: { name: '缠魂藤', top: 65, side: 65, bottom: 65, hard: 0.1, drop: 0, cross: true, plant: true, crossH: 0.9, vine: true },
-  59: { name: '沼泽泥', top: 66, side: 66, bottom: 66, hard: 0.8, drop: 59 },
+  54: { name: 'Bloodwood Log', top: 61, side: 60, bottom: 61, hard: 1.8, drop: 54, pick: true },
+  55: { name: 'Bloodwood Leaves', top: 62, side: 62, bottom: 62, hard: 0.2, drop: 0, leaf: true, hollow: true },
+  56: { name: 'Ashwood Log', top: 61, side: 63, bottom: 61, hard: 1.8, drop: 56, pick: true },
+  57: { name: 'Ashwood Leaves', top: 64, side: 64, bottom: 64, hard: 0.2, drop: 0, leaf: true, hollow: true },
+  58: { name: 'Soulvine', top: 65, side: 65, bottom: 65, hard: 0.1, drop: 0, cross: true, plant: true, crossH: 0.9, vine: true },
+  59: { name: 'Swamp Mud', top: 66, side: 66, bottom: 66, hard: 0.8, drop: 59 },
   // ── 远古废墟：末地传送门式的框架 + 四个激活器（都要四枚宝珠，宝珠暂时无法获取）──
-  60: { name: '远古框架', top: 67, side: 68, bottom: 67, hard: 9, drop: 0, frame: true, unbreakable: true, ancient: true },
-  61: { name: '激活器', top: 69, side: 70, bottom: 71, hard: 9, drop: 0, unbreakable: true, activator: true },
+  60: { name: 'Ancient Frame', top: 67, side: 68, bottom: 67, hard: 9, drop: 0, frame: true, unbreakable: true, ancient: true },
+  61: { name: 'Activator', top: 69, side: 70, bottom: 71, hard: 9, drop: 0, unbreakable: true, activator: true },
   // ── 宝珠守护地（角斗场）：新建筑方块 + 宝珠台 ──
-  62: { name: '苔石砖', top: 72, side: 73, bottom: 72, hard: 2.1, drop: 62, pick: true },
-  63: { name: '雕纹石砖', top: 74, side: 75, bottom: 74, hard: 2.1, drop: 63, pick: true },
-  64: { name: '竞技场立柱', top: 76, side: 77, bottom: 76, hard: 2.1, drop: 64, pick: true },
-  65: { name: '宝珠台', top: 78, side: 79, bottom: 72, hard: 9, drop: 0, unbreakable: true, orbAltar: true },
-  67: { name: '白桦树叶', top: 77, side: 77, bottom: 77, hard: 0.22, drop: 0, leaf: true, hollow: true },
-  68: { name: '云杉树叶', top: 78, side: 78, bottom: 78, hard: 0.22, drop: 0, leaf: true, hollow: true },
-  69: { name: '金合欢树叶', top: 79, side: 79, bottom: 79, hard: 0.22, drop: 0, leaf: true, hollow: true },
-  66: { name: '空宝珠台', top: 79, side: 79, bottom: 72, hard: 9, drop: 0, unbreakable: true },
+  62: { name: 'Mossy Stone Bricks', top: 72, side: 73, bottom: 72, hard: 2.1, drop: 62, pick: true },
+  63: { name: 'Chiseled Stone Bricks', top: 74, side: 75, bottom: 74, hard: 2.1, drop: 63, pick: true },
+  64: { name: 'Arena Pillar', top: 76, side: 77, bottom: 76, hard: 2.1, drop: 64, pick: true },
+  65: { name: 'Orb Pedestal', top: 78, side: 79, bottom: 72, hard: 9, drop: 0, unbreakable: true, orbAltar: true },
+  67: { name: 'Birch Leaves', top: 77, side: 77, bottom: 77, hard: 0.22, drop: 0, leaf: true, hollow: true },
+  68: { name: 'Spruce Leaves', top: 78, side: 78, bottom: 78, hard: 0.22, drop: 0, leaf: true, hollow: true },
+  69: { name: 'Acacia Leaves', top: 79, side: 79, bottom: 79, hard: 0.22, drop: 0, leaf: true, hollow: true },
+  66: { name: 'Empty Orb Pedestal', top: 79, side: 79, bottom: 72, hard: 9, drop: 0, unbreakable: true },
   // ── 深渊迷宫：建筑 / 装饰方块（迷宫本体、装饰、光源、祭坛）──
-  70: { name: '深渊砖', top: 80, side: 80, bottom: 80, hard: 2.3, drop: 70, pick: true, stonePick: true },
-  71: { name: '深渊裂纹砖', top: 81, side: 81, bottom: 81, hard: 2.1, drop: 71, pick: true, stonePick: true },
-  72: { name: '深渊雕纹砖', top: 82, side: 82, bottom: 82, hard: 2.5, drop: 72, pick: true, stonePick: true },
-  73: { name: '深渊柱', top: 83, side: 83, bottom: 83, hard: 2.5, drop: 73, pick: true, stonePick: true },
-  74: { name: '深渊灯', top: 84, side: 84, bottom: 84, hard: 1.2, drop: 74, lamp: true },
-  75: { name: '深渊火盆', top: 85, side: 85, bottom: 85, hard: 1.4, drop: 75, lamp: true },
-  76: { name: '深渊铁栏', top: 86, side: 86, bottom: 86, hard: 2.0, drop: 76, pick: true },
-  77: { name: '深渊祭坛', top: 87, side: 88, bottom: 80, hard: 9, drop: 0, unbreakable: true, abyssAltar: true },
+  70: { name: 'Abyss Bricks', top: 80, side: 80, bottom: 80, hard: 2.3, drop: 70, pick: true, stonePick: true },
+  71: { name: 'Cracked Abyss Bricks', top: 81, side: 81, bottom: 81, hard: 2.1, drop: 71, pick: true, stonePick: true },
+  72: { name: 'Chiseled Abyss Bricks', top: 82, side: 82, bottom: 82, hard: 2.5, drop: 72, pick: true, stonePick: true },
+  73: { name: 'Abyss Pillar', top: 83, side: 83, bottom: 83, hard: 2.5, drop: 73, pick: true, stonePick: true },
+  74: { name: 'Abyss Lamp', top: 84, side: 84, bottom: 84, hard: 1.2, drop: 74, lamp: true },
+  75: { name: 'Abyss Brazier', top: 85, side: 85, bottom: 85, hard: 1.4, drop: 75, lamp: true },
+  76: { name: 'Abyss Iron Bars', top: 86, side: 86, bottom: 86, hard: 2.0, drop: 76, pick: true },
+  77: { name: 'Abyss Altar', top: 87, side: 88, bottom: 80, hard: 9, drop: 0, unbreakable: true, abyssAltar: true },
 };
 const ITEMS = {
-  100: { name: '木镐', kind: 'pick', fast: 1.35, dur: 60 },
-  101: { name: '石镐', kind: 'pick', fast: 1.9, dur: 132 },
-  102: { name: '木剑', kind: 'sword', dmg: 5, dur: 60 },
-  103: { name: '石剑', kind: 'sword', dmg: 7, dur: 132 },
-  104: { name: '木棍', kind: 'mat' },
-  105: { name: '苹果', kind: 'food', food: 4 },
-  106: { name: '铁锭', kind: 'mat' },
-  110: { name: '铁头盔', kind: 'armor', slot: 'head', ap: 2 },
-  111: { name: '铁胸甲', kind: 'armor', slot: 'chest', ap: 6 },
-  112: { name: '铁护腿', kind: 'armor', slot: 'legs', ap: 5 },
-  113: { name: '铁靴', kind: 'armor', slot: 'feet', ap: 2 },
-  107: { name: '小麦', kind: 'mat' },
-  108: { name: '生猪排', kind: 'food', food: 3 },
-  109: { name: '熟猪排', kind: 'food', food: 6 },
-  124: { name: '面包', kind: 'food', food: 5 },
-  120: { name: '铁镐', kind: 'pick', fast: 2.6, dur: 251 },
-  121: { name: '铁剑', kind: 'sword', dmg: 9, dur: 251 },
-  125: { name: '钻石', kind: 'mat' },
-  130: { name: '钻石镐', kind: 'pick', fast: 3.4, dur: 1561 },
-  131: { name: '钻石剑', kind: 'sword', dmg: 13, dur: 1561 },
-  132: { name: '钻石头盔', kind: 'armor', slot: 'head', ap: 3 },
-  133: { name: '钻石胸甲', kind: 'armor', slot: 'chest', ap: 8 },
-  134: { name: '钻石护腿', kind: 'armor', slot: 'legs', ap: 6 },
-  135: { name: '钻石靴', kind: 'armor', slot: 'feet', ap: 3 },
-  140: { name: '生牛肉', kind: 'food', food: 5 },
-  141: { name: '熟牛肉', kind: 'food', food: 9 },
-  142: { name: '羊毛', kind: 'mat' },
-  143: { name: '鸡肉', kind: 'food', food: 3 },
-  144: { name: '熟鸡肉', kind: 'food', food: 7 },
-  145: { name: '生羊肉', kind: 'food', food: 4 },
-  146: { name: '熟羊肉', kind: 'food', food: 8 },
-  148: { name: '骨头', kind: 'mat' },
-  149: { name: '骨剑', kind: 'sword', dmg: 6, dur: 120 },
-  151: { name: '空桶', kind: 'bucket' },
-  152: { name: '水桶', kind: 'bucket', water: true },
-  153: { name: '弓', kind: 'bow', dmg: 7, dur: 240 },
-  154: { name: '箭', kind: 'ammo' },
-  155: { name: '幽灵精华', kind: 'mat' },
-  156: { name: '小麦种子', kind: 'seed' },
-  157: { name: '肥料', kind: 'fertilizer' },
-  158: { name: '木锄', kind: 'hoe', dur: 60 },
-  159: { name: '石锄', kind: 'hoe', dur: 132 },
-  160: { name: '铁锄', kind: 'hoe', dur: 251 },
-  161: { name: '骨粉', kind: 'bonemeal' },
-  162: { name: '铜锭', kind: 'mat' },
-  163: { name: '铜镐', kind: 'pick', fast: 2.2, dur: 190 },
-  164: { name: '铜剑', kind: 'sword', dmg: 8, dur: 190 },
-  165: { name: '铜锄', kind: 'hoe', dur: 190 },
-  166: { name: '铜头盔', kind: 'armor', slot: 'head', ap: 2 },
-  167: { name: '铜胸甲', kind: 'armor', slot: 'chest', ap: 5 },
-  168: { name: '铜护腿', kind: 'armor', slot: 'legs', ap: 3 },
-  169: { name: '铜靴', kind: 'armor', slot: 'feet', ap: 2 },
-  170: { name: '木片', kind: 'mat' },
-  171: { name: '木头盔', kind: 'armor', slot: 'head', ap: 1 },
-  172: { name: '木胸甲', kind: 'armor', slot: 'chest', ap: 3 },
-  173: { name: '木护腿', kind: 'armor', slot: 'legs', ap: 2 },
-  174: { name: '木靴', kind: 'armor', slot: 'feet', ap: 1 },
-  175: { name: '传送块', kind: 'mat' },
-  176: { name: '冥火碎片', kind: 'mat' },
-  177: { name: '冥界碳', kind: 'mat' },
-  178: { name: '冥界钢', kind: 'mat' },
+  100: { name: 'Wooden Pickaxe', kind: 'pick', fast: 1.35, dur: 60 },
+  101: { name: 'Stone Pickaxe', kind: 'pick', fast: 1.9, dur: 132 },
+  102: { name: 'Wooden Sword', kind: 'sword', dmg: 5, dur: 60 },
+  103: { name: 'Stone Sword', kind: 'sword', dmg: 7, dur: 132 },
+  104: { name: 'Stick', kind: 'mat' },
+  105: { name: 'Apple', kind: 'food', food: 4 },
+  106: { name: 'Iron Ingot', kind: 'mat' },
+  110: { name: 'Iron Helmet', kind: 'armor', slot: 'head', ap: 2 },
+  111: { name: 'Iron Chestplate', kind: 'armor', slot: 'chest', ap: 6 },
+  112: { name: 'Iron Leggings', kind: 'armor', slot: 'legs', ap: 5 },
+  113: { name: 'Iron Boots', kind: 'armor', slot: 'feet', ap: 2 },
+  107: { name: 'Wheat', kind: 'mat' },
+  108: { name: 'Raw Porkchop', kind: 'food', food: 3 },
+  109: { name: 'Cooked Porkchop', kind: 'food', food: 6 },
+  124: { name: 'Bread', kind: 'food', food: 5 },
+  120: { name: 'Iron Pickaxe', kind: 'pick', fast: 2.6, dur: 251 },
+  121: { name: 'Iron Sword', kind: 'sword', dmg: 9, dur: 251 },
+  125: { name: 'Diamond', kind: 'mat' },
+  130: { name: 'Diamond Pickaxe', kind: 'pick', fast: 3.4, dur: 1561 },
+  131: { name: 'Diamond Sword', kind: 'sword', dmg: 13, dur: 1561 },
+  132: { name: 'Diamond Helmet', kind: 'armor', slot: 'head', ap: 3 },
+  133: { name: 'Diamond Chestplate', kind: 'armor', slot: 'chest', ap: 8 },
+  134: { name: 'Diamond Leggings', kind: 'armor', slot: 'legs', ap: 6 },
+  135: { name: 'Diamond Boots', kind: 'armor', slot: 'feet', ap: 3 },
+  140: { name: 'Raw Beef', kind: 'food', food: 5 },
+  141: { name: 'Steak', kind: 'food', food: 9 },
+  142: { name: 'Wool', kind: 'mat' },
+  143: { name: 'Raw Chicken', kind: 'food', food: 3 },
+  144: { name: 'Cooked Chicken', kind: 'food', food: 7 },
+  145: { name: 'Raw Mutton', kind: 'food', food: 4 },
+  146: { name: 'Cooked Mutton', kind: 'food', food: 8 },
+  148: { name: 'Bone', kind: 'mat' },
+  149: { name: 'Bone Sword', kind: 'sword', dmg: 6, dur: 120 },
+  151: { name: 'Empty Bucket', kind: 'bucket' },
+  152: { name: 'Water Bucket', kind: 'bucket', water: true },
+  153: { name: 'Bow', kind: 'bow', dmg: 7, dur: 240 },
+  154: { name: 'Arrow', kind: 'ammo' },
+  155: { name: 'Ghost Essence', kind: 'mat' },
+  156: { name: 'Wheat Seeds', kind: 'seed' },
+  157: { name: 'Fertilizer', kind: 'fertilizer' },
+  158: { name: 'Wooden Hoe', kind: 'hoe', dur: 60 },
+  159: { name: 'Stone Hoe', kind: 'hoe', dur: 132 },
+  160: { name: 'Iron Hoe', kind: 'hoe', dur: 251 },
+  161: { name: 'Bone Meal', kind: 'bonemeal' },
+  162: { name: 'Copper Ingot', kind: 'mat' },
+  163: { name: 'Copper Pickaxe', kind: 'pick', fast: 2.2, dur: 190 },
+  164: { name: 'Copper Sword', kind: 'sword', dmg: 8, dur: 190 },
+  165: { name: 'Copper Hoe', kind: 'hoe', dur: 190 },
+  166: { name: 'Copper Helmet', kind: 'armor', slot: 'head', ap: 2 },
+  167: { name: 'Copper Chestplate', kind: 'armor', slot: 'chest', ap: 5 },
+  168: { name: 'Copper Leggings', kind: 'armor', slot: 'legs', ap: 3 },
+  169: { name: 'Copper Boots', kind: 'armor', slot: 'feet', ap: 2 },
+  170: { name: 'Wood Chip', kind: 'mat' },
+  171: { name: 'Wooden Helmet', kind: 'armor', slot: 'head', ap: 1 },
+  172: { name: 'Wooden Chestplate', kind: 'armor', slot: 'chest', ap: 3 },
+  173: { name: 'Wooden Leggings', kind: 'armor', slot: 'legs', ap: 2 },
+  174: { name: 'Wooden Boots', kind: 'armor', slot: 'feet', ap: 1 },
+  175: { name: 'Teleport Block', kind: 'mat' },
+  176: { name: 'Netherfire Shard', kind: 'mat' },
+  177: { name: 'Nether Carbon', kind: 'mat' },
+  178: { name: 'Nether Steel', kind: 'mat' },
   // ── 冥界钢装备：比钻石强一档（MC 下界合金的定位） ──
-  179: { name: '冥界钢剑', kind: 'sword', dmg: 16, dur: 2031 },
-  180: { name: '冥界钢头盔', kind: 'armor', slot: 'head', ap: 4 },
-  181: { name: '冥界钢胸甲', kind: 'armor', slot: 'chest', ap: 9 },
-  182: { name: '冥界钢护腿', kind: 'armor', slot: 'legs', ap: 7 },
-  183: { name: '冥界钢靴', kind: 'armor', slot: 'feet', ap: 4 },
-  184: { name: '冥界钢镐', kind: 'pick', fast: 4.2, dur: 2031 },
+  179: { name: 'Nether Steel Sword', kind: 'sword', dmg: 16, dur: 2031 },
+  180: { name: 'Nether Steel Helmet', kind: 'armor', slot: 'head', ap: 4 },
+  181: { name: 'Nether Steel Chestplate', kind: 'armor', slot: 'chest', ap: 9 },
+  182: { name: 'Nether Steel Leggings', kind: 'armor', slot: 'legs', ap: 7 },
+  183: { name: 'Nether Steel Boots', kind: 'armor', slot: 'feet', ap: 4 },
+  184: { name: 'Nether Steel Pickaxe', kind: 'pick', fast: 4.2, dur: 2031 },
   // ── 电路系统：铜 → 电路板 / 电线 → 能量炮（4 档金属，dmg/cap/cd/speed 逐档递增）──
-  185: { name: '电路板', kind: 'mat' },
-  186: { name: '电线', kind: 'mat' },
-  187: { name: '铀', kind: 'mat' },
-  188: { name: '铜能量炮',   kind: 'gun', dmg: 8,  cap: 8,  cd: 0.50, speed: 48, boltColor: 0xffb066 },
-  189: { name: '铁能量炮',   kind: 'gun', dmg: 12, cap: 10, cd: 0.45, speed: 54, boltColor: 0xbfe4ff },
-  190: { name: '钻石能量炮', kind: 'gun', dmg: 17, cap: 12, cd: 0.40, speed: 60, boltColor: 0x7dffe8 },
-  191: { name: '冥界钢能量炮', kind: 'gun', dmg: 22, cap: 14, cd: 0.35, speed: 66, boltColor: 0xc08cff },
+  185: { name: 'Circuit Board', kind: 'mat' },
+  186: { name: 'Wire', kind: 'mat' },
+  187: { name: 'Uranium', kind: 'mat' },
+  188: { name: 'Copper Cannon',   kind: 'gun', dmg: 8,  cap: 8,  cd: 0.50, speed: 48, boltColor: 0xffb066 },
+  189: { name: 'Iron Cannon',   kind: 'gun', dmg: 12, cap: 10, cd: 0.45, speed: 54, boltColor: 0xbfe4ff },
+  190: { name: 'Diamond Cannon', kind: 'gun', dmg: 17, cap: 12, cd: 0.40, speed: 60, boltColor: 0x7dffe8 },
+  191: { name: 'Nether Steel Cannon', kind: 'gun', dmg: 22, cap: 14, cd: 0.35, speed: 66, boltColor: 0xc08cff },
   // ── 熔岩沼泽掉落 ──
-  192: { name: '鳄鱼皮', kind: 'mat' },
-  193: { name: '噩梦之心', kind: 'mat' },
-  194: { name: '噩梦之刃', kind: 'sword', dmg: 26, dur: 2600 },
+  192: { name: 'Crocodile Hide', kind: 'mat' },
+  193: { name: 'Nightmare Heart', kind: 'mat' },
+  194: { name: 'Nightmare Blade', kind: 'sword', dmg: 26, dur: 2600 },
   // ── 宝珠（远古框架的四把钥匙，目前只有绿色能拿到）──
-  195: { name: '日耀宝珠', kind: 'mat' },        // 原来的「绿色宝珠」→ 日耀宝珠（远古废墟 1 号激活器的钥匙）
-  198: { name: '深渊宝珠', kind: 'mat' },
+  195: { name: 'Sun Orb', kind: 'mat' },        // 原来的「绿色宝珠」→ 日耀宝珠（远古废墟 1 号激活器的钥匙）
+  198: { name: 'Abyss Orb', kind: 'mat' },
 };
 const isItem = id => !!BLOCKS[id] || !!ITEMS[id];
 const defOf = id => BLOCKS[id] || ITEMS[id];
@@ -1424,7 +1424,7 @@ function iconURL(id) {
     g.fillStyle = metal; g.fillRect(12, 20, 3, 6);
     g.fillStyle = glow; g.fillRect(27, 12, 2, 5); g.fillRect(6, 15, 3, 2);
   } else if (ITEMS[id] && ITEMS[id].kind === 'armor') { // 盔甲
-    const nether = id >= 180 && id <= 183;          // 冥界钢护甲 180~183：黑铁色
+    const nether = id >= 180 && id <= 183;          // 冥界钢Armor 180~183：黑铁色
     const wood = id >= 171 && id <= 174;            // 木护甲：木色（最弱的一套）
     const cop = id >= 166 && id <= 169;             // 铜护甲：铜橙色
     const dia = id >= 132 && !cop && !wood && !nether;
@@ -1469,7 +1469,7 @@ function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.ad
  */
 const FOREST_CELL = 256;
 const FOREST_KINDS = ['oak_birch', 'snow_spruce', 'snow_pine', 'dark_oak', 'acacia'];
-const FOREST_NAME = { oak_birch: '橡木白桦林', snow_spruce: '冻土云杉林', snow_pine: '冻土松林', dark_oak: '深色橡木林', acacia: '金合欢稀树草原' };
+const FOREST_NAME = { oak_birch: 'Oak-Birch Forest', snow_spruce: 'Frozen Spruce Forest', snow_pine: 'Frozen Pine Forest', dark_oak: 'Dark Oak Forest', acacia: 'Acacia Savanna' };
 const forestCache = new Map();
 function forestFor(cellX, cellZ) {
   const key = cellX + ',' + cellZ;
@@ -2386,9 +2386,9 @@ function freezeInit() {
       + 'background:' + bg + ';color:#10161f;font:700 13px system-ui,sans-serif;cursor:pointer';
     return b;
   };
-  fzBtn = mkBtn('立即重新加载', '#f5c451');
+  fzBtn = mkBtn('Reload now', '#f5c451');
   fzBtn.onclick = () => { try { save(); } catch (e) {} location.reload(); };
-  fzWait = mkBtn('继续等待', '#5d7186');
+  fzWait = mkBtn('Keep waiting', '#5d7186');
   fzWait.onclick = () => { if (fzWrap) fzWrap.style.display = 'none'; };
   row.append(fzBtn, fzWait);
   box.append(fzTitle, fzBody, row);
@@ -2419,9 +2419,9 @@ function freezeTick() {                       // 每 0.5s：丢上下文 / 停�
   if (glLost) {
     const sec = (performance.now() - glLostAt) / 1000;
     const left = Math.max(0, Math.ceil(12 - sec));
-    freezeShow('gl', '显卡上下文丢失',
-      '画面已经停了 ' + sec.toFixed(0) + ' 秒，正在等显卡自己恢复…\n'
-      + (sec < 3 ? '通常 1~2 秒就会好。' : left + ' 秒后自动存档并重新加载（进度不会丢）。'), false);
+    freezeShow('gl', 'Graphics context lost',
+      'The display has been frozen for ' + sec.toFixed(0) + ' s, waiting for the GPU to recover…\n'
+      + (sec < 3 ? 'Usually it recovers in 1~2 s.' : left + ' s — auto-saving and reloading (no progress will be lost).'), false);
     if (sec > 12) { try { save(); } catch (e) {} location.reload(); }
     return;
   }
@@ -2429,9 +2429,9 @@ function freezeTick() {                       // 每 0.5s：丢上下文 / 停�
   const idle = performance.now() - lastRenderAt;
   if (lastRenderAt && idle > 2500 && !document.hidden) {
     if (fzShown !== 'stall') FREEZE.stall++;
-    freezeShow('stall', '画面已停止 ' + (idle / 1000).toFixed(0) + ' 秒',
-      '游戏循环还在跑，但没有再渲染新的一帧（通常是某个同步计算卡住了，或者显卡驱动被重置）。\n'
-      + '可以先点「继续等待」看它会不会自己回来；一直不动就重新加载（会自动存档）。', true);
+    freezeShow('stall', 'The display has stopped for ' + (idle / 1000).toFixed(0) + ' s',
+      'The game loop is still running, but no new frame has been rendered (usually some synchronous calculation is stuck, or the GPU driver was reset).\n'
+      + 'You can click "Keep waiting" first to see if it comes back on its own; if it stays frozen, reload (it will auto-save).', true);
   } else if (fzShown === 'stall') freezeDismiss();
 }
 function frameHealth(now) {                   // 每帧：NaN 坐标自愈
@@ -2443,35 +2443,35 @@ function frameHealth(now) {                   // 每帧：NaN 坐标自愈
     p.set(lastGoodPos.x, lastGoodPos.y, lastGoodPos.z);
     player.v.set(0, 0, 0);
     FREEZE.err++;
-    try { toast('坐标异常已自动复位（冻结保护）', 3); } catch (e) {}
+    try { toast('Bad coordinates auto-reset (freeze protection)', 3); } catch (e) {}
   }
 }
 function frameCrashed(e) {
   FREEZE.err++;
   FREEZE.lastErr = String((e && (e.stack || e.message)) || e).split('\n')[0].slice(0, 200);
   if (FREEZE.err === 1) FREEZE.errT0 = performance.now();
-  if (FREEZE.err === 1 || FREEZE.err % 60 === 0) console.error('[blockwild] 帧循环异常', e);
+  if (FREEZE.err === 1 || FREEZE.err % 60 === 0) console.error('[blockwild] frame loop error', e);
   const now = performance.now();
   // 「每帧都在同一处抛错」= 这一帧永远过不去 = 玩家嘴里的「crash」。
   // 以前只能自己按 F5（还会以为存档没了）。现在：连抛 3 次就自动存档 + 重载，
   // 用 sessionStorage 计重载次数，防止「一进世界就崩」变成无限刷新。
   const stuck = FREEZE.err >= 3 && now - (FREEZE.errT0 || now) < 4000;
   if (!stuck) {
-    freezeShow('err', '游戏循环出错（第 ' + FREEZE.err + ' 次）',
-      FREEZE.lastErr + '\n\n如果画面停在最后一帧不动了，会自动存档并重新加载。', false);
+    freezeShow('err', 'Game loop error (attempt ' + FREEZE.err + ')',
+      FREEZE.lastErr + '\n\nIf the display freezes on the last frame, it will auto-save and reload.', false);
     return;
   }
   let reloads = 0;
   try { reloads = parseInt(sessionStorage.getItem('bwCrashReload') || '0', 10) || 0; } catch (err) {}
   if (reloads >= 3) {
-    freezeShow('err', '游戏循环出错（已自动重载 ' + reloads + ' 次仍未好）',
-      FREEZE.lastErr + '\n\n别急着重载：按 F12 打开控制台，把红色报错发给我；\n'
-      + '或者先在世界列表里换一个世界试试（存档都在，不会丢）。', false);
+    freezeShow('err', 'Game loop error (already auto-reloaded ' + reloads + ' times, still not fixed)',
+      FREEZE.lastErr + '\n\nDon\'t rush to reload: press F12 to open the console and send me the red error;\n'
+      + 'or try switching to another World in the World list first (all Saves are there, nothing will be lost).', false);
     return;
   }
   if (!FREEZE.reloadTimer) {
-    freezeShow('err', '游戏循环出错，2 秒后自动恢复…',
-      FREEZE.lastErr + '\n\n会自动存档并重新加载，进度不会丢。', false);
+    freezeShow('err', 'Game loop error — auto-recovering in 2 s…',
+      FREEZE.lastErr + '\n\nIt will auto-save and reload; no progress will be lost.', false);
     FREEZE.reloadTimer = setTimeout(() => {
       try { save(); } catch (err) {}
       try { sessionStorage.setItem('bwCrashReload', String(reloads + 1)); } catch (err) {}
@@ -2482,7 +2482,7 @@ function frameCrashed(e) {
 renderer.domElement.addEventListener('webglcontextlost', (e) => {
   e.preventDefault();
   glLost = true; glLostAt = performance.now(); FREEZE.glLost++;
-  freezeShow('gl', '显卡上下文丢失', '画面已经停了 0 秒，正在等显卡自己恢复…', false);
+  freezeShow('gl', 'Graphics context lost', 'The display has been frozen for 0 s, waiting for the GPU to recover…', false);
 }, false);
 renderer.domElement.addEventListener('webglcontextrestored', () => {
   glLost = false;
@@ -2490,7 +2490,7 @@ renderer.domElement.addEventListener('webglcontextrestored', () => {
   glRecovering = 300;                         // 之后 300 帧只做分片重建，避免恢复瞬间一次性整块重算
   try {
     for (const c of chunks.values()) { c.ready = false; c.stale = true; if (c.job) c.job = null; dirty.add(c); }
-    toast('显示已恢复（区块正在后台重建）', 2.5);
+    toast('Display recovered (chunks are rebuilding in the background)', 2.5);
   } catch (err) {}
 }, false);
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
@@ -2993,7 +2993,7 @@ const player = {
   armor: { head: null, chest: null, legs: null, feet: null },
 };
 const ARMOR_SLOTS = ['head', 'chest', 'legs', 'feet'];
-const ARMOR_SLOT_NAME = { head: '头盔', chest: '胸甲', legs: '护腿', feet: '靴子' };
+const ARMOR_SLOT_NAME = { head: 'Helmet', chest: 'Chestplate', legs: 'Leggings', feet: 'Boots' };
 function armorPoints() {
   let ap = 0;
   for (const s of ARMOR_SLOTS) { const a = player.armor[s]; if (a && ITEMS[a]) ap += ITEMS[a].ap || 0; }
@@ -3007,7 +3007,7 @@ function equipArmor(itemId) {
   takeItem(itemId, 1);
   if (prev) addItem(prev, 1);
   sfx('craft');
-  toast(`装备 ${def.name}（护甲 ${armorPoints()}）`, 1.5);
+  toast(`Equipped ${def.name} (Armor ${armorPoints()})`, 1.5);
   renderHotbar(); renderInventoryPanel(); saveSoon();
   return true;
 }
@@ -3027,7 +3027,7 @@ function useTool(n = 1) {
   s.d -= n;
   if (s.d <= 0) {
     inv[player.sel] = null;
-    toast(`${def.name}用坏了`, 2.0);
+    toast(`${def.name} broke`, 2.0);
     sfx('hurt');
     refreshHeld();
   }
@@ -3044,7 +3044,7 @@ function addItem(id, n = 1) {
       inv[i] = idef.kind === 'gun' ? { id, n: 1, c: idef.cap || 8 } : { id, n: 1, d: idef.dur };
       left--;
     }
-    if (left > 0) toast('背包满了，东西掉在脚下', 1.5);
+    if (left > 0) toast('Inventory is full — the item dropped at your feet', 1.5);
     return left < n;
   }
   for (let i = 0; i < SLOTS && n > 0; i++) {
@@ -3054,7 +3054,7 @@ function addItem(id, n = 1) {
   for (let i = 0; i < SLOTS && n > 0; i++) {
     if (!inv[i]) { const add = Math.min(STACK_MAX, n); inv[i] = { id, n: add }; n -= add; }
   }
-  if (n > 0) toast('背包满了，东西掉在脚下', 1.5);
+  if (n > 0) toast('Inventory is full — the item dropped at your feet', 1.5);
   return n === 0;
 }
 function countOf(id) { let n = 0; for (const s of inv) if (s && s.id === id) n += s.n; return n; }
@@ -4329,7 +4329,7 @@ function towerFor(cellX, cellZ) {
         for (let dx = -3; dx <= 3; dx += 2) for (let dz = -3; dz <= 3; dz += 2) put(cx + dx, gy + H + 2, cz + dz, 21);
         put(cx, gy + 1, cz, 18);
         supportBase(ops, gy, 9);                              // 落地：斜坡下坡侧补地基
-        out = { name: 'tower', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '石塔' };
+        out = { name: 'tower', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: 'Stone Tower' };
       }
     }
     towerCache.set(key, out);
@@ -4360,7 +4360,7 @@ function wellFor(cellX, cellZ) {
         for (const p of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) for (let y = 1; y <= 3; y++) put(cx + p[0], gy + y, cz + p[1], 28);
         for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, gy + 4, cz + dz, 34);
         supportBase(ops, gy, 9);
-        out = { name: 'well', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '水井' };
+        out = { name: 'well', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: 'Well' };
       }
     }
     wellCache.set(key, out);
@@ -4399,7 +4399,7 @@ function circleFor(cellX, cellZ) {
         }
         put(cx, gy + 1, cz, 33);                                     // 中央祭台（石砖楼梯）
         supportBase(ops, gy, 9, gy + 2);                      // 石阵的石块立在地面上
-        out = { name: 'circle', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '石阵' };
+        out = { name: 'circle', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: 'Stone Circle' };
       }
     }
     circleCache.set(key, out);
@@ -4433,7 +4433,7 @@ function campFor(cellX, cellZ) {
         for (const p of [[0, 1], [1, 0], [0, -1], [-1, 0]]) put(cx + p[0], gy + 1, cz + p[1], 9);
         put(cx, gy + 1, cz + 3, 18);
         supportBase(ops, gy, 9);                              // 营地：外墙/篝石也要落地
-        out = { name: 'camp', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '废墟营地' };
+        out = { name: 'camp', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: 'Ruined Camp' };
       }
     }
     campCache.set(key, out);
@@ -4447,7 +4447,7 @@ function campFor(cellX, cellZ) {
    ⚠ 宝珠系统还没做（暂时无法获取），所以现在点激活器只给提示，不消耗任何东西。 */
 const AR_CELL = 320, ruinsCache = new Map();
 let arDbg = {};                                       // 上一次生成尝试的参数（探针用）
-const AR_ORBS = ['日耀宝珠', '月蚀宝珠', '炽焰宝珠', '深渊宝珠'];   // 顺序 = 激活器 meta 1..4
+const AR_ORBS = ['Sun Orb', 'Eclipse Orb', 'Blazing Orb', 'Abyss Orb'];   // 顺序 = 激活器 meta 1..4
 function ruinsFor(cellX, cellZ) {
   const key = cellX + ',' + cellZ;
   if (ruinsCache.has(key)) return ruinsCache.get(key);
@@ -4549,7 +4549,7 @@ function ruinsFor(cellX, cellZ) {
         for (let i = 0; i < 9; i++) for (let j = 0; j < 4; j++) {
           put(cx - 17 + i, gy + 2 + Math.floor(i / 4), cz + 14 + j, 50);   // 一块塌下来的石板
         }
-        out = { name: 'ruins', cx, cz, gy, r: 27, byChunk: packOps(ops), ops: ops.length, label: '远古废墟' };
+        out = { name: 'ruins', cx, cz, gy, r: 27, byChunk: packOps(ops), ops: ops.length, label: 'Ancient Ruins' };
       }
     }
     ruinsCache.set(key, out);
@@ -4568,13 +4568,13 @@ function gotoNearestRuins() {
     const d = Math.hypot(o.cx - player.p.x, o.cz - player.p.z);
     if (!best || d < best.d) best = { o, d };
   }
-  if (!best) { toast('附近 6 个 grid（×448 格）内没有远古废墟', 2.6); return false; }
+  if (!best) { toast('No Ancient Ruins within 6 grids (×448 blocks)', 2.6); return false; }
   const o = best.o;
   const ccx = Math.floor(o.cx / CFG.CH), ccz = Math.floor(o.cz / CFG.CH);
   for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) buildChunk(getChunk(ccx + a, ccz + b));
   player.p.set(o.cx + 0.5, o.gy + 3, o.cz + 18.5);
   player.v.set(0, 0, 0);
-  toast(`远古废墟：(${o.cx}, ${o.cz}) 平台高 ${o.gy + 1}`, 3.2);
+  toast(`Ancient Ruins: (${o.cx}, ${o.cz}) platform height ${o.gy + 1}`, 3.2);
   return true;
 }
 
@@ -4662,7 +4662,7 @@ function arenaFor(cellX, cellZ) {
           put(cx + dx, gy + 2, cz + dz, d2 > 20 ? 63 : 21);
         }
         put(cx, gy + 3, cz, 65);                                                      // 宝珠台（锁着的绿色宝珠）
-        out = { name: 'arena', cx, cz, gy, r: ARENA_R_SAND, byChunk: packOps(ops), ops: ops.length, label: '宝珠守护地' };
+        out = { name: 'arena', cx, cz, gy, r: ARENA_R_SAND, byChunk: packOps(ops), ops: ops.length, label: 'Orb Sanctuary' };
       }
     }
     arenaCache.set(key, out);
@@ -4828,7 +4828,7 @@ function abyssFor(vcx, vcz) {
         }
         out = { name: 'abyss', cx, cz, y0, r: ABYSS_HALL >> 1, rooms: rooms.length,
           hall: { x: cx, y: y0 + 1, z: cz }, shaft: { x: ex, y: surf, z: ez },
-          byChunk: packOps(ops), ops: ops.length, label: '深渊迷宫' };
+          byChunk: packOps(ops), ops: ops.length, label: 'Abyss Maze' };
       }
     }
     abyssCache.set(key, out);
@@ -4893,16 +4893,16 @@ function clearTrialMobs() {
 }
 function trialStart(altar) {
   const isAbyss = getBlock(altar.x, altar.y, altar.z) === 77;
-  if (ARENA.active) { toast(`试炼进行中：第 ${ARENA.wave}/${ARENA.waves.length} 波，别半途跑掉`, 2.4); return false; }
+  if (ARENA.active) { toast(`Trial in progress: wave ${ARENA.wave}/${ARENA.waves.length} — don't run off midway`, 2.4); return false; }
   let cx, cz, cy, r, waves, label;
   if (isAbyss) {
     const ab = abyssAt(altar.x, altar.z);
-    if (!ab) { toast('这里不是深渊祭坛', 2.2); return false; }
-    cx = ab.hall.x; cz = ab.hall.z; cy = ab.hall.y; r = ab.r; waves = ABYSS_WAVES; label = '深渊试炼';
+    if (!ab) { toast('This is not an Abyss Altar', 2.2); return false; }
+    cx = ab.hall.x; cz = ab.hall.z; cy = ab.hall.y; r = ab.r; waves = ABYSS_WAVES; label = 'Abyss Trial';
   } else {
     const a = arenaFor(Math.floor(altar.x / ARENA_CELL), Math.floor(altar.z / ARENA_CELL));
-    if (!a) { toast('这里不是宝珠守护地', 2.2); return false; }
-    cx = a.cx; cz = a.cz; cy = a.gy + 2; r = a.r || ARENA_R_SAND; waves = TRIAL_WAVES; label = '试炼';
+    if (!a) { toast('This is not an Orb Sanctuary', 2.2); return false; }
+    cx = a.cx; cz = a.cz; cy = a.gy + 2; r = a.r || ARENA_R_SAND; waves = TRIAL_WAVES; label = 'Trial';
   }
   ARENA.type = isAbyss ? 'abyss' : 'green';
   ARENA.waves = waves;
@@ -4912,7 +4912,7 @@ function trialStart(altar) {
   // 深渊大厅只有 19×19，走廊就在墙外：判定给 r+6（不是 r+10），否则追着 boss 出门一步就判失败
   ARENA.failR = isAbyss ? r + 6 : r + 10;
   ARENA.altar = { x: altar.x, y: altar.y, z: altar.z };
-  toast(`${label}开始：${waves.length} 波守护者，最后一波是首领 —— 跑出场地就算失败`, 3.6);
+  toast(`${label} begins: ${waves.length} waves of guardians, the last one is the boss — leaving the arena counts as a failure`, 3.6);
   return true;
 }
 function trialSpawnWave() {
@@ -4931,7 +4931,7 @@ function trialFail(reason) {
   ARENA.active = false; ARENA.lost++;
   const w = ARENA.wave; ARENA.wave = 0;
   clearTrialMobs();
-  toast(`${reason} —— 试炼中止（打到第 ${w} 波），宝珠台重新锁上，右键可以重开`, 4);
+  toast(`${reason} — trial aborted (reached wave ${w}), the Orb Pedestal is locked again; right-click to restart`, 4);
 }
 function trialWin() {
   ARENA.active = false; ARENA.won++;
@@ -4943,23 +4943,23 @@ function trialWin() {
   addItem(abyss ? ABYSS_ORB : SUN_ORB, 1); renderHotbar(); refreshHeld(); saveSoon();
   if (abyss) {
     addItem(178, 2); addItem(176, 6);                                     // 深渊试炼额外给冥界钢 + 冥火碎片
-    toast('深渊试炼通过！获得「深渊宝珠」+ 冥界钢 ×2 + 冥火碎片 ×6', 4.5);
+    toast('Abyss Trial cleared! Got "Abyss Orb" + Nether Steel ×2 + Netherfire Shard ×6', 4.5);
   } else {
-    toast('试炼通过！获得「日耀宝珠」（1/4）—— 把它嵌进远古废墟的金色激活器', 4.2);
+    toast('Trial cleared! Got "Sun Orb" (1/4) — set it into the golden Activator in the Ancient Ruins', 4.2);
   }
 }
 function updateArena(dt) {
   if (!ARENA.active) return;
   const d = Math.hypot(player.p.x - ARENA.cx, player.p.z - ARENA.cz);
-  if (!player.alive) { trialFail('你倒下了'); return; }
-  if (d > (ARENA.failR || ARENA.r + 10) || player.p.y < ARENA.cy - 14) { trialFail('你跑出了守护地'); return; }
+  if (!player.alive) { trialFail('You went down'); return; }
+  if (d > (ARENA.failR || ARENA.r + 10) || player.p.y < ARENA.cy - 14) { trialFail('You left the sanctuary'); return; }
   if (arenaMobs().length > 0) { ARENA.cool = 2.5; return; }          // 场上还有怪：清完再等 2.5 秒
   if (ARENA.cool > 0) { ARENA.cool -= dt; return; }
   if (ARENA.wave >= (ARENA.waves || TRIAL_WAVES).length) { trialWin(); return; }
   ARENA.wave++;
   trialSpawnWave();
   toast(ARENA.wave === (ARENA.waves || TRIAL_WAVES).length
-    ? `第 ${ARENA.wave}/${(ARENA.waves || TRIAL_WAVES).length} 波：首领登场！` : `第 ${ARENA.wave}/${(ARENA.waves || TRIAL_WAVES).length} 波`, 2.4);
+    ? `Wave ${ARENA.wave}/${(ARENA.waves || TRIAL_WAVES).length}: the boss appears!` : `Wave ${ARENA.wave}/${(ARENA.waves || TRIAL_WAVES).length}`, 2.4);
 }
 
 /* ── 传送门：高科技方块砌的拱门，无法破坏。中间的核心格插入「传送块」即可点亮，
@@ -5028,7 +5028,7 @@ function portalFor(cellX, cellZ) {
           for (let dx = -1; dx <= 1; dx++) for (let dy = 3; dy <= 5; dy++) put(cx + dx, gy + dy, cz, 42);
         }
         supportBase(ops, gy, nether ? 43 : 21, gy);
-        out = { name: 'portal', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '传送门', active: nether };
+        out = { name: 'portal', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: 'Portal', active: nether };
       }
     }
     portalCache.set(key, out);
@@ -5067,7 +5067,7 @@ function cabinFor(cellX, cellZ) {
         buildGableRoof(put, cx, cz, gy + h + 1, w + 1, d + 1, 31, 34);
         put(cx + 1, gy + 1, cz - 1, 18);
         supportBase(ops, gy, 9, gy);                          // 白桦木屋地板就在 gy 这一层
-        out = { name: 'cabin', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: '白桦木屋' };
+        out = { name: 'cabin', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: 'Birch Cabin' };
       }
     }
     cabinCache.set(key, out);
@@ -5610,13 +5610,13 @@ function buildPlaza(put, carve, hx, hz, cx, cz, rnd) {
 
 /* 建筑表：名字 / 尺寸(w,d) / 生成函数 / 权重 */
 const VILLAGE_KINDS = [
-  { id: 'house',     name: '平房',     w: 3, d: 3, build: null },
-  { id: 'twoStory',  name: '二层住宅', w: 3, d: 3, build: buildTwoStory },
-  { id: 'blacksmith',name: '铁匠铺',   w: 3, d: 3, build: buildBlacksmith },
-  { id: 'library',   name: '图书馆',   w: 4, d: 3, build: buildLibrary },
-  { id: 'barn',      name: '谷仓',     w: 4, d: 3, build: buildBarn },
-  { id: 'bakery',    name: '面包房',   w: 3, d: 3, build: buildBakery },
-  { id: 'tower',     name: '瞭望塔',   w: 2, d: 2, build: buildTower },
+  { id: 'house',     name: 'Bungalow',     w: 3, d: 3, build: null },
+  { id: 'twoStory',  name: 'Two-Story House', w: 3, d: 3, build: buildTwoStory },
+  { id: 'blacksmith',name: 'Blacksmith',   w: 3, d: 3, build: buildBlacksmith },
+  { id: 'library',   name: 'Library',   w: 4, d: 3, build: buildLibrary },
+  { id: 'barn',      name: 'Barn',     w: 4, d: 3, build: buildBarn },
+  { id: 'bakery',    name: 'Bakery',   w: 3, d: 3, build: buildBakery },
+  { id: 'tower',     name: 'Watchtower',   w: 2, d: 2, build: buildTower },
 ];
 const VILLAGE_SPECIALS = ['blacksmith', 'library', 'barn', 'bakery', 'tower', 'twoStory'];
 
@@ -5780,7 +5780,7 @@ function openChest(x, y, z) {
 }
 function closeChest() {
   if (cursor) {                                    // 关界面时手上的东西塞回背包/箱子
-    if (!addItem(cursor.id, cursor.n)) { toast('背包满了，物品掉在脚下', 1.6); spawnDrop(cursor.id, cursor.n, player.p.x, player.p.y + 1, player.p.z, { c: cursor.c }); }
+    if (!addItem(cursor.id, cursor.n)) { toast('Inventory is full — the item dropped at your feet', 1.6); spawnDrop(cursor.id, cursor.n, player.p.x, player.p.y + 1, player.p.z, { c: cursor.c }); }
     cursor = null;
   }
   openChestPos = null;
@@ -5802,7 +5802,7 @@ function slotClick(arr, i, ev) {
   // 创造模式：Shift + 点格子 = 直接删掉这一格（不用先拿到手上再丢）
   if (isCreative() && ev && ev.shiftKey && cur) {
     arr[i] = null;
-    toast(`已删除 ${nameOf(cur.id)} ×${cur.n}`, 1.2);
+    toast(`Deleted ${nameOf(cur.id)} ×${cur.n}`, 1.2);
     afterSlotChange();
     return;
   }
@@ -5830,7 +5830,7 @@ function renderGrid(el, arr, handler) {
     if (s) {
       d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>` + slotBarHTML(s);
       d.title = nameOf(s.id) + (ITEMS[s.id] && ITEMS[s.id].kind === 'gun'
-        ? `（电量 ${s.c === undefined ? (ITEMS[s.id].cap || 8) : s.c}/${ITEMS[s.id].cap || 8}）` : '');
+        ? `(Charge ${s.c === undefined ? (ITEMS[s.id].cap || 8) : s.c}/${ITEMS[s.id].cap || 8})` : '');
     }
     d.onclick = (ev) => handler(i, ev);
     el.appendChild(d);
@@ -5852,8 +5852,8 @@ function updateCursorEl(e) {                    // 手上拿的东西跟着鼠�
 }
 addEventListener('mousemove', (e) => { if (cursorEl && cursor) updateCursorEl(e); });
 function cursorText() {
-  if (!cursor) return '手上：空（点物品拿起，再点另一格放下/交换）';
-  return `手上：${nameOf(cursor.id)} ×${cursor.n}（点面板外 = 丢到地上${isCreative() ? '，Shift+点格子 = 直接删除' : ''}）`;
+  if (!cursor) return 'Held: empty (click an item to pick it up, then click another slot to drop/swap)';
+  return `Held: ${nameOf(cursor.id)} ×${cursor.n} (click outside the panel = drop it on the ground${isCreative() ? ', Shift+click a slot = delete' : ''})`;
 }
 function dropCursorToWorld() {                     // 鼠标上的东西 → 变成掉落物，朝面向方向扔出去
   if (!cursor) return false;
@@ -5865,7 +5865,7 @@ function dropCursorToWorld() {                     // 鼠标上的东西 → 变
   // 扔到 3 格外，免得被自己的吸附范围（2 格）立刻捡回来
   spawnDrop(id, n, player.p.x + ux * 1.2, player.p.y + 1.25, player.p.z + uz * 1.2,
     { pop: 2.0, vx: ux * 3.4, vz: uz * 3.4 });
-  toast(`已丢出 ${nameOf(id)} ×${n}`, 1.4);
+  toast(`Dropped ${nameOf(id)} ×${n}`, 1.4);
   renderInventoryPanel(); renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
@@ -5891,30 +5891,30 @@ let MINE_PIN = null;
 const mobs = [];
 const MOB_DEATH_HOLD = 5, MOB_DEATH_FADE = 1.1;
 const MOB_DEFS = {
-  grunt:    { name: '夜行怪', hp: 20, chase: 2.9, wander: 1.2, hostile: true,  barY: 1.44, drop: null, dmg: 3, atkCd: 1.6, sunBurn: true, armPose: -1.35 },
-  pig:      { name: '猪',     hp: 10, chase: 2.4, wander: 1.0, hostile: false, barY: 1.0,  drop: 108 },
-  villager: { name: '村民',   hp: 20, chase: 1.9, wander: 0.9, hostile: false, barY: 1.85, drop: null },
-  cow:      { name: '牛',     hp: 24, chase: 2.3, wander: 0.85, hostile: false, barY: 1.45, drop: 140, dropN: [1, 2] },
-  sheep:    { name: '羊',     hp: 18, chase: 2.5, wander: 0.95, hostile: false, barY: 1.15, drop: 145, dropN: [1, 2], extra: [{ id: 142, n: [1, 2] }] },
-  chicken:  { name: '鸡',     hp: 8,  chase: 2.8, wander: 0.8,  hostile: false, barY: 0.75, drop: 143, dropN: [1, 1] },
-  spider:   { name: '蜘蛛',   hp: 22, chase: 4.0, wander: 1.4,  hostile: true,  barY: 0.9,  drop: null, dmg: 2.5, atkCd: 1.25 },
-  skeleton: { name: '骷髅射手', hp: 20, chase: 2.4, wander: 1.0, hostile: true,  barY: 1.6,  drop: 148, dropN: [1, 2], dmg: 3, atkCd: 1.5, ranged: true, sunBurn: true },
-  ghost:    { name: '幽灵',   hp: 18, chase: 2.2, wander: 0.9, hostile: true,  barY: 1.7,  drop: 155, dropN: [1, 1], dmg: 2.5, atkCd: 1.4, float: true, ghostly: true },
-  ghostBoss:{ name: '幽灵王', hp: 140, chase: 2.9, wander: 1.2, hostile: true, barY: 3.1,  drop: 155, dropN: [3, 5], dmg: 6, atkCd: 1.15, float: true, ghostly: true, boss: true },
+  grunt:    { name: 'Night Stalker', hp: 20, chase: 2.9, wander: 1.2, hostile: true,  barY: 1.44, drop: null, dmg: 3, atkCd: 1.6, sunBurn: true, armPose: -1.35 },
+  pig:      { name: 'Pig',     hp: 10, chase: 2.4, wander: 1.0, hostile: false, barY: 1.0,  drop: 108 },
+  villager: { name: 'Villager',   hp: 20, chase: 1.9, wander: 0.9, hostile: false, barY: 1.85, drop: null },
+  cow:      { name: 'Cow',     hp: 24, chase: 2.3, wander: 0.85, hostile: false, barY: 1.45, drop: 140, dropN: [1, 2] },
+  sheep:    { name: 'Sheep',     hp: 18, chase: 2.5, wander: 0.95, hostile: false, barY: 1.15, drop: 145, dropN: [1, 2], extra: [{ id: 142, n: [1, 2] }] },
+  chicken:  { name: 'Chicken',     hp: 8,  chase: 2.8, wander: 0.8,  hostile: false, barY: 0.75, drop: 143, dropN: [1, 1] },
+  spider:   { name: 'Spider',   hp: 22, chase: 4.0, wander: 1.4,  hostile: true,  barY: 0.9,  drop: null, dmg: 2.5, atkCd: 1.25 },
+  skeleton: { name: 'Skeleton Archer', hp: 20, chase: 2.4, wander: 1.0, hostile: true,  barY: 1.6,  drop: 148, dropN: [1, 2], dmg: 3, atkCd: 1.5, ranged: true, sunBurn: true },
+  ghost:    { name: 'Ghost',   hp: 18, chase: 2.2, wander: 0.9, hostile: true,  barY: 1.7,  drop: 155, dropN: [1, 1], dmg: 2.5, atkCd: 1.4, float: true, ghostly: true },
+  ghostBoss:{ name: 'Ghost King', hp: 140, chase: 2.9, wander: 1.2, hostile: true, barY: 3.1,  drop: 155, dropN: [3, 5], dmg: 6, atkCd: 1.15, float: true, ghostly: true, boss: true },
   // ── 冥界专属 ──
-  blaze:      { name: '火焰魔', hp: 16, chase: 3.2, wander: 1.1, hostile: true, barY: 1.62, drop: 176, dropN: [1, 3], dmg: 3, atkCd: 1.4, ranged: true, float: true, dim: 'nether' },
+  blaze:      { name: 'Flame Demon', hp: 16, chase: 3.2, wander: 1.1, hostile: true, barY: 1.62, drop: 176, dropN: [1, 3], dmg: 3, atkCd: 1.4, ranged: true, float: true, dim: 'nether' },
   // 深渊试炼的最终 boss：巨型烈焰人（MC 烈焰人的放大版，扇形三连火球）
-  blazeTitan: { name: '烈焰巨像', hp: 250, chase: 2.4, wander: 0.7, hostile: true, barY: 5.3, drop: 176, dropN: [8, 12],
+  blazeTitan: { name: 'Blazing Colossus', hp: 250, chase: 2.4, wander: 0.7, hostile: true, barY: 5.3, drop: 176, dropN: [8, 12],
                 extra: [{ id: 178, n: [2, 4] }, { id: 125, n: [2, 4] }],
                 dmg: 15, atkCd: 1.5, ranged: true, float: true, boss: true, fireball: true, fbDmg: 5 },
-  netherBeast:{ name: '冥骨兽', hp: 30, chase: 3.6, wander: 1.2, hostile: true, barY: 1.35, drop: 176, dropN: [1, 2], extra: [{ id: 148, n: [1, 2] }], dmg: 5, atkCd: 1.2, dim: 'nether' },
-  croc:       { name: '噩梦鳄鱼', hp: 48, chase: 3.5, wander: 1.0, hostile: true, barY: 1.15, drop: 192, dropN: [1, 3], dmg: 6, atkCd: 1.1, dim: 'nether' },
-  crocKing:   { name: '鳄鱼王', hp: 320, chase: 3.1, wander: 0.8, hostile: true, barY: 2.15, drop: 193, dropN: [1, 2], extra: [{ id: 177, n: [8, 14] }, { id: 125, n: [2, 5] }], dmg: 15, atkCd: 1.5, boss: true, dim: 'nether' },
+  netherBeast:{ name: 'Netherbone Beast', hp: 30, chase: 3.6, wander: 1.2, hostile: true, barY: 1.35, drop: 176, dropN: [1, 2], extra: [{ id: 148, n: [1, 2] }], dmg: 5, atkCd: 1.2, dim: 'nether' },
+  croc:       { name: 'Nightmare Crocodile', hp: 48, chase: 3.5, wander: 1.0, hostile: true, barY: 1.15, drop: 192, dropN: [1, 3], dmg: 6, atkCd: 1.1, dim: 'nether' },
+  crocKing:   { name: 'Crocodile King', hp: 320, chase: 3.1, wander: 0.8, hostile: true, barY: 2.15, drop: 193, dropN: [1, 2], extra: [{ id: 177, n: [8, 14] }, { id: 125, n: [2, 5] }], dmg: 15, atkCd: 1.5, boss: true, dim: 'nether' },
   // ── 宝珠试炼的小 boss：变异守护者（特殊建模：2.8 格高、宽肩巨臂，见 makeMutantBossModel）──
-  trialBoss:  { name: '变异守护者', hp: 100, chase: 3.2, wander: 0.9, hostile: true, barY: 3.05, drop: 148, dropN: [2, 4], dmg: 7, atkCd: 1.3, boss: true },
+  trialBoss:  { name: 'Mutated Guardian', hp: 100, chase: 3.2, wander: 0.9, hostile: true, barY: 3.05, drop: 148, dropN: [2, 4], dmg: 7, atkCd: 1.3, boss: true },
   /* ── 远古巨像：石头材质、猩猩式走路、能搬起附近方块扔玩家；不攻击它就一直沉睡。
         体型约 3×3×3 格（高 ~3.4、宽 ~2.9 含手臂），稀有度按末影人（夜里偶尔一只，全场最多 1）。── */
-  ancientColossus: { name: '远古巨像', hp: 260, chase: 1.8, wander: 0.45, hostile: true, barY: 4.45,
+  ancientColossus: { name: 'Ancient Colossus', hp: 260, chase: 1.8, wander: 0.45, hostile: true, barY: 4.45,
                      dmg: 11, atkCd: 1.9, reach: 3.3, vReach: 4.2,
                      colossus: true, dormant: true, drop: 9, dropN: [8, 14],
                      extra: [{ id: 125, n: [1, 2] }] },
@@ -6867,7 +6867,7 @@ function ensureVillagerPanel() {
     if (act === 'close') closeVillagerPanel();
     else if (act === 'follow' && vPanelMob) {
       vPanelMob.recruit.follow = !vPanelMob.recruit.follow;
-      toast(vPanelMob.recruit.follow ? '村民：跟着你' : '村民：原地待命', 1.4);
+      toast(vPanelMob.recruit.follow ? 'Villager: following you' : 'Villager: holding position', 1.4);
       renderVillagerPanel(vPanelMob); saveSoon();
     } else if (act.startsWith('gear') && vPanelMob) equipVillager(vPanelMob, act.slice(4));
   });
@@ -6883,43 +6883,43 @@ function renderVillagerPanel(m) {
     const id = m.equip && m.equip[sl];
     return `<button data-act="gear${sl}" style="flex:1;min-width:0;margin:2px;padding:7px 3px;border-radius:7px;border:1px solid #43546b;`
       + `background:${id ? '#213a3a' : '#1a212b'};color:${id ? '#5fe0dc' : '#8b97a6'};font-size:11px;cursor:pointer;line-height:1.25">`
-      + `<div style="color:#9fb0c2;font-size:10px">${ARMOR_SLOT_NAME[sl]}</div>${id ? ITEMS[id].name : '空'}</button>`;
+      + `<div style="color:#9fb0c2;font-size:10px">${ARMOR_SLOT_NAME[sl]}</div>${id ? ITEMS[id].name : 'Empty'}</button>`;
   }).join('');
-  const duty = m.give ? (ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' ? `⚔ 战斗中（拿着 ${ITEMS[m.give.id].name}）`
-    : `手持 ${ITEMS[m.give.id].name}`) : '空手';
+  const duty = m.give ? (ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' ? `⚔ In combat (holding ${ITEMS[m.give.id].name})`
+    : `Holding ${ITEMS[m.give.id].name}`) : 'Empty-handed';
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <b style="font-size:15px">${nm}${r.hired ? ' · 小队成员' : ''}</b>
+      <b style="font-size:15px">${nm}${r.hired ? ' · Squad member' : ''}</b>
       <button data-act="close" style="background:#2a3441;border:1px solid #43546b;color:#cfdae6;border-radius:6px;padding:3px 9px;cursor:pointer">✕</button>
     </div>
     ${r.hired ? `
-      <div style="color:#9fb0c2;margin-bottom:6px">装备（点一下穿上 / 再点脱下，穿在身上看得见）</div>
+      <div style="color:#9fb0c2;margin-bottom:6px">Gear (click to equip / click again to remove - it shows on the model)</div>
       <div style="display:flex;margin-bottom:8px">${gearRow}</div>
       <div style="color:#9fb0c2;margin-bottom:8px">${duty}</div>
       <button data-act="follow" style="width:100%;padding:9px;border-radius:8px;border:1px solid ${r.follow ? '#3f7a4a' : '#43546b'};`
         + `background:${r.follow ? '#1e3a26' : '#1a212b'};color:${r.follow ? '#9ff0a8' : '#cfdae6'};cursor:pointer;font-size:13px">`
-        + `${r.follow ? '正在跟随（点一下让他待命）' : '原地待命（点一下让他跟随）'}</button>
-      <div style="color:#7f8c9b;font-size:11px;margin-top:8px">护甲 ${ARMOR_SLOTS.reduce((a, sl) => a + ((m.equip && m.equip[sl] && ITEMS[m.equip[sl]].ap) || 0), 0)} · 生命 ${Math.round(m.hp)}/${m.maxHp}</div>
+        + `${r.follow ? 'Following (click to make him stay)' : 'Staying (click to make him follow)'}</button>
+      <div style="color:#7f8c9b;font-size:11px;margin-top:8px">Armor ${ARMOR_SLOTS.reduce((a, sl) => a + ((m.equip && m.equip[sl] && ITEMS[m.equip[sl]].ap) || 0), 0)} · Health ${Math.round(m.hp)}/${m.maxHp}</div>
     ` : `
-      <div style="color:#ffd84a;margin-bottom:8px">想要：${nameOf(r.want.id)} ×${r.want.need}</div>
+      <div style="color:#ffd84a;margin-bottom:8px">Wants: ${nameOf(r.want.id)} ×${r.want.need}</div>
       <div style="height:9px;border-radius:5px;background:#1a212b;overflow:hidden;margin-bottom:8px">
         <div style="height:100%;width:${Math.round(r.want.got / r.want.need * 100)}%;background:linear-gradient(90deg,#ffd84a,#e0a020)"></div>
       </div>
-      <div style="color:#9fb0c2">进度 ${r.want.got}/${r.want.need} —— 拿着他想要的东西右键他就能交付</div>
+      <div style="color:#9fb0c2">Progress ${r.want.got}/${r.want.need} - hold the item he wants and right-click him to hand it over</div>
     `}`;
 }
 function equipVillager(m, slot) {
   if (!m.equip) m.equip = newEquip();
   if (!ARMOR_SLOTS.includes(slot)) return false;
   const cur = m.equip[slot];
-  if (cur) { m.equip[slot] = null; addItem(cur, 1); toast(`脱下 ${ITEMS[cur].name}`, 1.2); }
+  if (cur) { m.equip[slot] = null; addItem(cur, 1); toast(`Took off ${ITEMS[cur].name}`, 1.2); }
   else {
     const idx = inv.findIndex(s => s && ITEMS[s.id] && ITEMS[s.id].kind === 'armor' && ITEMS[s.id].slot === slot);
-    if (idx < 0) { toast(`背包里没有${ARMOR_SLOT_NAME[slot]}`, 1.4); return false; }
+    if (idx < 0) { toast(`No ${ARMOR_SLOT_NAME[slot]} in your Inventory`, 1.4); return false; }
     const id = inv[idx].id;
     takeItem(id, 1);
     m.equip[slot] = id;
-    toast(`给村民穿上 ${ITEMS[id].name}（护甲 +${ITEMS[id].ap}）`, 1.6);
+    toast(`Put ${ITEMS[id].name} on the Villager (Armor +${ITEMS[id].ap})`, 1.6);
   }
   refreshVillagerArmor(m);
   renderVillagerPanel(m); renderHotbar(); refreshHeld(); saveSoon();
@@ -6988,15 +6988,15 @@ function recruitInteract(m) {                    // 右键村民：交物资 / �
     const NET0 = window.NET;
     if (!NET0 || !NET0.vact) return true;
     if (!r.hired) {
-      if (!h) { toast(`他想要 ${nameOf(r.want.id)} ×${r.want.need}（还差 ${Math.max(0, r.want.need - r.want.got)}）`, 2.0); return true; }
-      if (h.id !== r.want.id) { toast(`他不收 ${nameOf(h.id)}，想要 ${nameOf(r.want.id)} ×${r.want.need}`, 2.0); return true; }
+      if (!h) { toast(`He wants ${nameOf(r.want.id)} ×${r.want.need} (${Math.max(0, r.want.need - r.want.got)} more needed)`, 2.0); return true; }
+      if (h.id !== r.want.id) { toast(`He won't take ${nameOf(h.id)}; he wants ${nameOf(r.want.id)} ×${r.want.need}`, 2.0); return true; }
       const give = Math.min(h.n, Math.max(0, r.want.need - r.want.got));
       if (give <= 0) return true;
       takeItem(h.id, give);
       r.want.got += give;                        // 乐观显示，下一帧快照会覆盖成房主的真值
       NET0.vact(m.nid, 'give', { id: h.id, n: give });
       renderHotbar(); refreshHeld();
-      toast(r.want.got >= r.want.need ? '物资交齐了，等他答应入队…' : `交给他 ${nameOf(h.id)} ×${give}（${r.want.got}/${r.want.need}）`, 1.8);
+      toast(r.want.got >= r.want.need ? 'Supplies delivered — waiting for him to agree to join…' : `Gave him ${nameOf(h.id)} ×${give} (${r.want.got}/${r.want.need})`, 1.8);
       sfx('place');
       return true;
     }
@@ -7004,32 +7004,32 @@ function recruitInteract(m) {                    // 右键村民：交物资 / �
       takeItem(h.id, 1);
       NET0.vact(m.nid, 'item', { id: h.id, n: 1 });
       renderHotbar(); refreshHeld();
-      toast(`给了 ${MOB_DEFS[m.kind].name} ${nameOf(h.id)}（房主那边已接收）`, 2.0);
+      toast(`Gave ${MOB_DEFS[m.kind].name} ${nameOf(h.id)} (received by the host)`, 2.0);
       return true;
     }
     r.follow = !r.follow;                        // 空手 → 跟随 / 待命
     NET0.vact(m.nid, r.follow ? 'follow' : 'stay');
-    toast(r.follow ? '村民：跟着你' : '村民：原地待命', 1.4);
+    toast(r.follow ? 'Villager: following you' : 'Villager: holding position', 1.4);
     return true;
   }
   if (!r.hired) {
-    if (!h) { toast(`他想要 ${nameOf(r.want.id)} ×${r.want.need}（还差 ${r.want.need - r.want.got}）`, 2.0); return true; }
-    if (h.id !== r.want.id) { toast(`他不收 ${nameOf(h.id)}，想要 ${nameOf(r.want.id)} ×${r.want.need}`, 2.0); return true; }
+    if (!h) { toast(`He wants ${nameOf(r.want.id)} ×${r.want.need} (${r.want.need - r.want.got} more needed)`, 2.0); return true; }
+    if (h.id !== r.want.id) { toast(`He won't take ${nameOf(h.id)}; he wants ${nameOf(r.want.id)} ×${r.want.need}`, 2.0); return true; }
     const give = Math.min(h.n, r.want.need - r.want.got);
     takeItem(h.id, give);
     r.want.got += give;
     if (r.want.got >= r.want.need) {
       if (squadList().length >= MAX_SQUAD) {
-        toast(`小队已满（最多 ${MAX_SQUAD} 人），先从背包里解散一个`, 2.4);
+        toast(`Squad is full (max ${MAX_SQUAD}) — dismiss one from your Inventory first`, 2.4);
         return true;
       }
       r.hired = true; r.follow = true;
       if (!m.equip) m.equip = newEquip();
       refreshVillagerMark(m);
-      toast(`${MOB_DEFS[m.kind].name}入队了！空手右键可以让他跟随 / 待命`, 3.0);
+      toast(`${MOB_DEFS[m.kind].name} joined! Right-click with an empty hand to make him follow / hold position`, 3.0);
       sfx('craft');
     } else {
-      toast(`交给他 ${nameOf(h.id)} ×${give}（${r.want.got}/${r.want.need}）`, 1.6);
+      toast(`Gave him ${nameOf(h.id)} ×${give} (${r.want.got}/${r.want.need})`, 1.6);
       sfx('place');
     }
     renderHotbar(); refreshHeld(); saveSoon();
@@ -7039,8 +7039,8 @@ function recruitInteract(m) {                    // 右键村民：交物资 / �
     takeItem(h.id, 1);
     m.give = { id: h.id, n: 1 };
     showVillagerGift(m);
-    const bonus = ITEMS[h.id] && ITEMS[h.id].kind === 'food' ? '（他会自己吃掉补血）' : '（拿在手里跟着你）';
-    toast(`给了 ${MOB_DEFS[m.kind].name} ${nameOf(h.id)} ${bonus}`, 2.2);
+    const bonus = ITEMS[h.id] && ITEMS[h.id].kind === 'food' ? '(he will eat it himself to heal)' : '(carries it and follows you)';
+    toast(`Gave ${MOB_DEFS[m.kind].name} ${nameOf(h.id)} ${bonus}`, 2.2);
     if (ITEMS[h.id] && ITEMS[h.id].kind === 'food') { m.hp = Math.min(m.maxHp, m.hp + 8); m.give = null; showVillagerGift(m); }
     renderHotbar(); refreshHeld(); saveSoon();
     return true;
@@ -7064,13 +7064,13 @@ function updateVines(dt) {
   if (DIM !== 'nether' || !player.alive) { player.tangle = 0; return; }
   const hit = vineNearPlayer();
   if (hit) {
-    if (!(player.tangle > 0)) { toast('缠魂藤缠住了你！移速下降', 1.6); sfx('hit'); }
+    if (!(player.tangle > 0)) { toast('A Soulvine has tangled you! Movement speed reduced', 1.6); sfx('hit'); }
     player.tangle = 1.0;
     if (crocBossCd <= 0 && !mobs.some(m => m.kind === 'crocKing' && !m.dying)) {
       const spot = findNetherSpot();
       if (spot) {
         const k = spawnMobAt('crocKing', spot.x, spot.y, spot.z);
-        if (k) { crocBossCd = 90; toast('沼泽深处传来低吼……鳄鱼王出现了', 3.2); sfx('hurt'); }
+        if (k) { crocBossCd = 90; toast('A low growl comes from deep in the swamp… the Crocodile King has appeared', 3.2); sfx('hurt'); }
       }
     }
   }
@@ -7337,11 +7337,11 @@ function updateArrows(dt) {
           m.v.x = (a.v.x / kd) * 4.2; m.v.z = (a.v.z / kd) * 4.2; m.v.y = Math.max(m.v.y, 2.6);
           m.knockT = 0.22;
           sfx('hit');
-          toast(`命中 ${MOB_DEFS[m.kind].name} −${a.dmg}`, 0.9);
+          toast(`Hit ${MOB_DEFS[m.kind].name} −${a.dmg}`, 0.9);
           if (m.hp <= 0) {
             startMobDeath(m);
             player.kills = (player.kills || 0) + 1;
-            toast(`射倒 ${MOB_DEFS[m.kind].name}`, 1.4);
+            toast(`Shot down ${MOB_DEFS[m.kind].name}`, 1.4);
           }
           gone = true;
           break;
@@ -7399,12 +7399,12 @@ function startMobDeath(m) {
     const [lo, hi] = def.dropN || [1, 2];
     const n = lo + Math.floor(Math.random() * (hi - lo + 1));
     spawnDrop(def.drop, n, m.p.x, m.p.y + 0.45, m.p.z);
-    toast(`${def.name}掉落了 ${nameOf(def.drop)} ×${n}`, 1.8);
+    toast(`${def.name} dropped ${nameOf(def.drop)} ×${n}`, 1.8);
     for (const ex of def.extra || []) {             // 附加掉落（羊：羊毛 + 羊肉）
       const [l2, h2] = ex.n || [1, 1];
       const n2 = l2 + Math.floor(Math.random() * (h2 - l2 + 1));
       spawnDrop(ex.id, n2, m.p.x, m.p.y + 0.35, m.p.z);
-      toast(`还有 ${nameOf(ex.id)} ×${n2}`, 1.8);
+      toast(`${nameOf(ex.id)} ×${n2} left`, 1.8);
     }
   }
   sfx('hurt');
@@ -7429,13 +7429,13 @@ function ensureStructPanel() {
 function structHud() {
   const el = ensureStructPanel();
   const a = structSel.a, b = structSel.b;
-  let sel = '未选区（对着方块按 V 选角点1，再按 B 选角点2）';
+  let sel = 'No selection (aim at a block and press V for corner 1, then B for corner 2)';
   if (a && b) {
     const w = Math.abs(b.x - a.x) + 1, h = Math.abs(b.y - a.y) + 1, d = Math.abs(b.z - a.z) + 1;
-    sel = `选区 ${w}×${h}×${d} = ${w * h * d} 格`;
-  } else if (a) sel = `角点1 (${a.x},${a.y},${a.z})，再按 B 选对角`;
-  el.innerHTML = `<b style="color:#8fe3ff">创作者结构</b><br>${sel}<br>`
-    + `<span style="color:#8b97a6">V 角点1 · B 角点2 · P 导出并上传 · L 服务器结构列表</span>`
+    sel = `Selection ${w}×${h}×${d} = ${w * h * d} blocks`;
+  } else if (a) sel = `Corner 1 (${a.x},${a.y},${a.z}) — press B for the opposite corner`;
+  el.innerHTML = `<b style="color:#8fe3ff">Creator Structures</b><br>${sel}<br>`
+    + `<span style="color:#8b97a6">V corner 1 · B corner 2 · P export & upload · L server structure list</span>`
     + (structMsg ? `<br><span style="color:#9be36a">${structMsg}</span>` : '');
   el.style.display = 'block';
 }
@@ -7444,7 +7444,7 @@ function setStructCorner(which) {
   const t = raycastVoxel(eyePos(), cameraDir(), 48);
   const p = t ? { x: t.x, y: t.y, z: t.z } : { x: Math.floor(player.p.x), y: Math.floor(player.p.y), z: Math.floor(player.p.z) };
   structSel[which] = p;
-  structMsg = `${which === 'a' ? '角点1' : '角点2'} (${p.x},${p.y},${p.z})`;
+  structMsg = `${which === 'a' ? 'Corner 1' : 'Corner 2'} (${p.x},${p.y},${p.z})`;
   sfx('place'); structHud(); saveSoon();
 }
 function exportStructure() {
@@ -7467,8 +7467,8 @@ function exportStructure() {
 }
 async function uploadStructure(name) {
   const data = exportStructure();
-  if (!data) { toast('先按 V / B 选两个角点', 1.8); return false; }
-  structMsg = `上传中… ${data.blocks.length} 方块`;
+  if (!data) { toast('Press V / B first to pick two corners', 1.8); return false; }
+  structMsg = `Uploading… ${data.blocks.length} blocks`;
   structHud();
   try {
     const r = await fetch(STRUCT_API, {
@@ -7477,29 +7477,29 @@ async function uploadStructure(name) {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.err || ('http ' + r.status));
-    structMsg = `上传成功：${j.file}（${j.blocks} 方块 / ${j.bytes} 字节）`;
-    toast(`结构已上传：${j.file}`, 3);
+    structMsg = `Upload OK: ${j.file} (${j.blocks} blocks / ${j.bytes} bytes)`;
+    toast(`Structure uploaded: ${j.file}`, 3);
     sfx('craft');
     return j;
   } catch (err) {
-    structMsg = `上传失败：${err.message || err}`;
-    toast('上传失败：' + (err.message || err), 3);
+    structMsg = `Upload failed: ${err.message || err}`;
+    toast('Upload failed: ' + (err.message || err), 3);
     return false;
   } finally { structHud(); }
 }
 async function listStructures() {
-  structMsg = '读取服务器结构列表…'; structHud();
+  structMsg = 'Loading server structure list…'; structHud();
   try {
     const r = await fetch(STRUCT_API, { cache: 'no-store' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.err || ('http ' + r.status));
     window.__structList = j.files || [];
-    structMsg = `服务器上 ${j.count} 个结构：` + (j.files || []).slice(0, 3).map(f => f.file).join('、');
-    toast(`服务器上有 ${j.count} 个结构（控制台看 window.__structList）`, 3);
+    structMsg = `${j.count} structures on the server:` + (j.files || []).slice(0, 3).map(f => f.file).join('、');
+    toast(`${j.count} structures on the server (see window.__structList in the console)`, 3);
     console.log('[structures]', j.files);
     return window.__structList;
   } catch (err) {
-    structMsg = '列表读取失败：' + (err.message || err); toast(structMsg, 3);
+    structMsg = 'Failed to load list: ' + (err.message || err); toast(structMsg, 3);
     return [];
   } finally { structHud(); }
 }
@@ -7515,11 +7515,11 @@ async function placeStructureAt(file, ox, oy, oz) {     // 从服务器拉一个
       if (m) setMeta(ox + x, oy + y, oz + z, m);
       n++;
     }
-    toast(`已放置结构 ${file}（${n} 方块）`, 2.4);
-    structMsg = `已放置 ${file}：${n} 方块`;
+    toast(`Placed structure ${file} (${n} blocks)`, 2.4);
+    structMsg = `Placed ${file}: ${n} blocks`;
     structHud(); saveSoon();
     return n;
-  } catch (err) { toast('放置结构失败：' + (err.message || err), 3); return 0; }
+  } catch (err) { toast('Failed to place structure: ' + (err.message || err), 3); return 0; }
 }
 
 /* ── 村民导航小工具 ────────────────────────────────────────────────
@@ -7717,7 +7717,7 @@ function updateMobs(dt) {
       if (m.dormant && (m.hp < m.maxHp || m.aggro > 0)) {
         m.dormant = false; m.aggro = 45; m.throwCd = 2.5;
         if (m.parts.eyesMat) m.parts.eyesMat.color.setHex(0xffb43a);
-        toast('远古巨像苏醒了！', 2.2);
+        toast('The Ancient Colossus has awakened!', 2.2);
         sfx('hurt');
       }
       if (!m.dormant) {
@@ -8007,7 +8007,7 @@ function updateMobs(dt) {
     if (!bossSpawned.has(key) && countKind('ghostBoss') === 0 && Math.random() < dt * 0.8) {
       bossSpawned.add(key);
       spawnMobAt('ghostBoss', hs.bossAt.x, hs.bossAt.y, hs.bossAt.z);
-      toast('幽灵王醒了 —— 它守在这栋鬼屋的最上层', 3.2);
+      toast('The Ghost King has woken — it guards the top floor of this haunted house', 3.2);
       sfx('hurt');
     }
   }
@@ -8116,7 +8116,7 @@ function updateDrops(dt) {
           if (gslot >= 0) inv[gslot] = { id: d.id, n: 1, c: Math.max(0, Math.min(gunCap(d.id), d.c | 0)) };
           else addItem(d.id, d.n);
         } else addItem(d.id, d.n);
-        if (d.n > 1) toast(`拾取 ${nameOf(d.id)} ×${d.n}`, 1.1);
+        if (d.n > 1) toast(`Picked up ${nameOf(d.id)} ×${d.n}`, 1.1);
         sfx('dig');
         renderHotbar();
         scene.remove(d.obj);
@@ -8153,7 +8153,7 @@ function damagePlayer(n) {
   if (!player.alive) return;
   if (isCreative()) return;                      // 创造模式无敌
   const ap = armorPoints();
-  const mul = 1 - Math.min(0.8, ap * 0.04);          // 每点护甲 4% 减伤，上限 80%
+  const mul = 1 - Math.min(0.8, ap * 0.04);          // 每点Armor 4% 减伤，上限 80%
   const dmg = Math.max(0.5, n * mul);
   player.hp = Math.max(0, player.hp - dmg);
   hud.flash.style.opacity = '0.35';
@@ -8164,12 +8164,12 @@ function damagePlayer(n) {
 function die() {
   player.alive = false;
   hud.death.classList.remove('hide');
-  hud.deathMsg.textContent = `你在 ${clockText()} 倒下了。背包还在，世界也还在。`;
+  hud.deathMsg.textContent = `You fell at ${clockText()}. Your Inventory is still there, and so is the World.`;
   if (document.pointerLockElement) document.exitPointerLock();
 }
 function setSpawnAt(x, y, z) {
   player.spawn = { x: x + 0.5, y: y + 1.05, z: z + 0.5, bed: true };
-  toast('重生点已设为这张床', 2.2);
+  toast('Respawn point set to this bed', 2.2);
   saveSoon();
 }
 function respawn() {
@@ -8221,11 +8221,11 @@ function renderHotbar() {
 }
 function renderHearts() {
   const hp = Math.ceil(player.hp / 2);
-  let html = '<span class="lbl">生命</span>';
+  let html = '<span class="lbl">Health</span>';
   for (let i = 0; i < 10; i++) html += `<div class="heart">${i < hp ? '<i></i>' : ''}</div>`;
   hud.hearts.innerHTML = html;
   const food = Math.ceil(player.hunger / 2);
-  let html2 = '<span class="lbl">饱食</span>';
+  let html2 = '<span class="lbl">Hunger</span>';
   for (let i = 0; i < 10; i++) html2 += `<div class="food">${i < food ? '<i></i>' : ''}</div>`;
   hud.food.innerHTML = html2;
 }
@@ -8238,7 +8238,7 @@ function renderArmorRow() {
     const d = document.createElement('div');
     d.className = 'cell' + (id ? '' : ' empty');
     d.style.cssText = 'position:relative;border:2px solid #33475e;background:#1b2536;border-radius:3px;aspect-ratio:1';
-    d.title = id ? `${ITEMS[id].name}（点击脱下）` : `空 ${ARMOR_SLOT_NAME[s]}`;
+    d.title = id ? `${ITEMS[id].name} (click to take off)` : `Empty ${ARMOR_SLOT_NAME[s]}`;
     if (id) {
       d.innerHTML = `<img src="${iconURL(id)}" alt="" style="position:absolute;inset:5px;width:calc(100% - 10px);image-rendering:pixelated">`;
     } else {
@@ -8254,20 +8254,20 @@ function renderArmorRow() {
           cursor.n -= 1;
           if (cursor.n <= 0) cursor = null;
           if (old) addItem(old, 1);
-          toast(`穿上 ${ITEMS[player.armor[s]].name}（护甲 ${armorPoints()}）`, 1.4);
+          toast(`Put on ${ITEMS[player.armor[s]].name} (Armor ${armorPoints()})`, 1.4);
           afterSlotChange();
-        } else toast(`这个槽只能放${ARMOR_SLOT_NAME[s]}`, 1.4);
+        } else toast(`This slot only takes ${ARMOR_SLOT_NAME[s]}`, 1.4);
       } else if (id) {
         player.armor[s] = null;
         cursor = { id, n: 1 };
-        toast(`脱下 ${nameOf(id)}`, 1.1);
+        toast(`Took off ${nameOf(id)}`, 1.1);
         afterSlotChange();
       }
     };
     row.appendChild(d);
   }
   const v = $('armorVal');
-  if (v) v.textContent = `护甲 ${armorPoints()}`;
+  if (v) v.textContent = `Armor ${armorPoints()}`;
 }
 function renderCreativeGrid() {
   const box = $('creativeGrid'), sec = $('creativeSec');
@@ -8280,12 +8280,12 @@ function renderCreativeGrid() {
     const d = document.createElement('div');
     d.className = 'cell';
     d.innerHTML = `<img src="${iconURL(id)}" alt="">`;
-    d.title = nameOf(id) + '（点一下拿在手上）';
+    d.title = nameOf(id) + '(click to hold it)';
     d.onclick = () => {
       const it2 = ITEMS[id];
       const stack = (it2 && (it2.dur || it2.kind === 'gun' || it2.kind === 'armor')) ? 1 : 64;   // 武器/工具/护甲只拿 1 件
       if (cursor) {                                   // 手上已有东西 → 直接丢弃，不塞进背包
-        toast(`已丢弃 ${nameOf(cursor.id)} ×${cursor.n}`, 1.2);
+        toast(`Discarded ${nameOf(cursor.id)} ×${cursor.n}`, 1.2);
         cursor = null;
       }
       cursor = { id, n: stack };
@@ -8306,16 +8306,16 @@ function renderSquadStrip() {                    // 背包里的「小队」区�
   }
   const list = squadList();
   const cell = (m, i) => {
-    if (!m) return `<div style="flex:1;margin:0 3px;padding:8px 4px;border:1px dashed #39465a;border-radius:7px;color:#66748a;text-align:center;font-size:11px">空位</div>`;
+    if (!m) return `<div style="flex:1;margin:0 3px;padding:8px 4px;border:1px dashed #39465a;border-radius:7px;color:#66748a;text-align:center;font-size:11px">Empty</div>`;
     const gearN = m.equip ? ARMOR_SLOTS.filter(k => m.equip[k]).length : 0;
     return `<div data-sq="${i}" style="flex:1;margin:0 3px;padding:7px 4px;border:1px solid ${m.recruit.follow ? '#3f7a4a' : '#43546b'};`
       + `border-radius:7px;background:${m.recruit.follow ? '#16281c' : '#1a212b'};text-align:center;font-size:11px;cursor:pointer">`
-      + `<div style="font-size:15px">🧑‍🌾</div>${m.recruit.follow ? '跟随中' : '待命'}<br>`
-      + `<span style="color:#9fb0c2">${m.remote ? '远程' : '护甲 ' + gearN + '/4'}</span></div>`;
+      + `<div style="font-size:15px">🧑‍🌾</div>${m.recruit.follow ? 'Following' : 'Staying'}<br>`
+      + `<span style="color:#9fb0c2">${m.remote ? 'Remote' : 'Armor ' + gearN + '/4'}</span></div>`;
   };
   el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">`
-    + `<b style="font-size:12px;color:#cfdae6">小队 ${list.length}/${MAX_SQUAD}</b>`
-    + `<span style="font-size:10px;color:#7f8c9b">点一下查看 / 换装</span></div>`
+    + `<b style="font-size:12px;color:#cfdae6">Squad ${list.length}/${MAX_SQUAD}</b>`
+    + `<span style="font-size:10px;color:#7f8c9b">Click to view / change gear</span></div>`
     + `<div style="display:flex">${[0, 1, 2].map(i => cell(list[i], i)).join('')}</div>`;
   el.onclick = (e) => {
     const t = e.target.closest('[data-sq]');
@@ -8326,7 +8326,7 @@ function renderSquadStrip() {                    // 背包里的「小队」区�
     if (m.remote) {
       m.recruit.follow = !m.recruit.follow;
       if (window.NET && NET.vact) NET.vact(m.nid, m.recruit.follow ? 'follow' : 'stay');
-      toast(m.recruit.follow ? '村民：跟着你' : '村民：原地待命', 1.4);
+      toast(m.recruit.follow ? 'Villager: following you' : 'Villager: holding position', 1.4);
       renderSquadStrip();
       return;
     }
@@ -8350,10 +8350,10 @@ function renderInventoryPanel() {
     const d = document.createElement('div');
     d.className = 'rec' + (ok ? '' : ' no');
     const need = Object.entries(r.need).map(([id, n]) => `${nameOf(+id)}×${n}`).join(' + ');
-    const badge = r.tier === 1 ? (hasTable ? '<i style="color:#7fe06b">工作台 ✓</i>' : '<i style="color:#e0a24a">需工作台</i>') : '';
+    const badge = r.tier === 1 ? (hasTable ? '<i style="color:#7fe06b">Crafting Table ✓</i>' : '<i style="color:#e0a24a">Needs Crafting Table</i>') : '';
     d.innerHTML = `<img src="${iconURL(r.out)}" alt=""><div class="t">${nameOf(r.out)} ×${r.n}<i>${need}</i>${badge}</div>`
-      + `<div class="go">${ok ? '制作 →' : tableOk ? '缺材料' : '需工作台'}</div>`;
-    d.onclick = () => { if (!ok) { if (!tableOk) toast('需要站在工作台旁边', 1.5); return; } craft(r); };
+      + `<div class="go">${ok ? 'Craft →' : tableOk ? 'Missing materials' : 'Needs table'}</div>`;
+    d.onclick = () => { if (!ok) { if (!tableOk) toast('You need to stand next to a Crafting Table', 1.5); return; } craft(r); };
     hud.recList.appendChild(d);
   }
 }
@@ -8429,19 +8429,19 @@ const RECIPES = [
 ];
 // 熔炉：1 份燃料 + 1 份原料 → 1 份产物（燃料：木板 or 炼好的煤块）
 const SMELT = [
-  { in: 39, out: 162, n: 1, name: '铜矿石 → 铜锭' },
-  { in: 15, out: 106, n: 1, name: '铁矿石 → 铁锭' },
-  { in: 108, out: 109, n: 1, name: '生猪排 → 熟猪排' },
-  { in: 140, out: 141, n: 1, name: '生牛肉 → 熟牛肉' },
-  { in: 143, out: 144, n: 1, name: '鸡肉 → 熟鸡肉' },
-  { in: 145, out: 146, n: 1, name: '生羊肉 → 熟羊肉' },
+  { in: 39, out: 162, n: 1, name: 'Copper Ore → Copper Ingot' },
+  { in: 15, out: 106, n: 1, name: 'Iron Ore → Iron Ingot' },
+  { in: 108, out: 109, n: 1, name: 'Raw Porkchop → Cooked Porkchop' },
+  { in: 140, out: 141, n: 1, name: 'Raw Beef → Steak' },
+  { in: 143, out: 144, n: 1, name: 'Raw Chicken → Cooked Chicken' },
+  { in: 145, out: 146, n: 1, name: 'Raw Mutton → Cooked Mutton' },
   { in: 4, out: 124, n: 0, name: '' },              // 占位（沙子暂无用途）
 ];
 // 燃料：units = 一块能烧几个物品，time = 每个物品要烧多少秒（燃料越好 → 越快 + 越多）
 const FUEL_DEFS = [
-  { id: 8,  name: '木板', units: 1, time: 4.0 },   // 弱燃料：烧得最慢
-  { id: 6,  name: '原木', units: 2, time: 3.0 },   // 中等
-  { id: 13, name: '煤炭', units: 4, time: 2.0 },   // 好燃料：又快又能多烧几个
+  { id: 8,  name: 'Planks', units: 1, time: 4.0 },   // 弱燃料：烧得最慢
+  { id: 6,  name: 'Log', units: 2, time: 3.0 },   // 中等
+  { id: 13, name: 'Coal', units: 4, time: 2.0 },   // 好燃料：又快又能多烧几个
 ];
 let furnaceFuel = 13, furnaceJob = null;           // 选中的燃料 / 当前烧制作业
 const SMELT_DUR = 3.0;                             // 兜底：燃料没写 time 时才用这个
@@ -8463,18 +8463,18 @@ function fuelCount(id) { return countOf(id); }
 function fuelReady() { return FUEL_DEFS.find(f => f.id === furnaceFuel && countOf(f.id) > 0) || null; }
 function smelt(r) {
   if (!r || !r.n) return false;
-  if (furnaceJob) { toast('熔炉正在烧，等它烧完', 1.4); return false; }
-  if (countOf(r.in) < 1) { toast(`没有 ${nameOf(r.in)}`, 1.4); return false; }
+  if (furnaceJob) { toast('The Furnace is smelting — wait for it to finish', 1.4); return false; }
+  if (countOf(r.in) < 1) { toast(`No ${nameOf(r.in)}`, 1.4); return false; }
   const f = fuelReady();
   if (!f) {
     const any = FUEL_DEFS.find(x => countOf(x.id) > 0);
-    if (any) { furnaceFuel = any.id; renderFurnace(); toast(`已自动选择燃料：${any.name}`, 1.4); return false; }
-    toast('没有燃料（木板 / 原木 / 煤炭）', 1.6); return false;
+    if (any) { furnaceFuel = any.id; renderFurnace(); toast(`Auto-selected fuel: ${any.name}`, 1.4); return false; }
+    toast('No fuel (Planks / Logs / Coal)', 1.6); return false;
   }
   takeItem(f.id, 1);
   takeItem(r.in, 1);
   furnaceJob = { r, t: 0, left: f.units, fuel: f.id, fuelName: f.name, dur: f.time };
-  toast(`点火：${f.name} → 每个 ${f.time.toFixed(1)} 秒，可烧 ${f.units} 个`, 2.2);
+  toast(`Lit: ${f.name} → ${f.time.toFixed(1)} s each, ${f.units} items can be smelted`, 2.2);
   sfx('place'); ppFurnace(true);                                  // 让房间里其他人也看到这一炉
   renderHotbar(); renderFurnace(); saveSoon();
   return true;
@@ -8487,7 +8487,7 @@ function updateFurnaceJob(dt) {
   if (j.t < jobDur(j)) { if ($('furnace') && !$('furnace').classList.contains('hide')) renderFurnace(); return; }
   j.t = 0;
   addItem(j.r.out, j.r.n);
-  toast(`熔炼出 ${nameOf(j.r.out)}（剩 ${j.left - 1} 次）`, 1.3);
+  toast(`Smelted ${nameOf(j.r.out)} (${j.left - 1} uses left)`, 1.3);
   sfx('craft');
   j.left--;
   if (j.left > 0 && countOf(j.r.in) > 0) takeItem(j.r.in, 1);
@@ -8511,12 +8511,12 @@ function nearCraftingTable() {
   return has;
 }
 function craft(r) {
-  if (r.tier === 1 && !nearCraftingTable()) { toast('需要站在工作台旁边才能做这个', 1.6); return false; }
+  if (r.tier === 1 && !nearCraftingTable()) { toast('You must stand next to a Crafting Table to do this', 1.6); return false; }
   for (const [id, n] of Object.entries(r.need)) if (countOf(+id) < n) return false;
   for (const [id, n] of Object.entries(r.need)) takeItem(+id, n);
   addItem(r.out, r.n);
   sfx('craft');
-  toast(`合成 ${nameOf(r.out)} ×${r.n}`, 1.6);
+  toast(`Crafted ${nameOf(r.out)} ×${r.n}`, 1.6);
   renderHotbar(); refreshHeld(); renderInventoryPanel(); saveSoon();
   return true;
 }
@@ -8532,7 +8532,7 @@ function renderFurnace() {
       const b = document.createElement('button');
       const have = countOf(f.id);
       b.textContent = `${f.name}(${have}) ${f.time.toFixed(1)}s`;
-      b.title = `一块可烧 ${f.units} 个 · 每个 ${f.time.toFixed(1)} 秒`;
+      b.title = `One piece smelts ${f.units} items · ${f.time.toFixed(1)} s each`;
       b.style.cssText = `margin:0 4px;padding:3px 7px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;`
         + `border:1px solid ${f.id === cur.id ? '#5a8fd8' : '#33415a'};`
         + `background:${f.id === cur.id ? '#1b2a3d' : '#161d27'};color:${have ? '#cfe0f0' : '#6b7889'}`;
@@ -8546,8 +8546,8 @@ function renderFurnace() {
     const pct = Math.round(Math.min(1, furnaceJob.t / dur) * 100);
     const p = document.createElement('div');
     p.style.cssText = 'margin-top:6px;font-size:11px;color:#ffd84a';
-    p.textContent = `正在烧制 ${nameOf(furnaceJob.r.out)} … ${pct}%`
-      + `（${Math.max(0, dur - furnaceJob.t).toFixed(1)}s · 燃料 ${furnaceJob.fuelName} ${dur.toFixed(1)}s/个 · 剩 ${furnaceJob.left} 次）`;
+    p.textContent = `Smelting ${nameOf(furnaceJob.r.out)} … ${pct}%`
+      + `(${Math.max(0, dur - furnaceJob.t).toFixed(1)}s · fuel ${furnaceJob.fuelName} ${dur.toFixed(1)}s each · ${furnaceJob.left} uses left)`;
     jobEl.appendChild(p);
   }
   list.innerHTML = '';
@@ -8558,8 +8558,8 @@ function renderFurnace() {
     const d = document.createElement('div');
     d.className = 'rec' + (can ? '' : ' no');
     d.innerHTML = `<img src="${iconURL(r.out)}" alt=""><div class="t">${nameOf(r.out)} ×${r.n}`
-      + `<i>${nameOf(r.in)} ×1 + ${cur.name} ×1（${cur.time.toFixed(1)}s/个 · 已有原料 ${have}）</i></div>`
-      + `<div class="go">${can ? '熔炼 →' : have ? '缺燃料' : '缺原料'}</div>`;
+      + `<i>${nameOf(r.in)} ×1 + ${cur.name} ×1 (${cur.time.toFixed(1)}s each · materials on hand ${have})</i></div>`
+      + `<div class="go">${can ? 'Smelt →' : have ? 'No fuel' : 'No input'}</div>`;
     d.onclick = () => { if (can && !furnaceJob) smelt(r); };
     list.appendChild(d);
   }
@@ -8575,7 +8575,7 @@ function openFurnace() {
      有就接上（以前两端的 furnaceJob 各一份 → 房主看不到客人在烧什么，客人退出那炉就没了）。 */
   if (window.NET && NET.active && NET.machGet) {
     NET.machGet('furnace', v => {
-      if (!furnaceJob && v && v.out) { adoptFurnaceJob(v); toast('接上了这台熔炉正在烧的：' + nameOf(v.out | 0), 3); }
+      if (!furnaceJob && v && v.out) { adoptFurnaceJob(v); toast('Hooked up to what this Furnace is smelting:' + nameOf(v.out | 0), 3); }
     });
   }
 }
@@ -8584,7 +8584,7 @@ function adoptFurnaceJob(v) {
   furnaceJob = {
     r: { out: v.out | 0, n: Math.max(1, v.n | 0), in: v.in | 0 },
     t: +v.t || 0, left: Math.max(1, v.left | 0),
-    fuel: v.fuel | 0, fuelName: v.fuelName || '燃料', dur: Number(v.dur) || SMELT_DUR,
+    fuel: v.fuel | 0, fuelName: v.fuelName || 'Fuel', dur: Number(v.dur) || SMELT_DUR,
   };
   if ($('furnace') && !$('furnace').classList.contains('hide')) renderFurnace();
 }
@@ -8607,15 +8607,15 @@ function chargerTargets() {
   return out;
 }
 function startCharge(slot) {
-  if (chargerJob) { toast('充电器正在工作，等它充完', 1.4); return false; }
+  if (chargerJob) { toast('The Charger is working — wait for it to finish', 1.4); return false; }
   const s = inv[slot];
-  if (!s || !GUN_IDS.includes(s.id)) { toast('背包里没有这把能量炮了', 1.6); return false; }
+  if (!s || !GUN_IDS.includes(s.id)) { toast('That cannon is no longer in your Inventory', 1.6); return false; }
   const cap = gunCap(s.id);
-  if (gunCharge(s) >= cap) { toast(`${nameOf(s.id)} 已经是满电（${cap}/${cap}）`, 1.6); return false; }
-  if (countOf(187) < 1) { toast('没有铀：铀矿只在深板岩层，挖到不用烧，直接当充电燃料', 2.6); return false; }
+  if (gunCharge(s) >= cap) { toast(`${nameOf(s.id)} is already fully charged (${cap}/${cap})`, 1.6); return false; }
+  if (countOf(187) < 1) { toast('No Uranium: Uranium Ore only spawns in the Deepslate layer — no smelting needed, use it directly as charging fuel', 2.6); return false; }
   takeItem(187, 1);
   chargerJob = { slot, id: s.id, t: 0, dur: CHARGE_DUR };
-  toast(`装入 1 个铀：正在给 ${nameOf(s.id)} 充能（${gunCharge(s)}/${cap}）`, 2.0);
+  toast(`Loaded 1 Uranium: charging ${nameOf(s.id)} (${gunCharge(s)}/${cap})`, 2.0);
   sfx('place');
   renderHotbar(); renderCharger(); saveSoon();
   return true;
@@ -8627,7 +8627,7 @@ function updateChargerJob(dt) {
   if (!s || s.id !== j.id) {                       // 炮被挪走/换格：中断并退回铀（不做无声吞料）
     chargerJob = null;
     addItem(187, 1);
-    toast('充电中断：能量炮被移走了，铀已退回', 2.4);
+    toast('Charging interrupted: the cannon was moved away, Uranium returned', 2.4);
     if (chargerOpen) renderCharger();
     renderHotbar(); saveSoon();
     return;
@@ -8636,15 +8636,15 @@ function updateChargerJob(dt) {
   if (j.t < j.dur) { if (chargerOpen) renderCharger(); return; }
   s.c = gunCap(s.id);
   chargerJob = null;
-  toast(`充能完成：${nameOf(s.id)} 电量 ${s.c}/${gunCap(s.id)}`, 2.0);
+  toast(`Charging complete: ${nameOf(s.id)} charge ${s.c}/${gunCap(s.id)}`, 2.0);
   sfx('craft');
   renderHotbar(); if (chargerOpen) renderCharger(); refreshGunHud(); saveSoon();
 }
 function renderCharger() {
   const info = $('chgInfo');
   if (!info) return;
-  info.innerHTML = `铀 <b style="color:#8dff5a">${countOf(187)}</b> 个`
-    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">1 个铀 = ${CHARGE_DUR.toFixed(0)} 秒充满 1 把能量炮（铀直接当燃料，不用烧成锭）</div>`;
+  info.innerHTML = `Uranium <b style="color:#8dff5a">${countOf(187)}</b>`
+    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">1 Uranium = ${CHARGE_DUR.toFixed(0)} s to fully charge 1 cannon (Uranium is fuel as-is, no smelting into ingots)</div>`;
   const list = $('chgList');
   if (!list) return;
   list.innerHTML = '';
@@ -8652,7 +8652,7 @@ function renderCharger() {
   if (!tg.length) {
     const d = document.createElement('div');
     d.className = 'rec no';
-    d.innerHTML = '<div class="t">背包里没有能量炮<i>电路板 + 电线 + 一种金属（铜 / 铁 / 钻石 / 冥界钢）→ 工作台做炮</i></div>';
+    d.innerHTML = '<div class="t">No cannon in your Inventory<i>Circuit Board + Wire + a metal (Copper / Iron / Diamond / Nether Steel) → craft the cannon at a Crafting Table</i></div>';
     list.appendChild(d);
     return;
   }
@@ -8664,10 +8664,10 @@ function renderCharger() {
     const d = document.createElement('div');
     d.className = 'rec' + (can ? '' : ' no');
     const busyHere = chargerJob && chargerJob.slot === i;
-    const prog = busyHere ? ` · 充能中 ${Math.round(Math.min(1, chargerJob.t / chargerJob.dur) * 100)}%` : '';
+    const prog = busyHere ? ` · charging ${Math.round(Math.min(1, chargerJob.t / chargerJob.dur) * 100)}%` : '';
     d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><div class="t">${nameOf(s.id)}`
-      + `<i>电量 ${c}/${cap}${full ? '（满）' : ''}${prog} · 背包第 ${i + 1} 格</i></div>`
-      + `<div class="go">${full ? '已满' : can ? '用铀充电 →' : (!countOf(187) ? '缺铀' : busy ? '等待中' : '充电')}</div>`;
+      + `<i>Charge ${c}/${cap}${full ? ' (full)' : ''}${prog} · Inventory slot ${i + 1}</i></div>`
+      + `<div class="go">${full ? 'Full' : can ? 'Charge with uranium →' : (!countOf(187) ? 'No uranium' : busy ? 'Waiting' : 'Charging')}</div>`;
     d.onclick = () => { if (can) startCharge(i); };
     list.appendChild(d);
   }
@@ -8709,19 +8709,19 @@ function chipBatch(n) {
   const have = countOf(6);                          // 原木
   const want = n === Infinity ? have : Math.max(1, n | 0);
   const k = Math.min(want, have);
-  if (!k) { toast('没有原木：先在背包里准备原木', 1.6); renderProcessor(); return 0; }
+  if (!k) { toast('No Logs: put some Logs in your Inventory first', 1.6); renderProcessor(); return 0; }
   takeItem(6, k);
   addItem(170, k * CHIPS_PER_LOG);
   sfx('craft');
   renderHotbar(); refreshHeld(); renderProcessor(); saveSoon();
-  toast(`削木片：${k} 原木 → ${k * CHIPS_PER_LOG} 片（现有 ${countOf(170)} 片）`, 1.8);
+  toast(`Cut wood chips: ${k} Logs → ${k * CHIPS_PER_LOG} chips (have ${countOf(170)} chips)`, 1.8);
   return k * CHIPS_PER_LOG;
 }
 function renderProcessor() {
   const el = $('procInfo');
   if (!el) return;
-  el.innerHTML = `原木 <b style="color:#f5c451">${countOf(6)}</b> 个 · 木片 <b style="color:#f5c451">${countOf(170)}</b> 片`
-    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">木盔甲：头盔 6 / 胸甲 10 / 护腿 8 / 靴 4 片（要在工作台旁边合成）</div>`;
+  el.innerHTML = `Logs <b style="color:#f5c451">${countOf(6)}</b> · Wood Chips <b style="color:#f5c451">${countOf(170)}</b>`
+    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">Wooden armor: Helmet 6 / Chestplate 10 / Leggings 8 / Boots 4 chips (craft next to a Crafting Table)</div>`;
   const one = $('procOne'), all = $('procAll');
   if (one) one.disabled = countOf(6) < 1;
   if (all) all.disabled = countOf(6) < 1;
@@ -8747,20 +8747,20 @@ let pressOpen = false;
 function pressCan() { return Math.min(countOf(177), Math.floor(countOf(106) / 2)); }
 function pressBatch(n) {
   const can = pressCan();
-  if (!can) { toast('材料不够：需要 冥界碳 ×1 + 铁锭 ×2', 1.8); renderPress(); return 0; }
+  if (!can) { toast('Not enough materials: need Nether Carbon ×1 + Iron Ingot ×2', 1.8); renderPress(); return 0; }
   const k = Math.min(n === Infinity ? can : Math.max(1, n | 0), can);
   takeItem(177, k); takeItem(106, k * 2); addItem(178, k);
   sfx('craft');
   renderHotbar(); refreshHeld(); renderPress(); saveSoon();
-  toast(`液压机压下：${k} 份 → 冥界钢 ×${k}（现有 ${countOf(178)}）`, 1.8);
+  toast(`Pressed: ${k} batches → Nether Steel ×${k} (have ${countOf(178)})`, 1.8);
   return k;
 }
 function renderPress() {
   const el = $('pressInfo');
   if (!el) return;
   const can = pressCan();
-  el.innerHTML = `冥界碳 <b style="color:#f5c451">${countOf(177)}</b> · 铁锭 <b style="color:#f5c451">${countOf(106)}</b> · 冥界钢 <b style="color:#f5c451">${countOf(178)}</b>`
-    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">可压制 ${can} 次（每次 冥界碳 1 + 铁锭 2 → 冥界钢 1）</div>`;
+  el.innerHTML = `Nether Carbon <b style="color:#f5c451">${countOf(177)}</b> · Iron Ingot <b style="color:#f5c451">${countOf(106)}</b> · Nether Steel <b style="color:#f5c451">${countOf(178)}</b>`
+    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">Can press ${can} times (each: Nether Carbon 1 + Iron Ingot 2 → Nether Steel 1)</div>`;
   const one = $('pressOne'), all = $('pressAll');
   if (one) one.disabled = can < 1;
   if (all) all.disabled = can < 1;
@@ -8807,10 +8807,10 @@ function openPortalAt(core) {
    宝珠做出来以后，只要在下面 ORB_BY_META 里接上物品 id 就能直接启用。 */
 const ACTIVATOR_ORB_ID = { 1: 195, 2: 0, 3: 0, 4: 0 };      // meta → 宝珠物品 id（0 = 还没实装）
 const ORB_SOURCE_HINT = {                                    // 没拿到宝珠时，界面上直接说去哪拿
-  1: '日耀宝珠：去「宝珠守护地」打 5 波试炼（通过必掉）',
-  2: '月蚀宝珠：还没上线',
-  3: '炽焰宝珠：还没上线',
-  4: '深渊宝珠：深渊迷宫大殿的祭坛试炼（通过必掉）',
+  1: 'Sun Orb: go to the "Orb Sanctuary" and beat the 5-wave trial (guaranteed drop)',
+  2: 'Eclipse Orb: not in the game yet',
+  3: 'Blazing Orb: not in the game yet',
+  4: 'Abyss Orb: the altar trial in the Abyss Maze hall (guaranteed drop)',
 };
 function activatorOrbName(m) {
   return AR_ORBS[(m | 0) - 1] || AR_ORBS[0];
@@ -8823,17 +8823,17 @@ function useActivator(t) {
   const h = held();
   if (lit) {                                                   // 已经嵌过了
     const n = activatorLitCount(t);
-    toast(`这座「${activatorOrbName(m)}」激活器已经点亮（${n}/4）` + (n >= 4 ? ' —— 远古框架已就绪' : ''), 2.6);
+    toast(`This "${activatorOrbName(m)}" Activator is already lit (${n}/4)` + (n >= 4 ? ' — the Ancient Frame is ready' : ''), 2.6);
     startSwing('place', 0.2);
     return false;
   }
   if (!orb) {
-    toast(`激活器：这里缺「${activatorOrbName(m)}」—— ${ORB_SOURCE_HINT[m] || '暂时无法获得'}`, 3.4);
+    toast(`Activator: "${activatorOrbName(m)}" is missing here — ${ORB_SOURCE_HINT[m] || 'Not available yet'}`, 3.4);
     startSwing('place', 0.2);
     return false;
   }
   if (!h || h.id !== orb) {
-    toast(`这座激活器要「${activatorOrbName(m)}」—— ${ORB_SOURCE_HINT[m] || ''}`, 3.2);
+    toast(`This Activator needs "${activatorOrbName(m)}" — ${ORB_SOURCE_HINT[m] || ''}`, 3.2);
     startSwing('place', 0.2);
     return false;
   }
@@ -8841,7 +8841,7 @@ function useActivator(t) {
   setMeta(t.x, t.y, t.z, m | 8, true);                        // 第 4 位 = 已点亮
   litOrbCache.at = 0;                                         // 探针缓存立刻失效
   markDirty(t.x >> 4, t.z >> 4);
-  toast(`「${activatorOrbName(m)}」嵌进激活器（${activatorLitCount(t)}/4）`, 2.8);
+  toast(`"${activatorOrbName(m)}" set into the Activator (${activatorLitCount(t)}/4)`, 2.8);
   renderHotbar(); refreshHeld(); saveSoon();
   return true;
 }
@@ -8871,13 +8871,13 @@ function activatorLitCount(near) {                            // 附近废墟里
 }
 function usePortal(x, y, z) {
   const core = findPortalCore(x, y, z);
-  if (!core) { toast('这里不是传送门（只有核心能插传送块）', 1.8); return false; }
+  if (!core) { toast('This is not a Portal (only the core accepts a Teleport Block)', 1.8); return false; }
   if (!isPortalActive(core)) {
     const h = held();
-    if (!h || h.id !== 175) { toast('手里要拿着「传送块」，对着传送门核心右键', 2.4); return false; }
+    if (!h || h.id !== 175) { toast('Hold a "Teleport Block" and right-click the Portal Core', 2.4); return false; }
     if (!isCreative()) takeItem(175, 1);
     const n = openPortalAt(core);
-    toast(`传送块嵌进核心，${n} 格裂隙亮了起来 —— 再点一次或直接走进去`, 3.0);
+    toast(`The Teleport Block clicks into the core and ${n} rift blocks light up — click again or just walk in`, 3.0);
     renderHotbar(); refreshHeld(); saveSoon();
     return true;
   }
@@ -8917,7 +8917,7 @@ function travelDimension(fromCore) {
     player.v.set(0, 0, 0); player.fallFrom = null;
     buildAround(px2, pz2, 1);            // 只同步建 3×3，剩下的交给 streamChunks（否则一次冻 0.5~1 秒）
     updateSky();
-    toast('你回到了主世界', 2.2);
+    toast('You are back in the Overworld', 2.2);
   } else {                                         // ← 去冥界
     player.overPos = { x: player.p.x, y: player.p.y, z: player.p.z };
     // 记下出发的那座门：冥界里任何一座门走进去都送回这里（用户要求「带你回到你过来的门」）
@@ -8928,7 +8928,7 @@ function travelDimension(fromCore) {
     player.v.set(0, 0, 0); player.fallFrom = null;
     buildAround(player.p.x, player.p.z, 1);
     updateSky();
-    toast('进入冥界：脚下是岩浆，小心火焰魔', 2.8);
+    toast('Entering the Nether: lava below, watch out for Flame Demons', 2.8);
   }
   portalCd = 2.0;
   renderHotbar(); refreshHeld(); saveSoon();
@@ -8975,7 +8975,7 @@ addEventListener('keydown', e => {
   }
   if (captureAction) {                             // 正在改键：吃掉这次按键
     e.preventDefault();
-    if (k !== 'Escape') { keymap[captureAction] = k; saveCfg(); toast(`已绑定 ${prettyKey(k)}`, 1.4); }
+    if (k !== 'Escape') { keymap[captureAction] = k; saveCfg(); toast(`Bound ${prettyKey(k)}`, 1.4); }
     captureAction = null; renderKeyRows();
     return;
   }
@@ -8992,7 +8992,7 @@ addEventListener('keydown', e => {
     if (!e.repeat && k === keymap.fwd) {
       const now = performance.now();
       lastFwdGap = Math.round(now - (lastFwdT || 0));      // 诊断用：两次 W 之间隔了多少 ms
-      if (lastFwdGap < 350 && !sprintLatch) { sprintLatch = true; toast('疾跑', 0.7); }   // 350ms 窗口（MC 约 300ms，留一点手感余量）
+      if (lastFwdGap < 350 && !sprintLatch) { sprintLatch = true; toast('Sprint', 0.7); }   // 350ms 窗口（MC 约 300ms，留一点手感余量）
       lastFwdT = now;
     }
     if (k === 'KeyV') setStructCorner('a');                       // 创作者：选角点1
@@ -9010,7 +9010,7 @@ addEventListener('keydown', e => {
       if (now - (lastSpaceT || 0) < 320) {
         player.fly = !player.fly;
         player.v.y = 0;
-        toast(player.fly ? '飞行：开（空格上升 / Shift 下降）' : '飞行：关', 1.8);
+        toast(player.fly ? 'Flight: on (Space up / Shift down)' : 'Flight: off', 1.8);
         lastSpaceT = 0;
       } else lastSpaceT = now;
     }
@@ -9201,7 +9201,7 @@ function doMine(dt, target) {
     if (!creativeArmed) { player.mining = 0; player.mineTarget = target; return false; }
     creativeArmed = false;
     player.mining = 1; player.mineTarget = target; breakBlock(target);
-    if (!creativeHintShown) { creativeHintShown = true; toast('创造模式：按一下挖一格（按住不会连挖）', 2.4); }
+    if (!creativeHintShown) { creativeHintShown = true; toast('Creative mode: one click mines one block (holding won\'t chain-mine)', 2.4); }
     return true;
   }
   const pickOk = heldKind() === 'pick';
@@ -9225,7 +9225,7 @@ function doMine(dt, target) {
 function breakBlock(t) {
   const def = BLOCKS[t.id];
   if (!def) return;
-  if (def.unbreakable) { player.mining = 0; toast(`${def.name}纹丝不动（无法破坏）`, 1.4); return; }
+  if (def.unbreakable) { player.mining = 0; toast(`${def.name} won't budge (unbreakable)`, 1.4); return; }
   if (def.door) {                                      // 门是两格：拆一格带走另一格
     const oy = (getMeta(t.x, t.y, t.z) & 8) ? t.y - 1 : t.y + 1;
     if (getBlock(t.x, oy, t.z) === 35) setBlock(t.x, oy, t.z, 0);
@@ -9256,9 +9256,9 @@ function breakBlock(t) {
   else if (def.drop) {
     const ironPick = inv.some(s => s && (s.id === 120 || s.id === 130 || s.id === 184));
     const stonePick = inv.some(s => s && (s.id === 101 || s.id === 120 || s.id === 130 || s.id === 163 || s.id === 184));
-    if (def.ironPick && !ironPick) toast(`${def.name}要用铁镐或更好才能挖`, 2.0);
-    else if (def.stonePick && !stonePick) toast('铁矿需要石镐或更好才能采集', 1.8);
-    else if (def.pick && heldKind() !== 'pick') toast('石头需要镐才能采集', 1.8);
+    if (def.ironPick && !ironPick) toast(`${def.name} needs an Iron Pickaxe or better`, 2.0);
+    else if (def.stonePick && !stonePick) toast('Iron Ore needs a Stone Pickaxe or better', 1.8);
+    else if (def.pick && heldKind() !== 'pick') toast('Stone needs a Pickaxe', 1.8);
     else dropAt(def.drop, 1);
   }
   renderHotbar(); refreshHeld(); saveSoon();
@@ -9277,7 +9277,7 @@ function toggleDoor(x, y, z) {
   if (o) o.targetP = openNow ? 0 : 1;
   doorSyncT = 0.6;
   sfx(openNow ? 'dig' : 'place');
-  toast(openNow ? '门关上了' : '门打开了', 1.0);
+  toast(openNow ? 'Door closed' : 'Door opened', 1.0);
   return true;
 }
 function placeBlock() {
@@ -9289,21 +9289,21 @@ function placeBlock() {
   if (t0 && BLOCKS[t0.id] && BLOCKS[t0.id].door) return toggleDoor(t0.x, t0.y, t0.z);
   if (t0 && BLOCKS[t0.id] && BLOCKS[t0.id].torch) { unregisterTorch(t0.x, t0.y, t0.z); }   // 对着门按右键 = 开/关
   const h = held();
-  if (!h || !BLOCKS[h.id]) { toast('手里没有可放置的方块', 1.4); return false; }
+  if (!h || !BLOCKS[h.id]) { toast('Nothing placeable in your hand', 1.4); return false; }
   const t = t0;
   if (!t) return false;
   const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
   if (y < 0 || y >= CFG.WH) return false;
   const cur = getBlock(x, y, z);
   if (cur !== 0 && cur !== 5) return false;
-  if (blockBoxBlocks(x, y, z)) { toast('这里放不下（会卡住自己）', 1.4); return false; }
+  if (blockBoxBlocks(x, y, z)) { toast('Can\'t place here (you would get stuck)', 1.4); return false; }
   if (h.id === 35) {                                   // 门：上下两格，朝向玩家
     const yy = y + 1;
     if (yy >= CFG.WH) return false;
     const up = getBlock(x, yy, z);
-    if (up !== 0 && up !== 5) { toast('门要两格高（上面被挡住了）', 1.9); return false; }
-    if (y === 0 || !isSolid(getBlock(x, y - 1, z))) { toast('门下面要有地面', 1.6); return false; }
-    if (blockBoxBlocks(x, yy, z)) { toast('这里放不下（会卡住自己）', 1.4); return false; }
+    if (up !== 0 && up !== 5) { toast('A door needs two blocks of height (blocked above)', 1.9); return false; }
+    if (y === 0 || !isSolid(getBlock(x, y - 1, z))) { toast('A door needs solid ground below', 1.6); return false; }
+    if (blockBoxBlocks(x, yy, z)) { toast('Can\'t place here (you would get stuck)', 1.4); return false; }
     const d = cameraDir();
     const dir = Math.abs(d.x) >= Math.abs(d.z) ? (d.x > 0 ? 4 : 3) : (d.z > 0 ? 2 : 1);
     setBlock(x, y, z, 35); setMeta(x, y, z, dir - 1);                       // 下半（关）
@@ -9319,11 +9319,11 @@ function placeBlock() {
     const bz = bx === 0 ? Math.sign(dir.z) : 0;
     const hx = x + bx, hz = z + bz;
     const headId = getBlock(hx, y, hz);
-    if (headId !== 0 && headId !== 5) { toast('床要两格空间（前面被挡住了）', 1.9); return false; }
+    if (headId !== 0 && headId !== 5) { toast('A bed needs two blocks of space (blocked in front)', 1.9); return false; }
     if (y === 0 || !isSolid(getBlock(x, y - 1, z)) || !isSolid(getBlock(hx, y - 1, hz))) {
-      toast('床下面要有地面', 1.7); return false;
+      toast('A bed needs solid ground below', 1.7); return false;
     }
-    if (blockBoxBlocks(hx, y, hz)) { toast('这里放不下（会卡住自己）', 1.4); return false; }
+    if (blockBoxBlocks(hx, y, hz)) { toast('Can\'t place here (you would get stuck)', 1.4); return false; }
     const bdir = bx > 0 ? 1 : bx < 0 ? 2 : bz > 0 ? 3 : 4;    // 脚 → 头 的方向
     setBlock(x, y, z, 14); setMeta(x, y, z, bdir);            // 脚格（无枕头）
     setBlock(hx, y, hz, 14); setMeta(hx, y, hz, bdir + 4);    // 头格（枕头在远端）
@@ -9358,18 +9358,18 @@ function useHoe(t) {                           // 锄地：草地/泥土 → 农
   if ((t.id === 1 || t.id === 2) && (above === 0)) {
     setBlock(t.x, t.y, t.z, 16);
     useTool(1); startSwing('dig', 0.34); sfx('dig'); saveSoon();
-    toast('锄成农田了（拿小麦种子右键播种）', 1.8);
+    toast('Tilled into Farmland (right-click with Wheat Seeds to plant)', 1.8);
     return true;
   }
-  toast('只能锄草地或泥土', 1.3);
+  toast('You can only till Grass or Dirt', 1.3);
   return false;
 }
 function plantSeed(t) {                        // 农田上播种
   if (!t) return false;
   const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
   if (getBlock(x, y, z) !== 0) return false;
-  if (getBlock(x, y - 1, z) !== 16) { toast('要先锄地（农田）才能种', 1.5); return false; }
-  if (countOf(156) < 1) { toast('没有小麦种子', 1.3); return false; }
+  if (getBlock(x, y - 1, z) !== 16) { toast('Till the ground (Farmland) before planting', 1.5); return false; }
+  if (countOf(156) < 1) { toast('No Wheat Seeds', 1.3); return false; }
   takeItem(156, 1);
   setBlock(x, y, z, 23);
   startSwing('place', 0.3); sfx('place'); saveSoon();
@@ -9383,11 +9383,11 @@ function useBoneMeal(t) {                      // 骨粉：催熟小麦 / 撒在
   if (id === 23 || id === 24) {                    // 对着小麦幼苗/苗 → 直接成熟
     setBlock(t.x, t.y, t.z, 17);
     takeItem(161, 1);
-    sfx('craft'); toast('骨粉催熟了小麦', 1.3);
+    sfx('craft'); toast('Bone Meal ripened the Wheat', 1.3);
     renderHotbar(); refreshHeld(); saveSoon();
     return true;
   }
-  if (id === 17) { toast('这株小麦已经熟了', 1.2); return false; }
+  if (id === 17) { toast('This Wheat is already ripe', 1.2); return false; }
   const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
   if (getBlock(x, y, z) === 0 && getBlock(x, y - 1, z) === 1) {   // 草地上撒粉 → 草丛/花
     let n = 0;
@@ -9396,13 +9396,13 @@ function useBoneMeal(t) {                      // 骨粉：催熟小麦 / 撒在
       if (getBlock(bx, y, bz) !== 0 || getBlock(bx, y - 1, bz) !== 1) continue;
       if (Math.random() < 0.6) { setBlock(bx, y, bz, Math.random() < 0.22 ? 37 : 36); n++; }
     }
-    if (!n) { toast('这里催不出草（要对着草地）', 1.4); return false; }
+    if (!n) { toast('No grass will grow here (aim at Grass)', 1.4); return false; }
     takeItem(161, 1);
-    sfx('craft'); toast(`骨粉撒出一片草丛（${n} 处）`, 1.6);
+    sfx('craft'); toast(`Bone Meal spread a patch of grass (${n} spots)`, 1.6);
     renderHotbar(); refreshHeld(); saveSoon();
     return true;
   }
-  toast('骨粉只能催小麦、或撒在草地上', 1.5);
+  toast('Bone Meal only works on Wheat or on Grass', 1.5);
   return false;
 }
 function useFertilizer(t) {                    // 肥料：催熟一阶段
@@ -9411,7 +9411,7 @@ function useFertilizer(t) {                    // 肥料：催熟一阶段
   const id = getBlock(x, y, z);
   if (id !== 23 && id !== 24) {
     if (t.id === 23 || t.id === 24) return useFertilizerAt(t.x, t.y, t.z);
-    toast('肥料要对着小麦幼苗用', 1.4);
+    toast('Fertilizer must be used on a Wheat Seedling', 1.4);
     return false;
   }
   return useFertilizerAt(x, y, z);
@@ -9419,27 +9419,27 @@ function useFertilizer(t) {                    // 肥料：催熟一阶段
 function useFertilizerAt(x, y, z) {
   const id = getBlock(x, y, z);
   if (id !== 23 && id !== 24) return false;
-  if (countOf(157) < 1) { toast('没有肥料（堆肥箱里放 4 份食物换 1 份）', 1.6); return false; }
+  if (countOf(157) < 1) { toast('No Fertilizer (put 4 food items in a Compost Bin for 1)', 1.6); return false; }
   takeItem(157, 1);
   setBlock(x, y, z, id === 23 ? 24 : 17);
   sfx('place'); saveSoon();
-  toast(id === 23 ? '施了一次肥：长高了一节' : '施了一次肥：小麦成熟了', 1.5);
+  toast(id === 23 ? 'Fertilized once: grew one stage' : 'Fertilized once: the Wheat ripened', 1.5);
   return true;
 }
 function useCompost(t) {                       // 堆肥箱：放食物换肥料
   const key = t.x + ',' + t.y + ',' + t.z;
   const food = held();
-  if (!food || (ITEMS[food.id] || {}).kind !== 'food') { toast('手里要拿着食物才能堆肥', 1.4); return false; }
+  if (!food || (ITEMS[food.id] || {}).kind !== 'food') { toast('Hold food to compost', 1.4); return false; }
   takeItem(food.id, 1);
   const p = (compostProg.get(key) || 0) + 1;
   if (p >= 4) {
     compostProg.set(key, 0);
     addItem(157, 1);
     addItem(161, 1);                                  // 骨粉只能从堆肥箱出
-    toast('堆肥完成 → 肥料 ×1 + 骨粉 ×1', 2.2);
+    toast('Composting done → Fertilizer ×1 + Bone Meal ×1', 2.2);
   } else {
     compostProg.set(key, p);
-    toast(`堆肥 ${p}/4（再放 ${4 - p} 份食物）`, 1.5);
+    toast(`Composting ${p}/4 (add ${4 - p} more food)`, 1.5);
   }
   sfx('place'); renderHotbar(); refreshHeld(); saveSoon();
   return true;
@@ -9466,7 +9466,7 @@ function growCrops(dt) {
 // 玩家射箭：消耗 1 支箭，朝准星方向（带一点重力下坠）
 function firePlayerArrow() {
   if (player.bowCd > 0) return false;
-  if (countOf(154) < 1) { toast('没有箭了（木棍 + 骨头 合成）', 1.6); return false; }
+  if (countOf(154) < 1) { toast('Out of Arrows (craft: Stick + Bone)', 1.6); return false; }
   takeItem(154, 1);
   const eye = eyePos(), dir = cameraDir();
   const from = new THREE.Vector3(eye.x + dir.x * 0.35, eye.y - 0.12 + dir.y * 0.35, eye.z + dir.z * 0.35);
@@ -9494,7 +9494,7 @@ function refreshGunHud() {
   const def = h && ITEMS[h.id];
   if (!def || def.kind !== 'gun') { gunHudEl.style.display = 'none'; lastGunHud = ''; return; }
   const cap = gunCap(h.id), c = gunCharge(h);
-  const txt = `${def.name} · 电量 ${c}/${cap}` + (c <= 0 ? ' · 没电了：放进充电器 + 铀' : '');
+  const txt = `${def.name} · Charge ${c}/${cap}` + (c <= 0 ? ' · out of charge: put it in a Charger + Uranium' : '');
   if (txt !== lastGunHud) { gunHudEl.textContent = txt; lastGunHud = txt; }
   gunHudEl.style.display = 'block';
   gunHudEl.style.color = c <= 0 ? '#ff9a8a' : c <= cap * 0.25 ? '#ffd84a' : '#dff8ff';
@@ -9506,7 +9506,7 @@ function fireEnergyBolt() {
   if (!def || def.kind !== 'gun') return false;
   const cap = gunCap(h.id);
   const c = gunCharge(h);
-  if (c <= 0) { toast('能量耗尽：把炮放进充电器，加 1 个铀就能充满', 2.4); sfx('hurt'); return false; }
+  if (c <= 0) { toast('Out of energy: put the cannon in a Charger and add 1 Uranium to fill it', 2.4); sfx('hurt'); return false; }
   if (!isCreative()) h.c = c - 1;
   const eye = eyePos(), dir = cameraDir();
   const from = new THREE.Vector3(eye.x + dir.x * 0.55, eye.y - 0.08 + dir.y * 0.55, eye.z + dir.z * 0.55);
@@ -9516,7 +9516,7 @@ function fireEnergyBolt() {
   sfx('place');
   player.gunCd = def.cd || 0.45;
   renderHotbar(); refreshGunHud(); saveSoon();
-  if (gunCharge(h) === 0) toast('电量耗尽：放进充电器用铀充能', 2.2);
+  if (gunCharge(h) === 0) toast('Out of charge: put it in a Charger and charge with Uranium', 2.2);
   return true;
 }
 // 沿视线找水（射线默认会跳过水，这里单独走一条）
@@ -9543,23 +9543,23 @@ function useBucket(full, t) {
     if (!t) return false;
     const x = t.x + t.nx, y = t.y + t.ny, z = t.z + t.nz;
     if (y < 1 || y >= CFG.WH) return false;
-    if (getBlock(x, y, z) !== 0) { toast('这里放不下水', 1.3); return false; }
+    if (getBlock(x, y, z) !== 0) { toast('Can\'t place water here', 1.3); return false; }
     setBlock(x, y, z, 5);
     wakeWater(x, y, z);
     replaceHeld(151);
     startSwing('place', 0.26); sfx('place');
-    toast('倒出一桶水', 1.2);
+    toast('Poured out a bucket of water', 1.2);
     return true;
   }
   const src = rayWater(CFG.REACH) || (getBlock(Math.floor(player.p.x), Math.floor(player.p.y), Math.floor(player.p.z)) === 5
     ? { x: Math.floor(player.p.x), y: Math.floor(player.p.y), z: Math.floor(player.p.z) } : null);
-  if (!src) { toast('要对着水才能装', 1.3); return false; }
+  if (!src) { toast('Aim at water to fill it', 1.3); return false; }
   setBlock(src.x, src.y, src.z, 0);
   waterFlow.delete(src.x + ',' + src.y + ',' + src.z);
   wakeWater(src.x, src.y, src.z);
   replaceHeld(152);
   startSwing('place', 0.26); sfx('place');
-  toast('装满一桶水', 1.2);
+  toast('Filled a bucket of water', 1.2);
   return true;
 }
 /* ── 吃东西：必须长按（右键 / G），三口吃完；每口有咀嚼动画和进度条（Action & Stuff 手感） ── */
@@ -9590,7 +9590,7 @@ function eatStop(commit) {
   const food = ITEMS[h.id].food || 4;
   player.hunger = Math.min(20, player.hunger + food);
   takeItem(h.id, 1);
-  toast(`吃掉 ${nameOf(h.id)}（饱食 +${food}）`, 1.3);
+  toast(`Ate ${nameOf(h.id)} (Hunger +${food})`, 1.3);
   sfx('eat');
   renderHotbar(); refreshHeld(); saveSoon();
 }
@@ -9614,7 +9614,7 @@ function updateEat(dt) {
   }
   if (isFood && player.hunger >= 20 && holding && !eatState.on) {
     // 不饿时给个提示（每秒最多一次）
-    if (!updateEat._t || performance.now() - updateEat._t > 1200) { updateEat._t = performance.now(); toast('现在不饿', 1.0); }
+    if (!updateEat._t || performance.now() - updateEat._t > 1200) { updateEat._t = performance.now(); toast('Not hungry right now', 1.0); }
   }
 }
 // 近战：沿视线找一个"锥形"内的怪（判定半径 1.05，射程比挖方块短 1.2 格）
@@ -9698,10 +9698,10 @@ function attack() {
   sfx('hit');
   if (!MOB_DEFS[target.kind].hostile) target.flee = 6;      // 猪/村民被打就跑
   const tname = MOB_DEFS[target.kind].name;
-  if (target.hp > 0) toast(`命中 ${tname} −${dmg}（剩 ${Math.max(0, target.hp)}）`, 0.9);
+  if (target.hp > 0) toast(`Hit ${tname} −${dmg} (${Math.max(0, target.hp)} left)`, 0.9);
   else {
     player.kills = (player.kills || 0) + 1;
-    toast(`击倒 ${tname}`, 1.4);
+    toast(`Knocked out ${tname}`, 1.4);
     startMobDeath(target);          // 立即进入倒地动画（updateMobs 里也会兜底触发）
   }
   return true;
@@ -9781,7 +9781,7 @@ function updatePlayer(dt) {
   // ── 岩浆（液体）：泡在里面持续灼烧，并点燃玩家
   if (player.inLava) {
     lavaT -= dt;
-    if (lavaT <= 0) { lavaT = 0.8; damagePlayer(3); toast('岩浆灼烧！快按空格游出来', 1.2); }
+    if (lavaT <= 0) { lavaT = 0.8; damagePlayer(3); toast('Lava burn! Press Space to swim out', 1.2); }
     player.burn = Math.max(player.burn || 0, 5);
     setBurnFx(true);
   } else if (lavaT < 0.15) lavaT = 0.15;
@@ -9789,7 +9789,7 @@ function updatePlayer(dt) {
   if (player.burn > 0) {
     player.burn -= dt;
     if (player.inWater) {
-      player.burn = 0; setBurnFx(false); toast('滋——火灭了', 1.2);
+      player.burn = 0; setBurnFx(false); toast('Sss—the fire went out', 1.2);
     } else {
       burnT -= dt;
       if (burnT <= 0) { burnT = 1.0; damagePlayer(1); }
@@ -9912,7 +9912,7 @@ function update(dt) {
     else if (t && t.id === 53) { openCharger(); startSwing('place', 0.2); }        // 充电器
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].activator) { useActivator(t); }   // 远古废墟：激活器（要宝珠）
     else if (t && BLOCKS[t.id] && (BLOCKS[t.id].orbAltar || BLOCKS[t.id].abyssAltar)) { trialStart(t); startSwing('place', 0.22); }   // 宝珠守护地 / 深渊祭坛：右键开试炼
-    else if (t && t.id === 66) { toast('宝珠已经被取走了（这座守护地已通关）', 2.4); }
+    else if (t && t.id === 66) { toast('The orb has already been taken (this sanctuary is cleared)', 2.4); }
     else if (t && (t.id === 45 || t.id === 42)) { usePortal(t.x, t.y, t.z); startSwing('place', 0.2); }   // 传送门
     else if (t && t.id === 10) { openPanel(true); startSwing('place', 0.2); }
     else if (t && BLOCKS[t.id] && BLOCKS[t.id].bed) { setSpawnAt(t.x, t.y, t.z); startSwing('place', 0.26); }
@@ -10081,27 +10081,27 @@ function updateHUD(dt) {
   hud.mine.style.display = (mineHeld && t2 && player.mining > 0.02) ? 'block' : 'none';
   hud.mineBar.style.width = `${Math.min(100, pct)}%`;
   hud.tgt.textContent = t2 ? `${nameOf(t2.id)} ${player.mining > 0.02 ? pct + '%' : ''}` : '';
-  const dirs = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+  const dirs = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
   const deg = ((-player.yaw * 180 / Math.PI) % 360 + 360) % 360;
   const dirName = dirs[Math.round(deg / 45) % 8];
   const mem = (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : '');
   const trialLine = ARENA.active
-    ? `\n<b style="color:#3ee07a">${ARENA.type === 'abyss' ? '深渊试炼' : '试炼'}</b> 第 <b>${ARENA.wave}/${(ARENA.waves || TRIAL_WAVES).length}</b> 波 · 场上 <b>${arenaMobs().length}</b> · 离中心 <b>${Math.round(Math.hypot(player.p.x - ARENA.cx, player.p.z - ARENA.cz))}</b>`
+    ? `\n<b style="color:#3ee07a">${ARENA.type === 'abyss' ? 'Abyss Trial' : 'Trial'}</b> Wave <b>${ARENA.wave}/${(ARENA.waves || TRIAL_WAVES).length}</b> · Alive <b>${arenaMobs().length}</b> · From center <b>${Math.round(Math.hypot(player.p.x - ARENA.cx, player.p.z - ARENA.cz))}</b>`
     : '';
   const s =
-    `环境 <b>${underground ? `地下 ${Math.round(depthBelowSurface())} 格` : '地表'}${forestAt(Math.floor(player.p.x), Math.floor(player.p.z)) ? ' · ' + forestAt(Math.floor(player.p.x), Math.floor(player.p.z)).name : ''}</b>\n` +
-    `FPS <b>${Math.round(fps)}</b>  区块 <b>${chunks.size}</b>  ${mem}\n` +
-    `坐标 <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> 朝${dirName}\n` +
-    `时间 <b>${clockText()}</b> ${isNight() ? '夜晚' : '白天'}  怪物 <b>${aliveMobs()}</b>  击倒 <b>${player.kills || 0}</b>\n` +
-    `世界 <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  模式 <b>${isCreative() ? '创造' : '生存'}</b>${player.fly ? '（飞行）' : ''}${DIM === 'nether' ? ' · <b style="color:#e05a5a">冥界</b>' : ''}  手持 <b>${held() ? nameOf(held().id) : '空手'}</b>${heldKind() === 'pick' ? '（镐）' : heldKind() === 'sword' ? '（剑）' : ''}  护甲 <b>${armorPoints()}</b>  重生点 <b>${player.spawn && player.spawn.bed ? '床' : '出生点'}</b>` + trialLine;
+    `Environment <b>${underground ? `Underground ${Math.round(depthBelowSurface())} blocks` : 'Surface'}${forestAt(Math.floor(player.p.x), Math.floor(player.p.z)) ? ' · ' + forestAt(Math.floor(player.p.x), Math.floor(player.p.z)).name : ''}</b>\n` +
+    `FPS <b>${Math.round(fps)}</b>  Chunks <b>${chunks.size}</b>  ${mem}\n` +
+    `Pos <b>${player.p.x.toFixed(1)} ${player.p.y.toFixed(1)} ${player.p.z.toFixed(1)}</b> facing ${dirName}\n` +
+    `Time <b>${clockText()}</b> ${isNight() ? 'Night' : 'Day'}  Mobs <b>${aliveMobs()}</b>  Kills <b>${player.kills || 0}</b>\n` +
+    `World <b>${escHtml((worldMeta(currentId) || {}).name || '—')}</b>  Mode <b>${isCreative() ? 'Creative' : 'Survival'}</b>${player.fly ? ' (flying)' : ''}${DIM === 'nether' ? ' · <b style="color:#e05a5a">Nether</b>' : ''}  Held <b>${held() ? nameOf(held().id) : 'Empty hand'}</b>${heldKind() === 'pick' ? ' (pickaxe)' : heldKind() === 'sword' ? ' (sword)' : ''}  Armor <b>${armorPoints()}</b>  Spawn <b>${player.spawn && player.spawn.bed ? 'Bed' : 'Spawn'}</b>` + trialLine;
   // 性能探针：?dev=1 或 设置里打开（也可按 F3 切换）——正常玩家默认看不到
   const pt = profText(), pf = profFrame();
   const s2 = (DEV || userCfg.probe)
-    ? s + `\n<b style="color:#f5c451">探针</b> 火把 <b>${torchCells.size}</b> 生成meta <b>${genMeta.size}</b> 门 <b>${doorObjs.size}</b> 箱子 <b>${chestInv.size}</b> 小地图 <b>${MM.cells.size}</b> 缓存 <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> 场景 <b>${scene.children.length}</b> 脏块 <b>${dirty.size}</b>`
-      + `\n<b style="color:#f5c451">冻结</b> 上下文 <b>${FREEZE.glLost}</b> 停帧 <b>${FREEZE.stall}</b> 异常 <b>${FREEZE.err}</b> 画面 <b>${lastRenderAt ? ((performance.now() - lastRenderAt) / 1000).toFixed(1) + 's前' : '—'}</b>`
-      + (FREEZE.lastErr ? `\n<b style="color:#ff7a7a">上次报错</b> <b>${FREEZE.lastErr.slice(0, 120)}</b>` : '')
-      + (() => { const n = activatorLitCountProbe(); return n > 0 ? `\n<b style="color:#ffd75e">宝珠</b> <b>${n}/4</b> 已嵌入远古框架` : ''; })()
-      + `\n<b style="color:#f5c451">耗时</b> 更新 <b>${pf.update.toFixed(1)}</b> 渲染 <b>${pf.render.toFixed(1)}</b> 存档 <b>${pf.save.toFixed(2)}</b>｜步 玩家 <b>${pt.uPlayer.toFixed(2)}</b> 怪 <b>${pt.uMobs.toFixed(2)}</b> 水 <b>${pt.uWater.toFixed(2)}</b> 火 <b>${pt.uFlames.toFixed(2)}</b> 区 <b>${pt.uStream.toFixed(2)}</b> 流 <b>${pf.stream.toFixed(1)}</b> 图 <b>${pt.uMap.toFixed(2)}</b> 尾 <b>${pt.uTail.toFixed(2)}</b> 帧 <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 关/开探针 · F4 远古废墟 · F5 宝珠守护地 · T 指令</span>`
+    ? s + `\n<b style="color:#f5c451">Probe</b> Torches <b>${torchCells.size}</b> GenMeta <b>${genMeta.size}</b> Doors <b>${doorObjs.size}</b> Chests <b>${chestInv.size}</b> Minimap <b>${MM.cells.size}</b> Cache <b>${msCache.size + ravineCache.size + veinCache.size + lsCache.size + hsCache.size + villageCache.size}</b> Scene <b>${scene.children.length}</b> Dirty chunks <b>${dirty.size}</b>`
+      + `\n<b style="color:#f5c451">Freeze</b> Context <b>${FREEZE.glLost}</b> Frame stall <b>${FREEZE.stall}</b> Errors <b>${FREEZE.err}</b> Render <b>${lastRenderAt ? ((performance.now() - lastRenderAt) / 1000).toFixed(1) + 's ago' : '—'}</b>`
+      + (FREEZE.lastErr ? `\n<b style="color:#ff7a7a">Last error</b> <b>${FREEZE.lastErr.slice(0, 120)}</b>` : '')
+      + (() => { const n = activatorLitCountProbe(); return n > 0 ? `\n<b style="color:#ffd75e">Orbs</b> <b>${n}/4</b> set into the Ancient Frame` : ''; })()
+      + `\n<b style="color:#f5c451">Timing</b> Update <b>${pf.update.toFixed(1)}</b> Render <b>${pf.render.toFixed(1)}</b> Save <b>${pf.save.toFixed(2)}</b>| Step Player <b>${pt.uPlayer.toFixed(2)}</b> Mobs <b>${pt.uMobs.toFixed(2)}</b> Water <b>${pt.uWater.toFixed(2)}</b> Fire <b>${pt.uFlames.toFixed(2)}</b> Regions <b>${pt.uStream.toFixed(2)}</b> Fluid <b>${pf.stream.toFixed(1)}</b> Graph <b>${pt.uMap.toFixed(2)}</b> Tail <b>${pt.uTail.toFixed(2)}</b> Frame <b>${PROF.frames}</b> <span style="color:#8ea3ba">F3 toggle probe · F4 Ancient Ruins · F5 Orb Sanctum · T commands</span>`
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
   renderHearts();
@@ -10116,9 +10116,9 @@ const DEFAULT_KEYS = {
   lookUp: 'ArrowUp', lookDown: 'ArrowDown', lookLeft: 'ArrowLeft', lookRight: 'ArrowRight',
 };
 const KEY_LABEL = {
-  fwd: '前进', back: '后退', left: '左移', right: '右移', jump: '跳跃', sprint: '疾跑',
-  mine: '挖 / 攻击（按住）', place: '放置 / 使用', bag: '背包',
-  lookUp: '视角上', lookDown: '视角下', lookLeft: '视角左', lookRight: '视角右',
+  fwd: 'Forward', back: 'Backward', left: 'Strafe left', right: 'Strafe right', jump: 'Jump', sprint: 'Sprint',
+  mine: 'Mine / Attack (hold)', place: 'Place / Use', bag: 'Inventory',
+  lookUp: 'Look up', lookDown: 'Look down', lookLeft: 'Look left', lookRight: 'Look right',
 };
 const DEFAULT_CFG = { sens: 1, touchUI: false, probe: false };
 let userCfg = { ...DEFAULT_CFG };
@@ -10146,9 +10146,9 @@ function prettyKey(code) {
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
   const m = {
-    Space: '空格', ShiftLeft: '左Shift', ShiftRight: '右Shift', ControlLeft: '左Ctrl', ControlRight: '右Ctrl',
-    AltLeft: '左Alt', AltRight: '右Alt', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
-    Enter: '回车', Tab: 'Tab', Backquote: '`', Minus: '-', Equal: '=', Comma: ',', Period: '.', Slash: '/',
+    Space: 'Space', ShiftLeft: 'Left Shift', ShiftRight: 'Right Shift', ControlLeft: 'Left Ctrl', ControlRight: 'Right Ctrl',
+    AltLeft: 'Left Alt', AltRight: 'Right Alt', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
+    Enter: 'Enter', Tab: 'Tab', Backquote: '`', Minus: '-', Equal: '=', Comma: ',', Period: '.', Slash: '/',
   };
   return m[code] || code;
 }
@@ -10166,7 +10166,7 @@ function renderKeyRows() {
     name.textContent = KEY_LABEL[act] || act;
     const btn = document.createElement('button');
     btn.className = 'btn keybtn';
-    btn.textContent = captureAction === act ? '按一个键…' : prettyKey(keymap[act]);
+    btn.textContent = captureAction === act ? 'Press a key…' : prettyKey(keymap[act]);
     if (captureAction === act) btn.style.outline = '2px solid #f5c451';
     btn.onclick = () => { captureAction = act; renderKeyRows(); };
     row.appendChild(name); row.appendChild(btn);
@@ -10182,8 +10182,8 @@ function openSettings(open) {
     renderKeyRows();
     $('setSens').value = String(userCfg.sens);
     $('setSensVal').textContent = userCfg.sens.toFixed(1) + '×';
-    $('setTouchUI').textContent = userCfg.touchUI ? '开' : '关';
-    $('setProbe').textContent = userCfg.probe ? '开' : '关';
+    $('setTouchUI').textContent = userCfg.touchUI ? 'On' : 'Off';
+    $('setProbe').textContent = userCfg.probe ? 'On' : 'Off';
     if (document.pointerLockElement) document.exitPointerLock();
   } else if (started) lockPointer();
 }
@@ -10222,7 +10222,7 @@ function loadIndex() {
         if (d && d.seed) {
           const id = 'w' + Date.now().toString(36);
           localStorage.setItem(worldKey(id), old);
-          worlds.push({ id, name: '我的旧世界', mode: 'survival', seed: d.seed, updated: Date.now(), seedText: String(d.seed) });
+          worlds.push({ id, name: 'My Old World', mode: 'survival', seed: d.seed, updated: Date.now(), seedText: String(d.seed) });
           currentId = id;
           localStorage.removeItem(CFG.SAVE_KEY);
           saveIndex();
@@ -10241,7 +10241,7 @@ function createWorld(opts = {}) {
   else if (typeof opts.seed === 'number' && opts.seed) seed = opts.seed | 0;   // 账号世界：用云端记的种子复原地形
   else seed = (Math.random() * 1e6) | 0;
   const w = {
-    id, name: (opts.name || '').trim() || `世界 ${worlds.length + 1}`,
+    id, name: (opts.name || '').trim() || `World ${worlds.length + 1}`,
     mode: opts.mode === 'creative' ? 'creative' : 'survival',
     seed, seedText, updated: Date.now(),
   };
@@ -10277,7 +10277,7 @@ const MM_TERRAIN = ['#5d9440', '#c9b174', '#71757c', '#2d5f8f', '#376b2c', '#3c4
   '#6b4a35',   // 10 灵魂沙
   '#4a2a5a',   // 11 冥界矿
   '#14202c'];  // 12 空洞
-const MM_LABEL = { village: '村庄', haunted: '鬼屋', tower: '哨塔', well: '水井', circle: '石阵', camp: '废墟营地', cabin: '白桦木屋', portal: '传送门', swamp: '熔岩沼泽', ruins: '远古废墟', arena: '宝珠守护地' };
+const MM_LABEL = { village: 'Village', haunted: 'Haunted House', tower: 'Watchtower', well: 'Well', circle: 'Stone Circle', camp: 'Ruined Camp', cabin: 'Birch Cabin', portal: 'Portal', swamp: 'Lava Swamp', ruins: 'Ancient Ruins', arena: 'Orb Sanctuary' };
 const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', cabin: '#d8b48a', portal: '#8b3fd8', swamp: '#ff7a3c', ruins: '#a97bff', arena: '#3ee07a' };
 const MM = {
   cells: new Map(), marks: new Map(), zoom: 1, px2: 2,
@@ -10329,6 +10329,11 @@ function mmReveal() {
     if (!ch || !ch.ready) continue;                         // 没建好的区块不采样（免得为了地图卡顿）
     const tt = mmTerrainType(wx, wz);
     MM.cells.set(k, tt);
+    /* 联机：把新揭开的格子记到待同步队列（5 秒一次批量上报，地图在房间里是共用的） */
+    if (window.NET && NET.active) {
+      (MM.pending || (MM.pending = [])).push(k + ':' + tt);
+      if (MM.pending.length > 1500) MM.pending.splice(0, MM.pending.length - 1500);
+    }
     if (MM.list.length < MM_MAX_CELLS * 3) MM.list.push(gx, gz, tt);
   }
 }
@@ -10341,9 +10346,9 @@ function mmScanStructs() {
       if (!s || Math.hypot(s.x - px, s.z - pz) > 58) continue;
       const key = 'swamp:' + s.x + ',' + s.z;
       if (MM.marks.has(key)) continue;
-      MM.marks.set(key, { type: 'swamp', label: '熔岩沼泽', x: s.x, z: s.z, gy: NETHER_LAVA_Y });
+      MM.marks.set(key, { type: 'swamp', label: 'Lava Swamp', x: s.x, z: s.z, gy: NETHER_LAVA_Y });
       MM.dirty = true;
-      toast(`小地图标记：熔岩沼泽（${s.x - NETHER_OFF}, ${s.z - NETHER_OFF}）`, 2.6);
+      toast(`Minimap marker: Lava Swamp (${s.x - NETHER_OFF}, ${s.z - NETHER_OFF})`, 2.6);
     }
     return;
   }
@@ -10359,7 +10364,7 @@ function mmScanStructs() {
       const label = MM_LABEL[t.name] || t.name;
       MM.marks.set(key, { type: t.name, label, x: o.cx, z: o.cz, gy: o.gy || 0 });
       MM.dirty = true;
-      toast(`小地图标记：${label}（${o.cx}, ${o.cz}）`, 2.4);
+      toast(`Minimap marker: ${label} (${o.cx}, ${o.cz})`, 2.4);
     }
   }
 }
@@ -10369,10 +10374,10 @@ function mmZoom(d) {
 }
 function mmZoomToast() {
   mmZoom(0);
-  toast(`小地图：视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格（${MM.zoom + 1}/${MM_ZOOM.length} 级）`, 1.4);
+  toast(`Minimap: ${MM_ZOOM[MM.zoom] * MM_CELL} block view (level ${MM.zoom + 1}/${MM_ZOOM.length})`, 1.4);
 }
 function mmCycleZoom() { MM.zoom = (MM.zoom + 1) % MM_ZOOM.length; mmZoomToast(); }
-const MM_DIR8 = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+const MM_DIR8 = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
 function mmDraw() {                                // 探针开着时给小地图像素化计时
   if (!profOn()) return mmDrawInner();
   const t = performance.now(); mmDrawInner(); PROF.mm += performance.now() - t;
@@ -10419,7 +10424,7 @@ function mmDrawInner() {
   // 指北 + 边框
   ctx.font = `${Math.round(8 * MM.px2)}px sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillStyle = '#cfe0f2'; ctx.fillText('北', S / 2, 2);
+  ctx.fillStyle = '#cfe0f2'; ctx.fillText('North', S / 2, 2);
   ctx.strokeStyle = '#33475e'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, S - 2, S - 2);
   // 状态行：最近的结构 / 探索格数
   if (MM.info) {
@@ -10430,17 +10435,17 @@ function mmDrawInner() {
     }
     let line;
     if (DIM === 'nether') {
-      const tag = '冥界 · ';
+      const tag = 'Nether · ';
       line = best
-        ? `${tag}${best.mk.label} ${Math.round(best.d)}格\n已探索 ${MM.cells.size} 格 · 视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格`
-        : `${tag}未发现沼泽\n已探索 ${MM.cells.size} 格 · 视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格`;
+        ? `${tag}${best.mk.label} ${Math.round(best.d)} blocks\nExplored ${MM.cells.size} blocks · View ${MM_ZOOM[MM.zoom] * MM_CELL} blocks`
+        : `${tag}No swamp found\nExplored ${MM.cells.size} blocks · View ${MM_ZOOM[MM.zoom] * MM_CELL} blocks`;
     }
-    else if (!best) line = `未发现结构\n已探索 ${MM.cells.size} 格 · 视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格`;
+    else if (!best) line = `No structures found\nExplored ${MM.cells.size} blocks · View ${MM_ZOOM[MM.zoom] * MM_CELL} blocks`;
     else {
       let ang = Math.atan2(best.mk.x - player.p.x, -(best.mk.z - player.p.z));
       if (ang < 0) ang += Math.PI * 2;
       const dir = MM_DIR8[Math.round(ang / (Math.PI / 4)) % 8];
-      line = `${best.mk.label} ${Math.round(best.d)}格 ${dir}\n已探索 ${MM.cells.size} 格 · 视野 ${MM_ZOOM[MM.zoom] * MM_CELL} 格`;
+      line = `${best.mk.label} ${Math.round(best.d)} blocks ${dir}\nExplored ${MM.cells.size} blocks · View ${MM_ZOOM[MM.zoom] * MM_CELL} blocks`;
     }
     MM.info.textContent = line;
   }
@@ -10454,6 +10459,39 @@ function mmTick(dt) {
   if (MM.revealT <= 0) { MM.revealT = 0.35; mmReveal(); MM.dirty = true; }
   if (MM.scanT <= 0) { MM.scanT = 0.8; mmScanStructs(); }
   if (MM.drawT <= 0 || MM.dirty) { MM.drawT = 0.2; MM.dirty = false; mmDraw(); }
+  mmSyncTick(dt);                                           // 联机：地图公用（收/发探索格）
+}
+/* ---------------- 联机地图共用 ----------------
+ * 房间里的地图是**一份**：谁走到哪儿、解开哪几格，其他人小地图上就跟着亮起来。
+ * 传输只发「新揭开的格子」（key:terrain|…），5 秒一批；进服拉一次全量。
+ * 自定义标记（waypoint）仍然各自一份——那是个人的书签，不是地形。 */
+let mmSyncT = 0, mmPulledRoom = '';
+function mmSyncTick(dt) {
+  if (!(window.NET && NET.active && NET.mmPush)) return;
+  mmSyncT += dt;
+  if (mmSyncT < 5) return;
+  mmSyncT = 0;
+  if (mmPulledRoom !== NET.code) { mmPulledRoom = NET.code; NET.mmPull(); }   // 进服/换房拉一次全量
+  const p = MM.pending || [];
+  if (p.length) NET.mmPush(p.splice(0, 900).join('|'));
+}
+function mmMergeBlob(blob) {
+  if (typeof blob !== 'string' || !blob) return 0;
+  let n = 0;
+  for (const item of blob.split('|')) {
+    const i = item.lastIndexOf(':');
+    if (i <= 0) continue;
+    if (MM.cells.size >= MM_MAX_CELLS) break;
+    const k = item.slice(0, i), tt = +item.slice(i + 1) | 0;
+    if (MM.cells.has(k)) continue;
+    const cp = k.indexOf(',');
+    if (cp <= 0) continue;
+    MM.cells.set(k, tt);
+    if (MM.list.length < MM_MAX_CELLS * 3) MM.list.push(+k.slice(0, cp), +k.slice(cp + 1), tt);
+    n++;
+  }
+  if (n) MM.dirty = true;
+  return n;
 }
 /* 小地图存档：格子最多 4 万，原来每次存档都 Array.from(entries()) 再 JSON.stringify，
    走一会儿就变成几十万字符的字符串 → 每 8 秒一次长任务，手机上直接「屏幕冻结」。
@@ -10506,7 +10544,7 @@ function mmInit() {
   if (zout) zout.onclick = (e) => { e.preventDefault(); e.stopPropagation(); mmZoom(-1); mmZoomToast(); };
   // 点小地图 = 开全屏地图（手机上最顺手的入口）
   MM.cv.style.pointerEvents = 'auto'; MM.cv.style.cursor = 'pointer';
-  MM.cv.title = '点击打开全屏地图（M）';
+  MM.cv.title = 'Click to open the full map (M)';
   MM.cv.onclick = () => { if (!uiOpen()) mmOpenBig(); };
   MM.dirty = true;
 }
@@ -10539,12 +10577,12 @@ function mmBigScreenToWorld(clientX, clientY) {
 function mmMarkCount() { return Array.from(MM.marks.values()).filter(m => m.type === 'custom').length; }
 function mmAddMark(x, z, label) {
   const key = 'custom:' + x + ',' + z;
-  if (MM.marks.has(key)) { toast('这里已经有标记了', 1.2); return false; }
-  const label2 = label || ('标记 ' + (mmMarkCount() + 1));
+  if (MM.marks.has(key)) { toast('There is already a marker here', 1.2); return false; }
+  const label2 = label || ('Marker ' + (mmMarkCount() + 1));
   MM.marks.set(key, { type: 'custom', label: label2, x, z });
   MM.dirty = true;
   mmBigDraw(); renderMarkList();
-  toast(`已标记「${label2}」（${x}, ${z}）`, 2.0);
+  toast(`Marked “${label2}” (${x}, ${z})`, 2.0);
   saveSoon();
   return true;
 }
@@ -10553,14 +10591,14 @@ function mmDelMark(key) {
   if (!m) return false;
   MM.marks.delete(key);
   MM.dirty = true; mmBigDraw(); renderMarkList();
-  toast(`已删除标记「${m.label}」`, 1.4);
+  toast(`Deleted marker “${m.label}”`, 1.4);
   saveSoon();
   return true;
 }
 function mmRenameMark(key) {
   const m = MM.marks.get(key);
   if (!m) return false;
-  const nm = prompt('标记名称', m.label);
+  const nm = prompt('Marker name', m.label);
   if (nm === null) return false;
   const t = String(nm).trim().slice(0, 12);
   if (!t) return false;
@@ -10572,10 +10610,10 @@ function renderMarkList() {
   if (!box) return;
   const list = Array.from(MM.marks.entries()).map(([k, m]) => ({ k, ...m, d: Math.hypot(m.x - player.p.x, m.z - player.p.z) }))
     .sort((a, b) => (a.type === 'custom' ? 0 : 1) - (b.type === 'custom' ? 0 : 1) || a.d - b.d);
-  if ($('mapMarkCount')) $('mapMarkCount').textContent = `${mmMarkCount()} 个自定义 · ${list.length} 个标记`;
+  if ($('mapMarkCount')) $('mapMarkCount').textContent = `${mmMarkCount()} custom · ${list.length} markers`;
   box.innerHTML = '';
   if (!list.length) {
-    box.innerHTML = '<div style="color:#7f93ab;font-size:11px;padding:6px">还没有标记：在地图上点一下就能放一个</div>';
+    box.innerHTML = '<div style="color:#7f93ab;font-size:11px;padding:6px">No markers yet: click anywhere on the map to drop one</div>';
     return;
   }
   for (const m of list) {
@@ -10584,9 +10622,9 @@ function renderMarkList() {
       + 'border-radius:4px;background:#0e1724;font-size:11px;cursor:pointer';
     row.innerHTML = `<span style="width:8px;height:8px;border-radius:2px;background:${m.type === 'custom' ? '#ffd84a' : (MM_MARK_COLOR[m.type] || '#f5c451')}"></span>`
       + `<b style="font-weight:400;color:#dbe8f6;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.label)}</b>`
-      + `<span style="color:#8fa6c0">${Math.round(m.d)}格</span>`
-      + `<span data-ren="${m.k}" title="改名" style="color:#7fd6ff;padding:0 2px">改</span>`
-      + `<span data-del="${m.k}" title="删除" style="color:#e0524b;padding:0 2px">✕</span>`;
+      + `<span style="color:#8fa6c0">${Math.round(m.d)} blocks</span>`
+      + `<span data-ren="${m.k}" title="Rename" style="color:#7fd6ff;padding:0 2px">Edit</span>`
+      + `<span data-del="${m.k}" title="Delete" style="color:#e0524b;padding:0 2px">✕</span>`;
     row.onclick = (e) => {
       const del = e.target.closest('[data-del]'), ren = e.target.closest('[data-ren]');
       if (del) { e.stopPropagation(); mmDelMark(del.dataset.del); return; }
@@ -10681,12 +10719,12 @@ function mmBigDraw() {
   ctx.strokeStyle = '#cfe0f2'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(14 * dpr, H - 16 * dpr); ctx.lineTo(14 * dpr + barPx, H - 16 * dpr); ctx.stroke();
   ctx.font = `${Math.round(10 * dpr)}px sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-  ctx.fillStyle = '#cfe0f2'; ctx.fillText(`${barBlocks} 格`, 14 * dpr, H - 18 * dpr);
+  ctx.fillStyle = '#cfe0f2'; ctx.fillText(`${barBlocks} blocks`, 14 * dpr, H - 18 * dpr);
   ctx.textAlign = 'right';
   const hv = MM_BIG.hover;
-  ctx.fillText(hv ? `x ${hv.x - off}  z ${hv.z - off}` : `中心 x ${Math.round(MM_BIG.x) - off}  z ${Math.round(MM_BIG.z) - off}`, W - 10 * dpr, H - 10 * dpr);
+  ctx.fillText(hv ? `x ${hv.x - off}  z ${hv.z - off}` : `Center x ${Math.round(MM_BIG.x) - off}  z ${Math.round(MM_BIG.z) - off}`, W - 10 * dpr, H - 10 * dpr);
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText(`${DIM === 'nether' ? '冥界 · ' : ''}视野 ${MM_BIGZOOM[MM_BIG.zoom] * MM_CELL} 格 · 已探索 ${MM.cells.size} 格`, 10 * dpr, 8 * dpr);
+  ctx.fillText(`${DIM === 'nether' ? 'Nether · ' : ''}View ${MM_BIGZOOM[MM_BIG.zoom] * MM_CELL} blocks · Explored ${MM.cells.size} blocks`, 10 * dpr, 8 * dpr);
 }
 function mmBigZoom(d) {
   MM_BIG.zoom = Math.max(0, Math.min(MM_BIGZOOM.length - 1, MM_BIG.zoom + d));
@@ -10780,7 +10818,7 @@ function saveInner() {
   } catch (e) {
     // 配额满/隐私模式：存档静默失败会让人以为进度还在，必须让玩家看见
     saveErr = String((e && e.message) || e);
-    if (!saveWarned) { saveWarned = true; toast('存档写入失败（浏览器空间已满）：先去世界列表删掉不用的世界', 7); }
+    if (!saveWarned) { saveWarned = true; toast('Save failed (browser storage is full): delete unused worlds from the world list first', 7); }
   }
 }
 function saveSoon() { clearTimeout(saveSoonT); saveSoonT = setTimeout(save, 600); }
@@ -10824,7 +10862,7 @@ function loadSave(id, expectSeed) {
     }
     loadErr = null;
     return true;
-  } catch (e) { loadErr = String((e && e.stack) || e); console.error('[blockwild] 读档失败', e); return false; }
+  } catch (e) { loadErr = String((e && e.stack) || e); console.error('[blockwild] Failed to load the save', e); return false; }
 }
 
 /* ============================================================ 帧循环 */
@@ -10918,10 +10956,10 @@ function fmtTime(ts) {
 function renderWorldList() {
   const box = $('worldList');
   if (!box) return;
-  if ($('worldCount')) $('worldCount').textContent = `${worlds.length} 个`;
+  if ($('worldCount')) $('worldCount').textContent = ` (${worlds.length})`;
   box.innerHTML = '';
   if (!worlds.length) {
-    box.innerHTML = '<p style="color:#8ea3ba;font-size:12px;margin:8px 0">还没有世界，点下面「创建新世界」开始。</p>';
+    box.innerHTML = '<p style="color:#8ea3ba;font-size:12px;margin:8px 0">No worlds yet. Click “Create New World” below to start.</p>';
     return;
   }
   const sorted = worlds.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
@@ -10930,17 +10968,17 @@ function renderWorldList() {
     row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin:6px 0;background:#16202e;border:2px solid #27384a;border-radius:8px';
     const info = document.createElement('div');
     info.innerHTML = `<b style="color:#e8f0f8;font-size:13px">${escHtml(w.name)}</b>`
-      + `<div style="color:#8ea3ba;font-size:11px;margin-top:3px">${w.mode === 'creative' ? '创造' : '生存'}`
-      + ` · 种子 ${escHtml(w.seedText || w.seed)} · ${fmtTime(w.updated)}</div>`;
+      + `<div style="color:#8ea3ba;font-size:11px;margin-top:3px">${w.mode === 'creative' ? 'Creative' : 'Survival'}`
+      + ` · Seed ${escHtml(w.seedText || w.seed)} · ${fmtTime(w.updated)}</div>`;
     const btns = document.createElement('div');
     btns.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
     const play = document.createElement('button');
-    play.className = 'btn gold'; play.textContent = '进入';
+    play.className = 'btn gold'; play.textContent = 'Enter';
     play.onclick = () => { currentId = w.id; saveIndex(); startGame(w); };
     const del = document.createElement('button');
-    del.className = 'btn'; del.textContent = '删除';
+    del.className = 'btn'; del.textContent = 'Delete';
     del.onclick = () => {
-      if (!confirm(`删除世界「${w.name}」？存档不可恢复。`)) return;
+      if (!confirm(`Delete world “${w.name}”? The save cannot be recovered.`)) return;
       deleteWorld(w.id); renderWorldList();
     };
     btns.appendChild(play); btns.appendChild(del);
@@ -10953,8 +10991,8 @@ function setCreateMode(m) {
   $('modeSurvival').style.outline = createMode === 'survival' ? '2px solid #f5c451' : 'none';
   $('modeCreative').style.outline = createMode === 'creative' ? '2px solid #f5c451' : 'none';
   $('modeDesc').textContent = createMode === 'creative'
-    ? '创造：不会受伤、不会饿、秒破方块、方块无限，连按两次空格可以飞行。'
-    : '生存：会被怪打、会饿、要合成装备，挖到的资源要靠近才能捡起。';
+    ? 'Creative: no damage, no hunger, instant block breaking, unlimited blocks. Double-tap Space to fly.'
+    : 'Survival: mobs hurt you, you get hungry, you must craft gear, and mined resources must be picked up close by.';
 }
 
 /* ============================================================ 启动 */
@@ -11017,7 +11055,7 @@ function startGame(world) {
     const sy2 = surfaceY(Math.floor(player.p.x), Math.floor(player.p.z));
     if (player.p.y < sy2 + 1) player.p.y = sy2 + 1.05;
   }
-  toast(`「${world.name}」· ${isCreative() ? '创造模式' : '生存模式'} · 按 E 打开背包`, 4.5);
+  toast(`“${world.name}” · ${isCreative() ? 'Creative mode' : 'Survival mode'} · Press E to open the Inventory`, 4.5);
   lockPointer();
   /* ★ 单机进世界时，如果这个世界在云端也有房间：把好友在联机里改过、本机还没见过的方块补下来。
      规则：**本机已有的格子以本机为准**（不覆盖你离线时的改动），只补本机没有的格子 ——
@@ -11027,7 +11065,7 @@ function startGame(world) {
 }
 
 $('btnNewWorld').onclick = () => {
-  $('wName').value = `世界 ${worlds.length + 1}`;
+  $('wName').value = `World ${worlds.length + 1}`;
   $('wSeed').value = '';
   setCreateMode('survival');
   $('createPanel').classList.remove('hide');
@@ -11056,21 +11094,21 @@ $('setSens').oninput = () => {
 };
 $('setTouchUI').onclick = () => {
   userCfg.touchUI = !userCfg.touchUI;
-  $('setTouchUI').textContent = userCfg.touchUI ? '开' : '关';
+  $('setTouchUI').textContent = userCfg.touchUI ? 'On' : 'Off';
   applyTouchUI(); saveCfg();
-  toast(userCfg.touchUI ? '虚拟按键：开（鼠标按住拖动可转视角）' : '虚拟按键：关', 2);
+  toast(userCfg.touchUI ? 'Virtual buttons: On (hold and drag the mouse to look around)' : 'Virtual buttons: Off', 2);
 };
 $('setProbe').onclick = () => toggleProbe();
 function toggleProbe() {                           // 性能探针开关（设置面板按钮 / F3 共用）
   userCfg.probe = !userCfg.probe;
-  const b = $('setProbe'); if (b) b.textContent = userCfg.probe ? '开' : '关';
+  const b = $('setProbe'); if (b) b.textContent = userCfg.probe ? 'On' : 'Off';
   saveCfg(); lastStatus = '';                       // 立刻重画 HUD 那一行
-  toast(userCfg.probe ? '性能探针：开（HUD 多一行 火把/结构/缓存/场景 数字）' : '性能探针：关', 2);
+  toast(userCfg.probe ? 'Perf probe: On (one extra HUD line with torch/structure/cache/scene counts)' : 'Perf probe: Off', 2);
 }
 $('btnResetKeys').onclick = () => {
   keymap = { ...DEFAULT_KEYS };
   saveCfg(); renderKeyRows();
-  toast('键位已恢复默认', 1.6);
+  toast('Key bindings reset to default', 1.6);
 };
 /* ============================================================ 指令（仅创造模式）
    /tp <x> <y> <z>  传到坐标
@@ -11094,15 +11132,15 @@ function cmdPlayerList() {
   if (!box) return;
   const rs = (NET && NET.remotes) ? Array.from(NET.remotes.values()) : [];
   if (!rs.length) {
-    box.innerHTML = '<span style="color:#6f8aa6">房间里没有其他玩家 —— 联机时点队友名字可以直接传过去</span>';
+    box.innerHTML = '<span style="color:#6f8aa6">No other players in the room — in Multiplayer, click a teammate\'s name to teleport to them</span>';
     return;
   }
-  box.innerHTML = '房间里：' + rs.map(r => `<button class="btn" data-tp="${escHtml(r.name)}" style="padding:2px 8px;margin:2px 4px 0 0">${escHtml(r.name)}</button>`).join('')
-    + '<div style="color:#6f8aa6;margin-top:4px">点名字 = 传送到他身边</div>';
+  box.innerHTML = 'In room: ' + rs.map(r => `<button class="btn" data-tp="${escHtml(r.name)}" style="padding:2px 8px;margin:2px 4px 0 0">${escHtml(r.name)}</button>`).join('')
+    + '<div style="color:#6f8aa6;margin-top:4px">Click a name = teleport to them</div>';
   for (const b of box.querySelectorAll('button[data-tp]')) b.onclick = () => runCmd('/tp ' + b.dataset.tp);
 }
 function openCmd(prefill) {
-  if (!started) { toast('先进世界再用指令', 1.8); return; }
+  if (!started) { toast('Enter a world before using commands', 1.8); return; }
   cmdOpen = true;
   const el = $('cmdBox');
   if (!el) return;
@@ -11129,13 +11167,13 @@ function cmdFreeSpot(x, y, z) {                    // 目标点埋在方块里�
   return Math.min(CFG.WH - 3, yy);
 }
 function cmdTpRaw(x, y, z, label) {
-  if (!isCreative()) { cmdSay('传送只在创造模式可用（这个世界是生存模式）', true); return false; }
+  if (!isCreative()) { cmdSay('Teleport only works in Creative mode (this world is Survival)', true); return false; }
   const bx = Math.floor(x), bz = Math.floor(z);
   const yy = cmdFreeSpot(bx, y, bz);
   player.p.set(bx + 0.5, yy, bz + 0.5);
   player.v.set(0, 0, 0); player.fallFrom = null; camSmoothY = null; player.mineTarget = null;
   player.mining = 0;
-  cmdSay(`已传送到${label}：${bx} ${yy} ${bz}`);
+  cmdSay(`Teleported to ${label}: ${bx} ${yy} ${bz}`);
   saveSoon();
   return true;
 }
@@ -11145,28 +11183,28 @@ function runCmd(raw) {
   const a = (s.startsWith('/') ? s.slice(1) : s).split(/\s+/);
   const cmd = (a[0] || '').toLowerCase();
   if (cmd === 'help' || cmd === '?') {
-    cmdSay('可用指令：/tp <x> <y> <z> 传到坐标 · /tp <玩家名> 传到队友 · /help');
+    cmdSay('Commands: /tp <x> <y> <z> teleport to coords · /tp <player> teleport to a teammate · /help');
     return true;
   }
   if (cmd === 'tp') {
     if (a.length === 4) {
       const x = Number(a[1]), y = Number(a[2]), z = Number(a[3]);
-      if (![x, y, z].every(v => Number.isFinite(v))) { cmdSay('坐标得是数字，例如：/tp 100 80 -200', true); return false; }
-      return cmdTpRaw(x, y, z, '坐标点');
+      if (![x, y, z].every(v => Number.isFinite(v))) { cmdSay('Coordinates must be numbers, e.g. /tp 100 80 -200', true); return false; }
+      return cmdTpRaw(x, y, z, 'Coordinates');
     }
     const name = a.slice(1).join(' ').trim();
-    if (!name) { cmdSay('用法：/tp <x> <y> <z>，或者 /tp <玩家名>', true); return false; }
+    if (!name) { cmdSay('Usage: /tp <x> <y> <z>, or /tp <player>', true); return false; }
     const rs = (NET && NET.remotes) ? Array.from(NET.remotes.values()) : [];
     const low = name.toLowerCase();
     const hit = rs.find(r => String(r.name).toLowerCase() === low) || rs.find(r => String(r.name).toLowerCase().includes(low));
     if (!hit) {
-      cmdSay(rs.length ? `找不到玩家「${name}」（房间里：${rs.map(r => r.name).join('、')}）` : `找不到玩家「${name}」（现在没有其他玩家，联机房间里才有队友）`, true);
+      cmdSay(rs.length ? `Player “${name}” not found (in room: ${rs.map(r => r.name).join('、')})` : `Player “${name}” not found (no other players right now — teammates only exist in a Multiplayer room)`, true);
       return false;
     }
     const p = hit.obj.position;
-    return cmdTpRaw(p.x, p.y + 0.2, p.z, `「${hit.name}」身边`);
+    return cmdTpRaw(p.x, p.y + 0.2, p.z, `“${hit.name}”`);
   }
-  cmdSay(`未知指令「${cmd}」—— 输入 /help 看列表`, true);
+  cmdSay(`Unknown command “${cmd}” — type /help for the list`, true);
   return false;
 }
 $('btnCmd').onclick = () => openCmd('');
@@ -11205,7 +11243,7 @@ function buildLogo() {
   const img = $('menuLogo');
   if (!img || !atlasCanvas) return;
   const W = 1200, H = 460;
-  const TITLE = '荒石遗境';
+  const TITLE = 'Wastestone Remnant';
   const FONT = '900 198px "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d');
@@ -11353,7 +11391,7 @@ const LOOK_KEY = 'bw_look_v1';
 const SKIN_COLORS = [0xf3cba6, 0xe3ab7c, 0xc98f5c, 0xa06c42, 0x7c4f2d, 0x5b3a20, 0xd8b48a, 0x9fd3a6];
 const CLOTH_COLORS = [0xd9534f, 0x4a7fd9, 0x1abc9c, 0xf0ad4e, 0x9b59b6, 0x394655, 0xe67e22, 0xf2f2f2];
 const HAIR_COLORS = [0x221a14, 0x33251a, 0x6b4a2a, 0xc9a227, 0xb9bcc2, 0x8f3f2a];
-const HAIR_STYLES = ['短发', '长发'];
+const HAIR_STYLES = ['Short hair', 'Long hair'];
 const LOOK = { name: '', skin: SKIN_COLORS[0], cloth: CLOTH_COLORS[0], hair: HAIR_COLORS[1], hs: 0, skinSrc: 'gen' };
 function randPlayerName() { return 'player' + (10000 + Math.floor(Math.random() * 90000)); }
 function saveLook() {
@@ -11729,10 +11767,10 @@ function drawSkinThumb() {
   else g.drawImage(genSkinCanvas(LOOK.skin, LOOK.cloth, LOOK.hair, LOOK.hs), 0, 0);
   const lb = $('skinLayers');                                    // 界面上直接显示二层有没有被认出来
   if (lb) {
-    if (!skinCustom && LOOK.skinSrc === 'custom') lb.innerHTML = '二层：<b style="color:#f5c451">读取中…</b>';
+    if (!skinCustom && LOOK.skinSrc === 'custom') lb.innerHTML = 'Second layer: <b style="color:#f5c451">Loading…</b>';
     else {
       const has = skinHasOverlay(LOOK.skinSrc === 'custom' ? 'custom' : 'gen');
-      lb.innerHTML = has ? '二层：<b style="color:#5fd18b">有</b>（帽子/外套/袖子/裤子）' : '二层：<b style="color:#8ea3ba">无</b>（这张图没有外层像素）';
+      lb.innerHTML = has ? 'Second layer: <b style="color:#5fd18b">Yes</b> (hat/jacket/sleeves/pants)' : 'Second layer: <b style="color:#8ea3ba">No</b> (this image has no outer pixels)';
     }
   }
 }
@@ -11743,7 +11781,7 @@ function setSkinFromFile(file) {
     const img = new Image();
     img.onload = () => {
       if (img.width !== 64 || img.height !== 64) {          // 只收 MC 标准 64×64
-        toast(`皮肤必须是 64×64 的 PNG（你选的是 ${img.width}×${img.height}）`, 4);
+        toast(`Skin must be a 64×64 PNG (yours is ${img.width}×${img.height})`, 4);
         return;
       }
       skinCustom = img;
@@ -11753,9 +11791,9 @@ function setSkinFromFile(file) {
       saveLook();
       refreshLookAv();
       drawSkinThumb();
-      toast('皮肤已应用（64×64）', 2);
+      toast('Skin applied (64×64)', 2);
     };
-    img.onerror = () => toast('这张 PNG 读不出来，换一张试试', 3);
+    img.onerror = () => toast('This PNG cannot be read, try another one', 3);
     img.src = String(fr.result);
   };
   fr.readAsDataURL(file);
@@ -11793,12 +11831,12 @@ $('btnSkinReset').onclick = () => {
   LOOK.skinSrc = 'gen';
   try { localStorage.removeItem(SKIN_PNG_KEY); } catch (e) {}
   saveLook(); refreshLookAv(); drawSkinThumb(); rebuildArms();
-  toast('已切回按配色生成的皮肤', 2);
+  toast('Switched back to the palette-generated skin', 2);
 };
 $('btnCloseLook').onclick = () => $('lookPanel').classList.add('hide');
 $('lookName').addEventListener('input', () => {
   LOOK.name = $('lookName').value.trim().slice(0, 14);
-  $('lookNamePreview').textContent = LOOK.name || '（空 = 自动生成）';
+  $('lookNamePreview').textContent = LOOK.name || '(empty = auto-generated)';
   saveLook();
 });
 $('lookName').addEventListener('blur', () => {
@@ -11873,13 +11911,13 @@ window.GAME = {
     start(fresh = false) {
       if (!started) {
         let w = fresh ? null : worldMeta(currentId);
-        if (!w) w = createWorld({ name: fresh ? '调试世界' : (worldMeta(currentId) ? worldMeta(currentId).name : '调试世界'), mode: 'survival' });
+        if (!w) w = createWorld({ name: fresh ? 'Debug World' : (worldMeta(currentId) ? worldMeta(currentId).name : 'Debug World'), mode: 'survival' });
         startGame(w);
       }
       return started;
     },
     startCreative() {
-      if (!started) startGame(createWorld({ name: '调试·创造', mode: 'creative' }));
+      if (!started) startGame(createWorld({ name: 'Debug · Creative', mode: 'creative' }));
       return started;
     },
     worlds: () => worlds.map(w => ({ id: w.id, name: w.name, mode: w.mode, seed: w.seed, seedText: w.seedText, updated: w.updated })),
@@ -11891,7 +11929,7 @@ window.GAME = {
     freeze: () => ({ ...FREEZE, glLost, sinceLossMs: glLost ? Math.round(performance.now() - glLostAt) : 0,
       sinceRenderMs: lastRenderAt ? Math.round(performance.now() - lastRenderAt) : null,
       mask: fzWrap ? fzWrap.style.display : null, shown: fzShown, recovering: glRecovering, shotbuf: SHOTBUF }),
-    glTest: (mode) => {                       // 冻结自检：'lose' 丢显卡上下文 / 'restore' 恢复
+    glTest: (mode) => {                       // 冻结自检：'lose' Lost GPU context / 'restore' 恢复
       try {
         // ⚠ 上下文已经丢了以后 getExtension 会返回 null（规范如此），扩展句柄必须提前缓存
         if (!window.__bwLoseExt) window.__bwLoseExt = renderer.getContext().getExtension('WEBGL_lose_context');
@@ -12188,10 +12226,10 @@ window.GAME = {
       out.sort((p, q) => p.dist - q.dist);
       return out.slice(0, 6);
     },
-    gotoAbyss(mode) {                           // 'hall' 祭坛大厅 / 'shaft' 地表井口
+    gotoAbyss(mode) {                           // 'hall' Altar hall / 'shaft' 地表井口
       const list = this.abyss(6);
       const a = list[0];
-      if (!a) { toast('附近 3 个村庄格内没有深渊迷宫', 2.6); return null; }
+      if (!a) { toast('No Abyss Maze within 3 village cells nearby', 2.6); return null; }
       const cx = Math.floor(a.x / CFG.CH), cz = Math.floor(a.z / CFG.CH);
       for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) buildChunk(getChunk(cx + i, cz + j));
       if (mode === 'shaft') player.p.set(a.shaft.x + 0.5, a.shaft.y + 1.2, a.shaft.z + 0.5);
@@ -12338,7 +12376,7 @@ window.GAME = {
       for (let a = -3; a <= 3; a++) for (let b = -3; b <= 3; b++) buildChunk(getChunk(ccx + a, ccz + b));
       player.p.set(o.cx + 0.5, o.gy + 3, o.cz + 9.5);
       player.v.set(0, 0, 0);
-      toast(`宝珠守护地：(${o.cx}, ${o.cz}) 中央宝珠台 y=${o.gy + 3}`, 3.2);
+      toast(`Orb Sanctum: (${o.cx}, ${o.cz}) central orb pedestal y=${o.gy + 3}`, 3.2);
       return { cx: o.cx, cz: o.cz, gy: o.gy, ops: o.ops };
     },
     trialStart: (altar) => {                    // 传 {x,y,z} = 直接在该祭坛开试炼（深渊/宝珠台都能用）
@@ -12875,14 +12913,14 @@ const MPUI = {
     d.innerHTML =
       '<div class="card" style="max-width:660px;width:min(94vw,660px)">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-      +   '<div class="sec" style="border:0;margin:0">多人游戏</div>'
+      +   '<div class="sec" style="border:0;margin:0">Multiplayer</div>'
       +   '<div style="display:flex;gap:8px;align-items:center"><span id="mpAcctLine" style="font-size:12px;color:#9fb3c8"></span>'
-      +   '<button class="btn" id="mpClose">返回</button></div>'
+      +   '<button class="btn" id="mpClose">Back</button></div>'
       + '</div>'
       + '<div id="mpAcctBox" style="background:rgba(120,200,255,.07);border:1px solid rgba(120,200,255,.22);border-radius:9px;padding:8px 10px;margin-bottom:10px"></div>'
       + '<div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">'
-      +   '<button class="btn" data-mp="tab:friend">好友</button>'
-      +   '<button class="btn" data-mp="tab:mine">我的世界</button>'
+      +   '<button class="btn" data-mp="tab:friend">Friends</button>'
+      +   '<button class="btn" data-mp="tab:mine">My Worlds</button>'
       +   '<span id="mpWait" style="font-size:12px;color:#ffcf6b"></span>'
       +   '<span style="flex:1"></span><span id="mpPing" style="font-size:11px;color:#7a8b9c;align-self:center"></span>'
       + '</div>'
@@ -12944,7 +12982,7 @@ const MPUI = {
       const w = this.waiting;
       const hit = d.den.find(x => w && x.from === w.pid) || d.den[0];
       if (hit && (!w || hit.from === w.pid)) { this.setWait(null); this.render(); }
-      if (hit) toast((hit.nick || '对方') + ' 拒绝了你的加入申请', 4);
+      if (hit) toast((hit.nick || 'They') + ' declined your join request', 4);
     }
   },
   pullRooms() {
@@ -12960,9 +12998,9 @@ const MPUI = {
       if (!d || !d.ok) { this.rooms = []; }
       else { this.rooms = d.rooms || []; }
       const el = this.root && this.root.querySelector('#mpPing');
-      if (el) el.textContent = ms ? ('服务器 ' + ms + 'ms') : '服务器在线';
+      if (el) el.textContent = ms ? ('Server ' + ms + 'ms') : 'Server online';
       this.render();
-    }).catch(() => { this.rooms = []; const el = this.root && this.root.querySelector('#mpPing'); if (el) el.textContent = '服务器连不上'; this.render(); });
+    }).catch(() => { this.rooms = []; const el = this.root && this.root.querySelector('#mpPing'); if (el) el.textContent = 'Cannot reach the server'; this.render(); });
   },
   pullFriends() {
     if (!ACCT.on) return;
@@ -12976,14 +13014,14 @@ const MPUI = {
     const NET = window.NET;
     if (k === 'tab') { this.tab = (v === 'list' || v === 'direct') ? 'friend' : v; this.render(); if (this.tab === 'friend') this.pullFriends(); return; }
     if (k === 'login' || k === 'reg') return this.doAuth(k);
-    if (k === 'logout') { acctLogout(); this.render(); return this.msg2('已退出账号（现在是单机模式）'); }
+    if (k === 'logout') { acctLogout(); this.render(); return this.msg2('Signed out (now in single-player mode)'); }
     if (k === 'refresh') return this.pullFriends();
     if (k === 'reload') return this.pullFriends();
     if (k === 'join') return mpJoinRoom(btn.dataset.code);
     if (k === 'joinAcc') return mpEnterAccountWorld(btn.dataset.code);
     if (k === 'direct') return this.doDirect();
-    if (k === 'copy') { if (window.__bwMP && window.__bwMP.copy) return window.__bwMP.copy(); return this.msg2('先进房间才有邀请链接'); }
-    if (k === 'leave') { if (window.__bwMP && window.__bwMP.leave) return window.__bwMP.leave(); return this.msg2('现在不在房间里'); }
+    if (k === 'copy') { if (window.__bwMP && window.__bwMP.copy) return window.__bwMP.copy(); return this.msg2('Join a room first to get an invite link'); }
+    if (k === 'leave') { if (window.__bwMP && window.__bwMP.leave) return window.__bwMP.leave(); return this.msg2('You are not in a room right now'); }
     if (k === 'tp') { if (window.__bwMP && window.__bwMP.tp) window.__bwMP.tp(btn.dataset.id); return; }
     if (k === 'fadd') return this.doAddFriend();
     /* ★ 申请加入：唯一进别人的世界的入口。等好友点「同意」，他那边会自动开房，我这边自动进。 */
@@ -12992,72 +13030,72 @@ const MPUI = {
       this.setWait({ pid, nick, at: Date.now() });
       this.render();
       acctApi({ a: 'jreq', tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, to: pid }).then(d => {
-        if (d && d.ok) return this.msg2('已向 ' + (nick || '好友') + ' 发出加入申请，他点「同意」后你会自动进入');
+        if (d && d.ok) return this.msg2('Sent a join request to ' + (nick || 'your friend') + ' — once they click Accept, you will join automatically');
         this.setWait(null); this.render();
-        this.msg2({ offline: '对方不在线（等他在游戏里再申请）', not_friend: '还不是好友', need_login: '请先登录' }[d && d.e] || ('申请失败：' + (d && d.e)));
-      }).catch(() => { this.setWait(null); this.render(); this.msg2('网络错误'); });
+        this.msg2({ offline: 'They are offline (ask again while they are in the game)', not_friend: 'Not friends yet', need_login: 'Please sign in first' }[d && d.e] || ('Request failed: ' + (d && d.e)));
+      }).catch(() => { this.setWait(null); this.render(); this.msg2('Network error'); });
       return;
     }
     if (k === 'waitcancel') {
       const w = this.waiting;
       this.setWait(null); this.render();
       if (w && w.pid) acctApi({ a: 'jcancel', tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, to: w.pid }).catch(() => {});
-      return this.msg2('已取消等待' + (w && w.nick ? '（' + w.nick + ' 那边的申请也撤掉了）' : ''));
+      return this.msg2('Waiting cancelled' + (w && w.nick ? '（' + w.nick + ' the request there was withdrawn too)' : ''));
     }
     if (k === 'jres') {
       const ok = btn.dataset.ok === '1', from = btn.dataset.from;
-      if (!ok) return this.soc({ a: 'jres', from, ok: false }, '已拒绝');
+      if (!ok) return this.soc({ a: 'jres', from, ok: false }, 'Denied');
       /* ★ 同意 = 自动开房：先把「要开成房间的世界码」告诉服务端（= 给申请人发通行证），
          再把自己切进联机房主模式。对方那边收到推送/轮询到通行证就自动进来，全程不用点「开房」。 */
       const NET0 = window.NET;
-      if (NET0 && NET0.active && !NET0.isHost) return this.msg2('你现在在别人的房间里：先「退出联机」再同意');
+      if (NET0 && NET0.active && !NET0.isHost) return this.msg2('You are in someone else\'s room: click Leave Multiplayer first, then Accept');
       const code = mpCurrentCode() || mpHostTargetCode();
       acctApi({ a: 'jres', tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, from, ok: true, code }).then(d => {
         if (!d || !d.ok) {
-          return this.msg2({ no_world: '先进入一个世界再同意（点「我的世界」→ 进入）', need_login: '请先登录' }[d && d.e] || ('操作失败：' + (d && d.e)));
+          return this.msg2({ no_world: 'Enter a world first, then Accept (My Worlds → Enter)', need_login: 'Please sign in first' }[d && d.e] || ('Action failed: ' + (d && d.e)));
         }
-        this.msg2('已同意，正在把这个世界开成房间 ' + code + ' …');
+        this.msg2('Accepted — opening this world as a room ' + code + ' …');
         setTimeout(() => mpAutoHost(code), 200);
-      }).catch(() => this.msg2('网络错误'));
+      }).catch(() => this.msg2('Network error'));
       return;
     }
     if (k === 'invite') {
       const code = (NET && NET.active) ? NET.code : '';
-      if (!code) return this.msg2('先进入房间才能拉人');
-      return this.soc({ a: 'invite', to: btn.dataset.pid, code }, '邀请已发出，对方会自动进来');
+      if (!code) return this.msg2('Join a room before inviting people');
+      return this.soc({ a: 'invite', to: btn.dataset.pid, code }, 'Invite sent, they will join automatically');
     }
   },
   doAuth(kind) {
     const q = id => (this.root.querySelector('#' + id).value || '').trim();
     const user = q('mpUser'), pass = q('mpPass'), nick = q('mpNick');
-    if (!user || !pass) return this.msg2('用户名和密码都要填');
-    this.msg2(kind === 'reg' ? '正在注册…' : '正在登录…');
+    if (!user || !pass) return this.msg2('Enter both username and password');
+    this.msg2(kind === 'reg' ? 'Signing up…' : 'Signing in…');
     acctApi({ a: kind, user, pass, nick: nick || '' }).then(d => {
       if (!d || !d.ok) {
-        return this.msg2({ bad_user: '用户名只能 3-16 位小写字母/数字/下划线', bad_pass: '密码至少 4 位',
-          taken: '这个用户名已经被注册了', no_user: '没有这个账号', need_login: '请先登录' }[d && d.e] || ('失败：' + (d && d.e)));
+        return this.msg2({ bad_user: 'Username must be 3-16 lowercase letters/digits/underscores', bad_pass: 'Password must be at least 4 characters',
+          taken: 'That username is already taken', no_user: 'No such account', need_login: 'Please sign in first' }[d && d.e] || ('Failed: ' + (d && d.e)));
       }
-      acctApply(d); this.msg2(kind === 'reg' ? '注册成功，已登录' : '登录成功'); this.render(); this.pullFriends();
-    }).catch(() => this.msg2('连不上账号服务器'));
+      acctApply(d); this.msg2(kind === 'reg' ? 'Signed up and signed in' : 'Signed in'); this.render(); this.pullFriends();
+    }).catch(() => this.msg2('Cannot reach the account server'));
   },
   doAddFriend() {
     const el = this.root.querySelector('#mpFriend'); const t = el ? el.value.trim() : '';
-    if (!t) return this.msg2('填好友的昵称');
+    if (!t) return this.msg2('Enter your friend\'s nickname');
     acctApi({ a: 'fadd', tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, target: t }).then(d => {
-      if (d && d.ok) { this.msg2('已加好友：' + d.friend.nick + (d.friend.online ? '（在线）' : '（离线）')); if (el) el.value = ''; this.pullFriends(); }
-      else this.msg2({ no_user: '没找到这个昵称', self: '不能加自己', need_login: '请先登录' }[d && d.e] || '加好友失败');
-    }).catch(() => this.msg2('网络错误'));
+      if (d && d.ok) { this.msg2('Friend added: ' + d.friend.nick + (d.friend.online ? '(online)' : '(offline)')); if (el) el.value = ''; this.pullFriends(); }
+      else this.msg2({ no_user: 'No such nickname', self: 'You cannot add yourself', need_login: 'Please sign in first' }[d && d.e] || 'Failed to add friend');
+    }).catch(() => this.msg2('Network error'));
   },
   soc(body, okText) {
     acctApi(Object.assign({ tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, code: (window.NET && window.NET.code) || '' }, body)).then(d => {
-      this.msg2(d && d.ok ? okText : ({ not_friend: '还不是好友', offline: '对方不在线', need_login: '请先登录', no_room: '先开房再邀请' }[d && d.e] || '操作失败：' + (d && d.e)));
+      this.msg2(d && d.ok ? okText : ({ not_friend: 'Not friends yet', offline: 'They are offline', need_login: 'Please sign in first', no_room: 'Open a room before inviting' }[d && d.e] || 'Action failed: ' + (d && d.e)));
       if (d && d.ok) setTimeout(() => this.pullFriends(), 400);
-    }).catch(() => this.msg2('网络错误'));
+    }).catch(() => this.msg2('Network error'));
   },
   doDirect() {
     const el = this.root.querySelector('#mpCode2');
     const code = (el ? el.value : '').trim();
-    if (!code) return this.msg2('先填房间码');
+    if (!code) return this.msg2('Enter the room code first');
     mpJoinRoom(code);
   },
   render() {
@@ -13073,7 +13111,7 @@ const MPUI = {
     const on = ACCT.on;
     const acctLine = this.root.querySelector('#mpAcctLine');
     if (acctLine) acctLine.innerHTML = on ? '<b style="color:#7ef0a0">● ' + escHtml(ACCT.nick || ACCT.user) + '</b>'
-                                          : '<span style="color:#ffcf6b">未登录 · 只能单机</span>';
+                                          : '<span style="color:#ffcf6b">Not signed in · single-player only</span>';
     // 账号区
     const box = this.root.querySelector('#mpAcctBox');
     /* ★ 只在「登录状态变了」的时候重建这一块：每次 render 都重建会把用户正在输入的用户名/密码清空
@@ -13082,17 +13120,17 @@ const MPUI = {
       this._acctMode = on ? 'in' : 'out';
       box.innerHTML = on
         ? '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-          + '<span>账号 <b style="color:#8fe3ff">' + escHtml(ACCT.user || ACCT.nick) + '</b> · 昵称 ' + escHtml(ACCT.nick)
-          + '<span style="color:#7a8b9c"> · 好友/世界都跟账号走，换设备也不丢</span></span>'
-          + '<button class="btn" data-mp="logout" style="padding:3px 8px">退出账号</button></div>'
+          + '<span>Account <b style="color:#8fe3ff">' + escHtml(ACCT.user || ACCT.nick) + '</b> · Nickname ' + escHtml(ACCT.nick)
+          + '<span style="color:#7a8b9c"> · Friends/worlds follow your account, so a device change loses nothing</span></span>'
+          + '<button class="btn" data-mp="logout" style="padding:3px 8px">Sign out</button></div>'
         : '<div style="font-size:12px;line-height:1.6;margin-bottom:6px;color:#9fb3c8">'
-          + '不登录也能<b>单机</b>玩，但<b style="color:#ffcf6b">换设备世界会丢、也不能联机</b>。登录后好友和世界都跟着账号走。</div>'
+          + 'You can play <b>single-player</b> without signing in, but <b style="color:#ffcf6b">worlds are lost when you change devices and Multiplayer is unavailable</b>. Sign in and your friends and worlds follow your account.</div>'
           + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-          + '<input id="mpUser" placeholder="用户名（3-16 位小写字母/数字）" maxlength="16" style="flex:1;min-width:150px;' + PCB2 + '">'
-          + '<input id="mpPass" type="password" placeholder="密码" maxlength="40" style="flex:1;min-width:120px;' + PCB2 + '">'
-          + '<input id="mpNick" placeholder="游戏昵称(可选)" maxlength="14" style="width:130px;' + PCB2 + '">'
-          + '<button class="btn gold" data-mp="login" style="padding:4px 10px">登录</button>'
-          + '<button class="btn" data-mp="reg" style="padding:4px 10px">注册</button></div>';
+          + '<input id="mpUser" placeholder="Username (3-16 lowercase letters/digits)" maxlength="16" style="flex:1;min-width:150px;"' + PCB2 + '">'
+          + '<input id="mpPass" type="password" placeholder="Password" maxlength="40" style="flex:1;min-width:120px;"' + PCB2 + '">'
+          + '<input id="mpNick" placeholder="Nickname (optional)" maxlength="14" style="width:130px;"' + PCB2 + '">'
+          + '<button class="btn gold" data-mp="login" style="padding:4px 10px">Sign in</button>'
+          + '<button class="btn" data-mp="reg" style="padding:4px 10px">Sign up</button></div>';
     }
     // 页签高亮
     for (const b of this.root.querySelectorAll('button[data-mp^="tab:"]')) {
@@ -13103,12 +13141,12 @@ const MPUI = {
     const body = this.root.querySelector('#mpBody');
     if (!body) return;
     const waitEl = this.root.querySelector('#mpWait');
-    if (waitEl) waitEl.textContent = this.waiting ? ('等 ' + (this.waiting.nick || '好友') + ' 同意…') : '';
+    if (waitEl) waitEl.textContent = this.waiting ? ('Waiting for ' + (this.waiting.nick || 'your friend') + ' to accept…') : '';
     if (!on) {
-      body.innerHTML = '<div style="color:#9fb3c8;line-height:1.7">登录后这里会出现：<br>'
-        + '· <b>好友</b>：加好友、看谁在线，点<b>申请加入</b> → 对方点<b>同意</b>，房间会自动开好，你自动进去<br>'
-        + '· <b>我的世界</b>：世界里玩到一半，好友也能申请进来（不用记房间码、不用先开房）<br>'
-        + '<span style="color:#7a8b9c">（不登录只能单机：世界存在本机，换设备就没了）</span></div>';
+      body.innerHTML = '<div style="color:#9fb3c8;line-height:1.7">After signing in you will see here:<br>'
+        + '· <b>Friends</b>: add friends, see who is online, click <b>Ask to join</b> → they click <b>Accept</b>, the room opens automatically and you join<br>'
+        + '· <b>My Worlds</b>: even mid-game a friend can ask to join (no room code, no need to open a room first)<br>'
+        + '<span style="color:#7a8b9c">(not signed in = single-player only: worlds stay on this device and are gone on a device change)</span></div>';
       return;
     }
     if (this.tab === 'mine') body.innerHTML = this.htmlMine(NET);
@@ -13126,15 +13164,15 @@ const MPUI = {
       '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-top:1px solid rgba(120,200,255,.14)">'
       + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
       + '<b style="color:#f5c451">' + escHtml(w.name || w.code) + '</b></span>'
-      + '<span style="width:92px;color:#9fb3c8;font-size:11px">' + (w.players ? w.players + ' 人在线' : '存档在云端') + '</span>'
+      + '<span style="width:92px;color:#9fb3c8;font-size:11px">' + (w.players ? w.players + ' players' : 'Saves in the cloud') + '</span>'
       + '<button class="btn" data-mp="joinAcc" data-code="' + escHtml(w.code) + '" style="padding:2px 9px">'
-      +   (w.players ? '继续（联机中）' : '进入') + '</button></div>').join('');
+      +   (w.players ? 'Continue (in Multiplayer)' : 'Enter') + '</button></div>').join('');
     return '<div style="color:#9fb3c8;font-size:12px;line-height:1.65;margin-bottom:8px">'
-      + '账号里的世界，<b style="color:#8fe3ff">点「进入」直接玩</b>。玩的时候好友在「好友」页申请加入，'
-      + '你点<b>同意</b>，这个世界会自动变成房间、他自动进来 —— 不用记房间码，也没有「开房」这一步。</div>'
-      + (mine || '<div style="color:#7a8b9c;padding:6px 4px">还没有世界。先回开始界面自己开一个世界玩一会儿，就会自动存到账号里。</div>')
-      + (inRoom ? '<div style="margin-top:12px;color:#7ef0a0;font-size:12px">● 现在在房间里 <b>' + escHtml(NET.code) + '</b>'
-        + ' <button class="btn" data-mp="leave" style="padding:2px 9px;color:#ffb0b0;border-color:#5a2b2b">退出联机</button></div>' : '');
+      + 'Worlds in your account — <b style="color:#8fe3ff">click Enter to play</b>. While you play, a friend can ask to join from the Friends tab,'
+      + 'you click <b>Accept</b> and this world becomes a room automatically, they join — no room code, no "open room" step.</div>'
+      + (mine || '<div style="color:#7a8b9c;padding:6px 4px">No worlds yet. Go back to the start screen, make a world and play a bit — it will be saved to your account automatically.</div>')
+      + (inRoom ? '<div style="margin-top:12px;color:#7ef0a0;font-size:12px">● In a room now <b>' + escHtml(NET.code) + '</b>'
+        + ' <button class="btn" data-mp="leave" style="padding:2px 9px;color:#ffb0b0;border-color:#5a2b2b">Leave Multiplayer</button></div>' : '');
   },
   htmlFriend(NET) {
     const q = PCB2;
@@ -13144,53 +13182,53 @@ const MPUI = {
     const wait = this.waiting;
     const status = inRoom
       ? '<div style="background:rgba(126,240,160,.08);border:1px solid rgba(126,240,160,.3);border-radius:9px;padding:7px 9px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:8px">'
-        + '<span>● 你在房间里 <b style="color:#8fe3ff">' + escHtml(NET.code) + '</b> · ' + nlive + ' 人'
-        + (isHost ? ' · <b style="color:#f5c451">你是房主</b>（好友申请进来自动开好）' : '') + '</span>'
-        + '<button class="btn" data-mp="leave" style="padding:3px 9px;color:#ffb0b0;border-color:#5a2b2b">退出联机</button></div>'
+        + '<span>● You are in a room <b style="color:#8fe3ff">' + escHtml(NET.code) + '</b> · ' + nlive + ' players'
+        + (isHost ? ' · <b style="color:#f5c451">You are the host</b> (a friend\'s request opens it automatically)' : '') + '</span>'
+        + '<button class="btn" data-mp="leave" style="padding:3px 9px;color:#ffb0b0;border-color:#5a2b2b">Leave Multiplayer</button></div>'
       : '<div style="background:rgba(120,200,255,.07);border:1px solid rgba(120,200,255,.22);border-radius:9px;padding:7px 9px;margin-bottom:9px;font-size:12px;color:#9fb3c8">'
-        + '不在房间里。点好友右边的<b style="color:#8fe3ff">「申请加入」</b>，对方点同意后房间会自动开好，你这边自动进去。</div>';
+        + 'Not in a room. Click <b style="color:#8fe3ff">Ask to join</b> next to a friend; once they accept, the room opens automatically and you join.</div>';
     const reqRows = (this.req || []).map(r =>
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">'
-      + '<span>' + escHtml(r.nick) + ' 想加入你的世界</span>'
-      + '<span><button class="btn gold" data-mp="jres" data-from="' + escHtml(r.from) + '" data-ok="1" style="padding:2px 7px">同意</button>'
-      + '<button class="btn" data-mp="jres" data-from="' + escHtml(r.from) + '" data-ok="0" style="padding:2px 7px">拒绝</button></span></div>').join('');
+      + '<span>' + escHtml(r.nick) + ' wants to join your World</span>'
+      + '<span><button class="btn gold" data-mp="jres" data-from="' + escHtml(r.from) + '" data-ok="1" style="padding:2px 7px">Accept</button>'
+      + '<button class="btn" data-mp="jres" data-from="' + escHtml(r.from) + '" data-ok="0" style="padding:2px 7px">Deny</button></span></div>').join('');
     const waitRow = wait
       ? '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;color:#ffcf6b">'
-      + '<span>已向 <b>' + escHtml(wait.nick || '好友') + '</b> 申请加入，等他点「同意」…（他会自动把房间开好）</span>'
-      + '<button class="btn" data-mp="waitcancel" style="padding:2px 7px">取消</button></div>'
+      + '<span>Asked <b>' + escHtml(wait.nick || 'your friend') + '</b> to join — waiting for them to tap "Accept"… (the Room opens automatically)</span>'
+      + '<button class="btn" data-mp="waitcancel" style="padding:2px 7px">Cancel</button></div>'
       : '';
     const invRows = (this.inv || []).map(v =>
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;color:#ffcf6b">'
-      + '<span>' + escHtml(v.nick) + ' 邀请你进他的世界</span>'
-      + '<button class="btn gold" data-mp="join" data-code="' + escHtml(v.code) + '" style="padding:2px 7px">加入</button></div>').join('');
+      + '<span>' + escHtml(v.nick) + ' invited you to their World</span>'
+      + '<button class="btn gold" data-mp="join" data-code="' + escHtml(v.code) + '" style="padding:2px 7px">Join</button></div>').join('');
     const fs = (this.friends || []).map(f => {
       let btn;
       if (inRoom) btn = isHost
-        ? '<button class="btn" data-mp="invite" data-pid="' + escHtml(f.pid) + '" style="padding:2px 7px">邀请进房</button>'
-        : '<span style="color:#7a8b9c;font-size:11px">房主才能拉人</span>';
-      else if (!f.online) btn = '<span style="color:#7a8b9c;font-size:11px">离线</span>';
-      else if (wait && wait.pid === f.pid) btn = '<button class="btn" data-mp="waitcancel" style="padding:2px 7px">等待同意…（点此取消）</button>';
-      else btn = '<button class="btn gold" data-mp="jreq" data-pid="' + escHtml(f.pid) + '" data-nick="' + escHtml(f.nick) + '" style="padding:2px 7px">申请加入</button>';
+        ? '<button class="btn" data-mp="invite" data-pid="' + escHtml(f.pid) + '" style="padding:2px 7px">Invite to Room</button>'
+        : '<span style="color:#7a8b9c;font-size:11px">Only the host can invite</span>';
+      else if (!f.online) btn = '<span style="color:#7a8b9c;font-size:11px">Offline</span>';
+      else if (wait && wait.pid === f.pid) btn = '<button class="btn" data-mp="waitcancel" style="padding:2px 7px">Waiting for Accept… (tap to cancel)</button>';
+      else btn = '<button class="btn gold" data-mp="jreq" data-pid="' + escHtml(f.pid) + '" data-nick="' + escHtml(f.nick) + '" style="padding:2px 7px">Ask to join</button>';
       return '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 0;border-top:1px solid rgba(120,200,255,.12)">'
         + '<span><b style="color:' + (f.online ? '#7ef0a0' : '#7a8b9c') + '">' + (f.online ? '●' : '○') + '</b> ' + escHtml(f.nick)
-        + '<span style="color:#7a8b9c;font-size:11px">' + (f.online ? (f.world ? ' · 在玩 ' + escHtml(f.world) : ' · 在线') : ' · 离线') + '</span></span>'
+        + '<span style="color:#7a8b9c;font-size:11px">' + (f.online ? (f.world ? ' · Playing ' + escHtml(f.world) : ' · Online') : ' · Offline') + '</span></span>'
         + btn + '</div>';
     }).join('');
     return status
-      + (reqRows ? '<div style="color:#ffcf6b;margin-bottom:3px">加入申请（点同意 → 自动开房并让他进来）</div>' + reqRows : '')
+      + (reqRows ? '<div style="color:#ffcf6b;margin-bottom:3px">Join request (tap Accept → the Room opens and they come in)</div>' + reqRows : '')
       + waitRow
-      + (invRows ? '<div style="color:#ffcf6b;margin:6px 0 3px">房间邀请</div>' + invRows : '')
+      + (invRows ? '<div style="color:#ffcf6b;margin:6px 0 3px">Room invite</div>' + invRows : '')
       + '<div style="display:flex;gap:6px;margin:8px 0">'
-      + '<input id="mpFriend" placeholder="好友的游戏昵称" maxlength="14" style="flex:1;' + q + '">'
-      + '<button class="btn" data-mp="fadd" style="padding:4px 10px">加好友</button>'
-      + '<button class="btn" data-mp="reload" style="padding:4px 8px">刷新</button></div>'
-      + '<div style="color:#9fb3c8;font-size:12px;margin-top:6px">好友（' + (this.friends || []).length + '）</div>'
-      + (fs || '<div style="color:#7a8b9c;padding:6px 0">还没有好友，上面填对方昵称加一个</div>')
-      + '<details style="margin-top:12px"><summary style="color:#7a8b9c;font-size:11px;cursor:pointer">高级：按房间码加入 / 邀请链接</summary>'
-      + '<div style="display:flex;gap:6px;margin-top:6px"><input id="mpCode2" placeholder="房间码" maxlength="12" style="flex:1;' + q + '">'
-      + '<button class="btn" data-mp="direct" style="padding:4px 10px">申请加入</button></div>'
-      + '<div style="color:#7a8b9c;font-size:11px;line-height:1.6;margin-top:4px">房间码也要房主同意才能进（会自动给对方发一条申请）。</div>'
-      + (inRoom ? '<div style="margin-top:6px"><button class="btn" data-mp="copy">复制邀请链接</button></div>' : '')
+      + '<input id="mpFriend" placeholder="Friend\'s in-game name" maxlength="14" style="flex:1;' + q + '">'
+      + '<button class="btn" data-mp="fadd" style="padding:4px 10px">Add friend</button>'
+      + '<button class="btn" data-mp="reload" style="padding:4px 8px">Refresh</button></div>'
+      + '<div style="color:#9fb3c8;font-size:12px;margin-top:6px">Friends (' + (this.friends || []).length + '）</div>'
+      + (fs || '<div style="color:#7a8b9c;padding:6px 0">No friends yet — enter their name above to add one</div>')
+      + '<details style="margin-top:12px"><summary style="color:#7a8b9c;font-size:11px;cursor:pointer">Advanced: join by Room code / invite link</summary>'
+      + '<div style="display:flex;gap:6px;margin-top:6px"><input id="mpCode2" placeholder="Room code" maxlength="12" style="flex:1;' + q + '">'
+      + '<button class="btn" data-mp="direct" style="padding:4px 10px">Ask to join</button></div>'
+      + '<div style="color:#7a8b9c;font-size:11px;line-height:1.6;margin-top:4px">A Room code still needs the host\'s Accept (it sends them a request automatically).</div>'
+      + (inRoom ? '<div style="margin-top:6px"><button class="btn" data-mp="copy">Copy invite link</button></div>' : '')
       + '</details>';
   },
 };
@@ -13252,7 +13290,7 @@ function mpPullWorldEdits(world) {
     }
     const c0x = Math.floor(player.p.x / CFG.CH), c0z = Math.floor(player.p.z / CFG.CH);
     for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) dirty.add(getChunk(c0x + dx, c0z + dz));
-    toast('已同步云端房间里好友改过的 ' + add + ' 处方块', 5);
+    toast('Synced ' + add + ' blocks changed by friends in the cloud Room', 5);
     saveSoon();
   }).catch(() => {});
 }
@@ -13287,32 +13325,32 @@ function mpNavTo(href) {
   location.href = href;
 }
 function mpJoinRoom(code, tries) {
-  if (!ACCT.on) { MPUI.show('friend'); return MPUI.msg2('先登录才能联机'); }
+  if (!ACCT.on) { MPUI.show('friend'); return MPUI.msg2('Sign in to play Multiplayer'); }
   const c = String(code || '').trim().replace(/[^\w-]/g, '').toUpperCase();
-  if (!c) return MPUI.msg2('先填房间码');
+  if (!c) return MPUI.msg2('Enter the room code first');
   const n = tries | 0;
   acctApi({ a: 'canjoin', tok: ACCT.tok, code: c }).then(d => {
-    if (!d || !d.ok) { MPUI.msg2((d && d.e === 'need_login') ? '先登录才能联机' : '服务器连不上'); return; }
+    if (!d || !d.ok) { MPUI.msg2((d && d.e === 'need_login') ? 'Sign in to play Multiplayer' : 'Cannot reach the server'); return; }
     if (d.mine) { mpEnterAccountWorld(c); return; }            // 自己的房间：以房主身份进去
-    if (d.pass && d.exists) { MPUI.msg2('已获得同意，正在进入 ' + c + ' …'); mpGoRoom(c); return; }
+    if (d.pass && d.exists) { MPUI.msg2('Accepted — entering ' + c + ' …'); mpGoRoom(c); return; }
     if (d.pass && !d.exists) {                                 // 已同意，房主还在开房（他要上传世界）
-      if (n >= 20) { MPUI.setWait(null); MPUI.render(); MPUI.msg2('等太久了：房间一直没开起来，让对方重新点一次「同意」'); return; }
-      MPUI.msg2('对方已同意，正在等他开好房间…（' + n + '/20）');
+      if (n >= 20) { MPUI.setWait(null); MPUI.render(); MPUI.msg2('Timed out: the Room never opened. Ask them to tap "Accept" again'); return; }
+      MPUI.msg2('They accepted — waiting for the Room to open… (' + n + '/20）');
       return setTimeout(() => mpJoinRoom(c, n + 1), 1500);
     }
     const host = d.host;                                       // 没人同意过我
     if (n === 0) {
-      if (!host) { MPUI.msg2('这个房间还没开：让房主先进入他的世界'); return; }
-      if (!host.online) { MPUI.msg2('房主 ' + (host.nick || '') + ' 不在线，等他在游戏里再申请'); return; }
+      if (!host) { MPUI.msg2('This Room isn\'t open yet: ask the host to enter their World first'); return; }
+      if (!host.online) { MPUI.msg2('Host ' + (host.nick || '') + ' is offline — ask again when they\'re in game'); return; }
       acctApi({ a: 'jreq', tok: ACCT.tok, pid: ACCT.pid, nick: ACCT.nick, to: host.pid }).then(r => {
         if (r && r.ok) { MPUI.setWait({ pid: host.pid, nick: host.nick, at: Date.now() }); MPUI.show('friend'); MPUI.render(); }
-        else MPUI.msg2({ not_friend: '你们还不是好友：先在下面的好友列表里加他', offline: '房主不在线' }[r && r.e] || '申请失败：' + (r && r.e));
+        else MPUI.msg2({ not_friend: 'You\'re not friends yet: add them in the Friends list below', offline: 'Host is offline' }[r && r.e] || 'Request failed: ' + (r && r.e));
       });
     }
-    if (n >= 20) { MPUI.setWait(null); MPUI.render(); MPUI.msg2('等太久了：' + ((host && host.nick) || '房主') + ' 还没同意（可以再申请一次）'); return; }
-    MPUI.msg2('已申请加入 ' + ((host && host.nick) || '对方') + ' 的世界，等他点「同意」…（' + n + '/20）');
+    if (n >= 20) { MPUI.setWait(null); MPUI.render(); MPUI.msg2('Timed out: ' + ((host && host.nick) || 'Host') + ' hasn\'t accepted (you can ask again)'); return; }
+    MPUI.msg2('Asked to join ' + ((host && host.nick) || 'They') + '\'s World — waiting for them to tap "Accept"… (' + n + '/20）');
     setTimeout(() => mpJoinRoom(c, n + 1), 1500);
-  }).catch(() => MPUI.msg2('服务器连不上'));
+  }).catch(() => MPUI.msg2('Cannot reach the server'));
 }
 
 /* 当前正在玩的世界 → 房间码（没进世界就是空）*/
@@ -13326,19 +13364,19 @@ function mpHostTarget() {
   let m = (started && currentId) ? worldMeta(currentId) : null;
   if (!m && currentId) m = worldMeta(currentId);
   if (!m) m = worlds[0] || null;
-  if (!m) m = createWorld({ name: '我的世界', mode: 'survival', seed: (Math.random() * 1e6) | 0 });
+  if (!m) m = createWorld({ name: 'My World', mode: 'survival', seed: (Math.random() * 1e6) | 0 });
   return m;
 }
 function mpHostTargetCode() { const m = mpHostTarget(); return m ? mpRoomCodeOf(m) : ''; }
 /* 自动开房：房主点了「同意」之后走这里（不用再点「开房」按钮）*/
 function mpAutoHost(code) {
-  if (!ACCT.on) return MPUI.msg2('联机要先登录账号');
+  if (!ACCT.on) return MPUI.msg2('Sign in to play Multiplayer');
   if (window.NET && NET.active) return;                    // 已经在房间里了
   const m = mpHostTarget();
-  if (!m) return MPUI.msg2('找不到要开的存档');
+  if (!m) return MPUI.msg2('Couldn\'t find the Save to host');
   const c = code || mpRoomCodeOf(m);
   try { save(); } catch (e) {}                            // 跳转前存一次，别丢这几秒的进度
-  MPUI.msg2('正在把「' + (m.name || '我的世界') + '」开成房间 ' + c + ' …');
+  MPUI.msg2('Opening "' + (m.name || 'My World') + '" as a Room ' + c + ' …');
   setTimeout(() => {
     mpNavTo(location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(m.id)
       + '&world=' + encodeURIComponent(c) + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name));
@@ -13363,12 +13401,12 @@ function mpSocialTick() {
       const w0 = MPUI.waiting;
       if (w0 && Date.now() - (w0.at || 0) > 120000) {
         MPUI.setWait(null); MPUI.render();
-        toast('等 ' + (w0.nick || '对方') + ' 同意超过 2 分钟，已自动撤回（可以再申请一次）', 5);
+        toast('Waiting for ' + (w0.nick || 'They') + ' accepted over 2 minutes ago — request withdrawn (you can ask again)', 5);
       }
       const reqs = d.req || [];
       MPUI._reqN = reqs.length;
       const btn = document.getElementById('btnFriendsHud');
-      if (btn) btn.textContent = reqs.length ? ('好友(' + reqs.length + ')') : '好友';
+      if (btn) btn.textContent = reqs.length ? ('Friends (' + reqs.length + ')') : 'your friend';
       /* ★ 我申请加入的好友点了「同意」→ 这边自动进，不用再点「加入」。
          两个前提，缺一个就会变成「每次打开网站都自动进这个房间」：
          · 只认 3 分钟内的同意（旧通知不该再拉人）
@@ -13378,7 +13416,7 @@ function mpSocialTick() {
       if (okInv) {
         mpAutoJoinSeen.add(okInv.code + ':' + (okInv.at || 0));
         MPUI.setWait(null);
-        toast((okInv.nick || '好友') + ' 同意了，正在进入他的世界…', 4);
+        toast((okInv.nick || 'your friend') + ' accepted — entering their World…', 4);
         setTimeout(() => { if (!(window.NET && NET.active)) mpJoinRoom(okInv.code, 1); }, 150);
         return;
       }
@@ -13387,7 +13425,7 @@ function mpSocialTick() {
       const fresh = reqs.filter(r => !MPUI._seenReq.has(r.from));
       for (const r of reqs) MPUI._seenReq.add(r.from);
       if (fresh.length) {
-        toast(fresh[0].nick + ' 想加入你的世界 —— 点「同意」，房间会自动开好', 6);
+        toast(fresh[0].nick + ' wants to join your World — tap "Accept" and the Room opens automatically', 6);
         MPUI.autoShow();                     // 刚关过面板就先只提示，不硬弹
       } else if (MPUI.ready && MPUI.root && !MPUI.root.classList.contains('hide')) {
         MPUI.render();
@@ -13400,18 +13438,18 @@ setTimeout(mpSocialTick, 1200);
 setTimeout(() => {
   if (!PENDING_JOIN) return;
   if (ACCT.on) { const c = PENDING_JOIN; PENDING_JOIN = ''; mpJoinRoom(c); }
-  else { MPUI.show('list'); MPUI.msg2('登录后自动加入房间 ' + PENDING_JOIN); }
+  else { MPUI.show('list'); MPUI.msg2('Join the Room automatically after signing in ' + PENDING_JOIN); }
 }, 900);
 /* 进入账号里的世界：本地有同 seed 的世界就直接开，没有就用云端 seed 造一个，然后以房主身份开房（改动从服务端拉）*/
 function mpEnterAccountWorld(code) {
   if (!ACCT.on) return MPUI.show('list');
   const w = (ACCT.worlds || []).find(x => x.code === code);
-  if (!w) return MPUI.msg2('账号里没有这个世界');
+  if (!w) return MPUI.msg2('This World isn\'t on the account');
   let m = worlds.find(x => x.mpCode === code) || worlds.find(x => x.seed === w.seed && x.name === w.name);
   if (!m) {
-    m = createWorld({ name: w.name || ('账号世界 ' + code), mode: w.mode || 'survival', seed: w.seed, mpCode: code });
+    m = createWorld({ name: w.name || ('Account World ' + code), mode: w.mode || 'survival', seed: w.seed, mpCode: code });
   } else if (!m.mpCode) { m.mpCode = code; saveIndex(); }
-  MPUI.msg2('正在打开「' + (m.name || code) + '」…');
+  MPUI.msg2('Opening "' + (m.name || code) + '」…');
   setTimeout(() => {
     mpNavTo(location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(m.id)
       + '&world=' + encodeURIComponent(code) + '&nick=' + encodeURIComponent(ACCT.nick || LOOK.name));
@@ -13495,7 +13533,7 @@ function mpEnterAccountWorld(code) {
    * 以前进了联机就没有任何按钮能出来：「世界」按钮 reload 回来又自动 join（URL 粘着 ?mp），
    * 只能自己在地址栏删参数。现在「世界」按钮和好友面板里都能退出。 */
   net.leave = (ask) => {
-    if (ask !== false && !confirm(ask || `退出联机「${net.code}」，回到世界列表？`)) return false;
+    if (ask !== false && !confirm(ask || `Leave Multiplayer "${net.code}" and return to the World list?`)) return false;
     net.active = false; net.connected = false;
     try { if (net.ws) net.ws.close(); } catch (e) {}
     // 房主的房间就是他自己的存档：退出前先存一次，别把联机里盖的东西弄丢
@@ -13613,7 +13651,7 @@ function mpEnterAccountWorld(code) {
       r.obj.position.set(p.x, p.y, p.z);
       r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
       net.remotes.set(p.i, r);
-      toast(`${r.name} 进入了房间`, 2.5);            // 有人进来必须看得见（这是"联机到底通没通"最直接的反馈）
+      toast(`${r.name} joined the Room`, 2.5);            // 有人进来必须看得见（这是"联机到底通没通"最直接的反馈）
     }
     return r;
   }
@@ -13642,7 +13680,7 @@ function mpEnterAccountWorld(code) {
           applyServerBlock(a[0], a[1], a[2], id);
           n++;
         }
-        if (n > 120) toast(`补齐了附近 ${n} 处改动`, 2);
+        if (n > 120) toast(`Caught up on ${n} changes nearby`, 2);
       }).catch(() => {});
   };
 
@@ -13699,7 +13737,7 @@ function mpEnterAccountWorld(code) {
       const [id, kind, x, y, z, rot, hp, spd, dk, an] = e;
       const rc = e[10];                                     // 村民招募状态（只有村民带）
       const dead = (typeof dk === 'number' && dk > 0);
-      if (typeof hp === 'number' && hp <= 0 && !dead) continue;   // 真没了又没带死亡进度 → 直接丢掉
+      if (typeof hp === 'number' && hp <= 0 && !dead) continue;   // 真没了又没带死亡Progress → 直接丢掉
       alive.add(id);
       let g = net.ghosts.get(id);
       if (!g) {
@@ -13791,7 +13829,7 @@ function mpEnterAccountWorld(code) {
         if (s.hp) player.hp = Math.min(20, s.hp | 0);
         if (s.hunger) player.hunger = Math.min(20, s.hunger | 0);
         renderHotbar(); refreshHeld(); renderHearts();
-        toast('取回你上次在这个房间的背包（' + (s.inv || []).filter(Boolean).length + ' 格）', 3.5);
+        toast('Restored your Inventory from last time in this Room (' + (s.inv || []).filter(Boolean).length + ' slots)', 3.5);
       }).catch(() => {});
   };
   net.pushInv = () => {
@@ -13851,6 +13889,19 @@ function mpEnterAccountWorld(code) {
   net.machSet = (kind, v) => {
     fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
       body: JSON.stringify({ a: 'mach', code: net.code, pid: net.id, kind, set: v }) }).catch(() => {});
+  };
+  /* 地图共用：上报新揭开的格子 / 拉整张图 */
+  net.mmPush = (blob) => {
+    if (!blob) return;
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'mm', code: net.code, pid: net.id, push: blob }) }).catch(() => {});
+  };
+  net.mmPull = () => {
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'mm', code: net.code, pid: net.id, pull: 1 }) })
+      .then(r => r.json()).then(d => {
+        if (d && d.ok && d.v) { const n = mmMergeBlob(d.v); if (n) toast('Shared map: +' + n + ' slots', 3); }
+      }).catch(() => {});
   };
   /* 客人对村民的操作（交物资 / 给道具 / 跟随待命）→ 房主那边结算 */
   net.vact = (i, act, extra) => net.send('vact', Object.assign({ i, act }, extra || {}));
@@ -13923,7 +13974,7 @@ function mpEnterAccountWorld(code) {
         if (!ok) return;                              // 别人先拿到了：只收掉幽灵
         addItem(g.id, g.n);
         renderHotbar(); sfx('dig');
-        if (g.n > 1) toast(`拾取 ${nameOf(g.id)} ×${g.n}`, 1.1);
+        if (g.n > 1) toast(`Picked up ${nameOf(g.id)} ×${g.n}`, 1.1);
         net.sendPick(nid);
         if (!net.lid) net.pushInv();
       });
@@ -13998,7 +14049,7 @@ function mpEnterAccountWorld(code) {
           net.pending.set(seq2, p0);
           try { net.ws.send(JSON.stringify({ t: 'e', seq: seq2, x: p0.x, y: p0.y, z: p0.z, b: p0.id })); } catch (e) {}
         }
-        if (again.length) toast(`重连：补发 ${again.length} 个未确认的改动`, 2.2);
+        if (again.length) toast(`Reconnected: resent ${again.length} unconfirmed changes`, 2.2);
       }
       else if (m.t === 'p') {
         net.snaps++; net.lastSnap = performance.now();
@@ -14024,7 +14075,7 @@ function mpEnterAccountWorld(code) {
           if (alive.has(id)) continue;
           const nm = (net.remotes.get(id) || {}).name || id;
           dropRemote(id);
-          toast(`${nm} 离开了房间`, 2.5);
+          toast(`${nm} left the Room`, 2.5);
         }
         if (frOpen) renderLobby();
         if (typeof m.time === 'number') worldTime = m.time;
@@ -14047,7 +14098,7 @@ function mpEnterAccountWorld(code) {
           // 掉落物幽灵同样要清：否则接管瞬间「旧幽灵 + 新真掉落物」叠在一起（和怪是同一族 bug）
           for (const [, g] of Array.from(net.dropGhosts)) { scene.remove(g.obj); }
           net.dropGhosts.clear();
-          toast(conv ? ('你接管了世界主机：' + conv + ' 只生物改由你模拟') : '你接管了世界主机：怪物改由你模拟', 3);
+          toast(conv ? ('You took over the World host: ' + conv + ' mobs are now simulated by you') : 'You took over the World host: mobs are now simulated by you', 3);
         }
       } else if (m.t === 'e') {
         if (typeof m.q === 'number') net.serverSeq = m.q;
@@ -14090,6 +14141,9 @@ function mpEnterAccountWorld(code) {
         if (typeof m.d === 'number' && m.d > 0) {
           hurtPlayerFrom(Number(m.sx) || player.p.x, Number(m.sz) || player.p.z, Math.min(20, m.d));
         }
+      } else if (m.t === 'mm') {                  // 别人解开的地图格子 → 并进本地小地图
+        const n = mmMergeBlob(m.v);
+        if (n > 40) toast('Map update: +' + n + ' slots', 1.5);
       } else if (m.t === 'mach') {                // 别人点了炉子：我这边没在烧就接上（同一台共享的炉）
         if (m.kind === 'furnace' && !furnaceJob && m.v && m.v.out) adoptFurnaceJob(m.v);
       } else if (m.t === 'time') {                // 房主的昼夜时间
@@ -14100,7 +14154,7 @@ function mpEnterAccountWorld(code) {
         if (m.k) {
           chestInv.set(m.k, m.slots);
           const openK = openChestPos ? (openChestPos.x + ',' + openChestPos.y + ',' + openChestPos.z) : '';
-          if (openK === m.k) { renderChest(); toast('箱子内容已同步', 1.4); }
+          if (openK === m.k) { renderChest(); toast('Chest contents synced', 1.4); }
         }
       } else if (m.t === 'd') {
         net.syncDropGhosts(m.u || []);
@@ -14131,7 +14185,7 @@ function mpEnterAccountWorld(code) {
         net.pending.delete(m.seq);
         net.rejCount++;
         if (p0) applyServerBlock(p0.x, p0.y, p0.z, p0.prev);
-        toast('服务端拒绝了这次改动：' + (m.e || ''), 1.6);
+        toast('Server rejected this change: ' + (m.e || ''), 1.6);
       } else if (m.t === 'req' || m.t === 'acc' || m.t === 'deny' || m.t === 'f' || m.t === 'inv') {
         net.onSocial(m);
       } else if (m.t === 'left') {
@@ -14175,10 +14229,10 @@ function mpEnterAccountWorld(code) {
     let lagMax = 0;
     for (const r of net.remotes.values()) lagMax = Math.max(lagMax, r.obj.userData.lag || 0);
     hud.innerHTML = `<b style="color:${net.connected ? '#7ef0a0' : '#ff7a7a'}">${net.connected ? '●' : '○'}</b> `
-      + `联机 ${net.code}${net.isHost ? ' · 主机' : ''} · <b>${net.rtt.toFixed(0)}ms</b> · 快照 ${net.snapHz.toFixed(0)}Hz · `
-      + `待确认 <b style="color:${net.pending.size ? '#ffcf6b' : '#7ef0a0'}">${net.pending.size}</b> · `
-      + `${net.mode === 'poll' ? ' · 轮询 ' + Math.round((net.pollEvery || 0.09) * 1000) + 'ms' : ' · WS'} 远端 ${net.remotes.size}${net.isHost ? '' : ' · 幽灵怪 ' + net.ghosts.size}`
-      + ` · 滞后 ${Math.round(lagMax)}ms · 序号 ${net.serverSeq} · 上行编辑 ${net.editOut} · 被拒 ${net.rejCount}`
+      + `Multiplayer ${net.code}${net.isHost ? ' · Host' : ''} · <b>${net.rtt.toFixed(0)}ms</b> · snapshot ${net.snapHz.toFixed(0)}Hz · `
+      + `Pending <b style="color:${net.pending.size ? '#ffcf6b' : '#7ef0a0'}">${net.pending.size}</b> · `
+      + `${net.mode === 'poll' ? ' · Polling ' + Math.round((net.pollEvery || 0.09) * 1000) + 'ms' : ' · WS'} remote ${net.remotes.size}${net.isHost ? '' : ' · Ghosts ' + net.ghosts.size}`
+      + ` · lag ${Math.round(lagMax)}ms · seq ${net.serverSeq} · upstream edits ${net.editOut} · rejected ${net.rejCount}`
       + (net.err ? ` · <span style="color:#ff9a6b">${net.err}</span>` : '');
   }
 
@@ -14505,7 +14559,7 @@ function mpEnterAccountWorld(code) {
     const CH = 800;
     const step = () => {
       if (i >= pairs.length) {
-        if (pairs.length) toast(`房间已载入你世界里的 ${pairs.length} 处改动`, 3.5);
+        if (pairs.length) toast(`Room loaded ${pairs.length} changes from your World`, 3.5);
         return;
       }
       const chunk = pairs.slice(i, i + CH); i += CH;
@@ -14528,22 +14582,22 @@ function mpEnterAccountWorld(code) {
     if (!d.ok) {
       net.active = false; cleanUrl();
       if (d.e === 'need_login') {
-        toast('联机要先登录账号（不登录只能单机）', 6);
-        MPUI.show('list'); MPUI.msg2('联机要先登录账号：不登录只能单机，世界也只存在这台设备上');
+        toast('Sign in to play Multiplayer (offline is single player only)', 6);
+        MPUI.show('list'); MPUI.msg2('Sign in to play Multiplayer: without signing in it\'s single player only and Worlds live only on this device');
       } else {
-        toast(d.e === 'seed_mismatch' ? '这个房间码已经被别的存档占了，换个世界再开房' : ('联机进服失败：' + (d.e || '?')), 6);
+        toast(d.e === 'seed_mismatch' ? 'That Room code is taken by another Save — host from a different World' : ('Multiplayer join failed: ' + (d.e || '?')), 6);
       }
       if (window.__bwWireEntry) window.__bwWireEntry();
       return;
     }
     cleanUrl();
-    if (d.id && d.id !== net.id) { net.id = d.id; toast('昵称被占用了，你在房间里叫 ' + d.id, 4); }
+    if (d.id && d.id !== net.id) { net.id = d.id; toast('Name taken — in this Room you\'re called ' + d.id, 4); }
     if (!isHostMode) { try { localStorage.setItem('bw_world', net.code); } catch (e) {} }
     net.isHost = !!d.isHost;
     // 房主：开「我自己那个世界」的存档（seed 相同 → 地形/背包/建筑原样带进房间）
     const w = (isHostMode && hostMeta)
       ? hostMeta
-      : { id: 'mp_' + net.code, name: '联机房间 ' + net.code, seed: d.seed | 0, mode: 'survival' };
+      : { id: 'mp_' + net.code, name: 'Multiplayer Room ' + net.code, seed: d.seed | 0, mode: 'survival' };
     /* ★ 房间种子以服务端为准（seedLock）：
        - 客人：本地可能还留着这个房间码上一次的存档（旧种子）。直接删掉，别让旧地形顶掉新房间。
        - 房主：自己的世界种子就是房间种子；万一 meta 被改过，也以这次上传的为准。 */
@@ -14553,7 +14607,7 @@ function mpEnterAccountWorld(code) {
       const old0 = raw0 ? JSON.parse(raw0) : null;
       if (old0 && old0.seed && (old0.seed | 0) !== (d.seed | 0)) {
         localStorage.removeItem(worldKey(w.id));
-        toast('房间种子变了，本机的旧存档已作废（重新按房间种子生成地形）', 4);
+        toast('The Room Seed changed, so the old local Save is void (terrain regenerated from the Room Seed)', 4);
       }
     } catch (e) {}
     startGame(w);
@@ -14575,7 +14629,7 @@ function mpEnterAccountWorld(code) {
       const c0x = Math.floor(player.p.x / CFG.CH), c0z = Math.floor(player.p.z / CFG.CH);
       for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) dirty.add(getChunk(c0x + dx, c0z + dz));
       /* 界面上看得见：房主进房时把「房间里全部改动」同步回来了多少（客人只报附近的） */
-      if (isHostMode) toast('已同步房间里 ' + (d.edits || []).length + ' 处改动（含好友联机时挖的/放的）', 4);
+      if (isHostMode) toast('Synced ' + (d.edits || []).length + ' changes in the Room (including what friends dug/placed)', 4);
     }
     for (const pl of (d.players || [])) if (pl.i !== net.id) ensureRemote(pl);
     // ★ 客人进房：优先回到「你上次在这个房间里的位置/朝向」；
@@ -14593,13 +14647,13 @@ function mpEnterAccountWorld(code) {
           for (let i = 0; i < 24 && solid(by); i++) by++;
           player.p.y = by + 0.05;
         }
-        toast('回到你上次在房间里的位置', 2.5);
+        toast('Back to your last position in the Room', 2.5);
       } else {
         const others = (d.players || []).filter(p => p.i !== net.id);
         if (others.length) {
           const o = others[0];
           player.p.set(o.x + 1.8, o.y + 0.1, o.z + 1.8);
-          toast('已站在 ' + (o.n || '房主') + ' 旁边', 3);
+          toast('You are now at ' + (o.n || 'Host') + '\'s side', 3);
         }
       }
     }
@@ -14607,11 +14661,11 @@ function mpEnterAccountWorld(code) {
     connect();
     if (isHostMode) uploadMyWorld();
     else setTimeout(() => net.pullInv(), 400);        // 客人：把上次在这个房间的背包取回来
-    toast(`联机「${net.code}」· ${net.isHost ? '你是房主' : '已加入'} · 玩家 ${(d.players || []).length}`, 4);   // join 返回的列表已包含自己
+    toast(`Multiplayer "${net.code}" · ${net.isHost ? 'You are the host' : 'Joined'} · players ${(d.players || []).length}`, 4);   // join 返回的列表已包含自己
   }).catch(e => {
     net.active = false;
     try { history.replaceState(null, '', location.pathname); } catch (e2) {}
-    toast('联机服务器连不上：' + e.message, 6);
+    toast('Can\'t reach the Multiplayer server: ' + e.message, 6);
     if (window.__bwWireEntry) window.__bwWireEntry();       // 连不上 → 退回单机入口，别让按钮点了没反应
   });
 
@@ -14638,28 +14692,28 @@ function mpEnterAccountWorld(code) {
       + 'font:12px/1.6 ui-monospace,monospace;color:#d8ecff;background:rgba(9,20,32,.94);'
       + 'border:1px solid rgba(120,200,255,.35);border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.45)';
     frPanel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-      + '<b style="color:#8fe3ff">联机</b><span id="frWho" style="color:#8ea3ba"></span></div>'
+      + '<b style="color:#8fe3ff">Multiplayer</b><span id="frWho" style="color:#8ea3ba"></span></div>'
       + '<div id="lbState" style="background:rgba(120,200,255,.08);border-radius:8px;padding:6px 8px;margin-bottom:8px;line-height:1.5"></div>'
       + '<div id="lbInv" style="margin-bottom:6px"></div>'
       + '<div id="lbPlayers" style="margin-bottom:8px"></div>'
       + '<div id="lbActions" style="display:flex;gap:6px;margin-bottom:6px"></div>'
       + '<div style="display:flex;gap:6px;margin-bottom:8px">'
-      + '<input id="lbCode" maxlength="12" placeholder="房间码（好友发你的）" style="flex:1;min-width:0;' + PCB + '">'
-      + '<button class="btn" data-act="joinCode" style="padding:3px 8px">加入</button></div>'
+      + '<input id="lbCode" maxlength="12" placeholder="Room code (sent by a friend)" style="flex:1;min-width:0;' + PCB + '">'
+      + '<button class="btn" data-act="joinCode" style="padding:3px 8px">Join</button></div>'
       + '<div style="display:flex;gap:6px;margin-bottom:8px">'
-      + '<input id="frName" maxlength="14" placeholder="好友昵称" style="flex:1;min-width:0;' + PCB + '">'
-      + '<button class="btn" id="frAdd" style="padding:3px 8px">加好友</button></div>'
+      + '<input id="frName" maxlength="14" placeholder="Friend\'s name" style="flex:1;min-width:0;' + PCB + '">'
+      + '<button class="btn" id="frAdd" style="padding:3px 8px">Add friend</button></div>'
       + '<div id="frMsg" style="color:#ffcf6b;font-size:11px;min-height:14px;margin-bottom:6px"></div>'
-      + '<div id="frReq"></div><div id="frList" style="color:#8ea3ba">加载中…</div>';
+      + '<div id="frReq"></div><div id="frList" style="color:#8ea3ba">Loading…</div>';
     document.body.appendChild(frPanel);
     frPanel.querySelector('#frAdd').onclick = () => {
       const el = frPanel.querySelector('#frName');
       const target = (el.value || '').trim();
       if (!target) return;
       apiCall({ a: 'fadd', pid: net.id, nick: net.nick, code: net.code, target }).then(d => {
-        frMsg(d.ok ? `已加好友：${d.friend.nick}${d.friend.online ? '（在线）' : '（离线）'}` : '加好友失败：' + d.e);
+        frMsg(d.ok ? `Friend added: ${d.friend.nick}${d.friend.online ? ' (online)' : ' (offline)'}` : 'Couldn\'t add friend: ' + d.e);
         if (d.ok) { el.value = ''; net.friendsPull(); }
-      }).catch(() => frMsg('网络错误'));
+      }).catch(() => frMsg('Network error'));
     };
     frPanel.addEventListener('click', ev => {
       const b = ev.target.closest('button[data-act]');
@@ -14667,12 +14721,12 @@ function mpEnterAccountWorld(code) {
       const act = b.dataset.act;
       if (act === 'join') {
         apiCall({ a: 'jreq', pid: net.id, nick: net.nick, code: net.code, to: b.dataset.pid }).then(d => {
-          frMsg(d.ok ? '已发送申请，等对方同意…' : ({ offline: '对方不在线', not_friend: '还不是好友' }[d.e] || '申请失败：' + d.e));
-        }).catch(() => frMsg('网络错误'));
+          frMsg(d.ok ? 'Request sent — waiting for them to Accept…' : ({ offline: 'They are offline', not_friend: 'Not friends yet' }[d.e] || 'Request failed: ' + d.e));
+        }).catch(() => frMsg('Network error'));
       } else if (act === 'acc' || act === 'deny') {
         apiCall({ a: 'jres', pid: net.id, nick: net.nick, code: net.code, from: b.dataset.from, ok: act === 'acc' }).then(d => {
-          if (d.ok) { frMsg(act === 'acc' ? '已同意，对方正在加入…' : '已拒绝'); frReq = frReq.filter(x => x.from !== b.dataset.from); renderReq(); }
-        }).catch(() => frMsg('网络错误'));
+          if (d.ok) { frMsg(act === 'acc' ? 'Accepted — they\'re joining…' : 'Denied'); frReq = frReq.filter(x => x.from !== b.dataset.from); renderReq(); }
+        }).catch(() => frMsg('Network error'));
       } else if (act === 'open') {
         frOpen = true; frPanel.style.display = 'block';
       } else if (act === 'leave') {
@@ -14691,9 +14745,9 @@ function mpEnterAccountWorld(code) {
         renderLobby();
       } else if (act === 'invite') {
         apiCall({ a: 'invite', pid: net.id, nick: net.nick, code: net.code, to: b.dataset.pid })
-          .then(d => frMsg(d.ok ? (d.pushed ? '邀请已发出，对方会看到「加入」按钮' : '邀请已发出（对方没在游戏里，下次上线能看到）')
-                               : ({ not_friend: '还不是好友', no_room: '先开房再邀请' }[d.e] || ('邀请失败：' + d.e))))
-          .catch(() => frMsg('网络错误'));
+          .then(d => frMsg(d.ok ? (d.pushed ? 'Invite sent — they\'ll see a "Join" button' : 'Invite sent (they\'re not in game; they\'ll see it next time they\'re online)')
+                               : ({ not_friend: 'Not friends yet', no_room: 'Open a room before inviting' }[d.e] || ('Invite failed: ' + d.e))))
+          .catch(() => frMsg('Network error'));
       }
     });
   }
@@ -14704,41 +14758,41 @@ function mpEnterAccountWorld(code) {
    * 房间码跟世界 id 绑死（存在世界 meta 里），所以同一个世界反复开房永远是同一个房间。 */
   const roomCodeOf = (w) => mpRoomCodeOf(w);          // 公式统一放在模块级（存档登记也用同一份）
   function hostRoom() {
-    if (!ACCT.on) { MPUI.show('list'); return MPUI.msg2('开房要先登录账号（不登录只能单机）'); }
-    if (net.active) return MPUI.msg2('已经在联机房间里了');
-    if (!started) return frMsg('先回世界列表进一个世界，再开房');
+    if (!ACCT.on) { MPUI.show('list'); return MPUI.msg2('Sign in to host a Room (offline is single player only)'); }
+    if (net.active) return MPUI.msg2('You\'re already in a Multiplayer Room');
+    if (!started) return frMsg('Go back to the World list, enter a World, then host');
     const w = worldMeta(currentId);
-    if (!w) return frMsg('找不到当前世界的存档');
+    if (!w) return frMsg('Couldn\'t find the Save for the current World');
     const code = roomCodeOf(w);
     try { localStorage.setItem('bw_nick', net.nick); } catch (e) {}
-    MPUI.msg2('正在开房 ' + code + ' …（把这个世界的方块上传到房间）');
+    MPUI.msg2('Hosting Room ' + code + ' … (uploading this World\'s blocks to the Room)');
     location.href = location.pathname + '?mp=1&go=1&host=1&lid=' + encodeURIComponent(w.id)
       + '&world=' + encodeURIComponent(code) + '&nick=' + encodeURIComponent(ACCT.nick || net.nick);
   }
   function joinByCode(code) {
     const c = String(code || '').trim().replace(/[^\w-]/g, '').toUpperCase();
-    if (!c) return frMsg('先填房间码');
-    if (net.active && c === net.code) return frMsg('你已经在这个房间里了');
-    frMsg('正在进入房间 ' + c + ' …');
+    if (!c) return frMsg('Enter the room code first');
+    if (net.active && c === net.code) return frMsg('You\'re already in this Room');
+    frMsg('Entering Room ' + c + ' …');
     setTimeout(() => {
       location.href = location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(c) + '&nick=' + encodeURIComponent(net.nick);
     }, 300);
   }
   function copyInvite() {
-    if (!net.active) return MPUI.msg2('先开房才有邀请链接');
+    if (!net.active) return MPUI.msg2('Host a Room first to get an invite link');
     const link = location.origin + location.pathname + '?mp=1&go=1&world=' + encodeURIComponent(net.code);
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link);
       else { const ta = document.createElement('textarea'); ta.value = link; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
-      frMsg('已复制邀请链接（房间 ' + net.code + '）：' + link);
-    } catch (e) { frMsg('复制失败，手动发这句：房间码 ' + net.code + ' · ' + link); }
+      frMsg('Invite link copied (Room ' + net.code + '）：' + link);
+    } catch (e) { frMsg('Copy failed — send this manually: Room code ' + net.code + ' · ' + link); }
   }
   net.tpTo = (id) => {
     const r = net.remotes.get(id);
     if (!r) return false;
     const o = r.obj.position;
     player.p.set(o.x + 1.4, o.y + 0.6, o.z + 1.4);
-    toast('已传送到 ' + (r.name || id) + ' 身边', 2);
+    toast('Teleported to ' + (r.name || id) + '\'s side', 2);
     return true;
   };
   function renderLobby() {
@@ -14746,38 +14800,38 @@ function mpEnterAccountWorld(code) {
     if (!frPanel) return;
     const st = frPanel.querySelector('#lbState'), ac = frPanel.querySelector('#lbActions');
     if (net.active) {
-      if (st) st.innerHTML = '<div>联机中 · 房间 <b style="color:#8fe3ff;font-size:15px;letter-spacing:2px">' + escHtml(net.code) + '</b>'
-        + (net.isHost ? ' <span style="color:#7ef0a0">房主</span>' : '') + '</div>'
-        + '<div style="color:#8ea3ba">玩家 ' + (net.remotes.size + 1) + ' · ' + (net.connected ? '已连接' : '连接中断') + ' · ' + (net.rtt | 0) + 'ms'
-        + (net.lid ? ' · 房间=你自己的世界，进度照常保存' : '') + '</div>';
-      if (ac) ac.innerHTML = '<button class="btn" data-act="copy" style="flex:1;padding:4px 8px">复制邀请链接</button>'
-        + '<button class="btn" data-act="leave" style="padding:4px 8px;color:#ffb0b0;border-color:#5a2b2b">退出联机</button>';
+      if (st) st.innerHTML = '<div>In Multiplayer · Room <b style="color:#8fe3ff;font-size:15px;letter-spacing:2px">' + escHtml(net.code) + '</b>'
+        + (net.isHost ? ' <span style="color:#7ef0a0">Host</span>' : '') + '</div>'
+        + '<div style="color:#8ea3ba">Players ' + (net.remotes.size + 1) + ' · ' + (net.connected ? 'Connected' : 'Disconnected') + ' · ' + (net.rtt | 0) + 'ms'
+        + (net.lid ? ' · the Room is your own World; progress saves as usual' : '') + '</div>';
+      if (ac) ac.innerHTML = '<button class="btn" data-act="copy" style="flex:1;padding:4px 8px">Copy invite link</button>'
+        + '<button class="btn" data-act="leave" style="padding:4px 8px;color:#ffb0b0;border-color:#5a2b2b">Leave Multiplayer</button>';
     } else {
       const w = currentId ? worldMeta(currentId) : null;
-      if (st) st.innerHTML = '<div>当前：单机' + (w ? ' · 世界「' + escHtml(w.name) + '」' : ' · 世界列表') + '</div>'
+      if (st) st.innerHTML = '<div>Now: single player' + (w ? ' · World "' + escHtml(w.name) + '」' : ' · World list') + '</div>'
         + '<div style="color:#8ea3ba">' + (started
-          ? '点下面「开房」把这个世界变成联机房间，然后把房间码或邀请发给好友'
-          : '先回世界列表进一个世界，再开房邀请好友') + '</div>';
+          ? 'Tap "Host" below to turn this World into a Multiplayer Room, then send the Room code or invite to Friends'
+          : 'Go back to the World list, enter a World, then host and invite Friends') + '</div>';
       if (ac) ac.innerHTML = started
-        ? '<button class="btn gold" data-act="host" style="flex:1;padding:4px 8px">开房：一起玩「' + escHtml((w && w.name) || '这个世界') + '」</button>'
-        : '<span style="color:#7a8b9c;font-size:11px">进世界后才能开房 / 或者用下面的房间码加入好友</span>';
+        ? '<button class="btn gold" data-act="host" style="flex:1;padding:4px 8px">Host: play together in "' + escHtml((w && w.name) || 'this World') + '」</button>'
+        : '<span style="color:#7a8b9c;font-size:11px">Enter a World to host / or join a friend with a Room code below</span>';
     }
     const iv = frPanel.querySelector('#lbInv');
     if (iv) iv.innerHTML = frInv.length ? frInv.map(v =>
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;color:#ffcf6b">'
-      + '<span>' + escHtml(v.nick) + ' 邀请你进房间 <b>' + escHtml(v.code) + '</b></span>'
-      + '<button class="btn" data-act="joinInv" data-code="' + escHtml(v.code) + '" style="padding:2px 7px">加入</button></div>').join('') : '';
+      + '<span>' + escHtml(v.nick) + ' invited you to Room <b>' + escHtml(v.code) + '</b></span>'
+      + '<button class="btn" data-act="joinInv" data-code="' + escHtml(v.code) + '" style="padding:2px 7px">Join</button></div>').join('') : '';
     const pl = frPanel.querySelector('#lbPlayers');
     if (pl) {
       if (!net.active) pl.innerHTML = '';
       else {
-        const rows = ['<div style="color:#7ef0a0;padding:2px 0">● ' + escHtml(net.nick) + ' · 你' + (net.isHost ? '（房主）' : '') + '</div>'];
+        const rows = ['<div style="color:#7ef0a0;padding:2px 0">● ' + escHtml(net.nick) + ' · you' + (net.isHost ? '(host)' : '') + '</div>'];
         for (const [id, r] of net.remotes) {
           const o = r.obj.position;
           const d = Math.hypot(o.x - player.p.x, o.z - player.p.z) | 0;
           rows.push('<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:2px 0;border-top:1px solid rgba(120,200,255,.12)">'
             + '<span>● ' + escHtml(r.name || id) + ' · <b style="color:#8fe3ff">' + d + 'm</b></span>'
-            + '<button class="btn" data-act="tp" data-id="' + escHtml(id) + '" style="padding:2px 7px">传送过去</button></div>');
+            + '<button class="btn" data-act="tp" data-id="' + escHtml(id) + '" style="padding:2px 7px">Teleport there</button></div>');
         }
         pl.innerHTML = rows.join('');
       }
@@ -14789,12 +14843,8 @@ function mpEnterAccountWorld(code) {
     const el = frPanel && frPanel.querySelector('#frReq');
     if (!el) return;
     el.innerHTML = frReq.length
-      ? '<div style="color:#ffcf6b;margin-bottom:4px">加入申请</div>' + frReq.map(r =>
-          `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
-             <span>${r.nick} 想加入</span>
-             <span><button class="btn" data-act="acc" data-from="${r.from}" style="padding:2px 7px">同意</button>
-             <button class="btn" data-act="deny" data-from="${r.from}" style="padding:2px 7px">拒绝</button></span>
-           </div>`).join('')
+      ? '<div style="color:#ffcf6b;margin-bottom:4px">Join request</div>' + frReq.map(r =>
+          `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">\n             <span>${r.nick} wants to join</span>\n             <span><button class="btn" data-act="acc" data-from="${r.from}" style="padding:2px 7px">Accept</button>\n             <button class="btn" data-act="deny" data-from="${r.from}" style="padding:2px 7px">Deny</button></span>\n           </div>`).join('')
       : '';
   }
   function renderFriends(d) {
@@ -14820,11 +14870,11 @@ function mpEnterAccountWorld(code) {
     list.innerHTML = fs2.length ? fs2.map(f =>
       `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 0;border-top:1px solid rgba(120,200,255,.12)">
          <span><b style="color:${f.online ? '#7ef0a0' : '#7a8b9c'}">${f.online ? '●' : '○'}</b> ${escHtml(f.nick)}
-         <span style="color:#7a8b9c">${f.online ? (f.world ? '· 房间 ' + escHtml(f.world) : '· 在线') : '· 离线'}</span></span>
+         <span style="color:#7a8b9c">${f.online ? (f.world ? '· Room ' + escHtml(f.world) : '· Online') : '· Offline'}</span></span>
          ${net.active
-            ? `<button class="btn" data-act="invite" data-pid="${escHtml(f.pid)}" style="padding:2px 7px">邀请</button>`
-            : (f.online && f.world ? `<button class="btn" data-act="join" data-pid="${escHtml(f.pid)}" style="padding:2px 7px">申请加入</button>` : '')}
-       </div>`).join('') : '<span style="color:#7a8b9c">还没有好友，上面输入对方的昵称加一个</span>';
+            ? `<button class="btn" data-act="invite" data-pid="${escHtml(f.pid)}" style="padding:2px 7px">Invite</button>`
+            : (f.online && f.world ? `<button class="btn" data-act="join" data-pid="${escHtml(f.pid)}" style="padding:2px 7px">Ask to join</button>` : '')}
+       </div>`).join('') : '<span style="color:#7a8b9c">No friends yet — enter their name above to add one</span>';
   }
   /* 把当前外观（含 PNG 皮肤数据）推给服务端/其它人。
      ★ WS 模式（局域网）根本没有 HTTP sync，皮肤以前只在 join 时上传一次 →
@@ -14852,25 +14902,25 @@ function mpEnterAccountWorld(code) {
       frReq = [m.req]; frForceOpen = true;
       MPUI.autoShow();                         // 用户刚关过面板就不硬弹（toast + 好友按钮上的数字照样提示）
       MPUI.pullFriends();
-      toast(`${m.req.nick} 想加入你的世界 —— 点「同意」，房间会自动开好`, 5);
+      toast(`${m.req.nick} wants to join your World — tap "Accept" and the Room opens automatically`, 5);
     }
     else if (m.t === 'acc') {
-      if (m.code === net.code) { toast(`${m.nick} 同意了你加入「${m.code}」——你已经在这个世界里了`, 3); return; }
-      toast(`${m.nick} 同意了你加入「${m.code}」，正在进入…`, 3);
+      if (m.code === net.code) { toast(`${m.nick} accepted your request to join "${m.code}" — you're already in that World`, 3); return; }
+      toast(`${m.nick} accepted your request to join "${m.code}" — entering…`, 3);
       // ★ 不再直接跳：房间可能还在房主那边开着，先问 canjoin（有通行证 + 房间存在）再进
       setTimeout(() => mpJoinRoom(m.code, 1), 400);
     }
     else if (m.t === 'deny') {
-      toast(`${m.nick} 拒绝了你的加入申请`, 3);
+      toast(`${m.nick} denied your join request`, 3);
       if (MPUI.waiting) { MPUI.setWait(null); MPUI.render(); }     // 撤掉「等待同意」，不然一直挂着
     }
     else if (m.t === 'inv') {                       // 房主邀请：面板自动弹出来，点「加入」就进他的房间
       frInv = frInv.filter(x => x.code !== m.code).concat([{ code: m.code, nick: m.nick, at: Date.now() }]);
       ensureFriendsUI(); renderLobby();
       if (!frOpen) { frOpen = true; MPUI.autoShow(); }   // 同上：不写内联 display，免得关不掉
-      toast(`${m.nick} 邀请你进房间 ${m.code}（点「加入」）`, 6);
+      toast(`${m.nick} invited you to Room ${m.code} (tap "Join")`, 6);
     }
-    else if (m.t === 'f') { ensureFriendsUI(); net.friendsPull(); toast(`${m.nick} 把你加为好友`, 3); }
+    else if (m.t === 'f') { ensureFriendsUI(); net.friendsPull(); toast(`${m.nick} added you as a friend`, 3); }
   };
 
   ensureFriendsUI();
@@ -14915,7 +14965,7 @@ function mpEnterAccountWorld(code) {
       kept[k] = stubbed.has(k) ? (() => 'disabled_in_multiplayer') : window.GAME.debug[k];
     }
     window.GAME.debug = kept;
-    console.warn('[bw] 联机模式：调试接口已关闭（加 ?dev=1 可解开，仅用于验收）');
+    console.warn('[bw] Multiplayer: debug API disabled (add ?dev=1 to unlock — acceptance testing only)');
   }
 })();
 
@@ -14926,7 +14976,7 @@ function mpEnterAccountWorld(code) {
 (function wireFriendsEntry() {
   const bind = () => {
     const b = document.getElementById('btnFriends');        // 游戏内右上角「联机」
-    if (b) { b.style.display = ''; b.textContent = '联机'; b.onclick = () => MPUI.show('list'); }
+    if (b) { b.style.display = ''; b.textContent = 'Multiplayer'; b.onclick = () => MPUI.show('list'); }
     const f = document.getElementById('btnFriendsHud');      // 游戏内右上角「好友」
     if (f) f.onclick = () => MPUI.show('friend');
     const m = document.getElementById('btnMP');              // 世界列表「🌐 联机」
@@ -14937,7 +14987,7 @@ function mpEnterAccountWorld(code) {
     if (window.__bwPrefillMP) setTimeout(() => {
       MPUI.show('friend');
       if (window.__bwPrefillMP.why === 'stale') {
-        MPUI.msg2('上次那次「加入」已经结束了（不会再自动进房）：想进谁的世界，在好友里点「申请加入」');
+        MPUI.msg2('That earlier "Join" already ended (it won\'t enter the Room again): to enter someone\'s World, tap "Ask to join" in Friends');
       }
     }, 350);
   };

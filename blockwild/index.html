@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
-<title>荒石遗境 RUINWILD</title>
+<title>RUINWILD</title>
 <style>
   :root{
     --ink:#e8eef7; --dim:#9db0c8; --gold:#f5c451; --panel:#111a28e6; --edge:#2c3d55;
@@ -195,65 +195,65 @@
   <div id="hint"></div>
   <div id="mmWrap">
     <canvas id="mm"></canvas>
-    <button id="mmIn" title="放大">+</button>
-    <button id="mmOut" title="缩小">−</button>
-    <div id="mmInfo">小地图</div>
+    <button id="mmIn" title="Zoom in">+</button>
+    <button id="mmOut" title="Zoom out">−</button>
+    <div id="mmInfo">Minimap</div>
   </div>
   <div id="flash"></div>
   <div id="topbtns">
-    <button class="btn" id="btnFriendsHud" title="好友（登录后可用）">好友</button>
-    <button class="btn" id="btnFriends" style="display:none">联机</button>
-    <button class="btn" id="btnCmd" title="指令（T）">指令 T</button>
-    <button class="btn" id="btnBag">背包 E</button>
-    <button class="btn" id="btnSettings2">设置</button>
-    <button class="btn" id="btnReset">世界</button>
+    <button class="btn" id="btnFriendsHud" title="Friends (available after signing in)">Friends</button>
+    <button class="btn" id="btnFriends" style="display:none">Multiplayer</button>
+    <button class="btn" id="btnCmd" title="Commands (T)">Commands T</button>
+    <button class="btn" id="btnBag">Inventory E</button>
+    <button class="btn" id="btnSettings2">Settings</button>
+    <button class="btn" id="btnReset">World</button>
   </div>
   <div id="touch">
     <div id="stick"><div id="knob"></div></div>
-    <button class="tbtn" id="tJump">跳</button>
-    <button class="tbtn" id="tMine">挖</button>
-    <button class="tbtn" id="tPlace">放</button>
-    <button class="tbtn" id="tBag">包</button>
-    <button class="tbtn" id="tSprint">跑</button>
+    <button class="tbtn" id="tJump">Jump</button>
+    <button class="tbtn" id="tMine">Mine</button>
+    <button class="tbtn" id="tPlace">Place</button>
+    <button class="tbtn" id="tBag">Inv</button>
+    <button class="tbtn" id="tSprint">Sprint</button>
   </div>
 </div>
 
 <div class="overlay" id="start">
   <div id="menuRoot">
-    <img id="menuLogo" alt="荒石遗境 RUINWILD" draggable="false">
+    <img id="menuLogo" alt="RUINWILD" draggable="false">
     <div id="menuBtns">
-      <button class="mbtn" id="btnWorlds">世 界</button>
-      <button class="mbtn" id="btnMPMenu">多人游戏</button>
-      <button class="mbtn" id="btnLook">外 观</button>
-      <button class="mbtn" id="btnSettings">设 置</button>
+      <button class="mbtn" id="btnWorlds">W O R L D</button>
+      <button class="mbtn" id="btnMPMenu">Multiplayer</button>
+      <button class="mbtn" id="btnLook">A P P E A R A N C E</button>
+      <button class="mbtn" id="btnSettings">S E T T I N G S</button>
     </div>
   </div>
-  <div id="menuFoot">荒石遗境 RUINWILD · 像素生存 · W A S D 移动 / 鼠标转视角</div>
+  <div id="menuFoot">RUINWILD · pixel survival · WASD to move / mouse to look</div>
 </div>
 
 <div class="overlay hide" id="worldsPanel">
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
-      <div class="sec" style="border:0;margin:0">世界 <span id="worldCount" style="color:#f5c451"></span></div>
-      <button class="btn" id="btnCloseWorlds">返回</button>
+      <div class="sec" style="border:0;margin:0">World <span id="worldCount" style="color:#f5c451"></span></div>
+      <button class="btn" id="btnCloseWorlds">Back</button>
     </div>
     <div id="worldList"></div>
     <div class="startrow" style="margin-top:10px">
-      <button class="btn gold" id="btnNewWorld">＋ 创建新世界</button>
-      <button class="btn" id="btnMP">🌐 联机</button>
+      <button class="btn gold" id="btnNewWorld">+ New World</button>
+      <button class="btn" id="btnMP">🌐 Multiplayer</button>
     </div>
     <div class="keys">
-      <b>W A S D</b><span>移动（Shift 或 双击 W 疾跑）</span>
-      <b>鼠标</b><span>转视角（点击画面锁定鼠标）</span>
-      <b>空格</b><span>跳跃（创造模式里连按两次切换飞行）</span>
-      <b>方向键</b><span>转视角（没有鼠标就靠它，可在「设置」里改）</span>
-      <b>F / G</b><span>挖方块(按住) / 放方块（键位可改）</span>
-      <b>左键（按住）</b><span>挖方块 / 攻击野怪</span>
-      <b>右键</b><span>放下方块 / 吃食物 / 开箱子、熔炉、工作台、充电器</span>
-      <b>能量炮</b><span>铜→电路板+电线，再配一种金属（铜/铁/钻石/冥界钢）→ 右键发射；没电就放进充电器，加 1 个铀充满</span>
-      <b>M</b><span>全屏地图：拖动平移、滚轮/± 缩放、点一下放标记（标记可改名/删除，永久保存）；走到结构 40 格内会自动标记</span>
-      <b>1 - 9 / 滚轮</b><span>切换快捷栏</span>
-      <b>E</b><span>背包与合成</span>
+      <b>W A S D</b><span>Move (Shift or double-tap W to sprint)</span>
+      <b>Mouse</b><span>Look around (click the screen to lock the mouse)</span>
+      <b>Space</b><span>Jump (double-press in Creative to toggle flying)</span>
+      <b>Arrow keys</b><span>Look around (use this when there's no mouse; rebind it in Settings)</span>
+      <b>F / G</b><span>Dig Block (hold) / Place Block (rebindable)</span>
+      <b>Left click (hold)</b><span>Dig Block / Attack mobs</span>
+      <b>Right click</b><span>Place Block / Eat food / Open chest, furnace, crafting table, charger</span>
+      <b>Energy Cannon</b><span>Copper → circuit board + wire, plus a metal (Copper/Iron/Diamond/Nether Steel) → right-click to fire; when drained, put it in the charger with 1 uranium to refill</span>
+      <b>M</b><span>Full-screen map: drag to pan, wheel or +/− to zoom, click to drop a marker (rename/delete, saved forever); structures within 40 blocks are marked automatically</span>
+      <b>1 - 9 / wheel</b><span>Switch hotbar</span>
+      <b>E</b><span>Inventory and crafting</span>
     </div>
   </div>
 </div>
@@ -261,21 +261,21 @@
 <div class="overlay hide" id="createPanel">
   <div class="card" style="max-width:470px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">创建世界</div>
-      <button class="btn" id="btnCancelCreate">取消</button>
+      <div class="sec" style="border:0;margin:0">Create World</div>
+      <button class="btn" id="btnCancelCreate">Cancel</button>
     </div>
-    <label style="display:block;color:#9fb3c8;font-size:12px;margin:6px 0 4px">世界名称</label>
+    <label style="display:block;color:#9fb3c8;font-size:12px;margin:6px 0 4px">World name</label>
     <input id="wName" maxlength="16" style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:6px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:13px">
-    <label style="display:block;color:#9fb3c8;font-size:12px;margin:14px 0 4px">游戏模式</label>
+    <label style="display:block;color:#9fb3c8;font-size:12px;margin:14px 0 4px">Game mode</label>
     <div style="display:flex;gap:8px">
-      <button class="btn" id="modeSurvival" style="flex:1">生存</button>
-      <button class="btn" id="modeCreative" style="flex:1">创造</button>
+      <button class="btn" id="modeSurvival" style="flex:1">Survival</button>
+      <button class="btn" id="modeCreative" style="flex:1">Creative</button>
     </div>
     <p id="modeDesc" style="color:#8ea3ba;font-size:11px;margin:8px 0 0"></p>
-    <label style="display:block;color:#9fb3c8;font-size:12px;margin:14px 0 4px">种子（可留空 = 随机）</label>
-    <input id="wSeed" maxlength="24" placeholder="例如 12345 或 hello" style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:6px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:13px">
+    <label style="display:block;color:#9fb3c8;font-size:12px;margin:14px 0 4px">Seed (blank = random)</label>
+    <input id="wSeed" maxlength="24" placeholder="e.g. 12345 or hello" style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:6px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:13px">
     <div class="startrow">
-      <button class="btn gold" id="btnCreate">创建并进入</button>
+      <button class="btn gold" id="btnCreate">Create & Enter</button>
     </div>
   </div>
 </div>
@@ -283,18 +283,18 @@
 <div class="overlay hide" id="settings">
   <div class="card" style="max-width:540px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">设置 · 控制</div>
-      <button class="btn" id="btnCloseSettings">关闭</button>
+      <div class="sec" style="border:0;margin:0">Settings · Controls</div>
+      <button class="btn" id="btnCloseSettings">Close</button>
     </div>
-    <p style="color:#8ea3ba;font-size:11.5px;margin:0 0 4px">没有鼠标也能玩：<b style="color:#f5c451">WASD 移动 + 方向键看四周 + F 按住挖 + G 放</b>。点右边的按键框再按任意键即可改键。</p>
-    <div class="setsec">键位</div>
+    <p style="color:#8ea3ba;font-size:11.5px;margin:0 0 4px">No mouse? You can still play:<b style="color:#f5c451">WASD to move + arrow keys to look + hold F to dig + G to place</b>. Click a key box on the right, then press any key to rebind.</p>
+    <div class="setsec">Key</div>
     <div id="keyRows"></div>
-    <div class="setsec">操作</div>
-    <div class="setrow"><span>视角灵敏度</span><input type="range" id="setSens" min="0.3" max="2.5" step="0.1"><b id="setSensVal" style="color:#f5c451;min-width:38px;text-align:right">1.0×</b></div>
-    <div class="setrow"><span>屏幕虚拟按键（鼠标拖拽也能转视角）</span><button class="btn" id="setTouchUI" style="min-width:60px">关</button></div>
-    <div class="setrow"><span>性能探针（HUD 多一行「火把/结构/缓存/场景」数字，也可按 F3 开关）</span><button class="btn" id="setProbe" style="min-width:60px">关</button></div>
+    <div class="setsec">Action</div>
+    <div class="setrow"><span>Look sensitivity</span><input type="range" id="setSens" min="0.3" max="2.5" step="0.1"><b id="setSensVal" style="color:#f5c451;min-width:38px;text-align:right">1.0×</b></div>
+    <div class="setrow"><span>On-screen buttons (drag with the mouse to look)</span><button class="btn" id="setTouchUI" style="min-width:60px">Off</button></div>
+    <div class="setrow"><span>Performance probe (adds Torches/Structures/Cache/Scene numbers to the HUD; F3 toggles)</span><button class="btn" id="setProbe" style="min-width:60px">Off</button></div>
     <div class="startrow" style="margin-top:14px">
-      <button class="btn" id="btnResetKeys">恢复默认键位</button>
+      <button class="btn" id="btnResetKeys">Reset keys to default</button>
     </div>
   </div>
 </div>
@@ -302,13 +302,13 @@
 <div class="overlay hide" id="cmdBox">
   <div class="card" style="max-width:520px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">指令 · 传送（仅创造模式）</div>
-      <button class="btn" id="btnCloseCmd">关闭 Esc</button>
+      <div class="sec" style="border:0;margin:0">Commands · Teleport (creative only)</div>
+      <button class="btn" id="btnCloseCmd">Close Esc</button>
     </div>
     <p style="color:#8ea3ba;font-size:11.5px;margin:6px 0 8px">
-      <b style="color:#f5c451">/tp &lt;x&gt; &lt;y&gt; &lt;z&gt;</b> 传到坐标 ·
-      <b style="color:#f5c451">/tp &lt;玩家名&gt;</b> 传到队友 ·
-      <b style="color:#f5c451">/help</b> 看列表
+      <b style="color:#f5c451">/tp &lt;x&gt; &lt;y&gt; &lt;z&gt;</b> Teleport to coords ·
+      <b style="color:#f5c451">/tp &lt;player name&gt;</b> Teleport to teammate ·
+      <b style="color:#f5c451">/help</b> List
     </p>
     <input id="cmdInput" maxlength="120" placeholder="/tp 100 80 -200" autocomplete="off" spellcheck="false"
       style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:14px;font-family:ui-monospace,SFMono-Regular,monospace">
@@ -320,8 +320,8 @@
 <div class="overlay hide" id="lookPanel">
   <div class="card" style="max-width:600px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">外观 · 联机时的昵称与外形</div>
-      <button class="btn" id="btnCloseLook">返回</button>
+      <div class="sec" style="border:0;margin:0">Appearance · nickname and look for multiplayer</div>
+      <button class="btn" id="btnCloseLook">Back</button>
     </div>
     <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:8px">
       <div style="flex:0 0 auto">
@@ -330,34 +330,34 @@
         <div style="font-size:11px;color:#8ea3ba;text-align:center;margin-top:6px" id="lookNamePreview">—</div>
       </div>
       <div style="flex:1;min-width:240px">
-        <label style="display:block;font-size:12px;color:#9fb3c8;margin:0 0 4px">昵称（联机时显示给你和队友，最多 14 字）</label>
+        <label style="display:block;font-size:12px;color:#9fb3c8;margin:0 0 4px">Nickname (shown to you and your team in multiplayer, max 14 chars)</label>
         <input id="lookName" maxlength="14" autocomplete="off" spellcheck="false" placeholder="player12345"
           style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:7px;border:2px solid #33475e;background:#16202e;color:#e8f0f8;font-size:13px;font-family:inherit">
-        <div class="setsec">皮肤（MC 标准 64×64 PNG）</div>
+        <div class="setsec">Skin (standard MC 64×64 PNG)</div>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
           <canvas id="skinThumb" width="64" height="64"
             style="width:64px;height:64px;image-rendering:pixelated;border:2px solid #33475e;border-radius:4px;background:#0d1622"></canvas>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <button class="stbtn" id="btnSkinUp">上传 64×64 PNG</button>
-            <button class="stbtn" id="btnSkinReset">用下面的配色生成</button>
-            <div id="skinLayers" style="font-size:12px;color:#8ea3ba;line-height:1.4">二层：—</div>
+            <button class="stbtn" id="btnSkinUp">Upload 64×64 PNG</button>
+            <button class="stbtn" id="btnSkinReset">Generate from the colors below</button>
+            <div id="skinLayers" style="font-size:12px;color:#8ea3ba;line-height:1.4">Overlay: —</div>
           </div>
           <input type="file" id="skinFile" accept="image/png" style="display:none">
         </div>
-        <div class="setsec">肤色</div>
+        <div class="setsec">Skin tone</div>
         <div id="lookSkin" class="swrow"></div>
-        <div class="setsec">衣服颜色</div>
+        <div class="setsec">Shirt color</div>
         <div id="lookCloth" class="swrow"></div>
-        <div class="setsec">发色</div>
+        <div class="setsec">Hair color</div>
         <div id="lookHair" class="swrow"></div>
-        <div class="setsec">发型</div>
+        <div class="setsec">Hair style</div>
         <div id="lookStyle" class="strow">
-          <button class="stbtn" data-hs="0">短发</button>
-          <button class="stbtn" data-hs="1">长发</button>
+          <button class="stbtn" data-hs="0">Short</button>
+          <button class="stbtn" data-hs="1">Long</button>
         </div>
         <p style="color:#8ea3ba;font-size:11px;margin:12px 0 0;line-height:1.7">
-          没设昵称的玩家自动叫 <b style="color:#f5c451" id="lookAutoName">player12345</b>。<br>
-          改完立刻生效，进行中的联机房间会在下一次同步时带出新外观。
+          Players without a nickname are called <b style="color:#f5c451" id="lookAutoName">player12345</b>。<br>
+          Takes effect immediately; players in your current room see it on the next sync.
         </p>
       </div>
     </div>
@@ -367,17 +367,17 @@
 <div class="overlay hide" id="panel">
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">背包 <span id="invCount" style="color:#f5c451"></span></div>
-      <button class="btn" id="btnClose">关闭 E</button>
+      <div class="sec" style="border:0;margin:0">Inventory <span id="invCount" style="color:#f5c451"></span></div>
+      <button class="btn" id="btnClose">Close E</button>
     </div>
     <div class="pgrid" id="invGrid"></div>
-    <div class="sec">盔甲 <span id="armorVal" style="color:#f5c451"></span></div>
+    <div class="sec">Armor <span id="armorVal" style="color:#f5c451"></span></div>
     <div class="pgrid" id="armorGrid" style="grid-template-columns:repeat(4,1fr);max-width:210px;margin-bottom:14px"></div>
     <div id="creativeSec" class="hide">
-      <div class="sec">创造物品栏 <span style="color:#8ea3ba;font-size:11px;font-weight:400">点一下拿在鼠标上 · 拿着时点另一件会丢弃手上的 · Shift+点格子=直接删除 · 点面板外=丢到地上</span></div>
+      <div class="sec">Creative inventory <span style="color:#8ea3ba;font-size:11px;font-weight:400">Click to pick up · holding one, clicking another drops it · Shift+click a slot = delete · click outside = drop on the ground</span></div>
       <div class="pgrid" id="creativeGrid"></div>
     </div>
-    <div class="sec">合成（点击制作 · 铁制工具/盔甲需站在工作台旁）<span id="cursorInfo" style="color:#8ea3ba;font-size:11px;float:right;font-weight:400"></span></div>
+    <div class="sec">Crafting (click to craft · iron tools/armor need a crafting table nearby)<span id="cursorInfo" style="color:#8ea3ba;font-size:11px;float:right;font-weight:400"></span></div>
     <div id="recList"></div>
   </div>
 </div>
@@ -385,11 +385,11 @@
 <div class="overlay hide" id="chestPanel">
   <div class="card" style="max-width:660px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">箱子 <span id="chestHint" style="color:#8ea3ba;font-size:11px"></span></div>
-      <button class="btn" id="btnChestClose">关闭 Esc</button>
+      <div class="sec" style="border:0;margin:0">Chest <span id="chestHint" style="color:#8ea3ba;font-size:11px"></span></div>
+      <button class="btn" id="btnChestClose">Close Esc</button>
     </div>
     <div class="pgrid" id="chestGrid"></div>
-    <div class="sec">背包（点一下拿起，再点另一格放下 / 同种合并 / 不同种交换）</div>
+    <div class="sec">Inventory (click to pick up, click another slot to place / merge / swap)</div>
     <div class="pgrid" id="chestInvGrid"></div>
   </div>
 </div>
@@ -397,10 +397,10 @@
 <div class="overlay hide" id="furnace">
   <div class="card" style="max-width:520px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">熔炉</div>
-      <button class="btn" id="btnFurnaceClose">关闭 Esc</button>
+      <div class="sec" style="border:0;margin:0">Furnace</div>
+      <button class="btn" id="btnFurnaceClose">Close Esc</button>
     </div>
-    <p style="color:#8ea3ba;font-size:12px;margin:0 0 8px">燃料：<span id="fuelInfo" style="color:#f5c451"></span></p>
+    <p style="color:#8ea3ba;font-size:12px;margin:0 0 8px">Fuel:<span id="fuelInfo" style="color:#f5c451"></span></p>
     <div id="smeltList"></div>
   </div>
 </div>
@@ -408,19 +408,19 @@
 <div class="overlay hide" id="mapFull">
   <div class="card" style="max-width:1180px;width:97vw">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-      <div class="sec" style="border:0;margin:0">地图 <span id="mapHint" style="color:#8ea3ba;font-size:11px">拖动平移 · 滚轮/± 缩放 · 点一下放标记</span></div>
+      <div class="sec" style="border:0;margin:0">Map <span id="mapHint" style="color:#8ea3ba;font-size:11px">Drag to pan · wheel or ± to zoom · click to drop a marker</span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn" id="mapZoomIn">＋ 放大</button>
-        <button class="btn" id="mapZoomOut">－ 缩小</button>
-        <button class="btn" id="mapCenter">回到我</button>
-        <button class="btn gold" id="mapAddCenter">在中心放标记</button>
-        <button class="btn" id="mapClose">关闭 Esc</button>
+        <button class="btn" id="mapZoomIn">+ Zoom in</button>
+        <button class="btn" id="mapZoomOut">− Zoom out</button>
+        <button class="btn" id="mapCenter">Center on me</button>
+        <button class="btn gold" id="mapAddCenter">Marker at center</button>
+        <button class="btn" id="mapClose">Close Esc</button>
       </div>
     </div>
     <div id="mapBody">
       <canvas id="mapCv"></canvas>
       <div id="mapSide">
-        <div class="sec">标记 <span id="mapMarkCount" style="color:#8ea3ba"></span></div>
+        <div class="sec">Markers <span id="mapMarkCount" style="color:#8ea3ba"></span></div>
         <div id="mapMarks"></div>
       </div>
     </div>
@@ -430,10 +430,10 @@
 <div class="overlay hide" id="charger">
   <div class="card" style="max-width:560px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">充电器</div>
-      <button class="btn" id="btnChargerClose">关闭 Esc</button>
+      <div class="sec" style="border:0;margin:0">Charger</div>
+      <button class="btn" id="btnChargerClose">Close Esc</button>
     </div>
-    <p style="color:#8ea3ba;font-size:12px;margin:0 0 8px">燃料：<span id="chgInfo" style="color:#8dff5a"></span></p>
+    <p style="color:#8ea3ba;font-size:12px;margin:0 0 8px">Fuel:<span id="chgInfo" style="color:#8dff5a"></span></p>
     <div id="chgList"></div>
   </div>
 </div>
@@ -441,14 +441,14 @@
 <div class="overlay hide" id="processor">
   <div class="card" style="max-width:460px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">木头加工器</div>
-      <button class="btn" id="btnProcessorClose">关闭 Esc</button>
+      <div class="sec" style="border:0;margin:0">Wood Processor</div>
+      <button class="btn" id="btnProcessorClose">Close Esc</button>
     </div>
-    <p style="color:#8ea3ba;font-size:12px;margin:0 0 8px">1 个原木 → <b style="color:#f5c451">4 片木片</b>（木盔甲的材料）</p>
+    <p style="color:#8ea3ba;font-size:12px;margin:0 0 8px">1 log → <b style="color:#f5c451">4 planks</b> (material for wooden Armor)</p>
     <div id="procInfo" style="font-size:12px;color:#cfe0f0;margin-bottom:10px"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" id="procOne">削 1 个原木</button>
-      <button class="btn gold" id="procAll">全部削成木片</button>
+      <button class="btn" id="procOne">Slice 1 log</button>
+      <button class="btn gold" id="procAll">Slice all logs</button>
     </div>
   </div>
 </div>
@@ -456,14 +456,14 @@
 <div class="overlay hide" id="press">
   <div class="card" style="max-width:480px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">液压机</div>
-      <button class="btn" id="btnPressClose">关闭 Esc</button>
+      <div class="sec" style="border:0;margin:0">Hydraulic Press</div>
+      <button class="btn" id="btnPressClose">Close Esc</button>
     </div>
-    <p style="color:#8ea3ba;font-size:12px;margin:0 0 8px">压制：<b style="color:#f5c451">冥界碳 &times;1 + 铁锭 &times;2 &rarr; 冥界钢 &times;1</b></p>
+    <p style="color:#8ea3ba;font-size:12px;margin:0 0 8px">Press:<b style="color:#f5c451">Nether Carbon &times;1 + Iron Ingot &times;2 &rarr; Nether Steel &times;1</b></p>
     <div id="pressInfo" style="font-size:12px;color:#cfe0f0;margin-bottom:10px"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" id="pressOne">压 1 次</button>
-      <button class="btn gold" id="pressAll">全部压制</button>
+      <button class="btn" id="pressOne">Press once</button>
+      <button class="btn gold" id="pressAll">Press all</button>
     </div>
   </div>
 </div>
@@ -472,15 +472,15 @@
 
 <div class="overlay hide" id="death">
   <div class="card" style="text-align:center">
-    <h1 style="color:#e2494b">你倒下了</h1>
-    <p id="deathMsg">荒野的夜晚并不温柔。</p>
-    <button class="btn gold" id="btnRespawn">回到出生点</button>
+    <h1 style="color:#e2494b">You died</h1>
+    <p id="deathMsg">The wild night is not kind.</p>
+    <button class="btn gold" id="btnRespawn">Respawn at spawn</button>
   </div>
 </div>
 
-<div id="rotate">请横屏握持手机<br><span style="color:#7f93ab;font-size:11px">横屏视野更宽，操作按钮在右下</span></div>
+<div id="rotate">Please hold your phone in landscape<br><span style="color:#7f93ab;font-size:11px">Landscape gives a wider view; the buttons are bottom-right</span></div>
 
 <script>window.__loadErr=[];window.addEventListener('error',function(e){window.__loadErr.push((e.message||'?')+' @'+(e.filename||'')+':'+e.lineno+':'+e.colno);},true);</script>
-<script type="module" src="./js/blockwild.js?v=273"></script>
+<script type="module" src="./js/blockwild.js?v=275"></script>
 </body>
 </html>

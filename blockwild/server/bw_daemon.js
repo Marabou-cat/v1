@@ -63,6 +63,7 @@ function saveWorld(w) {
       pos: w.pos || {},                                          // 每个人的位置
       owner: w.owner || null,                                    // 房主 pid（守护进程重启后不能把房主身份弄丢）
       mach: w.mach || {},                                        // 机器作业状态（熔炉正在烧什么）
+      mm: Array.from((w.mm || new Map()).entries()),              // 共享地图：房间里已揭开的格子
     };
     fs.writeFileSync(worldPath(w.code), JSON.stringify(d));
     w.dirty = false;
@@ -88,6 +89,7 @@ function loadWorld(code) {
     w.pos = d.pos || {};
     w.owner = d.owner || null;
     w.mach = d.mach || {};
+    w.mm = new Map(d.mm || []);
     w.dirty = false;
     // ★ 必须放回缓存表：以前这里 return 一个「游离」的世界对象 —— 它不在 worlds 里，
     //   于是 10Hz 位置广播循环和 5s 落盘循环**都看不到这个房间**，玩家之间永远收不到
@@ -557,6 +559,31 @@ const server = http.createServer((req, res) => {
                         id: Number(a.id) || 0, n: Number(a.n) || 0, from: String(a.pid || '') },
                   String(a.pid || ''));
         return json(res, { ok: true });
+      }
+      if (a.a === 'mm') {                         // 共享地图：房间里已揭开的格子（push 增量 / pull 全量）
+        const wMap = loadWorld(String(a.code || 'W1'));
+        wMap.mm = wMap.mm || new Map();
+        if (typeof a.push === 'string' && a.push) {
+          let added = 0;
+          for (const item of a.push.split('|').slice(0, 1200)) {
+            const i = item.lastIndexOf(':');
+            if (i <= 0) continue;
+            const k = item.slice(0, i), tt = +item.slice(i + 1) | 0;
+            if (!/^-?\d+,-?\d+$/.test(k)) continue;
+            if (wMap.mm.has(k)) continue;
+            if (wMap.mm.size >= 40000) break;
+            wMap.mm.set(k, tt); added++;
+          }
+          if (added) {
+            wMap.dirty = true;
+            broadcast(wMap, { t: 'mm', v: a.push, from: String(a.pid || '') }, String(a.pid || ''));
+          }
+          return json(res, { ok: true, added, total: wMap.mm.size });
+        }
+        const parts = [];
+        let cnt = 0;
+        for (const [k, tt] of wMap.mm) { parts.push(k + ':' + tt); if (++cnt >= 20000) break; }
+        return json(res, { ok: true, v: parts.join('|'), total: wMap.mm.size });
       }
       if (a.a === 'mach') {                       // 机器作业状态（目前只有熔炉）：整房间一份，谁打开都看到同一炉
         const wM = loadWorld(String(a.code || 'W1'));
