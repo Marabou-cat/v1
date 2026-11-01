@@ -350,12 +350,14 @@ function join(req, res) {
         const ho = ACCOUNTS[w0.owner];
         let queued = false;
         if (ho && accOnline(ho) && (ho.friends || []).includes(acc.pid)) {
-          const r = { from: acc.pid, nick: acc.nick, code: (ho.world || ho.pworld || code), at: Date.now() };
+          const prevR = (ho.req || []).find(x => x.from === acc.pid);
+          const atR = (prevR && Date.now() - (prevR.at || 0) < 60000) ? prevR.at : Date.now();
+          const r = { from: acc.pid, nick: acc.nick, code: (ho.world || ho.pworld || code), at: atR };
           ho.req = (ho.req || []).filter(x => x.from !== acc.pid);
           ho.req.push(r);
           if (ho.req.length > 8) ho.req.shift();
           saveAccounts();
-          pushTo(ho.pid, { t: 'req', req: r });
+          if (!prevR) pushTo(ho.pid, { t: 'req', req: r });      // 重复的 join 不算新申请
           queued = true;
         }
         return json(res, { ok: false, e: 'need_approve', queued,
@@ -703,12 +705,16 @@ const server = http.createServer((req, res) => {
         if (!t) return json(res, { ok: false, e: 'no_user' });
         if (!(me.friends || []).includes(t.pid)) return json(res, { ok: false, e: 'not_friend' });
         if (!accOnline(t)) return json(res, { ok: false, e: 'offline' });
-        const r = { from: me.pid, nick: me.nick, code: (t.world || t.pworld || ''), at: Date.now() };
+        const prev = (t.req || []).find(x => x.from === me.pid);
+        /* 60 秒内重复申请：沿用原来的时间戳，不再当成「新申请」——否则客人端每 5 秒
+           都收到一条「新」请求，面板被反复弹开，看着像关不掉。 */
+        const atJ = (prev && Date.now() - (prev.at || 0) < 60000) ? prev.at : Date.now();
+        const r = { from: me.pid, nick: me.nick, code: (t.world || t.pworld || ''), at: atJ };
         t.req = (t.req || []).filter(x => x.from !== me.pid);
         t.req.push(r);
         if (t.req.length > 8) t.req.shift();
         saveAccounts();
-        pushTo(t.pid, { t: 'req', req: r });
+        if (!prev) pushTo(t.pid, { t: 'req', req: r });          // 只有「新申请」才推送（重复的不再打扰）
         return json(res, { ok: true, sent: true });
       }
       if (a.a === 'jres') {                        // 好友回应申请：同意 → 给申请人发通行证 + 通知他自动进房

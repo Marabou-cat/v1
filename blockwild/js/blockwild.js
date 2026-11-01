@@ -12818,7 +12818,20 @@ const MPUI = {
   hide() {
     if (!this.root) return;
     this.root.classList.add('hide');
+    /* ★ 必须同时写内联 display:none。以前只加 class —— 而旧的联机面板代码
+       （renderFriends / onSocial('inv')）会直接 `frPanel.style.display='block'`，
+       内联样式优先级高于 class → 之后再点「返回」根本关不掉（收到加入申请时必现）。
+       现在两处都堵：hide 写内联 none，旧代码也改成走 MPUI.show()。 */
+    this.root.style.display = 'none';
+    this.closedAt = Date.now();                 // 记一下「用户刚关掉」：60 秒内不自动弹回来
     if (window.__bwMPSync) window.__bwMPSync(false);
+  },
+  /* 「收到加入申请」时的自动弹出：用户刚关过面板就先不弹（toast 提示 + 好友按钮上有个数字），
+     免得关掉→又弹→关掉→又弹，看起来像「关不掉」。 */
+  autoShow() {
+    if (Date.now() - (this.closedAt || 0) < 60000) return false;
+    this.show('friend');
+    return true;
   },
   msg2(t) { this.msg = t || ''; const el = this.root && this.root.querySelector('#mpMsg'); if (el) el.textContent = this.msg; },
   setFriends(d) {
@@ -13252,11 +13265,13 @@ function mpSocialTick() {
         setTimeout(() => { if (!(window.NET && NET.active)) mpJoinRoom(okInv.code, 1); }, 150);
         return;
       }
-      const fresh = reqs.filter(r => !MPUI._seenReq.has(r.from + '@' + r.at));
-      for (const r of reqs) MPUI._seenReq.add(r.from + '@' + r.at);
+      /* 去重按「人」：同一个好友反复申请（服务端每次 join 都排一条新的时间戳）以前每 5 秒
+         都把面板弹开一次 → 用户点了返回又自己弹回来，看着就是「关不掉」。 */
+      const fresh = reqs.filter(r => !MPUI._seenReq.has(r.from));
+      for (const r of reqs) MPUI._seenReq.add(r.from);
       if (fresh.length) {
         toast(fresh[0].nick + ' 想加入你的世界 —— 点「同意」，房间会自动开好', 6);
-        MPUI.show('friend');
+        MPUI.autoShow();                     // 刚关过面板就先只提示，不硬弹
       } else if (MPUI.ready && MPUI.root && !MPUI.root.classList.contains('hide')) {
         MPUI.render();
       }
@@ -14600,11 +14615,13 @@ function mpEnterAccountWorld(code) {
     if (Array.isArray(d.req) && d.req.length) {
       frReq = d.req;
       renderReq();
-      const fresh = d.req.some(r => !frSeen.has(r.from + '@' + r.at));
-      for (const r of d.req) frSeen.add(r.from + '@' + r.at);
+      /* 去重按「人」而不是「时间」：同一个好友反复发申请（或服务端每次 join 都排一条新的）
+         以前每来一条时间戳就 fresh 一次 → 面板被反复自动弹开，看着像关不掉。 */
+      const fresh = d.req.some(r => !frSeen.has(r.from));
+      for (const r of d.req) frSeen.add(r.from);
       if (fresh || frForceOpen) {                 // 只在「来了新申请」时自动弹出（以前心跳也会重弹）
         frForceOpen = false;
-        if (!frOpen) { frOpen = true; frPanel.style.display = 'block'; }
+        if (!frOpen) { frOpen = true; MPUI.autoShow(); }   // ★ 不再直接写 frPanel.style.display（内联样式会让「返回」失效）
       }
     } else { renderReq(); }
     const list = frPanel.querySelector('#frList');
@@ -14641,9 +14658,9 @@ function mpEnterAccountWorld(code) {
   // ws 推送：好友申请 / 对方同意 / 被拒绝 / 好友列表变了
   net.onSocial = (m) => {
     if (m.t === 'req') {
-      frSeen.add(m.req.from + '@' + m.req.at);
+      frSeen.add(m.req.from);
       frReq = [m.req]; frForceOpen = true;
-      MPUI.show('friend');                     // 新面板里就有「同意/拒绝」，同意后自动开房
+      MPUI.autoShow();                         // 用户刚关过面板就不硬弹（toast + 好友按钮上的数字照样提示）
       MPUI.pullFriends();
       toast(`${m.req.nick} 想加入你的世界 —— 点「同意」，房间会自动开好`, 5);
     }
@@ -14657,7 +14674,7 @@ function mpEnterAccountWorld(code) {
     else if (m.t === 'inv') {                       // 房主邀请：面板自动弹出来，点「加入」就进他的房间
       frInv = frInv.filter(x => x.code !== m.code).concat([{ code: m.code, nick: m.nick, at: Date.now() }]);
       ensureFriendsUI(); renderLobby();
-      if (!frOpen) { frOpen = true; frPanel.style.display = 'block'; }
+      if (!frOpen) { frOpen = true; MPUI.autoShow(); }   // 同上：不写内联 display，免得关不掉
       toast(`${m.nick} 邀请你进房间 ${m.code}（点「加入」）`, 6);
     }
     else if (m.t === 'f') { ensureFriendsUI(); net.friendsPull(); toast(`${m.nick} 把你加为好友`, 3); }
