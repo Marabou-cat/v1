@@ -62,6 +62,7 @@ function saveWorld(w) {
       inv: w.inv || {},                                          // 客人背包（房主背包在他自己本地存档里）
       pos: w.pos || {},                                          // 每个人的位置
       owner: w.owner || null,                                    // 房主 pid（守护进程重启后不能把房主身份弄丢）
+      mach: w.mach || {},                                        // 机器作业状态（熔炉正在烧什么）
     };
     fs.writeFileSync(worldPath(w.code), JSON.stringify(d));
     w.dirty = false;
@@ -86,6 +87,7 @@ function loadWorld(code) {
     w.inv = d.inv || {};
     w.pos = d.pos || {};
     w.owner = d.owner || null;
+    w.mach = d.mach || {};
     w.dirty = false;
     // ★ 必须放回缓存表：以前这里 return 一个「游离」的世界对象 —— 它不在 worlds 里，
     //   于是 10Hz 位置广播循环和 5s 落盘循环**都看不到这个房间**，玩家之间永远收不到
@@ -555,6 +557,19 @@ const server = http.createServer((req, res) => {
                         id: Number(a.id) || 0, n: Number(a.n) || 0, from: String(a.pid || '') },
                   String(a.pid || ''));
         return json(res, { ok: true });
+      }
+      if (a.a === 'mach') {                       // 机器作业状态（目前只有熔炉）：整房间一份，谁打开都看到同一炉
+        const wM = loadWorld(String(a.code || 'W1'));
+        wM.mach = wM.mach || {};
+        const kind = String(a.kind || '').slice(0, 12);
+        if (!kind) return json(res, { ok: false, e: 'no_kind' });
+        if (a.set && typeof a.set === 'object') {
+          wM.mach[kind] = a.set;
+          wM.dirty = true;
+          broadcast(wM, { t: 'mach', kind, v: a.set }, String(a.pid || ''));
+          return json(res, { ok: true, v: a.set });
+        }
+        return json(res, { ok: true, v: wM.mach[kind] || null });
       }
       if (a.a === 'claim') {                     // 轮询模式的掉落物归属裁决
         const wC = loadWorld(String(a.code || 'W1'));

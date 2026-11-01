@@ -6732,7 +6732,15 @@ function villagerAttack(v, t) {                   // 村民用剑砍怪：怪会
 const MAX_SQUAD = 3;
 const ARMOR_COLOR = { 110: 0xcfd6de, 111: 0xcfd6de, 112: 0xcfd6de, 113: 0xcfd6de,
   132: 0x5fe0dc, 133: 0x5fe0dc, 134: 0x5fe0dc, 135: 0x5fe0dc };
-function squadList() { return mobs.filter(m => m.recruit && m.recruit.hired); }
+/* 小队 = 已招募的村民。客人端没有真怪（只有幽灵镜像），也要算进来，
+   否则客人在「背包 → 小队」里看不到自己招的村民，也没法指挥。 */
+function squadList() {
+  const own = mobs.filter(m => m.recruit && m.recruit.hired);
+  if (NET && NET.active && !NET.isHost && NET.ghosts) {
+    for (const g of NET.ghosts.values()) if (g.recruit && g.recruit.hired) own.push(g);
+  }
+  return own;
+}
 
 /* 联机里「怪该盯谁」：房主自己和所有客人里最近的那个。
    以前所有 AI 只认 player（房主）→ 客人站在僵尸旁边它也当没看见。 */
@@ -7210,7 +7218,7 @@ function spawnArrow(from, to, opts = {}) {
   scene.add(obj);
   arrows.push({
     p: from.clone(), v: dir.multiplyScalar(opts.speed || 24), t: 0, obj,
-    dmg: opts.dmg || 4, fromPlayer: !!opts.fromPlayer,
+    dmg: opts.dmg || 4, fromPlayer: !!opts.fromPlayer, toPid: opts.toPid || '',
   });
   return true;
 }
@@ -7242,27 +7250,29 @@ function spawnBolt(from, to, opts = {}) {
   scene.add(obj);
   arrows.push({
     p: from.clone(), v: dir.multiplyScalar(opts.speed || 52), t: 0, obj,
-    dmg: opts.dmg || 8, fromPlayer: !opts.hostile, bolt: true,
+    dmg: opts.dmg || 8, fromPlayer: !opts.hostile, bolt: true, toPid: opts.toPid || '',
     grav: opts.grav === undefined ? 0.35 : opts.grav, maxT: opts.maxT || 2.6,
   });
   return true;
 }
-function shootArrow(m) {                       // 骷髅射箭
+function shootArrow(m, foe) {                   // 骷髅射箭（foe = 最近的玩家：房主或某个客人）
   const from = new THREE.Vector3(m.p.x, m.p.y + 1.15, m.p.z);
-  const to = new THREE.Vector3(player.p.x, player.p.y + 1.05, player.p.z);
-  spawnArrow(from, to, { dmg: 4, speed: 22 });
+  const tgt = foe || { x: player.p.x, y: player.p.y, z: player.p.z, pid: '' };
+  const to = new THREE.Vector3(tgt.x, tgt.y + 1.05, tgt.z);
+  spawnArrow(from, to, { dmg: 4, speed: 22, toPid: tgt.pid || '' });
   sfx('place');
 }
 /* 烈焰巨像：扇形三连火球（复用能量弹的发光球模型，但没有「fromPlayer」——会打玩家） */
 const _fbUp = new THREE.Vector3(0, 1, 0);
-function shootFireball(m) {
+function shootFireball(m, foe) {
   const from = new THREE.Vector3(m.p.x, m.p.y + 2.2, m.p.z);
-  const base = new THREE.Vector3(player.p.x, player.p.y + 1.0, player.p.z).sub(from);
+  const tgt = foe || { x: player.p.x, y: player.p.y, z: player.p.z, pid: '' };
+  const base = new THREE.Vector3(tgt.x, tgt.y + 1.0, tgt.z).sub(from);
   for (const spread of [-0.18, 0, 0.18]) {
     const dir = base.clone().applyAxisAngle(_fbUp, spread).add(from);
     // 单发 5 点：3 发全中 15（满血 20 + 护甲能扛住一轮）—— 原来 9 点一发、一轮 27 点，
     // 实测满血玩家一轮就倒，等于没有操作空间
-    spawnBolt(from, dir, { dmg: (MOB_DEFS[m.kind] && MOB_DEFS[m.kind].fbDmg) || 5, speed: 20, color: 0xff6a1e, hostile: true, grav: 0.9 });
+    spawnBolt(from, dir, { dmg: (MOB_DEFS[m.kind] && MOB_DEFS[m.kind].fbDmg) || 5, speed: 20, color: 0xff6a1e, hostile: true, grav: 0.9, toPid: tgt.pid || '' });
   }
   sfx('place');
 }
@@ -7296,9 +7306,11 @@ function colossusThrow(m) {
   setBlock(best.x, best.y, best.z, 0);                    // 真的搬走一块
   m.carryId = best.id;
   const from = new THREE.Vector3(m.p.x, m.p.y + 2.9, m.p.z);
-  const to = new THREE.Vector3(player.p.x, player.p.y + 1.0, player.p.z);
+  const foeT = nearestFoe(m);
+  const to = new THREE.Vector3(foeT ? foeT.x : player.p.x, (foeT ? foeT.y : player.p.y) + 1.0, foeT ? foeT.z : player.p.z);
   spawnBolt(from, to, {
     dmg: 8, speed: 16, grav: 1.1, hostile: true, mesh: makeRockMesh(best.id), maxT: 4,
+    toPid: foeT ? foeT.pid : '',
   });
   m.throwAnim = 0.45;                                     // 抬臂动作
   m.atkN = (m.atkN | 0) + 1;                               // 联机客人据此播同一记投掷
@@ -7334,9 +7346,22 @@ function updateArrows(dt) {
           gone = true;
           break;
         }
-      } else {                                          // 敌人的箭打玩家
-        const dx = a.p.x - player.p.x, dy = a.p.y - (player.p.y + 0.9), dz = a.p.z - player.p.z;
-        if (dx * dx + dy * dy + dz * dz < 0.45) { hurtPlayerFrom(a.p.x - a.v.x * 0.05, a.p.z - a.v.z * 0.05, a.dmg, 4.6); gone = true; }
+      } else {                                          // 敌人的箭/火球打玩家
+        if (a.toPid && NET && NET.active && NET.isHost) {
+          /* 这支箭是朝某个客人射的：只在房主端按那个客人的位置判命中，
+             命中后定向发 hurt（以前所有敌方投掷物只认房主自己的位置 → 客人站在弹道里也没事） */
+          const r = NET.remotes.get(a.toPid);
+          if (r) {
+            const dx = a.p.x - r.obj.position.x, dy = a.p.y - (r.obj.position.y + 0.9), dz = a.p.z - r.obj.position.z;
+            if (dx * dx + dy * dy + dz * dz < 0.55) {
+              NET.send('hurt', { to: a.toPid, d: a.dmg, sx: +(a.p.x - a.v.x * 0.05).toFixed(2), sz: +(a.p.z - a.v.z * 0.05).toFixed(2) });
+              gone = true;
+            }
+          }
+        } else {
+          const dx = a.p.x - player.p.x, dy = a.p.y - (player.p.y + 0.9), dz = a.p.z - player.p.z;
+          if (dx * dx + dy * dy + dz * dz < 0.45) { hurtPlayerFrom(a.p.x - a.v.x * 0.05, a.p.z - a.v.z * 0.05, a.dmg, 4.6); gone = true; }
+        }
       }
       if (!gone) {
         const bb = getBlock(Math.floor(a.p.x), Math.floor(a.p.y), Math.floor(a.p.z));
@@ -7765,17 +7790,21 @@ function updateMobs(dt) {
         if (ai.stuckT > 8) { m.bed = null; ai.door = null; m.bedTgt = false; ai.stuckT = 0; m.bedScan = 4; ai.state = 'idle'; }
       } else { ai.stuckT = 0; ai.watchT = 0; ai.lx = m.p.x; ai.lz = m.p.z; }
     }
-    if (def.ranged && hostileNow && player.alive) {      // 骷髅：保持距离并射箭
-      // ⚠ boss 不能按「正常远程怪」那样退到 6 格外：玩家只有近战（reach≈4.2），
-      //   实测它会一直风筝在 6.8 格、永远打不到 → boss 只在 3.4 格内才后撤
-      const keep = def.boss ? 3.4 : 6;
-      const approachR = def.boss ? 3.6 : 15;      // boss 主动压到近战距离（否则停在 5+ 格，玩家 reach 4.2 打不到）
-      if (dist > approachR) { mx = dx / (dist || 1); mz = dz / (dist || 1); speed = def.chase; }
-      else if (dist < keep) { mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase * 0.85; }
-      m.shootCd = (m.shootCd || 0) - dt;
-      if (m.shootCd <= 0 && dist < (def.fireball ? 26 : 20) && sightClear(m.p, player.p)) {
-        if (def.fireball) { m.shootCd = 2.2; shootFireball(m); }     // 烈焰巨像：火球
-        else { m.shootCd = 1.7; shootArrow(m); }
+    if (def.ranged && hostileNow) {      // 骷髅：保持距离并射箭（谁近射谁：房主或某个客人）
+      const foeR = nearestFoe(m);
+      if (foeR) {
+        const fdx = foeR.x - m.p.x, fdz = foeR.z - m.p.z, fdist = foeR.d;
+        // ⚠ boss 不能按「正常远程怪」那样退到 6 格外：玩家只有近战（reach≈4.2），
+        //   实测它会一直风筝在 6.8 格、永远打不到 → boss 只在 3.4 格内才后撤
+        const keep = def.boss ? 3.4 : 6;
+        const approachR = def.boss ? 3.6 : 15;      // boss 主动压到近战距离（否则停在 5+ 格，玩家 reach 4.2 打不到）
+        if (fdist > approachR) { mx = fdx / (fdist || 1); mz = fdz / (fdist || 1); speed = def.chase; }
+        else if (fdist < keep) { mx = -fdx / (fdist || 1); mz = -fdz / (fdist || 1); speed = def.chase * 0.85; }
+        m.shootCd = (m.shootCd || 0) - dt;
+        if (m.shootCd <= 0 && fdist < (def.fireball ? 26 : 20) && sightClear(m.p, foeR)) {
+          if (def.fireball) { m.shootCd = 2.2; shootFireball(m, foeR); }     // 烈焰巨像：火球
+          else { m.shootCd = 1.7; shootArrow(m, foeR); }
+        }
       }
     } else if (def.hostile && hostileNow) {
       const tgm = (m.target && m.target.hp > 0 && !m.target.dying && !m.target.recruit?.dying) ? m.target : null;
@@ -8282,7 +8311,7 @@ function renderSquadStrip() {                    // 背包里的「小队」区�
     return `<div data-sq="${i}" style="flex:1;margin:0 3px;padding:7px 4px;border:1px solid ${m.recruit.follow ? '#3f7a4a' : '#43546b'};`
       + `border-radius:7px;background:${m.recruit.follow ? '#16281c' : '#1a212b'};text-align:center;font-size:11px;cursor:pointer">`
       + `<div style="font-size:15px">🧑‍🌾</div>${m.recruit.follow ? '跟随中' : '待命'}<br>`
-      + `<span style="color:#9fb0c2">护甲 ${gearN}/4</span></div>`;
+      + `<span style="color:#9fb0c2">${m.remote ? '远程' : '护甲 ' + gearN + '/4'}</span></div>`;
   };
   el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">`
     + `<b style="font-size:12px;color:#cfdae6">小队 ${list.length}/${MAX_SQUAD}</b>`
@@ -8292,7 +8321,16 @@ function renderSquadStrip() {                    // 背包里的「小队」区�
     const t = e.target.closest('[data-sq]');
     if (!t) return;
     const m = squadList()[+t.dataset.sq];
-    if (m) openVillagerPanel(m);
+    if (!m) return;
+    /* 客人：村民的真身在房主那边（装备/护甲都存那边），这里点一下就是「跟随 / 待命」远程指令 */
+    if (m.remote) {
+      m.recruit.follow = !m.recruit.follow;
+      if (window.NET && NET.vact) NET.vact(m.nid, m.recruit.follow ? 'follow' : 'stay');
+      toast(m.recruit.follow ? '村民：跟着你' : '村民：原地待命', 1.4);
+      renderSquadStrip();
+      return;
+    }
+    openVillagerPanel(m);
   };
 }
 function renderInventoryPanel() {
@@ -8408,6 +8446,19 @@ const FUEL_DEFS = [
 let furnaceFuel = 13, furnaceJob = null;           // 选中的燃料 / 当前烧制作业
 const SMELT_DUR = 3.0;                             // 兜底：燃料没写 time 时才用这个
 const jobDur = j => (j && Number.isFinite(j.dur) ? j.dur : SMELT_DUR);
+/* 联机：把「这台熔炉正在烧什么」同步到服务端（房主也能看到、客人退出后这一炉还在） */
+let machPushT = 0;
+function ppFurnace(force) {
+  if (!(window.NET && NET.active && NET.machSet)) return;
+  const now = Date.now();
+  if (!force && now - machPushT < 1200) return;
+  machPushT = now;
+  const j = furnaceJob;
+  NET.machSet('furnace', j ? {
+    out: j.r.out, n: j.r.n, in: j.r.in, t: +(+j.t).toFixed(2),
+    dur: jobDur(j), left: j.left, fuel: j.fuel, fuelName: j.fuelName,
+  } : null);
+}
 function fuelCount(id) { return countOf(id); }
 function fuelReady() { return FUEL_DEFS.find(f => f.id === furnaceFuel && countOf(f.id) > 0) || null; }
 function smelt(r) {
@@ -8424,7 +8475,7 @@ function smelt(r) {
   takeItem(r.in, 1);
   furnaceJob = { r, t: 0, left: f.units, fuel: f.id, fuelName: f.name, dur: f.time };
   toast(`点火：${f.name} → 每个 ${f.time.toFixed(1)} 秒，可烧 ${f.units} 个`, 2.2);
-  sfx('place');
+  sfx('place'); ppFurnace(true);                                  // 让房间里其他人也看到这一炉
   renderHotbar(); renderFurnace(); saveSoon();
   return true;
 }
@@ -8432,6 +8483,7 @@ function updateFurnaceJob(dt) {
   const j = furnaceJob;
   if (!j) return;
   j.t += dt;
+  ppFurnace();                                    // 每秒把进度同步一次（没联机时什么都不做）
   if (j.t < jobDur(j)) { if ($('furnace') && !$('furnace').classList.contains('hide')) renderFurnace(); return; }
   j.t = 0;
   addItem(j.r.out, j.r.n);
@@ -8440,6 +8492,7 @@ function updateFurnaceJob(dt) {
   j.left--;
   if (j.left > 0 && countOf(j.r.in) > 0) takeItem(j.r.in, 1);
   else furnaceJob = null;
+  ppFurnace(true);
   renderHotbar(); if ($('furnace') && !$('furnace').classList.contains('hide')) renderFurnace();
   refreshHeld(); saveSoon();
 }
@@ -8518,6 +8571,22 @@ function openFurnace() {
   furnaceOpen = true;
   renderFurnace(); $('furnace').classList.remove('hide');
   syncPointerLock();                                                // 放开光标，熔炉列表才点得动
+  /* 联机：熔炉作业是「这个世界的这台炉子」，不是某个人的。打开时先问服务端有没有人在烧，
+     有就接上（以前两端的 furnaceJob 各一份 → 房主看不到客人在烧什么，客人退出那炉就没了）。 */
+  if (window.NET && NET.active && NET.machGet) {
+    NET.machGet('furnace', v => {
+      if (!furnaceJob && v && v.out) { adoptFurnaceJob(v); toast('接上了这台熔炉正在烧的：' + nameOf(v.out | 0), 3); }
+    });
+  }
+}
+/* 把服务端那炉接过来本地继续（只差 r 的完整配方，渲染/结算只用到 out / n / in） */
+function adoptFurnaceJob(v) {
+  furnaceJob = {
+    r: { out: v.out | 0, n: Math.max(1, v.n | 0), in: v.in | 0 },
+    t: +v.t || 0, left: Math.max(1, v.left | 0),
+    fuel: v.fuel | 0, fuelName: v.fuelName || '燃料', dur: Number(v.dur) || SMELT_DUR,
+  };
+  if ($('furnace') && !$('furnace').classList.contains('hide')) renderFurnace();
 }
 function closeFurnace() {
   furnaceOpen = false;
@@ -9836,13 +9905,7 @@ function update(dt) {
   if (placeQueued) {
     placeQueued = false;
     const h = held();
-    /* 联机里熔炉/加工器/液压机/充电器的状态是「客户端本地」的 → 客人烧的东西只存在自己这边、
-       退出就丢，房主也看不到。与其让人白干，不如明确拦一下（要真共享得把这些状态搬到服务端）。 */
-    if (t && (t.id === 19 || t.id === 40 || t.id === 47 || t.id === 53) && NET && NET.active && !NET.isHost) {
-      toast('联机时这类机器由房主操作（客人的进度只存在自己这边，退出就没了）', 3.4);
-      startSwing('place', 0.2);
-    }
-    else if (t && t.id === 18) { openChest(t.x, t.y, t.z); startSwing('place', 0.2); }
+    if (t && t.id === 18) { openChest(t.x, t.y, t.z); startSwing('place', 0.2); }
     else if (t && t.id === 19) { openFurnace(); startSwing('place', 0.2); }
     else if (t && t.id === 40) { openProcessor(); startSwing('place', 0.2); }     // 木头加工器
     else if (t && t.id === 47) { openPress(); startSwing('place', 0.2); }          // 液压机
@@ -13779,6 +13842,16 @@ function mpEnterAccountWorld(code) {
       .then(r => r.json()).then(d => cb(!!(d && d.ok))).catch(() => cb(true));
   };
   net.castAct = (type) => net.send('act', { act: type });
+  /* 机器作业状态（熔炉）：整房间一份，存服务端 —— 房主也看得到、客人退出后那一炉还在 */
+  net.machGet = (kind, cb) => {
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'mach', code: net.code, pid: net.id, kind }) })
+      .then(r => r.json()).then(d => cb(d && d.ok ? d.v : null)).catch(() => cb(null));
+  };
+  net.machSet = (kind, v) => {
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'mach', code: net.code, pid: net.id, kind, set: v }) }).catch(() => {});
+  };
   /* 客人对村民的操作（交物资 / 给道具 / 跟随待命）→ 房主那边结算 */
   net.vact = (i, act, extra) => net.send('vact', Object.assign({ i, act }, extra || {}));
   // 状态位：1=挖掘 2=疾跑 4=腾空 —— 远端形象靠它播动作（1 个字节，跟位置一起发）
@@ -14017,6 +14090,8 @@ function mpEnterAccountWorld(code) {
         if (typeof m.d === 'number' && m.d > 0) {
           hurtPlayerFrom(Number(m.sx) || player.p.x, Number(m.sz) || player.p.z, Math.min(20, m.d));
         }
+      } else if (m.t === 'mach') {                // 别人点了炉子：我这边没在烧就接上（同一台共享的炉）
+        if (m.kind === 'furnace' && !furnaceJob && m.v && m.v.out) adoptFurnaceJob(m.v);
       } else if (m.t === 'time') {                // 房主的昼夜时间
         if (typeof m.v === 'number' && Math.abs(m.v - worldTime) > 3) worldTime = m.v;
       } else if (m.t === 'm') {
