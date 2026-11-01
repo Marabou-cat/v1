@@ -6734,6 +6734,21 @@ const ARMOR_COLOR = { 110: 0xcfd6de, 111: 0xcfd6de, 112: 0xcfd6de, 113: 0xcfd6de
   132: 0x5fe0dc, 133: 0x5fe0dc, 134: 0x5fe0dc, 135: 0x5fe0dc };
 function squadList() { return mobs.filter(m => m.recruit && m.recruit.hired); }
 
+/* 联机里「怪该盯谁」：房主自己和所有客人里最近的那个。
+   以前所有 AI 只认 player（房主）→ 客人站在僵尸旁边它也当没看见。 */
+function nearestFoe(m) {
+  let best = null, bd = Infinity;
+  const consider = (x, y, z, pid) => {
+    const d = Math.hypot(x - m.p.x, z - m.p.z);
+    if (d < bd) { bd = d; best = { x, y, z, pid, d }; }
+  };
+  if (player.alive) consider(player.p.x, player.p.y, player.p.z, '');
+  if (NET && NET.active && NET.isHost && NET.remotes) {
+    for (const [pid2, r2] of NET.remotes) consider(r2.obj.position.x, r2.obj.position.y, r2.obj.position.z, pid2);
+  }
+  return best;
+}
+
 /* 招募来的村民跟谁走：房主自己招的跟 player；**客人招的跟那个客人**
    （以前一律跟玩家自己 → 客人招的村民永远围着房主转，等于「招了但没用」） */
 function ownerPos(m) {
@@ -7764,9 +7779,10 @@ function updateMobs(dt) {
       }
     } else if (def.hostile && hostileNow) {
       const tgm = (m.target && m.target.hp > 0 && !m.target.dying && !m.target.recruit?.dying) ? m.target : null;
-      const tx = tgm ? tgm.p.x : player.p.x, tz = tgm ? tgm.p.z : player.p.z;
+      const foe = tgm ? null : nearestFoe(m);
+      const tx = tgm ? tgm.p.x : (foe ? foe.x : player.p.x), tz = tgm ? tgm.p.z : (foe ? foe.z : player.p.z);
       const tdx = tx - m.p.x, tdz = tz - m.p.z, td2 = Math.hypot(tdx, tdz);
-      if (td2 < 26 && (tgm || player.alive)) { mx = tdx / (td2 || 1); mz = tdz / (td2 || 1); speed = def.chase; }
+      if (td2 < 26 && (tgm || foe)) { mx = tdx / (td2 || 1); mz = tdz / (td2 || 1); speed = def.chase; }
     } else if (m.flee > 0) {                         // 被打之后逃跑
       mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase;
     } else if (m.kind === 'villager' && m.bedTgt) {
@@ -7913,10 +7929,15 @@ function updateMobs(dt) {
         if (tgtMob.hp <= 0) startMobDeath(tgtMob);
         sfx('hurt');
       }
-    } else if (def.hostile && hostileNow && !m.dormant && dist < reach && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.vReach || (def.boss ? 3.2 : 2.0)) && sightClear(m.p, player.p)) {
-      m.atkCd = def.atkCd || 1.6; m.lunge = 0.3; m.atkN = (m.atkN | 0) + 1;
-      hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
-      sfx('hurt');
+    } else if (def.hostile && hostileNow && !m.dormant && (def.hostile ? (nearestFoe(m) || { d: dist, x: player.p.x, y: player.p.y, z: player.p.z, pid: '' }).d : dist) < reach && m.atkCd <= 0) {
+      const foe = nearestFoe(m) || { d: dist, x: player.p.x, y: player.p.y, z: player.p.z, pid: '' };
+      if (Math.abs(m.p.y - foe.y) < (def.vReach || (def.boss ? 3.2 : 2.0)) && sightClear(m.p, foe)) {
+        m.atkCd = def.atkCd || 1.6; m.lunge = 0.3; m.atkN = (m.atkN | 0) + 1;
+        /* ★ 怪打到的是谁：客人由房主代算，再定向把伤害发过去（以前只扣房主自己的血） */
+        if (foe.pid) NET.send('hurt', { to: foe.pid, d: def.dmg || 3, sx: +m.p.x.toFixed(2), sz: +m.p.z.toFixed(2) });
+        else hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
+        sfx('hurt');
+      }
     }
   }
   updateArrows(dt);
@@ -8057,23 +8078,31 @@ function updateDrops(dt) {
       d.obj.rotation.y = d.spin;
       d.obj.rotation.x = Math.sin(d.spin * 0.7) * 0.15;
     }
-    if (d.t > 0.3 && dist < 0.95) {                       // 拾取
-      if (ITEMS[d.id] && ITEMS[d.id].kind === 'gun' && d.c !== undefined) {
-        // 能量炮：捡回来要保留电量（不然丢一次就是免费充满）
-        const gslot = inv.findIndex(s => !s);
-        if (gslot >= 0) inv[gslot] = { id: d.id, n: 1, c: Math.max(0, Math.min(gunCap(d.id), d.c | 0)) };
-        else addItem(d.id, d.n);
-      } else addItem(d.id, d.n);
-      if (d.n > 1) toast(`拾取 ${nameOf(d.id)} ×${d.n}`, 1.1);
-      sfx('dig');
-      renderHotbar();
-      scene.remove(d.obj);
-      if (!d.obj.userData.sharedGeo) {
-        d.obj.geometry.dispose();
-        if (Array.isArray(d.obj.material)) d.obj.material.forEach(mm => mm && mm.dispose && mm.dispose());
-        else if (d.obj.material && d.obj.material.dispose) d.obj.material.dispose();
-      }
-      drops.splice(i, 1);
+    if (d.t > 0.3 && dist < 0.95 && !d.claiming) {         // 拾取
+      d.claiming = true;
+      const award = () => {
+        if (ITEMS[d.id] && ITEMS[d.id].kind === 'gun' && d.c !== undefined) {
+          // 能量炮：捡回来要保留电量（不然丢一次就是免费充满）
+          const gslot = inv.findIndex(s => !s);
+          if (gslot >= 0) inv[gslot] = { id: d.id, n: 1, c: Math.max(0, Math.min(gunCap(d.id), d.c | 0)) };
+          else addItem(d.id, d.n);
+        } else addItem(d.id, d.n);
+        if (d.n > 1) toast(`拾取 ${nameOf(d.id)} ×${d.n}`, 1.1);
+        sfx('dig');
+        renderHotbar();
+        scene.remove(d.obj);
+        if (!d.obj.userData.sharedGeo) {
+          d.obj.geometry.dispose();
+          if (Array.isArray(d.obj.material)) d.obj.material.forEach(mm => mm && mm.dispose && mm.dispose());
+          else if (d.obj.material && d.obj.material.dispose) d.obj.material.dispose();
+        }
+        const idx = drops.indexOf(d);
+        if (idx >= 0) drops.splice(idx, 1);
+      };
+      /* 联机里房主也要先「认领」：客人和房主同时抢同一件时，只有一个能拿到。
+         单人（没联机）直接进包，不多一次往返。 */
+      if (window.NET && NET.active && d.nid !== undefined) NET.claimDrop(d.nid, ok => { if (ok) award(); else d.claiming = false; });
+      else award();
       continue;
     }
     if (d.t > 180) { scene.remove(d.obj); drops.splice(i, 1); }
@@ -9807,7 +9836,13 @@ function update(dt) {
   if (placeQueued) {
     placeQueued = false;
     const h = held();
-    if (t && t.id === 18) { openChest(t.x, t.y, t.z); startSwing('place', 0.2); }
+    /* 联机里熔炉/加工器/液压机/充电器的状态是「客户端本地」的 → 客人烧的东西只存在自己这边、
+       退出就丢，房主也看不到。与其让人白干，不如明确拦一下（要真共享得把这些状态搬到服务端）。 */
+    if (t && (t.id === 19 || t.id === 40 || t.id === 47 || t.id === 53) && NET && NET.active && !NET.isHost) {
+      toast('联机时这类机器由房主操作（客人的进度只存在自己这边，退出就没了）', 3.4);
+      startSwing('place', 0.2);
+    }
+    else if (t && t.id === 18) { openChest(t.x, t.y, t.z); startSwing('place', 0.2); }
     else if (t && t.id === 19) { openFurnace(); startSwing('place', 0.2); }
     else if (t && t.id === 40) { openProcessor(); startSwing('place', 0.2); }     // 木头加工器
     else if (t && t.id === 47) { openPress(); startSwing('place', 0.2); }          // 液压机
@@ -13730,6 +13765,19 @@ function mpEnterAccountWorld(code) {
       body: JSON.stringify(Object.assign({ a: kind, code: net.code, pid: net.id, tok: acctTok() }, obj)) }).catch(() => {});
   };
   net.sendPick = (nid) => net.send('pick', { i: nid });
+  /* 掉落物归属：先问服务端「这件归谁」（先到先得），拿到 ok 才真正 addItem。
+     以前是「本地先加进背包、再互相通知」→ 两个人抢同一件时各拿一份（一人一次）。 */
+  net.claimDrop = (nid, cb) => {
+    if (!net.active || nid === undefined || nid === null || String(nid).indexOf('g') === 0) { cb(true); return; }
+    if (net.ws && net.ws.readyState === 1) {
+      net.claimCb = net.claimCb || new Map();
+      net.claimCb.set(String(nid), cb);
+      try { net.ws.send(JSON.stringify({ t: 'claim', i: nid })); return; } catch (e) {}
+    }
+    fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ a: 'claim', code: net.code, pid: net.id, i: nid }) })
+      .then(r => r.json()).then(d => cb(!!(d && d.ok))).catch(() => cb(true));
+  };
   net.castAct = (type) => net.send('act', { act: type });
   /* 客人对村民的操作（交物资 / 给道具 / 跟随待命）→ 房主那边结算 */
   net.vact = (i, act, extra) => net.send('vact', Object.assign({ i, act }, extra || {}));
@@ -13790,16 +13838,23 @@ function mpEnterAccountWorld(code) {
       const dx = player.p.x - g.p.x, dz = player.p.z - g.p.z;
       // 客人看到的掉落物坐标是主机 8Hz 同步 + 插值来的，别用主机的贴脸判定（0.95），用水平 1.8m
       if (dx * dx + dz * dz > 3.24) continue;
-      addItem(g.id, g.n);
-      renderHotbar(); sfx('dig');
-      if (g.n > 1) toast(`拾取 ${nameOf(g.id)} ×${g.n}`, 1.1);
-      scene.remove(g.obj);
-      net.dropGhosts.delete(nid);
-      // 记下来：主机快照可能比 pick 广播早到一帧，会把这个幽灵重新建出来 —— 不记就会「捡两次」
-      net.picked.add(String(nid));
-      if (net.picked.size > 400) net.picked.clear();
-      net.sendPick(nid);
-      if (!net.lid) net.pushInv();
+      if (g.claiming) continue;                       // 已经问过服务端了，等结果
+      g.claiming = true;
+      /* ★ 先问服务端「这件归谁」，拿到 ok 才进背包 —— 以前本地先加、再互相通知，
+         两个人同时抢同一件时各得一份（「掉落物被捡起两次，一人一次」）。 */
+      net.claimDrop(nid, (ok) => {
+        scene.remove(g.obj);
+        net.dropGhosts.delete(nid);
+        net.picked.add(String(nid));
+        if (net.picked.size > 400) net.picked.clear();
+        if (!ok) return;                              // 别人先拿到了：只收掉幽灵
+        addItem(g.id, g.n);
+        renderHotbar(); sfx('dig');
+        if (g.n > 1) toast(`拾取 ${nameOf(g.id)} ×${g.n}`, 1.1);
+        net.sendPick(nid);
+        if (!net.lid) net.pushInv();
+      });
+      continue;
     }
   };
   net.updateDropGhosts = (dt) => {
@@ -13904,13 +13959,22 @@ function mpEnterAccountWorld(code) {
         net.isHost = (m.host === net.id);
         // ★ 主机迁移：原主机掉线后本端接管，必须清掉手里的「幽灵怪」——
         //   否则它们会和本端新模拟的真怪叠在一起（实测迁移后 B 端同时有 5 个幽灵 + 自己的真怪）。
-        if (net.isHost && !wasHost && net.ghosts.size) {
-          for (const [, g] of Array.from(net.ghosts)) { scene.remove(g.obj); }
+        if (net.isHost && !wasHost) {
+          /* ★ 接管时把幽灵怪「转正」：以前直接清掉 → 房主一退，客人眼前的怪全没了、
+             世界立刻安静。现在按 kind/坐标在本地重建真怪（血量也带过来）。 */
+          let conv = 0;
+          for (const [, g] of Array.from(net.ghosts)) {
+            try {
+              const mo = spawnMobAt(g.kind, Math.round(g.p.x), Math.round(g.p.y), Math.round(g.p.z), { force: true });
+              if (mo) { mo.p.set(g.p.x, g.p.y, g.p.z); if (typeof g.hp === 'number') mo.hp = g.hp; conv++; }
+            } catch (e) {}
+            scene.remove(g.obj);
+          }
           net.ghosts.clear();
           // 掉落物幽灵同样要清：否则接管瞬间「旧幽灵 + 新真掉落物」叠在一起（和怪是同一族 bug）
           for (const [, g] of Array.from(net.dropGhosts)) { scene.remove(g.obj); }
           net.dropGhosts.clear();
-          toast('你接管了世界主机：怪物改由你模拟', 3);
+          toast(conv ? ('你接管了世界主机：' + conv + ' 只生物改由你模拟') : '你接管了世界主机：怪物改由你模拟', 3);
         }
       } else if (m.t === 'e') {
         if (typeof m.q === 'number') net.serverSeq = m.q;
@@ -13937,6 +14001,24 @@ function mpEnterAccountWorld(code) {
             }
           }
         }
+      } else if (m.t === 'claimres') {            // 服务端裁决：这件掉落物归不归我
+        const cb = net.claimCb && net.claimCb.get(String(m.i));
+        if (cb) { net.claimCb.delete(String(m.i)); cb(!!m.ok); }
+      } else if (m.t === 'taken') {               // 别人先抢到了：把幽灵/真掉落物都收掉
+        const g = net.dropGhosts.get(m.i);
+        if (g) { scene.remove(g.obj); net.dropGhosts.delete(m.i); }
+        net.picked.add(String(m.i));
+        if (net.picked.size > 400) net.picked.clear();
+        if (net.isHost) {
+          const di = drops.findIndex(x => String(x.nid) === String(m.i));
+          if (di >= 0) { scene.remove(drops[di].obj); try { drops[di].obj.geometry.dispose(); } catch (e) {} drops.splice(di, 1); }
+        }
+      } else if (m.t === 'hurt') {                // 房主那边替你结算的「怪打了你」
+        if (typeof m.d === 'number' && m.d > 0) {
+          hurtPlayerFrom(Number(m.sx) || player.p.x, Number(m.sz) || player.p.z, Math.min(20, m.d));
+        }
+      } else if (m.t === 'time') {                // 房主的昼夜时间
+        if (typeof m.v === 'number' && Math.abs(m.v - worldTime) > 3) worldTime = m.v;
       } else if (m.t === 'm') {
         syncGhosts(m.u || []);
       } else if (m.t === 'ch') {                  // 别人改了这个箱子：同表覆盖
@@ -14145,6 +14227,7 @@ function mpEnterAccountWorld(code) {
       if (net.mobT >= 0.15) {
         net.mobT = 0;
         const u = [];
+        const cand = [];                       // {d, row}：按「离最近玩家」排序，房间再挤也能看到身边的怪
         for (const m of (typeof mobs !== 'undefined' ? mobs : [])) {
           if (m.hp <= 0 && !m.dying) continue;
           if (!m.obj) continue;
@@ -14158,11 +14241,24 @@ function mpEnterAccountWorld(code) {
                        m.dying ? +Math.min(99, m.dieT).toFixed(2) : 0, m.atkN | 0];
           if (m.recruit) row.push([m.recruit.hired ? 1 : 0, m.recruit.follow ? 1 : 0,
                                    m.recruit.want.id | 0, m.recruit.want.need | 0, m.recruit.want.got | 0]);
-          u.push(row);
-          if (u.length >= 24) break;
+          let dmin = Math.hypot(m.p.x - player.p.x, m.p.z - player.p.z);
+          for (const [, r] of net.remotes) {
+            const dd = Math.hypot(m.p.x - r.obj.position.x, m.p.z - r.obj.position.z);
+            if (dd < dmin) dmin = dd;
+          }
+          cand.push({ d: dmin, row });
+          if (cand.length >= 64) break;
         }
+        cand.sort((a, b) => a.d - b.d);        // ★ 先按距离排，再取前 24 —— 以前按数组顺序截断，靠后的怪客人根本看不到
+        for (let i = 0; i < cand.length && i < 24; i++) u.push(cand[i].row);
         net.mobCache = u;
         if (net.ws && net.ws.readyState === 1) { try { net.ws.send(JSON.stringify({ t: 'm', u })); } catch (e) {} }
+      }
+      /* 每 5 秒把昼夜时间发给其他人：以前两端各走各的 worldTime → 一边黑天一边白天 */
+      net.timeT = (net.timeT || 0) + dt;
+      if (net.timeT > 5) {
+        net.timeT = 0;
+        if (net.ws && net.ws.readyState === 1) { try { net.ws.send(JSON.stringify({ t: 'time', time: worldTime })); } catch (e) {} }
       }
     }
     const kG = Math.min(1, dt * 10);

@@ -152,6 +152,32 @@ function pushTo(pid, msg) {                       // 定向推送（只对当前
   }
   return false;
 }
+/* 定向发给房间里某个玩家：ws 直接写；轮询客户端塞进它的 out 队列，下次 sync 取走。
+   （pushTo 只认 socket，轮询模式的客户端永远收不到 —— 之前的「被拒绝」就栽在这上面） */
+function tell(w, pid, msg) {
+  const p = w && w.players.get(String(pid || ''));
+  if (!p) return false;
+  if (p.ws) { try { p.ws.write(frame(JSON.stringify(msg))); return true; } catch (e) {} }
+  (p.out = p.out || []).push(msg);
+  if (p.out.length > 200) p.out.shift();
+  return true;
+}
+/* 掉落物归属裁决：先到先得（每个房间一张 nid → pid 表，60 秒过期）。
+   以前客户端各自 addItem 再互相通知 → 同一样东西两个人各拿一份。 */
+function claimDrop(w, nid, pid) {
+  const now = Date.now();
+  w.claims = w.claims || new Map();
+  for (const [k, v] of w.claims) {
+    if (now - v.at <= 60000) break;               // Map 按插入序，最早的过期就删前面几个
+    w.claims.delete(k);
+  }
+  const key = String(nid);
+  const had = w.claims.get(key);
+  if (had && had.pid !== pid) return false;
+  w.claims.set(key, { pid, at: now });
+  if (w.claims.size > 2000) { const k0 = w.claims.keys().next().value; w.claims.delete(k0); }
+  return true;
+}
 
 /* ---------------- 通行证：谁被房主「同意」过，谁才能进这个房间 ----------------
  * 「不用专门开房、好友申请必须同意才能加入」的落点：
@@ -183,10 +209,11 @@ function canEnter(acc, code) {
   const w = existed ? loadWorld(c) : null;
   const hostAcc = (w && w.owner) ? ACCOUNTS[w.owner] : null;
   const p = passOf(acc, c);
+  const ownerOk = !(w && w.owner) || !p || !p.from || p.from === w.owner;   // 换过房主的老通行证不算
   return {
     ok: true,
     code: c,
-    pass: !!p,
+    pass: !!p && ownerOk,
     from: p ? p.from : '',
     exists: !!(w && w.owner),                       // 房间真的存在（有房主 = 有种子）
     mine: !!(w && w.owner && acc && w.owner === acc.pid),
@@ -346,7 +373,9 @@ function join(req, res) {
     if (!w0.owner) return json(res, { ok: false, e: 'no_room' });   // 老版本遗留的「没房主」房间：只能由房主重新开
     if (w0.owner && w0.owner !== id) {
       const p = passOf(acc, code);
-      if (!p) {
+      /* 通行证要和「谁批的」对上：房间换过房主，老通行证不能继续用（否则换了主人也能进） */
+      const passOk = !!p && (!p.from || p.from === w0.owner);
+      if (!passOk) {
         const ho = ACCOUNTS[w0.owner];
         let queued = false;
         if (ho && accOnline(ho) && (ho.friends || []).includes(acc.pid)) {
@@ -525,6 +554,19 @@ const server = http.createServer((req, res) => {
         broadcast(wV, { t: 'vact', i: a.i, act: String(a.act || '').slice(0, 8),
                         id: Number(a.id) || 0, n: Number(a.n) || 0, from: String(a.pid || '') },
                   String(a.pid || ''));
+        return json(res, { ok: true });
+      }
+      if (a.a === 'claim') {                     // 轮询模式的掉落物归属裁决
+        const wC = loadWorld(String(a.code || 'W1'));
+        const pidC = String(a.pid || '');
+        const okC = claimDrop(wC, a.i, pidC);
+        if (okC) broadcast(wC, { t: 'taken', i: a.i, by: pidC }, pidC);
+        return json(res, { ok: okC });
+      }
+      if (a.a === 'hurt') {                      // 轮询模式：房主结算的「怪打了某个客人」
+        const wH = loadWorld(String(a.code || 'W1'));
+        if (a.to) tell(wH, String(a.to).slice(0, 24), { t: 'hurt', d: Math.min(20, Number(a.d) || 0),
+                    sx: Number(a.sx) || 0, sz: Number(a.sz) || 0, from: String(a.pid || '') });
         return json(res, { ok: true });
       }
       if (a.a === 'hit') {                       // 轮询模式的「打幽灵怪」（没有 ws 的客户端走这条）
@@ -922,6 +964,16 @@ function onMsg(socket, m) {
   } else if (m.t === 'vact') {               // 客人操作村民（交物资/给道具/跟随待命）：只有房主结算
     broadcast(w, { t: 'vact', i: m.i, act: String(m.act || '').slice(0, 8),
                    id: Number(m.id) || 0, n: Number(m.n) || 0, from: p.id }, p.id);
+  } else if (m.t === 'claim') {               // 掉落物归属：先到先得，只有拿到 ok 的客户端才 addItem
+    const okC = claimDrop(w, m.i, p.id);
+    tell(w, p.id, { t: 'claimres', i: m.i, ok: okC });
+    if (okC) broadcast(w, { t: 'taken', i: m.i, by: p.id }, p.id);
+  } else if (m.t === 'hurt') {                // 房主结算的「怪打了某个客人」→ 定向发给那个人
+    if (m.to) tell(w, String(m.to).slice(0, 24), { t: 'hurt', d: Math.min(20, Number(m.d) || 0),
+                   sx: Number(m.sx) || 0, sz: Number(m.sz) || 0, from: p.id });
+  } else if (m.t === 'time') {                // 房主报时间 → 广播给其他人（昼夜别各走各的）
+    w.time = +m.time || w.time;
+    broadcast(w, { t: 'time', v: w.time }, p.id);
   } else if (m.t === 'm') {                   // 主机广播的怪快照：只转发，服务端不模拟
     broadcast(w, { t: 'm', u: m.u, from: p.id }, p.id);
   } else if (m.t === 'd') {                   // 主机广播的掉落物快照：只转发
