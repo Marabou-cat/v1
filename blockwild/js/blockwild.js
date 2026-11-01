@@ -6567,6 +6567,27 @@ function animateMob(m, dt, dx, dz, dist) {
   }
 }
 
+/* 死亡姿势（房主循环和联机客人的幽灵怪共用一份）：
+   瘫软倒地（0.55s easeOut）→ 原地躺 MOB_DEATH_HOLD 秒 → MOB_DEATH_FADE 秒里缩小沉下去。
+   以前这段只写在 updateMobs 的 dying 分支里，客人端拿不到 dieT，怪就直接消失 → 看不到倒地。 */
+function applyMobDeathPose(P, dieT, obj, baseY) {
+  if (!P || !P.core) return 0;
+  const fall = easeOutCubic(clamp01(dieT / 0.55));
+  P.core.rotation.x = -1.42 * fall;
+  P.core.rotation.z = 0.32 * fall;
+  P.core.position.y = P.coreY - 0.28 * fall;
+  if (P.arm1) P.arm1.rotation.x = -0.5 * fall;          // 鸡只有两条腿，arm2 可能为空
+  if (P.arm2) P.arm2.rotation.x = 0.35 * fall;
+  if (P.bar) P.bar.visible = false;
+  let fade = 0;
+  if (dieT > MOB_DEATH_HOLD) {                          // 躺够了 → 缩小消失
+    fade = clamp01((dieT - MOB_DEATH_HOLD) / MOB_DEATH_FADE);
+    obj.scale.setScalar(Math.max(0.001, 1 - fade));
+    obj.position.y = baseY - 0.3 * fade;
+  }
+  return fade;
+}
+
 /* 血条统一更新：满血且离得远就藏；朝向镜头；按血量比例左对齐缩短；低血变色。
    ★ 补间量的宽度用 barFg 自己的几何宽（0.72 / 1.42 / 1.8 三种都不一样），
      以前写死 0.36 —— 首领那条 1.42 宽的血条缩短时会往右偏，看着像"血条歪了"。
@@ -7175,6 +7196,7 @@ function colossusThrow(m) {
     dmg: 8, speed: 16, grav: 1.1, hostile: true, mesh: makeRockMesh(best.id), maxT: 4,
   });
   m.throwAnim = 0.45;                                     // 抬臂动作
+  m.atkN = (m.atkN | 0) + 1;                               // 联机客人据此播同一记投掷
   sfx('place');
   return true;
 }
@@ -7536,23 +7558,11 @@ function updateMobs(dt) {
     const m = mobs[i];
     const dx = player.p.x - m.p.x, dz = player.p.z - m.p.z;
     const dist = Math.hypot(dx, dz);
-    // —— 死亡流程：瘫软倒地 → 躺 5 秒 → 缩小消失 ——
+    // —— 死亡流程：瘫软倒地 → 躺 5 秒 → 缩小消失（姿势在 applyMobDeathPose 里，客人端共用）——
     if (m.dying) {
       m.dieT += dt;
-      const fall = easeOutCubic(clamp01(m.dieT / 0.55));
-      m.parts.core.rotation.x = -1.42 * fall;
-      m.parts.core.rotation.z = 0.32 * fall;
-      m.parts.core.position.y = m.parts.coreY - 0.28 * fall;
-      if (m.parts.arm1) m.parts.arm1.rotation.x = -0.5 * fall;   // 鸡只有两条腿，arm2 可能为空
-      if (m.parts.arm2) m.parts.arm2.rotation.x = 0.35 * fall;
-      m.parts.bar.visible = false;
-      if (m.dieT > MOB_DEATH_HOLD) {
-        const k = clamp01((m.dieT - MOB_DEATH_HOLD) / MOB_DEATH_FADE);
-        const sc = 1 - k;
-        m.obj.scale.setScalar(Math.max(0.001, sc));
-        m.obj.position.y = m.p.y - 0.3 * k;
-        if (sc <= 0.03 || dist > 40) { killMob(m); mobs.splice(i, 1); }
-      }
+      const fade = applyMobDeathPose(m.parts, m.dieT, m.obj, m.p.y);
+      if (m.dieT > MOB_DEATH_HOLD && (fade >= 0.97 || dist > 40)) { killMob(m); mobs.splice(i, 1); }
       continue;
     }
     const def = MOB_DEFS[m.kind];
@@ -7800,14 +7810,14 @@ function updateMobs(dt) {
     if (tgtMob) {                                                   // 目标已改成村民：打村民
       const dv = Math.hypot(tgtMob.p.x - m.p.x, tgtMob.p.z - m.p.z);
       if (def.hostile && hostileNow && dv < reach && m.atkCd <= 0 && sightClear(m.p, tgtMob.p)) {
-        m.atkCd = def.atkCd || 1.6; m.lunge = 0.3;
+        m.atkCd = def.atkCd || 1.6; m.lunge = 0.3; m.atkN = (m.atkN | 0) + 1;
         tgtMob.hp -= (def.dmg || 3) * 0.8;
         tgtMob.flash = 0.24;
         if (tgtMob.hp <= 0) startMobDeath(tgtMob);
         sfx('hurt');
       }
     } else if (def.hostile && hostileNow && !m.dormant && dist < reach && m.atkCd <= 0 && player.alive && Math.abs(m.p.y - player.p.y) < (def.vReach || (def.boss ? 3.2 : 2.0)) && sightClear(m.p, player.p)) {
-      m.atkCd = def.atkCd || 1.6; m.lunge = 0.3;
+      m.atkCd = def.atkCd || 1.6; m.lunge = 0.3; m.atkN = (m.atkN | 0) + 1;
       hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
       sfx('hurt');
     }
@@ -11814,6 +11824,10 @@ window.GAME = {
         legX: +(P.legs && P.legs[0] ? P.legs[0].rotation.x : 0).toFixed(3),
         armX: +(P.arm1 ? P.arm1.rotation.x : 0).toFixed(3),
         headYaw: +(g.headYaw || 0).toFixed(2),
+        dying: !!g.dying, dieT: +(g.dieT || 0).toFixed(2),
+        fallX: +(P.core ? P.core.rotation.x : 0).toFixed(2),      // -1.42 附近 = 已经躺平
+        scale: +g.obj.scale.x.toFixed(2),
+        lunge: +(g.lunge || 0).toFixed(2), coresZ: +(P.core ? P.core.position.z : 0).toFixed(3),
         barVisible: bar ? bar.visible : null,
         barFill: P.barFg ? +P.barFg.scale.x.toFixed(2) : null,
         barFacesCam: faceDot,
@@ -12778,8 +12792,9 @@ window.GAME = {
   function syncGhosts(list) {
     const alive = new Set();
     for (const e of list) {
-      const [id, kind, x, y, z, rot, hp, spd] = e;
-      if (typeof hp === 'number' && hp <= 0) continue;
+      const [id, kind, x, y, z, rot, hp, spd, dk, an] = e;
+      const dead = (typeof dk === 'number' && dk > 0);
+      if (typeof hp === 'number' && hp <= 0 && !dead) continue;   // 真没了又没带死亡进度 → 直接丢掉
       alive.add(id);
       let g = net.ghosts.get(id);
       if (!g) {
@@ -12792,7 +12807,8 @@ window.GAME = {
           p: parts.g.position,                       // 和 obj.position 是同一个 Vector3：动画里读 m.p 直接对
           v: { x: 0, y: 0, z: 0 }, onGround: true,
           anim: { walk: Math.random() * 6, k: 0, idle: 0, land: 0 },
-          flash: 0, lunge: 0, headYaw: 0, headPitch: 0,
+          flash: 0, lunge: 0, headYaw: 0, headPitch: 0, atkN: null,
+          dying: false, dieT: 0,
           hp: (typeof hp === 'number' ? hp : null),
           maxHp: (MOB_DEFS[kind] && MOB_DEFS[kind].hp) || 20,
           spd: 0, tx: x, ty: y, tz: z, rot,
@@ -12804,6 +12820,16 @@ window.GAME = {
         if (g.hp !== null && hp < g.hp) g.flash = 0.24;
         g.hp = hp;
       }
+      // ★ 死亡进度：主机送 dieT 秒数，客人拿同一个 applyMobDeathPose 播倒地 → 躺尸 → 缩小
+      if (dead) { g.dying = true; g.dieT = Math.max(g.dieT || 0, dk); }   // 只进不退，避免快照往返让倒地动画回抽
+      else if (g.dying && typeof hp === 'number' && hp > 0) {             // 又活了（复活/回档）→ 复位，别留一具隐形的尸体
+        g.dying = false; g.dieT = 0; g.obj.scale.setScalar(1);
+        if (g.parts.core) { g.parts.core.rotation.set(0, 0, 0); g.parts.core.position.z = 0; }
+      }
+      // ★ 攻击计数器变了 = 主机那边刚挥了一下 → 本地播前扑（巨像还额外抬臂投掷）
+      const an2 = an | 0;
+      if (g.atkN === null) g.atkN = an2;
+      else if (an2 !== g.atkN) { g.atkN = an2; g.lunge = 0.3; g.throwAnim = 0.45; }
       g.spd = (typeof spd === 'number' && spd > 0) ? spd : 0;
       g.tx = x; g.ty = y; g.tz = z; g.rot = rot;
     }
@@ -13274,11 +13300,15 @@ window.GAME = {
         net.mobT = 0;
         const u = [];
         for (const m of (typeof mobs !== 'undefined' ? mobs : [])) {
-          if (m.dying || m.hp <= 0 || !m.obj) continue;
+          if (m.hp <= 0 && !m.dying) continue;
+          if (!m.obj) continue;
           m.nid = m.nid || (net.mobSeq = (net.mobSeq || 0) + 1);
-          // 末位两个字段是给客人的动作/受伤依据：spd 决定迈腿频率，hp 掉一格就是挨了一下
+          // 字段含义：nid, kind, x, y, z, 朝向, hp, 水平速度,
+          //           dk = 死亡进度秒数（0=活着的；有值=正在倒地/躺尸，客人照着播同一套死亡姿势）,
+          //           an = 攻击计数器（每次挥击/投掷 +1，客人看到变了就播一次前扑/抬臂）
           u.push([m.nid, m.kind, +m.p.x.toFixed(2), +m.p.y.toFixed(2), +m.p.z.toFixed(2),
-                  +m.obj.rotation.y.toFixed(2), Math.round(m.hp), +Math.hypot(m.v.x, m.v.z).toFixed(2)]);
+                  +m.obj.rotation.y.toFixed(2), Math.round(m.hp), +Math.hypot(m.v.x, m.v.z).toFixed(2),
+                  m.dying ? +Math.min(99, m.dieT).toFixed(2) : 0, m.atkN | 0]);
           if (u.length >= 24) break;
         }
         net.mobCache = u;
@@ -13302,6 +13332,13 @@ window.GAME = {
       if (!P) continue;
       const dx = camera.position.x - g.obj.position.x, dz = camera.position.z - g.obj.position.z;
       const dist = Math.hypot(dx, dz);
+      /* ★ 死亡：主机只说「我这边这只死了几秒」，客人拿同一个 applyMobDeathPose 播倒地→躺尸→缩小。
+       *   以前快照直接过滤掉 hp<=0 的怪，客人看到的是「啪一下消失」，看不到倒地。 */
+      if (g.dying) {
+        g.dieT += dt;                                   // 本地继续走，15Hz 快照之间也不会卡顿
+        applyMobDeathPose(P, g.dieT, g.obj, g.obj.position.y);
+        continue;
+      }
       g.v.z = g.spd || 0;                       // animateMob 只看水平速度的模长
       g.flash = Math.max(0, (g.flash || 0) - dt);
       try { animateMob(g, dt, dx, dz, dist); } catch (e) {}
