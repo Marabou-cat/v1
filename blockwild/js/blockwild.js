@@ -7087,6 +7087,49 @@ function findNetherSpot() {
   }
   return null;
 }
+/* 各类生物的水平碰撞半径（米）。参考 MC：僵尸/骷髅 0.6 宽、蜘蛛 1.4×0.9、鸡 0.4 宽。 */
+const MOB_RAD = {
+  chicken: 0.22, pig: 0.45, sheep: 0.45, cow: 0.5, villager: 0.32,
+  grunt: 0.32, skeleton: 0.32, spider: 0.6, colossus: 0.95, blaze: 0.5,
+};
+
+/* ---------------- 生物互相挤开：别让一堆怪叠在同一个点上 ----------------
+ * MC 的做法（1.20 源码 Entity#push）：
+ *   每 tick（20Hz）对每一对相交的生物，把两者沿「水平最大重叠轴」各推 0.05 格/秒的速度，
+ *   位移由速度积分出来；再加 gamerule maxEntityCramming（默认 24）：超过 24 只挤在同一格里
+ *   的生物会持续吃挤压伤害（每次 3 颗心）。所以 MC 里怪会「挤成一圈」而不是「叠成一个点」。
+ * 这里做同构的「每帧解穿透」：半径用圆近似，直接改位置（不加速度，避免抖动），
+ * 被方块挡住的位移由 moveBody 兜住，不会穿墙。O(n²)，n≤60 时 1770 次距离判断/帧，忽略不计。
+ */
+function separateMobs() {
+  const n = mobs.length;
+  if (n < 2) return;
+  for (let i = 0; i < n; i++) {
+    const a = mobs[i];
+    if (!a || a.dying || a.hp <= 0 || !a.obj) continue;
+    for (let j = i + 1; j < n; j++) {
+      const b = mobs[j];
+      if (!b || b.dying || b.hp <= 0 || !b.obj) continue;
+      if (Math.abs(a.p.y - b.p.y) > 1.15) continue;            // 台阶上下/飞行的不互相挤
+      const r = (a.rad || 0.42) + (b.rad || 0.42);
+      const dx = b.p.x - a.p.x, dz = b.p.z - a.p.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= r * r) continue;
+      let ux, uz, d;
+      if (d2 < 1e-8) {                                         // 完全重合：按固定角度分开，穿透量取满
+        const ang = a.slot || 0;
+        ux = Math.cos(ang); uz = Math.sin(ang); d = 0;
+      } else {
+        d = Math.sqrt(d2); ux = dx / d; uz = dz / d;
+      }
+      const pen = (r - d) * 0.5;                                // 各退一半（和 MC 对称推挤一致）
+      if (pen <= 0) continue;
+      moveBody(a, -ux * pen, 0, -uz * pen);
+      moveBody(b, ux * pen, 0, uz * pen);
+    }
+  }
+}
+
 function spawnMobAt(kind, x, y, z, opts = {}) {
   const def = MOB_DEFS[kind];
   if (!def) return null;
@@ -7095,6 +7138,8 @@ function spawnMobAt(kind, x, y, z, opts = {}) {
   const m = {
     kind, p: new THREE.Vector3(x + 0.5, y + 0.02, z + 0.5), v: new THREE.Vector3(),
     hp: def.hp, maxHp: def.hp, onGround: false, atkCd: 0, phase: Math.random() * 9,
+    /* 水平碰撞半径（MC 僵尸 0.6 宽 → 0.3 半径，这里按体型给）+ 围人用的固定绕行角度 */
+    rad: (MOB_RAD[kind] || 0.42), slot: Math.random() * Math.PI * 2,
     wander: 0, dir: new THREE.Vector2(), flash: 0, aggro: 0,
     dying: false, dieT: 0, stepUp: true, flee: 0,
     home: opts.home || null,
@@ -7809,7 +7854,15 @@ function updateMobs(dt) {
     } else if (def.hostile && hostileNow) {
       const tgm = (m.target && m.target.hp > 0 && !m.target.dying && !m.target.recruit?.dying) ? m.target : null;
       const foe = tgm ? null : nearestFoe(m);
-      const tx = tgm ? tgm.p.x : (foe ? foe.x : player.p.x), tz = tgm ? tgm.p.z : (foe ? foe.z : player.p.z);
+      let tx = tgm ? tgm.p.x : (foe ? foe.x : player.p.x), tz = tgm ? tgm.p.z : (foe ? foe.z : player.p.z);
+      /* 逼近到 5 格内就绕到「自己的固定角度」上（每人一个 slot，半永久）：
+         以前所有怪都直冲玩家脚下那一个点 → 视觉上就是一坨重叠怪。
+         MC 靠寻路到相邻格子 + 碰撞推挤达到同样效果，这里显式给每个怪一个环绕位。 */
+      const tdx0 = tx - m.p.x, tdz0 = tz - m.p.z;
+      if (Math.hypot(tdx0, tdz0) < 5) {
+        const sl = m.slot || (m.slot = Math.random() * Math.PI * 2);
+        tx += Math.cos(sl) * 0.9; tz += Math.sin(sl) * 0.9;
+      }
       const tdx = tx - m.p.x, tdz = tz - m.p.z, td2 = Math.hypot(tdx, tdz);
       if (td2 < 26 && (tgm || foe)) { mx = tdx / (td2 || 1); mz = tdz / (td2 || 1); speed = def.chase; }
     } else if (m.flee > 0) {                         // 被打之后逃跑
@@ -9859,7 +9912,7 @@ function update(dt) {
   }
   updatePlayer(dt);
   lap('uPlayer');
-  if (!NET || !NET.active || NET.isHost) updateMobs(dt);   // P0：怪物由主机模拟，暂不广播
+  if (!NET || !NET.active || NET.isHost) { updateMobs(dt); separateMobs(); }   // 怪物由主机模拟；每帧把叠在一起的挤开
   lap('uMobs');
   // 掉落物：主机/单机模拟；客人只画幽灵、捡的时候上报给主机删掉
   // （以前两端各跑一份，于是「别人捡走的东西，你这边还躺在地上」，还能再捡一次）
