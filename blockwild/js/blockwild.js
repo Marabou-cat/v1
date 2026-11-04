@@ -11001,7 +11001,7 @@ function craft(r) {
   renderHotbar(); refreshHeld(); renderInventoryPanel(); saveSoon();
   return true;
 }
-let panelOpen = false, lastSpaceT = 0, createMode = 'survival', jumpTouchT = 0;
+let panelOpen = false, lastSpaceT = 0, createMode = 'survival', jumpTouchT = 0, jumpTouchHeld = false;
 function renderFurnace() {
   const list = $('smeltList');
   if (!list) return;
@@ -11603,7 +11603,7 @@ function bindHold(el, down, up) {
 }
 bindHold($('tMine'), () => { if (!uiOpen() && player.alive) { mineHeld = true; attackQueued = true; creativeArmed = true; } }, () => { mineHeld = false; creativeArmed = false; });
 bindHold($('tPlace'), () => { if (!uiOpen() && player.alive) placeQueued = true; });
-bindHold($('tJump'), () => { jumpQueued = true; jumpTouchT = performance.now(); });
+bindHold($('tJump'), () => { jumpQueued = true; jumpTouchT = performance.now(); jumpTouchHeld = true; }, () => { jumpTouchHeld = false; });   // ★ v346：抬手才算松（水里要能一直按着往上浮）
 if ($('tSprint')) bindHold($('tSprint'), () => { sprintTouch = true; }, () => { sprintTouch = false; });   // 触屏：按住「跑」= 疾跑
 $('tBag').addEventListener('click', () => openPanel(!panelOpen));
 { const _off = $('offSlot'); if (_off) _off.onclick = () => { if (!started || uiOpen()) return; swapOffhand(); }; }   // ★ v339 左手栏（Q）
@@ -12284,8 +12284,12 @@ function updatePlayer(dt) {
   player.wasInWater = player.inWater;
   updateOxygen(dt);                                  // ★ v339 氧气（水下 30 秒 / 左手氧气罐优先）
   player.inLava = feetBlock === 44;                 // 岩浆是液体：会沉下去，要游出来
+  /* ★ v346：空格「按住」的判定（键盘 + 触屏 + 触屏按下后的 120ms 余量）。
+     以前水里只看 jumpQueued —— 它只由 keydown 置位、而且每帧都被清掉，
+     按住空格只换来**一帧**的 +3.4 冲量，随即被水的重力按下去 ⇒「长按空格游不上去」。 */
+  const upHeld = () => keyDown('jump') || keys.has('KeyZ') || jumpTouchHeld || (performance.now() - jumpTouchT < 120);
   if (player.fly) {                              // 创造模式飞行：空格上升、Shift 下降
-    const up = (keyDown('jump') || keys.has('KeyZ') || performance.now() - jumpTouchT < 120) ? 1 : 0;
+    const up = upHeld() ? 1 : 0;
     const down = (keys.has('ShiftLeft') || keys.has('ShiftRight')) ? 1 : 0;
     player.v.y = (up - down) * 7.2;
     jumpQueued = false;
@@ -12293,7 +12297,8 @@ function updatePlayer(dt) {
   } else if (player.inWater || player.inLava) {
     const buoy = player.inLava ? 0.12 : 0.28;       // 岩浆更稠：沉得慢，游得动
     player.v.y = Math.max(player.v.y - CFG.GRAV * buoy * dt, player.inLava ? -1.2 : -3.2);
-    if (jumpQueued) player.v.y = player.inLava ? 3.0 : 3.4;
+    if (jumpQueued) player.v.y = player.inLava ? 3.0 : 3.4;                        // 点一下：窜一下
+    else if (upHeld()) player.v.y = Math.max(player.v.y, player.inLava ? 2.0 : 2.4); // 按住：持续上浮
   } else {
     player.v.y = Math.max(player.v.y - CFG.GRAV * dt, -56);
     if (jumpQueued && player.onGround) { player.v.y = CFG.JUMP; player.onGround = false; }
