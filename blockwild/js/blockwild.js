@@ -769,6 +769,12 @@ const ITEMS = {
   216: { name: 'Frost Shard', kind: 'mat' },       // 霜灵 → 冰系材料
   217: { name: 'Thorn Hide', kind: 'mat' },        // 仙人掌蛮兽 → 反伤护甲材料
   218: { name: 'Thorn Spike', kind: 'ammo' },      // 荆棘射手 → 可当箭矢
+  /* ★ v349：剩下 5 只群系怪的掉落 */
+  219: { name: 'Sand Crystal', kind: 'mat' },      // 沙虫
+  220: { name: 'Bog Slime', kind: 'mat' },         // 沼泽潜伏者
+  221: { name: 'Stag Antler', kind: 'mat' },       // 空心鹿
+  222: { name: 'Eel Scale', kind: 'mat' },         // 激流鳗
+  223: { name: 'Raptor Feather', kind: 'ammo' },   // 崖鹫
   // ── 电路系统：铜 → 电路板 / 电线 → 能量炮（4 档金属，dmg/cap/cd/speed 逐档递增）──
   185: { name: 'Circuit Board', kind: 'mat' },
   186: { name: 'Wire', kind: 'mat' },
@@ -7553,6 +7559,22 @@ const MOB_DEFS = {
   /* 稀树草原荆棘射手：远程，保持 10~14 格，三连射（每发 3 伤） */
   thornsniper:{ name: 'Thornsniper', hp: 22, chase: 3.4, wander: 0.9, hostile: true, barY: 1.95,
                 drop: 218, dropN: [1, 3], dmg: 3, atkCd: 1.2, ranged: true, burst: 3, keepDist: [10, 14] },
+  /* ── v349：剩下 5 只群系怪 ── */
+  /* 沙漠沙虫：钻沙时无敌 + 5.5 速追你，每 3 秒露头 1.2 秒（唯一可打窗口） */
+  sandwyrm:   { name: 'Sandwyrm', hp: 34, chase: 5.5, wander: 1.0, hostile: true, barY: 1.7,
+                drop: 219, dropN: [1, 2], dmg: 5, atkCd: 1.4, burrow: true },
+  /* 沼泽潜伏者：水里 6.0 / 岸上 1.2；命中把玩家往下拽 2.5 m/s */
+  bogLurker:  { name: 'Bog Lurker', hp: 24, chase: 6.0, wander: 1.0, hostile: true, barY: 1.7,
+                drop: 220, dropN: [1, 2], dmg: 3.5, atkCd: 1.3, waterFast: true, drag: 2.5 },
+  /* 深色橡木林空心鹿：直线冲锋 12 格（提前 0.8 秒低头），撞空自己晕 1.5 秒 */
+  hollowStag: { name: 'Hollow Stag', hp: 30, chase: 2.4, wander: 0.9, hostile: true, barY: 2.2,
+                drop: 221, dropN: [1, 1], extra: [{ id: 142, n: [1, 2] }], dmg: 6, atkCd: 1.8, charger: true },
+  /* 河流/海岸激流鳗：只在水里快（6.5），上岸只能蠕动 0.8 */
+  riptideEel: { name: 'Riptide Eel', hp: 18, chase: 6.5, wander: 1.2, hostile: true, barY: 1.05,
+                drop: 222, dropN: [1, 2], dmg: 4, atkCd: 1.1, waterOnly: true },
+  /* 高山裸岩崖鹫：悬浮盘旋，每 6 秒俯冲一次，命中击退 8 格；俯冲后要爬升 2 秒 */
+  cliffRaptor:{ name: 'Cliff Raptor', hp: 26, chase: 4.2, wander: 1.6, hostile: true, barY: 1.95,
+                drop: 223, dropN: [2, 3], dmg: 5, atkCd: 1.6, float: true, diver: true, knock: 8.4 },
   /* ── 远古巨像：石头材质、猩猩式走路、能搬起附近方块扔玩家；不攻击它就一直沉睡。
         体型约 3×3×3 格（高 ~3.4、宽 ~2.9 含手臂），稀有度按末影人（夜里偶尔一只，全场最多 1）。── */
   /* ★ v330：260 血 / 11 伤害太劝退，改成 120 血 / 7 伤害；钻石从 1~2 改成「最多 1 个」。 */
@@ -8135,6 +8157,83 @@ function mobGeos(kind) {
       for (let y = 13; y <= 18; y++) px(body, -2, y, -3, 0xb08a5a); // 背上的箭筒
     });
     coreY = 18 * MOB_PX; barY = 34.5 * MOB_PX;
+  } else if (kind === 'sandwyrm') {
+    /* ★ v349 沙漠沙虫：分节虫体（无腿）+ 背鳍，沙色；钻地时整个模型隐藏、只留背鳍 */
+    const S1 = 0xd9c087, S2 = 0xb99f6b, S3 = 0x8f7748, FIN = 0xc4425a;
+    box(body, -4, 0, -4, 8, 5, 8, S2, 0.12);                     // 尾段最粗
+    box(body, -3, 5, -3, 6, 5, 6, S1, 0.12);
+    box(body, -3, 10, -2, 6, 4, 5, S1, 0.10);
+    for (let y = 1; y <= 13; y += 3) for (let x = -3; x < 3; x++) px(body, x, y, 4, S3);   // 环纹
+    for (let y = 12; y <= 15; y++) { px(body, 0, y, 4, FIN); px(body, 0, y, 5, FIN); }      // 背鳍
+    box(head, -4, 14, -4, 8, 5, 8, S1, 0.10);                    // 口器
+    for (const x of [-3, 1]) for (let dx = 0; dx < 2; dx++) px(head, x + dx, 17, 4, 0x2a1f10);
+    for (let x = -3; x < 3; x++) px(head, x, 14, 4, 0x5a4222);   // 上颚阴影
+    for (let x = -3; x < 3; x += 2) px(head, x, 15, 4, 0xe8e0c8); // 牙
+    coreY = 7 * MOB_PX; barY = 22 * MOB_PX; headPiv = 14;
+  } else if (kind === 'bogLurker') {
+    /* ★ v349 沼泽潜伏者：低伏宽肩、长臂拖地，浑身泥浆 */
+    const MUD = 0x4a5b34, MUD2 = 0x35421f, WET = 0x6d7f46, EYE = 0xd8e86a;
+    humanoid({ body: MUD, skin: WET, dark: MUD2, leg: MUD2 }, () => {
+      eyes2(head, 3, 28, [-3, 2], 0x1a2210, EYE);
+      for (let x = -2; x <= 1; x++) px(head, x, 25, 3, 0x1a2210);
+      for (const [x, y] of [[-1, 24], [1, 24], [0, 23]]) px(head, x, y, 3, 0x8fa050);   // 滴泥
+    }, (m, set, x0) => { for (let y = -12; y <= -8; y++) for (let x = x0; x < x0 + 4; x++) set(x, y, 1, MUD2); },   // 长臂泥袖
+    (m, set, x0) => {}, () => {
+      box(body, -5, 12, -1, 10, 8, 2, MUD, 0.12);                // 加宽驼背
+      for (const [x, y] of [[-4, 19], [3, 19], [-3, 14], [2, 14]]) px(body, x, y, 2, 0x8fa050);
+      for (let x = -4; x < 4; x += 2) px(body, x, 12, 2, 0x6d7f46);
+    });
+    coreY = 16 * MOB_PX; barY = 32 * MOB_PX;
+  } else if (kind === 'hollowStag') {
+    /* ★ v349 深色橡木林空心鹿：四足、空胸腔（暗洞）、大角 */
+    const BONE = 0xcfc8b4, BONE2 = 0x8f8a78, HOLLOW = 0x14120e, ANTL = 0xe6dfc8;
+    box(body, -4, 10, -7, 8, 7, 14, BONE, 0.10);                 // 横向躯干（四足）
+    box(body, -3, 12, -5, 6, 4, 9, HOLLOW, 0.04);                // 空胸腔（黑洞）
+    for (const [x, z] of [[-4, -6], [3, -6], [-4, 5], [3, 5]]) {  // 肋骨
+      for (let y = 10; y < 17; y++) px(body, x, y, z, BONE2);
+    }
+    box(body, -2, 15, -12, 4, 5, 6, BONE, 0.10);                 // 颈
+    box(head, -2, 18, -16, 4, 4, 6, BONE, 0.08);                 // 头
+    for (const x of [-2, 1]) px(head, x, 20, -12, 0x1a1a14);
+    for (const s of [-1, 1]) {                                    // 大角
+      for (let i = 0; i < 4; i++) px(head, s * 2 + (i > 1 ? s : 0), 22 + i, -13, ANTL);
+      px(head, s * 2, 25, -12, ANTL); px(head, s * 3, 24, -13, ANTL);
+    }
+    limbSpecs = [
+      { geo: limbGeo(3, 11, 3, BONE2, 0.10), x: -3, y: 11, z: -5, arm: false },
+      { geo: limbGeo(3, 11, 3, BONE2, 0.10), x: 2, y: 11, z: -5, arm: false },
+      { geo: limbGeo(3, 11, 3, BONE2, 0.10), x: -3, y: 11, z: 4, arm: false },
+      { geo: limbGeo(3, 11, 3, BONE2, 0.10), x: 2, y: 11, z: 4, arm: false },
+    ];
+    coreY = 13 * MOB_PX; barY = 26 * MOB_PX; headPiv = 18;
+  } else if (kind === 'riptideEel') {
+    /* ★ v349 激流鳗：细长分节 + 尾鳍，水青色，无腿 */
+    const E1 = 0x2f7f8f, E2 = 0x1f5c68, E3 = 0x59b6c4, FIN = 0x8fe0ea;
+    for (let i = 0; i < 5; i++) {
+      const r = i < 3 ? 3 : 2;
+      box(body, -r, 4, -2 + i * 4, r * 2, r * 2, 4, i % 2 ? E1 : E2, 0.10);
+    }
+    box(body, -1, 6, -8, 3, 1, 6, FIN, 0.06);                    // 尾鳍
+    for (let i = 0; i < 5; i++) px(body, 0, 8, 1 + i * 4, E3);   // 背脊高光
+    box(head, -3, 4, 18, 6, 5, 6, E1, 0.08);                     // 头
+    for (const x of [-2, 1]) px(head, x, 8, 23, 0xffe066);
+    for (let x = -2; x < 2; x++) px(head, x, 5, 23, E2);
+    coreY = 7 * MOB_PX; barY = 20 * MOB_PX; headPiv = 4;
+  } else if (kind === 'cliffRaptor') {
+    /* ★ v349 崖鹫：宽翼猛禽（两片翼当手臂用）+ 尾羽 */
+    const F1 = 0x8a7a5c, F2 = 0x5f523c, BK = 0xe8d9b0, EYE = 0xffb03a;
+    box(body, -3, 8, -4, 6, 6, 9, F1, 0.12);                     // 躯干
+    box(body, -2, 8, -6, 4, 2, 3, F2, 0.10);                     // 尾根
+    for (let i = 0; i < 3; i++) px(body, 0, 8, -7 - i, BK);      // 尾羽
+    box(head, -2, 14, 3, 4, 4, 5, F1, 0.10);
+    for (const x of [-2, 1]) px(head, x, 17, 7, 0x1a1408);
+    px(head, 0, 15, 8, EYE); px(head, 1, 15, 8, EYE);
+    px(head, 0, 14, 9, 0xd8a24a);                                // 喙
+    limbSpecs = [
+      { geo: limbGeo(9, 3, 2, F2, 0.10, (m, set, x0) => { for (let x = x0; x < x0 + 9; x += 3) set(x, -2, 0, BK); }), x: -3, y: 13, z: 0, arm: true },
+      { geo: limbGeo(9, 3, 2, F2, 0.10, (m, set, x0) => { for (let x = x0; x < x0 + 9; x += 3) set(x, -2, 0, BK); }), x: 4, y: 13, z: 0, arm: true },
+    ];
+    coreY = 11 * MOB_PX; barY = 22 * MOB_PX; headPiv = 14;
   } else {
     // 夜行怪 grunt：人形骨架 + 破布兜帽 + 红眼尖牙
     const SKIN = 0x9fd8c8, CLOTH = 0x2f5d5a, CLOTH2 = 0x26494a;
@@ -9059,6 +9158,7 @@ const MOB_RAD = {
   squirrel: 0.20, deer: 0.50, fox: 0.30, rabbit: 0.22, goat: 0.40, camel: 0.55,
   lizard: 0.30, frog: 0.25, duck: 0.26,
   frostWisp: 0.40, cactusBrute: 0.55, thornsniper: 0.32,
+  sandwyrm: 0.45, bogLurker: 0.38, hollowStag: 0.62, riptideEel: 0.30, cliffRaptor: 0.45,
 };
 
 /* ---------------- 生物之间硬不重叠 ----------------
@@ -9198,6 +9298,15 @@ function spawnMobAt(kind, x, y, z, opts = {}) {
     m.bow = bow;
   }
   if (def.colossus) { m.dormant = !!def.dormant; m.throwCd = 5 + Math.random() * 5; }
+  /* ★ v349 沙虫：钻地时本体隐藏，只在水面/沙面上露一片背鳍（自己飞的 mesh，跟着 m.p 走） */
+  if (kind === 'sandwyrm') {
+    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.52, 4),
+                               new THREE.MeshLambertMaterial({ color: 0xc4425a }));
+    fin.rotation.y = Math.PI / 4;
+    fin.visible = false;
+    scene.add(fin);
+    m.fin = fin;
+  }
   m.obj.position.copy(m.p);
   scene.add(m.obj);
   mobs.push(m);
@@ -9240,6 +9349,13 @@ function findBiomeMobSpot(kind) {
     if (h <= CFG.SEA) continue;
     if (getBlock(x, h + 1, z) !== 0 || getBlock(x, h + 2, z) !== 0) continue;
     const top = getBlock(x, h, z);
+    if (kind === 'sandwyrm' && top !== 4) continue;                      // 沙漠沙子
+    if (kind === 'hollowStag') {                                         // 深色橡木林
+      if (top !== 1) continue;
+      const F = forestAt(x, z);
+      if (!F || F.kind !== 'dark_oak') continue;
+    }
+    if (kind === 'cliffRaptor' && (top !== 3 || h < 130)) continue;       // 高山裸岩
     if (kind === 'frostWisp' && top !== 79) continue;                    // 雪原
     if (kind === 'cactusBrute' && top !== 80) continue;                  // 恶地（红沙）
     if (kind === 'thornsniper') {
@@ -9269,6 +9385,27 @@ function findDeepCaveSpot() {
       if (!ceil) continue;                                              // 头顶没岩层 → 露天，不算洞穴
       return { x, y, z };
     }
+  }
+  return null;
+}
+/* ── v349：水里的两只（沼泽潜伏者 / 激流鳗）的刷怪点 ──────────────────
+   要求水面下至少 3 格水（鳗鱼才游得开）；沼泽潜伏者还要求 2 格内有岸（它是「潜伏在岸边水里」）。 */
+function findWaterMobSpot(kind) {
+  for (let t = 0; t < 20; t++) {
+    const ang = Math.random() * Math.PI * 2, dist = 20 + Math.random() * 24;
+    const x = Math.floor(player.p.x + Math.cos(ang) * dist);
+    const z = Math.floor(player.p.z + Math.sin(ang) * dist);
+    const h = heightAt(x, z);
+    let wy = -1;
+    for (let k = 3; k >= -2; k--) if (getBlock(x, h + k, z) === 5) { wy = h + k; break; }
+    if (wy < 0) continue;
+    if (getBlock(x, wy, z) !== 5 || getBlock(x, wy - 1, z) !== 5 || getBlock(x, wy - 2, z) !== 5) continue;
+    if (kind === 'bogLurker') {
+      let land = 0;
+      for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) if (getBlock(x + dx, wy, z + dz) !== 5) land++;
+      if (land < 1) continue;                                          // 沼泽：要贴着岸
+    }
+    return { x, y: wy, z };
   }
   return null;
 }
@@ -9520,7 +9657,7 @@ function updateArrows(dt) {
           if (m.hp <= 0 || m.dying) continue;
           const dx = a.p.x - m.p.x, dy = a.p.y - (m.p.y + 0.6), dz = a.p.z - m.p.z;
           if (dx * dx + dy * dy + dz * dz > 0.55) continue;
-          m.hp -= a.dmg; m.flash = 0.24; m.aggro = 18;
+          m.hp -= m.invuln ? 0 : a.dmg; m.flash = 0.24; m.aggro = 18;
           const kd = Math.hypot(a.v.x, a.v.z) || 1;
           m.v.x = (a.v.x / kd) * 4.2; m.v.z = (a.v.z / kd) * 4.2; m.v.y = Math.max(m.v.y, 2.6);
           m.knockT = 0.22;
@@ -9564,6 +9701,7 @@ function updateArrows(dt) {
 // ── 死亡 / 移除 ──
 function killMob(m) {
   scene.remove(m.obj);
+  if (m.fin) { scene.remove(m.fin); m.fin.geometry.dispose(); m.fin.material.dispose(); m.fin = null; }   // ★ v349 沙虫的背鳍
   m.obj.traverse(o => {
     if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
     if (o.material) {
@@ -10216,6 +10354,60 @@ function updateMobs(dt) {
       }
     }
     if (asleep) { mx = 0; mz = 0; speed = 0; }        // 沉睡：原地不动
+    /* ══ ★ v349：5 只群系专属怪的专属行为（都在 mx/mz/speed 定稿之前改） ══ */
+    if (def.burrow) {
+      /* 沙虫：钻地 3 秒（**无敌**、5.5 速追你、模型藏起来只留背鳍）→ 露头 1.2 秒（唯一能打的窗口） */
+      if (m.burrow === undefined) { m.burrow = true; m.burrowT = 1.6; }
+      m.burrowT -= dt;
+      if (m.burrowT <= 0) {
+        m.burrow = !m.burrow;
+        m.burrowT = m.burrow ? 3.0 : 1.2;
+        if (!m.burrow) { m.v.y = 3.2; try { splashAt(m.p.x, m.p.y + 0.3, m.p.z, 8); } catch (e) {} }
+      }
+      m.invuln = m.burrow;
+      if (m.obj) m.obj.visible = !m.burrow;
+      if (m.fin) {
+        m.fin.visible = m.burrow;
+        m.fin.position.set(m.p.x, m.p.y + 0.1, m.p.z);
+        if (m.obj) m.fin.rotation.y = m.obj.rotation.y;
+      }
+    }
+    if (def.waterFast || def.waterOnly) {
+      /* 泥沼潜伏者 / 激流鳗：水里才是它的天下，上岸就基本动不了 */
+      const inW = getBlock(Math.floor(m.p.x), Math.floor(m.p.y + 0.3), Math.floor(m.p.z)) === 5;
+      m.inWater = inW;
+      speed = inW ? def.chase : (def.waterOnly ? 0.8 : 1.2);
+    }
+    if (def.charger && hostileNow && !asleep) {
+      /* 空心鹿：低头蓄力 0.8 秒 → 直线冲 1.15 秒（8.0 速）→ 撞空自己晕 1.5 秒 */
+      m.chT = (m.chT || 0) - dt;
+      if (m.stunT > 0) { m.stunT -= dt; mx = 0; mz = 0; speed = 0; m.headDown = 1; }
+      else if (m.charging) {
+        mx = m.chX; mz = m.chZ; speed = 8.0; m.headDown = 1;
+        if (m.chT <= 0) {
+          m.charging = false; m.headDown = 0; m.chT = 3.6;
+          if (dist > 2.0) m.stunT = 1.5;                        // 撞空 → 自我眩晕
+        }
+      } else if (m.chT <= 0 && dist > 4 && dist < 14 && sightClear(m.p, player.p)) {
+        m.charging = true; m.chT = 1.15; m.headDown = 1;
+        m.chX = dx / (dist || 1); m.chZ = dz / (dist || 1);
+      }
+    }
+    if (def.diver && hostileNow && !asleep) {
+      /* 崖鹫：盘旋 6 秒 → 俯冲 0.9 秒（8.0 速、贴玩家高度）→ 必须爬升 2 秒 */
+      m.diveT = (m.diveT === undefined) ? 4.0 : m.diveT - dt;
+      if (m.diving) {
+        mx = dx / (dist || 1); mz = dz / (dist || 1); speed = 8.0;
+        m.floatY = player.p.y + 1.2;
+        if (m.diveT <= 0) { m.diving = false; m.diveT = 6.0; m.climbT = 2.0; }
+      } else if (m.climbT > 0) {
+        m.climbT -= dt;
+        m.floatY = (m.floatY === undefined ? m.p.y : m.floatY) + 2.4 * dt;
+        mx = 0; mz = 0; speed = 0.4;
+      } else if (m.diveT <= 0 && dist < 18 && sightClear(m.p, player.p)) {
+        m.diving = true; m.diveT = 0.9;
+      }
+    }
     if (!asleep && def.colossus && m.wantThrow && dist > 2.4 && dist < 6) {
       mx = -dx / (dist || 1); mz = -dz / (dist || 1); speed = def.chase * 0.95;   // 先退开再扔
     }
@@ -10317,7 +10509,10 @@ function updateMobs(dt) {
         m.atkCd = def.atkCd || 1.6; m.lunge = 0.3; m.atkN = (m.atkN | 0) + 1;
         /* ★ 怪打到的是谁：客人由房主代算，再定向把伤害发过去（以前只扣房主自己的血） */
         if (foe.pid) NET.send('hurt', { to: foe.pid, d: def.dmg || 3, sx: +m.p.x.toFixed(2), sz: +m.p.z.toFixed(2) });
-        else hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3);
+        else {
+          hurtPlayerFrom(m.p.x, m.p.z, def.dmg || 3, def.knock || 5.4);      // ★ v349 崖鹫 def.knock=8.4
+          if (def.drag) player.v.y = Math.min(player.v.y, -def.drag);        // ★ v349 沼泽潜伏者往下拽
+        }
         sfx('hurt');
       }
     }
@@ -10370,6 +10565,22 @@ function updateMobs(dt) {
     }
     if (countKind('thornsniper') < 2 && Math.random() < dt * 0.14) {
       const s = findBiomeMobSpot('thornsniper'); if (s) spawnMobAt('thornsniper', s.x, s.y, s.z);
+    }
+    /* ★ v349：剩下 5 只 */
+    if (countKind('sandwyrm') < 2 && Math.random() < dt * 0.14) {
+      const s = findBiomeMobSpot('sandwyrm'); if (s) spawnMobAt('sandwyrm', s.x, s.y, s.z);
+    }
+    if (countKind('bogLurker') < 2 && Math.random() < dt * 0.12) {
+      const s = findWaterMobSpot('bogLurker'); if (s) spawnMobAt('bogLurker', s.x, s.y, s.z);
+    }
+    if (countKind('hollowStag') < 2 && Math.random() < dt * 0.12) {
+      const s = findBiomeMobSpot('hollowStag'); if (s) spawnMobAt('hollowStag', s.x, s.y, s.z);
+    }
+    if (countKind('riptideEel') < 2 && Math.random() < dt * 0.13) {
+      const s = findWaterMobSpot('riptideEel'); if (s) spawnMobAt('riptideEel', s.x, s.y, s.z);
+    }
+    if (countKind('cliffRaptor') < 2 && Math.random() < dt * 0.12) {
+      const s = findBiomeMobSpot('cliffRaptor'); if (s) spawnMobAt('cliffRaptor', s.x, s.y, s.z);
     }
     /* ★ v347 远古巨像：全场最多 1 只，而且**只住在深板岩层的地下洞穴**（地表不再刷新）——
        以前它走的是通用黑暗刷怪点，夜里在地表也会冒出来，和「石像守卫」的设定不符。 */
@@ -12329,6 +12540,12 @@ function attack() {
   const kind = heldKind();
   const dmg = (kind === 'sword' || kind === 'axe') ? ((defOf(held().id) || {}).dmg || 5)
             : kind === 'pick' ? 3 : 1;
+  /* ★ v349 沙虫钻地时无敌：这一刀只能打空（提示玩家等它露头） */
+  if (target.invuln) {
+    startSwing('attack', 0.5); player.atkCd = 0.42;
+    toast('It\'s underground — wait for it to surface', 1.2);
+    return false;
+  }
   const dir = cameraDir();
   target.hp -= dmg;
   target.flash = 0.24;
@@ -16920,6 +17137,28 @@ function mpEnterAccountWorld(code) {
    *   现在把 makeMobModel 的 parts 留下来，并让幽灵怪本身长得像宿主循环里的 m：
    *   animateMob() 只要 m.parts / m.kind / m.obj / m.p / m.v / m.onGround / m.flash，
    *   所以**同一个动画函数**在两边跑，动作不会再走样。 */
+  /* ★ v349：客人端的「幽灵箭」—— 只做视觉（伤害全在房主那边结算），
+     用 performance.now 算位置，所以每帧多调用几次也不会跑快。 */
+  const gArrowMat = new THREE.MeshBasicMaterial({ color: 0xe8e4d6 });
+  const gArrows = [];
+  function spawnGhostArrow(fx, fy, fz, tx, ty, tz) {
+    const from = new THREE.Vector3(fx, fy, fz), to = new THREE.Vector3(tx, ty, tz);
+    const len = from.distanceTo(to) || 1;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, Math.min(1.8, len)), gArrowMat);
+    m.position.copy(from); m.lookAt(to);
+    scene.add(m);
+    gArrows.push({ m, from, to, t0: performance.now(), dur: Math.max(120, len / 32 * 1000) });
+    if (gArrows.length > 24) { const old = gArrows.shift(); scene.remove(old.m); old.m.geometry.dispose(); }
+  }
+  function updateGhostArrows() {
+    const now = performance.now();
+    for (let i = gArrows.length - 1; i >= 0; i--) {
+      const a = gArrows[i];
+      const k = Math.min(1, (now - a.t0) / a.dur);
+      a.m.position.lerpVectors(a.from, a.to, k);
+      if (k >= 1) { scene.remove(a.m); a.m.geometry.dispose(); gArrows.splice(i, 1); }
+    }
+  }
   function syncGhosts(list) {
     const alive = new Set();
     for (const e of list) {
@@ -16962,7 +17201,16 @@ function mpEnterAccountWorld(code) {
       // ★ 攻击计数器变了 = 主机那边刚挥了一下 → 本地播前扑（巨像还额外抬臂投掷）
       const an2 = an | 0;
       if (g.atkN === null) g.atkN = an2;
-      else if (an2 !== g.atkN) { g.atkN = an2; g.lunge = 0.3; g.throwAnim = 0.45; }
+      else if (an2 !== g.atkN) {
+        g.atkN = an2; g.lunge = 0.3; g.throwAnim = 0.45;
+        /* ★ v349：远程怪（荆棘射手 / 骷髅 / 烈焰）在**别人屏幕上**也要看得见「举弓 + 放箭」；
+           伤害仍然由房主结算，这支箭只是视觉。 */
+        const md = MOB_DEFS[g.kind] || {};
+        if (md.ranged) {
+          g.bowT = 0.55;
+          spawnGhostArrow(g.p.x, g.p.y + 1.1, g.p.z, player.p.x, player.p.y + 1.15, player.p.z);
+        }
+      }
       g.spd = (typeof spd === 'number' && spd > 0) ? spd : 0;
       g.tx = x; g.ty = y; g.tz = z; g.rot = rot;
       /* ★ 村民的招募状态（房主那边是真身）：客人靠这一份镜像画头顶 ! / ★、
@@ -17692,6 +17940,12 @@ function mpEnterAccountWorld(code) {
       g.v.z = g.spd || 0;                       // animateMob 只看水平速度的模长
       g.flash = Math.max(0, (g.flash || 0) - dt);
       try { animateMob(g, dt, dx, dz, dist); } catch (e) {}
+      /* ★ v349：远程怪放箭后 0.55 秒内举弓（animateMob 之后再覆盖手臂，才不会被走路摆臂冲掉） */
+      if (g.bowT > 0) {
+        g.bowT -= dt;
+        if (P.arm1) P.arm1.rotation.x = -1.45 + (1 - Math.min(1, g.bowT / 0.55)) * 1.2;
+      }
+      updateGhostArrows();                      // 视觉箭矢（时间驱动，重复调用无副作用）
       const em = g.flash > 0 ? 0xa03030 : 0x000000;
       if (P.bodyMat && P.bodyMat.emissive) P.bodyMat.emissive.setHex(em);
       if (P.headMat && P.headMat.emissive) P.headMat.emissive.setHex(em);
