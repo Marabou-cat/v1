@@ -765,6 +765,10 @@ const ITEMS = {
   214: { name: 'Cactus Boat', kind: 'boat', wood: 5 },
   /* ★ v339：氧气罐 —— 铜 4 + 铁 2 打造；铀在充电器里充氧；装备到左手（Q） */
   215: { name: 'Oxygen Tank', kind: 'tank', cap: 360 },
+  /* ★ v347：群系专属怪物的专属掉落（216–218） */
+  216: { name: 'Frost Shard', kind: 'mat' },       // 霜灵 → 冰系材料
+  217: { name: 'Thorn Hide', kind: 'mat' },        // 仙人掌蛮兽 → 反伤护甲材料
+  218: { name: 'Thorn Spike', kind: 'ammo' },      // 荆棘射手 → 可当箭矢
   // ── 电路系统：铜 → 电路板 / 电线 → 能量炮（4 档金属，dmg/cap/cd/speed 逐档递增）──
   185: { name: 'Circuit Board', kind: 'mat' },
   186: { name: 'Wire', kind: 'mat' },
@@ -4190,7 +4194,7 @@ const player = {
   p: new THREE.Vector3(8, 40, 8), v: new THREE.Vector3(),
   yaw: 0, pitch: 0, onGround: false,
   hp: 20, hunger: 20, alive: true, fly: false,
-  swing: 0, walkPhase: 0, fallFrom: null, inWater: false, inLava: false, burn: 0,
+  swing: 0, walkPhase: 0, fallFrom: null, inWater: false, inLava: false, burn: 0, chillT: 0,
   sel: 0, mining: 0, mineTarget: null, atkCd: 0, hits: 0, kills: 0,
   spawn: null, stepUp: true,
   air: OXY_MAX, drownT: 0, airWarned: false, off: null,     // ★ v339 氧气 / 左手
@@ -7538,6 +7542,17 @@ const MOB_DEFS = {
   crocKing:   { name: 'Crocodile King', hp: 320, chase: 3.1, wander: 0.8, hostile: true, barY: 2.15, drop: 193, dropN: [1, 2], extra: [{ id: 177, n: [8, 14] }, { id: 125, n: [2, 5] }], dmg: 15, atkCd: 1.5, boss: true, dim: 'nether' },
   // ── 宝珠试炼的小 boss：变异守护者（特殊建模：2.8 格高、宽肩巨臂，见 makeMutantBossModel）──
   trialBoss:  { name: 'Mutated Guardian', hp: 100, chase: 3.2, wander: 0.9, hostile: true, barY: 3.05, drop: 148, dropN: [2, 4], dmg: 7, atkCd: 1.3, boss: true },
+  /* ── v347：群系专属怪（各 1 只，只在自己的地表刷，白天也刷）──
+     数值基准：玩家 20 血；grunt 3 伤 / croc 6 伤 / 巨像 7 伤。这三只都低于 croc（群系里随手能打）。 */
+  /* 雪原霜灵：悬浮冰晶，3 格内把玩家冻住 −40% 移速（复用 player.chillT），击退无效 */
+  frostWisp:  { name: 'Frost Wisp', hp: 20, chase: 2.6, wander: 1.0, hostile: true, barY: 1.35,
+                drop: 216, dropN: [1, 2], dmg: 3, atkCd: 1.5, float: true, noKnock: true, chill: true },
+  /* 恶地仙人掌蛮兽：近战肉盾，你每砍它一下自己掉 2 血（反伤） */
+  cactusBrute:{ name: 'Cactus Brute', hp: 40, chase: 3.0, wander: 0.9, hostile: true, barY: 2.05,
+                drop: 217, dropN: [1, 1], extra: [{ id: 103, n: [1, 2] }], dmg: 4, atkCd: 1.6, thorns: 2 },
+  /* 稀树草原荆棘射手：远程，保持 10~14 格，三连射（每发 3 伤） */
+  thornsniper:{ name: 'Thornsniper', hp: 22, chase: 3.4, wander: 0.9, hostile: true, barY: 1.95,
+                drop: 218, dropN: [1, 3], dmg: 3, atkCd: 1.2, ranged: true, burst: 3, keepDist: [10, 14] },
   /* ── 远古巨像：石头材质、猩猩式走路、能搬起附近方块扔玩家；不攻击它就一直沉睡。
         体型约 3×3×3 格（高 ~3.4、宽 ~2.9 含手臂），稀有度按末影人（夜里偶尔一只，全场最多 1）。── */
   /* ★ v330：260 血 / 11 伤害太劝退，改成 120 血 / 7 伤害；钻石从 1~2 改成「最多 1 个」。 */
@@ -8072,6 +8087,54 @@ function mobGeos(kind) {
     }
     for (let x = -1 * S2; x < 2 * S2; x++) px(head, x, 20 * S2, 2 * S2 - 1, 0x3a3550);
     coreY = 13 * S2 * MOB_PX; barY = 26 * S2 * MOB_PX; headPiv = 18 * S2;
+  } else if (kind === 'frostWisp') {
+    /* ★ v347 雪原霜灵：悬浮冰晶团（没有腿），下摆三条冰须，胸口/眼眶透冷光 */
+    const ICE = 0xbfe8ff, ICE2 = 0x8fd0f2, DEEP = 0x4f8fbf, GLOW = 0xd8f6ff;
+    box(body, -3, 7, -3, 6, 8, 6, ICE, 0.14);                    // 主体
+    box(body, -2, 4, -2, 4, 3, 4, ICE2, 0.16);                   // 下腹
+    for (const [ox, oz, l] of [[-2, -1, 3], [1, 1, 4], [0, -2, 2]]) {
+      for (let k = 0; k < l; k++) px(body, ox, 3 - k, oz, k === l - 1 ? ICE2 : DEEP);   // 冰须
+    }
+    for (const [x, y] of [[-1, 10], [1, 10], [0, 12], [0, 8]]) px(body, x, y, 3, GLOW);  // 体内冷光
+    box(head, -4, 15, -4, 8, 7, 8, ICE, 0.10);                   // 头（冰晶）
+    eyes2(head, 3, 19, [-3, 2], 0x2b6f9a, GLOW);
+    for (let x = -4; x < 4; x++) px(head, x, 15, 3, DEEP);        // 下缘阴影
+    coreY = 10 * MOB_PX; barY = 25 * MOB_PX; headPiv = 15;
+  } else if (kind === 'cactusBrute') {
+    /* ★ v347 恶地仙人掌蛮兽：2 格高的粗壮仙人掌人，肩/臂/腿侧面全是尖刺 */
+    const GR = 0x4f8a3e, GR2 = 0x3a6b2c, GR3 = 0x6aa84a, SPINE = 0xd8e8a8;
+    humanoid({ body: GR, skin: GR3, dark: GR2, leg: GR2 }, () => {
+      eyes2(head, 3, 28, [-3, 2], 0x1d2a14, 0xffd34d);             // 黄眼
+      for (let x = -2; x <= 1; x++) px(head, x, 25, 3, 0x24331a);   // 咧开的嘴
+      for (const [x, y] of [[-3, 31], [0, 31], [2, 30]]) px(head, x, y, 3, SPINE);   // 头顶刺
+    }, (m, set, x0) => {
+      for (let y = -10; y <= -2; y += 4) { set(x0 - 1, y, 0, SPINE); set(x0 + 4, y, 0, SPINE); }
+    }, (m, set, x0) => {
+      for (let y = -10; y <= -3; y += 5) set(x0 - 1, y, 0, SPINE);
+    }, () => {
+      box(body, -5, 13, -1, 10, 9, 2, GR2, 0.10);                  // 加宽的躯干
+      for (let y = 14; y <= 20; y += 3) { px(body, -5, y, 2, SPINE); px(body, 4, y, 2, SPINE); }
+      for (const x of [-3, 1]) px(body, x, 22, 2, GR3);            // 胸口亮纹
+    });
+    coreY = 18 * MOB_PX; barY = 36 * MOB_PX;
+  } else if (kind === 'thornsniper') {
+    /* ★ v347 稀树草原荆棘射手：瘦高、兜帽、背上箭筒，右手弓（弓在 spawnMobAt 里挂） */
+    const CL = 0x3f5a34, CL2 = 0x2c3f24, SK = 0x9ab86a, EYE = 0xffd34d;
+    humanoid({ body: CL, skin: SK, dark: CL2, leg: CL2 }, () => {
+      box(head, -4, 30, -4, 8, 2, 8, CL, 0.08);                    // 兜帽顶
+      box(head, -4, 24, -4, 8, 8, 2, CL, 0.08);                    // 兜帽后
+      box(head, -4, 24, -4, 1, 8, 8, CL, 0.08);
+      box(head, 3, 24, -4, 1, 8, 8, CL, 0.08);
+      eyes2(head, 3, 28, [-3, 2], 0x2a1f0d, EYE);
+      for (let x = -2; x <= 1; x++) px(head, x, 25, 3, 0x1c2416);  // 面罩下的嘴影
+    }, (m, set, x0) => {
+      for (let y = -6; y <= -3; y++) set(x0 + 1, y, 1, CL2);       // 护腕
+    }, (m, set, x0) => {}, () => {
+      box(body, -3, 15, 1, 6, 5, 1, CL2, 0.06);                    // 胸前皮带
+      for (const [x, y] of [[-1, 12], [1, 12], [-2, 16], [2, 16]]) px(body, x, y, 2, 0xd8e8a8);   // 挂着的荆棘刺
+      for (let y = 13; y <= 18; y++) px(body, -2, y, -3, 0xb08a5a); // 背上的箭筒
+    });
+    coreY = 18 * MOB_PX; barY = 34.5 * MOB_PX;
   } else {
     // 夜行怪 grunt：人形骨架 + 破布兜帽 + 红眼尖牙
     const SKIN = 0x9fd8c8, CLOTH = 0x2f5d5a, CLOTH2 = 0x26494a;
@@ -8995,6 +9058,7 @@ const MOB_RAD = {
   grunt: 0.32, skeleton: 0.32, spider: 0.6, colossus: 0.95, blaze: 0.5, miner: 0.32,
   squirrel: 0.20, deer: 0.50, fox: 0.30, rabbit: 0.22, goat: 0.40, camel: 0.55,
   lizard: 0.30, frog: 0.25, duck: 0.26,
+  frostWisp: 0.40, cactusBrute: 0.55, thornsniper: 0.32,
 };
 
 /* ---------------- 生物之间硬不重叠 ----------------
@@ -9116,7 +9180,7 @@ function spawnMobAt(kind, x, y, z, opts = {}) {
     parts.arm1.add(pk);
     m.pick = pk;
   }
-  if (kind === 'skeleton' && parts.arm1) {
+  if ((kind === 'skeleton' || kind === 'thornsniper') && parts.arm1) {
     const bow = new THREE.Group();
     const wood = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
     const str = new THREE.MeshLambertMaterial({ color: 0xe8e4d6 });
@@ -9159,6 +9223,51 @@ function findSpawnSpot() {                        // 夜行怪：只找黑暗空
     } else {
       const y = surfaceY(x, z) + 1;
       if (okSpot(x, y, z)) return { x, y, z };
+    }
+  }
+  return null;
+}
+/* ── v347：群系专属怪的刷怪点 ───────────────────────────────────────────
+   只在「自己群系的地表方块」上刷：霜灵→雪块(79)、仙人掌蛮兽→红沙(80)、
+   荆棘射手→金合欢稀树草原的草(1 + forestAt==='acacia')。找不到就这一 tick 不刷 ——
+   所以沙漠里不会冒出霜灵、雪原里不会站仙人掌蛮兽。 */
+function findBiomeMobSpot(kind) {
+  for (let t = 0; t < 18; t++) {
+    const ang = Math.random() * Math.PI * 2, dist = 24 + Math.random() * 22;
+    const x = Math.floor(player.p.x + Math.cos(ang) * dist);
+    const z = Math.floor(player.p.z + Math.sin(ang) * dist);
+    const h = heightAt(x, z);
+    if (h <= CFG.SEA) continue;
+    if (getBlock(x, h + 1, z) !== 0 || getBlock(x, h + 2, z) !== 0) continue;
+    const top = getBlock(x, h, z);
+    if (kind === 'frostWisp' && top !== 79) continue;                    // 雪原
+    if (kind === 'cactusBrute' && top !== 80) continue;                  // 恶地（红沙）
+    if (kind === 'thornsniper') {
+      if (top !== 1) continue;
+      const F = forestAt(x, z);
+      if (!F || F.kind !== 'acacia') continue;                           // 稀树草原
+    }
+    return { x, y: h + 1, z };
+  }
+  return null;
+}
+/* ── v347：远古巨像的新家 —— 深板岩层的地下洞穴 ─────────────────────────
+   条件：y < DEEP_Y（深板岩层）、脚下是深板岩(50)、上方 4 格全是空气（3 格高的巨像要站得下）、
+   再往上 4~6 格内有岩层（= 有顶 = 真洞穴，不是地表裂口）。地表从此不会再冒出石像。 */
+function findDeepCaveSpot() {
+  for (let t = 0; t < 24; t++) {
+    const ang = Math.random() * Math.PI * 2, dist = 18 + Math.random() * 30;
+    const x = Math.floor(player.p.x + Math.cos(ang) * dist);
+    const z = Math.floor(player.p.z + Math.sin(ang) * dist);
+    for (let y = DEEP_Y - 4; y >= 10; y--) {
+      if (getBlock(x, y - 1, z) !== 50) continue;                       // 脚踩深板岩
+      let ok = true;
+      for (let k = 0; k < 4; k++) if (getBlock(x, y + k, z) !== 0) { ok = false; break; }
+      if (!ok) continue;
+      let ceil = 0;
+      for (let k = 4; k <= 6; k++) if (isSolid(getBlock(x, y + k, z))) { ceil = k; break; }
+      if (!ceil) continue;                                              // 头顶没岩层 → 露天，不算洞穴
+      return { x, y, z };
     }
   }
   return null;
@@ -9966,14 +10075,27 @@ function updateMobs(dt) {
         const fdx = foeR.x - m.p.x, fdz = foeR.z - m.p.z, fdist = foeR.d;
         // ⚠ boss 不能按「正常远程怪」那样退到 6 格外：玩家只有近战（reach≈4.2），
         //   实测它会一直风筝在 6.8 格、永远打不到 → boss 只在 3.4 格内才后撤
-        const keep = def.boss ? 3.4 : 6;
-        const approachR = def.boss ? 3.6 : 15;      // boss 主动压到近战距离（否则停在 5+ 格，玩家 reach 4.2 打不到）
+        const keep = def.keepDist ? def.keepDist[0] : (def.boss ? 3.4 : 6);
+        const approachR = def.keepDist ? def.keepDist[1] : (def.boss ? 3.6 : 15);      // boss 主动压到近战距离（否则停在 5+ 格，玩家 reach 4.2 打不到）
         if (fdist > approachR) { mx = fdx / (fdist || 1); mz = fdz / (fdist || 1); speed = def.chase; }
         else if (fdist < keep) { mx = -fdx / (fdist || 1); mz = -fdz / (fdist || 1); speed = def.chase * 0.85; }
         m.shootCd = (m.shootCd || 0) - dt;
-        if (m.shootCd <= 0 && fdist < (def.fireball ? 26 : 20) && sightClear(m.p, foeR)) {
+        const shootRange = def.keepDist ? def.keepDist[1] + 6 : (def.fireball ? 26 : 20);
+        if (m.shootCd <= 0 && fdist < shootRange && sightClear(m.p, foeR)) {
           if (def.fireball) { m.shootCd = 2.2; shootFireball(m, foeR); }     // 烈焰巨像：火球
+          else if (def.burst) { m.shootCd = 1.9; m.burstN = def.burst; m.burstT = 0; }   // ★ v347 荆棘射手：攒一轮三连射
           else { m.shootCd = 1.7; shootArrow(m, foeR); }
+        }
+        /* ★ v347 三连射：0.14 秒一发，玩家听得出来也要躲得开（不是同帧三发糊脸） */
+        if (m.burstN > 0) {
+          m.burstT = (m.burstT || 0) - dt;
+          if (m.burstT <= 0) {
+            m.burstT = 0.14; m.burstN--;
+            if (sightClear(m.p, foeR)) {
+              shootArrow(m, foeR);
+              m.atkN = (m.atkN | 0) + 1; m.lunge = 0.16;              // 抬弓动作
+            } else m.burstN = 0;                                       // 目标躲到墙后：这一轮作废
+          }
         }
       }
     } else if (def.hostile && hostileNow) {
@@ -10168,6 +10290,8 @@ function updateMobs(dt) {
       m.burn -= dt;
       m.parts.bodyMat.emissive.setHex(0x7a2200);        // 着火时身上带橙光
     }
+    /* ★ v347 霜灵：贴身 3.2 格内把玩家冻僵（−40% 移速；HUD 血条旁会亮起 ❄ 标记） */
+    if (def.chill && player.alive && dist < 3.2) player.chillT = 0.45;
     // 贴身攻击（所有敌对生物；骷髅是远程，只有贴脸才用近战）
     if (isCreative() && m.target === player) m.target = null;
     m.atkCd -= dt;
@@ -10236,8 +10360,23 @@ function updateMobs(dt) {
       const sm = findMineSpot();
       if (sm) spawnMobAt('miner', sm.x, sm.y, sm.z);
     }
-    // 远古巨像：末影人级稀有 —— 一场最多 1 只，平均 ~70 秒才刷一次（只在夜里/暗处）
-    if (countKind('ancientColossus') < 1 && Math.random() < dt * 0.014) spawnMob('ancientColossus');
+    /* ★ v347 群系专属怪：只在自己的地表刷（雪原雪块 / 恶地红沙 / 稀树草原草），白天也刷 ——
+       否则「群系专属」在正常游玩时间里根本见不到。每种最多 2 只。 */
+    if (countKind('frostWisp') < 2 && Math.random() < dt * 0.16) {
+      const s = findBiomeMobSpot('frostWisp'); if (s) spawnMobAt('frostWisp', s.x, s.y, s.z);
+    }
+    if (countKind('cactusBrute') < 2 && Math.random() < dt * 0.14) {
+      const s = findBiomeMobSpot('cactusBrute'); if (s) spawnMobAt('cactusBrute', s.x, s.y, s.z);
+    }
+    if (countKind('thornsniper') < 2 && Math.random() < dt * 0.14) {
+      const s = findBiomeMobSpot('thornsniper'); if (s) spawnMobAt('thornsniper', s.x, s.y, s.z);
+    }
+    /* ★ v347 远古巨像：全场最多 1 只，而且**只住在深板岩层的地下洞穴**（地表不再刷新）——
+       以前它走的是通用黑暗刷怪点，夜里在地表也会冒出来，和「石像守卫」的设定不符。 */
+    if (countKind('ancientColossus') < 1 && Math.random() < dt * 0.014) {
+      const sc = findDeepCaveSpot();
+      if (sc) spawnMobAt('ancientColossus', sc.x, sc.y, sc.z);
+    }
   }
   if (DIM === 'nether') return;                     // 冥界不刷鬼屋幽灵
   // 废弃鬼屋：进屋就刷幽灵，每栋只唤醒一只幽灵王
@@ -10398,6 +10537,7 @@ const hud = {
   start: $('start'), death: $('death'), deathMsg: $('deathMsg'),
 };
 let hintTimer = 0;
+let lastChillHud = false;                 // ★ v347：霜灵冻僵标记的上一帧状态（只在切换时重绘血条）
 function toast(msg, secs = 2.4) { hud.hint.textContent = msg; hud.hint.style.opacity = '1'; hintTimer = secs; }
 
 function damagePlayer(n) {
@@ -10602,6 +10742,8 @@ function renderHearts() {
   const hp = Math.ceil(player.hp / 2);
   let html = '<span class="lbl">Health</span>';
   for (let i = 0; i < 10; i++) html += `<div class="heart">${i < hp ? '<i></i>' : ''}</div>`;
+  /* ★ v347：霜灵冻僵时血条右边亮一个 ❄ 标记（玩家不看控制台也知道自己为什么变慢） */
+  if (player.chillT > 0) html += '<span style="color:#8fd0f2;font:700 11px/1 system-ui,sans-serif;margin-left:6px;text-shadow:0 0 6px rgba(143,208,242,.8)">❄ −40%</span>';
   hud.hearts.innerHTML = html;
   const food = Math.ceil(player.hunger / 2);
   let html2 = '<span class="lbl">Hunger</span>';
@@ -12193,10 +12335,19 @@ function attack() {
   target.aggro = 16;                 // 被打了就记仇：白天也会追你
   const kx = target.p.x - player.p.x, kz = target.p.z - player.p.z;
   const kd = Math.hypot(kx, kz) || 1;
-  target.v.x = (kx / kd) * 7.4;              // 沿"玩家 → 怪"方向推开
-  target.v.z = (kz / kd) * 7.4;
-  target.v.y = 5.2;
+  /* ★ v347：霜灵是悬浮冰晶，几乎推不动（noKnock）；其他怪照旧 7.4 / 5.2 */
+  const kn = MOB_DEFS[target.kind].noKnock ? 0.12 : 1;
+  target.v.x = (kx / kd) * 7.4 * kn;         // 沿"玩家 → 怪"方向推开
+  target.v.z = (kz / kd) * 7.4 * kn;
+  target.v.y = 5.2 * kn;
   target.knockT = 0.34;                      // 这段时间 AI 不覆盖速度，击退才看得出来
+  /* ★ v347 仙人掌蛮兽：反伤 —— 你砍它一下，自己的手被扎 2 点 */
+  if (MOB_DEFS[target.kind].thorns && player.alive) {
+    const th = MOB_DEFS[target.kind].thorns;
+    damagePlayer(th);
+    toast(`Cactus spines! −${th}`, 1.0);
+    anim.hurtK = Math.min(1.4, (anim.hurtK || 0) + 0.45);
+  }
   startSwing('attack', 0.5);
   useTool(1);                                      // 挥砍扣 1 点耐久
   player.atkCd = 0.42;
@@ -12242,6 +12393,10 @@ function updatePlayer(dt) {
      而下面的「饥饿值高就回血」会在同一帧把 0 抬回 0.02… —— 这就是「显示 0 颗心却不死」。
      检查放在扣血/回血**之前**，否则回血先把 hp 抬起来，兜底就永远不触发。 */
   if (!(player.hp > 0)) { player.hp = 0; die(); return; }
+  /* ★ v347：霜灵的「冻僵」计时（−40% 移速），离开 3 格后 0.45 秒内恢复 */
+  if (player.chillT > 0) player.chillT = Math.max(0, player.chillT - dt);
+  { const chilled = player.chillT > 0;                 // 状态变化才重绘血条（每帧重绘太浪费）
+    if (chilled !== lastChillHud) { lastChillHud = chilled; renderHearts(); } }
 
   // 键盘转视角（没有鼠标就靠这个）
   const lookSpd = 1.9 * userCfg.sens;
@@ -12262,7 +12417,7 @@ function updatePlayer(dt) {
   const wx = ix * cosk + iz * sink;
   const wz = -ix * sink + iz * cosk;
   const sprint = keyDown('sprint') || sprintLatch || sprintTouch || (keymap.sprint === 'ShiftLeft' ? keys.has('ShiftRight') : false);
-  const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : player.inLava ? 0.4 : 1) * (player.tangle > 0 ? 0.32 : 1);
+  const speed = (sprint ? CFG.SPRINT : CFG.WALK) * (player.inWater ? 0.62 : player.inLava ? 0.4 : 1) * (player.tangle > 0 ? 0.32 : 1) * (player.chillT > 0 ? 0.6 : 1);   // ★ v347 霜灵冻僵 −40%
   if (player.knockT > 0) {                    // 被击退：这几帧不接受方向键，靠冲量滑出去
     player.knockT -= dt;
     const damp = Math.pow(0.03, dt);
@@ -15774,6 +15929,30 @@ window.GAME = {
       }
       return null;
     },
+    /* ★ v347：群系专属怪 + 巨像新家的验收探针（一只都不用自己找） */
+    biomeMobs: () => {
+      const kinds = ['frostWisp', 'cactusBrute', 'thornsniper', 'ancientColossus'];
+      const out = {};
+      for (const k of kinds) {
+        const list = mobs.filter(m => m.kind === k && m.hp > 0);
+        out[k] = {
+          n: list.length,
+          near: list.length ? +Math.min(...list.map(m => Math.hypot(m.p.x - player.p.x, m.p.z - player.p.z))).toFixed(1) : null,
+          y: list.map(m => Math.round(m.p.y)),
+          burst: list.map(m => m.burstN | 0),
+          knockable: !(MOB_DEFS[k] && MOB_DEFS[k].noKnock),
+        };
+      }
+      const col = mobs.find(m => m.kind === 'ancientColossus');
+      out.chillT = +(player.chillT || 0).toFixed(2);
+      out.colossusInDeepslate = col ? (getBlock(Math.floor(col.p.x), Math.floor(col.p.y) - 1, Math.floor(col.p.z)) === 50) : null;
+      out.spots = {
+        snow: findBiomeMobSpot('frostWisp'), badlands: findBiomeMobSpot('cactusBrute'),
+        savanna: findBiomeMobSpot('thornsniper'), deepCave: findDeepCaveSpot(),
+      };
+      out.caps = { frostWisp: 2, cactusBrute: 2, thornsniper: 2, ancientColossus: 1 };
+      return out;
+    },
     mobsInfo: () => mobs.map(m => ({
       kind: m.kind, hp: m.hp, dying: m.dying, dieT: +m.dieT.toFixed(2), scale: +m.obj.scale.x.toFixed(3),
       tilt: +m.parts.core.rotation.x.toFixed(2), dist: +m.p.distanceTo(player.p).toFixed(2),
@@ -17206,11 +17385,12 @@ function mpEnterAccountWorld(code) {
                  客人看到的动物就"打不动"。方向用客人报来的 kx/kz（我 → 怪）。 */
               const kxk = Number(m.kx), kzk = Number(m.kz);
               const kd = Math.hypot(kxk || 0, kzk || 0);
+              const knK = MOB_DEFS[mo.kind] && MOB_DEFS[mo.kind].noKnock ? 0.12 : 1;   // ★ v347 霜灵几乎推不动
               if (kd > 0.01) {
-                mo.v.x = (kxk / kd) * 7.4; mo.v.z = (kzk / kd) * 7.4; mo.v.y = 5.2; mo.knockT = 0.34;
+                mo.v.x = (kxk / kd) * 7.4 * knK; mo.v.z = (kzk / kd) * 7.4 * knK; mo.v.y = 5.2 * knK; mo.knockT = 0.34;
               } else {                                       // 老客户端没带方向：按「房主 → 怪」推
                 const ax = mo.p.x - player.p.x, az = mo.p.z - player.p.z, ad = Math.hypot(ax, az) || 1;
-                mo.v.x = (ax / ad) * 7.4; mo.v.z = (az / ad) * 7.4; mo.v.y = 5.2; mo.knockT = 0.34;
+                mo.v.x = (ax / ad) * 7.4 * knK; mo.v.z = (az / ad) * 7.4 * knK; mo.v.y = 5.2 * knK; mo.knockT = 0.34;
               }
               if (mo.hp <= 0) startMobDeath(mo);
               break;
