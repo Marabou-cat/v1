@@ -11,6 +11,17 @@ const CFG = {
   REACH: 6, DAY: 300, MAX_MOBS: 6, SAVE_KEY: 'blockwild_save_v1',
   EYE: 1.62, HW: 0.3, PH: 1.78,
 };
+/* ── v339：氧气 / 氧气罐 ────────────────────────────────────────────────
+   · 肺活量 30 秒：头（眼睛所在格）在水里开始掉，出水 2.5 秒回满
+   · 氧气罐 360 秒；充电器里 1 颗铀装填 5 秒 → +120 秒氧气
+   · 罐子在左手（Q）时优先烧罐子的，肺活量保持满；肺空了每 1.5 秒扣 2 血 */
+const OXY_TANK_ID = 215;
+const OXY_MAX = 30;
+const OXY_REFILL = 12;
+const OXY_TANK_CAP = 360;
+const TANK_PER_URANIUM = 120;
+const OXY_DROWN_DMG = 2;
+const OXY_DROWN_EVERY = 1.5;
 
 /* ============================================================ 噪声 */
 let SEED = (() => {                          // 支持 ?seed=12345 直接用指定种子开新世界
@@ -65,29 +76,262 @@ function n3(x, y, z) {
 }
 const SURF_OFF = 72;                  // 地表整体抬高：脚下到基岩的深度从 ~40 格 → ~112 格
 const DEEP_Y = SURF_OFF - 14;         // 这层以下换成深板岩（底部的深板岩层，钻石只在这里）
-const MOUNT_Y = SURF_OFF + 45;        // 高出这个高度就是裸岩山峰
+const MOUNT_Y = SURF_OFF + 52;        // 124：树线（原来 117 —— 山一高树就从山腰断掉）
+const ROCK_Y = SURF_OFF + 68;         // 140：这条线以上一律裸岩（岩峰），不再长草
+const SNOW_Y = SURF_OFF + 82;         // 154：雪线（逐列 ±3 抖动，不是一条直线）
+const ROCK_SLOPE = 4;                 // 一格内落差 ≥4 格 = 崖壁/陡坡 → 露石（MC 的陡坡也是岩壁）
+/* 山地参数（实测见 _ht_peak.js：三层 ridged + 峰顶压缩 = 山体而不是尖塔）
+   单层 ridged 会长出一根锥子（近峰 40×40 窗口里只有 3% 的列接近峰高）；
+   大脊 + 山肩 + 碎岩三层叠加后是 26%，轮廓才是「一座山」。 */
+const MT = { maskLo: 0.60, maskHi: 0.90,
+             bigFreq: 0.0072, bigOct: 4, bigAmp: 38, bigSharp: 1.25, bigK: 2.2,   // 山体/主脊
+             midFreq: 0.019,  midOct: 3, midAmp: 16, midSharp: 1.6,  midK: 2.6,    // 山肩/次脊
+             detFreq: 0.052,  detOct: 3, detAmp: 5,  detSharp: 1.5,  detK: 2.8,    // 山腰碎岩
+             capY: 152, capK: 0.72 };                                                // 峰顶压缩
+/* ── 域扭曲 + 河流 ──────────────────────────────────────────────────────
+ * ① 域扭曲（domain warp）：先把采样坐标按低频噪声推歪 ±14 格，再去查地形噪声。
+ *    作用：把原来"圆滚滚的噪声斑块"揉成蜿蜒海岸线、细长半岛、被拧过的山脊 ——
+ *    以前地形一眼就是值噪声，缺的就是这一步（MC 从 1.7 起就有 domain warp）。
+ *    只用两层 n2（不是 fbm），单次 heightAt 多 2 次噪声，实测 1.26µs → 1.6µs。
+ * ② 河流：一张 ridged 噪声的**等值线**（|n-0.5| 很小的那条带）就是河道。
+ *    河心压到海平面下 3 格 → 区块生成时的灌水逻辑自动灌满（河岸 h<=SEA+1 正好落进沙滩判定）。
+ *    河床只往下切，不抬高地形，所以低地上的河不会变成一条"河堤"。 */
+function riverMask(x, z) {                       // 0 = 不在河上，1 = 河心
+  const r = n2(x * 0.0042 + 7.7, z * 0.0042 - 3.3);                    // 河道走向，周期 ~240 格
+  const wob = (n2(x * 0.031 + 2.2, z * 0.031 - 8.8) - 0.5) * 0.018;    // 岸线别太"规整"
+  const d = Math.abs(r - 0.5) * 2;                                     // 0=河心，1=远处
+  const w = 0.062 + wob;                                               // 半宽：实测校准到 ~6 格水面、~2% 地表是河
+  return d >= w ? 0 : 1 - d / w;
+}
+const RIVER_BED = CFG.SEA - 3;                   // 河床比海平面低 3 格：够浅能蹚，够深能划水
 function heightAt(x, z) {
+  const wx = x + (n2(x * 0.0061 + 31.4, z * 0.0061 - 17.2) - 0.5) * 28;   // ← 域扭曲
+  const wz = z + (n2(x * 0.0061 - 9.8, z * 0.0061 + 22.6) - 0.5) * 28;
   // fbm 会把方差压得很小，先以 0.5 为中心放大对比度，才能得到真正起伏的地形
-  const cont = clamp01(0.5 + (fbm2(x * 0.011, z * 0.011, 4) - 0.5) * 2.8);
-  const hill = clamp01(0.5 + (fbm2(x * 0.047 + 13.7, z * 0.047 - 7.1, 3) - 0.5) * 2.4);
-  return SURF_OFF + Math.floor(15 + cont * 30 + hill * 7);
+  const cont = clamp01(0.5 + (fbm2(wx * 0.011, wz * 0.011, 4) - 0.5) * 2.8);
+  const hill = clamp01(0.5 + (fbm2(wx * 0.047 + 13.7, wz * 0.047 - 7.1, 3) - 0.5) * 2.4);
+  /* ── 山脉抬升（ridged multifractal，v317 替换掉旧的「6 格台地软量化」）──────
+     2D 高度场也能长出 MC 那种山，靠的是这两点：
+     ① **ridged 噪声** `1-|2n-1|` 而不是普通 fbm：普通 fbm 是圆包，ridged 才有山脊线、
+        尖顶和两侧的长坡；再用 pow(...,2) 把坡脚收窄、山顶变尖。
+     ② **用大陆性 cont 做掩码**：只有本来就高的陆块才隆起（低地/海岸/河床不动），
+        山不是散落在全图的小包，而是一片片山系。
+     旧的台地化（`h>102` 时按 6 格一档压平）已删除：它把 75% 的陆地压成平台，
+     实测相邻列 80% 完全等高、落差**全是 3 格** —— 就是你看到的「三个方块一层层堆」。
+     现在落差是连续分布的（1/2/3/4/5 格各占 35/8/3/2/1%）。 */
+  const mMask = smooth(MT.maskLo, MT.maskHi, cont);
+  let mount = 0;
+  if (mMask > 0.001) {                                        // 低地直接跳过，不付噪声钱
+    const rid = (v, k) => clamp01(1 - Math.abs(2 * v - 1) * k);
+    const rb = rid(fbm2(wx * MT.bigFreq + 51.2, wz * MT.bigFreq - 27.4, MT.bigOct), MT.bigK);
+    const rm2 = rid(fbm2(wx * MT.midFreq - 8.1, wz * MT.midFreq + 44.3, MT.midOct), MT.midK);
+    const rd = rid(fbm2(wx * MT.detFreq + 7.7, wz * MT.detFreq - 19.3, MT.detOct), MT.detK);
+    mount = mMask * (Math.pow(rb, MT.bigSharp) * MT.bigAmp
+                   + Math.pow(rm2, MT.midSharp) * MT.midAmp
+                   + Math.pow(rd, MT.detSharp) * MT.detAmp);
+  }
+  let h = SURF_OFF + 15 + cont * 30 + hill * 7 + mount;
+  /* 峰顶压缩：越高的部分被压得越扁 → 山顶是「一片山肩 + 一个尖」，
+     而不是一根从山脚直上直下的锥子。实测最高 174 → 169，近峰 40×40 窗口
+     里「峰高-20 以内」的列从 3% 变成 26%（锥子 vs 山体）。 */
+  if (h > MT.capY) h = MT.capY + (h - MT.capY) * MT.capK;
+  h = Math.floor(h);
+  /* ── v333 深海（MC 的大陆架 + 深海盆地）─────────────────────────────────
+     以前海底 h = 87 + cont*30 + hill*7 → 最深只有 11 格，整个海都是能走到头的浅滩。
+     现在按「离海面多高」当大陆架坡度：近岸（差 ≤3 格）几乎不动 = 浅滩，
+     再往外陡降，深海盆地 26~43 格深 —— 潜水时能明显感觉到脚下没底了。 */
+  if (h < CFG.SEA) {
+    const shelf = clamp01((CFG.SEA - h) / 9);            // 近岸 ~0 → 深海 1
+    const drop = Math.pow(smooth(0.10, 0.62, shelf), 1.5);
+    const dn = fbm2(wx * 0.0068 + 71.3, wz * 0.0068 - 33.9, 3);
+    h -= Math.round(drop * (16 + dn * 16));              // 最深 ≈ 32 格落差
+  }
+  /* 河谷：河床高度**由掩码决定**（不从当地地形插值，否则域扭曲会把"岸边"甩到海平面，河面只剩中间两格水）。
+     实测：掩码从河心的 1 掉到 0 大约跨 17 格，所以 (1-rm)*17 就是"离河心几格"。
+       · 河心 3 格内 → 河床 = 海平面 - 3（水面 6~7 格宽）
+       · 再往外 → 每格抬 1.5 格，最多抬 12 格（岸壁 ~103~107，不会变成大平原）
+       · 高于 116 的山地不再压到河床，而是切一条 V 形高山河谷（河心最深 24 格）。 */
+  const rm = riverMask(x, z);
+  if (rm > 0) {
+    const dist = (1 - rm) * 17;
+    if (h <= RIVER_BED + 21) {                   // 低地：切到河床（水面）
+      const chan = RIVER_BED + Math.min(12, Math.max(0, dist - 3) * 1.5);
+      if (h > chan) h = Math.round(chan);
+    } else if (rm > 0.30) {
+      /* 高山河谷（原来这里直接跳过 → 山体上一条河都没有，全是「山脚绕行」）。
+         不把山劈到海平面那样会留下一条千米高的绝壁河道，只按掩码切一条 V 形谷：
+         河心最深 24 格、往外线性收回到原地形 → 变成山口/垭口，能走人也能看。 */
+      const depth = Math.min(24, 6 + (h - (RIVER_BED + 21)) * 0.45) * smooth(0.30, 0.95, rm);
+      const cut = Math.round(h - depth);
+      if (cut < h) h = cut;
+    }
+  }
+  /* 高山湖：把山顶盆地挖成碗（水位由 tarnFor 采样的 rim 决定，比 rim 低 1 格）。 */
+  if (!inTarnProbe) {
+    const t = tarnAt(x, z);
+    if (t && t.d <= t.r) {
+      const target = t.d <= t.r * 0.55 ? t.level - 5 : t.level - 1;
+      if (h > target) h = target;
+    }
+  }
+  return h;
+}
+
+/* ── 高山湖（tarn）────────────────────────────────────────────────────────
+ * 灌水只在 y<=SEA 发生，所以山上永远没有湖。这里是「先造盆地再灌水」：
+ *   ① 128 格一个格子掷骰（~45%）选点，点必须长在山上（中心 > SEA+30）、
+ *      并且比它外圈 16 个采样点的最低值还低 5 格以上 —— 这才是个碗；
+ *   ② 水位 = min(中心, 外圈最低) - 1，所以水一定低于碗沿，不会漏；
+ *   ③ heightAt 把碗挖出来（中心挖到水位-5），genChunk 再灌到水位。
+ * 采样时要绕开自己（inTarnProbe），否则 tarnFor → heightAt → tarnFor 无限递归。 */
+const TARN_CELL = 128, tarnCache = new Map();
+let inTarnProbe = false;
+function tarnFor(cx, cz) {
+  if (h2(cx * 19.7 + 2.3, cz * 31.1 - 6.7) < 0.50) return null;
+  const rnd = mulberry32((Math.imul(cx, 374761393) ^ Math.imul(cz, 668265263) ^ SEED) | 0);
+  const x = cx * TARN_CELL + 40 + Math.floor(rnd() * (TARN_CELL - 80));
+  const z = cz * TARN_CELL + 40 + Math.floor(rnd() * (TARN_CELL - 80));
+  const r = 7 + Math.floor(rnd() * 6);                    // 半径 7~12
+  inTarnProbe = true;
+  const hc = heightAt(x, z);
+  /* 两圈各 16 点采样碗沿：内圈 r+2、外圈 r+5（外圈错开半格，避免和内圈采到同一批点）。
+     判据换成「围沿比中心高 4 格以上」+「最低的沿不比中心低 6 格以上」——
+     之前要求「中心比最低沿还低 5 格」，实测整个世界一个湖都没有（噪声地形里几乎不存在）。 */
+  let rimMin = 999, rimMax = -999;
+  for (const rad of [r, r + 4]) for (let i = 0; i < 16; i++) {
+    const a = (i / 16 + (rad === r + 4 ? 0.03125 : 0)) * Math.PI * 2;
+    const h = heightAt(Math.round(x + Math.cos(a) * rad), Math.round(z + Math.sin(a) * rad));
+    if (h < rimMin) rimMin = h;
+    if (h > rimMax) rimMax = h;
+  }
+  inTarnProbe = false;
+  if (hc < CFG.SEA + 30) return null;                     // 不在山上 → 不叫高山湖
+  if (rimMax - hc < 3) return null;                       // 没有围沿（不是盆地/鞍部）
+  if (hc - rimMin > 8) return null;                       // 最低的沿比中心还低 8 格以上 = 陡坡，不是碗
+  return { x, z, r, level: rimMin - 1 };
+}
+function tarnAt(x, z) {
+  const cx = Math.floor(x / TARN_CELL), cz = Math.floor(z / TARN_CELL);
+  const key = cx * 4000037 + cz;
+  let t = tarnCache.get(key);
+  if (t === undefined) { t = tarnFor(cx, cz); tarnCache.set(key, t); }
+  if (!t) return null;
+  /* 湖面半径比采样圈小 1 格（采样在 r / r+4，灌水只到 r-1）：
+     这样湖沿那圈地形一定 ≥ 水位+1，不会出现「水墙」贴在山坡上。 */
+  const d = Math.hypot(x - t.x, z - t.z);
+  if (d > t.r - 1) return null;
+  return { level: t.level, r: t.r - 1, d };
 }
 
 
 /* ============================================================ 洞穴 / 矿洞 */
-// 洞穴两层：大空腔（cheese）+ 细长隧道（ridged 噪声的等值壳）
-function caveCarve(wx, y, wz, h) {
-  if (y < 2 || y > 52) return false;
-  const depth = h - y;
-  const cheese = n3(wx * 0.026, y * 0.05, wz * 0.026);
-  // 地表附近只有极少数地方被掏开 → 形成天然洞口（阈值已按实测分布标定）
-  if (cheese > (depth <= 2 ? 0.845 : 0.665)) return true;
-  if (depth <= 1) return false;
-  const ridge = n3(wx * 0.043 + 31.7, y * 0.019, wz * 0.043 + 11.3);
-  const r = 1 - Math.abs(ridge - 0.5) * 2;          // 0.5 附近 → 细长的隧道壳
-  return r > 0.972;
+/* 洞穴两层：大空腔（cheese）+ 细长隧道（ridged 噪声的等值壳）
+ * ★ 参考 MC 的做法（1.18 的「意大利面 + 空腔」两套）：不只是把阈值调低，而是让分布**不均匀** ——
+ *   按 32×32 的格子给每个区域一个 ±0.05 的偏移量（h2 哈希，几乎不要钱），于是有的地方是
+ *   连成一片的大厅群、有的地方只有几条细缝，而不是全世界一个密度。 */
+/* 基岩顶面高度：以前写死 `y <= 1` → 整个世界底下一块绝对平的板子，
+   洞穴一挖到底就露出一大片"镜面基岩地面"（尤其大空腔，一眼假）。
+   现在按两层噪声起伏 1~4 格 —— MC 的基岩本来就是锯齿状的，
+   洞底踩着它自然就是一块一块高低不平的石头，而不是一张桌子。 */
+/* ── 极端群系：沙漠 / 雪原 / 恶地 ─────────────────────────────────────
+ * 一张低频"气候"噪声切成几个带（周期 ~740 格），只用来决定**地表方块和树**，
+ * 完全不碰地形算法 —— 所以同一套高度场会长出沙丘、雪原和红沙台地。
+ * 边界用「逐列哈希抖动 ±0.025」把阈值打碎 → 过渡是一片块状混杂，而不是一条直线。 */
+function biomeAt(wx, wz) {
+  /* v323：目标「沙漠 11% / 雪原 11%」。
+     · 阈值取这张噪声的 q11 / q89（实测 20 万点：q11=0.2215、q89=0.7859）→ 全局正好各 11%。
+     · 频率 0.00135 → 0.0022（气候周期 740 → 476 格）：以前一个玩家逛的 ±800 格窗口里
+       雪/沙比例能从 0.1% 跳到 42%（实测 6 个窗口：沙 2.7%~42.1%、雪 0.1%~15%），
+       开一局全在冷区就「到处是雪、见不到沙漠」。加密之后同样窗口是沙 5%~36%、雪 0.7%~14%，
+       平均贴近 11%，走过去就能碰到另一种。 */
+  const t = n2(wx * 0.0022 + 91.7, wz * 0.0022 - 12.3) + (h2(wx * 0.71 + 3.3, wz * 0.93 - 8.1) - 0.5) * 0.024;
+  if (t > 0.7814) return 'desert';                   // 沙漠：沙子（22 万点实测 11.0%）
+  if (t < 0.2196) return 'snow';                     // 雪原：雪块（22 万点实测 11.0%）
+  if (t > 0.615 && t < 0.675) return 'badlands';     // 恶地：红沙 + 裸露岩层
+  return null;                                       // 其余交给现有的森林/平原系统
 }
-
+function bedrockTopAt(wx, wz) {
+  const a = n3(wx * 0.085 + 3.1, 7.7, wz * 0.085 - 1.9);        // 大尺度起伏
+  const b = n3(wx * 0.23 - 8.3, 3.3, wz * 0.23 + 6.1);          // 小尺度尖角
+  return 1 + Math.floor(a * 2.2 + (b > 0.66 ? 1.4 : 0));        // 1..4
+}
+/* ── 洞穴（v321 重写：MC 1.18 的四段结构）───────────────────────────────────
+ * 旧版是三层噪声阈值硬堆出来的：阈值一压低，全世界糊成「瑞士奶酪」——实测
+ * y20~40 有 **55%** 是空的、4×4×4 全实心只占 44%，而 56 格以上几乎是整块实心石头
+ * （分层空腔率 [0.375, 0.552, 0.424, 0.084, 0.115]，第 4 项就是「山体里没有洞」）。
+ * 新版按 MC 1.18 的四段重排，参数由 `_cave_proto.js` 六点平均扫出来：
+ *   ① 大空腔 cheese      ：低频、大块，越深阈值越低（深处更容易连成大洞）
+ *   ② 横向走廊 room      ：更扁的一套场，负责把相邻空腔串起来
+ *   ③ 面条隧道 spaghetti ：**两个 ridged 场的交集**才挖 → 一条长管子（MC 同款）
+ *   ④ 洞口区             ：只有最低频场里最高的一小片地块允许挖穿地表；
+ *                          水下 / 湖边 / 高山湖底一律不开（否则海水会灌进洞）
+ * 两条旧版验证过的约束原样保留：洞底 2~7 格的「最低可挖高度」、2×2×2 的相干抖动
+ * （逐块独立抖动会把洞壁碎成「挂着的单块石头」）。
+ * 实测（6 个采样点 × 32×32 列的平均）：
+ *   空腔率 0.287 → 0.174 ｜ 4×4×4 全实心 0.442 → 0.706 ｜ 可走比例 0.114 → 0.143
+ *   分层 [0.375,0.552,0.424,0.084,0.115] → [0.137,0.121,0.197,0.191,0.189]
+ *   横向跑动宽 3.9 → 4.4 格（管子更连续）｜ 连通块 118 → 70（洞更少更长）
+ *   地表洞口 0% → 约 1% 的陆地列（大面积统计 2000×2000 / 1/8 抽样 = 1.07%）
+ */
+const CAVE = {
+  highH: 130, highPen: 0.03,                    // h>130 的山体内部稍微收紧，别把山顶掏空
+  cheF: 0.024, cheY: 0.042, cheT: 0.780,        // ① 大空腔
+  cheDeepY: 56, cheDeepK: 0.0016,               //   越深阈值越低
+  roomF: 0.0140, roomY: 0.030, roomT: 0.840,    // ② 横向走廊
+  spF: 0.0195, spY: 0.0260, spW: 0.058,         // ③ 面条隧道 A
+  spF2: 0.0235, spY2: 0.0205, spW2: 0.058,      //   面条隧道 B（两场交集 = 管子）
+  mouthLo: 0.72, mouthHi: 0.92, mouthT: 0.10,   // ④ 洞口区（低频掩码里最上面那 ~15%，实测 q85=0.71 / q95=0.83）
+  shallowD: 10, shallowPen: 0.012,              //   离地表 10 格内逐格收紧（洞顶至少 5 格厚）
+};
+function caveCarve(wx, y, wz, h) {
+  /* 上限 140（v318）：山抬到 150+ 以后 56 以上本来是整块实心石头，MC 的山是有洞的。
+     140 以上保持实心（峰顶不挖穿）。 */
+  if (y < 2 || y > 140) return false;
+  /* 洞底各自的下限：每列按噪声给一个 2~7 的"最低可挖高度"，低于它就不挖。
+     少了这一步，最底下几层会整层被掏空 → 洞底和基岩顶面糊成同一块平板。 */
+  if (y <= 7) {
+    const fl = 2 + Math.floor(n3(wx * 0.16 + 5.5, 1.7, wz * 0.16 - 2.9) * 5.99);
+    if (y <= fl) return false;
+  }
+  const depth = h - y;
+  if (depth < 0) return false;
+  // 区域偏移：同一个 32×32 区域用同一个阈值（h2 是纯哈希，不额外采样噪声）
+  const reg = (h2((wx >> 5) * 3.7 + 11.3, (wz >> 5) * 5.3 - 4.1) - 0.5) * 0.10;
+  /* 逐块抖动（按 2×2×2 格取哈希）：真 MC 的洞壁是参差的；逐块独立的抖动会把
+     边界碎成「四面全空的单块石头」（实测过，禁止）。 */
+  const jit0 = (h3((wx >> 1) * 1.7 + 2.3, (y >> 1) * 2.1 - 0.9, (wz >> 1) * 1.3 + 4.1) - 0.5) * 0.14;
+  const jit = depth <= 2 ? jit0 * 0.25 : jit0;
+  const pen = h > CAVE.highH ? CAVE.highPen : 0;                  // 高峰内部收紧
+  const deep = Math.max(0, CAVE.cheDeepY - y) * CAVE.cheDeepK;    // 深处阈值降低
+  /* ① 地表洞口：只在低频「洞口区」里开。水下 3 格以内、高山湖盆一律不开
+     （海水会顺着洞口灌进洞，湖底被挖穿的话水面会悬在半空）。 */
+  if (depth <= 4) {
+    if (h <= CFG.SEA + 3) return false;
+    /* ★ v323：峰顶（h>140）不开洞口。以前这里只挡了「水下/湖边」，而洞穴硬上限是 y<=140：
+       h=142 的山，y=139 就是 depth 3 → 洞口区直接把峰顶挖穿。
+       实测（26444 个 h>=140 的山顶列）819 列山顶壳 <6 格、47 列 <3 格、minShell=0。 */
+    if (h >= 140) return false;          // h=140 这一档也算峰顶（实测它是 minShell=0 的唯一来源）
+    if (tarnAt(wx, wz)) return false;
+    const m = smooth(CAVE.mouthLo, CAVE.mouthHi, n2(wx * 0.0021 + 7.7, wz * 0.0021 - 3.3));
+    if (m <= 0) return false;
+    return n3(wx * CAVE.cheF, y * CAVE.cheY, wz * CAVE.cheF) > CAVE.cheT + pen - CAVE.mouthT * m + reg + jit;
+  }
+  /* 湖盆不许挖洞：高山湖的水是按列灌到水位的，湖底要是被洞穴掏空，
+     水就悬在洞顶上方（"水面浮在半空"）。只在靠近地表的 7 格里查，成本可控。 */
+  if (depth <= 6 && tarnAt(wx, wz)) return false;
+  /* 高山：洞顶至少留 6 格（h=141 的山原来能在 y=140 开洞 → 山顶只剩 1 格壳） */
+  if (h > 130 && depth < 6) return false;
+  const shal = Math.max(0, CAVE.shallowD - depth) * CAVE.shallowPen;   // 浅层收紧
+  /* ② 大空腔 */
+  if (n3(wx * CAVE.cheF, y * CAVE.cheY, wz * CAVE.cheF) > CAVE.cheT + pen + shal + reg + jit - deep) return true;
+  /* ③ 横向走廊 */
+  if (n3(wx * CAVE.roomF - 21.4, y * CAVE.roomY + 7.9, wz * CAVE.roomF + 15.6) > CAVE.roomT + pen + shal + reg + jit - deep * 0.5) return true;
+  /* ④ 面条隧道：两个 ridged 场同时贴着 0.5 的地方才挖 → 长管子 */
+  const s1 = Math.abs(n3(wx * CAVE.spF + 11.3, y * CAVE.spY, wz * CAVE.spF - 7.1) - 0.5);
+  if (s1 > CAVE.spW) return false;
+  const s2 = Math.abs(n3(wx * CAVE.spF2 - 31.7, y * CAVE.spY2 + 13.9, wz * CAVE.spF2 + 4.3) - 0.5);
+  return s2 < CAVE.spW2;
+}
 // ── 废弃矿洞：按 96×96 的格子确定性生成，跨区块用 byChunk 拼接 ──
 const MS_CELL = 96;
 const msCache = new Map();
@@ -99,33 +343,44 @@ function mulberry32(a) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
-// 矿洞构件：巷道 / 房间 / 通地表的楼梯 / 矿脉
+// 矿洞构件：巷道 / 房间 / 竖井 / 通地表的折返楼梯 / 矿脉 / 箱子
 function msPush(ops, x, y, z, t) { ops.push({ x, y, z, t }); }
-function msGallery(ops, x0, y0, z0, dx, dz, len, spacing, W = 1, H = 3) {
+function msAir(ops, x, y, z, n) { for (let i = 0; i < n; i++) msPush(ops, x, y + i, z, 0); }
+
+/* 水平巷道 —— 矿洞里所有巷道都是水平的。
+ * ★ 以前地板铺的是木板(t=8)：从地表往下的那条楼梯坡道有 170 级，等于一条斜着往下的木板路，
+ *   也就是「矿洞的木板一直斜着往下」。现在地板=圆石，木板/原木只做立柱、顶梁和平台（全横平竖直）。 */
+function msGallery(ops, deco, x0, y0, z0, dx, dz, len, spacing, W = 1, H = 3) {
   const px = -dz, pz = dx;
   for (let i = 0; i < len; i++) {
     const bx = x0 + dx * i, bz = z0 + dz * i;
     for (let w = -W; w <= W; w++) {
       const x = bx + px * w, z = bz + pz * w;
-      for (let y = y0; y < y0 + H; y++) msPush(ops, x, y, z, 0);
-      msPush(ops, x, y0 - 1, z, 8);
+      msAir(ops, x, y0, z, H);
+      msPush(ops, x, y0 - 1, z, 9);                     // 圆石地板
     }
-    if (i % spacing === 0) {
+    if (i % spacing === 0) {                            // 一组支架：两根原木立柱 + 一道顶梁
       for (const w of [-W - 1, W + 1]) for (let y = y0; y < y0 + H; y++) msPush(ops, bx + px * w, y, bz + pz * w, 6);
-      for (let w = -W - 1; w <= W + 1; w++) msPush(ops, bx + px * w, y0 + H, bz + pz * w, 8);
+      for (let w = -W - 1; w <= W + 1; w++) msPush(ops, bx + px * w, y0 + H, bz + pz * w, 6);
+      if (i && (i / spacing) % 3 === 0) deco.push([bx + px * (W + 1), y0, bz + pz * (W + 1), 38]);   // 立柱上插火把
     }
   }
 }
-function msRoom(ops, cx, y0, cz, rw, rd, h) {
+/* 房间：地板铺横板（木板是平的），四角立柱 + 顶上横梁，中间空场放箱子 */
+function msRoom(ops, deco, cx, y0, cz, rw, rd, h) {
   for (let dx = -rw; dx <= rw; dx++) for (let dz = -rd; dz <= rd; dz++) {
-    for (let y = y0; y < y0 + h; y++) msPush(ops, cx + dx, y, cz + dz, 0);
-    msPush(ops, cx + dx, y0 - 1, cz + dz, 8);
+    msAir(ops, cx + dx, y0, cz + dz, h);
+    const edge = Math.abs(dx) === rw || Math.abs(dz) === rd;
+    msPush(ops, cx + dx, y0 - 1, cz + dz, edge ? 9 : 8);          // 边上一圈圆石，里面横铺木板
   }
   for (const [sx, sz] of [[-rw, -rd], [rw, -rd], [-rw, rd], [rw, rd]]) {
     for (let y = y0; y < y0 + h; y++) msPush(ops, cx + sx, y, cz + sz, 6);
     msPush(ops, cx + sx, y0 + h, cz + sz, 8);
   }
-  // 房间中央偶尔来个矿堆
+  for (let dz = -rd; dz <= rd; dz += 3) {                          // 顶梁
+    for (let dx = -rw; dx <= rw; dx++) msPush(ops, cx + dx, y0 + h, cz + dz, 8);
+  }
+  deco.push([cx, y0 + 1, cz - rd + 1, 38]);
 }
 function msOreBlob(ops, cx, y0, cz, kind, rnd) {
   const w = 1 + Math.floor(rnd() * 2), h = 1 + Math.floor(rnd() * 2);
@@ -134,51 +389,93 @@ function msOreBlob(ops, cx, y0, cz, kind, rnd) {
     msPush(ops, cx + dx, y0 + dy, cz + dz, kind);
   }
 }
-function msStairs(ops, x0, y0, z0, dx, dz, maxLen = 170) {
-  let lvl = y0;
+/* 竖井：3×3 直着往下，每 6 层一块横铺的木板平台（中间留 1×1 的口子上下），底部一个箱子 */
+function msShaftDown(ops, deco, x0, y0, z0, depth) {
+  for (let d = 0; d < depth; d++) {
+    const y = y0 - d;
+    for (let ax = 0; ax <= 2; ax++) for (let az = 0; az <= 2; az++) {
+      msAir(ops, x0 + ax, y, z0 + az, 3);
+      msPush(ops, x0 + ax, y - 1, z0 + az, 9);
+    }
+    if (d % 6 === 5) {
+      for (let ax = 0; ax <= 2; ax++) for (let az = 0; az <= 2; az++)
+        if (!(ax === 1 && az === 1)) msPush(ops, x0 + ax, y, z0 + az, 8);
+    }
+  }
+  deco.push([x0 + 1, y0 - depth + 1, z0 + 1, 38]);
+  deco.push([x0 + 2, y0 - depth + 1, z0 + 2, 18]);                 // 井底箱子
+}
+/* 通地表的斜巷：圆石台阶（每 2 格升 1），每 12 级一块**水平**木板平台 —— 木板不再是坡道本身 */
+function msStairs(ops, deco, x0, y0, z0, dx, dz, maxLen = 300) {
+  /* ① 先试算：这条斜巷能不能真的挖到地表。挖不到就一个方块都不动 ——
+        以前是先挖 170 格再发现没通，于是石头里留下一条又长又斜的死胡同。
+     ★ 坡度从「2 格升 1 格」改成「1 格升 1 格」（MC 的台阶就是 1:1）：
+       山抬到 150+ 之后，斜巷要爬 140 格，2:1 的坡度要 280 格长度，永远超预算
+       —— 实测 5 个矿洞 0 个能通地表。1:1 + 上限 300 之后能爬 300 格，够了。 */
+  let lvl = y0, hit = -1;
   for (let k = 1; k <= maxLen; k++) {
+    lvl++;
+    const surf = heightAt(x0 - dx * k, z0 - dz * k);
+    if (surf <= CFG.SEA + 2) break;
+    if (lvl >= surf - 1) { hit = k; break; }
+  }
+  if (hit < 0) return false;
+  /* ② 按试算结果真挖：圆石台阶 + 每 12 级一块水平木板平台 */
+  lvl = y0;
+  for (let k = 1; k <= hit; k++) {
     const x = x0 - dx * k, z = z0 - dz * k;
-    if (k % 3 === 0) lvl++;
+    lvl++;
     for (let w = -1; w <= 1; w++) {
       const xx = x - dz * w, zz = z + dx * w;
-      for (let y = lvl; y < lvl + 3; y++) msPush(ops, xx, y, zz, 0);
-      msPush(ops, xx, lvl - 1, zz, 8);
+      msAir(ops, xx, lvl, zz, 3);
+      msPush(ops, xx, lvl - 1, zz, 9);                             // 台阶本体：圆石
     }
-    const surf = heightAt(x, z);
-    if (surf <= CFG.SEA + 2) return false;
-    if (lvl >= surf - 1) {
-      for (let w = -1; w <= 1; w++) for (let y = surf - 1; y < lvl + 3; y++) msPush(ops, x - dz * w, y, z + dx * w, 0);
-      return true;
+    if (k % 12 === 0) {                                            // 平台 + 立柱 + 火把
+      for (let w = -1; w <= 1; w++) {
+        const xx = x - dz * w, zz = z + dx * w;
+        msPush(ops, xx, lvl - 1, zz, 8);
+        for (let y = lvl; y < lvl + 3; y++) msPush(ops, xx + dx * 2, y, zz + dz * 2, 6);
+      }
+      deco.push([x, lvl, z, 38]);
     }
   }
-  return false;
+  const surf = heightAt(x0 - dx * hit, z0 - dz * hit);
+  const x = x0 - dx * hit, z = z0 - dz * hit;
+  for (let w = -1; w <= 1; w++) for (let y = surf - 1; y < lvl + 3; y++) msPush(ops, x - dz * w, y, z + dx * w, 0);
+  return true;
 }
 
-// 先试四个方向的斜坡楼梯；都不通就挖一口"折返台阶竖井"，保证矿洞能从地面进去
-function openToSurface(ops, x0, y0, z0, dx, dz) {
+// 先试四个方向的斜巷；都不通就挖一口"折返台阶竖井"，保证矿洞能从地面进去
+function openToSurface(ops, deco, x0, y0, z0, dx, dz) {
   for (const [ax, az] of [[dx, dz], [-dx, -dz], [dz, -dx], [-dz, dx]]) {
-    if (msStairs(ops, x0, y0, z0, ax, az)) return true;
+    if (msStairs(ops, deco, x0, y0, z0, ax, az)) return true;
   }
-  // 竖井：2×2，每 3 格折返一次台阶，一直挖到地表
-  let lvl = y0, cx = x0, cz = z0;
-  for (let k = 1; k <= 120; k++) {
+  // 竖井：2×2，每 3 格折返一次台阶，一直挖到地表（台阶=圆石，每 6 级一块木板平台）
+  // ★ 同样先试算再挖：够不到地表就一格都不动，否则石头里会多一条 120 格的折返死胡同
+  const path = [];
+  let lvl = y0, cx = x0, cz = z0, hitAt = -1;
+  for (let k = 1; k <= 420; k++) {
     const turn = Math.floor((k - 1) / 6) % 2 === 0 ? 1 : 0;
     if (turn) cz += (Math.floor((k - 1) / 12) % 2 === 0 ? 1 : -1);
     else cx += (Math.floor((k - 1) / 12) % 2 === 0 ? 1 : -1);
-    if (k % 3 === 0) lvl++;
-    for (let ax = 0; ax <= 1; ax++) for (let az = 0; az <= 1; az++) {
-      for (let y = lvl; y < lvl + 3; y++) msPush(ops, cx + ax, y, cz + az, 0);
-      msPush(ops, cx + ax, lvl - 1, cz + az, 8);
-    }
+    if (k % 2 === 0) lvl++;                                  // 每 2 格升 1 格（原每 3 格，山高后爬不到 150）
+    path.push([cx, cz, lvl, k]);
     const surf = heightAt(cx, cz);
-    if (surf <= CFG.SEA + 2) return false;
-    if (lvl >= surf - 1) {
-      for (let ax = 0; ax <= 1; ax++) for (let az = 0; az <= 1; az++)
-        for (let y = surf - 1; y < lvl + 3; y++) msPush(ops, cx + ax, y, cz + az, 0);
-      return true;
+    if (surf <= CFG.SEA + 2) break;
+    if (lvl >= surf - 1) { hitAt = k; break; }
+  }
+  if (hitAt < 0) return false;
+  for (const [px, pz, pl, k] of path) {
+    if (k > hitAt) break;
+    for (let ax = 0; ax <= 1; ax++) for (let az = 0; az <= 1; az++) {
+      msAir(ops, px + ax, pl, pz + az, 3);
+      msPush(ops, px + ax, pl - 1, pz + az, k % 6 === 0 ? 8 : 9);
     }
   }
-  return false;
+  const surf = heightAt(cx, cz);
+  for (let ax = 0; ax <= 1; ax++) for (let az = 0; az <= 1; az++)
+    for (let y = surf - 1; y < lvl + 3; y++) msPush(ops, cx + ax, y, cz + az, 0);
+  return true;
 }
 function mineshaftFor(cellX, cellZ) {
   const key = cellX + ',' + cellZ;
@@ -193,56 +490,70 @@ function mineshaftFor(cellX, cellZ) {
     const baseY = Math.max(7, Math.min(11 + Math.floor(rnd() * 15), surfHere - 13));
     const skip = surfHere <= CFG.SEA + 4 && rnd() < 0.5;
     const ops = [];
+    const deco = [];                                  // 箱子/火把：最后统一放，免得被挖掉
     const spacing = 3 + Math.floor(rnd() * 3);        // 支架间距也随机
     const shapeRoll = rnd();
     let entrance = false, kindName = 'gallery', corridors = 0;
     const dirX = rnd() < 0.5 ? 1 : -1;
     const dirZ = rnd() < 0.5 ? 1 : -1;
+    const chest = (x, y, z) => deco.push([x, y, z, 18]);
 
     if (shapeRoll < 0.3) {                            // ① 长廊 + 支巷
       kindName = 'gallery';
       const len = 20 + Math.floor(rnd() * 28);
-      msGallery(ops, ox, baseY, oz, dirX, 0, len, spacing);
+      msGallery(ops, deco, ox, baseY, oz, dirX, 0, len, spacing);
       corridors++;
       const side = 1 + Math.floor(rnd() * 2);
       for (let i = 0; i < side; i++) {
         const at = 4 + Math.floor(rnd() * Math.max(1, len - 8));
         const sgn = rnd() < 0.5 ? 1 : -1;
-        msGallery(ops, ox + dirX * at, baseY, oz, 0, sgn, 8 + Math.floor(rnd() * 12), spacing);
+        const sl = 8 + Math.floor(rnd() * 12);
+        msGallery(ops, deco, ox + dirX * at, baseY, oz, 0, sgn, sl, spacing);
+        chest(ox + dirX * at, baseY, oz + sgn * (sl - 1));       // 支巷尽头一个箱子
         corridors++;
       }
-      entrance = openToSurface(ops, ox, baseY, oz, dirX, 0);
+      chest(ox + dirX * (len - 1), baseY, oz);                  // 主巷尽头
+      if (rnd() < 0.6) {                                        // 一条竖井 + 井底箱子
+        msShaftDown(ops, deco, ox + dirX * (6 + Math.floor(rnd() * 10)), baseY, oz, 8 + Math.floor(rnd() * 8));
+      }
+      entrance = openToSurface(ops, deco, ox, baseY, oz, dirX, 0);
     } else if (shapeRoll < 0.55) {                    // ② L 形拐弯
       kindName = 'L';
       const l1 = 14 + Math.floor(rnd() * 16), l2 = 12 + Math.floor(rnd() * 16);
-      msGallery(ops, ox, baseY, oz, dirX, 0, l1, spacing);
-      msGallery(ops, ox + dirX * (l1 - 1), baseY, oz, 0, dirZ, l2, spacing);
+      msGallery(ops, deco, ox, baseY, oz, dirX, 0, l1, spacing);
+      msGallery(ops, deco, ox + dirX * (l1 - 1), baseY, oz, 0, dirZ, l2, spacing);
       corridors += 2;
-      msRoom(ops, ox + dirX * (l1 - 1), baseY, oz + dirZ * (l2 - 1), 2, 2, 4);  // 拐角小厅
-      entrance = openToSurface(ops, ox, baseY, oz, dirX, 0);
+      msRoom(ops, deco, ox + dirX * (l1 - 1), baseY, oz + dirZ * (l2 - 1), 2, 2, 4);  // 拐角小厅
+      chest(ox + dirX * (l1 - 1) - 1, baseY, oz + dirZ * (l2 - 1) - 1);
+      entrance = openToSurface(ops, deco, ox, baseY, oz, dirX, 0);
     } else if (shapeRoll < 0.75) {                     // ③ 十字矿口（中央大厅 + 四向）
       kindName = 'cross';
-      msRoom(ops, ox, baseY, oz, 3, 3, 5);
+      msRoom(ops, deco, ox, baseY, oz, 3, 3, 5);
       const l = 10 + Math.floor(rnd() * 10);
-      msGallery(ops, ox + 4, baseY, oz, 1, 0, l, spacing, 1, 4);
-      msGallery(ops, ox - 4, baseY, oz, -1, 0, l, spacing, 1, 4);
-      msGallery(ops, ox, baseY, oz + 4, 0, 1, l, spacing, 1, 4);
-      msGallery(ops, ox, baseY, oz - 4, 0, -1, l, spacing, 1, 4);
+      msGallery(ops, deco, ox + 4, baseY, oz, 1, 0, l, spacing, 1, 4);
+      msGallery(ops, deco, ox - 4, baseY, oz, -1, 0, l, spacing, 1, 4);
+      msGallery(ops, deco, ox, baseY, oz + 4, 0, 1, l, spacing, 1, 4);
+      msGallery(ops, deco, ox, baseY, oz - 4, 0, -1, l, spacing, 1, 4);
       corridors += 4;
-      entrance = openToSurface(ops, ox + 4, baseY, oz, 1, 0);
+      chest(ox + 4 + l - 1, baseY, oz); chest(ox - 4 - l + 1, baseY, oz);
+      chest(ox, baseY, oz + 4 + l - 1); chest(ox, baseY, oz - 4 - l + 1);   // 四条巷道尽头都有
+      entrance = openToSurface(ops, deco, ox + 4, baseY, oz, 1, 0);
     } else {                                          // ④ 房间群（矿工营地）
       kindName = 'rooms';
       const n = 2 + Math.floor(rnd() * 2);
       let cx = ox, cz = oz;
       for (let i = 0; i < n; i++) {
         const rw = 2 + Math.floor(rnd() * 3), rd = 2 + Math.floor(rnd() * 3);
-        msRoom(ops, cx, baseY, cz, rw, rd, 4 + Math.floor(rnd() * 2));
+        msRoom(ops, deco, cx, baseY, cz, rw, rd, 4 + Math.floor(rnd() * 2));
+        chest(cx + rw - 1, baseY, cz - rd + 1);                    // 每个房间一个（矿工营地）
+        if (rw >= 3) chest(cx - rw + 1, baseY, cz + rd - 1);
         const dxs = rnd() < 0.5 ? 1 : -1, dzs = rnd() < 0.5 ? 1 : -1;
-        msGallery(ops, cx + dxs * (rw + 1), baseY, cz, dxs, 0, 6 + Math.floor(rnd() * 6), spacing);
+        msGallery(ops, deco, cx + dxs * (rw + 1), baseY, cz, dxs, 0, 6 + Math.floor(rnd() * 6), spacing);
         cx += dxs * (rw * 2 + 6); cz += dzs * 2;
       }
       corridors += n;
-      entrance = openToSurface(ops, cx, baseY, cz, 1, 0);
+      if (rnd() < 0.5) msShaftDown(ops, deco, ox + 1, baseY, oz + 3, 9 + Math.floor(rnd() * 6));
+      entrance = openToSurface(ops, deco, cx, baseY, cz, 1, 0);
     }
     // 随机矿脉：走廊两侧塞煤/铁
     const ores = 2 + Math.floor(rnd() * 4);
@@ -250,6 +561,7 @@ function mineshaftFor(cellX, cellZ) {
       const px2 = ox + Math.floor(rnd() * 40 - 20), pz2 = oz + Math.floor(rnd() * 40 - 20);
       msOreBlob(ops, px2, baseY + Math.floor(rnd() * 2), pz2, rnd() < 0.65 ? 13 : 15, rnd);
     }
+    for (const d of deco) msPush(ops, d[0], d[1], d[2], d[3]);      // 箱子和火把最后放
     const byChunk = new Map();
     if (!skip) for (const op of ops) {
       const k2 = (op.x >> 4) + ',' + (op.z >> 4);
@@ -257,7 +569,8 @@ function mineshaftFor(cellX, cellZ) {
       if (!arr) byChunk.set(k2, arr = []);
       arr.push(op);
     }
-    out = { cellX, cellZ, ox, oz, baseY, kind: kindName, corridors, ops: ops.length, byChunk, entrance };
+    out = { cellX, cellZ, ox, oz, baseY, kind: kindName, corridors, ops: ops.length, byChunk, entrance,
+            chests: deco.filter(d => d[3] === 18).length, torches: deco.filter(d => d[3] === 38).length };
   }
   msCache.set(key, out);
   return out;
@@ -272,11 +585,11 @@ const BLOCKS = {
   3: { name: 'Stone', top: 3, side: 3, bottom: 3, hard: 1.7, drop: 9, pick: true },
   4: { name: 'Sand', top: 4, side: 4, bottom: 4, hard: 0.45, drop: 4 },
   5: { name: 'Water', water: true, hard: 0, top: 10, side: 10, bottom: 10 },
-  6: { name: 'Log', top: 6, side: 5, bottom: 6, hard: 0.8, drop: 6 },
+  6: { name: 'Log', top: 6, side: 5, bottom: 6, hard: 0.8, drop: 6, axe: true },
   7: { name: 'Leaves', top: 7, side: 7, bottom: 7, hard: 0.22, drop: 0, leaf: true, hollow: true },
-  8: { name: 'Planks', top: 8, side: 8, bottom: 8, hard: 0.65, drop: 8 },
+  8: { name: 'Planks', top: 8, side: 8, bottom: 8, hard: 0.65, drop: 8, axe: true },
   9: { name: 'Cobblestone', top: 9, side: 9, bottom: 9, hard: 1.9, drop: 9, pick: true },
-  10: { name: 'Crafting Table', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10 },
+  10: { name: 'Crafting Table', top: 11, side: 12, bottom: 8, hard: 0.8, drop: 10, axe: true },
   13: { name: 'Coal Ore', top: 13, side: 13, bottom: 13, hard: 2.2, drop: 13, pick: true },
   14: { name: 'Bed', top: 14, side: 15, bottom: 8, hard: 0.6, drop: 14, bed: true, half: 0.45 },
   15: { name: 'Iron Ore', top: 16, side: 16, bottom: 16, hard: 2.6, drop: 15, pick: true, stonePick: true },
@@ -284,20 +597,30 @@ const BLOCKS = {
   17: { name: 'Wheat', top: 18, side: 18, bottom: 18, hard: 0.12, drop: 107, crop: true, plant: true, mature: true, cross: true, crossH: 0.95 },
   23: { name: 'Wheat Seedling', top: 26, side: 26, bottom: 26, hard: 0.1, drop: 156, plant: true, stage: 0, cross: true, crossH: 0.38 },
   24: { name: 'Wheat Sprout', top: 27, side: 27, bottom: 27, hard: 0.1, drop: 156, plant: true, stage: 1, cross: true, crossH: 0.66 },
-  25: { name: 'Compost Bin', top: 28, side: 29, bottom: 8, hard: 0.9, drop: 25, compost: true },
+  25: { name: 'Compost Bin', top: 28, side: 29, bottom: 8, hard: 0.9, drop: 25, compost: true, axe: true },
   26: { name: 'Granite', top: 30, side: 30, bottom: 30, hard: 2.6, drop: 26, pick: true },
   27: { name: 'Limestone', top: 31, side: 31, bottom: 31, hard: 1.9, drop: 27, pick: true },
-  28: { name: 'Spruce Log', top: 33, side: 32, bottom: 33, hard: 1.5, drop: 28, log: true },
-  29: { name: 'Spruce Planks', top: 34, side: 34, bottom: 34, hard: 1.2, drop: 29 },
-  30: { name: 'Birch Log', top: 36, side: 35, bottom: 36, hard: 1.5, drop: 30, log: true },
-  31: { name: 'Birch Planks', top: 37, side: 37, bottom: 37, hard: 1.2, drop: 31 },
+  28: { name: 'Spruce Log', top: 33, side: 32, bottom: 33, hard: 1.5, drop: 28, log: true, axe: true },
+  29: { name: 'Spruce Planks', top: 34, side: 34, bottom: 34, hard: 1.2, drop: 29, axe: true },
+  30: { name: 'Birch Log', top: 36, side: 35, bottom: 36, hard: 1.5, drop: 30, log: true, axe: true },
+  31: { name: 'Birch Planks', top: 37, side: 37, bottom: 37, hard: 1.2, drop: 31, axe: true },
+  /* ── v324：地区化木头 + 沙漠植物 ──────────────────────────────────────── */
+  81: { name: 'Acacia Log', top: 93, side: 92, bottom: 93, hard: 1.4, drop: 81, log: true, axe: true },
+  82: { name: 'Acacia Planks', top: 94, side: 94, bottom: 94, hard: 1.1, drop: 82, axe: true },
+  83: { name: 'Dark Oak Log', top: 96, side: 95, bottom: 96, hard: 1.6, drop: 83, log: true, axe: true },
+  84: { name: 'Dark Oak Planks', top: 97, side: 97, bottom: 97, hard: 1.3, drop: 84, axe: true },
+  85: { name: 'Cactus Wood', top: 99, side: 98, bottom: 99, hard: 1.2, drop: 85, log: true, axe: true },
+  86: { name: 'Cactus Planks', top: 100, side: 100, bottom: 100, hard: 1.0, drop: 86, axe: true },
+  87: { name: 'Cactus', top: 102, side: 101, bottom: 102, hard: 0.4, drop: 87 },
+  88: { name: 'Dead Bush', top: 104, side: 104, bottom: 104, hard: 0.0, drop: 104, cross: true, plant: true },
+  89: { name: 'Cactus Fruit', top: 103, side: 103, bottom: 103, hard: 0.0, drop: 208, cross: true, plant: true },
   33: { name: 'Stone Brick Stairs', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 33, pick: true, stair: true },
-  34: { name: 'Wooden Stairs', top: 8, side: 8, bottom: 8, hard: 1.2, drop: 34, stair: true },
-  35: { name: 'Wooden Door', top: 40, side: 40, bottom: 40, hard: 0.6, drop: 35, door: true },
+  34: { name: 'Wooden Stairs', top: 8, side: 8, bottom: 8, hard: 1.2, drop: 34, stair: true, axe: true },
+  35: { name: 'Wooden Door', top: 40, side: 40, bottom: 40, hard: 0.6, drop: 35, door: true, axe: true },
   36: { name: 'Grass', top: 42, side: 42, bottom: 42, hard: 0.05, drop: 0, plant: true, cross: true },
   37: { name: 'Red Flower', top: 43, side: 43, bottom: 43, hard: 0.05, drop: 37, plant: true, cross: true },
   39: { name: 'Copper Ore', top: 45, side: 45, bottom: 45, hard: 2.4, drop: 39, pick: true },
-  40: { name: 'Wood Processor', top: 46, side: 46, bottom: 8, hard: 1.1, drop: 40, processor: true },
+  40: { name: 'Wood Processor', top: 46, side: 46, bottom: 8, hard: 1.1, drop: 40, processor: true, axe: true },
   // ── 传送门（结构）+ 冥界方块 ──
   41: { name: 'Portal Frame', top: 47, side: 47, bottom: 47, hard: 9, drop: 0, frame: true, unbreakable: true },
   42: { name: 'Portal', top: 48, side: 48, bottom: 48, hard: 0, drop: 0, cross: true, plant: true, portal: true, unbreakable: true, crossH: 0.99 },
@@ -320,9 +643,9 @@ const BLOCKS = {
   52: { name: 'Uranium Ore', top: 57, side: 57, bottom: 57, hard: 4.0, drop: 187, pick: true, stonePick: true, ironPick: true },
   53: { name: 'Charger', top: 58, side: 59, bottom: 21, hard: 1.8, drop: 53, charger: true },
   // ── 熔岩沼泽：冥界树 + 缠魂藤 + 沼泽泥 ──
-  54: { name: 'Bloodwood Log', top: 61, side: 60, bottom: 61, hard: 1.8, drop: 54, pick: true },
+  54: { name: 'Bloodwood Log', top: 61, side: 60, bottom: 61, hard: 1.8, drop: 54, axe: true },
   55: { name: 'Bloodwood Leaves', top: 62, side: 62, bottom: 62, hard: 0.2, drop: 0, leaf: true, hollow: true },
-  56: { name: 'Ashwood Log', top: 61, side: 63, bottom: 61, hard: 1.8, drop: 56, pick: true },
+  56: { name: 'Ashwood Log', top: 61, side: 63, bottom: 61, hard: 1.8, drop: 56, axe: true },
   57: { name: 'Ashwood Leaves', top: 64, side: 64, bottom: 64, hard: 0.2, drop: 0, leaf: true, hollow: true },
   58: { name: 'Soulvine', top: 65, side: 65, bottom: 65, hard: 0.1, drop: 0, cross: true, plant: true, crossH: 0.9, vine: true },
   59: { name: 'Swamp Mud', top: 66, side: 66, bottom: 66, hard: 0.8, drop: 59 },
@@ -347,6 +670,11 @@ const BLOCKS = {
   75: { name: 'Abyss Brazier', top: 85, side: 85, bottom: 85, hard: 1.4, drop: 75, lamp: true },
   76: { name: 'Abyss Iron Bars', top: 86, side: 86, bottom: 86, hard: 2.0, drop: 76, pick: true },
   77: { name: 'Abyss Altar', top: 87, side: 88, bottom: 80, hard: 9, drop: 0, unbreakable: true, abyssAltar: true },
+  /* 洞穴碎石：洞底铺的一层松散卵石（徒手就能挖，和 MC 的砂砾一个定位） */
+  78: { name: 'Gravel', top: 89, side: 89, bottom: 89, hard: 0.55, drop: 78 },
+  /* 极端群系的地表方块 */
+  79: { name: 'Snow', top: 90, side: 90, bottom: 90, hard: 0.35, drop: 79 },
+  80: { name: 'Red Sand', top: 91, side: 91, bottom: 91, hard: 0.5, drop: 80 },
 };
 const ITEMS = {
   100: { name: 'Wooden Pickaxe', kind: 'pick', fast: 1.35, dur: 60 },
@@ -417,6 +745,26 @@ const ITEMS = {
   182: { name: 'Nether Steel Leggings', kind: 'armor', slot: 'legs', ap: 7 },
   183: { name: 'Nether Steel Boots', kind: 'armor', slot: 'feet', ap: 4 },
   184: { name: 'Nether Steel Pickaxe', kind: 'pick', fast: 4.2, dur: 2031 },
+  /* ── 斧头：只对木头吃满加成（方块上标 axe:true）。伤害介于镐(3)和剑之间 ── */
+  200: { name: 'Wooden Axe',       kind: 'axe', fast: 1.6, dur: 60,   dmg: 4 },
+  201: { name: 'Stone Axe',        kind: 'axe', fast: 2.2, dur: 132,  dmg: 6 },
+  202: { name: 'Copper Axe',       kind: 'axe', fast: 2.6, dur: 190,  dmg: 7 },
+  203: { name: 'Iron Axe',         kind: 'axe', fast: 3.1, dur: 251,  dmg: 9 },
+  204: { name: 'Diamond Axe',      kind: 'axe', fast: 4.0, dur: 1561, dmg: 12 },
+  205: { name: 'Nether Steel Axe', kind: 'axe', fast: 4.8, dur: 2031, dmg: 16 },
+  /* 村民体系：喂给尸体会复活；尸体是「装着这名村民全部状态」的道具 */
+  206: { name: 'Diamond Apple', kind: 'food', food: 8 },
+  207: { name: 'Villager Corpse', kind: 'mat' },
+  208: { name: 'Cactus Fruit', kind: 'food', food: 3 },
+  /* ★ v336：船 —— 每种木头一条（wood 序号对应下面 BOAT_WOOD） */
+  209: { name: 'Oak Boat', kind: 'boat', wood: 0 },
+  210: { name: 'Birch Boat', kind: 'boat', wood: 1 },
+  211: { name: 'Spruce Boat', kind: 'boat', wood: 2 },
+  212: { name: 'Acacia Boat', kind: 'boat', wood: 3 },
+  213: { name: 'Dark Oak Boat', kind: 'boat', wood: 4 },
+  214: { name: 'Cactus Boat', kind: 'boat', wood: 5 },
+  /* ★ v339：氧气罐 —— 铜 4 + 铁 2 打造；铀在充电器里充氧；装备到左手（Q） */
+  215: { name: 'Oxygen Tank', kind: 'tank', cap: 360 },
   // ── 电路系统：铜 → 电路板 / 电线 → 能量炮（4 档金属，dmg/cap/cd/speed 逐档递增）──
   185: { name: 'Circuit Board', kind: 'mat' },
   186: { name: 'Wire', kind: 'mat' },
@@ -441,7 +789,7 @@ let atlasCanvas = null, atlasTex = null;
 // 瓦片序号 → 图集 (col,row)：4 列 × 10 行 = 0..39。
 // ⚠ 原来是 4×8（只有 0..31），但 32~37 号瓦片（云杉/白桦）也在画，画到画布外 ⇒
 // 采样被 clamp 到最底行，云杉/白桦方块显示成「堆肥箱/石灰岩」的花纹。
-const ATLAS_COLS = 4, ATLAS_ROWS = 24;   // 4 列 × 24 行 = 96 格（80~88 = 深渊迷宫的建筑/装饰方块）
+const ATLAS_COLS = 4, ATLAS_ROWS = 32;   // 4 列 × 24 行 = 96 格（80~88 = 深渊迷宫的建筑/装饰方块）
 function makeAtlas() {
   const S = 16, N = ATLAS_COLS, cv = document.createElement('canvas');
   cv.width = S * ATLAS_COLS; cv.height = S * ATLAS_ROWS;
@@ -1018,6 +1366,106 @@ function makeAtlas() {
       else if (x === 0 || x === 15) px(c, r, x, y, shade(AB_D, 1));
     }
   });
+  // ── 89 洞穴碎石（洞底那一层松散卵石；浅灰到深褐，块块可数）──────────
+  T(89, '#6d6a63', 0.22, (c, r) => {
+    const PEB = ['#8b8781', '#5a5750', '#9a948a', '#4a473f', '#7a756c', '#666058'];
+    for (let i = 0; i < 30; i++) {
+      const x = (Math.random() * 14) | 0, y = (Math.random() * 14) | 0;
+      const col = PEB[(Math.random() * PEB.length) | 0];
+      px(c, r, x, y, col); px(c, r, x + 1, y, col);           // 2 像素宽的卵石
+      if (Math.random() < 0.55) px(c, r, x, y + 1, '#' + (Math.random() < 0.5 ? '3f3c35' : '575249'));  // 底下的阴影缝
+    }
+  });
+  // ── 90 雪 / 91 红沙（极端群系的地表）──────────────────────────────
+  T(90, '#eef3f8', 0.05, (c, r) => {
+    for (let i = 0; i < 40; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0,
+      Math.random() < 0.5 ? '#ffffff' : '#dbe6f2');            // 雪的结晶颗粒
+    for (let i = 0; i < 5; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, '#c3d3e6');
+  });
+  T(91, '#b9643f', 0.10, (c, r) => {
+    for (let i = 0; i < 34; i++) px(c, r, (Math.random() * 15) | 0, (Math.random() * 15) | 0,
+      Math.random() < 0.45 ? '#d07a4e' : (Math.random() < 0.5 ? '#a4552f' : '#c46a42'));
+    for (let y = 0; y < 16; y += 4) for (let x = 0; x < 16; x++) if (Math.random() < 0.35) px(c, r, x, y, '#8f4626');  // 风蚀层理
+  });
+  /* ── v324：地区化木头 / 沙漠植物（瓦片 92..104）──────────────────────────
+     金合欢=橙红、深色橡木=近黑的咖啡、仙人掌木=黄绿带刺、仙人掌=青绿、干枯树苗=枯褐色。 */
+  // 92/93/94 金合欢
+  T(92, '#9c6a3c', 0.10, (c, r) => {
+    for (let y = 0; y < 16; y += 5) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#7d4f28', 1));
+    for (let i = 0; i < 26; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, Math.random() < .5 ? '#b07a48' : '#8a5a30');
+  });
+  T(93, '#b98250', 0.09, (c, r) => {
+    for (let a = 0; a < 360; a += 12) { const rad = a * Math.PI / 180; for (let k = 2; k < 8; k++) px(c, r, 8 + Math.round(Math.cos(rad) * k), 8 + Math.round(Math.sin(rad) * k), k > 5 ? '#8a5a30' : '#c99262'); }
+    for (let i = 0; i < 10; i++) px(c, r, 6 + ((Math.random() * 5) | 0), 6 + ((Math.random() * 5) | 0), '#7d4f28');
+  });
+  T(94, '#c08a54', 0.06, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#c08a54', 0.94 + ((y % 4) * 0.02) + (Math.random() * 0.05)));
+    for (let y = 3; y < 16; y += 4) for (let x = 0; x < 16; x++) px(c, r, x, y, '#8a5a30');
+  });
+  // 95/96/97 深色橡木
+  T(95, '#3b2a1c', 0.10, (c, r) => {
+    for (let x = 0; x < 16; x += 4) for (let y = 0; y < 16; y++) px(c, r, x, y, '#2a1d13');
+    for (let i = 0; i < 30; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, Math.random() < .5 ? '#4a3623' : '#31241a');
+  });
+  T(96, '#453122', 0.09, (c, r) => {
+    for (let a = 0; a < 360; a += 10) { const rad = a * Math.PI / 180; for (let k = 2; k < 8; k++) px(c, r, 8 + Math.round(Math.cos(rad) * k), 8 + Math.round(Math.sin(rad) * k), k > 5 ? '#2a1d13' : '#513a28'); }
+  });
+  T(97, '#5a4029', 0.06, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#5a4029', 0.93 + ((y % 4) * 0.025) + (Math.random() * 0.05)));
+    for (let y = 3; y < 16; y += 4) for (let x = 0; x < 16; x++) px(c, r, x, y, '#3b2a1c');
+  });
+  // 98/99/100 仙人掌木（黄绿木纹 + 一列刺孔）
+  T(98, '#7f9a4a', 0.10, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#7f9a4a', 0.9 + ((x % 5) * 0.03) + (Math.random() * 0.06)));
+    for (let y = 2; y < 16; y += 5) { px(c, r, 3, y, '#5d7532'); px(c, r, 11, y, '#5d7532'); }
+    for (let i = 0; i < 6; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, '#d8e8a8');   // 刺
+  });
+  T(99, '#8fae55', 0.09, (c, r) => {
+    for (let a = 0; a < 360; a += 12) { const rad = a * Math.PI / 180; for (let k = 2; k < 8; k++) px(c, r, 8 + Math.round(Math.cos(rad) * k), 8 + Math.round(Math.sin(rad) * k), k > 5 ? '#5d7532' : '#a6c46a'); }
+    for (let i = 0; i < 8; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, '#e4f0b8');
+  });
+  T(100, '#93b45a', 0.06, (c, r) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#93b45a', 0.93 + ((y % 4) * 0.025) + (Math.random() * 0.05)));
+    for (let y = 3; y < 16; y += 4) for (let x = 0; x < 16; x++) px(c, r, x, y, '#6a8a3c');
+  });
+  // 101/102 仙人掌（青绿 + 竖向棱 + 白刺）
+  T(101, '#2f7d3f', 0.10, (c, r) => {
+    for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) px(c, r, x, y, shade('#2f7d3f', 0.88 + ((x % 4) * 0.04) + (Math.random() * 0.05)));
+    for (let y = 0; y < 16; y += 3) for (let x = 1; x < 16; x += 4) px(c, r, x, y, '#e8f0d0');
+  });
+  T(102, '#357f45', 0.08, (c, r) => {
+    for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) px(c, r, x, y, shade('#357f45', 0.92 + (Math.random() * 0.08)));
+    for (let a = 0; a < 360; a += 45) { const rad = a * Math.PI / 180; px(c, r, 8 + Math.round(Math.cos(rad) * 5), 8 + Math.round(Math.sin(rad) * 5), '#d8e8b0'); }
+  });
+  // 103 仙人掌果（粉红带鳞片）
+  T(103, '#c9425f', 0.10, (c, r) => {
+    for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) { const dx = x - 7.5, dy = y - 8; if (dx * dx + dy * dy * 1.2 < 34) px(c, r, x, y, shade('#c9425f', 0.9 + (Math.random() * 0.2))); }
+    for (let y = 3; y < 14; y += 3) for (let x = 3; x < 14; x += 3) px(c, r, x, y, '#f0d98a');
+    px(c, r, 7, 1, '#4a7a35'); px(c, r, 8, 1, '#5d8f42');
+  });
+  // 104 干枯树苗（十字面片）：**透明底** + 枯枝，不画任何描边
+  //    ⚠ 以前这里是 T(104, '#000000', 0, ...)：T() 会先把整格用底色填满 → 游戏里就是一块纯黑方板
+  //      （沙漠里满地黑方块）。十字面片必须像 26/42 那样只点像素，剩下的保持透明。
+  {
+    const col = 104 % ATLAS_COLS, row = (104 / ATLAS_COLS) | 0;
+    const seg = (x0, y0, x1, y1, c) => {
+      const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1;
+      for (let i = 0; i <= n; i++) {
+        const x = Math.round(x0 + (x1 - x0) * i / n), y = Math.round(y0 + (y1 - y0) * i / n);
+        if (x >= 0 && x < 16 && y >= 0 && y < 16) px(col, row, x, y, c);
+      }
+    };
+    const DK = '#6b4d2a', MD = '#8a6a3e', LT = '#a98a5a';
+    seg(7, 15, 7, 8, MD);                            // 主干
+    seg(8, 15, 8, 9, DK);                            // 主干暗面
+    seg(7, 8, 4, 4, MD);                             // 左大枝
+    seg(8, 9, 11, 5, MD);                            // 右大枝
+    seg(4, 4, 2, 2, DK); seg(11, 5, 13, 3, DK);      // 枝梢
+    seg(7, 12, 4, 11, DK); seg(4, 11, 2, 10, MD);    // 左横枝
+    seg(8, 13, 11, 12, DK); seg(11, 12, 13, 11, MD); // 右横枝
+    seg(5, 9, 6, 8, DK); seg(10, 10, 11, 9, DK);     // 细枝
+    seg(7, 6, 6, 5, LT); seg(9, 7, 10, 6, LT);       // 受光面
+  }
   // 8 木板
   T(8, '#b98a4e', 0.05, (c, r) => {
     // 4 条横向木板：板缝（深褐色） + 逐行色差
@@ -1199,6 +1647,363 @@ function makeAtlas() {
 
 /* ---------- 图标（快捷栏 / 背包） ---------- */
 const iconCache = new Map();
+/* ═══════════════════════════════════════════════════════════════════════
+   图标系统（MC 风格，全部整数像素）
+   ─ 方块：等轴测三面体。上面 / 左面 / 右面 直接把图集里的贴图做仿射映射，
+           三面亮度不同（左 -16%、右 -32%），再补 1px 深色描边 —— MC 背包里
+           的方块图标就是这么做的，比之前"一张贴图铺满正方形"立体得多。
+   ─ 物品：16×16 像素格 → 颜色，按 ITEMS[id].kind / name 自动选形状（镐/斧/
+           剑/锄/盔甲/锭/宝石/食物/桶/弓箭/矿石…），颜色按材质（木/石/铜/铁/
+           钻石/冥界钢/骨）。**每个物品都有图标**，不会再掉进一个纯色灰方块。
+   ═══════════════════════════════════════════════════════════════════════ */
+/* 材质调色板：[主色, 高光, 暗部, 描边] */
+const ICON_MAT = {
+  wood:    ['#b98a4e', '#d7a869', '#7e5a2c', '#4a3218'],
+  stone:   ['#9a9a9a', '#c6c6c6', '#6a6a6a', '#333333'],
+  copper:  ['#d98b4a', '#f0b077', '#a35c26', '#5c2f10'],
+  iron:    ['#d3dae2', '#f4f8fc', '#97a3af', '#465059'],
+  diamond: ['#5fe6d8', '#a8fff5', '#2fa89c', '#0d554e'],
+  nether:  ['#7d6890', '#a893bb', '#4a3a5c', '#241a2e'],
+  bone:    ['#efe9d8', '#fffdf4', '#c3bba4', '#6a6349'],
+  gold:    ['#f5c451', '#ffe9a8', '#b8860b', '#5c3f00'],
+  green:   ['#5fbf3a', '#a8ee7a', '#33761c', '#16380a'],
+  ghost:   ['#9fd8e8', '#d9f6ff', '#5f9db0', '#2a4a55'],
+  flesh:   ['#e08a8a', '#f6bcbc', '#b25a5a', '#5e2a2a'],
+  cooked:  ['#a9622f', '#c98a4a', '#7a3f19', '#3a1c08'],
+  ash:     ['#5c534c', '#8a7f76', '#3a332e', '#1c1815'],
+  cloth:   ['#f2efe6', '#ffffff', '#cfc9b8', '#6a6349'],
+};
+const HANDLE = ['#b98a4e', '#d7a869', '#7e5a2c', '#4a3218'];
+
+/* 16×16 像素画布：R = 填整数格 */
+function iconPainter(g, scale) {
+  const R = (x, y, w, h, c) => {
+    if (!c || w <= 0 || h <= 0) return;
+    g.fillStyle = c; g.fillRect(x * scale, y * scale, w * scale, h * scale);
+  };
+  return { R,
+    /* 斜木柄：从左下往右上的 2px 阶梯 */
+    handle(x0, y0, n, col = HANDLE) {
+      for (let i = 0; i < n; i++) { R(x0 + i, y0 - i, 2, 2, col[0]); R(x0 + i, y0 - i, 1, 1, col[1]); }
+    },
+  };
+}
+
+/* ── 形状库：每个形状只画 16×16 的整数格 ───────────────────────────── */
+const ICON_SHAPE = {
+  stick(p)        { p.handle(4, 12, 9); },
+  /* ★ v337：小船 —— 龙骨 + 两舷 + 座板 + 两支桨 */
+  boat(p, c) {
+    const a = c[0], b = c[1];
+    p.R(2, 9, 13, 1, b);            // 龙骨
+    p.R(3, 8, 11, 1, a);            // 船底
+    p.R(2, 4, 1, 4, a);             // 左舷
+    p.R(14, 4, 1, 4, a);            // 右舷
+    p.R(4, 6, 9, 1, b);             // 座板
+    p.R(5, 1, 1, 5, b);             // 左桨
+    p.R(11, 1, 1, 5, b);            // 右桨
+  },
+  /* ★ 门：竖长门板（16×16 像素格，占满高度）—— 木框 + 内嵌木板 + 铜把手 + 合页。
+     以前门走「方块」分支画成等轴测方砖，看起来和一块木头一样，认不出是门。 */
+  door(p) {
+    p.R(4, 0, 8, 16, '#2f2213');            // 外描边
+    p.R(5, 1, 6, 14, '#7d5729');            // 木框
+    p.R(6, 2, 4, 12, '#b98a4e');            // 内嵌木板
+    for (const y of [2, 5, 9, 13]) p.R(6, y, 4, 1, '#8d6534');   // 板缝
+    p.R(6, 2, 1, 12, '#a87a44');            // 木纹（左侧亮边）
+    p.R(9, 7, 1, 2, '#d8c27a');             // 铜把手
+    p.R(4, 3, 1, 2, '#4a3520');             // 合页
+    p.R(4, 11, 1, 2, '#4a3520');
+  },
+  /* ★ v339：氧气罐 —— 钢瓶 + 两道铜箍 + 阀门（16×16 像素格） */
+  tank(p, c) {
+    p.R(4, 4, 8, 11, c[3]);          // 瓶身描边
+    p.R(5, 5, 6, 9, c[0]);           // 瓶身
+    p.R(5, 5, 2, 9, c[1]);           // 高光
+    p.R(5, 7, 6, 1, c[4]);           // 铜箍
+    p.R(5, 11, 6, 1, c[4]);
+    p.R(6, 2, 4, 2, c[4]);           // 阀座
+    p.R(7, 0, 2, 2, c[2]);           // 阀门
+  },
+  pick(p, c) {
+    p.handle(3, 12, 9);
+    p.R(1, 4, 14, 2, c[3]); p.R(2, 4, 12, 2, c[0]); p.R(2, 4, 12, 1, c[1]);
+    p.R(1, 2, 2, 2, c[3]); p.R(13, 2, 2, 2, c[3]);          // 两端上翘
+    p.R(1, 2, 1, 1, c[0]); p.R(14, 2, 1, 1, c[2]);
+  },
+  axe(p, c) {
+    p.handle(3, 13, 10);
+    p.R(8, 3, 5, 6, c[3]); p.R(9, 3, 4, 6, c[0]);           // 斧头刃
+    p.R(9, 3, 4, 1, c[1]); p.R(12, 4, 1, 4, c[1]);
+    p.R(7, 5, 2, 2, c[3]);                                   // 斧胡
+  },
+  sword(p, c) {
+    p.handle(3, 13, 4);
+    for (let i = 0; i < 7; i++) {                             // 斜向刀身
+      p.R(6 + i, 10 - i, 3, 3, c[3]);
+      p.R(7 + i, 10 - i, 2, 3, c[0]);
+      p.R(7 + i, 10 - i, 1, 1, c[1]);
+    }
+    p.R(4, 11, 5, 2, c[2]); p.R(3, 12, 2, 2, c[3]);          // 护手 + 柄头
+  },
+  hoe(p, c) {
+    p.handle(3, 12, 9);
+    p.R(9, 2, 6, 2, c[3]); p.R(10, 2, 5, 2, c[0]);
+    p.R(9, 2, 5, 1, c[1]); p.R(9, 4, 2, 3, c[3]); p.R(10, 4, 1, 3, c[0]);
+  },
+  axe_shovel(p, c) { p.handle(4, 13, 10); p.R(1, 2, 5, 6, c[3]); p.R(2, 3, 4, 5, c[0]); p.R(2, 3, 4, 1, c[1]); },
+
+  /* 盔甲：按槽位画不同剪影 */
+  armor_head(p, c) {
+    p.R(3, 3, 10, 9, c[3]); p.R(4, 4, 8, 8, c[0]);
+    p.R(4, 4, 8, 2, c[1]); p.R(4, 10, 8, 2, c[2]);
+    p.R(6, 7, 4, 3, '#20262e');                              // 面窗
+    p.R(3, 11, 10, 2, c[3]); p.R(4, 11, 8, 1, c[2]);         // 护颈
+  },
+  armor_chest(p, c) {
+    p.R(3, 3, 10, 10, c[3]); p.R(4, 4, 8, 9, c[0]);
+    p.R(4, 4, 8, 2, c[1]); p.R(4, 11, 8, 2, c[2]);
+    p.R(7, 5, 2, 6, c[2]);
+    p.R(2, 4, 2, 4, c[3]); p.R(12, 4, 2, 4, c[3]);           // 肩甲
+    p.R(2, 4, 1, 3, c[1]); p.R(13, 4, 1, 3, c[1]);
+  },
+  armor_legs(p, c) {
+    p.R(3, 2, 10, 4, c[3]); p.R(4, 3, 8, 3, c[0]);
+    p.R(4, 3, 8, 1, c[1]);
+    p.R(4, 6, 3, 8, c[3]); p.R(9, 6, 3, 8, c[3]);            // 两条腿
+    p.R(5, 6, 2, 7, c[0]); p.R(10, 6, 2, 7, c[0]);
+    p.R(5, 11, 2, 2, c[2]); p.R(10, 11, 2, 2, c[2]);
+  },
+  armor_feet(p, c) {
+    p.R(2, 6, 5, 6, c[3]); p.R(3, 7, 4, 5, c[0]);            // 左靴
+    p.R(9, 6, 5, 6, c[3]); p.R(10, 7, 4, 5, c[0]);           // 右靴
+    p.R(2, 11, 6, 2, c[3]); p.R(3, 11, 5, 1, c[2]);
+    p.R(9, 11, 6, 2, c[3]); p.R(10, 11, 5, 1, c[2]);
+    p.R(3, 7, 4, 1, c[1]); p.R(10, 7, 4, 1, c[1]);
+  },
+
+  ingot(p, c) {
+    p.R(3, 7, 10, 5, c[3]); p.R(4, 7, 8, 4, c[0]);
+    p.R(4, 7, 8, 1, c[1]); p.R(4, 10, 8, 1, c[2]);
+    p.R(5, 6, 6, 1, c[1]);
+  },
+  gem(p, c) {
+    p.R(6, 3, 4, 2, c[3]); p.R(4, 5, 8, 2, c[3]); p.R(5, 7, 6, 4, c[3]);
+    p.R(6, 11, 4, 2, c[3]); p.R(7, 13, 2, 1, c[3]);
+    p.R(6, 4, 4, 2, c[0]); p.R(5, 6, 6, 5, c[0]); p.R(7, 11, 2, 2, c[0]);
+    p.R(6, 4, 2, 3, c[1]); p.R(10, 7, 1, 3, c[2]);
+  },
+  shard(p, c) {
+    p.R(6, 2, 4, 3, c[3]); p.R(4, 5, 8, 5, c[3]); p.R(5, 10, 6, 3, c[3]); p.R(7, 13, 2, 2, c[3]);
+    p.R(7, 3, 2, 3, c[0]); p.R(5, 6, 6, 4, c[0]); p.R(6, 10, 4, 3, c[0]);
+    p.R(7, 3, 2, 2, c[1]); p.R(5, 6, 1, 4, c[1]); p.R(9, 7, 2, 3, c[2]);
+  },
+  dust(p, c) {
+    p.R(4, 10, 8, 4, c[3]); p.R(5, 9, 6, 4, c[0]); p.R(6, 8, 4, 4, c[0]);
+    p.R(6, 8, 2, 2, c[1]); p.R(5, 12, 6, 1, c[2]);
+    p.R(3, 6, 2, 2, c[0]); p.R(11, 7, 2, 2, c[0]); p.R(8, 5, 1, 1, c[1]); p.R(4, 8, 1, 1, c[1]);
+  },
+  seed(p, c) {
+    for (const [x, y] of [[4, 8], [9, 5], [7, 11]]) {
+      p.R(x, y, 3, 4, c[3]); p.R(x + 1, y + 1, 1, 2, c[0]); p.R(x, y, 3, 1, c[1]);
+    }
+  },
+  apple(p) {
+    p.R(5, 5, 7, 8, '#a82626'); p.R(6, 4, 5, 9, '#d33b3b');
+    p.R(6, 6, 3, 3, '#ef5f5f'); p.R(11, 9, 2, 3, '#a82626');
+    p.R(8, 2, 2, 3, '#6a4a2a'); p.R(9, 3, 4, 2, '#4c9a3a'); p.R(10, 3, 2, 1, '#7fc45c');
+  },
+  bread(p, c) {
+    p.R(2, 7, 12, 6, c[3]); p.R(3, 6, 10, 7, c[0]);
+    p.R(3, 6, 10, 2, c[1]); p.R(3, 11, 10, 2, c[2]);
+    for (const x of [5, 8, 11]) { p.R(x, 5, 2, 1, c[1]); p.R(x, 7, 1, 3, c[2]); }
+  },
+  meat(p, c) {
+    p.R(3, 5, 8, 8, c[3]); p.R(4, 5, 7, 7, c[0]);
+    p.R(4, 5, 7, 2, c[1]); p.R(5, 8, 4, 3, c[1]); p.R(4, 10, 7, 2, c[2]);
+    p.R(11, 7, 4, 3, '#efe6d2'); p.R(14, 6, 2, 2, '#efe6d2'); p.R(14, 10, 2, 2, '#efe6d2');
+  },
+  wheat(p) {
+    p.R(7, 8, 2, 7, '#6f9a3a');
+    for (const y of [2, 5, 8]) {
+      p.R(4, y + 1, 8, 2, '#d9b24a'); p.R(4, y + 1, 8, 1, '#f0d27a');
+    }
+    p.R(6, 1, 4, 2, '#d9b24a'); p.R(6, 1, 4, 1, '#f0d27a');
+    p.R(5, 14, 6, 1, '#4c7a2a');
+  },
+  bone(p, c) {
+    p.R(5, 5, 6, 6, c[3]); p.R(6, 6, 4, 4, c[0]);
+    p.R(3, 3, 3, 3, c[0]); p.R(10, 3, 3, 3, c[0]); p.R(3, 10, 3, 3, c[0]); p.R(10, 10, 3, 3, c[0]);
+    p.R(3, 3, 3, 1, c[1]); p.R(10, 3, 3, 1, c[1]);
+  },
+  wool(p, c) {
+    p.R(2, 5, 12, 7, c[3]); p.R(3, 5, 10, 7, c[0]);
+    for (const [x, y] of [[4, 6], [8, 5], [11, 7], [5, 9], [9, 10], [12, 9]]) p.R(x, y, 2, 2, c[1]);
+    p.R(3, 11, 10, 1, c[2]);
+  },
+  hide(p, c) {
+    p.R(3, 4, 10, 8, c[3]); p.R(4, 4, 8, 8, c[0]);
+    p.R(1, 5, 2, 3, c[0]); p.R(13, 5, 2, 3, c[0]);            // 四角
+    p.R(1, 10, 2, 3, c[0]); p.R(13, 10, 2, 3, c[0]);
+    p.R(5, 6, 6, 1, c[2]); p.R(4, 8, 8, 1, c[2]); p.R(6, 10, 4, 1, c[2]);
+  },
+  orb(p, c) {
+    p.R(5, 3, 6, 2, c[1]); p.R(3, 5, 10, 6, c[0]); p.R(5, 11, 6, 2, c[2]);
+    p.R(6, 4, 4, 2, '#ffffff'); p.R(4, 6, 2, 2, c[1]);
+    p.R(2, 7, 1, 1, c[1]); p.R(13, 7, 1, 1, c[1]); p.R(7, 1, 1, 1, c[1]); p.R(7, 14, 1, 1, c[1]);
+  },
+  heart(p) {
+    p.R(4, 4, 3, 3, '#d02c2c'); p.R(9, 4, 3, 3, '#d02c2c');
+    p.R(3, 6, 10, 3, '#b02020'); p.R(5, 9, 6, 2, '#b02020'); p.R(7, 11, 2, 2, '#8a1a1a');
+    p.R(5, 5, 1, 1, '#ff7a7a');
+  },
+  carbon(p, c) {
+    p.R(4, 5, 8, 8, c[3]); p.R(5, 5, 6, 7, c[0]);
+    p.R(5, 5, 6, 1, c[1]); p.R(6, 8, 3, 2, c[2]);
+  },
+  chip(p) {
+    p.R(3, 9, 5, 3, '#b98a4e'); p.R(3, 9, 5, 1, '#d7a869');
+    p.R(8, 6, 5, 3, '#a87a44'); p.R(8, 6, 5, 1, '#c99a5e');
+    p.R(5, 12, 4, 2, '#8d6534');
+  },
+  board(p) {
+    p.R(2, 3, 12, 11, '#0f3a28'); p.R(3, 4, 10, 9, '#1f8f5c');
+    p.R(4, 6, 8, 1, '#d98b4a'); p.R(8, 6, 1, 4, '#d98b4a'); p.R(2, 8, 4, 1, '#d98b4a');
+    p.R(5, 5, 2, 2, '#f5c451'); p.R(10, 10, 2, 2, '#f5c451'); p.R(4, 11, 1, 1, '#2e9a63');
+  },
+  wire(p) {
+    for (const y of [4, 7, 10]) { p.R(4, y, 8, 2, '#b8702f'); p.R(4, y, 8, 1, '#eaa96a'); }
+    p.R(3, 4, 1, 8, '#8a5520'); p.R(12, 4, 1, 8, '#8a5520');
+  },
+  bucket(p, water) {
+    const c = ICON_MAT.iron;
+    p.R(3, 4, 10, 2, c[3]); p.R(4, 4, 8, 1, c[1]);
+    p.R(3, 6, 10, 8, c[3]); p.R(4, 6, 8, 7, c[0]);
+    p.R(4, 6, 8, 1, c[1]); p.R(4, 12, 8, 1, c[2]);
+    if (water) { p.R(4, 7, 8, 5, '#2f7fc4'); p.R(5, 8, 6, 1, '#6fbcf0'); }
+  },
+  cannon(p, c) {
+    p.R(2, 7, 11, 4, c[3]); p.R(3, 7, 10, 3, c[0]); p.R(3, 7, 10, 1, c[1]);
+    p.R(13, 8, 2, 2, c[1]);                                   // 炮口
+    p.R(4, 10, 3, 4, c[3]); p.R(4, 10, 2, 4, c[2]);           // 握把
+    p.R(9, 5, 3, 2, c[2]);
+  },
+  bow(p) {
+    for (let i = 0; i < 7; i++) {                             // 弓臂
+      p.R(4 + (i > 3 ? 6 - i : i), 2 + i, 2, 2, '#8a5a2a');
+    }
+    p.R(3, 2, 1, 12, '#efe6d2');                              // 弦
+    p.R(9, 6, 5, 2, '#b98a4e'); p.R(9, 6, 1, 2, '#d7a869');   // 搭箭
+  },
+  arrow(p) {
+    p.handle(3, 12, 7);
+    p.R(10, 2, 3, 3, '#d3dae2'); p.R(11, 1, 1, 2, '#f4f8fc'); // 箭头
+    p.R(2, 10, 2, 2, '#f2efe6'); p.R(4, 12, 2, 2, '#f2efe6'); // 尾羽
+  },
+  sack(p) {
+    p.R(4, 5, 8, 9, '#c9d0d8'); p.R(5, 6, 6, 7, '#5f8f3d');
+    p.R(5, 6, 6, 2, '#8fc45c'); p.R(4, 4, 8, 2, '#a8b2bc');
+    p.R(7, 3, 2, 2, '#7c8794');
+  },
+  apple_diamond(p) {
+    p.R(5, 5, 7, 8, '#1f7d74'); p.R(6, 4, 5, 9, '#2fa89c');
+    p.R(6, 6, 3, 3, '#a8fff5'); p.R(11, 9, 2, 3, '#1f7d74');
+    p.R(8, 2, 2, 3, '#6a4a2a'); p.R(9, 3, 4, 2, '#4c9a3a'); p.R(10, 3, 2, 1, '#7fc45c');
+    p.R(4, 10, 1, 1, '#ffffff'); p.R(12, 6, 1, 1, '#ffffff');   // 钻石反光
+  },
+  corpse(p) {
+    const C = ['#d8d2c4', '#efeade', '#a89f8c', '#4a4438'];
+    p.R(2, 9, 12, 4, C[3]); p.R(3, 9, 11, 3, C[0]);            // 躺平的身体
+    p.R(3, 9, 11, 1, C[1]);
+    p.R(1, 9, 2, 3, C[0]); p.R(1, 9, 2, 1, C[1]);              // 头
+    p.R(14, 10, 1, 2, C[2]);                                    // 脚
+    p.R(6, 11, 3, 1, C[2]); p.R(9, 10, 2, 1, C[2]);             // 衣服褶皱
+    p.R(3, 12, 8, 1, 'rgba(0,0,0,0)');
+  },
+  pad(p) {
+    p.R(2, 8, 12, 4, '#2a2f38'); p.R(3, 8, 10, 3, '#4a5560');
+    p.R(4, 9, 8, 1, '#7fd8ff'); p.R(3, 8, 10, 1, '#6a7580');
+  },
+};
+
+/* ── 物品 → (形状, 材质调色板) ────────────────────────────────────── */
+function itemPaintSpec(id) {
+  const it = ITEMS[id] || {};
+  const n = (it.name || '').toLowerCase();
+  let c = ICON_MAT.iron;
+  if (n.includes('nether steel')) c = ICON_MAT.nether;
+  else if (n.includes('diamond')) c = ICON_MAT.diamond;
+  else if (n.includes('iron')) c = ICON_MAT.iron;
+  else if (n.includes('copper')) c = ICON_MAT.copper;
+  else if (n.includes('wood')) c = ICON_MAT.wood;
+  else if (n.includes('stone')) c = ICON_MAT.stone;
+  else if (n.includes('bone')) c = ICON_MAT.bone;
+  else if (n.includes('uranium')) c = ICON_MAT.green;
+  else if (n.includes('ghost') || n.includes('abyss')) c = ICON_MAT.ghost;
+  else if (n.includes('nightmare')) c = ['#8a2a2a', '#c04a4a', '#5a1414', '#2a0808'];
+
+  const byKind = { pick: 'pick', axe: 'axe', sword: 'sword', hoe: 'hoe', bow: 'bow',
+                   ammo: 'arrow', seed: 'seed', fertilizer: 'sack', bonemeal: 'dust', gun: 'cannon' };
+  if (byKind[it.kind]) return [byKind[it.kind], c];
+  if (it.kind === 'bucket') return ['bucket', n.includes('water') ? 1 : 0];
+  if (it.kind === 'tank') return ['tank', ['#c3ccd6', '#eef4fa', '#7e8b99', '#39424d', '#d98b4a']];
+  /* ★ v337 船：图标按木头上色（和 3D 船体同一套色） */
+  if (it.kind === 'boat') {
+    const WC = [['#b98a4e', '#8a6234'], ['#d8cba8', '#a89878'], ['#7a5a34', '#5a4024'],
+                ['#c07a3a', '#8a4f1e'], ['#4a3623', '#2a1d13'], ['#93b45a', '#6a8a3c']];
+    return ['boat', WC[it.wood | 0] || WC[0]];
+  }
+  if (it.kind === 'armor') return ['armor_' + (it.slot || 'chest'), c];
+  if (it.kind === 'food') {
+    if (n.includes('diamond apple')) return ['apple_diamond', ICON_MAT.diamond];
+    if (n.includes('apple')) return ['apple', c];
+    if (n.includes('bread')) return ['bread', c];
+    if (n.includes('cooked') || n.includes('steak')) return ['meat', ICON_MAT.cooked];
+    return ['meat', ICON_MAT.flesh];
+  }
+  /* 材料类：按名字关键字挑形状 */
+  if (n.includes('ingot') || n.includes('steel')) return ['ingot', c];
+  if (n.includes('diamond')) return ['gem', c];
+  if (n.includes('uranium')) return ['shard', c];
+  if (n.includes('orb')) return ['orb', c];
+  if (n.includes('shard') || n.includes('essence')) return ['shard', c];
+  if (n.includes('carbon')) return ['carbon', c];
+  if (n.includes('stick')) return ['stick', c];
+  if (n.includes('wheat')) return ['wheat', c];
+  if (n.includes('wool')) return ['wool', ICON_MAT.cloth];
+  if (n.includes('hide')) return ['hide', ['#7a8a3a', '#a8b060', '#54622a', '#2a3312']];
+  if (n.includes('heart')) return ['heart', c];
+  if (n.includes('chip')) return ['chip', c];
+  if (n.includes('board')) return ['board', c];
+  if (n.includes('wire')) return ['wire', c];
+  if (n.includes('bone')) return ['bone', ICON_MAT.bone];
+  if (n.includes('block')) return ['pad', c];
+  if (n.includes('corpse')) return ['corpse', ICON_MAT.cloth];
+  return ['ingot', c];                        // 兜底：至少是一块有立体感的锭，不是灰方块
+}
+
+/* 3D 侧（掉落物薄板 / 手持小牌子）用的贴图：
+   方块必须是**平贴图**（贴到几何体的面上），不能用等轴测图标 ——
+   否则薄板上贴的是"一张立方体的照片"。物品照旧用像素图标。
+   ⚠ 只给 3D 用，UI 里仍然走 iconURL()（等轴测）。 */
+const flatIconCache = new Map();
+function flatTexURL(id) {
+  if (flatIconCache.has(id)) return flatIconCache.get(id);
+  let url;
+  const b = BLOCKS[id];
+  if (!b) url = iconURL(id);
+  else {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 32;
+    const g = cv.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    const t = b.side ?? b.top;
+    g.drawImage(atlasCanvas, (t % ATLAS_COLS) * 16, ((t / ATLAS_COLS) | 0) * 16, 16, 16, 0, 0, 32, 32);
+    url = cv.toDataURL();
+  }
+  flatIconCache.set(id, url);
+  return url;
+}
 function iconURL(id) {
   if (iconCache.has(id)) return iconCache.get(id);
   const S = 32, cv = document.createElement('canvas');
@@ -1206,247 +2011,41 @@ function iconURL(id) {
   const g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
   const b = BLOCKS[id];
-  if (b) {
-    const t = b.side ?? b.top;
-    g.drawImage(atlasCanvas, (t % ATLAS_COLS) * 16, ((t / ATLAS_COLS) | 0) * 16, 16, 16, 0, 0, S, S);
-  } else if (id === 195) { // 日耀宝珠：白热内芯 + 金橙外壳 + 一圈光芒
-    g.save(); g.translate(16, 16);
-    g.strokeStyle = 'rgba(255,214,110,0.55)'; g.lineWidth = 1.4;      // 光芒
-    for (let i = 0; i < 8; i++) {
-      g.rotate(Math.PI / 4);
-      g.beginPath(); g.moveTo(0, -11); g.lineTo(0, -15.5); g.stroke();
-    }
-    g.restore();
-    const grd = g.createRadialGradient(13, 12, 1.5, 16, 16, 13);
-    grd.addColorStop(0, '#fffdf2');
-    grd.addColorStop(0.30, '#ffe98a');
-    grd.addColorStop(0.64, '#f5b73c');
-    grd.addColorStop(1, '#7a4a08');
-    g.fillStyle = grd; g.beginPath(); g.arc(16, 16, 13, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(96,58,6,0.9)'; g.lineWidth = 1.6; g.beginPath(); g.arc(16, 16, 13, 0, 7); g.stroke();
-    g.fillStyle = 'rgba(255,255,255,0.95)'; g.beginPath(); g.ellipse(12, 11, 3.4, 2.3, -0.5, 0, 7); g.fill();
-    g.fillStyle = 'rgba(255,236,160,0.6)'; g.beginPath(); g.arc(20.5, 21, 2.3, 0, 7); g.fill();
-  } else if (id === 104) { // 木棍
-    g.strokeStyle = '#b98a4e'; g.lineWidth = 5; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(7, 26); g.lineTo(24, 6); g.stroke();
-    g.strokeStyle = '#8d6534'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(8, 25); g.lineTo(23, 7); g.stroke();
-  } else if (id === 105) { // 苹果
-    g.fillStyle = '#d33b3b'; g.beginPath(); g.arc(16, 19, 9, 0, 7); g.fill();
-    g.fillStyle = '#ef5f5f'; g.beginPath(); g.arc(12, 16, 3.4, 0, 7); g.fill();
-    g.strokeStyle = '#6a4a2a'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(16, 11); g.lineTo(17, 5); g.stroke();
-    g.fillStyle = '#4c9a3a'; g.beginPath(); g.ellipse(21, 6, 5, 2.6, -0.4, 0, 7); g.fill();
-  } else if (id === 107) { // 小麦
-    g.lineCap = 'round'; g.lineWidth = 2.2;
-    for (const [dx, rot] of [[-5, -0.3], [0, 0], [5, 0.3]]) {
-      g.strokeStyle = '#6f9a3a';
-      g.beginPath(); g.moveTo(16 + dx, 27); g.lineTo(16 + dx + rot * 9, 9); g.stroke();
-      g.fillStyle = '#d9b24a';
-      g.fillRect(13 + dx + rot * 7, 5, 5, 8);
-      g.fillStyle = '#b8912f';
-      g.fillRect(13 + dx + rot * 7, 5, 5, 2);
-    }
-  } else if (id === 156) { // 小麦种子
-    g.fillStyle = '#d9b24a';
-    for (const [x, y] of [[10, 12], [16, 10], [21, 14], [13, 18], [19, 20]]) {
-      g.beginPath(); g.ellipse(x, y, 3, 2, 0.5, 0, 7); g.fill();
-    }
-    g.fillStyle = '#b8912f';
-    for (const [x, y] of [[11, 13], [17, 11], [22, 15]]) { g.beginPath(); g.ellipse(x, y, 1.6, 1, 0.5, 0, 7); g.fill(); }
-  } else if (id === 157) { // 肥料
-    g.fillStyle = '#c9d0d8';
-    g.beginPath(); g.moveTo(9, 8); g.lineTo(23, 8); g.lineTo(25, 26); g.lineTo(7, 26); g.closePath(); g.fill();
-    g.fillStyle = '#5f8f3d';
-    g.beginPath(); g.moveTo(10, 11); g.lineTo(22, 11); g.lineTo(23.4, 24); g.lineTo(8.6, 24); g.closePath(); g.fill();
-    g.fillStyle = '#8fc45c'; g.fillRect(12, 14, 8, 3);
-  } else if (ITEMS[id] && ITEMS[id].kind === 'hoe') { // 锄头
-    const metal = id === 159 ? '#9a9a9a' : id === 165 ? '#d98b4a' : id === 160 ? '#d9dee5' : '#c8a06a';
-    g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(11, 27); g.lineTo(20, 9); g.stroke();
-    g.strokeStyle = metal; g.lineWidth = 5;
-    g.beginPath(); g.moveTo(15, 7); g.lineTo(26, 9); g.stroke();
-    g.beginPath(); g.moveTo(15, 7); g.lineTo(15, 12); g.stroke();
-  } else if (id === 151 || id === 152) { // 桶 / 水桶
-    g.fillStyle = '#c9d0d8';
-    g.beginPath(); g.moveTo(7, 9); g.lineTo(25, 9); g.lineTo(22, 26); g.lineTo(10, 26); g.closePath(); g.fill();
-    g.fillStyle = id === 152 ? '#3f9fe0' : '#7c8794';
-    g.beginPath(); g.moveTo(9, 12); g.lineTo(23, 12); g.lineTo(20.6, 24); g.lineTo(11.4, 24); g.closePath(); g.fill();
-    if (id === 152) { g.fillStyle = '#8fd4ff'; g.fillRect(11, 13, 10, 3); }
-    g.strokeStyle = '#8b939c'; g.lineWidth = 2; g.beginPath(); g.moveTo(7, 9); g.lineTo(25, 9); g.stroke();
-  } else if (id === 142) { // 羊毛
-    g.fillStyle = '#f2efe6'; g.fillRect(5, 8, 22, 17);
-    g.fillStyle = '#e2ddcf';
-    for (const [x, y] of [[8, 11], [15, 9], [21, 13], [10, 17], [17, 19], [23, 21], [7, 22]]) g.fillRect(x, y, 4, 3);
-  } else if (id === 148) { // 骨头
-    g.strokeStyle = '#efe9d8'; g.lineWidth = 6; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(10, 22); g.lineTo(22, 10); g.stroke();
-    g.fillStyle = '#efe9d8';
-    for (const [x, y] of [[8, 23], [12, 26], [20, 6], [24, 9]]) { g.beginPath(); g.arc(x, y, 3.4, 0, 7); g.fill(); }
-  } else if (id === 35) { // 木门
-    g.fillStyle = '#a87a44'; g.fillRect(8, 4, 16, 25);
-    g.fillStyle = '#8d6534'; g.fillRect(8, 4, 16, 3);
-    g.fillStyle = '#7d5729'; g.fillRect(8, 4, 2, 25); g.fillRect(22, 4, 2, 25);
-    g.fillStyle = '#b98a4e'; g.fillRect(11, 9, 10, 8); g.fillRect(11, 19, 10, 8);
-    g.fillStyle = '#6a4a20'; g.beginPath(); g.arc(20.5, 18.5, 1.9, 0, 7); g.fill();
-  } else if (id === 161) { // 骨粉：一小堆白粉
-    g.fillStyle = '#ded8c6'; g.beginPath(); g.ellipse(16, 22, 9, 4.6, 0, 0, 7); g.fill();
-    g.fillStyle = '#efeade'; g.beginPath(); g.ellipse(15, 19, 6.5, 4.2, 0, 0, 7); g.fill();
-    g.fillStyle = '#fbf8f0'; g.beginPath(); g.ellipse(14, 17, 4, 2.6, 0, 0, 7); g.fill();
-    g.fillStyle = '#b9b2a0';
-    for (const [x, y] of [[10, 21], [17, 22], [21, 20], [13, 24], [19, 24]]) g.fillRect(x, y, 2, 2);
-  } else if (id === 145 || id === 146) { // 羊肉（生 / 熟）：肉块 + 骨头
-    const cooked = id === 146;
-    g.fillStyle = cooked ? '#a9622f' : '#e0837f';
-    g.beginPath(); g.ellipse(15, 18, 9.5, 6.6, -0.15, 0, 7); g.fill();
-    g.fillStyle = cooked ? '#c98a4a' : '#f0a3a0';
-    g.beginPath(); g.ellipse(14, 16.4, 5.6, 3.4, -0.15, 0, 7); g.fill();
-    g.fillStyle = cooked ? '#e6cba0' : '#efe6d2';
-    g.fillRect(21, 12.6, 6, 3.2);
-    g.beginPath(); g.arc(27.6, 12.2, 2.6, 0, 7); g.fill();
-    g.beginPath(); g.arc(27.6, 16.2, 2.6, 0, 7); g.fill();
-    g.fillStyle = 'rgba(255,255,255,.32)';
-    g.beginPath(); g.ellipse(12, 14.6, 2.6, 1.4, -0.3, 0, 7); g.fill();
-  } else if (id === 108 || id === 109 || id === 140 || id === 141 || id === 143 || id === 144) { // 肉类
-    const cooked = id === 109 || id === 141 || id === 144;
-    const bird = id === 143 || id === 144;
-    const beef = id === 140 || id === 141;
-    g.fillStyle = cooked ? (bird ? '#c98a4a' : '#a9622f') : (bird ? '#f0d6b8' : '#e08a8a');
-    g.beginPath();
-    if (bird) g.ellipse(16, 17, 8, 6.5, 0.3, 0, 7); else g.ellipse(15, 17, 9, 6.5, -0.2, 0, 7);
-    g.fill();
-    g.fillStyle = cooked ? (bird ? '#e0b070' : '#c98a4a') : (bird ? '#f8e6d0' : '#f2b3b3');
-    g.beginPath(); g.ellipse(15, 16, 5.5, 3.5, -0.2, 0, 7); g.fill();
-    if (beef || !bird) { g.fillStyle = '#efe6d2'; g.fillRect(23, 15, 5, 3.5); g.beginPath(); g.arc(28, 15.5, 2.4, 0, 7); g.fill(); }
-    g.beginPath(); g.ellipse(15, 17, 9, 6.5, -0.2, 0, 7); g.fill();
-    g.fillStyle = id === 108 ? '#f2b3b3' : '#c98a4a';
-    g.beginPath(); g.ellipse(15, 16, 5.5, 3.5, -0.2, 0, 7); g.fill();
-    g.fillStyle = '#efe6d2';
-    g.fillRect(23, 15, 5, 3.5);
-    g.beginPath(); g.arc(28, 15.5, 2.4, 0, 7); g.fill();
-  } else if (id === 124) { // 面包
-    g.fillStyle = '#c98a3f';
-    g.beginPath(); g.ellipse(16, 16, 10, 6.5, 0, 0, 7); g.fill();
-    g.fillStyle = '#8c5a25';
-    g.beginPath(); g.ellipse(16, 13, 9.5, 3.4, 0, 0, 7); g.fill();
-    g.strokeStyle = '#e9c089'; g.lineWidth = 1.6;
-    for (const x of [11, 16, 21]) { g.beginPath(); g.moveTo(x, 11); g.lineTo(x + 1, 17); g.stroke(); }
-  } else if (id === 125) { // 钻石
-    g.fillStyle = '#3fd6c8';
-    g.beginPath(); g.moveTo(16, 4); g.lineTo(27, 13); g.lineTo(16, 28); g.lineTo(5, 13); g.closePath(); g.fill();
-    g.fillStyle = '#a9fbf2';
-    g.beginPath(); g.moveTo(16, 7); g.lineTo(23, 13); g.lineTo(16, 24); g.lineTo(9, 13); g.closePath(); g.fill();
-    g.fillStyle = '#effffd';
-    g.beginPath(); g.moveTo(16, 7); g.lineTo(23, 13); g.lineTo(16, 13); g.closePath(); g.fill();
-  } else if (ITEMS[id] && ITEMS[id].kind === 'pick') { // 镐
-    const metal = id === 184 ? '#7d6890' : id === 130 ? '#5fe6d8' : id === 163 ? '#d98b4a' : id === 101 ? '#9a9a9a' : id === 120 ? '#d9dee5' : '#c8a06a';
-    g.strokeStyle = '#b98a4e'; g.lineWidth = 4; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(9, 27); g.lineTo(21, 12); g.stroke();
-    g.strokeStyle = metal; g.lineWidth = 5;
-    g.beginPath(); g.moveTo(9, 9); g.quadraticCurveTo(20, 5, 27, 13); g.stroke();
-  } else if (ITEMS[id] && ITEMS[id].kind === 'sword') { // 剑
-    const metal = id === 179 ? '#7d6890' : id === 131 ? '#5fe6d8' : id === 164 ? '#d98b4a' : id === 149 ? '#efe9d8' : id === 103 ? '#b9b9b9' : id === 121 ? '#e3e8ef' : '#c8a06a';
-    g.strokeStyle = metal; g.lineWidth = 5; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(10, 25); g.lineTo(24, 7); g.stroke();
-    g.strokeStyle = '#8d6534'; g.lineWidth = 4;
-    g.beginPath(); g.moveTo(7, 21); g.lineTo(14, 28); g.stroke();
-  } else if (id === 106) { // 铁锭
-    g.fillStyle = '#c9d0d8'; g.beginPath();
-    g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
-    g.fillStyle = '#e8eef4'; g.beginPath();
-    g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
-  } else if (id === 177) { // 冥界碳：黑红晶体
-    g.fillStyle = '#170e10';
-    g.beginPath(); g.moveTo(16, 3); g.lineTo(26, 15); g.lineTo(16, 29); g.lineTo(6, 15); g.closePath(); g.fill();
-    g.fillStyle = '#7a1f2a';
-    g.beginPath(); g.moveTo(16, 7); g.lineTo(22, 15); g.lineTo(16, 25); g.lineTo(10, 15); g.closePath(); g.fill();
-    g.fillStyle = '#d8405a'; g.fillRect(15, 11, 3, 7);
-    g.fillStyle = '#ff9ab0'; g.fillRect(16, 12, 1, 4);
-  } else if (id === 178) { // 钢锭
-    g.fillStyle = '#5b6874';
-    g.beginPath(); g.moveTo(7, 21); g.lineTo(25, 21); g.lineTo(22, 11); g.lineTo(10, 11); g.closePath(); g.fill();
-    g.fillStyle = '#95a3b0';
-    g.beginPath(); g.moveTo(9, 19); g.lineTo(23, 19); g.lineTo(21, 13); g.lineTo(11, 13); g.closePath(); g.fill();
-    g.fillStyle = '#dfe7ee'; g.fillRect(12, 14, 8, 2);
-  } else if (id === 175) { // 传送块：紫色能量方块
-    g.fillStyle = '#3a1a5c'; g.fillRect(7, 7, 18, 18);
-    g.fillStyle = '#8b3fd8'; g.fillRect(9, 9, 14, 14);
-    g.fillStyle = '#c58bff'; g.fillRect(11, 11, 10, 10);
-    g.fillStyle = '#f2d9ff'; g.fillRect(14, 14, 4, 4);
-    g.strokeStyle = '#39e0d0'; g.lineWidth = 1.5; g.strokeRect(6.5, 6.5, 19, 19);
-  } else if (id === 176) { // 冥火碎片：橙色尖晶
-    g.fillStyle = '#ff7a18';
-    g.beginPath(); g.moveTo(16, 4); g.lineTo(24, 17); g.lineTo(16, 28); g.lineTo(8, 17); g.closePath(); g.fill();
-    g.fillStyle = '#ffd24a';
-    g.beginPath(); g.moveTo(16, 8); g.lineTo(20, 17); g.lineTo(16, 24); g.lineTo(12, 17); g.closePath(); g.fill();
-    g.fillStyle = '#fff2c0'; g.fillRect(15, 12, 3, 6);
-  } else if (id === 170) { // 木片：几片薄木屑
-    for (const [x, y, w, a] of [[5, 19, 13, -0.16], [9, 13, 13, 0.2], [6, 8, 11, -0.06]]) {
-      g.save(); g.translate(x, y); g.rotate(a);
-      g.fillStyle = '#c0955a'; g.fillRect(0, 0, w, 4);
-      g.fillStyle = '#8a6134'; g.fillRect(0, 3, w, 1.2);
+  if (b && b.cross) {
+    /* 十字贴图方块（草/花/火把/藤/作物）：MC 背包里也是"平铺的贴图精灵"，不是立方体。
+       16→32 正好 ×2，像素格保持整数，不会有半像素。 */
+    const t = b.top ?? b.side;
+    g.drawImage(atlasCanvas, (t % ATLAS_COLS) * 16, ((t / ATLAS_COLS) | 0) * 16, 16, 16, 0, 0, 32, 32);
+  } else if (b && b.door) {
+    /* ★ 门：竖长门板图标（以前走方块分支 = 等轴测方砖，跟「一块木板」没区别） */
+    ICON_SHAPE.door(iconPainter(g, 2));
+  } else if (b) {
+    /* ── 方块：等轴测三面体（上面 / 左面 / 右面）── */
+    const tTop = b.top ?? b.side, tSide = b.side ?? b.top, tSide2 = b.side2 ?? tSide;
+    const face = (t, x0, y0, ux, uy, vx, vy, shade) => {
+      g.save();
+      g.setTransform(ux / 16, uy / 16, vx / 16, vy / 16, x0, y0);
+      g.drawImage(atlasCanvas, (t % ATLAS_COLS) * 16, ((t / ATLAS_COLS) | 0) * 16, 16, 16, 0, 0, 16, 16);
+      if (shade) { g.fillStyle = 'rgba(0,0,0,' + shade + ')'; g.fillRect(0, 0, 16, 16); }
       g.restore();
-    }
-  } else if (id === 162) { // 铜锭
-    g.fillStyle = '#b8702f'; g.beginPath();
-    g.moveTo(8, 21); g.lineTo(24, 21); g.lineTo(21, 12); g.lineTo(11, 12); g.closePath(); g.fill();
-    g.fillStyle = '#d98b4a'; g.beginPath();
-    g.moveTo(10, 19); g.lineTo(22, 19); g.lineTo(20, 14); g.lineTo(12, 14); g.closePath(); g.fill();
-    g.fillStyle = '#eaa96a'; g.fillRect(13, 15, 6, 2);
-  } else if (id === 185) { // 电路板：绿板 + 铜走线 + 金焊盘
-    g.fillStyle = '#1f6b46'; g.fillRect(5, 6, 22, 20);
-    g.fillStyle = '#2e9a63'; g.fillRect(6, 7, 20, 18);
-    g.strokeStyle = '#d98b4a'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(9, 11); g.lineTo(16, 11); g.lineTo(16, 17); g.lineTo(23, 17); g.stroke();
-    g.beginPath(); g.moveTo(9, 21); g.lineTo(14, 21); g.lineTo(14, 15); g.stroke();
-    g.fillStyle = '#f5c451';
-    for (const [x, y] of [[8, 10], [22, 16], [8, 20], [13, 14]]) g.fillRect(x, y, 3, 3);
-    g.fillStyle = '#0f3a28';
-    for (const [x, y] of [[10, 24], [18, 24]]) g.fillRect(x, y, 3, 2);
-  } else if (id === 186) { // 电线：铜色线圈
-    g.strokeStyle = '#b8702f'; g.lineWidth = 3;
-    for (let i = 0; i < 4; i++) { g.beginPath(); g.ellipse(16, 7 + i * 6, 8, 3.2, 0, 0, 7); g.stroke(); }
-    g.strokeStyle = '#eaa96a'; g.lineWidth = 1.4;
-    g.beginPath(); g.moveTo(8, 6); g.lineTo(8, 26); g.stroke();
-    g.beginPath(); g.moveTo(24, 6); g.lineTo(24, 26); g.stroke();
-  } else if (id === 187) { // 铀：荧光绿晶体
-    g.fillStyle = '#2f4a22';
-    g.beginPath(); g.moveTo(16, 4); g.lineTo(26, 14); g.lineTo(16, 29); g.lineTo(6, 14); g.closePath(); g.fill();
-    g.fillStyle = '#6fdc3a';
-    g.beginPath(); g.moveTo(16, 7); g.lineTo(22, 14); g.lineTo(16, 25); g.lineTo(10, 14); g.closePath(); g.fill();
-    g.fillStyle = '#d9ff9a'; g.fillRect(15, 11, 3, 8);
-    g.fillStyle = '#8dff5a'; g.fillRect(12, 13, 1, 5); g.fillRect(20, 13, 1, 5);
-  } else if (ITEMS[id] && ITEMS[id].kind === 'gun') { // 能量炮：机匣 + 炮管 + 发光炮口
-    const metal = id === 191 ? '#7d6890' : id === 190 ? '#5fe6d8' : id === 189 ? '#d9dee5' : '#d98b4a';
-    const glow = id === 191 ? '#c08cff' : id === 190 ? '#7dffe8' : id === 189 ? '#bfe4ff' : '#ffb066';
-    g.fillStyle = '#2b323b'; g.fillRect(5, 12, 18, 7);
-    g.fillStyle = metal; g.fillRect(9, 9, 9, 4); g.fillRect(21, 13, 7, 3);
-    g.fillStyle = '#1b2028'; g.fillRect(11, 19, 5, 8);
-    g.fillStyle = metal; g.fillRect(12, 20, 3, 6);
-    g.fillStyle = glow; g.fillRect(27, 12, 2, 5); g.fillRect(6, 15, 3, 2);
-  } else if (ITEMS[id] && ITEMS[id].kind === 'armor') { // 盔甲
-    const nether = id >= 180 && id <= 183;          // 冥界钢Armor 180~183：黑铁色
-    const wood = id >= 171 && id <= 174;            // 木护甲：木色（最弱的一套）
-    const cop = id >= 166 && id <= 169;             // 铜护甲：铜橙色
-    const dia = id >= 132 && !cop && !wood && !nether;
-    const steel = dia ? '#5fe6d8' : nether ? '#7d6890' : cop ? '#d98b4a' : wood ? '#c0955a' : '#d3dae2',
-          dark = dia ? '#2fa89c' : nether ? '#3a2f45' : cop ? '#8a5525' : wood ? '#7a5527' : '#8c98a6';
-    g.fillStyle = steel; g.strokeStyle = dark; g.lineWidth = 2;
-    if (ITEMS[id].slot === 'head') {                 // 头盔
-      g.beginPath(); g.arc(16, 17, 9, Math.PI, 0); g.lineTo(25, 21); g.lineTo(7, 21); g.closePath(); g.fill(); g.stroke();
-      g.fillStyle = '#2a3340'; g.fillRect(11, 16, 10, 4);
-    } else if (ITEMS[id].slot === 'chest') {         // 胸甲
-      g.beginPath(); g.moveTo(10, 8); g.lineTo(22, 8); g.lineTo(25, 13); g.lineTo(22, 25);
-      g.lineTo(10, 25); g.lineTo(7, 13); g.closePath(); g.fill(); g.stroke();
-      g.fillStyle = dark; g.fillRect(15, 10, 2, 13);
-    } else if (ITEMS[id].slot === 'legs') {          // 护腿
-      g.beginPath(); g.moveTo(9, 7); g.lineTo(23, 7); g.lineTo(23, 25); g.lineTo(18, 25); g.lineTo(16, 14);
-      g.lineTo(14, 25); g.lineTo(9, 25); g.closePath(); g.fill(); g.stroke();
-    } else {                                          // 靴子
-      g.beginPath(); g.moveTo(7, 12); g.lineTo(13, 12); g.lineTo(13, 22); g.lineTo(9, 22); g.closePath(); g.fill(); g.stroke();
-      g.beginPath(); g.moveTo(17, 12); g.lineTo(23, 12); g.lineTo(23, 22); g.lineTo(19, 22); g.closePath(); g.fill(); g.stroke();
-    }
+    };
+    face(tTop,   16, 2,  14,  8, -14, 8, 0);        // 顶面（原色）
+    face(tSide,   2, 10, 14,  8,   0, 12, 0.18);    // 左面（压暗）
+    face(tSide2, 16, 18, 14, -8,   0, 12, 0.34);    // 右面（更暗）
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.lineJoin = 'miter';
+    g.strokeStyle = 'rgba(10,12,16,0.85)'; g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(16.5, 2.5); g.lineTo(30.5, 10.5); g.lineTo(30.5, 22.5); g.lineTo(16.5, 30.5);
+    g.lineTo(2.5, 22.5); g.lineTo(2.5, 10.5); g.closePath(); g.stroke();
+    g.beginPath(); g.moveTo(2.5, 10.5); g.lineTo(16.5, 18.5); g.lineTo(30.5, 10.5); g.stroke();
+    g.beginPath(); g.moveTo(16.5, 18.5); g.lineTo(16.5, 30.5); g.stroke();
   } else {
-    g.fillStyle = '#7b8ea6'; g.fillRect(4, 4, 24, 24);
+    /* ── 物品：16×16 像素格，最近邻放大 2 倍 ── */
+    const [shape, col] = itemPaintSpec(id);
+    const p = iconPainter(g, 2);
+    const fn = ICON_SHAPE[shape] || ICON_SHAPE.ingot;
+    fn(p, col);
   }
   const url = cv.toDataURL();
   iconCache.set(id, url);
@@ -1507,9 +2106,10 @@ const SPECIES = {
   birch:  { log: 30, leaf: 67, shape: 'ball' },
   spruce: { log: 28, leaf: 68, shape: 'cone' },
   pine:   { log: 28, leaf: 68, shape: 'tiers' },
-  dark:   { log: 6,  leaf: 7,  shape: 'wide' },
-  acacia: { log: 6,  leaf: 69, shape: 'flat' },
+  dark:   { log: 83, leaf: 7,  shape: 'wide' },     // ★ 深色橡木：原来的"深色"其实长的是橡木
+  acacia: { log: 81, leaf: 69, shape: 'flat' },     // ★ 金合欢：橙红木
   bush:   { log: 6,  leaf: 7,  shape: 'ball' },
+  cactuswood: { log: 85, leaf: 0, shape: 'twist' },  // ★ 仙人掌木：没有叶子
 };
 
 // 树的形态参数（全部由坐标哈希决定 → 同一世界任何时候生成都一样，跨区块也不会变样）
@@ -1528,13 +2128,13 @@ function treeParams(wx, wz) {
   if (inRavine(wx, wz)) return null;                  // 峡谷里也不长树
   if (!F && inPlain(wx, wz) && h2(wx * 1.73 + 3.1, wz * 2.37 - 5.9) > 0.10) return null;   // 平原：树非常少
   // ③ 到这里只剩 ~2~5% 的列，再算地形
+  /* 沙漠/恶地/雪原：不长树（地表已经不是草了；这里再挡一道，防止树长在沙子上） */
+  if (biomeAt(wx, wz)) return null;
   const g = heightAt(wx, wz);
-  /* ⚠ 树线要按树种分开算：森林种类是按「中心高度 > SEA+24」判成冻土针叶林的，
-     可树线写的是 MOUNT_Y-4 —— 两者差 9 格，于是「冻土云杉林/冻土松林」的中心
-     永远在树线以上，一棵树都不长（走进去只有裸岩）。针叶树本来就长在高处，
-     给它放宽到 MOUNT_Y+10（地表最高也就 ~124）。 */
+  /* 树线：普通树 124、针叶树 132（原来是 113/127 —— 山一抬到 150+，森林只剩山脚一圈）。
+     再往上就是裸岩/雪，视觉上正好是 MC 的「林线—草甸—岩坡—雪顶」四段。 */
   const conifer = !!F && (F.kind === 'snow_spruce' || F.kind === 'snow_pine');
-  if (g <= CFG.SEA + 3 || g >= (conifer ? MOUNT_Y + 10 : MOUNT_Y - 4)) return null;
+  if (g <= CFG.SEA + 3 || g >= (conifer ? MOUNT_Y + 8 : MOUNT_Y)) return null;
   // 洞穴把地表这一列掏空了 → 别种（否则树干落在空气里，树悬在半空）
   if (caveCarve(wx, g, wz, g) || caveCarve(wx, g - 1, wz, g - 1)) return null;
   let sp = null, trunkH = 4, r = 2;
@@ -1607,6 +2207,26 @@ function putTree(put, lx, lz, wx, wz, t) {
     }
     disc(0, 0, topY + 1, 0);
     if (t.shape === 'tiers') disc(0, 0, topY + 2, 0);
+  } else if (t.shape === 'twist') {
+    /* ★ v324 仙人掌木：一根歪歪扭扭的细干 + 两条侧枝，**完全不长叶子**。
+       "外形奇特、能当木头用" —— 砍下来是 Cactus Wood，可以做成仙人掌木板。 */
+    let cx2 = lx, cz2 = lz;
+    const H2 = H + 2;
+    for (let y = 1; y <= H2; y++) {
+      if (y % 3 === 0) {
+        const d = h2(wx * 1.7 + y * 3.1, wz * 2.3 - y * 1.9);
+        if (d < 0.34) cx2 += 1; else if (d > 0.66) cx2 -= 1;
+        const e = h2(wx * 2.9 - y * 1.3, wz * 1.9 + y * 2.7);
+        if (e < 0.34) cz2 += 1; else if (e > 0.66) cz2 -= 1;
+      }
+      put(cx2, g + y, cz2, log, false);
+      if (y === H2 - 2 || y === H2) {                        // 两条短侧枝（也没有叶子）
+        const bx = cx2 + (h2(wx + y, wz) < 0.5 ? 1 : -1);
+        put(bx, g + y, cz2, log, false);
+        put(bx, g + y + 1, cz2, log, false);
+      }
+    }
+    return;
   } else if (t.shape === 'flat') {                           // 金合欢：斜枝 + 平顶伞冠
     const dir = t.ox >= 0 ? 1 : -1;
     let bx = 0;
@@ -1638,8 +2258,8 @@ function ravineFor(cellX, cellZ) {
     let z = cellZ * RV_CELL + 30 + Math.floor(rnd() * (RV_CELL - 60));
     let ang = rnd() * Math.PI * 2;
     const len = 60 + Math.floor(rnd() * 70);
-    const baseDepth = 20 + Math.floor(rnd() * 16);
-    const baseW = 1 + Math.floor(rnd() * 2);        // 半宽 1..2（3~5 格宽）
+    const baseDepth = 22 + Math.floor(rnd() * 18);
+    const baseW = 2 + Math.floor(rnd() * 3);         // 半宽 2..4（5~9 格宽，MC 的峡谷就是这个量级）
     const water = rnd() < 0.55;
     const points = [], cols = new Set();
     let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
@@ -1922,23 +2542,103 @@ function genChunk(cx, cz) {
     b[i] = id;
   };
   const HC = new Int16Array(CH * CH);              // 每列高度缓存：下面植被段不再重算一次 heightAt
+  /* 高度预计算（外圈带 1 格 padding）：判「陡坡露岩」要读四邻高度。
+     以前是边算高度边铺方块，只能看到已经算过的邻居 → 区块边界会出现
+     「这边是草坡、隔壁区块同一面是岩壁」的一列接缝。多算 68 列 = ~+0.3ms/区块。 */
+  const PW = CH + 2;
+  const HP = new Int16Array(PW * PW);
+  for (let px = 0; px < PW; px++) for (let pz = 0; pz < PW; pz++)
+    HP[pz * PW + px] = heightAt(ox + px - 1, oz + pz - 1);
+  for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) HC[lz * CH + lx] = HP[(lz + 1) * PW + lx + 1];
   for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
     const wx = ox + lx, wz = oz + lz;
-    const h = heightAt(wx, wz);
-    HC[lz * CH + lx] = h;
+    const h = HC[lz * CH + lx];
+    /* 陡坡判定：四邻里最大的高差。MC 的崖壁是裸岩，不是草皮——以前只有
+       「高度≥MOUNT_Y」一条规则，于是低处的陡坎全是竖直的草地墙。 */
+    const hp = (lz + 1) * PW + lx + 1;
+    const slope = Math.max(Math.abs(h - HP[hp - 1]), Math.abs(h - HP[hp + 1]),
+                           Math.abs(h - HP[hp - PW]), Math.abs(h - HP[hp + PW]));
+    const rocky = slope >= ROCK_SLOPE || h >= ROCK_Y;
+    /* 雪线逐列 ±3 抖动：一条笔直的雪线一眼就是算出来的。 */
+    const snowy = h >= SNOW_Y + Math.round((h2(wx * 3.1 + 7.7, wz * 2.7 - 4.1) - 0.5) * 6);
+    const bedT = bedrockTopAt(wx, wz);                                   // 这一列基岩顶面（洞底就是踩着它）
     const beach = h <= SEA + 1;
+    const bio = biomeAt(wx, wz);                                                  // 这一列的极端群系（沙漠/雪原/恶地/无）
+    /* 含水层：用一张大尺度噪声划出"地下水位高的区域"（约 45% 的地图），
+       这些区域里低处的洞穴会被灌成地下湖（水面在 y=6，上面还留 3 格空气）；
+       最底下 y<=4 一律是岩浆 —— 掉进最深的洞里就是岩浆，和 MC 底部岩浆海一个作用。 */
+    const aqWet = n2(wx * 0.0035 + 5.1, wz * 0.0035 - 2.7) > 0.56;
+    const AQ_TOP = 6, LAVA_TOP = 4;
+    let lowCarved = false;                                                       // 这一列有没有在低处被挖开（决定要不要铺洞底碎石）
     for (let y = 0; y <= Math.min(h, WH - 2); y++) {
       const d = h - y;
       let id;
       const deep = y < DEEP_Y;                                                     // 深处换成深板岩
-      if (y <= 1) id = 51;                                                         // 基岩底（挖不动）
+      if (y <= bedT) id = 51;                                                      // 基岩底（挖不动，顶面起伏 1~4 格）
+      /* ★ v344 沙漠优先于「坡陡=石头」：rocky 判在前面时，沙丘坡面（相邻高差 ≥4）整片被换成石头，
+         17×17 实测 100 列石头 vs 125 列沙子 —— 看着像石头山，不像沙漠。
+         现在沙漠里没过雪线就一路沙子（表层 12 层），只有雪线以上才留雪壳。 */
+      else if (bio === 'desert') id = snowy
+        ? (d === 0 ? 79 : (d <= 2 ? 4 : (deep ? 50 : 3)))
+        : (d <= 11 ? 4 : (deep ? 50 : 3));                                         // 沙层 12 格：沙丘的侧面/矮崖也是沙子，不会露一片灰石头
+      else if (rocky) id = d === 0 && snowy ? 79 : (deep ? 50 : 3);                // 岩峰/崖壁：石头，峰顶带雪
+      else if (snowy) id = d === 0 ? 79 : (d <= 2 ? 3 : (deep ? 50 : 3));          // 雪线以上：雪壳压碎石
       else if (beach) id = d <= 3 ? 4 : (deep ? 50 : 3);
-      else if (h >= MOUNT_Y) id = deep ? 50 : 3;
+      else if (bio === 'snow') id = d === 0 ? 79 : (d <= 3 ? 2 : (deep ? 50 : 3));  // 雪原：雪壳 + 土
+      else if (bio === 'badlands') {                                               // 恶地：红沙 + 花岗岩条带
+        if (d <= 2) id = 80;
+        else if (d <= 5 && (Math.floor(wx / 3) + Math.floor(wz / 5)) % 3 === 0) id = 26;
+        else id = deep ? 50 : 3;
+      }
       else id = d === 0 ? 1 : (d <= 3 ? 2 : (deep ? 50 : 3));
-      if (id !== 4 && id !== 51 && caveCarve(wx, y, wz, h)) id = 0;                 // 洞穴（含天然洞口）
+      /* ★ v323：以前这里还排除了沙子(id 4)，本意是护基岩，结果连沙漠/沙滩表层那 4 层沙
+         也一起挡住 → 沙地底下的洞有、但永远捅不出来（沙漠里几乎没有天然洞口）。只护基岩。 */
+      if (id !== 51 && y <= 140 && caveCarve(wx, y, wz, h)) {                      // 洞穴（含天然洞口）
+        /* ↑ y<=140 外提：caveCarve 内部第一行就是这个判断，山一抬到 170，
+           每列 100 多层都在白调一次函数。 */
+        id = 0;
+        if (y <= 13) lowCarved = true;
+        if (y <= LAVA_TOP) id = 44;                       // 底部岩浆海
+        /* ★ v323：岩浆(y=4)和水(y=5)以前直接相邻 —— 地下湖是「水贴在岩浆上」。
+           现在 y=5 一律深板岩，水只出现在 6~7（含水层照旧 2 格深）。 */
+        else if (y === LAVA_TOP + 1) id = 50;             //   岩浆上方一层深板岩隔板
+        else if (y <= AQ_TOP + 1 && aqWet) id = 5;        //   含水层：低处洞底成湖（y=6,7）
+      }
       if (id) b[idx(lx, y, lz)] = id;
     }
-    for (let y = Math.max(h + 1, 0); y <= SEA && y < WH; y++) b[idx(lx, y, lz)] = 5;  // 水
+    /* 洞底碎石：低处（基岩上方 1~11 格）的洞底按噪声铺成片的卵石，偶尔露出煤。
+       只在真的被挖开过的列里跑，没洞的列零开销。 */
+    if (lowCarved) {
+      for (let y = 3; y <= 13; y++) {
+        const i = idx(lx, y, lz);
+        if (b[i] !== 0) continue;                                  // 这一格要空（是洞穴空间）
+        const bi = idx(lx, y - 1, lz), bId = b[bi];
+        if (bId !== 3 && bId !== 50) continue;                     // 只改石头/深板岩的地面
+        if (b[idx(lx, y + 1, lz)] !== 0) continue;                 // 头顶也要空（能站人的地面，不是洞顶）
+        const pt = n3(wx * 0.09 + 17.3, 2.1, wz * 0.09 - 9.7);     // 成片（~11 格一块）
+        if (pt > 0.66) b[bi] = 78;                                 // 卵石滩
+        else if (pt < 0.09) b[bi] = 13;                            // 煤露头（稀）
+      }
+    }
+    /* 水：海平面以下照旧灌满；高山湖另外灌到 tarn 水位。
+       湖底如果正好被洞穴挖空（h 那格是空气）就不灌 —— 否则会有一柱水悬在洞里。 */
+    const tw = tarnAt(wx, wz);
+    let tarnTop = tw && tw.level > SEA ? tw.level : 0;
+    if (tarnTop && b[idx(lx, h, lz)] === 0) {
+      tarnTop = 0;
+    }
+    /* ★ v323 河道灌水：以前只有「低于海平面」的列会灌水（wTop = SEA），而 heightAt 里
+       115 格以上的高山河谷是 V 形切谷 —— 整条河爬上山就断水，实测 2193 个高山河道列**全是干的**。
+       现在按 riverMask 的河心（rm>0.86 = 离河心 3 格内）给河道本身灌 2 格水：
+       低地河（h<SEA）依旧由 SEA 兜底，高山河则灌到 h+2 → 一条跟着谷底走的溪流。
+       岸边（rm<0.86）不灌，避免水爬上河岸形成阶梯水面。 */
+    let rivTop = 0;
+    if (h > SEA) {
+      const rmW = riverMask(wx, wz);
+      if (rmW > 0.86 && b[idx(lx, h, lz)] !== 0) rivTop = Math.min(WH - 2, h + 2);   // 河床被洞挖穿就不灌
+    }
+    const wTop = Math.max(tarnTop, rivTop, SEA);
+    for (let y = Math.max(h + 1, 0); y <= wTop && y < WH; y++) b[idx(lx, y, lz)] = 5;  // 水
   }
   // 矿脉：成簇埋进石头里（只在还是石头的地方替换，不动土/沙/水）
   for (const v of oreVeins(cx, cz)) {
@@ -1952,11 +2652,44 @@ function genChunk(cx, cz) {
   for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
     const wx = ox + lx, wz = oz + lz, h = HC[lz * CH + lx];
     if (h + 1 >= WH) continue;
-    if (b[idx(lx, h, lz)] !== 1) continue;                 // 脚下是草地
+    if (b[idx(lx, h, lz)] !== 1) continue;                 // 脚下是草地（沙漠/雪原/恶地自然被排除）
     if (b[idx(lx, h + 1, lz)] !== 0) continue;             // 上方空着
     const r = h3(wx * 7 + 11, 3, wz * 13 + 5);
     if (r > 0.975) b[idx(lx, h + 1, lz)] = 37;             // 2.5% 红花
     else if (r > 0.86) b[idx(lx, h + 1, lz)] = 36;         // 11.5% 草丛
+  }
+  /* ── v324：沙漠/恶地特有植被 ───────────────────────────────────────────
+     仙人掌（1~4 高，顶上偶尔挂一颗仙人掌果）、干枯树苗、以及极少见的"仙人掌木"怪树。
+     全部只长在沙子上（id 4 沙 / 80 红沙），走路不会撞到草。 */
+  for (let lx = 0; lx < CH; lx++) for (let lz = 0; lz < CH; lz++) {
+    const wx = ox + lx, wz = oz + lz, h = HC[lz * CH + lx];
+    if (h + 6 >= WH || h < 2) continue;
+    const bio = biomeAt(wx, wz);
+    if (bio !== 'desert' && bio !== 'badlands') continue;
+    const ground = b[idx(lx, h, lz)];
+    if (ground !== 4 && ground !== 80) continue;
+    if (b[idx(lx, h + 1, lz)] !== 0) continue;
+    const r = h3(wx * 3.1 + 7, 11, wz * 2.7 - 5);
+    if (r > 0.975) {                                       // 2.5%：仙人掌
+      const tall = 1 + Math.floor(h3(wx, 5, wz) * 4);
+      for (let k = 1; k <= tall; k++) b[idx(lx, h + k, lz)] = 87;
+      if (h3(wx + 9, 3, wz - 4) > 0.55) b[idx(lx, h + tall + 1, lz)] = 89;   // 顶上一颗仙人掌果
+    } else if (r > 0.90) {                                 // 7.5%：干枯树苗
+      b[idx(lx, h + 1, lz)] = 88;
+    } else if (r > 0.8975 && bio === 'desert') {           // 0.25%：仙人掌木怪树（3~5 高，歪的，没叶子）
+      let cx3 = lx, cz3 = lz;
+      const H3 = 3 + Math.floor(h3(wx + 3, 7, wz - 2) * 3);
+      for (let y = 1; y <= H3; y++) {
+        if (y % 2 === 0) {
+          const d = h3(wx + y * 7, 2, wz - y * 5);
+          if (d < 0.3) cx3 += 1; else if (d > 0.7) cx3 -= 1;
+          const e = h3(wx - y * 3, 4, wz + y * 6);
+          if (e < 0.3) cz3 += 1; else if (e > 0.7) cz3 -= 1;
+        }
+        if (cx3 < 0 || cx3 >= CH || cz3 < 0 || cz3 >= CH) break;
+        if (b[idx(cx3, h + y, cz3)] === 0) b[idx(cx3, h + y, cz3)] = 85;
+      }
+    }
   }
   // 树（含 5 格 padding：最大冠幅半径 3 + 冠心偏移 1 + 1，跨区块不会断枝）
   const PAD = 5;
@@ -1988,6 +2721,7 @@ function genChunk(cx, cz) {
   }
   // 峡谷（按点的索引取本块片段）
   const rvCellX = Math.floor(ox / RV_CELL), rvCellZ = Math.floor(oz / RV_CELL);
+  let rvX0 = CH, rvX1 = -1, rvZ0 = CH, rvZ1 = -1, rvY0 = 9999, rvY1 = -1;   // 本块被峡谷动过的范围
   for (let ddx = -1; ddx <= 1; ddx++) for (let ddz = -1; ddz <= 1; ddz++) {
     const rv = ravineFor(rvCellX + ddx, rvCellZ + ddz);
     if (!rv) continue;
@@ -1996,40 +2730,73 @@ function genChunk(cx, cz) {
     for (const pi of list) {
       const pt = rv.points[pi];
       const span = pt.top - pt.bot;
-      // 水峡谷：从谷壁高处挂下一道瀑布（生成时就是完整水柱，走近后灌进谷底继续流）
-      if (rv.water && pi % 11 === 0 && span > 10) {
-        if (pt.x >= ox && pt.x < ox + CH && pt.z >= oz && pt.z < oz + CH) {
-          for (let yy = pt.top - 4; yy >= pt.bot + 1; yy--) {
-            if (yy > 0 && yy < WH) b[idx(pt.x - ox, yy, pt.z - oz)] = 5;
-          }
+      {
+        const m = pt.w + 2;
+        const a0 = Math.max(0, pt.x - m - ox), a1 = Math.min(CH - 1, pt.x + m - ox);
+        const b0 = Math.max(0, pt.z - m - oz), b1 = Math.min(CH - 1, pt.z + m - oz);
+        if (a0 <= a1 && b0 <= b1) {
+          if (a0 < rvX0) rvX0 = a0; if (a1 > rvX1) rvX1 = a1;
+          if (b0 < rvZ0) rvZ0 = b0; if (b1 > rvZ1) rvZ1 = b1;
+          if (pt.bot < rvY0) rvY0 = Math.max(1, pt.bot);
+          if (pt.top > rvY1) rvY1 = Math.min(WH - 2, pt.top);
         }
       }
       for (let dy = 0; dy <= span; dy++) {
         const y = pt.top - dy;
         if (y < 1 || y >= WH) continue;
         const t = dy / Math.max(1, span);
-        const hw = Math.max(1, Math.round(pt.w * (1 - 0.25 * t)));   // 崖壁接近垂直，只微微收窄
+        /* 谷壁：整体越深越窄，但**每一层**再加一个 ±1 的层偏移 → 台阶 + 悬挑的岩壁，
+           而不是一根光滑的圆筒。旧版是在最外圈按 `dy % 7 === 0 && h3 > 0.68` 留「岩台」，
+           结果每 7 层挂一圈单块石头（上下都没邻居）—— 这就是「璧上很多单独的石头」。
+           现在的台子按整层生效，宽度至少 3 格，看起来是岩层而不是碎石。 */
+        const lj = Math.round((h3(pt.x * 0.71 + 3.1, y * 1.37, pt.z * 0.53 - 1.7) - 0.5) * 2.4);
+        const hw = Math.max(1, Math.round(pt.w * (1 - 0.3 * t)) + lj);
         for (let ax = -hw; ax <= hw; ax++) for (let az = -hw; az <= hw; az++) {
-          if (ax * ax + az * az > hw * hw + 0.9) continue;
+          const d2 = ax * ax + az * az;
+          if (d2 > hw * hw) continue;
           const x = pt.x + ax, z = pt.z + az;
           if (x < ox || x >= ox + CH || z < oz || z >= oz + CH) continue;
+          /* 不再保留「随机单块」：旧版按 h3 概率在最外圈留石头当岩台，结果是浮石
+             （上下层半径不同 → 六面全空）。壁面的参差完全交给上面那个「每层 ±1 的半径偏移」，
+             那是整层生效的，天然连着下面/旁边的岩体。 */
           const i = idx(x - ox, y, z - oz);
           const cur = b[i];
-          if (cur === 0 || cur === 5) continue;
-          const edge = ax * ax + az * az > (hw - 1) * (hw - 1);
-          if (edge && dy % 7 === 0 && h3(x * 3 + 1, y * 7, z * 5 - 2) > 0.68) continue;   // 偶尔留岩台
+          if (cur === 0 || cur === 5 || cur === 51) continue;
           b[i] = 0;
         }
       }
-      // 谷底积水
-      if (rv.water && pi % 5 < 2) {          // 只在部分谷段积水，留出干路
-        for (let ax = -1; ax <= 1; ax++) for (let az = -1; az <= 1; az++) {
+      /* 谷底：深峡谷底铺岩浆（MC 的深峡谷就是这么收尾的），浅的积水。 */
+      const lava = !rv.water && pt.bot <= 20;
+      if (rv.water || lava) {
+        const fill = lava ? 44 : 5;
+        const wide = 1 + (pt.w > 2 ? 1 : 0);
+        for (let ax = -wide; ax <= wide; ax++) for (let az = -wide; az <= wide; az++) {
           const x = pt.x + ax, z = pt.z + az;
           if (x < ox || x >= ox + CH || z < oz || z >= oz + CH) continue;
-          const yy = pt.bot + 1;
-          if (yy > 0 && yy < WH && b[idx(x - ox, yy, z - oz)] === 0) b[idx(x - ox, yy, z - oz)] = 5;
+          for (let yy = pt.bot + 1; yy <= pt.bot + (lava ? 1 : 1); yy++) {
+            if (yy > 0 && yy < WH && b[idx(x - ox, yy, z - oz)] === 0) b[idx(x - ox, yy, z - oz)] = fill;
+          }
         }
       }
+    }
+  }
+  /* 峡谷扫尾：清掉孤立浮石。
+     谷壁的「保留块」可能被相邻点的更宽挖掘掏空四面 —— 逐点即时判断抓不到
+     （实测换一个世界/种子，一条谷里还能剩 16 块六面全空的石头，玩家看起来就是
+     「壁上挂着一堆单块石头」）。这里在整条谷挖完之后对本块内的谷体积扫一遍。 */
+  if (rvY1 >= rvY0) {
+    const NB6 = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+    for (let y = rvY0; y <= rvY1; y++) for (let z2 = rvZ0; z2 <= rvZ1; z2++) for (let x2 = rvX0; x2 <= rvX1; x2++) {
+      const i = idx(x2, y, z2);
+      const id = b[i];
+      if (id === 0 || id === 5 || id === 44 || id === 51) continue;
+      let free = 0;
+      for (const [ax2, ay2, az2] of NB6) {
+        const nx = x2 + ax2, ny = y + ay2, nz = z2 + az2;
+        if (nx < 0 || nx >= CH || nz < 0 || nz >= CH || ny < 0 || ny >= WH) continue;  // 出界当实心
+        if (b[idx(nx, ny, nz)] === 0) free++;
+      }
+      if (free >= 6) b[i] = 0;
     }
   }
   // 村庄（同样按 byChunk 取本块片段）
@@ -2069,12 +2836,23 @@ function genChunk(cx, cz) {
     }
   }
   applyExtraStructs(b, ox, oz, selfKey);
-  // 悬空水清理：洞穴/裂谷/矿洞会把水下面的岩层掏空，水块就会浮在空中。
-  // 从下往上扫，下面已经是空气（或刚被清掉）的水一起去掉；玩家靠近后模拟会从旁边补成瀑布。
+  /* 悬空水清理（v321 重写）：洞穴/裂谷/矿洞会把水下面的岩层掏空。
+     ★ 旧版是「下面空了就把这一格水删掉」，而且是**从下往上**扫 ——
+       删掉最下面一格后，它上面那格就"下面也是空的"了，于是一路删到水面：
+       海底只要被洞穴戳穿一个格，整列海水消失，海面上留下一个 1×1 的洞（"水看不见"）。
+       现在改成 MC 的做法：**顺着破洞往下灌水**（漏水洞/瀑布），最多 40 格；
+       水面一格不动（海/湖表面完整），灌不到底才把那一格水去掉。 */
   for (let y = 1; y < WH; y++) for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
     const i = (y * CH + z) * CH + x;
     if (b[i] !== 5) continue;
-    if (b[((y - 1) * CH + z) * CH + x] === 0) b[i] = 0;
+    if (b[((y - 1) * CH + z) * CH + x] !== 0) continue;          // 下面不是空的：正常
+    let filled = 0;
+    for (let yy = y - 1; yy >= 0 && filled < 40; yy--, filled++) {
+      const j = (yy * CH + z) * CH + x;
+      if (b[j] !== 0) break;                                      // 碰到底就停（不动石头/岩浆）
+      b[j] = 5;
+    }
+    if (filled >= 40) b[i] = 0;                                   // 深得灌不到底：别让水悬在半空
   }
   /* ── 半张床修复：床是「脚格 + 头格」两格方块。结构生成时只写了一格，或者另一半被相邻结构/自己的
      挖空（carve）清掉，玩家就会看到「床只有半个」。这里在区块数据定稿前把缺的那格补回来。
@@ -2172,10 +2950,13 @@ function reindexEdits() {
   }
 }
 
-function setBlock(x, y, z, id, record = true) {
+function setBlock(x, y, z, id, record = true, noNet = false) {
   if (id === 0) { const mk = metaKey(x, y, z); blockMeta.delete(mk); genMeta.delete(mk); }
+  if (id !== 5 && typeof waterFlow !== 'undefined') waterFlow.delete(x + ',' + y + ',' + z);   // v333：盖住水 → 立刻清流水记录
   if (y < 0 || y >= CFG.WH) return;
-  const netHook = NET && NET.active && record && !NET.applying;    // 联机：本地先改，再推服务端
+  /* noNet：流体/生长这类**可推导**的方块变化，只在本机算，不往服务端灌（否则一次流水就是几百条编辑，
+     把服务端 40 次/秒的上限顶满，玩家的挖掘编辑跟着被拒 → 「挖掉又弹回来」）。 */
+  const netHook = NET && NET.active && record && !NET.applying && !noNet;    // 联机：本地先改，再推服务端
   const prevId = netHook ? getBlock(x, y, z) : 0;
   const cx = x >> 4, cz = z >> 4;
   const c = getChunk(cx, cz);
@@ -2192,7 +2973,7 @@ function setBlock(x, y, z, id, record = true) {
   if (lz === 0) markDirty(cx, cz - 1);
   if (lz === 15) markDirty(cx, cz + 1);
   if (!waterBusy && typeof wakeWater === 'function') wakeWater(x, y, z);
-  if (netHook) NET.onLocalEdit(x, y, z, id, prevId);
+  if (netHook && prevId !== id) NET.onLocalEdit(x, y, z, id, prevId);   // id 没变就别发（门的开关靠 meta 那条）
 }
 /* ---------- 岩浆流动 ----------
    岩浆是液体（liquid:true，不挡路），被挖开后会往低处/旁边慢慢铺。
@@ -2219,7 +3000,7 @@ function updateLava(dt) {
 /* ---------- 水流动 ---------- */
 // id 5 = 水。自然生成的水（海/湖/泉）算"水源"，不在表里；
 // 表里的是流出来的水，带 0..4 的流动等级（0 = 从上方落下来的）。
-const WATER_MAX_LVL = 4, WATER_CELL_CAP = 700;
+const WATER_MAX_LVL = 4, WATER_CELL_CAP = 2500;
 const waterFlow = new Map();          // "x,y,z" -> level
 const waterQueue = [];
 let waterHead = 0;                       // 队列读指针（不用 shift，避免 O(n²)）
@@ -2246,13 +3027,19 @@ function wakeWater(x, y, z) {
   enqueueWater(x, y, z + 1); enqueueWater(x, y, z - 1);
   enqueueWater(x, y + 1, z); enqueueWater(x, y - 1, z);
 }
-function setWater(x, y, z, lvl) {
-  waterBusy = true; setBlock(x, y, z, 5, true); waterBusy = false;
+/* mode：0 = 正常（写存档 + 上行联机）｜1 = 世界生成的修正（都不写）｜2 = 本机模拟（写存档、不上行）
+   ★ v322 的 mode 2 是这一轮最关键的一条：流水一次能改几十上百格，以前每一格都当玩家编辑上行，
+   服务端 40 次/秒的上限一顶满，玩家自己的挖掘/放置就被拒 → 客户端回滚 → 「方块挖了又长回来」。
+   水是可以由「水源 + 地形 + 同一份存档」推导出来的，各端自己算即可。 */
+function setWater(x, y, z, lvl, mode = 0) {
+  const rec = mode !== 1, noNet = mode === 1 || mode === 2;
+  waterBusy = true; setBlock(x, y, z, 5, rec, noNet); waterBusy = false;
   waterFlow.set(x + ',' + y + ',' + z, lvl);
   enqueueWater(x, y, z);
 }
-function clearWater(x, y, z) {
-  waterBusy = true; setBlock(x, y, z, 0, true); waterBusy = false;
+function clearWater(x, y, z, mode = 0) {
+  const rec = mode !== 1, noNet = mode === 1 || mode === 2;
+  waterBusy = true; setBlock(x, y, z, 0, rec, noNet); waterBusy = false;
   waterFlow.delete(x + ',' + y + ',' + z);
   enqueueWater(x, y + 1, z);
   enqueueWater(x + 1, y, z); enqueueWater(x - 1, y, z);
@@ -2266,6 +3053,17 @@ const flowLvl = (x, y, z) => {
 function updateWater(budget = 40) {
   let n = 0, changed = 0;
   const t0 = performance.now();
+  /* ★ v333 清理"幽灵"流水记录：方块被别的方式盖掉（往上放方块/地形生成）时 waterFlow 里那条
+     永远留着 —— 堆到上限之后横向铺开被彻底掐断，表现就是「水流到一半不流了、水面上中间一堆空洞」。
+     这里每次只抽查 24 条，代价可以忽略。 */
+  if (waterFlow.size > 150) {
+    let checks = 0;
+    for (const key of waterFlow.keys()) {
+      if (++checks > 24) break;
+      const p3 = key.split(',');
+      if (getBlock(+p3[0], +p3[1], +p3[2]) !== 5) waterFlow.delete(key);
+    }
+  }
   while (waterHead < waterQueue.length && n < budget) {
     const e = waterQueue[waterHead++];
     const x = e[0], y = e[1], z = e[2];
@@ -2289,27 +3087,274 @@ function updateWater(budget = 40) {
           if (nl < 0 || nl < lvl) { supported = true; break; }
         }
       }
-      if (!supported) { clearWater(x, y, z); changed++; continue; }
+      if (!supported) { clearWater(x, y, z, 2); changed++; continue; }
     }
     // 往下流：正下方的空气直接变成水
     if (y > 0 && getBlock(x, y - 1, z) === 0) {
-      setWater(x, y - 1, z, 0);
+      setWater(x, y - 1, z, 0, 2);
       changed++;
       continue;                          // 有下落就不横向扩
     }
-    // 横向铺开
+    // 横向铺开（到了上限只停横向，**下落继续** —— 以前直接 continue，水会卡在半空不动）
     const next = (lvl < 0 ? 1 : lvl + 1);
     if (next > WATER_MAX_LVL) continue;
     if (waterFlow.size > WATER_CELL_CAP) continue;
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = x + dx, nz = z + dz;
       if (getBlock(nx, y, nz) === 0) {
-        setWater(nx, y, nz, next);
+        setWater(nx, y, nz, next, 2);
         changed++;
       }
     }
   }
   return { processed: n, changed };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v336：水花 + 船
+   · 浪高公式和水面 shader **完全一致**（sin(x*1.15+t*1.7) + sin(z*1.45-t*1.25)），
+     所以船不是"假装在动"，是真的踩在同一道浪上。
+   · 每种木头一条船，船体颜色跟着木头走（橡木/白桦/云杉/金合欢/深色橡木/仙人掌木）。
+   * ══════════════════════════════════════════════════════════════════════════ */
+const BOAT_WOOD = [
+  { name: 'Oak',      hull: 0xb98a4e, trim: 0x8a6234 },
+  { name: 'Birch',    hull: 0xd8cba8, trim: 0xa89878 },
+  { name: 'Spruce',   hull: 0x7a5a34, trim: 0x5a4024 },
+  { name: 'Acacia',   hull: 0xc07a3a, trim: 0x8a4f1e },
+  { name: 'Dark Oak', hull: 0x4a3623, trim: 0x2a1d13 },
+  { name: 'Cactus',   hull: 0x93b45a, trim: 0x6a8a3c },
+];
+const boats = [];
+const waveAt = (x, z, t) => (Math.sin(x * 1.15 + t * 1.7) + Math.sin(z * 1.45 - t * 1.25)) * 0.05;
+
+/* 水面高度：从脚下往上找第一格水，取它的顶面 + 浪。没有水就返回 null。 */
+function boatSurfaceY(x, z) {
+  const bx = Math.floor(x), bz = Math.floor(z);
+  const yTop = Math.min(CFG.WH - 2, Math.floor(player.p.y) + 8);
+  const yBot = Math.max(1, Math.floor(player.p.y) - 40);
+  for (let y = yTop; y >= yBot; y--) {
+    if (getBlock(bx, y, bz) === 5) return y + 1 + waveAt(x, z, performance.now() * 0.001);
+  }
+  return null;
+}
+
+/* ── 水花 ── 一小把方块碎屑，带重力和缩小；最多同时 70 颗，不会拖帧 */
+const splashes = [];
+const splashGeo = new THREE.BoxGeometry(0.09, 0.09, 0.09);
+const splashMat = new THREE.MeshBasicMaterial({ color: 0xdff0ff, transparent: true, opacity: 0.85 });
+function splashAt(x, y, z, n = 8) {
+  for (let i = 0; i < n && splashes.length < 70; i++) {
+    const m = new THREE.Mesh(splashGeo, splashMat);
+    m.position.set(x + (Math.random() - 0.5) * 0.8, y + 0.06, z + (Math.random() - 0.5) * 0.8);
+    scene.add(m);
+    splashes.push({ m, vx: (Math.random() - 0.5) * 2.4, vy: 1.5 + Math.random() * 2.4, vz: (Math.random() - 0.5) * 2.4, life: 0.7 });
+  }
+}
+function updateSplashes(dt) {
+  for (let i = splashes.length - 1; i >= 0; i--) {
+    const s2 = splashes[i];
+    s2.vy -= 15 * dt;
+    s2.m.position.x += s2.vx * dt;
+    s2.m.position.y += s2.vy * dt;
+    s2.m.position.z += s2.vz * dt;
+    s2.life -= dt;
+    s2.m.scale.setScalar(Math.max(0.04, s2.life / 0.7));
+    if (s2.life <= 0) { scene.remove(s2.m); splashes.splice(i, 1); }
+  }
+}
+
+/* ── 船的模型：V 形船底 + 两舷 + 船头船尾斜板 + 座板 + 两支桨 ── */
+function makeBoatModel(wi) {
+  const w = BOAT_WOOD[wi] || BOAT_WOOD[0];
+  const g = new THREE.Group();
+  const box = (sx, sy, sz, x, y, z, col, rx, ry) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), new THREE.MeshLambertMaterial({ color: col }));
+    m.position.set(x, y, z);
+    if (rx) m.rotation.x = rx;
+    if (ry) m.rotation.y = ry;
+    g.add(m); return m;
+  };
+  box(0.80, 0.10, 1.50, 0, 0.06, 0, w.trim);                 // 龙骨
+  box(1.06, 0.12, 1.86, 0, 0.16, 0, w.hull);                 // 船底
+  box(0.09, 0.32, 1.90,  0.56, 0.38, 0, w.hull);             // 左舷
+  box(0.09, 0.32, 1.90, -0.56, 0.38, 0, w.hull);             // 右舷
+  box(0.86, 0.26, 0.10, 0, 0.36,  0.95, w.hull, -0.55, 0);   // 船头（上翘）
+  box(0.86, 0.26, 0.10, 0, 0.36, -0.95, w.hull,  0.55, 0);   // 船尾
+  box(1.00, 0.07, 0.40, 0, 0.33, 0, w.trim);                 // 座板
+  const oarL = box(0.06, 0.06, 1.45, -0.74, 0.36, 0.06, w.trim, 0, 0.14);
+  const oarR = box(0.06, 0.06, 1.45,  0.74, 0.36, 0.06, w.trim, 0, -0.14);
+  g.userData.oars = [oarL, oarR];
+  return g;
+}
+
+let boatSeq = 0;
+function spawnBoat(x, z, wi, y0) {
+  const obj = makeBoatModel(wi);
+  const b = { id: ++boatSeq, obj, wi, x, z, y: y0, vy: 0, vx: 0, vz: 0, yaw: player.yaw, ph: Math.random() * 6.28 };
+  obj.position.set(x, y0, z);
+  obj.rotation.y = player.yaw;
+  scene.add(obj);
+  boats.push(b);
+  splashAt(x, y0, z, 12);
+  sfx('place');
+  return b;
+}
+
+/* ★ v337：读档时按存档重建船（不复原 id，id 只在本局联机里有意义） */
+function restoreBoats(arr) {
+  for (const b of boats.slice()) scene.remove(b.obj);
+  boats.length = 0;
+  for (const a of (arr || [])) {
+    if (!Array.isArray(a) || a.length < 5) continue;
+    const obj = makeBoatModel(a[3] | 0);
+    const b = { id: ++boatSeq, obj, wi: a[3] | 0, x: +a[0], z: +a[2], y: +a[1], vy: 0, vx: 0, vz: 0, yaw: +a[4], ph: Math.random() * 6.28 };
+    obj.position.set(b.x, b.y, b.z);
+    obj.rotation.y = b.yaw;
+    scene.add(obj);
+    boats.push(b);
+  }
+}
+
+/* 交互：手里拿船 + 对着水面按 G → 放船 */
+function useBoat(h, t) {
+  const bdef = h && ITEMS[h.id];
+  if (!bdef || bdef.kind !== 'boat') return false;      // 兜底：手里不是船就当没这回事
+  /* ★ v338 修 bug：raycastVoxel() 是「穿过水」的（它只认实心方块，第 4207 行 id!==0 && id!==5），
+     所以准星对着水面时 t 要么是水底的石块、要么是 null —— 以前这里判 getBlock(t)===5 永远不成立，
+     表现就是一直弹 "Aim at water to place the boat"。
+     改成用水桶装水用的 rayWater()：它会沿视线找第一格水。 */
+  let src = rayWater(CFG.REACH);
+  if (!src) {
+    /* 兜底：自己站在水里（或贴着水面），用脚下这一列的水 */
+    const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+    for (let y = Math.floor(player.p.y) + 1; y > Math.floor(player.p.y) - 6; y--) {
+      if (getBlock(px, y, pz) === 5) { src = { x: px, y, z: pz }; break; }
+    }
+  }
+  if (!src) { toast('Aim at water to place the boat', 1.6); return false; }
+  /* 取这一列最高的那格水 → 船永远浮在水面，不会塞到水下 */
+  let sy = src.y;
+  while (sy < CFG.WH - 2 && getBlock(src.x, sy + 1, src.z) === 5) sy++;
+  const x = src.x + 0.5, z = src.z + 0.5;
+  spawnBoat(x, z, bdef.wood | 0, sy + 1 + waveAt(x, z, performance.now() * 0.001));
+  const slot = inv[player.sel];
+  if (slot && slot.n > 1) { slot.n -= 1; } else if (slot) { inv[player.sel] = null; }
+  refreshHeld(); renderHotbar(); saveSoon();
+  startSwing('place', 0.24);
+  return true;
+}
+/* 交互：空手靠近船按 G → 上船 / 下船 */
+function tryBoatBoard() {
+  if (player.riding) { player.riding = null; toast('Left the boat', 1.2); return true; }
+  let best = null, bd = 3.2;
+  const consider = (b, ghost) => {
+    const px2 = ghost ? b.obj.position.x : b.x, pz2 = ghost ? b.obj.position.z : b.z;
+    const d = Math.hypot(px2 - player.p.x, pz2 - player.p.z);
+    if (d < bd) { bd = d; best = b; best.__ghost = ghost; }
+  };
+  for (const b of boats) consider(b, false);
+  /* ★ v337 联机：别人（房主）放的船 —— 客人也能上 */
+  if (typeof NET !== 'undefined' && NET && NET.gBoats) for (const [, g] of NET.gBoats) consider(g, true);
+  if (!best) return false;
+  player.riding = best;
+  toast(best.__ghost ? 'Boarded the boat — WASD to row (host drives)' : 'Boarded the boat — WASD to row, Space to hop', 2.2);
+  return true;
+}
+
+/* ── 每帧：船的浮力/起伏/划行/跃起 ── */
+function updateBoats(dt) {
+  const now = performance.now() * 0.001;
+  for (let i = boats.length - 1; i >= 0; i--) {
+    const b = boats[i];
+    const surf = boatSurfaceY(b.x, b.z);
+    const riding = player.riding === b;
+    /* ★ v337 联机：房主结算所有人的船 —— 客人上船后把 WASD 发上来（bi），这里当"船夫"用 */
+    const gst = (b.gst && performance.now() - b.gst.t < 420) ? b.gst : null;
+    if (riding || gst) {
+      /* 划船：A/D 转身，W/S 前后划；船速 5.6（比走路 4.7 快一点，值得用） */
+      const turn = riding ? (keyDown('left') ? 1 : 0) - (keyDown('right') ? 1 : 0) : (gst.turn | 0);
+      b.yaw += turn * 1.7 * dt;
+      const fwd = riding ? (keyDown('fwd') ? 1 : 0) - (keyDown('back') ? 1 : 0) : (gst.fwd | 0);
+      const spd = fwd * 5.6;
+      b.x += -Math.sin(b.yaw) * spd * dt;
+      b.z += -Math.cos(b.yaw) * spd * dt;
+      /* 撞到实心方块就停下（不穿地形；水里/空气可以走） */
+      const fx = b.x - Math.sin(b.yaw) * 0.9, fz = b.z - Math.cos(b.yaw) * 0.9;
+      const fy = Math.floor(b.y + 0.3);
+      if (isSolid(getBlock(Math.floor(fx), fy, Math.floor(fz)))) {
+        b.x -= -Math.sin(b.yaw) * spd * dt;
+        b.z -= -Math.cos(b.yaw) * spd * dt;
+        /* ★ v337 撞岸：速度够快就磕一下（掉 1 血 + 水花 + 1 秒冷却） */
+        if (Math.abs(fwd) > 0 && !(b.bumpCd > 0)) {
+          b.bumpCd = 1.0;
+          splashAt(b.x - Math.sin(b.yaw) * 0.8, b.y + 0.2, b.z - Math.cos(b.yaw) * 0.8, 6);
+          try { damagePlayer(1); } catch (e) {}
+          sfx('step');
+        }
+      }
+      if (b.bumpCd > 0) b.bumpCd -= dt;
+      if (spd !== 0) b.ph += dt * 6.5;                       // 划桨节奏
+      /* 空格：跃起（落在水面上会溅水花） */
+      if (jumpQueued) { jumpQueued = false; b.vy = 5.4; }
+    }
+    /* 垂直：浮力 + 跃起后的重力 */
+    const surf2 = surf === null ? null : surf;
+    if (b.vy !== 0 || (surf2 !== null && b.y > surf2 + 0.02)) {
+      b.vy -= 13 * dt;
+      b.y += b.vy * dt;
+      if (surf2 !== null && b.y <= surf2) {
+        if (b.vy < -1.2) { splashAt(b.x, surf2, b.z, 10 + Math.min(10, Math.round(-b.vy * 2))); sfx('step'); }
+        b.y = surf2; b.vy = 0;
+      }
+    } else if (surf2 !== null) {
+      b.y += (surf2 - b.y) * Math.min(1, dt * 10);           // 跟着浪缓缓抬落
+    }
+    b.obj.position.set(b.x, b.y, b.z);
+    b.obj.rotation.y = b.yaw;
+    /* 浪的坡度 → 船身俯仰/侧倾（真的是"踩在浪上"） */
+    const hx = waveAt(b.x + 0.7, b.z, now) - waveAt(b.x - 0.7, b.z, now);
+    const hz = waveAt(b.x, b.z + 0.7, now) - waveAt(b.x, b.z - 0.7, now);
+    b.obj.rotation.x += (-hz * 3.0 - b.obj.rotation.x) * Math.min(1, dt * 8);
+    b.obj.rotation.z += (hx * 3.0 - b.obj.rotation.z) * Math.min(1, dt * 8);
+    /* 桨跟着划（在船上时） */
+    const oars = b.obj.userData.oars;
+    if (oars) {
+      const a = player.riding === b ? Math.sin(b.ph) * 0.5 : Math.sin(now * 0.8 + b.ph) * 0.08;
+      oars[0].rotation.x = a; oars[1].rotation.x = -a;
+    }
+    /* 骑乘时把玩家锁在船上 */
+    if (riding) {
+      player.p.set(b.x, b.y + 0.22, b.z);
+      player.v.set(0, 0, 0);
+      player.onGround = true;
+      player.yaw = b.yaw;                                    // 视角跟船头走（划船时更顺手）
+    }
+    /* 船被水冲走 / 掉出世界 → 清理 */
+    if (b.y < 2) { scene.remove(b.obj); boats.splice(i, 1); if (player.riding === b) player.riding = null; }
+  }
+  /* ★ v337 联机：客人这边的「幽灵船」平滑跟随房主广播的位置 */
+  if (typeof NET !== 'undefined' && NET && NET.gBoats) {
+    for (const [, g] of NET.gBoats) {
+      const k = Math.min(1, dt * 12);
+      g.obj.position.x += (g.tx - g.obj.position.x) * k;
+      g.obj.position.y += (g.ty - g.obj.position.y) * k;
+      g.obj.position.z += (g.tz - g.obj.position.z) * k;
+      g.obj.rotation.y += (g.yaw - g.obj.rotation.y) * k;
+      /* 客人在别人的船上：人跟着船走 + 把自己的输入发给房主 */
+      if (player.riding === g) {
+        player.p.set(g.obj.position.x, g.obj.position.y + 0.22, g.obj.position.z);
+        player.v.set(0, 0, 0); player.onGround = true;
+        NET.biT = (NET.biT || 0) + dt;
+        if (NET.biT >= 0.1 && NET.ws && NET.ws.readyState === 1) {
+          NET.biT = 0;
+          const fwd2 = (keyDown('fwd') ? 1 : 0) - (keyDown('back') ? 1 : 0);
+          const turn2 = (keyDown('left') ? 1 : 0) - (keyDown('right') ? 1 : 0);
+          if (fwd2 || turn2) { try { NET.ws.send(JSON.stringify({ t: 'bi', i: g.id, fwd: fwd2, turn: turn2 })); } catch (e) {} }
+        }
+      }
+    }
+  }
+  updateSplashes(dt);
 }
 
 // 出生点：从 (8,8) 向外找一块高于海面的陆地，别让玩家出生就泡在水里
@@ -2533,9 +3578,23 @@ const glassMat = new THREE.MeshBasicMaterial({
   depthWrite: false, side: THREE.DoubleSide, fog: true,
 });
 const waterMat = new THREE.MeshBasicMaterial({
-  map: atlasTex, vertexColors: true, transparent: true, opacity: 0.74,
+  map: atlasTex, vertexColors: true, transparent: true,
+  opacity: 0.55,                                   // ★ v333：0.74 → 0.55（更透，能看见水下地形）
   depthWrite: false, side: THREE.DoubleSide, fog: true,
 });
+/* ★ v333 动态水面：顶点按两组 sin 波上下起伏。
+   相位用**世界坐标**（modelMatrix * position）算 —— 用物体坐标的话每个区块的波峰位置一样，
+   区块边界会出现整齐的接缝。振幅 0.05 格，看起来是"水在轻轻起伏"而不是整体抖动。 */
+waterMat.userData.uTime = { value: 0 };
+waterMat.onBeforeCompile = (sh) => {
+  sh.uniforms.uTime = waterMat.userData.uTime;
+  sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace(
+    '#include <begin_vertex>',
+    `#include <begin_vertex>
+     vec4 wp333 = modelMatrix * vec4(transformed, 1.0);
+     transformed.y += (sin(wp333.x * 1.15 + uTime * 1.7) + sin(wp333.z * 1.45 - uTime * 1.25)) * 0.05;`
+  );
+};
 
 // 水面高度：水源/从上方落下的水 = 整格；横向流出的水按等级往下压，越远越薄
 const waterTopH = (x, y, z) => {
@@ -2546,6 +3605,13 @@ const waterTopH = (x, y, z) => {
 // 四个角点各自取周围最低水面 → 水面自然变成斜的（流到落差处会向下倾斜成瀑布口）
 function waterCornerHeights(x, y, z) {
   const own = waterTopH(x, y, z);
+  /* ★ v342：下落的水柱必须保持满格。
+     lvl 0 = 从上方落下来的水，这一格的“顶面”其实是水柱内部；旧代码把它和普通自由水面
+     一样按「悬边」处理 —— 四个邻格都是空气、斜下方也是空气 → 角点被压到 0.16，
+     于是每一格只剩一圈 0.14 高的边，整根瀑布渲染成一串空心蓝环，格与格之间能直接看穿。
+     判据用「等级 0」而不是「上面是水」：水柱最底那一格上面也是水，但下方已经落地，
+     同样应该保持满格才会和地面水洼接上。 */
+  if (flowLvl(x, y, z) === 0) return [[own, own], [own, own]];
   const surf = (nx, nz) => {
     const id = getBlock(nx, y, nz);
     if (id === 5) return waterTopH(nx, y, nz);
@@ -2618,8 +3684,53 @@ function getMeta(x, y, z) {
 }
 function setMeta(x, y, z, m, gen = false) {
   const k = metaKey(x, y, z);
-  if (!m) { blockMeta.delete(k); genMeta.delete(k); return; }
+  const old = blockMeta.get(k) || genMeta.get(k) || 0;
+  /* ⚠ 归零也是一次状态变化，必须在 return 之前上行：关一扇 dir=1 的门，它的 meta 正好回到 0。
+     以前这里直接 return ⇒ 联机时对方永远停在「开着」，两边看到/能走通的状态不一样。 */
+  if (!m) {
+    blockMeta.delete(k); genMeta.delete(k);
+    if (!gen && old && NET && NET.active && !NET.applying && typeof NET.onLocalMeta === 'function') {
+      NET.onLocalMeta(x, y, z, 0, old);
+    }
+    return;
+  }
   if (gen) genMeta.set(k, m); else blockMeta.set(k, m);
+  /* ★ 联机同步 meta（v322）：门开合/朝向、床朝向、楼梯坡口全在 meta 里，以前完全不上行 ——
+     客人看到门「显示开着/朝向不对」却走不过去，床的朝向也不对。 */
+  if (!gen && NET && NET.active && !NET.applying && (m | 0) !== old && typeof NET.onLocalMeta === 'function') {
+    NET.onLocalMeta(x, y, z, m | 0, old);
+  }
+}
+/* ── 门的状态只有一个来源：下半格 ──────────────────────────────────────────
+   一扇门是两格方块、一份状态（dir + open，上格补 bit3）。以前碰撞/门模型各自读**本格** meta：
+   联机时上下两格是两条独立编辑，丢一条或被拒一条 → 下格「开着」但上格还是「关着」，
+   于是「门看着是开的、脑袋却撞在没同步的上半格上，过不去」；断线重连丢 meta 时更明显。
+   现在所有读取都先落到下半格（结构判据：下面也是门 ⇒ 本格是上半格），写入时整扇门一起对齐。 */
+function doorRootY(x, y, z) {                     // 这格门的下半格 y（不是门 → null）
+  const id = getBlock(x, y, z);
+  if (!id || !BLOCKS[id] || !BLOCKS[id].door) return null;
+  if (y > 0 && getBlock(x, y - 1, z) === id) return y - 1;
+  if (getMeta(x, y, z) & 8) return y - 1;         // 兜底：上半格标记在、下格方块被别的东西顶掉了
+  return y;
+}
+function doorOpenAt(x, y, z) {                    // 整扇门是否开着（只看下半格的 bit2）
+  let ry = doorRootY(x, y, z);
+  if (ry === null) return false;
+  if (getBlock(x, ry, z) !== getBlock(x, y, z)) ry = y;   // 下半格已经不是门了 → 退回本格
+  return !!(getMeta(x, ry, z) & 4);
+}
+/* 把下半格的 dir+open 覆写到整扇门（上格补 bit3）。联机收到任意一格的 meta 后调用，
+   丢一条编辑也能自动补全；必须在 net.applying 里调用，否则会把修复结果再回声上行。 */
+function syncDoorMeta(x, y, z) {
+  const id = getBlock(x, y, z);
+  if (!id || !BLOCKS[id] || !BLOCKS[id].door) return false;
+  let down = (y > 0 && getBlock(x, y - 1, z) === id) ? y - 1 : y;
+  const m = getMeta(x, down, z) & 7;              // dir(bit0-1) + open(bit2)
+  let n = 0;
+  if (getMeta(x, down, z) !== m) { setMeta(x, down, z, m, false); n++; }
+  const up = down + 1;
+  if (getBlock(x, up, z) === id && getMeta(x, up, z) !== (m | 8)) { setMeta(x, up, z, m | 8, false); n++; }
+  return n;
 }
 function faceTile(def, fi, meta = 0) {
   if (def.log && meta) {                 // 横放的原木：两端露年轮
@@ -2740,7 +3851,7 @@ function emitDoor(lx, y, lz, def, meta, P, U, C, I, base) {
     if (dir === 1 || dir === 2) { const xs = dir === 1 ? 0.02 : 1 - 0.02 - T; x0 = xs; x1 = xs + T; z0 = E; z1 = 1 - E; }
     else { const zs = dir === 3 ? 0.02 : 1 - 0.02 - T; z0 = zs; z1 = zs + T; x0 = E; x1 = 1 - E; }
   }
-  const y0 = top ? 0.04 : 0, y1 = top ? 0.95 : 0.98;  // 上下半格之间留缝，看得出是两截门
+  const y0 = top ? 0 : 0, y1 = top ? 1.0 : 1.0;  // 上下半格严丝合缝（旧版 0.04/0.95 留了 5cm 缝）
   let n = emitBox(P, U, C, I, base, lx, y, lz, x0, x1, y0, y1, z0, z1, 40);
   if (!top) {                                      // 门把手：自由端、朝室内那一面
     let kx0, kx1, kz0, kz1;
@@ -2785,13 +3896,16 @@ function emitCross(lx, y, lz, def, P, U, C, I, base) {
 }
 
 /* ── 门的运行时对象：门不进区块网格，改成每扇一个 Group，绕铰链缓动旋转（丝滑开关） ──
-   ⚠ 开门必须让门板「转进本格内」：门板长 0.84 + 厚 0.14 < 1.0，铰链放在门板内角，
-   旋转后门板刚好贴着门洞侧壁 —— 旧版铰链在外角，开门时门板会探出格子 0.16 米插进旁边方块（穿模）。 */
+   ⚠ 门板顶满整格（0.96 宽），铰链放在「板厚中线 + 墙垛那一侧的角」上：
+   开 90° 后门板沿门洞侧壁躺平，两端各只探出 4cm（旧版铰链在外角会探出 16cm 插进邻居）。 */
 const DOOR_DEF = [null,
-  { x0: 0.11, x1: 0.89, z0: 0.04, z1: 0.16, hx: 0.11, hz: 0.16, a: -Math.PI / 2 },   // 贴 -Z
-  { x0: 0.11, x1: 0.89, z0: 0.84, z1: 0.96, hx: 0.89, hz: 0.84, a: -Math.PI / 2 },   // 贴 +Z
-  { x0: 0.04, x1: 0.16, z0: 0.11, z1: 0.89, hx: 0.16, hz: 0.11, a: Math.PI / 2 },    // 贴 -X
-  { x0: 0.84, x1: 0.96, z0: 0.11, z1: 0.89, hx: 0.84, hz: 0.89, a: Math.PI / 2 },    // 贴 +X
+  /* 门板顶满整格（只留 2cm 阴影线）：旧版 x 0.11..0.89 = 两边各空 11cm，
+     关门时能直接看到屋里（「门漏缝隙」的主因）。铰链取在板厚中线上，
+     开 90° 后两端各只探出 4cm（一侧进墙垛、一侧进房间边缘），几乎看不见。 */
+  { x0: 0.02, x1: 0.98, z0: 0.02, z1: 0.14, hx: 0.02, hz: 0.08, a: -Math.PI / 2 },   // 贴 -Z
+  { x0: 0.02, x1: 0.98, z0: 0.86, z1: 0.98, hx: 0.98, hz: 0.92, a: -Math.PI / 2 },   // 贴 +Z
+  { x0: 0.02, x1: 0.14, z0: 0.02, z1: 0.98, hx: 0.08, hz: 0.02, a: Math.PI / 2 },    // 贴 -X
+  { x0: 0.86, x1: 0.98, z0: 0.02, z1: 0.98, hx: 0.92, hz: 0.98, a: Math.PI / 2 },    // 贴 +X
 ];
 const doorGeoCache = new Map();
 const doorObjs = new Map();            // 'x,y,z'（下格）→ { group, dir, p, targetP, a }
@@ -2800,8 +3914,29 @@ function doorGeometry(dir) {
   const d = DOOR_DEF[dir];
   const P = [], U = [], C = [], I = [];
   let n = 0;
-  n += emitBox(P, U, C, I, n, 0, 0, 0, d.x0 - d.hx, d.x1 - d.hx, 0, 1.0, d.z0 - d.hz, d.z1 - d.hz, 40);        // 下半：画到 1.0
-  n += emitBox(P, U, C, I, n, 0, 0, 0, d.x0 - d.hx, d.x1 - d.hx, 1.0, 2.0, d.z0 - d.hz, d.z1 - d.hz, 40);      // 上半：从 1.0 起（★ 无缝，原先是 0.98 / 1.04 留了 6cm 缝）
+  /* 局部坐标：沿「门板长度」方向 a、沿「板厚」方向 t（相对铰链）。
+     dir 1/2 的长度轴是 X，dir 3/4 是 Z。 */
+  const alongX = (dir === 1 || dir === 2);
+  const L0 = alongX ? d.x0 - d.hx : d.z0 - d.hz, L1 = alongX ? d.x1 - d.hx : d.z1 - d.hz;
+  const T0 = alongX ? d.z0 - d.hz : d.x0 - d.hx, T1 = alongX ? d.z1 - d.hz : d.x1 - d.hx;
+  const box = (a0, a1, y0, y1, t0, t1, tile) => {
+    if (a1 - a0 <= 0.0001 || y1 - y0 <= 0.0001) return;
+    if (alongX) n += emitBox(P, U, C, I, n, 0, 0, 0, a0, a1, y0, y1, t0, t1, tile);
+    else        n += emitBox(P, U, C, I, n, 0, 0, 0, t0, t1, y0, y1, a0, a1, tile);
+  };
+  /* ★ 门 = 木框（立梃 + 上/中/下横档，整块板厚）+ 内嵌木板（两侧各凹进 2cm）。
+     中横档正好骑在 y=1（两格门的分界）上 ⇒ 上下两半之间不会有缝；
+     立梃顶到格子边缘 ⇒ 左右也不再漏光。内嵌板用真·木板贴图（8），门框用深色门框贴图（40）。 */
+  const FR = 0.15;                                              // 框料宽度
+  box(L0, L1, 0, 0.16, T0, T1, 40);                             // 下横档
+  box(L0, L1, 0.92, 1.08, T0, T1, 40);                          // 中横档（压在两格缝上）
+  box(L0, L1, 1.84, 2.0, T0, T1, 40);                           // 上横档
+  box(L0, L0 + FR, 0.16, 1.84, T0, T1, 40);                     // 左立梃
+  box(L1 - FR, L1, 0.16, 1.84, T0, T1, 40);                     // 右立梃
+  box(L0 + FR, L1 - FR, 0.16, 1.84, T0 + 0.02, T1 - 0.02, 8);   // 内嵌木板（凹 2cm）
+  /* 铜把手：装在自由端（远铰链那一头），两面各凸出 1.5cm，才看得出是把手 */
+  const ka = (dir === 1 || dir === 3) ? L1 - 0.16 : L0 + 0.10;
+  box(ka, ka + 0.06, 0.44, 0.56, T0 - 0.015, T1 + 0.015, 41);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
@@ -2817,7 +3952,9 @@ function doorGeometry(dir) {
 }
 function ensureDoorObj(d) {
   const key = d.x + ',' + d.y + ',' + d.z;
-  const openNow = !!(getMeta(d.x, d.y, d.z) & 4);
+  const below = doorObjs.get(d.x + ',' + (d.y - 1) + ',' + d.z);
+  if (below) { below.targetP = doorOpenAt(d.x, d.y - 1, d.z) ? 1 : 0; return below; }   // 同一扇门的上半格：复用下半格的对象
+  const openNow = doorOpenAt(d.x, d.y, d.z);
   const dd = DOOR_DEF[d.dir] || DOOR_DEF[1];
   let o = doorObjs.get(key);
   if (!o) {
@@ -2833,6 +3970,58 @@ function ensureDoorObj(d) {
   }
   o.targetP = openNow ? 1 : 0;
   return o;
+}
+/* ── 箱子模型 ────────────────────────────────────────────────────────
+ * 以前箱子就是一块贴了「箱子贴图」的立方体，打开时毫无反馈。现在：
+ *   · 从区块网格里剔除（和门同一套），换成独立 Group
+ *   · 底座 + 盖板（铰链在后沿）+ 黄铜锁扣，比满格方块矮一点，像真的箱子
+ *   · 打开界面时盖板绕后沿转 112°，关闭时合上（0.18 秒缓动） */
+const chestObjs = new Map();
+const CHEST_W = 0.84, CHEST_H = 0.56, LID_H = 0.24;
+function ensureChestObj(c) {
+  const key = c.x + ',' + c.y + ',' + c.z;
+  let o = chestObjs.get(key);
+  if (o) return o;
+  const sideM = blockFaceMat(19), topM = blockFaceMat(20);
+  const mats = [sideM, sideM, topM, sideM, sideM, sideM];
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.BoxGeometry(CHEST_W, CHEST_H, CHEST_W), mats);
+  base.position.y = CHEST_H / 2;
+  g.add(base);
+  const lidPivot = new THREE.Group();
+  lidPivot.position.set(0, CHEST_H, -CHEST_W / 2);                 // 铰链在后沿
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(CHEST_W + 0.02, LID_H, CHEST_W + 0.02), mats);
+  lid.position.set(0, LID_H / 2, CHEST_W / 2);
+  lidPivot.add(lid);
+  g.add(lidPivot);
+  const lockMat = new THREE.MeshLambertMaterial({ color: 0xd8c27a });
+  const lock = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.15, 0.05), lockMat);
+  lock.position.set(0, CHEST_H - 0.03, CHEST_W / 2 + 0.015);
+  g.add(lock);
+  g.position.set(c.x + 0.5, c.y, c.z + 0.5);
+  scene.add(g);
+  o = { g, lidPivot, p: 0, targetP: 0 };
+  chestObjs.set(key, o);
+  return o;
+}
+function syncChests() {
+  const live = new Set();
+  for (const ch of chunks.values()) {
+    const cs = ch.chestCells;
+    if (!cs || !cs.length) continue;
+    for (const c of cs) { live.add(c.x + ',' + c.y + ',' + c.z); ensureChestObj(c); }
+  }
+  for (const [k, o] of chestObjs) if (!live.has(k)) { scene.remove(o.g); chestObjs.delete(k); }
+}
+function updateChestAnims(dt) {
+  const openKey = openChestPos ? (openChestPos.x + ',' + openChestPos.y + ',' + openChestPos.z) : null;
+  for (const [k, o] of chestObjs) {
+    o.targetP = (k === openKey) ? 1 : 0;
+    if (o.p === o.targetP) continue;
+    const step = dt / 0.18;
+    o.p = o.p < o.targetP ? Math.min(o.targetP, o.p + step) : Math.max(o.targetP, o.p - step);
+    o.lidPivot.rotation.x = -easeOutCubic(o.p) * 1.95;             // 约 112°
+  }
 }
 function syncDoors() {
   const live = new Set();
@@ -2868,7 +4057,7 @@ function startChunkMesh(chunk) {
   chunk.stale = missingNb;
   chunk.ready = false;
   chunk.job = {
-    y: 0, ox, oz, doorCells: [], torches: [],
+    y: 0, ox, oz, doorCells: [], chestCells: [], torches: [],
     P: [], U: [], C: [], I: [], P2: [], U2: [], C2: [], I2: [],
     P3: [], U3: [], C3: [], I3: [], P4: [], U4: [], C4: [], I4: [],   // P4 = 植物十字面片
     vc: 0, vw: 0, vg: 0, vp: 0,
@@ -2892,19 +4081,29 @@ function stepChunkMesh(chunk, yTo) {                    // 推进到第 yTo 层�
     if (def.bed) { vc += emitBed(x, y, z, wx, wz, meta, P, U, C, I, vc); continue; }
     if (def.cross) { vp += emitCross(x, y, z, def, P4, U4, C4, I4, vp); if (def.torch) j.torches.push(wx + ',' + y + ',' + wz); continue; }
     if (def.lamp) j.torches.push(wx + ',' + y + ',' + wz);       // ★ 整块光源（深渊灯/火盆）：和火把共用点光源池
+    if (def.chest) { j.chestCells.push({ x: wx, y, z: wz }); continue; }   // 箱子：独立模型（要开盖动画）
     if (def.door) {                                      // 门：独立 Mesh（可平滑旋转），只记下位置
-      if (!(meta & 8)) j.doorCells.push({ x: wx, y, z: wz, dir: (meta & 3) + 1 });
+      /* 联机不传 block meta：门的上半格没有 &8 标记，于是上下两格各生成一扇门（=「门显示成两个」）。
+         这里再加一道与 meta 无关的判据：下面那格也是门 → 本格是上半格，交给下半格去建。 */
+      const isUpper = y > 0 && chunk.blocks[((y - 1) * CH + z) * CH + x] === 35;
+      if (!(meta & 8) && !isUpper) j.doorCells.push({ x: wx, y, z: wz, dir: (meta & 3) + 1 });
       continue;
     }
     const water = id === 5;
     const glass = id === 22;
+    /* 剔面规则（v321 统一）：**只有不透明的满格方块才挡住一个面**。
+       ⚠ 旧版水单独写了一条 `nb !== 0 就剔` → 水挨着玻璃/半格床/门/植物/火把时那一面
+       根本不画，于是「玻璃水箱、水下玻璃窗」里的水从外面看是**空的**（水看不见的头号原因）。
+       同一份规则也修了玻璃：玻璃以前挨着水就剔自己的面 → 缸壁会凭空消失一层。 */
+    const occl = (v) => v !== 0 && v !== 5 && v !== 22 &&
+      !(BLOCKS[v] && (BLOCKS[v].half || BLOCKS[v].door || BLOCKS[v].cross));
     const solidTop = def.half || 1;                       // 床这类半格方块
     let wch = null;                                       // 水面角点高度缓存
     for (let fi = 0; fi < 6; fi++) {
       const f = FACES[fi];
       const nb = peekBlock(wx + f.n[0], y + f.n[1], wz + f.n[2]);
-      if (water) { if (nb !== 0) continue; }
-      else if (glass) { if (nb === 22 || nb === 5) continue; }          // 玻璃之间不画内面
+      if (water || glass) { if (nb === id || occl(nb)) continue; }     // 同种之间不画内面；透明的邻居不挡面
+      else if (nb !== 0 && nb !== 5 && nb !== 22 && !(BLOCKS[nb] && (BLOCKS[nb].half || BLOCKS[nb].door || BLOCKS[nb].cross))) continue;
       // ⚠ 半格方块（床）和门都不是满格：照旧把邻面剔掉，邻居朝向它们的那一面会整面消失
       // → 从床上/门缝看过去能直接穿进方块里。非满格邻居一律照画。
       else if (nb !== 0 && nb !== 5 && nb !== 22 && !(BLOCKS[nb] && (BLOCKS[nb].half || BLOCKS[nb].door || BLOCKS[nb].cross))) continue;
@@ -2975,6 +4174,7 @@ function finishChunkMesh(chunk) {
   if (np) { np.renderOrder = 3; scene.add(np); }
   chunk.ready = true;
   chunk.doors = doorCells;
+  chunk.chestCells = j.chestCells;
   for (const t of j.torches) { const q = t.split(','); registerTorch(+q[0], +q[1], +q[2]); }
   chunk.job = null;
   return true;
@@ -2993,6 +4193,7 @@ const player = {
   swing: 0, walkPhase: 0, fallFrom: null, inWater: false, inLava: false, burn: 0,
   sel: 0, mining: 0, mineTarget: null, atkCd: 0, hits: 0, kills: 0,
   spawn: null, stepUp: true,
+  air: OXY_MAX, drownT: 0, airWarned: false, off: null,     // ★ v339 氧气 / 左手
   armor: { head: null, chest: null, legs: null, feet: null },
 };
 const ARMOR_SLOTS = ['head', 'chest', 'legs', 'feet'];
@@ -3041,10 +4242,12 @@ function useTool(n = 1) {
 function addItem(id, n = 1) {
   if (!isItem(id)) return false;
   const idef = defOf(id) || {};
-  if (idef.dur || idef.kind === 'gun') {           // 工具/剑/能量炮：一把一格（炮还带电量 c）
+  if (idef.dur || idef.kind === 'gun' || idef.kind === 'tank') {   // 工具/剑/能量炮/氧气罐：一格一把
     let left = n;
     for (let i = 0; i < SLOTS && left > 0; i++) if (!inv[i]) {
-      inv[i] = idef.kind === 'gun' ? { id, n: 1, c: idef.cap || 8 } : { id, n: 1, d: idef.dur };
+      inv[i] = idef.kind === 'gun' ? { id, n: 1, c: idef.cap || 8 }
+             : idef.kind === 'tank' ? { id, n: 1, c: 0 }
+             : { id, n: 1, d: idef.dur };
       left--;
     }
     if (left > 0) toast('Inventory is full — the item dropped at your feet', 1.5);
@@ -3086,7 +4289,9 @@ function collides(px, py, pz) {
     if (!isSolid(id)) continue;
     const half = (BLOCKS[id] || {}).half;
     if (half && py >= y + half - 0.03) continue;              // 半格方块（床）：站在上面不算卡住
-    if (BLOCKS[id] && BLOCKS[id].door && (getMeta(x, y, z) & 4)) continue;   // 开着的门可以直接穿过
+    /* 开着的门可以直接穿过；「开没开」一律取整扇门（下半格）的状态 —— 逐格读本格 meta
+       时，联机丢一条 meta 就会「上半格关着、人卡在看得见的开门口」。 */
+    if (BLOCKS[id] && BLOCKS[id].door && doorOpenAt(x, y, z)) continue;
     return true;
   }
   return false;
@@ -3253,7 +4458,27 @@ function makeToolModel(id) {
   const copM = new THREE.MeshLambertMaterial({ color: 0xd98b4a });    // 铜：石与铁之间的中间档
   const netherM = new THREE.MeshLambertMaterial({ color: 0x7d6890 });  // 冥界钢：暗紫灰，比钻石更强的一档
   const diaM = new THREE.MeshLambertMaterial({ color: 0x5fe6d8 });
-  if (id === 100 || id === 101 || id === 120 || id === 130 || id === 163 || id === 184) {  // 镐
+  if (id === 200 || id === 201 || id === 202 || id === 203 || id === 204 || id === 205) {  // 斧
+    /* 斧：木柄（下段缠绳）+ 颈箍 + 三块逐级变薄变高的楔形刃（侧看是刃口，不是一块方铁） */
+    const headM = id === 205 ? netherM : id === 204 ? diaM : id === 202 ? copM : id === 201 ? stoneM : id === 203 ? ironM : wood;
+    const wrapM = new THREE.MeshLambertMaterial({ color: 0x5b3d22 });
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.52, 0.04), woodDark);
+    shaft.position.y = -0.05;
+    g.add(shaft);
+    for (const yy of [-0.19, -0.12]) {
+      const ring = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.022, 0.052), wrapM);
+      ring.position.y = yy; g.add(ring);
+    }
+    const collar = new THREE.Mesh(new THREE.BoxGeometry(0.078, 0.085, 0.062), headM);   // 颈箍（把柄和刃包住）
+    collar.position.y = 0.202;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.165, 0.205, 0.026), headM);   // 刃身：一片薄板（侧看才有厚度）
+    blade.position.set(0.118, 0.212, 0);
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.215, 0.016), headM);    // 刃口：更薄更高
+    edge.position.set(0.212, 0.212, 0);
+    const beard = new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.062, 0.026), headM);   // 下勾（斧的"胡子"）
+    beard.position.set(0.052, 0.108, 0);
+    g.add(collar, blade, edge, beard);
+  } else if (id === 100 || id === 101 || id === 120 || id === 130 || id === 163 || id === 184) {  // 镐
     /* 重做：以前是「一根横条 + 两块斜块」，看着像把锤子。现在：
        木柄（下段缠两道绳）→ 颈箍把镐头和柄包住 → 镐头中间一段平直、两侧各两节
        逐节收窄并加大下弯角度，尖端再补一个小块 → 侧看是真正的「弧形镐」。 */
@@ -3446,6 +4671,25 @@ function makeToolModel(id) {
       new THREE.MeshLambertMaterial({ color: 0x6fdc3a, emissive: 0x2f8f18, emissiveIntensity: 0.9 }));
     u.position.y = 0.15; u.scale.y = 1.3; u.rotation.y = 0.5;
     g.add(u);
+  } else if (ITEMS[id] && ITEMS[id].kind === 'tank') {   // ★ v339 氧气罐：钢瓶 + 两道铜箍 + 阀门 + 软管
+    const steelT = new THREE.MeshLambertMaterial({ color: 0xc3ccd6 });
+    const lightT = new THREE.MeshLambertMaterial({ color: 0xeef4fa });
+    const copT = new THREE.MeshLambertMaterial({ color: 0xd98b4a });
+    const darkT = new THREE.MeshLambertMaterial({ color: 0x2b323b });
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.105, 0.36, 12), steelT);
+    cyl.position.y = 0.1;
+    const shine = new THREE.Mesh(new THREE.CylinderGeometry(0.107, 0.107, 0.03, 12), lightT);
+    shine.position.y = 0.12;
+    const ring1 = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.109, 0.035, 12), copT);
+    ring1.position.y = 0.22;
+    const ring2 = ring1.clone(); ring2.position.y = -0.02;
+    const neckT = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.06, 8), copT);
+    neckT.position.y = 0.31;
+    const valveT = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.03, 0.05), darkT);
+    valveT.position.y = 0.345;
+    const hoseT = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.2, 0.022), darkT);
+    hoseT.position.set(-0.11, 0.24, 0); hoseT.rotation.z = 0.35;
+    g.add(cyl, shine, ring1, ring2, neckT, valveT, hoseT);
   } else if (ITEMS[id] && ITEMS[id].kind === 'gun') {   // 能量炮：机匣 + 炮管 + 线圈 + 发光炮口
     const metal = id === 191 ? 0x7d6890 : id === 190 ? 0x5fe6d8 : id === 189 ? 0xd9dee5 : 0xd98b4a;
     const glow = id === 191 ? 0xc08cff : id === 190 ? 0x7dffe8 : id === 189 ? 0xbfe4ff : 0xffb066;
@@ -3668,7 +4912,9 @@ function makeToolModel(id) {
 const HOLD_POSE = {
   bow: { rx: -0.28, ry: 0.55, rz: -0.35, py: 0.05, pz: -0.06, s: 0.95 },   // 以前 rx=-1.2 几乎横着指向屏幕外，只看得到一条边
   block: { rx: 0.2, ry: 0.6, rz: 0.1, py: 0, pz: 0, s: 1 },
+  tank: { rx: 0.18, ry: 0.7, rz: 0.06, py: 0.01, pz: 0.02, s: 0.92 },
   pick: { rx: -0.32, ry: 0.95, rz: 0.36, py: 0.01, pz: 0.12, s: 0.95 },   // 挂点=手尖：手握在木柄上，不是飘在手前
+  axe: { rx: -0.34, ry: 0.92, rz: 0.38, py: 0.01, pz: 0.12, s: 0.95 },   // 斧：和镐同挂点，刃口朝外一点
   sword: { rx: -0.34, ry: 0.32, rz: -0.18, py: 0.0, pz: 0.12, s: 0.88 },   // pz=0.12 → 挂点落在手尖(armR z=-0.50)，拳心正好握在握把中段
   mat: { rx: -0.45, ry: 0.45, rz: -0.25, py: 0.06, pz: -0.1, s: 0.95 },
   hoe: { rx: -0.3, ry: 0.9, rz: 0.3, py: 0.01, pz: 0.12, s: 0.95 },
@@ -3722,8 +4968,13 @@ function refreshHeld() {
     let hn = 0;
     const hbox = (x0, x1, y0, y1, z0, z1, tile) => { hn += emitBox(HP, HU, HC, HI, hn, 0, 0, 0, x0, x1, y0, y1, z0, z1, tile); };
     if (b.door) {
-      hbox(0.08, 0.92, 0.02, 0.98, 0.41, 0.57, 40);          // 门板（薄，竖着）
-      hbox(0.78, 0.86, 0.46, 0.60, 0.34, 0.41, 41);          // 门把手
+      /* ★ 木框 + 木板 + 铜把手（和地上的门同一套材质；以前是一块 0.84 宽的纯色板） */
+      hbox(0.05, 0.95, 0.02, 0.98, 0.42, 0.54, 8);           // 门板（木板）
+      hbox(0.05, 0.95, 0.02, 0.10, 0.40, 0.56, 40);          // 下横档
+      hbox(0.05, 0.95, 0.90, 0.98, 0.40, 0.56, 40);          // 上横档
+      hbox(0.05, 0.15, 0.10, 0.90, 0.40, 0.56, 40);          // 立梃
+      hbox(0.85, 0.95, 0.10, 0.90, 0.40, 0.56, 40);
+      hbox(0.78, 0.86, 0.46, 0.58, 0.39, 0.41, 41);          // 铜把手
     } else {
       hbox(0.04, 0.96, 0.00, 0.16, 0.04, 0.96, BED_T_FRAME);    // 床架
       hbox(0.02, 0.98, 0.16, 0.45, 0.02, 0.98, BED_T_MAT);      // 床垫/被子
@@ -3742,10 +4993,10 @@ function refreshHeld() {
     kind = 'block';
     const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
     heldMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
-  } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'hoe' || it.kind === 'mat'
+  } else if (it && (it.kind === 'pick' || it.kind === 'axe' || it.kind === 'sword' || it.kind === 'hoe' || it.kind === 'mat'
                     || it.kind === 'food' || it.kind === 'gun' || it.kind === 'bucket' || it.kind === 'bow'
                     || it.kind === 'armor' || it.kind === 'ammo' || it.kind === 'seed'
-                    || it.kind === 'fertilizer' || it.kind === 'bonemeal')) {
+                    || it.kind === 'fertilizer' || it.kind === 'bonemeal' || it.kind === 'tank')) {
     kind = it.kind;
     heldMesh = makeToolModel(id);
   }
@@ -3774,7 +5025,7 @@ function swingCurve(p, windEnd, hitEnd) {
   return 1 - easeOutCubic((p - hitEnd) / (1 - hitEnd));
 }
 const anim = {
-  swing: 0, swingDur: 0.5, swingType: 'attack', swingA: 0,
+  swing: 0, swingDur: 0.5, swingType: 'attack', swingA: 0, swimK: 0,
   equip: 0, equipDur: 0.32,
   mineW: 0, mineT: 0,
   swayX: 0, swayY: 0, lastYaw: 0, lastPitch: 0,
@@ -3819,6 +5070,7 @@ function updateHandPose(dt, now) {
   anim.sprintK += ((player.onGround ? sprintT : sprintT * 0.7) - anim.sprintK) * easeK(7);
   anim.airK += ((player.onGround || player.inWater || player.inLava ? 0 : 1) - anim.airK) * easeK(9);
   anim.waterK += ((player.inWater || player.inLava ? 1 : 0) - anim.waterK) * easeK(5);
+  anim.swimK += ((player.swimming ? 1 : 0) - anim.swimK) * easeK(5);       // ★ v335 游泳权重
   anim.hurtK = Math.max(0, anim.hurtK - dt * 3.4);
   const fallSpd = clamp01(Math.max(0, -player.v.y) / 14);   // 下落越快手抬得越高
   const riseSpd = clamp01(Math.max(0, player.v.y) / 9);     // 起跳瞬间手往下压
@@ -3928,6 +5180,18 @@ function updateHandPose(dt, now) {
     ry = BASE_POSE.ry + anim.swayX * 0.25;
     rz = BASE_POSE.rz - 0.12 * k + 0.04 * ch;
   }
+  /* ★ v335 第一人称游泳（参考 Action & Stuff）：整条小臂做「过顶划水」循环 ——
+     往前上方挥出去 → 往下后方拉回来，节奏 2.6 弧度/秒；幅度随 swimK 渐入渐出。 */
+  if (anim.swimK > 0.01) {
+    const k = anim.swimK, ph = now / 1000 * 2.6;
+    const pull = Math.sin(ph), push = Math.cos(ph);
+    px += (0.07 + 0.05 * (1 - push)) * k;
+    py += (-0.09 * pull) * k;
+    pz += (0.09 * push) * k;
+    rx += (-0.55 - 0.80 * pull) * k;
+    ry += (0.22 * pull) * k;
+    rz += (0.16 * pull) * k;
+  }
   armR.position.set(px, py, pz);
   armR.rotation.set(rx, ry, rz);
   // 左手：比右手更"慢"、并且反向摆（走路时两手交替），A&S 里两只手都有存在感
@@ -3984,10 +5248,13 @@ function scrubWaterNear(r = 7) {
       const above = getBlock(x, y + 1, z) === 5;
       let nb = false;                                        // 四周有没有水
       for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (getBlock(x + ax, y, z + az) === 5) { nb = true; break; }
-      if (above) { if (below === 0) setWater(x, y, z, 0); continue; }        // 水柱中间：脚下悬空就变下落水
+      if (above) { if (below === 0) setWater(x, y, z, 0, 1); continue; }  // 水柱中间：脚下悬空就变下落水
       if (below !== 0 && below !== 5) continue;              // 站在固体上 → 正常水源
-      if (!nb) { clearWater(x, y, z); continue; }            // 顶上＋四周没有水＋脚下不是地面 ⇒ 浮空水，清掉
-      if (below !== 5) setWater(x, y, z, 0);                 // 连着横向水源但脚下悬空 → 交给模拟
+      /* ★ 只有「脚下是空气 + 四周也没有水」才算真的浮空水，才删。
+         旧版只要 !nb 就删 —— 1 格宽的水柱/水潭顶端会被判成浮空水删掉（水莫名少一块）。 */
+      if (below === 0 && !nb) { clearWater(x, y, z, 1); continue; }
+      if (below !== 5) setWater(x, y, z, 0, 1);              // 连着横向水源但脚下悬空 → 交给模拟
+      // ↑ 这些是**世界生成**留下的水，清理时不要写进存档/联机（quiet=true）
     }
   }
 }
@@ -4002,8 +5269,13 @@ function initAudioChain() {
   const delay = AC.createDelay(0.6); delay.delayTime.value = 0.17;
   const fb = AC.createGain(); fb.gain.value = 0.34;
   const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500;
-  sfxBus.connect(dry); dry.connect(AC.destination);
-  sfxBus.connect(delay); delay.connect(lp);
+  /* ★ 压缩器：挖矿/受击/脚步同时响时，以前是直接相加 → 过零爆音（手机喇叭上尤其明显） */
+  const comp = AC.createDynamicsCompressor();
+  comp.threshold.value = -15; comp.knee.value = 12; comp.ratio.value = 4;
+  comp.attack.value = 0.004; comp.release.value = 0.18;
+  sfxBus.connect(comp);
+  comp.connect(dry); dry.connect(AC.destination);
+  comp.connect(delay); delay.connect(lp);
   lp.connect(fb); fb.connect(delay);
   lp.connect(wet); wet.connect(AC.destination);
   wetGain = wet;
@@ -4171,18 +5443,193 @@ function playDrip() {
   o.connect(g); g.connect(sfxBus);
   o.start(t); o.stop(t + 0.34);
 }
-function sfx(kind) {
+/* ── 音效：噪声 + 滤波的分层合成（重做）───────────────────────────────
+ * 以前每个音效都只是「一个振荡器 + 音量包络」：挖泥土、砍树、敲石头全是同一声
+ * 150→70Hz 方波，听起来一模一样；而且多声部同时响会直接相加 → 糊成一团/爆音。
+ * 现在每个声音拆三层：
+ *   ① 材料层：白噪声经带通滤波 —— 木=中低频闷响、石=高频脆响、沙/土=软噪声、
+ *              玻璃=高而短的叮、矿石=带金属感的窄带
+ *   ② 冲击层：一记低频正弦「咚」（不同材料不同音高），这是"有重量"的来源
+ *   ③ 细节：随机音高/随机滤波偏移（同一下挖矿不会像复读机）+ 碎石/木屑的二次咔哒
+ * 另外：并发上限（按住挖矿不会堆 60 个声音）、脚步按脚下材料、总线压缩器。 */
+let noiseBuf = null, sfxVoices = 0, sfxWinAt = -1, stepAcc = 0;
+function noiseBuffer() {
+  if (noiseBuf || !AC) return noiseBuf;
+  const n = Math.floor(AC.sampleRate * 0.6);
+  noiseBuf = AC.createBuffer(1, n, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  let lp = 0;
+  for (let i = 0; i < n; i++) {
+    const w = Math.random() * 2 - 1;
+    lp = (lp + 0.04 * w) / 1.04;                    // 一点点低频成分 → 不那么"嘶"
+    d[i] = (w * 0.72 + lp * 2.4) * 0.6;
+  }
+  return noiseBuf;
+}
+function noiseSrc(rate) {
+  const src = AC.createBufferSource();
+  src.buffer = noiseBuffer();
+  src.playbackRate.value = rate;
+  return src;
+}
+/* 并发闸门：100ms 窗口内最多 7 个声音（挖矿 60fps 按住时也只会有 1~2 个） */
+function sfxSlot() {
+  const now = AC.currentTime;
+  if (now - sfxWinAt > 0.1) { sfxWinAt = now; sfxVoices = 0; }
+  if (sfxVoices >= 7) return false;
+  sfxVoices++;
+  return true;
+}
+const SFX_MAT = {
+  wood:  { bp: 430,  q: 1.1, thump: 150, tg: 0.10, ng: 0.10, dec: 0.13 },
+  stone: { bp: 1500, q: 1.7, thump: 92,  tg: 0.09, ng: 0.085, dec: 0.10 },
+  ore:   { bp: 2150, q: 2.2, thump: 122, tg: 0.07, ng: 0.08, dec: 0.15 },
+  dirt:  { bp: 520,  q: 0.8, thump: 76,  tg: 0.07, ng: 0.10, dec: 0.12 },
+  sand:  { bp: 900,  q: 0.6, thump: 64,  tg: 0.05, ng: 0.09, dec: 0.14 },
+  glass: { bp: 3300, q: 2.6, thump: 300, tg: 0.04, ng: 0.09, dec: 0.19 },
+  leaf:  { bp: 1900, q: 0.7, thump: 0,   tg: 0,    ng: 0.055, dec: 0.10 },
+  metal: { bp: 2500, q: 3.2, thump: 185, tg: 0.05, ng: 0.07, dec: 0.22 },
+  water: { bp: 700,  q: 0.9, thump: 0,   tg: 0,    ng: 0.07, dec: 0.20 },
+};
+/* 方块 → 材料（没传 id 时按石头处理，保持老调用点也能响） */
+function sfxMatOf(id) {
+  const d = BLOCKS[id];
+  if (!d) return 'stone';
+  if (d.axe) return 'wood';
+  if (d.glass) return 'glass';
+  if (d.leaf) return 'leaf';
+  if (d.liquid) return 'water';
+  if (d.pick) return /Ore/.test(d.name) ? 'ore' : 'stone';
+  if (d.name === 'Sand' || d.name === 'Soul Sand') return 'sand';
+  if (d.name === 'Dirt' || d.name === 'Grass Block' || d.name === 'Farmland') return 'dirt';
+  return 'stone';
+}
+/* 一记「材料噪声 + 低频咚」；mul 控制整体音量 */
+function sfxHitMat(mat, mul, decScale) {
+  if (!AC || !sfxBus) return;
+  if (!sfxSlot()) return;
+  const M = SFX_MAT[mat] || SFX_MAT.stone;
+  const t = AC.currentTime;
+  const jitter = 0.94 + Math.random() * 0.12;                 // 每次略不同 → 不呆板
+  // 材料层
+  const src = noiseSrc(0.9 + Math.random() * 0.25);
+  const bp = AC.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = M.bp * jitter * (1 + (Math.random() - 0.5) * 0.1);
+  bp.Q.value = M.q;
+  const ng = AC.createGain();
+  const dec = M.dec * (decScale || 1);
+  ng.gain.setValueAtTime(0.0001, t);
+  ng.gain.exponentialRampToValueAtTime(Math.max(0.0002, M.ng * mul), t + 0.006);
+  ng.gain.exponentialRampToValueAtTime(0.0001, t + dec);
+  src.connect(bp); bp.connect(ng); ng.connect(sfxBus);
+  src.start(t); src.stop(t + dec + 0.02);
+  // 冲击层
+  if (M.thump) {
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(M.thump * jitter, t);
+    o.frequency.exponentialRampToValueAtTime(M.thump * 0.55, t + dec * 0.8);
+    g.gain.setValueAtTime(Math.max(0.0003, M.tg * mul), t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dec * 0.9);
+    o.connect(g); g.connect(sfxBus);
+    o.start(t); o.stop(t + dec);
+  }
+}
+/* 碎块/木屑的二次咔哒（破方块时的细节） */
+function sfxDebris(mat, mul) {
+  for (let i = 0; i < 2; i++) {
+    const t = AC.currentTime + 0.03 + i * 0.035 + Math.random() * 0.02;
+    const src = noiseSrc(1.1 + Math.random() * 0.5);
+    const hp = AC.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 900 + Math.random() * 900;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.02 * mul, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    src.connect(hp); hp.connect(g); g.connect(sfxBus);
+    src.start(t); src.stop(t + 0.08);
+  }
+}
+function sfx(kind, arg) {
   if (!AC) return;
   if (!sfxBus) initAudioChain();
   const t = AC.currentTime;
-  const o = AC.createOscillator(), g = AC.createGain();
-  o.connect(g); g.connect(sfxBus);
-  if (kind === 'dig') { o.type = 'square'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.11); g.gain.setValueAtTime(0.10, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12); o.start(t); o.stop(t + 0.13); }
-  else if (kind === 'place') { o.type = 'triangle'; o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(180, t + 0.08); g.gain.setValueAtTime(0.10, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.1); o.start(t); o.stop(t + 0.11); }
-  else if (kind === 'hit') { o.type = 'sawtooth'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(90, t + 0.14); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15); o.start(t); o.stop(t + 0.16); }
-  else if (kind === 'hurt') { o.type = 'square'; o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(55, t + 0.2); g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22); o.start(t); o.stop(t + 0.23); }
-  else if (kind === 'craft') { o.type = 'triangle'; o.frequency.setValueAtTime(420, t); o.frequency.exponentialRampToValueAtTime(720, t + 0.1); g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.14); o.start(t); o.stop(t + 0.15); }
-  else if (kind === 'eat') { o.type = 'sine'; o.frequency.setValueAtTime(250, t); o.frequency.linearRampToValueAtTime(160, t + 0.18); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2); o.start(t); o.stop(t + 0.21); }
+  /* 和上一声太近就丢掉（同一类音效 35ms 内不重复；按住挖矿时是 1 声/格，不会刷屏） */
+  if (lastSfx[kind] && t - lastSfx[kind] < 0.035) return;
+  lastSfx[kind] = t;
+  const mat = typeof arg === 'number' ? sfxMatOf(arg) : (typeof arg === 'string' ? arg : 'stone');
+
+  if (kind === 'dig') { sfxHitMat(mat, 0.75, 1); return; }
+  if (kind === 'break') { sfxHitMat(mat, 1.15, 1.15); sfxDebris(mat, 1); return; }
+  if (kind === 'place') { sfxHitMat(mat, 0.6, 0.85); return; }
+  if (kind === 'step') { sfxHitMat(mat === 'wood' ? 'wood' : mat, 0.30, 0.8); return; }
+
+  if (!sfxSlot()) return;
+  if (kind === 'hit') {
+    /* 挥空/打中：短促的"啪" + 一记闷响（比原来的锯齿波更像打击） */
+    const src = noiseSrc(1.2), bp = AC.createBiquadFilter(), g = AC.createGain();
+    bp.type = 'bandpass'; bp.frequency.value = 1700; bp.Q.value = 1.1;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.13, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    src.connect(bp); bp.connect(g); g.connect(sfxBus); src.start(t); src.stop(t + 0.14);
+    const o = AC.createOscillator(), og = AC.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(210, t); o.frequency.exponentialRampToValueAtTime(88, t + 0.12);
+    og.gain.setValueAtTime(0.10, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    o.connect(og); og.connect(sfxBus); o.start(t); o.stop(t + 0.14);
+  } else if (kind === 'hurt') {
+    /* 受伤：低沉的方波下滑 + 噪声擦音，比原来单音更"疼" */
+    const o = AC.createOscillator(), g = AC.createGain(), lp = AC.createBiquadFilter();
+    o.type = 'square';
+    o.frequency.setValueAtTime(165, t); o.frequency.exponentialRampToValueAtTime(58, t + 0.22);
+    lp.type = 'lowpass'; lp.frequency.value = 900;
+    g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+    o.connect(lp); lp.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + 0.25);
+    const src = noiseSrc(0.8), bp = AC.createBiquadFilter(), ng = AC.createGain();
+    bp.type = 'bandpass'; bp.frequency.value = 620; bp.Q.value = 0.7;
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    src.connect(bp); bp.connect(ng); ng.connect(sfxBus); src.start(t); src.stop(t + 0.22);
+  } else if (kind === 'craft') {
+    /* 合成：两声干净的正弦（440→660），带一点木材的"嗒" */
+    for (const [i, f] of [[0, 520], [1, 780]]) {
+      const o = AC.createOscillator(), g = AC.createGain();
+      const tt = t + i * 0.07;
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, tt);
+      o.frequency.exponentialRampToValueAtTime(f * 1.02, tt + 0.1);
+      g.gain.setValueAtTime(0.0001, tt);
+      g.gain.exponentialRampToValueAtTime(0.09, tt + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.16);
+      o.connect(g); g.connect(sfxBus); o.start(tt); o.stop(tt + 0.18);
+    }
+  } else if (kind === 'eat') {
+    /* 吃东西：三口短噪声，音高逐口降低 */
+    for (let i = 0; i < 3; i++) {
+      const tt = t + i * 0.09;
+      const src = noiseSrc(1.3 - i * 0.15), bp = AC.createBiquadFilter(), g = AC.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = 1100 - i * 220; bp.Q.value = 1.3;
+      g.gain.setValueAtTime(0.0001, tt);
+      g.gain.exponentialRampToValueAtTime(0.07, tt + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.075);
+      src.connect(bp); bp.connect(g); g.connect(sfxBus); src.start(tt); src.stop(tt + 0.09);
+    }
+  }
+}
+const lastSfx = {};
+/* 脚步：按走过的距离触发（不是按时间），跑起来步频自然变快；落在什么方块上就是什么声音 */
+function updateFootsteps(dt) {
+  if (!started || !player.alive || !player.onGround) { stepAcc = 0; return; }
+  const sp = Math.hypot(player.v.x, player.v.z);
+  if (sp < 1.1) { stepAcc = 0; return; }
+  stepAcc += sp * dt;
+  if (stepAcc < 1.75) return;
+  stepAcc = 0;
+  const id = getBlock(Math.floor(player.p.x), Math.floor(player.p.y - 0.25), Math.floor(player.p.z));
+  sfx('step', id);
 }
 
 /* ============================================================ 时间 / 天空 */
@@ -4203,7 +5650,20 @@ function updateNetherSky() {
   dl.intensity = 0.72;
   return 0.55;
 }
+/* ── v334 水下视野（MC 同款）───────────────────────────────────────────────
+ * 视线在水里时：能见度骤降（雾 near 0.6 / far 18）+ 雾变蓝 + 屏幕上叠一层**真正的模糊**。
+ * · 判定用「眼睛」高度（p.y + 1.55），不是脚 —— 头探出水面就该恢复清晰
+ * · 模糊用 CSS backdrop-filter: blur()，是整屏真模糊，不是贴一张半透明图
+ * · 叠层的 z-index 压在 HUD 下面，快捷栏/准心不会被糊掉 */
+let uwFxEl = null, uwOn = false, uwT = 0;
+function uwApply(on) {
+  if (!uwFxEl) { uwFxEl = document.createElement('div'); uwFxEl.id = 'uwFx'; document.body.appendChild(uwFxEl); }
+  if (on === uwOn) return;
+  uwOn = on;
+  uwFxEl.classList.toggle('on', on);
+}
 function updateSky() {
+  if (waterMat.userData.uTime) waterMat.userData.uTime.value = performance.now() * 0.001;   // 水波时钟
   if (DIM === 'nether') return updateNetherSky();
   const f = ((worldTime / CFG.DAY) % 1 + 1) % 1;
   const sunAlt = Math.sin(f * Math.PI * 2); // f=0 黎明, .25 正午, .5 黄昏, .75 午夜
@@ -4218,6 +5678,16 @@ function updateSky() {
   scene.fog.color.copy(skyNow);
   scene.fog.near = 34;
   scene.fog.far = 92;
+  /* ★ v334：眼睛在水里 → 能见度骤降 + 蓝雾 + 屏幕模糊（出水立刻恢复） */
+  {
+    const eyeUnder = getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 1.55), Math.floor(player.p.z)) === 5;
+    uwApply(eyeUnder);
+    if (eyeUnder) {
+      scene.fog.color.setHex(0x1b4f78);
+      scene.fog.near = 0.6;
+      scene.fog.far = 18;
+    }
+  }
   const f2 = 0.4 + 0.6 * lightLevel;
   worldLight.intensity = 0.55 + 0.45 * lightLevel;      // 半球光：夜里也有基础亮度
   worldAmb.intensity = 0.26 + 0.10 * lightLevel;        // 环境光兜底
@@ -4239,6 +5709,28 @@ function clockText() {
   const hours = (6 + f * 24) % 24;
   const hh = Math.floor(hours), mm = Math.floor((hours - hh) * 60);
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+/* ---------- 联机昼夜：跟房间时间，但只做「渐进校正」 ----------
+ * 房间时间是房主的绝对时间（服务端按墙钟推算后随快照/同步下发）。
+ * ★ 以前收到就硬赋值 worldTime = m.time：快照 10Hz 一直在发**同一个数字**，
+ *   于是本地每帧 +(dt) 又被按回那个值 → 时钟走 100ms 停 100ms、每 5 秒跳一次，
+ *   客人看到的就是「时间不对、太阳一顿一顿」。
+ * 现在：差值小 → 用 ~1/4 秒的时间常数慢慢追（肉眼看不出来）；差值大（刚进房/换房主）→ 直接对齐。 */
+let netTimeOff = 0;                    // 期望时间 − 本地时间（秒），逐帧指数衰减
+function netTimeApply(t) {
+  const v = +t;
+  if (!isFinite(v)) return;
+  const off = v - worldTime;
+  if (Math.abs(off) > 3) { worldTime = v; netTimeOff = 0; updateSky(); }
+  else netTimeOff = off;
+}
+function netTimeStep(dt) {
+  if (!netTimeOff) return;
+  const k = Math.min(1, dt * 4);       // 时间常数 0.25s
+  worldTime += netTimeOff * k;
+  netTimeOff -= netTimeOff * k;
+  if (Math.abs(netTimeOff) < 0.01) netTimeOff = 0;
 }
 
 /* ============================================================ 新结构（塔/井/石阵/营地/木屋） */
@@ -4497,7 +5989,9 @@ function ruinsFor(cellX, cellZ) {
       const near = structNear(cx, cz, 'ruins');
       arDbg = { ...arDbg, cx, cz, mn, mx, gy, near };
       // 废墟半径 26 格，允许场地有 14 格起伏（更陡就是悬崖了，平台边缘会悬空，直接跳过）
-      if (mx - mn <= 14 && gy > CFG.SEA + 3 && gy < SURF_OFF + 60 && !near) {
+      // 废墟半径 26 格；它本来就会把场地削平（carve 到 gy+10），所以高差放宽到 24。
+      // 原来 14 —— 台地化被删掉后，52×52 范围高差 14 以内的地方几乎不存在，实测废墟 4 → 1。
+      if (mx - mn <= 24 && gy > CFG.SEA + 3 && gy < SURF_OFF + 60 && !near) {
         const ops = [];
         const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
         const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
@@ -4622,17 +6116,28 @@ function arenaFor(cellX, cellZ) {
     if (roll > 0.5) {
       const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2246822519) ^ Math.imul(cellZ, 3266489917)) | 0);
       const R = ARENA_R_WALL;
-      const cx = cellX * ARENA_CELL + 70 + R + Math.floor(rnd() * (ARENA_CELL - 140 - 2 * R));
-      const cz = cellZ * ARENA_CELL + 70 + R + Math.floor(rnd() * (ARENA_CELL - 140 - 2 * R));
-      let mn = 999, mx = -999;
-      for (let dx = -R; dx <= R; dx += 5) for (let dz = -R; dz <= R; dz += 5) {
-        const h = heightAt(cx + dx, cz + dz);
-        if (h < mn) mn = h;
-        if (h > mx) mx = h;
+      /* 选址：320 格里试 3 个落点，挑最平的那个。
+         旧版只试一个、还要求 73×73 范围高差 ≤18 —— 地形抬到 150+ 之后这条几乎永不满足，
+         实测整个世界一个竞技场都生成不出来（改前是 5 个）。 */
+      let site = null;
+      for (let k = 0; k < 5; k++) {
+        const sx = cellX * ARENA_CELL + 70 + R + Math.floor(rnd() * (ARENA_CELL - 140 - 2 * R));
+        const sz = cellZ * ARENA_CELL + 70 + R + Math.floor(rnd() * (ARENA_CELL - 140 - 2 * R));
+        let mn = 999, mx = -999;
+        for (let dx = -R; dx <= R; dx += 5) for (let dz = -R; dz <= R; dz += 5) {
+          const h = heightAt(sx + dx, sz + dz);
+          if (h < mn) mn = h;
+          if (h > mx) mx = h;
+        }
+        if (!site || mx - mn < site.mx - site.mn) site = { cx: sx, cz: sz, mn, mx };
       }
-      const gy = mx;
+      const { cx, cz, mn, mx } = site;
+      /* gy 取「偏心低处」：高的一半削平、低的一半垫起来。
+         旧版 gy=mx（最高点），在坡地上会变成一根 73 格宽的圆石柱；
+         现在下面那两个循环才真的有活干（填 + 削）。 */
+      const gy = mn + Math.round((mx - mn) * 0.45);
       const near = structNear(cx, cz, 'arena');
-      if (mx - mn <= 18 && gy > CFG.SEA + 3 && gy < SURF_OFF + 60 && !near) {
+      if (mx - mn <= 36 && gy > CFG.SEA + 3 && gy < SURF_OFF + 46 && !near) {
         const ops = [];
         const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
         const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
@@ -5040,7 +6545,7 @@ function portalFor(cellX, cellZ) {
       if (nether) for (let dy = 1; dy <= 8; dy++) if (netherSolid(cx, mx + dy, cz)) { netherOpen = false; break; }
       const okHere = nether
         ? (mx - mn <= 3 && mn > NETHER_LAVA_Y + 2 && netherOpen)
-        : (mx - mn <= 4 && mn > CFG.SEA + 2 && mx < SURF_OFF + 46 && !structNear(cx, cz, 'portal'));
+        : (mx - mn <= 8 && mn > CFG.SEA + 2 && mx < SURF_OFF + 46 && !structNear(cx, cz, 'portal'));
       if (okHere) {
         const gy = mx;
         for (let dx = -3; dx <= 3; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, gy, cz + dz, 21);   // 高科技底座
@@ -5145,8 +6650,10 @@ function myCabinFor(cellX, cellZ) {
         if (hh < mn) mn = hh;
         if (hh > mx) mx = hh;
       }
-      if (mx - mn <= 6 && mn > CFG.SEA + 2 && mn < SURF_OFF + 46) CABIN_STATS.flat++;
-      if (mx - mn <= 8 && mn > CFG.SEA + 1 && mn < SURF_OFF + 58) {
+      /* 地形起伏上限 6/8 → 8/11：台地化删掉后，11×11 范围高差 ≤8 的平地少了一大半，
+         实测小屋 7 → 3。房子本来就会用 supportBase 往下补地基，多 2 格起伏只是地基高一点。 */
+      if (mx - mn <= 8 && mn > CFG.SEA + 2 && mn < SURF_OFF + 46) CABIN_STATS.flat++;
+      if (mx - mn <= 11 && mn > CFG.SEA + 1 && mn < SURF_OFF + 58) {
         const gy = mx;
         for (const [x, y, z, id, mt] of data) put(cx + x, gy + y, cz + z, id, mt || 0);
         supportBase(ops, gy, 9, gy);                          // 玩家小屋（平原）：地板在 gy，下面补实
@@ -5335,8 +6842,12 @@ const VS_CELL = 160;
 const villageCache = new Map();
 
 
+/* ★ v324 村庄配色：以前全地图的房子都是「橡木墙 + 橡木屋顶」，沙漠里也长出一栋森林小屋。
+   现在按房子所在的群系选木头 —— 沙漠/恶地=金合欢、雪原=云杉、其余=白桦或橡木。 */
+// （v325：配色统一到村子级 VSTYLE，这个函数只留给仍按坐标取色的旧调用点）
+function villagePalette(x, z) { setVillageStyle(x, z); return { woodP: VS.wood, log: VS.log }; }
 function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
-  const woodP = 8, log = 6, cobble = 9;
+  const woodP = VS.wood, log = VS.log, cobble = VS.base;
   // 先量出这块地的起伏：以最高点为室内地面，往下填、往上清 → 房子不会埋在山坡里
   let mn = 99, mx = -99;
   for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) {
@@ -5351,8 +6862,9 @@ function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
   }
   for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) put(hx + dx, gy, hz + dz, woodP);  // 地板
   for (let y = gy + 1; y <= gy + h; y++) {
-    for (let dx = -w; dx <= w; dx++) { put(hx + dx, y, hz - d, woodP); put(hx + dx, y, hz + d, woodP); }
-    for (let dz = -d; dz <= d; dz++) { put(hx - w, y, hz + dz, woodP); put(hx + w, y, hz + dz, woodP); }
+    const wm = (y === gy + 1) ? cobble : woodP;                 // 墙脚一圈石头
+    for (let dx = -w; dx <= w; dx++) { put(hx + dx, y, hz - d, wm); put(hx + dx, y, hz + d, wm); }
+    for (let dz = -d; dz <= d; dz++) { put(hx - w, y, hz + dz, wm); put(hx + w, y, hz + dz, wm); }
   }
   for (const [sx, sz] of [[-w, -d], [w, -d], [-w, d], [w, d]])
     for (let y = gy + 1; y <= gy + h; y++) put(hx + sx, y, hz + sz, log);
@@ -5366,8 +6878,19 @@ function buildHouse(put, carve, hx, hz, w, d, h, cx, cz, rnd) {
     const db = (sz > 0 ? 2 : 1) - 1;
     for (let y = gy + 1; y <= gy + 2; y++) put(hx, y, hz + sz * d, 35, db | (y === gy + 2 ? 8 : 0));
   }
-  if (rnd() < 0.8) { carve(hx - w, gy + 2, hz + d - 1); carve(hx + w, gy + 2, hz - d + 1); }   // 窗
-  buildGableRoof(put, hx, hz, gy + h + 1, w + 1, d + 1, woodP, 34);   // 两坡屋顶（原来是一块平顶）
+  /* 窗：以前只是「清两个洞」，现在装玻璃（22）—— 白天能看清屋里，晚上透出火把光。 */
+  carve(hx - w, gy + 2, hz + d - 1); put(hx - w, gy + 2, hz + d - 1, 22);
+  carve(hx + w, gy + 2, hz - d + 1); put(hx + w, gy + 2, hz - d + 1, 22);
+  put(hx - w, gy + 3, hz + d - 1, log); put(hx + w, gy + 3, hz - d + 1, log);   // 窗上原木过梁
+  /* 门前路灯：两根木头柱 + 顶上一支火把（村庄晚上有光，走夜路不抓瞎）。 */
+  {
+    const sideX = Math.abs(cx - hx) > Math.abs(cz - hz);
+    const px2 = sideX ? hx + (cx > hx ? w + 2 : -w - 2) : hx + w + 2;
+    const pz2 = sideX ? hz + d + 2 : hz + (cz > hz ? -d - 2 : d + 2);
+    for (let y = gy + 1; y <= gy + 3; y++) carve(px2, y, pz2);
+    put(px2, gy + 1, pz2, log); put(px2, gy + 2, pz2, log); put(px2, gy + 3, pz2, 38);
+  }
+  buildGableRoof(put, hx, hz, gy + h + 1, w + 1, d + 1, VS.roof, VS.stair);   // 两坡石瓦屋顶（檐口是石楼梯）
   put(hx, gy + h + 2 + d, hz, log);
   const bx = hx + (rnd() < 0.5 ? -w + 1 : w - 1), bz = hz + (rnd() < 0.5 ? -d + 1 : d - 1);
   put(bx, gy + 1, bz, 18);                                                                    // 屋内箱子
@@ -5403,8 +6926,8 @@ function buildFarm(put, carve, fx, fz, r, rnd) {
   for (let dx = -r - 1; dx <= r + 1; dx++) for (let dz = -r - 1; dz <= r + 1; dz++) {
     if (Math.abs(dx) !== r + 1 && Math.abs(dz) !== r + 1) continue;
     if (dz === r + 1 && dx === 0) continue;                 // 留个进出口
-    put(fx + dx, gy, fz + dz, 8);
-    put(fx + dx, gy + 1, fz + dz, 8);
+    put(fx + dx, gy, fz + dz, VS.wood);       // 田埂栅栏也用本村的木头（以前写死橡木）
+    put(fx + dx, gy + 1, fz + dz, VS.wood);
   }
 }
 
@@ -5412,6 +6935,25 @@ function buildFarm(put, carve, fx, fz, r, rnd) {
    每种房子都先量地（villageGround：以最高点为地面，往下用圆石填、往上清空），
    门一律朝向村中心。8 种：平房 buildHouse / 二层住宅 / 铁匠铺 / 图书馆 /
    谷仓 / 面包房 / 瞭望塔 / 水井。材料只用 木、原木、圆石、石砖、云杉、玻璃、楼梯。 */
+/* ── v325 村庄统一配色 ──────────────────────────────────────────────────────
+ * 一个村子一套材料：平房 / 二层 / 铁匠铺 / 图书馆 / 谷仓 / 面包房 / 瞭望塔 / 水井
+ * 全部共用同一套「墙木 + 柱木 + 基座石 + 屋顶瓦 + 楼梯 + 地板」，由村子中心所在群系决定。
+ * 以前每个 builder 各自写死 "橡木 + 圆石"，同一个村子里金合欢小屋和橡木小屋并排。
+ * 另外房子以前**整栋都是木板**：现在最下一圈是石勒脚、屋顶是石瓦、地板外圈是石砖、窗上有原木过梁。 */
+const VSTYLE = {
+  oak:    { wood: 8,  log: 6,  base: 9,  roof: 21, stair: 33, floor: 8,  edge: 21, path: 78 },
+  birch:  { wood: 31, log: 30, base: 9,  roof: 21, stair: 33, floor: 31, edge: 21, path: 78 },
+  spruce: { wood: 29, log: 28, base: 9,  roof: 50, stair: 33, floor: 29, edge: 21, path: 78 },   // 深板岩屋顶
+  acacia: { wood: 82, log: 81, base: 80, roof: 21, stair: 33, floor: 82, edge: 80, path: 80 },   // 红沙勒脚+红沙小径
+};
+let VS = VSTYLE.oak;
+function setVillageStyle(x, z) {
+  const bio = biomeAt(x, z);
+  VS = (bio === 'desert' || bio === 'badlands') ? VSTYLE.acacia
+     : bio === 'snow' ? VSTYLE.spruce
+     : (h3(x * 1.7, 3, z * 2.3) < 0.45 ? VSTYLE.birch : VSTYLE.oak);
+  return VS;
+}
 function villageGround(put, carve, hx, hz, w, d, clearH) {
   // 取地块高度的「中位数」当地面：一半往下填、一半往上清 —— 房子不会坐在高高的石头台子上
   const hs = [];
@@ -5435,7 +6977,11 @@ function villageScore(hx, hz, w, d) {           // 这块地有多平（越小�
   return mx - mn;
 }
 function villageFloor(put, hx, hz, gy, w, d, mat) {
-  for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) put(hx + dx, gy, hz + dz, mat);
+  /* 外圈一圈石砖、里面木板 —— 有腰线的地板，不再是"满屋木板"。 */
+  for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) {
+    const edge = Math.abs(dx) === w || Math.abs(dz) === d;
+    put(hx + dx, gy, hz + dz, edge ? VS.edge : mat);
+  }
 }
 function villageDoor(put, hx, hz, gy, w, d, cx, cz) {
   if (Math.abs(cx - hx) > Math.abs(cz - hz)) {
@@ -5448,9 +6994,11 @@ function villageDoor(put, hx, hz, gy, w, d, cx, cz) {
   return { axis: 'z', s: sz };
 }
 function villageWalls(put, hx, hz, y0, y1, w, d, mat) {
+  /* 最下一圈 = 石勒脚（基座），上面才是木头 —— 房子不再是"整栋木板"。 */
   for (let y = y0; y <= y1; y++) {
-    for (let dx = -w; dx <= w; dx++) { put(hx + dx, y, hz - d, mat); put(hx + dx, y, hz + d, mat); }
-    for (let dz = -d; dz <= d; dz++) { put(hx - w, y, hz + dz, mat); put(hx + w, y, hz + dz, mat); }
+    const m2 = (y === y0) ? VS.base : mat;
+    for (let dx = -w; dx <= w; dx++) { put(hx + dx, y, hz - d, m2); put(hx + dx, y, hz + d, m2); }
+    for (let dz = -d; dz <= d; dz++) { put(hx - w, y, hz + dz, m2); put(hx + w, y, hz + dz, m2); }
   }
 }
 function villagePosts(put, hx, hz, y0, y1, w, d, mat) {
@@ -5460,7 +7008,7 @@ function villagePosts(put, hx, hz, y0, y1, w, d, mat) {
 
 /* ① 二层住宅：两层 + 内部楼梯 + 两层玻璃窗 + 两坡屋顶 */
 function buildTwoStory(put, carve, hx, hz, w, d, cx, cz, rnd) {
-  const woodP = 8, log = 6, glass = 22, stair = 34;
+  const woodP = VS.wood, log = VS.log, glass = 22, stair = 34;
   const gy = villageGround(put, carve, hx, hz, w, d, 16);
   villageFloor(put, hx, hz, gy, w, d, woodP);
   villageWalls(put, hx, hz, gy + 1, gy + 3, w, d, woodP);          // 一层
@@ -5487,7 +7035,7 @@ function buildTwoStory(put, carve, hx, hz, w, d, cx, cz, rnd) {
 
 /* ② 铁匠铺：石头基座 + 正面敞开（两根原木立柱）+ 熔炉/铁砧/箱子 */
 function buildBlacksmith(put, carve, hx, hz, w, d, cx, cz, rnd) {
-  const cobble = 9, log = 6, stairStone = 33, stoneB = 21;
+  const cobble = VS.base, log = VS.log, stairStone = VS.stair, stoneB = VS.roof;
   const gy = villageGround(put, carve, hx, hz, w, d, 10);
   villageFloor(put, hx, hz, gy, w, d, stoneB);
   // 三面墙（朝向村中心的那面敞开）
@@ -5504,7 +7052,7 @@ function buildBlacksmith(put, carve, hx, hz, w, d, cx, cz, rnd) {
     if (openX) { put(hx + sx * w, y, hz - d, log); put(hx + sx * w, y, hz + d, log); }
     else { put(hx - w, y, hz + sz * d, log); put(hx + w, y, hz + sz * d, log); }
   }
-  buildGableRoof(put, hx, hz, gy + 4, w + 1, d + 1, stoneB, stairStone);
+  buildGableRoof(put, hx, hz, gy + 4, w + 1, d + 1, stoneB, stairStone);   // 石瓦（已是 VS）
   // 炉子 + 铁砧 + 箱子 + 工作台（贴后墙一字排开）
   const bx = openX ? hx - sx * (w - 1) : hx, bz = openX ? hz : hz - sz * (d - 1);
   if (openX) { put(hx - sx * (w - 1), gy + 1, hz + 2, 19); put(hx - sx * (w - 1), gy + 1, hz - 2, 18); put(hx - sx * (w - 1), gy + 1, hz, 47); }
@@ -5517,7 +7065,7 @@ function buildBlacksmith(put, carve, hx, hz, w, d, cx, cz, rnd) {
 
 /* ③ 图书馆：云杉木 + 大玻璃窗 + 一排箱子当书架 + 中间长桌 */
 function buildLibrary(put, carve, hx, hz, w, d, cx, cz, rnd) {
-  const spruceP = 29, spruceLog = 28, glass = 22, stair = 34;
+  const spruceP = VS.wood, spruceLog = VS.log, glass = 22, stair = 34;
   const gy = villageGround(put, carve, hx, hz, w, d, 12);
   villageFloor(put, hx, hz, gy, w, d, spruceP);
   villageWalls(put, hx, hz, gy + 1, gy + 4, w, d, spruceP);
@@ -5529,13 +7077,13 @@ function buildLibrary(put, carve, hx, hz, w, d, cx, cz, rnd) {
   for (let dz = -d + 1; dz <= d - 1; dz++) { put(hx + w - 1, gy + 1, hz + dz, 18); put(hx + w - 1, gy + 2, hz + dz, 18); }
   for (let dx = -1; dx <= 1; dx++) put(hx + dx, gy + 1, hz, stair, 0);      // 长桌
   put(hx, gy + 2, hz, 38);                                                   // 桌上火把
-  buildGableRoof(put, hx, hz, gy + 5, w + 1, d + 1, spruceP, stair);
+  buildGableRoof(put, hx, hz, gy + 5, w + 1, d + 1, VS.roof, VS.stair);
   put(hx, gy + 6 + d, hz, spruceLog);
 }
 
 /* ④ 谷仓：大跨木屋 + 敞开大门 + 干草堆 */
 function buildBarn(put, carve, hx, hz, w, d, cx, cz, rnd) {
-  const woodP = 8, log = 6, stair = 34;
+  const woodP = VS.wood, log = VS.log, stair = VS.stair;
   const gy = villageGround(put, carve, hx, hz, w, d, 12);
   villageFloor(put, hx, hz, gy, w, d, woodP);
   villageWalls(put, hx, hz, gy + 1, gy + 4, w, d, woodP);
@@ -5557,13 +7105,13 @@ function buildBarn(put, carve, hx, hz, w, d, cx, cz, rnd) {
   }
   put(hx + (openX ? -sx * 1 : 1), gy + 1, hz + (openX ? 1 : -sz * 1), 25);   // 堆肥箱
   put(hx + (openX ? sx * (w - 1) : -w + 1), gy + 3, hz + (openX ? -d + 1 : sz * (d - 1)), 38);
-  buildGableRoof(put, hx, hz, gy + 5, w + 1, d + 1, woodP, stair);
+  buildGableRoof(put, hx, hz, gy + 5, w + 1, d + 1, VS.roof, VS.stair);
   put(hx, gy + 6 + d, hz, log);
 }
 
 /* ⑤ 面包房：石砖基座 + 熔炉 + 烟囱 + 小门面 */
 function buildBakery(put, carve, hx, hz, w, d, cx, cz, rnd) {
-  const woodP = 8, stoneB = 21, stair = 34, cobble = 9;
+  const woodP = VS.wood, stoneB = VS.roof, stair = VS.stair, cobble = VS.base;
   const gy = villageGround(put, carve, hx, hz, w, d, 10);
   villageFloor(put, hx, hz, gy, w, d, stoneB);
   villageWalls(put, hx, hz, gy + 1, gy + 3, w, d, woodP);
@@ -5575,12 +7123,12 @@ function buildBakery(put, carve, hx, hz, w, d, cx, cz, rnd) {
   put(hx + w - 1, gy + 1, hz + d - 1, 18);                                             // 箱子
   put(hx, gy + 3, hz - d + 1, 38);
   for (let y = gy + 4; y <= gy + 7; y++) put(hx - w + 1, y, hz - d + 1, cobble);        // 烟囱
-  buildGableRoof(put, hx, hz, gy + 4, w + 1, d + 1, woodP, stair);
+  buildGableRoof(put, hx, hz, gy + 4, w + 1, d + 1, VS.roof, VS.stair);
 }
 
 /* ⑥ 瞭望塔：圆石塔 3 层 + 顶部平台 + 玻璃窗 */
 function buildTower(put, carve, hx, hz, w, d, cx, cz, rnd) {
-  const cobble = 9, stoneB = 21, stairStone = 33, log = 6;
+  const cobble = VS.base, stoneB = VS.roof, stairStone = VS.stair, log = VS.log;
   const gy = villageGround(put, carve, hx, hz, w, d, 16);
   villageFloor(put, hx, hz, gy, w, d, stoneB);
   villageWalls(put, hx, hz, gy + 1, gy + 10, w, d, cobble);
@@ -5603,7 +7151,7 @@ function buildTower(put, carve, hx, hz, w, d, cx, cz, rnd) {
 
 /* ⑦ 水井：圆石井圈 + 水 + 四柱小顶（村中心） */
 function buildWell(put, carve, hx, hz, cx, cz, rnd) {
-  const cobble = 9, log = 6, stair = 34;
+  const cobble = VS.base, log = VS.log, stair = VS.stair;
   const gy = villageGround(put, carve, hx, hz, 2, 2, 8);
   for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
     const edge = Math.abs(dx) === 2 || Math.abs(dz) === 2;
@@ -5614,9 +7162,9 @@ function buildWell(put, carve, hx, hz, cx, cz, rnd) {
   villagePosts(put, hx, hz, gy + 1, gy + 3, 2, 2, log);
   for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {
     if (Math.abs(dx) + Math.abs(dz) > 4) continue;
-    put(hx + dx, gy + 4, hz + dz, 8);
+    put(hx + dx, gy + 4, hz + dz, VS.wood);
   }
-  for (let dx = -2; dx <= 2; dx++) put(hx + dx, gy + 5, hz, 8);
+  for (let dx = -2; dx <= 2; dx++) put(hx + dx, gy + 5, hz, VS.wood);
   put(hx, gy + 6, hz, log);
   put(hx + 2, gy + 3, hz + 2, 38);
 }
@@ -5629,9 +7177,9 @@ function buildPlaza(put, carve, hx, hz, cx, cz, rnd) {
     put(hx + dx, gy, hz + dz, rnd() < 0.35 ? 62 : 9);            // 石板 + 苔石
   }
   for (const [sx, sz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) {
-    put(hx + sx, gy + 1, hz + sz, 6); put(hx + sx, gy + 2, hz + sz, 38);
+    put(hx + sx, gy + 1, hz + sz, VS.log); put(hx + sx, gy + 2, hz + sz, 38);
   }
-  put(hx + 2, gy + 1, hz, 34); put(hx - 2, gy + 1, hz, 34);      // 石凳
+  put(hx + 2, gy + 1, hz, VS.stair); put(hx - 2, gy + 1, hz, VS.stair);   // 石凳（用石楼梯，以前错用了木楼梯）
   put(hx, gy + 1, hz + 2, 37); put(hx, gy + 1, hz - 2, 37);      // 花坛
 }
 
@@ -5658,6 +7206,7 @@ function villageFor(cellX, cellZ) {
     const cz = cellZ * VS_CELL + 44 + Math.floor(rnd() * (VS_CELL - 88));
     const gy = heightAt(cx, cz);
     if (gy > CFG.SEA + 3 && gy < SURF_OFF + 42) {
+      setVillageStyle(cx, cz);            // ★ v325：这个村子统一用哪套材料（按村中心的群系）
       const ops = [];
       const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
       const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
@@ -5723,6 +7272,37 @@ function villageFor(cellX, cellZ) {
         buildPlaza(put, carve, px2, pz2, cx, cz, rnd);
         placed.push({ x: px2, z: pz2, r: 4 });
         break;
+      }
+      /* ── v327 村庄小径 ────────────────────────────────────────────────────
+       * 从村心（水井）向每一栋房子 / 农田 / 广场踩出一条 2 格宽的小路（砂砾路，沙漠是红沙）。
+       * · 带正弦抖动 → 弯弯曲曲，不是一条直尺画出来的线
+       * · 跳过所有建筑地块（nearLot）→ 小径不会穿屋而过
+       * · 路面 = 该列地表方块换成路材，上面两格清空（清掉草/花/树苗）
+       * · 水下不铺（海边村子的小径不会跑到海里去） */
+      {
+        const nearLot = (x, z) => placed.some(q => Math.abs(x - q.x) <= q.r - 1 && Math.abs(z - q.z) <= q.r - 1);
+        const pathPt = (x, z) => {
+          if (nearLot(x, z)) return;
+          const y = heightAt(x, z);
+          if (y < 2 || y <= CFG.SEA || y >= CFG.WH - 3) return;
+          put(x, y, z, VS.path);
+          carve(x, y + 1, z); carve(x, y + 2, z);
+        };
+        for (const q of placed) {                                  // placed[0] 是村心本身，跳过
+          if (q.x === cx && q.z === cz) continue;
+          const dx = q.x - cx, dz = q.z - cz;
+          const len = Math.max(2, Math.round(Math.hypot(dx, dz)));
+          const nx = -dz / len, nz = dx / len;                     // 法向（做横向抖动 + 2 格宽）
+          const wideX = Math.abs(nx) > Math.abs(nz);
+          for (let i = 2; i <= len - 2; i++) {
+            const t = i / len;
+            const wob = Math.sin(i * 0.85 + (q.x + q.z) * 0.37) * 1.5;
+            const x = Math.round(cx + dx * t + nx * wob);
+            const z = Math.round(cz + dz * t + nz * wob);
+            pathPt(x, z);
+            pathPt(x + (wideX ? 0 : 1), z + (wideX ? 1 : 0));
+          }
+        }
       }
       const byChunk = new Map();
       for (const op of ops) {
@@ -5817,6 +7397,7 @@ function closeChest() {
   syncPointerLock();                         // 箱子关掉 → 重新锁定回第一人称
 }
 function afterSlotChange() {
+  updateCursorEl();                    // 搬东西时立刻把手上的图标挂到鼠标上（箱子和背包共用）
   renderHotbar(); refreshHeld();
   if (openChestPos) renderChest();
   if (panelOpen) renderInventoryPanel();
@@ -5838,7 +7419,7 @@ function slotClick(arr, i, ev) {
     else return;
   } else if (!cur) {
     arr[i] = cursor; cursor = null;
-  } else if (cur.id === cursor.id && !(ITEMS[cur.id] && (ITEMS[cur.id].dur || ITEMS[cur.id].kind === 'gun'))) {
+  } else if (cur.id === cursor.id && !(ITEMS[cur.id] && (ITEMS[cur.id].dur || ITEMS[cur.id].kind === 'gun' || ITEMS[cur.id].kind === 'tank'))) {
     const total = cur.n + cursor.n;
     if (total <= STACK_MAX) { cur.n = total; cursor = null; }
     else { cur.n = STACK_MAX; cursor = { id: cursor.id, n: total - STACK_MAX }; }
@@ -5857,7 +7438,9 @@ function renderGrid(el, arr, handler) {
     if (s) {
       d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><span class="n">${s.n > 1 ? s.n : ''}</span>` + slotBarHTML(s);
       d.title = nameOf(s.id) + (ITEMS[s.id] && ITEMS[s.id].kind === 'gun'
-        ? `(Charge ${s.c === undefined ? (ITEMS[s.id].cap || 8) : s.c}/${ITEMS[s.id].cap || 8})` : '');
+        ? `(Charge ${s.c === undefined ? (ITEMS[s.id].cap || 8) : s.c}/${ITEMS[s.id].cap || 8})`
+        : ITEMS[s.id] && ITEMS[s.id].kind === 'tank'
+        ? `(Oxygen ${Math.round(s.c === undefined ? 0 : s.c)}/${(ITEMS[s.id].cap || 360)} s)` : '');
     }
     d.onclick = (ev) => handler(i, ev);
     el.appendChild(d);
@@ -5877,7 +7460,9 @@ function updateCursorEl(e) {                    // 手上拿的东西跟着鼠�
   if (e && e.clientX !== undefined) { cursorEl.style.left = e.clientX + 'px'; cursorEl.style.top = e.clientY + 'px'; }
   else if (!cursorEl.style.left) { cursorEl.style.left = (innerWidth / 2) + 'px'; cursorEl.style.top = (innerHeight / 2) + 'px'; }
 }
-addEventListener('mousemove', (e) => { if (cursorEl && cursor) updateCursorEl(e); });
+/* ⚠ 以前是 `if (cursorEl && cursor)`：cursorEl 要等 updateCursorEl() 建出来才有，
+   而 updateCursorEl() 只在开背包面板时调用 —— 所以在**箱子里**拿起东西永远看不到那个跟随鼠标的图标。 */
+addEventListener('mousemove', (e) => { if (cursor) updateCursorEl(e); });
 function cursorText() {
   if (!cursor) return 'Held: empty (click an item to pick it up, then click another slot to drop/swap)';
   return `Held: ${nameOf(cursor.id)} ×${cursor.n} (click outside the panel = drop it on the ground${isCreative() ? ', Shift+click a slot = delete' : ''})`;
@@ -5918,12 +7503,26 @@ let MINE_PIN = null;
 const mobs = [];
 const MOB_DEATH_HOLD = 5, MOB_DEATH_FADE = 1.1;
 const MOB_DEFS = {
-  grunt:    { name: 'Night Stalker', hp: 20, chase: 2.9, wander: 1.2, hostile: true,  barY: 1.44, drop: null, dmg: 3, atkCd: 1.6, sunBurn: true, armPose: -1.35 },
+  grunt:    { name: 'Night Stalker', hp: 20, chase: 2.2, wander: 1.2, hostile: true,  barY: 1.44, drop: null, dmg: 3, atkCd: 1.6, sunBurn: true, armPose: -1.35 },
   pig:      { name: 'Pig',     hp: 10, chase: 2.4, wander: 1.0, hostile: false, barY: 1.0,  drop: 108 },
   villager: { name: 'Villager',   hp: 20, chase: 1.9, wander: 0.9, hostile: false, barY: 1.85, drop: null },
+  /* ── 矿洞专属：矿工（人形，拿镐子敲你；不掉任何东西）──
+       只在废弃矿洞里刷（见 findMineSpot），白天也敌对 —— 它住的地方本来就没有太阳。 */
+  miner:    { name: 'Miner',   hp: 26, chase: 3.1, wander: 1.0, hostile: true,  barY: 1.6,
+              drop: null, dmg: 5, atkCd: 1.35, mine: true },
   cow:      { name: 'Cow',     hp: 24, chase: 2.3, wander: 0.85, hostile: false, barY: 1.45, drop: 140, dropN: [1, 2] },
   sheep:    { name: 'Sheep',     hp: 18, chase: 2.5, wander: 0.95, hostile: false, barY: 1.15, drop: 145, dropN: [1, 2], extra: [{ id: 142, n: [1, 2] }] },
   chicken:  { name: 'Chicken',     hp: 8,  chase: 2.8, wander: 0.8,  hostile: false, barY: 0.75, drop: 143, dropN: [1, 1] },
+  /* ── 群系友好动物：机制沿用被动生物（游荡 + 挨打逃跑 + 吃肉），只是栖息地/体型/掉落不同 ── */
+  squirrel: { name: 'Squirrel',    hp: 6,  chase: 2.3, wander: 1.5, hostile: false, barY: 0.78, drop: 2,   dropN: [1, 1] },
+  deer:     { name: 'Deer',        hp: 26, chase: 2.4, wander: 0.90, hostile: false, barY: 1.55, drop: 140, dropN: [1, 2] },
+  fox:      { name: 'Fox',         hp: 16, chase: 2.9, wander: 1.10, hostile: false, barY: 1.02, drop: 140, dropN: [1, 1] },
+  rabbit:   { name: 'Snow Rabbit', hp: 8,  chase: 2.7, wander: 1.25, hostile: false, barY: 0.86, drop: 143, dropN: [1, 1] },
+  goat:     { name: 'Goat',        hp: 22, chase: 2.5, wander: 1.00, hostile: false, barY: 1.28, drop: 145, dropN: [1, 2] },
+  camel:    { name: 'Camel',       hp: 32, chase: 2.1, wander: 0.80, hostile: false, barY: 1.80, drop: 142, dropN: [1, 2] },
+  lizard:   { name: 'Iguana',      hp: 10, chase: 2.9, wander: 1.45, hostile: false, barY: 0.62, drop: null },
+  frog:     { name: 'Frog',        hp: 6,  chase: 2.0, wander: 1.30, hostile: false, barY: 0.56, drop: null },
+  duck:     { name: 'Duck',        hp: 8,  chase: 2.1, wander: 1.10, hostile: false, barY: 0.98, drop: 143, dropN: [1, 1] },
   spider:   { name: 'Spider',   hp: 22, chase: 4.0, wander: 1.4,  hostile: true,  barY: 0.9,  drop: null, dmg: 2.5, atkCd: 1.25 },
   skeleton: { name: 'Skeleton Archer', hp: 20, chase: 2.4, wander: 1.0, hostile: true,  barY: 1.6,  drop: 148, dropN: [1, 2], dmg: 3, atkCd: 1.5, ranged: true, sunBurn: true },
   ghost:    { name: 'Ghost',   hp: 18, chase: 2.2, wander: 0.9, hostile: true,  barY: 1.7,  drop: 155, dropN: [1, 1], dmg: 2.5, atkCd: 1.4, float: true, ghostly: true },
@@ -5941,10 +7540,11 @@ const MOB_DEFS = {
   trialBoss:  { name: 'Mutated Guardian', hp: 100, chase: 3.2, wander: 0.9, hostile: true, barY: 3.05, drop: 148, dropN: [2, 4], dmg: 7, atkCd: 1.3, boss: true },
   /* ── 远古巨像：石头材质、猩猩式走路、能搬起附近方块扔玩家；不攻击它就一直沉睡。
         体型约 3×3×3 格（高 ~3.4、宽 ~2.9 含手臂），稀有度按末影人（夜里偶尔一只，全场最多 1）。── */
-  ancientColossus: { name: 'Ancient Colossus', hp: 260, chase: 1.8, wander: 0.45, hostile: true, barY: 4.45,
-                     dmg: 11, atkCd: 1.9, reach: 3.3, vReach: 4.2,
+  /* ★ v330：260 血 / 11 伤害太劝退，改成 120 血 / 7 伤害；钻石从 1~2 改成「最多 1 个」。 */
+  ancientColossus: { name: 'Ancient Colossus', hp: 120, chase: 1.8, wander: 0.45, hostile: true, barY: 4.45,
+                     dmg: 7, atkCd: 1.9, reach: 3.3, vReach: 4.2,
                      colossus: true, dormant: true, drop: 9, dropN: [8, 14],
-                     extra: [{ id: 125, n: [1, 2] }] },
+                     extra: [{ id: 125, n: [1, 1] }] },
 };
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
@@ -6117,6 +7717,26 @@ function mobGeos(kind) {
     }, (m, set, x0) => {
       for (let x = x0; x < x0 + 4; x++) { set(x, -12, 1, 0x241a10); set(x, -12, -2, 0x241a10); }  // 鞋
     });
+  } else if (kind === 'miner') {
+    /* 矿工：人形 + 黄色安全帽（头灯）+ 背带工装 + 络腮胡。镐子在 spawnMobAt 里挂到右手。 */
+    const SKIN = 0xc08a5e, DENIM = 0x2f4a6b, DENIM2 = 0x243a54, BOOT = 0x241a12;
+    const HAT = 0xe0b53c, HAT2 = 0xb98c26, LAMP = 0xfff3b0;
+    humanoid({ body: DENIM, skin: SKIN, dark: DENIM2, leg: 0x1d2d42 }, () => {
+      box(head, -5, 30, -5, 10, 2, 10, HAT, 0.06);            // 帽顶（比头宽一圈）
+      box(head, -5, 29, -5, 10, 1, 10, HAT2, 0.05);           // 帽檐
+      for (let x = -1; x <= 0; x++) for (let y = 30; y <= 31; y++) px(head, x, y, 4, LAMP);   // 头灯
+      eyes2(head, 3, 28, [-3, 2], 0x2a1b10, 0xffd24a);        // 眼（暗处一点黄光）
+      for (let x = -3; x <= 2; x++) { px(head, x, 25, 3, 0x6b4a2c); px(head, x, 24, 3, 0x452c16); }  // 胡子
+      px(head, -1, 26, 3, 0x9a7148);                          // 鼻梁
+    }, (m, set, x0) => {
+      for (let y = -3; y <= -1; y++) for (let x = x0; x < x0 + 4; x++) set(x, y, 1, 0x8a6134);       // 袖口/手套
+    }, (m, set, x0) => {
+      for (let x = x0; x < x0 + 4; x++) { set(x, -12, 1, BOOT); set(x, -12, -2, BOOT); }             // 工作靴
+    }, () => {
+      for (const x of [-3, 1]) for (let y = 15; y <= 23; y++) px(body, x, y, 1, 0x3d5f86);           // 背带
+      box(body, -2, 17, 1, 4, 3, 1, 0x3d5f86, 0.04);                                                 // 胸袋
+      for (let y = 13; y <= 14; y++) for (let x = -4; x < 4; x++) px(body, x, y, 1, DENIM2);          // 工装下摆
+    });
   } else if (kind === 'cow') {
     // MC 牛：腿 12 + 躯干 10 = 22px ≈ 1.22 格（MC 牛 1.4，这里按玩家比例收一点）
     const HIDE = 0x3a2b24, PATCH = 0xe8e2d6, HORN = 0xd8cbb0, SNOUT = 0xc9a29a;
@@ -6171,6 +7791,177 @@ function mobGeos(kind) {
       { geo: leg, x: -1, y: 4, z: 0, arm: true }, { geo: leg, x: 2, y: 4, z: 0, arm: false },
     ];
     coreY = 7 * MOB_PX; barY = 16 * MOB_PX; headPiv = 10;
+  } else if (kind === 'squirrel') {
+    // 松鼠：小身子 + 一条翘到头顶的大尾巴（远远就能认出来）
+    const FUR = 0x9c6236, BELLY = 0xe6d3b4, TAIL = 0xb97640;
+    box(body, -2, 2, -3, 5, 4, 7, FUR, 0.12);                    // 躯干
+    box(body, -2, 2, -2, 5, 1, 5, BELLY, 0.06);                  // 肚皮
+    box(body, -2, 3, -5, 4, 3, 2, TAIL, 0.10);                   // 尾巴根部
+    box(body, -3, 6, -6, 6, 4, 2, dk(TAIL, 1.08), 0.10);         // 尾巴中段（更蓬）
+    box(body, -2, 10, -6, 4, 2, 2, dk(TAIL, 1.16), 0.08);        // 尾巴尖（翘过背）
+    box(head, -2, 5, 4, 5, 4, 4, FUR, 0.10);                     // 头
+    box(head, -1, 6, 8, 3, 2, 1, 0xd8b48c, 0.05);                // 口鼻
+    eyes2(head, 7, 8, [-2, 2], 0x140d08, 0x3a2a1c);
+    box(head, -2, 9, 5, 1, 2, 1, FUR, 0.06);                     // 耳朵
+    box(head, 2, 9, 5, 1, 2, 1, FUR, 0.06);
+    const leg = limbGeo(1, 2, 1, dk(FUR, 0.9), 0.06, (m, set, x0) => set(x0, -2, 0, 0x3a2416));
+    limbSpecs = [
+      { geo: leg, x: -2, y: 2, z: 2, arm: true }, { geo: leg, x: 2, y: 2, z: 2, arm: true },
+      { geo: leg, x: -2, y: 2, z: -2, arm: false }, { geo: leg, x: 2, y: 2, z: -2, arm: false },
+    ];
+    coreY = 4 * MOB_PX; barY = 12 * MOB_PX; headPiv = 5;
+  } else if (kind === 'deer') {
+    // 鹿：长腿 + 上扬的鹿角 + 梅花斑
+    const HIDE = 0x8a6038, BELLY = 0xd8c3a0, ANTLER = 0xcdb997, HOOF = 0x2a1d14;
+    box(body, -3, 12, -8, 7, 8, 16, HIDE, 0.12);                 // 躯干
+    box(body, -3, 12, -7, 7, 2, 14, BELLY, 0.08);                // 肚皮
+    for (const [sx, sy, sz] of [[-2, 15, -4], [1, 17, 2], [-2, 16, -7], [2, 14, 5]]) box(body, sx, sy, sz, 1, 1, 1, 0xefe6d2, 0.05);
+    box(body, -2, 18, -6, 4, 3, 5, HIDE, 0.10);                  // 脖子（向上前伸）
+    box(head, -2, 20, 4, 5, 5, 5, HIDE, 0.10);                   // 头
+    box(head, -1, 21, 9, 3, 2, 1, 0x6a4526, 0.05);               // 口鼻
+    eyes2(head, 8, 23, [-1, 2], 0x120c06, 0x33241a);
+    for (const sgn of [-1, 1]) {                                  // 鹿角：两支、各两叉
+      const bx = sgn > 0 ? 2 : -3;
+      box(head, bx, 24, 5, 1, 4, 1, ANTLER, 0.04);
+      box(head, bx, 27, 6, 1, 1, 3, ANTLER, 0.04);
+      box(head, sgn > 0 ? 3 : -4, 25, 5, 1, 1, 1, ANTLER, 0.04);
+    }
+    box(head, -3, 21, 6, 1, 2, 2, dk(HIDE, 0.88), 0.05);         // 耳
+    box(head, 2, 21, 6, 1, 2, 2, dk(HIDE, 0.88), 0.05);
+    const leg = limbGeo(2, 12, 2, dk(HIDE, 0.92), 0.10, (m, set, x0) => set(x0, -11, 0, HOOF));
+    limbSpecs = [
+      { geo: leg, x: -2, y: 12, z: 6, arm: true }, { geo: leg, x: 2, y: 12, z: 6, arm: true },
+      { geo: leg, x: -2, y: 12, z: -6, arm: false }, { geo: leg, x: 2, y: 12, z: -6, arm: false },
+    ];
+    coreY = 16 * MOB_PX; barY = 30 * MOB_PX; headPiv = 21;
+  } else if (kind === 'fox') {
+    // 狐狸：橙毛 + 白肚皮 + 尖立耳 + 白尖大尾
+    const FUR = 0xd06a30, LIGHT = 0xf2e3cc, DARK = 0x3a2418;
+    box(body, -3, 5, -6, 7, 6, 12, FUR, 0.12);
+    box(body, -3, 5, -5, 7, 2, 10, LIGHT, 0.08);
+    box(body, -2, 6, -10, 4, 4, 4, dk(FUR, 1.10), 0.10);         // 大尾
+    box(body, -1, 7, -13, 3, 3, 3, LIGHT, 0.10);                 // 白尾尖
+    box(head, -2, 7, 5, 5, 5, 4, FUR, 0.10);
+    box(head, -1, 7, 9, 3, 2, 2, LIGHT, 0.05);                   // 尖吻
+    px(head, 0, 7, 11, DARK);
+    eyes2(head, 8, 10, [-1, 2], 0x1a0f08, 0x8a5a2a);
+    box(head, -2, 11, 6, 1, 3, 1, FUR, 0.05);                    // 立耳
+    box(head, 2, 11, 6, 1, 3, 1, FUR, 0.05);
+    px(head, -2, 13, 6, DARK); px(head, 2, 13, 6, DARK);
+    const leg = limbGeo(2, 5, 2, dk(FUR, 0.86), 0.08, (m, set, x0) => set(x0, -5, 0, DARK));
+    limbSpecs = [
+      { geo: leg, x: -2, y: 5, z: 4, arm: true }, { geo: leg, x: 2, y: 5, z: 4, arm: true },
+      { geo: leg, x: -2, y: 5, z: -4, arm: false }, { geo: leg, x: 2, y: 5, z: -4, arm: false },
+    ];
+    coreY = 7 * MOB_PX; barY = 15 * MOB_PX; headPiv = 7;
+  } else if (kind === 'rabbit') {
+    // 雪兔：白毛 + 粉鼻 + 一对长耳（耳尖粉）
+    const FUR = 0xe8e6ea, SHADE = 0xcfccd4, PINK = 0xd79aa2;
+    box(body, -2, 3, -4, 5, 5, 8, FUR, 0.10);
+    box(body, -2, 3, -3, 5, 1, 6, SHADE, 0.06);
+    box(body, -1, 5, -7, 3, 3, 3, FUR, 0.10);                    // 短尾
+    box(head, -2, 5, 4, 5, 4, 4, FUR, 0.08);
+    box(head, -1, 5, 8, 3, 2, 1, PINK, 0.04);
+    eyes2(head, 7, 8, [-1, 2], 0x2a1418, 0x8a4048);
+    box(head, -2, 9, 5, 1, 5, 1, FUR, 0.05);                     // 长耳
+    box(head, 2, 9, 5, 1, 5, 1, FUR, 0.05);
+    px(head, -2, 13, 5, PINK); px(head, 2, 13, 5, PINK);
+    const leg = limbGeo(2, 3, 2, dk(FUR, 0.92), 0.06, (m, set, x0) => set(x0, -3, 0, SHADE));
+    limbSpecs = [
+      { geo: leg, x: -2, y: 3, z: 2, arm: true }, { geo: leg, x: 2, y: 3, z: 2, arm: true },
+      { geo: leg, x: -2, y: 3, z: -2, arm: false }, { geo: leg, x: 2, y: 3, z: -2, arm: false },
+    ];
+    coreY = 5 * MOB_PX; barY = 15 * MOB_PX; headPiv = 5;
+  } else if (kind === 'goat') {
+    // 山羊：灰白毛 + 向后弯的角 + 下巴那撮胡子
+    const COAT = 0xd6d0c2, DARK = 0x5c544a, HORN = 0x8f8574;
+    box(body, -3, 8, -7, 7, 7, 14, COAT, 0.12);
+    box(body, -3, 8, -6, 7, 2, 12, dk(COAT, 0.90), 0.08);
+    box(head, -2, 11, 6, 5, 5, 5, COAT, 0.10);
+    box(head, -1, 11, 11, 3, 3, 1, dk(COAT, 0.94), 0.05);
+    eyes2(head, 10, 14, [-1, 2], 0x1a1410, 0x4a4136);
+    for (const sgn of [-1, 1]) {                                  // 角：三节向后弯
+      const bx = sgn > 0 ? 2 : -3;
+      box(head, bx, 16, 7, 1, 2, 1, HORN, 0.04);
+      box(head, bx, 17, 6, 1, 1, 2, HORN, 0.04);
+      box(head, bx, 17, 4, 1, 1, 2, HORN, 0.04);
+    }
+    box(head, -1, 9, 10, 3, 2, 1, dk(COAT, 0.80), 0.05);         // 山羊胡
+    const leg = limbGeo(2, 8, 2, dk(COAT, 0.94), 0.08, (m, set, x0) => set(x0, -8, 0, DARK));
+    limbSpecs = [
+      { geo: leg, x: -2, y: 8, z: 5, arm: true }, { geo: leg, x: 2, y: 8, z: 5, arm: true },
+      { geo: leg, x: -2, y: 8, z: -5, arm: false }, { geo: leg, x: 2, y: 8, z: -5, arm: false },
+    ];
+    coreY = 12 * MOB_PX; barY = 20 * MOB_PX; headPiv = 11;
+  } else if (kind === 'camel') {
+    // 骆驼：长腿 + 驼峰 + 向上前伸的长脖子
+    const COAT = 0xc99a5a, SNOUT = 0xd8b98a, HOOF = 0x3a2c1a;
+    box(body, -3, 14, -8, 7, 8, 16, COAT, 0.12);
+    box(body, -3, 22, -3, 7, 3, 8, dk(COAT, 1.06), 0.10);        // 驼峰
+    box(body, -2, 14, 6, 4, 6, 4, COAT, 0.10);                   // 脖子（竖）
+    box(body, -2, 19, 8, 4, 4, 4, COAT, 0.10);                   // 脖子（横）
+    box(head, -2, 21, 10, 5, 4, 5, COAT, 0.10);
+    box(head, -1, 21, 15, 3, 2, 1, SNOUT, 0.05);
+    eyes2(head, 14, 24, [-1, 2], 0x140f08, 0x4a3a20);
+    box(head, -2, 25, 11, 1, 2, 1, dk(COAT, 0.92), 0.05);        // 耳
+    box(head, 2, 25, 11, 1, 2, 1, dk(COAT, 0.92), 0.05);
+    const leg = limbGeo(2, 14, 2, dk(COAT, 0.90), 0.08,
+      (m, set, x0) => { set(x0, -14, 1, HOOF); set(x0, -14, -2, HOOF); });
+    limbSpecs = [
+      { geo: leg, x: -2, y: 14, z: 6, arm: true }, { geo: leg, x: 2, y: 14, z: 6, arm: true },
+      { geo: leg, x: -2, y: 14, z: -6, arm: false }, { geo: leg, x: 2, y: 14, z: -6, arm: false },
+    ];
+    coreY = 18 * MOB_PX; barY = 32 * MOB_PX; headPiv = 19;
+  } else if (kind === 'lizard') {
+    // 鬣蜥：贴地长身子 + 长尾 + 侧鳞
+    const SCALE = 0x7d8f4a, BELLY = 0xc8cf9a, DARK = 0x46512a;
+    box(body, -2, 2, -6, 5, 3, 14, SCALE, 0.10);
+    box(body, -2, 2, -5, 5, 1, 10, BELLY, 0.06);
+    for (let z = -4; z < 6; z += 3) { px(body, -2, 4, z, DARK); px(body, 2, 4, z, DARK); }
+    box(body, -1, 2, -9, 3, 2, 3, SCALE, 0.08);                  // 尾根
+    box(body, -1, 2, -12, 3, 1, 3, dk(SCALE, 0.90), 0.08);       // 尾尖
+    box(head, -2, 3, 8, 5, 3, 4, SCALE, 0.08);
+    box(head, -1, 3, 12, 3, 2, 1, BELLY, 0.04);
+    eyes2(head, 11, 6, [-2, 2], 0x141208, 0x6a7030);
+    const leg = limbGeo(2, 3, 1, dk(SCALE, 0.92), 0.06, (m, set, x0) => set(x0, -3, 0, DARK));
+    limbSpecs = [
+      { geo: leg, x: -3, y: 3, z: 6, arm: true }, { geo: leg, x: 3, y: 3, z: 6, arm: true },
+      { geo: leg, x: -3, y: 3, z: -3, arm: false }, { geo: leg, x: 3, y: 3, z: -3, arm: false },
+    ];
+    coreY = 4 * MOB_PX; barY = 8 * MOB_PX; headPiv = 4;
+  } else if (kind === 'frog') {
+    // 青蛙：宽身子 + 长在头顶的两个凸眼 + 一条红线当嘴
+    const SKIN = 0x5f9a4a, BELLY = 0xd6e0a8, DARK = 0x2f5228;
+    box(body, -3, 2, -4, 7, 4, 9, SKIN, 0.10);
+    box(body, -3, 2, -3, 7, 1, 7, BELLY, 0.06);
+    box(head, -3, 3, 5, 7, 3, 4, SKIN, 0.08);
+    box(head, -3, 6, 6, 2, 2, 2, SKIN, 0.06);                    // 眼凸
+    box(head, 2, 6, 6, 2, 2, 2, SKIN, 0.06);
+    px(head, -2, 7, 8, 0xf2e24a); px(head, 3, 7, 8, 0xf2e24a);    // 金瞳
+    px(head, -2, 7, 9, DARK); px(head, 3, 7, 9, DARK);
+    box(head, -1, 3, 9, 3, 1, 1, 0xb04a4a, 0.04);                // 嘴
+    const leg = limbGeo(2, 2, 2, dk(SKIN, 0.90), 0.06, (m, set, x0) => set(x0, -2, 0, DARK));
+    limbSpecs = [
+      { geo: leg, x: -3, y: 2, z: 3, arm: true }, { geo: leg, x: 3, y: 2, z: 3, arm: true },
+      { geo: leg, x: -3, y: 2, z: -3, arm: false }, { geo: leg, x: 3, y: 2, z: -3, arm: false },
+    ];
+    coreY = 4 * MOB_PX; barY = 10 * MOB_PX; headPiv = 4;
+  } else if (kind === 'duck') {
+    // 鸭子：白羽 + 橙扁喙 + 翘尾
+    const FEATHER = 0xeceae0, WING = 0xcfcabb, BILL = 0xe0a03c, FOOT = 0xd88a2c;
+    box(body, -3, 4, -5, 6, 5, 10, FEATHER, 0.10);
+    box(body, -3, 5, -3, 1, 3, 6, WING, 0.08);
+    box(body, 2, 5, -3, 1, 3, 6, WING, 0.08);
+    box(body, -1, 6, -8, 3, 3, 3, dk(FEATHER, 0.92), 0.08);      // 翘尾
+    box(body, -1, 8, 5, 3, 4, 3, FEATHER, 0.08);                 // 脖子
+    box(head, -2, 11, 6, 5, 4, 4, FEATHER, 0.08);
+    box(head, -1, 11, 10, 3, 1, 2, BILL, 0.04);                  // 扁喙
+    eyes2(head, 9, 13, [-1, 2], 0x141008, 0x5a4a30);
+    const leg = limbGeo(1, 4, 1, FOOT, 0.05, (m, set, x0) => set(x0, -4, 1, FOOT));
+    limbSpecs = [
+      { geo: leg, x: -1, y: 4, z: 2, arm: true }, { geo: leg, x: 2, y: 4, z: 2, arm: false },
+    ];
+    coreY = 7 * MOB_PX; barY = 16 * MOB_PX; headPiv = 8;
   } else if (kind === 'spider') {
     const CH = 0x2a2430, CH2 = 0x1c1822, EYE = 0xd23c3c;
     box(body, -4, 6, -7, 8, 7, 14, CH, 0.14);                    // 头胸（y 6..12）
@@ -6711,20 +8502,32 @@ function showVillagerGift(m) {                  // 手里的道具：和玩家�
   } else if (b) {                               // 方块：0.2 立方体缩到 0.55（村民手比玩家手小）
     const mats = [b.side, b.side, b.top, b.bottom ?? b.top, b.side, b.side].map(blockFaceMat);
     mesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mats);
-    mesh.scale.setScalar(0.55);
+    mesh.scale.setScalar(0.7);                  // ★ v328：0.55 → 0.7（0.14 格，凑近才看得清）
     mesh.rotation.set(0.2, 0.6, 0.1);
   } else if (it && (it.kind === 'pick' || it.kind === 'sword' || it.kind === 'mat' || it.kind === 'food' || it.kind === 'hoe' || it.kind === 'gun')) {
-    mesh = makeToolModel(m.give.id);            // 剑/镐/材料：玩家手里那个 3D 模型，缩到 0.62
-    mesh.scale.setScalar(0.62);
+    mesh = makeToolModel(m.give.id);            // 剑/镐/材料：玩家手里那个 3D 模型
+    mesh.scale.setScalar(0.72);                 // ★ v328：0.62 → 0.72
     mesh.rotation.set(-0.28, 0.42, -0.06);      // 贴着掌心、刀尖朝前下（原来 -0.5/0.45/-0.15 像横着插在肘上）
   } else {
     const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
-    const tex = new THREE.TextureLoader().load(iconURL(m.give.id));
+    const tex = new THREE.TextureLoader().load(flatTexURL(m.give.id));
     tex.magFilter = THREE.NearestFilter;
     mat.map = tex;
     mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.26), mat);
   }
-  mesh.position.set(0.015, HAND_Y, 0.02);
+  /* ⚠ 以前是 (0.015, HAND_Y, 0.02)：手臂本身宽 0.222（arm1 在 x=-0.334，
+     即袖子横跨 -0.445 ~ -0.223），这个偏移正好把道具塞进袖子内部 ——
+     方块 0.11 / 薄板 0.26 全被手臂几何包住，所以「村民拿着的东西看不见」。
+     现在沿手臂外侧（-x）推 0.14、再往前（+z）推 0.10，道具贴在袖口外面。 */
+  /* ★ v328：z 从 +0.13 改成 -0.15（-Z 才是人物正面！）。
+     以前道具被放到手的**背面**：从正面看被袖子和身体挡住 = 「村民拿着的东西看不见」。
+     x 也从 -0.17 推到 -0.19，方块（0.2×0.55=0.11 宽）整块露在袖子外面。 */
+  /* ★ v328 实测（把礼物盒和袖子盒都换算成世界 AABB）：
+     x=-0.19 时道具整个贴在袖口表面上 —— 袖子的外表面在 arm 局部 x=-0.111，
+     道具半宽 0.073 → 只差 0.006 格，几乎整块被袖子挡住，正面/侧前方都看不见。
+     现在推到 -0.28（离袖口 0.17 格）+ 手掌平面再往下 0.05，道具是"捏在手外侧"的，
+     而且 z 归到 -0.02（几乎居中），前后两个方向都露得出来。 */
+  mesh.position.set(-0.28, HAND_Y - 0.05, -0.02);
   mesh.renderOrder = 5;
   hand.add(mesh);
   m.gift = mesh;
@@ -6744,7 +8547,7 @@ function nearestHostileFrom(v, range, nearPlayer) {   // 找玩家周围、村�
 }
 function villagerAttack(v, t) {                   // 村民用剑砍怪：怪会改目标来打他
   const sw = ITEMS[v.give.id] || {};
-  const dmg = Math.max(2, Math.round((sw.dmg || 4) * 0.55));
+  const dmg = Math.max(3, Math.round((sw.dmg || 4) * 0.9));   // 武器越好砍得越疼（木剑 5→5、钻石剑 12→11、冥界钢 16→14）
   t.hp -= dmg;
   t.flash = 0.24;
   t.aggro = 22;
@@ -6761,6 +8564,8 @@ const ARMOR_COLOR = { 110: 0xcfd6de, 111: 0xcfd6de, 112: 0xcfd6de, 113: 0xcfd6de
   132: 0x5fe0dc, 133: 0x5fe0dc, 134: 0x5fe0dc, 135: 0x5fe0dc };
 /* 小队 = 已招募的村民。客人端没有真怪（只有幽灵镜像），也要算进来，
    否则客人在「背包 → 小队」里看不到自己招的村民，也没法指挥。 */
+const HIRED_HP = 40;            // 被雇佣的村民血量 20 → 40（他要替你打架/挖矿，太脆站不住）
+function boostHired(m) { if (m.maxHp < HIRED_HP) { m.maxHp = HIRED_HP; m.hp = HIRED_HP; } }
 function squadList() {
   const own = mobs.filter(m => m.recruit && m.recruit.hired);
   if (NET && NET.active && !NET.isHost && NET.ghosts) {
@@ -6777,9 +8582,14 @@ function nearestFoe(m) {
     const d = Math.hypot(x - m.p.x, z - m.p.z);
     if (d < bd) { bd = d; best = { x, y, z, pid, d }; }
   };
-  if (player.alive) consider(player.p.x, player.p.y, player.p.z, '');
+  /* ★ v331：保护期内的玩家**不会被锁定**（不追击、不远程瞄准、不近战）。 */
+  if (player.alive && playerGuard <= 0) consider(player.p.x, player.p.y, player.p.z, '');
   if (NET && NET.active && NET.isHost && NET.remotes) {
-    for (const [pid2, r2] of NET.remotes) consider(r2.obj.position.x, r2.obj.position.y, r2.obj.position.z, pid2);
+    for (const [pid2, r2] of NET.remotes) {
+      if ((guestGuard.get(pid2) || 0) > 0) continue;
+      if (guestDead.has(pid2)) continue;                              // ★ v332：躺下的客人谁都不打
+      consider(r2.obj.position.x, r2.obj.position.y, r2.obj.position.z, pid2);
+    }
   }
   return best;
 }
@@ -6811,7 +8621,7 @@ function applyVact(m) {
     r.want.got += give;
     if (r.want.got >= r.want.need) {
       if (squadList().length < MAX_SQUAD) {
-        r.hired = true; r.follow = true;
+        r.hired = true; r.follow = true; boostHired(m); boostHired(mo);
         mo.ownerPid = String(m.from || '');                          // 谁招的就跟谁
         if (!mo.equip) mo.equip = newEquip();
         refreshVillagerMark(mo);
@@ -6839,8 +8649,12 @@ function refreshVillagerArmor(m) {               // 给村民模型套 4 件盔�
   const core = m.parts.core;
   if (m.armorMeshes) { for (const a of m.armorMeshes) core.remove(a); m.armorMeshes = null; }
   if (!m.equip) return;
-  const bodyMesh = core.children[0], headMesh = core.children[1];
-  if (!bodyMesh || !headMesh) return;
+  /* ⚠ core.children = [身体, 脖子支点(Group), ...四肢] —— 头在第 2 个 child 的**子节点**里。
+     以前直接拿 core.children[1] 当网格用，它没有 geometry → boxOf 抛异常，
+     于是「村民穿盔甲」这条链路一直是断的（护甲从来没画出来过，也没人发现）。 */
+  const bodyMesh = core.children[0], headPivot = core.children[1];
+  const headMesh = headPivot && headPivot.children && headPivot.children[0];
+  if (!bodyMesh || !bodyMesh.geometry || !headMesh || !headMesh.geometry) return;
   const boxOf = (mesh) => { mesh.geometry.computeBoundingBox(); return mesh.geometry.boundingBox.clone().translate(mesh.position); };
   const hb = boxOf(headMesh), bb2 = boxOf(bodyMesh);
   const meshes = [];
@@ -6897,6 +8711,9 @@ function ensureVillagerPanel() {
       toast(vPanelMob.recruit.follow ? 'Villager: following you' : 'Villager: holding position', 1.4);
       renderVillagerPanel(vPanelMob); saveSoon();
     } else if (act.startsWith('gear') && vPanelMob) equipVillager(vPanelMob, act.slice(4));
+    else if (act === 'task_mine' && vPanelMob) setVillagerTask(vPanelMob, 'mine');
+    else if (act === 'task_chop' && vPanelMob) setVillagerTask(vPanelMob, 'chop');
+    else if (act === 'task_stop' && vPanelMob) setVillagerTask(vPanelMob, null);
   });
   document.body.appendChild(vPanelEl);
   return vPanelEl;
@@ -6914,6 +8731,14 @@ function renderVillagerPanel(m) {
   }).join('');
   const duty = m.give ? (ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' ? `⚔ In combat (holding ${ITEMS[m.give.id].name})`
     : `Holding ${ITEMS[m.give.id].name}`) : 'Empty-handed';
+  /* 工作令：只有拿了镐/斧才能下对应命令；不点就不干活 */
+  const tk2 = m.give && ITEMS[m.give.id] ? ITEMS[m.give.id].kind : null;
+  const canMine = tk2 === 'pick', canChop = tk2 === 'axe';
+  const btnCss = on => `flex:1;padding:8px 4px;border-radius:8px;border:1px solid ${on ? '#3f7a4a' : '#43546b'};`
+    + `background:${on ? '#1e3a26' : '#1a212b'};color:${on ? '#9ff0a8' : '#cfdae6'};cursor:pointer;font-size:12px`;
+  const taskLine = m.task
+    ? (m.task.kind === 'mine' ? '→ Mining stone near you' : '→ Chopping wood near you')
+    : ((canMine || canChop) ? 'Idle — choose an order above' : 'Hand him a Pickaxe or an Axe to unlock orders');
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <b style="font-size:15px">${nm}${r.hired ? ' · Squad member' : ''}</b>
@@ -6926,6 +8751,13 @@ function renderVillagerPanel(m) {
       <button data-act="follow" style="width:100%;padding:9px;border-radius:8px;border:1px solid ${r.follow ? '#3f7a4a' : '#43546b'};`
         + `background:${r.follow ? '#1e3a26' : '#1a212b'};color:${r.follow ? '#9ff0a8' : '#cfdae6'};cursor:pointer;font-size:13px">`
         + `${r.follow ? 'Following (click to make him stay)' : 'Staying (click to make him follow)'}</button>
+      <div style="color:#9fb0c2;margin:10px 0 5px">Orders (he only works when you command)</div>
+      <div style="display:flex;gap:6px;margin-bottom:5px">
+        <button data-act="task_mine" style="${btnCss(!!m.task && m.task.kind === 'mine')};opacity:${canMine ? 1 : .45}">⛏ Mine stone</button>
+        <button data-act="task_chop" style="${btnCss(!!m.task && m.task.kind === 'chop')};opacity:${canChop ? 1 : .45}">🪓 Chop wood</button>
+        <button data-act="task_stop" style="${btnCss(!m.task)}">⏹ Stop</button>
+      </div>
+      <div style="color:#7f8c9b;font-size:11px;margin-bottom:8px">${taskLine}</div>
       <div style="color:#7f8c9b;font-size:11px;margin-top:8px">Armor ${ARMOR_SLOTS.reduce((a, sl) => a + ((m.equip && m.equip[sl] && ITEMS[m.equip[sl]].ap) || 0), 0)} · Health ${Math.round(m.hp)}/${m.maxHp}</div>
     ` : `
       <div style="color:#ffd84a;margin-bottom:8px">Wants: ${nameOf(r.want.id)} ×${r.want.need}</div>
@@ -6956,7 +8788,7 @@ function squadData() {
   return squadList().map(m => ({
     x: +m.p.x.toFixed(2), y: +m.p.y.toFixed(2), z: +m.p.z.toFixed(2),
     want: m.recruit.want, follow: !!m.recruit.follow, equip: m.equip || newEquip(),
-    give: m.give || null, hp: m.hp,
+    give: m.give || null, hp: m.hp, task: m.task || null,
   }));
 }
 function restoreSquad(list) {
@@ -6972,6 +8804,8 @@ function restoreSquad(list) {
     m.recruit.follow = !!sd.follow;
     m.equip = Object.assign(newEquip(), sd.equip || {});
     if (sd.give) { m.give = sd.give; showVillagerGift(m); }
+    if (sd.task) m.task = sd.task;
+    boostHired(m);
     if (sd.hp) m.hp = Math.min(m.maxHp, sd.hp);
     refreshVillagerMark(m);
     refreshVillagerArmor(m);
@@ -7004,6 +8838,47 @@ function mobAtCrosshair(range = 4.2) {
     }
   }
   return best;
+}
+/* ── 村民挖矿：在**玩家周围**找一块自然生成的方块 ─────────────────────
+ * 规则（用户要求）：
+ *   · 镐 → 挖带 pick 标记的石类（石头/深板岩/各种矿）；斧 → 砍带 axe 标记的木头
+ *   · **不动玩家摆放的方块**：玩家放/挖过的坐标都在 edits 里，命中就跳过
+ *   · 必须有一个暴露面（旁边或上面是空气/水），否则等于在实心岩里打洞
+ *   · 搜索范围以**主人的位置**为中心（村民只在玩家周围干活），取离村民最近的一块 */
+function findVillagerMineTgt(m, own, kind) {
+  const R = 10, RY = 5;
+  const px = Math.floor(own.x), pz = Math.floor(own.z), py = Math.floor(own.y);
+  let best = null, bd = 1e9;
+  for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) {
+    for (let y = py - RY; y <= py + RY; y++) {
+      const x = px + dx, z = pz + dz;
+      const id = getBlock(x, y, z);
+      if (!id) continue;
+      const b = BLOCKS[id];
+      if (!b) continue;
+      if (kind === 'mine' ? !(b.pick && (b.hard || 0) >= 1.5) : !b.axe) continue;
+      if (edits.has(x + ',' + y + ',' + z)) continue;                  // ★ 玩家摆的方块不挖
+      let face = false;
+      for (const [ax, ay, az] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]) {
+        const nb = getBlock(x + ax, y + ay, z + az);
+        if (nb === 0 || nb === 5) { face = true; break; }
+      }
+      if (!face) continue;
+      const d = (x + 0.5 - m.p.x) ** 2 + ((y + 0.5 - m.p.y) ** 2) * 0.7 + (z + 0.5 - m.p.z) ** 2;
+      if (d < bd) { bd = d; best = { x, y, z, id }; }
+    }
+  }
+  return best;
+}
+function setVillagerTask(m, kind) {
+  const tk = m.give && ITEMS[m.give.id] ? ITEMS[m.give.id].kind : null;
+  if (kind === 'mine' && tk !== 'pick') { toast('He needs a Pickaxe first (hand him one)', 1.8); return false; }
+  if (kind === 'chop' && tk !== 'axe') { toast('He needs an Axe first (hand him one)', 1.8); return false; }
+  m.task = kind ? { kind } : null;
+  m.mineTgt = null; m.mineProg = 0; m.mineCd = 0;
+  toast(kind === 'mine' ? 'Order: mine stone around me' : kind === 'chop' ? 'Order: chop wood around me' : 'Order: stop working', 1.8);
+  renderVillagerPanel(m); saveSoon();
+  return true;
 }
 function recruitInteract(m) {                    // 右键村民：交物资 / 招募 / 给道具 / 指挥
   const r = m.recruit;
@@ -7117,7 +8992,9 @@ function findNetherSpot() {
 /* 各类生物的水平碰撞半径（米）。参考 MC：僵尸/骷髅 0.6 宽、蜘蛛 1.4×0.9、鸡 0.4 宽。 */
 const MOB_RAD = {
   chicken: 0.22, pig: 0.45, sheep: 0.45, cow: 0.5, villager: 0.32,
-  grunt: 0.32, skeleton: 0.32, spider: 0.6, colossus: 0.95, blaze: 0.5,
+  grunt: 0.32, skeleton: 0.32, spider: 0.6, colossus: 0.95, blaze: 0.5, miner: 0.32,
+  squirrel: 0.20, deer: 0.50, fox: 0.30, rabbit: 0.22, goat: 0.40, camel: 0.55,
+  lizard: 0.30, frog: 0.25, duck: 0.26,
 };
 
 /* ---------------- 生物之间硬不重叠 ----------------
@@ -7171,10 +9048,42 @@ function separateMobs() {
   }
 }
 
+/* ★ v330 每个区块的敌对怪上限。
+   以前只有全局上限（白天 6 只 / 晚上 8 只僵尸，另外还有 3 蜘蛛 + 3 骷髅 + 3 矿工各算各的），
+   全部挤在玩家周围 8~22 格的同一两个区块里 —— 新号一出生就被围住、跑都跑不掉。
+   现在：一个 16×16 区块最多同时站 2 只敌对怪；开局前 20 秒一只都不刷。 */
+const HOSTILE_PER_CHUNK = 2;
+/* ★ v331：出生/重生保护只在**玩家身上**（20 秒内不被敌对怪锁定），**不再全局停刷**。
+   原因：多人游戏里一个人死亡/新加入就让整个房间的怪都停刷，别人就没得打了。 */
+let playerGuard = 20;                      // 本地玩家剩余保护秒数
+const guestGuard = new Map();              // 客人 pid → 剩余保护秒数
+const guardSeen = new Set();
+const guestDead = new Set();               // ★ v332：已经躺下的客人 pid（谁都不许再打他）
+function guardTick(dt) {
+  if (playerGuard > 0) playerGuard = Math.max(0, playerGuard - dt);
+  for (const [k, v] of guestGuard) { const n = v - dt; if (n <= 0) guestGuard.delete(k); else guestGuard.set(k, n); }
+  /* 客人刚进房也给 20 秒（只影响他自己，房主/其他客人的怪照常刷） */
+  if (typeof NET !== 'undefined' && NET && NET.active && NET.remotes) {
+    for (const pid of NET.remotes.keys()) if (!guardSeen.has(pid)) { guardSeen.add(pid); guestGuard.set(pid, 20); }
+    /* 掉线的人：清掉保护/死亡标记，别让 Map 只涨不落 */
+    for (const pid of Array.from(guardSeen)) if (!NET.remotes.has(pid)) { guardSeen.delete(pid); guestGuard.delete(pid); guestDead.delete(pid); }
+  }
+}
+function hostilesInChunk(cx, cz) {
+  let n = 0;
+  for (const m of mobs) {
+    if (m.dying || m.hp <= 0) continue;
+    const d = MOB_DEFS[m.kind];
+    if (!d || !d.hostile) continue;
+    if ((Math.floor(m.p.x) >> 4) === cx && (Math.floor(m.p.z) >> 4) === cz) n++;
+  }
+  return n;
+}
 function spawnMobAt(kind, x, y, z, opts = {}) {
   const def = MOB_DEFS[kind];
   if (!def) return null;
   if (!opts.force && (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0)) return null;
+  if (!opts.force && def.hostile && hostilesInChunk(x >> 4, z >> 4) >= HOSTILE_PER_CHUNK) return null;
   const parts = makeMobModel(kind);
   const m = {
     kind, /* 出生点加 ±0.25 抖动：同一个方块里刷出来的怪不会再「同坐标重叠」（那是最难解的退化情况） */
@@ -7188,7 +9097,26 @@ function spawnMobAt(kind, x, y, z, opts = {}) {
     obj: parts.g, parts,
   };
   if (kind === 'villager') { m.recruit = { want: rollDemand(), hired: false, follow: false }; }
-  if (kind === 'skeleton' && parts.arm1) {          // 骷髅右手拿一把弓
+  /* 矿工右手拿镐子（伤害就靠它敲）—— 和骷髅的弓一样挂在 arm1 上，跟着挥臂一起动 */
+  if (kind === 'miner' && parts.arm1) {
+    const pk = new THREE.Group();
+    const handleMat = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
+    const headMat2 = new THREE.MeshLambertMaterial({ color: 0xc2ccd8 });
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.56, 0.05), handleMat);
+    handle.position.y = -0.06;
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.075, 0.075), headMat2);   // 镐头横梁
+    bar.position.y = 0.22; bar.rotation.z = 0.08;
+    const tip1 = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.06, 0.06), headMat2);   // 两端上翘的镐尖
+    tip1.position.set(-0.245, 0.25, 0); tip1.rotation.z = 0.5;
+    const tip2 = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.06, 0.06), headMat2);
+    tip2.position.set(0.245, 0.25, 0); tip2.rotation.z = -0.5;
+    pk.add(handle, bar, tip1, tip2);
+    pk.position.set(0, -0.42, -0.03);
+    pk.rotation.set(-0.35, 0, 0.28);
+    parts.arm1.add(pk);
+    m.pick = pk;
+  }
+  if (kind === 'skeleton' && parts.arm1) {
     const bow = new THREE.Group();
     const wood = new THREE.MeshLambertMaterial({ color: 0x8a6134 });
     const str = new THREE.MeshLambertMaterial({ color: 0xe8e4d6 });
@@ -7219,7 +9147,9 @@ function findSpawnSpot() {                        // 夜行怪：只找黑暗空
     getBlock(x, y, z) === 0 && getBlock(x, y + 1, z) === 0 &&
     isSolid(getBlock(x, y - 1, z)) && isDarkAt(x, y, z);
   for (let t = 0; t < 14; t++) {
-    const ang = Math.random() * Math.PI * 2, dist = 8 + Math.random() * 14;
+    /* ★ v330：以前 8~22 格就刷怪 —— 夜里一群怪直接生成在你脸上，新号出生就被围。
+       现在至少 24 格（MC 的刷怪半径），最远 40 格。 */
+    const ang = Math.random() * Math.PI * 2, dist = 24 + Math.random() * 16;
     const x = Math.floor(player.p.x + Math.cos(ang) * dist);
     const z = Math.floor(player.p.z + Math.sin(ang) * dist);
     if (Math.random() < 0.75) {
@@ -7242,6 +9172,67 @@ function findGrassSpot() {                        // 猪：露天的草地上
     if (getBlock(x, y - 1, z) !== 1) continue;     // 脚下是草地
     if (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0) continue;
     return { x, y, z };
+  }
+  return null;
+}
+/* 矿工的刷怪点：只在**废弃矿洞**里。
+ * 矿洞是按 96×96 格子生成的（mineshaftFor），所以就在玩家所在/相邻的格子里找最近的那个矿洞，
+ * 站在它的巷道口（baseY+1）上 —— 脚下必须是实心、头上两格空。离太远的矿洞不刷，
+ * 否则会变成「洞里没怪，地面附近却凭空冒矿工」。 */
+/* ── 群系友好动物：按栖息地找落脚点 ─────────────────────────────────────
+ * 每种动物只在自己该在的地表上刷（草/沙/雪/红沙/高山裸岩/水边），
+ * 找不到就这一 tick 不刷 —— 所以沙漠里不会出现松鼠，雪原里不会出现骆驼。 */
+const ANIMAL_HABITAT = {
+  squirrel: 'grass', deer: 'grass', fox: 'grass_snow', rabbit: 'snow',
+  goat: 'rock', camel: 'sand', lizard: 'redsand', frog: 'shore', duck: 'shore',
+};
+const ANIMAL_CAP = { squirrel: 6, deer: 4, fox: 3, rabbit: 6, goat: 4, camel: 4, lizard: 5, frog: 5, duck: 5 };
+const ANIMAL_POOL = Object.keys(ANIMAL_HABITAT);
+function animalSpotOk(kind, x, z) {
+  const h = heightAt(x, z);
+  if (h <= CFG.SEA) return 0;                                     // 水下不刷
+  if (getBlock(x, h + 1, z) !== 0 || getBlock(x, h + 2, z) !== 0) return 0;
+  const top = getBlock(x, h, z), hb = ANIMAL_HABITAT[kind];
+  if (hb === 'grass' && top !== 1) return 0;
+  if (hb === 'grass_snow' && top !== 1 && top !== 79) return 0;
+  if (hb === 'snow' && top !== 79) return 0;
+  if (hb === 'sand' && top !== 4) return 0;
+  if (hb === 'redsand' && top !== 80 && top !== 4) return 0;
+  if (hb === 'rock' && (top !== 3 || h < 104)) return 0;          // 山羊只在台地/山顶
+  if (hb === 'shore') {
+    if (top !== 1 && top !== 4 && top !== 79) return 0;
+    let wet = false;
+    for (let dx = -3; dx <= 3 && !wet; dx++) for (let dz = -3; dz <= 3; dz++) {
+      if (getBlock(x + dx, h, z + dz) === 5 || getBlock(x + dx, h - 1, z + dz) === 5) { wet = true; break; }
+    }
+    if (!wet) return 0;
+  }
+  return h;
+}
+function findAnimalSpot(kind) {
+  for (let t = 0; t < 24; t++) {
+    const x = Math.floor(player.p.x + (Math.random() * 2 - 1) * 44);
+    const z = Math.floor(player.p.z + (Math.random() * 2 - 1) * 44);
+    const h = animalSpotOk(kind, x, z);
+    if (h) return { x, y: h + 1, z };
+  }
+  return null;
+}
+function findMineSpot() {
+  const pcx = Math.floor(player.p.x / MS_CELL), pcz = Math.floor(player.p.z / MS_CELL);
+  for (let t = 0; t < 8; t++) {
+    const cx = pcx + (Math.floor(Math.random() * 3) - 1), cz = pcz + (Math.floor(Math.random() * 3) - 1);
+    const ms = mineshaftFor(cx, cz);
+    if (!ms) continue;
+    if (Math.hypot(ms.ox - player.p.x, ms.oz - player.p.z) > 56) continue;
+    for (let k = 0; k < 12; k++) {
+      const x = ms.ox + (Math.floor(Math.random() * 11) - 5), z = ms.oz + (Math.floor(Math.random() * 11) - 5);
+      const y = ms.baseY + 1;
+      if (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0) continue;
+      if (!isSolid(getBlock(x, y - 1, z))) continue;         // 脚下要能站
+      if (Math.hypot(x - player.p.x, z - player.p.z) < 6) continue;   // 别贴脸刷
+      return { x, y, z };
+    }
   }
   return null;
 }
@@ -7394,7 +9385,8 @@ function colossusThrow(m) {
   m.carryId = best.id;
   const from = new THREE.Vector3(m.p.x, m.p.y + 2.9, m.p.z);
   const foeT = nearestFoe(m);
-  const to = new THREE.Vector3(foeT ? foeT.x : player.p.x, (foeT ? foeT.y : player.p.y) + 1.0, foeT ? foeT.z : player.p.z);
+  if (!foeT) { setBlock(best.x, best.y, best.z, best.id); return; }     // v331：玩家保护期内不砸
+  const to = new THREE.Vector3(foeT.x, (foeT ? foeT.y : player.p.y) + 1.0, foeT ? foeT.z : player.p.z);
   spawnBolt(from, to, {
     dmg: 8, speed: 16, grav: 1.1, hostile: true, mesh: makeRockMesh(best.id), maxT: 4,
     toPid: foeT ? foeT.pid : '',
@@ -7471,8 +9463,88 @@ function killMob(m) {
     }
   });
 }
+/* ── 村民尸体 ────────────────────────────────────────────────────────
+ * 被雇佣的村民倒下后**不再彻底消失**：装备/手持物/工作令/血量打包成一个
+ * 「Villager Corpse」道具进背包；拿在手上右键放到地上，再冲它右键喂一个
+ * 钻石苹果就原地复活（装备原样穿回去）。 */
+function addCorpseItem(payload) {
+  for (let i = 0; i < SLOTS; i++) if (!inv[i]) {
+    inv[i] = { id: 207, n: 1, corpse: payload };
+    renderHotbar(); refreshHeld(); saveSoon();
+    return true;
+  }
+  spawnDrop(207, 1, player.p.x, player.p.y + 1, player.p.z);      // 背包满：掉在脚下（没有存档详情）
+  toast('Inventory full — the body dropped at your feet', 2.2);
+  return false;
+}
+function spawnCorpseEntity(x, y, z, data) {
+  const m = spawnMobAt('villager', x, y, z, { force: true });
+  if (!m) return null;
+  m.corpse = true; m.corpseData = data || {};
+  m.hp = 0; m.maxHp = data && data.maxHp ? data.maxHp : HIRED_HP;
+  m.recruit = null; m.give = null; m.equip = null;
+  if (m.parts.bar) m.parts.bar.visible = false;
+  if (m.mark) m.mark.visible = false;
+  if (m.parts.core) { m.parts.core.rotation.z = Math.PI / 2; m.parts.core.position.y = 0.18; }   // 躺平
+  m.obj.rotation.y = 0;
+  return m;
+}
+function placeCorpseAt(x, y, z, slot) {
+  if (y < 1 || y >= CFG.WH - 2) return false;
+  if (getBlock(x, y, z) !== 0 || getBlock(x, y + 1, z) !== 0) { toast('Not enough room to lay the body down', 2.0); return false; }
+  const m = spawnCorpseEntity(x + 0.5, y + 0.02, z + 0.5, slot.corpse || {});
+  if (!m) { toast('Could not lay the body down here', 2.0); return false; }
+  slot.n -= 1;
+  if (slot.n <= 0) { const i2 = inv.indexOf(slot); if (i2 >= 0) inv[i2] = null; }
+  renderHotbar(); refreshHeld(); saveSoon();
+  toast('Body placed — right-click it with a Diamond Apple to revive', 3.4);
+  return true;
+}
+function placeCorpse(slot) {
+  const t = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
+  if (!t) return false;
+  return placeCorpseAt(t.x + t.nx, t.y + t.ny, t.z + t.nz, slot);
+}
+function reviveCorpse(cm) {
+  const h = held();
+  if (!h || h.id !== 206) { toast('Feed the body a Diamond Apple to bring him back', 2.6); return false; }
+  const data = cm.corpseData || {};
+  const px = Math.floor(cm.p.x), py = Math.floor(cm.p.y), pz = Math.floor(cm.p.z);
+  takeItem(206, 1);
+  const m = spawnMobAt('villager', px, py, pz, { force: true });
+  if (m) {
+    m.recruit.hired = true; m.recruit.follow = data.follow !== false;
+    boostHired(m);
+    m.equip = Object.assign(newEquip(), data.equip || {});
+    if (data.give && data.give.id) { m.give = data.give; showVillagerGift(m); }
+    m.task = data.task || null;
+    if (data.want) m.recruit.want = data.want;
+    m.hp = m.maxHp;
+    refreshVillagerMark(m); refreshVillagerArmor(m);
+    toast('Your villager is back on his feet!', 3.0);
+  }
+  killMob(cm); const i3 = mobs.indexOf(cm); if (i3 >= 0) mobs.splice(i3, 1);
+  renderHotbar(); refreshHeld(); saveSoon();
+  return !!m;
+}
 function startMobDeath(m) {
   if (m.dying) return;
+  /* 被雇佣的村民：倒下 → 变成尸体道具（装备/工作令全打包），而不是彻底死掉 */
+  if (m.kind === 'villager' && m.recruit && m.recruit.hired) {
+    const payload = { maxHp: m.maxHp || HIRED_HP, follow: !!m.recruit.follow,
+      equip: m.equip ? Object.assign({}, m.equip) : null,
+      give: m.give ? Object.assign({}, m.give) : null,
+      task: m.task ? Object.assign({}, m.task) : null,
+      want: m.recruit.want ? Object.assign({}, m.recruit.want) : null };
+    addCorpseItem(payload);
+    m.dying = true; m.dieT = MOB_DEATH_HOLD + 1; m.hp = 0; m.aggro = 0; m.v.set(0, 0, 0);
+    m.recruit.hired = false; m.recruit.follow = false;
+    m.give = null; m.equip = null;
+    toast('Your villager fell! The body is in your bag — feed it a Diamond Apple to revive', 5.5);
+    sfx('hurt');
+    saveSoon();
+    return;
+  }
   m.dying = true;
   m.dieT = 0;
   m.hp = 0;
@@ -7481,6 +9553,14 @@ function startMobDeath(m) {
   m.parts.bar.visible = false;
   m.parts.bodyMat.emissive.setHex(0x000000);
   m.parts.headMat.emissive.setHex(0x000000);
+  /* ★ 村民死了要把东西掉出来：以前只走 def.drop（村民是 null），于是护甲和手里的工具
+     直接蒸发 —— 玩家花材料给他穿的钻石套就这样没了。 */
+  if (m.kind === 'villager') {
+    const dp = (id, n) => { if (id) spawnDrop(id, n || 1, m.p.x, m.p.y + 0.5, m.p.z); };
+    if (m.equip) for (const sl of ARMOR_SLOTS) dp(m.equip[sl], 1);
+    if (m.give && m.give.id) dp(m.give.id, m.give.n || 1);
+    m.equip = null; m.give = null;
+  }
   const def = MOB_DEFS[m.kind];
   if (def && def.drop) {                            // 掉落物实体
     const [lo, hi] = def.dropN || [1, 2];
@@ -7782,8 +9862,11 @@ function updateMobs(dt) {
       if (m.dieT > MOB_DEATH_HOLD && (fade >= 0.97 || dist > 40)) { killMob(m); mobs.splice(i, 1); }
       continue;
     }
+    /* 尸体：完全静止（不跑 AI、不攻击、不喊话） */
+    if (m.corpse) { m.v.set(0, 0, 0); m.obj.position.copy(m.p); continue; }
     const def = MOB_DEFS[m.kind];
-    const hostileNow = def.hostile && !isCreative() && (night || m.aggro > 0);   // 创造模式：怪物不敌对
+    /* 矿工住在没太阳的地方 → 白天也敌对（否则大白天在矿洞里它只会看着你走） */
+    const hostileNow = def.hostile && !isCreative() && (night || m.aggro > 0 || def.mine);   // 创造模式：怪物不敌对
     animateMob(m, dt, dx, dz, dist);                                            // 摆臂/迈腿/呼吸/盯人
     // 骷髅：举弓瞄准 → 射完收弓（拉弓动画）
     if (m.kind === 'skeleton' && m.parts.arm1) {
@@ -7896,7 +9979,8 @@ function updateMobs(dt) {
     } else if (def.hostile && hostileNow) {
       const tgm = (m.target && m.target.hp > 0 && !m.target.dying && !m.target.recruit?.dying) ? m.target : null;
       const foe = tgm ? null : nearestFoe(m);
-      let tx = tgm ? tgm.p.x : (foe ? foe.x : player.p.x), tz = tgm ? tgm.p.z : (foe ? foe.z : player.p.z);
+      let tx = tgm ? tgm.p.x : (foe ? foe.x : (playerGuard > 0 ? m.p.x : player.p.x));
+      let tz = tgm ? tgm.p.z : (foe ? foe.z : (playerGuard > 0 ? m.p.z : player.p.z));
       /* 逼近到 5 格内就绕到「自己的固定角度」上（每人一个 slot，半永久）：
          以前所有怪都直冲玩家脚下那一个点 → 视觉上就是一坨重叠怪。
          MC 靠寻路到相邻格子 + 碰撞推挤达到同样效果，这里显式给每个怪一个环绕位。 */
@@ -7938,7 +10022,7 @@ function updateMobs(dt) {
       else { mx = 0; mz = 0; speed = 0; }
     }
     // 村民任务：拿剑 → 自动打主人周围的怪
-    if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.give && ITEMS[m.give.id] && ITEMS[m.give.id].kind === 'sword' && (own || player.alive)) {
+    if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.give && ITEMS[m.give.id] && (ITEMS[m.give.id].kind === 'sword' || ITEMS[m.give.id].kind === 'axe') && (own || player.alive)) {
       m.scanCd = (m.scanCd || 0) - dt;
       if (m.scanCd <= 0) { m.scanCd = 0.4; m.tgt = nearestHostileFrom(m, 16, 18); }
       const tg = (m.tgt && !m.tgt.dying && m.tgt.hp > 0) ? m.tgt : null;
@@ -7949,6 +10033,51 @@ function updateMobs(dt) {
           mx = 0; mz = 0; speed = 0;
           m.vAtk = (m.vAtk || 0) - dt;
           if (m.vAtk <= 0) { m.vAtk = 1.1; villagerAttack(m, tg); }
+        }
+      }
+    }
+    /* 村民挖矿/砍树：有任务 + 拿着对口工具 + 主人（玩家）在场 → 干活。
+       目标永远在**主人周围**找（只会在玩家附近挖），目标消失/被玩家放方块顶掉就重新找。 */
+    if (!m.sleeping && !m.bedTgt && m.recruit && m.recruit.hired && m.task && m.give
+        && ITEMS[m.give.id] && (own || player.alive)) {
+      const need = m.task.kind === 'mine' ? 'pick' : 'axe';
+      if (ITEMS[m.give.id].kind !== need) { m.task = null; m.mineTgt = null; }   // 换工具了 → 令作废
+      else {
+        const own3 = own || { x: player.p.x, y: player.p.y, z: player.p.z };
+        m.mineCd = (m.mineCd || 0) - dt;
+        if (m.mineCd <= 0) {
+          m.mineCd = 0.4;
+          const t3 = m.mineTgt;
+          const gone = !t3 || getBlock(t3.x, t3.y, t3.z) !== t3.id || edits.has(t3.x + ',' + t3.y + ',' + t3.z);
+          if (gone) m.mineTgt = findVillagerMineTgt(m, own3, m.task.kind);
+        }
+        const tg3 = m.mineTgt;
+        if (tg3) {
+          const tdx3 = tg3.x + 0.5 - m.p.x, tdz3 = tg3.z + 0.5 - m.p.z;
+          const tdist3 = Math.hypot(tdx3, tdz3);
+          const tdy3 = (tg3.y + 0.5) - (m.p.y + 0.9);
+          /* 够到就打：水平 2.3 格内、垂直 2.8 格内都算够得着（原来 1.9/1.8 太严，
+             目标是下方/上方第二格的方块时他会一直往前走、永远不动手）。 */
+          if (tdist3 > 2.3 || Math.abs(tdy3) > 2.8) {
+            mx = tdx3 / (tdist3 || 1); mz = tdz3 / (tdist3 || 1); speed = def.chase + 0.5;
+            m.mineSwing = 0;
+            /* 走不到就换目标：6 秒还没接近就作废，避免卡在一个够不着的方块前面 */
+            m.mineWalkT = (m.mineWalkT || 0) + dt;
+            if (m.mineWalkT > 6) { m.mineWalkT = 0; m.mineTgt = null; m.mineCd = 1.2; }
+          } else {
+            mx = 0; mz = 0; speed = 0; m.mineWalkT = 0;
+            m.mineSwing = (m.mineSwing || 0) + dt * 9;
+            if (m.parts.arm1) m.parts.arm1.rotation.x = -1.05 + Math.sin(m.mineSwing) * 0.34;   // 抡镐动画
+            m.mineProg = (m.mineProg || 0) + dt * 1.5;
+            if (m.mineProg >= (BLOCKS[tg3.id].hard || 1.6)) {
+              m.mineProg = 0;
+              const bid = tg3.id, bdrop = BLOCKS[bid].drop || bid;
+              setBlock(tg3.x, tg3.y, tg3.z, 0);                       // 走正常 setBlock → 记进 edits、掉落同步
+              spawnDrop(bdrop, 1, tg3.x + 0.5, tg3.y + 0.5, tg3.z + 0.5);
+              sfx('break', bid);
+              m.mineTgt = null;
+            }
+          }
         }
       }
     }
@@ -8050,12 +10179,17 @@ function updateMobs(dt) {
         m.atkCd = def.atkCd || 1.6; m.lunge = 0.3; m.atkN = (m.atkN | 0) + 1;
         tgtMob.hp -= (def.dmg || 3) * 0.8;
         tgtMob.flash = 0.24;
+        /* ★ 村民/被招募的守卫也要有击退：以前这里只扣血，怪贴身砍他时他纹丝不动（玩家看着像"没打中"） */
+        { const kx2 = tgtMob.p.x - m.p.x, kz2 = tgtMob.p.z - m.p.z, kd2 = Math.hypot(kx2, kz2) || 1;
+          tgtMob.v.x = (kx2 / kd2) * 5.4; tgtMob.v.z = (kz2 / kd2) * 5.4;
+          tgtMob.v.y = Math.max(tgtMob.v.y, 3.2); tgtMob.knockT = 0.3; }
         if (tgtMob.hp <= 0) startMobDeath(tgtMob);
         sfx('hurt');
       }
-    } else if (def.hostile && hostileNow && !m.dormant && (def.hostile ? (nearestFoe(m) || { d: dist, x: player.p.x, y: player.p.y, z: player.p.z, pid: '' }).d : dist) < reach && m.atkCd <= 0) {
-      const foe = nearestFoe(m) || { d: dist, x: player.p.x, y: player.p.y, z: player.p.z, pid: '' };
-      if (Math.abs(m.p.y - foe.y) < (def.vReach || (def.boss ? 3.2 : 2.0)) && sightClear(m.p, foe)) {
+    } else if (def.hostile && hostileNow && !m.dormant && (def.hostile ? (nearestFoe(m) || { d: 1e9 }).d : dist) < reach && m.atkCd <= 0) {
+      /* ★ v331：以前 nearestFoe 找不到人时会退回「打玩家」—— 保护期等于没保护。 */
+      const foe = nearestFoe(m);
+      if (foe && Math.abs(m.p.y - foe.y) < (def.vReach || (def.boss ? 3.2 : 2.0)) && sightClear(m.p, foe)) {
         m.atkCd = def.atkCd || 1.6; m.lunge = 0.3; m.atkN = (m.atkN | 0) + 1;
         /* ★ 怪打到的是谁：客人由房主代算，再定向把伤害发过去（以前只扣房主自己的血） */
         if (foe.pid) NET.send('hurt', { to: foe.pid, d: def.dmg || 3, sx: +m.p.x.toFixed(2), sz: +m.p.z.toFixed(2) });
@@ -8072,6 +10206,7 @@ function updateMobs(dt) {
     if (countKind('netherBeast') < 2 && Math.random() < dt * 0.22) { const s3 = findNetherSpot(); if (s3) spawnMobAt('netherBeast', s3.x, s3.y, s3.z); }
     if (countKind('croc') < 3 && Math.random() < dt * 0.22) { const s4 = findNetherSpot(); if (s4) spawnMobAt('croc', s4.x, s4.y, s4.z); }
   }
+  guardTick(dt);                                                   // 玩家保护倒计时（不影响刷怪）
   const capGrunt = night ? CFG.MAX_MOBS + 2 : CFG.MAX_MOBS;
   if (DIM !== 'nether') {
     if (countKind('grunt') < capGrunt && Math.random() < dt * 0.28) spawnMob('grunt');   // 0.85 → 0.28（约 1/3）
@@ -8079,8 +10214,28 @@ function updateMobs(dt) {
     if (countKind('cow') < 3 && Math.random() < dt * 0.10) spawnMob('cow');
     if (countKind('sheep') < 3 && Math.random() < dt * 0.10) spawnMob('sheep');
     if (countKind('chicken') < 4 && Math.random() < dt * 0.13) spawnMob('chicken');
+    /* 群系友好动物：一次随机挑一种；30% 概率成小群（2~3 只），和真实生态一样不会单只孤零零地站 */
+    if (Math.random() < dt * 0.9) {
+      const ak = ANIMAL_POOL[Math.floor(Math.random() * ANIMAL_POOL.length)];
+      if (countKind(ak) < (ANIMAL_CAP[ak] || 4)) {
+        const sa = findAnimalSpot(ak);
+        if (sa) {
+          spawnMobAt(ak, sa.x, sa.y, sa.z);
+          const herd = Math.random() < 0.3 ? 2 + Math.floor(Math.random() * 2) : 0;
+          for (let n2 = 0; n2 < herd; n2++) {
+            const s2b = findAnimalSpot(ak);
+            if (s2b) spawnMobAt(ak, s2b.x, s2b.y, s2b.z);
+          }
+        }
+      }
+    }
     if (countKind('spider') < 3 && Math.random() < dt * 0.18) spawnMob('spider');   // 0.55 → 0.18，上限 4 → 3
     if (countKind('skeleton') < 3 && Math.random() < dt * 0.30) spawnMob('skeleton');
+    /* 矿工：只刷在废弃矿洞里（离你 56 格内的那个矿洞，站在巷道上），最多 3 只 */
+    if (countKind('miner') < 3 && Math.random() < dt * 0.22) {
+      const sm = findMineSpot();
+      if (sm) spawnMobAt('miner', sm.x, sm.y, sm.z);
+    }
     // 远古巨像：末影人级稀有 —— 一场最多 1 只，平均 ~70 秒才刷一次（只在夜里/暗处）
     if (countKind('ancientColossus') < 1 && Math.random() < dt * 0.014) spawnMob('ancientColossus');
   }
@@ -8121,7 +10276,7 @@ let dropSeq = 0;                     // 掉落物编号：联机里主机广播�
 const dropTexCache = new Map();
 function dropTexture(id) {
   if (dropTexCache.has(id)) return dropTexCache.get(id);
-  const tex = new THREE.TextureLoader().load(iconURL(id));
+  const tex = new THREE.TextureLoader().load(flatTexURL(id));
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.NearestFilter;
   dropTexCache.set(id, tex);
@@ -8238,7 +10393,8 @@ const $ = id => document.getElementById(id);
 const hud = {
   status: $('status'), tgt: $('tgt'), mine: $('mine'), mineBar: $('mine').firstElementChild,
   hotbar: $('hotbar'), hearts: $('hearts'), food: $('foodrow'), hint: $('hint'), flash: $('flash'),
-  panel: $('panel'), invGrid: $('invGrid'), recList: $('recList'), invCount: $('invCount'),
+  panel: $('panel'), invGrid: $('invGrid'), invCount: $('invCount'),
+  craftGrid: $('craftGrid'), craftDetail: $('craftDetail'), craftFilter: $('craftFilter'), craftCount: $('craftCount'),
   start: $('start'), death: $('death'), deathMsg: $('deathMsg'),
 };
 let hintTimer = 0;
@@ -8247,6 +10403,10 @@ function toast(msg, secs = 2.4) { hud.hint.textContent = msg; hud.hint.style.opa
 function damagePlayer(n) {
   if (!player.alive) return;
   if (isCreative()) return;                      // 创造模式无敌
+  /* ★ v346：先消毒。NaN 一旦进来，Math.max(0, NaN) 还是 NaN → hp 变 NaN →
+     `hp <= 0` 永远为假 → 不会死，而血条按「i < NaN」画出来就是 0 颗心（「0 血但不死」的另一条路）。 */
+  n = +n;
+  if (!isFinite(n) || n <= 0) return;
   const ap = armorPoints();
   const mul = 1 - Math.min(0.8, ap * 0.04);          // 每点Armor 4% 减伤，上限 80%
   const dmg = Math.max(0.5, n * mul);
@@ -8258,6 +10418,10 @@ function damagePlayer(n) {
 }
 function die() {
   player.alive = false;
+  /* ★ v332 多人：客人躺下要告诉房主 —— 否则房主的怪会继续对着"尸体"挥拳 */
+  if (typeof NET !== 'undefined' && NET && NET.active && !NET.isHost) {
+    try { NET.send('pdie', {}); } catch (e) {}
+  }
   hud.death.classList.remove('hide');
   hud.deathMsg.textContent = `You fell at ${clockText()}. Your Inventory is still there, and so is the World.`;
   if (document.pointerLockElement) document.exitPointerLock();
@@ -8278,8 +10442,17 @@ function respawn() {
   }
   player.v.set(0, 0, 0);
   player.hp = 20; player.hunger = 18; player.alive = true;
+  player.air = OXY_MAX; player.drownT = 0; player.airWarned = false;   // ★ v339 重生换口气
+  playerGuard = 20;                       // ★ v331：重生后 20 秒不被怪锁定
+  /* ★ v332 多人：告诉房主"我起来了"，房主那边重新给 20 秒（以前只有进房那一次保护，
+     客人一死一复活就被瞬间围死） */
+  if (typeof NET !== 'undefined' && NET && NET.active && !NET.isHost) {
+    try { NET.send('palive', {}); } catch (e) {}
+  }
   player.fallFrom = null;
-  worldTime = Math.floor(worldTime / CFG.DAY) * CFG.DAY;
+  /* ★ 死亡/重生不许动世界时间：以前这里把 worldTime 取整到当天开头（= 06:00 天亮），
+     于是晚上（或者刚过正午）一死，天立刻亮/跳一大截 —— 「死了时间就重置」就是这个。
+     时间只由 update() 里的 dt 推进；重生只负责血/饱食/位置。 */
   hud.death.classList.add('hide');
 }
 
@@ -8288,8 +10461,10 @@ function respawn() {
 function slotBarHTML(s) {
   const idef = s && ITEMS[s.id];
   if (!idef) return '';
-  if (idef.kind === 'gun') {
-    const cap = idef.cap || 8, c = s.c === undefined ? cap : Math.max(0, Math.min(cap, s.c));
+  if (idef.kind === 'gun' || idef.kind === 'tank') {
+    const cap = (idef.kind === 'tank' ? idef.cap || 360 : idef.cap || 8);
+    const raw = s.c === undefined ? (idef.kind === 'tank' ? 0 : cap) : s.c;
+    const c = Math.max(0, Math.min(cap, raw));
     const f = c / cap;
     const col = f > 0.5 ? '#4de0d0' : f > 0.2 ? '#f0c04a' : '#e0524b';
     return `<i class="dur"><b style="width:${(f * 100).toFixed(0)}%;background:${col}"></b></i>`;
@@ -8299,6 +10474,114 @@ function slotBarHTML(s) {
   const f = Math.max(0, Math.min(1, left / idef.dur));
   const col = f > 0.5 ? '#7fe06b' : f > 0.25 ? '#f0c04a' : '#e0524b';
   return `<i class="dur"><b style="width:${(f * 100).toFixed(0)}%;background:${col}"></b></i>`;
+}
+
+/* ============================================================ 氧气 / 左手栏（v339）
+ * · 肺活量 30 秒：眼睛所在格是水就开始掉，出水 2.5 秒回满
+ * · 氧气罐：铜 4 + 铁 2 打造；充电器里 1 颗铀 → +120 秒氧气（上限 360 秒）
+ * · 左手栏（Q）：只收氧气罐；罐里有气时优先烧罐子，肺活量保持满
+ * · 第一人称看不到自己背上的罐子；联机时别人能看到（模型挂在远端形象背上）
+ * · 肺空了开始溺水：每 1.5 秒 2 点伤害
+ */
+const tankCap = id => (ITEMS[id] && ITEMS[id].cap) || OXY_TANK_CAP;
+const tankCharge = s => (s && s.c === undefined ? 0 : Math.max(0, +s.c || 0));   // ★ 必须是小数：每帧扣 dt，用 |0 会每帧白扣 1 秒
+const isTankId = id => !!(ITEMS[id] && ITEMS[id].kind === 'tank');
+const eyeUnderwater = () => getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 1.55), Math.floor(player.p.z)) === 5;
+function offhandTank() {
+  if (player.off && isTankId(player.off.id)) return player.off;
+  const h = held();
+  return (h && isTankId(h.id)) ? h : null;
+}
+function swapOffhand() {
+  if (!started || !player.alive) return false;
+  const s = inv[player.sel];
+  if (!player.off) {
+    if (!s || !isTankId(s.id)) { toast('Left hand holds only an Oxygen Tank — select one and press Q', 2.0); return false; }
+    player.off = s; inv[player.sel] = null;
+  } else {
+    if (s && !isTankId(s.id)) { toast('The left hand can only hold an Oxygen Tank', 1.8); return false; }
+    inv[player.sel] = player.off; player.off = s || null;
+  }
+  sfx('place');
+  renderHotbar(); refreshHeld(); renderOxygen(); if (panelOpen) renderInventoryPanel(); saveSoon();
+  toast(player.off && isTankId(player.off.id) ? 'Oxygen Tank → left hand (on your back)' : 'Oxygen Tank → hotbar', 1.7);
+  return true;
+}
+let offSig = '';
+function renderOffhand() {
+  const el = $('offSlot'); if (!el) return;
+  const s = player.off;
+  const sig = s ? (s.id + ':' + Math.round(tankCharge(s))) : 'none';
+  if (sig === offSig) return;
+  offSig = sig;
+  if (!s) {
+    el.innerHTML = '<span class="k">Q</span><span class="offph">L</span>';
+    el.title = 'Left hand (Q): put an Oxygen Tank here';
+    el.classList.remove('has');
+    return;
+  }
+  const cap = tankCap(s.id), c = tankCharge(s), f = cap ? c / cap : 0;
+  const col = f > 0.5 ? '#4de0d0' : f > 0.2 ? '#f0c04a' : '#e0524b';
+  el.innerHTML = `<span class="k">Q</span><img src="${iconURL(s.id)}" alt="">`
+    + `<i class="dur"><b style="width:${(f * 100).toFixed(0)}%;background:${col}"></b></i>`;
+  el.title = `${nameOf(s.id)} · Oxygen ${Math.ceil(c)}/${cap} s (press Q to swap)`;
+  el.classList.add('has');
+}
+let oxyBubbleEls = null;
+function renderOxygen() {
+  const row = $('oxyrow'), tankRow = $('tankrow');
+  if (!row || !tankRow) return;
+  if (!oxyBubbleEls) {
+    const b = $('oxyBubbles');
+    if (b) { b.innerHTML = ''; oxyBubbleEls = []; for (let i = 0; i < 10; i++) { const e = document.createElement('i'); e.className = 'bub'; b.appendChild(e); oxyBubbleEls.push(e); } }
+  }
+  const air = clamp(player.air === undefined ? OXY_MAX : player.air, 0, OXY_MAX);
+  const under = eyeUnderwater() && player.alive;
+  row.style.display = (under || air < OXY_MAX - 0.05) ? 'flex' : 'none';
+  const lit = Math.ceil(air / (OXY_MAX / 10) - 0.001);
+  if (oxyBubbleEls) for (let i = 0; i < 10; i++) oxyBubbleEls[i].classList.toggle('on', i < lit);
+  const txt = $('oxyTxt');
+  if (txt) { txt.textContent = air.toFixed(1) + 's'; txt.style.color = air <= 10 ? '#ff8a7a' : '#bfe9ff'; }
+  const t = offhandTank();
+  tankRow.style.display = t ? 'flex' : 'none';
+  if (t) {
+    const cap = tankCap(t.id), c = tankCharge(t);
+    const fill = $('tankFill'), tt = $('tankTxt');
+    if (fill) { fill.style.width = (cap ? (c / cap * 100).toFixed(0) : 0) + '%'; fill.style.background = c <= 0 ? '#e0524b' : '#4de0d0'; }
+    if (tt) { tt.textContent = Math.ceil(c) + '/' + cap + 's'; tt.style.color = c <= 0 ? '#ff8a7a' : '#7fe0ff'; }
+  }
+}
+function updateOxygen(dt) {
+  if (!player.alive) return;
+  if (isCreative()) { player.air = OXY_MAX; player.drownT = 0; player.airWarned = false; return; }
+  const under = eyeUnderwater();
+  const tank = offhandTank();
+  if (under) {
+    if (tank && tankCharge(tank) > 0) {
+      tank.c = Math.max(0, tankCharge(tank) - dt);
+      player.air = Math.min(OXY_MAX, player.air + OXY_REFILL * dt);   // 罐子供气时肺活量不掉
+      if (tankCharge(tank) <= 0) {
+        tank.c = 0;
+        toast('Oxygen Tank is empty — refill it in a Charger with Uranium', 2.6);
+        renderHotbar();
+      }
+    } else {
+      player.air = Math.max(0, player.air - dt);
+      if (player.air <= 10 && !player.airWarned) { player.airWarned = true; toast('Oxygen low — about 10 seconds left', 1.8); }
+      if (player.air <= 0) {
+        player.drownT = (player.drownT || 0) + dt;
+        if (player.drownT >= OXY_DROWN_EVERY) {
+          player.drownT = 0;
+          damagePlayer(OXY_DROWN_DMG);
+          toast('Drowning! Surface, or put an Oxygen Tank in your left hand (Q)', 2.0);
+        }
+      }
+    }
+  } else {
+    player.drownT = 0;
+    if (player.air < OXY_MAX) player.air = Math.min(OXY_MAX, player.air + OXY_REFILL * dt);
+    if (player.air >= OXY_MAX - 0.01) player.airWarned = false;
+  }
 }
 function renderHotbar() {
   const row = hud.hotbar;
@@ -8313,6 +10596,7 @@ function renderHotbar() {
     d.onclick = () => { player.sel = i; refreshHeld(); renderHotbar(); };
     row.appendChild(d);
   }
+  renderOffhand();
 }
 function renderHearts() {
   const hp = Math.ceil(player.hp / 2);
@@ -8378,7 +10662,7 @@ function renderCreativeGrid() {
     d.title = nameOf(id) + '(click to hold it)';
     d.onclick = () => {
       const it2 = ITEMS[id];
-      const stack = (it2 && (it2.dur || it2.kind === 'gun' || it2.kind === 'armor')) ? 1 : 64;   // 武器/工具/护甲只拿 1 件
+      const stack = (it2 && (it2.dur || it2.kind === 'gun' || it2.kind === 'armor' || it2.kind === 'tank')) ? 1 : 64;   // 武器/工具/护甲/氧气罐只拿 1 件
       if (cursor) {                                   // 手上已有东西 → 直接丢弃，不塞进背包
         toast(`Discarded ${nameOf(cursor.id)} ×${cursor.n}`, 1.2);
         cursor = null;
@@ -8396,8 +10680,10 @@ function renderSquadStrip() {                    // 背包里的「小队」区�
   if (!el) {
     el = document.createElement('div');
     el.id = 'invSquad';
-    el.style.cssText = 'margin:8px 0 4px;padding:8px;border:1px solid #3a4757;border-radius:8px;background:rgba(255,255,255,.03)';
-    hud.invGrid.parentNode.insertBefore(el, hud.invGrid);
+    el.style.cssText = 'margin:0 0 10px;padding:8px;border:1px solid #3a4757;border-radius:8px;background:rgba(255,255,255,.03)';
+    const slot = document.getElementById('invSquadSlot');
+    if (slot) slot.appendChild(el);                              // 整行区域（工作台面板）
+    else hud.invGrid.parentNode.insertBefore(el, hud.invGrid);    // 老布局：背包上方
   }
   const list = squadList();
   const cell = (m, i) => {
@@ -8436,35 +10722,130 @@ function renderInventoryPanel() {
   if ($('cursorInfo')) $('cursorInfo').textContent = cursorText();
   updateCursorEl();
   hud.invCount.textContent = `${invUsed()}/${SLOTS}`;
-  hud.recList.innerHTML = '';
-  const hasTable = nearCraftingTable();
-  for (const r of RECIPES) {
-    const matsOk = Object.entries(r.need).every(([id, n]) => countOf(+id) >= n);
-    const tableOk = r.tier !== 1 || hasTable;
-    const ok = matsOk && tableOk;
-    const d = document.createElement('div');
-    d.className = 'rec' + (ok ? '' : ' no');
-    const need = Object.entries(r.need).map(([id, n]) => `${nameOf(+id)}×${n}`).join(' + ');
-    const badge = r.tier === 1 ? (hasTable ? '<i style="color:#7fe06b">Crafting Table ✓</i>' : '<i style="color:#e0a24a">Needs Crafting Table</i>') : '';
-    d.innerHTML = `<img src="${iconURL(r.out)}" alt=""><div class="t">${nameOf(r.out)} ×${r.n}<i>${need}</i>${badge}</div>`
-      + `<div class="go">${ok ? 'Craft →' : tableOk ? 'Missing materials' : 'Needs table'}</div>`;
-    d.onclick = () => { if (!ok) { if (!tableOk) toast('You need to stand next to a Crafting Table', 1.5); return; } craft(r); };
-    hud.recList.appendChild(d);
+  renderCraftFilter();
+  renderCraftGrid();
+  renderCraftDetail();
+}
+
+/* ── 工作台 / 合成界面（重做）──────────────────────────────────────────
+ * 以前右边是一长条 122 行的文字列表，要滚半天才知道「我现在能做什么」。
+ * 现在：
+ *   左 = 图标网格（能做的排最前、亮着；材料不够的灰掉；左上角小点 ◆ = 需要工作台）
+ *        点一下 → 右边出详情；双击 → 直接做一个
+ *   右上 = 选中物品的大图标 + 材料清单（有/需要 两个数字，缺的打红）+ 制作按钮
+ *   右下 = 玩家背包（图标格子，和以前一样点选/拖动）
+ * 分类标签（All/Tools/Armor/Blocks/Food/Other）用一级 ICONS 分类推断，不额外维护数据。 */
+let craftSel = null, craftCat = 'all';
+const CRAFT_CATS = [['all', 'All'], ['tool', 'Tools'], ['armor', 'Armor'], ['block', 'Blocks'], ['food', 'Food'], ['other', 'Other']];
+function recipeCat(r) {
+  const it = ITEMS[r.out], b = BLOCKS[r.out];
+  if (it && (it.kind === 'pick' || it.kind === 'axe' || it.kind === 'sword' || it.kind === 'hoe'
+          || it.kind === 'gun' || it.kind === 'bow' || it.kind === 'bucket' || it.kind === 'ammo')) return 'tool';
+  if (it && it.kind === 'armor') return 'armor';
+  if (it && it.kind === 'food') return 'food';
+  if (b) return 'block';
+  return 'other';
+}
+function canCraft(r) {
+  if (r.tier === 1 && !nearCraftingTable()) return false;
+  return Object.entries(r.need).every(([id, n]) => countOf(+id) >= n);
+}
+function renderCraftFilter() {
+  const bar = hud.craftFilter;
+  if (!bar) return;
+  bar.innerHTML = '';
+  for (const [key, label] of CRAFT_CATS) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (craftCat === key) b.className = 'on';
+    b.onclick = () => { craftCat = key; renderCraftFilter(); renderCraftGrid(); };
+    bar.appendChild(b);
   }
+}
+function renderCraftGrid() {
+  const grid = hud.craftGrid;
+  if (!grid) return;
+  const hasTable = nearCraftingTable();
+  const list = RECIPES
+    .filter(r => craftCat === 'all' || recipeCat(r) === craftCat)
+    .slice()
+    .sort((a, b) => (canCraft(a) ? 0 : 1) - (canCraft(b) ? 0 : 1) || a.out - b.out);
+  if (!craftSel || !RECIPES.includes(craftSel) || list.indexOf(craftSel) < 0) {
+    craftSel = list.find(canCraft) || list[0] || null;          // 默认选中「第一个能做的」
+  }
+  grid.innerHTML = '';
+  for (const r of list) {
+    const ok = canCraft(r);
+    const d = document.createElement('div');
+    d.className = 'ccell' + (ok ? ' ok' : '') + (craftSel === r ? ' sel' : '');
+    d.title = `${nameOf(r.out)} ×${r.n}` + (r.tier === 1 ? (hasTable ? '  ·  Crafting Table ✓' : '  ·  needs a Crafting Table') : '');
+    d.innerHTML = `<img src="${iconURL(r.out)}" alt="">`
+      + (r.n > 1 ? `<span class="q">${r.n}</span>` : '')
+      + (r.tier === 1 ? '<span class="tb">◆</span>' : '');
+    d.onclick = () => {
+      craftSel = r;
+      for (const c of grid.children) c.classList.remove('sel');
+      d.classList.add('sel');
+      renderCraftDetail();
+    };
+    d.ondblclick = () => { craftSel = r; craft(r); };
+    grid.appendChild(d);
+  }
+  if (hud.craftCount) hud.craftCount.textContent = `· ${list.filter(canCraft).length} of ${list.length} available`;
+}
+function renderCraftDetail() {
+  const box = hud.craftDetail;
+  if (!box) return;
+  const r = (craftSel && RECIPES.includes(craftSel)) ? craftSel : null;
+  if (!r) { box.innerHTML = '<div class="cnote">Pick an item on the left to see what it needs.</div>'; return; }
+  const hasTable = nearCraftingTable();
+  const ok = canCraft(r);
+  const tableOk = r.tier !== 1 || hasTable;
+  const rows = Object.entries(r.need).map(([id, n]) => {
+    const bid = +id, have = countOf(bid), short = have < n;
+    return `<div class="req${short ? ' short' : ''}"><img src="${iconURL(bid)}" alt="">
+      <span>${nameOf(bid)}</span><b>${Math.min(have, n)}</b><span class="of">/ ${n}</span></div>`;
+  }).join('');
+  const label = ok ? `Craft  (${r.n}×)` : (tableOk ? 'Missing materials' : 'Needs a Crafting Table');
+  box.innerHTML = `<div class="hd"><img src="${iconURL(r.out)}" alt="">
+      <div class="nm">${nameOf(r.out)} ×${r.n}<i>${r.tier === 1 ? 'Crafting Table recipe' : 'Hand craft — works anywhere'}</i></div></div>
+    ${rows}
+    <button class="craftbtn" id="craftBtn"${ok ? '' : ' disabled'}>${label}</button>
+    ${r.tier === 1 && !hasTable ? '<div class="cnote">Stand next to a placed Crafting Table to craft this one.</div>' : ''}`;
+  const btn = $('craftBtn');
+  if (btn && ok) btn.onclick = () => craft(r);
 }
 // tier 1 = 必须站在已放置的工作台旁边才能做（"大工具"）
 const RECIPES = [
   { out: 8, n: 4, need: { 6: 1 } },
+  /* v324：以前只有橡木→木板，云杉/白桦原木根本做不成木板（摆着好看没用）。
+     现在每种木头都有自己的一套，跟 MC 一样。 */
+  { out: 29, n: 4, need: { 28: 1 } },      // 云杉木板
+  { out: 31, n: 4, need: { 30: 1 } },      // 白桦木板
+  { out: 82, n: 4, need: { 81: 1 } },      // 金合欢木板
+  { out: 84, n: 4, need: { 83: 1 } },      // 深色橡木木板
+  { out: 86, n: 4, need: { 85: 1 } },      // 仙人掌木板
+  /* ★ v336 船：每条船 = 4 块同种木板（MC 是 5 块，这里给 4 块好做） */
+  { out: 209, n: 1, need: { 8: 4 } },      // 橡木船
+  { out: 210, n: 1, need: { 31: 4 } },     // 白桦船
+  { out: 211, n: 1, need: { 29: 4 } },     // 云杉船
+  { out: 212, n: 1, need: { 82: 4 } },     // 金合欢船
+  { out: 213, n: 1, need: { 84: 4 } },     // 深色橡木船
+  { out: 214, n: 1, need: { 86: 4 } },     // 仙人掌木船
+  { out: 206, n: 1, need: { 105: 1, 125: 1 }, tier: 1 },      // 钻石苹果：苹果 + 钻石（工作台）
   { out: 104, n: 4, need: { 8: 2 } },
   { out: 10, n: 1, need: { 8: 4 } },
   { out: 124, n: 1, need: { 107: 3 } },
   { out: 19, n: 1, need: { 9: 8 }, tier: 1 },
   { out: 100, n: 1, need: { 8: 3, 104: 2 }, tier: 1 },
+  { out: 200, n: 1, need: { 8: 3, 104: 2 }, tier: 1 },
   { out: 101, n: 1, need: { 9: 3, 104: 2 }, tier: 1 },
+  { out: 201, n: 1, need: { 9: 3, 104: 2 }, tier: 1 },
   { out: 102, n: 1, need: { 8: 2, 104: 1 }, tier: 1 },
   { out: 103, n: 1, need: { 9: 2, 104: 1 }, tier: 1 },
   // ── 铜器：石 → 铜 → 铁的中间档（铜镐够格挖铁矿，钻石矿仍要铁镐）──
   { out: 163, n: 1, need: { 162: 3, 104: 2 }, tier: 1 },
+  { out: 202, n: 1, need: { 162: 3, 104: 2 }, tier: 1 },
   { out: 164, n: 1, need: { 162: 2, 104: 1 }, tier: 1 },
   { out: 165, n: 1, need: { 162: 2, 104: 2 }, tier: 1 },
   { out: 166, n: 1, need: { 162: 4 }, tier: 1 },
@@ -8480,6 +10861,8 @@ const RECIPES = [
   { out: 189, n: 1, need: { 185: 1, 186: 3, 106: 4 }, tier: 1 },   // 铁能量炮   dmg 12 电量 10
   { out: 190, n: 1, need: { 185: 1, 186: 4, 125: 3 }, tier: 1 },   // 钻石能量炮 dmg 17 电量 12
   { out: 191, n: 1, need: { 185: 1, 186: 4, 178: 2 }, tier: 1 },   // 冥界钢能量炮 dmg 22 电量 14
+  /* ★ v339 氧气罐：铜 4 + 铁 2（工作台）—— 用户指定「铜和铁可以制作」 */
+  { out: 215, n: 1, need: { 162: 4, 106: 2 }, tier: 1 },
   // ── 木器：原木 →（木头加工器）→ 木片 → 木盔甲。最弱的一套护甲，开局就能凑齐（合计 7 点 vs 铜 12 / 铁 15）
   { out: 40, n: 1, need: { 6: 2, 8: 4, 9: 4 }, tier: 1 },     // 木头加工器：原木 2 + 木板 4 + 圆石 4
   { out: 171, n: 1, need: { 170: 6 }, tier: 1 },              // 木头盔
@@ -8493,11 +10876,13 @@ const RECIPES = [
   // 冥界钢装备（材料来自液压机：冥界碳 + 铁 → 冥界钢）
   { out: 179, n: 1, need: { 178: 2, 104: 1 }, tier: 1 },      // 冥界钢剑：16 伤害（钻石 13）
   { out: 184, n: 1, need: { 178: 3, 104: 2 }, tier: 1 },      // 冥界钢镐：速度 4.2（钻石 3.4）
+  { out: 205, n: 1, need: { 178: 3, 104: 2 }, tier: 1 },
   { out: 180, n: 1, need: { 178: 5 }, tier: 1 },              // 冥界钢头盔
   { out: 181, n: 1, need: { 178: 8 }, tier: 1 },              // 冥界钢胸甲
   { out: 182, n: 1, need: { 178: 7 }, tier: 1 },              // 冥界钢护腿
   { out: 183, n: 1, need: { 178: 4 }, tier: 1 },              // 冥界钢靴
   { out: 120, n: 1, need: { 106: 3, 104: 2 }, tier: 1 },
+  { out: 203, n: 1, need: { 106: 3, 104: 2 }, tier: 1 },
   { out: 121, n: 1, need: { 106: 2, 104: 1 }, tier: 1 },
   { out: 110, n: 1, need: { 106: 5 }, tier: 1 },
   { out: 111, n: 1, need: { 106: 8 }, tier: 1 },
@@ -8516,6 +10901,7 @@ const RECIPES = [
   { out: 34, n: 4, need: { 8: 6 }, tier: 1 },
   { out: 35, n: 3, need: { 8: 6 }, tier: 1 },
   { out: 130, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
+  { out: 204, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
   { out: 131, n: 1, need: { 125: 2, 104: 1 }, tier: 1 },
   { out: 132, n: 1, need: { 125: 5 }, tier: 1 },
   { out: 133, n: 1, need: { 125: 8 }, tier: 1 },
@@ -8696,21 +11082,28 @@ const GUN_IDS = [188, 189, 190, 191];
 const CHARGE_DUR = 5.0;
 const gunCap = id => (ITEMS[id] && ITEMS[id].cap) || 8;
 const gunCharge = s => (s && s.c === undefined ? gunCap(s.id) : Math.max(0, s.c | 0));
+/* ★ v339/v340：充电器也充氧气罐 —— 同一套「1 颗铀 + 5 秒」；罐子一次 +120 秒氧气，上限 360 秒 */
+const chIsTank = s => !!(s && ITEMS[s.id] && ITEMS[s.id].kind === 'tank');
+const chCap = s => chIsTank(s) ? tankCap(s.id) : gunCap(s.id);
+const chCharge = s => chIsTank(s) ? tankCharge(s) : gunCharge(s);
+const chTarget = slot => slot === 'off' ? player.off : inv[slot];
+const chLabel = slot => slot === 'off' ? 'left hand' : 'Inventory slot ' + (slot + 1);
 function chargerTargets() {
   const out = [];
-  for (let i = 0; i < SLOTS; i++) { const s = inv[i]; if (s && GUN_IDS.includes(s.id)) out.push({ i, s }); }
+  for (let i = 0; i < SLOTS; i++) { const s = inv[i]; if (s && (GUN_IDS.includes(s.id) || chIsTank(s))) out.push({ i, s }); }
+  if (player.off && chIsTank(player.off)) out.push({ i: 'off', s: player.off });
   return out;
 }
 function startCharge(slot) {
   if (chargerJob) { toast('The Charger is working — wait for it to finish', 1.4); return false; }
-  const s = inv[slot];
-  if (!s || !GUN_IDS.includes(s.id)) { toast('That cannon is no longer in your Inventory', 1.6); return false; }
-  const cap = gunCap(s.id);
-  if (gunCharge(s) >= cap) { toast(`${nameOf(s.id)} is already fully charged (${cap}/${cap})`, 1.6); return false; }
+  const s = chTarget(slot);
+  if (!s || !(GUN_IDS.includes(s.id) || chIsTank(s))) { toast('That item is no longer with you', 1.6); return false; }
+  const cap = chCap(s);
+  if (chCharge(s) >= cap) { toast(`${nameOf(s.id)} is already full (${Math.round(chCharge(s))}/${cap})`, 1.6); return false; }
   if (countOf(187) < 1) { toast('No Uranium: Uranium Ore only spawns in the Deepslate layer — no smelting needed, use it directly as charging fuel', 2.6); return false; }
   takeItem(187, 1);
   chargerJob = { slot, id: s.id, t: 0, dur: CHARGE_DUR };
-  toast(`Loaded 1 Uranium: charging ${nameOf(s.id)} (${gunCharge(s)}/${cap})`, 2.0);
+  toast(`Loaded 1 Uranium: charging ${nameOf(s.id)} (${Math.round(chCharge(s))}/${cap})`, 2.0);
   sfx('place');
   renderHotbar(); renderCharger(); saveSoon();
   return true;
@@ -8718,28 +11111,29 @@ function startCharge(slot) {
 function updateChargerJob(dt) {
   const j = chargerJob;
   if (!j) return;
-  const s = inv[j.slot];
-  if (!s || s.id !== j.id) {                       // 炮被挪走/换格：中断并退回铀（不做无声吞料）
+  const s = chTarget(j.slot);
+  if (!s || s.id !== j.id) {                       // 被挪走/换格：中断并退回铀（不做无声吞料）
     chargerJob = null;
     addItem(187, 1);
-    toast('Charging interrupted: the cannon was moved away, Uranium returned', 2.4);
+    toast('Charging interrupted: the item was moved away, Uranium returned', 2.4);
     if (chargerOpen) renderCharger();
     renderHotbar(); saveSoon();
     return;
   }
   j.t += dt;
   if (j.t < j.dur) { if (chargerOpen) renderCharger(); return; }
-  s.c = gunCap(s.id);
+  if (chIsTank(s)) s.c = Math.min(chCap(s), tankCharge(s) + TANK_PER_URANIUM);
+  else s.c = gunCap(s.id);
   chargerJob = null;
-  toast(`Charging complete: ${nameOf(s.id)} charge ${s.c}/${gunCap(s.id)}`, 2.0);
+  toast(`Charging complete: ${nameOf(s.id)} ${chIsTank(s) ? 'oxygen' : 'charge'} ${Math.round(chCharge(s))}/${chCap(s)}`, 2.0);
   sfx('craft');
-  renderHotbar(); if (chargerOpen) renderCharger(); refreshGunHud(); saveSoon();
+  renderHotbar(); if (chargerOpen) renderCharger(); refreshGunHud(); renderOxygen(); saveSoon();
 }
 function renderCharger() {
   const info = $('chgInfo');
   if (!info) return;
   info.innerHTML = `Uranium <b style="color:#8dff5a">${countOf(187)}</b>`
-    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">1 Uranium = ${CHARGE_DUR.toFixed(0)} s to fully charge 1 cannon (Uranium is fuel as-is, no smelting into ingots)</div>`;
+    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">1 Uranium + ${CHARGE_DUR.toFixed(0)} s in the Charger → fully charges 1 cannon, or +${TANK_PER_URANIUM} s oxygen in an Oxygen Tank (Uranium is fuel as-is, no smelting)</div>`;
   const list = $('chgList');
   if (!list) return;
   list.innerHTML = '';
@@ -8747,12 +11141,12 @@ function renderCharger() {
   if (!tg.length) {
     const d = document.createElement('div');
     d.className = 'rec no';
-    d.innerHTML = '<div class="t">No cannon in your Inventory<i>Circuit Board + Wire + a metal (Copper / Iron / Diamond / Nether Steel) → craft the cannon at a Crafting Table</i></div>';
+    d.innerHTML = '<div class="t">No cannon or Oxygen Tank on you<i>Craft a cannon (Circuit Board + Wire + metal) or an Oxygen Tank (4 Copper Ingot + 2 Iron Ingot) at a Crafting Table</i></div>';
     list.appendChild(d);
     return;
   }
   for (const { i, s } of tg) {
-    const cap = gunCap(s.id), c = gunCharge(s);
+    const cap = chCap(s), c = chCharge(s);
     const full = c >= cap;
     const busy = !!chargerJob;
     const can = !full && !busy && countOf(187) > 0;
@@ -8761,7 +11155,8 @@ function renderCharger() {
     const busyHere = chargerJob && chargerJob.slot === i;
     const prog = busyHere ? ` · charging ${Math.round(Math.min(1, chargerJob.t / chargerJob.dur) * 100)}%` : '';
     d.innerHTML = `<img src="${iconURL(s.id)}" alt=""><div class="t">${nameOf(s.id)}`
-      + `<i>Charge ${c}/${cap}${full ? ' (full)' : ''}${prog} · Inventory slot ${i + 1}</i></div>`
+      + `<i>${chIsTank(s) ? 'Oxygen ' + Math.round(c) + '/' + cap + ' s' : 'Charge ' + c + '/' + cap}`
+      + `${full ? ' (full)' : ''}${prog} · ${chLabel(i)}</i></div>`
       + `<div class="go">${full ? 'Full' : can ? 'Charge with uranium →' : (!countOf(187) ? 'No uranium' : busy ? 'Waiting' : 'Charging')}</div>`;
     d.onclick = () => { if (can) startCharge(i); };
     list.appendChild(d);
@@ -9090,6 +11485,7 @@ addEventListener('keydown', e => {
       if (lastFwdGap < 350 && !sprintLatch) { sprintLatch = true; toast('Sprint', 0.7); }   // 350ms 窗口（MC 约 300ms，留一点手感余量）
       lastFwdT = now;
     }
+    if (k === 'KeyQ') swapOffhand();                              // ★ v339 左手栏：氧气罐 ↔ 主手
     if (k === 'KeyV') setStructCorner('a');                       // 创作者：选角点1
     if (k === 'KeyB') setStructCorner('b');                       // 创作者：选角点2
     if (k === 'KeyP') uploadStructure();                          // 创作者：导出并上传
@@ -9210,6 +11606,7 @@ bindHold($('tPlace'), () => { if (!uiOpen() && player.alive) placeQueued = true;
 bindHold($('tJump'), () => { jumpQueued = true; jumpTouchT = performance.now(); });
 if ($('tSprint')) bindHold($('tSprint'), () => { sprintTouch = true; }, () => { sprintTouch = false; });   // 触屏：按住「跑」= 疾跑
 $('tBag').addEventListener('click', () => openPanel(!panelOpen));
+{ const _off = $('offSlot'); if (_off) _off.onclick = () => { if (!started || uiOpen()) return; swapOffhand(); }; }   // ★ v339 左手栏（Q）
 
 /* ============================================================ 交互 */
 /* ── 挖掘裂缝：10 级裂纹贴图，贴在准星命中的方块表面 ── */
@@ -9282,6 +11679,7 @@ function cameraDir() {
 }
 function eyePos() { return new THREE.Vector3(player.p.x, player.p.y + CFG.EYE, player.p.z); }
 
+let axeHinted = false;
 function doMine(dt, target) {
   if (!target) { player.mining = 0; return; }
   const def = BLOCKS[target.id];
@@ -9299,13 +11697,19 @@ function doMine(dt, target) {
     if (!creativeHintShown) { creativeHintShown = true; toast('Creative mode: one click mines one block (holding won\'t chain-mine)', 2.4); }
     return true;
   }
-  const pickOk = heldKind() === 'pick';
+  const kindNow = heldKind();
+  const pickOk = kindNow === 'pick';
+  const axeOk = kindNow === 'axe';
+  const isWood = !!def.axe;                                  // 木头：斧头的专属材料
   let speed = 1 / Math.max(0.12, def.hard);
-  if (def.pick) speed *= pickOk ? 1 : 0.28;
+  /* ★ 木头没有斧头就明显变慢（0.3×）：以前徒手/拿镐砍树和拿斧头一样快，斧头就没有存在意义 */
+  if (isWood) speed *= axeOk ? 1 : 0.3;
+  else if (def.pick) speed *= pickOk ? 1 : 0.28;
   const heldDef = held() ? ITEMS[held().id] : null;
   if (heldDef && heldDef.fast) {
-    // 镐对石头/矿石吃满加成；对土、木、沙子这类也有一半加成（手感统一）
-    speed *= def.pick ? heldDef.fast : 1 + (heldDef.fast - 1) * 0.5;
+    /* 对口工具（斧↔木、镐↔石）吃满 fast 加成；不对口只给一半（手感统一，但木头/石头最能体现区别） */
+    const fit = isWood ? axeOk : (def.pick ? pickOk : false);
+    speed *= fit ? heldDef.fast : 1 + (heldDef.fast - 1) * 0.5;
   }
   player.mining += dt * speed;
   player.mineTarget = target;
@@ -9331,7 +11735,7 @@ function breakBlock(t) {
       if (getBlock(t.x + bx, t.y, t.z + bz) === 14) { setBlock(t.x + bx, t.y, t.z + bz, 0); break; }
     }
   }
-  sfx('dig');
+  sfx('break', t.id);
   const dropAt = (id, n) => spawnDrop(id, n, t.x + 0.5, t.y + 0.6, t.z + 0.5);
   if (def.chest) {                                   // 箱子里的东西一并掉出来
     const slots = chestInv.get(t.x + ',' + t.y + ',' + t.z);
@@ -9353,6 +11757,9 @@ function breakBlock(t) {
     const stonePick = inv.some(s => s && (s.id === 101 || s.id === 120 || s.id === 130 || s.id === 163 || s.id === 184));
     if (def.ironPick && !ironPick) toast(`${def.name} needs an Iron Pickaxe or better`, 2.0);
     else if (def.stonePick && !stonePick) toast('Iron Ore needs a Stone Pickaxe or better', 1.8);
+    else if (def.axe && heldKind() !== 'axe' && !axeHinted) {
+      axeHinted = true; toast('Wood breaks slowly by hand — craft an Axe (planks + sticks)', 3.2);
+    }
     else if (def.pick && heldKind() !== 'pick') toast('Stone needs a Pickaxe', 1.8);
     else dropAt(def.drop, 1);
   }
@@ -9360,10 +11767,11 @@ function breakBlock(t) {
 }
 // 开/关门：上下两格一起翻 bit2（open）。返回是否真的操作了一扇门。
 function toggleDoor(x, y, z) {
-  let by = y;
-  if (getMeta(x, y, z) & 8) by = y - 1;                        // 点的是上半格 → 找下格
+  if (getBlock(x, y, z) !== 35) return false;
+  /* ★ 上半格一律按**结构**往下找（下面也是门 ⇒ 本格是上半格），不再依赖 meta 的 bit3：
+     旧房间/重连丢 meta 时上格没有 &8，以前点它会只翻开上半格 → 门模型不动、状态半开。 */
+  const by = (y > 0 && getBlock(x, y - 1, z) === 35) ? y - 1 : y;
   const bm = getMeta(x, by, z);
-  if (!(getBlock(x, by, z) === 35)) return false;
   const dirBits = bm & 3, openNow = bm & 4;
   const ny = by + 1, hasTop = getBlock(x, ny, z) === 35;
   setBlock(x, by, z, 35); setMeta(x, by, z, dirBits | (openNow ? 0 : 4));
@@ -9377,7 +11785,10 @@ function toggleDoor(x, y, z) {
 }
 function placeBlock() {
   const vm = mobAtCrosshair();                                   // 对着村民右键 = 招募 / 给道具 / 指挥
+  if (vm && vm.corpse) return reviveCorpse(vm);                  // 对着尸体右键（手里有钻石苹果）= 复活
   if (vm && vm.recruit) return recruitInteract(vm);
+  const hc = held();
+  if (hc && hc.id === 207) return placeCorpse(hc);               // 手里拿着尸体 → 放到地上
   const h0 = held();
   if (h0 && ITEMS[h0.id] && ITEMS[h0.id].kind === 'food') return false;   // 食物走长按吃，不放置
   const t0 = raycastVoxel(eyePos(), cameraDir(), CFG.REACH);
@@ -9467,7 +11878,7 @@ function plantSeed(t) {                        // 农田上播种
   if (countOf(156) < 1) { toast('No Wheat Seeds', 1.3); return false; }
   takeItem(156, 1);
   setBlock(x, y, z, 23);
-  startSwing('place', 0.3); sfx('place'); saveSoon();
+  startSwing('place', 0.3); sfx('place', held() ? held().id : 0); saveSoon();
   return true;
 }
 function useBoneMeal(t) {                      // 骨粉：催熟小麦 / 撒在草地上长出草丛和花
@@ -9766,7 +12177,7 @@ function attack() {
     if (NET && NET.active && !NET.isHost && NET.hitGhost) {
       const k0 = heldKind();
       const hh = held();                                   // 空手时 held() 是 null：以前直接 held().id 会抛错，整次挥砍白给
-      const d0 = k0 === 'sword' ? (((hh ? defOf(hh.id) : null) || {}).dmg || 5) : k0 === 'pick' ? 3 : 1;
+      const d0 = (k0 === 'sword' || k0 === 'axe') ? (((hh ? defOf(hh.id) : null) || {}).dmg || 5) : k0 === 'pick' ? 3 : 1;
       const hit0 = NET.hitGhost(d0);
       startSwing('attack', 0.5); player.atkCd = 0.42;      // 不管中没中都要挥：没反馈最像"卡了"
       if (hit0) { useTool(1); sfx('hit'); player.hits = (player.hits || 0) + 1; }
@@ -9774,7 +12185,7 @@ function attack() {
     return false;
   }
   const kind = heldKind();
-  const dmg = kind === 'sword' ? ((defOf(held().id) || {}).dmg || 5)
+  const dmg = (kind === 'sword' || kind === 'axe') ? ((defOf(held().id) || {}).dmg || 5)
             : kind === 'pick' ? 3 : 1;
   const dir = cameraDir();
   target.hp -= dmg;
@@ -9825,6 +12236,13 @@ function updatePlayer(dt) {
   if (player.bowCd > 0) player.bowCd = Math.max(0, player.bowCd - dt);
   if (player.gunCd > 0) player.gunCd = Math.max(0, player.gunCd - dt);
   if (!player.alive) { player.v.set(0, 0, 0); return; }
+  /* ★ v346：血量不变量 —— 只要还活着，hp 就必须是正数。
+     以前只有 damagePlayer / 饿死两条路径会调 die()：任何别的写法把 hp 弄到 0 或 NaN
+     （老存档里存着 hp=0、联机背包 `s.hp|0` 把 0.4 截断成 0、NaN 传进伤害…）都不会死，
+     而下面的「饥饿值高就回血」会在同一帧把 0 抬回 0.02… —— 这就是「显示 0 颗心却不死」。
+     检查放在扣血/回血**之前**，否则回血先把 hp 抬起来，兜底就永远不触发。 */
+  if (!(player.hp > 0)) { player.hp = 0; die(); return; }
+
   // 键盘转视角（没有鼠标就靠这个）
   const lookSpd = 1.9 * userCfg.sens;
   if (keyDown('lookLeft')) player.yaw += lookSpd * dt;
@@ -9856,6 +12274,15 @@ function updatePlayer(dt) {
 
   const feetBlock = getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 0.2), Math.floor(player.p.z));
   player.inWater = feetBlock === 5;
+  /* ★ v335：胸口那一格也是水才算「游泳」—— 站进 1 格深的浅水坑不该变成游泳姿势 */
+  player.swimming = player.inWater && getBlock(Math.floor(player.p.x), Math.floor(player.p.y + 1.2), Math.floor(player.p.z)) === 5;
+  /* ★ v336：从岸上跳进水里 → 溅一把水花（在水里漂着不会每帧刷） */
+  if (player.inWater && !player.wasInWater) {
+    const wy = Math.floor(player.p.y) + 1;
+    try { splashAt(player.p.x, wy, player.p.z, 10); } catch (e) {}
+  }
+  player.wasInWater = player.inWater;
+  updateOxygen(dt);                                  // ★ v339 氧气（水下 30 秒 / 左手氧气罐优先）
   player.inLava = feetBlock === 44;                 // 岩浆是液体：会沉下去，要游出来
   if (player.fly) {                              // 创造模式飞行：空格上升、Shift 下降
     const up = (keyDown('jump') || keys.has('KeyZ') || performance.now() - jumpTouchT < 120) ? 1 : 0;
@@ -9927,6 +12354,8 @@ function updatePlayer(dt) {
   if (player.hunger <= 0) { player.hp = Math.max(0, player.hp - dt * 0.6); if (player.hp <= 0) die(); }
   else if (player.hunger > 16 && player.hp < 20) player.hp = Math.min(20, player.hp + dt * 0.45);
 
+  /* ★ v346：血量不变量见 updatePlayer 开头（那里在扣血/回血之前就先兜底了），这里不再重复。 */
+
   // 掉出世界
   if (player.p.y < -8) { damagePlayer(20); respawn(); }
 }
@@ -9937,6 +12366,8 @@ function update(dt) {
   let u0 = P ? performance.now() : 0;
   const lap = (k) => { if (!P) return; const t1 = performance.now(); P[k] += t1 - u0; u0 = t1; };
   worldTime += dt;
+  netTimeStep(dt);
+  updateFootsteps(dt);
   updateEat(dt);
   echoTimer -= dt;
   if (echoTimer <= 0) { echoTimer = 0.4; underground = depthBelowSurface() > 2.5; }
@@ -9961,7 +12392,7 @@ function update(dt) {
   if (!NET || !NET.active || NET.isHost) updateDrops(dt); else NET.updateDropGhosts(dt);
   lap('uDrops');
   // 水：每帧跑一点（限流），并每隔半秒把玩家附近的水"唤醒"一次（让瀑布/积水开始流动）
-  if (!NET || !NET.active || NET.isHost) updateWater(48);   // 液体只在主机/单机里模拟
+  if (!NET || !NET.active || NET.isHost) updateWater(96);   // 液体只在主机/单机里模拟（v333：48→96，一帧多流一格）
   lap('uWater');
   updateFlames(dt);
   if (NET && NET.active) NET.tick(dt);            // 位置上传 / 远端插值 / HUD
@@ -10019,6 +12450,8 @@ function update(dt) {
     else if (h && t && BLOCKS[t.id] && BLOCKS[t.id].compost && ITEMS[h.id] && ITEMS[h.id].kind === 'food') useCompost(t);
     else if (h && h.id === 152) useBucket(true, t);
     else if (h && h.id === 151) useBucket(false, t);
+    else if (h && ITEMS[h.id] && ITEMS[h.id].kind === 'boat') { if (!useBoat(h, t)) tryBoatBoard(); }
+    else if (tryBoatBoard()) { /* 上/下船 */ }
     else placeBlock();                                  // 食物不在这里吃：长按（右键/G）由 updateEat 处理
   }
 
@@ -10027,6 +12460,8 @@ function update(dt) {
 
   lap('uPlace');
 
+  updateBoats(dt);                                // ★ v336 船 + 水花
+  lap('uBoat');
   mmTick(dt);                                     // 小地图：揭开 / 标记 / 重绘（固定步长里跑，探针也可复现）
   lap('uMap');
 
@@ -10200,6 +12635,7 @@ function updateHUD(dt) {
     : s;
   if (s2 !== lastStatus) { hud.status.innerHTML = s2; lastStatus = s2; }
   renderHearts();
+  renderOxygen();
 }
 
 /* ============================================================ 设置 / 改键 */
@@ -10900,10 +13336,16 @@ function saveInner() {
   try {
     const data = {
       seed: SEED, mode: MODE, time: worldTime, dim: DIM, overPos: player.overPos || null,
-      player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch, hp: player.hp, hunger: player.hunger },
+      /* ★ v346：死着的时候不要存 hp=0 —— 以前死亡界面开着也照存 0，下次读档就是「0 血活着」。
+         血量非法（0/负数/NaN）时一律按满血存。 */
+      player: { x: player.p.x, y: player.p.y, z: player.p.z, yaw: player.yaw, pitch: player.pitch,
+                hp: (player.alive && player.hp > 0 && isFinite(player.hp)) ? player.hp : 20,
+                hunger: player.hunger, air: player.air },
+      off: player.off || null,                       // ★ v339 左手（氧气罐）
       inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
       compost: Array.from(compostProg.entries()), meta: Array.from(blockMeta.entries()),
       squad: squadData(), map: mmSerialize(),          // 小地图探索/结构标记
+      boats: boats.map(b => [+b.x.toFixed(2), +b.y.toFixed(2), +b.z.toFixed(2), b.wi | 0, +b.yaw.toFixed(2)]),  // ★ v337 船
     };
     localStorage.setItem(worldKey(currentId), JSON.stringify(data));
     saveErr = null;
@@ -10916,7 +13358,22 @@ function saveInner() {
     if (!saveWarned) { saveWarned = true; toast('Save failed (browser storage is full): delete unused worlds from the world list first', 7); }
   }
 }
-function saveSoon() { clearTimeout(saveSoonT); saveSoonT = setTimeout(save, 600); }
+function saveSoon() {
+  clearTimeout(saveSoonT); saveSoonT = setTimeout(save, 600);
+  if (NET && NET.active && NET.isHost) netPushSquad();      // 联机房主：小队同时推到房间
+}
+/* 村民小队上行（房主）：招募/装备/给东西/下令/死亡都会走到 saveSoon → 这里节流后上传 */
+let squadPushT = 0, squadPushTimer = null;
+function netPushSquad(force) {
+  if (!(NET && NET.active && NET.isHost)) return false;
+  const now = Date.now();
+  if (!force && now - squadPushT < 1500) {
+    if (!squadPushTimer) squadPushTimer = setTimeout(() => { squadPushTimer = null; netPushSquad(true); }, 1600);
+    return false;
+  }
+  squadPushT = now;
+  try { NET.send('squad', { set: squadData() }); return true; } catch (e) { return false; }
+}
 let loadErr = null;
 function loadSave(id, expectSeed) {
   try {
@@ -10934,6 +13391,8 @@ function loadSave(id, expectSeed) {
     inv = new Array(SLOTS).fill(null);
     (d.inv || []).filter(s => s && isItem(s.id) && s.n > 0).forEach((s, i) => { if (i < SLOTS) inv[i] = { id: s.id, n: s.n, d: s.d, c: s.c }; });
     player.spawn = d.spawn || null;
+    player.off = (d.off && isItem(d.off.id) && ITEMS[d.off.id] && ITEMS[d.off.id].kind === 'tank')
+      ? { id: d.off.id, n: 1, c: Math.max(0, Math.min(OXY_TANK_CAP, +d.off.c || 0)) } : null;   // ★ v339 左手氧气罐
     if (d.armor) for (const s of ARMOR_SLOTS) player.armor[s] = ITEMS[d.armor[s]] ? d.armor[s] : null;
     compostProg.clear();
     if (Array.isArray(d.compost)) for (const e of d.compost) if (Array.isArray(e)) compostProg.set(e[0], e[1] | 0);
@@ -10941,10 +13400,14 @@ function loadSave(id, expectSeed) {
       if (!Array.isArray(entry) || !Array.isArray(entry[1])) continue;   // 兼容旧存档
       chestInv.set(entry[0], entry[1].map(s => (s && isItem(s.id) && s.n > 0) ? { id: s.id, n: s.n, c: s.c } : null));
     }
-    for (const [k, v] of (d.edits || [])) edits.set(k, v);
+    for (const [k, v, mm] of (d.edits || [])) {
+      edits.set(k, v);
+      if (typeof mm === 'number') { const pp = k.split(',').map(Number); setMeta(pp[0], pp[1], pp[2], mm, false); }
+    }
     reindexEdits();
     for (const m0 of mobs.slice()) { m0.dying = true; m0.dieT = MOB_DEATH_HOLD + 1; }
     restoreSquad(d.squad);
+    restoreBoats(d.boats);                    // ★ v337 读回船
     blockMeta.clear();
     if (Array.isArray(d.meta)) for (const e of d.meta) if (Array.isArray(e)) blockMeta.set(e[0], e[1]);
     mmRestore(d.map);
@@ -10953,7 +13416,13 @@ function loadSave(id, expectSeed) {
     if (d.player) {
       player.p.set(d.player.x, d.player.y, d.player.z);
       player.yaw = d.player.yaw || 0; player.pitch = d.player.pitch || 0;
-      player.hp = d.player.hp ?? 20; player.hunger = d.player.hunger ?? 20;
+      /* ★ v346：老存档里可能存着 hp=0（死在死亡界面时被自动存盘）——读回来必须给一条活路，
+         否则就是「0 颗心但活着、怎么都不死」。非法值同样兜底成满血。 */
+      const h0 = +d.player.hp;
+      player.hp = (isFinite(h0) && h0 > 0) ? Math.min(20, h0) : 20;
+      player.alive = true;
+      player.hunger = d.player.hunger ?? 20;
+      player.air = clamp(d.player.air ?? OXY_MAX, 0, OXY_MAX);
     }
     loadErr = null;
     return true;
@@ -11006,6 +13475,7 @@ function frameBody(now) {
   updateHUD(dt);
   if (__p) { const t1 = performance.now(); PROF.hud += t1 - __t; __t = t1; }
   updateDoorAnims(dt);
+  updateChestAnims(dt);
   updateFurnaceJob(dt);
   updateChargerJob(dt);
   torchT -= dt;
@@ -11013,7 +13483,7 @@ function frameBody(now) {
   if (__p) { const t1 = performance.now(); PROF.torch += t1 - __t; __t = t1; }
   updateHeldTorchLight(dt);
   doorSyncT -= dt;
-  if (doorSyncT <= 0) { doorSyncT = 0.25; syncDoors(); }
+  if (doorSyncT <= 0) { doorSyncT = 0.25; syncDoors(); syncChests(); }
   if (__p) { const t1 = performance.now(); PROF.doorsSync += t1 - __t; __t = t1; }
 
   // ── 相机：疾跑 FOV 微推 + 侧移轻微翻滚 + 受伤抖动（幅度必须小，不然晕）
@@ -11025,7 +13495,10 @@ function frameBody(now) {
 
   const idealEye = player.p.y + CFG.EYE + Math.sin(player.walkPhase) * 0.018;
   camSmoothY = camSmoothY === null ? idealEye : camSmoothY + (idealEye - camSmoothY) * Math.min(1, dt * 15);
-  camera.position.set(player.p.x, camSmoothY, player.p.z);
+  /* ★ v337：游泳时镜头跟着浪轻微上下（船也是同一道浪，人和船才像在一个水面里） */
+  const swimBobY = (typeof player.swimming !== 'undefined' && player.swimming)
+    ? waveAt(player.p.x, player.p.z, performance.now() * 0.001) * 0.6 : 0;
+  camera.position.set(player.p.x, camSmoothY + swimBobY, player.p.z);
   // 侧移翻滚：用镜头坐标系的左右速度，跑起来才有"重心"感
   const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
   const strafe = player.v.x * (-fz) + player.v.z * fx;
@@ -11746,6 +14219,34 @@ function buildSkinAvatar(opts) {
   return { g, torso, head: headPivot, face, armL, armR, foreR: armR, legL, legR };
 }
 
+/* ★ v339：远端玩家背上的氧气罐（第一人称看不到自己的 —— 那个模型只挂在别人的形象上）。
+   坐标单位 = 皮肤像素（U = MOB_PX）：躯干中心 y=18px、厚 4px（背面 z=+2px），所以罐身中心 z≈4.8px。 */
+function makeBackTank() {
+  const U = MOB_PX;
+  const g = new THREE.Group();
+  const steel = new THREE.MeshLambertMaterial({ color: 0xc3ccd6 });
+  const light = new THREE.MeshLambertMaterial({ color: 0xeef4fa });
+  const copper = new THREE.MeshLambertMaterial({ color: 0xd98b4a });
+  const dark = new THREE.MeshLambertMaterial({ color: 0x2b323b });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(2.5 * U, 2.5 * U, 9 * U, 10), steel);
+  body.position.y = 18 * U;
+  const shine = new THREE.Mesh(new THREE.CylinderGeometry(2.55 * U, 2.55 * U, 0.7 * U, 10), light);
+  shine.position.y = 18 * U;
+  const b1 = new THREE.Mesh(new THREE.CylinderGeometry(2.62 * U, 2.62 * U, 0.8 * U, 10), copper);
+  b1.position.y = 15 * U;
+  const b2 = b1.clone(); b2.position.y = 21 * U;
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(1.0 * U, 1.3 * U, 1.4 * U, 8), copper);
+  neck.position.y = 23.2 * U;
+  const valve = new THREE.Mesh(new THREE.BoxGeometry(2.2 * U, 0.7 * U, 1.2 * U), dark);
+  valve.position.y = 24.3 * U;
+  const hose = new THREE.Mesh(new THREE.BoxGeometry(0.5 * U, 4 * U, 0.5 * U), dark);
+  hose.position.set(-2.6 * U, 21 * U, 0.4 * U);
+  g.add(body, shine, b1, b2, neck, valve, hose);
+  g.position.z = 4.8 * U;               // 挂在躯干背面（模型正面 = -Z）
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+
 /* 外观面板预览用的入口（保持旧签名） */
 function buildAvatarMesh(skin, cloth, hair, hs, skinSrc) {
   return buildSkinAvatar({ skinSrc: skinSrc || LOOK.skinSrc }).g;
@@ -12046,6 +14547,9 @@ window.GAME = {
     clearInv() { inv = new Array(SLOTS).fill(null); renderHotbar(); refreshHeld(); },
     select(i) { player.sel = i; refreshHeld(); renderHotbar(); },
     setTime(t) { worldTime = t; updateSky(); },
+    /* 探针：喂一条「房间时间」进来，看是渐进追上还是直接对齐（联机昼夜的验收用） */
+    netTime(t) { netTimeApply(t); return { time: +worldTime.toFixed(3), off: +netTimeOff.toFixed(3) }; },
+    netTimeTick(dt) { netTimeStep(dt); return { time: +worldTime.toFixed(3), off: +netTimeOff.toFixed(3) }; },
     setHp(v) { player.hp = v; },
     hurt: (n = 1) => damagePlayer(n),
     armor: () => ({ ...player.armor, ap: armorPoints() }),
@@ -12400,7 +14904,7 @@ window.GAME = {
       const steps = {
         village: inVillage(wx, wz), cabin: inMyCabin(wx, wz), haunted: inHaunted(wx, wz),
         extra: inExtraStruct(wx, wz), ravine: inRavine(wx, wz),
-        g, tooLow: g <= CFG.SEA + 1, tooHigh: g >= MOUNT_Y - 4,
+        g, tooLow: g <= CFG.SEA + 1, tooHigh: g >= MOUNT_Y,
         cave: caveCarve(wx, g, wz, g), forest: F ? F.kind : null,
         gate: h2(wx * 3.77 + 13.1, wz * 2.91 - 7.7),
       };
@@ -12626,7 +15130,7 @@ window.GAME = {
       }
       return { count: n, list };
     },
-    stepWater: (n = 40) => { for (let i = 0; i < n; i++) updateWater(48); return waterFlow.size; },
+    stepWater: (n = 40) => { for (let i = 0; i < n; i++) updateWater(96); return waterFlow.size; },
     drops: () => drops.map(d => ({ id: d.id, name: nameOf(d.id), n: d.n, t: +d.t.toFixed(2), y: +d.p.y.toFixed(2), dist: +d.p.distanceTo(player.p).toFixed(2) })),
     map: () => ({ cells: MM.cells.size, marks: MM.marks.size, zoom: MM.zoom, acrossCells: MM_ZOOM[MM.zoom], acrossBlocks: MM_ZOOM[MM.zoom] * MM_CELL,
                   info: MM.info ? MM.info.textContent : null, visible: MM.wrap ? MM.wrap.style.display !== 'none' : null,
@@ -12665,8 +15169,256 @@ window.GAME = {
     mapDim: () => ({ dim: DIM, off: mmOff(), cells: MM.cells.size, marks: MM.marks.size, coords: [+(player.p.x - mmOff()).toFixed(0), +(player.p.z - mmOff()).toFixed(0)] }),
     mapPan: (dx, dz) => { MM_BIG.x += dx || 0; MM_BIG.z += dz || 0; mmBigDraw(); return { cx: Math.round(MM_BIG.x), cz: Math.round(MM_BIG.z) }; },
     mapBigZoom: (d) => { mmBigZoom(d || 0); return { zoom: MM_BIG.zoom, acrossBlocks: MM_BIGZOOM[MM_BIG.zoom] * MM_CELL }; },
+    /* 洞穴底部验收：基岩顶面高度分布 + 有多少洞底是直接坐在基岩上（越少越不平） */
+    bedrockProbe(n = 3000) {
+      const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+      const hist = {}, openAt = {};
+      let samples = 0;
+      for (let k = 0; k < n; k++) {
+        const x = px + Math.floor(Math.random() * 190 - 95), z = pz + Math.floor(Math.random() * 190 - 95);
+        if (!chunks.has((x >> 4) + ',' + (z >> 4))) continue;
+        let bedT = -1;
+        for (let y = 12; y >= 0; y--) if (getBlock(x, y, z) === 51) { bedT = y; break; }
+        if (bedT < 0) continue;
+        samples++;
+        hist[bedT] = (hist[bedT] || 0) + 1;
+        if (getBlock(x, bedT + 1, z) === 0) openAt[bedT] = (openAt[bedT] || 0) + 1;
+      }
+      return { samples, bedrockTop: hist, openFloorOnBedrock: openAt };
+    },
+    /* 洞底材质验收：低处洞底铺了多少碎石/煤（按 y 分层统计） */
+    rubbleProbe(n = 1800) {
+      const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+      const byY = {};
+      let cols = 0, floors = 0, gravel = 0, coal = 0;
+      for (let k = 0; k < n; k++) {
+        const x = px + Math.floor(Math.random() * 150 - 75), z = pz + Math.floor(Math.random() * 150 - 75);
+        if (!chunks.has((x >> 4) + ',' + (z >> 4))) continue;
+        cols++;
+        for (let y = 3; y <= 13; y++) {
+          if (getBlock(x, y, z) !== 0) continue;
+          const below = getBlock(x, y - 1, z);
+          if (below !== 3 && below !== 50 && below !== 78 && below !== 13) continue;
+          if (getBlock(x, y + 1, z) !== 0) continue;
+          floors++;
+          const row = byY[y] || (byY[y] = { floor: 0, gravel: 0, coal: 0 });
+          row.floor++;
+          if (below === 78) { gravel++; row.gravel++; }
+          if (below === 13) { coal++; row.coal++; }
+          break;
+        }
+      }
+      return { columns: cols, lowFloors: floors, gravel, coal,
+               gravelShare: floors ? +(gravel / floors).toFixed(3) : 0, byY };
+    },
+    /* 地形形状验收：坡度分布 / 起伏 / 山地覆盖率 / 河流覆盖率
+       ⚠ 采样必须用伪随机（LCG），不能 `(i*61)%800` 那种格点 —— 格点只扫一条斜带，
+       曾经把「相邻列 80% 等高」报成 68%。 */
+    terrainProbe(n = 40000) {
+      const H = heightAt, SEA = CFG.SEA;
+      let slope = 0, k = 0, min = 1e9, max = -1e9, below = 0, river = 0;
+      let flat = 0, cliff = 0, maxDiff = 0, a130 = 0, a150 = 0;
+      const dh = {};                       // 相邻列高差分布（0/1/2/3/4/5+）
+      let s = 987654321;
+      const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+      for (let i = 0; i < n; i++) {
+        const x = Math.floor(rnd() * 1200) - 600, z = Math.floor(rnd() * 1200) - 600;
+        const h = H(x, z), hx = H(x + 1, z), hz = H(x, z + 1);
+        const d = Math.abs(h - hx);
+        slope += d; k++;
+        dh[d] = (dh[d] || 0) + 1;
+        if (d > maxDiff) maxDiff = d;
+        if (d >= 3) cliff++;
+        if (h === hx && h === hz) flat++;
+        if (h < min) min = h; if (h > max) max = h;
+        if (h > 130) a130++;
+        if (h > 150) a150++;
+        if (h <= SEA) below++;
+        if (h <= SEA - 1 && riverMask(x, z) > 0.35) river++;
+      }
+      const pct = v => +(100 * v / k).toFixed(1);
+      return { samples: k, meanAbsSlope: +(slope / k).toFixed(3), minH: min, maxH: max,
+               relief: max - min, belowSeaFrac: +(below / k).toFixed(3), riverFrac: +(river / k).toFixed(4),
+               flatFrac: pct(flat), cliffFrac: pct(cliff), maxDiff,
+               above130Frac: pct(a130), above150Frac: pct(a150),
+               diffHist: Object.fromEntries(Object.entries(dh).map(([d2, c]) => [d2, +(100 * c / k).toFixed(1)])) };
+    },
+    riverMask: (x, z) => +riverMask(x, z).toFixed(3),
+    /* 高山湖验收：附近格子里的 tarn（位置/水位/水量），以及「水有没有漏到碗沿外」 */
+    tarnProbe(n = 3) {
+      const pcx = Math.floor(player.p.x / TARN_CELL), pcz = Math.floor(player.p.z / TARN_CELL);
+      const out = [];
+      for (let dx = -n; dx <= n; dx++) for (let dz = -n; dz <= n; dz++) {
+        const t = tarnFor(pcx + dx, pcz + dz);
+        if (!t) continue;
+        const R = t.r - 1;                                  // 实际灌水半径（tarnAt 用的）
+        const loaded = [];
+        let rimMin = 999;
+        for (let ax = -t.r - 3; ax <= t.r + 3; ax++) for (let az = -t.r - 3; az <= t.r + 3; az++) {
+          const x = t.x + ax, z = t.z + az, d = Math.hypot(ax, az);
+          const h = heightAt(x, z);
+          if (d > R && d <= R + 2 && h < rimMin) rimMin = h;   // 只看湖沿那两圈
+          if (chunks.has((x >> 4) + ',' + (z >> 4))) loaded.push([x, z, h, d]);
+        }
+        let water = 0;
+        for (const [x, z, h, d] of loaded) if (d <= R) for (let y = h + 1; y <= t.level; y++) if (getBlock(x, y, z) === 5) water++;
+        out.push({ x: t.x, z: t.z, r: R, level: t.level, loadedCols: loaded.length, water,
+                   rimMin, leak: rimMin < t.level });
+      }
+      return out;
+    },
+    /* 群系验收：气候带分布 + 地表方块统计 */
+    biomeProbe(n = 3000) {
+      const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+      const cnt = { desert: 0, snow: 0, badlands: 0, none: 0 };
+      let s1 = 12345;
+      const rnd = () => { s1 = (s1 * 1103515245 + 12345) & 0x7fffffff; return s1 / 0x7fffffff; };
+      for (let k = 0; k < n; k++) {
+        const x = Math.floor(rnd() * 1600) - 800, z = Math.floor(rnd() * 1600) - 800;
+        const b = biomeAt(x, z);
+        cnt[b || 'none']++;
+      }
+      return { sample: n, counts: cnt, at: { x: px, z: pz, biome: biomeAt(px, pz) } };
+    },
+    biomeAt: (x, z) => biomeAt(x, z),
+    /* 地下水和悬垂验收：低处洞穴里的水/岩浆格数、以及"头顶悬空"的石檐块数 */
+    depthProbe(n = 1200) {
+      const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+      let water = 0, lava = 0, lips = 0, cols = 0, cliffs = 0;
+      let s2 = 99991;
+      const rnd = () => { s2 = (s2 * 1103515245 + 12345) & 0x7fffffff; return s2 / 0x7fffffff; };
+      for (let k = 0; k < n; k++) {
+        const x = px + Math.floor(rnd() * 120 - 60), z = pz + Math.floor(rnd() * 120 - 60);
+        if (!chunks.has((x >> 4) + ',' + (z >> 4))) continue;
+        cols++;
+        const h = heightAt(x, z);
+        // 低处洞穴里的水/岩浆
+        for (let y = 4; y <= 8; y++) {
+          const id = getBlock(x, y, z);
+          if (id === 5) water++;
+          if (id === 44) lava++;
+        }
+        // 石檐：地面高度以上、下面悬空的**石头/深板岩**（2D 地形本身不可能有；树叶不算）
+        for (let y = h + 1; y <= h + 5; y++) {
+          const id = getBlock(x, y, z);
+          if ((id === 3 || id === 50) && getBlock(x, y - 1, z) === 0) { lips++; break; }
+        }
+        if (heightAt(x, z) + 5 <= Math.max(heightAt(x + 1, z), heightAt(x - 1, z), heightAt(x, z + 1), heightAt(x, z - 1))) cliffs++;
+      }
+      return { columns: cols, caveWaterBlocks: water, caveLavaBlocks: lava,
+               overhangBlocks: lips, cliffColumns: cliffs };
+    },
+    /* 友好动物验收：把 9 种各刷一只排在面前，返回它们的名字/血量/身高/是否落地 */
+    animals() {
+      const out = [];
+      const base = Math.floor(player.p.x), bz = Math.floor(player.p.z);
+      let i = 0;
+      for (const k of ANIMAL_POOL) {
+        const x = base - 8 + i * 2, z = bz + 4;
+        const y = surfaceY(x, z) + 1;
+        const m = spawnMobAt(k, x, y, z, { force: true });
+        i++;
+        if (m) out.push({ kind: k, name: MOB_DEFS[k].name, hp: m.hp, rad: +m.rad.toFixed(2),
+                          top: +(def => def)(m.parts.barY || 0), onGround: m.onGround });
+      }
+      return { spawned: out.length, list: out, caps: ANIMAL_CAP, habitats: ANIMAL_HABITAT };
+    },
+    animalSpot: (kind) => findAnimalSpot(kind),
+    iconOne: (id) => iconURL(id),        // ★ 单个图标的 data URL（验收自定义形状：门/船/罐）
+    /* 图标总览：把所有方块 + 物品的图标铺成一张图（用来肉眼验收图标是否整齐） */
+    iconSheet() {
+      const old = document.getElementById('iconSheet');
+      if (old) old.remove();
+      const d = document.createElement('div');
+      d.id = 'iconSheet';
+      d.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0e1216;padding:8px;overflow:auto;'
+        + 'display:grid;grid-template-columns:repeat(12,1fr);gap:3px;font:8px monospace;color:#9fb3c8';
+      const ids = [...Object.keys(BLOCKS).map(Number), ...Object.keys(ITEMS).map(Number)];
+      for (const id of ids) {
+        const w = document.createElement('div');
+        w.style.cssText = 'text-align:center;line-height:1.1';
+        const img = document.createElement('img');
+        img.src = iconURL(id);
+        img.style.cssText = 'width:44px;height:44px;image-rendering:pixelated;background:#181d24;border-radius:3px;display:block;margin:0 auto 1px';
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
+        lbl.textContent = BLOCKS[id] ? BLOCKS[id].name : ITEMS[id].name;
+        w.appendChild(img); w.appendChild(lbl);
+        d.appendChild(w);
+      }
+      document.body.appendChild(d);
+      return ids.length;
+    },
+    /* 村民工作令验收：下命令 / 看目标 / 看进度 */
+    villagerTask(kind) {
+      const v = mobs.find(m => m.kind === 'villager' && m.recruit && m.recruit.hired);
+      if (!v) return { err: 'no hired villager' };
+      if (kind !== undefined) setVillagerTask(v, kind);
+      return { task: v.task, give: v.give ? nameOf(v.give.id) : null,
+               tgt: v.mineTgt || null, prog: +(v.mineProg || 0).toFixed(2),
+               distToPlayer: +Math.hypot(v.p.x - player.p.x, v.p.z - player.p.z).toFixed(1) };
+    },
+    /* 某格的状态：方块 id + 是否在 edits（玩家改动）里 —— 验「村民不挖玩家摆放方块」用 */
+    editInfo: (x, y, z) => ({ block: getBlock(x, y, z), inEdits: edits.has(x + ',' + y + ',' + z), editsTotal: edits.size }),
+    /* v322：门开合/床朝向这类 meta 的验收探针（meta 现在会随编辑上行联机） */
+    metaAt: (x, y, z) => getMeta(x, y, z) | 0,
+    collides: (x, y, z) => collides(x + 0.5, y, z + 0.5),   // 门开着的格子应该 false（能走过去）
+    setMetaAt: (x, y, z, m) => { setMeta(x, y, z, m | 0, false); return getMeta(x, y, z) | 0; },
+    netStats: () => (window.NET ? { active: NET.active, mode: NET.mode, pending: NET.pending.size, pendingKey: NET.pendingKey ? NET.pendingKey.size : -1, editOut: NET.editOut, rej: NET.rejCount, rejLast: NET.rejLast || '', connected: NET.connected } : null),
+    /* 村民尸体验收：谁在背包里、谁躺在地上、复活结果 */
+    corpseState() {
+      const inBag = inv.filter(s => s && s.id === 207).map(s => ({ n: s.n,
+        hp: s.corpse && s.corpse.maxHp, equip: s.corpse && s.corpse.equip, task: s.corpse && s.corpse.task }));
+      const onGround = mobs.filter(m => m.corpse).map(m => ({
+        pos: [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)],
+        hp: m.corpseData && m.corpseData.maxHp, equip: m.corpseData && m.corpseData.equip }));
+      const hired = squadList().map(m => ({ hp: +m.hp.toFixed(0), maxHp: m.maxHp,
+        give: m.give ? nameOf(m.give.id) : null, dmg: m.give && ITEMS[m.give.id] ? ITEMS[m.give.id].dmg || 0 : 0 }));
+      return { inBag, onGround, hired, diamondApples: inv.filter(s => s && s.id === 206).reduce((a, s) => a + s.n, 0) };
+    },
+    /* 尸体全流程自检：背包里的尸体 → 放地上 → 喂钻石苹果复活（走的是正式代码路径） */
+    corpseDemo() {
+      const out = { steps: [] };
+      const slot = inv.find(s => s && s.id === 207);
+      out.bagBefore = slot ? { n: slot.n, equip: slot.corpse && slot.corpse.equip, task: slot.corpse && slot.corpse.task } : null;
+      if (!slot) return out;
+      const x = Math.floor(player.p.x) + 2, z = Math.floor(player.p.z);
+      const y = surfaceY(x, z) + 1;
+      out.steps.push(['place', placeCorpseAt(x, y, z, slot)]);
+      const cm = mobs.find(m => m.corpse);
+      out.steps.push(['onGround', !!cm]);
+      if (!cm) return out;
+      addItem(206, 1);                                        // 给一个钻石苹果并拿在手上
+      const ai = inv.findIndex(s2 => s2 && s2.id === 206);
+      if (ai >= 0) { player.sel = ai; refreshHeld(); renderHotbar(); }
+      out.steps.push(['revived', reviveCorpse(cm)]);
+      const sm = squadList()[0];
+      out.after = sm ? { maxHp: sm.maxHp, hp: +sm.hp.toFixed(0), equip: sm.equip,
+                         give: sm.give ? nameOf(sm.give.id) : null, task: sm.task } : null;
+      out.corpsesLeft = mobs.filter(m => m.corpse).length;
+      return out;
+    },
     dropCount: () => drops.length,
     spawnDrop: (id, n) => spawnDrop(id, n, player.p.x + 1.2, player.p.y + 1.2, player.p.z),
+    /* 掉落物状态：位置 / 网格有没有挂进场景（排查"物品掉了看不见"用） */
+    dropList(n = 8) {
+      return drops.slice(-n).map(d => ({ id: d.id, n: d.n, p: [+d.p.x.toFixed(2), +d.p.y.toFixed(2), +d.p.z.toFixed(2)],
+        meshAt: [+d.obj.position.x.toFixed(2), +d.obj.position.y.toFixed(2), +d.obj.position.z.toFixed(2)],
+        inScene: !!d.obj.parent, visible: d.obj.visible, thin: !!d.thin }));
+    },
+    /* 按绝对坐标掉一个（原来的封装只能掉在脚下，验货时会被自动捡走） */
+    dropAt: (id, x, y, z) => { const d = spawnDrop(id, 1, x, y, z); return !!d; },
+    /* 掉落物贴图检查：方块必须用平贴图（四角不透明），物品用像素图标 */
+    dropTexInfo(id) {
+      const tex = dropTexture(id);
+      const src = tex.image && (tex.image.src || '');
+      const cv = document.createElement('canvas'); cv.width = cv.height = 32;
+      const g2 = cv.getContext('2d');
+      g2.drawImage(tex.image, 0, 0, 32, 32);
+      const corner = g2.getImageData(1, 1, 1, 1).data[3];
+      const center = g2.getImageData(16, 16, 1, 1).data[3];
+      return { id, isBlock: !!BLOCKS[id], cornerAlpha: corner, centerAlpha: center, bytes: src.length };
+    },
     stepDrops: (n = 1) => { for (let i = 0; i < n; i++) updateDrops(1 / 60); },
     smeltIdx: (i) => smelt(SMELT[i]),
     fuel: () => fuelCount(),
@@ -12704,20 +15456,56 @@ window.GAME = {
     chargerJobs: () => (chargerJob ? [{ slot: chargerJob.slot, name: nameOf(chargerJob.id), t: +chargerJob.t.toFixed(2), dur: chargerJob.dur }] : []),
     chargerTargets: () => chargerTargets().map(x => ({ slot: x.i, name: nameOf(x.s.id), charge: gunCharge(x.s), cap: gunCap(x.s.id) })),
     chargeStart: (slot) => startCharge(slot === undefined ? chargerTargets()[0] && chargerTargets()[0].i : slot),
+    /* ★ v339 氧气 / 左手栏探针 */
+    oxygen: () => ({
+      air: +(player.air === undefined ? OXY_MAX : player.air).toFixed(2), airMax: OXY_MAX,
+      eyeUnder: eyeUnderwater(), drownT: +(player.drownT || 0).toFixed(2),
+      off: player.off ? { id: player.off.id, name: nameOf(player.off.id), charge: +tankCharge(player.off).toFixed(2) } : null,
+      activeTank: offhandTank() ? { id: offhandTank().id, charge: +tankCharge(offhandTank()).toFixed(2), cap: tankCap(offhandTank().id) } : null,
+      hud: { oxyShown: !!($('oxyrow') && $('oxyrow').style.display !== 'none'),
+             tankShown: !!($('tankrow') && $('tankrow').style.display !== 'none'),
+             oxyText: $('oxyTxt') ? $('oxyTxt').textContent : null,
+             tankText: $('tankTxt') ? $('tankTxt').textContent : null },
+      offSlotText: $('offSlot') ? $('offSlot').title : null,
+    }),
+    setAir: (v) => { player.air = clamp(+v || 0, 0, OXY_MAX); renderOxygen(); return player.air; },
+    setTankCharge: (v) => { const t = offhandTank(); if (!t) return null; t.c = clamp(+v || 0, 0, tankCap(t.id)); renderHotbar(); renderOxygen(); return tankCharge(t); },
+    giveTank: (charge) => {
+      addItem(OXY_TANK_ID, 1);
+      const slot = inv.findIndex(x => x && x.id === OXY_TANK_ID);
+      if (slot >= 0) inv[slot].c = clamp(charge === undefined ? OXY_TANK_CAP : +charge, 0, OXY_TANK_CAP);
+      renderHotbar();
+      return slot >= 0 ? { slot, charge: tankCharge(inv[slot]) } : null;
+    },
+    swapOffhand: () => swapOffhand(),
+    remoteTanks: () => [...((typeof NET !== 'undefined' && NET && NET.remotes) ? NET.remotes.entries() : [])]
+      .map(([id, r]) => ({ id, oh: r.oh | 0, visible: !!(r.obj && r.obj.userData && r.obj.userData.tank && r.obj.userData.tank.visible) })),
     chargerTick: (dt) => { updateChargerJob(dt); return chargerJob ? { t: +chargerJob.t.toFixed(2), dur: chargerJob.dur } : null; },
     chargerHtml: () => ({ hasPanel: !!$('charger'), rows: $('chgList') ? $('chgList').children.length : -1, info: $('chgInfo') ? $('chgInfo').textContent : null }),
+    chests: () => [...chestObjs.entries()].map(([k, o]) => ({ k, lid: +(o.lidPivot.rotation.x).toFixed(2), targetP: o.targetP })),
     doors: () => [...doorObjs.entries()].map(([k, o]) => ({ k, dir: o.dir, p: +o.p.toFixed(3), targetP: o.targetP, rotY: +o.group.rotation.y.toFixed(3) })),
+    /* ★ 门状态（准）：root = 下半格 y，open 只看下半格；pass 表示这格现在能不能穿过去。
+       验收「门开着却过不去」「上下半格不一致」时直接读这个，别自己拼 meta。 */
+    doorStateAt: (x, y, z) => {
+      const id = getBlock(x, y, z);
+      const root = doorRootY(x, y, z);
+      const gate = root === null ? null : getMeta(x, root, z) | 0;
+      return { id, root, mLo: gate, mHi: getMeta(x, y + 1, z) | 0, open: doorOpenAt(x, y, z),
+               pass: !(BLOCKS[id] && BLOCKS[id].door) || doorOpenAt(x, y, z) };
+    },
     doorBox: (dir, open) => {          // 关/开门时门板在世界格内的包围盒（必须落在 0..1，否则穿模邻居）
       const geo = doorGeometry(dir), d = DOOR_DEF[dir];
       const pos = geo.attributes.position.array, a = open ? d.a : 0;
       const cos = Math.cos(a), sin = Math.sin(a);
-      let mnx = 9, mxx = -9, mnz = 9, mxz = -9;
+      let mnx = 9, mxx = -9, mnz = 9, mxz = -9, mny = 9, mxy = -9;
       for (let i = 0; i < pos.length; i += 3) {
         const X = pos[i] * cos + pos[i + 2] * sin, Z = -pos[i] * sin + pos[i + 2] * cos;
         mnx = Math.min(mnx, X + d.hx); mxx = Math.max(mxx, X + d.hx);
         mnz = Math.min(mnz, Z + d.hz); mxz = Math.max(mxz, Z + d.hz);
+        mny = Math.min(mny, pos[i + 1]); mxy = Math.max(mxy, pos[i + 1]);
       }
-      return { dir, open, x: [+mnx.toFixed(3), +mxx.toFixed(3)], z: [+mnz.toFixed(3), +mxz.toFixed(3)] };
+      return { dir, open, x: [+mnx.toFixed(3), +mxx.toFixed(3)], y: [+mny.toFixed(3), +mxy.toFixed(3)],
+               z: [+mnz.toFixed(3), +mxz.toFixed(3)] };
     },
     villagers: () => mobs.filter(m => m.recruit).map(m => ({
       hp: m.hp, hired: m.recruit.hired, follow: m.recruit.follow,
@@ -12768,6 +15556,118 @@ window.GAME = {
     gear: (slot) => { const l = squadList(); if (!l.length) return false; return equipVillager(l[0], slot); },
     spawnVillager: () => { const p = spawnMobAt('villager', Math.floor(player.p.x) + 2, Math.floor(player.p.y) + 1, Math.floor(player.p.z));
       return p ? { ok: true, want: nameOf(p.recruit.want.id), need: p.recruit.want.need } : { ok: false }; },
+    /* 矿工验收：spawnMiner() 直接在身边放一只；minerInfo() 看它在干什么（有没有镐子/是否敌对/掉落表） */
+    /* 验收：同一区块连刷 5 只僵尸，只应该成功 HOSTILE_PER_CHUNK 只 */
+    /* 验收（多人）：本地玩家剩余保护秒数 + 每个客人的保护/死亡状态 */
+    /* 验收：水下视野 —— 眼睛是否在水里、雾距、叠加层是否打开 */
+    /* 验收：游泳动画 —— 本地状态、第一人称手部、联机状态位 */
+    /* 验收：船与水花 —— 放船/上船/浪高，一条命令看全部 */
+    boatTest: () => {
+      const b = boats[0];
+      return { boats: boats.length, splash: splashes.length,
+        riding: !!player.riding,
+        boat: b ? { wood: BOAT_WOOD[b.wi].name, at: [+b.x.toFixed(2), +b.y.toFixed(3), +b.z.toFixed(2)],
+          surf: +(boatSurfaceY(b.x, b.z) || 0).toFixed(3), vy: +b.vy.toFixed(2),
+          tiltX: +b.obj.rotation.x.toFixed(3), tiltZ: +b.obj.rotation.z.toFixed(3) } : null,
+        waveNow: +waveAt(player.p.x, player.p.z, performance.now() * 0.001).toFixed(4) };
+    },
+    /* 验收：把 6 种船全摆出来看一眼 */
+    /* 验收：联机船 —— 房主有多少条、客人收到几条、客人在哪条船上 */
+    /* 验收：手里有什么 / 直接调用放船逻辑（绕过按键，用来区分「判定坏了」还是「按键没触发」） */
+    heldNow: () => { const h = held(); return h ? { id: h.id, n: h.n, name: (ITEMS[h.id] || {}).name } : null; },
+    boatPlaceNow: () => {
+      const h = held();
+      if (!h) return { err: 'nothing held' };
+      const before = boats.length;
+      const ok = useBoat(h, null);
+      return { heldId: h.id, ok, before, after: boats.length, sel: player.sel };
+    },
+    /* 验收：准星对着水面放船（走真实 rayWater 判定，返回 null 表示这个视角放不了） */
+    boatAimTest: () => {
+      const src = rayWater(CFG.REACH);
+      return { aimedAtWater: !!src, src, underFeet: getBlock(Math.floor(player.p.x), Math.floor(player.p.y), Math.floor(player.p.z)) };
+    },
+    boatNet: () => ({
+      hostBoats: boats.length,
+      guestSeen: (typeof NET !== 'undefined' && NET && NET.gBoats) ? NET.gBoats.size : null,
+      riding: !!player.riding,
+      ridingGhost: !!(player.riding && player.riding.__ghost),
+      ids: boats.map(b => b.id),
+    }),
+    boatAll: (dz = 2.2) => {
+      for (const b of boats.slice()) { scene.remove(b.obj); }
+      boats.length = 0;
+      const bx = player.p.x, bz = player.p.z - 6;
+      const out = [];
+      for (let i = 0; i < 6; i++) {
+        const x = bx + (i - 2.5) * dz;
+        const y = boatSurfaceY(x, bz) || (player.p.y + 0.2);
+        const b = spawnBoat(x, bz, i, y);
+        out.push({ wood: BOAT_WOOD[i].name, at: [+x.toFixed(1), +b.y.toFixed(2)] });
+      }
+      return out;
+    },
+    swimTest: () => ({
+      swimming: !!player.swimming, inWater: !!player.inWater,
+      swimK: +anim.swimK.toFixed(2), waterK: +anim.waterK.toFixed(2),
+      flag: (typeof window.NET !== 'undefined' && window.NET && window.NET.myFlags) ? window.NET.myFlags() : null,
+      armR: { pos: armR.position.toArray().map(v => +v.toFixed(3)), rot: [+armR.rotation.x.toFixed(3), +armR.rotation.y.toFixed(3), +armR.rotation.z.toFixed(3)] },
+    }),
+    underFx: () => {
+      const ex = Math.floor(player.p.x), ey = Math.floor(player.p.y + 1.55), ez = Math.floor(player.p.z);
+      return { eyeBlock: getBlock(ex, ey, ez), eyeInWater: getBlock(ex, ey, ez) === 5,
+        fog: { near: +scene.fog.near.toFixed(2), far: +scene.fog.far.toFixed(1), color: '#' + scene.fog.color.getHexString() },
+        overlay: !!uwFxEl && uwFxEl.classList.contains('on'),
+        hasBlur: !!uwFxEl && getComputedStyle(uwFxEl).backdropFilter !== 'none' };
+    },
+    guardState: () => ({ playerGuard: +playerGuard.toFixed(1),
+      guests: [...((typeof NET !== 'undefined' && NET && NET.remotes) ? NET.remotes.keys() : [])].map(pid => ({
+        pid, guard: +(guestGuard.get(pid) || 0).toFixed(1), dead: guestDead.has(pid) })) }),
+    chunkCapTest: () => {
+      const x = Math.floor(player.p.x) + 6, z = Math.floor(player.p.z);
+      let y = surfaceY(x, z) + 1;
+      for (let i = 0; i < 4 && getBlock(x, y, z) !== 0; i++) y++;
+      const ok = [];
+      for (let i = 0; i < 5; i++) ok.push(!!spawnMobAt('grunt', x + i, y, z));
+      return { tried: 5, spawned: ok.filter(Boolean).length, cap: HOSTILE_PER_CHUNK,
+               inChunk: hostilesInChunk(x >> 4, z >> 4), playerGuard: +playerGuard.toFixed(1) };
+    },
+    /* 验收：刷怪距离（走 findSpawnSpot 的自然刷怪路径） */
+    spawnDistTest: (n = 8) => {
+      const before = mobs.length;
+      for (let i = 0; i < n; i++) spawnMob('grunt');
+      const d = mobs.slice(before).filter(m => m.kind === 'grunt')
+        .map(m => +Math.hypot(m.p.x - player.p.x, m.p.z - player.p.z).toFixed(1)).sort((a, b) => a - b);
+      return { spawned: d.length, minDist: d.length ? d[0] : null, dists: d };
+    },
+    spawnMiner: () => {
+      /* 放在玩家旁边**空着**的格子上（+1 层）：直接塞在地里的话它会被方块卡住不动，
+         看起来像「AI 坏了」，其实是探针把它埋在石头里了。 */
+      const bx = Math.floor(player.p.x) + 2, bz = Math.floor(player.p.z);
+      let by = Math.floor(player.p.y) + 1;
+      for (let i = 0; i < 4 && getBlock(bx, by, bz) !== 0; i++) by++;
+      const p = spawnMobAt('miner', bx, by, bz, { force: true });
+      return p ? { ok: true, hp: p.hp, hasPick: !!p.pick, dmg: MOB_DEFS.miner.dmg, drop: MOB_DEFS.miner.drop, at: [bx, by, bz] } : { ok: false };
+    },
+    minerInfo: () => mobs.filter(m => m.kind === 'miner').map(m => ({
+      hp: m.hp, hasPick: !!m.pick, dmg: MOB_DEFS.miner.dmg,
+      dist: +Math.hypot(m.p.x - player.p.x, m.p.z - player.p.z).toFixed(2),
+      pos: [+m.p.x.toFixed(1), +m.p.y.toFixed(1), +m.p.z.toFixed(1)], aggro: +m.aggro.toFixed(1),
+    })),
+    /* 矿洞结构验收：附近矿洞的种类 / 箱子数 / 火把数 / 是否通地表 / 构件数 */
+    mineInfo: (r = 1) => {
+      const pcx = Math.floor(player.p.x / MS_CELL), pcz = Math.floor(player.p.z / MS_CELL);
+      const out = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const ms = mineshaftFor(pcx + dx, pcz + dz);
+        if (!ms) continue;
+        out.push({ cell: [pcx + dx, pcz + dz], kind: ms.kind, at: [ms.ox, ms.baseY, ms.oz],
+                   chests: ms.chests, torches: ms.torches, ops: ms.ops, entrance: ms.entrance,
+                   dist: +Math.hypot(ms.ox - player.p.x, ms.oz - player.p.z).toFixed(0) });
+      }
+      return out;
+    },
+    dropCount: () => drops.length,          // 验收用：打死矿工前后该值不变（矿工不掉任何东西）
     plants: () => { let n36 = 0, n37 = 0, meshes = 0, verts = 0;
       for (const ch of chunks.values()) {
         meshes += ch.plant ? 1 : 0;
@@ -13615,7 +16515,7 @@ function mpEnterAccountWorld(code) {
   const net = {
     active: true, applying: false, isHost: false, id: pid, code: world, nick,
     ws: null, connected: false, rtt: 0, snapHz: 0, snaps: 0, hzT: 0, mode: IS_BRIDGE ? 'poll' : 'ws', pollT: 0, syncs: 0,
-    pending: new Map(), seq: 0, serverSeq: 0, mobSeq: 0, mobT: 0, sendT: 0, hudT: 0, pingT: 0,
+    pending: new Map(), pendingKey: new Map(), seq: 0, serverSeq: 0, mobSeq: 0, mobT: 0, sendT: 0, hudT: 0, pingT: 0,
     ghosts: new Map(), devOk: false,
     remotes: new Map(), lastSnap: 0, err: '', editOut: 0, rejCount: 0, netBytes: 0,
     skinSent: '',                                             // 上次成功上报的皮肤哈希（变了才重传 PNG 数据）
@@ -13673,17 +16573,19 @@ function mpEnterAccountWorld(code) {
       + ((typeof lk.cl === 'number') ? lk.cl : base) + ':' + ((typeof lk.hr === 'number' && lk.hr > 0) ? lk.hr : 0x33251a) + ':' + (lk.hs | 0));
     const A = buildSkinAvatar({ skinSrc: rskin });
     const g = A.g, torso = A.torso, head = A.head, face = A.face;
+    const tank = makeBackTank(); tank.visible = false; g.add(tank);   // ★ v339 背上的氧气罐
     const armL = A.armL, armR = A.armR, legL = A.legL, legR = A.legR, foreR = A.foreR;
     g.add(nameTag(name));
     g.userData = {
       tx: 0, ty: 0, tz: 0, yaw: 0,
       walk: 0, spd: 0, swing: 0, swingType: '', airK: 0, sprintK: 0, mineK: 0, landK: 0,
       buf: [], airPrev: 0,              // 快照缓冲（渲染延迟插值用）+ 上一帧腾空位（判落地）
+      swimK: 0,                         // ★ v335 游泳权重（0 站立 → 1 俯冲）
       /* ★ 骨骼基准高度：模型自带的正确定位（躯干中心 18 px / 颈根 24 px / 肩 24 px）。
        *   动画只能在这个基准上「加偏移」，不能改成写死的格数 —— 旧盒体模型的 1.06 / 1.62
        *   套到 32 px 贴图模型上 = 头底比躯干顶高 4 px（头悬空）、肩线比躯干顶低 1 px（肩不平）。 */
       base: { torso: torso.position.y, head: head.position.y, armL: armL.position.y, armR: armR.position.y },
-      armL, armR, legL, legR, foreR, torso, head, face, flags: 0, phase: Math.random() * 6.28,
+      armL, armR, legL, legR, foreR, torso, head, face, tank, flags: 0, phase: Math.random() * 6.28,
     };
     scene.add(g);
     return g;
@@ -13736,12 +16638,17 @@ function mpEnterAccountWorld(code) {
         r = net.remotes.get(p.i);
       }
       if (r && p.n && p.n !== r.name) r.name = p.n;
-      if (r) return r;
+      if (r) {
+        r.oh = p.oh | 0;
+        if (r.obj && r.obj.userData && r.obj.userData.tank) r.obj.userData.tank.visible = (p.oh | 0) === OXY_TANK_ID;
+        return r;
+      }
     }
     if (!r) {
       const skSrc = remoteSkinSrcOf(p);
       r = { obj: avatar(p.i, p.n, { sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs, skd: skSrc }), name: p.n || p.i,
-            sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs, skn: p.skn };
+            sk: p.sk, cl: p.cl, hr: p.hr, hs: p.hs, skn: p.skn, oh: p.oh | 0 };
+      if (r.obj.userData.tank) r.obj.userData.tank.visible = (p.oh | 0) === OXY_TANK_ID;   // ★ v339
       if (skSrc === null) askSkin(p);
       r.obj.position.set(p.x, p.y, p.z);
       r.obj.userData.tx = p.x; r.obj.userData.ty = p.y; r.obj.userData.tz = p.z; r.obj.userData.yaw = p.w;
@@ -13769,10 +16676,13 @@ function mpEnterAccountWorld(code) {
       .then(r => r.json()).then(d => {
         if (!d.ok || !d.edits) return;
         let n = 0;
-        for (const [k, id] of d.edits) {
-          if (edits.has(k) && edits.get(k) === id) continue;      // 已经有了就跳过
+        for (const [k, id, mm] of d.edits) {
           const a = k.split(',').map(Number);
-          applyServerBlock(a[0], a[1], a[2], id);
+          if (edits.has(k) && edits.get(k) === id) {               // 方块已经一致：只补 meta（门开合/朝向）
+            if (typeof mm === 'number') setMeta(a[0], a[1], a[2], mm, false);
+            continue;
+          }
+          applyServerBlock(a[0], a[1], a[2], id, mm);             // ★ 把 meta 一起交下去（门/床/楼梯）
           n++;
         }
         if (n > 120) toast(`Caught up on ${n} changes nearby`, 2);
@@ -13921,8 +16831,11 @@ function mpEnterAccountWorld(code) {
         inv = new Array(SLOTS).fill(null);
         (s.inv || []).filter(x => x && isItem(x.id) && x.n > 0).forEach((x, i) => { if (i < SLOTS) inv[i] = { id: x.id, n: x.n, d: x.d }; });
         if (s.armor) for (const k of ARMOR_SLOTS) if (ITEMS[s.armor[k]]) player.armor[k] = s.armor[k];
-        if (s.hp) player.hp = Math.min(20, s.hp | 0);
-        if (s.hunger) player.hunger = Math.min(20, s.hunger | 0);
+        /* ★ v346：`s.hp | 0` 会把 0.4 截成 0（回血后正好不到半颗心）→ 进房瞬间变成「0 血活着」。
+           改成保留小数、并且至少 1 点。 */
+        const h1 = +s.hp;
+        if (isFinite(h1) && h1 > 0) player.hp = Math.min(20, Math.max(1, h1));
+        if (s.hunger) player.hunger = Math.min(20, +s.hunger || 0);
         renderHotbar(); refreshHeld(); renderHearts();
         toast('Restored your Inventory from last time in this Room (' + (s.inv || []).filter(Boolean).length + ' slots)', 3.5);
       }).catch(() => {});
@@ -14005,9 +16918,17 @@ function mpEnterAccountWorld(code) {
     const spd = Math.hypot(player.v.x, player.v.z);
     return (mineHeld && player.mineTarget && player.alive ? 1 : 0)
          | (spd > CFG.WALK * 0.95 ? 2 : 0)
-         | (!player.onGround && !player.inWater && !player.inLava ? 4 : 0);
+         | (!player.onGround && !player.inWater && !player.inLava ? 4 : 0)
+         | (player.swimming ? 8 : 0);            // ★ v335 bit3：在游泳（别人据此播划水动画）
   };
   net.dropSeqLocal = 0;
+  /* ★ v337 船的快照：房主权威，只发 [id, 木头, x, y, z, yaw] */
+  net.pushBoats = () => {
+    if (!net.ws || net.ws.readyState !== 1) return;
+    const u = boats.map(b => [b.id | 0, b.wi | 0, +b.x.toFixed(2), +b.y.toFixed(2), +b.z.toFixed(2), +b.yaw.toFixed(2)]);
+    try { net.ws.send(JSON.stringify({ t: 'b', u })); } catch (e) {}
+  };
+  net.gBoats = new Map();                     // 客人侧：别人放的船
   net.addDropGhost = (nid, id, n, x, y, z) => {
     // 客人本地的「预演掉落物」必须和主机的真实掉落物同款（物品=薄板、方块=立方体）
     const mesh = BLOCKS[id]
@@ -14110,41 +17031,111 @@ function mpEnterAccountWorld(code) {
   };
 
   /* ---------- 应用服务端方块 ---------- */
-  function applyServerBlock(x, y, z, b) {
+  function applyServerBlock(x, y, z, b, m) {
     net.applying = true;
-    try { setBlock(x, y, z, b, false); } finally { net.applying = false; }
+    try {
+      setBlock(x, y, z, b, false);
+      if (typeof m === 'number') {
+        setMeta(x, y, z, m | 0, false);   // 门的开合/朝向、床朝向随之落地
+        /* ★ 门 = 两格方块 + 一份状态：收到的这半格直接对齐整扇门。
+           上下两格本来是两条独立编辑，丢一条/被拒一条就会「下格开着、上格关着」→
+           门看着开了却过不去。这里收到任意一半就把另一半补齐（在 applying 里，不会回声上行）。 */
+        if (BLOCKS[b] && BLOCKS[b].door) syncDoorMeta(x, y, z);
+      }
+    } finally { net.applying = false; }
     edits.set(x + ',' + y + ',' + z, b);        // 内存编辑表：区块卸载再加载不会退回天然地形
     indexEdit(x, y, z, b);                       // 不写 localStorage —— 服务端才是权威
   }
 
   /* ---------- 本地编辑上行（乐观 + 失败回滚） ---------- */
-  net.onLocalEdit = (x, y, z, id, prevId) => {
+  /* 同一条上行通道：id 和 meta 一起发（服务端 applyEdit 认 msg.m） */
+  net.pushEdit = (x, y, z, b, m, prev, prevM) => {
     const wsOk = !!(net.ws && net.ws.readyState === 1);
     if (!wsOk && !IS_BRIDGE) return;                  // 桥模式没有 ws，靠 sync 轮询把 pending 带上去
+    /* ★ v322：同一格只留一条在飞的编辑。以前「挖 → 放 → 挖」三刀会三条一起飞，先发的那条
+       被服务端拒掉后客户端拿它回滚 → 把**后**改好的方块盖回去 = 「过一秒又变回去了」。 */
+    const ck = x + ',' + y + ',' + z;
+    const oldSeq = net.pendingKey.get(ck);
+    if (oldSeq !== undefined) net.pending.delete(oldSeq);
     const seq = ++net.seq;
-    net.pending.set(seq, { x, y, z, prev: prevId, id });
-    if (net.pending.size > 400) { const k = net.pending.keys().next().value; net.pending.delete(k); }
+    net.pendingKey.set(ck, seq);
+    net.pending.set(seq, { x, y, z, prev, prevM, id: b, m, ck });
+    if (net.pending.size > 400) { const k = net.pending.keys().next().value; const q0 = net.pending.get(k); net.pending.delete(k); if (q0 && q0.ck && net.pendingKey.get(q0.ck) === k) net.pendingKey.delete(q0.ck); }
     net.editOut++;
-    if (wsOk) { try { net.ws.send(JSON.stringify({ t: 'e', seq, x, y, z, b: id })); } catch (e) {} }
+    const msg = { t: 'e', seq, x, y, z, b };
+    if (typeof m === 'number') msg.m = m;
+    if (wsOk) { try { net.ws.send(JSON.stringify(msg)); } catch (e) {} }
+  };
+  net.onLocalEdit = (x, y, z, id, prevId) => net.pushEdit(x, y, z, id, null, prevId, null);
+  net.onLocalMeta = (x, y, z, m, prevM) => {
+    const b = getBlock(x, y, z);
+    net.pushEdit(x, y, z, b, m, b, prevM);
+  };
+  /* 一条 ack / rej 到达：清掉 pending，并在「这一格没有更新的编辑在飞」时才回滚 */
+  net.settleEdit = (seq, ok) => {
+    const p0 = net.pending.get(seq);
+    net.pending.delete(seq);
+    if (!p0) return;
+    const newest = net.pendingKey.get(p0.ck) === seq;
+    if (newest) net.pendingKey.delete(p0.ck);
+    if (ok) return;
+    net.rejCount++;
+    if (newest && !net.pendingKey.has(p0.ck)) applyServerBlock(p0.x, p0.y, p0.z, p0.prev, p0.prevM);
   };
 
   /* ---------- 网络 ---------- */
   function connect() {
     net.onMsg = (m) => {
+      /* ★ v332 多人：客人躺下 / 站起来 —— 只影响那个客人，房主和其他客人的怪照常刷 */
+      if (m.t === 'pdie' && m.from)  { guestDead.add(m.from); guestGuard.set(m.from, 1e9); return; }
+      if (m.t === 'palive' && m.from) { guestDead.delete(m.from); guestGuard.set(m.from, 20); return; }
       if (m.t === 'ok') {
         net.isHost = !!m.host; net.err = '';
         // 断线期间漏掉的编辑：补上（resync=true 时服务端给的是整表）
-        for (const e of (m.missed || [])) applyServerBlock(e[0], e[1], e[2], e[3]);
+        /* ★ 一条都别丢 meta：以前这里只传 e[0..3]，重连后门的开合全部回到「关着」，
+           而自己这端看起来是开着的 —— 「联机时门显示的不一样」的一大来源。 */
+        for (const e of (m.missed || [])) applyServerBlock(e[0], e[1], e[2], e[3], e[4]);
         if (typeof m.seq === 'number') net.serverSeq = m.seq;
+        if (typeof m.time === 'number' && !net.isHost) netTimeApply(m.time);
         // 断线时还在 pending 的编辑重新推一遍（否则这几刀永久丢失）
         const again = Array.from(net.pending.values());
-        net.pending.clear();
+        net.pending.clear(); net.pendingKey.clear();
         for (const p0 of again) {
           const seq2 = ++net.seq;
           net.pending.set(seq2, p0);
-          try { net.ws.send(JSON.stringify({ t: 'e', seq: seq2, x: p0.x, y: p0.y, z: p0.z, b: p0.id })); } catch (e) {}
+          if (p0.ck) net.pendingKey.set(p0.ck, seq2);
+          const msg2 = { t: 'e', seq: seq2, x: p0.x, y: p0.y, z: p0.z, b: p0.id };
+          if (typeof p0.m === 'number') msg2.m = p0.m;
+          try { net.ws.send(JSON.stringify(msg2)); } catch (e) {}
         }
         if (again.length) toast(`Reconnected: resent ${again.length} unconfirmed changes`, 2.2);
+      }
+      else if (m.t === 'b') {                 // ★ v337 房主广播的船
+        const seen = new Set();
+        for (const e of (m.u || [])) {
+          const gid = e[0] | 0;
+          seen.add(gid);
+          let g = net.gBoats.get(gid);
+          if (!g) {
+            const obj = makeBoatModel(e[1] | 0);
+            obj.position.set(+e[2], +e[3], +e[4]);
+            obj.rotation.y = +e[5];
+            scene.add(obj);
+            g = { id: gid, wi: e[1] | 0, obj, tx: +e[2], ty: +e[3], tz: +e[4], yaw: +e[5] };
+            net.gBoats.set(gid, g);
+          }
+          g.tx = +e[2]; g.ty = +e[3]; g.tz = +e[4]; g.yaw = +e[5];
+        }
+        for (const [gid, g] of Array.from(net.gBoats)) {
+          if (seen.has(gid)) continue;
+          scene.remove(g.obj);
+          net.gBoats.delete(gid);
+          if (player.riding === g) player.riding = null;
+        }
+      }
+      else if (m.t === 'bi') {                // ★ v337 客人的划船输入（房主结算）
+        const b = boats.find(x => x.id === (m.i | 0));
+        if (b) b.gst = { fwd: m.fwd | 0, turn: m.turn | 0, t: performance.now() };
       }
       else if (m.t === 'p') {
         net.snaps++; net.lastSnap = performance.now();
@@ -14173,7 +17164,8 @@ function mpEnterAccountWorld(code) {
           toast(`${nm} left the Room`, 2.5);
         }
         if (frOpen) renderLobby();
-        if (typeof m.time === 'number') worldTime = m.time;
+        /* 房主的时间：只做渐进校正（房主自己不跟自己的回声，避免和自己打起来） */
+        if (typeof m.time === 'number' && !net.isHost) netTimeApply(m.time);
         const wasHost = net.isHost;
         net.isHost = (m.host === net.id);
         // ★ 主机迁移：原主机掉线后本端接管，必须清掉手里的「幽灵怪」——
@@ -14197,7 +17189,7 @@ function mpEnterAccountWorld(code) {
         }
       } else if (m.t === 'e') {
         if (typeof m.q === 'number') net.serverSeq = m.q;
-        applyServerBlock(m.x, m.y, m.z, m.b);
+        applyServerBlock(m.x, m.y, m.z, m.b, m.m);
       } else if (m.t === 'vact') {                // 客人操作村民 → 只有房主结算（真身在这边）
         if (net.isHost) applyVact(m);
       } else if (m.t === 'hit') {
@@ -14242,7 +17234,9 @@ function mpEnterAccountWorld(code) {
       } else if (m.t === 'mach') {                // 别人点了炉子：我这边没在烧就接上（同一台共享的炉）
         if (m.kind === 'furnace' && !furnaceJob && m.v && m.v.out) adoptFurnaceJob(m.v);
       } else if (m.t === 'time') {                // 房主的昼夜时间
-        if (typeof m.v === 'number' && Math.abs(m.v - worldTime) > 3) worldTime = m.v;
+        /* ★ 老守护进程发 {v}、新的发 {time}：两个都收 —— 以前只认 v，
+           而服务端发的是 {t:'time', time:...} → 这条分支等于从来没生效过（客人时间永远不同步）。 */
+        netTimeApply(typeof m.v === 'number' ? m.v : m.time);
       } else if (m.t === 'm') {
         syncGhosts(m.u || []);
       } else if (m.t === 'ch') {                  // 别人改了这个箱子：同表覆盖
@@ -14274,13 +17268,11 @@ function mpEnterAccountWorld(code) {
           r.obj.userData.swingType = m.a || 'attack';
         }
       } else if (m.t === 'ack') {
-        net.pending.delete(m.seq);
+        net.settleEdit(m.seq, true);
       } else if (m.t === 'rej') {
-        const p0 = net.pending.get(m.seq);
-        net.pending.delete(m.seq);
-        net.rejCount++;
-        if (p0) applyServerBlock(p0.x, p0.y, p0.z, p0.prev);
-        toast('Server rejected this change: ' + (m.e || ''), 1.6);
+        net.settleEdit(m.seq, false);
+        net.rejLast = m.e || '';
+        if (net.rejCount <= 3 || net.rejCount % 50 === 0) toast('Server rejected this change: ' + (m.e || ''), 1.6);
       } else if (m.t === 'req' || m.t === 'acc' || m.t === 'deny' || m.t === 'f' || m.t === 'inv') {
         net.onSocial(m);
       } else if (m.t === 'left') {
@@ -14297,7 +17289,7 @@ function mpEnterAccountWorld(code) {
     net.ws = ws;
     ws.onopen = () => {
       net.connected = true; net.err = '';
-      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : '') }));
+      ws.send(JSON.stringify({ t: 'hello', code: net.code, id: net.id, name: net.nick, since: net.serverSeq, sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, oh: (player.off ? player.off.id : 0), skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : '') }));
     };
     ws.onclose = () => { net.connected = false; setTimeout(() => { if (net.active) connect(); }, 1500); };
     net.reconnect = () => { try { ws.close(); } catch (e) {} };
@@ -14327,7 +17319,7 @@ function mpEnterAccountWorld(code) {
       + `Multiplayer ${net.code}${net.isHost ? ' · Host' : ''} · <b>${net.rtt.toFixed(0)}ms</b> · snapshot ${net.snapHz.toFixed(0)}Hz · `
       + `Pending <b style="color:${net.pending.size ? '#ffcf6b' : '#7ef0a0'}">${net.pending.size}</b> · `
       + `${net.mode === 'poll' ? ' · Polling ' + Math.round((net.pollEvery || 0.09) * 1000) + 'ms' : ' · WS'} remote ${net.remotes.size}${net.isHost ? '' : ' · Ghosts ' + net.ghosts.size}`
-      + ` · lag ${Math.round(lagMax)}ms · seq ${net.serverSeq} · upstream edits ${net.editOut} · rejected ${net.rejCount}`
+      + ` · lag ${Math.round(lagMax)}ms · seq ${net.serverSeq} · upstream edits ${net.editOut} · rejected ${net.rejCount}${net.rejCount && net.rejLast ? '(' + net.rejLast + ')' : ''}`
       + (net.err ? ` · <span style="color:#ff9a6b">${net.err}</span>` : '');
   }
 
@@ -14372,7 +17364,7 @@ function mpEnterAccountWorld(code) {
     if (!IS_BRIDGE && net.sendT >= 0.1 && net.ws && net.ws.readyState === 1) {
       net.sendT = 0;
       try {
-        net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), f: net.myFlags(), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs }));
+        net.ws.send(JSON.stringify({ t: 'p', x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2), w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), f: net.myFlags(), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, oh: (player.off ? player.off.id : 0) }));
       } catch (e) {}
     }
     // ── 公网轮询模式：一个请求同时上传位置/编辑、取回消息（~8Hz）
@@ -14391,14 +17383,16 @@ function mpEnterAccountWorld(code) {
         for (const [seq, p0] of net.pending) {
           if (p0.nextAt && nowMs < p0.nextAt) continue;
           p0.nextAt = nowMs + 1500;
-          pend.push({ seq, x: p0.x, y: p0.y, z: p0.z, b: p0.id });
+          const pe = { seq, x: p0.x, y: p0.y, z: p0.z, b: p0.id };
+          if (typeof p0.m === 'number') pe.m = p0.m;
+          pend.push(pe);
           if (pend.length >= 20) break;
         }
         // 桥请求必须有超时：偶尔一次 PHP 卡 2 秒会把整条链路堵住（表现就是"位置停一下再瞬移"）
         const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         const toT = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (e) {} }, 2000);
         fetch(EP, { method: 'POST', headers: { 'content-type': 'text/plain' }, signal: ctl ? ctl.signal : undefined, body: JSON.stringify(Object.assign({
-          a: 'sync', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs,
+          a: 'sync', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, oh: (player.off ? player.off.id : 0),
           /* ★ 皮肤变了（换了 PNG / 新颜色）必须把 skd 一起传上去，否则服务端只有新哈希没有数据，
              别人 getskin 拿到空 → 只能画一张"按颜色生成的假皮肤"（这就是"联机皮肤不对"）。
              只在上报哈希变化时带一次，别每 100ms 塞 30KB。 */
@@ -14406,16 +17400,17 @@ function mpEnterAccountWorld(code) {
           ...(net._skh !== net.skinSent ? { skd: (LOOK.skinSrc === 'custom' ? skinPngData() : '') } : {}),
           x: +player.p.x.toFixed(2), y: +player.p.y.toFixed(2), z: +player.p.z.toFixed(2),
           w: +player.yaw.toFixed(2), q: +player.pitch.toFixed(2), edits: pend, f: net.myFlags(),
-        }, net.isHost ? { mobs: net.mobCache || [], drops: net.dropCache || [] } : {})) }).then(r => r.json()).then(d => {
+        }, net.isHost
+          /* ★ 轮询模式没有 ws：房主的时间必须挂在这条 sync 上上行，否则服务端的时间永远停在开房那一刻 */
+          ? { mobs: net.mobCache || [], drops: net.dropCache || [], time: +worldTime.toFixed(2) }
+          : {})) }).then(r => r.json()).then(d => {
           if (!d.ok) { net.err = d.e || 'sync'; net.connected = false; return; }
           net.connected = true; net.err = ''; net.syncs++;
           if (net._skh) net.skinSent = net._skh;      // 皮肤数据已随这次同步送达服务端（下次变了才重传）
           if (typeof d.seq === 'number') net.serverSeq = d.seq;
           net.isHost = (d.host === net.id);
-          for (const s of (d.ack || [])) {
-            if (s > 0) net.pending.delete(s);
-            else { const p1 = net.pending.get(-s); net.pending.delete(-s); net.rejCount++; if (p1) applyServerBlock(p1.x, p1.y, p1.z, p1.prev); }
-          }
+          if (typeof d.time === 'number' && !net.isHost) netTimeApply(d.time);   // 房间时间（服务端已按墙钟推算）
+          for (const s of (d.ack || [])) net.settleEdit(s > 0 ? s : -s, s > 0);
           for (const m of (d.out || [])) net.onMsg(m);
         }).catch((e2) => {
           if (!(e2 && e2.name === 'AbortError')) { net.connected = false; net.err = 'net'; }
@@ -14521,8 +17516,13 @@ function mpEnterAccountWorld(code) {
       const u = r.obj.userData;
       const s = net.sampleRemote(u, nowMs);
       if (!s) continue;
+      /* ★ v335 游泳：状态位 bit3 → 整个人前倾成「俯冲」姿态，身体整体抬高 0.55 格
+         （不然绕脚底转 66° 会半个身子插进地里）。 */
+      u.swimK += (((s.f & 8) ? 1 : 0) - u.swimK) * Math.min(1, dt * 5);
+      const swimK = u.swimK;
       // 位置直接用缓冲插值结果（它本身已经连续，再 lerp 只是白加延迟）
-      r.obj.position.set(s.x, s.y, s.z);
+      r.obj.position.set(s.x, s.y + swimK * 0.55, s.z);
+      r.obj.rotation.x = swimK * 1.15;                 // 俯冲角：66°
       let dy = s.yaw - r.obj.rotation.y;
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
@@ -14549,11 +17549,16 @@ function mpEnterAccountWorld(code) {
 
       /* 所有动作先「叠加成目标角度」，再用阻尼追上去。
        * 直接赋值的话，动作切换/丢包那一帧肢体就会硬跳；阻尼追随让每根骨头都是有质量的。 */
-      const legLT = stride * 0.62 * walkAmt * (1 - airK * 0.7) - airK * 0.35 + landK * 0.25;
-      const legRT = -stride * 0.62 * walkAmt * (1 - airK * 0.7) + airK * 0.20 + landK * 0.25;
+      /* ★ v335 游泳：双臂交替「自由泳划水」（相位差 π），双腿小幅打水，节奏和手部动画同源 */
+      const swPho = nowMs / 1000;
+      const armSwimL = Math.sin(swPho * 2.6) * 1.45 - 0.55;
+      const armSwimR = Math.sin(swPho * 2.6 + Math.PI) * 1.45 - 0.55;
+      const legSwim = Math.sin(swPho * 5.2) * 0.42;
+      const legLT = stride * 0.62 * walkAmt * (1 - airK * 0.7) - airK * 0.35 + landK * 0.25 + swimK * (legSwim - 0.28);
+      const legRT = -stride * 0.62 * walkAmt * (1 - airK * 0.7) + airK * 0.20 + landK * 0.25 - swimK * (legSwim + 0.28);
       const armSwing = stride * (0.50 + 0.35 * u.sprintK) * walkAmt;
-      const armLT = -armSwing - airK * 0.45 - landK * 0.20;
-      let armRT = armSwing - airK * 0.30 - landK * 0.25;
+      const armLT = -armSwing - airK * 0.45 - landK * 0.20 + swimK * armSwimL;
+      let armRT = armSwing - airK * 0.30 - landK * 0.25 + swimK * armSwimR;
       let foreRT = 0;
       if (u.swing > 0) {
         u.swing = Math.max(0, u.swing - dt);
@@ -14585,18 +17590,19 @@ function mpEnterAccountWorld(code) {
       //   base.head  = 24 px（颈根，正好贴住躯干顶）
       //   base.arm*  = 24 px（肩点，和躯干顶同高）
       //   这三者原本就是对齐的；旧代码把它们顶到 1.06 / 1.62，才出现「头悬空 4 px、肩线低 1 px」。
-      u.torso.rotation.x = u.sprintK * 0.12 + landK * 0.10;
+      u.torso.rotation.x = u.sprintK * 0.12 + landK * 0.10 - swimK * 0.10;   // 游泳时腰略反弓
       const bobY = Math.abs(stride) * 0.02 * walkAmt - landK * 0.05;
       const bY = u.base || (u.base = { torso: 18 * MOB_PX, head: 24 * MOB_PX, armL: 24 * MOB_PX, armR: 24 * MOB_PX });
       u.torso.position.y = bY.torso + bobY;
       u.head.position.y = bY.head + bobY * 0.8;
       u.armL.position.y = bY.armL + bobY;          // 肩随躯干一起起伏，肩线始终贴着躯干顶
       u.armR.position.y = bY.armR + bobY;
-      u.head.rotation.x = HEAD_PITCH_SIGN * clamp((u.pitch || 0) * 0.45, -0.55, 0.55);
+      /* 游泳时身体前倾 66°，头要反向抬回来才能看前方 */
+      u.head.rotation.x = HEAD_PITCH_SIGN * clamp((u.pitch || 0) * 0.45, -0.55, 0.55) - swimK * 1.0;
     }
     // 主机每 0.2s 广播掉落物；客人每 5s 把背包存回服务端
     net.dropT = (net.dropT || 0) + dt;
-    if (net.dropT >= 0.2) { net.dropT = 0; if (net.isHost) net.pushDrops(); }
+    if (net.dropT >= 0.2) { net.dropT = 0; if (net.isHost) { net.pushDrops(); net.pushBoats(); } }
     net.invT = (net.invT || 0) + dt;
     if (net.invT >= 5) { net.invT = 0; if (!net.lid && net.active) net.pushInv(); }
     net.pullT += dt;
@@ -14669,8 +17675,8 @@ function mpEnterAccountWorld(code) {
   fetch(EP, {
     method: 'POST', headers: { 'content-type': 'text/plain' },
     body: JSON.stringify(isHostMode
-      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), wname: net.wname || '', kind: MODE, lid: net.lid || '', sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : ''), seed: hostSeed, x: hostPos.x, z: hostPos.z, r: 128, full: 1 }
-      : { a: 'join', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : ''), x: 0, z: 0, r: 128 }),
+      ? { a: 'host', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), wname: net.wname || '', kind: MODE, lid: net.lid || '', time: +worldTime.toFixed(2), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, oh: (player.off ? player.off.id : 0), skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : ''), seed: hostSeed, x: hostPos.x, z: hostPos.z, r: 128, full: 1 }
+      : { a: 'join', code: net.code, pid: net.id, name: net.nick, tok: acctTok(), sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, oh: (player.off ? player.off.id : 0), skn: skinHash(LOOK.skinSrc), skd: (LOOK.skinSrc === 'custom' ? skinPngData() : ''), x: 0, z: 0, r: 128 }),
   }).then(r => r.json()).then(d => {
     // 进服后把 URL 洗干净：否则「世界」按钮 reload / 刷新 / iOS 恢复标签页都会再自动 join 一次
     const cleanUrl = () => { try { history.replaceState(null, '', location.pathname); } catch (e) {} };
@@ -14706,9 +17712,10 @@ function mpEnterAccountWorld(code) {
       }
     } catch (e) {}
     startGame(w);
-    for (const [k, id] of (d.edits || [])) {
+    for (const [k, id, mm] of (d.edits || [])) {
       const a = k.split(',').map(Number);
       edits.set(k, id); indexEdit(a[0], a[1], a[2], id);
+      if (typeof mm === 'number') setMeta(a[0], a[1], a[2], mm, false);   // 门/床的朝向：进服就按房间里的来
     }
     // ★ 进服包里带的改动必须作用到「已经生成的区块」上：startGame 已经把出生点周围 5×5 区块建好了，
     //   只写 edits/indexEdit 只影响**之后**生成的区块 —— 结果是「别人挖过的洞，你进服时看不到」。
@@ -14725,6 +17732,11 @@ function mpEnterAccountWorld(code) {
       for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) dirty.add(getChunk(c0x + dx, c0z + dz));
       /* 界面上看得见：房主进房时把「房间里全部改动」同步回来了多少（客人只报附近的） */
       if (isHostMode) toast('Synced ' + (d.edits || []).length + ' changes in the Room (including what friends dug/placed)', 4);
+    }
+    /* 村民小队：房间里存着、本地没有（换设备 / 清了浏览器缓存 / 换了浏览器）→ 从服务端恢复 */
+    if (Array.isArray(d.squad) && d.squad.length && !squadList().length) {
+      const n2 = restoreSquad(d.squad);
+      if (n2) toast('Restored ' + n2 + ' villager(s) with their gear from the Room', 3.6);
     }
     for (const pl of (d.players || [])) if (pl.i !== net.id) ensureRemote(pl);
     // ★ 客人进房：优先回到「你上次在这个房间里的位置/朝向」；
@@ -14752,8 +17764,12 @@ function mpEnterAccountWorld(code) {
         }
       }
     }
-    if (typeof d.time === 'number') worldTime = d.time;
+    /* 房间时间：客人照房间的来；房主以自己为准（他刚把自己的时间送上去，再抄回来只会被房间旧值打回去） */
+    if (typeof d.time === 'number' && !isHostMode) worldTime = d.time;
     connect();
+    /* 房主：进房后立刻把自己的时间报一次。否则房间从「开房那一刻」开始算，
+       客人要等第一次 5 秒上报才对齐（会看到时钟小幅跳一下）。 */
+    if (isHostMode) net.timeT = 5;
     if (isHostMode) uploadMyWorld();
     else setTimeout(() => net.pullInv(), 400);        // 客人：把上次在这个房间的背包取回来
     toast(`Multiplayer "${net.code}" · ${net.isHost ? 'You are the host' : 'Joined'} · players ${(d.players || []).length}`, 4);   // join 返回的列表已包含自己
@@ -14976,7 +17992,7 @@ function mpEnterAccountWorld(code) {
        中途换皮肤别人永远看不到（"联机皮肤没更新"就是这么来的）。 */
   net.pushLook = () => {
     const skh = skinHash(LOOK.skinSrc);
-    const msg = { t: 'look', sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, skn: skh,
+    const msg = { t: 'look', sk: LOOK.skin, cl: LOOK.cloth, hr: LOOK.hair, hs: LOOK.hs, oh: (player.off ? player.off.id : 0), skn: skh,
                   skd: (LOOK.skinSrc === 'custom') ? skinPngData() : '' };
     if (net.ws && net.ws.readyState === 1) {
       try { net.ws.send(JSON.stringify(msg)); net.skinSent = skh; } catch (e) {}

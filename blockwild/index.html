@@ -36,9 +36,22 @@
   .food{width:15px;height:12px;background:#2a221a;position:relative;border-radius:50% 50% 45% 45%}
   .food i{position:absolute;inset:0;background:var(--food);border-radius:inherit}
   .lbl{font-size:10px;color:#93a8c2;width:30px}
-  /* ---------- hotbar ---------- */
-  #hotbar{position:absolute;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));transform:translateX(-50%);
-    display:flex;gap:3px;padding:3px;background:#0a1120c4;border:2px solid #26374d;border-radius:4px}
+  /* ---------- hotbar + 左手栏（Q） ---------- */
+  #hotbarWrap{position:absolute;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    display:flex;gap:6px;align-items:flex-end}
+  #hotbar{display:flex;gap:3px;padding:3px;background:#0a1120c4;border:2px solid #26374d;border-radius:4px}
+  #offSlot{width:42px;height:42px;background:#121b28;border:2px dashed #3b5069;position:relative;border-radius:3px;
+    pointer-events:auto;cursor:pointer}
+  #offSlot.has{border-style:solid;border-color:#3f7a8c;box-shadow:0 0 0 1px #4de0d03a inset}
+  #offSlot .offph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#4f6680}
+  #offSlot img{position:absolute;inset:4px;width:34px;height:34px;image-rendering:pixelated}
+  /* ---------- 氧气条（v339） ---------- */
+  #oxyrow,#tankrow{font-size:10px}
+  .oxy .bub{display:inline-block;width:9px;height:9px;border-radius:50%;background:#25384d;margin-right:2px;vertical-align:middle}
+  .oxy .bub.on{background:#5fd8ff;box-shadow:0 0 4px #5fd8ff}
+  .oxytxt{font-size:10px;color:#bfe9ff;margin-left:4px;min-width:38px}
+  .tankbar{width:64px;height:6px;background:#0c1622;border:1px solid #2b4a5c;border-radius:2px;overflow:hidden;margin:0 4px}
+  .tankbar i{display:block;height:100%;width:0;background:#4de0d0}
   .slot{width:42px;height:42px;background:#1b2536;border:2px solid #33475e;position:relative;border-radius:3px}
   .slot.sel{border-color:var(--gold);box-shadow:0 0 0 1px #f5c4515c inset}
   .slot img{position:absolute;inset:4px;width:34px;height:34px;image-rendering:pixelated}
@@ -71,6 +84,7 @@
   .overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
     background:#050a14d9;backdrop-filter:blur(3px);padding:14px}
   .overlay.hide{display:none}
+  .hide{display:none}   /* 通用工具类：以前只有 .overlay.hide 有样式，别的元素写 class="hide" 没效果 */
   /* 着火特效：屏幕四周的火焰呼吸 + 轻微上浮 */
   #burnFx{position:fixed;inset:0;z-index:18;pointer-events:none;opacity:0;transition:opacity .25s;
     box-shadow:inset 0 0 90px 18px rgba(255,96,16,.55), inset 0 0 160px 60px rgba(255,40,0,.32);}
@@ -117,7 +131,41 @@
   .stbtn.on{border-color:#f5c451;background:#2a3546;color:#f7e2b0;box-shadow:0 0 0 2px #f5c45166}
   /* ---------- inventory + crafting ---------- */
   #panel{z-index:18}
-  #panel .card{width:min(780px,97vw)}
+  #panel .card{width:min(940px,97vw)}
+  .craftwrap{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;align-items:start}
+  .craftleft,.craftright{min-width:0}
+  .cfilter{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .cfilter button{font:inherit;font-size:11px;padding:3px 9px;border-radius:11px;border:1px solid #2c3d55;
+      background:#0e1724;color:#9db0c8;cursor:pointer}
+  .cfilter button.on{background:#1d3b56;border-color:#3f6f96;color:#dbeafe}
+  .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:5px;max-height:44vh;
+      overflow:auto;padding-right:3px}
+  .ccell{position:relative;aspect-ratio:1;background:#141e2c;border:2px solid #2b3d52;border-radius:4px;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .1s,background .1s}
+  .ccell img{width:76%;height:76%;image-rendering:pixelated;opacity:.4;filter:grayscale(.6)}
+  .ccell.ok{background:#16281c;border-color:#3d6b45}
+  .ccell.ok img{opacity:1;filter:none}
+  .ccell:hover{border-color:#5b86ad}
+  .ccell.sel{border-color:var(--gold);box-shadow:inset 0 0 0 2px rgba(245,196,81,.35)}
+  .ccell .q{position:absolute;right:2px;bottom:0;font-size:9px;color:#cbd8e8;text-shadow:0 1px 2px #000}
+  .ccell .tb{position:absolute;left:2px;top:0;font-size:9px;color:#e0a24a}
+  .cdetail{border:1px solid #24344a;border-radius:6px;background:#0e1724;padding:10px;margin-bottom:12px;min-height:148px}
+  .cdetail .hd{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+  .cdetail .hd img{width:46px;height:46px;image-rendering:pixelated}
+  .cdetail .nm{font-size:14px;color:#e8eef7}
+  .cdetail .nm i{display:block;font-style:normal;font-size:10px;color:#8fa6c0;margin-top:3px}
+  .req{display:flex;align-items:center;gap:7px;font-size:11.5px;padding:3px 0;color:#c7d6e6}
+  .req img{width:18px;height:18px;image-rendering:pixelated}
+  .req b{color:#7fe06b;font-weight:600;margin-left:auto}
+  .req.short b{color:#ff8a8a}
+  .req .of{color:#8fa6c0;font-size:11px}
+  .craftbtn{width:100%;margin-top:10px;padding:8px;border-radius:5px;border:2px solid #3f6f96;
+      background:#1d3b56;color:#dbeafe;font:inherit;font-size:12.5px;cursor:pointer}
+  .craftbtn:hover:not(:disabled){background:#27506f}
+  .craftbtn:disabled{opacity:.45;cursor:not-allowed}
+  .cnote{font-size:10.5px;color:#e0a24a;margin-top:7px;line-height:1.5}
+  .cursornote{font-size:10.5px;color:#8ea3ba;margin:-6px 0 8px;line-height:1.45;min-height:14px}
+  #extras{margin-top:6px;border-top:1px solid #24344a;padding-top:10px}
   .pgrid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-bottom:14px}
   .cell{aspect-ratio:1;background:#1b2536;border:2px solid #33475e;border-radius:3px;position:relative;cursor:pointer}
   .cell img{position:absolute;inset:5px;width:calc(100% - 10px);image-rendering:pixelated}
@@ -177,6 +225,11 @@
   #rotate{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
     background:#060b15f2;text-align:center;font-size:13px;line-height:1.9;color:#cfe0f2;padding:24px}
   body.portrait #rotate{display:flex}
+/* ★ v334 水下视野：整屏真模糊 + 蓝色压暗（z-index 压在 HUD 之下，快捷栏不受影响） */
+#uwFx{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0;transition:opacity .16s linear;
+  background:radial-gradient(circle at 50% 45%, rgba(46,126,196,.16), rgba(8,42,82,.58));
+  -webkit-backdrop-filter:blur(3.5px) saturate(.9);backdrop-filter:blur(3.5px) saturate(.9)}
+#uwFx.on{opacity:1}
 </style>
 </head>
 <body>
@@ -188,10 +241,15 @@
   <div id="tgt"></div>
   <div id="mine"><i></i></div>
   <div id="bars">
+    <div class="row" id="oxyrow" style="display:none"><span class="lbl">O₂</span><span id="oxyBubbles" class="oxy"></span><span id="oxyTxt" class="oxytxt">30.0s</span></div>
+    <div class="row" id="tankrow" style="display:none"><span class="lbl">Tank</span><div class="tankbar"><i id="tankFill"></i></div><span id="tankTxt" class="oxytxt">0/360s</span></div>
     <div class="row" id="hearts"></div>
     <div class="row" id="foodrow"></div>
   </div>
-  <div id="hotbar"></div>
+  <div id="hotbarWrap">
+    <div id="offSlot" class="slot off" title="Left hand (Q): put an Oxygen Tank here"><span class="k">Q</span><span class="offph">L</span></div>
+    <div id="hotbar"></div>
+  </div>
   <div id="hint"></div>
   <div id="mmWrap">
     <canvas id="mm"></canvas>
@@ -248,9 +306,11 @@
       <b>Space</b><span>Jump (double-press in Creative to toggle flying)</span>
       <b>Arrow keys</b><span>Look around (use this when there's no mouse; rebind it in Settings)</span>
       <b>F / G</b><span>Dig Block (hold) / Place Block (rebindable)</span>
+      <b>Q</b><span>Left hand: put an Oxygen Tank there (dive 30 s on lungs, 360 s on a full tank)</span>
       <b>Left click (hold)</b><span>Dig Block / Attack mobs</span>
       <b>Right click</b><span>Place Block / Eat food / Open chest, furnace, crafting table, charger</span>
       <b>Energy Cannon</b><span>Copper → circuit board + wire, plus a metal (Copper/Iron/Diamond/Nether Steel) → right-click to fire; when drained, put it in the charger with 1 uranium to refill</span>
+      <b>Oxygen Tank</b><span>4 Copper Ingot + 2 Iron Ingot at a Crafting Table → put it in your left hand (Q); 1 uranium in the Charger adds 120 s of oxygen (max 360 s)</span>
       <b>M</b><span>Full-screen map: drag to pan, wheel or +/− to zoom, click to drop a marker (rename/delete, saved forever); structures within 40 blocks are marked automatically</span>
       <b>1 - 9 / wheel</b><span>Switch hotbar</span>
       <b>E</b><span>Inventory and crafting</span>
@@ -367,18 +427,31 @@
 <div class="overlay hide" id="panel">
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="sec" style="border:0;margin:0">Inventory <span id="invCount" style="color:#f5c451"></span></div>
+      <div class="sec" style="border:0;margin:0">Crafting <span id="craftCount" style="color:#f5c451"></span>
+        <span style="color:#8ea3ba;font-size:11px;font-weight:400;letter-spacing:0">&#160;· click an icon to see its recipe · double-click to craft</span></div>
       <button class="btn" id="btnClose">Close E</button>
     </div>
-    <div class="pgrid" id="invGrid"></div>
-    <div class="sec">Armor <span id="armorVal" style="color:#f5c451"></span></div>
-    <div class="pgrid" id="armorGrid" style="grid-template-columns:repeat(4,1fr);max-width:210px;margin-bottom:14px"></div>
-    <div id="creativeSec" class="hide">
-      <div class="sec">Creative inventory <span style="color:#8ea3ba;font-size:11px;font-weight:400">Click to pick up · holding one, clicking another drops it · Shift+click a slot = delete · click outside = drop on the ground</span></div>
-      <div class="pgrid" id="creativeGrid"></div>
+    <div class="craftwrap">
+      <div class="craftleft">
+        <div class="cfilter" id="craftFilter"></div>
+        <div class="cgrid" id="craftGrid"></div>
+      </div>
+      <div class="craftright">
+        <div class="cdetail" id="craftDetail"></div>
+        <div class="sec">Inventory <span id="invCount" style="color:#f5c451"></span></div>
+        <div class="pgrid" id="invGrid"></div>
+        <div class="cursornote" id="cursorInfo"></div>
+      </div>
     </div>
-    <div class="sec">Crafting (click to craft · iron tools/armor need a crafting table nearby)<span id="cursorInfo" style="color:#8ea3ba;font-size:11px;float:right;font-weight:400"></span></div>
-    <div id="recList"></div>
+    <div id="extras">
+      <div id="invSquadSlot"></div>
+      <div class="sec">Armor <span id="armorVal" style="color:#f5c451"></span></div>
+      <div class="pgrid" id="armorGrid" style="grid-template-columns:repeat(4,minmax(0,1fr));max-width:300px;margin-bottom:12px"></div>
+      <div id="creativeSec" class="hide">
+        <div class="sec">Creative inventory <span style="color:#8ea3ba;font-size:11px;font-weight:400">Click to pick up · holding one, clicking another drops it · Shift+click a slot = delete · click outside = drop on the ground</span></div>
+        <div class="pgrid" id="creativeGrid"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -481,6 +554,6 @@
 <div id="rotate">Please hold your phone in landscape<br><span style="color:#7f93ab;font-size:11px">Landscape gives a wider view; the buttons are bottom-right</span></div>
 
 <script>window.__loadErr=[];window.addEventListener('error',function(e){window.__loadErr.push((e.message||'?')+' @'+(e.filename||'')+':'+e.lineno+':'+e.colno);},true);</script>
-<script type="module" src="./js/blockwild.js?v=279"></script>
+<script type="module" src="./js/blockwild.js?v=345"></script>
 </body>
 </html>
