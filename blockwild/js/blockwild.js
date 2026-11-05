@@ -3836,8 +3836,13 @@ const glassMat = new THREE.MeshBasicMaterial({
 });
 const waterMat = new THREE.MeshBasicMaterial({
   map: atlasTex, vertexColors: true, transparent: true,
-  opacity: 0.55,                                   // ★ v333：0.74 → 0.55（更透，能看见水下地形）
-  depthWrite: false, side: THREE.DoubleSide, fog: true,
+  opacity: 0.58,
+  /* ★ v374：depthWrite 打开。
+     以前是 false —— 半透明又不写深度时，水面/水柱的**近面挡不住远面**：
+     一根下落水柱从正面看能直接看到内壁和它背后的墙，再叠上每格一片的水平薄片，
+     就成了用户报的「一圈圈空心水环」。写深度后近面先占位，水柱看起来是实心的。
+     水下地形照旧看得见：海床是不透明几何、在水之前画完，水面只是 blend 上去。 */
+  depthWrite: true, side: THREE.DoubleSide, fog: true,
 });
 /* ★ v333 动态水面：顶点按两组 sin 波上下起伏。
    相位用**世界坐标**（modelMatrix * position）算 —— 用物体坐标的话每个区块的波峰位置一样，
@@ -4263,7 +4268,7 @@ function ensureDoorObj(d) {
  *   · 底座 + 盖板（铰链在后沿）+ 黄铜锁扣，比满格方块矮一点，像真的箱子
  *   · 打开界面时盖板绕后沿转 112°，关闭时合上（0.18 秒缓动） */
 const chestObjs = new Map();
-const CHEST_W = 0.84, CHEST_H = 0.56, LID_H = 0.24;
+const CHEST_W = 0.98, CHEST_H = 0.62, LID_H = 0.22;   // ★ v374：0.84 → 0.98，四周不再留能看穿的缝
 function ensureChestObj(c) {
   const key = c.x + ',' + c.y + ',' + c.z;
   let o = chestObjs.get(key);
@@ -4272,7 +4277,7 @@ function ensureChestObj(c) {
   const mats = [sideM, sideM, topM, sideM, sideM, sideM];
   const g = new THREE.Group();
   const base = new THREE.Mesh(new THREE.BoxGeometry(CHEST_W, CHEST_H, CHEST_W), mats);
-  base.position.y = CHEST_H / 2;
+  base.position.y = CHEST_H / 2 + 0.01;
   g.add(base);
   const lidPivot = new THREE.Group();
   lidPivot.position.set(0, CHEST_H, -CHEST_W / 2);                 // 铰链在后沿
@@ -4282,7 +4287,7 @@ function ensureChestObj(c) {
   g.add(lidPivot);
   const lockMat = new THREE.MeshLambertMaterial({ color: 0xd8c27a });
   const lock = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.15, 0.05), lockMat);
-  lock.position.set(0, CHEST_H - 0.03, CHEST_W / 2 + 0.015);
+  lock.position.set(0, CHEST_H - 0.03, CHEST_W / 2 + 0.012);
   g.add(lock);
   g.position.set(c.x + 0.5, c.y, c.z + 0.5);
   scene.add(g);
