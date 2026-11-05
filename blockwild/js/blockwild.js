@@ -7617,6 +7617,96 @@ function mtFor(cellX, cellZ) {
   return out;
 }
 function mtKeyOf(o) { return Math.floor(o.cx / MT_CELL) + ',' + Math.floor(o.cz / MT_CELL); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ★ v372
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ① 脚步声：走路也会惊动触手传感器。
+   只在「附近确实有陨石坑」时才累计（纯查缓存，不触发生成），远离时零开销。 */
+let mtStepAcc = 0, mtNearCache = { until: 0, cx: 0, cz: 0, hit: false };
+function mtNearAnyCrater() {
+  const now = performance.now();
+  if (now < mtNearCache.until) {
+    return mtNearCache.hit && Math.abs(player.p.x - mtNearCache.cx) < 72 && Math.abs(player.p.z - mtNearCache.cz) < 72;
+  }
+  mtNearCache = { until: now + 2000, cx: 0, cz: 0, hit: false };
+  const ccx = Math.floor(player.p.x / MT_CELL), ccz = Math.floor(player.p.z / MT_CELL);
+  for (let dx = -1; dx <= 1 && !mtNearCache.hit; dx++) for (let dz = -1; dz <= 1 && !mtNearCache.hit; dz++) {
+    const o = mtCache.get((ccx + dx) + ',' + (ccz + dz));
+    if (!o) continue;
+    if (Math.abs(player.p.x - o.cx) < 72 && Math.abs(player.p.z - o.cz) < 72) {
+      mtNearCache.cx = o.cx; mtNearCache.cz = o.cz; mtNearCache.hit = true;
+    }
+  }
+  return mtNearCache.hit;
+}
+function mtFootstep(dt) {
+  if (player.fly || !player.onGround || player.inWater) return;
+  const hs = Math.hypot(player.v.x, player.v.z);
+  if (hs < 0.6) return;                                    // 站着不动不算
+  if (!mtNearAnyCrater()) return;
+  mtStepAcc += hs * dt;
+  const stride = hs > CFG.WALK * 0.95 ? 1.15 : 1.6;         // 跑起来步子更大（更吵、更频繁）
+  if (mtStepAcc >= stride) { mtStepAcc = 0; mtNoteNoise(player.p.x, player.p.y, player.p.z); }
+}
+
+/* ② 红色波动：一圈红色光环从玩家胸口飞向被惊动的传感器，0.55 秒散掉 */
+const mtRipples = [];
+function mtRippleTo(sx, sy, sz, dur) {
+  if (mtRipples.length > 6) return;                        // 别在密集触发时爆量
+  const from = new THREE.Vector3(player.p.x, player.p.y + 1.15, player.p.z);
+  const to = new THREE.Vector3(sx + 0.5, sy + 0.5, sz + 0.5);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xff2a14, transparent: true, opacity: 0.95,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.09, 6, 14), mat);
+  mesh.position.copy(from);
+  mesh.lookAt(to);                                         // 环面朝向传感器
+  scene.add(mesh);
+  mtRipples.push({ mesh, t: 0, dur: dur || 0.55, from, to });
+}
+function mtRippleTick(dt) {
+  for (let i = mtRipples.length - 1; i >= 0; i--) {
+    const r = mtRipples[i];
+    r.t += dt / r.dur;
+    if (r.t >= 1) {
+      scene.remove(r.mesh);
+      r.mesh.geometry.dispose(); r.mesh.material.dispose();
+      mtRipples.splice(i, 1);
+      continue;
+    }
+    const t = r.t;
+    r.mesh.position.lerpVectors(r.from, r.to, t);
+    const sc = 0.75 + t * 1.7;
+    r.mesh.scale.set(sc, sc, sc);
+    r.mesh.material.opacity = 0.95 * (1 - t * t);
+    r.mesh.rotateZ(dt * 7);
+  }
+}
+
+/* ③ 退出重进后补刷异形：存档里只有「已召唤」标记，mobs 不入档 → 怪不会自己回来。
+   玩家回到坑里时检查：已召唤 + 附近没有活的异形 → 静默重召唤。 */
+let mtRespawnAcc = 0;
+function mtStalkerAliveNear(o) {
+  return mobs.some(m => m.kind === MT_STALKER && !m.dying
+    && Math.abs(m.p.x - o.altar.x) < 100 && Math.abs(m.p.z - o.altar.z) < 100);
+}
+function mtRespawnCheck() {
+  if (NET && NET.active && !NET.isHost) return;            // 房主权威
+  const ccx = Math.floor(player.p.x / MT_CELL), ccz = Math.floor(player.p.z / MT_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const o = mtCache.get((ccx + dx) + ',' + (ccz + dz));
+    if (!o) continue;
+    if (Math.abs(player.p.x - o.cx) > 40 || Math.abs(player.p.z - o.cz) > 40) continue;
+    const key = mtKeyOf(o), st = mtStateFor(key);
+    if (!st.summoned) continue;
+    if (mtStalkerAliveNear(o)) return;
+    if (performance.now() - (st.respawnAt || 0) < 4000) return;
+    st.respawnAt = performance.now();
+    mtSummon(o, key, true);                                // 静默：不再弹「有人回应尖叫」
+    return;
+  }
+}
 /* ★ v370：房主 → 全房广播预警状态（客人据此弹 toast / 显示召唤） */
 function mtBroadcast(key, st) {
   if (!(NET && NET.active && NET.isHost)) return;
@@ -7652,7 +7742,7 @@ function mtNoteNoise(x, y, z) {
   if (NET && NET.active && !NET.isHost) return;          // 客人：交给房主结算
   if (mtNoise.length < 16) mtNoise.push([x | 0, y | 0, z | 0]);
 }
-function mtSummon(o, key) {
+function mtSummon(o, key, quiet) {
   /* ⚠ 祭坛四角 (±2,±2) 就是石柱：别把怪刷在 (x+2, z+2) —— force 刷怪不查空间，
      实测那样会让它整只卡在石头里不动（看起来像 AI 坏了）。这里挑台子外面、并往上找空位。 */
   const sx = o.altar.x + 5, sz = o.altar.z;
@@ -7660,11 +7750,14 @@ function mtSummon(o, key) {
   for (let i = 0; i < 10 && isSolid(getBlock(sx, sy, sz)); i++) sy++;
   const m = spawnMobAt(MT_STALKER, sx, sy, sz, { force: true });
   if (m) { m.mtKey = key; m.aggro = 1e9; m.patrolT = 0; m.seen = false; }
-  toast('Something answers the shrieks — a Void Stalker rises at the altar', 4.5);
+  if (!quiet) toast('Something answers the shrieks — a Void Stalker rises at the altar', 4.5);
   sfx('place');
   return m;
 }
-function meteorTick() {
+function meteorTick(dt) {
+  mtRippleTick(dt || 0);
+  mtRespawnAcc += (dt || 0);
+  if (mtRespawnAcc > 2.5) { mtRespawnAcc = 0; mtRespawnCheck(); }
   if (!mtNoise.length) return;
   const list = mtNoise; mtNoise = [];
   const now = performance.now();
@@ -7678,6 +7771,7 @@ function meteorTick() {
       if (d < bd) { bd = d; best = sp; }
     }
     if (!best) continue;
+    mtRippleTo(best[0], best[1], best[2]);                              // ★ v372 玩家 → 传感器 红色波动
     const key = mtKeyOf(o), st = mtStateFor(key);
     if (now - st.cd < 1500) continue;                                   // 同一时间只算一次
     st.cd = now;
@@ -13801,6 +13895,7 @@ function updatePlayer(dt) {
     if (jumpQueued && player.onGround) { player.v.y = CFG.JUMP; player.onGround = false; }
   }
   jumpQueued = false;
+  mtFootstep(dt);                                   // ★ v372：走路/跑步也会惊动传感器
 
   // ── 岩浆（液体）：泡在里面持续灼烧，并点燃玩家
   if (player.inLava) {
@@ -13898,7 +13993,7 @@ function update(dt) {
   lap('uPlayer');
   if (!NET || !NET.active || NET.isHost) { updateMobs(dt); separateMobs(); }   // 怪物由主机模拟；每帧把叠在一起的挤开
   pyrTrialTick();                                                        // ★ v353 金字塔试炼（房间波次/开门/BOSS）
-  meteorTick();                                                          // ★ v368 陨石坑传感器预警
+  meteorTick(typeof dt === 'number' ? dt : 0.016);                                                          // ★ v368 陨石坑传感器预警
   lap('uMobs');
   // 掉落物：主机/单机模拟；客人只画幽灵、捡的时候上报给主机删掉
   // （以前两端各跑一份，于是「别人捡走的东西，你这边还躺在地上」，还能再捡一次）
@@ -16764,6 +16859,26 @@ window.GAME = {
       player.v.set(0, 0, 0); camSmoothY = null;
       return { at: [o.altar.x, o.altar.y, o.altar.z], ry: o.ry, sensors: o.sensors.length };
     },
+    /* ★ v372 验收口：脚步噪声 / 红波动 / 补刷 */
+    mtStepTest: (n = 20) => {
+      const before = mtNoise.length;
+      player.v.x = CFG.WALK; player.v.z = 0; player.onGround = true;
+      for (let i = 0; i < n; i++) mtFootstep(0.05);
+      return { noiseBefore: before, noiseAfter: mtNoise.length, near: mtNearAnyCrater() };
+    },
+    mtRipples: () => mtRipples.length,
+    mtRippleDemo: (dur = 6) => {                       // 截图用：放一个慢速红波
+      const ccx = Math.floor(player.p.x / MT_CELL), ccz = Math.floor(player.p.z / MT_CELL);
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+        const o = mtCache.get((ccx + dx) + ',' + (ccz + dz));
+        if (!o) continue;
+        const sp = o.sensors[0];
+        mtRippleTo(sp[0], sp[1], sp[2], dur);
+        return { dur, from: [+player.p.x.toFixed(1), +player.p.y.toFixed(1), +player.p.z.toFixed(1)], to: sp };
+      }
+      return null;
+    },
+    mtRespawnNow: () => { mtRespawnAcc = 99; meteorTick(0.016); return mobs.filter(m => m.kind === MT_STALKER).length; },
     meteorState: () => {
       const o = mtFor(Math.floor(player.p.x / MT_CELL), Math.floor(player.p.z / MT_CELL));
       if (!o) return null;
@@ -16783,7 +16898,7 @@ window.GAME = {
       const o = mtFor(Math.floor(player.p.x / MT_CELL), Math.floor(player.p.z / MT_CELL));
       if (!o) return null;
       const sp = o.sensors.find(x => peekBlock(x[0], x[1], x[2]) === MT_SENSOR) || o.sensors[0];
-      for (let i = 0; i < n; i++) { mtStateFor(mtKeyOf(o)).cd = 0; mtNoteNoise(sp[0], sp[1], sp[2]); meteorTick(); }
+      for (let i = 0; i < n; i++) { mtStateFor(mtKeyOf(o)).cd = 0; mtNoteNoise(sp[0], sp[1], sp[2]); meteorTick(typeof dt === 'number' ? dt : 0.016); }
       return GAME.debug.meteorState();
     },
     meteorSummon: () => {
