@@ -7341,8 +7341,8 @@ function mtFor(cellX, cellZ) {
   const roll = h2(cellX * 91.3 + 7.1, cellZ * 77.7 - 3.9);
   if (roll > 0.35) {                                          // 每 384 格约 2/3 会有
     const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
-    const cx = cellX * MT_CELL + 120 + Math.floor(rnd() * (MT_CELL - 240));
-    const cz = cellZ * MT_CELL + 120 + Math.floor(rnd() * (MT_CELL - 240));
+    const cx = cellX * MT_CELL + 48 + Math.floor(rnd() * (MT_CELL - 96));    // 边距 48：相邻格的坑可以靠近出生点
+    const cz = cellZ * MT_CELL + 48 + Math.floor(rnd() * (MT_CELL - 96));
     /* 全群系都能出现 → 不看 biomeAt；只要求：不是水下、别太陡（坑要削得平） */
     let mn = 999, mx = -999;
     for (let dx = -14; dx <= 14; dx += 7) for (let dz = -14; dz <= 14; dz += 7) {
@@ -16337,6 +16337,38 @@ window.GAME = {
       return v;
     },
     chestAt: (x, y, z) => openChest(x, y, z),
+    /* ★ v368：扫种子用的「出生点 → 最近陨石坑」精确版（含 structNear 的 48 格互斥）。
+       纯 node 脚本没有复制其它 11 种结构的门槛，所以候选会被村庄/塔挤掉 —— 这个是在引擎里跑的，
+       结果就是最终结果。用完会把 SEED 和所有结构缓存复原。 */
+    seedMeteor: (seed) => {
+      const oldSeed = SEED;
+      const caches = [hsCache, villageCache, veinCache, ravineCache, towerCache, wellCache, circleCache,
+                      campCache, portalCache, ruinsCache, arenaCache, pyrCache, mtCache, forestCache, lsCache, msCache];
+      const clearAll = () => { for (const m of caches) if (m && m.clear) m.clear(); };
+      SEED = seed | 0;
+      clearAll();
+      const sp = findSpawn();
+      const ccx = Math.floor(sp.x / MT_CELL), ccz = Math.floor(sp.z / MT_CELL);
+      let best = null;
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+        const o = mtFor(ccx + dx, ccz + dz);
+        if (!o) continue;
+        const d = Math.round(Math.hypot(sp.x - o.cx, sp.z - o.cz));
+        if (!best || d < best.dist) best = { dist: d, cx: o.cx, cz: o.cz, gy: o.gy, ry: o.ry, ops: o.ops };
+      }
+      SEED = oldSeed;
+      clearAll();
+      return best ? { seed: seed | 0, spawn: [sp.x, sp.z, sp.h], ...best } : { seed: seed | 0, spawn: [sp.x, sp.z, sp.h], dist: -1 };
+    },
+    seedMeteorScan: (from, to, maxD = 90) => {
+      const out = [];
+      for (let s = from; s <= to; s++) {
+        const r = GAME.debug.seedMeteor(s);
+        if (r && r.dist >= 0 && r.dist <= maxD) out.push(r);
+      }
+      out.sort((a, b) => a.dist - b.dist);
+      return out.slice(0, 8);
+    },
     seedHouse: (seed) => {              // 扫种子：出生点 → 最近鬼屋
       SEED = seed | 0;
       hsCache.clear(); villageCache.clear(); veinCache.clear();
