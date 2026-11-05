@@ -282,7 +282,43 @@ const CAVE = {
   spF2: 0.0235, spY2: 0.0205, spW2: 0.058,      //   面条隧道 B（两场交集 = 管子）
   mouthLo: 0.72, mouthHi: 0.92, mouthT: 0.10,   // ④ 洞口区（低频掩码里最上面那 ~15%，实测 q85=0.71 / q95=0.83）
   shallowD: 10, shallowPen: 0.012,              //   离地表 10 格内逐格收紧（洞顶至少 5 格厚）
+  /* ★ v350：抖动 / 区域偏移改成**连续**的平滑值噪声（原来都是整数格哈希 → 阈值跳变）。
+     见 caveNoise3 / caveNoise2 上面的注释与实测数字。 */
+  jitCell: 6, jitAmp: 0.18,                     // 洞壁参差（6 格 cell，±0.09 阈值）
+  regCell: 40, regAmp: 0.14,                    // 区域起伏（40 格 cell，±0.07 阈值）
 };
+/* 平滑值噪声（三线性 + smoothstep，格子 cell 格）：给洞穴阈值加参差，但**边界连续**。
+   ── 为什么必须连续（v350 的核心 bug）────────────────────────────────────────
+   旧版这里是 `h3((wx>>1)*1.7+2.3, (y>>1)*2.1-0.9, (wz>>1)*1.3+4.1)` —— 每 2×2×2 格一个
+   独立随机数加到阈值上。噪声场本身是连续的，所以地质上「洞壁」是一条光滑曲面；但阈值在
+   相邻 2 格块之间乱跳 ±0.07，于是那条曲面被切成马赛克：
+     · 该空的地方随机变实 → **与主岩体不连通的碎岩块**（玩家：石头悬在半空）
+     · 该实的地方随机变空 → **<30 格的孤立小气泡**（玩家：洞里到处是小窟窿）
+   矿脉只替换石头，所以碎岩块里正好有矿 → 「矿也悬在半空」。实测（4×4 区块 / 2704 列，
+   只算岩层+洞穴+矿脉）：
+     哈希抖动：悬空岩块 245 块 / 1633 格，其中深板岩 1555 + 铀 3 + 铜 3 + 煤 1；碎洞 363 个
+     平滑抖动：悬空岩块   2 块 /   13 格；碎洞 2 个
+   ⚠ 旧的验收指标是「六面全空的单块石头 = 0」—— 那个指标一直是 0，因为碎屑是 2×2×2 的块，
+   每块只有 3 面空。判「悬空」必须用**连通分量**（size ≤ 64 且不连到主岩体/基岩），不能用单块。
+   成本：caveCarve 从 3.4ms/区块 → 4.6ms/区块（+1.2ms），换掉全世界的悬空碎石，值。
+   注：区域偏移原来也是 `h2(wx>>5 …)` 的 32 格整块跳变，会在 32 的倍数处把洞**切出一道平墙**，
+   一并换成 caveNoise2。 */
+function caveNoise3(x, y, z, cell, salt) {
+  const fx = x / cell, fy = y / cell, fz = z / cell;
+  const xi = Math.floor(fx), yi = Math.floor(fy), zi = Math.floor(fz) + salt;
+  const u = smooth(0, 1, fx - xi), v = smooth(0, 1, fy - yi), w = smooth(0, 1, fz - Math.floor(fz));
+  const c00 = lerp(h3(xi, yi, zi), h3(xi + 1, yi, zi), u);
+  const c10 = lerp(h3(xi, yi + 1, zi), h3(xi + 1, yi + 1, zi), u);
+  const c01 = lerp(h3(xi, yi, zi + 1), h3(xi + 1, yi, zi + 1), u);
+  const c11 = lerp(h3(xi, yi + 1, zi + 1), h3(xi + 1, yi + 1, zi + 1), u);
+  return lerp(lerp(c00, c10, v), lerp(c01, c11, v), w);
+}
+function caveNoise2(x, z, cell, salt) {
+  const fx = x / cell, fz = z / cell;
+  const xi = Math.floor(fx), zi = Math.floor(fz) + salt;
+  const u = smooth(0, 1, fx - xi), w = smooth(0, 1, fz - Math.floor(fz));
+  return lerp(lerp(h2(xi, zi), h2(xi + 1, zi), u), lerp(h2(xi, zi + 1), h2(xi + 1, zi + 1), u), w);
+}
 function caveCarve(wx, y, wz, h) {
   /* 上限 140（v318）：山抬到 150+ 以后 56 以上本来是整块实心石头，MC 的山是有洞的。
      140 以上保持实心（峰顶不挖穿）。 */
@@ -295,11 +331,11 @@ function caveCarve(wx, y, wz, h) {
   }
   const depth = h - y;
   if (depth < 0) return false;
-  // 区域偏移：同一个 32×32 区域用同一个阈值（h2 是纯哈希，不额外采样噪声）
-  const reg = (h2((wx >> 5) * 3.7 + 11.3, (wz >> 5) * 5.3 - 4.1) - 0.5) * 0.10;
-  /* 逐块抖动（按 2×2×2 格取哈希）：真 MC 的洞壁是参差的；逐块独立的抖动会把
-     边界碎成「四面全空的单块石头」（实测过，禁止）。 */
-  const jit0 = (h3((wx >> 1) * 1.7 + 2.3, (y >> 1) * 2.1 - 0.9, (wz >> 1) * 1.3 + 4.1) - 0.5) * 0.14;
+  // 区域偏移：连续的 40 格起伏（原来是 32 格整块哈希 → 32 的倍数处一道平墙）
+  const reg = (caveNoise2(wx, wz, CAVE.regCell, 137) - 0.5) * CAVE.regAmp;
+  /* 逐块抖动（连续，6 格 cell）：真 MC 的洞壁是参差的；但阈值必须**连续**，否则会把
+     洞壁切成马赛克 —— 碎出「悬空的石头块和矿」和「到处是小窟窿」（见 caveNoise3 注释）。 */
+  const jit0 = (caveNoise3(wx, y, wz, CAVE.jitCell, 251) - 0.5) * CAVE.jitAmp;
   const jit = depth <= 2 ? jit0 * 0.25 : jit0;
   const pen = h > CAVE.highH ? CAVE.highPen : 0;                  // 高峰内部收紧
   const deep = Math.max(0, CAVE.cheDeepY - y) * CAVE.cheDeepK;    // 深处阈值降低
@@ -614,6 +650,12 @@ const BLOCKS = {
   87: { name: 'Cactus', top: 102, side: 101, bottom: 102, hard: 0.4, drop: 87 },
   88: { name: 'Dead Bush', top: 104, side: 104, bottom: 104, hard: 0.0, drop: 104, cross: true, plant: true },
   89: { name: 'Cactus Fruit', top: 103, side: 103, bottom: 103, hard: 0.0, drop: 208, cross: true, plant: true },
+  /* v353：沙石建筑方块（沙漠金字塔 / 沙丘遗迹用） */
+  90: { name: 'Sandstone', top: 105, side: 106, bottom: 107, hard: 0.9, drop: 90, pick: true },
+  91: { name: 'Sandstone Bricks', top: 108, side: 108, bottom: 108, hard: 1.6, drop: 91, pick: true },
+  92: { name: 'Smooth Sandstone', top: 109, side: 106, bottom: 109, hard: 1.3, drop: 92, pick: true },
+  93: { name: 'Chiseled Sandstone', top: 110, side: 106, bottom: 110, hard: 1.5, drop: 93, pick: true },
+  94: { name: 'Cut Sandstone', top: 111, side: 106, bottom: 111, hard: 1.3, drop: 94, pick: true },
   33: { name: 'Stone Brick Stairs', top: 24, side: 24, bottom: 24, hard: 2.1, drop: 33, pick: true, stair: true },
   34: { name: 'Wooden Stairs', top: 8, side: 8, bottom: 8, hard: 1.2, drop: 34, stair: true, axe: true },
   35: { name: 'Wooden Door', top: 40, side: 40, bottom: 40, hard: 0.6, drop: 35, door: true, axe: true },
@@ -1397,6 +1439,59 @@ function makeAtlas() {
       Math.random() < 0.45 ? '#d07a4e' : (Math.random() < 0.5 ? '#a4552f' : '#c46a42'));
     for (let y = 0; y < 16; y += 4) for (let x = 0; x < 16; x++) if (Math.random() < 0.35) px(c, r, x, y, '#8f4626');  // 风蚀层理
   });
+  /* ── v353：沙石建筑方块（沙漠金字塔用）────────────────────────────────
+     62 沙石顶面（细砂平面） / 64 沙石侧面（层理） / 65 沙石底面
+     7 沙石砖（错缝砖） / 26 平滑沙石 / 27 雕纹沙石 / 42 柱状沙石（竖条）
+     用之前空着的瓦片 7/26/27/42/62/64/65，不挤占已用索引。 */
+  T(105, '#d9c89a', 0.06, (c, r) => {
+    for (let i = 0; i < 26; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, Math.random() < 0.5 ? '#e6d7ab' : '#c9b587');
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#c2ae7e'); px(c, r, x, 15, '#c2ae7e'); }
+  });
+  T(106, '#d6c395', 0.05, (c, r) => {
+    for (let y = 0; y < 16; y++) {
+      const t = y % 8;
+      if (t === 0) { for (let x = 0; x < 16; x++) px(c, r, x, y, '#b9a574'); }
+      else if (t === 1) { for (let x = 0; x < 16; x++) px(c, r, x, y, '#e4d5a8'); }
+    }
+    for (let i = 0; i < 22; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, Math.random() < .5 ? '#cdb98a' : '#c1ad7d');
+  });
+  T(107, '#d2bf90', 0.06, (c, r) => {
+    for (let i = 0; i < 30; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, Math.random() < .5 ? '#c6b283' : '#bda978');
+  });
+  T(108, '#d4c193', 0.05, (c, r) => {
+    // 16×16 里 4 行砖，奇数行错半块
+    for (let row = 0; row < 4; row++) {
+      const y0 = row * 4;
+      for (let x = 0; x < 16; x++) px(c, r, x, y0, '#b3a071');          // 灰缝
+      const off = row % 2 ? 8 : 0;
+      for (const bx of [off, off + 8]) {
+        for (let x = 0; x < 7; x++) for (let y = 1; y < 4; y++) {
+          const xx = (bx + x) % 16;
+          px(c, r, xx, y0 + y, y === 1 ? '#e0d0a3' : (y === 3 ? '#c8b587' : '#d8c799'));
+        }
+      }
+    }
+  });
+  T(109, '#ddcda1', 0.03, (c, r) => {
+    for (let i = 0; i < 16; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, Math.random() < .5 ? '#e8dab1' : '#d0be91');
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#cdbb8e'); px(c, r, x, 15, '#cdbb8e'); }
+  });
+  T(110, '#d8c79a', 0.04, (c, r) => {
+    for (let x = 0; x < 16; x++) { px(c, r, x, 0, '#b6a274'); px(c, r, x, 15, '#b6a274'); }
+    for (let y = 0; y < 16; y++) { px(c, r, 0, y, '#b6a274'); px(c, r, 15, y, '#b6a274'); }
+    // 中间刻一个沙漏/太阳纹
+    for (let y = 4; y <= 11; y++) { px(c, r, 5, y, '#c0ac7d'); px(c, r, 10, y, '#c0ac7d'); }
+    for (let x = 5; x <= 10; x++) { px(c, r, x, 4, '#c0ac7d'); px(c, r, x, 11, '#c0ac7d'); }
+    for (let y = 6; y <= 9; y++) for (let x = 6; x <= 9; x++) if (Math.abs(y - 7.5) < 1.4) px(c, r, x, y, '#a8946a');
+  });
+  T(111, '#d5c295', 0.05, (c, r) => {
+    for (let x = 0; x < 16; x++) {
+      const k = x % 4;
+      const col = k === 0 ? '#b7a375' : k === 2 ? '#e2d3a6' : '#d2bf90';
+      for (let y = 0; y < 16; y++) px(c, r, x, y, col);
+    }
+    for (let i = 0; i < 20; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, '#c6b284');
+  });
   /* ── v324：地区化木头 / 沙漠植物（瓦片 92..104）──────────────────────────
      金合欢=橙红、深色橡木=近黑的咖啡、仙人掌木=黄绿带刺、仙人掌=青绿、干枯树苗=枯褐色。 */
   // 92/93/94 金合欢
@@ -2132,7 +2227,6 @@ function treeParams(wx, wz) {
   if (h2(wx * 3.77 + 13.1, wz * 2.91 - 7.7) > gate) return null;
   // ② 结构/村庄/峡谷排除
   if (inVillage(wx, wz)) return null;                 // 村庄范围内不长树
-  if (inMyCabin(wx, wz)) return null;                 // 小屋范围内不长树
   if (inHaunted(wx, wz)) return null;                 // 鬼屋范围内不长树
   if (inExtraStruct(wx, wz)) return null;             // 其它结构范围内也不长树
   if (inRavine(wx, wz)) return null;                  // 峡谷里也不长树
@@ -2539,6 +2633,76 @@ function genNetherChunk(cx, cz) {
   }
   return b;
 }
+/* ── 悬空碎屑清理（v350）────────────────────────────────────────────────────
+   平滑抖动之后仍会有极少数「三套场叠出来的孤立小岩芯」：实测 2401 列里还剩 2~4 个
+   （1~18 格，多为深板岩/石头，偶尔带矿）。这一段在区块定稿前把它们清掉。
+   做法：全量 6 邻接连通分量标记（O(体积)，实测 +0.3~0.5ms/区块），
+     只有「体积 ≤ 64 格 + 完全在本区块内 + 不含任何结构方块」的分量才删。
+   ★ 只删**天然岩层/矿石**（FLOAT_NATURAL 白名单）。木板/圆石/箱子/楼梯这些结构方块的
+     悬空平台不动 —— 那是矿洞/村庄生成自己的问题，删了会在地板上留洞。
+   ★ 出界（相邻格在区块外）一律当「连着主岩体」：跨区块的岩块不会被误删，
+     贴在洞壁上的石台/石柱也不会（它们必然沿墙面连到边界）。
+   ⚠ 判「悬空」不能用「六面全空的单块」—— 碎屑是 2×2×2 的块，每块只空 3 面，那个指标恒为 0
+     （v321~v349 就是这么「验过」的，所以玩家一直看到浮石）。 */
+const FLOAT_NATURAL = new Uint8Array(256);
+for (const id of [1, 2, 3, 4, 50, 13, 15, 20, 39, 52, 26, 27, 78, 79, 80]) FLOAT_NATURAL[id] = 1;
+let _flComp = null, _flStack = null;
+/* 区块外某一格是不是天然岩层（纯函数：heightAt + caveCarve，不碰 chunks，不会递归）。
+   只用在「分量贴到区块边界」这少数情况上，成本可以忽略。 */
+function rockSolidDet(wx, y, wz) {
+  if (y < 0 || y >= CFG.WH) return true;
+  const h = heightAt(wx, wz);
+  if (y > h) return false;
+  return !(y >= 2 && y <= 140 && caveCarve(wx, y, wz, h));
+}
+function sweepFloatDebris(b, ox, oz) {
+  const CH2 = CFG.CH, WH = CFG.WH, N = b.length, L = CH2 * CH2;
+  if (!_flComp || _flComp.length !== N) { _flComp = new Int32Array(N); _flStack = new Int32Array(N); }
+  const comp = _flComp, stack = _flStack;
+  comp.fill(0);
+  /* 6 邻的步长直接算（+1 = x, +CH2 = z, +L = y）：比 [dx,dy,dz] 数组解构快一倍多，
+     这个循环每区块要跑 3~4 万次，是整段的大头。 */
+  const SY = L, SZ = CH2;
+  const del = [];                                   // 要删的分量 id
+  let id = 0;
+  for (let i = 0; i < N; i++) {
+    if (b[i] === 0 || comp[i]) continue;
+    id++;
+    let sp = 0, n = 0, edge = false, nat = true;
+    stack[sp++] = i; comp[i] = id;
+    while (sp > 0) {
+      const j = stack[--sp]; n++;
+      if (!FLOAT_NATURAL[b[j]]) nat = false;
+      if (n > 64) { edge = true; break; }            // 太大：主岩体，直接放弃这个分量
+      const y = (j / L) | 0, rem = j - y * L, z = (rem / CH2) | 0, x = rem - z * CH2;
+      for (let d = 0; d < 6; d++) {
+        const k = d === 0 ? j + 1 : d === 1 ? j - 1 : d === 2 ? j + SZ : d === 3 ? j - SZ : d === 4 ? j + SY : j - SY;
+        if (d < 2 ? (d === 0 ? x + 1 >= CH2 : x - 1 < 0)
+                  : d < 4 ? (d === 2 ? z + 1 >= CH2 : z - 1 < 0)
+                          : (d === 4 ? y + 1 >= WH : y - 1 < 0)) {
+          /* 出界：用纯函数看隔壁那格到底是不是岩层 —— 是 → 连着主岩体（不动）；
+             是空气 → 这确实是个跨区块边界的悬空块，继续判断删除。 */
+          const nx = d === 0 ? x + 1 : d === 1 ? x - 1 : x;
+          const ny = d === 4 ? y + 1 : d === 5 ? y - 1 : y;
+          const nz = d === 2 ? z + 1 : d === 3 ? z - 1 : z;
+          if (ny >= 0 && ny < WH && rockSolidDet(ox + nx, ny, oz + nz)) edge = true;
+          continue;
+        }
+        const nb = b[k];
+        if (nb === 0) continue;
+        if (nb === 5 || nb === 44 || (BLOCKS[nb] && (BLOCKS[nb].cross || BLOCKS[nb].plant))) continue;  // 水/岩浆/植物不算附着
+        if (comp[k]) continue;
+        comp[k] = id; stack[sp++] = k;
+      }
+    }
+    if (!edge && nat) del.push(id);
+  }
+  if (!del.length) return 0;
+  const kill = new Set(del);
+  let n = 0;
+  for (let i = 0; i < N; i++) if (kill.has(comp[i])) { b[i] = 0; n++; }
+  return n;
+}
 function genChunk(cx, cz) {
   if (DIM === 'nether') return genNetherChunk(cx, cz);            // 冥界走另一套地形
   const CH = CFG.CH, WH = CFG.WH, SEA = CFG.SEA;
@@ -2895,6 +3059,9 @@ function genChunk(cx, cz) {
       setMeta(ox + tx, y, oz + tz, head ? d : d + 4, true);
     }
   }
+  /* 最后一道保险：清掉与主岩体不连通的天然碎屑（石/深板岩/矿/砂/土，≤64 格）。
+     平滑抖动已经把悬空块从「每 100 列 9 个」压到「0.1 个」，剩下的几个由这里收尾。 */
+  sweepFloatDebris(b, ox, oz);
   return b;
 }
 
@@ -3010,7 +3177,12 @@ function updateLava(dt) {
 /* ---------- 水流动 ---------- */
 // id 5 = 水。自然生成的水（海/湖/泉）算"水源"，不在表里；
 // 表里的是流出来的水，带 0..4 的流动等级（0 = 从上方落下来的）。
-const WATER_MAX_LVL = 4, WATER_CELL_CAP = 2500;
+/* ★ v351：上限 2500 → 12000。
+   实测：一个 7×7 水池 + 中心 3×3 落水 39 格，铺开后就到了 2739 格 > 2500，
+   于是 `waterFlow.size > CAP → continue` 把**横向铺开永久掐断** —— 玩家看到的就是
+   「大量水向下流」时水停在半空，留下一圈圈冻住的阶梯水环（还叠着上面的立面缺口）。
+   12000 格 ≈ 一个 110×110 的浅水洼，仍远小于「水干了自己会被清掉」的量级。 */
+const WATER_MAX_LVL = 4, WATER_CELL_CAP = 12000;
 const waterFlow = new Map();          // "x,y,z" -> level
 const waterQueue = [];
 let waterHead = 0;                       // 队列读指针（不用 shift，避免 O(n²)）
@@ -3608,8 +3780,13 @@ waterMat.onBeforeCompile = (sh) => {
 
 // 水面高度：水源/从上方落下的水 = 整格；横向流出的水按等级往下压，越远越薄
 const waterTopH = (x, y, z) => {
+  /* ★ v351：**上面还有水 ⇒ 这一格必须满格**。
+     以前只看自己的等级：下落水柱是 1.0，而它落进去/旁边的铺开水只有 0.42~0.855，
+     水与水之间又不画内面 → 两者之间留一条 0.14~0.58 高的缝，从低角度看就是一圈能看穿的
+     「空心水环」。水体内部本来就不该有空气层。 */
   const lvl = flowLvl(x, y, z);
-  if (lvl <= 0) return 1.0;
+  if (lvl <= 0) return 1.0;                        // 水源 / 下落水 / 自然水：整格（走这条就不付 getBlock）
+  if (getBlock(x, y + 1, z) === 5) return 1.0;     // 流动水但上方还有水：也是水体内部 → 满格
   return Math.max(0.42, 1 - 0.145 * lvl);          // 1..4 → 0.855 / 0.71 / 0.565 / 0.42
 };
 // 四个角点各自取周围最低水面 → 水面自然变成斜的（流到落差处会向下倾斜成瀑布口）
@@ -3639,6 +3816,30 @@ function waterCornerHeights(x, y, z) {
     out[ci][cj] = Math.max(0.14, m);
   }
   return out;
+}
+
+/* ★ v351：水对水的**竖直落差面**。
+   水平相邻的两格都是水、但水面高度不同（流动等级不同 / 一格是下落水柱），
+   中间那段竖面以前被「同种方块剔内面」剔掉了 → 从低角度看是一条能看穿的缝，
+   大面积铺开时就是一圈圈「空心水环」。
+   这里返回两个底顶点该抬到的高度（= 邻格水面），返回 null 表示邻格更高/齐平（正常剔面）。
+   fi：0=+X 1=-X 4=+Z 5=-Z；只处理水平面（FACES 里 v[0]、v[1] 就是两个底顶点）。 */
+function waterRiser(fi, wch, nch, f) {
+  const out = [0, 0];
+  let need = false;
+  for (let k = 0; k < 2; k++) {
+    const ax = f.v[k][0], az = f.v[k][2];
+    const nx2 = fi === 0 ? 0 : fi === 1 ? 1 : ax;      // 共享边上邻格对应的角点
+    const nz2 = fi === 4 ? 0 : fi === 5 ? 1 : az;
+    const nh = nch[nx2][nz2], oh = wch[ax][az];
+    /* ★ v364：底面顶点不许抬到「本格自己的顶面角点」以上。
+       邻格的角高可能比本格这一侧低得多（悬边 0.14~0.42），而本格顶面用的是自己那一侧的
+       角高 —— 一旦 nh > oh，四边形就上下翻过来，变成一个几乎零厚度的翻面片：
+       低角度看是一圈抖动/闪烁的细线（也就是「水环」轮廓那种artifact）。 */
+    out[k] = Math.min(nh, oh);
+    if (nh < oh - 0.005) need = true;
+  }
+  return need ? out : null;
 }
 
 const FACES = [
@@ -4073,14 +4274,20 @@ function startChunkMesh(chunk) {
     vc: 0, vw: 0, vg: 0, vp: 0,
   };
 }
-function stepChunkMesh(chunk, yTo) {                    // 推进到第 yTo 层（不含），返回当前层
+function stepChunkMesh(chunk, yTo, deadline) {           // 推进到第 yTo 层（不含），返回当前层
   const j = chunk.job;
   if (!j) return CFG.WH;
   const CH = CFG.CH, WH = CFG.WH, ox = j.ox, oz = j.oz;
   const { P, U, C, I, P2, U2, C2, I2, P3, U3, C3, I3, P4, U4, C4, I4 } = j;
   let vc = j.vc, vw = j.vw, vg = j.vg, vp = j.vp;
   const yEnd = Math.min(WH, Math.max(j.y + 1, yTo | 0));
-  for (let y = j.y; y < yEnd; y++) for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
+  /* ★ v362：deadline —— 每 8 层看一次表，超时就带着 job.y 停下，下一帧从断点继续。
+     以前「脏区块一次推进 CFG.WH 层」= 一整块（实测 8~15ms）挤在一帧里，这就是
+     「走着走着整个屏幕卡一下」最主要的来源。 */
+  let yStop = yEnd;
+  for (let y = j.y; y < yEnd; y++) {
+    if (deadline && y > j.y && (y & 7) === 0 && performance.now() > deadline) { yStop = y; break; }
+    for (let z = 0; z < CH; z++) for (let x = 0; x < CH; x++) {
     const id = chunk.blocks[(y * CH + z) * CH + x];
     if (!id) continue;
     const def = BLOCKS[id];
@@ -4105,14 +4312,41 @@ function stepChunkMesh(chunk, yTo) {                    // 推进到第 yTo 层�
        ⚠ 旧版水单独写了一条 `nb !== 0 就剔` → 水挨着玻璃/半格床/门/植物/火把时那一面
        根本不画，于是「玻璃水箱、水下玻璃窗」里的水从外面看是**空的**（水看不见的头号原因）。
        同一份规则也修了玻璃：玻璃以前挨着水就剔自己的面 → 缸壁会凭空消失一层。 */
+    /* ★ v357：chest 加进「不遮挡」名单 —— 箱子是独立小模型（还带开盖动画），
+       以前 occl(18)=true 会把相邻方块的朝箱面剔掉，箱子四周的缝就能看穿到里面/后面（透视 bug）。 */
     const occl = (v) => v !== 0 && v !== 5 && v !== 22 &&
-      !(BLOCKS[v] && (BLOCKS[v].half || BLOCKS[v].door || BLOCKS[v].cross));
+      !(BLOCKS[v] && (BLOCKS[v].half || BLOCKS[v].door || BLOCKS[v].cross || BLOCKS[v].chest));
     const solidTop = def.half || 1;                       // 床这类半格方块
     let wch = null;                                       // 水面角点高度缓存
     for (let fi = 0; fi < 6; fi++) {
       const f = FACES[fi];
       const nb = peekBlock(wx + f.n[0], y + f.n[1], wz + f.n[2]);
-      if (water || glass) { if (nb === id || occl(nb)) continue; }     // 同种之间不画内面；透明的邻居不挡面
+      let riser = null;                                   // 水对水的竖直落差（见 waterRiser）
+      if (water) {
+        if (nb === id) {
+          /* 水对水：上下相邻一律剔（waterTopH 里「上面有水 = 满格」保证没有竖直缝）；
+             水平相邻要看两边水面高度差 —— 邻格更低的那段立面必须画，否则能看穿。 */
+          if (f.n[1] !== 0) {
+            /* ★ v364：**下落的水柱要保留水平面**（每格一层薄片）。
+               下落水上下左右全是水，按「水对水剔内面」会把顶面和底面全剔掉 →
+               整根柱子只剩 4 面侧壁 = 一根两头通的空管子；材质又是半透明 + DoubleSide，
+               看过去就是「空心的水环」（用户报的「向下流动的水看起来像空心的」）。
+               只补**顶面**（底面留空，避免和下面那格的顶面共面打架/z-fighting）：
+               N 格高的柱子就有 N-1 层水平薄片，叠加后半透明看起来是实心水柱。
+               普通水体（水源/自然水/横向铺开）照旧剔，不受影响。 */
+            if (f.n[1] < 0) continue;
+            if (flowLvl(wx, y, wz) !== 0) continue;      // 0 = 从上方落下来的水
+          } else {
+            /* 快速路径：两边都是「≤0 级」的水（海洋/湖/下落水）⇒ 都是满格，不可能有落差。
+               大洋区块 99% 的水走这条，等于不花钱。只有流动水（1~4 级）才去算角点。 */
+            if (flowLvl(wx, y, wz) <= 0 && flowLvl(wx + f.n[0], y, wz + f.n[2]) <= 0) continue;
+            if (!wch) wch = waterCornerHeights(wx, y, wz);
+            const nch2 = waterCornerHeights(wx + f.n[0], y, wz + f.n[2]);
+            riser = waterRiser(fi, wch, nch2, f);
+            if (!riser) continue;
+          }
+        } else if (occl(nb)) continue;
+      } else if (glass) { if (nb === id || occl(nb)) continue; }     // 透明的邻居不挡面
       else if (nb !== 0 && nb !== 5 && nb !== 22 && !(BLOCKS[nb] && (BLOCKS[nb].half || BLOCKS[nb].door || BLOCKS[nb].cross))) continue;
       // ⚠ 半格方块（床）和门都不是满格：照旧把邻面剔掉，邻居朝向它们的那一面会整面消失
       // → 从床上/门缝看过去能直接穿进方块里。非满格邻居一律照画。
@@ -4130,6 +4364,8 @@ function stepChunkMesh(chunk, yTo) {                    // 推进到第 yTo 层�
         if (water && V[1] === 1) {                        // 水面顶点按角点高度 → 斜坡
           if (!wch) wch = waterCornerHeights(wx, y, wz);
           vy = wch[V[0]][V[2]];
+        } else if (water && riser) {                       // ★ v351：立面从邻格水面起
+          vy = riser[k];
         }
         const dst = water ? P2 : glass ? P3 : P;
         const du = water ? U2 : glass ? U3 : U;
@@ -4144,8 +4380,9 @@ function stepChunkMesh(chunk, yTo) {                    // 推进到第 yTo 层�
       di.push(base, base + 1, base + 2, base, base + 2, base + 3);
       if (water) vw += 4; else if (glass) vg += 4; else vc += 4;
     }
+    }
   }
-  j.y = yEnd; j.vc = vc; j.vw = vw; j.vg = vg; j.vp = vp;
+  j.y = yStop; j.vc = vc; j.vw = vw; j.vg = vg; j.vp = vp;
   return j.y;
 }
 function finishChunkMesh(chunk) {
@@ -4153,15 +4390,35 @@ function finishChunkMesh(chunk) {
   if (!j || j.y < CFG.WH) return false;
   const ox = j.ox, oz = j.oz;
   const { P, U, C, I, P2, U2, C2, I2, P3, U3, C3, I3, P4, U4, C4, I4, doorCells } = j;
-  const mk = (P_, U_, C_, I_, mat, cast) => {
+  /* ★ v362：法线 / 包围球不再走 three 的通用实现。
+     · glass / water / plant 用的是 MeshBasicMaterial（不吃光照）→ 法线算了没人用，直接跳过；
+     · 实心方块的法线按「每个四边形 1 次叉乘」直接写进 attribute：体素面片每个面都是
+       独立 4 顶点（互不共享），three 的 computeVertexNormals 要按三角形累加再归一化、
+       还要多分配一个数组整体遍历一次，实测比逐面写慢 2~3 倍；
+     · 包围球用区块已知尺寸直接给（16 × WH × 16），省掉一次全顶点扫描。 */
+  const faceNormals = (P_, I_) => {
+    const N = new Float32Array(P_.length);
+    for (let k = 0; k < I_.length; k += 6) {
+      const a = I_[k] * 3, b = I_[k + 1] * 3, c = I_[k + 2] * 3;
+      const ux = P_[b] - P_[a], uy = P_[b + 1] - P_[a + 1], uz = P_[b + 2] - P_[a + 2];
+      const vx = P_[c] - P_[a], vy = P_[c + 1] - P_[a + 1], vz = P_[c + 2] - P_[a + 2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      nx /= l; ny /= l; nz /= l;
+      for (let q = k; q < k + 6; q++) { const o = I_[q] * 3; N[o] = nx; N[o + 1] = ny; N[o + 2] = nz; }
+    }
+    return N;
+  };
+  const mk = (P_, U_, C_, I_, mat, cast, lit) => {
     if (!P_.length) return null;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(P_, 3));
+    if (lit) geo.setAttribute('normal', new THREE.BufferAttribute(faceNormals(P_, I_), 3));
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(U_, 2));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(C_, 3));
     geo.setIndex(I_);
-    geo.computeVertexNormals();          // 受光材质必须有法线，否则整片全黑
-    geo.computeBoundingSphere();
+    const hx = CFG.CH / 2, hy = CFG.WH / 2;
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(hx, hy, hx), Math.sqrt(hx * hx + hy * hy + hx * hx) + 2);
     const m = new THREE.Mesh(geo, mat);
     m.castShadow = !!cast;                  // 只有实心方块网格投影：植物/水面/玻璃进阴影 pass 纯属浪费
     m.receiveShadow = true;
@@ -4169,10 +4426,10 @@ function finishChunkMesh(chunk) {
     m.frustumCulled = true;
     return m;
   };
-  const nm = mk(P, U, C, I, solidMat, true);
-  const ng = mk(P3, U3, C3, I3, glassMat, false);
-  const np = mk(P4, U4, C4, I4, plantMat, false);
-  const nw = mk(P2, U2, C2, I2, waterMat, false);
+  const nm = mk(P, U, C, I, solidMat, true, true);      // 只有这一个吃光照 → 只有它需要法线
+  const ng = mk(P3, U3, C3, I3, glassMat, false, false);
+  const np = mk(P4, U4, C4, I4, plantMat, false, false);
+  const nw = mk(P2, U2, C2, I2, waterMat, false, false);
   if (chunk.mesh) { scene.remove(chunk.mesh); chunk.mesh.geometry.dispose(); }
   if (chunk.glass) { scene.remove(chunk.glass); chunk.glass.geometry.dispose(); }
   if (chunk.water) { scene.remove(chunk.water); chunk.water.geometry.dispose(); }
@@ -6113,6 +6370,344 @@ function gotoNearestRuins() {
    中央石台上是「宝珠台」(65)：右键开启试炼 = 5 波守护者 + 1 个小 boss。
    中途跑出场地 / 倒下 → 试炼中止、怪物散去、宝珠台重新锁上（可再右键重开）。
    这里用苔石砖(62)、雕纹石砖(63)、竞技场立柱(64) 三种新方块，别让角斗场只有一种石头。 */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v353：沙漠金字塔 + 试炼地下室
+   ── 外形：三层递收（21→17→13）+ 9×9 顶台 + 5×5 顶阁，沙石/沙石砖/雕纹沙石拼色。
+   ── 入口：顶台中央 3×3 洞 → 5×5 竖井里的**方形螺旋楼梯**直下 24 格到地下室。
+   ── 地下室：5 个试炼房间（尺寸/装饰/门位随机）+ BOSS 大厅。
+      每间：进去就刷一波怪（清完才把 3 道门由「沙石砖墙」换成可开的木门）；
+      3 道门后各有一个沙漠箱 —— **打开一个，另外两个箱子和门道立刻消失/封死**（选择即承诺）。
+      第 5 间之后是 BOSS 大厅，打死 BOSS 出现终极箱子（钻石 + 钻石工具）。
+   ── 状态：`pyrTrial`（按金字塔格子记 stage / cleared / chosen / boss），随存档落盘。
+   ══════════════════════════════════════════════════════════════════════════ */
+const PYR_CELL = 320, pyrCache = new Map();
+const PYR_TRIALS = 5, PYR_DEPTH = 24;
+const pyrTrial = new Map();                      // "cellX,cellZ" -> { stage, cleared[], chosen[], bossSpawned, done }
+const pyrRooms = new Map();                      // 同上 -> { rooms:[{cx,cz,w,d,h,y}], boss:{cx,cz,y}, cy, cz, gy }
+const PYR_MOB = ['grunt', 'skeleton', 'cactusBrute'], PYR_BOSS = 'trialBoss';   // 沙漠调性；BOSS = Mutated Guardian
+
+function pyrFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (pyrCache.has(key)) return pyrCache.get(key);
+  let out = null;
+  const roll = h2(cellX * 71.9 + 5.3, cellZ * 53.3 - 9.7);
+  if (roll > 0.55) {
+    const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
+    const cx = cellX * PYR_CELL + 90 + Math.floor(rnd() * (PYR_CELL - 180));
+    const cz = cellZ * PYR_CELL + 90 + Math.floor(rnd() * (PYR_CELL - 180));
+    /* 必须整片沙漠、场地别太陡（21×21 削平后地基不会悬空） */
+    /* 沙漠覆盖率：25 个采样点里 ≥70% 是沙漠就够（要求「全部」时几乎永远不成立 —— 实测 ±14 格一座都没有） */
+    let dHit = 0, dTot = 0, mn = 999, mx = -999;
+    for (let dx = -10; dx <= 10; dx += 5) for (let dz = -10; dz <= 10; dz += 5) {
+      dTot++;
+      if (biomeAt(cx + dx, cz + dz) === 'desert') dHit++;
+      const h = heightAt(cx + dx, cz + dz);
+      if (h < mn) mn = h;
+      if (h > mx) mx = h;
+    }
+    /* 场地本来就会被削平（21×21 削到 gy + 低处垫沙石），所以高差放宽到 14、高度上限到 +44 */
+    if (dHit >= dTot * 0.6 && mx - mn <= 18 && mn > CFG.SEA + 4 && mx < SURF_OFF + 44 && !structNear(cx, cz, 'pyramid')) {
+      const gy = mx;
+      const y1 = gy - PYR_DEPTH;                        // 地下室地板（-24）
+      const ops = [];
+      const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
+      const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      /* ① 场地：21×21 削到 gy、低处用沙石垫到 gy-8 */
+      for (let dx = -10; dx <= 10; dx++) for (let dz = -10; dz <= 10; dz++) {
+        for (let y = heightAt(cx + dx, cz + dz) + 1; y <= gy; y++) put(cx + dx, y, cz + dz, 90);
+        for (let y = gy + 1; y <= gy + 16; y++) carve(cx + dx, y, cz + dz);
+      }
+      /* ② 三层递收的**实心**金字塔外壳：21→17→13，每层 4 高。
+         ⚠ 第一版只在每层边缘放方块（内部 carve），结果从上面看是一座「空心蛋糕」，
+           层与层之间能看到里面的地形。MC 的金字塔是实心的，这里照做。 */
+      const tiers = [[10, 0], [8, 4], [6, 8]];
+      for (const [half, y0] of tiers) {
+        for (let lvl = 0; lvl < 4; lvl++) {
+          const y = gy + y0 + lvl + 1;
+          const band = (lvl === 3);                                  // 每层最上一圈是沙石砖腰线
+          for (let dx = -half; dx <= half; dx++) for (let dz = -half; dz <= half; dz++) {
+            const corner = Math.abs(dx) === half && Math.abs(dz) === half;
+            put(cx + dx, y, cz + dz, corner ? 93 : (band ? 91 : 90));
+          }
+        }
+      }
+      /* ③ 顶台 9×9（平滑沙石）+ 顶阁 5×5（★ v358：内部填实，塔顶不再开洞 —— 入口搬到南面塔基） */
+      for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) put(cx + dx, gy + 13, cz + dz, 92);
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+        for (let y = gy + 14; y <= gy + 15; y++) {
+          const edge = Math.abs(dx) === 2 || Math.abs(dz) === 2;
+          put(cx + dx, y, cz + dz, edge ? (Math.abs(dx) === 2 && Math.abs(dz) === 2 ? 93 : 91) : 92);
+        }
+      }
+      for (const [dx, dz] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) put(cx + dx, gy + 16, cz + dz, 93);
+      /* ④ 南面正门（★ v358）：入口从塔顶搬到塔基南面正中，做成 3 宽 × 4 高的大门槛 ——
+            两侧雕纹沙石立柱 + 门楣 + 立柱上的两支火把，隔着几十格就是一个黑洞门，比原来塔顶那个 3×3 洞明显得多。 */
+      const ez = cz + 10;                                     // tier-0 的南墙那一层
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let y = gy + 1; y <= gy + 4; y++) carve(cx + dx, y, ez);     // 门洞（4 格高）
+        put(cx + dx, gy, ez, 92);                                        // 门槛
+      }
+      for (let y = gy + 1; y <= gy + 5; y++) { put(cx - 2, y, ez, 93); put(cx + 2, y, ez, 93); }   // 立柱
+      for (let dx = -2; dx <= 2; dx++) put(cx + dx, gy + 5, ez, 91);      // 门楣
+      put(cx - 2, gy + 3, ez, 38); put(cx + 2, gy + 3, ez, 38);           // 火把
+      /* 门厅：门口往北 7 格直通竖井（3 宽 3 高、带顶） */
+      for (let dz = 3; dz <= 9; dz++) for (let dx = -1; dx <= 1; dx++) {
+        for (let y = gy + 1; y <= gy + 3; y++) carve(cx + dx, y, cz + dz);
+        put(cx + dx, gy, cz + dz, 92);
+        put(cx + dx, gy + 4, cz + dz, 91);
+      }
+      /* ⑤ 竖井 + 方形螺旋楼梯：从门厅地层(gy)绕 3×3 芯柱下到 y1。
+            井口上方 gy+5 仍是实心塔体 → 从天上/塔顶看不到洞，只有走到南面门口才看得见入口。 */
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+        for (let y = gy + 4; y > y1; y--) carve(cx + dx, y, cz + dz);
+        put(cx + dx, y1, cz + dz, 92);                                     // 井底地板
+      }
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+        for (let y = gy + 3; y > y1; y--) put(cx + dx, y, cz + dz, 92);    // 3×3 芯柱
+      }
+      /* 外圈 16 格：**从门厅入口那一格 (0,+2) 起顺时针**，每走一格下降 1 格
+         （顺序必须从入口起，否则玩家进门第一脚会踩空掉十几格） */
+      const ring = [[0, 2], [1, 2], [2, 2], [2, 1], [2, 0], [2, -1], [2, -2], [1, -2],
+                    [0, -2], [-1, -2], [-2, -2], [-2, -1], [-2, 0], [-2, 1], [-2, 2], [-1, 2]];
+      let ri = 0;
+      for (let y = gy; y > y1; y--) {
+        const [rdx, rdz] = ring[ri % ring.length]; ri++;
+        put(cx + rdx, y, cz + rdz, 92);
+      }
+
+      /* ⑤ 地下室：竖井底 → 走廊 → 5 间试炼房 → BOSS 大厅（沿 +Z 排） */
+      const rooms = [];
+      let zcur = cz + 6;
+      const floorY = y1;
+      const digRoom = (rcx, rcz, w, d, hh) => {
+        for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) {
+          for (let y = floorY + 1; y <= floorY + hh; y++) carve(rcx + dx, y, rcz + dz);
+          put(rcx + dx, floorY, rcz + dz, 92);                      // 平滑沙石地板
+        }
+        // 墙：沙石砖 + 顶部一条雕纹
+        for (let dx = -w - 1; dx <= w + 1; dx++) for (let dz = -d - 1; dz <= d + 1; dz++) {
+          if (Math.abs(dx) <= w && Math.abs(dz) <= d) continue;
+          const corner = Math.abs(dx) === w + 1 && Math.abs(dz) === d + 1;
+          for (let y = floorY + 1; y <= floorY + hh + 1; y++) put(rcx + dx, y, rcz + dz, y === floorY + hh + 1 ? 93 : (corner ? 93 : 91));
+        }
+        // 天花板 + 火把
+        for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) put(rcx + dx, floorY + hh + 1, rcz + dz, 91);
+        for (const [sx, sz] of [[-w + 1, -d + 1], [w - 1, -d + 1], [-w + 1, d - 1], [w - 1, d - 1]]) {
+          put(rcx + sx, floorY + hh, rcz + sz, 38);
+        }
+      };
+      for (let i = 0; i < PYR_TRIALS; i++) {
+        const w = 4 + Math.floor(rnd() * 3), d = 4 + Math.floor(rnd() * 3), hh = 5 + Math.floor(rnd() * 2);
+        const rcz = zcur + d + 1;
+        digRoom(cx, rcz, w, d, hh);
+        rooms.push({ cx, cz: rcz, w, d, h: hh, y: floorY });
+        zcur = rcz + d + 1;
+        /* 房间之间的 5 格厚墙 + 3 条通道（x 偏移 -3/0/+3 随机打乱） */
+        const offs = [-3, 0, 3];
+        for (let k = 2; k > 0; k--) { const j = Math.floor(rnd() * (k + 1)); const t = offs[k]; offs[k] = offs[j]; offs[j] = t; }
+        const passages = [];
+        /* ★ v357：以前这 5 层墙对每条通道都 put(...,91) 填实 —— 门后面整条通道是实心的，
+           箱子直接埋死在墙里（玩家说「门和箱子之间应该是走廊，不是实心」）。
+           现在只堵「门口那一层」（清完波次换成木门），后面是 1 宽 × 3 高、带地板和顶的走廊；
+           箱子放在走廊侧面挖出来的壁龛里，不挡路。 */
+        for (let wall = 0; wall < 5; wall++) {
+          const wz = zcur + wall;
+          for (let dx = -w - 1; dx <= w + 1; dx++) for (let y = floorY + 1; y <= floorY + hh + 1; y++) put(cx + dx, y, wz, 91);
+          for (const ox of offs) {
+            for (let y = floorY + 1; y <= floorY + 3; y++) carve(cx + ox, y, wz);
+            put(cx + ox, floorY, wz, 92);                              // 走廊地板
+            put(cx + ox, floorY + 4, wz, 91);                          // 走廊顶（净高 3）
+            if (wall === 0) { put(cx + ox, floorY + 1, wz, 91); put(cx + ox, floorY + 2, wz, 91); }
+          }
+        }
+        for (const ox of offs) {
+          const ax = cx + ox + (ox <= 0 ? 1 : -1), az = zcur + 3;       // 侧壁龛（走廊中心留空）
+          for (let y = floorY + 1; y <= floorY + 2; y++) carve(ax, y, az);
+          put(ax, floorY, az, 92);
+          put(ax, floorY + 1, az, 18);                                 // 沙漠箱（3 选 1）
+          put(ax, floorY + 2, az, 0);
+          passages.push({ x: ax, y: floorY + 1, z: az });
+        }
+        rooms[rooms.length - 1].doors = offs.map(ox => ({ x: cx + ox, y: floorY + 1, z: zcur }));
+        rooms[rooms.length - 1].chests = passages;
+        rooms[rooms.length - 1].links = offs.map(ox => cx + ox);
+        rooms[rooms.length - 1].linkZ = zcur + 5;                      // 5 格厚墙之后的第一个格子
+        zcur += 5;
+      }
+      /* ⑥ BOSS 大厅 15×15×9 */
+      const bcz = zcur + 8;
+      digRoom(cx, bcz, 7, 7, 9);
+      for (const [sx, sz] of [[-5, -5], [5, -5], [-5, 5], [5, 5]]) for (let y = floorY + 1; y <= floorY + 9; y++) put(cx + sx, y, bcz + sz, 93);
+      put(cx, floorY + 1, bcz + 5, 0);
+      const boss = { cx, cz: bcz, y: floorY };
+      /* ⑦ 走廊：竖井底 → 第一间房
+         ★ v357：以前是全敞开（只铺地板+顶，两侧没有墙）—— 结构正好压在矿洞/洞穴上时，
+           玩家能顺着敞开的侧面走进矿洞、也能隔着看见外面（「为向下的走廊做一个墙」）。
+           现在是 3 宽 × 3 高、两侧 91 墙、地板 92、顶 91 的封闭走廊。 */
+      for (let dz = 3; dz <= 6; dz++) for (let dx = -2; dx <= 2; dx++) {
+        const wall = Math.abs(dx) === 2;
+        if (dz === 6) {                                   // 第一间房的近墙：只掏 3×3 门洞
+          if (!wall) for (let y = floorY + 1; y <= floorY + 3; y++) carve(cx + dx, y, cz + dz);
+          continue;
+        }
+        for (let y = floorY; y <= floorY + 5; y++) {
+          if (wall || y === floorY) put(cx + dx, y, cz + dz, wall ? 91 : 92);
+          else if (y >= floorY + 4) put(cx + dx, y, cz + dz, 91);
+          else carve(cx + dx, y, cz + dz);
+        }
+      }
+      /* ⑧ 三条通道的尽头打通到下一间房 / BOSS 大厅
+         （必须等所有房间都建完再开，否则下一间房的墙会把刚打通的洞盖回去） */
+      for (let i = 0; i < rooms.length; i++) {
+        const r = rooms[i];
+        const tgt = rooms[i + 1] || { cz: bcz, d: 7 };
+        const z1 = tgt.cz - tgt.d - 1;
+        for (const lx of (r.links || [])) for (let z = r.linkZ; z <= z1; z++) {
+          for (let y = floorY + 1; y <= floorY + 3; y++) carve(lx, y, z);
+          put(lx, floorY, z, 92);
+          put(lx, floorY + 4, z, 91);
+        }
+      }
+      out = { name: 'pyramid', cx, cz, gy, y1, rooms, boss, r: 16, byChunk: packOps(ops), ops: ops.length, label: 'Desert Pyramid' };
+      pyrRooms.set(key, out);
+    }
+  }
+  pyrCache.set(key, out);
+  return out;
+}
+function pyrState(key) {
+  let st = pyrTrial.get(key);
+  if (!st) {
+    st = { stage: 0, cleared: new Array(PYR_TRIALS).fill(false), chosen: new Array(PYR_TRIALS).fill(-1), wave: new Array(PYR_TRIALS).fill(0), bossSpawned: false, done: false };
+    pyrTrial.set(key, st);
+  }
+  return st;
+}
+
+/* ── 试炼战利品表（沙漠箱 / BOSS 箱）─────────────────────────────────── */
+const DESERT_LOOT = [[125, 1, 3], [106, 2, 5], [13, 4, 9], [120, 1, 1], [107, 4, 9], [104, 3, 8], [219, 1, 3], [128, 1, 2]];
+const BOSS_LOOT = [[125, 8, 16], [130, 1, 1], [131, 1, 1], [133, 1, 1], [135, 1, 1], [204, 1, 1], [206, 1, 1], [132, 1, 1], [134, 1, 1], [110, 1, 1]];
+const pyrChestKindCache = new Map();
+/* 这个坐标是不是金字塔的箱子：'desert'（房间三选一）| 'boss'（终极）| null */
+function pyrChestKind(x, y, z) {
+  const ck = x + ',' + y + ',' + z;
+  if (pyrChestKindCache.has(ck)) return pyrChestKindCache.get(ck);
+  let kind = null;
+  const cx = Math.floor(x / PYR_CELL), cz = Math.floor(z / PYR_CELL);
+  for (let dx = -1; dx <= 1 && !kind; dx++) for (let dz = -1; dz <= 1 && !kind; dz++) {
+    const p = pyrFor(cx + dx, cz + dz);
+    if (!p) continue;
+    if (p.boss && Math.abs(x - p.boss.cx) <= 1 && Math.abs(z - (p.boss.cz - 3)) <= 1 && Math.abs(y - (p.boss.y + 1)) <= 1) { kind = 'boss'; break; }
+    for (const r of p.rooms) for (const c of (r.chests || [])) if (c.x === x && c.z === z && Math.abs(y - c.y) <= 1) { kind = 'desert'; break; }
+  }
+  pyrChestKindCache.set(ck, kind);
+  return kind;
+}
+function pyrKeyOf(p) { return Math.floor(p.cx / PYR_CELL) + ',' + Math.floor(p.cz / PYR_CELL); }
+/* 一波怪：数量随房间序号涨（3/5/7/9/11），在房间里围成一圈刷 */
+function pyrSpawnWave(p, key, i) {
+  const st = pyrState(key), r = p.rooms[i];
+  const n = 3 + i * 2;
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2 + i * 0.7;
+    const rr = 1 + (k % 3);
+    const x = r.cx + Math.round(Math.cos(a) * rr), z = r.cz + Math.round(Math.sin(a) * rr);
+    const m = spawnMobAt(PYR_MOB[(k + i) % PYR_MOB.length], x, r.y + 1, z, { force: true });
+    if (m) { m.pyr = key; m.pyrRoom = i; }
+  }
+  st.wave[i] = 1;
+  toast(`Trial ${i + 1}/${PYR_TRIALS} — ${n} guardians awaken`, 2.8);
+}
+/* 每帧：房间波次 / 开门 / BOSS / 终极箱。没在地下室里就是空跑（一次距离判断） */
+function pyrTrialTick() {
+  if (!started || !player.alive) return;
+  const p = pyrAt(player.p.x, player.p.y, player.p.z);
+  if (!p || !p.rooms) return;
+  const key = pyrKeyOf(p), st = pyrState(key);
+  if (st.done) return;
+  const aliveIn = i => mobs.some(m => !m.dying && m.pyr === key && m.pyrRoom === i);
+  for (let i = 0; i < PYR_TRIALS; i++) {
+    const r = p.rooms[i];
+    const inside = Math.abs(player.p.x - r.cx) <= r.w + 1 && Math.abs(player.p.z - r.cz) <= r.d + 1 &&
+                   player.p.y >= r.y - 1 && player.p.y <= r.y + r.h + 2;
+    if (i === st.stage && inside && !st.cleared[i] && !st.wave[i]) pyrSpawnWave(p, key, i);
+    if (st.wave[i] && !st.cleared[i] && !aliveIn(i)) {
+      st.cleared[i] = true;
+      /* 清完 → 三道门从「沙石砖墙」换成能开的木门（上下两格都写，meta 带 8 是上半格） */
+      for (const d of (r.doors || [])) {
+        setBlock(d.x, d.y, d.z, 35); setMeta(d.x, d.y, d.z, 1);
+        setBlock(d.x, d.y + 1, d.z, 35); setMeta(d.x, d.y + 1, d.z, 1 | 8);
+      }
+      toast(`Trial ${i + 1} cleared — pick a door (only one chest survives)`, 3.4);
+      saveSoon();
+    }
+  }
+  /* BOSS 大厅 */
+  if (st.stage >= PYR_TRIALS) {
+    const b = p.boss;
+    const near = Math.abs(player.p.x - b.cx) <= 9 && Math.abs(player.p.z - b.cz) <= 9 && player.p.y <= b.y + 11;
+    if (!st.bossSpawned && near) {
+      const m = spawnMobAt(PYR_BOSS, b.cx, b.y + 1, b.cz + 4, { force: true });
+      if (m) { m.pyrBoss = key; m.hp = Math.round(m.hp * 1.6); m.maxHp = m.hp; }
+      st.bossSpawned = true;
+      toast('The Pyramid Guardian awakens…', 4);
+      saveSoon();
+    }
+    if (st.bossSpawned && !st.done && !mobs.some(m => !m.dying && m.pyrBoss === key)) {
+      st.done = true;
+      setBlock(b.cx, b.y + 1, b.cz - 3, 18);            // 终极箱（BOSS 箱战利品表）
+      toast("Guardian slain — the Pharaoh's chest appears", 4.5);
+      sfx('craft');
+      saveSoon();
+    }
+  }
+}
+/* 开箱子：三选一 → 另外两个箱子和它们的门道立刻消失/封死（选择即承诺） */
+function pyrOnChestOpened(x, y, z) {
+  const kind = pyrChestKind(x, y, z);
+  if (kind !== 'desert') return false;
+  const cx = Math.floor(x / PYR_CELL), cz = Math.floor(z / PYR_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const p = pyrFor(cx + dx, cz + dz);
+    if (!p || !p.rooms) continue;
+    for (let i = 0; i < p.rooms.length; i++) {
+      const r = p.rooms[i];
+      const idx = (r.chests || []).findIndex(c => c.x === x && c.z === z);
+      if (idx < 0) continue;
+      const key = pyrKeyOf(p), st = pyrState(key);
+      if (st.chosen[i] >= 0) return false;               // 已经选过
+      st.chosen[i] = idx;
+      for (let j = 0; j < r.chests.length; j++) {
+        if (j === idx) continue;
+        const c = r.chests[j];
+        setBlock(c.x, c.y, c.z, 0);                      // 另外两个箱子消失
+        const d = r.doors[j];
+        if (d) { setBlock(d.x, d.y, d.z, 91); setMeta(d.x, d.y, d.z, 0); setBlock(d.x, d.y + 1, d.z, 91); setMeta(d.x, d.y + 1, d.z, 0); }
+      }
+      st.stage = Math.max(st.stage, i + 1);
+      toast(i + 1 < PYR_TRIALS ? 'Door chosen — the other two are sealed' : 'Last trial cleared — the Guardian waits', 3.4);
+      saveSoon();
+      return true;
+    }
+  }
+  return false;
+}
+
+/* 玩家在哪座金字塔的地下室里（不在就 null） */
+function pyrAt(wx, wy, wz) {
+  const cx = Math.floor(wx / PYR_CELL), cz = Math.floor(wz / PYR_CELL);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const p = pyrFor(cx + dx, cz + dz);
+    if (!p) continue;
+    /* ⚠ 地下室沿 +Z 排开有 100+ 格长（5 间房 + BOSS 大厅），原来只给了 ±60 → 后两间房和 BOSS 房
+       里的 pyrTrialTick 全程空跑（波次不刷、BOSS 不出现）。改成按最后一间房算 z 上界。 */
+    const zEnd = (p.rooms && p.rooms.length ? p.rooms[p.rooms.length - 1].cz + 34 : p.cz + 120);   // BOSS 大厅在最后一间房后面 ~20 格
+    if (wy >= p.y1 - 3 && wy <= p.y1 + 18 && Math.abs(wx - p.cx) <= 24 && wz >= p.cz - 6 && wz <= zEnd) return p;
+  }
+  return null;
+}
+
 const ARENA_CELL = 320, arenaCache = new Map();
 const ARENA_R_SAND = 24;        // 中央沙场半径
 const ARENA_R_RING = 33;        // 三层看台外缘
@@ -6578,145 +7173,13 @@ function portalFor(cellX, cellZ) {
   });
 }
 
-// 白桦木屋（带坡屋顶）
-const CB_CELL = 200, cabinCache = new Map();
-function cabinFor(cellX, cellZ) {
-  const key = cellX + ',' + cellZ;
-  if (cabinCache.has(key)) return cabinCache.get(key);
-  return guarded('cabin', key, () => {
-    let out = null;
-    const roll = h2(cellX * 33.9 + 11.7, cellZ * 91.3 - 2.7);
-    if (roll > 0.65) {                      // 白桦木屋：55% → 35%
-      const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 374761393) ^ Math.imul(cellZ, 668265263)) | 0);
-      const cx = cellX * CB_CELL + 50 + Math.floor(rnd() * (CB_CELL - 100));
-      const cz = cellZ * CB_CELL + 50 + Math.floor(rnd() * (CB_CELL - 100));
-      const ops = [], put = (x, y, z, t, m) => ops.push({ x, y, z, t, m }), carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
-      const w = 3, d = 2, h = 3;
-      let gy = 0;
-      for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) gy = Math.max(gy, heightAt(cx + dx, cz + dz));
-      if (gy > CFG.SEA + 2 && gy < SURF_OFF + 42 && !structNear(cx, cz, 'cabin')) {
-        for (let dx = -w; dx <= w; dx++) for (let dz = -d; dz <= d; dz++) {
-          put(cx + dx, gy, cz + dz, 31);                             // 白桦木地板
-          for (let y = 1; y <= h; y++) {
-            const edge = Math.abs(dx) === w || Math.abs(dz) === d;
-            if (edge) put(cx + dx, gy + y, cz + dz, 29);
-            else carve(cx + dx, gy + y, cz + dz);
-          }
-        }
-        for (let y = 1; y <= 2; y++) carve(cx, gy + y, cz + d);
-        put(cx - w, gy + 2, cz, 22);
-        put(cx + w, gy + 2, cz, 22);
-        buildGableRoof(put, cx, cz, gy + h + 1, w + 1, d + 1, 31, 34);
-        put(cx + 1, gy + 1, cz - 1, 18);
-        supportBase(ops, gy, 9, gy);                          // 白桦木屋地板就在 gy 这一层
-        out = { name: 'cabin', cx, cz, gy, byChunk: packOps(ops), ops: ops.length, label: 'Birch Cabin' };
-      }
-    }
-    cabinCache.set(key, out);
-    return out;
-  });
-}
-
-
-/* ============================================================ 平原 + 玩家小屋（survivalbase1） */
+/* ============================================================ 平原区域（低频噪声 → 草地为主、树很少） */
 function inPlain(wx, wz) {                       // 平原：大块低频噪声区域 → 草地为主、树很少
   const n = h2(Math.floor(wx / 88) * 3.71 + 11.3, Math.floor(wz / 88) * 5.37 - 7.9);
   return n > 0.34;
 }
-const CABIN_BLOCKS = "0,0,0,33,4;1,0,0,33,4;2,0,0,33,4;3,0,0,33,4;4,0,0,33,4;5,0,0,33,4;6,0,0,33,4;7,0,0,33,4;8,0,0,33,4;9,0,0,33,4;0,0,1,33,2;1,0,1,21,0;2,0,1,21,0;3,0,1,21,0;4,0,1,21,0;5,0,1,21,0;6,0,1,21,0;7,0,1,21,0;8,0,1,21,0;9,0,1,33,1;0,0,2,33,2;1,0,2,21,0;2,0,2,8,0;3,0,2,8,0;4,0,2,8,0;5,0,2,8,0;6,0,2,8,0;7,0,2,8,0;8,0,2,21,0;9,0,2,33,1;0,0,3,33,2;1,0,3,21,0;2,0,3,8,0;3,0,3,8,0;4,0,3,8,0;5,0,3,8,0;6,0,3,8,0;7,0,3,8,0;8,0,3,21,0;9,0,3,33,1;0,0,4,33,2;1,0,4,21,0;2,0,4,8,0;3,0,4,8,0;4,0,4,8,0;5,0,4,8,0;6,0,4,8,0;7,0,4,8,0;8,0,4,21,0;9,0,4,33,1;0,0,5,33,2;1,0,5,21,0;2,0,5,8,0;3,0,5,8,0;4,0,5,8,0;5,0,5,8,0;6,0,5,8,0;7,0,5,8,0;8,0,5,21,0;9,0,5,33,1;0,0,6,33,2;1,0,6,21,0;2,0,6,8,0;3,0,6,8,0;4,0,6,8,0;5,0,6,8,0;6,0,6,8,0;7,0,6,8,0;8,0,6,21,0;9,0,6,33,1;0,0,7,33,2;1,0,7,21,0;2,0,7,8,0;3,0,7,8,0;4,0,7,8,0;5,0,7,8,0;6,0,7,8,0;7,0,7,8,0;8,0,7,21,0;9,0,7,33,1;0,0,8,33,2;1,0,8,21,0;2,0,8,21,0;3,0,8,21,0;4,0,8,21,0;5,0,8,21,0;6,0,8,21,0;7,0,8,21,0;8,0,8,6,0;9,0,8,33,1;0,0,9,33,3;1,0,9,33,3;2,0,9,33,3;3,0,9,33,3;4,0,9,33,3;5,0,9,33,3;6,0,9,33,3;7,0,9,33,3;8,0,9,33,3;9,0,9,33,3;1,1,1,6,0;2,1,1,8,0;3,1,1,8,0;4,1,1,8,0;5,1,1,8,0;6,1,1,8,0;7,1,1,8,0;8,1,1,6,0;1,1,2,8,0;6,1,2,14,3;8,1,2,8,0;1,1,3,8,0;6,1,3,14,7;8,1,3,8,0;1,1,6,8,0;7,1,6,19,0;8,1,6,8,0;1,1,7,8,0;7,1,7,18,0;8,1,7,8,0;1,1,8,6,0;2,1,8,8,0;3,1,8,8,0;4,1,8,8,0;5,1,8,8,0;6,1,8,8,0;7,1,8,8,0;8,1,8,6,0;1,2,0,38,0;8,2,0,38,0;0,2,1,38,0;1,2,1,6,0;2,2,1,8,0;3,2,1,8,0;4,2,1,22,0;5,2,1,22,0;6,2,1,8,0;7,2,1,8,0;8,2,1,6,0;9,2,1,38,0;1,2,2,8,0;2,2,2,38,0;6,2,2,38,0;8,2,2,8,0;1,2,3,8,0;8,2,3,8,0;1,2,6,8,0;8,2,6,8,0;1,2,7,8,0;2,2,7,38,0;7,2,7,38,0;8,2,7,8,0;0,2,8,38,0;1,2,8,6,0;2,2,8,8,0;3,2,8,8,0;4,2,8,22,0;5,2,8,22,0;6,2,8,8,0;7,2,8,8,0;8,2,8,6,0;9,2,8,38,0;1,2,9,38,0;8,2,9,38,0;1,3,1,6,0;2,3,1,8,0;3,3,1,8,0;4,3,1,8,0;5,3,1,8,0;6,3,1,8,0;7,3,1,8,0;8,3,1,6,0;1,3,2,8,0;8,3,2,8,0;1,3,3,8,0;8,3,3,8,0;1,3,4,8,0;8,3,4,8,0;1,3,5,8,0;8,3,5,8,0;1,3,6,8,0;8,3,6,8,0;1,3,7,8,0;8,3,7,8,0;1,3,8,6,0;2,3,8,8,0;3,3,8,8,0;4,3,8,8,0;5,3,8,8,0;6,3,8,8,0;7,3,8,8,0;8,3,8,6,0;0,4,0,21,0;1,4,0,21,0;2,4,0,21,0;3,4,0,21,0;4,4,0,21,0;5,4,0,21,0;6,4,0,21,0;7,4,0,21,0;8,4,0,21,0;9,4,0,21,0;1,4,1,6,0;2,4,1,8,0;3,4,1,8,0;4,4,1,8,0;5,4,1,8,0;6,4,1,8,0;7,4,1,8,0;8,4,1,6,0;1,4,2,21,0;8,4,2,21,0;1,4,3,21,0;8,4,3,21,0;1,4,4,21,0;8,4,4,21,0;1,4,5,21,0;8,4,5,21,0;1,4,6,21,0;8,4,6,21,0;1,4,7,21,0;8,4,7,21,0;1,4,8,6,0;2,4,8,8,0;3,4,8,8,0;4,4,8,8,0;5,4,8,8,0;6,4,8,8,0;7,4,8,8,0;8,4,8,6,0;0,4,9,21,0;1,4,9,21,0;2,4,9,21,0;3,4,9,21,0;4,4,9,21,0;5,4,9,21,0;6,4,9,21,0;7,4,9,21,0;8,4,9,21,0;9,4,9,21,0;0,5,1,21,0;1,5,1,21,0;2,5,1,21,0;3,5,1,21,0;4,5,1,21,0;5,5,1,21,0;6,5,1,21,0;7,5,1,21,0;8,5,1,21,0;9,5,1,21,0;1,5,2,8,0;8,5,2,8,0;1,5,3,8,0;8,5,3,8,0;1,5,4,8,0;8,5,4,8,0;1,5,5,8,0;8,5,5,8,0;1,5,6,8,0;8,5,6,8,0;1,5,7,8,0;8,5,7,8,0;0,5,8,21,0;1,5,8,21,0;2,5,8,21,0;3,5,8,21,0;4,5,8,21,0;5,5,8,21,0;6,5,8,21,0;7,5,8,21,0;8,5,8,21,0;9,5,8,21,0;0,6,2,21,0;1,6,2,21,0;2,6,2,21,0;3,6,2,21,0;4,6,2,21,0;5,6,2,21,0;6,6,2,21,0;7,6,2,21,0;8,6,2,21,0;9,6,2,21,0;1,6,3,8,0;8,6,3,8,0;1,6,4,8,0;8,6,4,8,0;1,6,5,8,0;8,6,5,8,0;1,6,6,8,0;8,6,6,8,0;0,6,7,21,0;1,6,7,21,0;2,6,7,21,0;3,6,7,21,0;4,6,7,21,0;5,6,7,21,0;6,6,7,21,0;7,6,7,21,0;8,6,7,21,0;9,6,7,21,0;0,7,3,21,0;1,7,3,21,0;2,7,3,21,0;3,7,3,21,0;4,7,3,21,0;5,7,3,21,0;6,7,3,21,0;7,7,3,21,0;8,7,3,21,0;9,7,3,21,0;1,7,4,8,0;8,7,4,8,0;1,7,5,8,0;8,7,5,8,0;0,7,6,21,0;1,7,6,21,0;2,7,6,21,0;3,7,6,21,0;4,7,6,21,0;5,7,6,21,0;6,7,6,21,0;7,7,6,21,0;8,7,6,21,0;9,7,6,21,0;0,8,4,21,0;1,8,4,21,0;2,8,4,21,0;3,8,4,21,0;4,8,4,21,0;5,8,4,21,0;6,8,4,21,0;7,8,4,21,0;8,8,4,21,0;9,8,4,21,0;0,8,5,21,0;1,8,5,21,0;2,8,5,21,0;3,8,5,21,0;4,8,5,21,0;5,8,5,21,0;6,8,5,21,0;7,8,5,21,0;8,8,5,21,0;9,8,5,21,0;1,1,4,35,2;1,2,4,35,10;1,1,5,35,2;1,2,5,35,10;8,1,4,35,3;8,2,4,35,11;8,1,5,35,3;8,2,5,35,11";
-let CABIN_DATA = null;
-function cabinData() {
-  if (!CABIN_DATA) CABIN_DATA = CABIN_BLOCKS.split(';').map(t => t.split(',').map(Number));
-  return CABIN_DATA;
-}
-const CABIN_CELL = 240, myCabinCache = new Map(), myCabinBusy = new Set();
-const CABIN_STATS = { cells: 0, roll: 0, plain: 0, flat: 0, cave: 0, ok: 0, okPlain: 0, okCave: 0 };
-function myCabinFor(cellX, cellZ) {
-  const key = cellX + ',' + cellZ;
-  if (myCabinCache.has(key)) return myCabinCache.get(key);
-  if (myCabinBusy.has(key)) return null;                 // 防递归（内部触发区块生成时直接放弃）
-  myCabinBusy.add(key);
-  CABIN_STATS.cells++;
-  let out = null;
-  const roll = h2(cellX * 63.7 + 7.1, cellZ * 41.3 - 3.3);
-  if (roll > 0.6) {                             // 玩家小屋：66% → 40%
-    CABIN_STATS.roll++;
-    const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
-    const cx = cellX * CABIN_CELL + 40 + Math.floor(rnd() * (CABIN_CELL - 80));
-    const cz = cellZ * CABIN_CELL + 40 + Math.floor(rnd() * (CABIN_CELL - 80));
-    const plain = inPlain(cx, cz);
-    if (plain) CABIN_STATS.plain++;
-    const ops = [];
-    const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
-    const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
-    const data = cabinData();
-    const W = 10, H = 9, D = 10;
-    // ⚠ 这里原来有个从未被调用的 fixMeta()：它会把每张床的 meta 一律写成 1（= 六亲不认的脚格），
-    // 反而把 CABIN_BLOCKS 里正确的「脚格 3 / 头格 7」抹掉。床的两格 meta 由数据自带，别再二次修正。
-    if (plain) {                                              // 平原：贴地盖
-      let mn = 999, mx = -999;
-      for (let dx = -1; dx <= W; dx += 3) for (let dz = -1; dz <= D; dz += 3) {
-        const hh = heightAt(cx + dx, cz + dz);
-        if (hh < mn) mn = hh;
-        if (hh > mx) mx = hh;
-      }
-      /* 地形起伏上限 6/8 → 8/11：台地化删掉后，11×11 范围高差 ≤8 的平地少了一大半，
-         实测小屋 7 → 3。房子本来就会用 supportBase 往下补地基，多 2 格起伏只是地基高一点。 */
-      if (mx - mn <= 8 && mn > CFG.SEA + 2 && mn < SURF_OFF + 46) CABIN_STATS.flat++;
-      if (mx - mn <= 11 && mn > CFG.SEA + 1 && mn < SURF_OFF + 58) {
-        const gy = mx;
-        for (const [x, y, z, id, mt] of data) put(cx + x, gy + y, cz + z, id, mt || 0);
-        supportBase(ops, gy, 9, gy);                          // 玩家小屋（平原）：地板在 gy，下面补实
-        out = { cx, cz, gy, where: 'plain', byChunk: packOps(ops), ops: ops.length };
-        CABIN_STATS.ok++; CABIN_STATS.okPlain++;
-      }
-    } else if (roll > 0.55) {
-      CABIN_STATS.cave++;                                 // 地下：嵌在岩层里的矿洞小屋
-      const gy = 14 + Math.floor(rnd() * 12);            // 14~25 层：埋得够深，屋顶上方仍有岩层
-      const surf = heightAt(cx, cz);
-      if (gy + H + 2 < surf - 4) {                           // 屋顶上方还有岩层 → 完全埋在地下
-
-        for (let dx = -2; dx <= W + 1; dx++) for (let dz = -2; dz <= D + 1; dz++) for (let dy = 0; dy <= H + 1; dy++) carve(cx + dx, gy + dy, cz + dz);
-        for (const [x, y, z, id, mt] of data) put(cx + x, gy + y, cz + z, id, mt || 0);
-        out = { cx, cz, gy, where: 'cave', byChunk: packOps(ops), ops: ops.length };
-        CABIN_STATS.ok++; CABIN_STATS.okCave++;
-      }
-    }
-  }
-  myCabinBusy.delete(key);
-  myCabinCache.set(key, out);
-  return out;
-}
-function applyMyCabin(b, ox, oz, selfKey) {
-  const C = CABIN_CELL;
-  const sx = Math.floor(ox / C), sz = Math.floor(oz / C);
-  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
-    const st = myCabinFor(sx + dx, sz + dz);
-    if (!st) continue;
-    const arr = st.byChunk.get(selfKey);
-    if (!arr) continue;
-    for (const op of arr) {
-      if (op.x < ox || op.x >= ox + CFG.CH || op.z < oz || op.z >= oz + CFG.CH) continue;
-      if (op.y < 1 || op.y >= CFG.WH) continue;
-      const i = (op.y * CFG.CH + (op.z - oz)) * CFG.CH + (op.x - ox);
-      if (op.t === 0) { if (b[i] !== 5) b[i] = 0; }
-      else b[i] = op.t;
-      if (op.m) setMeta(op.x, op.y, op.z, op.m, true);
-    }
-  }
-}
-function inMyCabin(wx, wz) {
-  const C = CABIN_CELL;
-  const cx = Math.floor(wx / C), cz = Math.floor(wz / C);
-  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
-    const o = myCabinFor(cx + dx, cz + dz);
-    if (o && Math.abs(wx - o.cx) <= 8 && Math.abs(wz - o.cz) <= 8) return true;
-  }
-  return false;
-}
 
 function applyExtraStructs(b, ox, oz, selfKey) {
-  applyMyCabin(b, ox, oz, selfKey);                                  // 玩家上传的小屋（平原 / 矿洞）
   for (const t of STRUCT_TYPES) {
     if (t.cell === VS_CELL || t.cell === HS_CELL) continue;          // 村庄/鬼屋走原来的路径
     const sx = Math.floor(ox / t.cell), sz = Math.floor(oz / t.cell);
@@ -7369,9 +7832,12 @@ function chestSlots(x, y, z) {
   if (!slots) {
     slots = new Array(CHEST_SLOTS).fill(null);
     const rnd = mulberry32((Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791) ^ SEED) | 0);
-    const picks = 2 + Math.floor(rnd() * 4);
+    /* ★ v353：金字塔的箱子用专属战利品表（沙漠箱 3 选 1 / BOSS 箱最好的东西） */
+    const special = typeof pyrChestKind === 'function' ? pyrChestKind(x, y, z) : null;
+    const table = special === 'boss' ? BOSS_LOOT : special === 'desert' ? DESERT_LOOT : CHEST_TABLE;
+    const picks = special ? (special === 'boss' ? 5 : 3) : 2 + Math.floor(rnd() * 4);
     for (let i = 0; i < picks; i++) {
-      const [id, a, b] = CHEST_TABLE[Math.floor(rnd() * CHEST_TABLE.length)];
+      const [id, a, b] = table[Math.floor(rnd() * table.length)];
       const n = a + Math.floor(rnd() * (b - a + 1));
       let idx = Math.floor(rnd() * CHEST_SLOTS), guard = 0;
       while (slots[idx] && guard++ < CHEST_SLOTS) idx = (idx + 1) % CHEST_SLOTS;
@@ -7388,6 +7854,7 @@ function openChest(x, y, z) {
   if (chargerOpen) closeCharger();
   openChestPos = { x, y, z };
   chestSlots(x, y, z);
+  if (typeof pyrOnChestOpened === 'function') pyrOnChestOpened(x, y, z);   // ★ v353 金字塔三选一
   if (NET && NET.active) NET.pullChest(x, y, z);      // 联机：箱子里存的是服务端那一份（两人共用）
   $('chestPanel').classList.remove('hide');
   renderChest();
@@ -10782,6 +11249,54 @@ function setSpawnAt(x, y, z) {
   toast('Respawn point set to this bed', 2.2);
   saveSoon();
 }
+/* ══ ★ v359：玩家碰撞盒 / 解卡 ══════════════════════════════════════════
+   进房间（回到上次位置）、第一次进房落在房主旁边、重生 —— 三个入口都会直接 set 坐标，
+   而老代码只查「格子中心那一列」的方块：人宽 0.6，靠墙站时半个身子在方块里 = 卡进墙里；
+   而且它只会往上顶 24 格，顶进房顶/天花板就再也出不来。这里统一按真实包围盒判定，
+   再按「最近的空位」找落脚点（先原地上下，再一圈圈往外）。 */
+const PB_W = 0.3, PB_H = 1.78;
+function playerBoxFree(px, py, pz) {
+  const x0 = Math.floor(px - PB_W), x1 = Math.floor(px + PB_W);
+  const z0 = Math.floor(pz - PB_W), z1 = Math.floor(pz + PB_W);
+  const y0 = Math.floor(py + 0.02), y1 = Math.floor(py + PB_H);
+  for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) {
+    if (isSolid(getBlock(x, y, z))) return false;
+  }
+  return true;
+}
+/* 保证目标点周围区块已生成，否则 getBlock 全是 0（空旷）→ 判定永远「不卡」 */
+function ensureAround(x, z, r = 1) {
+  const cx = Math.floor(x / CFG.CH), cz = Math.floor(z / CFG.CH);
+  for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+    /* getChunk 本身就会 genChunk（方块数据立刻可读），这里只要保证数据在位，
+       顺手把它排进 dirty 队列补网格 —— 不要调 buildChunk（会把已有网格重建一遍） */
+    const cc = getChunk(cx + dx, cz + dz);
+    if (cc && !cc.ready) dirty.add(cc);
+  }
+}
+/* 把玩家移到最近的合法位置；返回 true 表示挪过（调用方据此决定要不要提示） */
+function unstickPlayer(px, py, pz) {
+  ensureAround(px, pz, 1);
+  if (playerBoxFree(px, py, pz)) { player.p.set(px, py, pz); return false; }
+  const bx = Math.floor(px) + 0.5, bz = Math.floor(pz) + 0.5, y0 = Math.floor(py);
+  const cands = [];
+  for (let r = 0; r <= 3; r++) {
+    for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      for (let k = 0; k <= 18; k++) {
+        cands.push([bx + dx, y0 + k + 0.05, bz + dz, k * 2 + r]);
+        if (k) cands.push([bx + dx, y0 - k + 0.05, bz + dz, k * 2 + r + 1]);
+      }
+    }
+  }
+  cands.sort((a, b) => a[3] - b[3]);
+  for (const [x, y, z] of cands) {
+    if (playerBoxFree(x, y, z)) { player.p.set(x, y, z); return true; }
+  }
+  player.p.set(bx, surfaceY(bx, bz) + 1.05, bz);      // 兜底：回到地表
+  return true;
+}
+let stuckT = 0, stuckN = 0;                 // ★ v359 卡在方块里的自愈计时
 function respawn() {
   const sp = player.spawn;
   if (sp) {
@@ -10791,6 +11306,7 @@ function respawn() {
     const sx = 8, sz = 8;
     player.p.set(sx + 0.5, surfaceY(sx, sz) + 1.2, sz + 0.5);
   }
+  unstickPlayer(player.p.x, player.p.y, player.p.z);      // ★ v359 重生点可能被方块埋了/在墙里
   player.v.set(0, 0, 0);
   player.hp = 20; player.hunger = 18; player.alive = true;
   player.air = OXY_MAX; player.drownT = 0; player.airWarned = false;   // ★ v339 重生换口气
@@ -11260,7 +11776,13 @@ const RECIPES = [
   { out: 133, n: 1, need: { 125: 8 }, tier: 1 },
   { out: 134, n: 1, need: { 125: 7 }, tier: 1 },
   { out: 135, n: 1, need: { 125: 4 }, tier: 1 },
-];
+  /* v353：沙石建筑方块 */
+  { out: 90, n: 1, need: { 4: 4 } },          // 4 沙 → 1 沙石
+  { out: 91, n: 4, need: { 90: 4 } },         // 4 沙石 → 4 沙石砖
+  { out: 92, n: 4, need: { 90: 4 } },         // 4 沙石 → 4 平滑沙石
+  { out: 93, n: 1, need: { 90: 2 } },         // 2 沙石 → 1 雕纹沙石
+  { out: 94, n: 4, need: { 90: 4 } },         // 4 沙石 → 4 柱状沙石
+  ];
 // 熔炉：1 份燃料 + 1 份原料 → 1 份产物（燃料：木板 or 炼好的煤块）
 const SMELT = [
   { in: 39, out: 162, n: 1, name: 'Copper Ore → Copper Ingot' },
@@ -12671,6 +13193,33 @@ function updatePlayer(dt) {
     player.v.y = Math.max(player.v.y - CFG.GRAV * buoy * dt, player.inLava ? -1.2 : -3.2);
     if (jumpQueued) player.v.y = player.inLava ? 3.0 : 3.4;                        // 点一下：窜一下
     else if (upHeld()) player.v.y = Math.max(player.v.y, player.inLava ? 2.0 : 2.4); // 按住：持续上浮
+    /* ══ ★ v360：出水登岸 ══════════════════════════════════════════════
+       原来水里只有「2.4 的持续上浮」：脚一离开水面那一格，inWater 立刻变 false →
+       满重力（−27）把人生生按回去，一格高的岸**永远**上不去（用户说的「进水后很难上岸」）。
+       两条辅助：
+       ① 已经贴到水面（胸口那格不是水 = 不在 swimming）再按跳 → 用陆地的真跳冲量 JUMP(8.5≈1.34 格)；
+       ② 朝着一格高的岸（前方 fy+1 是实心、fy+2/fy+3 是空）推的时候自动抬一次，
+          手机摇杆不用掐时机也能上岸。 */
+    if (player.inWater && !player.swimming && (jumpQueued || upHeld())) {
+      player.v.y = Math.max(player.v.y, CFG.JUMP);
+    }
+    if (wx || wz) {
+      const nrm = Math.hypot(wx, wz) || 1;
+      const fx = Math.floor(player.p.x + (wx / nrm) * 0.8);
+      const fz = Math.floor(player.p.z + (wz / nrm) * 0.8);
+      const fy = Math.floor(player.p.y + 0.2);
+      if (isSolid(getBlock(fx, fy + 1, fz)) && !isSolid(getBlock(fx, fy + 2, fz)) && !isSolid(getBlock(fx, fy + 3, fz))) {
+        /* 一格高的岸：**直接把人抬到岸面**（不是给冲量）。
+           给冲量的版本实测会在水面边界上反复：脚一离开水格 inWater 就翻 false，
+           辅助不再触发、重力把人按回去，只能在水面上下浮动（这就是「很难上岸」）。
+           抬升前用 playerBoxFree 验证目标位置合法，抬完继续保持前推就能走上岸。 */
+        const topY = fy + 2 + 0.05;
+        if (topY > player.p.y && playerBoxFree(player.p.x, topY, player.p.z)) {
+          player.p.y = topY;
+          player.v.y = Math.max(player.v.y, 1.0);
+        }
+      }
+    }
   } else {
     player.v.y = Math.max(player.v.y - CFG.GRAV * dt, -56);
     if (jumpQueued && player.onGround) { player.v.y = CFG.JUMP; player.onGround = false; }
@@ -12734,6 +13283,15 @@ function updatePlayer(dt) {
   /* ★ v346：血量不变量见 updatePlayer 开头（那里在扣血/回血之前就先兜底了），这里不再重复。 */
 
   // 掉出世界
+  /* ★ v359：通用解卡保险 —— 只要身体被方块埋住 0.6 秒×2 次，就自动挪到最近的空位。
+     覆盖「进房位置被后来盖的方块埋住」「沙子/沙砾落到头上」「门夹住」这类情况。 */
+  stuckT += dt;
+  if (stuckT > 0.6) {
+    stuckT = 0;
+    if (player.alive && !playerBoxFree(player.p.x, player.p.y, player.p.z)) {
+      if (++stuckN >= 2) { stuckN = 0; unstickPlayer(player.p.x, player.p.y, player.p.z); player.v.set(0, 0, 0); }
+    } else stuckN = 0;
+  }
   if (player.p.y < -8) { damagePlayer(20); respawn(); }
 }
 
@@ -12763,6 +13321,7 @@ function update(dt) {
   updatePlayer(dt);
   lap('uPlayer');
   if (!NET || !NET.active || NET.isHost) { updateMobs(dt); separateMobs(); }   // 怪物由主机模拟；每帧把叠在一起的挤开
+  pyrTrialTick();                                                        // ★ v353 金字塔试炼（房间波次/开门/BOSS）
   lap('uMobs');
   // 掉落物：主机/单机模拟；客人只画幽灵、捡的时候上报给主机删掉
   // （以前两端各跑一份，于是「别人捡走的东西，你这边还躺在地上」，还能再捡一次）
@@ -12887,43 +13446,60 @@ function streamChunks() {
     }
   }
 
-  // ③ 建新区块：分片推进（每帧只吃一部分），预算前置
+  /* ④ 重建脏区块（玩家挖/放的方块、流水）：**优先于新区块**，因为它决定手感。
+     ★ v362：给一帧里「必须马上看到」的脏块留了 5.5ms 的硬上限（deadline 精确到 8 层），
+       不再像以前那样「第一块直接推满 192 层」—— 那一次就是 8~15ms 的整屏卡顿，
+       挖一块方块 / 身边水流一格都会触发。整块会跨 2~3 帧建完，画面不会跳帧。 */
+  let rebuilt = 0, gens = 0, fins = 0;
+  const deadline = tStart + budgetMs;
+  const dDeadline = tStart + Math.max(budgetMs, 5.5);
+  const finCap = budgetMs >= 6 ? 2 : 1;
+  for (const c of dirty) {
+    if (rebuilt >= 2 || fins >= finCap) break;
+    if (performance.now() > dDeadline) break;
+    const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
+    if (d > CFG.LOAD_R + 1) { dirty.delete(c); continue; }
+    if (!c.job) startChunkMesh(c);
+    stepChunkMesh(c, CFG.WH, dDeadline);              // 分片推进（超时保留断点）
+    if (c.job && c.job.y >= CFG.WH) { finishChunkMesh(c); dirty.delete(c); rebuilt++; fins++; }
+  }
+
+  /* ③ 建新区块：**最近优先、一次把一块推进到底**（受 deadline 约束）。
+     v362 改动：
+       · 以前是「每块每帧推进 12 层」的轮转 —— 所有区块一起 90% 就绪、却一个都不出现，
+         玩家看到的是一片空洞，脚下这块也要等十几帧才画出来（「地形加载慢」的直接观感）。
+       · 现在按环序（近 → 远）挑一块，一路推进到建完或超时；最近的一块 2~3 帧就会出现。
+       · 每帧最多生成 1 块地形（genChunk 实测 5~18ms，两块就是一次明显卡顿）；
+         每帧最多 finish 1~2 块（几何体 + 法线 + GPU 上传）。
+       · deadline 精确到层，超时立即带着断点退出 —— 以前只能在「块与块之间」检查预算，
+         一块 192 层一次推进完 = 8~15ms 的铁定掉帧。 */
   let built = 0, over = false;
   for (let r = 0; r <= CFG.LOAD_R && !over; r++) {
     for (let dx = -r; dx <= r && !over; dx++) for (let dz = -r; dz <= r; dz++) {
       if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-      if (performance.now() - tStart > budgetMs * 0.6) { over = true; break; }   // ★ 每格先看预算
+      if (performance.now() > deadline) { over = true; break; }
       const ck = ckey(pcx + dx, pcz + dz), had = chunks.has(ck);
+      if (!had && gens >= 1) continue;                 // 每帧只生成一块新地形
       const c = had ? chunks.get(ck) : getChunk(pcx + dx, pcz + dz);
-      // ⚠ 刚生成的区块要立刻看预算：一个 genChunk 就要 ~7ms，
-      //   否则「已 ready 就 continue」会让这一帧连生成十几个区块（实测一帧 97ms）
-      if (!had && performance.now() - tStart > budgetMs * 0.7) { over = true; break; }
-      if (c.ready) continue;
+      if (!had) gens++;
+      if (c.ready && !c.job) continue;
       if (!c.job) startChunkMesh(c);
-      stepChunkMesh(c, c.job.y + 12);                 // 一次推进 12 层（≈0.7ms）
-      if (c.job && c.job.y >= CFG.WH) { finishChunkMesh(c); built++; }
-      if (performance.now() - tStart > budgetMs * 0.8) { over = true; break; }
+      stepChunkMesh(c, CFG.WH, deadline);              // 推进到建完或超时（可断点续建）
+      if (c.job && c.job.y >= CFG.WH) {
+        if (fins < finCap) { finishChunkMesh(c); built++; fins++; }
+        else over = true;                              // 建完了但这一帧不 upload，下一帧收尾
+      }
     }
   }
   // ③b 地形预生成：把外圈（LOAD_R+1）的地形先算好，别等玩家走到跟前才吃 7ms
-  if (!over && performance.now() - tStart < budgetMs * 0.75) {
+  //     ★ v362：只有「这一帧还没生成过地形」且预算还剩一半以上才做 —— 它自己就是那个 7ms 的尖峰
+  //     （实测之前 streamChunks 在 2.5ms 预算下平均 8.96ms/帧，主要就是这一句造成的）。
+  if (!over && !gens && performance.now() - tStart < budgetMs * 0.4) {
     const r = CFG.LOAD_R + 1;
     for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
       if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
       if (!chunks.has(ckey(pcx + dx, pcz + dz))) { getChunk(pcx + dx, pcz + dz); dx = r + 1; break; }
     }
-  }
-
-  // ④ 重建脏区块：至少给 1 块的机会，否则一边走一边攒脏块越积越多
-  let rebuilt = 0;
-  for (const c of dirty) {
-    if (rebuilt >= 2) break;
-    if (rebuilt > 0 && performance.now() - tStart > budgetMs) break;
-    const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
-    if (d > CFG.LOAD_R + 1) { dirty.delete(c); continue; }
-    if (!c.job) startChunkMesh(c);
-    stepChunkMesh(c, c.job.y + (rebuilt === 0 && !glRecovering ? CFG.WH : 24));   // 恢复期一律 24 层分片
-    if (c.job && c.job.y >= CFG.WH) { finishChunkMesh(c); dirty.delete(c); rebuilt++; }
   }
 }
 
@@ -12971,8 +13547,10 @@ let frameMsAvg = 16.7;
 function noteFrameMs(ms) {
   frameMsAvg += (ms - frameMsAvg) * 0.08;
   if (frameMsAvg > 26) { perfSlow++; perfFast = 0; } else if (frameMsAvg < 19) { perfFast++; perfSlow = 0; }
-  if (perfSlow >= 30 && perfBudget > 2.5) { perfBudget = Math.max(2.5, perfBudget - 1.5); perfSlow = 0; }
-  else if (perfFast >= 120 && perfBudget < 9) { perfBudget = Math.min(9, perfBudget + 1); perfFast = 0; }
+  // ★ v362：恢复得更快（120 → 45 帧 ≈ 0.75s）。以前卡一下把预算砍到 2.5ms 之后，
+  //   要连续 2 秒流畅才涨回 1ms —— 玩家感受到的是「地形加载要等好久才恢复正常速度」。
+  if (perfSlow >= 20 && perfBudget > 2.5) { perfBudget = Math.max(2.5, perfBudget - 1.5); perfSlow = 0; }
+  else if (perfFast >= 45 && perfBudget < 9) { perfBudget = Math.min(9, perfBudget + 1); perfFast = 0; }
 }
 
 /* ============================================================ HUD 刷新（降频） */
@@ -13185,8 +13763,8 @@ const MM_TERRAIN = ['#5d9440', '#c9b174', '#71757c', '#2d5f8f', '#376b2c', '#3c4
   '#6b4a35',   // 10 灵魂沙
   '#4a2a5a',   // 11 冥界矿
   '#14202c'];  // 12 空洞
-const MM_LABEL = { village: 'Village', haunted: 'Haunted House', tower: 'Watchtower', well: 'Well', circle: 'Stone Circle', camp: 'Ruined Camp', cabin: 'Birch Cabin', portal: 'Portal', swamp: 'Lava Swamp', ruins: 'Ancient Ruins', arena: 'Orb Sanctuary' };
-const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', cabin: '#d8b48a', portal: '#8b3fd8', swamp: '#ff7a3c', ruins: '#a97bff', arena: '#3ee07a' };
+const MM_LABEL = { village: 'Village', haunted: 'Haunted House', tower: 'Watchtower', well: 'Well', circle: 'Stone Circle', camp: 'Ruined Camp', portal: 'Portal', swamp: 'Lava Swamp', ruins: 'Ancient Ruins', arena: 'Orb Sanctuary' };
+const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', portal: '#8b3fd8', swamp: '#ff7a3c', ruins: '#a97bff', arena: '#3ee07a' };
 const MM = {
   cells: new Map(), marks: new Map(), zoom: 1, px2: 2,
   list: [],                        // [x, z, type] 扁平数组：重绘时直接读数字，不再解析字符串（小地图越大越明显）
@@ -13723,6 +14301,7 @@ function saveInner() {
       compost: Array.from(compostProg.entries()), meta: Array.from(blockMeta.entries()),
       squad: squadData(), map: mmSerialize(),          // 小地图探索/结构标记
       boats: boats.map(b => [+b.x.toFixed(2), +b.y.toFixed(2), +b.z.toFixed(2), b.wi | 0, +b.yaw.toFixed(2)]),  // ★ v337 船
+      pyr: Array.from(pyrTrial.entries()),          // ★ v353 金字塔试炼进度（stage/cleared/chosen/boss/done）
     };
     localStorage.setItem(worldKey(currentId), JSON.stringify(data));
     saveErr = null;
@@ -13785,6 +14364,10 @@ function loadSave(id, expectSeed) {
     for (const m0 of mobs.slice()) { m0.dying = true; m0.dieT = MOB_DEATH_HOLD + 1; }
     restoreSquad(d.squad);
     restoreBoats(d.boats);                    // ★ v337 读回船
+  /* ★ v353 金字塔试炼进度 */
+  pyrTrial.clear();
+  for (const [k, v] of (d.pyr || [])) if (k && v) pyrTrial.set(k, v);
+  pyrChestKindCache.clear();
     blockMeta.clear();
     if (Array.isArray(d.meta)) for (const e of d.meta) if (Array.isArray(e)) blockMeta.set(e[0], e[1]);
     mmRestore(d.map);
@@ -13843,11 +14426,19 @@ function frameBody(now) {
   let guard = 0;
   const __p = profOn();
   let __t = __p ? performance.now() : 0;
-  while (acc >= STEP && guard++ < 6) { acc -= STEP; update(STEP); }
+  /* ★ v362：慢帧别再补满 6 步。固定步长在 10fps 时会一次跑 6 个 update——
+     每一步都含流水模拟（每步最多 5ms）/ 怪物 AI / 掉落物，6 步就是 30ms+，
+     于是「掉一帧 → 补 6 步 → 更慢」形成正反馈（这就是联机时整屏一顿一顿的直接机制）。
+     超过 30ms 的帧只补 3 步，并且丢掉剩下的欠账，宁可世界慢一点也不要雪崩。 */
+  const maxSteps = frameMsAvg > 30 ? 3 : 6;
+  while (acc >= STEP && guard++ < maxSteps) { acc -= STEP; update(STEP); }
+  if (acc > STEP * 2) acc = STEP * 2;               // 攒下的时间封顶，恢复时不再连续追帧
   if (__p) { PROF.frames++; const t1 = performance.now(); PROF.update += t1 - __t; __t = t1; }
   // ★ 区块流式加载：每帧一次（以前放在固定步里，低帧率时一帧要跑 6 遍 → 越卡越卡）
   const __s0 = __p ? performance.now() : 0;
   if (started) { streamChunks(); capStructCaches(dt); }
+  /* ★ v362：远端补发的方块改动按每帧 2ms 摊开应用（不再在一次 fetch 回调里全改完） */
+  if (NET && NET.active && NET.drainEditQ) NET.drainEditQ(2);
   if (__p) { const t1 = performance.now(); PROF.stream += t1 - __s0; __t = t1; }
   updateHUD(dt);
   if (__p) { const t1 = performance.now(); PROF.hud += t1 - __t; __t = t1; }
@@ -13941,6 +14532,48 @@ function setCreateMode(m) {
 }
 
 /* ============================================================ 启动 */
+/* ── 联机进房：房间里的改动必须在**第一次生成区块之前**灌进 edits ───────────────
+   v362 之前：先 startGame（把出生点一带的地形建出来）→ 再把整张房间编辑表合并进来
+   → 然后把已加载的区块**全部删掉、重生成 5×5 共 25 块**。
+   房主进自己的房间时 d.edits 是整个世界（几万条），于是「一进房整屏卡住、地形半天不出来」，
+   而且这 25 次同步 genChunk ≈ 175ms 起、接着还有几十次网格重建排队。
+   现在：先把改动写进 edits（getChunk 生成时会自动按块套用 editsByChunk），再 startGame。 */
+let roomEditsPending = null;
+function adoptRoomEdits(list) {
+  let n = 0;
+  for (const e of list || []) {
+    const k = e[0], id = e[1], mm = e[2];
+    if (!k) continue;
+    edits.set(k, id);
+    const a = k.split(',');
+    const x = +a[0], y = +a[1], z = +a[2];
+    indexEdit(x, y, z, id);
+    if (typeof mm === 'number') setMeta(x, y, z, mm | 0, false);
+    n++;
+  }
+  return n;
+}
+/* 兜底：改动来到之前就已经生成过的区块（loadSave 的卡墙检查/出生点）要重生成一次，
+   但只重生成「确实带改动」的那几块 —— 不是整片 5×5。 */
+function rebuildRoomEditedChunks(list) {
+  const touched = new Set();
+  for (const e of list || []) {
+    const k = e[0]; if (!k) continue;
+    const a = k.split(',');
+    touched.add(((+a[0]) >> 4) + ',' + ((+a[2]) >> 4));
+  }
+  let n = 0;
+  for (const tk of touched) {
+    const old = chunks.get(tk);
+    if (!old) continue;
+    for (const m of [old.mesh, old.glass, old.water, old.plant])
+      if (m) { scene.remove(m); try { m.geometry.dispose(); } catch (e) {} }
+    chunks.delete(tk);
+    dirty.add(getChunk(old.cx, old.cz));      // 重新生成 → 自动套 editsByChunk，网格由 streamChunks 建
+    n++;
+  }
+  return n;
+}
 function startGame(world) {
   if (started) return;
   currentId = world.id;
@@ -13981,6 +14614,13 @@ function startGame(world) {
     worldTime = CFG.DAY * 0.03;
   }
   player.fly = isCreative();
+  /* ★ v362：房间改动必须在下面第一次 getChunk 之前落地（那时 loadSave 已经跑完，
+     且还没生成任何区块 —— 之后生成的每一块都会自动套用 editsByChunk）。 */
+  if (roomEditsPending) {
+    adoptRoomEdits(roomEditsPending);
+    rebuildRoomEditedChunks(roomEditsPending);     // 只有 loadSave 期间已经建出来的那 1~2 块要重来
+    roomEditsPending = null;
+  }
   try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; }
   if (AC) { sfxBus = null; initAudioChain(); }
   hud.start.classList.add('hide');
@@ -14173,10 +14813,10 @@ STRUCT_TYPES.push(
   { name: 'well', cell: WL_CELL, get: wellFor, cache: wellCache },
   { name: 'circle', cell: SC_CELL, get: circleFor, cache: circleCache },
   { name: 'camp', cell: CP_CELL, get: campFor, cache: campCache },
-  { name: 'cabin', cell: CB_CELL, get: cabinFor, cache: cabinCache },
   { name: 'portal', cell: PT_CELL, get: portalFor, cache: portalCache },
   { name: 'ruins', cell: AR_CELL, get: ruinsFor, cache: ruinsCache },      // 远古废墟（末地式框架 + 四激活器）
   { name: 'arena', cell: ARENA_CELL, get: arenaFor, cache: arenaCache },   // 宝珠守护地（角斗场 + 试炼）
+  { name: 'pyramid', cell: PYR_CELL, get: pyrFor, cache: pyrCache },       // ★ v353 沙漠金字塔（试炼地下室）
 );
 loadIndex();
 renderWorldList();
@@ -15279,7 +15919,7 @@ window.GAME = {
       const F = forestAt(wx, wz);
       const g = heightAt(wx, wz);
       const steps = {
-        village: inVillage(wx, wz), cabin: inMyCabin(wx, wz), haunted: inHaunted(wx, wz),
+        village: inVillage(wx, wz), haunted: inHaunted(wx, wz),
         extra: inExtraStruct(wx, wz), ravine: inRavine(wx, wz),
         g, tooLow: g <= CFG.SEA + 1, tooHigh: g >= MOUNT_Y,
         cave: caveCarve(wx, g, wz, g), forest: F ? F.kind : null,
@@ -15299,7 +15939,7 @@ window.GAME = {
     chestAt: (x, y, z) => openChest(x, y, z),
     seedHouse: (seed) => {              // 扫种子：出生点 → 最近鬼屋
       SEED = seed | 0;
-      hsCache.clear(); villageCache.clear(); veinCache.clear(); myCabinCache.clear(); myCabinBusy.clear();
+      hsCache.clear(); villageCache.clear(); veinCache.clear();
       if (typeof ravineCache !== 'undefined' && ravineCache.clear) ravineCache.clear();
       const sp = findSpawn();
       const cx = Math.floor(sp.x / HS_CELL), cz = Math.floor(sp.z / HS_CELL);
@@ -15498,6 +16138,32 @@ window.GAME = {
     },
     waterLevel: (x, y, z) => flowLvl(x, y, z),
     waterTop: (x, y, z) => waterTopH(x, y, z),
+    /* 水面「看得穿的竖缝」验收（v351）：
+       相邻两格都是水、但水面高度不同时，水与水之间不画内面 → 那道 0.14~0.58 高的竖面
+       （riser）是**空的**，从低角度看就是一圈能看穿的水环。这里数出这种开口。
+       返回 { cells, risers, byDelta } —— risers 是「高度差>0.02 且没有竖面」的相邻对。 */
+    waterGapProbe(r = 12) {
+      const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+      const out = { cells: 0, risers: 0, byDelta: {}, samples: [], holes: 0 };
+      for (let x = px - r; x <= px + r; x++) for (let z = pz - r; z <= pz + r; z++) for (let y = 1; y < CFG.WH; y++) {
+        if (getBlock(x, y, z) !== 5) continue;
+        out.cells++;
+        const own = waterTopH(x, y, z);
+        // 水柱内部（上方也是水）不算
+        if (getBlock(x, y + 1, z) === 5) continue;
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (getBlock(x + dx, y, z + dz) !== 5) continue;
+          const nt = waterTopH(x + dx, y, z + dz);
+          const d = Math.abs(nt - own);
+          if (d < 0.02) continue;
+          out.risers++;
+          const k = d.toFixed(2);
+          out.byDelta[k] = (out.byDelta[k] || 0) + 1;
+          if (out.samples.length < 5) out.samples.push({ x, y, z, own: +own.toFixed(2), nb: +nt.toFixed(2), lvl: flowLvl(x, y, z), nbl: flowLvl(x + dx, y, z + dz) });
+        }
+      }
+      return out;
+    },
     scrub: () => { scrubWaterNear(9); return true; },
     waterCells: (r = 6) => {
       const px = Math.floor(player.p.x), py = Math.floor(player.p.y), pz = Math.floor(player.p.z);
@@ -15587,6 +16253,102 @@ window.GAME = {
       }
       return { columns: cols, lowFloors: floors, gravel, coal,
                gravelShare: floors ? +(gravel / floors).toFixed(3) : 0, byY };
+    },
+    /* 悬空岩块验收（v350）：玩家周围 rad 格内找「size ≤ maxN 且不与主岩体连通」的固体分量。
+       这是「石头和矿悬在半空」唯一靠谱的量化指标。
+       ⚠ 别用「六面全空的单块」判悬空：碎屑是 2×2×2 / 2×2×4 的块，每块只有 3 面空，
+         那个指标恒等于 0 —— v321~v349 一直是这么「验过」的，结果玩家满眼浮石。
+       返回 comps（分量数）/ blocks（格数）/ byId（按方块名）/ samples（前 6 个位置）。 */
+    floatProbe(rad = 24, maxN = 64) {
+      const px = Math.floor(player.p.x), pz = Math.floor(player.p.z);
+      const W = rad * 2 + 1, H = CFG.WH, x0 = px - rad, z0 = pz - rad;
+      const at = (x, y, z) => ((y * W) + (z - z0)) * W + (x - x0);
+      /* vol: 0 未加载/出界, 1 实心, 2 空气, 3 液体/植物（算「有附着」，但不报）
+         —— 判「悬空」只看**四周是不是空气**：岩浆海/地下湖里贴着流体不算悬空（MC 也一样），
+            否则井底岩浆层会被统计成上千个假悬空。
+         ⚠ v350 第一版这里用「分量超过 maxN 就 break」提前退出，结果主岩体被切成 65 格的碎片，
+           后续碎片变成新的「分量」，报出 2000+ 个假悬空。现在**全量标记**（O(体积)），不再中途退出。 */
+      const vol = new Uint8Array(W * H * W);
+      let loadedCols = 0;
+      for (let z = z0; z < z0 + W; z++) for (let x = x0; x < x0 + W; x++) {
+        if (!chunks.has((x >> 4) + ',' + (z >> 4))) continue;
+        loadedCols++;
+        for (let y = 0; y < H; y++) {
+          const v = getBlock(x, y, z);
+          const bl = BLOCKS[v];
+          vol[at(x, y, z)] = !v ? 2 : (v === 5 || v === 44 || (bl && (bl.cross || bl.plant))) ? 3 : 1;
+        }
+      }
+      const comp = new Int32Array(vol.length);          // 0 = 未访问，>0 = 分量号
+      const stack = new Int32Array(vol.length);
+      const comps = [0];                                // comps[id] = 体积
+      const floatIds = [];
+      let id = 0, main = 0;
+      for (let i = 0; i < vol.length; i++) {
+        if (vol[i] !== 1 || comp[i]) continue;
+        id++;
+        let sp = 0, n = 0, edge = false;
+        stack[sp++] = i; comp[i] = id;
+        while (sp > 0) {
+          const j = stack[--sp]; n++;
+          const y = Math.floor(j / (W * W)), r2 = j - y * W * W, z = Math.floor(r2 / W), x = r2 - z * W;
+          for (let d = 0; d < 6; d++) {
+            const nx = x + (d === 0 ? 1 : d === 1 ? -1 : 0);
+            const ny = y + (d === 2 ? 1 : d === 3 ? -1 : 0);
+            const nz = z + (d === 4 ? 1 : d === 5 ? -1 : 0);
+            if (nx < 0 || nx >= W || nz < 0 || nz >= W || ny < 0 || ny >= H) { edge = true; continue; }
+            const k = at(x0 + nx, ny, z0 + nz);
+            if (vol[k] === 0) { edge = true; continue; }               // 未加载：当主岩体（保守）
+            if (vol[k] === 3) { edge = true; continue; }               // 贴着水/岩浆/植物：不算悬空
+            if (vol[k] !== 1 || comp[k]) continue;
+            comp[k] = id; stack[sp++] = k;
+          }
+        }
+        comps[id] = n;
+        if (n > main) main = n;
+        if (!edge && n <= maxN) floatIds.push(id);
+      }
+      // 统计浮空块
+      let blocks = 0;
+      const byId = {}, samples = [];
+      const want = new Set(floatIds);
+      const seenSample = new Set();
+      if (floatIds.length) for (let i = 0; i < vol.length; i++) {
+        const c = comp[i];
+        if (!c || !want.has(c)) continue;
+        blocks++;
+        const y = Math.floor(i / (W * W)), r2 = i - y * W * W, z = Math.floor(r2 / W), x = r2 - z * W;
+        const bx = x0 + x, bz = z0 + z, bid = getBlock(bx, y, bz);
+        const nm = (BLOCKS[bid] && BLOCKS[bid].name) || ('id' + bid);
+        byId[nm] = (byId[nm] || 0) + 1;
+        if (!seenSample.has(c) && samples.length < 6) {
+          seenSample.add(c);
+          samples.push({ x: bx, y, z: bz, n: comps[c], id: nm, surf: heightAt(bx, bz) });
+        }
+      }
+      return { radius: rad, loaded: [...chunks.keys()].length, loadedCols,
+               comps: floatIds.length, blocks, mainBody: main, byId, samples };
+    },
+    /* 生成成本验收（v350）：悬空碎屑清理 / 洞穴抖动各吃多少 ms */
+    sweepCost(n = 6) {
+      const c = [...chunks.values()].find(x => x.blocks);
+      if (!c) return null;
+      const out = { sweep: [], carve: [] };
+      for (let i = 0; i < n; i++) {
+        const b = c.blocks.slice();
+        let t0 = performance.now();
+        sweepFloatDebris(b, c.cx * CFG.CH, c.cz * CFG.CH);
+        out.sweep.push(+(performance.now() - t0).toFixed(2));
+      }
+      // 洞穴函数单块成本（同一批坐标跑两遍取小值）
+      const pts = [];
+      for (let i = 0; i < 20000; i++) pts.push([(Math.random() * 600 - 300) | 0, 20 + (Math.random() * 90) | 0, (Math.random() * 600 - 300) | 0]);
+      for (let rep = 0; rep < 2; rep++) {
+        const t0 = performance.now();
+        for (const [x, y, z] of pts) caveCarve(x, y, z, y + 30);
+        out.carve.push(+((performance.now() - t0) * 1000 / pts.length).toFixed(3));
+      }
+      return out;
     },
     /* 地形形状验收：坡度分布 / 起伏 / 山地覆盖率 / 河流覆盖率
        ⚠ 采样必须用伪随机（LCG），不能 `(i*61)%800` 那种格点 —— 格点只扫一条斜带，
@@ -15892,20 +16654,69 @@ window.GAME = {
     })),
     restoreSquad: (l) => restoreSquad(l),
     squadSave: () => squadData(),
-    cabinStats: () => Object.assign({}, CABIN_STATS),
-    cabinAt: (wx, wz) => { const o = myCabinFor(Math.floor(wx / CABIN_CELL), Math.floor(wz / CABIN_CELL)); return o ? { cx: o.cx, cz: o.cz, gy: o.gy, where: o.where, ops: o.ops } : null; },
-    cabinFloat: (wx, wz) => {                    // 小屋地基悬空检测：gy 层有方块、正下方却是空气的格子数
-      const o = myCabinFor(Math.floor(wx / CABIN_CELL), Math.floor(wz / CABIN_CELL));
-      if (!o) return null;
-      let cells = 0, gap = 0;
-      for (let x = o.cx - 2; x <= o.cx + 11; x++) for (let z = o.cz - 2; z <= o.cz + 11; z++) {
-        if (getBlock(x, o.gy, z) === 0) continue;
-        cells++;
-        if (getBlock(x, o.gy - 1, z) === 0) gap++;
-      }
-      return { cx: o.cx, cz: o.cz, gy: o.gy, where: o.where, floorCells: cells, gapUnder: gap };
+    /* ★ v353 金字塔：看进度 / 直接传送进去（验收用） */
+    pyrInfo() {
+      const p = pyrAt(player.p.x, player.p.y, player.p.z);
+      if (!p || !p.rooms) return { inPyramid: false };
+      const key = pyrKeyOf(p), st = pyrState(key);
+      return { inPyramid: true, key, gy: p.gy, y1: p.y1, stage: st.stage, cleared: st.cleared, chosen: st.chosen,
+               boss: st.bossSpawned, done: st.done,
+               rooms: p.rooms.map((r, i) => ({ i, x: r.cx, z: r.cz, w: r.w, d: r.d, y: r.y,
+                 doors: (r.doors || []).length, chests: (r.chests || []).map(c => [c.x, c.y, c.z]) })),
+               bossAt: [p.boss.cx, p.boss.y + 1, p.boss.cz] };
     },
-    structDensity: (cells = 10) => {             // 各结构在 (2n+1)² 个格子里出现的比例（频率体检）
+    pyrGo(i = 0) {                                 // 传送到最近的/当前金字塔第 i 间房
+      let p = pyrAt(player.p.x, player.p.y, player.p.z);
+      if (!p) {
+        const cx = Math.floor(player.p.x / PYR_CELL), cz = Math.floor(player.p.z / PYR_CELL);
+        for (let r = 0; r <= 10 && !p; r++) for (let dx = -r; dx <= r && !p; dx++) for (let dz = -r; dz <= r && !p; dz++) p = pyrFor(cx + dx, cz + dz);
+      }
+      if (!p || !p.rooms) return null;
+      const t = i >= PYR_TRIALS ? p.boss : p.rooms[Math.max(0, Math.min(PYR_TRIALS - 1, i))];
+      player.p.set(t.cx + 0.5, t.y + 1.01, t.cz + 0.5);
+      player.v.set(0, 0, 0);
+      return { at: [t.cx, t.y + 1, t.cz], key: pyrKeyOf(p) };
+    },
+    pyrKillTrial() {                               // 秒掉当前试炼波（验收用）
+      let n = 0;
+      for (const m of mobs) if (m.pyr) { m.hp = 0; n++; }
+      return n;
+    },
+    pyrOpen(i = 0) {                               // 打开当前房间第 i 个箱子：看战利品 + 另外两个是否消失
+      const p = pyrAt(player.p.x, player.p.y, player.p.z);
+      if (!p || !p.rooms) return null;
+      const key = pyrKeyOf(p), st = pyrState(key);
+      const r = p.rooms[st.stage];
+      if (!r || !r.chests || !r.chests.length) return null;
+      const c = r.chests[Math.min(i, r.chests.length - 1)];
+      const arr = chestSlots(c.x, c.y, c.z);
+      const loot = arr.filter(Boolean).map(s => [s.id, s.n]);
+      pyrOnChestOpened(c.x, c.y, c.z);
+      const now = r.chests.map(cc => getBlock(cc.x, cc.y, cc.z));
+      return { opened: [c.x, c.y, c.z], loot, chestBlocks: now, stage: st.stage, chosen: st.chosen };
+    },
+    pyrBossKill() {
+      let n = 0;
+      for (const m of mobs) if (m.pyrBoss) { m.hp = 0; n++; }
+      return n;
+    },
+    pyrCells(span = 3) {                           // 附近有几座金字塔（密度体检）
+      const cx = Math.floor(player.p.x / PYR_CELL), cz = Math.floor(player.p.z / PYR_CELL);
+      const out = [];
+      for (let dx = -span; dx <= span; dx++) for (let dz = -span; dz <= span; dz++) {
+        const p = pyrFor(cx + dx, cz + dz);
+        if (p) out.push({ key: pyrKeyOf(p), cx: p.cx, cz: p.cz, gy: p.gy });
+      }
+      return out;
+    },
+    /* ★ v359：把玩家从方块里拔出来（进房/重生用的是同一套），验收用 */
+    unstick() {
+      const before = [+player.p.x.toFixed(2), +player.p.y.toFixed(2), +player.p.z.toFixed(2)];
+      const moved = unstickPlayer(player.p.x, player.p.y, player.p.z);
+      return { before, after: [+player.p.x.toFixed(2), +player.p.y.toFixed(2), +player.p.z.toFixed(2)],
+               moved, free: playerBoxFree(player.p.x, player.p.y, player.p.z) };
+    },
+    structDensity: (cells = 10) => {             // 各结构在 (n2+1)² 个格子里出现的比例（频率体检）
       const out = {};
       for (const t of STRUCT_TYPES) {
         let found = 0, tot = 0;
@@ -17069,6 +17880,31 @@ function mpEnterAccountWorld(code) {
   /* ---------- 兴趣管理：走远了分块补改动（进服只发 ±128 格） ---------- */
   net.lastPull = { x: 1e9, z: 1e9 };
   net.pullT = 0;
+  /* ★ v362：远端改动不再在 fetch 回调里一次性同步应用（那片区域可能有几千条改动，
+     一次 .then 里全改完 = 一两百毫秒的整屏卡顿，玩家看到的是「走着走着一顿」）。
+     现在只入队，由 net.drainEditQ() 在每帧的流式阶段按时间预算摊开应用。 */
+  net.editQ = [];
+  net.editQn = 0;
+  net.drainEditQ = (budgetMs = 2) => {
+    const q = net.editQ;
+    if (!q.length) return 0;
+    const t0 = performance.now();
+    let n = 0;
+    while (q.length) {
+      if ((n & 63) === 0 && performance.now() - t0 > budgetMs) break;
+      const e = q.pop();
+      const k = e[0];
+      const id = e[1], mm = e[2];
+      n++;
+      if (edits.has(k) && edits.get(k) === id) {                 // 方块已经一致：只补 meta
+        if (typeof mm === 'number') { const a = k.split(','); setMeta(+a[0], +a[1], +a[2], mm, false); }
+        continue;
+      }
+      const a = k.split(',');
+      applyServerBlock(+a[0], +a[1], +a[2], id, mm);
+    }
+    return n;
+  };
   net.pullRegion = () => {
     const x = Math.floor(player.p.x), z = Math.floor(player.p.z);
     net.lastPull = { x, z };
@@ -17076,17 +17912,8 @@ function mpEnterAccountWorld(code) {
       body: JSON.stringify({ a: 'region', code: net.code, x, z, r: 112 }) })
       .then(r => r.json()).then(d => {
         if (!d.ok || !d.edits) return;
-        let n = 0;
-        for (const [k, id, mm] of d.edits) {
-          const a = k.split(',').map(Number);
-          if (edits.has(k) && edits.get(k) === id) {               // 方块已经一致：只补 meta（门开合/朝向）
-            if (typeof mm === 'number') setMeta(a[0], a[1], a[2], mm, false);
-            continue;
-          }
-          applyServerBlock(a[0], a[1], a[2], id, mm);             // ★ 把 meta 一起交下去（门/床/楼梯）
-          n++;
-        }
-        if (n > 120) toast(`Caught up on ${n} changes nearby`, 2);
+        for (const e of d.edits) net.editQ.push(e);
+        if (d.edits.length > 120) toast(`Caught up on ${d.edits.length} changes nearby`, 2);
       }).catch(() => {});
   };
 
@@ -17793,6 +18620,10 @@ function mpEnterAccountWorld(code) {
 
   net.tick = (dt) => {
     const nowMs = performance.now();
+    /* ★ v362：房间里只有自己时不生成/不广播怪快照、掉落物、船。房主最常见的使用场景就是
+       「先自己进去建一会儿，等朋友来」—— 以前这期间仍然每 0.15s 把 24 只怪序列化 + JSON.stringify
+       发一遍、每 0.2s 打包一次掉落物和船，纯属白烧 CPU（而且这段工作正好抢在地形流式加载前面）。 */
+    const alone = net.remotes.size === 0;
     net.sendT += dt;
     if (!IS_BRIDGE && net.sendT >= 0.1 && net.ws && net.ws.readyState === 1) {
       net.sendT = 0;
@@ -17874,7 +18705,7 @@ function mpEnterAccountWorld(code) {
       if (sig !== (net.lookSig || '')) net.pushLook();
     }
 
-    if (net.isHost) {
+    if (net.isHost && !alone) {
       net.mobT += dt;
       if (net.mobT >= 0.15) {
         net.mobT = 0;
@@ -18041,7 +18872,7 @@ function mpEnterAccountWorld(code) {
     }
     // 主机每 0.2s 广播掉落物；客人每 5s 把背包存回服务端
     net.dropT = (net.dropT || 0) + dt;
-    if (net.dropT >= 0.2) { net.dropT = 0; if (net.isHost) { net.pushDrops(); net.pushBoats(); } }
+    if (net.dropT >= 0.2) { net.dropT = 0; if (net.isHost && !alone) { net.pushDrops(); net.pushBoats(); } }
     net.invT = (net.invT || 0) + dt;
     if (net.invT >= 5) { net.invT = 0; if (!net.lid && net.active) net.pushInv(); }
     net.pullT += dt;
@@ -18150,27 +18981,23 @@ function mpEnterAccountWorld(code) {
         toast('The Room Seed changed, so the old local Save is void (terrain regenerated from the Room Seed)', 4);
       }
     } catch (e) {}
+    /* ★ v362：房间改动交给 startGame，在**生成第一个区块之前**合并进去。
+       以前是「先建好出生点 → 整表合并 → 把自己已加载的区块全删掉、重生成 5×5（25 块）」：
+       房主进自己的房间时 d.edits 有几万条，那一刻同步重生成 25 块地形 ≈ 175ms 起，
+       表现就是「一进房整屏卡住、地形要等半天才铺开」。 */
+    roomEditsPending = (d.edits || []).length ? d.edits : null;
+    const roomEditCount = (d.edits || []).length;
     startGame(w);
-    for (const [k, id, mm] of (d.edits || [])) {
-      const a = k.split(',').map(Number);
-      edits.set(k, id); indexEdit(a[0], a[1], a[2], id);
-      if (typeof mm === 'number') setMeta(a[0], a[1], a[2], mm, false);   // 门/床的朝向：进服就按房间里的来
+    if (roomEditsPending) {
+      /* startGame 提前返回（已经在世界里）才会走到这儿：改动事后补，只重建带改动的那几块 */
+      adoptRoomEdits(roomEditsPending);
+      const nBlock = rebuildRoomEditedChunks(roomEditsPending);
+      roomEditsPending = null;
+      if (nBlock) toast('Rebuilt ' + nBlock + ' nearby chunk(s) with Room changes', 2.5);
     }
-    // ★ 进服包里带的改动必须作用到「已经生成的区块」上：startGame 已经把出生点周围 5×5 区块建好了，
-    //   只写 edits/indexEdit 只影响**之后**生成的区块 —— 结果是「别人挖过的洞，你进服时看不到」。
-    //   做法：清掉区块缓存（genChunk 会重新生成并自动套用 editsByChunk），再标记重建。
-    if ((d.edits || []).length) {
-      for (const [k2, cc] of Array.from(chunks)) {
-        if (cc.mesh) scene.remove(cc.mesh);
-        if (cc.glass) scene.remove(cc.glass);
-        if (cc.water) scene.remove(cc.water);
-        if (cc.plant) scene.remove(cc.plant);
-        chunks.delete(k2);
-      }
-      const c0x = Math.floor(player.p.x / CFG.CH), c0z = Math.floor(player.p.z / CFG.CH);
-      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) dirty.add(getChunk(c0x + dx, c0z + dz));
+    if (roomEditCount && isHostMode) {
       /* 界面上看得见：房主进房时把「房间里全部改动」同步回来了多少（客人只报附近的） */
-      if (isHostMode) toast('Synced ' + (d.edits || []).length + ' changes in the Room (including what friends dug/placed)', 4);
+      toast('Synced ' + roomEditCount + ' changes in the Room (including what friends dug/placed)', 4);
     }
     /* 村民小队：房间里存着、本地没有（换设备 / 清了浏览器缓存 / 换了浏览器）→ 从服务端恢复 */
     if (Array.isArray(d.squad) && d.squad.length && !squadList().length) {
@@ -18185,20 +19012,27 @@ function mpEnterAccountWorld(code) {
         player.p.set(d.pos.x, d.pos.y, d.pos.z);
         if (typeof d.pos.w === 'number') player.yaw = d.pos.w;
         if (typeof d.pos.q === 'number') player.pitch = d.pos.q;
-        // 万一这个位置后来被别人盖了方块埋住：就近往上找一个能站的地方
-        const bx = Math.floor(player.p.x), bz = Math.floor(player.p.z);
-        const solid = (y) => isSolid(getBlock(bx, y, bz)) || isSolid(getBlock(bx, y + 1, bz));
-        let by = Math.floor(player.p.y);
-        if (solid(by)) {
-          for (let i = 0; i < 24 && solid(by); i++) by++;
-          player.p.y = by + 0.05;
-        }
-        toast('Back to your last position in the Room', 2.5);
+        /* ★ v359：这个位置后来可能被别人盖了方块/自己站在墙缝里。
+           老代码只看格子中心那一列、并且只会往上顶（顶进天花板就出不来）→ 卡进墙里。
+           现在按 0.6×1.8 的包围盒判定，就近找合法位置（原地上下 → 一圈圈往外）。 */
+        const fixed = unstickPlayer(player.p.x, player.p.y, player.p.z);
+        player.v.set(0, 0, 0); player.fallFrom = null;
+        toast(fixed ? 'Back to the Room (nudged out of blocks)' : 'Back to your last position in the Room', 2.5);
       } else {
         const others = (d.players || []).filter(p => p.i !== net.id);
         if (others.length) {
           const o = others[0];
-          player.p.set(o.x + 1.8, o.y + 0.1, o.z + 1.8);
+          /* ★ v359：房主贴着墙/墙角站着时，+1.8 这一脚会正好落进墙里（"有时"卡墙就是这么来的）。
+             现在先试房主四周 4 个方位，再交给 unstickPlayer 兜底。 */
+          const spots = [[1.8, 0], [-1.8, 0], [0, 1.8], [0, -1.8], [1.3, 1.3], [-1.3, -1.3]];
+          let placed = false;
+          for (const [dx, dz] of spots) {
+            const tx = o.x + dx, tz = o.z + dz;
+            ensureAround(tx, tz, 1);
+            if (playerBoxFree(tx, o.y + 0.1, tz)) { player.p.set(tx, o.y + 0.1, tz); placed = true; break; }
+          }
+          if (!placed) unstickPlayer(o.x + 1.8, o.y + 0.1, o.z + 1.8);
+          player.v.set(0, 0, 0); player.fallFrom = null;
           toast('You are now at ' + (o.n || 'Host') + '\'s side', 3);
         }
       }
