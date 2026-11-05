@@ -8077,7 +8077,13 @@ const MOB_DEFS = {
   frog:     { name: 'Frog',        hp: 6,  chase: 2.0, wander: 1.30, hostile: false, barY: 0.56, drop: null },
   duck:     { name: 'Duck',        hp: 8,  chase: 2.1, wander: 1.10, hostile: false, barY: 0.98, drop: 143, dropN: [1, 1] },
   spider:   { name: 'Spider',   hp: 22, chase: 4.0, wander: 1.4,  hostile: true,  barY: 0.9,  drop: null, dmg: 2.5, atkCd: 1.25 },
-  skeleton: { name: 'Skeleton Archer', hp: 20, chase: 2.4, wander: 1.0, hostile: true,  barY: 1.6,  drop: 148, dropN: [1, 2], dmg: 3, atkCd: 1.5, ranged: true, sunBurn: true },
+  /* ★ v365：用户要求「大幅降低射程和射速，移动速度也降低」。
+     原：射程 20 格 / 每 1.7 秒一发 / 追速 2.4。现：9 格 / 每 3.4 秒一发 / 追速 1.6，
+     箭速 22 → 18（更好躲），伤害不变（箭 4、近战 3）。保持 6~8 格距离（keepDist）——
+     ⚠ 保持距离必须**明显小于**射程（原来写 [7,9] 正好贴着射程边界，实测它卡在 9.0 格
+     反复进出判定，15 秒只射出 2 发）。 */
+  skeleton: { name: 'Skeleton Archer', hp: 20, chase: 1.6, wander: 1.0, hostile: true, barY: 1.6,  drop: 148, dropN: [1, 2], dmg: 3, atkCd: 1.5, ranged: true, sunBurn: true,
+              keepDist: [6, 8], shootRange: 9, shootCd: 3.4, arrowSpeed: 18 },
   ghost:    { name: 'Ghost',   hp: 18, chase: 2.2, wander: 0.9, hostile: true,  barY: 1.7,  drop: 155, dropN: [1, 1], dmg: 2.5, atkCd: 1.4, float: true, ghostly: true },
   ghostBoss:{ name: 'Ghost King', hp: 140, chase: 2.9, wander: 1.2, hostile: true, barY: 3.1,  drop: 155, dropN: [3, 5], dmg: 6, atkCd: 1.15, float: true, ghostly: true, boss: true },
   // ── 冥界专属 ──
@@ -8102,10 +8108,8 @@ const MOB_DEFS = {
   /* 稀树草原荆棘射手：远程，保持 10~14 格，三连射（每发 3 伤） */
   thornsniper:{ name: 'Thornsniper', hp: 22, chase: 3.4, wander: 0.9, hostile: true, barY: 1.95,
                 drop: 218, dropN: [1, 3], dmg: 3, atkCd: 1.2, ranged: true, burst: 3, keepDist: [10, 14] },
-  /* ── v349：剩下 5 只群系怪 ── */
+  /* ── v349：剩下 4 只群系怪（沙虫 v365 已删除）── */
   /* 沙漠沙虫：钻沙时无敌 + 5.5 速追你，每 3 秒露头 1.2 秒（唯一可打窗口） */
-  sandwyrm:   { name: 'Sandwyrm', hp: 34, chase: 5.5, wander: 1.0, hostile: true, barY: 1.7,
-                drop: 219, dropN: [1, 2], dmg: 5, atkCd: 1.4, burrow: true },
   /* 沼泽潜伏者：水里 6.0 / 岸上 1.2；命中把玩家往下拽 2.5 m/s */
   bogLurker:  { name: 'Bog Lurker', hp: 24, chase: 6.0, wander: 1.0, hostile: true, barY: 1.7,
                 drop: 220, dropN: [1, 2], dmg: 3.5, atkCd: 1.3, waterFast: true, drag: 2.5 },
@@ -8700,19 +8704,6 @@ function mobGeos(kind) {
       for (let y = 13; y <= 18; y++) px(body, -2, y, -3, 0xb08a5a); // 背上的箭筒
     });
     coreY = 18 * MOB_PX; barY = 34.5 * MOB_PX;
-  } else if (kind === 'sandwyrm') {
-    /* ★ v349 沙漠沙虫：分节虫体（无腿）+ 背鳍，沙色；钻地时整个模型隐藏、只留背鳍 */
-    const S1 = 0xd9c087, S2 = 0xb99f6b, S3 = 0x8f7748, FIN = 0xc4425a;
-    box(body, -4, 0, -4, 8, 5, 8, S2, 0.12);                     // 尾段最粗
-    box(body, -3, 5, -3, 6, 5, 6, S1, 0.12);
-    box(body, -3, 10, -2, 6, 4, 5, S1, 0.10);
-    for (let y = 1; y <= 13; y += 3) for (let x = -3; x < 3; x++) px(body, x, y, 4, S3);   // 环纹
-    for (let y = 12; y <= 15; y++) { px(body, 0, y, 4, FIN); px(body, 0, y, 5, FIN); }      // 背鳍
-    box(head, -4, 14, -4, 8, 5, 8, S1, 0.10);                    // 口器
-    for (const x of [-3, 1]) for (let dx = 0; dx < 2; dx++) px(head, x + dx, 17, 4, 0x2a1f10);
-    for (let x = -3; x < 3; x++) px(head, x, 14, 4, 0x5a4222);   // 上颚阴影
-    for (let x = -3; x < 3; x += 2) px(head, x, 15, 4, 0xe8e0c8); // 牙
-    coreY = 7 * MOB_PX; barY = 22 * MOB_PX; headPiv = 14;
   } else if (kind === 'bogLurker') {
     /* ★ v349 沼泽潜伏者：低伏宽肩、长臂拖地，浑身泥浆 */
     const MUD = 0x4a5b34, MUD2 = 0x35421f, WET = 0x6d7f46, EYE = 0xd8e86a;
@@ -9701,7 +9692,7 @@ const MOB_RAD = {
   squirrel: 0.20, deer: 0.50, fox: 0.30, rabbit: 0.22, goat: 0.40, camel: 0.55,
   lizard: 0.30, frog: 0.25, duck: 0.26,
   frostWisp: 0.40, cactusBrute: 0.55, thornsniper: 0.32,
-  sandwyrm: 0.45, bogLurker: 0.38, hollowStag: 0.62, riptideEel: 0.30, cliffRaptor: 0.45,
+  bogLurker: 0.38, hollowStag: 0.62, riptideEel: 0.30, cliffRaptor: 0.45,
 };
 
 /* ---------------- 生物之间硬不重叠 ----------------
@@ -9841,15 +9832,6 @@ function spawnMobAt(kind, x, y, z, opts = {}) {
     m.bow = bow;
   }
   if (def.colossus) { m.dormant = !!def.dormant; m.throwCd = 5 + Math.random() * 5; }
-  /* ★ v349 沙虫：钻地时本体隐藏，只在水面/沙面上露一片背鳍（自己飞的 mesh，跟着 m.p 走） */
-  if (kind === 'sandwyrm') {
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.52, 4),
-                               new THREE.MeshLambertMaterial({ color: 0xc4425a }));
-    fin.rotation.y = Math.PI / 4;
-    fin.visible = false;
-    scene.add(fin);
-    m.fin = fin;
-  }
   m.obj.position.copy(m.p);
   scene.add(m.obj);
   mobs.push(m);
@@ -9892,7 +9874,6 @@ function findBiomeMobSpot(kind) {
     if (h <= CFG.SEA) continue;
     if (getBlock(x, h + 1, z) !== 0 || getBlock(x, h + 2, z) !== 0) continue;
     const top = getBlock(x, h, z);
-    if (kind === 'sandwyrm' && top !== 4) continue;                      // 沙漠沙子
     if (kind === 'hollowStag') {                                         // 深色橡木林
       if (top !== 1) continue;
       const F = forestAt(x, z);
@@ -10126,7 +10107,8 @@ function shootArrow(m, foe) {                   // 骷髅射箭（foe = 最近�
   const from = new THREE.Vector3(m.p.x, m.p.y + 1.15, m.p.z);
   const tgt = foe || { x: player.p.x, y: player.p.y, z: player.p.z, pid: '' };
   const to = new THREE.Vector3(tgt.x, tgt.y + 1.05, tgt.z);
-  spawnArrow(from, to, { dmg: 4, speed: 22, toPid: tgt.pid || '' });
+  const d0 = MOB_DEFS[m.kind] || {};
+  spawnArrow(from, to, { dmg: 4, speed: d0.arrowSpeed || 22, toPid: tgt.pid || '' });
   sfx('place');
 }
 /* 烈焰巨像：扇形三连火球（复用能量弹的发光球模型，但没有「fromPlayer」——会打玩家） */
@@ -10761,11 +10743,12 @@ function updateMobs(dt) {
         if (fdist > approachR) { mx = fdx / (fdist || 1); mz = fdz / (fdist || 1); speed = def.chase; }
         else if (fdist < keep) { mx = -fdx / (fdist || 1); mz = -fdz / (fdist || 1); speed = def.chase * 0.85; }
         m.shootCd = (m.shootCd || 0) - dt;
-        const shootRange = def.keepDist ? def.keepDist[1] + 6 : (def.fireball ? 26 : 20);
+        /* ★ v365：射程/冷却可以按怪单独配（def.shootRange / def.shootCd）；不配就是老默认值 */
+        const shootRange = def.shootRange || (def.keepDist ? def.keepDist[1] + 6 : (def.fireball ? 26 : 20));
         if (m.shootCd <= 0 && fdist < shootRange && sightClear(m.p, foeR)) {
           if (def.fireball) { m.shootCd = 2.2; shootFireball(m, foeR); }     // 烈焰巨像：火球
           else if (def.burst) { m.shootCd = 1.9; m.burstN = def.burst; m.burstT = 0; }   // ★ v347 荆棘射手：攒一轮三连射
-          else { m.shootCd = 1.7; shootArrow(m, foeR); }
+          else { m.shootCd = def.shootCd || 1.7; shootArrow(m, foeR); }
         }
         /* ★ v347 三连射：0.14 秒一发，玩家听得出来也要躲得开（不是同帧三发糊脸） */
         if (m.burstN > 0) {
@@ -10898,23 +10881,6 @@ function updateMobs(dt) {
     }
     if (asleep) { mx = 0; mz = 0; speed = 0; }        // 沉睡：原地不动
     /* ══ ★ v349：5 只群系专属怪的专属行为（都在 mx/mz/speed 定稿之前改） ══ */
-    if (def.burrow) {
-      /* 沙虫：钻地 3 秒（**无敌**、5.5 速追你、模型藏起来只留背鳍）→ 露头 1.2 秒（唯一能打的窗口） */
-      if (m.burrow === undefined) { m.burrow = true; m.burrowT = 1.6; }
-      m.burrowT -= dt;
-      if (m.burrowT <= 0) {
-        m.burrow = !m.burrow;
-        m.burrowT = m.burrow ? 3.0 : 1.2;
-        if (!m.burrow) { m.v.y = 3.2; try { splashAt(m.p.x, m.p.y + 0.3, m.p.z, 8); } catch (e) {} }
-      }
-      m.invuln = m.burrow;
-      if (m.obj) m.obj.visible = !m.burrow;
-      if (m.fin) {
-        m.fin.visible = m.burrow;
-        m.fin.position.set(m.p.x, m.p.y + 0.1, m.p.z);
-        if (m.obj) m.fin.rotation.y = m.obj.rotation.y;
-      }
-    }
     if (def.waterFast || def.waterOnly) {
       /* 泥沼潜伏者 / 激流鳗：水里才是它的天下，上岸就基本动不了 */
       const inW = getBlock(Math.floor(m.p.x), Math.floor(m.p.y + 0.3), Math.floor(m.p.z)) === 5;
@@ -11109,10 +11075,7 @@ function updateMobs(dt) {
     if (countKind('thornsniper') < 2 && Math.random() < dt * 0.14) {
       const s = findBiomeMobSpot('thornsniper'); if (s) spawnMobAt('thornsniper', s.x, s.y, s.z);
     }
-    /* ★ v349：剩下 5 只 */
-    if (countKind('sandwyrm') < 2 && Math.random() < dt * 0.14) {
-      const s = findBiomeMobSpot('sandwyrm'); if (s) spawnMobAt('sandwyrm', s.x, s.y, s.z);
-    }
+    /* ★ v349：剩下 4 只（沙虫 v365 删除）*/
     if (countKind('bogLurker') < 2 && Math.random() < dt * 0.12) {
       const s = findWaterMobSpot('bogLurker'); if (s) spawnMobAt('bogLurker', s.x, s.y, s.z);
     }
