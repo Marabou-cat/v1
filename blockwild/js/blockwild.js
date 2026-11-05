@@ -2161,6 +2161,26 @@ function iconURL(id) {
 const chunks = new Map();
 const edits = new Map();      // "x,y,z" -> id
 const dirty = new Set();
+/* ★ v363：网格重建的统计 + 「装饰性改动」合并窗口。
+   · MESHSTAT 记录每秒到底重建了多少块（验收用：GAME.debug.meshStats()）
+   · COS_COALESCE：水流/作物生长这类**自己会动的**改动不立刻重建区块，同一个区块
+     最快每 N 毫秒才重建一次。以前流水每改一格就把整块（192 层）重建一遍，
+     贴着瀑布/河边站着 = 每秒几十次整块重建（每块 6~7ms），这是「在水边特别卡」的真凶。
+     玩家自己挖/放方块不受这个限制（noNet=false 会清掉 cosmetic 标记，立刻重建）。 */
+const MESHSTAT = { finish: 0, gen: 0, skipCos: 0, editWait: 0, from: performance.now() };
+/* ★ v363：玩家亲手挖/放的区块单独一个队列，**插队**重建。
+   实测（headless 10fps + 旁边一道瀑布）：从 setBlock 到这块网格重建完成要
+   1.3~15.5 秒（中位 1.9s）—— 因为 dirty 里排着一堆水流/邻块补面的区块，
+   而一帧只推进 1~2 块。手感上就是「方块挖掉了但半天不消失」。
+   编辑队列永远先处理，单块延迟回到 1~2 帧。 */
+const editDirty = new Set();
+let COS_COALESCE = 130;
+function meshRateReset() { MESHSTAT.finish = 0; MESHSTAT.gen = 0; MESHSTAT.skipCos = 0; MESHSTAT.from = performance.now(); }
+function meshRate() {
+  const s = Math.max(0.2, (performance.now() - MESHSTAT.from) / 1000);
+  return { finish: MESHSTAT.finish, gen: MESHSTAT.gen, skipCos: MESHSTAT.skipCos, secs: +s.toFixed(1),
+    finishPerSec: +(MESHSTAT.finish / s).toFixed(2), genPerSec: +(MESHSTAT.gen / s).toFixed(2), cosCoalesce: COS_COALESCE };
+}
 
 function ckey(cx, cz) { return cx + ',' + cz; }
 function markDirty(cx, cz) { const c = chunks.get(ckey(cx, cz)); if (c) dirty.add(c); }
@@ -3070,6 +3090,7 @@ function getChunk(cx, cz) {
   let c = chunks.get(k);
   if (!c) {
     const blocks = genChunk(cx, cz);
+    MESHSTAT.gen++;
     c = { cx, cz, blocks, mesh: null, glass: null, water: null, ready: false };
     // 应用存档里对该区块的改动（走按区块的索引，避免每次生成都全表扫描 + split）
     const bucket = editsByChunk.get(cx + ',' + cz);
@@ -3106,6 +3127,11 @@ function peekBlock(x, y, z) {
   return c.blocks[(y * CFG.CH + (z & 15)) * CFG.CH + (x & 15)];
 }
 const isSolid = id => id !== 0 && id !== 5 && !(BLOCKS[id] && (BLOCKS[id].plant || BLOCKS[id].liquid));   // 作物/液体可穿过
+/* ★ v363：「这个方块挡不挡别人的面」。水/玻璃/半格（床）/门/十字植物/箱子（独立模型）都不挡。
+   以前这段是 stepChunkMesh 里**每个非空气方块 new 一次**的闭包（一块 1~4 万个函数对象），
+   白白制造分配与 GC 压力；现在提成模块作用域的纯函数。 */
+const occlBlock = (v) => v !== 0 && v !== 5 && v !== 22 &&
+  !(BLOCKS[v] && (BLOCKS[v].half || BLOCKS[v].door || BLOCKS[v].cross || BLOCKS[v].chest));
 
 // 存档改动按区块分桶：key "cx,cz" → Map(区块内线性下标 → 方块 id)
 const editsByChunk = new Map();
@@ -3143,7 +3169,9 @@ function setBlock(x, y, z, id, record = true, noNet = false) {
     edits.set(x + ',' + y + ',' + z, id);
     indexEdit(x, y, z, id);
   }
+  c.cosmetic = !!noNet;      // ★ v363：水流/作物生长 → 允许延迟合并重建；玩家亲手改 → 立刻重建
   dirty.add(c);
+  if (!noNet) editDirty.add(c);      // ★ v363：玩家编辑 → 插队（see editDirty 注释）
   const lx = x & 15, lz = z & 15;
   if (lx === 0) markDirty(cx - 1, cz);
   if (lx === 15) markDirty(cx + 1, cz);
@@ -4314,8 +4342,9 @@ function stepChunkMesh(chunk, yTo, deadline) {           // 推进到第 yTo 层
        同一份规则也修了玻璃：玻璃以前挨着水就剔自己的面 → 缸壁会凭空消失一层。 */
     /* ★ v357：chest 加进「不遮挡」名单 —— 箱子是独立小模型（还带开盖动画），
        以前 occl(18)=true 会把相邻方块的朝箱面剔掉，箱子四周的缝就能看穿到里面/后面（透视 bug）。 */
-    const occl = (v) => v !== 0 && v !== 5 && v !== 22 &&
-      !(BLOCKS[v] && (BLOCKS[v].half || BLOCKS[v].door || BLOCKS[v].cross || BLOCKS[v].chest));
+    /* occl 以前是写在这里的闭包 —— 每个非空气方块都会 new 一个函数（一块 1~4 万个），
+       纯粹的分配/GC 噪音。v363 提到模块作用域（见 occlBlock）。 */
+    const occl = occlBlock;
     const solidTop = def.half || 1;                       // 床这类半格方块
     let wch = null;                                       // 水面角点高度缓存
     for (let fi = 0; fi < 6; fi++) {
@@ -4440,6 +4469,9 @@ function finishChunkMesh(chunk) {
   if (nw) { nw.renderOrder = 2; scene.add(nw); }
   if (np) { np.renderOrder = 3; scene.add(np); }
   chunk.ready = true;
+  chunk.meshAt = performance.now();     // ★ v363：给 COS_COALESCE 用
+  chunk.cosmetic = false;
+  MESHSTAT.finish++;
   chunk.doors = doorCells;
   chunk.chestCells = j.chestCells;
   for (const t of j.torches) { const q = t.split(','); registerTorch(+q[0], +q[1], +q[2]); }
@@ -12255,7 +12287,7 @@ function disposeAllChunks() {                      // 换维度：所有区块�
     if (c.water) { scene.remove(c.water); c.water.geometry.dispose(); }
     if (c.plant) { scene.remove(c.plant); c.plant.geometry.dispose(); }
   }
-  chunks.clear(); dirty.clear();
+  chunks.clear(); dirty.clear(); editDirty.clear();
   invalidateChunkCache();                          // 缓存里那个区块对象已经没了
   for (const m of mobs) if (m.obj) scene.remove(m.obj);
   mobs.length = 0;
@@ -13420,6 +13452,7 @@ function streamChunks() {
       if (c.water) { scene.remove(c.water); c.water.geometry.dispose(); }
       if (c.plant) { scene.remove(c.plant); c.plant.geometry.dispose(); }
       dirty.delete(c);
+      editDirty.delete(c);                     // ★ v363：插队队列也要跟着清，否则走出去的区块会滞留在里面
       unregisterTorchChunk(c.cx, c.cz);        // ★ 火把桶不再只涨不落
       dropChunkGenMeta(c.cx, c.cz);            // ★ 结构 meta（门朝向/楼梯坡口）随区块一起释放
       chunks.delete(k);
@@ -13454,15 +13487,28 @@ function streamChunks() {
   const deadline = tStart + budgetMs;
   const dDeadline = tStart + Math.max(budgetMs, 5.5);
   const finCap = budgetMs >= 6 ? 2 : 1;
-  for (const c of dirty) {
-    if (rebuilt >= 2 || fins >= finCap) break;
-    if (performance.now() > dDeadline) break;
-    const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
-    if (d > CFG.LOAD_R + 1) { dirty.delete(c); continue; }
-    if (!c.job) startChunkMesh(c);
-    stepChunkMesh(c, CFG.WH, dDeadline);              // 分片推进（超时保留断点）
-    if (c.job && c.job.y >= CFG.WH) { finishChunkMesh(c); dirty.delete(c); rebuilt++; fins++; }
-  }
+  const cosNow = performance.now();
+  /* ★ v363：玩家编辑插队 —— 两趟：先 editDirty（挖/放的那块），再 dirty（水流/邻块补面）。
+     以前只有一个 Set，编辑排在水流后面 → 实测最坏 15 秒才重建完。 */
+  const pumpDirty = (set, isEdit) => {
+    for (const c of set) {
+      if (rebuilt >= 2 || fins >= finCap) return;
+      if (performance.now() > dDeadline) return;
+      const d = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
+      if (d > CFG.LOAD_R + 1) { dirty.delete(c); set.delete(c); continue; }
+      /* ★ v363：水流/作物这种「自己会动」的改动，同一块最快每 COS_COALESCE 毫秒才重建一次。
+         玩家自己挖/放的方块 c.cosmetic=false，不受影响。 */
+      if (!isEdit && c.cosmetic && COS_COALESCE > 0 && cosNow - (c.meshAt || 0) < COS_COALESCE) { MESHSTAT.skipCos++; continue; }
+      if (!c.job) startChunkMesh(c);
+      stepChunkMesh(c, CFG.WH, dDeadline);            // 分片推进（超时保留断点）
+      if (c.job && c.job.y >= CFG.WH) {
+        finishChunkMesh(c);
+        dirty.delete(c); set.delete(c); rebuilt++; fins++;
+      }
+    }
+  };
+  if (editDirty.size) pumpDirty(editDirty, true);
+  if (dirty.size) pumpDirty(dirty, false);
 
   /* ③ 建新区块：**最近优先、一次把一块推进到底**（受 deadline 约束）。
      v362 改动：
@@ -14569,6 +14615,7 @@ function rebuildRoomEditedChunks(list) {
     for (const m of [old.mesh, old.glass, old.water, old.plant])
       if (m) { scene.remove(m); try { m.geometry.dispose(); } catch (e) {} }
     chunks.delete(tk);
+    dirty.delete(old); editDirty.delete(old);     // ★ v363：两个队列里都可能挂着这个旧对象
     dirty.add(getChunk(old.cx, old.cz));      // 重新生成 → 自动套 editsByChunk，网格由 streamChunks 建
     n++;
   }
@@ -16099,6 +16146,9 @@ window.GAME = {
       return t;
     },
     dirtySize: () => dirty.size,
+    meshStats: () => meshRate(),
+    meshStatsReset: () => { meshRateReset(); return meshRate(); },
+    cosCoalesce: (ms) => { if (typeof ms === 'number') COS_COALESCE = Math.max(0, ms | 0); return COS_COALESCE; },
     chunkOf: (x, z) => { const c = chunks.get((x >> 4) + ',' + (z >> 4)); return c ? { ready: c.ready, job: !!c.job, jobY: c.job ? c.job.y : null, verts: c.mesh ? c.mesh.geometry.attributes.position.count : 0, inDirty: dirty.has(c) } : null; },
     streamOnce: () => { const t = performance.now(); streamChunks(); return +(performance.now() - t).toFixed(2); },
     meshState: () => ({ jobs: [...chunks.values()].filter(c => c.job).length, ready: [...chunks.values()].filter(c => c.ready).length, chunks: chunks.size }),
