@@ -7466,6 +7466,26 @@ function mtFor(cellX, cellZ) {
   return out;
 }
 function mtKeyOf(o) { return Math.floor(o.cx / MT_CELL) + ',' + Math.floor(o.cz / MT_CELL); }
+/* ★ v370：房主 → 全房广播预警状态（客人据此弹 toast / 显示召唤） */
+function mtBroadcast(key, st) {
+  if (!(NET && NET.active && NET.isHost)) return;
+  const msg = { k: key, w: st.warn | 0, s: st.summoned ? 1 : 0 };
+  if (NET.ws && NET.ws.readyState === 1) { try { NET.ws.send(JSON.stringify({ t: 'mtst', ...msg })); } catch (e) {} }
+  netLastMt = { t: performance.now(), msg };
+}
+let netLastMt = null;
+function mtApplyRemote(m) {                     // 客人收到房主的预警状态
+  if (!m || !m.k) return;
+  const st = mtStateFor(m.k);
+  const before = st.warn | 0;
+  st.warn = Math.max(st.warn | 0, m.w | 0);
+  if (m.s) st.summoned = true;
+  if ((st.warn | 0) > before && !m.s && st.warn < MT_WARN_MAX) {
+    sfx('hurt');
+    toast(`The tentacle sensor shrieks... (${st.warn}/${MT_WARN_MAX})`, 2.4);
+  }
+  if (m.s && !before) toast('A Void Stalker has been summoned in the crater', 3.5);
+}
 function mtStateFor(key) {
   let st = mtState.get(key);
   if (!st) { st = { warn: 0, summoned: false, cd: 0 }; mtState.set(key, st); }
@@ -7473,7 +7493,14 @@ function mtStateFor(key) {
 }
 /* 玩家制造声响：挖/放方块、开打时把坐标丢进这个小队列，由 meteorTick 消费 */
 let mtNoise = [];
-function mtNoteNoise(x, y, z) { if (mtNoise.length < 16) mtNoise.push([x | 0, y | 0, z | 0]); }
+/* ★ v370 联机：陨石坑的预警是**房主权威**。
+   客人敲方块/打怪时，这些动作本来就会同步给房主（方块编辑走 applyServerBlock、攻击走 'hit'），
+   所以只要在房主那两个入口里各补一句 mtNoteNoise 就行 —— 不需要新协议，轮询模式也照样生效。
+   客人自己不再本地排队（他们不模拟预警，排了也没人消费）。 */
+function mtNoteNoise(x, y, z) {
+  if (NET && NET.active && !NET.isHost) return;          // 客人：交给房主结算
+  if (mtNoise.length < 16) mtNoise.push([x | 0, y | 0, z | 0]);
+}
 function mtSummon(o, key) {
   /* ⚠ 祭坛四角 (±2,±2) 就是石柱：别把怪刷在 (x+2, z+2) —— force 刷怪不查空间，
      实测那样会让它整只卡在石头里不动（看起来像 AI 坏了）。这里挑台子外面、并往上找空位。 */
@@ -7510,6 +7537,7 @@ function meteorTick() {
       sfx('hurt');
       toast(`The tentacle sensor shrieks... (${st.warn}/${MT_WARN_MAX})`, 2.4);
     }
+    mtBroadcast(key, st);                                               // ★ v370 同步给全房
   }
 }
 /* 这个箱子是不是陨石坑的：'meteor' | null */
@@ -16354,7 +16382,17 @@ window.GAME = {
         const o = mtFor(ccx + dx, ccz + dz);
         if (!o) continue;
         const d = Math.round(Math.hypot(sp.x - o.cx, sp.z - o.cz));
-        if (!best || d < best.dist) best = { dist: d, cx: o.cx, cz: o.cz, gy: o.gy, ry: o.ry, ops: o.ops };
+        if (!best || d < best.dist) {
+          /* 视线：从出生点眼高看到坑唇（gy+2），中间地形不得高于这条线 */
+          let vis = true;
+          const eye = sp.h + 2, top = o.gy + 2;
+          for (let i = 1; i < 18 && vis; i++) {
+            const t = i / 18;
+            const hx = Math.round(sp.x + (o.cx - sp.x) * t), hz = Math.round(sp.z + (o.cz - sp.z) * t);
+            if (heightAt(hx, hz) > eye + (top - eye) * t - 1) vis = false;
+          }
+          best = { dist: d, cx: o.cx, cz: o.cz, gy: o.gy, ry: o.ry, ops: o.ops, visible: vis };
+        }
       }
       SEED = oldSeed;
       clearAll();
@@ -16561,9 +16599,13 @@ window.GAME = {
       let alive = 0;
       for (const sp of o.sensors) if (peekBlock(sp[0], sp[1], sp[2]) === MT_SENSOR) alive++;
       const m = mobs.find(x => x.kind === MT_STALKER && !x.dying);
+      const g = (!m && NET && NET.active && NET.ghosts) ? Array.from(NET.ghosts.values()).find(x => x.kind === MT_STALKER) : null;
       return { key: mtKeyOf(o), warn: st.warn, summoned: st.summoned, sensors: o.sensors.length,
-               sensorsAlive: alive, stalker: m ? { hp: Math.round(m.hp), seen: !!m.seen,
-               dist: Math.round(Math.hypot(m.p.x - player.p.x, m.p.z - player.p.z)) } : null };
+               sensorsAlive: alive,
+               stalker: m ? { hp: Math.round(m.hp), seen: !!m.seen, ghost: false,
+                              dist: Math.round(Math.hypot(m.p.x - player.p.x, m.p.z - player.p.z)) }
+                        : (g ? { hp: g.hp, seen: !!g.seen, ghost: true,
+                                 dist: Math.round(Math.hypot(g.p.x - player.p.x, g.p.z - player.p.z)) } : null) };
     },
     meteorNoise: (n = 1) => {
       const o = mtFor(Math.floor(player.p.x / MT_CELL), Math.floor(player.p.z / MT_CELL));
@@ -18783,6 +18825,8 @@ function mpEnterAccountWorld(code) {
 
   /* ---------- 应用服务端方块 ---------- */
   function applyServerBlock(x, y, z, b, m) {
+    /* ★ v370：房主收到客人改方块 → 陨石坑的触手传感器照样能听见 */
+    if (net.isHost) mtNoteNoise(x, y, z);
     net.applying = true;
     try {
       setBlock(x, y, z, b, false);
@@ -18947,6 +18991,7 @@ function mpEnterAccountWorld(code) {
         if (net.isHost) {                          // 只有主机的怪是真的
           for (const mo of (typeof mobs !== 'undefined' ? mobs : [])) {
             if (mo.nid === m.i && !mo.dying) {
+              mtNoteNoise(mo.p.x, mo.p.y, mo.p.z);   // ★ v370：客人在坑里打怪也是声响
               mo.hp -= (m.d || 1); mo.flash = 0.24; mo.aggro = 16;
               /* ★ 客人打怪也要有击退：以前这里只扣血，主机的本地挥砍却推 7.4 格/秒，
                  客人看到的动物就"打不动"。方向用客人报来的 kx/kz（我 → 怪）。 */
@@ -18985,6 +19030,8 @@ function mpEnterAccountWorld(code) {
         if (n > 40) toast('Map update: +' + n + ' slots', 1.5);
       } else if (m.t === 'mach') {                // 别人点了炉子：我这边没在烧就接上（同一台共享的炉）
         if (m.kind === 'furnace' && !furnaceJob && m.v && m.v.out) adoptFurnaceJob(m.v);
+      } else if (m.t === 'mtst') {                // ★ v370 房主广播的陨石坑预警状态
+        mtApplyRemote(m);
       } else if (m.t === 'time') {                // 房主的昼夜时间
         /* ★ 老守护进程发 {v}、新的发 {time}：两个都收 —— 以前只认 v，
            而服务端发的是 {t:'time', time:...} → 这条分支等于从来没生效过（客人时间永远不同步）。 */
