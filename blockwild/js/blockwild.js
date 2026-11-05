@@ -7402,17 +7402,33 @@ function mtFor(cellX, cellZ) {
       const cbot = Math.max(5, base - RD);                     // 坑心地面高度
 
       /* ② 地下巨构：53×53 大殿（天花板高度起伏）+ 四向翼区 + 走廊 */
-      const HX = 26, HH = 14;                                  // 半宽 / 基准净高
-      for (let dx = -HX - 2; dx <= HX + 2; dx++) for (let dz = -HX - 2; dz <= HX + 2; dz++) {
+      /* ★ v373 洞穴化：不再做「方方正正 + 2 格厚墙」的机房。
+         · 边界由噪声决定（18~30 格，不是直线）
+         · 地板在 ry ±2 起伏，天花板在 10~16 起伏，顶上不再回填（天然岩层就是天花板）
+         · 边缘撒钟乳石/石笋/碎石，只在零散位置保留深板岩砌块（塌了一半的墙）
+         · 祭坛区 |dx|,|dz| < 9 保持平整（祭坛、宝箱、传感器不能悬空） */
+      const HX = 26, HH = 14;
+      const caveN = (x, z) => Math.sin(x * 0.27) * Math.cos(z * 0.23)
+        + 0.55 * Math.sin((x + z) * 0.11 + 1.7) + 0.35 * Math.sin(x * 0.63 - z * 0.51);
+      for (let dx = -HX - 5; dx <= HX + 5; dx++) for (let dz = -HX - 5; dz <= HX + 5; dz++) {
         const ed = Math.max(Math.abs(dx), Math.abs(dz));
-        if (ed <= HX) {
-          const wave = Math.round(1.6 + 1.6 * Math.sin(dx * 0.21) * Math.cos(dz * 0.17));   // 0..3 起伏
-          const hh = HH - wave;
-          put(cx + dx, ry, cz + dz, (Math.abs(dx) * 3 + Math.abs(dz) * 5) % 11 === 0 ? 9 : MT_ROCK);
-          for (let y = ry + 1; y <= ry + hh; y++) carve(cx + dx, y, cz + dz);
-          put(cx + dx, ry + hh + 1, cz + dz, 50);
-        } else {
-          for (let y = ry; y <= ry + HH + 2; y++) put(cx + dx, y, cz + dz, 50);
+        const edge = HX - Math.round(2 + 2.5 * caveN(dx * 1.6 + 7, dz * 1.6 - 4));      // 18~30
+        if (ed > edge) {
+          if (ed <= edge + 2 && rnd() < 0.26) put(cx + dx, ry + Math.floor(rnd() * HH), cz + dz, 50);
+          continue;
+        }
+        const core = Math.abs(dx) < 9 && Math.abs(dz) < 9;
+        const floorY = core ? ry : ry + Math.round(clamp(caveN(dx * 0.7, dz * 0.7) * 2.2, -2, 2));
+        const ceilY = ry + (core ? HH : HH - 1 + Math.round(caveN(dx * 0.9 + 3, dz * 0.9 + 11) * 3));
+        const fl = (Math.abs(dx) * 3 + Math.abs(dz) * 5) % 11 === 0 ? 9 : MT_ROCK;
+        put(cx + dx, floorY, cz + dz, fl);
+        if (floorY > ry) for (let y = ry + 1; y <= floorY; y++) put(cx + dx, y, cz + dz, fl);   // 抬高
+        else for (let y = floorY + 1; y <= ry; y++) carve(cx + dx, y, cz + dz);                 // 下陷
+        for (let y = floorY + 1; y <= ceilY; y++) carve(cx + dx, y, cz + dz);                   // 净空
+        if (!core) {
+          if (rnd() < 0.055) for (let k = 1; k <= 1 + Math.floor(rnd() * 3); k++) put(cx + dx, ceilY - k + 1, cz + dz, 50);  // 钟乳石
+          if (rnd() < 0.05) for (let k = 1; k <= 1 + Math.floor(rnd() * 2); k++) put(cx + dx, floorY + k, cz + dz, 50);      // 石笋
+          if (rnd() < 0.05) put(cx + dx, floorY + 1, cz + dz, 9);                                                             // 碎石
         }
       }
       /* 竖井穿过天花板接到大殿 */
@@ -7528,6 +7544,7 @@ function mtFor(cellX, cellZ) {
         const a = (i / 12) * Math.PI * 2 + 0.4;
         const px2 = cx + Math.round(Math.cos(a) * 19), pz2 = cz + Math.round(Math.sin(a) * 19);
         const top = ry + HH - 1 - (i % 4);
+        put(px2, ry - 3, pz2, 50); put(px2, ry - 2, pz2, 50); put(px2, ry - 1, pz2, 50);
         for (let y = ry + 1; y <= top; y++) put(px2, y, pz2, i % 2 ? 50 : MT_ROCK);
         put(px2 + 1, ry + 1, pz2, 38);
       }
@@ -7536,6 +7553,7 @@ function mtFor(cellX, cellZ) {
       for (const [sx, sz] of [[-17, -17], [17, -17], [-17, 17], [17, 17]]) {
         const bx = cx + sx, bz = cz + sz;
         for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) {
+          for (let y = ry - 3; y < ry; y++) put(bx + dx, y, bz + dz, 9);            // 垫基（地板起伏）
           put(bx + dx, ry, bz + dz, (dx + dz) % 3 === 0 ? 9 : MT_ROCK);
           for (let y = ry + 1; y <= ry + 5; y++) {
             const wall = Math.abs(dx) === 4 || Math.abs(dz) === 4;
@@ -7593,6 +7611,7 @@ function mtFor(cellX, cellZ) {
       for (let i = 0; i < 18; i++) {
         const a = (i / 18) * Math.PI * 2 + 0.3, rr = 10 + (i % 4) * 4;
         const sx2 = cx + Math.round(Math.cos(a) * rr), sz2 = cz + Math.round(Math.sin(a) * rr);
+        put(sx2, ry - 2, sz2, MT_ROCK); put(sx2, ry - 1, sz2, MT_ROCK);             // 垫基
         put(sx2, ry + 1, sz2, MT_SENSOR);
         sensors.push([sx2, ry + 1, sz2]);
       }
@@ -7640,6 +7659,20 @@ function mtNearAnyCrater() {
     }
   }
   return mtNearCache.hit;
+}
+/* ★ v373：客人的脚步 —— 房主从**已有的位置快照**里推算位移，不需要新协议
+   （所以 WS 和轮询两种联机模式都生效）。传送/静止会跳过，步幅和本地一致。 */
+const mtRemoteAcc = new Map();          // pid -> { x, z, acc }
+function mtRemoteFoot(x, y, z, flags, pid) {
+  const id = pid || 'anon';
+  let st = mtRemoteAcc.get(id);
+  if (!st) { mtRemoteAcc.set(id, { x, z, acc: 0 }); return; }
+  const d = Math.hypot(x - st.x, z - st.z);
+  st.x = x; st.z = z;
+  if (d > 4 || d < 0.02) return;                          // 传送 / 站着不动
+  st.acc += d;
+  const run = (flags & 2) !== 0;                          // 位 2 = 疾跑（HUD 里 spd > WALK*0.95）
+  if (st.acc >= (run ? 1.15 : 1.6)) { st.acc = 0; mtNoteNoise(x, y, z); }
 }
 function mtFootstep(dt) {
   if (player.fly || !player.onGround || player.inWater) return;
@@ -7724,6 +7757,18 @@ function mtApplyRemote(m) {                     // 客人收到房主的预警�
   if ((st.warn | 0) > before && !m.s && st.warn < MT_WARN_MAX) {
     sfx('hurt');
     toast(`The tentacle sensor shrieks... (${st.warn}/${MT_WARN_MAX})`, 2.4);
+    /* 客人这边也放一圈红波：找自己附近最近的传感器飞过去 */
+    const ccx = Math.floor(player.p.x / MT_CELL), ccz = Math.floor(player.p.z / MT_CELL);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      const o = mtCache.get((ccx + dx) + ',' + (ccz + dz));
+      if (!o) continue;
+      let bd = 34, bs = null;
+      for (const sp of o.sensors) {
+        const d = Math.hypot(sp[0] - player.p.x, sp[2] - player.p.z);
+        if (d < bd) { bd = d; bs = sp; }
+      }
+      if (bs) { mtRippleTo(bs[0], bs[1], bs[2]); return; }
+    }
   }
   if (m.s && !before) toast('A Void Stalker has been summoned in the crater', 3.5);
 }
@@ -16867,6 +16912,9 @@ window.GAME = {
       return { noiseBefore: before, noiseAfter: mtNoise.length, near: mtNearAnyCrater() };
     },
     mtRipples: () => mtRipples.length,
+    pid: () => (typeof NET !== 'undefined' && NET ? NET.id : null),
+    mtRemoteDbg: () => ({ size: mtRemoteAcc.size, isHost: !!(typeof NET !== 'undefined' && NET && NET.isHost),
+                          entries: Array.from(mtRemoteAcc.entries()).slice(0, 3) }),
     mtRippleDemo: (dur = 6) => {                       // 截图用：放一个慢速红波
       const ccx = Math.floor(player.p.x / MT_CELL), ccz = Math.floor(player.p.z / MT_CELL);
       for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
@@ -19223,6 +19271,7 @@ function mpEnterAccountWorld(code) {
         net.snaps++; net.lastSnap = performance.now();
         for (const p of (m.u || [])) {
           if (p.i === net.id) continue;
+          mtRemoteFoot(p.x, p.y, p.z, p.f | 0, p.i);      // ★ v373 客人的脚步声（客人端调用无害：噪声在本地会被丢掉）
           const r = ensureRemote(p);
           const u = r.obj.userData;
           u.flags = p.f | 0; u.pitch = +p.q || 0;      // 挖掘/疾跑/腾空 状态位 + 俯仰
