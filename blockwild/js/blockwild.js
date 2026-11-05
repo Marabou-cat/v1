@@ -11656,7 +11656,7 @@ function recipeCat(r) {
 }
 function canCraft(r) {
   if (r.tier === 1 && !nearCraftingTable()) return false;
-  return Object.entries(r.need).every(([id, n]) => countOf(+id) >= n);
+  return Object.entries(r.need).every(([id, n]) => ingCount(+id) >= n);
 }
 function renderCraftFilter() {
   const bar = hud.craftFilter;
@@ -11710,9 +11710,9 @@ function renderCraftDetail() {
   const ok = canCraft(r);
   const tableOk = r.tier !== 1 || hasTable;
   const rows = Object.entries(r.need).map(([id, n]) => {
-    const bid = +id, have = countOf(bid), short = have < n;
-    return `<div class="req${short ? ' short' : ''}"><img src="${iconURL(bid)}" alt="">
-      <span>${nameOf(bid)}</span><b>${Math.min(have, n)}</b><span class="of">/ ${n}</span></div>`;
+    const bid = +id, have = ingCount(bid), short = have < n;
+    return `<div class="req${short ? ' short' : ''}"><img src="${ingIcon(bid)}" alt="">
+      <span>${ingName(bid)}</span><b>${Math.min(have, n)}</b><span class="of">/ ${n}</span></div>`;
   }).join('');
   const label = ok ? `Craft  (${r.n}×)` : (tableOk ? 'Missing materials' : 'Needs a Crafting Table');
   box.innerHTML = `<div class="hd"><img src="${iconURL(r.out)}" alt="">
@@ -11724,6 +11724,38 @@ function renderCraftDetail() {
   if (btn && ok) btn.onclick = () => craft(r);
 }
 // tier 1 = 必须站在已放置的工作台旁边才能做（"大工具"）
+/* ★ v367：木板 / 原木「任意种类」分组。
+   6 种木板（8 橡木 / 29 云杉 / 31 白桦 / 82 金合欢 / 84 深色橡木 / 86 仙人掌木）与 6 种原木，
+   在任何「木质通用」配方里可以互相顶替；熔炉里也都能当燃料；木头加工器也吃任意原木。
+   实现：need / FUEL_DEFS 里用负数伪 id 表示分组，匹配与扣料统一走 ingCount / ingTake。 */
+const PLANK_IDS = [8, 29, 31, 82, 84, 86];
+const LOG_IDS = [6, 28, 30, 81, 83, 85];
+const ANY_PLANK = -1, ANY_LOG = -2;
+const ING_GROUP = { '-1': PLANK_IDS, '-2': LOG_IDS };
+function ingCount(id) {
+  const g = ING_GROUP[id];
+  if (!g) return countOf(id);
+  let n = 0;
+  for (const k of g) n += countOf(k);
+  return n;
+}
+function ingTake(id, n) {                       // 返回实际扣掉的数量
+  const g = ING_GROUP[id];
+  if (!g) { takeItem(id, n); return n; }
+  let left = n;
+  for (const k of g) {                          // 按固定顺序扣（先橡木再别的），扣完为止
+    if (left <= 0) break;
+    const have = countOf(k);
+    if (!have) continue;
+    const cut = Math.min(have, left);
+    takeItem(k, cut);
+    left -= cut;
+  }
+  return n - left;
+}
+const ingName = id => id === ANY_PLANK ? 'Any Planks' : id === ANY_LOG ? 'Any Log' : nameOf(id);
+const ingIcon = id => iconURL(id === ANY_PLANK ? 8 : id === ANY_LOG ? 6 : id);
+
 const RECIPES = [
   { out: 8, n: 4, need: { 6: 1 } },
   /* v324：以前只有橡木→木板，云杉/白桦原木根本做不成木板（摆着好看没用）。
@@ -11741,15 +11773,15 @@ const RECIPES = [
   { out: 213, n: 1, need: { 84: 4 } },     // 深色橡木船
   { out: 214, n: 1, need: { 86: 4 } },     // 仙人掌木船
   { out: 206, n: 1, need: { 105: 1, 125: 1 }, tier: 1 },      // 钻石苹果：苹果 + 钻石（工作台）
-  { out: 104, n: 4, need: { 8: 2 } },
-  { out: 10, n: 1, need: { 8: 4 } },
+  { out: 104, n: 4, need: { '-1': 2 } },     // 木棍：任意木板 ×2（v367）
+  { out: 10, n: 1, need: { '-1': 4 } },      // 工作台：任意木板
   { out: 124, n: 1, need: { 107: 3 } },
   { out: 19, n: 1, need: { 9: 8 }, tier: 1 },
-  { out: 100, n: 1, need: { 8: 3, 104: 2 }, tier: 1 },
-  { out: 200, n: 1, need: { 8: 3, 104: 2 }, tier: 1 },
+  { out: 100, n: 1, need: { '-1': 3, 104: 2 }, tier: 1 },    // 木镐：任意木板
+  { out: 200, n: 1, need: { '-1': 3, 104: 2 }, tier: 1 },    // 木斧：任意木板
   { out: 101, n: 1, need: { 9: 3, 104: 2 }, tier: 1 },
   { out: 201, n: 1, need: { 9: 3, 104: 2 }, tier: 1 },
-  { out: 102, n: 1, need: { 8: 2, 104: 1 }, tier: 1 },
+  { out: 102, n: 1, need: { '-1': 2, 104: 1 }, tier: 1 },    // 木剑：任意木板
   { out: 103, n: 1, need: { 9: 2, 104: 1 }, tier: 1 },
   // ── 铜器：石 → 铜 → 铁的中间档（铜镐够格挖铁矿，钻石矿仍要铁镐）──
   { out: 163, n: 1, need: { 162: 3, 104: 2 }, tier: 1 },
@@ -11763,7 +11795,7 @@ const RECIPES = [
   { out: 194, n: 1, need: { 193: 1, 179: 1 }, tier: 3 },   // 噩梦之心 + 冥界钢剑 → 噩梦之刃
   // ── 电路系统：铜 → 电线 / 电路板 → 充电器 + 四档能量炮 ──
   { out: 186, n: 4, need: { 162: 1 } },                        // 电线 ×4 ← 铜锭 1（不用工作台，开局就能绕线）
-  { out: 185, n: 1, need: { 162: 3, 8: 1 }, tier: 1 },         // 电路板 ← 铜锭 3 + 木板 1
+  { out: 185, n: 1, need: { 162: 3, '-1': 1 }, tier: 1 },     // 电路板 ← 铜锭 3 + 任意木板 1
   { out: 53,  n: 1, need: { 9: 6, 162: 4, 186: 2 }, tier: 1 }, // 充电器 ← 圆石 6 + 铜锭 4 + 电线 2
   { out: 188, n: 1, need: { 185: 1, 186: 3, 162: 4 }, tier: 1 },   // 铜能量炮   dmg 8  电量 8
   { out: 189, n: 1, need: { 185: 1, 186: 3, 106: 4 }, tier: 1 },   // 铁能量炮   dmg 12 电量 10
@@ -11772,7 +11804,7 @@ const RECIPES = [
   /* ★ v339 氧气罐：铜 4 + 铁 2（工作台）—— 用户指定「铜和铁可以制作」 */
   { out: 215, n: 1, need: { 162: 4, 106: 2 }, tier: 1 },
   // ── 木器：原木 →（木头加工器）→ 木片 → 木盔甲。最弱的一套护甲，开局就能凑齐（合计 7 点 vs 铜 12 / 铁 15）
-  { out: 40, n: 1, need: { 6: 2, 8: 4, 9: 4 }, tier: 1 },     // 木头加工器：原木 2 + 木板 4 + 圆石 4
+  { out: 40, n: 1, need: { '-2': 2, '-1': 4, 9: 4 }, tier: 1 },   // 木头加工器：任意原木 2 + 任意木板 4 + 圆石 4
   { out: 171, n: 1, need: { 170: 6 }, tier: 1 },              // 木头盔
   { out: 172, n: 1, need: { 170: 10 }, tier: 1 },             // 木胸甲
   { out: 173, n: 1, need: { 170: 8 }, tier: 1 },              // 木护腿
@@ -11796,18 +11828,18 @@ const RECIPES = [
   { out: 111, n: 1, need: { 106: 8 }, tier: 1 },
   { out: 112, n: 1, need: { 106: 7 }, tier: 1 },
   { out: 113, n: 1, need: { 106: 4 }, tier: 1 },
-  { out: 14, n: 1, need: { 8: 2, 104: 3, 142: 2 }, tier: 1 },
+  { out: 14, n: 1, need: { '-1': 2, 104: 3, 142: 2 }, tier: 1 },
   { out: 149, n: 1, need: { 148: 2, 104: 1 }, tier: 1 },
   { out: 151, n: 1, need: { 106: 3 }, tier: 1 },
   { out: 153, n: 1, need: { 104: 3, 142: 1 }, tier: 1 },
   { out: 154, n: 4, need: { 104: 1, 148: 1 }, tier: 1 },
-  { out: 158, n: 1, need: { 8: 2, 104: 2 }, tier: 1 },
+  { out: 158, n: 1, need: { '-1': 2, 104: 2 }, tier: 1 },    // 木锄：任意木板
   { out: 159, n: 1, need: { 9: 2, 104: 2 }, tier: 1 },
   { out: 160, n: 1, need: { 106: 2, 104: 2 }, tier: 1 },
-  { out: 25, n: 1, need: { 8: 4, 104: 2 }, tier: 1 },
+  { out: 25, n: 1, need: { '-1': 4, 104: 2 }, tier: 1 },
   { out: 33, n: 4, need: { 21: 6 }, tier: 1 },
-  { out: 34, n: 4, need: { 8: 6 }, tier: 1 },
-  { out: 35, n: 3, need: { 8: 6 }, tier: 1 },
+  { out: 34, n: 4, need: { '-1': 6 }, tier: 1 },             // 木楼梯：任意木板
+  { out: 35, n: 3, need: { '-1': 6 }, tier: 1 },             // 木门：任意木板
   { out: 130, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
   { out: 204, n: 1, need: { 125: 3, 104: 2 }, tier: 1 },
   { out: 131, n: 1, need: { 125: 2, 104: 1 }, tier: 1 },
@@ -11834,8 +11866,9 @@ const SMELT = [
 ];
 // 燃料：units = 一块能烧几个物品，time = 每个物品要烧多少秒（燃料越好 → 越快 + 越多）
 const FUEL_DEFS = [
-  { id: 8,  name: 'Planks', units: 1, time: 4.0 },   // 弱燃料：烧得最慢
-  { id: 6,  name: 'Log', units: 2, time: 3.0 },   // 中等
+  /* ★ v367：木板/原木改成「任意种类」分组 —— 6 种木板都能烧，6 种原木也都能烧 */
+  { id: ANY_PLANK, name: 'Planks', units: 1, time: 4.0 },   // 弱燃料：烧得最慢
+  { id: ANY_LOG,   name: 'Log',    units: 2, time: 3.0 },   // 中等
   { id: 13, name: 'Coal', units: 4, time: 2.0 },   // 好燃料：又快又能多烧几个
 ];
 let furnaceFuel = 13, furnaceJob = null;           // 选中的燃料 / 当前烧制作业
@@ -11854,19 +11887,19 @@ function ppFurnace(force) {
     dur: jobDur(j), left: j.left, fuel: j.fuel, fuelName: j.fuelName,
   } : null);
 }
-function fuelCount(id) { return countOf(id); }
-function fuelReady() { return FUEL_DEFS.find(f => f.id === furnaceFuel && countOf(f.id) > 0) || null; }
+function fuelCount(id) { return ingCount(id); }
+function fuelReady() { return FUEL_DEFS.find(f => f.id === furnaceFuel && ingCount(f.id) > 0) || null; }
 function smelt(r) {
   if (!r || !r.n) return false;
   if (furnaceJob) { toast('The Furnace is smelting — wait for it to finish', 1.4); return false; }
   if (countOf(r.in) < 1) { toast(`No ${nameOf(r.in)}`, 1.4); return false; }
   const f = fuelReady();
   if (!f) {
-    const any = FUEL_DEFS.find(x => countOf(x.id) > 0);
+    const any = FUEL_DEFS.find(x => ingCount(x.id) > 0);
     if (any) { furnaceFuel = any.id; renderFurnace(); toast(`Auto-selected fuel: ${any.name}`, 1.4); return false; }
     toast('No fuel (Planks / Logs / Coal)', 1.6); return false;
   }
-  takeItem(f.id, 1);
+  ingTake(f.id, 1);                 // ★ v367：任意木板/原木都能烧（按分组扣）
   takeItem(r.in, 1);
   furnaceJob = { r, t: 0, left: f.units, fuel: f.id, fuelName: f.name, dur: f.time };
   toast(`Lit: ${f.name} → ${f.time.toFixed(1)} s each, ${f.units} items can be smelted`, 2.2);
@@ -11907,8 +11940,8 @@ function nearCraftingTable() {
 }
 function craft(r) {
   if (r.tier === 1 && !nearCraftingTable()) { toast('You must stand next to a Crafting Table to do this', 1.6); return false; }
-  for (const [id, n] of Object.entries(r.need)) if (countOf(+id) < n) return false;
-  for (const [id, n] of Object.entries(r.need)) takeItem(+id, n);
+  for (const [id, n] of Object.entries(r.need)) if (ingCount(+id) < n) return false;
+  for (const [id, n] of Object.entries(r.need)) ingTake(+id, n);
   addItem(r.out, r.n);
   sfx('craft');
   toast(`Crafted ${nameOf(r.out)} ×${r.n}`, 1.6);
@@ -11925,7 +11958,7 @@ function renderFurnace() {
     fi.innerHTML = '';                    // ⚠ 外层 <p> 已经有「燃料：」字样，这里别再写一遍（会变成「燃料：燃料：」）
     for (const f of FUEL_DEFS) {
       const b = document.createElement('button');
-      const have = countOf(f.id);
+      const have = ingCount(f.id);
       b.textContent = `${f.name}(${have}) ${f.time.toFixed(1)}s`;
       b.title = `One piece smelts ${f.units} items · ${f.time.toFixed(1)} s each`;
       b.style.cssText = `margin:0 4px;padding:3px 7px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;`
@@ -12110,25 +12143,43 @@ function openPanel(open) {
 let processorOpen = false;
 const CHIPS_PER_LOG = 4;                            // 1 原木 → 4 木片
 function chipBatch(n) {
-  const have = countOf(6);                          // 原木
+  const have = ingCount(ANY_LOG);                   // ★ v367：任意种类的原木（6/28/30/81/83/85）
   const want = n === Infinity ? have : Math.max(1, n | 0);
   const k = Math.min(want, have);
   if (!k) { toast('No Logs: put some Logs in your Inventory first', 1.6); renderProcessor(); return 0; }
-  takeItem(6, k);
+  ingTake(ANY_LOG, k);
   addItem(170, k * CHIPS_PER_LOG);
   sfx('craft');
   renderHotbar(); refreshHeld(); renderProcessor(); saveSoon();
   toast(`Cut wood chips: ${k} Logs → ${k * CHIPS_PER_LOG} chips (have ${countOf(170)} chips)`, 1.8);
   return k * CHIPS_PER_LOG;
 }
+/* ★ v367：木头加工器第二个功能 —— 任意木板 → 木棍（2 板 → 4 棍，和合成台同一比例，
+   所以用加工器做棍不会亏也不会赚，只是不用摆工作台）。 */
+const STICKS_PER_BATCH = 4, PLANKS_PER_BATCH = 2;
+function stickBatch(n) {
+  const batches = Math.floor(ingCount(ANY_PLANK) / PLANKS_PER_BATCH);
+  const k = Math.min(n === Infinity ? batches : Math.max(1, n | 0), batches);
+  if (k < 1) { toast('Need at least 2 Planks (any wood type)', 1.8); renderProcessor(); return 0; }
+  ingTake(ANY_PLANK, k * PLANKS_PER_BATCH);
+  addItem(104, k * STICKS_PER_BATCH);
+  sfx('craft');
+  renderHotbar(); refreshHeld(); renderProcessor(); saveSoon();
+  toast(`Cut sticks: ${k * PLANKS_PER_BATCH} Planks → ${k * STICKS_PER_BATCH} Sticks (have ${countOf(104)})`, 1.8);
+  return k * STICKS_PER_BATCH;
+}
 function renderProcessor() {
   const el = $('procInfo');
   if (!el) return;
-  el.innerHTML = `Logs <b style="color:#f5c451">${countOf(6)}</b> · Wood Chips <b style="color:#f5c451">${countOf(170)}</b>`
-    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">Wooden armor: Helmet 6 / Chestplate 10 / Leggings 8 / Boots 4 chips (craft next to a Crafting Table)</div>`;
-  const one = $('procOne'), all = $('procAll');
-  if (one) one.disabled = countOf(6) < 1;
-  if (all) all.disabled = countOf(6) < 1;
+  el.innerHTML = `Logs (any wood) <b style="color:#f5c451">${ingCount(ANY_LOG)}</b> · Wood Chips <b style="color:#f5c451">${countOf(170)}</b>`
+    + ` · Planks (any wood) <b style="color:#f5c451">${ingCount(ANY_PLANK)}</b> · Sticks <b style="color:#f5c451">${countOf(104)}</b>`
+    + `<div style="color:#8ea3ba;font-size:11px;margin-top:4px">1 log → 4 Wood Chips (wooden armor: Helmet 6 / Chestplate 10 / Leggings 8 / Boots 4) · 2 Planks → 4 Sticks</div>`;
+  const one = $('procOne'), all = $('procAll'), st = $('procSticks'), stAll = $('procSticksAll');
+  const logs = ingCount(ANY_LOG), planks = ingCount(ANY_PLANK);
+  if (one) one.disabled = logs < 1;
+  if (all) all.disabled = logs < 1;
+  if (st) st.disabled = planks < PLANKS_PER_BATCH;
+  if (stAll) stAll.disabled = planks < PLANKS_PER_BATCH;
 }
 function openProcessor() {
   if (panelOpen) openPanel(false);
@@ -15520,6 +15571,9 @@ $('btnChargerClose').onclick = () => closeCharger();
 $('btnProcessorClose').onclick = () => closeProcessor();
 $('procOne').onclick = () => chipBatch(1);
 $('procAll').onclick = () => chipBatch(Infinity);
+/* ★ v367：任意木板 → 木棍 */
+$('procSticks').onclick = () => stickBatch(1);
+$('procSticksAll').onclick = () => stickBatch(Infinity);
 $('btnPressClose').onclick = () => closePress();
 $('pressOne').onclick = () => pressBatch(1);
 $('pressAll').onclick = () => pressBatch(Infinity);
@@ -16153,6 +16207,15 @@ window.GAME = {
       return t;
     },
     dirtySize: () => dirty.size,
+    /* ★ v367 木质分组 / 加工器 / 燃料 验收出口 */
+    ing: () => ({ planks: PLANK_IDS.map(k => [nameOf(k), countOf(k)]), plankTotal: ingCount(ANY_PLANK),
+                  logs: LOG_IDS.map(k => [nameOf(k), countOf(k)]), logTotal: ingCount(ANY_LOG),
+                  chips: countOf(170), sticks: countOf(104) }),
+    processorChips: (n = 1) => chipBatch(n),
+    processorSticks: (n = 1) => stickBatch(n),
+    fuelList: () => FUEL_DEFS.map(f => ({ name: f.name, units: f.units, time: f.time, have: ingCount(f.id) })),
+    smeltByInput: (inId) => { const r = SMELT.find(x => x.in === inId); return r ? smelt(r) : false; },
+    furnaceJobInfo: () => furnaceJob ? { out: nameOf(furnaceJob.r.out), left: furnaceJob.left, fuel: furnaceJob.fuelName, dur: +jobDur(furnaceJob).toFixed(2), t: +furnaceJob.t.toFixed(2) } : null,
     meshStats: () => meshRate(),
     meshStatsReset: () => { meshRateReset(); return meshRate(); },
     cosCoalesce: (ms) => { if (typeof ms === 'number') COS_COALESCE = Math.max(0, ms | 0); return COS_COALESCE; },
