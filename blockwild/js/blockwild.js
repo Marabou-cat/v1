@@ -647,6 +647,10 @@ const BLOCKS = {
   84: { name: 'Dark Oak Planks', top: 97, side: 97, bottom: 97, hard: 1.3, drop: 84, axe: true },
   85: { name: 'Cactus Wood', top: 99, side: 98, bottom: 99, hard: 1.2, drop: 85, log: true, axe: true },
   86: { name: 'Cactus Planks', top: 100, side: 100, bottom: 100, hard: 1.0, drop: 86, axe: true },
+  /* ── v368：陨石坑（Meteor Crater）── */
+  95: { name: 'Meteor Stone',  top: 112, side: 112, bottom: 112, hard: 1.6, drop: 95 },                 // 焦黑陨石岩
+  96: { name: 'Meteor Core',   top: 113, side: 113, bottom: 113, hard: 2.4, drop: 95, lamp: true },     // 陨核（发光，进火把光源池）
+  97: { name: 'Tentacle Sensor', top: 114, side: 114, bottom: 114, hard: 0.9, drop: 97 },               // 触手传感器
   87: { name: 'Cactus', top: 102, side: 101, bottom: 102, hard: 0.4, drop: 87 },
   88: { name: 'Dead Bush', top: 104, side: 104, bottom: 104, hard: 0.0, drop: 104, cross: true, plant: true },
   89: { name: 'Cactus Fruit', top: 103, side: 103, bottom: 103, hard: 0.0, drop: 208, cross: true, plant: true },
@@ -1528,6 +1532,27 @@ function makeAtlas() {
   T(99, '#8fae55', 0.09, (c, r) => {
     for (let a = 0; a < 360; a += 12) { const rad = a * Math.PI / 180; for (let k = 2; k < 8; k++) px(c, r, 8 + Math.round(Math.cos(rad) * k), 8 + Math.round(Math.sin(rad) * k), k > 5 ? '#5d7532' : '#a6c46a'); }
     for (let i = 0; i < 8; i++) px(c, r, (Math.random() * 16) | 0, (Math.random() * 16) | 0, '#e4f0b8');
+  });
+  /* ── v368：陨石坑三块方块（贴图格 112~114，接在沙石家族 111 之后） ── */
+  T(112, '#2b2b31', 0.16, (c, r) => {                       // 陨石岩：焦黑底 + 暗红裂纹
+    for (let i = 0; i < 5; i++) {
+      const x = 2 + ((i * 7) % 12), y = 3 + ((i * 5) % 11);
+      px(c, r, x, y, '#5a2a22'); px(c, r, x + 1, y, '#3a1c17');
+    }
+    for (const [x, y] of [[4, 12], [11, 5], [8, 13]]) px(c, r, x, y, '#8a3a2a');
+  });
+  T(113, '#3a1f18', 0.10, (c, r) => {                       // 陨核：暗红岩芯 + 亮橙脉络
+    for (let i = 0; i < 4; i++) {
+      const x = 3 + i * 3, y = 4 + ((i * 3) % 8);
+      px(c, r, x, y, '#ff7a2e'); px(c, r, x, y + 1, '#c2461a');
+    }
+    for (const [x, y] of [[7, 7], [8, 8], [6, 9], [9, 6]]) px(c, r, x, y, '#ffd0a0');
+  });
+  T(114, '#3a2a3e', 0.14, (c, r) => {                       // 触手传感器：紫黑肉块 + 竖排亮眼
+    for (let y = 2; y <= 13; y++) px(c, r, 7, y, '#241a28');
+    for (let y = 3; y <= 12; y++) { px(c, r, 6, y, '#4a3550'); px(c, r, 8, y, '#4a3550'); }
+    for (let i = 0; i < 3; i++) { px(c, r, 7, 5 + i * 3, '#d8e84a'); px(c, r, 8, 5 + i * 3, '#a8b83a'); }
+    for (const [x, y] of [[4, 4], [11, 5], [5, 11], [10, 11]]) px(c, r, x, y, '#6a4a72');
   });
   T(100, '#93b45a', 0.06, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#93b45a', 0.93 + ((y % 4) * 0.025) + (Math.random() * 0.05)));
@@ -3182,6 +3207,7 @@ function setBlock(x, y, z, id, record = true, noNet = false) {
     indexEdit(x, y, z, id);
   }
   c.cosmetic = !!noNet;      // ★ v363：水流/作物生长 → 允许延迟合并重建；玩家亲手改 → 立刻重建
+  if (!noNet) mtNoteNoise(x, y, z);   // ★ v368：玩家制造声响（陨石坑的触手传感器监听）
   dirty.add(c);
   if (!noNet) editDirty.add(c);      // ★ v363：玩家编辑 → 插队（see editDirty 注释）
   const lx = x & 15, lz = z & 15;
@@ -6663,6 +6689,9 @@ function pyrState(key) {
 
 /* ── 试炼战利品表（沙漠箱 / BOSS 箱）─────────────────────────────────── */
 const DESERT_LOOT = [[125, 1, 3], [106, 2, 5], [13, 4, 9], [120, 1, 1], [107, 4, 9], [104, 3, 8], [219, 1, 3], [128, 1, 2]];
+/* ★ v368 陨石坑战利品：远古遗迹的箱子比金字塔更「深」，给冥界钢/钻石一档的东西 */
+const METEOR_LOOT = [[125, 1, 3], [106, 2, 5], [13, 6, 12], [178, 1, 2], [120, 1, 1],
+                     [107, 4, 9], [104, 4, 10], [204, 1, 1], [130, 1, 1]];
 const BOSS_LOOT = [[125, 8, 16], [130, 1, 1], [131, 1, 1], [133, 1, 1], [135, 1, 1], [204, 1, 1], [206, 1, 1], [132, 1, 1], [134, 1, 1], [110, 1, 1]];
 const pyrChestKindCache = new Map();
 /* 这个坐标是不是金字塔的箱子：'desert'（房间三选一）| 'boss'（终极）| null */
@@ -7290,6 +7319,215 @@ function inExtraStruct(wx, wz) {
   return false;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   v368：陨石坑（Meteor Crater）—— 全群系的地表巨坑 + 地下远古遗迹
+   · 地表：直径 ~34 格的碗形坑（焦黑坑底 + 隆起坑唇 + 外圈溅射碎块）
+   · 坑底正中：2×2「裂隙」竖井，每 3 格留 1 格空 → 往下挖 40 多格到遗迹
+   · 地下：远古遗迹大厅（43×43、净高 12），中央祭坛（陨核 + 四石柱），
+     四角残破小建筑，墙里/地上分布着「触手传感器」，宝箱散在祭坛与小屋里
+   · 在传感器 10 格内制造声响（挖/放方块、攻击）→ 每次 +1 预警（1.5s 冷却），
+     3 次 → 在祭坛召唤「Void Stalker」：1000 血、打不死、看见你就 8.6 速直冲
+   ══════════════════════════════════════════════════════════════════════════ */
+const MT_CELL = 384, mtCache = new Map();
+const MT_ROCK = 95, MT_CORE = 96, MT_SENSOR = 97;
+const MT_WARN_MAX = 3, MT_SENSOR_R = 10;
+const mtState = new Map();                     // "cellX,cellZ" -> { warn, summoned, cd }
+const MT_STALKER = 'voidStalker';
+
+function mtFor(cellX, cellZ) {
+  const key = cellX + ',' + cellZ;
+  if (mtCache.has(key)) return mtCache.get(key);
+  let out = null;
+  const roll = h2(cellX * 91.3 + 7.1, cellZ * 77.7 - 3.9);
+  if (roll > 0.35) {                                          // 每 384 格约 2/3 会有
+    const rnd = mulberry32((Math.floor(roll * 1e9) ^ Math.imul(cellX, 2654435761) ^ Math.imul(cellZ, 40503)) | 0);
+    const cx = cellX * MT_CELL + 120 + Math.floor(rnd() * (MT_CELL - 240));
+    const cz = cellZ * MT_CELL + 120 + Math.floor(rnd() * (MT_CELL - 240));
+    /* 全群系都能出现 → 不看 biomeAt；只要求：不是水下、别太陡（坑要削得平） */
+    let mn = 999, mx = -999;
+    for (let dx = -14; dx <= 14; dx += 7) for (let dz = -14; dz <= 14; dz += 7) {
+      const h = heightAt(cx + dx, cz + dz);
+      if (h < mn) mn = h;
+      if (h > mx) mx = h;
+    }
+    if (mn > CFG.SEA + 6 && mx - mn <= 42 && !structNear(cx, cz, 'meteor')) {   // 坑体自己会削平/抬唇，坡度放宽到 42
+      const gy = mx;
+      const ry = Math.max(16, Math.min(60, gy - 46));          // 遗迹地板高度
+      const ops = [], sensors = [], chests = [];
+      const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
+      const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
+      const R = 17;
+      /* ① 碗形坑 + 坑唇 + 外圈溅射
+         ⚠ 基准一律用**坑心自己的地表高度 base**（不是采样最高点 gy）：
+         · 高的一侧：往下切到目标高度（把山体削出碗口）
+         · 低的一侧：最多回填 8 格（再多会变成悬崖上的高台，看起来像 bug）
+         第一版用 gy 当基准 / 用 Math.max(h0,gy) 挖，结果低洼处半空铺石板、坑只有半边是碗。 */
+      const base = heightAt(cx, cz);
+      for (let dx = -R - 10; dx <= R + 10; dx++) for (let dz = -R - 10; dz <= R + 10; dz++) {
+        const rr = Math.hypot(dx, dz), h0 = heightAt(cx + dx, cz + dz);
+        let target = 0, isRim = false;
+        if (rr <= R) {
+          const dep = Math.round(Math.pow(1 - rr / R, 1.35) * 12);
+          target = base - dep;
+        } else if (rr <= R + 2.5) {
+          target = base + Math.max(0, Math.round((1 - (rr - R) / 2.5) * 2));
+          isRim = true;
+        } else {
+          if (rr <= R + 9 && rnd() < 0.22) put(cx + dx, h0 + 1, cz + dz, MT_ROCK);   // 溅射碎块
+          continue;
+        }
+        target = Math.max(3, target);
+        if (h0 > target) {
+          for (let y = target + 1; y <= h0 + 1; y++) carve(cx + dx, y, cz + dz);     // 削平/挖进山体
+        } else if (target - h0 <= 8) {
+          for (let y = h0 + 1; y <= target; y++) put(cx + dx, y, cz + dz, MT_ROCK);   // 低处回填（有限）
+        } else {
+          continue;                                                                  // 落差太大：干脆不修，保留原地形
+        }
+        put(cx + dx, target, cz + dz, MT_ROCK);
+        if (isRim && target > 3) put(cx + dx, target - 1, cz + dz, MT_ROCK);
+      }
+      /* ② 坑底正中：2×2 裂隙竖井（每 3 格留 1 格空 → 看着是「破开的岩层」，往下挖就通） */
+      const cbot = Math.max(3, heightAt(cx, cz) - 12);                                // 坑心地面
+      for (let dx = 0; dx <= 1; dx++) for (let dz = 0; dz <= 1; dz++) {
+        for (let y = cbot; y > ry; y--) {
+          if (y % 3 === 0) carve(cx + dx, y, cz + dz);
+          else put(cx + dx, y, cz + dz, MT_ROCK);
+        }
+        carve(cx + dx, ry + 1, cz + dz);
+      }
+      /* ③ 遗迹大厅：地板陨石岩/圆石相间，四面深板岩厚墙，天花板封顶 */
+      const HX = 21, HH = 12;
+      for (let dx = -HX - 2; dx <= HX + 2; dx++) for (let dz = -HX - 2; dz <= HX + 2; dz++) {
+        const ed = Math.max(Math.abs(dx), Math.abs(dz));
+        if (ed <= HX) {
+          put(cx + dx, ry, cz + dz, (Math.abs(dx) + Math.abs(dz)) % 7 === 0 ? 9 : MT_ROCK);
+          for (let y = ry + 1; y <= ry + HH; y++) carve(cx + dx, y, cz + dz);
+        } else {
+          for (let y = ry; y <= ry + HH + 1; y++) put(cx + dx, y, cz + dz, 50);
+        }
+      }
+      for (let dx = -HX; dx <= HX; dx++) for (let dz = -HX; dz <= HX; dz++) put(cx + dx, ry + HH + 1, cz + dz, 50);
+      /* ④ 中央祭坛：两级台 + 四根石柱 + 陨核（发光） */
+      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) put(cx + dx, ry + 1, cz + dz, MT_ROCK);
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, ry + 2, cz + dz, MT_ROCK);
+      for (const [ax, az] of [[-2, -2], [2, -2], [-2, 2], [2, 2]])
+        for (let y = ry + 3; y <= ry + 8; y++) put(cx + ax, y, cz + az, 50);
+      put(cx, ry + 3, cz, MT_CORE);
+      /* 火把：祭坛四角 + 八根立柱脚 + 竖井落点 —— 没有它们整个大厅黑得看不见东西 */
+      for (const [tx, tz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) put(cx + tx, ry + 2, cz + tz, 38);
+      chests.push([cx + 3, ry + 2, cz]);
+      put(cx + 3, ry + 2, cz, 18);
+      /* ⑤ 大厅立柱（八根，撑到天花板，断的断） */
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + 0.4;
+        const px2 = cx + Math.round(Math.cos(a) * 15), pz2 = cz + Math.round(Math.sin(a) * 15);
+        const top = ry + HH - (i % 3);
+        for (let y = ry + 1; y <= top; y++) put(px2, y, pz2, i % 2 ? 50 : MT_ROCK);
+        put(px2 + 1, ry + 1, pz2, 38);                       // 柱脚火把
+      }
+      /* ⑥ 四角残破小建筑（墙随机缺口、一根断柱、一个宝箱） */
+      for (const [sx, sz] of [[-13, -13], [13, -13], [-13, 13], [13, 13]]) {
+        const bx = cx + sx, bz = cz + sz;
+        for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) {
+          put(bx + dx, ry, bz + dz, (dx + dz) % 3 === 0 ? 9 : MT_ROCK);
+          for (let y = ry + 1; y <= ry + 5; y++) {
+            const wall = Math.abs(dx) === 4 || Math.abs(dz) === 4;
+            if (!wall || rnd() < 0.18) { carve(bx + dx, y, bz + dz); continue; }
+            put(bx + dx, y, bz + dz, rnd() < 0.5 ? 50 : MT_ROCK);
+          }
+        }
+        const gx = sx < 0 ? bx + 4 : bx - 4;                  // 朝大厅那面开门洞
+        for (let y = ry + 1; y <= ry + 3; y++) carve(gx, y, bz);
+        chests.push([bx, ry + 1, bz]);
+        put(bx, ry + 1, bz, 18);
+        for (let y = ry + 1; y <= ry + 4; y++) put(bx + 2, y, bz + 2, 50);
+        put(bx - 3, ry + 1, bz + 3, 38);                     // 小屋角上的火把
+      }
+      /* ⑦ 触手传感器：大厅一圈 12 个 + 坑底 4 个（坑里挖石头也会惊动它们） */
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 + 0.3, rr = 9 + (i % 3) * 3;
+        const sx2 = cx + Math.round(Math.cos(a) * rr), sz2 = cz + Math.round(Math.sin(a) * rr);
+        put(sx2, ry + 1, sz2, MT_SENSOR);
+        sensors.push([sx2, ry + 1, sz2]);
+      }
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.8;
+        const sx2 = cx + Math.round(Math.cos(a) * 9), sz2 = cz + Math.round(Math.sin(a) * 9);
+        const yy = gy - Math.round(Math.pow(1 - 9 / R, 1.35) * 12) + 1;
+        put(sx2, yy, sz2, MT_SENSOR);
+        sensors.push([sx2, yy, sz2]);
+      }
+      out = { name: 'meteor', cx, cz, gy, ry, r: 30, sensors, chests,
+              altar: { x: cx, y: ry + 3, z: cz }, byChunk: packOps(ops), ops: ops.length, label: 'Meteor Crater' };
+    }
+  }
+  mtCache.set(key, out);
+  return out;
+}
+function mtKeyOf(o) { return Math.floor(o.cx / MT_CELL) + ',' + Math.floor(o.cz / MT_CELL); }
+function mtStateFor(key) {
+  let st = mtState.get(key);
+  if (!st) { st = { warn: 0, summoned: false, cd: 0 }; mtState.set(key, st); }
+  return st;
+}
+/* 玩家制造声响：挖/放方块、开打时把坐标丢进这个小队列，由 meteorTick 消费 */
+let mtNoise = [];
+function mtNoteNoise(x, y, z) { if (mtNoise.length < 16) mtNoise.push([x | 0, y | 0, z | 0]); }
+function mtSummon(o, key) {
+  /* ⚠ 祭坛四角 (±2,±2) 就是石柱：别把怪刷在 (x+2, z+2) —— force 刷怪不查空间，
+     实测那样会让它整只卡在石头里不动（看起来像 AI 坏了）。这里挑台子外面、并往上找空位。 */
+  const sx = o.altar.x + 5, sz = o.altar.z;
+  let sy = o.ry + 1;
+  for (let i = 0; i < 10 && isSolid(getBlock(sx, sy, sz)); i++) sy++;
+  const m = spawnMobAt(MT_STALKER, sx, sy, sz, { force: true });
+  if (m) { m.mtKey = key; m.aggro = 1e9; m.patrolT = 0; m.seen = false; }
+  toast('Something answers the shrieks — a Void Stalker rises at the altar', 4.5);
+  sfx('place');
+  return m;
+}
+function meteorTick() {
+  if (!mtNoise.length) return;
+  const list = mtNoise; mtNoise = [];
+  const now = performance.now();
+  for (const [x, y, z] of list) {
+    const o = mtFor(Math.floor(x / MT_CELL), Math.floor(z / MT_CELL));
+    if (!o || Math.abs(x - o.cx) > 30 || Math.abs(z - o.cz) > 30) continue;
+    let bd = MT_SENSOR_R, best = null;
+    for (const sp of o.sensors) {
+      if (peekBlock(sp[0], sp[1], sp[2]) !== MT_SENSOR) continue;      // 被挖掉的传感器失效
+      const d = Math.hypot(sp[0] - x, sp[2] - z) + Math.abs(sp[1] - y) * 0.5;
+      if (d < bd) { bd = d; best = sp; }
+    }
+    if (!best) continue;
+    const key = mtKeyOf(o), st = mtStateFor(key);
+    if (now - st.cd < 1500) continue;                                   // 同一时间只算一次
+    st.cd = now;
+    st.warn++;
+    if (st.warn >= MT_WARN_MAX) {
+      if (!st.summoned) { st.summoned = true; mtSummon(o, key); }
+    } else {
+      sfx('hurt');
+      toast(`The tentacle sensor shrieks... (${st.warn}/${MT_WARN_MAX})`, 2.4);
+    }
+  }
+}
+/* 这个箱子是不是陨石坑的：'meteor' | null */
+const mtChestKindCache = new Map();
+function mtChestKind(x, y, z) {
+  const ck = x + ',' + y + ',' + z;
+  if (mtChestKindCache.has(ck)) return mtChestKindCache.get(ck);
+  let kind = null;
+  const cx = Math.floor(x / MT_CELL), cz = Math.floor(z / MT_CELL);
+  for (let dx = -1; dx <= 1 && !kind; dx++) for (let dz = -1; dz <= 1 && !kind; dz++) {
+    const o = mtFor(cx + dx, cz + dz);
+    if (!o) continue;
+    for (const c of o.chests) if (c[0] === x && c[2] === z && Math.abs(y - c[1]) <= 1) { kind = 'meteor'; break; }
+  }
+  mtChestKindCache.set(ck, kind);
+  return kind;
+}
+
 /* ============================================================ 村庄 */
 // ── 废弃鬼屋：288 格一栋，三层大房子（石砖墙 + 玻璃窗 + 木板楼板 + 木柱）──
 const HS_CELL = 288, HS_FLOORS = 3, HS_FH = 4;
@@ -7909,9 +8147,11 @@ function chestSlots(x, y, z) {
     slots = new Array(CHEST_SLOTS).fill(null);
     const rnd = mulberry32((Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791) ^ SEED) | 0);
     /* ★ v353：金字塔的箱子用专属战利品表（沙漠箱 3 选 1 / BOSS 箱最好的东西） */
-    const special = typeof pyrChestKind === 'function' ? pyrChestKind(x, y, z) : null;
-    const table = special === 'boss' ? BOSS_LOOT : special === 'desert' ? DESERT_LOOT : CHEST_TABLE;
-    const picks = special ? (special === 'boss' ? 5 : 3) : 2 + Math.floor(rnd() * 4);
+    const special = (typeof pyrChestKind === 'function' ? pyrChestKind(x, y, z) : null)
+      || (typeof mtChestKind === 'function' ? mtChestKind(x, y, z) : null);
+    const table = special === 'boss' ? BOSS_LOOT : special === 'desert' ? DESERT_LOOT
+      : special === 'meteor' ? METEOR_LOOT : CHEST_TABLE;
+    const picks = special ? (special === 'boss' ? 5 : special === 'meteor' ? 4 : 3) : 2 + Math.floor(rnd() * 4);
     for (let i = 0; i < picks; i++) {
       const [id, a, b] = table[Math.floor(rnd() * table.length)];
       const n = a + Math.floor(rnd() * (b - a + 1));
@@ -8129,6 +8369,12 @@ const MOB_DEFS = {
                      dmg: 7, atkCd: 1.9, reach: 3.3, vReach: 4.2,
                      colossus: true, dormant: true, drop: 9, dropN: [8, 14],
                      extra: [{ id: 125, n: [1, 1] }] },
+  /* ★ v368：陨石坑的「循声守卫」——异形追猎者。1000 血；**不是用来击杀的**：
+     受到的所有伤害只算 25%，且血量最低留 1（永远打不死）。
+     看不见你时 2.6 慢走；看见你（42 格 + 视线通）立刻 8.6 速直冲。 */
+  voidStalker: { name: 'Void Stalker', hp: 1000, chase: 2.6, wander: 0.8, hostile: true, barY: 3.15,
+                 drop: null, dmg: 9, atkCd: 1.1, reach: 2.6, knock: 9.5,
+                 stalker: true, noKill: true },
 };
 const aliveMobs = () => mobs.filter(m => !m.dying).length;
 const countKind = k => mobs.filter(m => !m.dying && m.kind === k).length;
@@ -8753,6 +8999,22 @@ function mobGeos(kind) {
     for (const x of [-2, 1]) px(head, x, 8, 23, 0xffe066);
     for (let x = -2; x < 2; x++) px(head, x, 5, 23, E2);
     coreY = 7 * MOB_PX; barY = 20 * MOB_PX; headPiv = 4;
+  } else if (kind === 'voidStalker') {
+    /* ★ v368 异形追猎者：细长躯体 + 后倾长头骨 + 猩红复眼 + 背脊刺 + 长臂 */
+    const SK1 = 0x1b2130, SK2 = 0x0e1219, GLOW = 0xff3b2e, RIB = 0x39435c;
+    humanoid({ body: SK1, skin: SK1, dark: SK2, leg: SK2 }, () => {
+      box(head, -3, 20, -6, 6, 6, 8, SK1, 0.10);                  // 拉长的头骨
+      px(head, 0, 22, 5, GLOW);                                    // 额心单眼
+      for (const x of [-2, -1, 1, 2]) px(head, x, 21, 4, x < 0 ? GLOW : 0xd8d0c8);
+      for (let x = -3; x <= 2; x++) px(head, x, 19, 4, SK2);
+    }, (m, set, x0) => {                                           // 长臂（过膝）
+      for (let y = -15; y <= -9; y++) for (let x = x0; x < x0 + 3; x++) set(x, y, 1, SK1);
+    }, (m, set, x0) => {}, () => {
+      for (let y = 8; y <= 23; y += 3) px(body, 0, y, 3, RIB);     // 背脊刺
+      box(body, -1, 12, -2, 2, 7, 1, SK2, 0.10);                   // 收窄的胸腹
+      for (const y of [15, 19]) { px(body, -2, y, 2, SK2); px(body, 1, y, 2, SK2); }
+    });
+    coreY = 18 * MOB_PX; barY = 35 * MOB_PX;
   } else if (kind === 'cliffRaptor') {
     /* ★ v349 崖鹫：宽翼猛禽（两片翼当手臂用）+ 尾羽 */
     const F1 = 0x8a7a5c, F2 = 0x5f523c, BK = 0xe8d9b0, EYE = 0xffb03a;
@@ -9693,6 +9955,7 @@ const MOB_RAD = {
   lizard: 0.30, frog: 0.25, duck: 0.26,
   frostWisp: 0.40, cactusBrute: 0.55, thornsniper: 0.32,
   bogLurker: 0.38, hollowStag: 0.62, riptideEel: 0.30, cliffRaptor: 0.45,
+  voidStalker: 0.55,
 };
 
 /* ---------------- 生物之间硬不重叠 ----------------
@@ -10182,7 +10445,14 @@ function updateArrows(dt) {
           if (m.hp <= 0 || m.dying) continue;
           const dx = a.p.x - m.p.x, dy = a.p.y - (m.p.y + 0.6), dz = a.p.z - m.p.z;
           if (dx * dx + dy * dy + dz * dz > 0.55) continue;
-          m.hp -= m.invuln ? 0 : a.dmg; m.flash = 0.24; m.aggro = 18;
+          {
+            let ad = a.dmg;
+            if (MOB_DEFS[m.kind] && MOB_DEFS[m.kind].noKill) {       // ★ v368 同样打不死
+              ad *= 0.25;
+              if (m.hp - ad < 1) ad = Math.max(0, m.hp - 1);
+            }
+            m.hp -= m.invuln ? 0 : ad; m.flash = 0.24; m.aggro = 18;
+          }
           const kd = Math.hypot(a.v.x, a.v.z) || 1;
           m.v.x = (a.v.x / kd) * 4.2; m.v.z = (a.v.z / kd) * 4.2; m.v.y = Math.max(m.v.y, 2.6);
           m.knockT = 0.22;
@@ -10881,6 +11151,13 @@ function updateMobs(dt) {
     }
     if (asleep) { mx = 0; mz = 0; speed = 0; }        // 沉睡：原地不动
     /* ══ ★ v349：5 只群系专属怪的专属行为（都在 mx/mz/speed 定稿之前改） ══ */
+    if (def.stalker && hostileNow && !asleep) {
+      /* ★ v368 异形：看得见你就直线冲刺（8.6），看不见就慢慢在遗迹里巡 */
+      const seen = dist < 42 && sightClear(m.p, player.p);
+      m.seen = seen;
+      speed = seen ? 8.6 : def.chase;
+      if (seen) m.aggro = Math.max(m.aggro || 0, 30);
+    }
     if (def.waterFast || def.waterOnly) {
       /* 泥沼潜伏者 / 激流鳗：水里才是它的天下，上岸就基本动不了 */
       const inW = getBlock(Math.floor(m.p.x), Math.floor(m.p.y + 0.3), Math.floor(m.p.z)) === 5;
@@ -13159,7 +13436,15 @@ function attack() {
     return false;
   }
   const dir = cameraDir();
-  target.hp -= dmg;
+  /* ★ v368：Void Stalker 不是用来击杀的 —— 伤害只算 25%，且血量永远留 1。
+     ⚠ 上面的 dmg 是 const：必须用新变量，别写 dmg *= （会抛 Assignment to constant variable，
+     整条 attack() 直接中断 → 表现成「砍不动、也没有击退」）。 */
+  let dealt = dmg;
+  if (MOB_DEFS[target.kind] && MOB_DEFS[target.kind].noKill) {
+    dealt = dmg * 0.25;
+    if (target.hp - dealt < 1) dealt = Math.max(0, target.hp - 1);
+  }
+  target.hp -= dealt;
   target.flash = 0.24;
   target.aggro = 16;                 // 被打了就记仇：白天也会追你
   const kx = target.p.x - player.p.x, kz = target.p.z - player.p.z;
@@ -13177,6 +13462,7 @@ function attack() {
     toast(`Cactus spines! −${th}`, 1.0);
     anim.hurtK = Math.min(1.4, (anim.hurtK || 0) + 0.45);
   }
+  mtNoteNoise(target.p.x, target.p.y, target.p.z);  // ★ v368：打斗也是声响
   startSwing('attack', 0.5);
   useTool(1);                                      // 挥砍扣 1 点耐久
   player.atkCd = 0.42;
@@ -13412,6 +13698,7 @@ function update(dt) {
   lap('uPlayer');
   if (!NET || !NET.active || NET.isHost) { updateMobs(dt); separateMobs(); }   // 怪物由主机模拟；每帧把叠在一起的挤开
   pyrTrialTick();                                                        // ★ v353 金字塔试炼（房间波次/开门/BOSS）
+  meteorTick();                                                          // ★ v368 陨石坑传感器预警
   lap('uMobs');
   // 掉落物：主机/单机模拟；客人只画幽灵、捡的时候上报给主机删掉
   // （以前两端各跑一份，于是「别人捡走的东西，你这边还躺在地上」，还能再捡一次）
@@ -13867,8 +14154,8 @@ const MM_TERRAIN = ['#5d9440', '#c9b174', '#71757c', '#2d5f8f', '#376b2c', '#3c4
   '#6b4a35',   // 10 灵魂沙
   '#4a2a5a',   // 11 冥界矿
   '#14202c'];  // 12 空洞
-const MM_LABEL = { village: 'Village', haunted: 'Haunted House', tower: 'Watchtower', well: 'Well', circle: 'Stone Circle', camp: 'Ruined Camp', portal: 'Portal', swamp: 'Lava Swamp', ruins: 'Ancient Ruins', arena: 'Orb Sanctuary' };
-const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', portal: '#8b3fd8', swamp: '#ff7a3c', ruins: '#a97bff', arena: '#3ee07a' };
+const MM_LABEL = { village: 'Village', haunted: 'Haunted House', tower: 'Watchtower', well: 'Well', circle: 'Stone Circle', camp: 'Ruined Camp', portal: 'Portal', swamp: 'Lava Swamp', ruins: 'Ancient Ruins', arena: 'Orb Sanctuary', meteor: 'Meteor Crater' };
+const MM_MARK_COLOR = { village: '#f5c451', haunted: '#b07ce0', tower: '#7fd6ff', well: '#6fd8c0', circle: '#c9c9d8', camp: '#e08b4a', portal: '#8b3fd8', swamp: '#ff7a3c', ruins: '#a97bff', arena: '#3ee07a', meteor: '#ff5a3c' };
 const MM = {
   cells: new Map(), marks: new Map(), zoom: 1, px2: 2,
   list: [],                        // [x, z, type] 扁平数组：重绘时直接读数字，不再解析字符串（小地图越大越明显）
@@ -14402,6 +14689,7 @@ function saveInner() {
                 hunger: player.hunger, air: player.air },
       off: player.off || null,                       // ★ v339 左手（氧气罐）
       inv, edits: Array.from(edits.entries()), spawn: player.spawn, armor: player.armor, chests: Array.from(chestInv.entries()),
+      mt: Array.from(mtState.entries()),                        // ★ v368 陨石坑预警/召唤状态
       compost: Array.from(compostProg.entries()), meta: Array.from(blockMeta.entries()),
       squad: squadData(), map: mmSerialize(),          // 小地图探索/结构标记
       boats: boats.map(b => [+b.x.toFixed(2), +b.y.toFixed(2), +b.z.toFixed(2), b.wi | 0, +b.yaw.toFixed(2)]),  // ★ v337 船
@@ -14472,6 +14760,9 @@ function loadSave(id, expectSeed) {
   pyrTrial.clear();
   for (const [k, v] of (d.pyr || [])) if (k && v) pyrTrial.set(k, v);
   pyrChestKindCache.clear();
+  mtChestKindCache.clear();
+  mtState.clear();
+  for (const [k, v] of (d.mt || [])) if (k && v) mtState.set(k, v);   // ★ v368 读回陨石坑预警状态
     blockMeta.clear();
     if (Array.isArray(d.meta)) for (const e of d.meta) if (Array.isArray(e)) blockMeta.set(e[0], e[1]);
     mmRestore(d.map);
@@ -14922,6 +15213,7 @@ STRUCT_TYPES.push(
   { name: 'ruins', cell: AR_CELL, get: ruinsFor, cache: ruinsCache },      // 远古废墟（末地式框架 + 四激活器）
   { name: 'arena', cell: ARENA_CELL, get: arenaFor, cache: arenaCache },   // 宝珠守护地（角斗场 + 试炼）
   { name: 'pyramid', cell: PYR_CELL, get: pyrFor, cache: pyrCache },       // ★ v353 沙漠金字塔（试炼地下室）
+  { name: 'meteor', cell: MT_CELL, get: mtFor, cache: mtCache },           // ★ v368 陨石坑（远古遗迹 + 触手传感器）
 );
 loadIndex();
 renderWorldList();
@@ -16207,6 +16499,54 @@ window.GAME = {
       return t;
     },
     dirtySize: () => dirty.size,
+    /* ★ v368 陨石坑验收出口 */
+    meteorFind: (r = 1) => {
+      const pcx = Math.floor(player.p.x / MT_CELL), pcz = Math.floor(player.p.z / MT_CELL), out = [];
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        const o = mtFor(pcx + dx, pcz + dz);
+        if (o) out.push({ cx: o.cx, cz: o.cz, gy: o.gy, ry: o.ry, ops: o.ops,
+                          sensors: o.sensors.length, chests: o.chests.length,
+                          dist: Math.round(Math.hypot(o.cx - player.p.x, o.cz - player.p.z)) });
+      }
+      return out.sort((a, b) => a.dist - b.dist);
+    },
+    meteorGo: () => {
+      const r0 = GAME.debug.meteorFind(2);
+      const list = r0.found || r0;
+      if (!list.length) return null;
+      const t = list[0];
+      const o = mtFor(Math.floor(t.cx / MT_CELL), Math.floor(t.cz / MT_CELL));
+      const cx = Math.floor(o.altar.x / CFG.CH), cz = Math.floor(o.altar.z / CFG.CH);
+      for (let ddx = -1; ddx <= 1; ddx++) for (let ddz = -1; ddz <= 1; ddz++) buildChunk(getChunk(cx + ddx, cz + ddz));
+      player.p.set(o.altar.x + 0.5, o.altar.y + 1.05, o.altar.z + 6.5);
+      player.v.set(0, 0, 0); camSmoothY = null;
+      return { at: [o.altar.x, o.altar.y, o.altar.z], ry: o.ry, sensors: o.sensors.length };
+    },
+    meteorState: () => {
+      const o = mtFor(Math.floor(player.p.x / MT_CELL), Math.floor(player.p.z / MT_CELL));
+      if (!o) return null;
+      const st = mtStateFor(mtKeyOf(o));
+      let alive = 0;
+      for (const sp of o.sensors) if (peekBlock(sp[0], sp[1], sp[2]) === MT_SENSOR) alive++;
+      const m = mobs.find(x => x.kind === MT_STALKER && !x.dying);
+      return { key: mtKeyOf(o), warn: st.warn, summoned: st.summoned, sensors: o.sensors.length,
+               sensorsAlive: alive, stalker: m ? { hp: Math.round(m.hp), seen: !!m.seen,
+               dist: Math.round(Math.hypot(m.p.x - player.p.x, m.p.z - player.p.z)) } : null };
+    },
+    meteorNoise: (n = 1) => {
+      const o = mtFor(Math.floor(player.p.x / MT_CELL), Math.floor(player.p.z / MT_CELL));
+      if (!o) return null;
+      const sp = o.sensors.find(x => peekBlock(x[0], x[1], x[2]) === MT_SENSOR) || o.sensors[0];
+      for (let i = 0; i < n; i++) { mtStateFor(mtKeyOf(o)).cd = 0; mtNoteNoise(sp[0], sp[1], sp[2]); meteorTick(); }
+      return GAME.debug.meteorState();
+    },
+    meteorSummon: () => {
+      const o = mtFor(Math.floor(player.p.x / MT_CELL), Math.floor(player.p.z / MT_CELL));
+      if (!o) return null;
+      const st = mtStateFor(mtKeyOf(o));
+      st.summoned = true; st.warn = MT_WARN_MAX;
+      return !!mtSummon(o, mtKeyOf(o));
+    },
     /* ★ v367 木质分组 / 加工器 / 燃料 验收出口 */
     ing: () => ({ planks: PLANK_IDS.map(k => [nameOf(k), countOf(k)]), plankTotal: ingCount(ANY_PLANK),
                   logs: LOG_IDS.map(k => [nameOf(k), countOf(k)]), logTotal: ingCount(ANY_LOG),
