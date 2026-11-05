@@ -650,7 +650,8 @@ const BLOCKS = {
   /* ── v368：陨石坑（Meteor Crater）── */
   95: { name: 'Meteor Stone',  top: 112, side: 112, bottom: 112, hard: 1.6, drop: 95 },                 // 焦黑陨石岩
   96: { name: 'Meteor Core',   top: 113, side: 113, bottom: 113, hard: 2.4, drop: 95, lamp: true },     // 陨核（发光，进火把光源池）
-  97: { name: 'Tentacle Sensor', top: 114, side: 114, bottom: 114, hard: 0.9, drop: 97 },               // 触手传感器
+  97: { name: 'Tentacle Sensor', top: 114, side: 114, bottom: 114, hard: 0.9, drop: 97 },
+  98: { name: 'Hull Plate', top: 115, side: 115, bottom: 115, hard: 2.6, drop: 98, pick: true },   // 陨铁装甲板（飞船）               // 触手传感器
   87: { name: 'Cactus', top: 102, side: 101, bottom: 102, hard: 0.4, drop: 87 },
   88: { name: 'Dead Bush', top: 104, side: 104, bottom: 104, hard: 0.0, drop: 104, cross: true, plant: true },
   89: { name: 'Cactus Fruit', top: 103, side: 103, bottom: 103, hard: 0.0, drop: 208, cross: true, plant: true },
@@ -1553,6 +1554,14 @@ function makeAtlas() {
     for (let y = 3; y <= 12; y++) { px(c, r, 6, y, '#4a3550'); px(c, r, 8, y, '#4a3550'); }
     for (let i = 0; i < 3; i++) { px(c, r, 7, 5 + i * 3, '#d8e84a'); px(c, r, 8, 5 + i * 3, '#a8b83a'); }
     for (const [x, y] of [[4, 4], [11, 5], [5, 11], [10, 11]]) px(c, r, x, y, '#6a4a72');
+  });
+  /* ─────────────────────────────────────────────────────────────
+     v371：陨石坑的坠毁飞船 —— 只多一块「陨铁装甲板」。画成冷灰金属 + 铆钉 + 一道焦痕
+     ───────────────────────────────────────────────────────────── */
+  T(115, '#5a6472', 0.08, (c, r) => {
+    for (let y = 1; y <= 14; y += 3) for (let x = 1; x <= 14; x += 3) px(c, r, x, y, '#7f8b9c');
+    for (let i = 0; i < 5; i++) px(c, r, 3 + i * 2, 12 - i, '#2b3038');
+    for (let x = 4; x <= 11; x++) px(c, r, x, 6, '#8fa0b4');
   });
   T(100, '#93b45a', 0.06, (c, r) => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) px(c, r, x, y, shade('#93b45a', 0.93 + ((y % 4) * 0.025) + (Math.random() * 0.05)));
@@ -6690,6 +6699,9 @@ function pyrState(key) {
 /* ── 试炼战利品表（沙漠箱 / BOSS 箱）─────────────────────────────────── */
 const DESERT_LOOT = [[125, 1, 3], [106, 2, 5], [13, 4, 9], [120, 1, 1], [107, 4, 9], [104, 3, 8], [219, 1, 3], [128, 1, 2]];
 /* ★ v368 陨石坑战利品：远古遗迹的箱子比金字塔更「深」，给冥界钢/钻石一档的东西 */
+/* ★ v371：坠毁飞船的舱内宝箱 —— 比遗迹箱子高一档（陨铁装甲板 / 稀有工具 / 大量钻石） */
+const SHIP_LOOT = [[98, 4, 9], [204, 1, 1], [178, 2, 3], [125, 2, 4], [106, 3, 6],
+                   [13, 8, 16], [120, 1, 2], [107, 6, 12], [96, 1, 2]];
 const METEOR_LOOT = [[125, 1, 3], [106, 2, 5], [13, 6, 12], [178, 1, 2], [120, 1, 1],
                      [107, 4, 9], [104, 4, 10], [204, 1, 1], [130, 1, 1]];
 const BOSS_LOOT = [[125, 8, 16], [130, 1, 1], [131, 1, 1], [133, 1, 1], [135, 1, 1], [204, 1, 1], [206, 1, 1], [132, 1, 1], [134, 1, 1], [110, 1, 1]];
@@ -7356,78 +7368,172 @@ function mtFor(cellX, cellZ) {
       const ops = [], sensors = [], chests = [];
       const put = (x, y, z, t, m) => ops.push(m ? { x, y, z, t, m } : { x, y, z, t });
       const carve = (x, y, z) => ops.push({ x, y, z, t: 0 });
-      const R = 17;
-      /* ① 碗形坑 + 坑唇 + 外圈溅射
-         ⚠ 基准一律用**坑心自己的地表高度 base**（不是采样最高点 gy）：
-         · 高的一侧：往下切到目标高度（把山体削出碗口）
-         · 低的一侧：最多回填 8 格（再多会变成悬崖上的高台，看起来像 bug）
-         第一版用 gy 当基准 / 用 Math.max(h0,gy) 挖，结果低洼处半空铺石板、坑只有半边是碗。 */
+      /* ① 碗形坑：**只挖不填**
+         ⚠ 上一版会把低处回填到「坑唇 = base + 2」，坡地上就成了一坨凸起（用户：像凸起来的）。
+         现在一律以坑心地表 base 为基准往下切，**低处什么都不做**，只在比目标高的地形上动土
+         → 纯凹陷，绝不会在地表以上新增方块（除了单块溅射碎屑）。 */
       const base = heightAt(cx, cz);
-      for (let dx = -R - 10; dx <= R + 10; dx++) for (let dz = -R - 10; dz <= R + 10; dz++) {
+      const R = 19, RD = 17;                                   // 坑半径 / 坑心下挖深度
+      for (let dx = -R - 13; dx <= R + 13; dx++) for (let dz = -R - 13; dz <= R + 13; dz++) {
         const rr = Math.hypot(dx, dz), h0 = heightAt(cx + dx, cz + dz);
-        let target = 0, isRim = false;
-        if (rr <= R) {
-          const dep = Math.round(Math.pow(1 - rr / R, 1.35) * 12);
-          target = base - dep;
-        } else if (rr <= R + 2.5) {
-          target = base + Math.max(0, Math.round((1 - (rr - R) / 2.5) * 2));
-          isRim = true;
-        } else {
-          if (rr <= R + 9 && rnd() < 0.22) put(cx + dx, h0 + 1, cz + dz, MT_ROCK);   // 溅射碎块
-          continue;
+        const dep = Math.round(RD * Math.pow(Math.max(0, 1 - rr / (R + 5)), 1.45));
+        if (dep > 0) {
+          /* ⚠ 关键：基准取 min(h0, base)。
+             只用 base → 坡地下坡一侧 h0 < base，目标反而比地面高，那一侧**一点都没挖**（整坑变成半边）；
+             只用 h0 → 又失去统一深度。min() 两者兼顾：每列都至少挖 dep 深，坡上再多挖，处处是凹的。 */
+          const target = Math.min(h0, base) - dep;
+          if (h0 > target) {
+            for (let y = target + 1; y <= h0 + 1; y++) carve(cx + dx, y, cz + dz);
+            put(cx + dx, target, cz + dz, MT_ROCK);
+            if (dep > 1) put(cx + dx, target - 1, cz + dz, MT_ROCK);
+          }
+        } else if (rr <= R + 14) {
+          /* 焦黑环带（冲击面）：把坑外 8 格也削到 base+1 并铺陨石岩。
+             没有这一圈，坑在坡地上就只是「一片被挖过的草坡」，看不出是撞击坑。 */
+          const target = Math.min(h0, base) + 1;
+          if (h0 > target) {
+            for (let y = target + 1; y <= h0 + 1; y++) carve(cx + dx, y, cz + dz);
+            put(cx + dx, target, cz + dz, MT_ROCK);
+          } else {
+            put(cx + dx, h0, cz + dz, MT_ROCK);                // 只**替换**地表那一块，绝不加高
+          }
         }
-        target = Math.max(3, target);
-        if (h0 > target) {
-          for (let y = target + 1; y <= h0 + 1; y++) carve(cx + dx, y, cz + dz);     // 削平/挖进山体
-        } else if (target - h0 <= 8) {
-          for (let y = h0 + 1; y <= target; y++) put(cx + dx, y, cz + dz, MT_ROCK);   // 低处回填（有限）
-        } else {
-          continue;                                                                  // 落差太大：干脆不修，保留原地形
-        }
-        put(cx + dx, target, cz + dz, MT_ROCK);
-        if (isRim && target > 3) put(cx + dx, target - 1, cz + dz, MT_ROCK);
       }
-      /* ② 坑底正中：2×2 裂隙竖井（每 3 格留 1 格空 → 看着是「破开的岩层」，往下挖就通） */
-      const cbot = Math.max(3, heightAt(cx, cz) - 12);                                // 坑心地面
-      for (let dx = 0; dx <= 1; dx++) for (let dz = 0; dz <= 1; dz++) {
-        for (let y = cbot; y > ry; y--) {
-          if (y % 3 === 0) carve(cx + dx, y, cz + dz);
-          else put(cx + dx, y, cz + dz, MT_ROCK);
-        }
-        carve(cx + dx, ry + 1, cz + dz);
-      }
-      /* ③ 遗迹大厅：地板陨石岩/圆石相间，四面深板岩厚墙，天花板封顶 */
-      const HX = 21, HH = 12;
+      const cbot = Math.max(5, base - RD);                     // 坑心地面高度
+
+      /* ② 地下巨构：53×53 大殿（天花板高度起伏）+ 四向翼区 + 走廊 */
+      const HX = 26, HH = 14;                                  // 半宽 / 基准净高
       for (let dx = -HX - 2; dx <= HX + 2; dx++) for (let dz = -HX - 2; dz <= HX + 2; dz++) {
         const ed = Math.max(Math.abs(dx), Math.abs(dz));
         if (ed <= HX) {
-          put(cx + dx, ry, cz + dz, (Math.abs(dx) + Math.abs(dz)) % 7 === 0 ? 9 : MT_ROCK);
-          for (let y = ry + 1; y <= ry + HH; y++) carve(cx + dx, y, cz + dz);
+          const wave = Math.round(1.6 + 1.6 * Math.sin(dx * 0.21) * Math.cos(dz * 0.17));   // 0..3 起伏
+          const hh = HH - wave;
+          put(cx + dx, ry, cz + dz, (Math.abs(dx) * 3 + Math.abs(dz) * 5) % 11 === 0 ? 9 : MT_ROCK);
+          for (let y = ry + 1; y <= ry + hh; y++) carve(cx + dx, y, cz + dz);
+          put(cx + dx, ry + hh + 1, cz + dz, 50);
         } else {
-          for (let y = ry; y <= ry + HH + 1; y++) put(cx + dx, y, cz + dz, 50);
+          for (let y = ry; y <= ry + HH + 2; y++) put(cx + dx, y, cz + dz, 50);
         }
       }
-      for (let dx = -HX; dx <= HX; dx++) for (let dz = -HX; dz <= HX; dz++) put(cx + dx, ry + HH + 1, cz + dz, 50);
-      /* ④ 中央祭坛：两级台 + 四根石柱 + 陨核（发光） */
-      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) put(cx + dx, ry + 1, cz + dz, MT_ROCK);
-      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, ry + 2, cz + dz, MT_ROCK);
-      for (const [ax, az] of [[-2, -2], [2, -2], [-2, 2], [2, 2]])
-        for (let y = ry + 3; y <= ry + 8; y++) put(cx + ax, y, cz + az, 50);
-      put(cx, ry + 3, cz, MT_CORE);
-      /* 火把：祭坛四角 + 八根立柱脚 + 竖井落点 —— 没有它们整个大厅黑得看不见东西 */
-      for (const [tx, tz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) put(cx + tx, ry + 2, cz + tz, 38);
-      chests.push([cx + 3, ry + 2, cz]);
-      put(cx + 3, ry + 2, cz, 18);
-      /* ⑤ 大厅立柱（八根，撑到天花板，断的断） */
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2 + 0.4;
-        const px2 = cx + Math.round(Math.cos(a) * 15), pz2 = cz + Math.round(Math.sin(a) * 15);
-        const top = ry + HH - (i % 3);
-        for (let y = ry + 1; y <= top; y++) put(px2, y, pz2, i % 2 ? 50 : MT_ROCK);
-        put(px2 + 1, ry + 1, pz2, 38);                       // 柱脚火把
+      /* 竖井穿过天花板接到大殿 */
+      for (let dx = 0; dx <= 1; dx++) for (let dz = 0; dz <= 1; dz++) {
+        for (let y = cbot; y > ry + HH; y--) {
+          if (y % 3 === 0) carve(cx + dx, y, cz + dz);
+          else put(cx + dx, y, cz + dz, MT_ROCK);
+        }
       }
-      /* ⑥ 四角残破小建筑（墙随机缺口、一根断柱、一个宝箱） */
-      for (const [sx, sz] of [[-13, -13], [13, -13], [-13, 13], [13, 13]]) {
+
+      /* ③ 四向翼区：北=蓄水池 / 南=铸造厅 / 东=藏书殿 / 西=坍塌坑
+         每个翼区 15×15，用 3 格宽走廊穿过外墙连到大殿 */
+      const WING = 7;                                          // 半宽
+      const wings = [
+        { dx: 0, dz: -HX - WING - 3, kind: 0 },                 // 蓄水池
+        { dx: 0, dz: HX + WING + 3, kind: 1 },                  // 铸造厅
+        { dx: HX + WING + 3, dz: 0, kind: 2 },                  // 藏书殿
+        { dx: -HX - WING - 3, dz: 0, kind: 3 },                 // 坍塌坑
+      ];
+      for (const w of wings) {
+        const bx = cx + w.dx, bz = cz + w.dz;
+        const isNS = w.dx === 0;
+        if (w.kind !== 0) {
+          for (let dx = -WING - 1; dx <= WING + 1; dx++) for (let dz = -WING - 1; dz <= WING + 1; dz++) {
+            const ed = Math.max(Math.abs(dx), Math.abs(dz));
+            const x = bx + dx, z = bz + dz;
+            if (ed <= WING) {
+              put(x, ry, z, w.kind === 1 ? (ed === WING ? 50 : 9) : (Math.abs(dx) % 4 === 0 ? 9 : MT_ROCK));
+              for (let y = ry + 1; y <= ry + (w.kind === 2 ? 10 : 7); y++) carve(x, y, z);
+              put(x, ry + (w.kind === 2 ? 11 : 8), z, 50);
+            } else {
+              for (let y = ry; y <= ry + (w.kind === 2 ? 11 : 8); y++) put(x, y, z, 50);
+            }
+          }
+        } else {
+          /* 蓄水池：地面再下挖 4 格，灌水到 ry 高度（水面是坑，踩空会掉进去） */
+          for (let dx = -WING - 1; dx <= WING + 1; dx++) for (let dz = -WING - 1; dz <= WING + 1; dz++) {
+            const ed = Math.max(Math.abs(dx), Math.abs(dz)), x = bx + dx, z = bz + dz;
+            if (ed <= WING) {
+              put(x, ry - 4, z, 50);
+              for (let y = ry - 3; y <= ry; y++) put(x, y, z, 5);          // 水
+              for (let y = ry + 1; y <= ry + 8; y++) carve(x, y, z);
+              put(x, ry + 9, z, 50);
+            } else {
+              for (let y = ry - 4; y <= ry + 9; y++) put(x, y, z, 50);
+            }
+          }
+          /* 水池中央的台子 + 宝箱 */
+          for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let y = ry - 4; y <= ry; y++) put(bx + dx, y, bz + dz, 9);
+          chests.push([bx, ry + 1, bz]); put(bx, ry + 1, bz, 18);
+          put(bx + 2, ry + 1, bz, 38);
+        }
+        /* 走廊 */
+        const n = isNS ? (w.dz < 0 ? -1 : 1) : (w.dx < 0 ? -1 : 1);
+        const from = isNS ? HX : HX, to = isNS ? Math.abs(w.dz) - WING : Math.abs(w.dx) - WING;
+        for (let t = from; t <= to; t++) {
+          for (let o = -1; o <= 1; o++) {
+            const x = isNS ? cx + o : cx + n * t;
+            const z = isNS ? cz + n * t : cz + o;
+            for (let y = ry + 1; y <= ry + 5; y++) carve(x, y, z);
+            put(x, ry, z, 9);
+            put(x, ry + 6, z, 50);
+          }
+          if (t % 6 === 0) {                                   // 走廊火把
+            const lx = isNS ? cx + 2 : cx + n * t, lz = isNS ? cz + n * t : cz + 2;
+            put(lx, ry + 1, lz, 38);
+          }
+        }
+        /* 翼区里的内容 */
+        if (w.kind === 1) {                                    // 铸造厅：岩浆池 + 铁砧
+          for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) put(bx + dx, ry, bz + dz, 44);
+          for (const [ax, az] of [[-5, -5], [5, -5], [-5, 5], [5, 5]]) put(bx + ax, ry + 1, bz + az, 9);
+          chests.push([bx + 5, ry + 1, bz - 1]); put(bx + 5, ry + 1, bz - 1, 18);
+          chests.push([bx - 5, ry + 1, bz + 1]); put(bx - 5, ry + 1, bz + 1, 18);
+          put(bx, ry + 1, bz + 6, 38);
+        } else if (w.kind === 2) {                             // 藏书殿：两排书架柱 + 长桌
+          for (let i = -5; i <= 5; i += 2) {
+            for (let y = ry + 1; y <= ry + 4; y++) { put(bx + i, y, bz - 4, 50); put(bx + i, y, bz + 4, 50); }
+            put(bx + i, ry + 5, bz - 4, 9); put(bx + i, ry + 5, bz + 4, 9);
+          }
+          for (let i = -3; i <= 3; i++) put(bx + i, ry + 1, bz, 9);
+          chests.push([bx - 4, ry + 1, bz]); put(bx - 4, ry + 1, bz, 18);
+          chests.push([bx + 4, ry + 1, bz]); put(bx + 4, ry + 1, bz, 18);
+          put(bx, ry + 1, bz - 6, 38); put(bx, ry + 1, bz + 6, 38);
+        } else if (w.kind === 3) {                             // 坍塌坑：碎石堆 + 破洞
+          for (let i = 0; i < 40; i++) {
+            const rx = bx + Math.round((rnd() - 0.5) * 12), rz = bz + Math.round((rnd() - 0.5) * 12);
+            const hgt = 1 + Math.floor(rnd() * 3);
+            for (let y = ry + 1; y <= ry + hgt; y++) put(rx, y, rz, rnd() < 0.5 ? MT_ROCK : 9);
+          }
+          for (let i = 0; i < 3; i++) {                        // 顶上破洞通向岩层
+            const rx = bx + Math.round((rnd() - 0.5) * 10), rz = bz + Math.round((rnd() - 0.5) * 10);
+            for (let y = ry + 1; y <= ry + 8; y++) carve(rx, y, rz);
+          }
+          chests.push([bx - 5, ry + 1, bz - 5]); put(bx - 5, ry + 1, bz - 5, 18);
+          chests.push([bx + 5, ry + 1, bz + 5]); put(bx + 5, ry + 1, bz + 5, 18);
+        }
+      }
+
+      /* ④ 中央祭坛：三级台 + 四根石柱 + 陨核（发光） */
+      for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) put(cx + dx, ry + 1, cz + dz, MT_ROCK);
+      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) put(cx + dx, ry + 2, cz + dz, 9);
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) put(cx + dx, ry + 3, cz + dz, MT_ROCK);
+      for (const [ax, az] of [[-3, -3], [3, -3], [-3, 3], [3, 3]])
+        for (let y = ry + 3; y <= ry + 10; y++) put(cx + ax, y, cz + az, 50);
+      put(cx, ry + 4, cz, MT_CORE);
+      for (const [tx, tz] of [[-4, -4], [4, -4], [-4, 4], [4, 4]]) put(cx + tx, ry + 2, cz + tz, 38);
+      chests.push([cx + 4, ry + 2, cz]); put(cx + 4, ry + 2, cz, 18);
+      chests.push([cx - 4, ry + 2, cz + 1]); put(cx - 4, ry + 2, cz + 1, 18);
+
+      /* ⑤ 大殿立柱（12 根，部分断掉） */
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 + 0.4;
+        const px2 = cx + Math.round(Math.cos(a) * 19), pz2 = cz + Math.round(Math.sin(a) * 19);
+        const top = ry + HH - 1 - (i % 4);
+        for (let y = ry + 1; y <= top; y++) put(px2, y, pz2, i % 2 ? 50 : MT_ROCK);
+        put(px2 + 1, ry + 1, pz2, 38);
+      }
+
+      /* ⑥ 四角残破小屋（墙随机缺口、断柱、宝箱） */
+      for (const [sx, sz] of [[-17, -17], [17, -17], [-17, 17], [17, 17]]) {
         const bx = cx + sx, bz = cz + sz;
         for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) {
           put(bx + dx, ry, bz + dz, (dx + dz) % 3 === 0 ? 9 : MT_ROCK);
@@ -7437,29 +7543,74 @@ function mtFor(cellX, cellZ) {
             put(bx + dx, y, bz + dz, rnd() < 0.5 ? 50 : MT_ROCK);
           }
         }
-        const gx = sx < 0 ? bx + 4 : bx - 4;                  // 朝大厅那面开门洞
+        const gx = sx < 0 ? bx + 4 : bx - 4;
         for (let y = ry + 1; y <= ry + 3; y++) carve(gx, y, bz);
-        chests.push([bx, ry + 1, bz]);
-        put(bx, ry + 1, bz, 18);
+        chests.push([bx, ry + 1, bz]); put(bx, ry + 1, bz, 18);
         for (let y = ry + 1; y <= ry + 4; y++) put(bx + 2, y, bz + 2, 50);
-        put(bx - 3, ry + 1, bz + 3, 38);                     // 小屋角上的火把
+        put(bx - 3, ry + 1, bz + 3, 38);
       }
-      /* ⑦ 触手传感器：大厅一圈 12 个 + 坑底 4 个（坑里挖石头也会惊动它们） */
-      for (let i = 0; i < 12; i++) {
-        const a = (i / 12) * Math.PI * 2 + 0.3, rr = 9 + (i % 3) * 3;
+
+      /* ⑦ 坠毁飞船：倒在坑底的斜坡上，船体是陨铁装甲板（98）+ 玻璃舱盖（22）
+         · 舱门在船尾侧面掏开，玩家能走进去
+         · 舱内：一个专属战利品宝箱（shipChest）+ 两个控制台 + 一颗陨核反应堆 */
+      const sx0 = cx + 9, sz0 = cz + 4, sy0 = cbot + 3;
+      const SL = 8, SW = 3, SH = 4;
+      for (let dx = -SL; dx <= SL; dx++) for (let dz = -SW; dz <= SW; dz++) {
+        const ax = Math.abs(dx), xx = sx0 + dx, zz = sz0 + dz;
+        const taper = Math.round(Math.pow(ax / SL, 2) * 2);
+        const halfW = Math.max(1, SW - taper);
+        /* 先清出船坞：上方挖空、船底垫实，避免悬空或埋进地形 */
+        for (let y = sy0 + SH + 1; y <= base + 2; y++) carve(xx, y, zz);
+        for (let y = sy0 - 1; y >= sy0 - 6; y--) put(xx, y, zz, MT_ROCK);
+        if (Math.abs(dz) > halfW) continue;
+        for (let dy = 0; dy <= SH; dy++) {
+          const shell = dy === 0 || dy === SH || Math.abs(dz) === halfW || ax === SL;
+          if (!shell) { carve(xx, sy0 + dy, zz); continue; }
+          const glass = dy === SH && ax <= 3 && Math.abs(dz) <= 1;
+          put(xx, sy0 + dy, zz, glass ? 22 : 98);
+        }
+      }
+      /* 舱门：船尾（-X 端）侧面一个 3 宽 2 高的缺口 */
+      for (let dy = 1; dy <= 2; dy++) for (let dz = -1; dz <= 1; dz++) carve(sx0 - SL + 1, sy0 + dy, sz0 + dz);
+      /* 舱内陈设 */
+      const shipChest = [sx0 + 4, sy0 + 1, sz0];
+      chests.push(shipChest); put(shipChest[0], shipChest[1], shipChest[2], 18);
+      put(sx0 + 1, sy0 + 1, sz0 - 2, 98); put(sx0 + 1, sy0 + 1, sz0 + 2, 98);   // 控制台
+      put(sx0 - 5, sy0 + 1, sz0, MT_CORE);                                       // 反应堆
+      /* 尾翼 */
+      for (const sgn of [-1, 1]) {
+        put(sx0 - SL, sy0 + SH + 1, sz0 + sgn * (SW - 1), 98);
+        put(sx0 - SL - 1, sy0 + SH + 2, sz0 + sgn * (SW - 1), 98);
+      }
+      /* 船头下方的撞击坑（凹） */
+      for (let dx = SL; dx <= SL + 5; dx++) for (let dz = -3; dz <= 3; dz++) {
+        const xx = sx0 + dx, zz = sz0 + dz;
+        for (let y = sy0; y <= sy0 + 3; y++) carve(xx, y, zz);
+        put(xx, sy0 - 1, zz, MT_ROCK);
+      }
+
+      /* ⑧ 触手传感器：大殿一圈 18 + 走廊 4 + 坑里 4 = 26 个 */
+      for (let i = 0; i < 18; i++) {
+        const a = (i / 18) * Math.PI * 2 + 0.3, rr = 10 + (i % 4) * 4;
         const sx2 = cx + Math.round(Math.cos(a) * rr), sz2 = cz + Math.round(Math.sin(a) * rr);
         put(sx2, ry + 1, sz2, MT_SENSOR);
         sensors.push([sx2, ry + 1, sz2]);
       }
+      for (const [ox, oz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const sx2 = cx + ox * (HX + 8), sz2 = cz + oz * (HX + 8);
+        put(sx2, ry + 1, sz2, MT_SENSOR);
+        sensors.push([sx2, ry + 1, sz2]);
+      }
       for (let i = 0; i < 4; i++) {
-        const a = (i / 4) * Math.PI * 2 + 0.8;
-        const sx2 = cx + Math.round(Math.cos(a) * 9), sz2 = cz + Math.round(Math.sin(a) * 9);
-        const yy = gy - Math.round(Math.pow(1 - 9 / R, 1.35) * 12) + 1;
+        const a = (i / 4) * Math.PI * 2 + 0.8, rr = 11 + (i % 2) * 3;
+        const sx2 = cx + Math.round(Math.cos(a) * rr), sz2 = cz + Math.round(Math.sin(a) * rr);
+        const yy = cbot + 1;
         put(sx2, yy, sz2, MT_SENSOR);
         sensors.push([sx2, yy, sz2]);
       }
-      out = { name: 'meteor', cx, cz, gy, ry, r: 30, sensors, chests,
-              altar: { x: cx, y: ry + 3, z: cz }, byChunk: packOps(ops), ops: ops.length, label: 'Meteor Crater' };
+      out = { name: 'meteor', cx, cz, gy, ry, r: 46, sensors, chests,
+              altar: { x: cx, y: ry + 4, z: cz }, ship: { x: sx0, y: sy0, z: sz0 }, shipChest,
+              base, cbot, byChunk: packOps(ops), ops: ops.length, label: 'Meteor Crater' };
     }
   }
   mtCache.set(key, out);
@@ -7550,6 +7701,7 @@ function mtChestKind(x, y, z) {
   for (let dx = -1; dx <= 1 && !kind; dx++) for (let dz = -1; dz <= 1 && !kind; dz++) {
     const o = mtFor(cx + dx, cz + dz);
     if (!o) continue;
+    if (o.shipChest && o.shipChest[0] === x && o.shipChest[2] === z && Math.abs(y - o.shipChest[1]) <= 1) { kind = 'ship'; break; }
     for (const c of o.chests) if (c[0] === x && c[2] === z && Math.abs(y - c[1]) <= 1) { kind = 'meteor'; break; }
   }
   mtChestKindCache.set(ck, kind);
@@ -8178,8 +8330,9 @@ function chestSlots(x, y, z) {
     const special = (typeof pyrChestKind === 'function' ? pyrChestKind(x, y, z) : null)
       || (typeof mtChestKind === 'function' ? mtChestKind(x, y, z) : null);
     const table = special === 'boss' ? BOSS_LOOT : special === 'desert' ? DESERT_LOOT
-      : special === 'meteor' ? METEOR_LOOT : CHEST_TABLE;
-    const picks = special ? (special === 'boss' ? 5 : special === 'meteor' ? 4 : 3) : 2 + Math.floor(rnd() * 4);
+      : special === 'meteor' ? METEOR_LOOT : special === 'ship' ? SHIP_LOOT : CHEST_TABLE;
+    const picks = special ? (special === 'boss' ? 5 : special === 'ship' ? 6 : special === 'meteor' ? 4 : 3)
+                          : 2 + Math.floor(rnd() * 4);
     for (let i = 0; i < picks; i++) {
       const [id, a, b] = table[Math.floor(rnd() * table.length)];
       const n = a + Math.floor(rnd() * (b - a + 1));
@@ -9028,21 +9181,40 @@ function mobGeos(kind) {
     for (let x = -2; x < 2; x++) px(head, x, 5, 23, E2);
     coreY = 7 * MOB_PX; barY = 20 * MOB_PX; headPiv = 4;
   } else if (kind === 'voidStalker') {
-    /* ★ v368 异形追猎者：细长躯体 + 后倾长头骨 + 猩红复眼 + 背脊刺 + 长臂 */
-    const SK1 = 0x1b2130, SK2 = 0x0e1219, GLOW = 0xff3b2e, RIB = 0x39435c;
+    /* ★ v371 重做「地下的异形」：
+       · 向后拉长的颅骨 + 头顶冠脊 + 尖吻 + 上下牙
+       · 两对猩红复眼（一明一暗）
+       · 外露肋骨（深色缝隙里透出暗红）+ 背脊骨刺
+       · 过膝长臂 + 肘刺、三节长尾（向身后下方垂）
+       骨架仍用 humanoid()，只是把 head/body 上堆细节 —— 这样手臂摆动/受击闪白都还能用 */
+    const SK1 = 0x1b2434, SK2 = 0x0b0f16, RIB = 0x39455f, EYE = 0xff3324, EYE2 = 0xffa24a, BONE = 0xd8cfc4;
     humanoid({ body: SK1, skin: SK1, dark: SK2, leg: SK2 }, () => {
-      box(head, -3, 20, -6, 6, 6, 8, SK1, 0.10);                  // 拉长的头骨
-      px(head, 0, 22, 5, GLOW);                                    // 额心单眼
-      for (const x of [-2, -1, 1, 2]) px(head, x, 21, 4, x < 0 ? GLOW : 0xd8d0c8);
-      for (let x = -3; x <= 2; x++) px(head, x, 19, 4, SK2);
-    }, (m, set, x0) => {                                           // 长臂（过膝）
-      for (let y = -15; y <= -9; y++) for (let x = x0; x < x0 + 3; x++) set(x, y, 1, SK1);
-    }, (m, set, x0) => {}, () => {
-      for (let y = 8; y <= 23; y += 3) px(body, 0, y, 3, RIB);     // 背脊刺
-      box(body, -1, 12, -2, 2, 7, 1, SK2, 0.10);                   // 收窄的胸腹
-      for (const y of [15, 19]) { px(body, -2, y, 2, SK2); px(body, 1, y, 2, SK2); }
+      box(head, -3, 20, -8, 6, 6, 13, SK1, 0.07);                 // 拉长并后倾的颅骨
+      box(head, -2, 21, 5, 4, 4, 3, SK1, 0.05);                   // 面部前端
+      for (let x = -2; x <= 1; x++) px(head, x, 23, 6, SK2);      // 眉骨阴影
+      for (const x of [-2, 1]) { px(head, x, 22, 6, EYE); px(head, x, 21, 6, EYE2); }   // 两对复眼
+      for (let x = -2; x <= 1; x++) px(head, x, 19, 7, BONE);     // 上牙
+      px(head, -1, 18, 6, BONE); px(head, 0, 18, 6, BONE);
+      for (let z = -8; z <= 3; z += 3) px(head, 0, 26, z, RIB);   // 头顶冠脊
+      px(head, -3, 24, -2, RIB); px(head, 2, 24, -2, RIB);
+    }, (m, set, x0) => {                                          // 过膝长臂 + 肘刺
+      for (let y = -16; y <= -9; y++) for (let x = x0; x < x0 + 3; x++) set(x, y, 1, SK1);
+      for (let x = x0; x < x0 + 3; x++) set(x, -10, 2, RIB);
+      for (let x = x0; x < x0 + 2; x++) set(x, -16, 1, BONE);     // 利爪
+    }, (m, set, x0) => {
+      for (let y = -16; y <= -9; y++) for (let x = x0; x < x0 + 3; x++) set(x, y, 1, SK1);
+      for (let x = x0; x < x0 + 3; x++) set(x, -10, 2, RIB);
+      for (let x = x0; x < x0 + 2; x++) set(x, -16, 1, BONE);
+    }, () => {
+      for (let y = 10; y <= 22; y += 2) { px(body, -4, y, 1, RIB); px(body, 3, y, 1, RIB); }   // 外露肋骨
+      box(body, -1, 10, -2, 2, 12, 1, SK2, 0.06);                 // 腹腔深色凹陷
+      for (let y = 11; y <= 24; y += 2) px(body, 0, y, 2, RIB);   // 背脊骨刺
+      for (const y of [15, 19]) { px(body, -2, y, 2, EYE); }      // 肋缝里透出的暗红
+      box(body, -1, 5, -4, 2, 2, 4, SK2, 0.06);                   // 尾根
+      box(body, -1, 3, -8, 2, 2, 5, SK1, 0.06);                   // 尾中
+      box(body, 0, 2, -13, 1, 1, 5, RIB, 0.04);                   // 尾尖
     });
-    coreY = 18 * MOB_PX; barY = 35 * MOB_PX;
+    coreY = 19 * MOB_PX; barY = 36 * MOB_PX;
   } else if (kind === 'cliffRaptor') {
     /* ★ v349 崖鹫：宽翼猛禽（两片翼当手臂用）+ 尾羽 */
     const F1 = 0x8a7a5c, F2 = 0x5f523c, BK = 0xe8d9b0, EYE = 0xffb03a;
