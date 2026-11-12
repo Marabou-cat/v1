@@ -2206,6 +2206,7 @@ const JAB_STYLE = {
   slayer:{ arm:1.55, ol:.35, lean:.20, lL:.06, col:0x6ff2ff, size:.42 },
   reaper:{ arm:1.25, ol:.18, lean:.24, lL:.08, col:0xff2b3a, size:.50, slash:true },
   hacker:{ arm:1.52, ol:.40, lean:.24, lL:.05, col:0x7dff9b, size:.42 },
+  soldier:{arm:1.34, ol:.30, lean:.26, lL:.07, col:0xffd166, size:.46 },   // ★ 士兵：手枪柄横扫（金）
 };
 const JAB_DEF = { arm:1.55, ol:.50, lean:.30, lL:0, col:0xffffff, size:.42 };
 /* ★ 坚守者：双手过顶砸（铁傀儡式），单发重击 20% + 向上击飞，冷却很长 */
@@ -2402,11 +2403,21 @@ CHAR_EXTRA.warden = {
 
 /* ================= ★ 士兵 Soldier（原创 · 双枪 + 军帽 + 勋章军装）=================
    玩法定位：中距离「射击型」角色 —— 四个技能全都围绕枪械，但**都不是实体子弹**（除了下B散弹
-   和大招机枪），而是「范围判定 + 冲击波视觉」，所以不会被反伤/屏障类机关当成弹道拦下。 */
+   和大招机枪），而是「范围判定 + 冲击波视觉」，所以不会被反伤/屏障类机关当成弹道拦下。
+   2026-11-11：① 补上二段跳（jumps:2，跳跃力提到普通角色档位，否则二段跳只有半人高）；
+                ② 中立B 改成「方形弹幕区」—— 后撤后在前方铺一个 6.4×6.4 的方块战场，
+                   里面持续 2.6 秒下弹雨（每 .12s 一跳），收尾一记冲击波；
+                   ⚠ 冷却：1.8 → 6.4（拉长） → 3.0（2026-11-11 用户要求「大幅减少冷却」）；
+                ③ animStep 新增 soldier 专属块：所有技能都有枪械姿态（详见 animStep）；
+                ④ 建模重做：头身比对齐老角色（总高 3.088 = Cobalt、头身 2.88 = Cobalt），
+                   躯干/腿按 Sparky 的方向收瘦（宽 .82→.62、腿 .30→.22），但**手臂反过来加粗**
+                   （上臂 .16→.23、前臂 .14→.21，用户要求「手臂更粗」）；装备细节全保留；
+                ⑤ 面部极简化（照 Teacher）：只留 setEyes('round') 两只圆眼 + 一个鼻头，
+                   下颌/下巴/颧骨/耳朵/眉骨/眉毛/眼白虹膜瞳孔/眼角纹/嘴角线全部去掉。 */
 CHARS.push({ id:'soldier', name:'Soldier', en:'SOLDIER', tag:'Gunslinger',
   body:0x3f6b3a, body2:0x4f8a48, dark:0x1d2a1c, eye:0x2b3440,
-  shape:{ scale:.96, headR:.44 },
-  weight:96, walk:7.6, run:11.0, air:9.8, jump:15.2, jumps:1, fall:27, fastFall:35,
+  shape:{ scale:.96, headR:.62 },        /* ★ 重做后头更大（与老角色头身比一致），headR 同步 */
+  weight:96, walk:7.6, run:11.0, air:11.2, jump:25.0, jumps:2, fall:27, fastFall:35,
   accel:36, airAccel:32, fric:27, mul:{ dmg:1.0, kb:1.06, spd:1.02 },
   punchCd:.62,                       /* 手枪柄敲击：出手快、伤害低 */
   moves:{ jab:{ zh:'Pistol Whip', jab:true, sfx:'light', startup:.09, active:.09, end:.19,
@@ -2414,28 +2425,82 @@ CHARS.push({ id:'soldier', name:'Soldier', en:'SOLDIER', tag:'Gunslinger',
   special:{} });
 CHAR_EXTRA.soldier = {
   trait:'Dual Pistols · Shotgun · Heavy MG',
-  skills:'Neutral B Backstep Volley (hop back while firing a forward AREA blast — not a bullet) · '
+  skills:'Neutral B Barrage Zone (hop back, then paint a 6.4×6.4 square in front of you for 2.6s '
+    + '— bullets rain inside it every .12s, and it closes with a shockwave) · '
     + 'Side B Combat Rush (dash in, grab the first foe, point-blank them 5 times and knock them away) · '
     + 'Down B Shotgun (12 pellets in a tight cone — at point blank every pellet connects) · '
     + 'Up B Sky Uppercut (multi-hit rise; the finisher grabs a nearby foe and hurls them where you face) · '
     + 'Final Smash HEAVY MG (10s: any B press fires a 10-round burst).',
-  shape:{ scale:.96, headR:.44 },
-  weight:96, walk:7.6, run:11.0, air:9.8, jump:15.2, jumps:1, fall:27, fastFall:35,
+  shape:{ scale:.96, headR:.62 },        /* ★ 重做后头更大（与老角色头身比一致），headR 同步 */
+  weight:96, walk:7.6, run:11.0, air:11.2, jump:25.0, jumps:2, fall:27, fastFall:35,
   accel:36, airAccel:32, fric:27, mul:{ dmg:1.0, kb:1.06, spd:1.02 },
   special:{
-    /* 中立B：后跳 + 前方范围齐射（cd 很短 → 可以当远程压制用） */
-    n:{ kind:'soldierVolley', label:'Backstep Volley', cd:1.8, back:13.5, dur:.60,
-        dmg:10, bb:10, bg:28, ang:44, R:7.6, color:0xffd166 },
+    /* 中立B：后跳 + 前方「方形弹幕区」（6.4×6.4，2.6 秒持续下弹，收尾冲击波）
+       —— 从「一下齐射」改成「铺一片战场」：持续更久、冷却也更久 */
+    n:{ kind:'soldierVolley', label:'Barrage Zone', cd:3.0, back:13.5, dur:2.6,
+        side:6.4, gap:.12, tickDmg:1.4, tickBb:0, tickBg:1.6, tickAng:38, tickStun:.05,
+        finDmg:8, finBb:10, finBg:30, finAng:50,
+        R:7.6, dmg:10, bb:10, bg:28, ang:44, color:0xffd166 },
     /* 左右B：冲刺 → 抓住 → 贴脸 5 连射 → 击退 */
-    s:{ kind:'soldierRush', label:'Combat Rush', cd:4.2, dashSpd:33, dur:.55,
+    s:{ kind:'soldierRush', label:'Combat Rush', cd:2.4, dashSpd:33, dur:.55,
         shots:5, dmg:7, bb:13, bg:30, ang:52, color:0xffd166 },
     /* 上B：多段上升拳 + 收尾抓投 */
-    u:{ kind:'soldierUpper', label:'Sky Uppercut', cd:4.6, rise:30, dur:.50,
+    u:{ kind:'soldierUpper', label:'Sky Uppercut', cd:2.8, rise:30, dur:.50,
         hits:3, dmg:5, bb:4, bg:10, finDmg:10, finBb:16, finBg:36, finAng:28, grabR:3.4,
         color:0xffd166 },
     /* 下B：散弹枪 12 颗弹丸（近身全中） */
-    d:{ kind:'soldierShotgun', label:'Shotgun', cd:2.6, pellets:12, dmg:3, bb:3, bg:12,
+    d:{ kind:'soldierShotgun', label:'Shotgun', cd:1.6, pellets:12, dmg:3, bb:3, bg:12,
         ang:20, spd:44, life:.34, spread:.115, hitR:.42, color:0xffb347 },
+  } };
+
+/* ================= ★ 武僧 Monk（2026-11-12）=================
+   棍棒近战。被动「Staff Growth」：每对敌人造成 1% 实际伤害 → +1 点棍势（monkGrow），
+   全部喂给大招（棍变长 + 范围变远，击退不变）。
+   手上那根棍 = parts.staff（独立 group，animStep 逐帧摆姿态）；
+   扔出去 / 插在地上的棍 = 世界里的 _monkStaffMesh（scene 直挂，由 monkTick 同步坐标）。 */
+CHARS.push({ id:'monk', name:'Monk', en:'MONK', tag:'Staff',
+  body:0xd08a2e, body2:0xf0c56a, dark:0x5a2d12, eye:0x241a12,
+  shape:{ tail:null, scale:1.02, headR:.60 },
+  weight:90, walk:8.6, run:13.4, air:11.4, jump:26.0, jumps:2, fall:32, fastFall:48,
+  accel:50, airAccel:38, fric:27, mul:{ dmg:1.0, kb:1.0, spd:1.02 },
+  punchCd:.60,
+  passive:'staffGrow',
+  moves:{
+    jab:{  zh:'Staff Jab',    startup:.048, active:.058, end:.088, dmg:2.2, bb:8,  bg:18, ang:8,  hb:[1.72,1.15,1.20] },
+    jab2:{ zh:'Staff Jab 2',  startup:.046, active:.056, end:.086, dmg:2.4, bb:8,  bg:18, ang:10, hb:[1.78,1.15,1.24] },
+    jab3:{ zh:'Staff Hook',   startup:.048, active:.058, end:.088, dmg:2.6, bb:9,  bg:18, ang:12, hb:[1.84,1.16,1.28] },
+    jab4:{ zh:'Staff Hook 2', startup:.046, active:.056, end:.086, dmg:2.4, bb:9,  bg:18, ang:10, hb:[1.90,1.16,1.32] },
+    jab5:{ zh:'Staff Smash',  startup:.074, active:.066, end:.240, dmg:3.8, bb:12, bg:21, ang:32, hb:[2.05,1.18,1.44], sfx:'heavy' },
+  },
+  special:{} });
+CHAR_EXTRA.monk = {
+  trait:'Staff Growth · Staff Throw · Cyclone',
+  skills:'PASSIVE Staff Growth: every 1% damage you deal gives +1 Growth point — it all feeds the Final Smash '
+    + '(longer staff, longer reach; knockback never changes) · '
+    + 'Neutral B Staff Throw (hurl the staff like a javelin: it strikes on the way and plants itself where it lands. '
+    + 'Walk up to it to pick it up, or press Neutral B empty-handed to LEAP to the staff and land a shockwave. '
+    + 'If the staff drops off the stage it flies straight back to your hand) · '
+    + 'Side B Staff Rush (sprint with the staff — the first foe you touch eats a 5-hit staff combo and gets flattened) · '
+    + 'Down B Cyclone Staff (spin the staff: enemy projectiles are bounced back in your name, and a wind field in front '
+    + 'chips 10% total with a slow push) · '
+    + 'Up B Staff Vault (same rise as Sparky) · '
+    + 'Final Smash STAFF SLAM (the staff grows with your Growth points and is swung forward: 35%, uninterruptible).',
+  shape:{ tail:null, scale:1.02, headR:.60 },
+  weight:90, walk:8.6, run:13.4, air:11.4, jump:26.0, jumps:2, fall:32, fastFall:48,
+  accel:50, airAccel:38, fric:27, mul:{ dmg:1.0, kb:1.0, spd:1.02 },
+  special:{
+    /* 中立B：手里有棍 → 掷棍（飞行 8%，插在落点）；空手 → 跳到棍的位置 + 冲击波 12%。
+       棍飞出场地边缘 / 落点没地板 → 自动飞回手里（monkThrow.returning）。 */
+    n:{ kind:'monkStaff', label:'Staff Throw', cd:2.2, color:0xe0a53c,
+        throwSpd:26, throwVy:4.6, throwGrav:26, throwDmg:8, throwBb:10, throwBg:30, throwHitR:.95, throwLife:2.4,
+        pickR:1.7, leapSpd:26, leapArc:3.2, shockDmg:12, shockBb:12, shockBg:40, shockAng:70, shockR:5.0 },
+    /* 左右B：持棍冲锋 → 撞到人 → 5 连棍（4+4+4+4+8 = 24%）→ 最后一棍砸扁（flatT，同 Pumpkin） */
+    s:{ kind:'monkRush', label:'Staff Rush', cd:4.2, color:0xe0a53c, dashSpd:33, dur:.45, reach:2.2, gap:.13,
+        hits:[{dmg:4,ang:24},{dmg:4,ang:-8},{dmg:4,ang:46},{dmg:4,ang:6},{dmg:8,ang:44}], bb:13, bg:32, flat:.95 },
+    /* 下B：旋风棍 2.4 秒 —— 反弹弹幕 + 身前风场（10 跳 × 1% = 10%）+ 缓慢击退 */
+    d:{ kind:'monkSpin', label:'Cyclone Staff', cd:5.0, color:0x8fe8d0, dur:2.4, gap:.24, tickDmg:1.0, reach:5.2, push:2.4 },
+    /* 上B：完全照 Sparky Thunder Rise（同一条上升曲线 / 同伤害击退） */
+    u:{ kind:'recover', label:'Staff Vault', cd:1.5, dmg:6.2, bb:10, bg:48, rise:27.5, dur:.62, color:0xe0a53c, fx:'gale' },
   } };
 
 for (const c of CHARS) {
@@ -3670,6 +3735,44 @@ FX.crater = (x, y, r, color = 0xd8cbb2) => {      // Earthshock/Boulder Punch落
     FX.list.push({ obj:s, t:0, life:.55 + Math.random()*.45, kind:'debris',
       vx:(Math.random()-.5)*11, vy:8 + Math.random()*10, vz:(Math.random()-.5)*5, spin:Math.random()*12 - 6 });
   }
+};
+/* ★ 方形弹幕区（士兵中立B）：一块可见的「方块战场」——发光外框 + 内部网格 + 斜向弹迹。
+   面朝相机、加色混合；由 FX.list 统一淡出/回收，所以不需要手动清理。 */
+let zoneTex = null;
+function getZoneTex() {
+  if (zoneTex) return zoneTex;
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N;
+  const x = c.getContext('2d');
+  x.clearRect(0, 0, N, N);
+  x.strokeStyle = 'rgba(255,209,102,.50)'; x.lineWidth = 2;          // 内部网格
+  for (let i = 1; i < 8; i++) {
+    const p = i / 8 * N;
+    x.beginPath(); x.moveTo(p, 6); x.lineTo(p, N - 6); x.stroke();
+    x.beginPath(); x.moveTo(6, p); x.lineTo(N - 6, p); x.stroke();
+  }
+  x.strokeStyle = 'rgba(255,255,255,.26)'; x.lineWidth = 3;          // 斜向弹迹（枪林弹雨的底纹）
+  for (let i = 0; i < 10; i++) {
+    const y = (i + .5) / 10 * N;
+    x.beginPath(); x.moveTo(0, y); x.lineTo(N, y - 78); x.stroke();
+  }
+  x.fillStyle = 'rgba(255,214,120,.10)'; x.fillRect(6, 6, N - 12, N - 12);   // 极淡的底色：亮天空下也看得出「一块区域」
+  x.strokeStyle = 'rgba(255,240,200,1)'; x.lineWidth = 14;           // 外框（要一眼看出是「方形」）
+  x.shadowColor = 'rgba(255,209,102,1)'; x.shadowBlur = 24;
+  x.strokeRect(8, 8, N - 16, N - 16);
+  x.lineWidth = 3; x.strokeStyle = 'rgba(255,255,255,.85)';          // 外框内侧再描一圈白：加色在亮背景也不糊
+  x.strokeRect(18, 18, N - 36, N - 36);
+  zoneTex = new THREE.CanvasTexture(c); zoneTex.colorSpace = THREE.SRGBColorSpace;
+  return zoneTex;
+}
+FX.zone = (x, y, z, w, h, color = 0xffd166, life = 2.4) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ map:getZoneTex(), color, transparent:true, opacity:.62,
+      depthWrite:false, side:THREE.DoubleSide }));
+  m.position.set(x, y, z); scene.add(m);
+  const F = { obj:m, t:0, life, kind:'zone', faceCam:true };
+  m.material.opacity0 = .62;
+  FX.list.push(F);
+  return F;
 };
 /* 磁力吸附粒子：从生成点飞向 (tx,ty)，用来表现“被吸过去” */
 FX.suck = (x, y, tx, ty, color = 0x4f86e8, life = .34) => {
@@ -8364,6 +8467,10 @@ FSPECIALS.warden = { name:'RAGE', style:'wardenFS', color:0x3ff0e0, beats:1, gap
 /* ★ 士兵·大招：重机枪 10 秒（期间按任意 B = 10 连发，弹道伤害 3% / 每发） */
 FSPECIALS.soldier = { name:'HEAVY MG', style:'soldierGun', color:0xffd166, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0,
                       dur:10.0, burst:10, burstDmg:3, burstSpd:46, burstLife:.42 }; 
+/* ★ 武僧·大招 STAFF SLAM：棍按被动（monkGrow）变长，向前砸 —— 35% 伤害、击退固定、动画期间无法被打断。
+   baseR/rPer/growCap：范围 = baseR + min(grow, growCap) × rPer（grow 150 时 9.45 ≈ 基础 4.2 的 2.25 倍） */
+FSPECIALS.monk = { name:'STAFF SLAM', style:'monkFS', color:0xe0a53c, beats:1, gap:.10, dmg:35, bb:18, bg:52, ang:64,
+                   w:0, dur:1.36, baseR:4.2, rPer:.035, growCap:150 };
 FSPECIALS.mosquito = { name:'Swarm Sight', style:'mosqEye', color:0xff4d4d, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0, dur:.6,
   swarmT:12, swarmR:4.2, swarmDmg:2, swarmHeal:.6, swarmTick:.5, burstDmg:10, burstR:5.2, burstBb:10, burstBg:40, spdMul:1.7 };
 /* ================= ★ Cardboard：纸箱机器人（箱子 + 胶布 + 核心灯） =================
@@ -8886,6 +8993,14 @@ function kitMosquito(def) {
    · 双手各握一把手枪（滑套/枪管/木质握把/枪口发光），手随 armL/armR 摆动
    · 大招用的重机枪挂在右手前臂上（默认隐藏，revolver 式 6 管 + 弹鼓 + 提把） */
 function kitSoldier(def) {
+  /* ================= ★ 士兵 Soldier（2026-11-11 重做：老角色头身比 + Sparky 式瘦身）=================
+     比例基准（实测，见 measure_kits.py）：
+       · 总高 3.085 ≈ Cobalt 3.088（差 0.1%），头箱 1.035 ≈ Cobalt 1.083（头身比 .335 vs .351）
+       · 瘦身：躯干宽 .62（旧 .82）/ 厚 .38（旧 .48），上臂厚 .16（旧 .26），腿宽 .22（旧 .30）
+       · 细节全部保留：军帽（帽箍/帽桶/顶盘/帽檐/金边/帽徽/帽带）、方下颌+颧骨+鼻梁鼻头+眼白虹膜高光+眉+嘴角、
+         鬓角后发、V 领衬衫+领带、口袋纽扣、左胸 6 枚勋章（绶带+金圆牌）、金肩章+流苏、背囊水壶、
+         军靴（靴筒/靴头包片/鞋底/靴扣）、双枪（套筒/上沿/扳机护圈/扳机/木握把/击锤/枪口灯）、6 管重机枪
+     ⚠ 头部所有细节装在 hg 里整体 ×1.387（改比例只动这一个数，细节不会走形）。 */
   const g = new THREE.Group();
   const mGreen = cmat(def.body,  { roughness:.80, metalness:.04 });
   const mGreen2= cmat(def.body2, { roughness:.74, metalness:.04 });
@@ -8916,93 +9031,98 @@ function kitSoldier(def) {
     if (rx) o.rotation.x = rx; if (rz) o.rotation.z = rz;
     p.add(o); return o;
   };
-  /* ---------------- 腿 + 军靴（脚底 y≈0）---------------- */
+  /* ---------------- 腿 + 军靴（脚底 y = 0；瘦腿：.22 宽）---------------- */
   const legL = new THREE.Group(), legR = new THREE.Group();
-  legL.position.set(-.24, 1.12, 0); legR.position.set(.24, 1.12, 0);
+  legL.position.set(-.20, 1.04, 0); legR.position.set(.20, 1.04, 0);
   g.add(legL, legR);
   for (const [L, sg] of [[legL, -1], [legR, 1]]) {
-    BX(L, .30, .54, .34, mGreen, 0, -.27, 0);              // 大腿
-    BX(L, .29, .09, .33, mDk,    0, -.55, .01);            // 膝盖
-    BX(L, .26, .42, .29, mGreen, 0, -.76, 0);              // 小腿（裤管）
-    BX(L, .29, .16, .32, mGreen2,0, -.97, .01);            // 裤脚翻边
-    BX(L, .33, .26, .50, mBoot,  0, -1.07, .05);           // 靴筒
-    BX(L, .32, .09, .18, mBoot,  0, -1.16, .28);           // 靴头包片
-    BX(L, .35, .05, .54, mSole,  0, -1.21, .06);           // 鞋底
-    BX(L, .10, .04, .12, mGold,  sg * .10, -1.10, .26);    // 靴扣
+    BX(L, .22, .44, .27, mGreen, 0, -.235, 0);             // 大腿（裤管）
+    BX(L, .21, .06, .26, mDk,    0, -.485, .01);           // 膝盖
+    BX(L, .19, .27, .22, mGreen, 0, -.632, 0);             // 小腿
+    BX(L, .21, .11, .24, mGreen2,0, -.82, .01);            // 裤脚翻边
+    BX(L, .24, .22, .38, mBoot,  0, -.93, .04);            // 靴筒
+    BX(L, .23, .075, .16, mBoot, 0, -1.00, .22);           // 靴头包片
+    BX(L, .25, .045, .42, mSole, 0, -1.0175, .05);         // 鞋底（底面 = 0）
+    BX(L, .07, .032, .10, mGold, sg * .055, -.93, .20);    // 靴扣
   }
-  /* ---------------- 躯干：收腰军装 + 腰带 ---------------- */
-  const hips = BX(g, .64, .30, .44, mGreen, 0, 1.26, 0);
-  const belt = BX(g, .68, .12, .47, mDk,   0, 1.43, 0);
-  BX(g, .16, .11, .05, mGold, 0, 1.43, .245);                          // 腰带金扣
-  BX(g, .05, .04, .02, mDk, 0, 1.43, .272);
-  const chest = BX(g, .82, .60, .48, mGreen, 0, 1.82, 0);
-  BX(g, .74, .26, .44, mGreen, 0, 2.10, 0);                            // 肩胸一体块
-  BX(g, .42, .08, .34, mDk,   0, 2.235, .03);                          // 立领
+  /* ---------------- 躯干：收腰军装（宽 .62 / 厚 .38）+ 腰带 ---------------- */
+  const hips = BX(g, .54, .26, .36, mGreen, 0, 1.14, 0);
+  const belt = BX(g, .58, .09, .38, mDk,   0, 1.275, 0);
+  BX(g, .13, .085, .04, mGold, 0, 1.275, .198);                       // 腰带金扣
+  BX(g, .04, .028, .02, mDk, 0, 1.275, .215);
+  const chest = BX(g, .62, .46, .38, mGreen, 0, 1.51, 0);
+  BX(g, .58, .24, .35, mGreen, 0, 1.775, 0);                          // 肩胸一体块
+  BX(g, .34, .07, .27, mDk,   0, 1.905, .02);                         // 立领
   /* V 领白衬衫 + 深绿领带 */
-  BX(g, .15, .28, .05, mShirt, -.085, 2.02, .238, .26);
-  BX(g, .15, .28, .05, mShirt,  .085, 2.02, .238, -.26);
-  BX(g, .14, .09, .06, mShirt, 0, 2.10, .245);
-  BX(g, .13, .10, .055, mTie, 0, 2.06, .25);                           // 领结
-  BX(g, .10, .40, .05, mTie, 0, 1.83, .252, .02);                      // 领带身
-  BX(g, .12, .06, .05, mTie, 0, 1.62, .252);                           // 领带尖
+  BX(g, .12, .24, .045, mShirt, -.07, 1.72, .193, .26);
+  BX(g, .12, .24, .045, mShirt,  .07, 1.72, .193, -.26);
+  BX(g, .115, .08, .05, mShirt, 0, 1.79, .198);
+  BX(g, .11, .085, .05, mTie, 0, 1.755, .202);                        // 领结
+  BX(g, .085, .34, .045, mTie, 0, 1.55, .202, .02);                   // 领带身
+  BX(g, .10, .05, .045, mTie, 0, 1.36, .202);                         // 领带尖
   /* 上衣口袋 + 纽扣 */
-  BX(g, .20, .11, .03, mGreen2, .24, 1.86, .243);
-  BX(g, .18, .10, .03, mGreen2, -.24, 1.86, .243);
-  for (let i = 0; i < 3; i++) BX(g, .045, .045, .025, mGold, 0, 1.76 - i * .16, .243);
+  BX(g, .16, .09, .025, mGreen2, .19, 1.60, .193);
+  BX(g, .15, .085, .025, mGreen2, -.19, 1.60, .193);
+  for (let i = 0; i < 3; i++) BX(g, .036, .036, .022, mGold, 0, 1.52 - i * .14, .193);
   /* 左胸勋章：两排 6 枚（绶带 + 金圆牌） */
   const medals = [];
   const ribbons = [0xd94b4b, 0xf0c75e, 0x4b7bd9, 0x62c06a, 0xf4f1e6, 0xd9a24b];
   for (let i = 0; i < 6; i++) {
     const row = i < 3 ? 0 : 1, col = i % 3;
-    const x = -.285 + col * .075, y = 2.10 - row * .105;
-    BX(g, .062, .062, .022, cmat(ribbons[i], { roughness:.55 }), x, y, .246);
+    const x = -.215 + col * .066, y = 1.80 - row * .095;
+    BX(g, .056, .054, .022, cmat(ribbons[i], { roughness:.55 }), x, y, .20);
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(.030, .030, .012, 10), mGold);
-    disc.rotation.x = Math.PI / 2; disc.position.set(x, y - .038, .252); g.add(disc);
+    disc.rotation.x = Math.PI / 2; disc.position.set(x, y - .034, .208); g.add(disc);
     medals.push(disc);
   }
   /* 肩章（金）+ 流苏 */
   for (const sg of [-1, 1]) {
-    BX(g, .30, .07, .30, mGold, sg * .40, 2.235, 0);
-    BX(g, .10, .05, .10, mGold, sg * .40, 2.19, 0);
-    for (let i = 0; i < 3; i++) BX(g, .035, .10, .045, mGold, sg * (.30 + i * .10), 2.15, .06);
+    BX(g, .24, .06, .24, mGold, sg * .30, 1.895, 0);
+    BX(g, .08, .045, .08, mGold, sg * .30, 1.855, 0);
+    for (let i = 0; i < 3; i++) BX(g, .028, .085, .04, mGold, sg * (.225 + i * .075), 1.83, .05);
   }
-  /* 背部炸药包/水壶（侧面看得出的军装轮廓） */
-  BX(g, .34, .28, .16, mDk, 0, 1.86, -.30);
-  BX(g, .12, .12, .07, mGold, 0, 1.86, -.39);
-  /* ---------------- 手臂 + 手枪 ---------------- */
+  /* 背部背囊 + 水壶（侧面看得出的军装轮廓） */
+  BX(g, .28, .24, .14, mDk, 0, 1.60, -.245);
+  BX(g, .10, .10, .06, mGold, 0, 1.60, -.325);
+  /* ---------------- 手臂 + 手枪（上臂厚 .16，收瘦）---------------- */
   const mkPistol = (L, sg) => {
     const P = new THREE.Group();
-    BX(P, .09, .085, .40, mMetal, 0, 0, .24);            // 枪管/套筒
-    BX(P, .10, .05, .30, mSteel, 0, .058, .20);          // 套筒上沿
-    BX(P, .085, .05, .055, mMetal, 0, -.045, .34);       // 扳机护圈（方块近似）
-    BX(P, .075, .10, .05, mDk, 0, -.075, .14);           // 扳机
-    BX(P, .085, .21, .10, mWood, 0, -.13, .06, 0, .34);  // 木质握把（后倾）
-    BX(P, .055, .035, .035, mSteel, 0, .085, .06);       // 击锤
-    const mz = new THREE.Mesh(new THREE.SphereGeometry(.032, 8, 6), mGlow);
-    mz.position.set(0, 0, .45); P.add(mz);
-    P.position.set(sg * .01, -.52, .18);
+    BX(P, .085, .08, .36, mMetal, 0, 0, .22);            // 枪管/套筒
+    BX(P, .095, .045, .27, mSteel, 0, .054, .18);        // 套筒上沿
+    BX(P, .08, .045, .05, mMetal, 0, -.042, .31);        // 扳机护圈（方块近似）
+    BX(P, .07, .09, .045, mDk, 0, -.07, .13);            // 扳机
+    BX(P, .08, .19, .09, mWood, 0, -.12, .055, 0, .34);  // 木质握把（后倾）
+    BX(P, .05, .032, .032, mSteel, 0, .08, .055);        // 击锤
+    const mz = new THREE.Mesh(new THREE.SphereGeometry(.030, 8, 6), mGlow);
+    mz.position.set(0, 0, .41); P.add(mz);
+    P.position.set(sg * .005, -.385, .17);
     L.add(P);
     return P;
   };
+  /* 肩关节罩：不随手臂旋转 → 抬手/前伸时肩膀不会出现空洞（瘦身以后这个洞特别明显） */
+  for (const sg of [-1, 1]) {
+    const j = new THREE.Mesh(new THREE.SphereGeometry(.150, 10, 8), mGreen);
+    j.position.set(sg * .375, 1.80, 0); j.scale.set(1.05, 1.0, 1.12); g.add(j);
+  }
   const armL = new THREE.Group(), armR = new THREE.Group();
-  armL.position.set(-.55, 2.12, 0); armR.position.set(.55, 2.12, 0);
+  armL.position.set(-.40, 1.80, 0); armR.position.set(.40, 1.80, 0);
   g.add(armL, armR);
   const elbL = new THREE.Group(), elbR = new THREE.Group();
   let pistolL, pistolR;
   for (const [A, EL, sg] of [[armL, elbL, -1], [armR, elbR, 1]]) {
-    BX(A, .26, .26, .36, mGreen, 0, -.10, 0);            // 肩
-    BX(A, .24, .40, .30, mGreen, 0, -.34, 0);            // 上臂
-    BX(A, .26, .08, .32, mGreen2, 0, -.53, 0);           // 袖口翻边
-    EL.position.set(0, -.55, 0); A.add(EL);
-    BX(EL, .22, .38, .26, mGreen, 0, -.20, 0);           // 前臂
-    BX(EL, .20, .17, .22, mSkin, 0, -.44, .02);          // 手
-    BX(EL, .08, .07, .10, mSkin2, sg * .09, -.44, .10);  // 拇指
+    BX(A, .27, .19, .31, mGreen, 0, -.035, 0);           // 肩（加粗）
+    BX(A, .23, .33, .22, mGreen, 0, -.225, 0);           // 上臂（加粗 .16→.23）
+    BX(A, .24, .07, .23, mGreen2, 0, -.415, 0);          // 袖口翻边
+    EL.position.set(0, -.42, 0); A.add(EL);
+    BX(EL, .21, .30, .19, mGreen, 0, -.15, 0);           // 前臂（加粗 .14→.21）
+    BX(EL, .18, .15, .19, mSkin, 0, -.345, .01);         // 手（加大 .14→.18）
+    BX(EL, .07, .06, .09, mSkin2, sg * .085, -.345, .09); // 拇指
     const P = mkPistol(EL, sg);
     if (sg < 0) pistolL = P; else pistolR = P;
   }
-  /* 大招重机枪（挂右手前臂，默认隐藏） */
+  /* 大招重机枪（挂右手前臂，默认隐藏）：6 管 + 弹鼓 + 提把 */
   const mg = new THREE.Group();
-  mg.position.set(.02, -.46, .22);
+  mg.position.set(.01, -.34, .19); mg.scale.setScalar(.92);
   BX(mg, .22, .22, .52, mMetal, 0, 0, .10);              // 机匣
   CY(mg, .085, .085, .30, mSteel, 0, 0, .48, Math.PI / 2);  // 前段炮管座
   for (let i = 0; i < 6; i++) {                          // 6 根枪管
@@ -9018,65 +9138,171 @@ function kitSoldier(def) {
   const mgTip = new THREE.Mesh(new THREE.SphereGeometry(.075, 10, 8), mGlow);
   mgTip.position.set(0, 0, .98); mg.add(mgTip);
   mg.visible = false; elbR.add(mg);
-  /* ---------------- 头：军帽 + 英俊面孔 ---------------- */
-  const head = new THREE.Group(); head.position.set(0, 2.36, 0); g.add(head);
-  CY(head, .115, .135, .16, mSkin2, 0, .02, 0);          // 脖子
+  /* ---------------- 头：军帽 + 英俊面孔（细节装在 hg，整体 ×1.34）---------------- */
+  CY(g, .108, .122, .16, mSkin2, 0, 2.00, 0);            // 脖子（不进头缩放组；大头配粗颈，别像棍子）
+  const head = new THREE.Group(); head.position.set(0, 2.13, 0); g.add(head);
+  const hg = new THREE.Group(); hg.scale.setScalar(1.387); head.add(hg);
   const skull = new THREE.Mesh(new THREE.SphereGeometry(.285, 18, 14), mSkin);
-  skull.position.set(0, .22, 0); skull.scale.set(1, 1.06, .97); head.add(skull);
-  BX(head, .34, .15, .30, mSkin, 0, .095, .03);          // 方下颌
-  const chin = new THREE.Mesh(new THREE.SphereGeometry(.10, 12, 10), mSkin);
-  chin.position.set(0, .045, .14); chin.scale.set(1.15, .80, .80); head.add(chin);
-  for (const sg of [-1, 1]) {
-    const cheek = new THREE.Mesh(new THREE.SphereGeometry(.095, 12, 10), mSkin);
-    cheek.position.set(sg * .155, .155, .185); cheek.scale.set(1, .85, .75); head.add(cheek);
-    const ear = new THREE.Mesh(new THREE.SphereGeometry(.058, 10, 8), mSkin2);
-    ear.position.set(sg * .283, .205, 0); ear.scale.set(.55, 1, .85); head.add(ear);
-  }
-  const nose = BX(head, .075, .135, .10, mSkin, 0, .195, .275, 0, .16);
-  const noseTip = new THREE.Mesh(new THREE.SphereGeometry(.048, 10, 8), mSkin);
-  noseTip.position.set(0, .145, .315); head.add(noseTip);
-  BX(head, .36, .045, .06, mSkin2, 0, .335, .235);       // 眉骨
-  for (const sg of [-1, 1]) {
-    const ew = new THREE.Mesh(new THREE.SphereGeometry(.078, 12, 10), mWhite);
-    ew.position.set(sg * .112, .285, .242); ew.scale.set(1.20, .92, .52); head.add(ew);
-    const ir = new THREE.Mesh(new THREE.SphereGeometry(.040, 10, 8), mEye);
-    ir.position.set(sg * .112, .283, .272); head.add(ir);
-    const pu = new THREE.Mesh(new THREE.SphereGeometry(.020, 8, 6), mHair);
-    pu.position.set(sg * .112, .281, .288); head.add(pu);
-    const gl = new THREE.Mesh(new THREE.SphereGeometry(.012, 6, 6), mWhite);
-    gl.position.set(sg * .096, .298, .298); head.add(gl);
-    BX(head, .150, .034, .045, mHair, sg * .112, .352, .252, sg * .13);   // 眉毛（外高内低 → 有神）
-    BX(head, .030, .012, .012, mSkin2, sg * .205, .245, .215);            // 眼角纹（成熟感）
-  }
-  BX(head, .145, .022, .028, cmat(0x8a4a44, { roughness:.5 }), 0, .105, .268, .05);  // 嘴角微勾
-  BX(head, .10, .012, .02, mSkin2, 0, .078, .262);
-  /* 鬓角 + 后发（帽檐下露出） */
-  for (const sg of [-1, 1]) BX(head, .05, .13, .16, mHair, sg * .265, .30, -.02);
-  BX(head, .36, .10, .16, mHair, 0, .34, -.16);
+  skull.position.set(0, .22, 0); skull.scale.set(1, 1.06, .97); hg.add(skull);
+  /* ★ 面部极简（照 Teacher 的画法）：只有两只圆眼睛 + 一点鼻头。
+     去掉了方下颌 / 下巴球 / 颧骨 / 耳朵 / 眉骨 / 眉毛 / 眼白虹膜瞳孔四层 / 眼角纹 / 嘴角线，
+     眼睛直接用引擎通用的 setEyes('round')（老师、婴儿同一套），脸干净、远看也更清楚。 */
+  const face = new THREE.Group(); face.position.set(0, .22, 0); hg.add(face);
+  setEyes(face, .285, def.eye, 'round');
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(.040, 8, 6), mSkin2);
+  nose.position.set(0, .150, .268); nose.scale.set(1, .80, .90); hg.add(nose);
+  /* 鬓角 + 后发（帽檐下露出一圈，保留军人轮廓） */
+  for (const sg of [-1, 1]) BX(hg, .05, .12, .15, mHair, sg * .255, .30, -.02);
+  BX(hg, .34, .09, .15, mHair, 0, .34, -.16);
   /* 军帽：帽箍 + 帽桶 + 顶盘 + 帽檐 + 帽徽 */
-  CY(head, .318, .315, .085, mDk,   0, .405, 0, 0, 0, 16);   // 深色帽箍
-  CY(head, .325, .305, .22,  mGreen2, 0, .545, 0, 0, 0, 16); // 帽桶
-  CY(head, .335, .330, .045, mGreen,  0, .668, 0, 0, 0, 16); // 顶盘
-  BX(head, .50, .045, .26, mDk, 0, .378, .235, 0, -.10);     // 帽檐
-  BX(head, .50, .018, .02, mGold, 0, .362, .355);            // 帽檐金边
+  CY(hg, .318, .315, .085, mDk,   0, .405, 0, 0, 0, 16);   // 深色帽箍
+  CY(hg, .325, .305, .22,  mGreen2, 0, .545, 0, 0, 0, 16); // 帽桶
+  CY(hg, .335, .330, .045, mGreen,  0, .668, 0, 0, 0, 16); // 顶盘
+  BX(hg, .50, .045, .26, mDk, 0, .378, .235, 0, -.10);     // 帽檐
+  BX(hg, .50, .018, .02, mGold, 0, .362, .355);            // 帽檐金边
   const badge = new THREE.Mesh(new THREE.OctahedronGeometry(.062, 0), mGold);
-  badge.position.set(0, .50, .306); badge.scale.set(1, 1.25, .55); head.add(badge);
-  BX(head, .11, .022, .02, mGold, 0, .565, .306);
-  BX(head, .05, .018, .02, mGold, 0, .44, .318);
-  for (const sg of [-1, 1]) BX(head, .075, .016, .018, mGold, sg * .10, .505, .30, sg * .5);
+  badge.position.set(0, .50, .306); badge.scale.set(1, 1.25, .55); hg.add(badge);
+  BX(hg, .11, .022, .02, mGold, 0, .565, .306);
+  BX(hg, .05, .018, .02, mGold, 0, .44, .318);
+  for (const sg of [-1, 1]) BX(hg, .075, .016, .018, mGold, sg * .10, .505, .30, sg * .5);
   /* 帽带（横过帽箍的深色皮带 + 金扣） */
-  BX(head, .62, .022, .022, mSole, 0, .372, .10);
-  BX(head, .045, .030, .026, mGold, 0, .372, .30);
+  BX(hg, .62, .022, .022, mSole, 0, .372, .10);
+  BX(hg, .045, .030, .026, mGold, 0, .372, .30);
   return { group:g, torso:chest, belly:hips, head, armL, armR, legL, legR, elbL, elbR,
            cap:head, medals, pistolL, pistolR, mg, mgTip, tail:null };
 }
-
+/* ================= ★ 武僧 Monk 模型 =================
+   比例对齐老角色：脚底 y=0；髋 1.20 / 肩 1.80 / 头顶 ≈ 2.86（总高 ≈ 2.9，与 Cobalt / Soldier 同档）
+   造型：光头 + 三枚戒疤 + 赭黄僧袍（交领 + 白里襟）+ 赭红布腰带 + 念珠 + 绑腿 + 布鞋 + 右腕护腕；
+         长棍单独一个 group（P.staff），默认斜靠在身前，由 animStep 每帧摆位置/角度/缩放。
+   局部坐标：local +z = 面朝方向（侧视相机方向），local +x = 屏幕里侧（远离相机）。
+   ⚠ 棍沿 local Y 建（长 2.5），绕 local X 旋转 = 屏幕平面内抡圆（侧视看得见）。 */
+function kitMonk(def) {
+  const g = new THREE.Group();
+  const mRobe  = cmat(def.body,    { roughness:.82, metalness:.03 });
+  const mRobe2 = cmat(def.body2,   { roughness:.76, metalness:.03 });
+  const mDark  = cmat(def.dark,    { roughness:.88 });
+  const mSkin  = cmat(0xe6b183,    { roughness:.60 });
+  const mSkin2 = cmat(0xc98f63,    { roughness:.68 });
+  const mSash  = cmat(0x8c3a1c,    { roughness:.74 });
+  const mCloth = cmat(0xf4ecd8,    { roughness:.86 });
+  const mWood  = cmat(0x8a5a2c,    { roughness:.62 });
+  const mBead  = cmat(0x3a2418,    { roughness:.55 });
+  const mGold  = new THREE.MeshStandardMaterial({ color:0xd9b44c, metalness:.72, roughness:.34, flatShading:true });
+  const mEye   = cmat(def.eye,     { roughness:.34 });
+  const BX = (p, w, h, d, m, x, y, z, rz, rx) => {
+    const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    o.position.set(x, y, z);
+    if (rz) o.rotation.z = rz; if (rx) o.rotation.x = rx;
+    p.add(o); return o;
+  };
+  const CY = (p, rt, rb, h, m, x, y, z, rx, rz, seg) => {
+    const o = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 12), m);
+    o.position.set(x, y, z);
+    if (rx) o.rotation.x = rx; if (rz) o.rotation.z = rz;
+    p.add(o); return o;
+  };
+  /* ---------------- 腿 + 布鞋（绑腿，脚底 y=0）---------------- */
+  const legL = new THREE.Group(), legR = new THREE.Group();
+  legL.position.set(-.19, 1.06, 0); legR.position.set(.19, 1.06, 0);
+  g.add(legL, legR);
+  for (const [L, sg] of [[legL, -1], [legR, 1]]) {
+    BX(L, .22, .40, .26, mRobe,  0, -.20, 0);          // 大腿（宽裤管）
+    BX(L, .20, .26, .23, mRobe,  0, -.58, 0);          // 小腿
+    BX(L, .215, .10, .245, mCloth, 0, -.70, 0);        // 绑腿布条
+    BX(L, .23, .20, .34, mDark,  0, -.96, .04);        // 布鞋
+    BX(L, .245, .045, .40, mCloth, 0, -1.035, .05);    // 鞋底（底面 = 0）
+    BX(L, .06, .05, .06, mGold,  sg * .06, -.90, .18); // 鞋扣
+  }
+  /* ---------------- 躯干：僧袍 + 交领 + 腰带 ---------------- */
+  const hips = BX(g, .52, .28, .36, mRobe, 0, 1.20, 0);
+  BX(g, .58, .30, .42, mRobe2, 0, 1.04, 0);            // 袍摆（盖住大腿根）
+  const belt = BX(g, .56, .10, .38, mSash, 0, 1.33, 0);  // 布腰带
+  BX(g, .15, .10, .10, mDark, 0, 1.33, .20);           // 腰带结
+  BX(g, .06, .22, .07, mSash, .07, 1.22, .20);         // 垂下来的带尾
+  const chest = BX(g, .60, .48, .40, mRobe, 0, 1.58, 0);
+  BX(g, .56, .26, .37, mRobe, 0, 1.84, 0);             // 肩胸一体块
+  /* 交领：两片斜襟 + 白里襟（侧视一眼看出是僧袍而不是 T 恤） */
+  BX(g, .13, .34, .045, mRobe2, -.10, 1.68, .203, .38);
+  BX(g, .13, .34, .045, mRobe2,  .10, 1.68, .203, -.38);
+  BX(g, .10, .12, .045, mCloth, 0, 1.82, .205);
+  BX(g, .09, .30, .04, mCloth, .015, 1.66, .207, -.06);
+  /* 念珠：一圈小珠子（固定参数，无随机 → 两端一致） */
+  const beads = new THREE.Group(); beads.position.set(0, 1.80, .20); g.add(beads);
+  for (let i = 0; i < 11; i++) {
+    const a = -1.15 + (i / 10) * 2.30;
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.038, 7, 6), mBead);
+    b.position.set(Math.sin(a) * .17, -Math.abs(Math.cos(a)) * .16 + .02, .01 + Math.abs(Math.cos(a)) * .03);
+    beads.add(b);
+  }
+  /* ---------------- 手臂 + 护腕 ---------------- */
+  for (const sg of [-1, 1]) {
+    const j = new THREE.Mesh(new THREE.SphereGeometry(.150, 10, 8), mRobe);
+    j.position.set(sg * .375, 1.80, 0); j.scale.set(1.05, 1.0, 1.12); g.add(j);
+  }
+  const armL = new THREE.Group(), armR = new THREE.Group();
+  armL.position.set(-.40, 1.80, 0); armR.position.set(.40, 1.80, 0);
+  g.add(armL, armR);
+  const elbL = new THREE.Group(), elbR = new THREE.Group();
+  for (const [A2, EL, sg] of [[armL, elbL, -1], [armR, elbR, 1]]) {
+    BX(A2, .27, .19, .31, mRobe,  0, -.035, 0);        // 肩
+    BX(A2, .23, .33, .22, mRobe2, 0, -.225, 0);        // 上臂（露出里衣的浅色袖）
+    BX(A2, .24, .06, .23, mRobe,  0, -.415, 0);        // 袖口
+    EL.position.set(0, -.42, 0); A2.add(EL);
+    BX(EL, .19, .30, .18, mSkin,  0, -.15, 0);         // 前臂（裸小臂）
+    BX(EL, .21, .09, .20, mCloth, 0, -.03, 0);         // 护腕布
+    BX(EL, .17, .15, .18, mSkin2, 0, -.345, .01);      // 手
+    BX(EL, .07, .06, .09, mSkin2, sg * .085, -.345, .09); // 拇指
+  }
+  /* ---------------- 头：光头 + 戒疤 + 耳朵 ---------------- */
+  CY(g, .108, .122, .16, mSkin2, 0, 2.00, 0);          // 脖子
+  const head = new THREE.Group(); head.position.set(0, 2.13, 0); g.add(head);
+  const hg = new THREE.Group(); hg.scale.setScalar(1.387); head.add(hg);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(.285, 18, 14), mSkin);
+  skull.position.set(0, .22, 0); skull.scale.set(1, 1.06, .97); hg.add(skull);
+  const face = new THREE.Group(); face.position.set(0, .22, 0); hg.add(face);
+  setEyes(face, .285, def.eye, 'round');
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(.040, 8, 6), mSkin2);
+  nose.position.set(0, .150, .268); nose.scale.set(1, .80, .90); hg.add(nose);
+  for (const sg of [-1, 1]) {                          // 耳朵
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(.062, 8, 6), mSkin2);
+    ear.position.set(sg * .278, .21, .01); ear.scale.set(.55, 1, .85); hg.add(ear);
+  }
+  /* 三枚戒疤（头顶一排小圆点，远看也是和尚） */
+  for (let i = 0; i < 3; i++) {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(.026, 7, 6), mSkin2);
+    d.position.set(-.072 + i * .072, .44, .16 - i * .005); hg.add(d);
+  }
+  /* 眉弓一条淡线（不画眼睛以外的五官，保持干净） */
+  BX(hg, .20, .022, .02, mSkin2, 0, .335, .258);
+  /* ---------------- 长棍（P.staff，独立 group）----------------
+     沿 local Y，全长 2.5；中间缠布握把 + 三道金箍 + 两端包头。
+     默认位置/角度只是初值，实际由 animStep 的 monk 块每帧写。 */
+  const staff = new THREE.Group();
+  staff.position.set(.05, 1.18, .42);
+  staff.rotation.x = -.30;
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.052, .052, 2.5, 10), mWood);
+  staff.add(shaft);
+  for (const yy of [-1.18, 1.18]) {
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.062, .062, .12, 10), mGold);
+    cap.position.y = yy; staff.add(cap);
+  }
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(.059, .059, .52, 10), mBead);
+  grip.position.y = .10; staff.add(grip);
+  for (let i = 0; i < 3; i++) {
+    const w = new THREE.Mesh(new THREE.TorusGeometry(.061, .011, 5, 10), mCloth);
+    w.rotation.x = Math.PI / 2; w.position.y = -.06 + i * .15; staff.add(w);
+  }
+  g.add(staff);
+  return { group:g, torso:chest, belly:hips, head, armL, armR, legL, legR, elbL, elbR,
+           staff, beads, tail:null };
+}
 const KITS = { sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
                gorilla:kitGorilla, hacker:kitHacker, blocky:kitBlocky, blizzard:kitBlizzard, singer:kitSinger, vexor:kitVexor, trash:kitTrash,
-               warden:kitWarden, soldier:kitSoldier };
+               warden:kitWarden, soldier:kitSoldier, monk:kitMonk };
 /* ================= ★ Pumpkin·大招 Pumpkin Curse：南瓜人（被诅咒的玩家外形） =================
    被诅咒的玩家本体整只隐藏、换成下面这只南瓜人；10 秒内由 pumpkinTick 自动追人挥镰，
    时间到 / 被打出场 / 换局 都会还原（endPumpkinCurse 把隐藏的子物件按原样恢复）。 */
@@ -10892,6 +11118,10 @@ class Fighter {
     this.guardT = 0; this.guardCut = 1; this.guardKb = 1;      // Knight格挡/庇护减伤
     /* Reaper 被动·Soul Harvest：soulDmg = 累计对敌人造成的伤害；每满 5% 得 1 层（每层 +5% 伤害，上限 soulMax 层） */
     this.soulDmg = 0; this.soulStacks = 0; this.soulMax = 20;
+    /* ★ 武僧 Monk：棍在手上 / 飞出去 / 插在地上 + 被动棍势（每 1% 伤害 +1 点，喂大招） */
+    this.monkHasStaff = true; this.monkGrow = 0; this.monkThrow = null; this.monkStaffPos = null;
+    this.monkLeap = null; this.monkRush = null; this.monkSpin = null; this.monkSlam = null;
+    this._monkStaffMesh = null; this._monkSpinAng = 0;
     const m = buildMesh2(def); this.mesh = m.group; this.parts = m.parts;
     this.shadow = m.shadow; this.bubble = m.bubble; this.chargeFx = m.charge;
     this.ringFx = m.ringFx; this.auraRing = m.auraRing; this.sparkT2 = 0;
@@ -10937,6 +11167,8 @@ class Fighter {
     this.pullin = null; this.pull = null; this.clearPull();
     this.mark = null;                                   // Reaper·Death Mark 亡魂标记（被标记方）
     this.soulDmg = 0; this.soulStacks = 0; this._soulFx = 0;   // Reaper·Soul Harvest（每局/每次重生都从 0 层开始）
+    this.monkGrow = 0;                                        // ★ 武僧被动棍势：每局从 0 开始（重生不清，见 monkReset）
+    if (this.def && this.def.id === 'monk') { try { this.monkReset(); } catch (e) {} }
     this.leap = null; this.quakeT = 0;                         // Gorilla·横B跃击 / 下B地震动画计时
     this.hack = 0; this.flyT = 0; this._flyAir = 0; this._flyFx = 0; this.glitchT = 0; this.warpCast = null;   // Hacker
     this.guardT = 0; this.guardCut = 1; this.guardKb = 1;
@@ -11393,6 +11625,18 @@ class Fighter {
         callout(attacker, 'SOUL +' + (st * 5) + '%', 0x63ffb0);
       }
     }
+    /* ★ Monk 被动·Staff Growth：每对敌人造成 1% 实际伤害 → +1 点棍势（monkGrow），
+       全部用于大招（棍体变长 + 范围变远，击退不变）。每 25 点给一次可见反馈。 */
+    if (attacker && attacker !== this && attacker.def && attacker.def.passive === 'staffGrow' && !attacker.eliminated) {
+      const before = Math.floor(attacker.monkGrow || 0);
+      attacker.monkGrow = (attacker.monkGrow || 0) + dmg;
+      const now = Math.floor(attacker.monkGrow);
+      if (Math.floor(now / 25) > Math.floor(before / 25)) {
+        callout(attacker, 'STAFF GROW ' + now, 0xe0a53c);
+        FX.spark(attacker.pos.x, attacker.pos.y + 1.7, .30, 6, 0xe0a53c);
+        FX.ring(attacker.pos.x, attacker.pos.y + .3, .25, 2.0, 0xe0a53c, .30);
+      }
+    }
     // Rocky专属：霸体——照吃伤害，但纹丝不动、不进硬直
     if (this.armor > 0) {
       this.flashT = .14; this.lastHitBy = attacker;
@@ -11448,6 +11692,17 @@ class Fighter {
     if (this.horn) { this.hitstun = 0; this.state = 'special'; }
     this.charging = null; this.move = null; this.grabbed = null; this.cry = null; this.breath = null;
     this.recoil = null; this.march = null; this.leap = null; this.warpCast = null; this.flyT = 0;   // 被打断：哭泣/喷火/倒退炮击/长枪突进/横B跃击/结印传送/飞行都停
+    /* ★ 士兵：被击中要能打断持续技 —— 中立B 现在是一块 2.6 秒的弹幕区，
+       不打断就等于全程霸体（旧版 0.6 秒没人注意，改长以后必须补）。 */
+    if (this.soldierVolley || this.soldierRush || this.soldierUpper) {
+      this.soldierVolley = null; this.soldierRush = null; this.soldierUpper = null;
+      if (this._sdZone) {
+        scene.remove(this._sdZone.obj);
+        const zi = FX.list.indexOf(this._sdZone);
+        if (zi >= 0) FX.list.splice(zi, 1);
+        this._sdZone = null;
+      }
+    }
     if (this._aegisDome) { scene.remove(this._aegisDome); this._aegisDome = null; }                    // 神盾穹顶/金环也要收（否则永远挂在身上）
     if (this._aegisRim) { scene.remove(this._aegisRim); this._aegisRim = null; }
     this.chargeFx.visible = false;                     // 蓄力中被打断时把光球收掉（否则会永远挂在身上）
@@ -11555,6 +11810,7 @@ class Fighter {
     try { this.cbRestoreHead(); this.cbLaserOff(); } catch (e) {}   // ★ Cardboard：头/激光不跨命
     this.cbState = null; this.cbBeam = null;
     try { this.mosqReset(); } catch (e) {}                          // ★ 蚊子：状态机/水盾/视野不跨命
+    try { this.monkReset(); } catch (e) {}                          // ★ 武僧：手上的棍/世界里的棍不跨命
     this.shedUsed = false; this.shedAt = 0;                 // ★ Cardboard：每命一次「脱壳」
     try { this.cbShellOn(); } catch (e) {}                  // ★ 复活时把外壳装回去
   }
@@ -11630,6 +11886,25 @@ class Fighter {
         FX.flash(this.pos.x, this.pos.y + 1.4, .55, 11.0, 0x9ffff2, .40);
         FX.burst(this.pos.x, this.pos.y + 1.2, .22, SP.color, 26, 18);
         shake = Math.max(shake, .85); SFX.special('heavy');
+        this.fsDone = 1;
+        break;
+      }
+      case 'monkFS': {                                   // ★ 武僧·大招：棍按被动变长 → 向前砸（35%，不可打断）
+        const grow = Math.max(0, this.monkGrow || 0);
+        const cap = SP.growCap || 150;
+        const gr = Math.min(grow, cap);
+        const dur = SP.dur || 1.36;
+        this.monkSlam = { t:0, dur, grow:gr, size:1 + (gr / cap) * 1.30,
+                          range:(SP.baseR || 4.2) + gr * (SP.rPer || .035),
+                          dmg:SP.dmg || 35, bb:SP.bb || 18, bg:SP.bg || 52, ang:SP.ang || 64,
+                          dir:d0, fired:false };
+        this.intangible = Math.max(this.intangible, dur + .15);      // ★ 动画期间无法被打断
+        this.vel.set(0, 0, 0); this.state = 'special'; this.animT = 0;
+        callout(this, 'STAFF SLAM · GROW ' + Math.round(gr) + ' · R' + ((SP.baseR || 4.2) + gr * (SP.rPer || .035)).toFixed(1), SP.color);
+        FX.ring(this.pos.x, this.pos.y + .35, .34, 6.0 + gr * .02, SP.color, .55);
+        FX.flash(this.pos.x, this.pos.y + 1.6, .55, 9.0, 0xfff0c0, .34);
+        FX.burst(this.pos.x, this.pos.y + 1.3, .22, SP.color, 20, 16);
+        shake = Math.max(shake, .80); SFX.special('heavy');
         this.fsDone = 1;
         break;
       }
@@ -12354,6 +12629,7 @@ class Fighter {
     if (this.def.id === 'mosquito') this.mosqTick(dt, inp);   // ★ 蚊子：技能状态机 + 水盾/视野计时
     if (this.def.id === 'warden') this.wardenTick(dt, inp);   // ★ 坚守者：音波蓄力/抓砸/冲击波 + 狂暴计时
     if (this.def.id === 'soldier') this.soldierTick(dt, inp); // ★ 士兵：后撤齐射/突进连射/升龙抓投 + 重机枪计时
+    if (this.def.id === 'monk') this.monkTick(dt, inp);       // ★ 武僧：棍的投掷/插地/召回 + 冲锋连棍 + 旋风 + 大招砸
     if (this.spT > 0) { this.spT -= dt; if (this.spT <= 0 && this.state === 'special' && !this.mosq) this.state = this.grounded ? 'idle' : 'fall'; }
     if (this.cbState) this.cbTick(dt, inp);                // ★ Cardboard：四个技能的状态机
     if (this.cbBeam) this.cbBeamTick(dt);                  // ★ Cardboard 上B：向下激光（挂在 recover 上）
@@ -14176,7 +14452,290 @@ class Fighter {
     SFX.special('wave'); shake = Math.max(shake, .18 + ch * .30);
     callout(this, 'SONIC ' + Math.round(ch * 100) + '%', cfg.color);
   }
-  /* ================= ★ 士兵：三个技能状态机 + 重机枪计时 ================= */
+  /* ================= ★ 武僧 Monk：棍 = 投掷物 / 插地 / 召回 / 冲锋 / 旋风 / 大招砸 =================
+     状态一览（都由 update() 逐帧跑）：
+       monkHasStaff  手上有没有棍（决定中立B 是「扔出去」还是「跳过去捡」）
+       monkThrow     飞出去 / 正在飞回手里的棍（世界坐标，命中一人一次）
+       monkStaffPos  插在地上的棍（靠近 cfg.pickR = 1.7 自动拾回）
+       monkLeap      空手中立B：跳到棍位 → 落地冲击波
+       monkRush      左右B：冲锋 → 撞人 → 5 连棍 → 砸扁（flatT）
+       monkSpin      下B：旋风棍（反弹弹幕 + 身前风场 10%）
+       monkSlam      大招：棍按被动变长 → 向前砸（35%）
+     ⚠ integrate() 在 tick 之后跑，所以跳跃只能改 vel，不能直接改 pos（落地那一帧才 snap）。 */
+  monkStaffMesh() {
+    if (this._monkStaffMesh) return this._monkStaffMesh;
+    const m = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color:0x8a5a2c, roughness:.62 });
+    const gold = new THREE.MeshStandardMaterial({ color:0xd9b44c, metalness:.72, roughness:.34, flatShading:true });
+    m.add(new THREE.Mesh(new THREE.CylinderGeometry(.055, .055, 2.5, 10), wood));
+    for (const yy of [-1.18, 0, 1.18]) {
+      const r = new THREE.Mesh(new THREE.CylinderGeometry(.066, .066, .10, 10), gold);
+      r.position.y = yy; m.add(r);
+    }
+    scene.add(m);
+    this._monkStaffMesh = m;
+    return m;
+  }
+  monkDropStaffMesh() {
+    if (this._monkStaffMesh) { scene.remove(this._monkStaffMesh); this._monkStaffMesh = null; }
+  }
+  /* 棍插进落点 */
+  monkPlant(x, gy) {
+    const cfg = (this.monkThrow && this.monkThrow.cfg) || (this.def.special && this.def.special.n) || {};
+    this.monkThrow = null;
+    const m = this.monkStaffMesh();
+    m.position.set(x, gy, 0);
+    m.rotation.set(0, 0, -.16);                       // 斜插在地上（侧视看得出是「插」不是「浮」）
+    this.monkStaffPos = { x, y:gy };
+    this.monkHasStaff = false;
+    if (this.parts && this.parts.staff) this.parts.staff.visible = false;
+    FX.dust(x, gy + .05, 12, cfg.color);
+    FX.ring(x, gy + .12, .26, 1.9, cfg.color, .30);
+    FX.spark(x, gy + .9, .30, 9, cfg.color);
+    SFX.hit(30, 3);
+    callout(this, 'STAFF PLANTED', cfg.color);
+  }
+  /* 棍回到手里（拾回 / 掉出场地自动返回 / 落地顺手拿） */
+  monkCatch() {
+    this.monkDropStaffMesh();
+    this.monkThrow = null; this.monkStaffPos = null;
+    this.monkHasStaff = true;
+    if (this.parts && this.parts.staff) this.parts.staff.visible = true;
+    const c = (this.def.special && this.def.special.n && this.def.special.n.color) || 0xe0a53c;
+    FX.ring(this.pos.x, this.pos.y + 1.2, .28, 2.0, c, .30);
+    FX.spark(this.pos.x, this.pos.y + 1.2, .30, 8, c);
+    SFX.special('proj');
+  }
+  monkReset() {
+    this.monkDropStaffMesh();
+    this.monkThrow = null; this.monkStaffPos = null; this.monkLeap = null;
+    this.monkRush = null; this.monkSpin = null; this.monkSlam = null;
+    this.monkHasStaff = true; this._monkSpinAng = 0;
+    if (this.parts && this.parts.staff) this.parts.staff.visible = true;
+  }
+  monkTick(dt, inp) {
+    const CFG = this.def.special || {};
+    const ncfg = CFG.n || {};
+    /* ---------- 中立B：飞出去的棍（投掷物 → 插地 / 掉出边缘自动回手） ---------- */
+    const T = this.monkThrow;
+    if (T) {
+      const cfg = T.cfg || ncfg;
+      T.t += dt; T.spin += dt * 24;
+      if (T.returning) {
+        const tx = this.pos.x + (this.facing || 1) * .5, ty = this.pos.y + 1.25;
+        T.x += (tx - T.x) * Math.min(1, dt * 20);
+        T.y += (ty - T.y) * Math.min(1, dt * 20);
+        if (Math.hypot(T.x - tx, T.y - ty) < .5 || T.t > 1.4) this.monkCatch();
+      } else {
+        T.vy -= (cfg.throwGrav || 26) * dt;
+        T.x += T.vx * dt; T.y += T.vy * dt;
+        /* 命中：长矛式穿透，一人只吃一下 */
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          if (T.hitSet.has(f.uid)) continue;
+          if (Math.hypot(f.pos.x - T.x, (f.pos.y + 1.1 * (f.def.shape.scale || 1)) - T.y) < (cfg.throwHitR || .95) + f.bodyR * .5) {
+            T.hitSet.add(f.uid);
+            f.takeHit(this, { dmg:cfg.throwDmg, bb:cfg.throwBb, bg:cfg.throwBg, ang:34 }, Math.sign(T.vx) || 1, 1);
+            FX.spark(T.x, T.y, .38, 11, cfg.color);
+            FX.ring(T.x, T.y, .30, 2.2, cfg.color, .30);
+            SFX.hit(26, cfg.throwDmg); shake = Math.max(shake, .26);
+          }
+        }
+        /* 落地 → 插住；落点没有地板（掉出边缘）→ 直接飞回手里 */
+        const gy = stageFloorY(T.x);
+        if (gy !== null && T.y <= gy + .08) { this.monkPlant(T.x, gy); return; }
+        if ((gy === null && T.y < -3.2) || Math.abs(T.x) > STAGE.wallX + 3.2 || T.y < -14) {
+          T.returning = true; T.t = 0;
+          callout(this, 'STAFF RETURN', cfg.color || 0xe0a53c);
+        }
+        if (T.t > (cfg.throwLife || 2.4)) { T.returning = true; T.t = 0; }
+      }
+      const m = this._monkStaffMesh;
+      if (m) { m.position.set(T.x, T.y, 0); m.rotation.set(0, 0, T.spin); }
+    }
+    /* ---------- 插在地上的棍：靠近自动拾回 ---------- */
+    if (!this.monkHasStaff && this.monkStaffPos && !this.monkThrow && !this.monkLeap) {
+      const SP0 = this.monkStaffPos;
+      if (Math.abs(this.pos.x - SP0.x) < (ncfg.pickR || 1.7) && Math.abs(this.pos.y - SP0.y) < 2.6) {
+        this.monkCatch(); callout(this, 'STAFF BACK', ncfg.color);
+      }
+    }
+    /* ---------- 空手中立B：跳到棍的位置 ---------- */
+    const L = this.monkLeap;
+    if (L) {
+      L.t += dt;
+      const p = Math.min(1, L.t / L.dur);
+      this.state = 'special';
+      this.grounded = false;
+      this.vel.x = (L.x1 - this.pos.x) * 9.0;                       // 朝落点收敛（integrate 在 tick 之后，只能改 vel）
+      this.vel.y = Math.max(this.vel.y, (L.arc * 2.2) * (1 - p * .55));
+      if (p >= 1 || Math.abs(this.pos.x - L.x1) < .35) {
+        const cfg = L.cfg || ncfg;
+        const R = cfg.shockR || 5.0;
+        /* 落点必须**踩在地板上**：直接用落点的地板高度，别沿用还在空中的 y
+           （否则 grounded=true 却停在半空 + 高度带判定把人漏掉） */
+        const gy3 = stageFloorY(L.x1);
+        this.pos.x = L.x1;
+        this.pos.y = (gy3 === null ? Math.max(L.y1 || 0, 0) : gy3);
+        this.vel.set(0, 0, 0);
+        this.grounded = true;
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          if (Math.abs(f.pos.x - this.pos.x) > R) continue;
+          if (f.pos.y > this.pos.y + 3.0 || f.pos.y < this.pos.y - 2.6) continue;
+          f.takeHit(this, { dmg:cfg.shockDmg, bb:cfg.shockBb, bg:cfg.shockBg, ang:cfg.shockAng },
+                    Math.sign(f.pos.x - this.pos.x) || this.facing || 1, 1);
+        }
+        FX.ring(this.pos.x, this.pos.y + .22, .30, R, cfg.color, .55);
+        FX.ring(this.pos.x, this.pos.y + .22, .24, R * .55, 0xffffff, .30);
+        FX.crater(this.pos.x, Math.max(0, this.pos.y), R * .66, cfg.color);
+        FX.dust(this.pos.x, this.pos.y + .06, 16, cfg.color);
+        shake = Math.min(1.2, shake + .6); camKick = Math.min(1, camKick + .3);
+        SFX.heavy(); hitstop = Math.max(hitstop, .04);
+        this.monkCatch();
+        callout(this, 'STAFF QUAKE', cfg.color);
+        this.monkLeap = null;
+        this.state = this.grounded ? 'idle' : 'fall';
+      }
+      return;
+    }
+    /* ---------- 左右B：冲锋 + 5 连棍 + 砸扁 ---------- */
+    const R2 = this.monkRush;
+    if (R2) {
+      const cfg = R2.cfg || CFG.s; R2.t += dt;
+      if (R2.mode === 'dash') {
+        this.vel.x = R2.dir * (cfg.dashSpd || 33);
+        this.vel.y *= .90;
+        if (R2.t % .07 < dt) FX.trail(this.pos.x - R2.dir * .5, this.pos.y + 1.15, .3, cfg.color);
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0 || f.pumpkinForm) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          if (Math.abs(f.pos.x - this.pos.x) > (cfg.reach || 2.2) + f.bodyR * .4) continue;
+          if (Math.abs(f.pos.y - this.pos.y) > 2.4) continue;
+          this.monkRush = { cfg, t:0, dir:R2.dir, mode:'combo', n:0, next:.02, target:f };
+          this.vel.set(0, 0, 0);
+          f.hitstun = Math.max(f.hitstun || 0, .24);
+          FX.ring(f.pos.x, f.pos.y + 1.0, .30, 2.6, cfg.color, .34);
+          FX.flash(f.pos.x, f.pos.y + 1.05, .44, 4.6, cfg.color, .24);
+          SFX.hit(30, 5); shake = Math.max(shake, .32);
+          callout(this, 'STAFF COMBO', cfg.color);
+          return;
+        }
+        if (R2.t >= (cfg.dur || .45)) { this.monkRush = null; this.state = this.grounded ? 'idle' : 'fall'; }
+        return;
+      }
+      /* 5 连棍：前 4 棍不同角度把人定住，第 5 棍砸扁（Pumpkin 同款 flatT） */
+      const T2 = R2.target;
+      if (!T2 || T2.eliminated) { this.monkRush = null; this.state = this.grounded ? 'idle' : 'fall'; return; }
+      const hits = cfg.hits || [];
+      this.vel.set(0, 0, 0); this.facing = R2.dir;
+      const tx2 = this.pos.x + R2.dir * 2.0;
+      T2.pos.x += (tx2 - T2.pos.x) * Math.min(1, dt * 18);
+      T2.pos.y += (this.pos.y - T2.pos.y) * Math.min(1, dt * 9);     // 拉到同一水平，5 棍全咬得住
+      T2.vel.set(0, 0, 0);
+      T2.hitstun = Math.max(T2.hitstun || 0, .20);
+      if (R2.t >= R2.next && R2.n < hits.length) {
+        const H = hits[R2.n], last = (R2.n === hits.length - 1);
+        R2.n++; R2.next = R2.t + (cfg.gap || .13);
+        T2.invuln = 0; T2.intangible = 0;                            // 连段自己叠的无敌帧会让下一棍白打
+        T2.takeHit(this, { dmg:H.dmg, bb:last ? cfg.bb : 1.2, bg:last ? cfg.bg : 3.5, ang:H.ang, stun:.14 },
+                   R2.dir, last ? 1 : 0);
+        if (last) {
+          T2.flatT = Math.max(T2.flatT || 0, cfg.flat || .95);       // ★ 砸扁
+          T2.vel.set(0, 0, 0); T2.hitstun = Math.max(T2.hitstun, .34);
+          const gy2 = Math.max(.05, T2.pos.y);
+          FX.crater(T2.pos.x, gy2, 2.8, cfg.color);
+          FX.ring(T2.pos.x, gy2 + .20, .30, 4.0, cfg.color, .50);
+          FX.ring(T2.pos.x, gy2 + .20, .25, 2.4, 0xffffff, .24);
+          FX.slash(T2.pos.x, T2.pos.y + .70, .55, Math.PI / 2, 6.0, 0xffffff, .22);
+          FX.dust(T2.pos.x, gy2, 16, cfg.color);
+          callout(T2, 'FLATTENED', cfg.color);
+          shake = Math.max(shake, 1.0); camKick = Math.min(1, camKick + .5);
+          SFX.heavy();
+        } else {
+          FX.slash(T2.pos.x, T2.pos.y + 1.05, .48, H.ang * Math.PI / 180, 3.9, cfg.color, .18);
+          FX.spark(T2.pos.x, T2.pos.y + 1.05, .40, 10, cfg.color);
+          SFX.hit(26 + R2.n * 2, H.dmg);
+          shake = Math.max(shake, .28);
+        }
+      }
+      if (R2.n >= hits.length && R2.t > R2.next + .30) { this.monkRush = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      if (R2.t > 3.0) this.monkRush = null;                          // 兜底
+      return;
+    }
+    /* ---------- 下B：旋风棍（反弹由弹道循环里的 monkSpin 判定处理） ---------- */
+    const S = this.monkSpin;
+    if (S) {
+      const cfg = S.cfg || CFG.d;
+      S.t += dt;
+      this.state = 'special';
+      this.vel.x *= .80;
+      this._monkSpinAng = (this._monkSpinAng || 0) + dt * 21;
+      S.tick -= dt;
+      if (S.tick <= 0) {
+        S.tick = cfg.gap || .24;
+        const dir = this.facing || 1;
+        /* 身前风场：微量伤害（10 跳 × 1% = 10%）+ 缓慢推开 */
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          const dx = (f.pos.x - this.pos.x) * dir;
+          if (dx < -.7 || dx > (cfg.reach || 5.2)) continue;
+          if (Math.abs(f.pos.y - this.pos.y) > 2.8) continue;
+          f.takeHit(this, { dmg:cfg.tickDmg, bb:1, bg:3, ang:36, stun:.03 }, dir, 0);
+          f.vel.x += dir * (cfg.push || 2.4);            // 缓慢击退（takeHit 之后再给速度）
+        }
+        for (let i = 0; i < 3; i++) {
+          const dd = 1.1 + i * 1.5;
+          FX.ring(this.pos.x + dir * dd, this.pos.y + .95 + Math.sin(S.t * 9 + i) * .35,
+                  .26, 1.5 + i * .5, cfg.color, .22);
+        }
+        FX.beam(this.pos.x + dir * 1.0, this.pos.y + 1.15, this.pos.x + dir * (cfg.reach || 5.2),
+                this.pos.y + 1.0, .10, cfg.color, .16);
+        FX.trail(this.pos.x + dir * (1.2 + Math.random() * 3.2),
+                 this.pos.y + 1.0 + (Math.random() - .5) * 1.4, .28, cfg.color);
+        SFX.tone(420 + Math.random() * 120, 180, .10, 'sine', .03);
+      }
+      if (S.t % .5 < dt) FX.ring(this.pos.x, this.pos.y + .25, .3, 3.2, cfg.color, .26);
+      if (S.t > (cfg.dur || 2.4)) { this.monkSpin = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      return;
+    }
+    /* ---------- 大招：棍按被动变长 → 向前砸（35%，击退固定） ---------- */
+    const M = this.monkSlam;
+    if (M) {
+      const SP = FSPECIALS.monk || {};
+      M.t += dt;
+      this.state = 'special'; this.vel.x = 0;
+      const p = M.t / M.dur;
+      if (p >= .58 && !M.fired) {
+        M.fired = true;
+        const cx = this.pos.x + M.dir * M.range * .55;
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          const dx = (f.pos.x - this.pos.x) * M.dir;
+          if (dx < -.9 || dx > M.range) continue;
+          if (Math.abs(f.pos.y - this.pos.y) > 3.4) continue;
+          f.takeHit(this, { dmg:M.dmg, bb:M.bb, bg:M.bg, ang:M.ang, stun:.22 }, M.dir, 1);
+          f.vel.x += M.dir * 7;
+          FX.spark(f.pos.x, f.pos.y + 1.1, .48, 14, 0xffffff);
+        }
+        FX.crater(cx, Math.max(0, this.pos.y), M.range * .58, SP.color || 0xe0a53c);
+        FX.ring(cx, this.pos.y + .25, .30, M.range, SP.color || 0xe0a53c, .5);
+        FX.burst(cx, this.pos.y + .5, .24, SP.color || 0xe0a53c, 26, 20);
+        FX.flash(cx, this.pos.y + 1.0, .5, M.range * 1.1, 0xfff0c0, .28);
+        FX.dust(this.pos.x + M.dir * 1.2, this.pos.y + .06, 20, 0xc9a06a);
+        shake = Math.min(1.4, shake + .9); camKick = Math.min(1, camKick + .6);
+        hitstop = Math.max(hitstop, .08); SFX.heavy(); SFX.special('wave');
+        callout(this, 'STAFF SLAM 35%', SP.color || 0xe0a53c);
+      }
+      if (M.t >= M.dur) { this.monkSlam = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      return;
+    }
+  }
+  /* ================= ★ 士兵：三个技能状态机 + 重机枪计时 ================= */  /* ================= ★ 士兵：三个技能状态机 + 重机枪计时 ================= */
   soldierTick(dt, inp) {
     /* ---- 大招「重机枪」：10 秒倒计时（期间 doSpecial 改成 10 连发） ---- */
     if (this.soldierGunT > 0) {
@@ -14194,37 +14753,101 @@ class Fighter {
         }
       }
     }
-    /* ---------- 中立B：后撤 → 前方范围齐射 ---------- */
+    /* ---------- 中立B：后撤 → 方形弹幕区（2.6 秒持续下弹 + 收尾冲击波） ---------- */
     const V = this.soldierVolley;
     if (V) {
       const cfg = V.cfg; V.t += dt;
-      if (V.t < .15) {
+      const side = cfg.side || 6.4, hs = side / 2;
+      if (V.t < .16) {
         this.vel.x = -V.dir * (cfg.back || 13.5);
         if (this.grounded) this.vel.y = Math.max(this.vel.y, 4.0);
       } else {
-        this.vel.x *= .82;
-        if (!V.fired) {
-          V.fired = true;
-          const RR = cfg.R || 7.6;
-          for (const f of FIGHTERS) {                  // 前方「一片」范围判定，不是一颗子弹
+        this.vel.x *= .86;
+        /* 布场：进入射击阶段时把「方块战场」钉在世界坐标上（人被打退也不跟着漂） */
+        if (!V.bx) {
+          V.bx = this.pos.x + V.dir * (.55 + hs);
+          V.by = this.pos.y + 1.25;
+          V.tick = .02; V.rfT = 0; V.n = 0;
+          this._sdZone = FX.zone(V.bx, V.by, .04, side, side, cfg.color, (cfg.dur || 2.6));
+          FX.ring(this.pos.x + V.dir * .7, this.pos.y + 1.3, .24, 2.2, cfg.color, .30);
+          FX.flash(this.pos.x + V.dir * .85, this.pos.y + 1.3, .30, 3.6, 0xffe9a8, .18);
+          FX.dust(this.pos.x, this.pos.y + .06, 6, 0xcfc4a6);
+          SFX.special('proj');
+          callout(this, 'BARRAGE ZONE', cfg.color);
+        }
+        V.tick -= dt; V.rfT -= dt;
+        /* 方形边框：每 .18s 重画四边（远处也一眼看出判定是「一个正方形」） */
+        if (V.rfT <= 0) {
+          V.rfT = .13;
+          const L = V.bx - hs, R2 = V.bx + hs, B = V.by - hs, T2 = V.by + hs;
+          FX.beam(L, T2, R2, T2, .085, 0xfff3c8, .155);
+          FX.beam(L, B,  R2, B,  .085, 0xfff3c8, .155);
+          FX.beam(L, B,  L, T2, .075, 0xffd166, .155);
+          FX.beam(R2, B, R2, T2, .075, 0xffd166, .155);
+          for (const cx of [L, R2]) for (const cy of [B, T2]) {
+            FX.flash(cx, cy, .2, 2.2, 0xfff3c8, .15);
+            FX.ring(cx, cy, .15, .9, 0xffd166, .15);
+          }
+          if (this._sdZone) this._sdZone.obj.material.opacity0 = .56 + Math.sin(V.t * 9) * .07;
+        }
+        /* 枪林弹雨：每 .12s 一跳 → 5 条拖曳弹道 + 3 条垂直落弹 + 1 处亮点 */
+        if (V.tick <= 0) {
+          V.tick = cfg.gap || .12;
+          V.n++;
+          this._sdRec = 1;
+          const mx = this.pos.x + V.dir * .92, my = this.pos.y + 1.32;
+          for (let i = 0; i < 6; i++) {
+            const tx = V.bx + (Math.random() - .5) * side * .94;
+            const ty = V.by + (Math.random() - .5) * side * .90;
+            FX.beam(mx, my, tx, ty, .048 + Math.random() * .034,
+                    i % 3 ? 0xffd166 : 0xfff3c8, .10 + Math.random() * .06);
+            if (i < 3) FX.trail(tx, ty, .18, 0xffe9a8);
+          }
+          for (let i = 0; i < 4; i++) {                       // 垂直落弹：读出「弹雨」
+            const rx = V.bx + (Math.random() - .5) * side * .9;
+            FX.beam(rx, V.by + hs * .96, rx - V.dir * .10, V.by - hs * .96, .038, 0xfff8dd, .09);
+          }
+          FX.flash(V.bx + (Math.random() - .5) * side * .8, V.by + (Math.random() - .5) * side * .8,
+                   .30, 1.5, 0xffe9a8, .12);
+          /* 判定：整块方形区域内的敌人每跳吃 1.4%，不锁人，只把人往外推一点（有反制空间） */
+          for (const f of FIGHTERS) {
             if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
             if (this.team >= 0 && isTeammate(this, f)) continue;
-            const dx = (f.pos.x - this.pos.x) * V.dir;
-            if (dx < -.6 || dx > RR) continue;
-            if (Math.abs(f.pos.y - this.pos.y) > 2.9) continue;
-            f.takeHit(this, { dmg:cfg.dmg, bb:cfg.bb, bg:cfg.bg, ang:cfg.ang }, V.dir, 1);
+            if (Math.abs(f.pos.x - V.bx) > hs + f.bodyR * .35) continue;
+            if (Math.abs((f.pos.y + .95 * (f.def.shape.scale || 1)) - V.by) > hs + f.bodyR * .25) continue;
+            f.takeHit(this, { dmg:cfg.tickDmg, bb:cfg.tickBb, bg:cfg.tickBg, ang:cfg.tickAng,
+                              stun:cfg.tickStun }, V.dir, 1);
+            f.vel.x += V.dir * 3.4;                          // 站在里面会被逐渐挤出方块
           }
-          const ox = this.pos.x + V.dir * .85, oy = this.pos.y + 1.42;
-          for (let i = 0; i < 3; i++)
-            FX.ring(ox + V.dir * (i * 1.55), oy, .2, 1.5 + i * 1.0, i ? 0xffb347 : 0xfff3c8, .20 + i * .06);
-          FX.flash(ox, oy, .3, 3.4, 0xffe9a8, .18);
-          FX.trail(ox + V.dir * 1.2, oy, .3, cfg.color);
-          FX.spark(ox, oy, .26, 7, 0xffd166);
-          SFX.special('proj'); SFX.hit(26, 5); shake = Math.max(shake, .18);
-          callout(this, 'VOLLEY', cfg.color);
+          if (V.n % 4 === 0) SFX.hit(14 + (V.n % 3) * 4, 2);
         }
       }
-      if (V.t >= (cfg.dur || .60)) { this.soldierVolley = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      /* 收尾：整块方块炸一次（最后一记冲击波，明显击飞） */
+      if (V.t >= (cfg.dur || 2.6)) {
+        if (V.bx) {
+          for (const f of FIGHTERS) {
+            if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+            if (this.team >= 0 && isTeammate(this, f)) continue;
+            if (Math.abs(f.pos.x - V.bx) > hs + f.bodyR * .35) continue;
+            if (Math.abs((f.pos.y + .95 * (f.def.shape.scale || 1)) - V.by) > hs + f.bodyR * .25) continue;
+            f.takeHit(this, { dmg:cfg.finDmg, bb:cfg.finBb, bg:cfg.finBg, ang:cfg.finAng, stun:.18 },
+                      V.dir, 1);
+            f.vel.x += V.dir * 6;
+          }
+          FX.ring(V.bx, V.by, .30, side * .55, cfg.color, .42);
+          FX.ring(V.bx, V.by, .20, side * .30, 0xfff3c8, .30);
+          FX.burst(V.bx, V.by, 0, 0xffd166, 26, 20);
+          FX.flash(V.bx, V.by, .4, side * .9, 0xffe9a8, .26);
+          SFX.heavy(); shake = Math.min(1.2, shake + .55); hitstop = Math.max(hitstop, .045);
+        }
+        if (this._sdZone) {
+          scene.remove(this._sdZone.obj);
+          const zi = FX.list.indexOf(this._sdZone);
+          if (zi >= 0) FX.list.splice(zi, 1);
+          this._sdZone = null;
+        }
+        this.soldierVolley = null; this.state = this.grounded ? 'idle' : 'fall';
+      }
       return;
     }
     /* ---------- 左右B：冲刺 → 抓住 → 贴脸连射 ---------- */
@@ -14263,6 +14886,7 @@ class Fighter {
       T.hitstun = Math.max(T.hitstun || 0, .18);
       if (R.t >= R.next && R.shots < shots) {
         R.shots++; R.next = R.t + .14;
+        this._sdRec = 1;
         const last = R.shots >= shots;
         T.takeHit(this, { dmg:cfg.dmg, bb: last ? cfg.bb : 1, bg: last ? cfg.bg : 3,
                           ang: last ? cfg.ang : 62, stun:.12 }, R.dir, last ? 1 : 0);
@@ -14284,6 +14908,7 @@ class Fighter {
         this.vel.x *= .93;
         if (U.t >= U.next && U.hits < (cfg.hits || 3)) {       // 上升途中 3 段（每段把人「拎」住，保证 3 段全中）
           U.hits++; U.next = U.t + .16;
+          this._sdRec = 1;
           for (const f of FIGHTERS) {
             if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
             if (this.team >= 0 && isTeammate(this, f)) continue;
@@ -14342,6 +14967,7 @@ class Fighter {
   soldierMG() {
     const dir = this.facing || 1;
     const P0 = this.parts || {};
+    this._sdRec = 1;
     if (P0.mg) P0.mg.visible = true;
     if (P0.pistolR) P0.pistolR.visible = false;
     for (let i = 0; i < 10; i++) {
@@ -15972,6 +16598,14 @@ class Fighter {
       inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.spP = false; inp.dodgeP = false;
       this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
     }
+    /* ★ 士兵·中立B「方形弹幕区」：布场之后整个人钉在原地扫射（后撤那 0.16s 仍然可以动，
+       否则后跳读不出来）。不清 vel.x —— 衰减由 soldierTick 自己按 .86 处理。 */
+    if (this.soldierVolley && this.soldierVolley.t >= .16) {
+      this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
+      inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false;
+      inp.spP = false; inp.shHeld = false; inp.atkHeld = false; inp.spHeld = false; inp.fsP = false; inp.mash = 0;
+      return;
+    }
     const S = this.s;
     /* ★ Hacker·System Lock（被乱码包命中）：锁定期间做不了任何动作（盾/翻滚/跳/攻击/技能全封），
        但也不吃击退（见 takeHit）——所以对手只能干站 3 秒，等锁结束才可能被击飞。 */
@@ -15981,7 +16615,8 @@ class Fighter {
         this.tiger || this.tailS || this.devour || this.grab || this.angelGrab || this.angelFly || this.horn || this.tide || this.sharkBub ||
         this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0 || this.burnLock > 0 ||
         this.vexRush || this.vexRise || this.vexDive || this.vexSpray ||
-        this.trashClap || this.trashRush || this.trashGas || this.wardenRush) {
+        this.trashClap || this.trashRush || this.trashGas || this.wardenRush ||
+        this.monkRush || this.monkSpin || this.monkLeap || this.monkSlam) {
       this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
       inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false;
       inp.spP = false; inp.shHeld = false; inp.atkHeld = false; inp.spHeld = false; inp.fsP = false; inp.mash = 0;
@@ -16192,7 +16827,8 @@ class Fighter {
               this.spinVortex || this.rollDamage || this.staffWaves ||
               this.warp || this.duneRun || this.bandage ||
               this.wardenRush || this.wardenSonic || this.wardenLeap ||   // ★ 坚守者（下B 感测体是部署型，不进互斥）
-              this.soldierVolley || this.soldierRush || this.soldierUpper);   // ★ 士兵（下B 散弹是一次性发射，不进互斥）
+              this.soldierVolley || this.soldierRush || this.soldierUpper ||   // ★ 士兵（下B 散弹是一次性发射，不进互斥）
+              this.monkRush || this.monkSpin || this.monkLeap || this.monkSlam);   // ★ 武僧（投棍是瞬发，不进互斥）
   }
   doSpecial(inp) {
     this.spCount = (this.spCount || 0) + 1;        // 教程用：累计施放次数
@@ -16278,7 +16914,8 @@ class Fighter {
     }
     /* ---------- ★ 士兵 · 中立B：后撤 + 前方范围齐射（不是实体子弹） ---------- */
     if (cfg.kind === 'soldierVolley') {
-      this.soldierVolley = { cfg, t:0, dir, fired:false };
+      this.soldierVolley = { cfg, t:0, dir, fired:false, bx:0, by:0, tick:0, rfT:0, n:0 };
+      this._sdRec = 0;
       this.state = 'special'; this.animT = 0;
       this.vel.x = -dir * (cfg.back || 13.5);
       if (this.grounded) this.vel.y = 4.0;
@@ -16317,12 +16954,68 @@ class Fighter {
           spd:(cfg.spd || 44) * (.90 + .12 * Math.abs(k)), size:.13, life:cfg.life || .34,
           hitR:cfg.hitR || .42, color:cfg.color, shotPellet:true, spin:0 }, 1, { vy: k * 5.4 });
       }
+      this._sdRec = 1;
       this.vel.x -= dir * 3.2;                               // 后坐力
       FX.flash(this.pos.x + dir * .8, this.pos.y + 1.2, .3, 3.6, 0xffe9a8, .16);
       FX.ring(this.pos.x + dir * .75, this.pos.y + 1.2, .2, 1.9, 0xffb347, .22);
       FX.spark(this.pos.x + dir * .9, this.pos.y + 1.2, .28, 8, 0xffd166);
       SFX.special('proj'); SFX.hit(34, 8); shake = Math.max(shake, .30);
       this.state = 'special'; this.animT = 0; this.spT = .30;
+      return true;
+    }
+    /* ---------- ★ 武僧 · 中立B：投棍 / 空手跳到棍位 + 冲击波 ---------- */
+    if (cfg.kind === 'monkStaff') {
+      if (this.monkHasStaff) {
+        this.monkHasStaff = false;
+        if (this.parts && this.parts.staff) this.parts.staff.visible = false;
+        const mesh = this.monkStaffMesh();
+        this.monkThrow = { cfg, dir, t:0, x:this.pos.x + dir * .85, y:this.pos.y + 1.42,
+                           vx:dir * (cfg.throwSpd || 26), vy:(cfg.throwVy || 4.6), spin:0, hitSet:new Set() };
+        mesh.position.set(this.monkThrow.x, this.monkThrow.y, 0);
+        this.state = 'special'; this.animT = 0; this.spT = .26;
+        SFX.special('proj'); SFX.hit(22, 4);
+        FX.ring(this.pos.x + dir * .9, this.pos.y + 1.42, .26, 1.7, cfg.color, .28);
+        FX.trail(this.pos.x + dir * .6, this.pos.y + 1.4, .3, cfg.color);
+        callout(this, 'STAFF THROWN', cfg.color);
+      } else if (this.monkStaffPos || this.monkThrow) {
+        /* 空手点中立B：跳到棍的位置 → 落地冲击波 → 顺手拾回 */
+        const sx = this.monkStaffPos ? this.monkStaffPos.x : this.monkThrow.x;
+        const sy = this.monkStaffPos ? this.monkStaffPos.y : 0;
+        const dist = Math.abs(sx - this.pos.x);
+        this.monkLeap = { cfg, t:0, dur:Math.min(.62, Math.max(.22, dist / (cfg.leapSpd || 26))),
+                          x0:this.pos.x, y0:this.pos.y, x1:sx, y1:sy, arc:(cfg.leapArc || 3.2), fired:false };
+        this.state = 'special'; this.animT = 0; this.grounded = false;
+        this.vel.x *= .2; this.vel.y = Math.max(this.vel.y, 6.0);
+        SFX.special('recover');
+        FX.dust(this.pos.x, this.pos.y + .06, 8, cfg.color);
+        FX.ring(this.pos.x, this.pos.y + .2, .26, 1.8, cfg.color, .26);
+        callout(this, 'STAFF CALL', cfg.color);
+      } else {
+        this.state = 'special'; this.animT = 0; this.spT = .20;   // 既没棍也没落点（极端情况）：空挥
+        SFX.special('dash');
+      }
+      return true;
+    }
+    /* ---------- ★ 武僧 · 左右B：持棍冲锋 → 撞人 → 5 连棍 → 砸扁 ---------- */
+    if (cfg.kind === 'monkRush') {
+      this.monkRush = { cfg, t:0, dir, mode:'dash', n:0, next:0, target:null };
+      this.state = 'special'; this.animT = 0;
+      this.vel.x = dir * (cfg.dashSpd || 33);
+      SFX.special('dash');
+      FX.ring(this.pos.x + dir * .5, this.pos.y + 1.2, .26, 1.8, cfg.color, .26);
+      FX.trail(this.pos.x - dir * .5, this.pos.y + 1.1, .3, cfg.color);
+      callout(this, 'STAFF RUSH', cfg.color);
+      return true;
+    }
+    /* ---------- ★ 武僧 · 下B：旋风棍（反弹弹幕 + 身前风场） ---------- */
+    if (cfg.kind === 'monkSpin') {
+      this.monkSpin = { cfg, t:0, tick:.02, dir };
+      this._monkSpinAng = 0;
+      this.state = 'special'; this.animT = 0;
+      SFX.special('wave'); SFX.tone(520, 260, .20, 'sawtooth', .05);
+      FX.ring(this.pos.x, this.pos.y + 1.1, .3, 2.6, cfg.color, .38);
+      FX.ring(this.pos.x + dir * 1.4, this.pos.y + 1.1, .28, 2.0, cfg.color, .30);
+      callout(this, 'CYCLONE 2.4s', cfg.color);
       return true;
     }
     if (cfg.kind === 'mosqSpike') {
@@ -19198,6 +19891,399 @@ class Fighter {
         A.lean += ((this.facing * .22) - A.lean) * Math.min(1, dt * 10);
       }
     }
+    /* ================= ★ 士兵 Soldier：四个技能 + 普攻全部有专属枪械姿态 =================
+       读法（侧视；mirror 由 group.rotation.y 负责）：
+       · 待机：枪口微垂，每 7 秒抬枪「检查弹匣」一次（军人味，不是木桩）
+       · 移动：右手持枪贴胸侧（小摆幅 → 枪口稳），左手与双腿正常交替，脚步扬尘
+       · 空中：起跳收腿；二段跳那一下额外「收膝翻」（配合引擎的二段跳环）
+       · 中立B：后撤蹲身 → 双枪端平对着方块左右扫射（每发后坐抬枪）
+       · 左右B：突进压身前倾、双臂后拉 → 抓住后右手贴脸连点、左手按住目标
+       · 上B：收拳蓄力 → 升龙勾拳（头随拳抬）→ 收尾双臂下甩（扔人）
+       · 下B：双手前推散弹、上身后仰吃后坐
+       · 大招重机枪：右手端枪、左手扶枪管、每串 10 发全身抖
+       所有姿态都是「目标值 + 缓动」，不直接写 rotation（见 per-char 动画经验）。 */
+    if (this.def.id === 'soldier') {
+      const sspd = Math.abs(this.vel.x);
+      const smoving = this.grounded && sspd > .35 &&
+        (this.state === 'run' || this.state === 'walk' || this.state === 'dash');
+      const V = this.soldierVolley, R = this.soldierRush, U = this.soldierUpper;
+      const mgOn = (this.soldierGunT || 0) > 0;
+      const spA = (this._spAnim > 0 && this._spAnim < .55) ? (this._spKey || '') : '';
+      this._sdRec = Math.max(0, (this._sdRec || 0) - dt * 7.5);        // 后坐力衰减（每枪打 1）
+      const rec = this._sdRec;
+      let aL = 0, aR = 0, lL = 0, lR = 0, lean = 0, bob = 0;
+      let eL = -.08, eR = -.08;                                        // 肘（负 = 屈肘前抬）
+      let spread = .12, hx = 0, hy = 0, aim = 0, crouch = 0;
+
+      if (this.state === 'hitstun' || this.state === 'grabbed' || this.state === 'stun') {
+        aL = .95 + Math.sin(A.t * 25) * .18; aR = -1.05 - Math.sin(A.t * 25) * .18;
+        lL = .26; lR = -.22; lean = -this.facing * .34; hx = .40;
+        eL = eR = -.34; spread = .34;
+      } else if (mgOn) {
+        /* 大招·重机枪：右手端平（机枪挂右前臂）、左手前伸扶枪管 —— 全身被后坐震 */
+        aR = -1.34; eR = -.26; aL = -1.22; eL = -.62;
+        spread = .06; lL = .24; lR = -.26; lean = this.facing * .12;
+        hx = .10; hy = -.06; aim = 1;
+        bob = Math.sin(A.t * 34) * .010 - rec * .018;
+        lean += Math.sin(A.t * 41) * .012 * (rec + .25);
+      } else if (V) {
+        if (V.t < .16) {
+          /* 后撤：蹲身、双枪收在胸前、身体后仰 */
+          aL = -.95; aR = -.80; eL = eR = -.85; spread = .26;
+          lL = .30; lR = -.34; lean = -this.facing * .28; bob = -.10; hx = .22; crouch = 1;
+        } else {
+          /* 扫射：双枪端平对着方块，枪口左右扫（读起来像「在打一整片」） */
+          const sweep = Math.sin((V.t - .16) * 6.2);
+          aR = -1.46 - rec * .20; eR = -.20 - rec * .10;
+          aL = -1.24 - rec * .12; eL = -.34 - rec * .06;
+          spread = .10; lL = .22 + sweep * .05; lR = -.26 - sweep * .05;
+          lean = this.facing * (.16 + sweep * .03);
+          hx = .12; hy = sweep * .18; aim = 1;
+          bob = Math.sin(A.t * 30) * .008 - rec * .02;
+        }
+      } else if (R) {
+        if (R.mode === 'dash') {
+          /* 突进：整个人压上去，双臂后拉（枪口仍朝前），腿蹬得飞快 */
+          aL = .55; aR = -1.05; eL = -.30; eR = -.55; spread = .18;
+          lL = Math.sin(A.t * 34) * .62; lR = -Math.sin(A.t * 34) * .62;
+          lean = this.facing * .44; bob = Math.abs(Math.sin(A.t * 34)) * .04; hx = -.10;
+        } else {
+          /* 贴脸连点：右手每枪一个后坐循环，左手压住目标 */
+          const hp = (R.t % .14) / .14;
+          const kick = Math.max(0, 1 - hp * 5);
+          aR = -1.62 - kick * .28; eR = -.16; aL = -1.15; eL = -.48;
+          spread = .08; lL = .20; lR = -.22; lean = this.facing * .22;
+          hx = .14; aim = 1; bob = -kick * .02;
+        }
+      } else if (U) {
+        if (!U.fin) {
+          /* 升龙勾拳：右拳从腰侧向上抡，左臂护住身前 */
+          const p = Math.min(1, U.t / (U.cfg.dur || .50));
+          aR = -2.55 - p * .25 + .35 * (1 - p); eR = -.55 + p * .30;
+          aL = -.55 - p * .35; eL = -.70;
+          spread = .16; lL = -.30 * p + .10; lR = .26 * p - .06;
+          lean = this.facing * (.10 - p * .22); bob = .04 * p; hx = -.20 - p * .12;
+          aim = .25;
+        } else if (!U.thrown) {
+          aR = -2.90; aL = -2.70; eR = eL = -.20; spread = .04;
+          lL = .12; lR = -.10; lean = -this.facing * .06; hx = -.16; aim = .10;
+        } else {
+          /* 扔出去：双臂从头顶甩到身前下方 */
+          aR = .55; aL = .30; eR = eL = -.25; spread = .20;
+          lL = .34; lR = -.30; lean = this.facing * .36; bob = -.14; hx = .34;
+        }
+      } else if (spA === 'd') {
+        /* 下B 散弹：双手前推、上身后仰吃后坐 */
+        const k2 = Math.min(1, this._spAnim / .16);
+        aR = -1.55 * k2 - rec * .30; aL = -1.40 * k2 - rec * .20;
+        eR = -.14; eL = -.22; spread = .12;
+        lL = .18; lR = -.20; lean = this.facing * (.22 - rec * .30);
+        hx = .08 - rec * .12; aim = k2; bob = -rec * .03;
+      } else if (this.move) {
+        const up = this.phase === 'startup';
+        const ph = up ? .4 : (this.phase === 'active' ? 1 : .6);
+        const nm = this.move.name || '';
+        if (/^jab/.test(nm)) {
+          const JS = JAB_STYLE[this.def.id] || JAB_DEF;
+          aR = -JS.arm * ph; aL = JS.ol * ph; spread = .16;
+          eR = -.18 * ph; eL = -.30;
+          lean = this.facing * JS.lean * ph; lL = JS.lL * ph; lR = -JS.lL * ph;
+          hx = .10; aim = .55;
+        } else if (nm === 'utilt' || nm === 'usmash' || nm === 'uair') {
+          aR = -2.45 * ph; aL = -1.95 * ph; eR = eL = -.30; lL = -.30; lR = .18;
+          lean = -.10; hx = -.18; aim = .20;
+        } else if (nm === 'dtilt' || nm === 'dsmash' || nm === 'dair') {
+          aR = 1.35 * ph; aL = 1.05 * ph; eR = eL = -.25; lL = .20; lR = -.15;
+          lean = this.facing * .42 * ph; hx = .26; crouch = .5;
+        } else if (nm === 'nair') {
+          aR = -1.35 * ph; aL = 1.35 * ph; spread = .30; lL = -.22; lR = .22; aim = .30;
+        } else if (nm === 'fair' || nm === 'bair') {
+          aR = (nm === 'fair' ? -1.55 : 1.55) * ph; aL = (nm === 'fair' ? 1.30 : -1.30) * ph;
+          spread = .20; lL = -.24; lR = .16; lean = this.facing * .24 * ph; aim = .30;
+        } else {
+          aR = -1.45 * ph; aL = .40 * ph; spread = .14; eR = -.22; eL = -.35;
+          lean = this.facing * .28 * ph; lL = .14 * ph; lR = -.10 * ph; hx = .12; aim = .80;
+        }
+      } else if (this.state === 'shield' || this.state === 'roll' || this.state === 'charge') {
+        aL = -.55; aR = -.55; eL = eR = -.45; spread = .22; lL = .12; lR = -.12;
+        lean = this.facing * .16; aim = .20;
+      } else if (!this.grounded) {
+        const rising = this.vel.y > 0;
+        const air2 = rising && (this.jumpsLeft || 0) === 0;   // 二段跳那一下：收膝翻
+        if (air2) {
+          aL = -1.15; aR = -1.85; eL = -.40; eR = -.30; spread = .26;
+          lL = -.62; lR = -.30; lean = this.facing * .18; bob = .02; hx = -.10; aim = .55;
+        } else {
+          aL = rising ? -1.05 : -.70; aR = rising ? -1.55 : -1.15;
+          eL = -.35; eR = -.30; spread = .22;
+          lL = rising ? -.42 : .16; lR = rising ? .26 : -.12;
+          lean = -this.facing * .10; hx = rising ? -.12 : .14; aim = .45;
+        }
+      } else if (smoving) {
+        const f2 = A.t * (6.4 + sspd * .62);
+        const sw = Math.sin(f2);
+        /* 持枪跑：右手贴胸侧（小摆幅 → 枪口稳），左手/双腿正常交替 */
+        aR = -.52 - sw * .12; eR = -.62 - Math.abs(sw) * .06;
+        aL = sw * .58; eL = -.30 - Math.abs(sw) * .18;
+        spread = .12; lL = sw * .46; lR = -sw * .46;
+        lean = this.facing * Math.min(.30, sspd * .017); bob = Math.abs(sw) * .06;
+        hx = sw * .03; aim = .50;
+        const st = Math.floor(f2 / Math.PI);
+        if (this._sdStep === undefined) this._sdStep = st;
+        if (st !== this._sdStep) { this._sdStep = st; FX.dust(this.pos.x, this.pos.y + .05, 2, 0xb8ad92); }
+      } else {
+        /* 待机：呼吸 + 每 7 秒抬枪检查弹匣 */
+        const cyc = (A.t % 7) / 7;
+        const pres = cyc > .80 ? Math.sin((cyc - .80) / .20 * Math.PI) : 0;
+        aL = Math.sin(A.t * 2.4) * .10 - pres * .35;
+        aR = -.22 - Math.sin(A.t * 2.4) * .08 - pres * .55;
+        eL = -.12 - pres * .45; eR = -.30 - pres * .55;
+        spread = .12 + pres * .05;
+        lL = .04; lR = -.04; bob = Math.sin(A.t * 2.4) * .030;
+        lean = Math.sin(A.t * 1.6) * .018 * this.facing;
+        hx = .04 + pres * .16; hy = -pres * .30; aim = .35 + pres * .50;
+      }
+
+      /* —— 目标值 → 缓动 → 写骨骼 —— */
+      const sk = 1 - Math.exp(-19 * dt);
+      A.armL += (aL - A.armL) * sk; A.armR += (aR - A.armR) * sk;
+      A.legL += (lL - A.legL) * sk; A.legR += (lR - A.legR) * sk;
+      A.lean += (lean - A.lean) * sk; A.bob += (bob - A.bob) * sk;
+      if (crouch > 0) A.bob -= crouch * .10;          // 蹲身：整体压低（tail 只认 A.bob）
+      P.armL.rotation.x = A.armL; P.armR.rotation.x = A.armR;
+      P.legL.rotation.x = A.legL; P.legR.rotation.x = A.legR;
+      P.armL.rotation.z = -spread; P.armR.rotation.z = spread;
+      if (P.group) P.group.rotation.z = A.lean * this.facing;
+      /* 肘关节（新加的关节：勾拳/贴脸连射全靠它，否则只有肩在转） */
+      this._sdElbL = (this._sdElbL === undefined) ? eL : this._sdElbL + (eL - this._sdElbL) * sk;
+      this._sdElbR = (this._sdElbR === undefined) ? eR : this._sdElbR + (eR - this._sdElbR) * sk;
+      if (P.elbL) { P.elbL.rotation.x = this._sdElbL; P.elbR.rotation.x = this._sdElbR; }
+      /* 枪口保持水平：手臂+肘转了多少就反向补多少；后坐时枪口上跳 */
+      this._sdAim = (this._sdAim === undefined) ? aim : this._sdAim + (aim - this._sdAim) * sk;
+      if (P.pistolR) P.pistolR.rotation.x = -(A.armR + this._sdElbR) * this._sdAim - rec * .45;
+      if (P.pistolL) P.pistolL.rotation.x = -(A.armL + this._sdElbL) * this._sdAim - rec * .35;
+      if (P.mg) {
+        P.mg.rotation.x = -(A.armR + this._sdElbR) - rec * .18;
+        if (P.mgTip) P.mgTip.scale.setScalar(1 + rec * 1.5 + (mgOn ? .15 : 0));
+      }
+      /* 头：在 animStep 末尾统一写（_sdHX/_sdHY） */
+      this._sdHX = (this._sdHX === undefined) ? hx : this._sdHX + (hx - this._sdHX) * sk;
+      this._sdHY = (this._sdHY === undefined) ? hy : this._sdHY + (hy - this._sdHY) * sk;
+      /* 开火时的枪口余焰（rec 只由真实枪击置 1 → 不会无故冒火） */
+      if (rec > .35 && Math.random() < .55)
+        FX.trail(this.pos.x + this.facing * 1.02, this.pos.y + 1.45, .14, 0xffe9a8);
+    }
+    /* ================= ★ 武僧 Monk：每个动作 / 技能都有专属棍姿 =================
+       读法（侧视；facing 由 group.rotation.y 负责）：
+       · 待机：棍几乎竖握在身前（棍尾点地），双手一上一下握住，每 6 秒倒一次手
+       · 移动：棍斜端在身前，腿大步 + 脚步扬尘
+       · 空中：上升举棍；下落棍斜指前下
+       · J 1~4 刺 / J5 高举砸下 · ftilt 平刺 · utilt 上撩 · dtilt 低位扫（蹲）
+       · nair 横扫 / fair 前劈 / bair 后撩 / uair 上挑 / dair 下砸
+       · 中立B 投棍：过肩掷矛（棍已离手 → 只摆手）；空手跳：抱拳起跳
+       · 左右B：冲锋压低棍尖朝前 → 五连每棍角度交替 → 收尾高举砸下
+       · 下B 旋风：棍绕身高速旋转（固定位置 + 连续角度，不跟手）
+       · 上B：举棍上升；大招：巨型棍举过头顶 → 向前砸
+       ⚠ 核心：**棍的位置由右手反推**（sFollow）——先把手臂角度平滑好，再按
+         「棍心 = 手 - 握点偏移 × 棍轴方向」算棍的位置，这样任何姿势手都真的握在棍上。
+         （旧版给每个姿势硬写 sY/sZ → 手和棍各走各的，看起来像隔空御棍。） */
+    if (this.def.id === 'monk') {
+      const mspd = Math.abs(this.vel.x);
+      const mrun = this.grounded && mspd > .35 && (this.state === 'run' || this.state === 'walk' || this.state === 'dash');
+      const MT = this.monkThrow, MR = this.monkRush, MS = this.monkSpin, ML = this.monkLeap, MM = this.monkSlam;
+      const spA = (this._spAnim > 0 && this._spAnim < .55) ? (this._spKey || '') : '';
+      let aL = 0, aR = 0, lL = 0, lR = 0, lean = 0, bob = 0;
+      let spread = .14, eL = -.10, eR = -.10, hx = 0, hy = 0, crouch = 0;
+      let sAng = .06, sGrip = .30, sScale = 1, sSpin = false, sFollow = true;
+      let sFX = .04, sFY = 1.15, sFZ = .52;            // 只在 sFollow = false（旋风）时用
+      let sVis = this.monkHasStaff ? 1 : 0;
+
+      if (this.state === 'hitstun' || this.state === 'grabbed' || this.state === 'stun') {
+        aL = .95 + Math.sin(A.t * 26) * .18; aR = -1.05 - Math.sin(A.t * 26) * .18;
+        lL = .26; lR = -.22; lean = -this.facing * .34; hx = .38; spread = .32;
+        eR = eL = -.20; sAng = .75; sGrip = .34;
+      } else if (MM) {                                  // ★ 大招：巨型棍举顶 → 向前砸
+        const p = Math.min(1, MM.t / MM.dur);
+        sScale = MM.size; sGrip = .36;
+        if (p < .34) {
+          const k2 = Math.min(1, p / .26);
+          sAng = -.25; aR = -2.35 * k2; aL = -2.15 * k2; eR = eL = -.16;
+          lL = .16 * k2; lR = -.12 * k2; lean = -this.facing * .22 * k2; hx = -.24 * k2;
+          spread = .10; bob = .05 * k2;
+        } else {
+          const k2 = Math.min(1, (p - .34) / .26);
+          sAng = -.25 + 2.30 * k2; aR = -2.35 + 1.40 * k2; aL = -2.15 + 1.40 * k2;
+          eR = eL = -.16 + .04 * k2;
+          lL = .10 - .18 * k2; lR = .10; lean = this.facing * (.44 * k2); hx = .30 * k2;
+          spread = .18; bob = -.10 * k2; crouch = .55 * k2;
+        }
+      } else if (MS) {                                  // ★ 下B 旋风棍（固定位置，绕身抡圆）
+        sSpin = true; sFollow = false; sFX = .04; sFY = 1.15; sFZ = .54;
+        aR = -1.30 - Math.sin(A.t * 18) * .16; aL = -1.18 + Math.sin(A.t * 18) * .16;
+        eR = -.20; eL = -.24; spread = .26;
+        lL = .16; lR = -.16; lean = this.facing * .16; hx = .06; bob = Math.sin(A.t * 20) * .02;
+      } else if (MR) {                                  // ★ 左右B：冲锋 / 五连
+        if (MR.mode === 'dash') {
+          sAng = 1.50; sGrip = .32;
+          aR = -1.30; aL = -1.15; eR = eL = -.18; spread = .16;
+          lL = Math.sin(A.t * 32) * .62; lR = -Math.sin(A.t * 32) * .62;
+          lean = this.facing * .44; bob = Math.abs(Math.sin(A.t * 32)) * .04; hx = -.08;
+        } else {
+          const NH2 = (MR.cfg && MR.cfg.hits) ? MR.cfg.hits.length : 5;
+          const last = MR.n >= NH2;
+          const g2 = (MR.cfg && MR.cfg.gap) || .13;
+          const kick = Math.max(0, 1 - (MR.t - MR.next + g2) / .16);
+          const alt = (MR.n % 2) ? -.95 : 1.55;
+          sAng = last ? 2.25 : alt + kick * .22; sGrip = last ? .36 : .32;
+          aR = last ? .45 : -1.12 - kick * .22; aL = last ? .20 : -.98; eR = eL = -.20;
+          spread = .18; lL = last ? .22 : .12; lR = last ? -.18 : -.10;
+          lean = this.facing * (last ? .40 : .24 + kick * .10); hx = last ? .28 : .12; crouch = last ? .5 : 0;
+        }
+      } else if (ML) {                                  // ★ 空手跳向棍（棍不在手里）
+        const p = Math.min(1, ML.t / ML.dur);
+        sVis = 0;
+        aR = -1.05 - p * .50; aL = -1.05 - p * .50; eR = eL = -.30; spread = .22;
+        lL = -.55 + p * .50; lR = -.30 + p * .30;
+        lean = this.facing * .10; hx = -.10;
+        if (p < .15) crouch = 1 - p / .15;
+      } else if (this.recoverAtk || spA === 'u') {       // ★ 上B：举棍上升
+        sAng = -.20; sGrip = .34;
+        aR = -2.60; aL = -2.45; eR = eL = -.24; spread = .10;
+        lL = -.35; lR = .25; lean = -this.facing * .10; hx = -.24;
+      } else if (spA === 'n' && !this.monkHasStaff) {    // ★ 投棍：过肩掷矛（棍已离手 → 只摆手）
+        sVis = 0;
+        aR = -2.05; aL = -.35; eR = -.10; eL = -.55; spread = .12;
+        lean = this.facing * .30; lL = .26; lR = -.22; hx = .16; bob = -.04;
+      } else if (this.move) {
+        const ph = this.phase === 'startup' ? .4 : (this.phase === 'active' ? 1 : .6);
+        const nm = this.move.name || '';
+        if (/^jab/.test(nm)) {
+          if (nm === 'jab5') {                           // 收尾：高举 → 砸下
+            sAng = -.50 + 2.55 * ph; sGrip = .36;
+            aR = -2.30 + 1.35 * ph; aL = -2.10 + 1.25 * ph; eR = eL = -.18;
+            lean = this.facing * .30 * ph; lL = .20 * ph; lR = -.16 * ph;
+            hx = .22 * ph; crouch = .35 * ph; spread = .12;
+          } else {                                       // 1~4：平刺
+            sAng = .20 + 1.30 * ph; sGrip = .30;
+            aR = -.55 - .75 * ph; aL = -.45 - .70 * ph; eR = -.12; eL = -.22;
+            lean = this.facing * .24 * ph; lL = .12 * ph; lR = -.08 * ph; hx = .10;
+          }
+        } else if (nm === 'ftilt' || nm === 'fsmash' || nm === 'dashAtk') {
+          sAng = .35 + 1.20 * ph; sGrip = .34;
+          aR = -1.15 - .25 * ph; aL = -1.00; eR = -.14; eL = -.24;
+          lean = this.facing * .34 * ph; lL = .18 * ph; lR = -.12 * ph; hx = .14;
+        } else if (nm === 'utilt' || nm === 'usmash') {
+          sAng = -.20 - .25 * ph; sGrip = .36;
+          aR = -2.45 - .15 * ph; aL = -2.30 - .15 * ph; eR = eL = -.22; lL = -.24; lR = .16;
+          lean = -.14 * ph; hx = -.20; spread = .10;
+        } else if (nm === 'dtilt' || nm === 'dsmash') {
+          sAng = 2.30; sGrip = .32;
+          aR = -1.05; aL = -.90; eR = eL = -.16; lL = .22; lR = -.16;
+          lean = this.facing * .40 * ph; hx = .26; crouch = .55; spread = .16;
+        } else if (nm === 'nair') {
+          sAng = 1.55; sGrip = .30;
+          aR = -1.05; aL = -.95; eR = eL = -.18; spread = .28; lL = -.22; lR = .22;
+        } else if (nm === 'fair') {
+          sAng = 1.85; sGrip = .32; aR = -1.45; aL = -1.20; eR = -.18;
+          lL = -.20; lR = .14; lean = this.facing * .26 * ph; spread = .18;
+        } else if (nm === 'bair') {
+          sAng = -1.75; sGrip = .32; aR = 1.20; aL = .90; eR = eL = -.16;
+          lL = .18; lR = -.20; lean = -this.facing * .20 * ph; spread = .18;
+        } else if (nm === 'uair') {
+          sAng = -.15; sGrip = .34; aR = -2.50; aL = -2.35; eR = eL = -.24;
+          lL = -.30; lR = .20; spread = .10;
+        } else if (nm === 'dair') {
+          sAng = 2.95; sGrip = .30; aR = -.30; aL = -.25; eR = eL = -.14;
+          lL = -.40; lR = -.40; lean = this.facing * .26 * ph; crouch = .35;
+        } else if (nm === 'grab') {
+          sAng = .30; sGrip = .50; aR = -1.60 * ph; aL = -1.45 * ph;
+          eR = eL = -.28; lean = this.facing * .18 * ph; spread = .16;
+        } else if (nm === 'fthrow') {
+          sAng = 1.20; sGrip = .34; aR = -1.55; aL = -.70; lean = this.facing * .34;
+        } else {
+          sAng = 1.20; sGrip = .32; aR = -1.25; aL = -1.05; lean = this.facing * .26 * ph;
+        }
+      } else if (this.state === 'shield' || this.state === 'roll' || this.state === 'charge') {
+        if (this.state === 'charge') { sAng = -1.05; sGrip = .34; aR = -2.05; aL = -1.90; eR = eL = -.22; lean = -this.facing * .18; }
+        else { sAng = 1.57; sGrip = .32; aR = -1.25; aL = -1.10; eR = eL = -.24; lean = this.facing * .18; }
+        spread = .18; lL = .10; lR = -.10;
+      } else if (!this.grounded) {
+        const rising = this.vel.y > 0;
+        sAng = rising ? -.35 : .45; sGrip = .32;
+        aR = rising ? -1.35 : -.95; aL = rising ? -1.15 : -.80;
+        eR = eL = -.22; spread = .20;
+        lL = rising ? -.45 : .16; lR = rising ? .26 : -.12;
+        lean = -this.facing * .08;
+      } else if (mrun) {
+        const f2 = A.t * (6.2 + mspd * .62);
+        const sw = Math.sin(f2);
+        sAng = .30 + sw * .05; sGrip = .30;
+        aR = -.80 - sw * .08; aL = -.62 + sw * .08; eR = eL = -.24;
+        spread = .14; lL = sw * .50; lR = -sw * .50;
+        lean = this.facing * Math.min(.30, mspd * .017); bob = Math.abs(sw) * .06;
+        hx = sw * .03;
+        const st2 = Math.floor(f2 / Math.PI);
+        if (this._mkStep === undefined) this._mkStep = st2;
+        if (st2 !== this._mkStep) { this._mkStep = st2; FX.dust(this.pos.x, this.pos.y + .05, 2, 0xc9a06a); }
+      } else {
+        const cyc = (A.t % 6) / 6;
+        const pres = cyc > .84 ? Math.sin((cyc - .84) / .16 * Math.PI) : 0;   // 每 6 秒「倒一次手」
+        sAng = .06 + Math.sin(A.t * 2.2) * .02 - pres * .30; sGrip = .30;
+        aR = -.55 - pres * .30 + Math.sin(A.t * 2.2) * .05;
+        aL = -.44 - pres * .45 - Math.sin(A.t * 2.2) * .05;
+        eR = -.10 - pres * .16; eL = -.28 - pres * .20;
+        lL = .04; lR = -.04; bob = Math.sin(A.t * 2.4) * .028;
+        lean = Math.sin(A.t * 1.5) * .020 * this.facing;
+        hx = .04; hy = -.02 + pres * .10;
+      }
+
+      /* —— 目标值 → 缓动 → 写骨骼 —— */
+      const mk = 1 - Math.exp(-19 * dt);
+      A.armL += (aL - A.armL) * mk; A.armR += (aR - A.armR) * mk;
+      A.legL += (lL - A.legL) * mk; A.legR += (lR - A.legR) * mk;
+      A.lean += (lean - A.lean) * mk; A.bob += (bob - A.bob) * mk;
+      if (crouch > 0) A.bob -= crouch * .10;             // 蹲身只走 A.bob（tail 会重写 group.position）
+      P.armL.rotation.x = A.armL; P.armR.rotation.x = A.armR;
+      P.legL.rotation.x = A.legL; P.legR.rotation.x = A.legR;
+      /* 双手握棍：两臂在「深度轴」上朝身体中线收一点（侧视看不出，3/4 视角两手才在棍上） */
+      P.armL.rotation.z = spread * .45; P.armR.rotation.z = -spread * .45;
+      if (P.group) P.group.rotation.z = A.lean * this.facing;
+      this._mkElbL = (this._mkElbL === undefined) ? eL : this._mkElbL + (eL - this._mkElbL) * mk;
+      this._mkElbR = (this._mkElbR === undefined) ? eR : this._mkElbR + (eR - this._mkElbR) * mk;
+      if (P.elbL) { P.elbL.rotation.x = this._mkElbL; P.elbR.rotation.x = this._mkElbR; }
+      if (P.staff) {
+        const show = (sVis > .5);
+        P.staff.visible = show;
+        this._mkSC = (this._mkSC === undefined) ? sScale : this._mkSC + (sScale - this._mkSC) * mk;
+        P.staff.scale.setScalar(this._mkSC);
+        const curA = (this._mkAng === undefined) ? sAng : this._mkAng;
+        if (sSpin) this._mkAng = curA + dt * 23;
+        else {
+          const tgt = sAng + Math.round((curA - sAng) / (Math.PI * 2)) * Math.PI * 2;
+          this._mkAng = curA + (tgt - curA) * mk;
+        }
+        /* 旋风转了几十圈以后把角度归一化（数值可读，视觉不变） */
+        if (Math.abs(this._mkAng) > Math.PI * 4) this._mkAng -= Math.round(this._mkAng / (Math.PI * 2)) * Math.PI * 2;
+        this._mkGrip = (this._mkGrip === undefined) ? sGrip : this._mkGrip + (sGrip - this._mkGrip) * mk;
+        if (sFollow) {
+          /* ★ 棍心 = 右手 - 握点 × 棍轴方向（棍轴 = (0, cos a, sin a)）
+             → 手臂怎么摆，棍就怎么跟着，手永远在棍上。 */
+          const tot = A.armR + this._mkElbR * .55;
+          const handY = 1.80 - .84 * Math.cos(tot);      // armR<0 = 手臂前摆 → 手在身前
+          const handZ = .10 - .84 * Math.sin(tot);      // ⚠ 符号：rotation.x 为负时 z' = -sinθ > 0
+          const off = -this._mkGrip * this._mkSC;       // 正 sGrip = 棍心在手的**前方**（握后半段，棍头朝前）
+          this._mkSX = .04;
+          this._mkSY = handY - off * Math.cos(this._mkAng);
+          this._mkSZ = handZ - off * Math.sin(this._mkAng);
+        } else {
+          this._mkSX = sFX; this._mkSY = sFY; this._mkSZ = sFZ;
+        }
+        P.staff.position.set(this._mkSX, this._mkSY, this._mkSZ);
+        P.staff.rotation.x = this._mkAng;
+      }
+      this._mkHX = (this._mkHX === undefined) ? hx : this._mkHX + (hx - this._mkHX) * mk;
+      this._mkHY = (this._mkHY === undefined) ? hy : this._mkHY + (hy - this._mkHY) * mk;
+    }
     if (this._soulFx > 0) {                                     // 每收割一层：幽绿魂爆（涨层必须看得见）
       this._soulFx -= dt;
       if (!this._soulFxDone) {
@@ -19259,6 +20345,16 @@ class Fighter {
       P.head.rotation.x = this._wdHX;
       P.head.rotation.y = this._wdHY || 0;
       P.head.rotation.z = Math.sin(A.t * .9) * .03;
+    } else if (this.def.id === 'monk' && this._mkHX !== undefined) {
+      /* ★ 武僧：低头看棍 / 抬头抡棍 / 受击后仰由上面的 monk 块算 */
+      P.head.rotation.x = this._mkHX;
+      P.head.rotation.y = this._mkHY || 0;
+      P.head.rotation.z = Math.sin(A.t * 1.4) * .02;
+    } else if (this.def.id === 'soldier' && this._sdHX !== undefined) {
+      /* ★ 士兵：瞄枪/抬头/受击后仰由上面的 soldier 块算（扫射时头跟着枪口摆） */
+      P.head.rotation.x = this._sdHX;
+      P.head.rotation.y = this._sdHY || 0;
+      P.head.rotation.z = Math.sin(A.t * 1.6) * .02;
     } else {
       P.head.rotation.x = this.state === 'hitstun' ? .35 : (this.charging ? -.16 : 0);
       P.head.rotation.z = Math.sin(A.t*2.2)*.04;
@@ -19866,7 +20962,13 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
         return 'TRASH +' + (f.trashHits || 0) + ' HIT' + (pend ? ' · ' + pend.trim() : '');
       })() : '';
       const vx2 = (f.def.id === 'vexor') ? ('CHARGE ' + (f.vexCharge || 0) + (f.vexJumpBonus ? ' · +' + f.vexJumpBonus + ' JUMP' : ' / 15')) : '';  // ★ Vexor 充能（每 15 点 +1 连跳，可无限叠）
-      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2, vx2, tc2].filter(Boolean).join(' ');
+      /* ★ 武僧：棍势（被动，每 1% 伤害 +1）+ 棍现在在哪（手上 / 插在地上 / 飞行/回收中） */
+      const mkHud = (f.def.id === 'monk') ? (() => {
+        const gw = Math.floor(f.monkGrow || 0), cap2 = 150;
+        const where = f.monkHasStaff ? '✋' : (f.monkStaffPos ? '📍' : '✈');
+        return '棍 GROW ' + Math.min(gw, cap2) + (gw >= cap2 ? ' MAX' : '') + ' · ' + where;
+      })() : '';
+      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2, vx2, tc2, mkHud].filter(Boolean).join(' ');
       if (p.statTxt !== txt2 || p.statWasOn !== !!txt2) {
         p.statTxt = txt2; p.statWasOn = !!txt2;
         p.stat.textContent = txt2;
@@ -22416,10 +23518,12 @@ function updateProjectiles(dt) {
         if (f === p.owner || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
         if (p.pierce && p.hitSet.has(f.uid)) continue;
         if (Math.hypot(f.pos.x - p.x, (f.pos.y + 1.35*f.def.shape.scale) - p.y) < (p.cfg.hitR || .8) + f.bodyR*.7) {
-          if (f.reflect && f.reflect.t > 0) {           // Wind Wall：把弹幕打回去
+          const mSpin2 = !!(f.monkSpin && f.monkSpin.t > 0);            // ★ 武僧旋风棍
+          if ((f.reflect && f.reflect.t > 0) || mSpin2) {   // Wind Wall / 旋风棍：把弹幕打回去（以自己的名义反向发射）
+            const rc2 = mSpin2 ? ((f.monkSpin.cfg && f.monkSpin.cfg.color) || 0x8fe8d0) : f.reflect.cfg.color;
             p.owner = f; p.vx = -p.vx * 1.15; p.vy *= -1; p.chargeMul *= 1.1;
             p.back = false; p.ox = p.x; p.hitSet.clear();
-            FX.ring(p.x, p.y, .3, 2.0, f.reflect.cfg.color, .35); SFX.shield();
+            FX.ring(p.x, p.y, .3, 2.0, rc2, .35); SFX.shield();
             break;
           }
           if (p.pierce) p.hitSet.add(f.uid);
@@ -24689,7 +25793,7 @@ try { paintWepBtn(); } catch (e) {}
     const m = /[?&]grant=([^&]+)/.exec(location.search);
     if (!m || decodeURIComponent(m[1]) !== KEY) return;
     /* ★ 测试号：顺手把这版的新角色（坚守者 / 士兵）解锁，省得还要去奖励页买一次 */
-    try { if (typeof ACC !== 'undefined' && ACC.unlock) { for (const c of CHARS) if ((c.id === 'warden' || c.id === 'soldier') && !ACC.owns(c.id)) ACC.unlock(c.id); } } catch (e) {}
+    try { if (typeof ACC !== 'undefined' && ACC.unlock) { for (const c of CHARS) if ((c.id === 'warden' || c.id === 'soldier' || c.id === 'monk') && !ACC.owns(c.id)) ACC.unlock(c.id); } } catch (e) {}
     const more = /[?&]more=1/.test(location.search);
     let nSkin = 0, nWep = 0, nSup = 0;
     try {
