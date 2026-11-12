@@ -2483,7 +2483,7 @@ CHAR_EXTRA.monk = {
     + 'Side B Staff Rush (sprint with the staff — the first foe you touch eats a 5-hit staff combo and gets flattened) · '
     + 'Down B Cyclone Staff (spin the staff: enemy projectiles are bounced back in your name, and a wind field in front '
     + 'chips 10% total with a slow push) · '
-    + 'Up B Staff Vault (same rise as Sparky) · '
+    + 'Up B Staff Cyclone (same as Sparky\'s Thunder Cyclone: a multi-hit rising spin that hits every .13s and carries the foe up with you) · '
     + 'Final Smash STAFF SLAM (the staff grows with your Growth points and is swung forward: 35%, uninterruptible).',
   shape:{ tail:null, scale:1.02, headR:.60 },
   weight:90, walk:8.6, run:13.4, air:11.4, jump:26.0, jumps:2, fall:32, fastFall:48,
@@ -2499,8 +2499,10 @@ CHAR_EXTRA.monk = {
         hits:[{dmg:4,ang:24},{dmg:4,ang:-8},{dmg:4,ang:46},{dmg:4,ang:6},{dmg:8,ang:44}], bb:13, bg:32, flat:.95 },
     /* 下B：旋风棍 2.4 秒 —— 反弹弹幕 + 身前风场（10 跳 × 1% = 10%）+ 缓慢击退 */
     d:{ kind:'monkSpin', label:'Cyclone Staff', cd:5.0, color:0x8fe8d0, dur:2.4, gap:.24, tickDmg:1.0, reach:5.2, push:2.4 },
-    /* 上B：完全照 Sparky Thunder Rise（同一条上升曲线 / 同伤害击退） */
-    u:{ kind:'recover', label:'Staff Vault', cd:1.5, dmg:6.2, bb:10, bg:48, rise:27.5, dur:.62, color:0xe0a53c, fx:'gale' },
+    /* 上B：**完全照搬 Sparky 的 Thunder Cyclone**（multi 每 .13s 一段、伤害 ×.6、角度固定 88°、
+       lift:true = 柱状判定把人一起卷上去 → 多段且容易全中） */
+    u:{ kind:'recover', label:'Staff Cyclone', cd:1.4, dmg:5.0, bb:10, bg:42, rise:27, dur:.80,
+        multi:true, lift:true, fx:'gale', anim:'spin', spinRate:26, color:0xe0a53c },
   } };
 
 for (const c of CHARS) {
@@ -8469,7 +8471,7 @@ FSPECIALS.soldier = { name:'HEAVY MG', style:'soldierGun', color:0xffd166, beats
                       dur:10.0, burst:10, burstDmg:3, burstSpd:46, burstLife:.42 }; 
 /* ★ 武僧·大招 STAFF SLAM：棍按被动（monkGrow）变长，向前砸 —— 35% 伤害、击退固定、动画期间无法被打断。
    baseR/rPer/growCap：范围 = baseR + min(grow, growCap) × rPer（grow 150 时 9.45 ≈ 基础 4.2 的 2.25 倍） */
-FSPECIALS.monk = { name:'STAFF SLAM', style:'monkFS', color:0xe0a53c, beats:1, gap:.10, dmg:35, bb:18, bg:52, ang:64,
+FSPECIALS.monk = { name:'STAFF SLAM', style:'monkFS', color:0xe0a53c, beats:1, gap:.10, dmg:35, bb:24, bg:74, ang:64,
                    w:0, dur:1.36, baseR:4.2, rPer:.035, growCap:150 };
 FSPECIALS.mosquito = { name:'Swarm Sight', style:'mosqEye', color:0xff4d4d, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0, dur:.6,
   swarmT:12, swarmR:4.2, swarmDmg:2, swarmHeal:.6, swarmTick:.5, burstDmg:10, burstR:5.2, burstBb:10, burstBg:40, spdMul:1.7 };
@@ -16623,7 +16625,8 @@ class Fighter {
       if (!this.hugDash && !this.rush && !this.ufo && !this.ufoCrash && !this.saber && !this.voltCombo && !this.tiger && !this.duneRun && !this.angelGrab && !this.horn && !this.tide &&
           !this.reapCombo && !this.pumpkinForm && !this.hallowSweep && !this.hallowRise &&
           !this.vexRush && !this.vexRise && !this.vexDive && !this.vexSpray &&
-          !this.trashRush && !this.trashClap && !this.mosq && !this.wardenRush) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪/蚊子冲刺 自己管速度
+          !this.trashRush && !this.trashClap && !this.mosq && !this.wardenRush &&
+          !this.monkRush && !this.monkLeap && !this.monkSlam) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪/蚊子冲刺 自己管速度
       return;
     }
     /* ★ Blub·雷弹：麻痹期间做不了任何动作（但**会吃击退** —— 和 Hacker 的锁定不同） */
