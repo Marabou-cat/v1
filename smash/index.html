@@ -2484,7 +2484,8 @@ CHAR_EXTRA.monk = {
     + 'Down B Cyclone Staff (spin the staff: enemy projectiles are bounced back in your name, and a wind field in front '
     + 'chips 10% total with a slow push) · '
     + 'Up B Staff Cyclone (same as Sparky\'s Thunder Cyclone: a multi-hit rising spin that hits every .13s and carries the foe up with you) · '
-    + 'Final Smash STAFF SLAM (the staff grows with your Growth points and is swung forward: 35%, uninterruptible).',
+    + 'Final Smash STAFF SLAM (the staff grows with your Growth points and is swung forward: 35%, uninterruptible '
+    + '— and it BURNS all your Growth: the counter resets to 0 every time you use it).',
   shape:{ tail:null, scale:1.02, headR:.60 },
   weight:90, walk:8.6, run:13.4, air:11.4, jump:26.0, jumps:2, fall:32, fastFall:48,
   accel:50, airAccel:38, fric:27, mul:{ dmg:1.0, kb:1.0, spd:1.02 },
@@ -11629,7 +11630,8 @@ class Fighter {
     }
     /* ★ Monk 被动·Staff Growth：每对敌人造成 1% 实际伤害 → +1 点棍势（monkGrow），
        全部用于大招（棍体变长 + 范围变远，击退不变）。每 25 点给一次可见反馈。 */
-    if (attacker && attacker !== this && attacker.def && attacker.def.passive === 'staffGrow' && !attacker.eliminated) {
+    if (attacker && attacker !== this && attacker.def && attacker.def.passive === 'staffGrow'
+        && !attacker.eliminated && !attacker.monkSlam) {          // ★ 大招期间不回填（否则一放完又攒回 35 点）
       const before = Math.floor(attacker.monkGrow || 0);
       attacker.monkGrow = (attacker.monkGrow || 0) + dmg;
       const now = Math.floor(attacker.monkGrow);
@@ -11900,6 +11902,10 @@ class Fighter {
                           range:(SP.baseR || 4.2) + gr * (SP.rPer || .035),
                           dmg:SP.dmg || 35, bb:SP.bb || 18, bg:SP.bg || 52, ang:SP.ang || 64,
                           dir:d0, fired:false };
+        /* ★ 被动「每用一次大招就清零」：先把这一刻的棍势快照进 monkSlam（上面已经存了 gr），
+           再立刻把 monkGrow 归零。大招自己砸出来的那 35% 也不再回填（见 takeHit 里 !attacker.monkSlam 的守卫）
+           → 砸完 HUD 一定是 0，下一次要重新攒。 */
+        this.monkGrow = 0;
         this.intangible = Math.max(this.intangible, dur + .15);      // ★ 动画期间无法被打断
         this.vel.set(0, 0, 0); this.state = 'special'; this.animT = 0;
         callout(this, 'STAFF SLAM · GROW ' + Math.round(gr) + ' · R' + ((SP.baseR || 4.2) + gr * (SP.rPer || .035)).toFixed(1), SP.color);
@@ -14720,7 +14726,10 @@ class Fighter {
           const dx = (f.pos.x - this.pos.x) * M.dir;
           if (dx < -.9 || dx > M.range) continue;
           if (Math.abs(f.pos.y - this.pos.y) > 3.4) continue;
-          f.takeHit(this, { dmg:M.dmg, bb:M.bb, bg:M.bg, ang:M.ang, stun:.22 }, M.dir, 1);
+          f.takeHit(this, { dmg:M.dmg, bb:M.bb, bg:M.bg, ang:M.ang }, M.dir, 1);
+          /* ★ 「减少敌人不可以动的时间」：hitstun 本来是 .12 + launch×.031（击退一抬就吃满 2.3s 上限）。
+             大招这一击单独封顶 .55s（人还在飞，但 .55s 后就能行动/回场），并且不再附带麻痹。 */
+          if (f.hitstun > .55) f.hitstun = .55;
           f.vel.x += M.dir * 7;
           FX.spark(f.pos.x, f.pos.y + 1.1, .48, 14, 0xffffff);
         }
