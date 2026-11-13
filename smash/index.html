@@ -1527,7 +1527,7 @@ const CHAR_EXTRA = {
       d:{kind:'aegis',label:'Aegis',cd:9.0,dur:2.0,color:0xffe066} } },
   pumpkin: {
     trait:'Scythe Arts · Reaping Rush · Pumpkin Curse',
-    skills:'Neutral B Hollow Sweep (wide forward scythe slash — KOs around 150%) · Side B Reaping Rush (dash into a 5-hit scythe combo: four slashes at different angles, then the last one flattens the target) · Up B Scythe Vortex (multi-hit spinning scythe recovery) · Down B Grave Uppercut (swing the scythe from below upward, launching foes in front skyward) · FINAL SMASH Pumpkin Curse (turn one player into a pumpkin man for 10s — it hunts everyone on its own)', 
+    skills:'Neutral B Hollow Sweep (wide forward scythe slash — KOs around 150%) · Side B Reaping Rush (dash into a 5-hit scythe combo: four slashes at different angles, then the last one flattens the target) · Up B Scythe Vortex (multi-hit spinning scythe recovery) · Down B Grave Uppercut (swing the scythe from below upward, launching foes in front skyward) · FINAL SMASH Pumpkin Curse (turn one player into a pumpkin man for 5s — it hunts everyone on its own)', 
     form:{ body:0xb855ff, body2:0xffd6ff, dark:0x4a1060, eye:0x7cff9b },
     shape:{ scale:1.02, headR:.56 },
     weight:92, walk:10.6, run:16.6, air:11.6, jump:27.2, jumps:2, fall:34, fastFall:52,
@@ -1543,8 +1543,8 @@ const CHAR_EXTRA = {
       s:{kind:'reapCombo',label:'Reaping Rush',cd:2.60,dashSpd:22,dur:.33,reach:2.1,gap:.145,
          hits:[{dmg:4.0,bb:5,bg:10,ang:46,arc:.95},{dmg:4.4,bb:6,bg:12,ang:-16,arc:-.70},
                {dmg:4.6,bb:6,bg:12,ang:64,arc:.40},{dmg:5.0,bb:7,bg:12,ang:8,arc:2.55},
-               {dmg:11.0,bb:0,bg:0,ang:0,flat:true}],color:0xb855ff},
-      u:{kind:'recover',label:'Scythe Vortex',cd:1.45,dmg:5.2,bb:10,bg:42,rise:27.5,dur:.80,
+               {dmg:11.0,bb:0,bg:0,ang:0,flat:true}],flat:.60,color:0xb855ff},   /* flat .60 = 砸扁定身时长（原 .95） */
+      u:{kind:'recover',label:'Scythe Vortex',cd:1.45,dmg:4.5,bb:10,bg:42,rise:27.5,dur:.80,   /* 2026-11-13：5.2→4.5 */
          multi:true,lift:true,fx:'spirit',anim:'spin',spinRate:24,color:0xd9a8ff},
       d:{kind:'hallowRise',label:'Grave Uppercut',cd:1.90,dmg:10.0,bb:14,bg:30,ang:88,
          reach:3.3,height:2.8,hitAt:.16,dur:.58,color:0xd9a8ff} } },
@@ -9637,7 +9637,9 @@ function pumpkinManMesh() {
   return { group:g, head, armL, armR, scythe, glow };
 }
 
-/* 变南瓜人：隐藏本体所有子物件、挂上南瓜人（10 秒倒计时写在 victim.pumpkinForm 上） */
+/* ★ 大招被削：南瓜人持续时间 10s → 5s（2026-11-13，只改时长，挥砍伤害/节奏不动） */
+const PFCURSE_T = 5.0;
+/* 变南瓜人：隐藏本体所有子物件、挂上南瓜人（倒计时写在 victim.pumpkinForm 上） */
 function startPumpkinCurse(caster, victim) {
   if (!victim || victim.eliminated || !victim.mesh) return false;
   if (!victim._pkMesh) victim._pkMesh = pumpkinManMesh();
@@ -9652,7 +9654,7 @@ function startPumpkinCurse(caster, victim) {
     }
   }
   M.group.visible = true;
-  victim.pumpkinForm = { t:10.0, by:caster || null, cd:.30, swing:0, sparkT:.20 };
+  victim.pumpkinForm = { t:PFCURSE_T, by:caster || null, cd:.30, swing:0, sparkT:.20 };
   victim.move = null; victim.charging = null; victim.hitstun = 0;
   victim.state = 'special'; victim.stateT = 0;
   victim.vel.set(0, 0, 0);
@@ -16102,8 +16104,8 @@ class Fighter {
       V.hitT = cfg.gap || .145;
       f.takeHit(this, { dmg:H.dmg, bb:H.bb, bg:H.bg, ang:H.ang, stun:.18 }, V.dir, 1);
       if (last) {
-        /* 收尾：砸扁 —— 压成一张饼 + 定身 0.95s（解禁时自己弹起来） */
-        f.flatT = .95;
+        /* 收尾：砸扁 —— 压成一张饼 + 定身（时长走 cfg.flat，默认 .95s；解禁时自己弹起来） */
+        f.flatT = (cfg.flat || .95);
         f.vel.set(0, 0, 0); f.hitstun = Math.max(f.hitstun, .30);
         const gy = Math.max(.05, f.pos.y);
         FX.crater(f.pos.x, gy, 2.8, cfg.color);
