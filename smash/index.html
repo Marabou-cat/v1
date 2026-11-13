@@ -2506,6 +2506,61 @@ CHAR_EXTRA.monk = {
         multi:true, lift:true, fx:'gale', anim:'spin', spinRate:26, color:0xe0a53c },
   } };
 
+/* ================= ★ 炸药师 Bomber（2026-11-12）=================
+   机器人（材质/体型照 Vexor：金属胸甲 + 胸口发光核心 + 液压四肢），红色系，身上挂满炸药。
+   玩法：贴炸弹 / 布雷 / 自爆位移，全部是「先埋、后炸」的延迟伤害。
+   · 左右B Staff→Bomb Rush：冲刺撞人 → 停 → 5 连击（每段 2% = 10%）→ 在对手身上贴炸药（5s 后 15%）
+   · 中立B Black Cannon：很慢的黑色反光炮弹，飞到一定距离炸开成 4 枚四散投掷物；
+           落地成地雷，敌人碰到就炸（10%），4 秒后自动小范围爆炸
+   · 下B Mortar Bomb：向前抛传统黑炸弹，落地范围伤害 → 自己传送到爆点 → 朝原来的位置射一支爆炸箭
+   · 上B Blast Lift：脚下爆炸（范围内击退）+ 自己向上（比 Sparky 高）
+   · 大招 MASS BOMBING：所有敌人身上贴炸弹，5 秒后各炸 30%
+   ⚠ 炸弹计时挂在**携带者**身上（f.bombT），所以就算炸药师被 KO，炸弹照样会炸。 */
+CHARS.push({ id:'bomber', name:'Bomber', en:'BOMBER', tag:'Demolition',
+  body:0x9a2f28, body2:0xd2594a, dark:0x4a1310, eye:0xff6a4a,
+  shape:{ tail:null, scale:1.0, headR:.47 },
+  weight:104, walk:9.0, run:14.0, air:10.2, jump:26.0, jumps:2, fall:38, fastFall:58,
+  accel:46, airAccel:34, fric:27, mul:{ dmg:1.0, kb:1.02, spd:.97 },   /* dmg=1.0：保证 5连=10%、炸药=15%、大招=30% 是字面值 */
+  punchCd:.58,
+  moves:{
+    jab:{  zh:'Rivet Jab',   startup:.050, active:.058, end:.086, dmg:2.2, bb:8,  bg:18, ang:8,  hb:[1.60,1.18,1.15] },
+    jab2:{ zh:'Rivet Jab 2', startup:.048, active:.056, end:.084, dmg:2.3, bb:8,  bg:18, ang:10, hb:[1.64,1.18,1.18] },
+    jab3:{ zh:'Piston Hook', startup:.050, active:.058, end:.086, dmg:2.5, bb:9,  bg:18, ang:12, hb:[1.70,1.18,1.22] },
+    jab4:{ zh:'Piston Hook 2',startup:.048,active:.056, end:.084, dmg:2.4, bb:9,  bg:18, ang:10, hb:[1.74,1.18,1.24] },
+    jab5:{ zh:'Core Hammer', startup:.076, active:.070, end:.245, dmg:4.0, bb:12, bg:21, ang:34, hb:[1.98,1.20,1.42], sfx:'heavy' },
+  },
+  special:{} });
+CHAR_EXTRA.bomber = {
+  trait:'Robo Demolition · Timed Bombs',
+  skills:'Side B Bomb Rush (dash in — the first foe you touch eats a 5-hit combo for 10%, and you strap a bomb on them: '
+    + 'it detonates 5s later for 15% to them and hurts everyone around) · '
+    + 'Neutral B Black Cannon (fire a very slow glossy black shell; at range it bursts into 4 scattered charges that land '
+    + 'and arm as mines — touching one blows it for 10%, and it self-detonates after 4s) · '
+    + 'Down B Mortar Bomb (lob a classic black bomb: it explodes on landing, you TELEPORT to the blast, then fire an '
+    + 'explosive arrow back toward where you were standing) · '
+    + 'Up B Blast Lift (explode in place — knockback for anyone close — and launch yourself up, a little higher than Sparky) · '
+    + 'Final Smash MASS BOMBING (a bomb on every foe, 5s fuse, 30% each).',
+  shape:{ tail:null, scale:1.0, headR:.47 },
+  weight:104, walk:9.0, run:14.0, air:10.2, jump:26.0, jumps:2, fall:38, fastFall:58,
+  accel:46, airAccel:34, fric:27, mul:{ dmg:1.0, kb:1.02, spd:.97 },   /* ★ CHAR_EXTRA 会覆盖 CHARS 里的 mul，两处都要 1.0 */
+  special:{
+    /* 中立B：黑色反光加农炮（很慢）→ 飞到 burstDist 炸开成 4 枚四散投掷物 → 落地成雷 */
+    n:{ kind:'bomberCannon', label:'Black Cannon', cd:3.0, color:0xff3b2f,
+        spd:8.5, dur:.95, burstDist:9.0, count:4,
+        mineDmg:10, mineR:2.2, mineFuse:4.0, mineTouchR:.85 },
+    /* 左右B：冲刺 → 5 连（2% × 5 = 10%）→ 贴炸药（5s 后 15%，周围 10%） */
+    s:{ kind:'bomberRush', label:'Bomb Rush', cd:3.6, color:0xff3b2f, dashSpd:26, dur:.40, reach:2.1, gap:.13,
+        hits:[{dmg:2,ang:22},{dmg:2,ang:-12},{dmg:2,ang:40},{dmg:2,ang:6},{dmg:2,ang:52}],
+        bombFuse:5.0, bombDmg:15, bombSplash:10, bombR:3.4 },
+    /* 下B：抛炸弹 → 落地爆炸 → 传送到爆点 → 朝原位置射爆炸箭 */
+    d:{ kind:'bomberBomb', label:'Mortar Bomb', cd:4.6, color:0xff3b2f,
+        spd:17, vy:7.0, grav:34, blastDmg:12, blastR:3.2,
+        arrowDmg:10, arrowSpd:30, arrowLife:.85 },
+    /* 上B：原地爆炸 + 起飞（rise 32 > Sparky 的 27） */
+    u:{ kind:'bomberUp', label:'Blast Lift', cd:1.8, color:0xff3b2f,
+        dmg:12, bb:14, bg:38, ang:70, R:4.2, rise:28.5, dur:.66, hitDmg:6.5, hitBb:9, hitBg:38 },
+  } };
+
 for (const c of CHARS) {
   const x = CHAR_EXTRA[c.id];
   if (!x) continue;
@@ -8474,6 +8529,9 @@ FSPECIALS.soldier = { name:'HEAVY MG', style:'soldierGun', color:0xffd166, beats
    baseR/rPer/growCap：范围 = baseR + min(grow, growCap) × rPer（grow 150 时 9.45 ≈ 基础 4.2 的 2.25 倍） */
 FSPECIALS.monk = { name:'STAFF SLAM', style:'monkFS', color:0xe0a53c, beats:1, gap:.10, dmg:35, bb:24, bg:74, ang:64,
                    w:0, dur:1.36, baseR:4.2, rPer:.035, growCap:150 };
+/* ★ 炸药师·大招 MASS BOMBING：给**每一个敌人**身上贴一枚炸弹，5 秒后引爆，各 30%（只伤携带者） */
+FSPECIALS.bomber = { name:'MASS BOMBING', style:'bomberFS', color:0xff3b2f, beats:1, gap:.10, dmg:30, bb:16, bg:56, ang:66,
+                     w:0, dur:.90, fuse:5.0, perDmg:30 };
 FSPECIALS.mosquito = { name:'Swarm Sight', style:'mosqEye', color:0xff4d4d, beats:1, gap:.10, dmg:0, bb:0, bg:0, w:0, dur:.6,
   swarmT:12, swarmR:4.2, swarmDmg:2, swarmHeal:.6, swarmTick:.5, burstDmg:10, burstR:5.2, burstBb:10, burstBg:40, spdMul:1.7 };
 /* ================= ★ Cardboard：纸箱机器人（箱子 + 胶布 + 核心灯） =================
@@ -9174,6 +9232,203 @@ function kitSoldier(def) {
   return { group:g, torso:chest, belly:hips, head, armL, armR, legL, legR, elbL, elbR,
            cap:head, medals, pistolL, pistolR, mg, mgTip, tail:null };
 }
+/* ================= ★ 炸药师 Bomber 模型 =================
+   材质与体型**照 Vexor**（钢制胸甲 + 胸口发光核心 + 液压四肢 + 重靴，头顶 ≈ 3.09），
+   配色整体换红：装甲=暗绯红金属、亮件=橙红、核心=红热。
+   额外细节（用户要求「身上的炸药」）：
+     · 腰带上插 3 根炸药（红色药筒 + 深色箍 + 引线）
+     · 胸前交叉弹药带 + 2 根炸药
+     · 后背炸弹包（两颗黑色炸弹 + 皮带）
+     · 右肩一门加农炮（中立B 就是从这根炮管打出去的）
+   ⚠ 腿的鞋底落在 y=0；head.children[0] 必须是头骨（通用染色代码取它）。 */
+function kitBomber(def) {
+  const H = def.shape.headR, g = new THREE.Group();
+  const steel  = cmat(0x9a2f28, { roughness:.42, metalness:.34 });
+  const steelD = cmat(0x4a1310, { roughness:.48, metalness:.30 });
+  const steelL = cmat(0xd2594a, { roughness:.26, metalness:.44 });
+  const suit   = cmat(0x341c1a, { roughness:.62 });
+  const red    = cmat(0xff4a34, { roughness:.32, metalness:.28 });
+  const redD   = cmat(0x8c1410, { roughness:.36, metalness:.26 });
+  const coreG  = glowMat(0xff3b1f, 1.55, 0x3a0703);
+  const coreI  = glowMat(0xffd0a0, 1.85, 0x5a1200);
+  const dynM   = cmat(0xc4241c, { roughness:.55 });
+  const bandM  = cmat(0x2a1414, { roughness:.72 });
+  const fuseM  = cmat(0xc9a06a, { roughness:.85 });
+  const bombM  = new THREE.MeshStandardMaterial({ color:0x14141a, metalness:.72, roughness:.18 });
+
+  /* ---------- 躯干：内衬 + 胸甲 + 核心 + 腰部液压 ---------- */
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.40, .54, 8, 16), suit);
+  torso.position.y = 1.74; g.add(torso);
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(.86, .66, .30), steel);
+  chest.position.set(0, 1.86, .16); chest.rotation.x = -.04; g.add(chest);
+  for (const s of [-1, 1]) {                      // 胸甲斜切边（机械感）
+    const bevel = new THREE.Mesh(new THREE.BoxGeometry(.20, .62, .26), steelL);
+    bevel.position.set(s * .40, 1.86, .14); bevel.rotation.z = s * .16; g.add(bevel);
+  }
+  const collar = new THREE.Mesh(new THREE.BoxGeometry(.62, .20, .22), steelL);
+  collar.position.set(0, 2.10, .16); g.add(collar);
+  /* 胸口核心：外环 + 十字护笼 + 发光球 + 内芯（红色系） */
+  const coreRing = new THREE.Mesh(new THREE.TorusGeometry(.170, .040, 6, 20), steelD);
+  coreRing.position.set(0, 1.80, .395); g.add(coreRing);
+  const coreCage = new THREE.Mesh(new THREE.TorusGeometry(.212, .022, 5, 18), redD);
+  coreCage.position.set(0, 1.80, .372); coreCage.rotation.z = Math.PI / 4; g.add(coreCage);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(.126, 18, 14), coreG);
+  core.position.set(0, 1.80, .395); g.add(core);
+  const coreIn = new THREE.Mesh(new THREE.SphereGeometry(.064, 12, 10), coreI);
+  coreIn.position.set(0, 1.80, .445); g.add(coreIn);
+  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {          // 胸口散热格栅
+    const vent = new THREE.Mesh(new THREE.BoxGeometry(.11, .024, .03), steelD);
+    vent.position.set(s * .250, 1.96 - i * .085, .372); vent.rotation.z = s * .12; g.add(vent);
+  }
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(.62, .27, .45), steelD);
+  belly.position.y = 1.32; g.add(belly);
+  for (const s of [-1, 1]) {                                      // 腰侧液压杆
+    const piston = new THREE.Mesh(new THREE.CylinderGeometry(.046, .046, .26, 10), steelL);
+    piston.position.set(s * .305, 1.40, 0); piston.rotation.z = s * .12; g.add(piston);
+  }
+  /* ---------- 身上的炸药 ---------- */
+  const dyns = [];
+  const mkDyn = (x, y, z, len, rz, rx) => {        // 一根炸药：红药筒 + 两道箍 + 引线
+    const d = new THREE.Group(); d.position.set(x, y, z);
+    d.rotation.z = rz || 0; d.rotation.x = rx || 0; g.add(d); dyns.push(d);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(.056, .056, len, 10), dynM); d.add(body);
+    for (const yy of [-len * .26, len * .26]) {
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(.062, .062, .038, 10), bandM);
+      band.position.y = yy; d.add(band);
+    }
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.030, .030, .05, 8), steelD);
+    cap.position.y = len * .52; d.add(cap);
+    const fz = new THREE.Mesh(new THREE.CylinderGeometry(.011, .011, .10, 6), fuseM);
+    fz.position.set(.03, len * .60, 0); fz.rotation.z = -.5; d.add(fz);
+    return d;
+  };
+  /* 腰带 3 根（斜插） */
+  mkDyn(-.20, 1.30, .26, .34, .30);
+  mkDyn(-.02, 1.28, .30, .36, .05);
+  mkDyn(.18, 1.30, .27, .32, -.26);
+  /* 胸前弹药带 + 2 根 */
+  const strap = new THREE.Mesh(new THREE.BoxGeometry(.10, .72, .05), bandM);
+  strap.position.set(-.16, 1.90, .33); strap.rotation.z = .38; g.add(strap);
+  mkDyn(-.26, 1.98, .36, .26, .95, .2);
+  mkDyn(.30, 1.72, .34, .26, -1.0, .2);
+  /* 后背炸弹包：两颗黑炸弹 + 皮带 */
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(.46, .34, .18), steelD);
+  pack.position.set(0, 1.66, -.28); g.add(pack);
+  for (const s of [-1, 1]) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.115, 12, 10), bombM);
+    b.position.set(s * .12, 1.70, -.40); g.add(b);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.085, .016, 5, 12), bandM);
+    ring.position.set(s * .12, 1.70, -.40); ring.rotation.x = Math.PI / 2; g.add(ring);
+  }
+  /* ---------- 头：仿生颅 + 红色面罩带 + 下颌装甲 + 天线 ---------- */
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(.135, .155, .20, 12), steelD);
+  neck.position.set(0, 2.20, 0); g.add(neck);
+  const neckRing = new THREE.Mesh(new THREE.TorusGeometry(.145, .022, 5, 14), red);
+  neckRing.position.set(0, 2.13, 0); neckRing.rotation.x = Math.PI / 2; g.add(neckRing);
+  const head = new THREE.Group(); head.position.y = 2.62; g.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(H, 18, 14), steel);
+  skull.scale.set(1, 1.04, .96); head.add(skull);
+  const crown = new THREE.Mesh(new THREE.BoxGeometry(H * .26, H * .10, H * 1.5), steelL);
+  crown.position.set(0, H * .96, -.02); head.add(crown);
+  const recess = new THREE.Mesh(new THREE.BoxGeometry(H * 1.40, H * .34, .12), steelD);
+  recess.position.set(0, H * .06, H * .70); head.add(recess);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(H * 1.22, H * .20, .10), coreG);
+  visor.position.set(0, H * .06, H * .80); head.add(visor);
+  for (const s of [-1, 1]) {                       // 面罩里的镜头 + 光点
+    const lens = new THREE.Mesh(new THREE.BoxGeometry(H * .30, H * .15, .05), steelD);
+    lens.position.set(s * H * .30, H * .06, H * .855); head.add(lens);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(.030, 10, 8), coreI);
+    pup.position.set(s * H * .30, H * .06, H * .885); head.add(pup);
+  }
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(H * .92, H * .32, H * .46), steel);
+  jaw.position.set(0, -H * .62, H * .43); jaw.rotation.x = .18; head.add(jaw);
+  const chin = new THREE.Mesh(new THREE.BoxGeometry(H * .42, H * .09, .07), steelL);
+  chin.position.set(0, -H * .78, H * .47); head.add(chin);
+  for (let i = 0; i < 3; i++) {                    // 下颌格栅
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(H * .46, .022, .03), steelD);
+    bar.position.set(0, -H * .52 - i * .055, H * .60); head.add(bar);
+  }
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.CylinderGeometry(.075, .075, .06, 12), steelD);
+    ear.position.set(s * H * .97, H * .04, 0); ear.rotation.z = Math.PI / 2; head.add(ear);
+    const earG = new THREE.Mesh(new THREE.TorusGeometry(.050, .012, 5, 14), coreG);
+    earG.position.set(s * H * 1.02, H * .04, 0); earG.rotation.y = Math.PI / 2; head.add(earG);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(.018, .011, H * .52, 6), steelD);
+    ant.position.set(s * H * .52, H * .92, -.06); ant.rotation.z = s * .34; head.add(ant);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(.030, 8, 6), coreI);
+    tip.position.set(s * H * .68, H * 1.17, -.06); head.add(tip);
+  }
+  /* ---------- 手臂：肩球 + 护肩 + 上臂环 + 小臂散热片 + 拳 ---------- */
+  const mkArm = (s) => {
+    const arm = new THREE.Group(); arm.position.set(s * .62, 2.02, 0); g.add(arm);
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(.20, 12, 10), steelD);
+    shoulder.scale.set(1, .92, 1); arm.add(shoulder);
+    const pauldron = new THREE.Mesh(new THREE.BoxGeometry(.34, .26, .30), steel);
+    pauldron.position.set(s * .05, .05, 0); pauldron.rotation.z = s * .18; arm.add(pauldron);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(.115, .100, .34, 12), steel);
+    upper.position.y = -.26; arm.add(upper);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.118, .020, 5, 14), red);
+    ring.position.y = -.34; ring.rotation.x = Math.PI / 2; arm.add(ring);
+    const elbow = new THREE.Mesh(new THREE.SphereGeometry(.105, 10, 8), steelD);
+    elbow.position.y = -.46; arm.add(elbow);
+    const fore = new THREE.Mesh(new THREE.CylinderGeometry(.105, .128, .36, 12), steelL);
+    fore.position.y = -.66; arm.add(fore);
+    for (let i = 0; i < 3; i++) {                  // 小臂散热片
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(.028, .17, .10), steelD);
+      fin.position.set(s * .118, -.56 - i * .10, 0); fin.rotation.z = s * .10; arm.add(fin);
+    }
+    const fist = new THREE.Mesh(new THREE.BoxGeometry(.26, .22, .26), steel);
+    fist.position.y = -.995; arm.add(fist);
+    for (let i = 0; i < 3; i++) {                  // 指节
+      const kn = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 6), steelL);
+      kn.position.set(-.07 + i * .07, -1.08, .12); arm.add(kn);
+    }
+    const wrist = new THREE.Mesh(new THREE.TorusGeometry(.098, .016, 4, 12), redD);
+    wrist.position.y = -.905; wrist.rotation.x = Math.PI / 2; arm.add(wrist);
+    return arm;
+  };
+  const armL = mkArm(-1), armR = mkArm(1);
+  /* 右肩加农炮（中立B 的炮管）：炮身 + 炮口环 + 红热内膛 */
+  const cannon = new THREE.Group();
+  cannon.position.set(.66, 2.16, .10);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.115, .135, .62, 14), bombM);
+  barrel.rotation.x = Math.PI / 2; barrel.position.z = .26; cannon.add(barrel);
+  const muzzle = new THREE.Mesh(new THREE.TorusGeometry(.118, .026, 6, 16), steelL);
+  muzzle.position.z = .57; cannon.add(muzzle);
+  const bore = new THREE.Mesh(new THREE.CircleGeometry(.098, 16), glowMat(0xff5a2a, 1.2, 0x2a0500));
+  bore.position.z = .58; cannon.add(bore);
+  const breech = new THREE.Mesh(new THREE.BoxGeometry(.24, .22, .24), steelD);
+  breech.position.z = -.02; cannon.add(breech);
+  for (let i = 0; i < 2; i++) {                    // 炮管箍
+    const b = new THREE.Mesh(new THREE.TorusGeometry(.128, .018, 5, 14), redD);
+    b.position.z = .12 + i * .24; cannon.add(b);
+  }
+  g.add(cannon);
+  /* ---------- 腿：液压大腿 + 护膝 + 小腿推进器 + 重靴（鞋底 y=0） ---------- */
+  const mkLeg = (s) => {
+    const leg = new THREE.Group(); leg.position.set(s * .24, .86, 0); g.add(leg);
+    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(.150, .130, .36, 12), steel);
+    thigh.position.y = -.18; leg.add(thigh);
+    const hipPlate = new THREE.Mesh(new THREE.BoxGeometry(.10, .22, .16), redD);
+    hipPlate.position.set(s * .12, -.06, .02); leg.add(hipPlate);
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(.132, 10, 8), steelD);
+    knee.position.y = -.40; leg.add(knee);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(.22, .20, .10), steelL);
+    cap.position.set(0, -.40, .12); leg.add(cap);
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(.130, .112, .38, 12), steel);
+    shin.position.y = -.58; leg.add(shin);
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(.30, .18, .48), steelD);
+    boot.position.set(0, -.76, .10); leg.add(boot);
+    const toe = new THREE.Mesh(new THREE.BoxGeometry(.26, .11, .16), steelL);
+    toe.position.set(0, -.78, .33); leg.add(toe);
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(.32, .06, .54), redD);
+    sole.position.set(0, -.83, .10); leg.add(sole);
+    return leg;
+  };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+  return { group:g, torso:chest, belly, head, armL, armR, legL, legR, tail:null,
+           core, coreIn, cannon, dyns };
+}
 /* ================= ★ 武僧 Monk 模型 =================
    比例对齐老角色：脚底 y=0；髋 1.20 / 肩 1.80 / 头顶 ≈ 2.86（总高 ≈ 2.9，与 Cobalt / Soldier 同档）
    造型：光头 + 三枚戒疤 + 赭黄僧袍（交领 + 白里襟）+ 赭红布腰带 + 念珠 + 绑腿 + 布鞋 + 右腕护腕；
@@ -9305,7 +9560,7 @@ const KITS = { sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, b
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
                gorilla:kitGorilla, hacker:kitHacker, blocky:kitBlocky, blizzard:kitBlizzard, singer:kitSinger, vexor:kitVexor, trash:kitTrash,
-               warden:kitWarden, soldier:kitSoldier, monk:kitMonk };
+               warden:kitWarden, soldier:kitSoldier, monk:kitMonk, bomber:kitBomber };
 /* ================= ★ Pumpkin·大招 Pumpkin Curse：南瓜人（被诅咒的玩家外形） =================
    被诅咒的玩家本体整只隐藏、换成下面这只南瓜人；10 秒内由 pumpkinTick 自动追人挥镰，
    时间到 / 被打出场 / 换局 都会还原（endPumpkinCurse 把隐藏的子物件按原样恢复）。 */
@@ -9808,6 +10063,228 @@ function buildMesh2(def) {
     new THREE.MeshBasicMaterial({ color:0x9dfbe4, transparent:true, opacity:0, depthWrite:false, blending:THREE.AdditiveBlending }));
   auraRing.rotation.x = Math.PI/2; auraRing.position.y = 1.3; auraRing.visible = false; g.add(auraRing);
   return { group:g, shadow, bubble, charge, parts:g.userData, ringFx, auraRing };
+}
+
+/* ================= ★ 炸药师 Bomber：世界里的炮弹 / 投掷物 / 地雷 =================
+   一条统一的小列表 BOMBER_MINES，三种模式：
+     mode 'cannon'  黑色反光炮弹：慢速直线飞，t >= cfg.dur 或飞够 burstDist → 炸开成 4 枚 mode 'fly'
+     mode 'fly'     四散投掷物：受重力，落地 → 变成 mode 'mine'（武装，开始 4 秒倒计时）
+     mode 'mine'    地雷：任何**非自己**的玩家靠近 → 立刻爆炸（10%）；4 秒到 → 自动小范围爆炸
+     mode 'bomb'    下B 抛出的传统炸弹：落地 → 范围爆炸 + 施法者传送到落点 + 朝原位射爆炸箭
+   全部在 physicsStep 的固定步里跑（updateBomberMines），不用渲染 dt → 联机两端一致。 */
+const BOMBER_MINES = [];
+
+function bomberMat(color) {
+  return new THREE.MeshStandardMaterial({ color:0x0e0e13, metalness:.94, roughness:.10,
+    emissive:color || 0x40100a, emissiveIntensity:.45 });
+}
+function spawnBomberMine(o) {
+  const cfg = o.cfg || {};
+  const col = o.color || 0xff3b2f;
+  const g = new THREE.Group();
+  const R = o.r || .3;
+  const mat = bomberMat(col);
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(R, 16, 12), mat));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(R * .96, R * .12, 5, 16), mat);
+  ring.rotation.x = Math.PI / 2; g.add(ring);
+  const glow = new THREE.Mesh(new THREE.SphereGeometry(R * .34, 10, 8), glowMat(col, 1.5, 0x3a0603));
+  glow.position.set(0, R * .62, 0); g.add(glow);
+  g.position.set(o.x, o.y, 0);
+  scene.add(g);
+  const m = { mode:o.mode || 'fly', owner:o.owner, cfg, x:o.x, y:o.y, z:0,
+              vx:o.vx || 0, vy:o.vy || 0, t:o.t || 0, fuse:cfg.mineFuse || 4.0,
+              armed:false, mesh:g, ring, glow, color:col, r:R, spin:0 };
+  BOMBER_MINES.push(m);
+  return m;
+}
+function bomberDropMine(m, x, y) {
+  m.mode = 'mine'; m.x = x; m.y = y; m.vx = 0; m.vy = 0;
+  m.fuse = (m.cfg && m.cfg.mineFuse) || 4.0;
+  m.mesh.position.set(x, y + m.r, 0);
+  FX.dust(x, y + .06, 8, 0x8a6a4a);
+  FX.ring(x, y + .10, .22, 1.4, m.color, .24);
+}
+/* 通用爆炸：范围伤害 + 全套特效。self:true = 施法者自己不吃伤害（上B 的原地爆炸） */
+function bomberExplode(owner, x, y, o) {
+  o = o || {};
+  const R = o.R || 3.2;
+  const dmg = (o.dmg === undefined ? 10 : o.dmg);   // ⚠ 不能用 o.dmg||10：0 会被当假值变成 10（实测多打一跳）
+  const col = o.color || 0xff3b2f;
+  FX.crater(x, Math.max(0, y - .2), R * .66, col);
+  FX.ring(x, y + .25, .26, R * 1.05, col, .46);
+  FX.ring(x, y + .25, .18, R * .58, 0xffe9a8, .28);
+  FX.burst(x, y + .35, .16, col, 24, 18);
+  FX.flash(x, y + .55, .45, R * 1.2, 0xffd0a0, .26);
+  FX.dust(x, Math.max(0, y) + .06, 16, 0xb08a6a);
+  shake = Math.min(1.35, shake + .60); camKick = Math.min(1, camKick + .34);
+  hitstop = Math.max(hitstop, .045); SFX.heavy();
+  if (dmg <= 0) return;
+  for (const f of FIGHTERS) {
+    if (!f || f.eliminated) continue;
+    if (owner && f === owner && o.self) continue;                 // 上B：自己不吃
+    if (o.only && f !== o.only) continue;
+    if (owner && owner.team >= 0 && isTeammate(owner, f) && f !== owner) continue;
+    const d = Math.hypot(f.pos.x - x, (f.pos.y + .95) - y);
+    if (d > R + f.bodyR * .5) continue;
+    const k = o.only ? 1 : (1 - Math.min(.55, d / (R * 2)));
+    f.takeHit(owner, { dmg: dmg * k, bb: (o.bb || 12) * (.6 + .4 * k), bg: o.bg || 32,
+                       ang: o.ang || 66, stun: o.stun || 0 }, Math.sign(f.pos.x - x) || 1, k);
+  }
+}
+/* 给某个角色身上贴一枚炸弹（左右B / 大招都用它）。计时挂在携带者身上 → 施法者死了也照炸。 */
+function bomberStickBomb(target, owner, o) {
+  o = o || {};
+  target.bombT = o.fuse || 5.0;
+  target.bombDmg = o.dmg || 15;
+  target.bombSplash = (o.splash === undefined) ? 10 : o.splash;
+  target.bombR = o.R || 3.4;
+  target.bombBy = owner || null;
+  target.bombKind = o.kind || 'stick';
+  target.bombColor = o.color || 0xff3b2f;
+  if (!target._bombMesh) {
+    const g = new THREE.Group();
+    const black = bomberMat(0xff2a10);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(.155, 14, 11), black); g.add(body);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(.150, .028, 5, 16), cmat(0xc4241c, { roughness:.55 }));
+    band.rotation.x = Math.PI / 2; g.add(band);
+    const fuse = new THREE.Mesh(new THREE.CylinderGeometry(.016, .016, .16, 6), cmat(0xc9a06a, { roughness:.85 }));
+    fuse.position.set(.05, .19, 0); fuse.rotation.z = -.45; g.add(fuse);
+    const spark = new THREE.Mesh(new THREE.SphereGeometry(.048, 8, 6), glowMat(0xffc040, 1.8, 0x5a2a00));
+    spark.position.set(.11, .27, 0); g.add(spark);
+    g.position.set(0, 1.52, .34);
+    target.mesh.add(g);
+    target._bombMesh = g; target._bombSpark = spark;
+  }
+  target._bombMesh.visible = true;
+  FX.ring(target.pos.x, target.pos.y + 1.2, .26, 1.8, 0xff3b2f, .28);
+  FX.spark(target.pos.x, target.pos.y + 1.4, .28, 8, 0xffb020);
+  SFX.hit(40, 4);
+  callout(target, '💣 ' + (o.fuse || 5.0).toFixed(0) + 's', 0xff3b2f);
+}
+/* 携带者身上的炸弹到点：本人吃全额，周围吃 splash，然后清掉 */
+function bomberDetonateCarrier(f) {
+  const by = f.bombBy || null, dmg = f.bombDmg || 15, sp = f.bombSplash;
+  const R = f.bombR || 3.4, col = f.bombColor || 0xff3b2f;
+  const x = f.pos.x, y = f.pos.y;
+  f.bombT = 0; f.bombDmg = 0; f.bombSplash = 0; f.bombBy = null;
+  if (f._bombMesh) f._bombMesh.visible = false;
+  bomberExplode(by, x, y + .3, { R, dmg:0, color:col });            // 只放特效
+  if (!f.eliminated) f.takeHit(by, { dmg, bb:14, bg:34, ang:64 }, Math.sign(x - (by ? by.pos.x : 0)) || 1, 1);
+  if (sp > 0) {
+    for (const g2 of FIGHTERS) {
+      if (!g2 || g2 === f || g2.eliminated || g2.invuln > 0 || g2.intangible > 0) continue;
+      if (by && by.team >= 0 && isTeammate(by, g2)) continue;
+      if (Math.hypot(g2.pos.x - x, g2.pos.y - y) > R) continue;
+      g2.takeHit(by, { dmg:sp, bb:10, bg:26, ang:58 }, Math.sign(g2.pos.x - x) || 1, .8);
+    }
+  }
+  callout(f, 'BOOM', col);
+}
+/* 固定步：世界里的炮弹 / 投掷物 / 地雷 / 抛出的炸弹 */
+function updateBomberMines(dt) {
+  if (!BOMBER_MINES.length) return;
+  for (let i = BOMBER_MINES.length - 1; i >= 0; i--) {
+    const m = BOMBER_MINES[i];
+    const dead = () => { scene.remove(m.mesh); BOMBER_MINES.splice(i, 1); };
+    if (m.mode === 'cannon') {
+      m.t += dt;
+      m.x += m.vx * dt; m.y += m.vy * dt;
+      m.spin += dt * 6;
+      m.mesh.position.set(m.x, m.y, 0);
+      m.mesh.rotation.z = m.spin;
+      if (Math.random() < .5) FX.trail(m.x - Math.sign(m.vx) * .35, m.y, .22, 0x2a2a33);
+      if (m.t % .18 < dt) FX.ring(m.x, m.y, .18, .9, m.color, .16);
+      const dist = m.owner ? Math.abs(m.x - m.owner.pos.x) : 0;
+      if (m.t >= ((m.cfg && m.cfg.dur) || .95) || dist >= ((m.cfg && m.cfg.burstDist) || 9.0)) {
+        /* 炸开：4 枚向四周（上/前/后下/后上）四散 */
+        const N = (m.cfg && m.cfg.count) || 4;
+        const sgn = Math.sign(m.vx) || 1;
+        const vels = [[sgn * 9, 10], [sgn * 13, 2], [-sgn * 5.5, 8.5], [sgn * 4, 14]];
+        for (let k = 0; k < N; k++) {
+          const v = vels[k % vels.length];
+          spawnBomberMine({ mode:'fly', owner:m.owner, cfg:m.cfg, x:m.x, y:m.y,
+                            vx:v[0], vy:v[1], r:.22, color:m.color, t:0 });
+        }
+        FX.burst(m.x, m.y, .18, 0xffd0a0, 22, 16);
+        FX.ring(m.x, m.y, .20, 2.4, m.color, .34);
+        FX.flash(m.x, m.y, .40, 4.4, 0xffe9c8, .22);
+        SFX.hit(70, 5); shake = Math.max(shake, .28);
+        dead(); continue;
+      }
+      continue;
+    }
+    if (m.mode === 'fly' || m.mode === 'bomb') {
+      m.vy -= ((m.cfg && m.cfg.grav) || 34) * dt;
+      m.x += m.vx * dt; m.y += m.vy * dt;
+      m.spin += dt * 9;
+      m.mesh.position.set(m.x, m.y, 0);
+      m.mesh.rotation.z = m.spin;
+      if (Math.random() < .35) FX.trail(m.x, m.y + .1, .16, 0x40302a);
+      const gy = stageFloorY(m.x);
+      if (gy !== null && m.y <= gy + .16) {
+        if (m.mode === 'bomb') {
+          /* 下B 传统炸弹：落地范围爆炸 → 施法者传送到落点 → 朝原位射爆炸箭 */
+          const cfg = m.cfg || {};
+          bomberExplode(m.owner, m.x, gy + .2, { R:cfg.blastR || 3.2, dmg:cfg.blastDmg || 12,
+            bb:14, bg:38, ang:64, color:m.color });
+          const o2 = m.owner;
+          if (o2 && !o2.eliminated) {
+            const fromX = o2.pos.x;
+            o2.pos.set(m.x, gy, 0); o2.vel.set(0, 0, 0); o2.grounded = true;
+            o2.intangible = Math.max(o2.intangible, .24);
+            o2.state = 'special'; o2.animT = 0; o2.spT = .22;
+            /* 爆炸箭：从新位置朝**原来的位置**平射 */
+            const ad = Math.sign(fromX - m.x) || (o2.facing || 1) * -1;
+            o2.facing = ad;                                     // 转身朝向「箭要飞的方向」= 原位
+            spawnProjectile(o2, m.x + ad * .8, gy + 1.15, ad, {
+              kind:'proj', label:'Blast Arrow', dmg:cfg.arrowDmg || 10, bb:11, bg:30, ang:12,
+              spd:cfg.arrowSpd || 30, size:.20, life:cfg.arrowLife || .85, hitR:.62,
+              color:0xff6a2a, tracer:true, spin:0 }, 1);
+            FX.flash(m.x, gy + 1.15, .34, 3.6, 0xffd0a0, .20);
+            FX.ring(m.x, gy + 1.15, .24, 1.8, 0xff3b2f, .26);
+            FX.dust(m.x, gy + .06, 12, 0xb08a6a);
+            SFX.special('proj');
+            callout(o2, 'MORTAR SWAP', cfg.color || 0xff3b2f);
+          }
+          dead(); continue;
+        }
+        /* ⚠ 落地变地雷时**不能** dead()：地雷还要继续留在列表里倒计时/被触碰 */
+        bomberDropMine(m, m.x, gy);
+        continue;
+      }
+      if (m.y < -14 || Math.abs(m.x) > STAGE.wallX + 4) { dead(); }
+      continue;
+    }
+    if (m.mode === 'mine') {
+      m.fuse -= dt;
+      m.mesh.position.set(m.x, m.y + m.r, 0);
+      const k = 1 + Math.sin(m.t * 14) * .10;
+      m.glow.scale.setScalar(Math.max(.4, k * (m.fuse < 1.2 ? 1.5 : 1)));
+      m.t += dt;
+      if (m.fuse % .5 < dt) FX.ring(m.x, m.y + .18, .20, .75, m.color, .18);
+      /* 触碰：任何不是施法者的玩家靠近就炸（10%） */
+      let touched = null;
+      for (const f of FIGHTERS) {
+        if (!f || f.eliminated || f === m.owner) continue;
+        if (Math.abs(f.pos.x - m.x) < ((m.cfg && m.cfg.mineTouchR) || .85) + f.bodyR * .35 &&
+            Math.abs(f.pos.y - m.y) < 1.5) { touched = f; break; }
+      }
+      if (touched || m.fuse <= 0) {
+        const dmg = (m.cfg && m.cfg.mineDmg) || 10;
+        const R = (m.cfg && m.cfg.mineR) || 2.2;
+        if (touched) {
+          bomberExplode(m.owner, m.x, m.y + .25, { R, dmg, bb:12, bg:28, ang:58, only:touched, color:m.color });
+          FX.ring(m.x, m.y + .2, .24, R * 1.05, m.color, .40);
+          bomberExplode(m.owner, m.x, m.y + .25, { R, dmg:0, color:m.color });
+        } else {
+          bomberExplode(m.owner, m.x, m.y + .25, { R, dmg, bb:12, bg:28, ang:58, color:m.color });
+          callout(m.owner, 'MINE', m.color);
+        }
+        dead();
+      }
+      continue;
+    }
+  }
 }
 
 /* ================= 天降打击（Mage·Meteor / Archer·Arrow Rain） ================= */
@@ -11125,6 +11602,10 @@ class Fighter {
     this.monkHasStaff = true; this.monkGrow = 0; this.monkThrow = null; this.monkStaffPos = null;
     this.monkLeap = null; this.monkRush = null; this.monkSpin = null; this.monkSlam = null;
     this._monkStaffMesh = null; this._monkSpinAng = 0;
+    /* ★ 炸药师：冲锋 / 投弹 / 起飞 + 身上的炸弹倒计时 */
+    this.bomberRush = null; this.bomberThrow = null; this.bomberUp = null;
+    this.bombT = 0; this.bombDmg = 0; this.bombSplash = 0; this.bombBy = null; this.bombR = 3.4; this.bombColor = 0xff3b2f;
+    this._bombMesh = null; this._bombSpark = null;
     const m = buildMesh2(def); this.mesh = m.group; this.parts = m.parts;
     this.shadow = m.shadow; this.bubble = m.bubble; this.chargeFx = m.charge;
     this.ringFx = m.ringFx; this.auraRing = m.auraRing; this.sparkT2 = 0;
@@ -11172,6 +11653,7 @@ class Fighter {
     this.soulDmg = 0; this.soulStacks = 0; this._soulFx = 0;   // Reaper·Soul Harvest（每局/每次重生都从 0 层开始）
     this.monkGrow = 0;                                        // ★ 武僧被动棍势：每局从 0 开始（重生不清，见 monkReset）
     if (this.def && this.def.id === 'monk') { try { this.monkReset(); } catch (e) {} }
+    if (this.def && this.def.id === 'bomber') { try { this.bomberReset(); } catch (e) {} }
     this.leap = null; this.quakeT = 0;                         // Gorilla·横B跃击 / 下B地震动画计时
     this.hack = 0; this.flyT = 0; this._flyAir = 0; this._flyFx = 0; this.glitchT = 0; this.warpCast = null;   // Hacker
     this.guardT = 0; this.guardCut = 1; this.guardKb = 1;
@@ -11815,6 +12297,7 @@ class Fighter {
     this.cbState = null; this.cbBeam = null;
     try { this.mosqReset(); } catch (e) {}                          // ★ 蚊子：状态机/水盾/视野不跨命
     try { this.monkReset(); } catch (e) {}                          // ★ 武僧：手上的棍/世界里的棍不跨命
+    try { this.bomberReset(); } catch (e) {}                        // ★ 炸药师：冲锋/投弹/炸弹倒计时不跨命
     this.shedUsed = false; this.shedAt = 0;                 // ★ Cardboard：每命一次「脱壳」
     try { this.cbShellOn(); } catch (e) {}                  // ★ 复活时把外壳装回去
   }
@@ -11913,6 +12396,23 @@ class Fighter {
         FX.flash(this.pos.x, this.pos.y + 1.6, .55, 9.0, 0xfff0c0, .34);
         FX.burst(this.pos.x, this.pos.y + 1.3, .22, SP.color, 20, 16);
         shake = Math.max(shake, .80); SFX.special('heavy');
+        this.fsDone = 1;
+        break;
+      }
+      case 'bomberFS': {                                 // ★ 炸药师·大招：全员贴炸弹，5 秒后各炸 30%
+        const fuse = SP.fuse || 5.0, per = SP.perDmg || 30;
+        let n = 0;
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          bomberStickBomb(f, this, { fuse, dmg:per, splash:0, kind:'ult', color:SP.color });
+          n++;
+        }
+        FX.ring(this.pos.x, this.pos.y + .4, .34, 9.0, SP.color, .55);
+        FX.flash(this.pos.x, this.pos.y + 1.6, .55, 11.0, 0xffd0a0, .40);
+        FX.burst(this.pos.x, this.pos.y + 1.3, .22, SP.color, 26, 18);
+        callout(this, 'MASS BOMBING · ' + n + ' TARGETS · 5s', SP.color);
+        shake = Math.max(shake, .85); SFX.special('heavy');
         this.fsDone = 1;
         break;
       }
@@ -12638,6 +13138,14 @@ class Fighter {
     if (this.def.id === 'warden') this.wardenTick(dt, inp);   // ★ 坚守者：音波蓄力/抓砸/冲击波 + 狂暴计时
     if (this.def.id === 'soldier') this.soldierTick(dt, inp); // ★ 士兵：后撤齐射/突进连射/升龙抓投 + 重机枪计时
     if (this.def.id === 'monk') this.monkTick(dt, inp);       // ★ 武僧：棍的投掷/插地/召回 + 冲锋连棍 + 旋风 + 大招砸
+    if (this.def.id === 'bomber') this.bomberTick(dt, inp);   // ★ 炸药师：冲锋贴炸药 / 抛炸弹 / 上B 起飞
+    /* ★ 炸药师：身上的炸弹倒计时（挂在**携带者**身上 → 施法者死了也照炸） */
+    if (this.bombT > 0) {
+      this.bombT -= dt;
+      if (this._bombSpark) this._bombSpark.scale.setScalar(1 + Math.abs(Math.sin(this.bombT * 7)) * .9);
+      if (this.bombT % .4 < dt) FX.ring(this.pos.x, this.pos.y + 1.4, .16, .7, this.bombColor || 0xff3b2f, .16);
+      if (this.bombT <= 0) bomberDetonateCarrier(this);
+    }
     if (this.spT > 0) { this.spT -= dt; if (this.spT <= 0 && this.state === 'special' && !this.mosq) this.state = this.grounded ? 'idle' : 'fall'; }
     if (this.cbState) this.cbTick(dt, inp);                // ★ Cardboard：四个技能的状态机
     if (this.cbBeam) this.cbBeamTick(dt);                  // ★ Cardboard 上B：向下激光（挂在 recover 上）
@@ -14459,6 +14967,86 @@ class Fighter {
     FX.flash(this.pos.x + dir * .8, this.pos.y + 1.45, .34, 3.0 + ch * 3.0, 0xd8fffb, .22);
     SFX.special('wave'); shake = Math.max(shake, .18 + ch * .30);
     callout(this, 'SONIC ' + Math.round(ch * 100) + '%', cfg.color);
+  }
+  /* ================= ★ 炸药师 Bomber：冲锋 5 连 / 抛炸弹 / 上B ================= */
+  bomberReset() {
+    this.bomberRush = null; this.bomberThrow = null; this.bomberUp = null;
+    this.bombT = 0; this.bombDmg = 0; this.bombSplash = 0; this.bombBy = null;
+    if (this._bombMesh) { this.mesh.remove(this._bombMesh); this._bombMesh = null; this._bombSpark = null; }
+  }
+  bomberTick(dt, inp) {
+    const CFG = this.def.special || {};
+    /* ---------- 左右B：冲刺 → 5 连 → 贴炸药 ---------- */
+    const R2 = this.bomberRush;
+    if (R2) {
+      const cfg = R2.cfg || CFG.s; R2.t += dt;
+      if (R2.mode === 'dash') {
+        this.vel.x = R2.dir * (cfg.dashSpd || 26);
+        this.vel.y *= .90;
+        if (R2.t % .07 < dt) FX.trail(this.pos.x - R2.dir * .5, this.pos.y + 1.15, .28, cfg.color);
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0 || f.pumpkinForm) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          if (Math.abs(f.pos.x - this.pos.x) > (cfg.reach || 2.1) + f.bodyR * .4) continue;
+          if (Math.abs(f.pos.y - this.pos.y) > 2.4) continue;
+          this.bomberRush = { cfg, t:0, dir:R2.dir, mode:'combo', n:0, next:.02, target:f };
+          this.vel.set(0, 0, 0);
+          f.hitstun = Math.max(f.hitstun || 0, .22);
+          FX.ring(f.pos.x, f.pos.y + 1.0, .30, 2.4, cfg.color, .32);
+          FX.flash(f.pos.x, f.pos.y + 1.05, .42, 4.4, cfg.color, .22);
+          SFX.hit(30, 5); shake = Math.max(shake, .30);
+          callout(this, 'BOMB RUSH', cfg.color);
+          return;
+        }
+        if (R2.t >= (cfg.dur || .40)) { this.bomberRush = null; this.state = this.grounded ? 'idle' : 'fall'; }
+        return;
+      }
+      /* 5 连（每段 2% = 10%）→ 最后一拳贴炸弹 */
+      const T2 = R2.target;
+      if (!T2 || T2.eliminated) { this.bomberRush = null; this.state = this.grounded ? 'idle' : 'fall'; return; }
+      const hits = cfg.hits || [];
+      this.vel.set(0, 0, 0); this.facing = R2.dir;
+      const tx2 = this.pos.x + R2.dir * 1.95;
+      T2.pos.x += (tx2 - T2.pos.x) * Math.min(1, dt * 18);
+      T2.pos.y += (this.pos.y - T2.pos.y) * Math.min(1, dt * 9);
+      T2.vel.set(0, 0, 0);
+      T2.hitstun = Math.max(T2.hitstun || 0, .18);
+      if (R2.t >= R2.next && R2.n < hits.length) {
+        const H = hits[R2.n], last = (R2.n === hits.length - 1);
+        R2.n++; R2.next = R2.t + (cfg.gap || .13);
+        T2.invuln = 0; T2.intangible = 0;
+        T2.takeHit(this, { dmg:H.dmg, bb:last ? 2.5 : 1.2, bg:last ? 5 : 3.5, ang:H.ang, stun:.12 },
+                   R2.dir, last ? 1 : 0);
+        FX.slash(T2.pos.x, T2.pos.y + 1.05, .46, H.ang * Math.PI / 180, 3.6, cfg.color, .16);
+        FX.spark(T2.pos.x, T2.pos.y + 1.05, .38, 9, cfg.color);
+        SFX.hit(26 + R2.n * 2, H.dmg); shake = Math.max(shake, .26);
+        if (last) {
+          /* ★ 贴炸药：5 秒后炸 15%（周围再吃 10%） */
+          bomberStickBomb(T2, this, { fuse:cfg.bombFuse || 5.0, dmg:cfg.bombDmg || 15,
+            splash:cfg.bombSplash, R:cfg.bombR || 3.4, kind:'stick', color:cfg.color });
+          FX.ring(T2.pos.x, T2.pos.y + 1.1, .28, 2.6, cfg.color, .34);
+          shake = Math.min(1.1, shake + .38); SFX.heavy();
+          callout(this, 'BOMB PLANTED 5s', cfg.color);
+        }
+      }
+      if (R2.n >= hits.length && R2.t > R2.next + .30) { this.bomberRush = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      if (R2.t > 3.0) this.bomberRush = null;
+      return;
+    }
+    /* ---------- 下B：抛出炸弹的收招（落地/传送/射箭都在 updateBomberMines 里） ---------- */
+    const BT = this.bomberThrow;
+    if (BT) {
+      BT.t += dt;
+      if (BT.t > 2.2) this.bomberThrow = null;
+    }
+    /* ---------- 上B：起飞计时（爆炸在 doSpecial 里已经炸过） ---------- */
+    const BU = this.bomberUp;
+    if (BU) {
+      BU.t += dt;
+      if (BU.t < .30) this.state = 'special';
+      if (BU.t % .12 < dt) FX.trail(this.pos.x, this.pos.y + .2, .30, 0xffb020);
+      if (BU.t > (BU.cfg && BU.cfg.dur || .66)) { this.bomberUp = null; }
+    }
   }
   /* ================= ★ 武僧 Monk：棍 = 投掷物 / 插地 / 召回 / 冲锋 / 旋风 / 大招砸 =================
      状态一览（都由 update() 逐帧跑）：
@@ -16627,7 +17215,8 @@ class Fighter {
         this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0 || this.burnLock > 0 ||
         this.vexRush || this.vexRise || this.vexDive || this.vexSpray ||
         this.trashClap || this.trashRush || this.trashGas || this.wardenRush ||
-        this.monkRush || this.monkSpin || this.monkLeap || this.monkSlam) {
+        this.monkRush || this.monkSpin || this.monkLeap || this.monkSlam ||
+        this.bomberRush || this.bomberUp) {
       this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
       inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false;
       inp.spP = false; inp.shHeld = false; inp.atkHeld = false; inp.spHeld = false; inp.fsP = false; inp.mash = 0;
@@ -16635,7 +17224,7 @@ class Fighter {
           !this.reapCombo && !this.pumpkinForm && !this.hallowSweep && !this.hallowRise &&
           !this.vexRush && !this.vexRise && !this.vexDive && !this.vexSpray &&
           !this.trashRush && !this.trashClap && !this.mosq && !this.wardenRush &&
-          !this.monkRush && !this.monkLeap && !this.monkSlam) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪/蚊子冲刺 自己管速度
+          !this.monkRush && !this.monkLeap && !this.monkSlam && !this.bomberRush) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪/蚊子冲刺 自己管速度
       return;
     }
     /* ★ Blub·雷弹：麻痹期间做不了任何动作（但**会吃击退** —— 和 Hacker 的锁定不同） */
@@ -16840,7 +17429,8 @@ class Fighter {
               this.warp || this.duneRun || this.bandage ||
               this.wardenRush || this.wardenSonic || this.wardenLeap ||   // ★ 坚守者（下B 感测体是部署型，不进互斥）
               this.soldierVolley || this.soldierRush || this.soldierUpper ||   // ★ 士兵（下B 散弹是一次性发射，不进互斥）
-              this.monkRush || this.monkSpin || this.monkLeap || this.monkSlam);   // ★ 武僧（投棍是瞬发，不进互斥）
+              this.monkRush || this.monkSpin || this.monkLeap || this.monkSlam ||   // ★ 武僧（投棍是瞬发，不进互斥）
+              this.bomberRush || this.bomberUp);                                   // ★ 炸药师（投弹/布雷是瞬发，不进互斥）
   }
   doSpecial(inp) {
     this.spCount = (this.spCount || 0) + 1;        // 教程用：累计施放次数
@@ -16973,6 +17563,64 @@ class Fighter {
       FX.spark(this.pos.x + dir * .9, this.pos.y + 1.2, .28, 8, 0xffd166);
       SFX.special('proj'); SFX.hit(34, 8); shake = Math.max(shake, .30);
       this.state = 'special'; this.animT = 0; this.spT = .30;
+      return true;
+    }
+    /* ---------- ★ 炸药师 · 中立B：黑色反光加农炮（很慢）→ 飞到一定距离炸开 4 枚 ---------- */
+    if (cfg.kind === 'bomberCannon') {
+      const c = spawnBomberMine({
+        mode:'cannon', owner:this, cfg,
+        x:this.pos.x + dir * .9, y:this.pos.y + 1.45,
+        vx:dir * (cfg.spd || 8.5), vy:0, t:0, r:.34, color:cfg.color,
+      });
+      this._bmRec = 1;                                   // 后坐（动画用）
+      this.throwT = .18;
+      this.state = 'special'; this.animT = 0; this.spT = .28;
+      SFX.special('proj'); SFX.hit(60, 6);
+      FX.flash(this.pos.x + dir * 1.0, this.pos.y + 1.45, .34, 3.4, 0xffb08a, .18);
+      FX.ring(this.pos.x + dir * .95, this.pos.y + 1.45, .26, 1.5, cfg.color, .26);
+      FX.trail(this.pos.x + dir * 1.3, this.pos.y + 1.45, .30, 0x1a1a22);
+      callout(this, 'BLACK CANNON', cfg.color);
+      return true;
+    }
+    /* ---------- ★ 炸药师 · 左右B：冲刺 → 5 连（10%）→ 贴炸药 ---------- */
+    if (cfg.kind === 'bomberRush') {
+      this.bomberRush = { cfg, t:0, dir, mode:'dash', n:0, next:0, target:null };
+      this.state = 'special'; this.animT = 0;
+      this.vel.x = dir * (cfg.dashSpd || 26);
+      SFX.special('dash');
+      FX.ring(this.pos.x + dir * .5, this.pos.y + 1.2, .26, 1.8, cfg.color, .26);
+      FX.trail(this.pos.x - dir * .5, this.pos.y + 1.15, .3, cfg.color);
+      callout(this, 'BOMB RUSH', cfg.color);
+      return true;
+    }
+    /* ---------- ★ 炸药师 · 下B：抛炸弹 → 落地爆炸 → 传送到爆点 → 朝原位射爆炸箭 ---------- */
+    if (cfg.kind === 'bomberBomb') {
+      this.bomberThrow = { cfg, dir, t:0, x:this.pos.x + dir * .7, y:this.pos.y + 1.5,
+                           vx:dir * (cfg.spd || 17), vy:(cfg.vy || 7), fromX:this.pos.x,
+                           spin:0, boom:false };
+      const m = spawnBomberMine({ mode:'bomb', owner:this, cfg, x:this.bomberThrow.x, y:this.bomberThrow.y,
+                                  vx:this.bomberThrow.vx, vy:this.bomberThrow.vy, t:0, r:.26, color:cfg.color });
+      this.bomberThrow.mine = m;
+      this.state = 'special'; this.animT = 0; this.spT = .26;
+      SFX.special('proj'); FX.ring(this.pos.x + dir * .5, this.pos.y + 1.35, .26, 1.5, cfg.color, .24);
+      callout(this, 'MORTAR', cfg.color);
+      return true;
+    }
+    /* ---------- ★ 炸药师 · 上B：原地爆炸 + 起飞（比 Sparky 高一点） ---------- */
+    if (cfg.kind === 'bomberUp') {
+      this.bomberUp = { cfg, t:0, fired:false };
+      bomberExplode(this, this.pos.x, this.pos.y + .3, {
+        R:cfg.R || 4.2, dmg:cfg.dmg || 12, bb:cfg.bb || 14, bg:cfg.bg || 38, ang:cfg.ang || 70,
+        color:cfg.color, self:true });
+      /* 上升判定沿用引擎的 recover 通道（和上B 一样有上升判定） */
+      this.recoverAtk = { cfg:{ dur:(cfg.dur || .66) + .10, dmg:cfg.hitDmg || 6.5,
+                               bb:cfg.hitBb || 9, bg:cfg.hitBg || 38, hitR:1.9, color:cfg.color }, t:(cfg.dur || .66) + .10, fxT:0 };
+      this.vel.y = cfg.rise || 32; this.vel.x *= .35; this.grounded = false;
+      this.jumpsLeft = Math.max(this.jumpsLeft, 0); this.airDodged = false;
+      this._upOn = 0; this._upSpin = 0;
+      this.state = 'special'; this.animT = 0;
+      SFX.special('recover'); SFX.heavy();
+      callout(this, 'BLAST LIFT', cfg.color);
       return true;
     }
     /* ---------- ★ 武僧 · 中立B：投棍 / 空手跳到棍位 + 冲击波 ---------- */
@@ -20296,6 +20944,134 @@ class Fighter {
       this._mkHX = (this._mkHX === undefined) ? hx : this._mkHX + (hx - this._mkHX) * mk;
       this._mkHY = (this._mkHY === undefined) ? hy : this._mkHY + (hy - this._mkHY) * mk;
     }
+    /* ================= ★ 炸药师 Bomber：机器人姿态（每个招式都有专属动作）=================
+       · 待机：重心压低、双臂微张（随时准备扔东西），核心灯呼吸
+       · 移动：机械大步 + 身体前倾，手臂小幅前后甩
+       · 中立B：右臂前伸开炮、全身吃后坐（_bmRec 由 doSpecial 置 1 后自己衰减）
+       · 左右B：冲锋压低身体 → 五连左右直拳（每段按 n 换手）
+       · 下B：过肩抛炸弹（先抬到脑后 → 甩到身前）
+       · 上B：双臂下压 + 屈腿（脚下爆炸把人顶上去）
+       · 大招：双臂大张（给所有人贴弹）
+       全部目标值 + 缓动，不直接写 rotation。 */
+    if (this.def.id === 'bomber') {
+      const bspd = Math.abs(this.vel.x);
+      const brun = this.grounded && bspd > .35 && (this.state === 'run' || this.state === 'walk' || this.state === 'dash');
+      const BR = this.bomberRush, BT = this.bomberThrow, BU = this.bomberUp;
+      const spA = (this._spAnim > 0 && this._spAnim < .55) ? (this._spKey || '') : '';
+      this._bmRec = Math.max(0, (this._bmRec || 0) - dt * 6.5);
+      const rec = this._bmRec;
+      let aL = 0, aR = 0, lL = 0, lR = 0, lean = 0, bob = 0;
+      let spread = .14, eL = -.12, eR = -.12, hx = 0, crouch = 0;
+
+      if (this.state === 'hitstun' || this.state === 'grabbed' || this.state === 'stun') {
+        aL = .95 + Math.sin(A.t * 26) * .18; aR = -1.05 - Math.sin(A.t * 26) * .18;
+        lL = .26; lR = -.22; lean = -this.facing * .34; hx = .38; spread = .32; eL = eR = -.30;
+      } else if (this.fsActive) {                        // 大招：双臂大张
+        aL = -.95; aR = .95; eR = eL = -.25; spread = .55;
+        lL = .16; lR = -.16; lean = -this.facing * .10; hx = -.26; bob = .04;
+      } else if (BU) {                                   // 上B：屈腿 + 双臂下压
+        aL = .85; aR = .85; eR = eL = -.20; spread = .30;
+        lL = -.55; lR = -.55; lean = -this.facing * .16; hx = -.20; crouch = .5;
+      } else if (BR) {                                   // 左右B
+        if (BR.mode === 'dash') {
+          aL = .60; aR = -.85; eR = eL = -.22; spread = .18;
+          lL = Math.sin(A.t * 32) * .62; lR = -Math.sin(A.t * 32) * .62;
+          lean = this.facing * .46; bob = Math.abs(Math.sin(A.t * 32)) * .05; hx = -.10;
+        } else {
+          const last = BR.n >= ((BR.cfg && BR.cfg.hits) ? BR.cfg.hits.length : 5);
+          const g2 = (BR.cfg && BR.cfg.gap) || .13;
+          const kick = Math.max(0, 1 - (BR.t - BR.next + g2) / .15);
+          const right = (BR.n % 2) === 1;
+          aR = right ? -1.62 - kick * .30 : -.30;
+          aL = right ? -.30 : -1.55 - kick * .30;
+          eR = right ? -.16 : -.30; eL = right ? -.30 : -.16;
+          spread = .16; lL = .12; lR = -.10;
+          lean = this.facing * (last ? .34 : .20); hx = last ? .24 : .10;
+          crouch = last ? .35 : 0;
+        }
+      } else if (BT) {                                   // 下B：过肩抛弹
+        const k = Math.min(1, BT.t / .26);
+        aR = -2.10 + 1.55 * k; aL = -1.75 + 1.30 * k; eR = eL = -.22;
+        spread = .16; lL = .18; lR = -.14;
+        lean = this.facing * (-.20 + .48 * k); hx = this.facing > 0 ? -.12 + .34 * k : 0;
+      } else if (spA === 'n') {                          // 中立B：开炮 + 后坐
+        const k = Math.min(1, this._spAnim / .10);
+        aR = -1.48 * k - rec * .22; aL = -.55; eR = -.12; eL = -.42;
+        spread = .12; lL = .20; lR = -.16;
+        lean = -this.facing * (.10 + rec * .22); hx = -.14 - rec * .10; bob = -rec * .03;
+      } else if (this.move) {
+        const ph = this.phase === 'startup' ? .4 : (this.phase === 'active' ? 1 : .6);
+        const nm = this.move.name || '';
+        if (/^jab/.test(nm)) {
+          const fin = nm === 'jab5';
+          aR = -1.52 * ph * (fin ? 1.2 : 1); aL = (fin ? -1.20 : -.45) * ph;
+          eR = -.18; eL = -.30; spread = .14;
+          lean = this.facing * (fin ? .40 : .22) * ph; lL = .12 * ph; lR = -.10 * ph; hx = .10;
+        } else if (nm === 'ftilt' || nm === 'fsmash' || nm === 'dashAtk') {
+          aR = -1.55 * ph; aL = -.55 * ph; eR = -.16; eL = -.30;
+          lean = this.facing * .34 * ph; lL = .18 * ph; lR = -.12 * ph; hx = .14;
+        } else if (nm === 'utilt' || nm === 'usmash') {
+          aR = -2.55 * ph; aL = -2.30 * ph; eR = eL = -.26; lL = -.26; lR = .16;
+          lean = -.16 * ph; hx = -.22; spread = .10;
+        } else if (nm === 'dtilt' || nm === 'dsmash') {
+          aR = 1.15 * ph; aL = .85 * ph; eR = eL = -.20; lL = .24; lR = -.18;
+          lean = this.facing * .42 * ph; hx = .26; crouch = .55;
+        } else if (nm === 'nair') {
+          aR = -1.35 * ph; aL = 1.35 * ph; spread = .32; lL = -.22; lR = .22;
+        } else if (nm === 'fair' || nm === 'bair') {
+          aR = (nm === 'fair' ? -1.55 : 1.55) * ph; aL = (nm === 'fair' ? 1.30 : -1.30) * ph;
+          spread = .20; lL = -.24; lR = .16; lean = this.facing * .24 * ph;
+        } else if (nm === 'uair') {
+          aR = -2.80 * ph; aL = -2.45 * ph; eR = eL = -.26; lL = -.30; lR = .20;
+        } else if (nm === 'dair') {
+          aR = 1.80 * ph; aL = 1.60 * ph; lL = -.45; lR = -.45; crouch = .3;
+        } else if (nm === 'grab') {
+          aR = -1.75 * ph; aL = -1.45 * ph; eR = eL = -.28; lean = this.facing * .18 * ph;
+        } else {
+          aR = -1.35 * ph; aL = -.55 * ph; eR = -.18; eL = -.30;
+          lean = this.facing * .24 * ph; hx = .10;
+        }
+      } else if (this.state === 'shield' || this.state === 'roll' || this.state === 'charge') {
+        if (this.state === 'charge') { aR = -2.10; aL = -1.95; eR = eL = -.24; lean = -this.facing * .18; }
+        else { aR = -1.15; aL = -1.05; eR = eL = -.32; lean = this.facing * .16; }
+        spread = .20; lL = .10; lR = -.10;
+      } else if (!this.grounded) {
+        const rising = this.vel.y > 0;
+        aR = rising ? -1.75 : -1.15; aL = rising ? -1.45 : -1.00;
+        eR = eL = -.26; spread = .22;
+        lL = rising ? -.45 : .16; lR = rising ? .26 : -.12;
+        lean = -this.facing * .08;
+      } else if (brun) {
+        const f2 = A.t * (6.4 + bspd * .60);
+        const sw = Math.sin(f2);
+        aR = -.70 - sw * .28; aL = -.62 + sw * .28; eR = eL = -.26;
+        spread = .14; lL = sw * .52; lR = -sw * .52;
+        lean = this.facing * Math.min(.32, bspd * .018); bob = Math.abs(sw) * .07;
+        hx = sw * .03;
+        const st2 = Math.floor(f2 / Math.PI);
+        if (this._bmStep === undefined) this._bmStep = st2;
+        if (st2 !== this._bmStep) { this._bmStep = st2; FX.dust(this.pos.x, this.pos.y + .05, 3, 0x8a6a5a); }
+      } else {
+        aR = -.30 + Math.sin(A.t * 2.3) * .07; aL = -.26 - Math.sin(A.t * 2.3) * .07;
+        eR = eL = -.22; spread = .18;
+        lL = .04; lR = -.04; bob = Math.sin(A.t * 2.5) * .026;
+        lean = Math.sin(A.t * 1.4) * .020 * this.facing;
+        hx = .05;
+        if (P.core) P.core.material.emissiveIntensity = 1.3 + Math.sin(A.t * 3.1) * .35;
+      }
+
+      const mk = 1 - Math.exp(-19 * dt);
+      A.armL += (aL - A.armL) * mk; A.armR += (aR - A.armR) * mk;
+      A.legL += (lL - A.legL) * mk; A.legR += (lR - A.legR) * mk;
+      A.lean += (lean - A.lean) * mk; A.bob += (bob - A.bob) * mk;
+      if (crouch > 0) A.bob -= crouch * .10;
+      P.armL.rotation.x = A.armL; P.armR.rotation.x = A.armR;
+      P.legL.rotation.x = A.legL; P.legR.rotation.x = A.legR;
+      P.armL.rotation.z = -spread; P.armR.rotation.z = spread;
+      this._bmElbL = (this._bmElbL === undefined) ? eL : this._bmElbL + (eL - this._bmElbL) * mk;
+      this._bmElbR = (this._bmElbR === undefined) ? eR : this._bmElbR + (eR - this._bmElbR) * mk;
+      this._bmHX = (this._bmHX === undefined) ? hx : this._bmHX + (hx - this._bmHX) * mk;
+    }
     if (this._soulFx > 0) {                                     // 每收割一层：幽绿魂爆（涨层必须看得见）
       this._soulFx -= dt;
       if (!this._soulFxDone) {
@@ -20975,12 +21751,14 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
       })() : '';
       const vx2 = (f.def.id === 'vexor') ? ('CHARGE ' + (f.vexCharge || 0) + (f.vexJumpBonus ? ' · +' + f.vexJumpBonus + ' JUMP' : ' / 15')) : '';  // ★ Vexor 充能（每 15 点 +1 连跳，可无限叠）
       /* ★ 武僧：棍势（被动，每 1% 伤害 +1）+ 棍现在在哪（手上 / 插在地上 / 飞行/回收中） */
+      /* ★ 炸药师：身上炸弹倒计时（必须长在界面上，否则玩家只能靠「突然爆炸」猜） */
+      const bbHud = (f.bombT > 0) ? ('💣 ' + f.bombT.toFixed(1) + 's') : '';
       const mkHud = (f.def.id === 'monk') ? (() => {
         const gw = Math.floor(f.monkGrow || 0), cap2 = 150;
         const where = f.monkHasStaff ? '✋' : (f.monkStaffPos ? '📍' : '✈');
         return '棍 GROW ' + Math.min(gw, cap2) + (gw >= cap2 ? ' MAX' : '') + ' · ' + where;
       })() : '';
-      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2, vx2, tc2, mkHud].filter(Boolean).join(' ');
+      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, bb3, sand2, fr2, vx2, tc2, mkHud, bbHud].filter(Boolean).join(' ');
       if (p.statTxt !== txt2 || p.statWasOn !== !!txt2) {
         p.statTxt = txt2; p.statWasOn = !!txt2;
         p.stat.textContent = txt2;
@@ -22670,6 +23448,7 @@ function physicsStep(s) {
   updateBlocks(s);                                  // ★ Blocky 的方块：寿命/闪烁/自动消失
   updateDrones(s);
   updateStrikes(s);
+  updateBomberMines(s);                              // ★ 炸药师：炮弹/投掷物/地雷/抛出的炸弹（固定步）
   updatePuddles(s);
   updateGems(s);                                     // ★ 宝石争夺战：矿井/宝石/倒计时（固定步 + 参与指纹）
   minesTick(s);                                      // ★ 矿洞：每 20 秒随机塌 3 块地板（固定步 + RND + 参与指纹）
@@ -25805,7 +26584,7 @@ try { paintWepBtn(); } catch (e) {}
     const m = /[?&]grant=([^&]+)/.exec(location.search);
     if (!m || decodeURIComponent(m[1]) !== KEY) return;
     /* ★ 测试号：顺手把这版的新角色（坚守者 / 士兵）解锁，省得还要去奖励页买一次 */
-    try { if (typeof ACC !== 'undefined' && ACC.unlock) { for (const c of CHARS) if ((c.id === 'warden' || c.id === 'soldier' || c.id === 'monk') && !ACC.owns(c.id)) ACC.unlock(c.id); } } catch (e) {}
+    try { if (typeof ACC !== 'undefined' && ACC.unlock) { for (const c of CHARS) if ((c.id === 'warden' || c.id === 'soldier' || c.id === 'monk' || c.id === 'bomber') && !ACC.owns(c.id)) ACC.unlock(c.id); } } catch (e) {}
     const more = /[?&]more=1/.test(location.search);
     let nSkin = 0, nWep = 0, nSup = 0;
     try {
@@ -26540,7 +27319,7 @@ setTimeout(() => { try { window.__unlockEmailChars && window.__unlockEmailChars(
 
 requestAnimationFrame(frame);
 SB.NET = NET; SB.REPLAY = REPLAY; SB.barriers = barriers; SB.weather = weather; SB.strikes = strikes;
-SB.ACC = ACC; SB.CHARS = CHARS;   // 探针/调试：存档与角色表   // 探针：屏障数组（只读）              // 联机/回放挂到调试对象，便于控制台排查
+SB.ACC = ACC; SB.CHARS = CHARS; SB.BOMBS = BOMBER_MINES;   // 探针：世界里的炮弹/地雷（只读）   // 探针/调试：存档与角色表   // 探针：屏障数组（只读）              // 联机/回放挂到调试对象，便于控制台排查
 console.log('[SB] Super Brawl demo loaded', window.SB.version);
 
 /* ================= ★ 第 94 轮：账号设置（服务端存档 / 邮箱绑定 / 跨设备登录） ================= */
