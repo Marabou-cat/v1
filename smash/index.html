@@ -2536,8 +2536,8 @@ CHAR_EXTRA.bomber = {
     + 'it detonates 5s later for 15% to them and hurts everyone around) · '
     + 'Neutral B Black Cannon (fire a very slow glossy black shell; at range it bursts into 4 scattered charges that land '
     + 'and arm as mines — touching one blows it for 10%, and it self-detonates after 4s) · '
-    + 'Down B Mortar Bomb (lob a classic black bomb: it explodes on landing, you TELEPORT to the blast, then fire an '
-    + 'explosive arrow back toward where you were standing) · '
+    + 'Down B Mortar Bomb (lob a classic black bomb: it explodes on landing, you TELEPORT to the blast, then snap around '
+    + 'and fire a RED LASER back toward where you were standing) · '
     + 'Up B Blast Lift (explode in place — knockback for anyone close — and launch yourself up, a little higher than Sparky) · '
     + 'Final Smash MASS BOMBING (a bomb on every foe, 5s fuse, 30% each).',
   shape:{ tail:null, scale:1.0, headR:.47 },
@@ -2555,7 +2555,7 @@ CHAR_EXTRA.bomber = {
     /* 下B：抛炸弹 → 落地爆炸 → 传送到爆点 → 朝原位置射爆炸箭 */
     d:{ kind:'bomberBomb', label:'Mortar Bomb', cd:4.6, color:0xff3b2f,
         spd:17, vy:7.0, grav:34, blastDmg:12, blastR:3.2,
-        arrowDmg:10, arrowSpd:30, arrowLife:.85 },
+        laserDmg:10, laserLen:3.6, laserBb:12, laserBg:30, laserAng:14 },
     /* 上B：原地爆炸 + 起飞（rise 32 > Sparky 的 27） */
     u:{ kind:'bomberUp', label:'Blast Lift', cd:1.8, color:0xff3b2f,
         dmg:12, bb:14, bg:38, ang:70, R:4.2, rise:28.5, dur:.66, hitDmg:6.5, hitBb:9, hitBg:38 },
@@ -10131,6 +10131,36 @@ function bomberExplode(owner, x, y, o) {
                        ang: o.ang || 66, stun: o.stun || 0 }, Math.sign(f.pos.x - x) || 1, k);
   }
 }
+/* ★ 下B 传送后的「回身红色激光」：从落点朝原位打一条**瞬发**激光（走廊判定，穿透）。
+   三层同轴 beam（外晕/亮芯/更粗的暗红）+ 枪口闪 + 末端爆点 = 一眼看出是「激光」而不是箭。 */
+function bomberLaserShot(owner, x0, x1, y, cfg) {
+  cfg = cfg || {};
+  const dir = Math.sign(x1 - x0) || (owner && owner.facing) || 1;
+  const span = Math.max(2.6, Math.abs(x1 - x0) + (cfg.laserLen || 3.6));
+  const y0 = y + 1.10, x2 = x0 + dir * span;
+  FX.beam(x0, y0, x2, y0, .46, 0xff5a24, .18);
+  FX.beam(x0, y0, x2, y0, .26, 0xff2a12, .30);
+  FX.beam(x0, y0, x2, y0, .11, 0xffd8c0, .26);
+  FX.flash(x0 + dir * .22, y0, .40, 4.2, 0xffb090, .22);
+  FX.ring(x0 + dir * .30, y0, .26, 1.7, 0xff3b1f, .26);
+  for (let k = 1; k <= 4; k++) FX.spark(x0 + dir * (span * k / 4.4), y0, .30, 5, 0xff6a2a);
+  FX.flash(x2, y0, .40, 4.2, 0xffc0a0, .20);
+  FX.ring(x2, y0, .24, 1.5, 0xff2a12, .22);
+  hitstop = Math.max(hitstop, .03);
+  shake = Math.min(1.3, shake + .34); camKick = Math.min(1, camKick + .20);
+  SFX.special('proj'); SFX.hit(78, 8);
+  for (const f of FIGHTERS) {
+    if (!f || f === owner || f.eliminated) continue;
+    if (owner && owner.team >= 0 && isTeammate(owner, f)) continue;
+    const dx = (f.pos.x - x0) * dir;
+    if (dx < -.25 || dx > span) continue;
+    if (Math.abs((f.pos.y + 1.0 * (f.def.shape.scale || 1)) - y0) > 1.55) continue;
+    f.takeHit(owner, { dmg:cfg.laserDmg || 10, bb:cfg.laserBb || 12, bg:cfg.laserBg || 30,
+                       ang: cfg.laserAng || 14 }, dir, 1);
+    f.vel.x += dir * 3.5;                       // takeHit 之后再补一点推（激光的「顶」感）
+    FX.spark(f.pos.x, f.pos.y + 1.05, .40, 10, 0xff6a2a);
+  }
+}
 /* 给某个角色身上贴一枚炸弹（左右B / 大招都用它）。计时挂在携带者身上 → 施法者死了也照炸。 */
 function bomberStickBomb(target, owner, o) {
   o = o || {};
@@ -10233,13 +10263,10 @@ function updateBomberMines(dt) {
             o2.pos.set(m.x, gy, 0); o2.vel.set(0, 0, 0); o2.grounded = true;
             o2.intangible = Math.max(o2.intangible, .24);
             o2.state = 'special'; o2.animT = 0; o2.spT = .22;
-            /* 爆炸箭：从新位置朝**原来的位置**平射 */
+            /* ★ 回身红色激光：从落点朝**原来的位置**打一条瞬发激光（原来是一支爆炸箭） */
             const ad = Math.sign(fromX - m.x) || (o2.facing || 1) * -1;
-            o2.facing = ad;                                     // 转身朝向「箭要飞的方向」= 原位
-            spawnProjectile(o2, m.x + ad * .8, gy + 1.15, ad, {
-              kind:'proj', label:'Blast Arrow', dmg:cfg.arrowDmg || 10, bb:11, bg:30, ang:12,
-              spd:cfg.arrowSpd || 30, size:.20, life:cfg.arrowLife || .85, hitR:.62,
-              color:0xff6a2a, tracer:true, spin:0 }, 1);
+            o2.facing = ad;                                     // 转身朝向激光打出去的方向 = 原位
+            bomberLaserShot(o2, m.x + ad * .72, fromX, gy, cfg);
             FX.flash(m.x, gy + 1.15, .34, 3.6, 0xffd0a0, .20);
             FX.ring(m.x, gy + 1.15, .24, 1.8, 0xff3b2f, .26);
             FX.dust(m.x, gy + .06, 12, 0xb08a6a);
