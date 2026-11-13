@@ -1904,7 +1904,7 @@ CHAR_EXTRA.alien = {
    左右B 骑滑板前冲、向后喷火｜中立B 激光炮（命中后链式飞向下一个最近敌人或 BOB；命中敌人麻痹 1s，命中 BOB 回血 10%）
    下B 召唤 BOB（Titan 体型：左手圆锯、右手爪子；会自动攻击打了机械师的人）｜上B 机械抓钩 */
 CHARS.push({ id:'mechanic', name:'Mechanic', en:'MECHANIC', tag:'Bot Wrangler',
-  body:0xe8b47a, body2:0x3f4a5a, dark:0x24303c, eye:0x20242c,
+  body:0xeef2f8, body2:0xd6dee8, dark:0x2a3340, eye:0x2ee6c8,   /* ★ 重做：白大褂 / 深灰裤子 / 护目镜青光 */
   shape:{ scale:1.0, headR:.47 },                       // ★ 与 Teacher 完全同一套体型
   weight:88, walk:10.4, run:15.4, air:11.2, jump:26.4, jumps:2, fall:34, fastFall:52,
   accel:56, airAccel:42, fric:27, mul:{ dmg:1.02, kb:.99, spd:1.0 },
@@ -1917,8 +1917,14 @@ CHARS.push({ id:'mechanic', name:'Mechanic', en:'MECHANIC', tag:'Bot Wrangler',
   },
   special:{} });
 CHAR_EXTRA.mechanic = {
-  trait:'Laser · Skate · BOB',
-  skills:'Neutral B Laser Cannon (the orb CHAINS: when it hits a foe it flies on toward the next-nearest foe or BOB — it does NOT home, it just re-aims on impact; foes get PARALYZED for 1s, hitting BOB REPAIRS it 10%) · Side B Skate Rush (rocket skateboard dash that sprays FLAME backwards) · Down B Summon BOB (Titan-sized bot with a circular saw and a claw — it takes real damage and auto-attacks whoever hits the Mechanic; at 150% it BREAKS and its wreck stays on the stage) · Up B Grapple Hook (traditional recovery with a mechanical grappler) · Final Smash Overclock (fire a 5-shot laser fan and REPAIR BOB: rebuilds a broken BOB on the spot, or heals a live one to full with the surplus stacking as an overshield)',
+  trait:'Lab Coat · Spider Squad · BOB',
+  skills:'PASSIVE BOB: your mech partner is summoned automatically at the start of the match. He fights on his own, and he now takes damage and knockback — at 100% (or the moment he gets LAUNCHED) he EXPLODES for 20% and comes back 10s later · '
+    + 'Neutral B Spider Squad (send out 4 small spider bots: they crawl forward, drop off ledges, and explode on contact for 8%) · '
+    + 'Side B Wrench Wagon (drive a little car forward: 15% a hit with tiny knockback, so the same foe gets hit again and again) · '
+    + 'Down B Laser Clamp (spin the four mech arms into a laser web: with a foe nearby you GRAB them and the arms tear into them for 30% total; '
+    + 'with nobody around you COLLECT enemy projectiles for 2s and fire back exactly as many in your own name) · '
+    + 'Up B Grapple Hook (mechanical grappler recovery) · '
+    + 'Final Smash Overclock (a 5-shot laser fan, plus BOB is rebuilt on the spot or overcharged)',
   shape:{ scale:1.0, headR:.47 },                       // ★ 与 Teacher 完全同一套体型
   weight:88, walk:10.4, run:15.4, air:11.2, jump:26.4, jumps:2, fall:34, fastFall:52,
   accel:56, airAccel:42, fric:27, mul:{ dmg:1.02, kb:.99, spd:1.0 },
@@ -1927,18 +1933,19 @@ CHAR_EXTRA.mechanic = {
        改向飞向「下一个最近的敌人」，最多 3 次改向 = 最多打 4 个目标；扫描半径 9→12，
        慢下来之后一次弹射看得清，不会一帧就飞完） */
     /* ★ 第五十一轮：**取消击退** —— bb/bg 归零（只麻痹、不推人），noKb:true 让打 BOB 时也不产生击退 */
-    n:{kind:'laserChain',label:'Laser Cannon',cd:1.05,dmg:7.5,bb:0,bg:0,ang:26,noKb:true,
-       spd:15,size:.40,life:1.8,chain:{n:3,scan:12.0},para:1.0,bobHeal:10,color:0x8fd8ff},
+    /* ★ 重做 · 中立B：派出 4 只机械蜘蛛（向前爬，遇到地形落差会掉下去，碰到敌人爆炸） */
+    n:{kind:'mechSpiders',label:'Spider Squad',cd:3.0,count:4,spd:7.2,life:7.0,
+       dmg:8,bb:9,bg:26,ang:56,R:1.9,color:0x8fd8ff},
     /* 左右B：机械滑板前冲 + 向后喷火 */
-    s:{kind:'skateFlame',label:'Skate Rush',cd:2.4,dashSpd:23,dur:.56,tick:.11,
-       dmg:3.6,bb:9,bg:26,ang:22,back:2.1,backR:2.4,color:0xff8a3a},
+    /* ★ 重做 · 左右B：开小车往前撞（15%/次，击退很小 → 同一个人会反复被撞到） */
+    s:{kind:'mechCar',label:'Wrench Wagon',cd:3.4,spd:18,dur:1.6,rehit:.42,
+       dmg:15,bb:3,bg:4,ang:40,color:0xffb347},
     /* 上B：机械抓钩 */
     u:{kind:'grapple',label:'Grapple Hook',cd:2.0,rise:30,dur:.52,dmg:4.0,bb:8,bg:24,ang:20,color:0xb8c4cc},
-    /* 下B：召唤 BOB */
-    /* ★ 第五十轮：BOB 射程削弱 —— reach 2.7→2.1（普攻/圆锯的贴身距离）、followR 5.5→4.6（跟得更近才打得到），
-       耐久 150%→100%，并且现在**会被近战打中、会被轻微击退**（以前是只用贴身代理判定的「无敌摆件」）。 */
-    d:{kind:'bob',label:'Summon BOB',cd:9.0,hp:100,decay:3.0,atkCd:1.05,dmg:6.5,bb:12,bg:34,ang:38,
-       spd:9.5,reach:2.1,followR:4.6,color:0x9fb4c0},
+    /* ★ 重做 · 下B：转动机械臂打激光 —— 身边有人就抓起来 10 段共 30%；没人就吸子弹、结束时按原数量打回去 */
+    d:{kind:'mechLaser',label:'Laser Clamp',cd:3.2,color:0x2ee6c8,
+       grabR:3.4,hits:10,dmg:3.0,gap:.11,bb:10,bg:26,ang:52,
+       dur:2.0,collectR:4.2,retSpd:30,retLife:1.4},
     },
 };
 
@@ -7683,80 +7690,152 @@ function ufoMesh(c) {
 
 /* ================= ★ Mechanic 的造型：护目镜机械师（工装 + 激光炮 + 机械滑板）================= */
 function kitMechanic(def) {
-  const mats = kitMats(def), g = new THREE.Group();
-  const skin = cmat(def.body, { roughness:.55 });
-  const suit = cmat(0x3f4a5a, { roughness:.6 });
-  const denim = cmat(0x2f5f8a, { roughness:.72 });
-  const metal = cmat(0x9fb4c0, { roughness:.35, metalness:.6 });
-  const lens = new THREE.MeshStandardMaterial({ color:0x9fe8ff, emissive:0x2f8fb0, emissiveIntensity:.7,
-    roughness:.15, metalness:.2, transparent:true, opacity:.85 });
-  const glowB = glowMat(0x8fd8ff, 1.6, 0x1f5f7a);
-
-  /* 躯干：工装背带 + 腰带 */
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(.58, .78, .38), denim);
-  torso.position.y = 1.40; g.add(torso);
-  const bib = new THREE.Mesh(new THREE.BoxGeometry(.40, .40, .08), suit);
-  bib.position.set(0, 1.50, .21); g.add(bib);
-  const belt = new THREE.Mesh(new THREE.BoxGeometry(.62, .10, .42), cmat(0x4a3a2a, { roughness:.7 }));
-  belt.position.y = 1.04; g.add(belt);
-  /* 腰上的扳手 */
-  const wrench = new THREE.Mesh(new THREE.BoxGeometry(.07, .34, .06), metal);
-  wrench.position.set(-.30, 1.02, .20); wrench.rotation.z = .35; g.add(wrench);
-  /* 头 + 护目镜 */
-  const head = new THREE.Group(); head.position.y = 2.06; g.add(head);
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(.30, 16, 12), skin);
-  skull.scale.set(1, 1.02, .96); head.add(skull);
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(.305, 14, 10, 0, Math.PI*2, 0, Math.PI*.55), cmat(0x2a2118, { roughness:.85 }));
-  hair.position.y = .03; head.add(hair);
-  const strap = new THREE.Mesh(new THREE.CylinderGeometry(.315, .315, .10, 16, 1, true), cmat(0x24303c, { roughness:.6 }));
-  strap.rotation.x = Math.PI/2; strap.position.set(0, .10, 0); head.add(strap);
-  for (const sx of [-1, 1]) {                            // ★ 防护眼镜：两个圆镜片
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(.125, .125, .06, 14), cmat(0x24303c, { roughness:.5 }));
-    rim.rotation.x = Math.PI/2; rim.position.set(sx * .145, .10, .27); head.add(rim);
-    const glass = new THREE.Mesh(new THREE.CylinderGeometry(.10, .10, .02, 14), lens);
-    glass.rotation.x = Math.PI/2; glass.position.set(sx * .145, .10, .31); head.add(glass);
+  /* ================= ★ 机械师 Mechanic（2026-11-13 重做）=================
+     外观：白大褂科学家 —— 立领白袍 + 内衬浅蓝衬衫 + 胸前口袋插三支工具 + 皮带 +
+           胶底鞋；脸上戴**护目镜**（推在额头上）+ 乱发；背后**四条机械臂**（左右各两条）。
+     契约：group / torso / belly / head / armL / armR / legL / legR / elbL / elbR /
+           mechArms[{pivot, elbow, tip}] ×4 / car（默认隐藏，左右B 开出来）/ tail:null
+     高度：脚底 y=0，头顶 ≈ 2.98（与 Teacher / 士兵同档） */
+  const g = new THREE.Group();
+  const H = def.shape.headR;
+  const mCoat  = cmat(def.body,  { roughness:.78, metalness:.02 });          // 白大褂
+  const mCoat2 = cmat(def.body2, { roughness:.72, metalness:.03 });          // 阴影褶
+  const mDk    = cmat(def.dark,  { roughness:.84 });                          // 深灰裤/鞋
+  const mShirt = cmat(0x8fd8ff,  { roughness:.66 });                          // 浅蓝衬衣
+  const mSkin  = cmat(0xe8b98f,  { roughness:.60 });
+  const mSkin2 = cmat(0xcf9a73,  { roughness:.68 });
+  const mHair  = cmat(0x2a2018,  { roughness:.92 });
+  const mMetal = new THREE.MeshStandardMaterial({ color:0x9aa6b4, metalness:.85, roughness:.28, flatShading:true });
+  const mMetalD= new THREE.MeshStandardMaterial({ color:0x4a5460, metalness:.80, roughness:.34, flatShading:true });
+  const mSteel = new THREE.MeshStandardMaterial({ color:0xd6dee8, metalness:.90, roughness:.20, flatShading:true });
+  const mGog   = glowMat(0x2ee6c8, 1.35, 0x0d3a34);                            // 护目镜镜片
+  const mRed   = cmat(0xd0433a, { roughness:.5 });
+  const BX = (p, w, h, d, m, x, y, z, rz, rx) => {
+    const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    o.position.set(x, y, z); if (rz) o.rotation.z = rz; if (rx) o.rotation.x = rx;
+    p.add(o); return o;
+  };
+  const CY = (p, rt, rb, h, m, x, y, z, rx, rz, seg) => {
+    const o = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 10), m);
+    o.position.set(x, y, z); if (rx) o.rotation.x = rx; if (rz) o.rotation.z = rz;
+    p.add(o); return o;
+  };
+  /* ---------------- 腿 + 鞋（深灰裤 + 胶底工作鞋，鞋底 y=0） ---------------- */
+  const legL = new THREE.Group(), legR = new THREE.Group();
+  legL.position.set(-.19, 1.02, 0); legR.position.set(.19, 1.02, 0);
+  g.add(legL, legR);
+  for (const [L, sg] of [[legL, -1], [legR, 1]]) {
+    BX(L, .20, .42, .24, mDk,   0, -.21, 0);
+    BX(L, .19, .06, .23, mMetalD, 0, -.44, .01);      // 膝盖补丁
+    BX(L, .18, .26, .21, mDk,   0, -.60, 0);
+    BX(L, .22, .16, .32, mMetalD, 0, -.80, .05);      // 工作鞋
+    BX(L, .235, .05, .38, mSteel, 0, -.895, .06);     // 鞋底（底面 = 0）
+    BX(L, .05, .035, .05, mRed,  sg * .06, -.80, .20); // 鞋带扣
   }
-  /* ⚠ 同上：Mechanic 的左手原来被画到了右边（用户报的「缺少一只手」就是这个）*/
-  const armL = kitArm(g, -1, mats, { x:.38, y:1.68, w:.13, len:.44, handGeo:new THREE.SphereGeometry(.10,8,6), handMat:skin });
-  const armR = kitArm(g,  1, mats, { x: .38, y:1.68, w:.13, len:.44, handGeo:new THREE.SphereGeometry(.10,8,6), handMat:skin });
-  /* 右手的激光炮（炮管 + 蓝色能量环） */
-  const cannon = new THREE.Group();
-  /* ★ 第四十九轮：炮改成「绑在前臂上的臂炮」——炮身沿小臂方向朝外（rotation.x = π 把炮管翻到手的远端），
-     不再像以前那样炮管和下垂的小臂呈 75° 直角（看着像手腕断了 / 炮插在肚子上）。
-     配合 animStep 里 mechanic 的待机姿势（右臂抬到 -1.15）→ 平时炮口就自然朝前下方。 */
-  cannon.position.set(0, -.70, .02); cannon.rotation.set(Math.PI, 0, 0); armR.add(cannon);
-  const body2 = new THREE.Mesh(new THREE.BoxGeometry(.22, .46, .22), metal);
-  body2.position.y = .12; cannon.add(body2);
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.085, .095, .40, 10), cmat(0x5a6b78, { roughness:.4, metalness:.5 }));
-  barrel.position.y = .46; cannon.add(barrel);
-  const coil = new THREE.Mesh(new THREE.TorusGeometry(.115, .028, 6, 14), glowB);
-  coil.rotation.x = Math.PI/2; coil.position.y = .40; cannon.add(coil);
-  const muzzle = new THREE.Mesh(new THREE.TorusGeometry(.10, .030, 6, 14), glowMat(0xcdeeff, 1.8, 0x2f8fb0));
-  muzzle.rotation.x = Math.PI/2; muzzle.position.y = .66; cannon.add(muzzle);
-  const legL = kitLeg(g, -1, mats, { x:.24, y:.86, w:.18, len:.46, fw:.34, fh:.20, fd:.46 });   // ★ 腿改用 Teacher 的参数（原来 y:.10/len:.22 → 看起来没腿）
-  const legR = kitLeg(g,  1, mats, { x:.24, y:.86, w:.18, len:.46, fw:.34, fh:.20, fd:.46 });
-  /* ★ 机械滑板（平时收起，左右B 时踩出来）：板面 + 四个轮子 + 尾喷口 */
-  const board = new THREE.Group();
-  board.position.y = .06; board.visible = false; g.add(board);
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.30, .10, .40), cmat(0x2a3a46, { roughness:.5 }));
-  board.add(deck);
-  const grip = new THREE.Mesh(new THREE.BoxGeometry(1.18, .03, .34), cmat(0x191f26, { roughness:.9 }));
-  grip.position.y = .07; board.add(grip);
+  /* ---------------- 躯干：白大褂（开襟）+ 衬衫 + 皮带 ---------------- */
+  const hips = BX(g, .52, .26, .34, mDk, 0, 1.16, 0);
+  const chest = BX(g, .58, .50, .38, mCoat, 0, 1.52, 0);
+  BX(g, .54, .24, .35, mCoat, 0, 1.80, 0);            // 肩胸
+  /* 白袍下摆：两片（侧视看得出是长外套） */
+  BX(g, .26, .46, .40, mCoat,  -.15, 1.03, .02, 0, 0);
+  BX(g, .26, .46, .40, mCoat,   .15, 1.03, .02, 0, 0);
+  BX(g, .06, .40, .38, mCoat2, 0, 1.03, .04);         // 中缝阴影
+  /* 开襟里的衬衫 + 领口 + 领带 */
+  BX(g, .20, .52, .05, mShirt, 0, 1.52, .195);
+  BX(g, .26, .10, .06, mCoat2, 0, 1.80, .19);
+  BX(g, .07, .26, .05, mCoat2, 0, 1.56, .215);
+  BX(g, .09, .09, .05, mRed,   0, 1.40, .215);
+  /* 皮带 + 扣 */
+  BX(g, .56, .09, .40, mDk,    0, 1.28, 0);
+  BX(g, .12, .08, .04, mSteel, 0, 1.28, .205);
+  /* 胸前口袋 + 三支工具（螺丝刀/扳手/试管）*/
+  BX(g, .17, .15, .03, mCoat2, .17, 1.62, .198);
+  BX(g, .022, .20, .022, mMetal, .13, 1.70, .215, .18);
+  BX(g, .018, .18, .018, mRed,   .17, 1.69, .215, -.10);
+  const tube = CY(g, .026, .026, .16, glowMat(0x6fe8a8, .9, 0x123a22), .21, 1.68, .215, 0, .22);
+  /* 大褂纽扣 */
+  for (let i = 0; i < 3; i++) BX(g, .035, .035, .02, mSteel, -.09, 1.62 - i * .13, .20);
+  /* 肩关节罩 */
+  for (const sg of [-1, 1]) {
+    const j = new THREE.Mesh(new THREE.SphereGeometry(.135, 10, 8), mCoat);
+    j.position.set(sg * .335, 1.80, 0); g.add(j);
+  }
+  /* ---------------- 手臂（白袍袖 + 卷起的袖口 + 手） ---------------- */
+  const armL = new THREE.Group(), armR = new THREE.Group();
+  armL.position.set(-.35, 1.80, 0); armR.position.set(.35, 1.80, 0);
+  g.add(armL, armR);
+  const elbL = new THREE.Group(), elbR = new THREE.Group();
+  for (const [A2, EL, sg] of [[armL, elbL, -1], [armR, elbR, 1]]) {
+    BX(A2, .21, .17, .24, mCoat,  0, -.03, 0);
+    BX(A2, .18, .30, .19, mCoat,  0, -.21, 0);
+    BX(A2, .19, .07, .20, mCoat2, 0, -.375, 0);       // 卷起的袖口
+    EL.position.set(0, -.40, 0); A2.add(EL);
+    BX(EL, .16, .26, .17, mSkin,  0, -.13, 0);        // 前臂（卷袖后露出）
+    BX(EL, .175, .06, .18, mSteel, 0, -.02, 0);       // 腕表
+    BX(EL, .155, .14, .17, mSkin2, 0, -.31, .01);     // 手
+  }
+  /* ---------------- 头：护目镜 + 乱发 + 下巴 ---------------- */
+  CY(g, .095, .11, .14, mSkin2, 0, 1.98, 0);
+  const head = new THREE.Group(); head.position.set(0, 2.10, 0); g.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(H, 16, 13), mSkin);
+  skull.scale.set(1, 1.05, .97); head.add(skull);      // head.children[0] = 头骨
+  const face = new THREE.Group(); face.position.set(0, 0, 0); head.add(face);
+  setEyes(face, H, def.eye, 'round');
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(.035, 8, 6), mSkin2);
+  nose.position.set(0, -.03, H * .92); head.add(nose);
+  /* 乱发：几撮方块 */
+  for (let i = 0; i < 5; i++) {
+    const h2 = BX(head, H * .34, H * .20, H * .30, mHair,
+                  (i - 2) * H * .26, H * .78 + (i % 2) * H * .10, -.02, (i - 2) * .18);
+  }
+  BX(head, H * 1.5, H * .30, H * .34, mHair, 0, H * .55, -.10);
+  /* ★ 护目镜：额头上的一条带 + 两个发光镜片（科学家标志） */
+  BX(head, H * 1.72, H * .20, H * .10, mMetalD, 0, H * .58, H * .78);
+  for (const sgn of [-1, 1]) {
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(H * .27, H * .27, H * .12, 14), mMetal);
+    lens.rotation.x = Math.PI / 2; lens.position.set(sgn * H * .36, H * .58, H * .86); head.add(lens);
+    const glass = new THREE.Mesh(new THREE.CylinderGeometry(H * .21, H * .21, H * .05, 14), mGog);
+    glass.rotation.x = Math.PI / 2; glass.position.set(sgn * H * .36, H * .58, H * .93); head.add(glass);
+  }
+  BX(head, H * .18, H * .12, H * .14, mMetalD, 0, H * .58, H * .90);
+  /* ---------------- ★ 背后四条机械臂（左右各两条，可动） ---------------- */
+  const mechArms = [];
+  for (let side = 0; side < 2; side++) {
+    for (let idx = 0; idx < 2; idx++) {
+      const sgn = side ? 1 : -1;
+      const mount = new THREE.Mesh(new THREE.SphereGeometry(.105, 10, 8), mMetalD);
+      mount.position.set(sgn * .22, 1.86 - idx * .18, -.22); g.add(mount);
+      const pivot = new THREE.Group();
+      pivot.position.copy(mount.position); g.add(pivot);
+      const L1 = .40 + idx * .06;
+      const upper = CY(pivot, .055, .048, L1, mMetal, 0, -L1 * .5, 0);
+      const elbow = new THREE.Group(); elbow.position.set(0, -L1, 0); pivot.add(elbow);
+      const L2 = .34 + idx * .05;
+      CY(elbow, .046, .040, L2, mMetalD, 0, -L2 * .5, 0);
+      const claw = new THREE.Group(); claw.position.set(0, -L2, 0); elbow.add(claw);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(.062, 10, 8), mGog);
+      claw.add(tip);
+      for (let k = 0; k < 3; k++) {                       // 三指爪
+        const a = -1 + k;
+        const fng = BX(claw, .035, .16, .045, mSteel, a * .055, -.10, .02, a * .25);
+      }
+      mechArms.push({ pivot, elbow, claw, tip, side:sgn, idx });
+    }
+  }
+  /* ---------------- 小车（左右B 开出来；默认隐藏） ---------------- */
+  const car = new THREE.Group();
+  car.position.set(0, .30, 0); car.visible = false;
+  BX(car, .92, .24, .58, cmat(0xc23a30, { roughness:.55 }), 0, .02, 0);       // 车身
+  BX(car, .62, .18, .50, cmat(0xe8eef6, { roughness:.6 }), 0, .18, 0);        // 座舱
+  BX(car, .20, .10, .50, cmat(0x2a3340, { roughness:.7 }), 0, .30, -.02);     // 风挡框
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.10, .10, .08, 10), cmat(0x11161c, { roughness:.6 }));
-    wheel.rotation.x = Math.PI/2; wheel.position.set(sx * .48, -.10, sz * .14); board.add(wheel);
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(.15, .15, .09, 12), mMetalD);
+    w.rotation.x = Math.PI / 2; w.position.set(sx * .40, -.10, sz * .28); car.add(w);
   }
-  const jet = new THREE.Mesh(new THREE.ConeGeometry(.10, .30, 10), glowMat(0xff8a3a, 1.7, 0x7a2a10));
-  jet.rotation.z = -Math.PI/2; jet.position.set(-.70, .02, 0); board.add(jet);
-  /* ★ 体型对齐 Teacher：头 ×1.42 把「头身比」拉到和 Teacher 一样（0.318 vs 0.316），整体不再额外放大（身高随之对齐 3.22 vs 3.21） */
-  head.scale.setScalar(1.42);
-  head.position.y = 2.12;
-  const inner = new THREE.Group();
-  inner.scale.setScalar(1.0);
-  for (const ch of g.children.slice()) { g.remove(ch); inner.add(ch); }
-  g.add(inner);
-  return { group:g, torso, belly:torso, head, armL, armR, legL, legR, tail:null,
-           cannon, board, coil, muzzle };
+  BX(car, .16, .08, .10, glowMat(0xffe066, 1.4, 0x4a3a00), .48, .04, 0);      // 前灯
+  g.add(car);
+  return { group:g, torso:chest, belly:hips, head, armL, armR, legL, legR, elbL, elbR,
+           mechArms, car, tail:null };
 }
 
 /* ================= ★ BOB：Titan 体型的机器伙伴（左手圆锯 / 右手爪子 / 单眼）================= */
@@ -10316,6 +10395,85 @@ function updateBomberMines(dt) {
   }
 }
 
+/* ================= ★ 机械师重做：机械蜘蛛（世界实体，固定步跑） =================
+   4 只小蜘蛛向前爬；脚下有地就贴着走，走到边缘（stageFloorY 变 null 或变低）会掉下去；
+   碰到敌人立刻爆炸（范围内 8%），7 秒没炸到也自爆。 */
+const MECH_SPIDERS = [];
+function mechSpiderMesh(col) {
+  const g = new THREE.Group();
+  const bodyM = new THREE.MeshStandardMaterial({ color:0x2b2f38, metalness:.62, roughness:.34 });
+  const legM = new THREE.MeshStandardMaterial({ color:0x9aa6b4, metalness:.75, roughness:.28 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(.16, 12, 9), bodyM);
+  body.scale.set(1.3, .82, 1.05); g.add(body);
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(.055, 8, 6), glowMat(col || 0x8fd8ff, 1.5, 0x123244));
+  eye.position.set(.15, .05, .05); g.add(eye);
+  const legs = [];
+  for (let i = 0; i < 3; i++) for (const sg of [-1, 1]) {
+    const leg = new THREE.Group();
+    leg.position.set(-.09 + i * .09, 0, sg * .09);
+    const l1 = new THREE.Mesh(new THREE.CylinderGeometry(.020, .016, .24, 5), legM);
+    l1.position.set(0, -.10, sg * .09); l1.rotation.z = -.42; l1.rotation.x = sg * .6; leg.add(l1);
+    g.add(leg); legs.push(leg);
+  }
+  g.userData.legs = legs;
+  return g;
+}
+function spawnMechSpiders(owner, cfg) {
+  const n = cfg.count || 4;
+  for (let i = 0; i < n; i++) {
+    const m = mechSpiderMesh(cfg.color);
+    scene.add(m);
+    const off = (i - (n - 1) / 2) * .52;
+    MECH_SPIDERS.push({ owner, cfg, x: owner.pos.x + off,
+      y: Math.max(0, owner.pos.y) + .30, vx: (cfg.spd || 7.2) * ((i % 2) ? .88 : 1.06) * (owner.facing || 1),
+      vy: 2.4 + i * .35, t: 0, mesh:m, legs:m.userData.legs, spin: i * 1.3, grounded:false });
+  }
+  FX.ring(owner.pos.x, owner.pos.y + .22, .28, 2.2, cfg.color, .34);
+  FX.dust(owner.pos.x, owner.pos.y + .06, 8, 0x9fb4c0);
+  callout(owner, 'SPIDERS ×' + n, cfg.color);
+  SFX.special('proj');
+}
+function updateMechSpiders(dt) {
+  if (!MECH_SPIDERS.length) return;
+  for (let i = MECH_SPIDERS.length - 1; i >= 0; i--) {
+    const sp = MECH_SPIDERS[i], cfg = sp.cfg || {};
+    sp.t += dt; sp.spin += dt * 7;
+    sp.vy -= CFG.G * dt;
+    sp.x += sp.vx * dt; sp.y += sp.vy * dt;
+    /* 地形：脚下有地就贴着地面走；走到边缘 → 直接掉下去（用户要的「遇到地形变化会下落」） */
+    const gy = stageFloorY(sp.x);
+    if (gy !== null && sp.y <= gy + .16 && sp.vy <= 0) { sp.y = gy + .16; sp.vy = 0; sp.grounded = true; }
+    else if (gy !== null && sp.grounded && sp.y > gy + .18) sp.grounded = false;
+    sp.mesh.position.set(sp.x, sp.y, 0);
+    sp.mesh.rotation.z = Math.sin(sp.spin) * .10;
+    sp.legs.forEach((l, k) => { l.rotation.z = Math.sin(sp.spin + k * 1.05) * .55; });
+    if (Math.abs(sp.x) > STAGE.wallX + 3.0 || sp.y < -14) { scene.remove(sp.mesh); MECH_SPIDERS.splice(i, 1); continue; }
+    /* 碰人 / 到寿 → 爆炸 */
+    let boom = sp.t >= (cfg.life || 7.0);
+    if (!boom) for (const f of FIGHTERS) {
+      if (!f || f === sp.owner || f.eliminated) continue;
+      if (sp.owner && sp.owner.team >= 0 && isTeammate(sp.owner, f)) continue;
+      if (Math.abs(f.pos.x - sp.x) < .55 + f.bodyR * .45 && Math.abs((f.pos.y + .55) - sp.y) < 1.3) { boom = true; break; }
+    }
+    if (boom) {
+      const R = cfg.R || 1.9;
+      for (const f of FIGHTERS) {
+        if (!f || f === sp.owner || f.eliminated) continue;
+        if (sp.owner && sp.owner.team >= 0 && isTeammate(sp.owner, f)) continue;
+        if (Math.hypot(f.pos.x - sp.x, (f.pos.y + .8) - sp.y) > R + f.bodyR * .4) continue;
+        f.takeHit(sp.owner, { dmg: cfg.dmg || 8, bb: cfg.bb || 9, bg: cfg.bg || 26, ang: cfg.ang || 56 },
+                  Math.sign(f.pos.x - sp.x) || 1, 1);
+      }
+      FX.burst(sp.x, sp.y + .18, .10, 0x9fd8ff, 16, 12);
+      FX.ring(sp.x, sp.y + .16, .22, 2.4, cfg.color || 0x8fd8ff, .34);
+      FX.crater(sp.x, Math.max(0, sp.y - .1), 1.3, 0x9fb4c0);
+      FX.spark(sp.x, sp.y + .2, .30, 8, 0xdff6ff);
+      SFX.hit(34, cfg.dmg || 8); shake = Math.max(shake, .24);
+      scene.remove(sp.mesh); MECH_SPIDERS.splice(i, 1);
+    }
+  }
+}
+
 /* ================= 天降打击（Mage·Meteor / Archer·Arrow Rain） ================= */
 const strikes = [];
 /* ================= ★ Cardboard 大招：准星 UI + 屏幕点选 → 追踪火箭 ================= */
@@ -11607,6 +11765,7 @@ class Fighter {
     this.ufo = null; this.ufoCrash = null; this.abductTarget = null; this.abducted = false;  // ★ Alien
     this.saber = null; this.tractor = null; this.laserT = 0; this._ufoMesh = null;
     this.skate = null; this.grapple = null; this.bobRef = null; this.mechAggro = null; this.bobT = 0;  // ★ Mechanic
+    this.mechCar = null; this.mechLaser = null; this.bobRespawnT = 0;   // ★ 重做：小车 / 激光机械臂 / BOB 重生倒计时
     this.bobPull = null;   this.voltCombo = null; this.bounceT = 0; this.upKick = null;   // ★ 被 BOB 抓钩拽住 / Sparky 冲刺连招 / 落地反弹 / 上踢
     this.warp = null; this.duneRun = null; this.bandage = null; this.qsPull = null; this.sandT = 0;   // ★ Quicksand 三技 + 被绷带拽 / 沙缚
     this.sandBy = null; this._sandShell = null;                                                       // ★ 沙缚的施法者 / 沙壳网格
@@ -11667,6 +11826,7 @@ class Fighter {
     this.ufo = null; this.ufoCrash = null; this.abductTarget = null; this.abducted = false;  // ★ Alien
     this.saber = null; this.tractor = null; this.laserT = 0; this._ufoMesh = null;
     this.skate = null; this.grapple = null; this.bobRef = null; this.mechAggro = null; this.bobT = 0;  // ★ Mechanic
+    this.mechCar = null; this.mechLaser = null; this.bobRespawnT = 0;   // ★ 重做：小车 / 激光机械臂 / BOB 重生倒计时
     this.bobPull = null;   this.voltCombo = null; this.bounceT = 0; this.upKick = null;   // ★ 被 BOB 抓钩拽住 / Sparky 冲刺连招 / 落地反弹 / 上踢
     this.warp = null; this.duneRun = null; this.bandage = null; this.qsPull = null; this.sandT = 0;   // ★ Quicksand 三技 + 被绷带拽 / 沙缚
     this.sandBy = null; this._sandShell = null;                                                       // ★ 沙缚的施法者 / 沙壳网格
@@ -11683,6 +11843,11 @@ class Fighter {
     this.monkGrow = 0;                                        // ★ 武僧被动棍势：每局从 0 开始（重生不清，见 monkReset）
     if (this.def && this.def.id === 'monk') { try { this.monkReset(); } catch (e) {} }
     if (this.def && this.def.id === 'bomber') { try { this.bomberReset(); } catch (e) {} }
+    /* ★ 重做：BOB 改为**开局自动召唤**（以前要按 ↓B） */
+    if (this.def && this.def.id === 'mechanic') {
+      try { for (const old of BOBS.slice()) if (old.owner === this) removeBob(old); } catch (e) {}
+      try { spawnBob(this, this.def.special.d || {}); } catch (e) {}
+    }
     this.leap = null; this.quakeT = 0;                         // Gorilla·横B跃击 / 下B地震动画计时
     this.hack = 0; this.flyT = 0; this._flyAir = 0; this._flyFx = 0; this.glitchT = 0; this.warpCast = null;   // Hacker
     this.guardT = 0; this.guardCut = 1; this.guardKb = 1;
@@ -12499,6 +12664,7 @@ class Fighter {
         break;
       }
       case 'mechFS': {                                   // ★ Mechanic·Overclock：修复/重启 BOB + 五连扇形激光
+        if (!this.bobRef) { try { spawnBob(this, (this.def.special && this.def.special.d) || {}); } catch (e) {} }
         const bb2 = this.bobRef;
         if (bb2) {
           const rp = repairBob(bb2);                     // ★ 损毁→原地复活；未损毁→回满并可溢出
@@ -13071,7 +13237,7 @@ class Fighter {
     if (this.spray || this.volley || this.rise || this.meat || this.rush) this.tamerTick(dt, inp);
     if (this.hug || this.hugDash) this.hugTick(dt, inp);
     if (this.ufo || this.ufoCrash || this.tractor || this.saber || this.abductTarget) this.alienTick(dt, inp);
-    if (this.skate || this.grapple || this.bobT > 0) this.mechTick(dt, inp);
+    if (this.skate || this.grapple || this.bobT > 0 || this.mechCar || this.mechLaser) this.mechTick(dt, inp);
     if (this.warp || this.duneRun || this.bandage) this.qsTick(dt, inp);
     if (this.pounce || this.tiger || this.tailS || this.devour) this.fangTick(dt, inp);
     if (this.storm || this.grab) this.archerTick(dt, inp);
@@ -14410,6 +14576,118 @@ class Fighter {
     /* ★ 第五十轮修 BUG：召唤 BOB 的举手姿势计时 `bobT` 从来没人递减（只有 doSpecial 里赋 .45），
        于是「下B 召唤 BOB 一次」之后机械师的**双臂会永远举着**（端着炮像僵尸）——这就是动作怪异的真凶。 */
     if (this.bobT > 0) this.bobT = Math.max(0, this.bobT - dt);
+    /* ★ 重做：BOB 被炸掉后 10 秒自动重新召唤 */
+    if (this.bobRespawnT > 0) {
+      this.bobRespawnT -= dt;
+      if (this.bobRespawnT <= 0 && !this.bobRef) {
+        try { spawnBob(this, (this.def.special && this.def.special.d) || {}); } catch (e) {}
+      }
+    }
+    /* ===== ★ 重做 · 左右B：小车冲刺（15%/次，击退极小 → 同一个目标会被反复撞到） ===== */
+    const MC = this.mechCar;
+    if (MC) {
+      const cfg = MC.cfg; MC.t += dt;
+      this.state = 'special';
+      this.vel.x = MC.dir * (cfg.spd || 18);
+      this.vel.y *= .94;
+      if (MC.t % .08 < dt) FX.dust(this.pos.x - MC.dir * .85, this.pos.y + .05, 2, 0x8a8f99);
+      for (const f of FIGHTERS) {
+        if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (Math.abs(f.pos.x - this.pos.x) > 1.5 + f.bodyR * .4) continue;
+        if (Math.abs(f.pos.y - this.pos.y) > 2.2) continue;
+        if ((MC.hitCd[f.uid] || 0) > 0) continue;
+        MC.hitCd[f.uid] = cfg.rehit || .42;
+        f.takeHit(this, { dmg:cfg.dmg || 15, bb:cfg.bb || 3, bg:cfg.bg || 4, ang:cfg.ang || 40, stun:.06 },
+                  MC.dir, 1);
+        f.vel.x += MC.dir * 2.0;                      // 小击退（推一点点，不把人打飞）
+        FX.spark(f.pos.x, f.pos.y + .85, .38, 8, cfg.color);
+        FX.ring(f.pos.x, f.pos.y + .45, .24, 1.7, cfg.color, .24);
+        SFX.hit(30, cfg.dmg); shake = Math.max(shake, .20);
+      }
+      for (const k in MC.hitCd) if (MC.hitCd[k] > 0) MC.hitCd[k] -= dt;
+      if (MC.t >= (cfg.dur || 1.6)) { this.mechCar = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      return;
+    }
+    /* ===== ★ 重做 · 下B：激光机械臂（抓人 30% / 吸子弹按原数量打回） ===== */
+    const ML = this.mechLaser;
+    if (ML) {
+      const cfg = ML.cfg; ML.t += dt;
+      this.state = 'special';
+      const ax = this.pos.x, ay = this.pos.y + 1.50;
+      /* 机械臂之间拉激光（视觉：两条平行 + 一条交叉） */
+      FX.beam(ax - .85, ay + .16, ax + .85, ay + .16, .075, cfg.color, .10);
+      FX.beam(ax - .70, ay - .14, ax + .70, ay - .14, .055, 0xdff6ff, .08);
+      FX.beam(ax - .60, ay + .34, ax + .60, ay - .30, .045, cfg.color, .08);
+      if (ML.mode === 'grab') {
+        const T = ML.target;
+        if (!T || T.eliminated) { this.mechLaser = null; this.state = this.grounded ? 'idle' : 'fall'; return; }
+        this.vel.set(0, 0, 0); this.facing = ML.dir;
+        const tx = this.pos.x + ML.dir * 1.45;
+        T.pos.x += (tx - T.pos.x) * Math.min(1, dt * 16);
+        T.pos.y += ((this.pos.y + .95) - T.pos.y) * Math.min(1, dt * 8);
+        T.vel.set(0, 0, 0);
+        T.hitstun = Math.max(T.hitstun || 0, .20);
+        const NH = cfg.hits || 10;
+        if (ML.t >= ML.next && ML.n < NH) {
+          const last = (ML.n === NH - 1);
+          ML.n++; ML.next = ML.t + (cfg.gap || .11);
+          T.invuln = 0; T.intangible = 0;
+          T.takeHit(this, { dmg: cfg.dmg || 3.0, bb: last ? (cfg.bb || 10) : 1.2, bg: last ? (cfg.bg || 26) : 3,
+                            ang: last ? (cfg.ang || 52) : 30, stun:.10 }, ML.dir, last ? 1 : 0);
+          FX.beam(ax - ML.dir * .75, ay, T.pos.x, T.pos.y + .95, .085, cfg.color, .11);
+          FX.spark(T.pos.x, T.pos.y + .95, .34, 8, cfg.color);
+          SFX.hit(24 + ML.n, cfg.dmg);
+          if (last) {
+            FX.ring(T.pos.x, T.pos.y + 1.0, .30, 2.8, cfg.color, .40);
+            FX.burst(T.pos.x, T.pos.y + 1.0, .18, 0xdff6ff, 16, 12);
+            shake = Math.min(1.1, shake + .40); SFX.heavy();
+            callout(this, 'CLAMP 30%', cfg.color);
+          }
+        }
+        if (ML.n >= NH && ML.t > ML.next + .25) { this.mechLaser = null; this.state = this.grounded ? 'idle' : 'fall'; }
+        if (ML.t > 3.2) this.mechLaser = null;
+        return;
+      }
+      /* collect：把对手的子弹吸进机械臂 */
+      const R = cfg.collectR || 4.2;
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        if (!p || !p.owner || p.owner === this) continue;
+        if (this.team >= 0 && isTeammate(this, p.owner)) continue;
+        if (Math.hypot(p.x - this.pos.x, p.y - (this.pos.y + 1.4)) > R) continue;
+        ML.got.push({ owner:p.owner, dmg:(p.cfg && p.cfg.dmg ? p.cfg.dmg : 6) * (p.chargeMul || 1) });
+        scene.remove(p.mesh); projectiles.splice(i, 1);
+        FX.ring(this.pos.x, this.pos.y + 1.4, .22, 1.9, cfg.color, .24);
+        FX.spark(this.pos.x, this.pos.y + 1.4, .30, 6, 0xdff6ff);
+        SFX.tone(760, 1240, .08, 'sine', .04);
+      }
+      if (ML.t >= ML.dur) {
+        /* 时间到：按**原数量**、以自己名义朝发射者打回去 */
+        const byOwner = new Map();
+        for (const g2 of ML.got) {
+          const arr = byOwner.get(g2.owner) || []; arr.push(g2); byOwner.set(g2.owner, arr);
+        }
+        let sent = 0;
+        for (const [ow, list] of byOwner) {
+          if (!ow || ow.eliminated) continue;
+          const d2 = Math.sign(ow.pos.x - this.pos.x) || (this.facing || 1);
+          for (const g2 of list) {
+            spawnProjectile(this, this.pos.x + d2 * .7, this.pos.y + 1.4, d2, {
+              kind:'proj', label:'Returned Bolt', dmg:g2.dmg, bb:10, bg:26, ang:20,
+              spd:(cfg.retSpd || 30), size:.28, life:(cfg.retLife || 1.4), hitR:.55,
+              color:cfg.color, tracer:true, spin:0 }, 1);
+            sent++;
+          }
+          FX.beam(this.pos.x, this.pos.y + 1.4, ow.pos.x, ow.pos.y + 1.2, .10, cfg.color, .20);
+        }
+        if (sent) { callout(this, 'RETURN ×' + sent, cfg.color); SFX.special('proj'); shake = Math.max(shake, .30); }
+        else callout(this, 'NOTHING TO RETURN', 0x8fa8b8);
+        this.mechLaser = null; this.state = this.grounded ? 'idle' : 'fall';
+      }
+      if (ML.t > (ML.dur || 2) + 1.0) this.mechLaser = null;
+      return;
+    }
     /* —— 左右B：机械滑板前冲，火焰在**身后**烧 —— */
     if (this.skate) {
       const S2 = this.skate, cfg = S2.cfg;
@@ -17245,7 +17523,7 @@ class Fighter {
         this.vexRush || this.vexRise || this.vexDive || this.vexSpray ||
         this.trashClap || this.trashRush || this.trashGas || this.wardenRush ||
         this.monkRush || this.monkSpin || this.monkLeap || this.monkSlam ||
-        this.bomberRush || this.bomberUp) {
+        this.bomberRush || this.bomberUp || this.mechCar || this.mechLaser) {
       this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
       inp.x = 0; inp.y = 0; inp.jumpP = false; inp.atkP = false; inp.atkR = false;
       inp.spP = false; inp.shHeld = false; inp.atkHeld = false; inp.spHeld = false; inp.fsP = false; inp.mash = 0;
@@ -17253,7 +17531,7 @@ class Fighter {
           !this.reapCombo && !this.pumpkinForm && !this.hallowSweep && !this.hallowRise &&
           !this.vexRush && !this.vexRise && !this.vexDive && !this.vexSpray &&
           !this.trashRush && !this.trashClap && !this.mosq && !this.wardenRush &&
-          !this.monkRush && !this.monkLeap && !this.monkSlam && !this.bomberRush) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪/蚊子冲刺 自己管速度
+          !this.monkRush && !this.monkLeap && !this.monkSlam && !this.bomberRush && !this.mechCar) this.vel.x = 0;   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪/蚊子冲刺 自己管速度
       return;
     }
     /* ★ Blub·雷弹：麻痹期间做不了任何动作（但**会吃击退** —— 和 Hacker 的锁定不同） */
@@ -17458,6 +17736,7 @@ class Fighter {
               this.warp || this.duneRun || this.bandage ||
               this.wardenRush || this.wardenSonic || this.wardenLeap ||   // ★ 坚守者（下B 感测体是部署型，不进互斥）
               this.soldierVolley || this.soldierRush || this.soldierUpper ||   // ★ 士兵（下B 散弹是一次性发射，不进互斥）
+              this.mechCar || this.mechLaser ||                                  // ★ 机械师重做：小车 / 激光机械臂
               this.monkRush || this.monkSpin || this.monkLeap || this.monkSlam ||   // ★ 武僧（投棍是瞬发，不进互斥）
               this.bomberRush || this.bomberUp);                                   // ★ 炸药师（投弹/布雷是瞬发，不进互斥）
   }
@@ -17650,6 +17929,48 @@ class Fighter {
       this.state = 'special'; this.animT = 0;
       SFX.special('recover'); SFX.heavy();
       callout(this, 'BLAST LIFT', cfg.color);
+      return true;
+    }
+    /* ---------- ★ 机械师 · 中立B：派 4 只机械蜘蛛 ---------- */
+    if (cfg.kind === 'mechSpiders') {
+      spawnMechSpiders(this, cfg);
+      this.bobT = .30; this.state = 'special'; this.animT = 0; this.spT = .30;
+      return true;
+    }
+    /* ---------- ★ 机械师 · 左右B：开小车撞人（15%，小击退可多次） ---------- */
+    if (cfg.kind === 'mechCar') {
+      this.mechCar = { cfg, t:0, dir, hitCd:{} };
+      this.state = 'special'; this.animT = 0;
+      this.vel.x = dir * (cfg.spd || 18);
+      FX.dust(this.pos.x, this.pos.y + .06, 10, 0x9fb4c0);
+      FX.ring(this.pos.x, this.pos.y + .25, .24, 1.6, cfg.color, .26);
+      SFX.special('dash');
+      callout(this, 'WRENCH WAGON', cfg.color);
+      return true;
+    }
+    /* ---------- ★ 机械师 · 下B：激光机械臂（抓人 30% / 吸子弹打回去） ---------- */
+    if (cfg.kind === 'mechLaser') {
+      let tg = null, bd = cfg.grabR || 3.4;
+      for (const f of FIGHTERS) {
+        if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0 || f.pumpkinForm) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        const d = Math.abs(f.pos.x - this.pos.x) + Math.abs(f.pos.y - this.pos.y) * .5;
+        if (d < bd) { bd = d; tg = f; }
+      }
+      if (tg) {
+        this.mechLaser = { cfg, t:0, mode:'grab', target:tg, n:0, next:.06, dir };
+        this.mechLaser.dir = Math.sign(tg.pos.x - this.pos.x) || dir;
+        tg.hitstun = Math.max(tg.hitstun || 0, .30);
+        callout(this, 'LASER CLAMP', cfg.color);
+        SFX.special('wave');
+      } else {
+        this.mechLaser = { cfg, t:0, mode:'collect', got:[], dur:cfg.dur || 2.0 };
+        callout(this, 'COLLECTING 2s', cfg.color);
+        SFX.special('recover');
+      }
+      this.state = 'special'; this.animT = 0;
+      FX.ring(this.pos.x, this.pos.y + 1.3, .30, 2.6, cfg.color, .40);
+      FX.flash(this.pos.x, this.pos.y + 1.4, .40, 4.0, 0xdff6ff, .20);
       return true;
     }
     /* ---------- ★ 武僧 · 中立B：投棍 / 空手跳到棍位 + 冲击波 ---------- */
@@ -23477,6 +23798,7 @@ function physicsStep(s) {
   updateBlocks(s);                                  // ★ Blocky 的方块：寿命/闪烁/自动消失
   updateDrones(s);
   updateStrikes(s);
+  updateMechSpiders(s);                              // ★ 机械师：机械蜘蛛（固定步）
   updateBomberMines(s);                              // ★ 炸药师：炮弹/投掷物/地雷/抛出的炸弹（固定步）
   updatePuddles(s);
   updateGems(s);                                     // ★ 宝石争夺战：矿井/宝石/倒计时（固定步 + 参与指纹）
@@ -23894,26 +24216,34 @@ function bobDamage(b, dmg, dirX = 0, kb = 0) {
   }
   FX.spark(b.x, b.y + 1.5, .32, 5, 0xffd27a);
   callout(b.owner, 'BOB ' + Math.round(b.dmg) + '%', 0xffd27a);
+  /* ★ 重做：被**击退**（击退量够大）也直接爆炸 —— 用户要求「到一定%后会爆炸，被击退也会爆炸」。
+     ⚠ k 在 if (dmg>0) 块里声明，这里必须自己再算一次，不能引用块外的 k（会 ReferenceError）。 */
+  const _kbv = (kb === undefined || kb === null) ? (.55 + dmg * .10) : kb;
+  if (dmg > 0 && _kbv >= 8) { callout(b.owner, 'BOB LAUNCHED!', 0xff6b6b); destroyBob(b); return; }
   if (b.dmg >= b.maxDmg) destroyBob(b);
 }
 function destroyBob(b) {
+  /* ★ 重做：BOB 不再留残骸，而是**爆炸**（大范围高伤），然后 10 秒后自动重新召唤 */
   if (!b || b.destroyed) return;
   b.destroyed = true; b.dmg = b.maxDmg;
-  b.mesh.visible = false;
-  if (!b.wreck) { b.wreck = bobWreck(); scene.add(b.wreck); }
-  b.wreck.visible = true;
-  b.wreck.position.set(b.x, 0, 0);
-  FX.burst(b.x, b.y + 1.2, .4, 0x9fb4c0, 26, 18);
-  FX.ring(b.x, .3, .3, 4.0, 0xffd27a, .5);
-  FX.crater(b.x, 0, 2.4, 0xffb347);
-  shake = Math.min(1.2, shake + .4); SFX.heavy();
-  callout(b.owner, 'BOB DESTROYED', 0xff6b6b);
-  /* 爆炸伤到周围敌人（不伤机械师自己） */
+  const bx = b.x, by = b.y;
+  FX.burst(bx, by + 1.2, .40, 0xffb347, 34, 22);
+  FX.ring(bx, by + .3, .32, 5.0, 0xffd27a, .55);
+  FX.ring(bx, by + .3, .24, 3.2, 0xfff3c8, .38);
+  FX.crater(bx, Math.max(0, by), 3.0, 0xffb347);
+  FX.flash(bx, by + 1.2, .50, 8.0, 0xffe9a8, .34);
+  FX.dust(bx, Math.max(0, by) + .06, 20, 0xb08a6a);
+  shake = Math.min(1.35, shake + .7); camKick = Math.min(1, camKick + .35);
+  hitstop = Math.max(hitstop, .05); SFX.heavy();
+  callout(b.owner, 'BOB EXPLODED', 0xff6b6b);
   for (const f of FIGHTERS) {
     if (!f || f === b.owner || f.eliminated) continue;
-    if (Math.hypot(f.pos.x - b.x, f.pos.y - b.y) < 3.0)
-      f.takeHit(b.owner, { dmg: 10.0, bb: 14, bg: 40, ang: 64 }, Math.sign(f.pos.x - b.x) || 1, 1);
+    if (b.owner && b.owner.team >= 0 && isTeammate(b.owner, f)) continue;
+    if (Math.hypot(f.pos.x - bx, (f.pos.y + .9) - by) < 3.6 + f.bodyR * .4)
+      f.takeHit(b.owner, { dmg: 20.0, bb: 16, bg: 44, ang: 64 }, Math.sign(f.pos.x - bx) || 1, 1);
   }
+  if (b.owner) b.owner.bobRespawnT = 10.0;      // 10 秒后自动重新召唤
+  removeBob(b);
 }
 /* ★ 大招修 BOB：损毁 → 原地复活；未损毁 → 回满并允许溢出（伤害降到 0 以下 = 临时护盾） */
 function repairBob(b) {
