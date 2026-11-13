@@ -1254,9 +1254,9 @@ const CHARS = [
     accel:42, airAccel:32, fric:31,
     mul:{ dmg:1.05, kb:1.04, spd:.93 },
     /* ★ 冰冻机制：每次命中叠 1 层 frost，满 5 层 → 冻结 2 秒（期间不能推动/击飞） */
-    skills:'PASSIVE Frostbite (every hit from Blizzard stacks 1 ICE; at 5 stacks the target is FROZEN for 2s — cannot be pushed or launched) · Neutral B Cryo Lance (short dash then a 3s ice laser: 10 ticks / 30% total, 1 stack each — anything caught in the beam is pinned and cannot escape; Blizzard himself stays rooted while firing) · Side B Avalanche Roll (charges forward rolling a snowball that grows as it goes; foes it touches get rolled INTO the ball, and when it ends the ball explodes for 15% and 5 stacks on everyone inside) · Up B Glacier Rise (multi-hit rise, 1 stack per hit) · Down B Permafrost Quake (stomps the ground, launching nearby foes upward for 10%, 2 stacks, only 4s cooldown) · FINAL SMASH Blizzard Front (turns the weather to snow for 10s: every 2s everyone except Blizzard gains 2 stacks)',
+    skills:'PASSIVE Frostbite (every hit from Blizzard stacks 1 ICE; at 5 stacks the target is FROZEN for 2s — cannot be pushed or launched) · Neutral B Cryo Lance (short dash then a 1.5s ice laser: 10 ticks / 30% total, 1 stack each — anything caught in the beam is pinned and cannot escape; Blizzard himself stays rooted while firing) · Side B Avalanche Roll (charges forward rolling a snowball that grows as it goes; foes it touches get rolled INTO the ball, and when it ends the ball explodes for 15% and 5 stacks on everyone inside) · Up B Glacier Rise (multi-hit rise, 1 stack per hit) · Down B Permafrost Quake (stomps the ground, launching nearby foes upward for 10%, 2 stacks, only 4s cooldown) · FINAL SMASH Blizzard Front (turns the weather to snow for 10s: every 2s everyone except Blizzard gains 2 stacks)',
     special:{
-      n:{kind:'frostBeam',label:'Cryo Lance',cd:5.0,dash:1.6,beamDur:3.0,seg:10,dmg:3.0,frost:1,range:14,color:0x7fd8ff},
+      n:{kind:'frostBeam',label:'Cryo Lance',cd:5.0,dash:1.6,beamDur:1.5,seg:10,dmg:3.0,frost:1,range:14,color:0x7fd8ff},   /* 2026-11-13：持续时间 3.0→1.5s（伤害不变：10 段 × 3.0% = 30%，段间隔 .30s→.15s） */
       s:{kind:'snowball',label:'Avalanche Roll',cd:3.2,dur:.72,spd:1.55,r0:.42,r1:1.60,dmg:15.0,frost:5,color:0xbfe8ff},   // dur 减半 → 冲刺距离减半
       /* ★ 上B：机制与 Sparky·Thunder Cyclone 完全一致（recover + multi + lift + 自转），
          每 0.13s 一段、伤害 ×.6、角度 88°、把人卷着一起上升；区别只是每一段额外挂 1 层冰冻 */
@@ -11943,7 +11943,7 @@ class Fighter {
     if (Math.random() < .7) FX.spark(hx + dir * (2 + Math.random() * R * .9), hy + (Math.random() - .5) * 1.4, .28, 3, 0xdff6ff);
     L.segT -= dt;
     if (L.segT <= 0 && L.seg < L.total) {
-      L.segT = (C.beamDur || 3.0) / (C.seg || 10);
+      L.segT = (C.beamDur || 1.5) / (C.seg || 10);
       L.seg++;
       let any = false;
       for (const f of FIGHTERS) {
@@ -17908,7 +17908,7 @@ class Fighter {
     } else if (cfg.kind === 'frostBeam') {              // ★ Blizzard·左右B：短冲 + 3 秒冰冻激光（10 段，每段 1 层）
       const dirB = dir;
       this.vel.x = dirB * this.s.run * (cfg.dash || 1.6);
-      this.frostBeam = { cfg, t:cfg.beamDur || 3.0, segT:0, seg:0, total:cfg.seg || 10,
+      this.frostBeam = { cfg, t:cfg.beamDur || 1.5, segT:0, seg:0, total:cfg.seg || 10,
                          dir:dirB, x:this.pos.x, y:this.pos.y, dashT:.20, lockX:undefined, lockY:undefined };
       this.state = 'special'; this.animT = 0;
       SFX.special('proj');
