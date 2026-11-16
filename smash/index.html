@@ -292,6 +292,100 @@ document.addEventListener('DOMContentLoaded', function () {
   .lbbtn.pick{background:linear-gradient(180deg,#dfe9ff,#9fb6e8);color:#101a35}
   .lbbtn.play{background:linear-gradient(180deg,#ffe066,#ff9f1c);color:#2a1400;
     font-size:clamp(15px,4vw,19px);padding:13px 30px}
+  /* ================= ★ 2026-11 大厅 UI 2.0 =================
+     · START 拆成两个按钮：ROOM（联机房间）/ START（本地开打）
+     · 地图 / 命数 / 规则改成**独立整页**（BATTLE SETUP），每张地图带真实预览截图
+     设计语言：深蓝玻璃 + 青绿高亮（选中/主按钮）+ 圆角 14px + 轻投影，全部自适应竖屏。 */
+  .lbbtn.room{background:linear-gradient(180deg,#7ef0c8,#1fbf92);color:#06251d;border:1px solid rgba(255,255,255,.28)}
+  #lobbyBar{z-index:46}
+  #sheetSetup.page{position:fixed;inset:0;z-index:52;display:flex;align-items:stretch;justify-content:center;
+    background:radial-gradient(120% 90% at 50% 0%,rgba(24,38,72,.94),rgba(4,7,16,.97) 62%),#05070f;
+    backdrop-filter:blur(8px);padding:0}
+  .pageBox{width:100%;max-width:1180px;display:flex;flex-direction:column;height:100%;min-height:0;
+    background:linear-gradient(180deg,rgba(16,24,46,.86),rgba(8,12,24,.92));
+    border-left:1px solid rgba(140,190,255,.14);border-right:1px solid rgba(140,190,255,.14);
+    box-shadow:0 0 80px rgba(0,0,0,.6)}
+  .pageHead{display:flex;align-items:center;gap:12px;padding:12px 18px 10px;flex:0 0 auto;
+    border-bottom:1px solid rgba(140,190,255,.14);background:linear-gradient(180deg,rgba(30,44,80,.55),rgba(10,16,32,0))}
+  .pBack{font:inherit;cursor:pointer;border-radius:999px;padding:8px 14px;font-weight:900;letter-spacing:1px;font-size:12px;
+    color:#cfe4ff;background:rgba(255,255,255,.08);border:1px solid rgba(160,205,255,.3)}
+  .pBack:active{transform:translateY(1px)}
+  .pageTitle{font-weight:900;font-size:clamp(15px,2.4vw,20px);letter-spacing:2.4px;
+    background:linear-gradient(180deg,#ffffff,#9dc4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .pageTitle small{display:block;font-size:10px;letter-spacing:1.4px;font-weight:700;margin-top:2px;
+    color:#8fb6e0;-webkit-text-fill-color:#8fb6e0}
+  .pageCur{margin-left:auto;font-size:11px;font-weight:800;letter-spacing:1px;color:#bfe0ff;
+    padding:6px 12px;border-radius:999px;background:rgba(80,140,220,.16);
+    border:1px solid rgba(140,200,255,.28);white-space:nowrap}
+  .pageScroll{flex:1 1 auto;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 18px 8px;min-height:0}
+  .secH{display:flex;align-items:center;gap:10px;margin:2px 0 10px;font-size:11px;letter-spacing:3.2px;
+    font-weight:900;color:#9fc6ee}
+  .secH:after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(150,200,255,.35),rgba(150,200,255,0))}
+  .secH span{letter-spacing:1px;font-size:10px;color:#7fe7c4;font-weight:800}
+  .stageGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(186px,1fr));gap:11px}
+  .sgroup{grid-column:1/-1;font-size:9px;letter-spacing:2.6px;font-weight:900;color:#79a6d6;margin:4px 0 -3px}
+  .scard{position:relative;display:flex;flex-direction:column;padding:0;overflow:hidden;cursor:pointer;font:inherit;
+    border-radius:14px;background:#0d1526;border:1px solid rgba(150,200,255,.16);text-align:left;
+    transition:transform .12s ease,border-color .12s,box-shadow .12s}
+  .scard:hover{transform:translateY(-2px);border-color:rgba(160,215,255,.45);box-shadow:0 10px 24px rgba(0,0,0,.45)}
+  .scard .simg{display:block;position:relative;aspect-ratio:16/9;overflow:hidden;background:#0a1120}
+  .scard .simg img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s ease;filter:saturate(1.05)}
+  .scard:hover .simg img{transform:scale(1.045)}
+  .scard b{display:block;padding:7px 9px 1px;font-size:12px;letter-spacing:.6px;color:#eaf3ff}
+  .scard i{display:block;padding:0 9px 8px;font-style:normal;font-size:9px;letter-spacing:1.1px;color:#7fa3c8}
+  .scard .chk{position:absolute;top:7px;right:7px;width:22px;height:22px;border-radius:50%;display:none;
+    align-items:center;justify-content:center;font-style:normal;font-size:12px;font-weight:900;color:#04220f;
+    background:linear-gradient(180deg,#8bffd0,#25d07d);box-shadow:0 0 0 2px rgba(4,20,12,.7)}
+  .scard.on{border-color:#7fe7c4;box-shadow:0 0 0 2px rgba(127,231,196,.45),0 12px 28px rgba(20,220,160,.18)}
+  .scard.on .chk{display:flex}
+  .scard.on b{color:#b9ffe6}
+  .scard.rnd .simg{display:flex;align-items:center;justify-content:center;font-size:26px;color:#8fb6e0;
+    background:repeating-linear-gradient(45deg,#0d1526,#0d1526 10px,#111c31 10px,#111c31 20px)}
+  .setupBody{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+  .page .setupBody .card{background:linear-gradient(180deg,rgba(22,34,62,.9),rgba(12,19,36,.9));
+    border:1px solid rgba(150,200,255,.16);border-radius:14px;padding:10px 12px}
+  .page .setupBody .card h4{font-size:10px;letter-spacing:2.2px;color:#9fc6ee;margin:0 0 8px}
+  .page .setupBody .opts{gap:7px}
+  .page .setupBody .opt{font-size:12px;padding:8px 6px;border-radius:10px;min-width:56px}
+  .page .setupBody .keys{max-width:100%;background:rgba(10,16,30,.6);border:1px solid rgba(150,200,255,.12);
+    border-radius:14px;padding:10px 12px;margin-top:4px}
+  #cardStage{display:none}
+  .pageBar{flex:0 0 auto;display:flex;gap:10px;align-items:center;
+    padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+    border-top:1px solid rgba(140,190,255,.16);background:linear-gradient(0deg,rgba(6,10,20,.96),rgba(10,16,32,.72))}
+  .pageBar .btn{margin:0}
+  .pageBar #startBtn{flex:1 1 auto;font-size:clamp(15px,3.6vw,18px);padding:13px 26px}
+  .pageBar .btn.alt,.pageBar .btn.online{flex:0 0 auto;font-size:12px;padding:11px 16px}
+  .qcard{position:fixed;right:14px;top:62px;z-index:44;width:min(232px,40vw);
+    display:flex;flex-direction:column;gap:9px;padding:12px;border-radius:16px;
+    background:linear-gradient(180deg,rgba(20,32,58,.92),rgba(10,17,32,.92));
+    border:1px solid rgba(150,200,255,.18);box-shadow:0 12px 30px rgba(0,0,0,.35)}
+  .qcard .qh{font-size:10px;letter-spacing:2.4px;font-weight:900;color:#9fc6ee}
+  .qcard .qrow2{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:#dce9fb}
+  .qcard .qrow2 b{font-size:13px;color:#fff;letter-spacing:.4px}
+  .qcard .qthumb{display:block;border-radius:10px;overflow:hidden;border:1px solid rgba(150,200,255,.18)}
+  .qcard .qthumb img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
+  .qcard .qbtn{font:inherit;cursor:pointer;border-radius:10px;padding:8px;font-weight:900;letter-spacing:1.2px;font-size:11px;
+    color:#04220f;background:linear-gradient(180deg,#8bffd0,#25d07d);border:none}
+  @media (max-width:640px){
+    .stageGrid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+    .pageScroll{padding:10px 11px 6px}
+    .pageHead{padding:9px 11px 8px}
+    .pageBar{padding:9px 10px calc(9px + env(safe-area-inset-bottom));gap:7px}
+    .pageCur{display:none}
+  }
+  /* 打开整页设置时，把大厅的 HUD 全部淡出（全屏页不该顶着金币条 / 每日任务 / 活动按钮） */
+  body.setupOpen #questPanel,body.setupOpen #resBar,body.setupOpen #eventBtn,body.setupOpen #profBtn,
+  body.setupOpen #setBtn,body.setupOpen #frBtn,body.setupOpen #lobbyBar,body.setupOpen #pvTools,
+  body.setupOpen #skillPop,body.setupOpen #lobbyNet,body.setupOpen #summonBtn,body.setupOpen #quickCard{
+    opacity:0 !important;pointer-events:none !important;transition:opacity .16s}
+  /* 竖屏手机：右上角放不下概要卡（和大厅标题/角色预览打架）→ 收起来，START 里会显示） */
+  @media (max-width:560px){ .qcard{display:none} }
+  /* 第一次玩：TUTORIAL 按钮自己发光（不再劫持 PLAY） */
+  .pageBar #tutBtn.first{box-shadow:0 0 0 2px rgba(255,209,102,.55),0 0 20px rgba(255,209,102,.35);
+    animation:tutPulse 1.9s ease-in-out infinite}
+  @keyframes tutPulse{0%,100%{box-shadow:0 0 0 2px rgba(255,209,102,.45),0 0 14px rgba(255,209,102,.28)}
+    50%{box-shadow:0 0 0 3px rgba(255,209,102,.75),0 0 26px rgba(255,209,102,.5)}}
   #lobbyNet{position:fixed;left:16px;bottom:112px;z-index:44;font-size:11px;font-weight:800;letter-spacing:1px;
     padding:5px 11px;border-radius:999px;background:rgba(8,11,24,.72);border:1px solid rgba(125,211,255,.5);
     color:#cfe9ff;display:none}
@@ -843,14 +937,32 @@ document.addEventListener('DOMContentLoaded', function () {
   <div id="skillPop"></div>
   <div id="lobbyBar">
     <button class="lbbtn pick" id="btnPick"><svg class="ico"><use href="#i-users"/></svg>SELECT CHARACTER</button>
-    <!-- ★ 第 77 轮：只留黄色 START；联机也收进 START 的「比赛设置」弹层里 -->
+    <!-- ★ 2026-11：START 拆成两个按钮 —— ROOM（联机房间）/ START（本地开打 + 规则页） -->
+    <button class="lbbtn room" id="btnRoom"><svg class="ico"><use href="#i-globe"/></svg>ROOM</button>
     <button class="lbbtn play" id="btnStart"><svg class="ico solid"><use href="#i-play"/></svg>START</button>
   </div>
-  <!-- 弹层 1：比赛设置（点 START 出现；原来的选项卡/教程/按键/联机面板都收在这里） -->
-  <div class="sheet hidden" id="sheetSetup">
+  <!-- 弹层 0：联机房间（ROOM 按钮；原来的 Online Play 面板整体搬进来） -->
+  <div class="sheet hidden" id="sheetRoom">
     <div class="sheetBox">
-      <div class="sheetHead"><span>MATCH SETTINGS</span><button class="sheetClose" id="setupClose">✕</button></div>
-      <div id="setupBody"></div>
+      <div class="sheetHead"><span>ONLINE ROOM</span><button class="sheetClose" id="roomClose">✕</button></div>
+      <div id="roomBody"></div>
+    </div>
+  </div>
+  <!-- ★ 页面 1：BATTLE SETUP（点 START 打开的**独立整页**：地图预览卡 + 命数/规则 + PLAY） -->
+  <div class="sheet page hidden" id="sheetSetup">
+    <div class="pageBox">
+      <div class="pageHead">
+        <button class="pBack" id="setupClose">‹ BACK</button>
+        <div class="pageTitle">BATTLE SETUP<small>pick a stage &amp; rules — then PLAY</small></div>
+        <div class="pageCur" id="setupCur"></div>
+      </div>
+      <div class="pageScroll">
+        <div class="secH">STAGE <span id="stagePickName"></span></div>
+        <div class="stageGrid" id="stageGrid"></div>
+        <div class="secH" style="margin-top:16px">RULES</div>
+        <div class="setupBody" id="setupBody"></div>
+      </div>
+      <div class="pageBar" id="pageBar"></div>
     </div>
   </div>
   <!-- 弹层 2：选择角色（每个角色都渲了 3D 缩略图 + 名字） -->
@@ -872,6 +984,8 @@ document.addEventListener('DOMContentLoaded', function () {
       <!-- ★ 技能/皮肤工具条已移出这个框（见下方 #pvTools）：它按「角色脚底的屏幕 Y」摆放，永远在人物下面 -->
     </div>
     <div class="side">
+      <!-- ★ 2026-11：大厅右侧「本局概要」（原联机面板已搬到 ROOM 弹层） -->
+      <div class="qcard" id="quickCard"></div>
       <div class="netPanel" id="netPanel">
         <div class="netHead"><a class="netLink" href="/exams_games/sbgames/battle.php" target="_blank" rel="noopener"><svg class="ico"><use href="#i-trophy"/></svg>Leaderboard</a>Online Play <span class="dim">(LAN or internet · up to 4 players + spectators)</span></div>
         <div class="netRow">
@@ -910,9 +1024,9 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="card"><h4>Time Limit</h4><div class="opts" id="optTime"></div></div>
     <div class="card"><h4>CPU Level</h4><div class="opts" id="optDiff"></div></div>
     <div class="card" id="cardTeams"><h4>Teams (only at 4 players)</h4><div class="opts" id="optTeams"></div></div>
-    <div class="card"><h4>Stage</h4><div class="opts" id="optStage"></div></div>
+    <div class="card" id="cardStage"><h4>Stage</h4><div class="opts" id="optStage"></div></div>
   </div>
-  <button class="btn" id="startBtn"><svg class="ico solid"><use href="#i-play"/></svg>Play vs CPU</button>
+  <button class="btn" id="startBtn"><svg class="ico solid"><use href="#i-play"/></svg>PLAY</button>
   <!-- ★ 第 77 轮：联机入口放进比赛设置里（地图/命数/时间/2v2 选完直接匹配） -->
   <button class="btn online" id="btnOnline2"><svg class="ico"><use href="#i-globe"/></svg>Online Match</button>
   <button class="btn alt" id="tutBtn"><svg class="ico solid"><use href="#i-play"/></svg>Tutorial</button>
@@ -3224,6 +3338,20 @@ function clearField() {
   vortexes.length = 0;
   for (const dr of drones) scene.remove(dr.mesh);          // 召唤物（Cobalt 无人机 / Slayer 哨戒炮塔）
   drones.length = 0;
+  /* ★ 2026-11-16 换局/重开清场补齐：这几组「技能造成的场上实体」以前不在 clearField 里 ——
+     上一局的炮弹/地雷、大招的火箭落点、Titan 的铁壁、Treasure 的黄金领域、下雪天气、
+     Cardboard 的全场冻结都会带进新局：新局第一秒就挨炸/被墙推/被冻住，位置与伤害全变，
+     只要有一端多留一个残留就是一次 simHash 分叉 → 服务端重开。
+     （各自 try 包一层：这些 const 声明在 clearField 之后，开服早期调用时会命中 TDZ。） */
+  try { for (const m of BOMBER_MINES) scene.remove(m.mesh); BOMBER_MINES.length = 0; } catch (e) {}
+  try { for (const s of strikes) { scene.remove(s.mark); scene.remove(s.col); } strikes.length = 0; } catch (e) {}
+  try { for (const b of barriers) scene.remove(b.mesh); barriers.length = 0; } catch (e) {}
+  try { if (MAW.active) mawEnd('reset'); } catch (e) {}
+  /* ★ MECH_SPIDERS（机械蜘蛛）：它们会自己咬人（吃伤害/带击退），以前换局不清 ——
+     上一局的蜘蛛会跟着进新局，开局第 1 帧就把人咬到 16% 并给硬直（实测复现）。 */
+  try { for (const sp of MECH_SPIDERS) scene.remove(sp.mesh); MECH_SPIDERS.length = 0; } catch (e) {}
+  try { weather.snow = 0; } catch (e) {}
+  try { match.cbFreeze = null; cbHideAim(); } catch (e) {}
   FX.list.forEach(f => scene.remove(f.obj)); FX.list.length = 0;
 }
 function setStage(si) {
@@ -11850,46 +11978,24 @@ function cbShowAim(owner) {
   const el = document.getElementById('cbAim');
   if (!el) return;
   el.classList.add('on');
-  /* 联机时不用鼠标点（点击位置不在输入流里 → 会各端不同步）：直接锁最近的敌人 */
+  /* ★ 2026-11-16 去同步修复：**发射时机与落点一律由物理固定步决定**
+     （见 Fighter.update 的 cbFreeze 块），这里只负责画准星 + 记下本地玩家的点击点。
+     旧版用 setTimeout(联机 700ms / 单机 2400ms) 在墙钟时间上打火箭 ——
+     两台机器落的帧号不同、锁定的目标也不同 → simHash 分叉 → 整局重开（用户实测 Cardboard 必现）。 */
   const online = (typeof NET !== 'undefined' && NET.active);
-  if (online) {
-    let best = null, bd = 1e9;
-    for (const f of FIGHTERS) {
-      if (!f || f === owner || f.eliminated) continue;
-      if (owner.team >= 0 && isTeammate(owner, f)) continue;
-      const d = Math.abs(f.pos.x - owner.pos.x) + Math.abs(f.pos.y - owner.pos.y);
-      if (d < bd) { bd = d; best = f; }
-    }
-    _cbAimTimer = setTimeout(() => {
-      cbHideAim();
-      cbLaunchRocket(owner, { x: best ? best.pos.x : owner.pos.x, y: best ? best.pos.y : 0 });
-    }, 700);
-    return;
-  }
+  if (online) return;                       // 联机：点击位置不在输入流里 → 统一由固定步锁最近敌人
   const move = e => {
     const cur = el.querySelector('.cur');
     if (cur) { cur.style.left = e.clientX + 'px'; cur.style.top = e.clientY + 'px'; }
   };
   const fire = e => {
     const p = cbScreenToWorld(e.clientX, e.clientY);
+    if (match.cbFreeze) match.cbFreeze.click = { x:p.x, y:0 };   // 只记录；发射在固定步里发生
     cbHideAim();
-    cbLaunchRocket(owner, p);
   };
   _cbAimBound = { move, fire };
   el.addEventListener('pointermove', move);
   el.addEventListener('pointerdown', fire);
-  _cbAimTimer = setTimeout(() => {                       // 2.4 秒没点 → 自动打最近的敌人
-    if (!match.cbFreeze || match.cbFreeze.fired) return cbHideAim();
-    let best = null, bd = 1e9;
-    for (const f of FIGHTERS) {
-      if (!f || f === owner || f.eliminated) continue;
-      if (owner.team >= 0 && isTeammate(owner, f)) continue;
-      const d = Math.abs(f.pos.x - owner.pos.x);
-      if (d < bd) { bd = d; best = f; }
-    }
-    cbHideAim();
-    cbLaunchRocket(owner, { x: best ? best.pos.x : owner.pos.x + (owner.facing || 1) * 4, y: 0 });
-  }, 2400);
 }
 
 function spawnStrike(owner, x, cfg, delay, radius, color, atY) {
@@ -13768,8 +13874,11 @@ class Fighter {
       ? (1 + .05 * (attacker.soulStacks || 0)) : 1;
     /* Reaper·Death Mark（亡魂标记）：被标记期间受伤更重、飞得更远（debuff 挂在受害者身上） */
     const mkm = (this.mark && this.mark.t > 0) ? this.mark : null;
-    /* ★ 武器小增益：伤害 +%（近战/弓箭/法器各自的武器给一点） */
-    const wb = (attacker && attacker.def && attacker !== this) ? weaponBonus(attacker.def.id) : null;
+    /* ★ 武器小增益（伤害 +%）：**联机必须用服务端下发的 per-seat 武器**。
+       旧写法 weaponBonus(attacker.def.id) 读的是本机 localStorage 的装备表 ——
+       两台机器装备不同 ⇒ 同一记攻击算出不同伤害 / 不同吸血 ⇒ simHash 分叉 ⇒ 服务端判 desync ⇒ 整局重开。
+       （用户实测：titan 的 Titan Hammer +2%伤害/5%吸血、Cardboard 的 Tape Roll 3%吸血 必重开。） */
+    const wb = (attacker && attacker.def && attacker !== this) ? weaponBonusFor(attacker) : null;
     /* ★ Treasure·黄金领域主场：他在自己的领域里打人 +25% */
     const mawB = (attacker && attacker.treMaw && attacker.treMaw.phase === 'inside' && this.inMaw) ? (MAW.dmgMul || 1.25) : 1;
     const dmg = mv.dmg * (am ? am.dmg : 1) * dmgMul * ab * gcut * (mkm ? mkm.dmgMul : 1) * soulB * mawB * (1 + (wb && wb.dmg ? wb.dmg : 0) / 100);
@@ -14982,7 +15091,7 @@ class Fighter {
         break;
       }
       case 'cbFreeze': {                                 // ★ Cardboard·大招：全场冻结 → 点哪打哪的追踪火箭（50% 范围伤害）
-        match.cbFreeze = { t: 2.6, owner: this, fired: false };
+        match.cbFreeze = { t: 2.6, owner: this, fired: false, click: null };   // click 只由单机点击写入；发射在固定步
         callout(this, 'FREEZE!', SP.color);
         FX.flash(this.pos.x, this.pos.y + 1.2, .6, 26, 0xcfe8ff, .55);
         FX.ring(this.pos.x, this.pos.y + .3, .3, 30, 0x9fd8ff, .8);
@@ -15487,9 +15596,29 @@ class Fighter {
     if (this.respawnT > 0) { this.respawnT -= dt; if (this.respawnT <= 0) this.respawn(); return; }
     /* ★ Cardboard 大招：全场冻结（施法者自己照常行动；其余人原地定住，但仍可被打） */
     if (typeof match !== 'undefined' && match.cbFreeze && match.cbFreeze.t > 0) {
-      if (this !== match.cbFreeze.owner) { this.vel.set(0, 0, 0); return; }
-      match.cbFreeze.t -= dt;
-      if (match.cbFreeze.t <= 0) { match.cbFreeze = null; try { cbHideAim(); } catch (e) {} }
+      const CF = match.cbFreeze;
+      if (this !== CF.owner) { this.vel.set(0, 0, 0); return; }
+      CF.t -= dt;
+      /* ★ 2026-11-16 去同步修复：火箭的**发射帧**与**落点**都在固定步里算。
+         旧版 setTimeout(700ms 联机 / 2400ms 单机) 在墙钟时间发射 → 两台机器落的帧号不同、
+         锁定的目标也不同 → simHash 分叉 → 服务端判 desync → 整局重开。 */
+      if (!CF.fired && CF.t <= 2.15) {                 // 冻结 0.45s 后打出去
+        CF.fired = true;
+        try { cbHideAim(); } catch (e) {}
+        let pt = CF.click || null;
+        if (!pt) {                                     // 联机 / 没点：锁最近敌人（按距离，顺序确定）
+          let best = null, bd = 1e9;
+          for (const g of FIGHTERS) {
+            if (!g || g === this || g.eliminated) continue;
+            if (this.team >= 0 && isTeammate(this, g)) continue;
+            const d = Math.abs(g.pos.x - this.pos.x) + Math.abs(g.pos.y - this.pos.y);
+            if (d < bd) { bd = d; best = g; }
+          }
+          pt = { x: best ? best.pos.x : this.pos.x + (this.facing || 1) * 4, y: best ? best.pos.y : 0 };
+        }
+        try { cbLaunchRocket(this, pt); } catch (e) {}
+      }
+      if (CF.t <= 0) { match.cbFreeze = null; try { cbHideAim(); } catch (e) {} }
     }
     /* ★ 第 79 轮：整个大招逐帧逻辑包一层 try/catch。
        这些代码跑在 physicsStep → rAF 主循环里，任何一次抛错都会让 requestAnimationFrame 不再续帧
@@ -19682,7 +19811,12 @@ class Fighter {
       f.pos.x += Math.sign(dx || 1) * step2;
       f.vel.x *= .25;
       if (Math.hypot(this.pos.x - f.pos.x, (this.pos.y + .9) - f.pos.y) < (cfg.eatR || 1.6)) { this.startEat(f, cfg); return; }
-      if (Math.random() < .4) FX.spark(f.pos.x + (RND()-.5)*.9, f.pos.y + .5 + RND()*.9, .3, 2, cfg.color);
+      /* ★ 联机去同步修复（2026-11-16）：RND() 必须在模拟步里**无条件、等量**消耗。
+         旧写法 `if (Math.random() < .4) FX.spark(… RND() …)`：Math.random 决定要不要取两个模拟随机数，
+         两台机器取数次数不同 → _rngS 错开 → simHash 对不上 → 服务端判 desync → 整局重开。
+         改成「先各取一个，再拿同一个值当概率」：随机流推进次数恒定，观感（40% 概率）不变。 */
+      const rx1 = RND(), rx2 = RND();
+      if (rx1 < .40) FX.spark(f.pos.x + (rx1 - .5) * .9, f.pos.y + .5 + rx2 * .9, .3, 2, cfg.color);
     }
     if (!inp.spHeld || H.t > (cfg.hold || 2.0)) { this.inhale = null; this.state = this.grounded ? 'idle' : 'fall'; }
   }
@@ -24911,6 +25045,9 @@ function setup(opts) {
     f.variant = _varOf[i];
     f.tag = teamsOn ? (TEAM_NAME[f.team] + (i + 1)) : (i === 0 ? 'P1' : (opts.chars ? ('P' + (i + 1)) : ('CPU' + i)));
     f.netSeat = human ? i : -1;
+    /* ★ 2026-11-16：联机时武器必须由服务端统一下发（opts.weapons[seat]），
+       否则 weaponBonusFor() 在联机里一律不加增益 —— 保证两端伤害一致。 */
+    f.weapon = (opts && opts.weapons && opts.weapons[i]) ? opts.weapons[i] : null;
     FIGHTERS.push(f);
     if (!human) f.ctrl = new Bot(f, opts.diff);
   }
@@ -25870,25 +26007,107 @@ PV.resize();
    注意是**搬动 DOM 节点**而不是重写控件 → 原有的事件监听（选人卡、选项、建房、准备…）全部继续有效。 */
 {
   const setupBody = document.getElementById('setupBody');
+  const pageBar = document.getElementById('pageBar');
   const sheetSetup = document.getElementById('sheetSetup'), sheetChars = document.getElementById('sheetChars');
+  const sheetRoom = document.getElementById('sheetRoom');
   const q = s => document.querySelector(s);
   const moveInto = (el, dest) => { if (el && dest) dest.appendChild(el); };
-  /* 搬控件（顺序 = 弹层里从上到下的显示顺序） */
+  /* 搬控件（顺序 = 页面里从上到下的显示顺序） */
   moveInto(q('#startScreen > .rows'), setupBody);
-  moveInto(document.getElementById('startBtn'), setupBody);
-  moveInto(document.getElementById('btnOnline2'), setupBody);   // ★ 第 77 轮：联机按钮跟在 Play vs CPU 后面
-  moveInto(document.getElementById('tutBtn'), setupBody);
   moveInto(q('#startScreen > .keys'), setupBody);
-  moveInto(document.getElementById('netPanel'), setupBody);
+  moveInto(document.getElementById('tutBtn'), pageBar);
+  moveInto(document.getElementById('startBtn'), pageBar);
+  moveInto(document.getElementById('btnOnline2'), pageBar);
+  moveInto(document.getElementById('netPanel'), document.getElementById('roomBody'));   // ★ ROOM 弹层
+  /* ★ 概要小卡挂在 .side 里会跟着那列一起 display:none（大厅把左右两列都收了）→ 提到 startScreen 顶层做浮卡 */
+  moveInto(document.getElementById('quickCard'), document.getElementById('startScreen'));
+  /* ================= ★ 地图预览卡（每张地图一张真实截图）================= */
+  const SG = document.getElementById('stageGrid');
+  const SGROUPS = [['STANDARD', ['meadow','pillars','arena','desert']],
+                   ['LEDGE', ['verdant','verdantXL']],
+                   ['LADDER', ['ladders','laddersXL']],
+                   ['XL', ['meadowXL','pillarsXL','arenaXL','desertXL']],
+                   ['SPECIAL', ['rooftop','rooftopXL','mines','minesXL']]];
+  const stageNameOf = () => (settings.stage === 'r' || settings.stage === undefined)
+    ? 'Random' : ((STAGES[settings.stage] || {}).name || 'Random');
+  const tierOf = st => {
+    if (!st) return '';
+    const t = st.mainW >= 60 ? 'XL · ' : '';
+    return t + st.mainW + ' wide · ' + (st.plats ? st.plats.length : 0) + ' platforms';
+  };
+  function drawStageCards() {
+    let html = '';
+    for (const [label, ids] of SGROUPS) {
+      html += '<div class="sgroup">' + label + '</div>';
+      for (const id of ids) {
+        const si = STAGES.findIndex(st => st.id === id);
+        if (si < 0) continue;
+        const st = STAGES[si];
+        html += '<button type="button" class="scard' + (settings.stage === si ? ' on' : '') + '" data-si="' + si + '">'
+              + '<span class="simg"><img loading="lazy" alt="' + st.name + '" src="previews/' + st.id + '.webp?v=1"></span>'
+              + '<b>' + st.name + '</b><i>' + tierOf(st) + '</i><u class="chk">✓</u></button>';
+      }
+    }
+    html += '<div class="sgroup">SURPRISE</div>'
+          + '<button type="button" class="scard rnd' + (settings.stage === 'r' ? ' on' : '') + '" data-si="r">'
+          + '<span class="simg">?</span><b>Random</b><i>anything goes</i><u class="chk">✓</u></button>';
+    SG.innerHTML = html;
+    [].forEach.call(SG.querySelectorAll('.scard'), b => {
+      b.onclick = () => {
+        /* 复用老的隐藏选择器逻辑（settings.stage + setStage + 重绘）——不重写一套 */
+        const opt = document.querySelector('#optStage .opt[data-si="' + b.dataset.si + '"]');
+        if (opt) opt.click();
+        else { settings.stage = b.dataset.si === 'r' ? 'r' : +b.dataset.si;
+               setStage(settings.stage === 'r' ? Math.floor(Math.random() * STAGES.length) : settings.stage); }
+        drawStageCards(); syncCur();
+        try { SFX.tone(760, 1080, .07, 'triangle', .05); } catch (e) {}
+      };
+    });
+  }
+  /* 页面顶部/大厅右侧小卡的「本局概要」 */
+  function syncCur() {
+    const txt = stageNameOf() + ' · ' + settings.count + 'P · ' + settings.stocks + ' stocks';
+    const el = document.getElementById('setupCur'); if (el) el.textContent = txt;
+    const sn = document.getElementById('stagePickName'); if (sn) sn.textContent = '· ' + stageNameOf();
+    const qc = document.getElementById('quickCard');
+    if (qc) {
+      const st = (settings.stage === 'r' || settings.stage === undefined) ? null : STAGES[settings.stage];
+      const thumb = st
+        ? '<img alt="" src="previews/' + st.id + '.webp?v=1">'
+        : '<div style="position:relative;aspect-ratio:16/9;background:#0a1120">'
+          + '<img alt="" src="previews/meadow.webp?v=1" style="width:100%;height:100%;object-fit:cover;filter:grayscale(.55) brightness(.5)">'
+          + '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
+          + 'font-size:34px;font-weight:900;color:#bfe0ff;text-shadow:0 2px 10px #000">?</div></div>';
+      qc.innerHTML = '<div class="qh">CURRENT SETUP</div>'
+        + '<span class="qthumb">' + thumb + '</span>'
+        + '<div class="qrow2"><span>Stage</span><b>' + stageNameOf() + '</b></div>'
+        + '<div class="qrow2"><span>Players</span><b>' + settings.count + '</b></div>'
+        + '<div class="qrow2"><span>Stocks</span><b>' + settings.stocks + '</b></div>'
+        + '<button class="qbtn" id="qChange">CHANGE ▸</button>';
+      const cb = document.getElementById('qChange');
+      if (cb) cb.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} open(sheetSetup); };
+    }
+  }
   /* 开合 */
   const open = el => { sheetSetup.classList.toggle('hidden', el !== sheetSetup);
-                       sheetChars.classList.toggle('hidden', el !== sheetChars); };
-  const closeAll = () => { sheetSetup.classList.add('hidden'); sheetChars.classList.add('hidden'); };
-  document.getElementById('btnStart').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} open(sheetSetup); };
+                       sheetChars.classList.toggle('hidden', el !== sheetChars);
+                       if (sheetRoom) sheetRoom.classList.toggle('hidden', el !== sheetRoom);
+                       document.body.classList.toggle('setupOpen', el === sheetSetup); };
+  const closeAll = () => { sheetSetup.classList.add('hidden'); sheetChars.classList.add('hidden');
+                           if (sheetRoom) sheetRoom.classList.add('hidden');
+                           document.body.classList.remove('setupOpen'); };
+  document.getElementById('btnStart').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} drawStageCards(); syncCur(); open(sheetSetup); };
   document.getElementById('btnPick').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} buildGrid(); open(sheetChars); };
+  const btnRoom = document.getElementById('btnRoom');
+  if (btnRoom) btnRoom.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} open(sheetRoom); };
+  const roomClose = document.getElementById('roomClose');
+  if (roomClose) roomClose.onclick = closeAll;
   document.getElementById('setupClose').onclick = closeAll;
   document.getElementById('charsClose').onclick = closeAll;
-  for (const sh of [sheetSetup, sheetChars]) sh.addEventListener('click', e => { if (e.target === sh) closeAll(); });
+  for (const sh of [sheetSetup, sheetChars, sheetRoom]) if (sh) sh.addEventListener('click', e => { if (e.target === sh) closeAll(); });
+  /* 规则里点了任何选项（人数/命数/模式/时间/CPU/队伍）→ 顺手刷新概要 */
+  setupBody.addEventListener('click', () => setTimeout(syncCur, 0));
+  drawStageCards(); syncCur();
   /* 真开局时（离线 Start Match / 房主 Start Match）顺手收掉弹层 */
   for (const id of ['startBtn', 'netStart']) { const b = document.getElementById(id); if (b) b.addEventListener('click', closeAll); }
   /* 角色格子（懒烘：第一次打开才逐张渲染 3D 缩略图，避免开菜单时卡一下） */
@@ -26119,9 +26338,9 @@ const TUT = {
     tutEl('tut').classList.add('hidden');
     match.state = 'menu';
     UI.result.classList.add('hidden'); UI.start.classList.remove('hidden');
-    const b = tutEl('startBtn');
-    b.innerHTML = '<svg class="ico solid"><use href="#i-play"/></svg>Play vs CPU';   // ★ 第 82 轮：保留图标（原来写 textContent 会把 SVG 擦掉）
-    b.onclick = () => { SFX.init(); SFX.go(1); UI.start.classList.add('hidden'); setup(Object.assign({}, settings, { rules: localRules() })); };
+    /* ★ 2026-11：PLAY 按钮由 BATTLE SETUP 页面接管，教程结束时**不要**再改写它
+       （以前这里会把 onclick 抢成「直接开局」，绕过地图/命数页）。 */
+    const tb = tutEl('tutBtn'); if (tb) tb.classList.remove('first');
   }
 };
 tutEl('tutBtn').onclick = () => TUT.start();
@@ -26130,9 +26349,9 @@ tutEl('tutBtn').onclick = () => TUT.start();
 tutEl('tutSkip').onclick = () => TUT.skip();
 let TUT_SEEN = false;
 try { TUT_SEEN = !!localStorage.getItem(TUT_KEY); } catch (e) {}
-if (!TUT_SEEN) {                                  // 第一次玩：开始按钮直接进教程
-  const b = tutEl('startBtn');
-  b.innerHTML = '<svg class="ico solid"><use href="#i-play"/></svg>Play Tutorial (first time)';   // ★ 第 82 轮：保留图标
+if (!TUT_SEEN) {                                  // 第一次玩：不劫持 PLAY（PLAY 永远是真开打），改成高亮 TUTORIAL 按钮
+  const b = tutEl('tutBtn');
+  if (b) b.classList.add('first');
   b.onclick = () => TUT.start();
 }
 window.TUT = TUT;                                 // 便于排查（不能用 SB：SB 在本模块后方才声明 → TDZ）
@@ -29159,6 +29378,24 @@ function weaponBonus(charId) {
     const w = SUMMON_WEAPONS.find(x => x.id === wid);
     if (!w || w.wt !== charWType(charId)) return null;      // 类型不匹配 = 不生效
     return w.bonus || null;
+  } catch (e) { return null; }
+}
+/* ★ 2026-11-16 联机去同步修复：武器增益只能来自「两端都能看到的同一份数据」。
+   单机：照旧读本机存档（ACC.weaponOf）。
+   联机：只认 setup() 从服务端下发的 per-seat 武器（f.weapon）；服务端没发就不加增益
+        —— 这是唯一能保证两台机器算出同一个伤害的做法（本地存档是各机器私有的）。
+   以后要在联机里保留武器手感：服务端 go/room 快照里带上每个座位的武器 id，
+   客户端在 setup({ weapons:[…] }) 里传入即可（本函数已支持，无需再改）。 */
+function weaponBonusFor(f) {
+  try {
+    if (!f || !f.def) return null;
+    const online = (typeof NET !== 'undefined' && NET.active);
+    if (online) {
+      const w = f.weapon ? SUMMON_WEAPONS.find(x => x.id === f.weapon) : null;
+      if (!w || w.wt !== charWType(f.def.id)) return null;
+      return w.bonus || null;
+    }
+    return weaponBonus(f.def.id);
   } catch (e) { return null; }
 }
 const RAR_NAME = { weapon:'WEAPON', epicW:'EPIC WEAPON', legW:'LEGENDARY WEAPON', skin:'EPIC SKIN', supreme:'SUPREME FIGHTER', shards:'MEMORY SHARDS' };
