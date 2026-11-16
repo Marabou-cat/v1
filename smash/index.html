@@ -347,6 +347,14 @@ document.addEventListener('DOMContentLoaded', function () {
   .page .setupBody .card h4{font-size:10px;letter-spacing:2.2px;color:#9fc6ee;margin:0 0 8px}
   .page .setupBody .opts{gap:7px}
   .page .setupBody .opt{font-size:12px;padding:8px 6px;border-radius:10px;min-width:56px}
+  /* 规则区在整页里铺满（原来 max-width:560px 会缩在中间，左边空一大块） */
+  .page .setupBody .rows{max-width:none;width:100%;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:11px}
+  /* 按键说明很长，折进 <details> 里，别把地图挤到屏幕外 */
+  .page .keysWrap{width:100%;background:rgba(10,16,30,.6);border:1px solid rgba(150,200,255,.12);
+    border-radius:14px;padding:2px 12px;margin-bottom:4px}
+  .page .keysWrap summary{cursor:pointer;font-size:10px;letter-spacing:2.4px;font-weight:900;color:#9fc6ee;padding:10px 0}
+  .page .keysWrap[open]{padding-bottom:10px}
+  .page .keysWrap .keys{background:none;border:none;padding:0}
   .page .setupBody .keys{max-width:100%;background:rgba(10,16,30,.6);border:1px solid rgba(150,200,255,.12);
     border-radius:14px;padding:10px 12px;margin-top:4px}
   #cardStage{display:none}
@@ -356,17 +364,21 @@ document.addEventListener('DOMContentLoaded', function () {
   .pageBar .btn{margin:0}
   .pageBar #startBtn{flex:1 1 auto;font-size:clamp(15px,3.6vw,18px);padding:13px 26px}
   .pageBar .btn.alt,.pageBar .btn.online{flex:0 0 auto;font-size:12px;padding:11px 16px}
-  .qcard{position:fixed;right:14px;top:62px;z-index:44;width:min(232px,40vw);
-    display:flex;flex-direction:column;gap:9px;padding:12px;border-radius:16px;
-    background:linear-gradient(180deg,rgba(20,32,58,.92),rgba(10,17,32,.92));
-    border:1px solid rgba(150,200,255,.18);box-shadow:0 12px 30px rgba(0,0,0,.35)}
+  /* ★ 本局概要：现在只在 ROOM 弹层里出现（不再挂在大厅右上角） */
+  .qcard{width:100%;display:flex;flex-direction:column;gap:9px;padding:10px 12px;border-radius:14px;margin-bottom:10px;
+    background:linear-gradient(180deg,rgba(22,34,62,.92),rgba(12,19,36,.92));
+    border:1px solid rgba(150,200,255,.18)}
   .qcard .qh{font-size:10px;letter-spacing:2.4px;font-weight:900;color:#9fc6ee}
+  .qcard .qbody{display:flex;gap:11px;align-items:center}
+  .qcard .qthumb{flex:0 0 132px;width:132px;display:block;border-radius:10px;overflow:hidden;
+    border:1px solid rgba(150,200,255,.18)}
+  .qcard .qthumb img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
+  .qcard .qrows{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
   .qcard .qrow2{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:#dce9fb}
   .qcard .qrow2 b{font-size:13px;color:#fff;letter-spacing:.4px}
-  .qcard .qthumb{display:block;border-radius:10px;overflow:hidden;border:1px solid rgba(150,200,255,.18)}
-  .qcard .qthumb img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
-  .qcard .qbtn{font:inherit;cursor:pointer;border-radius:10px;padding:8px;font-weight:900;letter-spacing:1.2px;font-size:11px;
-    color:#04220f;background:linear-gradient(180deg,#8bffd0,#25d07d);border:none}
+  .qcard .qbtn{margin-top:3px;font:inherit;cursor:pointer;border-radius:10px;padding:8px;font-weight:900;
+    letter-spacing:1.2px;font-size:11px;color:#04220f;background:linear-gradient(180deg,#8bffd0,#25d07d);border:none}
+  @media (max-width:560px){ .qcard .qthumb{flex:0 0 100px;width:100px} }
   @media (max-width:640px){
     .stageGrid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
     .pageScroll{padding:10px 11px 6px}
@@ -377,10 +389,8 @@ document.addEventListener('DOMContentLoaded', function () {
   /* 打开整页设置时，把大厅的 HUD 全部淡出（全屏页不该顶着金币条 / 每日任务 / 活动按钮） */
   body.setupOpen #questPanel,body.setupOpen #resBar,body.setupOpen #eventBtn,body.setupOpen #profBtn,
   body.setupOpen #setBtn,body.setupOpen #frBtn,body.setupOpen #lobbyBar,body.setupOpen #pvTools,
-  body.setupOpen #skillPop,body.setupOpen #lobbyNet,body.setupOpen #summonBtn,body.setupOpen #quickCard{
+  body.setupOpen #skillPop,body.setupOpen #lobbyNet,body.setupOpen #summonBtn{
     opacity:0 !important;pointer-events:none !important;transition:opacity .16s}
-  /* 竖屏手机：右上角放不下概要卡（和大厅标题/角色预览打架）→ 收起来，START 里会显示） */
-  @media (max-width:560px){ .qcard{display:none} }
   /* 第一次玩：TUTORIAL 按钮自己发光（不再劫持 PLAY） */
   .pageBar #tutBtn.first{box-shadow:0 0 0 2px rgba(255,209,102,.55),0 0 20px rgba(255,209,102,.35);
     animation:tutPulse 1.9s ease-in-out infinite}
@@ -945,7 +955,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <div class="sheet hidden" id="sheetRoom">
     <div class="sheetBox">
       <div class="sheetHead"><span>ONLINE ROOM</span><button class="sheetClose" id="roomClose">✕</button></div>
-      <div id="roomBody"></div>
+      <div id="roomBody"><div class="qcard" id="quickCard"></div></div>
     </div>
   </div>
   <!-- ★ 页面 1：BATTLE SETUP（点 START 打开的**独立整页**：地图预览卡 + 命数/规则 + PLAY） -->
@@ -957,10 +967,10 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="pageCur" id="setupCur"></div>
       </div>
       <div class="pageScroll">
-        <div class="secH">STAGE <span id="stagePickName"></span></div>
-        <div class="stageGrid" id="stageGrid"></div>
-        <div class="secH" style="margin-top:16px">RULES</div>
+        <div class="secH">RULES <span id="rulesPickName"></span></div>
         <div class="setupBody" id="setupBody"></div>
+        <div class="secH" style="margin-top:16px">STAGE <span id="stagePickName"></span></div>
+        <div class="stageGrid" id="stageGrid"></div>
       </div>
       <div class="pageBar" id="pageBar"></div>
     </div>
@@ -984,8 +994,6 @@ document.addEventListener('DOMContentLoaded', function () {
       <!-- ★ 技能/皮肤工具条已移出这个框（见下方 #pvTools）：它按「角色脚底的屏幕 Y」摆放，永远在人物下面 -->
     </div>
     <div class="side">
-      <!-- ★ 2026-11：大厅右侧「本局概要」（原联机面板已搬到 ROOM 弹层） -->
-      <div class="qcard" id="quickCard"></div>
       <div class="netPanel" id="netPanel">
         <div class="netHead"><a class="netLink" href="/exams_games/sbgames/battle.php" target="_blank" rel="noopener"><svg class="ico"><use href="#i-trophy"/></svg>Leaderboard</a>Online Play <span class="dim">(LAN or internet · up to 4 players + spectators)</span></div>
         <div class="netRow">
@@ -26014,13 +26022,20 @@ PV.resize();
   const moveInto = (el, dest) => { if (el && dest) dest.appendChild(el); };
   /* 搬控件（顺序 = 页面里从上到下的显示顺序） */
   moveInto(q('#startScreen > .rows'), setupBody);
-  moveInto(q('#startScreen > .keys'), setupBody);
+  { /* 按键/规则说明折进 <details>（太长会把地图挤到首屏之外） */
+    const keysEl = q('#startScreen > .keys');
+    if (keysEl) {
+      const det = document.createElement('details');
+      det.className = 'keysWrap';
+      det.innerHTML = '<summary>CONTROLS &amp; RULES</summary>';
+      det.appendChild(keysEl);
+      setupBody.appendChild(det);
+    }
+  }
   moveInto(document.getElementById('tutBtn'), pageBar);
   moveInto(document.getElementById('startBtn'), pageBar);
   moveInto(document.getElementById('btnOnline2'), pageBar);
-  moveInto(document.getElementById('netPanel'), document.getElementById('roomBody'));   // ★ ROOM 弹层
-  /* ★ 概要小卡挂在 .side 里会跟着那列一起 display:none（大厅把左右两列都收了）→ 提到 startScreen 顶层做浮卡 */
-  moveInto(document.getElementById('quickCard'), document.getElementById('startScreen'));
+  moveInto(document.getElementById('netPanel'), document.getElementById('roomBody'));   // ★ ROOM 弹层（概要卡已在 roomBody 里）
   /* ================= ★ 地图预览卡（每张地图一张真实截图）================= */
   const SG = document.getElementById('stageGrid');
   const SGROUPS = [['STANDARD', ['meadow','pillars','arena','desert']],
@@ -26069,6 +26084,8 @@ PV.resize();
     const txt = stageNameOf() + ' · ' + settings.count + 'P · ' + settings.stocks + ' stocks';
     const el = document.getElementById('setupCur'); if (el) el.textContent = txt;
     const sn = document.getElementById('stagePickName'); if (sn) sn.textContent = '· ' + stageNameOf();
+    const rn = document.getElementById('rulesPickName');
+    if (rn) rn.textContent = '· ' + settings.count + 'P · ' + settings.stocks + ' stocks';
     const qc = document.getElementById('quickCard');
     if (qc) {
       const st = (settings.stage === 'r' || settings.stage === undefined) ? null : STAGES[settings.stage];
@@ -26077,15 +26094,17 @@ PV.resize();
         : '<div style="position:relative;aspect-ratio:16/9;background:#0a1120">'
           + '<img alt="" src="previews/meadow.webp?v=1" style="width:100%;height:100%;object-fit:cover;filter:grayscale(.55) brightness(.5)">'
           + '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
-          + 'font-size:34px;font-weight:900;color:#bfe0ff;text-shadow:0 2px 10px #000">?</div></div>';
+          + 'font-size:30px;font-weight:900;color:#bfe0ff;text-shadow:0 2px 10px #000">?</div></div>';
       qc.innerHTML = '<div class="qh">CURRENT SETUP</div>'
-        + '<span class="qthumb">' + thumb + '</span>'
+        + '<div class="qbody"><span class="qthumb">' + thumb + '</span>'
+        + '<div class="qrows">'
         + '<div class="qrow2"><span>Stage</span><b>' + stageNameOf() + '</b></div>'
         + '<div class="qrow2"><span>Players</span><b>' + settings.count + '</b></div>'
         + '<div class="qrow2"><span>Stocks</span><b>' + settings.stocks + '</b></div>'
-        + '<button class="qbtn" id="qChange">CHANGE ▸</button>';
+        + '<button class="qbtn" id="qChange">CHANGE ▸</button>'
+        + '</div></div>';
       const cb = document.getElementById('qChange');
-      if (cb) cb.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} open(sheetSetup); };
+      if (cb) cb.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} drawStageCards(); syncCur(); open(sheetSetup); };
     }
   }
   /* 开合 */
@@ -26099,7 +26118,7 @@ PV.resize();
   document.getElementById('btnStart').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} drawStageCards(); syncCur(); open(sheetSetup); };
   document.getElementById('btnPick').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} buildGrid(); open(sheetChars); };
   const btnRoom = document.getElementById('btnRoom');
-  if (btnRoom) btnRoom.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} open(sheetRoom); };
+  if (btnRoom) btnRoom.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} syncCur(); open(sheetRoom); };
   const roomClose = document.getElementById('roomClose');
   if (roomClose) roomClose.onclick = closeAll;
   document.getElementById('setupClose').onclick = closeAll;
