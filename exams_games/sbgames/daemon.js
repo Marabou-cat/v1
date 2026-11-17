@@ -878,14 +878,18 @@ function handle(act, ctx) {
       /* 已经被自动判过 AI、但那个生效帧够不到 → 用上报者的实际卡住帧**重新广播**，
          把切换点拉回到所有人都能到达的帧。没有这一步，自动判 AI 之后房间会冻在那一帧，
          各端只能各自本地抢管 → 位置再次不一致。 */
-      if (!vs.ai || nf < (vs.aiFrom || 0)) {
-        vs.ai = true; vs.recoverMs = 0; vs.connected = false; vs.aiFrom = nf;
+      /* ★ 2026-11-17：a:'stall' 不再代表「AI 接管」（那是残留语义，客户端会显示 AI 接管、并用 Bot 操控）。
+         现在它等价于「这个座位掉队了 → 挂机」：标 idle/gone，喂全 0，站着不动、照样被打。
+         注意不要设 vs.ai —— 设了会让客户端走 applyAI(ai:true) 分支（Bot 上场）。 */
+      if (!vs.idle && !vs.left) {
+        vs.idle = true; vs.gone = true; vs.connected = false; vs.recoverMs = 0;
+        vs.idleFrom = Math.max(0, nf | 0);
         room.updated = now;
-        broadcast(room, { a:'ev', room: room.code, f: vs.aiFrom, seat: vs.seat, ai: true, why:'stall_report' });
-        log('[ai] takeover (client-reported stall)', room.code, 'seat', vs.seat, 'frame', vs.aiFrom, '(eventFrame ' + ef + ')');
+        broadcast(room, { a:'ev', room: room.code, f: nf, seat: vs.seat, idle: true, why:'stall' });
+        log('[idle] stall report → standing still', room.code, 'seat', vs.seat, 'frame', nf);
       }
     }
-    return { ok: true, ai: !!(vs && vs.ai), aiFrom: (vs && vs.aiFrom) | 0 };
+    return { ok: true, ai: false, idle: !!(vs && vs.idle), aiFrom: (vs && vs.aiFrom) | 0 };
   }
 
   /* --- 客户端发现「自己已经和别人算岔了」→ 请求整局 resync（同 seed 从 0 重开）--- */

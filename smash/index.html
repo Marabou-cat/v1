@@ -28340,7 +28340,9 @@ const NET = {
     this.offlineSeats = this.offlineSeats || {};
     this.offlineSeats[ms] = 'timeout';
     toast((this.names[ms] || ('P' + (ms + 1))) + ' not responding — standing still (AFK)');
-    try { this.send({ a:'stall', room:this.room, seat:ms, token:this.token, f:FRAME }); } catch (e) {}
+    /* ★ 2026-11-17：不再上报 a:'stall' —— 服务端收到 stall 会标「AI 接管」并广播 ai:true，
+       于是全场看到「Pn offline · AI took over」而且那个座位被 Bot 操控（正是用户报的残留 bug）。
+       现在挂机由本地 offlineSeats + 服务端 2.5s idle 两条腿解决，不需要 AI 接管。 */
   },
   /* ★ 本地自救接管：某个座位**永久**消失时，服务端给的生效帧（frameHigh+30）永远到不了 ——
      全场会卡死在「缺它输入」的那一帧（旧版本就一直冻着，只能重开房）。
@@ -28404,8 +28406,9 @@ const NET = {
     const Speed = r === null ? '' : ` · Speed <b class="${cls}">${(r * 100).toFixed(0)}%</b>${r < 0.8 ? ' ⚠ Slow' : ''}`;
     // 迟到的控制权切换 = 去同步风险（各端切换帧不同），必须显示出来
     const late = (this.evLate || 0) > 0 ? `<br><b class="bad">⚠ ${this.evLate} seat switch(es) applied late — screens may differ</b>` : '';
-    const lk = this.localAiAt ? Object.keys(this.localAiAt).map(k => 'P' + (+k + 1) + '@f' + this.localAiAt[k]).join(' ') : '';
-    const localAi = lk ? `<br><b class="warn">⚑ local AI takeover ${lk} (peer silent)</b>` : '';
+    /* ★ 2026-11-17：local AI takeover 已彻底取消（现在都是「挂机／站桩」）—— 这行提示不再显示，
+       免得玩家看到「AI 接管」却看到角色站着不动。 */
+    const localAi = '';
     // 后台窗口 = 渲染循环停摆 = 全房间都在等这一台（最隐蔽的一颗雷，必须显示出来）
     const bg = (this.active && document.hidden) ? '<br><b class="bad">⚠ This window is in the background — the render loop is stalled and the whole room is waiting for you</b>' : '';
     /* late 已拼进上面的 innerHTML（见下面的 += 行），不要再 insertAdjacentHTML —— 会打在赋值之前被覆盖 */
@@ -28588,7 +28591,10 @@ const NET = {
     f.aiSeat = !!e.ai;
     /* isBot 必须跟着「现在谁在驱动它」一起变（旧代码只加 ctrl 不改 isBot，
        readInput 会因此把本机键盘灌进被接管的角色里，见 readInput 注释）。 */
-    if (e.ai) { if (!f.ctrl) f.ctrl = new Bot(f, this.rules.diff || 2); f.netSeat = -1; f.isBot = true; }
+    /* ★ 2026-11-17：不再有「AI 接管」这个状态（残留的 ai:true / stall 上报会被旧服务端发过来）。
+       一律按挂机处理：收掉控制权、保留座位号/命数/位置，喂全 0 → 站着不动、照样被打。 */
+    if (e.ai) { f.ctrl = null; f.aiSeat = false; f.netSeat = e.seat; f.isBot = false; f.stub = true;
+                this.offlineSeats = this.offlineSeats || {}; this.offlineSeats[e.seat] = 'offline'; }
     /* 交还真人：清 ctrl + 收回座位号。isBot 只按「服务端说这里不是电脑位」清 ——
        否则会把服务端补位的电脑座位在本地变成「等一台永远不会供货的机器」（房间卡死）。 */
     else {
@@ -28622,8 +28628,10 @@ const NET = {
           ? ' left — their fighter stands still (still hittable)'
           : ' disconnected — standing still'));
       } else {
-        if (this.offlineSeats) delete this.offlineSeats[e.seat];
-        toast(e.ai ? nm + ' offline · AI took over' : nm + ' reconnected');
+        /* ★ 2026-11-17：ai:true 也按挂机处理 → 不能把 offlineSeats 这条「别等它」的标记删掉，
+           否则闸门又开始等一个不会供帧的座位（wait Pn 100%）。只有真正「回来了」才删。 */
+        if (!e.ai && this.offlineSeats) delete this.offlineSeats[e.seat];
+        toast(e.ai ? (nm + ' not responding — standing still') : (nm + ' reconnected'));
       }
     }
   },
