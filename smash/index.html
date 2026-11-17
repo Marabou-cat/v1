@@ -24836,7 +24836,10 @@ class Bot {
     this.timer = this.p.react[0] + RND() * (this.p.react[1] - this.p.react[0]);
     /* ★ 别把「右楼那块低 7 格的楼顶」当成场外（-1.5 是相对脚下那层地板算的） */
     const _fy = stageFloorY(f.pos.x);
-    if (!f.grounded && (_fy === null || f.pos.y < _fy - 1.5 || Math.abs(f.pos.x) > STAGE.wallX + 1.5)) { this.plan = 'recover'; return; }
+    /* ★ 2026-11-17：离地且脚下没地板 / 已经横向出台面 → 立刻回场（以前要等 y<floor-1.5，
+       实测 Bot 会一路追到 x=9.6 才反应，8 局里自杀 10 次）。 */
+    if (!f.grounded && (_fy === null || f.pos.y < _fy - 1.5 || Math.abs(f.pos.x) > STAGE.wallX + 1.5
+                        || Math.abs(f.pos.x) > (STAGE.mainW || 38) / 2 - 0.2)) { this.plan = 'recover'; return; }
     const enemies = FIGHTERS.filter(o => o !== f && !o.eliminated && !isTeammate(f, o));   // ★ 团队：只把敌人当目标
     if (!enemies.length) { this.plan = 'idle'; return; }
     let best = null, bd = 1e9;
@@ -24844,6 +24847,16 @@ class Bot {
     this.target = best;
     const dx = best.pos.x - f.pos.x, dy = best.pos.y - f.pos.y;
     const adx = Math.abs(dx);
+    /* ★ 2026-11-17：对手在场外时**绝不追出去**（追出去＝自杀），站在台边等他回来。
+       以前 plan 是 approach，inp.x 一路朝外 → 跟着跳出场地。 */
+    const _halfW = (STAGE.mainW || 38) / 2, _eF = stageFloorY(best.pos.x);
+    const _foeOff = (!best.grounded && (_eF === null || best.pos.y < _eF - 0.9)) || Math.abs(best.pos.x) > _halfW + 0.6;
+    if (_foeOff) {
+      const postX = Math.sign(best.pos.x || 1) * (_halfW - 1.8);
+      this.targetX = postX;
+      this.plan = (Math.abs(f.pos.x - postX) > 0.6) ? 'holdEdge' : 'idle';
+      return;
+    }
     const r = RND();
     if (f.damage > 105 && r < .35 * this.p.skill) { this.plan = 'retreat'; return; }
     if (adx < 3.4 && r < this.p.shield * .22) { this.plan = 'defend'; return; }
@@ -24874,10 +24887,22 @@ class Bot {
         if (!(f.cooldown.sp_u > 0) && f.pos.x * toX < -STAGE.wallX - 3 && f.vel.y < 0 && f.pos.y < 4) { inp.y = 1; inp.spP = true; }
         break;
       }
+      case 'holdEdge': {
+        const tx = this.targetX || 0, dxe = tx - f.pos.x;
+        inp.x = Math.abs(dxe) < .5 ? 0 : Math.sign(dxe);
+        if (!f.grounded && f.jumpsLeft > 0 && f.pos.y < 2 && dxe * f.vel.x < 0) inp.jumpP = true;
+        break;
+      }
       case 'approach': {
         if (!t) break;
         const dx = t.pos.x - f.pos.x;
         inp.x = Math.abs(dx) < .6 ? 0 : Math.sign(dx);
+        /* ★ 2026-11-17：贴到台边还不减速 → 直接按进去就是走出去摔死；这里硬性夹住 */
+        {
+          const hw = (STAGE.mainW || 38) / 2, lim = hw - 1.2;
+          if (f.pos.x > lim && inp.x > 0) inp.x = 0;
+          if (f.pos.x < -lim && inp.x < 0) inp.x = 0;
+        }
         if (t.pos.y > f.pos.y + 3.2 && f.grounded && RND() < .09) inp.jumpP = true;
         if (Math.abs(dx) < 2.6 && !(f.cooldown.sp_s > 0) && RND() < .12) { inp.spP = true; inp.x = Math.sign(dx); }
         break;
