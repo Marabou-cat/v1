@@ -28298,6 +28298,7 @@ const NET = {
     const now = performance.now();
     if (!this.active) { this.stallT = now; this.stallF = FRAME; return; }
     if (FRAME !== this.stallF) { this.stallF = FRAME; this.stallT = now; }
+    this.afkWatch(now);                                        // ★ 2026-11-17：等不到某人的输入 → 直接挂机（站着不动，照样被打）
     this.localTakeover(now);                                   // ★ 先试本地自救（帧号不动时才有动作）
     /* ★★ 判活心跳（用户报的「有人掉线后所有角色在我视角都被我自己控制」的根因）：
        卡住时本机**已经采不到新帧的输入**（帧号不动 → 前台那几帧早就发过了），于是服务端
@@ -28318,6 +28319,28 @@ const NET = {
       else if (!this.sendQ.some(p => p[0] === k)) this.sendQ.push([k, b]);
     }
     if (this.mode === 'http') this.syncHTTP();
+  },
+  /* ★ 2026-11-17（用户要求）：「锁屏 / 掉线 → 直接挂机，反正不影响其他人」。
+     闸门（canAdvance → haveAll）会一直等某个座位的输入；只要那条输入不来，全场就冻在
+     「wait P2 100%」上 —— 而 ws 的 ev 推送在 Polling 客户端根本收不到，服务端判死又要 2.5s。
+     这里做一道本地兜底：同一个真人座位连续 1.2s 拿不到 FRAME+1 的输入 → 就把它当挂机
+     （offlineSeats = 'timeout' + 收掉控制权）。fillInput 会给它喂全 0：站着不动、照样被打，
+     其他人立刻恢复推进。它真回来了会被房间快照（applyRoom）或 ev 清掉标记，自动重新上场。 */
+  afkWatch(now) {
+    if (!this.started || this.spec || !(this.seat >= 0)) { this._afkSeat = -1; this._afkT = now; return; }
+    if (now - (this.matchStartT || 0) < 2500) return;              // 开局宽限：谁都没供货
+    const ms = this.missingSeat(FRAME + 1);
+    if (ms < 0 || ms === this.seat) { this._afkSeat = -1; this._afkT = now; return; }   // 缺的是自己 = 本机卡，别动别人
+    if (this._afkSeat !== ms) { this._afkSeat = ms; this._afkT = now; return; }
+    if (now - (this._afkT || now) < 1200) return;
+    const f = FIGHTERS.find(x => x.netSeat === ms);
+    if (!f) { this._afkSeat = -1; return; }
+    this._afkSeat = -1;
+    f.ctrl = null; f.stub = true;                     // 收掉控制权，保留 netSeat/stocks/位置 → 还能被打
+    this.offlineSeats = this.offlineSeats || {};
+    this.offlineSeats[ms] = 'timeout';
+    toast((this.names[ms] || ('P' + (ms + 1))) + ' not responding — standing still (AFK)');
+    try { this.send({ a:'stall', room:this.room, seat:ms, token:this.token, f:FRAME }); } catch (e) {}
   },
   /* ★ 本地自救接管：某个座位**永久**消失时，服务端给的生效帧（frameHigh+30）永远到不了 ——
      全场会卡死在「缺它输入」的那一帧（旧版本就一直冻着，只能重开房）。
@@ -31038,6 +31061,8 @@ NET.applyRoom = function (room) {
       room.seats.forEach((s, i) => {
         if (!s || s.bot) return;
         if (s.idle || s.left || s.connected === false) this.offlineSeats[i] = s.left ? 'left' : 'offline';
+        /* ★ 2026-11-17：之前被本地 watchdog 标成挂机（timeout）的座位，快照里恢复正常 → 撤掉标记重新上场 */
+        else if (this.offlineSeats && this.offlineSeats[i]) delete this.offlineSeats[i];
         /* ★ 2026-11-17：快照里 gone/idle 的座位**不再移除角色**（旧版第 105 轮会 mesh.visible=false +
            stocks=0 + 判结算 → 「有人退出就死机」）。留着当木桩：站着不动、照样被打。
            同时把「已经被旧逻辑藏起来/清零」的角色恢复回来（同一局里不再有 gone 语义）。 */

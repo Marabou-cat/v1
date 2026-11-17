@@ -529,7 +529,13 @@ function tick() {
         /* ★ 第 107 轮：按用户要求「3 秒不回复就踢出」——
            3 秒无消息（或 3 秒既没新输入也没推进）且别人确实在推进 → 标记 idle/gone，
            客户端会把这个角色从场上移除，剩下的人继续打。 */
-        const dead = otherAdvancingNow && (noMsg > 3000 || (noFeed > 3000 && noProg > 3000));
+        /* ★ 2026-11-17（用户要求：锁屏/掉线「直接挂机」，反正不影响其他人）：
+           不再等「别人确实在推进」这个条件 —— 一个座位 2.5s 没有任何消息（锁屏 / 关页面 / 断网）
+           或 3s 既不供新输入帧号也不推进，就直接标 idle 挂机（喂全 0，站着不动、照样被打）。
+           以前要求 otherAdvancingNow，结果两个人里走了一个、剩下那个正好卡在等输入 →
+           没人「在推进」→ 谁都不判死 → 全场永远停在 wait P2 100%。
+           挂机是安全的：剩下的人继续打，木桩不影响任何人；人回来还有 un-idle（见 sync 里的 resumed）。 */
+        const dead = (noMsg > 2500) || (noFeed > 3000 && noProg > 3000);
         if (!s.idle && !s.left && !inGrace && dead) {
           /* ★ 第 101 轮：不做 AI 接管 —— 标记 idle，之后这个座位一律喂「全 0」输入，
              角色就站在那儿不动，其他人完全不受影响（不再等、不再重开）。 */
@@ -918,6 +924,13 @@ function handle(act, ctx) {
     }
     s.lastSeen = now; s.connected = true;
     if (staleGen) list.length = 0;          // 上一局的输入一律不入库、不转发（也不刷新 inT）
+    /* ★ 2026-11-17：挂机（idle）的座位一旦又送来真实输入就恢复上场（别让木桩打完整局） */
+    if (s.idle && !s.left && list.length) {
+      s.idle = false; s.gone = false; s.connected = true;
+      room.updated = now;
+      broadcast(room, { a:'ev', room: room.code, f: (room.frameHigh | 0) + 1, seat: s.seat, idle: false, why:'resumed' });
+      log('[idle] resumed', room.code, 'seat', s.seat);
+    }
     for (const item of list) {
       const f = item[0] | 0, b = item[1] | 0;
       storeInput(room, seat, f, b);
