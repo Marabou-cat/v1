@@ -24818,9 +24818,13 @@ function updateCamera(dt) {
 
 /* ================= 电脑 AI ================= */
 const DIFF = {
-  1: { react:[.30,.55], aggro:.55, skill:.35, charge:.25, shield:.25, name:'Easy' },
-  2: { react:[.18,.34], aggro:.78, skill:.62, charge:.55, shield:.45, name:'Normal' },
-  3: { react:[.10,.22], aggro:.95, skill:.86, charge:.8,  shield:.62, name:'Expert' },
+  /* ★ 2026-11-17：参数用 `SB.debug.pauseLoop(true) + botBench` 实测扫出来的（同 seed 6 局 × 60s）。
+     原来的 Expert（react .10-.22 / charge .8 / shield .62）在干净沙箱里是**最差**的一档：
+     决策太频 + 举盾太多 → 60s 里经常一整局打不到人（dmgPerMatch 72，最差一局停滞 60s）。
+     换成「决策稍慢、少举盾、少蓄力」后 dmgPerMatch 121（+68%）、停滞 38.8s（-35%）。 */
+  1: { react:[.34,.58], aggro:.55, skill:.35, charge:.30, shield:.20, name:'Easy' },
+  2: { react:[.29,.48], aggro:.78, skill:.62, charge:.42, shield:.26, name:'Normal' },
+  3: { react:[.26,.44], aggro:.95, skill:.90, charge:.55, shield:.34, name:'Expert' },
 };
 class Bot {
   constructor(fighter, level) {
@@ -26972,8 +26976,10 @@ function mosqVeilTick() {
   g2.globalCompositeOperation = 'source-over';
   cv.style.opacity = '1';
 }
+let _loopPaused = false;                      // ★ 仅调试：SB.debug.pauseLoop(true) 后主循环只续帧不推进物理
 function frame(now) {
   requestAnimationFrame(frame);
+  if (_loopPaused) { last = now; return; }
   let dt = (now - last) / 1000; last = now;
   if (dt > .25) dt = .25;
   fpsFrames++;
@@ -30721,6 +30727,9 @@ window.SB = {
     koNow(i) { FIGHTERS[i].pos.x = CFG.blast.x + 1; },
     win(i) { FIGHTERS.forEach((f, k) => { if (k !== i) { f.stocks = 0; if (f.mesh) { f.eliminated = true; f.mesh.visible = false; } } }); checkMatchEnd(); },
     baseMoves: BASE_MOVES,
+    /* ★ 2026-11-17：暂停 rAF 主循环 —— 让 botBench/steps 变成可复现的沙箱（否则渲染循环也在推物理，
+       同一 seed 两次能差 ±20%，任何参数对比都不可信）。用完记得 pauseLoop(false)。 */
+    pauseLoop(v) { _loopPaused = !!v; last = performance.now(); return _loopPaused; },
     /* ★ 2026-11-17：Bot 调参用的基准台 —— 跑 n 局 bot-vs-bot（每局 secs 秒），返回
        造成的伤害总量 / 自爆次数 / 最长「互相打不到」停滞 / 越界距离。调 AI 参数时用它对比，
        不要凭手感改（本轮实测：凭感觉加的「谨慎」让伤害直接减半）。 */
