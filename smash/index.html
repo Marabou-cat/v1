@@ -24840,6 +24840,15 @@ class Bot {
        实测 Bot 会一路追到 x=9.6 才反应，8 局里自杀 10 次）。 */
     if (!f.grounded && (_fy === null || f.pos.y < _fy - 1.5 || Math.abs(f.pos.x) > STAGE.wallX + 1.5
                         || Math.abs(f.pos.x) > (STAGE.mainW || 38) / 2 - 0.2)) { this.plan = 'recover'; return; }
+    /* ★ 2026-11-17：宝石争夺战里 Bot 以前**完全不管宝石**（Bot 代码里 'gem' 出现 0 次），
+       2v2 抢宝石模式等于白给。现在：手上 <2 颗就去捡最近那颗；够了就回中间保命。 */
+    if (typeof gemModeOn === 'function' && gemModeOn() && typeof GEM !== 'undefined' && GEM.list && GEM.list.length) {
+      if ((f.gems || 0) < 2) {
+        let gb = null, gd = 1e9;
+        for (const g of GEM.list) { const d = Math.abs(g.x - f.pos.x); if (d < gd) { gd = d; gb = g; } }
+        if (gb && gd < 16) { this.gemX = gb.x; this.plan = 'gem'; return; }
+      } else { this.gemX = 0; this.plan = 'gem'; return; }
+    }
     const enemies = FIGHTERS.filter(o => o !== f && !o.eliminated && !isTeammate(f, o));   // ★ 团队：只把敌人当目标
     if (!enemies.length) { this.plan = 'idle'; return; }
     let best = null, bd = 1e9;
@@ -24891,6 +24900,12 @@ class Bot {
         const tx = this.targetX || 0, dxe = tx - f.pos.x;
         inp.x = Math.abs(dxe) < .5 ? 0 : Math.sign(dxe);
         if (!f.grounded && f.jumpsLeft > 0 && f.pos.y < 2 && dxe * f.vel.x < 0) inp.jumpP = true;
+        break;
+      }
+      case 'gem': {
+        const gx = (this.gemX === undefined ? 0 : this.gemX), dgx = gx - f.pos.x;
+        inp.x = Math.abs(dgx) < .4 ? 0 : Math.sign(dgx);
+        if (!f.grounded && f.jumpsLeft > 0 && f.pos.y < 1.2 && dgx * f.vel.x < 0) inp.jumpP = true;
         break;
       }
       case 'approach': {
@@ -30706,6 +30721,36 @@ window.SB = {
     koNow(i) { FIGHTERS[i].pos.x = CFG.blast.x + 1; },
     win(i) { FIGHTERS.forEach((f, k) => { if (k !== i) { f.stocks = 0; if (f.mesh) { f.eliminated = true; f.mesh.visible = false; } } }); checkMatchEnd(); },
     baseMoves: BASE_MOVES,
+    /* ★ 2026-11-17：Bot 调参用的基准台 —— 跑 n 局 bot-vs-bot（每局 secs 秒），返回
+       造成的伤害总量 / 自爆次数 / 最长「互相打不到」停滞 / 越界距离。调 AI 参数时用它对比，
+       不要凭手感改（本轮实测：凭感觉加的「谨慎」让伤害直接减半）。 */
+    botBench(n = 6, secs = 60, level = 3) {
+      const runs = [];
+      for (let m = 0; m < n; m++) {
+        setup({ count: 2, stocks: 3, time: 0, diff: level, seed: 6100 + m, humanSeats: [false, false], chars: ['blub', 'rocky'] });
+        const fs = FIGHTERS, pd = [0, 0], dead = [0, 0];
+        let steps = 0, stall = 0, lastTot = 0, lastCh = 0, sd = [0, 0], maxX = [0, 0];
+        while (steps < secs * 60) {
+          this.steps(10); steps += 10;
+          for (let i = 0; i < 2; i++) {
+            maxX[i] = Math.max(maxX[i], Math.abs(fs[i].pos.x));
+            if (fs[i].deaths > dead[i]) { if (fs[i].damage - pd[i] < 1) sd[i]++; dead[i] = fs[i].deaths; }
+            pd[i] = fs[i].damage;
+          }
+          const tot = fs[0].damage + fs[1].damage;
+          if (tot > lastTot) { lastTot = tot; lastCh = steps; }
+          stall = Math.max(stall, steps - lastCh);
+          if (fs[0].stocks <= 0 || fs[1].stocks <= 0) break;
+        }
+        runs.push({ dmg: [Math.round(fs[0].damage), Math.round(fs[1].damage)], stocks: [fs[0].stocks, fs[1].stocks],
+                    secs: Math.round(steps / 60), stall: +(stall / 60).toFixed(1), sd, maxX: maxX.map(v => +v.toFixed(1)) });
+      }
+      const sum = (k) => runs.reduce((a, r) => a + r[k], 0);
+      return { runs, dmgPerMatch: Math.round(sum('dmg') ? runs.reduce((a, r) => a + r.dmg[0] + r.dmg[1], 0) / n : 0),
+               sdTotal: runs.reduce((a, r) => a + r.sd[0] + r.sd[1], 0),
+               stallMax: Math.max(...runs.map(r => r.stall)),
+               maxX: Math.max(...runs.flatMap(r => r.maxX)) };
+    },
   },
 };
 
