@@ -362,8 +362,23 @@ document.addEventListener('DOMContentLoaded', function () {
     padding:12px 18px calc(12px + env(safe-area-inset-bottom));
     border-top:1px solid rgba(140,190,255,.16);background:linear-gradient(0deg,rgba(6,10,20,.96),rgba(10,16,32,.72))}
   .pageBar .btn{margin:0}
-  .pageBar #startBtn{flex:1 1 auto;font-size:clamp(15px,3.6vw,18px);padding:13px 26px}
+  .pageBar #startBtn,.pageBar #setupBackBtn{flex:1 1 auto;font-size:clamp(15px,3.6vw,18px);padding:13px 26px}
   .pageBar .btn.alt,.pageBar .btn.online{flex:0 0 auto;font-size:12px;padding:11px 16px}
+  /* ★ 从 ROOM 里「CHANGE ▸」进设置：底栏只留「‹ BACK TO ROOM」——
+     PLAY（会直接开一局单机）和 Online Match（会另开一个房间）在这个语境下都是误导，
+     Tutorial 也不是房间里的操作；联机开局按钮在房间里（Start Match）。 */
+  .pageBar.roomCtx #startBtn,.pageBar.roomCtx #btnOnline2,.pageBar.roomCtx #tutBtn{display:none !important}
+  .pageBar #setupBackBtn{background:linear-gradient(180deg,#8bffd0,#25d07d);color:#04220f;border:none;
+    box-shadow:0 5px 0 #12864f,0 10px 22px rgba(0,0,0,.40)}
+  .pageBar #setupBackBtn:active{transform:translateY(2px);box-shadow:0 3px 0 #12864f}
+  /* 房间设置页顶部的上下文条：房间号 + 你现在是房主还是客人（谁能决定规则） */
+  .roomCtxBar{display:none;align-items:center;gap:8px;margin:0 0 10px;padding:9px 12px;border-radius:12px;
+    font-size:12px;line-height:1.4;color:#d9f7ea;
+    background:linear-gradient(180deg,rgba(37,208,125,.16),rgba(18,134,79,.12));
+    border:1px solid rgba(82,240,170,.35)}
+  .roomCtxBar.on{display:flex}
+  .roomCtxBar b{color:#8bffd0}
+  .roomCtxBar .rc{font-weight:900;letter-spacing:2px;color:#fff}
   /* ★ 本局概要：现在只在 ROOM 弹层里出现（不再挂在大厅右上角） */
   .qcard{width:100%;display:flex;flex-direction:column;gap:9px;padding:10px 12px;border-radius:14px;margin-bottom:10px;
     background:linear-gradient(180deg,rgba(22,34,62,.92),rgba(12,19,36,.92));
@@ -967,6 +982,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="pageCur" id="setupCur"></div>
       </div>
       <div class="pageScroll">
+        <div class="roomCtxBar" id="roomCtxBar"></div>
         <div class="secH">RULES <span id="rulesPickName"></span></div>
         <div class="setupBody" id="setupBody"></div>
         <div class="secH" style="margin-top:16px">STAGE <span id="stagePickName"></span></div>
@@ -26104,7 +26120,7 @@ PV.resize();
         + '<button class="qbtn" id="qChange">CHANGE ▸</button>'
         + '</div></div>';
       const cb = document.getElementById('qChange');
-      if (cb) cb.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} drawStageCards(); syncCur(); open(sheetSetup); };
+      if (cb) cb.onclick = () => openSetup(true);      // ★ 从 ROOM 进设置：底栏变 BACK TO ROOM（见下）
     }
   }
   /* 开合 */
@@ -26115,15 +26131,72 @@ PV.resize();
   const closeAll = () => { sheetSetup.classList.add('hidden'); sheetChars.classList.add('hidden');
                            if (sheetRoom) sheetRoom.classList.add('hidden');
                            document.body.classList.remove('setupOpen'); };
-  document.getElementById('btnStart').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} drawStageCards(); syncCur(); open(sheetSetup); };
+  /* ★ 2026-11-16：从 ROOM 里点 CHANGE 进 BATTLE SETUP 时，底栏大按钮不再是 PLAY（那会直接开一局**单机**），
+     而是「‹ BACK TO ROOM」；改完设置退回房间，由房主在房间里自己点 Start Match 开局。
+     ★ 2026-11-17：底栏同时把 Online Match / Tutorial 也收掉 —— 房间里看到「PLAY / Online Match」
+     会让人以为要在这里开局或另开一房；这个页面只负责改规则，开局按钮在房间里。 */
+  let setupRoomOrigin = false;
+  const playBtn = document.getElementById('startBtn');
+  const onlineBtn = document.getElementById('btnOnline2');
+  const tutBtnEl = document.getElementById('tutBtn');
+  const setupBackBtn = document.createElement('button');
+  setupBackBtn.id = 'setupBackBtn'; setupBackBtn.type = 'button';
+  setupBackBtn.className = 'btn';
+  setupBackBtn.textContent = '‹ BACK TO ROOM';
+  setupBackBtn.title = 'Back to the room — the host starts the match there';
+  setupBackBtn.style.display = 'none';
+  setupBackBtn.onclick = () => { try { SFX.init(); SFX.tone(520, 380, .09, 'triangle', .05); } catch (e) {} backToRoom(); };
+  pageBar.insertBefore(setupBackBtn, playBtn);
+  const setupPageSub = document.querySelector('#sheetSetup .pageTitle small');
+  const setupHeadBack = document.getElementById('setupClose');
+  const roomCtxBar = document.getElementById('roomCtxBar');
+  /* 上下文条文案：房间号 + 谁是房主（客人改的规则不会生效 —— 必须在界面上说清楚，别让他白调） */
+  function roomCtxHtml() {
+    const rs = NET.roomState;
+    if (!NET.room) return '<b>NOT IN A ROOM YET</b> · go BACK and create / join one — the host starts the match';
+    const code = String(NET.room).toUpperCase();
+    const isHost = !!(rs && rs.hostSeat === NET.seat);
+    return '<span class="rc">ROOM ' + code + '</span>'
+      + (isHost
+          ? '<span>you are the <b>host</b> — these rules are used when you hit <b>Start Match</b> in the room</span>'
+          : '<span>you are a <b>guest</b> — the <b>host’s</b> stage &amp; rules are used in the match</span>');
+  }
+  function applySetupMode() {
+    const rm = setupRoomOrigin;
+    pageBar.classList.toggle('roomCtx', rm);                 // 底栏切到「只有 BACK TO ROOM」
+    setupBackBtn.style.display = rm ? '' : 'none';
+    if (playBtn) playBtn.style.display = rm ? 'none' : '';
+    if (onlineBtn) onlineBtn.style.display = rm ? 'none' : '';
+    if (tutBtnEl) tutBtnEl.style.display = rm ? 'none' : '';
+    if (setupHeadBack) setupHeadBack.textContent = rm ? '‹ ROOM' : '‹ BACK';
+    if (roomCtxBar) {
+      roomCtxBar.classList.toggle('on', rm);
+      if (rm) roomCtxBar.innerHTML = roomCtxHtml();
+    }
+    if (setupPageSub) setupPageSub.textContent = rm
+      ? 'stage & rules for this room — then BACK and hit Start Match'
+      : 'pick a stage & rules — then PLAY';
+  }
+  function openSetup(fromRoom) {
+    setupRoomOrigin = !!fromRoom;
+    applySetupMode(); drawStageCards(); syncCur(); open(sheetSetup);
+  }
+  function backToRoom() {
+    setupRoomOrigin = false;                 // 回到房间：底栏复位（PLAY 只在下次从大厅 START 进来时才出现）
+    applySetupMode(); syncCur(); open(sheetRoom);
+    try { document.getElementById('roomBody').scrollTop = 0; } catch (e) {}
+  }
+  const btnStartLobby = document.getElementById('btnStart');
+  if (btnStartLobby) btnStartLobby.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} openSetup(false); };
   document.getElementById('btnPick').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} buildGrid(); open(sheetChars); };
   const btnRoom = document.getElementById('btnRoom');
   if (btnRoom) btnRoom.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} syncCur(); open(sheetRoom); };
   const roomClose = document.getElementById('roomClose');
   if (roomClose) roomClose.onclick = closeAll;
-  document.getElementById('setupClose').onclick = closeAll;
+  document.getElementById('setupClose').onclick = () => { if (setupRoomOrigin) backToRoom(); else closeAll(); };
   document.getElementById('charsClose').onclick = closeAll;
-  for (const sh of [sheetSetup, sheetChars, sheetRoom]) if (sh) sh.addEventListener('click', e => { if (e.target === sh) closeAll(); });
+  for (const sh of [sheetChars, sheetRoom]) if (sh) sh.addEventListener('click', e => { if (e.target === sh) closeAll(); });
+  sheetSetup.addEventListener('click', e => { if (e.target === sheetSetup) { if (setupRoomOrigin) backToRoom(); else closeAll(); } });
   /* 规则里点了任何选项（人数/命数/模式/时间/CPU/队伍）→ 顺手刷新概要 */
   setupBody.addEventListener('click', () => setTimeout(syncCur, 0));
   drawStageCards(); syncCur();
@@ -28861,7 +28934,10 @@ const NET = {
     return this.send({ a:'start', room:this.room, seat:this.seat, token:this.token,
       chars, rules:{ count:settings.count, stocks:settings.stocks, time:settings.time, diff:settings.diff,
                      teams: settings.count === 4 ? (settings.teams ? 1 : 0) : 0,
-                     mode: settings.mode === 'gem' ? 'gem' : '' } });
+                     mode: settings.mode === 'gem' ? 'gem' : '',
+                     /* ★ 2026-11-16：房主在房间里改过地图（ROOM → CHANGE → BACK）也要生效 ——
+                        原来只有建房那一刻上报 stage，开局改用这里的值（服务端 start 会 merge rules 并广播）。 */
+                     stage: (settings.stage === 'r' || settings.stage === undefined) ? null : settings.stage } });
   },
   /* ★ 第 102 轮：掉线回来「快进重放」
      原理：引擎是确定性的（同 seed + 同输入 → 同结果，已实测）。所以不用状态快照：
