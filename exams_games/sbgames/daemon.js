@@ -347,9 +347,20 @@ function seatHasSocket(room, seatNo) {
   for (const ws of room.clients) if (ws && ws.__seat === seatNo && ws.readyState === 1) return true;
   return false;
 }
+/* ★ 2026-11-17（用户要求：「全下线房间就消失」）：判活不能只看 connected 这个位 ——
+   它是「有过一条消息」的历史标记，脚本/关掉的标签页/手机断电之后没人再把它清掉，
+   于是一个「看起来还在线」的幽灵座位能让房间永远不回收（实测 5 个测试房在线上挂了 15 分钟）。
+   判据改成「connected 且最近 15s 真的有过消息」或者「座位上有活着的 ws 连接」。
+   15s 的余量足够覆盖切后台（移动端定时器节流到 1s）和一次短暂断网重连。 */
+const SEAT_STALE_MS = 15000;
 function humansIn(room) {
+  const now = Date.now();
   let n = 0;
-  for (const s of room.seats) if (s && !s.bot && (s.connected || seatHasSocket(room, s.seat))) n++;
+  for (const s of room.seats) {
+    if (!s || s.bot || s.left || s.idle) continue;
+    const fresh = s.connected && now - (s.lastSeen || 0) < SEAT_STALE_MS;
+    if (fresh || seatHasSocket(room, s.seat)) n++;
+  }
   return n;
 }
 function reapRoom(room, why) {
