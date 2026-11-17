@@ -24826,7 +24826,36 @@ const DIFF = {
   2: { react:[.29,.48], aggro:.78, skill:.62, charge:.42, shield:.26, name:'Normal' },
   3: { react:[.26,.44], aggro:.95, skill:.90, charge:.55, shield:.34, name:'Expert' },
 };
+/* ★ 2026-11-17（用户要求）：**人物 reach 表** —— 每个角色的出手距离不同（弓箭手/法师的远程优势以前完全没用上）。
+   不手写 43 份：直接读各自的招式数据（`def.special` + `CHAR_EXTRA[id]`）估射程 ——
+   `range` 原样用；`reach`（近身突进）加 0.8；`dash`/`dashSpd*dur`（位移技）按位移距离折算。
+   结果缓存进 CHAR_REACH[id]，Bot.reach() 直接查表。 */
+const CHAR_REACH = {};
+function charReachOf(def) {
+  if (!def || !def.id) return { jab: 2.0, smash: 2.3, spec: 4.5 };
+  if (CHAR_REACH[def.id]) return CHAR_REACH[def.id];
+  const kit = Object.assign({}, def.special || {},
+    (typeof CHAR_EXTRA !== 'undefined' && CHAR_EXTRA[def.id]) ? CHAR_EXTRA[def.id] : {});
+  let spec = 0;
+  for (const k of ['n', 's', 'd', 'u']) {
+    const m = kit[k]; if (!m || typeof m !== 'object') continue;
+    let r = 0;
+    if (typeof m.range === 'number') r = m.range;
+    else if (typeof m.reach === 'number') r = m.reach + 0.8;
+    else if (typeof m.dash === 'number') r = m.dash + 2.0;
+    else if (typeof m.dashSpd === 'number' && typeof m.dur === 'number') r = m.dashSpd * m.dur * .55 + 1.5;
+    else if (typeof m.spd === 'number' && typeof m.dur === 'number') r = m.spd * m.dur * .60 + 1.0;
+    if (r > spec) spec = r;
+  }
+  /* 标签是 Ranged / Gunslinger 的角色，招式数据里常常只写了弹速没写射程 → 给一个下限，
+     不然「远程角色」的 spec 会算出 2.8，等于还是得贴身打（Archer 原本就是这样）。 */
+  const _tag = String(def.tag || '');
+  if (/Ranged|Gunslinger|Mage|Caster/i.test(_tag)) spec = Math.max(spec, 8.0);
+  CHAR_REACH[def.id] = { jab: 2.0, smash: 2.3, spec: Math.max(2.6, Math.min(16, spec || 4.5)) };
+  return CHAR_REACH[def.id];
+}
 class Bot {
+  reach() { return charReachOf(this.f.def); }
   constructor(fighter, level) {
     this.f = fighter; this.p = DIFF[level] || DIFF[2];
     this.timer = 0; this.plan = 'approach'; this.charge = 0; this.holdAtk = false;
@@ -24873,8 +24902,12 @@ class Bot {
     const r = RND();
     if (f.damage > 105 && r < .35 * this.p.skill) { this.plan = 'retreat'; return; }
     if (adx < 3.4 && r < this.p.shield * .22) { this.plan = 'defend'; return; }
-    if (adx < 2.9) { this.plan = (r < .18 ? 'grab' : (dy > 2.2 ? 'utilt' : (r < .5 ? 'attack' : 'smash'))); return; }
-    if (adx < 6.0) { this.plan = r < this.p.charge ? 'smash' : (r < .85 ? 'approach' : 'attack'); return; }
+    const R = this.reach(), cd0 = f.cooldown || {};
+    const specReady = !(cd0.sp_n > 0 || cd0.sp_s > 0 || cd0.sp_d > 0 || cd0.sp_u > 0);
+    /* ★ 射程内 → 用必杀打（远程角色终于会「放风筝」，而不是一路走过来挨打） */
+    if (specReady && adx > R.jab + 0.8 && adx < R.spec && r < .58) { this.plan = 'special'; return; }
+    if (adx < R.jab + 0.9) { this.plan = (r < .18 ? 'grab' : (dy > 2.2 ? 'utilt' : (r < .5 ? 'attack' : 'smash'))); return; }
+    if (adx < R.smash + 2.2) { this.plan = r < this.p.charge ? 'smash' : (r < .85 ? 'approach' : 'attack'); return; }
     this.plan = r < .9 ? 'approach' : 'jumpIn';
   }
   step(fighter, inp, dt = 1/60) {
@@ -24910,6 +24943,18 @@ class Bot {
         const gx = (this.gemX === undefined ? 0 : this.gemX), dgx = gx - f.pos.x;
         inp.x = Math.abs(dgx) < .4 ? 0 : Math.sign(dgx);
         if (!f.grounded && f.jumpsLeft > 0 && f.pos.y < 1.2 && dgx * f.vel.x < 0) inp.jumpP = true;
+        break;
+      }
+      case 'special': {
+        if (!t) break;
+        const dx2 = t.pos.x - f.pos.x, adx2 = Math.abs(dx2);
+        f.facing = Math.sign(dx2) || f.facing;
+        const cds = f.cooldown || {};
+        if (t.pos.y > f.pos.y + 2.4 && !(cds.sp_d > 0)) { inp.spP = true; inp.y = -1; break; }   // 上方 → 下B
+        if (adx2 > 3.6 && !(cds.sp_n > 0)) { inp.spP = true; break; }                            // 远 → 中立B
+        if (!(cds.sp_s > 0)) { inp.spP = true; inp.x = Math.sign(dx2); break; }                  // 中 → 横B
+        if (!(cds.sp_n > 0)) { inp.spP = true; break; }
+        inp.atkP = true;
         break;
       }
       case 'approach': {
@@ -30737,13 +30782,14 @@ window.SB = {
       const runs = [];
       for (let m = 0; m < n; m++) {
         setup({ count: 2, stocks: 3, time: 0, diff: level, seed: 6100 + m, humanSeats: [false, false], chars: ['blub', 'rocky'] });
-        const fs = FIGHTERS, pd = [0, 0], dead = [0, 0];
+        const fs = FIGHTERS, pd = [0, 0], dead = [0, 0], hist = [[], []];
         let steps = 0, stall = 0, lastTot = 0, lastCh = 0, sd = [0, 0], maxX = [0, 0];
         while (steps < secs * 60) {
           this.steps(10); steps += 10;
           for (let i = 0; i < 2; i++) {
             maxX[i] = Math.max(maxX[i], Math.abs(fs[i].pos.x));
-            if (fs[i].deaths > dead[i]) { if (fs[i].damage - pd[i] < 1) sd[i]++; dead[i] = fs[i].deaths; }
+            hist[i].push(fs[i].damage); if (hist[i].length > 300) hist[i].shift();
+            if (fs[i].deaths > dead[i]) { if (fs[i].damage - (hist[i][0] || 0) < 1) sd[i]++; dead[i] = fs[i].deaths; }
             pd[i] = fs[i].damage;
           }
           const tot = fs[0].damage + fs[1].damage;
