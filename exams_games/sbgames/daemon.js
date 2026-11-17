@@ -121,7 +121,8 @@ function createRoom(opts) {
 /* 座位：每人一个，带 token；掉线后 token 可重连；无主座位由 AI 接管 */
 function seatIndex(room, token) {
   if (!token) return -1;
-  for (let i = 0; i < room.seats.length; i++) if (room.seats[i].token === token) return i;
+  /* ★ 2026-11-17：座位可能被踢空（null）—— 直接取 .token 会抛异常，整个请求变成 e:'internal' */
+  for (let i = 0; i < room.seats.length; i++) { const st = room.seats[i]; if (st && st.token === token) return i; }
   return -1;
 }
 function freeSeatIndex(room) {
@@ -363,6 +364,30 @@ function humansIn(room) {
   }
   return n;
 }
+/* ★ 2026-11-17（用户要求）：对局中「退出 / 掉线」= **直接踢出房间，角色从场上消失**。
+   为什么不再用「站着不动」的木桩：木桩本身不影响别人，但那个人一旦回来，他本地的历史
+   （自己的输入）和别人算出来的（喂的全 0）根本不是同一段 → 两边必然不同步。
+   踢掉座位之后，服务端对「正在进行的对局」本来就拒绝新座位（game_in_progress），
+   所以他也回不来这一局，不同步从根上消失。剩下的人继续打（场上少一个人）。 */
+function kickSeat(room, seat, why) {
+  const s = room.seats[seat];
+  if (!s) return null;
+  const name = s.name;
+  s.left = true;
+  room.seats[seat] = null;                       // 座位清空：不再喂输入、不再算真人、不能再重连回来
+  if (room.ack) delete room.ack[seat];
+  if (room.inputs) room.inputs.delete(seat);
+  room.updated = Date.now();
+  broadcast(room, { a:'ev', room: room.code, f: (room.frameHigh | 0) + 1, seat,
+                    kicked: true, gone: true, why: why || 'leave', name });
+  if (room.hostSeat === seat || !room.seats[room.hostSeat]) {   // 房主走了 → 交给下一个真人
+    const nx = room.seats.findIndex(x => x && !x.bot && !x.left);
+    room.hostSeat = nx >= 0 ? nx : 0;
+  }
+  broadcast(room, { a:'seats', room: roomPublic(room) });
+  log('[kick] seat removed', room.code, 'seat', seat, name, '(' + (why || 'leave') + ')');
+  return name;
+}
 function reapRoom(room, why) {
   log('[room] reap', room.code, '(' + why + ')');
   for (const ws of room.clients) try { ws.close(); } catch (e) {}
@@ -539,12 +564,9 @@ function tick() {
         if (!s.idle && !s.left && !inGrace && dead) {
           /* ★ 第 101 轮：不做 AI 接管 —— 标记 idle，之后这个座位一律喂「全 0」输入，
              角色就站在那儿不动，其他人完全不受影响（不再等、不再重开）。 */
-          s.idle = true; s.gone = true; s.connected = false;   // 2.5~3s 不回 → 挂机（站着不动，照样被打）
-          s.idleFrom = room.frameHigh | 0;                     // ★ 2026-11-17：记下挂机起始帧（回来要补零）
-          room.updated = now;
-          broadcast(room, { a:'ev', room: room.code, f: (room.frameHigh | 0) + 1, seat: s.seat, idle: true, why:'timeout' });
-          log('[idle] seat stands still', room.code, 'seat', s.seat,
-              'noMsg=' + Math.round(noMsg) + 'ms myTop=' + (s.inTop | 0));
+          /* ★ 2026-11-17：静默 2.5s（锁屏 / 关页面 / 断网）→ 直接踢出房间，角色消失。
+             以前是「站着不动」，但他回来时历史已经和别人不同步（见 kickSeat 注释）。 */
+          kickSeat(room, s.seat, 'timeout');
         }
       }
     }
@@ -1071,12 +1093,8 @@ function handle(act, ctx) {
         if (room.inputs) room.inputs.delete(seat);
         log('[room] left', room.code, 'seat', seat, s.name);
       } else {
-        /* ★ 第 103 轮：对局中退出 —— 不挂 AI，标记 idle（服务端喂全 0 = 站着不动），
-           并广播**谁**离线了，其他人继续打完这一局。 */
-        s.idle = true; s.left = true; s.gone = true; s.connected = false;
-        room.updated = now;
-        broadcast(room, { a:'ev', room: room.code, f: (room.frameHigh | 0) + 1, seat, idle: true, gone: true, why:'leave', name: s.name });
-        log('[left] mid-match', room.code, 'seat', seat, s.name);
+        /* ★ 2026-11-17：对局中退出 → 直接踢出房间，角色消失（不再留一个木桩，见 kickSeat 注释） */
+        kickSeat(room, seat, 'leave');
       }
     }
     /* 房主走了 → 交给下一个真人座位（否则房间永远开不了局） */

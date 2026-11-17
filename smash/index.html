@@ -28585,8 +28585,26 @@ const NET = {
     }
     this.sampleAhead();
   },
+  /* ★ 2026-11-17（用户要求）：被踢出房间的座位 → 角色从场上消失（不是木桩）。
+     为什么不再留木桩：那人回来时自己的历史（自己的输入）和别人算的（喂全 0）不同 → 必然不同步；
+     踢掉后服务端拒绝对局中途加人（game_in_progress），他回不来这一局，也就没有不同步。 */
+  dropSeat(seat, why) {
+    const f = FIGHTERS[seat]; if (!f || f.gone) return;
+    f.gone = true; f.eliminated = true; f.stocks = 0;
+    f.ctrl = null; f.stub = false; f.aiSeat = false;
+    if (f.mesh) f.mesh.visible = false;
+    if (f.shadow) f.shadow.visible = false;
+    this.offlineSeats = this.offlineSeats || {};
+    this.offlineSeats[seat] = 'left';
+    try { checkMatchEnd(); } catch (e) {}
+  },
   applyAI(e) {
     const f = FIGHTERS[e.seat]; if (!f) return;
+    if (e.kicked) {
+      this.dropSeat(e.seat);
+      toast((this.names[e.seat] || ('P' + (e.seat + 1))) + ' left — removed from the match');
+      return;
+    }
     const st = this.roomState && this.roomState.seats ? this.roomState.seats[e.seat] : null;
     f.aiSeat = !!e.ai;
     /* isBot 必须跟着「现在谁在驱动它」一起变（旧代码只加 ctrl 不改 isBot，
@@ -28938,7 +28956,7 @@ const NET = {
     if (j.a === 'seats') { this.applyRoom(j.room); return; }
     if (j.a === 'ev') { this.lastRecv = performance.now();
       /* j.f 现在是服务端算好的固定生效帧 —— 直接用，别再 Math.max(FRAME+2, …) 自己算（见 applyRoom 注释） */
-      this.evs.push({ seat: j.seat, ai: !!j.ai, f: (j.f | 0) || (FRAME + 2) }); return; }
+      this.evs.push({ seat: j.seat, ai: !!j.ai, kicked: !!j.kicked, idle: !!j.idle, f: (j.f | 0) || (FRAME + 2) }); return; }
     if (j.a === 'go') { this.onGo(j); return; }
     if (j.a === 'rematch') {                             // 有人按了 Play Again：只更新按钮进度，先不开局
       this.applyRoom(j.room);
@@ -31067,7 +31085,10 @@ NET.applyRoom = function (room) {
     if (room && Array.isArray(room.seats)) {
       this.offlineSeats = this.offlineSeats || {};
       room.seats.forEach((s, i) => {
-        if (!s || s.bot) return;
+        /* ★ 2026-11-17：对局中快照里座位变成空 = 他被踢出房间（leave / 静默超时）→ 本地也把角色移除。
+           Polling 客户端收不到 ws 的 ev，这条是它唯一的通知渠道。 */
+        if (!s) { if (this.active && FIGHTERS[i] && !FIGHTERS[i].gone) this.dropSeat(i); return; }
+        if (s.bot) return;
         if (s.idle || s.left || s.connected === false) this.offlineSeats[i] = s.left ? 'left' : 'offline';
         /* ★ 2026-11-17：之前被本地 watchdog 标成挂机（timeout）的座位，快照里恢复正常 → 撤掉标记重新上场 */
         else if (this.offlineSeats && this.offlineSeats[i]) delete this.offlineSeats[i];
