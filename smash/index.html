@@ -22094,32 +22094,9 @@ class Fighter {
         this.pos.y = p.y; this.vel.y = 0; this.grounded = true; this.onSoft = true;
       }
     }
-    /* ================= ★ 平台侧面碰撞（2026-11-14）=================
-       单向顶面不变（从下面跳得上来），但**身体在台面下方、横着撞过去**时会被挡住。
-       四条豁免，缺一条就会出现「走不下台子 / 从正下方升不上去」的恶性卡死：
-         ① 脚在台面上/上方（含刚走下去的几帧）→ 不挡，否则走不出台边
-         ② 整个身体在台底之下 → 不挡
-         ③ 正在往外飞（vel.x 与「相对台心的方向」同号）→ 不挡
-         ④ 横向已经深入台子 65% 以上（基本在正下方）→ 不挡，允许从下面穿过（回场技靠这条）
-       另外抓边翻身上来的 0.4s 内（_noSideT）整段跳过：那时人正在台沿内侧往上爬，
-       被侧面一推就会摔回去。 */
-    if ((this._noSideT || 0) <= 0) for (const p of plats) {
-      const th = p.thick || 0;
-      if (!th) continue;
-      const topY = p.y, botY = p.y - th;
-      if (this.pos.y > topY - .12) continue;
-      const myTop = this.pos.y + 1.9 * (this.def.shape.scale || 1);
-      if (myTop < botY + .06) continue;
-      const dxp = this.pos.x - p.x;
-      const hwb = p.halfW + Math.min(.9, this.bodyR * .5);
-      if (Math.abs(dxp) > hwb) continue;
-      const sgn = dxp >= 0 ? 1 : -1;
-      if (this.vel.x * sgn >= 0) continue;
-      const pen = sgn > 0 ? (p.x + hwb) - this.pos.x : this.pos.x - (p.x - hwb);
-      if (pen > hwb * .65) continue;
-      this.pos.x = p.x + sgn * hwb;
-      this.vel.x = 0;
-    }
+    /* ★ 2026-11-17（用户要求）：**删除平台侧面碰撞** —— 之前这块会在台面下方把玩家横向顶住
+       （实测每局触发 122~490 次），玩家会觉得「平台边上多了一个看不见的东西，被隔开了」。
+       现在恢复 Smash 式单向平台：从侧面/下方都能穿过，只有下落时踩得上顶面。 */
     /* ★ Blocky 的方块：顶面可站（单向，只有下落时踩得上）+ 侧面挡人（含放置者在内谁都穿不过去） */
     if (BLOCKS.length) for (const b of BLOCKS) {
       if (this.vel.y <= 0 && py >= b.top - .04 && this.pos.y <= b.top &&
