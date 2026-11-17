@@ -539,7 +539,8 @@ function tick() {
         if (!s.idle && !s.left && !inGrace && dead) {
           /* ★ 第 101 轮：不做 AI 接管 —— 标记 idle，之后这个座位一律喂「全 0」输入，
              角色就站在那儿不动，其他人完全不受影响（不再等、不再重开）。 */
-          s.idle = true; s.gone = true; s.connected = false;   // 3 秒不回 → 踢出场（gone 让快照也能直接隐藏）
+          s.idle = true; s.gone = true; s.connected = false;   // 2.5~3s 不回 → 挂机（站着不动，照样被打）
+          s.idleFrom = room.frameHigh | 0;                     // ★ 2026-11-17：记下挂机起始帧（回来要补零）
           room.updated = now;
           broadcast(room, { a:'ev', room: room.code, f: (room.frameHigh | 0) + 1, seat: s.seat, idle: true, why:'timeout' });
           log('[idle] seat stands still', room.code, 'seat', s.seat,
@@ -925,7 +926,20 @@ function handle(act, ctx) {
     s.lastSeen = now; s.connected = true;
     if (staleGen) list.length = 0;          // 上一局的输入一律不入库、不转发（也不刷新 inT）
     /* ★ 2026-11-17：挂机（idle）的座位一旦又送来真实输入就恢复上场（别让木桩打完整局） */
-    if (s.idle && !s.left && list.length) {
+    /* ★ 2026-11-17：只有在「送来的帧已经追到前沿」时才解除挂机。
+       一个锁屏回来的客户端会从它冻住的旧帧号继续发（那些帧早已被裁掉/对别人无用），
+       如果这时就 un-idle，前端会以为它恢复了 → 撤掉木桩 → 新帧仍然没有它的输入 →
+       又卡成 wait P1 100%（Speed 掉到个位数）。让它先在本机追帧（服务端继续喂 0），
+       等它的帧号真正接近 frameHigh（60 帧内）再恢复上场。 */
+    const lastSentF = list.length ? (list[list.length - 1][0] | 0) : -1;
+    const caughtUp = lastSentF >= ((room.frameHigh | 0) - 60);
+    if (s.idle && !s.left && list.length && caughtUp) {
+      /* ★ 2026-11-17：挂机期间那些帧谁都没收到这个座位的输入（idle 时 inputWindow 直接喂 0，
+         但 0 不会进 room.inputs）→ 一恢复，那些帧就永久缺失，全场卡在 wait P1 100%。
+         这里把 [idleFrom, 当前帧] 全补成 0：和挂机期间大家本地算的完全一致，不会分歧。 */
+      const from = Math.max(0, (s.idleFrom === undefined ? room.frameHigh : s.idleFrom) | 0);
+      const to = room.frameHigh | 0;
+      for (let f = from, n = 0; f <= to && n < 4000; f++, n++) storeInput(room, s.seat, f, 0);
       s.idle = false; s.gone = false; s.connected = true;
       room.updated = now;
       broadcast(room, { a:'ev', room: room.code, f: (room.frameHigh | 0) + 1, seat: s.seat, idle: false, why:'resumed' });
