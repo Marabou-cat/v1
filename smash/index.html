@@ -393,6 +393,9 @@ document.addEventListener('DOMContentLoaded', function () {
   .qcard .qrow2 b{font-size:13px;color:#fff;letter-spacing:.4px}
   .qcard .qbtn{margin-top:3px;font:inherit;cursor:pointer;border-radius:10px;padding:8px;font-weight:900;
     letter-spacing:1.2px;font-size:11px;color:#04220f;background:linear-gradient(180deg,#8bffd0,#25d07d);border:none}
+  /* 客人在房间里看到的规则是只读的（服务端那份），给一条锁条取代 CHANGE 按钮 */
+  .qcard .qlock{margin-top:3px;border-radius:10px;padding:8px;text-align:center;font-weight:900;letter-spacing:1.1px;
+    font-size:10.5px;color:#9fc6ee;background:rgba(12,22,40,.85);border:1px dashed rgba(150,200,255,.35)}
   @media (max-width:560px){ .qcard .qthumb{flex:0 0 100px;width:100px} }
   @media (max-width:640px){
     .stageGrid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
@@ -26095,7 +26098,26 @@ PV.resize();
       };
     });
   }
-  /* 页面顶部/大厅右侧小卡的「本局概要」 */
+  /* ⚠ 这段代码（大厅 UI 块）在文件里**先于** `const NET = {...}` 执行 ——
+     初始化时直接读 NET 会抛 "Cannot access 'NET' before initialization"（TDZ），
+     整个模块随之中断（表现：页面看着能开，SB/NET 全是 undefined）。
+     所有「可能在初始化期间被调用」的 NET 读取都必须走这个取值器。 */
+  function netState() { try { return NET; } catch (e) { return null; } }
+  /* 页面顶部/大厅右侧小卡的「本局概要」
+     ★ 2026-11-17：房间里分两种身份 ——
+       房主：显示**本地**设置（Start Match 下发的就是它）+ CHANGE；
+       客人：显示**服务端 room.rules**（房间真实规则）+ 只读锁，没有 CHANGE（客人没有改规则的权利）。 */
+  function roomRulesView() {
+    const n = netState();
+    const rs = n && n.roomState, rr = rs && rs.rules;
+    if (!n || !n.room || !rr) return null;
+    const gem = rr.mode === 'gem';
+    const si = (typeof rr.stage === 'number') ? rr.stage : -1;
+    const st = si >= 0 ? STAGES[si] : null;
+    return { host: rs.hostSeat === n.seat, stageId: st ? st.id : null,
+             stage: st ? st.name : 'Random', count: rr.count || 4,
+             stocks: gem ? '—' : (rr.stocks || 3), gem };
+  }
   function syncCur() {
     const txt = stageNameOf() + ' · ' + settings.count + 'P · ' + settings.stocks + ' stocks';
     const el = document.getElementById('setupCur'); if (el) el.textContent = txt;
@@ -26104,25 +26126,30 @@ PV.resize();
     if (rn) rn.textContent = '· ' + settings.count + 'P · ' + settings.stocks + ' stocks';
     const qc = document.getElementById('quickCard');
     if (qc) {
-      const st = (settings.stage === 'r' || settings.stage === undefined) ? null : STAGES[settings.stage];
+      const rv = roomRulesView();
+      const guest = !!(rv && !rv.host);                 // 客人：只读房间规则
+      const st = guest ? (rv.stageId ? STAGES.find(s => s.id === rv.stageId) : null)
+                       : ((settings.stage === 'r' || settings.stage === undefined) ? null : STAGES[settings.stage]);
       const thumb = st
         ? '<img alt="" src="previews/' + st.id + '.webp?v=1">'
         : '<div style="position:relative;aspect-ratio:16/9;background:#0a1120">'
           + '<img alt="" src="previews/meadow.webp?v=1" style="width:100%;height:100%;object-fit:cover;filter:grayscale(.55) brightness(.5)">'
           + '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
           + 'font-size:30px;font-weight:900;color:#bfe0ff;text-shadow:0 2px 10px #000">?</div></div>';
-      qc.innerHTML = '<div class="qh">CURRENT SETUP</div>'
-        + '<div class="qbody"><span class="qthumb">' + thumb + '</span>'
-        + '<div class="qrows">'
-        + '<div class="qrow2"><span>Stage</span><b>' + stageNameOf() + '</b></div>'
-        + '<div class="qrow2"><span>Players</span><b>' + settings.count + '</b></div>'
-        + '<div class="qrow2"><span>Stocks</span><b>' + settings.stocks + '</b></div>'
-        + '<button class="qbtn" id="qChange">CHANGE ▸</button>'
+      const rows = guest
+        ? [['Stage', rv.stage], ['Players', rv.count + (rv.gem ? ' · Gem 2v2' : '')], ['Stocks', rv.stocks]]
+        : [['Stage', stageNameOf()], ['Players', settings.count], ['Stocks', settings.stocks]];
+      qc.innerHTML = '<div class="qh">' + (guest ? 'ROOM RULES' : 'CURRENT SETUP') + '</div>'
+        + '<div class="qbody"><span class="qthumb">' + thumb + '</span><div class="qrows">'
+        + rows.map(r => '<div class="qrow2"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>').join('')
+        + (guest ? '<div class="qlock">READ-ONLY · the host sets stage &amp; rules</div>'
+                 : '<button class="qbtn" id="qChange">CHANGE ▸</button>')
         + '</div></div>';
       const cb = document.getElementById('qChange');
       if (cb) cb.onclick = () => openSetup(true);      // ★ 从 ROOM 进设置：底栏变 BACK TO ROOM（见下）
     }
   }
+  window.__syncRoomCur = syncCur;     // 房间快照变化时（房主退房 → 你变房主 / 有人加入）由 renderRoom 调用
   /* 开合 */
   const open = el => { sheetSetup.classList.toggle('hidden', el !== sheetSetup);
                        sheetChars.classList.toggle('hidden', el !== sheetChars);
@@ -26152,14 +26179,20 @@ PV.resize();
   const roomCtxBar = document.getElementById('roomCtxBar');
   /* 上下文条文案：房间号 + 谁是房主（客人改的规则不会生效 —— 必须在界面上说清楚，别让他白调） */
   function roomCtxHtml() {
-    const rs = NET.roomState;
-    if (!NET.room) return '<b>NOT IN A ROOM YET</b> · go BACK and create / join one — the host starts the match';
-    const code = String(NET.room).toUpperCase();
-    const isHost = !!(rs && rs.hostSeat === NET.seat);
+    const n = netState(), rs = n && n.roomState;
+    if (!n || !n.room) return '<b>NOT IN A ROOM YET</b> · go BACK and create / join one — the host starts the match';
+    const code = String(n.room).toUpperCase();
+    const isHost = !!(rs && rs.hostSeat === n.seat);
     return '<span class="rc">ROOM ' + code + '</span>'
       + (isHost
           ? '<span>you are the <b>host</b> — these rules are used when you hit <b>Start Match</b> in the room</span>'
-          : '<span>you are a <b>guest</b> — the <b>host’s</b> stage &amp; rules are used in the match</span>');
+          : '<span><b>read-only</b> — only the host changes stage &amp; rules</span>');
+  }
+  /* ★ 只有房主能改房间规则；客人（含观众）连入口都不给 —— 点了直接提示，不打开设置页 */
+  function canEditRules() {
+    const n = netState(), rs = n && n.roomState;
+    if (!n || !n.room || !rs) return true;             // 不在房间 / 状态未知：按本地设置页处理
+    return rs.hostSeat === n.seat;
   }
   function applySetupMode() {
     const rm = setupRoomOrigin;
@@ -26178,6 +26211,13 @@ PV.resize();
       : 'pick a stage & rules — then PLAY';
   }
   function openSetup(fromRoom) {
+    /* 房间规则只有房主能改：客人（含观众）点了不打开页面，给一句可见提示 */
+    if (fromRoom && !canEditRules()) {
+      try { SFX.tone(320, 220, .12, 'square', .05); } catch (e) {}
+      toast('Only the host can change this room’s stage & rules');
+      syncCur();
+      return;
+    }
     setupRoomOrigin = !!fromRoom;
     applySetupMode(); drawStageCards(); syncCur(); open(sheetSetup);
   }
@@ -26187,7 +26227,18 @@ PV.resize();
     try { document.getElementById('roomBody').scrollTop = 0; } catch (e) {}
   }
   const btnStartLobby = document.getElementById('btnStart');
-  if (btnStartLobby) btnStartLobby.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} openSetup(false); };
+  if (btnStartLobby) btnStartLobby.onclick = () => {
+    /* ★ 2026-11-17：客人还在房间里时，大厅 START 也不能打开本地规则页（那页的 PLAY 会直接开一局单机，
+       规则又和房间无关）—— 客人没有设置规则的选项，要单机就先 Leave。房主照旧。 */
+    const n = netState();
+    if (n && n.room && n.roomState && n.roomState.hostSeat !== n.seat) {
+      try { SFX.tone(320, 220, .12, 'square', .05); } catch (e) {}
+      toast('You are in room ' + String(n.room).toUpperCase() + ' — the host sets the rules. Leave the room to play offline.');
+      syncCur(); open(sheetRoom); return;
+    }
+    try { SFX.init(); SFX.go(1); } catch (e) {}
+    openSetup(false);
+  };
   document.getElementById('btnPick').onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} buildGrid(); open(sheetChars); };
   const btnRoom = document.getElementById('btnRoom');
   if (btnRoom) btnRoom.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} syncCur(); open(sheetRoom); };
@@ -29225,6 +29276,8 @@ function renderRoom(room) {
   ac.style.display = '';
   document.getElementById('netReady').textContent = (room.seats[NET.seat] && room.seats[NET.seat].ready) ? 'Not Ready' : 'Ready';
   document.getElementById('netStart').style.display = (room.hostSeat === NET.seat) ? '' : 'none';
+  /* 概要卡要跟着房间快照走：房主退房后你变房主 → CHANGE 按钮要出现；变成客人 → 锁条要出现 */
+  try { if (window.__syncRoomCur) window.__syncRoomCur(); } catch (e) {}
 }
 (function wireLobby() {
   const g = id => document.getElementById(id);
