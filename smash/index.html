@@ -14626,6 +14626,9 @@ class Fighter {
   ledgeGrab(c) {
     /* ★ 不再 pos.set：记下起点，交给物理段在 0.10~0.22s 内缓入到挂点（瞬移看得出来） */
     const dist = Math.hypot((c.x + c.dir * .34) - this.pos.x, (c.y - 1.05) - this.pos.y);
+    /* ★ 2026-11-17 保险：吸附距离硬上限（scan 窗口横向 2.30 / 纵向 2.10，这里 2.8 兜底）
+       —— 任何情况下都不允许「从远处被拉到台沿」。 */
+    if (dist > 2.8) return;
     this.ledge = { ex:c.x, ey:c.y, dir:c.dir, sx:this.pos.x, sy:this.pos.y, t:0,
                    inT:Math.min(.24, .10 + dist * .055) };
     this.ledgeT = 0; this.ledgeN = (this.ledgeN || 0) + 1;
@@ -22208,6 +22211,9 @@ class Fighter {
       if (!nearWall && this.clingT > 0) this.clingT = 0;
     }
     /* ★ 边缘抓取：挂着的时候不做物理（位置由 ledgeGrab 锁死，重力/摩擦/碰撞全部跳过） */
+    /* ★ 2026-11-17：非梯子图（STAGE.ledgeGrab 假）绝不允许停留在 ledge 状态 ——
+       万一状态残留，这里立刻解除，避免被锁在台沿位置、物理全部跳过。 */
+    if (this.state === 'ledge' && this.ledge && !STAGE.ledgeGrab) { try { this.ledgeLeave(); } catch (e) {} }
     if (this.state === 'ledge' && this.ledge) {
       const L = this.ledge;
       const tx = L.ex + L.dir * .34, ty = L.ey - 1.05;
