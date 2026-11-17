@@ -143,6 +143,10 @@ function roomPublic(room) {
            evFrame: (room.frameHigh | 0) + 12,   // 事件统一生效帧（留足余量，保证各端同帧应用）
            seats, seed: room.seed, startFrame: room.startFrame,
            spectators: room.specs.size, desync: room.desync, redirect: room.redirect || '',
+           /* ★ 2026-11-17：踢人事件要带「统一生效帧」——ws 客户端从 ev 里拿，Polling 客户端从这里拿。
+              不统一的话各端在各自当前帧把角色标成 eliminated/stocks=0，simHash 立刻 diverged
+              → 服务端判 desync → 整局重开（这就是「设备不同步」）。 */
+           kicks: (room.kicks || []).map(k => ({ seat: k.seat, f: k.f })),
            /* ★ 第 83 轮：房间是否正在匹配中（后加入的玩家靠这个显示人数/计时） */
            queued: room.queued ? { mode: room.queued.mode, at: room.queued.at,
                                    await: !!room.queued.await } : null };
@@ -378,7 +382,10 @@ function kickSeat(room, seat, why) {
   if (room.ack) delete room.ack[seat];
   if (room.inputs) room.inputs.delete(seat);
   room.updated = Date.now();
-  broadcast(room, { a:'ev', room: room.code, f: (room.frameHigh | 0) + 1, seat,
+  const kickFrame = (room.frameHigh | 0) + 1;
+  room.kicks = (room.kicks || []).filter(k => Date.now() - (k.t || 0) < 8000);
+  room.kicks.push({ seat, f: kickFrame, t: Date.now() });
+  broadcast(room, { a:'ev', room: room.code, f: kickFrame, seat,
                     kicked: true, gone: true, why: why || 'leave', name });
   if (room.hostSeat === seat || !room.seats[room.hostSeat]) {   // 房主走了 → 交给下一个真人
     const nx = room.seats.findIndex(x => x && !x.bot && !x.left);
@@ -903,13 +910,10 @@ function handle(act, ctx) {
       /* ★ 2026-11-17：a:'stall' 不再代表「AI 接管」（那是残留语义，客户端会显示 AI 接管、并用 Bot 操控）。
          现在它等价于「这个座位掉队了 → 挂机」：标 idle/gone，喂全 0，站着不动、照样被打。
          注意不要设 vs.ai —— 设了会让客户端走 applyAI(ai:true) 分支（Bot 上场）。 */
-      if (!vs.idle && !vs.left) {
-        vs.idle = true; vs.gone = true; vs.connected = false; vs.recoverMs = 0;
-        vs.idleFrom = Math.max(0, nf | 0);
-        room.updated = now;
-        broadcast(room, { a:'ev', room: room.code, f: nf, seat: vs.seat, idle: true, why:'stall' });
-        log('[idle] stall report → standing still', room.code, 'seat', vs.seat, 'frame', nf);
-      }
+      /* ★ 2026-11-17（不同步审计）：stall 也改成**踢出房间**。
+         以前标 idle（挂机）—— 那人一回来，本机拿的是零输入、别人拿的是他的输入，必然不同步。
+         现在统一走 kickSeat：服务端清座位 + 统一生效帧广播，所有人同一帧移掉这个角色。 */
+      kickSeat(room, vs.seat, 'stall');
     }
     return { ok: true, ai: false, idle: !!(vs && vs.idle), aiFrom: (vs && vs.aiFrom) | 0 };
   }

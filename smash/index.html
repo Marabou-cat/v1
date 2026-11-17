@@ -28332,7 +28332,7 @@ const NET = {
     const ms = this.missingSeat(FRAME + 1);
     if (ms < 0 || ms === this.seat) { this._afkSeat = -1; this._afkT = now; return; }   // 缺的是自己 = 本机卡，别动别人
     if (this._afkSeat !== ms) { this._afkSeat = ms; this._afkT = now; return; }
-    if (now - (this._afkT || now) < 1200) return;
+    if (now - (this._afkT || now) < 4000) return;   // ★ 必须晚于服务端 2.5s 的踢人：否则各设备各自在本地帧偷偷喂 0 → 反而造出不同步
     const f = FIGHTERS.find(x => x.netSeat === ms);
     if (!f) { this._afkSeat = -1; return; }
     this._afkSeat = -1;
@@ -31084,12 +31084,31 @@ NET.applyRoom = function (room) {
     /* ★ 第 104 轮：从房间快照直接推出「谁已经离线/退出」—— 就算漏掉那条 ev 也不会卡住 */
     if (room && Array.isArray(room.seats)) {
       this.offlineSeats = this.offlineSeats || {};
+      if (Array.isArray(room.kicks) && this.active) for (const k of room.kicks) {
+        const i = k && (k.seat | 0);
+        if (i === undefined || i === null || !FIGHTERS[i] || FIGHTERS[i].gone) continue;
+        if (this.evs.some(e => e.seat === i && e.kicked)) continue;
+        this.evs.push({ seat: i, ai: false, kicked: true, f: (k.f | 0) || (FRAME + 1) });
+      }
       room.seats.forEach((s, i) => {
         /* ★ 2026-11-17：对局中快照里座位变成空 = 他被踢出房间（leave / 静默超时）→ 本地也把角色移除。
            Polling 客户端收不到 ws 的 ev，这条是它唯一的通知渠道。 */
-        if (!s) { if (this.active && FIGHTERS[i] && !FIGHTERS[i].gone) this.dropSeat(i); return; }
+        if (!s) {
+          /* ★ 2026-11-17：座位被踢空 → 不能「立刻」在本地当前帧删角色（每个设备的当前帧不同 →
+             simHash diverged → 判不同步/重开）。用服务端给的统一生效帧排队，和 ws 的 ev 完全同帧。 */
+          if (this.active && FIGHTERS[i] && !FIGHTERS[i].gone &&
+              !this.evs.some(e => e.seat === i && e.kicked)) {
+            const k = (Array.isArray(room.kicks) ? room.kicks.find(x => x && x.seat === i) : null);
+            this.evs.push({ seat: i, ai: false, kicked: true, f: (k ? (k.f | 0) : FRAME + 1) });
+          }
+          return;
+        }
         if (s.bot) return;
-        if (s.idle || s.left || s.connected === false) this.offlineSeats[i] = s.left ? 'left' : 'offline';
+        /* ★ 2026-11-17（不同步审计）：**只有 idle/left 才喂 0**。
+           以前 connected===false 也喂 0 —— 但那可能只是「短暂断线」，本机喂 0、服务端却在
+           2.5s 内又收到他的真实输入 → 两台机器从那一帧起算的不是同一套输入 = 不同步。
+           现在短断线一律先「等」（锁步），2.5s 还没回来服务端会直接踢人（统一生效帧）。 */
+        if (s.idle || s.left) this.offlineSeats[i] = s.left ? 'left' : 'offline';
         /* ★ 2026-11-17：之前被本地 watchdog 标成挂机（timeout）的座位，快照里恢复正常 → 撤掉标记重新上场 */
         else if (this.offlineSeats && this.offlineSeats[i]) delete this.offlineSeats[i];
         /* ★ 2026-11-17：快照里 gone/idle 的座位**不再移除角色**（旧版第 105 轮会 mesh.visible=false +
