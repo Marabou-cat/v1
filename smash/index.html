@@ -1263,7 +1263,7 @@ const STAGES = [
        这两张图现在是普通台阶图：窄、层多、但不能抓边。抓边玩法见下面的 Ladder Works。 */
   { id:'verdant', name:'Verdant Steps', mainW:44, mainD:8.2, mainH:1.8, platD:5.4, platH:.85, wallX:22,
     fog:0x9ed0c4, topColor:0x5fc08a, rockColor:0x51697f, platColor:0x6f7fa0,
-    hint:'VERDANT STEPS · 14 staggered terraces · no ledge grabs on this stage',
+    hint:'VERDANT STEPS · 14 staggered terraces',
     plats:[ /* 最低一层必须是薄台：厚岛从台面往下垂 2.1 格，太矮会把角色头顶穿进去 */
             {x:-13.5,y:4.2,w:7.0}, {x:13.5,y:4.2,w:7.0}, {x:0,y:4.2,w:7.6},
             {x:-16.2,y:8.3,w:5.0,kind:'island'}, {x:16.2,y:8.3,w:5.0,kind:'island'},
@@ -1275,7 +1275,7 @@ const STAGES = [
             {x:0,y:19.4,w:5.4,kind:'cloud'} ] },
   { id:'verdantXL', name:'Verdant Steps XL', mainW:84, mainD:9.6, mainH:2.2, platD:6.2, platH:.9, wallX:42,
     fog:0x9ed0c4, topColor:0x5fc08a, rockColor:0x51697f, platColor:0x6f7fa0,
-    hint:'VERDANT STEPS XL · 19 terraces · no ledge grabs on this stage',
+    hint:'VERDANT STEPS XL · 19 terraces',
     plats:[ /* 低层一律薄台（厚岛会顶到头），岛只放 y≥7 的层 */
             {x:-28,y:4.6,w:10}, {x:28,y:4.6,w:10},
             {x:-10.4,y:4.6,w:7}, {x:10.4,y:4.6,w:7}, {x:0,y:4.6,w:10},
@@ -1287,41 +1287,15 @@ const STAGES = [
             {x:-14,y:17.2,w:5.4,kind:'cloud'}, {x:14,y:17.2,w:5.4,kind:'cloud'},
             {x:-5,y:19.6,w:6.4,kind:'cloud'}, {x:5,y:19.6,w:6.4,kind:'cloud'},
             {x:0,y:22.6,w:7.0} ] },
-  /* ——— 新地图：梯子工场（2026-11-15）———
-     ★ 唯一带「边缘抓取」的图：ledgeGrab:true 打开抓边系统，但只有 kind:'ladder' 的台
-       （= grab 标记）两端能抓；主台面 / 其它形态的台一律抓不住。
-       布局 = 之字形脚手架：每层 2~3 块窄梯台，左右错开，掉下去必须沿着梯子往上爬回来。 */
-  { id:'ladders', name:'Ladder Works', mainW:44, mainD:8.2, mainH:1.9, platD:5.4, platH:.85, wallX:22,
-    fog:0xbfc7d2, topColor:0xd9a441, rockColor:0x6d7278, platColor:0x4f5a66,
-    ledgeGrab:true,
-    hint:'LADDER WORKS · only LADDER platforms can be grabbed — fall off and grab a rung to climb back',
-    plats:[ {x:-15,y:3.4,w:7,kind:'ladder',grab:true}, {x:0,y:3.4,w:8,kind:'ladder',grab:true},
-            {x:15,y:3.4,w:7,kind:'ladder',grab:true},
-            {x:-11,y:6.6,w:6,kind:'ladder',grab:true}, {x:11,y:6.6,w:6,kind:'ladder',grab:true},
-            {x:0,y:8.2,w:7,kind:'ladder',grab:true},
-            {x:-17,y:9.4,w:5,kind:'ladder',grab:true}, {x:17,y:9.4,w:5,kind:'ladder',grab:true},
-            {x:-7,y:11.6,w:5.5,kind:'ladder',grab:true}, {x:7,y:11.6,w:5.5,kind:'ladder',grab:true},
-            {x:0,y:14.0,w:6.5,kind:'ladder',grab:true},
-            {x:-11,y:16.4,w:5,kind:'ladder',grab:true}, {x:11,y:16.4,w:5,kind:'ladder',grab:true},
-            {x:0,y:18.6,w:5.5,kind:'ladder',grab:true} ] },
-  { id:'laddersXL', name:'Ladder Works XL', mainW:84, mainD:9.6, mainH:2.2, platD:6.2, platH:.9, wallX:42,
-    fog:0xbfc7d2, topColor:0xd9a441, rockColor:0x6d7278, platColor:0x4f5a66,
-    ledgeGrab:true,
-    hint:'LADDER WORKS XL · 84 wide · 20 ladder platforms — every ladder edge is grabbable',
-    plats:[ {x:-34,y:3.6,w:9,kind:'ladder',grab:true}, {x:-17,y:3.6,w:8,kind:'ladder',grab:true},
-            {x:0,y:3.6,w:9,kind:'ladder',grab:true},
-            {x:17,y:3.6,w:8,kind:'ladder',grab:true}, {x:34,y:3.6,w:9,kind:'ladder',grab:true},
-            {x:-25,y:7.0,w:7,kind:'ladder',grab:true}, {x:25,y:7.0,w:7,kind:'ladder',grab:true},
-            {x:-8,y:7.0,w:7,kind:'ladder',grab:true}, {x:8,y:7.0,w:7,kind:'ladder',grab:true},
-            {x:0,y:9.6,w:9,kind:'ladder',grab:true},
-            {x:-33,y:11.4,w:6,kind:'ladder',grab:true}, {x:33,y:11.4,w:6,kind:'ladder',grab:true},
-            {x:-16,y:11.8,w:6.5,kind:'ladder',grab:true}, {x:16,y:11.8,w:6.5,kind:'ladder',grab:true},
-            {x:0,y:13.2,w:8,kind:'ladder',grab:true},
-            {x:-24,y:15.6,w:6,kind:'ladder',grab:true}, {x:24,y:15.6,w:6,kind:'ladder',grab:true},
-            {x:-9,y:16.4,w:5.5,kind:'ladder',grab:true}, {x:9,y:16.4,w:5.5,kind:'ladder',grab:true},
-            {x:0,y:18.6,w:6,kind:'ladder',grab:true} ] }
 ];
 let curStage = 0;
+/* ★ 2026-11-17：梯子图（Ladder Works / Ladder Works XL）已整张删除，STAGES 变短；
+   存档 / 房间规则里可能还留着旧索引 → 统一夹回有效范围，避免 STAGES[x] === undefined 崩 UI。 */
+function stageIdxSafe(v) {
+  if (v === 'r' || v === undefined || v === null) return v;
+  const i = v | 0;
+  return (i >= 0 && i < STAGES.length) ? i : 0;
+}
 const STAGE = Object.assign({}, STAGES[0]);       // 现有代码全部读 STAGE.* → 换图时整体同步即可
 
 /* ================= 矿洞地板：10 块独立方块，随机塌陷 / 回升 =================
@@ -3418,7 +3392,7 @@ function clearField() {
   FX.list.forEach(f => scene.remove(f.obj)); FX.list.length = 0;
 }
 function setStage(si) {
-  curStage = Math.max(0, Math.min(STAGES.length - 1, si | 0));
+  curStage = Math.max(0, Math.min(STAGES.length - 1, (si === 'r' || si === undefined ? 0 : si) | 0));
   /* ⚠ 必须先清空 STAGE 再 assign：Object.assign 只覆盖、不删除。
      STAGE 是长期复用的同一个对象，新地图没写的键（如 sand / fog）会从上一张图残留下来
      → 点过沙漠之后所有地图都会变成沙地材质 + 暖色雾（实测必现）。 */
@@ -3885,7 +3859,7 @@ const DECO_BY_ID = { meadow:decoMeadow, meadowXL:decoMeadow, pillars:decoPillars
                      rooftop:decoRoof, rooftopXL:decoRoof,
                      mines:decoMines, minesXL:decoMines,
                      verdant:decoVerdant, verdantXL:decoVerdant,
-                     ladders:decoLadders, laddersXL:decoLadders };
+                     };
 buildPlats();                                  // 现在 DECOS 已就绪，首张地图带装饰
 
 /* ================= 确定性随机（联机锁定步的必要条件）=================
@@ -14569,144 +14543,6 @@ class Fighter {
        · 可做：跳上(或自动爬)、攻击上(6%，范围 2.2)、↓ 松手、3.6s 超时自动爬；松手后 0.35s 不能重抓
        · 侧墙的贴墙/墙跳是原有系统，不动。
   */
-  ledgeScan() {
-    if (this.grounded || this.eliminated || this.inMaw || this.grabbed) return false;
-    /* ★ 2026-11-15：边缘抓取变成「地图 + 平台」两级开关。
-       STAGE.ledgeGrab 没写的地图 = 抓不到任何东西（旧 14 张图全部退回「普通地图」）。
-       带 ledgeGrab 的地图里，还要平台自己带 grab 标记（梯子台）才抓得住 ——
-       主台面 / 楼顶 / 地板缝这三处边缘归 STAGE.ledgeMain 管，默认也不给抓。 */
-    if (!STAGE.ledgeGrab) return false;
-    if (this.state === 'ledge' || this.hitstun > 0 || this.move || this.recoverAtk) return false;
-    if ((this.ledgeLock || 0) > 0 || (this.ledgeN || 0) >= 3) return false;
-    if (this.vel.y > -.5 || this.airTime < .12) return false;
-    const px = this.pos.x, py = this.pos.y;
-    const cands = [];
-    const roofLip = STAGE.roof ? .34 : 0;              // ★ 楼图：挂在这道矮沿上（与女儿墙同高）
-    /* ① 主台面两端（脚下那层地板真的存在才算：Mines 塌了 / Rooftop 有缝就不算） */
-    if (STAGE.ledgeMain) for (const sgn of [-1, 1]) {
-      const ex = sgn * STAGE.wallX;
-      if (stageFloorY(ex) === 0) cands.push({ x:ex, y:roofLip, dir:sgn });
-    }
-    /* ② 楼顶（decks）：一栋楼的两端都能抓 —— Rooftop XL 是两栋楼 + 中间那道缝，
-          左边那栋原来没有 plats 条目 → 整栋楼抓不了，这里统一从 decks 生成 */
-    if (STAGE.ledgeMain && STAGE.decks) for (const d of STAGE.decks) {
-      cands.push({ x:d[0], y:d[2] + roofLip, dir:-1 }, { x:d[1], y:d[2] + roofLip, dir:1 });
-    }
-    /* ③ 地板缝隙（gaps）两侧的边缘：掉进缝里也能从缝边抓回来 */
-    if (STAGE.ledgeMain && STAGE.gaps) for (const g of STAGE.gaps) {
-      /* ⚠ 缝两侧的地板高度可能不同（RooftopXL：左 0 / 右 -7）→ 各自查一次脚下地板，
-         查不到就跳过，否则会在半空造出一个「幻影台沿」。 */
-      const yl = stageFloorY(g[0] - .6), yr = stageFloorY(g[1] + .6);
-      if (yl !== null) cands.push({ x:g[0], y:yl + roofLip, dir:1 });
-      if (yr !== null) cands.push({ x:g[1], y:yr + roofLip, dir:-1 });
-    }
-    /* ④ 浮台两端 —— 只抓「自己带 grab 标记」的台（梯子台）；云朵平台一律不给抓（用户要求）：
-          云是软的、没有可攀的边；仍可踩、仍可侧面穿过它的蓬松球。
-          普通薄台/岛也一律不给抓：抓边是 Ladder Works 那张图的专属玩法。 */
-    for (const p of plats) {
-      if (!p.grab || p.kind === 'cloud') continue;
-      cands.push({ x:p.x - p.halfW, y:p.y, dir:-1 }, { x:p.x + p.halfW, y:p.y, dir:1 });
-    }
-    for (const c of cands) {
-      /* ⚠ 横向窗口不能太窄：走出台沿的那 0.25 容差里人还站着，等真掉到 0.12 以下时
-         已经横着飞出去 1.8 格（15 u/s）→ 窗口 0.6 永远抓不到（第一版就栽在这）。
-         用 Smash 那种「吸附」范围 2.3 格，抓到再 snap 到台沿。 */
-      const dx = (px - c.x) * c.dir;           // >0 = 在台沿外侧
-      if (dx < -.35 || dx > 2.30) continue;
-      const dy = py - c.y;
-      /* 高度窗口收到 -.55：抓的时候人一定在台面下至少半格 → 吸附方向永远「往上拉」 */
-      if (dy > -.55 || dy < -2.10) continue;
-      /* ★ 必须面向平台才抓得住（背对台沿掉下去不吸，用户要求） */
-      if ((this.facing || 1) !== -c.dir) continue;
-      this.ledgeGrab(c);
-      return true;
-    }
-    return false;
-  }
-  ledgeGrab(c) {
-    /* ★ 不再 pos.set：记下起点，交给物理段在 0.10~0.22s 内缓入到挂点（瞬移看得出来） */
-    const dist = Math.hypot((c.x + c.dir * .34) - this.pos.x, (c.y - 1.05) - this.pos.y);
-    /* ★ 2026-11-17 保险：吸附距离硬上限（scan 窗口横向 2.30 / 纵向 2.10，这里 2.8 兜底）
-       —— 任何情况下都不允许「从远处被拉到台沿」。 */
-    if (dist > 2.8) return;
-    this.ledge = { ex:c.x, ey:c.y, dir:c.dir, sx:this.pos.x, sy:this.pos.y, t:0,
-                   inT:Math.min(.24, .10 + dist * .055) };
-    this.ledgeT = 0; this.ledgeN = (this.ledgeN || 0) + 1;
-    this.vel.set(0, 0, 0);
-    this.state = 'ledge'; this.stateT = 0;
-    this.grounded = false; this.onSoft = false;
-    this.move = null; this.recoverAtk = null; this._upOn = 0; this._upSpin = 0;
-    this.jumpsLeft = this.s.jumps + (this.vexJumpBonus || 0); this.airDodged = false;
-    this.intangible = Math.max(this.intangible || 0, .35);
-    this.facing = -c.dir;
-    FX.spark(this.pos.x, this.pos.y + 1.35, .30, 4, 0xffffff);
-    FX.ring(this.pos.x, this.pos.y + 1.20, .28, 1.6, 0xffe6a8, .26);
-    try { SFX.tone(520, 780, .07, 'triangle', .05); } catch (e) {}
-    callout(this, '🪝 LEDGE', 0xffe6a8);
-  }
-  ledgeInput(dt, inp) {
-    const L = this.ledge;
-    this.ledgeT = (this.ledgeT || 0) + dt;
-    if (!L) { this.ledgeLeave(); return; }
-    if ((L.inT || 0) > 0) {                  // 吸附过渡中先不收输入（0.1~0.2s）
-      this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
-      inp.jumpP = false; inp.atkP = false; inp.spP = false; inp.fsP = false;
-      return;
-    }
-    if (this.isBot && this.ledgeT > .45) { this.ledgeClimb(); return; }   // 机器人别挂在边上发呆
-    if (this.ledgeT > 3.6) { this.ledgeClimb(); return; }
-    if (inp.jumpP || this.buf.jump > 0) { this.ledgeClimb(); return; }
-    if (inp.atkP || this.buf.atk > 0) { this.ledgeAttack(); return; }
-    if ((inp.y || 0) < -.5) { this.ledgeDrop(); return; }
-    /* 挂着时其它输入全部吞掉（盾/技能/必杀/躲闪） */
-    this.buf.atk = 0; this.buf.sp = 0; this.buf.jump = 0;
-    inp.spP = false; inp.shHeld = false; inp.fsP = false; inp.dodgeP = false;
-    inp.x = 0; inp.y = Math.min(0, inp.y || 0);
-  }
-  ledgeLeave() {
-    this.ledge = null; this.ledgeT = 0; this.ledgeLock = .35;
-    this.state = this.grounded ? 'idle' : 'fall';
-  }
-  ledgeClimb() {                                   // 抓边跳 / 超时自动爬
-    const L = this.ledge;
-    if (!L) { this.ledgeLeave(); return; }
-    this.ledge = null; this.ledgeT = 0; this.ledgeLock = .35;
-    /* ★ 纯速度翻上去（原来直接 pos.set 到台面 = 又一处瞬移）：跳得够高自然越过台沿 */
-    this.vel.y = this.s.jump * .78; this.vel.x = -L.dir * 3.0;
-    this.grounded = false; this._noSideT = .40;      // ★ 翻上台面期间不参与侧面碰撞
-    this.intangible = Math.max(this.intangible || 0, .25);
-    this.state = 'fall';
-    FX.ring(this.pos.x, this.pos.y + 1.0, .30, 2.0, 0xffe6a8, .30);
-    try { SFX.jump && SFX.jump(); } catch (e) {}
-  }
-  ledgeDrop() {                                    // ↓ 松手
-    const L = this.ledge;
-    if (!L) { this.ledgeLeave(); return; }
-    this.ledge = null; this.ledgeT = 0; this.ledgeLock = .35;
-    this.state = 'fall'; this.vel.y = -5.5; this.vel.x = L.dir * 1.2;
-  }
-  ledgeAttack() {                                  // 边缘攻击：翻上台面同时打一圈
-    const L = this.ledge;
-    if (!L) { this.ledgeLeave(); return; }
-    this.ledge = null; this.ledgeT = 0; this.ledgeLock = .35;
-    this.grounded = false; this.vel.y = 11.5; this.vel.x = -L.dir * 4.2; this._noSideT = .40;   // ★
-    this.intangible = Math.max(this.intangible || 0, .30);
-    this.state = 'fall';
-    let hit = 0;
-    /* 判伤点放在台沿上方（人还在台面下，按自己坐标算打不到台上的人） */
-    const hx = L.ex, hy = L.ey + .75;
-    for (const f of FIGHTERS) {
-      if (!f || f === this || f.eliminated || f.inMaw) continue;
-      if (this.team >= 0 && isTeammate(this, f)) continue;
-      if (Math.hypot(f.pos.x - hx, f.pos.y - hy) > 2.2) continue;
-      f.takeHit(this, { dmg:6.0, bb:10, bg:26, ang:70 }, Math.sign(f.pos.x - this.pos.x) || 1, 1);
-      hit++;
-    }
-    FX.ring(hx, hy - .5, .30, 3.0, 0xffe6a8, .40);
-    FX.slash(hx, hy, .40, .5, 3.0, 0xfff0c8, .20);
-    if (hit) { shake = Math.max(shake, .22); SFX.hit(18, 6); }
-    callout(this, '🪝 GETUP ATK' + (hit ? ' ×' + hit : ''), 0xffe6a8);
-  }
   /* ================= ★ Princess：四招状态机 ================= */
   princessTick(dt, inp) {
     /* 兜底：技能都结束了却还有光环 → 淡出（上B / 大招被打断时会走到这里） */
@@ -14985,7 +14821,6 @@ class Fighter {
     const _fy = stageFloorY(sx), _sy = _fy === null ? 0 : _fy;
     this.damage = 0; this.vel.set(0,0,0); this.pos.set(sx, _sy + 21.5, 0);
     this.state = 'idle'; this.hitstun = 0; this.invuln = CFG.respawnInv; this.shield = 100;
-    this.ledge = null; this.ledgeT = 0; this.ledgeN = 0; this.ledgeLock = 0;   // ★ 边缘抓取状态不跨命
     this.jumpsLeft = this.s.jumps + (this.vexJumpBonus || 0); this.airDodged = false; this.mesh.visible = true; this.shadow.visible = true;
     this.grabbed = null; this.charging = null; this.move = null;
     try { this.cbRestoreHead(); this.cbLaserOff(); } catch (e) {}   // ★ Cardboard：头/激光不跨命
@@ -20096,8 +19931,6 @@ class Fighter {
   clearPressed() { const i = this.input; i.jumpP = false; i.atkP = false; i.atkR = false; i.spP = false; i.downP = false; i.mash = 0; }
 
   actionSelect(dt, inp) {
-    /* ★ 边缘抓取：挂在台沿时由 ledgeInput 接管输入（跳上 / 攻击上 / 松手 / 超时自动爬） */
-    if (this.state === 'ledge' && this.ledge) { this.ledgeInput(dt, inp); return; }
     /* ★ Cardboard 技能状态机期间锁住自走/普攻/技能键（重力与摩擦仍由 update 正常跑）；
        注意**不能清 spHeld** —— 下B 的扫射靠按住不放继续打。 */
     if (this.cbState) {
@@ -22210,26 +22043,6 @@ class Fighter {
       }
       if (!nearWall && this.clingT > 0) this.clingT = 0;
     }
-    /* ★ 边缘抓取：挂着的时候不做物理（位置由 ledgeGrab 锁死，重力/摩擦/碰撞全部跳过） */
-    /* ★ 2026-11-17：非梯子图（STAGE.ledgeGrab 假）绝不允许停留在 ledge 状态 ——
-       万一状态残留，这里立刻解除，避免被锁在台沿位置、物理全部跳过。 */
-    if (this.state === 'ledge' && this.ledge && !STAGE.ledgeGrab) { try { this.ledgeLeave(); } catch (e) {} }
-    if (this.state === 'ledge' && this.ledge) {
-      const L = this.ledge;
-      const tx = L.ex + L.dir * .34, ty = L.ey - 1.05;
-      if (L.inT > 0) {                       // ★ 吸附过渡：三次缓出，不是瞬移
-        L.t = (L.t || 0) + dt;
-        const k = Math.min(1, L.t / L.inT), e = 1 - Math.pow(1 - k, 3);
-        this.pos.x = L.sx + (tx - L.sx) * e;
-        this.pos.y = L.sy + (ty - L.sy) * e;
-        if (k >= 1) L.inT = 0;
-      } else { this.pos.x = tx; this.pos.y = ty; }
-      this.pos.z = 0;
-      this.vel.set(0, 0, 0); this.grounded = false;
-      if (this.ledgeLock > 0) this.ledgeLock -= dt;
-      return;
-    }
-    if (this.ledgeLock > 0) this.ledgeLock -= dt;
     if (this._noSideT > 0) this._noSideT -= dt;
     /* ★ 蚊子：没有重力 —— 按住空格上浮、下+空格下降、松手原地悬停（永久悬浮；击退照常生效） */
     if (this.def.id === 'mosquito') {
@@ -22325,11 +22138,8 @@ class Fighter {
     if (Math.abs(this.pos.x) > STAGE.wallX && this.pos.y < 1.2 && this.pos.y > -1.4 && this.pos.x * this.vel.x < 0) {
       if (Math.abs(px) <= STAGE.wallX + .05) { this.pos.x = Math.sign(this.pos.x) * STAGE.wallX; this.vel.x = 0; }
     }
-    /* ★ 边缘抓取检测：放在所有台面碰撞之后 —— 这一帧已经确定她没踩到地 */
-    if (!this.grounded) this.ledgeScan();
     // 落地下落重置
     if (this.grounded) {
-      this.ledgeN = 0; this.ledgeLock = 0;
       if (!wasG) {
         /* ★ Sparky 连段收尾的「砸地反弹」：带着 bounceT 标记砸到地面 → 把下落速度换成向上的弹起，
            不进入普通落地流程（不重置跳跃、不落地挤压），弹一下再落地。 */
@@ -22383,9 +22193,7 @@ class Fighter {
     if (!vis) return;
     let aL = 0, aR = 0, lL = 0, lR = 0, lean = 0, bob = 0;
     const speed = Math.abs(this.vel.x);
-    if (this.state === 'ledge') {                    // ★ 挂边：双手举过肩、腿垂下微屈
-      aL = -2.55; aR = -2.55; lL = .26; lR = .18; lean = 0; bob = Math.sin(A.t * 3.2) * .012;
-    } else if (this.state === 'run' || this.state === 'walk' || this.state === 'dash') {
+    if (this.state === 'run' || this.state === 'walk' || this.state === 'dash') {
       const f = A.t * (6 + speed * .8);
       lL = Math.sin(f) * .8; lR = -Math.sin(f) * .8;
       aL = -Math.sin(f) * .7; aR = Math.sin(f) * .7;
@@ -25337,7 +25145,7 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
       const hc = f.huggedBy && f.huggedBy.hug ? ('🤗 CARRIED ' + f.huggedBy.hug.t.toFixed(1) + 's') : '';  // ★ 被抱住
       const uf = f.ufo ? ('🛸 UFO ' + f.ufo.t.toFixed(1) + 's') : '';               // ★ Alien 飞碟剩余
       const ab = f.abducted ? '🛸 ABDUCTED' : '';
-      const lg = (f.state === 'ledge') ? ('🪝 LEDGE ' + Math.max(0, 3.6 - (f.ledgeT || 0)).toFixed(1) + 's') : '';  // ★ 边缘抓取剩余
+      const lg = '';
                                    // ★ 被吸走
       /* ★ 耐久上限读 b.maxDmg（第五十轮 150→100），别再写死 150 */
       const _bmx = (f.bobRef && f.bobRef.maxDmg) || 100;
@@ -26189,9 +25997,8 @@ PV.resize();
   /* ================= ★ 地图预览卡（每张地图一张真实截图）================= */
   const SG = document.getElementById('stageGrid');
   const SGROUPS = [['STANDARD', ['meadow','pillars','arena','desert']],
-                   ['LEDGE', ['verdant','verdantXL']],
-                   ['LADDER', ['ladders','laddersXL']],
-                   ['XL', ['meadowXL','pillarsXL','arenaXL','desertXL']],
+                   ['TERRACES', ['verdant','verdantXL']],
+                                      ['XL', ['meadowXL','pillarsXL','arenaXL','desertXL']],
                    ['SPECIAL', ['rooftop','rooftopXL','mines','minesXL']]];
   const stageNameOf = () => (settings.stage === 'r' || settings.stage === undefined)
     ? 'Random' : ((STAGES[settings.stage] || {}).name || 'Random');
@@ -26260,7 +26067,7 @@ PV.resize();
       const rv = roomRulesView();
       const guest = !!(rv && !rv.host);                 // 客人：只读房间规则
       const st = guest ? (rv.stageId ? STAGES.find(s => s.id === rv.stageId) : null)
-                       : ((settings.stage === 'r' || settings.stage === undefined) ? null : STAGES[settings.stage]);
+                       : ((settings.stage === 'r' || settings.stage === undefined) ? null : STAGES[stageIdxSafe(settings.stage)]);
       const thumb = st
         ? '<img alt="" src="previews/' + st.id + '.webp?v=1">'
         : '<div style="position:relative;aspect-ratio:16/9;background:#0a1120">'
@@ -26494,9 +26301,8 @@ document.getElementById('backBtn').onclick = () => { UI.result.classList.add('hi
   const draw = () => {
     /* ★ 16 张图分组：一行文字按钮已经挤不下（手机上会折行看不清）→ 标准 / 台阶 / 梯子 / XL / 特殊机制 */
     const GROUPS = [['STANDARD', ['meadow','pillars','arena','desert']],
-                    ['LEDGE', ['verdant','verdantXL']],
-                    ['LADDER', ['ladders','laddersXL']],
-                    ['XL', ['meadowXL','pillarsXL','arenaXL','desertXL']],
+                    ['TERRACES', ['verdant','verdantXL']],
+                                        ['XL', ['meadowXL','pillarsXL','arenaXL','desertXL']],
                     ['SPECIAL', ['rooftop','rooftopXL','mines','minesXL']]];
     const optOf = (si) => '<div class="opt' + (settings.stage === si ? ' on' : '') + '" data-si="' + si + '">'
                           + STAGES[si].name + '</div>';
