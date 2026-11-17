@@ -538,6 +538,24 @@ document.addEventListener('DOMContentLoaded', function () {
   .roomRow .rl.play{background:rgba(255,90,90,.28)}
   .roomRow .pw{display:flex;gap:4px;margin-top:4px}
   .netList .empty{opacity:.6;font-size:12px;padding:6px}
+  /* ★ 观战：右下角 SUMMON 上方的独立小按钮 + 观战面板（房间里的 Spectate 按钮已删除） */
+  #specBtn{position:fixed;right:12px;bottom:120px;z-index:57;display:flex;align-items:center;gap:6px;
+    height:34px;padding:0 12px 0 10px;border-radius:17px;cursor:pointer;
+    border:1px solid rgba(125,211,255,.5);background:rgba(8,14,28,.82);color:#bfe0ff;
+    font:900 10.5px/1 ui-monospace,Menlo,monospace;letter-spacing:1px;backdrop-filter:blur(8px);
+    transition:transform .12s,border-color .2s}
+  #specBtn .ico{width:15px;height:15px;margin:0;stroke:#7dd3ff}
+  #specBtn:active{transform:scale(.95)}
+  body:not(.inMenu) #specBtn{display:none!important}   /* 只属于大厅，对局中不许浮在画面上 */
+  .specRowIn{display:flex;gap:6px;margin-bottom:8px}
+  .specRowIn input{flex:1;min-width:0;background:rgba(0,0,0,.32);border:1.5px solid rgba(255,255,255,.16);
+    border-radius:9px;color:#fff;font-size:12.5px;padding:6px 9px;font-family:inherit;outline:none}
+  .specRowIn input:focus{border-color:#5ec8ff}
+  .specRowIn input::placeholder{color:rgba(255,255,255,.42)}
+  #specList{display:flex;flex-direction:column;gap:4px;max-height:44vh;overflow-y:auto;padding-bottom:2px}
+  .specTag{font:900 9px/1 ui-monospace,monospace;letter-spacing:1px;padding:4px 7px;border-radius:7px;
+    background:rgba(255,90,90,.3);color:#ffd7d7;white-space:nowrap}
+  .specTag.wait{background:rgba(150,200,255,.16);color:#cfe4ff}
   .netSeat{display:flex;align-items:center;gap:7px;font-size:11.5px;background:rgba(0,0,0,.24);
     border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:4px 8px}
   .netSeat b{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;
@@ -867,6 +885,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <symbol id="i-gem" viewBox="0 0 24 24"><path d="M12 3.2 4.4 9.4 12 20.8 19.6 9.4 12 3.2Z"/><path d="M4.4 9.4h15.2"/><path d="M9.2 9.4 12 20.8M14.8 9.4 12 20.8"/><path d="M12 3.2 9.2 9.4M12 3.2l2.8 6.2"/></symbol>
     <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.7"/><path d="M9.5 9.4a2.6 2.6 0 1 1 3.6 2.4c-.8.4-1.1 1-1.1 1.8v.4"/><circle cx="12" cy="16.6" r=".95" fill="currentColor" stroke="none"/></symbol>
     <symbol id="i-shirt" viewBox="0 0 24 24"><path d="M8.6 4.4 4.2 6.9l1.9 3.7 2-.9v9.9h8V9.7l2 .9 1.9-3.7-4.4-2.5"/><path d="M8.6 4.4a3.5 3.5 0 0 0 6.8 0"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.6 12S6 5.9 12 5.9 21.4 12 21.4 12 18 18.1 12 18.1 2.6 12 2.6 12Z"/><circle cx="12" cy="12" r="3.2"/></symbol>
   </defs>
 </svg>
 <canvas id="cv"></canvas>
@@ -976,6 +995,24 @@ document.addEventListener('DOMContentLoaded', function () {
       <div id="roomBody"><div class="qcard" id="quickCard"></div></div>
     </div>
   </div>
+  <!-- 弹层 0b：观战（★ 2026-11-17：观战从房间里移出来 —— 入口是右下角 SUMMON 上方的小按钮，
+       打开后列出所有房间（LIVE / WAITING），点 LIVE 直接看；也可以输入房间号直查） -->
+  <div class="sheet hidden" id="sheetSpec">
+    <div class="sheetBox">
+      <div class="sheetHead"><span>SPECTATE</span><button class="sheetClose" id="specClose">✕</button></div>
+      <div id="specBody">
+        <div class="specRowIn">
+          <input id="specCode" maxlength="5" placeholder="Room code" style="text-transform:uppercase">
+          <button class="nbtn" id="specGo">Watch</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <b id="specStatus" style="font:900 10px/1 ui-monospace,monospace;letter-spacing:2px;color:#9fc6ee">LIVE MATCHES</b>
+          <button class="nbtn alt sm" id="specReload" style="margin-left:auto"><svg class="ico"><use href="#i-refresh"/></svg>Refresh</button>
+        </div>
+        <div id="specList"></div>
+      </div>
+    </div>
+  </div>
   <!-- ★ 页面 1：BATTLE SETUP（点 START 打开的**独立整页**：地图预览卡 + 命数/规则 + PLAY） -->
   <div class="sheet page hidden" id="sheetSetup">
     <div class="pageBox">
@@ -1025,7 +1062,6 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="netRow">
           <input id="netCode" maxlength="5" placeholder="Room Code" style="text-transform:uppercase">
           <button class="nbtn alt" id="netJoin">Join</button>
-          <button class="nbtn alt" id="netSpec">Spectate</button>
         </div>
         <div class="netRow">
           <button class="nbtn alt" id="netSearch"><svg class="ico"><use href="#i-search"/></svg>Search Rooms</button>
@@ -26150,6 +26186,7 @@ PV.resize();
     }
   }
   window.__syncRoomCur = syncCur;     // 房间快照变化时（房主退房 → 你变房主 / 有人加入）由 renderRoom 调用
+  window.__openRoomSheet = () => { try { syncCur(); open(sheetRoom); } catch (e) {} };   // 观战面板用（观战加入等待中的房间时）
   /* 开合 */
   const open = el => { sheetSetup.classList.toggle('hidden', el !== sheetSetup);
                        sheetChars.classList.toggle('hidden', el !== sheetChars);
@@ -28418,7 +28455,14 @@ const NET = {
   startPump() {
     if (this.pump) return;
     this.pump = setInterval(() => {
-      if (!this.active || this.mode !== 'http' || this.spec) return;
+      if (!this.active || this.mode !== 'http') return;
+      /* ★ 2026-11-17：观战客户端也要拉输入（a:'state'），否则 Polling 模式下观战画面一帧不动。
+         观战不需要低延迟 → 20Hz 就够（玩家仍然是 20ms/50Hz）。 */
+      if (this.spec) {
+        const now = performance.now();
+        if (now - (this._specT || 0) < 50) return;
+        this._specT = now;
+      }
       this.syncHTTP();
     }, 20);
   },
@@ -28536,19 +28580,24 @@ const NET = {
     if (!this.replayBits) {
       const nm = (e.name && e.seat === undefined) ? e.name : (this.names[e.seat] || ('P' + (e.seat + 1)));
       if (e.idle) {
-        /* ★ 第 105 轮：直接**从场上移除**这个角色 —— 不再是「站着不动」 */
-        try {
-          const f = FIGHTERS[e.seat];
-          if (f && !f.gone) {
-            f.gone = true; f.eliminated = true; f.stocks = 0;
-            if (f.mesh) f.mesh.visible = false;
-            if (f.shadow) f.shadow.visible = false;
-            checkMatchEnd();
-          }
-        } catch (err) {}
+        /* ★ 2026-11-17（用户要求）：退出/掉线的角色**留在场上当木桩** —— 其他人照常打，他站着不动、
+           照样能被击中掉血/被打出场。旧版（第 105 轮）直接 mesh.visible=false + eliminated + stocks=0
+           + checkMatchEnd()：人凭空消失，而且那一下状态跳变会牵动结算判定，剩下的玩家这边常常就卡住了
+           （「有人退出就死机」）。
+           现在只做两件事：① 收掉控制权（不再吃 AI，也不再等它的输入）；② 记进 offlineSeats
+           —— 闸门不再等它，fillInput 统一喂全 0 = 站桩。位置 / 血量 / 命数全部保留。 */
+        const fs = FIGHTERS[e.seat];
+        if (fs) {
+          fs.ctrl = null; fs.netSeat = e.seat; fs.aiSeat = false; fs.isBot = false;
+          fs.stub = true;                       // 站桩标记（给 HUD/诊断用，不参与物理分支）
+          if (fs.mesh) fs.mesh.visible = true;
+          if (fs.shadow) fs.shadow.visible = true;
+        }
         this.offlineSeats = this.offlineSeats || {};
         this.offlineSeats[e.seat] = e.why === 'leave' ? 'left' : 'offline';
-        toast(nm + (e.why === 'leave' ? ' left the match — removed from the fight' : ' disconnected'));
+        toast(nm + (e.why === 'leave'
+          ? ' left — their fighter stands still (still hittable)'
+          : ' disconnected — standing still'));
       } else {
         if (this.offlineSeats) delete this.offlineSeats[e.seat];
         toast(e.ai ? nm + ' offline · AI took over' : nm + ' reconnected');
@@ -28942,6 +28991,12 @@ const NET = {
         char: CHARS[settings.playerChar].id });
       if (j && j.ok && !spec && !j.start) { this.chars[this.seat] = CHARS[settings.playerChar].id;
         this.send({ a:'char', room:this.room, seat:this.seat, token:this.token, char:this.chars[this.seat] }); }
+      /* ★ 2026-11-17：观战加入「已经在打的对局」时必须显式进场。
+         hello 对观战只回 {spec, room, f, in}（没有 start），而 applyRoom 又因为 myGen 已被置成
+         同一代次而跳过进场 —— 旧版 Spectate 就卡在菜单（观战看起来「没反应」）。 */
+      if (j && j.ok && spec && j.room && j.room.state === 'play' && !this.active) {
+        this.joinRunning({ seed: j.room.seed, startFrame: j.room.startFrame | 0 });
+      }
       return j;
     } finally { this._busy = false; }
   },
@@ -29381,10 +29436,6 @@ function renderRoom(room) {
     if (code.length < 4) { g('netStatus').textContent = 'Enter the 5-character room code'; return; }
     await joinRoom(code, g('netPass').value.trim());
   };
-  g('netSpec').onclick = async () => {
-    const code = g('netCode').value.toUpperCase().trim();
-    await joinRoom(code, g('netPass').value.trim(), true);
-  };
   g('netReady').onclick = () => {
     const cur = NET.roomState && NET.roomState.seats[NET.seat] && NET.roomState.seats[NET.seat].ready;
     NET.ready(!cur);
@@ -29398,6 +29449,135 @@ function renderRoom(room) {
   g('netName').oninput = () => { ACC.setNick(g('netName').value); if (/^Account /.test(g('netStatus').textContent)) g('netStatus').textContent = accLine(); };
   /* ★ 第 66 轮：账号在界面上自证（不看控制台）：账号 id 前 6 位 + 当前昵称 */
   if (g('netStatus')) g('netStatus').textContent = accLine();
+})();
+
+/* ================= ★ 2026-11-17：观战（独立入口） =================
+   房间面板里的 Spectate 按钮已删除（进房/观战本来是两件事）。
+   现在：右下角 SUMMON 上方一个小按钮 → 打开观战面板
+     · 列出服务端所有房间（LIVE 正在打 / WAITING 还没开），点 LIVE 那一行直接看
+     · 也可以输入房间号直查（私密房就地要密码）
+   观战加入走的是同一条 NET.join(code, nick, spec=true) —— 服务端给 seat<0，客户端不吃输入。 */
+(function wireSpectate() {
+  const g = id => document.getElementById(id);
+  const sheet = g('sheetSpec'); if (!sheet || !g('specList')) return;
+  const nick = () => (g('netName').value || '').trim() || ACC.nick ||
+    ('Watcher' + (1 + Math.floor(Math.random() * 90)));
+  const setStatus = t => { const el = g('specStatus'); if (el) el.textContent = t; };
+  const openSpec = () => {
+    sheet.classList.remove('hidden');
+    loadList();
+  };
+  const closeSpec = () => sheet.classList.add('hidden');
+
+  /* 小按钮：和 SUMMON 同一列，压在它上面 */
+  let btn = g('specBtn');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'specBtn'; btn.type = 'button';
+    btn.title = 'Spectate — watch any live match';
+    btn.innerHTML = '<svg class="ico"><use href="#i-eye"/></svg><span>SPECTATE</span>';
+    document.body.appendChild(btn);
+  }
+  btn.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} openSpec(); };
+
+  async function loadList() {
+    const box = g('specList');
+    box.innerHTML = '<div class="empty" style="opacity:.6;font-size:12px;padding:6px">Loading…</div>';
+    const j = await NET.list(0, 40);
+    if (!j || !j.ok) {
+      const e = (j && j.e) || 'net';
+      setStatus('SPECTATE');
+      box.innerHTML = '<div class="empty" style="opacity:.7;font-size:12px;padding:6px">'
+        + (e === 'daemon_down' || e === 'net' ? 'Online service unavailable — try again shortly.' : 'Could not load matches: ' + e)
+        + '</div>';
+      return;
+    }
+    const rooms = (j.list || []).filter(r => r && r.code);
+    const live = rooms.filter(r => r.state === 'play').length;
+    setStatus('LIVE ' + live + ' / ' + rooms.length + ' ROOM' + (rooms.length === 1 ? '' : 'S'));
+    box.innerHTML = '';
+    if (!rooms.length) {
+      box.innerHTML = '<div class="empty" style="opacity:.7;font-size:12px;padding:6px">No rooms right now — '
+        + 'type a room code above, or start a match and come back.</div>';
+      return;
+    }
+    /* 正在打的排前面 */
+    rooms.sort((a, b) => (b.state === 'play' ? 1 : 0) - (a.state === 'play' ? 1 : 0));
+    for (const r of rooms) {
+      const isLive = r.state === 'play';
+      const row = document.createElement('div');
+      row.className = 'roomRow' + (isLive ? '' : ' busy');
+      row.innerHTML = '<span class="rc">' + r.code + '</span>'
+        + '<span class="rh">' + (r.host || '—') + (r.locked ? ' · 🔒' : '') + '</span>'
+        + '<span class="rp">' + r.players + '/' + r.max + '</span>'
+        + (isLive ? '<span class="specTag">LIVE · WATCH</span>' : '<span class="specTag wait">WAITING</span>');
+      row.onclick = () => {
+        if (!isLive) { toast('That room has not started yet — nothing to watch'); return; }
+        if (r.locked) { askPass(r.code, row); return; }   // 私密房：就地要密码（不弹系统窗口）
+        watch(r.code);
+      };
+      box.appendChild(row);
+    }
+  }
+  function askPass(code, row) {
+    if (row.querySelector('.pw')) return;
+    const pw = document.createElement('div'); pw.className = 'pw';
+    const inp = document.createElement('input'); inp.maxLength = 12; inp.placeholder = 'Password';
+    const b = document.createElement('button'); b.className = 'nbtn sm alt'; b.textContent = 'Watch';
+    const go = () => watch(code, inp.value.trim());
+    b.onclick = ev => { ev.stopPropagation(); go(); };
+    inp.onkeydown = ev => { ev.stopPropagation(); if (ev.key === 'Enter') go(); };
+    inp.onclick = ev => ev.stopPropagation();
+    pw.onclick = ev => ev.stopPropagation();
+    pw.appendChild(inp); pw.appendChild(b); row.appendChild(pw); inp.focus();
+  }
+  async function watch(code, pass) {
+    const c = String(code || '').toUpperCase().trim();
+    if (c.length < 4) { toast('Enter the 5-character room code'); return; }
+    if (NET.room && NET.room === c) { toast('You are already in ' + c); return; }
+    setStatus('JOINING ' + c + '…');
+    const j = await NET.join(c, nick(), true, pass || '');
+    if (!j || !j.ok) {
+      const e = (j && j.e) || 'net';
+      const msg = (e === 'bad_pass' || e === 'need_pass') ? 'That room is private — password required'
+        : e === 'room_not_found' ? 'Room not found (closed, or wrong code)'
+        : (e === 'daemon_down' || e === 'net') ? 'Online service unavailable'
+        : e === 'busy' ? 'Another request is still in flight — try again'
+        : ('Could not watch: ' + e);
+      toast(msg); setStatus('SPECTATE');
+      return;
+    }
+    closeSpec();
+    /* 服务端把「正在进行的对局」随房间快照下发 → applyRoom 会直接进场；
+       还没开局的房间只能先待在房间里看座位（这时给你房间面板，里面有 Leave）。 */
+    if (NET.active) toast('Watching ' + c + ' · input disabled');
+    else { toast('Match has not started yet — waiting in ' + c); try { window.__openRoomSheet && window.__openRoomSheet(); } catch (e) {} }
+  }
+  g('specClose').onclick = closeSpec;
+  sheet.addEventListener('click', e => { if (e.target === sheet) closeSpec(); });
+  g('specGo').onclick = () => watch(g('specCode').value);
+  g('specCode').onkeydown = e => { if (e.key === 'Enter') watch(g('specCode').value); };
+  g('specReload').onclick = loadList;
+
+  /* —— 观战中的可见出口 ——
+     手机上没法按 Esc，光进不出等于把人困住；左上角给一条 WATCHING <code> · LEAVE。 */
+  let chip = null;
+  function syncChip() {
+    const on = !!(NET.active && NET.spec && NET.room);
+    if (!on) { if (chip) { chip.remove(); chip = null; } return; }
+    if (!chip) {
+      chip = document.createElement('button');
+      chip.id = 'specChip'; chip.type = 'button';
+      chip.style.cssText = 'position:fixed;left:10px;top:8px;z-index:62;display:flex;align-items:center;gap:7px;'
+        + 'padding:7px 12px;border-radius:999px;cursor:pointer;border:1px solid rgba(125,211,255,.6);'
+        + 'background:rgba(8,14,28,.86);color:#bfe0ff;font:900 10px/1 ui-monospace,Menlo,monospace;letter-spacing:1px';
+      chip.onclick = () => { try { NET.leave(); } catch (e) {} try { SFX.go(0); } catch (e) {} syncChip(); };
+      document.body.appendChild(chip);
+    }
+    const t = 'WATCHING ' + String(NET.room).toUpperCase() + ' · LEAVE';
+    if (chip.textContent !== t) chip.textContent = t;
+  }
+  setInterval(syncChip, 500);
 })();
 
 
@@ -30858,13 +31038,15 @@ NET.applyRoom = function (room) {
       room.seats.forEach((s, i) => {
         if (!s || s.bot) return;
         if (s.idle || s.left || s.connected === false) this.offlineSeats[i] = s.left ? 'left' : 'offline';
-        /* ★ 第 105 轮：快照里已经 gone 的座位 → 本地也把角色移除（漏掉 ev 也不会残留一个木桩） */
-        if (s.gone && FIGHTERS[i] && !FIGHTERS[i].gone) {
+        /* ★ 2026-11-17：快照里 gone/idle 的座位**不再移除角色**（旧版第 105 轮会 mesh.visible=false +
+           stocks=0 + 判结算 → 「有人退出就死机」）。留着当木桩：站着不动、照样被打。
+           同时把「已经被旧逻辑藏起来/清零」的角色恢复回来（同一局里不再有 gone 语义）。 */
+        if ((s.gone || s.idle || s.left) && FIGHTERS[i]) {
           try {
             const f = FIGHTERS[i];
-            f.gone = true; f.eliminated = true; f.stocks = 0;
-            if (f.mesh) f.mesh.visible = false;
-            if (f.shadow) f.shadow.visible = false;
+            f.stub = true;
+            if (f.mesh) f.mesh.visible = true;
+            if (f.shadow) f.shadow.visible = true;
           } catch (err) {}
         }
       });
