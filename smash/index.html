@@ -32734,9 +32734,13 @@ function weaponPaint() {
     if (w.bonus && w.bonus.dmg) bt.push('+' + w.bonus.dmg + '% damage');
     if (w.bonus && w.bonus.kb) bt.push('+' + w.bonus.kb + '% knockback');
     rows.push('<div class="row' + (it.on ? ' on' : '') + '" data-weapon="' + w.id + '" style="' + (it.same ? '' : 'opacity:.45') + '">'
-      + '<span>' + w.name + '<small>' + WTYPE_NAME[w.wt] + ' · ' + WTYPE_ZH[w.wt] + ' · '
+      + '<span>' + w.name + (w.rar === 'specialW' ? ' <b style="color:#ff9f1c;font:900 8.5px/1 system-ui;letter-spacing:1.2px;vertical-align:middle">SPECIAL</b>' : '')
+      + '<small>' + WTYPE_NAME[w.wt] + ' · ' + WTYPE_ZH[w.wt] + ' · '
       + (it.has ? (it.on ? 'EQUIPPED' : (it.same ? 'tap to equip' : 'TYPE MISMATCH — cannot equip')) : 'locked · summon to unlock')
-      + (bt.length ? ' · ' + bt.join(' / ') : '') + '</small></span><span>'
+      + (bt.length ? ' · ' + bt.join(' / ') : '') + '</small>'
+      /* ★ 特殊武器必须把「改写了什么机制」写在面板里，不然玩家看不出它和普通武器差在哪 */
+      + (w.desc ? '<small style="display:block;margin-top:5px;color:#ffd166;font-weight:800;line-height:1.35">⚡ ' + w.desc + '</small>' : '')
+      + '</span><span>'
       + (it.has ? (it.on ? '✓' : (it.same ? 'EQUIP' : '✕')) : 'LOCKED') + '</span></div>');
   }
   el.innerHTML = '<div class="box"><button class="close">✕</button><h3>Weapons</h3>'
