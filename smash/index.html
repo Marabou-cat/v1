@@ -33344,7 +33344,7 @@ try { paintWepBtn(); } catch (e) {}
     const m = /[?&]grant=([^&]+)/.exec(location.search);
     if (!m || decodeURIComponent(m[1]) !== KEY) return;
     /* ★ 测试号：顺手把这版的新角色（坚守者 / 士兵）解锁，省得还要去奖励页买一次 */
-    try { if (typeof ACC !== 'undefined' && ACC.unlock) { for (const c of CHARS) if ((c.id === 'warden' || c.id === 'soldier' || c.id === 'monk' || c.id === 'bomber' || c.id === 'treasure' || c.id === 'princess' || c.id === 'foundry' || c.id === 'rocky') && !ACC.owns(c.id)) ACC.unlock(c.id); } } catch (e) {}
+    try { if (typeof ACC !== 'undefined' && ACC.unlock) { for (const c of CHARS) if ((c.id === 'warden' || c.id === 'soldier' || c.id === 'monk' || c.id === 'bomber' || c.id === 'treasure' || c.id === 'princess' || c.id === 'foundry' || c.id === 'rocky' || c.id === 'tock') && !ACC.owns(c.id)) ACC.unlock(c.id); } } catch (e) {}
     const more = /[?&]more=1/.test(location.search);
     let nSkin = 0, nWep = 0, nSup = 0;
     try {
