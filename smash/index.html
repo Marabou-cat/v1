@@ -2647,7 +2647,8 @@ CHARS.push({ id:'tock', name:'Tickwork', en:'TICKWORK', tag:'Tempo',
     n:{ kind:'tockClock', label:'Grandfather Drop', cd:2.2, dmg:12, bb:16, bg:32, ang:78,
         radius:3.4, throwSpd:11.5, color:0xffd166 },
     s:{ kind:'tockRewind', label:'Second Hand', cd:2.6, dmg:5, bb:0, bg:0,
-        stepBack:7.5, shotSpd:26, rewind:2.0, punchDmg:10, punchBb:12, punchBg:18, color:0xffd166 },
+        stepBack:7.5, shotSpd:26, rewind:2.0, chargeT:.50,
+        punchDmg:14, punchBb:34, punchBg:92, color:0xffd166 },
     u:{ kind:'tockAscend', label:'Hour Fall', cd:1.8, rise:26.5, dur:.72, dropDmg:4,
         dropEvery:.17, dropSpd:15, radius:2.6, rewind:1.0, color:0xffe9a0 },
     d:{ kind:'tockNoise', label:'Metal Chorus', cd:3.0, tickDmg:5, ticks:10, tick:.115,
@@ -14701,7 +14702,8 @@ class Fighter {
             this.pos.y = Math.max(hitF.pos.y, 0);
             this.vel.set(0, 0, 0);
             this.facing = sgn > 0 ? 1 : -1;
-            this.tockPunch = { t: 0, hit: false, target: hitF, cfg: this.tockShot.cfg };
+            this.tockPunch = { t: 0, hit: false, phase: 'charge', target: hitF, cfg: this.tockShot.cfg,
+                               chargeT: (this.tockShot.cfg && this.tockShot.cfg.chargeT) || .50 };
             FX.flash(this.pos.x, this.pos.y + 1.2, .30, 3.0, S.color, .28);
             SFX.special('dash');
           }
@@ -14725,19 +14727,38 @@ class Fighter {
     /* --- 左右B 的向下重拳（击退小，用来收割边缘）--- */
     if (this.tockPunch) {
       const P2 = this.tockPunch; P2.t += dt;
-      if (!P2.hit && P2.t >= .13) {
-        P2.hit = true;
-        const tf = P2.target, c2 = P2.cfg || {};
-        if (tf && !tf.eliminated) {
-          tf.takeHit(this, { dmg: c2.punchDmg || 10, bb: c2.punchBb || 12, bg: c2.punchBg || 18, ang: -78 },
-            Math.sign(tf.pos.x - this.pos.x) || 1);
-          FX.ring(tf.pos.x, tf.pos.y + .3, .30, 2.6, c2.color || 0xffd166, .45);
-          FX.spark(tf.pos.x, tf.pos.y + .3, .30, 14, 0xffe9a0);
-          shake = Math.min(1.2, shake + .30);
+      /* ① 蓄力（和 Rocky 中立B 蓄力同款：拳头收到腰后、身体后仰、越蓄越抖） */
+      if (P2.phase === 'charge') {
+        const ck = Math.min(1, P2.t / (P2.chargeT || .5));
+        if (P2.t % .06 < dt) {
+          FX.spark(this.pos.x + (Math.random() - .5) * 1.1, this.pos.y + 1.1 + Math.random() * .8, .24, 1, 0xffd166);
+          FX.dust(this.pos.x, this.pos.y + .05, 1, 0xffd166);
+        }
+        if (ck > .55 && P2.t % .18 < dt) { try { SFX.tone(300 + ck * 500, 380 + ck * 700, .06, 'square', .05); } catch (e) {} }
+        if (ck >= 1) {
+          P2.phase = 'strike'; P2.t = 0;
+          FX.ring(this.pos.x, this.pos.y + 1.2, .30, 3.2, P2.cfg && P2.cfg.color || 0xffd166, .45);
+          FX.flash(this.pos.x, this.pos.y + 1.3, .35, 4.2, 0xffe9a0, .28);
+          shake = Math.min(1.2, shake + .26);
           SFX.special('heavy');
         }
+      /* ② 挥拳：向下重击，击退拉高很多（收割边缘） */
+      } else if (P2.phase === 'strike') {
+        if (!P2.hit && P2.t >= .10) {
+          P2.hit = true;
+          const tf = P2.target, c2 = P2.cfg || {};
+          if (tf && !tf.eliminated) {
+            tf.takeHit(this, { dmg: c2.punchDmg || 14, bb: c2.punchBb || 34, bg: c2.punchBg || 92, ang: -78 },
+              Math.sign(tf.pos.x - this.pos.x) || 1);
+            FX.ring(tf.pos.x, tf.pos.y + .3, .34, 3.6, c2.color || 0xffd166, .50);
+            FX.spark(tf.pos.x, tf.pos.y + .3, .34, 22, 0xffe9a0);
+            FX.crater && FX.crater(tf.pos.x, Math.max(0, tf.pos.y), 1.5, 0xffd166);
+            shake = Math.min(1.45, shake + .48); camKick = Math.min(1, camKick + .35);
+            SFX.special('heavy'); SFX.hit(30, 7);
+          }
+        }
+        if (P2.t > .38) { this.tockPunch = null; this.tockShot = null; }
       }
-      if (P2.t > .42) { this.tockPunch = null; this.tockShot = null; }
     }
     /* --- 下B：金属噪音，围绕自身 10 段 × 5% = 50% --- */
     if (this.tockNoise) {
@@ -25376,7 +25397,18 @@ class Fighter {
         hd.h.rotation.z = -T0 * Math.PI * 2 / 720;           // 时针：12 分钟一圈
       }
       let tR = null, tL = null, tLn = 0;
-      if (this.tockPunch) { tR = -.35; tL = .30; tLn = this.facing * .38; }          // 向下重拳
+      if (this.tockPunch) {
+        const P2 = this.tockPunch;
+        if (P2.phase === 'charge') {                                   // ★ 和 Rocky 蓄力同款
+          const k2 = Math.min(1, P2.t / (P2.chargeT || .5));
+          const tr2 = Math.sin(A.t * 46) * .05 * k2;
+          tR = .95 - k2 * .40 + tr2; tL = .60 - tr2;
+          tLn = -this.facing * (.16 + k2 * .18);
+        } else {                                                        // 向下重拳（砸）
+          const k3 = Math.min(1, P2.t / .16);
+          tR = .55 + k3 * 1.15; tL = .60 + k3 * .55; tLn = this.facing * (.10 + k3 * .34);
+        }
+      }
       else if (this.tockNoise) { tR = -1.30 + Math.sin(A.t * 26) * .18; tL = -1.30 - Math.sin(A.t * 26) * .18; tLn = Math.sin(A.t * 13) * .10; }
       else if (this.tockAscend) { tR = -2.35; tL = -2.35; tLn = -this.facing * .16; }
       else if (this.tockShot) { tR = -1.35; tL = .55; tLn = -this.facing * .14; }
