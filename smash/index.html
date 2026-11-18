@@ -1270,16 +1270,16 @@ const STAGES = [
      撞到的敌人被击退，250% 以上直接爆炸。 */
   { id:'ocean', name:'Ocean', mainW:44, mainD:8.2, mainH:1.8, platD:5.4, platH:.85, wallX:22,
     fog:0x12556e, topColor:0x5fd0e0, rockColor:0x1d4a63, platColor:0x5b93a8,
-    decks:[], water:true, sinkMax:2.6, kbMul:.85,
+    decks:[], water:true, sinkMax:2.6, kbMul:.85, floor:0,   // floor:0 = 最底下那块大平台可站
     sub:{ every:15, speed:9.0, dmg:14, kbx:26, kby:15, boomAt:250 },
-    hint:'OCEAN · no floor · sink slowly, jump forever · SUB every 15s (from the back)',
+    hint:'OCEAN · solid bottom reef · sink slowly, jump forever · SUB every 15s (from the back)',
     plats:[ {x:0,y:5.0,w:9.0}, {x:-13,y:8.2,w:6.0}, {x:13,y:8.2,w:6.0},
             {x:-6.5,y:11.6,w:6.0}, {x:6.5,y:11.6,w:6.0}, {x:0,y:15.2,w:7.0} ] },
   { id:'oceanXL', name:'Ocean XL', mainW:84, mainD:9.6, mainH:2.2, platD:6.2, platH:.9, wallX:42,
     fog:0x12556e, topColor:0x5fd0e0, rockColor:0x1d4a63, platColor:0x5b93a8,
-    decks:[], water:true, sinkMax:2.6, kbMul:.85,
+    decks:[], water:true, sinkMax:2.6, kbMul:.85, floor:0,   // floor:0 = 最底下那块大平台可站
     sub:{ every:15, speed:10.0, dmg:14, kbx:28, kby:16, boomAt:250 },
-    hint:'OCEAN XL · 84 wide · 11 floating reefs · no floor · SUB every 15s',
+    hint:'OCEAN XL · 84 wide · 11 floating reefs · solid bottom reef · SUB every 15s',
     plats:[ {x:-28,y:5.2,w:9.0}, {x:28,y:5.2,w:9.0}, {x:0,y:5.2,w:11.0},
             {x:-14,y:9.0,w:7.0}, {x:14,y:9.0,w:7.0}, {x:-35,y:12.4,w:6.0}, {x:35,y:12.4,w:6.0},
             {x:-6,y:13.0,w:7.0}, {x:6,y:13.0,w:7.0},
@@ -1339,6 +1339,9 @@ function safeGroundX(x) {
    物理 / 出生点 / 复活 / Bot 判地 / 贴墙抓取 / 影子 / 垃圾 都读这一个函数。 */
 function stageFloorY(x) {
   if (STAGE.mines) return minesFloorY(x);
+  /* ★ 2026-11-18 Ocean：decks:[] 是「空数组但为真」→ 老代码一律返回 null（整张图没有地板）。
+     floor:<y> 是显式覆盖：最底下那块主板面要能站人（水面照样缓慢下沉 + 无限跳）。 */
+  if (STAGE.floor !== undefined) return STAGE.floor;
   if (STAGE.decks) {
     for (const d of STAGE.decks) if (x >= d[0] && x <= d[1]) return d[2];
     return null;
@@ -3678,7 +3681,7 @@ for (let i = 0; i < ((STAGE.roof || STAGE.cave) ? 0 : 16); i++) {   // 底下的
 const platEdge = STAGE.plats.reduce((m, p) => Math.max(m, Math.abs(p.x) + p.w / 2), 0);
 const treeX = Math.max(platEdge + 2.1, STAGE.mainW / 2 - 1.9);
 const treeFit = Math.min(1, (STAGE.mainW / 2 - treeX) / 2.1);      // 树冠最大半径 2.1
-for (const sx of (!sand && !STAGE.cave && treeFit > .45 ? [treeX, -treeX] : [])) {
+for (const sx of (!sand && !STAGE.cave && !STAGE.water && treeFit > .45 ? [treeX, -treeX] : [])) {   // ★ 水下不长树
   const t = new THREE.Group();
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.42,.55,2.6,6), bodyMat);
   trunk.position.y = 1.3; t.add(trunk);
