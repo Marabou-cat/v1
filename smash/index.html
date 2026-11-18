@@ -31518,9 +31518,11 @@ const METEOR = (() => {
   let built = false, busy = false, t = 0, phase = 'idle', done = null;
   let meteor = null, crater = null, beam = null, prizeObj = null, ringGlow = null;
   let halves = [], rocks = [], dust = [], smoke = [], flash = null;
-  let best = null, list = [], shake = 0, ui = null;
+  let best = null, list = [], shake = 0, ui = null, bigPull = false, fallDur = 1.35;
 
   const FALL_FROM = new THREE.Vector3(-9, 30, -8);
+  const BIG_FROM  = new THREE.Vector3(-12, 42, -12);      // ★ 十连的大陨石：更高更远
+  const playFrom  = new THREE.Vector3().copy(FALL_FROM);
   const IMPACT = new THREE.Vector3(0, 1.15, 0);
 
   /* ---------------- 场景 ---------------- */
@@ -31578,6 +31580,7 @@ const METEOR = (() => {
     const deep = new THREE.Mesh(new THREE.CircleGeometry(2.3, 28),
       new THREE.MeshStandardMaterial({ color:0x120d08, roughness:1, emissive:0x2a1405, emissiveIntensity:.32 }));
     deep.rotation.x = -Math.PI / 2; deep.position.y = .022; g.add(deep);
+    g.userData.deep = deep;
     const rim = new THREE.Mesh(new THREE.TorusGeometry(4.12, .30, 6, 30),
       new THREE.MeshStandardMaterial({ color:0x4a3826, roughness:1, flatShading:true }));
     rim.rotation.x = Math.PI / 2; rim.position.y = .12; g.add(rim);
@@ -31720,6 +31723,20 @@ const METEOR = (() => {
         'font:800 10px/1.6 system-ui,sans-serif;letter-spacing:1.6px;color:rgba(255,255,255,.75);padding:0 16px}' +
       '#meteorUI .tap{position:absolute;left:0;right:0;bottom:6px;text-align:center;display:none;' +
         'font:800 9.5px/1 system-ui,sans-serif;letter-spacing:2px;color:rgba(255,255,255,.45)}' +
+      '#meteorUI .gr{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;' +
+        'width:min(880px,94vw);margin:0 auto}' +
+      '#meteorUI .gc{padding:7px 6px;border-radius:10px;text-align:center;' +
+        'background:linear-gradient(165deg,rgba(var(--t),.26),rgba(8,12,20,.86));' +
+        'border:1.4px solid rgba(var(--t),.7);box-shadow:0 8px 22px rgba(0,0,0,.4)}' +
+      '#meteorUI .gc i{display:block;font-style:normal;font-size:15px;color:rgb(var(--t));line-height:1}' +
+      '#meteorUI .gc b{display:block;margin-top:4px;font:800 10px/1.25 system-ui,sans-serif;color:#fff}' +
+      '#meteorUI .gc u{display:block;margin-top:3px;font:800 7.6px/1.25 system-ui,sans-serif;' +
+        'letter-spacing:.8px;color:rgba(var(--t),1);text-decoration:none}' +
+      '@media (max-width:720px){#meteorUI .gr{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}' +
+        '#meteorUI .cap{bottom:36vh}}' +
+      '#meteorUI.many .cap{bottom:clamp(230px,33vh,330px)}' +
+      '#meteorUI.many .cap .nm{font-size:clamp(20px,4.6vw,34px)}' +
+      '#meteorUI.many .kicker{opacity:0}' +
       '#meteorUI.canSkip .tap{display:block}';
     document.head.appendChild(st);
     ui = document.createElement('div');
@@ -31727,6 +31744,7 @@ const METEOR = (() => {
     ui.innerHTML = '<div class="kicker">SUMMON</div>'
       + '<div class="cap"><div class="rar" id="mRar"></div><div class="nm" id="mNm"></div><div class="st" id="mSt"></div></div>'
       + '<div class="more" id="mMore"></div><div class="tap">TAP TO CONTINUE</div>';
+    ui.querySelector('#mMore').style.bottom = 'clamp(10px,3vh,26px)';
     document.body.appendChild(ui);
   }
   function uiReset() {
@@ -31746,9 +31764,14 @@ const METEOR = (() => {
     ui.querySelector('#mNm').textContent = (best && best.name) || '';
     ui.querySelector('#mSt').textContent = best ? METEOR_STARS(best.tier) : '';
     if (list.length > 1) {
-      ui.querySelector('#mMore').textContent = 'ALSO · ' + list.filter(p => p !== best).slice(0, 6)
-        .map(p => p.name).join(' · ');
+      const ico = p => p.type === 'shards' ? '◈' : p.type === 'supreme' ? '✦' : p.type === 'skin' ? '❖' : '⚔';
+      const cards = list.map(p => '<div class="gc" style="--t:' + (RAR_TONE[p.tier] || '190,196,210') + '">'
+        + '<i>' + ico(p) + '</i><b>' + p.name + '</b><u>' + (p.sub || '') + '</u></div>').join('');
+      ui.querySelector('#mMore').innerHTML = '<div class="gr">' + cards + '</div>';
+    } else {
+      ui.querySelector('#mMore').textContent = '';
     }
+    ui.classList.toggle('many', list.length > 1);
     ui.classList.add('on');
   }
   function uiClose() { if (ui) { ui.style.display = 'none'; ui.className = ''; } }
@@ -31760,6 +31783,19 @@ const METEOR = (() => {
     list = Array.isArray(prize) ? prize : [prize];
     const W = { shards:0, weapon:1, epicW:2, skin:2, legW:3, specialW:3, supreme:4 };
     best = list.slice().sort((a, b) => (W[b.tier] || 0) - (W[a.tier] || 0))[0] || list[0];
+    /* ★ 十连 = 一颗大陨石，拖尾/内核/坑口的光都按「本次最高品质」上色 */
+    const many = list.length > 1;
+    bigPull = many; fallDur = many ? 1.95 : 1.35;
+    const tone = RAR_TONE[best && best.tier] || '190,196,210';
+    const toneCol = new THREE.Color('rgb(' + tone + ')');
+    if (meteor.userData.flame) meteor.userData.flame.material.color.copy(toneCol);
+    if (meteor.userData.flame2) {
+      meteor.userData.flame2.material.color.copy(toneCol).lerp(new THREE.Color(0xffffff), .45);
+    }
+    if (crater && crater.userData.deep) crater.userData.deep.material.emissive.setHex(0x2a1405);
+    if (ringGlow) ringGlow.material.color.copy(toneCol);
+    crater.scale.setScalar(many ? 1.5 : 1);
+    playFrom.copy(many ? BIG_FROM : FALL_FROM);
     /* 重置 */
     uiReset();
     crater.visible = false;
@@ -31773,8 +31809,8 @@ const METEOR = (() => {
     meteor.visible = true;
     if (meteor.userData.flame) meteor.userData.flame.visible = true;
     if (meteor.userData.flame2) meteor.userData.flame2.visible = true;
-    meteor.scale.setScalar(1.22);
-    meteor.position.copy(FALL_FROM);
+    meteor.scale.setScalar(many ? 2.05 : 1.22);
+    meteor.position.copy(playFrom);
     halves[0].position.set(0, 0, 0); halves[0].rotation.set(0, 0, 0);
     halves[1].position.set(0, 0, 0); halves[1].rotation.set(0, 0, 0);
     cam.position.set(0, 3.6, 16);
@@ -31807,23 +31843,23 @@ const METEOR = (() => {
     t += dt;
     /* —— 坠落 —— */
     if (phase === 'fall') {
-      const k = Math.min(1, t / 1.35);
+      const k = Math.min(1, t / fallDur);
       const e = k * k;                                   // 加速下落
-      meteor.position.lerpVectors(FALL_FROM, IMPACT, e);
+      meteor.position.lerpVectors(playFrom, IMPACT, e);
       meteor.rotation.x += dt * 2.4; meteor.rotation.y += dt * 1.1;
       if (meteor.userData.flame) {
         meteor.userData.flame.scale.setScalar(.8 + Math.sin(t * 22) * .18);
         meteor.userData.flame.material.opacity = .75 + Math.sin(t * 30) * .2;
       }
       cam.position.set(0, 3.3 + k * .9, 18.5 - k * 3.2);
-      cam.lookAt(meteor.position.x * .35, Math.max(2.4, meteor.position.y * .52), 0);
+      cam.lookAt(meteor.position.x * .35, Math.min(bigPull ? 13 : 15, Math.max(2.4, meteor.position.y * .45)), 0);
       shake = .12 + k * .35;
       if (k >= 1) {
         phase = 'impact'; t = 0;
         crater.visible = true;
         meteor.visible = false;
         flash.visible = true; flash.material.opacity = 1;
-        shake = 1.5;
+        shake = 2.0;
         try { SFX.heavy && SFX.heavy(); } catch (e) {}
         try { SFX.tone(90, 42, .9, 'sine', .28); } catch (e) {}
         /* 尘环 */
