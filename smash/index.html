@@ -3442,7 +3442,7 @@ const OCEAN_BG = (function () {
     /* 鲸鱼：62 秒横穿一次，身体轻轻起伏 */
     if (whale) {
       const u = (tB % 62) / 62;
-      whale.position.set(-140 + u * 280, 13 + Math.sin(tB * .38) * 2.4, -72);
+      whale.position.set(-140 + u * 280, 10.0 + Math.sin(tB * .38) * 2.2, -88);   /* 压低+推远：别贴着画面上沿只露一块黑 */
       whale.rotation.set(Math.sin(tB * .55) * .06, 0, Math.sin(tB * .38 + .6) * .05);
     }
   }
