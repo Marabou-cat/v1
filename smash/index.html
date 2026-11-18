@@ -30953,6 +30953,7 @@ const NET = {
     if (room.state === 'play' && (room.gen | 0) !== (this.myGen | 0)) {
       this.myGen = room.gen | 0;
       this.chars = seats.map(x => x ? x.char : null);
+      this.skins = seats.map(x => (x && x.skin) || '');        // ★ per-seat 皮肤（服务端 seatPublic 下发）
       this.humanSeats = seats.map(x => x ? !x.bot : false);   // ★ 第 60 轮：真人席位按「不是补齐的 Bot」判定，不看 ai 临时接管标记
       this.joinRunning({ seed: room.seed, startFrame: room.startFrame || 0 });
     }
@@ -31033,7 +31034,8 @@ const NET = {
     const charId = (CHARS[settings.playerChar] || {}).id;
     const act = this.spec || this.seat < 0
       ? { a:'hello', room:this.room, spec:true }
-      : { a:'hello', room:this.room, token:this.token, name:this.name, char:charId };
+      : { a:'hello', room:this.room, token:this.token, name:this.name, char:charId,
+          skin:(function(){ try { return ACC.skinOf(charId) || ''; } catch (e) { return ''; } })() };   // ★ per-seat 皮肤
     try { this.ws.send(JSON.stringify(act)); this.wsBound = true; return true; } catch (e) { return false; }
   },
   onWsClose(ws) {
@@ -31087,6 +31089,7 @@ const NET = {
       this.seed = j.seed; this.rules = j.room.rules;
       this.humanSeats = j.room.seats.map(x => x ? !x.bot : false);   // ★ 第 60 轮：同上，看 bot 不看 ai
       this.chars = j.room.seats.map(x => x ? x.char : null);
+      this.skins = j.room.seats.map(x => (x && x.skin) || '');   // ★ per-seat 皮肤
       this.names = {}; (j.room.seats || []).forEach((x, i) => { if (x) this.names[i] = x.name; });
       this.status = 'in';
       if (j.in) this.ingest({ ok:true, in:j.in, win:j.f });
@@ -31118,6 +31121,7 @@ const NET = {
       const o = opt || {};
       await this.connect();
     const j = await this.hello({ a:'hello', create:true, name, char: CHARS[settings.playerChar].id, pid: this.pid,
+                                skin: (function(){ try { return ACC.skinOf(CHARS[settings.playerChar].id) || ''; } catch (e) { return ''; } })(),
       avatar: ACC.avatar || '',                          // ★ 第 67 轮：头像随建/加入一起上报（房间广播里给开局阵容用）
       opts:{ rules: (o && o.rules) ? o.rules : { count: settings.count, stocks: settings.stocks, time: settings.time, diff: settings.diff,
                       teams: settings.count === 4 ? (settings.teams ? 1 : 0) : 0,   // ★ 团队模式随规则一起下发给全房
@@ -31125,7 +31129,7 @@ const NET = {
                       stage: (settings.stage === 'r' || settings.stage === undefined) ? null : settings.stage },   // ★ 第 77 轮：联机也能选地图（null = 随机/由种子定）
              pub: o.pub !== false,                     // 默认公共房
              pass: String(o.pass || '').slice(0, 12) } });
-    if (j && j.ok) { this.chars[0] = CHARS[settings.playerChar].id; this.send({ a:'char', room:this.room, seat:this.seat, token:this.token, char:this.chars[0] }); }
+    if (j && j.ok) { this.chars[0] = CHARS[settings.playerChar].id; this.send({ a:'char', room:this.room, seat:this.seat, token:this.token, char:this.chars[0], skin:(ACC.skinOf(this.chars[0])||'') }); }
       return j;
     } finally { this._busy = false; }
   },
@@ -31149,7 +31153,7 @@ const NET = {
         pid: this.pid,                                   // ★ 第 72 轮：账号 id（好友/在线状态）
         char: CHARS[settings.playerChar].id });
       if (j && j.ok && !spec && !j.start) { this.chars[this.seat] = CHARS[settings.playerChar].id;
-        this.send({ a:'char', room:this.room, seat:this.seat, token:this.token, char:this.chars[this.seat] }); }
+        this.send({ a:'char', room:this.room, seat:this.seat, token:this.token, char:this.chars[this.seat], skin:(ACC.skinOf(this.chars[this.seat])||'') }); }
       /* ★ 2026-11-17：观战加入「已经在打的对局」时必须显式进场。
          hello 对观战只回 {spec, room, f, in}（没有 start），而 applyRoom 又因为 myGen 已被置成
          同一代次而跳过进场 —— 旧版 Spectate 就卡在菜单（观战看起来「没反应」）。 */
@@ -31189,7 +31193,7 @@ const NET = {
     if (this.roomState && this.roomState.state && this.roomState.state === 'play') return null;
     const cid = (CHARS.find(x => x.id === id) || CHARS[settings.playerChar]).id;
     this.applyLocalChar(cid);
-    return this.send({ a:'char', room:this.room, seat:this.seat, token:this.token, char:cid });
+    return this.send({ a:'char', room:this.room, seat:this.seat, token:this.token, char:cid, skin:(ACC.skinOf(cid)||'') });   // ★ 换角色时连皮肤一起上报
   },
   /* 准备：把当前选的角色一起带上（玩家常见操作是「先加入、再换角色、然后 Ready」） */
   ready(v) {
@@ -31236,7 +31240,7 @@ const NET = {
     try {
       /* 重建同一局：种子/规则/角色都必须和服务端完全一致 */
       setup({ count: h.count, stocks: h.stocks, time: (h.time === undefined ? 0 : h.time), diff: h.diff,
-              teams: h.teams ? 1 : 0, seed: h.seed, chars: h.chars,
+              teams: h.teams ? 1 : 0, seed: h.seed, chars: h.chars, skins: h.skins || null,
               rules: { mode: h.mode || '' },                       // ★ 宝石争夺战：重连重放也要用同一个模式
               humanSeats: (h.chars || []).map(() => true) });
       match.state = 'play'; match.countdown = 0;
@@ -31270,7 +31274,7 @@ const NET = {
   },
   joinRunning(j) {                                       // 重连进对局 / Spectate
     this.seed = j.seed || this.seed;
-    this.beginMatch({ gen: (j.room && j.room.gen) | 0, seed: j.seed, rules: this.rules, chars: this.chars,
+    this.beginMatch({ gen: (j.room && j.room.gen) | 0, seed: j.seed, rules: this.rules, chars: this.chars, skins: this.skins,
                       humanSeats: this.humanSeats, startFrame: j.startFrame || 0 });
   },
   onGo(j) {
@@ -31279,10 +31283,11 @@ const NET = {
        否则玩家只看到画面突然回到开局，以为是 bug。 */
     if (j.resync) { try { toast('↻ Resynced — this match restarted from frame 0 (same seed)'); } catch (e) {} }
     this.chars = j.chars || this.chars;
+    if (j.skins) this.skins = j.skins;
     this.humanSeats = (j.room && j.room.seats ? j.room.seats : []).map(x => x ? !x.bot : false);   // ★ 第 60 轮：同上，看 bot 不看 ai
     this.myGen = (j.room && j.room.gen) | 0;       // 标记「这一局我已在场」，避免 applyRoom 再进一次
     this.applyRoom(j.room);
-    this.beginMatch({ gen: (j.room && j.room.gen) | 0, seed: j.seed, rules: this.rules, chars: this.chars,
+    this.beginMatch({ gen: (j.room && j.room.gen) | 0, seed: j.seed, rules: this.rules, chars: this.chars, skins: this.skins,
                       humanSeats: this.humanSeats, startFrame: j.startFrame || 0 });
     /* ★ 第 67 轮：开局阵容 —— 所有人昵称 + 头像（服务端在 go 里一次性带下来） */
     try {
@@ -31350,7 +31355,8 @@ const NET = {
     const n = o.rules.count;
     setup({ count:n, stocks:o.rules.stocks, time:o.rules.time, diff:o.rules.diff, teams: o.rules.teams ? 1 : 0,
             rules: o.rules,                                                    // ★ 第 77 轮：把规则（含地图 rules.stage）一起传进 setup
-            playerChar: settings.playerChar, seed: o.seed, chars: o.chars, humanSeats: o.humanSeats });
+            playerChar: settings.playerChar, seed: o.seed, chars: o.chars, humanSeats: o.humanSeats,
+            skins: o.skins || null });                                  // ★ 联机：每个座位的皮肤由服务端下发
     match.state = 'play'; match.countdown = 0;            // 联机Jump过倒计时（大厅阶段即等待）
     this.delay = 3; this.rttMin = 0; this.rttN = 0; this.adaptT = 0; this.starvedMark = 0;
     this.primed = false; this.inflight = 0; this.busyT = 0; this.ackLimit = 0;   // 第二局也要重置，否则头几frames没输入

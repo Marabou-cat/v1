@@ -50,6 +50,8 @@ const ROOM_CODE_LEN = 5;
 const LAG_MS = parseInt(process.env.SB_LAG_MS || '0', 10);
 /* 角色池：仅用于空位（AI）的确定性兜底 —— 必须与客户端 CHARS 顺序一致 */
 const CHAR_POOL = ['sparky', 'rocky', 'zephyr', 'cobalt', 'mage', 'warrior', 'archer', 'knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'blizzard', 'vexor', 'trash', 'singer', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'alien', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'treasure', 'princess', 'french', 'sovereign', 'mosquito', 'warden', 'soldier', 'monk', 'bomber', 'foundry', 'tock'];
+/* ★ 2026-11-20 per-seat 皮肤：只允许「属于这个角色」的皮肤 id 进对局（防脏数据/防跨角色） */
+const SKIN_CHAR = { smiley_penguin: 'smiley', cardboard_tv: 'sovereign', foundry_police: 'foundry' };
 
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 const RESULTS_FILE = path.join(DATA_DIR, 'results.jsonl');
@@ -130,7 +132,7 @@ function freeSeatIndex(room) {
   return -1;
 }
 function seatPublic(s) {
-  return s ? { seat: s.seat, name: s.name, char: s.char, ready: !!s.ready, ai: !!s.ai,
+  return s ? { seat: s.seat, name: s.name, char: s.char, skin: s.skin || '', ready: !!s.ready, ai: !!s.ai,
                connected: !!s.connected, bot: !!s.bot, aiFrom: s.aiFrom | 0,
                idle: !!s.idle, left: !!s.left, gone: !!s.gone } : null;
 }
@@ -418,6 +420,7 @@ function restartRoom(room, why) {
   room.startT = now; room.updated = now;
   broadcast(room, { a:'go', room: roomPublic(room), seed: room.seed, startFrame: 0,
                     rules: room.rules, chars: room.seats.map(x => x && x.char),
+                    skins: room.seats.map(x => (x && x.skin) || ''),      // ★ per-seat 皮肤（客户端 opts.skins）
                     avatars: room.seats.map(x => (x && x.avatar) || ''),   // ★ 第 67 轮：开局阵容用
                     resync: why });
   log('[match] restart', room.code, '(' + why + ')', 'gen', room.gen, 'seed', room.seed);
@@ -709,6 +712,12 @@ function handle(act, ctx) {
       name: String(act.name || (prev && prev.name) || ('Player' + (idx + 1))).slice(0, 12),
       /* 只有大厅能改角色：对局中重连必须沿用原角色，否则各端FIGHTERS不一致 → 锁同步desync */
       char: (room.state === 'lobby' && act.char) ? act.char : ((prev && prev.char) || 'sparky'),
+      /* ★ per-seat 皮肤：只有大厅能改（对局中重连沿用原皮肤），且必须和角色匹配 */
+      skin: (function () {
+        const want = (room.state === 'lobby' && act.skin) ? String(act.skin) : ((prev && prev.skin) || '');
+        const ch = (room.state === 'lobby' && act.char) ? act.char : ((prev && prev.char) || 'sparky');
+        return (want && SKIN_CHAR[want] === ch) ? want : '';
+      })(),
       ready: reconnected ? (prev && prev.ready) : false,
       ai: false, bot: !!act.bot, connected: true, lastSeen: now,
       frameSeen: 0, frameT: now, recoverMs: 0, inTop: 0,          // 帧号推进判活用（见 AI_TAKEOVER_MS 注释）
@@ -801,6 +810,11 @@ function handle(act, ctx) {
     if (room.state === 'play') return { ok: true, ignored: true };
     if (CHAR_POOL.indexOf(act.char) < 0) return { ok: false, e: 'bad_char' };
     s.char = act.char; s.lastSeen = now;
+    /* ★ 换角色时同步换皮肤：不匹配的皮肤一律清空（客户端会显示默认外观） */
+    if (act.skin !== undefined) {
+      const wantSkin = String(act.skin || '');
+      s.skin = (wantSkin && SKIN_CHAR[wantSkin] === s.char) ? wantSkin : '';
+    } else if (s.skin && SKIN_CHAR[s.skin] !== s.char) s.skin = '';
     broadcast(room, { a:'seats', room: roomPublic(room) });
     log('[char]', room.code, 'seat', seat, '->', act.char);
     return { ok: true };
@@ -817,6 +831,7 @@ function handle(act, ctx) {
     if (idx >= 0) {
       room.seats[idx] = { seat: idx, token: newToken(), name: botName(room, idx),
         char: CHAR_POOL[(idx + (room.seats.filter(x => x && x.bot).length)) % CHAR_POOL.length],
+        skin: '',
         ready: true, ai: true, bot: true, connected: false, lastSeen: now, joined: now };
       broadcast(room, { a:'seats', room: roomPublic(room) });
       log('[addbot]', room.code, 'seat', idx, room.seats[idx].char);
@@ -922,6 +937,7 @@ function handle(act, ctx) {
     }
     broadcast(room, { a:'go', room: roomPublic(room), seed: room.seed, startFrame: 0,
                       rules: room.rules, chars: room.seats.map(x => x && x.char),
+                    skins: room.seats.map(x => (x && x.skin) || ''),      // ★ per-seat 皮肤（客户端 opts.skins）
                       avatars: room.seats.map(x => (x && x.avatar) || '') });
     log('[rematch]', room.code, 'seed', room.seed, 'players', need.length);
     return { ok: true, voted, need: need.length, started: true, seed: room.seed, startFrame: 0, rules: room.rules };
