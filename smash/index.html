@@ -3205,12 +3205,12 @@ const OCEAN_BG = (function () {
         parts.push({ geo:new THREE.IcosahedronGeometry(rr, 0),
                      x:px, y:L.y + hh * .08, z:L.z + (Math.random() - .5) * 14,
                      sy:(hh / rr) * .9, ry:Math.random() * 3 });
-        for (let k = 0; k < 3; k++) {                        // 丘边的石块
-          parts.push({ geo:new THREE.IcosahedronGeometry(rr * .30, 0),
-                       x:px + (Math.random() - .5) * rr * 2.5,
-                       y:L.y + hh * (.08 + Math.random() * .35),
+        for (let k = 0; k < 2; k++) {                        // 丘边的石块（压低贴海床，别像漂浮碎块）
+          parts.push({ geo:new THREE.IcosahedronGeometry(rr * .22, 0),
+                       x:px + (Math.random() - .5) * rr * 2.2,
+                       y:L.y + hh * (.04 + Math.random() * .18),
                        z:L.z + (Math.random() - .5) * 12,
-                       s:.6 + Math.random() * .8 });
+                       s:.5 + Math.random() * .55 });
         }
         if (i % 2 === 0) {                                   // 珊瑚柱：粗一点、矮一点（细杆会读成鱼线）
           const th = hh * (1.0 + Math.random() * .9), tr = .9 + Math.random() * 1.3;
@@ -26171,6 +26171,12 @@ function setup(opts) {
   if (match.mode === 'gem' && opts.count !== 4) match.mode = 'smash';   // 人数不对就退回普通乱斗（避免名单/分队错乱）
   const gemMode = match.mode === 'gem';
   const n = opts.count;
+  /* ★ 2026-11-18：stocks 兜底。任何调用方漏传 stocks（例如调试探针 SB.setup({count,chars,rules})）
+     都会让 f.stocks === undefined —— 顶部横幅打成「undefined stocks」，而且 stocks <= 0 永不成立 =
+     这一局谁都淘汰不了。真实入口（PLAY / 联机 / 再来一局）都带 stocks，这里只是不让残缺调用把局搞坏。 */
+  if (!Number.isFinite(opts.stocks)) {
+    opts.stocks = (opts.rules && Number.isFinite(opts.rules.stocks)) ? opts.rules.stocks : 3;
+  }
   const teamsOn = match.mode === 'gem' ? true : (!!opts.teams && n === 4);   // ★ 团队模式只在 4 人时生效；宝石模式恒为 2v2
   const spawns = [ [-6, 6], [6, -6], [-11, 11], [11, -11] ];
   /* ★ 第 84 轮：同一角色被多个座位选中 → 按座位序号分配 0/1/2/3 号配色（原色/Frost/Amber/Steel）。
