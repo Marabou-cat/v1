@@ -26578,6 +26578,24 @@ const settings = { count:4, stocks:3, time:0, diff:2, playerChar:0, teams:0, mod
 /* ★★ 第 66 轮：玩家「账号」——本机持久身份，三样一起存：账号 id / 昵称 / 默认角色。
    以前只存昵称（sb_nick），角色每次刷新都掉回 0 号；现在进房、开局、刷新都会自动用回来。
    账号 id 复用服务端限流用的 sbPid（同一个浏览器 = 同一个账号），没有就生成。 */
+/* ★ 2026-11-18 SUPPLY DROP（积分活动）
+   · 签到：7 天一轮，第 7 天 200 分；断签从 DAY 1 重来
+   · 每日任务：进度**直接复用宝石任务那套计数器**（gemProg 的 matches/wins/kos/damage/online），零新钩子
+   · 兑换：Foundry 角色 / Police 皮肤 / 宝石 / 金币（后两个每天有兑换次数上限） */
+const PT_CI = [40, 50, 60, 70, 80, 100, 200];
+const PT_TASKS = [
+  { id:'play', key:'matches', goal:3,   pts:50, label:'Play 3 matches' },
+  { id:'win',  key:'wins',    goal:2,   pts:70, label:'Win 2 matches' },
+  { id:'ko',   key:'kos',     goal:12,  pts:60, label:'Knock out 12 opponents' },
+  { id:'dmg',  key:'damage',  goal:250, pts:40, label:'Deal 250% total damage' },
+  { id:'onl',  key:'online',  goal:1,   pts:90, label:'Play 1 online match' },
+];
+const PT_SHOP = {
+  foundry: { pts:1400, name:'FOUNDRY',       note:'FIGHTER' },
+  police:  { pts:1000, name:'POLICE UNIT',   note:'SKIN · FOUNDRY' },
+  gems:    { pts:180,  name:'30 GEMS',       note:'PER PURCHASE', amount:30,  cap:3 },
+  coins:   { pts:150,  name:'2,500 COINS',   note:'PER PURCHASE', amount:2500, cap:5 },
+};
 const ACC = (() => {
   let a = {};
   try { a = JSON.parse(localStorage.getItem('sbAccount') || '{}') || {}; } catch (e) { a = {}; }
@@ -26725,6 +26743,51 @@ const ACC = (() => {
       save();
       return got;
     },
+    /* ★ 2026-11-18 积分活动（SUPPLY DROP）
+         a.pts              积分余额
+         a.ptQ = { day, ci:{streak,last}, claimed:{taskId:1}, buys:{gems:n,coins:n} }
+           · ci.last = 上次签到的自然日；streak 1..7 循环
+           · claimed / buys 跨天清零（签到连续天数保留） */
+    get pts() { return a.pts | 0; },
+    addPts(v) { a.pts = Math.max(0, (a.pts | 0) + (v | 0)); save(); return a.pts; },
+    spendPts(v) { v = v | 0; if ((a.pts | 0) < v) return false; a.pts = (a.pts | 0) - v; save(); return true; },
+    ptEnsure() {
+      const k = this.dayKey();
+      if (!a.ptQ || typeof a.ptQ !== 'object') a.ptQ = { day:k, ci:{ streak:0, last:'' }, claimed:{}, buys:{} };
+      if (a.ptQ.day !== k) { a.ptQ.day = k; a.ptQ.claimed = {}; a.ptQ.buys = {}; save(); }
+      if (!a.ptQ.ci || typeof a.ptQ.ci !== 'object') a.ptQ.ci = { streak:0, last:'' };
+      if (!a.ptQ.claimed) a.ptQ.claimed = {};
+      if (!a.ptQ.buys) a.ptQ.buys = {};
+      return a.ptQ;
+    },
+    ptCheckinState() {
+      const q = this.ptEnsure(), today = this.dayKey();
+      const d = new Date(Date.now() - 864e5);
+      const ykey = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+      const done = q.ci.last === today;
+      const next = done ? (q.ci.streak | 0) : (q.ci.last === ykey ? ((q.ci.streak | 0) % 7) + 1 : 1);
+      return { today, done, streak: q.ci.streak | 0, next, reward: PT_CI[(next - 1) % 7], cycle: PT_CI };
+    },
+    ptCheckIn() {
+      const st = this.ptCheckinState();
+      if (st.done) return 0;
+      const q = this.ptEnsure();
+      q.ci.streak = st.next; q.ci.last = st.today;
+      this.addPts(st.reward); save();
+      return st.reward;
+    },
+    ptClaimed(id) { return !!this.ptEnsure().claimed[String(id)]; },
+    ptTaskClaim(id) {
+      const t = PT_TASKS.find(x => x.id === String(id));
+      if (!t) return -1;
+      const q = this.ptEnsure();
+      if (q.claimed[t.id]) return -1;                     // 今天已经领过
+      if (this.gemProg(t.key) < t.goal) return -2;        // 还没做完
+      q.claimed[t.id] = true; this.addPts(t.pts); save();
+      return t.pts;
+    },
+    ptBuysToday(item) { return (this.ptEnsure().buys[String(item)] | 0); },
+    ptAddBuy(item) { const q = this.ptEnsure(); q.buys[String(item)] = (q.buys[String(item)] | 0) + 1; save(); return q.buys[String(item)]; },
     /* 已装备的皮肤/武器数量（一次性任务「装备一个皮肤」用） */
     equippedLooks() { return Object.keys(a.equipSkins || {}).filter(k => a.equipSkins[k]).length
                            + Object.keys(a.equipWeapon || {}).filter(k => a.equipWeapon[k]).length; },
@@ -26752,6 +26815,7 @@ const ACC = (() => {
                        prog: q.prog || {}, dayClaimed: q.dayClaimed || {} },
                gemOnce: Object.assign({}, a.gemOnce || {}),
                eventClaims: Object.assign({}, a.eventClaims || {}),
+               pts: a.pts | 0, ptQ: Object.assign({}, a.ptQ || {}),   // ★ 积分活动（跨设备时尽量带上）
                rev: a.rev | 0, shards: a.shards | 0,
                nick: a.nick || '', avatar: a.avatar || '' };     // ★ 第 97 轮：昵称/头像也要进存档
     },
@@ -26780,6 +26844,21 @@ const ACC = (() => {
       if (typeof p.char === 'string' && p.char) a.char = p.char;
       if (p.gemOnce && typeof p.gemOnce === 'object') a.gemOnce = Object.assign({}, a.gemOnce || {}, p.gemOnce);
       if (p.eventClaims && typeof p.eventClaims === 'object') a.eventClaims = Object.assign({}, a.eventClaims || {}, p.eventClaims);
+      /* 积分活动：余额取大；当日领取记录/兑换次数取并集+取大；签到只认「更近的那天」 */
+      if (Number.isFinite(p.pts)) a.pts = Math.max(0, num(a.pts, p.pts));
+      if (p.ptQ && typeof p.ptQ === 'object') {
+        const q = this.ptEnsure();
+        const sd = dayNum(q.day), cd = dayNum(p.ptQ.day);
+        if (cd > sd) { q.day = p.ptQ.day; q.claimed = p.ptQ.claimed || {}; q.buys = p.ptQ.buys || {}; }
+        else if (cd === sd && cd > 0) {
+          q.claimed = Object.assign({}, q.claimed, p.ptQ.claimed || {});
+          for (const k in (p.ptQ.buys || {})) q.buys[k] = Math.max(q.buys[k] | 0, p.ptQ.buys[k] | 0);
+        }
+        if (p.ptQ.ci && typeof p.ptQ.ci === 'object') {
+          const lc = dayNum(q.ci.last), pc = dayNum(p.ptQ.ci.last);
+          if (pc > lc) { q.ci.last = p.ptQ.ci.last; q.ci.streak = p.ptQ.ci.streak | 0; }
+        }
+      }
       /* 每日任务：按自然日比较，别用字符串比大小 */
       if (p.dailyDay && p.dailyProg) {
         const sd = dayNum(a.daily && a.daily.day), cd = dayNum(p.dailyDay);
@@ -32286,9 +32365,33 @@ window.SB = {
   const claimable = () => {
     const out = [];
     try { const qs = gemQuestState(); if (qs.rows.some(r => r.ready) && qs.dayLeft > 0 && qs.totalLeft > 0) out.push('gemtask'); } catch (e) {}
+    try {
+      const cs = ACC.ptCheckinState();
+      if (!cs.done) out.push('pts');
+      else if (PT_TASKS.some(t => !ACC.ptClaimed(t.id) && ACC.gemProg(t.key) >= t.goal)) out.push('pts');
+    } catch (e) {}
     if (!ACC.hasEvent('penguin')) out.push('penguin');
     if (ACC.email && !ACC.owns('blizzard')) out.push('blizzard');
     return out;
+  };
+  /* ★ 2026-11-18：积分活动状态（活动页只认这一份，页面自己不存任何东西） */
+  const ptBridgeState = () => {
+    try {
+      const ci = ACC.ptCheckinState();
+      return {
+        bal: ACC.pts,
+        ci: { done: ci.done, streak: ci.streak, next: ci.next, reward: ci.reward, cycle: PT_CI },
+        tasks: PT_TASKS.map(t => ({ id:t.id, label:t.label, goal:t.goal, prog: ACC.gemProg(t.key),
+                                    pts:t.pts, claimed: ACC.ptClaimed(t.id) })),
+        shop: { foundry: PT_SHOP.foundry.pts, police: PT_SHOP.police.pts,
+                gems: PT_SHOP.gems.pts, coins: PT_SHOP.coins.pts,
+                gemAmount: PT_SHOP.gems.amount, coinAmount: PT_SHOP.coins.amount,
+                gemLeft: Math.max(0, PT_SHOP.gems.cap - ACC.ptBuysToday('gems')),
+                coinLeft: Math.max(0, PT_SHOP.coins.cap - ACC.ptBuysToday('coins')) },
+        ownsFoundry: ACC.owns('foundry'),
+        hasPolice: ACC.hasSkin('foundry_police'),
+      };
+    } catch (e) { return null; }
   };
   const pushState = () => {
     try {
@@ -32296,7 +32399,8 @@ window.SB = {
         email: !!ACC.email, owns: ACC.owns('blizzard'),
         gems: ACC.gems, hasSkin: ACC.hasSkin('smiley_penguin'),
         claims: ACC.eventClaims,
-        quests: gemQuestState() }, '*');
+        quests: gemQuestState(),
+        points: ptBridgeState() }, '*');
     } catch (e) {}
   };
   const openEv = () => {
@@ -32337,6 +32441,38 @@ window.SB = {
         try { summonBtnPaint(); } catch (e2) {}
         try { renderResBar(); } catch (e2) {}
         try { refreshHot(); } catch (e2) {}
+      } else if (id === 'pts-checkin') {
+        const got = ACC.ptCheckIn();
+        if (got > 0) { toast('+' + got + ' points · daily check-in'); try { SFX.special('wave'); } catch (err) {} }
+        else toast('Already checked in today — come back tomorrow');
+      } else if (id === 'pts-task') {
+        const got = ACC.ptTaskClaim(String(d.task || ''));
+        if (got > 0) { toast('+' + got + ' points · task claimed'); try { SFX.special('wave'); } catch (err) {} }
+        else if (got === -2) toast('Task not finished yet');
+        else toast('Already claimed today');
+      } else if (id === 'pts-buy') {
+        const item = String(d.item || ''), S = PT_SHOP[item];
+        if (!S) {
+          /* 未知商品：什么都不发 */
+        } else if (item === 'foundry') {
+          if (ACC.owns('foundry')) toast('Foundry is already in your roster');
+          else if (!ACC.spendPts(S.pts)) toast('Not enough points — need ' + S.pts);
+          else { ACC.unlock('foundry'); toast('FOUNDRY unlocked · pick him in SELECT CHARACTER'); try { SFX.special('wave'); } catch (err) {} }
+        } else if (item === 'police') {
+          if (!ACC.owns('foundry')) toast('Unlock Foundry first — the skin needs the fighter');
+          else if (ACC.hasSkin('foundry_police')) toast('Police Unit already owned');
+          else if (!ACC.spendPts(S.pts)) toast('Not enough points — need ' + S.pts);
+          else { ACC.addSkin('foundry_police'); toast('POLICE UNIT unlocked · equip it with the SKIN button'); try { SFX.special('wave'); } catch (err) {} }
+        } else {                                  // gems / coins（每天有兑换次数上限）
+          if (ACC.ptBuysToday(item) >= S.cap) toast('Daily limit reached — back tomorrow');
+          else if (!ACC.spendPts(S.pts)) toast('Not enough points — need ' + S.pts);
+          else {
+            ACC.ptAddBuy(item);
+            if (item === 'gems') ACC.addGems(S.amount); else ACC.addCoins(S.amount);
+            toast('+' + S.amount + (item === 'gems' ? ' gems' : ' coins'));
+            try { SFX.special('wave'); } catch (err) {}
+          }
+        }
       } else if (id === 'penguin') {
         if (!ACC.hasEvent('penguin')) {
           ACC.markEvent('penguin'); ACC.addSkin('smiley_penguin');

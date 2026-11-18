@@ -253,6 +253,77 @@
     .cover{height:min(26vh,210px);min-height:150px}
     .topbar .hint{display:none}
   }
+  /* ---------------- SUPPLY DROP · 积分活动（2026-11-18） ---------------- */
+  .ptsHead{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:13px 16px;border-radius:14px;
+    background:linear-gradient(118deg,rgba(255,169,60,.17),rgba(255,90,20,.05) 58%,transparent);
+    border:1px solid rgba(255,180,80,.34);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+  .ptsHead .bal{min-width:140px}
+  .ptsHead .bal u{display:block;font:900 9px/1 inherit;letter-spacing:2.2px;color:#ffbf5c;text-decoration:none;margin-bottom:7px}
+  .ptsHead .bal b{font:900 30px/1 inherit;letter-spacing:-.5px;color:#fff3d6;text-shadow:0 0 20px rgba(255,165,40,.55)}
+  .ptsHead .bal b i{font-style:normal;font-size:13px;letter-spacing:1px;color:#ffb03a;margin-left:6px}
+  .ptsHead .hintline{flex:1;min-width:180px;font:700 11px/1.65 inherit;color:#b9cbdd}
+  .ptsHead .hintline b{color:#ffd98a}
+  /* 签到 7 格 */
+  .ci{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;margin-top:11px}
+  .ci .d{position:relative;padding:8px 4px 7px;border-radius:11px;text-align:center;transition:.15s;
+    background:rgba(12,20,32,.74);border:1px solid rgba(120,150,190,.22)}
+  .ci .d u{display:block;font:900 8px/1 inherit;letter-spacing:1.2px;color:#8fa6bd;text-decoration:none}
+  .ci .d b{display:block;margin-top:6px;font:900 14px/1 inherit;color:#ffe1a8}
+  .ci .d.today{border-color:#ffc75e;background:linear-gradient(180deg,rgba(255,180,60,.20),rgba(58,28,0,.42));
+    box-shadow:0 0 0 1px #ffc75e inset,0 6px 20px rgba(255,150,30,.28);transform:translateY(-2px)}
+  .ci .d.done{background:linear-gradient(180deg,rgba(60,220,140,.14),rgba(16,54,36,.45));border-color:rgba(90,235,160,.45)}
+  .ci .d.done b,.ci .d.done u{opacity:.5}
+  .ci .d.done:after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;
+    font:900 20px/1 inherit;color:#8dffb4;text-shadow:0 0 12px rgba(60,240,140,.85)}
+  /* 兑换商店 */
+  .shop{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:9px;margin-top:8px}
+  .sc{position:relative;padding:10px 11px 11px;border-radius:14px;overflow:hidden;transition:.15s;
+    background:linear-gradient(165deg,rgba(20,30,46,.92),rgba(9,14,24,.95));
+    border:1px solid rgba(120,150,190,.24);display:flex;flex-direction:column;gap:7px}
+  .sc:hover{transform:translateY(-2px);border-color:rgba(255,190,90,.55)}
+  .sc .art{height:66px;border-radius:10px;position:relative;overflow:hidden;
+    background:radial-gradient(120% 120% at 30% 10%,rgba(255,170,60,.30),rgba(8,12,20,.92))}
+  .sc .art i{position:absolute;display:block}
+  .sc .nm{font:900 12px/1.2 inherit;color:#eaf3ff}
+  .sc .nt{font:800 8.4px/1 inherit;letter-spacing:1.3px;color:#8fa6bd}
+  .sc .pr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:1px}
+  .sc .pr b{font:900 13px/1 inherit;color:#ffd166}
+  .sc .pr b small{font-size:9px;letter-spacing:1px;color:#ffb03a}
+  .sc button{border:0;border-radius:9px;padding:8px 10px;cursor:pointer;font:900 10.5px/1 inherit;letter-spacing:.7px;
+    background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#2a1400;box-shadow:0 6px 14px rgba(255,159,28,.3)}
+  .sc button[disabled]{background:rgba(255,255,255,.09);color:#8397ac;box-shadow:none;cursor:default}
+  .sc.owned{border-color:rgba(90,235,160,.42)}
+  .sc .tag{position:absolute;right:9px;top:9px;font:900 8px/1 inherit;letter-spacing:1.2px;padding:4px 6px;
+    border-radius:6px;background:rgba(46,204,113,.18);border:1px solid rgba(46,204,113,.5);color:#8ff0b4}
+  /* 封面：锻造车间（齿轮 + 熔炉光 + 铁砧 + 火星） */
+  .art.forge{background:
+      radial-gradient(70% 80% at 20% 12%,rgba(255,160,50,.42),transparent 62%),
+      radial-gradient(50% 60% at 78% 88%,rgba(255,90,20,.35),transparent 60%),
+      linear-gradient(160deg,#2a1a0c,#14171f 62%,#0a0d14)}
+  .art.forge .gear{position:absolute;border-radius:50%;
+    background:repeating-conic-gradient(from 0deg,#ffd48a 0 7deg,#7d4512 7deg 14deg);
+    box-shadow:0 0 34px rgba(255,150,40,.45),inset 0 0 18px rgba(0,0,0,.55)}
+  .art.forge .gear:after{content:"";position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;
+    background:#10141c;box-shadow:inset 0 0 10px rgba(0,0,0,.8)}
+  .art.forge .g1{width:132px;height:132px;left:6%;top:-14%;animation:spin 22s linear infinite}
+  .art.forge .g2{width:86px;height:86px;left:34%;top:44%;animation:spin 16s linear infinite reverse;opacity:.85}
+  .art.forge .crate{position:absolute;right:12%;bottom:8%;width:118px;height:78px;border-radius:8px;
+    background:linear-gradient(165deg,#4a5464,#232a36 60%,#161b24);
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.12),0 14px 30px rgba(0,0,0,.55)}
+  .art.forge .crate:before{content:"";position:absolute;left:0;right:0;top:34%;height:7px;
+    background:linear-gradient(90deg,#ff9f1c,#ffd166);opacity:.85}
+  .art.forge .crate:after{content:"";position:absolute;left:44%;top:0;bottom:0;width:12px;
+    background:rgba(255,255,255,.10)}
+  .art.forge .beam{position:absolute;left:0;right:0;bottom:0;height:46%;
+    background:linear-gradient(180deg,transparent,rgba(255,140,30,.30))}
+  .art.forge .spark{position:absolute;width:5px;height:5px;border-radius:50%;background:#ffd98a;
+    box-shadow:0 0 12px 3px rgba(255,170,60,.75);animation:spk 2.6s ease-in-out infinite}
+  .art.forge .s1{left:24%;bottom:26%}
+  .art.forge .s2{left:46%;bottom:18%;animation-delay:.8s}
+  .art.forge .s3{left:64%;bottom:30%;animation-delay:1.6s}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes spk{0%,100%{opacity:.2;transform:translateY(0) scale(.7)}
+    45%{opacity:1;transform:translateY(-22px) scale(1.15)}}
 </style>
 </head>
 <body data-ev="gemrush">
@@ -298,7 +369,13 @@
       reward:{ icon:'❄', title:'BLIZZARD', note:'FIGHTER · NOT IN SHOP' },
       desc:'A rock statue with a frozen core. Every hit stacks <b>ICE</b>; five stacks freeze a foe solid. Never sold — the only way in is binding an email.',
       steps:[ 'Bind an email in Settings (6-digit code)', 'Claim Blizzard — permanently added to your roster' ],
-      cta:'BIND EMAIL', claimId:'blizzard' }
+      cta:'BIND EMAIL', claimId:'blizzard' },
+    { id:'supply', name:'SUPPLY DROP', sub:'CHECK-IN · TASKS · SHOP', theme:'forge', tag:'NEW', points:true,
+      reward:{ icon:'⚙', title:'FOUNDRY + POLICE UNIT', note:'1,400 / 1,000 PTS' },
+      desc:'Check in every day and clear the daily tasks to earn <b>SUPPLY POINTS</b>. Spend them on the <b>Foundry</b> fighter, his <b>Police Unit</b> skin — or dump the leftovers into gems and coins.',
+      steps:[ 'Check in daily — 7-day streak, day 7 pays 200 points',
+              'Clear the daily tasks (they reset at 00:00)',
+              'Trade points in the shop at the bottom of this page' ] }
   ];
 
   /* 封面（纯 CSS 画面，不用任何图片请求） */
@@ -314,15 +391,19 @@
        + '<div class="pbeak"></div></div>'
        + '<div class="flake" style="left:56%;top:8%">❄</div>'
        + '<div class="flake" style="left:74%;top:34%;animation-delay:1.4s">❄</div>'
-       + '<div class="flake" style="left:48%;top:58%;animation-delay:2.6s">❄</div></div>'
+       + '<div class="flake" style="left:48%;top:58%;animation-delay:2.6s">❄</div></div>',
+    forge: '<div class="art forge"><div class="gear g1"></div><div class="gear g2"></div>'
+       + '<div class="beam"></div><div class="crate"></div>'
+       + '<div class="spark s1"></div><div class="spark s2"></div><div class="spark s3"></div></div>'
   };
   var THEMES = {
     ice:{ a:'#8fd8ff', a2:'#dff4ff' },
     gem:{ a:'#b98cff', a2:'#ffe9b8' },
-    peng:{ a:'#8affd6', a2:'#d8fff2' }
+    peng:{ a:'#8affd6', a2:'#d8fff2' },
+    forge:{ a:'#ff9f1c', a2:'#ffe1a8' }
   };
 
-  var st = { ready:false, email:false, owns:false, hasSkin:false, gems:0, claims:{}, quests:null };
+  var st = { ready:false, email:false, owns:false, hasSkin:false, gems:0, claims:{}, quests:null, points:null };
   var cur = EVENTS[0].id;
   var stage = document.getElementById('stage');
   var listEl = document.getElementById('list');
@@ -331,12 +412,20 @@
   function evById(id){ for (var i=0;i<EVENTS.length;i++) if (EVENTS[i].id===id) return EVENTS[i]; return EVENTS[0]; }
   function questRows(){ return (st.quests && st.quests.rows) || []; }
   function anyReady(){ return questRows().some(function(r){ return r.ready; }); }
+  /* 积分活动：签到/任务可领 → 红点 + CLAIM 标记 */
+  function ptsAnyReady(){
+    var p = st.points; if (!p) return false;
+    if (p.ci && !p.ci.done) return true;
+    return (p.tasks || []).some(function(t){ return !t.claimed && t.prog >= t.goal; });
+  }
   function claimed(e){
+    if (e.points) return false;                                  // 商店常年开放，永不「已完成」
     if (e.tasks) { var rows = questRows(); return rows.length > 0 && rows.every(function(r){ return r.claimed; }); }
     if (e.claimId === 'blizzard') return !!st.owns;
     return !!(st.claims && st.claims[e.claimId]);
   }
   function ready(e){
+    if (e.points) return !!st.points;
     if (e.tasks) return !!st.quests;
     if (e.claimId === 'blizzard') return !!st.email;
     return true;
@@ -354,15 +443,17 @@
     var cappedNow = !!st.quests && (st.quests.dayLeft <= 0 || st.quests.totalLeft <= 0);
     listEl.innerHTML = EVENTS.map(function(e){
       var on = (e.id === cur), done = claimed(e);
-      var reward = (e.tasks && st.quests)
+      var reward = e.points ? ('⚙ ' + (st.points ? (st.points.bal | 0) : 0) + ' PTS')
+        : (e.tasks && st.quests)
         ? ('◆ ' + (st.quests.total | 0) + ' / ' + (st.quests.totalCap | 0) + ' GEMS')
         : e.reward.title;
       var flag = done ? '<span class="flag done">DONE</span>'
+               : (e.points && ptsAnyReady()) ? '<span class="flag new">CLAIM</span>'
                : (e.tasks && anyReady() && !cappedNow) ? '<span class="flag new">CLAIM</span>'
                : (e.tag === 'NEW' ? '<span class="flag new">NEW</span>' : '');
       return '<button class="ev' + (on ? ' on' : '') + '" data-id="' + e.id + '">'
         + '<span class="thumb"><span class="art ' + (e.theme === 'gem' ? 'gem' : e.theme === 'peng' ? 'peng' : 'ice') + '">'
-        + (e.theme === 'gem' ? '<i class="gem gm1" style="width:30px;height:34px;left:10px;bottom:6px;position:absolute;clip-path:polygon(50% 0,100% 34%,50% 100%,0 34%);background:linear-gradient(160deg,#e6f7ff,#9fdcff 40%,#4aa6e8)"></i><i class="gem gm2" style="width:20px;height:24px;left:28px;bottom:2px;position:absolute;clip-path:polygon(50% 0,100% 34%,50% 100%,0 34%);background:linear-gradient(160deg,#ffe9b8,#ffd166)"></i>'
+        + (e.theme === 'forge' ? '<i style="position:absolute;inset:0;background:linear-gradient(160deg,#2a1a0c,#12161f)"></i><i style="position:absolute;left:10px;top:12px;width:30px;height:30px;border-radius:50%;background:conic-gradient(#ffcf7a,#a8661a 18%,#ffcf7a 32%,#7a4512 52%,#ffcf7a 68%,#a8661a 84%,#ffcf7a);box-shadow:0 0 12px rgba(255,150,40,.55)"></i><i style="position:absolute;left:19px;top:21px;width:12px;height:12px;border-radius:50%;background:#12161f"></i>' : e.theme === 'gem' ? '<i class="gem gm1" style="width:30px;height:34px;left:10px;bottom:6px;position:absolute;clip-path:polygon(50% 0,100% 34%,50% 100%,0 34%);background:linear-gradient(160deg,#e6f7ff,#9fdcff 40%,#4aa6e8)"></i><i class="gem gm2" style="width:20px;height:24px;left:28px;bottom:2px;position:absolute;clip-path:polygon(50% 0,100% 34%,50% 100%,0 34%);background:linear-gradient(160deg,#ffe9b8,#ffd166)"></i>'
           : e.theme === 'peng' ? '<i style="position:absolute;inset:0;background:linear-gradient(160deg,#0f2c3a,#0a1a26)"></i><i style="position:absolute;left:12px;top:14px;width:26px;height:26px;border-radius:50%;background:#fff"></i><i style="position:absolute;left:18px;top:22px;width:6px;height:7px;border-radius:50%;background:#0b1018"></i><i style="position:absolute;left:27px;top:22px;width:6px;height:7px;border-radius:50%;background:#0b1018"></i><i style="position:absolute;left:24px;top:31px;width:9px;height:6px;border-radius:50%;background:#ffb43a"></i>'
           : '<i style="position:absolute;inset:0;background:linear-gradient(160deg,#12314c,#0a1a2c)"></i><i style="position:absolute;left:16px;top:12px;width:22px;height:32px;border-radius:12px 12px 6px 6px;background:linear-gradient(165deg,#dff4ff,#8fc9e9 45%,#3d7ea6)"></i>')
         + '</span></span>'
@@ -375,6 +466,7 @@
   function renderStage(){
     var e = evById(cur);
     setTheme(e);
+    if (e.points) { renderPoints(e); return; }        // 积分活动页（签到/任务/商店）
     if (e.tasks) { renderQuests(e); return; }        // 宝石任务页有自己的一套版式
     var done = claimed(e), rd = ready(e);
     var rewardCls = done ? 'rw done' : 'rw';
@@ -482,6 +574,108 @@
     };
   }
 
+  /* ================= ★ SUPPLY DROP：签到 + 每日任务 + 积分商店 ================= */
+  function forgeArt(kind){
+    if (kind === 'foundry') return '<i style="left:50%;top:12px;width:36px;height:36px;margin-left:-18px;border-radius:9px;'
+      + 'background:linear-gradient(160deg,#ffd08a,#e07a1a);box-shadow:0 0 16px rgba(255,150,40,.6),inset 0 -7px 12px rgba(0,0,0,.35)"></i>'
+      + '<i style="left:50%;top:7px;width:7px;height:8px;margin-left:-3px;border-radius:2px;background:#8fd8ff"></i>'
+      + '<i style="left:50%;bottom:6px;width:56%;height:5px;margin-left:-28%;border-radius:99px;background:rgba(255,255,255,.14)"></i>';
+    if (kind === 'police') return '<i style="left:50%;top:11px;width:36px;height:36px;margin-left:-18px;border-radius:9px;'
+      + 'background:linear-gradient(160deg,#2a3f5c,#101a28);border:2px solid #3d6f9e;box-shadow:0 0 14px rgba(60,140,220,.5)"></i>'
+      + '<i style="left:50%;top:5px;width:18px;height:6px;margin-left:-9px;border-radius:3px;'
+      + 'background:linear-gradient(90deg,#ff3b30,#2a7fff);box-shadow:0 0 12px rgba(120,180,255,.85)"></i>';
+    if (kind === 'gems') return '<i style="left:50%;top:14px;width:22px;height:28px;margin-left:-30px;'
+      + 'clip-path:polygon(50% 0,100% 34%,50% 100%,0 34%);background:linear-gradient(160deg,#e6f7ff,#9fdcff 40%,#4aa6e8)"></i>'
+      + '<i style="left:50%;top:22px;width:15px;height:19px;margin-left:8px;'
+      + 'clip-path:polygon(50% 0,100% 34%,50% 100%,0 34%);background:linear-gradient(160deg,#ffe9b8,#ffd166)"></i>';
+    return '<i style="left:50%;top:18px;width:26px;height:26px;margin-left:-32px;border-radius:50%;'
+      + 'background:radial-gradient(circle at 35% 30%,#ffe9a8,#ffb03a 55%,#c97a12);box-shadow:0 0 14px rgba(255,170,50,.65)"></i>'
+      + '<i style="left:50%;top:26px;width:20px;height:20px;margin-left:6px;border-radius:50%;'
+      + 'background:radial-gradient(circle at 35% 30%,#fff3cf,#ffc75e 60%,#b8781a)"></i>';
+  }
+  function renderPoints(e){
+    var p = st.points;
+    if (!p) {
+      stage.innerHTML = coverFor(e) + '<div class="body">'
+        + '<div class="title"><h1>' + e.name + '</h1><div class="sub">' + e.sub + '</div></div>'
+        + '<div class="state">Connecting to your account…</div></div>';
+      return;
+    }
+    var ci = p.ci || { done:false, streak:0, next:1, reward:0, cycle:[] };
+    var CYC = (ci.cycle && ci.cycle.length) ? ci.cycle : [40,50,60,70,80,100,200];
+    var doneDays = ci.done ? (ci.streak | 0) : Math.max(0, (ci.next | 0) - 1);
+    var tiles = CYC.map(function(v, i){
+      var d = i + 1, cls = 'd';
+      if (d <= doneDays) cls += ' done';
+      if (!ci.done && d === (ci.next | 0)) cls += ' today';
+      return '<div class="' + cls + '"><u>D' + d + '</u><b>' + v + '</b></div>';
+    }).join('');
+    var tasks = (p.tasks || []).map(function(t){
+      var pct = t.goal ? Math.min(100, Math.round(t.prog / t.goal * 100)) : 0;
+      var readyNow = t.prog >= t.goal && !t.claimed;
+      var cls = 'qrow' + (t.claimed ? ' done' : (readyNow ? ' ready' : ''));
+      var btn = t.claimed ? '<button disabled>✓ DONE</button>'
+              : readyNow ? '<button data-act="task" data-id="' + t.id + '">CLAIM</button>'
+              : '<button disabled>' + Math.min(t.prog, t.goal) + '/' + t.goal + '</button>';
+      return '<div class="' + cls + '"><div class="qi">⚙</div><div class="qm"><b>' + t.label + '</b>'
+        + '<div class="pg"><div class="track"><u style="width:' + pct + '%"></u></div>'
+        + '<span>' + Math.min(t.prog, t.goal) + ' / ' + t.goal + '</span></div></div>'
+        + '<div class="rew">+' + t.pts + ' ⚙</div>' + btn + '</div>';
+    }).join('');
+    var S = p.shop || {};
+    function card(item, art, name, note, price, owned, left){
+      var limited = (left !== undefined && left !== null);
+      var dis = owned || (limited && left <= 0) || p.bal < price;
+      var label = owned ? 'OWNED' : (limited && left <= 0) ? 'LIMIT' : (p.bal < price ? 'NEED ' + (price - p.bal) : 'EXCHANGE');
+      return '<div class="sc' + (owned ? ' owned' : '') + '">'
+        + '<div class="art">' + art + '</div>'
+        + (owned ? '<span class="tag">OWNED</span>' : '')
+        + '<div class="nm">' + name + '</div>'
+        + '<div class="nt">' + note + (limited ? ' · ' + left + ' LEFT' : '') + '</div>'
+        + '<div class="pr"><b>' + price + '<small> ⚙</small></b>'
+        + '<button data-act="buy" data-item="' + item + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>'
+        + '</div>';
+    }
+    var nextReward = CYC[((ci.streak | 0) % 7)] || 0;
+    var ciBtn = ci.done
+      ? '<button class="btn ghost" disabled>CHECKED IN TODAY · +' + (ci.reward || 0) + ' ⚙</button>'
+      : '<button class="btn" data-act="ci">CHECK IN · +' + (ci.reward || 0) + ' ⚙</button>';
+    stage.innerHTML = coverFor(e)
+      + '<div class="body">'
+      + '<div class="title"><h1>' + e.name + '</h1><div class="sub">' + e.sub + '</div></div>'
+      + '<div class="ptsHead">'
+      +   '<div class="bal"><u>MY POINTS</u><b>' + (p.bal | 0) + '<i>⚙</i></b></div>'
+      +   '<div class="hintline">Streak <b>' + (ci.streak | 0) + ' / 7</b> · '
+      +     (ci.done ? ('next check-in pays <b>+' + nextReward + '</b> tomorrow')
+                 : ('checking in now pays <b>+' + (ci.reward || 0) + '</b>')) + '<br>'
+      +     'Points come from check-in + daily tasks. Leftovers buy gems and coins.</div>'
+      + '</div>'
+      + '<div class="ci">' + tiles + '</div>'
+      + '<div class="cta">' + ciBtn + '</div>'
+      + '<div class="qt"><h4>DAILY TASKS · RESET AT 00:00</h4>' + tasks + '</div>'
+      + '<div class="qt"><h4>SUPPLY SHOP</h4><div class="shop">'
+      +     card('foundry', forgeArt('foundry'), 'FOUNDRY', 'FIGHTER', S.foundry, !!p.ownsFoundry, null)
+      +     card('police', forgeArt('police'), 'POLICE UNIT', 'SKIN · FOUNDRY', S.police, !!p.hasPolice, null)
+      +     card('gems', forgeArt('gems'), '30 GEMS', 'PER PURCHASE', S.gems, false, S.gemLeft)
+      +     card('coins', forgeArt('coins'), '2,500 COINS', 'PER PURCHASE', S.coins, false, S.coinLeft)
+      +   '</div></div>'
+      + '<div class="state" id="state">Task progress is tracked in game — play, win, knock out, deal damage, play online.</div>'
+      + '<div class="foot">The Police Unit skin needs <b>Foundry</b> in your roster first. Gems and coins have a daily exchange limit.</div>'
+      + '</div>';
+    var btns = stage.querySelectorAll('[data-act]');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].onclick = function(){
+        var act = this.getAttribute('data-act');
+        if (act === 'ci') post({ type:'sb-event-claim', id:'pts-checkin' });
+        else if (act === 'task') post({ type:'sb-event-claim', id:'pts-task', task:this.getAttribute('data-id') });
+        else post({ type:'sb-event-claim', id:'pts-buy', item:this.getAttribute('data-item') });
+        try { this.disabled = true; } catch (err) {}
+        var s2 = document.getElementById('state'); if (s2) s2.textContent = 'Working…';
+        setTimeout(function(){ post({ type:'sb-event-state' }); }, 650);
+      };
+    }
+  }
+
   function renderAll(){ renderRail(); renderStage(); }
 
   listEl.addEventListener('click', function (ev) {
@@ -500,6 +694,7 @@
     st.gems = Number(d.gems) || 0;
     st.claims = d.claims || {};
     if (d.quests) st.quests = d.quests;
+    if (d.points) st.points = d.points;
     st.ready = true;
     renderAll();
   });
