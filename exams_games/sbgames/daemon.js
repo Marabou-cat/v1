@@ -49,7 +49,7 @@ const ROOM_CODE_LEN = 5;
 /* 调试用人工延迟（毫秒）：SB_LAG_MS=120 可在本机复现 120ms 单程延迟，用于压测锁同步 */
 const LAG_MS = parseInt(process.env.SB_LAG_MS || '0', 10);
 /* 角色池：仅用于空位（AI）的确定性兜底 —— 必须与客户端 CHARS 顺序一致 */
-const CHAR_POOL = ['sparky','rocky','zephyr','cobalt','mage','warrior','archer','knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'french', 'sovereign', 'mosquito', 'warden'];
+const CHAR_POOL = ['sparky', 'rocky', 'zephyr', 'cobalt', 'mage', 'warrior', 'archer', 'knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'blizzard', 'vexor', 'trash', 'singer', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'alien', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'treasure', 'princess', 'french', 'sovereign', 'mosquito', 'warden', 'soldier', 'monk', 'bomber', 'foundry'];
 
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 const RESULTS_FILE = path.join(DATA_DIR, 'results.jsonl');
@@ -468,6 +468,10 @@ function accOf(id) {
     ACCTS[k].gemQ = { day: '', dayGems: 0, total: 0, prog: {}, dayClaimed: {} };
   if (!ACCTS[k].gemOnce || typeof ACCTS[k].gemOnce !== 'object') ACCTS[k].gemOnce = {};
   if (!ACCTS[k].eventClaims || typeof ACCTS[k].eventClaims !== 'object') ACCTS[k].eventClaims = {};
+  /* ★ 2026-11-18 SUPPLY DROP 积分活动（pts 余额 / ptQ 签到+任务状态） */
+  if (typeof ACCTS[k].pts !== 'number') ACCTS[k].pts = 0;
+  if (!ACCTS[k].ptQ || typeof ACCTS[k].ptQ !== 'object')
+    ACCTS[k].ptQ = { day: '', ci: { streak: 0, last: '' }, claimed: {}, buys: {} };
   if (typeof ACCTS[k].rev !== 'number') ACCTS[k].rev = 0;
   return ACCTS[k];
 }
@@ -484,6 +488,18 @@ function botName(room, seat) {
     if (!used.has(n)) return n;
   }
   return BOT_NAMES[h % BOT_NAMES.length];
+}
+/* ★ 在线人数（模块作用域：health 与 a:'online' 两处都用） */
+/* ★ 2026-11-17：实时在线人数（去重：同一 pid 只算一次；电脑位不算） */
+function onlineCount() {
+  const seen = new Set(); let n = 0;
+  for (const r of rooms.values()) for (const s of r.seats) {
+    if (!s || s.bot || !s.connected) continue;
+    const k = String(s.pid || s.token || '');
+    if (k) { if (seen.has(k)) continue; seen.add(k); }
+    n++;
+  }
+  return n;
 }
 function rulesKey(r) { r = r || {}; return [r.count|0, r.stocks|0, r.time|0, r.diff|0, r.teams|0, String(r.mode || ''),
   (typeof r.stage === 'number' ? r.stage : -1)].join('/'); }   // ★ 第 77 轮：地图不同 → 视为不同设置（匹配会问）
@@ -765,6 +781,8 @@ function handle(act, ctx) {
       act.a === 'trophy' || act.a === 'bind' || act.a === 'verify' || act.a === 'login' || act.a === 'profile') return social(act, ctx, now);
   /* ★ 站内聊天：自带 ch，不需要房间 —— 必须放在 no_room 检查之前 */
   if (act.a === 'chat' || act.a === 'chatsub' || act.a === 'chatpoll') return chatAct(act, ctx, now);
+  /* ★ 2026-11-17：在线人数（不需要房间号，大厅徽标直接问） */
+  if (act.a === 'online') return { ok: true, online: onlineCount(), rooms: rooms.size, queued: QUEUE.size };
   if (!act.room) return { ok: false, e: 'no_room' };
   const room = rooms.get(String(act.room).toUpperCase());
   if (!room) return { ok: false, e: 'room_not_found' };
@@ -778,18 +796,39 @@ function handle(act, ctx) {
   /* --- 改角色 / 准备 --- */
   if (act.a === 'char') {
     if (!s || !sameToken(s, act)) return { ok: false, e: 'bad_seat' };
-    if (room.state !== 'lobby') return { ok: true, ignored: true };   // 开局后改角色只会让各端名单不一致
+    /* ★ 2026-11-17：允许 lobby **与 end（结算态）** 改角色 —— 打完一局在同一房间换人不生效就是因为这里只放 lobby。
+       仍然拦「对局进行中」（play）：那时改会让各端名单不一致。 */
+    if (room.state === 'play') return { ok: true, ignored: true };
     if (CHAR_POOL.indexOf(act.char) < 0) return { ok: false, e: 'bad_char' };
     s.char = act.char; s.lastSeen = now;
     broadcast(room, { a:'seats', room: roomPublic(room) });
     log('[char]', room.code, 'seat', seat, '->', act.char);
     return { ok: true };
   }
+  /* ★ 2026-11-17：房主一次只补**一个**电脑位（客户端每 1.6s 调一次 → 玩家能一位一位看到人机进房，
+     而不是像 start 那样一口气塞满）。返回已填座位数，满了给 full:true。 */
+  if (act.a === 'addbot') {
+    if (!s || !sameToken(s, act)) return { ok: false, e: 'bad_seat' };
+    if (seat !== room.hostSeat) return { ok: false, e: 'not_host' };
+    if (room.state === 'play') return { ok: false, e: 'in_game' };
+    const need = room.rules.count | 0 || 4;
+    let idx = -1;
+    for (let i = 0; i < need; i++) if (!room.seats[i]) { idx = i; break; }
+    if (idx >= 0) {
+      room.seats[idx] = { seat: idx, token: newToken(), name: botName(room, idx),
+        char: CHAR_POOL[(idx + (room.seats.filter(x => x && x.bot).length)) % CHAR_POOL.length],
+        ready: true, ai: true, bot: true, connected: false, lastSeen: now, joined: now };
+      broadcast(room, { a:'seats', room: roomPublic(room) });
+      log('[addbot]', room.code, 'seat', idx, room.seats[idx].char);
+    }
+    let filled = 0; for (let i = 0; i < need; i++) if (room.seats[i]) filled++;
+    return { ok: true, seats: filled, need, full: filled >= need, added: idx >= 0 };
+  }
   if (act.a === 'ready') {
     if (!s || !sameToken(s, act)) return { ok: false, e: 'bad_seat' };
     // 准备时一并带上当前选的角色：玩家常见操作是「先加入 → 再换角色 → Ready」，
     // 只靠 hello 那一次上报会让开局用回旧角色。
-    if (room.state === 'lobby' && act.char && CHAR_POOL.indexOf(act.char) >= 0) s.char = act.char;
+    if (room.state !== 'play' && act.char && CHAR_POOL.indexOf(act.char) >= 0) s.char = act.char;   // ★ 同 char：end 态也允许
     s.ready = !!act.v; s.lastSeen = now;
     broadcast(room, { a:'seats', room: roomPublic(room) });
     return { ok: true };
@@ -1134,6 +1173,7 @@ function handle(act, ctx) {
     skins: a.skins || [], equipSkins: a.equipSkins || {}, equipWeapon: a.equipWeapon || {},
     gemQ: a.gemQ || { day: '', dayGems: 0, total: 0, prog: {}, dayClaimed: {} },
     gemOnce: a.gemOnce || {}, eventClaims: a.eventClaims || {}, rev: a.rev | 0,
+    pts: a.pts | 0, ptQ: a.ptQ || { day: '', ci: { streak: 0, last: '' }, claimed: {}, buys: {} },
   });
   /* ================= ★ 跨设备同步：把客户端档案合并进服务端档案 =================
      merge=false（正常情况：客户端 rev == 服务端 rev，只有一个设备在写）→ 货币/进度以客户端为准；
@@ -1189,6 +1229,29 @@ function handle(act, ctx) {
       }
       g.total = Math.max(0, Math.min(4000, Math.max(g.total | 0, p.gemQ.total | 0)));
       g.dayGems = Math.max(0, Math.min(500, g.dayGems | 0));
+    }
+    /* 积分活动：余额跟其它货币一样的合并语义；签到/任务按「更近的一天」为准，同日取并集+取大 */
+    if (Number.isFinite(p.pts)) a.pts = Math.max(0, pick(a.pts, p.pts));
+    if (p.ptQ && typeof p.ptQ === 'object') {
+      if (!a.ptQ || typeof a.ptQ !== 'object') a.ptQ = { day: '', ci: { streak: 0, last: '' }, claimed: {}, buys: {} };
+      const q = a.ptQ;
+      if (!q.ci || typeof q.ci !== 'object') q.ci = { streak: 0, last: '' };
+      const sd = _dayNum(q.day), cd = _dayNum(p.ptQ.day);
+      if (cd > sd) {
+        q.day = String(p.ptQ.day).slice(0, 20);
+        q.claimed = p.ptQ.claimed || {};
+        q.buys = p.ptQ.buys || {};
+      } else if (cd === sd && cd > 0) {
+        q.claimed = Object.assign({}, q.claimed || {}, p.ptQ.claimed || {});
+        for (const k in (p.ptQ.buys || {})) q.buys[k] = Math.max(q.buys[k] | 0, p.ptQ.buys[k] | 0);
+      }
+      if (p.ptQ.ci && typeof p.ptQ.ci === 'object') {
+        const lc = _dayNum(q.ci.last), pc = _dayNum(p.ptQ.ci.last);
+        if (pc > lc) {
+          q.ci.last = String(p.ptQ.ci.last || '').slice(0, 20);
+          q.ci.streak = Math.max(0, Math.min(7, p.ptQ.ci.streak | 0));
+        }
+      }
     }
     if (typeof p.char === 'string' && p.char) a.char = p.char.slice(0, 24);
     if (typeof p.nick === 'string' && p.nick) a.nick = p.nick.slice(0, 12);
@@ -1382,8 +1445,17 @@ function handle(act, ctx) {
       return { ok: true, left: true, still: still.length };
     }
     if (rm.state === 'play') return { ok: false, e: 'in_game' };
-    const mode = String(act.mode || rm.mode || 'classic').slice(0, 12);
+    /* ★ 2026-11-17（用户规格）：匹配只支持 1v1 / 2v2 / 4P FFA；规则固定 = 3 命 / 电脑最高难度 / 随机地图。
+       其它 mode 一律归一到 'ffa'（旧版客户端传 'cpu'/'classic' 也不会炸）。 */
+    let mode = String(act.mode || rm.mode || 'ffa').slice(0, 12);
+    if (mode !== '1v1' && mode !== '2v2' && mode !== 'ffa') mode = 'ffa';
     rm.mode = mode;
+    rm.rules = Object.assign({}, rm.rules, {
+      count: mode === '1v1' ? 2 : 4,
+      stocks: 3, time: 0, diff: 3,
+      teams: mode === '2v2' ? 1 : 0,
+      stage: null                     // null = 随机地图（由种子决定）
+    });
     const key = rulesKey(rm.rules) + '|' + mode;
     const found = [], suggest = [];
     let cand = null, candSame = false;
@@ -1467,7 +1539,7 @@ const server = http.createServer((req, res) => {
     if (LAG_MS > 0) setTimeout(put, LAG_MS); else put();
   };
   if (req.method === 'OPTIONS') return ok({ ok: true });
-  if (url === '/health') return ok({ ok: true, rooms: rooms.size, up: process.uptime(),
+  if (url === '/health') return ok({ ok: true, rooms: rooms.size, online: onlineCount(), queued: QUEUE.size, up: process.uptime(),
                                      mem: Math.round(process.memoryUsage().rss / 1048576),
                                      results: countResults() });
   if (url === '/rooms') {
