@@ -28205,6 +28205,15 @@ function frame(now) {
     if (!document.body.classList.contains('inMenu')) document.body.classList.add('inMenu');
     LOBBY.show(true); PV.frame(dt); LOBBY.frame(dt);
     mosqVeilHide();
+    /* ★ 抽卡 3D 演出（平原 + 陨石 + 裂开）：演出期间独占画布，不可跳过 */
+    if (METEOR.busy) {
+      try {
+        METEOR.resize(renderer.domElement.clientWidth || innerWidth, renderer.domElement.clientHeight || innerHeight);
+        METEOR.frame(dt);
+        renderer.render(METEOR.scene, METEOR.cam);
+        return;
+      } catch (e) { window.__meteorRenderErr = String((e && e.message) || e); }
+    }
     /* ★ 兑换预览：活动页点 VIEW MODEL 时，主画布只渲染 Foundry 模型 */
     if (CHARPREV_UI.isOpen) {
       try {
@@ -31489,7 +31498,500 @@ function summonPull(quiet) {
   `;
   document.head.appendChild(st);
 })();
+/* ================= ★ 2026-11-18 抽卡 3D 演出：平原 + 陨石砸坑 + 裂开看奖励（不可跳过）=================
+   用户规格：背景是平原；天上掉下一颗陨石砸出一个坑；陨石裂开看奖励；**不能跳过**。
+   实现：独立 scene/camera（复用同一个 renderer，和 LOBBY / SUMMON3D / 兑换预览同一套做法）。
+   时间轴（秒）：0–1.35 坠落（拖尾火+烟）→ 1.35 撞击（闪光/震屏/尘环/碎石/坑）→ 2.4 裂缝发光
+               → 2.9 裂开（两半分开 + 光柱 + 奖励升起）→ 3.2–7.4 展示 → 7.6 自动结束
+   不可跳过：演出期间铺一层 pointer-events:auto 的全屏 DOM（吞掉点击），不提供任何关闭/跳过按钮，
+             并把其它顶层节点隐藏；只有演出结束才恢复（×10 时结束后点一下继续看列表）。 */
+const METEOR = (() => {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8fd0ff);
+  scene.fog = new THREE.Fog(0xa8dcff, 46, 150);
+  const cam = new THREE.PerspectiveCamera(46, 1, .1, 420);
+  cam.position.set(0, 3.8, 16);
+  scene.add(new THREE.HemisphereLight(0xe2f3ff, 0x2f5a2a, 1.2));
+  const sun = new THREE.DirectionalLight(0xfff3d0, 1.75); sun.position.set(-16, 26, 14); scene.add(sun);
+  const root = new THREE.Group(); scene.add(root);
+
+  let built = false, busy = false, t = 0, phase = 'idle', done = null;
+  let meteor = null, crater = null, beam = null, prizeObj = null, ringGlow = null;
+  let halves = [], rocks = [], dust = [], smoke = [], flash = null;
+  let best = null, list = [], shake = 0, ui = null;
+
+  const FALL_FROM = new THREE.Vector3(-9, 30, -8);
+  const IMPACT = new THREE.Vector3(0, 1.15, 0);
+
+  /* ---------------- 场景 ---------------- */
+  function buildPlain() {
+    const g = new THREE.Group(); root.add(g);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(340, 340),
+      new THREE.MeshStandardMaterial({ color:0x5cbf58, roughness:1 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = 0; g.add(ground);
+    /* 草簇（instanced，一次画完） */
+    const tuft = new THREE.ConeGeometry(.15, .55, 4); tuft.translate(0, .27, 0);
+    const im = new THREE.InstancedMesh(tuft,
+      new THREE.MeshStandardMaterial({ color:0x48a84a, roughness:1, flatShading:true }), 240);
+    const o = new THREE.Object3D();
+    for (let i = 0; i < 240; i++) {
+      const a = Math.random() * Math.PI * 2, r = 7 + Math.random() * 74;
+      o.position.set(Math.cos(a) * r, 0, Math.sin(a) * r - 12);
+      o.rotation.set(0, Math.random() * 3, 0);
+      o.scale.setScalar(.7 + Math.random() * .9);
+      o.updateMatrix(); im.setMatrixAt(i, o.matrix);
+    }
+    im.instanceMatrix.needsUpdate = true; g.add(im);
+    /* 远山 */
+    for (let i = 0; i < 11; i++) {
+      const h = 13 + Math.random() * 24;
+      const m = new THREE.Mesh(new THREE.ConeGeometry(h * .78, h, 5),
+        new THREE.MeshStandardMaterial({ color:0x6f916b, roughness:1, flatShading:true }));
+      m.position.set((Math.random() - .5) * 230, h / 2 - 2, -115 - Math.random() * 70);
+      g.add(m);
+    }
+    /* 树 */
+    for (let i = 0; i < 18; i++) {
+      const tr = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.2, .3, 2.1, 6),
+        new THREE.MeshStandardMaterial({ color:0x6b4a2a, roughness:1 }));
+      trunk.position.y = 1.05; tr.add(trunk);
+      for (let k = 0; k < 3; k++) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.5 - k * .32, 1.9, 6),
+          new THREE.MeshStandardMaterial({ color: k ? 0x3f9e4f : 0x4fb85c, roughness:1, flatShading:true }));
+        leaf.position.y = 2.25 + k * 1.0; tr.add(leaf);
+      }
+      /* 只在两侧和远景摆树：|x| 至少 15、z 至少 -12，镜头到坑的那条走廊不许有树 */
+      const side = Math.random() < .5 ? -1 : 1;
+      tr.position.set(side * (15 + Math.random() * 48), 0, -12 - Math.random() * 62);
+      tr.scale.setScalar(.8 + Math.random() * .7);
+      g.add(tr);
+    }
+    return g;
+  }
+  function buildCrater() {
+    const g = new THREE.Group();
+    /* 贴地焦土盘 + 深处更黑的内盘（地面是不透明平面，做一个「真洞」要 stencil，贴地双色盘视觉上够用） */
+    const scorch = new THREE.Mesh(new THREE.CircleGeometry(4.2, 34),
+      new THREE.MeshStandardMaterial({ color:0x2a1d13, roughness:1 }));
+    scorch.rotation.x = -Math.PI / 2; scorch.position.y = .014; g.add(scorch);
+    const deep = new THREE.Mesh(new THREE.CircleGeometry(2.3, 28),
+      new THREE.MeshStandardMaterial({ color:0x120d08, roughness:1, emissive:0x2a1405, emissiveIntensity:.32 }));
+    deep.rotation.x = -Math.PI / 2; deep.position.y = .022; g.add(deep);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(4.12, .30, 6, 30),
+      new THREE.MeshStandardMaterial({ color:0x4a3826, roughness:1, flatShading:true }));
+    rim.rotation.x = Math.PI / 2; rim.position.y = .12; g.add(rim);
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * Math.PI * 2, r = 4.0 + Math.random() * 2.8, s = .26 + Math.random() * .7;
+      const rk = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0),
+        new THREE.MeshStandardMaterial({ color:0x53402c, roughness:1, flatShading:true }));
+      rk.position.set(Math.cos(a) * r, s * .5, Math.sin(a) * r);
+      rk.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+      g.add(rk);
+    }
+    g.visible = false; root.add(g);
+    return g;
+  }
+  function buildMeteor() {
+    const g = new THREE.Group();
+    const rockMat = new THREE.MeshStandardMaterial({ color:0x3a2a1d, roughness:.96, flatShading:true });
+    /* 两半外壳（裂开时分开），内侧是发光的 */
+    const inner = new THREE.MeshStandardMaterial({ color:0xffcf72, emissive:0xff9a2e,
+      emissiveIntensity:1.3, roughness:.5, side:THREE.DoubleSide, flatShading:true });
+    const shellR = new THREE.Mesh(new THREE.SphereGeometry(2.05, 16, 12, 0, Math.PI), rockMat);
+    const shellL = new THREE.Mesh(new THREE.SphereGeometry(2.05, 16, 12, Math.PI, Math.PI), rockMat);
+    const inR = new THREE.Mesh(new THREE.SphereGeometry(1.86, 14, 10, 0, Math.PI), inner);
+    const inL = new THREE.Mesh(new THREE.SphereGeometry(1.86, 14, 10, Math.PI, Math.PI), inner);
+    const grpR = new THREE.Group(), grpL = new THREE.Group();
+    grpR.add(shellR); grpR.add(inR);
+    grpL.add(shellL); grpL.add(inL);
+    /* 表面碎块，看起来像真的岩石 */
+    const chunk = new THREE.IcosahedronGeometry(.7, 0);
+    for (let i = 0; i < 9; i++) {
+      const a = Math.random() * Math.PI * 2, b = Math.random() * Math.PI;
+      const m = new THREE.Mesh(chunk, rockMat);
+      m.position.setFromSphericalCoords(1.85, b, a);
+      m.scale.setScalar(.5 + Math.random() * .7);
+      m.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+      (a > Math.PI ? grpL : grpR).add(m);
+    }
+    g.add(grpR); g.add(grpL);
+    halves = [grpR, grpL];
+    /* 拖尾：火焰锥（尖朝上）+ 内核 */
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(2.0, 8.0, 10, 1, true),
+      new THREE.MeshBasicMaterial({ color:0xff9a2e, transparent:true, opacity:.9,
+        blending:THREE.AdditiveBlending, side:THREE.DoubleSide, depthWrite:false }));
+    flame.position.y = 4.0; g.add(flame); g.userData.flame = flame;
+    const flame2 = new THREE.Mesh(new THREE.ConeGeometry(1.0, 12, 8, 1, true),
+      new THREE.MeshBasicMaterial({ color:0xfff2b0, transparent:true, opacity:.75,
+        blending:THREE.AdditiveBlending, side:THREE.DoubleSide, depthWrite:false }));
+    flame2.position.y = 6.0; g.add(flame2); g.userData.flame2 = flame2;
+    g.visible = false; root.add(g);
+    return g;
+  }
+  function buildFx() {
+    /* 光柱（裂开后从坑里射出） */
+    beam = new THREE.Mesh(new THREE.CylinderGeometry(.42, .95, 18, 14, 1, true),
+      new THREE.MeshBasicMaterial({ color:0xffe0a0, transparent:true, opacity:0,
+        blending:THREE.AdditiveBlending, side:THREE.DoubleSide, depthWrite:false }));
+    beam.position.set(0, 8.4, -0.4); beam.visible = false; root.add(beam);
+    /* 落地闪光：朝向相机的白面片 */
+    flash = new THREE.Mesh(new THREE.PlaneGeometry(90, 60),
+      new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0, depthWrite:false }));
+    flash.position.set(0, 8, -6); flash.visible = false; root.add(flash);
+    /* 尘环 / 烟 / 碎石 */
+    const dustMat = new THREE.MeshBasicMaterial({ color:0xd8c9a8, transparent:true, opacity:.55, depthWrite:false });
+    const dustGeo = new THREE.SphereGeometry(1, 8, 6);
+    for (let i = 0; i < 18; i++) {
+      const m = new THREE.Mesh(dustGeo, dustMat.clone());
+      m.visible = false; root.add(m);
+      dust.push({ m, v: new THREE.Vector3(), life: 0 });
+    }
+    for (let i = 0; i < 12; i++) {
+      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(.4, 0),
+        new THREE.MeshStandardMaterial({ color:0x4a3826, roughness:1, flatShading:true }));
+      m.visible = false; root.add(m);
+      rocks.push({ m, v: new THREE.Vector3(), spin: new THREE.Vector3(), life: 0 });
+    }
+    for (let i = 0; i < 10; i++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(1, 7, 6),
+        new THREE.MeshBasicMaterial({ color:0xb9a98c, transparent:true, opacity:.28, depthWrite:false }));
+      m.visible = false; root.add(m);
+      smoke.push({ m, sp: 0, life: 0, y0: 0 });
+    }
+    /* 奖励底部的光环 */
+    ringGlow = new THREE.Mesh(new THREE.TorusGeometry(1.5, .07, 8, 42),
+      new THREE.MeshBasicMaterial({ color:0xffd166, transparent:true, opacity:0, blending:THREE.AdditiveBlending }));
+    ringGlow.rotation.x = Math.PI / 2; ringGlow.visible = false; root.add(ringGlow);
+  }
+  function build() {
+    if (built) return;
+    built = true;
+    buildPlain();
+    crater = buildCrater();
+    meteor = buildMeteor();
+    buildFx();
+  }
+
+  /* ---------------- 奖励模型（和抽卡展示页同一套建模器） ---------------- */
+  function makePrizeObj(p) {
+    try {
+      if (!p) return null;
+      if (p.type === 'weapon') { const o = SUMMON3D.weaponModel(p.id); return o || null; }
+      if (p.type === 'shards') { const o = SUMMON3D.shardModel(); return o || null; }
+      const base = CHARS.find(c => c.id === p.id) || CHARS.find(c => c.supreme);
+      if (!base) return null;
+      const vd = Object.assign({}, base, { skin: p.type === 'skin' ? p.id : 'none' });
+      const m = buildMesh2(vd);
+      scene.remove(m.group);
+      if (m.bubble) m.bubble.visible = false;
+      if (m.charge) m.charge.visible = false;
+      if (m.ringFx) m.ringFx.visible = false;
+      if (m.auraRing) m.auraRing.visible = false;
+      if (m.shadow) m.shadow.visible = false;
+      const g = m.group;
+      let bb = new THREE.Box3().setFromObject(g);
+      const hh = Math.max(.4, bb.max.y - bb.min.y);
+      g.scale.multiplyScalar(2.4 / hh);
+      g.updateMatrixWorld(true);
+      bb = new THREE.Box3().setFromObject(g);
+      g.position.set(0, -bb.min.y, 0);
+      return g;
+    } catch (e) { window.__meteorPrizeErr = String((e && e.message) || e); return null; }
+  }
+
+  /* ---------------- DOM（只显示标题，不吃跳过） ---------------- */
+  function uiBuild() {
+    if (ui) return;
+    const st = document.createElement('style');
+    st.textContent =
+      '#meteorUI{position:fixed;inset:0;z-index:330;display:none;pointer-events:auto;' +
+        'font-family:system-ui,sans-serif;color:#fff}' +
+      '#meteorUI .cap{position:absolute;left:0;right:0;bottom:clamp(46px,10vh,110px);text-align:center;opacity:0;' +
+        'transition:opacity .5s;padding:0 18px}' +
+      '#meteorUI.on .cap{opacity:1}' +
+      '#meteorUI .cap .rar{font:900 10.5px/1 system-ui,sans-serif;letter-spacing:2.6px;color:var(--t,#ffd166)}' +
+      '#meteorUI .cap .nm{margin-top:9px;font:900 clamp(24px,6vw,42px)/1.1 system-ui,sans-serif;' +
+        'text-shadow:0 6px 30px rgba(0,0,0,.7),0 0 26px var(--g,rgba(255,209,102,.6))}' +
+      '#meteorUI .cap .st{margin-top:8px;font:900 15px/1 system-ui,sans-serif;color:#ffd166;letter-spacing:2px}' +
+      '#meteorUI .kicker{position:absolute;left:0;right:0;top:clamp(22px,6vh,64px);text-align:center;' +
+        'font:900 11px/1 system-ui,sans-serif;letter-spacing:4px;color:rgba(255,255,255,.8)}' +
+      '#meteorUI .more{position:absolute;left:0;right:0;bottom:14px;text-align:center;' +
+        'font:800 10px/1.6 system-ui,sans-serif;letter-spacing:1.6px;color:rgba(255,255,255,.75);padding:0 16px}' +
+      '#meteorUI .tap{position:absolute;left:0;right:0;bottom:6px;text-align:center;display:none;' +
+        'font:800 9.5px/1 system-ui,sans-serif;letter-spacing:2px;color:rgba(255,255,255,.45)}' +
+      '#meteorUI.canSkip .tap{display:block}';
+    document.head.appendChild(st);
+    ui = document.createElement('div');
+    ui.id = 'meteorUI';
+    ui.innerHTML = '<div class="kicker">SUMMON</div>'
+      + '<div class="cap"><div class="rar" id="mRar"></div><div class="nm" id="mNm"></div><div class="st" id="mSt"></div></div>'
+      + '<div class="more" id="mMore"></div><div class="tap">TAP TO CONTINUE</div>';
+    document.body.appendChild(ui);
+  }
+  function uiReset() {
+    uiBuild();
+    ui.className = '';
+    ui.querySelector('#mRar').textContent = '';
+    ui.querySelector('#mNm').textContent = '';
+    ui.querySelector('#mSt').textContent = '';
+    ui.querySelector('#mMore').textContent = '';
+    ui.style.display = 'block';
+  }
+  function uiReveal() {
+    const tone = RAR_TONE[best && best.tier] || '190,196,210';
+    ui.style.setProperty('--t', 'rgb(' + tone + ')');
+    ui.style.setProperty('--g', 'rgba(' + tone + ',.55)');
+    ui.querySelector('#mRar').textContent = (best && best.sub) || '';
+    ui.querySelector('#mNm').textContent = (best && best.name) || '';
+    ui.querySelector('#mSt').textContent = best ? METEOR_STARS(best.tier) : '';
+    if (list.length > 1) {
+      ui.querySelector('#mMore').textContent = 'ALSO · ' + list.filter(p => p !== best).slice(0, 6)
+        .map(p => p.name).join(' · ');
+    }
+    ui.classList.add('on');
+  }
+  function uiClose() { if (ui) { ui.style.display = 'none'; ui.className = ''; } }
+
+  /* ---------------- 播放 ---------------- */
+  function play(prize, cb) {
+    build();
+    busy = true; t = 0; phase = 'fall'; done = cb || null; shake = 0;
+    list = Array.isArray(prize) ? prize : [prize];
+    const W = { shards:0, weapon:1, epicW:2, skin:2, legW:3, specialW:3, supreme:4 };
+    best = list.slice().sort((a, b) => (W[b.tier] || 0) - (W[a.tier] || 0))[0] || list[0];
+    /* 重置 */
+    uiReset();
+    crater.visible = false;
+    beam.visible = false; beam.material.opacity = 0;
+    flash.visible = false; flash.material.opacity = 0;
+    if (prizeObj) { root.remove(prizeObj); prizeObj = null; }
+    dust.forEach(d => { d.m.visible = false; d.life = 0; });
+    rocks.forEach(r => { r.m.visible = false; r.life = 0; });
+    smoke.forEach(s => { s.m.visible = false; s.life = 0; });
+    ringGlow.visible = false; ringGlow.material.opacity = 0;
+    meteor.visible = true;
+    if (meteor.userData.flame) meteor.userData.flame.visible = true;
+    if (meteor.userData.flame2) meteor.userData.flame2.visible = true;
+    meteor.scale.setScalar(1.22);
+    meteor.position.copy(FALL_FROM);
+    halves[0].position.set(0, 0, 0); halves[0].rotation.set(0, 0, 0);
+    halves[1].position.set(0, 0, 0); halves[1].rotation.set(0, 0, 0);
+    cam.position.set(0, 3.6, 16);
+    /* 把其它顶层节点藏起来，只留 canvas / 本浮层 */
+    for (const ch of document.body.children) {
+      if (!ch.id || ch.tagName === 'SCRIPT' || ch.tagName === 'STYLE') continue;
+      if (ch.id === 'meteorUI' || ch.tagName === 'CANVAS') continue;
+      if (/^toast/i.test(ch.id)) continue;
+      if (ch.dataset.mtHide === undefined) ch.dataset.mtHide = ch.style.visibility || '';
+      ch.style.visibility = 'hidden';
+    }
+    try { SFX.tone(1400, 220, 1.3, 'sawtooth', .10); } catch (e) {}
+  }
+  function finish() {
+    if (!busy) return;
+    busy = false; phase = 'idle';
+    uiClose();
+    for (const ch of document.body.children) {
+      if (ch.dataset && ch.dataset.mtHide !== undefined) {
+        ch.style.visibility = ch.dataset.mtHide; delete ch.dataset.mtHide;
+      }
+    }
+    const cb = done; done = null;
+    if (cb) { try { cb(); } catch (e) {} }
+  }
+
+  /* ---------------- 每帧 ---------------- */
+  function frame(dt) {
+    if (!busy) return;
+    t += dt;
+    /* —— 坠落 —— */
+    if (phase === 'fall') {
+      const k = Math.min(1, t / 1.35);
+      const e = k * k;                                   // 加速下落
+      meteor.position.lerpVectors(FALL_FROM, IMPACT, e);
+      meteor.rotation.x += dt * 2.4; meteor.rotation.y += dt * 1.1;
+      if (meteor.userData.flame) {
+        meteor.userData.flame.scale.setScalar(.8 + Math.sin(t * 22) * .18);
+        meteor.userData.flame.material.opacity = .75 + Math.sin(t * 30) * .2;
+      }
+      cam.position.set(0, 3.3 + k * .9, 18.5 - k * 3.2);
+      cam.lookAt(meteor.position.x * .35, Math.max(2.4, meteor.position.y * .52), 0);
+      shake = .12 + k * .35;
+      if (k >= 1) {
+        phase = 'impact'; t = 0;
+        crater.visible = true;
+        meteor.visible = false;
+        flash.visible = true; flash.material.opacity = 1;
+        shake = 1.5;
+        try { SFX.heavy && SFX.heavy(); } catch (e) {}
+        try { SFX.tone(90, 42, .9, 'sine', .28); } catch (e) {}
+        /* 尘环 */
+        dust.forEach((d, i) => {
+          const a = (i / dust.length) * Math.PI * 2 + Math.random() * .3;
+          d.m.visible = true; d.life = 1; d.age = 0;
+          d.m.material.opacity = .55;
+          d.m.position.set(0, .6, 0);
+          d.m.scale.setScalar(.5 + Math.random() * .6);
+          d.v.set(Math.cos(a) * (7 + Math.random() * 8), 1.5 + Math.random() * 3, Math.sin(a) * (7 + Math.random() * 8));
+        });
+        /* 碎石 */
+        rocks.forEach(r => {
+          const a = Math.random() * Math.PI * 2;
+          r.m.visible = true; r.life = 1; r.age = 0;
+          r.m.position.set(0, 1.2, 0);
+          r.m.scale.setScalar(.6 + Math.random() * 1.2);
+          r.v.set(Math.cos(a) * (5 + Math.random() * 8), 8 + Math.random() * 9, Math.sin(a) * (5 + Math.random() * 8));
+          r.spin.set(Math.random() * 8, Math.random() * 8, Math.random() * 8);
+        });
+        /* 烟 */
+        smoke.forEach((s, i) => {
+          s.m.visible = true; s.life = 1; s.age = 0; s.sp = 1.6 + Math.random() * 2.2;
+          s.m.material.opacity = .28;
+          s.m.position.set((Math.random() - .5) * 4, 1 + Math.random() * 1.5, (Math.random() - .5) * 4);
+          s.m.scale.setScalar(1 + Math.random() * 1.4);
+        });
+      }
+    /* —— 尘埃落定 → 裂缝发光 —— */
+    } else if (phase === 'impact') {
+      cam.position.set(0, 3.6 + Math.sin(t * 3) * .05 + t * .2, 14.4 - t * .8);
+      cam.lookAt(0, 1.4, 0);
+      shake = Math.max(0, shake - dt * 2.6);
+      if (t > .45) { phase = 'settle'; t = 0; meteor.visible = true; meteor.position.copy(IMPACT);
+        meteor.rotation.set(.2, .4, .1);
+        try { SFX.tone(220, 180, .5, 'sine', .10); } catch (e) {}
+      }
+    } else if (phase === 'settle') {
+      cam.position.set(0, 3.9, 13.4);
+      cam.lookAt(0, 1.5, 0);
+      shake = Math.max(0, shake - dt * 3);
+      meteor.position.y = IMPACT.y + Math.sin(t * 6) * .03;
+      if (t > .9) { phase = 'crack'; t = 0; shake = .9;
+        if (meteor.userData.flame) meteor.userData.flame.visible = false;
+        if (meteor.userData.flame2) meteor.userData.flame2.visible = false;
+        if (best && best.tier === 'supreme') { try { SFX.cheer && SFX.cheer(); } catch (e) {} }
+        else { try { SFX.special && SFX.special('wave'); } catch (e) {} }
+        try { SFX.tone(520, 1180, .7, 'triangle', .16); } catch (e) {}
+      }
+    /* —— 裂开：两半分开 + 光柱 + 奖励升起 —— */
+    } else if (phase === 'crack') {
+      const k = Math.min(1, t / .55);
+      halves[0].position.x = k * 3.2; halves[0].rotation.z = -k * .55; halves[0].rotation.y = k * .5;
+      halves[1].position.x = -k * 3.2; halves[1].rotation.z = k * .55; halves[1].rotation.y = -k * .5;
+      beam.visible = true; beam.material.opacity = Math.min(.20, k * .35);
+      flash.visible = true; flash.material.opacity = Math.max(0, .85 - k);
+      cam.position.set(0, 3.9 - k * .9, 13.4 - k * 1.2);
+      cam.lookAt(0, 1.9 + k * .6, 0);
+      if (k >= 1) {
+        phase = 'reveal'; t = 0;
+        beam.visible = false; beam.material.opacity = 0; flash.visible = false; flash.material.opacity = 0;
+        prizeObj = makePrizeObj(best);
+        if (prizeObj) {
+          try {                                          /* 统一到 2.6 高，武器/碎片才看得见 */
+            let bb = new THREE.Box3().setFromObject(prizeObj);
+            const hh = Math.max(.15, bb.max.y - bb.min.y);
+            prizeObj.scale.multiplyScalar(3.1 / hh);
+          } catch (e) {}
+          prizeObj.position.set(0, -1.2, 0); root.add(prizeObj);
+          /* 奖励专属暖光：暗坑里也能看清模型 */
+          if (!root.userData.prizeLight) {
+            const pl = new THREE.PointLight(0xffd9a0, 0, 16, 2);
+            root.add(pl); root.userData.prizeLight = pl;
+          }
+          root.userData.prizeLight.position.set(0, 2.4, 3.2);
+          root.userData.prizeLight.intensity = 2.4;
+        }
+        uiReveal();
+        try { best && best.tier === 'supreme' ? SFX.cheer() : SFX.special && SFX.special('heavy'); } catch (e) {}
+      }
+    /* —— 展示 —— */
+    } else if (phase === 'reveal') {
+      shake = Math.max(0, shake - dt * 3);
+      /* 裂开的岩壳滑向两侧并下沉缩小，别挡住奖励 */
+      const sink = Math.min(1, t / .9);
+      halves[0].position.set(3.4 + sink * 1.6, -sink * 1.5, 0); halves[0].rotation.z = -.55 - sink * .5;
+      halves[1].position.set(-3.4 - sink * 1.6, -sink * 1.5, 0); halves[1].rotation.z = .55 + sink * .5;
+      halves[0].scale.setScalar(1 - sink * .45); halves[1].scale.setScalar(1 - sink * .45);
+      if (prizeObj) {
+        const rise = Math.min(1, t / 1.1);
+        prizeObj.position.y = -1.2 + rise * 2.9 + Math.sin(t * 1.6) * .05;
+        prizeObj.rotation.y += dt * .5;
+      }
+      ringGlow.visible = true;
+      ringGlow.position.y = .35 + Math.min(1, t / 1.1) * .9;
+      ringGlow.material.opacity = Math.min(.85, t * 1.4);
+      ringGlow.scale.setScalar(1 + Math.sin(t * 2.2) * .04);
+      beam.material.opacity = Math.max(0, .13 - t * .12);
+      if (beam.material.opacity <= .005) beam.visible = false;
+      cam.position.set(Math.sin(t * .28) * 1.5, 4.0 - Math.min(1, t / 2) * .35, 15.4 - Math.min(1, t / 2) * 1.1);
+      cam.lookAt(0, 2.2, 0);
+      if (t > 4.2) {
+        if (list.length > 1) {
+          if (!ui.classList.contains('canSkip')) {
+            ui.classList.add('canSkip');
+            ui.onclick = () => { ui.onclick = null; finish(); };
+          }
+        } else if (t > 4.6) finish();
+      }
+      if (t > 9) finish();                                // 兜底：绝不卡在演出里
+    }
+    /* —— 共用粒子更新 —— */
+    dust.forEach(d => {
+      if (d.life <= 0) return;
+      d.age += dt;
+      d.v.multiplyScalar(1 - dt * 2.2); d.v.y -= dt * 3.2;
+      d.m.position.addScaledVector(d.v, dt);
+      d.m.scale.setScalar(Math.min(3.6, d.m.scale.x + dt * 2.2));
+      d.m.material.opacity = Math.max(0, .5 * (1 - d.age / 1.5));
+      if (d.m.position.y < .25) { d.m.position.y = .25; d.v.y = Math.abs(d.v.y) * .2; }
+      if (d.age > 1.5) { d.m.visible = false; d.life = 0; }
+    });
+    rocks.forEach(r => {
+      if (r.life <= 0) return;
+      r.age += dt;
+      r.v.y -= dt * 22;
+      r.m.position.addScaledVector(r.v, dt);
+      r.m.rotation.x += r.spin.x * dt; r.m.rotation.y += r.spin.y * dt;
+      if (r.m.position.y < .25) {
+        r.m.position.y = .25; r.v.set(r.v.x * .4, -r.v.y * .35, r.v.z * .4);
+        r.spin.multiplyScalar(.5);
+        if (Math.abs(r.v.y) < 1.2) { r.m.visible = false; r.life = 0; }
+      }
+      if (r.age > 3) { r.m.visible = false; r.life = 0; }
+    });
+    smoke.forEach(s => {
+      if (s.life <= 0) return;
+      s.age += dt;
+      s.m.position.y += s.sp * dt;
+      s.m.scale.setScalar(Math.min(4.2, s.m.scale.x + dt * 1.5));
+      s.m.material.opacity = Math.max(0, .26 * (1 - s.age / 2.2));
+      if (s.age > 2.2) { s.m.visible = false; s.life = 0; }
+    });
+    if (flash.visible) flash.material.opacity = Math.max(0, flash.material.opacity - dt * 1.6);
+    if (flash.material.opacity <= .01) flash.visible = false;
+    if (shake > 0) {
+      cam.position.x += (Math.random() - .5) * shake * .35;
+      cam.position.y += (Math.random() - .5) * shake * .35;
+    }
+  }
+  function resize(w, h) { cam.aspect = Math.max(.5, (w || 1) / Math.max(1, h)); cam.updateProjectionMatrix(); }
+  return { scene, cam, play, frame, resize, get busy() { return busy; }, get phase() { return phase; }, get t() { return t; } };
+})();
+
+function METEOR_STARS(tier) {
+  const n = tier === 'supreme' ? 5 : (tier === 'legW' ? 4 : (tier === 'epicW' || tier === 'skin' || tier === 'specialW' ? 3 : 2));
+  return '★'.repeat(n);
+}
+
 function summonAnimation(prize, done) {
+  try { METEOR.play(prize, done); return; }
+  catch (e) {
+    window.__meteorErr = String((e && e.message) || e);
+    try { summonAnimation2D(prize, done); } catch (e2) {}   // 3D 建不出来时退回旧 2D 演出，别把玩家卡住
+  }
+}
+
+function summonAnimation2D(prize, done) {
   const many = Array.isArray(prize);
   const list = many ? prize : [prize];
   const best = list.slice().sort((a, b) => {
@@ -31701,6 +32203,7 @@ const SUMMON3D = (() => {
   }
   function resize(w, h) { cam.aspect = Math.max(.4, w / Math.max(1, h)); cam.updateProjectionMatrix(); }
   return { scene, cam, frame, resize, refresh: () => buildStands(true), prizeShow, prizeClear,
+           weaponModel, shardModel,                     /* ★ 抽卡 3D 演出复用这两个建模器 */
            get built() { return built; } };
 })();
 
@@ -32299,6 +32802,7 @@ window.SB = {
   get fxCount() { return FX.list.length; },
   get blocks() { return BLOCKS; },                  // ★ Blocky 的方块（验证「可站/可挡弹/可打碎」必须能直接读）
   get frame() { return FRAME; },
+  get meteor() { return { busy:METEOR.busy, phase:METEOR.phase, t:+METEOR.t.toFixed(2) }; },   // 探针：抽卡 3D 演出状态
   hash: () => simHash(),
   info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
                  geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }),
