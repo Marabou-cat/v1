@@ -2629,6 +2629,31 @@ CHAR_EXTRA.french = {
    纸箱搭出来的机器人（胶布细节）。id 仍保留 'sovereign' —— 守护进程 CHAR_POOL、抽卡池、已拥有存档都用这个 id，
    改 id 会让已抽到的玩家掉角色、联机还会 bad_char，所以只换名字/建模/招式。
    被动脱壳：第一次被打到「生命数 × 25%」时伤害清零（3 命 = 75%）。 */
+/* ================= ★ 2026-11-18 新角色：Tickwork（钟表绅士）=================
+   头是一面走动的钟，棕色西装 + 皮鞋 + 领带。
+   中立B 投表 → 落点砸巨钟（压扁+击飞，浮空平台也能落）· 左右B 后退抛沙漏 → 敌人回到 2 秒前 + 传送重拳
+   上B 升空向下丢沙漏（范围伤害，命中退回 1 秒前）· 下B 金属噪音 10×5% = 50% · 大招 时间停止（击退全部消失） */
+CHARS.push({ id:'tock', name:'Tickwork', en:'TICKWORK', tag:'Tempo',
+  body:0x6b4526, body2:0x8a5a30, dark:0x241a12, eye:0xffd166,
+  shape:{ scale:1.0, headR:.62 },
+  weight:96, walk:10.4, run:16.6, air:11.6, jump:26.9, jumps:2, fall:35, fastFall:53,
+  accel:60, airAccel:43, fric:28, mul:{ dmg:1.00, kb:.98, spd:1.00 },
+  moves:{
+    jab:{  zh:'Tick Jab',     startup:.048,active:.060,end:.086, dmg:1.9, bb:8,  bg:18, ang:8,  hb:[1.56,1.14,1.12] },
+    jab2:{ zh:'Tock Jab',     startup:.046,active:.058,end:.084, dmg:2.0, bb:8,  bg:18, ang:10, hb:[1.60,1.14,1.16] },
+    jab3:{ zh:'Pendulum Cut', startup:.075,active:.070,end:.230, dmg:3.6, bb:12, bg:21, ang:30, hb:[1.92,1.18,1.40], sfx:'heavy' }
+  },
+  special:{
+    n:{ kind:'tockClock', label:'Grandfather Drop', cd:2.2, dmg:12, bb:16, bg:32, ang:78,
+        radius:3.4, throwSpd:11.5, color:0xffd166 },
+    s:{ kind:'tockRewind', label:'Second Hand', cd:2.6, dmg:5, bb:0, bg:0,
+        stepBack:7.5, shotSpd:26, rewind:2.0, punchDmg:10, punchBb:12, punchBg:18, color:0xffd166 },
+    u:{ kind:'tockAscend', label:'Hour Fall', cd:1.8, rise:26.5, dur:.72, dropDmg:4,
+        dropEvery:.17, dropSpd:15, radius:2.6, rewind:1.0, color:0xffe9a0 },
+    d:{ kind:'tockNoise', label:'Metal Chorus', cd:3.0, tickDmg:5, ticks:10, tick:.115,
+        radius:3.2, color:0xffc94d }
+  } });
+
 CHARS.push({ id:'sovereign', name:'Cardboard', en:'CARDBOARD', tag:'Supreme', supreme:true,
   body:0xb98a52, body2:0xe8cfa4, dark:0x6b4a28, eye:0x36e0ff,
   shape:{ scale:1.04, headR:.56 },
@@ -5614,6 +5639,124 @@ function kitSparky(def) {
   const legR = kitLeg(g, 1,mats,{x:.25,y:.80,w:.19,len:.46,fw:.40});
   return { group:g, torso, belly, head, armL, armR, legL, legR, tail };
 }
+/* ================= ★ 2026-11-18 新角色 Tickwork（钟表绅士）=================
+   规格：头是一面钟（指针会走）、棕色西装 + 皮鞋 + 领带
+     中立B 投表 → 落点砸下巨钟：压扁 + 击飞（浮空平台也能落）
+     左右B 后退 + 前抛沙漏：命中 → 敌人回到 2 秒前位置，自己传送到敌人身边向下重拳（击退小，割边缘）
+     上B   向上飞 + 向下丢沙漏（范围伤害），命中敌人退回 1 秒前位置
+     下B   金属噪音：围绕自身多段，总计 50%
+     大招   时间停止：自己能移动攻击，但**击退全部消失** */
+
+/* —— 沙漏模型（车床截面：中间细、两头粗）—— */
+function tockHourglassMesh(size, glow) {
+  const r = size, prof = [];
+  for (let i = 0; i <= 6; i++) { const k = i / 6; prof.push(new THREE.Vector2(r * (.16 + .84 * Math.abs(k - .5) * 2) * .95, (k - .5) * r * 2.4)); }
+  const g = new THREE.LatheGeometry(prof, 12);
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+    color: 0xffd166, emissive: glow || 0x8a5a00, emissiveIntensity: .55,
+    metalness: .55, roughness: .3, transparent: true, opacity: .92, side: THREE.DoubleSide }));
+  return m;
+}
+/* —— 巨型钟（落点砸下来的那个）—— */
+function tockGiantClockMesh(s) {
+  const g = new THREE.Group();
+  const brass = new THREE.MeshStandardMaterial({ color: 0xffd166, metalness: .82, roughness: .28, emissive: 0x6a4200, emissiveIntensity: .35 });
+  const caseM = new THREE.Mesh(new THREE.CylinderGeometry(s, s, s * .5, 24), brass);
+  caseM.rotation.x = Math.PI / 2; g.add(caseM);
+  const dial = new THREE.Mesh(new THREE.CylinderGeometry(s * .84, s * .84, .10, 24), cmat(0xf7f2e6));
+  dial.rotation.x = Math.PI / 2; dial.position.z = s * .27; g.add(dial);
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * Math.PI * 2;
+    const t = new THREE.Mesh(new THREE.BoxGeometry(s * .06, i % 3 ? s * .1 : s * .18, .06), cmat(0x2a2018));
+    t.position.set(Math.sin(a) * s * .66, Math.cos(a) * s * .66, s * .33); t.rotation.z = -a; g.add(t);
+  }
+  const hh = new THREE.Mesh(new THREE.BoxGeometry(s * .10, s * .40, .05), cmat(0x201812));
+  hh.geometry.translate(0, s * .20, 0); hh.position.z = s * .35; g.add(hh); g.userData.hh = hh;
+  const mm = new THREE.Mesh(new THREE.BoxGeometry(s * .07, s * .62, .05), cmat(0x201812));
+  mm.geometry.translate(0, s * .31, 0); mm.position.z = s * .37; g.add(mm); g.userData.mm = mm;
+  return g;
+}
+
+/* —— Tickwork：钟表绅士。头是一面走动的圆钟 / 棕色西装 + 白衬衫 + 领带 + 皮鞋 —— */
+function kitTock(def) {
+  const H = def.shape.headR, mats = kitMats(def), g = new THREE.Group();
+  const suit = cmat(0x6b4526), suit2 = cmat(0x8a5a30), shirt = cmat(0xf2ece0);
+  const leather = cmat(0x241a12), tieM = cmat(0x8a2b2b);
+  const brass = new THREE.MeshStandardMaterial({ color: 0xffd166, metalness: .85, roughness: .22,
+    emissive: 0x6a4200, emissiveIntensity: .30 });
+  /* 西装外套 */
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(1.12, 1.06, .70), suit);
+  torso.position.y = 1.42; g.add(torso);
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(1.02, .38, .66), suit2);
+  belly.position.y = 1.00; g.add(belly);
+  /* 翻领 */
+  const lapL = new THREE.Mesh(new THREE.BoxGeometry(.26, .72, .06), suit2);
+  lapL.position.set(-.23, 1.50, .36); lapL.rotation.z = .17; g.add(lapL);
+  const lapR = new THREE.Mesh(new THREE.BoxGeometry(.26, .72, .06), suit2);
+  lapR.position.set(.23, 1.50, .36); lapR.rotation.z = -.17; g.add(lapR);
+  /* 白衬衫 + 领带 */
+  const shirtF = new THREE.Mesh(new THREE.BoxGeometry(.34, .64, .05), shirt);
+  shirtF.position.set(0, 1.46, .360); g.add(shirtF);
+  const tie = new THREE.Mesh(new THREE.BoxGeometry(.13, .50, .05), tieM);
+  tie.position.set(0, 1.34, .390); g.add(tie);
+  const knot = new THREE.Mesh(new THREE.BoxGeometry(.155, .13, .07), tieM);
+  knot.position.set(0, 1.66, .392); g.add(knot);
+  /* 腰带 + 皮带扣 */
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(1.08, .13, .72), leather);
+  belt.position.y = .84; g.add(belt);
+  const buckle = new THREE.Mesh(new THREE.BoxGeometry(.22, .15, .06), brass);
+  buckle.position.set(0, .84, .37); g.add(buckle);
+  /* 钟表头：表壳轴向沿 X（横着），**左右两面都有表盘** —— 横版格斗看的是侧面，
+     只做正面表盘的话永远只看到圆柱侧面，认不出是钟。 */
+  const head = new THREE.Group(); head.position.y = 2.26; g.add(head);
+  const caseM = new THREE.Mesh(new THREE.CylinderGeometry(H, H, .36, 26), brass);
+  caseM.rotation.z = Math.PI / 2; head.add(caseM);
+  const handSets = [];
+  for (const sgn of [-1, 1]) {
+    const face = new THREE.Group();
+    face.rotation.y = sgn > 0 ? Math.PI / 2 : -Math.PI / 2;      // 本地 +Z → ±X
+    face.position.x = sgn * (H * .50 + .01);
+    head.add(face);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(H * .93, .075, 8, 26), brass);
+    rim.position.z = .02; face.add(rim);
+    const dial = new THREE.Mesh(new THREE.CylinderGeometry(H * .84, H * .84, .05, 26), shirt);
+    dial.rotation.x = Math.PI / 2; dial.position.z = .05; face.add(dial);
+    for (let i2 = 0; i2 < 12; i2++) {
+      const a = i2 / 12 * Math.PI * 2;
+      const tk = new THREE.Mesh(new THREE.BoxGeometry(.048, i2 % 3 ? .075 : .15, .03), leather);
+      tk.position.set(Math.sin(a) * H * .66, Math.cos(a) * H * .66, .075);
+      tk.rotation.z = -a; face.add(tk);
+    }
+    const hH = new THREE.Mesh(new THREE.BoxGeometry(.078, H * .44, .035), leather);
+    hH.geometry.translate(0, H * .22, 0); hH.position.z = .095; face.add(hH);
+    const hM = new THREE.Mesh(new THREE.BoxGeometry(.056, H * .66, .035), leather);
+    hM.geometry.translate(0, H * .33, 0); hM.position.z = .115; face.add(hM);
+    const hS = new THREE.Mesh(new THREE.BoxGeometry(.030, H * .78, .028), tieM);
+    hS.geometry.translate(0, H * .39, 0); hS.position.z = .135; face.add(hS);
+    const pin = new THREE.Mesh(new THREE.SphereGeometry(.055, 8, 7), brass);
+    pin.position.z = .155; face.add(pin);
+    for (const e2 of [-1, 1]) {                                  // 两只眼：表盘上的小灯
+      const eye = new THREE.Mesh(new THREE.BoxGeometry(.10, .15, .03),
+        new THREE.MeshBasicMaterial({ color: def.eye }));
+      eye.position.set(e2 * .19, H * .17, .10); face.add(eye);
+    }
+    handSets.push({ h: hH, m: hM, s: hS });
+  }
+  /* 四肢（西装袖 / 西裤）+ 皮鞋 */
+  const armL = kitArm(g, -1, mats, { x: .66, y: 1.62, w: .17, len: .54, hand: .17 });
+  const armR = kitArm(g,  1, mats, { x: .66, y: 1.62, w: .17, len: .54, hand: .17 });
+  const legL = kitLeg(g, -1, mats, { x: .27, y: .82, w: .20, len: .48, fw: .44 });
+  const legR = kitLeg(g,  1, mats, { x: .27, y: .82, w: .20, len: .48, fw: .44 });
+  for (const s of [-1, 1]) {
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(.34, .17, .60), leather);
+    shoe.position.set(s * .27, .09, .12); g.add(shoe);
+    const toe = new THREE.Mesh(new THREE.BoxGeometry(.30, .11, .20), cmat(0x140e08));
+    toe.position.set(s * .27, .045, .40); g.add(toe);
+  }
+  return { group: g, torso, belly, head, armL, armR, legL, legR, tail: null,
+           hands: handSets };
+}
+
 /* —— Rocky：岩偶。宽厚方块躯干 / 无脖子矮头 / 岩角 / 肩甲石球 / 背晶 / 苔藓 / 粗臂 —— */
 function kitRocky(def) {
   const H = def.shape.headR, mats = kitMats(def), g = new THREE.Group();
@@ -6563,6 +6706,7 @@ function kitTurtle(def) {
 const FS_DEFAULT = { name:'Final Smash', style:'storm', color:0xffe066, beats:6, gap:.10, dmg:7, bb:10, bg:24, w:1 };
 const FSPECIALS = {
   french:  { name:'Soul Link',       style:'frenchFS', color:0xd8a35c, beats:1,  gap:.10, dmg:0, bb:0, bg:0, w:0, dur:8.0 },
+  tock:    { name:'Time Stop',      style:'tockFS',   color:0xffd166, beats:1, gap:.05, dmg:0, stop:3.2, dur:3.4, w:0 },
   sparky:  { name:'Thunder Storm',  style:'storm',    color:0xffe066, beats:7,  gap:.10, dmg:8.0, bb:10, bg:24,             w:1   },
   blub:    { name:'Air Barrage',    style:'hail',   color:0xffb0d8, beats:9,  gap:.10, dmg:6.0,  bb:9,  bg:22,             w:1   },
   tamer:   { name:'Venom Rain',     style:'venomRain', color:0x8ef05a, beats:14, gap:.07, dmg:5.0, bb:8,  bg:22,             w:1   },
@@ -11725,7 +11869,7 @@ function kitFoundry(def) {
 }
 FSPECIALS.foundry = { name:'Foundry Storm', style:'fndStorm', color:0xff8a3d, beats:1, gap:.10,
   dmg:0, bb:0, bg:0, w:1, dur:4.2, tickDmg:1.75 };
-const KITS = { sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, treasure:kitTreasure, princess:kitPrincess, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt, foundry:kitFoundry,
+const KITS = { tock:kitTock, sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, treasure:kitTreasure, princess:kitPrincess, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt, foundry:kitFoundry,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
@@ -14416,8 +14560,236 @@ class Fighter {
       this._ghost = null;
     }
   }
+  /* ═════════ ★ Tickwork（钟表绅士）专用：位置历史 / 回到 N 秒前 / 沙漏弹体 / 巨钟 ============ */
+  /* 位置历史：30Hz 采样，保留 2.4 秒（「回到 2 秒前」要用）。只读本机模拟数据 → 联机两端一致。 */
+  tockRec(dt) {
+    if (!this._hist) this._hist = [];
+    this._histAcc = (this._histAcc || 0) + dt;
+    if (this._histAcc < .0333) return;
+    this._histAcc = 0;
+    this._histClock = (this._histClock || 0) + .0333;
+    this._hist.push({ x: this.pos.x, y: this.pos.y, t: this._histClock });
+    while (this._hist.length > 2 && (this._hist[this._hist.length - 1].t - this._hist[0].t) > 2.4) this._hist.shift();
+  }
+  rewindTo(sec) {
+    const h = this._hist || [];
+    if (!h.length) return false;
+    const now = h[h.length - 1].t;
+    let pick = null;
+    for (let i = h.length - 1; i >= 0; i--) { if (now - h[i].t >= sec) { pick = h[i]; break; } }
+    if (!pick) pick = h[0];
+    this.pos.set(pick.x, pick.y, 0);
+    this.vel.set(0, 0, 0);
+    this.hitstun = 0;
+    this.state = this.grounded ? 'idle' : 'fall';
+    FX.ring(pick.x, pick.y + 1.0, .3, 2.0, 0xffd166, .42);
+    FX.spark(pick.x, pick.y + 1.2, .3, 10, 0xffe9a0);
+    FX.beam(pick.x, pick.y + 1.2, pick.x, pick.y + 3.0, .10, 0xffe9a0, .26);
+    callout(this, '◀ REWIND ' + sec.toFixed(0) + 's', 0xffd166);
+    SFX.tone(900, 320, .18, 'sine', .07);
+    return true;
+  }
+  tockSpawnShot(x, y, vx, vy, o) {
+    if (!this.tockShots) this.tockShots = [];
+    const m = tockHourglassMesh(o.r || .42, o.color);
+    m.position.set(x, y, .55); scene.add(m);
+    this.tockShots.push({ x, y, vx, vy, t: 0, mesh: m, dmg: o.dmg || 4, r: o.r || .42,
+      rewind: o.rewind || 0, punch: !!o.punch, land: !!o.land,
+      radius: o.radius || 2.4, color: o.color || 0xffd166 });
+  }
+  tockBurst(x, y, S) {
+    FX.ring(x, y, .2, S.radius || 2.4, S.color || 0xffd166, .40);
+    FX.flash(x, y + .2, .30, (S.radius || 2.4) * 1.6, S.color || 0xffd166, .24);
+    FX.dust(x, y, 8, S.color || 0xffd166);
+    SFX.hit(18, 4);
+    for (const f of FIGHTERS) {
+      if (!f || f === this || f.eliminated || f.abducted) continue;
+      if (this.team >= 0 && isTeammate(this, f)) continue;
+      if (Math.hypot(f.pos.x - x, f.pos.y - y) > (S.radius || 2.4)) continue;
+      f.takeHit(this, { dmg: S.dmg || 4, bb: 6, bg: 10, ang: 70 }, Math.sign(f.pos.x - x) || 1);
+      if (S.rewind) f.rewindTo(S.rewind);
+    }
+  }
+  tockSlam(x, y, cfg) {
+    if (!this.tockClocks) this.tockClocks = [];
+    const m = tockGiantClockMesh(1.0);
+    m.position.set(x, y + 7.5, .25); scene.add(m);
+    this.tockClocks.push({ t: 0, y, mesh: m });
+    shake = Math.min(1.35, shake + .55); camKick = Math.min(1, camKick + .40);
+    FX.ring(x, y + .12, .30, (cfg.radius || 3.4) * 1.3, cfg.color, .50);
+    FX.dust(x, y + .05, 16, cfg.color);
+    FX.flash(x, y + .40, .40, (cfg.radius || 3.4) * 1.8, cfg.color, .30);
+    try { SFX.heavy(); SFX.tone(120, 60, .40, 'sine', .22); } catch (e) {}
+    callout(this, 'GRANDFATHER DROP', cfg.color);
+    for (const f of FIGHTERS) {
+      if (!f || f === this || f.eliminated || f.abducted) continue;
+      if (this.team >= 0 && isTeammate(this, f)) continue;
+      if (Math.hypot(f.pos.x - x, f.pos.y - y) > (cfg.radius || 3.4)) continue;
+      f.takeHit(this, { dmg: cfg.dmg || 12, bb: cfg.bb || 16, bg: cfg.bg || 32, ang: cfg.ang || 78 },
+        Math.sign(f.pos.x - x) || 1);
+      f.flatT = 1.05;                                  // ★ 压扁（复用 Pumpkin 的 flatT 表现）
+    }
+  }
+  tockTick(dt) {
+    /* --- 中立B：抛出的怀表（落点砸巨钟；浮空平台也能落）--- */
+    if (this.tockClock) {
+      const C = this.tockClock;
+      C.t += dt;
+      if (!C.done) {
+        C.vy -= 26 * dt;
+        C.x += C.vx * dt; C.y += C.vy * dt;
+        if (C.mesh) { C.mesh.position.set(C.x, C.y, .30); C.mesh.rotation.y += dt * 9; }
+        const prevY = C.y - C.vy * dt;
+        const plat = plats.find(p => Math.abs(C.x - p.x) <= p.halfW + .1 && C.vy < 0 &&
+          C.y <= p.y + .12 && prevY >= p.y - .12);
+        const fy = (typeof floorAt === 'function') ? floorAt(C.x) : 0;
+        if (plat || C.y <= fy + .12) {
+          C.done = true;
+          this.tockSlam(C.x, plat ? plat.y : fy, C.cfg);
+          if (C.mesh) { scene.remove(C.mesh); C.mesh = null; }
+        } else if (C.t > 1.8 || Math.abs(C.x) > CFG.blast.x) {
+          C.done = true; if (C.mesh) { scene.remove(C.mesh); C.mesh = null; }
+        }
+      }
+      if (C.t > 1.9) this.tockClock = null;
+    }
+    /* --- 巨钟落地：砸下 → 压 → 沉入 → 淡出 --- */
+    if (this.tockClocks && this.tockClocks.length) {
+      for (let i = this.tockClocks.length - 1; i >= 0; i--) {
+        const K = this.tockClocks[i]; K.t += dt;
+        const m = K.mesh;
+        if (m) {
+          const a = Math.min(1, K.t / .16);
+          m.position.y = K.y + (1 - a) * 7.5;
+          m.rotation.z = (1 - a) * .55;
+          m.scale.setScalar(1.30 * (a < 1 ? .55 + a * .45 : 1));
+          if (m.userData.hh) m.userData.hh.rotation.z = -K.t * .9;
+          if (m.userData.mm) m.userData.mm.rotation.z = -K.t * 2.4;
+          if (K.t > .60) m.position.y = K.y - Math.min(1.5, (K.t - .60) * 1.8);
+          if (K.t > 1.15) {
+            const k2 = Math.max(0, 1 - (K.t - 1.15) / .45);
+            m.traverse(o => { if (o.material && o.material.opacity !== undefined) { o.material.transparent = true; o.material.opacity = k2; } });
+          }
+        }
+        if (K.t > 1.62) { if (m) scene.remove(m); this.tockClocks.splice(i, 1); }
+      }
+    }
+    /* --- 沙漏弹体：命中 / 落地 --- */
+    if (this.tockShots && this.tockShots.length) {
+      for (let i = this.tockShots.length - 1; i >= 0; i--) {
+        const S = this.tockShots[i]; S.t += dt;
+        S.x += S.vx * dt; S.y += S.vy * dt;
+        if (S.mesh) { S.mesh.position.set(S.x, S.y, .55); S.mesh.rotation.z += dt * 6; }
+        let hitF = null;
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.abducted) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          const rr = .50 + S.r + f.bodyR * .5;
+          const top = f.pos.y + 2.05 * f.def.shape.scale;
+          if (Math.abs(f.pos.x - S.x) < rr && S.y > f.pos.y + .15 && S.y < top) { hitF = f; break; }
+        }
+        if (hitF) {
+          hitF.takeHit(this, { dmg: S.dmg, bb: 0, bg: 0, ang: 20 }, Math.sign(hitF.pos.x - S.x) || 1);
+          FX.burst(S.x, S.y, 0, S.color, 16, 12);
+          FX.ring(S.x, S.y, .26, 2.2, S.color, .40);
+          SFX.hit(26, 5);
+          if (S.rewind) hitF.rewindTo(S.rewind);
+          if (S.punch && this.tockShot) {
+            this.tockShot.target = hitF;
+            const sgn = Math.sign(hitF.pos.x - this.pos.x) || 1;
+            this.pos.x = hitF.pos.x - sgn * .95;                       // ★ 传送到敌人身边
+            this.pos.y = Math.max(hitF.pos.y, 0);
+            this.vel.set(0, 0, 0);
+            this.facing = sgn > 0 ? 1 : -1;
+            this.tockPunch = { t: 0, hit: false, target: hitF, cfg: this.tockShot.cfg };
+            FX.flash(this.pos.x, this.pos.y + 1.2, .30, 3.0, S.color, .28);
+            SFX.special('dash');
+          }
+          if (S.mesh) scene.remove(S.mesh);
+          this.tockShots.splice(i, 1);
+          continue;
+        }
+        const fy = (typeof floorAt === 'function') ? floorAt(S.x) : 0;
+        const prevY2 = S.y - S.vy * dt;
+        const plat2 = plats.find(p => Math.abs(S.x - p.x) <= p.halfW + .1 && S.vy < 0 &&
+          S.y <= p.y + .12 && prevY2 >= p.y - .12);
+        if (S.land && (S.y <= fy + .06 || plat2)) {
+          this.tockBurst(S.x, plat2 ? plat2.y + .12 : fy + .06, S);
+          if (S.mesh) scene.remove(S.mesh);
+          this.tockShots.splice(i, 1);
+          continue;
+        }
+        if (S.t > 2.2 || Math.abs(S.x) > CFG.blast.x) { if (S.mesh) scene.remove(S.mesh); this.tockShots.splice(i, 1); }
+      }
+    }
+    /* --- 左右B 的向下重拳（击退小，用来收割边缘）--- */
+    if (this.tockPunch) {
+      const P2 = this.tockPunch; P2.t += dt;
+      if (!P2.hit && P2.t >= .13) {
+        P2.hit = true;
+        const tf = P2.target, c2 = P2.cfg || {};
+        if (tf && !tf.eliminated) {
+          tf.takeHit(this, { dmg: c2.punchDmg || 10, bb: c2.punchBb || 12, bg: c2.punchBg || 18, ang: -78 },
+            Math.sign(tf.pos.x - this.pos.x) || 1);
+          FX.ring(tf.pos.x, tf.pos.y + .3, .30, 2.6, c2.color || 0xffd166, .45);
+          FX.spark(tf.pos.x, tf.pos.y + .3, .30, 14, 0xffe9a0);
+          shake = Math.min(1.2, shake + .30);
+          SFX.special('heavy');
+        }
+      }
+      if (P2.t > .42) { this.tockPunch = null; this.tockShot = null; }
+    }
+    /* --- 下B：金属噪音，围绕自身 10 段 × 5% = 50% --- */
+    if (this.tockNoise) {
+      const N = this.tockNoise; N.t += dt; N.next -= dt;
+      const total = N.cfg.ticks || 10;
+      if (N.next <= 0 && N.done < total) {
+        N.next = N.cfg.tick || .115;
+        N.done++;
+        const R0 = N.cfg.radius || 3.2;
+        FX.ring(this.pos.x, this.pos.y + .5, .18, R0, N.cfg.color, .30);
+        FX.spark(this.pos.x, this.pos.y + .8, .5, 6, N.cfg.color);
+        try { SFX.tone(140 + N.done * 90, 90 + N.done * 40, .07, 'square', .05); } catch (e) {}
+        /* ★ 第一次 tick 锁定范围内的敌人，之后 10 段全吃（否则被打退 + 人机后撤会漏段 → 打不满 50） */
+        if (!N.locked) N.locked = [];
+        for (const f of FIGHTERS) {
+          if (!f || f === this || f.eliminated || f.abducted) continue;
+          if (this.team >= 0 && isTeammate(this, f)) continue;
+          if (N.locked.indexOf(f) >= 0) continue;
+          if (Math.abs(f.pos.x - this.pos.x) > R0) continue;
+          if (Math.abs(f.pos.y - this.pos.y) > 2.4) continue;
+          N.locked.push(f);
+        }
+        for (const f of N.locked) {
+          if (!f || f.eliminated || f.abducted) continue;
+          f.pos.x += (this.pos.x - f.pos.x) * .14;            // 噪音把人往中间吸住
+          f.vel.x *= .30;
+          f.takeHit(this, { dmg: N.cfg.tickDmg || 5, bb: 4, bg: 6, ang: 40 }, Math.sign(f.pos.x - this.pos.x) || 1);
+        }
+      }
+      if (N.done >= total && N.t > .2) this.tockNoise = null;
+    }
+    /* --- 上B：上升 + 按节奏向下丢沙漏 --- */
+    if (this.tockAscend) {
+      const A2 = this.tockAscend; A2.t += dt; A2.next -= dt;
+      const dur2 = A2.cfg.dur || .72;
+      if (A2.next <= 0 && A2.t < dur2) {
+        A2.next = A2.cfg.dropEvery || .17;
+        this.tockSpawnShot(this.pos.x, this.pos.y + .1, 0, -(A2.cfg.dropSpd || 15), {
+          dmg: A2.cfg.dropDmg || 4, rewind: A2.cfg.rewind || 1.0, r: .40,
+          land: true, radius: A2.cfg.radius || 2.6, color: A2.cfg.color });
+      }
+      if (A2.t > dur2 + .10) this.tockAscend = null;
+    }
+  }
+
   takeHit(attacker, mv, dirX, kbMul = 1, dmgMul = 1) {
     if (this.invuln > 0 || this.intangible > 0 || this.eliminated) return null;
+    /* ★ Tickwork 大招·时间停止：停止期间他的所有攻击**击退全部消失**（伤害照常结算） */
+    if (typeof match !== 'undefined' && match.cbFreeze && match.cbFreeze.kind === 'tock' &&
+        match.cbFreeze.owner === attacker && mv) {
+      mv = Object.assign({}, mv, { bb: 0, bg: 0 });
+    }
     if (isTeammate(this, attacker)) return null;        // ★ 团队模式：队友之间不造成伤害（要开友伤就删这一行）
     /* ★ Titan 大招·铁壁（Iron Bulwark）：**正面**来的所有攻击完全挡住（近战、技能、乱斗都算）。
        判定用「攻击者在不在我面朝的一侧」—— 绕到背后打就照常吃，这就是它的解法。
@@ -15501,6 +15873,21 @@ class Fighter {
     const SP = this.fsSpec || FSPECIALS.sparky, k = this.fsDone++, c = SP.color, d0 = this.facing || 1;
     const px = this.pos.x, py = this.pos.y, cl = (v) => THREE.MathUtils.clamp(v, -CFG.blast.x + 2, CFG.blast.x - 2);
     switch (SP.style) {
+      /* ★ Tickwork·大招「时间停止」：全场除他之外全部冻结（复用 Cardboard 的 cbFreeze 机制），
+         期间他的攻击击退归零（见 takeHit），所以不会把人打飞，只能原地叠伤害。 */
+      case 'tockFS': {
+        const SD = SP.stop || 3.2;
+        match.cbFreeze = { kind:'tock', owner:this, t:SD };
+        this.fsDone = 1;
+        callout(this, 'TIME STOP · ' + SD.toFixed(1) + 's', SP.color);
+        FX.ring(this.pos.x, this.pos.y + .35, .34, 14.0, SP.color, .60);
+        FX.ring(this.pos.x, this.pos.y + .35, .28, 8.0, 0xffe9a0, .45);
+        FX.flash(this.pos.x, this.pos.y + 1.4, .55, 12.0, SP.color, .42);
+        FX.burst(this.pos.x, this.pos.y + 1.2, .22, SP.color, 30, 20);
+        shake = Math.max(shake, .95); SFX.special('heavy'); SFX.tone(1300, 200, .9, 'sine', .18);
+        this.fsActiveT = Math.max(this.fsActiveT, SD);
+        break;
+      }
       case 'wardenFS': {                                 // ★ 坚守者·狂暴：移速 ×2 / 伤害 ×1.5 / 全场失明 10 秒
         const SD = SP.dur || 10;
         this.buff = { t:SD, spd:SP.spdMul || 2, dmg:SP.dmgMul || 1.5, cfg:{} };   // ⚠ cfg 不能省（update 读 buff.cfg.armor）
@@ -15598,7 +15985,7 @@ class Fighter {
         break;
       }
       case 'cbFreeze': {                                 // ★ Cardboard·大招：全场冻结 → 点哪打哪的追踪火箭（50% 范围伤害）
-        match.cbFreeze = { t: 2.6, owner: this, fired: false, click: null };   // click 只由单机点击写入；发射在固定步
+        match.cbFreeze = { kind:'cb', t: 2.6, owner: this, fired: false, click: null };   // click 只由单机点击写入；发射在固定步
         callout(this, 'FREEZE!', SP.color);
         FX.flash(this.pos.x, this.pos.y + 1.2, .6, 26, 0xcfe8ff, .55);
         FX.ring(this.pos.x, this.pos.y + .3, .3, 30, 0x9fd8ff, .8);
@@ -16124,6 +16511,10 @@ class Fighter {
     const S = this.s;
     if (this.eliminated) return;
     if (this.respawnT > 0) { this.respawnT -= dt; if (this.respawnT <= 0) this.respawn(); return; }
+    try { this.tockRec(dt); } catch (e) {}                       // ★ 所有角色都记录位置历史（回到 N 秒前要用）
+    if (this.def.id === 'tock') {
+      try { this.tockTick(dt); } catch (e) { if (!window.__tockErr) window.__tockErr = String(e && e.message); }
+    }
     /* ★ Cardboard 大招：全场冻结（施法者自己照常行动；其余人原地定住，但仍可被打） */
     if (typeof match !== 'undefined' && match.cbFreeze && match.cbFreeze.t > 0) {
       const CF = match.cbFreeze;
@@ -16132,7 +16523,7 @@ class Fighter {
       /* ★ 2026-11-16 去同步修复：火箭的**发射帧**与**落点**都在固定步里算。
          旧版 setTimeout(700ms 联机 / 2400ms 单机) 在墙钟时间发射 → 两台机器落的帧号不同、
          锁定的目标也不同 → simHash 分叉 → 服务端判 desync → 整局重开。 */
-      if (!CF.fired && CF.t <= 2.15) {                 // 冻结 0.45s 后打出去
+      if (CF.kind !== 'tock' && !CF.fired && CF.t <= 2.15) {                 // 冻结 0.45s 后打出去
         CF.fired = true;
         try { cbHideAim(); } catch (e) {}
         let pt = CF.click || null;
@@ -22167,6 +22558,39 @@ class Fighter {
       this.state = 'special'; this.animT = 0;
       SFX.special('proj');
       FX.ring(this.pos.x + dir * 1.1, this.headY - .30, .2, 1.3, cfg.color, .22);
+    } else if (cfg.kind === 'tockClock') {
+      /* ★ Tickwork·中立B：把怀表抛出去 → 落点砸下一座巨钟（压扁 + 击飞；浮空平台也能落） */
+      const _cm = tockGiantClockMesh(1.0);
+      _cm.scale.setScalar(.34); _cm.position.set(this.pos.x + dir * .9, this.headY, .30);
+      scene.add(_cm);
+      this.tockClock = { t:0, x:this.pos.x + dir * .9, y:this.headY, vx:dir * (cfg.throwSpd || 11.5), vy:7.8,
+                         done:false, cfg, mesh:_cm };
+      this.state = 'special'; this.animT = 0; this.spT = .26;
+      FX.ring(this.pos.x + dir * .6, this.headY, .22, 1.7, cfg.color, .30);
+      SFX.tone(520, 820, .10, 'sine', .07);
+    } else if (cfg.kind === 'tockRewind') {
+      /* ★ Tickwork·左右B：向后退 + 前抛沙漏。命中 → 敌人回到 2 秒前位置，自己传送到敌人身边向下重拳 */
+      this.vel.x = -dir * (cfg.stepBack || 7.5);
+      this.tockShot = { t:0, dir, cfg, target:null };
+      this.tockSpawnShot(this.pos.x + dir * 1.0, this.pos.y + 1.15, dir * (cfg.shotSpd || 26), 0, {
+        dmg: cfg.dmg || 5, rewind: cfg.rewind || 2.0, r: .42, punch: true, color: cfg.color });
+      this.state = 'special'; this.animT = 0; this.spT = .22;
+      FX.ring(this.pos.x + dir * .9, this.pos.y + 1.15, .20, 1.5, cfg.color, .30);
+      SFX.tone(700, 1100, .08, 'square', .06);
+    } else if (cfg.kind === 'tockNoise') {
+      /* ★ Tickwork·下B：金属噪音 —— 围绕自身 10 段 × 5% = 总计 50% */
+      this.tockNoise = { t:0, next:0, done:0, cfg };
+      this.state = 'special'; this.animT = 0; this.spT = (cfg.tick || .115) * (cfg.ticks || 10) + .12;
+      callout(this, 'METAL CHORUS', cfg.color);
+      FX.ring(this.pos.x, this.pos.y + .6, .30, 3.4, cfg.color, .40);
+      SFX.tone(180, 90, .50, 'sawtooth', .12);
+    } else if (cfg.kind === 'tockAscend') {
+      /* ★ Tickwork·上B：向上飞，并按节奏向下丢沙漏（范围伤害 + 命中退回 1 秒前位置） */
+      this.tockAscend = { t:0, next:0, cfg, drops:0 };
+      this.vel.y = cfg.rise || 26.5; this.grounded = false;
+      this.state = 'special'; this.animT = 0; this.spT = cfg.dur || .72;
+      FX.ring(this.pos.x, this.pos.y + .3, .30, 2.2, cfg.color, .34);
+      SFX.tone(420, 980, .16, 'triangle', .08);
     } else if (cfg.kind === 'dashCombo') {
       /* ★ Sparky·左右B：冲刺连招 —— 冲刺阶段没咬到人就只是位移；
          一旦有人进范围 → 三连（第三下砸地 spike），落地反弹，最后补一个麻痹。 */
@@ -24941,6 +25365,23 @@ class Fighter {
         P.armR.rotation.x = fA; P.armL.rotation.x = fB;
         P.group.rotation.z = fLean;
       }
+    }
+    /* ================= ★ Tickwork：钟表指针实时走动 + 技能姿态 ================= */
+    if (this.def.id === 'tock' && P.hands) {
+      const T0 = A.t, sets = Array.isArray(P.hands) ? P.hands : [P.hands];
+      for (const hd of sets) {
+        if (!hd || !hd.s) continue;
+        hd.s.rotation.z = -T0 * Math.PI * 2;                 // 秒针：1 秒一圈
+        hd.m.rotation.z = -T0 * Math.PI * 2 / 60;            // 分针：60 秒一圈
+        hd.h.rotation.z = -T0 * Math.PI * 2 / 720;           // 时针：12 分钟一圈
+      }
+      let tR = null, tL = null, tLn = 0;
+      if (this.tockPunch) { tR = -.35; tL = .30; tLn = this.facing * .38; }          // 向下重拳
+      else if (this.tockNoise) { tR = -1.30 + Math.sin(A.t * 26) * .18; tL = -1.30 - Math.sin(A.t * 26) * .18; tLn = Math.sin(A.t * 13) * .10; }
+      else if (this.tockAscend) { tR = -2.35; tL = -2.35; tLn = -this.facing * .16; }
+      else if (this.tockShot) { tR = -1.35; tL = .55; tLn = -this.facing * .14; }
+      else if (this.tockClock) { tR = -2.15; tL = -.85; tLn = -this.facing * .10; }
+      if (tR !== null) { P.armR.rotation.x = tR; P.armL.rotation.x = tL; P.group.rotation.z = tLn; }
     }
     /* ★ Blub：球体弹性 —— 走动时挤压/拉伸（幅度只有 Smiley 的一半），空中拉长，静止时轻微呼吸 */
     if (this.def.id === 'blub' && P.ball) {
