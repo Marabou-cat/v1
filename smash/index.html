@@ -22138,12 +22138,31 @@ class Fighter {
       /* ★ Sparky·Chain Bolt（第五十一轮重做）：发一颗慢速电球。
          命中敌人 → **黏在他身上 stick 秒**（每 tick 秒掉一次小伤害），时间到再改向飞向下一个最近的敌人；
          最多 chain.n 次改向。粘住期间不产生击退（DoT 直接加伤害，不走受击流程）。 */
+      /* ★ 特殊武器 Overclock Coil（2026-11-18）：每第 3 发 Chain Bolt 变成 100% 命中的追踪弹；
+         其余照旧。计数器挂在 Fighter 上（随角色状态走，两端输入一致 → 确定性）。 */
+      const _coil = weaponHasFor(this, 'overclock_coil');
+      let _lock = false;
+      if (_coil) {
+        this.cbShots = ((this.cbShots | 0) + 1);
+        _lock = (this.cbShots % 3 === 0);
+        this.cooldown['sp_n'] = 2.4;                       // 代价①：冷却 1.7 → 2.4s
+      }
       spawnProjectile(this, this.pos.x + dir * 1.1, this.headY - .30, dir,
-        { kind:'proj', label:'Chain Bolt', dmg:cfg.dmg, bb:0, bg:0, ang:cfg.ang || 26,
-          spd:cfg.spd || 16, size:cfg.size || .34, life:cfg.life || 1.6, color:cfg.color,
+        { kind:'proj', label: _lock ? 'LOCK-ON BOLT' : 'Chain Bolt', dmg:cfg.dmg, bb:0, bg:0, ang:cfg.ang || 26,
+          spd:(_lock ? (cfg.spd || 16) * 1.15 : (cfg.spd || 16)), size:(_lock ? (cfg.size || .34) * 1.25 : (cfg.size || .34)),
+          life:cfg.life || 1.6, color:cfg.color,
           zapBall:cfg.zapBall, techBolt:!cfg.zapBall, pierce:true, chain:cfg.chain, chainLeft:(cfg.chain && cfg.chain.n) || 0,
-          stick:cfg.stick || 2.0, tick:cfg.tick || .40, tickDmg:cfg.tickDmg || 1.3,
-          para:cfg.para || .55, noKb:true }, 1);
+          stick: _coil ? 1.6 : (cfg.stick || 2.0), tick:cfg.tick || .40, tickDmg:cfg.tickDmg || 1.3,
+          para:cfg.para || .55, noKb:true,
+          coil:_coil, lockOn:_lock,
+          homing: _lock ? { turn: 9, instant: true } : undefined,
+          lockDelay: .45 }, 1);
+      if (_lock) {
+        callout(this, '⚡ LOCK-ON', 0xffe14d);
+        FX.ring(this.pos.x + dir * 1.1, this.headY - .30, .22, 2.6, cfg.color, .4);
+        FX.beam(this.pos.x + dir * 1.1, this.headY - .3, this.pos.x + dir * 6, this.headY - .3, .06, cfg.color, .22);
+        SFX.special('heavy');
+      }
       this.laserT = .14;
       this.state = 'special'; this.animT = 0;
       SFX.special('proj');
@@ -29335,6 +29354,21 @@ function updateProjectiles(dt) {
         dmgPopup(tf.pos.x, tf.headY + .4, tf.damage);
         FX.spark(p.x, p.y, .26, 5, p.cfg.color);
         SFX.tone(760, 980, .05, 'square', .035);
+        /* ★ Overclock Coil：电荷叠到第 3 层 → 放电（额外伤害 + 真正的击飞角度） */
+        if (p.cfg.coil) {
+          p.stuck.charge = ((p.stuck.charge | 0) + 1);
+          if (p.stuck.charge >= 3 && !p.stuck.zapped) {
+            p.stuck.zapped = true;
+            const dz = Math.sign(tf.pos.x - ((p.owner && p.owner.pos.x) || tf.pos.x - 1)) || 1;
+            tf.takeHit(p.owner, { dmg:6.5, bb:30, bg:58, ang:84 }, dz);
+            FX.burst(p.x, p.y, 0, p.cfg.color, 28, 26);
+            FX.ring(p.x, p.y, .30, 3.6, p.cfg.color, .46);
+            FX.flash(p.x, p.y, .42, 4.8, p.cfg.color, .3);
+            shake = Math.min(1.25, shake + .32);
+            SFX.special('heavy'); SFX.hit(30, 6);
+            callout(tf, '⚡ DISCHARGE', p.cfg.color);
+          }
+        }
       }
       if (p.stuck.t >= (p.cfg.stick || 2.0)) {
         p.stuck = null;
@@ -29343,6 +29377,26 @@ function updateProjectiles(dt) {
         SFX.tone(900, 520, .07, 'square', .05);
       }
       continue;
+    }
+    /* ★ Overclock Coil 的 LOCK-ON 弹：飞够 lockDelay 后强制咬住最近目标（homing 已每帧对准，
+       这里是「100% 命中」的兜底 —— 贴着墙/绕圈/被弹开也照样咬上）。 */
+    if (p.cfg.lockOn && !p.stuck && p.t > (p.cfg.lockDelay || .45)) {
+      let tf0 = null, bd0 = 1e9;
+      for (const f of FIGHTERS) {
+        if (!f || f === p.owner || f.eliminated || f.abducted) continue;
+        if (p.owner && p.owner.team >= 0 && isTeammate(p.owner, f)) continue;
+        const d = Math.hypot(f.pos.x - p.x, (f.pos.y + 1.15 * f.def.shape.scale) - p.y);
+        if (d < bd0) { bd0 = d; tf0 = f; }
+      }
+      if (tf0) {
+        tf0.takeHit(p.owner, { dmg:p.cfg.dmg, bb:0, bg:0, ang:p.cfg.ang || 26 }, Math.sign(tf0.pos.x - p.x) || 1);
+        if (p.cfg.para) tf0.para = Math.max(tf0.para || 0, p.cfg.para);
+        p.stuck = { f: tf0, t:0, tickT:0 };
+        FX.burst(p.x, p.y, 0, p.cfg.color, 18, 14);
+        FX.ring(p.x, p.y, .26, 2.4, p.cfg.color, .38);
+        SFX.hit(24, 5);
+        continue;                                        // 本帧起走「黏住」分支（tick / 弹射照旧）
+      }
     }
     /* ★ Alien·追踪弹：把速度方向按转向速率朝最近敌人掰过去（只按距离选目标 → 确定性） */
     if (p.cfg.homing) {
@@ -31262,7 +31316,16 @@ const SUMMON_WEAPONS = [
      mech 字段是机制 id，实战里由 doSpecial / 弹道逻辑读它（见 titanHand 与 homing 块）。 */
   { id:'titan_seeker_fist', char:'titan', name:'Seeker Fist', for:'Titan', rar:'specialW', wt:'melee',
     bonus:{ dmg:1 }, mech:'titanFullHoming',
-    desc:'Rocket Hand becomes FULL tracking (turns onto the target every frame) — it still detonates on ground and on any platform' }
+    desc:'Rocket Hand becomes FULL tracking (turns onto the target every frame) — it still detonates on ground and on any platform' },
+  /* ══ ★ 2026-11-18 Sparky·Overclock Coil（特殊武器）
+     ① 电荷放电：Chain Bolt 每 tick 叠一层电荷，第 3 层放电 → 额外 6.5% + bb30/bg58/84°（他第一个能杀人的必杀）
+     ② 每第 3 发 Chain Bolt 变成 **100% 命中** 的追踪弹（homing.instant 每帧对准 + 0.45s 强制咬人兜底）
+     ③ 代价：sp_n 冷却 1.7 → 2.4s、黏滞时间 2.0 → 1.6s（否则控场过强） */
+  { id:'overclock_coil', char:'sparky', name:'Overclock Coil', for:'Sparky', rar:'specialW', wt:'melee',
+    bonus:{ dmg:1 }, mech:'chainDischarge', every:3,
+    discharge:{ dmg:6.5, bb:30, bg:58, ang:84, ticks:3 },
+    lockOn:{ turn:9, delay:.45 },
+    desc:'Chain Bolt builds CHARGE: the 3rd tick DISCHARGES for +6.5% with a real launch. Every 3rd Chain Bolt is a LOCK-ON bolt that CANNOT miss.' }
 ];
 /* 装备了武器 → 读它的小增益（没装备 / 不匹配返回 null）。只在命中时调用，不进逐帧热路径。 */
 function weaponBonus(charId) {
