@@ -14730,6 +14730,20 @@ class Fighter {
       /* ① 蓄力（和 Rocky 中立B 蓄力同款：拳头收到腰后、身体后仰、越蓄越抖） */
       if (P2.phase === 'charge') {
         const ck = Math.min(1, P2.t / (P2.chargeT || .5));
+        /* ★ 蓄力期间把敌人**锁在原地**：不能行动、不下落（悬空就定在空中）。
+           锁定点取蓄力开始那一刻的位置，整段蓄力期间每帧写回 → 人机/玩家都挣不脱。 */
+        const lk = P2.target;
+        if (lk && !lk.eliminated && !lk.abducted) {
+          if (P2.lockX === undefined) { P2.lockX = lk.pos.x; P2.lockY = lk.pos.y; }
+          lk.pos.x = P2.lockX; lk.pos.y = P2.lockY;
+          lk.vel.set(0, 0, 0);
+          lk.hitstun = Math.max(lk.hitstun || 0, .08);
+          if (lk.state !== 'hitstun') { lk.state = 'hitstun'; lk.stateT = 0; }
+          if (P2.t % .12 < dt) {
+            FX.ring(lk.pos.x, lk.pos.y + 1.0, .22, 1.7, 0xffd166, .22);
+            FX.spark(lk.pos.x + (Math.random() - .5) * .9, lk.pos.y + 1.0, .22, 1, 0xffe9a0);
+          }
+        }
         if (P2.t % .06 < dt) {
           FX.spark(this.pos.x + (Math.random() - .5) * 1.1, this.pos.y + 1.1 + Math.random() * .8, .24, 1, 0xffd166);
           FX.dust(this.pos.x, this.pos.y + .05, 1, 0xffd166);
