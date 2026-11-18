@@ -32619,29 +32619,31 @@ NET.applyRoom = function (room) {
   const label = m => MODE_NAME[m] || 'ONLINE';
   /* ★ 实时在线人数：直接读守护进程 health（不需要先进房间/建 ws）。
      大厅左上角一个小胶囊 + 匹配面板里一行，每 5 秒刷一次。 */
+  /* ★ 2026-11-18（用户规格）：在线人数**不给玩家看**，只在后台记录。
+     - 删掉左上角 #onlineTag 胶囊（连 <style>、连 DOM 一起删，不留 display:none 的残骸）
+     - 删掉匹配面板里的 "Online now: N" 文案
+     - **保留** 每 5 秒一次的 health 探测：数字照样采、照样可查（window.__SB_ONLINE / SB.onlineInfo()），
+       服务端 health 里的 online 也一直在记。 */
   let onlineN = 0;
-  (function onlineTagInit() {
+  const ONLINE_LOG = [];                       // 环形采样 [ts, n]，最近 240 条 ≈ 20 分钟
+  window.__SB_ONLINE = { n: 0, at: 0, samples: ONLINE_LOG };
+  function onlineRecord(v) {
+    onlineN = v | 0;
+    const at = Date.now();
+    ONLINE_LOG.push([at, onlineN]);
+    while (ONLINE_LOG.length > 240) ONLINE_LOG.shift();
+    const o = window.__SB_ONLINE; o.n = onlineN; o.at = at;
     try {
-      const st = document.createElement('style');
-      st.textContent = '#onlineTag{position:fixed;left:12px;top:64px;z-index:40;display:flex;align-items:center;gap:6px;' +
-        'padding:5px 11px;border-radius:999px;font:600 11px/1 system-ui,sans-serif;letter-spacing:.6px;' +
-        'color:#bfe9ff;background:rgba(10,22,40,.72);border:1px solid rgba(140,231,255,.35);pointer-events:none}' +
-        '#onlineTag b{color:#7dff9b}';
-      document.head.appendChild(st);
-      const d = document.createElement('div');
-      d.id = 'onlineTag'; d.innerHTML = '<span>ONLINE</span><b>—</b>';
-      document.body.appendChild(d);
+      if (window.SB && !window.SB.onlineInfo) {
+        window.SB.onlineInfo = () => ({ n: onlineN, at, samples: ONLINE_LOG.slice(-20) });
+      }
     } catch (e) {}
-  })();
+  }
   async function pollOnline() {
     try {
       const r = await fetch(NET.apiBase + '?p=health', { cache: 'no-store' });
       const j = await r.json();
-      if (j && (j.online !== undefined)) {
-        onlineN = j.online | 0;
-        const t = document.getElementById('onlineTag');
-        if (t) t.innerHTML = '<span>ONLINE</span><b>' + onlineN + '</b>';
-      }
+      if (j && (j.online !== undefined)) onlineRecord(j.online);
     } catch (e) {}
   }
   pollOnline(); setInterval(pollOnline, 5000);
@@ -32671,7 +32673,7 @@ NET.applyRoom = function (room) {
     if (!ppl.length) ppl.push(ACC.nick || 'You');
     el.innerHTML =
       '<div class="tm">MATCHING ' + tm + ' · ' + label(mode) + '</div>' +
-      '<div class="fnd">Online now: <b>' + onlineN + '</b> · 3 stocks · random stage</div>' +
+      '<div class="fnd">3 stocks · random stage</div>' +
       '<div class="fnd">Found ' + ppl.length + ' player(s): ' + ppl.map(escHtml).join(', ') + '</div>' +
       (lastSug.length ? '<div class="sug">Another room has ' + (lastSug[0].free) + ' free seat(s)</div>' : '');
     /* ★ 补位节奏：5 秒、15 秒各补一个；30 秒补最后一个并开局（服务端 addbot 一次只填一个空位）。
@@ -32788,8 +32790,8 @@ NET.applyRoom = function (room) {
     const sh = $('sheetSetup'); if (sh) sh.classList.add('hidden');
     $('mmBox').classList.remove('hidden');
     const el = $('mmInfo');
-    if (el) el.innerHTML = '<div class="tm">PICK A MODE</div><div class="fnd">Online now: <b>' +
-      onlineN + '</b> · rules are fixed (3 stocks · CPU MAX · random stage)</div>';
+    if (el) el.innerHTML = '<div class="tm">PICK A MODE</div>' +
+      '<div class="fnd">rules are fixed (3 stocks · CPU MAX · random stage)</div>';
     pollOnline();
   };
   /* ★ 第 83 轮：后加入房间的人也能看到「匹配中 + 人数 + 计时」。
