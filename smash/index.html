@@ -26694,6 +26694,24 @@ const ACC = (() => {
     hasSkin(id) { return (a.skins || []).indexOf(String(id)) >= 0; },
     equipSkin(charId, skinId) { a.equipSkins[String(charId)] = String(skinId || ''); save(); return true; },
     skinOf(charId) { return (a.equipSkins && a.equipSkins[String(charId)]) || ''; },
+    /* ★ 2026-11-18 皮肤池收敛后清理存档：只保留 valid 里的皮肤 id（拥有列表 + 已装备），
+       返回是否真的改动过（改了就存盘）。由 SUMMON_SKINS 定义之后调用，避免 TDZ。 */
+    purgeSkins(valid) {
+      const set = Object.create(null);
+      for (const id of (valid || [])) set[id] = 1;
+      let changed = false;
+      if (Array.isArray(a.skins)) {
+        const keep = a.skins.filter(id => set[id]);
+        if (keep.length !== a.skins.length) { a.skins = keep; changed = true; }
+      }
+      if (a.equipSkins && typeof a.equipSkins === 'object') {
+        for (const k in a.equipSkins) {
+          if (a.equipSkins[k] && !set[a.equipSkins[k]]) { delete a.equipSkins[k]; changed = true; }
+        }
+      }
+      if (changed) save();
+      return changed;
+    },
     equipWeapon(charId, wId) { a.equipWeapon[String(charId)] = String(wId || ''); save(); return true; },
     weaponOf(charId) { return (a.equipWeapon && a.equipWeapon[String(charId)]) || ''; },
     /* ★ 活动奖励领取记录（本机存档）。每个活动只发一次；和教程标记同性质，不随账号迁移。 */
@@ -31319,26 +31337,12 @@ const SUMMON_SKINS   = [{ id:'smiley_penguin', char:'smiley', name:'Penguin', fo
                         { id:'cardboard_tv', char:'sovereign', name:'TV Man', for:'Cardboard' },
                         /* ★ 2026-11-17：手工建模皮肤（不是配色换色）：Foundry 警用款 */
                         { id:'foundry_police', char:'foundry', name:'Police Unit', for:'Foundry', rar:'skin' }];
-/* ★ 为每个角色注册一套主题皮肤（gen_<charId>）；已有专属建模皮肤的角色（sovereign/smiley）跳过。
-   Cobalt 那套是传奇「金色国王」（SKIN_LEGEND）。id 稳定，会存进账号。 */
-try {
-  const _skinTone = { Frost:'Frost', Ember:'Ember', Bloomborn:'Bloomborn', Duskward:'Duskward',
-                      Sunken:'Sunken', Void:'Void', Ivory:'Ivory', Crimson:'Crimson' };
-  for (const c of CHARS) {
-    if (SUMMON_SKINS.some(x => x.char === c.id)) continue;
-    /* ★ 2026-11-17 用户要求「删掉应付的皮肤（sparky 的 / Sunken），质量太低」：
-       这类 gen_ 皮肤本质是「换色 + 通用挂件」，直接不再生成。注意**不能从 SKIN_THEMES 里删条目**
-       —— 主题是按 `hash(id) % 长度` 取的，删一条会让其它角色的主题整体位移。 */
-    if (c.id === 'sparky') continue;
-    const id = 'gen_' + c.id;
-    const sp = skinSpecFor(Object.assign({}, c, { skin: id }));
-    if (!sp) continue;
-    if (sp.name === 'Sunken') continue;
-    SUMMON_SKINS.push({ id, char: c.id, gen: true, legendary: !!sp.legendary,
-      name: c.id === 'cobalt' ? 'Sovereign of Gold' : (sp.name + ' ' + c.name),
-      for: c.name, rar: sp.legendary ? 'legendary' : 'skin' });
-  }
-} catch (e) {}
+/* ★ 2026-11-18 用户要求：**去掉所有皮肤，只保留 Foundry / Smiley / Cardboard 的**。
+   以前这里会给每个角色注册一套 `gen_<charId>` 主题皮肤（换色 + 通用挂件，共 31 套，含传奇
+   「Sovereign of Gold」），现在整段删除 —— 皮肤池就只剩上面 3 套手工建模皮肤。
+   老存档里的 gen_* id 由下面的 purgeSkins() 清掉（否则 equipSkins 还挂着不存在的皮肤，
+   模型会按主题换色但界面里选不到）。 */
+try { ACC.purgeSkins && ACC.purgeSkins(SUMMON_SKINS.map(x => x.id)); } catch (e) {}
 
 function summonPoolLeft() {
   return { sup: CHARS.filter(c => c.supreme && !ACC.owns(c.id)),
