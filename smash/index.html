@@ -831,7 +831,8 @@ document.addEventListener('DOMContentLoaded', function () {
   #mmBox .mb{width:min(93vw,380px);background:linear-gradient(180deg,#161e3a,#0c1124);border:2px solid rgba(255,255,255,.16);
     border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:11px;box-shadow:0 18px 50px rgba(0,0,0,.6)}
   #mmBox h4{font-size:13px;letter-spacing:1.2px}
-  #mmBox .modes{display:none}                       /* ★ 第 85 轮：联机只有「开始」一种入口，不再选模式 */
+  #mmBox .modes{display:flex;flex-direction:column;gap:7px}   /* ★ 2026-11-17：先选模式，再进匹配 */
+#mmBox .mmNote{font-size:10.5px;opacity:.62;line-height:1.45;margin-top:2px}
   #mmBox .mode{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;cursor:pointer;
     background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.16);border-radius:12px;padding:10px 12px;
     color:#fff;font:inherit;transition:border-color .15s,background .15s}
@@ -957,9 +958,11 @@ document.addEventListener('DOMContentLoaded', function () {
 <div id="mmBox" class="hidden"><div class="mb">
   <h4>ONLINE MATCH · pick a mode</h4>
   <div class="modes">
-    <button class="mode" data-mode="cpu"><b><svg class="ico"><use href="#i-swords"/></svg>CPU FILL</b><i>humans + CPUs filling empty seats</i></button>
-    <button class="mode" data-mode="classic"><b><svg class="ico"><use href="#i-users"/></svg>CLASSIC ROOM</b><i>humans only · no CPUs</i></button>
+    <button class="mode" data-mode="1v1"><b>1 v 1</b><i>Duel · 2 seats · 3 stocks</i></button>
+    <button class="mode" data-mode="2v2"><b>2 v 2</b><i>Teams · 4 seats · 3 stocks</i></button>
+    <button class="mode" data-mode="ffa"><b>4-PLAYER FFA</b><i>Free-for-all · 4 seats · 3 stocks</i></button>
   </div>
+  <div class="mmNote" id="mmNote">Matchmaking rules are fixed: 3 stocks · random stage</div>
   <div id="mmInfo" class="hidden"></div>
   <div class="row"><button class="no" id="mmClose">CLOSE</button></div>
 </div></div>
@@ -1261,32 +1264,26 @@ const STAGES = [
   /* ——— Verdant Steps / XL（2026-11-14）———
      ★ 2026-11-15：边缘抓取已从这里迁走（抓边改成地图级开关 ledgeGrab + 平台级 grab 标记），
        这两张图现在是普通台阶图：窄、层多、但不能抓边。抓边玩法见下面的 Ladder Works。 */
-  { id:'verdant', name:'Verdant Steps', mainW:44, mainD:8.2, mainH:1.8, platD:5.4, platH:.85, wallX:22,
-    fog:0x9ed0c4, topColor:0x5fc08a, rockColor:0x51697f, platColor:0x6f7fa0,
-    hint:'VERDANT STEPS · 14 staggered terraces',
-    plats:[ /* 最低一层必须是薄台：厚岛从台面往下垂 2.1 格，太矮会把角色头顶穿进去 */
-            {x:-13.5,y:4.2,w:7.0}, {x:13.5,y:4.2,w:7.0}, {x:0,y:4.2,w:7.6},
-            {x:-16.2,y:8.3,w:5.0,kind:'island'}, {x:16.2,y:8.3,w:5.0,kind:'island'},
-            {x:-8.6,y:7.3,w:5.6}, {x:8.6,y:7.3,w:5.6},
-            {x:0,y:9.2,w:8.6,kind:'island'},
-            {x:-13.6,y:11.2,w:4.6,kind:'cloud'}, {x:13.6,y:11.2,w:4.6,kind:'cloud'},
-            {x:0,y:13.8,w:6.8,kind:'island'},
-            {x:-6.6,y:16.6,w:4.2,kind:'cloud'}, {x:6.6,y:16.6,w:4.2,kind:'cloud'},
-            {x:0,y:19.4,w:5.4,kind:'cloud'} ] },
-  { id:'verdantXL', name:'Verdant Steps XL', mainW:84, mainD:9.6, mainH:2.2, platD:6.2, platH:.9, wallX:42,
-    fog:0x9ed0c4, topColor:0x5fc08a, rockColor:0x51697f, platColor:0x6f7fa0,
-    hint:'VERDANT STEPS XL · 19 terraces',
-    plats:[ /* 低层一律薄台（厚岛会顶到头），岛只放 y≥7 的层 */
-            {x:-28,y:4.6,w:10}, {x:28,y:4.6,w:10},
-            {x:-10.4,y:4.6,w:7}, {x:10.4,y:4.6,w:7}, {x:0,y:4.6,w:10},
-            {x:-22,y:9.6,w:7.4,kind:'island'}, {x:22,y:9.6,w:7.4,kind:'island'},
-            {x:-35,y:9.0,w:7,kind:'island'}, {x:35,y:9.0,w:7,kind:'island'},
-            {x:-12,y:10.4,w:7.6}, {x:12,y:10.4,w:7.6},
-            {x:0,y:12.8,w:15,kind:'island'},
-            {x:-24,y:14.6,w:6.4,kind:'cloud'}, {x:24,y:14.6,w:6.4,kind:'cloud'},
-            {x:-14,y:17.2,w:5.4,kind:'cloud'}, {x:14,y:17.2,w:5.4,kind:'cloud'},
-            {x:-5,y:19.6,w:6.4,kind:'cloud'}, {x:5,y:19.6,w:6.4,kind:'cloud'},
-            {x:0,y:22.6,w:7.0} ] },
+  /* ——— Ocean / Ocean XL（2026-11-17）：全水域地图 ———
+     用户规格：删 Verdant Steps；水里缓慢下降 + 无限跳；击退略减但保留大部分；
+     没有底部大平台（只有空中平台）；装饰珊瑚；每 15 秒一艘潜水艇**从后方往前**开过，
+     撞到的敌人被击退，250% 以上直接爆炸。 */
+  { id:'ocean', name:'Ocean', mainW:44, mainD:8.2, mainH:1.8, platD:5.4, platH:.85, wallX:22,
+    fog:0x12556e, topColor:0x5fd0e0, rockColor:0x1d4a63, platColor:0x5b93a8,
+    decks:[], water:true, sinkMax:2.6, kbMul:.85,
+    sub:{ every:15, speed:9.0, dmg:14, kbx:26, kby:15, boomAt:250 },
+    hint:'OCEAN · no floor · sink slowly, jump forever · SUB every 15s (from the back)',
+    plats:[ {x:0,y:5.0,w:9.0}, {x:-13,y:8.2,w:6.0}, {x:13,y:8.2,w:6.0},
+            {x:-6.5,y:11.6,w:6.0}, {x:6.5,y:11.6,w:6.0}, {x:0,y:15.2,w:7.0} ] },
+  { id:'oceanXL', name:'Ocean XL', mainW:84, mainD:9.6, mainH:2.2, platD:6.2, platH:.9, wallX:42,
+    fog:0x12556e, topColor:0x5fd0e0, rockColor:0x1d4a63, platColor:0x5b93a8,
+    decks:[], water:true, sinkMax:2.6, kbMul:.85,
+    sub:{ every:15, speed:10.0, dmg:14, kbx:28, kby:16, boomAt:250 },
+    hint:'OCEAN XL · 84 wide · 11 floating reefs · no floor · SUB every 15s',
+    plats:[ {x:-28,y:5.2,w:9.0}, {x:28,y:5.2,w:9.0}, {x:0,y:5.2,w:11.0},
+            {x:-14,y:9.0,w:7.0}, {x:14,y:9.0,w:7.0}, {x:-35,y:12.4,w:6.0}, {x:35,y:12.4,w:6.0},
+            {x:-6,y:13.0,w:7.0}, {x:6,y:13.0,w:7.0},
+            {x:-20,y:17.0,w:6.0}, {x:20,y:17.0,w:6.0}, {x:0,y:19.0,w:8.0} ] },
 ];
 let curStage = 0;
 /* ★ 2026-11-17：梯子图（Ladder Works / Ladder Works XL）已整张删除，STAGES 变短；
@@ -1371,10 +1368,13 @@ const CHARS = [
     accel:44, airAccel:28, fric:24,
     mul:{ dmg:1.22, kb:1.18, spd:.84 },
     special:{
-      n:{kind:'proj',label:'Rock Cannon',cd:.85,dmg:8.6,bb:11,bg:30,spd:19,size:.95,color:0x9c8f79,life:2.2},
-      s:{kind:'dash',label:'Boulder Charge',cd:1.3,dmg:12.4,bb:16,bg:56,spd:1.9,dur:.5,color:0xb0a48c},
-      u:{kind:'recover',label:'Rising Rock',cd:1.6,dmg:9.6,bb:13,bg:54,rise:26,dur:.66,color:0xc9bda6},
-      d:{kind:'wave',label:'Earthshock',cd:2.0,dmg:12.5,bb:17,bg:56,radius:6.4,color:0xd8cbb2} } },
+      /* ⚠ 真正生效的是 CHAR_EXTRA.rocky（浅合并整块覆盖）—— 两处保持一致 */
+      n:{kind:'chargeMelee',label:'Boulder Punch',cd:1.5,dmg:8.0,bb:6.5,bg:21,charge:.70,chargeMul:2.0,kbFlat:true,
+         radius:2.6,reach:2.0,stun:.20,color:0xc9bda6,rockyStones:5,stoneDmg:3.64,stoneBb:2.6,stoneBg:8.4},
+      s:{kind:'dash',label:'Boulder Charge',cd:1.4,dmg:13.0,bb:17,bg:58,spd:1.9,dur:.50,color:0xb0a48c,armor:true,
+         keep:true,rockCrash:true,bind:1.0,crashDmg:14.0,crashBb:18,crashBg:58},
+      u:{kind:'recover',label:'Rising Rock',cd:1.6,dmg:9.0,bb:13,bg:52,rise:24,dur:.66,fx:'shard',anim:'thrust',color:0xc9bda6,pillar:true},
+      d:{kind:'quake',label:'Earthshatter',cd:9.0,dmg:2.0,bb:14,bg:10,ang:84,radius:8.0,dur:2.0,gap:.25,lock:2.0,color:0xd8cbb2} } },
 
   { id:'zephyr', name:'Zephyr', en:'ZEPHYR', tag:'Aerial',
     body:0x2fd6b0, body2:0xa8fbe6, dark:0x149b81, eye:0x11262a,
@@ -1649,19 +1649,23 @@ const CHAR_EXTRA = {
          对手滞空约 0.7 秒，正好够 Sparky 立刻上B 卷上去把连段接起来。 */
       d:{kind:'upKick',label:'Volt Upper',cd:2.6,dmg:9.5,bb:26,bg:6,ang:86,reach:2.0,dur:.42,hitAt:.14,color:0xffe066} } },
   rocky: {
-    trait:'Charged Boulder Punch · Super Armor',
-    skills:'Neutral B Boulder Punch (hold to charge up to 2x, armored, pure melee) · Side B Boulder Charge (armored dash, ignores knockback) · Up B Rising Rock · Down B Earthshock (ground only, high launch)',
+    trait:'Seismic Fist · Boulder Quake',
+    skills:'Neutral B Boulder Punch (halved punch, then 5 scattering stones — all 5 land = 20%) · Side B Boulder Charge (armored dash that STOPS on the first foe it hits, binds them in falling rock for 1s, then delivers a charged heavy punch) · Up B Rising Rock · Down B Earthshatter (hands to the ground: 2s quake that keeps launching everyone standing on YOUR level, and anyone launched can\'t act for 2s) · FINAL SMASH Fist Barrage (5s: every B becomes a heavy punch, 10% each, 1s cooldown)',
     shape:{ scale:1.22, headR:.66 },
     weight:128, walk:8.4, run:13.6, air:9.4, jump:25.6, jumps:2, fall:42, fastFall:64,
     accel:44, airAccel:28, fric:24, mul:{ dmg:1.10, kb:1.00, spd:0.84 },   // kb 1.06→1.00：单发伤害已是全场最高，不再叠最高击退（2026-10-15 用户要求削击退）
     special:{
-      // ⚠ 原来 bb 也被蓄力乘（bb24×2.0=48）→ 满蓄力在 0% 就把人 KO（实测）。现在 kbFlat:true：
-      //    蓄力只把伤害 16→32（全场最大单发），击退与点按一致（和公用蓄力重击同规则）
-      n:{kind:'chargeMelee',label:'Boulder Punch',cd:1.5,dmg:16.0,bb:13,bg:42,charge:.70,chargeMul:2.0,kbFlat:true,
-         radius:2.6,reach:2.0,stun:.20,color:0xc9bda6},
-      s:{kind:'dash',label:'Boulder Charge',cd:1.4,dmg:13.0,bb:17,bg:58,spd:1.9,dur:.50,color:0xb0a48c,armor:true},
+      /* ★ 2026-11-17 第五次重做：拳的伤害/击退减半（16→8 / bb13→6.5、bg42→21），
+         出拳后向身前散射 5 颗石子，每颗 3.64（×mul.dmg 1.10 = 4.0）→ 5 颗全中 = 20.0%。
+         石子击退 2.6/8.4 = 旧中立B 的 1/5，命中数越多叠得越多（见 updateProjectiles 的 stoneStack）。 */
+      n:{kind:'chargeMelee',label:'Boulder Punch',cd:1.5,dmg:8.0,bb:6.5,bg:21,charge:.70,chargeMul:2.0,kbFlat:true,
+         radius:2.6,reach:2.0,stun:.20,color:0xc9bda6,rockyStones:5,stoneDmg:3.64,stoneBb:2.6,stoneBg:8.4},
+      /* ★ 左右B 保持冲刺（霸体），撞到人 → 岩崩把人困住 1 秒 + 冲刺立刻停下 + 蓄力重拳 14%。 */
+      s:{kind:'dash',label:'Boulder Charge',cd:1.4,dmg:13.0,bb:17,bg:58,spd:1.9,dur:.50,color:0xb0a48c,armor:true,
+         keep:true,rockCrash:true,bind:1.0,crashDmg:14.0,crashBb:18,crashBg:58},
       u:{kind:'recover',label:'Rising Rock',cd:1.6,dmg:9.0,bb:13,bg:52,rise:24,dur:.66,fx:'shard',anim:'thrust',color:0xc9bda6,pillar:true},
-      d:{kind:'wave',label:'Earthshock',cd:2.0,dmg:13.5,bb:15,bg:48,radius:7.0,color:0xd8cbb2,groundOnly:true} } },
+      /* ★ 下B：双手触地地震 2 秒，每 .25s 把「和自己同一高度（含同一平台）」的敌人再次击飞，并给 2 秒不能动。 */
+      d:{kind:'quake',label:'Earthshatter',cd:9.0,dmg:2.0,bb:14,bg:10,ang:84,radius:8.0,dur:2.0,gap:.25,lock:2.0,color:0xd8cbb2} } },
   zephyr: {
     trait:'Tornado Rush · Wind Wall',
     skills:'Neutral B Tornado (hurls a spinning tornado that travels forward — anything it catches is launched STRAIGHT UP, KO around 180%) · Side B Blink (phases through foes) · Up B Cyclone (multi-hit) · Down B Wind Wall (1.1s, reflects projectiles) · hold Jump in air = glide',
@@ -2671,6 +2675,7 @@ CHARS.push({ id:'mosquito', name:'Mosquito', en:'MOSQUITO', tag:'Blood',
   body:0x6b5b4a, body2:0xc9b9a3, dark:0x2e2620, eye:0xff3b30,
   shape:{ scale:1.0, headR:.46 },
   weight:64, walk:9.2, run:14.2, air:12.5, jump:0, jumps:0, fall:26, fastFall:34,
+  kbTaken:1.5,                                   // ★ 受到的击退 ×1.5（见 takeHit 的 launch 公式）
   accel:46, airAccel:40, fric:24, mul:{ dmg:1.0, kb:.95, spd:1.0 },
   moves:{},
   special:{} });
@@ -2684,6 +2689,7 @@ CHAR_EXTRA.mosquito = {
     + 'Final Smash Swarm Sight (10s: fly 50% faster AND your black-sight lifts — you can see the whole stage).',
   shape:{ scale:1.0, headR:.46 },
   weight:64, walk:9.2, run:14.2, air:12.5, jump:0, jumps:0, fall:26, fastFall:34,
+  kbTaken:1.5,                                   // ★ 受到的击退 ×1.5（两处保持一致；生效的是这一份）
   accel:46, airAccel:40, fric:24, mul:{ dmg:1.0, kb:.95, spd:1.0 },
   special:{
     /* 中立B：尖刺 —— 命中 15% 伤害 + 自己回 5%（不是击退技，飞得慢、判定小） */
@@ -2898,6 +2904,36 @@ CHAR_EXTRA.bomber = {
         dmg:12, bb:14, bg:38, ang:70, R:4.2, rise:28.5, dur:.66, hitDmg:6.5, hitBb:9, hitBg:38 },
   } };
 
+/* ══════════════════ ★ Foundry（第 44 号角色，2026-11-17）：机架式重装坦克 ══════════════════
+   外观：宽方机架躯干（骨架照 Rocky 那套）+ 机械纹路/散热格栅/铆钉 + 胸口发光核心 +
+        护目镜式发光眼 + 头顶天线 + 右手钳子 / 左手激光剑 + 背部双喷气筒。
+   四招：中立B 钳拉→核心激光（10×3% = 30%）/ 下B 强制蓄力 1 秒后扫射激光（10×5% = 50%）/
+        左右B 喷气冲锋撞停 + 必定命中的剑三连 + 麻痹 2 秒 / 上B 上升并朝附近每人射不跟踪弹 /
+        大招 悬空向下喷火 4 秒（70%）。伤害按字面写死（mul.dmg = 1.00，不叠倍率）。 */
+CHARS.push({ id:'foundry', name:'Foundry', en:'FOUNDRY', tag:'Tank',
+  body:0x7d8792, body2:0xb3bcc6, dark:0x39414b, eye:0x8fe8ff,
+  shape:{ ears:null, tail:null, scale:1.24, headR:.62 },
+  weight:132, walk:8.0, run:13.0, air:9.0, jump:25.4, jumps:2, fall:42, fastFall:62,
+  accel:42, airAccel:26, fric:24,
+  mul:{ dmg:1.00, kb:1.05, spd:.86 },
+  moves:{},
+  special:{} });
+CHAR_EXTRA.foundry = {
+  trait:'Pincer Core · Jet Frame',
+  skills:'Neutral B Pincer Snatch (reel in the foe in front of you, then burn them with the chest core — 10 ticks x 3% = 30%) · Side B Jet Ram (jetpack dash; the first foe you touch eats a guaranteed 3-hit laser-sword combo and is paralyzed for 2s) · Up B Hover Shot (fly up and fire NON-homing bolts from the pincer at every nearby foe) · Down B Sweep Beam (1s forced charge, uninterruptible, then a 1s laser sweep whose angle keeps rising — 10 ticks x 5% = 50%) · FINAL SMASH Foundry Storm (hover and rain a wide flame cone for 4s — 70%)',
+  shape:{ scale:1.24, headR:.62 },
+  weight:132, walk:8.0, run:13.0, air:9.0, jump:25.4, jumps:2, fall:42, fastFall:62,
+  accel:42, airAccel:26, fric:24, mul:{ dmg:1.00, kb:1.05, spd:.86 },
+  special:{
+    /* 中立B：钳子拉人 → 核心激光 10 拍 × 3.0 = 30% */
+    n:{kind:'fndPull',label:'Pincer Snatch',cd:4.0,dmg:30.0,tickDmg:3.0,tick:.10,pullT:.40,burnT:1.06,range:7.2,color:0xffa030},
+    /* 左右B：喷气冲锋 → 撞停 → 剑三连（每段 6.0 = 18%）+ 麻痹 2 秒 */
+    s:{kind:'fndDash',label:'Jet Ram',cd:3.2,dmg:18.0,hitDmg:6.0,spd:2.0,dur:.46,para:2.0,color:0x9fe8ff},
+    /* 上B：上升 + 朝附近每个敌人射不跟踪弹（2 轮 × 6.0） */
+    u:{kind:'fndRise',label:'Hover Shot',cd:2.4,dmg:6.0,rise:24,dur:.80,volleys:2,gap:.18,range:9.0,color:0x9fe8ff},
+    /* 下B：强制蓄力 1 秒（不可打断）→ 扫射 1 秒，角度 -8°→58°，10 拍 × 5.0 = 50% */
+    d:{kind:'fndSweep',label:'Sweep Beam',cd:9.0,dmg:50.0,tickDmg:5.0,tick:.10,chargeT:1.0,fireT:1.0,ang0:-10,ang1:34,len:9.0,beamW:1.2,cone:.26,color:0xffa030} } };
+
 for (const c of CHARS) {
   const x = CHAR_EXTRA[c.id];
   if (!x) continue;
@@ -2951,7 +2987,11 @@ const fill = new THREE.DirectionalLight(0x88bbff, .45); fill.position.set(20, 14
 const LIGHT_BASE = { hemi: hemi.intensity, sun: sun.intensity, fill: fill.intensity };
 
 /* 天空 + 远景（全部程序化，零素材） */
+const SKY = { root:null, dome:null, clouds:null, mounts:null };   // ★ Ocean 图要整体隐藏「天空+云+远山」
 function buildSky() {
+  SKY.root = new THREE.Group(); scene.add(SKY.root);
+  SKY.clouds = new THREE.Group(); SKY.root.add(SKY.clouds);
+  SKY.mounts = new THREE.Group(); SKY.root.add(SKY.mounts);
   const g = new THREE.SphereGeometry(220, 32, 20);
   const m = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite:false,
@@ -2959,7 +2999,7 @@ function buildSky() {
     vertexShader:'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
     fragmentShader:'uniform vec3 top,mid,bot; varying float h; void main(){ float t=clamp(h,0.,1.); vec3 c = mix(mix(bot,mid,smoothstep(0.,.35,t)), top, smoothstep(.28,1.,t)); gl_FragColor=vec4(c,1.); }'
   });
-  scene.add(new THREE.Mesh(g, m));
+  SKY.dome = new THREE.Mesh(g, m); SKY.dome.frustumCulled = false; SKY.root.add(SKY.dome);
   // 云
   const cloudG = new THREE.SphereGeometry(1, 8, 6);
   const cloudM = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:1, flatShading:true, transparent:true, opacity:.9 });
@@ -2973,7 +3013,7 @@ function buildSky() {
       c.add(s);
     }
     c.position.set((Math.random()-.5)*260, 24 + Math.random()*46, -70 - Math.random()*110);
-    scene.add(c);
+    SKY.clouds.add(c);
   }
   // 远山
   const mountM = new THREE.MeshStandardMaterial({ color:0x5f7fa8, roughness:1, flatShading:true });
@@ -2983,10 +3023,448 @@ function buildSky() {
     const cone = new THREE.Mesh(new THREE.ConeGeometry(16 + Math.random()*22, h, 5 + (Math.random()*3|0)), i % 2 ? mountM : mountM2);
     cone.position.set((Math.random()-.5)*300, h/2 - 12, -110 - Math.random()*90);
     cone.rotation.y = Math.random()*3;
-    scene.add(cone);
+    SKY.mounts.add(cone);
   }
 }
 buildSky();
+
+/* ================= ★ Ocean 水下背景（2026-11-18）=================
+   用户规格：Ocean 地图的背景不要「山」，要「海洋」；加鱼这类细节，并注意质量。
+   做法：原 buildSky() 的天空球 / 云 / 远山现在收进 SKY 组，Ocean 图整体隐藏，
+   换成这套全程序化的水下世界（零素材）：
+     · 渐变水体天球（水面亮青 → 深处近黑蓝，ShaderMaterial 不吃 fog，天然当底）
+     · 3 层远景礁石剪影（越远越淡：用 fog 做纵深，取代原来的「远山」）
+     · 海藻林（InstancedMesh，整条左右摆动）
+     · 鱼群 3 种（身体/尾巴各一个 InstancedMesh = 2 个 draw call；摆尾 + 群游 + 朝向跟随）
+     · 水母（脉冲浮动）+ 巨型鲸鱼剪影横穿
+     · 上升气泡柱 + 浮游生物（THREE.Points，位移在顶点着色器里算，CPU 零开销）
+     · 远景光柱（加色混合，透明度缓慢脉动）
+   全部纯表现层：**只用 Math.random()，绝不碰 RND()**（RND 是联机模拟流，见 _simStep / _rndLeak 告警）。
+   性能：整套 ~20 个 draw call，比被隐藏掉的「22 座山 + 26 团云」还少。
+   ------------------------------------------------------------------ */
+
+/* 把若干基本体烘焙成一个 BufferGeometry（一次 draw call）——不依赖 BufferGeometryUtils */
+function _mergeParts(parts) {
+  const P = [], N = [], U = [];
+  let hasUV = true;
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(),
+        v3 = new THREE.Vector3(), s3 = new THREE.Vector3();
+  for (const p of parts) {
+    const g = p.geo.index ? p.geo.toNonIndexed() : p.geo.clone();
+    e.set(p.rx || 0, p.ry || 0, p.rz || 0); q.setFromEuler(e);
+    v3.set(p.x || 0, p.y || 0, p.z || 0);
+    const base = (p.s === undefined ? 1 : p.s);
+    s3.set(p.sx === undefined ? base : p.sx,
+           p.sy === undefined ? base : p.sy,
+           p.sz === undefined ? base : p.sz);
+    m4.compose(v3, q, s3);
+    g.applyMatrix4(m4);
+    const a = g.attributes.position.array, b = g.attributes.normal ? g.attributes.normal.array : null;
+    const u = g.attributes.uv ? g.attributes.uv.array : null;
+    for (let i = 0; i < a.length; i++) P.push(a[i]);
+    if (b) for (let i = 0; i < b.length; i++) N.push(b[i]);
+    if (u) { for (let i = 0; i < u.length; i++) U.push(u[i]); } else hasUV = false;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  if (N.length) out.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+  /* ★ 2026-11-18：UV 必须一起合并 —— 漏掉时贴图采样恒为 (0,0)，柔边光柱整片透明（实测光柱「消失」） */
+  if (hasUV && U.length) out.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+  return out;
+}
+
+/* 柔边光柱贴图（程序生成）：竖直方向「上亮下透明」，横向按 sin 衰减 → 光柱不再是硬边多边形 */
+let _rayTexCache = null;
+function rayTex() {
+  if (_rayTexCache) return _rayTexCache;
+  const c = document.createElement('canvas'); c.width = 16; c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 128);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(.45, 'rgba(255,255,255,.52)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 16, 128);
+  const img = x.getImageData(0, 0, 16, 128);
+  for (let j = 0; j < 128; j++) for (let i = 0; i < 16; i++) {
+    const k = (j * 16 + i) * 4;
+    img.data[k + 3] = img.data[k + 3] * Math.sin(Math.PI * (i / 15));   // 两侧柔边
+  }
+  x.putImageData(img, 0, 0);
+  _rayTexCache = new THREE.CanvasTexture(c);
+  _rayTexCache.colorSpace = THREE.SRGBColorSpace;
+  return _rayTexCache;
+}
+
+/* ——— 鱼：几何体只建一次，OCEAN_BG（远景大鱼群）与 decoOcean（近景小鱼群）共用 ——— */
+const _FISHG = { body:null, tail:null };
+function fishGeos() {
+  if (_FISHG.body) return _FISHG;
+  _FISHG.body = _mergeParts([
+    { geo:new THREE.SphereGeometry(1, 10, 7), sx:1.0, sy:.50, sz:.34 },          // 身体
+    { geo:new THREE.ConeGeometry(.30, .52, 3), x:.04, y:.40, sz:.20 },          // 背鳍
+    { geo:new THREE.ConeGeometry(.22, .44, 3), x:-.10, y:-.30, rz:Math.PI, sz:.18 }, // 腹鳍
+  ]);
+  const t = new THREE.ConeGeometry(.46, .92, 3);
+  t.rotateZ(Math.PI / 2);                 // 锥尖朝 -X（鱼尾方向）
+  t.translate(-.46, 0, 0);                // 枢轴落在 0 → 摆尾绕 Y 转
+  t.scale(1, 1, .30);
+  _FISHG.tail = t;
+  return _FISHG;
+}
+
+const _FS = { o:new THREE.Object3D(), m1:new THREE.Matrix4(), m2:new THREE.Matrix4(),
+              q:new THREE.Quaternion(), v:new THREE.Vector3(), s:new THREE.Vector3(1,1,1),
+              yAxis:new THREE.Vector3(0,1,0) };
+
+/* 建一群鱼：S = { n, col, emi, size, baseY, span, sp, z, spread:[x,y,z] } */
+function makeFishSchool(parent, S) {
+  const G = fishGeos();
+  const mat = new THREE.MeshStandardMaterial({ color:S.col, roughness:.52, metalness:.18,
+    emissive:S.emi, emissiveIntensity:.30, flatShading:true });
+  const body = new THREE.InstancedMesh(G.body, mat, S.n);
+  const tail = new THREE.InstancedMesh(G.tail, mat, S.n);
+  body.frustumCulled = false; tail.frustumCulled = false;
+  parent.add(body); parent.add(tail);
+  const list = [];
+  for (let i = 0; i < S.n; i++) list.push({
+    ox:(Math.random() - .5) * S.spread[0], oy:(Math.random() - .5) * S.spread[1],
+    oz:(Math.random() - .5) * S.spread[2], ph:Math.random() * 6.2832,
+    sc:.74 + Math.random() * .52 });
+  const school = { S, body, tail, list, ph:Math.random() * 6.2832 };
+  tickFishSchool(school, 0);              // 先摆好，避免第一帧全部叠在原点
+  return school;
+}
+
+function tickFishSchool(school, t) {
+  const S = school.S, F = _FS;
+  const ph = t * S.sp + school.ph;
+  const cx = Math.sin(ph) * S.span * .5;
+  const cy = S.baseY + Math.sin(ph * 1.7) * 1.5;
+  const cz = S.z + Math.cos(ph * .9) * 3.0;
+  const yaw = Math.cos(ph) >= 0 ? 0 : Math.PI;      // 朝向跟随游动方向（鱼头朝速度方向）
+  for (let i = 0; i < school.list.length; i++) {
+    const f = school.list[i];
+    F.o.position.set(cx + f.ox + Math.cos(t * 2.2 + f.ph) * .32,
+                     cy + f.oy + Math.sin(t * 3.1 + f.ph) * .26,
+                     cz + f.oz);
+    F.o.rotation.set(0, yaw + Math.sin(t * 2.0 + f.ph) * .20, Math.sin(t * 6.0 + f.ph) * .10);
+    F.o.scale.setScalar(S.size * f.sc);
+    F.o.updateMatrix();
+    school.body.setMatrixAt(i, F.o.matrix);
+    F.q.setFromAxisAngle(F.yAxis, Math.sin(t * 9.0 + f.ph) * .55);   // 摆尾
+    F.m2.compose(F.v.set(-.86, 0, 0), F.q, F.s.set(1, 1, 1));
+    F.m1.multiplyMatrices(F.o.matrix, F.m2);
+    school.tail.setMatrixAt(i, F.m1);
+  }
+  school.body.instanceMatrix.needsUpdate = true;
+  school.tail.instanceMatrix.needsUpdate = true;
+}
+
+const OCEAN_BG = (function () {
+  let built = false, on = false, root = null, tB = 0;
+  let kelpMesh = null, bubMesh = null, jellyMesh = null, plank = null, rayMesh = null, whale = null;
+  let manta = null, mantaWings = null;
+  const kelp = [], bub = [], jelly = [], schools = [];
+
+  function build() {
+    if (built) return;
+    built = true;
+    root = new THREE.Group(); root.visible = false; scene.add(root);
+
+    /* ——— 1) 水体天球：上亮下暗，代替天空球 ——— */
+    const domeMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite:false, fog:false,
+      uniforms:{ top:{ value:new THREE.Color(0x8ff0ff) }, mid:{ value:new THREE.Color(0x12556f) },
+                 bot:{ value:new THREE.Color(0x030f18) } },
+      vertexShader:'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+      fragmentShader:'uniform vec3 top,mid,bot; varying float h; void main(){ float t = clamp(h,-1.,1.);' +
+        ' vec3 c = t > 0. ? mix(mid, top, smoothstep(0.,.55,t)) : mix(mid, bot, smoothstep(0.,.62,-t));' +
+        ' gl_FragColor = vec4(c, 1.); }'
+    });
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(230, 32, 20), domeMat);
+    dome.frustumCulled = false; root.add(dome);
+
+    /* ——— 2) 远景礁石剪影：3 层（z 越远越淡，靠 fog 压掉）——— */
+    /* 远景礁体 = 3 层剪影：**又宽又矮的海床丘 + 细高珊瑚塔**（不是尖山）。
+       材质用 MeshBasicMaterial + fog:false：远景层本来就是「无光照的剪影」，
+       既不会被半球光提亮成浅色山，也不会被雾冲淡；纵深感靠三层各自的明度差。 */
+    const REEF = [
+      { z:-96,  c:0x0e4459, n:8, w:210, h:16, y:-25 },
+      { z:-136, c:0x092f40, n:7, w:280, h:24, y:-29 },
+      { z:-182, c:0x061d27, n:6, w:350, h:32, y:-33 },
+    ];
+    for (const L of REEF) {
+      const parts = [];
+      for (let i = 0; i < L.n; i++) {
+        const px = (Math.random() - .5) * L.w;
+        const hh = L.h * (.45 + Math.random() * .8);
+        const rr = hh * (1.6 + Math.random() * 1.0);        // 宽 > 高 → 海床丘
+        parts.push({ geo:new THREE.IcosahedronGeometry(rr, 0),
+                     x:px, y:L.y + hh * .08, z:L.z + (Math.random() - .5) * 14,
+                     sy:(hh / rr) * .9, ry:Math.random() * 3 });
+        for (let k = 0; k < 3; k++) {                        // 丘边的石块
+          parts.push({ geo:new THREE.IcosahedronGeometry(rr * .30, 0),
+                       x:px + (Math.random() - .5) * rr * 2.5,
+                       y:L.y + hh * (.08 + Math.random() * .35),
+                       z:L.z + (Math.random() - .5) * 12,
+                       s:.6 + Math.random() * .8 });
+        }
+        if (i % 2 === 0) {                                   // 珊瑚柱：粗一点、矮一点（细杆会读成鱼线）
+          const th = hh * (1.0 + Math.random() * .9), tr = .9 + Math.random() * 1.3;
+          parts.push({ geo:new THREE.CylinderGeometry(tr * .55, tr, th, 6),
+                       x:px + (Math.random() - .5) * rr * 1.5, y:L.y + th * .5,
+                       z:L.z + (Math.random() - .5) * 10, rz:(Math.random() - .5) * .26 });
+          for (let k = 0; k < 2; k++) {                      // 柱顶的珊瑚枝
+            parts.push({ geo:new THREE.ConeGeometry(tr * .9, th * .55, 4),
+                         x:px + (Math.random() - .5) * rr * 1.5 + (k ? tr : -tr) * .8,
+                         y:L.y + th * (0.95 + Math.random() * .25),
+                         z:L.z + (Math.random() - .5) * 8,
+                         ry:Math.random() * 3, rz:(k ? 1 : -1) * (.25 + Math.random() * .3) });
+          }
+        }
+      }
+      const mesh = new THREE.Mesh(_mergeParts(parts),
+        new THREE.MeshLambertMaterial({ color:L.c, fog:false, flatShading:true }));
+      mesh.frustumCulled = false; root.add(mesh);
+    }
+
+    /* ——— 3) 海藻林（一次 draw call，整条摆动）——— */
+    const blade = new THREE.PlaneGeometry(1, 1);
+    blade.translate(0, .5, 0);                     // 枢轴在底部 → 摆动像从根部弯
+    kelpMesh = new THREE.InstancedMesh(blade,
+      new THREE.MeshStandardMaterial({ color:0x21805a, roughness:.85, side:THREE.DoubleSide,
+        transparent:true, opacity:.90 }), 46);
+    kelpMesh.frustumCulled = false; root.add(kelpMesh);
+    for (let i = 0; i < 46; i++) {
+      kelp.push({ x:(Math.random() - .5) * (STAGE.mainW + 70), y:-19 - Math.random() * 3,
+                  z:-9 - Math.random() * 38, h:7 + Math.random() * 14, w:.55 + Math.random() * .8,
+                  ry:(Math.random() - .5) * 1.2, ph:Math.random() * 6.2832, sp:.45 + Math.random() * .55 });
+    }
+
+    /* ——— 4) 鱼群（远景大鱼 + 中层鱼群）——— */
+    schools.push(makeFishSchool(root, { n:22, col:0x86e6ff, emi:0x2f8fbd, size:.70,
+      baseY:12.5, span:38, sp:.30, z:-20, spread:[8.0, 2.2, 2.4] }));
+    schools.push(makeFishSchool(root, { n:16, col:0xffb648, emi:0x8a4700, size:.82,
+      baseY:-1.5, span:44, sp:.21, z:-34, spread:[6.6, 2.2, 2.6] }));
+    schools.push(makeFishSchool(root, { n:9, col:0x2f7699, emi:0x0a2534, size:1.75,
+      baseY:16.0, span:58, sp:.15, z:-56, spread:[7.5, 2.8, 3.2] }));
+
+    /* ——— 5) 水母（脉冲 + 上浮）——— */
+    const jParts = [
+      { geo:new THREE.SphereGeometry(.62, 10, 8, 0, Math.PI * 2, 0, Math.PI * .62), sy:.78 },
+    ];
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * 6.2832;
+      jParts.push({ geo:new THREE.ConeGeometry(.045, .95, 3), rz:Math.PI,
+                    x:Math.cos(a) * .32, y:-.72, z:Math.sin(a) * .32 });
+    }
+    jellyMesh = new THREE.InstancedMesh(_mergeParts(jParts),
+      new THREE.MeshStandardMaterial({ color:0xd3b4ff, emissive:0x6c3fd6, emissiveIntensity:.55,
+        roughness:.35, metalness:.05, transparent:true, opacity:.55,
+        side:THREE.DoubleSide, depthWrite:false, flatShading:true }), 12);
+    jellyMesh.frustumCulled = false; root.add(jellyMesh);
+    for (let i = 0; i < 12; i++) jelly.push({
+      x:(Math.random() - .5) * (STAGE.mainW + 40), y:-6 + Math.random() * 24,
+      z:-14 - Math.random() * 34, s:.7 + Math.random() * 1.15,
+      ph:Math.random() * 6.2832, sp:.30 + Math.random() * .35 });
+
+    /* ——— 5b) 蝠鲼：中景的大剪影，翅膀一直扇（保证任何时候背景里都有「大鱼」）——— */
+    {
+      const mm = new THREE.MeshStandardMaterial({ color:0x123c52, roughness:.88, flatShading:true,
+        emissive:0x05161f, emissiveIntensity:.85, side:THREE.DoubleSide });
+      manta = new THREE.Group();
+      const mBody = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), mm);
+      mBody.scale.set(1.5, .42, 2.5); manta.add(mBody);
+      const wingR = new THREE.ConeGeometry(1.15, 3.9, 3);
+      wingR.rotateZ(-Math.PI / 2); wingR.translate(1.85, 0, 0); wingR.scale(1, 1, .20);
+      const wingL = new THREE.ConeGeometry(1.15, 3.9, 3);
+      wingL.rotateZ(Math.PI / 2); wingL.translate(-1.85, 0, 0); wingL.scale(1, 1, .20);
+      mantaWings = [new THREE.Mesh(wingR, mm), new THREE.Mesh(wingL, mm)];
+      manta.add(mantaWings[0]); manta.add(mantaWings[1]);
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(.16, 4.2, 4), mm);
+      tail.rotation.x = -Math.PI / 2; tail.position.z = -3.9; manta.add(tail);
+      for (const sgn of [-1, 1]) {                       // 头鳍
+        const cf = new THREE.Mesh(new THREE.ConeGeometry(.30, 1.7, 3), mm);
+        cf.position.set(sgn * .85, .05, 2.5); cf.rotation.set(1.2, 0, sgn * .3);
+        manta.add(cf);
+      }
+      manta.scale.setScalar(1.35);
+      root.add(manta);
+    }
+
+    /* ——— 6) 气泡柱 ——— */
+    bubMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(.14, 6, 5),
+      new THREE.MeshBasicMaterial({ color:0xdaf6ff, transparent:true, opacity:.34, depthWrite:false }), 80);
+    bubMesh.frustumCulled = false; root.add(bubMesh);
+    for (let i = 0; i < 80; i++) bub.push({
+      x:(Math.random() - .5) * (STAGE.mainW + 60), y:-18 + Math.random() * 44,
+      z:-6 - Math.random() * 30, sp:1.6 + Math.random() * 2.6,
+      s:.5 + Math.random() * 1.5, ph:Math.random() * 6.2832, ws:.8 + Math.random() });
+
+    /* ——— 7) 浮游生物：位移在顶点着色器里算（CPU 零开销，一次 draw call）——— */
+    {
+      const N = 700, pos = new Float32Array(N * 3), ph = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        pos[i * 3]     = (Math.random() - .5) * (STAGE.mainW + 80);
+        pos[i * 3 + 1] = -20 + Math.random() * 50;
+        pos[i * 3 + 2] = -4 - Math.random() * 70;
+        ph[i] = Math.random();
+      }
+      const pg = new THREE.BufferGeometry();
+      pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      pg.setAttribute('aPh', new THREE.BufferAttribute(ph, 1));
+      const pm = new THREE.ShaderMaterial({
+        transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+        uniforms:{ uT:{ value:0 }, uCol:{ value:new THREE.Color(0xcdf4ff) } },
+        vertexShader:['uniform float uT; attribute float aPh; varying float vA;',
+          'void main(){ vec3 p = position;',
+          ' p.y = mod(p.y + uT * (0.55 + aPh), 52.0) - 22.0;',
+          ' p.x += sin(uT * 0.45 + aPh * 6.2832) * 1.1;',
+          ' vec4 mv = modelViewMatrix * vec4(p, 1.0);',
+          ' vA = 0.22 + 0.42 * abs(sin(uT * 0.7 + aPh * 9.0));',
+          ' gl_PointSize = clamp(34.0 / max(1.0, -mv.z), 1.0, 5.0);',
+          ' gl_Position = projectionMatrix * mv; }'].join('\n'),
+        fragmentShader:['uniform vec3 uCol; varying float vA;',
+          'void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d);',
+          ' if (r > 0.5) discard;',
+          ' gl_FragColor = vec4(uCol, smoothstep(0.5, 0.0, r) * vA * 0.7); }'].join('\n')
+      });
+      plank = new THREE.Points(pg, pm);
+      plank.frustumCulled = false; root.add(plank);
+    }
+
+    /* ——— 8) 远景光柱（合并成一个几何体，透明度整体脉动）——— */
+    {
+      const parts = [];
+      for (let i = 0; i < 13; i++) {
+        const w = 2.2 + (i % 4) * 1.5;
+        parts.push({ geo:new THREE.PlaneGeometry(w, 86), x:(i - 6) * (STAGE.mainW + 46) / 13,
+                     y:6, z:-40 - (i % 5) * 12, rz:.20 - (i % 3) * .13, ry:.25 });
+      }
+      rayMesh = new THREE.Mesh(_mergeParts(parts),
+        new THREE.MeshBasicMaterial({ color:0xbdf3ff, map:rayTex(), transparent:true, opacity:.26,
+          depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending }));
+      rayMesh.frustumCulled = false; root.add(rayMesh);
+    }
+
+    /* ——— 9) 鲸鱼剪影（慢速横穿远景）——— */
+    {
+      const wm = new THREE.MeshStandardMaterial({ color:0x0d2f43, roughness:.92,
+        flatShading:true, emissive:0x04141f, emissiveIntensity:.85 });
+      const pale = new THREE.MeshStandardMaterial({ color:0x1c4b63, roughness:.9, flatShading:true });
+      whale = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 11), wm);
+      body.scale.set(10.5, 3.1, 3.4); whale.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(1, 13, 10), wm);
+      head.position.set(7.2, .45, 0); head.scale.set(3.7, 2.6, 3.0); whale.add(head);
+      const snout = new THREE.Mesh(new THREE.ConeGeometry(1.35, 3.0, 8), wm);
+      snout.rotation.z = -Math.PI / 2; snout.position.set(10.7, .1, 0); whale.add(snout);
+      const belly = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), pale);
+      belly.position.set(1.2, -1.5, 0); belly.scale.set(7.6, 1.4, 2.5); whale.add(belly);
+      for (const sz of [-1, 1]) {                                    // 胸鳍
+        const fin = new THREE.Mesh(new THREE.ConeGeometry(.95, 3.6, 4), wm);
+        fin.position.set(3.6, -1.1, sz * 2.4);
+        fin.rotation.set(sz * .55, 0, .9);
+        whale.add(fin);
+      }
+      const dors = new THREE.Mesh(new THREE.ConeGeometry(.75, 1.9, 4), wm);  // 背鳍
+      dors.position.set(-2.4, 2.9, 0); dors.rotation.z = .28; whale.add(dors);
+      for (const sgn of [-1, 1]) {                                    // 尾叶（V 形）
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(1.45, 3.5, 3), wm);
+        fl.position.set(-11.4, sgn * 1.15, 0);
+        fl.rotation.set(0, 0, sgn * .85);
+        fl.scale.set(1, 1, .38);
+        whale.add(fl);
+      }
+      whale.position.set(-140, 13, -72);
+      root.add(whale);
+    }
+
+    tick(0);                                 // 先摆一帧，show() 时不会闪空白
+    try { window.__OCEANDBG = { bg:API, sky:SKY }; } catch (e) {}   // 调试/截图探针（只读）
+  }
+
+  function tick(dt) {
+    tB += dt;
+    if (!root) return;
+    /* 海藻摆动 */
+    const o = _FS.o;
+    for (let i = 0; i < kelp.length; i++) {
+      const k = kelp[i];
+      o.position.set(k.x, k.y, k.z);
+      o.rotation.set(0, k.ry, Math.sin(tB * k.sp + k.ph) * .17);
+      o.scale.set(k.w, k.h, 1);
+      o.updateMatrix();
+      kelpMesh.setMatrixAt(i, o.matrix);
+    }
+    kelpMesh.instanceMatrix.needsUpdate = true;
+    /* 气泡上升 + 到顶回收 */
+    for (let i = 0; i < bub.length; i++) {
+      const b = bub[i];
+      b.y += b.sp * dt;
+      if (b.y > 25) {
+        b.y = -19 - Math.random() * 4;
+        b.x = (Math.random() - .5) * (STAGE.mainW + 60);
+        b.z = -6 - Math.random() * 30;
+      }
+      o.position.set(b.x + Math.sin(tB * b.ws + b.ph) * .35, b.y, b.z);
+      o.rotation.set(0, 0, 0);
+      o.scale.setScalar(b.s);
+      o.updateMatrix();
+      bubMesh.setMatrixAt(i, o.matrix);
+    }
+    bubMesh.instanceMatrix.needsUpdate = true;
+    /* 水母：缓慢上浮 + 伞盖脉动 */
+    for (let i = 0; i < jelly.length; i++) {
+      const j = jelly[i];
+      const yy = j.y + Math.sin(tB * j.sp + j.ph) * 1.7;
+      const pulse = 1 + Math.sin(tB * 1.9 + j.ph) * .12;
+      o.position.set(j.x + Math.sin(tB * .22 + j.ph) * 1.6, yy, j.z);
+      o.rotation.set(0, Math.sin(tB * .3 + j.ph) * .5, 0);
+      o.scale.set(j.s * pulse, j.s / pulse, j.s * pulse);
+      o.updateMatrix();
+      jellyMesh.setMatrixAt(i, o.matrix);
+    }
+    jellyMesh.instanceMatrix.needsUpdate = true;
+    /* 鱼群 */
+    for (const s of schools) tickFishSchool(s, tB);
+    /* 浮游生物（GPU 位移）+ 光柱脉动 */
+    if (plank) plank.material.uniforms.uT.value = tB;
+    if (rayMesh) rayMesh.material.opacity = .26 + .09 * (0.5 + 0.5 * Math.sin(tB * .55));
+    /* 蝠鲼：中景缓慢巡游，翅膀上下扇（始终可见） */
+    if (manta) {
+      manta.position.set(Math.sin(tB * .09) * (STAGE.mainW * .55 + 12),
+                         11.5 + Math.sin(tB * .13) * 2.2, -34);
+      manta.rotation.set(.10, Math.sin(tB * .09) * .38, Math.sin(tB * .07) * .10);
+      const flap = Math.sin(tB * 1.15) * .40;
+      if (mantaWings) { mantaWings[0].rotation.z = flap; mantaWings[1].rotation.z = -flap; }
+    }
+    /* 鲸鱼：62 秒横穿一次，身体轻轻起伏 */
+    if (whale) {
+      const u = (tB % 62) / 62;
+      whale.position.set(-140 + u * 280, 13 + Math.sin(tB * .38) * 2.4, -72);
+      whale.rotation.set(Math.sin(tB * .55) * .06, 0, Math.sin(tB * .38 + .6) * .05);
+    }
+  }
+
+  const API = {
+    /* 切图时调用：Ocean 打开水下背景（并隐藏天空/云/远山），其它图反过来 */
+    show(v) {
+      on = !!v;
+      if (on) build();
+      if (root) root.visible = on;
+      if (SKY.root) SKY.root.visible = !on;
+    },
+    tick(dt) { if (on && root && root.visible) tick(dt); },
+    get ready() { return built; },
+    get on() { return on; },
+    get visible() { return !!(root && root.visible); },
+    get skyVisible() { return !!(SKY.root && SKY.root.visible); },
+    get count() { return schools.length + kelp.length; },
+  };
+  return API;
+})();
+
 
 /* ================= 舞台 ================= */
 const stageGroup = new THREE.Group(); scene.add(stageGroup);
@@ -3302,7 +3780,7 @@ if (LG_RAILS.length) {
   const cg = new THREE.SphereGeometry(1, 8, 6);
   const cm2 = new THREE.MeshStandardMaterial({ color: sand ? 0xfff3da : 0xffffff, roughness:1,
     flatShading:true, transparent:true, opacity:.88 });
-  const n = (!STAGE.cave && !STAGE.roof) ? 4 + Math.round(STAGE.mainW / 24) : 0;
+  const n = (!STAGE.cave && !STAGE.roof && !STAGE.water) ? 4 + Math.round(STAGE.mainW / 24) : 0;   // ★ 水下不要云
   for (let i = 0; i < n; i++) {
     const c = new THREE.Group();
     const k = 3 + (i % 3);
@@ -3409,17 +3887,27 @@ function setStage(si) {
   CFG.blast.top = Math.round(Math.max(26 + STAGE.mainW * .11, _topPlat + 16));
   CFG.blast.bottom = -18;
   if (scene.fog) scene.fog.color.setHex(STAGE.fog || 0x9fc6ff);   // 沙漠换成暖色雾（换图时必须复位）
+  /* ★ 2026-11-18 Ocean：水下把雾「收近」——远景礁石/鱼群按距离淡出才有纵深；其它图恢复默认 90/210 */
+  if (scene.fog) { scene.fog.near = STAGE.water ? 42 : 90; scene.fog.far = STAGE.water ? 168 : 210; }
   /* ★ 暗图（矿洞）：把天空光/太阳压暗，靠洞里的矿灯（点光）提供局部暖光。
      必须每次都按 STAGE.dark 复位，否则从矿洞换回草原会一直是黑的。 */
   try {
-    const _dk = !!STAGE.dark;
-    hemi.intensity = LIGHT_BASE.hemi * (_dk ? .52 : 1);
-    sun.intensity  = LIGHT_BASE.sun  * (_dk ? .10 : 1);
-    fill.intensity = LIGHT_BASE.fill * (_dk ? .45 : 1);
+    const _dk = !!STAGE.dark, _wt = !!STAGE.water;
+    hemi.intensity = LIGHT_BASE.hemi * (_dk ? .52 : (_wt ? .95 : 1));
+    sun.intensity  = LIGHT_BASE.sun  * (_dk ? .10 : (_wt ? .42 : 1));   // 水下阳光被水吸收，只留顶光
+    fill.intensity = LIGHT_BASE.fill * (_dk ? .45 : (_wt ? 1.75 : 1));  // 补光偏蓝、加强 → 蓝色散射感
+    /* 换图必须复位颜色：水下是青蓝顶光 + 深海底光 + 冷白太阳；其它图回到出厂值 */
+    hemi.color.setHex(_wt ? 0xa9eaff : 0xcfe6ff);
+    hemi.groundColor.setHex(_wt ? 0x07303f : 0x3c4a3a);
+    sun.color.setHex(_wt ? 0xd6f2ff : 0xfff2d0);
+    fill.color.setHex(_wt ? 0x8fd8ff : 0x88bbff);
   } catch (e) {}
   try { BGM.setStage(STAGE.id); } catch (e) {}
   clearField();                                       // 换图顺手清掉上一局残留的岩浆柱/奶滩/弹幕
   buildPlats();
+  /* ★ Ocean：换背景。water:true → 隐藏天空/云/远山，打开水下世界；其它图反过来（必须每次都调，否则会串图） */
+  try { OCEAN_BG.show(!!STAGE.water); }
+  catch (e) { window.__oceanBgShowErr = String((e && e.message) || e); }
 }
 
 
@@ -3465,34 +3953,6 @@ function decoMeadow(G) {                        // 草原：花丛 / 圆灌木 /
   G.add(_inst(new THREE.SphereGeometry(1, 9, 7), bushM, bushes));
   G.add(_inst(new THREE.CylinderGeometry(.09, .13, .4, 6), stipeM, stipes));
   G.add(_inst(new THREE.SphereGeometry(.27, 10, 6, 0, 6.283, 0, 1.5708), capM, caps));
-}
-function decoVerdant(G) {                       // 玉阶：青玉石柱 / 苔团 / 玉晶 / 碎石（配色对齐 topColor/rockColor/platColor）
-  const W = STAGE.mainW;
-  const lowPlat = STAGE.plats.reduce((m, p) => Math.min(m, p.y), Infinity);
-  const hMax = Math.min(3.2, (isFinite(lowPlat) ? lowPlat : 4.5) - 1.0);   // 柱子不能顶到最低那层台
-  const colM = _dm(0x7c8ba1), capM = _dm(0x5fc08a), mossM = _dm(0x49a86f, .95);
-  const gemM = glowMat(0x9ef0c8, 1.05, 0x1f5a44);
-  const cols = [], caps = [], mosses = [], gems = [], rocks = [], tufts = [];
-  for (let i = 0; i < 9; i++) {
-    const side = i % 2 ? 1 : -1;
-    const x = side * (3.4 + Math.random() * Math.max(1, W / 2 - 5.6)), z = -2.1 - Math.random() * .9;
-    const h = Math.max(1.0, hMax * (.55 + Math.random() * .45));
-    cols.push({ x, y:0, z, sy:h / 2.4 });
-    caps.push({ x, y:h, z });
-    if (i % 3 === 0) mosses.push({ x, y:h * .58, z });
-    if (i % 4 === 0) gems.push({ x, y:h + .22, z:z + .12, s:.9, rx:.35, ry:Math.random() * 6, rz:.2 });
-  }
-  for (let i = 0; i < 14; i++) { const rr = .3 + Math.random() * .38;
-    rocks.push({ x:(Math.random() - .5) * (W - 3), y:rr * .58, z:-1.3 - Math.random() * 2.4, s:rr,
-      rx:Math.random() * 3, ry:Math.random() * 3, rz:Math.random() * 3 }); }
-  for (let i = 0; i < 12; i++) { const x = (Math.random() - .5) * (W - 4), z = -1.2 - Math.random() * 1.3;
-    tufts.push({ x, y:.16, z, s:.7 + Math.random() * .5, sy:.5 }); }
-  G.add(_inst(new THREE.CylinderGeometry(.40, .50, 2.4, 7), colM, cols));
-  G.add(_inst(new THREE.BoxGeometry(1.05, .24, 1.05), capM, caps));
-  G.add(_inst(new THREE.CylinderGeometry(.48, .54, .20, 7), mossM, mosses));
-  G.add(_inst(new THREE.OctahedronGeometry(.26, 0), gemM, gems));
-  G.add(_inst(new THREE.DodecahedronGeometry(1, 0), colM, rocks));
-  G.add(_inst(new THREE.SphereGeometry(1, 8, 6), mossM, tufts));
 }
 function decoLadders(G) {                       // 梯子工场：脚手架短柱 / 警示灯 / 垂下的绳梯 / 油桶
   const W = STAGE.mainW;
@@ -3858,7 +4318,7 @@ const DECO_BY_ID = { meadow:decoMeadow, meadowXL:decoMeadow, pillars:decoPillars
                      arena:decoSky, arenaXL:decoSky, desert:decoDesert, desertXL:decoDesert,
                      rooftop:decoRoof, rooftopXL:decoRoof,
                      mines:decoMines, minesXL:decoMines,
-                     verdant:decoVerdant, verdantXL:decoVerdant,
+                     ocean:decoOcean, oceanXL:decoOcean,
                      };
 buildPlats();                                  // 现在 DECOS 已就绪，首张地图带装饰
 
@@ -6111,7 +6571,7 @@ const FSPECIALS = {
   demon:   { name:'Inferno',        style:'demonFS', color:0xff4a1a, beats:1,  gap:.10, dmg:0,   bb:0,  bg:0,  w:1   },
   angel:   { name:'Seraphic Hymn',  style:'angelFS',  color:0xfff2a8, beats:1,  gap:.10, dmg:0,   bb:0,  bg:0,  w:1   },
   archer:   { name:'Hunter Mark',   style:'archerFS',  color:0x8ce8a0, beats:1,  gap:.10, dmg:0,   bb:0,  bg:0,  w:1   },
-  rocky:   { name:'Meteor Crash',   style:'slam',    color:0xa89b90, beats:3,  gap:.24, dmg:15.5, bb:32, bg:60,             w:8.6 },
+  rocky:   { name:'Fist Barrage',   style:'rockyFist', color:0xa89b90, beats:1,  gap:.10, dmg:0,   bb:0,  bg:0,  w:1, dur:5.2 },
   zephyr:  { name:'Tempest',        style:'tempest', color:0x9dfbe4, beats:10, gap:.10, dmg:2.8,  bb:6,  bg:16,             w:11  },
   vexor:   { name:'Singularity',    style:'blackHole', color:0x9b5cff, beats:10, gap:.22, dmg:5.0, bb:2, bg:6, ang:74, w:4.2, dur:2.4 },
   trash:   { name:'Toxic Smog',      style:'trashFog', color:0x9fe86a, beats:1, gap:.1, dmg:0, bb:0, bg:0, w:0, dur:10.2 },
@@ -11129,7 +11589,140 @@ function prisMarkMesh() {
   g.visible = false; scene.add(g); PRIS_MARK = g; return g;
 }
 
-const KITS = { sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, treasure:kitTreasure, princess:kitPrincess, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt,
+/* —— Foundry：机架式重装。宽方躯干 + 胸口核心 + 护目镜 + 天线 + 机械纹路 + 右钳 / 左激光剑 / 背喷气包 ——
+   骨架锚点整套照 Rocky（躯干 y1.24、肩 y1.60、髋 y.72、腿 {w:.34,len:.28,fw:.62}）→ 体型直接对齐，
+   只把材质换成钢灰、手换钳子/光剑、背上加喷气筒。所有装饰件用**固定坐标**（不抽随机 → 联机两端一致）。 */
+function kitFoundry(def) {
+  const H = def.shape.headR, g = new THREE.Group();
+  /* ★ 外观皮肤（专属建模，不是配色换色）：police = 黑色金属涂装 + 半蓝半红护目镜 + 警帽/警灯/警徽。
+     皮肤判定必须写 `def.skin || ACC.skinOf(id)`：大厅缩略图传进来的 def 没有 skin 字段。 */
+  const SK = (def.skin || (typeof ACC !== 'undefined' && ACC.skinOf && ACC.skinOf(def.id)) || '');
+  const isCop = SK === 'foundry_police';
+  /* ⚠ 这套引擎没有 envMap：metalness 一旦超过 ~.30 就会渲成纯黑一团（看不清结构）。
+     所以「黑金属」= 提亮到 #2a2f37 的底色 + metalness 只到 .28 + 粗糙度压低（高光靠 roughness 出来）。 */
+  const mats = isCop
+    ? { body:  cmat(0x2a2f37, { metalness:.28, roughness:.30 }),
+        body2: cmat(0x3a414c, { metalness:.26, roughness:.34 }),
+        dark:  cmat(0x161a1f, { metalness:.24, roughness:.38 }),
+        limb:  cmat(0x22272e, { metalness:.26, roughness:.32 }) }
+    : kitMats(def);
+  const steel  = cmat(isCop ? 0x8c96a4 : 0x98a4b0, { roughness:.34, metalness:isCop ? .30 : .26 });
+  const steelD = cmat(isCop ? 0x3c444f : 0x4c5763, { roughness:.42, metalness:isCop ? .28 : .22 });
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(1.92, 1.48, 1.26), mats.body);
+  torso.position.y = 1.26; g.add(torso);
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(1.46, .66, 1.08), mats.body2);
+  chest.position.y = 1.90; g.add(chest);
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(1.08, .50, .96), mats.dark);
+  belly.position.y = .86; g.add(belly);
+  /* 机械纹路：两道横向面板线 + 两侧散热格栅 + 正面铆钉 */
+  for (const yy of [1.62, 1.02]) {
+    const line = new THREE.Mesh(new THREE.BoxGeometry(1.74, .06, 1.30), steelD);
+    line.position.set(0, yy, 0); g.add(line);
+  }
+  for (const sd of [-1, 1]) {
+    for (let i = 0; i < 3; i++) {
+      const gr = new THREE.Mesh(new THREE.BoxGeometry(.10, .32, .74), steelD);
+      gr.position.set(sd * .99, 1.14 + i * .28, 0); g.add(gr);
+    }
+    for (const yy of [1.44, 1.10, .78]) {
+      const rivet = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .10, 6), steel);
+      rivet.rotation.z = Math.PI / 2; rivet.position.set(sd * 1.0, yy, .52); g.add(rivet);
+    }
+  }
+  /* 胸口核心：金属环 + 发光球 + 透明罩（打击点就画在这） */
+  const coreRing = new THREE.Mesh(new THREE.TorusGeometry(.34, .09, 8, 18), steel);
+  coreRing.position.set(0, 1.42, .64); g.add(coreRing);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(.25, 12, 10), glowMat(0xffb347, 1.6, 0x7a3b00));
+  core.position.set(0, 1.42, .70); g.add(core);
+  const coreGlow = new THREE.Mesh(new THREE.SphereGeometry(.42, 10, 8),
+    new THREE.MeshBasicMaterial({ color:0xffa030, transparent:true, opacity:.20, depthWrite:false }));
+  coreGlow.position.set(0, 1.42, .70); g.add(coreGlow);
+  /* 头：方头 + 护目镜（setEyes visor）+ 额前挡板 + 天线 */
+  const head = new THREE.Group(); head.position.y = 2.22; g.add(head);
+  head.add(new THREE.Mesh(new THREE.BoxGeometry(1.26, .92, 1.04), mats.body));
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(1.12, .10, .18), steelD);
+  brow.position.set(0, H * .62, H * .78); head.add(brow);
+  if (isCop) {
+    /* ★ 警用护目镜：**左半蓝 / 右半红**（两块独立发光条 + 中间黑色分隔条） */
+    const vL = new THREE.Mesh(new THREE.BoxGeometry(H * .70, H * .30, .16), glowMat(0x3aa8ff, 1.55, 0x0a2b4a));
+    vL.position.set(-H * .36, H * .16, H * .80); head.add(vL);
+    const vR = new THREE.Mesh(new THREE.BoxGeometry(H * .70, H * .30, .16), glowMat(0xff3b30, 1.55, 0x4a0a06));
+    vR.position.set( H * .36, H * .16, H * .80); head.add(vR);
+    const div = new THREE.Mesh(new THREE.BoxGeometry(H * .07, H * .34, .18), cmat(0x07080b, { metalness:.6, roughness:.32 }));
+    div.position.set(0, H * .16, H * .81); head.add(div);
+    /* 警帽：藏青帽体 + 黑帽檐 + 金色帽徽 */
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.36, .26, 1.14), cmat(0x121728, { metalness:.52, roughness:.32 }));
+    cap.position.set(0, H * .78, -.02); head.add(cap);
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(1.32, .08, .48), cmat(0x08090d, { metalness:.46, roughness:.28 }));
+    brim.position.set(0, H * .62, H * .72); head.add(brim);
+    const badge = new THREE.Mesh(new THREE.CylinderGeometry(.13, .13, .05, 6), cmat(0xe8c14a, { metalness:.88, roughness:.22 }));
+    badge.rotation.x = Math.PI / 2; badge.position.set(0, H * .82, H * .80); head.add(badge);
+  } else {
+    setEyes(head, H, def.eye, 'visor');
+  }
+  const antenna = new THREE.Group(); antenna.position.set(.40, .44, -.10); head.add(antenna);
+  const antRod = new THREE.Mesh(new THREE.CylinderGeometry(.035, .05, 1.0, 6), steel);
+  antRod.position.y = .50; antenna.add(antRod);
+  const antTip = new THREE.Mesh(new THREE.SphereGeometry(.10, 8, 6), glowMat(0xff5a3c, 1.5, 0x5a1400));
+  antTip.position.y = 1.02; antenna.add(antTip);
+  /* 肩甲 */
+  for (const sd of [-1, 1]) {
+    const pauld = new THREE.Mesh(new THREE.BoxGeometry(.46, .42, .98), steelD);
+    pauld.position.set(sd * 1.04, 1.80, 0); g.add(pauld);
+  }
+  /* 双臂：钢制小臂；左手挂激光剑，右手挂钳子 */
+  const armL = kitArm(g, -1, mats, { x:1.06, y:1.60, w:.26, len:.56, hand:.28, armMat:steelD, handMat:steel });
+  const armR = kitArm(g,  1, mats, { x:1.06, y:1.60, w:.26, len:.56, hand:.28, armMat:steelD, handMat:steel });
+  const sword = new THREE.Group(); sword.position.set(0, -.95, .10); armL.add(sword);
+  const hilt = new THREE.Mesh(new THREE.CylinderGeometry(.10, .11, .34, 8), steelD); hilt.position.y = -.08; sword.add(hilt);
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(.34, .07, .20), steel); guard.position.y = .10; sword.add(guard);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(.16, 1.50, .10), glowMat(0x9fe8ff, 1.5, 0x1b4a66));
+  blade.position.y = -1.02; sword.add(blade);
+  const bladeGlow = new THREE.Mesh(new THREE.BoxGeometry(.32, 1.58, .05),
+    new THREE.MeshBasicMaterial({ color:0x8fe4ff, transparent:true, opacity:.24, depthWrite:false }));
+  bladeGlow.position.y = -1.02; sword.add(bladeGlow);
+  const pincer = new THREE.Group(); pincer.position.set(0, -.95, .06); armR.add(pincer);
+  const pBase = new THREE.Mesh(new THREE.CylinderGeometry(.16, .21, .28, 8), steelD); pincer.add(pBase);
+  const pincerJaws = [];
+  for (const sd of [-1, 1]) {
+    const jaw = new THREE.Mesh(new THREE.BoxGeometry(.20, .68, .26), steel);
+    jaw.position.set(0, -.42, sd * .19); jaw.rotation.x = sd * .26; pincer.add(jaw); pincerJaws.push(jaw);
+  }
+  /* 背部喷气包：两个圆筒 + 喷口 + 火光（火焰在 animStep 里按状态开关） */
+  const jets = new THREE.Group(); jets.position.set(0, 1.72, -.74); g.add(jets);
+  for (const sd of [-1, 1]) {
+    const can = new THREE.Mesh(new THREE.CylinderGeometry(.17, .19, .80, 10), steel);
+    can.position.set(sd * .34, 0, 0); jets.add(can);
+    const noz = new THREE.Mesh(new THREE.ConeGeometry(.16, .24, 8), steelD);
+    noz.position.set(sd * .34, -.52, 0); noz.rotation.x = Math.PI; jets.add(noz);
+  }
+  const jetFlame = new THREE.Mesh(new THREE.ConeGeometry(.22, .9, 8), glowMat(0xffa030, 1.4, 0x7a2c00));
+  jetFlame.position.set(0, -.95, 0); jetFlame.rotation.x = Math.PI; jetFlame.visible = false; jets.add(jetFlame);
+  /* ★ 警用皮肤额外件：肩后警灯横杆（蓝 + 红，animStep 里交替闪）+ 胸前金色六角警徽 + 反光条 */
+  let copL = null, copR = null;
+  if (isCop) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(.66, .12, .24), cmat(0x0a0c10, { metalness:.55, roughness:.30 }));
+    bar.position.set(0, 1.98, -.66); g.add(bar);
+    copL = new THREE.Mesh(new THREE.BoxGeometry(.26, .11, .22), glowMat(0x3aa8ff, 1.8, 0x0a2b4a));
+    copL.position.set(-.16, 2.06, -.66); g.add(copL);
+    copR = new THREE.Mesh(new THREE.BoxGeometry(.26, .11, .22), glowMat(0xff3b30, 1.8, 0x4a0a06));
+    copR.position.set(.16, 2.06, -.66); g.add(copR);
+    const star = new THREE.Mesh(new THREE.CylinderGeometry(.19, .19, .06, 6), cmat(0xe8c14a, { metalness:.90, roughness:.20 }));
+    star.rotation.x = Math.PI / 2; star.position.set(-.54, 1.66, .68); g.add(star);
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.70, .10, 1.28), cmat(0xdfe6ee, { metalness:.30, roughness:.55 }));
+    stripe.position.set(0, 1.20, 0); g.add(stripe);
+    const stripe2 = new THREE.Mesh(new THREE.BoxGeometry(.22, .46, .06), cmat(0xdfe6ee, { metalness:.30, roughness:.55 }));
+    stripe2.position.set(0, 1.42, .66); g.add(stripe2);
+  }
+  const legL = kitLeg(g, -1, mats, { x:.44, y:.72, w:.34, len:.28, fw:.62, fh:.34, fd:.80 });
+  const legR = kitLeg(g,  1, mats, { x:.44, y:.72, w:.34, len:.28, fw:.62, fh:.34, fd:.80 });
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null,
+           core, coreGlow, antenna, sword, pincer, pincerJaws, jets, jetFlame, blade,
+           copL, copR };
+}
+FSPECIALS.foundry = { name:'Foundry Storm', style:'fndStorm', color:0xff8a3d, beats:1, gap:.10,
+  dmg:0, bb:0, bg:0, w:1, dur:4.2, tickDmg:1.75 };
+const KITS = { sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, treasure:kitTreasure, princess:kitPrincess, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt, foundry:kitFoundry,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
@@ -11413,24 +12006,23 @@ const SKIN_LEGEND = {
   gen_cobalt: { name:'Sovereign of Gold', body:0xffd45e, body2:0xfff3c4, dark:0x8a6414,
                 acc:['crown', 'cape', 'scepter', 'aura'], glow:0xffd45e, legendary:true }
 };
-/* ★ 单角色专属皮肤（覆盖主题哈希）：Sparky = 恶魔（血红眼 + 恶魔角 + 恶魔尾） */
-const SKIN_OVERRIDE = {
-  gen_sparky: { name:'Crimson Imp', body:0x5e1a16, body2:0x2c0d0b, dark:0x140607,
-                acc:['demonHorns', 'demonTail'], glow:0xff2a1a,
-                eye:0xff2a1a, eyeGlow:0x5a0b06, brow:true }
-};
+/* ★ 单角色专属皮肤（覆盖主题哈希）。2026-11-17：用户要求删掉 Sparky 那套「Crimson Imp」换色皮肤
+   （换色 + 通用挂件，质量太低）→ 这里留空表，以后要加手工建模皮肤请直接写进 kit。 */
+const SKIN_OVERRIDE = {};
 function skinSpecFor(def) {
   /* ★ 大厅/缩略图传进来的 def 往往没有 skin 字段 → 必须回落到账号里装备的皮肤
      （这条规则以前在 kit 里踩过坑：「def.skin || ACC.skinOf(id)」，这里同样处理） */
   let sk = (def && def.skin) || '';
   if (!sk) { try { if (typeof ACC !== 'undefined' && ACC.skinOf && def && def.id) sk = ACC.skinOf(def.id) || ''; } catch (e) {} }
   if (!sk) return null;
-  if (sk === 'smiley_penguin' || sk === 'cardboard_tv') return null;    // 专属建模皮肤交给 kit 自己
+  if (sk === 'smiley_penguin' || sk === 'cardboard_tv' || sk === 'foundry_police') return null;   // 专属建模皮肤交给 kit 自己
+  if (sk === 'gen_sparky') return null;                                 // ★ 已删除的低质量换色皮肤
   if (SKIN_LEGEND[sk]) return SKIN_LEGEND[sk];
   if (SKIN_OVERRIDE[sk]) return SKIN_OVERRIDE[sk];
   const m = /^gen_(.+)$/.exec(sk);
   if (!m) return null;
   const t = SKIN_THEMES[_skinHash(m[1]) % SKIN_THEMES.length];
+  if (t[0] === 'Sunken') return null;                                   // ★ Sunken 主题作废（用户要求删）
   return { name:t[0], body:t[1], body2:t[2], dark:t[3], acc:t[4], glow:t[5] };
 }
 /* 生成一个挂件（返回 Group，用角色本体的包围盒定位，所以任何体型都放得上去） */
@@ -13338,6 +13930,12 @@ class Fighter {
     this.charging = null; this.chargeT = 0; this.cooldown = {};
     this.shield = 100; this.shieldBroken = 0; this.rolling = 0; this.airDodged = false;
     this.para = 0; this.slowT = 0; this.noJumpT = 0;      // ★ Blub 空气弹的三种状态（雷/水/草）
+    /* ★ Rocky 重做（2026-11-17）：地震状态机 / 岩崩重拳 / 大招拳雨计时 / 被碎石困住 */
+    this.rockyQuake = null; this.rockyCrash = null; this.rockyFsT = 0; this.rockyPunchT = 0;
+    this.rockBind = 0; this._rockBindX = undefined; this._rockStones = 0;
+    /* ★ Foundry（第 44 号）：钳拉 / 扫射 / 喷气三连 / 上升散射 / 悬空火雨 */
+    this.fndPull = null; this.fndSweep = null; this.fndDash = null; this.fndRise = null; this.fndFs = null;
+    this.fndSlashT = 0; this.fndFireT = 0;
     this.grabbed = null; this.grabbing = null; this.grabT = 0; this.regrab = 0;
     this.stale = 0; this.kos = 0; this.deaths = 0; this.maxDamage = 0;
     this.respawnT = 0; this.koSpin = 0; this.koDir = 1; this.ignoreSoft = 0;
@@ -13966,8 +14564,10 @@ class Fighter {
     }
     // 击飞：基础 + 成长 × 当前伤害%，再按体重缩放（越重越难飞）
     const dScale = this.damage / 100;
+    /* ★ 2026-11-17：受害者侧的击退倍率 `def.kbTaken`（默认 1）。蚊子被实测「几乎打不飞」，
+       用户要求「让 mosquito 受到的击退更多」→ 它自己在 CHAR_EXTRA 里写 kbTaken。 */
     let launch = (mv.bb + mv.bg * dScale) * (100 / (this.weight + 60)) * (1 + mv.dmg * .012) * kbMul * (am ? am.kb : 1) * gkb
-      * (mkm ? mkm.kbMul : 1) * (1 + (wb && wb.kb ? wb.kb : 0) / 100);
+      * (mkm ? mkm.kbMul : 1) * (1 + (wb && wb.kb ? wb.kb : 0) / 100) * ((this.def && this.def.kbTaken) || 1);
     launch = Math.min(launch, 105);
     /* ★ Titan·过热副作用（Wrecking Spin / Anvil Slam 之后 2 秒）：可以被击飞，但击飞力度 −60%。
        按字面实现：launch × (1 − 0.60) = ×0.40。伤害照吃（这里只改击飞，不改 dmg）。 */
@@ -13983,6 +14583,7 @@ class Fighter {
     }
     /* ★ Quicksand·沙缚：被沙子裹住期间「打不动也推不走」——照吃伤害，击退清零（和 Hacker 锁定同一套语义） */
     if (this.sandT > 0) launch = 0;
+    if (this.rockBind > 0) launch = 0;                 // ★ Rocky·岩崩：被困在碎石里 1 秒，照吃伤害但零击退
     if (this.ironT > 0) launch = 0;                    // ★ Blocky·Iron Bloom：6 秒内免疫击退（照吃伤害）
     if (this.flatT > 0 || this.flatXT > 0) launch = 0;                    // ★ Pumpkin：被砸扁期间钉在地上（照吃伤害，不位移）
     if (this.burnLock > 0) launch = 0;                 // ★ Dragon：被火柱锁住期间不吃击退（照吃伤害）
@@ -14000,7 +14601,9 @@ class Fighter {
     // 地面被打时给一点抬起，避免贴地滑动
     if (this.grounded && Math.abs(dir.y) < .12) dir.y = .16;
     dir.normalize();
-    this.vel.set(dir.x * launch, Math.max(dir.y * launch, this.vel.y * .2), 0);
+    /* ★ Ocean：kbMul（0.85）= 击退略减、保留大部分 */
+    const _skb = (typeof STAGE !== 'undefined' && STAGE.kbMul) ? STAGE.kbMul : 1;
+    this.vel.set(dir.x * launch * _skb, Math.max(dir.y * launch * _skb, this.vel.y * .2), 0);
     this.hitstun = Math.min(2.3, .12 + launch * .031);
     if (mv.spike) this.vel.y = -Math.abs(launch);      // 空下 = Meteor
     // —— 打击感：更长的定格 + 顺击飞方向的震屏 + 相机推近 ——
@@ -15234,6 +15837,29 @@ class Fighter {
         FX.beam(lx, py + .2, lx, py + 9.5, .55, c, .16); FX.spark(lx, py + .4, .5, 10, 0xffffff);
         FX.ring(lx, py + .25, .3, 1.5, c, .25);
         this.fsHit(SP, lx, SP.w, 9, 1.0); shake = Math.max(shake, .25); SFX.hit(18, 6); break; }
+      case 'fndStorm': {                                 // ★ Foundry·大招：悬空 4 秒向下喷火（40 拍 × 1.75 = 70%）
+        const SD = SP.dur || 4.0;
+        this.fndFs = { cfg: { dur: SD, tickDmg: SP.tickDmg || 1.75 }, t: SD, next: 0, hits: 0 };
+        this.vel.set(0, 0, 0);
+        callout(this, 'FOUNDRY STORM · ' + SD.toFixed(1) + 's', c);
+        FX.ring(px, py + .35, .34, 9.5, c, .55);
+        FX.flash(px, py + 1.6, .55, 11, 0xffc070, .40);
+        FX.burst(px, py + 1.2, .22, c, 26, 18);
+        shake = Math.max(shake, .85); camKick = Math.min(1, camKick + .4); SFX.special('heavy');
+        this.fsDone = 1;
+        break; }
+      case 'rockyFist': {                                // ★ Rocky·大招「拳雨」：5 秒内所有 B 都变成重拳
+        const SD = SP.dur || 5.0;
+        this.rockyFsT = SD;
+        for (const kk of ['n', 's', 'u', 'd']) this.cooldown['sp_' + kk] = 0;   // 四个键全部解锁
+        callout(this, 'FIST BARRAGE · ' + SD.toFixed(1) + 's', c);
+        FX.ring(px, py + .30, .32, 9.0, c, .55);
+        FX.ring(px, py + .55, .26, 5.4, 0xffe8c0, .34);
+        FX.flash(px, py + 1.5, .55, 10.0, 0xffe8c0, .38);
+        FX.burst(px, py + 1.3, .22, c, 24, 18);
+        shake = Math.max(shake, .80); camKick = Math.min(1, camKick + .4); SFX.special('heavy');
+        this.fsDone = 1;
+        break; }
       case 'slam': {                                     // Rocky：跳起 → 俯冲砸地（判定贴地，避免自己跳高后打空）
         if (k === 0) { this.vel.y = Math.max(this.vel.y, 24); this.vel.x = 0; FX.ring(px, py + .3, .3, 4, c, .4); SFX.go(0); break; }
         this.vel.y = Math.min(this.vel.y, -30); this.vel.x = 0;            // 俯冲
@@ -15639,6 +16265,20 @@ class Fighter {
     this.buf.atk = Math.max(0, this.buf.atk - dt);
     /* ★ Blub·空气弹的三种状态（逐帧递减 → 两端确定性一致） */
     if (this.para > 0) { this.para -= dt; if (this.para <= 0) { this.para = 0; callout(this, 'PARALYSIS ENDED', 0xffe066); } }
+    /* ★ Rocky·左右B「岩崩」：被碎石困住 1 秒 —— 位置钉住（推挤是直接改 pos 的，只清 vel 挡不住）+ 不吃击退（见 takeHit） */
+    if (this.rockBind > 0) {
+      this.rockBind -= dt;
+      if (this._rockBindX !== undefined) this.pos.x = this._rockBindX;
+      this.vel.x = 0;
+      if (this.rockBind <= 0) { this.rockBind = 0; this._rockBindX = undefined; callout(this, 'BIND ENDED', 0xb0a48c); }
+    }
+    /* ★ Rocky·大招「拳雨」倒计时（5 秒内任意 B = 重拳） */
+    if (this.rockyFsT > 0) {
+      this.rockyFsT = Math.max(0, this.rockyFsT - dt);
+      if (this.rockyFsT === 0) callout(this, 'FIST BARRAGE ENDED', 0xa89b90);
+    }
+    /* ★ Rocky·挥拳动作计时（必须有人递减，否则姿势永久卡住） */
+    if (this.rockyPunchT > 0) this.rockyPunchT -= dt;
     if (this.slowT > 0) {
       this.slowT -= dt;
       const cap = this.s.walk * .58;                        // 水弹：地面移速上限压到 58%
@@ -15654,6 +16294,8 @@ class Fighter {
     if (this.skate || this.grapple || this.bobT > 0 || this.mechCar || this.mechLaser) this.mechTick(dt, inp);
     if (this.def.id === 'princess') this.princessTick(dt, inp);      // ★ 公主四招 + 玫瑰标记
     if (this.def.id === 'titan') this.titanTick(dt, inp);            // ★ Titan 重做：旋转/过热/下砸/喷火/铁壁
+    if (this.def.id === 'rocky') this.rockyTick(dt, inp);            // ★ Rocky 重做：地震 / 岩崩重拳 / 拳雨
+    if (this.def.id === 'foundry') this.fndTick(dt, inp);            // ★ Foundry：钳拉 / 扫射 / 三连 / 散射 / 火雨
     if (this.def.id === 'treasure') { this.treasureTick(dt, inp); this.treasureMawClock(dt); }   // ★ Treasure
     if (this.warp || this.duneRun || this.bandage) this.qsTick(dt, inp);
     if (this.pounce || this.tiger || this.tailS || this.devour) this.fangTick(dt, inp);
@@ -17708,6 +18350,12 @@ class Fighter {
     this.bomberRush = null; this.bomberThrow = null; this.bomberUp = null;
     this.bombT = 0; this.bombDmg = 0; this.bombSplash = 0; this.bombBy = null;
     if (this._bombMesh) { this.mesh.remove(this._bombMesh); this._bombMesh = null; this._bombSpark = null; }
+    /* ★ Rocky（重生也要清）：跨命状态一律收干净，否则换局会带着上一局的地震/困住 */
+    this.rockyQuake = null; this.rockyCrash = null; this.rockyFsT = 0; this.rockyPunchT = 0;
+    this.rockBind = 0; this._rockBindX = undefined; this._rockStones = 0;
+    /* ★ Foundry（第 44 号）：钳拉 / 扫射 / 喷气三连 / 上升散射 / 悬空火雨 */
+    this.fndPull = null; this.fndSweep = null; this.fndDash = null; this.fndRise = null; this.fndFs = null;
+    this.fndSlashT = 0; this.fndFireT = 0;
   }
   bomberTick(dt, inp) {
     const CFG = this.def.special || {};
@@ -19866,7 +20514,11 @@ class Fighter {
       a.cd = (a.cd || 0) - dt;
       if (a.cd > 0) continue;
       const cfg = a.cfg, R = (cfg.hitR || 1.75) * this.def.shape.scale;   // ★ 支持 cfg.hitR（Cobalt 左右B 大判定）
-      a.cd = cfg.multi ? .13 : .04;   // 冲刺类要密一点，否则高速冲刺会“穿过”对手
+      /* ★ Rocky·左右B：冲锋速度自己顶住，**不再依赖 grounded**。
+         起手会给 vel.y ≥ 2.2（离地），而 actionSelect 的 `keep` 锁速分支写在 `if (this.grounded)` 里面 ——
+         站在浮空平台上放这招，人一离地就只靠摩擦滑行，实测只冲 2.5 单位（地面 12.8）→ 撞不到人就
+         「附加效果不触发」。这一行把速度每帧顶回去，平台/空中与地面表现一致。 */
+      if (cfg.rockCrash && key === 'dashAtk') this.vel.x = a.dir * this.s.run * (cfg.spd || 1);
       a.hitSet = a.hitSet || new Set();
       if (key === 'recoverAtk' && cfg.fx) {              // 上B：按 cfg.fx 模板出特效（节拍比判定慢，省开销）
         a.fxT = (a.fxT || 0) + dt;
@@ -19888,12 +20540,35 @@ class Fighter {
         if (!cfg.multi && a.hitSet.has(f.uid)) continue;   // 冲刺类一次只吃一下
         /* ★ lift（上B 连击卷人）：用「柱状范围」而不是「以头为球心的球」——
            否则高速上升时对手会被甩在身下，第二下就再也打不到（实测只命中 1 段）。 */
-        const near = cfg.lift
-          ? (Math.abs(f.pos.x - this.pos.x) < R + f.bodyR * .7 &&
-             f.pos.y > this.pos.y - 2.6 && f.pos.y < this.pos.y + 3.4)
-          : (Math.hypot(f.pos.x - this.pos.x, (f.pos.y + 1.35*f.def.shape.scale) - (this.headY - .2)) < R + f.bodyR*.75);
+        /* ★ Rocky·岩崩：判定换成「身体中心 vs 身体中心」的矩形窗口。
+           原来的公式是「我的头心 ↔ 他的身体中心」的球判定：地面平打没问题，但在浮空平台上
+           （起手离地 / 俯冲经过平台）纵向差很容易超过半径 → 撞上了也不结算岩崩。 */
+        const near = cfg.rockCrash
+          ? (Math.abs(f.pos.x - this.pos.x) < R + f.bodyR &&
+             Math.abs((f.pos.y + 1.05 * f.def.shape.scale) - (this.pos.y + 1.05 * this.def.shape.scale)) < 2.8)
+          : (cfg.lift
+              ? (Math.abs(f.pos.x - this.pos.x) < R + f.bodyR * .7 &&
+                 f.pos.y > this.pos.y - 2.6 && f.pos.y < this.pos.y + 3.4)
+              : (Math.hypot(f.pos.x - this.pos.x, (f.pos.y + 1.35*f.def.shape.scale) - (this.headY - .2)) < R + f.bodyR*.75));
         if (near) {
           a.hitSet.add(f.uid);
+          /* ★ Rocky·左右B「岩崩」：撞到第一个人 → 冲刺**立刻停住**，用碎石把他困住 1 秒，
+             然后原地蓄力打出重拳（判定在 rockyTick 里，物理固定步）。 */
+          if (cfg.rockCrash && this.def.id === 'rocky') {
+            const sdx = Math.sign(f.pos.x - this.pos.x) || this.facing;
+            f.takeHit(this, { dmg: cfg.dmg, bb: cfg.bb * .6, bg: cfg.bg * .6, ang: 20, stun: cfg.stun },
+              sdx, 1);
+            f.rockBind = Math.max(f.rockBind || 0, cfg.bind || 1.0);
+            f._rockBindX = f.pos.x;
+            f.vel.set(0, 0, 0); f.hitstun = Math.max(f.hitstun, .12);
+            f.move = null; f.charging = null;
+            this.rockyRockFall(f, cfg);
+            this.rockyCrash = { cfg, t: (cfg.bind || 1.0), dur: (cfg.bind || 1.0), target: f, hits: 0 };   // 困满 1 秒才打重拳
+            this.dashAtk = null; this.vel.x = 0; this.vel.y = Math.max(this.vel.y, 1.4);
+            this.state = 'special'; this.animT = 0;
+            callout(this, 'ROCKFALL · BIND ' + (cfg.bind || 1).toFixed(1) + 's', cfg.color);
+            return;
+          }
           if (cfg.grab && f.regrab <= 0) {                 // Dragon·Dragon Rush：撞到人 = 抓住 + 喷火
             const hold = cfg.hold || .85;
             f.grabbed = { by: this, t: hold, mash: 0 };
@@ -19911,8 +20586,22 @@ class Fighter {
           f.takeHit(this, { dmg: cfg.dmg * (cfg.multi ? .6 : 1), bb: cfg.bb * .8, bg: cfg.bg * .8,
             ang: cfg.kind === 'recover' ? 88 : 16, stun: cfg.stun }, Math.sign(f.pos.x - this.pos.x) || this.facing, a.first ? 1 : .7);
           a.first = true;
+          /* ★ 2026-11-17 根因修复（上B 连击伤害上百）：
+             多段技（recover / dashAtk 的 multi:true）**自己计拍**。原来这里没有给 a.cd 赋值，
+             于是每个物理步都会结算一次 —— 单机被「命中定格 hitstop」掩盖成 ~7 帧一次（看起来正常），
+             而联机锁步会补步/追帧（一帧跑 2~3 个 physicsStep），同样的墙钟时间里命中次数翻倍再翻倍，
+             一个上B 就能打出上百伤害、连击数爆表（用户报的 demon / cardboard / sparky / dragon）。
+             现在统一按 cfg.tick（默认 .13s）结算，跟帧率、hitstop、补步全部解耦。 */
+          if (cfg.multi) a.cd = cfg.tick || .13;
           /* ★ Blizzard·上B：每一段连击都挂 1 层冰冻（5 段 = 5 层 → 直接冻住） */
           if (this.def.id === 'blizzard') applyFrost(f, 1);
+          /* ★ 多段上B（含没有标 lift 的角色，例如 Demon·Trident Ascent）：
+             轻微的「托举」让对手跟着自己一起上升，否则第 1 段就把他打飞出判定，
+             后面 5 段永远吃不到（多段技变成单段技）。只在 multi + recoverAtk 时生效。 */
+          if (cfg.multi && key === 'recoverAtk' && !cfg.lift) {
+            f.vel.y = Math.max(f.vel.y, this.vel.y * .70);
+            f.vel.x *= .55;
+          }
           /* ★ 被卷住：跟着上升 + 往自己身上拽，保证后续每一段都咬得住 */
           if (cfg.lift && key === 'recoverAtk') {
             f.vel.y = Math.max(f.vel.y, Math.max(5, this.vel.y * .92));
@@ -19925,6 +20614,383 @@ class Fighter {
           }
         }
       }
+    }
+  }
+  /* ================= ★ Rocky 重做（2026-11-17）：地震 / 岩崩重拳 / 石子 / 拳雨 =================
+     规格：
+       · 下B：双手触地，地震持续 2 秒；把「和自己处于同一高度（含同一块平台）」的敌人反复击飞，
+              被击飞的人 2 秒不能动。
+       · 中立B：保留蓄力重拳（伤害与击退减半），出拳后向身前散射 5 颗石子，全中 = 20%，
+              击退按命中石子的数量叠加。
+       · 左右B：冲刺撞到人 → 岩崩把人困住 1 秒、冲刺立刻停住，再蓄力打出重拳。
+       · 上B：不变。
+       · 大招：5 秒内所有 B 都变成重拳（1 秒冷却 / 10% 伤害）。
+     所有判定都跑在 rockyTick（物理固定步）里 —— 不能挂在 animStep，否则帧率高低会改变命中次数。 */
+  rockyTick(dt, inp) {
+    const Q = this.rockyQuake, C = this.rockyCrash;
+    /* ---- 下B：地震 2 秒 ---- */
+    if (Q) {
+      const cfg = Q.cfg;
+      Q.t += dt; Q.tickT -= dt;
+      this.state = 'special'; this.animT += dt; this.vel.x = 0;
+      if (Q.tickT <= 0) { Q.tickT += (cfg.gap || .25); this.rockyQuakePulse(cfg, Q); }
+      if (Q.t >= (cfg.dur || 2)) {
+        this.rockyQuake = null;
+        this.state = this.grounded ? 'idle' : 'fall';
+        callout(this, 'QUAKE · ' + Q.hits + ' HITS', cfg.color);
+      }
+      return;
+    }
+    /* ---- 左右B：岩崩之后原地蓄力 → 重拳（**100% 命中**：绑住期间把人钉在身前，打拳不再靠距离判定） ---- */
+    if (C) {
+      C.t -= dt;
+      this.state = 'special'; this.animT += dt; this.vel.x = 0;
+      const f0 = C.target, dir0 = this.facing || 1;
+      const holdX = () => THREE.MathUtils.clamp(this.pos.x + dir0 * 1.6, -CFG.blast.x + 2, CFG.blast.x - 2);
+      /* ★ 绑住期间每帧往「身前 1.6、与自己同高」上收敛：目标被击退、掉台、或站在浮台上都不影响收尾。
+         1.6 > 双方 bodyR 之和 ×.62（≈1.3）→ 不会每帧互相顶开。 */
+      if (f0 && !f0.eliminated && f0.respawnT <= 0) {
+        f0.pos.x += (holdX() - f0.pos.x) * Math.min(1, dt * 14);
+        f0.pos.y += ((this.pos.y + .05) - f0.pos.y) * Math.min(1, dt * 12);
+        f0.vel.set(0, 0, 0);
+      }
+      if (C.t <= 0) {
+        const cfg = C.cfg, R = 3.0;
+        const hx = this.pos.x + dir0 * 2.0, hy = this.pos.y + 1.35;
+        FX.ring(hx, hy, .3, R, cfg.color, .45);
+        FX.slash(hx, hy, .45, 0, 4.8, cfg.color, .24);
+        FX.crater(this.pos.x + dir0 * 2.4, this.pos.y, 2.6, cfg.color);
+        FX.burst(hx, hy, .2, 0x9b9184, 16, 18); FX.flash(hx, hy, .5, 6, cfg.color, .30);
+        shake = Math.max(shake, .6); camKick = Math.min(1, camKick + .30); SFX.heavy();
+        if (f0 && !f0.eliminated && f0.respawnT <= 0) {
+          f0.rockBind = 0; f0._rockBindX = undefined;            // 先解困再打，否则这一拳的击退会被吃掉
+          /* 打拳这一帧**硬摆到位**（不信任何距离判定），并清掉无敌/虚化 ——
+             否则 takeHit 会在命中处直接 return，看起来就是「重拳打空」。 */
+          f0.pos.x = holdX(); f0.pos.y = this.pos.y + .05;
+          f0.vel.set(0, 0, 0);
+          f0.invuln = 0; f0.intangible = 0; f0.hitstun = 0;
+          f0.takeHit(this, { dmg: cfg.crashDmg, bb: cfg.crashBb, bg: cfg.crashBg, ang: 34 },
+            Math.sign(f0.pos.x - this.pos.x) || dir0, 1);
+        }
+        this.rockyPunchT = .34; this.rockyCrash = null;
+        this.state = this.grounded ? 'idle' : 'fall';
+      }
+      return;
+    }
+  }
+  /* 地震每一拍：只打「和自己同一高度」的人（站在同一块浮台上的人 y 相同 → 平台自动包含在内） */
+  rockyQuakePulse(cfg, Q) {
+    const R = cfg.radius || 8;
+    FX.ring(this.pos.x, this.pos.y + .18, .2, R * 1.15, cfg.color, .30);
+    FX.ring(this.pos.x, this.pos.y + .26, .24, R * .72, 0xd8cbb2, .22);
+    FX.dust(this.pos.x, this.pos.y, 8, cfg.color);
+    shake = Math.max(shake, .22); SFX.tone(150, 70, .10, 'sawtooth', .05);
+    for (const f of FIGHTERS) {
+      if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+      if (Math.abs(f.pos.x - this.pos.x) > R + f.bodyR) continue;
+      if (Math.abs(f.pos.y - this.pos.y) > 1.15) continue;        // ★ 只打同一高度（不做全屏）
+      const dx = Math.sign(f.pos.x - this.pos.x) || this.facing;
+      f.takeHit(this, { dmg: cfg.dmg, bb: cfg.bb, bg: cfg.bg, ang: cfg.ang || 84 }, dx, 1);
+      /* 「被击飞后 2 秒不能动」：para = 做不了任何动作但照样会被击飞（和 Hacker 的锁定不同） */
+      f.para = Math.max(f.para || 0, cfg.lock || 2.0);
+      Q.hits++;
+      FX.spark(f.pos.x, f.pos.y + .6, .35, 8, 0xffe8c0);
+      FX.beam(f.pos.x, f.pos.y, f.pos.x, f.pos.y + 3.2, .18, cfg.color, .16);
+      if (Q.hits === 1) callout(f, 'QUAKE LOCK ' + (cfg.lock || 2).toFixed(1) + 's', 0xffe066);
+    }
+  }
+  /* 岩崩：碎石从头顶砸下来把人夹住（纯表现，命中已经结算过） */
+  rockyRockFall(f, cfg) {
+    const col = 0x9b9184;
+    FX.crater(f.pos.x, f.pos.y, 1.8, col);
+    FX.ring(f.pos.x, f.pos.y + 1.0, .3, 2.4, cfg.color, .40);
+    FX.burst(f.pos.x, f.pos.y + 1.4, 0, col, 14, 16);
+    for (let i = 0; i < 5; i++) {
+      const a = -.9 + i * .45;
+      FX.spark(f.pos.x + Math.sin(a) * 1.1, f.pos.y + 2.6 - i * .25, .34, 7, col);
+    }
+    FX.flash(f.pos.x, f.pos.y + 1.3, .45, 4.4, cfg.color, .26);
+    shake = Math.max(shake, .40); SFX.hit(22, 8);
+  }
+  /* 中立B 的 5 颗石子：固定角度散射（不用随机 → 联机两端一致），击退按命中数叠加 */
+  rockyScatterStones(cfg, k = 0) {
+    const n = cfg.rockyStones || 5;
+    const dir = this.facing || 1;
+    const bx = this.pos.x + dir * ((cfg.reach || 2.0) + .30), by = this.pos.y + 1.05;
+    for (const f of FIGHTERS) f._rockStones = 0;             // 每次出拳重置计数
+    for (let i = 0; i < n; i++) {
+      const t2 = (i - (n - 1) / 2) / ((n - 1) / 2);          // -1 … +1，固定顺序
+      /* ★ 2026-11-17 用户要求「减少散射石子的射程」：初速 21→13.5、寿命 1.05→0.62s、
+         上扬量 9.0→5.0（原来的上抛让最上面那颗能飞 20+ 单位）。现在最远 ≈ 5 单位。 */
+      const spd = 9.5 + (i % 2) * 1.6 + k * 2;
+      spawnProjectile(this, bx, by, dir, {
+        kind:'proj', label:'Stone', dmg:(cfg.stoneDmg || 3.64), bb:(cfg.stoneBb || 2.6), bg:(cfg.stoneBg || 8.4),
+        ang: 34 + t2 * 20, spd, size: .40, life: .40, color: 0xa89b90, rock: true, gravity: 26,
+        hitR: .62, stoneStack: true
+      }, 1, { vy: t2 * 4.0 + 1.3 });
+    }
+    FX.flash(bx, by, .4, 3.2, 0xa89b90, .22);
+    FX.burst(bx, by, 0, 0xa89b90, 10, 12);
+    SFX.tone(240, 140, .09, 'square', .06);
+  }
+  /* 重拳（大招拳雨用）：瞬发身前近战 */
+  rockyHeavyFist(dmg, bb, bg) {
+    const dir = this.facing || 1, R = 2.9;
+    const hx = this.pos.x + dir * 2.05, hy = this.pos.y + 1.35;
+    FX.ring(hx, hy, .3, R, 0xc9bda6, .42);
+    FX.slash(hx, hy, .45, 0, 4.4, 0xc9bda6, .22);
+    FX.flash(hx, hy, .5, 5.4, 0xc9bda6, .28);
+    FX.burst(hx, hy, .2, 0x9b9184, 14, 16);
+    FX.crater(this.pos.x + dir * 2.4, this.pos.y, 2.2, 0x9b9184);
+    shake = Math.max(shake, .45); camKick = Math.min(1, camKick + .22); SFX.heavy();
+    this.rockyPunchT = .30;
+    for (const f of FIGHTERS) {
+      if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+      if (Math.hypot(f.pos.x - hx, (f.pos.y + 1.35 * f.def.shape.scale) - hy) < R + f.bodyR * .8)
+        f.takeHit(this, { dmg, bb, bg, ang: 18 }, Math.sign(f.pos.x - this.pos.x) || dir, 1);
+    }
+    this.state = 'special'; this.animT = 0;
+  }
+  /* ================= ★ Foundry（第 44 号角色，2026-11-17）：四招 + 大招状态机 =================
+     规格（用户口述）：
+       · 中立B：伸出钳子把身前敌人吸过来，到面前抓住 → 核心激光焚烧，每 0.1s 一段，共 30%。
+       · 下B：强制蓄力 1 秒（期间不能动、不可打断）→ 扫射激光，角度逐渐增加，每 0.1s 一段，全中 50%。
+       · 左右B：背后喷气背包向前冲，碰到敌人立刻停住 → 激光剑必定命中的 3 连击 → 敌人麻痹 2 秒。
+       · 上B：向上飞，同时钳子朝附近每个敌人发射子弹（不跟踪）。
+       · 大招：悬空一点，喷气背包向下喷大范围火焰，4 秒，共 70%。
+     ★ 所有判定都在 fndTick（物理固定步）里跑；目标在「被抓/被连」期间每帧被钉住位置，
+       打之前统一清 invuln/intangible —— 否则每段伤害会被无敌帧静默吃掉（见 skill 不变量 55）。 */
+  /* ★ 2026-11-17（修「Foundry 技能导致对局重开」）：
+     技能状态机整段套一层 fail-safe。原因：这些代码跑在 physicsStep 里，**任何一次抛错都会让本机的
+     模拟步直接中断** —— 本机不再供帧 → 服务端判它卡住/托管 → 触发 resync（同 seed 从 0 重开）
+     = 玩家看到的「放个技能对局就重开了」。包一层之后：抛错只清掉本招状态、把错误写进
+     window.__fndErr 并在 HUD 上显示（可见诊断，不看控制台也能报给我），模拟步继续跑，不会重开局。 */
+  fndTick(dt, inp) {
+    try { this._fndTick(dt, inp); }
+    catch (e) {
+      window.__fndErr = String((e && e.message) || e);
+      this.fndPull = this.fndSweep = this.fndDash = this.fndRise = this.fndFs = null;
+      this.fndSlashT = 0;
+      if (this.state === 'special') this.state = this.grounded ? 'idle' : 'fall';
+    }
+  }
+  _fndTick(dt, inp) {
+    /* ★ NaN 保险：这套状态机会直接写 pos（钉住对手 / 悬空），一旦有 NaN 混进来，
+       位置会永久变 NaN → 出界判定/快照/联机哈希全部炸掉（表现为「对局莫名其妙重开」）。
+       每帧开头做一次体检，坏值就地清成 0 并记录，绝不让它扩散。 */
+    if (!isFinite(this.pos.x) || !isFinite(this.pos.y) || !isFinite(this.vel.x) || !isFinite(this.vel.y)) {
+      window.__fndErr = 'NaN pos/vel @fndTick';
+      this.pos.x = isFinite(this.pos.x) ? this.pos.x : 0;
+      this.pos.y = isFinite(this.pos.y) ? this.pos.y : 0;
+      this.vel.set(0, 0, 0);
+      this.fndPull = this.fndSweep = this.fndDash = this.fndRise = this.fndFs = null;
+    }
+    const PU = this.fndPull, SW = this.fndSweep, DA = this.fndDash, RI = this.fndRise, FS = this.fndFs;
+    if (this.fndSlashT > 0) this.fndSlashT -= dt;
+    if (this.fndFireT > 0) this.fndFireT -= dt;
+    const dir = this.facing || 1;
+    /* ---------- 中立B：钳拉 → 核心激光（10 拍 × 3.0 = 30%） ---------- */
+    if (PU) {
+      const cfg = PU.cfg;
+      PU.t += dt; this.state = 'special'; this.animT += dt; this.vel.x = 0;
+      const f = PU.target;
+      if (!f || f.eliminated || f.respawnT > 0) { this.fndPull = null; this.state = this.grounded ? 'idle' : 'fall'; return; }
+      if (PU.phase === 'pull') {
+        const tx = this.pos.x + dir * 1.55;
+        f.pos.x += (tx - f.pos.x) * Math.min(1, dt * 9);
+        f.pos.y += ((this.pos.y + .04) - f.pos.y) * Math.min(1, dt * 9);
+        f.vel.set(0, 0, 0); f.hitstun = Math.max(f.hitstun, .05);
+        FX.trail(this.pos.x + dir * 1.2, this.pos.y + 1.3, .22, cfg.color);
+        if (PU.t >= (cfg.pullT || .40)) {
+          PU.phase = 'burn'; PU.t = 0; PU.next = 0;
+          FX.ring(f.pos.x, f.pos.y + 1.1, .3, 2.6, cfg.color, .45);
+          FX.flash(this.pos.x, this.pos.y + 1.42, .5, 5.0, cfg.color, .30);
+          callout(this, 'CORE BURN', cfg.color); SFX.heavy();
+        }
+        return;
+      }
+      /* 焚烧段：把人钉在核心正前方，每 .10s 一跳 */
+      f.pos.x += ((this.pos.x + dir * 1.35) - f.pos.x) * Math.min(1, dt * 18);
+      f.pos.y += ((this.pos.y + .04) - f.pos.y) * Math.min(1, dt * 18);
+      f.vel.set(0, 0, 0); f.hitstun = Math.max(f.hitstun, .06);
+      PU.next -= dt;
+      if (PU.next <= 0 && PU.hits < 10) {              // ★ 严格 10 拍 = 30%（多一拍就 33%）
+        PU.next += (cfg.tick || .10);
+        f.invuln = 0; f.intangible = 0;
+        f.takeHit(this, { dmg: cfg.tickDmg || 3.0, bb: 1.6, bg: 2.4, ang: 72 }, dir, 1);
+        f.pos.x = this.pos.x + dir * 1.35; f.pos.y = this.pos.y + .04; f.vel.set(0, 0, 0);
+        PU.hits++;
+        FX.beam(this.pos.x, this.pos.y + 1.42, f.pos.x, f.pos.y + 1.05, .24, cfg.color, .08);
+        FX.spark(f.pos.x, f.pos.y + 1.05, .32, 7, cfg.color);
+        FX.ring(f.pos.x, f.pos.y + 1.05, .22, 1.1, 0xffe0a0, .12);
+        if (PU.hits % 3 === 0) SFX.hit(30, 4);
+      }
+      if (PU.t >= (cfg.burnT || 1.06)) {
+        this.fndPull = null; this.state = this.grounded ? 'idle' : 'fall';
+        callout(this, 'CORE BURN · ' + PU.hits + ' HITS', cfg.color);
+      }
+      return;
+    }
+    /* ---------- 下B：强制蓄力 1 秒（不可打断）→ 扫射（10 拍 × 5.0 = 50%） ---------- */
+    if (SW) {
+      const cfg = SW.cfg;
+      SW.t += dt; this.vel.x = 0;
+      if (SW.phase === 'charge') {
+        this.state = 'charge'; this.animT += dt;
+        this.armor = Math.max(this.armor, .06);        // 照吃伤害、不吃硬直与击退 = 不可打断
+        if (SW.t >= (cfg.chargeT || 1.0)) {
+          SW.phase = 'fire'; SW.t = 0; SW.next = 0;
+          this.state = 'special';
+          callout(this, 'SWEEP BEAM', cfg.color); SFX.special('wave');
+          FX.flash(this.pos.x, this.pos.y + 1.42, .55, 7.0, cfg.color, .38);
+          shake = Math.max(shake, .45);
+        }
+        return;
+      }
+      this.state = 'special'; this.animT += dt;
+      const prog = Math.min(1, SW.t / (cfg.fireT || 1.0));
+      const ang = ((cfg.ang0 !== undefined ? cfg.ang0 : -8) + ((cfg.ang1 || 58) - (cfg.ang0 !== undefined ? cfg.ang0 : -8)) * prog) * Math.PI / 180;
+      const ox = this.pos.x + dir * .75, oy = this.pos.y + 1.42, L = cfg.len || 9;
+      const ux = Math.cos(ang) * dir, uy = Math.sin(ang);
+      const ex = ox + ux * L, ey = oy + uy * L;
+      FX.beam(ox, oy, ex, ey, .34, cfg.color, .06);
+      FX.beam(ox, oy, ex, ey, .12, 0xfff0c0, .05);
+      FX.spark(ex, ey, .30, 6, cfg.color);
+      SW.next -= dt;
+      if (SW.next <= 0 && SW.hits < 10) {             // ★ 严格 10 拍 = 50%
+        SW.next += (cfg.tick || .10);
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+          const dx = f.pos.x - ox, dy = (f.pos.y + 1.05 * f.def.shape.scale) - oy;
+          const along = dx * ux + dy * uy, perp = Math.abs(dx * uy - dy * ux);
+          if (along < -.5 || along > L) continue;
+          /* ★ 锥形放宽：光束扫起来后，中距离目标的横向偏差会变大 —— 只按固定半宽判，
+             实测 4.5 距离只能中 5/10 拍（25%），永远打不满 50%。改成「越远越宽」的锥。 */
+          if (perp > (cfg.beamW || 1.2) + f.bodyR * .5 + Math.max(0, along) * (cfg.cone || .26)) continue;
+          f.takeHit(this, { dmg: cfg.tickDmg || 5.0, bb: 4, bg: 6, ang: 68 }, Math.sign(dx) || dir, 1);
+          SW.hits++;
+          FX.spark(f.pos.x, f.pos.y + 1.0, .34, 6, 0xffe0a0);
+        }
+        shake = Math.max(shake, .18);
+      }
+      if (SW.t >= (cfg.fireT || 1.0)) {
+        this.fndSweep = null; this.state = this.grounded ? 'idle' : 'fall';
+        callout(this, 'BEAM · ' + SW.hits + ' HITS', cfg.color);
+      }
+      return;
+    }
+    /* ---------- 左右B：喷气冲锋 → 撞停 → 必定命中的剑三连 + 麻痹 2 秒 ---------- */
+    if (DA) {
+      const cfg = DA.cfg;
+      this.vel.x = 0; this.state = 'special'; this.animT += dt;
+      if (DA.phase === 'dash') {
+        this.vel.x = dir * this.s.run * (cfg.spd || 2.0);
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+          if (Math.abs(f.pos.x - this.pos.x) > 2.0 + f.bodyR * .6) continue;
+          if (Math.abs(f.pos.y - this.pos.y) > 2.6) continue;
+          DA.phase = 'combo'; DA.target = f; DA.n = 0; DA.next = .10; DA.hits = 0;
+          this.vel.x = 0; this.vel.y = Math.max(this.vel.y, 1.0);
+          FX.ring(f.pos.x, f.pos.y + 1.1, .3, 2.6, cfg.color, .45);
+          FX.flash(this.pos.x, this.pos.y + 1.3, .5, 5.0, cfg.color, .32);
+          callout(this, 'JET RAM', cfg.color); SFX.heavy(); shake = Math.max(shake, .35);
+          break;
+        }
+        DA.t -= dt;
+        if (DA.phase === 'dash' && DA.t <= 0) { this.fndDash = null; this.state = this.grounded ? 'idle' : 'fall'; }
+        return;
+      }
+      /* 三连段：每段前把人钉到身前 1.5 并清无敌帧 → 必定命中 */
+      const f = DA.target;
+      if (!f || f.eliminated || f.respawnT > 0) { this.fndDash = null; this.state = this.grounded ? 'idle' : 'fall'; return; }
+      const tx = this.pos.x + dir * 1.5;
+      f.pos.x += (tx - f.pos.x) * Math.min(1, dt * 18);
+      f.pos.y += ((this.pos.y + .02) - f.pos.y) * Math.min(1, dt * 18);
+      f.vel.set(0, 0, 0);
+      DA.next -= dt;
+      if (DA.next <= 0 && DA.n < 3) {
+        DA.next += .16; DA.n++;
+        const last = DA.n >= 3;
+        f.invuln = 0; f.intangible = 0; f.hitstun = 0;
+        f.pos.x = tx; f.pos.y = this.pos.y + .02; f.vel.set(0, 0, 0);
+        f.takeHit(this, { dmg: cfg.hitDmg || 6.0, bb: last ? 7 : 0, bg: last ? 12 : 0, ang: last ? 62 : 30 }, dir, 1);
+        DA.hits++;
+        this.fndSlashT = .20; this.fndFireT = .16;
+        FX.slash(f.pos.x, f.pos.y + 1.15, .5, dir > 0 ? 0 : Math.PI, 4.6, cfg.color, .22);
+        FX.beam(f.pos.x - dir * 1.9, f.pos.y + 1.15, f.pos.x + dir * .6, f.pos.y + 1.15, .16, cfg.color, .12);
+        FX.spark(f.pos.x, f.pos.y + 1.1, .34, 7, 0xffe0a0);
+        SFX.hit(30, 6); shake = Math.max(shake, .22);
+        if (last) {
+          f.para = Math.max(f.para || 0, cfg.para || 2.0);
+          callout(f, 'PARALYZED ' + (cfg.para || 2.0).toFixed(1) + 's', 0x9fe8ff);
+          FX.ring(f.pos.x, f.pos.y + 1.1, .3, 3.0, 0x9fe8ff, .45);
+          this.fndDash = null; this.state = this.grounded ? 'idle' : 'fall';
+        }
+      }
+      return;
+    }
+    /* ---------- 上B：上升 + 朝附近每个敌人射不跟踪弹 ---------- */
+    if (RI) {
+      const cfg = RI.cfg;
+      RI.t += dt; this.state = 'special'; this.animT += dt;
+      this.vel.y = Math.max(this.vel.y, (cfg.rise || 24) * Math.max(0, 1 - RI.t / (cfg.dur || .80)));
+      RI.next -= dt;
+      if (RI.next <= 0 && RI.volleys > 0) {
+        RI.next += (cfg.gap || .18); RI.volleys--;
+        this.fndFireT = .22;
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated) continue;
+          if (Math.hypot(f.pos.x - this.pos.x, f.pos.y - this.pos.y) > (cfg.range || 9)) continue;
+          const sx = this.pos.x - dir * .4, sy = this.pos.y + 1.3;
+          const dx = f.pos.x - sx, dy = (f.pos.y + 1.05) - sy, L = Math.hypot(dx, dy) || 1;
+          const spd = 26;
+          const pr = spawnProjectile(this, sx, sy, dir, { kind:'proj', label:'Pincer Bolt', dmg: cfg.dmg || 6.0,
+            bb: 5, bg: 12, ang: 44, spd, size: .34, life: 1.31, color: cfg.color, techBolt: true }, 1, {});
+          /* ★ 不跟踪：出生后直接按「发弹那一刻」的方向直线飞（invariant 32：别指望 spawnProjectile 的 dirX） */
+          pr.vx = dx / L * spd; pr.vy = dy / L * spd;
+          FX.flash(sx, sy, .4, 3.0, cfg.color, .22);
+        }
+        SFX.special('proj');
+      }
+      if (RI.t >= (cfg.dur || .80)) { this.fndRise = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      return;
+    }
+    /* ---------- 大招：悬空 + 向下喷火 4 秒（40 拍 × 1.75 = 70%） ---------- */
+    if (FS) {
+      const cfg = FS.cfg;
+      FS.t -= dt; this.state = 'special'; this.animT += dt; this.vel.x = 0;
+      if (FS.hoverY === undefined) FS.hoverY = Math.max(this.pos.y + 2.2, 2.4);   // 悬空「一点点」
+      if (FS.t > (cfg.dur || 4.0) - .25) { this.vel.y = Math.max(this.vel.y, 8.5); this.grounded = false; }
+      else {
+        /* ★ 用位置收敛到 hoverY，不要用「固定下沉速度」——
+           那样在没地板的图（stage 9 之类）会一路沉到出界，火雨判定也跟着全空。 */
+        const dY = FS.hoverY - this.pos.y;
+        if (Math.abs(dY) > .03) { this.pos.y += Math.sign(dY) * Math.min(Math.abs(dY), 6.0 * dt); this.grounded = false; }
+        this.vel.y = 0;
+      }
+      FS.next -= dt;
+      if (FS.next <= 0 && FS.hits < 40) {            // ★ 严格 40 拍 = 70%
+        FS.next += .10; FS.hits++;
+        /* 宽火焰锥：只在身下、半宽 5.6、下落方向 —— 每拍 1.75% */
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+          if (f.pos.y > this.pos.y + 1.0) continue;      // 只烧自己身下（留 1 单位容差，免得被击飞跳起来躲掉几拍）
+          const dx = Math.abs(f.pos.x - this.pos.x);
+          if (dx > 5.6) continue;
+          f.takeHit(this, { dmg: cfg.tickDmg || 1.75, bb: 2.5, bg: 4, ang: 84 }, Math.sign(f.pos.x - this.pos.x) || dir, 1);
+          if (FS.hits % 4 === 0) FX.spark(f.pos.x, f.pos.y + .8, .34, 5, 0xffa030);
+        }
+        /* 火焰视觉：两团交替下落的锥体 + 地面火环 */
+        for (let i = 0; i < 3; i++) {
+          const ox2 = this.pos.x + (i - 1) * 2.4 + Math.sin(FS.hits * .7 + i) * .5;
+          FX.trail(ox2, Math.max(this.pos.y - 1.2, .2), .55, 0xffa030);
+          FX.trail(ox2, Math.max(this.pos.y - 2.6, .2), .42, 0xff5a1a);
+        }
+        FX.ring(this.pos.x, Math.max(0, this.pos.y - 3.2), .25, 5.4, 0xff8a3d, .18);
+        shake = Math.max(shake, .16);
+      }
+      if (FS.t <= 0) { this.fndFs = null; this.state = this.grounded ? 'idle' : 'fall'; }
+      return;
     }
   }
   readInput(dt) { const i = this.input; if (this.ctrl) this.ctrl.step(this, i, dt); return i; }
@@ -19959,7 +21025,8 @@ class Fighter {
     if (this.mosq || this.eatHold || this.eaten || this.rush || this.hug || this.hugDash ||
         /* ★ Titan：过热（2 秒完全不能动，但**会被击飞**——击退在 takeHit 里按 −60% 结算）
            与下B 下砸的前摇/收招。旋转（titanSpin）故意**不在这里**：旋转期间可以走动/跳跃。 */
-        this.fatigue > 0 || this.titanSlam ||
+        this.fatigue > 0 || this.titanSlam || this.rockyQuake || this.rockyCrash ||
+        this.fndPull || this.fndSweep || this.fndDash || this.fndFs ||
         this.abducted || this.ufo || this.ufoCrash || this.saber || this.sandT > 0 || this.warp || this.bandage || this.duneRun ||
         this.tiger || this.tailS || this.devour || this.grab || this.angelGrab || this.angelFly || this.horn || this.tide || this.sharkBub ||
         this.reapCombo || this.hallowSweep || this.hallowRise || this.pumpkinForm || this.flatT > 0 || this.burnLock > 0 ||
@@ -19978,7 +21045,7 @@ class Fighter {
           !this.trashRush && !this.trashClap && !this.mosq && !this.wardenRush &&
           !this.monkRush && !this.monkLeap && !this.monkSlam && !this.bomberRush && !this.mechCar &&
           !this.treShadow && !(this.treMaw && this.treMaw.phase === 'cast') &&
-          !(this.prisWarp && this.prisWarp.phase !== 'bind') && !this.prisVine) this.vel.x = 0;   // ★ Treasure：影子潜行 / 领域起手 自己管速度   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪/蚊子冲刺 自己管速度
+          !(this.prisWarp && this.prisWarp.phase !== 'bind') && !this.prisVine && !this.fndDash) this.vel.x = 0;   // ★ Treasure：影子潜行 / 领域起手 自己管速度   // 飞扑/冲锋/UFO/挥剑/冲刺连招/虎冲/沙暴冲刺/六翼擒拿/角撞/踏浪/蚊子冲刺 自己管速度
       return;
     }
     /* ★ Blub·雷弹：麻痹期间做不了任何动作（但**会吃击退** —— 和 Hacker 的锁定不同） */
@@ -20188,6 +21255,8 @@ class Fighter {
               this.bomberRush || this.bomberUp ||
               this.prisWarp || this.prisVine ||
               this.titanSpin || this.titanSlam || this.titanJet ||    // ★ Titan 重做：旋转 / 下砸 / 喷气
+              this.rockyQuake || this.rockyCrash ||                   // ★ Rocky 重做：地震 / 岩崩重拳
+              this.fndPull || this.fndSweep || this.fndDash || this.fndRise || this.fndFs ||   // ★ Foundry
               this.treShadow || this.treToss || this.treUp ||
               (this.treMaw && this.treMaw.phase === 'cast'));        // ★ Treasure（领域「起手」中是互斥；进领域后照常能打）
   }
@@ -20197,6 +21266,12 @@ class Fighter {
     const key = this.spKeyFor(inp);
     const cfg = sp[key];
     if (!cfg) return false;
+    /* ★ Rocky·大招「拳雨」：5 秒内按任意 B 都变成重拳（1 秒冷却 / 10% 伤害，不消耗普通技能冷却） */
+    if (this.def.id === 'rocky' && this.rockyFsT > 0) {
+      this.cooldown['sp_' + key] = 1.0;
+      this.rockyHeavyFist(9.09, 12, 40);      // 9.09 × mul.dmg 1.10 = 10.0%
+      return true;
+    }
     /* ★ 士兵·大招「重机枪」：10 秒内按任意 B 都改成 10 连发（不消耗普通技能冷却） */
     if (this.def.id === 'soldier' && this.soldierGunT > 0) {
       this.cooldown['sp_' + key] = .34;
@@ -20264,8 +21339,15 @@ class Fighter {
       return true;
     }
     if (cfg.kind === 'titanHand') {
+      /* ★ 特殊武器「Seeker Fist」：火箭手变成**完全追踪**（homing.instant → 每帧直接朝目标转向）。
+         撞地面/浮空平台照样就地爆炸（判定在 updateProjectiles 的 cfg.fist 分支，不受追踪影响）。 */
+      let handCfg = cfg;
+      if (this.def && this.def.id === 'titan' && weaponHasFor(this, 'titan_seeker_fist')) {
+        handCfg = Object.assign({}, cfg, { homing: { turn: 42, instant: true } });
+        callout(this, 'SEEKER FIST · FULL TRACK', 0xff8a3d);
+      }
       /* 把自己的手拆下来扔出去：飞行期间那只手的铅球先藏起来（看得出「飞出去的是他的手」） */
-      const pr = spawnProjectile(this, this.pos.x + dir * 1.15, this.headY - .35, dir, cfg, 1, {});
+      const pr = spawnProjectile(this, this.pos.x + dir * 1.15, this.headY - .35, dir, handCfg, 1, {});
       this.handShot = pr;
       if (this.parts && this.parts.flailR) this.parts.flailR.visible = false;
       this.state = 'special'; this.animT = 0; this._spT = .26;
@@ -21101,6 +22183,60 @@ class Fighter {
       this.vel.x *= .55;
       FX.ring(this.pos.x + dir * .5, this.pos.y + .3, .28, 1.6, cfg.color, .26);
       SFX.tone(520, 900, .07, 'square', .05);
+    } else if (cfg.kind === 'fndPull') {                // ★ Foundry·中立B：钳子拉人 → 核心激光
+      let tg = null, bd = 1e9;
+      for (const f of FIGHTERS) {
+        if (f === this || f.eliminated) continue;
+        const dx = (f.pos.x - this.pos.x) * dir;
+        if (dx < -.6 || dx > (cfg.range || 7.2)) continue;
+        if (Math.abs(f.pos.y - this.pos.y) > 3.2) continue;
+        if (dx < bd) { bd = dx; tg = f; }
+      }
+      this.fndPull = { cfg, t: 0, phase: tg ? 'pull' : 'pull', target: tg, hits: 0, next: 0 };
+      this.state = 'special'; this.animT = 0; this.vel.x = 0;
+      callout(this, tg ? 'PINCER SNATCH' : 'PINCER MISS', cfg.color);
+      FX.ring(this.pos.x + dir * 1.4, this.pos.y + 1.35, .3, 2.6, cfg.color, .40);
+      FX.beam(this.pos.x + dir * .8, this.pos.y + 1.35, this.pos.x + dir * (cfg.range || 7.2), this.pos.y + 1.35, .10, cfg.color, .12);
+      SFX.special('dash');
+      return true;
+    } else if (cfg.kind === 'fndSweep') {               // ★ Foundry·下B：强制蓄力 1 秒 → 扫射激光
+      this.fndSweep = { cfg, t: 0, phase: 'charge', next: 0, hits: 0 };
+      this.state = 'charge'; this.animT = 0; this.vel.x = 0; this.vel.y = Math.min(this.vel.y, 0);
+      callout(this, 'CHARGING BEAM · ' + (cfg.chargeT || 1).toFixed(1) + 's', cfg.color);
+      FX.ring(this.pos.x, this.pos.y + 1.4, .3, 2.4, cfg.color, .40);
+      SFX.charge();
+      return true;
+    } else if (cfg.kind === 'fndDash') {                // ★ Foundry·左右B：喷气冲锋 → 撞停 → 剑三连
+      this.fndDash = { cfg, phase: 'dash', t: cfg.dur || .46, target: null, n: 0, next: 0 };
+      this.state = 'special'; this.animT = 0;
+      this.vel.x = dir * this.s.run * (cfg.spd || 2.0); this.vel.y = Math.max(this.vel.y, 1.6);
+      callout(this, cfg.label, cfg.color);
+      FX.ring(this.pos.x - dir * .8, this.pos.y + 1.5, .3, 2.2, cfg.color, .35);
+      FX.burst(this.pos.x - dir * .8, this.pos.y + 1.4, 0, 0xffa030, 12, 14);
+      SFX.special('dash');
+      return true;
+    } else if (cfg.kind === 'fndRise') {                // ★ Foundry·上B：上升 + 钳子散射（不跟踪）
+      this.fndRise = { cfg, t: 0, next: 0, volleys: cfg.volleys || 2 };
+      this.state = 'special'; this.animT = 0; this.airDodged = false;
+      this.vel.y = cfg.rise || 24; this.vel.x *= .6; this.grounded = false;
+      this.jumpsLeft = Math.max(this.jumpsLeft, 0);
+      callout(this, cfg.label, cfg.color);
+      FX.ring(this.pos.x, this.pos.y + .3, .25, 2.4, cfg.color, .38);
+      FX.dust(this.pos.x, this.pos.y, 10, 0xffa030);
+      SFX.special('recover');
+      return true;
+    } else if (cfg.kind === 'quake') {                  // ★ Rocky·下B：双手触地 → 2 秒地震
+      if (!this.grounded) { callout(this, 'GROUND ONLY', 0xff6b6b); SFX.shield();
+        this.cooldown['sp_' + (this._spKey || 'd')] = 0;   // 空中被拒不吃冷却
+        return false; }
+      this.rockyQuake = { cfg, t:0, tickT:0, hits:0 };
+      this.state = 'special'; this.animT = 0; this.vel.x = 0; this.vel.y = Math.min(this.vel.y, 0);
+      callout(this, 'EARTHSHATTER · ' + (cfg.dur || 2).toFixed(1) + 's', cfg.color);
+      FX.ring(this.pos.x, this.pos.y + .22, .25, (cfg.radius || 8) * .8, cfg.color, .5);
+      FX.crater(this.pos.x, this.pos.y, 2.8, cfg.color);
+      FX.dust(this.pos.x, this.pos.y, 14, cfg.color);
+      shake = Math.max(shake, .55); SFX.special('wave');
+      return true;
     } else if (cfg.kind === 'chargeMelee') {
       // 蓄力Boulder Punch：按住蓄力，松手出拳（带霸体，纯近战）
       this.charging = { melee:true, cfg, holdKey:'sp' }; this.chargeT = 0; this.state = 'charge';
@@ -21819,6 +22955,8 @@ class Fighter {
             Math.sign(f.pos.x - this.pos.x) || this.facing);
         }
       }
+      /* ★ Rocky：出拳后立刻向身前散射 5 颗石子（拳的伤害/击退已减半，石子全中 = 20%） */
+      if (this.def.id === 'rocky' && cfg.rockyStones) { this.rockyPunchT = .34; this.rockyScatterStones(cfg, k); }
       this.state = 'attack'; this.animT = 0;
       return;
     }
@@ -22056,7 +23194,10 @@ class Fighter {
       this.vel.y -= CFG.G * dt;
     }
     if (!this.grounded && this.vel.y < -6 && Math.abs(this.input.y) > .6 && !this.grabbed) this.vel.y -= (this.s.fastFall - this.s.fall) * 3.4 * dt;
-    const maxFall = Math.abs(this.input.y) > .6 ? this.s.fastFall : this.s.fall;
+    /* ★ Ocean：水里无限跳（每帧补 1 次跳跃）+ 下沉限速 */
+    if (STAGE.water) this.jumpsLeft = Math.max(this.jumpsLeft || 0, 1);
+    const maxFall = STAGE.water ? (STAGE.sinkMax || 2.6)
+                                : (Math.abs(this.input.y) > .6 ? this.s.fastFall : this.s.fall);
     if (this.vel.y < -maxFall) this.vel.y = -maxFall;
     // Zephyr专属：滑翔——空中按住Jump跃键大幅缓降
     if (this.glideOn && !this.grounded && this.input.jumpHeld && this.vel.y < 0
@@ -23697,6 +24838,88 @@ class Fighter {
         }
       }
     }
+    /* ================= ★ Rocky：重装地震动作 —— 双拳砸地 / 挥拳 / 岩崩蓄力 / 拳雨待机 =================
+       读法（侧视）：armR/armL 是绕肩的 X 轴旋转（负数 = 抬到身前/头顶，正数 = 往下/往后）。
+       角度全部用 A.t 绝对计算（dt 可能为 0，不能写 rot += speed*dt）。 */
+    if (this.def.id === 'rocky') {
+      let rA = null, rB = null, rLean = 0;
+      if (this.rockyQuake) {                        // 下B：双拳插进地面、身体压到最低 + 高频震颤
+        const tr = Math.sin(A.t * 46) * .06;
+        rA = -.62 + tr; rB = -.50 - tr; rLean = this.facing * .52;
+        /* 屈膝（注意：group.position.y 是角色的**世界高度**，会被 update 每帧写回 pos.y，
+           所以蹲姿只能靠腿与身体角度，不能下沉整个 group） */
+        P.legL.rotation.x = -.34; P.legR.rotation.x = .34;
+      } else if (this.rockyPunchT > 0) {            // 挥拳：右臂后拉 → 抡到身前（计时在 update 里递减）
+        const k2 = 1 - Math.max(0, this.rockyPunchT) / .34;
+        rA = .95 - k2 * 3.15; rB = .70 - k2 * 1.05; rLean = this.facing * (.30 * k2 - .12);
+      } else if (this.rockyCrash) {                 // 左右B 撞停：双臂后拉蓄力 → 前顶
+        const k2 = 1 - Math.max(0, this.rockyCrash.t) / (this.rockyCrash.dur || 1.0);
+        rA = .85 - k2 * 3.30; rB = .80 - k2 * 2.90; rLean = -this.facing * .26 * (1 - k2);
+      } else if (this.charging && this.charging.melee) {   // 中立B 蓄力：拳收到腰后、身体后仰
+        const k2 = Math.min(1, this.chargeT / ((this.charging.cfg && this.charging.cfg.charge) || .7));
+        rA = .95 - k2 * .40; rB = .60; rLean = -this.facing * (.16 + k2 * .18);
+      } else if (this.recoverAtk) {                 // 上B：双拳冲天
+        rA = -2.55; rB = -2.45; rLean = -this.facing * .14;
+      } else if (this.rockyFsT > 0) {               // 大招拳雨：举拳待机（左右交替小幅晃）
+        rA = -1.25 + Math.sin(A.t * 9) * .14; rB = -1.05 - Math.sin(A.t * 9) * .12;
+        rLean = this.facing * .12;
+      }
+      if (!this.rockyQuake) {                       // 蹲姿只在灾中：一出招结束立刻复位（否则会一直沉在地里）
+        P.group.position.y = 0;
+        if (P.legL && P.legR) { P.legL.rotation.x = 0; P.legR.rotation.x = 0; }
+      }
+      if (rA !== null && P.armR && P.armL) {
+        P.armR.rotation.x = rA; P.armL.rotation.x = rB;
+        P.group.rotation.z = rLean;
+      }
+    }
+    /* ================= ★ Foundry：机架动作 —— 钳子平推 / 光剑三连 / 喷气口开关 / 核心呼吸 ================= */
+    if (this.def.id === 'foundry') {
+      let fA = null, fB = null, fLean = 0;
+      const jet = P.jetFlame, core = P.core, gog = P.coreGlow;
+      if (jet) jet.visible = false;
+      if (P.copL && P.copR && P.copL.material && P.copR.material) {
+        /* 警灯交替闪：约 2.2Hz，蓝亮红暗 ↔ 红亮蓝暗（纯表现，不影响判定/联机） */
+        const ph = (A.t * 2.2) % 1;
+        P.copL.material.emissiveIntensity = ph < .5 ? 2.2 : .32;
+        P.copR.material.emissiveIntensity = ph < .5 ? .32 : 2.2;
+      }
+      if (core && gog && core.material) {
+        const burning = !!(this.fndPull && this.fndPull.phase === 'burn');
+        core.scale.setScalar(1 + Math.sin(A.t * 4) * .06 + (burning ? .28 : 0));
+        gog.material.opacity = burning ? .48 : .20;
+      }
+      if (this.fndPull) {                          // 中立B：右臂平推钳子；焚烧时双臂前压 + 钳口咬合
+        const burning = this.fndPull.phase === 'burn';
+        fA = burning ? -1.52 : -1.78; fB = burning ? -1.35 : .55; fLean = this.facing * (burning ? .10 : -.12);
+        if (P.pincerJaws) for (let i = 0; i < P.pincerJaws.length; i++)
+          P.pincerJaws[i].rotation.x = (i ? 1 : -1) * (.26 + Math.abs(Math.sin(A.t * 18)) * .18);
+      } else if (this.fndSweep) {                  // 下B：蓄力时双臂收紧、开火时左臂随角度抬起
+        if (this.fndSweep.phase === 'charge') { fA = -1.10; fB = .90; fLean = -this.facing * .20; }
+        else {
+          const pr2 = Math.min(1, this.fndSweep.t / (this.fndSweep.cfg.fireT || 1));
+          fA = -1.45; fB = -1.15 - pr2 * .55; fLean = this.facing * (.12 + pr2 * .18);
+        }
+      } else if (this.fndDash) {                   // 左右B：冲锋身体前压 + 喷火；连段时剑臂前挥
+        if (this.fndDash.phase === 'dash') {
+          fA = .55; fB = -.95; fLean = this.facing * .42;
+          if (jet) jet.visible = true;
+        } else {
+          fA = -1.90 + (this.fndSlashT > 0 ? .55 : 0); fB = -1.20; fLean = this.facing * .26;
+        }
+      } else if (this.fndRise) {                   // 上B：双臂上举 + 喷口
+        fA = -2.35; fB = -2.35; fLean = -this.facing * .12;
+        if (jet) jet.visible = true;
+      } else if (this.fndFs) {                     // 大招：悬空、双臂下压、喷口全开
+        fA = .85; fB = .85; fLean = this.facing * .06;
+        if (jet) { jet.visible = true; jet.scale.set(1.55, 1.7 + Math.sin(A.t * 22) * .25, 1.55); }
+      }
+      if (jet && !jet.visible) jet.scale.set(1, 1, 1);
+      if (fA !== null && P.armR && P.armL) {
+        P.armR.rotation.x = fA; P.armL.rotation.x = fB;
+        P.group.rotation.z = fLean;
+      }
+    }
     /* ★ Blub：球体弹性 —— 走动时挤压/拉伸（幅度只有 Smiley 的一半），空中拉长，静止时轻微呼吸 */
     if (this.def.id === 'blub' && P.ball) {
       const spd = Math.abs(this.vel.x);
@@ -25151,7 +26374,15 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
         const where = f.monkHasStaff ? '✋' : (f.monkStaffPos ? '📍' : '✈');
         return '棍 GROW ' + Math.min(gw, cap2) + (gw >= cap2 ? ' MAX' : '') + ' · ' + where;
       })() : '';
-      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, lg, bb3, sand2, fr2, vx2, tc2, mkHud, bbHud, trHud, prHud].filter(Boolean).join(' ');
+      const rkHud = (f.rockyFsT > 0 ? '✊ FIST ' + f.rockyFsT.toFixed(1) + 's' : '')
+        + (f.rockyQuake ? ' 🌋 QUAKE ' + Math.max(0, (f.rockyQuake.cfg.dur || 2) - f.rockyQuake.t).toFixed(1) + 's' : '')
+        + (f.rockBind > 0 ? ' 🪨 BOUND ' + f.rockBind.toFixed(1) + 's' : '');   // ★ Rocky：拳雨 / 地震 / 被岩崩困住
+      const fndHud = (f.fndFs ? '\uD83D\uDD25 STORM ' + Math.max(0, f.fndFs.t).toFixed(1) + 's' : '')
+        + ((f.def.id === 'foundry' && window.__fndErr) ? ' \u26A0 SKILL ERR: ' + String(window.__fndErr).slice(0, 28) : '')
+        + (f.fndPull ? ' \uD83E\uDD9F SNATCH ' + f.fndPull.hits + '/10' : '')
+        + (f.fndSweep ? (f.fndSweep.phase === 'charge' ? ' \u26A1 CHARGE ' + Math.max(0, (f.fndSweep.cfg.chargeT || 1) - f.fndSweep.t).toFixed(1) + 's' : ' \u26A1 SWEEP ' + f.fndSweep.hits + '/10') : '')
+        + (f.fndDash ? (f.fndDash.phase === 'dash' ? ' \uD83D\uDE80 RAM' : ' \u2694 COMBO ' + (f.fndDash.hits || 0) + '/3') : '');
+      const txt2 = [hs, fs2, lm, ib, pr, sl, nj, et, ev, vn, cr, hg, hc, uf, ab, lg, bb3, sand2, fr2, vx2, tc2, mkHud, bbHud, trHud, prHud, rkHud, fndHud].filter(Boolean).join(' ');
       if (p.statTxt !== txt2 || p.statWasOn !== !!txt2) {
         p.statTxt = txt2; p.statWasOn = !!txt2;
         p.stat.textContent = txt2;
@@ -25974,7 +27205,7 @@ PV.resize();
   /* ================= ★ 地图预览卡（每张地图一张真实截图）================= */
   const SG = document.getElementById('stageGrid');
   const SGROUPS = [['STANDARD', ['meadow','pillars','arena','desert']],
-                   ['TERRACES', ['verdant','verdantXL']],
+                   ['TERRACES', ['ocean','oceanXL']],
                                       ['XL', ['meadowXL','pillarsXL','arenaXL','desertXL']],
                    ['SPECIAL', ['rooftop','rooftopXL','mines','minesXL']]];
   const stageNameOf = () => (settings.stage === 'r' || settings.stage === undefined)
@@ -26278,7 +27509,7 @@ document.getElementById('backBtn').onclick = () => { UI.result.classList.add('hi
   const draw = () => {
     /* ★ 16 张图分组：一行文字按钮已经挤不下（手机上会折行看不清）→ 标准 / 台阶 / 梯子 / XL / 特殊机制 */
     const GROUPS = [['STANDARD', ['meadow','pillars','arena','desert']],
-                    ['TERRACES', ['verdant','verdantXL']],
+                    ['TERRACES', ['ocean','oceanXL']],
                                         ['XL', ['meadowXL','pillarsXL','arenaXL','desertXL']],
                     ['SPECIAL', ['rooftop','rooftopXL','mines','minesXL']]];
     const optOf = (si) => '<div class="opt' + (settings.stage === si ? ' on' : '') + '" data-si="' + si + '">'
@@ -26663,7 +27894,9 @@ const LOBBY = (() => {
       if (on) {
         c.tag.style.left = ((v3.x * .5 + .5) * innerWidth) + 'px';
         c.tag.style.top = ((.5 - v3.y * .5) * innerHeight - 14) + 'px';
-        c.tag.textContent = (c.me ? '★ ' : '') + c.name + (c.ai ? ' · CPU' : '') + ' · ' + c.def.name;
+        /* ★ 2026-11-17：匹配房里电脑也伪装成真人（不显示 · CPU）；普通房间照旧显示 */
+        const _mmRoom = !!(NET.roomState && (NET.roomState.mode === '1v1' || NET.roomState.mode === '2v2' || NET.roomState.mode === 'ffa'));
+        c.tag.textContent = (c.me ? '★ ' : '') + c.name + ((c.ai && !_mmRoom) ? ' · CPU' : '') + ' · ' + c.def.name;
       }
     }
     /* ★ 把「自己脚底的屏幕 Y」写进 CSS 变量 --feetY：#pvTools / #skillPop 都读它，
@@ -26871,6 +28104,8 @@ function frame(now) {
   updatePrisFx(dt);
   try { minesVisualTick(dt); } catch (e) {}
   try { mineCartTick(dt); } catch (e) { mineCartErr = String((e && e.message) || e); }
+  try { OCEAN_BG.tick(dt); } catch (e) { window.__oceanBgErr = String((e && e.message) || e); }      // ★ 水下背景（鱼群/水母/气泡/鲸鱼）
+  try { oceanDecoTick(dt); } catch (e) { window.__oceanDecoErr2 = String((e && e.message) || e); }     // ★ 场内装饰（海藻/气泡/近景鱼群）
   try { mechHudTick(); } catch (e) {}
   try {
     BGM.setActive(match.state === 'play' || match.state === 'countdown' || match.state === 'over');
@@ -26975,7 +28210,247 @@ function makePlane() {
   scene.add(G);
   return G;
 }
+/* ================= ★ Ocean：潜水艇（从后方往前开）=================
+   每 STAGE.sub.every 秒一艘潜艇从 z=-22（舞台后方）沿 +Z 开向 z=+14（镜头前方），
+   穿过角色平面（|z|<1.6）时结算：伤害 + 击退；250% 以上直接爆炸（KO，走 f.ko()）。
+   推进/判定在 physicsStep 里（固定步长、联机一致）；缩放/螺旋桨是纯视觉。 */
+let subObj = null, subNext = 0;
+function makeSub() {
+  const G = new THREE.Group();
+  const hullMat = new THREE.MeshStandardMaterial({ color:0x35505f, roughness:.45, metalness:.55 });
+  const darkMat = new THREE.MeshStandardMaterial({ color:0x1d2c36, roughness:.60, metalness:.40 });
+  const glassMat = new THREE.MeshStandardMaterial({ color:0x9fd8ff, emissive:0x66c8ff, emissiveIntensity:.7, roughness:.3 });
+  const hull = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.15, 7.4, 14), hullMat);
+  hull.rotation.z = Math.PI / 2; G.add(hull);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(1.05, 12, 10), hullMat);
+  nose.position.x = 3.7; nose.scale.set(.7, 1, 1); G.add(nose);
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(1.05, 1.6, 12), hullMat);
+  tail.rotation.z = Math.PI / 2; tail.position.x = -4.4; G.add(tail);
+  const tower = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.5, 1.3), darkMat);
+  tower.position.set(-.3, 1.2, 0); G.add(tower);
+  const peri = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, 1.4, 6), darkMat);
+  peri.position.set(.5, 2.3, 0); G.add(peri);
+  const periH = new THREE.Mesh(new THREE.BoxGeometry(.6, .16, .16), darkMat);
+  periH.position.set(.75, 2.95, 0); G.add(periH);
+  for (let i = 0; i < 4; i++) {
+    const w = new THREE.Mesh(new THREE.SphereGeometry(.12, 7, 6), glassMat);
+    w.position.set(-2.2 + i * .9, .18, .95); G.add(w);
+  }
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(.26, 8, 7),
+    new THREE.MeshStandardMaterial({ color:0x9fe8ff, emissive:0x66f0ff, emissiveIntensity:1.9, roughness:.3 }));
+  lamp.position.set(4.2, .1, 0); G.add(lamp); G.userData.lamp = lamp;
+  const prop = new THREE.Group(); prop.position.set(-4.6, 0, 0);
+  for (let i = 0; i < 3; i++) { const bl = new THREE.Mesh(new THREE.BoxGeometry(.12, 1.5, .30), darkMat); bl.rotation.x = i * Math.PI * 2 / 3; prop.add(bl); }
+  G.add(prop); G.userData.prop = prop;
+  G.visible = false; scene.add(G); return G;
+}
+function subTick(dt) {
+  const SB = STAGE.sub; if (!SB) return;
+  if (match.state !== 'play') { if (subObj) subObj.visible = false; return; }
+  if (!subObj) { subObj = makeSub(); subNext = SB.every; }
+  const U = subObj.userData;
+  if (!U.on) {
+    subNext -= dt;
+    if (subNext <= 0) { subNext = SB.every; U.on = true; U.z = -22; U.x = (RND() * 2 - 1) * (STAGE.mainW * .26); U.hit = {}; subObj.visible = true; }
+    return;
+  }
+  U.z += (SB.speed || 9) * dt;
+  U.y = 3.2 + Math.sin((U.z + 22) * .10) * .6;
+  if (Math.abs(U.z) < 1.6) {
+    for (let i = 0; i < FIGHTERS.length; i++) {
+      const f = FIGHTERS[i];
+      if (!f || f.eliminated || U.hit[i]) continue;
+      if (Math.abs(f.pos.x - U.x) > 3.6) continue;
+      if (Math.abs((f.pos.y + 1.0) - U.y) > 3.0) continue;
+      U.hit[i] = 1;
+      const dir = (f.pos.x - U.x) >= 0 ? 1 : -1;
+      if (f.damage >= (SB.boomAt || 250) && typeof f.ko === 'function') {
+        FX.burst(f.pos.x, f.pos.y + 1.2, .2, 0xffd166, 34, 26);
+        FX.flash(f.pos.x, f.pos.y + 1.2, .6, 12, 0xffe066, .5);
+        shake = Math.max(shake, 1.2); SFX.heavy(); f.ko('SUB BOOM');
+      } else {
+        f.damage = Math.min(CFG.dmgCap, f.damage + (SB.dmg || 14));
+        f.vel.set(dir * (SB.kbx || 26), (SB.kby || 15), 0);
+        f.hitstun = .55; f.flashT = .18; f.state = 'hitstun'; f.grounded = false;
+        FX.spark(f.pos.x, f.pos.y + 1.0, 1.4, 20, 0x9fe8ff);
+        FX.ring(f.pos.x, f.pos.y + 1.0, .3, 3.0, 0xbdf3ff, .45);
+        shake = Math.max(shake, .8); hitstop = Math.max(hitstop, .05); SFX.hit(20, 10);
+      }
+    }
+  }
+  subObj.position.set(U.x, U.y, U.z);
+  subObj.scale.setScalar(.60 + (U.z + 22) / 36 * .70);
+  if (U.prop) U.prop.rotation.x += dt * 16;
+  if (U.lamp) U.lamp.material.emissiveIntensity = 1.5 + Math.sin(U.z * .8) * .6;
+}
+/* ——— Ocean 场内装饰 v2（2026-11-18）：珊瑚 / 海藻 / 气泡 / 近景鱼群，全部合并成 InstancedMesh ——— */
+let OCEAN_DECO = null;
+function oceanDecoTick(dt) {
+  const D = OCEAN_DECO;
+  if (!D || !D.root || !D.root.parent) return;
+  D.t += dt;
+  const t = D.t, o = _FS.o;
+  if (D.kelpMesh) {
+    for (let i = 0; i < D.kelp.length; i++) {
+      const k = D.kelp[i];
+      o.position.set(k.x, k.y, k.z);
+      o.rotation.set(0, k.ry, Math.sin(t * k.sp + k.ph) * .18);
+      o.scale.set(k.w, k.h, 1);
+      o.updateMatrix();
+      D.kelpMesh.setMatrixAt(i, o.matrix);
+    }
+    D.kelpMesh.instanceMatrix.needsUpdate = true;
+  }
+  if (D.bubMesh) {
+    for (let i = 0; i < D.bub.length; i++) {
+      const b = D.bub[i];
+      b.y += b.sp * dt;
+      if (b.y > 22) { b.y = -15 - Math.random() * 3; b.x = b.cx + (Math.random() - .5) * 1.4; }
+      o.position.set(b.x + Math.sin(t * b.ws + b.ph) * .22, b.y, b.z);
+      o.rotation.set(0, 0, 0);
+      o.scale.setScalar(b.s);
+      o.updateMatrix();
+      D.bubMesh.setMatrixAt(i, o.matrix);
+    }
+    D.bubMesh.instanceMatrix.needsUpdate = true;
+  }
+  if (D.ray) D.ray.material.opacity = .22 + .10 * (0.5 + 0.5 * Math.sin(t * .7));
+  if (D.surf) D.surf.material.opacity = .10 + .045 * (0.5 + 0.5 * Math.sin(t * 1.3));
+  if (D.coral) D.coral.material.emissiveIntensity = .08 + .05 * (0.5 + 0.5 * Math.sin(t * .9));
+  for (const s of D.schools) tickFishSchool(s, t);
+}
+function decoOcean(G) {
+ try {
+  const W = STAGE.mainW;
+  const D = { root:G, t:0, kelp:[], kelpMesh:null, bub:[], bubMesh:null, ray:null, surf:null, schools:[], coral:null };
+  OCEAN_DECO = D;
+
+  /* 1) 水体体积：角色「泡在水里」的观感（淡蓝、不写深度，避免挡住角色） */
+  const water = new THREE.Mesh(new THREE.BoxGeometry(W + 70, 46, 28),
+    new THREE.MeshStandardMaterial({ color:0x2f9ecb, transparent:true, opacity:.15,
+      roughness:.15, metalness:.05, depthWrite:false }));
+  water.position.set(0, 4, -4); G.add(water);
+
+  /* 2) 水面：从水下往上看的高光带（缓慢呼吸，oceanDecoTick 里改透明度） */
+  const surf = new THREE.Mesh(new THREE.PlaneGeometry(W + 70, 28),
+    new THREE.MeshBasicMaterial({ color:0xa9efff, transparent:true, opacity:.12, depthWrite:false }));
+  surf.rotation.x = -Math.PI / 2; surf.position.set(0, 21.6, -4); G.add(surf); D.surf = surf;
+
+  /* 3) 珊瑚：主干 + 冠部两类实例，颜色走 instanceColor（1+1 个 draw call） */
+  const coralCols = [0xff7a6b, 0xff9f43, 0xff6bb0, 0x9b6bff, 0x63e6be, 0xffd166];
+  const CN = 36;
+  const trunkGeo = new THREE.CylinderGeometry(.09, .23, 1, 6); trunkGeo.translate(0, .5, 0);
+  const trunkMat = new THREE.MeshStandardMaterial({ roughness:.62, metalness:.04, flatShading:true });
+  const trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, CN);
+  const branchGeo = new THREE.IcosahedronGeometry(.27, 0);
+  const branchMat = new THREE.MeshStandardMaterial({ roughness:.5, metalness:.04,
+    flatShading:true, emissive:0x332244, emissiveIntensity:.10 });
+  const branchMesh = new THREE.InstancedMesh(branchGeo, branchMat, CN * 3);
+  trunkMesh.frustumCulled = false; branchMesh.frustumCulled = false;
+  D.coral = branchMesh;
+  const co = new THREE.Object3D(), cc = new THREE.Color();
+  const coralSpots = [];
+  for (let i = 0; i < CN; i++) {                    // 深水里的珊瑚丛（在平台下方/身后）
+    const side = i % 2 ? 1 : -1;
+    coralSpots.push({ x:side * (W * .13 + (i % 7) * (W * .052)) - (i % 3) * .9,
+                      base:-16.5 + (i % 6) * 1.1, z:-2.6 - (i % 5) * 1.9,
+                      h:2.4 + (i % 4) * 1.05, rz:(i % 5 - 2) * .13,
+                      c:coralCols[i % coralCols.length] });
+  }
+  coralSpots.forEach((s, i) => {
+    co.position.set(s.x, s.base, s.z);
+    co.rotation.set(0, i * .7, s.rz);
+    co.scale.set(1, s.h, 1);
+    co.updateMatrix(); trunkMesh.setMatrixAt(i, co.matrix);
+    trunkMesh.setColorAt(i, cc.setHex(s.c));
+    for (let k = 0; k < 3; k++) {
+      co.position.set(s.x + (k - 1) * .46, s.base + s.h * (.82 + (k % 2) * .18), s.z + (k % 2 ? .22 : -.2));
+      co.rotation.set(k * .5, i * .8, 0);
+      co.scale.setScalar(.85 + (k % 2) * .35);
+      co.updateMatrix(); branchMesh.setMatrixAt(i * 3 + k, co.matrix);
+      branchMesh.setColorAt(i * 3 + k, cc.setHex(s.c));
+    }
+  });
+  if (trunkMesh.instanceColor) trunkMesh.instanceColor.needsUpdate = true;
+  if (branchMesh.instanceColor) branchMesh.instanceColor.needsUpdate = true;
+  G.add(trunkMesh); G.add(branchMesh);
+
+  /* 3b) 平台顶上的小海葵丛（让浮岛不空，纯装饰不参与判定） */
+  {
+    const spots = [];
+    for (const p of STAGE.plats) {
+      for (let k = 0; k < 2; k++) spots.push({ x:p.x + (k ? 1 : -1) * (p.w * .30), y:p.y + .30,
+        z:-1.1 - k * .7, s:.16 + (k % 2) * .07, c:coralCols[(spots.length + 1) % coralCols.length] });
+    }
+    const anGeo = new THREE.IcosahedronGeometry(1, 0);
+    const anMesh = new THREE.InstancedMesh(anGeo,
+      new THREE.MeshStandardMaterial({ roughness:.45, flatShading:true, emissive:0x403050,
+        emissiveIntensity:.14 }), Math.max(1, spots.length));
+    anMesh.frustumCulled = false;
+    spots.forEach((s, i) => {
+      co.position.set(s.x, s.y, s.z); co.rotation.set(i * .6, i * .9, 0);
+      co.scale.set(s.s, s.s * .8, s.s); co.updateMatrix();
+      anMesh.setMatrixAt(i, co.matrix);
+      anMesh.setColorAt(i, cc.setHex(s.c));
+    });
+    if (!spots.length) anMesh.visible = false;
+    if (anMesh.instanceColor) anMesh.instanceColor.needsUpdate = true;
+    G.add(anMesh);
+  }
+
+  /* 4) 近景海藻（平台后侧，摆动） */
+  {
+    const blade = new THREE.PlaneGeometry(1, 1); blade.translate(0, .5, 0);
+    D.kelpMesh = new THREE.InstancedMesh(blade,
+      new THREE.MeshStandardMaterial({ color:0x2b9c68, roughness:.82, side:THREE.DoubleSide,
+        transparent:true, opacity:.9 }), 30);
+    D.kelpMesh.frustumCulled = false; G.add(D.kelpMesh);
+    for (let i = 0; i < 30; i++) D.kelp.push({
+      x:-W / 2 + 2 + (i * (W - 4)) / 29 + (Math.random() - .5) * 1.6,
+      y:-17 + (i % 3) * 1.4, z:-1.8 - (i % 6) * 1.5,
+      h:5 + (i % 5) * 1.9, w:.5 + Math.random() * .55,
+      ry:.2 + i * .05, ph:Math.random() * 6.2832, sp:.55 + Math.random() * .5 });
+  }
+
+  /* 5) 气泡柱：三处持续冒泡（一次 draw call） */
+  {
+    const N = 54;
+    D.bubMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(.10, 6, 5),
+      new THREE.MeshBasicMaterial({ color:0xe6faff, transparent:true, opacity:.38, depthWrite:false }), N);
+    D.bubMesh.frustumCulled = false; G.add(D.bubMesh);
+    for (let i = 0; i < N; i++) {
+      const col = i % 3, cx = (col - 1) * (W * .27) + (Math.random() - .5) * .8;
+      D.bub.push({ cx, x:cx + (Math.random() - .5) * 1.4, y:-15 + Math.random() * 34,
+        z:-1.4 - (i % 4) * .9, sp:1.4 + Math.random() * 2.2,
+        s:.5 + Math.random() * 1.3, ph:Math.random() * 6.2832, ws:.9 + Math.random() });
+    }
+  }
+
+  /* 6) 近景鱼群：从角色身后游过（视觉层，不参与判定） */
+  D.schools.push(makeFishSchool(G, { n:14, col:0xbfe6ff, emi:0x2b6d94, size:.40,
+    baseY:12.5, span:W * .62, sp:.34, z:-4.5, spread:[5.0, 1.5, 1.4] }));
+  D.schools.push(makeFishSchool(G, { n:9, col:0xffc76a, emi:0x8a5200, size:.62,
+    baseY:5.5, span:W * .5, sp:.26, z:-7.5, spread:[4.2, 1.8, 1.2] }));
+
+  /* 7) 光柱：合并成一个几何体，整体脉动 */
+  {
+    const parts = [];
+    for (let i = 0; i < 10; i++) {
+      const w = 2.0 + (i % 3) * 1.7;
+      parts.push({ geo:new THREE.PlaneGeometry(w, 40), x:-W / 2 + 4 + i * (W - 8) / 9,
+                   y:6, z:-3 - (i % 4) * 2.4, rz:.17 - (i % 4) * .09, ry:.22 });
+    }
+    D.ray = new THREE.Mesh(_mergeParts(parts),
+      new THREE.MeshBasicMaterial({ color:0xc4f4ff, map:rayTex(), transparent:true, opacity:.22,
+        depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending }));
+    D.ray.frustumCulled = false; G.add(D.ray);
+  }
+  oceanDecoTick(0);                                // 先摆好一帧
+ } catch (e) { window.__oceanDecoErr = String((e && e.message) || e); }
+}
+
 function roofPlaneTick(dt) {
+  if (STAGE.sub) { subTick(dt); return; }          // ★ Ocean：这图的事件是潜水艇
   if (!STAGE.roof || !STAGE.plane) return;
   const P2 = STAGE.plane;
   if (match.state !== 'play') { if (roofPlane) roofPlane.visible = false; return; }
@@ -27761,7 +29236,8 @@ function updateProjectiles(dt) {
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
         const turn = (p.cfg.homing.turn || 4.5) * dt;
-        const na = cur + Math.max(-turn, Math.min(turn, diff));
+        /* ★ instant:true = 完全追踪（每帧直接把朝向对准目标，不再限转向上限） */
+        const na = p.cfg.homing.instant ? want : cur + Math.max(-turn, Math.min(turn, diff));
         p.vx = Math.cos(na) * spd0; p.vy = Math.sin(na) * spd0;
       }
     }
@@ -27852,10 +29328,24 @@ function updateProjectiles(dt) {
           scene.remove(p.mesh); projectiles.splice(i, 1); continue;
         }
       }
-      /* ★ Titan·火箭手：撞到地面就炸（范围伤害 + 击退）。落地高度用主平台顶面 0 计。 */
-      if (p.cfg.fist && p.y <= .48) {
-        titanHandBlast(p, 0);
-        scene.remove(p.mesh); projectiles.splice(i, 1); continue;
+      /* ★ Titan·火箭手：撞地面 / **撞浮空平台**都就地爆炸（范围伤害 + 击退）。
+         平台用「这一帧是否从上方穿过顶面」判定（照 dropBomb 的做法），
+         不能只看 p.y <= pl.y，否则出生点在下层时会第一帧就误炸。 */
+      if (p.cfg.fist) {
+        const prevYf = p.y - p.vy * dt;
+        if (p.y <= .48) {
+          titanHandBlast(p, 0);
+          scene.remove(p.mesh); projectiles.splice(i, 1); continue;
+        }
+        let hitPl = null;
+        if (p.vy < 0) for (const pl of plats) {
+          if (Math.abs(p.x - pl.x) <= pl.halfW + .22 && p.y <= pl.y + .14 && prevYf >= pl.y - .14) { hitPl = pl; break; }
+        }
+        if (hitPl) {
+          FX.ring(p.x, hitPl.y + .2, .3, 2.4, p.cfg.color, .34);
+          titanHandBlast(p, hitPl.y);
+          scene.remove(p.mesh); projectiles.splice(i, 1); continue;
+        }
       }
       if (p.cfg.bounce && p.y <= .26 && p.vy < 0) {      // 撞地反弹（弹够 bounceMax 次才熄火）
         p.y = .26; p.vy = -p.vy * .74; p.bounceN = (p.bounceN || 0) + 1;
@@ -27944,6 +29434,15 @@ function updateProjectiles(dt) {
           const pAng = (p.cfg.ang !== undefined) ? p.cfg.ang
                      : (p.cfg.kind === 'proj' && p.cfg.dmg > 8 ? 60 : 20);
           const hitRes = f.takeHit(p.owner, { dmg:p.cfg.dmg*p.chargeMul, bb:p.cfg.bb*p.chargeMul, bg:p.cfg.bg, ang:pAng, noKnock:p.cfg.noKnock }, dir);
+          /* ★ Rocky·中立B 的石子：击退按「已经命中了几颗」叠加（一次性冲量，不是逐帧累加 → 不会 NaN）。
+             5 颗全中 ≈ 旧版中立B 的击退力度（每颗 1.15 + 0.30v，累积 5 颗 ≈ 13 的速度冲量）。 */
+          if (hitRes && p.cfg.stoneStack) {
+            const sn = Math.min(5, (f._rockStones = (f._rockStones || 0) + 1));
+            f.vel.x += (Math.sign(p.vx) || 1) * 1.15 * sn;
+            f.vel.y += .30 * sn;
+            f.hitstun = Math.max(f.hitstun, .10 + sn * .02);
+            FX.ring(f.pos.x, f.pos.y + .85, .22, 1.0 + sn * .16, 0xb0a48c, .20);
+          }
           if (p.cfg.elem && hitRes) applyElement(f, p.cfg.elem, p.owner);   // ★ Mage：元素弹命中附着
           /* ★ Hacker·乱码包：命中即「系统锁定」（3 秒不能动、也不吃击退）；队友不锁 */
           if (hitRes && p.cfg.hack && !f.eliminated && !isTeammate(p.owner, f)) applyHack(f, p.cfg.hack);
@@ -28080,7 +29579,7 @@ const NET = {
   waitBy: {},                       // 座位号 → 本秒内「在等它」的次数（诊断：到底被谁拖住）
   /* 传输诊断：为什么这台设备是 Polling（HUD 直接显示，用户不用猜/不用开控制台） */
   wsWhy: '', wsBound: false, wsRetryT: 0, wsTries: 0,
-  build: 'net125',                    // HUD 上显示，用来确认浏览器加载的是哪一版
+  build: 'net141',                    // HUD 上显示，用来确认浏览器加载的是哪一版
   hashSent: -1, pingT: 0, pollT: 0, busy: false, lastRecv: 0, recording: null, rec: null,
   scratch: newInput(),
   /* 玩家持久 id（localStorage，只用于服务端「10 秒只能建一个房」的限流身份；
@@ -28889,7 +30388,7 @@ const NET = {
       await this.connect();
     const j = await this.hello({ a:'hello', create:true, name, char: CHARS[settings.playerChar].id, pid: this.pid,
       avatar: ACC.avatar || '',                          // ★ 第 67 轮：头像随建/加入一起上报（房间广播里给开局阵容用）
-      opts:{ rules: { count: settings.count, stocks: settings.stocks, time: settings.time, diff: settings.diff,
+      opts:{ rules: (o && o.rules) ? o.rules : { count: settings.count, stocks: settings.stocks, time: settings.time, diff: settings.diff,
                       teams: settings.count === 4 ? (settings.teams ? 1 : 0) : 0,   // ★ 团队模式随规则一起下发给全房
                       mode: settings.mode === 'gem' ? 'gem' : '',                  // ★ 宝石争夺战随规则下发（各端 setup 一致）
                       stage: (settings.stage === 'r' || settings.stage === undefined) ? null : settings.stage },   // ★ 第 77 轮：联机也能选地图（null = 随机/由种子定）
@@ -28933,6 +30432,10 @@ const NET = {
   async list(off, lim) {
     return await this.send({ a:'list', off: (off | 0) || 0, lim: lim || 10 }, true);
   },
+  /* ★ 2026-11-17：实时在线人数（大厅徽标 + 匹配面板都读它） */
+  online() { return this.send({ a:'online' }, true); },
+  /* ★ 2026-11-17：房主手动补一个电脑位（匹配超时后「一个一个加人机」，不再一口气塞满） */
+  addBot() { return this.send({ a:'addbot', room:this.room, seat:this.seat, token:this.token }, true); },
   /* 联机「再来一局」：投一票；全员同意后服务端会广播 go（走 onGo 开新局） */
   rematch() {
     return this.send({ a:'rematch', room:this.room, seat:this.seat, token:this.token }, true);
@@ -28948,7 +30451,11 @@ const NET = {
      开局就用的是旧角色（空位还会被服务端按 CHAR_POOL 顶掉）。 */
   setChar(id) {
     if (this.spec || !this.room || this.status !== 'in') return null;
-    if (this.roomState && this.roomState.state && this.roomState.state !== 'lobby') return null;   // 开局后不再改
+    /* ★ 2026-11-17 修「打完一局在同一房间换角色不生效」：
+       原来只允许 room.state === 'lobby'，而一局打完房间进入 'end'（结算态）→ 这里的 if 直接把
+       这次换人**吞掉**（连请求都不发），服务端也就永远收不到。现在只拦「对局进行中」（play），
+       'lobby' 与 'end' 都允许改 —— 下一局的名单来自 room.seats[].char，会在 start/rematch 的 go 里下发。 */
+    if (this.roomState && this.roomState.state && this.roomState.state === 'play') return null;
     const cid = (CHARS.find(x => x.id === id) || CHARS[settings.playerChar]).id;
     this.applyLocalChar(cid);
     return this.send({ a:'char', room:this.room, seat:this.seat, token:this.token, char:cid });
@@ -29586,12 +31093,12 @@ function showLineup(entries) {
 const SUMMON_COST = 200, SUMMON_PITY_MAX = 50;
 /* ★ 原神式卡池：六档概率（合计 100）+ 三星/四星/五星稀有度 + 软硬保底 + 记忆碎片商店 */
 const GACHA = {
-  rate: { skin:5, weapon:70, epicW:10, legW:5, supreme:2, shards:8 },
+  rate: { skin:5, weapon:70, epicW:10, legW:5, specialW:3, supreme:2, shards:8 },
   hardPity: 90,        // 90 抽必出至尊
   softPity: 74,        // 74 抽后至尊概率逐抽递增（原神手感）
   epicPity: 10,        // 10 抽内必出「史诗及以上」
   shardMin: 20, shardMax: 40,
-  dupShards: { weapon:15, epicW:40, legW:90, skin:120, supreme:200 }
+  dupShards: { weapon:15, epicW:40, legW:90, specialW:60, skin:120, supreme:200 }
 };
 /* ★ 武器三分类：近战 melee / 弓箭 bow / 法器 catalyst —— 角色只能装备同类型武器。
    角色分类表（没列到的默认近战）；每把武器带一点小增益：ls = 吸血%、dmg = 伤害%、kb = 击退%。 */
@@ -29626,7 +31133,12 @@ const SUMMON_WEAPONS = [
   { id:'storm_orb',     char:'mage',     name:'Storm Orb',       for:'Mage',      rar:'epicW', wt:'catalyst', bonus:{ ls:5, dmg:2 } },
   { id:'pixel_gun',     char:'hacker',   name:'Pixel Gun',       for:'Hacker',    rar:'weapon', wt:'catalyst', bonus:{ ls:3 } },
   { id:'tin_can',       char:'mechanic', name:'Tin Can',         for:'Mechanic',  rar:'weapon', wt:'catalyst', bonus:{ ls:3 } },
-  { id:'muzzle_brake',  char:'slayer',   name:'Muzzle Brake',    for:'Slayer',    rar:'weapon', wt:'catalyst', bonus:{ ls:3 } }
+  { id:'muzzle_brake',  char:'slayer',   name:'Muzzle Brake',    for:'Slayer',    rar:'weapon', wt:'catalyst', bonus:{ ls:3 } },
+  /* ══ ★ 特殊武器（SPECIAL WEAPON）：不只加数值，会**改写技能机制** ══
+     mech 字段是机制 id，实战里由 doSpecial / 弹道逻辑读它（见 titanHand 与 homing 块）。 */
+  { id:'titan_seeker_fist', char:'titan', name:'Seeker Fist', for:'Titan', rar:'specialW', wt:'melee',
+    bonus:{ dmg:1 }, mech:'titanFullHoming',
+    desc:'Rocket Hand becomes FULL tracking (turns onto the target every frame) — it still detonates on ground and on any platform' }
 ];
 /* 装备了武器 → 读它的小增益（没装备 / 不匹配返回 null）。只在命中时调用，不进逐帧热路径。 */
 function weaponBonus(charId) {
@@ -29643,6 +31155,18 @@ function weaponBonus(charId) {
         —— 这是唯一能保证两台机器算出同一个伤害的做法（本地存档是各机器私有的）。
    以后要在联机里保留武器手感：服务端 go/room 快照里带上每个座位的武器 id，
    客户端在 setup({ weapons:[…] }) 里传入即可（本函数已支持，无需再改）。 */
+/* ★ 特殊武器：判断某个角色是否装备了指定机制武器。
+   与 weaponBonusFor 同规则 —— 联机只认服务端下发的 per-seat 武器（f.weapon），单机读本机存档。 */
+function weaponHasFor(f, wid) {
+  try {
+    if (!f || !f.def) return false;
+    const online = (typeof NET !== 'undefined' && NET.active);
+    const cur = online ? (f.weapon || '') : ACC.weaponOf(f.def.id);
+    if (cur !== wid) return false;
+    const w = SUMMON_WEAPONS.find(x => x.id === wid);
+    return !!w && w.wt === charWType(f.def.id);
+  } catch (e) { return false; }
+}
 function weaponBonusFor(f) {
   try {
     if (!f || !f.def) return null;
@@ -29655,8 +31179,8 @@ function weaponBonusFor(f) {
     return weaponBonus(f.def.id);
   } catch (e) { return null; }
 }
-const RAR_NAME = { weapon:'WEAPON', epicW:'EPIC WEAPON', legW:'LEGENDARY WEAPON', skin:'EPIC SKIN', supreme:'SUPREME FIGHTER', shards:'MEMORY SHARDS' };
-const RAR_TONE = { weapon:'110,196,255', epicW:'196,140,255', legW:'255,196,74', skin:'196,140,255', supreme:'255,120,214', shards:'120,230,200' };
+const RAR_NAME = { weapon:'WEAPON', epicW:'EPIC WEAPON', legW:'LEGENDARY WEAPON', specialW:'SPECIAL WEAPON', skin:'EPIC SKIN', supreme:'SUPREME FIGHTER', shards:'MEMORY SHARDS' };
+const RAR_TONE = { weapon:'110,196,255', epicW:'196,140,255', legW:'255,196,74', specialW:'255,138,61', skin:'196,140,255', supreme:'255,120,214', shards:'120,230,200' };
 /* 记忆碎片商店（可兑换金币 / 宝石 / 皮肤） */
 const SHARD_SHOP = [
   { id:'coins',  cost:60,  name:'1,000 Coins',       sub:'COINS' },
@@ -29686,7 +31210,9 @@ function shardShopBuy(id) {
   return { ok:true };
 }
 const SUMMON_SKINS   = [{ id:'smiley_penguin', char:'smiley', name:'Penguin', for:'Smiley' },
-                        { id:'cardboard_tv', char:'sovereign', name:'TV Man', for:'Cardboard' }];
+                        { id:'cardboard_tv', char:'sovereign', name:'TV Man', for:'Cardboard' },
+                        /* ★ 2026-11-17：手工建模皮肤（不是配色换色）：Foundry 警用款 */
+                        { id:'foundry_police', char:'foundry', name:'Police Unit', for:'Foundry', rar:'skin' }];
 /* ★ 为每个角色注册一套主题皮肤（gen_<charId>）；已有专属建模皮肤的角色（sovereign/smiley）跳过。
    Cobalt 那套是传奇「金色国王」（SKIN_LEGEND）。id 稳定，会存进账号。 */
 try {
@@ -29694,9 +31220,14 @@ try {
                       Sunken:'Sunken', Void:'Void', Ivory:'Ivory', Crimson:'Crimson' };
   for (const c of CHARS) {
     if (SUMMON_SKINS.some(x => x.char === c.id)) continue;
+    /* ★ 2026-11-17 用户要求「删掉应付的皮肤（sparky 的 / Sunken），质量太低」：
+       这类 gen_ 皮肤本质是「换色 + 通用挂件」，直接不再生成。注意**不能从 SKIN_THEMES 里删条目**
+       —— 主题是按 `hash(id) % 长度` 取的，删一条会让其它角色的主题整体位移。 */
+    if (c.id === 'sparky') continue;
     const id = 'gen_' + c.id;
     const sp = skinSpecFor(Object.assign({}, c, { skin: id }));
     if (!sp) continue;
+    if (sp.name === 'Sunken') continue;
     SUMMON_SKINS.push({ id, char: c.id, gen: true, legendary: !!sp.legendary,
       name: c.id === 'cobalt' ? 'Sovereign of Gold' : (sp.name + ' ' + c.name),
       for: c.name, rar: sp.legendary ? 'legendary' : 'skin' });
@@ -29723,9 +31254,10 @@ function summonPull(quiet) {
   if (forceSup) tier = 'supreme';
   else if (roll < R.supreme + softSup) tier = 'supreme';
   else if (roll < R.supreme + softSup + R.legW) tier = 'legW';
-  else if (roll < R.supreme + softSup + R.legW + R.epicW) tier = 'epicW';
-  else if (roll < R.supreme + softSup + R.legW + R.epicW + R.skin) tier = 'skin';
-  else if (roll < R.supreme + softSup + R.legW + R.epicW + R.skin + R.weapon) tier = 'weapon';
+  else if (roll < R.supreme + softSup + R.legW + R.specialW) tier = 'specialW';      // ★ 特殊武器（机制型）
+  else if (roll < R.supreme + softSup + R.legW + R.specialW + R.epicW) tier = 'epicW';
+  else if (roll < R.supreme + softSup + R.legW + R.specialW + R.epicW + R.skin) tier = 'skin';
+  else if (roll < R.supreme + softSup + R.legW + R.specialW + R.epicW + R.skin + R.weapon) tier = 'weapon';
   else tier = 'shards';
   if (forceEpic && (tier === 'weapon' || tier === 'shards')) tier = Math.random() < .5 ? 'epicW' : 'skin';
   let prize = null;
@@ -29760,7 +31292,7 @@ function summonPull(quiet) {
     else { ACC.addWeapon(w.id); prize = { type:'weapon', tier:tier, id:w.id, name:w.name, sub:RAR_NAME[tier] + ' · ' + w.for }; }
   }
   ACC.setPity(prize.tier === 'supreme' ? 0 : p);
-  ACC.setPityEpic((prize.tier === 'epicW' || prize.tier === 'legW' || prize.tier === 'skin' || prize.tier === 'supreme') ? 0 : pe);
+  ACC.setPityEpic((prize.tier === 'epicW' || prize.tier === 'legW' || prize.tier === 'specialW' || prize.tier === 'skin' || prize.tier === 'supreme') ? 0 : pe);
   return prize;
 }
 /* —— 样式（抽卡面板 / 皮肤面板 / 至尊角色卡片） —— */
@@ -29864,7 +31396,7 @@ function summonAnimation(prize, done) {
   const many = Array.isArray(prize);
   const list = many ? prize : [prize];
   const best = list.slice().sort((a, b) => {
-    const w = { shards:0, weapon:1, epicW:2, skin:2, legW:3, supreme:4 };
+    const w = { shards:0, weapon:1, epicW:2, skin:2, legW:3, specialW:3, supreme:4 };
     return (w[b.tier] || 0) - (w[a.tier] || 0);
   })[0];
   let el = document.getElementById('summonFx');
@@ -30425,7 +31957,7 @@ try { paintWepBtn(); } catch (e) {}
     const m = /[?&]grant=([^&]+)/.exec(location.search);
     if (!m || decodeURIComponent(m[1]) !== KEY) return;
     /* ★ 测试号：顺手把这版的新角色（坚守者 / 士兵）解锁，省得还要去奖励页买一次 */
-    try { if (typeof ACC !== 'undefined' && ACC.unlock) { for (const c of CHARS) if ((c.id === 'warden' || c.id === 'soldier' || c.id === 'monk' || c.id === 'bomber' || c.id === 'treasure' || c.id === 'princess') && !ACC.owns(c.id)) ACC.unlock(c.id); } } catch (e) {}
+    try { if (typeof ACC !== 'undefined' && ACC.unlock) { for (const c of CHARS) if ((c.id === 'warden' || c.id === 'soldier' || c.id === 'monk' || c.id === 'bomber' || c.id === 'treasure' || c.id === 'princess' || c.id === 'foundry' || c.id === 'rocky') && !ACC.owns(c.id)) ACC.unlock(c.id); } } catch (e) {}
     const more = /[?&]more=1/.test(location.search);
     let nSkin = 0, nWep = 0, nSup = 0;
     try {
@@ -31070,30 +32602,91 @@ NET.applyRoom = function (room) {
   /* ★ 第 78 轮：CPU FILL 模式 30 秒没等到人 → 直接开局，空缺座位由服务端补电脑 */
   const AUTO_CPU_MS = 30000;
   let autoT = null;
-  const label = m => 'ONLINE';                       /* ★ 第 85 轮：只有一个联机入口，不再区分模式 */
-  function autoStart() {
+  /* ★ 2026-11-17：电脑补位节奏（用户规格）—— 人少时 5s / 15s 各补一个，30s 补最后一个并**立刻开局**。
+     fillStage 记录已经补到第几档；filling 防重入（补位是异步请求）。 */
+  let fillStage = 0, filling = false;
+  /* ★ 2026-11-17（用户规格）：联机匹配只支持 3 种模式，规则**固定**：3 命 / 电脑最高难度 / 随机地图。
+     人机对战（PLAY）仍然完全自由 —— 那是另一条路径，走设置弹层里的选项。 */
+  const MODE_RULES = {
+    '1v1': { count:2, stocks:3, time:0, diff:3, teams:0, mode:'', stage:null },
+    '2v2': { count:4, stocks:3, time:0, diff:3, teams:1, mode:'', stage:null },
+    'ffa': { count:4, stocks:3, time:0, diff:3, teams:0, mode:'', stage:null }
+  };
+  const MODE_NAME = { '1v1':'1 v 1', '2v2':'2 v 2', 'ffa':'4P FFA' };
+  const label = m => MODE_NAME[m] || 'ONLINE';
+  /* ★ 实时在线人数：直接读守护进程 health（不需要先进房间/建 ws）。
+     大厅左上角一个小胶囊 + 匹配面板里一行，每 5 秒刷一次。 */
+  let onlineN = 0;
+  (function onlineTagInit() {
+    try {
+      const st = document.createElement('style');
+      st.textContent = '#onlineTag{position:fixed;left:12px;top:64px;z-index:40;display:flex;align-items:center;gap:6px;' +
+        'padding:5px 11px;border-radius:999px;font:600 11px/1 system-ui,sans-serif;letter-spacing:.6px;' +
+        'color:#bfe9ff;background:rgba(10,22,40,.72);border:1px solid rgba(140,231,255,.35);pointer-events:none}' +
+        '#onlineTag b{color:#7dff9b}';
+      document.head.appendChild(st);
+      const d = document.createElement('div');
+      d.id = 'onlineTag'; d.innerHTML = '<span>ONLINE</span><b>—</b>';
+      document.body.appendChild(d);
+    } catch (e) {}
+  })();
+  async function pollOnline() {
+    try {
+      const r = await fetch(NET.apiBase + '?p=health', { cache: 'no-store' });
+      const j = await r.json();
+      if (j && (j.online !== undefined)) {
+        onlineN = j.online | 0;
+        const t = document.getElementById('onlineTag');
+        if (t) t.innerHTML = '<span>ONLINE</span><b>' + onlineN + '</b>';
+      }
+    } catch (e) {}
+  }
+  pollOnline(); setInterval(pollOnline, 5000);
+  async function autoStart() {   // ★ 里面用了 await（分次补人机），必须 async
     autoT = null;
     if (!pollT) return;                                  // 已经不在匹配状态
-    if (NET.seat !== 0) { toast('Waiting for the host to start with CPUs…'); return; }
+    if (NET.seat !== 0) { toast('Waiting for the host to start…'); return; }
     /* ★ 有别人也在排队（found 里除我之外还有名字）→ 别抢跑：
        30 秒一到就开局，会把正在 join 的对手判成 game_in_progress 挡在门外（用户报的 bug）。 */
     const _others = Math.max(0, (lastFound || []).length - 1);
     if (_others > 0) { toast('Players are queueing — waiting a bit longer'); autoT = setTimeout(autoStart, 10000); return; }
     stop(true);
-    $('mmBox').classList.add('hidden');
-    toast('30s — no other players, starting with CPUs');
-    try { NET.startMatch(); } catch (e) {}
+    /* ★ 2026-11-17（用户规格）：30 秒「没有人 → 补最后一个就开局」。
+       5 秒 / 15 秒那两档已经在 paint() 的节奏里补过了，这里只补最后一个并立即开局，
+       保证「三十秒内必定补满」。 */
+    await finalFill();
   }
   function paint() {
     const el = $('mmInfo'); el.classList.remove('hidden');
     const s = Math.max(0, Math.floor((Date.now() - t0) / 1000));
     const tm = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    /* ★ 2026-11-17：「Found N player(s)」要把**电脑**也算进去（用户要求人机显示在 players found 里）。
+       座位表是权威来源（真人 join / addbot 都会写进 roomState.seats）。 */
+    const seats = ((NET.roomState && NET.roomState.seats) || []);
+    const ppl = [];
+    for (const x of seats) if (x) ppl.push(x.name);      // ★ 电脑也当成真人显示（不写 🤖）
+    if (!ppl.length) ppl.push(ACC.nick || 'You');
     el.innerHTML =
       '<div class="tm">MATCHING ' + tm + ' · ' + label(mode) + '</div>' +
-      '<div class="fnd">Found ' + Math.max(1, lastFound.length) + ' player(s)' +
-        (lastFound.length ? ': ' + lastFound.map(escHtml).join(', ') : ' — just you so far') + '</div>' +
-      (mode === 'cpu' ? '<div class="fnd">Match starts in ' + Math.max(0, Math.ceil((AUTO_CPU_MS - (Date.now() - t0)) / 1000)) + 's (fills with players)' : '') +
+      '<div class="fnd">Online now: <b>' + onlineN + '</b> · 3 stocks · random stage</div>' +
+      '<div class="fnd">Found ' + ppl.length + ' player(s): ' + ppl.map(escHtml).join(', ') + '</div>' +
       (lastSug.length ? '<div class="sug">Another room has ' + (lastSug[0].free) + ' free seat(s)</div>' : '');
+    /* ★ 补位节奏：5 秒、15 秒各补一个；30 秒补最后一个并开局（服务端 addbot 一次只填一个空位）。
+       只在「还空着 ≥2 个座位」时才做 5/15 秒的补位 —— 1v1 只有一个空位，直接等 30 秒那一档。 */
+    if (tickT && NET.seat === 0 && !filling) {
+      const el2 = (Date.now() - t0) / 1000;
+      const need = (MODE_RULES[mode] || MODE_RULES.ffa).count;
+      const have = seats.filter(x => x).length;
+      const empty = need - have;
+      const duel = mode === '1v1';
+      /* ★ 2026-11-17（用户规格）：1v1 改成 **10 秒**就补满开打；2v2 / FFA 仍 5s / 15s / 30s。
+         房间本来就被真人坐满（比如有人进来了）→ 到点直接开局，不用补。 */
+      if (empty <= 0) { if (el2 >= (duel ? 10 : 30)) finalFill(); }
+      else if (duel) { if (el2 >= 10) finalFill(); }
+      else if (el2 >= 30) finalFill();
+      else if (el2 >= 15 && fillStage < 2 && empty >= 2) { fillStage = 2; fillOne(); }
+      else if (el2 >= 5 && fillStage < 1 && empty >= 2) { fillStage = 1; fillOne(); }
+    }
     [].forEach.call(document.querySelectorAll('#mmBox .mode'), b => b.classList.toggle('on', b.dataset.mode === mode));
   }
   function stop(leave) {
@@ -31146,15 +32739,39 @@ NET.applyRoom = function (room) {
     }
     if (r.e) { toast('Matchmaking: ' + r.e); stop(true); }
   }
+  /* 补一个电脑位（服务端一次只填一个空位；满了它会回 full:true） */
+  async function fillOne() {
+    if (filling) return null;
+    filling = true;
+    try {
+      const r = await NET.addBot().catch(() => null);
+      try { paint(); } catch (e) {}
+      return r;
+    } finally { filling = false; }
+  }
+  /* 30 秒那一档：补最后一个 → 立刻开局 */
+  async function finalFill() {
+    if (filling) return;
+    filling = true;
+    try {
+      await NET.addBot().catch(() => null);
+      try { paint(); } catch (e) {}
+      const box = $('mmBox'); if (box) box.classList.add('hidden');
+      toast('Match starting · ' + label(mode));
+      try { NET.startMatch(); } catch (e) {}
+    } finally { filling = false; }
+  }
   async function start(m) {
-    if (busy) return; busy = true; mode = m;
+    if (busy) return; busy = true; mode = MODE_RULES[m] ? m : 'ffa';
     try {
       const sh = $('sheetSetup'); if (sh) sh.classList.add('hidden');   // 关掉设置弹层，露出匹配面板
-      $('mmBox').classList.remove('hidden');                            // ★ 第 85 轮：直接开始匹配 → 面板自己弹出来
-      if (!NET.room) {
-        const j = await NET.create(ACC.nick || 'Player', { pub: true });
-        if (!j || !j.ok) { toast('Could not open a room: ' + ((j && j.e) || 'net')); return; }
-      }
+      $('mmBox').classList.remove('hidden');                            // 先选模式 → 面板自己弹出来
+      /* ★ 匹配规则固定：换模式必须换房间（房间的 rules 是建房时定死的），所以先离开旧房 */
+      if (NET.room) { try { NET.leave(); } catch (e) {} await new Promise(r => setTimeout(r, 150)); }
+      const R = Object.assign({}, MODE_RULES[mode]);
+      fillStage = 0; filling = false;                 // 新一次匹配：补位节奏从 0 开始
+      const j = await NET.create(ACC.nick || 'Player', { pub: true, rules: R });
+      if (!j || !j.ok) { toast('Could not open a room: ' + ((j && j.e) || 'net')); return; }
       stop(true);
       lastFound = []; lastSug = []; t0 = Date.now(); paint();
       tickT = setInterval(paint, 1000);
@@ -31163,8 +32780,15 @@ NET.applyRoom = function (room) {
       if (mode === 'cpu') { clearTimeout(autoT); autoT = setTimeout(autoStart, AUTO_CPU_MS); }   // ★ 第 78 轮
     } finally { busy = false; }
   }
-  /* ★ 第 85 轮：点「Online Match」= 直接开始匹配（不再有模式选择），30 秒后自动开局、空位由电脑补 */
-  btn.onclick = async () => { start('cpu'); };
+  /* ★ 2026-11-17：点「Online Match」= 先选模式（1v1 / 2v2 / 4P FFA），再进匹配 */
+  btn.onclick = async () => {
+    const sh = $('sheetSetup'); if (sh) sh.classList.add('hidden');
+    $('mmBox').classList.remove('hidden');
+    const el = $('mmInfo');
+    if (el) el.innerHTML = '<div class="tm">PICK A MODE</div><div class="fnd">Online now: <b>' +
+      onlineN + '</b> · rules are fixed (3 stocks · CPU MAX · random stage)</div>';
+    pollOnline();
+  };
   /* ★ 第 83 轮：后加入房间的人也能看到「匹配中 + 人数 + 计时」。
      服务端把排队状态写在房间快照里（room.queued = {mode, at}），加入时自动接管这个会话：
      · t0 用服务端记录的排队开始时间 → 每台设备上的计时完全一致
