@@ -26769,7 +26769,17 @@ function setup(opts) {
       human = i === 0;
     }
     let _vd = variantDef(def, VARIANTS[_varOf[i]]);
-    if (typeof ACC !== 'undefined' && ACC.skinOf) _vd = Object.assign({}, _vd, { skin: ACC.skinOf(def.id) });
+    /* ★★ 2026-11-18 修 BUG（用户报「敌人的皮肤跟着自己的皮肤变」）：
+       原来这里对**每一个座位**都套 `ACC.skinOf(def.id)`（本机存档的皮肤）。
+       于是人机 / 远端玩家只要和你选到同一个角色，就会穿上你装备的皮肤。
+       正确规则：只有「本机这一把」用本机存档；其它座位用服务端下发的 per-seat 皮肤（opts.skins），
+       没有就显式 'none'（默认外观）。注意**不能传空字符串** —— 空串会让 kit 回落到 ACC.skinOf()。 */
+    const _mySeat = (typeof NET !== 'undefined' && NET.active && NET.seat >= 0) ? NET.seat : 0;
+    let _sk;
+    if (opts && opts.skins && opts.skins[i] !== undefined && opts.skins[i] !== null) _sk = String(opts.skins[i]) || 'none';
+    else if (i === _mySeat) _sk = (typeof ACC !== 'undefined' && ACC.skinOf) ? (ACC.skinOf(def.id) || 'none') : 'none';
+    else _sk = 'none';
+    _vd = Object.assign({}, _vd, { skin: _sk });
     /* ★ 地图自带出生位（带 y，Rooftop XL 两栋楼高不同）优先；其它图沿用老的左右交替出生点 */
     const _spw = (STAGE.spawnXs && STAGE.spawnXs[i]) || [spawns[i % spawns.length][0] * (n > 2 ? 1 : 1.6), 0];
     const f = new Fighter(_vd, null, i,
@@ -27650,8 +27660,12 @@ const PV = (() => {
     bakeRenderer.setSize(168, 168, false);
   } catch (e) { bakeRenderer = null; }
   /* ★ 缓存键必须带皮肤/武器：只按 def.id 缓存的话，换装后格子里的缩略图永远是旧样子 */
-  const bakeKey = def => def.id + '|' + (typeof ACC !== 'undefined' && ACC.skinOf ? ACC.skinOf(def.id) : '') + '|'
-                            + (typeof ACC !== 'undefined' && ACC.weaponOf ? ACC.weaponOf(def.id) : '');
+  /* ★ def 自己带 skin/weapon 时优先用它（战斗里的角色都带），否则才回落到本机存档 —— 
+     否则「敌人」的缩略图会命中我自己的皮肤缓存，看着像敌人也穿了我的皮肤。 */
+  const bakeKey = def => def.id + '|' + (def.skin !== undefined ? def.skin
+                            : (typeof ACC !== 'undefined' && ACC.skinOf ? ACC.skinOf(def.id) : '')) + '|'
+                            + (def.weapon !== undefined ? (def.weapon || '')
+                            : (typeof ACC !== 'undefined' && ACC.weaponOf ? ACC.weaponOf(def.id) : ''));
   function bake(def, size = 168) {
     const _ck = bakeKey(def);
     if (bakeCache[_ck]) return bakeCache[_ck];
