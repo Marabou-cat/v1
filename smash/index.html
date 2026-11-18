@@ -32528,6 +32528,58 @@ function summonOpen() {
   `;
   document.head.appendChild(st);
 })();
+/* ================= ★ 2026-11-18 第二个卡池：FORGE ARMS（只出武器）=================
+   用户规格：特殊武器 5% + 传奇武器 5%，其余自定。这里的取舍：
+     · 只出武器（没有角色/皮肤档），所以把「史诗武器」从主池的 10% 抬到 **25%**、普通武器 70% → 60%；
+     · 碎片保持 5%（和主池同档，不因为「池更专」就多扣）；
+     · 保底沿用「10 抽内必出史诗及以上」（pityEpic 与主池共用，不额外加计数器 → 不需要改 daemon 存档白名单）；
+     · **不动主池的至尊保底**（ACC.pity 不受这个池影响）。 */
+const WEAPON_BANNER = {
+  id: 'weapon', label: 'FORGE ARMS', tag: 'WEAPONS ONLY',
+  rate: { specialW:5, legW:5, epicW:25, weapon:60, shards:5 },
+  shardMin: 20, shardMax: 40
+};
+let SUMMON_BANNER = 'supreme';                 // 'supreme' | 'weapon'
+function weaponPull(quiet) {
+  if (quiet !== true && !ACC.spendGems(SUMMON_COST)) return { err:'gems' };
+  if (quiet !== true) { try { ACC.gemAdd('summons', 1); } catch (e) {} }
+  const R = WEAPON_BANNER.rate, pe = ACC.getPityEpic() + 1;
+  const forceEpic = pe >= GACHA.epicPity;
+  let roll = Math.random() * 100, tier = 'weapon';
+  if (roll < R.specialW) tier = 'specialW';
+  else if (roll < R.specialW + R.legW) tier = 'legW';
+  else if (roll < R.specialW + R.legW + R.epicW) tier = 'epicW';
+  else if (roll < R.specialW + R.legW + R.epicW + R.weapon) tier = 'weapon';
+  else tier = 'shards';
+  if (forceEpic && (tier === 'weapon' || tier === 'shards')) tier = 'epicW';
+  /* ★ 该档武器已全部拥有时，顺着 特殊→传奇→史诗→普通 往下滑一档，别把整档概率白白变成碎片 */
+  const _order = ['specialW', 'legW', 'epicW', 'weapon'];
+  const _avail = rr => SUMMON_WEAPONS.some(w => w.rar === rr && !ACC.hasWeapon(w.id));
+  if (_order.indexOf(tier) >= 0 && !_avail(tier)) {
+    for (let k = _order.indexOf(tier) + 1; k < _order.length; k++) if (_avail(_order[k])) { tier = _order[k]; break; }
+  }
+  let prize = null;
+  const dup = () => {
+    const sh = GACHA.dupShards[tier] || 15;
+    ACC.addShards(sh);
+    return { type:'shards', tier:'shards', amount:sh, name:sh + ' Memory Shards', sub:'MEMORY SHARDS · WEAPON DUPLICATE' };
+  };
+  if (tier === 'shards') {
+    const sh = WEAPON_BANNER.shardMin + Math.floor(Math.random() * (WEAPON_BANNER.shardMax - WEAPON_BANNER.shardMin + 1));
+    ACC.addShards(sh);
+    prize = { type:'shards', tier:'shards', amount:sh, name:sh + ' Memory Shards', sub:'MEMORY SHARDS' };
+  } else {
+    const pool = SUMMON_WEAPONS.filter(w => w.rar === tier);
+    const w = pool[Math.floor(Math.random() * pool.length)] || SUMMON_WEAPONS[0];
+    if (ACC.hasWeapon(w.id)) prize = dup();
+    else {
+      ACC.addWeapon(w.id);
+      prize = { type:'weapon', tier, id:w.id, name:w.name, sub:RAR_NAME[tier] + ' · ' + w.for };
+    }
+  }
+  ACC.setPityEpic((prize.tier === 'epicW' || prize.tier === 'legW' || prize.tier === 'specialW') ? 0 : pe);
+  return prize;
+}
 function summonPaint(last) {
   const el = document.getElementById('summonSheet'); if (!el) return;
   const owned = CHARS.filter(c => c.supreme && ACC.owns(c.id)).length;
@@ -32535,44 +32587,82 @@ function summonPaint(last) {
   const pity = ACC.pity, prog = Math.min(100, pity / GACHA.hardPity * 100);
   const ep = ACC.getPityEpic(), epProg = Math.min(100, ep / GACHA.epicPity * 100);
   const shards = ACC.getShards();
-  const rateRows = [['supreme', 'Supreme Fighter'], ['legW', 'Legendary Weapon'], ['epicW', 'Epic Weapon'],
-                    ['skin', 'Epic Skin'], ['weapon', 'Weapon'], ['shards', 'Memory Shards']]
+  const wb = (SUMMON_BANNER === 'weapon');                                  // ★ 当前是否是武器池
+  const _rateSrc = wb ? WEAPON_BANNER.rate : GACHA.rate;
+  const _rateDef = wb
+    ? [['specialW', 'Special Weapon'], ['legW', 'Legendary Weapon'], ['epicW', 'Epic Weapon'],
+       ['weapon', 'Weapon'], ['shards', 'Memory Shards']]
+    : [['supreme', 'Supreme Fighter'], ['legW', 'Legendary Weapon'], ['epicW', 'Epic Weapon'],
+       ['skin', 'Epic Skin'], ['weapon', 'Weapon'], ['shards', 'Memory Shards']];
+  const rateRows = _rateDef.filter(([k]) => _rateSrc[k] !== undefined)
     .map(([k, nm]) => '<div class="rrow"><i style="background:rgba(' + RAR_TONE[k] + ',1)"></i><span>' + nm
-      + '</span><b style="color:rgb(' + RAR_TONE[k] + ')">' + GACHA.rate[k] + '%</b></div>').join('');
+      + '</span><b style="color:rgb(' + RAR_TONE[k] + ')">' + _rateSrc[k] + '%</b></div>').join('');
+  /* 武器池的收藏进度 */
+  const _wAll = SUMMON_WEAPONS;
+  const _cnt = (rr) => { const all = _wAll.filter(w => !rr || w.rar === rr); return [all.filter(w => ACC.hasWeapon(w.id)).length, all.length]; };
+  const _sp = _cnt('specialW'), _lg = _cnt('legW'), _allW = _cnt(null);
   const shopRows = SHARD_SHOP.map(it => '<button class="shopBtn" data-shop="' + it.id + '"' +
       (shards < it.cost ? ' disabled' : '') + '><b>' + it.name + '</b><u>' + it.cost + ' ◈</u></button>').join('');
   const cards = (Array.isArray(last) ? last : (last ? [last] : [])).map(p => {
     const t = RAR_TONE[p.tier] || '190,196,210';
     return '<div class="pcard" style="--t:' + t + '"><b>' + p.name + '</b><u>' + p.sub + '</u></div>';
   }).join('');
+  const tabBtn = (id, t, sub) => {
+    const on = (SUMMON_BANNER === id);
+    return '<button data-banner="' + id + '" style="flex:1;text-align:left;padding:9px 11px;border-radius:12px;cursor:pointer;'
+      + 'border:1.4px solid ' + (on ? 'transparent' : 'rgba(255,255,255,.14)') + ';'
+      + (on ? 'background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#2a1400;'
+           : 'background:rgba(255,255,255,.05);color:#dbe8f6;')
+      + 'font:900 11px/1.15 system-ui,sans-serif;letter-spacing:.6px">' + t
+      + '<div style="font:800 8.4px/1.3 system-ui,sans-serif;letter-spacing:.7px;opacity:.78;margin-top:3px;text-transform:none">' + sub + '</div></button>';
+  };
   el.innerHTML = '<div class="box big">'
-    + '<div class="topbar"><h3>SUMMON · Wish</h3><div class="cur">'
+    + '<div class="topbar"><h3>' + (wb ? 'FORGE ARMS' : 'SUMMON · Wish') + '</h3><div class="cur">'
       + '<span class="cg"><svg class="ico"><use href="#i-gem"/></svg>' + ACC.gems + '</span>'
       + '<span class="cs">◈ ' + shards + '</span></div><button class="close">✕</button></div>'
-    + '<div class="sxsub">200 gems per pull · 10-pull 2,000 · 90-pull hard pity for a SUPREME fighter · every 10th pull drops EPIC or better</div>'
+    + '<div style="display:flex;gap:8px;margin:2px 0 9px">'
+      + tabBtn('supreme', 'SUPREME ARMS', 'Fighters · Skins · Weapons')
+      + tabBtn('weapon', 'FORGE ARMS', 'WEAPONS ONLY · 5% SPECIAL')
+    + '</div>'
+    + '<div class="sxsub">' + (wb
+        ? 'weapons only · 200 gems per pull · 10-pull 2,000 · every 10th pull drops EPIC WEAPON or better'
+        : '200 gems per pull · 10-pull 2,000 · 90-pull hard pity for a SUPREME fighter · every 10th pull drops EPIC or better')
+      + '</div>'
     + '<div class="cols">'
       + '<div class="colL">'
-        + '<div class="stat"><span>Supreme fighters <b>' + owned + ' / ' + total + '</b></span>'
-          + '<span>Pity <b>' + pity + ' / ' + GACHA.hardPity + '</b></span></div>'
-        + '<div class="pity"><i style="width:' + prog + '%"></i></div>'
+        + (wb
+          ? '<div class="stat"><span>Special weapons <b>' + _sp[0] + ' / ' + _sp[1] + '</b></span>'
+            + '<span>Legendary <b>' + _lg[0] + ' / ' + _lg[1] + '</b></span></div>'
+            + '<div class="stat" style="margin-top:6px"><span>All weapons owned <b>' + _allW[0] + ' / ' + _allW[1] + '</b></span></div>'
+          : '<div class="stat"><span>Supreme fighters <b>' + owned + ' / ' + total + '</b></span>'
+            + '<span>Pity <b>' + pity + ' / ' + GACHA.hardPity + '</b></span></div>'
+            + '<div class="pity"><i style="width:' + prog + '%"></i></div>')
         + '<div class="stat" style="margin-top:8px"><span>Epic or better in <b>' + Math.max(0, GACHA.epicPity - ep) + '</b> pulls</span></div>'
         + '<div class="pity epic"><i style="width:' + epProg + '%"></i></div>'
-        + '<div class="secT">DROP RATES</div><div class="rates">' + rateRows + '</div>'
+        + '<div class="secT">DROP RATES' + (wb ? ' · FORGE ARMS' : '') + '</div><div class="rates">' + rateRows + '</div>'
         + (cards ? '<div class="res"><div class="secT">LAST RESULT</div><div class="pcards">' + cards + '</div></div>' : '')
       + '</div>'
       + '<div class="colR">'
-        + '<div class="secT">SUMMON</div>'
-        + '<button class="prim"' + (ACC.gems < SUMMON_COST ? ' disabled' : '') + '>SUMMON ×1 · ' + SUMMON_COST + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
-        + '<button class="prim ten"' + (ACC.gems < SUMMON_COST * 10 ? ' disabled' : '') + '>SUMMON ×10 · ' + (SUMMON_COST * 10) + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
+        + '<div class="secT">' + (wb ? 'FORGE' : 'SUMMON') + '</div>'
+        + '<button class="prim"' + (ACC.gems < SUMMON_COST ? ' disabled' : '') + '>' + (wb ? 'FORGE ×1' : 'SUMMON ×1') + ' · ' + SUMMON_COST + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
+        + '<button class="prim ten"' + (ACC.gems < SUMMON_COST * 10 ? ' disabled' : '') + '>' + (wb ? 'FORGE ×10' : 'SUMMON ×10') + ' · ' + (SUMMON_COST * 10) + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
         + '<div class="secT">MEMORY SHARD SHOP <small>◈ ' + shards + '</small></div>'
         + '<div class="shop">' + shopRows + '</div>'
-        + '<div class="tip">◈ Memory Shards come from the 8% shard drop and from duplicate weapons/skins.</div>'
+        + '<div class="tip">◈ Memory Shards come from the 5% shard drop and from duplicate weapons/skins.</div>'
       + '</div>'
     + '</div></div>';
+  el.querySelectorAll('[data-banner]').forEach(bt => bt.onclick = () => {
+    const id = bt.getAttribute('data-banner');
+    if (id === SUMMON_BANNER) return;
+    SUMMON_BANNER = id;
+    try { SFX.ui && SFX.ui(); } catch (e) {}
+    summonPaint();
+  });
   el.querySelector('.close').onclick = () => el.classList.add('hidden');
+  const _pull = wb ? weaponPull : summonPull;                                // ★ 按当前卡池抽
   const b = el.querySelector('button.prim:not(.ten)');
   if (b) b.onclick = () => {
-    const r = summonPull();
+    const r = _pull();
     if (r.err === 'gems') { toast('Not enough Supreme Gems (' + ACC.gems + '/' + SUMMON_COST + ')'); return; }
     summonAnimation(r, () => { summonPaint(r); try { window.__rebuildChars && window.__rebuildChars(); } catch (e) {} summonBtnPaint(); });
   };
@@ -32580,7 +32670,7 @@ function summonPaint(last) {
   if (tb) tb.onclick = () => {
     if (ACC.gems < SUMMON_COST * 10) { toast('Not enough Supreme Gems for a 10-pull'); return; }
     const got = [];
-    for (let i = 0; i < 10; i++) { const r = summonPull(); if (r.err) break; got.push(r); }
+    for (let i = 0; i < 10; i++) { const r = _pull(); if (r.err) break; got.push(r); }
     if (!got.length) { toast('Not enough Supreme Gems'); return; }
     summonAnimation(got, () => { summonPaint(got); try { window.__rebuildChars && window.__rebuildChars(); } catch (e) {} summonBtnPaint(); });
   };
@@ -32909,7 +32999,10 @@ window.SB = {
   get fxCount() { return FX.list.length; },
   get blocks() { return BLOCKS; },                  // ★ Blocky 的方块（验证「可站/可挡弹/可打碎」必须能直接读）
   get frame() { return FRAME; },
-  get meteor() { return { busy:METEOR.busy, phase:METEOR.phase, t:+METEOR.t.toFixed(2) }; },   // 探针：抽卡 3D 演出状态
+  get meteor() { return { busy:METEOR.busy, phase:METEOR.phase, t:+METEOR.t.toFixed(2) }; },
+  /* ★ 抽卡探针：quiet=true 不花宝石，用来验概率分布（两个池都能抽） */
+  pullSupreme: (q) => summonPull(q), pullWeapon: (q) => weaponPull(q),
+  get banner() { return SUMMON_BANNER; }, set banner(v) { SUMMON_BANNER = v; },   // 探针：抽卡 3D 演出状态
   hash: () => simHash(),
   info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
                  geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }),
