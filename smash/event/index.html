@@ -293,6 +293,9 @@
     background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#2a1400;box-shadow:0 6px 14px rgba(255,159,28,.3)}
   .sc button[disabled]{background:rgba(255,255,255,.09);color:#8397ac;box-shadow:none;cursor:default}
   .sc.owned{border-color:rgba(90,235,160,.42)}
+  .sc .lk{align-self:flex-start;border:1px solid rgba(255,255,255,.18);border-radius:9px;padding:7px 10px;cursor:pointer;
+    background:rgba(255,255,255,.07);color:#cfe3ff;font:900 9.5px/1 inherit;letter-spacing:1.1px}
+  .sc .lk:hover{background:rgba(255,255,255,.14);border-color:rgba(255,190,90,.55);color:#fff1d6}
   .sc .tag{position:absolute;right:9px;top:9px;font:900 8px/1 inherit;letter-spacing:1.2px;padding:4px 6px;
     border-radius:6px;background:rgba(46,204,113,.18);border:1px solid rgba(46,204,113,.5);color:#8ff0b4}
   /* 封面：锻造车间（齿轮 + 熔炉光 + 铁砧 + 火星） */
@@ -623,13 +626,14 @@
         + '<div class="rew">+' + t.pts + ' ⚙</div>' + btn + '</div>';
     }).join('');
     var S = p.shop || {};
-    function card(item, art, name, note, price, owned, left){
+    function card(item, art, name, note, price, owned, left, prev){
       var limited = (left !== undefined && left !== null);
       var dis = owned || (limited && left <= 0) || p.bal < price;
       var label = owned ? 'OWNED' : (limited && left <= 0) ? 'LIMIT' : (p.bal < price ? 'NEED ' + (price - p.bal) : 'EXCHANGE');
       return '<div class="sc' + (owned ? ' owned' : '') + '">'
         + '<div class="art">' + art + '</div>'
         + (owned ? '<span class="tag">OWNED</span>' : '')
+        + (prev ? '<button class="lk" data-act="prev" data-id="' + prev + '">👁 VIEW MODEL</button>' : '')
         + '<div class="nm">' + name + '</div>'
         + '<div class="nt">' + note + (limited ? ' · ' + left + ' LEFT' : '') + '</div>'
         + '<div class="pr"><b>' + price + '<small> ⚙</small></b>'
@@ -654,8 +658,8 @@
       + '<div class="cta">' + ciBtn + '</div>'
       + '<div class="qt"><h4>DAILY TASKS · RESET AT 00:00</h4>' + tasks + '</div>'
       + '<div class="qt"><h4>SUPPLY SHOP</h4><div class="shop">'
-      +     card('foundry', forgeArt('foundry'), 'FOUNDRY', 'FIGHTER', S.foundry, !!p.ownsFoundry, null)
-      +     card('police', forgeArt('police'), 'POLICE UNIT', 'SKIN · FOUNDRY', S.police, !!p.hasPolice, null)
+      +     card('foundry', forgeArt('foundry'), 'FOUNDRY', 'FIGHTER', S.foundry, !!p.ownsFoundry, null, 'foundry')
+      +     card('police', forgeArt('police'), 'POLICE UNIT', 'SKIN · FOUNDRY', S.police, !!p.hasPolice, null, 'police')
       +     card('gems', forgeArt('gems'), '30 GEMS', 'PER PURCHASE', S.gems, false, S.gemLeft)
       +     card('coins', forgeArt('coins'), '2,500 COINS', 'PER PURCHASE', S.coins, false, S.coinLeft)
       +   '</div></div>'
@@ -666,6 +670,7 @@
     for (var i = 0; i < btns.length; i++) {
       btns[i].onclick = function(){
         var act = this.getAttribute('data-act');
+        if (act === 'prev') { post({ type:'sb-event-preview', what: this.getAttribute('data-id') }); return; }
         if (act === 'ci') post({ type:'sb-event-claim', id:'pts-checkin' });
         else if (act === 'task') post({ type:'sb-event-claim', id:'pts-task', task:this.getAttribute('data-id') });
         else post({ type:'sb-event-claim', id:'pts-buy', item:this.getAttribute('data-item') });

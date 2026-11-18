@@ -28205,6 +28205,15 @@ function frame(now) {
     if (!document.body.classList.contains('inMenu')) document.body.classList.add('inMenu');
     LOBBY.show(true); PV.frame(dt); LOBBY.frame(dt);
     mosqVeilHide();
+    /* ★ 兑换预览：活动页点 VIEW MODEL 时，主画布只渲染 Foundry 模型 */
+    if (CHARPREV_UI.isOpen) {
+      try {
+        CHARPREV.resize(renderer.domElement.clientWidth || innerWidth, renderer.domElement.clientHeight || innerHeight);
+        CHARPREV.frame(dt);
+        renderer.render(CHARPREV.scene, CHARPREV.cam);
+        return;
+      } catch (e) { window.__prevRenderErr = String((e && e.message) || e); }
+    }
     /* ★ Summon 打开时：渲染 3D 云海展示场景（同一个 renderer，不额外开 WebGL 上下文） */
     let s3 = null;
     try { s3 = document.getElementById('summonSheet'); } catch (e) {}
@@ -31695,6 +31704,156 @@ const SUMMON3D = (() => {
            get built() { return built; } };
 })();
 
+/* ================= ★ 2026-11-18 兑换预览：Foundry 的 3D 模型 =================
+   活动页（iframe）点「VIEW MODEL」→ postMessage → 这里把活动层收起，用**同一个 renderer** 单独渲染
+   一个展示场景（转台 + 模型 + 标准/POLICE 皮肤切换）。不另开 WebGL 上下文（和 LOBBY / SUMMON3D 一致）。
+   打开时把 body 其它顶层节点 visibility:hidden（只留 canvas / 本浮层 / toast），关掉逐个还原。 */
+const CHARPREV = (() => {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a111c);
+  scene.fog = new THREE.Fog(0x0a111c, 10, 32);
+  const cam = new THREE.PerspectiveCamera(38, 1, .1, 120);
+  cam.position.set(0, 1.58, 5.05);
+  scene.add(new THREE.HemisphereLight(0xdcefff, 0x3a2410, 1.55));
+  const key = new THREE.DirectionalLight(0xffdcab, 2.45); key.position.set(-4, 7, 5); scene.add(key);
+  const front = new THREE.DirectionalLight(0xffffff, .55); front.position.set(0, 2, 9); scene.add(front);
+  const rim = new THREE.DirectionalLight(0x8fd8ff, 1.15); rim.position.set(4, 3, -5); scene.add(rim);
+  const root = new THREE.Group(); scene.add(root);
+  let built = false, model = null, t = 0, sig = '', ring = null;
+  function build() {
+    built = true;
+    const plat = new THREE.Mesh(new THREE.CylinderGeometry(1.34, 1.58, .30, 40),
+      new THREE.MeshStandardMaterial({ color:0x25303f, roughness:.5, metalness:.5 }));
+    plat.position.y = -.17; root.add(plat);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, .06, 40),
+      new THREE.MeshStandardMaterial({ color:0x3a4757, roughness:.32, metalness:.6 }));
+    top.position.y = .02; root.add(top);
+    ring = new THREE.Mesh(new THREE.TorusGeometry(1.37, .045, 8, 52),
+      new THREE.MeshBasicMaterial({ color:0xff9f1c }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = .05; root.add(ring);
+    const glow = new THREE.Mesh(new THREE.CircleGeometry(2.3, 40),
+      new THREE.MeshBasicMaterial({ color:0xff9f1c, transparent:true, opacity:.10, depthWrite:false }));
+    glow.rotation.x = -Math.PI / 2; glow.position.y = -.34; root.add(glow);
+  }
+  function set(charId, skin) {
+    if (!built) build();
+    const sig2 = String(charId) + ':' + String(skin || '');
+    if (sig2 === sig) return;
+    sig = sig2;
+    if (model) { root.remove(model.group); model = null; }
+    const base = CHARS.find(c => c.id === charId);
+    if (!base) return;
+    let m = null;
+    try { m = buildMesh2(Object.assign({}, base, { skin: skin || '' })); }
+    catch (e) { window.__prevErr = String((e && e.message) || e); m = null; }
+    if (!m || !m.group) return;
+    const g = m.group;
+    scene.remove(g);
+    if (m.bubble) m.bubble.visible = false;
+    if (m.charge) m.charge.visible = false;
+    if (m.auraRing) m.auraRing.visible = false;
+    if (m.ringFx) m.ringFx.visible = false;
+    if (m.shadow) m.shadow.visible = false;
+    if (g.userData) g.userData.noShadow = true;
+    try {                                            /* 统一身高到 2.3，站在转台面 y=0 */
+      let bb = new THREE.Box3().setFromObject(g);
+      const hh = Math.max(.4, bb.max.y - bb.min.y);
+      g.scale.multiplyScalar(2.3 / hh);
+      g.updateMatrixWorld(true);
+      bb = new THREE.Box3().setFromObject(g);
+      g.position.set(0, .02 - bb.min.y, 0);
+    } catch (e) { g.position.set(0, 0, 0); }
+    g.rotation.y = 0;                               // 入场正对镜头（转台随后慢慢转）
+    root.add(g);
+    model = m;
+  }
+  function frame(dt) {
+    t += dt;
+    if (model && model.group) {
+      model.group.rotation.y += dt * .38;
+      model.group.position.y = .02 + Math.sin(t * 1.6) * .03;
+    }
+    if (ring) ring.material.color.setHSL(.08 + Math.sin(t * .8) * .015, 1, .55);
+    root.rotation.y = Math.sin(t * .2) * .03;
+    cam.position.y = 1.58 + Math.sin(t * .45) * .04;
+    cam.lookAt(0, 1.22, 0);
+  }
+  function resize(w, h) { cam.aspect = Math.max(.5, (w || 1) / Math.max(1, h)); cam.updateProjectionMatrix(); }
+  return { scene, cam, set, frame, resize, get ready() { return built; } };
+})();
+
+const CHARPREV_UI = (() => {
+  let box = null, nameEl = null, subEl = null, stdBtn = null, copBtn = null, open = false, afterClose = null;
+  function build() {
+    if (box) return;
+    const st = document.createElement('style');
+    st.textContent =
+      '#charPrev{position:fixed;inset:0;z-index:96;display:none;pointer-events:none;color:#eaf3ff;font-family:system-ui,sans-serif}' +
+      '#charPrev .hd{position:absolute;left:0;right:0;top:0;padding:clamp(14px,3vw,26px) clamp(16px,3vw,30px)}' +
+      '#charPrev .nm{font:900 clamp(20px,4.4vw,30px)/1 system-ui,sans-serif;letter-spacing:.5px;text-shadow:0 3px 18px rgba(0,0,0,.75)}' +
+      '#charPrev .sb{margin-top:8px;font:900 10px/1 system-ui,sans-serif;letter-spacing:2.2px;color:#ffb03a}' +
+      '#charPrev .ft{position:absolute;left:0;right:0;bottom:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;' +
+        'padding:clamp(12px,3vw,22px) clamp(16px,3vw,30px);pointer-events:auto}' +
+      '#charPrev button{border:1px solid rgba(255,255,255,.22);background:rgba(10,16,26,.74);color:#dbe8f6;' +
+        'border-radius:11px;padding:10px 14px;font:900 11px/1 system-ui,sans-serif;letter-spacing:1.2px;cursor:pointer;' +
+        'backdrop-filter:blur(6px)}' +
+      '#charPrev button.on{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#2a1400;border-color:transparent}' +
+      '#charPrev button.cl{margin-left:auto;background:rgba(255,255,255,.10)}';
+    document.head.appendChild(st);
+    box = document.createElement('div');
+    box.id = 'charPrev';
+    box.innerHTML = '<div class="hd"><div class="nm" id="cpNm">FOUNDRY</div>'
+      + '<div class="sb" id="cpSb">FIGHTER · PREVIEW</div></div>'
+      + '<div class="ft"><button id="cpStd" class="on">STANDARD</button>'
+      + '<button id="cpCop">POLICE UNIT</button>'
+      + '<button id="cpCls" class="cl">CLOSE</button></div>';
+    document.body.appendChild(box);
+    nameEl = box.querySelector('#cpNm'); subEl = box.querySelector('#cpSb');
+    stdBtn = box.querySelector('#cpStd'); copBtn = box.querySelector('#cpCop');
+    box.querySelector('#cpCls').onclick = () => API.close();
+    stdBtn.onclick = () => API.useSkin('');
+    copBtn.onclick = () => API.useSkin('foundry_police');
+    addEventListener('keydown', e => { if (e.key === 'Escape' && open) API.close(); });
+  }
+  const API = {
+    _afterClose: null,
+    show(what) {
+      build();
+      open = true;
+      for (const ch of document.body.children) {
+        if (!ch.id || ch.tagName === 'SCRIPT' || ch.tagName === 'STYLE') continue;
+        if (ch.id === 'charPrev' || ch.tagName === 'CANVAS') continue;
+        if (/^toast/i.test(ch.id)) continue;
+        if (ch.dataset.cvHide === undefined) ch.dataset.cvHide = ch.style.visibility || '';
+        ch.style.visibility = 'hidden';
+      }
+      box.style.display = 'block';
+      this.useSkin(what === 'police' ? 'foundry_police' : '');
+    },
+    useSkin(sk) {
+      CHARPREV.set('foundry', sk || '');
+      if (nameEl) nameEl.textContent = 'FOUNDRY';
+      if (subEl) subEl.textContent = sk ? 'POLICE UNIT · SKIN PREVIEW' : 'FIGHTER · STANDARD';
+      if (stdBtn) stdBtn.className = sk ? '' : 'on';
+      if (copBtn) copBtn.className = sk ? 'on' : '';
+    },
+    close() {
+      if (!open) return;
+      open = false;
+      if (box) box.style.display = 'none';
+      for (const ch of document.body.children) {
+        if (ch.dataset && ch.dataset.cvHide !== undefined) {
+          ch.style.visibility = ch.dataset.cvHide; delete ch.dataset.cvHide;
+        }
+      }
+      const cb = this._afterClose; this._afterClose = null;
+      if (cb) { try { cb(); } catch (e) {} }
+    },
+    get isOpen() { return open; },
+  };
+  return API;
+})();
+
 /* —— 抽卡面板 —— */
 function summonOpen() {
   let el = document.getElementById('summonSheet');
@@ -32426,6 +32585,13 @@ window.SB = {
     const d = e.data;
     if (!d || typeof d !== 'object') return;
     if (d.type === 'sb-event-state') pushState();
+    else if (d.type === 'sb-event-preview') {        // ★ 2026-11-18 兑换预览：看 Foundry 模型
+      try {
+        CHARPREV_UI._afterClose = () => { sheet.classList.remove('hidden'); pushState(); };
+        sheet.classList.add('hidden');
+        CHARPREV_UI.show(d.what === 'police' ? 'police' : 'foundry');
+      } catch (e) { window.__prevOpenErr = String((e && e.message) || e); }
+    }
     else if (d.type === 'sb-event-bind') {          // 活动页要求绑定邮箱 → 先收起活动层，再打开设置
       sheet.classList.add('hidden');
       setTimeout(() => { try { $('setBtn').click(); } catch (err) {} }, 140);
