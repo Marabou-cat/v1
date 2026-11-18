@@ -14572,6 +14572,8 @@ class Fighter {
     this._hist.push({ x: this.pos.x, y: this.pos.y, t: this._histClock });
     while (this._hist.length > 2 && (this._hist[this._hist.length - 1].t - this._hist[0].t) > 2.4) this._hist.shift();
   }
+  /* ★ 回到 N 秒前：不再是瞬移 —— 0.18~0.45s 的过渡滑行（距离越远越久），
+     期间头顶挂一个旋转的沙漏标志、身上冒时间粒子，人被钉住不能动。 */
   rewindTo(sec) {
     const h = this._hist || [];
     if (!h.length) return false;
@@ -14579,16 +14581,46 @@ class Fighter {
     let pick = null;
     for (let i = h.length - 1; i >= 0; i--) { if (now - h[i].t >= sec) { pick = h[i]; break; } }
     if (!pick) pick = h[0];
-    this.pos.set(pick.x, pick.y, 0);
+    const dist = Math.hypot(pick.x - this.pos.x, pick.y - this.pos.y);
+    const dur = Math.max(.18, Math.min(.45, .16 + dist * .022));
+    if (this.rewindFx && this.rewindFx.mesh) { try { scene.remove(this.rewindFx.mesh); } catch (e) {} }
+    const m = tockHourglassMesh(.36, 0xffd166);
+    m.position.set(this.pos.x, this.pos.y + 2.35, .62);
+    scene.add(m);
+    this.rewindFx = { t:0, dur, x0:this.pos.x, y0:this.pos.y, x1:pick.x, y1:pick.y, mesh:m, sec };
     this.vel.set(0, 0, 0);
-    this.hitstun = 0;
-    this.state = this.grounded ? 'idle' : 'fall';
-    FX.ring(pick.x, pick.y + 1.0, .3, 2.0, 0xffd166, .42);
-    FX.spark(pick.x, pick.y + 1.2, .3, 10, 0xffe9a0);
-    FX.beam(pick.x, pick.y + 1.2, pick.x, pick.y + 3.0, .10, 0xffe9a0, .26);
+    this.hitstun = Math.max(this.hitstun || 0, dur + .10);
+    if (this.state !== 'hitstun') { this.state = 'hitstun'; this.stateT = 0; }
+    FX.ring(this.pos.x, this.pos.y + .95, .28, 2.3, 0xffd166, .40);
+    FX.beam(pick.x, pick.y + 1.0, this.pos.x, this.pos.y + 1.0, .08, 0xffd166, .20);
     callout(this, '◀ REWIND ' + sec.toFixed(0) + 's', 0xffd166);
     SFX.tone(900, 320, .18, 'sine', .07);
     return true;
+  }
+  /* 回溯过渡：每帧插值位置（所有角色都会调到，没状态就直接返回） */
+  rewindTick(dt) {
+    const R = this.rewindFx; if (!R) return;
+    R.t += dt;
+    const k = Math.min(1, R.t / R.dur);
+    const e = k * k * (3 - 2 * k);                       // smoothstep，起步/收尾都不生硬
+    this.pos.x = R.x0 + (R.x1 - R.x0) * e;
+    this.pos.y = R.y0 + (R.y1 - R.y0) * e;
+    this.vel.set(0, 0, 0);
+    this.hitstun = Math.max(this.hitstun || 0, .06);
+    if (this.state !== 'hitstun') { this.state = 'hitstun'; this.stateT = 0; }
+    if (R.mesh) {
+      R.mesh.position.set(this.pos.x, this.pos.y + 2.35 + Math.sin(R.t * 9) * .10, .62);
+      R.mesh.rotation.y += dt * 8;
+    }
+    if (R.t % .07 < dt) FX.spark(this.pos.x, this.pos.y + 1.0, .22, 1, 0xffe9a0);
+    if (k >= 1) {
+      if (R.mesh) { try { scene.remove(R.mesh); } catch (e) {} }
+      FX.ring(this.pos.x, this.pos.y + .95, .26, 2.1, 0xffd166, .34);
+      FX.spark(this.pos.x, this.pos.y + 1.1, .28, 8, 0xffe9a0);
+      this.rewindFx = null;
+      this.state = this.grounded ? 'idle' : 'fall';
+      this.hitstun = Math.min(this.hitstun || 0, .10);
+    }
   }
   tockSpawnShot(x, y, vx, vy, o) {
     if (!this.tockShots) this.tockShots = [];
@@ -14650,6 +14682,25 @@ class Fighter {
           if (C.mesh) { scene.remove(C.mesh); C.mesh = null; }
         } else if (C.t > 1.8 || Math.abs(C.x) > CFG.blast.x) {
           C.done = true; if (C.mesh) { scene.remove(C.mesh); C.mesh = null; }
+        }
+        /* ★ 飞行中碰到敌人 → **直接在他那召唤巨钟**（不用等落地） */
+        if (!C.done) {
+          let hitF = null;
+          for (const g of FIGHTERS) {
+            if (!g || g === this || g.eliminated || g.abducted) continue;
+            if (this.team >= 0 && isTeammate(this, g)) continue;
+            const rr = .72 + g.bodyR * .6;
+            const cyc = Math.min(Math.max(C.y, g.pos.y + .35), g.pos.y + 1.75 * g.def.shape.scale);
+            if (Math.abs(g.pos.x - C.x) < rr && Math.abs(cyc - C.y) < .95) { hitF = g; break; }
+          }
+          if (hitF) {
+            C.done = true;
+            this.tockSlam(hitF.pos.x, Math.max(hitF.pos.y, 0), C.cfg);
+            if (C.mesh) { scene.remove(C.mesh); C.mesh = null; }
+            FX.ring(hitF.pos.x, hitF.pos.y + 1.1, .30, 2.6, C.cfg.color, .42);
+            FX.spark(hitF.pos.x, hitF.pos.y + 1.2, .30, 14, 0xffe9a0);
+            SFX.special('heavy');
+          }
         }
       }
       if (C.t > 1.9) this.tockClock = null;
@@ -16547,6 +16598,7 @@ class Fighter {
     if (this.eliminated) return;
     if (this.respawnT > 0) { this.respawnT -= dt; if (this.respawnT <= 0) this.respawn(); return; }
     try { this.tockRec(dt); } catch (e) {}                       // ★ 所有角色都记录位置历史（回到 N 秒前要用）
+    try { this.rewindTick(dt); } catch (e) {}                    // ★ 被回溯的一方：过渡滑行 + 头顶沙漏
     if (this.def.id === 'tock') {
       try { this.tockTick(dt); } catch (e) { if (!window.__tockErr) window.__tockErr = String(e && e.message); }
     }
@@ -22596,9 +22648,9 @@ class Fighter {
     } else if (cfg.kind === 'tockClock') {
       /* ★ Tickwork·中立B：把怀表抛出去 → 落点砸下一座巨钟（压扁 + 击飞；浮空平台也能落） */
       const _cm = tockGiantClockMesh(1.0);
-      _cm.scale.setScalar(.34); _cm.position.set(this.pos.x + dir * .9, this.headY, .30);
+      _cm.scale.setScalar(.34); _cm.position.set(this.pos.x + dir * .9, this.pos.y + 1.85, .30);
       scene.add(_cm);
-      this.tockClock = { t:0, x:this.pos.x + dir * .9, y:this.headY, vx:dir * (cfg.throwSpd || 11.5), vy:7.8,
+      this.tockClock = { t:0, x:this.pos.x + dir * .9, y:this.pos.y + 1.85, vx:dir * (cfg.throwSpd || 11.5), vy:7.8,
                          done:false, cfg, mesh:_cm };
       this.state = 'special'; this.animT = 0; this.spT = .26;
       FX.ring(this.pos.x + dir * .6, this.headY, .22, 1.7, cfg.color, .30);
