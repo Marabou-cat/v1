@@ -27806,11 +27806,16 @@ const REWARDS = [                             // 奖杯达标奖励（顺序即�
   { at: 110, type: 'char',  char: 'demon',   label: 'Inferno Pact' },
 ];
 /* ★ 第 88 轮：角色排序 —— 已解锁的排最上面，未解锁的排在后面（都保持 CHARS 原顺序）
+   ★ 2026-11-19 用户新规格：「依旧解锁的排最上面，但 supreme 解锁的也要排在正常未解锁的前面」。
+   以前三档是 owned → locked → sup：**所有**至尊（包括已经抽到、能用的）都被扔到最后，
+   等于花钱抽到的至尊排在二十几个锁着的角色后面。现在的四档（同一档内保持 CHARS 原顺序）：
+     ① 已解锁·普通   ② 已解锁·至尊   ③ 未解锁·普通   ④ 未解锁·至尊
+   即：解锁的永远在上面；已解锁的至尊不再垫底；未解锁的至尊仍然留到最后（走专属炫光卡片）。
    注意：settings.playerChar / CHARS 的索引绝不能动，UI 只是按这个顺序渲染 + 带 data-idx。 */
 function orderedChars() {
-  const owned = [], locked = [], sup = [];
-  CHARS.forEach((c, i) => (c.supreme ? sup : (ACC.owns(c.id) ? owned : locked)).push({ c, i }));
-  return owned.concat(locked).concat(sup);            // ★ 至尊角色永远排在最后（并走专属炫光卡片）
+  const rank = (c) => ((ACC.owns(c.id) ? 0 : 2) + (c.supreme ? 1 : 0));
+  return CHARS.map((c, i) => ({ c, i }))
+              .sort((a, b) => (rank(a.c) - rank(b.c)) || (a.i - b.i));
 }
 const REWARD_CHAR_IDS = REWARDS.filter(r => r.type === 'char').map(r => r.char);   // 奖杯专属角色（商店不卖）
 /* ★ 绑定邮箱专属角色：不在商店卖，绑定邮箱（任意邮箱验证通过）即解锁 */
@@ -28169,7 +28174,7 @@ PV.resize();
       d.className = 'cgrid' + (i === settings.playerChar ? ' on' : '') + (owned ? '' : ' locked') + (c.supreme ? ' supreme' : '');
       d.dataset.idx = String(i);                       // ★ 第 89 轮：高亮对齐用（顺序变了也能对上）
       d.style.setProperty('--c', '#' + new THREE.Color(c.body).getHexString());
-      d.innerHTML = '<img alt="' + c.name + '"><b>' + c.name + '</b><u>' + (c.supreme ? 'SUMMON' : c.tag) + '</u>' +
+      d.innerHTML = '<img alt="' + c.name + '"><b>' + c.name + '</b><u>' + ((c.supreme && !owned) ? 'SUMMON' : c.tag) + '</u>' +
         (owned ? '' : '<span class="lock"><svg class="ico"><use href="#i-lock"/></svg></span>');
       d.onclick = () => {   // 先走原有的选人卡逻辑（它负责 settings/技能文案/同步服务端），再回来同步本格子的选中框
         const card = document.querySelector('#charPick .charcard[data-idx="' + i + '"]');
