@@ -2771,12 +2771,12 @@ CHAR_EXTRA.prism = {
     /* 中立B：面前依次立 3 面不规则镜片（越来越远、高度各不同），0.5 秒后白色光束把它们连通并造成伤害 */
     n:{ kind:'prismShards', label:'Prism Array', cd:3.6, count:3, delay:.5, dmg:8.0,
         /* ★ 2026-11-19：最后一段是大击飞（150% 从中场直接 KO），前一段只轻推 */
-        bb:9, bg:20, ang:44, bbKill:13, bgKill:27, angKill:40,   // ★ 实测：130% 存活 / 140~150% 直接 KO
-        dists:[2.2, 4.4, 6.6], hMin:[0.8], hMax:[4.8], color:0x9fe8ff },
+        bb:9, bg:20, ang:44, bbKill:12, bgKill:24, angKill:40,   // ★ 实测：140% 存活 / 150% 直接 KO
+        dists:[3.0, 6.2, 9.4], hMin:[0.8], hMax:[4.8], color:0x9fe8ff },
     /* 左右B：同样机制立 4 面镜片，1 秒后顺着镜子依次传送并连通；中途命中 → 停住、镜子消失、
        在敌人周围召 4 面新镜子集火（10 拍 × 2.5% = 总共 25%） */
     s:{ kind:'prismChain', label:'Mirror March', cd:5.2, count:4, delay:0.2, beam:0,
-        dists:[2.0, 4.0, 6.0, 8.0], hMin:[0.8], hMax:[4.4],
+        dists:[2.8, 5.8, 8.8, 11.8], hMin:[0.8], hMax:[4.4],
         cageTick:10, cageDmg:2.5, cageR:2.9, color:0x9fe8ff },
     /* 上B：照搬 Sparky 的 Thunder Cyclone（数值/机制一字不改） */
     u:{kind:'recover',label:'Thunder Cyclone',cd:1.4,dmg:5.0,bb:10,bg:42,rise:27,dur:.80,
@@ -16206,7 +16206,7 @@ class Fighter {
     this.prState = null;
   }
   /* 一条白色光束上的判定：命中就返回被命中的人（用于左右B 的「中途命中」判定） */
-  prismLineHit(a, b, dmg, S) {
+  prismLineHit(a, b, dmg, S, kbOnce) {
     let got = null;
     const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
     for (const f of FIGHTERS) {
@@ -16219,7 +16219,14 @@ class Fighter {
       got = f;
       if (dmg <= 0) continue;                       // 只判定不结算（左右B 的「中途命中」只负责触发围杀）
       const dir = Math.sign(f.pos.x - a.x) || 1;
-      f.takeHit(this, { dmg: dmg, bb: (S && S.bb) || 9, bg: (S && S.bg) || 24, ang: (S && S.ang) || 40 }, dir, 1);
+      /* ★ 同一目标只有**第一次**被光束命中时吃「强击退」（= 150% KO 的那一记）；
+         后面同一条链的其它段只补伤害 + 轻推，避免 3 段叠成 3 次击飞。 */
+      let K = S;
+      if (kbOnce) {
+        if (kbOnce.has(f.seat)) K = { bb: (S && S.bb) || 9, bg: (S && S.bg) || 20, ang: (S && S.ang) || 44 };
+        else kbOnce.add(f.seat);
+      }
+      f.takeHit(this, { dmg: dmg, bb: (K && K.bb) || 9, bg: (K && K.bg) || 24, ang: (K && K.ang) || 40 }, dir, 1);
     }
     return got;
   }
@@ -16310,14 +16317,16 @@ class Fighter {
         const S = P.cfg;
         if (P.mode === 'n') {
           const sh = P.shards;
-          for (let i = 0; i < sh.length - 1; i++) {
-            FX.beam(sh[i].x, sh[i].y, sh[i+1].x, sh[i+1].y, .28, 0xffffff, .30);
-            /* 最后一段 = 主击飞段（150% KO）；前面几段只轻推，避免连吃两次强击退 */
-            const last = (i === sh.length - 2);
-            this.prismLineHit(sh[i], sh[i+1], S.dmg, last
-              ? { bb: (S.bbKill || 26), bg: (S.bgKill || 56), ang: (S.angKill || 40) }
-              : { bb: (S.bb || 9), bg: (S.bg || 20), ang: (S.ang || 44) });
+          /* ★ 2026-11-19：光束**从角色自己**出发（actor → 镜1 → 镜2 → 镜3），不再是只在镜片之间连 */
+          const pts = [{ x: this.pos.x, y: this.pos.y + 1.05 }].concat(sh);
+          const KILL = { bb: (S.bbKill || 26), bg: (S.bgKill || 56), ang: (S.angKill || 40) };
+          const kbOnce = new Set();                    // 每个目标只吃一次强击退（第一次被照到）
+          for (let i = 0; i < pts.length - 1; i++) {
+            FX.beam(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y, .30, 0xffffff, .30);
+            FX.ring(pts[i+1].x, pts[i+1].y, .12, .9, 0xffffff, .20);
+            this.prismLineHit(pts[i], pts[i+1], S.dmg, KILL, kbOnce);
           }
+          hitstop = Math.max(hitstop, .05); shake = Math.max(shake, .34);
           FX.flash(this.pos.x, this.pos.y + 1.2, .4, 5, 0xffffff, .28);
           SFX.special('proj'); shake = Math.max(shake, .3);
           P.hold = .26;                                  // 光束停留时间
@@ -16375,12 +16384,24 @@ class Fighter {
         const foe = P.foe;
         if (!foe || foe.eliminated) { this.prismCageEnd(P); return; }
         const mir = P.cage[(P.hits - 1) % 4];
-        FX.beam(mir.x, mir.y, foe.pos.x, foe.pos.y + 1.0, .30, 0x9fe8ff, .18);
-        FX.spark(foe.pos.x, foe.pos.y + 1.0, .5, 6, 0xffffff);
+        const lastHit = (P.hits >= (P.cfg.cageTick || 10));
+        /* ★ 2026-11-19「打击感更强」：更粗的光束 + 落点爆闪 + 每拍微顿帧 + 震屏，最后一拍重击飞 */
+        FX.beam(mir.x, mir.y, foe.pos.x, foe.pos.y + 1.0, .44, 0xffffff, .20);
+        FX.beam(mir.x, mir.y, foe.pos.x, foe.pos.y + 1.0, .22, 0x9fe8ff, .26);
+        FX.spark(foe.pos.x, foe.pos.y + 1.0, .6, 8, 0xffffff);
+        FX.burst(foe.pos.x, foe.pos.y + 1.0, .22, 0x9fe8ff, 12, 14);
+        FX.ring(foe.pos.x, foe.pos.y + 1.0, .18, 1.6, 0xffffff, .18);
         foe.damage = Math.min(CFG.dmgCap, foe.damage + P.cfg.cageDmg);   // 直接结算：10 × 2.5 = 25%
-        foe.hitstun = Math.max(foe.hitstun, .12);
-        foe.vel.y = Math.max(foe.vel.y, 2.6);
-        SFX.hit(18, 7); shake = Math.max(shake, .22);
+        foe.hitstun = Math.max(foe.hitstun, .16);
+        foe.vel.y = Math.max(foe.vel.y, 3.4);
+        hitstop = Math.max(hitstop, .035);                                // 每一拍都顿一下 → 手感变实
+        shake = Math.max(shake, lastHit ? .62 : .30);
+        if (lastHit) {                                                    // 收尾：一记重击飞
+          foe.takeHit(this, { dmg: 0, bb: 22, bg: 52, ang: 46 }, Math.sign(foe.pos.x - this.pos.x) || 1, 1);
+          FX.flash(foe.pos.x, foe.pos.y + 1.0, .6, 8, 0xffffff, .45);
+          camKick = Math.min(1, camKick + .35); SFX.heavy();
+        }
+        SFX.hit(lastHit ? 24 : 19, lastHit ? 9 : 7);
         if (P.hits >= (P.cfg.cageTick || 10)) this.prismCageEnd(P);
       }
     }
