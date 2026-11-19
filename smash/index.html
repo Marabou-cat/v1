@@ -2743,6 +2743,44 @@ CHARS.push({ id:'mosquito', name:'Mosquito', en:'MOSQUITO', tag:'Blood',
   accel:46, airAccel:40, fric:24, mul:{ dmg:1.0, kb:.95, spd:1.0 },
   moves:{},
   special:{} });
+/* ================= ★ 2026-11-19：新至尊角色 PRISM（棱镜 / 折射系）=================
+   定位：半透明晶体 + 高速位移 + 镜面格挡（和 Vexor 的黑洞、Cardboard 的纸箱完全不重叠）。
+   普通招式表沿用同一套引擎手感（克隆至尊那套拳脚数据），身份来自数值 + 四招 + 模型。 */
+CHARS.push(Object.assign({}, (function () {
+  const s0 = CHARS.find(c => c.id === 'sovereign') || CHARS[0];
+  return { moves: JSON.parse(JSON.stringify(s0.moves || {})) };
+})(), {
+  id:'prism', name:'Prism', en:'PRISM', tag:'Refraction', supreme:true,
+  body:0xcfefff, body2:0xffffff, dark:0x2b5d7a, eye:0x8affe6,
+  shape:{ scale:1.02, headR:.54 },
+  weight:84, walk:11.4, run:17.6, air:12.4, jump:27.4, jumps:2, fall:35, fastFall:52,
+  accel:62, airAccel:46, fric:28, mul:{ dmg:1.04, kb:1.02, spd:1.04 }
+}));
+CHAR_EXTRA.prism = {
+  trait:'Prism Shot · Refract Dash · Mirror Wall',
+  skills:'Neutral B Prism Shot (a crystal shard that SHATTERS on contact for splash damage) · '
+    + 'Side B Refract Dash (a fast dash — 8% and a sideways launch on contact) · '
+    + 'Up B Spectrum Rise (a multi-hit rising spin, 2.2% x6 = 13%, lifts foes with it) · '
+    + 'Down B Mirror Wall (a glass wall stands in front for 2.6s: it eats enemy projectiles and blocks their path) · '
+    + 'FINAL SMASH Prism Break (8 light blades ring him for 6% each, ending in a full-screen refract flash)',
+  shape:{ scale:1.02, headR:.54 },
+  weight:84, walk:11.4, run:17.6, air:12.4, jump:27.4, jumps:2, fall:35, fastFall:52,
+  accel:62, airAccel:46, fric:28, mul:{ dmg:1.04, kb:1.02, spd:1.04 },
+  special:{
+    /* 中立B：棱镜弹 —— 命中或落地碎成一小片范围伤害（黏人感来自 splash，不是追踪） */
+    n:{ kind:'proj', label:'Prism Shot', cd:1.8, dmg:9.0, bb:11, bg:30, ang:40,
+        spd:22, size:.46, hitR:.95, life:1.6, splash:2.2, color:0x9fe8ff },
+    /* 左右B：折射冲刺 —— keep:true 才不会被地面摩擦吃光（见 refs 的 dash 两个坑） */
+    s:{ kind:'dash', label:'Refract Dash', cd:2.2, dmg:8.0, bb:13, bg:34, ang:30,
+        spd:1.5, dur:.34, keep:true, slash:true, blink:true, color:0x9fe8ff },
+    /* 上B：光谱上升 —— 多段上升，把人一起带上去 */
+    u:{ kind:'recover', label:'Spectrum Rise', cd:1.9, dmg:2.2, bb:6, bg:14, ang:80,
+        rise:27, dur:.80, multi:true, lift:true, tick:.13, anim:'spin', spinRate:24, color:0x9fe8ff },
+    /* 下B：镜墙 —— 屏障存在 cfg.dur 秒（spawnBarrier 读的是 dur，不是 life） */
+    d:{ kind:'techBarrier', label:'Mirror Wall', cd:6.0, dmg:0, bb:0, bg:0,
+        dist:1.9, w:2.4, h:3.2, dur:2.6, color:0x9fe8ff },
+  },
+};
 CHAR_EXTRA.mosquito = {
   trait:'Blood Drain · Hover · Black Sight',
   skills:'PASSIVE Hover: no jumps — HOLD Space to drift slowly upward, Down+Space to sink, let go to hover in place (knockback still sends you flying, and there is a ceiling) · '
@@ -6821,6 +6859,10 @@ const FSPECIALS = {
   /* Blocky·Iron Bloom：不造成伤害的「自身强化型」大招（beats 1 → 一拍变身，效果挂在 fighter.ironT 上） */
   blocky:  { name:'Iron Bloom',     style:'buff',    color:0x7ac74f, beats:1,  gap:.05, dmg:0,    bb:0,  bg:0,  stun:0,      w:0 }
 };
+/* ★ 2026-11-19 PRISM·大招 Prism Break：8 道光刃绕身依次炸开（每拍 6%，共 48%），最后一拍全场折射闪光 */
+FSPECIALS.prism = { name:'Prism Break', style:'prismFS', color:0x9fe8ff, beats:8, gap:.16,
+                    dmg:6.0, bb:9, bg:26, stun:.06, w:2.2, dur:1.6, shards:8 };
+
 
 /* —— Titan（v3）：板甲巨兽。圆角装甲 + 能量核心 + 铁链铅球（刺长在球上）+ 液压腿
    契约：flailL/flailR = armL/armR（animStep 会整条绕肩旋转） */
@@ -11946,12 +11988,56 @@ function kitFoundry(def) {
 }
 FSPECIALS.foundry = { name:'Foundry Storm', style:'fndStorm', color:0xff8a3d, beats:1, gap:.10,
   dmg:0, bb:0, bg:0, w:1, dur:4.2, tickDmg:1.75 };
+/* —— Prism（新至尊·棱镜）：半透明棱面晶体 + 悬浮碎晶环 + 发光核心 ——
+   契约同其它 kit：返回 { group, torso, belly, head, armL, armR, legL, legR, tail }。 */
+function kitPrism(def) {
+  const mats = kitMats(def), g = new THREE.Group(), H = def.shape.headR;
+  const glass = new THREE.MeshStandardMaterial({ color:0xd8f2ff, roughness:.16, metalness:.30, transparent:true,
+    opacity:.88, flatShading:true, emissive:0x1d6f92, emissiveIntensity:.35 });
+  const glass2 = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:.10, metalness:.20, transparent:true,
+    opacity:.92, flatShading:true, emissive:0x9fe8ff, emissiveIntensity:.55 });
+  const edge = new THREE.MeshStandardMaterial({ color:0x8affe6, emissive:0x2ad8ff, emissiveIntensity:1.6,
+    roughness:.18, flatShading:true });
+  /* 躯干：竖着拉长的八面体主晶 + 两片侧晶（剪影更宽，缩略图里不糊成一颗球） */
+  const torso = new THREE.Mesh(new THREE.OctahedronGeometry(.66, 0), glass);
+  torso.position.y = 1.18; torso.scale.set(1.02, 1.34, .78); g.add(torso);
+  for (const sd of [-1, 1]) {
+    const sh = new THREE.Mesh(new THREE.OctahedronGeometry(.30, 0), glass2);
+    sh.position.set(sd * .42, 1.30, -.04); sh.scale.set(.55, 1.25, .5); sh.rotation.z = sd * .22; g.add(sh);
+  }
+  /* 发光核心（= belly：受击闪白/形态 tint 都作用在它身上） */
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(.20, 12, 10), glowMat(0x8affe6, 1.7, 0x0f4b5c));
+  belly.position.set(0, 1.16, .30); belly.scale.set(1, 1.15, .75); g.add(belly);
+  /* 头：菱形晶体 + 顶端棱刺 + 发光瞳（setEyes 'glow' = 黑眼窝 + 自发光瞳） */
+  const head = new THREE.Group(); head.position.y = 2.16; g.add(head);
+  const skull = new THREE.Mesh(new THREE.OctahedronGeometry(H * 1.05, 0), glass);
+  skull.scale.set(1, 1.15, .92); head.add(skull);
+  const crest = new THREE.Mesh(new THREE.ConeGeometry(H * .34, H * .95, 4), glass2);
+  crest.position.y = H * .78; crest.rotation.y = Math.PI / 4; head.add(crest);
+  setEyes(head, H, def.eye, 'glow');
+  /* 四肢：细晶柱；手/脚用高亮棱边材质，动起来能看清出拳方向 */
+  const armL = kitArm(g, -1, mats, { x:.62, y:1.62, w:.15, len:.46, hand:.17, armMat:glass2, handMat:edge });
+  const armR = kitArm(g,  1, mats, { x:.62, y:1.62, w:.15, len:.46, hand:.17, armMat:glass2, handMat:edge });
+  const legL = kitLeg(g, -1, mats, { x:.26, y:.80, w:.17, len:.40, fw:.34, fh:.20, fd:.46, legMat:glass, footMat:edge });
+  const legR = kitLeg(g,  1, mats, { x:.26, y:.80, w:.17, len:.40, fw:.34, fh:.20, fd:.46, legMat:glass, footMat:edge });
+  /* 悬浮碎晶环：6 片固定角度（不抽随机 → 联机两端完全一致） */
+  const shards = new THREE.Group(); shards.position.y = 1.22; g.add(shards);
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * Math.PI * 2;
+    const s2 = new THREE.Mesh(new THREE.OctahedronGeometry(.11, 0), i % 2 ? edge : glass2);
+    s2.position.set(Math.cos(a) * .78, Math.sin(a * 2) * .18, Math.sin(a) * .52);
+    s2.rotation.set(a * .7, a, a * 1.3);
+    shards.add(s2);
+  }
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null, shards };
+}
 const KITS = { tock:kitTock, sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, treasure:kitTreasure, princess:kitPrincess, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt, foundry:kitFoundry,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
                pumpkin:kitPumpkin, smiley:kitSmiley, turtle:kitTurtle, titan:kitTitan,
                teacher:kitTeacher, baby:kitBaby, dragon:kitDragon, shadow:kitShadow, reaper:kitReaper,
                gorilla:kitGorilla, hacker:kitHacker, blocky:kitBlocky, blizzard:kitBlizzard, singer:kitSinger, vexor:kitVexor, trash:kitTrash,
                warden:kitWarden, soldier:kitSoldier, monk:kitMonk, bomber:kitBomber };
+KITS.prism = kitPrism;   /* ★ 2026-11-19 新至尊角色 */
 /* ================= ★ Pumpkin·大招 Pumpkin Curse：南瓜人（被诅咒的玩家外形） =================
    被诅咒的玩家本体整只隐藏、换成下面这只南瓜人；10 秒内由 pumpkinTick 自动追人挥镰，
    时间到 / 被打出场 / 换局 都会还原（endPumpkinCurse 把隐藏的子物件按原样恢复）。 */
@@ -16383,6 +16469,24 @@ class Fighter {
           banner('IRON BLOOM  ·  6s', false);
           SFX.special('wave'); SFX.go(0);
         }
+        break; }
+      case 'prismFS': {                                   // ★ PRISM·Prism Break：8 道光刃围绕自身依次炸开
+        const SH = SP.shards || 8, ang0 = (k / SH) * Math.PI * 2;
+        /* 每片光刃都落在**最近的敌人**身上（圆环只是视觉方向）：8 片 × 6% 才打得满 */
+        let tg = null, bd = 1e9;
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated) continue;
+          const dd = Math.abs(f.pos.x - this.pos.x) + Math.abs(f.pos.y - this.pos.y) * .5;
+          if (dd < bd) { bd = dd; tg = f; }
+        }
+        const rx = tg ? tg.pos.x + Math.cos(ang0) * .55 : px + Math.cos(ang0) * 3.1;
+        const ry = tg ? tg.pos.y + 1.1 + Math.sin(ang0) * .55 : py + 1.3 + Math.sin(ang0) * 1.5;
+        FX.beam(px, py + 1.3, rx, ry, .30, c, .22);
+        FX.burst(rx, ry, .2, c, 10, 12);
+        FX.ring(rx, ry, .2, 1.5, 0xffffff, .22);
+        this.fsHit(SP, rx, 2.2, 2.8, 1.0);
+        if (k >= SH - 1) { FX.flash(px, py + 1.3, .8, 12, c, .5); FX.ring(px, py + .3, .3, 9, 0xffffff, .5); }
+        shake = Math.max(shake, .3); SFX.hit(20, 8);
         break; }
       case 'storm': {                                    // Sparky：雷暴横扫
         const lx = px + (k - SP.beats / 2) * 1.35;

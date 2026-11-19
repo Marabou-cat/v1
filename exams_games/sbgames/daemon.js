@@ -52,7 +52,7 @@ const ROOM_CODE_LEN = 5;
 /* 调试用人工延迟（毫秒）：SB_LAG_MS=120 可在本机复现 120ms 单程延迟，用于压测锁同步 */
 const LAG_MS = parseInt(process.env.SB_LAG_MS || '0', 10);
 /* 角色池：仅用于空位（AI）的确定性兜底 —— 必须与客户端 CHARS 顺序一致 */
-const CHAR_POOL = ['sparky', 'rocky', 'zephyr', 'cobalt', 'mage', 'warrior', 'archer', 'knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'blizzard', 'vexor', 'trash', 'singer', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'alien', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'treasure', 'princess', 'french', 'sovereign', 'mosquito', 'warden', 'soldier', 'monk', 'bomber', 'foundry', 'tock'];
+const CHAR_POOL = ['sparky', 'rocky', 'zephyr', 'cobalt', 'mage', 'warrior', 'archer', 'knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'blizzard', 'vexor', 'trash', 'singer', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'alien', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'treasure', 'princess', 'french', 'sovereign', 'mosquito', 'warden', 'soldier', 'monk', 'bomber', 'foundry', 'tock', 'prism'];   // ★ 2026-11-19 新至尊角色 PRISM
 /* ★ 2026-11-20 per-seat 皮肤：只允许「属于这个角色」的皮肤 id 进对局（防脏数据/防跨角色） */
 const SKIN_CHAR = { smiley_penguin: 'smiley', cardboard_tv: 'sovereign', foundry_police: 'foundry' };
 
