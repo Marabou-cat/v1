@@ -603,7 +603,8 @@ document.addEventListener('DOMContentLoaded', function () {
     text-shadow:0 1px 3px rgba(0,0,0,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #evCard .evCap i{display:block;font-style:normal;font-size:7.2px;letter-spacing:.25px;margin-top:1px;opacity:.74;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #evCard .evFlag{display:block;position:absolute;right:4px;top:4px;z-index:3;font:900 7.5px/1 inherit;letter-spacing:.5px;
+  #evCard .evFlag{display:block;white-space:nowrap;position:absolute;right:4px;top:4px;z-index:3;
+    font-weight:900;font-size:7px;line-height:1;font-family:inherit;letter-spacing:.4px;
     padding:3px 4px;border-radius:5px;background:#ffd166;color:#241a00;box-shadow:0 2px 8px rgba(0,0,0,.45)}
   #evCard .evFlag.hot{background:#ff5d5d;color:#fff}
   #evCard .evBar{display:block;position:absolute;left:0;bottom:0;height:2.5px;width:0;z-index:3;background:rgba(255,209,102,.92);
@@ -34075,7 +34076,7 @@ window.SB = {
       flag:() => { try { return ACC.needsWelcome ? 'BONUS' : ''; } catch (e) { return ''; } } },
   ];
   const HOT = { CLAIM:1, 'CHECK IN':1, READY:1, BONUS:1, NEW:1, BIND:1 };
-  let idx = 0, timer = null;
+  let idx = 0, ticker = null;
 
   const draw = () => {
     const it = ITEMS[idx];
@@ -34097,14 +34098,24 @@ window.SB = {
   const paint = () => { card.classList.add('swap'); setTimeout(draw, 140); };
   const next = () => { idx = (idx + 1) % ITEMS.length; paint(); };
 
-  const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+  const stop = () => { if (ticker) { clearInterval(ticker); ticker = null; } };
+  /* ★ 2026-11-19（用户报「目前只显示了 event，没有轮流显示」）改成「500ms 心跳 + 时间戳判定」，
+     不再用一个 3.8s 的 setInterval —— 后者在后台标签页/低帧设备上会被节流，一次没跑到就永远停在
+     第一片；同时**删掉了 hover 暂停**（桌面鼠标停在卡上会 mouseenter→stop，而 mouseleave 不一定来
+     → 永远只显示第一片，正是这次的现象）。对局中/后台只是「不换」，回到大厅立刻继续。 */
+  let lastSwap = 0;
   const start = () => {
     stop();
-    timer = setInterval(() => {
-      if (document.hidden) return;                                    // 后台标签页不空转
-      if (!document.body.classList.contains('inMenu')) return;         // 对局中不轮播
+    /* 第一次换片故意提前到 ~1.8s（ROT_MS-1800）：玩家一进大厅就能看到「原来会换」，
+       否则前 3.8s 只显示第一片，容易被当成「只有 EVENTS」。 */
+    lastSwap = performance.now() - (ROT_MS - 1800);
+    ticker = setInterval(() => {
+      const now = performance.now();
+      if (now - lastSwap < ROT_MS) return;                                        // 还没到换片时间
+      if (!document.body.classList.contains('inMenu')) { lastSwap = now; return; } // 对局中不轮播
+      lastSwap = now;
       next();
-    }, ROT_MS);
+    }, 500);
   };
 
   card.addEventListener('click', () => {
@@ -34113,12 +34124,8 @@ window.SB = {
     try { SFX.tone(720, 980, .06, 'triangle', .05); } catch (e) {}
     try { ITEMS[idx].go(); } catch (e) { window.__evCardErr = String((e && e.message) || e); }
   });
-  if (window.matchMedia && matchMedia('(hover:hover)').matches) {
-    card.addEventListener('mouseenter', stop);      // 桌面：指到卡上停住，方便点
-    card.addEventListener('mouseleave', start);
-  }
-  /* ⚠ 触屏上不能挂 mouseenter/mouseleave：iOS 点一下会补发 mouseenter 但不一定发 mouseleave
-     → 轮播会被永久暂停（表现成「不轮换了」）。所以只给真正有 hover 的设备挂。 */
+  /* ⚠ 故意**不**挂 mouseenter/mouseleave：iOS 点一下会补发 mouseenter 却不发 mouseleave，
+     桌面鼠标停在卡上同样会「暂停 → 永远不恢复」。轮播不能有会被静默卡死的暂停条件。 */
   document.addEventListener('visibilitychange', () => { if (!document.hidden) start(); });
 
   draw();
@@ -34130,7 +34137,9 @@ window.SB = {
     get cur() { return ITEMS[idx].id; },
     get label() { return nameEl.textContent + ' / ' + subEl.textContent; },
     get flag() { return flagEl.style.display === 'none' ? '' : flagEl.textContent; },
-    get rotating() { return !!timer; },
+    get rotating() { return !!ticker; },
+    state: () => ({ cur: ITEMS[idx].id, idx, ticker: !!ticker, menu: document.body.classList.contains('inMenu'),
+                    hidden: document.hidden, sinceSwapMs: Math.round(performance.now() - lastSwap), rotMs: ROT_MS }),
     next: () => { next(); return ITEMS[(idx + ITEMS.length - 1) % ITEMS.length].id; },
     open: (id) => { const i = ITEMS.findIndex(x => x.id === id); if (i < 0) return false; idx = i; draw(); return true; },
   };
