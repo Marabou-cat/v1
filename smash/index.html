@@ -3195,9 +3195,12 @@ const OCEAN_BG = (function () {
   let manta = null, mantaWings = null;
   const kelp = [], bub = [], jelly = [], schools = [];
 
-  function build() {
+  function build(W) {
     if (built) return;
     built = true;
+    /* ★ 2026-11-19：宽度可以外部传入（见 API.prewarm）—— 大厅里预热时 STAGE 还是上一张图，
+       直接读 STAGE.mainW 会把海藻/气泡的横向铺开按错图算（Ocean 44 vs Ocean XL 84）。 */
+    const _W = (typeof W === 'number' && W > 0) ? W : STAGE.mainW;
     root = new THREE.Group(); root.visible = false; scene.add(root);
 
     /* ——— 1) 水体天球：上亮下暗，代替天空球 ——— */
@@ -3265,7 +3268,7 @@ const OCEAN_BG = (function () {
         transparent:true, opacity:.90 }), 46);
     kelpMesh.frustumCulled = false; root.add(kelpMesh);
     for (let i = 0; i < 46; i++) {
-      kelp.push({ x:(Math.random() - .5) * (STAGE.mainW + 70), y:-19 - Math.random() * 3,
+      kelp.push({ x:(Math.random() - .5) * (_W + 70), y:-19 - Math.random() * 3,
                   z:-9 - Math.random() * 38, h:7 + Math.random() * 14, w:.55 + Math.random() * .8,
                   ry:(Math.random() - .5) * 1.2, ph:Math.random() * 6.2832, sp:.45 + Math.random() * .55 });
     }
@@ -3293,7 +3296,7 @@ const OCEAN_BG = (function () {
         side:THREE.DoubleSide, depthWrite:false, flatShading:true }), 12);
     jellyMesh.frustumCulled = false; root.add(jellyMesh);
     for (let i = 0; i < 12; i++) jelly.push({
-      x:(Math.random() - .5) * (STAGE.mainW + 40), y:-6 + Math.random() * 24,
+      x:(Math.random() - .5) * (_W + 40), y:-6 + Math.random() * 24,
       z:-14 - Math.random() * 34, s:.7 + Math.random() * 1.15,
       ph:Math.random() * 6.2832, sp:.30 + Math.random() * .35 });
 
@@ -3326,7 +3329,7 @@ const OCEAN_BG = (function () {
       new THREE.MeshBasicMaterial({ color:0xdaf6ff, transparent:true, opacity:.34, depthWrite:false }), 80);
     bubMesh.frustumCulled = false; root.add(bubMesh);
     for (let i = 0; i < 80; i++) bub.push({
-      x:(Math.random() - .5) * (STAGE.mainW + 60), y:-18 + Math.random() * 44,
+      x:(Math.random() - .5) * (_W + 60), y:-18 + Math.random() * 44,
       z:-6 - Math.random() * 30, sp:1.6 + Math.random() * 2.6,
       s:.5 + Math.random() * 1.5, ph:Math.random() * 6.2832, ws:.8 + Math.random() });
 
@@ -3334,7 +3337,7 @@ const OCEAN_BG = (function () {
     {
       const N = 700, pos = new Float32Array(N * 3), ph = new Float32Array(N);
       for (let i = 0; i < N; i++) {
-        pos[i * 3]     = (Math.random() - .5) * (STAGE.mainW + 80);
+        pos[i * 3]     = (Math.random() - .5) * (_W + 80);
         pos[i * 3 + 1] = -20 + Math.random() * 50;
         pos[i * 3 + 2] = -4 - Math.random() * 70;
         ph[i] = Math.random();
@@ -3367,7 +3370,7 @@ const OCEAN_BG = (function () {
       const parts = [];
       for (let i = 0; i < 13; i++) {
         const w = 2.2 + (i % 4) * 1.5;
-        parts.push({ geo:new THREE.PlaneGeometry(w, 86), x:(i - 6) * (STAGE.mainW + 46) / 13,
+        parts.push({ geo:new THREE.PlaneGeometry(w, 86), x:(i - 6) * (_W + 46) / 13,
                      y:6, z:-40 - (i % 5) * 12, rz:.20 - (i % 3) * .13, ry:.25 });
       }
       rayMesh = new THREE.Mesh(_mergeParts(parts),
@@ -3483,6 +3486,28 @@ const OCEAN_BG = (function () {
       if (on) build();
       if (root) root.visible = on;
       if (SKY.root) SKY.root.visible = !on;
+    },
+    /* ★ 2026-11-19（修「联机 Ocean 开局卡死」）
+       症状（线上 daemon 日志实测）：oceanXL 房间开局后 3.0~3.1s，四个真人座位被
+       `[kick] seat removed … (timeout)` 全踢掉 —— 因为客户端在开局那一两秒里主线程被
+       「建水下世界 + 首帧着色器编译 + decoOcean」堵住，一条消息都发不出去，而服务端
+       判活是 noMsg>2500ms；锁步下两边都在等对方的输入 → 画面冻在第 0~几帧。
+       修法：把这一坨构建挪到**大厅**（房间规则里已经定下 Ocean 时，见 prewarmStage()），
+       并顺手做一次着色器预编译（compile 只编译不绘制，画面不会闪）。
+       成本实测（本机）：Ocean 首次 setStage 88ms → 预热后 2.9ms。 */
+    prewarm(w) {
+      if (built) return false;
+      try {
+        build(w);
+        if (root) {
+          /* compile() 用 traverseVisible → 平时 root 是隐藏的，先临时打开再恢复（不绘制） */
+          const wasOn = on;
+          root.visible = true;
+          try { renderer.compile(scene, camera); } catch (e) { window.__oceanWarmErr = String((e && e.message) || e); }
+          root.visible = wasOn;
+        }
+        return true;
+      } catch (e) { window.__oceanWarmErr = String((e && e.message) || e); return false; }
     },
     tick(dt) { if (on && root && root.visible) tick(dt); },
     get ready() { return built; },
@@ -3937,6 +3962,22 @@ function setStage(si) {
   /* ★ Ocean：换背景。water:true → 隐藏天空/云/远山，打开水下世界；其它图反过来（必须每次都调，否则会串图） */
   try { OCEAN_BG.show(!!STAGE.water); }
   catch (e) { window.__oceanBgShowErr = String((e && e.message) || e); }
+}
+
+/* ★ 2026-11-19：开局前预热「水域图」的重资源（水下世界 + 着色器）。
+   为什么要预热：联机是锁步，开局那一帧客户端必须立刻开始供帧；而 Ocean/Ocean XL 首次进入
+   要建 ~85ms（本机）～0.5s（手机）的水下世界并编译一批新着色器，主线程在这段时间里
+   连心跳都发不出去 → 服务端 noMsg>2.5s 把座位判掉线踢掉 → 两边互等 = 画面冻死。
+   （线上日志实测：oceanXL 房间开局 3.0/3.1s 后真人座位全被 timeout 踢掉。）
+   现在只要有「房间规则已经定下哪张图」的时机（大厅 / 房间设置），就先把这套建好；
+   setStage 里 OCEAN_BG.show() 的 build() 因为有 built 闸门会直接返回。 */
+function prewarmStage(si) {
+  try {
+    if (si === 'r' || si === undefined || si === null) return false;
+    const st = STAGES[(si | 0)];
+    if (!st || !st.water) return false;                  // 只有水域图有这套重资源
+    return OCEAN_BG.prewarm(st.mainW);
+  } catch (e) { window.__oceanWarmErr = String((e && e.message) || e); return false; }
 }
 
 
@@ -30898,6 +30939,9 @@ const NET = {
        永远等不到的 AI 事件。只认「不比本端正在玩的那一局旧」的房间快照。 */
     if ((room.gen | 0) < (this.myGen | 0)) return;
     this.roomState = room;
+    /* ★ 2026-11-19：房间规则里已经定下地图 → 趁还在大厅（没有对局在跑、卡一下没人吃亏）
+       把水域图的重资源（水下世界 + 着色器）先建好，开局那一帧就不会堵住主线程。 */
+    if (room && room.rules && match.state !== 'play') { try { prewarmStage(room.rules.stage); } catch (e) {} }
     const seats = room.seats || [];
     for (let i = 0; i < seats.length; i++) {
       const st = seats[i]; if (!st) continue;
@@ -31353,13 +31397,26 @@ const NET = {
     this.localQ.clear(); this.remote.clear(); this.sendQ.length = 0; this.evs.length = 0;
     this.desync = null; this.starved = 0; this.serverFrame = o.startFrame | 0;
     const n = o.rules.count;
+    /* ★ 2026-11-19（修「联机 Ocean 开局卡死」第二处）
+       原来 setup()（换图 → 建水下世界/装饰 → 首帧着色器编译）跑在「网络状态复位之后、
+       第一次供帧之前」：重机型上一卡 2~3 秒，这段时间一条消息都发不出去，服务端按
+       `noMsg > 2500ms` 把这些座位判掉线 → 全被踢 → 锁步两边互等 = 画面冻住
+       （线上日志：oceanXL 开局 3.0s 后真人座位全 timeout）。
+       现在分三步抢时间：
+         ① setup 之前先把网络状态复位并发一条 sync/心跳 —— fetch 会立刻交给网络线程，
+            即使随后主线程被场景构建堵住，这条包也已经上路（服务端 lastSeen 刷新）；
+         ② setup 之后立刻 sampleAhead() + syncHTTP()，把输入管道铺在第一次重绘之前；
+         ③ 服务端侧同步把开局宽限放宽（START_GRACE_MS 2500 → 8000）。 */
+    this.delay = 3; this.primed = false; this.inflight = 0; this.busyT = 0; this.ackLimit = 0;   // 第二局也要重置，否则头几frames没输入
+    try { this.syncHTTP(); } catch (e) {}
     setup({ count:n, stocks:o.rules.stocks, time:o.rules.time, diff:o.rules.diff, teams: o.rules.teams ? 1 : 0,
             rules: o.rules,                                                    // ★ 第 77 轮：把规则（含地图 rules.stage）一起传进 setup
             playerChar: settings.playerChar, seed: o.seed, chars: o.chars, humanSeats: o.humanSeats,
             skins: o.skins || null });                                  // ★ 联机：每个座位的皮肤由服务端下发
     match.state = 'play'; match.countdown = 0;            // 联机Jump过倒计时（大厅阶段即等待）
-    this.delay = 3; this.rttMin = 0; this.rttN = 0; this.adaptT = 0; this.starvedMark = 0;
-    this.primed = false; this.inflight = 0; this.busyT = 0; this.ackLimit = 0;   // 第二局也要重置，否则头几frames没输入
+    try { this.sampleAhead(); } catch (e) {}              // 抢在第一次重绘之前把本地输入铺好
+    try { this.syncHTTP(); } catch (e) {}                 // 立刻上行（不等 20ms 泵）
+    this.rttMin = 0; this.rttN = 0; this.adaptT = 0; this.starvedMark = 0;
     this.localAiAt = {}; this.resOk = {}; this.evLate = 0; this._ltSeat = -1;   // 第 58 轮：上一局的 AI 接管痕迹不能带进新局
     /* ★ 2026-10-23：上一局的「谁离线了」也不能带进新局 —— 带着它，本端会把那个座位从
        输入闸门里排除（喂全 0），而对面还在等他的真实输入 → 两端从第 0 帧就算岔。 */
