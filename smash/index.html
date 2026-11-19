@@ -2758,11 +2758,11 @@ CHARS.push(Object.assign({}, (function () {
 }));
 CHAR_EXTRA.prism = {
   trait:'Prism Shot · Refract Dash · Mirror Wall',
-  skills:'Neutral B Prism Shot (a crystal shard that SHATTERS on contact for splash damage) · '
-    + 'Side B Refract Dash (a fast dash — 8% and a sideways launch on contact) · '
-    + 'Up B Spectrum Rise (a multi-hit rising spin, 2.2% x6 = 13%, lifts foes with it) · '
-    + 'Down B Mirror Wall (a glass wall stands in front for 2.6s: it eats enemy projectiles and blocks their path) · '
-    + 'FINAL SMASH Prism Break (8 light blades ring him for 6% each, ending in a full-screen refract flash)',
+  skills:'Neutral B Prism Array (3 shards stand in a row, 0.5s later a white beam links YOU → shard → shard: 24% and a 150%-KO launch) · '
+    + 'Side B Mirror March (4 shards march forward, 0.2s later you blink along them; catching a foe traps it in a 4-mirror cage for 25%) · '
+    + 'Up B Spectrum Cyclone (Sparky\'s cyclone mechanics in crystal cyan: multi-hit rising spin that lifts foes) · '
+    + 'Down B Reflect Field (a square mirror field in front of you — bounces every enemy projectile and burns anyone inside for 50% over 2.4s; after it ends your Down B BECOMES the Down B of one foe it caught) · '
+    + 'FINAL SMASH Prism Crystal (a glass crystal for 10s: reflects all enemy bullets and beams the nearest foe for 10% every 2s)',
   shape:{ scale:1.02, headR:.54 },
   weight:84, walk:11.4, run:17.6, air:12.4, jump:27.4, jumps:2, fall:35, fastFall:52,
   accel:62, airAccel:46, fric:28, mul:{ dmg:1.04, kb:1.02, spd:1.04 },
@@ -2778,12 +2778,15 @@ CHAR_EXTRA.prism = {
     s:{ kind:'prismChain', label:'Mirror March', cd:5.2, count:4, delay:0.2, beam:0,
         dists:[2.8, 5.8, 8.8, 11.8], hMin:[0.8], hMax:[4.4],
         cageTick:10, cageDmg:2.5, cageR:2.9, color:0x9fe8ff },
-    /* 上B：照搬 Sparky 的 Thunder Cyclone（数值/机制一字不改） */
-    u:{kind:'recover',label:'Thunder Cyclone',cd:1.4,dmg:5.0,bb:10,bg:42,rise:27,dur:.80,
-       multi:true,lift:true,fx:'bolt',anim:'spin',spinRate:26,color:0xffe98a},
-    /* 下B：3 面镜子朝自己发射光束，打出带拖尾的光弹向四周乱弹 */
-    d:{ kind:'prismBullets', label:'Ricochet', cd:4.2, count:3, dmg:6.0, bb:9, bg:22, ang:34,
-        spd:20, life:2.0, radius:2.2, color:0x9fe8ff },
+    /* 上B：机制/数值仍是 Sparky 的 Thunder Cyclone（rise 27 / dur .80 / dmg 5.0 / bb 10 / bg 42 /
+       multi / lift / fx bolt / anim spin / spinRate 26 一字不改），只是**换了名字和颜色**（金 → 冰青）。 */
+    u:{kind:'recover',label:'Spectrum Cyclone',cd:1.4,dmg:5.0,bb:10,bg:42,rise:27,dur:.80,
+       multi:true,lift:true,fx:'bolt',anim:'spin',spinRate:26,color:0x8affe6},
+    /* 下B：在面前立一个方形「反射力场」——持续反弹敌方子弹，并对照到的敌人多段结算，总共 50%
+       （20 拍 × 2.5%，直接结算不受 mul 影响，所以是精确的 50%）。
+       用完（力场消失）之后，PRISM 的下B 会变成「被力场命中的其中一个敌人」的下B。 */
+    d:{ kind:'prismZone', label:'Reflect Field', cd:7.0, w:3.4, h:4.2, dist:2.6, dur:2.4,
+        tickCount:20, dmg:2.5, color:0x9fe8ff },
   },
 };
 CHAR_EXTRA.mosquito = {
@@ -16021,6 +16024,10 @@ class Fighter {
       this.cbState = null;
     }
     /* ★ 2026-11-19 PRISM：被打出场时镜片阵 / 围杀镜 / 反弹光弹一起收回（否则残影留到下一局） */
+    if (this.prZone) {
+      if (this.prZone.mesh) { try { scene.remove(this.prZone.mesh); } catch (e) {} }
+      this.prZone = null;
+    }
     if (this.prState || (this.prMeshes && this.prMeshes.length) || (this.prBullets && this.prBullets.length)) {
       try { this.prismClearAll(); } catch (e) {}
       for (const b of (this.prBullets || [])) if (b.mesh) { try { scene.remove(b.mesh); } catch (e) {} }
@@ -16231,6 +16238,54 @@ class Fighter {
     return got;
   }
   prismTick(dt) {
+    /* ---- 下B：方形反射力场 ---- */
+    const Z = this.prZone;
+    if (Z) {
+      Z.t -= dt;
+      if (Z.face) Z.face.material.opacity = .14 + .10 * (Math.sin(Z.t * 9) * .5 + .5);
+      /* 反弹区域内所有敌方子弹（含反杀原主） */
+      for (const p of projectiles) {
+        if (!p || p.owner === this) continue;
+        if (Math.abs(p.x - Z.x) > Z.w * .5 + .35 || Math.abs(p.y - Z.y) > Z.h * .5 + .35) continue;
+        p.vx = -p.vx * 1.15; p.vy = Math.abs(p.vy) * .6 + 1.2;
+        p.owner = this; p.hitSet = new Set(); p.armed = 1;
+        FX.ring(p.x, p.y, .12, .9, 0xffffff, .16);
+        SFX.hit(15, 5);
+      }
+      /* 多段结算：20 拍 × 2.5% = 总共 50%（直接结算，不受 mul.dmg 影响） */
+      const stepT = (Z.cfg.dur || 2.4) / (Z.cfg.tickCount || 20);
+      Z.acc += dt;
+      while (Z.acc >= stepT && Z.hits < (Z.cfg.tickCount || 20)) {
+        Z.acc -= stepT; Z.hits++;
+        for (const f of FIGHTERS) {
+          if (f === this || f.eliminated || f.invuln > 0) continue;
+          if (Math.abs(f.pos.x - Z.x) > Z.w * .5 || Math.abs(f.pos.y + 1.0 - Z.y) > Z.h * .5 + .5) continue;
+          f.damage = Math.min(CFG.dmgCap, f.damage + (Z.cfg.dmg || 2.5));
+          f.hitstun = Math.max(f.hitstun, .05);
+          f.vel.y = Math.max(f.vel.y, 1.4);
+          Z.src = f;                                   // 记下「被它命中的一个敌人」→ 之后偷它的下B
+          FX.beam(Z.x - Z.w * .5, f.pos.y + 1.0, Z.x + Z.w * .5, f.pos.y + 1.0, .10, 0xffffff, .10);
+          FX.spark(f.pos.x, f.pos.y + 1.0, .4, 5, 0x9fe8ff);
+          SFX.hit(13, 4);
+        }
+      }
+      if (Z.t <= 0) {
+        if (Z.src && Z.src.def && Z.src.def.special && Z.src.def.special.d
+            && Z.src.def.special.d.kind !== 'prismZone') {
+          this.prStolen = Object.assign({}, Z.src.def.special.d);   // 深一层没必要：只读
+          this.prStolenName = this.prStolen.label || 'DOWN B';
+          callout(this, 'COPIED · ' + this.prStolenName.toUpperCase(), 0x8affe6);
+        }
+        if (Z.mesh) {
+          FX.burst(Z.x, Z.y, .25, 0x9fe8ff, 16, 14);
+          FX.ring(Z.x, Z.y, .2, Math.max(Z.w, Z.h), 0xffffff, .30);
+          try { scene.remove(Z.mesh); } catch (e) {}
+          const i = (this.prMeshes || []).indexOf(Z.mesh);
+          if (i >= 0) this.prMeshes.splice(i, 1);
+        }
+        this.prZone = null;
+      }
+    }
     /* 被 KO / 已被移出场：镜片必须立刻清掉，不能留到下一局 */
     if (this.eliminated && (this.prState || (this.prMeshes && this.prMeshes.length))) { this.prismClearAll(); return; }
     /* ---- 下B：自管反弹光弹（弹墙 / 落地反弹 + 拖尾 + 6% 命中） ---- */
@@ -22232,7 +22287,8 @@ class Fighter {
     this.spCount = (this.spCount || 0) + 1;        // 教程用：累计施放次数
     const sp = this.def.special;
     const key = this.spKeyFor(inp);
-    const cfg = sp[key];
+    /* ★ 2026-11-19：PRISM 用过反射力场后，自己的下B 会被替换成「被力场命中的敌人」的下B */
+    const cfg = (this.def.id === 'prism' && key === 'd' && this.prStolen) ? this.prStolen : sp[key];
     if (!cfg) return false;
     /* ★ Rocky·大招「拳雨」：5 秒内按任意 B 都变成重拳（1 秒冷却 / 10% 伤害，不消耗普通技能冷却） */
     if (this.def.id === 'rocky' && this.rockyFsT > 0) {
@@ -23017,6 +23073,41 @@ class Fighter {
       this.state = 'special'; this.animT = 0;
       SFX.special('proj'); FX.ring(this.pos.x, this.pos.y + .3, .25, 2.2, cfg.color, .3);
       for (const p of list) FX.ring(p.x, p.y, .12, .8, 0xffffff, .22);
+    } else if (cfg.kind === 'prismZone') {
+      /* ★ PRISM 下B：面前立一个方形反射力场（持续反弹敌方子弹 + 多段 50%） */
+      this.prismClearAll();
+      const w = cfg.w || 3.4, h = cfg.h || 4.2, dz = cfg.dist || 2.6;
+      const zx = THREE.MathUtils.clamp(this.pos.x + dir * dz, -CFG.blast.x + w * .6, CFG.blast.x - w * .6);
+      const zy = this.pos.y + h * .5;
+      const grp = new THREE.Group();
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ color: cfg.color, transparent:true, opacity:.20,
+          side:THREE.DoubleSide, depthWrite:false }));
+      grp.add(face);
+      const edgeMat = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.85,
+        side:THREE.DoubleSide, depthWrite:false });
+      for (const s2 of [-1, 1]) {                       // 四条边框 → 看得出是「方形」
+        const hbar = new THREE.Mesh(new THREE.PlaneGeometry(w, .07), edgeMat);
+        hbar.position.set(0, s2 * h * .5, .01); grp.add(hbar);
+        const vbar = new THREE.Mesh(new THREE.PlaneGeometry(.07, h), edgeMat);
+        vbar.position.set(s2 * w * .5, 0, .01); grp.add(vbar);
+      }
+      for (let i = 1; i < 4; i++) {                     // 内部网格线（镜面格）
+        const gv = new THREE.Mesh(new THREE.PlaneGeometry(.035, h),
+          new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.30, depthWrite:false }));
+        gv.position.set(-w * .5 + w * i / 4, 0, .005); grp.add(gv);
+        const gh = new THREE.Mesh(new THREE.PlaneGeometry(w, .035),
+          new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.30, depthWrite:false }));
+        gh.position.set(0, -h * .5 + h * i / 4, .005); grp.add(gh);
+      }
+      grp.position.set(zx, zy, .16);
+      scene.add(grp);
+      (this.prMeshes = this.prMeshes || []).push(grp);
+      this.prZone = { x: zx, y: zy, w, h, t: (cfg.dur || 2.4), cfg, mesh: grp, face,
+                      acc: 0, hits: 0, src: null };
+      this.state = 'special'; this.animT = 0;
+      FX.ring(zx, zy, .3, Math.max(w, h) * .9, cfg.color, .34);
+      SFX.special('wave'); shake = Math.max(shake, .18);
     } else if (cfg.kind === 'prismBullets') {
       /* ★ PRISM 下B：3 面镜子朝自己射光束 → 打出 3 颗自己管理的反弹光弹（带拖尾）
          不用 spawnProjectile：它每帧会用 cfg.spd 重算速度、寿命也归它管，反弹方向会被吃掉。
