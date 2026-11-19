@@ -2769,12 +2769,14 @@ CHAR_EXTRA.prism = {
   special:{
     /* ★ 2026-11-19 用户重设四招（全部镜片阵，逐帧状态机在 prismTick 里跑，固定步、无随机） */
     /* 中立B：面前依次立 3 面不规则镜片（越来越远、高度各不同），0.5 秒后白色光束把它们连通并造成伤害 */
-    n:{ kind:'prismShards', label:'Prism Array', cd:3.6, count:3, delay:.5, dmg:8.0, bb:10, bg:26, ang:42,
-        dists:[2.2, 4.4, 6.6], heights:[1.0, 2.5, 4.0], color:0x9fe8ff },
+    n:{ kind:'prismShards', label:'Prism Array', cd:3.6, count:3, delay:.5, dmg:8.0,
+        /* ★ 2026-11-19：最后一段是大击飞（150% 从中场直接 KO），前一段只轻推 */
+        bb:9, bg:20, ang:44, bbKill:13, bgKill:27, angKill:40,   // ★ 实测：130% 存活 / 140~150% 直接 KO
+        dists:[2.2, 4.4, 6.6], hMin:[0.8], hMax:[4.8], color:0x9fe8ff },
     /* 左右B：同样机制立 4 面镜片，1 秒后顺着镜子依次传送并连通；中途命中 → 停住、镜子消失、
        在敌人周围召 4 面新镜子集火（10 拍 × 2.5% = 总共 25%） */
-    s:{ kind:'prismChain', label:'Mirror March', cd:5.2, count:4, delay:1.0, beam:0,
-        dists:[2.0, 4.0, 6.0, 8.0], heights:[1.1, 2.6, 1.4, 3.2],
+    s:{ kind:'prismChain', label:'Mirror March', cd:5.2, count:4, delay:0.2, beam:0,
+        dists:[2.0, 4.0, 6.0, 8.0], hMin:[0.8], hMax:[4.4],
         cageTick:10, cageDmg:2.5, cageR:2.9, color:0x9fe8ff },
     /* 上B：照搬 Sparky 的 Thunder Cyclone（数值/机制一字不改） */
     u:{kind:'recover',label:'Thunder Cyclone',cd:1.4,dmg:5.0,bb:10,bg:42,rise:27,dur:.80,
@@ -16277,7 +16279,11 @@ class Fighter {
           const sh = P.shards;
           for (let i = 0; i < sh.length - 1; i++) {
             FX.beam(sh[i].x, sh[i].y, sh[i+1].x, sh[i+1].y, .28, 0xffffff, .30);
-            this.prismLineHit(sh[i], sh[i+1], S.dmg, S);
+            /* 最后一段 = 主击飞段（150% KO）；前面几段只轻推，避免连吃两次强击退 */
+            const last = (i === sh.length - 2);
+            this.prismLineHit(sh[i], sh[i+1], S.dmg, last
+              ? { bb: (S.bbKill || 26), bg: (S.bgKill || 56), ang: (S.angKill || 40) }
+              : { bb: (S.bb || 9), bg: (S.bg || 20), ang: (S.ang || 44) });
           }
           FX.flash(this.pos.x, this.pos.y + 1.2, .4, 5, 0xffffff, .28);
           SFX.special('proj'); shake = Math.max(shake, .3);
@@ -22936,9 +22942,13 @@ class Fighter {
       /* ★ PRISM：面前依次立 N 面镜片（越来越远、高度各不同）→ delay 秒后光束连通 */
       const list = [];
       const n = cfg.count || 3;
+      /* ★ 2026-11-19 用户要求「高度在范围内随机」：用模拟流的 RND()（不是 Math.random）——
+         RND 是锁步的随机数流，两端在同一帧取到同一个数 → 镜片位置完全一致。 */
+      const hLo = (cfg.hMin && cfg.hMin[0] !== undefined) ? cfg.hMin[0] : .8;
+      const hHi = (cfg.hMax && cfg.hMax[0] !== undefined) ? cfg.hMax[0] : 4.4;
       for (let i = 0; i < n; i++) {
         const d = (cfg.dists && cfg.dists[i] !== undefined) ? cfg.dists[i] : (2.2 + i * 2.2);
-        const hh = (cfg.heights && cfg.heights[i] !== undefined) ? cfg.heights[i] : (1.0 + i * 1.4);
+        const hh = hLo + RND() * Math.max(.2, hHi - hLo);      // 每次施放、每面镜片都不同
         const x = THREE.MathUtils.clamp(this.pos.x + dir * d, -CFG.blast.x + 2, CFG.blast.x - 2);
         list.push({ x: x, y: Math.max(.5, this.pos.y + hh) });
       }
