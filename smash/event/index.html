@@ -692,7 +692,17 @@
 
   window.addEventListener('message', function (ev) {
     var d = ev.data;
-    if (!d || typeof d !== 'object' || d.type !== 'sb-state') return;
+    if (!d || typeof d !== 'object') return;
+    /* ★ 2026-11-19：大厅右上角「活动方块」的深链接 —— 直接切到某个活动（不跳页，只换当前活动） */
+    if (d.type === 'sb-open-ev') {
+      var want = String(d.id || '');
+      if (!want) return;
+      for (var i = 0; i < EVENTS.length; i++) {
+        if (EVENTS[i].id === want) { cur = want; renderAll(); break; }
+      }
+      return;
+    }
+    if (d.type !== 'sb-state') return;
     st.email = !!d.email;
     st.owns = !!d.owns;
     st.hasSkin = !!d.hasSkin;

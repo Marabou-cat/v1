@@ -407,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function () {
   /* 打开整页设置时，把大厅的 HUD 全部淡出（全屏页不该顶着金币条 / 每日任务 / 活动按钮） */
   body.setupOpen #questPanel,body.setupOpen #resBar,body.setupOpen #eventBtn,body.setupOpen #profBtn,
   body.setupOpen #setBtn,body.setupOpen #frBtn,body.setupOpen #lobbyBar,body.setupOpen #pvTools,
-  body.setupOpen #skillPop,body.setupOpen #lobbyNet,body.setupOpen #summonBtn{
+  body.setupOpen #skillPop,body.setupOpen #lobbyNet,body.setupOpen #summonBtn,body.setupOpen #evCard{
     opacity:0 !important;pointer-events:none !important;transition:opacity .16s}
   /* 第一次玩：TUTORIAL 按钮自己发光（不再劫持 PLAY） */
   .pageBar #tutBtn.first{box-shadow:0 0 0 2px rgba(255,209,102,.55),0 0 20px rgba(255,209,102,.35);
@@ -586,6 +586,32 @@ document.addEventListener('DOMContentLoaded', function () {
   #setBtn:hover{border-color:rgba(255,255,255,.34);background:rgba(20,26,48,.86)}
   #setBtn:active{transform:scale(.96)}
   body:not(.inMenu) #setBtn{display:none!important}
+  /* ---------- ★ 2026-11-19：右上角「活动方块」（设置下面）—— 轮流显示活动，点一下直接进那个活动 ---------- */
+  #evCard{position:fixed;right:12px;top:60px;z-index:45;width:78px;height:78px;padding:0;cursor:pointer;
+    border-radius:16px;overflow:hidden;background:rgba(9,12,28,.82);border:1.6px solid rgba(255,255,255,.16);
+    box-shadow:0 10px 26px rgba(0,0,0,.38);backdrop-filter:blur(7px);
+    display:flex;flex-direction:column;justify-content:flex-end;
+    transition:border-color .2s ease,box-shadow .2s ease,transform .12s ease}
+  #evCard:hover{border-color:rgba(255,255,255,.36);box-shadow:0 12px 30px rgba(0,0,0,.46)}
+  #evCard:active{transform:scale(.96)}
+  #evCard .evArt{display:block;position:absolute;inset:0;transition:opacity .28s ease}
+  #evCard .evArt svg{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:40px;height:40px;
+    stroke:#fff;stroke-width:1.5;fill:none;opacity:.94;filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))}
+  #evCard .evShade{display:block;position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,9,20,0) 32%,rgba(6,9,20,.9) 100%)}
+  #evCard .evCap{display:block;position:relative;z-index:2;padding:0 6px 7px;text-align:left;min-width:0}
+  #evCard .evCap b{display:block;font-size:9.2px;font-weight:900;letter-spacing:.25px;line-height:1.2;color:#fff;
+    text-shadow:0 1px 3px rgba(0,0,0,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #evCard .evCap i{display:block;font-style:normal;font-size:7.2px;letter-spacing:.25px;margin-top:1px;opacity:.74;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #evCard .evFlag{display:block;position:absolute;right:4px;top:4px;z-index:3;font:900 7.5px/1 inherit;letter-spacing:.5px;
+    padding:3px 4px;border-radius:5px;background:#ffd166;color:#241a00;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+  #evCard .evFlag.hot{background:#ff5d5d;color:#fff}
+  #evCard .evBar{display:block;position:absolute;left:0;bottom:0;height:2.5px;width:0;z-index:3;background:rgba(255,209,102,.92);
+    box-shadow:0 0 8px rgba(255,209,102,.6)}
+  #evCard.swap .evArt{opacity:.15}
+  #evCard.swap .evCap{opacity:.35}
+  body:not(.inMenu) #evCard{display:none!important}   /* 只属于大厅 */
+  @keyframes evBarFill{from{width:0}to{width:100%}}
   /* ---------- ★ 第 92 轮：左侧每日任务 ---------- */
   #questPanel{position:fixed;left:10px;top:56px;z-index:44;width:212px;display:flex;flex-direction:column;gap:6px;
     background:rgba(9,12,28,.72);border:1.6px solid rgba(255,255,255,.14);border-radius:14px;padding:9px 10px;
@@ -920,6 +946,14 @@ document.addEventListener('DOMContentLoaded', function () {
 <button id="profBtn" title="Profile"><img id="profAva" alt=""><b id="profName">Guest</b></button>
 <!-- ★ 第 95 轮：设置独立按钮（齿轮） -->
 <button id="setBtn" title="Settings"><svg class="ico"><use href="#i-gear"/></svg></button>
+<!-- ★ 2026-11-19：活动方块（设置正下方）—— 每隔几秒换一个活动，点一下直接进那个活动 -->
+<button id="evCard" type="button" title="Activities — tap to open">
+  <span class="evArt" id="evArt"></span>
+  <span class="evShade"></span>
+  <span class="evFlag" id="evFlag" style="display:none">NEW</span>
+  <span class="evCap"><b id="evName">EVENTS</b><i id="evSub">REWARDS TO CLAIM</i></span>
+  <span class="evBar" id="evBar"></span>
+</button>
 <div id="profSheet" class="hidden">
   <div class="pbox">
     <div class="phead"><h3>PROFILE</h3><button class="no" id="profClose">✕</button></div>
@@ -33372,7 +33406,7 @@ function skinPaint() {
   st.textContent = `
   /* 打开抽卡时把大厅 UI 藏掉（3D 场景由 renderer 画在 canvas 上，不受影响） */
   body.summoning #startScreen { opacity:0 !important; pointer-events:none !important; }
-  body.summoning #resBar, body.summoning #eventBtn, body.summoning #summonBtn { opacity:0 !important; pointer-events:none !important; }
+  body.summoning #resBar, body.summoning #eventBtn, body.summoning #summonBtn, body.summoning #evCard { opacity:0 !important; pointer-events:none !important; }
   #summonSheet { background:transparent !important; }
   #summonSheet .box.big { background:none !important; width:100vw !important; height:100vh !important;
     padding:0 !important; display:block !important; pointer-events:none; overflow:hidden; }
@@ -33883,6 +33917,22 @@ window.SB = {
     pushState(); setTimeout(pushState, 300);          // iframe 首次加载会错过第一条消息
   };
   btn.onclick = openEv;
+  /* ★ 2026-11-19：右上角「活动方块」用的深链接 —— 打开活动页并直接切到某一个活动。
+     活动页是 iframe（只加载一次、之后复用），所以用 postMessage 而不是换 URL；
+     首次打开时子页还没 ready，消息会丢 → load 之后再补一次，外加两次兜底（子页收到重复消息只是重渲染，无害）。 */
+  window.__openEventAt = (id) => {
+    openEv();
+    if (!id) return;
+    const go = () => { try { frame.contentWindow.postMessage({ type:'sb-open-ev', id:String(id) }, '*'); } catch (e) {} };
+    if (frame.dataset.evReady === '1') go();
+    else {
+      const once = () => { frame.removeEventListener('load', once); frame.dataset.evReady = '1'; setTimeout(go, 40); };
+      frame.addEventListener('load', once);
+    }
+    setTimeout(go, 500); setTimeout(go, 1300);
+  };
+  /* 活动方块上的 CLAIM 角标数据源（同一个 claimable()，不另算一套） */
+  window.__evClaimCount = () => { try { return claimable().length; } catch (e) { return 0; } };
   /* ★ 贴在 Profile 左边：用**按钮自己的宽度**算（改成胶囊后写死 50px 会叠在一起） */
   const placeBtn = () => {
     const pb = $('profBtn');
@@ -33977,6 +34027,113 @@ window.SB = {
     btn.title = n ? ('Events — ' + n + ' reward' + (n > 1 ? 's' : '') + ' to claim') : 'Events';
   };
   refreshHot(); setInterval(refreshHot, 3000);
+})();
+
+/* ================= ★ 2026-11-19：右上角「活动方块」（设置正下方） =================
+   用户要求：「在右上角设置下面加入一个方形框，里面轮流显示着活动，点击时自动进入对应活动」。
+   形状照 Brawl Stars 的活动格：78×78 方块，纯 CSS 渐变 + 内联矢量图标 + 名字/副标题，
+   每 3.8s 换一个活动（底边进度条），点一下直接用**现成入口**进那个活动，不新开页面：
+     · 活动页（iframe）→ window.__openEventAt(activityId)（子页支持 {type:'sb-open-ev'} 深链接）
+     · 抽卡 → summonOpen()；奖杯奖励 → #trophyTag.click()
+   可见性：只在 body.inMenu 时出现；设置整页 / 抽卡演出时被 CSS 淡出（见 #evCard 规则）。
+   验收探针：window.__evCard（items / idx / cur / label / flag / rotating / next()）。 */
+(function initEventCard() {
+  const card = document.getElementById('evCard');
+  if (!card) return;
+  const artEl = document.getElementById('evArt'), nameEl = document.getElementById('evName'),
+        subEl = document.getElementById('evSub'), flagEl = document.getElementById('evFlag'),
+        barEl = document.getElementById('evBar');
+  const ROT_MS = 3800;
+  const svg = (id) => '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#' + id + '"/></svg>';
+  const bg = (a, b) => 'radial-gradient(circle at 30% 22%, ' + a + ' 0%, ' + b + ' 74%)';
+
+  /* 每个活动：图标 / 名字 / 副标题 / 底色 / 点击行为 / 角标（按存档实时算，失败就当没有） */
+  const ITEMS = [
+    { id:'events', name:'EVENTS', sub:'ALL ACTIVITIES', icon:'i-gift', bg:bg('#4463d8','#0b1024'),
+      go:() => window.__openEventAt(''),
+      flag:() => (window.__evClaimCount && window.__evClaimCount() ? 'CLAIM' : '') },
+    { id:'gemquests', name:'GEMS', sub:'500 ◆ A DAY', icon:'i-gem', bg:bg('#a25bff','#1b0d33'),
+      go:() => window.__openEventAt('gemquests'),
+      flag:() => { try { return gemQuestState().rows.some(r => r.ready) ? 'CLAIM' : ''; } catch (e) { return ''; } } },
+    { id:'supply', name:'SUPPLY', sub:'CHECK-IN', icon:'i-gear', bg:bg('#ff9f1c','#20120a'),
+      go:() => window.__openEventAt('supply'),
+      flag:() => { try {
+        if (!ACC.ptCheckinState().done) return 'CHECK IN';
+        return PT_TASKS.some(t => !ACC.ptClaimed(t.id) && ACC.gemProg(t.key) >= t.goal) ? 'CLAIM' : '';
+      } catch (e) { return ''; } } },
+    { id:'penguin', name:'PENGUIN', sub:'SKIN · SMILEY', icon:'i-shirt', bg:bg('#25c2c9','#08222b'),
+      go:() => window.__openEventAt('penguin'),
+      flag:() => { try { return ACC.hasEvent('penguin') ? '' : 'NEW'; } catch (e) { return ''; } } },
+    { id:'blizzard', name:'BLIZZARD', sub:'EMAIL REWARD', icon:'i-snow', bg:bg('#6fb6ff','#0a1830'),
+      go:() => window.__openEventAt('blizzard'),
+      flag:() => { try { return ACC.owns('blizzard') ? '' : (ACC.email ? 'READY' : 'BIND'); } catch (e) { return ''; } } },
+    { id:'summon', name:'SUMMON', sub:'SUPREME', icon:'i-swords', bg:bg('#ffd166','#241a05'),
+      go:() => summonOpen(),
+      flag:() => { try { return ACC.gems >= 200 ? 'READY' : ''; } catch (e) { return ''; } } },
+    { id:'rewards', name:'REWARDS', sub:'MILESTONES', icon:'i-trophy', bg:bg('#f2b531','#2a1a04'),
+      go:() => { const t = document.getElementById('trophyTag'); if (t) t.click(); },
+      flag:() => { try { return ACC.needsWelcome ? 'BONUS' : ''; } catch (e) { return ''; } } },
+  ];
+  const HOT = { CLAIM:1, 'CHECK IN':1, READY:1, BONUS:1, NEW:1, BIND:1 };
+  let idx = 0, timer = null;
+
+  const draw = () => {
+    const it = ITEMS[idx];
+    artEl.style.background = it.bg;
+    artEl.innerHTML = svg(it.icon);
+    nameEl.textContent = it.name;
+    subEl.textContent = it.sub;
+    let f = '';
+    try { f = it.flag() || ''; } catch (e) { f = ''; }
+    flagEl.textContent = f;
+    flagEl.style.display = f ? 'block' : 'none';
+    flagEl.classList.toggle('hot', !!HOT[f]);
+    card.title = it.name + ' — ' + it.sub + (f ? ' · ' + f : '') + '  (tap to open)';
+    /* 进度条：先抹掉动画再强制回流，保证每一片都从 0 开始 */
+    barEl.style.animation = 'none'; void barEl.offsetWidth;
+    barEl.style.animation = 'evBarFill ' + ROT_MS + 'ms linear forwards';
+    card.classList.remove('swap');
+  };
+  const paint = () => { card.classList.add('swap'); setTimeout(draw, 140); };
+  const next = () => { idx = (idx + 1) % ITEMS.length; paint(); };
+
+  const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+  const start = () => {
+    stop();
+    timer = setInterval(() => {
+      if (document.hidden) return;                                    // 后台标签页不空转
+      if (!document.body.classList.contains('inMenu')) return;         // 对局中不轮播
+      next();
+    }, ROT_MS);
+  };
+
+  card.addEventListener('click', () => {
+    /* 第二道防线：卡本身被 CSS 藏在非大厅状态，但程序化 click() 也要拒绝 */
+    if (!document.body.classList.contains('inMenu')) return;
+    try { SFX.tone(720, 980, .06, 'triangle', .05); } catch (e) {}
+    try { ITEMS[idx].go(); } catch (e) { window.__evCardErr = String((e && e.message) || e); }
+  });
+  if (window.matchMedia && matchMedia('(hover:hover)').matches) {
+    card.addEventListener('mouseenter', stop);      // 桌面：指到卡上停住，方便点
+    card.addEventListener('mouseleave', start);
+  }
+  /* ⚠ 触屏上不能挂 mouseenter/mouseleave：iOS 点一下会补发 mouseenter 但不一定发 mouseleave
+     → 轮播会被永久暂停（表现成「不轮换了」）。所以只给真正有 hover 的设备挂。 */
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) start(); });
+
+  draw();
+  start();
+  /* 只读探针（验收用，别在业务代码里依赖它） */
+  window.__evCard = {
+    get items() { return ITEMS.map(i => i.id); },
+    get idx() { return idx; },
+    get cur() { return ITEMS[idx].id; },
+    get label() { return nameEl.textContent + ' / ' + subEl.textContent; },
+    get flag() { return flagEl.style.display === 'none' ? '' : flagEl.textContent; },
+    get rotating() { return !!timer; },
+    next: () => { next(); return ITEMS[(idx + ITEMS.length - 1) % ITEMS.length].id; },
+    open: (id) => { const i = ITEMS.findIndex(x => x.id === id); if (i < 0) return false; idx = i; draw(); return true; },
+  };
 })();
 
 /* ================= ★ 第 72 轮：好友 / 组队 / 在线匹配 ================= */
