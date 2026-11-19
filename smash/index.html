@@ -12000,7 +12000,145 @@ FSPECIALS.foundry = { name:'Foundry Storm', style:'fndStorm', color:0xff8a3d, be
   dmg:0, bb:0, bg:0, w:1, dur:4.2, tickDmg:1.75 };
 /* —— Prism（新至尊·棱镜）：半透明棱面晶体 + 悬浮碎晶环 + 发光核心 ——
    契约同其它 kit：返回 { group, torso, belly, head, armL, armR, legL, legR, tail }。 */
+/* ================= ★ 2026-11-19 PRISM·VIRUS 皮肤（手工建模，非换色） =================
+   紫晶体躯干 / 红色方框眼镜 / 8 只黑色蜘蛛腿（红色关节）/ 恶魔双角 + 分节尾巴（末端红芯尖刺）。
+   动画：蜘蛛步态（两组对角反相）、尾巴逐节延迟摆动、落地时腿部起伏 —— 全部由 animPrismVirus 驱动。 */
+function kitPrismVirus(def) {
+  const mats = kitMats(def), g = new THREE.Group(), H = def.shape.headR;
+  const shell = new THREE.MeshStandardMaterial({ color:0x7b2ff0, roughness:.18, metalness:.55,
+    transparent:true, opacity:.80, flatShading:true, emissive:0x4a12a8, emissiveIntensity:.55 });
+  const shell2 = new THREE.MeshStandardMaterial({ color:0xa96bff, roughness:.12, metalness:.50,
+    transparent:true, opacity:.86, flatShading:true, emissive:0x8b3bff, emissiveIntensity:.70 });
+  const darkM = new THREE.MeshStandardMaterial({ color:0x140b22, roughness:.42, metalness:.62, flatShading:true });
+  const dark2 = new THREE.MeshStandardMaterial({ color:0x241436, roughness:.34, metalness:.55, flatShading:true });
+  const redGlow = new THREE.MeshBasicMaterial({ color:0xff2b5e });
+  const redEm = new THREE.MeshStandardMaterial({ color:0xff3d6b, emissive:0xff1f4f, emissiveIntensity:1.9, roughness:.28 });
+
+  /* ---- 躯干：暗紫八面体主晶 + 两片侧晶 ---- */
+  const torso = new THREE.Mesh(new THREE.OctahedronGeometry(.66, 0), shell);
+  torso.position.y = 1.18; torso.scale.set(1.02, 1.34, .78); g.add(torso);
+  for (const sd of [-1, 1]) {
+    const sh = new THREE.Mesh(new THREE.OctahedronGeometry(.30, 0), shell2);
+    sh.position.set(sd * .42, 1.30, -.04); sh.scale.set(.55, 1.25, .5); sh.rotation.z = sd * .22; g.add(sh);
+  }
+  /* ---- 核心：血红发光核（belly 受击闪白也作用在它身上） ---- */
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(.20, 12, 10), redEm);
+  belly.position.set(0, 1.16, .30); belly.scale.set(1, 1.15, .75); g.add(belly);
+
+  /* ---- 头：暗紫晶体 + 红色方框眼镜 + 恶魔双角 ---- */
+  const head = new THREE.Group(); head.position.y = 2.16; g.add(head);
+  const skull = new THREE.Mesh(new THREE.OctahedronGeometry(H * 1.05, 0), shell);
+  skull.scale.set(1, 1.15, .92); head.add(skull);
+  /* 眼镜：两片红色方形镜片 + 黑框 + 鼻梁 + 两侧镜腿 */
+  /* 眼镜：压到晶体「脸」的位置（原来偏高，看起来像顶在头顶上） */
+  const glasses = new THREE.Group(); glasses.position.set(0, H * .02, H * .60); head.add(glasses);
+  for (const sd of [-1, 1]) {
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(H * .62, H * .40, .05), darkM);
+    frame.position.set(sd * H * .34, 0, -.02); glasses.add(frame);
+    const lens = new THREE.Mesh(new THREE.BoxGeometry(H * .52, H * .28, .04), redGlow);
+    lens.position.set(sd * H * .34, 0, .02); glasses.add(lens);
+    const temple = new THREE.Mesh(new THREE.BoxGeometry(.05, .05, H * .52), darkM);
+    temple.position.set(sd * H * .66, 0, -H * .26); glasses.add(temple);
+  }
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(H * .18, .06, .05), darkM); glasses.add(bridge);
+  /* 角：每侧两节黑色弯角 + 红色尖端 */
+  const horns = [];
+  for (const sd of [-1, 1]) {
+    const horn = new THREE.Group(); horn.position.set(sd * .20, H * .78, -.02); head.add(horn);
+    const c1 = new THREE.Mesh(new THREE.ConeGeometry(.105, .44, 6), darkM);
+    c1.position.set(sd * .05, .20, 0); c1.rotation.z = -sd * .30; horn.add(c1);
+    const c2 = new THREE.Mesh(new THREE.ConeGeometry(.070, .42, 6), dark2);
+    c2.position.set(sd * .18, .50, -.05); c2.rotation.z = -sd * .66; horn.add(c2);
+    const ct = new THREE.Mesh(new THREE.ConeGeometry(.032, .12, 5), redEm);
+    ct.position.set(sd * .31, .70, -.07); ct.rotation.z = -sd * .74; horn.add(ct);
+    horns.push(horn);
+  }
+
+  /* ---- 手臂：暗紫晶柱 + 红色爪（保留标准 armL/armR 合同） ---- */
+  const armL = kitArm(g, -1, mats, { x:.62, y:1.62, w:.15, len:.46, hand:.17, armMat:shell2, handMat:redEm });
+  const armR = kitArm(g,  1, mats, { x:.62, y:1.62, w:.15, len:.46, hand:.17, armMat:shell2, handMat:redEm });
+
+  /* ---- 原腿：模型里隐藏（蜘蛛腿接管），但对象必须存在（animStep 会写 rotation） ---- */
+  const legL = kitLeg(g, -1, mats, { x:.26, y:.80, w:.17, len:.40, fw:.34, fh:.20, fd:.46, legMat:shell, footMat:darkM });
+  const legR = kitLeg(g,  1, mats, { x:.26, y:.80, w:.17, len:.40, fw:.34, fh:.20, fd:.46, legMat:shell, footMat:darkM });
+  legL.visible = false; legR.visible = false;
+
+  /* ---- 蜘蛛腿：每侧 4 只，两段（黑）+ 红色膝关节球 ---- */
+  const legs = [];
+  for (const sd of [-1, 1]) {
+    for (let i = 0; i < 4; i++) {
+      const root = new THREE.Group();
+      root.position.set(sd * (.40 + i * .02), 1.10 - i * .04, .26 - i * .17);
+      /* 只在「深度」上扇开（rotation.x = 前后俯仰），左右用同一个 y 倾角 → 正面看 8 只足对称铺开，
+         不会像之前那样把后面几只转到躯干背后被完全遮住。 */
+      root.rotation.y = sd * .14;
+      root.rotation.x = (i - 1.5) * .12;
+      g.add(root);
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(.062, .052, .60, 6), darkM);
+      upper.position.set(sd * .26, -.10, 0); upper.rotation.z = sd * 1.28; root.add(upper);
+      const knee = new THREE.Group(); knee.position.set(sd * .53, -.26, 0); root.add(knee);
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(.070, 8, 6), redEm); knee.add(ball);
+      const lower = new THREE.Mesh(new THREE.CylinderGeometry(.052, .026, .78, 6), darkM);
+      lower.position.set(sd * .12, -.38, 0); lower.rotation.z = sd * .34; knee.add(lower);
+      const foot = new THREE.Mesh(new THREE.ConeGeometry(.055, .16, 5), dark2);
+      foot.position.set(sd * .04, -.78, 0); foot.rotation.x = Math.PI; knee.add(foot);
+      legs.push({ root, knee, baseZ: root.rotation.z, baseY: root.rotation.y, sd, i });
+    }
+  }
+
+  /* ---- 恶魔尾巴：5 节链 + 末端红芯尖刺 ---- */
+  const tailRoot = new THREE.Group();
+  tailRoot.position.set(0, 1.02, -.44); tailRoot.rotation.x = 1.02; g.add(tailRoot);
+  const tail = [];
+  let par = tailRoot;
+  for (let i = 0; i < 5; i++) {
+    const seg = new THREE.Group();
+    seg.position.set(0, 0, i === 0 ? 0 : -.34);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(.078 - i * .011, .068 - i * .011, .36, 6), i % 2 ? dark2 : darkM);
+    m.rotation.x = Math.PI / 2; m.position.z = -.18; seg.add(m);
+    par.add(seg); tail.push(seg); par = seg;
+  }
+  const tip = new THREE.Mesh(new THREE.OctahedronGeometry(.13, 0), darkM);
+  tip.position.z = -.34; tip.scale.set(.75, 1.35, .75); par.add(tip);
+  const tipGlow = new THREE.Mesh(new THREE.OctahedronGeometry(.07, 0), redEm);
+  tipGlow.position.z = -.34; tipGlow.scale.set(.7, 1.3, .7); par.add(tipGlow);
+
+  /* ---- 环绕碎晶：暗紫小晶体（和原版同样的位置分布，只是换色） ---- */
+  const shards = new THREE.Group(); shards.position.y = 1.22; g.add(shards);
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * Math.PI * 2;
+    const s2 = new THREE.Mesh(new THREE.OctahedronGeometry(.10, 0), i % 2 ? redEm : shell2);
+    s2.position.set(Math.cos(a) * .80, Math.sin(a * 2) * .18, Math.sin(a) * .54);
+    s2.rotation.set(a * .7, a, a * 1.3);
+    shards.add(s2);
+  }
+  return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null, shards,
+           virus:{ legs, tail, tipGlow, horns, glasses } };
+}
+/* 每帧：蜘蛛步态 + 尾巴摆动（尾巴逐节延迟 → 鞭子感；站立时也轻微呼吸摆动） */
+function animPrismVirus(V, t, speed) {
+  const moving = speed > .4;
+  const gait = t * (moving ? 9.4 : 2.0);
+  for (const L of V.legs) {
+    /* 两组对角反相：i 偶数 vs 奇数，左右再错半个相位 → 像真蜘蛛在爬 */
+    const ph = (L.i % 2) * Math.PI + (L.sd > 0 ? 0 : Math.PI * .5);
+    const sn = Math.sin(gait + ph);
+    L.root.rotation.z = L.baseZ + sn * (moving ? .13 : .05);
+    L.root.rotation.y = L.baseY + Math.cos(gait + ph) * (moving ? .10 : .04);
+    L.knee.rotation.z = sn * (moving ? .26 : .10);
+  }
+  for (let i = 0; i < V.tail.length; i++) {
+    const sn = Math.sin(t * 2.7 - i * .55), cs = Math.cos(t * 2.15 - i * .45);
+    V.tail[i].rotation.y = sn * (.13 + i * .055);
+    V.tail[i].rotation.x = cs * .07 + (moving ? .03 : 0);
+  }
+  if (V.tipGlow) V.tipGlow.scale.setScalar(1 + Math.sin(t * 5.2) * .18);
+}
 function kitPrism(def) {
+  /* ★ 2026-11-19 Virus 皮肤：整套换模型（暗紫晶体 + 红色眼镜 + 8 只蜘蛛腿 + 恶魔角/尾），
+     动画数据挂在 parts.virus 上，由 animStep 每帧驱动。 */
+  const _skin = (def.skin || (typeof ACC !== 'undefined' && ACC.skinOf && ACC.skinOf(def.id)) || '');
+  if (_skin === 'prism_virus') return kitPrismVirus(def);
   const mats = kitMats(def), g = new THREE.Group(), H = def.shape.headR;
   /* ★ 2026-11-19 用户要求「更有透明感」：不透明度 .88/.92 → .46/.58，深度写入关掉（否则透过晶体会看不到身后的自己），
      折射感靠 emissive + 棱边实现；内核与眼睛仍是不透明自发光，剪影才认得出来。 */
@@ -12337,7 +12475,7 @@ function skinSpecFor(def) {
   let sk = (def && def.skin) || '';
   if (!sk) { try { if (typeof ACC !== 'undefined' && ACC.skinOf && def && def.id) sk = ACC.skinOf(def.id) || ''; } catch (e) {} }
   if (!sk) return null;
-  if (sk === 'smiley_penguin' || sk === 'cardboard_tv' || sk === 'foundry_police') return null;   // 专属建模皮肤交给 kit 自己
+  if (sk === 'smiley_penguin' || sk === 'cardboard_tv' || sk === 'foundry_police' || sk === 'prism_virus') return null;   // 专属建模皮肤交给 kit 自己
   if (sk === 'gen_sparky') return null;                                 // ★ 已删除的低质量换色皮肤
   if (SKIN_LEGEND[sk]) return SKIN_LEGEND[sk];
   if (SKIN_OVERRIDE[sk]) return SKIN_OVERRIDE[sk];
@@ -24581,6 +24719,18 @@ class Fighter {
       lean = this.facing * .05;
       bob = 0;
     }
+    /* ★ PRISM·Virus：低位前倾的蜘蛛步（原腿已隐藏，动作全交给蜘蛛足）+ 双爪半抬 */
+    if (P.virus && this.grounded && speed > .4 &&
+        (this.state === 'run' || this.state === 'walk' || this.state === 'dash')) {
+      const vf = A.t * (7.2 + speed * .8), vs = Math.sin(vf);
+      aL = -0.58 + vs * .20; aR = -0.58 - vs * .20;
+      lL = 0; lR = 0;
+      lean = this.facing * .17;
+      bob = Math.abs(vs) * .06 + .02;
+    } else if (P.virus) {
+      aL = -0.26; aR = -0.26;
+      lean = this.facing * .06;
+    }
     const k = 1 - Math.exp(-16*dt);
     A.armL += (aL - A.armL)*k; A.armR += (aR - A.armR)*k;
     A.legL += (lL - A.legL)*k; A.legR += (lR - A.legR)*k;
@@ -24591,6 +24741,7 @@ class Fighter {
     P.legL.rotation.x = A.legL; P.legR.rotation.x = A.legR;
     P.armL.rotation.z = .12; P.armR.rotation.z = -.12;
     P.group.rotation.z = A.lean * flip;
+    if (P.virus) animPrismVirus(P.virus, A.t, speed);
     // —— Turtle：Torrent 水柱（可见水柱实体 + 逐次判定 + 霸体）——
     if (P.jet) {
       const S = this.stream;
@@ -32598,7 +32749,9 @@ function shardShopBuy(id) {
 const SUMMON_SKINS   = [{ id:'smiley_penguin', char:'smiley', name:'Penguin', for:'Smiley' },
                         { id:'cardboard_tv', char:'sovereign', name:'TV Man', for:'Cardboard' },
                         /* ★ 2026-11-17：手工建模皮肤（不是配色换色）：Foundry 警用款 */
-                        { id:'foundry_police', char:'foundry', name:'Police Unit', for:'Foundry', rar:'skin' }];
+                        { id:'foundry_police', char:'foundry', name:'Police Unit', for:'Foundry', rar:'skin' },
+                        /* ★ 2026-11-19 新至尊 PRISM 的专属手工建模皮肤：VIRUS（紫/红眼镜/蜘蛛腿/恶魔尾角） */
+                        { id:'prism_virus', char:'prism', name:'Virus', for:'Prism', rar:'skin' }];
 /* ★ 2026-11-18 用户要求：**去掉所有皮肤，只保留 Foundry / Smiley / Cardboard 的**。
    以前这里会给每个角色注册一套 `gen_<charId>` 主题皮肤（换色 + 通用挂件，共 31 套，含传奇
    「Sovereign of Gold」），现在整段删除 —— 皮肤池就只剩上面 3 套手工建模皮肤。
@@ -32616,7 +32769,10 @@ function summonPull(quiet) {
   if (quiet !== true) { try { ACC.gemAdd('summons', 1); } catch (e) {} }
   const p = ACC.pity + 1, pe = ACC.getPityEpic() + 1;
   const R = GACHA.rate;
-  const supLeft = CHARS.filter(c => c.supreme && !ACC.owns(c.id));
+  /* ★ 2026-11-19 新卡池「PRISM ARRIVAL」：至尊档只出 PRISM（皮肤/武器/碎片档与 SUPREME 池完全一致） */
+  const supLeft = (typeof SUMMON_BANNER !== 'undefined' && SUMMON_BANNER === 'prism')
+    ? CHARS.filter(c => c.id === 'prism' && !ACC.owns(c.id))
+    : CHARS.filter(c => c.supreme && !ACC.owns(c.id));
   /* 保底：90 抽硬出至尊；74 抽后软保底（每抽 +6%）；10 抽内必出史诗及以上 */
   const forceSup = p >= GACHA.hardPity;
   const softSup = p > GACHA.softPity ? Math.min(60, (p - GACHA.softPity) * 6) : 0;
@@ -33787,6 +33943,7 @@ function summonPaint(last) {
   const ep = ACC.getPityEpic(), epProg = Math.min(100, ep / GACHA.epicPity * 100);
   const shards = ACC.getShards();
   const wb = (SUMMON_BANNER === 'weapon');                                  // ★ 当前是否是武器池
+  const vb = (SUMMON_BANNER === 'prism');                                   // ★ 当前是否是 PRISM 池
   const _rateSrc = wb ? WEAPON_BANNER.rate : GACHA.rate;
   const _rateDef = wb
     ? [['specialW', 'Special Weapon'], ['legW', 'Legendary Weapon'], ['epicW', 'Epic Weapon'],
@@ -33819,6 +33976,7 @@ function summonPaint(last) {
     + '<div class="topbar" style="align-items:stretch"><div style="flex:1;display:flex;gap:8px;min-width:0;flex-wrap:wrap">'
       + tabBtn('supreme', 'SUPREME ARMS', 'Fighters · Skins · Weapons')
       + tabBtn('weapon', 'FORGE ARMS', 'WEAPONS ONLY · 5% SPECIAL')
+      + tabBtn('prism', 'PRISM ARRIVAL', 'SUPREME · PRISM ONLY')
     + '</div><div class="cur" style="align-self:center">'
       + '<span class="cg"><svg class="ico"><use href="#i-gem"/></svg>' + ACC.gems + '</span>'
       + '<span class="cs">◈ ' + shards + '</span></div><button class="close" style="align-self:center">✕</button></div>'
@@ -33828,16 +33986,21 @@ function summonPaint(last) {
           ? '<div class="stat"><span>Special weapons <b>' + _sp[0] + ' / ' + _sp[1] + '</b></span>'
             + '<span>Legendary <b>' + _lg[0] + ' / ' + _lg[1] + '</b></span></div>'
             + '<div class="stat" style="margin-top:6px"><span>All weapons owned <b>' + _allW[0] + ' / ' + _allW[1] + '</b></span></div>'
+          : vb
+          ? '<div class="stat"><span>Pool supreme <b>PRISM</b></span>'
+            + '<span>' + (ACC.owns('prism') ? 'OWNED ✓' : 'NOT OWNED') + '</span></div>'
+            + '<div class="stat" style="margin-top:6px"><span>Pity <b>' + pity + ' / ' + GACHA.hardPity + '</b></span></div>'
+            + '<div class="pity"><i style="width:' + prog + '%"></i></div>'
           : '<div class="stat"><span>Supreme fighters <b>' + owned + ' / ' + total + '</b></span>'
             + '<span>Pity <b>' + pity + ' / ' + GACHA.hardPity + '</b></span></div>'
             + '<div class="pity"><i style="width:' + prog + '%"></i></div>')
         + '<div class="stat" style="margin-top:8px"><span>Epic or better in <b>' + Math.max(0, GACHA.epicPity - ep) + '</b> pulls</span></div>'
         + '<div class="pity epic"><i style="width:' + epProg + '%"></i></div>'
-        + '<div class="secT">DROP RATES' + (wb ? ' · FORGE ARMS' : '') + '</div><div class="rates">' + rateRows + '</div>'
+        + '<div class="secT">DROP RATES' + (wb ? ' · FORGE ARMS' : (vb ? ' · PRISM ARRIVAL' : '')) + '</div><div class="rates">' + rateRows + '</div>'
         + (cards ? '<div class="res"><div class="secT">LAST RESULT</div><div class="pcards">' + cards + '</div></div>' : '')
       + '</div>'
       + '<div class="colR">'
-        + '<div class="secT">' + (wb ? 'FORGE' : 'SUMMON') + '</div>'
+        + '<div class="secT">' + (wb ? 'FORGE' : (vb ? 'PRISM SUMMON' : 'SUMMON')) + '</div>'
         + '<button class="prim"' + (ACC.gems < SUMMON_COST ? ' disabled' : '') + '>' + (wb ? 'FORGE ×1' : 'SUMMON ×1') + ' · ' + SUMMON_COST + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
         + '<button class="prim ten"' + (ACC.gems < SUMMON_COST * 10 ? ' disabled' : '') + '>' + (wb ? 'FORGE ×10' : 'SUMMON ×10') + ' · ' + (SUMMON_COST * 10) + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
         + '<div class="secT">MEMORY SHARD SHOP <small>◈ ' + shards + '</small></div>'
