@@ -29117,6 +29117,7 @@ checkRotate();
    · 你站在正中间，**房间里其他人站在两侧**（跟随房间座位实时刷新；换角色立刻变）
    · 走主 renderer：match.state === 'menu' 时用大厅场景替代战斗画面，UI 面板浮在 3D 之上
    · 相机：默认极慢环绕；按住画面拖动可手动绕看，滚轮拉近拉远 */
+let LOBBY_SHOWCASE = null;                          // ★ 卡池展示：非空时大厅台子显示这个角色/皮肤
 const LOBBY = (() => {
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0xc6ddff, 90, 340);
@@ -29244,7 +29245,8 @@ const LOBBY = (() => {
     const tag = document.createElement('div');
     tag.className = 'lbtag' + (entry.me ? ' me' : (entry.ai ? ' cpu' : ''));
     tagBox.appendChild(tag);
-    return { key:entry.key, def:entry.def, name:entry.name, look:lookOf(entry.def.id),
+    return { key:entry.key, def:entry.def, name:entry.name,
+             look:(entry.def && entry.def.skin !== undefined) ? ('S:' + entry.def.skin) : lookOf(entry.def.id),
              group:g, shadow:sh, tag, baseY,
              kit:m.parts || {}, ph:RND(0, 6.28), pop:fresh ? 1 : 0, me:!!entry.me, ai:!!entry.ai };
   }
@@ -29253,9 +29255,22 @@ const LOBBY = (() => {
     const room = (typeof NET !== 'undefined' && NET.active) ? (NET.roomState || NET.room) : null;
     const mine = (typeof NET !== 'undefined' && NET.active) ? NET.seat : 0;
     const spectating = (typeof NET !== 'undefined' && NET.active) ? NET.seat < 0 : false;
-    if (!spectating) list.push({ key:'me', me:true, ai:false,
-      name: (settings.name || 'You').slice(0, 10),
-      def: CHARS[settings.playerChar] || CHARS[0] });
+    if (!spectating) {
+      /* ★ 2026-11-20 卡池展示：抽卡面板开着时，把「我」这个位置换成该池要展出的角色/皮肤
+         （大厅台子上真正显示的是这一份 seatList，PV 小窗早就 display:none 了 —— 上一版改错地方，
+         所以 PRISM 池台子上还是 Cardboard）。 */
+      const e = { key:'me', me:true, ai:false,
+        name: (settings.name || 'You').slice(0, 10),
+        def: CHARS[settings.playerChar] || CHARS[0] };
+      if (LOBBY_SHOWCASE) {
+        const ci = CHARS.findIndex(c => c.id === LOBBY_SHOWCASE.id);
+        if (ci >= 0) {
+          e.def = Object.assign({}, CHARS[ci], { skin: LOBBY_SHOWCASE.skin || '' });
+          e.name = (LOBBY_SHOWCASE.label || CHARS[ci].name).slice(0, 18);
+        }
+      }
+      list.push(e);
+    }
     if (room && room.seats) {
       room.seats.forEach((s2, i) => {
         if (!s2 || (typeof NET !== 'undefined' && NET.active && i === mine)) return;
@@ -29270,12 +29285,13 @@ const LOBBY = (() => {
   function sync() {
     const list = seatList();
     /* ★ 外观签名必须带上皮肤/武器：只比 id 的话「换了皮肤」签名不变 → 直接 return → 台上还是旧模型 */
-    const sig = list.map(e => e.key + ':' + e.def.id + ':' + lookOf(e.def.id) + ':' + e.name + (e.ai ? 'A' : '')).join('|');
+    const lookKey = e => (e.def && e.def.skin !== undefined) ? ('S:' + e.def.skin) : lookOf(e.def.id);
+    const sig = list.map(e => e.key + ':' + e.def.id + ':' + lookKey(e) + ':' + e.name + (e.ai ? 'A' : '')).join('|');
     if (sig === st.sig) return;
     const old = st.chars; st.sig = sig;
     const kept = [];
     list.forEach((e, i) => {
-      const lk = lookOf(e.def.id);
+      const lk = (e.def && e.def.skin !== undefined) ? ('S:' + e.def.skin) : lookOf(e.def.id);
       const cur = old.find(c => c.key === e.key && c.def.id === e.def.id && c.name === e.name && c.look === lk);
       if (cur) { cur.slot = i; kept.push(cur); place(cur, i); }
       else kept.push(mkChar(e, i, true));
@@ -29388,6 +29404,9 @@ const LOBBY = (() => {
   }, { passive:true });
   resize();
   return { scene, cam, frame, resize, show, refresh: sync,          // ★ refresh：换皮肤后立刻重建某个座位
+           /* ★ 卡池展示：把台子上「我」这个位置临时换成指定角色+皮肤（null = 恢复） */
+           showcase: (id, skin, label) => { LOBBY_SHOWCASE = id ? { id, skin: skin || '', label } : null;
+                                            st.sig = '~'; sync(); },
            /* 探针：大厅里每个座位的「角色 / 外观签名 / 部件数」——验证皮肤是否真的换了模型 */
            probe: () => st.chars.map(c => ({ key:c.key, id:c.def.id, look:c.look, name:c.name,
                                             meshes:(() => { let n = 0; c.group.traverse(o => { if (o.isMesh) n++; }); return n; })() })) };
@@ -32782,7 +32801,7 @@ function poolShowcaseItems(banner) {
 }
 function poolShowcaseStop() {
   if (_poolShowT) { clearInterval(_poolShowT); _poolShowT = null; }
-  try { PV.show(settings.playerChar, true); } catch (e) {}
+  try { LOBBY.showcase(null); } catch (e) {}         // 恢复成玩家自己选的角色
 }
 function poolShowcaseStart(banner) {
   poolShowcaseStop();
@@ -32791,9 +32810,8 @@ function poolShowcaseStart(banner) {
   _poolShowIdx = 0;
   const step = () => {
     const it = items[_poolShowIdx % items.length]; _poolShowIdx++;
-    const i = CHARS.findIndex(c => c.id === it.id);
-    if (i < 0) return;
-    try { PV.show(i, true, it.skin || '', it.label); } catch (e) {}
+    /* ★ 大厅台子（LOBBY.seatList）才是玩家看得见的那个模型；PV 小窗是 display:none 的 */
+    try { LOBBY.showcase(it.id, it.skin || '', it.label); } catch (e) {}
   };
   step();
   _poolShowT = setInterval(step, 2600);
