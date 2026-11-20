@@ -28355,11 +28355,14 @@ const PV = (() => {
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
   }
-  function show(i, force) {
-    const def = CHARS[i];
+  function show(i, force, skinOverride, labelText) {
+    /* ★ 2026-11-19：支持第三个参数指定皮肤（卡池展示用），第四个参数是展台上的标题文字 */
+    const _base = CHARS[i];
+    const def = skinOverride ? Object.assign({}, _base, { skin: skinOverride }) : _base;
+    const _key = def && (def.id + '|' + (skinOverride || ''));
     if (force) curId = null;                        // ★ 换皮肤/武器后强制重建（否则同角色直接 return → 看起来「皮肤没生效」）
-    if (!def || curId === def.id) return;
-    curId = def.id;
+    if (!def || curId === _key) return;
+    curId = _key;
     if (model) { holder.remove(model); model = null; parts = null; }
     const kit = (KITS[def.id] || kitSparky)(def);
     try { applySkinFx(kit, def); } catch (e) {}
@@ -28373,7 +28376,7 @@ const PV = (() => {
     g.position.y = footY;                      // 脚踩展台
     holder.add(g);
     model = g; parts = kit; pop = 1;
-    if (nameEl) nameEl.textContent = def.name;
+    if (nameEl) nameEl.textContent = labelText || def.name;
     if (tagEl) tagEl.textContent = def.tag;      // ★ 第 70 轮：trait（招式名串）也挪进问号弹层，标题下只留定位
     /* 招式 chip 不再铺在角色下方（第 70 轮），改由 renderSkillPop 写进问号弹层 */
     halo.material.color.setHex(def.body);
@@ -32759,6 +32762,42 @@ const SUMMON_SKINS   = [{ id:'smiley_penguin', char:'smiley', name:'Penguin', fo
    模型会按主题换色但界面里选不到）。 */
 try { ACC.purgeSkins && ACC.purgeSkins(SUMMON_SKINS.map(x => x.id)); } catch (e) {}
 
+/* ================= ★ 2026-11-19 卡池展示：选中某个池时，展台轮流展示该池的推荐内容 =============
+   PRISM 池：Prism → Prism·Virus → 其余全部皮肤；CARDBOARD 池：Cardboard → Cardboard·TV Man → 其余皮肤。
+   关掉抽卡面板就恢复成「玩家当前选的角色」。 */
+let _poolShowT = null, _poolShowIdx = 0, _showcaseBanner = null;
+function poolShowcaseItems(banner) {
+  const label = (id, extra) => { const c = CHARS.find(x => x.id === id); return (c ? c.name : id) + (extra ? ' · ' + extra : ''); };
+  const rest = (skipChar) => SUMMON_SKINS.filter(s => s.char !== skipChar)
+    .map(s => ({ id:s.char, skin:s.id, label:label(s.char, s.name) }));
+  if (banner === 'prism') {
+    return [{ id:'prism', skin:'', label:'Prism' },
+            { id:'prism', skin:'prism_virus', label:'Prism · Virus' }].concat(rest('prism'));
+  }
+  if (banner === 'supreme') {                     // = CARDBOARD 专池
+    return [{ id:'sovereign', skin:'', label:'Cardboard' },
+            { id:'sovereign', skin:'cardboard_tv', label:'Cardboard · TV Man' }].concat(rest('sovereign'));
+  }
+  return [];                                      // 武器池不展示角色
+}
+function poolShowcaseStop() {
+  if (_poolShowT) { clearInterval(_poolShowT); _poolShowT = null; }
+  try { PV.show(settings.playerChar, true); } catch (e) {}
+}
+function poolShowcaseStart(banner) {
+  poolShowcaseStop();
+  const items = poolShowcaseItems(banner);
+  if (!items.length) return;
+  _poolShowIdx = 0;
+  const step = () => {
+    const it = items[_poolShowIdx % items.length]; _poolShowIdx++;
+    const i = CHARS.findIndex(c => c.id === it.id);
+    if (i < 0) return;
+    try { PV.show(i, true, it.skin || '', it.label); } catch (e) {}
+  };
+  step();
+  _poolShowT = setInterval(step, 2600);
+}
 function summonPoolLeft() {
   return { sup: CHARS.filter(c => c.supreme && !ACC.owns(c.id)),
            weapons: SUMMON_WEAPONS.filter(w => !ACC.hasWeapon(w.id)),
@@ -32769,10 +32808,14 @@ function summonPull(quiet) {
   if (quiet !== true) { try { ACC.gemAdd('summons', 1); } catch (e) {} }
   const p = ACC.pity + 1, pe = ACC.getPityEpic() + 1;
   const R = GACHA.rate;
-  /* ★ 2026-11-19 新卡池「PRISM ARRIVAL」：至尊档只出 PRISM（皮肤/武器/碎片档与 SUPREME 池完全一致） */
-  const supLeft = (typeof SUMMON_BANNER !== 'undefined' && SUMMON_BANNER === 'prism')
+  /* ★ 2026-11-19 三个池各自「专池」：SUPREME = Cardboard 专池，PRISM ARRIVAL = Prism 专池；
+     皮肤 / 武器 / 史诗 / 碎片档三池共用同一套掉率与池子。 */
+  const _pool = (typeof SUMMON_BANNER !== 'undefined') ? SUMMON_BANNER : 'supreme';
+  const supLeft = _pool === 'prism'
     ? CHARS.filter(c => c.id === 'prism' && !ACC.owns(c.id))
-    : CHARS.filter(c => c.supreme && !ACC.owns(c.id));
+    : _pool === 'supreme'
+      ? CHARS.filter(c => c.id === 'sovereign' && !ACC.owns(c.id))
+      : CHARS.filter(c => c.supreme && !ACC.owns(c.id));
   /* 保底：90 抽硬出至尊；74 抽后软保底（每抽 +6%）；10 抽内必出史诗及以上 */
   const forceSup = p >= GACHA.hardPity;
   const softSup = p > GACHA.softPity ? Math.min(60, (p - GACHA.softPity) * 6) : 0;
@@ -33944,6 +33987,11 @@ function summonPaint(last) {
   const shards = ACC.getShards();
   const wb = (SUMMON_BANNER === 'weapon');                                  // ★ 当前是否是武器池
   const vb = (SUMMON_BANNER === 'prism');                                   // ★ 当前是否是 PRISM 池
+  /* ★ 展台跟着卡池走：第一次打开面板 / 切池时启动轮播（同一个池反复重绘不会重置） */
+  if (_showcaseBanner !== SUMMON_BANNER) {
+    _showcaseBanner = SUMMON_BANNER;
+    try { poolShowcaseStart(SUMMON_BANNER); } catch (e) {}
+  }
   const _rateSrc = wb ? WEAPON_BANNER.rate : GACHA.rate;
   const _rateDef = wb
     ? [['specialW', 'Special Weapon'], ['legW', 'Legendary Weapon'], ['epicW', 'Epic Weapon'],
@@ -33974,9 +34022,9 @@ function summonPaint(last) {
   };
   el.innerHTML = '<div class="box big">'
     + '<div class="topbar" style="align-items:stretch"><div style="flex:1;display:flex;gap:8px;min-width:0;flex-wrap:wrap">'
-      + tabBtn('supreme', 'SUPREME ARMS', 'Fighters · Skins · Weapons')
-      + tabBtn('weapon', 'FORGE ARMS', 'WEAPONS ONLY · 5% SPECIAL')
+      + tabBtn('supreme', 'CARDBOARD ARRIVAL', 'SUPREME · CARDBOARD ONLY')
       + tabBtn('prism', 'PRISM ARRIVAL', 'SUPREME · PRISM ONLY')
+      + tabBtn('weapon', 'FORGE ARMS', 'WEAPONS ONLY · 5% SPECIAL')
     + '</div><div class="cur" style="align-self:center">'
       + '<span class="cg"><svg class="ico"><use href="#i-gem"/></svg>' + ACC.gems + '</span>'
       + '<span class="cs">◈ ' + shards + '</span></div><button class="close" style="align-self:center">✕</button></div>'
@@ -33991,16 +34039,17 @@ function summonPaint(last) {
             + '<span>' + (ACC.owns('prism') ? 'OWNED ✓' : 'NOT OWNED') + '</span></div>'
             + '<div class="stat" style="margin-top:6px"><span>Pity <b>' + pity + ' / ' + GACHA.hardPity + '</b></span></div>'
             + '<div class="pity"><i style="width:' + prog + '%"></i></div>'
-          : '<div class="stat"><span>Supreme fighters <b>' + owned + ' / ' + total + '</b></span>'
-            + '<span>Pity <b>' + pity + ' / ' + GACHA.hardPity + '</b></span></div>'
+          : '<div class="stat"><span>Pool supreme <b>CARDBOARD</b></span>'
+            + '<span>' + (ACC.owns('sovereign') ? 'OWNED ✓' : 'NOT OWNED') + '</span></div>'
+            + '<div class="stat" style="margin-top:6px"><span>Pity <b>' + pity + ' / ' + GACHA.hardPity + '</b></span></div>'
             + '<div class="pity"><i style="width:' + prog + '%"></i></div>')
         + '<div class="stat" style="margin-top:8px"><span>Epic or better in <b>' + Math.max(0, GACHA.epicPity - ep) + '</b> pulls</span></div>'
         + '<div class="pity epic"><i style="width:' + epProg + '%"></i></div>'
-        + '<div class="secT">DROP RATES' + (wb ? ' · FORGE ARMS' : (vb ? ' · PRISM ARRIVAL' : '')) + '</div><div class="rates">' + rateRows + '</div>'
+        + '<div class="secT">DROP RATES' + (wb ? ' · FORGE ARMS' : (vb ? ' · PRISM ARRIVAL' : ' · CARDBOARD ARRIVAL')) + '</div><div class="rates">' + rateRows + '</div>'
         + (cards ? '<div class="res"><div class="secT">LAST RESULT</div><div class="pcards">' + cards + '</div></div>' : '')
       + '</div>'
       + '<div class="colR">'
-        + '<div class="secT">' + (wb ? 'FORGE' : (vb ? 'PRISM SUMMON' : 'SUMMON')) + '</div>'
+        + '<div class="secT">' + (wb ? 'FORGE' : (vb ? 'PRISM SUMMON' : 'CARDBOARD SUMMON')) + '</div>'
         + '<button class="prim"' + (ACC.gems < SUMMON_COST ? ' disabled' : '') + '>' + (wb ? 'FORGE ×1' : 'SUMMON ×1') + ' · ' + SUMMON_COST + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
         + '<button class="prim ten"' + (ACC.gems < SUMMON_COST * 10 ? ' disabled' : '') + '>' + (wb ? 'FORGE ×10' : 'SUMMON ×10') + ' · ' + (SUMMON_COST * 10) + ' <svg class="ico"><use href="#i-gem"/></svg></button>'
         + '<div class="secT">MEMORY SHARD SHOP <small>◈ ' + shards + '</small></div>'
@@ -34013,9 +34062,10 @@ function summonPaint(last) {
     if (id === SUMMON_BANNER) return;
     SUMMON_BANNER = id;
     try { SFX.ui && SFX.ui(); } catch (e) {}
+    try { poolShowcaseStart(id); } catch (e) {}     // ★ 展台换成这个池的内容
     summonPaint();
   });
-  el.querySelector('.close').onclick = () => el.classList.add('hidden');
+  el.querySelector('.close').onclick = () => { el.classList.add('hidden'); try { poolShowcaseStop(); } catch (e) {} };
   const _pull = wb ? weaponPull : summonPull;                                // ★ 按当前卡池抽
   const b = el.querySelector('button.prim:not(.ten)');
   if (b) b.onclick = () => {
