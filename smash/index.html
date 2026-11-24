@@ -17535,11 +17535,11 @@ class Fighter {
     /* ★ 首领试炼：玩家不掉命 —— 2.4 秒后在原地复活；只有「三人同时倒下」才算失败 */
     if (match.mode === 'boss' && !this.isBoss) {
       this.deaths++; this.koSpin = 0; this.koDir = this.vel.x >= 0 ? 1 : -1;
-      this.respawnT = 2.4; this.mesh.visible = false; this.shadow.visible = false;
+      this.respawnT = 15; this.mesh.visible = false; this.shadow.visible = false;   // ★ 用户规格：重生间隔 15s
       this.vel.set(0, 0, 0); this.state = 'hitstun'; this.hitstun = 0;
       SFX.ko(); shake = Math.max(shake, .9); flash = Math.max(flash, .6); flashColor = '#ffffff';
       FX.burst(this.pos.x, this.pos.y + 1.4, 0, 0x9dfbe4, 18, 18);
-      banner('DOWN · BACK IN 2.4s', false);
+      banner('DOWN · BACK IN 15s', false);
       try { bossTrialWipeCheck(); } catch (e) {}
       return;
     }
@@ -26315,11 +26315,46 @@ class Fighter {
     if (!isFinite(this.vel.x)) this.vel.x = 0;
     if (!isFinite(this.vel.y)) this.vel.y = 0;
   }
+  /* ★ 2026-11-24 首领试炼：boss **永不掉出场地**。
+     原来 boss 虽然不吃击退，但拖拽/传送/风/投掷这类位移照样能把它推出边界 → checkBlast 走 ko() →
+     ko() 会把 damage 清零（% 重置），玩家前面打的血全白打。现在越界不 KO，改成「被托着飞回来」：
+     位置用 smoothstep 插值 + 中途拱起，期间无敌，伤害 % 一点不动。 */
+  bossFlyBack() {
+    if (this.flyBack) return;
+    const floorY = (typeof stageFloorY === 'function') ? stageFloorY(0) : 0;
+    const ty = Math.max(4.0, (floorY || 0) + 6.5);
+    this.flyBack = { t: 0, dur: 1.15, x0: this.pos.x, y0: this.pos.y, x1: 0, y1: ty };
+    this.vel.set(0, 0, 0);
+    this.hitstun = 0; this.state = 'special'; this.grounded = false;
+    this.intangible = Math.max(this.intangible, 1.7);          // 飞行期间打不到（也推不走）
+    try { callout(this, 'RETURNING · ' + Math.round(this.damage) + '% KEPT', 0x8fd8ff); } catch (e) {}
+    try { FX.ring(this.pos.x, this.pos.y + 1, .30, 4.6, 0x8fd8ff, .55); } catch (e) {}
+    try { FX.flash(this.pos.x, this.pos.y + 1, .5, 6.5, 0xdff6ff, .30); } catch (e) {}
+    try { SFX.special('recover'); } catch (e) {}
+  }
+  bossFlyUpdate(dt) {
+    const F = this.flyBack; if (!F) return;
+    F.t += dt;
+    const k = Math.max(0, Math.min(1, F.t / F.dur));
+    const e = k * k * (3 - 2 * k);                              // smoothstep：起步和落点都柔和
+    this.pos.x = F.x0 + (F.x1 - F.x0) * e;
+    this.pos.y = F.y0 + (F.y1 - F.y0) * e + Math.sin(k * Math.PI) * 1.8;   // 中途拱起 → 看得出来是「飞回来」
+    this.vel.set(0, 0, 0);
+    this.grounded = false;
+    if (F.t % .07 < dt) {
+      try { FX.trail(this.pos.x, this.pos.y + .8, .30, 0x8fd8ff); } catch (e) {}
+      if (F.t % .21 < dt) { try { FX.jellyBlob(this.pos.x, this.pos.y + .5, .10, 0x8fd8ff, .11, 2, 2.5, 0); } catch (e) {} }
+    }
+    if (k >= 1) { this.flyBack = null; this.intangible = Math.max(this.intangible, .25); }
+  }
   checkBlast() {
+    /* ★ 飞行返回优先：飞行期间由它完全接管位置（否则 intangible 会提前 return 掉） */
+    if (this.flyBack && !this.eliminated) { this.bossFlyUpdate((typeof STEP === 'number') ? STEP : 1 / 120); return; }
     if (this.eliminated || this.invuln > 0) return;
     if (this.inMaw) return;                            // ★ 领域内不会掉落出界（高于 250% 由领域自己 KO）
     const p = this.pos;
     if (p.x < -CFG.blast.x || p.x > CFG.blast.x || p.y > CFG.blast.top || p.y < CFG.blast.bottom) {
+      if (this.isBoss) { this.bossFlyBack(); return; }        // ★ boss 掉不下去、伤害 % 不清零
       this.ko(this.lastHitBy && this.hitstun > 0 ? undefined : 'Self-Destruct');
     }
   }
@@ -29669,14 +29704,17 @@ function buildHUD() {
       UI.hud.style.flexWrap = 'nowrap';
       UI.hud.style.justifyContent = 'center';
       UI.hud.style.padding = '0 6px 6px';
+      const _n = Math.max(1, FIGHTERS.length);
+      const _maxW = Math.max(108, Math.min(190, Math.floor((window.innerWidth - 34) / _n) - 8));
       for (const p of panels) {
-        p.el.style.flex = '0 0 auto';
+        p.el.style.flex = '0 1 auto';
         p.el.style.width = 'auto';
-        p.el.style.minWidth = '104px';
-        p.el.style.maxWidth = '190px';
-        p.el.style.padding = '4px 7px 5px';
-        const pc = p.el.querySelector('.pct'); if (pc) pc.style.fontSize = '20px';
-        const nm = p.el.querySelector('.pname'); if (nm) nm.style.fontSize = '10px';
+        p.el.style.minWidth = (_n >= 5 ? '92px' : '108px');
+        p.el.style.maxWidth = _maxW + 'px';
+        p.el.style.padding = '4px 6px 5px';
+        const pc = p.el.querySelector('.pct'); if (pc) pc.style.fontSize = (_n >= 5 ? '17px' : '20px');
+        const nm = p.el.querySelector('.pname');
+        if (nm) { nm.style.fontSize = (_n >= 5 ? '9px' : '10px'); nm.style.whiteSpace = 'normal'; nm.style.lineHeight = '1.05'; }
       }
     } catch (e) {}
   }
@@ -29717,6 +29755,13 @@ function updateBossHud() {
   }
   el.style.display = 'block';
   const B = match.boss;
+  /* ★ 玩家倒下时在面板上显示 15s 倒计时（否则只看到一条 banner，不知道要等多久） */
+  for (let i = 0; i < FIGHTERS.length; i++) {
+    const f = FIGHTERS[i], pn = panels[i];
+    if (!f || !pn || !pn.stat) continue;
+    if (!f.isBoss && f.respawnT > 0) { const t = 'DOWN ' + Math.ceil(f.respawnT) + 's'; if (pn.stat.textContent !== t) pn.stat.textContent = t; }
+    else if (pn.stat.textContent.indexOf('DOWN ') === 0) pn.stat.textContent = '';
+  }
   let _remain = 0;
   for (const f of FIGHTERS) if (f && f.isBoss && !f.eliminated) _remain += Math.max(0, f.bossMax - f.damage);
   const pct = B.hpMax > 0 ? Math.max(0, Math.min(1, 1 - _remain / B.hpMax)) : 0;
