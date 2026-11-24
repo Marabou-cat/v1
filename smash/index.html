@@ -314,6 +314,26 @@ document.addEventListener('DOMContentLoaded', function () {
     box-shadow:0 6px 0 rgba(0,0,0,.35),0 10px 24px rgba(0,0,0,.4);transition:transform .08s}
   .lbbtn:active{transform:translateY(2px);box-shadow:0 4px 0 rgba(0,0,0,.35)}
   .lbbtn.pick{background:linear-gradient(180deg,#dfe9ff,#9fb6e8);color:#101a35}
+  /* ★ 首领试炼入口：长方形（不是胶囊），左边一块宣传图，右边两行字 */
+  .lbbtn.trial{border-radius:14px;padding:8px 16px 8px 9px;display:flex;align-items:center;gap:11px;
+    background:linear-gradient(180deg,#ffd9a8,#ff8a3d);color:#2a1400;text-align:left;
+    border:1px solid rgba(255,255,255,.5);box-shadow:0 6px 0 rgba(120,50,0,.45)}
+  .lbbtn.trial .trialArt{width:72px;height:44px;border-radius:10px;flex:0 0 auto;
+    background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.35),rgba(30,10,40,.72));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.3);display:block}
+  .lbbtn.trial .trialArt svg{width:100%;height:100%;display:block}
+  .lbbtn.trial .lbTx{display:flex;flex-direction:column;line-height:1.15}
+  .lbbtn.trial .lbTx b{font-size:15px;letter-spacing:1.2px}
+  .lbbtn.trial .lbTx i{font-size:11px;font-style:normal;opacity:.72;letter-spacing:.4px}
+  .trialRow{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:8px 0;border-radius:14px;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}
+  .trialRow.locked{opacity:.45}
+  .trialRow .tn{flex:1 1 auto;text-align:left}
+  .trialRow .tn b{display:block;font:900 14px/1.2 inherit;letter-spacing:.6px}
+  .trialRow .tn i{display:block;font:600 11px/1.3 inherit;opacity:.7;font-style:normal}
+  .trialRow .tp{font:900 11px/1 inherit;padding:9px 14px;border-radius:999px;border:0;cursor:pointer;
+    background:linear-gradient(180deg,#ffe066,#ff9f1c);color:#2a1400}
+  .trialRow .tp:disabled{background:#5a5a6a;color:#c9c9d6;cursor:not-allowed}
   .lbbtn.play{background:linear-gradient(180deg,#ffe066,#ff9f1c);color:#2a1400;
     font-size:clamp(15px,4vw,19px);padding:13px 30px}
   /* ================= ★ 2026-11 大厅 UI 2.0 =================
@@ -1140,6 +1160,26 @@ document.addEventListener('DOMContentLoaded', function () {
   </div>
   <div id="skillPop"></div>
   <div id="lobbyBar">
+    <!-- ★ 2026-11-24 活动入口：长方形横幅，压在 SELECT CHARACTER 上面 -->
+    <button class="lbbtn trial" id="btnTrial">
+      <span class="trialArt">
+        <svg viewBox="0 0 72 44" aria-hidden="true">
+          <defs>
+            <linearGradient id="tgA" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ffd166"/><stop offset="1" stop-color="#ff5c8a"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="68" height="40" rx="10" fill="url(#tgA)" opacity=".26"/>
+          <circle cx="21" cy="27" r="10" fill="#c98b52"/>
+          <circle cx="17.5" cy="24.5" r="2" fill="#20140a"/><circle cx="24.5" cy="24.5" r="2" fill="#20140a"/>
+          <circle cx="52" cy="25" r="12" fill="#7fd8ff"/>
+          <circle cx="47.5" cy="22" r="2.2" fill="#0a2b3a"/><circle cx="56.5" cy="22" r="2.2" fill="#0a2b3a"/>
+          <path d="M36 8 l3.2 6.4 l-6.4 0 z" fill="#fff2b0"/>
+        </svg>
+      </span>
+      <span class="lbTx"><b>BOSS TRIAL</b><i>3 stages · win JELLY</i></span>
+      <i class="newdot"></i>
+    </button>
     <button class="lbbtn pick" id="btnPick"><svg class="ico"><use href="#i-users"/></svg>
       <span class="lbTx"><b>SELECT CHARACTER</b><i>roster · skins · weapons</i></span></button>
     <!-- ★ 2026-11-24：联机从 BATTLE SETUP 里独立出来 —— 大厅现在是四个按钮，
@@ -1150,6 +1190,13 @@ document.addEventListener('DOMContentLoaded', function () {
       <span class="lbTx"><b>OFFLINE PLAY</b><i>vs CPU · stage &amp; rules</i></span></button>
     <button class="lbbtn online" id="btnOnline2"><svg class="ico"><use href="#i-globe"/></svg>
       <span class="lbTx"><b>ONLINE GAME</b><i>quick match · 1v1 / 2v2 / FFA</i></span></button>
+  </div>
+  <!-- 弹层：首领试炼 -->
+  <div class="sheet hidden" id="sheetTrial">
+    <div class="sheetBox">
+      <div class="sheetHead"><span>BOSS TRIAL</span><button class="sheetClose" id="trialClose">✕</button></div>
+      <div id="trialBody"></div>
+    </div>
   </div>
   <!-- 弹层 0：联机房间（ROOM 按钮；原来的 Online Play 面板整体搬进来） -->
   <div class="sheet hidden" id="sheetRoom">
@@ -1364,6 +1411,22 @@ const STAGES = [
     plats:[ {x:-19,y:5.8,w:9,kind:'island'}, {x:19,y:5.8,w:9,kind:'island'},
             {x:0,y:11.6,w:12,kind:'island'},
             {x:-9,y:16.2,w:6.5,kind:'cloud'}, {x:9,y:16.2,w:6.5,kind:'cloud'} ] },
+  /* ——— 2026-11-24 活动「首领试炼」：果冻 / 雪地 两张大而空旷的图 ———
+     boss 体型是自机的 1.55 倍，所以场地要横着放开（66 格宽），中间留空给追逐战。 */
+  { id:'jellyland', name:'Jelly Land', mainW:66, mainD:9.6, mainH:2.2, platD:6.0, platH:.9, wallX:33,
+    fog:0xf1e0ff, topColor:0xb57bff, rockColor:0x6a3fa8, platColor:0xc9a6ff,
+    hint:'JELLY LAND · every platform is wobbling jelly · BOSS TRIAL arena',
+    plats:[ {x:-22,y:5.4,w:10,kind:'island'}, {x:0,y:5.4,w:10,kind:'island'}, {x:22,y:5.4,w:10,kind:'island'},
+            {x:-11,y:11.0,w:8,kind:'cloud'}, {x:11,y:11.0,w:8,kind:'cloud'},
+            {x:0,y:16.4,w:11,kind:'cloud'},
+            {x:-27,y:15.0,w:6.5,kind:'cloud'}, {x:27,y:15.0,w:6.5,kind:'cloud'} ] },
+  { id:'snowfield', name:'Snowfield', mainW:66, mainD:9.6, mainH:2.2, platD:6.0, platH:.9, wallX:33,
+    fog:0xdcecff, topColor:0xf7fcff, rockColor:0xa9c4e0, platColor:0xd6e8fb,
+    hint:'SNOWFIELD · wide open ice field · BOSS TRIAL arena',
+    plats:[ {x:-24,y:5.2,w:11,kind:'island'}, {x:0,y:5.2,w:11,kind:'island'}, {x:24,y:5.2,w:11,kind:'island'},
+            {x:-12,y:10.6,w:9,kind:'cloud'}, {x:12,y:10.6,w:9,kind:'cloud'},
+            {x:0,y:16.0,w:12,kind:'cloud'},
+            {x:-29,y:14.6,w:7,kind:'cloud'}, {x:29,y:14.6,w:7,kind:'cloud'} ] },
   /* ——— 新地图：楼顶（2026-10-24）———
      roof:true  → buildStage 会画「向下延伸的方形高楼 + 楼顶杂物」；
      浮空平台全部 kind:'cloud'（云朵）；wallCling → 可以在楼侧面抓住不掉下去；
@@ -1470,6 +1533,18 @@ const STAGES = [
             {x:54,y:6,w:9,kind:'cloud'}, {x:0,y:18,w:10,kind:'cloud'},
             {x:-34,y:17,w:6,kind:'cloud'}, {x:34,y:17,w:6,kind:'cloud'} ] },
 ];
+/* ★ 2026-11-24 活动：首领试炼（3 关 · 3 人合作 · 无限重生）
+   规则：boss 体型 1.55×、**不吃任何击退**、伤害百分比到 HP 上限就自动倒下（不看 KO 线）；
+        玩家被打下场不掉命，2.4 秒后原位置复活；三个人同时倒下 = 关卡失败。 */
+const BOSS_TRIALS = [
+  { id:'t1', name:'TRIAL I · DUNE DUO',     sub:'Rocky + Quicksand', stage:'desert',
+    bosses:[{ char:'rocky', hp:1000 }, { char:'quicksand', hp:800 }], color:0xe0b264, reward:'' },
+  { id:'t2', name:'TRIAL II · WHITEOUT',    sub:'Blizzard',          stage:'snowfield',
+    bosses:[{ char:'blizzard', hp:2000 }], color:0x8fd8ff, reward:'' },
+  { id:'t3', name:'TRIAL III · PUDDING KING', sub:'Jelly',            stage:'jellyland',
+    bosses:[{ char:'jelly', hp:2500 }], color:0xc9a6ff, reward:'jelly' },
+];
+const TRIAL_CHAR_IDS = ['jelly'];        // ★ 活动专属：金币商店不卖（只能打穿三关领取）
 let curStage = 0;
 /* ★ 2026-11-17：梯子图（Ladder Works / Ladder Works XL）已整张删除，STAGES 变短；
    存档 / 房间规则里可能还留着旧索引 → 统一夹回有效范围，避免 STAGES[x] === undefined 崩 UI。 */
@@ -16577,7 +16652,8 @@ class Fighter {
     /* ★ Treasure·黄金领域主场：他在自己的领域里打人 +25% */
     const mawB = (attacker && attacker.treMaw && attacker.treMaw.phase === 'inside' && this.inMaw) ? (MAW.dmgMul || 1.25) : 1;
     const dmg = mv.dmg * (am ? am.dmg : 1) * dmgMul * ab * gcut * (mkm ? mkm.dmgMul : 1) * soulB * mawB * (1 + (wb && wb.dmg ? wb.dmg : 0) / 100) * (this._jellyCut || 1);
-    this.damage = Math.min(CFG.dmgCap, this.damage + dmg);
+    /* ★ 首领的 HP 上限（1000/2000/2500）远超普通 dmgCap(999)，所以 boss 用自己的上限 */
+    this.damage = Math.min(this.isBoss ? (this.bossHp + 400) : CFG.dmgCap, this.damage + dmg);
     /* ★ 调试探针（默认关闭，只有 window.__jellyTrace = true 时记录）——排查「这一下到底是谁打的」 */
     if (window.__jellyTrace) {
       (window.__hitLog = window.__hitLog || []).push({ f:FRAME, a:attacker && attacker.def && attacker.def.id, v:this.def.id,
@@ -16598,6 +16674,13 @@ class Fighter {
     if (attacker && attacker !== this && attacker.fsMeter !== undefined && !attacker.fsActive && this.guardT <= 0)
       attacker.fsMeter = Math.min(1, attacker.fsMeter + dmg * .013);   // 打伤害攒必杀技槽
     this.maxDamage = Math.max(this.maxDamage, this.damage);
+    /* ★ 首领：伤害百分比达到上限 → 直接倒下（不看击飞出界） */
+    if (this.isBoss && !this.eliminated && this.damage >= (this.bossHp || 1000)) {
+      this.stocks = 1;                       // 借用引擎的 KO 流程（它会把 stocks 减到 0 → eliminated）
+      this.ko('BOSS DOWN');
+      try { bossTrialBossDown(this); } catch (e) {}
+      return { dmg, launch: 0, bossDown: true };
+    }
     /* ★ Reaper 被动·Soul Harvest：累计「对敌人造成的实际伤害」，每满 5% 换 1 层（+5% 伤害，上限 20 层 = +100%）。
        放在这里＝算在伤害真正落到对方身上之后（含 Death Mark 加成），与「造成多少伤害」的字面口径一致。 */
     if (attacker && attacker !== this && attacker.def && attacker.def.passive === 'soulHarvest' && !attacker.eliminated) {
@@ -16642,6 +16725,7 @@ class Fighter {
        （所以锁定是「攒伤害」而不是「直接 KO」的手段：锁住时打不掉血条，锁结束才可能被击飞。） */
     if (this.hack > 0) launch = 0;
     if (this.roseT > 0) launch = 0;                    // ★ 公主·法阵缠绕：不可击退
+    if (this.isBoss) launch = 0;                       // ★ 首领试炼：boss 收不到任何击退（只掉血）
     if (this.jellyBind) launch = 0;                    // ★ Jelly 左右B/上B：粘住期间不可击退（照吃伤害）
     if (this.jellyFs || this.jellyBallCharge) launch = 0;   // ★ Jelly 蓄力不可打断：照吃伤害，但不被击飞
     /* ★ Fang 吸血：大招期间 100%（等于伤害全回复）；左右B 的咬击另有「永久等量吸血」 */
@@ -17448,6 +17532,17 @@ class Fighter {
   }
   ko(reason) {
     if (this.eliminated) return;
+    /* ★ 首领试炼：玩家不掉命 —— 2.4 秒后在原地复活；只有「三人同时倒下」才算失败 */
+    if (match.mode === 'boss' && !this.isBoss) {
+      this.deaths++; this.koSpin = 0; this.koDir = this.vel.x >= 0 ? 1 : -1;
+      this.respawnT = 2.4; this.mesh.visible = false; this.shadow.visible = false;
+      this.vel.set(0, 0, 0); this.state = 'hitstun'; this.hitstun = 0;
+      SFX.ko(); shake = Math.max(shake, .9); flash = Math.max(flash, .6); flashColor = '#ffffff';
+      FX.burst(this.pos.x, this.pos.y + 1.4, 0, 0x9dfbe4, 18, 18);
+      banner('DOWN · BACK IN 2.4s', false);
+      try { bossTrialWipeCheck(); } catch (e) {}
+      return;
+    }
     if (typeof MAW !== 'undefined' && MAW.active && (MAW.owner === this || MAW.victim === this)) mawEnd('ko');  // ★ 领域随出局结束
     /* ★ Cardboard：被打出场/被击倒时把飞出去的头和持续激光一起收回（否则会留在场上「飘头」） */
     if (this.cbState || this._cbHeadMesh || this._cbLz) {
@@ -29484,8 +29579,37 @@ function setup(opts) {
     FIGHTERS.push(f);
     if (!human) f.ctrl = new Bot(f, opts.diff);
   }
+  /* ================= ★ 首领试炼：3 名玩家(team0) vs 首领(team1) ================= */
+  match.boss = null;
+  if (_rmode === 'boss' && opts.rules && BOSS_TRIALS[opts.rules.trial]) {
+    const T = BOSS_TRIALS[opts.rules.trial];
+    match.mode = 'boss';
+    for (const f of FIGHTERS) { f.team = 0; f.isAlly = true; f.stocks = 999; }
+    match.boss = { trial: opts.rules.trial, name: T.name, sub: T.sub, color: T.color,
+                   alive: T.bosses.length, total: T.bosses.length, hpMax: 0, hpCur: 0,
+                   t: 0, fail: false, clear: false };
+    T.bosses.forEach((b, bi) => {
+      const ci = Math.max(0, CHARS.findIndex(c => c.id === b.char));
+      const base = CHARS[ci];
+      const bd = Object.assign({}, base);
+      bd.shape = Object.assign({}, base.shape, { scale: (base.shape.scale || 1) * 1.55 });   // ★ 比自机大 55%
+      bd.skin = 'none';
+      const bf = new Fighter(bd, null, n + bi, { bot:true, stocks: 999, team: 1,
+        spawnX: (bi === 0 ? 2 : 14), spawnY: 0 });
+      bf.isBoss = true; bf.bossHp = b.hp || 1000; bf.bossMax = b.hp || 1000;
+      bf.tag = 'BOSS'; bf.dispName = String(base.name).toUpperCase();
+      bf.damage = 0;
+      FIGHTERS.push(bf);
+      try { bf.ctrl = new Bot(bf, 3); } catch (e) {}
+      match.boss.hpMax += bf.bossMax;
+    });
+    match.boss.hpCur = match.boss.hpMax;
+    match.teams = 1;
+    try { banner(T.name + ' · 3 PLAYERS vs ' + T.bosses.length + ' BOSS', false); } catch (e) {}
+  }
   /* 宝石模式：命数条不显示（match.stocks=0 就不画那些小方块），角色身上 stocks=999 保证永远复活 */
   match.stocks = gemMode ? 0 : opts.stocks; match.time = Number.isFinite(opts.time) ? opts.time : 0; match.count = n; match.diff = opts.diff;   // ★ 第 98 轮：没传 time 时按无限处理
+  if (match.mode === 'boss') match.count = FIGHTERS.length;   // ★ 首领试炼：HUD 面板数要含 boss，否则排版挤成一列
   match.teams = teamsOn ? 1 : 0;                      // ★ 团队模式（结算/胜负/HUD 都读它）
   match.gemWin = -1;                                  // ★ 谁靠「宝石倒计时」赢的（-1 = 还没定）
   /* ★ 本局真正生效的规则快照（含 mode）：任何「同阵容再来一局」都可以直接复用它，
@@ -29539,9 +29663,70 @@ function buildHUD() {
     document.body.appendChild(mk);
     markers.push(mk);
   });
+  /* ★ 首领试炼：4~5 个面板（3 玩家 + boss）必须排成一排，否则 flex-wrap 会把它们拉成一列盖住半个屏幕 */
+  if (match.mode === 'boss') {
+    try {
+      UI.hud.style.flexWrap = 'nowrap';
+      UI.hud.style.justifyContent = 'center';
+      UI.hud.style.padding = '0 6px 6px';
+      for (const p of panels) {
+        p.el.style.flex = '0 0 auto';
+        p.el.style.width = 'auto';
+        p.el.style.minWidth = '104px';
+        p.el.style.maxWidth = '190px';
+        p.el.style.padding = '4px 7px 5px';
+        const pc = p.el.querySelector('.pct'); if (pc) pc.style.fontSize = '20px';
+        const nm = p.el.querySelector('.pname'); if (nm) nm.style.fontSize = '10px';
+      }
+    } catch (e) {}
+  }
 }
 function dmgClass(d) { return d < 50 ? 0 : d < 100 ? 1 : d < 150 ? 2 : 3; }
 /* ★ 宝石争夺战顶部读数：两队宝石数 + 10 颗倒计时（一眼能看出「谁快赢了 / 还剩几秒」） */
+/* ================= ★ 首领试炼：胜负判定 + 顶部首领血条 ================= */
+function bossTrialBossDown(bf) {
+  if (!match.boss || match.boss.clear || match.boss.fail) return;
+  match.boss.alive = Math.max(0, match.boss.alive - 1);
+  match.boss.hpCur = Math.max(0, match.boss.hpCur - (bf.bossMax || 0));
+  try { banner((bf.dispName || 'BOSS') + ' DOWN · ' + match.boss.alive + ' LEFT', false); } catch (e) {}
+  if (match.boss.alive <= 0) bossTrialEnd(true);
+}
+function bossTrialWipeCheck() {
+  if (!match.boss || match.boss.clear || match.boss.fail) return;
+  const alive = FIGHTERS.filter(f => f && !f.isBoss && !f.eliminated && !(f.respawnT > 0));
+  if (alive.length === 0) bossTrialEnd(false);
+}
+function bossTrialEnd(win) {
+  if (!match.boss || match.boss.clear || match.boss.fail) return;
+  if (win) match.boss.clear = true; else match.boss.fail = true;
+  try { banner(win ? 'TRIAL CLEAR!' : 'ALL DOWN · TRIAL FAILED', win); } catch (e) {}
+  try { win ? SFX.cheer() : SFX.ko(); } catch (e) {}
+  if (win) { try { BTTrial.saveClear(match.boss.trial); } catch (e) {} }
+  setTimeout(() => { try { endMatch(); } catch (e) {} }, 1200);
+}
+function updateBossHud() {
+  const on = match.mode === 'boss' && match.boss;
+  let el = document.getElementById('bossHud');
+  if (!on) { if (el) el.style.display = 'none'; return; }
+  if (!el) {
+    el = document.createElement('div'); el.id = 'bossHud';
+    el.style.cssText = 'position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:62;width:min(560px,86vw);' +
+      'padding:7px 12px 9px;border-radius:12px;background:rgba(8,6,18,.74);border:1px solid rgba(255,255,255,.16);' +
+      'font:800 12px/1.3 ui-monospace,Menlo,Consolas,monospace;color:#fff;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  el.style.display = 'block';
+  const B = match.boss;
+  let _remain = 0;
+  for (const f of FIGHTERS) if (f && f.isBoss && !f.eliminated) _remain += Math.max(0, f.bossMax - f.damage);
+  const pct = B.hpMax > 0 ? Math.max(0, Math.min(1, 1 - _remain / B.hpMax)) : 0;
+  const col = '#' + new THREE.Color(B.color || 0xb98bff).getHexString();
+  el.innerHTML = '<div style="display:flex;justify-content:space-between;margin-bottom:5px">' +
+    '<span>👑 ' + B.name + '</span><span style="opacity:.7">' + B.alive + '/' + B.total + ' ALIVE</span></div>' +
+    '<div style="height:12px;border-radius:999px;background:rgba(255,255,255,.13);overflow:hidden">' +
+    '<i style="display:block;height:100%;width:' + (pct * 100).toFixed(1) + '%;background:linear-gradient(90deg,' + col + ',#ffe066);' +
+    'box-shadow:0 0 12px ' + col + '"></i></div>';
+}
 function updateGemHud() {
   const on = match.mode === 'gem';
   let el = document.getElementById('gemHud');
@@ -29563,6 +29748,7 @@ function updateGemHud() {
 }
 function updateHUD(dt) {
   updateGemHud();
+  updateBossHud();
   FIGHTERS.forEach((f, i) => {
     const p = panels[i]; if (!p) return;
     if (p.gemN) {
@@ -29710,6 +29896,7 @@ function banner(text, big = true) {
   UI.banner.classList.add('show');
 }
 function checkMatchEnd() {
+  if (match.mode === 'boss') return;                 // ★ 首领试炼的胜负由 bossTrialBossDown / bossTrialWipeCheck 决定
   if (match.mode === 'gem') return;                  // ★ 宝石争夺战：无限重生，只有倒计时走完才算结束
   const alive = FIGHTERS.filter(f => !f.eliminated);
   if (match.teams) {                                  // ★ 团队：只剩一支队伍还有人 → 结束
@@ -36783,6 +36970,74 @@ window.SB_shot = (kind, id, skin, size) => {
   return url;
 };
 
+/* ================= ★ 2026-11-24 活动「首领试炼」：进度 / 入口 / 关卡 ================= */
+const BTTrial = {
+  KEY: 'sb_bt_v1',
+  cleared: 0, claimed: false,
+  load() { try { const d = JSON.parse(localStorage.getItem(this.KEY) || '{}'); this.cleared = d.cleared | 0; this.claimed = !!d.claimed; } catch (e) {} },
+  save() { try { localStorage.setItem(this.KEY, JSON.stringify({ cleared: this.cleared | 0, claimed: !!this.claimed })); } catch (e) {} },
+  saveClear(i) { if ((i | 0) + 1 > this.cleared) { this.cleared = (i | 0) + 1; this.save(); } try { BTTrialUI.render(); } catch (e) {} },
+  unlocked(i) { return true; },                     // 三关全开（review 时不用先打通前一关）
+};
+BTTrial.load();
+const BTTrialUI = {
+  open() { this.render(); const el = document.getElementById('sheetTrial'); if (el) el.classList.remove('hidden'); try { SFX.init(); SFX.go(1); } catch (e) {} },
+  close() { const el = document.getElementById('sheetTrial'); if (el) el.classList.add('hidden'); },
+  render() {
+    const body = document.getElementById('trialBody'); if (!body) return;
+    const done = BTTrial.cleared;
+    let html = BOSS_TRIALS.map((T, i) => {
+      const hp = T.bosses.map(b => b.char.toUpperCase() + ' ' + b.hp + '%').join(' + ');
+      const cleared = done > i;
+      return '<div class="trialRow">' +
+        '<div class="tn"><b>' + T.name + '</b><i>' + hp + ' · ' + T.stage + '</i></div>' +
+        '<button class="tp" data-trial="' + i + '">' + (cleared ? '✓ CLEARED' : 'PLAY') + '</button></div>';
+    }).join('');
+    const allClear = done >= BOSS_TRIALS.length;
+    const hasJelly = (typeof ACC !== 'undefined' && ACC.owns && ACC.owns('jelly'));
+    let reward;
+    if (hasJelly) reward = '<div class="trialRow"><div class="tn"><b>REWARD · JELLY</b><i>already unlocked</i></div>' +
+                            '<button class="tp" disabled>OWNED</button></div>';
+    else if (allClear) reward = '<div class="trialRow"><div class="tn"><b>REWARD · JELLY</b><i>clear all 3 trials ✓</i></div>' +
+                                '<button class="tp" id="btClaim">CLAIM</button></div>';
+    else reward = '<div class="trialRow"><div class="tn"><b>REWARD · JELLY</b><i>clear all 3 trials to unlock · not sold for coins</i></div>' +
+                  '<button class="tp" disabled>' + done + '/3</button></div>';
+    body.innerHTML = html + reward;
+    body.querySelectorAll('.tp[data-trial]').forEach(b => { b.onclick = () => startBossTrial(+b.dataset.trial); });
+    const c = document.getElementById('btClaim');
+    if (c) c.onclick = () => {
+      try { ACC.unlock('jelly'); } catch (e) {}
+      BTTrial.claimed = true; BTTrial.save();
+      try { toast('JELLY unlocked · pick him in SELECT CHARACTER'); } catch (e) {}
+      try { SFX.cheer(); } catch (e) {}
+      try { if (window.__rebuildChars) window.__rebuildChars(); } catch (e) {}
+      this.render();
+    };
+  },
+};
+function startBossTrial(i) {
+  const T = BOSS_TRIALS[i]; if (!T) return;
+  const si = Math.max(0, STAGES.findIndex(s => s.id === T.stage));
+  BTTrialUI.close();
+  try { SFX.init(); SFX.go(1); } catch (e) {}
+  const me = CHARS[settings.playerChar] || CHARS[0];
+  const _pool = CHARS.filter(c => c.id !== me.id && !c.supreme);
+  const allies = [_pool[0] ? _pool[0].id : me.id, _pool[1] ? _pool[1].id : me.id];   // 队友不和主角重复
+  match.boss = null;
+  setup(Object.assign({}, settings, {
+    count: 3, stocks: 999, time: 0, diff: 3,
+    chars: [me.id, allies[0], allies[1]],
+    humanSeats: [true, false, false],
+    rules: { mode: 'boss', trial: i, stage: si, stocks: 999, count: 3, diff: 3 },
+  }));
+  UI.start.classList.add('hidden');
+}
+try {
+  const bt = document.getElementById('btnTrial');
+  if (bt) bt.onclick = () => { try { SFX.init(); SFX.go(1); } catch (e) {} BTTrialUI.open(); };
+  const tc = document.getElementById('trialClose');
+  if (tc) tc.onclick = () => BTTrialUI.close();
+} catch (e) {}
 window.SB = {
   /* ★ 探针：DJ Hacker 皮肤的判定与签名色（验收「换皮后特效变紫」不能只靠眼睛看） */
   hackerIsDJ, hackerHue, SUMMON_SKINS, GACHA, RAR_NAME, RAR_TONE,
@@ -37017,7 +37272,8 @@ window.SB = {
     }).join('');
     /* ★ 第 88 轮：奖杯奖励能拿到的角色不在商店卖（两套来源分开，避免重复付费） */
     /* ★ Blizzard 不在商店卖：绑定邮箱才给 */
-    const shop = CHARS.filter(c => !ACC.owns(c.id) && REWARD_CHAR_IDS.indexOf(c.id) < 0 && EMAIL_CHAR_IDS.indexOf(c.id) < 0);
+    const shop = CHARS.filter(c => !ACC.owns(c.id) && REWARD_CHAR_IDS.indexOf(c.id) < 0
+                                   && EMAIL_CHAR_IDS.indexOf(c.id) < 0 && TRIAL_CHAR_IDS.indexOf(c.id) < 0);
     const trophyOnly = CHARS.filter(c => !ACC.owns(c.id) && REWARD_CHAR_IDS.indexOf(c.id) >= 0);
     const emailOnly = CHARS.filter(c => !ACC.owns(c.id) && EMAIL_CHAR_IDS.indexOf(c.id) >= 0);
     $('rwShop').innerHTML = '<h4 style="font-size:12px;letter-spacing:1.2px;opacity:.8;margin:14px 0 8px">UNLOCK WITH COINS</h4>' +
@@ -37052,6 +37308,7 @@ window.SB = {
     render(); refreshCharLocks(); renderTrophyTag(true);
   }
   function buy(id) {
+    if (TRIAL_CHAR_IDS.indexOf(id) >= 0) { toast('JELLY is a BOSS TRIAL reward — clear all 3 trials'); return; }
     if (ACC.owns(id) || ACC.coins < CHAR_PRICE) return;
     ACC.addCoins(-CHAR_PRICE); ACC.unlock(id);
     toast('Bought ' + ((CHARS.find(c => c.id === id) || {}).name || id));
