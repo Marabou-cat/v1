@@ -322,6 +322,28 @@ document.addEventListener('DOMContentLoaded', function () {
      设计语言：深蓝玻璃 + 青绿高亮（选中/主按钮）+ 圆角 14px + 轻投影，全部自适应竖屏。 */
   .lbbtn.room{background:linear-gradient(180deg,#7ef0c8,#1fbf92);color:#06251d;border:1px solid rgba(255,255,255,.28)}
   #lobbyBar{z-index:46}
+  /* ★ 2026-11-24 大厅四按钮：图标 + 主标题 + 一行说明（竖屏自动收成「只有标题」），
+     ONLINE GAME 单独一档蓝色，和金色 OFFLINE PLAY 一眼区分。 */
+  .lbbtn{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 15px;
+    width:min(52vw,236px);min-width:186px;box-sizing:border-box}
+  .lbbtn.play{padding:11px 15px}
+  .lbbtn .ico{flex:0 0 auto;width:18px;height:18px}
+  .lbbtn .lbTx{display:flex;flex-direction:column;min-width:0;line-height:1.05}
+  .lbbtn .lbTx b{font-weight:900;letter-spacing:1.2px;font-size:clamp(12px,3vw,14.5px);white-space:nowrap}
+  .lbbtn .lbTx i{font-style:normal;font-weight:700;font-size:8.5px;letter-spacing:.3px;opacity:.72;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .lbbtn.online{background:linear-gradient(180deg,#9adcff,#2f8cff);color:#04142b;
+    border:1px solid rgba(255,255,255,.4);
+    box-shadow:0 6px 0 rgba(8,34,74,.45),0 10px 24px rgba(28,110,220,.42)}
+  .lbbtn.online .lbTx i{opacity:.82}
+  @media (max-width:600px){
+    #lobbyBar{left:10px;bottom:10px;gap:7px}
+    .lbbtn{width:min(64vw,206px);min-width:0;padding:8px 11px;gap:8px}
+    .lbbtn.play{padding:9px 11px}
+    .lbbtn .lbTx i{display:none}
+    .lbbtn .lbTx b{font-size:11.5px;letter-spacing:.8px}
+    .lbbtn .ico{width:16px;height:16px}
+  }
   #sheetSetup.page{position:fixed;inset:0;z-index:52;display:flex;align-items:stretch;justify-content:center;
     background:radial-gradient(120% 90% at 50% 0%,rgba(24,38,72,.94),rgba(4,7,16,.97) 62%),#05070f;
     backdrop-filter:blur(8px);padding:0}
@@ -1118,15 +1140,21 @@ document.addEventListener('DOMContentLoaded', function () {
   </div>
   <div id="skillPop"></div>
   <div id="lobbyBar">
-    <button class="lbbtn pick" id="btnPick"><svg class="ico"><use href="#i-users"/></svg>SELECT CHARACTER</button>
-    <!-- ★ 2026-11：START 拆成两个按钮 —— ROOM（联机房间）/ START（本地开打 + 规则页） -->
-    <button class="lbbtn room" id="btnRoom"><svg class="ico"><use href="#i-globe"/></svg>ROOM</button>
-    <button class="lbbtn play" id="btnStart"><svg class="ico solid"><use href="#i-play"/></svg>START</button>
+    <button class="lbbtn pick" id="btnPick"><svg class="ico"><use href="#i-users"/></svg>
+      <span class="lbTx"><b>SELECT CHARACTER</b><i>roster · skins · weapons</i></span></button>
+    <!-- ★ 2026-11-24：联机从 BATTLE SETUP 里独立出来 —— 大厅现在是四个按钮，
+         从上到下：选人 / 房间 / 离线开打 / 在线对战（匹配）。 -->
+    <button class="lbbtn room" id="btnRoom"><svg class="ico"><use href="#i-globe"/></svg>
+      <span class="lbTx"><b>ROOM</b><i>create or join with a code</i></span></button>
+    <button class="lbbtn play" id="btnStart"><svg class="ico solid"><use href="#i-play"/></svg>
+      <span class="lbTx"><b>OFFLINE PLAY</b><i>vs CPU · stage &amp; rules</i></span></button>
+    <button class="lbbtn online" id="btnOnline2"><svg class="ico"><use href="#i-globe"/></svg>
+      <span class="lbTx"><b>ONLINE GAME</b><i>quick match · 1v1 / 2v2 / FFA</i></span></button>
   </div>
   <!-- 弹层 0：联机房间（ROOM 按钮；原来的 Online Play 面板整体搬进来） -->
   <div class="sheet hidden" id="sheetRoom">
     <div class="sheetBox">
-      <div class="sheetHead"><span>ONLINE ROOM</span><button class="sheetClose" id="roomClose">✕</button></div>
+      <div class="sheetHead"><span>CUSTOM ROOM</span><button class="sheetClose" id="roomClose">✕</button></div>
       <div id="roomBody"><div class="qcard" id="quickCard"></div></div>
     </div>
   </div>
@@ -1153,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="pageBox">
       <div class="pageHead">
         <button class="pBack" id="setupClose">‹ BACK</button>
-        <div class="pageTitle">BATTLE SETUP<small>pick a stage &amp; rules — then PLAY</small></div>
+        <div class="pageTitle">BATTLE SETUP<small>pick a stage &amp; rules — then PLAY OFFLINE</small></div>
         <div class="pageCur" id="setupCur"></div>
       </div>
       <div class="pageScroll">
@@ -1186,7 +1214,7 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
     <div class="side">
       <div class="netPanel" id="netPanel">
-        <div class="netHead"><a class="netLink" href="/exams_games/sbgames/battle.php" target="_blank" rel="noopener"><svg class="ico"><use href="#i-trophy"/></svg>Leaderboard</a>Online Play <span class="dim">(LAN or internet · up to 4 players + spectators)</span></div>
+        <div class="netHead"><a class="netLink" href="/exams_games/sbgames/battle.php" target="_blank" rel="noopener"><svg class="ico"><use href="#i-trophy"/></svg>Leaderboard</a>Create / Join <span class="dim">(room code · LAN or internet · up to 4 players + spectators)</span></div>
         <div class="netRow">
           <input id="netName" maxlength="10" placeholder="Nickname" style="display:none">
           <button class="nbtn sm" id="netPub" title="Anyone can join">Public</button>
@@ -1224,9 +1252,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="card" id="cardTeams"><h4>Teams (only at 4 players)</h4><div class="opts" id="optTeams"></div></div>
     <div class="card" id="cardStage"><h4>Stage</h4><div class="opts" id="optStage"></div></div>
   </div>
-  <button class="btn" id="startBtn"><svg class="ico solid"><use href="#i-play"/></svg>PLAY</button>
-  <!-- ★ 第 77 轮：联机入口放进比赛设置里（地图/命数/时间/2v2 选完直接匹配） -->
-  <button class="btn online" id="btnOnline2"><svg class="ico"><use href="#i-globe"/></svg>Online Match</button>
+  <button class="btn" id="startBtn"><svg class="ico solid"><use href="#i-play"/></svg>PLAY OFFLINE</button>
   <button class="btn alt" id="tutBtn"><svg class="ico solid"><use href="#i-play"/></svg>Tutorial</button>
   <div class="keys">
     <kbd>A</kbd><kbd>D</kbd> Move · <kbd>W</kbd> Up · <kbd>S</kbd> Down / fast-fall · <kbd>Space</kbd> Jump (again in air = double jump)<br>
@@ -30389,7 +30415,7 @@ PV.resize();
   }
   moveInto(document.getElementById('tutBtn'), pageBar);
   moveInto(document.getElementById('startBtn'), pageBar);
-  moveInto(document.getElementById('btnOnline2'), pageBar);
+  moveInto(document.getElementById('btnOnline2'), document.getElementById('lobbyBar'));   // ★ 2026-11-24：联机按钮独立到大厅第 4 个
   moveInto(document.getElementById('netPanel'), document.getElementById('roomBody'));   // ★ ROOM 弹层（概要卡已在 roomBody 里）
   /* ================= ★ 地图预览卡（每张地图一张真实截图）================= */
   const SG = document.getElementById('stageGrid');
@@ -30541,7 +30567,7 @@ PV.resize();
     pageBar.classList.toggle('roomCtx', rm);                 // 底栏切到「只有 BACK TO ROOM」
     setupBackBtn.style.display = rm ? '' : 'none';
     if (playBtn) playBtn.style.display = rm ? 'none' : '';
-    if (onlineBtn) onlineBtn.style.display = rm ? 'none' : '';
+    if (onlineBtn) onlineBtn.style.display = '';      // ★ 已是大厅按钮，不再随设置页显隐
     if (tutBtnEl) tutBtnEl.style.display = rm ? 'none' : '';
     if (setupHeadBack) setupHeadBack.textContent = rm ? '‹ ROOM' : '‹ BACK';
     if (roomCtxBar) {
@@ -30550,7 +30576,7 @@ PV.resize();
     }
     if (setupPageSub) setupPageSub.textContent = rm
       ? 'stage & rules for this room — then BACK and hit Start Match'
-      : 'pick a stage & rules — then PLAY';
+      : 'pick a stage & rules — then PLAY OFFLINE';
   }
   function openSetup(fromRoom) {
     /* 房间规则只有房主能改：客人（含观众）点了不打开页面，给一句可见提示 */
