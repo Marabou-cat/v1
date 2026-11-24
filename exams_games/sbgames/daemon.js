@@ -52,9 +52,30 @@ const ROOM_CODE_LEN = 5;
 /* 调试用人工延迟（毫秒）：SB_LAG_MS=120 可在本机复现 120ms 单程延迟，用于压测锁同步 */
 const LAG_MS = parseInt(process.env.SB_LAG_MS || '0', 10);
 /* 角色池：仅用于空位（AI）的确定性兜底 —— 必须与客户端 CHARS 顺序一致 */
-const CHAR_POOL = ['sparky', 'rocky', 'zephyr', 'cobalt', 'mage', 'warrior', 'archer', 'knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'blizzard', 'vexor', 'trash', 'singer', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'alien', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'treasure', 'princess', 'french', 'sovereign', 'mosquito', 'warden', 'soldier', 'monk', 'bomber', 'foundry', 'tock', 'prism'];   // ★ 2026-11-19 新至尊角色 PRISM
+const CHAR_POOL = ['sparky', 'rocky', 'zephyr', 'cobalt', 'mage', 'warrior', 'archer', 'knight', 'pumpkin', 'smiley', 'turtle', 'titan', 'blizzard', 'vexor', 'trash', 'singer', 'teacher', 'baby', 'dragon', 'shadow', 'slayer', 'reaper', 'gorilla', 'hacker', 'blocky', 'blub', 'tamer', 'alien', 'mechanic', 'quicksand', 'fang', 'angel', 'demon', 'shark', 'treasure', 'princess', 'french', 'sovereign', 'mosquito', 'warden', 'soldier', 'monk', 'bomber', 'foundry', 'tock', 'prism', 'jelly'];   // ★ 2026-11-19 新至尊角色 PRISM
 /* ★ 2026-11-20 per-seat 皮肤：只允许「属于这个角色」的皮肤 id 进对局（防脏数据/防跨角色） */
-const SKIN_CHAR = { smiley_penguin: 'smiley', cardboard_tv: 'sovereign', foundry_police: 'foundry' };
+/* ★ 2026-11-23：必须与客户端 SUMMON_SKINS 一一对应 —— 以前这里只列了 3 套，
+   后加的 Prism·Virus / Archer·Cupid / Hacker·DJ 会被服务端判成「皮肤不属于该角色」直接清空，
+   表现就是「这几个皮肤在联机里不显示」。 */
+/* ★ 2026-11-23：特殊武器 / 普通武器的归属表 —— 必须和客户端 SUMMON_WEAPONS 对齐。
+   联机时服务端按这张表校验并下发 per-seat weapon；不在表里的武器会被清掉（效果不生效）。 */
+const WEAPON_CHAR = {
+  gold_baguette:'french', star_blade:'angel', titan_hammer:'titan', shadow_fang:'shadow',
+  iron_sword:'knight', wood_bat:'blocky', bamboo_staff:'teacher', rusty_hook:'shark',
+  tape_roll:'sovereign', bone_scythe:'reaper', fang_charm:'fang', spark_plug:'sparky',
+  stinger:'mosquito', dragon_fang:'dragon', frost_lance:'blizzard', hunting_bow:'archer',
+  snake_fang:'tamer', plasma_edge:'cobalt', storm_orb:'mage', pixel_gun:'hacker',
+  tin_can:'mechanic', muzzle_brake:'slayer',
+  titan_seeker_fist:'titan', overclock_coil:'sparky', hacker_domain:'hacker'
+};
+const SKIN_CHAR = {
+  smiley_penguin: 'smiley',
+  cardboard_tv: 'sovereign',
+  foundry_police: 'foundry',
+  prism_virus: 'prism',
+  archer_cupid: 'archer',
+  dj_hacker: 'hacker'
+};
 
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 const RESULTS_FILE = path.join(DATA_DIR, 'results.jsonl');
@@ -96,6 +117,10 @@ function createRoom(opts) {
     created: Date.now(),
     updated: Date.now(),
     state: 'lobby',            // lobby | play | end
+    /* ★ 2026-11-22：房间分两种 ——
+       autoDisband=true  = 匹配房（Online Match 开出来的，打完自动解散、不给 Play Again）
+       autoDisband=false = 自己创建的好友房（打完保留，全员 Play Again 再来一局） */
+    autoDisband: !!o.autoDisband,
     gen: 1,                    // 对局代次：每次开局/再来一局 +1。客户端靠它判断「这是新一局」，
                                // 而不是靠「房间在 play 且我这局结束了」——后者会撞上结算上报的时间差，
                                // 把刚结束的局又重开一次（结算页被隐藏、按钮不出现，实测踩到）。
@@ -135,14 +160,15 @@ function freeSeatIndex(room) {
   return -1;
 }
 function seatPublic(s) {
-  return s ? { seat: s.seat, name: s.name, char: s.char, skin: s.skin || '', ready: !!s.ready, ai: !!s.ai,
+  return s ? { seat: s.seat, name: s.name, char: s.char, skin: s.skin || '', weapon: s.weapon || '', ready: !!s.ready, ai: !!s.ai,
                connected: !!s.connected, bot: !!s.bot, aiFrom: s.aiFrom | 0,
                idle: !!s.idle, left: !!s.left, gone: !!s.gone } : null;
 }
 function roomPublic(room) {
   const seats = [];
   for (let i = 0; i < room.rules.count; i++) seats.push(seatPublic(room.seats[i]));
-  return { code: room.code, state: room.state, hostSeat: room.hostSeat, rules: room.rules,
+  return { autoDisband: !!room.autoDisband,   // ★ 匹配房 / 好友房（客户端据此决定 Play Again / 自动解散）
+           code: room.code, state: room.state, hostSeat: room.hostSeat, rules: room.rules,
            gen: room.gen | 0,                     // 代次：客户端用它分辨「新一局」（见 createRoom 注释）
            locked: !!room.passHash,               // 大厅里给房主/加入者看「这是私密房」（不含密码本身）
            evFrame: (room.frameHigh | 0) + 12,   // 事件统一生效帧（留足余量，保证各端同帧应用）
@@ -424,6 +450,7 @@ function restartRoom(room, why) {
   broadcast(room, { a:'go', room: roomPublic(room), seed: room.seed, startFrame: 0,
                     rules: room.rules, chars: room.seats.map(x => x && x.char),
                     skins: room.seats.map(x => (x && x.skin) || ''),      // ★ per-seat 皮肤（客户端 opts.skins）
+                    weapons: room.seats.map(x => (x && x.weapon) || ''),  // ★ per-seat 武器（客户端 opts.weapons）
                     avatars: room.seats.map(x => (x && x.avatar) || ''),   // ★ 第 67 轮：开局阵容用
                     resync: why });
   log('[match] restart', room.code, '(' + why + ')', 'gen', room.gen, 'seed', room.seed);
@@ -432,17 +459,31 @@ function restartRoom(room, why) {
 /* ================= ★ 第 72 轮：账号 / 好友 / 组队匹配 ================= */
 /* ⚠ 账号库必须放在 **站点根目录之外**（docroot = /volume1/schoolexam_web/v1/）。
    第一版放在 sbgames/ 里，结果 https://…/sbgames/accounts.json 直接 200 明文可读（好友关系+账号 id 全泄露）。 */
-const ACC_FILE = process.env.SB_ACC_FILE || '/volume1/schoolexam_web/sbgames_data/accounts.json';
+/* ★ 2026-11-22：账号库改放到 DATA_DIR（daemon 以 http 身份运行，对
+   /volume1/schoolexam_web/sbgames_data 没有写权限 —— EACCES 导致从 2026-10-21 起
+   账号只存在内存里，重启就丢）。data/ 目录已放 .htaccess 全量拒绝（403），
+   所以放在 docroot 内也不会被 https 明文下载；仍可用 SB_ACC_FILE 覆盖。 */
+const ACC_FILE = process.env.SB_ACC_FILE || path.join(DATA_DIR, 'accounts.json');
 /* 起服时清掉历史遗留：旧版本把账号库写在 sbgames/（在站点根内，可被 https 明文下载） */
 try { fs.unlinkSync(path.join(__dirname, 'accounts.json')); } catch (e) {}
 let ACCTS = {};
 try { ACCTS = JSON.parse(fs.readFileSync(ACC_FILE, 'utf8')) || {}; } catch (e) { ACCTS = {}; }
-let accSaveT = 0;
+let accSaveT = 0, accSaveErrLogAt = 0;
 function accSave(force) {
   const now = Date.now();
   if (!force && now - accSaveT < 1500) return;
   accSaveT = now;
-  try { fs.writeFileSync(ACC_FILE + '.tmp', JSON.stringify(ACCTS)); fs.renameSync(ACC_FILE + '.tmp', ACC_FILE); } catch (e) {}
+  try {
+    fs.writeFileSync(ACC_FILE + '.tmp', JSON.stringify(ACCTS));
+    fs.renameSync(ACC_FILE + '.tmp', ACC_FILE);
+  } catch (e) {
+    /* ★ 2026-11-22：以前这里静默吞异常 —— 账号写盘失败时看起来一切正常，重启就全丢。
+       现在至少每分钟往日志里记一次（不刷屏）。 */
+    if (!accSaveErrLogAt || now - accSaveErrLogAt > 60000) {
+      accSaveErrLogAt = now;
+      log('[err] accSave', ACC_FILE, e && e.message);
+    }
+  }
 }
 function accOf(id) {
   const k = String(id || '').slice(0, 48); if (!k) return null;
@@ -479,21 +520,56 @@ function accOf(id) {
   if (!ACCTS[k].ptQ || typeof ACCTS[k].ptQ !== 'object')
     ACCTS[k].ptQ = { day: '', ci: { streak: 0, last: '' }, claimed: {}, buys: {} };
   if (typeof ACCTS[k].rev !== 'number') ACCTS[k].rev = 0;
+  if (typeof ACCTS[k].walletInit !== 'boolean') ACCTS[k].walletInit = false;   // 账本迁移标记
+  if (!ACCTS[k].opIds || typeof ACCTS[k].opIds !== 'object') ACCTS[k].opIds = {};
+  if (typeof ACCTS[k].walletSeq !== 'number') ACCTS[k].walletSeq = 0;
+  if (!ACCTS[k].devT || typeof ACCTS[k].devT !== 'object') ACCTS[k].devT = {};
   return ACCTS[k];
 }
 const ONLINE = new Map();          // pid -> { ws, nick, code, at }
 const QUEUE = new Map();           // code -> { code, rules, pid, at }
-/* ★ 第 85 轮：补位的电脑伪装成真人 —— 用真人风格昵称，且同房同座位名字固定（各端一致、重开也一样） */
-const BOT_NAMES = ['Alex', 'Kai', 'Nova', 'Mika', 'Rex', 'Luna', 'Zed', 'Ivy', 'Milo', 'Sage', 'Rin', 'Otto'];
+/* ★ 第 85 轮 / 2026-11-21：补位的电脑伪装成真人 —— 用真人风格昵称，且同房同座位名字固定（各端一致、重开也一样）。
+   名字池覆盖 英/韩/中/日/西/法，六种语言随机组名：单名 / 姓名组合 / 单名+数字后缀，
+   看起来就是普通玩家；同房内不重名（used 集合去重）。
+   ⚠ 只在这里（服务端）随机，名字写进 seat 后广播给所有人 —— 不在客户端生成，锁步一致性不受影响。 */
+const BOT_NAME_POOL = {
+  en: { first: ['Alex','Kai','Nova','Mika','Rex','Luna','Zed','Ivy','Milo','Sage','Rin','Otto','Aiden','Mia','Ethan','Zoe','Liam','Nora','Owen','Ruby','Finn','Ivy','Cora','Jude','Theo','Elena','Marco','Lily'],
+        last: ['Smith','Reed','Cole','Hale','Vance','Brooks','Foster','Gray','West','King','Bennett','Hayes'] },
+  ko: { first: ['민준','서연','지호','하은','도윤','수아','예준','지우','시우','유나','준서','채원','하린','은우','서진','다온','지안','윤아','태오','소율'],
+        last: ['김','이','박','최','정','강','조','윤','장','임','한','오'] },
+  zh: { first: ['阿杰','小雨','子涵','浩然','欣怡','梓萱','俊杰','思远','若曦','天宇','梦琪','嘉豪','雨桐','一诺','晨曦','皓轩','语嫣','晨曦','书瑶','明哲'],
+        last: ['王','李','张','刘','陈','杨','赵','周','吴','徐','孙','马'] },
+  ja: { first: ['ハルト','ユイ','ソラ','レン','ミオ','カイト','アオイ','リク','ヒナ','ツバサ','ミナ','コウ','ナナ','ソウタ','エマ','ユウト','サクラ','レオ'],
+        last: ['佐藤','鈴木','高橋','田中','伊藤','渡辺','山本','中村','小林','加藤','吉田','山田'] },
+  es: { first: ['Mateo','Sofía','Diego','Valentina','Lucas','Camila','Javier','Lucía','Andrés','Paula','Iker','Nuria','Álvaro','Emma','Pablo','Claudia','Raúl','Elena'],
+        last: ['García','López','Martín','Sánchez','Romero','Torres','Navarro','Ruiz','Molina','Ortega','Vega','Castro'] },
+  fr: { first: ['Chloé','Hugo','Léa','Nathan','Manon','Louis','Jade','Théo','Inès','Gabriel','Alice','Raphaël','Camille','Jules','Zoé','Mathis','Louise','Arthur'],
+        last: ['Martin','Bernard','Dubois','Moreau','Laurent','Simon','Michel','Lefèvre','Leroy','Roux','Girard','Fournier'] }
+};
+const BOT_LANGS = ['en', 'ko', 'zh', 'ja', 'es', 'fr'];
+const BOT_SUFFIX = ['07', '21', '99', '_', '★', '42'];   // 真人风格后缀（不要 'x'，像打错字）
+function _botHash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function botName(room, seat) {
   const used = new Set(room.seats.filter(x => x && x.name).map(x => x.name));
-  let h = 0; const s = String(room.code) + ':' + seat;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
-  for (let k = 0; k < BOT_NAMES.length; k++) {
-    const n = BOT_NAMES[(h + k) % BOT_NAMES.length];
+  const base = String(room.code || '') + ':' + seat;
+  for (let k = 0; k < 96; k++) {
+    const h = _botHash(base + '#' + k);
+    const lang = BOT_LANGS[h % BOT_LANGS.length];
+    const pool = BOT_NAME_POOL[lang];
+    const first = pool.first[(h >>> 3) % pool.first.length];
+    const style = (h >>> 8) % 10;                    // 0-5 单名 / 6-7 姓名组合 / 8-9 单名+后缀
+    let n;
+    if (style < 6) n = first;
+    else if (style < 8) {
+      const last = pool.last[(h >>> 11) % pool.last.length];
+      n = (lang === 'zh' || lang === 'ko' || lang === 'ja') ? (last + first) : (first + ' ' + last);
+    } else n = first + BOT_SUFFIX[(h >>> 13) % BOT_SUFFIX.length];
+    /* 昵称上限 12 字：姓名组合太长时退回单名，绝不把名字截成半个词（"Arthur Lefèv"） */
+    if (n.length > 12) n = first;
+    if (n.length > 12) n = n.slice(0, 12);
     if (!used.has(n)) return n;
   }
-  return BOT_NAMES[h % BOT_NAMES.length];
+  return 'Player' + (seat + 1);
 }
 /* ★ 在线人数（模块作用域：health 与 a:'online' 两处都用） */
 /* ★ 2026-11-17：实时在线人数（去重：同一 pid 只算一次；电脑位不算） */
@@ -523,18 +599,23 @@ function friendListOf(pid) {
   const a = accOf(pid); if (!a) return [];
   return a.friends.map(id => {
     const b = ACCTS[id] || {}, o = isOn(id) ? ONLINE.get(id) : null;
-    return { id, nick: (o && o.nick) || b.nick || 'Player', online: !!o, code: o ? (o.code || '') : '' };
+    return { id, nick: (o && o.nick) || b.nick || 'Player', online: !!o, code: o ? (o.code || '') : '',
+             avatar: (b.avatar || ''), trophies: (b.trophies | 0), char: (b.char || '') };   // ★ 2026-11-23 好友头像/奖杯
   });
 }
 function reqListOf(pid) {
   const a = accOf(pid); if (!a) return [];
-  return (a.req || []).map(r => ({ id: r.id, nick: (ACCTS[r.id] || {}).nick || r.nick || 'Player', at: r.at || 0 }));
+  return (a.req || []).map(r => {
+    const b = ACCTS[r.id] || {};
+    return { id: r.id, nick: b.nick || r.nick || 'Player', at: r.at || 0,
+             avatar: b.avatar || '', trophies: b.trophies | 0 };     // ★ 2026-11-23：申请也带头像
+  });
 }
 function outReqOf(pid) {
   const out = [];
   for (const k of Object.keys(ACCTS)) {
     const a2 = ACCTS[k];
-    if (a2 && a2.req && a2.req.some(r => r.id === String(pid))) out.push({ id: k, nick: a2.nick || 'Player' });
+    if (a2 && a2.req && a2.req.some(r => r.id === String(pid))) out.push({ id: k, nick: a2.nick || 'Player', avatar: a2.avatar || '' });
   }
   return out;
 }
@@ -721,6 +802,12 @@ function handle(act, ctx) {
         const ch = (room.state === 'lobby' && act.char) ? act.char : ((prev && prev.char) || 'sparky');
         return (want && SKIN_CHAR[want] === ch) ? want : '';
       })(),
+      /* ★ 2026-11-23：per-seat 武器（大厅才能改；对局中重连沿用），必须与角色匹配 */
+      weapon: (function () {
+        const want = (room.state === 'lobby' && act.weapon) ? String(act.weapon) : ((prev && prev.weapon) || '');
+        const ch = (room.state === 'lobby' && act.char) ? act.char : ((prev && prev.char) || 'sparky');
+        return (want && WEAPON_CHAR[want] === ch) ? want : '';
+      })(),
       ready: reconnected ? (prev && prev.ready) : false,
       ai: false, bot: !!act.bot, connected: true, lastSeen: now,
       frameSeen: 0, frameT: now, recoverMs: 0, inTop: 0,          // 帧号推进判活用（见 AI_TAKEOVER_MS 注释）
@@ -766,8 +853,12 @@ function handle(act, ctx) {
   if (act.a === 'list') {
     const lim = Math.max(1, Math.min(20, parseInt(act.lim, 10) || 10));
     const off = Math.max(0, parseInt(act.off, 10) || 0);
+    /* ★ 2026-11-21 修「rooms 列表里还显示已经走了的玩家和人机」：
+       只列出「至少有一个活着的真人」的房间 —— 只剩机器人 / 只剩已退出座位 / 已结束的房间
+       一律不出现在列表里（以前只滤 state==='end'，房主离开后保留 2 分钟的机器人房会一直挂着）。 */
+    const liveHuman = r => r.seats.some(x => x && !x.bot && !x.left && (x.connected || seatHasSocket(r, x.seat)));
     const all = [...rooms.values()]
-      .filter(r => r.state !== 'end')
+      .filter(r => r.state !== 'end' && liveHuman(r))
       .sort((a, b) =>
         (b.seats.filter(Boolean).length - a.seats.filter(Boolean).length) ||   // 人多的排前面
         (b.created - a.created));                                             // 同人数新的排前面
@@ -775,10 +866,13 @@ function handle(act, ctx) {
       ok: true, total: all.length, off, lim,
       list: all.slice(off, off + lim).map(r => {
         const host = r.seats[r.hostSeat];
+        const humans = r.seats.filter(x => x && !x.bot && !x.left).length;
         return {
           code: r.code,
           host: (host && host.name) || '—',
-          players: r.seats.filter(Boolean).length,
+          kind: r.autoDisband ? 'match' : 'custom',   // ★ 匹配房不在 Search Rooms 里出现
+          players: humans,                // ★ 只算真人：以前把 AI 也算进去，看起来「房里有人」
+          bots: r.seats.filter(x => x && x.bot).length,
           max: r.rules.count,
           state: r.state,                 // lobby | play
           locked: !!r.passHash,
@@ -818,6 +912,11 @@ function handle(act, ctx) {
       const wantSkin = String(act.skin || '');
       s.skin = (wantSkin && SKIN_CHAR[wantSkin] === s.char) ? wantSkin : '';
     } else if (s.skin && SKIN_CHAR[s.skin] !== s.char) s.skin = '';
+    /* ★ 2026-11-23：武器跟着角色走 —— 换角色/换武器都即时同步（不匹配就清空） */
+    if (act.weapon !== undefined) {
+      const wantW = String(act.weapon || '');
+      s.weapon = (wantW && WEAPON_CHAR[wantW] === s.char) ? wantW : '';
+    } else if (s.weapon && WEAPON_CHAR[s.weapon] !== s.char) s.weapon = '';
     broadcast(room, { a:'seats', room: roomPublic(room) });
     log('[char]', room.code, 'seat', seat, '->', act.char);
     return { ok: true };
@@ -847,9 +946,48 @@ function handle(act, ctx) {
     // 准备时一并带上当前选的角色：玩家常见操作是「先加入 → 再换角色 → Ready」，
     // 只靠 hello 那一次上报会让开局用回旧角色。
     if (room.state !== 'play' && act.char && CHAR_POOL.indexOf(act.char) >= 0) s.char = act.char;   // ★ 同 char：end 态也允许
+    if (room.state !== 'play' && act.weapon !== undefined) {
+      const w2 = String(act.weapon || '');
+      s.weapon = (w2 && WEAPON_CHAR[w2] === s.char) ? w2 : '';
+    }
     s.ready = !!act.v; s.lastSeen = now;
     broadcast(room, { a:'seats', room: roomPublic(room) });
     return { ok: true };
+  }
+
+  /* --- 房主在大厅改房间规则（匹配面板切模式用）---
+     ★ 2026-11-21：以前切模式 = 客户端 leave + 重新建房，会撞「10 秒一个房」的冷却
+     → 第二次 create 返回 rate_limited，匹配面板停在不动（用户报的「点其他模式卡死」）。
+     这里允许房主在大厅原地改 count/teams，匹配时直接复用同一个房。 */
+  if (act.a === 'rules') {
+    if (!s) return { ok: false, e: 'bad_seat' };
+    if (seat !== room.hostSeat) return { ok: false, e: 'not_host' };
+    if (room.state !== 'lobby') return { ok: false, e: 'in_game' };
+    const r = act.rules || {};
+    const nx = {
+      count: Math.max(2, Math.min(4, (r.count | 0) || (room.rules.count | 0) || 4)),
+      stocks: Math.max(1, Math.min(5, (r.stocks | 0) || (room.rules.stocks | 0) || 3)),
+      time: Math.max(0, Math.min(600, (r.time | 0) || 0)),
+      diff: Math.max(1, Math.min(3, (r.diff | 0) || (room.rules.diff | 0) || 3)),
+      teams: r.teams ? 1 : 0,
+      mode: r.mode === 'gem' ? 'gem' : '',
+      stage: (r.stage === undefined || r.stage === null) ? null : r.stage,
+    };
+    /* 有真人坐在新 count 之外 → 不能悄悄把他踢掉，让客户端回退到「新建房」 */
+    for (let i = nx.count; i < room.seats.length; i++) {
+      const x = room.seats[i];
+      if (x && !x.bot && !x.left) return { ok: false, e: 'seats_in_use' };
+    }
+    room.rules = Object.assign({}, room.rules, nx);
+    QUEUE.delete(room.code); room.queued = null;          // 模式变了：退出旧匹配队列
+    for (let i = nx.count; i < room.seats.length; i++) {  // 清掉多出来的机器人空位
+      const x = room.seats[i];
+      if (x && (x.bot || x.left)) { room.seats[i] = null; if (room.ack) delete room.ack[i]; if (room.inputs) room.inputs.delete(i); }
+    }
+    room.updated = now;
+    broadcast(room, { a:'seats', room: roomPublic(room) });
+    log('[rules]', room.code, 'seat', seat, JSON.stringify(nx));
+    return { ok: true, room: roomPublic(room) };
   }
 
   /* --- 房主开始对局 --- */
@@ -897,7 +1035,8 @@ function handle(act, ctx) {
     broadcast(room, { a:'go', room: roomPublic(room), seed: room.seed,
                       startFrame: room.startFrame, rules: room.rules,
                       avatars: room.seats.map(x => (x && x.avatar) || ''),   // ★ 第 67 轮
-                      chars: room.seats.map(x => x && x.char) });
+                      chars: room.seats.map(x => x && x.char),
+                      weapons: room.seats.map(x => (x && x.weapon) || '') });
     log('[start]', room.code, 'seed', room.seed, 'chars', room.seats.map(x => x && x.char).join(','));
     return { ok: true, seed: room.seed, startFrame: 0, rules: room.rules };
   }
@@ -941,6 +1080,7 @@ function handle(act, ctx) {
     broadcast(room, { a:'go', room: roomPublic(room), seed: room.seed, startFrame: 0,
                       rules: room.rules, chars: room.seats.map(x => x && x.char),
                     skins: room.seats.map(x => (x && x.skin) || ''),      // ★ per-seat 皮肤（客户端 opts.skins）
+                    weapons: room.seats.map(x => (x && x.weapon) || ''),  // ★ per-seat 武器（客户端 opts.weapons）
                       avatars: room.seats.map(x => (x && x.avatar) || '') });
     log('[rematch]', room.code, 'seed', room.seed, 'players', need.length);
     return { ok: true, voted, need: need.length, started: true, seed: room.seed, startFrame: 0, rules: room.rules };
@@ -1135,6 +1275,18 @@ function handle(act, ctx) {
     if (!s) return { ok: false };
     if (room.state !== 'end') { room.state = 'end'; saveResult(room, act.res || null); }
     broadcast(room, { a:'end', room: roomPublic(room), res: act.res || null });
+    /* ★ 2026-11-21（用户规格）：online match 结束后自动解散房间，不保留小队。
+       先让结算屏/回放落地（2.2s），再广播 closed 并回收房间 —— 客户端收到 closed 会清空
+       本地房间状态并回大厅；之后 Play Again / 投票重开不再存在（客户端已隐藏该入口）。 */
+    if (room.autoDisband && !room.closeT) {     // ★ 只有匹配房自动解散；好友房保留，等全员 Play Again
+      room.closeT = setTimeout(() => {
+        for (const ws of [...room.clients, ...room.specs]) {
+          try { ws.send(JSON.stringify({ a:'closed', room: room.code, why:'match over' })); } catch (e) {}
+        }
+        reapRoom(room, 'match over (auto-disband)');
+      }, 2200);
+      if (room.closeT.unref) room.closeT.unref();
+    }
     return { ok: true };
   }
 
@@ -1167,11 +1319,13 @@ function handle(act, ctx) {
     broadcast(room, { a:'seats', room: roomPublic(room) });
     if (humansIn(room) === 0) {
       if (room.state === 'lobby') {
-        /* 自己创建的房间保留（给房主留个回房窗口），加入别人的房 → 立刻回收 */
-        if (room.createdBy && room.createdBy === String(act.pid)) {
+        /* ★ 2026-11-21：房里只要还有机器人（人机小队），房主离开就立刻回收 ——
+           以前保留 2 分钟，别人在 Search Rooms 里还能看到一个“有人（其实全是 AI）”的房。 */
+        const hasBots = room.seats.some(x => x && x.bot);
+        if (!hasBots && room.createdBy && room.createdBy === String(act.pid)) {
           room.keepUntil = now + 120000; room.emptySince = 0;
           log('[room] kept (creator left)', room.code, '2min');
-        } else { reapRoom(room, 'all left'); return { ok: true, reaped: true }; }
+        } else { reapRoom(room, hasBots ? 'all left (bots)' : 'all left'); return { ok: true, reaped: true }; }
       } else {
         room.emptySince = room.emptySince || now;
       }
@@ -1182,7 +1336,9 @@ function handle(act, ctx) {
   function social(act, ctx, now) {
   /* ★ 第 94 轮：账号存档 / 邮箱验证码（复用 werewolf 的 PHP SMTP 发信器） */
   const profileOf = (a) => ({
-    coins: a.coins | 0, trophies: a.trophies | 0, owned: a.owned || [], claimed: a.claimed || [],
+    serverWallet: true, walletSeq: a.walletSeq | 0,     // ★ 2026-11-21：货币以服务端账本为准
+    coins: a.coins | 0, trophies: a.trophies | 0, pity: a.pity | 0, pityEpic: a.pityEpic | 0,
+    owned: a.owned || [], claimed: a.claimed || [],
     welcome: a.welcome !== false, dailyDay: a.dailyDay || '', dailyProg: a.dailyProg || {},
     dailyClaimed: a.dailyClaimed || [], char: a.char || '', nick: a.nick || '',
     avatar: a.avatar || '',                       // ★ 第 97 轮：头像也存服务端（跨设备一致）
@@ -1201,14 +1357,58 @@ function handle(act, ctx) {
   const _dayNum = (s) => { const m = /^(\d+)-(\d+)-(\d+)$/.exec(String(s || ''));
     return m ? (+m[1]) * 10000 + (+m[2]) * 100 + (+m[3]) : 0; };
   const _uni = (arr, cap) => Array.from(new Set((arr || []).filter(x => x !== null && x !== undefined))).slice(0, cap || 96);
-  function applyProfile(a, p, merge) {
+  /* ★ 2026-11-21：钱包账本 —— 客户端只上报增量 op，服务端按 op.id 幂等入账。
+     这样两台设备「A 花 300 / B 赚 100」都能各自生效，不会互相覆盖，也不会被 max 合并放大。
+     余额是服务端唯一真值；op id 记在 a.opIds 里（含持久化），重复投递只入账一次。 */
+  const WAL_CUR = { coins: 1, gems: 1, trophies: 1, shards: 1, pts: 1, pity: 1, pityEpic: 1 };
+  const WAL_CAP = { pity: 50, pityEpic: 200 };
+  function applyWalletOps(a, ops) {
+    if (!Array.isArray(ops) || !ops.length) return [];
+    if (!a.opIds || typeof a.opIds !== 'object') a.opIds = {};
+    const now2 = Date.now(), ack = [];
+    for (const o of ops.slice(0, 100)) {
+      if (!o || typeof o !== 'object') continue;
+      const id = String(o.id || '').slice(0, 48);
+      const cur = String(o.cur || '');
+      const dv = o.d | 0;
+      if (!id || !WAL_CUR[cur] || !dv) continue;
+      ack.push(id);
+      if (a.opIds[id]) continue;                          // 幂等：同一 op 只入账一次
+      const before = a[cur] | 0;
+      const hi = WAL_CAP[cur] || 2000000000;
+      a[cur] = Math.max(0, Math.min(hi, before + dv));
+      a.opIds[id] = now2;
+      if ((before + dv) < 0) log('[wallet] clamp', cur, before, dv);
+    }
+    /* 清理：只保留最近 400 条（客户端 ack 后不会重发，重发窗口远小于这个量级） */
+    const ks = Object.keys(a.opIds);
+    if (ks.length > 400) for (const k of ks.slice(0, ks.length - 400)) delete a.opIds[k];
+    a.walletSeq = (a.walletSeq | 0) + ack.length;
+    return ack;
+  }
+  function applyProfile(a, p, merge, opts) {
     if (!p || typeof p !== 'object') return;
     const pick = (cur, v) => merge ? Math.max(cur | 0, v | 0) : (v | 0);
-    if (Number.isFinite(p.coins))    a.coins = Math.max(0, pick(a.coins, p.coins));
-    if (Number.isFinite(p.gems))     a.gems = Math.max(0, pick(a.gems, p.gems));
-    if (Number.isFinite(p.shards))   a.shards = Math.max(0, pick(a.shards, p.shards));   // 记忆碎片
-    if (Number.isFinite(p.trophies)) a.trophies = Math.max(0, pick(a.trophies, p.trophies));
-    if (Number.isFinite(p.pity))     a.pity = Math.max(0, Math.min(50, pick(a.pity, p.pity)));
+    const walletManaged = !!(opts && opts.walletManaged);
+    if (walletManaged) {
+      /* ★ 一次性迁移：第一次用新协议时，把本机余额并进服务端（保留老玩家的合法进度）。
+         之后货币只走账本，客户端上报的绝对 coins/gems/... 一律忽略。 */
+      if (!a.walletInit) {
+        for (const k in WAL_CUR) if (Number.isFinite(p[k])) a[k] = Math.max(a[k] | 0, p[k] | 0);
+        a.walletInit = true;
+        log('[wallet] init', a.id || '', 'coins=' + (a.coins | 0), 'gems=' + (a.gems | 0));
+      }
+    } else {
+      if (Number.isFinite(p.coins))    a.coins = Math.max(0, pick(a.coins, p.coins));
+      if (Number.isFinite(p.gems))     a.gems = Math.max(0, pick(a.gems, p.gems));
+      if (Number.isFinite(p.shards))   a.shards = Math.max(0, pick(a.shards, p.shards));   // 记忆碎片
+      if (Number.isFinite(p.trophies)) a.trophies = Math.max(0, pick(a.trophies, p.trophies));
+    }
+    /* pity / pityEpic 也走账本（walletManaged 时不能再用客户端绝对值覆盖） */
+    if (!walletManaged) {
+      if (Number.isFinite(p.pity))     a.pity = Math.max(0, Math.min(50, pick(a.pity, p.pity)));
+      if (Number.isFinite(p.pityEpic)) a.pityEpic = Math.max(0, Math.min(200, pick(a.pityEpic | 0, p.pityEpic)));
+    }
     /* 集合类永远并集：解锁/皮肤/武器/至尊/奖励领取只会增加 */
     if (Array.isArray(p.owned))    a.owned = _uni((a.owned || []).concat(p.owned.filter(x => typeof x === 'string')), 96);
     if (Array.isArray(p.claimed))  a.claimed = _uni((a.claimed || []).concat(p.claimed.map(x => Number(x) | 0)), 96);
@@ -1346,11 +1546,30 @@ function handle(act, ctx) {
        rev 相同 = 只有这台设备在写 → 以客户端为准；rev 落后 = 别的设备写过 → 保守合并。 */
     const _cr = Number.isFinite(act.rev) ? (act.rev | 0) : 0;
     const _merge = _cr < (a.rev | 0);
-    if (act.profile && typeof act.profile === 'object') applyProfile(a, act.profile, _merge);
+    /* ★ 2026-11-21：先按 op 入账（幂等），再合并档案；新协议下档案里的绝对余额不再生效 */
+    const _ops = Array.isArray(act.walletOps) ? act.walletOps : null;
+    const _managed = !!_ops;
+    const _ack = _ops ? applyWalletOps(a, _ops) : [];
+    if (act.profile && typeof act.profile === 'object') applyProfile(a, act.profile, _merge, { walletManaged: _managed });
     a.rev = (a.rev | 0) + 1;
+    /* 双设备检测：同一 pid 最近 2 分钟还被别的 device 用过 */
+    if (act.device) {
+      if (!a.devT || typeof a.devT !== 'object') a.devT = {};
+      a.devT[String(act.device).slice(0, 32)] = now;
+    }
+    let _other = false;
+    if (a.devT) {
+      const dv = String(act.device || '');
+      /* ⚠ 时间戳千万不要 `| 0`：ms 级时间戳超过 2^31，位运算会变成负数 → 刚写进去就被当成过期删掉 */
+      for (const k in a.devT) {
+        if (now - Number(a.devT[k] || 0) > 180000) delete a.devT[k];
+        else if (k !== dv) _other = true;
+      }
+    }
     ONLINE.set(String(act.pid), rec);
     accSave();
     return { ok: true, me: String(act.pid), nick: a.nick, trophies: a.trophies | 0, merged: _merge,
+             ack: _ack, walletSeq: a.walletSeq | 0, otherDevice: _other,
              email: a.emailVerified ? a.email : '', profile: profileOf(a) };
   }
   if (act.a === 'friends') {
@@ -1363,7 +1582,7 @@ function handle(act, ctx) {
     if (ctx.ws) rec.ws = ctx.ws;
     /* ★ 跨设备同步（好友轮询也会捎带整份档案）—— 与 acct 同一套 rev 合并规则 */
     const _cr2 = Number.isFinite(act.rev) ? (act.rev | 0) : 0;
-    if (act.profile && typeof act.profile === 'object') applyProfile(a, act.profile, _cr2 < (a.rev | 0));
+    if (act.profile && typeof act.profile === 'object') applyProfile(a, act.profile, _cr2 < (a.rev | 0), { walletManaged: !!a.walletInit });
     ONLINE.set(String(act.pid), rec);
     accSave();
     return { ok: true, me: String(act.pid), nick: a.nick, list: friendListOf(act.pid), inv,
