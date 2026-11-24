@@ -1415,13 +1415,15 @@ const STAGES = [
      boss 体型是自机的 1.55 倍，所以场地要横着放开（66 格宽），中间留空给追逐战。 */
   { id:'jellyland', name:'Jelly Land', mainW:66, mainD:9.6, mainH:2.2, platD:6.0, platH:.9, wallX:33,
     fog:0xf1e0ff, topColor:0xb57bff, rockColor:0x6a3fa8, platColor:0xc9a6ff,
+    sky:{ top:0x4a2288, mid:0xa878ff, bot:0xffd0f0 },
     hint:'JELLY LAND · every platform is wobbling jelly · BOSS TRIAL arena',
     plats:[ {x:-22,y:5.4,w:10,kind:'island'}, {x:0,y:5.4,w:10,kind:'island'}, {x:22,y:5.4,w:10,kind:'island'},
             {x:-11,y:11.0,w:8,kind:'cloud'}, {x:11,y:11.0,w:8,kind:'cloud'},
             {x:0,y:16.4,w:11,kind:'cloud'},
             {x:-27,y:15.0,w:6.5,kind:'cloud'}, {x:27,y:15.0,w:6.5,kind:'cloud'} ] },
   { id:'snowfield', name:'Snowfield', mainW:66, mainD:9.6, mainH:2.2, platD:6.0, platH:.9, wallX:33,
-    fog:0xdcecff, topColor:0xf7fcff, rockColor:0xa9c4e0, platColor:0xd6e8fb,
+    fog:0xdcecff, topColor:0xf7fcff, rockColor:0xa9c4e0, platColor:0xd6e8fb, snowfall:true,
+    sky:{ top:0x3d6f9e, mid:0x9fc4e0, bot:0xdfeefa },
     hint:'SNOWFIELD · wide open ice field · BOSS TRIAL arena',
     plats:[ {x:-24,y:5.2,w:11,kind:'island'}, {x:0,y:5.2,w:11,kind:'island'}, {x:24,y:5.2,w:11,kind:'island'},
             {x:-12,y:10.6,w:9,kind:'cloud'}, {x:12,y:10.6,w:9,kind:'cloud'},
@@ -4550,7 +4552,7 @@ function clearField() {
   /* ★ MECH_SPIDERS（机械蜘蛛）：它们会自己咬人（吃伤害/带击退），以前换局不清 ——
      上一局的蜘蛛会跟着进新局，开局第 1 帧就把人咬到 16% 并给硬直（实测复现）。 */
   try { for (const sp of MECH_SPIDERS) scene.remove(sp.mesh); MECH_SPIDERS.length = 0; } catch (e) {}
-  try { weather.snow = 0; } catch (e) {}
+  try { weather.snow = STAGE.snowfall ? 999 : 0; } catch (e) {}   // ★ 雪地图常驻飘雪（999s 足够跑完一局）
   try { match.cbFreeze = null; cbHideAim(); } catch (e) {}
   FX.list.forEach(f => scene.remove(f.obj)); FX.list.length = 0;
 }
@@ -4597,6 +4599,17 @@ function setStage(si) {
   /* ★ 彩虹图：显示大彩虹 + 隐藏远山（整图云朵）；换回别的图时必须复位 */
   try { RAINBOW_BG.show(!!STAGE.rainbow); } catch (e) { window.__rainbowErr = String((e && e.message) || e); }
   try { if (SKY.mounts) SKY.mounts.visible = !STAGE.noMounts && !STAGE.water; } catch (e) {}
+  /* ★ 2026-11-24：按地图换天空渐变（雪地=冷蓝、果冻=紫粉）。没有 sky 字段就复位出厂色，
+     否则换回草原会留着上一张图的紫天空。 */
+  try {
+    const U = SKY.dome && SKY.dome.material && SKY.dome.material.uniforms;
+    if (U) {
+      const sk = STAGE.sky;
+      U.top.value.setHex(sk ? sk.top : 0x2b62d6);
+      U.mid.value.setHex(sk ? sk.mid : 0x8fc0ff);
+      U.bot.value.setHex(sk ? sk.bot : 0xffe6bb);
+    }
+  } catch (e) {}
 }
 
 /* ★ 2026-11-19：开局前预热「水域图」的重资源（水下世界 + 着色器）。
@@ -4752,6 +4765,89 @@ function decoSky(G) {                           // 天空竞技场：浮空岛 /
   }
 }
 /* —— 沙漠装饰：仙人掌 / 沙丘岩 + 兽骨 / 枯木 + 远处金字塔剪影（沙漠辨识度）—— */
+/* ★ 2026-11-24 首领试炼两张新图的专属装饰（原来它们落到 decoMeadow → 雪地上长仙人掌、蘑菇） */
+function decoJelly(G) {
+  const jellyMat = new THREE.MeshStandardMaterial({ color:0xc9a6ff, roughness:.10, metalness:.02,
+    transparent:true, opacity:.82, emissive:0x4a2088, emissiveIntensity:.34 });
+  const jellyMat2 = new THREE.MeshStandardMaterial({ color:0xe7d6ff, roughness:.08, metalness:.02,
+    transparent:true, opacity:.74, emissive:0x6a3fb0, emissiveIntensity:.28 });
+  const puddleM = new THREE.MeshStandardMaterial({ color:0xb98bff, roughness:.14, transparent:true, opacity:.55 });
+  const hlM = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.40, depthWrite:false });
+  const n = 7 + Math.round(STAGE.mainW / 18);
+  for (let i = 0; i < n; i++) {
+    const x = -STAGE.mainW/2 + (i + .5) * (STAGE.mainW / n);
+    const g = new THREE.Group();
+    if (i % 3 === 0) {                       // 一大坨果冻（扁球 + 高光）
+      const sz = .80 + (i % 2) * .35;
+      const b = new THREE.Mesh(new THREE.SphereGeometry(sz, 12, 9), jellyMat);
+      b.scale.set(1.16, .92, 1.0); b.position.y = sz * .82; g.add(b);
+      const hl = new THREE.Mesh(new THREE.SphereGeometry(sz * .32, 8, 6), hlM);
+      hl.position.set(-sz * .34, sz * 1.18, sz * .56); g.add(hl);
+    } else if (i % 3 === 1) {                // 果冻柱（拉长的胶）
+      const h = 1.5 + (i % 3) * .45;
+      const c = new THREE.Mesh(new THREE.CapsuleGeometry(.42, h, 6, 10), jellyMat2);
+      c.position.y = h * .5 + .42; g.add(c);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(.44, 10, 8), jellyMat);
+      cap.scale.set(1, .55, 1); cap.position.y = h + .42; g.add(cap);
+    } else {                                 // 糖浆池 + 三颗胶滴
+      const p2 = new THREE.Mesh(new THREE.CircleGeometry(.95, 18), puddleM);
+      p2.rotation.x = -Math.PI/2; p2.position.y = .04; p2.scale.set(1, .62, 1); g.add(p2);
+      for (let k = 0; k < 3; k++) {
+        const d = new THREE.Mesh(new THREE.SphereGeometry(.17 - k * .03, 8, 6), jellyMat);
+        d.position.set((k - 1) * .55, .20, .10 + k * .26); g.add(d);
+      }
+    }
+    g.position.set(x, 0, -2.8 - (i % 2) * .9);
+    G.add(g);
+  }
+}
+function decoSnow(G) {
+  const pineM = new THREE.MeshStandardMaterial({ color:0x2e6b52, roughness:.85, flatShading:true });
+  const snowM = new THREE.MeshStandardMaterial({ color:0xf7fcff, roughness:.75, flatShading:true });
+  const iceM  = new THREE.MeshStandardMaterial({ color:0xbfe4ff, roughness:.15, metalness:.05,
+    transparent:true, opacity:.86, emissive:0x2a5c88, emissiveIntensity:.20 });
+  const darkM = new THREE.MeshStandardMaterial({ color:0x22303f, roughness:.6 });
+  const noseM = new THREE.MeshStandardMaterial({ color:0xff9a3c, roughness:.6 });
+  const n = 7 + Math.round(STAGE.mainW / 18);
+  for (let i = 0; i < n; i++) {
+    const x = -STAGE.mainW/2 + (i + .5) * (STAGE.mainW / n);
+    const g = new THREE.Group();
+    if (i % 3 === 0) {                       // 雪松：三层锥 + 每层积雪
+      const h = 2.4 + (i % 2) * .8, w = .95;
+      for (let k = 0; k < 3; k++) {
+        const rr = w * (1 - k * .24);
+        const c = new THREE.Mesh(new THREE.ConeGeometry(rr, h * .50, 7), pineM);
+        c.position.y = h * (.22 + k * .26); g.add(c);
+        const sc = new THREE.Mesh(new THREE.ConeGeometry(rr * 1.03, h * .15, 7), snowM);
+        sc.position.y = h * (.30 + k * .26); g.add(sc);
+      }
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.11, .14, .5, 6), darkM);
+      trunk.position.y = .25; g.add(trunk);
+    } else if (i % 3 === 1) {                // 雪堆 + 冰晶柱
+      const p2 = new THREE.Mesh(new THREE.SphereGeometry(.85, 10, 8), snowM);
+      p2.scale.set(1.25, .55, 1); p2.position.y = .35; g.add(p2);
+      for (let k = 0; k < 3; k++) {
+        const ic = new THREE.Mesh(new THREE.ConeGeometry(.14, .9 + k * .35, 5), iceM);
+        ic.position.set((k - 1) * .55, .78 + k * .18, .22); ic.rotation.z = (k - 1) * .22; g.add(ic);
+      }
+    } else {                                 // 雪人
+      const b1 = new THREE.Mesh(new THREE.SphereGeometry(.55, 10, 8), snowM);
+      b1.position.y = .55; g.add(b1);
+      const b2 = new THREE.Mesh(new THREE.SphereGeometry(.38, 10, 8), snowM);
+      b2.position.y = 1.35; g.add(b2);
+      for (const sd of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(.045, .055, .7, 4), pineM);
+        arm.position.set(sd * .52, 1.42, 0); arm.rotation.z = sd * 1.15; g.add(arm);
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(.055, 6, 5), darkM);
+        eye.position.set(sd * .14, 1.45, .33); g.add(eye);
+      }
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(.07, .28, 5), noseM);
+      nose.position.set(0, 1.36, .38); nose.rotation.x = Math.PI / 2; g.add(nose);
+    }
+    g.position.set(x, 0, -2.8 - (i % 2) * .9);
+    G.add(g);
+  }
+}
 function decoDesert(G) {
   const sandM = new THREE.MeshStandardMaterial({ color:0xdcbb7c, roughness:1, flatShading:true });
   const darkSand = new THREE.MeshStandardMaterial({ color:0xc09a5e, roughness:1, flatShading:true });
@@ -5024,6 +5120,7 @@ const DECO_BY_ID = { meadow:decoMeadow, meadowXL:decoMeadow, pillars:decoPillars
                      rooftop:decoRoof, rooftopXL:decoRoof,
                      mines:decoMines, minesXL:decoMines,
                      ocean:decoOcean, oceanXL:decoOcean,
+                     jellyland:decoJelly, snowfield:decoSnow,      // ★ 首领试炼两张大图
                      };
 buildPlats();                                  // 现在 DECOS 已就绪，首张地图带装饰
 
@@ -29757,7 +29854,16 @@ function bossTrialEnd(win) {
   try { win ? SFX.cheer() : SFX.ko(); } catch (e) {}
   if (win) { try { BTTrial.saveClear(match.boss.trial); } catch (e) {} }
   const _b = match.boss;                        // ★ B4：只结束「这一个」boss 局（玩家 1.2s 内重开不会被误杀）
-  setTimeout(() => { try { if (match.boss === _b) endMatch(); } catch (e) {} }, 1200);
+  const _i = match.boss.trial, _last = (BOSS_TRIALS.length - 1);
+  if (win && _i < _last) {
+    /* ★ 连续流程：打穿一关 → 2 秒后直接进下一关（最后一关才回结算页） */
+    try { banner('TRIAL CLEAR! NEXT IN 2s', true); } catch (e) {}
+    setTimeout(() => {
+      try { if (match.boss === _b) { SFX.go(1); startBossTrial(_i + 1); } } catch (e) {}
+    }, 2000);
+  } else {
+    setTimeout(() => { try { if (match.boss === _b) endMatch(); } catch (e) {} }, 1200);
+  }
 }
 function updateBossHud() {
   const on = match.mode === 'boss' && match.boss;
@@ -29902,7 +30008,8 @@ if (p.fsbar) { const ff = FIGHTERS[i]; const mt = ff ? (ff.fsMeter || 0) : 0;
       /* ★ Jelly 体型 / 反弹 / 粘住 / 卷进球 / 蓄力 —— 必须长在界面上（玩家不看控制台） */
       const jlHud = (f.def && f.def.id === 'jelly')
         ? ('🟣 SIZE ' + Math.round((f.jellyK === undefined ? 1 : f.jellyK) * 100) + '%'
-           + (f.jellyK >= .985 ? ' · MAX · DMG -80% · REFLECT' : ' · REFLECT')
+           + (f.isBoss ? ' · BOSS · NO KB'
+              : (f.jellyK >= .985 ? ' · MAX · DMG -80% · REFLECT' : ' · REFLECT'))
            + (f.jellyFs ? ' · ★ REBIRTH ' + Math.max(0, f.jellyFs.dur - f.jellyFs.t).toFixed(1) + 's' : '')
            + (f.jellyBallCharge ? ' · BALL ' + Math.max(0, (f.jellyBallCharge.cfg.chargeT || 1) - f.jellyBallCharge.t).toFixed(1) + 's' : '')
            + (f.jellyBind ? ' · 🍮 STUCK ' + Math.max(0, f.jellyBind.t).toFixed(1) + 's' : '')
