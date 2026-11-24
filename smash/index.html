@@ -14510,7 +14510,7 @@ function updatePuddles(dt) {
           f.venomOwed = Math.min(VENOM_DPS_CAP * 1.6, (f.venomOwed || 0) + pd.dot * step);
           FX.spark(f.pos.x, f.pos.y + .3, .3, 2, 0x8ef05a);
         } else {
-          f.damage = Math.min(CFG.dmgCap, f.damage + pd.dot * step);
+          f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + pd.dot * step);
           f.maxDamage = Math.max(f.maxDamage || 0, f.damage);
           FX.spark(f.pos.x, f.pos.y + .3, .3, 3, 0x9fe8ff);
         }
@@ -14525,7 +14525,7 @@ function updatePuddles(dt) {
     if (owed <= 0) continue;
     const pay = Math.min(owed, cap);
     f.venomOwed = owed - pay;
-    f.damage = Math.min(CFG.dmgCap, f.damage + pay);
+    f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + pay);
     f.maxDamage = Math.max(f.maxDamage || 0, f.damage);
   }
 }
@@ -14678,7 +14678,7 @@ function updateVortexes(dt) {
           V.tick += dt;
           if (V.tick >= cfg.tick) {
             V.tick -= cfg.tick;
-            f.damage = Math.min(CFG.dmgCap, f.damage + cfg.dot);
+            f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + cfg.dot);
             FX.spark(f.pos.x, f.pos.y + 1.0, .4, 5, cfg.color);
           }
         }
@@ -14764,7 +14764,7 @@ function updatePillars(dt) {
       for (const f of FIGHTERS) {
         if (f === P.owner || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
         if (Math.abs(f.pos.x - P.x) < P.r + f.bodyR * .5 && f.pos.y < 9) {
-          f.damage = Math.min(CFG.dmgCap, f.damage + P.cfg.dot);
+          f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + P.cfg.dot);
           FX.spark(f.pos.x, f.pos.y + .8, .4, 4, P.cfg.color);
         }
       }
@@ -16675,7 +16675,8 @@ class Fighter {
       attacker.fsMeter = Math.min(1, attacker.fsMeter + dmg * .013);   // 打伤害攒必杀技槽
     this.maxDamage = Math.max(this.maxDamage, this.damage);
     /* ★ 首领：伤害百分比达到上限 → 直接倒下（不看击飞出界） */
-    if (this.isBoss && !this.eliminated && this.damage >= (this.bossHp || 1000)) {
+    if (this.isBoss && !this.bossDead && this.damage >= (this.bossHp || 1000)) {
+      this.bossDead = true;                  // ★ B3：同一帧两段伤害只能结算一次（否则 alive 会少减一只）
       this.stocks = 1;                       // 借用引擎的 KO 流程（它会把 stocks 减到 0 → eliminated）
       this.ko('BOSS DOWN');
       try { bossTrialBossDown(this); } catch (e) {}
@@ -16804,7 +16805,7 @@ class Fighter {
     }
     /* ★ Shark 大招空间：受到的伤害 ×2（补差额外那部分） */
     if (this.dmgMul > 1 && typeof dmg === 'number') {
-      this.damage = Math.min(CFG.dmgCap, this.damage + dmg * (this.dmgMul - 1));
+      this.damage = Math.min((this.isBoss ? (this.bossHp + 400) : CFG.dmgCap), this.damage + dmg * (this.dmgMul - 1));
       dmgPopup(this.pos.x, this.headY + .7, this.damage);
     }
     /* ★ Demon 被动：敌人伤害 >200% 且被恶魔命中 → 直接烧成灰 */
@@ -17601,6 +17602,9 @@ class Fighter {
     }
   }
   respawn() {
+    /* ★ B5：boss 永远不走「重生」这条路 —— respawn() 会把 damage 清 0（= % 重置）。
+       真掉出场地就走飞行返回，血量原样保留。 */
+    if (this.isBoss) { this.bossFlyBack(); return; }
     /* ★ 宝石争夺战：从自己队伍那侧的天上落回来（别在中央矿井上刷，否则一复活就挡住宝石） */
     let sx = (gemModeOn() && this.team >= 0) ? (this.team === 0 ? -9 : 9) : 0;
     /* ★ 有空隙的图（Rooftop XL）：正中间就是两栋楼之间的缝，在 x=0 复活会一出生就掉下去
@@ -17799,7 +17803,7 @@ class Fighter {
         for (const f of FIGHTERS) {
           if (f === this || f.eliminated || f.invuln > 0) continue;
           if (Math.abs(f.pos.x - Z.x) > Z.w * .5 || Math.abs(f.pos.y + 1.0 - Z.y) > Z.h * .5 + .5) continue;
-          f.damage = Math.min(CFG.dmgCap, f.damage + (Z.cfg.dmg || 2.5));
+          f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + (Z.cfg.dmg || 2.5));
           f.hitstun = Math.max(f.hitstun, .05);
           f.vel.y = Math.max(f.vel.y, 1.4);
           Z.src = f;                                   // 记下「被它命中的一个敌人」→ 之后偷它的下B
@@ -17888,7 +17892,7 @@ class Fighter {
           FX.beam(C.x, C.mesh.position.y, tg.pos.x, tg.pos.y + 1.0, .34, 0xffffff, .26);
           FX.burst(tg.pos.x, tg.pos.y + 1.0, .2, 0x9fe8ff, 14, 16);
           FX.ring(tg.pos.x, tg.pos.y + 1.0, .2, 2.0, 0xffffff, .24);
-          tg.damage = Math.min(CFG.dmgCap, tg.damage + C.dmg);     // 直接结算 = 正好 10%
+          tg.damage = Math.min((tg.isBoss ? (tg.bossHp + 400) : CFG.dmgCap), tg.damage + C.dmg);     // 直接结算 = 正好 10%
           tg.vel.y = Math.max(tg.vel.y, 5.2); tg.hitstun = Math.max(tg.hitstun, .16);
           SFX.hit(22, 9); shake = Math.max(shake, .35);
         }
@@ -17985,7 +17989,7 @@ class Fighter {
         FX.spark(foe.pos.x, foe.pos.y + 1.0, .6, 8, 0xffffff);
         FX.burst(foe.pos.x, foe.pos.y + 1.0, .22, 0x9fe8ff, 12, 14);
         FX.ring(foe.pos.x, foe.pos.y + 1.0, .18, 1.6, 0xffffff, .18);
-        foe.damage = Math.min(CFG.dmgCap, foe.damage + P.cfg.cageDmg);   // 直接结算：10 × 2.5 = 25%
+        foe.damage = Math.min((foe.isBoss ? (foe.bossHp + 400) : CFG.dmgCap), foe.damage + P.cfg.cageDmg);   // 直接结算：10 × 2.5 = 25%
         foe.hitstun = Math.max(foe.hitstun, .16);
         foe.vel.y = Math.max(foe.vel.y, 3.4);
         hitstop = Math.max(hitstop, .035);                                // 每一拍都顿一下 → 手感变实
@@ -18691,6 +18695,14 @@ class Fighter {
     const S = this.s;
     if (this.eliminated) return;
     if (this.respawnT > 0) { this.respawnT -= dt; if (this.respawnT <= 0) this.respawn(); return; }
+    /* ★ B2 兜底：岩浆 / 毒雾 / 灼烧 / 陷阱这些「直接加 damage」的路径不经过 takeHit，
+       所以 boss 到血量阈值时必须在这里也判一次，否则它会永远站在火里不掉血条。 */
+    if (this.isBoss && !this.bossDead && this.damage >= (this.bossHp || 1000)) {
+      this.bossDead = true; this.stocks = 1;
+      try { this.ko('BOSS DOWN'); } catch (e) {}
+      try { bossTrialBossDown(this); } catch (e) {}
+      return;
+    }
     try { this.tockRec(dt); } catch (e) {}                       // ★ 所有角色都记录位置历史（回到 N 秒前要用）
     try { this.rewindTick(dt); } catch (e) {}                    // ★ 被回溯的一方：过渡滑行 + 头顶沙漏
     if (this.def.id === 'tock') {
@@ -18931,7 +18943,7 @@ class Fighter {
       this.burnTick = (this.burnTick || 0) - dt;
       if (this.burnTick <= 0) {
         this.burnTick = .30;
-        this.damage = Math.min(CFG.dmgCap, this.damage + 3.0);
+        this.damage = Math.min((this.isBoss ? (this.bossHp + 400) : CFG.dmgCap), this.damage + 3.0);
         this.maxDamage = Math.max(this.maxDamage || 0, this.damage);
         dmgPopup(this.pos.x, this.headY + .3, this.damage);
         FX.spark(this.pos.x + (RND() - .5) * .7, this.pos.y + .4 + RND() * .9, .30, 3, 0xff6a10);
@@ -19033,7 +19045,7 @@ class Fighter {
       this.venomT -= dt; this.venomTick -= dt;
       if (this.venomTick <= 0) {
         this.venomTick = .5;
-        this.damage = Math.min(CFG.dmgCap, this.damage + 1.1);
+        this.damage = Math.min((this.isBoss ? (this.bossHp + 400) : CFG.dmgCap), this.damage + 1.1);
         this.maxDamage = Math.max(this.maxDamage || 0, this.damage);
         FX.spark(this.pos.x, this.pos.y + .8, .32, 4, 0x8ef05a);
       }
@@ -19380,7 +19392,7 @@ class Fighter {
     if (H.tick <= 0) {
       H.tick = cfg.tick || .40;
       const d = cfg.dmg || 1.2;
-      f.damage = Math.min(CFG.dmgCap, f.damage + d);
+      f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + d);
       f.maxDamage = Math.max(f.maxDamage || 0, f.damage);
       FX.spark(f.pos.x - back * .4, f.pos.y + 1.15 * sc3, .3, 5, cfg.color);
       FX.ring(f.pos.x, f.pos.y + 1.05 * sc3, .18, .9, cfg.color, .16);
@@ -22553,7 +22565,7 @@ class Fighter {
           f.abducted = false; f.mesh.visible = true; f.shadow.visible = true;
           f.pos.set(this.safeReturnX(T.mx), 12, 0);                // ★ 场外的 x 会被夹回场地内，避免摔死
           f.vel.set(0, -5, 0); f.grounded = false;
-          f.damage = Math.min(CFG.dmgCap, f.damage + 60);          // ★ 回来损失 60%
+          f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + 60);          // ★ 回来损失 60%
           f.maxDamage = Math.max(f.maxDamage || 0, f.damage);
           callout(f, 'RETURNED +60%', 0xff6b6b);
           FX.burst(f.pos.x, f.pos.y + 1, .4, 0x7dff6a, 16, 14);
@@ -22658,7 +22670,7 @@ class Fighter {
   }
   /* ★ UFO 的自伤代价（削弱）：每次在飞碟里发动攻击都让自己 +5% 伤害 */
   selfDamage(n) {
-    this.damage = Math.min(CFG.dmgCap, this.damage + n);
+    this.damage = Math.min((this.isBoss ? (this.bossHp + 400) : CFG.dmgCap), this.damage + n);
     this.maxDamage = Math.max(this.maxDamage || 0, this.damage);
     FX.spark(this.pos.x, this.pos.y + 1.1, .28, 4, 0xff6b6b);
     this._selfFxT = .18;
@@ -22689,7 +22701,7 @@ class Fighter {
       if (f === this || f.eliminated || f.invuln > 0) continue;
       if (this.team >= 0 && isTeammate(this, f)) continue;
       if (Math.abs(f.pos.x - this.pos.x) < w * .8 + f.bodyR * .5 && f.pos.y < this.pos.y + .8) {
-        f.damage = Math.min(CFG.dmgCap, f.damage + (cfg.sweepDmg || 3.0));
+        f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + (cfg.sweepDmg || 3.0));
         f.maxDamage = Math.max(f.maxDamage || 0, f.damage);
         FX.spark(f.pos.x, f.pos.y + .8, .3, 4, cfg.color);
       }
@@ -22714,7 +22726,7 @@ class Fighter {
     FX.crater(this.pos.x, 0, R2, cfg.color);
     FX.dust(this.pos.x, .1, 16);
     shake = Math.min(1.35, shake + .8); camKick = Math.min(1, camKick + .5); SFX.heavy();
-    this.damage = Math.min(CFG.dmgCap, this.damage + (cfg.crashSelfDmg || 6.0));   // 自己也吃伤害
+    this.damage = Math.min((this.isBoss ? (this.bossHp + 400) : CFG.dmgCap), this.damage + (cfg.crashSelfDmg || 6.0));   // 自己也吃伤害
     this.maxDamage = Math.max(this.maxDamage || 0, this.damage);
     for (const f of FIGHTERS) {
       if (f === this || f.eliminated) continue;
@@ -22774,7 +22786,7 @@ class Fighter {
         const dy = (f.pos.y + .95*f.def.shape.scale) - this.pos.y - .25;
         if (fwd > .30 && fwd < cfg.range && Math.abs(dy) < cfg.height) {
           const wasLocked = f.burnLock > 0;
-          f.damage = Math.min(CFG.dmgCap, f.damage + cfg.dot);   // 持续灼烧：直接掉血
+          f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + cfg.dot);   // 持续灼烧：直接掉血
           this.fsMeter = Math.min(1, this.fsMeter + cfg.dot * .013);
           /* ★ 第 109 轮：命中 → 目标 1 秒不可动弹（逐跳刷新）⇒ 一直长按就能把人锁在火里烧到上限 */
           if (!wasLocked) {
@@ -23043,7 +23055,7 @@ class Fighter {
           if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
           if (this.team >= 0 && isTeammate(this, f)) continue;
           if (Math.abs(f.pos.x - S.x) < (cfg.jetR || 1.2) && f.pos.y < 2.8) {
-            f.damage = Math.min(CFG.dmgCap, f.damage + (cfg.dmg || 2.2));
+            f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + (cfg.dmg || 2.2));
             f.maxDamage = Math.max(f.maxDamage || 0, f.damage);
             FX.spark(f.pos.x, f.pos.y + .7, .3, 4, cfg.color);
             dmgPopup(f.pos.x, f.headY + .4, Math.round(f.damage));
@@ -23898,7 +23910,9 @@ class Fighter {
      · 伤害：满体型（k ≥ 0.985）只吃 20%（免疫 80%）
      ⚠ 不改 def.shape.scale（def 是共享对象，改了其它对局/其它玩家会一起变），全部走实例字段。 */
   jellyApplySize(k) {
-    this.jellyK = Math.max(0, Math.min(1, k));
+    /* ★ B6 首领试炼：Jelly 当 boss 时**永远保持最大体型**，且不吃「满体型 80% 减伤」——
+       否则它放完大招回到满体型后 _jellyCut 变成 0.20，2500% 血条等于实际 12500%，根本打不完。 */
+    this.jellyK = this.isBoss ? 1 : Math.max(0, Math.min(1, k));
     const K = this.jellyK;
     this._visK = .60 + .80 * K;
     const spd = 1 + .65 * (1 - K);
@@ -23906,7 +23920,7 @@ class Fighter {
     this.s.run  = this.def.run  * spd;
     this.s.air  = this.def.air  * spd;
     this._kbTake = 1 - .42 * K;
-    this._jellyCut = (K >= .985) ? .20 : 1;
+    this._jellyCut = this.isBoss ? 1 : ((K >= .985) ? .20 : 1);
   }
   jellySetK(k, why) {
     this.jellyApplySize(k);
@@ -26144,7 +26158,7 @@ class Fighter {
       if (Math.random() < .6) FX.spark(t.pos.x, t.pos.y + 1.1, .5, 5, c.cfg.color);
       if (c.tick >= (c.cfg.tick || .22)) {
         c.tick -= (c.cfg.tick || .22);
-        t.damage = Math.min(CFG.dmgCap, t.damage + c.cfg.dot);
+        t.damage = Math.min((t.isBoss ? (t.bossHp + 400) : CFG.dmgCap), t.damage + c.cfg.dot);
         this.fsMeter = Math.min(1, this.fsMeter + c.cfg.dot * .013);
         SFX.hit(18, c.cfg.dot);
       }
@@ -29724,6 +29738,8 @@ function dmgClass(d) { return d < 50 ? 0 : d < 100 ? 1 : d < 150 ? 2 : 3; }
 /* ================= ★ 首领试炼：胜负判定 + 顶部首领血条 ================= */
 function bossTrialBossDown(bf) {
   if (!match.boss || match.boss.clear || match.boss.fail) return;
+  if (!bf || bf._btCounted) return;            // ★ B3 双保险：同一只 boss 只上报一次
+  bf._btCounted = true;
   match.boss.alive = Math.max(0, match.boss.alive - 1);
   match.boss.hpCur = Math.max(0, match.boss.hpCur - (bf.bossMax || 0));
   try { banner((bf.dispName || 'BOSS') + ' DOWN · ' + match.boss.alive + ' LEFT', false); } catch (e) {}
@@ -29740,7 +29756,8 @@ function bossTrialEnd(win) {
   try { banner(win ? 'TRIAL CLEAR!' : 'ALL DOWN · TRIAL FAILED', win); } catch (e) {}
   try { win ? SFX.cheer() : SFX.ko(); } catch (e) {}
   if (win) { try { BTTrial.saveClear(match.boss.trial); } catch (e) {} }
-  setTimeout(() => { try { endMatch(); } catch (e) {} }, 1200);
+  const _b = match.boss;                        // ★ B4：只结束「这一个」boss 局（玩家 1.2s 内重开不会被误杀）
+  setTimeout(() => { try { if (match.boss === _b) endMatch(); } catch (e) {} }, 1200);
 }
 function updateBossHud() {
   const on = match.mode === 'boss' && match.boss;
@@ -32075,7 +32092,7 @@ function subTick(dt) {
         FX.flash(f.pos.x, f.pos.y + 1.2, .6, 12, 0xffe066, .5);
         shake = Math.max(shake, 1.2); SFX.heavy(); f.ko('SUB BOOM');
       } else {
-        f.damage = Math.min(CFG.dmgCap, f.damage + (SB.dmg || 14));
+        f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + (SB.dmg || 14));
         f.vel.set(dir * (SB.kbx || 26), (SB.kby || 15), 0);
         f.hitstun = .55; f.flashT = .18; f.state = 'hitstun'; f.grounded = false;
         FX.spark(f.pos.x, f.pos.y + 1.0, 1.4, 20, 0x9fe8ff);
@@ -32297,7 +32314,7 @@ function roofPlaneTick(dt) {
     if (Math.abs(f.pos.x - U.x) < 3.6 && Math.abs(f.pos.y - U.y) < 2.6) {
       U.hit[fi] = 1;
       const dir = U.dir;
-      f.damage = Math.min(CFG.dmgCap, f.damage + P2.dmg);
+      f.damage = Math.min((f.isBoss ? (f.bossHp + 400) : CFG.dmgCap), f.damage + P2.dmg);
       f.vel.x = dir * P2.kbx; f.vel.y = P2.kby;
       f.hitstun = .55; f.flashT = .18; f.state = 'hitstun'; f.grounded = false;
       f.pos.y = Math.max(f.pos.y, U.y - 1.0);
@@ -33013,7 +33030,7 @@ function updateProjectiles(dt) {
       if (p.stuck.tickT <= 0) {
         p.stuck.tickT = p.cfg.tick || .4;
         const td = p.cfg.tickDmg || 1.3;
-        tf.damage = Math.min(CFG.dmgCap, tf.damage + td);        // DoT：直接加伤害（不走 takeHit，避免硬直/顿帧）
+        tf.damage = Math.min((tf.isBoss ? (tf.bossHp + 400) : CFG.dmgCap), tf.damage + td);        // DoT：直接加伤害（不走 takeHit，避免硬直/顿帧）
         tf.maxDamage = Math.max(tf.maxDamage || 0, tf.damage);
         dmgPopup(tf.pos.x, tf.headY + .4, tf.damage);
         FX.spark(p.x, p.y, .26, 5, p.cfg.color);
