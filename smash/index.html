@@ -3952,6 +3952,29 @@ function clearJellySpawns() {
   for (const z of JELLY_ZONES) { try { scene.remove(z.mesh); } catch (e) {} }
   JELLY_ZONES.length = 0;
 }
+/* ★ 果冻鞭（世界坐标实体）：真正的「一根看得见的胶质鞭子」。
+   之前的 addditive 光束在白天天空下几乎看不见（项目里踩过同样的坑），所以这里用
+   普通 MeshStandardMaterial + 自发光：粗紫鞭身 + 末端黏液球 + 沿鞭身流动的 3 颗胶滴 + 末端光环。 */
+function makeJellyLash() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:0xd6b3ff, emissive:0x6a3fb0, emissiveIntensity:.55,
+    roughness:.22, metalness:.02, transparent:true, opacity:.96, flatShading:true });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.13, .30, 1, 10, 1), mat);
+  g.add(body);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(.32, 11, 9), mat);
+  tip.position.y = .52; g.add(tip);
+  const goo = [];
+  for (let i = 0; i < 3; i++) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.14 - i * .025, 8, 6), mat);
+    b.position.y = -.35 + i * .30; g.add(b); goo.push(b);
+  }
+  const ringM = new THREE.Mesh(new THREE.TorusGeometry(.34, .055, 6, 20),
+    new THREE.MeshBasicMaterial({ color:0xf3e6ff, transparent:true, opacity:.85, depthWrite:false }));
+  ringM.rotation.x = Math.PI / 2; ringM.position.y = .52; g.add(ringM);
+  g.userData = { goo, tip, ring:ringM, body };
+  g.visible = false; scene.add(g);
+  return g;
+}
 function jellyBallBurst(p) {
   const cfg = p.cfg, R = (p.jellyR || 1.4) * 1.9;
   try { window.__jellyLastBall = { dmg:cfg.dmg, cap:!!p.captured, x:+p.x.toFixed(1), hits:0 }; } catch (e) {}
@@ -3959,6 +3982,9 @@ function jellyBallBurst(p) {
   FX.flash(p.x, p.y, .50, 5.8, 0xe7d8ff, .34);
   FX.ring(p.x, p.y, .28, R * 2.2, cfg.color, .52);
   FX.ring(p.x, p.y, .20, R * 1.3, 0xffffff, .30);
+  FX.ring(p.x, p.y, .16, R * 3.1, 0xd6b3ff, .26);
+  FX.crater(p.x, Math.max(0, p.y - .1), R * .9, cfg.color);
+  FX.dust(p.x, Math.max(0, p.y - .1), 14, 0xd6b3ff);
   shake = Math.min(1.35, shake + .55); camKick = Math.min(1, camKick + .35);
   SFX.heavy();
   for (const f of FIGHTERS) {
@@ -4332,6 +4358,7 @@ function clearField() {
     if (f._cbHeadMesh) { scene.remove(f._cbHeadMesh); f._cbHeadMesh = null; }   // ★ Cardboard 飞出去的头
     if (f._cbLz) { scene.remove(f._cbLz.g); f._cbLz = null; }                   // ★ Cardboard 持续激光
     f.cbState = null;
+    if (f._lashMesh) { scene.remove(f._lashMesh); f._lashMesh = null; }   // ★ Jelly 的世界坐标果冻鞭
     if (f.parts && f.parts.head) f.parts.head.visible = true;
   }
   clearBobs();                                       // ★ Mechanic 的 BOB 一起清
@@ -13017,14 +13044,50 @@ function kitPrism(def) {
   }
   return { group:g, torso, belly, head, armL, armR, legL, legR, tail:null, shards };
 }
+/* ★ 果冻纹路贴图：横向波浪条纹（Lathe 的 v 方向 = 竖着绕身一圈）→ 看起来像胶质分层。
+   全局缓存一张，所有 Jelly（本体 / 小果冻 / 选人预览）共用，不额外吃显存。 */
+let _jellyTex = null;
+function jellyTex() {
+  if (_jellyTex) return _jellyTex;
+  const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, 128, 256);
+  for (let i = 0; i < 9; i++) {
+    const y = 14 + i * 27;
+    x.strokeStyle = i % 2 ? 'rgba(78,38,146,.42)' : 'rgba(255,255,255,.78)';
+    x.lineWidth = 7 + (i % 3) * 3;
+    x.beginPath();
+    for (let px = 0; px <= 128; px += 8) {
+      const yy = y + Math.sin(px / 128 * Math.PI * 2 + i * .9) * 5.5;
+      if (px) x.lineTo(px, yy); else x.moveTo(px, yy);
+    }
+    x.stroke();
+  }
+  /* 竖向果冻纹（u 方向的波浪细线）：绕身一圈看像胶质里的丝 */
+  for (let i = 0; i < 3; i++) {
+    const bx = 18 + i * 44;
+    x.strokeStyle = 'rgba(255,255,255,.62)'; x.lineWidth = 5;
+    x.beginPath();
+    for (let py = 0; py <= 256; py += 10) {
+      const xx = bx + Math.sin(py / 256 * Math.PI * 2 + i * 1.7) * 7;
+      if (py) x.lineTo(xx, py); else x.moveTo(xx, py);
+    }
+    x.stroke();
+  }
+  _jellyTex = new THREE.CanvasTexture(c);
+  _jellyTex.wrapS = THREE.RepeatWrapping; _jellyTex.repeat.set(2, 1);
+  _jellyTex.colorSpace = THREE.SRGBColorSpace;
+  return _jellyTex;
+}
 /* ================= ★ 果冻 Jelly 的造型：一整个紫色布丁（头+身体不分家） =================
    LatheGeometry 剖面 = 下宽上收的截锥 + 圆顶；顶部再盖一层更亮的「糖浆」并挂 6 滴。
    整块身体放进 wob 组（animStep 里做果冻弹性挤压）；脸只长在正面（+Z），和全角色一致。
    体型由 animStep 的 P.group.scale = baseScale × _visK 统一缩放 → 判定圈（bodyR）也跟着变。 */
 function kitJelly(def) {
   const mats = kitMats(def), g = new THREE.Group();
-  const bodyMat = cmat(def.body, { roughness:.22, metalness:.02 });
-  bodyMat.transparent = true; bodyMat.opacity = .95;
+  const bodyMat = cmat(def.body, { roughness:.16, metalness:.02, map:jellyTex() });
+  bodyMat.transparent = true; bodyMat.opacity = .96;
+  bodyMat.emissive = new THREE.Color(0x2a1050); bodyMat.emissiveIntensity = .22;   // 胶质微透光
   const glazeMat = cmat(def.body2, { roughness:.16 });
   const ink = cmat(0x1b0f2e, { roughness:.42 });
   const wob = new THREE.Group(); g.add(wob);
@@ -13033,13 +13096,13 @@ function kitJelly(def) {
     [0.95, 0.80], [0.88, 1.06], [0.78, 1.28], [0.65, 1.46], [0.52, 1.61],
     [0.37, 1.74], [0.21, 1.84], [0.00, 1.90],
   ].map(p => new THREE.Vector2(p[0], p[1]));
-  const body = new THREE.Mesh(new THREE.LatheGeometry(prof, 30), bodyMat);
+  const body = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), bodyMat);
   wob.add(body);
   const gprof = [
     [0.66, 1.27], [0.79, 1.31], [0.81, 1.40], [0.68, 1.53], [0.53, 1.65],
     [0.38, 1.76], [0.22, 1.86], [0.00, 1.93],
   ].map(p => new THREE.Vector2(p[0], p[1]));
-  const glaze = new THREE.Mesh(new THREE.LatheGeometry(gprof, 30), glazeMat);
+  const glaze = new THREE.Mesh(new THREE.LatheGeometry(gprof, 40), glazeMat);
   wob.add(glaze);
   for (let i = 0; i < 6; i++) {                            // 6 滴糖浆（固定角度 → 确定性）
     const a = i / 6 * Math.PI * 2 + .32;
@@ -13059,6 +13122,33 @@ function kitJelly(def) {
   const shine = new THREE.Mesh(new THREE.SphereGeometry(.20, 10, 8),
     new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.30, depthWrite:false }));
   shine.position.set(-.42, 1.32, .58); shine.scale.set(1, 1.5, .35); wob.add(shine);
+  /* ★ 果冻纹路（实体环）：三层半透明胶质环，随呼吸缩放/错相闪动（animStep 里驱动） */
+  const rings = [];
+  for (const rr of [[.20, .982], [.45, 1.00], [.70, .965], [.95, .90], [1.18, .80]]) {
+    const rg = new THREE.Mesh(new THREE.TorusGeometry(rr[1], .048, 6, 40),
+      new THREE.MeshBasicMaterial({ color:0xf0dcff, transparent:true, opacity:.42, depthWrite:false }));
+    rg.rotation.x = Math.PI / 2; rg.position.y = rr[0]; wob.add(rg); rings.push(rg);
+  }
+  /* ★ 体内的气泡（半透明，只做质感；固定角度 → 联机两端一致） */
+  const bubbles = [];
+  const bubMat = new THREE.MeshStandardMaterial({ color:0xe7d6ff, roughness:.08, transparent:true,
+    opacity:.55, depthWrite:false });
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * Math.PI * 2;
+    const rr = .34 + (i % 4) * .12, yy = .32 + (i % 5) * .26;
+    const bb = new THREE.Mesh(new THREE.SphereGeometry(.045 + (i % 3) * .022, 8, 6), bubMat);
+    bb.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr); wob.add(bb); bubbles.push(bb);
+  }
+  /* 脸颊：两片淡紫腮红（正面 +Z），让布丁有表情 */
+  for (const sd of [-1, 1]) {
+    const ck = new THREE.Mesh(new THREE.SphereGeometry(.10, 9, 7),
+      new THREE.MeshBasicMaterial({ color:0xf0c6ff, transparent:true, opacity:.55, depthWrite:false }));
+    ck.position.set(sd * .47, -.02, .70); ck.scale.set(1, .62, .18); head.add(ck);
+  }
+  /* 底部胶质裙边：一圈软软的压扁环，坐在地上更「布丁」 */
+  const skirt = new THREE.Mesh(new THREE.TorusGeometry(1.0, .085, 6, 34),
+    new THREE.MeshBasicMaterial({ color:0xc9a6ff, transparent:true, opacity:.32, depthWrite:false }));
+  skirt.rotation.x = Math.PI / 2; skirt.position.y = .06; wob.add(skirt);
   const armL = kitArm(g, -1, mats, { x:.86, y:1.02, w:.15, len:.22,
     handGeo:new THREE.SphereGeometry(.17, 9, 7), handMat:mats.body2 });
   const armR = kitArm(g,  1, mats, { x:.86, y:1.02, w:.15, len:.22,
@@ -13070,7 +13160,7 @@ function kitJelly(def) {
   tongue.rotation.z = Math.PI / 2; tongue.visible = false; g.add(tongue);
   g.userData.wob = wob; g.userData.tongue = tongue; g.userData.mouth = mouth; g.userData.shine = shine;
   return { group:g, torso:body, belly:glaze, head, armL, armR, legL, legR, tail:null,
-           wob, body, glaze, tongue, mouth, shine };
+           wob, body, glaze, tongue, mouth, shine, rings, bubbles, skirt };
 }
 const KITS = { tock:kitTock, sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, treasure:kitTreasure, princess:kitPrincess, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt, foundry:kitFoundry,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
@@ -15440,6 +15530,7 @@ class Fighter {
     this.reapCombo = null; this.hallowSweep = null; this.hallowRise = null;
     this.flatT = 0; this.pumpkinForm = null; this.burnLock = 0;
     /* ★ Jelly：重生/换局回到「开局最大体型」，并清掉粘住/卷进/蓄力状态 */
+    if (this._lashMesh) this._lashMesh.visible = false;
     if (this.def && this.def.id === 'jelly') {
       this.jellyBind = null; this.jellyInside = null; this.jellyBallCharge = null;
       this.jellyFs = null; this.jellyTongue = null; this.jellyTongueT = 0;
@@ -16276,6 +16367,7 @@ class Fighter {
     if (this.hack > 0) launch = 0;
     if (this.roseT > 0) launch = 0;                    // ★ 公主·法阵缠绕：不可击退
     if (this.jellyBind) launch = 0;                    // ★ Jelly 左右B/上B：粘住期间不可击退（照吃伤害）
+    if (this.jellyFs || this.jellyBallCharge) launch = 0;   // ★ Jelly 蓄力不可打断：照吃伤害，但不被击飞
     /* ★ Fang 吸血：大招期间 100%（等于伤害全回复）；左右B 的咬击另有「永久等量吸血」 */
     if (attacker && attacker !== this && attacker.fangLeech > 0) {
       const leeched = (typeof dmg === 'number' ? dmg : mv.dmg) * 1.50;
@@ -16314,6 +16406,8 @@ class Fighter {
     shakeDir = Math.atan2(dir.y, dir.x);
     shake = Math.min(1.35, shake + .16 + launch * .006 + (heavy ? .22 : 0));
     this.state = 'hitstun'; this.stateT = 0; this.grounded = false;
+    /* ★ Jelly 蓄力霸体：伤害照吃，但硬直清零、状态回到 charge（蓄力条不中断） */
+    if (this.jellyFs || this.jellyBallCharge) { this.hitstun = 0; this.state = 'charge'; }
     /* ★ Fang 蓄力霸体：蓄能期间被打不进硬直、不退出蓄力 */
     if (this.pounce && !this.pounce.launched) { this.hitstun = 0; this.state = 'charge'; }
     /* ★ Demon 角撞霸体：全程不进硬直、不退出冲刺 */
@@ -16335,14 +16429,8 @@ class Fighter {
     if (this._aegisDome) { scene.remove(this._aegisDome); this._aegisDome = null; }                    // 神盾穹顶/金环也要收（否则永远挂在身上）
     if (this._aegisRim) { scene.remove(this._aegisRim); this._aegisRim = null; }
     this.chargeFx.visible = false;                     // 蓄力中被打断时把光球收掉（否则会永远挂在身上）
-    /* ★ Jelly：大招蓄力 / 下B 蓄力被打断（规格：大招蓄力期间「可以被正常击退」）。
-       ⚠ 不清 jellyBind —— 那是受害者身上的控制，必须撑满 2 秒/1 秒。 */
-    if (this.def && this.def.id === 'jelly' && this.jellyFs) {
-      this.jellyFs = null;
-      try { callout(this, 'REBIRTH INTERRUPTED', 0xff8a8a); } catch (e) {}
-      FX.ring(this.pos.x, this.pos.y + .3, .3, 2.6, 0xff8a8a, .40);
-    }
-    if (this.jellyBallCharge) this.jellyBallCharge = null;
+    /* ★ Jelly：大招 / 下B 的蓄力**不可打断**（2026-11-24 用户改规格：原来会被打掉，现在照吃伤害但蓄力继续）。
+       launch 已在上面被清零、硬直在下面被覆盖成 charge —— 所以这里不能清 jellyFs / jellyBallCharge。 */
     /* ★ 法国人·大招 Soul Link：被链接的目标吃到的伤害，50% 转成施法者的回复（减伤） */
     if (typeof dmg === 'number' && dmg > 0 && this.drainTo && this.drainTo.leech && this.drainTo.leech.t > 0) {
       const L = this.drainTo, heal = dmg * .5;
@@ -18382,10 +18470,19 @@ class Fighter {
         FX.burst(this.pos.x, this.pos.y + .2, .0, 0xb98bff, 18, 16);
         FX.ring(this.pos.x, this.pos.y + .22, .30, 2.8, 0xd6b3ff, .45);
         if (B.src && !B.src.eliminated) {
+          const gy = Math.max(0, this.pos.y - .1), spike = B.ang > 60;
+          /* 视觉：脚下先裂开，再喷出一根粗紫 + 白芯的「果冻尖刺」，碎片四散 */
+          FX.crater(this.pos.x, gy, spike ? 1.9 : 1.5, 0xb98bff);
+          FX.ring(this.pos.x, gy + .2, .30, spike ? 3.6 : 3.0, 0xd6b3ff, .48);
+          FX.beam(this.pos.x, gy, this.pos.x, this.pos.y + (spike ? 3.2 : 1.6), spike ? .52 : .38, 0xb98bff, .18);
+          FX.beam(this.pos.x, gy + .1, this.pos.x, this.pos.y + (spike ? 3.3 : 1.7), spike ? .20 : .15, 0xf6ecff, .14);
+          FX.burst(this.pos.x, gy + .35, .10, 0xd6b3ff, 18, 18);
+          FX.dust(this.pos.x, gy, 12, 0xd6b3ff);
+          FX.spark(this.pos.x, gy + .3, .40, 12, 0xf6ecff);
           this.takeHit(B.src, { dmg:B.dmg, bb:B.bb, bg:B.bg, ang:B.ang },
             Math.sign(this.pos.x - B.src.pos.x) || 1, 1);
-          callout(this, B.ang > 60 ? 'JELLY SPIKE!' : 'TRAP BURST!', 0xd6b3ff);
-          shake = Math.max(shake, .35); SFX.heavy();
+          callout(this, spike ? 'JELLY SPIKE!' : 'TRAP BURST!', 0xd6b3ff);
+          shake = Math.max(shake, .55); camKick = Math.min(1, camKick + .2); SFX.heavy();
         }
       }
     }
@@ -23477,6 +23574,13 @@ class Fighter {
       C.t += dt;
       this.vel.x *= Math.pow(.10, dt);
       if (C.t % .16 < dt) FX.spark(this.pos.x, this.pos.y + .4 + (this._visK || 1), .34, 3, 0xb98bff);
+      /* ★ 蓄力可读性：每 0.12s 一圈上浮环 + 两颗绕着身体转的糖浆滴 */
+      if (C.t % .12 < dt) {
+        FX.ring(this.pos.x, this.pos.y + .18, .24, 1.4 + C.t * 2.2, 0xb98bff, .24);
+        const ca = C.t * 9;
+        FX.spark(this.pos.x + Math.cos(ca) * (1.0 + .3 * (this._visK || 1)), this.pos.y + .55, .24, 2, 0xd6b3ff);
+        FX.spark(this.pos.x - Math.cos(ca) * (1.0 + .3 * (this._visK || 1)), this.pos.y + .95, .24, 2, 0xf6ecff);
+      }
       if (C.t >= (C.cfg.chargeT || 1.0)) {
         this.jellyBallCharge = null;
         const K = this.jellyK;
@@ -24613,13 +24717,18 @@ class Fighter {
       spawnJellyMinion(this, K);
       this.jellySetK(K - .32, 'SPLIT');
       this.state = 'special'; this.animT = 0; this.vel.x *= .35;
-      FX.ring(this.pos.x, this.pos.y + .3, .30, 3.4, cfg.color, .45);
-      FX.burst(this.pos.x + (dir || 1) * 1.2, this.pos.y + 1.0, .0, cfg.color, 16, 14);
+      const sx = this.pos.x + (dir || 1) * 1.5, sy = Math.max(.4, this.pos.y + .5);
+      FX.ring(this.pos.x, this.pos.y + .3, .30, 3.6, cfg.color, .48);
+      FX.ring(this.pos.x, this.pos.y + .3, .24, 2.2, 0xf6ecff, .30);
+      FX.burst(sx, sy, .0, cfg.color, 22, 18);
+      FX.burst(this.pos.x, this.pos.y + 1.0 * (this._visK || 1), .0, 0xd6b3ff, 14, 12);
+      FX.beam(this.pos.x, this.pos.y + 1.0, sx, sy + .4, .12, 0xd6b3ff, .14);
+      FX.spark(sx, sy + .4, .36, 10, 0xf6ecff);
       SFX.special('dash');
       return true;
     } else if (cfg.kind === 'jellyStick') {
       const K = this.jellyK === undefined ? 1 : this.jellyK;
-      const reach = 3.2 + 1.8 * (this._visK || 1);
+      const reach = 4.2 + 4.9 * (this._visK || 1);            // 满体型 ≈ 11，最小体型 ≈ 7 —— 明显更远
       let tg = null, bd = 1e9;
       for (const f of FIGHTERS) {
         if (f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
@@ -24631,9 +24740,11 @@ class Fighter {
       }
       this.state = 'special'; this.animT = 0; this.vel.x *= .25;
       const dmg = 5 + 10 * K;                    // 体型越大越高，最小 5%
-      this.jellyTongue = tg; this.jellyTongueT = .55;
-      FX.beam(this.pos.x + (dir || 1) * .7, this.pos.y + 1.05 * (this._visK || 1),
-              this.pos.x + (dir || 1) * reach, this.pos.y + 1.05 * (this._visK || 1), .30, cfg.color, .20);
+      this.jellyTongue = tg; this.jellyTongueT = tg ? 2.10 : .45;   // 命中就整段 2 秒都拉着鞭子
+      const hx0 = this.pos.x + (dir || 1) * .45 * (this._visK || 1), hy0 = this.pos.y + 1.02 * (this._visK || 1);
+      FX.beam(hx0, hy0, this.pos.x + (dir || 1) * reach, hy0, .26, cfg.color, .18);
+      FX.beam(hx0, hy0, this.pos.x + (dir || 1) * reach, hy0, .12, 0xf6ecff, .14);
+      FX.ring(this.pos.x + (dir || 1) * reach, hy0, .22, 1.8, cfg.color, .22);
       if (tg) {
         const res = tg.takeHit(this, { dmg, bb:0, bg:0, ang:0 }, dir || 1, 1);
         if (res) {
@@ -24656,8 +24767,11 @@ class Fighter {
       this.jumpsLeft = Math.max(this.jumpsLeft, 0);
       this.state = 'special'; this.animT = 0;
       spawnJellyZone(this, this.pos.x, Math.max(0, this.pos.y), this.jellyK === undefined ? 1 : this.jellyK);
-      FX.ring(this.pos.x, this.pos.y + .25, .30, 3.4, cfg.color, .45);
-      FX.dust(this.pos.x, this.pos.y, 10, cfg.color);
+      FX.ring(this.pos.x, this.pos.y + .25, .30, 3.6, cfg.color, .48);
+      FX.ring(this.pos.x, this.pos.y + .25, .22, 2.1, 0xf6ecff, .30);
+      FX.beam(this.pos.x, Math.max(0, this.pos.y), this.pos.x, this.pos.y + 4.0, .34, cfg.color, .14);
+      FX.burst(this.pos.x, this.pos.y + .4, .0, 0xd6b3ff, 16, 16);
+      FX.dust(this.pos.x, this.pos.y, 12, cfg.color);
       FX.trail(this.pos.x, this.pos.y + .6, .40, cfg.color);
       SFX.special('recover');
       return true;
@@ -27347,28 +27461,55 @@ class Fighter {
         P.group.rotation.z = rLean;
       }
     }
-    /* ================= ★ Jelly：布丁弹性 / 果冻舌头 / 蓄力姿态 / 被粘住抖动 ================= */
+    /* ================= ★ Jelly：布丁弹性 / 果冻纹路脉动 / 果冻鞭 / 蓄力光环 ================= */
     if (this.def.id === 'jelly') {
+      const vk = this._visK || 1;
+      if (P.tongue) P.tongue.visible = false;                 // 旧胶囊不用了（改用世界坐标光束，更粗更清楚）
       if (P.wob) {
         const fear = (this.jellyBind || this.jellyInside) ? .10 : 0;
-        const w = Math.sin(A.t * 3.2) * .028 + fear + (this.jellyBallCharge ? .06 : 0);
+        const w = Math.sin(A.t * 3.2) * .030 + fear + (this.jellyBallCharge ? .07 : 0);
         P.wob.scale.set(1 + w, 1 - w * 1.5, 1 + w);
         P.wob.rotation.z = Math.sin(A.t * 2.1) * .03 + (this.jellyBind ? Math.sin(A.t * 22) * .06 : 0);
       }
-      if (P.tongue) {
-        const T = this.jellyTongue;
-        if (T && this.jellyTongueT > 0 && !T.eliminated) {
-          const x1 = this.pos.x + (this.facing || 1) * .55 * (this._visK || 1);
-          const y1 = this.pos.y + 1.05 * (this._visK || 1);
-          const ty = T.pos.y + 1.0;
-          const dx = T.pos.x - x1, dy = ty - y1;
-          const len = Math.max(.6, Math.hypot(dx, dy));
-          P.tongue.visible = true;
-          P.tongue.position.set((x1 + T.pos.x) / 2 - this.pos.x, (y1 + ty) / 2 - this.pos.y, .18);
-          P.tongue.rotation.z = Math.atan2(dy, dx) - Math.PI / 2;
-          P.tongue.scale.set(1, len / 1.34, 1);
-        } else P.tongue.visible = false;
+      /* 果冻纹路三层环：呼吸缩放 + 错相透明度（静止时也能一眼看出「胶质分层」） */
+      if (P.rings) for (let i = 0; i < P.rings.length; i++) {
+        const rg = P.rings[i], ph = A.t * 2.6 + i * 1.7, k2 = 1 + Math.sin(ph) * .024;
+        rg.scale.set(k2, 1, k2);
+        if (rg.material) rg.material.opacity = .18 + .16 * (Math.sin(ph + 1.1) * .5 + .5);
       }
+      if (P.bubbles) for (let i = 0; i < P.bubbles.length; i++) {
+        const bb = P.bubbles[i];
+        bb.position.y = bb.userData.by0 !== undefined ? bb.userData.by0
+          : (bb.userData.by0 = bb.position.y);
+        bb.position.y += Math.sin(A.t * 2.2 + i) * .045;      // 体内气泡上下漂
+      }
+      if (P.skirt) P.skirt.scale.set(1 + Math.sin(A.t * 3.2) * .05, 1, 1);
+      /* 左右B 果冻鞭：世界坐标实体鞭（粗紫鞭身 + 末端黏液球 + 流动胶滴 + 末端光环） */
+      const T = this.jellyTongue;
+      if (!this._lashMesh) this._lashMesh = makeJellyLash();
+      const LASH = this._lashMesh;
+      if (T && this.jellyTongueT > 0 && !T.eliminated && LASH) {
+        const x1 = this.pos.x + (this.facing || 1) * .45 * vk, y1 = this.pos.y + 1.02 * vk;
+        const ty = T.pos.y + .95 * (T._visK || 1);
+        const dx = T.pos.x - x1, dy = ty - y1, len = Math.max(.6, Math.hypot(dx, dy));
+        const pulse = 1 + Math.sin(A.t * 18) * .05;
+        LASH.visible = true;
+        LASH.position.set((x1 + T.pos.x) / 2, (y1 + ty) / 2, .12);
+        LASH.rotation.z = Math.atan2(dy, dx) - Math.PI / 2;
+        LASH.scale.set(pulse * (.85 + .30 * vk), len, pulse * (.85 + .30 * vk));
+        const U = LASH.userData;
+        if (U.goo) for (let i = 0; i < U.goo.length; i++) {
+          const ph = ((A.t * 1.7 + i / 3) % 1);
+          U.goo[i].position.y = -.40 + ph * .92;
+          U.goo[i].scale.setScalar(.85 + .45 * Math.sin(ph * Math.PI));
+        }
+        if (U.ring) { const s2 = 1 + Math.sin(A.t * 12) * .14; U.ring.scale.set(s2, s2, 1); }
+        if (A.t - (this._lashFxT || 0) > .10) {
+          this._lashFxT = A.t;
+          FX.spark(T.pos.x, ty, .20, 3, 0xd6b3ff);
+          FX.ring(T.pos.x, ty, .20, 1.0 + vk * .5, 0xf3e6ff, .10);
+        }
+      } else if (LASH) LASH.visible = false;
       if (this.jellyBallCharge && P.armR && P.armL) {
         P.armR.rotation.x = -1.60; P.armL.rotation.x = -1.60;
         P.group.rotation.z = -this.facing * .10;
@@ -27376,7 +27517,10 @@ class Fighter {
       if (this.jellyFs && P.armR && P.armL) {
         P.armR.rotation.x = -2.40 + Math.sin(A.t * 26) * .12;
         P.armL.rotation.x = -2.40 - Math.sin(A.t * 26) * .12;
-      }
+        this.auraRing.visible = true;
+        this.auraRing.material.color.setHex(0xd6b3ff);
+        this.auraRing.material.opacity = .16 + .28 * (Math.sin(A.t * 9) * .5 + .5);
+      } else if (this.auraRing) this.auraRing.visible = false;
       if (this.jellyBind) P.group.rotation.z = Math.sin(A.t * 30) * .08;
     }
     /* ================= ★ Foundry：机架动作 —— 钳子平推 / 光剑三连 / 喷气口开关 / 核心呼吸 ================= */
