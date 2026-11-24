@@ -3214,7 +3214,7 @@ CHAR_EXTRA.jelly = {
     + 'and then home in on whoever fired them · '
     + 'Neutral B Jelly Split (summon a small jelly that fights, gets knocked back and can fall off the stage — then YOU shrink) · '
     + 'Side B Jelly Lash (stretch a sticky arm, deal 5-15% and stick the foe for 2s with NO knockback, then a spike erupts under them and launches them straight up — guaranteed hit) · '
-    + 'Up B Jelly Spring (bounce up and leave a sticky puddle where you stood; an enemy who steps in is jailed for 1s, then the puddle bursts for 15% + knockback) · '
+    + 'Up B Jelly Spring (leap up and TRAP every nearby foe on take-off: they are jailed for 1s and take 15% instantly, then get flung up when the jelly bursts) · '
     + 'Down B Jelly Roller (charge 1s then roll a slow bouncing ball; whoever it touches is swallowed and carried, and the ball explodes at the end for damage + knockback — bigger body = bigger ball and damage) · '
     + 'FINAL SMASH Pudding Rebirth (ONLY at smallest size: charge 2s — you CAN be knocked out of it — then snap back to MAX size with a shockwave)',
   shape:{ tail:null, scale:1.0, headR:.86, bodyR:1.02 },
@@ -3816,7 +3816,6 @@ const BOBS = [];                               // ★ Mechanic 的机器伙伴 B
 /* ================= ★ Jelly 的召唤物 / 粘球地面 / 果冻球爆炸（独立实体，不是 Fighter） =================
    确定性：只用固定 dt 与常数，不碰 Math.random；目标按距离取 → 联机两端一致。 */
 const JELLY_MINIONS = [];
-const JELLY_ZONES = [];
 let _jmId = 0;
 function jellyMinionMesh(K) {
   const k = kitJelly({ body:0xa678ff, body2:0xe2ccff, dark:0x5a36a0, eye:0x1b0f2e, shape:{ scale:1, headR:.8 } });
@@ -3904,53 +3903,23 @@ function updateJellyMinions(dt) {
     if (m.x < -CFG.blast.x - 3 || m.x > CFG.blast.x + 3 || m.y < CFG.blast.bottom) popJellyMinion(m, 'quiet');
   }
 }
-function spawnJellyZone(owner, x, y, K) {
-  const r = 1.75 + .9 * (K === undefined ? 1 : K);
-  const g = new THREE.Group();
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(r, 26),
-    new THREE.MeshBasicMaterial({ color:0xb98bff, transparent:true, opacity:.40, depthWrite:false, side:THREE.DoubleSide }));
-  disc.rotation.x = -Math.PI / 2; disc.position.y = .07; g.add(disc);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(r * .93, .07, 6, 26),
-    new THREE.MeshBasicMaterial({ color:0xe7d8ff, transparent:true, opacity:.85, depthWrite:false }));
-  ring.rotation.x = -Math.PI / 2; ring.position.y = .11; g.add(ring);
-  for (let i = 0; i < 7; i++) {
-    const a = i / 7 * Math.PI * 2 + .3;
-    const dr = new THREE.Mesh(new THREE.SphereGeometry(.13, 8, 6),
-      new THREE.MeshStandardMaterial({ color:0xd9b7ff, roughness:.3 }));
-    dr.position.set(Math.cos(a) * r * .82, .16, Math.sin(a) * r * .82); dr.scale.set(1, 1.5, 1); g.add(dr);
-  }
-  g.position.set(x, Math.max(0, y), 0); scene.add(g);
-  const z = { owner, x, y:Math.max(0, y), r, t:8.0, mesh:g, ring, used:new Set() };
-  JELLY_ZONES.push(z);
-  FX.ring(x, Math.max(0, y) + .2, .28, r * 2.1, 0xb98bff, .45);
-  return z;
-}
-function updateJellyZones(dt) {
-  for (let i = JELLY_ZONES.length - 1; i >= 0; i--) {
-    const z = JELLY_ZONES[i];
-    z.t -= dt;
-    if (z.ring) { z.ring.rotation.z += dt * .9; z.ring.material.opacity = .55 + .30 * (Math.sin(z.t * 5) * .5 + .5); }
-    for (const f of FIGHTERS) {
-      if (!f || f === z.owner || f.eliminated || z.used.has(f.uid)) continue;
-      if (z.owner && z.owner.team >= 0 && isTeammate(z.owner, f)) continue;
-      if (Math.abs(f.pos.x - z.x) > z.r + f.bodyR * .45) continue;
-      if (f.pos.y > z.y + 2.4 || f.pos.y < z.y - 1.4) continue;
-      z.used.add(f.uid);
-      f.jellyBind = { t:1.0, src:z.owner, x:f.pos.x, y:f.pos.y, dmg:15, bb:14, bg:42, ang:80 };
-      f.vel.set(0, 0, 0); f.state = 'stun'; f.hitstun = 0;
-      FX.ring(f.pos.x, f.pos.y + .22, .30, 2.6, 0xd6b3ff, .48);
-      FX.spark(f.pos.x, f.pos.y + 1.0, .34, 10, 0xb98bff);
-      callout(f, 'STICKY JAIL 1.0s', 0xb98bff);
-      SFX.special('wave');
-    }
-    if (z.t <= 0) { try { scene.remove(z.mesh); } catch (e) {} JELLY_ZONES.splice(i, 1); }
-  }
-}
+/* （上B 的「持续粘球地面」已按 2026-11-24 的规格删除：改成起跳瞬间困住周围敌人。这里不再有 puddle 系统。） */
 function clearJellySpawns() {
   for (const m of JELLY_MINIONS.slice()) removeJellyMinion(m);
   JELLY_MINIONS.length = 0;
-  for (const z of JELLY_ZONES) { try { scene.remove(z.mesh); } catch (e) {} }
-  JELLY_ZONES.length = 0;
+}
+/* ★ 被果冻「困住」的人身上的黏液茧（世界坐标）：半透明紫球 + 赤道光环，谁被粘住一眼看得出。 */
+function makeJellyGoo() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color:0xc9a6ff, emissive:0x5a2a9e, emissiveIntensity:.55,
+    transparent:true, opacity:.42, roughness:.14, metalness:.02, depthWrite:false });
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), mat);
+  shell.scale.set(1, 1.22, 1); g.add(shell);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.03, .055, 6, 24),
+    new THREE.MeshBasicMaterial({ color:0xf3e6ff, transparent:true, opacity:.85, depthWrite:false }));
+  ring.rotation.x = Math.PI / 2; g.add(ring);
+  g.visible = false; scene.add(g);
+  return g;
 }
 /* ★ 果冻鞭（世界坐标实体）：真正的「一根看得见的胶质鞭子」。
    之前的 addditive 光束在白天天空下几乎看不见（项目里踩过同样的坑），所以这里用
@@ -4359,6 +4328,7 @@ function clearField() {
     if (f._cbLz) { scene.remove(f._cbLz.g); f._cbLz = null; }                   // ★ Cardboard 持续激光
     f.cbState = null;
     if (f._lashMesh) { scene.remove(f._lashMesh); f._lashMesh = null; }   // ★ Jelly 的世界坐标果冻鞭
+    if (f._jellyGoo) { scene.remove(f._jellyGoo); f._jellyGoo = null; }    // ★ 被果冻困住的黏液茧
     if (f.parts && f.parts.head) f.parts.head.visible = true;
   }
   clearBobs();                                       // ★ Mechanic 的 BOB 一起清
@@ -15440,7 +15410,7 @@ class Fighter {
     /* ★ Jelly：体型 / 视觉缩放 / 粘住 · 卷进球 / 蓄力状态（其它角色保持中性值） */
     this.jellyK = 1; this._visK = 1; this._kbTake = 1; this._jellyCut = 1;
     this.jellyBind = null; this.jellyInside = null; this.jellyBallCharge = null;
-    this.jellyFs = null; this.jellyTongue = null; this.jellyTongueT = 0;
+    this.jellyFs = null; this.jellyTongue = null; this.jellyTongueT = 0; this.jellySpringT = 0;
     this.buf = { atk:0, sp:0, jump:0 };      // 输入Buffer：招式中按下的键不会丢
     this.jabCombo = 0; this.jabComboT = 0;   // J Jab段数
     this.pull = null; this.pullFx = null; this.pullFxT = 0;   // 磁力牵引（施法方）
@@ -15531,9 +15501,10 @@ class Fighter {
     this.flatT = 0; this.pumpkinForm = null; this.burnLock = 0;
     /* ★ Jelly：重生/换局回到「开局最大体型」，并清掉粘住/卷进/蓄力状态 */
     if (this._lashMesh) this._lashMesh.visible = false;
+    if (this._jellyGoo) this._jellyGoo.visible = false;
     if (this.def && this.def.id === 'jelly') {
       this.jellyBind = null; this.jellyInside = null; this.jellyBallCharge = null;
-      this.jellyFs = null; this.jellyTongue = null; this.jellyTongueT = 0;
+      this.jellyFs = null; this.jellyTongue = null; this.jellyTongueT = 0; this.jellySpringT = 0;
       this.jellyApplySize(1);
     }
     this.mesh.visible = true; this.shadow.visible = true;
@@ -18464,7 +18435,10 @@ class Fighter {
       B.t -= dt;
       this.pos.x = B.x; if (B.y !== undefined) this.pos.y = B.y; this.vel.set(0, 0, 0);
       this.state = 'stun';
-      if (B.t % .2 < dt) FX.spark(this.pos.x, this.pos.y + .15, .26, 2, 0xb98bff);
+      if (B.t % .2 < dt) {
+        FX.spark(this.pos.x, this.pos.y + .15, .26, 2, 0xb98bff);
+        FX.trail(this.pos.x + Math.sin(B.t * 6) * .5, this.pos.y + .3, .22, 0xd6b3ff);
+      }
       if (B.t <= 0) {
         this.jellyBind = null;
         FX.burst(this.pos.x, this.pos.y + .2, .0, 0xb98bff, 18, 16);
@@ -23568,6 +23542,15 @@ class Fighter {
     if (this._visK === undefined) this._visK = baseVis;
     this._visK += (tgt - this._visK) * (1 - Math.exp(-11 * dt));
     if (this.jellyTongueT > 0) { this.jellyTongueT -= dt; if (this.jellyTongueT <= 0) this.jellyTongue = null; }
+    /* 上B 起跳后的 0.55 秒：身下拖一条胶质尾迹 + 上升环（让「弹射」看得见） */
+    if (this.jellySpringT > 0) {
+      this.jellySpringT -= dt;
+      FX.trail(this.pos.x, this.pos.y + .30, .40, 0xd6b3ff);
+      if (this.jellySpringT % .10 < dt) {
+        FX.ring(this.pos.x, this.pos.y + .22, .24, 1.9 + (1 - this.jellySpringT) * 3.4, 0xb98bff, .26);
+        FX.spark(this.pos.x, this.pos.y + .35, .30, 3, 0xf6ecff);
+      }
+    }
     /* 下B：蓄力 1 秒 → 发射缓慢弹跳的果冻球 */
     if (this.jellyBallCharge) {
       const C = this.jellyBallCharge;
@@ -24762,17 +24745,49 @@ class Fighter {
       }
       return true;
     } else if (cfg.kind === 'jellyBounce') {
+      /* ★ 上B（2026-11-24 改）：起跳的一瞬间把**周围敌人全部困住**（1 秒定身）+ 造成伤害；
+         不再在地上留持续范围。半径随体型变大，困住后 1 秒由 jellyBind 结算释放击退。 */
+      const vk = this._visK || 1;
+      const R = 4.2 + 1.6 * vk, gy = Math.max(0, this.pos.y);
       this.vel.y = cfg.rise || 29.5; this.vel.x *= .55;
       this.grounded = false; this.airDodged = false;
       this.jumpsLeft = Math.max(this.jumpsLeft, 0);
-      this.state = 'special'; this.animT = 0;
-      spawnJellyZone(this, this.pos.x, Math.max(0, this.pos.y), this.jellyK === undefined ? 1 : this.jellyK);
-      FX.ring(this.pos.x, this.pos.y + .25, .30, 3.6, cfg.color, .48);
-      FX.ring(this.pos.x, this.pos.y + .25, .22, 2.1, 0xf6ecff, .30);
-      FX.beam(this.pos.x, Math.max(0, this.pos.y), this.pos.x, this.pos.y + 4.0, .34, cfg.color, .14);
-      FX.burst(this.pos.x, this.pos.y + .4, .0, 0xd6b3ff, 16, 16);
-      FX.dust(this.pos.x, this.pos.y, 12, cfg.color);
-      FX.trail(this.pos.x, this.pos.y + .6, .40, cfg.color);
+      this.state = 'special'; this.animT = 0; this.jellySpringT = .55;
+      /* —— 起跳特效：地裂 + 双圈冲击 + 粘液四溅 + 竖光柱 + 尘土 —— */
+      FX.crater(this.pos.x, gy, R * .52, cfg.color);
+      FX.ring(this.pos.x, gy + .20, .30, R * 1.15, cfg.color, .55);
+      FX.ring(this.pos.x, gy + .20, .22, R * 1.95, 0xf6ecff, .38);
+      FX.burst(this.pos.x, gy + .35, .0, 0xd6b3ff, 26, 20);
+      FX.dust(this.pos.x, gy, 16, cfg.color);
+      FX.beam(this.pos.x, gy, this.pos.x, this.pos.y + 4.2, .38, cfg.color, .16);
+      FX.beam(this.pos.x, gy + .1, this.pos.x, this.pos.y + 4.4, .14, 0xf6ecff, .12);
+      for (let i = 0; i < 8; i++) {
+        const a = i / 8 * Math.PI * 2;
+        FX.trail(this.pos.x + Math.cos(a) * R * .58, gy + .30 + Math.abs(Math.sin(a)) * .20,
+                 R * .28, i % 2 ? 0xd6b3ff : 0xb98bff);
+      }
+      let trapped = 0;
+      for (const f of FIGHTERS) {
+        if (!f || f === this || f.eliminated || f.invuln > 0 || f.intangible > 0) continue;
+        if (this.team >= 0 && isTeammate(this, f)) continue;
+        if (Math.hypot(f.pos.x - this.pos.x, f.pos.y - this.pos.y) > R + f.bodyR * .5) continue;
+        if (Math.abs(f.pos.y - this.pos.y) > 3.4) continue;
+        const dir2 = Math.sign(f.pos.x - this.pos.x) || this.facing || 1;
+        const res = f.takeHit(this, { dmg:15, bb:0, bg:0, ang:0 }, dir2, 1);   // 15%：困住的瞬间就结算
+        if (!res) continue;
+        f.jellyBind = { t:1.0, src:this, x:f.pos.x, y:f.pos.y, dmg:5, bb:16, bg:46, ang:78 };
+        f.state = 'stun'; f.hitstun = 0; f.vel.set(0, 0, 0);
+        FX.ring(f.pos.x, f.pos.y + .22, .30, 2.8, 0xd6b3ff, .48);
+        FX.burst(f.pos.x, f.pos.y + .55, .0, 0xc9a6ff, 18, 14);
+        FX.spark(f.pos.x, f.pos.y + .30, .34, 8, 0xf6ecff);
+        FX.beam(f.pos.x, Math.max(0, f.pos.y), f.pos.x, f.pos.y + 2.0, .22, 0xd6b3ff, .12);
+        callout(f, 'TRAPPED 1.0s', 0xb98bff);
+        trapped++;
+      }
+      if (trapped) {
+        shake = Math.max(shake, .50); camKick = Math.min(1, camKick + .22);
+        SFX.hit(28, 8); callout(this, 'SPRING TRAP ×' + trapped, 0xb98bff);
+      }
       SFX.special('recover');
       return true;
     } else if (cfg.kind === 'jellyBallCharge') {
@@ -27523,6 +27538,17 @@ class Fighter {
       } else if (this.auraRing) this.auraRing.visible = false;
       if (this.jellyBind) P.group.rotation.z = Math.sin(A.t * 30) * .08;
     }
+    /* ★ 任何角色被果冻「困住」时套一层黏液茧（不是只有 Jelly 自己看得到） */
+    if (this.jellyBind) {
+      if (!this._jellyGoo) this._jellyGoo = makeJellyGoo();
+      const gs = (this.bodyR || 1) * .92 * (1 + Math.sin(A.t * 8) * .05);
+      this._jellyGoo.visible = true;
+      this._jellyGoo.position.set(this.pos.x, this.pos.y + .95, .06);
+      this._jellyGoo.scale.setScalar(gs);
+      this._jellyGoo.rotation.y += dt * .9;
+      if (this._jellyGoo.children[0] && this._jellyGoo.children[0].material)
+        this._jellyGoo.children[0].material.opacity = .34 + .14 * (Math.sin(A.t * 9) * .5 + .5);
+    } else if (this._jellyGoo) this._jellyGoo.visible = false;
     /* ================= ★ Foundry：机架动作 —— 钳子平推 / 光剑三连 / 喷气口开关 / 核心呼吸 ================= */
     if (this.def.id === 'foundry') {
       let fA = null, fB = null, fLean = 0;
@@ -31728,7 +31754,6 @@ function physicsStep(s) {
   updateVortexes(s);
   updateBobs(s);                                     // ★ BOB 伙伴
   updateJellyMinions(s);                             // ★ Jelly 召唤的小果冻（会掉下悬崖）
-  updateJellyZones(s);                               // ★ Jelly 上B 的粘球地面
   updateMire(s);                                     // ★ Quicksand 的流沙池
   updateHunt(s);                                     // ★ Archer 的追踪区域
   updateHellRing(s);                                 // ★ Demon 的火圈
@@ -36450,7 +36475,7 @@ window.SB = {
   /* ★ 探针：Jelly 的小果冻 / 上B 粘球地面（验收「可被击退/掉崖/命中」不能只靠眼睛） */
   get jellyMinions() { return JELLY_MINIONS.map(m => ({ x:+m.x.toFixed(2), y:+m.y.toFixed(2), vx:+m.vx.toFixed(2),
     vy:+m.vy.toFixed(2), dmg:+m.dmg.toFixed(1), r:+m.r.toFixed(2), grounded:!!m.grounded })); },
-  get jellyZones() { return JELLY_ZONES.map(z => ({ x:+z.x.toFixed(2), r:+z.r.toFixed(2), t:+z.t.toFixed(1), used:z.used.size })); },
+  get jellyZones() { return []; },   // 上B 已去掉持续粘球地面（保留探针名，恒为空）
   get fighters() { return FIGHTERS; },
   get projectiles() { return projectiles; },
   get puddles() { return puddles; },
