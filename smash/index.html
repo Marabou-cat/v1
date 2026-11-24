@@ -23576,7 +23576,7 @@ class Fighter {
                                    this.facing || 1, ball, 1, {});
         pr.jellyR = 1.15 + .95 * K;
         pr.vy = 5.0;
-        this.jellySetK(Math.max(0, K - .25), 'BALL');
+        this.jellySetK(Math.max(0, K - .125), 'BALL');  // 下B：原来 -25%，对半砍成 -12.5%
         FX.ring(this.pos.x + (this.facing || 1) * 1.2, this.pos.y + 1.0, .3, 3.2, 0xb98bff, .45);
         SFX.special('dash'); shake = Math.max(shake, .22);
       }
@@ -24698,7 +24698,7 @@ class Fighter {
     } else if (cfg.kind === 'jellySummon') {
       const K = this.jellyK === undefined ? 1 : this.jellyK;
       spawnJellyMinion(this, K);
-      this.jellySetK(K - .32, 'SPLIT');
+      this.jellySetK(K - .15, 'SPLIT');       // 召唤小果冻：体型 -15%（用户 2026-11-24 调小）
       this.state = 'special'; this.animT = 0; this.vel.x *= .35;
       const sx = this.pos.x + (dir || 1) * 1.5, sy = Math.max(.4, this.pos.y + .5);
       FX.ring(this.pos.x, this.pos.y + .3, .30, 3.6, cfg.color, .48);
@@ -24737,7 +24737,7 @@ class Fighter {
           FX.flash(tg.pos.x, tg.pos.y + 1.0, .45, 3.6, cfg.color, .28);
           callout(tg, 'STUCK 2.0s', cfg.color);
           shake = Math.max(shake, .22); SFX.hit(18, dmg);
-          this.jellySetK(Math.max(0, K - .20), 'LASH');
+          this.jellySetK(Math.max(0, K - .10), 'LASH');   // 左右B：原来 -20%，对半砍成 -10%
         } else callout(this, 'LASH MISS', cfg.color);
       } else {
         callout(this, 'LASH MISS', cfg.color);
