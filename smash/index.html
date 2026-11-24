@@ -3858,7 +3858,7 @@ function spawnJellyMinion(owner, K) {
   const parts = jellyMinionMesh(K, (owner && owner.def && owner.def.skin) || 'none');
   const m = { id:++_jmId, owner, x:owner.pos.x + (owner.facing || 1) * 1.5,
     y:owner.pos.y + 1.1, vx:(owner.facing || 1) * 4.0, vy:5.0, kx:0,
-    r:.40 + .16 * K, dmg:0, t:0, hopCd:.35, atkCd:.6, grounded:false,
+    r:.40 + .16 * K, K, dmg:0, t:0, hopCd:.35, atkCd:.6, grounded:false, hurtCd:0,
     mesh:parts.group, parts };
   m.mesh.position.set(m.x, m.y, 0);
   m.baseScale = .38 + .16 * K;
@@ -3898,11 +3898,48 @@ function jellyMinionHit(m, dmg, dirX, kb) {
   SFX.hit(12, dmg);
   if (m.dmg >= 60) popJellyMinion(m);
 }
+/* ★ 2026-11-24（用户：让小果冻可以被任何伤害攻击，如 Blizzard 光束 / 子弹 / Teacher 课本）：
+   近战判定框（hitboxCheck）和投射物（updateProjectiles）早就有小果冻分支，
+   但「直接调 takeHit」的那一类技能（光束、范围、大招）完全没有 → 小果冻站在光里不掉血。
+   这里补两个统一入口，任何技能只要一行就能把伤害传给小果冻；每只 0.12s 只吃一次
+   （否则 Blizzard 10 段光束 / 大招 4 秒持续会把它瞬间打爆）。 */
+function jellyMinionsHitArea(owner, cx, cy, rw, rh, dmg, bb, dir) {
+  let n = 0;
+  for (const m of JELLY_MINIONS.slice()) {
+    if (!m || m.owner === owner) continue;
+    if (owner && owner.team >= 0 && isTeammate(owner, m.owner)) continue;
+    if ((m.hurtCd || 0) > 0) continue;
+    if (Math.abs(m.x - cx) > rw) continue;
+    if (Math.abs((m.y + .55) - cy) > (rh || 3)) continue;
+    m.hurtCd = .12;
+    jellyMinionHit(m, dmg, dir || Math.sign(m.x - cx) || 1, bb === undefined ? 4 : bb);
+    FX.jellySplat(m.x, m.y + .55, .20, 0xd6b3ff, .55);
+    n++;
+  }
+  return n;
+}
+function jellyMinionsHitLine(owner, x, y, dir, range, halfH, dmg, bb) {
+  let n = 0;
+  for (const m of JELLY_MINIONS.slice()) {
+    if (!m || m.owner === owner) continue;
+    if (owner && owner.team >= 0 && isTeammate(owner, m.owner)) continue;
+    if ((m.hurtCd || 0) > 0) continue;
+    const dx = (m.x - x) * dir;
+    if (dx < -.4 || dx > range) continue;
+    if (Math.abs((m.y + .55) - y) > (halfH || 2.4)) continue;
+    m.hurtCd = .12;
+    jellyMinionHit(m, dmg, dir, bb === undefined ? 4 : bb);
+    FX.jellySplat(m.x, m.y + .55, .20, 0xd6b3ff, .55);
+    n++;
+  }
+  return n;
+}
 function updateJellyMinions(dt) {
   for (let i = JELLY_MINIONS.length - 1; i >= 0; i--) {
     const m = JELLY_MINIONS[i];
     if (!m.owner || m.owner.eliminated) { popJellyMinion(m, 'quiet'); continue; }
     m.t += dt;
+    if (m.hurtCd > 0) m.hurtCd = Math.max(0, m.hurtCd - dt);
     let tg = null, bd = 1e9;
     for (const f of FIGHTERS) {
       if (!f || f === m.owner || f.eliminated) continue;
@@ -3928,7 +3965,12 @@ function updateJellyMinions(dt) {
     m.atkCd -= dt;
     if (tg && m.atkCd <= 0 && Math.abs(tg.pos.x - m.x) < m.r + tg.bodyR * .7 + .45 && Math.abs(tg.pos.y - m.y) < 2.2) {
       m.atkCd = 1.1;
-      tg.takeHit(m.owner, { dmg:1.6, bb:3, bg:8, ang:42 }, Math.sign(tg.pos.x - m.x) || dir, 1);
+      /* ★ 伤害随体型：K=0 → 2.6% / K=1 → 8.5%（原来固定 1.6%）。
+         击退仍然是很小的一档（bb 2→5 / bg 6→18，对比普通 jab 的 bb 8/bg 18）→ 打着疼但推不动人。 */
+      const mk = (m.K === undefined ? 1 : m.K);
+      const md = 2.6 + 5.9 * mk;
+      tg.takeHit(m.owner, { dmg: md, bb: 2 + 3 * mk, bg: 6 + 12 * mk, ang: 42 },
+        Math.sign(tg.pos.x - m.x) || dir, 1);
       FX.jellySplat(tg.pos.x, tg.pos.y + 1.0, .25, 0xd6b3ff, .55);
     }
     m.mesh.position.set(m.x, m.y, 0);
@@ -16037,6 +16079,8 @@ class Fighter {
         FX.slash(f.pos.x, f.pos.y + 1.2, .45, dir > 0 ? 0 : Math.PI, 2.2, 0xeaf9ff, .14);
         any = true;
       }
+      /* ★ 光束也照打小果冻（用户点名这一条）：整条激光线上的召唤物按同一段伤害结算 */
+      if (JELLY_MINIONS.length) jellyMinionsHitLine(this, hx, hy, dir, R, 3.2, C.dmg, 5);
       if (any) { SFX.hit(18, 3); shake = Math.max(shake, .2); }
       FX.ring(hx + dir * .5, hy, .25, 2.2, 0xeaf9ff, .16);
     }
@@ -16703,6 +16747,11 @@ class Fighter {
       FX.ring(this.pos.x, this.headY, .3, 3.2, 0xffe0a0, .5);
       if (launch > 72) { flash = Math.max(flash, .45); flashColor = '#fff3c4'; }
     }
+    /* ★ 兜底：任何伤害落到人身上，都会溅到 1.7 单位内的果冻召唤物（60% 伤害）。
+       这样即使某个技能的判定压根没写小果冻分支，也不会出现「站在爆炸里毫发无伤」。 */
+    if (JELLY_MINIONS.length && attacker && attacker !== this && dmg > 0)
+      jellyMinionsHitArea(attacker, this.pos.x, this.pos.y + 1.0, 1.7, 2.4, Math.min(30, dmg * .6), 4,
+                          Math.sign(this.pos.x - (attacker.pos ? attacker.pos.x : this.pos.x)) || 1);
     dmgPopup(this.pos.x, this.headY + .5, this.damage);
     if (mv.stun) this.stun = Math.max(this.stun, mv.stun);
     if (heavy) SFX.heavy(); else SFX.hit(launch, dmg);
@@ -17504,6 +17553,10 @@ class Fighter {
   /* ---- 必杀技 Final Smash：11 个角色各自的专属大招 ---- */
   fsReady() { return this.fsMeter >= 1 && !this.eliminated && this.hitstun <= 0 && this.fsT <= 0 && !this.pumpkinForm; }
   fsHit(SP, cx, w, h, dy, push) {                 // 通用范围判定（不含硬直锁）
+    /* ★ 大招范围也照打小果冻（所有角色的 FS 都走这里） */
+    if (JELLY_MINIONS.length)
+      jellyMinionsHitArea(this, cx, this.pos.y + (dy === undefined ? 1.0 : dy), w, h || 2.0,
+                          (SP.dmg || 8) * .8, 6, this.facing);
     for (const f of FIGHTERS) {
       if (f === this || f.eliminated) continue;
       const dx = f.pos.x - cx;
