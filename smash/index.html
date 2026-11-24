@@ -3243,6 +3243,7 @@ CHAR_EXTRA.jelly = {
     + 'Up B Jelly Spring (leap up and TRAP every nearby foe on take-off: they are jailed for 1s and take 15% instantly, then get flung up when the jelly bursts) · '
     + 'Down B Jelly Roller (charge 1s then roll a slow bouncing ball; whoever it touches is swallowed and carried, and the ball explodes at the end for damage + knockback — bigger body = bigger ball and damage) · '
     + 'FINAL SMASH Pudding Rebirth (ONLY at smallest size: charge 2s — you CAN be knocked out of it — then snap back to MAX size with a shockwave)',
+  headH: 2.06,                                  // ★ 有腿以后模型到 2.16：字幕/伤害数字跟着抬高
   shape:{ tail:null, scale:1.0, headR:.86, bodyR:1.02 },
   weight:118, walk:7.0, run:10.6, air:9.0, jump:25.2, jumps:2, fall:34, fastFall:50,
   accel:46, airAccel:30, fric:30, mul:{ dmg:1.04, kb:1.02, spd:.94 },
@@ -13225,17 +13226,21 @@ function kitJelly(def) {
   bodyMat.emissive = new THREE.Color(ORANGE ? 0x5a2600 : 0x2a1050); bodyMat.emissiveIntensity = ORANGE ? .26 : .22;   // 胶质微透光
   const glazeMat = cmat(B2, { roughness:.16 });
   const ink = cmat(EY, { roughness:.42 });
-  const wob = new THREE.Group(); g.add(wob);
+  const LEG_H = .44;                                        // 腿的高度：身体从 y=LEG_H 起，腿在下面
+  const wob = new THREE.Group(); wob.position.y = LEG_H; g.add(wob);
   /* ★ 2026-11-24 重建（用户反馈「头顶尖尖的，要更像喜之郎果冻」）：
      剖面 = **杯装果冻**：下窄上宽的圆角杯身 → 收成半径 0.90 的杯口；顶面是**单独一整块平的果冻面**。
      旧剖面从 y=1.06 一路收成 (0,1.90) 的尖顶（水滴/圆锥），所以从任何角度看都像尖帽子。
      新尺寸：高 1.72 / 宽 2.01（≈ 喜之郎果冻杯 1:0.86 的比例，矮胖杯形）。 */
   const JY_H = 1.72;
+  /* ★ 2026-11-24 第二轮（用户：「让果冻形状反过来，并加上腿」）：
+     剖面上下颠倒 → **下宽上窄**（底部半径 1.0，收到顶部 0.565），顶部仍是一小块**平的果冻面**。
+     旧版是「上宽下窄」的杯子（越往上越宽），这版是「宽底水滴/倒扣果冻」，腿从宽底下面伸出来。 */
   const prof = [
-    [0.00, 0.00], [0.44, 0.00], [0.60, 0.03], [0.70, 0.09], [0.755, 0.20],
-    [0.775, 0.36], [0.792, 0.58], [0.816, 0.80], [0.856, 1.00], [0.902, 1.18],
-    [0.946, 1.36], [0.982, 1.50], [1.00, 1.60], [1.006, 1.655],
-    [0.986, 1.695], [0.946, 1.712], [0.90, 1.72],
+    [0.00, 0.00], [0.52, 0.00], [0.74, 0.03], [0.88, 0.10], [0.965, 0.22],
+    [1.000, 0.38], [0.995, 0.55], [0.975, 0.72], [0.940, 0.90], [0.895, 1.08],
+    [0.845, 1.25], [0.790, 1.40], [0.735, 1.53], [0.685, 1.63],
+    [0.640, 1.685], [0.600, 1.712], [0.565, 1.72],
   ].map(p => new THREE.Vector2(p[0], p[1]));
   const body = new THREE.Mesh(new THREE.LatheGeometry(prof, 44), bodyMat);
   wob.add(body);
@@ -13243,50 +13248,50 @@ function kitJelly(def) {
   const rimMat = cmat(B2, { roughness:.10, metalness:.02, flatShading:false });
   rimMat.transparent = true; rimMat.opacity = .93;
   rimMat.emissive = new THREE.Color(ORANGE ? 0x6a2c00 : 0x301356); rimMat.emissiveIntensity = .26;
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(.978, .062, 8, 44), rimMat);
-  rim.rotation.x = Math.PI / 2; rim.position.y = 1.664; wob.add(rim);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(.580, .050, 8, 40), rimMat);
+  rim.rotation.x = Math.PI / 2; rim.position.y = 1.700; wob.add(rim);
   /* ★ 顶面：一整块平的果冻面（圆盘 + 两圈内凹纹 + 斜向高光）—— 「平顶」是喜之郎果冻最强的识别点 */
   const topMat = cmat(ORANGE ? 0xffb257 : 0xb983ff, { roughness:.06, metalness:.02, flatShading:false });
   topMat.transparent = true; topMat.opacity = .90;
   topMat.emissive = new THREE.Color(ORANGE ? 0x8a3f00 : 0x3d1b72); topMat.emissiveIntensity = .34;
   const top = new THREE.Group(); top.position.y = 1.742; wob.add(top);   // 略高于口沿 → 平的果冻面「满到杯口」
-  const lid = new THREE.Mesh(new THREE.CircleGeometry(.902, 44), topMat);
+  const lid = new THREE.Mesh(new THREE.CircleGeometry(.567, 40), topMat);
   lid.rotation.x = -Math.PI / 2; top.add(lid);
-  const dent = new THREE.Mesh(new THREE.TorusGeometry(.50, .026, 6, 32),
+  const dent = new THREE.Mesh(new THREE.TorusGeometry(.30, .022, 6, 28),
     new THREE.MeshBasicMaterial({ color:ORANGE ? 0xd9741a : 0x6f47bd, transparent:true, opacity:.40, depthWrite:false }));
   dent.rotation.x = Math.PI / 2; dent.position.y = .004; top.add(dent);
-  const dent2 = new THREE.Mesh(new THREE.TorusGeometry(.80, .018, 6, 32),
+  const dent2 = new THREE.Mesh(new THREE.TorusGeometry(.475, .016, 6, 28),
     new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.30, depthWrite:false }));
   dent2.rotation.x = Math.PI / 2; dent2.position.y = .002; top.add(dent2);
-  const topShine = new THREE.Mesh(new THREE.CircleGeometry(.30, 24),
-    new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.32, depthWrite:false }));
+  const topShine = new THREE.Mesh(new THREE.CircleGeometry(.175, 24),
+    new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.34, depthWrite:false }));
   topShine.rotation.x = -Math.PI / 2;
-  topShine.position.set(-.30, .007, -.14); topShine.scale.set(1.85, 1, 1); top.add(topShine);
+  topShine.position.set(-.17, .007, -.09); topShine.scale.set(1.7, 1, 1); top.add(topShine);
   /* 体内的果肉粒（固定角度 → 联机两端一致）：喜之郎果冻里那几块果肉的观感 */
   const fleshMat = cmat(ORANGE ? 0xffcf7a : 0xe9d6ff, { roughness:.30 });
   fleshMat.transparent = true; fleshMat.opacity = .85;
   for (let i = 0; i < 3; i++) {
     const a = i / 3 * Math.PI * 2 + .8;
     const fz = new THREE.Mesh(new THREE.BoxGeometry(.20, .15, .20), fleshMat);
-    fz.position.set(Math.cos(a) * .34, .42 + i * .30, Math.sin(a) * .34);
+    fz.position.set(Math.cos(a) * .30, .44 + i * .26, Math.sin(a) * .30);
     fz.rotation.set(i * .5, a, i * .7); wob.add(fz);
   }
   const glaze = top;                                       // 兼容 return 里的 belly 字段
   const head = new THREE.Group(); head.position.y = 1.14; wob.add(head);   // 脸（正面 +Z，贴在杯身上部）
   for (const sd of [-1, 1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(.105, 10, 8), ink);
-    e.position.set(sd * .30, .10, .860); e.scale.set(1, 1.15, .5); head.add(e);
-    const pu = new THREE.Mesh(new THREE.SphereGeometry(.038, 6, 5), cmat(0xffffff, { roughness:.15 }));
-    pu.position.set(sd * .30 + .035, .145, .915); head.add(pu);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(.125, 10, 8), ink);
+    e.position.set(sd * .29, .10, .780); e.scale.set(1, 1.15, .5); head.add(e);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(.045, 6, 5), cmat(0xffffff, { roughness:.15 }));
+    pu.position.set(sd * .29 + .035, .148, .843); head.add(pu);
   }
   const mouth = new THREE.Mesh(new THREE.TorusGeometry(.135, .035, 6, 14, Math.PI), ink);
-  mouth.position.set(0, -.14, .872); mouth.rotation.z = Math.PI; head.add(mouth);
+  mouth.position.set(0, -.14, .916); mouth.rotation.z = Math.PI; head.add(mouth);
   const shine = new THREE.Mesh(new THREE.SphereGeometry(.135, 10, 8),
     new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.20, depthWrite:false }));
-  shine.position.set(-.46, 1.30, .78); shine.scale.set(1, 1.5, .30); wob.add(shine);
+  shine.position.set(-.44, 1.30, .70); shine.scale.set(1, 1.5, .30); wob.add(shine);
   /* ★ 果冻纹路（实体环）：三层半透明胶质环，随呼吸缩放/错相闪动（animStep 里驱动） */
   const rings = [];
-  for (const rr of [[.26, .772], [.52, .788], [.78, .812], [1.04, .858], [1.30, .934]]) {
+  for (const rr of [[.26, .972], [.52, .998], [.78, .968], [1.04, .912], [1.30, .828]]) {
     const rg = new THREE.Mesh(new THREE.TorusGeometry(rr[1], .032, 6, 40),
       new THREE.MeshBasicMaterial({ color:RINGC, transparent:true, opacity:.26, depthWrite:false }));
     rg.rotation.x = Math.PI / 2; rg.position.y = rr[0]; wob.add(rg); rings.push(rg);
@@ -13297,7 +13302,7 @@ function kitJelly(def) {
     opacity:.34, depthWrite:false });
   for (let i = 0; i < 8; i++) {
     const a = i / 8 * Math.PI * 2 + .4;
-    const rr = .18 + (i % 4) * .095, yy = .46 + (i % 4) * .24;
+    const rr = .16 + (i % 4) * .085, yy = .42 + (i % 4) * .26;
     const bb = new THREE.Mesh(new THREE.SphereGeometry(.030 + (i % 3) * .012, 8, 6), bubMat);
     bb.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr); wob.add(bb); bubbles.push(bb);
   }
@@ -13305,18 +13310,18 @@ function kitJelly(def) {
   for (const sd of [-1, 1]) {
     const ck = new THREE.Mesh(new THREE.SphereGeometry(.10, 9, 7),
       new THREE.MeshBasicMaterial({ color:0xf0c6ff, transparent:true, opacity:.55, depthWrite:false }));
-    ck.position.set(sd * .47, -.02, .766); ck.scale.set(1, .62, .18); head.add(ck);
+    ck.position.set(sd * .44, -.02, .748); ck.scale.set(1, .62, .18); head.add(ck);
   }
   /* 底部胶质裙边：一圈软软的压扁环，坐在地上更「布丁」 */
-  const skirt = new THREE.Mesh(new THREE.TorusGeometry(.735, .080, 6, 34),
+  const skirt = new THREE.Mesh(new THREE.TorusGeometry(.990, .070, 6, 38),
     new THREE.MeshBasicMaterial({ color:SKIRTC, transparent:true, opacity:.30, depthWrite:false }));
-  skirt.rotation.x = Math.PI / 2; skirt.position.y = .048; wob.add(skirt);
+  skirt.rotation.x = Math.PI / 2; skirt.position.y = .055; wob.add(skirt);
   /* ★ Orange Jelly：头顶的橘子片（半圆片 = 果肉 + 白瓤环 + 橘皮外圈 + 6 条白色瓣膜线）。
      全部用平面几何拼（侧视一眼能认出是橘子片），挂在 wob 上 → 跟着果冻一起 Q 弹。 */
   let slice = null;
   if (ORANGE) {
     slice = new THREE.Group();
-    const R0 = .68;
+    const R0 = .42;
     const rindM  = new THREE.MeshStandardMaterial({ color:0xff7a12, roughness:.55, side:THREE.DoubleSide });
     const pithM  = new THREE.MeshStandardMaterial({ color:0xfff3dc, roughness:.48, side:THREE.DoubleSide });
     const fleshM = new THREE.MeshStandardMaterial({ color:0xff9414, roughness:.28, emissive:0x8a3200,
@@ -13343,21 +13348,23 @@ function kitJelly(def) {
     }
     const back = slice.clone(); back.position.x = .075; back.scale.set(.985, .985, 1);
     slice.add(back);                                     // 背面一层 → 有厚度
-    slice.position.set(0, JY_H + .02, .02);
+    slice.position.set(0, JY_H + .02, .00);
     /* ⚠ 角色整机是 yaw ±90° 的：盘面法线必须转成「本地 X」才会正对镜头，
        直接放 XY 平面会变成一条薄边（第一版截图就是一排细刺）。 */
     slice.rotation.set(.20, Math.PI / 2, 0);
     wob.add(slice);
   }
   /* 手臂放在杯身中部（原来贴着口沿 → 远看像马克杯的把手） */
-  const armL = kitArm(g, -1, mats, { x:.915, y:1.08, w:.15, len:.27,
+  /* 手臂挂在偏上的位置（world y 必须含 LEG_H，因为 arm 是加在 g 上而不是 wob 上）。
+     ★ 下宽上窄的体型里，手臂垂直下垂会埋进身体 → 往外张开 22° 才看得见。 */
+  const armL = kitArm(g, -1, mats, { x:1.00, y:LEG_H + .80, w:.15, len:.27,
     handGeo:new THREE.SphereGeometry(.19, 9, 7), handMat:mats.body2 });
-  const armR = kitArm(g,  1, mats, { x:.915, y:1.08, w:.15, len:.27,
+  const armR = kitArm(g,  1, mats, { x:1.00, y:LEG_H + .80, w:.15, len:.27,
     handGeo:new THREE.SphereGeometry(.19, 9, 7), handMat:mats.body2 });
-  const legL = kitLeg(g, -1, mats, { x:.34, y:.16, w:.20, len:.10, fw:.34, fh:.13, fd:.40 });
-  const legR = kitLeg(g,  1, mats, { x:.34, y:.16, w:.20, len:.10, fw:.34, fh:.13, fd:.40 });
-  /* ★ 杯装果冻没有腿：腿对象保留（别处可能引用）但整只藏起来 —— 露出来就变成「长了腿的水桶」。 */
-  legL.visible = false; legR.visible = false;
+  armL.rotation.z = -.38; armR.rotation.z = .38;
+  /* ★ 2026-11-24：用户要求「加上腿」—— 身体抬到 LEG_H，两条小短腿从宽底下面伸出来撑住 */
+  const legL = kitLeg(g, -1, mats, { x:.40, y:LEG_H + .02, w:.20, len:.10, fw:.36, fh:.14, fd:.42 });
+  const legR = kitLeg(g,  1, mats, { x:.40, y:LEG_H + .02, w:.20, len:.10, fw:.36, fh:.14, fd:.42 });
   /* 左右B 的果冻舌头：默认藏着，命中时从嘴拉到目标身上（animStep 里摆位） */
   const tongue = new THREE.Mesh(new THREE.CapsuleGeometry(.17, 1.0, 5, 10), mats.body2);
   tongue.rotation.z = Math.PI / 2; tongue.visible = false; g.add(tongue);
@@ -15765,7 +15772,7 @@ class Fighter {
     if (stocks !== undefined) this.stocks = stocks;
   }
   get bodyR() { return (this.def.shape.bodyR || 1.05 * this.def.shape.scale) * (this._visK || 1); }   // 可被 shape.bodyR 覆盖（Gorilla 判定圈更大）；Jelly 体型随技能变 → 判定圈一起变
-  get headY() { return this.pos.y + 1.6 * this.def.shape.scale * (this._visK || 1); }
+  get headY() { return this.pos.y + (this.def.headH || 1.6) * this.def.shape.scale * (this._visK || 1); }
 
   /* ---- 伤害与击飞 ---- */
   /* ★ Singer·左右B：冲刺 → 三连击（前两下不同角度、第三下从下方挑飞），武器是蓝光剑 */
@@ -25001,7 +25008,7 @@ class Fighter {
       this.state = 'special'; this.animT = 0; this.vel.x *= .25;
       const dmg = 5 + 10 * K;                    // 体型越大越高，最小 5%
       this.jellyTongue = tg; this.jellyTongueT = tg ? 2.10 : .45;   // 命中就整段 2 秒都拉着鞭子
-      const hx0 = this.pos.x + (dir || 1) * .45 * (this._visK || 1), hy0 = this.pos.y + 1.02 * (this._visK || 1);
+      const hx0 = this.pos.x + (dir || 1) * .45 * (this._visK || 1), hy0 = this.pos.y + .62 * (this._visK || 1);
       /* ★ 甩出去的是「一根实心胶丝」：加色光束在白天天空下几乎看不见，换成普通材质 + 自发光 */
       FX.jellyStrand(hx0, hy0, this.pos.x + (dir || 1) * reach, hy0, cfg.color, .17, .26);
       FX.beam(hx0, hy0, this.pos.x + (dir || 1) * reach, hy0, .12, 0xf6ecff, .14);
@@ -27797,7 +27804,7 @@ class Fighter {
         defHasSkin(this.def, 'jelly_orange') ? 0xffe0a8 : 0xf6ecff);
       const LASH = this._lashMesh;
       if (T && this.jellyTongueT > 0 && !T.eliminated && LASH) {
-        const x1 = this.pos.x + (this.facing || 1) * .45 * vk, y1 = this.pos.y + 1.02 * vk;
+        const x1 = this.pos.x + (this.facing || 1) * .45 * vk, y1 = this.pos.y + .62 * vk;
         const ty = T.pos.y + .95 * (T._visK || 1);
         const dx = T.pos.x - x1, dy = ty - y1, len = Math.max(.6, Math.hypot(dx, dy));
         const pulse = 1 + Math.sin(A.t * 18) * .05;
