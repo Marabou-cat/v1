@@ -528,7 +528,7 @@ function accOf(id) {
 }
 const ONLINE = new Map();          // pid -> { ws, nick, code, at }
 const QUEUE = new Map();           // code -> { code, rules, pid, at }
-/* ★ 第 85 轮 / 2026-11-21：补位的电脑伪装成真人 —— 用真人风格昵称，且同房同座位名字固定（各端一致、重开也一样）。
+/* ★ 第 85 轮 / 2026-11-21：补位的电脑伪装成真人 —— 用真人风格昵称，���同房同座位名字固定（各端一致、重开也一样）。
    名字池覆盖 英/韩/中/日/西/法，六种语言随机组名：单名 / 姓名组合 / 单名+数字后缀，
    看起来就是普通玩家；同房内不重名（used 集合去重）。
    ⚠ 只在这里（服务端）随机，名字写进 seat 后广播给所有人 —— 不在客户端生成，锁步一致性不受影响。 */
@@ -649,7 +649,7 @@ function tick() {
            卡住但活着的座位由同伴上报 a:'stall' 解决，服务端用「上报者卡住的那一帧」广播，
            各端在同一帧切 AI，Bot 随机数流不会错开。 */
         /* ★ 第 99 轮：阈值大幅放宽（2s → 12s）。锁步里「短卡顿」应该表现为**全场等一下**，
-           而不是把这个座位挂 AI；挂 AI 会让各端接管帧号不同 → 回连时 hash/gap 判定失败 → 整局重开。
+           而���是把这个座位挂 AI；挂 AI 会让各端接管帧号不同 → 回连时 hash/gap 判定失败 → 整局重开。
            12 秒才判死，只用于「人真的走了/关页面」的兜底。 */
         /* ★ 第 100 轮：判死还要加一条「别人**此刻**确实在推进」——
            必须有一个真人座位最近 3 秒内还在送帧、并且帧号已经领先这个人 >20 帧，
@@ -932,7 +932,13 @@ function handle(act, ctx) {
     for (let i = 0; i < need; i++) if (!room.seats[i]) { idx = i; break; }
     if (idx >= 0) {
       room.seats[idx] = { seat: idx, token: newToken(), name: botName(room, idx),
-        char: CHAR_POOL[(idx + (room.seats.filter(x => x && x.bot).length)) % CHAR_POOL.length],
+        char: (function () {
+          /* ★ 首领试炼合作房：房主可以在面板里指定 CPU 队友角色（rules.botChars），
+             没指定就随机 —— 服务端定完随 seats 广播，三端拿到同一个 char，锁步不会分叉。 */
+          const bc = (room.rules && Array.isArray(room.rules.botChars)) ? room.rules.botChars[idx] : '';
+          if (bc && CHAR_POOL.indexOf(bc) >= 0) return bc;
+          return CHAR_POOL[Math.floor(Math.random() * CHAR_POOL.length)];
+        })(),
         skin: '',
         ready: true, ai: true, bot: true, connected: false, lastSeen: now, joined: now };
       broadcast(room, { a:'seats', room: roomPublic(room) });
@@ -970,9 +976,17 @@ function handle(act, ctx) {
       time: Math.max(0, Math.min(600, (r.time | 0) || 0)),
       diff: Math.max(1, Math.min(3, (r.diff | 0) || (room.rules.diff | 0) || 3)),
       teams: r.teams ? 1 : 0,
-      mode: r.mode === 'gem' ? 'gem' : '',
+      mode: (r.mode === 'gem' || r.mode === 'boss') ? r.mode : '',
       stage: (r.stage === undefined || r.stage === null) ? null : r.stage,
     };
+    /* ★ 首领试炼合作房：trial / botChars 必须跟着 rules 一起活下去，否则房主一改规则
+       （换图、改人数）这几项就被白名单抹掉 → 三端 setup 不出 boss，整局变成普通乱斗。 */
+    if (nx.mode === 'boss') {
+      nx.count = 3;                                   // 合作房固定 3 个玩家位
+      nx.trial = Math.max(0, Math.min(2, (r.trial | 0) || 0));
+      nx.botChars = Array.isArray(r.botChars)
+        ? r.botChars.slice(0, 3).filter(c => CHAR_POOL.indexOf(c) >= 0) : [];
+    } else { nx.trial = null; nx.botChars = []; }
     /* 有真人坐在新 count 之外 → 不能悄悄把他踢掉，让客户端回退到「新建房」 */
     for (let i = nx.count; i < room.seats.length; i++) {
       const x = room.seats[i];
@@ -1186,7 +1200,7 @@ function handle(act, ctx) {
        只增不减 → minAck 被钉死在旧帧号 → storeInput 的裁剪 (cut = minAck-60) 把新一局 1..N 帧的
        输入**全部删掉** → 两端 haveAll() 永远为假 → 闸门永不开 → 全场卡死在帧 0。
        判据与「存输入」保持一致：不超过 minAck+600 的帧号才可能是本局的；
-       客户端自报代次（新客户端才有）不一致时直接判为上一局的残留。 */
+       客户端���报代次（新客户端才有）不一致时直接判为上一局的残留。 */
     const plausible = !staleGen && cur <= minAck(room) + 600;
     if (plausible) {
       room.ack[seat] = Math.max(room.ack[seat] || 0, cur);      // 该座位执行进度
@@ -1256,7 +1270,7 @@ function handle(act, ctx) {
     /* ★ 第 65 轮 + 2026-10-23：哈希对不上 = 各家画面已经不同（重连 / AI 接管之后最常见）。
        引擎没有回滚 → 靠 ev 修补不了，唯一解是同 seed 从第 0 帧重开。
        ⚠ 但重开判据必须是「**至少 2 个不同帧**都对不上」（room.badFrames 在循环里累计）：
-       单帧分歧太容易是「刚重开、某台还在跑旧局」的迟到包或一次 GC 抖动 ——
+       单帧分歧太容易是「刚重开、��台还在跑旧局」的迟到包或一次 GC 抖动 ——
        一次误判就把整局进度抹掉，正是用户报的「比赛时不时重开」。
        这段放在 if (!room.desync) 之外，否则第一帧分歧时 size 只有 1、第二帧分歧又进不来，
        永远重开不了。 */
