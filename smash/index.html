@@ -3924,9 +3924,10 @@ function makeJellyGoo() {
 /* ★ 果冻鞭（世界坐标实体）：真正的「一根看得见的胶质鞭子」。
    之前的 addditive 光束在白天天空下几乎看不见（项目里踩过同样的坑），所以这里用
    普通 MeshStandardMaterial + 自发光：粗紫鞭身 + 末端黏液球 + 沿鞭身流动的 3 颗胶滴 + 末端光环。 */
-function makeJellyLash() {
+function makeJellyLash(mainC, lightC) {
+  mainC = mainC || 0xd6b3ff; lightC = lightC || 0xf3e6ff;
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color:0xd6b3ff, emissive:0x6a3fb0, emissiveIntensity:.55,
+  const mat = new THREE.MeshStandardMaterial({ color:mainC, emissive:0x6a3fb0, emissiveIntensity:.55,
     roughness:.22, metalness:.02, transparent:true, opacity:.96, flatShading:true });
   const body = new THREE.Mesh(new THREE.CylinderGeometry(.13, .30, 1, 10, 1), mat);
   g.add(body);
@@ -3938,7 +3939,7 @@ function makeJellyLash() {
     b.position.y = -.35 + i * .30; g.add(b); goo.push(b);
   }
   const ringM = new THREE.Mesh(new THREE.TorusGeometry(.34, .055, 6, 20),
-    new THREE.MeshBasicMaterial({ color:0xf3e6ff, transparent:true, opacity:.85, depthWrite:false }));
+    new THREE.MeshBasicMaterial({ color:lightC, transparent:true, opacity:.85, depthWrite:false }));
   ringM.rotation.x = Math.PI / 2; ringM.position.y = .52; g.add(ringM);
   g.userData = { goo, tip, ring:ringM, body };
   g.visible = false; scene.add(g);
@@ -13016,15 +13017,17 @@ function kitPrism(def) {
 }
 /* ★ 果冻纹路贴图：横向波浪条纹（Lathe 的 v 方向 = 竖着绕身一圈）→ 看起来像胶质分层。
    全局缓存一张，所有 Jelly（本体 / 小果冻 / 选人预览）共用，不额外吃显存。 */
-let _jellyTex = null;
-function jellyTex() {
-  if (_jellyTex) return _jellyTex;
+const _jellyTexCache = {};
+function jellyTex(orange) {
+  const key = orange ? 'orange' : 'purple';
+  if (_jellyTexCache[key]) return _jellyTexCache[key];
   const c = document.createElement('canvas'); c.width = 128; c.height = 256;
   const x = c.getContext('2d');
   x.fillStyle = '#ffffff'; x.fillRect(0, 0, 128, 256);
   for (let i = 0; i < 9; i++) {
     const y = 14 + i * 27;
-    x.strokeStyle = i % 2 ? 'rgba(78,38,146,.42)' : 'rgba(255,255,255,.78)';
+    x.strokeStyle = i % 2 ? (orange ? 'rgba(186,86,12,.46)' : 'rgba(78,38,146,.42)')
+                          : (orange ? 'rgba(255,238,196,.88)' : 'rgba(255,255,255,.78)');
     x.lineWidth = 7 + (i % 3) * 3;
     x.beginPath();
     for (let px = 0; px <= 128; px += 8) {
@@ -13044,22 +13047,32 @@ function jellyTex() {
     }
     x.stroke();
   }
-  _jellyTex = new THREE.CanvasTexture(c);
-  _jellyTex.wrapS = THREE.RepeatWrapping; _jellyTex.repeat.set(2, 1);
-  _jellyTex.colorSpace = THREE.SRGBColorSpace;
-  return _jellyTex;
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping; tex.repeat.set(2, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  _jellyTexCache[key] = tex;
+  return tex;
 }
 /* ================= ★ 果冻 Jelly 的造型：一整个紫色布丁（头+身体不分家） =================
    LatheGeometry 剖面 = 下宽上收的截锥 + 圆顶；顶部再盖一层更亮的「糖浆」并挂 6 滴。
    整块身体放进 wob 组（animStep 里做果冻弹性挤压）；脸只长在正面（+Z），和全角色一致。
    体型由 animStep 的 P.group.scale = baseScale × _visK 统一缩放 → 判定圈（bodyR）也跟着变。 */
 function kitJelly(def) {
-  const mats = kitMats(def), g = new THREE.Group();
-  const bodyMat = cmat(def.body, { roughness:.16, metalness:.02, map:jellyTex() });
+  /* ★ 史诗皮肤「Orange Jelly」：整体换橘色 + 头顶一片手工建模的橘子片（瓣/白瓤/橘皮三层） */
+  const ORANGE = defHasSkin(def, 'jelly_orange');
+  const BC = ORANGE ? 0xff9a2e : def.body;
+  const B2 = ORANGE ? 0xffd08a : def.body2;
+  const DK = ORANGE ? 0xc2550f : def.dark;
+  const EY = ORANGE ? 0x3a1a08 : 0x1b0f2e;
+  const RINGC = ORANGE ? 0xffe3b4 : 0xf0dcff;
+  const BUBC  = ORANGE ? 0xffe6c0 : 0xe7d6ff;
+  const SKIRTC = ORANGE ? 0xffb066 : 0xc9a6ff;
+  const mats = kitMats(ORANGE ? { body:BC, body2:B2, dark:DK } : def), g = new THREE.Group();
+  const bodyMat = cmat(BC, { roughness:.16, metalness:.02, map:jellyTex(ORANGE) });
   bodyMat.transparent = true; bodyMat.opacity = .96;
-  bodyMat.emissive = new THREE.Color(0x2a1050); bodyMat.emissiveIntensity = .22;   // 胶质微透光
-  const glazeMat = cmat(def.body2, { roughness:.16 });
-  const ink = cmat(0x1b0f2e, { roughness:.42 });
+  bodyMat.emissive = new THREE.Color(ORANGE ? 0x5a2600 : 0x2a1050); bodyMat.emissiveIntensity = ORANGE ? .26 : .22;   // 胶质微透光
+  const glazeMat = cmat(B2, { roughness:.16 });
+  const ink = cmat(EY, { roughness:.42 });
   const wob = new THREE.Group(); g.add(wob);
   const prof = [
     [0.00, 0.00], [0.74, 0.02], [0.95, 0.09], [1.00, 0.24], [0.99, 0.50],
@@ -13096,12 +13109,12 @@ function kitJelly(def) {
   const rings = [];
   for (const rr of [[.20, .982], [.45, 1.00], [.70, .965], [.95, .90], [1.18, .80]]) {
     const rg = new THREE.Mesh(new THREE.TorusGeometry(rr[1], .048, 6, 40),
-      new THREE.MeshBasicMaterial({ color:0xf0dcff, transparent:true, opacity:.42, depthWrite:false }));
+      new THREE.MeshBasicMaterial({ color:RINGC, transparent:true, opacity:.42, depthWrite:false }));
     rg.rotation.x = Math.PI / 2; rg.position.y = rr[0]; wob.add(rg); rings.push(rg);
   }
   /* ★ 体内的气泡（半透明，只做质感；固定角度 → 联机两端一致） */
   const bubbles = [];
-  const bubMat = new THREE.MeshStandardMaterial({ color:0xe7d6ff, roughness:.08, transparent:true,
+  const bubMat = new THREE.MeshStandardMaterial({ color:BUBC, roughness:.08, transparent:true,
     opacity:.55, depthWrite:false });
   for (let i = 0; i < 9; i++) {
     const a = i / 9 * Math.PI * 2;
@@ -13117,8 +13130,46 @@ function kitJelly(def) {
   }
   /* 底部胶质裙边：一圈软软的压扁环，坐在地上更「布丁」 */
   const skirt = new THREE.Mesh(new THREE.TorusGeometry(1.0, .085, 6, 34),
-    new THREE.MeshBasicMaterial({ color:0xc9a6ff, transparent:true, opacity:.32, depthWrite:false }));
+    new THREE.MeshBasicMaterial({ color:SKIRTC, transparent:true, opacity:.32, depthWrite:false }));
   skirt.rotation.x = Math.PI / 2; skirt.position.y = .06; wob.add(skirt);
+  /* ★ Orange Jelly：头顶的橘子片（半圆片 = 果肉 + 白瓤环 + 橘皮外圈 + 6 条白色瓣膜线）。
+     全部用平面几何拼（侧视一眼能认出是橘子片），挂在 wob 上 → 跟着果冻一起 Q 弹。 */
+  let slice = null;
+  if (ORANGE) {
+    slice = new THREE.Group();
+    const R0 = .68;
+    const rindM  = new THREE.MeshStandardMaterial({ color:0xff7a12, roughness:.55, side:THREE.DoubleSide });
+    const pithM  = new THREE.MeshStandardMaterial({ color:0xfff3dc, roughness:.48, side:THREE.DoubleSide });
+    const fleshM = new THREE.MeshStandardMaterial({ color:0xff9414, roughness:.28, emissive:0x8a3200,
+      emissiveIntensity:.30, side:THREE.DoubleSide });
+    const rind  = new THREE.Mesh(new THREE.RingGeometry(R0 * .93, R0 * 1.06, 30, 1, 0, Math.PI), rindM);
+    const pith  = new THREE.Mesh(new THREE.RingGeometry(R0 * .82, R0 * .93, 30, 1, 0, Math.PI), pithM);
+    const flesh = new THREE.Mesh(new THREE.CircleGeometry(R0 * .82, 30, 0, Math.PI), fleshM);
+    /* 层次沿盘面法线（本地 -X = 靠近镜头）错开，否则同一平面会 z-fighting / 白线被果肉吃掉 */
+    rind.position.x = .010; pith.position.x = .006; flesh.position.x = 0;
+    slice.add(rind, pith, flesh);
+    const lineM = new THREE.MeshBasicMaterial({ color:0xfff6e6, transparent:true, opacity:.92, side:THREE.DoubleSide });
+    for (let i = 1; i <= 5; i++) {                       // 5 条瓣膜线（把半圆分成 6 瓣）
+      const a = i / 6 * Math.PI;
+      const ln = new THREE.Mesh(new THREE.PlaneGeometry(R0 * .78, .045), lineM);
+      ln.position.set(Math.cos(a) * R0 * .40, Math.sin(a) * R0 * .40, 0);
+      ln.position.x = -.010;
+      ln.rotation.z = a; slice.add(ln);
+    }
+    for (let i = 0; i < 3; i++) {                        // 三颗果肉小点（质感）
+      const a = (i + .5) / 3 * Math.PI * .9 + .18;
+      const dot = new THREE.Mesh(new THREE.CircleGeometry(.035, 8), pithM);
+      dot.position.set(Math.cos(a) * R0 * .55, Math.sin(a) * R0 * .55, 0);
+      dot.position.x = -.008; slice.add(dot);
+    }
+    const back = slice.clone(); back.position.x = .075; back.scale.set(.985, .985, 1);
+    slice.add(back);                                     // 背面一层 → 有厚度
+    slice.position.set(0, 1.86, .02);
+    /* ⚠ 角色整机是 yaw ±90° 的：盘面法线必须转成「本地 X」才会正对镜头，
+       直接放 XY 平面会变成一条薄边（第一版截图就是一排细刺）。 */
+    slice.rotation.set(.20, Math.PI / 2, 0);
+    wob.add(slice);
+  }
   const armL = kitArm(g, -1, mats, { x:.86, y:1.02, w:.15, len:.22,
     handGeo:new THREE.SphereGeometry(.17, 9, 7), handMat:mats.body2 });
   const armR = kitArm(g,  1, mats, { x:.86, y:1.02, w:.15, len:.22,
@@ -13130,7 +13181,7 @@ function kitJelly(def) {
   tongue.rotation.z = Math.PI / 2; tongue.visible = false; g.add(tongue);
   g.userData.wob = wob; g.userData.tongue = tongue; g.userData.mouth = mouth; g.userData.shine = shine;
   return { group:g, torso:body, belly:glaze, head, armL, armR, legL, legR, tail:null,
-           wob, body, glaze, tongue, mouth, shine, rings, bubbles, skirt };
+           wob, body, glaze, tongue, mouth, shine, rings, bubbles, skirt, slice };
 }
 const KITS = { tock:kitTock, sovereign:kitCardboard, mosquito:kitMosquito, french:kitFrench, blub:kitBlub, tamer:kitTamer, alien:kitAlien, mechanic:kitMechanic, treasure:kitTreasure, princess:kitPrincess, quicksand:kitQuicksand, fang:kitFang, angel:kitAngel, demon:kitDemon, shark:kitShark, slayer:kitSlayer, sparky:kitSparky, rocky:kitRocky, zephyr:kitZephyr, cobalt:kitCobalt, foundry:kitFoundry,
                mage:kitMage, warrior:kitWarrior, archer:kitArcher, knight:kitKnight,
@@ -13426,7 +13477,7 @@ function skinSpecFor(def) {
   let sk = (def && def.skin) || '';
   if (!sk) { try { if (typeof ACC !== 'undefined' && ACC.skinOf && def && def.id) sk = ACC.skinOf(def.id) || ''; } catch (e) {} }
   if (!sk) return null;
-  if (sk === 'smiley_penguin' || sk === 'cardboard_tv' || sk === 'foundry_police' || sk === 'prism_virus' || sk === 'archer_cupid') return null;   // 专属建模皮肤交给 kit 自己
+  if (sk === 'smiley_penguin' || sk === 'cardboard_tv' || sk === 'foundry_police' || sk === 'prism_virus' || sk === 'archer_cupid' || sk === 'jelly_orange') return null;   // 专属建模皮肤交给 kit 自己
   if (sk === 'gen_sparky') return null;                                 // ★ 已删除的低质量换色皮肤
   if (SKIN_LEGEND[sk]) return SKIN_LEGEND[sk];
   if (SKIN_OVERRIDE[sk]) return SKIN_OVERRIDE[sk];
@@ -23596,6 +23647,9 @@ class Fighter {
     /* ★ Cupid（史诗皮肤）：弓手的箭/拖尾/命中火花统一换成玫瑰粉（cfg 是共享对象 → 拷一份） */
     if (this.def.id === 'archer' && defHasSkin(this.def, 'archer_cupid'))
       cfg = Object.assign({}, cfg, { color: 0xff8fc0 });
+    /* ★ Orange Jelly：技能色统一换成橘色（弹幕/环/爆炸都跟着皮肤走） */
+    if (this.def.id === 'jelly' && defHasSkin(this.def, 'jelly_orange'))
+      cfg = Object.assign({}, cfg, { color: 0xffa03c });
     /* ★ Rocky·大招「拳雨」：5 秒内按任意 B 都变成重拳（1 秒冷却 / 10% 伤害，不消耗普通技能冷却） */
     if (this.def.id === 'rocky' && this.rockyFsT > 0) {
       this.cooldown['sp_' + key] = 1.0;
@@ -27499,9 +27553,15 @@ class Fighter {
         bb.position.y += Math.sin(A.t * 2.2 + i) * .045;      // 体内气泡上下漂
       }
       if (P.skirt) P.skirt.scale.set(1 + Math.sin(A.t * 3.2) * .05, 1, 1);
+      if (P.slice) {                                        // ★ 橘子片：轻轻摇晃（跟着布丁的节奏）
+        P.slice.rotation.x = .20 + Math.sin(A.t * 2.3) * .07;
+        P.slice.position.y = 1.86 + Math.sin(A.t * 3.1) * .012;
+      }
       /* 左右B 果冻鞭：世界坐标实体鞭（粗紫鞭身 + 末端黏液球 + 流动胶滴 + 末端光环） */
       const T = this.jellyTongue;
-      if (!this._lashMesh) this._lashMesh = makeJellyLash();
+      if (!this._lashMesh) this._lashMesh = makeJellyLash(
+        defHasSkin(this.def, 'jelly_orange') ? 0xffa03c : 0xd6b3ff,
+        defHasSkin(this.def, 'jelly_orange') ? 0xffe0a8 : 0xf6ecff);
       const LASH = this._lashMesh;
       if (T && this.jellyTongueT > 0 && !T.eliminated && LASH) {
         const x1 = this.pos.x + (this.facing || 1) * .45 * vk, y1 = this.pos.y + 1.02 * vk;
@@ -34678,6 +34738,8 @@ const SUMMON_SKINS   = [{ id:'smiley_penguin', char:'smiley', name:'Penguin', fo
                         { id:'prism_virus', char:'prism', name:'Virus', for:'Prism', rar:'skin' },
                         /* ★ 2026-11-20 史诗皮肤：Cupid（Archer）—— 白+粉、天使翅膀、爱心箭矢拖尾 */
                         { id:'archer_cupid', char:'archer', name:'Cupid', for:'Archer', rar:'skin' },
+                        /* ★ 2026-11-24 史诗皮肤：Orange Jelly（Jelly）—— 橘色果冻 + 头顶手工建模的橘子片 */
+                        { id:'jelly_orange', char:'jelly', name:'Orange Jelly', for:'Jelly', rar:'skin' },
                         /* ★ 2026-11-20 **传奇皮肤（LEGENDARY SKIN）回归卡池**：DJ Hacker
                            —— 独立一档掉率（legS 1%），纯黑机体 + 彩虹面部 + 紫色颗粒 + 头戴耳机 + 胸前唱盘 */
                         { id:'dj_hacker', char:'hacker', name:'DJ Hacker', for:'Hacker', rar:'legS', legendary:true }];
@@ -36424,6 +36486,7 @@ window.SB_shot = (kind, id, skin, size) => {
 window.SB = {
   /* ★ 探针：DJ Hacker 皮肤的判定与签名色（验收「换皮后特效变紫」不能只靠眼睛看） */
   hackerIsDJ, hackerHue, SUMMON_SKINS, GACHA, RAR_NAME, RAR_TONE,
+  ACC,   // ★ 探针：直接操作账号存档（解锁/装备皮肤、货币）——和 fighters/projectiles 一样属于调试出口
   /* ★ 探针：Beta Rewards / Kernel Panic 领域（验收「定身 + 20% + 随机传送 + 2s 锁定」） */
   hdomainStart, hdomainEnd,
   get hdomain() { return { active: HDOMAIN.active, x: +HDOMAIN.x.toFixed(2), r: HDOMAIN.r,
