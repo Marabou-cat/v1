@@ -29723,11 +29723,17 @@ function setup(opts) {
   }
   /* ================= ★ 首领试炼：3 名玩家(team0) vs 首领(team1) ================= */
   match.boss = null;
-  if (_rmode === 'boss' && opts.rules && BOSS_TRIALS[opts.rules.trial]) {
-    const T = BOSS_TRIALS[opts.rules.trial];
+  /* ★ 2026-11-24 修「联机时 boss 没刷出来」：以前只认 rules.mode === 'boss'。
+     联机下 start 包里的 rules 可能是精简版（mode 丢了、或者被服务端规范化掉），
+     这时只有 trial 还在 → 以前直接跳过整段 → 三端都变成普通乱斗，boss 与血条全没有。
+     现在：mode==='boss' 或 trial 有值 都算首领局；trial 用 |0 归一（服务端可能给字符串）。 */
+  const _btTrial = (opts && opts.rules && opts.rules.trial != null) ? (opts.rules.trial | 0)
+                 : (_rmode === 'boss' ? 0 : -1);      // mode 说是首领局但 trial 丢了 → 兜底第一关，总比没有 boss 好
+  if ((_rmode === 'boss' || (_rmode !== 'gem' && _btTrial >= 0)) && BOSS_TRIALS[_btTrial]) {
+    const T = BOSS_TRIALS[_btTrial];
     match.mode = 'boss';
     for (const f of FIGHTERS) { f.team = 0; f.isAlly = true; f.stocks = 999; }
-    match.boss = { trial: opts.rules.trial, name: T.name, sub: T.sub, color: T.color,
+    match.boss = { trial: _btTrial, name: T.name, sub: T.sub, color: T.color,
                    alive: T.bosses.length, total: T.bosses.length, hpMax: 0, hpCur: 0,
                    t: 0, fail: false, clear: false };
     T.bosses.forEach((b, bi) => {
@@ -34752,12 +34758,52 @@ const NET = {
          ③ 服务端侧同步把开局宽限放宽（START_GRACE_MS 2500 → 8000）。 */
     this.delay = 3; this.primed = false; this.inflight = 0; this.busyT = 0; this.ackLimit = 0;   // 第二局也要重置，否则头几frames没输入
     try { this.syncHTTP(); } catch (e) {}
-    setup({ count:n, stocks:o.rules.stocks, time:o.rules.time, diff:o.rules.diff, teams: o.rules.teams ? 1 : 0,
-            rules: o.rules,                                                    // ★ 第 77 轮：把规则（含地图 rules.stage）一起传进 setup
+    /* ★ 2026-11-24：start 包不一定带全规则（服务端推送的精简 start / 加入者拿到的是旧快照）。
+       以「房间当前 rules」为底，再用 start 包覆盖 —— 否则 mode:'boss'/trial 一丢，
+       boss 就不生成了（用户实测：联机进去没有 boss、没有血条）。 */
+    const _rr = (this.roomState && this.roomState.rules) ? this.roomState.rules : {};
+    const _rg = Object.assign({}, _rr, o.rules || {});
+    if (_rr.mode === 'boss' && _rg.mode !== 'boss') _rg.mode = 'boss';
+    if (_rg.mode === 'boss') {
+      if (_rg.trial == null && _rr.trial != null) _rg.trial = _rr.trial | 0;
+      if (!(_rg.trial >= 0)) _rg.trial = 0;
+      if (!(_rg.count >= 3)) _rg.count = 3;
+    }
+    if (_rg.mode === 'boss') { window.__btLastTrial = _rg.trial | 0; }
+    const _n2 = _rg.mode === 'boss' ? 3 : n;
+    setup({ count:_n2, stocks:_rg.stocks, time:_rg.time, diff:_rg.diff, teams: _rg.teams ? 1 : 0,
+            rules: _rg,                                                        // ★ 第 77 轮：把规则（含地图 rules.stage）一起传进 setup
             playerChar: settings.playerChar, seed: o.seed, chars: o.chars, humanSeats: o.humanSeats,
             names: this.names || null,                                         // ★ 2026-11-21：座位昵称（人机伪装真人）
             weapons: o.weapons || this.weapons || null,                        // ★ 2026-11-23：per-seat 武器（特殊武器机制）
             skins: o.skins || null });                                  // ★ 联机：每个座位的皮肤由服务端下发
+    /* ★ 兜底：规则明确是首领局，但上面 setup 没建出 boss（极端情况 rules 里 trial 越界）
+       → 立刻按 JSON 里存着的试炼号重建，宁可多建也不能让玩家进去发现没 boss。 */
+    try {
+      if (_rg.mode === 'boss' && !match.boss) {
+        const _t = (_rg.trial | 0);
+        if (BOSS_TRIALS[_t]) {
+          match.boss = { trial:_t, name:BOSS_TRIALS[_t].name, sub:BOSS_TRIALS[_t].sub, color:BOSS_TRIALS[_t].color,
+                         alive:BOSS_TRIALS[_t].bosses.length, total:BOSS_TRIALS[_t].bosses.length,
+                         hpMax:0, hpCur:0, t:0, fail:false, clear:false };
+          BOSS_TRIALS[_t].bosses.forEach((b, bi) => {
+            const ci = Math.max(0, CHARS.findIndex(c => c.id === b.char)); const base = CHARS[ci];
+            const bd = Object.assign({}, base, { shape: Object.assign({}, base.shape, { scale:(base.shape.scale || 1) * 1.55 }) });
+            bd.skin = 'none';
+            const bf = new Fighter(bd, null, FIGHTERS.length + bi, { bot:true, stocks:999, team:1,
+              spawnX:(bi === 0 ? 2 : 14), spawnY:0 });
+            bf.isBoss = true; bf.bossHp = b.bossMax = (b.hp || 1000); bf.tag = 'BOSS';
+            bf.dispName = String(base.name).toUpperCase(); bf.damage = 0;
+            FIGHTERS.push(bf); try { bf.ctrl = new Bot(bf, 3); } catch (e) {}
+            match.boss.hpMax += bf.bossHp;
+          });
+          match.boss.hpCur = match.boss.hpMax; match.mode = 'boss'; match.teams = 1;
+          for (const f of FIGHTERS) if (!f.isBoss) { f.team = 0; f.isAlly = true; f.stocks = 999; }
+          window.__btRebuilt = (window.__btRebuilt | 0) + 1;
+          try { banner('BOSS RESPAWNED · ' + BOSS_TRIALS[_t].name, false); } catch (e) {}
+        }
+      }
+    } catch (e) { window.__btRebuildErr = String((e && e.message) || e); }
     match.state = 'play'; match.countdown = 0;            // 联机Jump过倒计时（大厅阶段即等待）
     try { this.sampleAhead(); } catch (e) {}              // 抢在第一次重绘之前把本地输入铺好
     try { this.syncHTTP(); } catch (e) {}                 // 立刻上行（不等 20ms 泵）
@@ -37237,38 +37283,119 @@ const BTTrialUI = {
 };
 /* ★ 联机 3 人合作：建房 → 显示邀请码 → 空位补 CPU → 开打。
    规则整套随房下发（mode/trial/stage/count/botChars），三端 setup 出来必然一致。 */
-let _btCoopT = null;
+let _btCoopT = null, _btQuickT = null, _btQuickAt = 0;
+/* ★ 首领战「匹配」面板：卡片式。房间码可复制、三个席位实时显示（真人/CPU/等待），
+   boss 预览直接写在上面 —— 「boss 有没有刷出来」一眼可见，不用进局去猜。 */
 function btCoopBar(show, code) {
   let el = document.getElementById('btCoop');
-  if (!show) { if (el) el.remove(); if (_btCoopT) { clearInterval(_btCoopT); _btCoopT = null; } return; }
+  if (!show) {
+    if (el) el.remove();
+    if (_btCoopT) { clearInterval(_btCoopT); _btCoopT = null; }
+    if (_btQuickT) { clearInterval(_btQuickT); _btQuickT = null; }
+    return;
+  }
   if (!el) {
     el = document.createElement('div');
     el.id = 'btCoop';
-    el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:60;' +
-      'background:rgba(10,14,28,.92);border:1px solid rgba(160,190,255,.45);border-radius:14px;' +
-      'padding:10px 14px;color:#e8f0ff;font:600 13px/1.4 ui-monospace,Menlo,monospace;text-align:center;' +
-      'box-shadow:0 10px 30px rgba(0,0,0,.5);min-width:300px';
+    el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:60;' +
+      'width:min(430px,92vw);background:linear-gradient(180deg,rgba(16,20,38,.97),rgba(8,10,22,.97));' +
+      'border:1px solid rgba(150,180,255,.35);border-radius:18px;padding:14px 16px 12px;color:#eef3ff;' +
+      'box-shadow:0 18px 50px rgba(0,0,0,.6);font-family:ui-monospace,Menlo,monospace';
     document.body.appendChild(el);
   }
+  const nm = id => { const c = CHARS.find(x => x.id === id); return c ? String(c.name).toUpperCase() : (id ? String(id).toUpperCase() : '—'); };
   const draw = () => {
-    const st = (typeof NET !== 'undefined' && NET.roomState && NET.roomState.seats) ? NET.roomState.seats : [];
-    const need = 3, filled = st.filter(x => x).length;
-    el.innerHTML = '<div style="font:700 11px/1 ui-monospace;letter-spacing:2px;color:#9fc0ff">CO-OP ROOM · 3 PLAYERS</div>' +
-      '<div style="font:900 24px/1.3 ui-monospace;letter-spacing:3px;color:#fff">' + (code || NET.room || '—') + '</div>' +
-      '<div style="font:600 12px/1.6 ui-monospace;color:#b9c8e8">seats ' + filled + '/' + need + ' · empty seats become CPU</div>' +
-      '<div style="display:flex;gap:8px;justify-content:center;margin-top:8px">' +
-      '<button id="btAddCpu" style="flex:1">+ CPU</button>' +
-      '<button id="btGo" style="flex:1;' + (filled >= need ? 'background:#2f9e57;color:#fff' : 'opacity:.55') + '">START</button>' +
-      '<button id="btLeave" style="flex:0 0 auto">✕</button></div>';
-    el.querySelector('#btAddCpu').onclick = async () => { try { await NET.addBot(); } catch (e) {} draw(); };
-    el.querySelector('#btGo').onclick = async () => {
-      const cur = (NET.roomState && NET.roomState.seats || []).filter(x => x).length;
-      try {
-        while (cur < need) { const r = await NET.addBot(); if (!r || !r.ok) break; await new Promise(z => setTimeout(z, 180)); }
-      } catch (e) {}
+    const RS = (typeof NET !== 'undefined' && NET.roomState) ? NET.roomState : null;
+    if (!RS) return;
+    const seats = RS.seats || [];
+    const rules = RS.rules || {};
+    const T = BOSS_TRIALS[(rules.trial | 0)] || BOSS_TRIALS[0];
+    const need = 3;
+    const filled = seats.filter(x => x).length;
+    const isHost = (NET.seat === 0);
+    const bossLine = T.bosses.map(b => nm(b.char) + ' ' + b.hp + '%').join('  +  ');
+    let cards = '';
+    for (let i = 0; i < need; i++) {
+      const st = seats[i];
+      if (st) {
+        const who = st.bot ? 'CPU' : (i === 0 ? 'HOST' : 'PLAYER ' + (i + 1));
+        cards += '<div style="flex:1;min-width:0;border-radius:12px;padding:8px 6px;text-align:center;' +
+          'background:' + (st.bot ? 'rgba(90,110,160,.22)' : 'rgba(70,140,255,.26)') + ';' +
+          'border:1px solid ' + (st.bot ? 'rgba(140,160,200,.28)' : 'rgba(110,170,255,.55)') + '">' +
+          '<div style="font:700 9px/1.2 ui-monospace;letter-spacing:1px;color:#9fb6e0">' + who + '</div>' +
+          '<div style="font:900 13px/1.5 ui-monospace;color:#fff;overflow:hidden;text-overflow:ellipsis">' + nm(st.char) + '</div></div>';
+      } else {
+        const pre = (rules.botChars || [])[i];
+        cards += '<div style="flex:1;min-width:0;border-radius:12px;padding:8px 6px;text-align:center;border:1px dashed rgba(150,180,255,.35);color:#8fa4c8">' +
+          '<div style="font:700 9px/1.2 ui-monospace;letter-spacing:1px">EMPTY</div>' +
+          '<div style="font:800 12px/1.5 ui-monospace">' + (pre ? 'CPU ' + nm(pre) : 'CPU RANDOM') + '</div></div>';
+      }
+    }
+    const quickLeft = _btQuickAt ? Math.max(0, Math.ceil((_btQuickAt - Date.now()) / 1000)) : -1;
+    el.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<div style="flex:1;font:800 10px/1 ui-monospace;letter-spacing:2.4px;color:#8fb0ff">BOSS TRIAL · 3P CO-OP</div>' +
+        '<button id="btcX" style="background:none;border:0;color:#8fa4c8;font:800 16px/1 ui-monospace;cursor:pointer">✕</button>' +
+      '</div>' +
+      '<div style="margin-top:6px;font:900 17px/1.2 ui-monospace;letter-spacing:.6px;color:#fff">' + T.name + '</div>' +
+      '<div style="font:600 11px/1.5 ui-monospace;color:#ffd98a">👑 ' + bossLine + '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;margin:10px 0 8px">' +
+        '<div style="flex:1;background:rgba(255,255,255,.06);border-radius:10px;padding:7px 10px;font:900 18px/1 ui-monospace;letter-spacing:4px;color:#fff">' + (code || NET.room || '—') + '</div>' +
+        '<button id="btcCopy" style="background:rgba(90,140,255,.24);border:1px solid rgba(120,170,255,.45);color:#cfe0ff;border-radius:10px;padding:9px 11px;font:800 10px/1 ui-monospace;letter-spacing:1px;cursor:pointer">COPY</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px">' + cards + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px">' +
+        '<button id="btcAdd" style="flex:1;border:0;border-radius:11px;padding:11px 0;font:900 11px/1 ui-monospace;letter-spacing:1px;cursor:pointer;background:' +
+          (filled >= need ? 'rgba(255,255,255,.08);color:#6b7a96' : 'rgba(255,255,255,.14);color:#dfe8ff') + '">+ CPU</button>' +
+        (isHost
+          ? '<button id="btcGo" style="flex:1.4;border:0;border-radius:11px;padding:11px 0;font:900 11px/1 ui-monospace;letter-spacing:1px;cursor:pointer;background:linear-gradient(180deg,#39b96a,#1f8a4a);color:#fff">START</button>'
+          : '<button id="btcGo" disabled style="flex:1.4;border:0;border-radius:11px;padding:11px 0;font:900 11px/1 ui-monospace;letter-spacing:1px;background:rgba(255,255,255,.08);color:#7d8aa6">WAITING HOST</button>') +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+        '<button id="btcQuick" style="flex:1;border:1px solid rgba(255,200,90,.45);background:rgba(255,190,70,.14);color:#ffd98a;border-radius:11px;padding:9px 0;font:900 10px/1 ui-monospace;letter-spacing:1px;cursor:pointer">' +
+          (quickLeft >= 0 ? ('AUTO-START IN ' + quickLeft + 's') : 'QUICK MATCH') + '</button>' +
+      '</div>' +
+      '<div style="margin-top:8px;font:600 9.5px/1.4 ui-monospace;color:#7d8aa6">seats ' + filled + '/' + need +
+        ' · boss ' + T.bosses.length + '/' + T.bosses.length + ' ready · ' + (T.stage || '') + '</div>';
+
+    const q = id => el.querySelector('#' + id);
+    q('btcX').onclick = () => { try { NET.leave(); } catch (e) {} btCoopBar(false); };
+    q('btcCopy').onclick = async () => {
+      const cd = code || NET.room;
+      try { await navigator.clipboard.writeText(cd); toast('Code ' + cd + ' copied'); }
+      catch (e) { toast('Code: ' + cd); }
+    };
+    if (filled < need) q('btcAdd').onclick = async () => { try { await NET.addBot(); } catch (e) {} draw(); };
+    if (isHost) q('btcGo').onclick = async () => {
+      let cur = ((NET.roomState && NET.roomState.seats) || []).filter(x => x).length;
+      try { while (cur < need) { const r = await NET.addBot(); if (!r || !r.ok) break; cur++; await new Promise(z => setTimeout(z, 160)); } } catch (e) {}
       try { NET.startMatch(); btCoopBar(false); } catch (e) {}
     };
-    el.querySelector('#btLeave').onclick = () => { try { NET.leave(); } catch (e) {} btCoopBar(false); };
+    q('btcQuick').onclick = () => {
+      if (_btQuickT) { clearInterval(_btQuickT); _btQuickT = null; _btQuickAt = 0; toast('Quick match cancelled'); draw(); return; }
+      /* 快速匹配：等 10 秒真人，没等到就补 CPU 开打（和 1v1 的规则一致，不让人干等）。 */
+      _btQuickAt = Date.now() + 10000;
+      toast('Finding players… auto-start in 10s');
+      _btQuickT = setInterval(async () => {
+        const rs = (NET.roomState && NET.roomState.seats) || [];
+        const f = rs.filter(x => x).length;
+        if (f >= 3 || !NET.room) {
+          clearInterval(_btQuickT); _btQuickT = null; _btQuickAt = 0;
+          if (NET.room && NET.seat === 0) { try { NET.startMatch(); btCoopBar(false); } catch (e) {} }
+          return;
+        }
+        if (Date.now() >= _btQuickAt) {
+          clearInterval(_btQuickT); _btQuickT = null; _btQuickAt = 0;
+          let cur = f;
+          if (NET.seat === 0) {
+            try { while (cur < 3) { const r = await NET.addBot(); if (!r || !r.ok) break; cur++; await new Promise(z => setTimeout(z, 160)); } } catch (e) {}
+            try { NET.startMatch(); btCoopBar(false); } catch (e) {}
+          }
+          return;
+        }
+        draw();
+      }, 700);
+    };
   };
   draw();
   if (_btCoopT) clearInterval(_btCoopT);
