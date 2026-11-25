@@ -207,6 +207,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
   /* ---------- touch ---------- */
   #touch{position:fixed;inset:0;z-index:25;pointer-events:none}
+  /* ★ 2026-11-25：对局用的触屏键（Jump/Atk/Special/Shield/Dodge + 摇杆）以前在大厅里照样渲染，
+     手机竖屏上 Shield/Dodge/Jump/Special 的灰字会透过半透明底栏浮在 SUMMON / 菜单按钮上。 */
+  body.inMenu #touch{display:none!important}
   #stickZone{position:absolute;left:0;bottom:0;width:44%;height:52%;pointer-events:auto}
   #stick{position:absolute;width:112px;height:112px;border-radius:50%;background:rgba(255,255,255,.07);
     border:2px solid rgba(255,255,255,.2);pointer-events:none;opacity:0;transition:opacity .15s}
@@ -482,6 +485,13 @@ document.addEventListener('DOMContentLoaded', function () {
   body.setupOpen #questPanel,body.setupOpen #resBar,body.setupOpen #eventBtn,body.setupOpen #profBtn,
   body.setupOpen #setBtn,body.setupOpen #frBtn,body.setupOpen #lobbyBar,body.setupOpen #pvTools,
   body.setupOpen #skillPop,body.setupOpen #lobbyNet,body.setupOpen #summonBtn,body.setupOpen #evCard{
+    opacity:0 !important;pointer-events:none !important;transition:opacity .16s}
+  /* ★ 2026-11-25：任何**弹层**打开时同样把大厅常驻浮层淡出（不是 display:none —— 关掉弹层立刻回来，
+     也不会踩「底栏消失」那个坑，因为这里不碰 #lobbyBar / #pvTools）。
+     实测 390×844：选人网格第一排被 DAILY 卡压住、SPECTATE / SUMMON / 三颗「+」浮在角色卡上。 */
+  body.sheetOpen #questPanel,body.sheetOpen #resBar,body.sheetOpen #eventBtn,body.sheetOpen #profBtn,
+  body.sheetOpen #setBtn,body.sheetOpen #frBtn,body.sheetOpen #frPlus,body.sheetOpen #summonBtn,
+  body.sheetOpen #specBtn,body.sheetOpen #evCard,body.sheetOpen #skillPop{
     opacity:0 !important;pointer-events:none !important;transition:opacity .16s}
   /* 第一次玩：TUTORIAL 按钮自己发光（不再劫持 PLAY） */
   .pageBar #tutBtn.first{box-shadow:0 0 0 2px rgba(255,209,102,.55),0 0 20px rgba(255,209,102,.35);
@@ -784,6 +794,20 @@ document.addEventListener('DOMContentLoaded', function () {
   @keyframes evPulse{0%,100%{box-shadow:0 0 0 2px rgba(255,214,106,.14),0 0 14px rgba(255,196,64,.40)}
                      50%{box-shadow:0 0 0 2px rgba(255,214,106,.32),0 0 26px rgba(255,196,64,.75)}}
   body:not(.inMenu) #eventBtn{display:none!important}
+  /* ★ 2026-11-25 修手机竖屏顶部压盖（390×844 实测）：
+     资源条 z=70 盖在 EVENTS 胶囊（z=46）和 Guest（z=45）上面 —— 宝石 pill x167–240 与 EVENTS
+     x113–214 重叠 47×25px，EVENTS 只剩「VENTS」；Guest 被压 16×27px。一方行根本放不下四个。
+     改法：手机上资源条收紧、EVENTS 挪到它下面一行（左对齐），DAILY 顺次下移；三颗无标签「+」收掉。 */
+  @media (max-width:560px){
+    #resBar{left:8px;top:8px;gap:5px}
+    .resTag{padding:4px 8px;font-size:11.5px;gap:4px}
+    .resTag .ico{width:13px;height:13px}
+    #eventBtn{right:auto;left:8px;top:50px;height:32px;padding:0 11px 0 9px;font-size:10.5px;gap:5px}
+    #eventBtn .ico{width:15px;height:15px}
+    #questPanel{top:90px;width:196px}
+    #frPlus{display:none!important}                 /* 手机上三颗「+」看不出用途，好友入口用右下角圆钮 */
+    .lbbtn{min-height:40px}                          /* 触控目标从 32~34px 提到 40px */
+  }
   /* ★ 活动层全屏：iframe 铺满整个屏幕，✕ 浮在右上角（Esc / 点 ✕ 都能关）
      ⚠ z-index 必须高过大厅的常驻浮层（资源条 70 / 抽卡 58 / 好友 45），否则它们会盖在活动页上面 */
   #sheetEvent{z-index:90;align-items:stretch;justify-content:center;background:#060a12 !important;backdrop-filter:none !important}
@@ -32058,6 +32082,9 @@ function frame(now) {
     const _smOn = !!(s3 && !s3.classList.contains('hidden'));
     if (_smOn !== document.body.classList.contains('summoning')) {
       document.body.classList.toggle('summoning', _smOn);
+      /* ★ 2026-11-25：**任何**退出路径（✕ / Esc / 点空白 / 以后新加的按钮）都要把大厅台子
+         还给自己 —— 这里按「面板不在最上层」这一事实兜底，不再依赖每个退出点记得收尾。 */
+      if (!_smOn) { try { poolShowcaseStop(); } catch (e) {} }
       /* Σ 3D 抽卡页要「只剩 canvas + 抽卡面板」：把所有带 id 的顶层节点临时藏起来 */
       for (const ch of document.body.children) {
         if (!ch.id || ch.tagName === 'SCRIPT' || ch.tagName === 'STYLE') continue;
@@ -36611,16 +36638,31 @@ const CHARPREV_UI = (() => {
 })();
 
 /* —— 抽卡面板 —— */
+/* ★ 2026-11-25 修 BUG（用户报：「从 summon 出去后发现自己选择的角色变成 summon 的了」）：
+   根因是**退出路径不统一**。抽卡面板打开时 poolShowcaseStart() 用 setInterval 把大厅台子上
+   「我」这个座位（LOBBY.seatList 读 LOBBY_SHOWCASE）换成卡池角色轮播；只有点 ✕ 才走
+   poolShowcaseStop() 把它还原。而 Esc（closeTopSheet 直接 add('hidden')）和「点面板空白处」
+   （下面的 backdrop handler 也只 add('hidden')）都**不**停轮播 ⇒ 面板关了、interval 还在跑，
+   台子上永远是你的角色不停变成 Cardboard / PRISM，看起来就是「我选的角色被抽卡的替换了」。
+   现在所有退出路径统一走这一个函数。 */
+function summonClose() {
+  const el = document.getElementById('summonSheet');
+  if (!el || el.classList.contains('hidden')) return false;
+  el.classList.add('hidden');
+  try { poolShowcaseStop(); } catch (e) {}      // 清 interval + 台子还原成玩家自己选的角色
+  return true;
+}
 function summonOpen() {
   let el = document.getElementById('summonSheet');
   if (!el) {
     el = document.createElement('div'); el.id = 'summonSheet'; el.className = 'sSheet hidden';
     document.body.appendChild(el);
-    el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
+    el.addEventListener('click', e => { if (e.target === el) summonClose(); });
   }
   el.classList.remove('hidden');
   summonPaint();
 }
+addEventListener('resize', () => { try { summonFit(); } catch (e) {} });
 
 /* ================= ★ Summon 卡池改版样式（全屏 + 稀有度着色 + 十连网格）================= */
 (function gachaStyle() {
@@ -36797,7 +36839,7 @@ function summonPaint(last) {
             + '<div class="pity"><i style="width:' + prog + '%"></i></div>')
         + '<div class="stat" style="margin-top:8px"><span>Epic or better in <b>' + Math.max(0, GACHA.epicPity - ep) + '</b> pulls</span></div>'
         + '<div class="pity epic"><i style="width:' + epProg + '%"></i></div>'
-        + '<div class="secT">DROP RATES' + (wb ? ' · FORGE ARMS' : (vb ? ' · PRISM ARRIVAL' : ' · CARDBOARD ARRIVAL')) + '</div><div class="rates">' + rateRows + '</div>'
+        + '<div class="ratesWrap"><div class="secT">DROP RATES' + (wb ? ' · FORGE ARMS' : (vb ? ' · PRISM ARRIVAL' : ' · CARDBOARD ARRIVAL')) + '</div><div class="rates">' + rateRows + '</div></div>'
         + (cards ? '<div class="res"><div class="secT">LAST RESULT</div><div class="pcards">' + cards + '</div></div>' : '')
       + '</div>'
       + '<div class="colR">'
@@ -36817,7 +36859,7 @@ function summonPaint(last) {
     try { poolShowcaseStart(id); } catch (e) {}     // ★ 展台换成这个池的内容
     summonPaint();
   });
-  el.querySelector('.close').onclick = () => { el.classList.add('hidden'); try { poolShowcaseStop(); } catch (e) {} };
+  el.querySelector('.close').onclick = () => { summonClose(); };
   const _pull = wb ? weaponPull : summonPull;                                // ★ 按当前卡池抽
   const b = el.querySelector('button.prim:not(.ten)');
   if (b) b.onclick = () => {
@@ -36852,6 +36894,20 @@ function summonPaint(last) {
       toast(res.name ? ('Redeemed · ' + res.name) : 'Redeemed!'); summonPaint();
     };
   });
+  try { summonFit(); } catch (e) {}          // ★ 手机竖屏：按实测顶栏/右栏高度给左栏定位
+}
+/* ★ 2026-11-25：手机竖屏抽卡面板的高度约束 —— 顶栏（三个卡池按钮竖排）自动换行，高度不定
+   （390×844 实测 188px），纯 CSS 无法给左栏留出正确的起点与可用高度：写死 top 会被顶栏压住，
+   写死 bottom 又会和右下角面板叠 200px。这里按实际测量值把左栏排在「顶栏下面 / 右栏上面」。 */
+function summonFit() {
+  const el = document.getElementById('summonSheet'); if (!el) return;
+  const tb = el.querySelector('.topbar'), L = el.querySelector('.colL'), R = el.querySelector('.colR');
+  if (!L || !R) return;
+  if (innerWidth > 720) { L.style.top = ''; L.style.maxHeight = ''; return; }
+  const t = tb ? Math.round(tb.getBoundingClientRect().bottom) + 6 : 92;
+  const rTop = Math.round(R.getBoundingClientRect().top) - 8;
+  L.style.top = t + 'px';
+  L.style.maxHeight = Math.max(120, rTop - t) + 'px';
 }
 function summonBtnPaint() {
   let b = document.getElementById('summonBtn');
@@ -36950,9 +37006,19 @@ function skinPaint() {
   #summonFx .card { margin:0 !important; }
   #summonFx .hint { left:auto; right:6vw; }
   @media (max-width:720px) {
-    #summonSheet .colL { left:10px; right:10px; width:auto; top:auto; bottom:172px; max-height:34vh; overflow:auto; }
-    #summonSheet .colR { left:10px; right:10px; width:auto; bottom:10px; }
+    /* ★ 2026-11-25 修手机竖屏抽卡面板上下互压（390×844 实测）：右栏（SUMMON / 碎片商店）高约 355px
+       且 bottom:10px，顶边落在 y≈434~479；左栏原来 bottom:172px 会一直长到 y≈672，两者重叠 200px，
+       于是「Pity 0 / 90」「DROP RATES」被 CARDBOARD SUMMON 面板压住、半透明叠字。
+       改：左栏顶部对齐 + 高度 = 屏高 − 84 − 420（给右栏预留），右栏自身限高可滚，永不重叠。 */
+    #summonSheet .colL { left:10px; right:10px; width:auto; top:80px; bottom:auto;
+      max-height:max(140px, calc(100vh - 504px)); overflow:auto; }
+    #summonSheet .colR { left:10px; right:10px; width:auto;
+      bottom:calc(10px + env(safe-area-inset-bottom, 0px));      /* iPhone 底部小白条不压住提示行 */
+      max-height:min(52vh, 400px); overflow:auto; }
     #summonSheet .sxsub { display:none; }
+    /* ★ 手机上掉率表让位给 3D 展台：左栏只留「池 / 保底 / 紫色保底 / 上次结果」，
+       否则左栏吃掉整块中间区域，卡池角色被面板完全盖住（实测 390×844 展台一点都看不到）。 */
+    #summonSheet .ratesWrap { display:none; }
   }
   `;
   document.head.appendChild(st);
@@ -37815,6 +37881,11 @@ window.SB = {
   const placeBtn = () => {
     const pb = $('profBtn');
     if (!pb) return;
+    /* ★ 2026-11-25：手机竖屏一行放不下「资源条 + EVENTS + Guest + 齿轮」（390×844 实测：
+       EVENTS 胶囊与宝石 pill 重叠 73×20px，标签只剩「VENTS」）。≤560px 时 EVENTS 固定到
+       资源条下面一行、左对齐，不再跟着 Profile 贴 —— 必须写在这里，否则每 600ms 的内联
+       left/top 会把 CSS 媒体查询覆盖掉（本函数一直在跑）。 */
+    if (innerWidth <= 560) { btn.style.left = '8px'; btn.style.top = '50px'; btn.style.right = 'auto'; return; }
     const r = pb.getBoundingClientRect();
     if (!r.width) return;
     btn.style.left = (r.left - btn.offsetWidth - 10) + 'px';
@@ -38689,15 +38760,35 @@ NET.applyRoom = function (room) {
 })();
 
 /* ================= ★ 弹层统一退出（✕ / 点遮罩空白 / Esc） =================
-   覆盖所有 .sheet（含运行时 append 的 #sheetAccount），所以新增弹层不用再单独接退出键。 */
+   覆盖所有 .sheet（含运行时 append 的 #sheetAccount），所以新增弹层不用再单独接退出键。
+   ★ 2026-11-25：加了 SHEET_ONCLOSE 钩子 —— 有的弹层关掉时还要收尾（抽卡面板要停掉大厅
+   展台的卡池轮播），以前只 add('hidden')，收尾被跳过就成了「关掉后我的角色变成卡池角色」。 */
+const SHEET_ONCLOSE = {};                 // sheetId → 关掉时必须跑的收尾函数
 function closeTopSheet() {
   /* .sheet 之外，Profile / 好友面板也是整屏层 —— 一起纳入，Esc 在哪都能退 */
   const sheets = [].slice.call(document.querySelectorAll('.sheet, .sSheet, #profSheet, #frPanel')).filter(s => !s.classList.contains('hidden'));
   if (!sheets.length) return false;
-  sheets[sheets.length - 1].classList.add('hidden');
+  const sh = sheets[sheets.length - 1];
+  sh.classList.add('hidden');
+  const done = sh.id && SHEET_ONCLOSE[sh.id];
+  if (done) { try { done(); } catch (e) {} }
   try { SFX.tone(420, 260, .06, 'sine', .04); } catch (e) {}
   return true;
 }
+SHEET_ONCLOSE.summonSheet = () => { try { poolShowcaseStop(); } catch (e) {} };
+/* ★ 2026-11-25：大厅里**任何**弹层打开时给 body 挂 .sheetOpen，让常驻浮层（资源条 / DAILY /
+   活动卡 / SUMMON / SPECTATE / 好友）淡出 —— 手机上它们会盖在弹层内容上（实测见 CSS 注释）。
+   用 180ms 轮询而不是监听每个弹层：弹层有六七种打开路径（含运行时 append 的），
+   这里只读 DOM 状态，纯 UI，不影响模拟/联机。 */
+(function sheetHudFade(){
+  const OPEN = '.sheet:not(.hidden),.sSheet:not(.hidden),#profSheet:not(.hidden),#frPanel:not(.hidden),#mmBox:not(.hidden),#askBox:not(.hidden)';
+  let last = false;
+  setInterval(() => {
+    let on = false;
+    try { on = document.body.classList.contains('inMenu') && !!document.querySelector(OPEN); } catch (e) {}
+    if (on !== last) { last = on; document.body.classList.toggle('sheetOpen', on); }
+  }, 180);
+})();
 window.__closeTopSheet = closeTopSheet;
 document.addEventListener('click', e => {
   const t = e.target;
