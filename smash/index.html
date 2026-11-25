@@ -4512,6 +4512,7 @@ let _blockGeo = null, _blockMat = null, _blockCap = null, _blockEdge = null;
    ⚠ 换图（setStage）与开局（setup）都必须调用：实体清理原来只写在 setup 里，
    而「打完一局回菜单换图」不经过 setup → 上一局的岩浆柱/奶滩会留在新地图上（实测残留）。 */
 function clearField() {
+  try { hideMatchChips(); } catch (e) {}             // ★ 换图/开局前先收掉上一局的顶部读数
   try { treasureCoinReset(); } catch (e) {}          // ★ Treasure：上一局的金币不能带进新局
   try { clearSensors(); } catch (e) {}   // ★ 坚守者：清掉感测体 + 全民失明状态
   /* ★ 楼顶/楼顶XL 的飞机机关：状态必须每局归零。
@@ -29891,8 +29892,22 @@ function bossTrialEnd(win) {
     setTimeout(() => { try { if (match.boss === _b) endMatch(); } catch (e) {} }, 1200);
   }
 }
+/* ★ 2026-11-25 修「首领战结束后首领进度条有时不消失」：
+   根因 —— #bossHud / #gemHud 这两个顶部读数**只有** updateBossHud/updateGemHud 里会 display:none，
+   而它们只被 updateHUD() 调用；frame() 在 match.state==='menu' 时提前 return，根本不会再跑 updateHUD。
+   所以只要从首领战/宝石战回到大厅（结果页 Back to Select、Esc→Quit、失败回大厅……任何一条），
+   这个 DOM 节点就一直留在大厅里飘着（实测回大厅后仍是 display:block，文字「👑 TRIAL I · DUNE DUO 2/2 ALIVE」）。
+   「有时候」是因为它只是**看起来**时有时无：再打一局普通对局时 updateHUD 会顺手把它藏掉。
+   统一收尾：进菜单 / 结算 / 清场 / 回大厅四条路都调这个函数。 */
+function hideMatchChips() {
+  for (const id of ['bossHud', 'gemHud']) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+}
 function updateBossHud() {
-  const on = match.mode === 'boss' && match.boss;
+  /* ★ 结算/菜单里不再显示（以前只判 mode+boss，'over' 时每帧又把它显示回来） */
+  const on = match.mode === 'boss' && match.boss && match.state !== 'menu' && match.state !== 'over';
   let el = document.getElementById('bossHud');
   if (!on) { if (el) el.style.display = 'none'; return; }
   if (!el) {
@@ -29924,7 +29939,7 @@ function updateBossHud() {
     'box-shadow:0 0 12px ' + col + '"></i></div>';
 }
 function updateGemHud() {
-  const on = match.mode === 'gem';
+  const on = match.mode === 'gem' && match.state !== 'menu' && match.state !== 'over';
   let el = document.getElementById('gemHud');
   if (!on) { if (el) el.style.display = 'none'; return; }
   if (!el) {
@@ -30180,6 +30195,7 @@ window.__resSync = renderResBar;
 function endMatch() {
   if (match.state === 'over') return;
   match.state = 'over';
+  try { hideMatchChips(); } catch (e) {}          // ★ 结算页不该再顶着首领血条/宝石读数
   if (typeof NET !== 'undefined' && NET.active) NET.onMatchEnd();
   match.timer = Math.max(0, match.timer);
   const wt = winningTeam();                           // ★ 团队模式的胜方（-1 = 自由混战）
@@ -31379,6 +31395,8 @@ document.getElementById('againBtn').onclick = async () => {
    body.setupOpen 会让 #lobbyBar / #pvTools 整条底栏 opacity:0 —— 看着像「按钮全没了」，
    其实还在可点。回大厅必须把所有大厅弹层 + body 状态一起复位。 */
 function lobbyHomeCleanup() {
+  try { hideMatchChips(); } catch (e) {}             // ★ 首领血条 / 宝石读数：回大厅必须消失
+  try { if (match.boss) match.boss = null; } catch (e) {}   // ★ 顺带作废「1.2s 后自动 endMatch」那些定时器
   try { if (window.LOBBY_UI && LOBBY_UI.closeAll) LOBBY_UI.closeAll(); } catch (e) {}
   for (const id of ['sheetSetup', 'sheetChars', 'sheetRoom', 'sheetSpec', 'mmBox', 'askBox', 'frPanel', 'profSheet']) {
     const el = document.getElementById(id); if (el) el.classList.add('hidden');
@@ -32055,7 +32073,7 @@ function frame(now) {
   /* updateTrash 已移入 physicsStep（固定步）——绝不能用渲染帧的 dt 推进模拟状态 */
   /* ★ 3D 大厅：菜单里用大厅场景替代战斗画面（同一个 renderer，不额外开 WebGL 上下文） */
   if (match.state === 'menu') {
-    if (!document.body.classList.contains('inMenu')) document.body.classList.add('inMenu');
+    if (!document.body.classList.contains('inMenu')) { document.body.classList.add('inMenu'); hideMatchChips(); }
     LOBBY.show(true); PV.frame(dt); LOBBY.frame(dt);
     mosqVeilHide();
     /* ★ 抽卡 3D 演出（平原 + 陨石 + 裂开）：演出期间独占画布，不可跳过 */
