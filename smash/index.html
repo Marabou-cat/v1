@@ -29638,6 +29638,9 @@ function hdomainStep(dt) {
 }
 
 function setup(opts) {
+  /* ★ 2026-11-25：开局一律先把抽卡/皮肤/武器面板和 body.summoning 遮罩收掉 ——
+     「在 summon 里开始对战」曾经让整套 HUD 永久 visibility:hidden（见 summonVeil 注释）。 */
+  try { summonForceClose(); } catch (e) {}
   { const _sd = Math.abs((opts && opts.seed) | 0);
     /* ★ 第 77 轮：地图选择优先于种子。联机时房主选的地图放在 rules.stage 里下发；
        null / 未设置 = 维持旧行为（由种子决定，各端一致）。 */
@@ -31401,7 +31404,8 @@ function lobbyHomeCleanup() {
   for (const id of ['sheetSetup', 'sheetChars', 'sheetRoom', 'sheetSpec', 'mmBox', 'askBox', 'frPanel', 'profSheet']) {
     const el = document.getElementById(id); if (el) el.classList.add('hidden');
   }
-  document.body.classList.remove('setupOpen', 'summoning');
+  document.body.classList.remove('setupOpen');
+  try { summonForceClose(); } catch (e) {}          // ★ 连 visibility 一起还原（原来只 remove 类名）
   const bar = document.getElementById('lobbyBar'); if (bar) bar.style.display = '';
   const pt = document.getElementById('pvTools'); if (pt) pt.style.display = '';
   const pill = document.getElementById('lobbyNet');
@@ -32099,18 +32103,9 @@ function frame(now) {
     try { s3 = document.getElementById('summonSheet'); } catch (e) {}
     const _smOn = !!(s3 && !s3.classList.contains('hidden'));
     if (_smOn !== document.body.classList.contains('summoning')) {
-      document.body.classList.toggle('summoning', _smOn);
-      /* ★ 2026-11-25：**任何**退出路径（✕ / Esc / 点空白 / 以后新加的按钮）都要把大厅台子
-         还给自己 —— 这里按「面板不在最上层」这一事实兜底，不再依赖每个退出点记得收尾。 */
-      if (!_smOn) { try { poolShowcaseStop(); } catch (e) {} }
-      /* Σ 3D 抽卡页要「只剩 canvas + 抽卡面板」：把所有带 id 的顶层节点临时藏起来 */
-      for (const ch of document.body.children) {
-        if (!ch.id || ch.tagName === 'SCRIPT' || ch.tagName === 'STYLE') continue;
-        if (ch.id === 'summonSheet' || ch.id === 'summonFx' || ch.tagName === 'CANVAS') continue;
-        if (/^toast/i.test(ch.id)) continue;
-        if (ch.dataset && ch.dataset.smHide === undefined) ch.dataset.smHide = ch.style.visibility || '';
-        ch.style.visibility = _smOn ? 'hidden' : (ch.dataset.smHide || '');
-      }
+      /* ★ 2026-11-25：开/关遮罩统一走 summonVeil（**任何**退出路径都要还原大厅，也不再依赖
+         每个退出点记得收尾）；关掉时顺便把卡池展台还给自己。 */
+      summonVeil(_smOn);
     }
     if (_smOn) {
       try {
@@ -32124,6 +32119,8 @@ function frame(now) {
     return;
   }
   if (document.body.classList.contains('inMenu')) document.body.classList.remove('inMenu');
+  /* ★ 对局里绝不允许残留抽卡遮罩（在 summon 里被开局就会走到这里） */
+  if (document.body.classList.contains('summoning')) { try { summonForceClose(); } catch (e) {} }
   LOBBY.show(false);
   updateCamera(dt);
   updateHUD(dt);
@@ -34774,7 +34771,8 @@ const NET = {
     /* ★ 2026-11-21：任何开局都要把大厅弹层/body 状态收干净 —— 从 BATTLE SETUP 点 Online Match
        直接开打时 setupOpen 会留在 body 上，结束后回大厅会把整条底栏变成 opacity:0。 */
     try {
-      document.body.classList.remove('setupOpen', 'summoning');
+      document.body.classList.remove('setupOpen');
+  try { summonForceClose(); } catch (e) {}          // ★ 连 visibility 一起还原（原来只 remove 类名）
       for (const _id of ['sheetSetup', 'sheetChars', 'sheetRoom', 'sheetSpec', 'mmBox']) {
         const _el = document.getElementById(_id); if (_el) _el.classList.add('hidden');
       }
@@ -36669,6 +36667,38 @@ function summonClose() {
   el.classList.add('hidden');
   try { poolShowcaseStop(); } catch (e) {}      // 清 interval + 台子还原成玩家自己选的角色
   return true;
+}
+/* ★ 2026-11-25 修「在 summon 里开始对战 → UI 全部消失」：
+   抽卡页「只剩 canvas + 面板」的做法是 body.summoning + 逐个给顶层节点写 visibility:hidden，
+   而**撤销只写在 frame() 的菜单分支里**。于是只要开局那一刻面板还开着（联机房主开局 / 匹配成功 /
+   别处触发 setup），这份 hidden 就再没人撤销 —— 实测对局里 35/39 个顶层节点仍是 hidden
+   （血条/伤害数字/暂停键全没，游戏照跑），回大厅后仍有 36 个 hidden。
+   现在把「开遮罩 / 关遮罩」抽成一个函数，并在「离开菜单」「开局」「回大厅」三条路上强制关一次。 */
+function summonVeil(on) {
+  document.body.classList.toggle('summoning', !!on);
+  for (const ch of document.body.children) {
+    if (!ch.id || ch.tagName === 'SCRIPT' || ch.tagName === 'STYLE') continue;
+    if (ch.id === 'summonSheet' || ch.id === 'summonFx' || ch.tagName === 'CANVAS') continue;
+    if (/^toast/i.test(ch.id)) continue;
+    if (on) {
+      if (ch.dataset.smHide === undefined) ch.dataset.smHide = ch.style.visibility || '';
+      ch.style.visibility = 'hidden';
+    } else {
+      ch.style.visibility = (ch.dataset && ch.dataset.smHide) || '';
+      if (ch.dataset) delete ch.dataset.smHide;        // 下次重新记录当前真实状态，不叠旧值
+    }
+  }
+  if (!on) { try { poolShowcaseStop(); } catch (e) {} }
+}
+/* 抽卡 / 皮肤 / 武器 三个面板 + 抽卡结算卡一起收掉（开局时用，别让它们盖在新对局上） */
+function summonForceClose() {
+  for (const id of ['summonSheet', 'skinSheet', 'weaponSheet']) {
+    const el = document.getElementById(id); if (el) el.classList.add('hidden');
+  }
+  const fx = document.getElementById('summonFx');
+  if (fx) { fx.className = ''; fx.innerHTML = ''; }
+  try { SUMMON3D.prizeClear && SUMMON3D.prizeClear(); } catch (e) {}
+  try { summonVeil(false); } catch (e) {}
 }
 function summonOpen() {
   let el = document.getElementById('summonSheet');
