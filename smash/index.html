@@ -35453,6 +35453,24 @@ function weaponBonusFor(f) {
 }
 const RAR_NAME = { weapon:'WEAPON', epicW:'EPIC WEAPON', legW:'LEGENDARY WEAPON', specialW:'SPECIAL WEAPON', skin:'EPIC SKIN', legS:'LEGENDARY SKIN', supreme:'SUPREME FIGHTER', shards:'MEMORY SHARDS' };
 const RAR_TONE = { weapon:'110,196,255', epicW:'196,140,255', legW:'255,196,74', specialW:'255,138,61', skin:'196,140,255', legS:'255,110,230', supreme:'255,120,214', shards:'120,230,200' };
+/* ★ 2026-11-25 修「抽到任何皮肤都显示 Cardboard」：
+   皮肤奖品的 `prize.id` 是**皮肤 id**（smiley_penguin / dj_hacker / cardboard_tv …），不是角色 id。
+   旧代码在 METEOR.makePrizeObj 与 SUMMON3D.prizeShow 里都写成
+       const base = CHARS.find(c => c.id === p.id) || CHARS.find(c => c.supreme);
+   用皮肤 id 去 CHARS 里查永远查不到 → 兜底成「第一个至尊」= **Cardboard**，
+   所以每一件皮肤（连 TV Man 这种属于 Cardboard 的皮肤）都渲染成默认卡纸机器人。
+   现在统一走这一个解析器：皮肤 → SUMMON_SKINS 拿 char + 皮肤 id；角色 → 直接用 id。 */
+function prizeCharDef(p) {
+  if (!p) return null;
+  let baseId = p.id || '', skinId = '';
+  if (p.type === 'skin') {
+    const sk = SUMMON_SKINS.find(x => x.id === p.id);
+    if (sk) { baseId = sk.char; skinId = sk.id; }
+    else if (p.char) baseId = p.char;
+  }
+  const base = CHARS.find(c => c.id === baseId) || CHARS.find(c => c.supreme);
+  return base ? Object.assign({}, base, { skin: skinId }) : null;   // skin:'' = 默认皮（旧代码传 'none' 是同一个意思）
+}
 /* 记忆碎片商店（可兑换金币 / 宝石 / 皮肤） */
 const SHARD_SHOP = [
   { id:'coins',  cost:60,  name:'1,000 Coins',       sub:'COINS' },
@@ -35897,9 +35915,8 @@ const METEOR = (() => {
       if (!p) return null;
       if (p.type === 'weapon') { const o = SUMMON3D.weaponModel(p.id); return o || null; }
       if (p.type === 'shards') { const o = SUMMON3D.shardModel(); return o || null; }
-      const base = CHARS.find(c => c.id === p.id) || CHARS.find(c => c.supreme);
-      if (!base) return null;
-      const vd = Object.assign({}, base, { skin: p.type === 'skin' ? p.id : 'none' });
+      const vd = prizeCharDef(p);              // ★ 皮肤 → 它所属的角色 + 皮肤 id（见 prizeCharDef 注释）
+      if (!vd) return null;
       const m = buildMesh2(vd);
       scene.remove(m.group);
       if (m.bubble) m.bubble.visible = false;
@@ -36465,9 +36482,8 @@ const SUMMON3D = (() => {
       if (prize.type === 'weapon') obj = weaponModel(prize.id);
       else if (prize.type === 'shards') obj = shardModel();
       else {
-        const base = CHARS.find(c => c.id === prize.id) || CHARS.find(c => c.supreme);
-        if (base) {
-          const vd = Object.assign({}, base, { skin: prize.type === 'skin' ? prize.id : 'none' });
+        const vd = prizeCharDef(prize);        // ★ 同上：皮肤 id ≠ 角色 id
+        if (vd) {
           const m = buildMesh2(vd);
           scene.remove(m.group);
           if (m.bubble) m.bubble.visible = false;
@@ -37560,6 +37576,10 @@ window.SB = {
   /* ★ 探针：DJ Hacker 皮肤的判定与签名色（验收「换皮后特效变紫」不能只靠眼睛看） */
   hackerIsDJ, hackerHue, SUMMON_SKINS, GACHA, RAR_NAME, RAR_TONE,
   ACC,   // ★ 探针：直接操作账号存档（解锁/装备皮肤、货币）——和 fighters/projectiles 一样属于调试出口
+  prizeDef: prizeCharDef,   // ★ 探针：奖品 → 实际会渲染的角色 def（验「抽到皮肤不再显示 Cardboard」）
+  /* ★ 探针：直接播一次陨石抽卡演出（验收「抽到皮肤时陨石里放出来的模型」不靠运气抽卡） */
+  prizeReveal: (p) => { try { METEOR.play(p, () => {}); return true; } catch (e) { return String(e); } },
+  get meteorBusy() { return !!METEOR.busy; },
   /* ★ 探针：Beta Rewards / Kernel Panic 领域（验收「定身 + 20% + 随机传送 + 2s 锁定」） */
   hdomainStart, hdomainEnd,
   get hdomain() { return { active: HDOMAIN.active, x: +HDOMAIN.x.toFixed(2), r: HDOMAIN.r,
