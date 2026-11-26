@@ -24,6 +24,7 @@ const ICONS = [
 
 const RAW_GAMES = [
     "/smash/|Super Brawl|/logos/smash-logo.png?v=1",
+    "/exams_games/TheAviator/|The Aviator|/ug_icons/theaviator.webp?v=1",
     "/ug/1/|1|/ug_icons/1.webp?v=1",
     "/ug/1on1soccer/|1 on 1 Soccer|/ug_icons/1on1soccer.webp?v=1",
     "/ug/10minutestilldawn/|10 Minutes Till Dawn|/ug_icons/10minutestilldawn.webp?v=1",
