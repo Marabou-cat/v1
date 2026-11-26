@@ -297,6 +297,13 @@ main{position:relative;z-index:2;max-width:1240px;margin:0 auto;padding:clamp(28
 
 /* ---------- game grid ---------- */
 .gamesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(252px,1fr));gap:18px;margin-top:26px}
+.gamesGrid.dense{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.gamesGrid.dense .gameCard{min-height:0;padding:8px 8px 0;border-radius:16px}
+.gamesGrid.dense .gameIcon{min-height:0;aspect-ratio:1/1;flex:0 0 auto;border-radius:12px}
+.gamesGrid.dense .gameName{padding:9px 4px 10px;font-size:12.5px;letter-spacing:0}
+.gamesGrid.dense .star-btn{transform:scale(.8);transform-origin:top right}
+@media(max-width:430px){.gamesGrid.dense{grid-template-columns:repeat(auto-fill,minmax(106px,1fr));gap:9px}
+  .gamesGrid.dense .gameName{font-size:11.5px;padding:7px 3px 8px}}
 .gameCard{
   position:relative;display:flex;flex-direction:column;min-height:268px;padding:13px 13px 0;
   border-radius:var(--r-lg);overflow:hidden;isolation:isolate;
@@ -3018,6 +3025,7 @@ let _gridQueue = [], _gridShown = 0, _gridFilter = null;
 
 function renderGrid(filter = "") {
     const grid = document.getElementById('gamesGrid');
+    grid.classList.toggle('dense', GAMES.length > 60);   // 游戏多了自动切紧凑网格
     document.getElementById('searchInput').placeholder = `Search ${GAMES.length} games...`;
     
     let favs = getFavorites();
@@ -3051,7 +3059,7 @@ function renderGrid(filter = "") {
         });
     }
     
-    // 3. Draw the cards —— 分块渲染：先画一屏，滚动/点按钮再续（1500 款也不卡首屏）
+    // 3. Draw the cards —— 分块渲染：先画一屏，滚动/点按钮再续
     const keep = (_gridFilter === filter) ? _gridShown : 0;
     _gridFilter = filter;
     _gridQueue = gamesToRender;
