@@ -94,7 +94,7 @@
     overflow:hidden;text-overflow:ellipsis}
   #pbar .btn{padding:7px 9px;font-size:13px}
   #pw{position:relative;flex:1 1 auto;background:#000}
-  #pf{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+  #pf{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;transform-origin:0 0}
   #pload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     flex-direction:column;gap:10px;color:var(--dim);font-size:13px;background:#05050a;
     transition:opacity .25s ease;pointer-events:none}
@@ -141,6 +141,7 @@
   <div id="pbar">
     <button class="btn ghost" id="pBack">← 大厅</button>
     <span id="pname">—</span>
+    <button class="btn" id="pFit" title="适配屏幕 / 原始尺寸">⤢ 适配</button>
     <button class="btn" id="pReload" title="重新加载">⟳</button>
     <button class="btn" id="pFs" title="全屏">⛶</button>
     <a class="btn" id="pOpen" target="_blank" rel="noopener" title="在新标签打开">↗</a>
@@ -262,6 +263,7 @@
     $('#pOpen').href = gameUrl(g);
     $('#pfNew').href = gameUrl(g);
     $('#pfail').classList.remove('on');
+    resetFrame();
     player.classList.add('on');
     document.body.style.overflow = 'hidden';
     load(push !== false);
@@ -283,7 +285,49 @@
     alive = true;
     clearTimeout(loadTimer);
     setTimeout(()=>$('#pload').classList.add('gone'), 120);
+    // 大量老游戏是 800x600 固定画布，手机上会被裁掉 —— 自动缩放到能看全
+    setTimeout(fitFrame, 260); setTimeout(fitFrame, 1100);
   });
+
+  /* ---------- 自适应缩放（把固定尺寸的游戏整体缩小塞进屏幕） ---------- */
+  const LS_FIT = 'arcadeFitMode';
+  let fitOn = (localStorage.getItem(LS_FIT) || '1') === '1';
+  function fitLabel(){ $('#pFit').textContent = fitOn ? '⤢ 适配' : '⤢ 1:1'; }
+  function resetFrame(){
+    pf.style.transform = ''; pf.style.left=''; pf.style.top=''; pf.style.width=''; pf.style.height='';
+  }
+  function fitFrame(){
+    fitLabel();
+    if (!cur) return;
+    // 量的是「容器」尺寸，不是 iframe 自己的盒子 —— 否则第二次测量会拿上一次缩放后的尺寸当基准，自我收敛成 1:1
+    const box = pf.parentElement;
+    const vw = (box && box.clientWidth) || 1, vh = (box && box.clientHeight) || 1;
+    if (!fitOn) { resetFrame(); return; }
+    resetFrame();                                  // 先还原成 100%，拿「原生尺寸」重新测
+    let dw = 0, dh = 0;
+    try {
+      const d = pf.contentDocument;
+      if (!d || !d.documentElement) return;
+      dw = Math.max(d.documentElement.scrollWidth || 0, d.body ? d.body.scrollWidth : 0);
+      dh = Math.max(d.documentElement.scrollHeight || 0, d.body ? d.body.scrollHeight : 0);
+    } catch (e) { return; }                        // 跨域游戏不动
+    if (!dw || !dh) return;
+    const s = Math.min(1, vw / dw, vh / dh);
+    if (s >= 0.995) return;                        // 本来就能装下
+    pf.style.width = dw + 'px';
+    pf.style.height = dh + 'px';
+    pf.style.transform = 'scale(' + s.toFixed(4) + ')';
+    pf.style.left = Math.max(0, (vw - dw * s) / 2) + 'px';
+    pf.style.top = Math.max(0, (vh - dh * s) / 2) + 'px';
+  }
+  window.addEventListener('resize', () => setTimeout(fitFrame, 120));
+  $('#pFit').onclick = () => {
+    fitOn = !fitOn;
+    try { localStorage.setItem(LS_FIT, fitOn ? '1' : '0'); } catch(e){}
+    fitLabel();
+    if (fitOn) fitFrame(); else resetFrame();
+  };
+  fitLabel();
   function showFail(msg){
     $('#pload').classList.add('gone');
     $('#pfailMsg').textContent = msg || '';
