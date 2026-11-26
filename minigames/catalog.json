@@ -1,0 +1,4825 @@
+[
+{
+"d": "1024_Moves",
+"n": "1024 Moves",
+"entry": "index.html",
+"mb": 0.12,
+"f": 4
+},
+{
+"d": "16_Puzzle",
+"n": "16 Puzzle",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "2048",
+"n": "2048",
+"entry": "index.html",
+"mb": 0.57,
+"f": 37
+},
+{
+"d": "2048_win",
+"n": "2048 win",
+"entry": "index.html",
+"mb": 0.05,
+"f": 5
+},
+{
+"d": "2D_Breakout",
+"n": "2D Breakout",
+"entry": "index.html",
+"mb": 0.28,
+"f": 19
+},
+{
+"d": "2D_Fighting_game",
+"n": "2D Fighting game",
+"entry": "index.html",
+"mb": 0.17,
+"f": 24
+},
+{
+"d": "3D_Car_Racing_Game",
+"n": "3D Car Racing Game",
+"entry": "index.html",
+"mb": 0.1,
+"f": 9
+},
+{
+"d": "3d_Box_Game",
+"n": "3D Box Game",
+"entry": "index.html",
+"mb": 0.29,
+"f": 11
+},
+{
+"d": "3d_Snake",
+"n": "3D Snake",
+"entry": "index.html",
+"mb": 0.03,
+"f": 4
+},
+{
+"d": "8_Puzzle",
+"n": "8 Puzzle",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "AI_CHESS_Game",
+"n": "AI CHESS Game",
+"entry": "index.html",
+"mb": 0.13,
+"f": 5
+},
+{
+"d": "Achluophobia",
+"n": "Achluophobia",
+"entry": "index.html",
+"mb": 0.64,
+"f": 14
+},
+{
+"d": "Adventure_Game",
+"n": "Adventure Game",
+"entry": "index.html",
+"mb": 0.59,
+"f": 5
+},
+{
+"d": "Aero_Acrobat",
+"n": "Aero Acrobat",
+"entry": "index.html",
+"mb": 17.58,
+"f": 25
+},
+{
+"d": "Aim_Training",
+"n": "Aim Training",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "AirBalloon",
+"n": "Air Balloon",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Airhocky_game",
+"n": "Airhocky game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Alien_Invasion",
+"n": "Alien Invasion",
+"entry": "index.html",
+"mb": 0.25,
+"f": 8
+},
+{
+"d": "Alien_Shooters",
+"n": "Alien Shooters",
+"entry": "index.html",
+"mb": 0.04,
+"f": 10
+},
+{
+"d": "Align_4_Game",
+"n": "Align 4 Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 6
+},
+{
+"d": "Alphabet",
+"n": "Alphabet",
+"entry": "index.html",
+"mb": 1.25,
+"f": 56
+},
+{
+"d": "Alphabet-and-Vowels",
+"n": "Alphabet and Vowels",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Alphabet_Learning_Game",
+"n": "Alphabet Learning Game",
+"entry": "index.html",
+"mb": 1.87,
+"f": 81
+},
+{
+"d": "Am_I_the_number",
+"n": "Am I the number",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Among_Us_Game",
+"n": "Among Us Game",
+"entry": "index.html",
+"mb": 4.45,
+"f": 15
+},
+{
+"d": "Anagram -Word-Game",
+"n": "Anagram Word Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Anagram_Checker_Game",
+"n": "Anagram Checker Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 5
+},
+{
+"d": "Angry_Bird",
+"n": "Angry Bird",
+"entry": "index.html",
+"mb": 0.0,
+"f": 5
+},
+{
+"d": "Angry_Boars",
+"n": "Angry Boars",
+"entry": "index.html",
+"mb": 0.03,
+"f": 6
+},
+{
+"d": "Animal_Match_Game",
+"n": "Animal Match Game",
+"entry": "index.html",
+"mb": 2.83,
+"f": 7
+},
+{
+"d": "Animal_Name_Guessing",
+"n": "Animal Name Guessing",
+"entry": "index.html",
+"mb": 0.01,
+"f": 7
+},
+{
+"d": "Anime_Clicker",
+"n": "Anime Clicker",
+"entry": "index.html",
+"mb": 1.19,
+"f": 14
+},
+{
+"d": "AquaSort_Game",
+"n": "Aqua Sort Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Arcade_Game",
+"n": "Arcade Game",
+"entry": "index.html",
+"mb": 0.6,
+"f": 5
+},
+{
+"d": "Archery",
+"n": "Archery",
+"entry": "index.html",
+"mb": 0.08,
+"f": 6
+},
+{
+"d": "Arkanoid_Game",
+"n": "Arkanoid Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "ArmorAlley",
+"n": "Armor Alley",
+"entry": "index.html",
+"mb": 60.93,
+"f": 626
+},
+{
+"d": "Asteroids_3D",
+"n": "Asteroids 3D",
+"entry": "index.html",
+"mb": 0.7,
+"f": 5
+},
+{
+"d": "Astronaunt_runner",
+"n": "Astronaunt runner",
+"entry": "index.html",
+"mb": 4.47,
+"f": 8
+},
+{
+"d": "Atari_breakout",
+"n": "Atari breakout",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Atlas_Game",
+"n": "Atlas Game",
+"entry": "index.html",
+"mb": 0.13,
+"f": 6
+},
+{
+"d": "Audio_Wordle",
+"n": "Audio Wordle",
+"entry": "index.html",
+"mb": 2.93,
+"f": 14
+},
+{
+"d": "Avax_Gods",
+"n": "Avax Gods",
+"entry": "index.html",
+"mb": 15.81,
+"f": 83
+},
+{
+"d": "Avoider_Game",
+"n": "Avoider Game",
+"entry": "index.html",
+"mb": 3.03,
+"f": 12
+},
+{
+"d": "Back_To_Space",
+"n": "Back To Space",
+"entry": "index.html",
+"mb": 2.82,
+"f": 2
+},
+{
+"d": "Bad_Depot",
+"n": "Bad Depot",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Bad_Luck_Brian",
+"n": "Bad Luck Brian",
+"entry": "index.html",
+"mb": 0.06,
+"f": 6
+},
+{
+"d": "Ball-And-Paddle-Game",
+"n": "Ball And Paddle Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Ball_Fall_Game",
+"n": "Ball Fall Game",
+"entry": "index.html",
+"mb": 10.23,
+"f": 13
+},
+{
+"d": "Ball_Shooting_Game",
+"n": "Ball Shooting Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Ball_and_glass",
+"n": "Ball and glass",
+"entry": "index.html",
+"mb": 0.2,
+"f": 5
+},
+{
+"d": "Ball_in_Maze",
+"n": "Ball in Maze",
+"entry": "index.html",
+"mb": 24.48,
+"f": 22
+},
+{
+"d": "Ballarena",
+"n": "Ballarena",
+"entry": "index.html",
+"mb": 0.08,
+"f": 14
+},
+{
+"d": "Balloon_Buster",
+"n": "Balloon Buster",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Balloon_Defense_Game",
+"n": "Balloon Defense Game",
+"entry": "index.htm",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Balloon_Popup",
+"n": "Balloon Popup",
+"entry": "index.html",
+"mb": 1.81,
+"f": 7
+},
+{
+"d": "Baseball",
+"n": "Baseball",
+"entry": "index.html",
+"mb": 0.02,
+"f": 7
+},
+{
+"d": "Baseketball",
+"n": "Baseketball",
+"entry": "index.html",
+"mb": 1.28,
+"f": 24
+},
+{
+"d": "Bash_mole",
+"n": "Bash mole",
+"entry": "index.html",
+"mb": 0.21,
+"f": 9
+},
+{
+"d": "Bear_Hunter_Ninja",
+"n": "Bear Hunter Ninja",
+"entry": "index.html",
+"mb": 0.86,
+"f": 8
+},
+{
+"d": "Beat_a_mole",
+"n": "Beat a mole",
+"entry": "index.html",
+"mb": 6.81,
+"f": 13
+},
+{
+"d": "Belt_Black",
+"n": "Belt Black",
+"entry": "index.html",
+"mb": 2.96,
+"f": 21
+},
+{
+"d": "Beyblade",
+"n": "Beyblade",
+"entry": "index.html",
+"mb": 1.3,
+"f": 13
+},
+{
+"d": "Beyonder",
+"n": "Beyonder",
+"entry": "index.html",
+"mb": 0.06,
+"f": 2
+},
+{
+"d": "Bingo_Game",
+"n": "Bingo Game",
+"entry": "index.html",
+"mb": 5.11,
+"f": 12
+},
+{
+"d": "Bird_game",
+"n": "Bird game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 3
+},
+{
+"d": "Bit_Maze_Platformer_Maze",
+"n": "Bit Maze Platformer Maze",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Black_Jack",
+"n": "Black Jack",
+"entry": "index.html",
+"mb": 4.94,
+"f": 593
+},
+{
+"d": "Black_jackk",
+"n": "Black jackk",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Blanks_Detective",
+"n": "Blanks Detective",
+"entry": "index.html",
+"mb": 1.69,
+"f": 17
+},
+{
+"d": "Blast Zone",
+"n": "Blast Zone",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Blink_Beat",
+"n": "Blink Beat",
+"entry": "index.html",
+"mb": 0.2,
+"f": 15
+},
+{
+"d": "Block Game",
+"n": "Block Game",
+"entry": "index.html",
+"mb": 0.07,
+"f": 5
+},
+{
+"d": "Block_Building",
+"n": "Block Building",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Block_Buster",
+"n": "Block Buster",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Block_Dodger",
+"n": "Block Dodger",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Block_Ninja",
+"n": "Block Ninja",
+"entry": "index.html",
+"mb": 0.06,
+"f": 4
+},
+{
+"d": "Block_Vault",
+"n": "Block Vault",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Bomb Throw Game",
+"n": "Bomb Throw Game",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Boom_Blast",
+"n": "Boom Blast",
+"entry": "index.html",
+"mb": 1.47,
+"f": 9
+},
+{
+"d": "Bottle_Flip",
+"n": "Bottle Flip",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Bounce_Ball",
+"n": "Bounce Ball",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Bouncing_Ball_Game",
+"n": "Bouncing Ball Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Bow_And_Arrow",
+"n": "Bow And Arrow",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Bow_Arrow",
+"n": "Bow Arrow",
+"entry": "index.html",
+"mb": 2.34,
+"f": 27
+},
+{
+"d": "Box_In_Air_Game",
+"n": "Box In Air Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Box_Merge",
+"n": "Box Merge",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Brain_Burst_Game",
+"n": "Brain Burst Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Brain_Color_Mastermind",
+"n": "Brain Color Mastermind",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Brain_Game",
+"n": "Brain Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Brain_card_game",
+"n": "Brain card game",
+"entry": "index.html",
+"mb": 0.09,
+"f": 5
+},
+{
+"d": "Breakout",
+"n": "Breakout",
+"entry": "index.html",
+"mb": 14.33,
+"f": 5
+},
+{
+"d": "Brick Buster",
+"n": "Brick Buster",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Brick_Breaker",
+"n": "Brick Breaker",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Brick_and_Ball",
+"n": "Brick and Ball",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Bubble'z Popper",
+"n": "Bubble'z Popper",
+"entry": "index.html",
+"mb": 5.45,
+"f": 7
+},
+{
+"d": "Bubble_Blast_Game",
+"n": "Bubble Blast Game",
+"entry": "index.html",
+"mb": 4.01,
+"f": 8
+},
+{
+"d": "Bubble_Shooter",
+"n": "Bubble Shooter",
+"entry": "index.html",
+"mb": 0.47,
+"f": 5
+},
+{
+"d": "Building Block Game",
+"n": "Building Block Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Bulls_And_Cows_New",
+"n": "Bulls And Cows New",
+"entry": "index.html",
+"mb": 1.22,
+"f": 6
+},
+{
+"d": "Bulls_and_Cows",
+"n": "Bulls and Cows",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Bulls_eye",
+"n": "Bulls eye",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "BullseyeGame",
+"n": "Bullseye Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Bunny_is_Lost",
+"n": "Bunny is Lost",
+"entry": "index.html",
+"mb": 81.2,
+"f": 5
+},
+{
+"d": "CSS_Crossword",
+"n": "CSS Crossword",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "CSS_Select",
+"n": "CSS Select",
+"entry": "index.html",
+"mb": 0.38,
+"f": 15
+},
+{
+"d": "Cable_Maze",
+"n": "Cable Maze",
+"entry": "index.html",
+"mb": 0.01,
+"f": 3
+},
+{
+"d": "Caesar_Cipher",
+"n": "Caesar Cipher",
+"entry": "index.html",
+"mb": 7.69,
+"f": 10
+},
+{
+"d": "Call_Of_Duty",
+"n": "Call Of Duty",
+"entry": "index.html",
+"mb": 0.0,
+"f": 5
+},
+{
+"d": "Candy_Crush",
+"n": "Candy Crush",
+"entry": "index.html",
+"mb": 0.23,
+"f": 30
+},
+{
+"d": "Candy_Crush_Saga",
+"n": "Candy Crush Saga",
+"entry": "index.html",
+"mb": 0.55,
+"f": 11
+},
+{
+"d": "Candy_Match_Saga",
+"n": "Candy Match Saga",
+"entry": "index.html",
+"mb": 3.36,
+"f": 6
+},
+{
+"d": "Canon_Defense",
+"n": "Canon Defense",
+"entry": "index.html",
+"mb": 0.13,
+"f": 20
+},
+{
+"d": "CareTaker",
+"n": "Care Taker",
+"entry": "index.html",
+"mb": 0.27,
+"f": 5
+},
+{
+"d": "Carrom",
+"n": "Carrom",
+"entry": "index.html",
+"mb": 0.42,
+"f": 11
+},
+{
+"d": "Cartoon_Character_Guessing_Game",
+"n": "Cartoon Character Guessing Game",
+"entry": "index.html",
+"mb": 0.15,
+"f": 8
+},
+{
+"d": "Cast_and_Catch",
+"n": "Cast and Catch",
+"entry": "index.html",
+"mb": 5.22,
+"f": 21
+},
+{
+"d": "Cat_Goric",
+"n": "Cat Goric",
+"entry": "index.html",
+"mb": 0.02,
+"f": 2
+},
+{
+"d": "Catch Him",
+"n": "Catch Him",
+"entry": "index.html",
+"mb": 0.32,
+"f": 11
+},
+{
+"d": "Catch the falling Stars",
+"n": "Catch the falling Stars",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "CatchTheBall",
+"n": "Catch The Ball",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Catch_Craze",
+"n": "Catch Craze",
+"entry": "index.html",
+"mb": 11.2,
+"f": 5
+},
+{
+"d": "Catch_Stars",
+"n": "Catch Stars",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Catch_The_Ball",
+"n": "Catch The Ball (2)",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Catch_The_Falling_Object",
+"n": "Catch The Falling Object",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Catch_The_Objects",
+"n": "Catch The Objects",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Catch_me_game",
+"n": "Catch me game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Catch_the_Bunny",
+"n": "Catch the Bunny",
+"entry": "index.html",
+"mb": 0.35,
+"f": 6
+},
+{
+"d": "Charon_Jr",
+"n": "Charon Jr",
+"entry": "index.html",
+"mb": 0.02,
+"f": 2
+},
+{
+"d": "Checkers",
+"n": "Checkers",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Chess.com",
+"n": "Chess.com",
+"entry": "index.html",
+"mb": 0.09,
+"f": 16
+},
+{
+"d": "Chess_Game",
+"n": "Chess Game",
+"entry": "index.html",
+"mb": 0.06,
+"f": 8
+},
+{
+"d": "Chess_Game_computer",
+"n": "Chess Game computer",
+"entry": "index.html",
+"mb": 0.04,
+"f": 4
+},
+{
+"d": "Chicken_cannon",
+"n": "Chicken cannon",
+"entry": "index.html",
+"mb": 1.92,
+"f": 22
+},
+{
+"d": "Chopsticks",
+"n": "Chopsticks",
+"entry": "index.html",
+"mb": 2.57,
+"f": 25
+},
+{
+"d": "Chrome_Dino_Game",
+"n": "Chrome Dino Game",
+"entry": "index.html",
+"mb": 0.03,
+"f": 14
+},
+{
+"d": "Chrome_Dinosaur_Game",
+"n": "Chrome Dinosaur Game",
+"entry": "index.html",
+"mb": 0.19,
+"f": 26
+},
+{
+"d": "Circuit_Craze",
+"n": "Circuit Craze",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "City_Builder_Game",
+"n": "City Builder Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "CodePen_Simulator",
+"n": "Code Pen Simulator",
+"entry": "index.html",
+"mb": 0.08,
+"f": 4
+},
+{
+"d": "Code_Cracker",
+"n": "Code Cracker",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Color The Page",
+"n": "Color The Page",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Color-Blink-Challenge",
+"n": "Color Blink Challenge",
+"entry": "index.html",
+"mb": 5.41,
+"f": 6
+},
+{
+"d": "Color_Blast",
+"n": "Color Blast",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Color_Crush_Game",
+"n": "Color Crush Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Color_Shifter",
+"n": "Color Shifter",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Color_Swap",
+"n": "Color Swap",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Color_Turner",
+"n": "Color Turner",
+"entry": "index.html",
+"mb": 0.01,
+"f": 3
+},
+{
+"d": "Color_switcher",
+"n": "Color switcher",
+"entry": "index.html",
+"mb": 0.28,
+"f": 6
+},
+{
+"d": "Coloron",
+"n": "Coloron",
+"entry": "index.html",
+"mb": 1.91,
+"f": 5
+},
+{
+"d": "Colour_Generator_Game",
+"n": "Colour Generator Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Colour_Guessing_Game",
+"n": "Colour Guessing Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Computer_Bingo",
+"n": "Computer Bingo",
+"entry": "index.html",
+"mb": 1.2,
+"f": 7
+},
+{
+"d": "Connect4",
+"n": "Connect4",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Connect_Four",
+"n": "Connect Four",
+"entry": "index.html",
+"mb": 0.26,
+"f": 5
+},
+{
+"d": "Conqueror_Quest",
+"n": "Conqueror Quest",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Cooking_Challenge_Game",
+"n": "Cooking Challenge Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "CopyCat",
+"n": "Copy Cat",
+"entry": "index.html",
+"mb": 0.07,
+"f": 4
+},
+{
+"d": "Corona_Fighter",
+"n": "Corona Fighter",
+"entry": "index.html",
+"mb": 0.31,
+"f": 10
+},
+{
+"d": "Corona_Shooter",
+"n": "Corona Shooter",
+"entry": "index.html",
+"mb": 5.44,
+"f": 6
+},
+{
+"d": "Cosmic_Blast",
+"n": "Cosmic Blast",
+"entry": "index.html",
+"mb": 2.72,
+"f": 11
+},
+{
+"d": "Cosmic_Coin_Collector",
+"n": "Cosmic Coin Collector",
+"entry": "index.html",
+"mb": 0.03,
+"f": 4
+},
+{
+"d": "Country_Guesser_Game",
+"n": "Country Guesser Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Crack_The_Code",
+"n": "Crack The Code",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Cross_Road_Game",
+"n": "Cross Road Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Cross_The_River_Game",
+"n": "Cross The River Game",
+"entry": "index.html",
+"mb": 0.66,
+"f": 15
+},
+{
+"d": "Cross_The_Road",
+"n": "Cross The Road",
+"entry": "index.html",
+"mb": 3.32,
+"f": 17
+},
+{
+"d": "Crossword_Game",
+"n": "Crossword Game",
+"entry": "index.html",
+"mb": 9.04,
+"f": 13
+},
+{
+"d": "Crossword_Puzzle",
+"n": "Crossword Puzzle",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Crossy_Road",
+"n": "Crossy Road",
+"entry": "index.html",
+"mb": 0.63,
+"f": 6
+},
+{
+"d": "Crystals_Collecter",
+"n": "Crystals Collecter",
+"entry": "index.html",
+"mb": 0.04,
+"f": 9
+},
+{
+"d": "Currency_Converter",
+"n": "Currency Converter",
+"entry": "index.html",
+"mb": 0.01,
+"f": 5
+},
+{
+"d": "Cut_the_rope",
+"n": "Cut the rope",
+"entry": "index.html",
+"mb": 27.5,
+"f": 343
+},
+{
+"d": "DNA_Sequencer",
+"n": "DNA Sequencer",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Dante",
+"n": "Dante",
+"entry": "index.html",
+"mb": 0.02,
+"f": 2
+},
+{
+"d": "Dead_Again",
+"n": "Dead Again",
+"entry": "index.html",
+"mb": 0.02,
+"f": 2
+},
+{
+"d": "Death_by_Hamster",
+"n": "Death by Hamster",
+"entry": "index.html",
+"mb": 0.06,
+"f": 16
+},
+{
+"d": "Destroyer",
+"n": "Destroyer",
+"entry": "index.html",
+"mb": 0.04,
+"f": 9
+},
+{
+"d": "Detona",
+"n": "Detona",
+"entry": "index.html",
+"mb": 0.14,
+"f": 10
+},
+{
+"d": "Diamond_Run",
+"n": "Diamond Run",
+"entry": "index.html",
+"mb": 0.16,
+"f": 12
+},
+{
+"d": "Dice_Game",
+"n": "Dice Game",
+"entry": "index.html",
+"mb": 0.06,
+"f": 10
+},
+{
+"d": "Dice_Roller",
+"n": "Dice Roller",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Digit_Dilemma",
+"n": "Digit Dilemma",
+"entry": "index.html",
+"mb": 0.08,
+"f": 5
+},
+{
+"d": "Dino_Runner_Game",
+"n": "Dino Runner Game",
+"entry": "index.html",
+"mb": 4.93,
+"f": 12
+},
+{
+"d": "Dinoffline",
+"n": "Dinoffline",
+"entry": "index.html",
+"mb": 0.06,
+"f": 9
+},
+{
+"d": "Dinosaur_Memory_Game",
+"n": "Dinosaur Memory Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 5
+},
+{
+"d": "Disney_Trivia",
+"n": "Disney Trivia",
+"entry": "index.html",
+"mb": 0.15,
+"f": 5
+},
+{
+"d": "Dodge the Blocks",
+"n": "Dodge the Blocks",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Dont_Die_To_Ghosts",
+"n": "Dont Die To Ghosts",
+"entry": "index.html",
+"mb": 0.29,
+"f": 8
+},
+{
+"d": "Doodle_Draw",
+"n": "Doodle Draw",
+"entry": "index.html",
+"mb": 0.15,
+"f": 6
+},
+{
+"d": "Doodle_Jump",
+"n": "Doodle Jump",
+"entry": "index.html",
+"mb": 0.36,
+"f": 9
+},
+{
+"d": "Doppelkopf",
+"n": "Doppelkopf",
+"entry": "index.html",
+"mb": 1.26,
+"f": 154
+},
+{
+"d": "DoraemonRun",
+"n": "Doraemon Run",
+"entry": "index.html",
+"mb": 3.68,
+"f": 17
+},
+{
+"d": "Doraemon_Jump",
+"n": "Doraemon Jump",
+"entry": "index.html",
+"mb": 7.7,
+"f": 10
+},
+{
+"d": "Doremon_Puzzle",
+"n": "Doremon Puzzle",
+"entry": "index.html",
+"mb": 0.15,
+"f": 15
+},
+{
+"d": "Dot_Box_Game",
+"n": "Dot Box Game",
+"entry": "index.html",
+"mb": 0.11,
+"f": 7
+},
+{
+"d": "Dot_Connect",
+"n": "Dot Connect",
+"entry": "index.html",
+"mb": 0.22,
+"f": 7
+},
+{
+"d": "Dot_Dash",
+"n": "Dot Dash",
+"entry": "index.html",
+"mb": 0.32,
+"f": 6
+},
+{
+"d": "Dots_and_Boxes_Game",
+"n": "Dots and Boxes Game",
+"entry": "index.html",
+"mb": 8.39,
+"f": 9
+},
+{
+"d": "Drag_And_Drop_Puzzle",
+"n": "Drag And Drop Puzzle",
+"entry": "index.html",
+"mb": 0.75,
+"f": 32
+},
+{
+"d": "Dragon_Ball_Game",
+"n": "Dragon Ball Game",
+"entry": "index.html",
+"mb": 2.03,
+"f": 5
+},
+{
+"d": "Dragon_Slayer",
+"n": "Dragon Slayer",
+"entry": "index.html",
+"mb": 0.45,
+"f": 8
+},
+{
+"d": "Dragon_Tower",
+"n": "Dragon Tower",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Dragon_World_Game",
+"n": "Dragon World Game",
+"entry": "index.html",
+"mb": 1.24,
+"f": 8
+},
+{
+"d": "Drawing_app",
+"n": "Drawing app",
+"entry": "index.html",
+"mb": 0.01,
+"f": 9
+},
+{
+"d": "Drop_Dash_Game",
+"n": "Drop Dash Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Drum_Kit_Game",
+"n": "Drum Kit Game",
+"entry": "index.html",
+"mb": 26.05,
+"f": 21
+},
+{
+"d": "Drum_kit",
+"n": "Drum kit",
+"entry": "index.html",
+"mb": 0.55,
+"f": 19
+},
+{
+"d": "Drummer_Kit",
+"n": "Drummer Kit",
+"entry": "index.html",
+"mb": 2.78,
+"f": 15
+},
+{
+"d": "Dsa_quiz_game",
+"n": "Dsa quiz game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "DuckHunt",
+"n": "Duck Hunt",
+"entry": "index.html",
+"mb": 2.4,
+"f": 7
+},
+{
+"d": "Dungeon_Crawler",
+"n": "Dungeon Crawler",
+"entry": "index.html",
+"mb": 174.26,
+"f": 109
+},
+{
+"d": "Earth_Destroyer",
+"n": "Earth Destroyer",
+"entry": "index.html",
+"mb": 0.03,
+"f": 6
+},
+{
+"d": "Earth_Guardian",
+"n": "Earth Guardian",
+"entry": "index.html",
+"mb": 19.23,
+"f": 60
+},
+{
+"d": "Eco_Warrior",
+"n": "Eco Warrior",
+"entry": "index.html",
+"mb": 3.7,
+"f": 6
+},
+{
+"d": "Elemental Riddles",
+"n": "Elemental Riddles",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Elemental_Flux",
+"n": "Elemental Flux",
+"entry": "index.html",
+"mb": 0.58,
+"f": 16
+},
+{
+"d": "Elephant_ant_man",
+"n": "Elephant ant man",
+"entry": "index.html",
+"mb": 0.33,
+"f": 8
+},
+{
+"d": "Emoji_Intruder",
+"n": "Emoji Intruder",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Emoji_Puzzle_Game",
+"n": "Emoji Puzzle Game",
+"entry": "index.html",
+"mb": 0.09,
+"f": 7
+},
+{
+"d": "Emoji_slot_machine",
+"n": "Emoji slot machine",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "EndlessRunner",
+"n": "Endless Runner",
+"entry": "index.html",
+"mb": 0.6,
+"f": 10
+},
+{
+"d": "Escape",
+"n": "Escape",
+"entry": "index.html",
+"mb": 0.13,
+"f": 2
+},
+{
+"d": "Escape_room",
+"n": "Escape room",
+"entry": "index.html",
+"mb": 0.15,
+"f": 38
+},
+{
+"d": "Etch_a_Sketch",
+"n": "Etch a Sketch",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Etch_a_Sketch_2",
+"n": "Etch a Sketch 2",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Everyones_Sky",
+"n": "Everyones Sky",
+"entry": "index.html",
+"mb": 0.07,
+"f": 2
+},
+{
+"d": "Fall_Down",
+"n": "Fall Down",
+"entry": "index.html",
+"mb": 0.46,
+"f": 14
+},
+{
+"d": "Falling_Ball",
+"n": "Falling Ball",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Falling_Blocks",
+"n": "Falling Blocks",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Falling_Words",
+"n": "Falling Words",
+"entry": "index.html",
+"mb": 10.68,
+"f": 23
+},
+{
+"d": "Fidget_Spinner_Game",
+"n": "Fidget Spinner Game",
+"entry": "index.html",
+"mb": 0.07,
+"f": 5
+},
+{
+"d": "Fifteen_Puzzle_Game",
+"n": "Fifteen Puzzle Game",
+"entry": "index.html",
+"mb": 0.34,
+"f": 7
+},
+{
+"d": "Fight_Game",
+"n": "Fight Game",
+"entry": "index.html",
+"mb": 5.27,
+"f": 26
+},
+{
+"d": "Find_Extra_Cube",
+"n": "Find Extra Cube",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Find_The_Missing_Letter",
+"n": "Find The Missing Letter",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Find_the_ball",
+"n": "Find the ball",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Firedog_Adventure",
+"n": "Firedog Adventure",
+"entry": "index.html",
+"mb": 11.66,
+"f": 55
+},
+{
+"d": "Flag_Guess_Game",
+"n": "Flag Guess Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Flames Game",
+"n": "Flames Game",
+"entry": "index.html",
+"mb": 6.35,
+"f": 4
+},
+{
+"d": "Flappy_Bird",
+"n": "Flappy Bird",
+"entry": "index.html",
+"mb": 0.09,
+"f": 8
+},
+{
+"d": "Flappy_Birdd",
+"n": "Flappy Birdd",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Flappy_Bubble_Sofa",
+"n": "Flappy Bubble Sofa",
+"entry": "index.html",
+"mb": 0.3,
+"f": 7
+},
+{
+"d": "Flashlight_Pointer_Game",
+"n": "Flashlight Pointer Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Flip_Card_Game",
+"n": "Flip Card Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Flip_Coin",
+"n": "Flip Coin",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Flying_Fish",
+"n": "Flying Fish",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Foosball",
+"n": "Foosball",
+"entry": "index.html",
+"mb": 0.19,
+"f": 13
+},
+{
+"d": "Forest_Guardian",
+"n": "Forest Guardian",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Four_In_Row",
+"n": "Four In Row",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Free_Bird",
+"n": "Free Bird",
+"entry": "index.html",
+"mb": 0.04,
+"f": 7
+},
+{
+"d": "Frogger",
+"n": "Frogger",
+"entry": "index.html",
+"mb": 1.08,
+"f": 7
+},
+{
+"d": "FruitCatcher",
+"n": "Fruit Catcher",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Fruit_Catching",
+"n": "Fruit Catching",
+"entry": "index.html",
+"mb": 11.41,
+"f": 12
+},
+{
+"d": "Fruit_Catching_Game",
+"n": "Fruit Catching Game",
+"entry": "index.html",
+"mb": 0.49,
+"f": 9
+},
+{
+"d": "Fruit_Ninja",
+"n": "Fruit Ninja",
+"entry": "index.html",
+"mb": 11.46,
+"f": 57
+},
+{
+"d": "Fruit_Slicer_Game",
+"n": "Fruit Slicer Game",
+"entry": "index.html",
+"mb": 4.64,
+"f": 12
+},
+{
+"d": "Fruity_Fortune",
+"n": "Fruity Fortune",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Galaxy_Rider",
+"n": "Galaxy Rider",
+"entry": "index.html",
+"mb": 0.03,
+"f": 2
+},
+{
+"d": "Ganesh QR Maker",
+"n": "Ganesh QR Maker",
+"entry": "index.html",
+"mb": 0.74,
+"f": 5
+},
+{
+"d": "Garden-Builder-game",
+"n": "Garden Builder game",
+"entry": "index.html",
+"mb": 12.49,
+"f": 15
+},
+{
+"d": "Get_The_Pigeon",
+"n": "Get The Pigeon",
+"entry": "index.html",
+"mb": 0.04,
+"f": 10
+},
+{
+"d": "Ghost_Surf",
+"n": "Ghost Surf",
+"entry": "index.html",
+"mb": 0.05,
+"f": 2
+},
+{
+"d": "Ghost_busting_game",
+"n": "Ghost busting game",
+"entry": "index.html",
+"mb": 2.26,
+"f": 8
+},
+{
+"d": "Gita_Shloka_Generator",
+"n": "Gita Shloka Generator",
+"entry": "index.html",
+"mb": 0.19,
+"f": 7
+},
+{
+"d": "Glitch_Buster",
+"n": "Glitch Buster",
+"entry": "index.html",
+"mb": 0.07,
+"f": 2
+},
+{
+"d": "Gnomedom",
+"n": "Gnomedom",
+"entry": "index.html",
+"mb": 0.02,
+"f": 13
+},
+{
+"d": "Go-fish-master",
+"n": "Go fish master",
+"entry": "index.html",
+"mb": 16.8,
+"f": 59
+},
+{
+"d": "GoFish",
+"n": "Go Fish",
+"entry": "index.html",
+"mb": 0.6,
+"f": 5
+},
+{
+"d": "Goal_Rush",
+"n": "Goal Rush",
+"entry": "index.html",
+"mb": 1.48,
+"f": 19
+},
+{
+"d": "Gobblet",
+"n": "Gobblet",
+"entry": "index.html",
+"mb": 5.04,
+"f": 11
+},
+{
+"d": "Grab_The_Carrot",
+"n": "Grab The Carrot",
+"entry": "index.html",
+"mb": 0.04,
+"f": 4
+},
+{
+"d": "Gravity_Dropss",
+"n": "Gravity Dropss",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Gravity_Simulation_Game",
+"n": "Gravity Simulation Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Gravity_Switch_Game",
+"n": "Gravity Switch Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Green_Mahjong",
+"n": "Green Mahjong",
+"entry": "index.html",
+"mb": 6.16,
+"f": 72
+},
+{
+"d": "Guess_That_Pokemon",
+"n": "Guess That Pokemon",
+"entry": "index.html",
+"mb": 8.73,
+"f": 9
+},
+{
+"d": "Guess_The_Ball",
+"n": "Guess The Ball",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Guess_The_Celeb",
+"n": "Guess The Celeb",
+"entry": "index.html",
+"mb": 6.17,
+"f": 35
+},
+{
+"d": "Guess_The_Correct_Logo",
+"n": "Guess The Correct Logo",
+"entry": "index.html",
+"mb": 0.62,
+"f": 36
+},
+{
+"d": "Guess_The_Murderer",
+"n": "Guess The Murderer",
+"entry": "index.html",
+"mb": 1.19,
+"f": 17
+},
+{
+"d": "Guess_The_Number",
+"n": "Guess The Number",
+"entry": "index.html",
+"mb": 0.72,
+"f": 8
+},
+{
+"d": "Guess_The_Random_Shape",
+"n": "Guess The Random Shape",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "Guess_The_Song",
+"n": "Guess The Song",
+"entry": "index.html",
+"mb": 55.91,
+"f": 5
+},
+{
+"d": "Guess_The_Weapon",
+"n": "Guess The Weapon",
+"entry": "index.html",
+"mb": 17.38,
+"f": 38
+},
+{
+"d": "Guess_Who",
+"n": "Guess Who",
+"entry": "index.html",
+"mb": 23.74,
+"f": 29
+},
+{
+"d": "Guess_the_friends_name",
+"n": "Guess the friends name",
+"entry": "index.html",
+"mb": 0.09,
+"f": 6
+},
+{
+"d": "Guitar_Game",
+"n": "Guitar Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 3
+},
+{
+"d": "HTML5_Controller_Tester",
+"n": "HTML5 Controller Tester",
+"entry": "index.html",
+"mb": 11.79,
+"f": 7
+},
+{
+"d": "Hand_Cricket",
+"n": "Hand Cricket",
+"entry": "index.html",
+"mb": 9.79,
+"f": 10
+},
+{
+"d": "HangMan",
+"n": "Hang Man",
+"entry": "index.html",
+"mb": 0.61,
+"f": 17
+},
+{
+"d": "Hangman_Game",
+"n": "Hangman Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Harmony_Mixer",
+"n": "Harmony Mixer",
+"entry": "index.html",
+"mb": 0.1,
+"f": 11
+},
+{
+"d": "Harry_Potter_Wizard_Quiz",
+"n": "Harry Potter Wizard Quiz",
+"entry": "index.html",
+"mb": 27.8,
+"f": 7
+},
+{
+"d": "Hedgehog_Havoc",
+"n": "Hedgehog Havoc",
+"entry": "index.html",
+"mb": 0.29,
+"f": 4
+},
+{
+"d": "Helicopter_Game",
+"n": "Helicopter Game",
+"entry": "index.html",
+"mb": 15.72,
+"f": 11
+},
+{
+"d": "Hexsweep-Game",
+"n": "Hexsweep Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Hextris",
+"n": "Hextris",
+"entry": "index.html",
+"mb": 1.45,
+"f": 69
+},
+{
+"d": "Hide_And_Seek",
+"n": "Hide And Seek",
+"entry": "index.html",
+"mb": 4.62,
+"f": 7
+},
+{
+"d": "Highway_404",
+"n": "Highway 404",
+"entry": "index.html",
+"mb": 0.08,
+"f": 2
+},
+{
+"d": "Highway_Race",
+"n": "Highway Race",
+"entry": "index.html",
+"mb": 0.64,
+"f": 7
+},
+{
+"d": "HitOrMiss",
+"n": "Hit Or Miss",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "HitYourFriend",
+"n": "Hit Your Friend",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Hit_Target",
+"n": "Hit Target",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Hit_The_Mole",
+"n": "Hit The Mole",
+"entry": "index.html",
+"mb": 0.51,
+"f": 6
+},
+{
+"d": "Hit_the_hamster",
+"n": "Hit the hamster",
+"entry": "index.html",
+"mb": 0.02,
+"f": 6
+},
+{
+"d": "Hold_The_Cloud",
+"n": "Hold The Cloud",
+"entry": "index.html",
+"mb": 0.02,
+"f": 6
+},
+{
+"d": "Hole_And_Mole_Game",
+"n": "Hole And Mole Game",
+"entry": "index.html",
+"mb": 0.07,
+"f": 6
+},
+{
+"d": "Hover_Board_Effect",
+"n": "Hover Board Effect",
+"entry": "index.html",
+"mb": 6.03,
+"f": 5
+},
+{
+"d": "HueHero",
+"n": "Hue Hero",
+"entry": "index.html",
+"mb": 0.05,
+"f": 15
+},
+{
+"d": "Humming",
+"n": "Humming",
+"entry": "index.html",
+"mb": 0.05,
+"f": 11
+},
+{
+"d": "Hunt_Your_Card",
+"n": "Hunt Your Card",
+"entry": "index.html",
+"mb": 0.76,
+"f": 10
+},
+{
+"d": "IKnowYou-Mind-Reading-Game",
+"n": "IKnow You Mind Reading Game",
+"entry": "index.html",
+"mb": 1.57,
+"f": 12
+},
+{
+"d": "I_Want_To_Google_The_Game",
+"n": "I Want To Google The Game",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Icy_Tower_Game",
+"n": "Icy Tower Game",
+"entry": "index.html",
+"mb": 7.0,
+"f": 44
+},
+{
+"d": "Immunity_Collapse",
+"n": "Immunity Collapse",
+"entry": "index.html",
+"mb": 0.05,
+"f": 2
+},
+{
+"d": "Infernal_Throne",
+"n": "Infernal Throne",
+"entry": "index.html",
+"mb": 0.31,
+"f": 2
+},
+{
+"d": "Infinite_Cars",
+"n": "Infinite Cars",
+"entry": "index.html",
+"mb": 5.65,
+"f": 40
+},
+{
+"d": "Infinite_Runner_Game",
+"n": "Infinite Runner Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Insect_Catch_Game",
+"n": "Insect Catch Game",
+"entry": "index.html",
+"mb": 6.04,
+"f": 5
+},
+{
+"d": "Intellect_Quest",
+"n": "Intellect Quest",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Interactive_Quizzing",
+"n": "Interactive Quizzing",
+"entry": "index.html",
+"mb": 10.57,
+"f": 18
+},
+{
+"d": "Island_Survival",
+"n": "Island Survival",
+"entry": "index.html",
+"mb": 0.03,
+"f": 2
+},
+{
+"d": "Jigsaw_Puzzle",
+"n": "Jigsaw Puzzle",
+"entry": "index.html",
+"mb": 0.04,
+"f": 4
+},
+{
+"d": "Johnny_Smiter",
+"n": "Johnny Smiter",
+"entry": "index.html",
+"mb": 0.17,
+"f": 10
+},
+{
+"d": "JunoJs",
+"n": "Juno Js",
+"entry": "index.html",
+"mb": 0.2,
+"f": 24
+},
+{
+"d": "Keyboard_Hero",
+"n": "Keyboard Hero",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Kill_The_Bird",
+"n": "Kill The Bird",
+"entry": "index.html",
+"mb": 0.01,
+"f": 2
+},
+{
+"d": "King_Of_Pirates_Quiz",
+"n": "King Of Pirates Quiz",
+"entry": "index.html",
+"mb": 0.19,
+"f": 5
+},
+{
+"d": "King_Sword_Runner",
+"n": "King Sword Runner",
+"entry": "index.html",
+"mb": 0.1,
+"f": 23
+},
+{
+"d": "Knife_hit",
+"n": "Knife hit",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "Know_Your_Country",
+"n": "Know Your Country",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "LOSSST",
+"n": "LOSSST",
+"entry": "index.html",
+"mb": 2.23,
+"f": 19
+},
+{
+"d": "Labyrinth",
+"n": "Labyrinth",
+"entry": "index.html",
+"mb": 0.03,
+"f": 12
+},
+{
+"d": "Lady_Tiger_Hunter",
+"n": "Lady Tiger Hunter",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Lamb_Lane",
+"n": "Lamb Lane",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Language_Learner_Adventure",
+"n": "Language Learner Adventure",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "LaserDarts",
+"n": "Laser Darts",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Letter_Sleuth",
+"n": "Letter Sleuth",
+"entry": "index.html",
+"mb": 100.03,
+"f": 12
+},
+{
+"d": "Lighthouse",
+"n": "Lighthouse",
+"entry": "index.html",
+"mb": 2.77,
+"f": 8
+},
+{
+"d": "Lights_Out",
+"n": "Lights Out",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Line_Of_Fire",
+"n": "Line Of Fire",
+"entry": "index.html",
+"mb": 1.88,
+"f": 11
+},
+{
+"d": "Little_Red_Game",
+"n": "Little Red Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Lizard_Spock_Game",
+"n": "Lizard Spock Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Lonely_Phantom",
+"n": "Lonely Phantom",
+"entry": "index.html",
+"mb": 0.05,
+"f": 2
+},
+{
+"d": "Lost_In_The_Maze_3D",
+"n": "Lost In The Maze 3D",
+"entry": "index.html",
+"mb": 0.06,
+"f": 4
+},
+{
+"d": "Love Calculator Game",
+"n": "Love Calculator Game",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Love_Result_Predictor",
+"n": "Love Result Predictor",
+"entry": "index.html",
+"mb": 6.99,
+"f": 8
+},
+{
+"d": "Ludo_4_Player",
+"n": "Ludo 4 Player",
+"entry": "index.html",
+"mb": 0.34,
+"f": 13
+},
+{
+"d": "Ludo_Game",
+"n": "Ludo Game",
+"entry": "index.html",
+"mb": 0.04,
+"f": 17
+},
+{
+"d": "Lunar_Lander",
+"n": "Lunar Lander",
+"entry": "index.html",
+"mb": 0.02,
+"f": 9
+},
+{
+"d": "Madlibs",
+"n": "Madlibs",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Magic_8_ball",
+"n": "Magic 8 ball",
+"entry": "index.html",
+"mb": 6.57,
+"f": 7
+},
+{
+"d": "Magic_Square",
+"n": "Magic Square",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Make_Me_Laugh",
+"n": "Make Me Laugh",
+"entry": "index.html",
+"mb": 2.11,
+"f": 7
+},
+{
+"d": "Mamba_Mayhem",
+"n": "Mamba Mayhem",
+"entry": "index.html",
+"mb": 0.02,
+"f": 6
+},
+{
+"d": "Mancala_Game",
+"n": "Mancala Game",
+"entry": "index.html",
+"mb": 0.35,
+"f": 6
+},
+{
+"d": "Mansion_Mystery",
+"n": "Mansion Mystery",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Mastemind",
+"n": "Mastemind",
+"entry": "index.html",
+"mb": 0.67,
+"f": 7
+},
+{
+"d": "Master_Typing",
+"n": "Master Typing",
+"entry": "index.html",
+"mb": 1.89,
+"f": 12
+},
+{
+"d": "Mastermind_Mania",
+"n": "Mastermind Mania",
+"entry": "index.html",
+"mb": 0.09,
+"f": 7
+},
+{
+"d": "Match_Color_Game",
+"n": "Match Color Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 3
+},
+{
+"d": "Matching_pair",
+"n": "Matching pair",
+"entry": "index.html",
+"mb": 0.6,
+"f": 16
+},
+{
+"d": "MathQuiz",
+"n": "Math Quiz",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Math_Game",
+"n": "Math Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Math_Race_Game",
+"n": "Math Race Game",
+"entry": "index.html",
+"mb": 0.12,
+"f": 8
+},
+{
+"d": "MathematicsEscapeRoom",
+"n": "Mathematics Escape Room",
+"entry": "index.html",
+"mb": 59.61,
+"f": 5
+},
+{
+"d": "Maths_Sprint_Game",
+"n": "Maths Sprint Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "MaximiseBoxes",
+"n": "Maximise Boxes",
+"entry": "index.html",
+"mb": 0.92,
+"f": 9
+},
+{
+"d": "MazeGame",
+"n": "Maze Game",
+"entry": "index.html",
+"mb": 0.03,
+"f": 6
+},
+{
+"d": "MazeRunner",
+"n": "Maze Runner",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Maze_Explorer",
+"n": "Maze Explorer",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Maze_Game",
+"n": "Maze Game (2)",
+"entry": "index.html",
+"mb": 0.63,
+"f": 6
+},
+{
+"d": "Maze_Runner",
+"n": "Maze Runner (2)",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Maze_of_Cables",
+"n": "Maze of Cables",
+"entry": "index.html",
+"mb": 0.01,
+"f": 3
+},
+{
+"d": "Mechanica",
+"n": "Mechanica",
+"entry": "index.html",
+"mb": 2.89,
+"f": 19
+},
+{
+"d": "Memorization_card",
+"n": "Memorization card",
+"entry": "index.html",
+"mb": 0.01,
+"f": 5
+},
+{
+"d": "Memory Flip",
+"n": "Memory Flip",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Memory_Card",
+"n": "Memory Card",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Memory_Cards_Game",
+"n": "Memory Cards Game",
+"entry": "index.html",
+"mb": 0.15,
+"f": 12
+},
+{
+"d": "Memory_Game",
+"n": "Memory Game",
+"entry": "index.html",
+"mb": 1.89,
+"f": 18
+},
+{
+"d": "Memory_Matching_Game",
+"n": "Memory Matching Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Menja",
+"n": "Menja",
+"entry": "index.html",
+"mb": 1.66,
+"f": 7
+},
+{
+"d": "Menja_block_breaker",
+"n": "Menja block breaker",
+"entry": "index.html",
+"mb": 0.04,
+"f": 4
+},
+{
+"d": "MineSweeper_Easy",
+"n": "Mine Sweeper Easy",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Minecraft",
+"n": "Minecraft",
+"entry": "index.html",
+"mb": 0.0,
+"f": 5
+},
+{
+"d": "Minesweeper",
+"n": "Minesweeper",
+"entry": "index.html",
+"mb": 0.17,
+"f": 6
+},
+{
+"d": "Mini_Golf",
+"n": "Mini Golf",
+"entry": "index.html",
+"mb": 2.77,
+"f": 25
+},
+{
+"d": "Modulo_Game",
+"n": "Modulo Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Mole",
+"n": "Mole",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Monster_Maker",
+"n": "Monster Maker",
+"entry": "index.html",
+"mb": 0.17,
+"f": 12
+},
+{
+"d": "Morse_Code_Generator",
+"n": "Morse Code Generator",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "MrFakeGame",
+"n": "Mr Fake Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 6
+},
+{
+"d": "Music_Guess_Game",
+"n": "Music Guess Game",
+"entry": "index.html",
+"mb": 9.03,
+"f": 37
+},
+{
+"d": "Musical_Floor",
+"n": "Musical Floor",
+"entry": "index.html",
+"mb": 1.0,
+"f": 17
+},
+{
+"d": "Musical_Memory",
+"n": "Musical Memory",
+"entry": "index.html",
+"mb": 10.49,
+"f": 13
+},
+{
+"d": "NewsJunction",
+"n": "News Junction",
+"entry": "index.html",
+"mb": 0.01,
+"f": 2
+},
+{
+"d": "Ninja_Hattori_Game",
+"n": "Ninja Hattori Game",
+"entry": "index.html",
+"mb": 3.79,
+"f": 11
+},
+{
+"d": "Norman_The_Necromancer",
+"n": "Norman The Necromancer",
+"entry": "index.html",
+"mb": 0.05,
+"f": 3
+},
+{
+"d": "Not_morethan5",
+"n": "Not morethan5",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Noughts_And_Crosses",
+"n": "Noughts And Crosses",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Number Guessing Game",
+"n": "Number Guessing Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Number_Catcher_Game",
+"n": "Number Catcher Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Number_Guessing_Game",
+"n": "Number Guessing Game (2)",
+"entry": "index.html",
+"mb": 0.31,
+"f": 9
+},
+{
+"d": "Number_Recall_Game",
+"n": "Number Recall Game",
+"entry": "index.html",
+"mb": 0.16,
+"f": 5
+},
+{
+"d": "Number_Sliding_Puzzle_Game",
+"n": "Number Sliding Puzzle Game",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Number_Sorting_Game",
+"n": "Number Sorting Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Observe_the_Cloud",
+"n": "Observe the Cloud",
+"entry": "index.html",
+"mb": 0.02,
+"f": 6
+},
+{
+"d": "Othello",
+"n": "Othello",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Otherworldly_Odyssey",
+"n": "Otherworldly Odyssey",
+"entry": "index.html",
+"mb": 5.1,
+"f": 8
+},
+{
+"d": "OutRun_Offline_Game",
+"n": "Out Run Offline Game",
+"entry": "index.html",
+"mb": 176.2,
+"f": 66
+},
+{
+"d": "Pac_Man_Game",
+"n": "Pac Man Game",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "Pacific_Air_Battle",
+"n": "Pacific Air Battle",
+"entry": "index.html",
+"mb": 0.12,
+"f": 8
+},
+{
+"d": "Packabunchas",
+"n": "Packabunchas",
+"entry": "index.html",
+"mb": 0.1,
+"f": 3
+},
+{
+"d": "Painting_Game",
+"n": "Painting Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Path_Finder_Challenge",
+"n": "Path Finder Challenge",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Pathplex",
+"n": "Pathplex",
+"entry": "index.html",
+"mb": 3.24,
+"f": 10
+},
+{
+"d": "Pattern_Creation_Game",
+"n": "Pattern Creation Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "PenPointerFight",
+"n": "Pen Pointer Fight",
+"entry": "index.html",
+"mb": 0.01,
+"f": 2
+},
+{
+"d": "Penalty_Shootout_Game",
+"n": "Penalty Shootout Game",
+"entry": "index.html",
+"mb": 0.78,
+"f": 27
+},
+{
+"d": "Physics_Quizz",
+"n": "Physics Quizz",
+"entry": "index.html",
+"mb": 0.05,
+"f": 5
+},
+{
+"d": "Piano",
+"n": "Piano",
+"entry": "index.html",
+"mb": 7.33,
+"f": 34
+},
+{
+"d": "PianoTiles_Game",
+"n": "Piano Tiles Game",
+"entry": "index.html",
+"mb": 3.95,
+"f": 11
+},
+{
+"d": "Pictionary_Game",
+"n": "Pictionary Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Pig_game",
+"n": "Pig game",
+"entry": "index.html",
+"mb": 4.14,
+"f": 13
+},
+{
+"d": "Pikachu_Volleyball",
+"n": "Pikachu Volleyball",
+"entry": "index.html",
+"mb": 0.7,
+"f": 26
+},
+{
+"d": "Pinball",
+"n": "Pinball",
+"entry": "index.html",
+"mb": 0.13,
+"f": 12
+},
+{
+"d": "Ping_Pong",
+"n": "Ping Pong",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Ping_Pong_Multiplayer",
+"n": "Ping Pong Multiplayer",
+"entry": "index.html",
+"mb": 0.1,
+"f": 4
+},
+{
+"d": "Ping_Pong_Singleplayer",
+"n": "Ping Pong Singleplayer",
+"entry": "index.html",
+"mb": 2.51,
+"f": 6
+},
+{
+"d": "Pixel_Painter",
+"n": "Pixel Painter",
+"entry": "index.html",
+"mb": 0.03,
+"f": 6
+},
+{
+"d": "Pixel_Smash",
+"n": "Pixel Smash",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Pixels_From_Space",
+"n": "Pixels From Space",
+"entry": "index.html",
+"mb": 0.06,
+"f": 6
+},
+{
+"d": "Planet_Defense",
+"n": "Planet Defense",
+"entry": "index.html",
+"mb": 0.38,
+"f": 5
+},
+{
+"d": "Planet_Game",
+"n": "Planet Game",
+"entry": "index.html",
+"mb": 0.03,
+"f": 4
+},
+{
+"d": "Plankman",
+"n": "Plankman",
+"entry": "index.html",
+"mb": 2.62,
+"f": 12
+},
+{
+"d": "Platform_Game",
+"n": "Platform Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Platform_game_engine",
+"n": "Platform game engine",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Poke_Guess_Blitz",
+"n": "Poke Guess Blitz",
+"entry": "index.html",
+"mb": 0.17,
+"f": 7
+},
+{
+"d": "Pokedex",
+"n": "Pokedex",
+"entry": "index.html",
+"mb": 0.12,
+"f": 5
+},
+{
+"d": "Pokemon_Adventure_Game",
+"n": "Pokemon Adventure Game",
+"entry": "index.html",
+"mb": 24.22,
+"f": 31
+},
+{
+"d": "Pokemon_Ball_Finder",
+"n": "Pokemon Ball Finder",
+"entry": "index.html",
+"mb": 0.51,
+"f": 13
+},
+{
+"d": "Pokemon_Card_Game",
+"n": "Pokemon Card Game",
+"entry": "index.html",
+"mb": 19.01,
+"f": 108
+},
+{
+"d": "Pokemon_Stats_Card",
+"n": "Pokemon Stats Card",
+"entry": "index.html",
+"mb": 0.11,
+"f": 8
+},
+{
+"d": "Poker_Dice",
+"n": "Poker Dice",
+"entry": "index.html",
+"mb": 0.09,
+"f": 12
+},
+{
+"d": "Pong",
+"n": "Pong",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Pop_My_Balloon",
+"n": "Pop My Balloon",
+"entry": "index.html",
+"mb": 0.03,
+"f": 6
+},
+{
+"d": "Pop_the_Bubbles",
+"n": "Pop the Bubbles",
+"entry": "index.html",
+"mb": 0.12,
+"f": 5
+},
+{
+"d": "Prime-No-Finder-Game",
+"n": "Prime No Finder Game",
+"entry": "index.html",
+"mb": 2.94,
+"f": 6
+},
+{
+"d": "Projectile_Motion_Game",
+"n": "Projectile Motion Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 6
+},
+{
+"d": "Pumpkin_Pursuit",
+"n": "Pumpkin Pursuit",
+"entry": "index.html",
+"mb": 3.8,
+"f": 21
+},
+{
+"d": "Puzzel_winner",
+"n": "Puzzel winner",
+"entry": "index.html",
+"mb": 0.34,
+"f": 6
+},
+{
+"d": "Puzzle_Game",
+"n": "Puzzle Game",
+"entry": "index.html",
+"mb": 0.77,
+"f": 33
+},
+{
+"d": "Quest_For_Riches",
+"n": "Quest For Riches",
+"entry": "index.html",
+"mb": 8.79,
+"f": 60
+},
+{
+"d": "QuickFingers",
+"n": "Quick Fingers",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Quick_Click",
+"n": "Quick Click",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Quick_Math",
+"n": "Quick Math",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Quiz_With_Timer",
+"n": "Quiz With Timer",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Quiz_it_out",
+"n": "Quiz it out",
+"entry": "index.html",
+"mb": 0.01,
+"f": 5
+},
+{
+"d": "Quizify",
+"n": "Quizify",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "RIP",
+"n": "RIP",
+"entry": "index.html",
+"mb": 0.02,
+"f": 2
+},
+{
+"d": "Rabbit_Rush",
+"n": "Rabbit Rush",
+"entry": "index.html",
+"mb": 0.05,
+"f": 4
+},
+{
+"d": "Random_Advice_Generator",
+"n": "Random Advice Generator",
+"entry": "index.html",
+"mb": 0.0,
+"f": 7
+},
+{
+"d": "Random_Choice_Picker",
+"n": "Random Choice Picker",
+"entry": "index.html",
+"mb": 0.13,
+"f": 6
+},
+{
+"d": "Random_Joke_Generator",
+"n": "Random Joke Generator",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Reaction_Time",
+"n": "Reaction Time",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Recognizing_Figures",
+"n": "Recognizing Figures",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Rectangular",
+"n": "Rectangular",
+"entry": "index.html",
+"mb": 0.02,
+"f": 8
+},
+{
+"d": "Red_Light_Green_Light",
+"n": "Red Light Green Light",
+"entry": "index.html",
+"mb": 11.71,
+"f": 21
+},
+{
+"d": "Reflex_Game",
+"n": "Reflex Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Remember_the_color",
+"n": "Remember the color",
+"entry": "index.html",
+"mb": 0.09,
+"f": 9
+},
+{
+"d": "Response_Reaction",
+"n": "Response Reaction",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Retro_Dungeon_Puzzle",
+"n": "Retro Dungeon Puzzle",
+"entry": "index.html",
+"mb": 0.37,
+"f": 7
+},
+{
+"d": "Reverse Memory",
+"n": "Reverse Memory",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Riddle_Room",
+"n": "Riddle Room",
+"entry": "index.html",
+"mb": 0.78,
+"f": 5
+},
+{
+"d": "Riddle_game",
+"n": "Riddle game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 3
+},
+{
+"d": "Risky_Nav",
+"n": "Risky Nav",
+"entry": "index.html",
+"mb": 0.03,
+"f": 13
+},
+{
+"d": "RoadFighter",
+"n": "Road Fighter",
+"entry": "index.html",
+"mb": 0.75,
+"f": 18
+},
+{
+"d": "Rock-Paper",
+"n": "Rock Paper",
+"entry": "index.html",
+"mb": 0.08,
+"f": 7
+},
+{
+"d": "Rock_Paper_Scissors",
+"n": "Rock Paper Scissors",
+"entry": "index.html",
+"mb": 0.18,
+"f": 5
+},
+{
+"d": "Rock_Paper_Scissors_Lizard_Spock",
+"n": "Rock Paper Scissors Lizard Spock",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Rock_Paper_Scissors_Lizard_Spock_Game",
+"n": "Rock Paper Scissors Lizard Spock Game",
+"entry": "index.html",
+"mb": 6.75,
+"f": 11
+},
+{
+"d": "Rock_Paper_Scissors_Neon",
+"n": "Rock Paper Scissors Neon",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Rock_paper_scissor",
+"n": "Rock paper scissor",
+"entry": "index.html",
+"mb": 0.15,
+"f": 7
+},
+{
+"d": "Rocket_Ride",
+"n": "Rocket Ride",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Rocket_Shooter",
+"n": "Rocket Shooter",
+"entry": "index.html",
+"mb": 4.17,
+"f": 15
+},
+{
+"d": "Rocket_Showdown",
+"n": "Rocket Showdown",
+"entry": "index.html",
+"mb": 0.96,
+"f": 6
+},
+{
+"d": "Roll_Race",
+"n": "Roll Race",
+"entry": "index.html",
+"mb": 3.8,
+"f": 26
+},
+{
+"d": "Roll_The_Dice",
+"n": "Roll The Dice",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Rotating_Elements",
+"n": "Rotating Elements",
+"entry": "index.html",
+"mb": 0.15,
+"f": 6
+},
+{
+"d": "Roulette",
+"n": "Roulette",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "Rubik's_solver",
+"n": "Rubik's solver",
+"entry": "index.html",
+"mb": 0.14,
+"f": 4
+},
+{
+"d": "Run and Jump",
+"n": "Run and Jump",
+"entry": "index.html",
+"mb": 0.06,
+"f": 5
+},
+{
+"d": "Run_Dora_Run",
+"n": "Run Dora Run",
+"entry": "index.html",
+"mb": 1.44,
+"f": 9
+},
+{
+"d": "Samurai_Fighting_Game",
+"n": "Samurai Fighting Game",
+"entry": "index.html",
+"mb": 0.17,
+"f": 24
+},
+{
+"d": "Save_Princess",
+"n": "Save Princess",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Save_The_Forest",
+"n": "Save The Forest",
+"entry": "index.html",
+"mb": 0.05,
+"f": 4
+},
+{
+"d": "SciFi_Alchemy",
+"n": "Sci Fi Alchemy",
+"entry": "index.html",
+"mb": 0.09,
+"f": 53
+},
+{
+"d": "Sciarra_Of_Colors",
+"n": "Sciarra Of Colors",
+"entry": "index.html",
+"mb": 0.02,
+"f": 6
+},
+{
+"d": "Screen_Pet_Game",
+"n": "Screen Pet Game",
+"entry": "index.html",
+"mb": 0.1,
+"f": 8
+},
+{
+"d": "Sentence_Scramble",
+"n": "Sentence Scramble",
+"entry": "index.html",
+"mb": 0.11,
+"f": 7
+},
+{
+"d": "Shadow_PokeGuess",
+"n": "Shadow Poke Guess",
+"entry": "index.html",
+"mb": 0.49,
+"f": 22
+},
+{
+"d": "Shadow_Runner",
+"n": "Shadow Runner",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Shape Finder",
+"n": "Shape Finder",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "Shape_Blocks",
+"n": "Shape Blocks",
+"entry": "index.html",
+"mb": 0.03,
+"f": 14
+},
+{
+"d": "Shell_Game",
+"n": "Shell Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Shoot_The_Balloon",
+"n": "Shoot The Balloon",
+"entry": "index.html",
+"mb": 0.46,
+"f": 8
+},
+{
+"d": "Short_Circuit",
+"n": "Short Circuit",
+"entry": "index.html",
+"mb": 0.1,
+"f": 5
+},
+{
+"d": "Shpere",
+"n": "Shpere",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "Shrek_Vs_Wild",
+"n": "Shrek Vs Wild",
+"entry": "index.html",
+"mb": 10.02,
+"f": 35
+},
+{
+"d": "ShroomKnight",
+"n": "Shroom Knight",
+"entry": "index.html",
+"mb": 0.69,
+"f": 14
+},
+{
+"d": "Simon_Game_Challenge",
+"n": "Simon Game Challenge",
+"entry": "index.html",
+"mb": 0.07,
+"f": 10
+},
+{
+"d": "Simon_Says",
+"n": "Simon Says",
+"entry": "index.html",
+"mb": 0.2,
+"f": 10
+},
+{
+"d": "Single_Player_Solitaire",
+"n": "Single Player Solitaire",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Skeleathon",
+"n": "Skeleathon",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "Sky_Dodge",
+"n": "Sky Dodge",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Sky_Jumper",
+"n": "Sky Jumper",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Sky_Lift_Dash",
+"n": "Sky Lift Dash",
+"entry": "index.html",
+"mb": 0.02,
+"f": 6
+},
+{
+"d": "Slice_Storm",
+"n": "Slice Storm",
+"entry": "index.html",
+"mb": 0.05,
+"f": 4
+},
+{
+"d": "Slide_Master_Puzzle",
+"n": "Slide Master Puzzle",
+"entry": "index.html",
+"mb": 0.48,
+"f": 5
+},
+{
+"d": "Slide_Puzzle",
+"n": "Slide Puzzle",
+"entry": "index.html",
+"mb": 0.23,
+"f": 16
+},
+{
+"d": "Sliding_puzzle",
+"n": "Sliding puzzle",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Slime_attack_game",
+"n": "Slime attack game",
+"entry": "index.html",
+"mb": 0.03,
+"f": 3
+},
+{
+"d": "Smash-Monty-mole-master-main",
+"n": "Smash Monty mole master main",
+"entry": "index.html",
+"mb": 1.64,
+"f": 9
+},
+{
+"d": "Smashing_Blocks",
+"n": "Smashing Blocks",
+"entry": "index.html",
+"mb": 6.0,
+"f": 5
+},
+{
+"d": "Snail_Game",
+"n": "Snail Game",
+"entry": "index.html",
+"mb": 0.05,
+"f": 5
+},
+{
+"d": "Snake_Feeder_Game",
+"n": "Snake Feeder Game",
+"entry": "index.html",
+"mb": 23.14,
+"f": 13
+},
+{
+"d": "Snake_Game",
+"n": "Snake Game",
+"entry": "index.html",
+"mb": 11.01,
+"f": 10
+},
+{
+"d": "Snake_Gun_Water",
+"n": "Snake Gun Water",
+"entry": "index.html",
+"mb": 0.13,
+"f": 17
+},
+{
+"d": "Snake_Ladder",
+"n": "Snake Ladder",
+"entry": "index.html",
+"mb": 0.6,
+"f": 111
+},
+{
+"d": "Snooze",
+"n": "Snooze",
+"entry": "index.html",
+"mb": 0.33,
+"f": 2
+},
+{
+"d": "Soccer",
+"n": "Soccer",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Solitaire",
+"n": "Solitaire",
+"entry": "index.html",
+"mb": 0.66,
+"f": 7
+},
+{
+"d": "Solitaire_up",
+"n": "Solitaire up",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Sonic_The_Hedgehog",
+"n": "Sonic The Hedgehog",
+"entry": "index.html",
+"mb": 18.9,
+"f": 44
+},
+{
+"d": "Sorades",
+"n": "Sorades",
+"entry": "index.html",
+"mb": 0.06,
+"f": 6
+},
+{
+"d": "Soul_Jumper",
+"n": "Soul Jumper",
+"entry": "index.html",
+"mb": 0.03,
+"f": 4
+},
+{
+"d": "Space_Dash",
+"n": "Space Dash",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Space_Defence",
+"n": "Space Defence",
+"entry": "index.html",
+"mb": 0.08,
+"f": 2
+},
+{
+"d": "Space_Dominators",
+"n": "Space Dominators",
+"entry": "index.html",
+"mb": 0.18,
+"f": 24
+},
+{
+"d": "Space_Exploration",
+"n": "Space Exploration",
+"entry": "index.html",
+"mb": 0.15,
+"f": 23
+},
+{
+"d": "Space_Gun",
+"n": "Space Gun",
+"entry": "index.html",
+"mb": 0.09,
+"f": 15
+},
+{
+"d": "Space_Huggers",
+"n": "Space Huggers",
+"entry": "index.html",
+"mb": 0.19,
+"f": 24
+},
+{
+"d": "Space_War",
+"n": "Space War",
+"entry": "index.html",
+"mb": 0.01,
+"f": 8
+},
+{
+"d": "Spaceducts",
+"n": "Spaceducts",
+"entry": "index.html",
+"mb": 2.2,
+"f": 3
+},
+{
+"d": "Spacepi",
+"n": "Spacepi",
+"entry": "index.html",
+"mb": 0.16,
+"f": 3
+},
+{
+"d": "Spaceship_Escort",
+"n": "Spaceship Escort",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "Spell_Bee",
+"n": "Spell Bee",
+"entry": "index.html",
+"mb": 0.28,
+"f": 4
+},
+{
+"d": "Spelling_Bee",
+"n": "Spelling Bee",
+"entry": "index.html",
+"mb": 0.1,
+"f": 4
+},
+{
+"d": "Spider_Man_Go",
+"n": "Spider Man Go",
+"entry": "index.html",
+"mb": 14.96,
+"f": 40
+},
+{
+"d": "Spin_the_wheel",
+"n": "Spin the wheel",
+"entry": "index.html",
+"mb": 0.01,
+"f": 5
+},
+{
+"d": "Spirograph",
+"n": "Spirograph",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Squared_lines",
+"n": "Squared lines",
+"entry": "index.html",
+"mb": 0.14,
+"f": 5
+},
+{
+"d": "Squashing_your_Enemy",
+"n": "Squashing your Enemy",
+"entry": "index.html",
+"mb": 1.38,
+"f": 6
+},
+{
+"d": "Squid_Game",
+"n": "Squid Game",
+"entry": "index.html",
+"mb": 11.36,
+"f": 21
+},
+{
+"d": "Stack_Game",
+"n": "Stack Game",
+"entry": "index.html",
+"mb": 0.05,
+"f": 3
+},
+{
+"d": "Star_Trek_Trivia",
+"n": "Star Trek Trivia",
+"entry": "index.html",
+"mb": 2.8,
+"f": 5
+},
+{
+"d": "Steam_Punk",
+"n": "Steam Punk",
+"entry": "index.html",
+"mb": 2.04,
+"f": 18
+},
+{
+"d": "Steampunk_FlappyBird",
+"n": "Steampunk Flappy Bird",
+"entry": "index.html",
+"mb": 0.57,
+"f": 20
+},
+{
+"d": "StickTheSticker",
+"n": "Stick The Sticker",
+"entry": "index.html",
+"mb": 1.09,
+"f": 30
+},
+{
+"d": "Stick_Hero_Game",
+"n": "Stick Hero Game",
+"entry": "index.html",
+"mb": 0.55,
+"f": 6
+},
+{
+"d": "Stolen_Sword",
+"n": "Stolen Sword",
+"entry": "index.html",
+"mb": 0.08,
+"f": 2
+},
+{
+"d": "Stone_paper_scissor",
+"n": "Stone paper scissor",
+"entry": "index.html",
+"mb": 0.98,
+"f": 42
+},
+{
+"d": "Subway_Surfers",
+"n": "Subway Surfers",
+"entry": "index.html",
+"mb": 0.0,
+"f": 5
+},
+{
+"d": "Sucker",
+"n": "Sucker",
+"entry": "index.html",
+"mb": 0.06,
+"f": 3
+},
+{
+"d": "Sudoku",
+"n": "Sudoku",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Sudoku_light_theme",
+"n": "Sudoku light theme",
+"entry": "index.html",
+"mb": 1.01,
+"f": 6
+},
+{
+"d": "Super_mario_run",
+"n": "Super mario run",
+"entry": "index.html",
+"mb": 0.92,
+"f": 54
+},
+{
+"d": "Super_tetris",
+"n": "Super tetris",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Swap-Card-Game",
+"n": "Swap Card Game",
+"entry": "index.html",
+"mb": 4.91,
+"f": 57
+},
+{
+"d": "Swift",
+"n": "Swift",
+"entry": "index.html",
+"mb": 0.02,
+"f": 3
+},
+{
+"d": "Synonym-Typing-Game",
+"n": "Synonym Typing Game",
+"entry": "index.html",
+"mb": 3.92,
+"f": 8
+},
+{
+"d": "Synonym_Symphony",
+"n": "Synonym Symphony",
+"entry": "index.html",
+"mb": 0.19,
+"f": 9
+},
+{
+"d": "Taash Game",
+"n": "Taash Game",
+"entry": "index.html",
+"mb": 13.23,
+"f": 24
+},
+{
+"d": "Target_Torrent",
+"n": "Target Torrent",
+"entry": "index.html",
+"mb": 1.94,
+"f": 13
+},
+{
+"d": "Tech_Memory_Block",
+"n": "Tech Memory Block",
+"entry": "index.html",
+"mb": 2.54,
+"f": 68
+},
+{
+"d": "Technical_Mind_Game",
+"n": "Technical Mind Game",
+"entry": "index.html",
+"mb": 3.56,
+"f": 6
+},
+{
+"d": "Tenacity",
+"n": "Tenacity",
+"entry": "index.html",
+"mb": 0.08,
+"f": 2
+},
+{
+"d": "Tennis",
+"n": "Tennis",
+"entry": "index.html",
+"mb": 0.01,
+"f": 6
+},
+{
+"d": "Terror_Seventy",
+"n": "Terror Seventy",
+"entry": "index.html",
+"mb": 0.09,
+"f": 24
+},
+{
+"d": "Tether",
+"n": "Tether",
+"entry": "index.html",
+"mb": 7.29,
+"f": 49
+},
+{
+"d": "Tetris",
+"n": "Tetris",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Tetris_Game",
+"n": "Tetris Game",
+"entry": "index.html",
+"mb": 0.27,
+"f": 34
+},
+{
+"d": "The_Last_Spartan",
+"n": "The Last Spartan",
+"entry": "index.html",
+"mb": 0.09,
+"f": 2
+},
+{
+"d": "The_Mystery_Adventure_Game",
+"n": "The Mystery Adventure Game",
+"entry": "index.html",
+"mb": 0.08,
+"f": 5
+},
+{
+"d": "The_Raising_Fighting_Spirits",
+"n": "The Raising Fighting Spirits",
+"entry": "index.html",
+"mb": 0.21,
+"f": 3
+},
+{
+"d": "The_labyrinth_of_death",
+"n": "The labyrinth of death",
+"entry": "index.html",
+"mb": 0.04,
+"f": 3
+},
+{
+"d": "Thirteen",
+"n": "Thirteen",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Tic-Tac-Toe Game",
+"n": "Tic Tac Toe Game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Tic-tac-toe",
+"n": "Tic tac toe",
+"entry": "index.html",
+"mb": 0.06,
+"f": 6
+},
+{
+"d": "Tic_Tac_Toe",
+"n": "Tic Tac Toe (2)",
+"entry": "index.html",
+"mb": 11.58,
+"f": 27
+},
+{
+"d": "Tic_Tac_Toe_Game",
+"n": "Tic Tac Toe Game (2)",
+"entry": "index.html",
+"mb": 4.6,
+"f": 10
+},
+{
+"d": "Tic_Tac_Toe_Neon",
+"n": "Tic Tac Toe Neon",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "Tic_tac_toe_responsive",
+"n": "Tic tac toe responsive",
+"entry": "index.html",
+"mb": 0.05,
+"f": 8
+},
+{
+"d": "Tile_Game",
+"n": "Tile Game",
+"entry": "index.html",
+"mb": 0.1,
+"f": 11
+},
+{
+"d": "Tilting_Maze",
+"n": "Tilting Maze",
+"entry": "index.html",
+"mb": 0.03,
+"f": 4
+},
+{
+"d": "Timber_Terry",
+"n": "Timber Terry",
+"entry": "index.html",
+"mb": 0.21,
+"f": 8
+},
+{
+"d": "Tinker_jump_master",
+"n": "Tinker jump master",
+"entry": "index.html",
+"mb": 4.38,
+"f": 13
+},
+{
+"d": "Tiny-Fishing",
+"n": "Tiny Fishing",
+"entry": "index.html",
+"mb": 3.59,
+"f": 43
+},
+{
+"d": "Touch-No-Fire-Game",
+"n": "Touch No Fire Game",
+"entry": "index.html",
+"mb": 1.06,
+"f": 6
+},
+{
+"d": "Touch_The_Ball",
+"n": "Touch The Ball",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Tower_Block_Game",
+"n": "Tower Block Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Tower_Blocks",
+"n": "Tower Blocks",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Tower_Building_Game",
+"n": "Tower Building Game",
+"entry": "index.html",
+"mb": 0.05,
+"f": 5
+},
+{
+"d": "Tower_Defence_Game",
+"n": "Tower Defence Game",
+"entry": "index.html",
+"mb": 0.29,
+"f": 5
+},
+{
+"d": "Tower_Defense",
+"n": "Tower Defense",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Tower_Of_Hanoi",
+"n": "Tower Of Hanoi",
+"entry": "index.html",
+"mb": 5.79,
+"f": 5
+},
+{
+"d": "Tower_Stack",
+"n": "Tower Stack",
+"entry": "index.html",
+"mb": 0.96,
+"f": 7
+},
+{
+"d": "Track_Not_Found",
+"n": "Track Not Found",
+"entry": "index.html",
+"mb": 0.09,
+"f": 8
+},
+{
+"d": "Traffic_Run",
+"n": "Traffic Run",
+"entry": "index.html",
+"mb": 0.42,
+"f": 5
+},
+{
+"d": "Trashem",
+"n": "Trashem",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "Treasure Hunt",
+"n": "Treasure Hunt",
+"entry": "index.html",
+"mb": 2.69,
+"f": 7
+},
+{
+"d": "Trex_Run",
+"n": "Trex Run",
+"entry": "index.html",
+"mb": 12.26,
+"f": 10
+},
+{
+"d": "TriHand_Tactics",
+"n": "Tri Hand Tactics",
+"entry": "index.html",
+"mb": 0.11,
+"f": 8
+},
+{
+"d": "Triangle_Back_To_Home",
+"n": "Triangle Back To Home",
+"entry": "index.html",
+"mb": 0.13,
+"f": 21
+},
+{
+"d": "Trio_Match",
+"n": "Trio Match",
+"entry": "index.html",
+"mb": 0.05,
+"f": 5
+},
+{
+"d": "Trivia_Card",
+"n": "Trivia Card",
+"entry": "index.html",
+"mb": 0.2,
+"f": 6
+},
+{
+"d": "Trivia_It",
+"n": "Trivia It",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "Truth_And_Dare",
+"n": "Truth And Dare",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "Turn_on_the_light",
+"n": "Turn on the light",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Typing_Game",
+"n": "Typing Game",
+"entry": "index.html",
+"mb": 0.0,
+"f": 3
+},
+{
+"d": "Typing_Speed_Test2",
+"n": "Typing Speed Test2",
+"entry": "index.html",
+"mb": 0.06,
+"f": 6
+},
+{
+"d": "Typing_Speed_Test_Game",
+"n": "Typing Speed Test Game",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Typing_Test",
+"n": "Typing Test",
+"entry": "index.html",
+"mb": 0.02,
+"f": 5
+},
+{
+"d": "UNO",
+"n": "UNO",
+"entry": "index.html",
+"mb": 6.74,
+"f": 79
+},
+{
+"d": "UNO_game_with_Computer",
+"n": "UNO game with Computer",
+"entry": "index.html",
+"mb": 0.5,
+"f": 7
+},
+{
+"d": "Ultimate_Football_Manager",
+"n": "Ultimate Football Manager",
+"entry": "index.html",
+"mb": 27.32,
+"f": 23
+},
+{
+"d": "Underwater Shoot",
+"n": "Underwater Shoot",
+"entry": "index.html",
+"mb": 17.73,
+"f": 12
+},
+{
+"d": "Unlock_The_Lock",
+"n": "Unlock The Lock",
+"entry": "index.html",
+"mb": 0.03,
+"f": 3
+},
+{
+"d": "Unruly_Tower",
+"n": "Unruly Tower",
+"entry": "index.html",
+"mb": 0.02,
+"f": 4
+},
+{
+"d": "Unword_it",
+"n": "Unword it",
+"entry": "index.html",
+"mb": 0.2,
+"f": 10
+},
+{
+"d": "Uxu",
+"n": "Uxu",
+"entry": "index.html",
+"mb": 0.04,
+"f": 17
+},
+{
+"d": "Virtual_Pet",
+"n": "Virtual Pet",
+"entry": "index.html",
+"mb": 1.57,
+"f": 7
+},
+{
+"d": "Virtual_Piano",
+"n": "Virtual Piano",
+"entry": "index.html",
+"mb": 1.06,
+"f": 24
+},
+{
+"d": "Wault_master",
+"n": "Wault master",
+"entry": "index.html",
+"mb": 0.08,
+"f": 11
+},
+{
+"d": "Whack_a_Mole",
+"n": "Whack a Mole",
+"entry": "index.html",
+"mb": 4.16,
+"f": 14
+},
+{
+"d": "Whack_a_Mole_Mario_Version",
+"n": "Whack a Mole Mario Version",
+"entry": "index.html",
+"mb": 2.89,
+"f": 11
+},
+{
+"d": "Wheel_of_Fortunes",
+"n": "Wheel of Fortunes",
+"entry": "index.html",
+"mb": 0.05,
+"f": 5
+},
+{
+"d": "Wheel_of_fortune",
+"n": "Wheel of fortune",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "Which_Color",
+"n": "Which Color",
+"entry": "index.html",
+"mb": 0.36,
+"f": 11
+},
+{
+"d": "Wildcard_Bonanza",
+"n": "Wildcard Bonanza",
+"entry": "index.html",
+"mb": 0.96,
+"f": 26
+},
+{
+"d": "WordChain",
+"n": "Word Chain",
+"entry": "index.html",
+"mb": 1.25,
+"f": 9
+},
+{
+"d": "WordSprint",
+"n": "Word Sprint",
+"entry": "index.html",
+"mb": 1.04,
+"f": 6
+},
+{
+"d": "Word_Association_Game",
+"n": "Word Association Game",
+"entry": "index.html",
+"mb": 0.29,
+"f": 14
+},
+{
+"d": "Word_Guessing_Game",
+"n": "Word Guessing Game",
+"entry": "index.html",
+"mb": 4.4,
+"f": 12
+},
+{
+"d": "Word_Scramble_Game",
+"n": "Word Scramble Game",
+"entry": "index.html",
+"mb": 4.63,
+"f": 14
+},
+{
+"d": "Word_Search_Game",
+"n": "Word Search Game",
+"entry": "index.html",
+"mb": 0.37,
+"f": 6
+},
+{
+"d": "Word_Shuffle_Game",
+"n": "Word Shuffle Game",
+"entry": "index.html",
+"mb": 0.04,
+"f": 4
+},
+{
+"d": "Word_search_puzzle",
+"n": "Word search puzzle",
+"entry": "index.html",
+"mb": 0.06,
+"f": 4
+},
+{
+"d": "Wordle",
+"n": "Wordle",
+"entry": "index.html",
+"mb": 0.05,
+"f": 10
+},
+{
+"d": "Wordling",
+"n": "Wordling",
+"entry": "index.html",
+"mb": 0.18,
+"f": 8
+},
+{
+"d": "World_Of_Emojis",
+"n": "World Of Emojis",
+"entry": "index.html",
+"mb": 0.03,
+"f": 3
+},
+{
+"d": "Yahtzee",
+"n": "Yahtzee",
+"entry": "index.html",
+"mb": 0.03,
+"f": 4
+},
+{
+"d": "Zombie_Shooter",
+"n": "Zombie Shooter",
+"entry": "index.html",
+"mb": 2.53,
+"f": 7
+},
+{
+"d": "Zurbo",
+"n": "Zurbo",
+"entry": "index.html",
+"mb": 0.12,
+"f": 2
+},
+{
+"d": "automated_rock_paper_scissor",
+"n": "automated rock paper scissor",
+"entry": "index.html",
+"mb": 0.0,
+"f": 2
+},
+{
+"d": "catch_the_falling_stars",
+"n": "catch the falling stars (2)",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "clawCrane",
+"n": "claw Crane",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "click_circle",
+"n": "click circle",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "color matcher",
+"n": "color matcher",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "color_matching_application",
+"n": "color matching application",
+"entry": "index.html",
+"mb": 0.03,
+"f": 5
+},
+{
+"d": "color_switch_challenger",
+"n": "color switch challenger",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "escaperoom",
+"n": "escaperoom",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "keySymphony",
+"n": "key Symphony",
+"entry": "index.html",
+"mb": 1.01,
+"f": 20
+},
+{
+"d": "linkup",
+"n": "linkup",
+"entry": "index.html",
+"mb": 0.38,
+"f": 30
+},
+{
+"d": "mario-game",
+"n": "mario game",
+"entry": "index.html",
+"mb": 4.33,
+"f": 26
+},
+{
+"d": "mario_matching_game",
+"n": "mario matching game",
+"entry": "index.html",
+"mb": 0.16,
+"f": 7
+},
+{
+"d": "my_mine_sweeper",
+"n": "my mine sweeper",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "namefate",
+"n": "namefate",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "numeral-whiz",
+"n": "numeral whiz",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "oh_flip",
+"n": "oh flip",
+"entry": "index.html",
+"mb": 0.03,
+"f": 6
+},
+{
+"d": "path_finder",
+"n": "path finder",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "puzzle-game",
+"n": "puzzle game (2)",
+"entry": "index.html",
+"mb": 0.04,
+"f": 6
+},
+{
+"d": "quiz_game",
+"n": "quiz game",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "race_car",
+"n": "race car",
+"entry": "index.html",
+"mb": 0.1,
+"f": 11
+},
+{
+"d": "rapid_click_frenzy",
+"n": "rapid click frenzy",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "reaction_teaser",
+"n": "reaction teaser",
+"entry": "index.html",
+"mb": 0.97,
+"f": 6
+},
+{
+"d": "road_car",
+"n": "road car",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "sand_tetris",
+"n": "sand tetris",
+"entry": "index.html",
+"mb": 0.07,
+"f": 10
+},
+{
+"d": "snake",
+"n": "snake",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "snake_water_gun",
+"n": "snake water gun",
+"entry": "index.html",
+"mb": 0.04,
+"f": 5
+},
+{
+"d": "space_drifter",
+"n": "space drifter",
+"entry": "index.html",
+"mb": 1.54,
+"f": 12
+},
+{
+"d": "space_explorer",
+"n": "space explorer",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "test_your_brain",
+"n": "test your brain",
+"entry": "index.html",
+"mb": 0.11,
+"f": 11
+},
+{
+"d": "whack a mole",
+"n": "whack a mole (2)",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "witty_word_quest",
+"n": "witty word quest",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+},
+{
+"d": "wordScramble",
+"n": "word Scramble",
+"entry": "index.html",
+"mb": 29.73,
+"f": 23
+},
+{
+"d": "word_association",
+"n": "word association",
+"entry": "index.html",
+"mb": 0.0,
+"f": 4
+},
+{
+"d": "word_blitz",
+"n": "word blitz",
+"entry": "index.html",
+"mb": 0.01,
+"f": 4
+}
+]

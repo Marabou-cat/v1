@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07070d">
+<title>小游戏大厅 · 689 款</title>
+<style>
+  :root{
+    --bg:#07070d; --panel:#101019; --panel2:#16161f; --line:#242433;
+    --tx:#e9e9f2; --dim:#8b8b9e; --acc:#39e0ff; --acc2:#a855f7;
+    --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);
+    font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    overscroll-behavior-y:contain}
+  body{padding-bottom:calc(46px + var(--safe-b))}
+  body.embedded{padding-top:calc(44px + var(--safe-t))}
+  a{color:var(--acc)}
+
+  /* ---------- top bar ---------- */
+  #bar{position:sticky;top:0;z-index:20;height:58px;flex:0 0 auto;
+    padding:8px 12px;display:flex;align-items:center;gap:10px;
+    background:linear-gradient(180deg,rgba(7,7,13,.98),rgba(7,7,13,.9));
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line)}
+  /* 门户的 HUD（✕ / 聊天 / 全屏）固定在左上角，嵌入时把自己的栏让到它下面 */
+  body.embedded #bar{top:calc(44px + var(--safe-t))}
+  .btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--tx);
+    font:inherit;font-size:13px;font-weight:600;padding:8px 11px;border-radius:10px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;line-height:1;white-space:nowrap}
+  .btn:active{transform:scale(.97)}
+  .btn.ghost{background:transparent}
+  .btn.acc{border-color:rgba(57,224,255,.45);color:var(--acc)}
+  .ttl{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
+  .ttl b{font-size:16px;letter-spacing:.3px;white-space:nowrap}
+  #cnt{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ---------- search ---------- */
+  #searchWrap{position:sticky;top:58px;z-index:19;
+    padding:8px 12px;display:flex;gap:8px;background:rgba(7,7,13,.96);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  body.embedded #searchWrap{top:calc(102px + var(--safe-t))}
+  #q{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);color:var(--tx);
+    border-radius:11px;padding:10px 12px;font:inherit;font-size:14px;outline:none}
+  #q:focus{border-color:rgba(57,224,255,.5);box-shadow:0 0 0 3px rgba(57,224,255,.10)}
+  #q::placeholder{color:#6d6d80}
+  #qClear{display:none}
+
+  /* ---------- grid ---------- */
+  main{padding:12px 12px 4px}
+  .sect{display:flex;align-items:center;gap:8px;margin:2px 2px 10px;font-size:12px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .sect:after{content:"";flex:1;height:1px;background:var(--line)}
+  #recent{display:flex;gap:8px;overflow-x:auto;padding:0 0 10px;scrollbar-width:none}
+  #recent::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;max-width:46vw;border:1px solid var(--line);background:var(--panel);
+    color:var(--tx);border-radius:999px;padding:7px 12px;font-size:12.5px;cursor:pointer;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chip:active{transform:scale(.97)}
+
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:10px}
+  @media(min-width:760px){#grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}}
+  .card{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    background:var(--panel);cursor:pointer;transition:transform .12s ease,border-color .12s ease;
+    display:flex;flex-direction:column}
+  .card:hover{transform:translateY(-2px);border-color:rgba(57,224,255,.42)}
+  .card:active{transform:scale(.985)}
+  .thumb{position:relative;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center}
+  .thumb i{position:absolute;inset:0;background:
+      radial-gradient(120% 90% at 18% 8%,rgba(255,255,255,.16),transparent 60%),
+      linear-gradient(140deg,var(--c1),var(--c2))}
+  .thumb span{position:relative;font-weight:800;font-size:26px;letter-spacing:.02em;
+    color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.45)}
+  @media(min-width:760px){.thumb span{font-size:34px}}
+  .meta{padding:7px 9px 9px;min-height:44px;border-top:1px solid rgba(255,255,255,.05)}
+  .name{font-size:12.5px;font-weight:600;line-height:1.25;display:-webkit-box;
+    -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+  .sub{font-size:10.5px;color:var(--dim);margin-top:2px}
+  #empty{display:none;padding:40px 16px;text-align:center;color:var(--dim)}
+  #more{display:flex;justify-content:center;padding:16px 0 24px}
+  #moreBtn{display:none}
+
+  footer{padding:8px 14px 18px;color:#6a6a7c;font-size:11.5px;text-align:center;line-height:1.6}
+
+  /* ---------- player ---------- */
+  #player{position:fixed;inset:0;z-index:60;background:#000;display:none;flex-direction:column}
+  #player.on{display:flex}
+  #pbar{display:flex;align-items:center;gap:8px;padding:calc(7px + var(--safe-t)) 10px 7px;
+    background:#0b0b12;border-bottom:1px solid var(--line);flex:0 0 auto}
+  body.embedded #pbar{padding-top:calc(51px + var(--safe-t))}
+  #pname{flex:1;min-width:0;font-size:13.5px;font-weight:700;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  #pbar .btn{padding:7px 9px;font-size:13px}
+  #pw{position:relative;flex:1 1 auto;background:#000}
+  #pf{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+  #pload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:10px;color:var(--dim);font-size:13px;background:#05050a;
+    transition:opacity .25s ease;pointer-events:none}
+  #pload.gone{opacity:0}
+  .spin{width:26px;height:26px;border:2px solid #26263a;border-top-color:var(--acc);
+    border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #pfail{display:none;position:absolute;inset:0;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;color:var(--tx);background:#0a0a12;text-align:center;padding:24px}
+  #pfail.on{display:flex}
+  #pfail small{color:var(--dim);font-size:12px;line-height:1.6;max-width:34ch}
+</style>
+</head>
+<body>
+<header id="bar">
+  <button class="btn ghost" id="btnBack" title="返回门户">← 门户</button>
+  <div class="ttl"><b>小游戏大厅</b><span id="cnt">689 款</span></div>
+  <button class="btn acc" id="btnRand">🎲 随机</button>
+</header>
+
+<div id="searchWrap">
+  <input id="q" type="search" inputmode="search" autocomplete="off" spellcheck="false"
+         placeholder="搜索 689 款游戏…">
+  <button class="btn ghost" id="qClear" title="清空">✕</button>
+</div>
+
+<main>
+  <div id="recentWrap" style="display:none">
+    <div class="sect">最近在玩</div>
+    <div id="recent"></div>
+  </div>
+  <div class="sect" id="gridSect">全部游戏</div>
+  <div id="grid"></div>
+  <div id="empty">没有匹配的游戏 —— 换个关键词试试</div>
+  <div id="more"><button class="btn" id="moreBtn">加载更多</button></div>
+</main>
+
+<footer>
+  共 689 款网页小游戏 · 全部静态托管在本站<br>
+  游戏来自开源项目 <a href="https://github.com/kunjgit/GameZone" target="_blank" rel="noopener">GameZone</a>（Apache-2.0）
+</footer>
+
+<div id="player">
+  <div id="pbar">
+    <button class="btn ghost" id="pBack">← 大厅</button>
+    <span id="pname">—</span>
+    <button class="btn" id="pReload" title="重新加载">⟳</button>
+    <button class="btn" id="pFs" title="全屏">⛶</button>
+    <a class="btn" id="pOpen" target="_blank" rel="noopener" title="在新标签打开">↗</a>
+  </div>
+  <div id="pw">
+    <iframe id="pf" allow="fullscreen; autoplay; gamepad; clipboard-write; accelerometer; gyroscope; encrypted-media"
+            referrerpolicy="no-referrer"></iframe>
+    <div id="pload"><div class="spin"></div><span>加载中…</span></div>
+    <div id="pfail">
+      <b>这个游戏没能加载</b>
+      <small id="pfailMsg"></small>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+        <button class="btn acc" id="pfRetry">再试一次</button>
+        <a class="btn" id="pfNew" target="_blank" rel="noopener">新标签打开</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>const CATALOG = [{"d":"1024_Moves","n":"1024 Moves","e":"index.html","mb":0.12},{"d":"16_Puzzle","n":"16 Puzzle","e":"index.html","mb":0.01},{"d":"2048","n":"2048","e":"index.html","mb":0.57},{"d":"2048_win","n":"2048 win","e":"index.html","mb":0.05},{"d":"2D_Breakout","n":"2D Breakout","e":"index.html","mb":0.28},{"d":"2D_Fighting_game","n":"2D Fighting game","e":"index.html","mb":0.17},{"d":"3D_Car_Racing_Game","n":"3D Car Racing Game","e":"index.html","mb":0.1},{"d":"3d_Box_Game","n":"3D Box Game","e":"index.html","mb":0.29},{"d":"3d_Snake","n":"3D Snake","e":"index.html","mb":0.03},{"d":"8_Puzzle","n":"8 Puzzle","e":"index.html","mb":0.01},{"d":"AI_CHESS_Game","n":"AI CHESS Game","e":"index.html","mb":0.13},{"d":"Achluophobia","n":"Achluophobia","e":"index.html","mb":0.64},{"d":"Adventure_Game","n":"Adventure Game","e":"index.html","mb":0.59},{"d":"Aero_Acrobat","n":"Aero Acrobat","e":"index.html","mb":17.58},{"d":"Aim_Training","n":"Aim Training","e":"index.html","mb":0.01},{"d":"AirBalloon","n":"Air Balloon","e":"index.html","mb":0.01},{"d":"Airhocky_game","n":"Airhocky game","e":"index.html","mb":0.02},{"d":"Alien_Invasion","n":"Alien Invasion","e":"index.html","mb":0.25},{"d":"Alien_Shooters","n":"Alien Shooters","e":"index.html","mb":0.04},{"d":"Align_4_Game","n":"Align 4 Game","e":"index.html","mb":0.02},{"d":"Alphabet","n":"Alphabet","e":"index.html","mb":1.25},{"d":"Alphabet-and-Vowels","n":"Alphabet and Vowels","e":"index.html","mb":0.0},{"d":"Alphabet_Learning_Game","n":"Alphabet Learning Game","e":"index.html","mb":1.87},{"d":"Am_I_the_number","n":"Am I the number","e":"index.html","mb":0.01},{"d":"Among_Us_Game","n":"Among Us Game","e":"index.html","mb":4.45},{"d":"Anagram -Word-Game","n":"Anagram Word Game","e":"index.html","mb":0.01},{"d":"Anagram_Checker_Game","n":"Anagram Checker Game","e":"index.html","mb":0.01},{"d":"Angry_Bird","n":"Angry Bird","e":"index.html","mb":0.0},{"d":"Angry_Boars","n":"Angry Boars","e":"index.html","mb":0.03},{"d":"Animal_Match_Game","n":"Animal Match Game","e":"index.html","mb":2.83},{"d":"Animal_Name_Guessing","n":"Animal Name Guessing","e":"index.html","mb":0.01},{"d":"Anime_Clicker","n":"Anime Clicker","e":"index.html","mb":1.19},{"d":"AquaSort_Game","n":"Aqua Sort Game","e":"index.html","mb":0.02},{"d":"Arcade_Game","n":"Arcade Game","e":"index.html","mb":0.6},{"d":"Archery","n":"Archery","e":"index.html","mb":0.08},{"d":"Arkanoid_Game","n":"Arkanoid Game","e":"index.html","mb":0.01},{"d":"ArmorAlley","n":"Armor Alley","e":"index.html","mb":60.93},{"d":"Asteroids_3D","n":"Asteroids 3D","e":"index.html","mb":0.7},{"d":"Astronaunt_runner","n":"Astronaunt runner","e":"index.html","mb":4.47},{"d":"Atari_breakout","n":"Atari breakout","e":"index.html","mb":0.03},{"d":"Atlas_Game","n":"Atlas Game","e":"index.html","mb":0.13},{"d":"Audio_Wordle","n":"Audio Wordle","e":"index.html","mb":2.93},{"d":"Avax_Gods","n":"Avax Gods","e":"index.html","mb":15.81},{"d":"Avoider_Game","n":"Avoider Game","e":"index.html","mb":3.03},{"d":"Back_To_Space","n":"Back To Space","e":"index.html","mb":2.82},{"d":"Bad_Depot","n":"Bad Depot","e":"index.html","mb":0.03},{"d":"Bad_Luck_Brian","n":"Bad Luck Brian","e":"index.html","mb":0.06},{"d":"Ball-And-Paddle-Game","n":"Ball And Paddle Game","e":"index.html","mb":0.0},{"d":"Ball_Fall_Game","n":"Ball Fall Game","e":"index.html","mb":10.23},{"d":"Ball_Shooting_Game","n":"Ball Shooting Game","e":"index.html","mb":0.0},{"d":"Ball_and_glass","n":"Ball and glass","e":"index.html","mb":0.2},{"d":"Ball_in_Maze","n":"Ball in Maze","e":"index.html","mb":24.48},{"d":"Ballarena","n":"Ballarena","e":"index.html","mb":0.08},{"d":"Balloon_Buster","n":"Balloon Buster","e":"index.html","mb":0.01},{"d":"Balloon_Defense_Game","n":"Balloon Defense Game","e":"index.htm","mb":0.0},{"d":"Balloon_Popup","n":"Balloon Popup","e":"index.html","mb":1.81},{"d":"Baseball","n":"Baseball","e":"index.html","mb":0.02},{"d":"Baseketball","n":"Baseketball","e":"index.html","mb":1.28},{"d":"Bash_mole","n":"Bash mole","e":"index.html","mb":0.21},{"d":"Bear_Hunter_Ninja","n":"Bear Hunter Ninja","e":"index.html","mb":0.86},{"d":"Beat_a_mole","n":"Beat a mole","e":"index.html","mb":6.81},{"d":"Belt_Black","n":"Belt Black","e":"index.html","mb":2.96},{"d":"Beyblade","n":"Beyblade","e":"index.html","mb":1.3},{"d":"Beyonder","n":"Beyonder","e":"index.html","mb":0.06},{"d":"Bingo_Game","n":"Bingo Game","e":"index.html","mb":5.11},{"d":"Bird_game","n":"Bird game","e":"index.html","mb":0.01},{"d":"Bit_Maze_Platformer_Maze","n":"Bit Maze Platformer Maze","e":"index.html","mb":0.03},{"d":"Black_Jack","n":"Black Jack","e":"index.html","mb":4.94},{"d":"Black_jackk","n":"Black jackk","e":"index.html","mb":0.01},{"d":"Blanks_Detective","n":"Blanks Detective","e":"index.html","mb":1.69},{"d":"Blast Zone","n":"Blast Zone","e":"index.html","mb":0.02},{"d":"Blink_Beat","n":"Blink Beat","e":"index.html","mb":0.2},{"d":"Block Game","n":"Block Game","e":"index.html","mb":0.07},{"d":"Block_Building","n":"Block Building","e":"index.html","mb":0.0},{"d":"Block_Buster","n":"Block Buster","e":"index.html","mb":0.01},{"d":"Block_Dodger","n":"Block Dodger","e":"index.html","mb":0.01},{"d":"Block_Ninja","n":"Block Ninja","e":"index.html","mb":0.06},{"d":"Block_Vault","n":"Block Vault","e":"index.html","mb":0.02},{"d":"Bomb Throw Game","n":"Bomb Throw Game","e":"index.html","mb":0.06},{"d":"Boom_Blast","n":"Boom Blast","e":"index.html","mb":1.47},{"d":"Bottle_Flip","n":"Bottle Flip","e":"index.html","mb":0.0},{"d":"Bounce_Ball","n":"Bounce Ball","e":"index.html","mb":0.06},{"d":"Bouncing_Ball_Game","n":"Bouncing Ball Game","e":"index.html","mb":0.01},{"d":"Bow_And_Arrow","n":"Bow And Arrow","e":"index.html","mb":0.02},{"d":"Bow_Arrow","n":"Bow Arrow","e":"index.html","mb":2.34},{"d":"Box_In_Air_Game","n":"Box In Air Game","e":"index.html","mb":0.0},{"d":"Box_Merge","n":"Box Merge","e":"index.html","mb":0.01},{"d":"Brain_Burst_Game","n":"Brain Burst Game","e":"index.html","mb":0.02},{"d":"Brain_Color_Mastermind","n":"Brain Color Mastermind","e":"index.html","mb":0.02},{"d":"Brain_Game","n":"Brain Game","e":"index.html","mb":0.01},{"d":"Brain_card_game","n":"Brain card game","e":"index.html","mb":0.09},{"d":"Breakout","n":"Breakout","e":"index.html","mb":14.33},{"d":"Brick Buster","n":"Brick Buster","e":"index.html","mb":0.01},{"d":"Brick_Breaker","n":"Brick Breaker","e":"index.html","mb":0.01},{"d":"Brick_and_Ball","n":"Brick and Ball","e":"index.html","mb":0.01},{"d":"Bubble'z Popper","n":"Bubble'z Popper","e":"index.html","mb":5.45},{"d":"Bubble_Blast_Game","n":"Bubble Blast Game","e":"index.html","mb":4.01},{"d":"Bubble_Shooter","n":"Bubble Shooter","e":"index.html","mb":0.47},{"d":"Building Block Game","n":"Building Block Game","e":"index.html","mb":0.02},{"d":"Bulls_And_Cows_New","n":"Bulls And Cows New","e":"index.html","mb":1.22},{"d":"Bulls_and_Cows","n":"Bulls and Cows","e":"index.html","mb":0.06},{"d":"Bulls_eye","n":"Bulls eye","e":"index.html","mb":0.01},{"d":"BullseyeGame","n":"Bullseye Game","e":"index.html","mb":0.01},{"d":"Bunny_is_Lost","n":"Bunny is Lost","e":"index.html","mb":81.2},{"d":"CSS_Crossword","n":"CSS Crossword","e":"index.html","mb":0.02},{"d":"CSS_Select","n":"CSS Select","e":"index.html","mb":0.38},{"d":"Cable_Maze","n":"Cable Maze","e":"index.html","mb":0.01},{"d":"Caesar_Cipher","n":"Caesar Cipher","e":"index.html","mb":7.69},{"d":"Call_Of_Duty","n":"Call Of Duty","e":"index.html","mb":0.0},{"d":"Candy_Crush","n":"Candy Crush","e":"index.html","mb":0.23},{"d":"Candy_Crush_Saga","n":"Candy Crush Saga","e":"index.html","mb":0.55},{"d":"Candy_Match_Saga","n":"Candy Match Saga","e":"index.html","mb":3.36},{"d":"Canon_Defense","n":"Canon Defense","e":"index.html","mb":0.13},{"d":"CareTaker","n":"Care Taker","e":"index.html","mb":0.27},{"d":"Carrom","n":"Carrom","e":"index.html","mb":0.42},{"d":"Cartoon_Character_Guessing_Game","n":"Cartoon Character Guessing Game","e":"index.html","mb":0.15},{"d":"Cast_and_Catch","n":"Cast and Catch","e":"index.html","mb":5.22},{"d":"Cat_Goric","n":"Cat Goric","e":"index.html","mb":0.02},{"d":"Catch Him","n":"Catch Him","e":"index.html","mb":0.32},{"d":"Catch the falling Stars","n":"Catch the falling Stars","e":"index.html","mb":0.0},{"d":"CatchTheBall","n":"Catch The Ball","e":"index.html","mb":0.01},{"d":"Catch_Craze","n":"Catch Craze","e":"index.html","mb":11.2},{"d":"Catch_Stars","n":"Catch Stars","e":"index.html","mb":0.01},{"d":"Catch_The_Ball","n":"Catch The Ball (2)","e":"index.html","mb":0.01},{"d":"Catch_The_Falling_Object","n":"Catch The Falling Object","e":"index.html","mb":0.01},{"d":"Catch_The_Objects","n":"Catch The Objects","e":"index.html","mb":0.0},{"d":"Catch_me_game","n":"Catch me game","e":"index.html","mb":0.0},{"d":"Catch_the_Bunny","n":"Catch the Bunny","e":"index.html","mb":0.35},{"d":"Charon_Jr","n":"Charon Jr","e":"index.html","mb":0.02},{"d":"Checkers","n":"Checkers","e":"index.html","mb":0.02},{"d":"Chess.com","n":"Chess.com","e":"index.html","mb":0.09},{"d":"Chess_Game","n":"Chess Game","e":"index.html","mb":0.06},{"d":"Chess_Game_computer","n":"Chess Game computer","e":"index.html","mb":0.04},{"d":"Chicken_cannon","n":"Chicken cannon","e":"index.html","mb":1.92},{"d":"Chopsticks","n":"Chopsticks","e":"index.html","mb":2.57},{"d":"Chrome_Dino_Game","n":"Chrome Dino Game","e":"index.html","mb":0.03},{"d":"Chrome_Dinosaur_Game","n":"Chrome Dinosaur Game","e":"index.html","mb":0.19},{"d":"Circuit_Craze","n":"Circuit Craze","e":"index.html","mb":0.01},{"d":"City_Builder_Game","n":"City Builder Game","e":"index.html","mb":0.01},{"d":"CodePen_Simulator","n":"Code Pen Simulator","e":"index.html","mb":0.08},{"d":"Code_Cracker","n":"Code Cracker","e":"index.html","mb":0.01},{"d":"Color The Page","n":"Color The Page","e":"index.html","mb":0.01},{"d":"Color-Blink-Challenge","n":"Color Blink Challenge","e":"index.html","mb":5.41},{"d":"Color_Blast","n":"Color Blast","e":"index.html","mb":0.03},{"d":"Color_Crush_Game","n":"Color Crush Game","e":"index.html","mb":0.01},{"d":"Color_Shifter","n":"Color Shifter","e":"index.html","mb":0.01},{"d":"Color_Swap","n":"Color Swap","e":"index.html","mb":0.01},{"d":"Color_Turner","n":"Color Turner","e":"index.html","mb":0.01},{"d":"Color_switcher","n":"Color switcher","e":"index.html","mb":0.28},{"d":"Coloron","n":"Coloron","e":"index.html","mb":1.91},{"d":"Colour_Generator_Game","n":"Colour Generator Game","e":"index.html","mb":0.0},{"d":"Colour_Guessing_Game","n":"Colour Guessing Game","e":"index.html","mb":0.01},{"d":"Computer_Bingo","n":"Computer Bingo","e":"index.html","mb":1.2},{"d":"Connect4","n":"Connect4","e":"index.html","mb":0.01},{"d":"Connect_Four","n":"Connect Four","e":"index.html","mb":0.26},{"d":"Conqueror_Quest","n":"Conqueror Quest","e":"index.html","mb":0.01},{"d":"Cooking_Challenge_Game","n":"Cooking Challenge Game","e":"index.html","mb":0.0},{"d":"CopyCat","n":"Copy Cat","e":"index.html","mb":0.07},{"d":"Corona_Fighter","n":"Corona Fighter","e":"index.html","mb":0.31},{"d":"Corona_Shooter","n":"Corona Shooter","e":"index.html","mb":5.44},{"d":"Cosmic_Blast","n":"Cosmic Blast","e":"index.html","mb":2.72},{"d":"Cosmic_Coin_Collector","n":"Cosmic Coin Collector","e":"index.html","mb":0.03},{"d":"Country_Guesser_Game","n":"Country Guesser Game","e":"index.html","mb":0.02},{"d":"Crack_The_Code","n":"Crack The Code","e":"index.html","mb":0.06},{"d":"Cross_Road_Game","n":"Cross Road Game","e":"index.html","mb":0.02},{"d":"Cross_The_River_Game","n":"Cross The River Game","e":"index.html","mb":0.66},{"d":"Cross_The_Road","n":"Cross The Road","e":"index.html","mb":3.32},{"d":"Crossword_Game","n":"Crossword Game","e":"index.html","mb":9.04},{"d":"Crossword_Puzzle","n":"Crossword Puzzle","e":"index.html","mb":0.06},{"d":"Crossy_Road","n":"Crossy Road","e":"index.html","mb":0.63},{"d":"Crystals_Collecter","n":"Crystals Collecter","e":"index.html","mb":0.04},{"d":"Currency_Converter","n":"Currency Converter","e":"index.html","mb":0.01},{"d":"Cut_the_rope","n":"Cut the rope","e":"index.html","mb":27.5},{"d":"DNA_Sequencer","n":"DNA Sequencer","e":"index.html","mb":0.01},{"d":"Dante","n":"Dante","e":"index.html","mb":0.02},{"d":"Dead_Again","n":"Dead Again","e":"index.html","mb":0.02},{"d":"Death_by_Hamster","n":"Death by Hamster","e":"index.html","mb":0.06},{"d":"Destroyer","n":"Destroyer","e":"index.html","mb":0.04},{"d":"Detona","n":"Detona","e":"index.html","mb":0.14},{"d":"Diamond_Run","n":"Diamond Run","e":"index.html","mb":0.16},{"d":"Dice_Game","n":"Dice Game","e":"index.html","mb":0.06},{"d":"Dice_Roller","n":"Dice Roller","e":"index.html","mb":0.01},{"d":"Digit_Dilemma","n":"Digit Dilemma","e":"index.html","mb":0.08},{"d":"Dino_Runner_Game","n":"Dino Runner Game","e":"index.html","mb":4.93},{"d":"Dinoffline","n":"Dinoffline","e":"index.html","mb":0.06},{"d":"Dinosaur_Memory_Game","n":"Dinosaur Memory Game","e":"index.html","mb":0.01},{"d":"Disney_Trivia","n":"Disney Trivia","e":"index.html","mb":0.15},{"d":"Dodge the Blocks","n":"Dodge the Blocks","e":"index.html","mb":0.0},{"d":"Dont_Die_To_Ghosts","n":"Dont Die To Ghosts","e":"index.html","mb":0.29},{"d":"Doodle_Draw","n":"Doodle Draw","e":"index.html","mb":0.15},{"d":"Doodle_Jump","n":"Doodle Jump","e":"index.html","mb":0.36},{"d":"Doppelkopf","n":"Doppelkopf","e":"index.html","mb":1.26},{"d":"DoraemonRun","n":"Doraemon Run","e":"index.html","mb":3.68},{"d":"Doraemon_Jump","n":"Doraemon Jump","e":"index.html","mb":7.7},{"d":"Doremon_Puzzle","n":"Doremon Puzzle","e":"index.html","mb":0.15},{"d":"Dot_Box_Game","n":"Dot Box Game","e":"index.html","mb":0.11},{"d":"Dot_Connect","n":"Dot Connect","e":"index.html","mb":0.22},{"d":"Dot_Dash","n":"Dot Dash","e":"index.html","mb":0.32},{"d":"Dots_and_Boxes_Game","n":"Dots and Boxes Game","e":"index.html","mb":8.39},{"d":"Drag_And_Drop_Puzzle","n":"Drag And Drop Puzzle","e":"index.html","mb":0.75},{"d":"Dragon_Ball_Game","n":"Dragon Ball Game","e":"index.html","mb":2.03},{"d":"Dragon_Slayer","n":"Dragon Slayer","e":"index.html","mb":0.45},{"d":"Dragon_Tower","n":"Dragon Tower","e":"index.html","mb":0.01},{"d":"Dragon_World_Game","n":"Dragon World Game","e":"index.html","mb":1.24},{"d":"Drawing_app","n":"Drawing app","e":"index.html","mb":0.01},{"d":"Drop_Dash_Game","n":"Drop Dash Game","e":"index.html","mb":0.01},{"d":"Drum_Kit_Game","n":"Drum Kit Game","e":"index.html","mb":26.05},{"d":"Drum_kit","n":"Drum kit","e":"index.html","mb":0.55},{"d":"Drummer_Kit","n":"Drummer Kit","e":"index.html","mb":2.78},{"d":"Dsa_quiz_game","n":"Dsa quiz game","e":"index.html","mb":0.02},{"d":"DuckHunt","n":"Duck Hunt","e":"index.html","mb":2.4},{"d":"Dungeon_Crawler","n":"Dungeon Crawler","e":"index.html","mb":174.26},{"d":"Earth_Destroyer","n":"Earth Destroyer","e":"index.html","mb":0.03},{"d":"Earth_Guardian","n":"Earth Guardian","e":"index.html","mb":19.23},{"d":"Eco_Warrior","n":"Eco Warrior","e":"index.html","mb":3.7},{"d":"Elemental Riddles","n":"Elemental Riddles","e":"index.html","mb":0.01},{"d":"Elemental_Flux","n":"Elemental Flux","e":"index.html","mb":0.58},{"d":"Elephant_ant_man","n":"Elephant ant man","e":"index.html","mb":0.33},{"d":"Emoji_Intruder","n":"Emoji Intruder","e":"index.html","mb":0.0},{"d":"Emoji_Puzzle_Game","n":"Emoji Puzzle Game","e":"index.html","mb":0.09},{"d":"Emoji_slot_machine","n":"Emoji slot machine","e":"index.html","mb":0.0},{"d":"EndlessRunner","n":"Endless Runner","e":"index.html","mb":0.6},{"d":"Escape","n":"Escape","e":"index.html","mb":0.13},{"d":"Escape_room","n":"Escape room","e":"index.html","mb":0.15},{"d":"Etch_a_Sketch","n":"Etch a Sketch","e":"index.html","mb":0.01},{"d":"Etch_a_Sketch_2","n":"Etch a Sketch 2","e":"index.html","mb":0.06},{"d":"Everyones_Sky","n":"Everyones Sky","e":"index.html","mb":0.07},{"d":"Fall_Down","n":"Fall Down","e":"index.html","mb":0.46},{"d":"Falling_Ball","n":"Falling Ball","e":"index.html","mb":0.01},{"d":"Falling_Blocks","n":"Falling Blocks","e":"index.html","mb":0.01},{"d":"Falling_Words","n":"Falling Words","e":"index.html","mb":10.68},{"d":"Fidget_Spinner_Game","n":"Fidget Spinner Game","e":"index.html","mb":0.07},{"d":"Fifteen_Puzzle_Game","n":"Fifteen Puzzle Game","e":"index.html","mb":0.34},{"d":"Fight_Game","n":"Fight Game","e":"index.html","mb":5.27},{"d":"Find_Extra_Cube","n":"Find Extra Cube","e":"index.html","mb":0.01},{"d":"Find_The_Missing_Letter","n":"Find The Missing Letter","e":"index.html","mb":0.01},{"d":"Find_the_ball","n":"Find the ball","e":"index.html","mb":0.0},{"d":"Firedog_Adventure","n":"Firedog Adventure","e":"index.html","mb":11.66},{"d":"Flag_Guess_Game","n":"Flag Guess Game","e":"index.html","mb":0.01},{"d":"Flames Game","n":"Flames Game","e":"index.html","mb":6.35},{"d":"Flappy_Bird","n":"Flappy Bird","e":"index.html","mb":0.09},{"d":"Flappy_Birdd","n":"Flappy Birdd","e":"index.html","mb":0.01},{"d":"Flappy_Bubble_Sofa","n":"Flappy Bubble Sofa","e":"index.html","mb":0.3},{"d":"Flashlight_Pointer_Game","n":"Flashlight Pointer Game","e":"index.html","mb":0.0},{"d":"Flip_Card_Game","n":"Flip Card Game","e":"index.html","mb":0.02},{"d":"Flip_Coin","n":"Flip Coin","e":"index.html","mb":0.02},{"d":"Flying_Fish","n":"Flying Fish","e":"index.html","mb":0.0},{"d":"Foosball","n":"Foosball","e":"index.html","mb":0.19},{"d":"Forest_Guardian","n":"Forest Guardian","e":"index.html","mb":0.01},{"d":"Four_In_Row","n":"Four In Row","e":"index.html","mb":0.01},{"d":"Free_Bird","n":"Free Bird","e":"index.html","mb":0.04},{"d":"Frogger","n":"Frogger","e":"index.html","mb":1.08},{"d":"FruitCatcher","n":"Fruit Catcher","e":"index.html","mb":0.0},{"d":"Fruit_Catching","n":"Fruit Catching","e":"index.html","mb":11.41},{"d":"Fruit_Catching_Game","n":"Fruit Catching Game","e":"index.html","mb":0.49},{"d":"Fruit_Ninja","n":"Fruit Ninja","e":"index.html","mb":11.46},{"d":"Fruit_Slicer_Game","n":"Fruit Slicer Game","e":"index.html","mb":4.64},{"d":"Fruity_Fortune","n":"Fruity Fortune","e":"index.html","mb":0.01},{"d":"Galaxy_Rider","n":"Galaxy Rider","e":"index.html","mb":0.03},{"d":"Ganesh QR Maker","n":"Ganesh QR Maker","e":"index.html","mb":0.74},{"d":"Garden-Builder-game","n":"Garden Builder game","e":"index.html","mb":12.49},{"d":"Get_The_Pigeon","n":"Get The Pigeon","e":"index.html","mb":0.04},{"d":"Ghost_Surf","n":"Ghost Surf","e":"index.html","mb":0.05},{"d":"Ghost_busting_game","n":"Ghost busting game","e":"index.html","mb":2.26},{"d":"Gita_Shloka_Generator","n":"Gita Shloka Generator","e":"index.html","mb":0.19},{"d":"Glitch_Buster","n":"Glitch Buster","e":"index.html","mb":0.07},{"d":"Gnomedom","n":"Gnomedom","e":"index.html","mb":0.02},{"d":"Go-fish-master","n":"Go fish master","e":"index.html","mb":16.8},{"d":"GoFish","n":"Go Fish","e":"index.html","mb":0.6},{"d":"Goal_Rush","n":"Goal Rush","e":"index.html","mb":1.48},{"d":"Gobblet","n":"Gobblet","e":"index.html","mb":5.04},{"d":"Grab_The_Carrot","n":"Grab The Carrot","e":"index.html","mb":0.04},{"d":"Gravity_Dropss","n":"Gravity Dropss","e":"index.html","mb":0.01},{"d":"Gravity_Simulation_Game","n":"Gravity Simulation Game","e":"index.html","mb":0.01},{"d":"Gravity_Switch_Game","n":"Gravity Switch Game","e":"index.html","mb":0.0},{"d":"Green_Mahjong","n":"Green Mahjong","e":"index.html","mb":6.16},{"d":"Guess_That_Pokemon","n":"Guess That Pokemon","e":"index.html","mb":8.73},{"d":"Guess_The_Ball","n":"Guess The Ball","e":"index.html","mb":0.0},{"d":"Guess_The_Celeb","n":"Guess The Celeb","e":"index.html","mb":6.17},{"d":"Guess_The_Correct_Logo","n":"Guess The Correct Logo","e":"index.html","mb":0.62},{"d":"Guess_The_Murderer","n":"Guess The Murderer","e":"index.html","mb":1.19},{"d":"Guess_The_Number","n":"Guess The Number","e":"index.html","mb":0.72},{"d":"Guess_The_Random_Shape","n":"Guess The Random Shape","e":"index.html","mb":0.04},{"d":"Guess_The_Song","n":"Guess The Song","e":"index.html","mb":55.91},{"d":"Guess_The_Weapon","n":"Guess The Weapon","e":"index.html","mb":17.38},{"d":"Guess_Who","n":"Guess Who","e":"index.html","mb":23.74},{"d":"Guess_the_friends_name","n":"Guess the friends name","e":"index.html","mb":0.09},{"d":"Guitar_Game","n":"Guitar Game","e":"index.html","mb":0.0},{"d":"HTML5_Controller_Tester","n":"HTML5 Controller Tester","e":"index.html","mb":11.79},{"d":"Hand_Cricket","n":"Hand Cricket","e":"index.html","mb":9.79},{"d":"HangMan","n":"Hang Man","e":"index.html","mb":0.61},{"d":"Hangman_Game","n":"Hangman Game","e":"index.html","mb":0.01},{"d":"Harmony_Mixer","n":"Harmony Mixer","e":"index.html","mb":0.1},{"d":"Harry_Potter_Wizard_Quiz","n":"Harry Potter Wizard Quiz","e":"index.html","mb":27.8},{"d":"Hedgehog_Havoc","n":"Hedgehog Havoc","e":"index.html","mb":0.29},{"d":"Helicopter_Game","n":"Helicopter Game","e":"index.html","mb":15.72},{"d":"Hexsweep-Game","n":"Hexsweep Game","e":"index.html","mb":0.01},{"d":"Hextris","n":"Hextris","e":"index.html","mb":1.45},{"d":"Hide_And_Seek","n":"Hide And Seek","e":"index.html","mb":4.62},{"d":"Highway_404","n":"Highway 404","e":"index.html","mb":0.08},{"d":"Highway_Race","n":"Highway Race","e":"index.html","mb":0.64},{"d":"HitOrMiss","n":"Hit Or Miss","e":"index.html","mb":0.01},{"d":"HitYourFriend","n":"Hit Your Friend","e":"index.html","mb":0.01},{"d":"Hit_Target","n":"Hit Target","e":"index.html","mb":0.02},{"d":"Hit_The_Mole","n":"Hit The Mole","e":"index.html","mb":0.51},{"d":"Hit_the_hamster","n":"Hit the hamster","e":"index.html","mb":0.02},{"d":"Hold_The_Cloud","n":"Hold The Cloud","e":"index.html","mb":0.02},{"d":"Hole_And_Mole_Game","n":"Hole And Mole Game","e":"index.html","mb":0.07},{"d":"Hover_Board_Effect","n":"Hover Board Effect","e":"index.html","mb":6.03},{"d":"HueHero","n":"Hue Hero","e":"index.html","mb":0.05},{"d":"Humming","n":"Humming","e":"index.html","mb":0.05},{"d":"Hunt_Your_Card","n":"Hunt Your Card","e":"index.html","mb":0.76},{"d":"IKnowYou-Mind-Reading-Game","n":"IKnow You Mind Reading Game","e":"index.html","mb":1.57},{"d":"I_Want_To_Google_The_Game","n":"I Want To Google The Game","e":"index.html","mb":0.06},{"d":"Icy_Tower_Game","n":"Icy Tower Game","e":"index.html","mb":7.0},{"d":"Immunity_Collapse","n":"Immunity Collapse","e":"index.html","mb":0.05},{"d":"Infernal_Throne","n":"Infernal Throne","e":"index.html","mb":0.31},{"d":"Infinite_Cars","n":"Infinite Cars","e":"index.html","mb":5.65},{"d":"Infinite_Runner_Game","n":"Infinite Runner Game","e":"index.html","mb":0.01},{"d":"Insect_Catch_Game","n":"Insect Catch Game","e":"index.html","mb":6.04},{"d":"Intellect_Quest","n":"Intellect Quest","e":"index.html","mb":0.01},{"d":"Interactive_Quizzing","n":"Interactive Quizzing","e":"index.html","mb":10.57},{"d":"Island_Survival","n":"Island Survival","e":"index.html","mb":0.03},{"d":"Jigsaw_Puzzle","n":"Jigsaw Puzzle","e":"index.html","mb":0.04},{"d":"Johnny_Smiter","n":"Johnny Smiter","e":"index.html","mb":0.17},{"d":"JunoJs","n":"Juno Js","e":"index.html","mb":0.2},{"d":"Keyboard_Hero","n":"Keyboard Hero","e":"index.html","mb":0.01},{"d":"Kill_The_Bird","n":"Kill The Bird","e":"index.html","mb":0.01},{"d":"King_Of_Pirates_Quiz","n":"King Of Pirates Quiz","e":"index.html","mb":0.19},{"d":"King_Sword_Runner","n":"King Sword Runner","e":"index.html","mb":0.1},{"d":"Knife_hit","n":"Knife hit","e":"index.html","mb":0.04},{"d":"Know_Your_Country","n":"Know Your Country","e":"index.html","mb":0.01},{"d":"LOSSST","n":"LOSSST","e":"index.html","mb":2.23},{"d":"Labyrinth","n":"Labyrinth","e":"index.html","mb":0.03},{"d":"Lady_Tiger_Hunter","n":"Lady Tiger Hunter","e":"index.html","mb":0.0},{"d":"Lamb_Lane","n":"Lamb Lane","e":"index.html","mb":0.02},{"d":"Language_Learner_Adventure","n":"Language Learner Adventure","e":"index.html","mb":0.01},{"d":"LaserDarts","n":"Laser Darts","e":"index.html","mb":0.0},{"d":"Letter_Sleuth","n":"Letter Sleuth","e":"index.html","mb":100.03},{"d":"Lighthouse","n":"Lighthouse","e":"index.html","mb":2.77},{"d":"Lights_Out","n":"Lights Out","e":"index.html","mb":0.01},{"d":"Line_Of_Fire","n":"Line Of Fire","e":"index.html","mb":1.88},{"d":"Little_Red_Game","n":"Little Red Game","e":"index.html","mb":0.01},{"d":"Lizard_Spock_Game","n":"Lizard Spock Game","e":"index.html","mb":0.02},{"d":"Lonely_Phantom","n":"Lonely Phantom","e":"index.html","mb":0.05},{"d":"Lost_In_The_Maze_3D","n":"Lost In The Maze 3D","e":"index.html","mb":0.06},{"d":"Love Calculator Game","n":"Love Calculator Game","e":"index.html","mb":0.03},{"d":"Love_Result_Predictor","n":"Love Result Predictor","e":"index.html","mb":6.99},{"d":"Ludo_4_Player","n":"Ludo 4 Player","e":"index.html","mb":0.34},{"d":"Ludo_Game","n":"Ludo Game","e":"index.html","mb":0.04},{"d":"Lunar_Lander","n":"Lunar Lander","e":"index.html","mb":0.02},{"d":"Madlibs","n":"Madlibs","e":"index.html","mb":0.01},{"d":"Magic_8_ball","n":"Magic 8 ball","e":"index.html","mb":6.57},{"d":"Magic_Square","n":"Magic Square","e":"index.html","mb":0.02},{"d":"Make_Me_Laugh","n":"Make Me Laugh","e":"index.html","mb":2.11},{"d":"Mamba_Mayhem","n":"Mamba Mayhem","e":"index.html","mb":0.02},{"d":"Mancala_Game","n":"Mancala Game","e":"index.html","mb":0.35},{"d":"Mansion_Mystery","n":"Mansion Mystery","e":"index.html","mb":0.02},{"d":"Mastemind","n":"Mastemind","e":"index.html","mb":0.67},{"d":"Master_Typing","n":"Master Typing","e":"index.html","mb":1.89},{"d":"Mastermind_Mania","n":"Mastermind Mania","e":"index.html","mb":0.09},{"d":"Match_Color_Game","n":"Match Color Game","e":"index.html","mb":0.0},{"d":"Matching_pair","n":"Matching pair","e":"index.html","mb":0.6},{"d":"MathQuiz","n":"Math Quiz","e":"index.html","mb":0.0},{"d":"Math_Game","n":"Math Game","e":"index.html","mb":0.01},{"d":"Math_Race_Game","n":"Math Race Game","e":"index.html","mb":0.12},{"d":"MathematicsEscapeRoom","n":"Mathematics Escape Room","e":"index.html","mb":59.61},{"d":"Maths_Sprint_Game","n":"Maths Sprint Game","e":"index.html","mb":0.02},{"d":"MaximiseBoxes","n":"Maximise Boxes","e":"index.html","mb":0.92},{"d":"MazeGame","n":"Maze Game","e":"index.html","mb":0.03},{"d":"MazeRunner","n":"Maze Runner","e":"index.html","mb":0.0},{"d":"Maze_Explorer","n":"Maze Explorer","e":"index.html","mb":0.06},{"d":"Maze_Game","n":"Maze Game (2)","e":"index.html","mb":0.63},{"d":"Maze_Runner","n":"Maze Runner (2)","e":"index.html","mb":0.01},{"d":"Maze_of_Cables","n":"Maze of Cables","e":"index.html","mb":0.01},{"d":"Mechanica","n":"Mechanica","e":"index.html","mb":2.89},{"d":"Memorization_card","n":"Memorization card","e":"index.html","mb":0.01},{"d":"Memory Flip","n":"Memory Flip","e":"index.html","mb":0.01},{"d":"Memory_Card","n":"Memory Card","e":"index.html","mb":0.01},{"d":"Memory_Cards_Game","n":"Memory Cards Game","e":"index.html","mb":0.15},{"d":"Memory_Game","n":"Memory Game","e":"index.html","mb":1.89},{"d":"Memory_Matching_Game","n":"Memory Matching Game","e":"index.html","mb":0.0},{"d":"Menja","n":"Menja","e":"index.html","mb":1.66},{"d":"Menja_block_breaker","n":"Menja block breaker","e":"index.html","mb":0.04},{"d":"MineSweeper_Easy","n":"Mine Sweeper Easy","e":"index.html","mb":0.03},{"d":"Minecraft","n":"Minecraft","e":"index.html","mb":0.0},{"d":"Minesweeper","n":"Minesweeper","e":"index.html","mb":0.17},{"d":"Mini_Golf","n":"Mini Golf","e":"index.html","mb":2.77},{"d":"Modulo_Game","n":"Modulo Game","e":"index.html","mb":0.01},{"d":"Mole","n":"Mole","e":"index.html","mb":0.0},{"d":"Monster_Maker","n":"Monster Maker","e":"index.html","mb":0.17},{"d":"Morse_Code_Generator","n":"Morse Code Generator","e":"index.html","mb":0.0},{"d":"MrFakeGame","n":"Mr Fake Game","e":"index.html","mb":0.02},{"d":"Music_Guess_Game","n":"Music Guess Game","e":"index.html","mb":9.03},{"d":"Musical_Floor","n":"Musical Floor","e":"index.html","mb":1.0},{"d":"Musical_Memory","n":"Musical Memory","e":"index.html","mb":10.49},{"d":"NewsJunction","n":"News Junction","e":"index.html","mb":0.01},{"d":"Ninja_Hattori_Game","n":"Ninja Hattori Game","e":"index.html","mb":3.79},{"d":"Norman_The_Necromancer","n":"Norman The Necromancer","e":"index.html","mb":0.05},{"d":"Not_morethan5","n":"Not morethan5","e":"index.html","mb":0.02},{"d":"Noughts_And_Crosses","n":"Noughts And Crosses","e":"index.html","mb":0.0},{"d":"Number Guessing Game","n":"Number Guessing Game","e":"index.html","mb":0.01},{"d":"Number_Catcher_Game","n":"Number Catcher Game","e":"index.html","mb":0.0},{"d":"Number_Guessing_Game","n":"Number Guessing Game (2)","e":"index.html","mb":0.31},{"d":"Number_Recall_Game","n":"Number Recall Game","e":"index.html","mb":0.16},{"d":"Number_Sliding_Puzzle_Game","n":"Number Sliding Puzzle Game","e":"index.html","mb":0.03},{"d":"Number_Sorting_Game","n":"Number Sorting Game","e":"index.html","mb":0.01},{"d":"Observe_the_Cloud","n":"Observe the Cloud","e":"index.html","mb":0.02},{"d":"Othello","n":"Othello","e":"index.html","mb":0.01},{"d":"Otherworldly_Odyssey","n":"Otherworldly Odyssey","e":"index.html","mb":5.1},{"d":"OutRun_Offline_Game","n":"Out Run Offline Game","e":"index.html","mb":176.2},{"d":"Pac_Man_Game","n":"Pac Man Game","e":"index.html","mb":0.04},{"d":"Pacific_Air_Battle","n":"Pacific Air Battle","e":"index.html","mb":0.12},{"d":"Packabunchas","n":"Packabunchas","e":"index.html","mb":0.1},{"d":"Painting_Game","n":"Painting Game","e":"index.html","mb":0.01},{"d":"Path_Finder_Challenge","n":"Path Finder Challenge","e":"index.html","mb":0.06},{"d":"Pathplex","n":"Pathplex","e":"index.html","mb":3.24},{"d":"Pattern_Creation_Game","n":"Pattern Creation Game","e":"index.html","mb":0.01},{"d":"PenPointerFight","n":"Pen Pointer Fight","e":"index.html","mb":0.01},{"d":"Penalty_Shootout_Game","n":"Penalty Shootout Game","e":"index.html","mb":0.78},{"d":"Physics_Quizz","n":"Physics Quizz","e":"index.html","mb":0.05},{"d":"Piano","n":"Piano","e":"index.html","mb":7.33},{"d":"PianoTiles_Game","n":"Piano Tiles Game","e":"index.html","mb":3.95},{"d":"Pictionary_Game","n":"Pictionary Game","e":"index.html","mb":0.01},{"d":"Pig_game","n":"Pig game","e":"index.html","mb":4.14},{"d":"Pikachu_Volleyball","n":"Pikachu Volleyball","e":"index.html","mb":0.7},{"d":"Pinball","n":"Pinball","e":"index.html","mb":0.13},{"d":"Ping_Pong","n":"Ping Pong","e":"index.html","mb":0.0},{"d":"Ping_Pong_Multiplayer","n":"Ping Pong Multiplayer","e":"index.html","mb":0.1},{"d":"Ping_Pong_Singleplayer","n":"Ping Pong Singleplayer","e":"index.html","mb":2.51},{"d":"Pixel_Painter","n":"Pixel Painter","e":"index.html","mb":0.03},{"d":"Pixel_Smash","n":"Pixel Smash","e":"index.html","mb":0.0},{"d":"Pixels_From_Space","n":"Pixels From Space","e":"index.html","mb":0.06},{"d":"Planet_Defense","n":"Planet Defense","e":"index.html","mb":0.38},{"d":"Planet_Game","n":"Planet Game","e":"index.html","mb":0.03},{"d":"Plankman","n":"Plankman","e":"index.html","mb":2.62},{"d":"Platform_Game","n":"Platform Game","e":"index.html","mb":0.02},{"d":"Platform_game_engine","n":"Platform game engine","e":"index.html","mb":0.02},{"d":"Poke_Guess_Blitz","n":"Poke Guess Blitz","e":"index.html","mb":0.17},{"d":"Pokedex","n":"Pokedex","e":"index.html","mb":0.12},{"d":"Pokemon_Adventure_Game","n":"Pokemon Adventure Game","e":"index.html","mb":24.22},{"d":"Pokemon_Ball_Finder","n":"Pokemon Ball Finder","e":"index.html","mb":0.51},{"d":"Pokemon_Card_Game","n":"Pokemon Card Game","e":"index.html","mb":19.01},{"d":"Pokemon_Stats_Card","n":"Pokemon Stats Card","e":"index.html","mb":0.11},{"d":"Poker_Dice","n":"Poker Dice","e":"index.html","mb":0.09},{"d":"Pong","n":"Pong","e":"index.html","mb":0.03},{"d":"Pop_My_Balloon","n":"Pop My Balloon","e":"index.html","mb":0.03},{"d":"Pop_the_Bubbles","n":"Pop the Bubbles","e":"index.html","mb":0.12},{"d":"Prime-No-Finder-Game","n":"Prime No Finder Game","e":"index.html","mb":2.94},{"d":"Projectile_Motion_Game","n":"Projectile Motion Game","e":"index.html","mb":0.02},{"d":"Pumpkin_Pursuit","n":"Pumpkin Pursuit","e":"index.html","mb":3.8},{"d":"Puzzel_winner","n":"Puzzel winner","e":"index.html","mb":0.34},{"d":"Puzzle_Game","n":"Puzzle Game","e":"index.html","mb":0.77},{"d":"Quest_For_Riches","n":"Quest For Riches","e":"index.html","mb":8.79},{"d":"QuickFingers","n":"Quick Fingers","e":"index.html","mb":0.0},{"d":"Quick_Click","n":"Quick Click","e":"index.html","mb":0.03},{"d":"Quick_Math","n":"Quick Math","e":"index.html","mb":0.01},{"d":"Quiz_With_Timer","n":"Quiz With Timer","e":"index.html","mb":0.02},{"d":"Quiz_it_out","n":"Quiz it out","e":"index.html","mb":0.01},{"d":"Quizify","n":"Quizify","e":"index.html","mb":0.03},{"d":"RIP","n":"RIP","e":"index.html","mb":0.02},{"d":"Rabbit_Rush","n":"Rabbit Rush","e":"index.html","mb":0.05},{"d":"Random_Advice_Generator","n":"Random Advice Generator","e":"index.html","mb":0.0},{"d":"Random_Choice_Picker","n":"Random Choice Picker","e":"index.html","mb":0.13},{"d":"Random_Joke_Generator","n":"Random Joke Generator","e":"index.html","mb":0.0},{"d":"Reaction_Time","n":"Reaction Time","e":"index.html","mb":0.0},{"d":"Recognizing_Figures","n":"Recognizing Figures","e":"index.html","mb":0.01},{"d":"Rectangular","n":"Rectangular","e":"index.html","mb":0.02},{"d":"Red_Light_Green_Light","n":"Red Light Green Light","e":"index.html","mb":11.71},{"d":"Reflex_Game","n":"Reflex Game","e":"index.html","mb":0.01},{"d":"Remember_the_color","n":"Remember the color","e":"index.html","mb":0.09},{"d":"Response_Reaction","n":"Response Reaction","e":"index.html","mb":0.01},{"d":"Retro_Dungeon_Puzzle","n":"Retro Dungeon Puzzle","e":"index.html","mb":0.37},{"d":"Reverse Memory","n":"Reverse Memory","e":"index.html","mb":0.01},{"d":"Riddle_Room","n":"Riddle Room","e":"index.html","mb":0.78},{"d":"Riddle_game","n":"Riddle game","e":"index.html","mb":0.0},{"d":"Risky_Nav","n":"Risky Nav","e":"index.html","mb":0.03},{"d":"RoadFighter","n":"Road Fighter","e":"index.html","mb":0.75},{"d":"Rock-Paper","n":"Rock Paper","e":"index.html","mb":0.08},{"d":"Rock_Paper_Scissors","n":"Rock Paper Scissors","e":"index.html","mb":0.18},{"d":"Rock_Paper_Scissors_Lizard_Spock","n":"Rock Paper Scissors Lizard Spock","e":"index.html","mb":0.02},{"d":"Rock_Paper_Scissors_Lizard_Spock_Game","n":"Rock Paper Scissors Lizard Spock Game","e":"index.html","mb":6.75},{"d":"Rock_Paper_Scissors_Neon","n":"Rock Paper Scissors Neon","e":"index.html","mb":0.01},{"d":"Rock_paper_scissor","n":"Rock paper scissor","e":"index.html","mb":0.15},{"d":"Rocket_Ride","n":"Rocket Ride","e":"index.html","mb":0.01},{"d":"Rocket_Shooter","n":"Rocket Shooter","e":"index.html","mb":4.17},{"d":"Rocket_Showdown","n":"Rocket Showdown","e":"index.html","mb":0.96},{"d":"Roll_Race","n":"Roll Race","e":"index.html","mb":3.8},{"d":"Roll_The_Dice","n":"Roll The Dice","e":"index.html","mb":0.0},{"d":"Rotating_Elements","n":"Rotating Elements","e":"index.html","mb":0.15},{"d":"Roulette","n":"Roulette","e":"index.html","mb":0.04},{"d":"Rubik's_solver","n":"Rubik's solver","e":"index.html","mb":0.14},{"d":"Run and Jump","n":"Run and Jump","e":"index.html","mb":0.06},{"d":"Run_Dora_Run","n":"Run Dora Run","e":"index.html","mb":1.44},{"d":"Samurai_Fighting_Game","n":"Samurai Fighting Game","e":"index.html","mb":0.17},{"d":"Save_Princess","n":"Save Princess","e":"index.html","mb":0.02},{"d":"Save_The_Forest","n":"Save The Forest","e":"index.html","mb":0.05},{"d":"SciFi_Alchemy","n":"Sci Fi Alchemy","e":"index.html","mb":0.09},{"d":"Sciarra_Of_Colors","n":"Sciarra Of Colors","e":"index.html","mb":0.02},{"d":"Screen_Pet_Game","n":"Screen Pet Game","e":"index.html","mb":0.1},{"d":"Sentence_Scramble","n":"Sentence Scramble","e":"index.html","mb":0.11},{"d":"Shadow_PokeGuess","n":"Shadow Poke Guess","e":"index.html","mb":0.49},{"d":"Shadow_Runner","n":"Shadow Runner","e":"index.html","mb":0.01},{"d":"Shape Finder","n":"Shape Finder","e":"index.html","mb":0.04},{"d":"Shape_Blocks","n":"Shape Blocks","e":"index.html","mb":0.03},{"d":"Shell_Game","n":"Shell Game","e":"index.html","mb":0.0},{"d":"Shoot_The_Balloon","n":"Shoot The Balloon","e":"index.html","mb":0.46},{"d":"Short_Circuit","n":"Short Circuit","e":"index.html","mb":0.1},{"d":"Shpere","n":"Shpere","e":"index.html","mb":0.04},{"d":"Shrek_Vs_Wild","n":"Shrek Vs Wild","e":"index.html","mb":10.02},{"d":"ShroomKnight","n":"Shroom Knight","e":"index.html","mb":0.69},{"d":"Simon_Game_Challenge","n":"Simon Game Challenge","e":"index.html","mb":0.07},{"d":"Simon_Says","n":"Simon Says","e":"index.html","mb":0.2},{"d":"Single_Player_Solitaire","n":"Single Player Solitaire","e":"index.html","mb":0.01},{"d":"Skeleathon","n":"Skeleathon","e":"index.html","mb":0.04},{"d":"Sky_Dodge","n":"Sky Dodge","e":"index.html","mb":0.01},{"d":"Sky_Jumper","n":"Sky Jumper","e":"index.html","mb":0.0},{"d":"Sky_Lift_Dash","n":"Sky Lift Dash","e":"index.html","mb":0.02},{"d":"Slice_Storm","n":"Slice Storm","e":"index.html","mb":0.05},{"d":"Slide_Master_Puzzle","n":"Slide Master Puzzle","e":"index.html","mb":0.48},{"d":"Slide_Puzzle","n":"Slide Puzzle","e":"index.html","mb":0.23},{"d":"Sliding_puzzle","n":"Sliding puzzle","e":"index.html","mb":0.01},{"d":"Slime_attack_game","n":"Slime attack game","e":"index.html","mb":0.03},{"d":"Smash-Monty-mole-master-main","n":"Smash Monty mole master main","e":"index.html","mb":1.64},{"d":"Smashing_Blocks","n":"Smashing Blocks","e":"index.html","mb":6.0},{"d":"Snail_Game","n":"Snail Game","e":"index.html","mb":0.05},{"d":"Snake_Feeder_Game","n":"Snake Feeder Game","e":"index.html","mb":23.14},{"d":"Snake_Game","n":"Snake Game","e":"index.html","mb":11.01},{"d":"Snake_Gun_Water","n":"Snake Gun Water","e":"index.html","mb":0.13},{"d":"Snake_Ladder","n":"Snake Ladder","e":"index.html","mb":0.6},{"d":"Snooze","n":"Snooze","e":"index.html","mb":0.33},{"d":"Soccer","n":"Soccer","e":"index.html","mb":0.01},{"d":"Solitaire","n":"Solitaire","e":"index.html","mb":0.66},{"d":"Solitaire_up","n":"Solitaire up","e":"index.html","mb":0.02},{"d":"Sonic_The_Hedgehog","n":"Sonic The Hedgehog","e":"index.html","mb":18.9},{"d":"Sorades","n":"Sorades","e":"index.html","mb":0.06},{"d":"Soul_Jumper","n":"Soul Jumper","e":"index.html","mb":0.03},{"d":"Space_Dash","n":"Space Dash","e":"index.html","mb":0.0},{"d":"Space_Defence","n":"Space Defence","e":"index.html","mb":0.08},{"d":"Space_Dominators","n":"Space Dominators","e":"index.html","mb":0.18},{"d":"Space_Exploration","n":"Space Exploration","e":"index.html","mb":0.15},{"d":"Space_Gun","n":"Space Gun","e":"index.html","mb":0.09},{"d":"Space_Huggers","n":"Space Huggers","e":"index.html","mb":0.19},{"d":"Space_War","n":"Space War","e":"index.html","mb":0.01},{"d":"Spaceducts","n":"Spaceducts","e":"index.html","mb":2.2},{"d":"Spacepi","n":"Spacepi","e":"index.html","mb":0.16},{"d":"Spaceship_Escort","n":"Spaceship Escort","e":"index.html","mb":0.04},{"d":"Spell_Bee","n":"Spell Bee","e":"index.html","mb":0.28},{"d":"Spelling_Bee","n":"Spelling Bee","e":"index.html","mb":0.1},{"d":"Spider_Man_Go","n":"Spider Man Go","e":"index.html","mb":14.96},{"d":"Spin_the_wheel","n":"Spin the wheel","e":"index.html","mb":0.01},{"d":"Spirograph","n":"Spirograph","e":"index.html","mb":0.01},{"d":"Squared_lines","n":"Squared lines","e":"index.html","mb":0.14},{"d":"Squashing_your_Enemy","n":"Squashing your Enemy","e":"index.html","mb":1.38},{"d":"Squid_Game","n":"Squid Game","e":"index.html","mb":11.36},{"d":"Stack_Game","n":"Stack Game","e":"index.html","mb":0.05},{"d":"Star_Trek_Trivia","n":"Star Trek Trivia","e":"index.html","mb":2.8},{"d":"Steam_Punk","n":"Steam Punk","e":"index.html","mb":2.04},{"d":"Steampunk_FlappyBird","n":"Steampunk Flappy Bird","e":"index.html","mb":0.57},{"d":"StickTheSticker","n":"Stick The Sticker","e":"index.html","mb":1.09},{"d":"Stick_Hero_Game","n":"Stick Hero Game","e":"index.html","mb":0.55},{"d":"Stolen_Sword","n":"Stolen Sword","e":"index.html","mb":0.08},{"d":"Stone_paper_scissor","n":"Stone paper scissor","e":"index.html","mb":0.98},{"d":"Subway_Surfers","n":"Subway Surfers","e":"index.html","mb":0.0},{"d":"Sucker","n":"Sucker","e":"index.html","mb":0.06},{"d":"Sudoku","n":"Sudoku","e":"index.html","mb":0.02},{"d":"Sudoku_light_theme","n":"Sudoku light theme","e":"index.html","mb":1.01},{"d":"Super_mario_run","n":"Super mario run","e":"index.html","mb":0.92},{"d":"Super_tetris","n":"Super tetris","e":"index.html","mb":0.02},{"d":"Swap-Card-Game","n":"Swap Card Game","e":"index.html","mb":4.91},{"d":"Swift","n":"Swift","e":"index.html","mb":0.02},{"d":"Synonym-Typing-Game","n":"Synonym Typing Game","e":"index.html","mb":3.92},{"d":"Synonym_Symphony","n":"Synonym Symphony","e":"index.html","mb":0.19},{"d":"Taash Game","n":"Taash Game","e":"index.html","mb":13.23},{"d":"Target_Torrent","n":"Target Torrent","e":"index.html","mb":1.94},{"d":"Tech_Memory_Block","n":"Tech Memory Block","e":"index.html","mb":2.54},{"d":"Technical_Mind_Game","n":"Technical Mind Game","e":"index.html","mb":3.56},{"d":"Tenacity","n":"Tenacity","e":"index.html","mb":0.08},{"d":"Tennis","n":"Tennis","e":"index.html","mb":0.01},{"d":"Terror_Seventy","n":"Terror Seventy","e":"index.html","mb":0.09},{"d":"Tether","n":"Tether","e":"index.html","mb":7.29},{"d":"Tetris","n":"Tetris","e":"index.html","mb":0.01},{"d":"Tetris_Game","n":"Tetris Game","e":"index.html","mb":0.27},{"d":"The_Last_Spartan","n":"The Last Spartan","e":"index.html","mb":0.09},{"d":"The_Mystery_Adventure_Game","n":"The Mystery Adventure Game","e":"index.html","mb":0.08},{"d":"The_Raising_Fighting_Spirits","n":"The Raising Fighting Spirits","e":"index.html","mb":0.21},{"d":"The_labyrinth_of_death","n":"The labyrinth of death","e":"index.html","mb":0.04},{"d":"Thirteen","n":"Thirteen","e":"index.html","mb":0.02},{"d":"Tic-Tac-Toe Game","n":"Tic Tac Toe Game","e":"index.html","mb":0.01},{"d":"Tic-tac-toe","n":"Tic tac toe","e":"index.html","mb":0.06},{"d":"Tic_Tac_Toe","n":"Tic Tac Toe (2)","e":"index.html","mb":11.58},{"d":"Tic_Tac_Toe_Game","n":"Tic Tac Toe Game (2)","e":"index.html","mb":4.6},{"d":"Tic_Tac_Toe_Neon","n":"Tic Tac Toe Neon","e":"index.html","mb":0.0},{"d":"Tic_tac_toe_responsive","n":"Tic tac toe responsive","e":"index.html","mb":0.05},{"d":"Tile_Game","n":"Tile Game","e":"index.html","mb":0.1},{"d":"Tilting_Maze","n":"Tilting Maze","e":"index.html","mb":0.03},{"d":"Timber_Terry","n":"Timber Terry","e":"index.html","mb":0.21},{"d":"Tinker_jump_master","n":"Tinker jump master","e":"index.html","mb":4.38},{"d":"Tiny-Fishing","n":"Tiny Fishing","e":"index.html","mb":3.59},{"d":"Touch-No-Fire-Game","n":"Touch No Fire Game","e":"index.html","mb":1.06},{"d":"Touch_The_Ball","n":"Touch The Ball","e":"index.html","mb":0.02},{"d":"Tower_Block_Game","n":"Tower Block Game","e":"index.html","mb":0.02},{"d":"Tower_Blocks","n":"Tower Blocks","e":"index.html","mb":0.02},{"d":"Tower_Building_Game","n":"Tower Building Game","e":"index.html","mb":0.05},{"d":"Tower_Defence_Game","n":"Tower Defence Game","e":"index.html","mb":0.29},{"d":"Tower_Defense","n":"Tower Defense","e":"index.html","mb":0.01},{"d":"Tower_Of_Hanoi","n":"Tower Of Hanoi","e":"index.html","mb":5.79},{"d":"Tower_Stack","n":"Tower Stack","e":"index.html","mb":0.96},{"d":"Track_Not_Found","n":"Track Not Found","e":"index.html","mb":0.09},{"d":"Traffic_Run","n":"Traffic Run","e":"index.html","mb":0.42},{"d":"Trashem","n":"Trashem","e":"index.html","mb":0.04},{"d":"Treasure Hunt","n":"Treasure Hunt","e":"index.html","mb":2.69},{"d":"Trex_Run","n":"Trex Run","e":"index.html","mb":12.26},{"d":"TriHand_Tactics","n":"Tri Hand Tactics","e":"index.html","mb":0.11},{"d":"Triangle_Back_To_Home","n":"Triangle Back To Home","e":"index.html","mb":0.13},{"d":"Trio_Match","n":"Trio Match","e":"index.html","mb":0.05},{"d":"Trivia_Card","n":"Trivia Card","e":"index.html","mb":0.2},{"d":"Trivia_It","n":"Trivia It","e":"index.html","mb":0.02},{"d":"Truth_And_Dare","n":"Truth And Dare","e":"index.html","mb":0.03},{"d":"Turn_on_the_light","n":"Turn on the light","e":"index.html","mb":0.02},{"d":"Typing_Game","n":"Typing Game","e":"index.html","mb":0.0},{"d":"Typing_Speed_Test2","n":"Typing Speed Test2","e":"index.html","mb":0.06},{"d":"Typing_Speed_Test_Game","n":"Typing Speed Test Game","e":"index.html","mb":0.02},{"d":"Typing_Test","n":"Typing Test","e":"index.html","mb":0.02},{"d":"UNO","n":"UNO","e":"index.html","mb":6.74},{"d":"UNO_game_with_Computer","n":"UNO game with Computer","e":"index.html","mb":0.5},{"d":"Ultimate_Football_Manager","n":"Ultimate Football Manager","e":"index.html","mb":27.32},{"d":"Underwater Shoot","n":"Underwater Shoot","e":"index.html","mb":17.73},{"d":"Unlock_The_Lock","n":"Unlock The Lock","e":"index.html","mb":0.03},{"d":"Unruly_Tower","n":"Unruly Tower","e":"index.html","mb":0.02},{"d":"Unword_it","n":"Unword it","e":"index.html","mb":0.2},{"d":"Uxu","n":"Uxu","e":"index.html","mb":0.04},{"d":"Virtual_Pet","n":"Virtual Pet","e":"index.html","mb":1.57},{"d":"Virtual_Piano","n":"Virtual Piano","e":"index.html","mb":1.06},{"d":"Wault_master","n":"Wault master","e":"index.html","mb":0.08},{"d":"Whack_a_Mole","n":"Whack a Mole","e":"index.html","mb":4.16},{"d":"Whack_a_Mole_Mario_Version","n":"Whack a Mole Mario Version","e":"index.html","mb":2.89},{"d":"Wheel_of_Fortunes","n":"Wheel of Fortunes","e":"index.html","mb":0.05},{"d":"Wheel_of_fortune","n":"Wheel of fortune","e":"index.html","mb":0.01},{"d":"Which_Color","n":"Which Color","e":"index.html","mb":0.36},{"d":"Wildcard_Bonanza","n":"Wildcard Bonanza","e":"index.html","mb":0.96},{"d":"WordChain","n":"Word Chain","e":"index.html","mb":1.25},{"d":"WordSprint","n":"Word Sprint","e":"index.html","mb":1.04},{"d":"Word_Association_Game","n":"Word Association Game","e":"index.html","mb":0.29},{"d":"Word_Guessing_Game","n":"Word Guessing Game","e":"index.html","mb":4.4},{"d":"Word_Scramble_Game","n":"Word Scramble Game","e":"index.html","mb":4.63},{"d":"Word_Search_Game","n":"Word Search Game","e":"index.html","mb":0.37},{"d":"Word_Shuffle_Game","n":"Word Shuffle Game","e":"index.html","mb":0.04},{"d":"Word_search_puzzle","n":"Word search puzzle","e":"index.html","mb":0.06},{"d":"Wordle","n":"Wordle","e":"index.html","mb":0.05},{"d":"Wordling","n":"Wordling","e":"index.html","mb":0.18},{"d":"World_Of_Emojis","n":"World Of Emojis","e":"index.html","mb":0.03},{"d":"Yahtzee","n":"Yahtzee","e":"index.html","mb":0.03},{"d":"Zombie_Shooter","n":"Zombie Shooter","e":"index.html","mb":2.53},{"d":"Zurbo","n":"Zurbo","e":"index.html","mb":0.12},{"d":"automated_rock_paper_scissor","n":"automated rock paper scissor","e":"index.html","mb":0.0},{"d":"catch_the_falling_stars","n":"catch the falling stars (2)","e":"index.html","mb":0.01},{"d":"clawCrane","n":"claw Crane","e":"index.html","mb":0.01},{"d":"click_circle","n":"click circle","e":"index.html","mb":0.0},{"d":"color matcher","n":"color matcher","e":"index.html","mb":0.04},{"d":"color_matching_application","n":"color matching application","e":"index.html","mb":0.03},{"d":"color_switch_challenger","n":"color switch challenger","e":"index.html","mb":0.0},{"d":"escaperoom","n":"escaperoom","e":"index.html","mb":0.01},{"d":"keySymphony","n":"key Symphony","e":"index.html","mb":1.01},{"d":"linkup","n":"linkup","e":"index.html","mb":0.38},{"d":"mario-game","n":"mario game","e":"index.html","mb":4.33},{"d":"mario_matching_game","n":"mario matching game","e":"index.html","mb":0.16},{"d":"my_mine_sweeper","n":"my mine sweeper","e":"index.html","mb":0.01},{"d":"namefate","n":"namefate","e":"index.html","mb":0.0},{"d":"numeral-whiz","n":"numeral whiz","e":"index.html","mb":0.0},{"d":"oh_flip","n":"oh flip","e":"index.html","mb":0.03},{"d":"path_finder","n":"path finder","e":"index.html","mb":0.01},{"d":"puzzle-game","n":"puzzle game (2)","e":"index.html","mb":0.04},{"d":"quiz_game","n":"quiz game","e":"index.html","mb":0.01},{"d":"race_car","n":"race car","e":"index.html","mb":0.1},{"d":"rapid_click_frenzy","n":"rapid click frenzy","e":"index.html","mb":0.0},{"d":"reaction_teaser","n":"reaction teaser","e":"index.html","mb":0.97},{"d":"road_car","n":"road car","e":"index.html","mb":0.0},{"d":"sand_tetris","n":"sand tetris","e":"index.html","mb":0.07},{"d":"snake","n":"snake","e":"index.html","mb":0.0},{"d":"snake_water_gun","n":"snake water gun","e":"index.html","mb":0.04},{"d":"space_drifter","n":"space drifter","e":"index.html","mb":1.54},{"d":"space_explorer","n":"space explorer","e":"index.html","mb":0.01},{"d":"test_your_brain","n":"test your brain","e":"index.html","mb":0.11},{"d":"whack a mole","n":"whack a mole (2)","e":"index.html","mb":0.0},{"d":"witty_word_quest","n":"witty word quest","e":"index.html","mb":0.01},{"d":"wordScramble","n":"word Scramble","e":"index.html","mb":29.73},{"d":"word_association","n":"word association","e":"index.html","mb":0.0},{"d":"word_blitz","n":"word blitz","e":"index.html","mb":0.01}];</script>
+<script>
+(function(){
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const embedded = window.top !== window.self;
+  if (embedded) document.body.classList.add('embedded');
+
+  const PAGE = 120;              // 首屏渲染数量，滚动时增量渲染（737 个 DOM 一次性也能扛，但手机上更顺）
+  const LS_RECENT = 'arcadeRecentV1';
+  let shown = PAGE, list = CATALOG.slice(), lastQ = '';
+
+  /* 颜色由目录名哈希决定，保证同一个游戏永远是同一色 */
+  function hue(str){ let h=0; for(let i=0;i<str.length;i++) h=(h*31+str.charCodeAt(i))>>>0; return h%360; }
+  function initials(name){
+    const parts = name.replace(/[_\-.]+/g,' ').split(/\s+/).filter(Boolean);
+    if(parts.length>=2) return (parts[0][0]+parts[1][0]).toUpperCase();
+    const w = parts[0]||'?';
+    if(/[\u4e00-\u9fa5]/.test(w)) return w.slice(0,2);
+    return w.slice(0,2).toUpperCase();
+  }
+  function paint(card, g){
+    const h = hue(g.d);
+    card.querySelector('.thumb').style.setProperty('--c1', `hsl(${h} 72% 44%)`);
+    card.querySelector('.thumb').style.setProperty('--c2', `hsl(${(h+48)%360} 68% 22%)`);
+    card.querySelector('.thumb span').textContent = initials(g.n);
+  }
+
+  /* ---------- 渲染 ---------- */
+  function makeCard(g){
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = '<div class="thumb"><i></i><span></span></div>'+
+                   '<div class="meta"><div class="name"></div></div>';
+    el.querySelector('.name').textContent = g.n;
+    paint(el, g);
+    el.onclick = () => openGame(g);
+    return el;
+  }
+  function render(reset){
+    const grid = $('#grid');
+    if (reset){ grid.innerHTML=''; shown = PAGE; }
+    const slice = list.slice(0, shown);
+    const frag = document.createDocumentFragment();
+    const from = reset ? 0 : grid.childElementCount;
+    slice.slice(from).forEach(g => frag.appendChild(makeCard(g)));
+    grid.appendChild(frag);
+    $('#empty').style.display = list.length ? 'none' : 'block';
+    $('#moreBtn').style.display = (shown < list.length) ? 'inline-flex' : 'none';
+    updateCount();
+  }
+  function updateCount(){
+    const c = $('#cnt');
+    const q = lastQ.trim();
+    c.textContent = q ? `${list.length} / ${CATALOG.length} 款`
+                      : `${CATALOG.length} 款`;
+  }
+  function filter(q){
+    lastQ = q;
+    const needle = q.trim().toLowerCase();
+    list = needle ? CATALOG.filter(g => g.n.toLowerCase().includes(needle) || g.d.toLowerCase().includes(needle))
+                  : CATALOG.slice();
+    render(true);
+  }
+
+  /* ---------- 最近在玩 ---------- */
+  function getRecent(){
+    try { return JSON.parse(localStorage.getItem(LS_RECENT)||'[]').filter(d=>CATALOG.some(g=>g.d===d)).slice(0,8); }
+    catch(e){ return []; }
+  }
+  function pushRecent(d){
+    try {
+      let r = JSON.parse(localStorage.getItem(LS_RECENT)||'[]').filter(x=>x!==d);
+      r.unshift(d); localStorage.setItem(LS_RECENT, JSON.stringify(r.slice(0,12)));
+    } catch(e){}
+  }
+  function renderRecent(){
+    const r = getRecent(), wrap = $('#recentWrap'), box = $('#recent');
+    wrap.style.display = r.length ? 'block' : 'none';
+    box.innerHTML = '';
+    r.forEach(d => {
+      const g = CATALOG.find(x=>x.d===d);
+      const b = document.createElement('button');
+      b.className='chip'; b.textContent = g.n;
+      b.onclick = () => openGame(g);
+      box.appendChild(b);
+    });
+  }
+
+  /* ---------- 播放器 ---------- */
+  let cur = null, loadTimer = null, alive = false;
+  const player = $('#player'), pf = $('#pf');
+
+  function gameUrl(g){ return encodeURIComponent(g.d) + '/index.html'; }
+
+  function openGame(g, push){
+    cur = g;
+    updateUrl(g.d, push !== false);
+    $('#pname').textContent = g.n;
+    $('#pOpen').href = gameUrl(g);
+    $('#pfNew').href = gameUrl(g);
+    $('#pfail').classList.remove('on');
+    player.classList.add('on');
+    document.body.style.overflow = 'hidden';
+    load(push !== false);
+    pushRecent(g.d);
+    renderRecent();
+  }
+  function load(){
+    if (!cur) return;
+    $('#pfail').classList.remove('on');
+    const src = gameUrl(cur) + (gameUrl(cur).includes('?') ? '&' : '?') + '_r=' + Date.now();
+    alive = false;
+    $('#pload').classList.remove('gone');
+    pf.src = src;
+    clearTimeout(loadTimer);
+    // iframe 的 onload 在 404 页面也会触发，所以只把它当「有响应」；超时才算失败
+    loadTimer = setTimeout(() => { if (!alive) showFail('加载超时（网络慢或该游戏依赖外部资源）'); }, 12000);
+  }
+  pf.addEventListener('load', () => {
+    alive = true;
+    clearTimeout(loadTimer);
+    setTimeout(()=>$('#pload').classList.add('gone'), 120);
+  });
+  function showFail(msg){
+    $('#pload').classList.add('gone');
+    $('#pfailMsg').textContent = msg || '';
+    $('#pfail').classList.add('on');
+  }
+  function closeGame(push){
+    player.classList.remove('on');
+    document.body.style.overflow = '';
+    pf.src = 'about:blank';
+    cur = null;
+    if (push !== false) updateUrl(null, true);
+  }
+  function updateUrl(dir, push){
+    const u = new URL(location.href);
+    if (dir) u.searchParams.set('g', dir); else u.searchParams.delete('g');
+    try { (push ? history.pushState : history.replaceState).call(history, {g: dir}, '', u); } catch(e){}
+  }
+
+  /* 返回门户：同源时直接调门户的 closeGame() */
+  function backToPortal(){
+    try { if (window.parent && window.parent !== window && typeof window.parent.closeGame === 'function'){ window.parent.closeGame(); return; } } catch(e){}
+    location.href = '/';
+  }
+
+  /* ---------- 事件 ---------- */
+  $('#q').addEventListener('input', e => {
+    const v = e.target.value;
+    $('#qClear').style.display = v ? 'inline-flex' : 'none';
+    filter(v);
+  });
+  $('#qClear').onclick = () => { $('#q').value=''; $('#qClear').style.display='none'; filter(''); $('#q').focus(); };
+  $('#moreBtn').onclick = () => { shown += PAGE; render(false); };
+  $('#btnRand').onclick = () => {
+    const pool = list.length ? list : CATALOG;
+    if (!pool.length) return;
+    openGame(pool[Math.floor(Math.random()*pool.length)]);
+  };
+  $('#btnBack').onclick = backToPortal;
+  $('#pBack').onclick = () => closeGame();
+  $('#pReload').onclick = () => load();
+  $('#pfRetry').onclick = () => load();
+  $('#pFs').onclick = () => {
+    const el = $('#player');
+    const on = document.fullscreenElement || document.webkitFullscreenElement;
+    const ex = document.exitFullscreen || document.webkitExitFullscreen;
+    const rq = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+    if (on) { ex && ex.call(document); return; }
+    if (!rq) { alert('iPhone Safari 不支持页内全屏：可点 ↗ 在新标签打开，或"添加到主屏幕"后从桌面图标进入。'); return; }
+    const p = rq.call(el, {navigationUI:'hide'}); p && p.catch && p.catch(()=>{});
+  };
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && cur) { e.preventDefault(); closeGame(); }
+    if (e.key === '/' && document.activeElement !== $('#q')) { e.preventDefault(); $('#q').focus(); }
+  });
+  window.addEventListener('scroll', () => {
+    if (shown >= list.length) return;
+    if (window.innerHeight + window.scrollY > document.body.offsetHeight - 500) { shown += PAGE; render(false); }
+  }, {passive:true});
+  window.addEventListener('popstate', () => {
+    const g = new URL(location.href).searchParams.get('g');
+    if (!g && cur) closeGame(false);
+    else if (g && (!cur || cur.d !== g)) { const hit = CATALOG.find(x=>x.d===g); if (hit) openGame(hit, false); }
+  });
+
+  /* ---------- 启动 ---------- */
+  filter('');
+  renderRecent();
+  const deep = new URL(location.href).searchParams.get('g');
+  if (deep){ const hit = CATALOG.find(x=>x.d===deep); if (hit) openGame(hit, false); }
+  window.ARCADE = { count: CATALOG.length, open:(d)=>{const g=CATALOG.find(x=>x.d===d); if(g) openGame(g); return !!g;},
+                    list:()=>list.map(g=>g.d), probe:()=>({count:CATALOG.length, shown:document.querySelectorAll('.card').length,
+                    player:player.classList.contains('on'), cur:cur&&cur.d, embedded}) };
+})();
+</script>
+</body>
+</html>

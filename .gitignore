@@ -8,3 +8,10 @@ werewolf/_*.php
 # --- macOS / Synology noise (auto-regenerates) ---
 .DS_Store
 @eaDir/
+
+# --- 小游戏大厅（/minigames/）---
+# 689 个游戏本体来自上游开源项目 GameZone（Apache-2.0，github.com/kunjgit/GameZone），
+# 共约 1.9 GB / 4 万余文件，含 >100MB 的 mp4（超过 GitHub 单文件硬限），因此不入库。
+# 入库的只有大厅页面、目录清单、许可证与图标；游戏目录用 NAS 上的实际文件提供服务。
+# 重建方式见 /opt/data/arcade_build/build.py（本地扫描 → catalog.json → index.html）。
+/minigames/*/

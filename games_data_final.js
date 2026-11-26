@@ -5,7 +5,8 @@ const RAW_GAMES = [
     "/exams_games/TheAviator/|The Aviator|/exams_games/icon_aviator.svg?v=2",
     "/exams_games/MineWorld/|MineWorld|/exams_games/icon_mineworld.svg?v=2",
     "/dungeon/|灰烬遗迹|/exams_games/icon_dungeon.svg?v=1",
-    "/blockwild/|ORBOUND|/exams_games/icon_blockwild.svg?v=1"
+    "/blockwild/|ORBOUND|/exams_games/icon_blockwild.svg?v=1",
+    "/minigames/|小游戏大厅 · 689 款|/exams_games/icon_arcade.svg?v=1"
 ];
 
 // Convert the compact strings into the final object array needed by your portal
