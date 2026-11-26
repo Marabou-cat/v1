@@ -15,3 +15,6 @@ werewolf/_*.php
 # 入库的只有大厅页面、目录清单、许可证与图标；游戏目录用 NAS 上的实际文件提供服务。
 # 重建方式见 /opt/data/arcade_build/build.py（本地扫描 → catalog.json → index.html）。
 /minigames/*/
+
+# --- unblocked games 本体（十几 GB，不入库）---
+/ug/*/

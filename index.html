@@ -963,7 +963,7 @@ html[data-theme="light"] .more-sidebar{background:rgba(60,50,40,.36)}
     <div class="hero-copy">
       <p class="eyebrow"><span class="dot"></span> Digital portal · 2026</p>
       <h1>Learn hard.<br><span class="grad">Play harder.</span></h1>
-      <p class="lede">Three hand-built modules, one account and one economy. Earn ExamCoins while you play, then spend them on pets, cursors and prestige.</p>
+      <p class="lede">Super Brawl plus 585 browser games — one account and one economy. Earn ExamCoins while you play, then spend them on pets, cursors and prestige.</p>
       <div class="hero-cta">
         <button class="btn-primary" onclick="document.getElementById('library').scrollIntoView({behavior:'smooth',block:'start'})">
           Browse modules
@@ -1899,10 +1899,10 @@ function redeemCode() {
 
 // --- RECOMMENDED ROTATION LOGIC ---
 const REC_GAMES = [
-    { f: "/exams_games/smash.html", name: "Super Brawl", icon: "/logos/smash-logo.png?v=1" },
-    { f: "/exams_games/TheAviator/", name: "The Aviator", icon: "/exams_games/icon_aviator.svg?v=2" },
-    { f: "/exams_games/MineWorld/", name: "MineWorld", icon: "/exams_games/icon_mineworld.svg?v=2" },
-    { f: "/minigames/", name: "小游戏大厅 · 689 款", icon: "/exams_games/icon_arcade.svg?v=1" }
+    { f: "/smash/", name: "Super Brawl", icon: "/logos/smash-logo.png?v=1" }
+    , { f: "/ug/2048/", name: "2048", icon: "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2796%27%20height%3D%2796%27%3E%3Crect%20width%3D%2796%27%20height%3D%2796%27%20fill%3D%27hsl%28140%2C62%25%2C38%25%29%27%2F%3E%3Ctext%20x%3D%2748%27%20y%3D%2764%27%20font-size%3D%2740%27%20font-weight%3D%27800%27%20fill%3D%27white%27%20text-anchor%3D%27middle%27%20font-family%3D%27sans-serif%27%3E20%3C%2Ftext%3E%3C%2Fsvg%3E" }
+    , { f: "/ug/subwaysurfers/", name: "Subway Surfers", icon: "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2796%27%20height%3D%2796%27%3E%3Crect%20width%3D%2796%27%20height%3D%2796%27%20fill%3D%27hsl%28100%2C62%25%2C38%25%29%27%2F%3E%3Ctext%20x%3D%2748%27%20y%3D%2764%27%20font-size%3D%2740%27%20font-weight%3D%27800%27%20fill%3D%27white%27%20text-anchor%3D%27middle%27%20font-family%3D%27sans-serif%27%3ES%3C%2Ftext%3E%3C%2Fsvg%3E" }
+    , { f: "/ug/slope/", name: "Slope", icon: "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2796%27%20height%3D%2796%27%3E%3Crect%20width%3D%2796%27%20height%3D%2796%27%20fill%3D%27hsl%28140%2C62%25%2C38%25%29%27%2F%3E%3Ctext%20x%3D%2748%27%20y%3D%2764%27%20font-size%3D%2740%27%20font-weight%3D%27800%27%20fill%3D%27white%27%20text-anchor%3D%27middle%27%20font-family%3D%27sans-serif%27%3ES%3C%2Ftext%3E%3C%2Fsvg%3E" }
 ];
 
 let currentRecIdx = 0;
@@ -3013,9 +3013,12 @@ function toggleFavoriteView() {
     renderGrid(document.getElementById('searchInput').value);
 }
 
+const GRID_CHUNK = 96;               // 每次渲染的卡片数（上千款游戏时分块，首屏不卡）
+let _gridQueue = [], _gridShown = 0, _gridFilter = null;
+
 function renderGrid(filter = "") {
-    const grid = document.getElementById('gamesGrid'); grid.innerHTML = "";
-    document.getElementById('searchInput').placeholder = `Search ${GAMES.length} verified modules...`;
+    const grid = document.getElementById('gamesGrid');
+    document.getElementById('searchInput').placeholder = `Search ${GAMES.length} games...`;
     
     let favs = getFavorites();
     
@@ -3048,8 +3051,26 @@ function renderGrid(filter = "") {
         });
     }
     
-    // 3. Draw the cards
-    gamesToRender.forEach(game => {
+    // 3. Draw the cards —— 分块渲染：先画一屏，滚动/点按钮再续（1500 款也不卡首屏）
+    const keep = (_gridFilter === filter) ? _gridShown : 0;
+    _gridFilter = filter;
+    _gridQueue = gamesToRender;
+    _gridShown = 0;
+    grid.innerHTML = "";
+    if (gamesToRender.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1/-1; color: gray; padding: 40px; text-align: center; border: 2px dashed #444; border-radius: 16px;">No game matches “${filter}”.</div>`;
+        syncGridMore();
+        return;
+    }
+    drawGridChunk(Math.max(GRID_CHUNK, keep));
+}
+
+function drawGridChunk(count) {
+    const grid = document.getElementById('gamesGrid');
+    const favs = getFavorites();
+    const end = Math.min(_gridQueue.length, _gridShown + (count || GRID_CHUNK));
+    const frag = document.createDocumentFragment();
+    _gridQueue.slice(_gridShown, end).forEach(game => {
         const card = document.createElement('div'); 
         card.className = 'gameCard'; 
         card.style.position = 'relative'; 
@@ -3072,9 +3093,36 @@ function renderGrid(filter = "") {
             <div class="gameIcon" style="padding: 0; overflow: hidden;">${iconHTML}</div>
             <div class="gameName">${game.name}</div>
         `;
-        grid.appendChild(card);
+        frag.appendChild(card);
     });
+    grid.appendChild(frag);
+    _gridShown = end;
+    syncGridMore();
 }
+
+function syncGridMore() {
+    let bar = document.getElementById('gridMore');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'gridMore';
+        bar.style.cssText = 'grid-column:1/-1;display:flex;justify-content:center;align-items:center;gap:10px;padding:16px 0 6px';
+        const grid = document.getElementById('gamesGrid');
+        grid.parentNode.insertBefore(bar, grid.nextSibling);
+    }
+    if (_gridShown < _gridQueue.length) {
+        bar.innerHTML = `<button onclick="drawGridChunk()" style="cursor:pointer;border:1px solid var(--line,#333);background:transparent;color:inherit;font:inherit;font-size:13px;padding:9px 16px;border-radius:999px">加载更多 · ${_gridShown} / ${_gridQueue.length}</button>`;
+    } else {
+        bar.innerHTML = `<span style="color:#8a8a99;font-size:12px">已全部显示 · ${_gridQueue.length} 个</span>`;
+    }
+}
+
+// 滚到底自动续载
+window.addEventListener('scroll', () => {
+    if (_gridShown >= _gridQueue.length) return;
+    const bar = document.getElementById('gridMore');
+    if (!bar) return;
+    if (bar.getBoundingClientRect().top < window.innerHeight + 700) drawGridChunk();
+}, { passive: true });
 
 let gameStartTime = null;
 let activeGameFile = null; 
